@@ -17,7 +17,7 @@ class IHandleEntity;
 namespace ss
 {
 
-inline IHandleEntity *TraceHitHandle( IHandleEntity *pHit )
+inline IHandleEntity* TraceHitHandle(IHandleEntity* pHit)
 {
 	return pHit;
 }
@@ -26,16 +26,16 @@ inline IHandleEntity *TraceHitHandle( IHandleEntity *pHit )
 
 #ifdef SS_GAME_ENTITY
 // The field's stock type. Never a conversion: the bits are an IHandleEntity's.
-inline IHandleEntity *TraceHitHandle( SS_GAME_ENTITY *pHit )
+inline IHandleEntity* TraceHitHandle(SS_GAME_ENTITY* pHit)
 {
-	return reinterpret_cast<IHandleEntity *>( pHit );
+	return reinterpret_cast<IHandleEntity*>(pHit);
 }
 #endif
 
 // What the trace struck, or NULL for nothing.
-inline IHandleEntity *TraceHit( const CGameTrace &tr )
+inline IHandleEntity* TraceHit(const CGameTrace& tr)
 {
-	return TraceHitHandle( tr.m_pEnt );
+	return TraceHitHandle(tr.m_pEnt);
 }
 
 } // namespace ss

@@ -41,65 +41,65 @@ DecidedValue_t g_Decided[kMaxDecided];
 int g_nDecided = 0;
 } // namespace
 
-int32_t SourceSharp_ConVarsClientWatch( const char *pName )
+int32_t SourceSharp_ConVarsClientWatch(const char* pName)
 {
-	if ( !pName || !pName[0] || !g_pCVar || !g_pCVar->FindVar( pName ) )
+	if (!pName || !pName[0] || !g_pCVar || !g_pCVar->FindVar(pName))
 		return -1;
 
-	for ( int i = 0; i < g_nWatched; i++ )
+	for (int i = 0; i < g_nWatched; i++)
 	{
-		if ( !V_stricmp( g_szWatched[i], pName ) )
+		if (!V_stricmp(g_szWatched[i], pName))
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 
-	if ( g_nWatched >= kMaxWatched || V_strlen( pName ) >= kNameBytes )
+	if (g_nWatched >= kMaxWatched || V_strlen(pName) >= kNameBytes)
 		return -1;
 
-	V_strncpy( g_szWatched[g_nWatched], pName, kNameBytes );
+	V_strncpy(g_szWatched[g_nWatched], pName, kNameBytes);
 	ShimConsole().EnsureChangeCallback();
 	return SOURCESHARP_CONVAR_WATCH_ID_BASE + g_nWatched++;
 }
 
-int32_t SourceSharp_ClientWatchedConVarId( const char *pName )
+int32_t SourceSharp_ClientWatchedConVarId(const char* pName)
 {
-	if ( !pName )
+	if (!pName)
 		return -1;
-	for ( int i = 0; i < g_nWatched; i++ )
+	for (int i = 0; i < g_nWatched; i++)
 	{
-		if ( !V_stricmp( g_szWatched[i], pName ) )
+		if (!V_stricmp(g_szWatched[i], pName))
 			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
 	}
 	return -1;
 }
 
-int32_t SourceSharp_ConVarsClientSetValue( const char *pName, float flValue )
+int32_t SourceSharp_ConVarsClientSetValue(const char* pName, float flValue)
 {
-	if ( !pName || !pName[0] || V_strlen( pName ) >= kNameBytes )
+	if (!pName || !pName[0] || V_strlen(pName) >= kNameBytes)
 		return 0;
 
-	for ( int i = 0; i < g_nDecided; i++ )
+	for (int i = 0; i < g_nDecided; i++)
 	{
-		if ( !V_stricmp( g_Decided[i].szName, pName ) )
+		if (!V_stricmp(g_Decided[i].szName, pName))
 		{
 			g_Decided[i].flValue = flValue;
 			return 1;
 		}
 	}
 
-	if ( g_nDecided >= kMaxDecided )
+	if (g_nDecided >= kMaxDecided)
 		return 0;
 
-	V_strncpy( g_Decided[g_nDecided].szName, pName, kNameBytes );
+	V_strncpy(g_Decided[g_nDecided].szName, pName, kNameBytes);
 	g_Decided[g_nDecided].flValue = flValue;
 	g_nDecided++;
 	return 1;
 }
 
-bool SourceSharp_ClientDecidedValue( const char *pName, float *pOut )
+bool SourceSharp_ClientDecidedValue(const char* pName, float* pOut)
 {
-	for ( int i = 0; i < g_nDecided; i++ )
+	for (int i = 0; i < g_nDecided; i++)
 	{
-		if ( !V_stricmp( g_Decided[i].szName, pName ) )
+		if (!V_stricmp(g_Decided[i].szName, pName))
 		{
 			*pOut = g_Decided[i].flValue;
 			return true;

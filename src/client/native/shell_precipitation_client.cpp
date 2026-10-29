@@ -35,9 +35,9 @@
 #include "imanaged_areas_client.h"
 
 // The two tracer materials, precached as stock's CLIENTEFFECT list did.
-CLIENTEFFECT_REGISTER_BEGIN( PrecachePrecipitationTracers )
-CLIENTEFFECT_MATERIAL( "particle/rain" )
-CLIENTEFFECT_MATERIAL( "particle/snow" )
+CLIENTEFFECT_REGISTER_BEGIN(PrecachePrecipitationTracers)
+CLIENTEFFECT_MATERIAL("particle/rain")
+CLIENTEFFECT_MATERIAL("particle/snow")
 CLIENTEFFECT_REGISTER_END()
 
 namespace
@@ -60,9 +60,9 @@ float s_TracerIn[kMaxTracers * 7];
 Vector s_TracerVerts[kMaxTracers * 4];
 uint8_t s_TracerValid[kMaxTracers];
 
-IMaterial *TracerMaterial( int nMaterial )
+IMaterial* TracerMaterial(int nMaterial)
 {
-	return materials->FindMaterial( nMaterial == 1 ? "particle/snow" : "particle/rain", TEXTURE_GROUP_CLIENT_EFFECTS );
+	return materials->FindMaterial(nMaterial == 1 ? "particle/snow" : "particle/rain", TEXTURE_GROUP_CLIENT_EFFECTS);
 }
 
 } // namespace
@@ -70,17 +70,17 @@ IMaterial *TracerMaterial( int nMaterial )
 // viewrender.cpp calls this in each pass that draws the weather.
 void DrawPrecipitation()
 {
-	IManagedPrecipitationClient *pApi = ManagedPrecipitationClient();
-	if ( !pApi )
+	IManagedPrecipitationClient* pApi = ManagedPrecipitationClient();
+	if (!pApi)
 		return;
 
 	float flView[kViewFloats];
-	const VMatrix &m = CurrentWorldToViewMatrix();
-	for ( int r = 0; r < 4; ++r )
-		for ( int c = 0; c < 4; ++c )
+	const VMatrix& m = CurrentWorldToViewMatrix();
+	for (int r = 0; r < 4; ++r)
+		for (int c = 0; c < 4; ++c)
 			flView[r * 4 + c] = m[r][c];
-	const Vector &fwd = CurrentViewForward();
-	const Vector &org = CurrentViewOrigin();
+	const Vector& fwd = CurrentViewForward();
+	const Vector& org = CurrentViewOrigin();
 	flView[16] = fwd.x;
 	flView[17] = fwd.y;
 	flView[18] = fwd.z;
@@ -92,83 +92,82 @@ void DrawPrecipitation()
 
 	int32_t nSplashes = 0;
 	const int32_t nTracers =
-		pApi->PrecipitationRender( flView, s_Tracers, kMaxTracers, s_Splashes, kMaxSplashes, &nSplashes );
+		pApi->PrecipitationRender(flView, s_Tracers, kMaxTracers, s_Splashes, kMaxSplashes, &nSplashes);
 
-	for ( int i = 0; i < nSplashes && i < kMaxSplashes; ++i )
+	for (int i = 0; i < nSplashes && i < kMaxSplashes; ++i)
 	{
-		const float *s = &s_Splashes[i * kSplashFloats];
-		Vector vColor( 0.5f, 0.5f, 0.5f );
-		FX_WaterRipple( Vector( s[0], s[1], s[2] ), s[3], &vColor, s[4], s[5] );
+		const float* s = &s_Splashes[i * kSplashFloats];
+		Vector vColor(0.5f, 0.5f, 0.5f);
+		FX_WaterRipple(Vector(s[0], s[1], s[2]), s[3], &vColor, s[4], s[5]);
 	}
 
-	if ( nTracers <= 0 )
+	if (nTracers <= 0)
 		return;
 
 	// Every tracer's corners in one crossing, before the render context is touched.
-	const int nCount = MIN( nTracers, kMaxTracers );
-	for ( int i = 0; i < nCount; ++i )
+	const int nCount = MIN(nTracers, kMaxTracers);
+	for (int i = 0; i < nCount; ++i)
 	{
-		for ( int k = 0; k < 7; ++k )
+		for (int k = 0; k < 7; ++k)
 			s_TracerIn[i * 7 + k] = s_Tracers[i * kTracerFloats + k];
 	}
-	IManagedParticlesClient *pParticles = ManagedParticlesClient();
-	if ( !pParticles ||
-		 pParticles->TracerQuads( nCount, s_TracerIn, s_TracerVerts[0].Base(), s_TracerValid ) != nCount )
+	IManagedParticlesClient* pParticles = ManagedParticlesClient();
+	if (!pParticles || pParticles->TracerQuads(nCount, s_TracerIn, s_TracerVerts[0].Base(), s_TracerValid) != nCount)
 		return;
 
-	CMatRenderContextPtr pRenderContext( materials );
+	CMatRenderContextPtr pRenderContext(materials);
 
 	// In view space, as stock's Render: the identity view, and the user clip
 	// planes kept on the real one.
 	VMatrix tempView;
-	pRenderContext->GetMatrix( MATERIAL_VIEW, &tempView );
-	pRenderContext->MatrixMode( MATERIAL_VIEW );
+	pRenderContext->GetMatrix(MATERIAL_VIEW, &tempView);
+	pRenderContext->MatrixMode(MATERIAL_VIEW);
 	pRenderContext->LoadIdentity();
-	pRenderContext->EnableUserClipTransformOverride( true );
-	pRenderContext->UserClipTransform( tempView );
+	pRenderContext->EnableUserClipTransformOverride(true);
+	pRenderContext->UserClipTransform(tempView);
 
 	// One mesh per volume, as stock drew each volume's tracers in one batch.
 	int iStart = 0;
-	while ( iStart < nCount )
+	while (iStart < nCount)
 	{
 		const float flVolume = s_Tracers[iStart * kTracerFloats + 9];
 		int iEnd = iStart;
-		while ( iEnd < nCount && s_Tracers[iEnd * kTracerFloats + 9] == flVolume )
+		while (iEnd < nCount && s_Tracers[iEnd * kTracerFloats + 9] == flVolume)
 			++iEnd;
 
-		pRenderContext->Bind( TracerMaterial( (int)s_Tracers[iStart * kTracerFloats + 8] ) );
-		IMesh *pMesh = pRenderContext->GetDynamicMesh();
-		if ( pMesh )
+		pRenderContext->Bind(TracerMaterial((int)s_Tracers[iStart * kTracerFloats + 8]));
+		IMesh* pMesh = pRenderContext->GetDynamicMesh();
+		if (pMesh)
 		{
 			CMeshBuilder mb;
-			mb.Begin( pMesh, MATERIAL_QUADS, iEnd - iStart );
+			mb.Begin(pMesh, MATERIAL_QUADS, iEnd - iStart);
 			// Wound as Tracer_Draw did: corners 0, 1, 3, 2; u 0, 1, 1, 0; v 1; a
 			// tracer behind the eye writes nothing.
-			static const int s_nCorner[4] = { 0, 1, 3, 2 };
-			static const float s_flU[4] = { 0.0f, 1.0f, 1.0f, 0.0f };
-			for ( int i = iStart; i < iEnd; ++i )
+			static const int s_nCorner[4] = {0, 1, 3, 2};
+			static const float s_flU[4] = {0.0f, 1.0f, 1.0f, 0.0f};
+			for (int i = iStart; i < iEnd; ++i)
 			{
-				if ( !s_TracerValid[i] )
+				if (!s_TracerValid[i])
 					continue;
-				const float flColor[4] = { 1, 1, 1, s_Tracers[i * kTracerFloats + 7] };
-				for ( int k = 0; k < 4; ++k )
+				const float flColor[4] = {1, 1, 1, s_Tracers[i * kTracerFloats + 7]};
+				for (int k = 0; k < 4; ++k)
 				{
-					const Vector &v = s_TracerVerts[i * 4 + s_nCorner[k]];
-					mb.Position3f( v.x, v.y, v.z );
-					mb.TexCoord2f( 0, s_flU[k], 1.0f );
-					mb.Color4fv( flColor );
+					const Vector& v = s_TracerVerts[i * 4 + s_nCorner[k]];
+					mb.Position3f(v.x, v.y, v.z);
+					mb.TexCoord2f(0, s_flU[k], 1.0f);
+					mb.Color4fv(flColor);
 					mb.AdvanceVertex();
 				}
 			}
-			mb.End( false, true );
+			mb.End(false, true);
 		}
 
 		iStart = iEnd;
 	}
 
-	pRenderContext->EnableUserClipTransformOverride( false );
-	pRenderContext->MatrixMode( MATERIAL_VIEW );
-	pRenderContext->LoadMatrix( tempView );
+	pRenderContext->EnableUserClipTransformOverride(false);
+	pRenderContext->MatrixMode(MATERIAL_VIEW);
+	pRenderContext->LoadMatrix(tempView);
 }
 
 // IShimPrecipitationClient: the world the weather asks.
@@ -176,23 +175,23 @@ void DrawPrecipitation()
 // UTIL_TraceLine with stock's mask, through CTraceFilterSimple, ignoring the
 // local player when asked (the ash's forward trace). Out: fraction, end xyz,
 // surface flags.
-int32_t SourceSharp_PrecipitationTraceLine( const float *pStartXYZ, const float *pEndXYZ, int32_t nMask,
-											int32_t bIgnorePlayer, float *pOut )
+int32_t SourceSharp_PrecipitationTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask,
+										   int32_t bIgnorePlayer, float* pOut)
 {
-	if ( !pStartXYZ || !pEndXYZ || !pOut )
+	if (!pStartXYZ || !pEndXYZ || !pOut)
 		return 0;
 
-	IHandleEntity *pIgnore = NULL;
-	if ( bIgnorePlayer )
+	IHandleEntity* pIgnore = NULL;
+	if (bIgnorePlayer)
 	{
-		if ( C_StandaloneEntity *pPlayer = SourceSharp_LocalPlayerShell() )
-			pIgnore = static_cast<IClientUnknown *>( pPlayer );
+		if (C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell())
+			pIgnore = static_cast<IClientUnknown*>(pPlayer);
 	}
 
 	trace_t tr;
-	CTraceFilterSimple filter( pIgnore, COLLISION_GROUP_NONE );
-	UTIL_TraceLine( Vector( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] ), Vector( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] ),
-					(unsigned int)nMask, &filter, &tr );
+	CTraceFilterSimple filter(pIgnore, COLLISION_GROUP_NONE);
+	UTIL_TraceLine(Vector(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]), Vector(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]),
+				   (unsigned int)nMask, &filter, &tr);
 	pOut[0] = tr.fraction;
 	pOut[1] = tr.endpos.x;
 	pOut[2] = tr.endpos.y;
@@ -203,31 +202,31 @@ int32_t SourceSharp_PrecipitationTraceLine( const float *pStartXYZ, const float 
 
 // UTIL_TraceModel against the volume's own brush: ClipRayToEntity, MASK_ALL.
 // Out: hit (the volume), fraction, start solid, end xyz.
-int32_t SourceSharp_PrecipitationTraceVolume( uint32_t hOwner, const float *pStartXYZ, const float *pEndXYZ,
-											  const float *pHullMinXYZ, const float *pHullMaxXYZ, float *pOut )
+int32_t SourceSharp_PrecipitationTraceVolume(uint32_t hOwner, const float* pStartXYZ, const float* pEndXYZ,
+											 const float* pHullMinXYZ, const float* pHullMaxXYZ, float* pOut)
 {
-	if ( !pStartXYZ || !pEndXYZ || !pHullMinXYZ || !pHullMaxXYZ || !pOut )
+	if (!pStartXYZ || !pEndXYZ || !pHullMinXYZ || !pHullMaxXYZ || !pOut)
 		return 0;
 
-	const Vector vecStart( pStartXYZ[0], pStartXYZ[1], pStartXYZ[2] );
-	const Vector vecEnd( pEndXYZ[0], pEndXYZ[1], pEndXYZ[2] );
+	const Vector vecStart(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]);
+	const Vector vecEnd(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]);
 	trace_t tr;
-	memset( (void *)&tr, 0, sizeof( tr ) );
+	memset((void*)&tr, 0, sizeof(tr));
 	tr.fraction = 1.0f;
 	tr.endpos = vecEnd;
 
 	// Stock's ShouldCollide( group, MASK_ALL ) cull is true for every entity
 	// (only debris refuses, and MASK_ALL carries CONTENTS_DEBRIS), so it is not asked.
-	C_StandaloneEntity *pOwner = SourceSharp_StandaloneFromHandle( hOwner );
-	if ( pOwner )
+	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	if (pOwner)
 	{
 		Ray_t ray;
-		ray.Init( vecStart, vecEnd, Vector( pHullMinXYZ[0], pHullMinXYZ[1], pHullMinXYZ[2] ),
-				  Vector( pHullMaxXYZ[0], pHullMaxXYZ[1], pHullMaxXYZ[2] ) );
-		enginetrace->ClipRayToEntity( ray, MASK_ALL, static_cast<IClientUnknown *>( pOwner ), &tr );
+		ray.Init(vecStart, vecEnd, Vector(pHullMinXYZ[0], pHullMinXYZ[1], pHullMinXYZ[2]),
+				 Vector(pHullMaxXYZ[0], pHullMaxXYZ[1], pHullMaxXYZ[2]));
+		enginetrace->ClipRayToEntity(ray, MASK_ALL, static_cast<IClientUnknown*>(pOwner), &tr);
 	}
 
-	const bool bHit = ( tr.fraction < 1.0f || tr.startsolid ) && tr.m_pEnt != NULL;
+	const bool bHit = (tr.fraction < 1.0f || tr.startsolid) && tr.m_pEnt != NULL;
 	pOut[0] = bHit ? 1.0f : 0.0f;
 	pOut[1] = tr.fraction;
 	pOut[2] = tr.startsolid ? 1.0f : 0.0f;
@@ -237,31 +236,31 @@ int32_t SourceSharp_PrecipitationTraceVolume( uint32_t hOwner, const float *pSta
 	return 6;
 }
 
-int32_t SourceSharp_PrecipitationPointContents( const float *pXYZ )
+int32_t SourceSharp_PrecipitationPointContents(const float* pXYZ)
 {
-	return pXYZ ? enginetrace->GetPointContents( Vector( pXYZ[0], pXYZ[1], pXYZ[2] ) ) : 0;
+	return pXYZ ? enginetrace->GetPointContents(Vector(pXYZ[0], pXYZ[1], pXYZ[2])) : 0;
 }
 
-int32_t SourceSharp_PrecipitationInPvs( uint32_t hOwner )
+int32_t SourceSharp_PrecipitationInPvs(uint32_t hOwner)
 {
-	C_StandaloneEntity *pOwner = SourceSharp_StandaloneFromHandle( hOwner );
-	return pOwner && g_pClientLeafSystem->IsRenderableInPVS( pOwner->GetClientRenderable() ) ? 1 : 0;
+	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	return pOwner && g_pClientLeafSystem->IsRenderableInPVS(pOwner->GetClientRenderable()) ? 1 : 0;
 }
 
 // The local player as the weather reads it: origin xyz, eye xyz, view yaw,
 // world-space center xyz, FOV, default FOV. 0 with no local player.
-int32_t SourceSharp_PrecipitationPlayer( float *pOut )
+int32_t SourceSharp_PrecipitationPlayer(float* pOut)
 {
-	C_StandaloneEntity *pPlayer = SourceSharp_LocalPlayerShell();
-	if ( !pOut || !pPlayer )
+	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
+	if (!pOut || !pPlayer)
 		return 0;
 
 	const Vector origin = pPlayer->GetAbsOrigin();
 	const Vector eye = pPlayer->EyePosition();
 	QAngle angles;
-	engine->GetViewAngles( angles );
-	const Vector center = origin + ( pPlayer->OBBMins() + pPlayer->OBBMaxs() ) * 0.5f;
-	static ConVarRef default_fov( "default_fov" );
+	engine->GetViewAngles(angles);
+	const Vector center = origin + (pPlayer->OBBMins() + pPlayer->OBBMaxs()) * 0.5f;
+	static ConVarRef default_fov("default_fov");
 
 	pOut[0] = origin.x;
 	pOut[1] = origin.y;
@@ -278,11 +277,11 @@ int32_t SourceSharp_PrecipitationPlayer( float *pOut )
 	return 1;
 }
 
-void SourceSharp_PrecipitationWorldBounds( float *pOut6 )
+void SourceSharp_PrecipitationWorldBounds(float* pOut6)
 {
-	if ( !pOut6 )
+	if (!pOut6)
 		return;
-	C_World *pWorld = GetClientWorldEntity();
+	C_World* pWorld = GetClientWorldEntity();
 	const Vector mins = pWorld ? pWorld->GetWorldMins() : vec3_origin;
 	const Vector maxs = pWorld ? pWorld->GetWorldMaxs() : vec3_origin;
 	pOut6[0] = mins.x;

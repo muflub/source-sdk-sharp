@@ -20,4 +20,4 @@
 
 #pragma once
 
-void UTIL_DecodeICE( unsigned char *buffer, int size, const unsigned char *key );
+void UTIL_DecodeICE(unsigned char* buffer, int size, const unsigned char* key);

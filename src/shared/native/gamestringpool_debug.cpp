@@ -18,34 +18,34 @@
 
 // The pools are their owners': the world's, then each player's. Entries are numbered by
 // position; stock's RB-tree slot means nothing outside its tree.
-static int DumpPool( const char *pszOwner, int nOwnerIndex, const CServerStringPool &pool, int i )
+static int DumpPool(const char* pszOwner, int nOwnerIndex, const CServerStringPool& pool, int i)
 {
-	DevMsg( "  %s %d:\n", pszOwner, nOwnerIndex );
+	DevMsg("  %s %d:\n", pszOwner, nOwnerIndex);
 	pool.Visit(
-		[&i]( const char *pszString )
+		[&i](const char* pszString)
 		{
-			DevMsg( "  %d (0x%p) : %s\n", i, (const void *)pszString, pszString );
+			DevMsg("  %d (0x%p) : %s\n", i, (const void*)pszString, pszString);
 			i++;
-		} );
+		});
 	return i;
 }
 
-SS_NATIVE_COMMAND( dumpgamestringtable )
+SS_NATIVE_COMMAND(dumpgamestringtable)
 {
-	if ( !services.m_EntityContext.CommandIssuedByServerAdmin() )
+	if (!services.m_EntityContext.CommandIssuedByServerAdmin())
 		return;
 
 	int i = 0;
-	const CServerLevelState *pLevel = services.m_EntityContext.m_pLevel;
-	if ( pLevel && pLevel->m_pWorld )
-		i = DumpPool( "world", 0, pLevel->m_pWorld->Strings(), i );
+	const CServerLevelState* pLevel = services.m_EntityContext.m_pLevel;
+	if (pLevel && pLevel->m_pWorld)
+		i = DumpPool("world", 0, pLevel->m_pWorld->Strings(), i);
 
-	for ( int nIndex = 1; nIndex <= ss::kMaxPlayers; nIndex++ )
+	for (int nIndex = 1; nIndex <= ss::kMaxPlayers; nIndex++)
 	{
-		if ( const CStandalonePlayer *pPlayer = services.m_EntityContext.PlayerFromIndex( nIndex ) )
-			i = DumpPool( "player", nIndex, pPlayer->Strings(), i );
+		if (const CStandalonePlayer* pPlayer = services.m_EntityContext.PlayerFromIndex(nIndex))
+			i = DumpPool("player", nIndex, pPlayer->Strings(), i);
 	}
 
-	DevMsg( "\n" );
-	DevMsg( "Size:  %d items\n", i );
+	DevMsg("\n");
+	DevMsg("Size:  %d items\n", i);
 }

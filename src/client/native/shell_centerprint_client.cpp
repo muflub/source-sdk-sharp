@@ -16,71 +16,71 @@ CCenterPrint::CCenterPrint()
 	vguiCenterString = NULL;
 }
 
-void CCenterPrint::Create( vgui::VPANEL parent ) {}
+void CCenterPrint::Create(vgui::VPANEL parent) {}
 
 void CCenterPrint::Destroy() {}
 
-void CCenterPrint::SetTextColor( int r, int g, int b, int a ) {}
+void CCenterPrint::SetTextColor(int r, int g, int b, int a) {}
 
-void CCenterPrint::Print( char *text )
+void CCenterPrint::Print(char* text)
 {
-	ColorPrint( 255, 255, 255, 255, text );
+	ColorPrint(255, 255, 255, 255, text);
 }
 
-void CCenterPrint::Print( wchar_t *text )
+void CCenterPrint::Print(wchar_t* text)
 {
-	ColorPrint( 255, 255, 255, 255, text );
+	ColorPrint(255, 255, 255, 255, text);
 }
 
-void CCenterPrint::ColorPrint( int r, int g, int b, int a, char *text )
+void CCenterPrint::ColorPrint(int r, int g, int b, int a, char* text)
 {
-	if ( IManagedUiClient *pUi = ManagedUiClient() )
-		pUi->CenterPrint( text ? text : "", r, g, b, a );
+	if (IManagedUiClient* pUi = ManagedUiClient())
+		pUi->CenterPrint(text ? text : "", r, g, b, a);
 }
 
 // The wide text as UTF-8, by hand to avoid a tier1 import.
-void CCenterPrint::ColorPrint( int r, int g, int b, int a, wchar_t *text )
+void CCenterPrint::ColorPrint(int r, int g, int b, int a, wchar_t* text)
 {
 	char utf8[1024];
 	int n = 0;
-	for ( const wchar_t *p = text; p && *p && n < (int)sizeof( utf8 ) - 4; p++ )
+	for (const wchar_t* p = text; p && *p && n < (int)sizeof(utf8) - 4; p++)
 	{
 		unsigned int c = (unsigned int)*p;
-		if ( c < 0x80 )
+		if (c < 0x80)
 		{
 			utf8[n++] = (char)c;
 			continue;
 		}
-		if ( c < 0x800 )
+		if (c < 0x800)
 		{
-			utf8[n++] = (char)( 0xC0 | ( c >> 6 ) );
+			utf8[n++] = (char)(0xC0 | (c >> 6));
 		}
 		else
 		{
-			if ( c < 0x10000 )
+			if (c < 0x10000)
 			{
-				utf8[n++] = (char)( 0xE0 | ( c >> 12 ) );
+				utf8[n++] = (char)(0xE0 | (c >> 12));
 			}
 			else
 			{
-				utf8[n++] = (char)( 0xF0 | ( c >> 18 ) );
-				utf8[n++] = (char)( 0x80 | ( ( c >> 12 ) & 0x3F ) );
+				utf8[n++] = (char)(0xF0 | (c >> 18));
+				utf8[n++] = (char)(0x80 | ((c >> 12) & 0x3F));
 			}
-			utf8[n++] = (char)( 0x80 | ( ( c >> 6 ) & 0x3F ) );
+			utf8[n++] = (char)(0x80 | ((c >> 6) & 0x3F));
 		}
-		utf8[n++] = (char)( 0x80 | ( c & 0x3F ) );
+		utf8[n++] = (char)(0x80 | (c & 0x3F));
 	}
 	utf8[n] = 0;
-	ColorPrint( r, g, b, a, utf8 );
+	ColorPrint(r, g, b, a, utf8);
 }
 
 void CCenterPrint::Clear()
 {
-	if ( IManagedUiClient *pUi = ManagedUiClient() )
+	if (IManagedUiClient* pUi = ManagedUiClient())
 		pUi->CenterClear();
 }
 
 static CCenterPrint g_CenterString;
-CCenterPrint *internalCenterPrint = &g_CenterString;
+CCenterPrint* internalCenterPrint = &g_CenterString;
 
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CCenterPrint, ICenterPrint, VCENTERPRINT_INTERFACE_VERSION, g_CenterString );
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CCenterPrint, ICenterPrint, VCENTERPRINT_INTERFACE_VERSION, g_CenterString);

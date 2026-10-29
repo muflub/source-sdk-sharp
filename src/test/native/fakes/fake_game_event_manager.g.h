@@ -19,21 +19,21 @@
 class CFakeGameEventManager2 : public IGameEventManager2
 {
 public:
-	int LoadEventsFromFile( const char *filename ) override { return {}; }
+	int LoadEventsFromFile(const char* filename) override { return {}; }
 
 	void Reset() override {}
 
-	bool AddListener( IGameEventListener2 *listener, const char *name, bool bServerSide ) override { return {}; }
+	bool AddListener(IGameEventListener2* listener, const char* name, bool bServerSide) override { return {}; }
 
 	void unused_FindListener() override {}
 
-	void RemoveListener( IGameEventListener2 *listener ) override {}
+	void RemoveListener(IGameEventListener2* listener) override {}
 
-	IGameEvent *CreateEvent( const char *name, bool bForce = false ) override { return {}; }
+	IGameEvent* CreateEvent(const char* name, bool bForce = false) override { return {}; }
 
-	bool FireEvent( IGameEvent *event, bool bDontBroadcast = false ) override { return {}; }
+	bool FireEvent(IGameEvent* event, bool bDontBroadcast = false) override { return {}; }
 
-	bool FireEventClientSide( IGameEvent *event ) override { return {}; }
+	bool FireEventClientSide(IGameEvent* event) override { return {}; }
 
 	void unused_DuplicateEvent() override {}
 

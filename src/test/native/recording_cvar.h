@@ -30,14 +30,14 @@ public:
 	// The install/remove pair the console-display forwarder is gated on
 	// (console_display_forward_test.cpp): what was installed, and what later
 	// came off again.
-	std::vector<IConsoleDisplayFunc *> m_Installed;
-	std::vector<IConsoleDisplayFunc *> m_Removed;
+	std::vector<IConsoleDisplayFunc*> m_Installed;
+	std::vector<IConsoleDisplayFunc*> m_Removed;
 
-	virtual bool Connect( CreateInterfaceFn ) { return true; }
+	virtual bool Connect(CreateInterfaceFn) { return true; }
 
 	virtual void Disconnect() {}
 
-	virtual void *QueryInterface( const char * ) { return NULL; }
+	virtual void* QueryInterface(const char*) { return NULL; }
 
 	virtual InitReturnVal_t Init() { return INIT_OK; }
 
@@ -45,90 +45,90 @@ public:
 
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() { return 7; }
 
-	virtual void RegisterConCommand( ConCommandBase * ) {}
+	virtual void RegisterConCommand(ConCommandBase*) {}
 
-	virtual void UnregisterConCommand( ConCommandBase * ) {}
+	virtual void UnregisterConCommand(ConCommandBase*) {}
 
-	virtual void UnregisterConCommands( CVarDLLIdentifier_t ) {}
+	virtual void UnregisterConCommands(CVarDLLIdentifier_t) {}
 
-	virtual const char *GetCommandLineValue( const char * ) { return NULL; }
+	virtual const char* GetCommandLineValue(const char*) { return NULL; }
 
-	virtual ConCommandBase *FindCommandBase( const char * ) { return NULL; }
+	virtual ConCommandBase* FindCommandBase(const char*) { return NULL; }
 
-	virtual const ConCommandBase *FindCommandBase( const char * ) const { return NULL; }
+	virtual const ConCommandBase* FindCommandBase(const char*) const { return NULL; }
 
-	virtual ConVar *FindVar( const char * ) { return NULL; }
+	virtual ConVar* FindVar(const char*) { return NULL; }
 
-	virtual const ConVar *FindVar( const char * ) const { return NULL; }
+	virtual const ConVar* FindVar(const char*) const { return NULL; }
 
-	virtual ConCommand *FindCommand( const char * ) { return NULL; }
+	virtual ConCommand* FindCommand(const char*) { return NULL; }
 
-	virtual const ConCommand *FindCommand( const char * ) const { return NULL; }
+	virtual const ConCommand* FindCommand(const char*) const { return NULL; }
 
-	virtual ConCommandBase *GetCommands( void ) { return NULL; }
+	virtual ConCommandBase* GetCommands(void) { return NULL; }
 
-	virtual const ConCommandBase *GetCommands( void ) const { return NULL; }
+	virtual const ConCommandBase* GetCommands(void) const { return NULL; }
 
-	virtual void InstallGlobalChangeCallback( FnChangeCallback_t ) {}
+	virtual void InstallGlobalChangeCallback(FnChangeCallback_t) {}
 
-	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t ) {}
+	virtual void RemoveGlobalChangeCallback(FnChangeCallback_t) {}
 
-	virtual void CallGlobalChangeCallbacks( ConVar *, const char *, float ) {}
+	virtual void CallGlobalChangeCallbacks(ConVar*, const char*, float) {}
 
-	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc *pfnFunc ) { m_Installed.push_back( pfnFunc ); }
+	virtual void InstallConsoleDisplayFunc(IConsoleDisplayFunc* pfnFunc) { m_Installed.push_back(pfnFunc); }
 
-	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc *pfnFunc ) { m_Removed.push_back( pfnFunc ); }
+	virtual void RemoveConsoleDisplayFunc(IConsoleDisplayFunc* pfnFunc) { m_Removed.push_back(pfnFunc); }
 
-	virtual void ConsoleColorPrintf( const Color &, const char *pFormat, ... ) const
+	virtual void ConsoleColorPrintf(const Color&, const char* pFormat, ...) const
 	{
 		va_list args;
-		va_start( args, pFormat );
-		Record( "color", pFormat, args );
-		va_end( args );
+		va_start(args, pFormat);
+		Record("color", pFormat, args);
+		va_end(args);
 	}
 
-	virtual void ConsolePrintf( const char *pFormat, ... ) const
+	virtual void ConsolePrintf(const char* pFormat, ...) const
 	{
 		va_list args;
-		va_start( args, pFormat );
-		Record( "plain", pFormat, args );
-		va_end( args );
+		va_start(args, pFormat);
+		Record("plain", pFormat, args);
+		va_end(args);
 	}
 
-	virtual void ConsoleDPrintf( const char *pFormat, ... ) const
+	virtual void ConsoleDPrintf(const char* pFormat, ...) const
 	{
 		va_list args;
-		va_start( args, pFormat );
-		Record( "dev", pFormat, args );
-		va_end( args );
+		va_start(args, pFormat);
+		Record("dev", pFormat, args);
+		va_end(args);
 	}
 
-	virtual void RevertFlaggedConVars( int ) {}
+	virtual void RevertFlaggedConVars(int) {}
 
-	virtual void InstallCVarQuery( ICvarQuery * ) {}
+	virtual void InstallCVarQuery(ICvarQuery*) {}
 
 	virtual void PublishToVXConsole() {}
 
 	virtual bool IsMaterialThreadSetAllowed() const { return false; }
 
-	virtual void QueueMaterialThreadSetValue( ConVar *, const char * ) {}
+	virtual void QueueMaterialThreadSetValue(ConVar*, const char*) {}
 
-	virtual void QueueMaterialThreadSetValue( ConVar *, int ) {}
+	virtual void QueueMaterialThreadSetValue(ConVar*, int) {}
 
-	virtual void QueueMaterialThreadSetValue( ConVar *, float ) {}
+	virtual void QueueMaterialThreadSetValue(ConVar*, float) {}
 
 	virtual bool HasQueuedMaterialThreadConVarSets() const { return false; }
 
 	virtual int ProcessQueuedMaterialThreadConVarSets() { return 0; }
 
-	virtual ICVarIteratorInternal *FactoryInternalIterator( void ) { return NULL; }
+	virtual ICVarIteratorInternal* FactoryInternalIterator(void) { return NULL; }
 
 private:
-	void Record( const char *kind, const char *pFormat, va_list args ) const
+	void Record(const char* kind, const char* pFormat, va_list args) const
 	{
 		char szText[8192];
-		vsnprintf( szText, sizeof( szText ), pFormat, args );
-		m_Printed.push_back( Printed{ kind, szText } );
+		vsnprintf(szText, sizeof(szText), pFormat, args);
+		m_Printed.push_back(Printed{kind, szText});
 	}
 };
 

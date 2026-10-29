@@ -18,15 +18,15 @@ public:
 	};
 
 	template <class AddFn>
-	Result_t Subscribe( const char *pEventName, AddFn add )
+	Result_t Subscribe(const char* pEventName, AddFn add)
 	{
-		if ( m_Names.count( pEventName ) )
+		if (m_Names.count(pEventName))
 			return kAlreadyListening;
 
-		if ( !add( pEventName ) )
+		if (!add(pEventName))
 			return kRefused;
 
-		m_Names.insert( pEventName );
+		m_Names.insert(pEventName);
 		return kSubscribed;
 	}
 

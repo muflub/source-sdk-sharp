@@ -19,43 +19,43 @@
 
 #include <vector>
 
-IServerNetworkable *CreateNetworkableEntityByName( ss::IEntityFactoryDictionary &factories, const char *className )
+IServerNetworkable* CreateNetworkableEntityByName(ss::IEntityFactoryDictionary& factories, const char* className)
 {
-	return factories.Create( className );
+	return factories.Create(className);
 }
 
 // Creates a classname on either hierarchy, asking the factory once. The entity is
 // reached through its handle, since the networkable is a different subobject.
 // The caller owns the result.
-IGameEntity *CreateEntityByNameEither( ss::IEntityFactoryDictionary &factories, const char *className,
-									   IGameEntity **ppOutBaseEntity, IServerEntity **ppOutServerEntity )
+IGameEntity* CreateEntityByNameEither(ss::IEntityFactoryDictionary& factories, const char* className,
+									  IGameEntity** ppOutBaseEntity, IServerEntity** ppOutServerEntity)
 {
-	if ( ppOutBaseEntity )
+	if (ppOutBaseEntity)
 		*ppOutBaseEntity = NULL;
-	if ( ppOutServerEntity )
+	if (ppOutServerEntity)
 		*ppOutServerEntity = NULL;
 
-	IServerNetworkable *pNetworkable = CreateNetworkableEntityByName( factories, className );
-	if ( !pNetworkable )
+	IServerNetworkable* pNetworkable = CreateNetworkableEntityByName(factories, className);
+	if (!pNetworkable)
 		return NULL;
 
-	if ( IGameEntity *pGameEntity = ss::GameEntityFromServerEntity( pNetworkable->GetEntityHandle() ) )
+	if (IGameEntity* pGameEntity = ss::GameEntityFromServerEntity(pNetworkable->GetEntityHandle()))
 	{
 		// On the server the handle is the server entity.
-		if ( ppOutServerEntity )
-			*ppOutServerEntity = (IServerEntity *)pNetworkable->GetEntityHandle();
+		if (ppOutServerEntity)
+			*ppOutServerEntity = (IServerEntity*)pNetworkable->GetEntityHandle();
 		return pGameEntity;
 	}
 
-	if ( ppOutBaseEntity )
+	if (ppOutBaseEntity)
 	{
 		*ppOutBaseEntity = pNetworkable->GetBaseEntity();
-		if ( *ppOutBaseEntity )
+		if (*ppOutBaseEntity)
 			return NULL;
 	}
 
 	// Neither a CBaseEntity nor an IGameEntity: nothing can configure it, so release it.
-	Warning( "'%s' is neither a CBaseEntity nor an IGameEntity; removed\n", className );
+	Warning("'%s' is neither a CBaseEntity nor an IGameEntity; removed\n", className);
 	pNetworkable->Release();
 	return NULL;
 }
@@ -63,17 +63,17 @@ IGameEntity *CreateEntityByNameEither( ss::IEntityFactoryDictionary &factories, 
 // The world is the one C++ entity the engine names by index, and
 // CWorldFactory::Create its only construction. Its keys arrive parsed, in block
 // order. Spawn() rather than DispatchSpawn(), which means nothing for worldspawn.
-static CWorld *MapEntity_CreateWorld( ss::IEntityFactoryDictionary &factories, const CServerEntityContext &entities );
+static CWorld* MapEntity_CreateWorld(ss::IEntityFactoryDictionary& factories, const CServerEntityContext& entities);
 
-bool MapEntity_SpawnWorld( ss::IEntityFactoryDictionary &factories, const CServerEntityContext &entities,
-						   const char *const *ppKeys, const char *const *ppValues, int nKeys )
+bool MapEntity_SpawnWorld(ss::IEntityFactoryDictionary& factories, const CServerEntityContext& entities,
+						  const char* const* ppKeys, const char* const* ppValues, int nKeys)
 {
-	CWorld *pWorld = MapEntity_CreateWorld( factories, entities );
-	if ( !pWorld )
+	CWorld* pWorld = MapEntity_CreateWorld(factories, entities);
+	if (!pWorld)
 		return false;
 
-	for ( int i = 0; i < nKeys; i++ )
-		pWorld->KeyValue( ppKeys[i], ppValues[i] );
+	for (int i = 0; i < nKeys; i++)
+		pWorld->KeyValue(ppKeys[i], ppValues[i]);
 
 	pWorld->Spawn();
 	return true;
@@ -81,38 +81,38 @@ bool MapEntity_SpawnWorld( ss::IEntityFactoryDictionary &factories, const CServe
 
 // A standalone entity from parsed key/value pairs, keyed in order. The caller
 // places and spawns it.
-IGameEntity *MapEntity_CreateFromKeys( ss::IEntityFactoryDictionary &factories, const char *pClassName,
-									   const char *const *ppKeys, const char *const *ppValues, int nKeys )
+IGameEntity* MapEntity_CreateFromKeys(ss::IEntityFactoryDictionary& factories, const char* pClassName,
+									  const char* const* ppKeys, const char* const* ppValues, int nKeys)
 {
-	if ( !pClassName )
+	if (!pClassName)
 		return NULL;
 
 	// The standalone hierarchy alone; anything else is created and released.
-	IGameEntity *pGameEntity = CreateEntityByNameEither( factories, pClassName, NULL, NULL );
-	if ( !pGameEntity )
+	IGameEntity* pGameEntity = CreateEntityByNameEither(factories, pClassName, NULL, NULL);
+	if (!pGameEntity)
 		return NULL;
 
-	for ( int i = 0; i < nKeys; i++ )
-		StandaloneEntity_ApplyMapKey( pGameEntity, ppKeys[i], ppValues[i] );
+	for (int i = 0; i < nKeys; i++)
+		StandaloneEntity_ApplyMapKey(pGameEntity, ppKeys[i], ppValues[i]);
 
 	return pGameEntity;
 }
 
 // Asks the factory directly: CreateEntityByName would destroy anything that is
 // not a CBaseEntity, worldspawn included.
-static CWorld *MapEntity_CreateWorld( ss::IEntityFactoryDictionary &factories, const CServerEntityContext &entities )
+static CWorld* MapEntity_CreateWorld(ss::IEntityFactoryDictionary& factories, const CServerEntityContext& entities)
 {
-	IServerNetworkable *pNetworkable = CreateNetworkableEntityByName( factories, "worldspawn" );
-	if ( !pNetworkable )
+	IServerNetworkable* pNetworkable = CreateNetworkableEntityByName(factories, "worldspawn");
+	if (!pNetworkable)
 		return NULL;
 
 	// The singleton CWorld's constructor claimed.
-	CWorld *pWorld = entities.m_pLevel ? entities.m_pLevel->m_pWorld : NULL;
+	CWorld* pWorld = entities.m_pLevel ? entities.m_pLevel->m_pWorld : NULL;
 
-	if ( !pWorld )
+	if (!pWorld)
 	{
-		Warning( "[SourceSharp] worldspawn was created and did not claim the "
-				 "world singleton. The level has no world.\n" );
+		Warning("[SourceSharp] worldspawn was created and did not claim the "
+				"world singleton. The level has no world.\n");
 		pNetworkable->Release();
 		return NULL;
 	}

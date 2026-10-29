@@ -19,25 +19,25 @@
 // Both take the handle, never the object. A stale handle answers NULL, so a
 // callback about a dead entity never reaches whatever reused its slot.
 
-IServerEntity *PhysicsStandaloneOwner( CServerEntityResolver &entities, const CBaseHandle &handle )
+IServerEntity* PhysicsStandaloneOwner(CServerEntityResolver& entities, const CBaseHandle& handle)
 {
-	return entities.ShellFromHandle( handle );
+	return entities.ShellFromHandle(handle);
 }
 
 // The shell takes the object managed made, or lets go of one (NULL). As stock's
 // VPhysicsSwapObject, the previous object is returned, never destroyed. 0 for a
 // handle that names no shell.
-int32_t CServerPhysics::EntitySwapPhysicsObject( uint32_t hEntity, void *pObject, void **ppPrevious )
+int32_t CServerPhysics::EntitySwapPhysicsObject(uint32_t hEntity, void* pObject, void** ppPrevious)
 {
-	if ( ppPrevious )
+	if (ppPrevious)
 		*ppPrevious = NULL;
 
-	CStandaloneEntity *pShell = m_Resolver.Standalone( hEntity );
-	if ( !pShell )
+	CStandaloneEntity* pShell = m_Resolver.Standalone(hEntity);
+	if (!pShell)
 		return 0;
 
-	IPhysicsObject *pPrevious = pShell->SwapPhysics( static_cast<IPhysicsObject *>( pObject ) );
-	if ( ppPrevious )
+	IPhysicsObject* pPrevious = pShell->SwapPhysics(static_cast<IPhysicsObject*>(pObject));
+	if (ppPrevious)
 		*ppPrevious = pPrevious;
 
 	return 1;

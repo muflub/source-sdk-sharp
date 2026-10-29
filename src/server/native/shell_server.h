@@ -15,21 +15,21 @@ struct edict_t;
 class ServerClass;
 class CServerTempEnts;
 class CServerNetTables;
-bool SourceSharp_IsManagedServerClass( const CServerNetTables &tables, const CServerTempEnts &tempEnts,
-									   const ServerClass *pClass );
+bool SourceSharp_IsManagedServerClass(const CServerNetTables& tables, const CServerTempEnts& tempEnts,
+									  const ServerClass* pClass);
 
 // The seven shared network string tables, created before managed's are.
 class INetworkStringTable;
 class INetworkStringTableContainer;
-INetworkStringTable *SourceSharp_CreateNetworkStringTables( INetworkStringTableContainer *pTables );
+INetworkStringTable* SourceSharp_CreateNetworkStringTables(INetworkStringTableContainer* pTables);
 
 // Acquires every engine interface this binary reaches by global. False on the
 // first miss, as stock's DLLInit.
-typedef void *( *CreateInterfaceFn )( const char *pName, int *pReturnCode );
+typedef void* (*CreateInterfaceFn)(const char* pName, int* pReturnCode);
 class ICvar;
 class CServerEngineInterfaces;
-bool SourceSharp_AcquireEngineInterfaces( CServerEngineInterfaces &bound, CreateInterfaceFn appSystemFactory,
-										  CreateInterfaceFn physicsFactory, CreateInterfaceFn fileSystemFactory,
-										  ICvar *pCvar );
+bool SourceSharp_AcquireEngineInterfaces(CServerEngineInterfaces& bound, CreateInterfaceFn appSystemFactory,
+										 CreateInterfaceFn physicsFactory, CreateInterfaceFn fileSystemFactory,
+										 ICvar* pCvar);
 
 int32_t SourceSharp_EntitiesInvalidateMdlCacheAll();

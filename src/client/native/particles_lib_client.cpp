@@ -15,23 +15,23 @@
 
 #include "ss_particles/iparticlelib.h"
 
-CParticleSystemMgr *g_pParticleSystemMgr = NULL;
+CParticleSystemMgr* g_pParticleSystemMgr = NULL;
 
 namespace
 {
 
 // The library's one object, from its one export.
-ISSParticleLib *Lib()
+ISSParticleLib* Lib()
 {
 	return SSParticleLib_Interface();
 }
 
 } // namespace
 
-bool ParticleLib_Connect( CreateInterfaceFn appSystemFactory )
+bool ParticleLib_Connect(CreateInterfaceFn appSystemFactory)
 {
 	g_pParticleSystemMgr = Lib()->Mgr();
-	return Lib()->Connect( appSystemFactory );
+	return Lib()->Connect(appSystemFactory);
 }
 
 void ParticleLib_Disconnect()
@@ -40,240 +40,240 @@ void ParticleLib_Disconnect()
 }
 
 // The library's object, for the internal factory.
-void *ParticleLib_Acquire()
+void* ParticleLib_Acquire()
 {
 	return Lib();
 }
 
-void ParticleLib_Counters( SSParticleLibCounters_t *pOut )
+void ParticleLib_Counters(SSParticleLibCounters_t* pOut)
 {
-	Lib()->Counters( pOut );
+	Lib()->Counters(pOut);
 }
 
-void *CParticleCollection::operator new( size_t nSize )
+void* CParticleCollection::operator new(size_t nSize)
 {
-	return Lib()->CollectionNew( nSize );
+	return Lib()->CollectionNew(nSize);
 }
 
-void CParticleCollection::operator delete( void *pData )
+void CParticleCollection::operator delete(void* pData)
 {
-	Lib()->CollectionDelete( pData );
+	Lib()->CollectionDelete(pData);
 }
 
 // The base-object constructor and destructor (C2/D2) are plain functions under
 // the mangled names: written as C++ members, the compiler would also construct
 // and destroy every member, which the library's real ones already do.
-#if defined( _MSC_VER )
+#if defined(_MSC_VER)
 // MSVC has no asm labels: /alternatename maps ??0 / ??1 to the plain
 // functions. An MSVC constructor returns `this`, which callers may use.
-extern "C" CParticleCollection *SSParticleLib_CollectionCtor( CParticleCollection *p )
+extern "C" CParticleCollection* SSParticleLib_CollectionCtor(CParticleCollection* p)
 {
-	Lib()->CollectionConstruct( p );
+	Lib()->CollectionConstruct(p);
 	return p;
 }
 
-extern "C" void SSParticleLib_CollectionDtor( CParticleCollection *p )
+extern "C" void SSParticleLib_CollectionDtor(CParticleCollection* p)
 {
-	Lib()->CollectionDestruct( p );
+	Lib()->CollectionDestruct(p);
 }
 
-#pragma comment( linker, "/alternatename:??0CParticleCollection@@IEAA@XZ=SSParticleLib_CollectionCtor" )
-#pragma comment( linker, "/alternatename:??1CParticleCollection@@QEAA@XZ=SSParticleLib_CollectionDtor" )
+#pragma comment(linker, "/alternatename:??0CParticleCollection@@IEAA@XZ=SSParticleLib_CollectionCtor")
+#pragma comment(linker, "/alternatename:??1CParticleCollection@@QEAA@XZ=SSParticleLib_CollectionDtor")
 #else
-extern "C" void SSParticleLib_CollectionC2( CParticleCollection *p ) __asm__( "_ZN19CParticleCollectionC2Ev" );
-extern "C" void SSParticleLib_CollectionD2( CParticleCollection *p ) __asm__( "_ZN19CParticleCollectionD2Ev" );
+extern "C" void SSParticleLib_CollectionC2(CParticleCollection* p) __asm__("_ZN19CParticleCollectionC2Ev");
+extern "C" void SSParticleLib_CollectionD2(CParticleCollection* p) __asm__("_ZN19CParticleCollectionD2Ev");
 
-extern "C" void SSParticleLib_CollectionC2( CParticleCollection *p )
+extern "C" void SSParticleLib_CollectionC2(CParticleCollection* p)
 {
-	Lib()->CollectionConstruct( p );
+	Lib()->CollectionConstruct(p);
 }
 
-extern "C" void SSParticleLib_CollectionD2( CParticleCollection *p )
+extern "C" void SSParticleLib_CollectionD2(CParticleCollection* p)
 {
-	Lib()->CollectionDestruct( p );
+	Lib()->CollectionDestruct(p);
 }
 #endif
-bool CParticleCollection::Init( CParticleSystemDefinition *pDef )
+bool CParticleCollection::Init(CParticleSystemDefinition* pDef)
 {
-	return Lib()->CollectionInitDef( this, pDef );
+	return Lib()->CollectionInitDef(this, pDef);
 }
 
-bool CParticleCollection::Init( const char *pszName )
+bool CParticleCollection::Init(const char* pszName)
 {
-	return Lib()->CollectionInitName( this, pszName );
+	return Lib()->CollectionInitName(this, pszName);
 }
 
 void CParticleCollection::BloatBoundsUsingControlPoint()
 {
-	Lib()->CollectionBloatBoundsUsingControlPoint( this );
+	Lib()->CollectionBloatBoundsUsingControlPoint(this);
 }
 
 int CParticleCollection::GetHighestControlPoint() const
 {
-	return Lib()->CollectionGetHighestControlPoint( this );
+	return Lib()->CollectionGetHighestControlPoint(this);
 }
 
-const char *CParticleCollection::GetName() const
+const char* CParticleCollection::GetName() const
 {
-	return Lib()->CollectionGetName( this );
+	return Lib()->CollectionGetName(this);
 }
 
 bool CParticleCollection::HasMoved() const
 {
-	return Lib()->CollectionHasMoved( this );
+	return Lib()->CollectionHasMoved(this);
 }
 
 bool CParticleCollection::IsFinished()
 {
-	return Lib()->CollectionIsFinished( this );
+	return Lib()->CollectionIsFinished(this);
 }
 
 bool CParticleCollection::IsTranslucent() const
 {
-	return Lib()->CollectionIsTranslucent( this );
+	return Lib()->CollectionIsTranslucent(this);
 }
 
 bool CParticleCollection::IsTwoPass() const
 {
-	return Lib()->CollectionIsTwoPass( this );
+	return Lib()->CollectionIsTwoPass(this);
 }
 
-void CParticleCollection::Render( IMatRenderContext *pCtx, bool bTranslucentOnly, void *pCamera )
+void CParticleCollection::Render(IMatRenderContext* pCtx, bool bTranslucentOnly, void* pCamera)
 {
-	Lib()->CollectionRender( this, pCtx, bTranslucentOnly, pCamera );
+	Lib()->CollectionRender(this, pCtx, bTranslucentOnly, pCamera);
 }
 
-void CParticleCollection::SetDormant( bool bDormant )
+void CParticleCollection::SetDormant(bool bDormant)
 {
-	Lib()->CollectionSetDormant( this, bDormant );
+	Lib()->CollectionSetDormant(this, bDormant);
 }
 
-void CParticleCollection::Simulate( float dt, bool bBboxOnly )
+void CParticleCollection::Simulate(float dt, bool bBboxOnly)
 {
-	Lib()->CollectionSimulate( this, dt, bBboxOnly );
+	Lib()->CollectionSimulate(this, dt, bBboxOnly);
 }
 
-void CParticleCollection::StopEmission( bool bInfiniteOnly, bool bRemoveAll, bool bWakeOnStop )
+void CParticleCollection::StopEmission(bool bInfiniteOnly, bool bRemoveAll, bool bWakeOnStop)
 {
-	Lib()->CollectionStopEmission( this, bInfiniteOnly, bRemoveAll, bWakeOnStop );
+	Lib()->CollectionStopEmission(this, bInfiniteOnly, bRemoveAll, bWakeOnStop);
 }
 
-bool CParticleCollection::UsesFullFrameBufferTexture( bool bThisFrame ) const
+bool CParticleCollection::UsesFullFrameBufferTexture(bool bThisFrame) const
 {
-	return Lib()->CollectionUsesFullFrameBufferTexture( this, bThisFrame );
+	return Lib()->CollectionUsesFullFrameBufferTexture(this, bThisFrame);
 }
 
-bool CParticleCollection::UsesPowerOfTwoFrameBufferTexture( bool bThisFrame ) const
+bool CParticleCollection::UsesPowerOfTwoFrameBufferTexture(bool bThisFrame) const
 {
-	return Lib()->CollectionUsesPowerOfTwoFrameBufferTexture( this, bThisFrame );
+	return Lib()->CollectionUsesPowerOfTwoFrameBufferTexture(this, bThisFrame);
 }
 
-IMaterial *CParticleSystemDefinition::GetMaterial() const
+IMaterial* CParticleSystemDefinition::GetMaterial() const
 {
-	return Lib()->DefinitionGetMaterial( this );
+	return Lib()->DefinitionGetMaterial(this);
 }
 
 bool CParticleSystemDefinition::ShouldAlwaysPrecache() const
 {
-	return Lib()->DefinitionShouldAlwaysPrecache( this );
+	return Lib()->DefinitionShouldAlwaysPrecache(this);
 }
 
 void CParticleSystemMgr::AddBuiltinRenderingOperators()
 {
-	Lib()->MgrAddBuiltinRenderingOperators( this );
+	Lib()->MgrAddBuiltinRenderingOperators(this);
 }
 
 void CParticleSystemMgr::AddBuiltinSimulationOperators()
 {
-	Lib()->MgrAddBuiltinSimulationOperators( this );
+	Lib()->MgrAddBuiltinSimulationOperators(this);
 }
 
-void CParticleSystemMgr::AddToRenderCache( CParticleCollection *pParticles )
+void CParticleSystemMgr::AddToRenderCache(CParticleCollection* pParticles)
 {
-	Lib()->MgrAddToRenderCache( this, pParticles );
+	Lib()->MgrAddToRenderCache(this, pParticles);
 }
 
-void CParticleSystemMgr::CommitProfileInformation( bool bCommit )
+void CParticleSystemMgr::CommitProfileInformation(bool bCommit)
 {
-	Lib()->MgrCommitProfileInformation( this, bCommit );
+	Lib()->MgrCommitProfileInformation(this, bCommit);
 }
 
 bool CParticleSystemMgr::Debug_FrameWarningNeededTestAndReset()
 {
-	return Lib()->MgrDebugFrameWarningNeededTestAndReset( this );
+	return Lib()->MgrDebugFrameWarningNeededTestAndReset(this);
 }
 
 void CParticleSystemMgr::DecommitTempMemory()
 {
-	Lib()->MgrDecommitTempMemory( this );
+	Lib()->MgrDecommitTempMemory(this);
 }
 
-void CParticleSystemMgr::DrawRenderCache( bool bShadowDepth )
+void CParticleSystemMgr::DrawRenderCache(bool bShadowDepth)
 {
-	Lib()->MgrDrawRenderCache( this, bShadowDepth );
+	Lib()->MgrDrawRenderCache(this, bShadowDepth);
 }
 
 void CParticleSystemMgr::DumpProfileInformation()
 {
-	Lib()->MgrDumpProfileInformation( this );
+	Lib()->MgrDumpProfileInformation(this);
 }
 
-CParticleSystemDefinition *CParticleSystemMgr::FindParticleSystem( const char *pszName )
+CParticleSystemDefinition* CParticleSystemMgr::FindParticleSystem(const char* pszName)
 {
-	return Lib()->MgrFindParticleSystem( this, pszName );
+	return Lib()->MgrFindParticleSystem(this, pszName);
 }
 
 float CParticleSystemMgr::GetLastSimulationTime() const
 {
-	return Lib()->MgrGetLastSimulationTime( this );
+	return Lib()->MgrGetLastSimulationTime(this);
 }
 
 int CParticleSystemMgr::GetParticleSystemCount()
 {
-	return Lib()->MgrGetParticleSystemCount( this );
+	return Lib()->MgrGetParticleSystemCount(this);
 }
 
-const char *CParticleSystemMgr::GetParticleSystemNameFromIndex( ParticleSystemHandle_t nIndex )
+const char* CParticleSystemMgr::GetParticleSystemNameFromIndex(ParticleSystemHandle_t nIndex)
 {
-	return Lib()->MgrGetParticleSystemNameFromIndex( this, nIndex );
+	return Lib()->MgrGetParticleSystemNameFromIndex(this, nIndex);
 }
 
-bool CParticleSystemMgr::Init( IParticleSystemQuery *pQuery )
+bool CParticleSystemMgr::Init(IParticleSystemQuery* pQuery)
 {
-	return Lib()->MgrInit( this, pQuery );
+	return Lib()->MgrInit(this, pQuery);
 }
 
 float CParticleSystemMgr::ParticleThrottleScaling() const
 {
-	return Lib()->MgrParticleThrottleScaling( this );
+	return Lib()->MgrParticleThrottleScaling(this);
 }
 
-void CParticleSystemMgr::PrecacheParticleSystem( const char *pszName )
+void CParticleSystemMgr::PrecacheParticleSystem(const char* pszName)
 {
-	Lib()->MgrPrecacheParticleSystem( this, pszName );
+	Lib()->MgrPrecacheParticleSystem(this, pszName);
 }
 
-bool CParticleSystemMgr::ReadParticleConfigFile( const char *pszFile, bool bPrecache, bool bDecommit )
+bool CParticleSystemMgr::ReadParticleConfigFile(const char* pszFile, bool bPrecache, bool bDecommit)
 {
-	return Lib()->MgrReadParticleConfigFile( this, pszFile, bPrecache, bDecommit );
+	return Lib()->MgrReadParticleConfigFile(this, pszFile, bPrecache, bDecommit);
 }
 
 void CParticleSystemMgr::ResetRenderCache()
 {
-	Lib()->MgrResetRenderCache( this );
+	Lib()->MgrResetRenderCache(this);
 }
 
-void CParticleSystemMgr::SetLastSimulationTime( float flTime )
+void CParticleSystemMgr::SetLastSimulationTime(float flTime)
 {
-	Lib()->MgrSetLastSimulationTime( this, flTime );
+	Lib()->MgrSetLastSimulationTime(this, flTime);
 }
 
-void CParticleSystemMgr::ShouldLoadSheets( bool bLoadSheets )
+void CParticleSystemMgr::ShouldLoadSheets(bool bLoadSheets)
 {
-	Lib()->MgrShouldLoadSheets( this, bLoadSheets );
+	Lib()->MgrShouldLoadSheets(this, bLoadSheets);
 }
 
 void CParticleSystemMgr::UncacheAllParticleSystems()
 {
-	Lib()->MgrUncacheAllParticleSystems( this );
+	Lib()->MgrUncacheAllParticleSystems(this);
 }

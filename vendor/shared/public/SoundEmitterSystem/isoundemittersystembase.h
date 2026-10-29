@@ -13,7 +13,7 @@
 // Length of above including $
 
 typedef short HSOUNDSCRIPTHANDLE;
-#define SOUNDEMITTER_INVALID_HANDLE ( HSOUNDSCRIPTHANDLE ) - 1
+#define SOUNDEMITTER_INVALID_HANDLE (HSOUNDSCRIPTHANDLE) - 1
 
 class IFileList;
 
@@ -55,7 +55,7 @@ enum gender_t
 	GENDER_FEMALE,
 };
 
-#pragma pack( 1 )
+#pragma pack(1)
 
 struct SoundFile
 {
@@ -64,7 +64,7 @@ struct SoundFile
 		symbol = UTL_INVAL_SYMBOL;
 		gender = GENDER_NONE;
 		available = true;
-		COMPILE_TIME_ASSERT( sizeof( SoundFile ) == 4 );
+		COMPILE_TIME_ASSERT(sizeof(SoundFile) == 4);
 	}
 
 	CUtlSymbol symbol;
@@ -74,7 +74,7 @@ struct SoundFile
 
 #pragma pack()
 
-#pragma pack( 1 )
+#pragma pack(1)
 
 template <typename T>
 struct sound_interval_t
@@ -82,20 +82,20 @@ struct sound_interval_t
 	T start;
 	T range;
 
-	interval_t &ToInterval( interval_t &dest ) const
+	interval_t& ToInterval(interval_t& dest) const
 	{
 		dest.start = start;
 		dest.range = range;
 		return dest;
 	}
 
-	void FromInterval( const interval_t &from )
+	void FromInterval(const interval_t& from)
 	{
 		start = from.start;
 		range = from.range;
 	}
 
-	float Random() const { return RandomFloat( start, start + range ); }
+	float Random() const { return RandomFloat(start, start + range); }
 };
 
 #pragma pack()
@@ -104,22 +104,22 @@ typedef sound_interval_t<float16_with_assign> volume_interval_t;
 typedef sound_interval_t<uint16> soundlevel_interval_t;
 typedef sound_interval_t<uint8> pitch_interval_t;
 
-#pragma pack( 1 )
+#pragma pack(1)
 
 struct CSoundParametersInternal
 {
 	CSoundParametersInternal();
 	~CSoundParametersInternal();
 
-	void CopyFrom( const CSoundParametersInternal &src );
+	void CopyFrom(const CSoundParametersInternal& src);
 
 private:
-	CSoundParametersInternal( const CSoundParametersInternal &src );
+	CSoundParametersInternal(const CSoundParametersInternal& src);
 
-	void AddToTail( SoundFile **pDest, uint16 *pDestCount, const SoundFile &source );
+	void AddToTail(SoundFile** pDest, uint16* pDestCount, const SoundFile& source);
 
-	SoundFile *m_pSoundNames; // 4
-	SoundFile *m_pConvertedNames; // 8
+	SoundFile* m_pSoundNames; // 4
+	SoundFile* m_pConvertedNames; // 8
 	uint16 m_nSoundNames; // 10
 	uint16 m_nConvertedNames; // 12
 
@@ -148,29 +148,29 @@ public:
 	virtual bool ModInit() = 0;
 	virtual void ModShutdown() = 0;
 
-	virtual int GetSoundIndex( const char *pName ) const = 0;
-	virtual bool IsValidIndex( int index ) = 0;
+	virtual int GetSoundIndex(const char* pName) const = 0;
+	virtual bool IsValidIndex(int index) = 0;
 	virtual void unused_GetSoundCount() = 0;
 
-	virtual const char *GetSoundName( int index ) = 0;
-	virtual bool GetParametersForSound( const char *soundname, CSoundParameters &params, gender_t gender,
-										bool isbeingemitted = false ) = 0;
+	virtual const char* GetSoundName(int index) = 0;
+	virtual bool GetParametersForSound(const char* soundname, CSoundParameters& params, gender_t gender,
+									   bool isbeingemitted = false) = 0;
 
-	virtual const char *GetWaveName( CUtlSymbol & sym ) = 0;
+	virtual const char* GetWaveName(CUtlSymbol & sym) = 0;
 	virtual void unused_AddWaveName() = 0;
 
-	virtual soundlevel_t LookupSoundLevel( const char *soundname ) = 0;
-	virtual const char *GetWavFileForSound( const char *soundname, char const *actormodel ) = 0;
-	virtual const char *GetWavFileForSound( const char *soundname, gender_t gender ) = 0;
+	virtual soundlevel_t LookupSoundLevel(const char* soundname) = 0;
+	virtual const char* GetWavFileForSound(const char* soundname, char const* actormodel) = 0;
+	virtual const char* GetWavFileForSound(const char* soundname, gender_t gender) = 0;
 	virtual void unused_CheckForMissingWavFiles() = 0;
 	virtual void unused_GetSourceFileForSound() = 0;
 
 	// Iteration methods
 	virtual int First() const = 0;
-	virtual int Next( int i ) const = 0;
+	virtual int Next(int i) const = 0;
 	virtual int InvalidIndex() const = 0;
 
-	virtual CSoundParametersInternal *InternalGetParametersForSound( int index ) = 0;
+	virtual CSoundParametersInternal* InternalGetParametersForSound(int index) = 0;
 
 	// The host application is responsible for dealing with dirty sound scripts, etc.
 	virtual void unused_AddSound() = 0;
@@ -187,9 +187,9 @@ public:
 	virtual void unused_SaveChangesToSoundScript() = 0;
 
 	virtual void unused_ExpandSoundNameMacros() = 0;
-	virtual gender_t GetActorGender( char const *actormodel ) = 0;
-	virtual void GenderExpandString( char const *actormodel, char const *in, char *out, int maxlen ) = 0;
-	virtual void GenderExpandString( gender_t gender, char const *in, char *out, int maxlen ) = 0;
+	virtual gender_t GetActorGender(char const* actormodel) = 0;
+	virtual void GenderExpandString(char const* actormodel, char const* in, char* out, int maxlen) = 0;
+	virtual void GenderExpandString(gender_t gender, char const* in, char* out, int maxlen) = 0;
 	virtual void unused_IsUsingGenderToken() = 0;
 
 	// For blowing away caches based on filetimstamps of the manifest, or of any of the
@@ -198,16 +198,16 @@ public:
 
 	// Called from both client and server (single player) or just one (server only in dedicated server and client only if connected to a remote server)
 	// Called by LevelInitPreEntity to override sound scripts for the mod with level specific overrides based on custom mapnames, etc.
-	virtual void AddSoundOverrides( char const *scriptfile, bool bPreload = false ) = 0;
+	virtual void AddSoundOverrides(char const* scriptfile, bool bPreload = false) = 0;
 
 	// Called by either client or server in LevelShutdown to clear out custom overrides
 	virtual void ClearSoundOverrides() = 0;
 
-	virtual bool GetParametersForSoundEx( const char *soundname, HSOUNDSCRIPTHANDLE &handle, CSoundParameters &params,
-										  gender_t gender, bool isbeingemitted = false ) = 0;
+	virtual bool GetParametersForSoundEx(const char* soundname, HSOUNDSCRIPTHANDLE& handle, CSoundParameters& params,
+										 gender_t gender, bool isbeingemitted = false) = 0;
 	virtual void unused_LookupSoundLevelByHandle() = 0;
 
-	virtual void ReloadSoundEntriesInList( IFileList * pFilesToReload ) = 0;
+	virtual void ReloadSoundEntriesInList(IFileList * pFilesToReload) = 0;
 
 	// Called by either client or server to force ModShutdown and ModInit
 	virtual void Flush() = 0;

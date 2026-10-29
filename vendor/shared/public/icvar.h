@@ -17,9 +17,9 @@ typedef int CVarDLLIdentifier_t;
 abstract_class IConsoleDisplayFunc
 {
 public:
-	virtual void ColorPrint( const Color &clr, const char *pMessage ) = 0;
-	virtual void Print( const char *pMessage ) = 0;
-	virtual void DPrint( const char *pMessage ) = 0;
+	virtual void ColorPrint(const Color& clr, const char* pMessage) = 0;
+	virtual void Print(const char* pMessage) = 0;
+	virtual void DPrint(const char* pMessage) = 0;
 };
 
 // Purpose: Applications can implement this to modify behavior in ICvar
@@ -39,37 +39,37 @@ public:
 	virtual CVarDLLIdentifier_t AllocateDLLIdentifier() = 0;
 
 	// Register, unregister commands
-	virtual void RegisterConCommand( ConCommandBase * pCommandBase ) = 0;
-	virtual void UnregisterConCommand( ConCommandBase * pCommandBase ) = 0;
-	virtual void UnregisterConCommands( CVarDLLIdentifier_t id ) = 0;
+	virtual void RegisterConCommand(ConCommandBase * pCommandBase) = 0;
+	virtual void UnregisterConCommand(ConCommandBase * pCommandBase) = 0;
+	virtual void UnregisterConCommands(CVarDLLIdentifier_t id) = 0;
 
 	// If there is a +<varname> <value> on the command line, this returns the value.
 	// Otherwise, it returns NULL.
-	virtual const char *GetCommandLineValue( const char *pVariableName ) = 0;
+	virtual const char* GetCommandLineValue(const char* pVariableName) = 0;
 
 	// Try to find the cvar pointer by name
-	virtual ConCommandBase *FindCommandBase( const char *name ) = 0;
-	virtual const ConCommandBase *FindCommandBase( const char *name ) const = 0;
-	virtual ConVar *FindVar( const char *var_name ) = 0;
-	virtual const ConVar *FindVar( const char *var_name ) const = 0;
-	virtual ConCommand *FindCommand( const char *name ) = 0;
-	virtual const ConCommand *FindCommand( const char *name ) const = 0;
+	virtual ConCommandBase* FindCommandBase(const char* name) = 0;
+	virtual const ConCommandBase* FindCommandBase(const char* name) const = 0;
+	virtual ConVar* FindVar(const char* var_name) = 0;
+	virtual const ConVar* FindVar(const char* var_name) const = 0;
+	virtual ConCommand* FindCommand(const char* name) = 0;
+	virtual const ConCommand* FindCommand(const char* name) const = 0;
 
 	// Get first ConCommandBase to allow iteration
-	virtual ConCommandBase *GetCommands() = 0;
-	virtual const ConCommandBase *GetCommands() const = 0;
+	virtual ConCommandBase* GetCommands() = 0;
+	virtual const ConCommandBase* GetCommands() const = 0;
 
 	// Install a global change callback (to be called when any convar changes)
-	virtual void InstallGlobalChangeCallback( FnChangeCallback_t callback ) = 0;
-	virtual void RemoveGlobalChangeCallback( FnChangeCallback_t callback ) = 0;
-	virtual void CallGlobalChangeCallbacks( ConVar * var, const char *pOldString, float flOldValue ) = 0;
+	virtual void InstallGlobalChangeCallback(FnChangeCallback_t callback) = 0;
+	virtual void RemoveGlobalChangeCallback(FnChangeCallback_t callback) = 0;
+	virtual void CallGlobalChangeCallbacks(ConVar * var, const char* pOldString, float flOldValue) = 0;
 
 	// Install a console printer
-	virtual void InstallConsoleDisplayFunc( IConsoleDisplayFunc * pDisplayFunc ) = 0;
-	virtual void RemoveConsoleDisplayFunc( IConsoleDisplayFunc * pDisplayFunc ) = 0;
-	virtual void ConsoleColorPrintf( const Color &clr, PRINTF_FORMAT_STRING const char *pFormat, ... )
-		const FMTFUNCTION( 3, 4 ) = 0;
-	virtual void ConsolePrintf( PRINTF_FORMAT_STRING const char *pFormat, ... ) const FMTFUNCTION( 2, 3 ) = 0;
+	virtual void InstallConsoleDisplayFunc(IConsoleDisplayFunc * pDisplayFunc) = 0;
+	virtual void RemoveConsoleDisplayFunc(IConsoleDisplayFunc * pDisplayFunc) = 0;
+	virtual void ConsoleColorPrintf(const Color& clr, PRINTF_FORMAT_STRING const char* pFormat, ...)
+		const FMTFUNCTION(3, 4) = 0;
+	virtual void ConsolePrintf(PRINTF_FORMAT_STRING const char* pFormat, ...) const FMTFUNCTION(2, 3) = 0;
 	virtual void unused_ConsoleDPrintf() = 0;
 
 	// Reverts cvars which contain a specific flag
@@ -81,9 +81,9 @@ public:
 	virtual void unused_InstallCVarQuery() = 0;
 
 	virtual bool IsMaterialThreadSetAllowed() const = 0;
-	virtual void QueueMaterialThreadSetValue( ConVar * pConVar, const char *pValue ) = 0;
-	virtual void QueueMaterialThreadSetValue( ConVar * pConVar, int nValue ) = 0;
-	virtual void QueueMaterialThreadSetValue( ConVar * pConVar, float flValue ) = 0;
+	virtual void QueueMaterialThreadSetValue(ConVar * pConVar, const char* pValue) = 0;
+	virtual void QueueMaterialThreadSetValue(ConVar * pConVar, int nValue) = 0;
+	virtual void QueueMaterialThreadSetValue(ConVar * pConVar, float flValue) = 0;
 	virtual void unused_HasQueuedMaterialThreadConVarSets() = 0;
 	virtual int ProcessQueuedMaterialThreadConVarSets() = 0;
 
@@ -110,15 +110,15 @@ public:
 	class Iterator
 	{
 	public:
-		inline Iterator( ICvar *icvar );
+		inline Iterator(ICvar* icvar);
 		inline ~Iterator();
 		inline void SetFirst();
 		inline void Next();
 		inline bool IsValid();
-		inline ConCommandBase *Get();
+		inline ConCommandBase* Get();
 
 	private:
-		ICVarIteratorInternal *m_pIter;
+		ICVarIteratorInternal* m_pIter;
 	};
 
 protected:
@@ -132,14 +132,14 @@ protected:
 		virtual void SetFirst() = 0;
 		virtual void Next() = 0;
 		virtual bool IsValid() = 0;
-		virtual ConCommandBase *Get() = 0;
+		virtual ConCommandBase* Get() = 0;
 	};
 
-	virtual ICVarIteratorInternal *FactoryInternalIterator() = 0;
+	virtual ICVarIteratorInternal* FactoryInternalIterator() = 0;
 	friend class Iterator;
 };
 
-inline ICvar::Iterator::Iterator( ICvar *icvar )
+inline ICvar::Iterator::Iterator(ICvar* icvar)
 {
 	m_pIter = icvar->FactoryInternalIterator();
 }
@@ -164,7 +164,7 @@ inline bool ICvar::Iterator::IsValid()
 	return m_pIter->IsValid();
 }
 
-inline ConCommandBase *ICvar::Iterator::Get()
+inline ConCommandBase* ICvar::Iterator::Get()
 {
 	return m_pIter->Get();
 }
@@ -175,5 +175,5 @@ inline ConCommandBase *ICvar::Iterator::Get()
 // don't have to include tier1.h
 
 // These are marked DLL_EXPORT for Linux.
-DLL_EXPORT ICvar *cvar;
-extern ICvar *g_pCVar;
+DLL_EXPORT ICvar* cvar;
+extern ICvar* g_pCVar;

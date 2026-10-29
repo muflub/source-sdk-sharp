@@ -31,7 +31,7 @@ public:
 	virtual float GetFrameTime() = 0;
 
 	// gpGlobals->frametime, written.
-	virtual void SetFrameTime( float flFrameTime ) = 0;
+	virtual void SetFrameTime(float flFrameTime) = 0;
 
 	virtual void UpdateAllClientData() = 0;
 

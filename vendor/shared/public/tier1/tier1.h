@@ -15,13 +15,13 @@ class IProcessUtils;
 // allowing link libraries to access tier1 library interfaces
 
 // These are marked DLL_EXPORT for Linux.
-DLL_EXPORT ICvar *cvar;
-extern ICvar *g_pCVar;
-extern IProcessUtils *g_pProcessUtils;
+DLL_EXPORT ICvar* cvar;
+extern ICvar* g_pCVar;
+extern IProcessUtils* g_pProcessUtils;
 
 // Call this to connect to/disconnect from all tier 1 libraries.
 // It's up to the caller to check the globals it cares about to see if ones are missing
-void ConnectTier1Libraries( CreateInterfaceFn *pFactoryList, int nFactoryCount );
+void ConnectTier1Libraries(CreateInterfaceFn* pFactoryList, int nFactoryCount);
 void DisconnectTier1Libraries();
 
 // Helper empty implementation of an IAppSystem for tier2 libraries
@@ -31,26 +31,26 @@ class CTier1AppSystem : public CTier0AppSystem<IInterface>
 	typedef CTier0AppSystem<IInterface> BaseClass;
 
 public:
-	CTier1AppSystem( bool bIsPrimaryAppSystem = true )
-		: BaseClass( bIsPrimaryAppSystem )
+	CTier1AppSystem(bool bIsPrimaryAppSystem = true)
+		: BaseClass(bIsPrimaryAppSystem)
 	{
 	}
 
-	virtual bool Connect( CreateInterfaceFn factory )
+	virtual bool Connect(CreateInterfaceFn factory)
 	{
-		if ( !BaseClass::Connect( factory ) )
+		if (!BaseClass::Connect(factory))
 			return false;
 
-		if ( BaseClass::IsPrimaryAppSystem() )
+		if (BaseClass::IsPrimaryAppSystem())
 		{
-			ConnectTier1Libraries( &factory, 1 );
+			ConnectTier1Libraries(&factory, 1);
 		}
 		return true;
 	}
 
 	virtual void Disconnect()
 	{
-		if ( BaseClass::IsPrimaryAppSystem() )
+		if (BaseClass::IsPrimaryAppSystem())
 		{
 			DisconnectTier1Libraries();
 		}
@@ -60,19 +60,19 @@ public:
 	virtual InitReturnVal_t Init()
 	{
 		InitReturnVal_t nRetVal = BaseClass::Init();
-		if ( nRetVal != INIT_OK )
+		if (nRetVal != INIT_OK)
 			return nRetVal;
 
-		if ( g_pCVar && BaseClass::IsPrimaryAppSystem() )
+		if (g_pCVar && BaseClass::IsPrimaryAppSystem())
 		{
-			ConVar_Register( ConVarFlag );
+			ConVar_Register(ConVarFlag);
 		}
 		return INIT_OK;
 	}
 
 	virtual void Shutdown()
 	{
-		if ( g_pCVar && BaseClass::IsPrimaryAppSystem() )
+		if (g_pCVar && BaseClass::IsPrimaryAppSystem())
 		{
 			ConVar_Unregister();
 		}

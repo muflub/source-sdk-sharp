@@ -21,24 +21,22 @@ class CFakeVDebugOverlay : public IVDebugOverlay
 public:
 	void unused_AddEntityTextOverlay() override {}
 
-	void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &max, QAngle const &orientation, int r,
-						int g, int b, int a, float duration ) override
+	void AddBoxOverlay(const Vector& origin, const Vector& mins, const Vector& max, QAngle const& orientation, int r,
+					   int g, int b, int a, float duration) override
 	{
 	}
 
 	void unused_AddTriangleOverlay() override {}
 
-	void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest,
-						 float duration ) override
+	void AddLineOverlay(const Vector& origin, const Vector& dest, int r, int g, int b, bool noDepthTest,
+						float duration) override
 	{
 	}
 
-	void AddTextOverlay( const Vector &origin, float duration, PRINTF_FORMAT_STRING const char *format, ... ) override
-	{
-	}
+	void AddTextOverlay(const Vector& origin, float duration, PRINTF_FORMAT_STRING const char* format, ...) override {}
 
-	void AddTextOverlay( const Vector &origin, int line_offset, float duration, PRINTF_FORMAT_STRING const char *format,
-						 ... ) override
+	void AddTextOverlay(const Vector& origin, int line_offset, float duration, PRINTF_FORMAT_STRING const char* format,
+						...) override
 	{
 	}
 
@@ -48,25 +46,25 @@ public:
 
 	void unused_AddGridOverlay() override {}
 
-	int ScreenPosition( const Vector &point, Vector &screen ) override { return {}; }
+	int ScreenPosition(const Vector& point, Vector& screen) override { return {}; }
 
-	int ScreenPosition( float flXPos, float flYPos, Vector &screen ) override { return {}; }
+	int ScreenPosition(float flXPos, float flYPos, Vector& screen) override { return {}; }
 
-	OverlayText_t *GetFirst() override { return {}; }
+	OverlayText_t* GetFirst() override { return {}; }
 
-	OverlayText_t *GetNext( OverlayText_t *current ) override { return {}; }
+	OverlayText_t* GetNext(OverlayText_t* current) override { return {}; }
 
 	void ClearDeadOverlays() override {}
 
 	void ClearAllOverlays() override {}
 
-	void AddTextOverlayRGB( const Vector &origin, int line_offset, float duration, float r, float g, float b,
-							float alpha, PRINTF_FORMAT_STRING const char *format, ... ) override
+	void AddTextOverlayRGB(const Vector& origin, int line_offset, float duration, float r, float g, float b,
+						   float alpha, PRINTF_FORMAT_STRING const char* format, ...) override
 	{
 	}
 
-	void AddTextOverlayRGB( const Vector &origin, int line_offset, float duration, int r, int g, int b, int a,
-							PRINTF_FORMAT_STRING const char *format, ... ) override
+	void AddTextOverlayRGB(const Vector& origin, int line_offset, float duration, int r, int g, int b, int a,
+						   PRINTF_FORMAT_STRING const char* format, ...) override
 	{
 	}
 

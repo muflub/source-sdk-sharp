@@ -30,5 +30,5 @@ public:
 
 private:
 	// No copy constructors allowed
-	CBaseTrace( const CBaseTrace &vOther );
+	CBaseTrace(const CBaseTrace& vOther);
 };

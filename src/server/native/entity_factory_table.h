@@ -37,44 +37,44 @@ template <class T>
 class CEntityFactoryTable
 {
 public:
-	EntityFactoryInstall_t Install( T *pFactory, const char *pClassName )
+	EntityFactoryInstall_t Install(T* pFactory, const char* pClassName)
 	{
-		if ( !pClassName || !pClassName[0] )
+		if (!pClassName || !pClassName[0])
 			return kEntityFactoryNoName;
 
-		typename Map_t::const_iterator it = m_Factories.find( pClassName );
+		typename Map_t::const_iterator it = m_Factories.find(pClassName);
 
-		if ( it != m_Factories.end() )
+		if (it != m_Factories.end())
 		{
-			return ( it->second == pFactory ) ? kEntityFactoryAlreadyInstalled : kEntityFactoryNameTaken;
+			return (it->second == pFactory) ? kEntityFactoryAlreadyInstalled : kEntityFactoryNameTaken;
 		}
 
-		m_Order.push_back( &*m_Factories.emplace( pClassName, pFactory ).first );
+		m_Order.push_back(&*m_Factories.emplace(pClassName, pFactory).first);
 		return kEntityFactoryInstalled;
 	}
 
-	T *Find( const char *pClassName ) const
+	T* Find(const char* pClassName) const
 	{
-		if ( !pClassName || !pClassName[0] )
+		if (!pClassName || !pClassName[0])
 			return NULL;
 
-		typename Map_t::const_iterator it = m_Factories.find( pClassName );
+		typename Map_t::const_iterator it = m_Factories.find(pClassName);
 
-		if ( it == m_Factories.end() )
+		if (it == m_Factories.end())
 			return NULL;
 
 		return it->second;
 	}
 
 	// The spelling the factory was installed under. NULL for an unknown name.
-	const char *CanonicalName( const char *pClassName ) const
+	const char* CanonicalName(const char* pClassName) const
 	{
-		if ( !pClassName || !pClassName[0] )
+		if (!pClassName || !pClassName[0])
 			return NULL;
 
-		typename Map_t::const_iterator it = m_Factories.find( pClassName );
+		typename Map_t::const_iterator it = m_Factories.find(pClassName);
 
-		if ( it == m_Factories.end() )
+		if (it == m_Factories.end())
 			return NULL;
 
 		return it->first.c_str();
@@ -83,26 +83,26 @@ public:
 	// Enumeration by dense index, in install order.
 	int Count() const { return (int)m_Order.size(); }
 
-	const char *NameAt( int i ) const
+	const char* NameAt(int i) const
 	{
-		if ( i < 0 || i >= Count() )
+		if (i < 0 || i >= Count())
 			return NULL;
 
 		return m_Order[i]->first.c_str();
 	}
 
-	T *FactoryAt( int i ) const
+	T* FactoryAt(int i) const
 	{
-		if ( i < 0 || i >= Count() )
+		if (i < 0 || i >= Count())
 			return NULL;
 
 		return m_Order[i]->second;
 	}
 
 private:
-	typedef std::map<std::string, T *, ss::CaselessLess> Map_t;
+	typedef std::map<std::string, T*, ss::CaselessLess> Map_t;
 
 	// A map node never moves, so a pointer to one stays valid; entries are never removed.
 	Map_t m_Factories;
-	std::vector<const typename Map_t::value_type *> m_Order;
+	std::vector<const typename Map_t::value_type*> m_Order;
 };

@@ -15,7 +15,7 @@ enum
 	MAX_NOVINT_DEVICES = 2,
 };
 
-#if defined( LINUX )
+#if defined(LINUX)
 // Linux has a slightly different mapping order on the joystick axes
 enum JoystickAxis_t
 {
@@ -144,5 +144,5 @@ enum GameActionSet_t
 enum GameActionSetFlags_t
 {
 	GAME_ACTION_SET_FLAGS_NONE = 0,
-	GAME_ACTION_SET_FLAGS_TAUNTING = ( 1 << 0 ),
+	GAME_ACTION_SET_FLAGS_TAUNTING = (1 << 0),
 };

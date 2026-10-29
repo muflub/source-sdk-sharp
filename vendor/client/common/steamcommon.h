@@ -20,7 +20,7 @@
 #ifndef INCLUDED_STEAM_COMMON_STEAMCOMMON_H
 #define INCLUDED_STEAM_COMMON_STEAMCOMMON_H
 
-#if defined( _MSC_VER ) && ( _MSC_VER > 1000 )
+#if defined(_MSC_VER) && (_MSC_VER > 1000)
 #pragma once
 #endif
 
@@ -31,7 +31,7 @@ extern "C"
 
 /* Applications should not define STEAM_EXPORTS. */
 
-#if defined( _WIN32 )
+#if defined(_WIN32)
 
 #else
 
@@ -50,32 +50,32 @@ extern "C"
 
 /* END DEPRECATED */
 
-#define STEAM_MAX_PATH ( 255 )
+#define STEAM_MAX_PATH (255)
 
-#define STEAM_SALT_SIZE ( 8 )
+#define STEAM_SALT_SIZE (8)
 
 /* These are maximum significant string lengths, excluding nul-terminator. */
-#define STEAM_CARD_NUMBER_SIZE ( 17 )
-#define STEAM_CARD_HOLDERNAME_SIZE ( 100 )
-#define STEAM_CARD_EXPYEAR_SIZE ( 4 )
-#define STEAM_CARD_EXPMONTH_SIZE ( 2 )
-#define STEAM_CARD_CVV2_SIZE ( 5 )
-#define STEAM_BILLING_ADDRESS1_SIZE ( 128 )
-#define STEAM_BILLING_ADDRESS2_SIZE ( 128 )
-#define STEAM_BILLING_CITY_SIZE ( 50 )
-#define STEAM_BILLING_ZIP_SIZE ( 16 )
-#define STEAM_BILLING_STATE_SIZE ( 32 )
-#define STEAM_BILLING_COUNTRY_SIZE ( 32 )
-#define STEAM_BILLING_PHONE_SIZE ( 20 )
-#define STEAM_BILLING_EMAIL_ADDRESS_SIZE ( 100 )
-#define STEAM_TYPE_OF_PROOF_OF_PURCHASE_SIZE ( 20 )
-#define STEAM_PROOF_OF_PURCHASE_TOKEN_SIZE ( 200 )
-#define STEAM_EXTERNAL_ACCOUNTNAME_SIZE ( 100 )
-#define STEAM_EXTERNAL_ACCOUNTPASSWORD_SIZE ( 80 )
-#define STEAM_BILLING_CONFIRMATION_CODE_SIZE ( 22 )
-#define STEAM_BILLING_CARD_APPROVAL_CODE_SIZE ( 100 )
-#define STEAM_BILLING_TRANS_DATE_SIZE ( 9 ) // mm/dd/yy
-#define STEAM_BILLING_TRANS_TIME_SIZE ( 9 ) // hh:mm:ss
+#define STEAM_CARD_NUMBER_SIZE (17)
+#define STEAM_CARD_HOLDERNAME_SIZE (100)
+#define STEAM_CARD_EXPYEAR_SIZE (4)
+#define STEAM_CARD_EXPMONTH_SIZE (2)
+#define STEAM_CARD_CVV2_SIZE (5)
+#define STEAM_BILLING_ADDRESS1_SIZE (128)
+#define STEAM_BILLING_ADDRESS2_SIZE (128)
+#define STEAM_BILLING_CITY_SIZE (50)
+#define STEAM_BILLING_ZIP_SIZE (16)
+#define STEAM_BILLING_STATE_SIZE (32)
+#define STEAM_BILLING_COUNTRY_SIZE (32)
+#define STEAM_BILLING_PHONE_SIZE (20)
+#define STEAM_BILLING_EMAIL_ADDRESS_SIZE (100)
+#define STEAM_TYPE_OF_PROOF_OF_PURCHASE_SIZE (20)
+#define STEAM_PROOF_OF_PURCHASE_TOKEN_SIZE (200)
+#define STEAM_EXTERNAL_ACCOUNTNAME_SIZE (100)
+#define STEAM_EXTERNAL_ACCOUNTPASSWORD_SIZE (80)
+#define STEAM_BILLING_CONFIRMATION_CODE_SIZE (22)
+#define STEAM_BILLING_CARD_APPROVAL_CODE_SIZE (100)
+#define STEAM_BILLING_TRANS_DATE_SIZE (9) // mm/dd/yy
+#define STEAM_BILLING_TRANS_TIME_SIZE (9) // hh:mm:ss
 
 /******************************************************************************
 **
@@ -85,11 +85,11 @@ extern "C"
 
 typedef unsigned int SteamHandle_t;
 
-typedef void *SteamUserIDTicketValidationHandle_t;
+typedef void* SteamUserIDTicketValidationHandle_t;
 
 typedef unsigned int SteamCallHandle_t;
 
-#if defined( _MSC_VER )
+#if defined(_MSC_VER)
 typedef unsigned __int64 SteamUnsigned64_t;
 #else
 typedef unsigned long long SteamUnsigned64_t;
@@ -244,7 +244,7 @@ typedef struct
 
 typedef struct
 {
-	char *szLabel;
+	char* szLabel;
 	unsigned int uMaxLabelChars;
 	unsigned int uVersionId;
 	int bIsNotAvailable;
@@ -252,9 +252,9 @@ typedef struct
 
 typedef struct
 {
-	char *szDesc;
+	char* szDesc;
 	unsigned int uMaxDescChars;
-	char *szCmdLine;
+	char* szCmdLine;
 	unsigned int uMaxCmdLineChars;
 	unsigned int uIndex;
 	unsigned int uIconIndex;
@@ -266,13 +266,13 @@ typedef struct
 
 typedef struct
 {
-	char *szName;
+	char* szName;
 	unsigned int uMaxNameChars;
-	char *szLatestVersionLabel;
+	char* szLatestVersionLabel;
 	unsigned int uMaxLatestVersionLabelChars;
-	char *szCurrentVersionLabel;
+	char* szCurrentVersionLabel;
 	unsigned int uMaxCurrentVersionLabelChars;
-	char *szInstallDirName;
+	char* szInstallDirName;
 	unsigned int uMaxInstallDirNameChars;
 	unsigned int uId;
 	unsigned int uLatestVersionId;
@@ -299,9 +299,9 @@ typedef enum
 
 typedef struct
 {
-	char *szName;
+	char* szName;
 	unsigned int uMaxNameChars;
-	unsigned int *puAppIds;
+	unsigned int* puAppIds;
 	unsigned int uMaxAppIds;
 	unsigned int uId;
 	unsigned int uNumApps;
@@ -594,10 +594,10 @@ typedef enum
 
 #else
 
-#define STEAM_INVALID_HANDLE ( (SteamHandle_t)( 0 ) )
-#define STEAM_INVALID_CALL_HANDLE ( (SteamCallHandle_t)( 0 ) )
-#define STEAM_INACTIVE_USERIDTICKET_VALIDATION_HANDLE ( (SteamUserIDTicketValidationHandle_t)( 0 ) )
-#define STEAM_USE_LATEST_VERSION ( 0xFFFFFFFFu );
+#define STEAM_INVALID_HANDLE ((SteamHandle_t)(0))
+#define STEAM_INVALID_CALL_HANDLE ((SteamCallHandle_t)(0))
+#define STEAM_INACTIVE_USERIDTICKET_VALIDATION_HANDLE ((SteamUserIDTicketValidationHandle_t)(0))
+#define STEAM_USE_LATEST_VERSION (0xFFFFFFFFu);
 
 #endif
 
@@ -612,7 +612,7 @@ typedef enum
 
 typedef unsigned short SteamInstanceID_t; // MUST be 16 bits
 
-#if defined( _WIN32 )
+#if defined(_WIN32)
 typedef unsigned __int64 SteamLocalUserID_t; // MUST be 64 bits
 #else
 typedef unsigned long long SteamLocalUserID_t; // MUST be 64 bits

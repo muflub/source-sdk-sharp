@@ -16,17 +16,17 @@
 #include <stdarg.h>
 #include <string.h>
 
-TEST( Tier1Port, SetOverflowFlagMarksTheReaderOverflowed )
+TEST(Tier1Port, SetOverflowFlagMarksTheReaderOverflowed)
 {
 	// bf_read's constructor is tier1's bitbuf.cpp, which this binary must not
 	// link (it defines SetOverflowFlag too): a zeroed reader is one that does
 	// not assert on overflow and has not overflowed.
-	alignas( bf_read ) unsigned char mem[sizeof( bf_read )];
-	memset( mem, 0, sizeof( mem ) );
-	bf_read *r = reinterpret_cast<bf_read *>( mem );
-	EXPECT_FALSE( r->IsOverflowed() );
+	alignas(bf_read) unsigned char mem[sizeof(bf_read)];
+	memset(mem, 0, sizeof(mem));
+	bf_read* r = reinterpret_cast<bf_read*>(mem);
+	EXPECT_FALSE(r->IsOverflowed());
 	r->SetOverflowFlag();
-	EXPECT_TRUE( r->IsOverflowed() );
+	EXPECT_TRUE(r->IsOverflowed());
 }
 
 // V_strncpy's two facts retired with it (plan_server_native_v2 T2): its two

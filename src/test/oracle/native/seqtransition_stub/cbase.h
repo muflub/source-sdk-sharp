@@ -11,7 +11,7 @@
 #pragma once
 #define ALLOW_DATATABLES_PRIVATE_ACCESS() \
 	template <typename T>                 \
-	friend int ClientClassInit( T * );
+	friend int ClientClassInit(T*);
 #include "studio.h"
 #include "utlvector.h"
 #include "animationlayer.h"

@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if defined( _WIN32 ) && defined( NO_MALLOC_OVERRIDE ) && !defined( STEAM )
+#if defined(_WIN32) && defined(NO_MALLOC_OVERRIDE) && !defined(STEAM)
 
 #include <malloc.h>
 #include <stdlib.h>
@@ -37,60 +37,60 @@
 // combined on Windows): C4005, an error under /WX. The second definitions,
 // the NO_MALLOC_OVERRIDE ones, are what this module wants, and they win.
 #ifdef _MSC_VER
-#pragma warning( push )
-#pragma warning( disable : 4005 )
+#pragma warning(push)
+#pragma warning(disable : 4005)
 #endif
 #include "tier0/memalloc.h"
 #ifdef _MSC_VER
-#pragma warning( pop )
+#pragma warning(pop)
 #endif
 
-inline void MemAlloc_CheckAlloc( void *ptr, size_t nSize )
+inline void MemAlloc_CheckAlloc(void* ptr, size_t nSize)
 {
-	if ( !ptr )
-		MemAllocOOMError( nSize );
+	if (!ptr)
+		MemAllocOOMError(nSize);
 }
 
 // memdbgon.h's NO_MALLOC_OVERRIDE arm defines a checked memalign wrapper
 // (then #undefs the macro that would use it); it must still compile.
-inline void *memalign( size_t align, size_t nSize )
+inline void* memalign(size_t align, size_t nSize)
 {
-	return _aligned_malloc( nSize, align );
+	return _aligned_malloc(nSize, align);
 }
 
-inline void *MemAlloc_Alloc( size_t nSize, const char * = NULL, int = 0 )
+inline void* MemAlloc_Alloc(size_t nSize, const char* = NULL, int = 0)
 {
-	void *ptr = malloc( nSize );
-	MemAlloc_CheckAlloc( ptr, nSize );
+	void* ptr = malloc(nSize);
+	MemAlloc_CheckAlloc(ptr, nSize);
 	return ptr;
 }
 
-inline void MemAlloc_Free( void *ptr, const char * = NULL, int = 0 )
+inline void MemAlloc_Free(void* ptr, const char* = NULL, int = 0)
 {
-	free( ptr );
+	free(ptr);
 }
 
-inline void *MemAlloc_AllocAligned( size_t nSize, size_t align, const char * = NULL, int = 0 )
+inline void* MemAlloc_AllocAligned(size_t nSize, size_t align, const char* = NULL, int = 0)
 {
-	void *ptr = _aligned_malloc( nSize, align );
-	MemAlloc_CheckAlloc( ptr, nSize );
+	void* ptr = _aligned_malloc(nSize, align);
+	MemAlloc_CheckAlloc(ptr, nSize);
 	return ptr;
 }
 
-inline void *MemAlloc_AllocAlignedFileLine( size_t nSize, size_t align, const char * = NULL, int = 0 )
+inline void* MemAlloc_AllocAlignedFileLine(size_t nSize, size_t align, const char* = NULL, int = 0)
 {
-	return MemAlloc_AllocAligned( nSize, align );
+	return MemAlloc_AllocAligned(nSize, align);
 }
 
-inline void MemAlloc_FreeAligned( void *pMemBlock, const char * = NULL, int = 0 )
+inline void MemAlloc_FreeAligned(void* pMemBlock, const char* = NULL, int = 0)
 {
-	_aligned_free( pMemBlock );
+	_aligned_free(pMemBlock);
 }
 
-inline void *MemAlloc_ReallocAligned( void *ptr, size_t nSize, size_t align )
+inline void* MemAlloc_ReallocAligned(void* ptr, size_t nSize, size_t align)
 {
-	void *pNew = _aligned_realloc( ptr, nSize, align );
-	MemAlloc_CheckAlloc( pNew, nSize );
+	void* pNew = _aligned_realloc(ptr, nSize, align);
+	MemAlloc_CheckAlloc(pNew, nSize);
 	return pNew;
 }
 

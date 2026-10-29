@@ -54,39 +54,39 @@ class CGlobalVarsBase;
 // every Run.
 struct SSShadowEnv
 {
-	IShadowMgr *const *ppShadowMgr;
-	IStaticPropMgrClient *const *ppStaticPropMgr;
-	IMaterialSystem *const *ppMaterials;
-	IMaterialSystemHardwareConfig *const *ppHardwareConfig;
-	IVModelRender *const *ppModelRender;
-	IVRenderView *const *ppRender;
-	IVEngineClient *const *ppEngine;
-	IVModelInfoClient *const *ppModelInfo;
-	IVDebugOverlay *const *ppDebugOverlay;
-	CGlobalVarsBase *const *ppGlobals;
+	IShadowMgr* const* ppShadowMgr;
+	IStaticPropMgrClient* const* ppStaticPropMgr;
+	IMaterialSystem* const* ppMaterials;
+	IMaterialSystemHardwareConfig* const* ppHardwareConfig;
+	IVModelRender* const* ppModelRender;
+	IVRenderView* const* ppRender;
+	IVEngineClient* const* ppEngine;
+	IVModelInfoClient* const* ppModelInfo;
+	IVDebugOverlay* const* ppDebugOverlay;
+	CGlobalVarsBase* const* ppGlobals;
 
 	// The references client.so holds for the engine (CMaterialReference,
 	// CTextureReference): an id each, 0 for none.
-	int32_t ( *pfnInitMaterial )( const char *pszName, const char *pszGroup );
-	void ( *pfnShutdownMaterial )( int32_t nMaterial );
-	IMaterial *( *pfnMaterial )( int32_t nMaterial );
-	int32_t ( *pfnInitRenderTarget )( const char *pszName, int32_t nWidth, int32_t nHeight, int32_t nSizeMode,
-									  int32_t nFormat, int32_t nDepth, int32_t bHdr );
-	void ( *pfnShutdownTexture )( int32_t nTexture );
-	ITexture *( *pfnTexture )( int32_t nTexture );
+	int32_t (*pfnInitMaterial)(const char* pszName, const char* pszGroup);
+	void (*pfnShutdownMaterial)(int32_t nMaterial);
+	IMaterial* (*pfnMaterial)(int32_t nMaterial);
+	int32_t (*pfnInitRenderTarget)(const char* pszName, int32_t nWidth, int32_t nHeight, int32_t nSizeMode,
+								   int32_t nFormat, int32_t nDepth, int32_t bHdr);
+	void (*pfnShutdownTexture)(int32_t nTexture);
+	ITexture* (*pfnTexture)(int32_t nTexture);
 	// The flashlight's spotlight textures, by the index FlashlightTexture answered.
-	ITexture *( *pfnFlashlightTexture )( int32_t nIndex );
+	ITexture* (*pfnFlashlightTexture)(int32_t nIndex);
 	// materials->AddRestoreFunc / RemoveRestoreFunc of client.so's ShadowRestoreFunc.
-	void ( *pfnAddRestoreFunc )();
-	void ( *pfnRemoveRestoreFunc )();
+	void (*pfnAddRestoreFunc)();
+	void (*pfnRemoveRestoreFunc)();
 	// CommandLine()->CheckParm( "-tools" ).
-	int32_t ( *pfnToolsMode )();
+	int32_t (*pfnToolsMode)();
 	// The renderable an entity handle names now (the client entity list).
-	IClientRenderable *( *pfnRenderableOf )( uint32_t hEntity );
+	IClientRenderable* (*pfnRenderableOf)(uint32_t hEntity);
 	// view->UpdateShadowDepthTexture.
-	void ( *pfnUpdateShadowDepthTexture )( ITexture *pRenderTarget, ITexture *pDepthTexture, const CViewSetup &view );
+	void (*pfnUpdateShadowDepthTexture)(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& view);
 	// RenderShadowTexture's quad, through a dynamic mesh (CMeshBuilder is client.so's).
-	void ( *pfnDrawTextureQuad )( IMaterial *pMaterial, float flWidth, float flHeight );
+	void (*pfnDrawTextureQuad)(IMaterial* pMaterial, float flWidth, float flHeight);
 };
 
 // The name client.so's own factory serves the environment under.
@@ -194,5 +194,5 @@ enum SSShadowOp_t
 // the answers needed (what fit is written, the rest is only counted). 0 with
 // no environment or no records. A record whose payload runs past nWords, or
 // is shorter than its kind reads, ends the run there.
-int32_t SSFwd_Shadows_Run( const SSShadowEnv *pEnv, const int32_t *pOps, int32_t nWords, int32_t *pAnswers,
-						   int32_t nAnswerWords );
+int32_t SSFwd_Shadows_Run(const SSShadowEnv* pEnv, const int32_t* pOps, int32_t nWords, int32_t* pAnswers,
+						  int32_t nAnswerWords);

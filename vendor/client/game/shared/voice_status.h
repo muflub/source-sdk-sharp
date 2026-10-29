@@ -19,7 +19,7 @@ public:
 	virtual ~IVoiceStatusHelper() {}
 
 	// Get RGB color for voice status text about this player.
-	virtual void GetPlayerTextColor( int entindex, int color[3] ) = 0;
+	virtual void GetPlayerTextColor(int entindex, int color[3]) = 0;
 
 	// Force it to update the cursor state.
 	virtual void UpdateCursorState() = 0;
@@ -38,20 +38,20 @@ public:
 	// CHudBase overrides.
 public:
 	// Initialize the cl_dll's voice manager.
-	virtual int Init( IVoiceStatusHelper *m_pHelper, vgui::VPANEL pParentPanel );
+	virtual int Init(IVoiceStatusHelper* m_pHelper, vgui::VPANEL pParentPanel);
 
 	// ackPosition is the bottom position of where CVoiceStatus will draw the voice acknowledgement labels.
 	virtual void VidInit();
 
 public:
 	// Call from HUD_Frame each frame.
-	void Frame( double frametime );
+	void Frame(double frametime);
 
 	// Called when a player starts or stops talking.
 	// entindex is -1 to represent the local client talking (before the data comes back from the server).
 	// When the server acknowledges that the local client is talking, then entindex will be gEngfuncs.GetLocalPlayer().
 	// entindex is -2 to represent the local client's voice being acked by the server.
-	void UpdateSpeakerStatus( int entindex, bool bTalking );
+	void UpdateSpeakerStatus(int entindex, bool bTalking);
 
 	// Call from the HUD_CreateEntities function so it can add sprites above player heads.
 	void DrawHeadLabels();
@@ -62,14 +62,14 @@ public:
 
 	// returns true if the target client has been banned
 	// playerIndex is of range 1..maxplayers
-	bool IsPlayerBlocked( int iPlayerIndex );
+	bool IsPlayerBlocked(int iPlayerIndex);
 
 	// blocks the target client from being heard
-	void SetPlayerBlockedState( int iPlayerIndex, bool blocked );
+	void SetPlayerBlockedState(int iPlayerIndex, bool blocked);
 
 private:
 private:
-	alignas( 8 ) unsigned char unused_m_LastUpdateServerState[8];
+	alignas(8) unsigned char unused_m_LastUpdateServerState[8];
 
 	vgui::VPANEL m_pParentPanel;
 	CPlayerBitVec m_VoicePlayers; // Who is currently talking. Indexed by client index.
@@ -85,7 +85,7 @@ private:
 	// It is checked periodically, and the server is told to squelch or unsquelch the appropriate players.
 	CPlayerBitVec m_ServerBannedPlayers;
 
-	IVoiceStatusHelper *m_pHelper; // Each mod provides an implementation of this.
+	IVoiceStatusHelper* m_pHelper; // Each mod provides an implementation of this.
 
 	// Squelch mode stuff.
 	bool m_bInSquelchMode;
@@ -97,7 +97,7 @@ public:
 	CVoiceBanMgr m_BanMgr; // Tracks which users we have squelched and don't want to hear.
 
 private:
-	IMaterial *m_pHeadLabelMaterial; // For labels above players' heads.
+	IMaterial* m_pHeadLabelMaterial; // For labels above players' heads.
 
 	bool m_bBanMgrInitialized;
 
@@ -107,6 +107,6 @@ private:
 };
 
 // Get the (global) voice manager.
-CVoiceStatus *GetClientVoiceMgr();
+CVoiceStatus* GetClientVoiceMgr();
 void ClientVoiceMgr_Init();
 void ClientVoiceMgr_Shutdown();

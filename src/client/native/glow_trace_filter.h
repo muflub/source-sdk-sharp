@@ -8,7 +8,7 @@
 
 #pragma once
 
-inline bool GlowSightAdmits( int nSolid )
+inline bool GlowSightAdmits(int nSolid)
 {
 	return nSolid == SOLID_VPHYSICS || nSolid == SOLID_BSP;
 }

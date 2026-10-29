@@ -19,37 +19,37 @@
 #include "server_services.h"
 
 // Spawns one at a position (an entity outside the PVS is never transmitted).
-SS_NATIVE_COMMAND( cs_standalone_spawn )
+SS_NATIVE_COMMAND(cs_standalone_spawn)
 {
-	if ( args.ArgC() < 4 )
+	if (args.ArgC() < 4)
 	{
-		Msg( "usage: cs_standalone_spawn <x> <y> <z> [classname] [model]\n" );
+		Msg("usage: cs_standalone_spawn <x> <y> <z> [classname] [model]\n");
 		return;
 	}
 
-	const char *pClassName = ( args.ArgC() >= 5 ) ? args[4] : "ss_barrel";
+	const char* pClassName = (args.ArgC() >= 5) ? args[4] : "ss_barrel";
 
-	IServerNetworkable *pNet = CreateNetworkableEntityByName( services.m_EntityLifecycle.Factories(), pClassName );
-	if ( !pNet )
+	IServerNetworkable* pNet = CreateNetworkableEntityByName(services.m_EntityLifecycle.Factories(), pClassName);
+	if (!pNet)
 	{
-		Warning( "[SourceSharp] no factory for '%s'\n", pClassName );
+		Warning("[SourceSharp] no factory for '%s'\n", pClassName);
 		return;
 	}
 
-	CStandaloneEntity *pEnt = SourceSharp_ShellOf( ss::GameEntityFromServerEntity( pNet->GetEntityHandle() ) );
+	CStandaloneEntity* pEnt = SourceSharp_ShellOf(ss::GameEntityFromServerEntity(pNet->GetEntityHandle()));
 
-	if ( !pEnt )
+	if (!pEnt)
 		return;
 
 	char szOrigin[128];
-	ss::Format( szOrigin, sizeof( szOrigin ), "%s %s %s", args[1], args[2], args[3] );
+	ss::Format(szOrigin, sizeof(szOrigin), "%s %s %s", args[1], args[2], args[3]);
 
 	// Through KeyValue, the path a map takes.
-	pEnt->KeyValue( "origin", szOrigin );
+	pEnt->KeyValue("origin", szOrigin);
 
 	// Without a model key the managed class supplies its own in OnSpawn.
-	if ( args.ArgC() >= 6 )
-		pEnt->KeyValue( "model", args[5] );
+	if (args.ArgC() >= 6)
+		pEnt->KeyValue("model", args[5]);
 
 	pEnt->Spawn();
 }

@@ -6,13 +6,13 @@ class CRefCountAccessor
 {
 public:
 	template <class T>
-	static void AddRef( T *pObj )
+	static void AddRef(T* pObj)
 	{
 		pObj->AddRef();
 	}
 
 	template <class T>
-	static void Release( T *pObj )
+	static void Release(T* pObj)
 	{
 		pObj->Release();
 	}
@@ -23,13 +23,13 @@ class CRefCountAccessorLongName
 {
 public:
 	template <class T>
-	static void AddRef( T *pObj )
+	static void AddRef(T* pObj)
 	{
 		pObj->AddReference();
 	}
 
 	template <class T>
-	static void Release( T *pObj )
+	static void Release(T* pObj)
 	{
 		pObj->ReleaseReference();
 	}
@@ -48,8 +48,8 @@ template <typename T>
 class CPlainAutoPtr
 {
 public:
-	explicit CPlainAutoPtr( T *p = NULL )
-		: m_p( p )
+	explicit CPlainAutoPtr(T* p = NULL)
+		: m_p(p)
 	{
 	}
 
@@ -59,14 +59,14 @@ public:
 	void Delete() { delete Detach(); }
 
 private: // Disallow copying, use Detach() instead to avoid ambiguity
-	CPlainAutoPtr( CPlainAutoPtr const &x );
+	CPlainAutoPtr(CPlainAutoPtr const& x);
 
 public:
-	void Attach( T *p ) { m_p = p; }
+	void Attach(T* p) { m_p = p; }
 
-	T *Detach()
+	T* Detach()
 	{
-		T *p( m_p );
+		T* p(m_p);
 		m_p = NULL;
 		return p;
 	}
@@ -74,10 +74,10 @@ public:
 public:
 	bool IsValid() const { return m_p != NULL; }
 
-	T *Get() const { return m_p; }
+	T* Get() const { return m_p; }
 
 private:
-	T *m_p;
+	T* m_p;
 };
 
 //	CArrayAutoPtr
@@ -93,7 +93,7 @@ class CArrayAutoPtr
 	: public CPlainAutoPtr<T> // Warning: no polymorphic destructor (delete on base class will be a mistake)
 {
 public:
-	explicit CArrayAutoPtr( T *p = NULL ) { this->Attach( p ); }
+	explicit CArrayAutoPtr(T* p = NULL) { this->Attach(p); }
 
 	~CArrayAutoPtr() { this->Delete(); }
 
@@ -112,20 +112,20 @@ class CSmartPtr
 {
 public:
 	CSmartPtr();
-	CSmartPtr( T *pObj );
-	CSmartPtr( const CSmartPtr<T, RefCountAccessor> &other );
+	CSmartPtr(T* pObj);
+	CSmartPtr(const CSmartPtr<T, RefCountAccessor>& other);
 	~CSmartPtr();
 
-	T *operator=( T *pObj );
-	void operator=( const CSmartPtr<T, RefCountAccessor> &other );
-	const T *operator->() const;
-	T *operator->();
+	T* operator=(T* pObj);
+	void operator=(const CSmartPtr<T, RefCountAccessor>& other);
+	const T* operator->() const;
+	T* operator->();
 	bool IsValid() const; // Tells if the pointer is valid.
-	T *GetObject() const; // Get temporary object pointer, don't store it for later reuse!
+	T* GetObject() const; // Get temporary object pointer, don't store it for later reuse!
 	void MarkDeleted();
 
 private:
-	T *m_pObj;
+	T* m_pObj;
 };
 
 template <class T, class RefCountAccessor>
@@ -135,14 +135,14 @@ inline CSmartPtr<T, RefCountAccessor>::CSmartPtr()
 }
 
 template <class T, class RefCountAccessor>
-inline CSmartPtr<T, RefCountAccessor>::CSmartPtr( T *pObj )
+inline CSmartPtr<T, RefCountAccessor>::CSmartPtr(T* pObj)
 {
 	m_pObj = NULL;
 	*this = pObj;
 }
 
 template <class T, class RefCountAccessor>
-inline CSmartPtr<T, RefCountAccessor>::CSmartPtr( const CSmartPtr<T, RefCountAccessor> &other )
+inline CSmartPtr<T, RefCountAccessor>::CSmartPtr(const CSmartPtr<T, RefCountAccessor>& other)
 {
 	m_pObj = NULL;
 	*this = other;
@@ -151,25 +151,25 @@ inline CSmartPtr<T, RefCountAccessor>::CSmartPtr( const CSmartPtr<T, RefCountAcc
 template <class T, class RefCountAccessor>
 inline CSmartPtr<T, RefCountAccessor>::~CSmartPtr()
 {
-	if ( m_pObj )
+	if (m_pObj)
 	{
-		RefCountAccessor::Release( m_pObj );
+		RefCountAccessor::Release(m_pObj);
 	}
 }
 
 template <class T, class RefCountAccessor>
-inline T *CSmartPtr<T, RefCountAccessor>::operator=( T *pObj )
+inline T* CSmartPtr<T, RefCountAccessor>::operator=(T* pObj)
 {
-	if ( pObj == m_pObj )
+	if (pObj == m_pObj)
 		return pObj;
 
-	if ( pObj )
+	if (pObj)
 	{
-		RefCountAccessor::AddRef( pObj );
+		RefCountAccessor::AddRef(pObj);
 	}
-	if ( m_pObj )
+	if (m_pObj)
 	{
-		RefCountAccessor::Release( m_pObj );
+		RefCountAccessor::Release(m_pObj);
 	}
 	m_pObj = pObj;
 	return pObj;
@@ -182,19 +182,19 @@ inline void CSmartPtr<T, RefCountAccessor>::MarkDeleted()
 }
 
 template <class T, class RefCountAccessor>
-inline void CSmartPtr<T, RefCountAccessor>::operator=( const CSmartPtr<T, RefCountAccessor> &other )
+inline void CSmartPtr<T, RefCountAccessor>::operator=(const CSmartPtr<T, RefCountAccessor>& other)
 {
 	*this = other.m_pObj;
 }
 
 template <class T, class RefCountAccessor>
-inline const T *CSmartPtr<T, RefCountAccessor>::operator->() const
+inline const T* CSmartPtr<T, RefCountAccessor>::operator->() const
 {
 	return m_pObj;
 }
 
 template <class T, class RefCountAccessor>
-inline T *CSmartPtr<T, RefCountAccessor>::operator->()
+inline T* CSmartPtr<T, RefCountAccessor>::operator->()
 {
 	return m_pObj;
 }
@@ -206,7 +206,7 @@ inline bool CSmartPtr<T, RefCountAccessor>::IsValid() const
 }
 
 template <class T, class RefCountAccessor>
-inline T *CSmartPtr<T, RefCountAccessor>::GetObject() const
+inline T* CSmartPtr<T, RefCountAccessor>::GetObject() const
 {
 	return m_pObj;
 }
@@ -224,22 +224,22 @@ template <typename T>
 class CAutoPushPop
 {
 public:
-	explicit CAutoPushPop( T &var )
-		: m_rVar( var )
-		, m_valPop( var )
+	explicit CAutoPushPop(T& var)
+		: m_rVar(var)
+		, m_valPop(var)
 	{
 	}
 
-	CAutoPushPop( T &var, T const &valPush )
-		: m_rVar( var )
-		, m_valPop( var )
+	CAutoPushPop(T& var, T const& valPush)
+		: m_rVar(var)
+		, m_valPop(var)
 	{
 		m_rVar = valPush;
 	}
 
-	CAutoPushPop( T &var, T const &valPush, T const &valPop )
-		: m_rVar( var )
-		, m_valPop( var )
+	CAutoPushPop(T& var, T const& valPush, T const& valPop)
+		: m_rVar(var)
+		, m_valPop(var)
 	{
 		m_rVar = valPush;
 	}
@@ -247,12 +247,12 @@ public:
 	~CAutoPushPop() { m_rVar = m_valPop; }
 
 private: // forbid copying
-	CAutoPushPop( CAutoPushPop const &x );
+	CAutoPushPop(CAutoPushPop const& x);
 
 public:
-	T &Get() { return m_rVar; }
+	T& Get() { return m_rVar; }
 
 private:
-	T &m_rVar;
+	T& m_rVar;
 	T m_valPop;
 };

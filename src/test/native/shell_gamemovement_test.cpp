@@ -54,38 +54,38 @@ namespace
 // The message itself, called rather than scanned.
 //=============================================================================
 
-TEST( ShellGameMovementText, EveryReasonNamesItselfAndARemedy )
+TEST(ShellGameMovementText, EveryReasonNamesItselfAndARemedy)
 {
-	for ( int r = 0; r < kMovementFatal_Count; r++ )
+	for (int r = 0; r < kMovementFatal_Count; r++)
 	{
 		char szBuf[1536];
-		const int n = SourceSharpMovement_Format( szBuf, sizeof( szBuf ), "server", r, 0 );
+		const int n = SourceSharpMovement_Format(szBuf, sizeof(szBuf), "server", r, 0);
 
-		EXPECT_GT( n, 0 ) << "reason " << r << " formatted nothing";
-		EXPECT_LT( n, (int)sizeof( szBuf ) ) << "reason " << r << " was truncated";
+		EXPECT_GT(n, 0) << "reason " << r << " formatted nothing";
+		EXPECT_LT(n, (int)sizeof(szBuf)) << "reason " << r << " was truncated";
 
-		EXPECT_STRNE( "unknown", SourceSharpMovement_ReasonText( r ) )
+		EXPECT_STRNE("unknown", SourceSharpMovement_ReasonText(r))
 			<< "reason " << r << " has no text. A fatal nobody can read is a crash.";
-		EXPECT_STRNE( "none", SourceSharpMovement_Remedy( r ) )
+		EXPECT_STRNE("none", SourceSharpMovement_Remedy(r))
 			<< "reason " << r
 			<< " has no remedy. The remedy line is the most "
 			   "valuable one: two of these are states a fresh worktree reaches by "
 			   "accident.";
 
-		EXPECT_NE( std::string( szBuf ).find( SourceSharpMovement_ReasonText( r ) ), std::string::npos );
-		EXPECT_NE( std::string( szBuf ).find( SourceSharpMovement_Remedy( r ) ), std::string::npos );
+		EXPECT_NE(std::string(szBuf).find(SourceSharpMovement_ReasonText(r)), std::string::npos);
+		EXPECT_NE(std::string(szBuf).find(SourceSharpMovement_Remedy(r)), std::string::npos);
 	}
 }
 
-TEST( ShellGameMovementText, TheSideIsNamedAndTheMoveTypeOnlyWhereItMeansSomething )
+TEST(ShellGameMovementText, TheSideIsNamedAndTheMoveTypeOnlyWhereItMeansSomething)
 {
 	char szServer[1536];
-	SourceSharpMovement_Format( szServer, sizeof( szServer ), "server", kMovementFatal_NoManagedSide, 0 );
-	EXPECT_NE( std::string( szServer ).find( "the server side was asked to move a player" ), std::string::npos );
+	SourceSharpMovement_Format(szServer, sizeof(szServer), "server", kMovementFatal_NoManagedSide, 0);
+	EXPECT_NE(std::string(szServer).find("the server side was asked to move a player"), std::string::npos);
 
 	char szClient[1536];
-	SourceSharpMovement_Format( szClient, sizeof( szClient ), "client", kMovementFatal_NoManagedSide, 0 );
-	EXPECT_NE( std::string( szClient ).find( "the client side was asked to move a player" ), std::string::npos )
+	SourceSharpMovement_Format(szClient, sizeof(szClient), "client", kMovementFatal_NoManagedSide, 0);
+	EXPECT_NE(std::string(szClient).find("the client side was asked to move a player"), std::string::npos)
 		<< "the two sides are not distinguished. They start differently -- the "
 		   "server calls ProcessMovement per command, the client's replay is "
 		   "managed and calls native -- so which one printed this is the first "
@@ -94,26 +94,26 @@ TEST( ShellGameMovementText, TheSideIsNamedAndTheMoveTypeOnlyWhereItMeansSomethi
 	// A move type of 0 under the word FATAL on a reason that has nothing to do
 	// with move types reads as data and sends the reader after a player who does
 	// not exist.
-	EXPECT_EQ( std::string( szServer ).find( "movetype" ), std::string::npos );
+	EXPECT_EQ(std::string(szServer).find("movetype"), std::string::npos);
 
 	char szDeclined[1536];
-	SourceSharpMovement_Format( szDeclined, sizeof( szDeclined ), "server", kMovementFatal_Declined, 9 );
-	EXPECT_NE( std::string( szDeclined ).find( "movetype: 9" ), std::string::npos )
+	SourceSharpMovement_Format(szDeclined, sizeof(szDeclined), "server", kMovementFatal_Declined, 9);
+	EXPECT_NE(std::string(szDeclined).find("movetype: 9"), std::string::npos)
 		<< "the declined reason does not name the move type it declined, which is "
 		   "the one number that says WHICH managed body is missing.";
 }
 
-TEST( ShellGameMovementText, ItSurvivesTheDegenerateArguments )
+TEST(ShellGameMovementText, ItSurvivesTheDegenerateArguments)
 {
 	// The earliest of these can fire before tier0 is up, so the formatter must
 	// not be the thing that faults.
-	EXPECT_EQ( 0, SourceSharpMovement_Format( NULL, 100, "server", kMovementFatal_NoStock, 0 ) );
+	EXPECT_EQ(0, SourceSharpMovement_Format(NULL, 100, "server", kMovementFatal_NoStock, 0));
 
 	char szBuf[1536];
-	EXPECT_EQ( 0, SourceSharpMovement_Format( szBuf, 0, "server", kMovementFatal_NoStock, 0 ) );
+	EXPECT_EQ(0, SourceSharpMovement_Format(szBuf, 0, "server", kMovementFatal_NoStock, 0));
 
-	SourceSharpMovement_Format( szBuf, sizeof( szBuf ), NULL, kMovementFatal_NoStock, 0 );
-	EXPECT_NE( std::string( szBuf ).find( "the ? side" ), std::string::npos );
+	SourceSharpMovement_Format(szBuf, sizeof(szBuf), NULL, kMovementFatal_NoStock, 0);
+	EXPECT_NE(std::string(szBuf).find("the ? side"), std::string::npos);
 
 	// A tiny buffer truncates rather than overruns, and still terminates.
 	//
@@ -125,10 +125,10 @@ TEST( ShellGameMovementText, ItSurvivesTheDegenerateArguments )
 	// is otherwise identical and the truncation still happens at runtime, which
 	// is the thing being checked.
 	char szTiny[16];
-	memset( szTiny, 'x', sizeof( szTiny ) );
-	volatile size_t nTiny = sizeof( szTiny );
-	SourceSharpMovement_Format( szTiny, nTiny, "server", kMovementFatal_NoStock, 0 );
-	EXPECT_EQ( '\0', szTiny[sizeof( szTiny ) - 1] );
+	memset(szTiny, 'x', sizeof(szTiny));
+	volatile size_t nTiny = sizeof(szTiny);
+	SourceSharpMovement_Format(szTiny, nTiny, "server", kMovementFatal_NoStock, 0);
+	EXPECT_EQ('\0', szTiny[sizeof(szTiny) - 1]);
 }
 
 //=============================================================================

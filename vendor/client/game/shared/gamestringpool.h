@@ -6,7 +6,7 @@
 #pragma once
 
 // String allocation
-string_t AllocPooledString( const char *pszValue );
+string_t AllocPooledString(const char* pszValue);
 
 // String system accessor
 class IGameSystem;

@@ -17,10 +17,10 @@ namespace vgui
 //			Members of this group are viewable and editable in Build Mode, via the BuildModeDialog wizard
 class BuildGroup final
 {
-	DECLARE_HANDLES( BuildGroup, 20 );
+	DECLARE_HANDLES(BuildGroup, 20);
 
 public:
-	BuildGroup( Panel *parentPanel, Panel *contextPanel );
+	BuildGroup(Panel* parentPanel, Panel* contextPanel);
 	~BuildGroup();
 
 protected:
@@ -38,17 +38,17 @@ private:
 	int _dragStartPanelPos[2];
 	int _dragStartCursorPos[2];
 	int _dragStartPanelSize[2];
-	Panel *_currentPanel;
+	Panel* _currentPanel;
 	CUtlVector<PHandle> _panelDar;
-	char *m_pResourceName;
-	char *m_pResourcePathID;
+	char* m_pResourceName;
+	char* m_pResourcePathID;
 	PHandle m_hBuildDialog;
-	Panel *m_pBuildContext; // the panel from which the build dialog gets all the information it needs
-	Panel *m_pParentPanel; // panel to create new controls in
+	Panel* m_pBuildContext; // the panel from which the build dialog gets all the information it needs
+	Panel* m_pParentPanel; // panel to create new controls in
 	CUtlVector<PHandle> _controlGroup; // grouped panels
 	CUtlVector<int> _groupDeltaX; // x offsets of panels in group from the selected panel
 	CUtlVector<int> _groupDeltaY; // y offsets of panels in group from the selected panel
-	Label *_rulerNumber[4]; // 4 numbers to label rulers with
+	Label* _rulerNumber[4]; // 4 numbers to label rulers with
 	bool _showRulers; // toggles ruler display
 	CUtlVector<CUtlSymbol> m_RegisteredControlSettingsFiles;
 

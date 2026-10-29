@@ -6,7 +6,7 @@
 #include "vgui/VGUI.h"
 #include "vgui/Dar.h"
 #include "vgui_controls/MessageMap.h"
-#if defined( VGUI_USEKEYBINDINGMAPS )
+#if defined(VGUI_USEKEYBINDINGMAPS)
 #include "vgui_controls/KeyBindingMap.h"
 #endif
 #include "vgui/IClientPanel.h"
@@ -35,25 +35,25 @@ namespace vgui
 
 #define VGUI_USEDRAGDROP 1
 
-#if defined( VGUI_USEKEYBINDINGMAPS )
+#if defined(VGUI_USEKEYBINDINGMAPS)
 struct PanelKeyBindingMap;
 #endif
 // Purpose: Helper functions to construct vgui panels
 //  SETUP_PANEL - will make a panel ready for use right now (i.e setup its colors, borders, fonts, etc)
 template <class T>
-inline T *SETUP_PANEL( T *panel )
+inline T* SETUP_PANEL(T* panel)
 {
-	if ( panel )
+	if (panel)
 		panel->MakeReadyForUse();
 	return panel;
 }
 
 // CREATE_PANEL - creates a panel that is ready to use right now
 //   example of use = to set the FG Color of a panel inside of a constructor (i.e before ApplySchemeSettings() has been run on the child)
-#define CREATE_PANEL( type, parent, name ) ( SETUP_PANEL( new type( parent, name ) ) )
+#define CREATE_PANEL(type, parent, name) (SETUP_PANEL(new type(parent, name)))
 
 // Purpose: Drag/drop support context info (could defined within Panel...)
-#if defined( VGUI_USEDRAGDROP )
+#if defined(VGUI_USEDRAGDROP)
 struct DragDrop_t;
 class Menu;
 #endif
@@ -61,15 +61,15 @@ class Menu;
 // Purpose: Macro to handle Colors that can be overridden in .res files
 struct OverridableColorEntry
 {
-	char const *name() { return m_pszScriptName; }
+	char const* name() { return m_pszScriptName; }
 
-	char const *m_pszScriptName;
-	Color *m_pColor;
+	char const* m_pszScriptName;
+	Color* m_pColor;
 	Color m_colFromScript;
 	bool m_bOverridden;
 };
 
-#if defined( VGUI_USEKEYBINDINGMAPS )
+#if defined(VGUI_USEKEYBINDINGMAPS)
 enum KeyBindingContextHandle_t
 {
 	INVALID_KEYBINDINGCONTEXT_HANDLE = 0xffffffff,
@@ -95,7 +95,7 @@ class IForceVirtualInheritancePanel
 //			low-level access to vgui functions use the IPanel/IClientPanel interfaces directly
 class Panel : public IClientPanel, virtual public IForceVirtualInheritancePanel
 {
-	DECLARE_CLASS_SIMPLE_NOBASE( Panel );
+	DECLARE_CLASS_SIMPLE_NOBASE(Panel);
 
 public:
 	// CONSTRUCTORS
@@ -103,79 +103,79 @@ public:
 	// the Panel automatically gets a handle to a vgui-internal panel, the ipanel(), upon construction
 	// vgui interfaces deal only with ipanel(), not Panel directly
 	Panel();
-	Panel( Panel *parent );
-	Panel( Panel *parent, const char *panelName );
-	Panel( Panel *parent, const char *panelName, HScheme scheme );
+	Panel(Panel* parent);
+	Panel(Panel* parent, const char* panelName);
+	Panel(Panel* parent, const char* panelName, HScheme scheme);
 
 	virtual ~Panel();
 
 	// returns pointer to Panel's vgui VPanel interface handle
 	virtual VPANEL GetVPanel() { return _vpanel; }
 
-	virtual void Init( int x, int y, int wide, int tall );
+	virtual void Init(int x, int y, int wide, int tall);
 
-	const char *GetName(); // returns the name of this panel... never NULL
-	const char *GetClassName(); // returns the class name of the panel (eg. Panel, Label, Button, etc.)
+	const char* GetName(); // returns the name of this panel... never NULL
+	const char* GetClassName(); // returns the class name of the panel (eg. Panel, Label, Button, etc.)
 
 	void
 	MakeReadyForUse(); // fully construct this panel so its ready for use right now (i.e fonts loaded, colors set, default label text set, ...)
 
-	void GetPos( int &x, int &y ); // gets local position of panel
-	void SetSize( int wide, int tall ); // sets size of panel
-	void GetSize( int &wide, int &tall ); // gets size of panel
+	void GetPos(int& x, int& y); // gets local position of panel
+	void SetSize(int wide, int tall); // sets size of panel
+	void GetSize(int& wide, int& tall); // gets size of panel
 
 	// panel visibility
 	// invisible panels and their children do not drawn, updated, or receive input messages
-	virtual void SetVisible( bool state );
+	virtual void SetVisible(bool state);
 	virtual bool IsVisible();
 
 	// painting
 	virtual VPANEL IsWithinTraverse(
-		int x, int y, bool traversePopups ); // recursive; returns a pointer to the panel at those coordinates
-	MESSAGE_FUNC( Repaint, "Repaint" ); // marks the panel as needing to be repainted
-	virtual void PostMessage( VPANEL target, KeyValues *message, float delaySeconds = 0.0f );
+		int x, int y, bool traversePopups); // recursive; returns a pointer to the panel at those coordinates
+	MESSAGE_FUNC(Repaint, "Repaint"); // marks the panel as needing to be repainted
+	virtual void PostMessage(VPANEL target, KeyValues* message, float delaySeconds = 0.0f);
 
 	virtual void OnMove();
 
 	// panel hierarchy
-	virtual Panel *GetParent();
+	virtual Panel* GetParent();
 	virtual VPANEL GetVParent();
-	virtual void SetParent( Panel *newParent );
-	virtual void SetParent( VPANEL newParent );
-	virtual bool HasParent( VPANEL potentialParent );
+	virtual void SetParent(Panel* newParent);
+	virtual void SetParent(VPANEL newParent);
+	virtual bool HasParent(VPANEL potentialParent);
 
-	virtual CUtlVector<VPANEL> &GetChildren();
+	virtual CUtlVector<VPANEL>& GetChildren();
 
-	virtual void SetAutoDelete( bool state ); // if set to true, panel automatically frees itself when parent is deleted
+	virtual void SetAutoDelete(bool state); // if set to true, panel automatically frees itself when parent is deleted
 	virtual bool IsAutoDeleteSet();
 	virtual void DeletePanel(); // simply does a  { delete this; }
 
 	// messaging
-	virtual void AddActionSignalTarget( Panel *messageTarget );
-	virtual void AddActionSignalTarget( VPANEL messageTarget );
-	virtual void RemoveActionSignalTarget( Panel *oldTarget );
-	virtual void PostActionSignal( KeyValues *message ); // sends a message to the current actionSignalTarget(s)
-	virtual bool RequestInfoFromChild( const char *childName, KeyValues *outputData );
-	virtual void PostMessageToChild( const char *childName, KeyValues *messsage );
-	virtual void PostMessage( Panel *target, KeyValues *message, float delaySeconds = 0.0f );
+	virtual void AddActionSignalTarget(Panel* messageTarget);
+	virtual void AddActionSignalTarget(VPANEL messageTarget);
+	virtual void RemoveActionSignalTarget(Panel* oldTarget);
+	virtual void PostActionSignal(KeyValues* message); // sends a message to the current actionSignalTarget(s)
+	virtual bool RequestInfoFromChild(const char* childName, KeyValues* outputData);
+	virtual void PostMessageToChild(const char* childName, KeyValues* messsage);
+	virtual void PostMessage(Panel* target, KeyValues* message, float delaySeconds = 0.0f);
 	virtual bool RequestInfo(
-		KeyValues *
-			outputData ); // returns true if output is successfully written.  You should always chain back to the base class if info request is not handled
-	virtual bool SetInfo( KeyValues *inputData ); // sets a specified value in the control - inverse of the above
+		KeyValues*
+			outputData); // returns true if output is successfully written.  You should always chain back to the base class if info request is not handled
+	virtual bool SetInfo(KeyValues* inputData); // sets a specified value in the control - inverse of the above
 	virtual void SetSilentMode(
-		bool bSilent ); //change the panel's silent mode; if silent, the panel will not post any action signals
+		bool bSilent); //change the panel's silent mode; if silent, the panel will not post any action signals
 
 	// install a mouse handler
 	virtual void InstallMouseHandler(
-		Panel *pHandler, bool bThisHandlesAsWell = false,
+		Panel* pHandler, bool bThisHandlesAsWell = false,
 		bool bMovementEvents =
-			false ); // mouse events will be send to handler panel instead and, by default, not this panel
+			false); // mouse events will be send to handler panel instead and, by default, not this panel
 
 	// drawing state
-	virtual void SetEnabled( bool state );
+	virtual void SetEnabled(bool state);
 	virtual bool IsEnabled();
 	virtual bool IsPopup(); // has a parent, but is in it's own space
-	virtual void GetClipRect( int &x0, int &y0, int &x1, int &y1 );
+	virtual void GetClipRect(int& x0, int& y0, int& x1, int& y1);
 	virtual void MoveToFront();
 
 	// pin positions for auto-layout
@@ -205,76 +205,76 @@ public:
 	};
 
 	// colors
-	virtual void SetBgColor( Color color );
-	virtual void SetFgColor( Color color );
+	virtual void SetBgColor(Color color);
+	virtual void SetFgColor(Color color);
 	virtual Color GetBgColor();
 	virtual Color GetFgColor();
 
-	virtual void SetCursor( HCursor cursor );
+	virtual void SetCursor(HCursor cursor);
 	virtual HCursor GetCursor();
-	virtual void SetCursorAlwaysVisible( bool visible );
-	virtual void RequestFocus( int direction = 0 );
+	virtual void SetCursorAlwaysVisible(bool visible);
+	virtual void RequestFocus(int direction = 0);
 	virtual bool HasFocus();
-	virtual void InvalidateLayout( bool layoutNow = false, bool reloadScheme = false );
-	virtual bool RequestFocusPrev( VPANEL panel = NULL );
-	virtual bool RequestFocusNext( VPANEL panel = NULL );
+	virtual void InvalidateLayout(bool layoutNow = false, bool reloadScheme = false);
+	virtual bool RequestFocusPrev(VPANEL panel = NULL);
+	virtual bool RequestFocusNext(VPANEL panel = NULL);
 	// tab positioning
-	virtual void SetTabPosition( int position );
+	virtual void SetTabPosition(int position);
 	virtual int GetTabPosition();
 	// border
-	virtual void SetBorder( IBorder *border );
-	virtual IBorder *GetBorder();
-	virtual void SetPaintBorderEnabled( bool state );
-	virtual void SetPaintBackgroundEnabled( bool state );
-	virtual void SetPaintEnabled( bool state );
-	virtual void SetPostChildPaintEnabled( bool state );
+	virtual void SetBorder(IBorder* border);
+	virtual IBorder* GetBorder();
+	virtual void SetPaintBorderEnabled(bool state);
+	virtual void SetPaintBackgroundEnabled(bool state);
+	virtual void SetPaintEnabled(bool state);
+	virtual void SetPostChildPaintEnabled(bool state);
 	virtual void SetPaintBackgroundType(
-		int type ); // 0 for normal(opaque), 1 for single texture from Texture1, and 2 for rounded box w/ four corner textures
-	virtual void GetInset( int &left, int &top, int &right, int &bottom );
-	virtual void GetPaintSize( int &wide, int &tall );
-	virtual void SetBuildGroup( BuildGroup *buildGroup );
+		int type); // 0 for normal(opaque), 1 for single texture from Texture1, and 2 for rounded box w/ four corner textures
+	virtual void GetInset(int& left, int& top, int& right, int& bottom);
+	virtual void GetPaintSize(int& wide, int& tall);
+	virtual void SetBuildGroup(BuildGroup* buildGroup);
 	virtual bool IsBuildGroupEnabled();
 	virtual bool IsCursorNone();
 	virtual bool IsCursorOver(); // returns true if the cursor is currently over the panel
 	virtual void MarkForDeletion(); // object will free it's memory next tick
 	virtual bool IsLayoutInvalid(); // does this object require a perform layout?
-	virtual Panel *HasHotkey( wchar_t key ); // returns the panel that has this hotkey
+	virtual Panel* HasHotkey(wchar_t key); // returns the panel that has this hotkey
 	virtual bool IsOpaque();
 
 	virtual bool CanAnimate() const { return true; } // If the panel can animate
 
 	// scheme access functions
 	virtual HScheme GetScheme();
-	virtual void SetScheme( const char *tag );
-	virtual void SetScheme( HScheme scheme );
-	virtual Color GetSchemeColor( const char *keyName, IScheme *pScheme );
-	virtual Color GetSchemeColor( const char *keyName, Color defaultColor, IScheme *pScheme );
+	virtual void SetScheme(const char* tag);
+	virtual void SetScheme(HScheme scheme);
+	virtual Color GetSchemeColor(const char* keyName, IScheme* pScheme);
+	virtual Color GetSchemeColor(const char* keyName, Color defaultColor, IScheme* pScheme);
 
 	// called when scheme settings need to be applied; called the first time before the panel is painted
-	virtual void ApplySchemeSettings( IScheme *pScheme );
+	virtual void ApplySchemeSettings(IScheme* pScheme);
 
 	// interface to build settings
 	// takes a group of settings and applies them to the control
-	virtual void ApplySettings( KeyValues *inResourceData );
+	virtual void ApplySettings(KeyValues* inResourceData);
 
 	// records the settings into the resource data
-	virtual void GetSettings( KeyValues *outResourceData );
+	virtual void GetSettings(KeyValues* outResourceData);
 
 	// gets a description of the resource for use in the UI
 	// format: <type><whitespace | punctuation><keyname><whitespace| punctuation><type><whitespace | punctuation><keyname>...
 	// unknown types as just displayed as strings in the UI (for future UI expansion)
-	virtual const char *GetDescription();
+	virtual const char* GetDescription();
 
 	// returns the name of the module that this instance of panel was compiled into
-	virtual const char *GetModuleName();
+	virtual const char* GetModuleName();
 
 	// user configuration settings
 	// this is used for any control details the user wants saved between sessions
 	// eg. dialog positions, last directory opened, list column width
-	virtual void ApplyUserConfigSettings( KeyValues *userConfig );
+	virtual void ApplyUserConfigSettings(KeyValues* userConfig);
 
 	// returns user config settings for this control
-	virtual void GetUserConfigSettings( KeyValues *userConfig );
+	virtual void GetUserConfigSettings(KeyValues* userConfig);
 
 	// optimization, return true if this control has any user config settings
 	virtual bool HasUserConfigSettings();
@@ -282,66 +282,66 @@ public:
 	// message handlers
 	// override to get access to the message
 	// override to get access to the message
-	virtual void OnMessage( const KeyValues *params,
-							VPANEL fromPanel ); // called when panel receives message; must chain back
-	MESSAGE_FUNC_CHARPTR( OnCommand, "Command", command ); // called when a panel receives a command
-	MESSAGE_FUNC( OnMouseCaptureLost, "MouseCaptureLost" ); // called after the panel loses mouse capture
-	MESSAGE_FUNC( OnSetFocus, "SetFocus" ); // called after the panel receives the keyboard focus
-	MESSAGE_FUNC( OnKillFocus, "KillFocus" ); // called after the panel loses the keyboard focus
-	MESSAGE_FUNC( OnDelete, "Delete" ); // called to delete the panel; Panel::OnDelete() does simply { delete this; }
+	virtual void OnMessage(const KeyValues* params,
+						   VPANEL fromPanel); // called when panel receives message; must chain back
+	MESSAGE_FUNC_CHARPTR(OnCommand, "Command", command); // called when a panel receives a command
+	MESSAGE_FUNC(OnMouseCaptureLost, "MouseCaptureLost"); // called after the panel loses mouse capture
+	MESSAGE_FUNC(OnSetFocus, "SetFocus"); // called after the panel receives the keyboard focus
+	MESSAGE_FUNC(OnKillFocus, "KillFocus"); // called after the panel loses the keyboard focus
+	MESSAGE_FUNC(OnDelete, "Delete"); // called to delete the panel; Panel::OnDelete() does simply { delete this; }
 	virtual void OnThink(); // called every frame before painting, but only if panel is visible
-	virtual void OnChildAdded( VPANEL child ); // called when a child has been added to this panel
-	virtual void OnChildRemoved( Panel *pChild ); // called when a child gets removed as one of our children
-	virtual void OnSizeChanged( int newWide, int newTall ); // called after the size of a panel has been changed
+	virtual void OnChildAdded(VPANEL child); // called when a child has been added to this panel
+	virtual void OnChildRemoved(Panel* pChild); // called when a child gets removed as one of our children
+	virtual void OnSizeChanged(int newWide, int newTall); // called after the size of a panel has been changed
 
 	// called every frame if ivgui()->AddTickSignal() is called
 	virtual void OnTick();
 
 	// input messages
-	MESSAGE_FUNC_INT_INT( OnCursorMoved, "OnCursorMoved", x, y );
+	MESSAGE_FUNC_INT_INT(OnCursorMoved, "OnCursorMoved", x, y);
 	virtual void OnCursorEntered();
 	virtual void OnCursorExited();
-	virtual void OnMousePressed( MouseCode code );
-	virtual void OnMouseDoublePressed( MouseCode code );
-	virtual void OnMouseReleased( MouseCode code );
-	virtual void OnMouseMismatchedRelease( MouseCode code, Panel *pPressedPanel );
-	virtual void OnMouseWheeled( int delta );
+	virtual void OnMousePressed(MouseCode code);
+	virtual void OnMouseDoublePressed(MouseCode code);
+	virtual void OnMouseReleased(MouseCode code);
+	virtual void OnMouseMismatchedRelease(MouseCode code, Panel* pPressedPanel);
+	virtual void OnMouseWheeled(int delta);
 
 	// Trip pressing (e.g., select all text in a TextEntry) requires this to be enabled
-	virtual void SetTriplePressAllowed( bool state );
+	virtual void SetTriplePressAllowed(bool state);
 	virtual bool IsTriplePressAllowed() const;
-	virtual void OnMouseTriplePressed( MouseCode code );
+	virtual void OnMouseTriplePressed(MouseCode code);
 
-#if defined( VGUI_USEKEYBINDINGMAPS )
-	virtual void SetKeyBindingsContext( KeyBindingContextHandle_t handle );
+#if defined(VGUI_USEKEYBINDINGMAPS)
+	virtual void SetKeyBindingsContext(KeyBindingContextHandle_t handle);
 	virtual KeyBindingContextHandle_t GetKeyBindingsContext() const;
 	virtual bool IsValidKeyBindingsContext() const;
 
 	// OnKeyCodeTyped hooks into here for action
-	virtual bool IsKeyRebound( KeyCode code, int modifiers );
+	virtual bool IsKeyRebound(KeyCode code, int modifiers);
 	// If a panel implements this and returns true, then the IsKeyRebound check will fail and OnKeyCodeTyped messages will pass through..
 	//  sort of like setting the SetAllowKeyBindingChainToParent flag to false for specific keys
-	virtual bool IsKeyOverridden( KeyCode code, int modifiers );
+	virtual bool IsKeyOverridden(KeyCode code, int modifiers);
 
-	virtual void AddKeyBinding( char const *bindingName, int keycode, int modifiers );
+	virtual void AddKeyBinding(char const* bindingName, int keycode, int modifiers);
 
 	virtual void EditKeyBindings();
 
-	virtual char const *GetKeyBindingsFile() const;
-	virtual char const *GetKeyBindingsFilePathID() const;
+	virtual char const* GetKeyBindingsFile() const;
+	virtual char const* GetKeyBindingsFilePathID() const;
 
 #endif // VGUI_USEKEYBINDINGMAPS
 
 	// base implementation forwards Key messages to the Panel's parent
 	// - override to 'swallow' the input
-	virtual void OnKeyCodePressed( KeyCode code );
-	virtual void OnKeyCodeTyped( KeyCode code );
-	virtual void OnKeyTyped( wchar_t unichar );
-	virtual void OnKeyCodeReleased( KeyCode code );
+	virtual void OnKeyCodePressed(KeyCode code);
+	virtual void OnKeyCodeTyped(KeyCode code);
+	virtual void OnKeyTyped(wchar_t unichar);
+	virtual void OnKeyCodeReleased(KeyCode code);
 	virtual void OnKeyFocusTicked(); // every window gets key ticked events
 
 	// forwards mouse messages to the panel's parent
-	MESSAGE_FUNC( OnMouseFocusTicked, "OnMouseFocusTicked" );
+	MESSAGE_FUNC(OnMouseFocusTicked, "OnMouseFocusTicked");
 
 	// message handlers that don't go through the message pump
 	virtual void PaintBackground();
@@ -357,96 +357,96 @@ public:
 	virtual VPANEL GetCurrentKeyFocus();
 
 	// proportional mode settings
-	virtual bool IsProportional() { return _flags.IsFlagSet( IS_PROPORTIONAL ); }
+	virtual bool IsProportional() { return _flags.IsFlagSet(IS_PROPORTIONAL); }
 
-	virtual void SetProportional( bool state );
+	virtual void SetProportional(bool state);
 
 	// input interest
-	virtual void SetMouseInputEnabled( bool state );
-	virtual void SetKeyBoardInputEnabled( bool state );
+	virtual void SetMouseInputEnabled(bool state);
+	virtual void SetKeyBoardInputEnabled(bool state);
 	virtual bool IsMouseInputEnabled();
 	virtual bool IsKeyBoardInputEnabled();
 
-	virtual void DrawTexturedBox( int x, int y, int wide, int tall, Color color, float normalizedAlpha );
-	virtual void DrawBox( int x, int y, int wide, int tall, Color color, float normalizedAlpha, bool hollow = false );
-	virtual void DrawBoxFade( int x, int y, int wide, int tall, Color color, float normalizedAlpha, unsigned int alpha0,
-							  unsigned int alpha1, bool bHorizontal, bool hollow = false );
-	virtual void DrawHollowBox( int x, int y, int wide, int tall, Color color, float normalizedAlpha );
+	virtual void DrawTexturedBox(int x, int y, int wide, int tall, Color color, float normalizedAlpha);
+	virtual void DrawBox(int x, int y, int wide, int tall, Color color, float normalizedAlpha, bool hollow = false);
+	virtual void DrawBoxFade(int x, int y, int wide, int tall, Color color, float normalizedAlpha, unsigned int alpha0,
+							 unsigned int alpha1, bool bHorizontal, bool hollow = false);
+	virtual void DrawHollowBox(int x, int y, int wide, int tall, Color color, float normalizedAlpha);
 	// HPE_BEGIN:
 
 	// [menglish] Draws a hollow box similar to the already existing draw hollow box function, but takes the indents as params
-	virtual void DrawHollowBox( int x, int y, int wide, int tall, Color color, float normalizedAlpha, int cornerWide,
-								int cornerTall );
+	virtual void DrawHollowBox(int x, int y, int wide, int tall, Color color, float normalizedAlpha, int cornerWide,
+							   int cornerTall);
 
 	// HPE_END
 
 	// Drag Drop Public interface
 
-	virtual void SetDragEnabled( bool enabled );
+	virtual void SetDragEnabled(bool enabled);
 	virtual bool IsDragEnabled() const;
 
-	virtual void SetShowDragHelper( bool enabled );
+	virtual void SetShowDragHelper(bool enabled);
 
 	// Called if drag drop is started but not dropped on top of droppable panel...
-	virtual void OnDragFailed( CUtlVector<KeyValues *> &msglist );
+	virtual void OnDragFailed(CUtlVector<KeyValues*>& msglist);
 
 	// Use this to prevent chaining up from a parent which can mess with mouse functionality if you don't want to chain up from a child panel to the best
 	//  draggable parent.
-	virtual void SetBlockDragChaining( bool block );
+	virtual void SetBlockDragChaining(bool block);
 	virtual bool IsBlockingDragChaining() const;
 
 	virtual int GetDragStartTolerance() const;
-	virtual void SetDragSTartTolerance( int nTolerance );
+	virtual void SetDragSTartTolerance(int nTolerance);
 
 	// If hover context time is non-zero, then after the drop cursor is hovering over the panel for that amount of time
 	// the Show hover context menu function will be invoked
-	virtual void SetDropEnabled( bool enabled, float m_flHoverContextTime = 0.0f );
+	virtual void SetDropEnabled(bool enabled, float m_flHoverContextTime = 0.0f);
 	virtual bool IsDropEnabled() const;
 
 	// Called if m_flHoverContextTime was non-zero, allows droppee to preview the drop data and show an appropriate menu
 	// Return false if not using context menu
-	virtual bool GetDropContextMenu( Menu *menu, CUtlVector<KeyValues *> &msglist );
-	virtual void OnDropContextHoverShow( CUtlVector<KeyValues *> &msglist );
-	virtual void OnDropContextHoverHide( CUtlVector<KeyValues *> &msglist );
+	virtual bool GetDropContextMenu(Menu* menu, CUtlVector<KeyValues*>& msglist);
+	virtual void OnDropContextHoverShow(CUtlVector<KeyValues*>& msglist);
+	virtual void OnDropContextHoverHide(CUtlVector<KeyValues*>& msglist);
 
-#if defined( VGUI_USEDRAGDROP )
-	virtual DragDrop_t *GetDragDropInfo();
+#if defined(VGUI_USEDRAGDROP)
+	virtual DragDrop_t* GetDragDropInfo();
 #endif
 	// For handling multiple selections...
-	virtual void OnGetAdditionalDragPanels( CUtlVector<Panel *> &dragabbles );
+	virtual void OnGetAdditionalDragPanels(CUtlVector<Panel*>& dragabbles);
 
-	virtual void OnCreateDragData( KeyValues *msg );
+	virtual void OnCreateDragData(KeyValues* msg);
 	// Called to see if a drop enabled panel can accept the specified data blob
-	virtual bool IsDroppable( CUtlVector<KeyValues *> &msglist );
+	virtual bool IsDroppable(CUtlVector<KeyValues*>& msglist);
 
 	// Mouse is on draggable panel and has started moving, but is not over a droppable panel yet
 	virtual void OnDraggablePanelPaint();
 	// Mouse is now over a droppable panel
-	virtual void OnDroppablePanelPaint( CUtlVector<KeyValues *> &msglist, CUtlVector<Panel *> &dragPanels );
+	virtual void OnDroppablePanelPaint(CUtlVector<KeyValues*>& msglist, CUtlVector<Panel*>& dragPanels);
 
-	virtual void OnPanelDropped( CUtlVector<KeyValues *> &msglist );
+	virtual void OnPanelDropped(CUtlVector<KeyValues*>& msglist);
 
 	// called on droptarget when draggable panel entered/exited droptarget
-	virtual void OnPanelEnteredDroppablePanel( CUtlVector<KeyValues *> &msglist );
-	virtual void OnPanelExitedDroppablePanel( CUtlVector<KeyValues *> &msglist );
+	virtual void OnPanelEnteredDroppablePanel(CUtlVector<KeyValues*>& msglist);
+	virtual void OnPanelExitedDroppablePanel(CUtlVector<KeyValues*>& msglist);
 
 	// Chains up to any parent marked DropEnabled
-	virtual Panel *GetDropTarget( CUtlVector<KeyValues *> &msglist );
+	virtual Panel* GetDropTarget(CUtlVector<KeyValues*>& msglist);
 	// Chains up to first parent marked DragEnabled
-	virtual Panel *GetDragPanel();
+	virtual Panel* GetDragPanel();
 	virtual bool IsBeingDragged();
-	virtual HCursor GetDropCursor( CUtlVector<KeyValues *> &msglist );
+	virtual HCursor GetDropCursor(CUtlVector<KeyValues*>& msglist);
 
 	// Can override to require custom behavior to start the drag state
-	virtual bool CanStartDragging( int startx, int starty, int mx, int my );
+	virtual bool CanStartDragging(int startx, int starty, int mx, int my);
 
 	// Draws a filled rect of specified bounds, but omits the bounds of the skip panel from those bounds
-	virtual void FillRectSkippingPanel( const Color &clr, int x, int y, int w, int h, Panel *skipPanel );
+	virtual void FillRectSkippingPanel(const Color& clr, int x, int y, int w, int h, Panel* skipPanel);
 
 	virtual int GetPaintBackgroundType();
-	virtual void GetCornerTextureSize( int &w, int &h );
+	virtual void GetCornerTextureSize(int& w, int& h);
 
-	virtual void SetSkipChildDuringPainting( Panel *child );
+	virtual void SetSkipChildDuringPainting(Panel* child);
 
 	enum NAV_DIRECTION
 	{
@@ -458,38 +458,38 @@ public:
 		ND_NONE
 	};
 
-	virtual Panel *NavigateUp();
-	virtual Panel *NavigateDown();
-	virtual Panel *NavigateLeft();
-	virtual Panel *NavigateRight();
-	virtual Panel *NavigateActivate();
-	virtual Panel *NavigateBack();
+	virtual Panel* NavigateUp();
+	virtual Panel* NavigateDown();
+	virtual Panel* NavigateLeft();
+	virtual Panel* NavigateRight();
+	virtual Panel* NavigateActivate();
+	virtual Panel* NavigateBack();
 	virtual void NavigateTo();
 	virtual void NavigateFrom();
-	virtual void NavigateToChild( Panel *pNavigateTo ); //mouse support
+	virtual void NavigateToChild(Panel* pNavigateTo); //mouse support
 
-	MESSAGE_FUNC_CHARPTR( OnNavigateTo, "OnNavigateTo", panelName );
-	MESSAGE_FUNC_CHARPTR( OnNavigateFrom, "OnNavigateFrom", panelName );
+	MESSAGE_FUNC_CHARPTR(OnNavigateTo, "OnNavigateTo", panelName);
+	MESSAGE_FUNC_CHARPTR(OnNavigateFrom, "OnNavigateFrom", panelName);
 
 	// Drag Drop protected/internal interface
 protected:
 	virtual void OnStartDragging();
 	virtual void OnContinueDragging();
-	virtual void OnFinishDragging( bool mousereleased, MouseCode code, bool aborted = false );
+	virtual void OnFinishDragging(bool mousereleased, MouseCode code, bool aborted = false);
 
 	virtual void DragDropStartDragging();
 
-	virtual void GetDragData( CUtlVector<KeyValues *> &list );
+	virtual void GetDragData(CUtlVector<KeyValues*>& list);
 	virtual void CreateDragData();
 
-	virtual void PaintTraverse( bool Repaint, bool allowForce = true );
+	virtual void PaintTraverse(bool Repaint, bool allowForce = true);
 
 protected:
-	virtual void OnChildSettingsApplied( KeyValues *pInResourceData, Panel *pChild );
+	virtual void OnChildSettingsApplied(KeyValues* pInResourceData, Panel* pChild);
 
-	MESSAGE_FUNC_ENUM_ENUM( OnRequestFocus, "OnRequestFocus", VPANEL, subFocus, VPANEL, defaultPanel );
-	MESSAGE_FUNC_INT_INT( OnScreenSizeChanged, "OnScreenSizeChanged", oldwide, oldtall );
-	virtual void *QueryInterface( EInterfaceID id );
+	MESSAGE_FUNC_ENUM_ENUM(OnRequestFocus, "OnRequestFocus", VPANEL, subFocus, VPANEL, defaultPanel);
+	MESSAGE_FUNC_INT_INT(OnScreenSizeChanged, "OnScreenSizeChanged", oldwide, oldtall);
+	virtual void* QueryInterface(EInterfaceID id);
 
 public:
 	/*
@@ -537,7 +537,7 @@ private:
 		NEEDS_LAYOUT = 0x0080,
 		NEEDS_SCHEME_UPDATE = 0x0100,
 		NEEDS_DEFAULT_SETTINGS_APPLIED = 0x0200,
-#if defined( VGUI_USEKEYBINDINGMAPS )
+#if defined(VGUI_USEKEYBINDINGMAPS)
 		ALLOW_CHAIN_KEYBINDING_TO_PARENT = 0x0400,
 #endif
 		IN_PERFORM_LAYOUT = 0x0800,
@@ -549,56 +549,56 @@ private:
 	};
 
 	// used to get the Panel * for users with only IClientPanel
-	virtual Panel *GetPanel() { return this; }
+	virtual Panel* GetPanel() { return this; }
 
 	// private methods
 	void Think();
 	void PerformApplySchemeSettings();
 
-	MESSAGE_FUNC_INT_INT( InternalCursorMoved, "CursorMoved", xpos, ypos );
-	MESSAGE_FUNC( InternalCursorEntered, "CursorEntered" );
-	MESSAGE_FUNC( InternalCursorExited, "CursorExited" );
+	MESSAGE_FUNC_INT_INT(InternalCursorMoved, "CursorMoved", xpos, ypos);
+	MESSAGE_FUNC(InternalCursorEntered, "CursorEntered");
+	MESSAGE_FUNC(InternalCursorExited, "CursorExited");
 
-	MESSAGE_FUNC_INT( InternalMousePressed, "MousePressed", code );
-	MESSAGE_FUNC_INT( InternalMouseDoublePressed, "MouseDoublePressed", code );
+	MESSAGE_FUNC_INT(InternalMousePressed, "MousePressed", code);
+	MESSAGE_FUNC_INT(InternalMouseDoublePressed, "MouseDoublePressed", code);
 	// Triple presses are synthesized
-	MESSAGE_FUNC_INT( InternalMouseTriplePressed, "MouseTriplePressed", code );
-	MESSAGE_FUNC_INT( InternalMouseReleased, "MouseReleased", code );
-	MESSAGE_FUNC_INT( InternalMouseWheeled, "MouseWheeled", delta );
-	MESSAGE_FUNC_INT( InternalKeyCodePressed, "KeyCodePressed", code );
-	MESSAGE_FUNC_INT( InternalKeyCodeTyped, "KeyCodeTyped", code );
-	MESSAGE_FUNC_INT( InternalKeyTyped, "KeyTyped", unichar );
-	MESSAGE_FUNC_INT( InternalKeyCodeReleased, "KeyCodeReleased", code );
+	MESSAGE_FUNC_INT(InternalMouseTriplePressed, "MouseTriplePressed", code);
+	MESSAGE_FUNC_INT(InternalMouseReleased, "MouseReleased", code);
+	MESSAGE_FUNC_INT(InternalMouseWheeled, "MouseWheeled", delta);
+	MESSAGE_FUNC_INT(InternalKeyCodePressed, "KeyCodePressed", code);
+	MESSAGE_FUNC_INT(InternalKeyCodeTyped, "KeyCodeTyped", code);
+	MESSAGE_FUNC_INT(InternalKeyTyped, "KeyTyped", unichar);
+	MESSAGE_FUNC_INT(InternalKeyCodeReleased, "KeyCodeReleased", code);
 
-	MESSAGE_FUNC( InternalKeyFocusTicked, "KeyFocusTicked" );
-	MESSAGE_FUNC( InternalMouseFocusTicked, "MouseFocusTicked" );
+	MESSAGE_FUNC(InternalKeyFocusTicked, "KeyFocusTicked");
+	MESSAGE_FUNC(InternalMouseFocusTicked, "MouseFocusTicked");
 
-	MESSAGE_FUNC( InternalInvalidateLayout, "Invalidate" );
+	MESSAGE_FUNC(InternalInvalidateLayout, "Invalidate");
 
-	MESSAGE_FUNC( InternalMove, "Move" );
-	virtual void InternalFocusChanged( bool lost ); // called when the focus gets changed
+	MESSAGE_FUNC(InternalMove, "Move");
+	virtual void InternalFocusChanged(bool lost); // called when the focus gets changed
 
-#if defined( VGUI_USEDRAGDROP )
-	DragDrop_t *m_pDragDrop;
+#if defined(VGUI_USEDRAGDROP)
+	DragDrop_t* m_pDragDrop;
 	Color m_clrDragFrame;
 	Color m_clrDropFrame;
 #endif
 
-	BaseTooltip *m_pTooltips;
+	BaseTooltip* m_pTooltips;
 	bool m_bToolTipOverridden;
 
 	PHandle m_SkipChild;
 	long m_lLastDoublePressTime;
 	HFont m_infoFont;
 
-#if defined( VGUI_USEKEYBINDINGMAPS )
+#if defined(VGUI_USEKEYBINDINGMAPS)
 	KeyBindingContextHandle_t m_hKeyBindingsContext;
 #endif
 
 	// data
 	VPANEL _vpanel; // handle to a vgui panel
-	char *_panelName; // string name of the panel - only unique within the current context
-	IBorder *_border;
+	char* _panelName; // string name of the panel - only unique within the current context
+	IBorder* _border;
 
 	CUtlFlags<unsigned short> _flags; // see PanelFlags_t
 	Dar<HPanel> _actionSignalTargetDar; // the panel to direct notify messages to ("Command", "TextChanged", etc.)
@@ -631,7 +631,7 @@ private:
 	bool m_bParentNeedsCursorMoveEvents : 1;
 
 	// Sibling pinning
-	char *_pinToSibling; // string name of the sibling panel we're pinned to
+	char* _pinToSibling; // string name of the sibling panel we're pinned to
 	byte _pinToSiblingCorner; // the corner of the sibling panel we're pinned to
 	byte _pinCornerToSibling; // the corner of our panel that we're pinning to our sibling
 	PHandle m_pinSibling;
@@ -658,7 +658,7 @@ private:
 	PHandle m_NavBack;
 
 private:
-	char *_tooltipText; // Tool tip text for panels that share tooltip panels with other panels
+	char* _tooltipText; // Tool tip text for panels that share tooltip panels with other panels
 
 	PHandle m_hMouseEventHandler;
 	bool m_bActOnHandledMouseInput = false;
@@ -671,15 +671,15 @@ private:
 
 	CUtlDict<VPanelHandle> m_dictChidlren;
 
-	CPanelAnimationVar( float, m_flAlpha, "alpha", "255" );
+	CPanelAnimationVar(float, m_flAlpha, "alpha", "255");
 
 	// 1 == Textured (TextureId1 only)
 	// 2 == Rounded Corner Box
-	CPanelAnimationVar( int, m_nPaintBackgroundType, "PaintBackgroundType", "0" );
-	CPanelAnimationVarAliasType( int, m_nBgTextureId1, "Texture1", "vgui/hud/8x800corner1", "textureid" );
-	CPanelAnimationVarAliasType( int, m_nBgTextureId2, "Texture2", "vgui/hud/8x800corner2", "textureid" );
-	CPanelAnimationVarAliasType( int, m_nBgTextureId3, "Texture3", "vgui/hud/8x800corner3", "textureid" );
-	CPanelAnimationVarAliasType( int, m_nBgTextureId4, "Texture4", "vgui/hud/8x800corner4", "textureid" );
+	CPanelAnimationVar(int, m_nPaintBackgroundType, "PaintBackgroundType", "0");
+	CPanelAnimationVarAliasType(int, m_nBgTextureId1, "Texture1", "vgui/hud/8x800corner1", "textureid");
+	CPanelAnimationVarAliasType(int, m_nBgTextureId2, "Texture2", "vgui/hud/8x800corner2", "textureid");
+	CPanelAnimationVarAliasType(int, m_nBgTextureId3, "Texture3", "vgui/hud/8x800corner3", "textureid");
+	CPanelAnimationVarAliasType(int, m_nBgTextureId4, "Texture4", "vgui/hud/8x800corner4", "textureid");
 
 	// HPE_BEGIN:
 	// [tj] A bitset of flags to determine which corners should be rounded
@@ -721,27 +721,27 @@ class Button;
 
 struct SortedPanel_t
 {
-	SortedPanel_t( Panel *panel );
+	SortedPanel_t(Panel* panel);
 
-	Panel *pPanel;
-	Button *pButton;
+	Panel* pPanel;
+	Button* pButton;
 };
 
 class CSortedPanelYLess
 {
 public:
-	bool Less( const SortedPanel_t &src1, const SortedPanel_t &src2, void *pCtx )
+	bool Less(const SortedPanel_t& src1, const SortedPanel_t& src2, void* pCtx)
 	{
 		int nX1, nY1, nX2, nY2;
-		src1.pPanel->GetPos( nX1, nY1 );
-		src2.pPanel->GetPos( nX2, nY2 );
+		src1.pPanel->GetPos(nX1, nY1);
+		src2.pPanel->GetPos(nX2, nY2);
 
-		if ( nY1 == nY2 )
+		if (nY1 == nY2)
 		{
-			return ( nX1 < nX2 );
+			return (nX1 < nX2);
 		}
 
-		if ( nY1 < nY2 )
+		if (nY1 < nY2)
 		{
 			return true;
 		}

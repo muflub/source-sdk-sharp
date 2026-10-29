@@ -28,18 +28,18 @@ namespace
 // for the reason written in entity_slots.h — but Open does compare the whole
 // handle, to tell "the same entity binding a second state" from "a new entity in
 // a reused entry". So two handles differing only in this half are two entities.
-uint32_t HandleFor( int nEntry, int nSerial = 3 )
+uint32_t HandleFor(int nEntry, int nSerial = 3)
 {
-	return (uint32_t)( nEntry | ( nSerial << 16 ) );
+	return (uint32_t)(nEntry | (nSerial << 16));
 }
 
-TEST( EntitySlots, StartsClosed )
+TEST(EntitySlots, StartsClosed)
 {
 	CSourceSharpEntitySlots slots;
 
-	EXPECT_EQ( 0, slots.ActiveCount() );
-	EXPECT_FALSE( slots.IsOpen( 0 ) );
-	EXPECT_EQ( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt( 0 ) );
+	EXPECT_EQ(0, slots.ActiveCount());
+	EXPECT_FALSE(slots.IsOpen(0));
+	EXPECT_EQ((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt(0));
 }
 
 //-----------------------------------------------------------------------------
@@ -47,18 +47,18 @@ TEST( EntitySlots, StartsClosed )
 // against any serial C# holds, because both mean the same thing: the pointer is
 // not good.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ClosedLooksExactlyLikeNeverOpened )
+TEST(EntitySlots, ClosedLooksExactlyLikeNeverOpened)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nSerial = 0;
-	ASSERT_TRUE( slots.Open( 12, HandleFor( 12 ), &nSerial ) );
-	EXPECT_NE( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, nSerial );
+	ASSERT_TRUE(slots.Open(12, HandleFor(12), &nSerial));
+	EXPECT_NE((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, nSerial);
 
-	slots.Close( 12 );
+	slots.Close(12);
 
-	EXPECT_EQ( slots.SerialAt( 12 ), slots.SerialAt( 13 ) );
-	EXPECT_NE( nSerial, slots.SerialAt( 12 ) );
+	EXPECT_EQ(slots.SerialAt(12), slots.SerialAt(13));
+	EXPECT_NE(nSerial, slots.SerialAt(12));
 }
 
 //-----------------------------------------------------------------------------
@@ -67,20 +67,20 @@ TEST( EntitySlots, ClosedLooksExactlyLikeNeverOpened )
 // and reopened at the same number, a state bound to the dead entity would find
 // its serial matching and write into the new one's blob.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, SerialsAreNeverReused )
+TEST(EntitySlots, SerialsAreNeverReused)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nFirst = 0, nSecond = 0, nOther = 0;
 
-	slots.Open( 5, HandleFor( 5 ), &nFirst );
-	slots.Close( 5 );
-	slots.Open( 5, HandleFor( 5 ), &nSecond );
-	slots.Open( 6, HandleFor( 6 ), &nOther );
+	slots.Open(5, HandleFor(5), &nFirst);
+	slots.Close(5);
+	slots.Open(5, HandleFor(5), &nSecond);
+	slots.Open(6, HandleFor(6), &nOther);
 
-	EXPECT_NE( nFirst, nSecond );
-	EXPECT_NE( nSecond, nOther );
-	EXPECT_NE( nFirst, nOther );
+	EXPECT_NE(nFirst, nSecond);
+	EXPECT_NE(nSecond, nOther);
+	EXPECT_NE(nFirst, nOther);
 }
 
 //-----------------------------------------------------------------------------
@@ -89,25 +89,25 @@ TEST( EntitySlots, SerialsAreNeverReused )
 // must invalidate whatever held the old number rather than hand out the same
 // one.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ReopeningForTheSameEntityKeepsTheSerial )
+TEST(EntitySlots, ReopeningForTheSameEntityKeepsTheSerial)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nOld = 0, nNew = 0;
-	slots.Open( 9, HandleFor( 9 ), &nOld );
-	slots.Open( 9, HandleFor( 9 ), &nNew );
+	slots.Open(9, HandleFor(9), &nOld);
+	slots.Open(9, HandleFor(9), &nNew);
 
 	// THE CASE THAT WAS PINNED THE OTHER WAY UP. A managed class serving two
 	// classnames has two [NetState] fields and binds both to one entity; when the
 	// second bind burned a new serial, the first state threw on every write it
 	// ever attempted -- from inside OnSpawn, so the rest of the spawn was
 	// unwound and nothing reached the wire. Same entity, same serial.
-	EXPECT_EQ( nOld, nNew );
-	EXPECT_EQ( nNew, slots.SerialAt( 9 ) );
+	EXPECT_EQ(nOld, nNew);
+	EXPECT_EQ(nNew, slots.SerialAt(9));
 
 	// And it stays ONE entry in the list, not two: the drain walks that list, so
 	// a duplicate would mark the same entity twice a frame forever.
-	EXPECT_EQ( 1, slots.ActiveCount() );
+	EXPECT_EQ(1, slots.ActiveCount());
 }
 
 //-----------------------------------------------------------------------------
@@ -119,17 +119,17 @@ TEST( EntitySlots, ReopeningForTheSameEntityKeepsTheSerial )
 // discriminator is the HANDLE rather than the entry, because a handle carries a
 // serial of its own and two entities never share one.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ReopeningForADifferentEntityInvalidatesTheOldBinding )
+TEST(EntitySlots, ReopeningForADifferentEntityInvalidatesTheOldBinding)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nOld = 0, nNew = 0;
-	slots.Open( 9, HandleFor( 9 ), &nOld );
-	slots.Open( 9, HandleFor( 9, 4 ), &nNew );
+	slots.Open(9, HandleFor(9), &nOld);
+	slots.Open(9, HandleFor(9, 4), &nNew);
 
-	EXPECT_NE( nOld, nNew );
-	EXPECT_EQ( nNew, slots.SerialAt( 9 ) );
-	EXPECT_EQ( 1, slots.ActiveCount() );
+	EXPECT_NE(nOld, nNew);
+	EXPECT_EQ(nNew, slots.SerialAt(9));
+	EXPECT_EQ(1, slots.ActiveCount());
 }
 
 //-----------------------------------------------------------------------------
@@ -137,16 +137,16 @@ TEST( EntitySlots, ReopeningForADifferentEntityInvalidatesTheOldBinding )
 // would announce a change to an entity that may not be the entity that was
 // written.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, OpeningForANewEntityClearsAPendingDirty )
+TEST(EntitySlots, OpeningForANewEntityClearsAPendingDirty)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Open( 4, HandleFor( 4 ), NULL );
-	slots.MarkDirty( 4 );
-	ASSERT_TRUE( slots.IsDirty( 4 ) );
+	slots.Open(4, HandleFor(4), NULL);
+	slots.MarkDirty(4);
+	ASSERT_TRUE(slots.IsDirty(4));
 
-	slots.Open( 4, HandleFor( 4, 4 ), NULL );
-	EXPECT_FALSE( slots.IsDirty( 4 ) );
+	slots.Open(4, HandleFor(4, 4), NULL);
+	EXPECT_FALSE(slots.IsDirty(4));
 }
 
 //-----------------------------------------------------------------------------
@@ -157,16 +157,16 @@ TEST( EntitySlots, OpeningForANewEntityClearsAPendingDirty )
 // there holding state the wire never heard about. A class with two [NetState]
 // fields writes through the first and binds the second in the same breath.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ReopeningForTheSameEntityKeepsAPendingDirty )
+TEST(EntitySlots, ReopeningForTheSameEntityKeepsAPendingDirty)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Open( 4, HandleFor( 4 ), NULL );
-	slots.MarkDirty( 4 );
-	ASSERT_TRUE( slots.IsDirty( 4 ) );
+	slots.Open(4, HandleFor(4), NULL);
+	slots.MarkDirty(4);
+	ASSERT_TRUE(slots.IsDirty(4));
 
-	slots.Open( 4, HandleFor( 4 ), NULL );
-	EXPECT_TRUE( slots.IsDirty( 4 ) );
+	slots.Open(4, HandleFor(4), NULL);
+	EXPECT_TRUE(slots.IsDirty(4));
 }
 
 //-----------------------------------------------------------------------------
@@ -174,49 +174,49 @@ TEST( EntitySlots, ReopeningForTheSameEntityKeepsAPendingDirty )
 // managed state, which is most of them. It must be a no-op rather than a
 // corruption of the list.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ClosingIsIdempotentAndSafeWhenNeverOpened )
+TEST(EntitySlots, ClosingIsIdempotentAndSafeWhenNeverOpened)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Close( 100 );
-	EXPECT_EQ( 0, slots.ActiveCount() );
+	slots.Close(100);
+	EXPECT_EQ(0, slots.ActiveCount());
 
-	slots.Open( 100, HandleFor( 100 ), NULL );
-	slots.Close( 100 );
-	slots.Close( 100 );
+	slots.Open(100, HandleFor(100), NULL);
+	slots.Close(100);
+	slots.Close(100);
 
-	EXPECT_EQ( 0, slots.ActiveCount() );
-	EXPECT_FALSE( slots.IsOpen( 100 ) );
+	EXPECT_EQ(0, slots.ActiveCount());
+	EXPECT_FALSE(slots.IsOpen(100));
 }
 
 //-----------------------------------------------------------------------------
 // The active list survives removal from the middle, which is the case the
 // swap-with-the-tail exists for and the one an ordinary erase would get wrong.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, TheActiveListSurvivesRemovalFromTheMiddle )
+TEST(EntitySlots, TheActiveListSurvivesRemovalFromTheMiddle)
 {
 	CSourceSharpEntitySlots slots;
 
-	for ( int i = 0; i < 5; ++i )
-		slots.Open( i, HandleFor( i ), NULL );
+	for (int i = 0; i < 5; ++i)
+		slots.Open(i, HandleFor(i), NULL);
 
-	slots.Close( 2 );
+	slots.Close(2);
 
-	ASSERT_EQ( 4, slots.ActiveCount() );
+	ASSERT_EQ(4, slots.ActiveCount());
 
-	bool bSeen[5] = { false, false, false, false, false };
+	bool bSeen[5] = {false, false, false, false, false};
 
-	for ( int i = 0; i < slots.ActiveCount(); ++i )
+	for (int i = 0; i < slots.ActiveCount(); ++i)
 	{
-		const int nEntry = slots.ActiveAt( i );
-		ASSERT_GE( nEntry, 0 );
-		ASSERT_LT( nEntry, 5 );
-		EXPECT_FALSE( bSeen[nEntry] ) << "entry " << nEntry << " listed twice";
+		const int nEntry = slots.ActiveAt(i);
+		ASSERT_GE(nEntry, 0);
+		ASSERT_LT(nEntry, 5);
+		EXPECT_FALSE(bSeen[nEntry]) << "entry " << nEntry << " listed twice";
 		bSeen[nEntry] = true;
 	}
 
-	EXPECT_TRUE( bSeen[0] && bSeen[1] && bSeen[3] && bSeen[4] );
-	EXPECT_FALSE( bSeen[2] );
+	EXPECT_TRUE(bSeen[0] && bSeen[1] && bSeen[3] && bSeen[4]);
+	EXPECT_FALSE(bSeen[2]);
 }
 
 //-----------------------------------------------------------------------------
@@ -224,19 +224,19 @@ TEST( EntitySlots, TheActiveListSurvivesRemovalFromTheMiddle )
 // Close swaps the tail into the freed position and forwards would skip whatever
 // landed there.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ClosingEveryEntryBackwardsEmptiesTheList )
+TEST(EntitySlots, ClosingEveryEntryBackwardsEmptiesTheList)
 {
 	CSourceSharpEntitySlots slots;
 
-	for ( int i = 0; i < 64; ++i )
-		slots.Open( i * 3, HandleFor( i * 3 ), NULL );
+	for (int i = 0; i < 64; ++i)
+		slots.Open(i * 3, HandleFor(i * 3), NULL);
 
-	ASSERT_EQ( 64, slots.ActiveCount() );
+	ASSERT_EQ(64, slots.ActiveCount());
 
-	for ( int i = slots.ActiveCount() - 1; i >= 0; --i )
-		slots.Close( slots.ActiveAt( i ) );
+	for (int i = slots.ActiveCount() - 1; i >= 0; --i)
+		slots.Close(slots.ActiveAt(i));
 
-	EXPECT_EQ( 0, slots.ActiveCount() );
+	EXPECT_EQ(0, slots.ActiveCount());
 }
 
 //-----------------------------------------------------------------------------
@@ -244,18 +244,18 @@ TEST( EntitySlots, ClosingEveryEntryBackwardsEmptiesTheList )
 // would mark its entity every frame for the rest of the map, which looks exactly
 // like the dirty-on-read behaviour this step deletes.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, TakeDirtyClearsWhatItReports )
+TEST(EntitySlots, TakeDirtyClearsWhatItReports)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Open( 7, HandleFor( 7 ), NULL );
+	slots.Open(7, HandleFor(7), NULL);
 
-	EXPECT_FALSE( slots.TakeDirty( 7 ) );
+	EXPECT_FALSE(slots.TakeDirty(7));
 
-	slots.MarkDirty( 7 );
-	EXPECT_TRUE( slots.TakeDirty( 7 ) );
-	EXPECT_FALSE( slots.TakeDirty( 7 ) );
-	EXPECT_FALSE( slots.IsDirty( 7 ) );
+	slots.MarkDirty(7);
+	EXPECT_TRUE(slots.TakeDirty(7));
+	EXPECT_FALSE(slots.TakeDirty(7));
+	EXPECT_FALSE(slots.IsDirty(7));
 }
 
 //-----------------------------------------------------------------------------
@@ -270,32 +270,32 @@ TEST( EntitySlots, TakeDirtyClearsWhatItReports )
 // twice a frame forever and the doubled cost would look like a network problem
 // rather than a drain problem.
 //-----------------------------------------------------------------------------
-static int DrainOnce( CSourceSharpEntitySlots &slots )
+static int DrainOnce(CSourceSharpEntitySlots& slots)
 {
 	int nTaken = 0;
 
-	for ( int i = slots.ActiveCount() - 1; i >= 0; --i )
+	for (int i = slots.ActiveCount() - 1; i >= 0; --i)
 	{
-		if ( slots.TakeDirty( slots.ActiveAt( i ) ) )
+		if (slots.TakeDirty(slots.ActiveAt(i)))
 			++nTaken;
 	}
 
 	return nTaken;
 }
 
-TEST( EntitySlots, ASecondDrainInTheSameFrameFindsNothing )
+TEST(EntitySlots, ASecondDrainInTheSameFrameFindsNothing)
 {
 	CSourceSharpEntitySlots slots;
 
-	for ( int nEntry = 3; nEntry <= 5; ++nEntry )
+	for (int nEntry = 3; nEntry <= 5; ++nEntry)
 	{
-		slots.Open( nEntry, HandleFor( nEntry ), NULL );
-		slots.MarkDirty( nEntry );
+		slots.Open(nEntry, HandleFor(nEntry), NULL);
+		slots.MarkDirty(nEntry);
 	}
 
-	EXPECT_EQ( 3, DrainOnce( slots ) );
-	EXPECT_EQ( 0, DrainOnce( slots ) );
-	EXPECT_EQ( 0, DrainOnce( slots ) );
+	EXPECT_EQ(3, DrainOnce(slots));
+	EXPECT_EQ(0, DrainOnce(slots));
+	EXPECT_EQ(0, DrainOnce(slots));
 }
 
 //-----------------------------------------------------------------------------
@@ -303,34 +303,34 @@ TEST( EntitySlots, ASecondDrainInTheSameFrameFindsNothing )
 // The late drain is the only thing that sees it, and seeing it is what keeps the
 // edict marked for the snapshot this frame rather than the next.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, AWriteBetweenTheTwoDrainsIsCaughtByTheLateOne )
+TEST(EntitySlots, AWriteBetweenTheTwoDrainsIsCaughtByTheLateOne)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Open( 11, HandleFor( 11 ), NULL );
-	slots.MarkDirty( 11 );
+	slots.Open(11, HandleFor(11), NULL);
+	slots.MarkDirty(11);
 
-	EXPECT_EQ( 1, DrainOnce( slots ) );
+	EXPECT_EQ(1, DrainOnce(slots));
 
 	// The dev API's queue, or an ent_fire: after the early drain, before the
 	// snapshot.
-	slots.MarkDirty( 11 );
+	slots.MarkDirty(11);
 
-	EXPECT_EQ( 1, DrainOnce( slots ) );
-	EXPECT_FALSE( slots.IsDirty( 11 ) );
+	EXPECT_EQ(1, DrainOnce(slots));
+	EXPECT_FALSE(slots.IsDirty(11));
 }
 
-TEST( EntitySlots, MarkingAClosedSlotDoesNothing )
+TEST(EntitySlots, MarkingAClosedSlotDoesNothing)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.MarkDirty( 20 );
-	EXPECT_FALSE( slots.IsDirty( 20 ) );
+	slots.MarkDirty(20);
+	EXPECT_FALSE(slots.IsDirty(20));
 
-	slots.Open( 20, HandleFor( 20 ), NULL );
-	slots.Close( 20 );
-	slots.MarkDirty( 20 );
-	EXPECT_FALSE( slots.IsDirty( 20 ) );
+	slots.Open(20, HandleFor(20), NULL);
+	slots.Close(20);
+	slots.MarkDirty(20);
+	EXPECT_FALSE(slots.IsDirty(20));
 }
 
 //-----------------------------------------------------------------------------
@@ -340,30 +340,29 @@ TEST( EntitySlots, MarkingAClosedSlotDoesNothing )
 // the only honest answer; the alternative is a write far past the end of a
 // static array.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, AnEntryOutsideTheBlockIsRefusedRatherThanWrapped )
+TEST(EntitySlots, AnEntryOutsideTheBlockIsRefusedRatherThanWrapped)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nSerial = 12345;
 
-	EXPECT_FALSE( slots.Open( SOURCESHARP_MAX_ENTITY_SLOTS, HandleFor( 0 ), &nSerial ) );
-	EXPECT_EQ( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, nSerial );
+	EXPECT_FALSE(slots.Open(SOURCESHARP_MAX_ENTITY_SLOTS, HandleFor(0), &nSerial));
+	EXPECT_EQ((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, nSerial);
 
-	EXPECT_FALSE( slots.Open( 65535, HandleFor( 0 ), &nSerial ) );
-	EXPECT_FALSE( slots.Open( -1, HandleFor( 0 ), &nSerial ) );
+	EXPECT_FALSE(slots.Open(65535, HandleFor(0), &nSerial));
+	EXPECT_FALSE(slots.Open(-1, HandleFor(0), &nSerial));
 
-	EXPECT_EQ( 0, slots.ActiveCount() );
-	EXPECT_FALSE( slots.IsOpen( SOURCESHARP_MAX_ENTITY_SLOTS ) );
+	EXPECT_EQ(0, slots.ActiveCount());
+	EXPECT_FALSE(slots.IsOpen(SOURCESHARP_MAX_ENTITY_SLOTS));
 }
 
-TEST( EntitySlots, TheLastEntryInTheBlockIsUsable )
+TEST(EntitySlots, TheLastEntryInTheBlockIsUsable)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nSerial = 0;
-	EXPECT_TRUE(
-		slots.Open( SOURCESHARP_MAX_ENTITY_SLOTS - 1, HandleFor( SOURCESHARP_MAX_ENTITY_SLOTS - 1 ), &nSerial ) );
-	EXPECT_NE( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, nSerial );
+	EXPECT_TRUE(slots.Open(SOURCESHARP_MAX_ENTITY_SLOTS - 1, HandleFor(SOURCESHARP_MAX_ENTITY_SLOTS - 1), &nSerial));
+	EXPECT_NE((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, nSerial);
 }
 
 //-----------------------------------------------------------------------------
@@ -371,17 +370,17 @@ TEST( EntitySlots, TheLastEntryInTheBlockIsUsable )
 // has to give back the one it was opened with rather than one derived from the
 // entry.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, TheHandleComesBackAsItWentIn )
+TEST(EntitySlots, TheHandleComesBackAsItWentIn)
 {
 	CSourceSharpEntitySlots slots;
 
-	const uint32_t hEntity = HandleFor( 31, 999 );
-	slots.Open( 31, hEntity, NULL );
+	const uint32_t hEntity = HandleFor(31, 999);
+	slots.Open(31, hEntity, NULL);
 
-	EXPECT_EQ( hEntity, slots.HandleAt( 31 ) );
+	EXPECT_EQ(hEntity, slots.HandleAt(31));
 
-	slots.Close( 31 );
-	EXPECT_EQ( 0u, slots.HandleAt( 31 ) );
+	slots.Close(31);
+	EXPECT_EQ(0u, slots.HandleAt(31));
 }
 
 //-----------------------------------------------------------------------------
@@ -389,20 +388,20 @@ TEST( EntitySlots, TheHandleComesBackAsItWentIn )
 // whatever takes its entry next, and the state holding it would carry on
 // writing.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ResetClosesEverything )
+TEST(EntitySlots, ResetClosesEverything)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nBefore = 0;
-	slots.Open( 1, HandleFor( 1 ), &nBefore );
-	slots.Open( 2, HandleFor( 2 ), NULL );
-	slots.MarkDirty( 1 );
+	slots.Open(1, HandleFor(1), &nBefore);
+	slots.Open(2, HandleFor(2), NULL);
+	slots.MarkDirty(1);
 
 	slots.Reset();
 
-	EXPECT_EQ( 0, slots.ActiveCount() );
-	EXPECT_FALSE( slots.IsDirty( 1 ) );
-	EXPECT_EQ( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt( 1 ) );
+	EXPECT_EQ(0, slots.ActiveCount());
+	EXPECT_FALSE(slots.IsDirty(1));
+	EXPECT_EQ((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt(1));
 }
 
 //-----------------------------------------------------------------------------
@@ -414,22 +413,22 @@ TEST( EntitySlots, ResetClosesEverything )
 // is, it leaves zero bytes, and a slot opened and closed again reads as never
 // opened.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, ConstructionLeavesEveryByteZero )
+TEST(EntitySlots, ConstructionLeavesEveryByteZero)
 {
-	std::vector<unsigned char> storage( sizeof( CSourceSharpEntitySlots ), 0 );
-	CSourceSharpEntitySlots *pSlots = new ( storage.data() ) CSourceSharpEntitySlots;
+	std::vector<unsigned char> storage(sizeof(CSourceSharpEntitySlots), 0);
+	CSourceSharpEntitySlots* pSlots = new (storage.data()) CSourceSharpEntitySlots;
 	size_t nNonZero = 0;
-	for ( unsigned char b : storage )
+	for (unsigned char b : storage)
 		nNonZero += b != 0;
-	EXPECT_EQ( 0u, nNonZero ) << "of " << storage.size() << " bytes";
+	EXPECT_EQ(0u, nNonZero) << "of " << storage.size() << " bytes";
 
-	EXPECT_FALSE( pSlots->IsOpen( 0 ) );
-	EXPECT_FALSE( pSlots->IsOpen( SOURCESHARP_MAX_ENTITY_SLOTS - 1 ) );
-	ASSERT_TRUE( pSlots->Open( 0, HandleFor( 0 ), NULL ) );
-	EXPECT_TRUE( pSlots->IsOpen( 0 ) );
-	pSlots->Close( 0 );
-	EXPECT_FALSE( pSlots->IsOpen( 0 ) );
-	EXPECT_EQ( 0, pSlots->ActiveCount() );
+	EXPECT_FALSE(pSlots->IsOpen(0));
+	EXPECT_FALSE(pSlots->IsOpen(SOURCESHARP_MAX_ENTITY_SLOTS - 1));
+	ASSERT_TRUE(pSlots->Open(0, HandleFor(0), NULL));
+	EXPECT_TRUE(pSlots->IsOpen(0));
+	pSlots->Close(0);
+	EXPECT_FALSE(pSlots->IsOpen(0));
+	EXPECT_EQ(0, pSlots->ActiveCount());
 	pSlots->~CSourceSharpEntitySlots();
 }
 
@@ -438,11 +437,11 @@ TEST( EntitySlots, ConstructionLeavesEveryByteZero )
 // stride. A field added on one side and not the other reads the next entity's
 // serial, which is a compare that passes when it should fail.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, TheSlotIsTwoWordsAndNothingElse )
+TEST(EntitySlots, TheSlotIsTwoWordsAndNothingElse)
 {
-	EXPECT_EQ( 8u, (unsigned)sizeof( SourceSharpEntitySlot_t ) );
-	EXPECT_EQ( 0u, (unsigned)offsetof( SourceSharpEntitySlot_t, nSerial ) );
-	EXPECT_EQ( 4u, (unsigned)offsetof( SourceSharpEntitySlot_t, nDirty ) );
+	EXPECT_EQ(8u, (unsigned)sizeof(SourceSharpEntitySlot_t));
+	EXPECT_EQ(0u, (unsigned)offsetof(SourceSharpEntitySlot_t, nSerial));
+	EXPECT_EQ(4u, (unsigned)offsetof(SourceSharpEntitySlot_t, nDirty));
 }
 
 //-----------------------------------------------------------------------------
@@ -459,54 +458,54 @@ TEST( EntitySlots, TheSlotIsTwoWordsAndNothingElse )
 // A pointer held from before the reload compares unequal; a Bind made after it
 // takes Open's "already open for this entity" path and is handed the new one.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, RetireVoidsEverySerialWithoutClosingASlot )
+TEST(EntitySlots, RetireVoidsEverySerialWithoutClosingASlot)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nA = 0, nB = 0;
-	slots.Open( 10, HandleFor( 10 ), &nA );
-	slots.Open( 20, HandleFor( 20 ), &nB );
+	slots.Open(10, HandleFor(10), &nA);
+	slots.Open(20, HandleFor(20), &nB);
 
-	EXPECT_EQ( 2, slots.Retire() );
+	EXPECT_EQ(2, slots.Retire());
 
 	// Still open, still the same entities.
-	EXPECT_TRUE( slots.IsOpen( 10 ) );
-	EXPECT_TRUE( slots.IsOpen( 20 ) );
-	EXPECT_EQ( HandleFor( 10 ), slots.HandleAt( 10 ) );
+	EXPECT_TRUE(slots.IsOpen(10));
+	EXPECT_TRUE(slots.IsOpen(20));
+	EXPECT_EQ(HandleFor(10), slots.HandleAt(10));
 
 	// And the serials a state was holding are no longer the serials the block
 	// answers with, which is the compare in NetState.Blob going red.
-	EXPECT_NE( nA, slots.SerialAt( 10 ) );
-	EXPECT_NE( nB, slots.SerialAt( 20 ) );
+	EXPECT_NE(nA, slots.SerialAt(10));
+	EXPECT_NE(nB, slots.SerialAt(20));
 
 	// Never the closed sentinel: "retired" and "gone" are different facts and
 	// the exception message says which.
-	EXPECT_NE( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt( 10 ) );
-	EXPECT_NE( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt( 20 ) );
+	EXPECT_NE((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt(10));
+	EXPECT_NE((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt(20));
 
 	// The rebind the new assembly makes gets the current number, so it works
 	// where the old one now throws.
 	uint32_t nRebound = 0;
-	EXPECT_TRUE( slots.Open( 10, HandleFor( 10 ), &nRebound ) );
-	EXPECT_EQ( slots.SerialAt( 10 ), nRebound );
+	EXPECT_TRUE(slots.Open(10, HandleFor(10), &nRebound));
+	EXPECT_EQ(slots.SerialAt(10), nRebound);
 }
 
 //-----------------------------------------------------------------------------
 // A CLOSED SLOT IS NOT RE-OPENED BY A RETIRE, and an entity that died during
 // the frame the reload happened in must stay dead.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, RetireLeavesAClosedSlotClosed )
+TEST(EntitySlots, RetireLeavesAClosedSlotClosed)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Open( 10, HandleFor( 10 ), NULL );
-	slots.Open( 20, HandleFor( 20 ), NULL );
-	slots.Close( 20 );
+	slots.Open(10, HandleFor(10), NULL);
+	slots.Open(20, HandleFor(20), NULL);
+	slots.Close(20);
 
-	EXPECT_EQ( 1, slots.Retire() );
+	EXPECT_EQ(1, slots.Retire());
 
-	EXPECT_FALSE( slots.IsOpen( 20 ) );
-	EXPECT_EQ( (uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt( 20 ) );
+	EXPECT_FALSE(slots.IsOpen(20));
+	EXPECT_EQ((uint32_t)SOURCESHARP_SLOT_SERIAL_NONE, slots.SerialAt(20));
 }
 
 //-----------------------------------------------------------------------------
@@ -518,17 +517,17 @@ TEST( EntitySlots, RetireLeavesAClosedSlotClosed )
 // assembly made — a value correct in the blob, never announced, and nothing
 // anywhere saying so. The write was real whoever made it.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, RetireDoesNotDiscardAPendingDirtyWord )
+TEST(EntitySlots, RetireDoesNotDiscardAPendingDirtyWord)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Open( 10, HandleFor( 10 ), NULL );
-	slots.MarkDirty( 10 );
+	slots.Open(10, HandleFor(10), NULL);
+	slots.MarkDirty(10);
 
 	slots.Retire();
 
-	EXPECT_TRUE( slots.IsDirty( 10 ) );
-	EXPECT_TRUE( slots.TakeDirty( 10 ) );
+	EXPECT_TRUE(slots.IsDirty(10));
+	EXPECT_TRUE(slots.TakeDirty(10));
 }
 
 //-----------------------------------------------------------------------------
@@ -536,29 +535,29 @@ TEST( EntitySlots, RetireDoesNotDiscardAPendingDirtyWord )
 // reloads are two invalidations, and a state bound between them holds the
 // number from the first.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, EveryRetireIsItsOwnInvalidation )
+TEST(EntitySlots, EveryRetireIsItsOwnInvalidation)
 {
 	CSourceSharpEntitySlots slots;
 
-	slots.Open( 10, HandleFor( 10 ), NULL );
+	slots.Open(10, HandleFor(10), NULL);
 
 	slots.Retire();
-	const uint32_t nAfterFirst = slots.SerialAt( 10 );
+	const uint32_t nAfterFirst = slots.SerialAt(10);
 
 	slots.Retire();
 
-	EXPECT_NE( nAfterFirst, slots.SerialAt( 10 ) );
+	EXPECT_NE(nAfterFirst, slots.SerialAt(10));
 }
 
 //-----------------------------------------------------------------------------
 // Nothing open, nothing to retire — and the cost is the number of entities
 // carrying state, not the size of the block.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, RetiringAnEmptyBlockIsANoOp )
+TEST(EntitySlots, RetiringAnEmptyBlockIsANoOp)
 {
 	CSourceSharpEntitySlots slots;
 
-	EXPECT_EQ( 0, slots.Retire() );
+	EXPECT_EQ(0, slots.Retire());
 }
 
 //-----------------------------------------------------------------------------
@@ -568,24 +567,24 @@ TEST( EntitySlots, RetiringAnEmptyBlockIsANoOp )
 // rather than one that corrupts, which is the better of the two failures and
 // still worth not having.
 //-----------------------------------------------------------------------------
-TEST( EntitySlots, TheSlotPointerAddressesTheEntryItNames )
+TEST(EntitySlots, TheSlotPointerAddressesTheEntryItNames)
 {
 	CSourceSharpEntitySlots slots;
 
 	uint32_t nSerial = 0;
-	slots.Open( 40, HandleFor( 40 ), &nSerial );
+	slots.Open(40, HandleFor(40), &nSerial);
 
-	SourceSharpEntitySlot_t *pSlot = slots.Slots() + 40;
+	SourceSharpEntitySlot_t* pSlot = slots.Slots() + 40;
 
-	EXPECT_EQ( nSerial, pSlot->nSerial );
-	EXPECT_EQ( 0u, pSlot->nDirty );
+	EXPECT_EQ(nSerial, pSlot->nSerial);
+	EXPECT_EQ(0u, pSlot->nDirty);
 
 	// And a store through it is what the block reads back, which is the C# half
 	// of the contract: C# writes nDirty and nothing else.
 	pSlot->nDirty = 1;
-	EXPECT_TRUE( slots.IsDirty( 40 ) );
-	EXPECT_TRUE( slots.TakeDirty( 40 ) );
-	EXPECT_EQ( 0u, pSlot->nDirty );
+	EXPECT_TRUE(slots.IsDirty(40));
+	EXPECT_TRUE(slots.TakeDirty(40));
+	EXPECT_EQ(0u, pSlot->nDirty);
 }
 
 } // namespace

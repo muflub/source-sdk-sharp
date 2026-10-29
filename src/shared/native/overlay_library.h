@@ -35,38 +35,38 @@ public:
 	static constexpr int kPoolLines = 20;
 
 	// pOverlay may be NULL (a dedicated server): draws are then counted, not made.
-	explicit COverlayLibrary( IVDebugOverlay *pOverlay );
+	explicit COverlayLibrary(IVDebugOverlay* pOverlay);
 
-	COverlayLibrary( const COverlayLibrary & ) = delete;
-	COverlayLibrary &operator=( const COverlayLibrary & ) = delete;
+	COverlayLibrary(const COverlayLibrary&) = delete;
+	COverlayLibrary& operator=(const COverlayLibrary&) = delete;
 
-	const OverlayCounts_t &Counts() const { return m_Counts; }
+	const OverlayCounts_t& Counts() const { return m_Counts; }
 
 	void ResetCounts();
 
 	// Set once per frame from the local player's eye; cleared when there is none.
-	void SetViewer( const Vector &vecEyeOrigin, const Vector &vecEyeForward );
+	void SetViewer(const Vector& vecEyeOrigin, const Vector& vecEyeForward);
 
 	void ClearViewer() { m_Viewer.bSet = false; }
 
 	bool ViewerIsSet() const { return m_Viewer.bSet; }
 
 	// Stock's clip: keeps a line when either end is in range and either end is in front of the eye.
-	bool SegmentIsVisible( const Vector &vecStart, const Vector &vecEnd ) const;
+	bool SegmentIsVisible(const Vector& vecStart, const Vector& vecEnd) const;
 
 	// Unclipped: straight to IVDebugOverlay, as in stock.
-	void BoxAngles( const Vector &origin, const Vector &mins, const Vector &maxs, const QAngle &angles, int r, int g,
-					int b, int a, float flDuration );
-	void Box( const Vector &origin, const Vector &mins, const Vector &maxs, int r, int g, int b, int a,
-			  float flDuration );
-	void TextAtPosition( const Vector &origin, int nLineOffset, const char *pText, float flDuration, int r, int g,
-						 int b, int a );
+	void BoxAngles(const Vector& origin, const Vector& mins, const Vector& maxs, const QAngle& angles, int r, int g,
+				   int b, int a, float flDuration);
+	void Box(const Vector& origin, const Vector& mins, const Vector& maxs, int r, int g, int b, int a,
+			 float flDuration);
+	void TextAtPosition(const Vector& origin, int nLineOffset, const char* pText, float flDuration, int r, int g, int b,
+						int a);
 	void ClearAll();
 
 	// Clipped against the viewer; counts the branch it took.
-	void Line( const Vector &origin, const Vector &target, int r, int g, int b, bool bNoDepthTest, float flDuration );
+	void Line(const Vector& origin, const Vector& target, int r, int g, int b, bool bNoDepthTest, float flDuration);
 
-	void AddLine( const Vector &vecStart, const Vector &vecEnd, bool bNoDepthTest, int r, int g, int b );
+	void AddLine(const Vector& vecStart, const Vector& vecEnd, bool bNoDepthTest, int r, int g, int b);
 	void DrawPooledLines();
 
 private:
@@ -92,7 +92,7 @@ private:
 	// Counts a call made with no overlay interface.
 	bool HaveOverlay();
 
-	IVDebugOverlay *m_pOverlay;
+	IVDebugOverlay* m_pOverlay;
 	Viewer_t m_Viewer;
 	OverlayCounts_t m_Counts;
 	PoolLine_t m_Pool[kPoolLines];

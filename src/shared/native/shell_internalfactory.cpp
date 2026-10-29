@@ -28,7 +28,7 @@
 #include "client_factorylist.h"
 #include "particles_lib_client.h"
 #include "fwd_shadows.h"
-void *ShadowEnv_Acquire();
+void* ShadowEnv_Acquire();
 #include "ss_particles/iparticlelib.h"
 #endif
 
@@ -43,31 +43,31 @@ void *ShadowEnv_Acquire();
 
 #ifdef CLIENT_DLL
 // Defined beside the root.
-CShimAreasClient &ShimClientAreasOfRoot();
+CShimAreasClient& ShimClientAreasOfRoot();
 #endif
 
 #ifdef CLIENT_DLL
-void *SourceSharp_InternalFactory( const char *pszName )
+void* SourceSharp_InternalFactory(const char* pszName)
 {
-	if ( !pszName )
+	if (!pszName)
 		return NULL;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_CONSOLE_VERSION))
 		return ShimConsole_Acquire();
 
 	// The forwarder libraries' tables, by the name managed asks for (SSFwd_<table>).
-	if ( void *pTable = SSFwd_Serve( pszName ) )
+	if (void* pTable = SSFwd_Serve(pszName))
 		return pTable;
 
 	// libss_particles.so's ISSParticleLib.
-	if ( !ss::StrICmp( pszName, SS_PARTICLE_LIB_INTERFACE_VERSION ) )
+	if (!ss::StrICmp(pszName, SS_PARTICLE_LIB_INTERFACE_VERSION))
 		return ParticleLib_Acquire();
 
 	// The environment the shadow forwarder table calls out over.
-	if ( !ss::StrICmp( pszName, SS_SHADOW_ENV_VERSION ) )
+	if (!ss::StrICmp(pszName, SS_SHADOW_ENV_VERSION))
 		return ShadowEnv_Acquire();
 
-	if ( void *pArea = ShimAreasClient_Acquire( ShimClientAreasOfRoot(), pszName ) )
+	if (void* pArea = ShimAreasClient_Acquire(ShimClientAreasOfRoot(), pszName))
 		return pArea;
 
 	// A name this side does not serve, reported as an engine factory's NULL is.
@@ -78,53 +78,53 @@ void *SourceSharp_InternalFactory( const char *pszName )
 #ifndef CLIENT_DLL
 // The server's row set: its root's own members. The root is a member of the game
 // DLL object.
-void *CShimRootServer::Acquire( const char *pszName )
+void* CShimRootServer::Acquire(const char* pszName)
 {
-	if ( !pszName )
+	if (!pszName)
 		return NULL;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_CONSOLE_VERSION ) )
-		return static_cast<IShimConsole *>( &m_Console );
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_CONSOLE_VERSION))
+		return static_cast<IShimConsole*>(&m_Console);
 
 	// The forwarder libraries' tables, by the name managed asks for (SSFwd_<table>).
-	if ( void *pTable = SSFwd_Serve( pszName ) )
+	if (void* pTable = SSFwd_Serve(pszName))
 		return pTable;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_FRAME_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_FRAME_VERSION))
 		return m_pFrame;
 
-	if ( !ss::StrICmp( pszName, SOURCESHARP_SHIM_LEVEL_VERSION ) )
+	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_LEVEL_VERSION))
 		return m_pLevel;
 
 	// The generated areas.
-	if ( void *pArea = ShimAreas_Acquire( m_Areas, pszName ) )
+	if (void* pArea = ShimAreas_Acquire(m_Areas, pszName))
 		return pArea;
 
 	// A name this side does not serve, reported as an engine factory's NULL is.
 	return NULL;
 }
 
-void *CShimRootServer::AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes )
+void* CShimRootServer::AcquireInterface(int32_t nType, const char* pszVersion, char* pError, int32_t nErrorBytes)
 {
 	// This side's own interfaces come from the root; engine factory kinds go to
 	// the acquisition entry point.
-	if ( nType == SOURCESHARP_FACTORY_INTERNAL )
+	if (nType == SOURCESHARP_FACTORY_INTERNAL)
 	{
-		void *pShim = Acquire( pszVersion );
-		if ( !pShim )
-			SourceSharp_SayAcquireReason( pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE );
+		void* pShim = Acquire(pszVersion);
+		if (!pShim)
+			SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 		return pShim;
 	}
 
 	SourceSharpFactories_t factories = {};
-	if ( m_pFactories )
+	if (m_pFactories)
 	{
 		factories.pAppSystem = m_pFactories->engineFactory;
 		factories.pPhysics = m_pFactories->physicsFactory;
 		factories.pFileSystem = m_pFactories->fileSystemFactory;
 	}
 
-	return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes, &factories );
+	return SourceSharp_AcquireInterface((SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes, &factories);
 }
 #endif
 
@@ -136,19 +136,18 @@ namespace
 class CShimRoot : public IShimRoot
 {
 public:
-	void *Acquire( const char *pszName ) override { return SourceSharp_InternalFactory( pszName ); }
+	void* Acquire(const char* pszName) override { return SourceSharp_InternalFactory(pszName); }
 
-	void *AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes ) override
+	void* AcquireInterface(int32_t nType, const char* pszVersion, char* pError, int32_t nErrorBytes) override
 	{
 		factorylist_t stored;
-		memset( &stored, 0, sizeof( stored ) );
-		FactoryList_Retrieve( stored );
+		memset(&stored, 0, sizeof(stored));
+		FactoryList_Retrieve(stored);
 
 		// The client has no filesystem factory; its appSystemFactory serves the filesystem.
-		const SourceSharpFactories_t factories = { stored.appSystemFactory, stored.physicsFactory,
-												   stored.appSystemFactory };
-		return SourceSharp_AcquireInterface( (SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes,
-											 &factories );
+		const SourceSharpFactories_t factories = {stored.appSystemFactory, stored.physicsFactory,
+												  stored.appSystemFactory};
+		return SourceSharp_AcquireInterface((SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes, &factories);
 	}
 
 	void Release() override {}
@@ -163,146 +162,144 @@ static CShimRoot g_ShimRoot;
 #endif
 
 #ifdef CLIENT_DLL
-IShimRoot *ShimRoot_Get( const void **ppTable )
+IShimRoot* ShimRoot_Get(const void** ppTable)
 {
-	if ( ppTable )
-		*ppTable = SSFwd_Serve( "SSFwd_ShimRoot" );
+	if (ppTable)
+		*ppTable = SSFwd_Serve("SSFwd_ShimRoot");
 
 	return &g_ShimRoot;
 }
 #endif
 
 #ifdef CLIENT_DLL
-CShimConsole &ShimConsole()
+CShimConsole& ShimConsole()
 {
 	return g_ShimRoot.m_Console;
 }
 #endif
 
 #ifdef CLIENT_DLL
-CShimAreasClient &ShimClientAreasOfRoot()
+CShimAreasClient& ShimClientAreasOfRoot()
 {
 	return g_ShimRoot.m_ClientAreas;
 }
 #endif
 
 #ifndef CLIENT_DLL
-bool CManagedSide::AcceptRoot( void *pObject, char *pWhy, size_t nWhy )
+bool CManagedSide::AcceptRoot(void* pObject, char* pWhy, size_t nWhy)
 {
-	CManagedHolders &managed = m_Holders;
-	managed.m_pRoot =
-		ManagedAccept<IManagedRoot>( pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy );
+	CManagedHolders& managed = m_Holders;
+	managed.m_pRoot = ManagedAccept<IManagedRoot>(pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy);
 	return managed.m_pRoot != NULL;
 }
 
-bool CManagedSide::AcquireAreas( char *pWhy, size_t nWhy )
+bool CManagedSide::AcquireAreas(char* pWhy, size_t nWhy)
 {
-	CManagedHolders &managed = m_Holders;
-	IManagedRoot *pRoot = managed.m_pRoot;
-	if ( !pRoot )
+	CManagedHolders& managed = m_Holders;
+	IManagedRoot* pRoot = managed.m_pRoot;
+	if (!pRoot)
 	{
-		snprintf( pWhy, nWhy, "no managed root was accepted" );
+		snprintf(pWhy, nWhy, "no managed root was accepted");
 		return false;
 	}
 
-	void *pRuntime = pRoot->Acquire( "IManagedRuntimeServer" );
-	managed.m_pRuntimeServer = ManagedAccept<IManagedRuntimeServer>( pRuntime, kIManagedRuntimeServerSlotHashes,
-																	 kIManagedRuntimeServerSlotCount, pWhy, nWhy );
-	if ( !managed.m_pRuntimeServer )
+	void* pRuntime = pRoot->Acquire("IManagedRuntimeServer");
+	managed.m_pRuntimeServer = ManagedAccept<IManagedRuntimeServer>(pRuntime, kIManagedRuntimeServerSlotHashes,
+																	kIManagedRuntimeServerSlotCount, pWhy, nWhy);
+	if (!managed.m_pRuntimeServer)
 		return false;
 
-	return ManagedAreas_Acquire( managed.m_Areas, pRoot, pWhy, nWhy );
+	return ManagedAreas_Acquire(managed.m_Areas, pRoot, pWhy, nWhy);
 }
 
-bool CManagedSide::Reattached( void *pObject, char *pWhy, size_t nWhy )
+bool CManagedSide::Reattached(void* pObject, char* pWhy, size_t nWhy)
 {
 	// Across a reload native keeps every object; the root must be the one native
 	// holds, and everything must validate through the patched thunks.
-	CManagedHolders &managed = m_Holders;
-	if ( pObject != managed.m_pRoot )
+	CManagedHolders& managed = m_Holders;
+	if (pObject != managed.m_pRoot)
 	{
-		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
-				  (void *)managed.m_pRoot );
+		snprintf(pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
+				 (void*)managed.m_pRoot);
 		return false;
 	}
 
-	return ManagedAcceptObject( managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy ) &&
-		ManagedAcceptObject( managed.m_pRuntimeServer, kIManagedRuntimeServerSlotHashes,
-							 kIManagedRuntimeServerSlotCount, pWhy, nWhy ) &&
-		ManagedAreas_Validate( managed.m_Areas, pWhy, nWhy );
+	return ManagedAcceptObject(managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy) &&
+		ManagedAcceptObject(managed.m_pRuntimeServer, kIManagedRuntimeServerSlotHashes, kIManagedRuntimeServerSlotCount,
+							pWhy, nWhy) &&
+		ManagedAreas_Validate(managed.m_Areas, pWhy, nWhy);
 }
 
 void CManagedSide::ReleaseRoot()
 {
 	// The areas first, each nulled before its release, then the root they came from.
-	CManagedHolders &managed = m_Holders;
-	ManagedAreas_Release( managed.m_Areas );
-	ManagedRelease( managed.m_pRuntimeServer );
-	ManagedRelease( managed.m_pRoot );
+	CManagedHolders& managed = m_Holders;
+	ManagedAreas_Release(managed.m_Areas);
+	ManagedRelease(managed.m_pRuntimeServer);
+	ManagedRelease(managed.m_pRoot);
 }
 #else
 // The client's holders, handled as the server's are above.
-bool CManagedSide::AcceptRoot( void *pObject, char *pWhy, size_t nWhy )
+bool CManagedSide::AcceptRoot(void* pObject, char* pWhy, size_t nWhy)
 {
-	CManagedHoldersClient &managed = m_Holders;
-	managed.m_pRoot =
-		ManagedAccept<IManagedRoot>( pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy );
+	CManagedHoldersClient& managed = m_Holders;
+	managed.m_pRoot = ManagedAccept<IManagedRoot>(pObject, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy);
 	return managed.m_pRoot != NULL;
 }
 
-bool CManagedSide::AcquireAreas( char *pWhy, size_t nWhy )
+bool CManagedSide::AcquireAreas(char* pWhy, size_t nWhy)
 {
-	CManagedHoldersClient &managed = m_Holders;
-	IManagedRoot *pRoot = managed.m_pRoot;
-	if ( !pRoot )
+	CManagedHoldersClient& managed = m_Holders;
+	IManagedRoot* pRoot = managed.m_pRoot;
+	if (!pRoot)
 	{
-		snprintf( pWhy, nWhy, "no managed root was accepted" );
+		snprintf(pWhy, nWhy, "no managed root was accepted");
 		return false;
 	}
 
-	void *pRuntime = pRoot->Acquire( "IManagedRuntimeClient" );
-	managed.m_pRuntimeClient = ManagedAccept<IManagedRuntimeClient>( pRuntime, kIManagedRuntimeClientSlotHashes,
-																	 kIManagedRuntimeClientSlotCount, pWhy, nWhy );
-	if ( !managed.m_pRuntimeClient )
+	void* pRuntime = pRoot->Acquire("IManagedRuntimeClient");
+	managed.m_pRuntimeClient = ManagedAccept<IManagedRuntimeClient>(pRuntime, kIManagedRuntimeClientSlotHashes,
+																	kIManagedRuntimeClientSlotCount, pWhy, nWhy);
+	if (!managed.m_pRuntimeClient)
 		return false;
 
-	return ManagedAreasClient_Acquire( managed.m_Areas, pRoot, pWhy, nWhy );
+	return ManagedAreasClient_Acquire(managed.m_Areas, pRoot, pWhy, nWhy);
 }
 
-bool CManagedSide::Reattached( void *pObject, char *pWhy, size_t nWhy )
+bool CManagedSide::Reattached(void* pObject, char* pWhy, size_t nWhy)
 {
-	CManagedHoldersClient &managed = m_Holders;
-	if ( pObject != managed.m_pRoot )
+	CManagedHoldersClient& managed = m_Holders;
+	if (pObject != managed.m_pRoot)
 	{
-		snprintf( pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
-				  (void *)managed.m_pRoot );
+		snprintf(pWhy, nWhy, "the reload handed back a different root (%p; native holds %p)", pObject,
+				 (void*)managed.m_pRoot);
 		return false;
 	}
 
-	return ManagedAcceptObject( managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy ) &&
-		ManagedAcceptObject( managed.m_pRuntimeClient, kIManagedRuntimeClientSlotHashes,
-							 kIManagedRuntimeClientSlotCount, pWhy, nWhy ) &&
-		ManagedAreasClient_Validate( managed.m_Areas, pWhy, nWhy );
+	return ManagedAcceptObject(managed.m_pRoot, kIManagedRootSlotHashes, kIManagedRootSlotCount, pWhy, nWhy) &&
+		ManagedAcceptObject(managed.m_pRuntimeClient, kIManagedRuntimeClientSlotHashes, kIManagedRuntimeClientSlotCount,
+							pWhy, nWhy) &&
+		ManagedAreasClient_Validate(managed.m_Areas, pWhy, nWhy);
 }
 
-IManagedRuntimeClient *ManagedRuntimeClient()
+IManagedRuntimeClient* ManagedRuntimeClient()
 {
 	return ShellClientDll_Managed().m_pRuntimeClient;
 }
 
 void CManagedSide::ReleaseRoot()
 {
-	CManagedHoldersClient &managed = m_Holders;
-	ManagedAreasClient_Release( managed.m_Areas );
-	ManagedRelease( managed.m_pRuntimeClient );
-	ManagedRelease( managed.m_pRoot );
+	CManagedHoldersClient& managed = m_Holders;
+	ManagedAreasClient_Release(managed.m_Areas);
+	ManagedRelease(managed.m_pRuntimeClient);
+	ManagedRelease(managed.m_pRoot);
 }
 #endif
 
 #ifdef CLIENT_DLL
-void *ShimConsole_Acquire()
+void* ShimConsole_Acquire()
 {
-	return static_cast<IShimConsole *>( &g_ShimRoot.m_Console );
+	return static_cast<IShimConsole*>(&g_ShimRoot.m_Console);
 }
 #endif
 

@@ -156,7 +156,7 @@ public class EngineHierarchyWorldTests
         // the members of the table managed writes (plan_forwarders_everywhere.md
         // phase 4).
         header = File.ReadAllText(RepoLayout.Repo("src", "shared", "native", "imanaged_areas.h"));
-        var slots = Regex.Matches(header, @"\( \*(Hierarchy\w+) \)\( IManagedHierarchy \*self")
+        var slots = Regex.Matches(header, @"\(\*(Hierarchy\w+)\)\(IManagedHierarchy\* self")
                          .Select(m => m.Groups[1].Value)
                          .ToHashSet(StringComparer.Ordinal);
 

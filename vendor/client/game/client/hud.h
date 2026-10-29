@@ -70,21 +70,21 @@ public:
 
 	void ResetHUD();
 
-	void ProcessInput( bool bActive );
-	void UpdateHud( bool bActive );
+	void ProcessInput(bool bActive);
+	void UpdateHud(bool bActive);
 
 	// Hud element registration
-	void AddHudElement( CHudElement *pHudElement );
-	void RemoveHudElement( CHudElement *pHudElement );
+	void AddHudElement(CHudElement* pHudElement);
+	void RemoveHudElement(CHudElement* pHudElement);
 	// Search list for "name" and return the hud element if it exists
-	CHudElement *FindElement( const char *pName );
+	CHudElement* FindElement(const char* pName);
 
-	bool IsHidden( int iHudFlags );
+	bool IsHidden(int iHudFlags);
 
 	float GetSensitivity();
 	float GetFOVSensitivityAdjust();
 
-	void SetScreenShotTime( float flTime ) { m_flScreenShotTime = flTime; }
+	void SetScreenShotTime(float flTime) { m_flScreenShotTime = flTime; }
 
 public:
 	int m_iKeyBits;
@@ -96,20 +96,20 @@ public:
 	Color m_clrCaution;
 	Color m_clrYellowish;
 
-	CUtlVector<CHudElement *> m_HudList;
+	CUtlVector<CHudElement*> m_HudList;
 
 private:
 	bool m_bHudTexturesLoaded;
 
 	// Global list of known icons
-	CUtlDict<CHudTexture *, int> m_Icons;
+	CUtlDict<CHudTexture*, int> m_Icons;
 
-	CUtlVector<const char *> m_RenderGroupNames;
-	CUtlMap<int, CHudRenderGroup *> m_RenderGroups;
+	CUtlVector<const char*> m_RenderGroupNames;
+	CUtlMap<int, CHudRenderGroup*> m_RenderGroups;
 
 	float m_flScreenShotTime; // used to take end-game screenshots
 };
 
 extern CHud gHUD;
 
-void GetHudSize( int &w, int &h );
+void GetHudSize(int& w, int& h);

@@ -23,32 +23,32 @@
 
 struct CManagedAreas
 {
-	IManagedPhysicsFrame *m_pPhysicsFrame;
-	IManagedResources *m_pResources;
-	IManagedSaveRestore *m_pSaveRestore;
-	IManagedSoundEnt *m_pSoundEnt;
-	IManagedHierarchy *m_pHierarchy;
-	IManagedEntities *m_pEntities;
-	IManagedClients *m_pClients;
-	IManagedEvents *m_pEvents;
-	IManagedUserMessages *m_pUserMessages;
-	IManagedDiagnostics *m_pDiagnostics;
-	IManagedCommands *m_pCommands;
-	IManagedNetState *m_pNetState;
-	IManagedPlayerCommands *m_pPlayerCommands;
-	IManagedConsoleOutput *m_pConsoleOutput;
-	IManagedBones *m_pBones;
+	IManagedPhysicsFrame* m_pPhysicsFrame;
+	IManagedResources* m_pResources;
+	IManagedSaveRestore* m_pSaveRestore;
+	IManagedSoundEnt* m_pSoundEnt;
+	IManagedHierarchy* m_pHierarchy;
+	IManagedEntities* m_pEntities;
+	IManagedClients* m_pClients;
+	IManagedEvents* m_pEvents;
+	IManagedUserMessages* m_pUserMessages;
+	IManagedDiagnostics* m_pDiagnostics;
+	IManagedCommands* m_pCommands;
+	IManagedNetState* m_pNetState;
+	IManagedPlayerCommands* m_pPlayerCommands;
+	IManagedConsoleOutput* m_pConsoleOutput;
+	IManagedBones* m_pBones;
 };
 
 struct CManagedHolders
 {
-	IManagedRoot *m_pRoot;
-	IManagedRuntimeServer *m_pRuntimeServer;
+	IManagedRoot* m_pRoot;
+	IManagedRuntimeServer* m_pRuntimeServer;
 	CManagedAreas m_Areas;
 };
 
 // True when the root, the runtime and every area have been released.
-inline bool ManagedHolders_Empty( const CManagedHolders &holders )
+inline bool ManagedHolders_Empty(const CManagedHolders& holders)
 {
 	return !holders.m_pRoot && !holders.m_pRuntimeServer && !holders.m_Areas.m_pPhysicsFrame &&
 		!holders.m_Areas.m_pResources && !holders.m_Areas.m_pSaveRestore && !holders.m_Areas.m_pSoundEnt &&
@@ -60,13 +60,13 @@ inline bool ManagedHolders_Empty( const CManagedHolders &holders )
 
 // Every area from the root, each accepted through its Validate; false with the
 // reason on the first refusal.
-bool ManagedAreas_Acquire( CManagedAreas &areas, IManagedRoot *pRoot, char *pWhy, size_t nWhy );
+bool ManagedAreas_Acquire(CManagedAreas& areas, IManagedRoot* pRoot, char* pWhy, size_t nWhy);
 
 // After a reload (plan_managed_vtable_reload.md L4): every held area answers its
 // Validate through the patched block; false with the reason on the first that does not.
-bool ManagedAreas_Validate( const CManagedAreas &areas, char *pWhy, size_t nWhy );
+bool ManagedAreas_Validate(const CManagedAreas& areas, char* pWhy, size_t nWhy);
 
 // Each area nulled, then released.
-void ManagedAreas_Release( CManagedAreas &areas );
+void ManagedAreas_Release(CManagedAreas& areas);
 
 #endif // !CLIENT_DLL

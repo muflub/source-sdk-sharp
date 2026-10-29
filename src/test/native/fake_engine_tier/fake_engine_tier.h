@@ -10,8 +10,8 @@
 
 struct FakeTierCall
 {
-	const char *pszName;
-	const void *pThis;
+	const char* pszName;
+	const void* pThis;
 	unsigned int nArg;
 };
 
@@ -19,13 +19,13 @@ extern "C"
 {
 // libtier0.so's record (the vstdlib calls go to their own library's).
 int FakeTier_CallCount();
-const FakeTierCall *FakeTier_Call( int i );
+const FakeTierCall* FakeTier_Call(int i);
 void FakeTier_Reset();
-void *FakeTier_CommandLineObject();
-void *FakeTier_HeapObject();
+void* FakeTier_CommandLineObject();
+void* FakeTier_HeapObject();
 
 // libvstdlib.so's.
 int FakeVstdlib_DestroyCount();
-void *FakeVstdlib_LastDestroyed();
-void *FakeVstdlib_PoolObject();
+void* FakeVstdlib_LastDestroyed();
+void* FakeVstdlib_PoolObject();
 }

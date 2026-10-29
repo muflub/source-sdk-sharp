@@ -19,7 +19,7 @@
 namespace
 {
 
-const SourceSharpExposed *const kExposed[] = {
+const SourceSharpExposed* const kExposed[] = {
 	&kExposeServerGameDll,
 	&kExposeServerGameEnts,
 	&kExposeServerGameClients,
@@ -29,19 +29,19 @@ const SourceSharpExposed *const kExposed[] = {
 	&kExposeServerDllSharedAppSystems,
 };
 
-constexpr int kExposedCount = (int)( sizeof( kExposed ) / sizeof( kExposed[0] ) );
+constexpr int kExposedCount = (int)(sizeof(kExposed) / sizeof(kExposed[0]));
 
 }
 
-void *CreateInterface( const char *pName, int *pReturnCode )
+void* CreateInterface(const char* pName, int* pReturnCode)
 {
-	void *pAnswer = nullptr;
-	if ( pName )
+	void* pAnswer = nullptr;
+	if (pName)
 	{
-		const std::string_view name( pName );
-		for ( const SourceSharpExposed *pRow : kExposed )
+		const std::string_view name(pName);
+		for (const SourceSharpExposed* pRow : kExposed)
 		{
-			if ( name == pRow->m_pszVersion )
+			if (name == pRow->m_pszVersion)
 			{
 				pAnswer = pRow->m_pfnGet();
 				break;
@@ -49,7 +49,7 @@ void *CreateInterface( const char *pName, int *pReturnCode )
 		}
 	}
 
-	if ( pReturnCode )
+	if (pReturnCode)
 		*pReturnCode = pAnswer ? IFACE_OK : IFACE_FAILED;
 	return pAnswer;
 }
@@ -59,7 +59,7 @@ int SourceSharp_ExposedCount()
 	return kExposedCount;
 }
 
-const SourceSharpExposed &SourceSharp_ExposedAt( int nIndex )
+const SourceSharpExposed& SourceSharp_ExposedAt(int nIndex)
 {
 	return *kExposed[nIndex];
 }

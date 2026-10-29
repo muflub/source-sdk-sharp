@@ -24,25 +24,25 @@ class IManagedSteamCallback;
 // The table managed writes for IManagedSteamCallback: Release, Validate, then the TSV's order.
 struct SSManagedSteamCallbackTable
 {
-	void ( *Release )( IManagedObject *self );
-	int32_t ( *Validate )( IManagedObject *self, const uint32_t *pSlotHashes, int32_t nSlots );
-	void ( *Run )( IManagedSteamCallback *self, void *pvParam );
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*Run)(IManagedSteamCallback* self, void* pvParam);
 };
 
 class IManagedSteamCallback : public IManagedObject
 {
 public:
-	explicit IManagedSteamCallback( const SSManagedSteamCallbackTable *pTable )
-		: IManagedObject( pTable )
+	explicit IManagedSteamCallback(const SSManagedSteamCallbackTable* pTable)
+		: IManagedObject(pTable)
 	{
 	}
 
-	void Run( void *pvParam ) { Table()->Run( this, pvParam ); }
+	void Run(void* pvParam) { Table()->Run(this, pvParam); }
 
 private:
-	const SSManagedSteamCallbackTable *Table() const
+	const SSManagedSteamCallbackTable* Table() const
 	{
-		return static_cast<const SSManagedSteamCallbackTable *>( m_pTable );
+		return static_cast<const SSManagedSteamCallbackTable*>(m_pTable);
 	}
 };
 
@@ -52,5 +52,5 @@ static const uint32_t kIManagedSteamCallbackSlotHashes[] = {
 	0xde3e0200,
 };
 static const int32_t kIManagedSteamCallbackSlotCount = 3;
-static_assert( sizeof( SSManagedSteamCallbackTable ) == 3 * sizeof( void * ),
-			   "SSManagedSteamCallbackTable is one pointer per slot" );
+static_assert(sizeof(SSManagedSteamCallbackTable) == 3 * sizeof(void*),
+			  "SSManagedSteamCallbackTable is one pointer per slot");

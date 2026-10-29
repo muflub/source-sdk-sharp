@@ -60,7 +60,7 @@ struct DirtyHeap
 {
 	static int s_nAllocs;
 	static int s_nFrees;
-	static std::vector<void *> s_Live;
+	static std::vector<void*> s_Live;
 
 	static void Reset()
 	{
@@ -69,49 +69,49 @@ struct DirtyHeap
 		s_Live.clear();
 	}
 
-	static void *Alloc( size_t n )
+	static void* Alloc(size_t n)
 	{
-		void *p = malloc( n );
-		memset( p, 0xCD, n );
+		void* p = malloc(n);
+		memset(p, 0xCD, n);
 		s_nAllocs++;
-		s_Live.push_back( p );
+		s_Live.push_back(p);
 		return p;
 	}
 
-	static void *Alloc( size_t n, const char *pFile, int nLine ) { return Alloc( n ); }
+	static void* Alloc(size_t n, const char* pFile, int nLine) { return Alloc(n); }
 
-	static void Free( void *p )
+	static void Free(void* p)
 	{
 		s_nFrees++;
-		for ( size_t i = 0; i < s_Live.size(); i++ )
+		for (size_t i = 0; i < s_Live.size(); i++)
 		{
-			if ( s_Live[i] == p )
+			if (s_Live[i] == p)
 			{
-				s_Live.erase( s_Live.begin() + i );
+				s_Live.erase(s_Live.begin() + i);
 				break;
 			}
 		}
-		free( p );
+		free(p);
 	}
 };
 
 int DirtyHeap::s_nAllocs = 0;
 int DirtyHeap::s_nFrees = 0;
-std::vector<void *> DirtyHeap::s_Live;
+std::vector<void*> DirtyHeap::s_Live;
 
-void *DirtyAlloc( size_t n )
+void* DirtyAlloc(size_t n)
 {
-	return DirtyHeap::Alloc( n );
+	return DirtyHeap::Alloc(n);
 }
 
-void *DirtyAlloc( size_t n, const char *pFile, int nLine )
+void* DirtyAlloc(size_t n, const char* pFile, int nLine)
 {
-	return DirtyHeap::Alloc( n, pFile, nLine );
+	return DirtyHeap::Alloc(n, pFile, nLine);
 }
 
-void DirtyFree( void *p )
+void DirtyFree(void* p)
 {
-	DirtyHeap::Free( p );
+	DirtyHeap::Free(p);
 }
 
 //-----------------------------------------------------------------------------
@@ -122,7 +122,7 @@ void DirtyFree( void *p )
 class CSporeTrailShaped
 {
 public:
-	SOURCESHARP_ZEROING_ALLOCATOR( DirtyAlloc, DirtyFree )
+	SOURCESHARP_ZEROING_ALLOCATOR(DirtyAlloc, DirtyFree)
 
 	CSporeTrailShaped()
 	{
@@ -141,12 +141,12 @@ public:
 	float m_flStartSize;
 	float m_flEndSize;
 	float m_flSpawnRadius;
-	void *m_pParticleMgr;
+	void* m_pParticleMgr;
 	bool m_bEmit;
 
 	// C_ParticleTrail's shape too: a pointer nothing initialises that the
 	// destructor reads.
-	void *m_pNeverAssigned;
+	void* m_pNeverAssigned;
 	char m_Padding[64];
 };
 
@@ -157,7 +157,7 @@ class CFakeTrail
 {
 public:
 	CFakeTrail()
-		: m_nGoneCalls( 0 )
+		: m_nGoneCalls(0)
 	{
 	}
 
@@ -165,10 +165,10 @@ public:
 	int m_nGoneCalls;
 };
 
-CFakeTrail *g_pLastGone = NULL;
+CFakeTrail* g_pLastGone = NULL;
 int g_nGoneTotal = 0;
 
-void OnGone( CFakeTrail *pTrail )
+void OnGone(CFakeTrail* pTrail)
 {
 	g_pLastGone = pTrail;
 	g_nGoneTotal++;
@@ -197,12 +197,12 @@ protected:
 // is filled with 0xCD, so without the memset m_bEmit is true, m_pNeverAssigned
 // is 0xCDCDCDCDCDCDCDCD, and both assertions fail.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, AFieldTheConstructorNeverTouchesArrivesZeroed )
+TEST_F(TrailLatch, AFieldTheConstructorNeverTouchesArrivesZeroed)
 {
-	CSporeTrailShaped *p = new CSporeTrailShaped;
+	CSporeTrailShaped* p = new CSporeTrailShaped;
 
-	EXPECT_FALSE( p->m_bEmit );
-	EXPECT_TRUE( p->m_pNeverAssigned == NULL );
+	EXPECT_FALSE(p->m_bEmit);
+	EXPECT_TRUE(p->m_pNeverAssigned == NULL);
 
 	delete p;
 }
@@ -212,13 +212,13 @@ TEST_F( TrailLatch, AFieldTheConstructorNeverTouchesArrivesZeroed )
 // this test: a memset that used sizeof(some member) rather than the block size
 // would pass the test above and fail this one.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, TheWholeBlockIsZeroedRatherThanTheFirstFields )
+TEST_F(TrailLatch, TheWholeBlockIsZeroedRatherThanTheFirstFields)
 {
-	CSporeTrailShaped *p = new CSporeTrailShaped;
+	CSporeTrailShaped* p = new CSporeTrailShaped;
 
-	for ( size_t i = 0; i < sizeof( p->m_Padding ); i++ )
+	for (size_t i = 0; i < sizeof(p->m_Padding); i++)
 	{
-		EXPECT_EQ( 0, p->m_Padding[i] ) << "byte " << i << " of the tail was not zeroed";
+		EXPECT_EQ(0, p->m_Padding[i]) << "byte " << i << " of the tail was not zeroed";
 	}
 
 	delete p;
@@ -229,14 +229,14 @@ TEST_F( TrailLatch, TheWholeBlockIsZeroedRatherThanTheFirstFields )
 // than before it would wipe every default the class sets, which is the other
 // way to get this wrong and is silent in exactly the same way.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, TheConstructorsOwnDefaultsSurviveTheZeroing )
+TEST_F(TrailLatch, TheConstructorsOwnDefaultsSurviveTheZeroing)
 {
-	CSporeTrailShaped *p = new CSporeTrailShaped;
+	CSporeTrailShaped* p = new CSporeTrailShaped;
 
-	EXPECT_FLOAT_EQ( 10.0f, p->m_flSpawnRate );
-	EXPECT_FLOAT_EQ( 5.0f, p->m_flParticleLifetime );
-	EXPECT_FLOAT_EQ( 35.0f, p->m_flStartSize );
-	EXPECT_FLOAT_EQ( 55.0f, p->m_flEndSize );
+	EXPECT_FLOAT_EQ(10.0f, p->m_flSpawnRate);
+	EXPECT_FLOAT_EQ(5.0f, p->m_flParticleLifetime);
+	EXPECT_FLOAT_EQ(35.0f, p->m_flStartSize);
+	EXPECT_FLOAT_EQ(55.0f, p->m_flEndSize);
 
 	delete p;
 }
@@ -246,17 +246,17 @@ TEST_F( TrailLatch, TheConstructorsOwnDefaultsSurviveTheZeroing )
 // left operator delete to the global one would leak every trail the game makes
 // and would still pass every test above.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, DeleteReturnsTheBlockToTheAllocatorItCameFrom )
+TEST_F(TrailLatch, DeleteReturnsTheBlockToTheAllocatorItCameFrom)
 {
-	CSporeTrailShaped *p = new CSporeTrailShaped;
+	CSporeTrailShaped* p = new CSporeTrailShaped;
 
-	EXPECT_EQ( 1, DirtyHeap::s_nAllocs );
-	EXPECT_EQ( 0, DirtyHeap::s_nFrees );
+	EXPECT_EQ(1, DirtyHeap::s_nAllocs);
+	EXPECT_EQ(0, DirtyHeap::s_nFrees);
 
 	delete p;
 
-	EXPECT_EQ( 1, DirtyHeap::s_nFrees );
-	EXPECT_TRUE( DirtyHeap::s_Live.empty() );
+	EXPECT_EQ(1, DirtyHeap::s_nFrees);
+	EXPECT_TRUE(DirtyHeap::s_Live.empty());
 }
 
 //-----------------------------------------------------------------------------
@@ -266,17 +266,17 @@ TEST_F( TrailLatch, DeleteReturnsTheBlockToTheAllocatorItCameFrom )
 // ::operator new for its real allocations and the zeroing never happens where
 // it counts.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, TheFileAndLineSpellingZeroesToo )
+TEST_F(TrailLatch, TheFileAndLineSpellingZeroesToo)
 {
-	CSporeTrailShaped *p = new ( 1, __FILE__, __LINE__ ) CSporeTrailShaped;
+	CSporeTrailShaped* p = new (1, __FILE__, __LINE__) CSporeTrailShaped;
 
-	EXPECT_FALSE( p->m_bEmit );
-	EXPECT_TRUE( p->m_pNeverAssigned == NULL );
-	EXPECT_EQ( 1, DirtyHeap::s_nAllocs );
+	EXPECT_FALSE(p->m_bEmit);
+	EXPECT_TRUE(p->m_pNeverAssigned == NULL);
+	EXPECT_EQ(1, DirtyHeap::s_nAllocs);
 
 	delete p;
 
-	EXPECT_EQ( 1, DirtyHeap::s_nFrees );
+	EXPECT_EQ(1, DirtyHeap::s_nFrees);
 }
 
 //=============================================================================//
@@ -286,13 +286,13 @@ TEST_F( TrailLatch, TheFileAndLineSpellingZeroesToo )
 //-----------------------------------------------------------------------------
 // One winner. This is the whole contract.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, OnlyTheFirstClaimSucceeds )
+TEST_F(TrailLatch, OnlyTheFirstClaimSucceeds)
 {
 	CFakeTrail trail;
 
-	EXPECT_TRUE( trail.m_Destroy.Claim() );
-	EXPECT_FALSE( trail.m_Destroy.Claim() );
-	EXPECT_FALSE( trail.m_Destroy.Claim() );
+	EXPECT_TRUE(trail.m_Destroy.Claim());
+	EXPECT_FALSE(trail.m_Destroy.Claim());
+	EXPECT_FALSE(trail.m_Destroy.Claim());
 }
 
 //-----------------------------------------------------------------------------
@@ -300,15 +300,15 @@ TEST_F( TrailLatch, OnlyTheFirstClaimSucceeds )
 // make Release() a no-op and leak every trail in the game — which is a change
 // no other test here would notice.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, AFreshLatchIsNotDeleting )
+TEST_F(TrailLatch, AFreshLatchIsNotDeleting)
 {
 	CFakeTrail trail;
 
-	EXPECT_FALSE( trail.m_Destroy.IsDeleting() );
+	EXPECT_FALSE(trail.m_Destroy.IsDeleting());
 
 	trail.m_Destroy.Claim();
 
-	EXPECT_TRUE( trail.m_Destroy.IsDeleting() );
+	EXPECT_TRUE(trail.m_Destroy.IsDeleting());
 }
 
 //-----------------------------------------------------------------------------
@@ -322,32 +322,32 @@ TEST_F( TrailLatch, AFreshLatchIsNotDeleting )
 //
 // Either way exactly one delete may happen.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, ReleaseThenNotifyRemoveDeletesOnce )
+TEST_F(TrailLatch, ReleaseThenNotifyRemoveDeletesOnce)
 {
 	CFakeTrail trail;
 
 	int nDeletes = 0;
 
-	if ( trail.m_Destroy.Claim() )
+	if (trail.m_Destroy.Claim())
 		nDeletes++; // Release()
-	if ( trail.m_Destroy.Claim() )
+	if (trail.m_Destroy.Claim())
 		nDeletes++; // NotifyRemove()
 
-	EXPECT_EQ( 1, nDeletes );
+	EXPECT_EQ(1, nDeletes);
 }
 
-TEST_F( TrailLatch, NotifyRemoveThenReleaseDeletesOnce )
+TEST_F(TrailLatch, NotifyRemoveThenReleaseDeletesOnce)
 {
 	CFakeTrail trail;
 
 	int nDeletes = 0;
 
-	if ( trail.m_Destroy.Claim() )
+	if (trail.m_Destroy.Claim())
 		nDeletes++; // NotifyRemove()
-	if ( trail.m_Destroy.Claim() )
+	if (trail.m_Destroy.Claim())
 		nDeletes++; // Release()
 
-	EXPECT_EQ( 1, nDeletes );
+	EXPECT_EQ(1, nDeletes);
 }
 
 //-----------------------------------------------------------------------------
@@ -356,31 +356,31 @@ TEST_F( TrailLatch, NotifyRemoveThenReleaseDeletesOnce )
 // on an object whose Release() already claimed. Claim() answering false there
 // is what stops the second delete.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, ADestructorReachedThroughAClaimFindsTheLatchAlreadySet )
+TEST_F(TrailLatch, ADestructorReachedThroughAClaimFindsTheLatchAlreadySet)
 {
 	CFakeTrail trail;
 
-	ASSERT_TRUE( trail.m_Destroy.Claim() ); // Release() won
+	ASSERT_TRUE(trail.m_Destroy.Claim()); // Release() won
 
 	// ~CTrailEffect runs, claims (losing), and the RemoveEffect it triggers
 	// comes back round as NotifyRemove.
-	EXPECT_FALSE( trail.m_Destroy.Claim() ); // the destructor's own
-	EXPECT_FALSE( trail.m_Destroy.Claim() ); // NotifyRemove, re-entered
+	EXPECT_FALSE(trail.m_Destroy.Claim()); // the destructor's own
+	EXPECT_FALSE(trail.m_Destroy.Claim()); // NotifyRemove, re-entered
 }
 
 //-----------------------------------------------------------------------------
 // The holder is told, once, with the right object.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, TheGoneCallbackFiresOnceWithTheOwner )
+TEST_F(TrailLatch, TheGoneCallbackFiresOnceWithTheOwner)
 {
 	CFakeTrail trail;
-	trail.m_Destroy.SetGoneCallback( &OnGone );
+	trail.m_Destroy.SetGoneCallback(&OnGone);
 
-	trail.m_Destroy.Announce( &trail );
+	trail.m_Destroy.Announce(&trail);
 
-	EXPECT_EQ( 1, g_nGoneTotal );
-	EXPECT_EQ( &trail, g_pLastGone );
-	EXPECT_EQ( 1, trail.m_nGoneCalls );
+	EXPECT_EQ(1, g_nGoneTotal);
+	EXPECT_EQ(&trail, g_pLastGone);
+	EXPECT_EQ(1, trail.m_nGoneCalls);
 }
 
 //-----------------------------------------------------------------------------
@@ -389,16 +389,16 @@ TEST_F( TrailLatch, TheGoneCallbackFiresOnceWithTheOwner )
 // and a second announcement after the row has been reused for a different trail
 // would remove the wrong one.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, TheGoneCallbackDoesNotFireTwice )
+TEST_F(TrailLatch, TheGoneCallbackDoesNotFireTwice)
 {
 	CFakeTrail trail;
-	trail.m_Destroy.SetGoneCallback( &OnGone );
+	trail.m_Destroy.SetGoneCallback(&OnGone);
 
-	trail.m_Destroy.Announce( &trail );
-	trail.m_Destroy.Announce( &trail );
-	trail.m_Destroy.Announce( &trail );
+	trail.m_Destroy.Announce(&trail);
+	trail.m_Destroy.Announce(&trail);
+	trail.m_Destroy.Announce(&trail);
 
-	EXPECT_EQ( 1, g_nGoneTotal );
+	EXPECT_EQ(1, g_nGoneTotal);
 }
 
 //-----------------------------------------------------------------------------
@@ -406,13 +406,13 @@ TEST_F( TrailLatch, TheGoneCallbackDoesNotFireTwice )
 // without a registry behind it today, but ~CTrailEffect announces
 // unconditionally and a null there would fault in the destructor.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, AnnouncingWithNoCallbackIsSilent )
+TEST_F(TrailLatch, AnnouncingWithNoCallbackIsSilent)
 {
 	CFakeTrail trail;
 
-	trail.m_Destroy.Announce( &trail );
+	trail.m_Destroy.Announce(&trail);
 
-	EXPECT_EQ( 0, g_nGoneTotal );
+	EXPECT_EQ(0, g_nGoneTotal);
 }
 
 //-----------------------------------------------------------------------------
@@ -421,18 +421,18 @@ TEST_F( TrailLatch, AnnouncingWithNoCallbackIsSilent )
 // lost claim the registry would keep a row pointing at freed memory — the exact
 // dangling pointer the callback was added to prevent.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, AnnounceStillFiresWhenTheDestructorsClaimLost )
+TEST_F(TrailLatch, AnnounceStillFiresWhenTheDestructorsClaimLost)
 {
 	CFakeTrail trail;
-	trail.m_Destroy.SetGoneCallback( &OnGone );
+	trail.m_Destroy.SetGoneCallback(&OnGone);
 
-	ASSERT_TRUE( trail.m_Destroy.Claim() ); // Release() won
-	ASSERT_FALSE( trail.m_Destroy.Claim() ); // ~CTrailEffect lost
+	ASSERT_TRUE(trail.m_Destroy.Claim()); // Release() won
+	ASSERT_FALSE(trail.m_Destroy.Claim()); // ~CTrailEffect lost
 
-	trail.m_Destroy.Announce( &trail ); // ...and announces anyway
+	trail.m_Destroy.Announce(&trail); // ...and announces anyway
 
-	EXPECT_EQ( 1, g_nGoneTotal );
-	EXPECT_EQ( &trail, g_pLastGone );
+	EXPECT_EQ(1, g_nGoneTotal);
+	EXPECT_EQ(&trail, g_pLastGone);
 }
 
 //-----------------------------------------------------------------------------
@@ -440,24 +440,24 @@ TEST_F( TrailLatch, AnnounceStillFiresWhenTheDestructorsClaimLost )
 // static or otherwise shared flag would let the first trail's destruction
 // silence the second's and leave a live row pointing at freed memory.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, EachTrailHasItsOwnLatch )
+TEST_F(TrailLatch, EachTrailHasItsOwnLatch)
 {
 	CFakeTrail a, b;
-	a.m_Destroy.SetGoneCallback( &OnGone );
-	b.m_Destroy.SetGoneCallback( &OnGone );
+	a.m_Destroy.SetGoneCallback(&OnGone);
+	b.m_Destroy.SetGoneCallback(&OnGone);
 
-	ASSERT_TRUE( a.m_Destroy.Claim() );
+	ASSERT_TRUE(a.m_Destroy.Claim());
 
-	EXPECT_TRUE( a.m_Destroy.IsDeleting() );
-	EXPECT_FALSE( b.m_Destroy.IsDeleting() );
-	EXPECT_TRUE( b.m_Destroy.Claim() );
+	EXPECT_TRUE(a.m_Destroy.IsDeleting());
+	EXPECT_FALSE(b.m_Destroy.IsDeleting());
+	EXPECT_TRUE(b.m_Destroy.Claim());
 
-	a.m_Destroy.Announce( &a );
-	b.m_Destroy.Announce( &b );
+	a.m_Destroy.Announce(&a);
+	b.m_Destroy.Announce(&b);
 
-	EXPECT_EQ( 2, g_nGoneTotal );
-	EXPECT_EQ( 1, a.m_nGoneCalls );
-	EXPECT_EQ( 1, b.m_nGoneCalls );
+	EXPECT_EQ(2, g_nGoneTotal);
+	EXPECT_EQ(1, a.m_nGoneCalls);
+	EXPECT_EQ(1, b.m_nGoneCalls);
 }
 
 //-----------------------------------------------------------------------------
@@ -469,13 +469,13 @@ TEST_F( TrailLatch, EachTrailHasItsOwnLatch )
 // "not deleting" state was represented by a non-zero value would be born
 // claimed by the memset, and every Release() in the game would become a no-op.
 //-----------------------------------------------------------------------------
-TEST_F( TrailLatch, AZeroedLatchIsAnUnclaimedLatch )
+TEST_F(TrailLatch, AZeroedLatchIsAnUnclaimedLatch)
 {
 	CTrailDestroyLatch<CFakeTrail> latch;
-	memset( (void *)&latch, 0, sizeof( latch ) );
+	memset((void*)&latch, 0, sizeof(latch));
 
-	EXPECT_FALSE( latch.IsDeleting() );
-	EXPECT_TRUE( latch.Claim() );
+	EXPECT_FALSE(latch.IsDeleting());
+	EXPECT_TRUE(latch.Claim());
 }
 
 } // namespace

@@ -40,9 +40,9 @@ namespace
 // was wrong, and it was wrong in the direction that looks most reasonable: the
 // model DID have bounds, so the old condition said yes.
 //-----------------------------------------------------------------------------
-TEST( StandaloneModelBounds, PlayerKeepsItsHullDespiteAModelWithBounds )
+TEST(StandaloneModelBounds, PlayerKeepsItsHullDespiteAModelWithBounds)
 {
-	EXPECT_FALSE( StandaloneModel_AdoptsBounds( true, true ) );
+	EXPECT_FALSE(StandaloneModel_AdoptsBounds(true, true));
 }
 
 //-----------------------------------------------------------------------------
@@ -50,10 +50,10 @@ TEST( StandaloneModelBounds, PlayerKeepsItsHullDespiteAModelWithBounds )
 // than by accident of the second argument -- so that a future model change
 // cannot make a player start adopting again.
 //-----------------------------------------------------------------------------
-TEST( StandaloneModelBounds, PlayerRefusalDoesNotDependOnTheModel )
+TEST(StandaloneModelBounds, PlayerRefusalDoesNotDependOnTheModel)
 {
-	EXPECT_FALSE( StandaloneModel_AdoptsBounds( true, false ) );
-	EXPECT_EQ( StandaloneModel_AdoptsBounds( true, true ), StandaloneModel_AdoptsBounds( true, false ) );
+	EXPECT_FALSE(StandaloneModel_AdoptsBounds(true, false));
+	EXPECT_EQ(StandaloneModel_AdoptsBounds(true, true), StandaloneModel_AdoptsBounds(true, false));
 }
 
 //-----------------------------------------------------------------------------
@@ -63,18 +63,18 @@ TEST( StandaloneModelBounds, PlayerRefusalDoesNotDependOnTheModel )
 // map origin, which is a far louder failure than the one being fixed and must
 // not be traded for it.
 //-----------------------------------------------------------------------------
-TEST( StandaloneModelBounds, BrushEntityStillTakesItsSizeFromItsModel )
+TEST(StandaloneModelBounds, BrushEntityStillTakesItsSizeFromItsModel)
 {
-	EXPECT_TRUE( StandaloneModel_AdoptsBounds( false, true ) );
+	EXPECT_TRUE(StandaloneModel_AdoptsBounds(false, true));
 }
 
 //-----------------------------------------------------------------------------
 // An empty box is what modelinfo answers for a model carrying no size, and
 // adopting it would collapse the entity. Refused before this change and after.
 //-----------------------------------------------------------------------------
-TEST( StandaloneModelBounds, ABoundlessModelSetsNothing )
+TEST(StandaloneModelBounds, ABoundlessModelSetsNothing)
 {
-	EXPECT_FALSE( StandaloneModel_AdoptsBounds( false, false ) );
+	EXPECT_FALSE(StandaloneModel_AdoptsBounds(false, false));
 }
 
 } // namespace

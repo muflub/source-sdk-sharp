@@ -16,28 +16,28 @@
 #include "mathlib_test_env.h"
 
 // The links this file's subject imports. EntityModelSurfaceProp is not reached here.
-void SourceSharp_Trace( const char *, const char * ) {}
+void SourceSharp_Trace(const char*, const char*) {}
 
 int SourceSharp_GetVerbosity()
 {
 	return 0;
 }
 
-const model_t *CWorldCollideable::GetCollisionModel()
+const model_t* CWorldCollideable::GetCollisionModel()
 {
 	return nullptr;
 }
 
-IHandleEntity *SourceSharpEntity_t::ToHandleEntity() const
+IHandleEntity* SourceSharpEntity_t::ToHandleEntity() const
 {
 	return nullptr;
 }
 
 namespace
 {
-IPhysicsSurfaceProps *const kNoSurfaceProps = nullptr;
+IPhysicsSurfaceProps* const kNoSurfaceProps = nullptr;
 
-SourceSharpSkyboxParams SkyAt( float x, int32_t nArea )
+SourceSharpSkyboxParams SkyAt(float x, int32_t nArea)
 {
 	SourceSharpSkyboxParams params{};
 	params.OriginXYZ[0] = x;
@@ -50,55 +50,55 @@ SourceSharpSkyboxParams SkyAt( float x, int32_t nArea )
 }
 } // namespace
 
-TEST( WorldQueries, NothingPushedFillsNothing )
+TEST(WorldQueries, NothingPushedFillsNothing)
 {
 	int32_t nReach = 0;
 	CTestServerEntities server;
-	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
+	CServerWorldQueries world(nullptr, server.m_Resolver, nReach, kNoSurfaceProps);
 
 	ss::sky3dparams_t out;
-	EXPECT_FALSE( world.FillSkyboxParams( out ) );
+	EXPECT_FALSE(world.FillSkyboxParams(out));
 }
 
-TEST( WorldQueries, ThePushedSkyIsWhatEveryPlayerIsGiven )
+TEST(WorldQueries, ThePushedSkyIsWhatEveryPlayerIsGiven)
 {
 	int32_t nReach = 0;
 	CTestServerEntities server;
-	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
-	const SourceSharpSkyboxParams params = SkyAt( 128.0f, 3 );
-	world.SetSkyboxParams( &params );
+	CServerWorldQueries world(nullptr, server.m_Resolver, nReach, kNoSurfaceProps);
+	const SourceSharpSkyboxParams params = SkyAt(128.0f, 3);
+	world.SetSkyboxParams(&params);
 
 	ss::sky3dparams_t out;
-	ASSERT_TRUE( world.FillSkyboxParams( out ) );
-	EXPECT_EQ( 128.0f, out.origin.Get().x );
-	EXPECT_EQ( 16, out.scale.Get() );
-	EXPECT_EQ( 3, out.area.Get() );
-	EXPECT_TRUE( out.fog.enable.Get() );
-	EXPECT_EQ( 2000.0f, out.fog.end.Get() );
-	EXPECT_EQ( 1, out.fog.colorPrimary.Get().r );
-	EXPECT_EQ( 4, out.fog.colorPrimary.Get().a );
+	ASSERT_TRUE(world.FillSkyboxParams(out));
+	EXPECT_EQ(128.0f, out.origin.Get().x);
+	EXPECT_EQ(16, out.scale.Get());
+	EXPECT_EQ(3, out.area.Get());
+	EXPECT_TRUE(out.fog.enable.Get());
+	EXPECT_EQ(2000.0f, out.fog.end.Get());
+	EXPECT_EQ(1, out.fog.colorPrimary.Get().r);
+	EXPECT_EQ(4, out.fog.colorPrimary.Get().a);
 }
 
-TEST( WorldQueries, ANullPushForgetsTheSky )
+TEST(WorldQueries, ANullPushForgetsTheSky)
 {
 	int32_t nReach = 0;
 	CTestServerEntities server;
-	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
-	const SourceSharpSkyboxParams params = SkyAt( 1.0f, 1 );
-	world.SetSkyboxParams( &params );
-	world.SetSkyboxParams( nullptr );
+	CServerWorldQueries world(nullptr, server.m_Resolver, nReach, kNoSurfaceProps);
+	const SourceSharpSkyboxParams params = SkyAt(1.0f, 1);
+	world.SetSkyboxParams(&params);
+	world.SetSkyboxParams(nullptr);
 
 	ss::sky3dparams_t out;
-	EXPECT_FALSE( world.FillSkyboxParams( out ) );
+	EXPECT_FALSE(world.FillSkyboxParams(out));
 }
 
-TEST( WorldQueries, TheInvisibleRangeCountIsTheTiersAsItStandsNow )
+TEST(WorldQueries, TheInvisibleRangeCountIsTheTiersAsItStandsNow)
 {
 	int32_t nReach = 0;
 	CTestServerEntities server;
-	CServerWorldQueries world( nullptr, server.m_Resolver, nReach, kNoSurfaceProps );
-	EXPECT_EQ( 0, world.InvisibleRangeReach() );
+	CServerWorldQueries world(nullptr, server.m_Resolver, nReach, kNoSurfaceProps);
+	EXPECT_EQ(0, world.InvisibleRangeReach());
 
 	nReach = 5;
-	EXPECT_EQ( 5, world.InvisibleRangeReach() );
+	EXPECT_EQ(5, world.InvisibleRangeReach());
 }

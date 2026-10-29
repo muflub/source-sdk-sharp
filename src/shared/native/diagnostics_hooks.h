@@ -18,8 +18,8 @@ public:
 	// cannot be unlinked, so its page is left mapped rather than pulled from under it.
 	~CDiagnosticsHooks();
 
-	CDiagnosticsHooks( const CDiagnosticsHooks & ) = delete;
-	CDiagnosticsHooks &operator=( const CDiagnosticsHooks & ) = delete;
+	CDiagnosticsHooks(const CDiagnosticsHooks&) = delete;
+	CDiagnosticsHooks& operator=(const CDiagnosticsHooks&) = delete;
 
 	// Before anything can assert. A second call keeps the first install.
 	void Install();
@@ -28,17 +28,17 @@ public:
 	int AssertsLogged() const { return m_nAssertsLogged; }
 
 private:
-	SpewRetval_t Spew( SpewType_t spewType, const tchar *pMsg );
-	void AssertNotify( const char *pchFile, int nLine, const char *pchMessage );
+	SpewRetval_t Spew(SpewType_t spewType, const tchar* pMsg);
+	void AssertNotify(const char* pchFile, int nLine, const char* pchMessage);
 
-	void EchoOurs( SpewType_t spewType, const tchar *pMsg );
-	void Emit( const char *pchLine );
-	void EmitFrames( void *const *pFrames, int nFrames, int *pnEmitted, int *pnResolved );
-	void WriteFatalSpewStack( const char *pMsg );
+	void EchoOurs(SpewType_t spewType, const tchar* pMsg);
+	void Emit(const char* pchLine);
+	void EmitFrames(void* const* pFrames, int nFrames, int* pnEmitted, int* pnResolved);
+	void WriteFatalSpewStack(const char* pMsg);
 	void InstallAssertStacks();
 
-	typedef CBoundCallback<SpewRetval_t( SpewType_t, const tchar * )> SpewHook_t;
-	typedef CBoundCallback<void( const char *, int, const char * )> AssertHook_t;
+	typedef CBoundCallback<SpewRetval_t(SpewType_t, const tchar*)> SpewHook_t;
+	typedef CBoundCallback<void(const char*, int, const char*)> AssertHook_t;
 
 	SpewHook_t m_SpewHook;
 	AssertHook_t m_AssertHook;

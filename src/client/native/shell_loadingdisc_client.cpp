@@ -13,14 +13,14 @@
 class CSourceSharpLoadingDisc : public ILoadingDisc
 {
 public:
-	virtual void Create( vgui::VPANEL parent ) OVERRIDE {}
+	virtual void Create(vgui::VPANEL parent) OVERRIDE {}
 
 	virtual void Destroy() OVERRIDE {}
 
-	virtual void SetLoadingVisible( bool bVisible ) OVERRIDE {}
+	virtual void SetLoadingVisible(bool bVisible) OVERRIDE {}
 
-	virtual void SetPausedVisible( bool bVisible, float flExpireTime ) OVERRIDE {}
+	virtual void SetPausedVisible(bool bVisible, float flExpireTime) OVERRIDE {}
 };
 
 static CSourceSharpLoadingDisc g_LoadingDisc;
-ILoadingDisc *loadingdisc = &g_LoadingDisc;
+ILoadingDisc* loadingdisc = &g_LoadingDisc;

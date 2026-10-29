@@ -75,7 +75,7 @@ public:
 	virtual HScheme GetDefaultScheme() = 0;
 
 	// returns a handle to the scheme identified by "tag"
-	virtual HScheme GetScheme( const char *tag ) = 0;
+	virtual HScheme GetScheme(const char* tag) = 0;
 
 	// returns a pointer to an image
 	virtual void unused_GetImage() = 0;
@@ -90,7 +90,7 @@ public:
 	virtual void unused_GetIScheme() = 0;
 
 	// unload all schemes
-	virtual void Shutdown( bool full = true ) = 0;
+	virtual void Shutdown(bool full = true) = 0;
 
 	// gets the proportional coordinates for doing screen-size independant panel layouts
 	// use these for font, image and panel size scaling (they all use the pixel height of the display for scaling)

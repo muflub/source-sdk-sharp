@@ -23,7 +23,7 @@ class CShellDecalSystemClient : public IDecalEmitterSystem, public CClientSystem
 {
 public:
 	CShellDecalSystemClient()
-		: CClientSystem( "CDecalEmitterSystem" )
+		: CClientSystem("CDecalEmitterSystem")
 	{
 		m_szName[0] = '\0';
 		m_szTranslated[0] = '\0';
@@ -31,50 +31,50 @@ public:
 
 	virtual bool Init()
 	{
-		if ( IManagedDecalsClient *pArea = ManagedDecalsClient() )
+		if (IManagedDecalsClient* pArea = ManagedDecalsClient())
 			pArea->Init();
 		return true;
 	}
 
 	virtual void Shutdown()
 	{
-		if ( IManagedDecalsClient *pArea = ManagedDecalsClient() )
+		if (IManagedDecalsClient* pArea = ManagedDecalsClient())
 			pArea->Shutdown();
 	}
 
 	virtual void LevelInitPreEntity()
 	{
-		if ( IManagedDecalsClient *pArea = ManagedDecalsClient() )
+		if (IManagedDecalsClient* pArea = ManagedDecalsClient())
 			pArea->LevelInitPreEntity();
 	}
 
-	virtual int GetDecalIndexForName( char const *decalname )
+	virtual int GetDecalIndexForName(char const* decalname)
 	{
-		IManagedDecalsClient *pArea = ManagedDecalsClient();
-		if ( !pArea || !decalname || !decalname[0] )
+		IManagedDecalsClient* pArea = ManagedDecalsClient();
+		if (!pArea || !decalname || !decalname[0])
 			return -1;
-		return pArea->IndexForName( decalname );
+		return pArea->IndexForName(decalname);
 	}
 
 	// "" for an index no entry carries, as stock answers.
-	virtual const char *GetDecalNameForIndex( int nIndex )
+	virtual const char* GetDecalNameForIndex(int nIndex)
 	{
 		m_szName[0] = '\0';
-		IManagedDecalsClient *pArea = ManagedDecalsClient();
-		if ( pArea && pArea->NameForIndex( nIndex, m_szName, sizeof( m_szName ) ) < 0 )
+		IManagedDecalsClient* pArea = ManagedDecalsClient();
+		if (pArea && pArea->NameForIndex(nIndex, m_szName, sizeof(m_szName)) < 0)
 			m_szName[0] = '\0';
 		return m_szName;
 	}
 
 	// The caller's own pointer when managed has no other answer, as stock
 	// returns `decalName`; "" is a real answer (the material is not decalled).
-	virtual char const *TranslateDecalForGameMaterial( char const *decalName, unsigned char gamematerial )
+	virtual char const* TranslateDecalForGameMaterial(char const* decalName, unsigned char gamematerial)
 	{
-		IManagedDecalsClient *pArea = ManagedDecalsClient();
-		if ( !pArea || !decalName )
+		IManagedDecalsClient* pArea = ManagedDecalsClient();
+		if (!pArea || !decalName)
 			return decalName;
-		if ( pArea->TranslateForGameMaterial( decalName, (int32_t)gamematerial, m_szTranslated,
-											  sizeof( m_szTranslated ) ) < 0 )
+		if (pArea->TranslateForGameMaterial(decalName, (int32_t)gamematerial, m_szTranslated, sizeof(m_szTranslated)) <
+			0)
 			return decalName;
 		return m_szTranslated;
 	}
@@ -86,9 +86,9 @@ private:
 
 static CShellDecalSystemClient g_DecalSystem;
 
-CClientSystem *ClientSystem_DecalEmitter()
+CClientSystem* ClientSystem_DecalEmitter()
 {
 	return &g_DecalSystem;
 }
 
-IDecalEmitterSystem *decalsystem = &g_DecalSystem;
+IDecalEmitterSystem* decalsystem = &g_DecalSystem;

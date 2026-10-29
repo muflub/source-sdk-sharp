@@ -14,9 +14,9 @@
 // Returns whether an object was told; an entity with no physics object has
 // nothing cached.
 template <typename TPhysicsObject>
-inline bool SourceSharpCollisionRulesChanged( TPhysicsObject *pObject )
+inline bool SourceSharpCollisionRulesChanged(TPhysicsObject* pObject)
 {
-	if ( !pObject )
+	if (!pObject)
 		return false;
 
 	pObject->RecheckCollisionFilter();
@@ -26,10 +26,10 @@ inline bool SourceSharpCollisionRulesChanged( TPhysicsObject *pObject )
 // The same, behind a switch (a convar at the call site) so both behaviours can be
 // compared in one process.
 template <typename TPhysicsObject>
-inline bool SourceSharpCollisionRulesChanged( TPhysicsObject *pObject, bool bArmed )
+inline bool SourceSharpCollisionRulesChanged(TPhysicsObject* pObject, bool bArmed)
 {
-	if ( !bArmed )
+	if (!bArmed)
 		return false;
 
-	return SourceSharpCollisionRulesChanged( pObject );
+	return SourceSharpCollisionRulesChanged(pObject);
 }

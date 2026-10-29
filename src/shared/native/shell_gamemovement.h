@@ -7,7 +7,7 @@
 #include <stdio.h>
 
 // Formats one of the reasons below and hands it to Error(). Does not return.
-void SourceSharp_MovementFatal( int nReason, int nDetail );
+void SourceSharp_MovementFatal(int nReason, int nDetail);
 
 #ifndef CLIENT_DLL
 // The server's managed command loop: the fatal check asked before each command, and
@@ -18,7 +18,7 @@ void SourceSharp_MovementRequireManaged();
 // The fall damage of the landing about to be applied. IMoveHelper::PlayerFallingDamage()
 // takes no arguments, so the amount travels beside the call. Set immediately before the
 // call and read inside it; meaningless afterwards.
-inline float &SourceSharpMovement_PendingFallDamage()
+inline float& SourceSharpMovement_PendingFallDamage()
 {
 	static float s_flPendingFallDamage = 0.0f;
 	return s_flPendingFallDamage;
@@ -40,9 +40,9 @@ enum
 	kMovementFatal_Count = 3,
 };
 
-inline const char *SourceSharpMovement_ReasonText( int nReason )
+inline const char* SourceSharpMovement_ReasonText(int nReason)
 {
-	switch ( nReason )
+	switch (nReason)
 	{
 		case kMovementFatal_NoManagedSide:
 			return "the managed (C#) side has not started, or started without "
@@ -58,9 +58,9 @@ inline const char *SourceSharpMovement_ReasonText( int nReason )
 	}
 }
 
-inline const char *SourceSharpMovement_Remedy( int nReason )
+inline const char* SourceSharpMovement_Remedy(int nReason)
 {
-	switch ( nReason )
+	switch (nReason)
 	{
 		case kMovementFatal_NoManagedSide:
 			return "read the [SourceSharp] lines ABOVE this one: the managed side "
@@ -82,37 +82,36 @@ inline const char *SourceSharpMovement_Remedy( int nReason )
 
 // Formats one reason into pOut. `nDetail` is the move type for kMovementFatal_Declined.
 // Always NUL-terminates when cOut > 0; returns snprintf's result so truncation shows.
-inline int SourceSharpMovement_Format( char *pOut, size_t cOut, const char *pSide, int nReason, int nDetail )
+inline int SourceSharpMovement_Format(char* pOut, size_t cOut, const char* pSide, int nReason, int nDetail)
 {
-	if ( !pOut || cOut == 0 )
+	if (!pOut || cOut == 0)
 		return 0;
 
-	if ( !pSide || !pSide[0] )
+	if (!pSide || !pSide[0])
 		pSide = "?";
 
 	// The move type is printed only for the reason it applies to.
 	char szDetail[128];
 	szDetail[0] = '\0';
-	if ( nReason == kMovementFatal_Declined )
-		snprintf( szDetail, sizeof( szDetail ), "  movetype: %d\n", nDetail );
+	if (nReason == kMovementFatal_Declined)
+		snprintf(szDetail, sizeof(szDetail), "  movetype: %d\n", nDetail);
 
-	return snprintf( pOut, cOut,
-					 "[SourceSharp] FATAL: the %s side was asked to move a player and has "
-					 "nothing to move them with.\n"
-					 "  reason  : %s\n"
-					 "%s"
-					 "  fix     : %s\n"
-					 "Movement is C# in this build (plan_entity.md 3.10) and the stock "
-					 "CGameMovement fallback was DELETED at step 8f-igamemovement, on purpose: "
-					 "a build that quietly runs stock movement instead of the managed loop is "
-					 "indistinguishable from a working one until the two sides disagree under "
-					 "prediction. Stopping here rather than shipping a ninth silent loss.\n",
-					 pSide, SourceSharpMovement_ReasonText( nReason ), szDetail,
-					 SourceSharpMovement_Remedy( nReason ) );
+	return snprintf(pOut, cOut,
+					"[SourceSharp] FATAL: the %s side was asked to move a player and has "
+					"nothing to move them with.\n"
+					"  reason  : %s\n"
+					"%s"
+					"  fix     : %s\n"
+					"Movement is C# in this build (plan_entity.md 3.10) and the stock "
+					"CGameMovement fallback was DELETED at step 8f-igamemovement, on purpose: "
+					"a build that quietly runs stock movement instead of the managed loop is "
+					"indistinguishable from a working one until the two sides disagree under "
+					"prediction. Stopping here rather than shipping a ninth silent loss.\n",
+					pSide, SourceSharpMovement_ReasonText(nReason), szDetail, SourceSharpMovement_Remedy(nReason));
 }
 
 // Prints how many commands the managed movement loop ran on this side, and the refusal counts.
-void SourceSharp_MoveManagedReport( unsigned int nCalls );
+void SourceSharp_MoveManagedReport(unsigned int nCalls);
 
 #ifdef CLIENT_DLL
 // The client's count of commands the managed movement loop ran.

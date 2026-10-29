@@ -30,9 +30,9 @@ class DamageInfoHandle : public CBaseHandle
 {
 public:
 	// networkvar.h's SourceSharp_EntityHandle refuses every live IGameEntity, hence this.
-	DamageInfoHandle &operator=( const IGameEntity *pEntity )
+	DamageInfoHandle& operator=(const IGameEntity* pEntity)
 	{
-		*static_cast<CBaseHandle *>( this ) = pEntity ? GameEntity_RefHandle( pEntity ) : CBaseHandle();
+		*static_cast<CBaseHandle*>(this) = pEntity ? GameEntity_RefHandle(pEntity) : CBaseHandle();
 		return *this;
 	}
 };
@@ -50,33 +50,33 @@ public:
 		CRIT_FULL,
 	};
 
-	DECLARE_CLASS_NOBASE( CTakeDamageInfo );
+	DECLARE_CLASS_NOBASE(CTakeDamageInfo);
 
 	CTakeDamageInfo();
-	CTakeDamageInfo( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType,
-					 int iKillType = 0 );
+	CTakeDamageInfo(IGameEntity* pInflictor, IGameEntity* pAttacker, float flDamage, int bitsDamageType,
+					int iKillType = 0);
 
-	void Set( IGameEntity *pInflictor, IGameEntity *pAttacker, float flDamage, int bitsDamageType, int iKillType = 0 );
+	void Set(IGameEntity* pInflictor, IGameEntity* pAttacker, float flDamage, int bitsDamageType, int iKillType = 0);
 
 	// Who: the attacker as entities resolves its handle now, so one removed meanwhile is
 	// NULL.
-	IGameEntity *GetAttacker( CServerEntityResolver &entities ) const;
+	IGameEntity* GetAttacker(CServerEntityResolver& entities) const;
 
 	// How much. The base damage is the amount before any adjustment, if one
 	// was recorded.
 	float GetDamage() const { return m_flDamage; }
 
-	void SetDamage( float flDamage ) { m_flDamage = flDamage; }
+	void SetDamage(float flDamage) { m_flDamage = flDamage; }
 
 	float GetMaxDamage() const { return m_flMaxDamage; }
 
-	void SetMaxDamage( float flMaxDamage ) { m_flMaxDamage = flMaxDamage; }
+	void SetMaxDamage(float flMaxDamage) { m_flMaxDamage = flMaxDamage; }
 
 	bool BaseDamageIsValid() const { return m_flBaseDamage != kBaseDamageNotSpecified; }
 
 	float GetBaseDamage() const
 	{
-		if ( BaseDamageIsValid() )
+		if (BaseDamageIsValid())
 			return m_flBaseDamage;
 		return m_flDamage;
 	}
@@ -84,37 +84,37 @@ public:
 	// Where, and how hard it pushes.
 	Vector GetDamageForce() const { return m_vecDamageForce; }
 
-	void SetDamageForce( const Vector &vecForce ) { m_vecDamageForce = vecForce; }
+	void SetDamageForce(const Vector& vecForce) { m_vecDamageForce = vecForce; }
 
 	Vector GetDamagePosition() const { return m_vecDamagePosition; }
 
-	void SetDamagePosition( const Vector &vecPosition ) { m_vecDamagePosition = vecPosition; }
+	void SetDamagePosition(const Vector& vecPosition) { m_vecDamagePosition = vecPosition; }
 
 	Vector GetReportedPosition() const { return m_vecReportedPosition; }
 
-	void SetReportedPosition( const Vector &vecReported ) { m_vecReportedPosition = vecReported; }
+	void SetReportedPosition(const Vector& vecReported) { m_vecReportedPosition = vecReported; }
 
 	// What kind.
 	int GetDamageType() const { return m_bitsDamageType; }
 
-	void AddDamageType( int bitsDamageType ) { m_bitsDamageType |= bitsDamageType; }
+	void AddDamageType(int bitsDamageType) { m_bitsDamageType |= bitsDamageType; }
 
 	int GetDamageCustom() const { return m_iDamageCustom; }
 
 	int GetAmmoType() const { return m_iAmmoType; }
 
-	void SetAmmoType( int iAmmoType ) { m_iAmmoType = iAmmoType; }
+	void SetAmmoType(int iAmmoType) { m_iAmmoType = iAmmoType; }
 
 	int GetPlayerPenetrationCount() const { return m_iPlayerPenetrationCount; }
 
-	void SetPlayerPenetrationCount( int nCount ) { m_iPlayerPenetrationCount = nCount; }
+	void SetPlayerPenetrationCount(int nCount) { m_iPlayerPenetrationCount = nCount; }
 
 	ECritType GetCritType() const { return m_eCritType; }
 
 protected:
-	void Init( IGameEntity *pInflictor, IGameEntity *pAttacker, IGameEntity *pWeapon, const Vector &damageForce,
-			   const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType,
-			   int iKillType );
+	void Init(IGameEntity* pInflictor, IGameEntity* pAttacker, IGameEntity* pWeapon, const Vector& damageForce,
+			  const Vector& damagePosition, const Vector& reportedPosition, float flDamage, int bitsDamageType,
+			  int iKillType);
 
 	Vector m_vecDamageForce;
 	Vector m_vecDamagePosition;
@@ -140,8 +140,8 @@ protected:
 
 // The damage-force helpers: an impulse to push a mass at a speed, and the
 // force a blast imparts, jittered per victim from the engine's random stream.
-float ImpulseScale( float flTargetMass, float flDesiredSpeed );
-void CalculateExplosiveDamageForce( IUniformRandomStream *pRandom, CTakeDamageInfo *info, const Vector &vecDir,
-									const Vector &vecForceOrigin, float flScale = 1.0 );
+float ImpulseScale(float flTargetMass, float flDesiredSpeed);
+void CalculateExplosiveDamageForce(IUniformRandomStream* pRandom, CTakeDamageInfo* info, const Vector& vecDir,
+								   const Vector& vecForceOrigin, float flScale = 1.0);
 
 } // namespace ss

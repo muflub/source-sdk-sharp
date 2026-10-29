@@ -10,7 +10,7 @@
 #include "tier2/meshutils.h"
 #include "mathlib/mathlib.h"
 
-#if defined( OSX )
+#if defined(OSX)
 // Needed to support older versions of MacOS.
 // No longer needed on Linux as we have BGRA there.
 #define OPENGL_SWAP_COLORS
@@ -40,7 +40,7 @@ enum
 enum
 {
 	INDEX_BUFFER_SIZE = 32768,
-	DYNAMIC_VERTEX_BUFFER_MEMORY = ( 1024 + 512 ) * 1024,
+	DYNAMIC_VERTEX_BUFFER_MEMORY = (1024 + 512) * 1024,
 	DYNAMIC_VERTEX_BUFFER_MEMORY_SMALL = 384 * 1024, // Only allocate this much during map transitions
 };
 
@@ -73,26 +73,26 @@ struct VertexDesc_t
 	int m_NumBoneWeights;
 
 	// Pointers to our current vertex data
-	float *m_pPosition;
+	float* m_pPosition;
 
-	float *m_pBoneWeight;
+	float* m_pBoneWeight;
 
-	unsigned char *m_pBoneMatrixIndex;
+	unsigned char* m_pBoneMatrixIndex;
 
-	float *m_pNormal;
+	float* m_pNormal;
 
-	unsigned char *m_pColor;
-	unsigned char *m_pSpecular;
-	float *m_pTexCoord[VERTEX_MAX_TEXTURE_COORDINATES];
+	unsigned char* m_pColor;
+	unsigned char* m_pSpecular;
+	float* m_pTexCoord[VERTEX_MAX_TEXTURE_COORDINATES];
 
 	// Tangent space *associated with one particular set of texcoords*
-	float *m_pTangentS;
-	float *m_pTangentT;
+	float* m_pTangentS;
+	float* m_pTangentT;
 
-	float *m_pWrinkle;
+	float* m_pWrinkle;
 
 	// user data
-	float *m_pUserData;
+	float* m_pUserData;
 
 	// The first vertex index (used for buffered vertex buffers, or cards that don't support stream offset)
 	int m_nFirstVertex;
@@ -105,7 +105,7 @@ struct VertexDesc_t
 struct IndexDesc_t
 {
 	// Pointers to the index data
-	unsigned short *m_pIndices;
+	unsigned short* m_pIndices;
 
 	// The offset in bytes of the memory we're writing into
 	// from the start of the D3D buffer (will be 0 for static meshes)
@@ -142,28 +142,28 @@ struct ModelVertexDX8_t : public ModelVertexDX7_t
 };
 
 // Utility methods for buffer builders
-inline float *OffsetFloatPointer( float *pBufferPointer, int nVertexCount, int vertexSize )
+inline float* OffsetFloatPointer(float* pBufferPointer, int nVertexCount, int vertexSize)
 {
-	return reinterpret_cast<float *>( reinterpret_cast<unsigned char *>( pBufferPointer ) + nVertexCount * vertexSize );
+	return reinterpret_cast<float*>(reinterpret_cast<unsigned char*>(pBufferPointer) + nVertexCount * vertexSize);
 }
 
-inline const float *OffsetFloatPointer( const float *pBufferPointer, int nVertexCount, int vertexSize )
+inline const float* OffsetFloatPointer(const float* pBufferPointer, int nVertexCount, int vertexSize)
 {
-	return reinterpret_cast<const float *>( reinterpret_cast<unsigned char const *>( pBufferPointer ) +
-											nVertexCount * vertexSize );
+	return reinterpret_cast<const float*>(reinterpret_cast<unsigned char const*>(pBufferPointer) +
+										  nVertexCount * vertexSize);
 }
 
-inline void IncrementFloatPointer( float *&pBufferPointer, int vertexSize )
+inline void IncrementFloatPointer(float*& pBufferPointer, int vertexSize)
 {
-	pBufferPointer = reinterpret_cast<float *>( reinterpret_cast<unsigned char *>( pBufferPointer ) + vertexSize );
+	pBufferPointer = reinterpret_cast<float*>(reinterpret_cast<unsigned char*>(pBufferPointer) + vertexSize);
 }
 
-inline int PackRGBToPlatformColor( int r, int g, int b, int a )
+inline int PackRGBToPlatformColor(int r, int g, int b, int a)
 {
-#if defined( OPENGL_SWAP_COLORS )
-	int col = r | ( g << 8 ) | ( b << 16 ) | ( a << 24 ); // r, g, b, a in memory
+#if defined(OPENGL_SWAP_COLORS)
+	int col = r | (g << 8) | (b << 16) | (a << 24); // r, g, b, a in memory
 #else
-	int col = b | ( g << 8 ) | ( r << 16 ) | ( a << 24 );
+	int col = b | (g << 8) | (r << 16) | (a << 24);
 #endif
 	return col;
 }
@@ -173,7 +173,7 @@ class CPrimList
 {
 public:
 	CPrimList();
-	CPrimList( int nFirstIndex, int nIndexCount );
+	CPrimList(int nFirstIndex, int nIndexCount);
 
 	int m_FirstIndex;
 	int m_NumIndices;
@@ -181,7 +181,7 @@ public:
 
 inline CPrimList::CPrimList() {}
 
-inline CPrimList::CPrimList( int nFirstIndex, int nIndexCount )
+inline CPrimList::CPrimList(int nFirstIndex, int nIndexCount)
 {
 	m_FirstIndex = nFirstIndex;
 	m_NumIndices = nIndexCount;
@@ -205,20 +205,20 @@ public:
 
 	// NOTE: For dynamic vertex buffers only!
 	// Casts the memory of the dynamic vertex buffer to the appropriate type
-	virtual void BeginCastBuffer( VertexFormat_t format ) = 0;
+	virtual void BeginCastBuffer(VertexFormat_t format) = 0;
 	virtual void EndCastBuffer() = 0;
 
 	// Returns the number of vertices that can still be written into the buffer
 	virtual int GetRoomRemaining() const = 0;
 
-	virtual bool Lock( int nVertexCount, bool bAppend, VertexDesc_t &desc ) = 0;
-	virtual void Unlock( int nVertexCount, VertexDesc_t &desc ) = 0;
+	virtual bool Lock(int nVertexCount, bool bAppend, VertexDesc_t& desc) = 0;
+	virtual void Unlock(int nVertexCount, VertexDesc_t& desc) = 0;
 
 	// Spews the mesh data
-	virtual void Spew( int nVertexCount, const VertexDesc_t &desc ) = 0;
+	virtual void Spew(int nVertexCount, const VertexDesc_t& desc) = 0;
 
 	// Call this in debug mode to make sure our data is good.
-	virtual void ValidateData( int nVertexCount, const VertexDesc_t &desc ) = 0;
+	virtual void ValidateData(int nVertexCount, const VertexDesc_t& desc) = 0;
 };
 
 abstract_class IIndexBuffer
@@ -239,26 +239,26 @@ public:
 
 	// NOTE: For dynamic index buffers only!
 	// Casts the memory of the dynamic index buffer to the appropriate type
-	virtual void BeginCastBuffer( MaterialIndexFormat_t format ) = 0;
+	virtual void BeginCastBuffer(MaterialIndexFormat_t format) = 0;
 	virtual void EndCastBuffer() = 0;
 
 	// Returns the number of indices that can still be written into the buffer
 	virtual int GetRoomRemaining() const = 0;
 
 	// Locks, unlocks the index buffer
-	virtual bool Lock( int nMaxIndexCount, bool bAppend, IndexDesc_t &desc ) = 0;
-	virtual void Unlock( int nWrittenIndexCount, IndexDesc_t &desc ) = 0;
+	virtual bool Lock(int nMaxIndexCount, bool bAppend, IndexDesc_t& desc) = 0;
+	virtual void Unlock(int nWrittenIndexCount, IndexDesc_t& desc) = 0;
 
 	// FIXME: Remove this!!
 	// Locks, unlocks the index buffer for modify
-	virtual void ModifyBegin( bool bReadOnly, int nFirstIndex, int nIndexCount, IndexDesc_t &desc ) = 0;
-	virtual void ModifyEnd( IndexDesc_t & desc ) = 0;
+	virtual void ModifyBegin(bool bReadOnly, int nFirstIndex, int nIndexCount, IndexDesc_t& desc) = 0;
+	virtual void ModifyEnd(IndexDesc_t & desc) = 0;
 
 	// Spews the mesh data
-	virtual void Spew( int nIndexCount, const IndexDesc_t &desc ) = 0;
+	virtual void Spew(int nIndexCount, const IndexDesc_t& desc) = 0;
 
 	// Ensures the data in the index buffer is valid
-	virtual void ValidateData( int nIndexCount, const IndexDesc_t &desc ) = 0;
+	virtual void ValidateData(int nIndexCount, const IndexDesc_t& desc) = 0;
 };
 
 // Interface to the mesh - needs to contain an IVertexBuffer and an IIndexBuffer to emulate old mesh behavior
@@ -266,10 +266,10 @@ abstract_class IMesh : public IVertexBuffer, public IIndexBuffer
 {
 public:
 	// Sets/gets the primitive type
-	virtual void SetPrimitiveType( MaterialPrimitiveType_t type ) = 0;
+	virtual void SetPrimitiveType(MaterialPrimitiveType_t type) = 0;
 
 	// Draws the mesh
-	virtual void Draw( int nFirstIndex = -1, int nIndexCount = 0 ) = 0;
+	virtual void Draw(int nFirstIndex = -1, int nIndexCount = 0) = 0;
 
 	virtual void unused_SetColorMesh() = 0;
 
@@ -277,24 +277,24 @@ public:
 	// the same lightmap, material, vertex and index buffers with multipass shaders
 	// can drastically reduce state-switching overhead.
 	// NOTE: this only works with STATIC meshes.
-	virtual void Draw( CPrimList * pLists, int nLists ) = 0;
+	virtual void Draw(CPrimList * pLists, int nLists) = 0;
 
 	// Copy verts and/or indices to a mesh builder. This only works for temp meshes!
 	virtual void unused_CopyToMeshBuilder() = 0;
 
 	// Spews the mesh data
-	virtual void Spew( int nVertexCount, int nIndexCount, const MeshDesc_t &desc ) = 0;
+	virtual void Spew(int nVertexCount, int nIndexCount, const MeshDesc_t& desc) = 0;
 
 	// Call this in debug mode to make sure our data is good.
-	virtual void ValidateData( int nVertexCount, int nIndexCount, const MeshDesc_t &desc ) = 0;
+	virtual void ValidateData(int nVertexCount, int nIndexCount, const MeshDesc_t& desc) = 0;
 
 	// New version
 	// Locks/unlocks the mesh, providing space for nVertexCount and nIndexCount.
 	// nIndexCount of -1 means don't lock the index buffer...
-	virtual void LockMesh( int nVertexCount, int nIndexCount, MeshDesc_t &desc ) = 0;
+	virtual void LockMesh(int nVertexCount, int nIndexCount, MeshDesc_t& desc) = 0;
 	virtual void unused_ModifyBegin() = 0;
-	virtual void ModifyEnd( MeshDesc_t & desc ) = 0;
-	virtual void UnlockMesh( int nVertexCount, int nIndexCount, MeshDesc_t &desc ) = 0;
+	virtual void ModifyEnd(MeshDesc_t & desc) = 0;
+	virtual void UnlockMesh(int nVertexCount, int nIndexCount, MeshDesc_t& desc) = 0;
 
 	virtual void unused_ModifyBeginEx() = 0;
 
@@ -315,27 +315,27 @@ public:
 #define VTX_HAVEPOS 1
 #define VTX_HAVENORMAL 2
 #define VTX_HAVECOLOR 4
-#define VTX_HAVEALL ( VTX_HAVEPOS | VTX_HAVENORMAL | VTX_HAVECOLOR )
+#define VTX_HAVEALL (VTX_HAVEPOS | VTX_HAVENORMAL | VTX_HAVECOLOR)
 
 // Helper class used to define vertex buffers
 class CVertexBuilder : private VertexDesc_t
 {
 public:
 	CVertexBuilder();
-	CVertexBuilder( IVertexBuffer *pVertexBuffer, VertexFormat_t fmt = 0 );
+	CVertexBuilder(IVertexBuffer* pVertexBuffer, VertexFormat_t fmt = 0);
 	~CVertexBuilder();
 
 	// Begins, ends modification of the index buffer (returns true if the lock succeeded)
 	// A lock may not succeed if append is set to true and there isn't enough room
 	// NOTE: Append is only used with dynamic index buffers; it's ignored for static buffers
-	bool Lock( int nMaxIndexCount, bool bAppend = false );
+	bool Lock(int nMaxIndexCount, bool bAppend = false);
 	void Unlock();
 
 	void ValidateCompressionType();
 
 	// Use this when you're done writing
 	// Set bDraw to true to call m_pMesh->Draw automatically.
-	void End( bool bSpewData = false );
+	void End(bool bSpewData = false);
 
 	// returns the number of vertices
 	int VertexCount() const;
@@ -344,95 +344,95 @@ public:
 	void Reset();
 
 	// Selects the nth Vertex and Index
-	void SelectVertex( int idx );
+	void SelectVertex(int idx);
 
 	// Advances the current vertex and index by one
 	void AdvanceVertex();
 	template <int nFlags, int nNumTexCoords>
 	void AdvanceVertexF();
-	void AdvanceVertices( int nVerts );
+	void AdvanceVertices(int nVerts);
 
-	const float *Normal() const;
+	const float* Normal() const;
 
 	unsigned int Color() const;
 
 	// position setting
-	void Position3f( float x, float y, float z );
-	void Position3fv( const float *v );
+	void Position3f(float x, float y, float z);
+	void Position3fv(const float* v);
 
 	// normal setting
-	void Normal3f( float nx, float ny, float nz );
-	void Normal3fv( const float *n );
+	void Normal3f(float nx, float ny, float nz);
+	void Normal3fv(const float* n);
 	// normal setting (templatized for code which needs to support compressed vertices)
 	template <VertexCompressionType_t T>
-	void CompressedNormal3f( float nx, float ny, float nz );
+	void CompressedNormal3f(float nx, float ny, float nz);
 
 	// color setting
-	void Color3f( float r, float g, float b );
-	void Color3fv( const float *rgb );
-	void Color4f( float r, float g, float b, float a );
-	void Color4fv( const float *rgba );
+	void Color3f(float r, float g, float b);
+	void Color3fv(const float* rgb);
+	void Color4f(float r, float g, float b, float a);
+	void Color4fv(const float* rgba);
 
 	// Faster versions of color
-	void Color3ub( unsigned char r, unsigned char g, unsigned char b );
-	void Color3ubv( unsigned char const *rgb );
-	void Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a );
-	void Color4ubv( unsigned char const *rgba );
+	void Color3ub(unsigned char r, unsigned char g, unsigned char b);
+	void Color3ubv(unsigned char const* rgb);
+	void Color4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+	void Color4ubv(unsigned char const* rgba);
 
 	// specular color setting
-	void Specular3f( float r, float g, float b );
-	void Specular3fv( const float *rgb );
-	void Specular4f( float r, float g, float b, float a );
-	void Specular4fv( const float *rgba );
+	void Specular3f(float r, float g, float b);
+	void Specular3fv(const float* rgb);
+	void Specular4f(float r, float g, float b, float a);
+	void Specular4fv(const float* rgba);
 
 	// Faster version of specular
-	void Specular3ub( unsigned char r, unsigned char g, unsigned char b );
-	void Specular3ubv( unsigned char const *c );
-	void Specular4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a );
-	void Specular4ubv( unsigned char const *c );
+	void Specular3ub(unsigned char r, unsigned char g, unsigned char b);
+	void Specular3ubv(unsigned char const* c);
+	void Specular4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+	void Specular4ubv(unsigned char const* c);
 
-	void TexCoord2f( int stage, float s, float t );
-	void TexCoord2fv( int stage, const float *st );
+	void TexCoord2f(int stage, float s, float t);
+	void TexCoord2fv(int stage, const float* st);
 
 	// tangent space
-	void TangentS3f( float sx, float sy, float sz );
-	void TangentS3fv( const float *s );
+	void TangentS3f(float sx, float sy, float sz);
+	void TangentS3fv(const float* s);
 
-	void TangentT3f( float tx, float ty, float tz );
-	void TangentT3fv( const float *t );
+	void TangentT3f(float tx, float ty, float tz);
+	void TangentT3fv(const float* t);
 
 	// bone weights (templatized for code which needs to support compressed vertices)
 	template <VertexCompressionType_t T>
-	void CompressedBoneWeight3fv( const float *pWeights );
+	void CompressedBoneWeight3fv(const float* pWeights);
 
 	// bone matrix index
-	void BoneMatrix( int idx, int matrixIndex );
+	void BoneMatrix(int idx, int matrixIndex);
 
 	// Generic per-vertex data (templatized for code which needs to support compressed vertices)
 	template <VertexCompressionType_t T>
-	void CompressedUserData( const float *pData );
+	void CompressedUserData(const float* pData);
 
 	// Fast Vertex! No need to call advance vertex, and no random access allowed.
 	// WARNING - these are low level functions that are intended only for use
 	// in the software vertex skinner.
-	void FastVertex( const ModelVertexDX7_t &vertex );
-	void FastVertexSSE( const ModelVertexDX7_t &vertex );
+	void FastVertex(const ModelVertexDX7_t& vertex);
+	void FastVertexSSE(const ModelVertexDX7_t& vertex);
 
 	// store 4 dx7 vertices fast. for special sse dx7 pipeline
-	void Fast4VerticesSSE( ModelVertexDX7_t const *vtx_a, ModelVertexDX7_t const *vtx_b, ModelVertexDX7_t const *vtx_c,
-						   ModelVertexDX7_t const *vtx_d );
+	void Fast4VerticesSSE(ModelVertexDX7_t const* vtx_a, ModelVertexDX7_t const* vtx_b, ModelVertexDX7_t const* vtx_c,
+						  ModelVertexDX7_t const* vtx_d);
 
-	void FastVertex( const ModelVertexDX8_t &vertex );
-	void FastVertexSSE( const ModelVertexDX8_t &vertex );
+	void FastVertex(const ModelVertexDX8_t& vertex);
+	void FastVertexSSE(const ModelVertexDX8_t& vertex);
 
 	// FIXME: Remove! Backward compat so we can use this from a CMeshBuilder.
-	void AttachBegin( IMesh *pMesh, int nMaxVertexCount, const MeshDesc_t &desc );
+	void AttachBegin(IMesh* pMesh, int nMaxVertexCount, const MeshDesc_t& desc);
 	void AttachEnd();
 	void AttachEndModify();
 
 private:
 	// The vertex buffer we're modifying
-	IVertexBuffer *m_pVertexBuffer;
+	IVertexBuffer* m_pVertexBuffer;
 
 	// Used to make sure Begin/End calls and BeginModify/EndModify calls match.
 	bool m_bModify;
@@ -447,10 +447,10 @@ private:
 	mutable int m_nCurrentVertex;
 
 	// Optimization: Pointer to the current pos, norm, texcoord, and color
-	mutable float *m_pCurrPosition;
-	mutable float *m_pCurrNormal;
-	mutable float *m_pCurrTexCoord[VERTEX_MAX_TEXTURE_COORDINATES];
-	mutable unsigned char *m_pCurrColor;
+	mutable float* m_pCurrPosition;
+	mutable float* m_pCurrNormal;
+	mutable float* m_pCurrTexCoord[VERTEX_MAX_TEXTURE_COORDINATES];
+	mutable unsigned char* m_pCurrColor;
 
 	// Total number of vertices appended
 	int m_nTotalVertexCount;
@@ -484,12 +484,12 @@ inline CVertexBuilder::CVertexBuilder()
 	m_pCurrPosition = NULL;
 	m_pCurrNormal = NULL;
 	m_pCurrColor = NULL;
-	memset( m_pCurrTexCoord, 0, sizeof( m_pCurrTexCoord ) );
+	memset(m_pCurrTexCoord, 0, sizeof(m_pCurrTexCoord));
 	m_bModify = false;
 #endif
 }
 
-inline CVertexBuilder::CVertexBuilder( IVertexBuffer *pVertexBuffer, VertexFormat_t fmt )
+inline CVertexBuilder::CVertexBuilder(IVertexBuffer* pVertexBuffer, VertexFormat_t fmt)
 {
 	m_pVertexBuffer = pVertexBuffer;
 	m_nBufferOffset = INVALID_BUFFER_OFFSET;
@@ -500,50 +500,50 @@ inline CVertexBuilder::CVertexBuilder( IVertexBuffer *pVertexBuffer, VertexForma
 	m_nTotalVertexCount = 0;
 	m_CompressionType = VERTEX_COMPRESSION_INVALID;
 
-	if ( m_pVertexBuffer->IsDynamic() )
+	if (m_pVertexBuffer->IsDynamic())
 	{
-		m_pVertexBuffer->BeginCastBuffer( fmt );
+		m_pVertexBuffer->BeginCastBuffer(fmt);
 	}
 	else
 	{
-		Assert( m_pVertexBuffer->GetVertexFormat() == fmt );
+		Assert(m_pVertexBuffer->GetVertexFormat() == fmt);
 	}
 
 #ifdef _DEBUG
 	m_pCurrPosition = NULL;
 	m_pCurrNormal = NULL;
 	m_pCurrColor = NULL;
-	memset( m_pCurrTexCoord, 0, sizeof( m_pCurrTexCoord ) );
+	memset(m_pCurrTexCoord, 0, sizeof(m_pCurrTexCoord));
 	m_bModify = false;
 #endif
 }
 
 inline CVertexBuilder::~CVertexBuilder()
 {
-	if ( m_pVertexBuffer && m_pVertexBuffer->IsDynamic() )
+	if (m_pVertexBuffer && m_pVertexBuffer->IsDynamic())
 	{
 		m_pVertexBuffer->EndCastBuffer();
 	}
 }
 
 // Begins, ends modification of the index buffer
-inline bool CVertexBuilder::Lock( int nMaxVertexCount, bool bAppend )
+inline bool CVertexBuilder::Lock(int nMaxVertexCount, bool bAppend)
 {
-	Assert( m_pVertexBuffer );
+	Assert(m_pVertexBuffer);
 	m_bModify = false;
 	m_nMaxVertexCount = nMaxVertexCount;
-	bool bFirstLock = ( m_nBufferOffset == INVALID_BUFFER_OFFSET );
-	if ( bFirstLock )
+	bool bFirstLock = (m_nBufferOffset == INVALID_BUFFER_OFFSET);
+	if (bFirstLock)
 	{
 		bAppend = false;
 	}
-	if ( !bAppend )
+	if (!bAppend)
 	{
 		m_nTotalVertexCount = 0;
 	}
 
 	// Lock the vertex buffer
-	if ( !m_pVertexBuffer->Lock( m_nMaxVertexCount, bAppend, *this ) )
+	if (!m_pVertexBuffer->Lock(m_nMaxVertexCount, bAppend, *this))
 	{
 		m_nMaxVertexCount = 0;
 		return false;
@@ -551,7 +551,7 @@ inline bool CVertexBuilder::Lock( int nMaxVertexCount, bool bAppend )
 
 	Reset();
 
-	if ( bFirstLock )
+	if (bFirstLock)
 	{
 		m_nBufferOffset = m_nOffset;
 		m_nBufferFirstVertex = m_nFirstVertex;
@@ -562,13 +562,13 @@ inline bool CVertexBuilder::Lock( int nMaxVertexCount, bool bAppend )
 
 inline void CVertexBuilder::Unlock()
 {
-	Assert( !m_bModify && m_pVertexBuffer );
+	Assert(!m_bModify && m_pVertexBuffer);
 
 #ifdef _DEBUG
-	m_pVertexBuffer->ValidateData( m_nVertexCount, *this );
+	m_pVertexBuffer->ValidateData(m_nVertexCount, *this);
 #endif
 
-	m_pVertexBuffer->Unlock( m_nVertexCount, *this );
+	m_pVertexBuffer->Unlock(m_nVertexCount, *this);
 	m_nTotalVertexCount += m_nVertexCount;
 
 	m_nMaxVertexCount = 0;
@@ -578,48 +578,48 @@ inline void CVertexBuilder::Unlock()
 	m_pCurrPosition = NULL;
 	m_pCurrNormal = NULL;
 	m_pCurrColor = NULL;
-	memset( m_pCurrTexCoord, 0, sizeof( m_pCurrTexCoord ) );
-	memset( static_cast<VertexDesc_t *>( this ), 0, sizeof( VertexDesc_t ) );
+	memset(m_pCurrTexCoord, 0, sizeof(m_pCurrTexCoord));
+	memset(static_cast<VertexDesc_t*>(this), 0, sizeof(VertexDesc_t));
 #endif
 }
 
 inline void CVertexBuilder::ValidateCompressionType()
 {
 #ifdef _DEBUG
-	VertexCompressionType_t vbCompressionType = CompressionType( m_pVertexBuffer->GetVertexFormat() );
-	if ( vbCompressionType != VERTEX_COMPRESSION_NONE )
+	VertexCompressionType_t vbCompressionType = CompressionType(m_pVertexBuffer->GetVertexFormat());
+	if (vbCompressionType != VERTEX_COMPRESSION_NONE)
 	{
-		Assert( m_CompressionType == vbCompressionType );
-		if ( m_CompressionType != vbCompressionType )
+		Assert(m_CompressionType == vbCompressionType);
+		if (m_CompressionType != vbCompressionType)
 		{
 			Warning(
 				"ERROR: CVertexBuilder::SetCompressionType() must be called to specify the same vertex compression type (%s) as the vertex buffer being modified."
 				"Junk vertices will be rendered, or there will be a crash in CVertexBuilder!\n",
-				vbCompressionType == VERTEX_COMPRESSION_ON ? "VERTEX_COMPRESSION_ON" : "VERTEX_COMPRESSION_NONE" );
+				vbCompressionType == VERTEX_COMPRESSION_ON ? "VERTEX_COMPRESSION_ON" : "VERTEX_COMPRESSION_NONE");
 		}
 		// Never use vertex compression for dynamic VBs (the conversions can really hurt perf)
-		Assert( !m_pVertexBuffer->IsDynamic() );
+		Assert(!m_pVertexBuffer->IsDynamic());
 	}
 #endif
 }
 
 // Use this when you're done modifying the mesh
-inline void CVertexBuilder::End( bool bSpewData )
+inline void CVertexBuilder::End(bool bSpewData)
 {
 	// Make sure they called Begin()
-	Assert( !m_bModify );
+	Assert(!m_bModify);
 
-	if ( bSpewData )
+	if (bSpewData)
 	{
-		m_pVertexBuffer->Spew( m_nVertexCount, *this );
+		m_pVertexBuffer->Spew(m_nVertexCount, *this);
 	}
 
 #ifdef _DEBUG
-	m_pVertexBuffer->ValidateData( m_nVertexCount, *this );
+	m_pVertexBuffer->ValidateData(m_nVertexCount, *this);
 #endif
 
 	// Unlock our buffers
-	m_pVertexBuffer->Unlock( m_nVertexCount, *this );
+	m_pVertexBuffer->Unlock(m_nVertexCount, *this);
 
 	m_pVertexBuffer = 0;
 	m_nMaxVertexCount = 0;
@@ -631,33 +631,33 @@ inline void CVertexBuilder::End( bool bSpewData )
 	m_pCurrPosition = NULL;
 	m_pCurrNormal = NULL;
 	m_pCurrColor = NULL;
-	memset( m_pCurrTexCoord, 0, sizeof( m_pCurrTexCoord ) );
-	memset( static_cast<VertexDesc_t *>( this ), 0, sizeof( VertexDesc_t ) );
+	memset(m_pCurrTexCoord, 0, sizeof(m_pCurrTexCoord));
+	memset(static_cast<VertexDesc_t*>(this), 0, sizeof(VertexDesc_t));
 #endif
 }
 
 // FIXME: Remove! Backward compat so we can use this from a CMeshBuilder.
-inline void CVertexBuilder::AttachBegin( IMesh *pMesh, int nMaxVertexCount, const MeshDesc_t &desc )
+inline void CVertexBuilder::AttachBegin(IMesh* pMesh, int nMaxVertexCount, const MeshDesc_t& desc)
 {
 	VertexCompressionType_t compressionType = m_CompressionType;
 
 	m_pVertexBuffer = pMesh;
-	memcpy( static_cast<VertexDesc_t *>( this ), static_cast<const VertexDesc_t *>( &desc ), sizeof( VertexDesc_t ) );
+	memcpy(static_cast<VertexDesc_t*>(this), static_cast<const VertexDesc_t*>(&desc), sizeof(VertexDesc_t));
 	m_nMaxVertexCount = nMaxVertexCount;
 	m_NumBoneWeights = m_NumBoneWeights == 0 ? 0 : 2; // Two weights if any
 	m_nVertexCount = 0;
 	m_bModify = false;
 
-	if ( compressionType != VERTEX_COMPRESSION_INVALID )
+	if (compressionType != VERTEX_COMPRESSION_INVALID)
 		m_CompressionType = compressionType;
 
 	// Make sure SetCompressionType was called correctly, if this VB is compressed
 	ValidateCompressionType();
 
-	if ( m_nBufferOffset == INVALID_BUFFER_OFFSET )
+	if (m_nBufferOffset == INVALID_BUFFER_OFFSET)
 	{
 		m_nTotalVertexCount = 0;
-		m_nBufferOffset = static_cast<const VertexDesc_t *>( &desc )->m_nOffset;
+		m_nBufferOffset = static_cast<const VertexDesc_t*>(&desc)->m_nOffset;
 		m_nBufferFirstVertex = desc.m_nFirstVertex;
 	}
 }
@@ -665,7 +665,7 @@ inline void CVertexBuilder::AttachBegin( IMesh *pMesh, int nMaxVertexCount, cons
 inline void CVertexBuilder::AttachEnd()
 {
 	// Make sure they called Begin()
-	Assert( !m_bModify );
+	Assert(!m_bModify);
 
 	m_nMaxVertexCount = 0;
 	m_pVertexBuffer = NULL;
@@ -677,15 +677,15 @@ inline void CVertexBuilder::AttachEnd()
 	m_pCurrPosition = NULL;
 	m_pCurrNormal = NULL;
 	m_pCurrColor = NULL;
-	memset( m_pCurrTexCoord, 0, sizeof( m_pCurrTexCoord ) );
-	memset( static_cast<VertexDesc_t *>( this ), 0, sizeof( VertexDesc_t ) );
+	memset(m_pCurrTexCoord, 0, sizeof(m_pCurrTexCoord));
+	memset(static_cast<VertexDesc_t*>(this), 0, sizeof(VertexDesc_t));
 #endif
 }
 
 inline void CVertexBuilder::AttachEndModify()
 {
-	Assert( m_pVertexBuffer );
-	Assert( m_bModify ); // Make sure they called BeginModify.
+	Assert(m_pVertexBuffer);
+	Assert(m_bModify); // Make sure they called BeginModify.
 
 	m_pVertexBuffer = 0;
 	m_nMaxVertexCount = 0;
@@ -697,8 +697,8 @@ inline void CVertexBuilder::AttachEndModify()
 	m_pCurrPosition = NULL;
 	m_pCurrNormal = NULL;
 	m_pCurrColor = NULL;
-	memset( m_pCurrTexCoord, 0, sizeof( m_pCurrTexCoord ) );
-	memset( static_cast<VertexDesc_t *>( this ), 0, sizeof( VertexDesc_t ) );
+	memset(m_pCurrTexCoord, 0, sizeof(m_pCurrTexCoord));
+	memset(static_cast<VertexDesc_t*>(this), 0, sizeof(VertexDesc_t));
 #endif
 }
 
@@ -709,13 +709,13 @@ inline void CVertexBuilder::Reset()
 
 	m_pCurrPosition = m_pPosition;
 	m_pCurrNormal = m_pNormal;
-	for ( int i = 0; i < NELEMS( m_pCurrTexCoord ); i++ )
+	for (int i = 0; i < NELEMS(m_pCurrTexCoord); i++)
 	{
 		m_pCurrTexCoord[i] = m_pTexCoord[i];
 	}
 	m_pCurrColor = m_pColor;
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
@@ -728,27 +728,27 @@ inline int CVertexBuilder::VertexCount() const
 }
 
 // Selects the current vertex
-inline void CVertexBuilder::SelectVertex( int nIndex )
+inline void CVertexBuilder::SelectVertex(int nIndex)
 {
 	// NOTE: This index is expected to be relative
-	Assert( ( nIndex >= 0 ) && ( nIndex < m_nMaxVertexCount ) );
+	Assert((nIndex >= 0) && (nIndex < m_nMaxVertexCount));
 	m_nCurrentVertex = nIndex;
 
-	m_pCurrPosition = OffsetFloatPointer( m_pPosition, m_nCurrentVertex, m_VertexSize_Position );
-	m_pCurrNormal = OffsetFloatPointer( m_pNormal, m_nCurrentVertex, m_VertexSize_Normal );
+	m_pCurrPosition = OffsetFloatPointer(m_pPosition, m_nCurrentVertex, m_VertexSize_Position);
+	m_pCurrNormal = OffsetFloatPointer(m_pNormal, m_nCurrentVertex, m_VertexSize_Normal);
 
-	COMPILE_TIME_ASSERT( VERTEX_MAX_TEXTURE_COORDINATES == 8 );
-	m_pCurrTexCoord[0] = OffsetFloatPointer( m_pTexCoord[0], m_nCurrentVertex, m_VertexSize_TexCoord[0] );
-	m_pCurrTexCoord[1] = OffsetFloatPointer( m_pTexCoord[1], m_nCurrentVertex, m_VertexSize_TexCoord[1] );
-	m_pCurrTexCoord[2] = OffsetFloatPointer( m_pTexCoord[2], m_nCurrentVertex, m_VertexSize_TexCoord[2] );
-	m_pCurrTexCoord[3] = OffsetFloatPointer( m_pTexCoord[3], m_nCurrentVertex, m_VertexSize_TexCoord[3] );
-	m_pCurrTexCoord[4] = OffsetFloatPointer( m_pTexCoord[4], m_nCurrentVertex, m_VertexSize_TexCoord[4] );
-	m_pCurrTexCoord[5] = OffsetFloatPointer( m_pTexCoord[5], m_nCurrentVertex, m_VertexSize_TexCoord[5] );
-	m_pCurrTexCoord[6] = OffsetFloatPointer( m_pTexCoord[6], m_nCurrentVertex, m_VertexSize_TexCoord[6] );
-	m_pCurrTexCoord[7] = OffsetFloatPointer( m_pTexCoord[7], m_nCurrentVertex, m_VertexSize_TexCoord[7] );
+	COMPILE_TIME_ASSERT(VERTEX_MAX_TEXTURE_COORDINATES == 8);
+	m_pCurrTexCoord[0] = OffsetFloatPointer(m_pTexCoord[0], m_nCurrentVertex, m_VertexSize_TexCoord[0]);
+	m_pCurrTexCoord[1] = OffsetFloatPointer(m_pTexCoord[1], m_nCurrentVertex, m_VertexSize_TexCoord[1]);
+	m_pCurrTexCoord[2] = OffsetFloatPointer(m_pTexCoord[2], m_nCurrentVertex, m_VertexSize_TexCoord[2]);
+	m_pCurrTexCoord[3] = OffsetFloatPointer(m_pTexCoord[3], m_nCurrentVertex, m_VertexSize_TexCoord[3]);
+	m_pCurrTexCoord[4] = OffsetFloatPointer(m_pTexCoord[4], m_nCurrentVertex, m_VertexSize_TexCoord[4]);
+	m_pCurrTexCoord[5] = OffsetFloatPointer(m_pTexCoord[5], m_nCurrentVertex, m_VertexSize_TexCoord[5]);
+	m_pCurrTexCoord[6] = OffsetFloatPointer(m_pTexCoord[6], m_nCurrentVertex, m_VertexSize_TexCoord[6]);
+	m_pCurrTexCoord[7] = OffsetFloatPointer(m_pTexCoord[7], m_nCurrentVertex, m_VertexSize_TexCoord[7]);
 	m_pCurrColor = m_pColor + m_nCurrentVertex * m_VertexSize_Color;
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
@@ -759,37 +759,37 @@ inline void CVertexBuilder::SelectVertex( int nIndex )
 template <int nFlags, int nNumTexCoords>
 FORCEINLINE void CVertexBuilder::AdvanceVertexF()
 {
-	if ( ++m_nCurrentVertex > m_nVertexCount )
+	if (++m_nCurrentVertex > m_nVertexCount)
 	{
 		m_nVertexCount = m_nCurrentVertex;
 	}
 
-	if ( nFlags & VTX_HAVEPOS )
-		IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
-	if ( nFlags & VTX_HAVENORMAL )
-		IncrementFloatPointer( m_pCurrNormal, m_VertexSize_Normal );
-	if ( nFlags & VTX_HAVECOLOR )
+	if (nFlags & VTX_HAVEPOS)
+		IncrementFloatPointer(m_pCurrPosition, m_VertexSize_Position);
+	if (nFlags & VTX_HAVENORMAL)
+		IncrementFloatPointer(m_pCurrNormal, m_VertexSize_Normal);
+	if (nFlags & VTX_HAVECOLOR)
 		m_pCurrColor += m_VertexSize_Color;
 
-	COMPILE_TIME_ASSERT( VERTEX_MAX_TEXTURE_COORDINATES == 8 );
-	if ( nNumTexCoords > 0 )
-		IncrementFloatPointer( m_pCurrTexCoord[0], m_VertexSize_TexCoord[0] );
-	if ( nNumTexCoords > 1 )
-		IncrementFloatPointer( m_pCurrTexCoord[1], m_VertexSize_TexCoord[1] );
-	if ( nNumTexCoords > 2 )
-		IncrementFloatPointer( m_pCurrTexCoord[2], m_VertexSize_TexCoord[2] );
-	if ( nNumTexCoords > 3 )
-		IncrementFloatPointer( m_pCurrTexCoord[3], m_VertexSize_TexCoord[3] );
-	if ( nNumTexCoords > 4 )
-		IncrementFloatPointer( m_pCurrTexCoord[4], m_VertexSize_TexCoord[4] );
-	if ( nNumTexCoords > 5 )
-		IncrementFloatPointer( m_pCurrTexCoord[5], m_VertexSize_TexCoord[5] );
-	if ( nNumTexCoords > 6 )
-		IncrementFloatPointer( m_pCurrTexCoord[6], m_VertexSize_TexCoord[6] );
-	if ( nNumTexCoords > 7 )
-		IncrementFloatPointer( m_pCurrTexCoord[7], m_VertexSize_TexCoord[7] );
+	COMPILE_TIME_ASSERT(VERTEX_MAX_TEXTURE_COORDINATES == 8);
+	if (nNumTexCoords > 0)
+		IncrementFloatPointer(m_pCurrTexCoord[0], m_VertexSize_TexCoord[0]);
+	if (nNumTexCoords > 1)
+		IncrementFloatPointer(m_pCurrTexCoord[1], m_VertexSize_TexCoord[1]);
+	if (nNumTexCoords > 2)
+		IncrementFloatPointer(m_pCurrTexCoord[2], m_VertexSize_TexCoord[2]);
+	if (nNumTexCoords > 3)
+		IncrementFloatPointer(m_pCurrTexCoord[3], m_VertexSize_TexCoord[3]);
+	if (nNumTexCoords > 4)
+		IncrementFloatPointer(m_pCurrTexCoord[4], m_VertexSize_TexCoord[4]);
+	if (nNumTexCoords > 5)
+		IncrementFloatPointer(m_pCurrTexCoord[5], m_VertexSize_TexCoord[5]);
+	if (nNumTexCoords > 6)
+		IncrementFloatPointer(m_pCurrTexCoord[6], m_VertexSize_TexCoord[6]);
+	if (nNumTexCoords > 7)
+		IncrementFloatPointer(m_pCurrTexCoord[7], m_VertexSize_TexCoord[7]);
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
@@ -800,29 +800,29 @@ inline void CVertexBuilder::AdvanceVertex()
 	AdvanceVertexF<VTX_HAVEALL, 8>();
 }
 
-inline void CVertexBuilder::AdvanceVertices( int nVerts )
+inline void CVertexBuilder::AdvanceVertices(int nVerts)
 {
 	m_nCurrentVertex += nVerts;
-	if ( m_nCurrentVertex > m_nVertexCount )
+	if (m_nCurrentVertex > m_nVertexCount)
 	{
 		m_nVertexCount = m_nCurrentVertex;
 	}
 
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position * nVerts );
-	IncrementFloatPointer( m_pCurrNormal, m_VertexSize_Normal * nVerts );
+	IncrementFloatPointer(m_pCurrPosition, m_VertexSize_Position * nVerts);
+	IncrementFloatPointer(m_pCurrNormal, m_VertexSize_Normal * nVerts);
 
-	COMPILE_TIME_ASSERT( VERTEX_MAX_TEXTURE_COORDINATES == 8 );
-	IncrementFloatPointer( m_pCurrTexCoord[0], m_VertexSize_TexCoord[0] * nVerts );
-	IncrementFloatPointer( m_pCurrTexCoord[1], m_VertexSize_TexCoord[1] * nVerts );
-	IncrementFloatPointer( m_pCurrTexCoord[2], m_VertexSize_TexCoord[2] * nVerts );
-	IncrementFloatPointer( m_pCurrTexCoord[3], m_VertexSize_TexCoord[3] * nVerts );
-	IncrementFloatPointer( m_pCurrTexCoord[4], m_VertexSize_TexCoord[4] * nVerts );
-	IncrementFloatPointer( m_pCurrTexCoord[5], m_VertexSize_TexCoord[5] * nVerts );
-	IncrementFloatPointer( m_pCurrTexCoord[6], m_VertexSize_TexCoord[6] * nVerts );
-	IncrementFloatPointer( m_pCurrTexCoord[7], m_VertexSize_TexCoord[7] * nVerts );
+	COMPILE_TIME_ASSERT(VERTEX_MAX_TEXTURE_COORDINATES == 8);
+	IncrementFloatPointer(m_pCurrTexCoord[0], m_VertexSize_TexCoord[0] * nVerts);
+	IncrementFloatPointer(m_pCurrTexCoord[1], m_VertexSize_TexCoord[1] * nVerts);
+	IncrementFloatPointer(m_pCurrTexCoord[2], m_VertexSize_TexCoord[2] * nVerts);
+	IncrementFloatPointer(m_pCurrTexCoord[3], m_VertexSize_TexCoord[3] * nVerts);
+	IncrementFloatPointer(m_pCurrTexCoord[4], m_VertexSize_TexCoord[4] * nVerts);
+	IncrementFloatPointer(m_pCurrTexCoord[5], m_VertexSize_TexCoord[5] * nVerts);
+	IncrementFloatPointer(m_pCurrTexCoord[6], m_VertexSize_TexCoord[6] * nVerts);
+	IncrementFloatPointer(m_pCurrTexCoord[7], m_VertexSize_TexCoord[7] * nVerts);
 	m_pCurrColor += m_VertexSize_Color * nVerts;
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
@@ -830,14 +830,14 @@ inline void CVertexBuilder::AdvanceVertices( int nVerts )
 
 // Implement for 64-bit Windows if needed.
 // Fast Vertex! No need to call advance vertex, and no random access allowed
-inline void CVertexBuilder::FastVertex( const ModelVertexDX7_t &vertex )
+inline void CVertexBuilder::FastVertex(const ModelVertexDX7_t& vertex)
 {
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
+	Assert(m_CompressionType == VERTEX_COMPRESSION_NONE); // FIXME: support compressed verts if needed
+	Assert(m_nCurrentVertex < m_nMaxVertexCount);
 
-#if defined( _WIN32 ) && !defined( _M_X64 )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
+#if defined(_WIN32) && !defined(_M_X64)
+	const void* pRead = &vertex;
+	void* pCurrPos = m_pCurrPosition;
 
 	__asm
 	{
@@ -860,45 +860,45 @@ inline void CVertexBuilder::FastVertex( const ModelVertexDX7_t &vertex )
 
 			emms
 	}
-#elif defined( GNUC )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm__ __volatile__( "movq (%0), %%mm0\n"
-						  "movq 8(%0), %%mm1\n"
-						  "movq 16(%0), %%mm2\n"
-						  "movq 24(%0), %%mm3\n"
-						  "movq 32(%0), %%mm4\n"
-						  "movq 40(%0), %%mm5\n"
-						  "movntq %%mm0, (%1)\n"
-						  "movntq %%mm1, 8(%1)\n"
-						  "movntq %%mm2, 16(%1)\n"
-						  "movntq %%mm3, 24(%1)\n"
-						  "movntq %%mm4, 32(%1)\n"
-						  "movntq %%mm5, 40(%1)\n"
-						  "emms\n" ::"r"( pRead ),
-						  "r"( pCurrPos )
-						  : "memory" );
+#elif defined(GNUC)
+	const void* pRead = &vertex;
+	void* pCurrPos = m_pCurrPosition;
+	__asm__ __volatile__("movq (%0), %%mm0\n"
+						 "movq 8(%0), %%mm1\n"
+						 "movq 16(%0), %%mm2\n"
+						 "movq 24(%0), %%mm3\n"
+						 "movq 32(%0), %%mm4\n"
+						 "movq 40(%0), %%mm5\n"
+						 "movntq %%mm0, (%1)\n"
+						 "movntq %%mm1, 8(%1)\n"
+						 "movntq %%mm2, 16(%1)\n"
+						 "movntq %%mm3, 24(%1)\n"
+						 "movntq %%mm4, 32(%1)\n"
+						 "movntq %%mm5, 40(%1)\n"
+						 "emms\n" ::"r"(pRead),
+						 "r"(pCurrPos)
+						 : "memory");
 #else
-	memcpy( m_pCurrPosition, &vertex, m_VertexSize_Position );
+	memcpy(m_pCurrPosition, &vertex, m_VertexSize_Position);
 #endif
 
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
+	IncrementFloatPointer(m_pCurrPosition, m_VertexSize_Position);
 	//m_nVertexCount = ++m_nCurrentVertex;
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
 }
 
-inline void CVertexBuilder::FastVertexSSE( const ModelVertexDX7_t &vertex )
+inline void CVertexBuilder::FastVertexSSE(const ModelVertexDX7_t& vertex)
 {
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
+	Assert(m_CompressionType == VERTEX_COMPRESSION_NONE); // FIXME: support compressed verts if needed
+	Assert(m_nCurrentVertex < m_nMaxVertexCount);
 
-#if defined( _WIN32 ) && !defined( _M_X64 )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
+#if defined(_WIN32) && !defined(_M_X64)
+	const void* pRead = &vertex;
+	void* pCurrPos = m_pCurrPosition;
 	__asm
 	{
 		mov esi, pRead
@@ -912,36 +912,36 @@ inline void CVertexBuilder::FastVertexSSE( const ModelVertexDX7_t &vertex )
 			movntps [edi + 16], xmm1
 			movntps [edi + 32], xmm2
 	}
-#elif defined( GNUC )
-	const char *pRead = (char *)&vertex;
-	char *pCurrPos = (char *)m_pCurrPosition;
-	__m128 m1 = _mm_load_ps( (float *)pRead );
-	__m128 m2 = _mm_load_ps( (float *)( pRead + 16 ) );
-	__m128 m3 = _mm_load_ps( (float *)( pRead + 32 ) );
-	_mm_stream_ps( (float *)pCurrPos, m1 );
-	_mm_stream_ps( (float *)( pCurrPos + 16 ), m2 );
-	_mm_stream_ps( (float *)( pCurrPos + 32 ), m3 );
+#elif defined(GNUC)
+	const char* pRead = (char*)&vertex;
+	char* pCurrPos = (char*)m_pCurrPosition;
+	__m128 m1 = _mm_load_ps((float*)pRead);
+	__m128 m2 = _mm_load_ps((float*)(pRead + 16));
+	__m128 m3 = _mm_load_ps((float*)(pRead + 32));
+	_mm_stream_ps((float*)pCurrPos, m1);
+	_mm_stream_ps((float*)(pCurrPos + 16), m2);
+	_mm_stream_ps((float*)(pCurrPos + 32), m3);
 #else
-	memcpy( m_pCurrPosition, &vertex, m_VertexSize_Position );
+	memcpy(m_pCurrPosition, &vertex, m_VertexSize_Position);
 #endif
 
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
+	IncrementFloatPointer(m_pCurrPosition, m_VertexSize_Position);
 	//m_nVertexCount = ++m_nCurrentVertex;
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
 }
 
-inline void CVertexBuilder::Fast4VerticesSSE( ModelVertexDX7_t const *vtx_a, ModelVertexDX7_t const *vtx_b,
-											  ModelVertexDX7_t const *vtx_c, ModelVertexDX7_t const *vtx_d )
+inline void CVertexBuilder::Fast4VerticesSSE(ModelVertexDX7_t const* vtx_a, ModelVertexDX7_t const* vtx_b,
+											 ModelVertexDX7_t const* vtx_c, ModelVertexDX7_t const* vtx_d)
 {
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount - 3 );
+	Assert(m_CompressionType == VERTEX_COMPRESSION_NONE); // FIXME: support compressed verts if needed
+	Assert(m_nCurrentVertex < m_nMaxVertexCount - 3);
 
-#if defined( _WIN32 ) && !defined( _M_X64 )
-	void *pCurrPos = m_pCurrPosition;
+#if defined(_WIN32) && !defined(_M_X64)
+	void* pCurrPos = m_pCurrPosition;
 	__asm
 		{
 		mov esi, vtx_a
@@ -983,27 +983,27 @@ inline void CVertexBuilder::Fast4VerticesSSE( ModelVertexDX7_t const *vtx_a, Mod
 
 		}
 #else
-	memcpy( &m_pCurrPosition[0 * m_VertexSize_Position], vtx_a, m_VertexSize_Position );
-	memcpy( &m_pCurrPosition[1 * m_VertexSize_Position], vtx_b, m_VertexSize_Position );
-	memcpy( &m_pCurrPosition[2 * m_VertexSize_Position], vtx_c, m_VertexSize_Position );
-	memcpy( &m_pCurrPosition[3 * m_VertexSize_Position], vtx_d, m_VertexSize_Position );
+	memcpy(&m_pCurrPosition[0 * m_VertexSize_Position], vtx_a, m_VertexSize_Position);
+	memcpy(&m_pCurrPosition[1 * m_VertexSize_Position], vtx_b, m_VertexSize_Position);
+	memcpy(&m_pCurrPosition[2 * m_VertexSize_Position], vtx_c, m_VertexSize_Position);
+	memcpy(&m_pCurrPosition[3 * m_VertexSize_Position], vtx_d, m_VertexSize_Position);
 #endif
-	IncrementFloatPointer( m_pCurrPosition, 4 * m_VertexSize_Position );
+	IncrementFloatPointer(m_pCurrPosition, 4 * m_VertexSize_Position);
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
 }
 
-inline void CVertexBuilder::FastVertex( const ModelVertexDX8_t &vertex )
+inline void CVertexBuilder::FastVertex(const ModelVertexDX8_t& vertex)
 {
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
+	Assert(m_CompressionType == VERTEX_COMPRESSION_NONE); // FIXME: support compressed verts if needed
+	Assert(m_nCurrentVertex < m_nMaxVertexCount);
 
-#if defined( _WIN32 ) && !defined( _M_X64 )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
+#if defined(_WIN32) && !defined(_M_X64)
+	const void* pRead = &vertex;
+	void* pCurrPos = m_pCurrPosition;
 	__asm
 	{
 		mov esi, pRead
@@ -1029,49 +1029,49 @@ inline void CVertexBuilder::FastVertex( const ModelVertexDX8_t &vertex )
 
 			emms
 	}
-#elif defined( GNUC )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm__ __volatile__( "movq (%0), %%mm0\n"
-						  "movq 8(%0), %%mm1\n"
-						  "movq 16(%0), %%mm2\n"
-						  "movq 24(%0), %%mm3\n"
-						  "movq 32(%0), %%mm4\n"
-						  "movq 40(%0), %%mm5\n"
-						  "movq 48(%0), %%mm6\n"
-						  "movq 56(%0), %%mm7\n"
-						  "movntq %%mm0, (%1)\n"
-						  "movntq %%mm1, 8(%1)\n"
-						  "movntq %%mm2, 16(%1)\n"
-						  "movntq %%mm3, 24(%1)\n"
-						  "movntq %%mm4, 32(%1)\n"
-						  "movntq %%mm5, 40(%1)\n"
-						  "movntq %%mm6, 48(%1)\n"
-						  "movntq %%mm7, 56(%1)\n"
-						  "emms\n" ::"r"( pRead ),
-						  "r"( pCurrPos )
-						  : "memory" );
+#elif defined(GNUC)
+	const void* pRead = &vertex;
+	void* pCurrPos = m_pCurrPosition;
+	__asm__ __volatile__("movq (%0), %%mm0\n"
+						 "movq 8(%0), %%mm1\n"
+						 "movq 16(%0), %%mm2\n"
+						 "movq 24(%0), %%mm3\n"
+						 "movq 32(%0), %%mm4\n"
+						 "movq 40(%0), %%mm5\n"
+						 "movq 48(%0), %%mm6\n"
+						 "movq 56(%0), %%mm7\n"
+						 "movntq %%mm0, (%1)\n"
+						 "movntq %%mm1, 8(%1)\n"
+						 "movntq %%mm2, 16(%1)\n"
+						 "movntq %%mm3, 24(%1)\n"
+						 "movntq %%mm4, 32(%1)\n"
+						 "movntq %%mm5, 40(%1)\n"
+						 "movntq %%mm6, 48(%1)\n"
+						 "movntq %%mm7, 56(%1)\n"
+						 "emms\n" ::"r"(pRead),
+						 "r"(pCurrPos)
+						 : "memory");
 #else
-	memcpy( m_pCurrPosition, &vertex, m_VertexSize_Position );
+	memcpy(m_pCurrPosition, &vertex, m_VertexSize_Position);
 #endif
 
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
+	IncrementFloatPointer(m_pCurrPosition, m_VertexSize_Position);
 	//	m_nVertexCount = ++m_nCurrentVertex;
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
 }
 
-inline void CVertexBuilder::FastVertexSSE( const ModelVertexDX8_t &vertex )
+inline void CVertexBuilder::FastVertexSSE(const ModelVertexDX8_t& vertex)
 {
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE ); // FIXME: support compressed verts if needed
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
+	Assert(m_CompressionType == VERTEX_COMPRESSION_NONE); // FIXME: support compressed verts if needed
+	Assert(m_nCurrentVertex < m_nMaxVertexCount);
 
-#if defined( _WIN32 ) && !defined( _M_X64 )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
+#if defined(_WIN32) && !defined(_M_X64)
+	const void* pRead = &vertex;
+	void* pCurrPos = m_pCurrPosition;
 	__asm
 	{
 		mov esi, pRead
@@ -1087,38 +1087,38 @@ inline void CVertexBuilder::FastVertexSSE( const ModelVertexDX8_t &vertex )
 			movntps [edi + 32], xmm2
 			movntps [edi + 48], xmm3
 	}
-#elif defined( GNUC )
-	const void *pRead = &vertex;
-	void *pCurrPos = m_pCurrPosition;
-	__asm__ __volatile__( "movaps (%0), %%xmm0\n"
-						  "movaps 16(%0), %%xmm1\n"
-						  "movaps 32(%0), %%xmm2\n"
-						  "movaps 48(%0), %%xmm3\n"
-						  "movntps %%xmm0, (%1)\n"
-						  "movntps %%xmm1, 16(%1)\n"
-						  "movntps %%xmm2, 32(%1)\n"
-						  "movntps %%xmm3, 48(%1)\n" ::"r"( pRead ),
-						  "r"( pCurrPos )
-						  : "memory" );
+#elif defined(GNUC)
+	const void* pRead = &vertex;
+	void* pCurrPos = m_pCurrPosition;
+	__asm__ __volatile__("movaps (%0), %%xmm0\n"
+						 "movaps 16(%0), %%xmm1\n"
+						 "movaps 32(%0), %%xmm2\n"
+						 "movaps 48(%0), %%xmm3\n"
+						 "movntps %%xmm0, (%1)\n"
+						 "movntps %%xmm1, 16(%1)\n"
+						 "movntps %%xmm2, 32(%1)\n"
+						 "movntps %%xmm3, 48(%1)\n" ::"r"(pRead),
+						 "r"(pCurrPos)
+						 : "memory");
 #else
-	memcpy( m_pCurrPosition, &vertex, m_VertexSize_Position );
+	memcpy(m_pCurrPosition, &vertex, m_VertexSize_Position);
 #endif
 
-	IncrementFloatPointer( m_pCurrPosition, m_VertexSize_Position );
+	IncrementFloatPointer(m_pCurrPosition, m_VertexSize_Position);
 	//	m_nVertexCount = ++m_nCurrentVertex;
 
-#if defined( _DEBUG ) && ( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
+#if defined(_DEBUG) && (COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4)
 	m_bWrittenNormal = false;
 	m_bWrittenUserData = false;
 #endif
 }
 
-inline const float *CVertexBuilder::Normal() const
+inline const float* CVertexBuilder::Normal() const
 {
 	// FIXME: add a templatized accessor (return type varies to ensure calling code is updated appropriately)
 	//        for code that needs to access compressed data (and/or a return-by-value templatized accessor)
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE );
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
+	Assert(m_CompressionType == VERTEX_COMPRESSION_NONE);
+	Assert(m_nCurrentVertex < m_nMaxVertexCount);
 	return m_pCurrNormal;
 }
 
@@ -1126,66 +1126,66 @@ inline unsigned int CVertexBuilder::Color() const
 {
 	// FIXME: add a templatized accessor (return type varies to ensure calling code is updated appropriately)
 	//        for code that needs to access compressed data (and/or a return-by-value templatized accessor)
-	Assert( m_CompressionType == VERTEX_COMPRESSION_NONE );
+	Assert(m_CompressionType == VERTEX_COMPRESSION_NONE);
 	// Swizzle it so it returns the same format as accepted by Color4ubv - rgba
-	Assert( m_nCurrentVertex < m_nMaxVertexCount );
+	Assert(m_nCurrentVertex < m_nMaxVertexCount);
 	unsigned int color;
-	color = ( m_pCurrColor[3] << 24 ) | ( m_pCurrColor[0] << 16 ) | ( m_pCurrColor[1] << 8 ) | ( m_pCurrColor[2] );
+	color = (m_pCurrColor[3] << 24) | (m_pCurrColor[0] << 16) | (m_pCurrColor[1] << 8) | (m_pCurrColor[2]);
 
 	return color;
 }
 
 // Position setting methods
-inline void CVertexBuilder::Position3f( float x, float y, float z )
+inline void CVertexBuilder::Position3f(float x, float y, float z)
 {
-	Assert( m_pPosition && m_pCurrPosition );
-	Assert( IsFinite( x ) && IsFinite( y ) && IsFinite( z ) );
-	float *pDst = m_pCurrPosition;
+	Assert(m_pPosition && m_pCurrPosition);
+	Assert(IsFinite(x) && IsFinite(y) && IsFinite(z));
+	float* pDst = m_pCurrPosition;
 	*pDst++ = x;
 	*pDst++ = y;
 	*pDst = z;
 }
 
-inline void CVertexBuilder::Position3fv( const float *v )
+inline void CVertexBuilder::Position3fv(const float* v)
 {
-	Assert( v );
-	Assert( m_pPosition && m_pCurrPosition );
+	Assert(v);
+	Assert(m_pPosition && m_pCurrPosition);
 
-	float *pDst = m_pCurrPosition;
+	float* pDst = m_pCurrPosition;
 	*pDst++ = *v++;
 	*pDst++ = *v++;
 	*pDst = *v;
 }
 
 // Normal setting methods
-inline void CVertexBuilder::Normal3f( float nx, float ny, float nz )
+inline void CVertexBuilder::Normal3f(float nx, float ny, float nz)
 {
-	Assert( m_CompressionType ==
-			VERTEX_COMPRESSION_NONE ); // Use the templatized version if you want to support compression
-	Assert( m_pNormal );
-	Assert( IsFinite( nx ) && IsFinite( ny ) && IsFinite( nz ) );
-	Assert( nx >= -1.05f && nx <= 1.05f );
-	Assert( ny >= -1.05f && ny <= 1.05f );
-	Assert( nz >= -1.05f && nz <= 1.05f );
+	Assert(m_CompressionType ==
+		   VERTEX_COMPRESSION_NONE); // Use the templatized version if you want to support compression
+	Assert(m_pNormal);
+	Assert(IsFinite(nx) && IsFinite(ny) && IsFinite(nz));
+	Assert(nx >= -1.05f && nx <= 1.05f);
+	Assert(ny >= -1.05f && ny <= 1.05f);
+	Assert(nz >= -1.05f && nz <= 1.05f);
 
-	float *pDst = m_pCurrNormal;
+	float* pDst = m_pCurrNormal;
 	*pDst++ = nx;
 	*pDst++ = ny;
 	*pDst = nz;
 }
 
-inline void CVertexBuilder::Normal3fv( const float *n )
+inline void CVertexBuilder::Normal3fv(const float* n)
 {
-	Assert( m_CompressionType ==
-			VERTEX_COMPRESSION_NONE ); // Use the templatized version if you want to support compression
-	Assert( n );
-	Assert( m_pNormal && m_pCurrNormal );
-	Assert( IsFinite( n[0] ) && IsFinite( n[1] ) && IsFinite( n[2] ) );
-	Assert( n[0] >= -1.05f && n[0] <= 1.05f );
-	Assert( n[1] >= -1.05f && n[1] <= 1.05f );
-	Assert( n[2] >= -1.05f && n[2] <= 1.05f );
+	Assert(m_CompressionType ==
+		   VERTEX_COMPRESSION_NONE); // Use the templatized version if you want to support compression
+	Assert(n);
+	Assert(m_pNormal && m_pCurrNormal);
+	Assert(IsFinite(n[0]) && IsFinite(n[1]) && IsFinite(n[2]));
+	Assert(n[0] >= -1.05f && n[0] <= 1.05f);
+	Assert(n[1] >= -1.05f && n[1] <= 1.05f);
+	Assert(n[2] >= -1.05f && n[2] <= 1.05f);
 
-	float *pDst = m_pCurrNormal;
+	float* pDst = m_pCurrNormal;
 	*pDst++ = *n++;
 	*pDst++ = *n++;
 	*pDst = *n;
@@ -1193,36 +1193,36 @@ inline void CVertexBuilder::Normal3fv( const float *n )
 
 // Templatized normal setting methods which support compressed vertices
 template <VertexCompressionType_t T>
-inline void CVertexBuilder::CompressedNormal3f( float nx, float ny, float nz )
+inline void CVertexBuilder::CompressedNormal3f(float nx, float ny, float nz)
 {
-	Assert( T == m_CompressionType );
-	Assert( m_pNormal && m_pCurrNormal );
-	Assert( IsFinite( nx ) && IsFinite( ny ) && IsFinite( nz ) );
-	Assert( nx >= -1.05f && nx <= 1.05f );
-	Assert( ny >= -1.05f && ny <= 1.05f );
-	Assert( nz >= -1.05f && nz <= 1.05f );
+	Assert(T == m_CompressionType);
+	Assert(m_pNormal && m_pCurrNormal);
+	Assert(IsFinite(nx) && IsFinite(ny) && IsFinite(nz));
+	Assert(nx >= -1.05f && nx <= 1.05f);
+	Assert(ny >= -1.05f && ny <= 1.05f);
+	Assert(nz >= -1.05f && nz <= 1.05f);
 	// FIXME: studiorender is passing in non-unit normals
 	//float lengthSqd = nx*nx + ny*ny + nz*nz;
 	//Assert( lengthSqd >= 0.95f && lengthSqd <= 1.05f );
 
-	if ( T == VERTEX_COMPRESSION_ON )
+	if (T == VERTEX_COMPRESSION_ON)
 	{
 #if COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_SEPARATETANGENTS_SHORT2
-		PackNormal_SHORT2( nx, ny, nz, (unsigned int *)m_pCurrNormal );
+		PackNormal_SHORT2(nx, ny, nz, (unsigned int*)m_pCurrNormal);
 
 #else //( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
 		// NOTE: write the normal into the lower 16 bits of a word, clearing the top 16 bits - a userdata4
 		//       tangent must be written into the upper 16 bits by CompressedUserData() *AFTER* this.
 #ifdef _DEBUG
-		Assert( m_bWrittenUserData == false );
+		Assert(m_bWrittenUserData == false);
 		m_bWrittenNormal = true;
 #endif
-		PackNormal_UBYTE4( nx, ny, nz, (unsigned int *)m_pCurrNormal );
+		PackNormal_UBYTE4(nx, ny, nz, (unsigned int*)m_pCurrNormal);
 #endif
 	}
 	else
 	{
-		float *pDst = m_pCurrNormal;
+		float* pDst = m_pCurrNormal;
 		*pDst++ = nx;
 		*pDst++ = ny;
 		*pDst = nz;
@@ -1230,347 +1230,343 @@ inline void CVertexBuilder::CompressedNormal3f( float nx, float ny, float nz )
 }
 
 // Color setting methods
-inline void CVertexBuilder::Color3f( float r, float g, float b )
+inline void CVertexBuilder::Color3f(float r, float g, float b)
 {
-	Assert( m_pColor && m_pCurrColor );
-	Assert( IsFinite( r ) && IsFinite( g ) && IsFinite( b ) );
-	Assert( ( r >= 0.0 ) && ( g >= 0.0 ) && ( b >= 0.0 ) );
-	Assert( ( r <= 1.0 ) && ( g <= 1.0 ) && ( b <= 1.0 ) );
+	Assert(m_pColor && m_pCurrColor);
+	Assert(IsFinite(r) && IsFinite(g) && IsFinite(b));
+	Assert((r >= 0.0) && (g >= 0.0) && (b >= 0.0));
+	Assert((r <= 1.0) && (g <= 1.0) && (b <= 1.0));
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( r ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( b ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(r)) | (FastFToC(g) << 8) | (FastFToC(b) << 16) | 0xFF000000;
 #else
-	int col = ( FastFToC( b ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( r ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(b)) | (FastFToC(g) << 8) | (FastFToC(r) << 16) | 0xFF000000;
 #endif
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
-inline void CVertexBuilder::Color3fv( const float *rgb )
+inline void CVertexBuilder::Color3fv(const float* rgb)
 {
-	Assert( rgb );
-	Assert( m_pColor && m_pCurrColor );
-	Assert( IsFinite( rgb[0] ) && IsFinite( rgb[1] ) && IsFinite( rgb[2] ) );
-	Assert( ( rgb[0] >= 0.0 ) && ( rgb[1] >= 0.0 ) && ( rgb[2] >= 0.0 ) );
-	Assert( ( rgb[0] <= 1.0 ) && ( rgb[1] <= 1.0 ) && ( rgb[2] <= 1.0 ) );
+	Assert(rgb);
+	Assert(m_pColor && m_pCurrColor);
+	Assert(IsFinite(rgb[0]) && IsFinite(rgb[1]) && IsFinite(rgb[2]));
+	Assert((rgb[0] >= 0.0) && (rgb[1] >= 0.0) && (rgb[2] >= 0.0));
+	Assert((rgb[0] <= 1.0) && (rgb[1] <= 1.0) && (rgb[2] <= 1.0));
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( rgb[0] ) ) | ( FastFToC( rgb[1] ) << 8 ) | ( FastFToC( rgb[2] ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(rgb[0])) | (FastFToC(rgb[1]) << 8) | (FastFToC(rgb[2]) << 16) | 0xFF000000;
 #else
-	int col = ( FastFToC( rgb[2] ) ) | ( FastFToC( rgb[1] ) << 8 ) | ( FastFToC( rgb[0] ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(rgb[2])) | (FastFToC(rgb[1]) << 8) | (FastFToC(rgb[0]) << 16) | 0xFF000000;
 #endif
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
-inline void CVertexBuilder::Color4f( float r, float g, float b, float a )
+inline void CVertexBuilder::Color4f(float r, float g, float b, float a)
 {
-	Assert( m_pColor && m_pCurrColor );
-	Assert( IsFinite( r ) && IsFinite( g ) && IsFinite( b ) && IsFinite( a ) );
-	Assert( ( r >= 0.0 ) && ( g >= 0.0 ) && ( b >= 0.0 ) && ( a >= 0.0 ) );
-	Assert( ( r <= 1.0 ) && ( g <= 1.0 ) && ( b <= 1.0 ) && ( a <= 1.0 ) );
+	Assert(m_pColor && m_pCurrColor);
+	Assert(IsFinite(r) && IsFinite(g) && IsFinite(b) && IsFinite(a));
+	Assert((r >= 0.0) && (g >= 0.0) && (b >= 0.0) && (a >= 0.0));
+	Assert((r <= 1.0) && (g <= 1.0) && (b <= 1.0) && (a <= 1.0));
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( r ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( b ) << 16 ) | ( FastFToC( a ) << 24 );
+	int col = (FastFToC(r)) | (FastFToC(g) << 8) | (FastFToC(b) << 16) | (FastFToC(a) << 24);
 #else
-	int col = ( FastFToC( b ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( r ) << 16 ) | ( FastFToC( a ) << 24 );
+	int col = (FastFToC(b)) | (FastFToC(g) << 8) | (FastFToC(r) << 16) | (FastFToC(a) << 24);
 #endif
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
-inline void CVertexBuilder::Color4fv( const float *rgba )
+inline void CVertexBuilder::Color4fv(const float* rgba)
 {
-	Assert( rgba );
-	Assert( m_pColor && m_pCurrColor );
-	Assert( IsFinite( rgba[0] ) && IsFinite( rgba[1] ) && IsFinite( rgba[2] ) && IsFinite( rgba[3] ) );
-	Assert( ( rgba[0] >= 0.0 ) && ( rgba[1] >= 0.0 ) && ( rgba[2] >= 0.0 ) && ( rgba[3] >= 0.0 ) );
-	Assert( ( rgba[0] <= 1.0 ) && ( rgba[1] <= 1.0 ) && ( rgba[2] <= 1.0 ) && ( rgba[3] <= 1.0 ) );
+	Assert(rgba);
+	Assert(m_pColor && m_pCurrColor);
+	Assert(IsFinite(rgba[0]) && IsFinite(rgba[1]) && IsFinite(rgba[2]) && IsFinite(rgba[3]));
+	Assert((rgba[0] >= 0.0) && (rgba[1] >= 0.0) && (rgba[2] >= 0.0) && (rgba[3] >= 0.0));
+	Assert((rgba[0] <= 1.0) && (rgba[1] <= 1.0) && (rgba[2] <= 1.0) && (rgba[3] <= 1.0));
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( rgba[0] ) ) | ( FastFToC( rgba[1] ) << 8 ) | ( FastFToC( rgba[2] ) << 16 ) |
-		( FastFToC( rgba[3] ) << 24 );
+	int col = (FastFToC(rgba[0])) | (FastFToC(rgba[1]) << 8) | (FastFToC(rgba[2]) << 16) | (FastFToC(rgba[3]) << 24);
 #else
-	int col = ( FastFToC( rgba[2] ) ) | ( FastFToC( rgba[1] ) << 8 ) | ( FastFToC( rgba[0] ) << 16 ) |
-		( FastFToC( rgba[3] ) << 24 );
+	int col = (FastFToC(rgba[2])) | (FastFToC(rgba[1]) << 8) | (FastFToC(rgba[0]) << 16) | (FastFToC(rgba[3]) << 24);
 #endif
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
 // Faster versions of color
 
 // note that on the OSX target (OpenGL) whenever there is vertex data being written as bytes - they need to be written in R,G,B,A memory order
 
-inline void CVertexBuilder::Color3ub( unsigned char r, unsigned char g, unsigned char b )
+inline void CVertexBuilder::Color3ub(unsigned char r, unsigned char g, unsigned char b)
 {
-	Assert( m_pColor && m_pCurrColor );
+	Assert(m_pColor && m_pCurrColor);
 #ifdef OPENGL_SWAP_COLORS
-	int col = r | ( g << 8 ) | ( b << 16 ) | 0xFF000000; // r, g, b, a in memory
+	int col = r | (g << 8) | (b << 16) | 0xFF000000; // r, g, b, a in memory
 #else
-	int col = b | ( g << 8 ) | ( r << 16 ) | 0xFF000000;
+	int col = b | (g << 8) | (r << 16) | 0xFF000000;
 #endif
 
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
-inline void CVertexBuilder::Color3ubv( unsigned char const *rgb )
+inline void CVertexBuilder::Color3ubv(unsigned char const* rgb)
 {
-	Assert( rgb );
-	Assert( m_pColor && m_pCurrColor );
+	Assert(rgb);
+	Assert(m_pColor && m_pCurrColor);
 #ifdef OPENGL_SWAP_COLORS
-	int col = rgb[0] | ( rgb[1] << 8 ) | ( rgb[2] << 16 ) | 0xFF000000; // r, g, b, a in memory
+	int col = rgb[0] | (rgb[1] << 8) | (rgb[2] << 16) | 0xFF000000; // r, g, b, a in memory
 #else
-	int col = rgb[2] | ( rgb[1] << 8 ) | ( rgb[0] << 16 ) | 0xFF000000;
+	int col = rgb[2] | (rgb[1] << 8) | (rgb[0] << 16) | 0xFF000000;
 #endif
 
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
-inline void CVertexBuilder::Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
+inline void CVertexBuilder::Color4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 {
-	Assert( m_pColor && m_pCurrColor );
+	Assert(m_pColor && m_pCurrColor);
 #ifdef OPENGL_SWAP_COLORS
-	int col = r | ( g << 8 ) | ( b << 16 ) | ( a << 24 ); // r, g, b, a in memory
+	int col = r | (g << 8) | (b << 16) | (a << 24); // r, g, b, a in memory
 #else
-	int col = b | ( g << 8 ) | ( r << 16 ) | ( a << 24 );
+	int col = b | (g << 8) | (r << 16) | (a << 24);
 #endif
 
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
-inline void CVertexBuilder::Color4ubv( unsigned char const *rgba )
+inline void CVertexBuilder::Color4ubv(unsigned char const* rgba)
 {
-	Assert( rgba );
-	Assert( m_pColor && m_pCurrColor );
+	Assert(rgba);
+	Assert(m_pColor && m_pCurrColor);
 #ifdef OPENGL_SWAP_COLORS
-	int col = rgba[0] | ( rgba[1] << 8 ) | ( rgba[2] << 16 ) | ( rgba[3] << 24 ); // r, g, b, a in memory
+	int col = rgba[0] | (rgba[1] << 8) | (rgba[2] << 16) | (rgba[3] << 24); // r, g, b, a in memory
 #else
-	int col = rgba[2] | ( rgba[1] << 8 ) | ( rgba[0] << 16 ) | ( rgba[3] << 24 );
+	int col = rgba[2] | (rgba[1] << 8) | (rgba[0] << 16) | (rgba[3] << 24);
 #endif
-	*(int *)m_pCurrColor = col;
+	*(int*)m_pCurrColor = col;
 }
 
-inline void CVertexBuilder::Specular3f( float r, float g, float b )
+inline void CVertexBuilder::Specular3f(float r, float g, float b)
 {
-	Assert( m_pSpecular );
-	Assert( IsFinite( r ) && IsFinite( g ) && IsFinite( b ) );
-	Assert( ( r >= 0.0 ) && ( g >= 0.0 ) && ( b >= 0.0 ) );
-	Assert( ( r <= 1.0 ) && ( g <= 1.0 ) && ( b <= 1.0 ) );
+	Assert(m_pSpecular);
+	Assert(IsFinite(r) && IsFinite(g) && IsFinite(b));
+	Assert((r >= 0.0) && (g >= 0.0) && (b >= 0.0));
+	Assert((r <= 1.0) && (g <= 1.0) && (b <= 1.0));
 
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( r ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( b ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(r)) | (FastFToC(g) << 8) | (FastFToC(b) << 16) | 0xFF000000;
 #else
-	int col = ( FastFToC( b ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( r ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(b)) | (FastFToC(g) << 8) | (FastFToC(r) << 16) | 0xFF000000;
 #endif
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::Specular3fv( const float *rgb )
+inline void CVertexBuilder::Specular3fv(const float* rgb)
 {
-	Assert( rgb );
-	Assert( m_pSpecular );
-	Assert( IsFinite( rgb[0] ) && IsFinite( rgb[1] ) && IsFinite( rgb[2] ) );
-	Assert( ( rgb[0] >= 0.0 ) && ( rgb[1] >= 0.0 ) && ( rgb[2] >= 0.0 ) );
-	Assert( ( rgb[0] <= 1.0 ) && ( rgb[1] <= 1.0 ) && ( rgb[2] <= 1.0 ) );
+	Assert(rgb);
+	Assert(m_pSpecular);
+	Assert(IsFinite(rgb[0]) && IsFinite(rgb[1]) && IsFinite(rgb[2]));
+	Assert((rgb[0] >= 0.0) && (rgb[1] >= 0.0) && (rgb[2] >= 0.0));
+	Assert((rgb[0] <= 1.0) && (rgb[1] <= 1.0) && (rgb[2] <= 1.0));
 
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( rgb[0] ) ) | ( FastFToC( rgb[1] ) << 8 ) | ( FastFToC( rgb[2] ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(rgb[0])) | (FastFToC(rgb[1]) << 8) | (FastFToC(rgb[2]) << 16) | 0xFF000000;
 #else
-	int col = ( FastFToC( rgb[2] ) ) | ( FastFToC( rgb[1] ) << 8 ) | ( FastFToC( rgb[0] ) << 16 ) | 0xFF000000;
+	int col = (FastFToC(rgb[2])) | (FastFToC(rgb[1]) << 8) | (FastFToC(rgb[0]) << 16) | 0xFF000000;
 #endif
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::Specular4f( float r, float g, float b, float a )
+inline void CVertexBuilder::Specular4f(float r, float g, float b, float a)
 {
-	Assert( m_pSpecular );
-	Assert( IsFinite( r ) && IsFinite( g ) && IsFinite( b ) && IsFinite( a ) );
-	Assert( ( r >= 0.0 ) && ( g >= 0.0 ) && ( b >= 0.0 ) && ( a >= 0.0 ) );
-	Assert( ( r <= 1.0 ) && ( g <= 1.0 ) && ( b <= 1.0 ) && ( a <= 1.0f ) );
+	Assert(m_pSpecular);
+	Assert(IsFinite(r) && IsFinite(g) && IsFinite(b) && IsFinite(a));
+	Assert((r >= 0.0) && (g >= 0.0) && (b >= 0.0) && (a >= 0.0));
+	Assert((r <= 1.0) && (g <= 1.0) && (b <= 1.0) && (a <= 1.0f));
 
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( r ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( b ) << 16 ) | ( FastFToC( a ) << 24 );
+	int col = (FastFToC(r)) | (FastFToC(g) << 8) | (FastFToC(b) << 16) | (FastFToC(a) << 24);
 #else
-	int col = ( FastFToC( b ) ) | ( FastFToC( g ) << 8 ) | ( FastFToC( r ) << 16 ) | ( FastFToC( a ) << 24 );
+	int col = (FastFToC(b)) | (FastFToC(g) << 8) | (FastFToC(r) << 16) | (FastFToC(a) << 24);
 #endif
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::Specular4fv( const float *rgb )
+inline void CVertexBuilder::Specular4fv(const float* rgb)
 {
-	Assert( rgb );
-	Assert( m_pSpecular );
-	Assert( IsFinite( rgb[0] ) && IsFinite( rgb[1] ) && IsFinite( rgb[2] ) && IsFinite( rgb[3] ) );
-	Assert( ( rgb[0] >= 0.0 ) && ( rgb[1] >= 0.0 ) && ( rgb[2] >= 0.0 ) && ( rgb[3] >= 0.0 ) );
-	Assert( ( rgb[0] <= 1.0 ) && ( rgb[1] <= 1.0 ) && ( rgb[2] <= 1.0 ) && ( rgb[3] <= 1.0 ) );
+	Assert(rgb);
+	Assert(m_pSpecular);
+	Assert(IsFinite(rgb[0]) && IsFinite(rgb[1]) && IsFinite(rgb[2]) && IsFinite(rgb[3]));
+	Assert((rgb[0] >= 0.0) && (rgb[1] >= 0.0) && (rgb[2] >= 0.0) && (rgb[3] >= 0.0));
+	Assert((rgb[0] <= 1.0) && (rgb[1] <= 1.0) && (rgb[2] <= 1.0) && (rgb[3] <= 1.0));
 
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 #ifdef OPENGL_SWAP_COLORS
-	int col = ( FastFToC( rgb[0] ) ) | ( FastFToC( rgb[1] ) << 8 ) | ( FastFToC( rgb[2] ) << 16 ) |
-		( FastFToC( rgb[3] ) << 24 );
+	int col = (FastFToC(rgb[0])) | (FastFToC(rgb[1]) << 8) | (FastFToC(rgb[2]) << 16) | (FastFToC(rgb[3]) << 24);
 #else
-	int col = ( FastFToC( rgb[2] ) ) | ( FastFToC( rgb[1] ) << 8 ) | ( FastFToC( rgb[0] ) << 16 ) |
-		( FastFToC( rgb[3] ) << 24 );
+	int col = (FastFToC(rgb[2])) | (FastFToC(rgb[1]) << 8) | (FastFToC(rgb[0]) << 16) | (FastFToC(rgb[3]) << 24);
 #endif
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::Specular3ub( unsigned char r, unsigned char g, unsigned char b )
+inline void CVertexBuilder::Specular3ub(unsigned char r, unsigned char g, unsigned char b)
 {
-	Assert( m_pSpecular );
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	Assert(m_pSpecular);
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = r | ( g << 8 ) | ( b << 16 ) | 0xFF000000; // r, g, b, a in memory
+	int col = r | (g << 8) | (b << 16) | 0xFF000000; // r, g, b, a in memory
 #else
-	int col = b | ( g << 8 ) | ( r << 16 ) | 0xFF000000;
+	int col = b | (g << 8) | (r << 16) | 0xFF000000;
 #endif
 
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::Specular3ubv( unsigned char const *c )
+inline void CVertexBuilder::Specular3ubv(unsigned char const* c)
 {
-	Assert( m_pSpecular );
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	Assert(m_pSpecular);
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = c[0] | ( c[1] << 8 ) | ( c[2] << 16 ) | 0xFF000000; // r, g, b, a in memory
+	int col = c[0] | (c[1] << 8) | (c[2] << 16) | 0xFF000000; // r, g, b, a in memory
 #else
-	int col = c[2] | ( c[1] << 8 ) | ( c[0] << 16 ) | 0xFF000000;
+	int col = c[2] | (c[1] << 8) | (c[0] << 16) | 0xFF000000;
 #endif
 
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::Specular4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
+inline void CVertexBuilder::Specular4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 {
-	Assert( m_pSpecular );
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	Assert(m_pSpecular);
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = r | ( g << 8 ) | ( b << 16 ) | ( a << 24 ); // r, g, b, a in memory
+	int col = r | (g << 8) | (b << 16) | (a << 24); // r, g, b, a in memory
 #else
-	int col = b | ( g << 8 ) | ( r << 16 ) | ( a << 24 );
+	int col = b | (g << 8) | (r << 16) | (a << 24);
 #endif
 
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::Specular4ubv( unsigned char const *c )
+inline void CVertexBuilder::Specular4ubv(unsigned char const* c)
 {
-	Assert( m_pSpecular );
-	unsigned char *pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
+	Assert(m_pSpecular);
+	unsigned char* pSpecular = &m_pSpecular[m_nCurrentVertex * m_VertexSize_Specular];
 
 #ifdef OPENGL_SWAP_COLORS
-	int col = c[0] | ( c[1] << 8 ) | ( c[2] << 16 ) | ( c[3] << 24 );
+	int col = c[0] | (c[1] << 8) | (c[2] << 16) | (c[3] << 24);
 #else
-	int col = c[2] | ( c[1] << 8 ) | ( c[0] << 16 ) | ( c[3] << 24 );
+	int col = c[2] | (c[1] << 8) | (c[0] << 16) | (c[3] << 24);
 #endif
 
-	*(int *)pSpecular = col;
+	*(int*)pSpecular = col;
 }
 
-inline void CVertexBuilder::TexCoord2f( int nStage, float s, float t )
+inline void CVertexBuilder::TexCoord2f(int nStage, float s, float t)
 {
-	Assert( m_pTexCoord[nStage] && m_pCurrTexCoord[nStage] );
-	Assert( IsFinite( s ) && IsFinite( t ) );
+	Assert(m_pTexCoord[nStage] && m_pCurrTexCoord[nStage]);
+	Assert(IsFinite(s) && IsFinite(t));
 
-	float *pDst = m_pCurrTexCoord[nStage];
+	float* pDst = m_pCurrTexCoord[nStage];
 	*pDst++ = s;
 	*pDst = t;
 }
 
-inline void CVertexBuilder::TexCoord2fv( int nStage, const float *st )
+inline void CVertexBuilder::TexCoord2fv(int nStage, const float* st)
 {
-	Assert( st );
-	Assert( m_pTexCoord[nStage] && m_pCurrTexCoord[nStage] );
-	Assert( IsFinite( st[0] ) && IsFinite( st[1] ) );
+	Assert(st);
+	Assert(m_pTexCoord[nStage] && m_pCurrTexCoord[nStage]);
+	Assert(IsFinite(st[0]) && IsFinite(st[1]));
 
-	float *pDst = m_pCurrTexCoord[nStage];
+	float* pDst = m_pCurrTexCoord[nStage];
 	*pDst++ = *st++;
 	*pDst = *st;
 }
 
 // Tangent space setting methods
-inline void CVertexBuilder::TangentS3f( float sx, float sy, float sz )
+inline void CVertexBuilder::TangentS3f(float sx, float sy, float sz)
 {
-	Assert( m_pTangentS );
-	Assert( IsFinite( sx ) && IsFinite( sy ) && IsFinite( sz ) );
+	Assert(m_pTangentS);
+	Assert(IsFinite(sx) && IsFinite(sy) && IsFinite(sz));
 
-	float *pTangentS = OffsetFloatPointer( m_pTangentS, m_nCurrentVertex, m_VertexSize_TangentS );
+	float* pTangentS = OffsetFloatPointer(m_pTangentS, m_nCurrentVertex, m_VertexSize_TangentS);
 	*pTangentS++ = sx;
 	*pTangentS++ = sy;
 	*pTangentS = sz;
 }
 
-inline void CVertexBuilder::TangentS3fv( const float *s )
+inline void CVertexBuilder::TangentS3fv(const float* s)
 {
-	Assert( s );
-	Assert( m_pTangentS );
-	Assert( IsFinite( s[0] ) && IsFinite( s[1] ) && IsFinite( s[2] ) );
+	Assert(s);
+	Assert(m_pTangentS);
+	Assert(IsFinite(s[0]) && IsFinite(s[1]) && IsFinite(s[2]));
 
-	float *pTangentS = OffsetFloatPointer( m_pTangentS, m_nCurrentVertex, m_VertexSize_TangentS );
+	float* pTangentS = OffsetFloatPointer(m_pTangentS, m_nCurrentVertex, m_VertexSize_TangentS);
 	*pTangentS++ = *s++;
 	*pTangentS++ = *s++;
 	*pTangentS = *s;
 }
 
-inline void CVertexBuilder::TangentT3f( float tx, float ty, float tz )
+inline void CVertexBuilder::TangentT3f(float tx, float ty, float tz)
 {
-	Assert( m_pTangentT );
-	Assert( IsFinite( tx ) && IsFinite( ty ) && IsFinite( tz ) );
+	Assert(m_pTangentT);
+	Assert(IsFinite(tx) && IsFinite(ty) && IsFinite(tz));
 
-	float *pTangentT = OffsetFloatPointer( m_pTangentT, m_nCurrentVertex, m_VertexSize_TangentT );
+	float* pTangentT = OffsetFloatPointer(m_pTangentT, m_nCurrentVertex, m_VertexSize_TangentT);
 	*pTangentT++ = tx;
 	*pTangentT++ = ty;
 	*pTangentT = tz;
 }
 
-inline void CVertexBuilder::TangentT3fv( const float *t )
+inline void CVertexBuilder::TangentT3fv(const float* t)
 {
-	Assert( t );
-	Assert( m_pTangentT );
-	Assert( IsFinite( t[0] ) && IsFinite( t[1] ) && IsFinite( t[2] ) );
+	Assert(t);
+	Assert(m_pTangentT);
+	Assert(IsFinite(t[0]) && IsFinite(t[1]) && IsFinite(t[2]));
 
-	float *pTangentT = OffsetFloatPointer( m_pTangentT, m_nCurrentVertex, m_VertexSize_TangentT );
+	float* pTangentT = OffsetFloatPointer(m_pTangentT, m_nCurrentVertex, m_VertexSize_TangentT);
 	*pTangentT++ = *t++;
 	*pTangentT++ = *t++;
 	*pTangentT = *t;
 }
 
-inline void CVertexBuilder::BoneMatrix( int idx, int matrixIdx )
+inline void CVertexBuilder::BoneMatrix(int idx, int matrixIdx)
 {
-	Assert( m_pBoneMatrixIndex );
-	Assert( idx >= 0 );
-	Assert( idx < 4 );
+	Assert(m_pBoneMatrixIndex);
+	Assert(idx >= 0);
+	Assert(idx < 4);
 
 	// garymcthack
-	if ( matrixIdx == BONE_MATRIX_INDEX_INVALID )
+	if (matrixIdx == BONE_MATRIX_INDEX_INVALID)
 	{
 		matrixIdx = 0;
 	}
-	Assert( ( matrixIdx >= 0 ) && ( matrixIdx < 53 ) );
+	Assert((matrixIdx >= 0) && (matrixIdx < 53));
 
 #ifdef OPENGL_SWAP_COLORS
 	idx = sg_IndexSwap[idx];
 #endif
 
-	unsigned char *pBoneMatrix = &m_pBoneMatrixIndex[m_nCurrentVertex * m_VertexSize_BoneMatrixIndex];
+	unsigned char* pBoneMatrix = &m_pBoneMatrixIndex[m_nCurrentVertex * m_VertexSize_BoneMatrixIndex];
 	pBoneMatrix[idx] = (unsigned char)matrixIdx;
 }
 
 // Templatized bone weight setting methods which support compressed vertices
 template <VertexCompressionType_t T>
-inline void CVertexBuilder::CompressedBoneWeight3fv( const float *pWeights )
+inline void CVertexBuilder::CompressedBoneWeight3fv(const float* pWeights)
 {
-	Assert( T == m_CompressionType );
-	Assert( m_pBoneWeight );
-	Assert( pWeights );
+	Assert(T == m_CompressionType);
+	Assert(m_pBoneWeight);
+	Assert(pWeights);
 
-	float *pDestWeights = OffsetFloatPointer( m_pBoneWeight, m_nCurrentVertex, m_VertexSize_BoneWeight );
+	float* pDestWeights = OffsetFloatPointer(m_pBoneWeight, m_nCurrentVertex, m_VertexSize_BoneWeight);
 
-	if ( T == VERTEX_COMPRESSION_ON )
+	if (T == VERTEX_COMPRESSION_ON)
 	{
 		// Quantize to 15 bits per weight (we use D3DDECLTYPE_SHORT2)
 		// NOTE: we perform careful normalization (weights sum to 1.0f in the vertex shader), so
@@ -1582,42 +1578,42 @@ inline void CVertexBuilder::CompressedBoneWeight3fv( const float *pWeights )
 		// stream (e.g. the second weight in a 3-weight mesh).
 
 		// Only 1 or 2 weights (SHORT2N) supported for compressed verts so far
-		Assert( m_NumBoneWeights <= 2 );
+		Assert(m_NumBoneWeights <= 2);
 
 		const int WEIGHT0_SHIFT = 0;
 		const int WEIGHT1_SHIFT = 16;
-		unsigned int *weights = (unsigned int *)pDestWeights;
+		unsigned int* weights = (unsigned int*)pDestWeights;
 
 		// We scale our weights so that they sum to 32768, then subtract 1 (which gets added
 		// back in the shader), because dividing by 32767 introduces nasty rounding issues.
-		Assert( IsFinite( pWeights[0] ) && ( pWeights[0] >= 0.0f ) && ( pWeights[0] <= 1.0f ) );
-		unsigned int weight0 = Float2Int( pWeights[0] * 32768.0f );
-		*weights = ( 0x0000FFFF & ( weight0 - 1 ) ) << WEIGHT0_SHIFT;
+		Assert(IsFinite(pWeights[0]) && (pWeights[0] >= 0.0f) && (pWeights[0] <= 1.0f));
+		unsigned int weight0 = Float2Int(pWeights[0] * 32768.0f);
+		*weights = (0x0000FFFF & (weight0 - 1)) << WEIGHT0_SHIFT;
 
 #ifdef DEBUG
-		if ( m_NumBoneWeights == 1 )
+		if (m_NumBoneWeights == 1)
 		{
 			// Double-check the validity of the values that were passed in
-			Assert( IsFinite( pWeights[1] ) && ( pWeights[1] >= 0.0f ) && ( pWeights[1] <= 1.0f ) );
-			unsigned int weight1 = Float2Int( pWeights[1] * 32768.0f );
-			Assert( ( weight0 + weight1 ) <= 32768 );
+			Assert(IsFinite(pWeights[1]) && (pWeights[1] >= 0.0f) && (pWeights[1] <= 1.0f));
+			unsigned int weight1 = Float2Int(pWeights[1] * 32768.0f);
+			Assert((weight0 + weight1) <= 32768);
 		}
 #endif
 
-		if ( m_NumBoneWeights > 1 )
+		if (m_NumBoneWeights > 1)
 		{
 			// This path for 3 weights per vert (2 are stored and the 3rd is computed
 			// in the shader - we do post-quantization normalization here in such a
 			// way as to avoid mesh-boundary cracking)
-			Assert( m_NumBoneWeights == 2 );
-			Assert( IsFinite( pWeights[1] ) && ( pWeights[1] >= 0.0f ) && ( pWeights[1] <= 1.0f ) );
-			Assert( IsFinite( pWeights[2] ) && ( pWeights[2] >= 0.0f ) && ( pWeights[2] <= 1.0f ) );
-			unsigned int weight1 = Float2Int( pWeights[1] * 32768.0f );
-			unsigned int weight2 = Float2Int( pWeights[2] * 32768.0f );
-			Assert( ( weight0 + weight1 + weight2 ) <= 32768 );
-			unsigned int residual = 32768 - ( weight0 + weight1 + weight2 );
+			Assert(m_NumBoneWeights == 2);
+			Assert(IsFinite(pWeights[1]) && (pWeights[1] >= 0.0f) && (pWeights[1] <= 1.0f));
+			Assert(IsFinite(pWeights[2]) && (pWeights[2] >= 0.0f) && (pWeights[2] <= 1.0f));
+			unsigned int weight1 = Float2Int(pWeights[1] * 32768.0f);
+			unsigned int weight2 = Float2Int(pWeights[2] * 32768.0f);
+			Assert((weight0 + weight1 + weight2) <= 32768);
+			unsigned int residual = 32768 - (weight0 + weight1 + weight2);
 			weight1 += residual; // Normalize
-			*weights |= ( 0x0000FFFF & ( weight1 - 1 ) ) << WEIGHT1_SHIFT;
+			*weights |= (0x0000FFFF & (weight1 - 1)) << WEIGHT1_SHIFT;
 		}
 	}
 	else // Uncompressed path
@@ -1629,48 +1625,48 @@ inline void CVertexBuilder::CompressedBoneWeight3fv( const float *pWeights )
 
 // Templatized generic per-vertex data setting method which supports compressed vertices
 template <VertexCompressionType_t T>
-inline void CVertexBuilder::CompressedUserData( const float *pData )
+inline void CVertexBuilder::CompressedUserData(const float* pData)
 {
-	Assert( T == m_CompressionType );
-	Assert( pData );
+	Assert(T == m_CompressionType);
+	Assert(pData);
 	// This is always in fact a tangent vector, not generic 'userdata'
-	Assert( IsFinite( pData[0] ) && IsFinite( pData[1] ) && IsFinite( pData[2] ) );
-	Assert( pData[0] >= -1.05f && pData[0] <= 1.05f );
-	Assert( pData[1] >= -1.05f && pData[1] <= 1.05f );
-	Assert( pData[2] >= -1.05f && pData[2] <= 1.05f );
-	Assert( pData[3] == +1.0f || pData[3] == -1.0f );
+	Assert(IsFinite(pData[0]) && IsFinite(pData[1]) && IsFinite(pData[2]));
+	Assert(pData[0] >= -1.05f && pData[0] <= 1.05f);
+	Assert(pData[1] >= -1.05f && pData[1] <= 1.05f);
+	Assert(pData[2] >= -1.05f && pData[2] <= 1.05f);
+	Assert(pData[3] == +1.0f || pData[3] == -1.0f);
 	// FIXME: studiorender is passing in non-unit normals
 	//float lengthSqd = pData[0]*pData[0] + pData[1]*pData[1] + pData[2]*pData[2];
 	//Assert( lengthSqd >= 0.95f && lengthSqd <= 1.05f );
 
-	if ( T == VERTEX_COMPRESSION_ON )
+	if (T == VERTEX_COMPRESSION_ON)
 	{
 		float binormalSign = pData[3];
 
 #if COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_SEPARATETANGENTS_SHORT2
-		float *pUserData = OffsetFloatPointer( m_pUserData, m_nCurrentVertex, m_VertexSize_UserData );
-		PackNormal_SHORT2( pData, (unsigned int *)pUserData, binormalSign );
+		float* pUserData = OffsetFloatPointer(m_pUserData, m_nCurrentVertex, m_VertexSize_UserData);
+		PackNormal_SHORT2(pData, (unsigned int*)pUserData, binormalSign);
 #else //( COMPRESSED_NORMALS_TYPE == COMPRESSED_NORMALS_COMBINEDTANGENTS_UBYTE4 )
 		// FIXME: add a combined CompressedNormalAndTangent() accessor, to avoid reading back from write-combined memory here
 		// The normal should have already been written into the lower 16
 		// bits - here, we OR in the tangent into the upper 16 bits
-		unsigned int existingNormalData = *(unsigned int *)m_pCurrNormal;
-		Assert( ( existingNormalData & 0xFFFF0000 ) == 0 );
+		unsigned int existingNormalData = *(unsigned int*)m_pCurrNormal;
+		Assert((existingNormalData & 0xFFFF0000) == 0);
 #ifdef _DEBUG
-		Assert( m_bWrittenNormal == true );
+		Assert(m_bWrittenNormal == true);
 		m_bWrittenUserData = true;
 #endif
 		bool bIsTangent = true;
 		unsigned int tangentData = 0;
-		PackNormal_UBYTE4( pData, &tangentData, bIsTangent, binormalSign );
-		*(unsigned int *)m_pCurrNormal = existingNormalData | tangentData;
+		PackNormal_UBYTE4(pData, &tangentData, bIsTangent, binormalSign);
+		*(unsigned int*)m_pCurrNormal = existingNormalData | tangentData;
 #endif
 	}
 	else
 	{
 		int userDataSize = 4; // garymcthack
-		float *pUserData = OffsetFloatPointer( m_pUserData, m_nCurrentVertex, m_VertexSize_UserData );
-		memcpy( pUserData, pData, sizeof( float ) * userDataSize );
+		float* pUserData = OffsetFloatPointer(m_pUserData, m_nCurrentVertex, m_VertexSize_UserData);
+		memcpy(pUserData, pData, sizeof(float) * userDataSize);
 	}
 }
 
@@ -1679,18 +1675,18 @@ class CIndexBuilder : private IndexDesc_t
 {
 public:
 	CIndexBuilder();
-	CIndexBuilder( IIndexBuffer *pIndexBuffer, MaterialIndexFormat_t fmt = MATERIAL_INDEX_FORMAT_UNKNOWN );
+	CIndexBuilder(IIndexBuffer* pIndexBuffer, MaterialIndexFormat_t fmt = MATERIAL_INDEX_FORMAT_UNKNOWN);
 	~CIndexBuilder();
 
 	// Begins, ends modification of the index buffer (returns true if the lock succeeded)
 	// A lock may not succeed if append is set to true and there isn't enough room
 	// NOTE: Append is only used with dynamic index buffers; it's ignored for static buffers
-	bool Lock( int nMaxIndexCount, int nIndexOffset, bool bAppend = false );
+	bool Lock(int nMaxIndexCount, int nIndexOffset, bool bAppend = false);
 	void Unlock();
 
-	void End( bool bSpewData = false );
+	void End(bool bSpewData = false);
 
-	void EndModify( bool bSpewData = false );
+	void EndModify(bool bSpewData = false);
 
 	// returns the number of indices
 	int IndexCount() const;
@@ -1698,31 +1694,31 @@ public:
 	// Resets the mesh builder so it points to the start of everything again
 	void Reset();
 
-	void AdvanceIndices( int nIndexCount );
+	void AdvanceIndices(int nIndexCount);
 
-	unsigned short const *Index() const;
+	unsigned short const* Index() const;
 
 	// Used to define the indices (only used if you aren't using primitives)
-	void Index( unsigned short nIndex );
+	void Index(unsigned short nIndex);
 
 	// Fast Index! No need to call advance index, and no random access allowed
-	void FastIndex( unsigned short nIndex );
+	void FastIndex(unsigned short nIndex);
 
 	// NOTE: This version is the one you really want to achieve write-combining;
 	// Write combining only works if you write in 4 bytes chunks.
-	void FastIndex2( unsigned short nIndex1, unsigned short nIndex2 );
+	void FastIndex2(unsigned short nIndex1, unsigned short nIndex2);
 
 	// Generates indices for a particular primitive type
-	void GenerateIndices( MaterialPrimitiveType_t primitiveType, int nIndexCount );
+	void GenerateIndices(MaterialPrimitiveType_t primitiveType, int nIndexCount);
 
 	// FIXME: Remove! Backward compat so we can use this from a CMeshBuilder.
-	void AttachBegin( IMesh *pMesh, int nMaxIndexCount, const MeshDesc_t &desc );
+	void AttachBegin(IMesh* pMesh, int nMaxIndexCount, const MeshDesc_t& desc);
 	void AttachEnd();
 	void AttachEndModify();
 
 private:
 	// The mesh we're modifying
-	IIndexBuffer *m_pIndexBuffer;
+	IIndexBuffer* m_pIndexBuffer;
 
 	// Max number of indices
 	int m_nMaxIndexCount;
@@ -1751,10 +1747,10 @@ private:
 
 // Constructor
 inline CIndexBuilder::CIndexBuilder()
-	: m_pIndexBuffer( 0 )
-	, m_nIndexCount( 0 )
-	, m_nCurrentIndex( 0 )
-	, m_nMaxIndexCount( 0 )
+	: m_pIndexBuffer(0)
+	, m_nIndexCount(0)
+	, m_nCurrentIndex(0)
+	, m_nMaxIndexCount(0)
 {
 	m_nTotalIndexCount = 0;
 	m_nBufferOffset = INVALID_BUFFER_OFFSET;
@@ -1764,7 +1760,7 @@ inline CIndexBuilder::CIndexBuilder()
 #endif
 }
 
-inline CIndexBuilder::CIndexBuilder( IIndexBuffer *pIndexBuffer, MaterialIndexFormat_t fmt )
+inline CIndexBuilder::CIndexBuilder(IIndexBuffer* pIndexBuffer, MaterialIndexFormat_t fmt)
 {
 	m_pIndexBuffer = pIndexBuffer;
 	m_nBufferOffset = INVALID_BUFFER_OFFSET;
@@ -1773,13 +1769,13 @@ inline CIndexBuilder::CIndexBuilder( IIndexBuffer *pIndexBuffer, MaterialIndexFo
 	m_nCurrentIndex = 0;
 	m_nMaxIndexCount = 0;
 	m_nTotalIndexCount = 0;
-	if ( m_pIndexBuffer->IsDynamic() )
+	if (m_pIndexBuffer->IsDynamic())
 	{
-		m_pIndexBuffer->BeginCastBuffer( fmt );
+		m_pIndexBuffer->BeginCastBuffer(fmt);
 	}
 	else
 	{
-		Assert( m_pIndexBuffer->IndexFormat() == fmt );
+		Assert(m_pIndexBuffer->IndexFormat() == fmt);
 	}
 #ifdef _DEBUG
 	m_bModify = false;
@@ -1788,38 +1784,38 @@ inline CIndexBuilder::CIndexBuilder( IIndexBuffer *pIndexBuffer, MaterialIndexFo
 
 inline CIndexBuilder::~CIndexBuilder()
 {
-	if ( m_pIndexBuffer && m_pIndexBuffer->IsDynamic() )
+	if (m_pIndexBuffer && m_pIndexBuffer->IsDynamic())
 	{
 		m_pIndexBuffer->EndCastBuffer();
 	}
 }
 
 // Begins, ends modification of the index buffer
-inline bool CIndexBuilder::Lock( int nMaxIndexCount, int nIndexOffset, bool bAppend )
+inline bool CIndexBuilder::Lock(int nMaxIndexCount, int nIndexOffset, bool bAppend)
 {
-	Assert( m_pIndexBuffer );
+	Assert(m_pIndexBuffer);
 	m_bModify = false;
 	m_nIndexOffset = nIndexOffset;
 	m_nMaxIndexCount = nMaxIndexCount;
-	bool bFirstLock = ( m_nBufferOffset == INVALID_BUFFER_OFFSET );
-	if ( bFirstLock )
+	bool bFirstLock = (m_nBufferOffset == INVALID_BUFFER_OFFSET);
+	if (bFirstLock)
 	{
 		bAppend = false;
 	}
-	if ( !bAppend )
+	if (!bAppend)
 	{
 		m_nTotalIndexCount = 0;
 	}
 	Reset();
 
 	// Lock the index buffer
-	if ( !m_pIndexBuffer->Lock( m_nMaxIndexCount, bAppend, *this ) )
+	if (!m_pIndexBuffer->Lock(m_nMaxIndexCount, bAppend, *this))
 	{
 		m_nMaxIndexCount = 0;
 		return false;
 	}
 
-	if ( bFirstLock )
+	if (bFirstLock)
 	{
 		m_nBufferOffset = m_nOffset;
 		m_nBufferFirstIndex = m_nFirstIndex;
@@ -1830,65 +1826,65 @@ inline bool CIndexBuilder::Lock( int nMaxIndexCount, int nIndexOffset, bool bApp
 
 inline void CIndexBuilder::Unlock()
 {
-	Assert( !m_bModify && m_pIndexBuffer );
+	Assert(!m_bModify && m_pIndexBuffer);
 
-	m_pIndexBuffer->Unlock( m_nIndexCount, *this );
+	m_pIndexBuffer->Unlock(m_nIndexCount, *this);
 	m_nTotalIndexCount += m_nIndexCount;
 
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
 	// Null out our data...
-	memset( (IndexDesc_t *)this, 0, sizeof( IndexDesc_t ) );
+	memset((IndexDesc_t*)this, 0, sizeof(IndexDesc_t));
 #endif
 }
 
-inline void CIndexBuilder::End( bool bSpewData )
+inline void CIndexBuilder::End(bool bSpewData)
 {
 	// Make sure they called Begin()
-	Assert( !m_bModify );
+	Assert(!m_bModify);
 
-	if ( bSpewData )
+	if (bSpewData)
 	{
-		m_pIndexBuffer->Spew( m_nIndexCount, *this );
+		m_pIndexBuffer->Spew(m_nIndexCount, *this);
 	}
 
 	// Unlock our buffers
-	m_pIndexBuffer->Unlock( m_nIndexCount, *this );
+	m_pIndexBuffer->Unlock(m_nIndexCount, *this);
 
 	m_pIndexBuffer = 0;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
 	// Null out our data...
-	memset( (IndexDesc_t *)this, 0, sizeof( IndexDesc_t ) );
+	memset((IndexDesc_t*)this, 0, sizeof(IndexDesc_t));
 #endif
 }
 
-inline void CIndexBuilder::EndModify( bool bSpewData )
+inline void CIndexBuilder::EndModify(bool bSpewData)
 {
-	Assert( m_pIndexBuffer );
-	Assert( m_bModify ); // Make sure they called BeginModify.
+	Assert(m_pIndexBuffer);
+	Assert(m_bModify); // Make sure they called BeginModify.
 
-	if ( bSpewData )
+	if (bSpewData)
 	{
-		m_pIndexBuffer->Spew( m_nIndexCount, *this );
+		m_pIndexBuffer->Spew(m_nIndexCount, *this);
 	}
 
 	// Unlock our buffers
-	m_pIndexBuffer->ModifyEnd( *this );
+	m_pIndexBuffer->ModifyEnd(*this);
 
 	m_pIndexBuffer = 0;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
 	// Null out our data...
-	memset( (IndexDesc_t *)this, 0, sizeof( IndexDesc_t ) );
+	memset((IndexDesc_t*)this, 0, sizeof(IndexDesc_t));
 #endif
 }
 
 // FIXME: Remove! Backward compat so we can use this from a CMeshBuilder.
-inline void CIndexBuilder::AttachBegin( IMesh *pMesh, int nMaxIndexCount, const MeshDesc_t &desc )
+inline void CIndexBuilder::AttachBegin(IMesh* pMesh, int nMaxIndexCount, const MeshDesc_t& desc)
 {
 	m_pIndexBuffer = pMesh;
 	m_nIndexCount = 0;
@@ -1907,29 +1903,29 @@ inline void CIndexBuilder::AttachBegin( IMesh *pMesh, int nMaxIndexCount, const 
 
 inline void CIndexBuilder::AttachEnd()
 {
-	Assert( m_pIndexBuffer );
-	Assert( !m_bModify ); // Make sure they called AttachBegin.
+	Assert(m_pIndexBuffer);
+	Assert(!m_bModify); // Make sure they called AttachBegin.
 
 	m_pIndexBuffer = 0;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
 	// Null out our data...
-	memset( (IndexDesc_t *)this, 0, sizeof( IndexDesc_t ) );
+	memset((IndexDesc_t*)this, 0, sizeof(IndexDesc_t));
 #endif
 }
 
 inline void CIndexBuilder::AttachEndModify()
 {
-	Assert( m_pIndexBuffer );
-	Assert( m_bModify ); // Make sure they called AttachBeginModify.
+	Assert(m_pIndexBuffer);
+	Assert(m_bModify); // Make sure they called AttachBeginModify.
 
 	m_pIndexBuffer = 0;
 	m_nMaxIndexCount = 0;
 
 #ifdef _DEBUG
 	// Null out our data...
-	memset( (IndexDesc_t *)this, 0, sizeof( IndexDesc_t ) );
+	memset((IndexDesc_t*)this, 0, sizeof(IndexDesc_t));
 #endif
 }
 
@@ -1945,96 +1941,95 @@ inline int CIndexBuilder::IndexCount() const
 	return m_nIndexCount;
 }
 
-inline void CIndexBuilder::AdvanceIndices( int nIndices )
+inline void CIndexBuilder::AdvanceIndices(int nIndices)
 {
 	m_nCurrentIndex += nIndices * m_nIndexSize;
-	if ( m_nCurrentIndex > m_nIndexCount )
+	if (m_nCurrentIndex > m_nIndexCount)
 	{
 		m_nIndexCount = m_nCurrentIndex;
 	}
 }
 
-inline unsigned short const *CIndexBuilder::Index() const
+inline unsigned short const* CIndexBuilder::Index() const
 {
-	Assert( m_nCurrentIndex < m_nMaxIndexCount );
+	Assert(m_nCurrentIndex < m_nMaxIndexCount);
 	return &m_pIndices[m_nCurrentIndex];
 }
 
 // Used to write data into the index buffer
-inline void CIndexBuilder::Index( unsigned short nIndex )
+inline void CIndexBuilder::Index(unsigned short nIndex)
 {
-	Assert( m_pIndices );
-	Assert( m_nCurrentIndex < m_nMaxIndexCount );
-	m_pIndices[m_nCurrentIndex] = (unsigned short)( m_nIndexOffset + nIndex );
+	Assert(m_pIndices);
+	Assert(m_nCurrentIndex < m_nMaxIndexCount);
+	m_pIndices[m_nCurrentIndex] = (unsigned short)(m_nIndexOffset + nIndex);
 }
 
 // Fast Index! No need to call advance index
-inline void CIndexBuilder::FastIndex( unsigned short nIndex )
+inline void CIndexBuilder::FastIndex(unsigned short nIndex)
 {
-	Assert( m_pIndices );
-	Assert( m_nCurrentIndex < m_nMaxIndexCount );
-	m_pIndices[m_nCurrentIndex] = (unsigned short)( m_nIndexOffset + nIndex );
+	Assert(m_pIndices);
+	Assert(m_nCurrentIndex < m_nMaxIndexCount);
+	m_pIndices[m_nCurrentIndex] = (unsigned short)(m_nIndexOffset + nIndex);
 	m_nCurrentIndex += m_nIndexSize;
 	m_nIndexCount = m_nCurrentIndex;
 }
 
 // NOTE: This version is the one you really want to achieve write-combining;
 // Write combining only works if you write in 4 bytes chunks.
-inline void CIndexBuilder::FastIndex2( unsigned short nIndex1, unsigned short nIndex2 )
+inline void CIndexBuilder::FastIndex2(unsigned short nIndex1, unsigned short nIndex2)
 {
-	Assert( m_pIndices );
-	Assert( m_nCurrentIndex < m_nMaxIndexCount - 1 );
+	Assert(m_pIndices);
+	Assert(m_nCurrentIndex < m_nMaxIndexCount - 1);
 	//	Assert( ( (int)( &m_pIndices[m_nCurrentIndex] ) & 0x3 ) == 0 );
 
-	unsigned int nIndices =
-		( (unsigned int)nIndex1 + m_nIndexOffset ) | ( ( (unsigned int)nIndex2 + m_nIndexOffset ) << 16 );
+	unsigned int nIndices = ((unsigned int)nIndex1 + m_nIndexOffset) | (((unsigned int)nIndex2 + m_nIndexOffset) << 16);
 
-	*(int *)( &m_pIndices[m_nCurrentIndex] ) = nIndices;
+	*(int*)(&m_pIndices[m_nCurrentIndex]) = nIndices;
 	m_nCurrentIndex += m_nIndexSize + m_nIndexSize;
 	m_nIndexCount = m_nCurrentIndex;
 }
 
 // Generates indices for a particular primitive type
-inline void CIndexBuilder::GenerateIndices( MaterialPrimitiveType_t primitiveType, int nIndexCount )
+inline void CIndexBuilder::GenerateIndices(MaterialPrimitiveType_t primitiveType, int nIndexCount)
 {
 	// FIXME: How to make this work with short vs int sized indices?
 	// Don't generate indices if we've got an empty buffer
-	if ( m_nIndexSize == 0 )
+	if (m_nIndexSize == 0)
 		return;
 
 	int nMaxIndices = m_nMaxIndexCount - m_nCurrentIndex;
-	nIndexCount = Min( nMaxIndices, nIndexCount );
-	if ( nIndexCount == 0 )
+	nIndexCount = Min(nMaxIndices, nIndexCount);
+	if (nIndexCount == 0)
 		return;
 
-	unsigned short *pIndices = &m_pIndices[m_nCurrentIndex];
+	unsigned short* pIndices = &m_pIndices[m_nCurrentIndex];
 
-	switch ( primitiveType )
+	switch (primitiveType)
 	{
 		case MATERIAL_INSTANCED_QUADS:
-			Assert( 0 ); // Shouldn't get here (this primtype is unindexed)
+			Assert(0); // Shouldn't get here (this primtype is unindexed)
 			break;
 		case MATERIAL_QUADS:
-			GenerateQuadIndexBuffer( pIndices, nIndexCount, m_nIndexOffset );
+			GenerateQuadIndexBuffer(pIndices, nIndexCount, m_nIndexOffset);
 			break;
 		case MATERIAL_POLYGON:
-			GeneratePolygonIndexBuffer( pIndices, nIndexCount, m_nIndexOffset );
+			GeneratePolygonIndexBuffer(pIndices, nIndexCount, m_nIndexOffset);
 			break;
 		case MATERIAL_LINE_STRIP:
-			GenerateLineStripIndexBuffer( pIndices, nIndexCount, m_nIndexOffset );
+			GenerateLineStripIndexBuffer(pIndices, nIndexCount, m_nIndexOffset);
 			break;
 		case MATERIAL_LINE_LOOP:
-			GenerateLineLoopIndexBuffer( pIndices, nIndexCount, m_nIndexOffset );
+			GenerateLineLoopIndexBuffer(pIndices, nIndexCount, m_nIndexOffset);
 			break;
 		case MATERIAL_POINTS:
-			Assert( 0 ); // Shouldn't get here (this primtype is unindexed)
+			Assert(0); // Shouldn't get here (this primtype is unindexed)
 			break;
 		default:
-			GenerateSequentialIndexBuffer( pIndices, nIndexCount, m_nIndexOffset );
+			GenerateSequentialIndexBuffer(pIndices, nIndexCount, m_nIndexOffset);
 			break;
 	}
 
-	AdvanceIndices( nIndexCount );
+	AdvanceIndices(nIndexCount);
 }
 
 // Helper class used to define meshes
@@ -2045,21 +2040,21 @@ class CMeshBuilder : public MeshDesc_t
 public:
 	CMeshBuilder();
 
-	~CMeshBuilder() { Assert( !m_pMesh ); } // if this fires you did a Begin() without an End()
+	~CMeshBuilder() { Assert(!m_pMesh); } // if this fires you did a Begin() without an End()
 
-	operator CIndexBuilder &() { return m_IndexBuilder; }
+	operator CIndexBuilder&() { return m_IndexBuilder; }
 
 	// Locks the vertex buffer
 	// (*cannot* use the Index() call below)
-	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int numPrimitives );
+	void Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int numPrimitives);
 
-	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount );
+	void Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount);
 
 	// Use this when you're done writing
 	// Set bDraw to true to call m_pMesh->Draw automatically.
-	void End( bool bSpewData = false, bool bDraw = false );
+	void End(bool bSpewData = false, bool bDraw = false);
 
-	void EndModify( bool bSpewData = false );
+	void EndModify(bool bSpewData = false);
 
 	// Resets the mesh builder so it points to the start of everything again
 	void Reset();
@@ -2069,66 +2064,66 @@ public:
 	template <int nFlags, int nNumTexCoords>
 	void AdvanceVertexF();
 
-	const float *Normal() const;
+	const float* Normal() const;
 
 	unsigned int Color() const;
 
-	unsigned short const *Index() const;
+	unsigned short const* Index() const;
 
 	// position setting
-	void Position3f( float x, float y, float z );
-	void Position3fv( const float *v );
+	void Position3f(float x, float y, float z);
+	void Position3fv(const float* v);
 
 	// normal setting
-	void Normal3f( float nx, float ny, float nz );
-	void Normal3fv( const float *n );
+	void Normal3f(float nx, float ny, float nz);
+	void Normal3fv(const float* n);
 
 	// normal setting (templatized for code which needs to support compressed vertices)
 	template <VertexCompressionType_t T>
-	void CompressedNormal3f( float nx, float ny, float nz );
+	void CompressedNormal3f(float nx, float ny, float nz);
 
 	// color setting
-	void Color3f( float r, float g, float b );
-	void Color3fv( const float *rgb );
-	void Color4f( float r, float g, float b, float a );
-	void Color4fv( const float *rgba );
+	void Color3f(float r, float g, float b);
+	void Color3fv(const float* rgb);
+	void Color4f(float r, float g, float b, float a);
+	void Color4fv(const float* rgba);
 
-	void Color3ubv( unsigned char const *rgb );
-	void Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a );
-	void Color4ubv( unsigned char const *rgba );
+	void Color3ubv(unsigned char const* rgb);
+	void Color4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+	void Color4ubv(unsigned char const* rgba);
 
-	void TexCoord2f( int stage, float s, float t );
-	void TexCoord2fv( int stage, const float *st );
+	void TexCoord2f(int stage, float s, float t);
+	void TexCoord2fv(int stage, const float* st);
 
 	// tangent space
-	void TangentS3f( float sx, float sy, float sz );
-	void TangentS3fv( const float *s );
+	void TangentS3f(float sx, float sy, float sz);
+	void TangentS3fv(const float* s);
 
-	void TangentT3f( float tx, float ty, float tz );
-	void TangentT3fv( const float *t );
+	void TangentT3f(float tx, float ty, float tz);
+	void TangentT3fv(const float* t);
 
 	// bone weights (templatized for code which needs to support compressed vertices)
 	template <VertexCompressionType_t T>
-	void CompressedBoneWeight3fv( const float *pWeights );
+	void CompressedBoneWeight3fv(const float* pWeights);
 
 	// Generic per-vertex data (templatized for code which needs to support compressed vertices)
 	template <VertexCompressionType_t T>
-	void CompressedUserData( const float *pData );
+	void CompressedUserData(const float* pData);
 
 	// Used to define the indices (only used if you aren't using primitives)
-	void Index( unsigned short index );
+	void Index(unsigned short index);
 
 	// Fast Index! No need to call advance index, and no random access allowed
-	void FastIndex( unsigned short index );
+	void FastIndex(unsigned short index);
 
 private:
 	// Computes number of verts and indices
-	void ComputeNumVertsAndIndices( int *pMaxVertices, int *pMaxIndices, MaterialPrimitiveType_t type,
-									int nPrimitiveCount );
-	int IndicesFromVertices( MaterialPrimitiveType_t type, int nVertexCount );
+	void ComputeNumVertsAndIndices(int* pMaxVertices, int* pMaxIndices, MaterialPrimitiveType_t type,
+								   int nPrimitiveCount);
+	int IndicesFromVertices(MaterialPrimitiveType_t type, int nVertexCount);
 
 	// The mesh we're modifying
-	IMesh *m_pMesh;
+	IMesh* m_pMesh;
 
 	MaterialPrimitiveType_t m_Type;
 
@@ -2141,16 +2136,16 @@ private:
 
 // Constructor
 inline CMeshBuilder::CMeshBuilder()
-	: m_pMesh( 0 )
-	, m_bGenerateIndices( false )
+	: m_pMesh(0)
+	, m_bGenerateIndices(false)
 {
 }
 
 // Computes the number of verts and indices based on primitive type and count
-inline void CMeshBuilder::ComputeNumVertsAndIndices( int *pMaxVertices, int *pMaxIndices, MaterialPrimitiveType_t type,
-													 int nPrimitiveCount )
+inline void CMeshBuilder::ComputeNumVertsAndIndices(int* pMaxVertices, int* pMaxIndices, MaterialPrimitiveType_t type,
+													int nPrimitiveCount)
 {
-	switch ( type )
+	switch (type)
 	{
 		case MATERIAL_POINTS:
 			*pMaxVertices = *pMaxIndices = nPrimitiveCount;
@@ -2190,42 +2185,42 @@ inline void CMeshBuilder::ComputeNumVertsAndIndices( int *pMaxVertices, int *pMa
 
 		case MATERIAL_POLYGON:
 			*pMaxVertices = nPrimitiveCount;
-			*pMaxIndices = ( nPrimitiveCount - 2 ) * 3;
+			*pMaxIndices = (nPrimitiveCount - 2) * 3;
 			break;
 
 		default:
 			*pMaxVertices = 0;
 			*pMaxIndices = 0;
-			Assert( 0 );
+			Assert(0);
 	}
 
 	// FIXME: need to get this from meshdx8.cpp, or move it to somewhere common
-	Assert( *pMaxVertices <= 32768 );
-	Assert( *pMaxIndices <= 32768 );
+	Assert(*pMaxVertices <= 32768);
+	Assert(*pMaxIndices <= 32768);
 }
 
-inline int CMeshBuilder::IndicesFromVertices( MaterialPrimitiveType_t type, int nVertexCount )
+inline int CMeshBuilder::IndicesFromVertices(MaterialPrimitiveType_t type, int nVertexCount)
 {
-	switch ( type )
+	switch (type)
 	{
 		case MATERIAL_QUADS:
-			Assert( ( nVertexCount & 0x3 ) == 0 );
-			return ( nVertexCount * 6 ) / 4;
+			Assert((nVertexCount & 0x3) == 0);
+			return (nVertexCount * 6) / 4;
 
 		case MATERIAL_INSTANCED_QUADS:
 			// This primtype is unindexed
 			return 0;
 
 		case MATERIAL_POLYGON:
-			Assert( nVertexCount >= 3 );
-			return ( nVertexCount - 2 ) * 3;
+			Assert(nVertexCount >= 3);
+			return (nVertexCount - 2) * 3;
 
 		case MATERIAL_LINE_STRIP:
-			Assert( nVertexCount >= 2 );
-			return ( nVertexCount - 1 ) * 2;
+			Assert(nVertexCount >= 2);
+			return (nVertexCount - 1) * 2;
 
 		case MATERIAL_LINE_LOOP:
-			Assert( nVertexCount >= 3 );
+			Assert(nVertexCount >= 3);
 			return nVertexCount * 2;
 
 		default:
@@ -2234,103 +2229,103 @@ inline int CMeshBuilder::IndicesFromVertices( MaterialPrimitiveType_t type, int 
 }
 
 // Begins modifying the mesh
-inline void CMeshBuilder::Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int numPrimitives )
+inline void CMeshBuilder::Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int numPrimitives)
 {
-	Assert( pMesh && ( !m_pMesh ) );
-	Assert( type != MATERIAL_HETEROGENOUS );
+	Assert(pMesh && (!m_pMesh));
+	Assert(type != MATERIAL_HETEROGENOUS);
 
 	m_pMesh = pMesh;
 	m_bGenerateIndices = true;
 	m_Type = type;
 
 	int nMaxVertexCount, nMaxIndexCount;
-	ComputeNumVertsAndIndices( &nMaxVertexCount, &nMaxIndexCount, type, numPrimitives );
+	ComputeNumVertsAndIndices(&nMaxVertexCount, &nMaxIndexCount, type, numPrimitives);
 
-	switch ( type )
+	switch (type)
 	{
 		case MATERIAL_INSTANCED_QUADS:
-			m_pMesh->SetPrimitiveType( MATERIAL_INSTANCED_QUADS );
+			m_pMesh->SetPrimitiveType(MATERIAL_INSTANCED_QUADS);
 			break;
 
 		case MATERIAL_QUADS:
 		case MATERIAL_POLYGON:
-			m_pMesh->SetPrimitiveType( MATERIAL_TRIANGLES );
+			m_pMesh->SetPrimitiveType(MATERIAL_TRIANGLES);
 			break;
 
 		case MATERIAL_LINE_STRIP:
 		case MATERIAL_LINE_LOOP:
-			m_pMesh->SetPrimitiveType( MATERIAL_LINES );
+			m_pMesh->SetPrimitiveType(MATERIAL_LINES);
 			break;
 
 		default:
-			m_pMesh->SetPrimitiveType( type );
+			m_pMesh->SetPrimitiveType(type);
 	}
 
 	// Lock the mesh
-	m_pMesh->LockMesh( nMaxVertexCount, nMaxIndexCount, *this );
+	m_pMesh->LockMesh(nMaxVertexCount, nMaxIndexCount, *this);
 
-	m_IndexBuilder.AttachBegin( pMesh, nMaxIndexCount, *this );
-	m_VertexBuilder.AttachBegin( pMesh, nMaxVertexCount, *this );
+	m_IndexBuilder.AttachBegin(pMesh, nMaxIndexCount, *this);
+	m_VertexBuilder.AttachBegin(pMesh, nMaxVertexCount, *this);
 
 	// Point to the start of the index and vertex buffers
 	Reset();
 }
 
-inline void CMeshBuilder::Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount )
+inline void CMeshBuilder::Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int nVertexCount, int nIndexCount)
 {
-	Assert( pMesh && ( !m_pMesh ) );
+	Assert(pMesh && (!m_pMesh));
 
 	// NOTE: We can't specify the indices when we use quads, polygons, or
 	// linestrips; they aren't actually directly supported by
 	// the material system
-	Assert( ( type != MATERIAL_QUADS ) && ( type != MATERIAL_INSTANCED_QUADS ) && ( type != MATERIAL_POLYGON ) &&
-			( type != MATERIAL_LINE_STRIP ) && ( type != MATERIAL_LINE_LOOP ) );
+	Assert((type != MATERIAL_QUADS) && (type != MATERIAL_INSTANCED_QUADS) && (type != MATERIAL_POLYGON) &&
+		   (type != MATERIAL_LINE_STRIP) && (type != MATERIAL_LINE_LOOP));
 
 	// Dx8 doesn't support indexed points...
-	Assert( type != MATERIAL_POINTS );
+	Assert(type != MATERIAL_POINTS);
 
 	m_pMesh = pMesh;
 	m_bGenerateIndices = false;
 	m_Type = type;
 
 	// Set the primitive type
-	m_pMesh->SetPrimitiveType( type );
+	m_pMesh->SetPrimitiveType(type);
 
 	// Lock the vertex and index buffer
-	m_pMesh->LockMesh( nVertexCount, nIndexCount, *this );
+	m_pMesh->LockMesh(nVertexCount, nIndexCount, *this);
 
-	m_IndexBuilder.AttachBegin( pMesh, nIndexCount, *this );
-	m_VertexBuilder.AttachBegin( pMesh, nVertexCount, *this );
+	m_IndexBuilder.AttachBegin(pMesh, nIndexCount, *this);
+	m_VertexBuilder.AttachBegin(pMesh, nVertexCount, *this);
 
 	// Point to the start of the buffers..
 	Reset();
 }
 
 // Use this when you're done modifying the mesh
-inline void CMeshBuilder::End( bool bSpewData, bool bDraw )
+inline void CMeshBuilder::End(bool bSpewData, bool bDraw)
 {
-	if ( m_bGenerateIndices )
+	if (m_bGenerateIndices)
 	{
-		int nIndexCount = IndicesFromVertices( m_Type, m_VertexBuilder.VertexCount() );
-		m_IndexBuilder.GenerateIndices( m_Type, nIndexCount );
+		int nIndexCount = IndicesFromVertices(m_Type, m_VertexBuilder.VertexCount());
+		m_IndexBuilder.GenerateIndices(m_Type, nIndexCount);
 	}
 
-	if ( bSpewData )
+	if (bSpewData)
 	{
-		m_pMesh->Spew( m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this );
+		m_pMesh->Spew(m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this);
 	}
 
 #ifdef _DEBUG
-	m_pMesh->ValidateData( m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this );
+	m_pMesh->ValidateData(m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this);
 #endif
 
 	// Unlock our buffers
-	m_pMesh->UnlockMesh( m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this );
+	m_pMesh->UnlockMesh(m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this);
 
 	m_IndexBuilder.AttachEnd();
 	m_VertexBuilder.AttachEnd();
 
-	if ( bDraw )
+	if (bDraw)
 	{
 		m_pMesh->Draw();
 	}
@@ -2338,24 +2333,24 @@ inline void CMeshBuilder::End( bool bSpewData, bool bDraw )
 	m_pMesh = 0;
 
 #ifdef _DEBUG
-	memset( (MeshDesc_t *)this, 0, sizeof( MeshDesc_t ) );
+	memset((MeshDesc_t*)this, 0, sizeof(MeshDesc_t));
 #endif
 }
 
-inline void CMeshBuilder::EndModify( bool bSpewData )
+inline void CMeshBuilder::EndModify(bool bSpewData)
 {
-	Assert( m_pMesh );
+	Assert(m_pMesh);
 
-	if ( bSpewData )
+	if (bSpewData)
 	{
-		m_pMesh->Spew( m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this );
+		m_pMesh->Spew(m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this);
 	}
 #ifdef _DEBUG
-	m_pMesh->ValidateData( m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this );
+	m_pMesh->ValidateData(m_VertexBuilder.VertexCount(), m_IndexBuilder.IndexCount(), *this);
 #endif
 
 	// Unlocks mesh
-	m_pMesh->ModifyEnd( *this );
+	m_pMesh->ModifyEnd(*this);
 	m_pMesh = 0;
 
 	m_IndexBuilder.AttachEndModify();
@@ -2363,7 +2358,7 @@ inline void CMeshBuilder::EndModify( bool bSpewData )
 
 #ifdef _DEBUG
 	// Null out our pointers...
-	memset( (MeshDesc_t *)this, 0, sizeof( MeshDesc_t ) );
+	memset((MeshDesc_t*)this, 0, sizeof(MeshDesc_t));
 #endif
 }
 
@@ -2386,7 +2381,7 @@ FORCEINLINE void CMeshBuilder::AdvanceVertex()
 	m_VertexBuilder.AdvanceVertex();
 }
 
-FORCEINLINE const float *CMeshBuilder::Normal() const
+FORCEINLINE const float* CMeshBuilder::Normal() const
 {
 	return m_VertexBuilder.Normal();
 }
@@ -2396,125 +2391,125 @@ FORCEINLINE unsigned int CMeshBuilder::Color() const
 	return m_VertexBuilder.Color();
 }
 
-FORCEINLINE unsigned short const *CMeshBuilder::Index() const
+FORCEINLINE unsigned short const* CMeshBuilder::Index() const
 {
 	return m_IndexBuilder.Index();
 }
 
 // Index
-FORCEINLINE void CMeshBuilder::Index( unsigned short idx )
+FORCEINLINE void CMeshBuilder::Index(unsigned short idx)
 {
-	m_IndexBuilder.Index( idx );
+	m_IndexBuilder.Index(idx);
 }
 
 // Fast Index! No need to call advance index
-FORCEINLINE void CMeshBuilder::FastIndex( unsigned short idx )
+FORCEINLINE void CMeshBuilder::FastIndex(unsigned short idx)
 {
-	m_IndexBuilder.FastIndex( idx );
+	m_IndexBuilder.FastIndex(idx);
 }
 
 // Vertex field setting methods
-FORCEINLINE void CMeshBuilder::Position3f( float x, float y, float z )
+FORCEINLINE void CMeshBuilder::Position3f(float x, float y, float z)
 {
-	m_VertexBuilder.Position3f( x, y, z );
+	m_VertexBuilder.Position3f(x, y, z);
 }
 
-FORCEINLINE void CMeshBuilder::Position3fv( const float *v )
+FORCEINLINE void CMeshBuilder::Position3fv(const float* v)
 {
-	m_VertexBuilder.Position3fv( v );
+	m_VertexBuilder.Position3fv(v);
 }
 
-FORCEINLINE void CMeshBuilder::Normal3f( float nx, float ny, float nz )
+FORCEINLINE void CMeshBuilder::Normal3f(float nx, float ny, float nz)
 {
-	m_VertexBuilder.Normal3f( nx, ny, nz );
+	m_VertexBuilder.Normal3f(nx, ny, nz);
 }
 
-FORCEINLINE void CMeshBuilder::Normal3fv( const float *n )
+FORCEINLINE void CMeshBuilder::Normal3fv(const float* n)
 {
-	m_VertexBuilder.Normal3fv( n );
+	m_VertexBuilder.Normal3fv(n);
 }
 
-FORCEINLINE void CMeshBuilder::Color3f( float r, float g, float b )
+FORCEINLINE void CMeshBuilder::Color3f(float r, float g, float b)
 {
-	m_VertexBuilder.Color3f( r, g, b );
+	m_VertexBuilder.Color3f(r, g, b);
 }
 
-FORCEINLINE void CMeshBuilder::Color3fv( const float *rgb )
+FORCEINLINE void CMeshBuilder::Color3fv(const float* rgb)
 {
-	m_VertexBuilder.Color3fv( rgb );
+	m_VertexBuilder.Color3fv(rgb);
 }
 
-FORCEINLINE void CMeshBuilder::Color4f( float r, float g, float b, float a )
+FORCEINLINE void CMeshBuilder::Color4f(float r, float g, float b, float a)
 {
-	m_VertexBuilder.Color4f( r, g, b, a );
+	m_VertexBuilder.Color4f(r, g, b, a);
 }
 
-FORCEINLINE void CMeshBuilder::Color4fv( const float *rgba )
+FORCEINLINE void CMeshBuilder::Color4fv(const float* rgba)
 {
-	m_VertexBuilder.Color4fv( rgba );
+	m_VertexBuilder.Color4fv(rgba);
 }
 
-FORCEINLINE void CMeshBuilder::Color3ubv( unsigned char const *rgb )
+FORCEINLINE void CMeshBuilder::Color3ubv(unsigned char const* rgb)
 {
-	m_VertexBuilder.Color3ubv( rgb );
+	m_VertexBuilder.Color3ubv(rgb);
 }
 
-FORCEINLINE void CMeshBuilder::Color4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a )
+FORCEINLINE void CMeshBuilder::Color4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 {
-	m_VertexBuilder.Color4ub( r, g, b, a );
+	m_VertexBuilder.Color4ub(r, g, b, a);
 }
 
-FORCEINLINE void CMeshBuilder::Color4ubv( unsigned char const *rgba )
+FORCEINLINE void CMeshBuilder::Color4ubv(unsigned char const* rgba)
 {
-	m_VertexBuilder.Color4ubv( rgba );
+	m_VertexBuilder.Color4ubv(rgba);
 }
 
-FORCEINLINE void CMeshBuilder::TexCoord2f( int nStage, float s, float t )
+FORCEINLINE void CMeshBuilder::TexCoord2f(int nStage, float s, float t)
 {
-	m_VertexBuilder.TexCoord2f( nStage, s, t );
+	m_VertexBuilder.TexCoord2f(nStage, s, t);
 }
 
-FORCEINLINE void CMeshBuilder::TexCoord2fv( int nStage, const float *st )
+FORCEINLINE void CMeshBuilder::TexCoord2fv(int nStage, const float* st)
 {
-	m_VertexBuilder.TexCoord2fv( nStage, st );
+	m_VertexBuilder.TexCoord2fv(nStage, st);
 }
 
-FORCEINLINE void CMeshBuilder::TangentS3f( float sx, float sy, float sz )
+FORCEINLINE void CMeshBuilder::TangentS3f(float sx, float sy, float sz)
 {
-	m_VertexBuilder.TangentS3f( sx, sy, sz );
+	m_VertexBuilder.TangentS3f(sx, sy, sz);
 }
 
-FORCEINLINE void CMeshBuilder::TangentS3fv( const float *s )
+FORCEINLINE void CMeshBuilder::TangentS3fv(const float* s)
 {
-	m_VertexBuilder.TangentS3fv( s );
+	m_VertexBuilder.TangentS3fv(s);
 }
 
-FORCEINLINE void CMeshBuilder::TangentT3f( float tx, float ty, float tz )
+FORCEINLINE void CMeshBuilder::TangentT3f(float tx, float ty, float tz)
 {
-	m_VertexBuilder.TangentT3f( tx, ty, tz );
+	m_VertexBuilder.TangentT3f(tx, ty, tz);
 }
 
-FORCEINLINE void CMeshBuilder::TangentT3fv( const float *t )
+FORCEINLINE void CMeshBuilder::TangentT3fv(const float* t)
 {
-	m_VertexBuilder.TangentT3fv( t );
-}
-
-template <VertexCompressionType_t T>
-FORCEINLINE void CMeshBuilder::CompressedBoneWeight3fv( const float *pWeights )
-{
-	m_VertexBuilder.CompressedBoneWeight3fv<T>( pWeights );
+	m_VertexBuilder.TangentT3fv(t);
 }
 
 template <VertexCompressionType_t T>
-FORCEINLINE void CMeshBuilder::CompressedUserData( const float *pData )
+FORCEINLINE void CMeshBuilder::CompressedBoneWeight3fv(const float* pWeights)
 {
-	m_VertexBuilder.CompressedUserData<T>( pData );
+	m_VertexBuilder.CompressedBoneWeight3fv<T>(pWeights);
+}
+
+template <VertexCompressionType_t T>
+FORCEINLINE void CMeshBuilder::CompressedUserData(const float* pData)
+{
+	m_VertexBuilder.CompressedUserData<T>(pData);
 }
 
 // Templatized vertex field setting methods which support compression
 
 template <VertexCompressionType_t T>
-FORCEINLINE void CMeshBuilder::CompressedNormal3f( float nx, float ny, float nz )
+FORCEINLINE void CMeshBuilder::CompressedNormal3f(float nx, float ny, float nz)
 {
-	m_VertexBuilder.CompressedNormal3f<T>( nx, ny, nz );
+	m_VertexBuilder.CompressedNormal3f<T>(nx, ny, nz);
 }

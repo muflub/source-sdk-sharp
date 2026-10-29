@@ -225,8 +225,8 @@ def self_test():
     expect('the engine fake overrides IVEngineServer\'s 124 pure virtuals',
            engine.count(' override ') == 124)
     expect('the engine fake keeps const and defaults as declared',
-           'bool IsModelPrecached( char const *s ) const override { return {}; }' in engine
-           and 'int PrecacheModel( const char *s, bool preload = false ) override { return {}; }' in engine)
+           'bool IsModelPrecached(char const* s) const override { return {}; }' in engine
+           and 'int PrecacheModel(const char* s, bool preload = false) override { return {}; }' in engine)
     print('\n%d arm(s), %d failed.' % (len(arms), arms.count(False)))
     return 0 if all(arms) else 1
 

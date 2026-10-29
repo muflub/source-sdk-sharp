@@ -50,15 +50,15 @@ struct FakeLeaf
 	int nNextHandle;
 
 	FakeLeaf()
-		: nNextHandle( 100 )
+		: nNextHandle(100)
 	{
 	}
 
-	void AddRenderable( FakeRenderable *pRenderable, int group );
+	void AddRenderable(FakeRenderable* pRenderable, int group);
 
-	void RemoveRenderable( int handle ) { removed.push_back( handle ); }
+	void RemoveRenderable(int handle) { removed.push_back(handle); }
 
-	void RenderableChanged( int handle ) { changed.push_back( handle ); }
+	void RenderableChanged(int handle) { changed.push_back(handle); }
 };
 
 struct FakeRenderable
@@ -66,19 +66,19 @@ struct FakeRenderable
 	int m_hRenderHandle;
 
 	FakeRenderable()
-		: m_hRenderHandle( kInvalidHandle )
+		: m_hRenderHandle(kInvalidHandle)
 	{
 	}
 
-	int &RenderHandle() { return m_hRenderHandle; }
+	int& RenderHandle() { return m_hRenderHandle; }
 
 	bool IsInLeafSystem() const { return m_hRenderHandle != kInvalidHandle; }
 };
 
-void FakeLeaf::AddRenderable( FakeRenderable *pRenderable, int group )
+void FakeLeaf::AddRenderable(FakeRenderable* pRenderable, int group)
 {
 	const int h = nNextHandle++;
-	added.push_back( h );
+	added.push_back(h);
 	pRenderable->RenderHandle() = h; // exactly what NewRenderable does
 }
 
@@ -86,83 +86,83 @@ void FakeLeaf::AddRenderable( FakeRenderable *pRenderable, int group )
 // Add
 //=============================================================================
 
-TEST( ShellLeafLink, AddPutsAnUnlinkedRenderableIn )
+TEST(ShellLeafLink, AddPutsAnUnlinkedRenderableIn)
 {
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Add( &leaf, &r, 0 );
+	ShellLeaf_Add(&leaf, &r, 0);
 
-	ASSERT_EQ( 1u, leaf.added.size() );
-	EXPECT_TRUE( r.IsInLeafSystem() );
-	EXPECT_EQ( leaf.added[0], r.RenderHandle() );
+	ASSERT_EQ(1u, leaf.added.size());
+	EXPECT_TRUE(r.IsInLeafSystem());
+	EXPECT_EQ(leaf.added[0], r.RenderHandle());
 }
 
-TEST( ShellLeafLink, AddTWICEDoesNotStrandTheFirstRow )
+TEST(ShellLeafLink, AddTWICEDoesNotStrandTheFirstRow)
 {
 	// Without the guard the second AddRenderable overwrites the handle and the
 	// first row can never be removed by anybody.
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Add( &leaf, &r, 0 );
+	ShellLeaf_Add(&leaf, &r, 0);
 	const int hFirst = r.RenderHandle();
 
-	ShellLeaf_Add( &leaf, &r, 0 );
+	ShellLeaf_Add(&leaf, &r, 0);
 
-	EXPECT_EQ( 1u, leaf.added.size() ) << "the second add was refused";
-	EXPECT_EQ( hFirst, r.RenderHandle() ) << "the handle is the one that can be removed";
+	EXPECT_EQ(1u, leaf.added.size()) << "the second add was refused";
+	EXPECT_EQ(hFirst, r.RenderHandle()) << "the handle is the one that can be removed";
 }
 
 //=============================================================================
 // Remove
 //=============================================================================
 
-TEST( ShellLeafLink, RemoveTakesTheHandleTheAddHandedOut )
+TEST(ShellLeafLink, RemoveTakesTheHandleTheAddHandedOut)
 {
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Add( &leaf, &r, 0 );
+	ShellLeaf_Add(&leaf, &r, 0);
 	const int h = r.RenderHandle();
 
-	ShellLeaf_Remove( &leaf, &r );
+	ShellLeaf_Remove(&leaf, &r);
 
-	ASSERT_EQ( 1u, leaf.removed.size() );
-	EXPECT_EQ( h, leaf.removed[0] );
+	ASSERT_EQ(1u, leaf.removed.size());
+	EXPECT_EQ(h, leaf.removed[0]);
 }
 
-TEST( ShellLeafLink, RemoveOnSomethingNeverAddedTellsTheLeafSystemNOTHING )
+TEST(ShellLeafLink, RemoveOnSomethingNeverAddedTellsTheLeafSystemNOTHING)
 {
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Remove( &leaf, &r );
+	ShellLeaf_Remove(&leaf, &r);
 
-	EXPECT_TRUE( leaf.removed.empty() ) << "an INVALID handle must not reach RemoveRenderable at all";
+	EXPECT_TRUE(leaf.removed.empty()) << "an INVALID handle must not reach RemoveRenderable at all";
 }
 
 //=============================================================================
 // Moved — the silent one
 //=============================================================================
 
-TEST( ShellLeafLink, MovedReportsTheHandleOnceLinked )
+TEST(ShellLeafLink, MovedReportsTheHandleOnceLinked)
 {
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Add( &leaf, &r, 0 );
+	ShellLeaf_Add(&leaf, &r, 0);
 	const int h = r.RenderHandle();
 
-	ShellLeaf_Moved( &leaf, &r );
-	ShellLeaf_Moved( &leaf, &r );
+	ShellLeaf_Moved(&leaf, &r);
+	ShellLeaf_Moved(&leaf, &r);
 
-	ASSERT_EQ( 2u, leaf.changed.size() ) << "every move is reported, not just the first";
-	EXPECT_EQ( h, leaf.changed[0] );
-	EXPECT_EQ( h, leaf.changed[1] );
+	ASSERT_EQ(2u, leaf.changed.size()) << "every move is reported, not just the first";
+	EXPECT_EQ(h, leaf.changed[0]);
+	EXPECT_EQ(h, leaf.changed[1]);
 }
 
-TEST( ShellLeafLink, MovedBeforeTheAddTellsTheLeafSystemNOTHING )
+TEST(ShellLeafLink, MovedBeforeTheAddTellsTheLeafSystemNOTHING)
 {
 	// The ordinary factory shape: place the object, then add it. There is no
 	// handle to report against yet, and reporting one anyway is a call into the
@@ -170,41 +170,41 @@ TEST( ShellLeafLink, MovedBeforeTheAddTellsTheLeafSystemNOTHING )
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Moved( &leaf, &r );
+	ShellLeaf_Moved(&leaf, &r);
 
-	EXPECT_TRUE( leaf.changed.empty() );
+	EXPECT_TRUE(leaf.changed.empty());
 
 	// ...and adding afterwards still works, so the guard is not a latch.
-	ShellLeaf_Add( &leaf, &r, 0 );
-	ShellLeaf_Moved( &leaf, &r );
+	ShellLeaf_Add(&leaf, &r, 0);
+	ShellLeaf_Moved(&leaf, &r);
 
-	ASSERT_EQ( 1u, leaf.changed.size() );
-	EXPECT_EQ( r.RenderHandle(), leaf.changed[0] );
+	ASSERT_EQ(1u, leaf.changed.size());
+	EXPECT_EQ(r.RenderHandle(), leaf.changed[0]);
 }
 
 //=============================================================================
 // The whole life, in order
 //=============================================================================
 
-TEST( ShellLeafLink, PlaceAddMoveRemoveIsTheWholeLifeAndItBalances )
+TEST(ShellLeafLink, PlaceAddMoveRemoveIsTheWholeLifeAndItBalances)
 {
 	FakeLeaf leaf;
 	FakeRenderable r;
 
-	ShellLeaf_Moved( &leaf, &r ); // placed by the factory, not linked yet
-	ShellLeaf_Add( &leaf, &r, 0 ); // into the leaf system
+	ShellLeaf_Moved(&leaf, &r); // placed by the factory, not linked yet
+	ShellLeaf_Add(&leaf, &r, 0); // into the leaf system
 	const int h = r.RenderHandle();
-	ShellLeaf_Moved( &leaf, &r ); // followed for a frame
-	ShellLeaf_Moved( &leaf, &r ); // and another
-	ShellLeaf_Remove( &leaf, &r ); // destroyed
+	ShellLeaf_Moved(&leaf, &r); // followed for a frame
+	ShellLeaf_Moved(&leaf, &r); // and another
+	ShellLeaf_Remove(&leaf, &r); // destroyed
 	r.RenderHandle() = kInvalidHandle; // what RemoveRenderable does
-	ShellLeaf_Moved( &leaf, &r ); // a stray follow after the release
-	ShellLeaf_Remove( &leaf, &r ); // and a second remove
+	ShellLeaf_Moved(&leaf, &r); // a stray follow after the release
+	ShellLeaf_Remove(&leaf, &r); // and a second remove
 
-	EXPECT_EQ( 1u, leaf.added.size() );
-	EXPECT_EQ( 1u, leaf.removed.size() ) << "removed exactly as many times as added";
-	EXPECT_EQ( h, leaf.removed[0] );
-	EXPECT_EQ( 2u, leaf.changed.size() ) << "only the two moves made while linked";
+	EXPECT_EQ(1u, leaf.added.size());
+	EXPECT_EQ(1u, leaf.removed.size()) << "removed exactly as many times as added";
+	EXPECT_EQ(h, leaf.removed[0]);
+	EXPECT_EQ(2u, leaf.changed.size()) << "only the two moves made while linked";
 }
 
 } // namespace

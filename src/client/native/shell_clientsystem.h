@@ -9,14 +9,14 @@
 class CClientSystem
 {
 public:
-	CClientSystem( char const *pszName = NULL )
-		: m_pszName( pszName )
+	CClientSystem(char const* pszName = NULL)
+		: m_pszName(pszName)
 	{
 	}
 
 	virtual ~CClientSystem() {}
 
-	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
+	virtual char const* Name() { return m_pszName ? m_pszName : "unnamed"; }
 
 	// Return false to abort the client's start-up; the walk stops on the first refusal.
 	virtual bool Init() { return true; }
@@ -38,7 +38,7 @@ public:
 	virtual bool IsPerFrame() { return false; }
 
 private:
-	char const *m_pszName;
+	char const* m_pszName;
 };
 
 // A system with a per-frame half; a PreRender on a plain system would be a
@@ -46,8 +46,8 @@ private:
 class CClientSystemPerFrame : public CClientSystem
 {
 public:
-	CClientSystemPerFrame( char const *pszName = NULL )
-		: CClientSystem( pszName )
+	CClientSystemPerFrame(char const* pszName = NULL)
+		: CClientSystem(pszName)
 	{
 	}
 
@@ -55,7 +55,7 @@ public:
 
 	virtual void PreRender() {}
 
-	virtual void Update( float frametime ) { NOTE_UNUSED( frametime ); }
+	virtual void Update(float frametime) { NOTE_UNUSED(frametime); }
 };
 
 // The walkers over kClientSystems[], defined in shell_clientsystems.cpp.
@@ -69,11 +69,11 @@ void SourceSharp_ClientSystemsLevelShutdownPreEntity();
 void SourceSharp_ClientSystemsLevelShutdownPostEntity();
 
 void SourceSharp_ClientSystemsPreRender();
-void SourceSharp_ClientSystemsUpdate( float frametime );
+void SourceSharp_ClientSystemsUpdate(float frametime);
 
 // The current map's bare name ("dm_lockdown", not "maps/dm_lockdown.bsp") into
 // the caller's buffer; the empty string before any level.
-const char *SourceSharp_ClientMapName( char *pszOut, int nOutBytes );
+const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes);
 
 // A row over an object stock's headers make an IGameSystem: each stage is handed
 // to the object.
@@ -83,12 +83,12 @@ template <class TGameSystem>
 class CGameSystemRow : public CClientSystem
 {
 public:
-	explicit CGameSystemRow( TGameSystem *pSystem )
-		: m_pSystem( pSystem )
+	explicit CGameSystemRow(TGameSystem* pSystem)
+		: m_pSystem(pSystem)
 	{
 	}
 
-	virtual char const *Name() { return m_pSystem->Name(); }
+	virtual char const* Name() { return m_pSystem->Name(); }
 
 	virtual bool Init() { return m_pSystem->Init(); }
 
@@ -105,5 +105,5 @@ public:
 	virtual void LevelShutdownPostEntity() { m_pSystem->LevelShutdownPostEntity(); }
 
 private:
-	TGameSystem *m_pSystem;
+	TGameSystem* m_pSystem;
 };

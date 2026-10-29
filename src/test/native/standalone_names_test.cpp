@@ -38,25 +38,25 @@ namespace
 // other. A rule that differed would under-report by exactly the classes that
 // have moved, which reads as those entities having disappeared.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNameMatches, MatchesAnExactNameRegardlessOfCase )
+TEST(StandaloneNameMatches, MatchesAnExactNameRegardlessOfCase)
 {
-	EXPECT_TRUE( StandaloneNameMatches( "logic_relay", "logic_relay" ) );
-	EXPECT_TRUE( StandaloneNameMatches( "LOGIC_RELAY", "logic_relay" ) );
-	EXPECT_FALSE( StandaloneNameMatches( "logic_timer", "logic_relay" ) );
+	EXPECT_TRUE(StandaloneNameMatches("logic_relay", "logic_relay"));
+	EXPECT_TRUE(StandaloneNameMatches("LOGIC_RELAY", "logic_relay"));
+	EXPECT_FALSE(StandaloneNameMatches("logic_timer", "logic_relay"));
 }
 
-TEST( StandaloneNameMatches, TreatsABareStarAsEverything )
+TEST(StandaloneNameMatches, TreatsABareStarAsEverything)
 {
-	EXPECT_TRUE( StandaloneNameMatches( "*", "logic_relay" ) );
-	EXPECT_TRUE( StandaloneNameMatches( "*", "info_target" ) );
-	EXPECT_TRUE( StandaloneNameMatches( "*", "" ) );
+	EXPECT_TRUE(StandaloneNameMatches("*", "logic_relay"));
+	EXPECT_TRUE(StandaloneNameMatches("*", "info_target"));
+	EXPECT_TRUE(StandaloneNameMatches("*", ""));
 }
 
-TEST( StandaloneNameMatches, SupportsATrailingStarAsAPrefix )
+TEST(StandaloneNameMatches, SupportsATrailingStarAsAPrefix)
 {
-	EXPECT_TRUE( StandaloneNameMatches( "logic_*", "logic_relay" ) );
-	EXPECT_TRUE( StandaloneNameMatches( "filter_*", "filter_activator_name" ) );
-	EXPECT_FALSE( StandaloneNameMatches( "logic_*", "info_target" ) );
+	EXPECT_TRUE(StandaloneNameMatches("logic_*", "logic_relay"));
+	EXPECT_TRUE(StandaloneNameMatches("filter_*", "filter_activator_name"));
+	EXPECT_FALSE(StandaloneNameMatches("logic_*", "info_target"));
 }
 
 //-----------------------------------------------------------------------------
@@ -64,17 +64,17 @@ TEST( StandaloneNameMatches, SupportsATrailingStarAsAPrefix )
 // "logic_relay" runs the name out first, and answering true there would make
 // every prefix query match its own shorter classnames.
 //-----------------------------------------------------------------------------
-TEST( StandaloneNameMatches, DoesNotMatchAQueryLongerThanTheName )
+TEST(StandaloneNameMatches, DoesNotMatchAQueryLongerThanTheName)
 {
-	EXPECT_FALSE( StandaloneNameMatches( "logic_relay_two", "logic_relay" ) );
-	EXPECT_FALSE( StandaloneNameMatches( "logic_relay", "logic_" ) );
+	EXPECT_FALSE(StandaloneNameMatches("logic_relay_two", "logic_relay"));
+	EXPECT_FALSE(StandaloneNameMatches("logic_relay", "logic_"));
 }
 
-TEST( StandaloneNameMatches, TreatsAnUnnamedThingTheWayTheSdkDoes )
+TEST(StandaloneNameMatches, TreatsAnUnnamedThingTheWayTheSdkDoes)
 {
-	EXPECT_TRUE( StandaloneNameMatches( "", "" ) );
-	EXPECT_FALSE( StandaloneNameMatches( "logic_relay", "" ) );
-	EXPECT_FALSE( StandaloneNameMatches( NULL, "logic_relay" ) );
+	EXPECT_TRUE(StandaloneNameMatches("", ""));
+	EXPECT_FALSE(StandaloneNameMatches("logic_relay", ""));
+	EXPECT_FALSE(StandaloneNameMatches(NULL, "logic_relay"));
 }
 
 } // namespace

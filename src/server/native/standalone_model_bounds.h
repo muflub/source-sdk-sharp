@@ -10,9 +10,9 @@
 
 #pragma once
 
-inline bool StandaloneModel_AdoptsBounds( bool bIsPlayer, bool bModelHasBounds )
+inline bool StandaloneModel_AdoptsBounds(bool bIsPlayer, bool bModelHasBounds)
 {
-	if ( bIsPlayer )
+	if (bIsPlayer)
 		return false;
 
 	return bModelHasBounds;

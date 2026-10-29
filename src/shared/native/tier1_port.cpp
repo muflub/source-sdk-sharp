@@ -13,6 +13,6 @@
 // Flags a read past the end; asserts first when the buffer asked to.
 void bf_read::SetOverflowFlag()
 {
-	Assert( !m_bAssertOnOverflow );
+	Assert(!m_bAssertOnOverflow);
 	m_bOverflow = true;
 }

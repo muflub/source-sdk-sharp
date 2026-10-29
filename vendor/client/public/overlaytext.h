@@ -32,5 +32,5 @@ public:
 	int g;
 	int b;
 	int a;
-	OverlayText_t *nextOverlayText;
+	OverlayText_t* nextOverlayText;
 };

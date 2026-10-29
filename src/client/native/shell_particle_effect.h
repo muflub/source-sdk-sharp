@@ -26,17 +26,17 @@
 class CShellParticleEffect : public CDefaultClientRenderable
 {
 public:
-	DECLARE_CLASS_NOBASE( CShellParticleEffect );
+	DECLARE_CLASS_NOBASE(CShellParticleEffect);
 
 	// Zeroing allocator: constructors leave fields untouched on the promise
 	// that the block arrived zeroed.
-	SOURCESHARP_ZEROING_ALLOCATOR( MemAlloc_Alloc, MemAlloc_Free )
+	SOURCESHARP_ZEROING_ALLOCATOR(MemAlloc_Alloc, MemAlloc_Free)
 
 	// Tells whoever holds a raw pointer to this effect that it is going; called
 	// from the destructor, whichever route reached it.
 	typedef CTrailDestroyLatch<CShellParticleEffect>::GoneFn_t TrailGoneFn_t;
 
-	void SetGoneCallback( TrailGoneFn_t pfnGone ) { m_Destroy.SetGoneCallback( pfnGone ); }
+	void SetGoneCallback(TrailGoneFn_t pfnGone) { m_Destroy.SetGoneCallback(pfnGone); }
 
 	CShellParticleEffect()
 	{
@@ -50,22 +50,22 @@ public:
 		// Claimed before the members go. A destructor reached through Release()
 		// is running because that caller already won the claim.
 		m_Destroy.Claim();
-		m_Destroy.Announce( this );
+		m_Destroy.Announce(this);
 	}
 
 	// The place, written once a frame by the shell's PreRender sweep.
-	const Vector &GetAbsOrigin() const { return m_vecOrigin; }
+	const Vector& GetAbsOrigin() const { return m_vecOrigin; }
 
-	const QAngle &GetAbsAngles() const { return m_angAngles; }
+	const QAngle& GetAbsAngles() const { return m_angAngles; }
 
-	void SetAbsOrigin( const Vector &vecOrigin ) { m_vecOrigin = vecOrigin; }
+	void SetAbsOrigin(const Vector& vecOrigin) { m_vecOrigin = vecOrigin; }
 
-	void SetAbsAngles( const QAngle &angAngles ) { m_angAngles = angAngles; }
+	void SetAbsAngles(const QAngle& angAngles) { m_angAngles = angAngles; }
 
 	// The shell's destroy path, as C_BaseEntity::Release() was for a client-only entity.
 	void Release()
 	{
-		if ( m_Destroy.Claim() )
+		if (m_Destroy.Claim())
 			delete this;
 	}
 
@@ -78,5 +78,5 @@ protected:
 	CTrailDestroyLatch<CShellParticleEffect> m_Destroy;
 
 private:
-	CShellParticleEffect( const CShellParticleEffect & ); // not defined, not accessible
+	CShellParticleEffect(const CShellParticleEffect&); // not defined, not accessible
 };

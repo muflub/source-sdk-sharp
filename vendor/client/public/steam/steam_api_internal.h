@@ -10,8 +10,8 @@
 #include <string.h>
 
 S_API HSteamUser S_CALLTYPE SteamAPI_GetHSteamUser();
-S_API void *S_CALLTYPE SteamInternal_ContextInit( void *pContextInitData );
-S_API void *S_CALLTYPE SteamInternal_FindOrCreateUserInterface( HSteamUser hSteamUser, const char *pszVersion );
+S_API void* S_CALLTYPE SteamInternal_ContextInit(void* pContextInitData);
+S_API void* S_CALLTYPE SteamInternal_FindOrCreateUserInterface(HSteamUser hSteamUser, const char* pszVersion);
 
 // Macro used to define a type-safe accessor that will always return the version
 // of the interface of the *header file* you are compiling with!  We also bounce
@@ -19,60 +19,60 @@ S_API void *S_CALLTYPE SteamInternal_FindOrCreateUserInterface( HSteamUser hStea
 // SteamInternal_ContextInit takes a base pointer for the equivalent of
 // struct { void (*pFn)(void* pCtx); uintptr_t counter; void *ptr; }
 // Do not change layout or add non-pointer aligned data!
-#define STEAM_DEFINE_INTERFACE_ACCESSOR( type, name, expr, kind, version )                          \
-	inline void S_CALLTYPE SteamInternal_Init_##name( type *p )                                     \
-	{                                                                                               \
-		*p = (type)( expr );                                                                        \
-	}                                                                                               \
-	STEAM_CLANG_ATTR( "interface_accessor_kind:" kind ";interface_accessor_version:" version ";" )  \
-	inline type name()                                                                              \
-	{                                                                                               \
-		static void *s_CallbackCounterAndContext[3] = { (void *)&SteamInternal_Init_##name, 0, 0 }; \
-		return *(type *)SteamInternal_ContextInit( s_CallbackCounterAndContext );                   \
+#define STEAM_DEFINE_INTERFACE_ACCESSOR(type, name, expr, kind, version)                         \
+	inline void S_CALLTYPE SteamInternal_Init_##name(type* p)                                    \
+	{                                                                                            \
+		*p = (type)(expr);                                                                       \
+	}                                                                                            \
+	STEAM_CLANG_ATTR("interface_accessor_kind:" kind ";interface_accessor_version:" version ";") \
+	inline type name()                                                                           \
+	{                                                                                            \
+		static void* s_CallbackCounterAndContext[3] = {(void*)&SteamInternal_Init_##name, 0, 0}; \
+		return *(type*)SteamInternal_ContextInit(s_CallbackCounterAndContext);                   \
 	}
 
-#define STEAM_DEFINE_USER_INTERFACE_ACCESSOR( type, name, version ) \
-	STEAM_DEFINE_INTERFACE_ACCESSOR(                                \
-		type, name, SteamInternal_FindOrCreateUserInterface( SteamAPI_GetHSteamUser(), version ), "user", version )
+#define STEAM_DEFINE_USER_INTERFACE_ACCESSOR(type, name, version) \
+	STEAM_DEFINE_INTERFACE_ACCESSOR(                              \
+		type, name, SteamInternal_FindOrCreateUserInterface(SteamAPI_GetHSteamUser(), version), "user", version)
 
 // Internal stuff used for the standard, higher-level callback mechanism
 
 // Internal functions used by the utility CCallback objects to receive callbacks
-S_API void S_CALLTYPE SteamAPI_RegisterCallback( class CCallbackBase *pCallback, int iCallback );
-S_API void S_CALLTYPE SteamAPI_UnregisterCallback( class CCallbackBase *pCallback );
+S_API void S_CALLTYPE SteamAPI_RegisterCallback(class CCallbackBase* pCallback, int iCallback);
+S_API void S_CALLTYPE SteamAPI_UnregisterCallback(class CCallbackBase* pCallback);
 // Internal functions used by the utility CCallResult objects to receive async call results
-S_API void S_CALLTYPE SteamAPI_RegisterCallResult( class CCallbackBase *pCallback, SteamAPICall_t hAPICall );
-S_API void S_CALLTYPE SteamAPI_UnregisterCallResult( class CCallbackBase *pCallback, SteamAPICall_t hAPICall );
+S_API void S_CALLTYPE SteamAPI_RegisterCallResult(class CCallbackBase* pCallback, SteamAPICall_t hAPICall);
+S_API void S_CALLTYPE SteamAPI_UnregisterCallResult(class CCallbackBase* pCallback, SteamAPICall_t hAPICall);
 
-#define _STEAM_CALLBACK_AUTO_HOOK( thisclass, func, param )
-#define _STEAM_CALLBACK_HELPER( _1, _2, SELECTED, ... ) _STEAM_CALLBACK_##SELECTED
-#define _STEAM_CALLBACK_SELECT( X, Y ) _STEAM_CALLBACK_HELPER X Y
-#define _STEAM_CALLBACK_3( extra_code, thisclass, func, param )                                                 \
-	struct CCallbackInternal_##func : private CCallbackImpl<sizeof( param )>                                    \
-	{                                                                                                           \
-		CCallbackInternal_##func() { extra_code SteamAPI_RegisterCallback( this, param::k_iCallback ); }        \
-		CCallbackInternal_##func( const CCallbackInternal_##func & )                                            \
-		{                                                                                                       \
-			extra_code SteamAPI_RegisterCallback( this, param::k_iCallback );                                   \
-		}                                                                                                       \
-		CCallbackInternal_##func &operator=( const CCallbackInternal_##func & ) { return *this; }               \
-                                                                                                                \
-	private:                                                                                                    \
-		virtual void Run( void *pvParam )                                                                       \
-		{                                                                                                       \
-			_STEAM_CALLBACK_AUTO_HOOK( thisclass, func, param )                                                 \
-			thisclass *pOuter = reinterpret_cast<thisclass *>( reinterpret_cast<char *>( this ) -               \
-															   offsetof( thisclass, m_steamcallback_##func ) ); \
-			pOuter->func( reinterpret_cast<param *>( pvParam ) );                                               \
-		}                                                                                                       \
-	} m_steamcallback_##func;                                                                                   \
-	void func( param *pParam )
-#define _STEAM_CALLBACK_4( _, thisclass, func, param, var ) \
-	CCallback<thisclass, param> var;                        \
-	void func( param *pParam )
-#define _STEAM_CALLBACK_GS( _, thisclass, func, param, var ) \
-	CCallback<thisclass, param, true> var;                   \
-	void func( param *pParam )
+#define _STEAM_CALLBACK_AUTO_HOOK(thisclass, func, param)
+#define _STEAM_CALLBACK_HELPER(_1, _2, SELECTED, ...) _STEAM_CALLBACK_##SELECTED
+#define _STEAM_CALLBACK_SELECT(X, Y) _STEAM_CALLBACK_HELPER X Y
+#define _STEAM_CALLBACK_3(extra_code, thisclass, func, param)                                              \
+	struct CCallbackInternal_##func : private CCallbackImpl<sizeof(param)>                                 \
+	{                                                                                                      \
+		CCallbackInternal_##func() { extra_code SteamAPI_RegisterCallback(this, param::k_iCallback); }     \
+		CCallbackInternal_##func(const CCallbackInternal_##func&)                                          \
+		{                                                                                                  \
+			extra_code SteamAPI_RegisterCallback(this, param::k_iCallback);                                \
+		}                                                                                                  \
+		CCallbackInternal_##func& operator=(const CCallbackInternal_##func&) { return *this; }             \
+                                                                                                           \
+	private:                                                                                               \
+		virtual void Run(void* pvParam)                                                                    \
+		{                                                                                                  \
+			_STEAM_CALLBACK_AUTO_HOOK(thisclass, func, param)                                              \
+			thisclass* pOuter = reinterpret_cast<thisclass*>(reinterpret_cast<char*>(this) -               \
+															 offsetof(thisclass, m_steamcallback_##func)); \
+			pOuter->func(reinterpret_cast<param*>(pvParam));                                               \
+		}                                                                                                  \
+	} m_steamcallback_##func;                                                                              \
+	void func(param* pParam)
+#define _STEAM_CALLBACK_4(_, thisclass, func, param, var) \
+	CCallback<thisclass, param> var;                      \
+	void func(param* pParam)
+#define _STEAM_CALLBACK_GS(_, thisclass, func, param, var) \
+	CCallback<thisclass, param, true> var;                 \
+	void func(param* pParam)
 
 template <class T, class P>
 inline CCallResult<T, P>::CCallResult()
@@ -84,31 +84,31 @@ inline CCallResult<T, P>::CCallResult()
 }
 
 template <class T, class P>
-inline void CCallResult<T, P>::Set( SteamAPICall_t hAPICall, T *p, func_t func )
+inline void CCallResult<T, P>::Set(SteamAPICall_t hAPICall, T* p, func_t func)
 {
-	if ( m_hAPICall )
-		SteamAPI_UnregisterCallResult( this, m_hAPICall );
+	if (m_hAPICall)
+		SteamAPI_UnregisterCallResult(this, m_hAPICall);
 
 	m_hAPICall = hAPICall;
 	m_pObj = p;
 	m_Func = func;
 
-	if ( hAPICall )
-		SteamAPI_RegisterCallResult( this, hAPICall );
+	if (hAPICall)
+		SteamAPI_RegisterCallResult(this, hAPICall);
 }
 
 template <class T, class P>
 inline bool CCallResult<T, P>::IsActive() const
 {
-	return ( m_hAPICall != k_uAPICallInvalid );
+	return (m_hAPICall != k_uAPICallInvalid);
 }
 
 template <class T, class P>
 inline void CCallResult<T, P>::Cancel()
 {
-	if ( m_hAPICall != k_uAPICallInvalid )
+	if (m_hAPICall != k_uAPICallInvalid)
 	{
-		SteamAPI_UnregisterCallResult( this, m_hAPICall );
+		SteamAPI_UnregisterCallResult(this, m_hAPICall);
 		m_hAPICall = k_uAPICallInvalid;
 	}
 }
@@ -120,68 +120,68 @@ inline CCallResult<T, P>::~CCallResult()
 }
 
 template <class T, class P>
-inline void CCallResult<T, P>::Run( void *pvParam )
+inline void CCallResult<T, P>::Run(void* pvParam)
 {
 	m_hAPICall = k_uAPICallInvalid; // caller unregisters for us
-	( m_pObj->*m_Func )( (P *)pvParam, false );
+	(m_pObj->*m_Func)((P*)pvParam, false);
 }
 
 template <class T, class P>
-inline void CCallResult<T, P>::Run( void *pvParam, bool bIOFailure, SteamAPICall_t hSteamAPICall )
+inline void CCallResult<T, P>::Run(void* pvParam, bool bIOFailure, SteamAPICall_t hSteamAPICall)
 {
-	if ( hSteamAPICall == m_hAPICall )
+	if (hSteamAPICall == m_hAPICall)
 	{
 		m_hAPICall = k_uAPICallInvalid; // caller unregisters for us
-		( m_pObj->*m_Func )( (P *)pvParam, bIOFailure );
+		(m_pObj->*m_Func)((P*)pvParam, bIOFailure);
 	}
 }
 
 template <class T, class P, bool bGameserver>
-inline CCallback<T, P, bGameserver>::CCallback( T *pObj, func_t func )
-	: m_pObj( nullptr )
-	, m_Func( nullptr )
+inline CCallback<T, P, bGameserver>::CCallback(T* pObj, func_t func)
+	: m_pObj(nullptr)
+	, m_Func(nullptr)
 {
-	if ( bGameserver )
+	if (bGameserver)
 	{
 		this->SetGameserverFlag();
 	}
-	Register( pObj, func );
+	Register(pObj, func);
 }
 
 template <class T, class P, bool bGameserver>
-inline void CCallback<T, P, bGameserver>::Register( T *pObj, func_t func )
+inline void CCallback<T, P, bGameserver>::Register(T* pObj, func_t func)
 {
-	if ( !pObj || !func )
+	if (!pObj || !func)
 		return;
 
-	if ( this->m_nCallbackFlags & CCallbackBase::k_ECallbackFlagsRegistered )
+	if (this->m_nCallbackFlags & CCallbackBase::k_ECallbackFlagsRegistered)
 		Unregister();
 
 	m_pObj = pObj;
 	m_Func = func;
 	// SteamAPI_RegisterCallback sets k_ECallbackFlagsRegistered
-	SteamAPI_RegisterCallback( this, P::k_iCallback );
+	SteamAPI_RegisterCallback(this, P::k_iCallback);
 }
 
 template <class T, class P, bool bGameserver>
 inline void CCallback<T, P, bGameserver>::Unregister()
 {
 	// SteamAPI_UnregisterCallback removes k_ECallbackFlagsRegistered
-	SteamAPI_UnregisterCallback( this );
+	SteamAPI_UnregisterCallback(this);
 }
 
 template <class T, class P, bool bGameserver>
-inline void CCallback<T, P, bGameserver>::Run( void *pvParam )
+inline void CCallback<T, P, bGameserver>::Run(void* pvParam)
 {
-	( m_pObj->*m_Func )( (P *)pvParam );
+	(m_pObj->*m_Func)((P*)pvParam);
 }
 
 // structure that contains client callback data
 // see callbacks documentation for more details
-#if defined( VALVE_CALLBACK_PACK_SMALL )
-#pragma pack( push, 4 )
-#elif defined( VALVE_CALLBACK_PACK_LARGE )
-#pragma pack( push, 8 )
+#if defined(VALVE_CALLBACK_PACK_SMALL)
+#pragma pack(push, 4)
+#elif defined(VALVE_CALLBACK_PACK_LARGE)
+#pragma pack(push, 8)
 #else
 #error steam_api_common.h should define VALVE_CALLBACK_PACK_xxx
 #endif
@@ -191,19 +191,19 @@ struct CallbackMsg_t
 {
 	HSteamUser m_hSteamUser; // Specific user to whom this callback applies.
 	int m_iCallback; // Callback identifier.  (Corresponds to the k_iCallback enum in the callback structure.)
-	uint8 *m_pubParam; // Points to the callback structure
+	uint8* m_pubParam; // Points to the callback structure
 	int m_cubParam; // Size of the data pointed to by m_pubParam
 };
 
-#pragma pack( pop )
+#pragma pack(pop)
 
 // Macros to define steam callback structures.  Used internally for debugging
-#define STEAM_CALLBACK_BEGIN( callbackname, callbackid ) \
-	struct callbackname                                  \
-	{                                                    \
-		enum                                             \
-		{                                                \
-			k_iCallback = callbackid                     \
+#define STEAM_CALLBACK_BEGIN(callbackname, callbackid) \
+	struct callbackname                                \
+	{                                                  \
+		enum                                           \
+		{                                              \
+			k_iCallback = callbackid                   \
 		};
 
 // Forward declare all of the Steam interfaces.  (Do we really need to do this?)
@@ -430,9 +430,9 @@ enum
 
 // Macros used to annotate various Steamworks interfaces to generate the
 // flat API
-#define STEAM_CLANG_ATTR( ATTR )
+#define STEAM_CLANG_ATTR(ATTR)
 
-#define STEAM_CALL_BACK( RESULT_TYPE ) STEAM_CLANG_ATTR( "callback:" #RESULT_TYPE ";" )
+#define STEAM_CALL_BACK(RESULT_TYPE) STEAM_CLANG_ATTR("callback:" #RESULT_TYPE ";")
 
 // CSteamAPIContext encapsulates the Steamworks API global accessors into
 // a single object.
@@ -443,33 +443,33 @@ class CSteamAPIContext
 public:
 	CSteamAPIContext() { Clear(); }
 
-	inline void Clear() { memset( this, 0, sizeof( *this ) ); }
+	inline void Clear() { memset(this, 0, sizeof(*this)); }
 
 	inline bool Init(); // NOTE: This is defined in steam_api.h, to avoid this file having to include everything
 private:
-	ISteamClient *m_pSteamClient;
-	ISteamUser *m_pSteamUser;
-	ISteamFriends *m_pSteamFriends;
-	ISteamUtils *m_pSteamUtils;
-	ISteamMatchmaking *m_pSteamMatchmaking;
-	ISteamGameSearch *m_pSteamGameSearch;
-	ISteamUserStats *m_pSteamUserStats;
-	ISteamApps *m_pSteamApps;
-	ISteamMatchmakingServers *m_pSteamMatchmakingServers;
-	ISteamNetworking *m_pSteamNetworking;
-	ISteamRemoteStorage *m_pSteamRemoteStorage;
-	ISteamScreenshots *m_pSteamScreenshots;
-	ISteamHTTP *m_pSteamHTTP;
-	ISteamController *m_pController;
-	ISteamUGC *m_pSteamUGC;
-	ISteamAppList *m_pSteamAppList;
-	ISteamMusic *m_pSteamMusic;
-	ISteamMusicRemote *m_pSteamMusicRemote;
-	ISteamHTMLSurface *m_pSteamHTMLSurface;
-	ISteamInventory *m_pSteamInventory;
-	ISteamVideo *m_pSteamVideo;
-	ISteamParentalSettings *m_pSteamParentalSettings;
-	ISteamInput *m_pSteamInput;
+	ISteamClient* m_pSteamClient;
+	ISteamUser* m_pSteamUser;
+	ISteamFriends* m_pSteamFriends;
+	ISteamUtils* m_pSteamUtils;
+	ISteamMatchmaking* m_pSteamMatchmaking;
+	ISteamGameSearch* m_pSteamGameSearch;
+	ISteamUserStats* m_pSteamUserStats;
+	ISteamApps* m_pSteamApps;
+	ISteamMatchmakingServers* m_pSteamMatchmakingServers;
+	ISteamNetworking* m_pSteamNetworking;
+	ISteamRemoteStorage* m_pSteamRemoteStorage;
+	ISteamScreenshots* m_pSteamScreenshots;
+	ISteamHTTP* m_pSteamHTTP;
+	ISteamController* m_pController;
+	ISteamUGC* m_pSteamUGC;
+	ISteamAppList* m_pSteamAppList;
+	ISteamMusic* m_pSteamMusic;
+	ISteamMusicRemote* m_pSteamMusicRemote;
+	ISteamHTMLSurface* m_pSteamHTMLSurface;
+	ISteamInventory* m_pSteamInventory;
+	ISteamVideo* m_pSteamVideo;
+	ISteamParentalSettings* m_pSteamParentalSettings;
+	ISteamInput* m_pSteamInput;
 };
 
 class CSteamGameServerAPIContext
@@ -477,17 +477,17 @@ class CSteamGameServerAPIContext
 public:
 	CSteamGameServerAPIContext() { Clear(); }
 
-	inline void Clear() { memset( this, 0, sizeof( *this ) ); }
+	inline void Clear() { memset(this, 0, sizeof(*this)); }
 
 	inline bool Init(); // NOTE: This is defined in steam_gameserver.h, to avoid this file having to include everything
 
 private:
-	ISteamClient *m_pSteamClient;
-	ISteamGameServer *m_pSteamGameServer;
-	ISteamUtils *m_pSteamGameServerUtils;
-	ISteamNetworking *m_pSteamGameServerNetworking;
-	ISteamGameServerStats *m_pSteamGameServerStats;
-	ISteamHTTP *m_pSteamHTTP;
-	ISteamInventory *m_pSteamInventory;
-	ISteamUGC *m_pSteamUGC;
+	ISteamClient* m_pSteamClient;
+	ISteamGameServer* m_pSteamGameServer;
+	ISteamUtils* m_pSteamGameServerUtils;
+	ISteamNetworking* m_pSteamGameServerNetworking;
+	ISteamGameServerStats* m_pSteamGameServerStats;
+	ISteamHTTP* m_pSteamHTTP;
+	ISteamInventory* m_pSteamInventory;
+	ISteamUGC* m_pSteamUGC;
 };

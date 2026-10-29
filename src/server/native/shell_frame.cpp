@@ -18,17 +18,17 @@
 #include "server_entity_context.h"
 
 // Defined in shell_standalone_base.cpp.
-void StandaloneEntities_Finish( const CServerEntityContext &context );
+void StandaloneEntities_Finish(const CServerEntityContext& context);
 
-void UpdateAllClientData( const CServerEntityContext &context, const CServerWorldQueries &world );
+void UpdateAllClientData(const CServerEntityContext& context, const CServerWorldQueries& world);
 
-bool EntitySim_IsSimulatingOnAlternateTicks( const CGlobalVars *pGlobals );
+bool EntitySim_IsSimulatingOnAlternateTicks(const CGlobalVars* pGlobals);
 
-int SourceSharp_DrainEntitySlots( const CServerEntityContext &context );
+int SourceSharp_DrainEntitySlots(const CServerEntityContext& context);
 
 int32_t CServerFrame::IsSimulatingOnAlternateTicks()
 {
-	return EntitySim_IsSimulatingOnAlternateTicks( m_pGlobals ) ? 1 : 0;
+	return EntitySim_IsSimulatingOnAlternateTicks(m_pGlobals) ? 1 : 0;
 }
 
 int32_t CServerFrame::TickCount()
@@ -41,19 +41,19 @@ float CServerFrame::GetFrameTime()
 	return m_pGlobals->frametime;
 }
 
-void CServerFrame::SetFrameTime( float flFrameTime )
+void CServerFrame::SetFrameTime(float flFrameTime)
 {
 	m_pGlobals->frametime = flFrameTime;
 }
 
 void CServerFrame::UpdateAllClientData()
 {
-	::UpdateAllClientData( m_Entities, m_World );
+	::UpdateAllClientData(m_Entities, m_World);
 }
 
 void CServerFrame::EndGameFrame()
 {
-	if ( IGameRules *pRules = m_Entities.GameRules() )
+	if (IGameRules* pRules = m_Entities.GameRules())
 		pRules->EndGameFrame();
 }
 
@@ -69,17 +69,17 @@ void CServerFrame::DrawAllDebugOverlays()
 
 void CServerFrame::StandalonePlayerCommands()
 {
-	CStandalonePlayer::RunAllQueuedCommands( m_Entities );
+	CStandalonePlayer::RunAllQueuedCommands(m_Entities);
 }
 
 void CServerFrame::StandaloneFinish()
 {
-	StandaloneEntities_Finish( m_Entities );
+	StandaloneEntities_Finish(m_Entities);
 }
 
 void CServerFrame::DrainEntitySlots()
 {
-	SourceSharp_DrainEntitySlots( m_Entities );
+	SourceSharp_DrainEntitySlots(m_Entities);
 }
 
 void CServerFrame::BeginModelCacheLock()

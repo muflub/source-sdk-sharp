@@ -9,7 +9,7 @@
 
 #pragma once
 
-inline bool ShellSave_LoadGameNeedsPlayer( bool bLoadGame, bool bPlayerAlreadyBound )
+inline bool ShellSave_LoadGameNeedsPlayer(bool bLoadGame, bool bPlayerAlreadyBound)
 {
 	return bLoadGame && !bPlayerAlreadyBound;
 }

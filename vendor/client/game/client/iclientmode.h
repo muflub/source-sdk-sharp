@@ -56,32 +56,32 @@ public:
 	virtual void Layout() = 0;
 
 	// Gets at the viewport, if there is one...
-	virtual vgui::Panel *GetViewport() = 0;
+	virtual vgui::Panel* GetViewport() = 0;
 
 	// Gets at the viewports vgui panel animation controller, if there is one...
-	virtual vgui::AnimationController *GetViewportAnimationController() = 0;
+	virtual vgui::AnimationController* GetViewportAnimationController() = 0;
 
 	// called every time shared client dll/engine data gets changed,
 	// and gives the cdll a chance to modify the data.
-	virtual void ProcessInput( bool bActive ) = 0;
+	virtual void ProcessInput(bool bActive) = 0;
 
 	// The mode can choose to draw/not draw entities.
 	virtual bool ShouldDrawDetailObjects() = 0;
-	virtual bool ShouldDrawEntity( C_BaseEntity * pEnt ) = 0;
-	virtual bool ShouldDrawLocalPlayer( C_BasePlayer * pPlayer ) = 0;
+	virtual bool ShouldDrawEntity(C_BaseEntity * pEnt) = 0;
+	virtual bool ShouldDrawLocalPlayer(C_BasePlayer * pPlayer) = 0;
 	virtual bool ShouldDrawParticles() = 0;
 
 	// The mode can choose to not draw fog
 	virtual bool ShouldDrawFog() = 0;
 
-	virtual void OverrideView( CViewSetup * pSetup ) = 0;
-	virtual int KeyInput( int down, ButtonCode_t keynum, const char *pszCurrentBinding ) = 0;
-	virtual void StartMessageMode( int iMessageModeType ) = 0;
-	virtual vgui::Panel *GetMessagePanel() = 0;
-	virtual void OverrideMouseInput( float *x, float *y ) = 0;
-	virtual bool CreateMove( float flInputSampleTime, CUserCmd *cmd ) = 0;
+	virtual void OverrideView(CViewSetup * pSetup) = 0;
+	virtual int KeyInput(int down, ButtonCode_t keynum, const char* pszCurrentBinding) = 0;
+	virtual void StartMessageMode(int iMessageModeType) = 0;
+	virtual vgui::Panel* GetMessagePanel() = 0;
+	virtual void OverrideMouseInput(float* x, float* y) = 0;
+	virtual bool CreateMove(float flInputSampleTime, CUserCmd* cmd) = 0;
 
-	virtual void LevelInit( const char *newmap ) = 0;
+	virtual void LevelInit(const char* newmap) = 0;
 	virtual void LevelShutdown() = 0;
 
 	// Certain modes hide the view model
@@ -89,38 +89,38 @@ public:
 	virtual bool ShouldDrawCrosshair() = 0;
 
 	// Let mode override viewport for engine
-	virtual void AdjustEngineViewport( int &x, int &y, int &width, int &height ) = 0;
+	virtual void AdjustEngineViewport(int& x, int& y, int& width, int& height) = 0;
 
 	// Called before rendering a view.
-	virtual void PreRender( CViewSetup * pSetup ) = 0;
+	virtual void PreRender(CViewSetup * pSetup) = 0;
 
 	// Called after everything is rendered.
 	virtual void PostRender() = 0;
 
 	virtual void PostRenderVGui() = 0;
 
-	virtual void ActivateInGameVGuiContext( vgui::Panel * pPanel ) = 0;
+	virtual void ActivateInGameVGuiContext(vgui::Panel * pPanel) = 0;
 	virtual void DeactivateInGameVGuiContext() = 0;
 	virtual float GetViewModelFOV() = 0;
 
-	virtual bool CanRecordDemo( char *errorMsg, int length ) const = 0;
+	virtual bool CanRecordDemo(char* errorMsg, int length) const = 0;
 
-	virtual void ComputeVguiResConditions( KeyValues * pkvConditions ) = 0;
+	virtual void ComputeVguiResConditions(KeyValues * pkvConditions) = 0;
 
 	// HPE_BEGIN:
 	// [menglish] Save server information shown to the client in a persistent place
 
-	virtual wchar_t *GetServerName() = 0;
-	virtual void SetServerName( wchar_t * name ) = 0;
-	virtual wchar_t *GetMapName() = 0;
-	virtual void SetMapName( wchar_t * name ) = 0;
+	virtual wchar_t* GetServerName() = 0;
+	virtual void SetServerName(wchar_t * name) = 0;
+	virtual wchar_t* GetMapName() = 0;
+	virtual void SetMapName(wchar_t * name) = 0;
 
 	// HPE_END
 
-	virtual bool DoPostScreenSpaceEffects( const CViewSetup *pSetup ) = 0;
+	virtual bool DoPostScreenSpaceEffects(const CViewSetup* pSetup) = 0;
 
-	virtual void DisplayReplayMessage( const char *pLocalizeName, float flDuration, bool bUrgent, const char *pSound,
-									   bool bDlg ) = 0;
+	virtual void DisplayReplayMessage(const char* pLocalizeName, float flDuration, bool bUrgent, const char* pSound,
+									  bool bDlg) = 0;
 
 	// Updates.
 public:
@@ -137,8 +137,8 @@ public:
 	virtual void InfoPanelDisplayed() = 0;
 	virtual bool IsHTMLInfoPanelAllowed() = 0;
 
-	virtual void OnDemoRecordStart( char const *pDemoBaseName ) = 0;
+	virtual void OnDemoRecordStart(char const* pDemoBaseName) = 0;
 	virtual void OnDemoRecordStop() = 0;
 };
 
-extern IClientMode *g_pClientMode;
+extern IClientMode* g_pClientMode;

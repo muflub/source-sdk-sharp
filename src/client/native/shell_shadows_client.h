@@ -26,25 +26,25 @@ enum ShellShadowPending_t
 // C_BaseEntity::InvalidatePhysicsRecursive's AddToDirtyShadowList( this ) and,
 // when the pose moved, MarkRenderToTextureShadowDirty( GetShadowHandle() ).
 // Collapsed per entity: a second mark ORs into the first.
-void ShellShadows_MarkDirty( const CBaseHandle &hEntity, bool bTextureDirty );
+void ShellShadows_MarkDirty(const CBaseHandle& hEntity, bool bTextureDirty);
 
 // The entity's shadow as its block now says (C_BaseEntity::CreateShadow).
-void ShellShadows_Refresh( const CBaseHandle &hEntity, int nShadowType, int nShadowFlags );
+void ShellShadows_Refresh(const CBaseHandle& hEntity, int nShadowType, int nShadowFlags);
 
 // The entity's shadow gone (C_BaseEntity::DestroyShadow). Drops the entity's
 // queued entries before it: the renderable may be freed next.
-void ShellShadows_Destroy( const CBaseHandle &hEntity );
+void ShellShadows_Destroy(const CBaseHandle& hEntity);
 
 // The render plan's shadow ops, each one call of the managed manager.
 void ShellShadows_AdvanceFrame();
 void ShellShadows_PreRender();
-void ShellShadows_ComputeShadowTextures( int nLeafCount, const LeafIndex_t *pLeafList );
-void ShellShadows_ComputeShadowDepthTextures( const CViewSetup &view );
+void ShellShadows_ComputeShadowTextures(int nLeafCount, const LeafIndex_t* pLeafList);
+void ShellShadows_ComputeShadowDepthTextures(const CViewSetup& view);
 void ShellShadows_UnlockAllShadowDepthTextures();
-void ShellShadows_RenderShadowTexture( int w, int h );
+void ShellShadows_RenderShadowTexture(int w, int h);
 
 // The queue's entries (what a test reads), and its hand-over count.
 int ShellShadows_PendingCount();
-const int32_t *ShellShadows_PendingEntries();
+const int32_t* ShellShadows_PendingEntries();
 
-CClientSystem *ClientShadowMgrGameSystem();
+CClientSystem* ClientShadowMgrGameSystem();

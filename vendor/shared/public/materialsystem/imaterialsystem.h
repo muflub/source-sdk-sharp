@@ -242,7 +242,7 @@ typedef unsigned int MorphFormat_t;
 
 struct MaterialSystem_SortInfo_t
 {
-	IMaterial *material;
+	IMaterial* material;
 	int lightmapPageID;
 };
 
@@ -256,9 +256,9 @@ enum
 
 struct MaterialAdapterInfo_t
 {
-	alignas( 4 ) unsigned char unused_m_pDriverName[512];
+	alignas(4) unsigned char unused_m_pDriverName[512];
 	unsigned int m_VendorID;
-	alignas( 4 ) unsigned char unused_m_DeviceID[16];
+	alignas(4) unsigned char unused_m_DeviceID[16];
 	int m_nMaxDXSupportLevel;
 	unsigned int m_nDriverVersionHigh;
 	unsigned int m_nDriverVersionLow;
@@ -269,7 +269,7 @@ struct MaterialVideoMode_t
 {
 	int m_Width; // if width and height are 0 and you select
 	int m_Height; // windowed mode, it'll use the window size
-	alignas( 4 ) unsigned char unused_m_Format[4];
+	alignas(4) unsigned char unused_m_Format[4];
 	int m_RefreshRate; // 0 == default (ignored for windowed mode)
 };
 
@@ -304,7 +304,7 @@ struct FlashlightState_t
 	float m_fLinearAtten;
 	float m_fConstantAtten;
 	float m_Color[4];
-	ITexture *m_pSpotlightTexture;
+	ITexture* m_pSpotlightTexture;
 	int m_nSpotlightTextureFrame;
 
 	// Shadow depth mapping parameters
@@ -385,21 +385,21 @@ enum RenderTargetSizeMode_t
 		9 // Use the size passed in, don't clamp to the frame buffer size, but do apply picmip restrictions.
 };
 
-typedef void ( *MaterialBufferReleaseFunc_t )();
-typedef void ( *MaterialBufferRestoreFunc_t )( int nChangeFlags ); // see RestoreChangeFlags_t
-typedef void ( *ModeChangeCallbackFunc_t )();
+typedef void (*MaterialBufferReleaseFunc_t)();
+typedef void (*MaterialBufferRestoreFunc_t)(int nChangeFlags); // see RestoreChangeFlags_t
+typedef void (*ModeChangeCallbackFunc_t)();
 
 typedef unsigned short MaterialHandle_t;
 
-DECLARE_POINTER_HANDLE( OcclusionQueryObjectHandle_t );
-#define INVALID_OCCLUSION_QUERY_OBJECT_HANDLE ( (OcclusionQueryObjectHandle_t)0 )
+DECLARE_POINTER_HANDLE(OcclusionQueryObjectHandle_t);
+#define INVALID_OCCLUSION_QUERY_OBJECT_HANDLE ((OcclusionQueryObjectHandle_t)0)
 
 class IMaterialProxyFactory;
 class ITexture;
 class IMaterialSystemHardwareConfig;
 class CShadowMgr;
 
-DECLARE_POINTER_HANDLE( MaterialLock_t );
+DECLARE_POINTER_HANDLE(MaterialLock_t);
 
 enum RenderBackend_t
 {
@@ -412,16 +412,16 @@ enum RenderBackend_t
 
 FORCEINLINE RenderBackend_t DetermineRenderBackend()
 {
-	if ( CommandLine()->FindParm( "-vulkan" ) )
+	if (CommandLine()->FindParm("-vulkan"))
 		return RENDER_BACKEND_VULKAN;
 
-	if ( CommandLine()->FindParm( "-gl" ) )
+	if (CommandLine()->FindParm("-gl"))
 		return RENDER_BACKEND_TOGL;
 
-	if ( CommandLine()->FindParm( "-dx9" ) )
+	if (CommandLine()->FindParm("-dx9"))
 		return RENDER_BACKEND_D3D9;
 
-#if defined( PLATFORM_WINDOWS_PC )
+#if defined(PLATFORM_WINDOWS_PC)
 	return RENDER_BACKEND_D3D9;
 #else
 	return RENDER_BACKEND_VULKAN;
@@ -432,9 +432,9 @@ abstract_class IMaterialSystem : public IAppSystem
 {
 public:
 	// Placeholder for API revision
-	virtual bool Connect( CreateInterfaceFn factory ) = 0;
+	virtual bool Connect(CreateInterfaceFn factory) = 0;
 	virtual void Disconnect() = 0;
-	virtual void *QueryInterface( const char *pInterfaceName ) = 0;
+	virtual void* QueryInterface(const char* pInterfaceName) = 0;
 	virtual InitReturnVal_t Init() = 0;
 	virtual void Shutdown() = 0;
 
@@ -442,42 +442,42 @@ public:
 
 	// Call this to initialize the material system
 	// returns a method to create interfaces in the shader dll
-	virtual CreateInterfaceFn Init( char const *pShaderAPIDLL, IMaterialProxyFactory *pMaterialProxyFactory,
-									CreateInterfaceFn fileSystemFactory, CreateInterfaceFn cvarFactory = NULL ) = 0;
+	virtual CreateInterfaceFn Init(char const* pShaderAPIDLL, IMaterialProxyFactory* pMaterialProxyFactory,
+								   CreateInterfaceFn fileSystemFactory, CreateInterfaceFn cvarFactory = NULL) = 0;
 
 	// Call this to set an explicit shader version to use
 	// Must be called before Init().
-	virtual void SetShaderAPI( char const *pShaderAPIDLL ) = 0;
+	virtual void SetShaderAPI(char const* pShaderAPIDLL) = 0;
 
 	// Must be called before Init(), if you're going to call it at all...
-	virtual void SetAdapter( int nAdapter, int nFlags ) = 0;
+	virtual void SetAdapter(int nAdapter, int nFlags) = 0;
 
 	// Call this when the mod has been set up, which may occur after init
 	// At this point, the game + gamebin paths have been set up
 	virtual void ModInit() = 0;
 	virtual void ModShutdown() = 0;
 
-	virtual void SetThreadMode( MaterialThreadMode_t mode, int nServiceThread = -1 ) = 0;
+	virtual void SetThreadMode(MaterialThreadMode_t mode, int nServiceThread = -1) = 0;
 	virtual MaterialThreadMode_t GetThreadMode() = 0;
 	virtual bool IsRenderThreadSafe() = 0;
 	virtual void ExecuteQueued() = 0;
 
 	// Config management
 
-	virtual IMaterialSystemHardwareConfig *GetHardwareConfig( const char *pVersion, int *returnCode ) = 0;
+	virtual IMaterialSystemHardwareConfig* GetHardwareConfig(const char* pVersion, int* returnCode) = 0;
 
 	// Call this before rendering each frame with the current config
 	// for the material system.
 	// Will do whatever is necessary to get the material system into the correct state
 	// upon configuration change. .doesn't much else otherwise.
-	virtual bool UpdateConfig( bool bForceUpdate ) = 0;
+	virtual bool UpdateConfig(bool bForceUpdate) = 0;
 
 	// Force this to be the config; update all material system convars to match the state
 	// return true if lightmaps need to be redownloaded
-	virtual bool OverrideConfig( const MaterialSystem_Config_t &config, bool bForceUpdate ) = 0;
+	virtual bool OverrideConfig(const MaterialSystem_Config_t& config, bool bForceUpdate) = 0;
 
 	// Get the current config for this video card (as last set by UpdateConfig)
-	virtual const MaterialSystem_Config_t &GetCurrentConfigForVideoCard() const = 0;
+	virtual const MaterialSystem_Config_t& GetCurrentConfigForVideoCard() const = 0;
 
 	// Gets *recommended* configuration information associated with the display card,
 	// given a particular dx level to run under.
@@ -487,7 +487,7 @@ public:
 	// UNDONE: To find out all convars affected by configuration, we'll need to change
 	// the dxsupport.pl program to output all column headers into a single keyvalue block
 	// and then we would read that in, and send it back to the client
-	virtual bool GetRecommendedConfigurationInfo( int nDXLevel, KeyValues *pKeyValues ) = 0;
+	virtual bool GetRecommendedConfigurationInfo(int nDXLevel, KeyValues* pKeyValues) = 0;
 
 	// Device methods
 
@@ -498,52 +498,52 @@ public:
 	virtual int GetCurrentAdapter() const = 0;
 
 	// Returns info about each adapter
-	virtual void GetDisplayAdapterInfo( int adapter, MaterialAdapterInfo_t &info ) const = 0;
+	virtual void GetDisplayAdapterInfo(int adapter, MaterialAdapterInfo_t& info) const = 0;
 
 	// Returns the number of modes
-	virtual int GetModeCount( int adapter ) const = 0;
+	virtual int GetModeCount(int adapter) const = 0;
 
 	// Returns mode information..
-	virtual void GetModeInfo( int adapter, int mode, MaterialVideoMode_t &info ) const = 0;
+	virtual void GetModeInfo(int adapter, int mode, MaterialVideoMode_t& info) const = 0;
 
-	virtual void AddModeChangeCallBack( ModeChangeCallbackFunc_t func ) = 0;
+	virtual void AddModeChangeCallBack(ModeChangeCallbackFunc_t func) = 0;
 
 	// Returns the mode info for the current display device
-	virtual void GetDisplayMode( MaterialVideoMode_t & mode ) const = 0;
+	virtual void GetDisplayMode(MaterialVideoMode_t & mode) const = 0;
 
 	// Sets the mode...
-	virtual bool SetMode( void *hwnd, const MaterialSystem_Config_t &config ) = 0;
+	virtual bool SetMode(void* hwnd, const MaterialSystem_Config_t& config) = 0;
 
-	virtual bool SupportsMSAAMode( int nMSAAMode ) = 0;
+	virtual bool SupportsMSAAMode(int nMSAAMode) = 0;
 
 	// FIXME: REMOVE! Get video card identitier
-	virtual const MaterialSystemHardwareIdentifier_t &GetVideoCardIdentifier() const = 0;
+	virtual const MaterialSystemHardwareIdentifier_t& GetVideoCardIdentifier() const = 0;
 
 	// Use this to spew information about the 3D layer
 	virtual void SpewDriverInfo() const = 0;
 
-	virtual void GetDXLevelDefaults( uint & max_dxlevel, uint & recommended_dxlevel ) = 0;
+	virtual void GetDXLevelDefaults(uint & max_dxlevel, uint & recommended_dxlevel) = 0;
 
 	// Get the image format of the back buffer. . useful when creating render targets, etc.
-	virtual void GetBackBufferDimensions( int &width, int &height ) const = 0;
+	virtual void GetBackBufferDimensions(int& width, int& height) const = 0;
 	virtual ImageFormat GetBackBufferFormat() const = 0;
 
-	virtual bool SupportsHDRMode( HDRType_t nHDRModede ) = 0;
+	virtual bool SupportsHDRMode(HDRType_t nHDRModede) = 0;
 
 	// Window methods
 
 	// Creates/ destroys a child window
-	virtual bool AddView( void *hwnd ) = 0;
-	virtual void RemoveView( void *hwnd ) = 0;
+	virtual bool AddView(void* hwnd) = 0;
+	virtual void RemoveView(void* hwnd) = 0;
 
 	// Sets the view
-	virtual void SetView( void *hwnd ) = 0;
+	virtual void SetView(void* hwnd) = 0;
 
 	// Control flow
 
-	virtual void BeginFrame( float frameTime ) = 0;
+	virtual void BeginFrame(float frameTime) = 0;
 	virtual void EndFrame() = 0;
-	virtual void Flush( bool flushHardware = false ) = 0;
+	virtual void Flush(bool flushHardware = false) = 0;
 
 	/// FIXME: This stuff needs to be cleaned up and abstracted.
 	// Stuff that gets exported to the launcher through the engine
@@ -558,15 +558,15 @@ public:
 	// Device loss/restore
 
 	// Installs a function to be called when we need to release vertex buffers + textures
-	virtual void AddReleaseFunc( MaterialBufferReleaseFunc_t func ) = 0;
-	virtual void RemoveReleaseFunc( MaterialBufferReleaseFunc_t func ) = 0;
+	virtual void AddReleaseFunc(MaterialBufferReleaseFunc_t func) = 0;
+	virtual void RemoveReleaseFunc(MaterialBufferReleaseFunc_t func) = 0;
 
 	// Installs a function to be called when we need to restore vertex buffers
-	virtual void AddRestoreFunc( MaterialBufferRestoreFunc_t func ) = 0;
-	virtual void RemoveRestoreFunc( MaterialBufferRestoreFunc_t func ) = 0;
+	virtual void AddRestoreFunc(MaterialBufferRestoreFunc_t func) = 0;
+	virtual void RemoveRestoreFunc(MaterialBufferRestoreFunc_t func) = 0;
 
 	// Release temporary HW memory...
-	virtual void ResetTempHWMemory( bool bExitingLevel = false ) = 0;
+	virtual void ResetTempHWMemory(bool bExitingLevel = false) = 0;
 
 	// For dealing with device lost in cases where SwapBuffers isn't called all the time (Hammer)
 	virtual void HandleDeviceLost() = 0;
@@ -576,22 +576,22 @@ public:
 	// Used to iterate over all shaders for editing purposes
 	// GetShaders returns the number of shaders it actually found
 	virtual int ShaderCount() const = 0;
-	virtual int GetShaders( int nFirstShader, int nMaxCount, IShader **ppShaderList ) const = 0;
+	virtual int GetShaders(int nFirstShader, int nMaxCount, IShader** ppShaderList) const = 0;
 
 	// FIXME: Is there a better way of doing this?
 	// Returns shader flag names for editors to be able to edit them
 	virtual int ShaderFlagCount() const = 0;
-	virtual const char *ShaderFlagName( int nIndex ) const = 0;
+	virtual const char* ShaderFlagName(int nIndex) const = 0;
 
 	// Gets the actual shader fallback for a particular shader
-	virtual void GetShaderFallback( const char *pShaderName, char *pFallbackShader, int nFallbackLength ) = 0;
+	virtual void GetShaderFallback(const char* pShaderName, char* pFallbackShader, int nFallbackLength) = 0;
 
 	// Material proxies
 
-	virtual IMaterialProxyFactory *GetMaterialProxyFactory() = 0;
+	virtual IMaterialProxyFactory* GetMaterialProxyFactory() = 0;
 
 	// Sets the material proxy factory. Calling this causes all materials to be uncached.
-	virtual void SetMaterialProxyFactory( IMaterialProxyFactory * pFactory ) = 0;
+	virtual void SetMaterialProxyFactory(IMaterialProxyFactory * pFactory) = 0;
 
 	// Editor mode
 
@@ -601,15 +601,15 @@ public:
 	// Stub mode mode
 
 	// Force it to ignore Draw calls.
-	virtual void SetInStubMode( bool bInStubMode ) = 0;
+	virtual void SetInStubMode(bool bInStubMode) = 0;
 
 	// Debug support
 
-	virtual void DebugPrintUsedMaterials( const char *pSearchSubString, bool bVerbose ) = 0;
+	virtual void DebugPrintUsedMaterials(const char* pSearchSubString, bool bVerbose) = 0;
 	virtual void DebugPrintUsedTextures() = 0;
 
-	virtual void ToggleSuppressMaterial( char const *pMaterialName ) = 0;
-	virtual void ToggleDebugMaterial( char const *pMaterialName ) = 0;
+	virtual void ToggleSuppressMaterial(char const* pMaterialName) = 0;
+	virtual void ToggleDebugMaterial(char const* pMaterialName) = 0;
 
 	// Misc features
 	//returns whether fast clipping is being used or not - needed to be exposed for better per-object clip behavior
@@ -624,7 +624,7 @@ public:
 
 	// Remove any materials from memory that aren't in use as determined
 	// by the IMaterial's reference count.
-	virtual void UncacheUnusedMaterials( bool bRecomputeStateSnapshots = false ) = 0;
+	virtual void UncacheUnusedMaterials(bool bRecomputeStateSnapshots = false) = 0;
 
 	// Load any materials into memory that are to be used as determined
 	// by the IMaterial's reference count.
@@ -634,10 +634,10 @@ public:
 	virtual void ReloadTextures() = 0;
 
 	// Reloads materials
-	virtual void ReloadMaterials( const char *pSubString = NULL ) = 0;
+	virtual void ReloadMaterials(const char* pSubString = NULL) = 0;
 
 	// Create a procedural material. The keyvalues looks like a VMT file
-	virtual IMaterial *CreateMaterial( const char *pMaterialName, KeyValues *pVMTKeyValues ) = 0;
+	virtual IMaterial* CreateMaterial(const char* pMaterialName, KeyValues* pVMTKeyValues) = 0;
 
 	// Find a material by name.
 	// The name of a material is a full path to
@@ -649,11 +649,11 @@ public:
 	// Note: if the material can't be found, this returns a checkerboard material. You can
 	// find out if you have that material by calling IMaterial::IsErrorMaterial().
 	// (Or use the global IsErrorMaterial function, which checks if it's null too).
-	virtual IMaterial *FindMaterial( char const *pMaterialName, const char *pTextureGroupName, bool complain = true,
-									 const char *pComplainPrefix = NULL ) = 0;
+	virtual IMaterial* FindMaterial(char const* pMaterialName, const char* pTextureGroupName, bool complain = true,
+									const char* pComplainPrefix = NULL) = 0;
 
 	// Query whether a material is loaded (eg, whether FindMaterial will be nonblocking)
-	virtual bool IsMaterialLoaded( char const *pMaterialName ) = 0;
+	virtual bool IsMaterialLoaded(char const* pMaterialName) = 0;
 
 	// This is the interface for knowing what materials are available
 	// is to use the following functions to get a list of materials.  The
@@ -667,29 +667,29 @@ public:
 	// returns InvalidMaterial if there isn't another material.
 	// WARNING: you must call GetNextMaterial until it returns NULL,
 	// otherwise there will be a memory leak.
-	virtual MaterialHandle_t NextMaterial( MaterialHandle_t h ) const = 0;
+	virtual MaterialHandle_t NextMaterial(MaterialHandle_t h) const = 0;
 
 	// This is the invalid material
 	virtual MaterialHandle_t InvalidMaterial() const = 0;
 
 	// Returns a particular material
-	virtual IMaterial *GetMaterial( MaterialHandle_t h ) const = 0;
+	virtual IMaterial* GetMaterial(MaterialHandle_t h) const = 0;
 
 	// Get the total number of materials in the system.  These aren't just the used
 	// materials, but the complete collection.
 	virtual int GetNumMaterials() const = 0;
 
-	virtual void SetAsyncTextureLoadCache( void *hFileCache ) = 0;
+	virtual void SetAsyncTextureLoadCache(void* hFileCache) = 0;
 
-	virtual ITexture *FindTexture( char const *pTextureName, const char *pTextureGroupName, bool complain = true,
-								   int nAdditionalCreationFlags = 0 ) = 0;
+	virtual ITexture* FindTexture(char const* pTextureName, const char* pTextureGroupName, bool complain = true,
+								  int nAdditionalCreationFlags = 0) = 0;
 
 	// Checks to see if a particular texture is loaded
-	virtual bool IsTextureLoaded( char const *pTextureName ) const = 0;
+	virtual bool IsTextureLoaded(char const* pTextureName) const = 0;
 
 	// Creates a procedural texture
-	virtual ITexture *CreateProceduralTexture( const char *pTextureName, const char *pTextureGroupName, int w, int h,
-											   ImageFormat fmt, int nFlags ) = 0;
+	virtual ITexture* CreateProceduralTexture(const char* pTextureName, const char* pTextureGroupName, int w, int h,
+											  ImageFormat fmt, int nFlags) = 0;
 
 	// Render targets
 	virtual void BeginRenderTargetAllocation() = 0;
@@ -700,31 +700,31 @@ public:
 	// If depth == true, a depth buffer is also allocated. If not, then
 	// the screen's depth buffer is used.
 	// Creates a texture for use as a render target
-	virtual ITexture *CreateRenderTargetTexture(
+	virtual ITexture* CreateRenderTargetTexture(
 		int w, int h,
 		RenderTargetSizeMode_t sizeMode, // Controls how size is generated (and regenerated on video mode change).
-		ImageFormat format, MaterialRenderTargetDepth_t depth = MATERIAL_RT_DEPTH_SHARED ) = 0;
+		ImageFormat format, MaterialRenderTargetDepth_t depth = MATERIAL_RT_DEPTH_SHARED) = 0;
 
-	virtual ITexture *CreateNamedRenderTargetTextureEx(
-		const char *pRTName, // Pass in NULL here for an unnamed render target.
+	virtual ITexture* CreateNamedRenderTargetTextureEx(
+		const char* pRTName, // Pass in NULL here for an unnamed render target.
 		int w, int h,
 		RenderTargetSizeMode_t sizeMode, // Controls how size is generated (and regenerated on video mode change).
 		ImageFormat format, MaterialRenderTargetDepth_t depth = MATERIAL_RT_DEPTH_SHARED,
-		unsigned int textureFlags = TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, unsigned int renderTargetFlags = 0 ) = 0;
+		unsigned int textureFlags = TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, unsigned int renderTargetFlags = 0) = 0;
 
-	virtual ITexture *CreateNamedRenderTargetTexture(
-		const char *pRTName, int w, int h,
+	virtual ITexture* CreateNamedRenderTargetTexture(
+		const char* pRTName, int w, int h,
 		RenderTargetSizeMode_t sizeMode, // Controls how size is generated (and regenerated on video mode change).
 		ImageFormat format, MaterialRenderTargetDepth_t depth = MATERIAL_RT_DEPTH_SHARED, bool bClampTexCoords = true,
-		bool bAutoMipMap = false ) = 0;
+		bool bAutoMipMap = false) = 0;
 
 	// Must be called between the above Begin-End calls!
-	virtual ITexture *CreateNamedRenderTargetTextureEx2(
-		const char *pRTName, // Pass in NULL here for an unnamed render target.
+	virtual ITexture* CreateNamedRenderTargetTextureEx2(
+		const char* pRTName, // Pass in NULL here for an unnamed render target.
 		int w, int h,
 		RenderTargetSizeMode_t sizeMode, // Controls how size is generated (and regenerated on video mode change).
 		ImageFormat format, MaterialRenderTargetDepth_t depth = MATERIAL_RT_DEPTH_SHARED,
-		unsigned int textureFlags = TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, unsigned int renderTargetFlags = 0 ) = 0;
+		unsigned int textureFlags = TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, unsigned int renderTargetFlags = 0) = 0;
 
 	// Lightmaps
 
@@ -737,33 +737,33 @@ public:
 	virtual void EndLightmapAllocation() = 0;
 
 	// returns the sorting id for this surface
-	virtual int AllocateLightmap( int width, int height, int offsetIntoLightmapPage[2], IMaterial *pMaterial ) = 0;
+	virtual int AllocateLightmap(int width, int height, int offsetIntoLightmapPage[2], IMaterial* pMaterial) = 0;
 	// returns the sorting id for this surface
-	virtual int AllocateWhiteLightmap( IMaterial * pMaterial ) = 0;
+	virtual int AllocateWhiteLightmap(IMaterial * pMaterial) = 0;
 
 	// lightmaps are in linear color space
 	// lightmapPageID is returned by GetLightmapPageIDForSortID
 	// lightmapSize and offsetIntoLightmapPage are returned by AllocateLightmap.
 	// You should never call UpdateLightmap for a lightmap allocated through
 	// AllocateWhiteLightmap.
-	virtual void UpdateLightmap( int lightmapPageID, int lightmapSize[2], int offsetIntoLightmapPage[2],
-								 float *pFloatImage, float *pFloatImageBump1, float *pFloatImageBump2,
-								 float *pFloatImageBump3 ) = 0;
+	virtual void UpdateLightmap(int lightmapPageID, int lightmapSize[2], int offsetIntoLightmapPage[2],
+								float* pFloatImage, float* pFloatImageBump1, float* pFloatImageBump2,
+								float* pFloatImageBump3) = 0;
 
 	// fixme: could just be an array of ints for lightmapPageIDs since the material
 	// for a surface is already known.
 	virtual int GetNumSortIDs() = 0;
-	virtual void GetSortInfo( MaterialSystem_SortInfo_t * sortInfoArray ) = 0;
+	virtual void GetSortInfo(MaterialSystem_SortInfo_t * sortInfoArray) = 0;
 
 	// Read the page size of an existing lightmap by sort id (returned from AllocateLightmap())
-	virtual void GetLightmapPageSize( int lightmap, int *width, int *height ) const = 0;
+	virtual void GetLightmapPageSize(int lightmap, int* width, int* height) const = 0;
 
 	virtual void ResetMaterialLightmapPageInfo() = 0;
 
-	virtual void ClearBuffers( bool bClearColor, bool bClearDepth, bool bClearStencil = false ) = 0;
+	virtual void ClearBuffers(bool bClearColor, bool bClearDepth, bool bClearStencil = false) = 0;
 
 	// Access the render contexts
-	virtual IMatRenderContext *GetRenderContext() = 0;
+	virtual IMatRenderContext* GetRenderContext() = 0;
 
 	virtual bool SupportsShadowDepthTextures() = 0;
 	virtual void BeginUpdateLightmaps() = 0;
@@ -771,7 +771,7 @@ public:
 
 	// Methods to force the material system into non-threaded, non-queued mode
 	virtual MaterialLock_t Lock() = 0;
-	virtual void Unlock( MaterialLock_t ) = 0;
+	virtual void Unlock(MaterialLock_t) = 0;
 
 	// Vendor-dependent shadow depth texture format
 	virtual ImageFormat GetShadowDepthTextureFormat() = 0;
@@ -779,30 +779,30 @@ public:
 	virtual bool SupportsFetch4() = 0;
 
 	// Create a custom render context. Cannot be used to create MATERIAL_HARDWARE_CONTEXT
-	virtual IMatRenderContext *CreateRenderContext( MaterialContextType_t type ) = 0;
+	virtual IMatRenderContext* CreateRenderContext(MaterialContextType_t type) = 0;
 
 	// Set a specified render context to be the global context for the thread. Returns the prior context.
-	virtual IMatRenderContext *SetRenderContext( IMatRenderContext * ) = 0;
+	virtual IMatRenderContext* SetRenderContext(IMatRenderContext*) = 0;
 
-	virtual bool SupportsCSAAMode( int nNumSamples, int nQualityLevel ) = 0;
+	virtual bool SupportsCSAAMode(int nNumSamples, int nQualityLevel) = 0;
 
-	virtual void RemoveModeChangeCallBack( ModeChangeCallbackFunc_t func ) = 0;
+	virtual void RemoveModeChangeCallBack(ModeChangeCallbackFunc_t func) = 0;
 
 	// Finds or create a procedural material.
-	virtual IMaterial *FindProceduralMaterial( const char *pMaterialName, const char *pTextureGroupName,
-											   KeyValues *pVMTKeyValues ) = 0;
+	virtual IMaterial* FindProceduralMaterial(const char* pMaterialName, const char* pTextureGroupName,
+											  KeyValues* pVMTKeyValues) = 0;
 
 	virtual ImageFormat GetNullTextureFormat() = 0;
 
-	virtual void AddTextureAlias( const char *pAlias, const char *pRealName ) = 0;
-	virtual void RemoveTextureAlias( const char *pAlias ) = 0;
+	virtual void AddTextureAlias(const char* pAlias, const char* pRealName) = 0;
+	virtual void RemoveTextureAlias(const char* pAlias) = 0;
 
 	// returns a lightmap page ID for this allocation, -1 if none available
 	// frameID is a number that should be changed every frame to prevent locking any textures that are
 	// being used to draw in the previous frame
-	virtual int AllocateDynamicLightmap( int lightmapSize[2], int *pOutOffsetIntoPage, int frameID ) = 0;
+	virtual int AllocateDynamicLightmap(int lightmapSize[2], int* pOutOffsetIntoPage, int frameID) = 0;
 
-	virtual void SetExcludedTextures( const char *pScriptName ) = 0;
+	virtual void SetExcludedTextures(const char* pScriptName) = 0;
 	virtual void UpdateExcludedTextures() = 0;
 
 	virtual bool IsInFrame() const = 0;
@@ -810,13 +810,13 @@ public:
 	virtual void CompactMemory() = 0;
 
 	// For sv_pure mode. The filesystem figures out which files the client needs to reload to be "pure" ala the server's preferences.
-	virtual void ReloadFilesInList( IFileList * pFilesToReload ) = 0;
-	virtual bool AllowThreading( bool bAllow, int nServiceThread ) = 0;
+	virtual void ReloadFilesInList(IFileList * pFilesToReload) = 0;
+	virtual bool AllowThreading(bool bAllow, int nServiceThread) = 0;
 
 	// Extended version of FindMaterial().
 	// Contains context in so it can make decisions (i.e. if it's a model, ignore certain cheat parameters)
-	virtual IMaterial *FindMaterialEx( char const *pMaterialName, const char *pTextureGroupName, int nContext,
-									   bool complain = true, const char *pComplainPrefix = NULL ) = 0;
+	virtual IMaterial* FindMaterialEx(char const* pMaterialName, const char* pTextureGroupName, int nContext,
+									  bool complain = true, const char* pComplainPrefix = NULL) = 0;
 
 #ifdef DX_TO_GL_ABSTRACTION
 	virtual void DoStartupShaderPreloading() = 0;
@@ -824,45 +824,45 @@ public:
 
 	// Sets the override sizes for all render target size tests. These replace the frame buffer size.
 	// Set them when you are rendering primarily to something larger than the frame buffer (as in VR mode).
-	virtual void SetRenderTargetFrameBufferSizeOverrides( int nWidth, int nHeight ) = 0;
+	virtual void SetRenderTargetFrameBufferSizeOverrides(int nWidth, int nHeight) = 0;
 
 	// Returns the (possibly overridden) framebuffer size for render target sizing.
-	virtual void GetRenderTargetFrameBufferDimensions( int &nWidth, int &nHeight ) = 0;
+	virtual void GetRenderTargetFrameBufferDimensions(int& nWidth, int& nHeight) = 0;
 
 	// returns the display device name that matches the adapter index we were started with
-	virtual char *GetDisplayDeviceName() const = 0;
+	virtual char* GetDisplayDeviceName() const = 0;
 
 	// creates a texture suitable for use with materials from a raw stream of bits.
 	// The bits will be retained by the material system and can be freed upon return.
-	virtual ITexture *CreateTextureFromBits( int w, int h, int mips, ImageFormat fmt, int srcBufferSize,
-											 byte *srcBits ) = 0;
+	virtual ITexture* CreateTextureFromBits(int w, int h, int mips, ImageFormat fmt, int srcBufferSize,
+											byte* srcBits) = 0;
 
 	// Lie to the material system to pretend to be in render target allocation mode at the beginning of time.
 	// This was a thing that mattered a lot to old hardware, but doesn't matter at all to new hardware,
 	// where new is defined to be "anything from the last decade." However, we want to preserve legacy behavior
 	// for the old games because it's easier than testing them.
-	virtual void OverrideRenderTargetAllocation( bool rtAlloc ) = 0;
+	virtual void OverrideRenderTargetAllocation(bool rtAlloc) = 0;
 
 	// creates a texture compositor that will attempt to composite a new textuer from the steps of the specified KeyValues.
-	virtual ITextureCompositor *NewTextureCompositor( int w, int h, const char *pCompositeName, int nTeamNum,
-													  uint64 randomSeed, KeyValues *stageDesc,
-													  uint32 texCompositeCreateFlags = 0 ) = 0;
+	virtual ITextureCompositor* NewTextureCompositor(int w, int h, const char* pCompositeName, int nTeamNum,
+													 uint64 randomSeed, KeyValues* stageDesc,
+													 uint32 texCompositeCreateFlags = 0) = 0;
 
 	// Loads the texture with the specified name, calls pRecipient->OnAsyncFindComplete with the result from the main thread.
 	// once the texture load is complete. If the texture cannot be found, the returned texture will return true for IsError().
-	virtual void AsyncFindTexture( const char *pFilename, const char *pTextureGroupName,
-								   IAsyncTextureOperationReceiver *pRecipient, void *pExtraArgs, bool bComplain = true,
-								   int nAdditionalCreationFlags = 0 ) = 0;
+	virtual void AsyncFindTexture(const char* pFilename, const char* pTextureGroupName,
+								  IAsyncTextureOperationReceiver* pRecipient, void* pExtraArgs, bool bComplain = true,
+								  int nAdditionalCreationFlags = 0) = 0;
 
 	// creates a texture suitable for use with materials from a raw stream of bits.
 	// The bits will be retained by the material system and can be freed upon return.
-	virtual ITexture *CreateNamedTextureFromBitsEx( const char *pName, const char *pTextureGroupName, int w, int h,
-													int mips, ImageFormat fmt, int srcBufferSize, byte *srcBits,
-													int nFlags ) = 0;
+	virtual ITexture* CreateNamedTextureFromBitsEx(const char* pName, const char* pTextureGroupName, int w, int h,
+												   int mips, ImageFormat fmt, int srcBufferSize, byte* srcBits,
+												   int nFlags) = 0;
 
 	// Creates a texture compositor template for use in later code.
-	virtual bool AddTextureCompositorTemplate( const char *pName, KeyValues *pTmplDesc,
-											   int nTexCompositeTemplateFlags = 0 ) = 0;
+	virtual bool AddTextureCompositorTemplate(const char* pName, KeyValues* pTmplDesc,
+											  int nTexCompositeTemplateFlags = 0) = 0;
 
 	// Performs final verification of all compositor templates (after they've all been initially loaded).
 	virtual bool VerifyTextureCompositorTemplates() = 0;
@@ -875,8 +875,8 @@ public:
 	virtual void ResumeTextureStreaming() = 0;
 };
 
-extern IMaterialSystem *materials;
-extern IMaterialSystem *g_pMaterialSystem;
+extern IMaterialSystem* materials;
+extern IMaterialSystem* g_pMaterialSystem;
 
 FORCEINLINE bool IsOpenGL()
 {
@@ -892,30 +892,30 @@ public:
 	virtual void BeginRender() = 0;
 	virtual void EndRender() = 0;
 
-	virtual void Flush( bool flushHardware = false ) = 0;
+	virtual void Flush(bool flushHardware = false) = 0;
 
 	virtual void unused_BindLocalCubemap() = 0;
 
 	// pass in an ITexture (that is build with "rendertarget" "1") or
 	// pass in NULL for the regular backbuffer.
-	virtual void SetRenderTarget( ITexture * pTexture ) = 0;
-	virtual ITexture *GetRenderTarget() = 0;
+	virtual void SetRenderTarget(ITexture * pTexture) = 0;
+	virtual ITexture* GetRenderTarget() = 0;
 
-	virtual void GetRenderTargetDimensions( int &width, int &height ) const = 0;
+	virtual void GetRenderTargetDimensions(int& width, int& height) const = 0;
 
 	// Bind a material is current for rendering.
-	virtual void Bind( IMaterial * material, void *proxyData = 0 ) = 0;
+	virtual void Bind(IMaterial * material, void* proxyData = 0) = 0;
 	// Bind a lightmap page current for rendering.  You only have to
 	// do this for materials that require lightmaps.
 	virtual void unused_BindLightmapPage() = 0;
 
 	// inputs are between 0 and 1
-	virtual void DepthRange( float zNear, float zFar ) = 0;
+	virtual void DepthRange(float zNear, float zFar) = 0;
 
-	virtual void ClearBuffers( bool bClearColor, bool bClearDepth, bool bClearStencil = false ) = 0;
+	virtual void ClearBuffers(bool bClearColor, bool bClearDepth, bool bClearStencil = false) = 0;
 
 	// read to a unsigned char rgb image.
-	virtual void ReadPixels( int x, int y, int width, int height, unsigned char *data, ImageFormat dstFormat ) = 0;
+	virtual void ReadPixels(int x, int y, int width, int height, unsigned char* data, ImageFormat dstFormat) = 0;
 
 	// Sets lighting
 	virtual void unused_SetAmbientLight() = 0;
@@ -928,35 +928,35 @@ public:
 	virtual void unused_CopyRenderTargetToTexture() = 0;
 
 	// Set the current texture that is a copy of the framebuffer.
-	virtual void SetFrameBufferCopyTexture( ITexture * pTexture, int textureIndex = 0 ) = 0;
-	virtual ITexture *GetFrameBufferCopyTexture( int textureIndex ) = 0;
+	virtual void SetFrameBufferCopyTexture(ITexture * pTexture, int textureIndex = 0) = 0;
+	virtual ITexture* GetFrameBufferCopyTexture(int textureIndex) = 0;
 
 	// end vertex array api
 
 	// matrix api
-	virtual void MatrixMode( MaterialMatrixMode_t matrixMode ) = 0;
+	virtual void MatrixMode(MaterialMatrixMode_t matrixMode) = 0;
 	virtual void PushMatrix() = 0;
 	virtual void PopMatrix() = 0;
-	virtual void LoadMatrix( VMatrix const &matrix ) = 0;
-	virtual void LoadMatrix( matrix3x4_t const &matrix ) = 0;
-	virtual void MultMatrix( VMatrix const &matrix ) = 0;
-	virtual void MultMatrix( matrix3x4_t const &matrix ) = 0;
-	virtual void MultMatrixLocal( VMatrix const &matrix ) = 0;
-	virtual void MultMatrixLocal( matrix3x4_t const &matrix ) = 0;
-	virtual void GetMatrix( MaterialMatrixMode_t matrixMode, VMatrix * matrix ) = 0;
-	virtual void GetMatrix( MaterialMatrixMode_t matrixMode, matrix3x4_t * matrix ) = 0;
+	virtual void LoadMatrix(VMatrix const& matrix) = 0;
+	virtual void LoadMatrix(matrix3x4_t const& matrix) = 0;
+	virtual void MultMatrix(VMatrix const& matrix) = 0;
+	virtual void MultMatrix(matrix3x4_t const& matrix) = 0;
+	virtual void MultMatrixLocal(VMatrix const& matrix) = 0;
+	virtual void MultMatrixLocal(matrix3x4_t const& matrix) = 0;
+	virtual void GetMatrix(MaterialMatrixMode_t matrixMode, VMatrix * matrix) = 0;
+	virtual void GetMatrix(MaterialMatrixMode_t matrixMode, matrix3x4_t * matrix) = 0;
 	virtual void LoadIdentity() = 0;
-	virtual void Ortho( double left, double top, double right, double bottom, double zNear, double zFar ) = 0;
+	virtual void Ortho(double left, double top, double right, double bottom, double zNear, double zFar) = 0;
 	virtual void unused_PerspectiveX() = 0;
 	virtual void unused_PickMatrix() = 0;
 	virtual void unused_Rotate() = 0;
 	virtual void unused_Translate() = 0;
-	virtual void Scale( float x, float y, float z ) = 0;
+	virtual void Scale(float x, float y, float z) = 0;
 	// end matrix api
 
 	// Sets/gets the viewport
-	virtual void Viewport( int x, int y, int width, int height ) = 0;
-	virtual void GetViewport( int &x, int &y, int &width, int &height ) const = 0;
+	virtual void Viewport(int x, int y, int width, int height) = 0;
+	virtual void GetViewport(int& x, int& y, int& width, int& height) const = 0;
 
 	// The cull mode
 	virtual void unused_CullMode() = 0;
@@ -964,23 +964,23 @@ public:
 	// end matrix api
 
 	// This could easily be extended to a general user clip plane
-	virtual void SetHeightClipMode( MaterialHeightClipMode_t nHeightClipMode ) = 0;
+	virtual void SetHeightClipMode(MaterialHeightClipMode_t nHeightClipMode) = 0;
 	// garymcthack : fog z is always used for heightclipz for now.
-	virtual void SetHeightClipZ( float z ) = 0;
+	virtual void SetHeightClipZ(float z) = 0;
 
 	// Fog methods...
-	virtual void FogMode( MaterialFogMode_t fogMode ) = 0;
-	virtual void FogStart( float fStart ) = 0;
-	virtual void FogEnd( float fEnd ) = 0;
-	virtual void SetFogZ( float fogZ ) = 0;
+	virtual void FogMode(MaterialFogMode_t fogMode) = 0;
+	virtual void FogStart(float fStart) = 0;
+	virtual void FogEnd(float fEnd) = 0;
+	virtual void SetFogZ(float fogZ) = 0;
 	virtual MaterialFogMode_t GetFogMode() = 0;
 
 	virtual void unused_FogColor3f() = 0;
-	virtual void FogColor3fv( float const *rgb ) = 0;
+	virtual void FogColor3fv(float const* rgb) = 0;
 	virtual void unused_FogColor3ub() = 0;
 	virtual void unused_FogColor3ubv() = 0;
 
-	virtual void GetFogColor( unsigned char *rgb ) = 0;
+	virtual void GetFogColor(unsigned char* rgb) = 0;
 
 	// Sets the number of bones for skinning
 	virtual void unused_SetNumBoneWeights() = 0;
@@ -1008,8 +1008,8 @@ public:
 	// If you pass in a material in pAutoBind, it will automatically bind the
 	// material. This can be helpful since you must bind the material you're
 	// going to use BEFORE calling GetDynamicMesh.
-	virtual IMesh *GetDynamicMesh( bool buffered = true, IMesh *pVertexOverride = 0, IMesh *pIndexOverride = 0,
-								   IMaterial *pAutoBind = 0 ) = 0;
+	virtual IMesh* GetDynamicMesh(bool buffered = true, IMesh* pVertexOverride = 0, IMesh* pIndexOverride = 0,
+								  IMaterial* pAutoBind = 0) = 0;
 
 	// ------------ New Vertex/Index Buffer interface ----------------------------
 	// Do we need support for bForceTempMesh and bSoftwareVertexShader?
@@ -1023,7 +1023,7 @@ public:
 	virtual void unused_GetDynamicIndexBuffer() = 0;
 	virtual void unused_BindVertexBuffer() = 0;
 	virtual void unused_BindIndexBuffer() = 0;
-	virtual void Draw( MaterialPrimitiveType_t primitiveType, int firstIndex, int numIndices ) = 0;
+	virtual void Draw(MaterialPrimitiveType_t primitiveType, int firstIndex, int numIndices) = 0;
 	// ------------ End ----------------------------
 
 	// Selection mode methods
@@ -1035,13 +1035,13 @@ public:
 	virtual void unused_PopSelectionName() = 0;
 
 	// Sets the Clear Color for ClearBuffer....
-	virtual void ClearColor3ub( unsigned char r, unsigned char g, unsigned char b ) = 0;
-	virtual void ClearColor4ub( unsigned char r, unsigned char g, unsigned char b, unsigned char a ) = 0;
+	virtual void ClearColor3ub(unsigned char r, unsigned char g, unsigned char b) = 0;
+	virtual void ClearColor4ub(unsigned char r, unsigned char g, unsigned char b, unsigned char a) = 0;
 
 	// Allows us to override the depth buffer setting of a material
-	virtual void OverrideDepthEnable( bool bEnable, bool bDepthEnable ) = 0;
+	virtual void OverrideDepthEnable(bool bEnable, bool bDepthEnable) = 0;
 
-	virtual void DrawScreenSpaceQuad( IMaterial * pMaterial ) = 0;
+	virtual void DrawScreenSpaceQuad(IMaterial * pMaterial) = 0;
 
 	// For debugging and building recording files. This will stuff a token into the recording file,
 	// then someone doing a playback can watch for the token.
@@ -1058,15 +1058,15 @@ public:
 
 	// Allocate and delete query objects.
 	virtual OcclusionQueryObjectHandle_t CreateOcclusionQueryObject() = 0;
-	virtual void DestroyOcclusionQueryObject( OcclusionQueryObjectHandle_t ) = 0;
+	virtual void DestroyOcclusionQueryObject(OcclusionQueryObjectHandle_t) = 0;
 
 	// Bracket drawing with begin and end so that we can get counts next frame.
-	virtual void BeginOcclusionQueryDrawing( OcclusionQueryObjectHandle_t ) = 0;
-	virtual void EndOcclusionQueryDrawing( OcclusionQueryObjectHandle_t ) = 0;
+	virtual void BeginOcclusionQueryDrawing(OcclusionQueryObjectHandle_t) = 0;
+	virtual void EndOcclusionQueryDrawing(OcclusionQueryObjectHandle_t) = 0;
 
 	// Get the number of pixels rendered between begin and end on an earlier frame.
 	// Calling this in the same frame is a huge perf hit!
-	virtual int OcclusionQuery_GetNumPixelsRendered( OcclusionQueryObjectHandle_t ) = 0;
+	virtual int OcclusionQuery_GetNumPixelsRendered(OcclusionQueryObjectHandle_t) = 0;
 
 	virtual void unused_SetFlashlightMode() = 0;
 
@@ -1077,19 +1077,19 @@ public:
 
 	// This returns the diameter of the sphere in pixels based on
 	// the current model, view, + projection matrices and viewport.
-	virtual float ComputePixelDiameterOfSphere( const Vector &vecAbsOrigin, float flRadius ) = 0;
+	virtual float ComputePixelDiameterOfSphere(const Vector& vecAbsOrigin, float flRadius) = 0;
 
 	// By default, the material system applies the VIEW and PROJECTION matrices	to the user clip
 	// planes (which are specified in world space) to generate projection-space user clip planes
 	// Occasionally (for the particle system in hl2, for example), we want to override that
 	// behavior and explictly specify a ViewProj transform for user clip planes
-	virtual void EnableUserClipTransformOverride( bool bEnable ) = 0;
-	virtual void UserClipTransform( const VMatrix &worldToView ) = 0;
+	virtual void EnableUserClipTransformOverride(bool bEnable) = 0;
+	virtual void UserClipTransform(const VMatrix& worldToView) = 0;
 
 	virtual void unused_GetFlashlightMode() = 0;
 
 	// Used to make the handle think it's never had a successful query before
-	virtual void ResetOcclusionQueryObject( OcclusionQueryObjectHandle_t ) = 0;
+	virtual void ResetOcclusionQueryObject(OcclusionQueryObjectHandle_t) = 0;
 
 	// FIXME: Remove
 	virtual void unused_Unused3() = 0;
@@ -1128,7 +1128,7 @@ public:
 		float src_texture_x1, float src_texture_y1, // which texel you want to appear at
 		// destx+width-1, desty+height-1
 		int src_texture_width, int src_texture_height, // needed for fixup
-		void *pClientRenderable = NULL, int nXDice = 1, int nYDice = 1 ) = 0;
+		void* pClientRenderable = NULL, int nXDice = 1, int nYDice = 1) = 0;
 
 	virtual void unused_LoadBoneMatrix() = 0;
 
@@ -1136,14 +1136,14 @@ public:
 	virtual void PushRenderTargetAndViewport() = 0;
 
 	// This version will push a new rendertarget + a maximal viewport for that rendertarget onto the stack
-	virtual void PushRenderTargetAndViewport( ITexture * pTexture ) = 0;
+	virtual void PushRenderTargetAndViewport(ITexture * pTexture) = 0;
 
 	// This version will push a new rendertarget + a specified viewport onto the stack
-	virtual void PushRenderTargetAndViewport( ITexture * pTexture, int nViewX, int nViewY, int nViewW, int nViewH ) = 0;
+	virtual void PushRenderTargetAndViewport(ITexture * pTexture, int nViewX, int nViewY, int nViewW, int nViewH) = 0;
 
 	// This version will push a new rendertarget + a specified viewport onto the stack
-	virtual void PushRenderTargetAndViewport( ITexture * pTexture, ITexture * pDepthTexture, int nViewX, int nViewY,
-											  int nViewW, int nViewH ) = 0;
+	virtual void PushRenderTargetAndViewport(ITexture * pTexture, ITexture * pDepthTexture, int nViewX, int nViewY,
+											 int nViewW, int nViewH) = 0;
 
 	// This will pop a rendertarget + viewport
 	virtual void PopRenderTargetAndViewport() = 0;
@@ -1152,8 +1152,8 @@ public:
 	virtual void unused_BindLightmapTexture() = 0;
 
 	// Blit a subrect of the current render target to another texture
-	virtual void CopyRenderTargetToTextureEx( ITexture * pTexture, int nRenderTargetID, Rect_t *pSrcRect,
-											  Rect_t *pDstRect = NULL ) = 0;
+	virtual void CopyRenderTargetToTextureEx(ITexture * pTexture, int nRenderTargetID, Rect_t* pSrcRect,
+											 Rect_t* pDstRect = NULL) = 0;
 	virtual void unused_CopyTextureToRenderTargetEx() = 0;
 
 	// Special off-center perspective matrix for DoF, MSAA jitter and poster rendering
@@ -1162,25 +1162,25 @@ public:
 	// Rendering parameters control special drawing modes withing the material system, shader
 	// system, shaders, and engine. renderparm.h has their definitions.
 	virtual void unused_SetFloatRenderingParameter() = 0;
-	virtual void SetIntRenderingParameter( int parm_number, int value ) = 0;
-	virtual void SetVectorRenderingParameter( int parm_number, Vector const &value ) = 0;
+	virtual void SetIntRenderingParameter(int parm_number, int value) = 0;
+	virtual void SetVectorRenderingParameter(int parm_number, Vector const& value) = 0;
 
 	// stencil buffer operations.
-	virtual void SetStencilEnable( bool onoff ) = 0;
-	virtual void SetStencilFailOperation( StencilOperation_t op ) = 0;
-	virtual void SetStencilZFailOperation( StencilOperation_t op ) = 0;
-	virtual void SetStencilPassOperation( StencilOperation_t op ) = 0;
-	virtual void SetStencilCompareFunction( StencilComparisonFunction_t cmpfn ) = 0;
-	virtual void SetStencilReferenceValue( int ref ) = 0;
-	virtual void SetStencilTestMask( uint32 msk ) = 0;
-	virtual void SetStencilWriteMask( uint32 msk ) = 0;
+	virtual void SetStencilEnable(bool onoff) = 0;
+	virtual void SetStencilFailOperation(StencilOperation_t op) = 0;
+	virtual void SetStencilZFailOperation(StencilOperation_t op) = 0;
+	virtual void SetStencilPassOperation(StencilOperation_t op) = 0;
+	virtual void SetStencilCompareFunction(StencilComparisonFunction_t cmpfn) = 0;
+	virtual void SetStencilReferenceValue(int ref) = 0;
+	virtual void SetStencilTestMask(uint32 msk) = 0;
+	virtual void SetStencilWriteMask(uint32 msk) = 0;
 	virtual void unused_ClearStencilBufferRectangle() = 0;
 
 	virtual void unused_SetRenderTargetEx() = 0;
 
 	// rendering clip planes, beware that only the most recently pushed plane will actually be used in a sizeable chunk of hardware configurations
 	// and that changes to the clip planes mid-frame while UsingFastClipping() is true will result unresolvable depth inconsistencies
-	virtual void PushCustomClipPlane( const float *pPlane ) = 0;
+	virtual void PushCustomClipPlane(const float* pPlane) = 0;
 	virtual void PopCustomClipPlane() = 0;
 
 	// Returns the number of vertices + indices we can render using the dynamic mesh
@@ -1189,7 +1189,7 @@ public:
 	// if called multiple times in succession.
 	// Passing false into the second parameter will return
 	// the maximum possible vertices + indices that can be rendered in a single batch
-	virtual void GetMaxToRender( IMesh * pMesh, bool bMaxUntilFlush, int *pMaxVerts, int *pMaxIndices ) = 0;
+	virtual void GetMaxToRender(IMesh * pMesh, bool bMaxUntilFlush, int* pMaxVerts, int* pMaxIndices) = 0;
 
 	// Returns the max possible vertices + indices to render in a single draw call
 	virtual void unused_GetMaxVerticesToRender() = 0;
@@ -1205,16 +1205,16 @@ public:
 	virtual void unused_GetLocalCubemap() = 0;
 
 	// This is a version of clear buffers which will only clear the buffer at pixels which pass the stencil test
-	virtual void ClearBuffersObeyStencil( bool bClearColor, bool bClearDepth ) = 0;
+	virtual void ClearBuffersObeyStencil(bool bClearColor, bool bClearDepth) = 0;
 
 	//enables/disables all entered clipping planes, returns the input from the last time it was called.
-	virtual bool EnableClipping( bool bEnable ) = 0;
+	virtual bool EnableClipping(bool bEnable) = 0;
 
 	//get fog distances entered with FogStart(), FogEnd(), and SetFogZ()
 	virtual void unused_GetFogDistances() = 0;
 
 	// Hooks for firing PIX events from outside the Material System...
-	virtual void BeginPIXEvent( unsigned long color, const char *szName ) = 0;
+	virtual void BeginPIXEvent(unsigned long color, const char* szName) = 0;
 	virtual void EndPIXEvent() = 0;
 	virtual void unused_SetPIXMarker() = 0;
 
@@ -1227,15 +1227,15 @@ public:
 	virtual void unused_EndBatch() = 0;
 
 	// Raw access to the call queue, which can be NULL if not in a queued mode
-	virtual ICallQueue *GetCallQueue() = 0;
+	virtual ICallQueue* GetCallQueue() = 0;
 
 	// Returns the world-space camera position
-	virtual void GetWorldSpaceCameraPosition( Vector * pCameraPos ) = 0;
+	virtual void GetWorldSpaceCameraPosition(Vector * pCameraPos) = 0;
 	virtual void unused_GetWorldSpaceCameraVectors() = 0;
 
 	// Tone mapping
-	virtual void ResetToneMappingScale( float monoscale ) = 0; // set scale to monoscale instantly with no chasing
-	virtual void SetGoalToneMappingScale( float monoscale ) = 0; // set scale to monoscale instantly with no chasing
+	virtual void ResetToneMappingScale(float monoscale) = 0; // set scale to monoscale instantly with no chasing
+	virtual void SetGoalToneMappingScale(float monoscale) = 0; // set scale to monoscale instantly with no chasing
 
 	// call TurnOnToneMapping before drawing the 3d scene to get the proper interpolated brightness
 	// value set.
@@ -1243,10 +1243,10 @@ public:
 
 	// Set a linear vector color scale for all 3D rendering.
 	// A value of [1.0f, 1.0f, 1.0f] should match non-tone-mapped rendering.
-	virtual void SetToneMappingScaleLinear( const Vector &scale ) = 0;
+	virtual void SetToneMappingScaleLinear(const Vector& scale) = 0;
 
 	virtual Vector GetToneMappingScaleLinear() = 0;
-	virtual void SetShadowDepthBiasFactors( float fSlopeScaleDepthBias, float fDepthBias ) = 0;
+	virtual void SetShadowDepthBiasFactors(float fSlopeScaleDepthBias, float fDepthBias) = 0;
 
 	// Apply stencil operations to every pixel on the screen without disturbing depth or color buffers
 	virtual void unused_PerformFullScreenStencilOperation() = 0;
@@ -1255,8 +1255,8 @@ public:
 	virtual void unused_SetLightingOrigin() = 0;
 
 	// Set scissor rect for rendering
-	virtual void SetScissorRect( const int nLeft, const int nTop, const int nRight, const int nBottom,
-								 const bool bEnableScissor ) = 0;
+	virtual void SetScissorRect(const int nLeft, const int nTop, const int nRight, const int nBottom,
+								const bool bEnableScissor) = 0;
 
 	// Methods used to build the morph accumulator that is read from when HW morph<ing is enabled.
 	virtual void unused_BeginMorphAccumulation() = 0;
@@ -1272,7 +1272,7 @@ public:
 	// Version of get dynamic mesh that specifies a specific vertex format
 	virtual void unused_GetDynamicMeshEx() = 0;
 
-	virtual void FogMaxDensity( float flMaxDensity ) = 0;
+	virtual void FogMaxDensity(float flMaxDensity) = 0;
 
 	virtual void unused_GetCurrentMaterial() = 0;
 	virtual void unused_GetCurrentNumBones() = 0;
@@ -1281,19 +1281,19 @@ public:
 	// Color correction related methods..
 	// Client cannot call IColorCorrectionSystem directly because it is not thread-safe
 	// FIXME: Make IColorCorrectionSystem threadsafe?
-	virtual void EnableColorCorrection( bool bEnable ) = 0;
-	virtual ColorCorrectionHandle_t AddLookup( const char *pName ) = 0;
-	virtual bool RemoveLookup( ColorCorrectionHandle_t handle ) = 0;
-	virtual void LockLookup( ColorCorrectionHandle_t handle ) = 0;
-	virtual void LoadLookup( ColorCorrectionHandle_t handle, const char *pLookupName ) = 0;
-	virtual void UnlockLookup( ColorCorrectionHandle_t handle ) = 0;
-	virtual void SetLookupWeight( ColorCorrectionHandle_t handle, float flWeight ) = 0;
+	virtual void EnableColorCorrection(bool bEnable) = 0;
+	virtual ColorCorrectionHandle_t AddLookup(const char* pName) = 0;
+	virtual bool RemoveLookup(ColorCorrectionHandle_t handle) = 0;
+	virtual void LockLookup(ColorCorrectionHandle_t handle) = 0;
+	virtual void LoadLookup(ColorCorrectionHandle_t handle, const char* pLookupName) = 0;
+	virtual void UnlockLookup(ColorCorrectionHandle_t handle) = 0;
+	virtual void SetLookupWeight(ColorCorrectionHandle_t handle, float flWeight) = 0;
 	virtual void ResetLookupWeights() = 0;
 	virtual void unused_SetResetable() = 0;
 
 	//There are some cases where it's simply not reasonable to update the full screen depth texture (mostly on PC).
 	//Use this to mark it as invalid and use a dummy texture for depth reads.
-	virtual void SetFullScreenDepthTextureValidityFlag( bool bIsValid ) = 0;
+	virtual void SetFullScreenDepthTextureValidityFlag(bool bIsValid) = 0;
 
 	virtual void unused_SetNonInteractivePacifierTexture() = 0;
 	virtual void unused_SetNonInteractiveTempFullscreenBuffer() = 0;
@@ -1302,12 +1302,12 @@ public:
 	// Allocates temp render data. Renderdata goes out of scope at frame end in multicore
 	// Renderdata goes out of scope after refcount goes to zero in singlecore.
 	// Locking/unlocking increases + decreases refcount
-	virtual void *LockRenderData( int nSizeInBytes ) = 0;
-	virtual void UnlockRenderData( void *pData ) = 0;
+	virtual void* LockRenderData(int nSizeInBytes) = 0;
+	virtual void UnlockRenderData(void* pData) = 0;
 
 	// Typed version. If specified, pSrcData is copied into the locked memory.
 	template <class E>
-	E *LockRenderDataTyped( int nCount, const E *pSrcData = NULL );
+	E* LockRenderDataTyped(int nCount, const E* pSrcData = NULL);
 
 	// Temp render data gets immediately freed after it's all unlocked in single core.
 	// This prevents it from being freed
@@ -1315,13 +1315,13 @@ public:
 	virtual void ReleaseRenderData() = 0;
 
 	// Returns whether a pointer is render data. NOTE: passing NULL returns true
-	virtual bool IsRenderData( const void *pData ) const = 0;
-	virtual void PrintfVA( char *fmt, va_list vargs ) = 0;
+	virtual bool IsRenderData(const void* pData) const = 0;
+	virtual void PrintfVA(char* fmt, va_list vargs) = 0;
 	virtual void unused_Printf() = 0;
 	virtual void unused_Knob() = 0;
 	// Allows us to override the alpha write setting of a material
-	virtual void OverrideAlphaWriteEnable( bool bEnable, bool bAlphaWriteEnable ) = 0;
-	virtual void OverrideColorWriteEnable( bool bOverrideEnable, bool bColorWriteEnable ) = 0;
+	virtual void OverrideAlphaWriteEnable(bool bEnable, bool bAlphaWriteEnable) = 0;
+	virtual void OverrideColorWriteEnable(bool bOverrideEnable, bool bColorWriteEnable) = 0;
 
 	virtual void unused_ClearBuffersObeyStencilEx() = 0;
 
@@ -1330,18 +1330,18 @@ public:
 	// In case of error, the provided callback function will be called with the error texture.
 	virtual void unused_AsyncCreateTextureFromRenderTarget() = 0;
 
-	virtual void FogRadial( bool bRadial ) = 0;
+	virtual void FogRadial(bool bRadial) = 0;
 	virtual void unused_GetFogRadial() = 0;
 };
 
 template <class E>
-inline E *IMatRenderContext::LockRenderDataTyped( int nCount, const E *pSrcData )
+inline E* IMatRenderContext::LockRenderDataTyped(int nCount, const E* pSrcData)
 {
-	int nSizeInBytes = nCount * sizeof( E );
-	E *pDstData = (E *)LockRenderData( nSizeInBytes );
-	if ( pSrcData && pDstData )
+	int nSizeInBytes = nCount * sizeof(E);
+	E* pDstData = (E*)LockRenderData(nSizeInBytes);
+	if (pSrcData && pDstData)
 	{
-		memcpy( pDstData, pSrcData, nSizeInBytes );
+		memcpy(pDstData, pSrcData, nSizeInBytes);
 	}
 	return pDstData;
 }
@@ -1351,13 +1351,13 @@ class CMatRenderDataReference
 {
 public:
 	CMatRenderDataReference();
-	CMatRenderDataReference( IMatRenderContext *pRenderContext );
+	CMatRenderDataReference(IMatRenderContext* pRenderContext);
 	~CMatRenderDataReference();
-	void Lock( IMatRenderContext *pRenderContext );
+	void Lock(IMatRenderContext* pRenderContext);
 	void Release();
 
 private:
-	IMatRenderContext *m_pRenderContext;
+	IMatRenderContext* m_pRenderContext;
 };
 
 inline CMatRenderDataReference::CMatRenderDataReference()
@@ -1365,10 +1365,10 @@ inline CMatRenderDataReference::CMatRenderDataReference()
 	m_pRenderContext = NULL;
 }
 
-inline CMatRenderDataReference::CMatRenderDataReference( IMatRenderContext *pRenderContext )
+inline CMatRenderDataReference::CMatRenderDataReference(IMatRenderContext* pRenderContext)
 {
 	m_pRenderContext = NULL;
-	Lock( pRenderContext );
+	Lock(pRenderContext);
 }
 
 inline CMatRenderDataReference::~CMatRenderDataReference()
@@ -1376,9 +1376,9 @@ inline CMatRenderDataReference::~CMatRenderDataReference()
 	Release();
 }
 
-inline void CMatRenderDataReference::Lock( IMatRenderContext *pRenderContext )
+inline void CMatRenderDataReference::Lock(IMatRenderContext* pRenderContext)
 {
-	if ( !m_pRenderContext )
+	if (!m_pRenderContext)
 	{
 		m_pRenderContext = pRenderContext;
 		m_pRenderContext->AddRefRenderData();
@@ -1387,7 +1387,7 @@ inline void CMatRenderDataReference::Lock( IMatRenderContext *pRenderContext )
 
 inline void CMatRenderDataReference::Release()
 {
-	if ( m_pRenderContext )
+	if (m_pRenderContext)
 	{
 		m_pRenderContext->ReleaseRenderData();
 		m_pRenderContext = NULL;
@@ -1399,24 +1399,24 @@ template <typename E>
 class CMatRenderData
 {
 public:
-	CMatRenderData( IMatRenderContext *pRenderContext );
-	CMatRenderData( IMatRenderContext *pRenderContext, int nCount, const E *pSrcData = NULL );
+	CMatRenderData(IMatRenderContext* pRenderContext);
+	CMatRenderData(IMatRenderContext* pRenderContext, int nCount, const E* pSrcData = NULL);
 	~CMatRenderData();
-	E *Lock( int nCount, const E *pSrcData = NULL );
+	E* Lock(int nCount, const E* pSrcData = NULL);
 	void Release();
 	bool IsValid() const;
-	const E *Base() const;
-	E *Base();
+	const E* Base() const;
+	E* Base();
 
 private:
-	IMatRenderContext *m_pRenderContext;
-	E *m_pRenderData;
+	IMatRenderContext* m_pRenderContext;
+	E* m_pRenderData;
 	int m_nCount;
 	bool m_bNeedsUnlock;
 };
 
 template <typename E>
-inline CMatRenderData<E>::CMatRenderData( IMatRenderContext *pRenderContext )
+inline CMatRenderData<E>::CMatRenderData(IMatRenderContext* pRenderContext)
 {
 	m_pRenderContext = pRenderContext;
 	m_nCount = 0;
@@ -1425,13 +1425,13 @@ inline CMatRenderData<E>::CMatRenderData( IMatRenderContext *pRenderContext )
 }
 
 template <typename E>
-inline CMatRenderData<E>::CMatRenderData( IMatRenderContext *pRenderContext, int nCount, const E *pSrcData )
+inline CMatRenderData<E>::CMatRenderData(IMatRenderContext* pRenderContext, int nCount, const E* pSrcData)
 {
 	m_pRenderContext = pRenderContext;
 	m_nCount = 0;
 	m_pRenderData = 0;
 	m_bNeedsUnlock = false;
-	Lock( nCount, pSrcData );
+	Lock(nCount, pSrcData);
 }
 
 template <typename E>
@@ -1447,19 +1447,19 @@ inline bool CMatRenderData<E>::IsValid() const
 }
 
 template <typename E>
-inline E *CMatRenderData<E>::Lock( int nCount, const E *pSrcData )
+inline E* CMatRenderData<E>::Lock(int nCount, const E* pSrcData)
 {
 	m_nCount = nCount;
-	if ( pSrcData && m_pRenderContext->IsRenderData( pSrcData ) )
+	if (pSrcData && m_pRenderContext->IsRenderData(pSrcData))
 	{
 		// Yes, we're const-casting away, but that should be ok since
 		// the src data is render data
-		m_pRenderData = const_cast<E *>( pSrcData );
+		m_pRenderData = const_cast<E*>(pSrcData);
 		m_pRenderContext->AddRefRenderData();
 		m_bNeedsUnlock = false;
 		return m_pRenderData;
 	}
-	m_pRenderData = m_pRenderContext->LockRenderDataTyped<E>( nCount, pSrcData );
+	m_pRenderData = m_pRenderContext->LockRenderDataTyped<E>(nCount, pSrcData);
 	m_bNeedsUnlock = true;
 	return m_pRenderData;
 }
@@ -1467,11 +1467,11 @@ inline E *CMatRenderData<E>::Lock( int nCount, const E *pSrcData )
 template <typename E>
 inline void CMatRenderData<E>::Release()
 {
-	if ( m_pRenderContext && m_pRenderData )
+	if (m_pRenderContext && m_pRenderData)
 	{
-		if ( m_bNeedsUnlock )
+		if (m_bNeedsUnlock)
 		{
-			m_pRenderContext->UnlockRenderData( m_pRenderData );
+			m_pRenderContext->UnlockRenderData(m_pRenderData);
 		}
 		else
 		{
@@ -1484,13 +1484,13 @@ inline void CMatRenderData<E>::Release()
 }
 
 template <typename E>
-inline E *CMatRenderData<E>::Base()
+inline E* CMatRenderData<E>::Base()
 {
 	return m_pRenderData;
 }
 
 template <typename E>
-inline const E *CMatRenderData<E>::Base() const
+inline const E* CMatRenderData<E>::Base() const
 {
 	return m_pRenderData;
 }
@@ -1502,45 +1502,45 @@ class CMatRenderContextPtr : public CRefPtr<IMatRenderContext>
 public:
 	CMatRenderContextPtr() {}
 
-	CMatRenderContextPtr( IMatRenderContext *pInit )
-		: BaseClass( pInit )
+	CMatRenderContextPtr(IMatRenderContext* pInit)
+		: BaseClass(pInit)
 	{
-		if ( BaseClass::m_pObject )
+		if (BaseClass::m_pObject)
 			BaseClass::m_pObject->BeginRender();
 	}
 
-	CMatRenderContextPtr( IMaterialSystem *pFrom )
-		: BaseClass( pFrom->GetRenderContext() )
+	CMatRenderContextPtr(IMaterialSystem* pFrom)
+		: BaseClass(pFrom->GetRenderContext())
 	{
-		if ( BaseClass::m_pObject )
+		if (BaseClass::m_pObject)
 			BaseClass::m_pObject->BeginRender();
 	}
 
 	~CMatRenderContextPtr()
 	{
-		if ( BaseClass::m_pObject )
+		if (BaseClass::m_pObject)
 			BaseClass::m_pObject->EndRender();
 	}
 
 	void SafeRelease()
 	{
-		if ( BaseClass::m_pObject )
+		if (BaseClass::m_pObject)
 			BaseClass::m_pObject->EndRender();
 		BaseClass::SafeRelease();
 	}
 
-	void AssignAddRef( IMatRenderContext *pFrom )
+	void AssignAddRef(IMatRenderContext* pFrom)
 	{
-		if ( BaseClass::m_pObject )
+		if (BaseClass::m_pObject)
 			BaseClass::m_pObject->EndRender();
-		BaseClass::AssignAddRef( pFrom );
+		BaseClass::AssignAddRef(pFrom);
 		BaseClass::m_pObject->BeginRender();
 	}
 
-	void GetFrom( IMaterialSystem *pFrom ) { AssignAddRef( pFrom->GetRenderContext() ); }
+	void GetFrom(IMaterialSystem* pFrom) { AssignAddRef(pFrom->GetRenderContext()); }
 
 private:
-	CMatRenderContextPtr( const CMatRenderContextPtr &from );
+	CMatRenderContextPtr(const CMatRenderContextPtr& from);
 };
 
 // Helper class for begin/end of pix event via constructor/destructor
@@ -1549,18 +1549,18 @@ private:
 class PIXEvent
 {
 public:
-	PIXEvent( IMatRenderContext *pRenderContext, const char *szName, unsigned long color = PIX_VALVE_ORANGE )
+	PIXEvent(IMatRenderContext* pRenderContext, const char* szName, unsigned long color = PIX_VALVE_ORANGE)
 	{
 		m_pRenderContext = pRenderContext;
-		Assert( m_pRenderContext );
-		Assert( szName );
-		m_pRenderContext->BeginPIXEvent( color, szName );
+		Assert(m_pRenderContext);
+		Assert(szName);
+		m_pRenderContext->BeginPIXEvent(color, szName);
 	}
 
 	~PIXEvent() { m_pRenderContext->EndPIXEvent(); }
 
 private:
-	IMatRenderContext *m_pRenderContext;
+	IMatRenderContext* m_pRenderContext;
 };
 
 // Also be sure to enable PIX_INSTRUMENTATION in shaderdevicedx8.h

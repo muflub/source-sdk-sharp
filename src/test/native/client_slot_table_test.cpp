@@ -83,9 +83,9 @@ struct FakeClientShell
 // (CreateStandaloneTier( iTier, entnum, serialNum )), so this helper takes them
 // the same way round and the tests read like the call site does.
 //-----------------------------------------------------------------------------
-bool ClientBind( CSourceSharpSlotTable &table, int nEntry, int nSerial, FakeClientShell *pShell )
+bool ClientBind(CSourceSharpSlotTable& table, int nEntry, int nSerial, FakeClientShell* pShell)
 {
-	return table.BindAt( CBaseHandle( nEntry, nSerial ), pShell );
+	return table.BindAt(CBaseHandle(nEntry, nSerial), pShell);
 }
 
 } // namespace
@@ -103,31 +103,31 @@ bool ClientBind( CSourceSharpSlotTable &table, int nEntry, int nSerial, FakeClie
 // recycles an edict index the moment an entity dies, and the next snapshot
 // carries a new occupant at the same index with a bumped serial.
 //-----------------------------------------------------------------------------
-TEST( ClientSerialReuse, TheOldHandleDoesNotResolveToTheNewOccupant )
+TEST(ClientSerialReuse, TheOldHandleDoesNotResolveToTheNewOccupant)
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell first = { 1 };
-	FakeClientShell second = { 2 };
+	FakeClientShell first = {1};
+	FakeClientShell second = {2};
 
-	ASSERT_TRUE( ClientBind( table, 42, 7, &first ) );
+	ASSERT_TRUE(ClientBind(table, 42, 7, &first));
 
-	const CBaseHandle hOld( 42, 7 );
-	ASSERT_EQ( &first, table.Resolve( hOld ) );
+	const CBaseHandle hOld(42, 7);
+	ASSERT_EQ(&first, table.Resolve(hOld));
 
 	// The entity dies. Unbind bumps the entry's serial, which is what makes
 	// every handle to it stale AT THAT MOMENT rather than when something else
 	// takes the entry.
-	table.Unbind( 42 );
-	EXPECT_TRUE( table.Resolve( hOld ) == NULL );
+	table.Unbind(42);
+	EXPECT_TRUE(table.Resolve(hOld) == NULL);
 
 	// The server gives the index to somebody else, with the next serial.
-	ASSERT_TRUE( ClientBind( table, 42, 8, &second ) );
+	ASSERT_TRUE(ClientBind(table, 42, 8, &second));
 
-	EXPECT_EQ( &second, table.Resolve( CBaseHandle( 42, 8 ) ) );
+	EXPECT_EQ(&second, table.Resolve(CBaseHandle(42, 8)));
 
 	// The whole point. Not &second, and not &first either.
-	EXPECT_TRUE( table.Resolve( hOld ) == NULL );
+	EXPECT_TRUE(table.Resolve(hOld) == NULL);
 }
 
 //-----------------------------------------------------------------------------
@@ -136,24 +136,24 @@ TEST( ClientSerialReuse, TheOldHandleDoesNotResolveToTheNewOccupant )
 // assumed -- a resolver that special-cased the edict range would pass every
 // test above and fail here.
 //-----------------------------------------------------------------------------
-TEST( ClientSerialReuse, TheRuleHoldsAboveMaxEdicts )
+TEST(ClientSerialReuse, TheRuleHoldsAboveMaxEdicts)
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell first = { 1 };
-	FakeClientShell second = { 2 };
+	FakeClientShell first = {1};
+	FakeClientShell second = {2};
 
 	const int nEntry = MAX_EDICTS + 100;
 
-	ASSERT_TRUE( ClientBind( table, nEntry, 3, &first ) );
+	ASSERT_TRUE(ClientBind(table, nEntry, 3, &first));
 
-	const CBaseHandle hOld( nEntry, 3 );
-	table.Unbind( nEntry );
+	const CBaseHandle hOld(nEntry, 3);
+	table.Unbind(nEntry);
 
-	ASSERT_TRUE( ClientBind( table, nEntry, 4, &second ) );
+	ASSERT_TRUE(ClientBind(table, nEntry, 4, &second));
 
-	EXPECT_EQ( &second, table.Resolve( CBaseHandle( nEntry, 4 ) ) );
-	EXPECT_TRUE( table.Resolve( hOld ) == NULL );
+	EXPECT_EQ(&second, table.Resolve(CBaseHandle(nEntry, 4)));
+	EXPECT_TRUE(table.Resolve(hOld) == NULL);
 }
 
 //-----------------------------------------------------------------------------
@@ -163,18 +163,18 @@ TEST( ClientSerialReuse, TheRuleHoldsAboveMaxEdicts )
 // would pass the previous tests and fail: entry 9 IS bound, and the handle
 // still must not resolve.
 //-----------------------------------------------------------------------------
-TEST( ClientSerialReuse, ASerialThatWasNeverBoundThereResolvesToNull )
+TEST(ClientSerialReuse, ASerialThatWasNeverBoundThereResolvesToNull)
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell shell = { 1 };
+	FakeClientShell shell = {1};
 
-	ASSERT_TRUE( ClientBind( table, 9, 5, &shell ) );
+	ASSERT_TRUE(ClientBind(table, 9, 5, &shell));
 
-	ASSERT_EQ( &shell, table.Resolve( CBaseHandle( 9, 5 ) ) );
+	ASSERT_EQ(&shell, table.Resolve(CBaseHandle(9, 5)));
 
-	EXPECT_TRUE( table.Resolve( CBaseHandle( 9, 4 ) ) == NULL );
-	EXPECT_TRUE( table.Resolve( CBaseHandle( 9, 6 ) ) == NULL );
+	EXPECT_TRUE(table.Resolve(CBaseHandle(9, 4)) == NULL);
+	EXPECT_TRUE(table.Resolve(CBaseHandle(9, 6)) == NULL);
 }
 
 //-----------------------------------------------------------------------------
@@ -184,22 +184,22 @@ TEST( ClientSerialReuse, ASerialThatWasNeverBoundThereResolvesToNull )
 // If BindAt issued its own serial instead of taking the handle's, this entity
 // would be unreachable through the very handle the server put on the wire.
 //-----------------------------------------------------------------------------
-TEST( ClientSerialAdoption, TheHandleTheServerAssignedIsTheHandleThatResolves )
+TEST(ClientSerialAdoption, TheHandleTheServerAssignedIsTheHandleThatResolves)
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell shell = { 1 };
+	FakeClientShell shell = {1};
 
 	// A fresh table's entries all carry serial 0. The server's serial is 31.
-	ASSERT_EQ( 0, table.SerialAt( 12 ) );
+	ASSERT_EQ(0, table.SerialAt(12));
 
-	ASSERT_TRUE( ClientBind( table, 12, 31, &shell ) );
+	ASSERT_TRUE(ClientBind(table, 12, 31, &shell));
 
-	EXPECT_EQ( 31, table.SerialAt( 12 ) );
-	EXPECT_EQ( &shell, table.Resolve( CBaseHandle( 12, 31 ) ) );
+	EXPECT_EQ(31, table.SerialAt(12));
+	EXPECT_EQ(&shell, table.Resolve(CBaseHandle(12, 31)));
 
 	// And NOT through the serial the table would have issued itself.
-	EXPECT_TRUE( table.Resolve( CBaseHandle( 12, 0 ) ) == NULL );
+	EXPECT_TRUE(table.Resolve(CBaseHandle(12, 0)) == NULL);
 }
 
 //-----------------------------------------------------------------------------
@@ -208,20 +208,20 @@ TEST( ClientSerialAdoption, TheHandleTheServerAssignedIsTheHandleThatResolves )
 // share one handle. shell_cliententitylist.cpp turns the refusal into a
 // Warning, because there is nothing to recover and something to report.
 //-----------------------------------------------------------------------------
-TEST( ClientSerialAdoption, ASecondBindAtALiveEntryIsRefusedAndLeavesTheFirst )
+TEST(ClientSerialAdoption, ASecondBindAtALiveEntryIsRefusedAndLeavesTheFirst)
 {
 	CSourceSharpSlotTable table;
 
-	FakeClientShell first = { 1 };
-	FakeClientShell second = { 2 };
+	FakeClientShell first = {1};
+	FakeClientShell second = {2};
 
-	ASSERT_TRUE( ClientBind( table, 3, 1, &first ) );
+	ASSERT_TRUE(ClientBind(table, 3, 1, &first));
 
-	EXPECT_FALSE( ClientBind( table, 3, 2, &second ) );
+	EXPECT_FALSE(ClientBind(table, 3, 2, &second));
 
-	EXPECT_EQ( &first, table.Resolve( CBaseHandle( 3, 1 ) ) );
-	EXPECT_EQ( 1, table.BoundCount() );
-	EXPECT_EQ( 1, table.Refused() );
+	EXPECT_EQ(&first, table.Resolve(CBaseHandle(3, 1)));
+	EXPECT_EQ(1, table.BoundCount());
+	EXPECT_EQ(1, table.Refused());
 }
 
 //=============================================================================
@@ -235,68 +235,68 @@ TEST( ClientSerialAdoption, ASecondBindAtALiveEntryIsRefusedAndLeavesTheFirst )
 // would name entity 0 -- the world -- as present on a client that has loaded
 // nothing.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, AnEmptyWorldHasNoHighestIndex )
+TEST(ClientEntityCounts, AnEmptyWorldHasNoHighestIndex)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	EXPECT_EQ( -1, counts.HighestEntityIndex() );
-	EXPECT_EQ( 0, counts.NumberOfEntities( false ) );
-	EXPECT_EQ( 0, counts.NumberOfEntities( true ) );
+	EXPECT_EQ(-1, counts.HighestEntityIndex());
+	EXPECT_EQ(0, counts.NumberOfEntities(false));
+	EXPECT_EQ(0, counts.NumberOfEntities(true));
 }
 
 //-----------------------------------------------------------------------------
 // Bind and unbind maintain the count. §3.3's sentence, asserted.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, BindAndUnbindMaintainTheNetworkedCount )
+TEST(ClientEntityCounts, BindAndUnbindMaintainTheNetworkedCount)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell a = { 1 };
-	FakeClientShell b = { 2 };
+	FakeClientShell a = {1};
+	FakeClientShell b = {2};
 
-	ASSERT_TRUE( ClientBind( table, 4, 0, &a ) );
-	counts.OnBound( 4 );
-	EXPECT_EQ( 1, counts.NumberOfEntities( false ) );
+	ASSERT_TRUE(ClientBind(table, 4, 0, &a));
+	counts.OnBound(4);
+	EXPECT_EQ(1, counts.NumberOfEntities(false));
 
-	ASSERT_TRUE( ClientBind( table, 5, 0, &b ) );
-	counts.OnBound( 5 );
-	EXPECT_EQ( 2, counts.NumberOfEntities( false ) );
+	ASSERT_TRUE(ClientBind(table, 5, 0, &b));
+	counts.OnBound(5);
+	EXPECT_EQ(2, counts.NumberOfEntities(false));
 
-	table.Unbind( 4 );
-	counts.OnUnbound( 4 );
-	EXPECT_EQ( 1, counts.NumberOfEntities( false ) );
+	table.Unbind(4);
+	counts.OnUnbound(4);
+	EXPECT_EQ(1, counts.NumberOfEntities(false));
 
-	table.Unbind( 5 );
-	counts.OnUnbound( 5 );
-	EXPECT_EQ( 0, counts.NumberOfEntities( false ) );
+	table.Unbind(5);
+	counts.OnUnbound(5);
+	EXPECT_EQ(0, counts.NumberOfEntities(false));
 }
 
 //-----------------------------------------------------------------------------
 // The highest index tracks the highest EDICT entry, and grows with a bind.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, TheHighestIndexRisesWithTheHighestBind )
+TEST(ClientEntityCounts, TheHighestIndexRisesWithTheHighestBind)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell a = { 1 };
-	FakeClientShell b = { 2 };
-	FakeClientShell c = { 3 };
+	FakeClientShell a = {1};
+	FakeClientShell b = {2};
+	FakeClientShell c = {3};
 
-	ASSERT_TRUE( ClientBind( table, 10, 0, &a ) );
-	counts.OnBound( 10 );
-	EXPECT_EQ( 10, counts.HighestEntityIndex() );
+	ASSERT_TRUE(ClientBind(table, 10, 0, &a));
+	counts.OnBound(10);
+	EXPECT_EQ(10, counts.HighestEntityIndex());
 
 	// A LOWER entry does not lower it.
-	ASSERT_TRUE( ClientBind( table, 3, 0, &b ) );
-	counts.OnBound( 3 );
-	EXPECT_EQ( 10, counts.HighestEntityIndex() );
+	ASSERT_TRUE(ClientBind(table, 3, 0, &b));
+	counts.OnBound(3);
+	EXPECT_EQ(10, counts.HighestEntityIndex());
 
-	ASSERT_TRUE( ClientBind( table, 77, 0, &c ) );
-	counts.OnBound( 77 );
-	EXPECT_EQ( 77, counts.HighestEntityIndex() );
+	ASSERT_TRUE(ClientBind(table, 77, 0, &c));
+	counts.OnBound(77);
+	EXPECT_EQ(77, counts.HighestEntityIndex());
 }
 
 //-----------------------------------------------------------------------------
@@ -308,68 +308,68 @@ TEST( ClientEntityCounts, TheHighestIndexRisesWithTheHighestBind )
 // `--m_nHighestUsed` would have said 76, and the engine would then walk 74
 // empty indices every frame while reporting nothing wrong.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, RemovingTheHighestFallsToTheNextOccupiedEntryAndNotToOneLess )
+TEST(ClientEntityCounts, RemovingTheHighestFallsToTheNextOccupiedEntryAndNotToOneLess)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell a = { 1 };
-	FakeClientShell b = { 2 };
+	FakeClientShell a = {1};
+	FakeClientShell b = {2};
 
-	ASSERT_TRUE( ClientBind( table, 3, 0, &a ) );
-	counts.OnBound( 3 );
-	ASSERT_TRUE( ClientBind( table, 77, 0, &b ) );
-	counts.OnBound( 77 );
-	ASSERT_EQ( 77, counts.HighestEntityIndex() );
+	ASSERT_TRUE(ClientBind(table, 3, 0, &a));
+	counts.OnBound(3);
+	ASSERT_TRUE(ClientBind(table, 77, 0, &b));
+	counts.OnBound(77);
+	ASSERT_EQ(77, counts.HighestEntityIndex());
 
 	// The table first, then the counts -- the order the call site uses, and the
 	// order that matters: RecomputeHighest reads the table.
-	table.Unbind( 77 );
-	counts.OnUnbound( 77 );
+	table.Unbind(77);
+	counts.OnUnbound(77);
 
-	EXPECT_EQ( 3, counts.HighestEntityIndex() );
+	EXPECT_EQ(3, counts.HighestEntityIndex());
 }
 
 //-----------------------------------------------------------------------------
 // Removing something that is NOT the highest leaves the number alone.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, RemovingABelowTheTopEntityLeavesTheHighestAlone )
+TEST(ClientEntityCounts, RemovingABelowTheTopEntityLeavesTheHighestAlone)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell a = { 1 };
-	FakeClientShell b = { 2 };
+	FakeClientShell a = {1};
+	FakeClientShell b = {2};
 
-	ASSERT_TRUE( ClientBind( table, 3, 0, &a ) );
-	counts.OnBound( 3 );
-	ASSERT_TRUE( ClientBind( table, 77, 0, &b ) );
-	counts.OnBound( 77 );
+	ASSERT_TRUE(ClientBind(table, 3, 0, &a));
+	counts.OnBound(3);
+	ASSERT_TRUE(ClientBind(table, 77, 0, &b));
+	counts.OnBound(77);
 
-	table.Unbind( 3 );
-	counts.OnUnbound( 3 );
+	table.Unbind(3);
+	counts.OnUnbound(3);
 
-	EXPECT_EQ( 77, counts.HighestEntityIndex() );
+	EXPECT_EQ(77, counts.HighestEntityIndex());
 }
 
 //-----------------------------------------------------------------------------
 // Emptying the world takes it back to -1 rather than to 0.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, TheLastRemovalReturnsTheHighestToMinusOne )
+TEST(ClientEntityCounts, TheLastRemovalReturnsTheHighestToMinusOne)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell a = { 1 };
+	FakeClientShell a = {1};
 
-	ASSERT_TRUE( ClientBind( table, 0, 0, &a ) );
-	counts.OnBound( 0 );
-	ASSERT_EQ( 0, counts.HighestEntityIndex() );
+	ASSERT_TRUE(ClientBind(table, 0, 0, &a));
+	counts.OnBound(0);
+	ASSERT_EQ(0, counts.HighestEntityIndex());
 
-	table.Unbind( 0 );
-	counts.OnUnbound( 0 );
+	table.Unbind(0);
+	counts.OnUnbound(0);
 
-	EXPECT_EQ( -1, counts.HighestEntityIndex() );
+	EXPECT_EQ(-1, counts.HighestEntityIndex());
 }
 
 //-----------------------------------------------------------------------------
@@ -377,18 +377,18 @@ TEST( ClientEntityCounts, TheLastRemovalReturnsTheHighestToMinusOne )
 // treated index zero as "nothing" would report an empty world on every map --
 // the same defect entitylist_slot0_test.cpp exists to describe, one layer up.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, EntryZeroIsARealEntityForTheCountsToo )
+TEST(ClientEntityCounts, EntryZeroIsARealEntityForTheCountsToo)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell world = { 1 };
+	FakeClientShell world = {1};
 
-	ASSERT_TRUE( ClientBind( table, 0, 0, &world ) );
-	counts.OnBound( 0 );
+	ASSERT_TRUE(ClientBind(table, 0, 0, &world));
+	counts.OnBound(0);
 
-	EXPECT_EQ( 1, counts.NumberOfEntities( false ) );
-	EXPECT_EQ( 0, counts.HighestEntityIndex() );
+	EXPECT_EQ(1, counts.NumberOfEntities(false));
+	EXPECT_EQ(0, counts.HighestEntityIndex());
 }
 
 //-----------------------------------------------------------------------------
@@ -401,25 +401,25 @@ TEST( ClientEntityCounts, EntryZeroIsARealEntityForTheCountsToo )
 // engine has never heard of -- answering 5000 here sends that walk 2,952
 // entries past the end of an array.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, AnEntityAboveMaxEdictsDoesNotRaiseTheHighestIndex )
+TEST(ClientEntityCounts, AnEntityAboveMaxEdictsDoesNotRaiseTheHighestIndex)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell edict = { 1 };
-	FakeClientShell invisible = { 2 };
+	FakeClientShell edict = {1};
+	FakeClientShell invisible = {2};
 
-	ASSERT_TRUE( ClientBind( table, 6, 0, &edict ) );
-	counts.OnBound( 6 );
+	ASSERT_TRUE(ClientBind(table, 6, 0, &edict));
+	counts.OnBound(6);
 
 	const int nInvisible = MAX_EDICTS + 2952;
-	ASSERT_TRUE( CSourceSharpSlotTable::IsEntry( nInvisible ) );
-	ASSERT_FALSE( CSourceSharpSlotTable::IsEdictEntry( nInvisible ) );
+	ASSERT_TRUE(CSourceSharpSlotTable::IsEntry(nInvisible));
+	ASSERT_FALSE(CSourceSharpSlotTable::IsEdictEntry(nInvisible));
 
-	ASSERT_TRUE( ClientBind( table, nInvisible, 0, &invisible ) );
-	counts.OnBound( nInvisible );
+	ASSERT_TRUE(ClientBind(table, nInvisible, 0, &invisible));
+	counts.OnBound(nInvisible);
 
-	EXPECT_EQ( 6, counts.HighestEntityIndex() );
+	EXPECT_EQ(6, counts.HighestEntityIndex());
 }
 
 //-----------------------------------------------------------------------------
@@ -427,21 +427,21 @@ TEST( ClientEntityCounts, AnEntityAboveMaxEdictsDoesNotRaiseTheHighestIndex )
 // what the caller says when it means "everything", and stock's own split was
 // the same one (m_iNumServerEnts + m_iNumClientNonNetworkable).
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, TheEngineInvisibleRangeCountsOnlyWhenAskedFor )
+TEST(ClientEntityCounts, TheEngineInvisibleRangeCountsOnlyWhenAskedFor)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell edict = { 1 };
-	FakeClientShell invisible = { 2 };
+	FakeClientShell edict = {1};
+	FakeClientShell invisible = {2};
 
-	ASSERT_TRUE( ClientBind( table, 6, 0, &edict ) );
-	counts.OnBound( 6 );
-	ASSERT_TRUE( ClientBind( table, MAX_EDICTS + 1, 0, &invisible ) );
-	counts.OnBound( MAX_EDICTS + 1 );
+	ASSERT_TRUE(ClientBind(table, 6, 0, &edict));
+	counts.OnBound(6);
+	ASSERT_TRUE(ClientBind(table, MAX_EDICTS + 1, 0, &invisible));
+	counts.OnBound(MAX_EDICTS + 1);
 
-	EXPECT_EQ( 1, counts.NumberOfEntities( false ) );
-	EXPECT_EQ( 2, counts.NumberOfEntities( true ) );
+	EXPECT_EQ(1, counts.NumberOfEntities(false));
+	EXPECT_EQ(2, counts.NumberOfEntities(true));
 }
 
 //-----------------------------------------------------------------------------
@@ -450,18 +450,18 @@ TEST( ClientEntityCounts, TheEngineInvisibleRangeCountsOnlyWhenAskedFor )
 // thirteen wide (basehandle.h's "bug-submarining"), so a number outside the
 // array is a value that really arrives.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, AnEntryOutsideTheTableMovesNothing )
+TEST(ClientEntityCounts, AnEntryOutsideTheTableMovesNothing)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	counts.OnBound( -1 );
-	counts.OnBound( CSourceSharpSlotTable::EntryCount() );
-	counts.OnUnbound( -1 );
-	counts.OnUnbound( CSourceSharpSlotTable::EntryCount() );
+	counts.OnBound(-1);
+	counts.OnBound(CSourceSharpSlotTable::EntryCount());
+	counts.OnUnbound(-1);
+	counts.OnUnbound(CSourceSharpSlotTable::EntryCount());
 
-	EXPECT_EQ( -1, counts.HighestEntityIndex() );
-	EXPECT_EQ( 0, counts.NumberOfEntities( true ) );
+	EXPECT_EQ(-1, counts.HighestEntityIndex());
+	EXPECT_EQ(0, counts.NumberOfEntities(true));
 }
 
 //-----------------------------------------------------------------------------
@@ -474,23 +474,23 @@ TEST( ClientEntityCounts, AnEntryOutsideTheTableMovesNothing )
 // capacity, and a loop over 0..GetMaxEntities()-1 runs to it regardless of how
 // many entities exist.
 //-----------------------------------------------------------------------------
-TEST( ClientEntityCounts, MaxEntitiesIsWhatTheEngineSetAndNotHowManyExist )
+TEST(ClientEntityCounts, MaxEntitiesIsWhatTheEngineSetAndNotHowManyExist)
 {
 	CSourceSharpSlotTable table;
-	CClientEntityCounts counts( table );
+	CClientEntityCounts counts(table);
 
-	FakeClientShell a = { 1 };
+	FakeClientShell a = {1};
 
-	EXPECT_EQ( 0, counts.MaxEntities() );
+	EXPECT_EQ(0, counts.MaxEntities());
 
-	counts.SetMaxEntities( 1024 );
-	EXPECT_EQ( 1024, counts.MaxEntities() );
+	counts.SetMaxEntities(1024);
+	EXPECT_EQ(1024, counts.MaxEntities());
 
-	ASSERT_TRUE( ClientBind( table, 1, 0, &a ) );
-	counts.OnBound( 1 );
+	ASSERT_TRUE(ClientBind(table, 1, 0, &a));
+	counts.OnBound(1);
 
-	EXPECT_EQ( 1024, counts.MaxEntities() );
-	EXPECT_EQ( 1, counts.NumberOfEntities( false ) );
+	EXPECT_EQ(1024, counts.MaxEntities());
+	EXPECT_EQ(1, counts.NumberOfEntities(false));
 }
 
 //=============================================================================
@@ -517,16 +517,16 @@ TEST( ClientEntityCounts, MaxEntitiesIsWhatTheEngineSetAndNotHowManyExist )
 // sixteen facts with the block switched off.
 //=============================================================================
 
-#if defined( CLIENT_SLOT_TABLE_NOCOMPILE ) && CLIENT_SLOT_TABLE_NOCOMPILE == 1
+#if defined(CLIENT_SLOT_TABLE_NOCOMPILE) && CLIENT_SLOT_TABLE_NOCOMPILE == 1
 
 // The server has SourceSharp_SlotBind( entry, shell, edict ): bind and let the
 // table choose the serial. There is no client twin, and this asks for one.
-void ClientSlotTableProbe_ChoosesItsOwnSerial( CSourceSharpSlotTable &table, FakeClientShell *pShell )
+void ClientSlotTableProbe_ChoosesItsOwnSerial(CSourceSharpSlotTable& table, FakeClientShell* pShell)
 {
 	// Expected: 'Bind' is protected/absent to the client's declared surface --
 	// the table's own Bind exists, but the CLIENT WRAPPER that would let a shim
 	// TU reach it does not, and slot_table.h declares no such name.
-	SourceSharp_ClientSlotBind( 5, pShell );
+	SourceSharp_ClientSlotBind(5, pShell);
 	(void)table;
 }
 

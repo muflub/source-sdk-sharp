@@ -29,11 +29,11 @@
 #include "managed_convar_ref.h"
 
 // Whether the server simulates entities on even-numbered ticks only.
-static CManagedConVarRef sv_alternateticks( "sv_alternateticks" );
+static CManagedConVarRef sv_alternateticks("sv_alternateticks");
 
-bool EntitySim_IsSimulatingOnAlternateTicks( const CGlobalVars *pGlobals )
+bool EntitySim_IsSimulatingOnAlternateTicks(const CGlobalVars* pGlobals)
 {
-	if ( pGlobals->maxClients != 1 )
+	if (pGlobals->maxClients != 1)
 	{
 		return false;
 	}

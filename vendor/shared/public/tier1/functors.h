@@ -43,9 +43,9 @@
 #define FUNC_TEMPLATE_ARG_PARAMS_1 , typename ARG_TYPE_1
 #define FUNC_BASE_TEMPLATE_ARG_PARAMS_1 , ARG_TYPE_1
 #define FUNC_ARG_MEMBERS_1 ARG_TYPE_1 m_arg1
-#define FUNC_ARG_FORMAL_PARAMS_1 , const ARG_TYPE_1 &arg1
-#define FUNC_PROXY_ARG_FORMAL_PARAMS_1 const ARG_TYPE_1 &arg1
-#define FUNC_CALL_ARGS_INIT_1 , m_arg1( arg1 )
+#define FUNC_ARG_FORMAL_PARAMS_1 , const ARG_TYPE_1& arg1
+#define FUNC_PROXY_ARG_FORMAL_PARAMS_1 const ARG_TYPE_1& arg1
+#define FUNC_CALL_ARGS_INIT_1 , m_arg1(arg1)
 #define FUNC_CALL_MEMBER_ARGS_1 m_arg1
 #define FUNC_CALL_ARGS_1 arg1
 #define FUNC_FUNCTOR_CALL_ARGS_1 , arg1
@@ -59,7 +59,7 @@
 	ARG_TYPE_2 m_arg2
 #define FUNC_ARG_FORMAL_PARAMS_2 , const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2
 #define FUNC_PROXY_ARG_FORMAL_PARAMS_2 const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2
-#define FUNC_CALL_ARGS_INIT_2 , m_arg1( arg1 ), m_arg2( arg2 )
+#define FUNC_CALL_ARGS_INIT_2 , m_arg1(arg1), m_arg2(arg2)
 #define FUNC_CALL_MEMBER_ARGS_2 m_arg1, m_arg2
 #define FUNC_CALL_ARGS_2 arg1, arg2
 #define FUNC_FUNCTOR_CALL_ARGS_2 , arg1, arg2
@@ -74,7 +74,7 @@
 	ARG_TYPE_3 m_arg3
 #define FUNC_ARG_FORMAL_PARAMS_3 , const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3
 #define FUNC_PROXY_ARG_FORMAL_PARAMS_3 const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3
-#define FUNC_CALL_ARGS_INIT_3 , m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 )
+#define FUNC_CALL_ARGS_INIT_3 , m_arg1(arg1), m_arg2(arg2), m_arg3(arg3)
 #define FUNC_CALL_MEMBER_ARGS_3 m_arg1, m_arg2, m_arg3
 #define FUNC_CALL_ARGS_3 arg1, arg2, arg3
 #define FUNC_FUNCTOR_CALL_ARGS_3 , arg1, arg2, arg3
@@ -92,7 +92,7 @@
 	, const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3, const ARG_TYPE_4 &arg4
 #define FUNC_PROXY_ARG_FORMAL_PARAMS_4 \
 	const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3, const ARG_TYPE_4 &arg4
-#define FUNC_CALL_ARGS_INIT_4 , m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 )
+#define FUNC_CALL_ARGS_INIT_4 , m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4)
 #define FUNC_CALL_MEMBER_ARGS_4 m_arg1, m_arg2, m_arg3, m_arg4
 #define FUNC_CALL_ARGS_4 arg1, arg2, arg3, arg4
 #define FUNC_FUNCTOR_CALL_ARGS_4 , arg1, arg2, arg3, arg4
@@ -115,7 +115,7 @@
 #define FUNC_PROXY_ARG_FORMAL_PARAMS_5                                                              \
 	const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3, const ARG_TYPE_4 &arg4, \
 		const ARG_TYPE_5 &arg5
-#define FUNC_CALL_ARGS_INIT_5 , m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 )
+#define FUNC_CALL_ARGS_INIT_5 , m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5)
 #define FUNC_CALL_MEMBER_ARGS_5 m_arg1, m_arg2, m_arg3, m_arg4, m_arg5
 #define FUNC_CALL_ARGS_5 arg1, arg2, arg3, arg4, arg5
 #define FUNC_FUNCTOR_CALL_ARGS_5 , arg1, arg2, arg3, arg4, arg5
@@ -142,8 +142,7 @@
 #define FUNC_PROXY_ARG_FORMAL_PARAMS_6                                                              \
 	const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3, const ARG_TYPE_4 &arg4, \
 		const ARG_TYPE_5 &arg5, const ARG_TYPE_6 &arg6
-#define FUNC_CALL_ARGS_INIT_6 \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 )
+#define FUNC_CALL_ARGS_INIT_6 , m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6)
 #define FUNC_CALL_MEMBER_ARGS_6 m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6
 #define FUNC_CALL_ARGS_6 arg1, arg2, arg3, arg4, arg5, arg6
 #define FUNC_FUNCTOR_CALL_ARGS_6 , arg1, arg2, arg3, arg4, arg5, arg6
@@ -173,7 +172,7 @@
 	const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3, const ARG_TYPE_4 &arg4, \
 		const ARG_TYPE_5 &arg5, const ARG_TYPE_6 &arg6, const ARG_TYPE_7 &arg7
 #define FUNC_CALL_ARGS_INIT_7 \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 )
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7)
 #define FUNC_CALL_MEMBER_ARGS_7 m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7
 #define FUNC_CALL_ARGS_7 arg1, arg2, arg3, arg4, arg5, arg6, arg7
 #define FUNC_FUNCTOR_CALL_ARGS_7 , arg1, arg2, arg3, arg4, arg5, arg6, arg7
@@ -204,9 +203,8 @@
 #define FUNC_PROXY_ARG_FORMAL_PARAMS_8                                                              \
 	const ARG_TYPE_1 &arg1, const ARG_TYPE_2 &arg2, const ARG_TYPE_3 &arg3, const ARG_TYPE_4 &arg4, \
 		const ARG_TYPE_5 &arg5, const ARG_TYPE_6 &arg6, const ARG_TYPE_7 &arg7, const ARG_TYPE_8 &arg8
-#define FUNC_CALL_ARGS_INIT_8                                                                                         \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 ), \
-		m_arg8( arg8 )
+#define FUNC_CALL_ARGS_INIT_8 \
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7), m_arg8(arg8)
 #define FUNC_CALL_MEMBER_ARGS_8 m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7, m_arg8
 #define FUNC_CALL_ARGS_8 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8
 #define FUNC_FUNCTOR_CALL_ARGS_8 , arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8
@@ -241,8 +239,8 @@
 		const ARG_TYPE_5 &arg5, const ARG_TYPE_6 &arg6, const ARG_TYPE_7 &arg7, const ARG_TYPE_8 &arg8, \
 		const ARG_TYPE_9 &arg9
 #define FUNC_CALL_ARGS_INIT_9                                                                                         \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 ), \
-		m_arg8( arg8 ), m_arg9( arg9 )
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7), m_arg8(arg8), \
+		m_arg9(arg9)
 #define FUNC_CALL_MEMBER_ARGS_9 m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7, m_arg8, m_arg9
 #define FUNC_CALL_ARGS_9 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
 #define FUNC_FUNCTOR_CALL_ARGS_9 , arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9
@@ -280,8 +278,8 @@
 		const ARG_TYPE_5 &arg5, const ARG_TYPE_6 &arg6, const ARG_TYPE_7 &arg7, const ARG_TYPE_8 &arg8, \
 		const ARG_TYPE_9 &arg9, const ARG_TYPE_10 &arg10
 #define FUNC_CALL_ARGS_INIT_10                                                                                        \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 ), \
-		m_arg8( arg8 ), m_arg9( arg9 ), m_arg10( arg10 )
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7), m_arg8(arg8), \
+		m_arg9(arg9), m_arg10(arg10)
 #define FUNC_CALL_MEMBER_ARGS_10 m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7, m_arg8, m_arg9, m_arg10
 #define FUNC_CALL_ARGS_10 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10
 #define FUNC_FUNCTOR_CALL_ARGS_10 , arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10
@@ -321,8 +319,8 @@
 		const ARG_TYPE_5 &arg5, const ARG_TYPE_6 &arg6, const ARG_TYPE_7 &arg7, const ARG_TYPE_8 &arg8, \
 		const ARG_TYPE_9 &arg9, const ARG_TYPE_10 &arg10, const ARG_TYPE_11 &arg11
 #define FUNC_CALL_ARGS_INIT_11                                                                                        \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 ), \
-		m_arg8( arg8 ), m_arg9( arg9 ), m_arg10( arg10 ), m_arg11( arg11 )
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7), m_arg8(arg8), \
+		m_arg9(arg9), m_arg10(arg10), m_arg11(arg11)
 #define FUNC_CALL_MEMBER_ARGS_11 \
 	m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7, m_arg8, m_arg9, m_arg10, m_arg11
 #define FUNC_CALL_ARGS_11 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11
@@ -364,8 +362,8 @@
 		const ARG_TYPE_5 &arg5, const ARG_TYPE_6 &arg6, const ARG_TYPE_7 &arg7, const ARG_TYPE_8 &arg8, \
 		const ARG_TYPE_9 &arg9, const ARG_TYPE_10 &arg10, const ARG_TYPE_11 &arg11, const ARG_TYPE_12 &arg12
 #define FUNC_CALL_ARGS_INIT_12                                                                                        \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 ), \
-		m_arg8( arg8 ), m_arg9( arg9 ), m_arg10( arg10 ), m_arg11( arg11 ), m_arg12( arg12 )
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7), m_arg8(arg8), \
+		m_arg9(arg9), m_arg10(arg10), m_arg11(arg11), m_arg12(arg12)
 #define FUNC_CALL_MEMBER_ARGS_12 \
 	m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7, m_arg8, m_arg9, m_arg10, m_arg11, m_arg12
 #define FUNC_CALL_ARGS_12 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12
@@ -410,8 +408,8 @@
 		const ARG_TYPE_9 &arg9, const ARG_TYPE_10 &arg10, const ARG_TYPE_11 &arg11, const ARG_TYPE_12 &arg12, \
 		const ARG_TYPE_13 &arg13
 #define FUNC_CALL_ARGS_INIT_13                                                                                        \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 ), \
-		m_arg8( arg8 ), m_arg9( arg9 ), m_arg10( arg10 ), m_arg11( arg11 ), m_arg12( arg12 ), m_arg13( arg13 )
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7), m_arg8(arg8), \
+		m_arg9(arg9), m_arg10(arg10), m_arg11(arg11), m_arg12(arg12), m_arg13(arg13)
 #define FUNC_CALL_MEMBER_ARGS_13 \
 	m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7, m_arg8, m_arg9, m_arg10, m_arg11, m_arg12, m_arg13
 #define FUNC_CALL_ARGS_13 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13
@@ -459,9 +457,8 @@
 		const ARG_TYPE_9 &arg9, const ARG_TYPE_10 &arg10, const ARG_TYPE_11 &arg11, const ARG_TYPE_12 &arg12, \
 		const ARG_TYPE_13 &arg13, const ARG_TYPE_14 &arg14
 #define FUNC_CALL_ARGS_INIT_14                                                                                        \
-	, m_arg1( arg1 ), m_arg2( arg2 ), m_arg3( arg3 ), m_arg4( arg4 ), m_arg5( arg5 ), m_arg6( arg6 ), m_arg7( arg7 ), \
-		m_arg8( arg8 ), m_arg9( arg9 ), m_arg10( arg10 ), m_arg11( arg11 ), m_arg12( arg12 ), m_arg13( arg13 ),       \
-		m_arg14( arg14 )
+	, m_arg1(arg1), m_arg2(arg2), m_arg3(arg3), m_arg4(arg4), m_arg5(arg5), m_arg6(arg6), m_arg7(arg7), m_arg8(arg8), \
+		m_arg9(arg9), m_arg10(arg10), m_arg11(arg11), m_arg12(arg12), m_arg13(arg13), m_arg14(arg14)
 #define FUNC_CALL_MEMBER_ARGS_14 \
 	m_arg1, m_arg2, m_arg3, m_arg4, m_arg5, m_arg6, m_arg7, m_arg8, m_arg9, m_arg10, m_arg11, m_arg12, m_arg13, m_arg14
 #define FUNC_CALL_ARGS_14 arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11, arg12, arg13, arg14
@@ -477,22 +474,22 @@
 		FUNC_ARG_TYPE_7, FUNC_ARG_TYPE_8, FUNC_ARG_TYPE_9, FUNC_ARG_TYPE_10, FUNC_ARG_TYPE_11, FUNC_ARG_TYPE_12, \
 		FUNC_ARG_TYPE_13, FUNC_ARG_TYPE_14
 
-#define FUNC_GENERATE_ALL( INNERMACRONAME ) \
-	INNERMACRONAME( 0 );                    \
-	INNERMACRONAME( 1 );                    \
-	INNERMACRONAME( 2 );                    \
-	INNERMACRONAME( 3 );                    \
-	INNERMACRONAME( 4 );                    \
-	INNERMACRONAME( 5 );                    \
-	INNERMACRONAME( 6 );                    \
-	INNERMACRONAME( 7 );                    \
-	INNERMACRONAME( 8 );                    \
-	INNERMACRONAME( 9 );                    \
-	INNERMACRONAME( 10 );                   \
-	INNERMACRONAME( 11 );                   \
-	INNERMACRONAME( 12 );                   \
-	INNERMACRONAME( 13 );                   \
-	INNERMACRONAME( 14 )
+#define FUNC_GENERATE_ALL(INNERMACRONAME) \
+	INNERMACRONAME(0);                    \
+	INNERMACRONAME(1);                    \
+	INNERMACRONAME(2);                    \
+	INNERMACRONAME(3);                    \
+	INNERMACRONAME(4);                    \
+	INNERMACRONAME(5);                    \
+	INNERMACRONAME(6);                    \
+	INNERMACRONAME(7);                    \
+	INNERMACRONAME(8);                    \
+	INNERMACRONAME(9);                    \
+	INNERMACRONAME(10);                   \
+	INNERMACRONAME(11);                   \
+	INNERMACRONAME(12);                   \
+	INNERMACRONAME(13);                   \
+	INNERMACRONAME(14)
 
 // Purpose: Base class of all function objects
 
@@ -530,18 +527,18 @@ public:
 class CFuncMemPolicyNone
 {
 public:
-	static void OnAcquire( void *pObject ) {}
+	static void OnAcquire(void* pObject) {}
 
-	static void OnRelease( void *pObject ) {}
+	static void OnRelease(void* pObject) {}
 };
 
-template <class OBJECT_TYPE_PTR = IRefCounted *>
+template <class OBJECT_TYPE_PTR = IRefCounted*>
 class CFuncMemPolicyRefCount
 {
 public:
-	static void OnAcquire( OBJECT_TYPE_PTR pObject ) { pObject->AddRef(); }
+	static void OnAcquire(OBJECT_TYPE_PTR pObject) { pObject->AddRef(); }
 
-	static void OnRelease( OBJECT_TYPE_PTR pObject ) { pObject->Release(); }
+	static void OnRelease(OBJECT_TYPE_PTR pObject) { pObject->Release(); }
 };
 
 // Purpose: Function proxy is a generic facility for holding a function
@@ -552,315 +549,315 @@ template <class OBJECT_TYPE_PTR, typename FUNCTION_TYPE, class MEM_POLICY = CFun
 class CMemberFuncProxyBase
 {
 protected:
-	CMemberFuncProxyBase( OBJECT_TYPE_PTR pObject, FUNCTION_TYPE pfnProxied )
-		: m_pObject( pObject )
-		, m_pfnProxied( pfnProxied )
+	CMemberFuncProxyBase(OBJECT_TYPE_PTR pObject, FUNCTION_TYPE pfnProxied)
+		: m_pObject(pObject)
+		, m_pfnProxied(pfnProxied)
 	{
-		MEM_POLICY::OnAcquire( m_pObject );
+		MEM_POLICY::OnAcquire(m_pObject);
 	}
 
-	~CMemberFuncProxyBase() { MEM_POLICY::OnRelease( m_pObject ); }
+	~CMemberFuncProxyBase() { MEM_POLICY::OnRelease(m_pObject); }
 
-	void Set( OBJECT_TYPE_PTR pObject, FUNCTION_TYPE pfnProxied )
+	void Set(OBJECT_TYPE_PTR pObject, FUNCTION_TYPE pfnProxied)
 	{
 		m_pfnProxied = pfnProxied;
 		m_pObject = pObject;
 	}
 
-	void OnCall() { Assert( (void *)m_pObject != NULL ); }
+	void OnCall() { Assert((void*)m_pObject != NULL); }
 
 	FUNCTION_TYPE m_pfnProxied;
 	OBJECT_TYPE_PTR m_pObject;
 };
 
-#define DEFINE_MEMBER_FUNC_PROXY( N )                                                                   \
+#define DEFINE_MEMBER_FUNC_PROXY(N)                                                                     \
 	template <class OBJECT_TYPE_PTR, typename FUNCTION_TYPE FUNC_TEMPLATE_ARG_PARAMS_##N,               \
 			  class MEM_POLICY = CFuncMemPolicyNone>                                                    \
 	class CMemberFuncProxy##N : public CMemberFuncProxyBase<OBJECT_TYPE_PTR, FUNCTION_TYPE, MEM_POLICY> \
 	{                                                                                                   \
 	public:                                                                                             \
-		CMemberFuncProxy##N( OBJECT_TYPE_PTR pObject = NULL, FUNCTION_TYPE pfnProxied = NULL )          \
-			: CMemberFuncProxyBase<OBJECT_TYPE_PTR, FUNCTION_TYPE, MEM_POLICY>( pObject, pfnProxied )   \
+		CMemberFuncProxy##N(OBJECT_TYPE_PTR pObject = NULL, FUNCTION_TYPE pfnProxied = NULL)            \
+			: CMemberFuncProxyBase<OBJECT_TYPE_PTR, FUNCTION_TYPE, MEM_POLICY>(pObject, pfnProxied)     \
 		{                                                                                               \
 		}                                                                                               \
                                                                                                         \
-		void operator()( FUNC_PROXY_ARG_FORMAL_PARAMS_##N )                                             \
+		void operator()(FUNC_PROXY_ARG_FORMAL_PARAMS_##N)                                               \
 		{                                                                                               \
 			this->OnCall();                                                                             \
-			( ( *this->m_pObject ).*this->m_pfnProxied )( FUNC_CALL_ARGS_##N );                         \
+			((*this->m_pObject).*this->m_pfnProxied)(FUNC_CALL_ARGS_##N);                               \
 		}                                                                                               \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNC_PROXY );
+FUNC_GENERATE_ALL(DEFINE_MEMBER_FUNC_PROXY);
 
 // The actual functor implementation
 
 typedef CRefCounted1<CFunctor, CRefCountServiceMT> CFunctorBase;
 
-#define DEFINE_FUNCTOR_TEMPLATE( N )                                                              \
+#define DEFINE_FUNCTOR_TEMPLATE(N)                                                                \
 	template <typename FUNC_TYPE FUNC_TEMPLATE_ARG_PARAMS_##N, class FUNCTOR_BASE = CFunctorBase> \
 	class CFunctor##N : public CFunctorBase                                                       \
 	{                                                                                             \
 	public:                                                                                       \
-		CFunctor##N( FUNC_TYPE pfnProxied FUNC_ARG_FORMAL_PARAMS_##N )                            \
-			: m_pfnProxied( pfnProxied ) FUNC_CALL_ARGS_INIT_##N                                  \
+		CFunctor##N(FUNC_TYPE pfnProxied FUNC_ARG_FORMAL_PARAMS_##N)                              \
+			: m_pfnProxied(pfnProxied) FUNC_CALL_ARGS_INIT_##N                                    \
 		{                                                                                         \
 		}                                                                                         \
-		void operator()() { m_pfnProxied( FUNC_CALL_MEMBER_ARGS_##N ); }                          \
+		void operator()() { m_pfnProxied(FUNC_CALL_MEMBER_ARGS_##N); }                            \
                                                                                                   \
 	private:                                                                                      \
 		FUNC_TYPE m_pfnProxied;                                                                   \
 		FUNC_ARG_MEMBERS_##N;                                                                     \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_FUNCTOR_TEMPLATE );
+FUNC_GENERATE_ALL(DEFINE_FUNCTOR_TEMPLATE);
 
-#define DEFINE_MEMBER_FUNCTOR( N )                                                                                 \
+#define DEFINE_MEMBER_FUNCTOR(N)                                                                                   \
 	template <class OBJECT_TYPE_PTR, typename FUNCTION_TYPE FUNC_TEMPLATE_ARG_PARAMS_##N,                          \
 			  class FUNCTOR_BASE = CFunctorBase, class MEM_POLICY = CFuncMemPolicyNone>                            \
 	class CMemberFunctor##N : public FUNCTOR_BASE                                                                  \
 	{                                                                                                              \
 	public:                                                                                                        \
-		CMemberFunctor##N( OBJECT_TYPE_PTR pObject, FUNCTION_TYPE pfnProxied FUNC_ARG_FORMAL_PARAMS_##N )          \
-			: m_Proxy( pObject, pfnProxied ) FUNC_CALL_ARGS_INIT_##N                                               \
+		CMemberFunctor##N(OBJECT_TYPE_PTR pObject, FUNCTION_TYPE pfnProxied FUNC_ARG_FORMAL_PARAMS_##N)            \
+			: m_Proxy(pObject, pfnProxied) FUNC_CALL_ARGS_INIT_##N                                                 \
 		{                                                                                                          \
 		}                                                                                                          \
-		void operator()() { m_Proxy( FUNC_CALL_MEMBER_ARGS_##N ); }                                                \
+		void operator()() { m_Proxy(FUNC_CALL_MEMBER_ARGS_##N); }                                                  \
                                                                                                                    \
 	private:                                                                                                       \
 		CMemberFuncProxy##N<OBJECT_TYPE_PTR, FUNCTION_TYPE FUNC_BASE_TEMPLATE_ARG_PARAMS_##N, MEM_POLICY> m_Proxy; \
 		FUNC_ARG_MEMBERS_##N;                                                                                      \
 	};
 
-FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNCTOR );
+FUNC_GENERATE_ALL(DEFINE_MEMBER_FUNCTOR);
 
 // The real magic, letting the compiler figure out all the right template parameters
 
-#define DEFINE_NONMEMBER_FUNCTOR_FACTORY( N )                                                                      \
-	template <typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                \
-	inline CFunctor *CreateFunctor( FUNCTION_RETTYPE ( *pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )         \
-										FUNC_ARG_FORMAL_PARAMS_##N )                                               \
-	{                                                                                                              \
-		typedef FUNCTION_RETTYPE ( *Func_t )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N );                                \
-		return new CFunctor##N<Func_t FUNC_BASE_TEMPLATE_ARG_PARAMS_##N>( pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ); \
+#define DEFINE_NONMEMBER_FUNCTOR_FACTORY(N)                                                                      \
+	template <typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>              \
+	inline CFunctor* CreateFunctor(FUNCTION_RETTYPE (*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)            \
+									   FUNC_ARG_FORMAL_PARAMS_##N)                                               \
+	{                                                                                                            \
+		typedef FUNCTION_RETTYPE (*Func_t)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N);                                  \
+		return new CFunctor##N<Func_t FUNC_BASE_TEMPLATE_ARG_PARAMS_##N>(pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N); \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_NONMEMBER_FUNCTOR_FACTORY );
+FUNC_GENERATE_ALL(DEFINE_NONMEMBER_FUNCTOR_FACTORY);
 
-#define DEFINE_MEMBER_FUNCTOR_FACTORY( N )                                                                            \
+#define DEFINE_MEMBER_FUNCTOR_FACTORY(N)                                                                              \
 	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                      \
 			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                   \
-	inline CFunctor *CreateFunctor( OBJECT_TYPE_PTR pObject,                                                          \
-									FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                                 \
-										FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N )             \
+	inline CFunctor* CreateFunctor(OBJECT_TYPE_PTR pObject,                                                           \
+								   FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+									   FUNC_ARG_FORMAL_PARAMS_##N)                                                    \
 	{                                                                                                                 \
 		return new CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                 \
-									 FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )     \
-										 FUNC_BASE_TEMPLATE_ARG_PARAMS_##N>( pObject,                                 \
-																			 pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N ); \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)         \
+										 FUNC_BASE_TEMPLATE_ARG_PARAMS_##N>(pObject,                                  \
+																			pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);   \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNCTOR_FACTORY );
+FUNC_GENERATE_ALL(DEFINE_MEMBER_FUNCTOR_FACTORY);
 
-#define DEFINE_CONST_MEMBER_FUNCTOR_FACTORY( N )                                                                  \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                  \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>               \
-	inline CFunctor *CreateFunctor( OBJECT_TYPE_PTR pObject,                                                      \
-									FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                             \
-										FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) const FUNC_ARG_FORMAL_PARAMS_##N )   \
-	{                                                                                                             \
-		return new CMemberFunctor##N<OBJECT_TYPE_PTR,                                                             \
-									 FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
-										 const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N>(                                \
-			pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );                                                     \
+#define DEFINE_CONST_MEMBER_FUNCTOR_FACTORY(N)                                                                        \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                      \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                   \
+	inline CFunctor* CreateFunctor(OBJECT_TYPE_PTR pObject,                                                           \
+								   FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+									   const FUNC_ARG_FORMAL_PARAMS_##N)                                              \
+	{                                                                                                                 \
+		return new CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                 \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)         \
+										 const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N>(                                    \
+			pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);                                                          \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_CONST_MEMBER_FUNCTOR_FACTORY );
+FUNC_GENERATE_ALL(DEFINE_CONST_MEMBER_FUNCTOR_FACTORY);
 
-#define DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY( N )                                                              \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                     \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                  \
-	inline CFunctor *CreateRefCountingFunctor( OBJECT_TYPE_PTR pObject,                                              \
-											   FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                     \
-												   FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N ) \
-	{                                                                                                                \
-		return new CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                \
-									 FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )    \
-										 FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                          \
-									 CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(                                       \
-			pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );                                                        \
+#define DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY(N)                                                                  \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                       \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                    \
+	inline CFunctor* CreateRefCountingFunctor(                                                                         \
+		OBJECT_TYPE_PTR pObject,                                                                                       \
+		FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) FUNC_ARG_FORMAL_PARAMS_##N) \
+	{                                                                                                                  \
+		return new CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                  \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)          \
+										 FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                            \
+									 CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(pObject,                                 \
+																			  pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);  \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY );
+FUNC_GENERATE_ALL(DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY);
 
-#define DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY( N )                                                     \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                  \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>               \
-	inline CFunctor *CreateRefCountingFunctor(                                                                    \
-		OBJECT_TYPE_PTR pObject,                                                                                  \
-		FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )                    \
-			const FUNC_ARG_FORMAL_PARAMS_##N )                                                                    \
-	{                                                                                                             \
-		return new CMemberFunctor##N<OBJECT_TYPE_PTR,                                                             \
-									 FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
-										 const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                 \
-									 CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(                                    \
-			pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );                                                     \
+#define DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY(N)                                                           \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                      \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                   \
+	inline CFunctor* CreateRefCountingFunctor(                                                                        \
+		OBJECT_TYPE_PTR pObject,                                                                                      \
+		FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)                            \
+			const FUNC_ARG_FORMAL_PARAMS_##N)                                                                         \
+	{                                                                                                                 \
+		return new CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                 \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)         \
+										 const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                     \
+									 CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(pObject,                                \
+																			  pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N); \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY );
+FUNC_GENERATE_ALL(DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY);
 
 // Templates to assist early-out direct call code
 
-#define DEFINE_NONMEMBER_FUNCTOR_DIRECT( N )                                                              \
-	template <typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>       \
-	inline void FunctorDirectCall( FUNCTION_RETTYPE ( *pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
-									   FUNC_ARG_FORMAL_PARAMS_##N )                                       \
-	{                                                                                                     \
-		( *pfnProxied )( FUNC_CALL_ARGS_##N );                                                            \
+#define DEFINE_NONMEMBER_FUNCTOR_DIRECT(N)                                                           \
+	template <typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>  \
+	inline void FunctorDirectCall(FUNCTION_RETTYPE (*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+									  FUNC_ARG_FORMAL_PARAMS_##N)                                    \
+	{                                                                                                \
+		(*pfnProxied)(FUNC_CALL_ARGS_##N);                                                           \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_NONMEMBER_FUNCTOR_DIRECT );
+FUNC_GENERATE_ALL(DEFINE_NONMEMBER_FUNCTOR_DIRECT);
 
-#define DEFINE_MEMBER_FUNCTOR_DIRECT( N )                                                                \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                         \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>      \
-	inline void FunctorDirectCall( OBJECT_TYPE_PTR pObject,                                              \
-								   FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                     \
-									   FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N ) \
-	{                                                                                                    \
-		( ( *pObject ).*pfnProxied )( FUNC_CALL_ARGS_##N );                                              \
+#define DEFINE_MEMBER_FUNCTOR_DIRECT(N)                                                                              \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                     \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                  \
+	inline void FunctorDirectCall(OBJECT_TYPE_PTR pObject,                                                           \
+								  FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+									  FUNC_ARG_FORMAL_PARAMS_##N)                                                    \
+	{                                                                                                                \
+		((*pObject).*pfnProxied)(FUNC_CALL_ARGS_##N);                                                                \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNCTOR_DIRECT );
+FUNC_GENERATE_ALL(DEFINE_MEMBER_FUNCTOR_DIRECT);
 
-#define DEFINE_CONST_MEMBER_FUNCTOR_DIRECT( N )                                                                \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                               \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>            \
-	inline void FunctorDirectCall( OBJECT_TYPE_PTR pObject,                                                    \
-								   FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                           \
-									   FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) const FUNC_ARG_FORMAL_PARAMS_##N ) \
-	{                                                                                                          \
-		( ( *pObject ).*pfnProxied )( FUNC_CALL_ARGS_##N );                                                    \
+#define DEFINE_CONST_MEMBER_FUNCTOR_DIRECT(N)                                                                        \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                     \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                  \
+	inline void FunctorDirectCall(OBJECT_TYPE_PTR pObject,                                                           \
+								  FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+									  const FUNC_ARG_FORMAL_PARAMS_##N)                                              \
+	{                                                                                                                \
+		((*pObject).*pfnProxied)(FUNC_CALL_ARGS_##N);                                                                \
 	}
 
-FUNC_GENERATE_ALL( DEFINE_CONST_MEMBER_FUNCTOR_DIRECT );
+FUNC_GENERATE_ALL(DEFINE_CONST_MEMBER_FUNCTOR_DIRECT);
 
 // Factory class useable as templated traits
 
 class CDefaultFunctorFactory
 {
 public:
-	FUNC_GENERATE_ALL( DEFINE_NONMEMBER_FUNCTOR_FACTORY );
-	FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNCTOR_FACTORY );
-	FUNC_GENERATE_ALL( DEFINE_CONST_MEMBER_FUNCTOR_FACTORY );
-	FUNC_GENERATE_ALL( DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY );
-	FUNC_GENERATE_ALL( DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY );
+	FUNC_GENERATE_ALL(DEFINE_NONMEMBER_FUNCTOR_FACTORY);
+	FUNC_GENERATE_ALL(DEFINE_MEMBER_FUNCTOR_FACTORY);
+	FUNC_GENERATE_ALL(DEFINE_CONST_MEMBER_FUNCTOR_FACTORY);
+	FUNC_GENERATE_ALL(DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY);
+	FUNC_GENERATE_ALL(DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY);
 };
 
 template <class CAllocator, class CCustomFunctorBase = CFunctorBase>
 class CCustomizedFunctorFactory
 {
 public:
-	void SetAllocator( CAllocator *pAllocator ) { m_pAllocator = pAllocator; }
+	void SetAllocator(CAllocator* pAllocator) { m_pAllocator = pAllocator; }
 
-#define DEFINE_NONMEMBER_FUNCTOR_FACTORY_CUSTOM( N )                                                       \
-	template <typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>        \
-	inline CFunctor *CreateFunctor( FUNCTION_RETTYPE ( *pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
-										FUNC_ARG_FORMAL_PARAMS_##N )                                       \
-	{                                                                                                      \
-		typedef FUNCTION_RETTYPE ( *Func_t )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N );                        \
-		return new ( m_pAllocator->Alloc(                                                                  \
-			sizeof( CFunctor##N<Func_t FUNC_BASE_TEMPLATE_ARG_PARAMS_##N, CCustomFunctorBase> ) ) )        \
-			CFunctor##N<Func_t FUNC_BASE_TEMPLATE_ARG_PARAMS_##N, CCustomFunctorBase>(                     \
-				pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );                                                   \
+#define DEFINE_NONMEMBER_FUNCTOR_FACTORY_CUSTOM(N)                                                                  \
+	template <typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                 \
+	inline CFunctor* CreateFunctor(FUNCTION_RETTYPE (*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)               \
+									   FUNC_ARG_FORMAL_PARAMS_##N)                                                  \
+	{                                                                                                               \
+		typedef FUNCTION_RETTYPE (*Func_t)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N);                                     \
+		return new (                                                                                                \
+			m_pAllocator->Alloc(sizeof(CFunctor##N<Func_t FUNC_BASE_TEMPLATE_ARG_PARAMS_##N, CCustomFunctorBase>))) \
+			CFunctor##N<Func_t FUNC_BASE_TEMPLATE_ARG_PARAMS_##N, CCustomFunctorBase>(                              \
+				pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);                                                             \
 	}
 
-	FUNC_GENERATE_ALL( DEFINE_NONMEMBER_FUNCTOR_FACTORY_CUSTOM );
+	FUNC_GENERATE_ALL(DEFINE_NONMEMBER_FUNCTOR_FACTORY_CUSTOM);
 
-#define DEFINE_MEMBER_FUNCTOR_FACTORY_CUSTOM( N )                                                                  \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                   \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                \
-	inline CFunctor *CreateFunctor( OBJECT_TYPE_PTR pObject,                                                       \
-									FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                              \
-										FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N )          \
-	{                                                                                                              \
-		return new ( m_pAllocator->Alloc(                                                                          \
-			sizeof( CMemberFunctor##N<OBJECT_TYPE_PTR,                                                             \
-									  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
-										  FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                       \
-									  CCustomFunctorBase> ) ) )                                                    \
-			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                     \
-							  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )         \
-								  FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                               \
-							  CCustomFunctorBase>( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );               \
+#define DEFINE_MEMBER_FUNCTOR_FACTORY_CUSTOM(N)                                                                       \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                      \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                   \
+	inline CFunctor* CreateFunctor(OBJECT_TYPE_PTR pObject,                                                           \
+								   FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+									   FUNC_ARG_FORMAL_PARAMS_##N)                                                    \
+	{                                                                                                                 \
+		return new (m_pAllocator->Alloc(                                                                              \
+			sizeof(CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                 \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)         \
+										 FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                           \
+									 CCustomFunctorBase>)))                                                           \
+			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                        \
+							  FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)                \
+								  FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                                  \
+							  CCustomFunctorBase>(pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);                    \
 	}
 
-	FUNC_GENERATE_ALL( DEFINE_MEMBER_FUNCTOR_FACTORY_CUSTOM );
+	FUNC_GENERATE_ALL(DEFINE_MEMBER_FUNCTOR_FACTORY_CUSTOM);
 
-#define DEFINE_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM( N )                                                            \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                   \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                \
-	inline CFunctor *CreateFunctor( OBJECT_TYPE_PTR pObject,                                                       \
-									FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                              \
-										FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) const FUNC_ARG_FORMAL_PARAMS_##N )    \
-	{                                                                                                              \
-		return new ( m_pAllocator->Alloc(                                                                          \
-			sizeof( CMemberFunctor##N<OBJECT_TYPE_PTR,                                                             \
-									  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
-										  const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                 \
-									  CCustomFunctorBase> ) ) )                                                    \
-			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                     \
-							  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )         \
-								  const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                         \
-							  CCustomFunctorBase>( pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );               \
+#define DEFINE_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM(N)                                                                 \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                      \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                   \
+	inline CFunctor* CreateFunctor(OBJECT_TYPE_PTR pObject,                                                           \
+								   FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+									   const FUNC_ARG_FORMAL_PARAMS_##N)                                              \
+	{                                                                                                                 \
+		return new (m_pAllocator->Alloc(                                                                              \
+			sizeof(CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                 \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)         \
+										 const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                     \
+									 CCustomFunctorBase>)))                                                           \
+			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                        \
+							  FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)                \
+								  const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                            \
+							  CCustomFunctorBase>(pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);                    \
 	}
 
-	FUNC_GENERATE_ALL( DEFINE_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM );
+	FUNC_GENERATE_ALL(DEFINE_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM);
 
-#define DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY_CUSTOM( N )                                                       \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                     \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                  \
-	inline CFunctor *CreateRefCountingFunctor( OBJECT_TYPE_PTR pObject,                                              \
-											   FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )(                     \
-												   FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) FUNC_ARG_FORMAL_PARAMS_##N ) \
-	{                                                                                                                \
-		return new ( m_pAllocator->Alloc(                                                                            \
-			sizeof( CMemberFunctor##N<OBJECT_TYPE_PTR,                                                               \
-									  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )   \
-										  FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                         \
-									  CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>> ) ) )             \
-			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                       \
-							  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )           \
-								  FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                                 \
-							  CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(                          \
-				pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );                                                    \
+#define DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY_CUSTOM(N)                                                           \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                       \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                    \
+	inline CFunctor* CreateRefCountingFunctor(                                                                         \
+		OBJECT_TYPE_PTR pObject,                                                                                       \
+		FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) FUNC_ARG_FORMAL_PARAMS_##N) \
+	{                                                                                                                  \
+		return new (m_pAllocator->Alloc(                                                                               \
+			sizeof(CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                  \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)          \
+										 FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                            \
+									 CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>)))                   \
+			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                         \
+							  FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)                 \
+								  FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                                   \
+							  CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(                            \
+				pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);                                                       \
 	}
 
-	FUNC_GENERATE_ALL( DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY_CUSTOM );
+	FUNC_GENERATE_ALL(DEFINE_REF_COUNTING_MEMBER_FUNCTOR_FACTORY_CUSTOM);
 
-#define DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM( N )                                               \
-	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                                   \
-			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>                \
-	inline CFunctor *CreateRefCountingFunctor(                                                                     \
-		OBJECT_TYPE_PTR pObject,                                                                                   \
-		FUNCTION_RETTYPE ( FUNCTION_CLASS::*pfnProxied )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )                     \
-			const FUNC_ARG_FORMAL_PARAMS_##N )                                                                     \
-	{                                                                                                              \
-		return new ( m_pAllocator->Alloc(                                                                          \
-			sizeof( CMemberFunctor##N<OBJECT_TYPE_PTR,                                                             \
-									  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N ) \
-										  const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                 \
-									  CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>> ) ) )           \
-			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                     \
-							  FUNCTION_RETTYPE ( FUNCTION_CLASS::* )( FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N )         \
-								  const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                         \
-							  CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(                        \
-				pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N );                                                  \
+#define DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM(N)                                            \
+	template <typename OBJECT_TYPE_PTR, typename FUNCTION_CLASS,                                              \
+			  typename FUNCTION_RETTYPE FUNC_TEMPLATE_FUNC_PARAMS_##N FUNC_TEMPLATE_ARG_PARAMS_##N>           \
+	inline CFunctor* CreateRefCountingFunctor(                                                                \
+		OBJECT_TYPE_PTR pObject,                                                                              \
+		FUNCTION_RETTYPE (FUNCTION_CLASS::*pfnProxied)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)                    \
+			const FUNC_ARG_FORMAL_PARAMS_##N)                                                                 \
+	{                                                                                                         \
+		return new (m_pAllocator->Alloc(                                                                      \
+			sizeof(CMemberFunctor##N<OBJECT_TYPE_PTR,                                                         \
+									 FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N) \
+										 const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                             \
+									 CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>)))          \
+			CMemberFunctor##N<OBJECT_TYPE_PTR,                                                                \
+							  FUNCTION_RETTYPE (FUNCTION_CLASS::*)(FUNC_BASE_TEMPLATE_FUNC_PARAMS_##N)        \
+								  const FUNC_BASE_TEMPLATE_ARG_PARAMS_##N,                                    \
+							  CCustomFunctorBase, CFuncMemPolicyRefCount<OBJECT_TYPE_PTR>>(                   \
+				pObject, pfnProxied FUNC_FUNCTOR_CALL_ARGS_##N);                                              \
 	}
 
-	FUNC_GENERATE_ALL( DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM );
+	FUNC_GENERATE_ALL(DEFINE_REF_COUNTING_CONST_MEMBER_FUNCTOR_FACTORY_CUSTOM);
 
 private:
-	CAllocator *m_pAllocator;
+	CAllocator* m_pAllocator;
 };

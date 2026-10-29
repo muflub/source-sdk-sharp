@@ -31,16 +31,16 @@
 // NO_VOICE out on Linux and macOS; Valve's Windows engine renders through
 // DirectX and has no SDL, so there USE_SDL must be OUT (source_video_base.vpc
 // sets SDL only with GL). Checked before the headers, as command-line defines.
-#if defined( _WIN32 )
-#if defined( USE_SDL )
+#if defined(_WIN32)
+#if defined(USE_SDL)
 #error \
 	"SourceSharp: the shipped Windows engine is built without USE_SDL and this translation unit has it. Every IVEngineClient013 slot from 127 down would be called one too high."
 #endif
-#elif !defined( USE_SDL )
+#elif !defined(USE_SDL)
 #error \
 	"SourceSharp: the shipped engine is built with USE_SDL and this translation unit is not. Every IVEngineClient013 slot from 127 down would be called one too low."
 #endif
-#if defined( NO_VOICE )
+#if defined(NO_VOICE)
 #error \
 	"SourceSharp: the shipped engine is built with voice IN (NO_VOICE undefined) and this translation unit has NO_VOICE. Every IVEngineClient013 slot from 53 down would be called one too high."
 #endif
@@ -49,7 +49,7 @@
 // Steam callback's functions, are the generated file's own includes.
 #include "fwd_client.g.inc"
 
-SS_FWD_CLIENT_API const SSForwarderTable *SSFwdClient_Table( const char *pszName )
+SS_FWD_CLIENT_API const SSForwarderTable* SSFwdClient_Table(const char* pszName)
 {
-	return SSFwd_Find( s_ForwarderTables, pszName );
+	return SSFwd_Find(s_ForwarderTables, pszName);
 }

@@ -21,36 +21,36 @@ class C_BasePlayer;
 struct cplane_t;
 
 // No reflective glass exists on the client.
-bool IsReflectiveGlassInView( const CViewSetup &view, cplane_t &plane )
+bool IsReflectiveGlassInView(const CViewSetup& view, cplane_t& plane)
 {
 	return false;
 }
 
 // Converts between viewmodel-FOV space and world space; stock's arithmetic.
 // Live for particles attached to the managed viewmodel, so it must not stub.
-void FormatViewModelAttachment( Vector &vOrigin, bool bInverse )
+void FormatViewModelAttachment(Vector& vOrigin, bool bInverse)
 {
 	// Presumably, SetUpView has been called so we know our FOV and render origin.
-	const CViewSetup *pViewSetup = view->GetPlayerViewSetup();
+	const CViewSetup* pViewSetup = view->GetPlayerViewSetup();
 
-	float worldx = tan( pViewSetup->fov * M_PI / 360.0 );
-	float viewx = tan( pViewSetup->fovViewmodel * M_PI / 360.0 );
+	float worldx = tan(pViewSetup->fov * M_PI / 360.0);
+	float viewx = tan(pViewSetup->fovViewmodel * M_PI / 360.0);
 
 	// aspect ratio cancels out, so only need one factor
 	// the difference between the screen coordinates of the 2 systems is the ratio
 	// of the coefficients of the projection matrices (tan (fov/2) is that coefficient)
 	// NOTE: viewx was coming in as 0 when folks set their viewmodel_fov to 0 and show their weapon.
-	float factorX = viewx ? ( worldx / viewx ) : 0.0f;
+	float factorX = viewx ? (worldx / viewx) : 0.0f;
 	float factorY = factorX;
 
 	// Get the coordinates in the viewer's space.
 	Vector tmp = vOrigin - pViewSetup->origin;
-	Vector vTransformed( MainViewRight().Dot( tmp ), MainViewUp().Dot( tmp ), MainViewForward().Dot( tmp ) );
+	Vector vTransformed(MainViewRight().Dot(tmp), MainViewUp().Dot(tmp), MainViewForward().Dot(tmp));
 
 	// Now squash X and Y.
-	if ( bInverse )
+	if (bInverse)
 	{
-		if ( factorX != 0 && factorY != 0 )
+		if (factorX != 0 && factorY != 0)
 		{
 			vTransformed.x /= factorX;
 			vTransformed.y /= factorY;
@@ -68,7 +68,7 @@ void FormatViewModelAttachment( Vector &vOrigin, bool bInverse )
 	}
 
 	// Transform back to world space.
-	Vector vOut = ( MainViewRight() * vTransformed.x ) + ( MainViewUp() * vTransformed.y ) +
-		( MainViewForward() * vTransformed.z );
+	Vector vOut =
+		(MainViewRight() * vTransformed.x) + (MainViewUp() * vTransformed.y) + (MainViewForward() * vTransformed.z);
 	vOrigin = pViewSetup->origin + vOut;
 }

@@ -13,7 +13,7 @@
 class IClientEffect
 {
 public:
-	virtual void Cache( bool precache = true ) = 0;
+	virtual void Cache(bool precache = true) = 0;
 };
 
 // Responsible for managing precaching of particles
@@ -21,7 +21,7 @@ public:
 class CClientEffectPrecacheSystem : public IGameSystem
 {
 public:
-	virtual char const *Name() { return "CCLientEffectPrecacheSystem"; }
+	virtual char const* Name() { return "CCLientEffectPrecacheSystem"; }
 
 	virtual bool IsPerFrame() { return false; }
 
@@ -51,14 +51,14 @@ public:
 
 	virtual void SafeRemoveIfDesired() {}
 
-	void Register( IClientEffect *effect );
+	void Register(IClientEffect* effect);
 
 protected:
-	CUtlVector<IClientEffect *> m_Effects;
+	CUtlVector<IClientEffect*> m_Effects;
 };
 
 //Singleton accessor
-extern CClientEffectPrecacheSystem *ClientEffectPrecacheSystem();
+extern CClientEffectPrecacheSystem* ClientEffectPrecacheSystem();
 
 // Deals with automated registering and precaching of materials for effects
 
@@ -68,19 +68,19 @@ public:
 	CClientEffect()
 	{
 		//Register with the main effect system
-		ClientEffectPrecacheSystem()->Register( this );
+		ClientEffectPrecacheSystem()->Register(this);
 	}
 
 	// Purpose: Precache a material by artificially incrementing its reference counter
 	// Input  : *materialName - name of the material
 	//		  : increment - whether to increment or decrement the reference counter
 
-	inline void ReferenceMaterial( const char *materialName, bool increment = true )
+	inline void ReferenceMaterial(const char* materialName, bool increment = true)
 	{
-		IMaterial *material = materials->FindMaterial( materialName, TEXTURE_GROUP_CLIENT_EFFECTS );
-		if ( !IsErrorMaterial( material ) )
+		IMaterial* material = materials->FindMaterial(materialName, TEXTURE_GROUP_CLIENT_EFFECTS);
+		if (!IsErrorMaterial(material))
 		{
-			if ( increment )
+			if (increment)
 			{
 				material->IncrementReferenceCount();
 			}
@@ -95,31 +95,31 @@ public:
 //Automatic precache macros
 
 //Beginning
-#define CLIENTEFFECT_REGISTER_BEGIN( className )      \
+#define CLIENTEFFECT_REGISTER_BEGIN(className)        \
 	namespace className                               \
 	{                                                 \
 	class ClientEffectRegister : public CClientEffect \
 	{                                                 \
 	private:                                          \
-		static const char *m_pszMaterials[];          \
+		static const char* m_pszMaterials[];          \
                                                       \
 	public:                                           \
-		void Cache( bool precache = true );           \
+		void Cache(bool precache = true);             \
 	};                                                \
-	const char *ClientEffectRegister::m_pszMaterials[] = {
+	const char* ClientEffectRegister::m_pszMaterials[] = {
 //Material definitions
-#define CLIENTEFFECT_MATERIAL( materialName ) materialName,
+#define CLIENTEFFECT_MATERIAL(materialName) materialName,
 
 //End
-#define CLIENTEFFECT_REGISTER_END()                             \
-	}                                                           \
-	;                                                           \
-	void ClientEffectRegister::Cache( bool precache )           \
-	{                                                           \
-		for ( int i = 0; i < ARRAYSIZE( m_pszMaterials ); i++ ) \
-		{                                                       \
-			ReferenceMaterial( m_pszMaterials[i], precache );   \
-		}                                                       \
-	}                                                           \
-	ClientEffectRegister register_ClientEffectRegister;         \
+#define CLIENTEFFECT_REGISTER_END()                         \
+	}                                                       \
+	;                                                       \
+	void ClientEffectRegister::Cache(bool precache)         \
+	{                                                       \
+		for (int i = 0; i < ARRAYSIZE(m_pszMaterials); i++) \
+		{                                                   \
+			ReferenceMaterial(m_pszMaterials[i], precache); \
+		}                                                   \
+	}                                                       \
+	ClientEffectRegister register_ClientEffectRegister;     \
 	}

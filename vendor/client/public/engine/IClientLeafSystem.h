@@ -15,7 +15,7 @@ enum RenderGroup_t
 {
 	RENDER_GROUP_OPAQUE_STATIC_HUGE = 0, // Huge static prop
 	RENDER_GROUP_OPAQUE_ENTITY_HUGE = 1, // Huge opaque entity
-	RENDER_GROUP_OPAQUE_STATIC = RENDER_GROUP_OPAQUE_STATIC_HUGE + ( RENDER_GROUP_CFG_NUM_OPAQUE_ENT_BUCKETS - 1 ) * 2,
+	RENDER_GROUP_OPAQUE_STATIC = RENDER_GROUP_OPAQUE_STATIC_HUGE + (RENDER_GROUP_CFG_NUM_OPAQUE_ENT_BUCKETS - 1) * 2,
 	RENDER_GROUP_OPAQUE_ENTITY, // Opaque entity (smallest size, or default)
 
 	RENDER_GROUP_TRANSLUCENT_ENTITY,
@@ -39,8 +39,8 @@ abstract_class IClientLeafSystemEngine
 public:
 	// Adds and removes renderables from the leaf lists
 	// CreateRenderableHandle stores the handle inside pRenderable.
-	virtual void CreateRenderableHandle( IClientRenderable * pRenderable, bool bIsStaticProp = false ) = 0;
-	virtual void RemoveRenderable( ClientRenderHandle_t handle ) = 0;
-	virtual void AddRenderableToLeaves( ClientRenderHandle_t renderable, int nLeafCount, unsigned short *pLeaves ) = 0;
-	virtual void ChangeRenderableRenderGroup( ClientRenderHandle_t handle, RenderGroup_t group ) = 0;
+	virtual void CreateRenderableHandle(IClientRenderable * pRenderable, bool bIsStaticProp = false) = 0;
+	virtual void RemoveRenderable(ClientRenderHandle_t handle) = 0;
+	virtual void AddRenderableToLeaves(ClientRenderHandle_t renderable, int nLeafCount, unsigned short* pLeaves) = 0;
+	virtual void ChangeRenderableRenderGroup(ClientRenderHandle_t handle, RenderGroup_t group) = 0;
 };

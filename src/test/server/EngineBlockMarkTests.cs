@@ -164,7 +164,7 @@ public sealed class EngineBlockMarkTests
     {
         string body = FunctionBody(Read(ShellBase), PositionWrite);
 
-        Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1 )"));
+        Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1)"));
     }
 
     /// <summary>
@@ -178,12 +178,12 @@ public sealed class EngineBlockMarkTests
     {
         string body = FunctionBody(Read(ShellBase), "void CStandaloneEntity::SetAbsTransform(");
 
-        Assert.Contains("OnPositionChanged( vecPrevOrigin )", body);
+        Assert.Contains("OnPositionChanged(vecPrevOrigin)", body);
 
         // It announces NOTHING itself. Two announcing sites for one move is two
         // things to keep in step, and the op path would only run one of them.
         Assert.Equal(0, CountOutsideComments(body, "MarkBlockChanged("));
-        Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1 )"));
+        Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1)"));
     }
 
     [Fact]
@@ -207,7 +207,7 @@ public sealed class EngineBlockMarkTests
             string body = FunctionBody(file, setter);
 
             Assert.True(body.Contains("MarkBlockChanged("), $"{setter} announces nothing");
-            Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1 )"));
+            Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1)"));
         }
     }
 
@@ -218,8 +218,8 @@ public sealed class EngineBlockMarkTests
 
         // Exactly one edict mark, and it takes the field's offset (MarkEdictChanged with
         // -1 is the whole edict, CBaseEdict::StateChanged() as it was).
-        Assert.Equal(1, CountOutsideComments(body, "MarkEdictChanged( Context(), m_pEdict, BlockBase() + nBlockOffset )"));
-        Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1 )"));
+        Assert.Equal(1, CountOutsideComments(body, "MarkEdictChanged(Context(), m_pEdict, BlockBase() + nBlockOffset)"));
+        Assert.Equal(0, CountOutsideComments(body, "m_pEdict, -1)"));
 
         // And it is not a loop. A helper that walked the field's bytes in
         // four-byte words would still mark "the origin offset" -- and two more

@@ -23,10 +23,10 @@ enum
 	FX_ENERGYSPLASH_DEFAULT_EXPLOSIVE = ~0,
 };
 
-void FX_TracerSound( const Vector &start, const Vector &end, int iTracerType );
+void FX_TracerSound(const Vector& start, const Vector& end, int iTracerType);
 
 // Lighting information utility
-void UTIL_GetNormalizedColorTintAndLuminosity( const Vector &color, Vector *tint = NULL, float *luminosity = NULL );
+void UTIL_GetNormalizedColorTintAndLuminosity(const Vector& color, Vector* tint = NULL, float* luminosity = NULL);
 
 extern void FX_CacheMaterialHandles();
 

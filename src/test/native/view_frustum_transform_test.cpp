@@ -13,28 +13,28 @@ const float kMatrix[16] = {
 };
 } // namespace
 
-TEST( ViewFrustumTransform, APointInFrontIsDividedByW )
+TEST(ViewFrustumTransform, APointInFrontIsDividedByW)
 {
-	const float p[3] = { 4, 6, 1 };
-	float s[3] = { 9, 9, 9 };
-	EXPECT_EQ( 0, ViewFrustumTransform( kMatrix, p, s ) );
-	EXPECT_FLOAT_EQ( 2.0f, s[0] );
-	EXPECT_FLOAT_EQ( 3.0f, s[1] );
-	EXPECT_FLOAT_EQ( 0.0f, s[2] );
+	const float p[3] = {4, 6, 1};
+	float s[3] = {9, 9, 9};
+	EXPECT_EQ(0, ViewFrustumTransform(kMatrix, p, s));
+	EXPECT_FLOAT_EQ(2.0f, s[0]);
+	EXPECT_FLOAT_EQ(3.0f, s[1]);
+	EXPECT_FLOAT_EQ(0.0f, s[2]);
 }
 
-TEST( ViewFrustumTransform, APointBehindIsPushedFarOffScreen )
+TEST(ViewFrustumTransform, APointBehindIsPushedFarOffScreen)
 {
-	const float p[3] = { 1, -2, -3 };
+	const float p[3] = {1, -2, -3};
 	float s[3];
-	EXPECT_EQ( 1, ViewFrustumTransform( kMatrix, p, s ) );
-	EXPECT_FLOAT_EQ( 100000.0f, s[0] );
-	EXPECT_FLOAT_EQ( -200000.0f, s[1] );
+	EXPECT_EQ(1, ViewFrustumTransform(kMatrix, p, s));
+	EXPECT_FLOAT_EQ(100000.0f, s[0]);
+	EXPECT_FLOAT_EQ(-200000.0f, s[1]);
 }
 
-TEST( ViewFrustumTransform, WJustUnderTheEpsilonIsBehind )
+TEST(ViewFrustumTransform, WJustUnderTheEpsilonIsBehind)
 {
-	const float p[3] = { 1, 1, 0.0009f - 1.0f };
+	const float p[3] = {1, 1, 0.0009f - 1.0f};
 	float s[3];
-	EXPECT_EQ( 1, ViewFrustumTransform( kMatrix, p, s ) );
+	EXPECT_EQ(1, ViewFrustumTransform(kMatrix, p, s));
 }

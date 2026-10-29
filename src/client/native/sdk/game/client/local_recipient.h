@@ -12,9 +12,9 @@
 
 // nLocalSlot is the engine's GetLocalPlayer(), zero or negative before there is a viewer;
 // a filter holds nobody then.
-inline bool LocalRecipient_ShouldHold( int nSlot, int nLocalSlot )
+inline bool LocalRecipient_ShouldHold(int nSlot, int nLocalSlot)
 {
-	if ( nSlot < 1 || nLocalSlot < 1 )
+	if (nSlot < 1 || nLocalSlot < 1)
 		return false;
 
 	return nSlot == nLocalSlot;

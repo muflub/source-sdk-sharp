@@ -14,12 +14,12 @@
 
 // nPlayerMoveType is read only for a player, nHeldMoveType only with a physics
 // object. MOVETYPE_* and SOURCESHARP_MOVETYPE_* share their numbers.
-inline int32_t StandaloneMoveType_Report( bool bIsPlayer, int nPlayerMoveType, bool bHasPhysics, int nHeldMoveType )
+inline int32_t StandaloneMoveType_Report(bool bIsPlayer, int nPlayerMoveType, bool bHasPhysics, int nHeldMoveType)
 {
-	if ( bIsPlayer )
+	if (bIsPlayer)
 		return (int32_t)nPlayerMoveType;
 
-	if ( bHasPhysics )
+	if (bHasPhysics)
 		return (int32_t)nHeldMoveType;
 
 	return SOURCESHARP_MOVETYPE_NONE;

@@ -33,9 +33,9 @@ inline Vec3 VecZero()
 
 // A vector from the wire, or the origin when the pointer is absent, as stock reads a NULL
 // endpoint. Callers that must not accept NULL check the pointer themselves.
-inline Vec3 VecFrom( const float *p )
+inline Vec3 VecFrom(const float* p)
 {
-	if ( !p )
+	if (!p)
 		return VecZero();
 
 	Vec3 v;
@@ -93,48 +93,48 @@ inline EffectRequest EffectRequestZero()
 
 // Electric sparks. The direction stays optional: a NULL is a spark with no preferred
 // direction, not one aimed at a zero vector.
-inline EffectRequest Sparks( const float *pPositionXYZ, int nMagnitude, int nTrailLength, const float *pDirectionXYZ )
+inline EffectRequest Sparks(const float* pPositionXYZ, int nMagnitude, int nTrailLength, const float* pDirectionXYZ)
 {
 	EffectRequest req = EffectRequestZero();
 
-	if ( !pPositionXYZ )
+	if (!pPositionXYZ)
 		return req;
 
 	req.bDraw = true;
-	req.vecPosition = VecFrom( pPositionXYZ );
+	req.vecPosition = VecFrom(pPositionXYZ);
 	req.nMagnitude = nMagnitude;
 	req.nTrailLength = nTrailLength;
-	req.bHasDirection = ( pDirectionXYZ != 0 );
-	req.vecDirection = VecFrom( pDirectionXYZ );
+	req.bHasDirection = (pDirectionXYZ != 0);
+	req.vecDirection = VecFrom(pDirectionXYZ);
 
 	return req;
 }
 
 // Ricochet and MetalSparks: a position and a direction.
-inline EffectRequest PositionAndDirection( const float *pPositionXYZ, const float *pDirectionXYZ )
+inline EffectRequest PositionAndDirection(const float* pPositionXYZ, const float* pDirectionXYZ)
 {
 	EffectRequest req = EffectRequestZero();
 
-	if ( !pPositionXYZ || !pDirectionXYZ )
+	if (!pPositionXYZ || !pDirectionXYZ)
 		return req;
 
 	req.bDraw = true;
-	req.vecPosition = VecFrom( pPositionXYZ );
+	req.vecPosition = VecFrom(pPositionXYZ);
 	req.bHasDirection = true;
-	req.vecDirection = VecFrom( pDirectionXYZ );
+	req.vecDirection = VecFrom(pDirectionXYZ);
 
 	return req;
 }
 
-inline EffectRequest Smoke( const float *pOriginXYZ, int nModelIndex, float flScale, float flFrameRate )
+inline EffectRequest Smoke(const float* pOriginXYZ, int nModelIndex, float flScale, float flFrameRate)
 {
 	EffectRequest req = EffectRequestZero();
 
-	if ( !pOriginXYZ )
+	if (!pOriginXYZ)
 		return req;
 
 	req.bDraw = true;
-	req.vecPosition = VecFrom( pOriginXYZ );
+	req.vecPosition = VecFrom(pOriginXYZ);
 	req.nModelIndex = nModelIndex;
 	req.flScale = flScale;
 	req.flFrameRate = flFrameRate;
@@ -143,16 +143,16 @@ inline EffectRequest Smoke( const float *pOriginXYZ, int nModelIndex, float flSc
 }
 
 // A muzzle flash. The angles are required.
-inline EffectRequest MuzzleFlash( const float *pOriginXYZ, const float *pAnglesPYR, float flScale, int nType )
+inline EffectRequest MuzzleFlash(const float* pOriginXYZ, const float* pAnglesPYR, float flScale, int nType)
 {
 	EffectRequest req = EffectRequestZero();
 
-	if ( !pOriginXYZ || !pAnglesPYR )
+	if (!pOriginXYZ || !pAnglesPYR)
 		return req;
 
 	req.bDraw = true;
-	req.vecPosition = VecFrom( pOriginXYZ );
-	req.vecAngles = VecFrom( pAnglesPYR );
+	req.vecPosition = VecFrom(pOriginXYZ);
+	req.vecAngles = VecFrom(pAnglesPYR);
 	req.flScale = flScale;
 	req.nType = nType;
 
@@ -195,20 +195,20 @@ inline DecalRequest DecalRequestZero()
 
 // A decal on the world, a brush model or a static prop. A negative decal index (an unknown
 // name's -1) or entity index is refused: DecalShoot would index below zero.
-inline DecalRequest DecalShoot( int nDecalIndex, int nEntity, const float *pPositionXYZ, const float *pSAxisXYZ,
-								int nFlags )
+inline DecalRequest DecalShoot(int nDecalIndex, int nEntity, const float* pPositionXYZ, const float* pSAxisXYZ,
+							   int nFlags)
 {
 	DecalRequest req = DecalRequestZero();
 
-	if ( !pPositionXYZ || nDecalIndex < 0 || nEntity < 0 )
+	if (!pPositionXYZ || nDecalIndex < 0 || nEntity < 0)
 		return req;
 
 	req.bDraw = true;
 	req.nDecalIndex = nDecalIndex;
 	req.nEntity = nEntity;
-	req.vecPosition = VecFrom( pPositionXYZ );
-	req.bHasSAxis = ( pSAxisXYZ != 0 );
-	req.vecSAxis = VecFrom( pSAxisXYZ );
+	req.vecPosition = VecFrom(pPositionXYZ);
+	req.bHasSAxis = (pSAxisXYZ != 0);
+	req.vecSAxis = VecFrom(pSAxisXYZ);
 	req.nFlags = nFlags;
 
 	return req;
@@ -241,18 +241,18 @@ inline StaticPropDecalRequest StaticPropDecalRequestZero()
 	return req;
 }
 
-inline StaticPropDecalRequest DecalStaticProp( const float *pStartXYZ, const float *pEndXYZ, int nStaticPropIndex,
-											   int nDecalIndex )
+inline StaticPropDecalRequest DecalStaticProp(const float* pStartXYZ, const float* pEndXYZ, int nStaticPropIndex,
+											  int nDecalIndex)
 {
 	StaticPropDecalRequest req = StaticPropDecalRequestZero();
 
 	// Both points are dereferenced unchecked, and a negative index would underflow the array.
-	if ( !pStartXYZ || !pEndXYZ || nStaticPropIndex < 0 || nDecalIndex < 0 )
+	if (!pStartXYZ || !pEndXYZ || nStaticPropIndex < 0 || nDecalIndex < 0)
 		return req;
 
 	req.bDraw = true;
-	req.vecStart = VecFrom( pStartXYZ );
-	req.vecEnd = VecFrom( pEndXYZ );
+	req.vecStart = VecFrom(pStartXYZ);
+	req.vecEnd = VecFrom(pEndXYZ);
 	req.nStaticPropIndex = nStaticPropIndex;
 	req.nDecalIndex = nDecalIndex;
 
@@ -282,16 +282,16 @@ inline TraceLineRequest TraceLineRequestZero()
 	return req;
 }
 
-inline TraceLineRequest TraceLineArgs( const float *pStartXYZ, const float *pEndXYZ, int nMask )
+inline TraceLineRequest TraceLineArgs(const float* pStartXYZ, const float* pEndXYZ, int nMask)
 {
 	TraceLineRequest req = TraceLineRequestZero();
 
-	if ( !pStartXYZ || !pEndXYZ )
+	if (!pStartXYZ || !pEndXYZ)
 		return req;
 
 	req.bTrace = true;
-	req.vecStart = VecFrom( pStartXYZ );
-	req.vecEnd = VecFrom( pEndXYZ );
+	req.vecStart = VecFrom(pStartXYZ);
+	req.vecEnd = VecFrom(pEndXYZ);
 	req.nMask = nMask;
 
 	return req;
@@ -318,7 +318,7 @@ struct TraceAnswer
 	int nSurfaceFlags;
 };
 
-inline TraceAnswer TraceAnswerMiss( const Vec3 &vecEnd )
+inline TraceAnswer TraceAnswerMiss(const Vec3& vecEnd)
 {
 	TraceAnswer ans;
 
@@ -336,36 +336,36 @@ inline TraceAnswer TraceAnswerMiss( const Vec3 &vecEnd )
 }
 
 // The answer into whichever out pointers the caller supplied; every one may be NULL.
-inline int WriteTraceOuts( const TraceAnswer &ans, float *pOutFraction, float *pOutEndXYZ, float *pOutNormalXYZ,
-						   int *pOutHitbox, int *pOutEntityIndex, int *pOutSurfaceProps, int *pOutSurfaceFlags )
+inline int WriteTraceOuts(const TraceAnswer& ans, float* pOutFraction, float* pOutEndXYZ, float* pOutNormalXYZ,
+						  int* pOutHitbox, int* pOutEntityIndex, int* pOutSurfaceProps, int* pOutSurfaceFlags)
 {
-	if ( pOutFraction )
+	if (pOutFraction)
 		*pOutFraction = ans.flFraction;
 
-	if ( pOutEndXYZ )
+	if (pOutEndXYZ)
 	{
 		pOutEndXYZ[0] = ans.vecEnd.x;
 		pOutEndXYZ[1] = ans.vecEnd.y;
 		pOutEndXYZ[2] = ans.vecEnd.z;
 	}
 
-	if ( pOutNormalXYZ )
+	if (pOutNormalXYZ)
 	{
 		pOutNormalXYZ[0] = ans.vecNormal.x;
 		pOutNormalXYZ[1] = ans.vecNormal.y;
 		pOutNormalXYZ[2] = ans.vecNormal.z;
 	}
 
-	if ( pOutHitbox )
+	if (pOutHitbox)
 		*pOutHitbox = ans.nHitbox;
 
-	if ( pOutEntityIndex )
+	if (pOutEntityIndex)
 		*pOutEntityIndex = ans.nEntityIndex;
 
-	if ( pOutSurfaceProps )
+	if (pOutSurfaceProps)
 		*pOutSurfaceProps = ans.nSurfaceProps;
 
-	if ( pOutSurfaceFlags )
+	if (pOutSurfaceFlags)
 		*pOutSurfaceFlags = ans.nSurfaceFlags;
 
 	return ans.bHit ? 1 : 0;
@@ -373,19 +373,19 @@ inline int WriteTraceOuts( const TraceAnswer &ans, float *pOutFraction, float *p
 
 // A name into a caller's buffer. Returns the length written without the terminator, 0
 // for nothing; truncation shows in the length. An empty name is 0, not an empty string.
-inline int CopyName( const char *pName, char *pOut, int nOutSize )
+inline int CopyName(const char* pName, char* pOut, int nOutSize)
 {
-	if ( !pOut || nOutSize <= 0 )
+	if (!pOut || nOutSize <= 0)
 		return 0;
 
 	pOut[0] = '\0';
 
-	if ( !pName || !pName[0] )
+	if (!pName || !pName[0])
 		return 0;
 
 	int n = 0;
 
-	while ( pName[n] && n < nOutSize - 1 )
+	while (pName[n] && n < nOutSize - 1)
 	{
 		pOut[n] = pName[n];
 		n++;
@@ -425,20 +425,20 @@ inline StudioDecalRequest StudioDecalRequestZero()
 	return req;
 }
 
-inline StudioDecalRequest DecalStudioModel( int nEntity, const float *pRayStartXYZ, const float *pRayDeltaXYZ,
-											int nDecalIndex )
+inline StudioDecalRequest DecalStudioModel(int nEntity, const float* pRayStartXYZ, const float* pRayDeltaXYZ,
+										   int nDecalIndex)
 {
 	StudioDecalRequest req = StudioDecalRequestZero();
 
 	// Both points are dereferenced unchecked and a negative decal index would underflow.
 	// Entity 0 is allowed; which arm the world reaches is decided elsewhere.
-	if ( !pRayStartXYZ || !pRayDeltaXYZ || nEntity < 0 || nDecalIndex < 0 )
+	if (!pRayStartXYZ || !pRayDeltaXYZ || nEntity < 0 || nDecalIndex < 0)
 		return req;
 
 	req.bDraw = true;
 	req.nEntity = nEntity;
-	req.vecStart = VecFrom( pRayStartXYZ );
-	req.vecDelta = VecFrom( pRayDeltaXYZ );
+	req.vecStart = VecFrom(pRayStartXYZ);
+	req.vecDelta = VecFrom(pRayDeltaXYZ);
 	req.nDecalIndex = nDecalIndex;
 
 	return req;
@@ -468,17 +468,17 @@ inline BrushDecalRequest BrushDecalRequestZero()
 	return req;
 }
 
-inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenterXYZ, int nDecalIndex )
+inline BrushDecalRequest DecalBrushModel(int nEntity, const float* pDecalCenterXYZ, int nDecalIndex)
 {
 	BrushDecalRequest req = BrushDecalRequestZero();
 
 	// Entity 0 is the world and is drawn; do not tighten this to > 0.
-	if ( !pDecalCenterXYZ || nEntity < 0 || nDecalIndex < 0 )
+	if (!pDecalCenterXYZ || nEntity < 0 || nDecalIndex < 0)
 		return req;
 
 	req.bDraw = true;
 	req.nEntity = nEntity;
-	req.vecCenter = VecFrom( pDecalCenterXYZ );
+	req.vecCenter = VecFrom(pDecalCenterXYZ);
 	req.nDecalIndex = nDecalIndex;
 
 	return req;
@@ -490,15 +490,15 @@ inline BrushDecalRequest DecalBrushModel( int nEntity, const float *pDecalCenter
 const int kClipSolidNone = 0; // SOLID_NONE
 const int kClipNotSolid = 0x0004; // FSOLID_NOT_SOLID
 
-inline bool ClipCandidateIsSolid( int nSolidType, int nSolidFlags )
+inline bool ClipCandidateIsSolid(int nSolidType, int nSolidFlags)
 {
-	return nSolidType != kClipSolidNone && ( nSolidFlags & kClipNotSolid ) == 0;
+	return nSolidType != kClipSolidNone && (nSolidFlags & kClipNotSolid) == 0;
 }
 
 // A clip that stopped, or began inside the entity, and is strictly nearer than the best.
-inline bool ClipIsNearer( float flFraction, bool bStartSolid, float flBestFraction )
+inline bool ClipIsNearer(float flFraction, bool bStartSolid, float flBestFraction)
 {
-	return ( flFraction < 1.0f || bStartSolid ) && flFraction < flBestFraction;
+	return (flFraction < 1.0f || bStartSolid) && flFraction < flBestFraction;
 }
 
 } // namespace TeBackendArgs

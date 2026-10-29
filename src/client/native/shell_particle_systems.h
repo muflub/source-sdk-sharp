@@ -15,14 +15,14 @@ enum
 #define SOURCESHARP_PARTICLE_NO_OWNER 0xFFFFFFFFu
 
 // An impact's one-shot, watched (not held) so the dev API lists it.
-void ShellParticles_WatchOneShot( CShellNewParticleEffect *pEffect );
+void ShellParticles_WatchOneShot(CShellNewParticleEffect* pEffect);
 
 // Called from the sprite system's PreRender and LevelShutdownPostEntity.
 void ShellParticles_PreRender();
 
 // The old-style particle manager's per-frame calls: Simulate's update, the
 // view's frame code, and PostRender.
-void ShellParticles_Frame( float flFrameTime );
+void ShellParticles_Frame(float flFrameTime);
 void ShellParticles_FrameCode();
 void ShellParticles_PostRender();
 void ShellParticles_LevelShutdown();

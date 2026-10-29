@@ -19,7 +19,7 @@
 class CFakeGameEvent : public IGameEvent
 {
 public:
-	const char *GetName() const override { return {}; }
+	const char* GetName() const override { return {}; }
 
 	bool IsReliable() const override { return {}; }
 
@@ -27,21 +27,21 @@ public:
 
 	void unused_IsEmpty() override {}
 
-	bool GetBool( const char *keyName = NULL, bool defaultValue = false ) const override { return {}; }
+	bool GetBool(const char* keyName = NULL, bool defaultValue = false) const override { return {}; }
 
-	int GetInt( const char *keyName = NULL, int defaultValue = 0 ) const override { return {}; }
+	int GetInt(const char* keyName = NULL, int defaultValue = 0) const override { return {}; }
 
-	float GetFloat( const char *keyName = NULL, float defaultValue = 0.0f ) const override { return {}; }
+	float GetFloat(const char* keyName = NULL, float defaultValue = 0.0f) const override { return {}; }
 
-	const char *GetString( const char *keyName = NULL, const char *defaultValue = "" ) const override { return {}; }
+	const char* GetString(const char* keyName = NULL, const char* defaultValue = "") const override { return {}; }
 
-	void SetBool( const char *keyName, bool value ) override {}
+	void SetBool(const char* keyName, bool value) override {}
 
-	void SetInt( const char *keyName, int value ) override {}
+	void SetInt(const char* keyName, int value) override {}
 
-	void SetFloat( const char *keyName, float value ) override {}
+	void SetFloat(const char* keyName, float value) override {}
 
-	void SetString( const char *keyName, const char *value ) override {}
+	void SetString(const char* keyName, const char* value) override {}
 
 	void unused_GetUint64() override {}
 
@@ -49,11 +49,11 @@ public:
 
 	void unused_GetPtr() override {}
 
-	void SetUint64( const char *keyName, uint64 value ) override {}
+	void SetUint64(const char* keyName, uint64 value) override {}
 
 	void unused_SetWString() override {}
 
-	void SetPtr( const char *keyName, const void *value ) override {}
+	void SetPtr(const char* keyName, const void* value) override {}
 
 	void unused_GetDataKeys() override {}
 

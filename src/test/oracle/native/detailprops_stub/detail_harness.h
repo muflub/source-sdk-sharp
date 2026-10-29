@@ -64,7 +64,7 @@ int ss_detail_rand();
 #include "bsptreedata.h"
 #include "datamap.h"
 
-#define DECLARE_CLASS_NOBASE( className ) typedef className ThisClass;
+#define DECLARE_CLASS_NOBASE(className) typedef className ThisClass;
 
 // ispatialpartition.h's, for the subject's EnumElement declaration.
 enum IterationRetval_t
@@ -74,10 +74,10 @@ enum IterationRetval_t
 };
 
 #ifndef VPROF_BUDGET
-#define VPROF_BUDGET( name, group )
+#define VPROF_BUDGET(name, group)
 #endif
 #ifndef VPROF
-#define VPROF( name )
+#define VPROF(name)
 #endif
 #ifndef MEM_ALLOC_CREDIT
 #define MEM_ALLOC_CREDIT()
@@ -86,13 +86,13 @@ enum IterationRetval_t
 //-----------------------------------------------------------------------------
 // The harness's log. Every stand-in the subject reaches writes here.
 //-----------------------------------------------------------------------------
-void DetailLog( const char *pFmt, ... ) FMTFUNCTION( 1, 2 );
+void DetailLog(const char* pFmt, ...) FMTFUNCTION(1, 2);
 
 // A float as its IEEE bits, the golden's spelling.
-inline unsigned int DetailBits( float f )
+inline unsigned int DetailBits(float f)
 {
 	unsigned int u;
-	memcpy( &u, &f, sizeof( u ) );
+	memcpy(&u, &f, sizeof(u));
 	return u;
 }
 
@@ -157,43 +157,43 @@ class IHandleEntity
 public:
 	virtual ~IHandleEntity() {}
 
-	virtual void SetRefEHandle( const CBaseHandle &handle ) = 0;
-	virtual const CBaseHandle &GetRefEHandle() const = 0;
+	virtual void SetRefEHandle(const CBaseHandle& handle) = 0;
+	virtual const CBaseHandle& GetRefEHandle() const = 0;
 };
 
 class IClientUnknown : public IHandleEntity
 {
 public:
-	virtual IClientUnknown *GetIClientUnknown() = 0;
-	virtual ICollideable *GetCollideable() = 0;
-	virtual IClientNetworkable *GetClientNetworkable() = 0;
-	virtual IClientRenderable *GetClientRenderable() = 0;
-	virtual IClientEntity *GetIClientEntity() = 0;
-	virtual C_BaseEntity *GetBaseEntity() = 0;
-	virtual IClientThinkable *GetClientThinkable() = 0;
+	virtual IClientUnknown* GetIClientUnknown() = 0;
+	virtual ICollideable* GetCollideable() = 0;
+	virtual IClientNetworkable* GetClientNetworkable() = 0;
+	virtual IClientRenderable* GetClientRenderable() = 0;
+	virtual IClientEntity* GetIClientEntity() = 0;
+	virtual C_BaseEntity* GetBaseEntity() = 0;
+	virtual IClientThinkable* GetClientThinkable() = 0;
 };
 
 class IClientRenderable
 {
 public:
-	virtual IClientUnknown *GetIClientUnknown() = 0;
-	virtual const Vector &GetRenderOrigin() = 0;
-	virtual const QAngle &GetRenderAngles() = 0;
+	virtual IClientUnknown* GetIClientUnknown() = 0;
+	virtual const Vector& GetRenderOrigin() = 0;
+	virtual const QAngle& GetRenderAngles() = 0;
 	virtual bool ShouldDraw() = 0;
 	virtual bool IsTransparent() = 0;
-	virtual const model_t *GetModel() const = 0;
-	virtual int DrawModel( int flags ) = 0;
+	virtual const model_t* GetModel() const = 0;
+	virtual int DrawModel(int flags) = 0;
 	virtual int GetFxBlend() = 0;
-	virtual void GetColorModulation( float *color ) = 0;
-	virtual bool SetupBones( matrix3x4_t *pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime ) = 0;
-	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) = 0;
-	virtual void GetRenderBoundsWorldspace( Vector &mins, Vector &maxs ) = 0;
-	virtual bool GetAttachment( int number, Vector &origin, QAngle &angles ) = 0;
-	virtual const matrix3x4_t &RenderableToWorldTransform() = 0;
+	virtual void GetColorModulation(float* color) = 0;
+	virtual bool SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime) = 0;
+	virtual void GetRenderBounds(Vector& mins, Vector& maxs) = 0;
+	virtual void GetRenderBoundsWorldspace(Vector& mins, Vector& maxs) = 0;
+	virtual bool GetAttachment(int number, Vector& origin, QAngle& angles) = 0;
+	virtual const matrix3x4_t& RenderableToWorldTransform() = 0;
 };
 
 // clientleafsystem's helper: the model's own bounds about its origin.
-void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable, Vector &absMins, Vector &absMaxs );
+void DefaultRenderBoundsWorldspace(IClientRenderable* pRenderable, Vector& absMins, Vector& absMaxs);
 
 //-----------------------------------------------------------------------------
 // The engine, model info and model render.
@@ -201,42 +201,42 @@ void DefaultRenderBoundsWorldspace( IClientRenderable *pRenderable, Vector &absM
 class CDetailEngine
 {
 public:
-	int GameLumpVersion( int lumpId ) const;
-	int GameLumpSize( int lumpId ) const;
-	bool LoadGameLump( int lumpId, void *pBuffer, int size );
-	const model_t *LoadModel( const char *pName, bool bProp = false );
-	void LinearToGamma( float *linear, float *gamma );
-	float LightStyleValue( int style );
-	void ComputeDynamicLighting( const Vector &pt, const Vector *pNormal, Vector &color );
-	ISpatialQuery *GetBSPTreeQuery();
+	int GameLumpVersion(int lumpId) const;
+	int GameLumpSize(int lumpId) const;
+	bool LoadGameLump(int lumpId, void* pBuffer, int size);
+	const model_t* LoadModel(const char* pName, bool bProp = false);
+	void LinearToGamma(float* linear, float* gamma);
+	float LightStyleValue(int style);
+	void ComputeDynamicLighting(const Vector& pt, const Vector* pNormal, Vector& color);
+	ISpatialQuery* GetBSPTreeQuery();
 };
 
-extern CDetailEngine *engine;
+extern CDetailEngine* engine;
 
 class CDetailModelInfo
 {
 public:
-	int GetModelType( const model_t *model ) const;
-	void GetModelRenderBounds( const model_t *model, Vector &mins, Vector &maxs ) const;
-	bool ModelHasMaterialProxy( const model_t *model ) const;
-	bool IsTranslucent( model_t const *model ) const;
-	void RecomputeTranslucency( const model_t *model, int nSkin, int nBody, void *pClientRenderable,
-								float fInstanceAlphaModulate = 1.0f );
-	bool IsModelVertexLit( const model_t *model ) const;
-	studiohdr_t *GetStudiomodel( const model_t *mod );
+	int GetModelType(const model_t* model) const;
+	void GetModelRenderBounds(const model_t* model, Vector& mins, Vector& maxs) const;
+	bool ModelHasMaterialProxy(const model_t* model) const;
+	bool IsTranslucent(model_t const* model) const;
+	void RecomputeTranslucency(const model_t* model, int nSkin, int nBody, void* pClientRenderable,
+							   float fInstanceAlphaModulate = 1.0f);
+	bool IsModelVertexLit(const model_t* model) const;
+	studiohdr_t* GetStudiomodel(const model_t* mod);
 };
 
-extern CDetailModelInfo *modelinfo;
+extern CDetailModelInfo* modelinfo;
 
 class CDetailModelRender
 {
 public:
-	int DrawModel( int flags, IClientRenderable *pRenderable, ModelInstanceHandle_t instance, int entity_index,
-				   const model_t *model, Vector const &origin, QAngle const &angles, int skin, int body, int hitboxset,
-				   const matrix3x4_t *modelToWorld = NULL, const matrix3x4_t *pLightingOffset = NULL );
+	int DrawModel(int flags, IClientRenderable* pRenderable, ModelInstanceHandle_t instance, int entity_index,
+				  const model_t* model, Vector const& origin, QAngle const& angles, int skin, int body, int hitboxset,
+				  const matrix3x4_t* modelToWorld = NULL, const matrix3x4_t* pLightingOffset = NULL);
 };
 
-extern CDetailModelRender *modelrender;
+extern CDetailModelRender* modelrender;
 
 //-----------------------------------------------------------------------------
 // The client leaf system.
@@ -246,20 +246,20 @@ extern CDetailModelRender *modelrender;
 class CClientLeafSubSystemData
 {
 public:
-	virtual ~CClientLeafSubSystemData( void ) {}
+	virtual ~CClientLeafSubSystemData(void) {}
 };
 
 class CDetailLeafSystem
 {
 public:
-	void SetSubSystemDataInLeaf( int leaf, int nSubSystemIdx, CClientLeafSubSystemData *pData );
-	CClientLeafSubSystemData *GetSubSystemDataInLeaf( int leaf, int nSubSystemIdx );
-	void SetDetailObjectsInLeaf( int leaf, int firstDetailObject, int detailObjectCount );
-	void GetDetailObjectsInLeaf( int leaf, int &firstDetailObject, int &detailObjectCount );
-	void DrawDetailObjectsInLeaf( int leaf, int frameNumber, int &firstDetailObject, int &detailObjectCount );
+	void SetSubSystemDataInLeaf(int leaf, int nSubSystemIdx, CClientLeafSubSystemData* pData);
+	CClientLeafSubSystemData* GetSubSystemDataInLeaf(int leaf, int nSubSystemIdx);
+	void SetDetailObjectsInLeaf(int leaf, int firstDetailObject, int detailObjectCount);
+	void GetDetailObjectsInLeaf(int leaf, int& firstDetailObject, int& detailObjectCount);
+	void DrawDetailObjectsInLeaf(int leaf, int frameNumber, int& firstDetailObject, int& detailObjectCount);
 };
 
-CDetailLeafSystem *ClientLeafSystem();
+CDetailLeafSystem* ClientLeafSystem();
 
 //-----------------------------------------------------------------------------
 // The view, the client mode, the map's controller and world.
@@ -270,9 +270,9 @@ public:
 	int BuildWorldListsNumber() const;
 };
 
-extern CDetailView *view;
+extern CDetailView* view;
 
-const Vector &CurrentViewOrigin();
+const Vector& CurrentViewOrigin();
 bool ShouldDrawInWireFrameMode();
 
 class CDetailClientMode
@@ -281,7 +281,7 @@ public:
 	bool ShouldDrawDetailObjects();
 };
 
-extern CDetailClientMode *g_pClientMode;
+extern CDetailClientMode* g_pClientMode;
 
 class C_EnvDetailController
 {
@@ -290,7 +290,7 @@ public:
 	float m_flFadeEndDist;
 };
 
-C_EnvDetailController *GetDetailController();
+C_EnvDetailController* GetDetailController();
 
 // The local player, whose FOV scales both fades in stock. This build has no
 // native local player (its one GetLocalPlayer answers NULL), so both factors
@@ -299,7 +299,7 @@ C_EnvDetailController *GetDetailController();
 class C_BasePlayer
 {
 public:
-	static C_BasePlayer *GetLocalPlayer() { return NULL; }
+	static C_BasePlayer* GetLocalPlayer() { return NULL; }
 
 	float GetFOVDistanceAdjustFactor() { return 1.0f; }
 };
@@ -307,10 +307,10 @@ public:
 class C_World
 {
 public:
-	const char *GetDetailSpriteMaterial() const;
+	const char* GetDetailSpriteMaterial() const;
 };
 
-C_World *GetClientWorldEntity();
+C_World* GetClientWorldEntity();
 
 //-----------------------------------------------------------------------------
 // The material system.
@@ -344,7 +344,7 @@ enum HDRType_t
 class IMaterial
 {
 public:
-	const char *m_pszName;
+	const char* m_pszName;
 	int GetMappingWidth();
 	int GetMappingHeight();
 };
@@ -353,70 +353,70 @@ class CMaterialReference
 {
 public:
 	CMaterialReference()
-		: m_pMaterial( NULL )
+		: m_pMaterial(NULL)
 	{
 	}
 
-	void Init( const char *pMaterialName, const char *pTextureGroupName, bool bComplain = true );
+	void Init(const char* pMaterialName, const char* pTextureGroupName, bool bComplain = true);
 	void Shutdown();
 
-	operator IMaterial *() { return m_pMaterial; }
+	operator IMaterial*() { return m_pMaterial; }
 
-	IMaterial *m_pMaterial;
+	IMaterial* m_pMaterial;
 };
 
-void PrecacheMaterial( const char *pMaterialName );
+void PrecacheMaterial(const char* pMaterialName);
 
 class IMesh
 {
 public:
-	void Draw( int firstIndex = -1, int numIndices = 0 );
+	void Draw(int firstIndex = -1, int numIndices = 0);
 };
 
 class IMatRenderContext
 {
 public:
-	void MatrixMode( MaterialMatrixMode_t mode );
+	void MatrixMode(MaterialMatrixMode_t mode);
 	void PushMatrix();
 	void LoadIdentity();
 	void PopMatrix();
-	IMesh *GetDynamicMesh( bool buffered = true, IMesh *pVertexOverride = 0, IMesh *pIndexOverride = 0,
-						   IMaterial *pAutoBind = 0 );
-	void GetMaxToRender( IMesh *pMesh, bool bMaxUntilFlush, int *pMaxVerts, int *pMaxIndices );
+	IMesh* GetDynamicMesh(bool buffered = true, IMesh* pVertexOverride = 0, IMesh* pIndexOverride = 0,
+						  IMaterial* pAutoBind = 0);
+	void GetMaxToRender(IMesh* pMesh, bool bMaxUntilFlush, int* pMaxVerts, int* pMaxIndices);
 };
 
 class IMaterialSystem
 {
 public:
-	IMatRenderContext *GetRenderContext();
+	IMatRenderContext* GetRenderContext();
 };
 
-extern IMaterialSystem *materials;
+extern IMaterialSystem* materials;
 
 class CMatRenderContextPtr
 {
 public:
-	CMatRenderContextPtr( IMaterialSystem *pFrom )
-		: m_pContext( pFrom->GetRenderContext() )
+	CMatRenderContextPtr(IMaterialSystem* pFrom)
+		: m_pContext(pFrom->GetRenderContext())
 	{
 	}
 
-	IMatRenderContext *operator->() const { return m_pContext; }
+	IMatRenderContext* operator->() const { return m_pContext; }
 
 private:
-	IMatRenderContext *m_pContext;
+	IMatRenderContext* m_pContext;
 };
 
 class CMeshBuilder
 {
 public:
-	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int numPrimitives );
-	void End( bool bSpewData = false, bool bDraw = false );
-	void Position3f( float x, float y, float z );
-	void Position3fv( const float *v );
-	void Color4ubv( unsigned char const *rgba );
-	void TexCoord2f( int stage, float s, float t );
-	void TexCoord2fv( int stage, const float *st );
+	void Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int numPrimitives);
+	void End(bool bSpewData = false, bool bDraw = false);
+	void Position3f(float x, float y, float z);
+	void Position3fv(const float* v);
+	void Color4ubv(unsigned char const* rgba);
+	void TexCoord2f(int stage, float s, float t);
+	void TexCoord2fv(int stage, const float* st);
 	void AdvanceVertex();
 
 private:
@@ -432,4 +432,4 @@ public:
 	HDRType_t GetHDRType() const;
 };
 
-extern CDetailHardwareConfig *g_pMaterialSystemHardwareConfig;
+extern CDetailHardwareConfig* g_pMaterialSystemHardwareConfig;

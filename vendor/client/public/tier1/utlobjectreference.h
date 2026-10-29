@@ -25,53 +25,53 @@ public:
 		m_pObject = NULL;
 	}
 
-	FORCEINLINE CUtlReference( T *pObj )
+	FORCEINLINE CUtlReference(T* pObj)
 	{
 		m_pNext = m_pPrev = NULL;
-		AddRef( pObj );
+		AddRef(pObj);
 	}
 
 	FORCEINLINE ~CUtlReference() { KillRef(); }
 
-	FORCEINLINE void Set( T *pObj )
+	FORCEINLINE void Set(T* pObj)
 	{
-		if ( m_pObject != pObj )
+		if (m_pObject != pObj)
 		{
 			KillRef();
-			AddRef( pObj );
+			AddRef(pObj);
 		}
 	}
 
-	FORCEINLINE T *operator()() const { return m_pObject; }
+	FORCEINLINE T* operator()() const { return m_pObject; }
 
-	FORCEINLINE operator T *() { return m_pObject; }
+	FORCEINLINE operator T*() { return m_pObject; }
 
-	FORCEINLINE operator const T *() const { return m_pObject; }
+	FORCEINLINE operator const T*() const { return m_pObject; }
 
-	FORCEINLINE T *operator->() { return m_pObject; }
+	FORCEINLINE T* operator->() { return m_pObject; }
 
-	FORCEINLINE const T *operator->() const { return m_pObject; }
+	FORCEINLINE const T* operator->() const { return m_pObject; }
 
 public:
-	CUtlReference *m_pNext;
-	CUtlReference *m_pPrev;
+	CUtlReference* m_pNext;
+	CUtlReference* m_pPrev;
 
-	T *m_pObject;
+	T* m_pObject;
 
-	FORCEINLINE void AddRef( T *pObj )
+	FORCEINLINE void AddRef(T* pObj)
 	{
 		m_pObject = pObj;
-		if ( pObj )
+		if (pObj)
 		{
-			pObj->m_References.AddToHead( this );
+			pObj->m_References.AddToHead(this);
 		}
 	}
 
 	FORCEINLINE void KillRef()
 	{
-		if ( m_pObject )
+		if (m_pObject)
 		{
-			m_pObject->m_References.RemoveNode( this );
+			m_pObject->m_References.RemoveNode(this);
 			m_pObject = NULL;
 		}
 	}
@@ -83,10 +83,10 @@ class CUtlReferenceList : public CUtlIntrusiveDList<CUtlReference<T>>
 public:
 	~CUtlReferenceList()
 	{
-		CUtlReference<T> *i = CUtlIntrusiveDList<CUtlReference<T>>::m_pHead;
-		while ( i )
+		CUtlReference<T>* i = CUtlIntrusiveDList<CUtlReference<T>>::m_pHead;
+		while (i)
 		{
-			CUtlReference<T> *n = i->m_pNext;
+			CUtlReference<T>* n = i->m_pNext;
 			i->m_pNext = NULL;
 			i->m_pPrev = NULL;
 			i->m_pObject = NULL;
@@ -97,7 +97,7 @@ public:
 };
 
 // Put this macro in classes that are referenced by CUtlReference
-#define DECLARE_REFERENCED_CLASS( _className )  \
+#define DECLARE_REFERENCED_CLASS(_className)    \
 private:                                        \
 	CUtlReferenceList<_className> m_References; \
 	template <class T>                          \

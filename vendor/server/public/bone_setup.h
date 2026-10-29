@@ -15,7 +15,7 @@ public:
 class CIKTarget
 {
 public:
-	void SetOwner( int entindex, const Vector &pos, const QAngle &angles );
+	void SetOwner(int entindex, const Vector& pos, const QAngle& angles);
 
 	int chain;
 	int type;
@@ -23,7 +23,7 @@ public:
 public:
 	struct x2
 	{
-		char *pAttachmentName;
+		char* pAttachmentName;
 		Vector pos;
 		Quaternion q;
 	} offset;
@@ -132,29 +132,29 @@ struct ikcontextikrule_t
 	float flWeight; // processed version of start-end cycle
 	float flRuleWeight; // blending weight
 	float latched; // does the IK rule use a latched value?
-	char *szLabel;
+	char* szLabel;
 
 	Vector kneeDir;
 	Vector kneePos;
 
-	ikcontextikrule_t() { memset( this, 0, sizeof( *this ) ); }
+	ikcontextikrule_t() { memset(this, 0, sizeof(*this)); }
 
 private:
 	// No copy constructors allowed
-	ikcontextikrule_t( const ikcontextikrule_t &vOther );
+	ikcontextikrule_t(const ikcontextikrule_t& vOther);
 };
 
 class CIKContext
 {
 public:
 	CIKContext();
-	void Init( const CStudioHdr *pStudioHdr, const QAngle &angles, const Vector &pos, float flTime, int iFramecounter,
-			   int boneMask );
+	void Init(const CStudioHdr* pStudioHdr, const QAngle& angles, const Vector& pos, float flTime, int iFramecounter,
+			  int boneMask);
 
 	CUtlVectorFixed<CIKTarget, 12> m_target;
 
 private:
-	CStudioHdr const *m_pStudioHdr;
+	CStudioHdr const* m_pStudioHdr;
 
 	// virtual IK rules, filtered and combined from each sequence
 	CUtlVector<CUtlVector<ikcontextikrule_t>> m_ikChainRule;
@@ -168,12 +168,12 @@ private:
 
 // void Studio_Movement( const CStudioHdr *pStudioHdr, int iSequence, const float poseParameter[], Vector *pVec );
 
-FORWARD_DECLARE_HANDLE( memhandle_t );
+FORWARD_DECLARE_HANDLE(memhandle_t);
 
 struct bonecacheparams_t
 {
-	CStudioHdr *pStudioHdr;
-	matrix3x4_t *pBoneToWorld;
+	CStudioHdr* pStudioHdr;
+	matrix3x4_t* pBoneToWorld;
 	float curtime;
 	int boneMask;
 };
@@ -186,10 +186,10 @@ public:
 	CBoneCache();
 
 	// was constructor, but placement new is messy wrt memdebug - so cast & init instead
-	void Init( const bonecacheparams_t &params, unsigned int size, short *pStudioToCached, short *pCachedToStudio,
-			   int cachedBoneCount );
+	void Init(const bonecacheparams_t& params, unsigned int size, short* pStudioToCached, short* pCachedToStudio,
+			  int cachedBoneCount);
 
-	bool IsValid( float curtime, float dt = 0.1f );
+	bool IsValid(float curtime, float dt = 0.1f);
 
 public:
 	float m_timeValid;

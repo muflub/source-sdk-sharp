@@ -52,8 +52,8 @@ public class PixelVisibilityAbiTests
         string code = Native("shell_sprite_leaf.cpp");
         Assert.Matches(@"SS_SPRITE_IN_QUERY_HANDLE,\s*SS_SPRITE_IN_FLOATS,", code);
         Assert.Matches(@"SS_SPRITE_OUT_QUERY_HANDLE,\s*SS_SPRITE_OUT_FLOATS,", code);
-        Match inFloats = Regex.Match(code, @"COMPILE_TIME_ASSERT\( SS_SPRITE_IN_FLOATS == (\d+) \);");
-        Match outFloats = Regex.Match(code, @"COMPILE_TIME_ASSERT\( SS_SPRITE_OUT_FLOATS == (\d+) \);");
+        Match inFloats = Regex.Match(code, @"COMPILE_TIME_ASSERT\(SS_SPRITE_IN_FLOATS == (\d+)\);");
+        Match outFloats = Regex.Match(code, @"COMPILE_TIME_ASSERT\(SS_SPRITE_OUT_FLOATS == (\d+)\);");
         Assert.True(inFloats.Success && outFloats.Success, "the two counts are asserted natively");
         Assert.Equal(ClientSpriteHost.InFloats, int.Parse(inFloats.Groups[1].Value, CultureInfo.InvariantCulture));
         Assert.Equal(ClientSpriteHost.OutFloats, int.Parse(outFloats.Groups[1].Value, CultureInfo.InvariantCulture));

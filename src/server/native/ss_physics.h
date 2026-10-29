@@ -36,12 +36,12 @@ struct gamevcollisionevent_t : public vcollisionevent_t
 	Vector preVelocity[2];
 	Vector postVelocity[2];
 	AngularImpulse preAngularVelocity[2];
-	IGameEntity *pEntities[2];
+	IGameEntity* pEntities[2];
 
 	// Takes VPhysics' half, clears the entities.
-	void Init( vcollisionevent_t *pEvent )
+	void Init(vcollisionevent_t* pEvent)
 	{
-		*static_cast<vcollisionevent_t *>( this ) = *pEvent;
+		*static_cast<vcollisionevent_t*>(this) = *pEvent;
 		pEntities[0] = nullptr;
 		pEntities[1] = nullptr;
 	}
@@ -65,7 +65,7 @@ struct masscenteroverride_t
 } // namespace ss
 
 // Defined in physics.cpp, used there ahead of their definitions.
-void PhysCollisionScreenShake( ss::gamevcollisionevent_t *pEvent, int index );
-void PhysCollisionDust( ss::gamevcollisionevent_t *pEvent, surfacedata_t *phit );
-void PhysFrictionSound( IGameEntity *pEntity, IPhysicsObject *pObject, float energy, int surfaceProps,
-						int surfacePropsHit );
+void PhysCollisionScreenShake(ss::gamevcollisionevent_t* pEvent, int index);
+void PhysCollisionDust(ss::gamevcollisionevent_t* pEvent, surfacedata_t* phit);
+void PhysFrictionSound(IGameEntity* pEntity, IPhysicsObject* pObject, float energy, int surfaceProps,
+					   int surfacePropsHit);

@@ -660,7 +660,7 @@ public unsafe class PlayerShadowTests
         // plan_physics_bones_native_zero 2.5: the state and the plan are
         // managed-only now; the one struct that crosses is the facts.
         Assert.Equal(PlayerShadowFacts.SizeInBytes, sizeof(PlayerShadowFacts));
-        Assert.Contains("COMPILE_TIME_ASSERT( sizeof( SourceSharpPlayerShadowFacts ) == 192 )", PlayerCode);
+        Assert.Contains("COMPILE_TIME_ASSERT(sizeof(SourceSharpPlayerShadowFacts) == 192)", PlayerCode);
         Assert.DoesNotContain("SourceSharpPlayerShadowState", PlayerCode);
         Assert.DoesNotContain("SourceSharpPlayerShadowPlan", PlayerCode);
     }

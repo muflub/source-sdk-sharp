@@ -27,9 +27,9 @@ int SSFwd_TraceFilter_SizeOf();
 // candidate entity, over its managed side, and answers it as that interface;
 // its GetTraceType answers nTraceType (a TraceType_t), which managed chose.
 // NULL, and nothing built, without memory or a target.
-void *SSFwd_TraceFilter_Construct( void *pMemory, IManagedTraceFilter *pTarget, int32_t nTraceType );
+void* SSFwd_TraceFilter_Construct(void* pMemory, IManagedTraceFilter* pTarget, int32_t nTraceType);
 
 // The handle of an entity the engine named (a trace_t's m_pEnt), as
 // CBaseHandle::ToInt packs it, or INVALID_EHANDLE_INDEX for none. The engine's
 // IHandleEntity answers it through its own vtable; managed reads no vtable.
-uint32_t SSFwd_TraceFilter_HandleOf( IHandleEntity *pEntity );
+uint32_t SSFwd_TraceFilter_HandleOf(IHandleEntity* pEntity);

@@ -21,7 +21,7 @@ struct SourceSharpAllocCheckCounts
 extern "C" SourceSharpAllocCheckCounts SourceSharp_AllocCheckCounts();
 
 // Writes counts, foreign-free sites and the largest live sites, tagged `when`.
-extern "C" void SourceSharp_AllocCheckReport( const char *when );
+extern "C" void SourceSharp_AllocCheckReport(const char* when);
 
 // Tests only: forget every record and zero the counters.
 extern "C" void SourceSharp_AllocCheckResetForTest();

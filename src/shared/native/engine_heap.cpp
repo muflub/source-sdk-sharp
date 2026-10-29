@@ -15,39 +15,39 @@
 namespace ss
 {
 
-static IEngineHeap *HeapSeenFrom( const char *pszFile )
+static IEngineHeap* HeapSeenFrom(const char* pszFile)
 {
-	IEngineHeap **ppHeap = (IEngineHeap **)FindLoadedSymbol( pszFile, "g_pMemAlloc" );
+	IEngineHeap** ppHeap = (IEngineHeap**)FindLoadedSymbol(pszFile, "g_pMemAlloc");
 	return ppHeap ? *ppHeap : NULL;
 }
 
-IEngineHeap *FindEngineHeap()
+IEngineHeap* FindEngineHeap()
 {
-	return HeapSeenFrom( "libtier0.so" );
+	return HeapSeenFrom("libtier0.so");
 }
 
-IEngineHeap *EngineHeapSeenBy( const char *pszModuleFile )
+IEngineHeap* EngineHeapSeenBy(const char* pszModuleFile)
 {
-	return HeapSeenFrom( pszModuleFile );
+	return HeapSeenFrom(pszModuleFile);
 }
 
-void EngineHeapFree( void *pMem )
+void EngineHeapFree(void* pMem)
 {
-	if ( !pMem )
+	if (!pMem)
 		return;
 
-	IEngineHeap *pHeap = FindEngineHeap();
-	if ( !pHeap )
+	IEngineHeap* pHeap = FindEngineHeap();
+	if (!pHeap)
 	{
-		fprintf( stderr,
-				 "[SourceSharp] EngineHeapFree(%p): no libtier0.so g_pMemAlloc in "
-				 "this process, so the block cannot be tier0's. Refusing to free "
-				 "it into another heap.\n",
-				 pMem );
+		fprintf(stderr,
+				"[SourceSharp] EngineHeapFree(%p): no libtier0.so g_pMemAlloc in "
+				"this process, so the block cannot be tier0's. Refusing to free "
+				"it into another heap.\n",
+				pMem);
 		abort();
 	}
 
-	pHeap->Free( pMem );
+	pHeap->Free(pMem);
 }
 
 } // namespace ss

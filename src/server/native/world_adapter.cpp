@@ -53,32 +53,32 @@ namespace
 class CWorldFactory final : public ss::IEntityFactory
 {
 public:
-	virtual IServerNetworkable *Create( const char *, CServerEntityContext &context ) OVERRIDE
+	virtual IServerNetworkable* Create(const char*, CServerEntityContext& context) OVERRIDE
 	{
 		// One world: a second construction would take edict 0 and the singleton from the
 		// live world. CreateEntityByName( "worldspawn" ) would reach this, then drop the
 		// result without freeing it.
-		if ( context.m_pLevel && context.m_pLevel->m_pWorld )
+		if (context.m_pLevel && context.m_pLevel->m_pWorld)
 		{
-			Warning( "[SourceSharp] worldspawn: a second one was asked for while "
-					 "one exists. REFUSED -- it would take edict 0 from the world "
-					 "that is already in the level.\n" );
+			Warning("[SourceSharp] worldspawn: a second one was asked for while "
+					"one exists. REFUSED -- it would take edict 0 from the world "
+					"that is already in the level.\n");
 			return NULL;
 		}
 
 		// Returns the networkable member; its Release deletes the world.
-		CWorld *pWorld = new ( context.m_NetTables.m_World.BlobBytes() ) CWorld( context );
+		CWorld* pWorld = new (context.m_NetTables.m_World.BlobBytes()) CWorld(context);
 
 		return pWorld->GetNetworkable();
 	}
 
-	virtual void Destroy( IServerNetworkable *pNetworkable ) OVERRIDE
+	virtual void Destroy(IServerNetworkable* pNetworkable) OVERRIDE
 	{
-		if ( pNetworkable )
+		if (pNetworkable)
 			pNetworkable->Release();
 	}
 
-	virtual size_t GetEntitySize() OVERRIDE { return sizeof( CWorld ); }
+	virtual size_t GetEntitySize() OVERRIDE { return sizeof(CWorld); }
 };
 
 } // namespace
@@ -93,36 +93,36 @@ std::unique_ptr<ss::IEntityFactory> SourceSharp_NewWorldFactory()
 // translation unit can see sizeof( CWorld ).
 int SourceSharp_WorldBlobOffset()
 {
-	return (int)ALIGN_VALUE( sizeof( CWorld ), 16 );
+	return (int)ALIGN_VALUE(sizeof(CWorld), 16);
 }
 
 // Allocated as the engine's PvAllocEntPrivateData does (calloc), plus the blob. The
 // memory is zeroed, which gives the networked values their stock defaults. The blob
 // length is C#'s and may be zero.
-void *CWorld::operator new( size_t stAllocateBlock, int nBlobBytes )
+void* CWorld::operator new(size_t stAllocateBlock, int nBlobBytes)
 {
-	Assert( (int)stAllocateBlock <= SourceSharp_WorldBlobOffset() );
+	Assert((int)stAllocateBlock <= SourceSharp_WorldBlobOffset());
 
-	if ( nBlobBytes < 0 )
+	if (nBlobBytes < 0)
 		nBlobBytes = 0;
 
-	return calloc( 1, (size_t)( SourceSharp_WorldBlobOffset() + nBlobBytes ) );
+	return calloc(1, (size_t)(SourceSharp_WorldBlobOffset() + nBlobBytes));
 }
 
 // CWorld has no base with an operator delete; its block came from calloc.
-void CWorld::operator delete( void *pMem )
+void CWorld::operator delete(void* pMem)
 {
-	free( pMem );
+	free(pMem);
 }
 
-void CWorld::operator delete( void *pMem, int )
+void CWorld::operator delete(void* pMem, int)
 {
-	free( pMem );
+	free(pMem);
 }
 
-unsigned char *CWorld::DataBlob()
+unsigned char* CWorld::DataBlob()
 {
-	return (unsigned char *)this + SourceSharp_WorldBlobOffset();
+	return (unsigned char*)this + SourceSharp_WorldBlobOffset();
 }
 
 int CWorld::BlobBytes() const
@@ -133,15 +133,15 @@ int CWorld::BlobBytes() const
 // CServerNetworkProperty caches this after the first ask. There is no base table
 // to fall back to: DT_BaseEntity's props would read this object at CBaseEntity
 // offsets, so a missing declaration is fatal.
-ServerClass *CWorld::GetServerClass()
+ServerClass* CWorld::GetServerClass()
 {
-	if ( ServerClass *pClass = m_pContext->m_NetTables.m_World.DeclaredClass() )
+	if (ServerClass* pClass = m_pContext->m_NetTables.m_World.DeclaredClass())
 		return pClass;
 
-	Error( "[SourceSharp] worldspawn has no ServerClass: the managed side never "
-		   "declared SourceSharp.Shared.WorldNetState. There is no base table to "
-		   "fall back to -- CWorld is not a CBaseEntity, so DT_BaseEntity's props "
-		   "would read this object at offsets that belong to a different class.\n" );
+	Error("[SourceSharp] worldspawn has no ServerClass: the managed side never "
+		  "declared SourceSharp.Shared.WorldNetState. There is no base table to "
+		  "fall back to -- CWorld is not a CBaseEntity, so DT_BaseEntity's props "
+		  "would read this object at offsets that belong to a different class.\n");
 
 	return NULL;
 }
@@ -152,20 +152,20 @@ ServerClass *CWorld::GetServerClass()
 bool CWorld::ResolveFields()
 {
 	const unsigned int nGeneration = m_pContext->m_nManagedGeneration;
-	if ( m_Fields.IsCurrent( nGeneration ) )
+	if (m_Fields.IsCurrent(nGeneration))
 		return true;
 
-	return SourceSharpWorldFields_Resolve( &m_Fields, nGeneration, m_pContext->m_Managed.m_Areas.m_pNetState );
+	return SourceSharpWorldFields_Resolve(&m_Fields, nGeneration, m_pContext->m_Managed.m_Areas.m_pNetState);
 }
 
-bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
+bool CWorld::KeyValue(const char* szKeyName, const char* szValue)
 {
 	// Every key goes to C#; the shim keeps no list of the keys C# answers.
-	IManagedRuntimeServer *pRuntime = m_pContext->m_Managed.m_pRuntimeServer;
+	IManagedRuntimeServer* pRuntime = m_pContext->m_Managed.m_pRuntimeServer;
 
-	if ( pRuntime != NULL &&
-		 pRuntime->OnWorldKeyValue( SourceSharp_HandleFromAnyEntity( static_cast<IServerEntity *>( this ) ), szKeyName,
-									szValue ) != 0 )
+	if (pRuntime != NULL &&
+		pRuntime->OnWorldKeyValue(SourceSharp_HandleFromAnyEntity(static_cast<IServerEntity*>(this)), szKeyName,
+								  szValue) != 0)
 	{
 		return true;
 	}
@@ -175,7 +175,7 @@ bool CWorld::KeyValue( const char *szKeyName, const char *szValue )
 }
 
 // Subobjects, constructed before the CWorld body runs, so m_pOuter is never null.
-CWorldCollideable::CWorldCollideable( CWorld *pOuter )
+CWorldCollideable::CWorldCollideable(CWorld* pOuter)
 {
 	m_pOuter = pOuter;
 
@@ -185,36 +185,36 @@ CWorldCollideable::CWorldCollideable( CWorld *pOuter )
 
 	m_vecOrigin = vec3_origin;
 	m_angRotation = vec3_angle;
-	SetIdentityMatrix( m_Transform );
+	SetIdentityMatrix(m_Transform);
 
 	// Replaced at CWorld::Spawn by the model's real box.
 	m_vecMins = vec3_origin;
 	m_vecMaxs = vec3_origin;
 }
 
-CWorldNetworkable::CWorldNetworkable( CWorld *pOuter )
+CWorldNetworkable::CWorldNetworkable(CWorld* pOuter)
 {
 	m_pOuter = pOuter;
 
 	// Zeroed so AreaNum answers a number before the engine has computed anything.
-	memset( &m_PVSInfo, 0, sizeof( m_PVSInfo ) );
+	memset(&m_PVSInfo, 0, sizeof(m_PVSInfo));
 }
 
-#if defined( _MSC_VER )
+#if defined(_MSC_VER)
 // 'this' in the initialiser list below is deliberate. tier1/convar.h re-enables
 // C4355 for the rest of any file that includes it.
-#pragma warning( disable : 4355 )
+#pragma warning(disable : 4355)
 #endif
 
 // The members are constructed first, then the body hands &m_Networkable to edict 0.
-CWorld::CWorld( CServerEntityContext &context )
-	: m_Collideable( this )
-	, m_Networkable( this )
-	, m_pContext( &context )
+CWorld::CWorld(CServerEntityContext& context)
+	: m_Collideable(this)
+	, m_Networkable(this)
+	, m_pContext(&context)
 {
 	// Claimed at construction, not in Precache as stock did: the keys arrive before
 	// Precache, and the world's blob is found by identity against this singleton.
-	if ( CServerLevelState *pLevel = m_pContext->m_pLevel )
+	if (CServerLevelState* pLevel = m_pContext->m_pLevel)
 		pLevel->m_pWorld = this;
 
 	m_pEdict = NULL;
@@ -237,75 +237,74 @@ CWorld::~CWorld()
 	m_RefEHandle.Term();
 
 	// ~CServerNetworkProperty makes this call too; the world is FL_EDICT_ALWAYS.
-	m_pContext->m_pEngine->CleanUpEntityClusterList( m_Networkable.PVSInfo() );
+	m_pContext->m_pEngine->CleanUpEntityClusterList(m_Networkable.PVSInfo());
 
-	if ( m_pEdict )
+	if (m_pEdict)
 	{
 		// Edict 0 is not returned to the engine, or the next CreateEdict could hand out
 		// the world's index. SetEdict( NULL ) comes before the networkable is cleared.
-		m_pEdict->SetEdict( NULL, false );
+		m_pEdict->SetEdict(NULL, false);
 		m_pEdict->m_pNetworkable = NULL;
 		m_pEdict = NULL;
 	}
 
 	// The engine's purge can free the world after the level tier ended.
-	if ( CServerLevelState *pLevel = m_pContext->m_pLevel; pLevel && pLevel->m_pWorld == this )
+	if (CServerLevelState* pLevel = m_pContext->m_pLevel; pLevel && pLevel->m_pWorld == this)
 		pLevel->m_pWorld = NULL;
 }
 
 // The world's handle serial. Not reset between maps, so a client cannot resolve
 // the previous map's world with the new handle.
-static int SourceSharp_WorldIssueSerial( unsigned short &nSerial )
+static int SourceSharp_WorldIssueSerial(unsigned short& nSerial)
 {
-	nSerial = SourceSharp_NextWorldSerial( nSerial );
+	nSerial = SourceSharp_NextWorldSerial(nSerial);
 	return (int)nSerial;
 }
 
 void CWorld::AttachToEdictZero()
 {
-	m_pEdict = m_pContext->m_pEngine->PEntityOfEntIndex( RequiredEdictIndex() );
+	m_pEdict = m_pContext->m_pEngine->PEntityOfEntIndex(RequiredEdictIndex());
 
-	if ( !m_pEdict )
+	if (!m_pEdict)
 	{
-		Warning( "[SourceSharp] worldspawn: edict %d does not exist. The world "
-				 "will not be sent and nothing will resolve a handle to it.\n",
-				 RequiredEdictIndex() );
+		Warning("[SourceSharp] worldspawn: edict %d does not exist. The world "
+				"will not be sent and nothing will resolve a handle to it.\n",
+				RequiredEdictIndex());
 		return;
 	}
 
-	m_pEdict->SetEdict( static_cast<IServerUnknown *>( this ), true );
+	m_pEdict->SetEdict(static_cast<IServerUnknown*>(this), true);
 	m_pEdict->m_EdictIndex = RequiredEdictIndex();
 
 	// CBaseEdict::AreaNum and GetClassName read this unguarded; ~CWorld clears it.
 	m_pEdict->m_pNetworkable = &m_Networkable;
 
-	m_pEdict->m_fStateFlags &= ~( FL_EDICT_DONTSEND | FL_EDICT_PVSCHECK | FL_EDICT_FULLCHECK );
+	m_pEdict->m_fStateFlags &= ~(FL_EDICT_DONTSEND | FL_EDICT_PVSCHECK | FL_EDICT_FULLCHECK);
 	m_pEdict->m_fStateFlags |= FL_EDICT_ALWAYS;
 
 	// The world issues its own handle; it is not in the slot table, which binds shells only.
-	SetRefEHandle( CBaseHandle( RequiredEdictIndex(), SourceSharp_WorldIssueSerial( m_pContext->m_nWorldSerial ) ) );
+	SetRefEHandle(CBaseHandle(RequiredEdictIndex(), SourceSharp_WorldIssueSerial(m_pContext->m_nWorldSerial)));
 }
 
-const model_t *CWorldCollideable::GetCollisionModel()
+const model_t* CWorldCollideable::GetCollisionModel()
 {
-	return m_pOuter->Context().m_pModelInfo->GetModel( GetCollisionModelIndex() );
+	return m_pOuter->Context().m_pModelInfo->GetModel(GetCollisionModelIndex());
 }
 
 void CWorld::Spawn()
 {
 	// NOTE:  SHOULD NEVER BE ANYTHING OTHER THAN 1!!!
-	SetModelIndex( 1 );
+	SetModelIndex(1);
 
 	// world model
-	m_iszModelName =
-		PooledString( m_Strings, m_pContext->m_pModelInfo->GetModelName( m_Collideable.GetCollisionModel() ) );
+	m_iszModelName = PooledString(m_Strings, m_pContext->m_pModelInfo->GetModelName(m_Collideable.GetCollisionModel()));
 
 	// The box, from the model the index names.
-	if ( const model_t *pModel = m_Collideable.GetCollisionModel() )
+	if (const model_t* pModel = m_Collideable.GetCollisionModel())
 	{
 		Vector vecMins, vecMaxs;
-		m_pContext->m_pModelInfo->GetModelBounds( pModel, vecMins, vecMaxs );
-		m_Collideable.SetBounds( vecMins, vecMaxs );
+		m_pContext->m_pModelInfo->GetModelBounds(pModel, vecMins, vecMaxs);
+		m_Collideable.SetBounds(vecMins, vecMaxs);
 	}
 
 	Precache();
@@ -318,27 +317,27 @@ void CWorld::Spawn()
 void CWorld::ReportNetState()
 {
 	ResolveFields();
-	SourceSharpWorld_Report( "Server", DataBlob(), BlobBytes(), m_Fields, m_pContext->m_nManagedGeneration );
+	SourceSharpWorld_Report("Server", DataBlob(), BlobBytes(), m_Fields, m_pContext->m_nManagedGeneration);
 }
 
 void CWorld::Precache()
 {
 	// Set up game rules.
-	Assert( !m_pGameRules );
+	Assert(!m_pGameRules);
 	delete m_pGameRules;
-	m_pGameRules = SourceSharp_CreateGameRules( m_pContext->m_pGameRulesTable, m_pContext->m_Managed.m_Areas );
+	m_pGameRules = SourceSharp_CreateGameRules(m_pContext->m_pGameRulesTable, m_pContext->m_Managed.m_Areas);
 
-	ss::SoundEnt_Init( m_pContext->m_Managed.m_Areas.m_pSoundEnt, m_pContext->m_pGlobals );
+	ss::SoundEnt_Init(m_pContext->m_Managed.m_Areas.m_pSoundEnt, m_pContext->m_pGlobals);
 
 	// The rest of stock's world precache is managed's.
 	// The work precaches, so it runs inside this one.
-	IManagedRuntimeServer *pRuntime = m_pContext->m_Managed.m_pRuntimeServer;
-	if ( m_pContext->m_bManagedLoaded && pRuntime )
+	IManagedRuntimeServer* pRuntime = m_pContext->m_Managed.m_pRuntimeServer;
+	if (m_pContext->m_bManagedLoaded && pRuntime)
 	{
-		if ( SourceSharp_GetVerbosity() > 0 )
-			Msg( "[SourceSharp] server level init pre-entity -> C#: %s\n", STRING( m_pContext->m_pGlobals->mapname ) );
+		if (SourceSharp_GetVerbosity() > 0)
+			Msg("[SourceSharp] server level init pre-entity -> C#: %s\n", STRING(m_pContext->m_pGlobals->mapname));
 
-		pRuntime->OnMapLoadPreEntity( STRING( m_pContext->m_pGlobals->mapname ) );
+		pRuntime->OnMapLoadPreEntity(STRING(m_pContext->m_pGlobals->mapname));
 	}
 
 	// init sentence group playback stuff from sentences.txt.
@@ -346,7 +345,7 @@ void CWorld::Precache()
 	m_pContext->m_Precache.SentenceFile();
 }
 
-IGameRules *CServerEntityContext::GameRules() const
+IGameRules* CServerEntityContext::GameRules() const
 {
-	return ( m_pLevel && m_pLevel->m_pWorld ) ? m_pLevel->m_pWorld->GameRules() : NULL;
+	return (m_pLevel && m_pLevel->m_pWorld) ? m_pLevel->m_pWorld->GameRules() : NULL;
 }

@@ -20,29 +20,29 @@
 #include "imanaged_areas.h"
 
 // maxClients sizes the pool, so it crosses as an argument.
-bool ss::SoundEnt_Init( IManagedSoundEnt *pApi, const CGlobalVars *pGlobals )
+bool ss::SoundEnt_Init(IManagedSoundEnt* pApi, const CGlobalVars* pGlobals)
 {
-	if ( pApi == NULL )
+	if (pApi == NULL)
 		return true;
 
-	pApi->ServerSoundEntInit( pGlobals->maxClients, pGlobals->curtime );
+	pApi->ServerSoundEntInit(pGlobals->maxClients, pGlobals->curtime);
 	return true;
 }
 
 // Called twice on the way out of a level, so idempotent, as stock's was.
-void ss::SoundEnt_Shutdown( IManagedSoundEnt *pApi )
+void ss::SoundEnt_Shutdown(IManagedSoundEnt* pApi)
 {
-	if ( pApi == NULL )
+	if (pApi == NULL)
 		return;
 
 	pApi->ServerSoundEntShutdown();
 }
 
 // A client is leaving: managed clears its reserved slot.
-void ss::SoundEnt_ResetClientSound( IManagedSoundEnt *pApi, int iClientIndex )
+void ss::SoundEnt_ResetClientSound(IManagedSoundEnt* pApi, int iClientIndex)
 {
-	if ( pApi == NULL )
+	if (pApi == NULL)
 		return;
 
-	pApi->ServerSoundEntResetClientSound( iClientIndex );
+	pApi->ServerSoundEntResetClientSound(iClientIndex);
 }

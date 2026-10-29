@@ -17,10 +17,10 @@
 #include <sys/types.h>
 
 #ifndef S_ISDIR
-#define S_ISDIR( m ) ( ( ( m ) & _S_IFMT ) == _S_IFDIR )
+#define S_ISDIR(m) (((m) & _S_IFMT) == _S_IFDIR)
 #endif
 #ifndef S_ISREG
-#define S_ISREG( m ) ( ( ( m ) & _S_IFMT ) == _S_IFREG )
+#define S_ISREG(m) (((m) & _S_IFMT) == _S_IFREG)
 #endif
 #ifndef S_IXUSR
 #define S_IXUSR _S_IEXEC
@@ -31,37 +31,37 @@
 #include <stdint.h>
 typedef intptr_t ssize_t;
 
-inline int setenv( const char *pszName, const char *pszValue, int bOverwrite )
+inline int setenv(const char* pszName, const char* pszValue, int bOverwrite)
 {
-	if ( !bOverwrite && getenv( pszName ) )
+	if (!bOverwrite && getenv(pszName))
 		return 0;
-	return _putenv_s( pszName, pszValue ) == 0 ? 0 : -1;
+	return _putenv_s(pszName, pszValue) == 0 ? 0 : -1;
 }
 
-inline int unsetenv( const char *pszName )
+inline int unsetenv(const char* pszName)
 {
-	return _putenv_s( pszName, "" ) == 0 ? 0 : -1;
+	return _putenv_s(pszName, "") == 0 ? 0 : -1;
 }
 
 // mkdir(path, mode): the mode has no meaning to the CRT's _mkdir.
-inline int ss_posix_mkdir( const char *pszPath, int )
+inline int ss_posix_mkdir(const char* pszPath, int)
 {
-	return _mkdir( pszPath );
+	return _mkdir(pszPath);
 }
 
-#define mkdir( path, mode ) ss_posix_mkdir( path, mode )
+#define mkdir(path, mode) ss_posix_mkdir(path, mode)
 
 // mkdtemp: the template's trailing XXXXXX made unique, then the directory.
-inline char *mkdtemp( char *pszTemplate )
+inline char* mkdtemp(char* pszTemplate)
 {
-	if ( _mktemp_s( pszTemplate, strlen( pszTemplate ) + 1 ) != 0 )
+	if (_mktemp_s(pszTemplate, strlen(pszTemplate) + 1) != 0)
 		return NULL;
-	return _mkdir( pszTemplate ) == 0 ? pszTemplate : NULL;
+	return _mkdir(pszTemplate) == 0 ? pszTemplate : NULL;
 }
 
-inline char *realpath( const char *pszPath, char *pszResolved )
+inline char* realpath(const char* pszPath, char* pszResolved)
 {
-	return _fullpath( pszResolved, pszPath, _MAX_PATH );
+	return _fullpath(pszResolved, pszPath, _MAX_PATH);
 }
 
 #define getpid _getpid

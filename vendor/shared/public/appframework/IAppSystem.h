@@ -23,12 +23,12 @@ abstract_class IAppSystem
 {
 public:
 	// Here's where the app systems get to learn about each other
-	virtual bool Connect( CreateInterfaceFn factory ) = 0;
+	virtual bool Connect(CreateInterfaceFn factory) = 0;
 	virtual void Disconnect() = 0;
 
 	// Here's where systems can access other interfaces implemented by this object
 	// Returns NULL if it doesn't implement the requested interface
-	virtual void *QueryInterface( const char *pInterfaceName ) = 0;
+	virtual void* QueryInterface(const char* pInterfaceName) = 0;
 
 	// Init, shutdown
 	virtual InitReturnVal_t Init() = 0;
@@ -41,13 +41,13 @@ class CBaseAppSystem : public IInterface
 {
 public:
 	// Here's where the app systems get to learn about each other
-	virtual bool Connect( CreateInterfaceFn factory ) { return true; }
+	virtual bool Connect(CreateInterfaceFn factory) { return true; }
 
 	virtual void Disconnect() {}
 
 	// Here's where systems can access other interfaces implemented by this object
 	// Returns NULL if it doesn't implement the requested interface
-	virtual void *QueryInterface( const char *pInterfaceName ) { return NULL; }
+	virtual void* QueryInterface(const char* pInterfaceName) { return NULL; }
 
 	// Init, shutdown
 	virtual InitReturnVal_t Init() { return INIT_OK; }
@@ -60,7 +60,7 @@ template <class IInterface>
 class CTier0AppSystem : public CBaseAppSystem<IInterface>
 {
 public:
-	CTier0AppSystem( bool bIsPrimaryAppSystem = true ) { m_bIsPrimaryAppSystem = bIsPrimaryAppSystem; }
+	CTier0AppSystem(bool bIsPrimaryAppSystem = true) { m_bIsPrimaryAppSystem = bIsPrimaryAppSystem; }
 
 protected:
 	// NOTE: a single DLL may have multiple AppSystems it's trying to
@@ -82,7 +82,7 @@ abstract_class IAppSystemV0
 {
 public:
 	// Here's where the app systems get to learn about each other
-	virtual bool Connect( CreateInterfaceFn factory ) = 0;
+	virtual bool Connect(CreateInterfaceFn factory) = 0;
 	virtual void Disconnect() = 0;
 
 	// Here's where systems can access other interfaces implemented by this object

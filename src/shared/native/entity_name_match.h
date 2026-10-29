@@ -11,30 +11,30 @@
 #pragma once
 
 // pszQuery is a name, a classname, or a prefix ending in '*'.
-inline bool EntityNames_Match( const char *pszQuery, const char *pszName )
+inline bool EntityNames_Match(const char* pszQuery, const char* pszName)
 {
 	// Stock's NULL_STRING arm. "" must take it too, as STRING(NULL_STRING) is "".
-	if ( !pszName || *pszName == 0 )
-		return ( !pszQuery || *pszQuery == 0 || *pszQuery == '*' );
+	if (!pszName || *pszName == 0)
+		return (!pszQuery || *pszQuery == 0 || *pszQuery == '*');
 
-	if ( !pszQuery )
+	if (!pszQuery)
 		return false;
 
 	// Names come from a pool, so this hits for most exact matches.
-	if ( pszName == pszQuery )
+	if (pszName == pszQuery)
 		return true;
 
-	while ( *pszName && *pszQuery )
+	while (*pszName && *pszQuery)
 	{
 		const unsigned char cName = (unsigned char)*pszName;
 		const unsigned char cQuery = (unsigned char)*pszQuery;
 
 		// Simple ASCII case conversion, both directions, as stock.
-		if ( cName == cQuery )
+		if (cName == cQuery)
 			;
-		else if ( cName - 'A' <= (unsigned char)'Z' - 'A' && cName - 'A' + 'a' == cQuery )
+		else if (cName - 'A' <= (unsigned char)'Z' - 'A' && cName - 'A' + 'a' == cQuery)
 			;
-		else if ( cName - 'a' <= (unsigned char)'z' - 'a' && cName - 'a' + 'A' == cQuery )
+		else if (cName - 'a' <= (unsigned char)'z' - 'a' && cName - 'a' + 'A' == cQuery)
 			;
 		else
 			break;
@@ -43,10 +43,10 @@ inline bool EntityNames_Match( const char *pszQuery, const char *pszName )
 		++pszQuery;
 	}
 
-	if ( *pszQuery == 0 && *pszName == 0 )
+	if (*pszQuery == 0 && *pszName == 0)
 		return true;
 
 	// As stock, the '*' test is wherever the walk stopped, so a '*' mid-query matches too.
 	// Reproduced deliberately: correcting it would change what existing maps do.
-	return ( *pszQuery == '*' );
+	return (*pszQuery == '*');
 }

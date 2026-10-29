@@ -27,14 +27,14 @@ struct CollisionGroupName_t
 	int nEngine;
 };
 
-inline int CollisionGroup_ToEngine( int nGroup, const CollisionGroupName_t *pNames, int nCount )
+inline int CollisionGroup_ToEngine(int nGroup, const CollisionGroupName_t* pNames, int nCount)
 {
-	if ( !pNames || nCount <= 0 )
+	if (!pNames || nCount <= 0)
 		return 0;
 
-	for ( int i = 0; i < nCount; ++i )
+	for (int i = 0; i < nCount; ++i)
 	{
-		if ( pNames[i].nSourceSharp == nGroup )
+		if (pNames[i].nSourceSharp == nGroup)
 			return pNames[i].nEngine;
 	}
 
@@ -42,14 +42,14 @@ inline int CollisionGroup_ToEngine( int nGroup, const CollisionGroupName_t *pNam
 }
 
 // Many-to-one: an engine group with no name here reads as the neutral one.
-inline int CollisionGroup_FromEngine( int nEngineGroup, const CollisionGroupName_t *pNames, int nCount )
+inline int CollisionGroup_FromEngine(int nEngineGroup, const CollisionGroupName_t* pNames, int nCount)
 {
-	if ( !pNames || nCount <= 0 )
+	if (!pNames || nCount <= 0)
 		return 0;
 
-	for ( int i = 0; i < nCount; ++i )
+	for (int i = 0; i < nCount; ++i)
 	{
-		if ( pNames[i].nEngine == nEngineGroup )
+		if (pNames[i].nEngine == nEngineGroup)
 			return pNames[i].nSourceSharp;
 	}
 

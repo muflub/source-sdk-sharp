@@ -19,11 +19,11 @@
 class CFakeMDLCache : public IMDLCache
 {
 public:
-	bool Connect( CreateInterfaceFn factory ) override { return {}; }
+	bool Connect(CreateInterfaceFn factory) override { return {}; }
 
 	void Disconnect() override {}
 
-	void *QueryInterface( const char *pInterfaceName ) override { return {}; }
+	void* QueryInterface(const char* pInterfaceName) override { return {}; }
 
 	InitReturnVal_t Init() override { return {}; }
 
@@ -33,9 +33,9 @@ public:
 
 	void unused_FindMDL() override {}
 
-	int AddRef( MDLHandle_t handle ) override { return {}; }
+	int AddRef(MDLHandle_t handle) override { return {}; }
 
-	int Release( MDLHandle_t handle ) override { return {}; }
+	int Release(MDLHandle_t handle) override { return {}; }
 
 	void unused_GetRef() override {}
 
@@ -43,9 +43,9 @@ public:
 
 	void unused_GetHardwareData() override {}
 
-	vcollide_t *GetVCollide( MDLHandle_t handle ) override { return {}; }
+	vcollide_t* GetVCollide(MDLHandle_t handle) override { return {}; }
 
-	unsigned char *GetAnimBlock( MDLHandle_t handle, int nBlock ) override { return {}; }
+	unsigned char* GetAnimBlock(MDLHandle_t handle, int nBlock) override { return {}; }
 
 	void unused_GetVirtualModel() override {}
 
@@ -61,11 +61,11 @@ public:
 
 	void unused_IsErrorModel() override {}
 
-	void Flush( MDLCacheFlush_t nFlushFlags = MDLCACHE_FLUSH_ALL ) override {}
+	void Flush(MDLCacheFlush_t nFlushFlags = MDLCACHE_FLUSH_ALL) override {}
 
-	void Flush( MDLHandle_t handle, int nFlushFlags = MDLCACHE_FLUSH_ALL ) override {}
+	void Flush(MDLHandle_t handle, int nFlushFlags = MDLCACHE_FLUSH_ALL) override {}
 
-	const char *GetModelName( MDLHandle_t handle ) override { return {}; }
+	const char* GetModelName(MDLHandle_t handle) override { return {}; }
 
 	void unused_GetVirtualModelFast() override {}
 

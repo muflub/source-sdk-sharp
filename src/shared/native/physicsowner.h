@@ -41,67 +41,67 @@ class CWorld;
 struct PhysicsOwner_t
 {
 	// The SDK entity, for the machinery only it has.
-	IGameEntity *pBase;
+	IGameEntity* pBase;
 
 	// The entity outside the SDK. Always NULL on the client.
-	IGameEntity *pGame;
+	IGameEntity* pGame;
 
 	// worldspawn's own object only; always NULL on the client.
-	CWorld *pWorld;
+	CWorld* pWorld;
 
 	// The same entity's engine-facing interface, set with pGame.
-	IServerEntity *pServer;
+	IServerEntity* pServer;
 
 	// The object this owner was looked up from; IGameEntity has no VPhysicsGetObject.
-	IPhysicsObject *pObject;
+	IPhysicsObject* pObject;
 
 	bool IsValid() const { return pBase != NULL || pGame != NULL || pWorld != NULL; }
 
 	bool IsWorld() const { return pWorld != NULL; }
 
 	// A stable per-owner identity for keyed uses such as the collision-disable pair hash.
-	void *Key() const
+	void* Key() const
 	{
-		if ( pBase )
-			return static_cast<void *>( pBase );
+		if (pBase)
+			return static_cast<void*>(pBase);
 #ifndef CLIENT_DLL
-		if ( pWorld )
-			return static_cast<void *>( pWorld );
+		if (pWorld)
+			return static_cast<void*>(pWorld);
 #endif
 #ifndef CLIENT_DLL
-		return static_cast<void *>( pGame );
+		return static_cast<void*>(pGame);
 #else
 		return NULL;
 #endif
 	}
 
 	// The owner as the engine's collision code takes it, for a trace filter or a handle key.
-	IHandleEntity *ToHandleEntity() const
+	IHandleEntity* ToHandleEntity() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer )
+		if (pServer)
 			return pServer;
 #endif
 		return NULL;
 	}
 
-	const char *GetClassname() const
+	const char* GetClassname() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer )
+		if (pServer)
 			return pServer->GetNetworkable()->GetClassName();
 #endif
 		return "";
 	}
 
 	// The mapper's name, or the classname when it has none, as CBaseEntity::GetDebugName.
-	const char *GetDebugName() const
+	const char* GetDebugName() const
 	{
 #ifndef CLIENT_DLL
-		if ( pGame )
+		if (pGame)
 		{
-			const char *pName = StandaloneEntity_Name( pGame );
-			return ( pName && pName[0] ) ? pName : pServer->GetNetworkable()->GetClassName();
+			const char* pName = StandaloneEntity_Name(pGame);
+			return (pName && pName[0]) ? pName : pServer->GetNetworkable()->GetClassName();
 		}
 #endif
 		return "";
@@ -109,19 +109,19 @@ struct PhysicsOwner_t
 
 	int GetCollisionGroup() const
 	{
-		if ( pBase )
+		if (pBase)
 			return pBase->GetCollisionGroup();
 #ifndef CLIENT_DLL
-		if ( pGame )
+		if (pGame)
 			return pGame->GetCollisionGroup();
 #endif
 		return COLLISION_GROUP_NONE;
 	}
 
-	const Vector &GetAbsOrigin() const
+	const Vector& GetAbsOrigin() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer )
+		if (pServer)
 			return pServer->GetCollideable()->GetCollisionOrigin();
 #endif
 		return vec3_origin;
@@ -130,8 +130,8 @@ struct PhysicsOwner_t
 	bool IsPlayer() const
 	{
 #ifndef CLIENT_DLL
-		if ( pGame )
-			return StandaloneEntity_IsPlayer( pGame );
+		if (pGame)
+			return StandaloneEntity_IsPlayer(pGame);
 #endif
 		return false;
 	}
@@ -139,10 +139,10 @@ struct PhysicsOwner_t
 	int entindex() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer )
+		if (pServer)
 		{
 			// -1 for an entity with no edict; otherwise the entry index is the edict index.
-			if ( !pServer->GetNetworkable()->GetEdict() )
+			if (!pServer->GetNetworkable()->GetEdict())
 				return -1;
 			return pServer->GetRefEHandle().GetEntryIndex();
 		}
@@ -153,8 +153,8 @@ struct PhysicsOwner_t
 	MoveType_t GetMoveType() const
 	{
 #ifndef CLIENT_DLL
-		if ( pGame )
-			return (MoveType_t)StandaloneEntity_MoveType( pGame );
+		if (pGame)
+			return (MoveType_t)StandaloneEntity_MoveType(pGame);
 #endif
 		return MOVETYPE_NONE;
 	}
@@ -167,7 +167,7 @@ struct PhysicsOwner_t
 	int GetWaterType() const { return 0; }
 
 	// The solver is the only thing that moves an entity on the parallel hierarchy.
-	bool IsVPhysicsSimulated() const { return ( pGame != NULL ); }
+	bool IsVPhysicsSimulated() const { return (pGame != NULL); }
 
 	// The object this owner was looked up from; a ragdoll's first object, as stock.
 	bool IsVPhysicsMoveable() const { return pObject && pObject->IsMoveable(); }
@@ -176,7 +176,7 @@ struct PhysicsOwner_t
 	SolidType_t GetSolid() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer )
+		if (pServer)
 			return (SolidType_t)pServer->GetCollideable()->GetSolid();
 #endif
 		return SOLID_VPHYSICS;
@@ -185,7 +185,7 @@ struct PhysicsOwner_t
 	int GetSolidFlags() const
 	{
 #ifndef CLIENT_DLL
-		if ( pServer )
+		if (pServer)
 			return pServer->GetCollideable()->GetSolidFlags();
 #endif
 		return 0;
@@ -194,7 +194,7 @@ struct PhysicsOwner_t
 	unsigned int PhysicsSolidMaskForEntity() const
 	{
 		// CBasePlayer's override: a player also treats player clips as solid.
-		if ( IsPlayer() )
+		if (IsPlayer())
 			return (unsigned int)MASK_PLAYERSOLID;
 
 		return (unsigned int)MASK_SOLID;
@@ -203,68 +203,67 @@ struct PhysicsOwner_t
 #ifndef CLIENT_DLL
 	// Whether this entity forces a collision the ordinary rules would skip
 	// (func_clip_vphysics). Nothing in this build does.
-	bool ForcesCollisionWith( const PhysicsOwner_t &other ) const { return false; }
+	bool ForcesCollisionWith(const PhysicsOwner_t& other) const { return false; }
 #endif
 
-	void VPhysicsUpdate( IPhysicsObject *pObject ) const
+	void VPhysicsUpdate(IPhysicsObject* pObject) const
 	{
-		if ( pBase )
+		if (pBase)
 		{
-			pBase->VPhysicsUpdate( pObject );
+			pBase->VPhysicsUpdate(pObject);
 			return;
 		}
 #ifndef CLIENT_DLL
-		if ( pGame )
-			pGame->VPhysicsUpdate( pObject );
+		if (pGame)
+			pGame->VPhysicsUpdate(pObject);
 #endif
 	}
 };
 
-#if !defined( CLIENT_DLL )
+#if !defined(CLIENT_DLL)
 class CServerEntityResolver;
 
 // The entity a game-data handle names, or NULL when the handle is invalid, unbound,
 // or stale (the entry has been reused).
-IServerEntity *PhysicsStandaloneOwner( CServerEntityResolver &entities, const CBaseHandle &handle );
+IServerEntity* PhysicsStandaloneOwner(CServerEntityResolver& entities, const CBaseHandle& handle);
 
 // The owner a handle names, with no object, for queues that outlive the solver
 // callback. A stale handle answers no owner.
-inline PhysicsOwner_t PhysicsOwnerOfHandle( CServerEntityResolver &entities, const CBaseHandle &handle,
-											IPhysicsObject *pObject = NULL )
+inline PhysicsOwner_t PhysicsOwnerOfHandle(CServerEntityResolver& entities, const CBaseHandle& handle,
+										   IPhysicsObject* pObject = NULL)
 {
-	PhysicsOwner_t owner = { NULL, NULL, NULL, NULL, pObject };
+	PhysicsOwner_t owner = {NULL, NULL, NULL, NULL, pObject};
 
-	owner.pServer = PhysicsStandaloneOwner( entities, handle );
+	owner.pServer = PhysicsStandaloneOwner(entities, handle);
 
-	if ( owner.pServer )
+	if (owner.pServer)
 		owner.pGame = owner.pServer->GetBaseEntity();
 
 	return owner;
 }
 #endif
 
-#if !defined( CLIENT_DLL )
-inline PhysicsOwner_t PhysicsOwnerOfGameData( CServerEntityResolver &entities, void *pGameData,
-											  IPhysicsObject *pObject )
+#if !defined(CLIENT_DLL)
+inline PhysicsOwner_t PhysicsOwnerOfGameData(CServerEntityResolver& entities, void* pGameData, IPhysicsObject* pObject)
 {
-	if ( PhysicsGameDataIsHandle( pGameData ) )
-		return PhysicsOwnerOfHandle( entities, PhysicsHandleFromGameData( pGameData ), pObject );
+	if (PhysicsGameDataIsHandle(pGameData))
+		return PhysicsOwnerOfHandle(entities, PhysicsHandleFromGameData(pGameData), pObject);
 
-	PhysicsOwner_t owner = { NULL, NULL, NULL, NULL, pObject };
-	owner.pBase = static_cast<IGameEntity *>( pGameData );
+	PhysicsOwner_t owner = {NULL, NULL, NULL, NULL, pObject};
+	owner.pBase = static_cast<IGameEntity*>(pGameData);
 	return owner;
 }
 #else
-inline PhysicsOwner_t PhysicsOwnerOfGameData( void *pGameData, IPhysicsObject *pObject )
+inline PhysicsOwner_t PhysicsOwnerOfGameData(void* pGameData, IPhysicsObject* pObject)
 {
-	PhysicsOwner_t owner = { NULL, NULL, NULL, NULL, pObject };
+	PhysicsOwner_t owner = {NULL, NULL, NULL, NULL, pObject};
 
 	// A client ragdoll a managed entity owns carries a tagged handle; managed answers
 	// for it, so it has no SDK owner here. Never cast the word to IGameEntity.
-	if ( PhysicsGameDataIsHandle( pGameData ) )
+	if (PhysicsGameDataIsHandle(pGameData))
 		return owner;
 
-	owner.pBase = static_cast<IGameEntity *>( pGameData );
+	owner.pBase = static_cast<IGameEntity*>(pGameData);
 	return owner;
 }
 #endif

@@ -12,15 +12,15 @@ class PHandle
 {
 public:
 	PHandle()
-		: m_iPanelID( INVALID_PANEL )
+		: m_iPanelID(INVALID_PANEL)
 	{
 	} //m_iSerialNumber(0), m_pListEntry(0) {}
 
-	Panel *Get() const;
-	Panel *Set( Panel *pPanel );
-	Panel *Set( HPanel hPanel );
+	Panel* Get() const;
+	Panel* Set(Panel* pPanel);
+	Panel* Set(HPanel hPanel);
 
-	operator Panel *() const { return Get(); }
+	operator Panel*() const { return Get(); }
 
 	operator bool() { return Get() != 0; }
 
@@ -33,12 +33,12 @@ class VPanelHandle
 {
 public:
 	VPanelHandle()
-		: m_iPanelID( INVALID_PANEL )
+		: m_iPanelID(INVALID_PANEL)
 	{
 	}
 
 	VPANEL Get() const;
-	VPANEL Set( VPANEL pPanel );
+	VPANEL Set(VPANEL pPanel);
 
 	operator VPANEL() const { return Get(); }
 
@@ -53,13 +53,13 @@ template <class PanelType>
 class DHANDLE : public PHandle
 {
 public:
-	PanelType *Get() const { return (PanelType *)PHandle::Get(); }
+	PanelType* Get() const { return (PanelType*)PHandle::Get(); }
 
-	PanelType *Set( PanelType *pPanel ) { return (PanelType *)PHandle::Set( pPanel ); }
+	PanelType* Set(PanelType* pPanel) { return (PanelType*)PHandle::Set(pPanel); }
 
-	PanelType *Set( HPanel hPanel ) { return (PanelType *)PHandle::Set( hPanel ); }
+	PanelType* Set(HPanel hPanel) { return (PanelType*)PHandle::Set(hPanel); }
 
-	operator PanelType *() const { return (PanelType *)PHandle::Get(); }
+	operator PanelType*() const { return (PanelType*)PHandle::Get(); }
 
 	operator bool() const { return PHandle::Get() != NULL; }
 };

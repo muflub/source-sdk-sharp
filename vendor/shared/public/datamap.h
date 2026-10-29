@@ -66,7 +66,7 @@ public:
 	static int FieldSize() { return 0; }
 };
 
-#define DECLARE_FIELD_SIZE( _fieldType, _fieldSize )  \
+#define DECLARE_FIELD_SIZE(_fieldType, _fieldSize)    \
 	template <>                                       \
 	class CDatamapFieldSizeDeducer<_fieldType>        \
 	{                                                 \
@@ -78,62 +78,62 @@ public:
 		static int FieldSize() { return _fieldSize; } \
 	};
 
-DECLARE_FIELD_SIZE( FIELD_FLOAT, sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_STRING, sizeof( intp ) )
-DECLARE_FIELD_SIZE( FIELD_VECTOR, 3 * sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_VECTOR2D, 2 * sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_QUATERNION, 4 * sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_INTEGER, sizeof( int ) )
-DECLARE_FIELD_SIZE( FIELD_BOOLEAN, sizeof( char ) )
-DECLARE_FIELD_SIZE( FIELD_SHORT, sizeof( short ) )
-DECLARE_FIELD_SIZE( FIELD_CHARACTER, sizeof( char ) )
-DECLARE_FIELD_SIZE( FIELD_COLOR32, sizeof( int ) )
-DECLARE_FIELD_SIZE( FIELD_CLASSPTR, sizeof( intp ) )
-DECLARE_FIELD_SIZE( FIELD_EHANDLE, sizeof( int ) )
-DECLARE_FIELD_SIZE( FIELD_EDICT, sizeof( int ) )
-DECLARE_FIELD_SIZE( FIELD_POSITION_VECTOR, 3 * sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_TIME, sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_TICK, sizeof( int ) )
-DECLARE_FIELD_SIZE( FIELD_MODELNAME, sizeof( intp ) )
-DECLARE_FIELD_SIZE( FIELD_SOUNDNAME, sizeof( intp ) )
-DECLARE_FIELD_SIZE( FIELD_INPUT, sizeof( int ) )
+DECLARE_FIELD_SIZE(FIELD_FLOAT, sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_STRING, sizeof(intp))
+DECLARE_FIELD_SIZE(FIELD_VECTOR, 3 * sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_VECTOR2D, 2 * sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_QUATERNION, 4 * sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_INTEGER, sizeof(int))
+DECLARE_FIELD_SIZE(FIELD_BOOLEAN, sizeof(char))
+DECLARE_FIELD_SIZE(FIELD_SHORT, sizeof(short))
+DECLARE_FIELD_SIZE(FIELD_CHARACTER, sizeof(char))
+DECLARE_FIELD_SIZE(FIELD_COLOR32, sizeof(int))
+DECLARE_FIELD_SIZE(FIELD_CLASSPTR, sizeof(intp))
+DECLARE_FIELD_SIZE(FIELD_EHANDLE, sizeof(int))
+DECLARE_FIELD_SIZE(FIELD_EDICT, sizeof(int))
+DECLARE_FIELD_SIZE(FIELD_POSITION_VECTOR, 3 * sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_TIME, sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_TICK, sizeof(int))
+DECLARE_FIELD_SIZE(FIELD_MODELNAME, sizeof(intp))
+DECLARE_FIELD_SIZE(FIELD_SOUNDNAME, sizeof(intp))
+DECLARE_FIELD_SIZE(FIELD_INPUT, sizeof(int))
 #ifdef POSIX
 // pointer to members under gnuc are 8bytes if you have a virtual func
-DECLARE_FIELD_SIZE( FIELD_FUNCTION, sizeof( uint64 ) )
+DECLARE_FIELD_SIZE(FIELD_FUNCTION, sizeof(uint64))
 #else
-DECLARE_FIELD_SIZE( FIELD_FUNCTION, sizeof( int * ) )
+DECLARE_FIELD_SIZE(FIELD_FUNCTION, sizeof(int*))
 #endif
-DECLARE_FIELD_SIZE( FIELD_VMATRIX, 16 * sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_VMATRIX_WORLDSPACE, 16 * sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_MATRIX3X4_WORLDSPACE, 12 * sizeof( float ) )
-DECLARE_FIELD_SIZE( FIELD_INTERVAL, 2 * sizeof( float ) ) // NOTE:  Must match interval.h definition
-DECLARE_FIELD_SIZE( FIELD_MODELINDEX, sizeof( int ) )
-DECLARE_FIELD_SIZE( FIELD_MATERIALINDEX, sizeof( int ) )
+DECLARE_FIELD_SIZE(FIELD_VMATRIX, 16 * sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_VMATRIX_WORLDSPACE, 16 * sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_MATRIX3X4_WORLDSPACE, 12 * sizeof(float))
+DECLARE_FIELD_SIZE(FIELD_INTERVAL, 2 * sizeof(float)) // NOTE:  Must match interval.h definition
+DECLARE_FIELD_SIZE(FIELD_MODELINDEX, sizeof(int))
+DECLARE_FIELD_SIZE(FIELD_MATERIALINDEX, sizeof(int))
 
-#define SIZE_OF_ARRAY( p ) _ARRAYSIZE( p )
+#define SIZE_OF_ARRAY(p) _ARRAYSIZE(p)
 
 // Normal offset of is invalid on non-array-types, this is dubious as hell. The rest of the codebase converted to the
 // legit offsetof from the C headers, so we'll use the old impl here to avoid exposing temptation to others
-#define _hacky_datamap_offsetof( s, m ) ( (size_t)&( ( (s *)0 )->m ) )
+#define _hacky_datamap_offsetof(s, m) ((size_t)&(((s*)0)->m))
 
-#define _FIELD( name, fieldtype, count, flags, mapname, tolerance )  \
-	{ fieldtype,                                                     \
-	  #name,                                                         \
-	  { (int)_hacky_datamap_offsetof( classNameTypedef, name ), 0 }, \
-	  count,                                                         \
-	  flags,                                                         \
-	  mapname,                                                       \
-	  NULL,                                                          \
-	  NULL,                                                          \
-	  NULL,                                                          \
-	  sizeof( ( (classNameTypedef *)0 )->name ),                     \
-	  NULL,                                                          \
-	  0,                                                             \
-	  tolerance }
+#define _FIELD(name, fieldtype, count, flags, mapname, tolerance) \
+	{fieldtype,                                                   \
+	 #name,                                                       \
+	 {(int)_hacky_datamap_offsetof(classNameTypedef, name), 0},   \
+	 count,                                                       \
+	 flags,                                                       \
+	 mapname,                                                     \
+	 NULL,                                                        \
+	 NULL,                                                        \
+	 NULL,                                                        \
+	 sizeof(((classNameTypedef*)0)->name),                        \
+	 NULL,                                                        \
+	 0,                                                           \
+	 tolerance}
 
-#define DEFINE_FIELD( name, fieldtype ) _FIELD( name, fieldtype, 1, FTYPEDESC_SAVE, NULL, 0 )
+#define DEFINE_FIELD(name, fieldtype) _FIELD(name, fieldtype, 1, FTYPEDESC_SAVE, NULL, 0)
 
-#define DEFINE_ARRAY( name, fieldtype, count ) _FIELD( name, fieldtype, count, FTYPEDESC_SAVE, NULL, 0 )
+#define DEFINE_ARRAY(name, fieldtype, count) _FIELD(name, fieldtype, count, FTYPEDESC_SAVE, NULL, 0)
 
 // Used by byteswap datadescs
 
@@ -185,7 +185,7 @@ struct typedescription_t;
 class ISaveRestoreOps;
 
 // Function prototype for all input handlers.
-typedef void ( CBaseEntity::*inputfunc_t )( inputdata_t &data );
+typedef void (CBaseEntity::*inputfunc_t)(inputdata_t& data);
 
 struct datamap_t;
 struct typedescription_t;
@@ -202,24 +202,24 @@ enum
 struct typedescription_t
 {
 	fieldtype_t fieldType;
-	const char *fieldName;
+	const char* fieldName;
 	int fieldOffset[TD_OFFSET_COUNT]; // 0 == normal, 1 == packed offset
 	unsigned short fieldSize;
 	short flags;
 	// the name of the variable in the map/fgd data, or the name of the action
-	const char *externalName;
+	const char* externalName;
 	// pointer to the function set for save/restoring of custom data types
-	ISaveRestoreOps *pSaveRestoreOps;
+	ISaveRestoreOps* pSaveRestoreOps;
 	// for associating function with string names
 	inputfunc_t inputFunc;
 	// For embedding additional datatables inside this one
-	datamap_t *td;
+	datamap_t* td;
 
 	// Stores the actual member variable size in bytes
 	int fieldSizeInBytes;
 
 	// FTYPEDESC_OVERRIDE point to first baseclass instance if chains_validated has occurred
-	struct typedescription_t *override_field;
+	struct typedescription_t* override_field;
 
 	// Used to track exclusion of baseclass fields
 	int override_count;
@@ -232,115 +232,115 @@ struct typedescription_t
 //			used to iterate through an object's data descriptions
 struct datamap_t
 {
-	typedescription_t *dataDesc;
+	typedescription_t* dataDesc;
 	int dataNumFields;
-	char const *dataClassName;
-	datamap_t *baseMap;
+	char const* dataClassName;
+	datamap_t* baseMap;
 
 	bool chains_validated;
 	// Have the "packed" offsets been computed
 	bool packed_offsets_computed;
 	int packed_size;
 
-#if defined( _DEBUG )
+#if defined(_DEBUG)
 	bool bValidityChecked;
 #endif // _DEBUG
 };
 
 // Macros used to implement datadescs
-#define DECLARE_SIMPLE_DATADESC()                    \
-	static datamap_t m_DataMap;                      \
-	static datamap_t *GetBaseMap();                  \
-	template <typename T>                            \
-	friend void DataMapAccess( T *, datamap_t **p ); \
-	template <typename T>                            \
-	friend datamap_t *DataMapInit( T * );
+#define DECLARE_SIMPLE_DATADESC()                 \
+	static datamap_t m_DataMap;                   \
+	static datamap_t* GetBaseMap();               \
+	template <typename T>                         \
+	friend void DataMapAccess(T*, datamap_t** p); \
+	template <typename T>                         \
+	friend datamap_t* DataMapInit(T*);
 
-#define BEGIN_DATADESC( className )                              \
-	datamap_t className::m_DataMap = { 0, 0, #className, NULL }; \
-	datamap_t *className::GetDataDescMap()                       \
-	{                                                            \
-		return &m_DataMap;                                       \
-	}                                                            \
-	datamap_t *className::GetBaseMap()                           \
-	{                                                            \
-		datamap_t *pResult;                                      \
-		DataMapAccess( (BaseClass *)NULL, &pResult );            \
-		return pResult;                                          \
-	}                                                            \
-	BEGIN_DATADESC_GUTS( className )
+#define BEGIN_DATADESC(className)                              \
+	datamap_t className::m_DataMap = {0, 0, #className, NULL}; \
+	datamap_t* className::GetDataDescMap()                     \
+	{                                                          \
+		return &m_DataMap;                                     \
+	}                                                          \
+	datamap_t* className::GetBaseMap()                         \
+	{                                                          \
+		datamap_t* pResult;                                    \
+		DataMapAccess((BaseClass*)NULL, &pResult);             \
+		return pResult;                                        \
+	}                                                          \
+	BEGIN_DATADESC_GUTS(className)
 
-#define BEGIN_SIMPLE_DATADESC( className )                       \
-	datamap_t className::m_DataMap = { 0, 0, #className, NULL }; \
-	datamap_t *className::GetBaseMap()                           \
-	{                                                            \
-		return NULL;                                             \
-	}                                                            \
-	BEGIN_DATADESC_GUTS( className )
+#define BEGIN_SIMPLE_DATADESC(className)                       \
+	datamap_t className::m_DataMap = {0, 0, #className, NULL}; \
+	datamap_t* className::GetBaseMap()                         \
+	{                                                          \
+		return NULL;                                           \
+	}                                                          \
+	BEGIN_DATADESC_GUTS(className)
 
-#define BEGIN_SIMPLE_DATADESC_( className, BaseClass )           \
-	datamap_t className::m_DataMap = { 0, 0, #className, NULL }; \
-	datamap_t *className::GetBaseMap()                           \
-	{                                                            \
-		datamap_t *pResult;                                      \
-		DataMapAccess( (BaseClass *)NULL, &pResult );            \
-		return pResult;                                          \
-	}                                                            \
-	BEGIN_DATADESC_GUTS( className )
+#define BEGIN_SIMPLE_DATADESC_(className, BaseClass)           \
+	datamap_t className::m_DataMap = {0, 0, #className, NULL}; \
+	datamap_t* className::GetBaseMap()                         \
+	{                                                          \
+		datamap_t* pResult;                                    \
+		DataMapAccess((BaseClass*)NULL, &pResult);             \
+		return pResult;                                        \
+	}                                                          \
+	BEGIN_DATADESC_GUTS(className)
 
-#define BEGIN_DATADESC_GUTS( className )                                                                 \
-	template <typename T>                                                                                \
-	datamap_t *DataMapInit( T * );                                                                       \
-	template <>                                                                                          \
-	datamap_t *DataMapInit<className>( className * );                                                    \
-	namespace className##_DataDescInit                                                                   \
-	{                                                                                                    \
-		datamap_t *g_DataMapHolder =                                                                     \
-			DataMapInit( (className *)NULL ); /* This can/will be used for some clean up duties later */ \
-	}                                                                                                    \
-                                                                                                         \
-	template <>                                                                                          \
-	datamap_t *DataMapInit<className>( className * )                                                     \
-	{                                                                                                    \
-		typedef className classNameTypedef;                                                              \
-		static CDatadescGeneratedNameHolder nameHolder( #className );                                    \
-		className::m_DataMap.baseMap = className::GetBaseMap();                                          \
-		static typedescription_t dataDesc[] = {                                                          \
-			{ FIELD_VOID,                                                                                \
-			  nullptr,                                                                                   \
-			  { 0, 0 },                                                                                  \
-			  0,                                                                                         \
-			  0,                                                                                         \
-			  nullptr,                                                                                   \
-			  nullptr,                                                                                   \
-			  nullptr,                                                                                   \
-			  nullptr }, /* so you can define "empty" tables */
+#define BEGIN_DATADESC_GUTS(className)                                                                \
+	template <typename T>                                                                             \
+	datamap_t* DataMapInit(T*);                                                                       \
+	template <>                                                                                       \
+	datamap_t* DataMapInit<className>(className*);                                                    \
+	namespace className##_DataDescInit                                                                \
+	{                                                                                                 \
+		datamap_t* g_DataMapHolder =                                                                  \
+			DataMapInit((className*)NULL); /* This can/will be used for some clean up duties later */ \
+	}                                                                                                 \
+                                                                                                      \
+	template <>                                                                                       \
+	datamap_t* DataMapInit<className>(className*)                                                     \
+	{                                                                                                 \
+		typedef className classNameTypedef;                                                           \
+		static CDatadescGeneratedNameHolder nameHolder(#className);                                   \
+		className::m_DataMap.baseMap = className::GetBaseMap();                                       \
+		static typedescription_t dataDesc[] = {                                                       \
+			{FIELD_VOID,                                                                              \
+			 nullptr,                                                                                 \
+			 {0, 0},                                                                                  \
+			 0,                                                                                       \
+			 0,                                                                                       \
+			 nullptr,                                                                                 \
+			 nullptr,                                                                                 \
+			 nullptr,                                                                                 \
+			 nullptr}, /* so you can define "empty" tables */
 
-#define END_DATADESC()                                                                    \
-	}                                                                                     \
-	;                                                                                     \
-                                                                                          \
-	if ( sizeof( dataDesc ) > sizeof( dataDesc[0] ) )                                     \
-	{                                                                                     \
-		classNameTypedef::m_DataMap.dataNumFields = int( SIZE_OF_ARRAY( dataDesc ) - 1 ); \
-		classNameTypedef::m_DataMap.dataDesc = &dataDesc[1];                              \
-	}                                                                                     \
-	else                                                                                  \
-	{                                                                                     \
-		classNameTypedef::m_DataMap.dataNumFields = 1;                                    \
-		classNameTypedef::m_DataMap.dataDesc = dataDesc;                                  \
-	}                                                                                     \
-	return &classNameTypedef::m_DataMap;                                                  \
+#define END_DATADESC()                                                                \
+	}                                                                                 \
+	;                                                                                 \
+                                                                                      \
+	if (sizeof(dataDesc) > sizeof(dataDesc[0]))                                       \
+	{                                                                                 \
+		classNameTypedef::m_DataMap.dataNumFields = int(SIZE_OF_ARRAY(dataDesc) - 1); \
+		classNameTypedef::m_DataMap.dataDesc = &dataDesc[1];                          \
+	}                                                                                 \
+	else                                                                              \
+	{                                                                                 \
+		classNameTypedef::m_DataMap.dataNumFields = 1;                                \
+		classNameTypedef::m_DataMap.dataDesc = dataDesc;                              \
+	}                                                                                 \
+	return &classNameTypedef::m_DataMap;                                              \
 	}
 
 // used for when there is no data description
 
 // helps get the offset of a bitfield
-#define BEGIN_BITFIELD( name ) \
-	union                      \
-	{                          \
-		char name;             \
-		struct                 \
+#define BEGIN_BITFIELD(name) \
+	union                    \
+	{                        \
+		char name;           \
+		struct               \
 		{
 #define END_BITFIELD() \
 	}                  \
@@ -351,12 +351,12 @@ struct datamap_t
 // Forward compatability with potential seperate byteswap datadescs
 
 #define DECLARE_BYTESWAP_DATADESC() DECLARE_SIMPLE_DATADESC()
-#define BEGIN_BYTESWAP_DATADESC( name ) BEGIN_SIMPLE_DATADESC( name )
+#define BEGIN_BYTESWAP_DATADESC(name) BEGIN_SIMPLE_DATADESC(name)
 
 #define END_BYTESWAP_DATADESC() END_DATADESC()
 
 template <typename T>
-inline void DataMapAccess( T *ignored, datamap_t **p )
+inline void DataMapAccess(T* ignored, datamap_t** p)
 {
 	*p = &T::m_DataMap;
 }
@@ -364,22 +364,22 @@ inline void DataMapAccess( T *ignored, datamap_t **p )
 class CDatadescGeneratedNameHolder
 {
 public:
-	CDatadescGeneratedNameHolder( const char *pszBase )
-		: m_pszBase( pszBase )
+	CDatadescGeneratedNameHolder(const char* pszBase)
+		: m_pszBase(pszBase)
 	{
-		m_nLenBase = strlen( m_pszBase );
+		m_nLenBase = strlen(m_pszBase);
 	}
 
 	~CDatadescGeneratedNameHolder()
 	{
-		for ( int i = 0; i < m_Names.Count(); i++ )
+		for (int i = 0; i < m_Names.Count(); i++)
 		{
 			delete m_Names[i];
 		}
 	}
 
 private:
-	const char *m_pszBase;
+	const char* m_pszBase;
 	size_t m_nLenBase;
-	CUtlVector<char *> m_Names;
+	CUtlVector<char*> m_Names;
 };

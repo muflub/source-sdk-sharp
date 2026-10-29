@@ -13,9 +13,9 @@
 // Stock's AllocPooledString over the pool of the object that holds the string_t: a pooled
 // string lives as long as that object, the world's for its model name, a player's for its
 // name. There is no level-wide pool.
-inline string_t PooledString( CServerStringPool &pool, const char *pszValue )
+inline string_t PooledString(CServerStringPool& pool, const char* pszValue)
 {
-	if ( pszValue && *pszValue )
-		return MAKE_STRING( pool.Allocate( pszValue ) );
+	if (pszValue && *pszValue)
+		return MAKE_STRING(pool.Allocate(pszValue));
 	return NULL_STRING;
 }

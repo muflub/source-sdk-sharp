@@ -56,36 +56,36 @@ public:
 	// constructors for various useful subtypes
 
 	// a point light with infinite range
-	LightDesc_t( const Vector &pos, const Vector &color ) { InitPoint( pos, color ); }
+	LightDesc_t(const Vector& pos, const Vector& color) { InitPoint(pos, color); }
 
 	/// a simple light. cone boundaries in radians. you pass a look_at point and the
 	/// direciton is derived from that.
-	LightDesc_t( const Vector &pos, const Vector &color, const Vector &point_at, float inner_cone_boundary,
-				 float outer_cone_boundary )
+	LightDesc_t(const Vector& pos, const Vector& color, const Vector& point_at, float inner_cone_boundary,
+				float outer_cone_boundary)
 	{
-		InitSpot( pos, color, point_at, inner_cone_boundary, outer_cone_boundary );
+		InitSpot(pos, color, point_at, inner_cone_boundary, outer_cone_boundary);
 	}
 
-	void InitPoint( const Vector &pos, const Vector &color );
-	void InitSpot( const Vector &pos, const Vector &color, const Vector &point_at, float inner_cone_boundary,
-				   float outer_cone_boundary );
+	void InitPoint(const Vector& pos, const Vector& color);
+	void InitSpot(const Vector& pos, const Vector& color, const Vector& point_at, float inner_cone_boundary,
+				  float outer_cone_boundary);
 
 	/// Given 4 points and 4 normals, ADD lighting from this light into "color".
-	void ComputeLightAtPoints( const FourVectors &pos, const FourVectors &normal, FourVectors &color,
-							   bool DoHalfLambert = false ) const;
-	void ComputeLightAtPointsForDirectional( const FourVectors &pos, const FourVectors &normal, FourVectors &color,
-											 bool DoHalfLambert = false ) const;
+	void ComputeLightAtPoints(const FourVectors& pos, const FourVectors& normal, FourVectors& color,
+							  bool DoHalfLambert = false) const;
+	void ComputeLightAtPointsForDirectional(const FourVectors& pos, const FourVectors& normal, FourVectors& color,
+											bool DoHalfLambert = false) const;
 
 	/// given a direction relative to the light source position, is this ray within the
 	/// light cone (for spotlights..non spots consider all rays to be within their cone)
-	bool IsDirectionWithinLightCone( const Vector &rdir ) const
+	bool IsDirectionWithinLightCone(const Vector& rdir) const
 	{
-		return ( ( m_Type != MATERIAL_LIGHT_SPOT ) || ( rdir.Dot( m_Direction ) >= m_PhiDot ) );
+		return ((m_Type != MATERIAL_LIGHT_SPOT) || (rdir.Dot(m_Direction) >= m_PhiDot));
 	}
 };
 
 // a point light with infinite range
-inline void LightDesc_t::InitPoint( const Vector &pos, const Vector &color )
+inline void LightDesc_t::InitPoint(const Vector& pos, const Vector& color)
 {
 	m_Type = MATERIAL_LIGHT_POINT;
 	m_Color = color;
@@ -99,15 +99,15 @@ inline void LightDesc_t::InitPoint( const Vector &pos, const Vector &color )
 
 // a simple light. cone boundaries in radians. you pass a look_at point and the
 // direciton is derived from that.
-inline void LightDesc_t::InitSpot( const Vector &pos, const Vector &color, const Vector &point_at,
-								   float inner_cone_boundary, float outer_cone_boundary )
+inline void LightDesc_t::InitSpot(const Vector& pos, const Vector& color, const Vector& point_at,
+								  float inner_cone_boundary, float outer_cone_boundary)
 {
 	m_Type = MATERIAL_LIGHT_SPOT;
 	m_Color = color;
 	m_Position = pos;
 	m_Direction = point_at;
 	m_Direction -= pos;
-	VectorNormalizeFast( m_Direction );
+	VectorNormalizeFast(m_Direction);
 	m_Falloff = 5.0; // linear angle falloff
 	m_Theta = inner_cone_boundary;
 	m_Phi = outer_cone_boundary;

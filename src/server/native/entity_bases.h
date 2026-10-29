@@ -13,7 +13,7 @@
 class CPointEntity : public IGameEntity
 {
 public:
-	DECLARE_CLASS( CPointEntity, IGameEntity );
+	DECLARE_CLASS(CPointEntity, IGameEntity);
 
 	void Spawn();
 
@@ -21,7 +21,7 @@ public:
 	// hierarchy has no parent to forward from.
 	virtual int ObjectCaps() { return 0; }
 
-	virtual bool KeyValue( const char *szKeyName, const char *szValue );
+	virtual bool KeyValue(const char* szKeyName, const char* szValue);
 
 private:
 };
@@ -29,7 +29,7 @@ private:
 // Has a position + size
 class CServerOnlyEntity : public IGameEntity
 {
-	DECLARE_CLASS( CServerOnlyEntity, IGameEntity );
+	DECLARE_CLASS(CServerOnlyEntity, IGameEntity);
 
 public:
 	// CBaseEntity's bServerOnly only set EFL_SERVER_ONLY, which this hierarchy has no use for.
@@ -41,19 +41,19 @@ public:
 // Has only a position, no size
 class CServerOnlyPointEntity : public CServerOnlyEntity
 {
-	DECLARE_CLASS( CServerOnlyPointEntity, CServerOnlyEntity );
+	DECLARE_CLASS(CServerOnlyPointEntity, CServerOnlyEntity);
 
 public:
-	virtual bool KeyValue( const char *szKeyName, const char *szValue );
+	virtual bool KeyValue(const char* szKeyName, const char* szValue);
 };
 
 // Has no position or size
 class CLogicalEntity : public CServerOnlyEntity
 {
-	DECLARE_CLASS( CLogicalEntity, CServerOnlyEntity );
+	DECLARE_CLASS(CLogicalEntity, CServerOnlyEntity);
 
 public:
-	virtual bool KeyValue( const char *szKeyName, const char *szValue );
+	virtual bool KeyValue(const char* szKeyName, const char* szValue);
 };
 
 // None of these four declares a datadesc, so a derived BEGIN_DATADESC would otherwise
@@ -63,22 +63,22 @@ public:
 
 struct datamap_t;
 
-inline void DataMapAccess( CPointEntity *, datamap_t **p )
+inline void DataMapAccess(CPointEntity*, datamap_t** p)
 {
 	*p = NULL;
 }
 
-inline void DataMapAccess( CServerOnlyEntity *, datamap_t **p )
+inline void DataMapAccess(CServerOnlyEntity*, datamap_t** p)
 {
 	*p = NULL;
 }
 
-inline void DataMapAccess( CServerOnlyPointEntity *, datamap_t **p )
+inline void DataMapAccess(CServerOnlyPointEntity*, datamap_t** p)
 {
 	*p = NULL;
 }
 
-inline void DataMapAccess( CLogicalEntity *, datamap_t **p )
+inline void DataMapAccess(CLogicalEntity*, datamap_t** p)
 {
 	*p = NULL;
 }

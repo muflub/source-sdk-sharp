@@ -11,4 +11,4 @@
 
 #include "render_target_store.h"
 
-ITexture *ShellRenderTarget( int nSlot );
+ITexture* ShellRenderTarget(int nSlot);

@@ -10,7 +10,7 @@
 #pragma once
 
 // An empty name is not a brush, so it fails on the precache arm, which can say what it looked for.
-inline bool SourceSharp_IsBrushModelName( const char *pszModel )
+inline bool SourceSharp_IsBrushModelName(const char* pszModel)
 {
 	return pszModel != 0 && pszModel[0] == '*';
 }

@@ -25,39 +25,39 @@
 #define SS_ALLOW_DEVELOPMENT_CVARS 0
 #endif
 
-static int StripDevelopmentOnly( int nFlags )
+static int StripDevelopmentOnly(int nFlags)
 {
-	return SS_ALLOW_DEVELOPMENT_CVARS ? ( nFlags & ~FCVAR_DEVELOPMENTONLY ) : nFlags;
+	return SS_ALLOW_DEVELOPMENT_CVARS ? (nFlags & ~FCVAR_DEVELOPMENTONLY) : nFlags;
 }
 
 // Carriers built before ConVar_Register wait on a list; after it, they register at once.
-ConCommandBase *ConCommandBase::s_pConCommandBases = NULL;
-IConCommandBaseAccessor *ConCommandBase::s_pAccessor = NULL;
+ConCommandBase* ConCommandBase::s_pConCommandBases = NULL;
+IConCommandBaseAccessor* ConCommandBase::s_pAccessor = NULL;
 
-CCVarRegistry *CCVarRegistry::Current()
+CCVarRegistry* CCVarRegistry::Current()
 {
-	return static_cast<CCVarRegistry *>( ConCommandBase::s_pAccessor );
+	return static_cast<CCVarRegistry*>(ConCommandBase::s_pAccessor);
 }
 
 // The engine's console, through the registry a carrier reaches; NULL before Register.
-static ICvar *Console()
+static ICvar* Console()
 {
-	CCVarRegistry *pRegistry = CCVarRegistry::Current();
+	CCVarRegistry* pRegistry = CCVarRegistry::Current();
 	return pRegistry ? pRegistry->Cvar() : NULL;
 }
 
-bool CCVarRegistry::RegisterConCommandBase( ConCommandBase *pVar )
+bool CCVarRegistry::RegisterConCommandBase(ConCommandBase* pVar)
 {
-	if ( m_pPolicy )
-		return m_pPolicy->RegisterConCommandBase( pVar );
+	if (m_pPolicy)
+		return m_pPolicy->RegisterConCommandBase(pVar);
 
-	m_pCvar->RegisterConCommand( pVar );
+	m_pCvar->RegisterConCommand(pVar);
 	return true;
 }
 
-void CCVarRegistry::Register( int nFlags, IConCommandBaseAccessor *pPolicy )
+void CCVarRegistry::Register(int nFlags, IConCommandBaseAccessor* pPolicy)
 {
-	if ( m_bRegistered || !m_pCvar )
+	if (m_bRegistered || !m_pCvar)
 		return;
 
 	m_bRegistered = true;
@@ -68,11 +68,11 @@ void CCVarRegistry::Register( int nFlags, IConCommandBaseAccessor *pPolicy )
 
 	// Each Init may hand the carrier to code that links it elsewhere, so the
 	// next pointer is read first.
-	ConCommandBase *pWaiting = ConCommandBase::s_pConCommandBases;
-	while ( pWaiting )
+	ConCommandBase* pWaiting = ConCommandBase::s_pConCommandBases;
+	while (pWaiting)
 	{
-		ConCommandBase *pAfter = pWaiting->m_pNext;
-		pWaiting->AddFlags( m_nRegisterFlags );
+		ConCommandBase* pAfter = pWaiting->m_pNext;
+		pWaiting->AddFlags(m_nRegisterFlags);
 		pWaiting->Init();
 		pWaiting = pAfter;
 	}
@@ -83,24 +83,24 @@ void CCVarRegistry::Register( int nFlags, IConCommandBaseAccessor *pPolicy )
 
 void CCVarRegistry::Unregister()
 {
-	if ( !m_bRegistered || !m_pCvar )
+	if (!m_bRegistered || !m_pCvar)
 		return;
 
-	m_pCvar->UnregisterConCommands( m_nDllIdentifier );
+	m_pCvar->UnregisterConCommands(m_nDllIdentifier);
 	m_nDllIdentifier = -1;
 	m_bRegistered = false;
 	m_pPolicy = nullptr;
 
-	if ( ConCommandBase::s_pAccessor == this )
+	if (ConCommandBase::s_pAccessor == this)
 		ConCommandBase::s_pAccessor = NULL;
 }
 
 ConCommandBase::ConCommandBase()
-	: m_pNext( NULL )
-	, m_bRegistered( false )
-	, m_pszName( NULL )
-	, m_pszHelpString( NULL )
-	, m_nFlags( 0 )
+	: m_pNext(NULL)
+	, m_bRegistered(false)
+	, m_pszName(NULL)
+	, m_pszHelpString(NULL)
+	, m_nFlags(0)
 {
 }
 
@@ -113,20 +113,20 @@ bool ConCommandBase::IsCommand() const
 
 CVarDLLIdentifier_t ConCommandBase::GetDLLIdentifier() const
 {
-	CCVarRegistry *pRegistry = CCVarRegistry::Current();
+	CCVarRegistry* pRegistry = CCVarRegistry::Current();
 	return pRegistry ? pRegistry->DllIdentifier() : -1;
 }
 
-void ConCommandBase::CreateBase( const char *pName, const char *pHelpString, int flags )
+void ConCommandBase::CreateBase(const char* pName, const char* pHelpString, int flags)
 {
-	Assert( pName );
+	Assert(pName);
 	m_bRegistered = false;
 	m_pszName = pName;
 	m_pszHelpString = pHelpString ? pHelpString : "";
-	m_nFlags = StripDevelopmentOnly( flags );
+	m_nFlags = StripDevelopmentOnly(flags);
 
 	// An unregistered carrier never joins the waiting list.
-	if ( m_nFlags & FCVAR_UNREGISTERED )
+	if (m_nFlags & FCVAR_UNREGISTERED)
 	{
 		m_pNext = NULL;
 	}
@@ -137,32 +137,32 @@ void ConCommandBase::CreateBase( const char *pName, const char *pHelpString, int
 	}
 
 	// Built after ConVar_Register: register now.
-	if ( s_pAccessor )
+	if (s_pAccessor)
 		Init();
 }
 
 void ConCommandBase::Init()
 {
-	if ( s_pAccessor )
-		s_pAccessor->RegisterConCommandBase( this );
+	if (s_pAccessor)
+		s_pAccessor->RegisterConCommandBase(this);
 }
 
-const char *ConCommandBase::GetName() const
+const char* ConCommandBase::GetName() const
 {
 	return m_pszName;
 }
 
-bool ConCommandBase::IsFlagSet( int flag ) const
+bool ConCommandBase::IsFlagSet(int flag) const
 {
-	return ( m_nFlags & flag ) != 0;
+	return (m_nFlags & flag) != 0;
 }
 
-void ConCommandBase::AddFlags( int flags )
+void ConCommandBase::AddFlags(int flags)
 {
-	m_nFlags = StripDevelopmentOnly( m_nFlags | flags );
+	m_nFlags = StripDevelopmentOnly(m_nFlags | flags);
 }
 
-const char *ConCommandBase::GetHelpText() const
+const char* ConCommandBase::GetHelpText() const
 {
 	return m_pszHelpString;
 }
@@ -172,15 +172,15 @@ bool ConCommandBase::IsRegistered() const
 	return m_bRegistered;
 }
 
-ConCommand::ConCommand( const char *pName, ICommandCallback *pCallback, const char *pHelpString, int flags,
-						ICommandCompletionCallback *pCompletionCallback )
+ConCommand::ConCommand(const char* pName, ICommandCallback* pCallback, const char* pHelpString, int flags,
+					   ICommandCompletionCallback* pCompletionCallback)
 {
 	m_pCommandCallback = pCallback;
 	m_bUsingNewCommandCallback = false;
 	m_bUsingCommandCallbackInterface = true;
 	m_pCommandCompletionCallback = pCompletionCallback;
 	m_bHasCompletionCallback = pCompletionCallback != NULL;
-	BaseClass::CreateBase( pName, pHelpString, flags );
+	BaseClass::CreateBase(pName, pHelpString, flags);
 }
 
 ConCommand::~ConCommand() {}
@@ -190,47 +190,46 @@ bool ConCommand::IsCommand() const
 	return true;
 }
 
-void ConCommand::Dispatch( const CCommand &command )
+void ConCommand::Dispatch(const CCommand& command)
 {
 	// Exactly one of the three callback forms is in use.
-	if ( m_bUsingNewCommandCallback )
+	if (m_bUsingNewCommandCallback)
 	{
-		if ( m_fnCommandCallback )
-			return m_fnCommandCallback( command );
+		if (m_fnCommandCallback)
+			return m_fnCommandCallback(command);
 	}
-	else if ( m_bUsingCommandCallbackInterface )
+	else if (m_bUsingCommandCallbackInterface)
 	{
-		if ( m_pCommandCallback )
-			return m_pCommandCallback->CommandCallback( command );
+		if (m_pCommandCallback)
+			return m_pCommandCallback->CommandCallback(command);
 	}
-	else if ( m_fnCommandCallbackV1 )
+	else if (m_fnCommandCallbackV1)
 	{
 		return m_fnCommandCallbackV1();
 	}
 
-	AssertMsg( 0, "Encountered ConCommand '%s' without a callback!\n", GetName() );
+	AssertMsg(0, "Encountered ConCommand '%s' without a callback!\n", GetName());
 }
 
-int ConCommand::AutoCompleteSuggest( const char *partial, CUtlVector<CUtlString> &commands )
+int ConCommand::AutoCompleteSuggest(const char* partial, CUtlVector<CUtlString>& commands)
 {
-	if ( m_bUsingCommandCallbackInterface )
-		return m_pCommandCompletionCallback
-			? m_pCommandCompletionCallback->CommandCompletionCallback( partial, commands )
-			: 0;
+	if (m_bUsingCommandCallbackInterface)
+		return m_pCommandCompletionCallback ? m_pCommandCompletionCallback->CommandCompletionCallback(partial, commands)
+											: 0;
 
-	if ( !m_fnCompletionCallback )
+	if (!m_fnCompletionCallback)
 		return 0;
 
 	char suggestions[COMMAND_COMPLETION_MAXITEMS][COMMAND_COMPLETION_ITEM_LENGTH];
-	int nCount = m_fnCompletionCallback( partial, suggestions );
+	int nCount = m_fnCompletionCallback(partial, suggestions);
 
 	// The engine owns `commands` and frees it with its own allocator, so suggestions are
 	// appended with that allocator too.
-	ss::IEngineHeap *pHeap = ss::FindEngineHeap();
-	ss::EngineUtlVectorLayout<ss::EngineUtlString> &vec = ss::EngineUtlVectorLayoutOf<ss::EngineUtlString>( commands );
-	for ( int i = 0; i < nCount; i++ )
+	ss::IEngineHeap* pHeap = ss::FindEngineHeap();
+	ss::EngineUtlVectorLayout<ss::EngineUtlString>& vec = ss::EngineUtlVectorLayoutOf<ss::EngineUtlString>(commands);
+	for (int i = 0; i < nCount; i++)
 	{
-		if ( !ss::EngineUtlStringVectorAppend( pHeap, vec, suggestions[i] ) )
+		if (!ss::EngineUtlStringVectorAppend(pHeap, vec, suggestions[i]))
 			return i;
 	}
 	return nCount;
@@ -242,15 +241,15 @@ bool ConCommand::CanAutoComplete()
 }
 
 // A variable's state lives on its parent (itself, for every variable this DLL builds).
-ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags )
+ConVar::ConVar(const char* pName, const char* pDefaultValue, int flags)
 {
-	Create( pName, pDefaultValue, flags );
+	Create(pName, pDefaultValue, flags);
 }
 
-ConVar::ConVar( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString, bool bMin, float fMin,
-				bool bMax, float fMax )
+ConVar::ConVar(const char* pName, const char* pDefaultValue, int flags, const char* pHelpString, bool bMin, float fMin,
+			   bool bMax, float fMax)
 {
-	Create( pName, pDefaultValue, flags, pHelpString, bMin, fMin, bMax, fMax );
+	Create(pName, pDefaultValue, flags, pHelpString, bMin, fMin, bMax, fMax);
 }
 
 ConVar::~ConVar()
@@ -259,19 +258,19 @@ ConVar::~ConVar()
 	m_pszString = NULL;
 }
 
-bool ConVar::IsFlagSet( int flag ) const
+bool ConVar::IsFlagSet(int flag) const
 {
-	return ( m_pParent->m_nFlags & flag ) != 0;
+	return (m_pParent->m_nFlags & flag) != 0;
 }
 
-const char *ConVar::GetHelpText() const
+const char* ConVar::GetHelpText() const
 {
 	return m_pParent->m_pszHelpString;
 }
 
-void ConVar::AddFlags( int flags )
+void ConVar::AddFlags(int flags)
 {
-	m_pParent->m_nFlags = StripDevelopmentOnly( m_pParent->m_nFlags | flags );
+	m_pParent->m_nFlags = StripDevelopmentOnly(m_pParent->m_nFlags | flags);
 }
 
 bool ConVar::IsRegistered() const
@@ -279,7 +278,7 @@ bool ConVar::IsRegistered() const
 	return m_pParent->m_bRegistered;
 }
 
-const char *ConVar::GetName() const
+const char* ConVar::GetName() const
 {
 	return m_pParent->m_pszName;
 }
@@ -295,96 +294,96 @@ void ConVar::Init()
 }
 
 // A value the material thread must set is queued while it may not.
-static bool QueuedForMaterialThread( ConVar *pVar )
+static bool QueuedForMaterialThread(ConVar* pVar)
 {
-	return pVar->IsFlagSet( FCVAR_MATERIAL_THREAD_MASK ) && Console() && !Console()->IsMaterialThreadSetAllowed();
+	return pVar->IsFlagSet(FCVAR_MATERIAL_THREAD_MASK) && Console() && !Console()->IsMaterialThreadSetAllowed();
 }
 
-void ConVar::InternalSetValue( const char *value )
+void ConVar::InternalSetValue(const char* value)
 {
-	if ( QueuedForMaterialThread( this ) )
+	if (QueuedForMaterialThread(this))
 	{
-		Console()->QueueMaterialThreadSetValue( this, value );
+		Console()->QueueMaterialThreadSetValue(this, value);
 		return;
 	}
 
-	Assert( m_pParent == this );
+	Assert(m_pParent == this);
 
 	const float flOldValue = m_fValue;
-	float flNewValue = value ? (float)atof( value ) : 0.0f;
+	float flNewValue = value ? (float)atof(value) : 0.0f;
 
 	// A clamped value is stored as the clamped number's text, not as given.
 	char clampedText[32];
-	const char *pStore = value;
-	if ( ClampValue( flNewValue ) )
+	const char* pStore = value;
+	if (ClampValue(flNewValue))
 	{
-		snprintf( clampedText, sizeof( clampedText ), "%f", flNewValue );
+		snprintf(clampedText, sizeof(clampedText), "%f", flNewValue);
 		pStore = clampedText;
 	}
 
 	m_fValue = flNewValue;
 	m_nValue = (int)flNewValue;
 
-	if ( !( m_nFlags & FCVAR_NEVER_AS_STRING ) )
-		ChangeStringValue( pStore, flOldValue );
+	if (!(m_nFlags & FCVAR_NEVER_AS_STRING))
+		ChangeStringValue(pStore, flOldValue);
 }
 
-void ConVar::ChangeStringValue( const char *tempVal, float flOldValue )
+void ConVar::ChangeStringValue(const char* tempVal, float flOldValue)
 {
-	Assert( !( m_nFlags & FCVAR_NEVER_AS_STRING ) );
+	Assert(!(m_nFlags & FCVAR_NEVER_AS_STRING));
 
 	// The old text is kept for the callbacks: the buffer may be replaced.
-	char *pOld = (char *)stackalloc( m_StringLength );
-	memcpy( pOld, m_pszString, m_StringLength );
+	char* pOld = (char*)stackalloc(m_StringLength);
+	memcpy(pOld, m_pszString, m_StringLength);
 
-	if ( !tempVal )
+	if (!tempVal)
 	{
 		m_pszString[0] = '\0';
 	}
 	else
 	{
-		const int nNeeded = (int)strlen( tempVal ) + 1;
-		if ( nNeeded > m_StringLength )
+		const int nNeeded = (int)strlen(tempVal) + 1;
+		if (nNeeded > m_StringLength)
 		{
 			delete[] m_pszString;
 			m_pszString = new char[nNeeded];
 			m_StringLength = nNeeded;
 		}
-		memcpy( m_pszString, tempVal, nNeeded );
+		memcpy(m_pszString, tempVal, nNeeded);
 	}
 
 	// Only a change of text is announced.
-	if ( strcmp( pOld, m_pszString ) != 0 )
+	if (strcmp(pOld, m_pszString) != 0)
 	{
-		if ( m_fnChangeCallback )
-			m_fnChangeCallback( this, pOld, flOldValue );
-		if ( ICvar *pConsole = Console() )
-			pConsole->CallGlobalChangeCallbacks( this, pOld, flOldValue );
+		if (m_fnChangeCallback)
+			m_fnChangeCallback(this, pOld, flOldValue);
+		if (ICvar* pConsole = Console())
+			pConsole->CallGlobalChangeCallbacks(this, pOld, flOldValue);
 	}
 
-	stackfree( pOld );
+	stackfree(pOld);
 }
 
-bool ConVar::ClampValue( float &value )
+bool ConVar::ClampValue(float& value)
 {
 	// Competitive bounds are the tighter ones, so they are tried first; with
 	// neither bound set, competitive mode pins the default.
-	if ( m_bCompetitiveRestrictions )
+	if (m_bCompetitiveRestrictions)
 	{
-		if ( m_bHasCompMin && value < m_fCompMinVal )
+		if (m_bHasCompMin && value < m_fCompMinVal)
 		{
 			value = m_fCompMinVal;
 			return true;
 		}
-		if ( m_bHasCompMax && value > m_fCompMaxVal )
+		if (m_bHasCompMax && value > m_fCompMaxVal)
 		{
 			value = m_fCompMaxVal;
 			return true;
 		}
-		if ( !m_bHasCompMin && !m_bHasCompMax )
+		if (!m_bHasCompMin && !m_bHasCompMax)
 		{
-			const float flDefault = ss::AtoF( m_pszDefaultValue );
-			if ( fabs( value - flDefault ) > 0.0001f )
+			const float flDefault = ss::AtoF(m_pszDefaultValue);
+			if (fabs(value - flDefault) > 0.0001f)
 			{
 				value = flDefault;
 				return true;
@@ -392,12 +391,12 @@ bool ConVar::ClampValue( float &value )
 		}
 	}
 
-	if ( m_bHasMin && value < m_fMinVal )
+	if (m_bHasMin && value < m_fMinVal)
 	{
 		value = m_fMinVal;
 		return true;
 	}
-	if ( m_bHasMax && value > m_fMaxVal )
+	if (m_bHasMax && value > m_fMaxVal)
 	{
 		value = m_fMaxVal;
 		return true;
@@ -405,90 +404,90 @@ bool ConVar::ClampValue( float &value )
 	return false;
 }
 
-void ConVar::InternalSetFloatValue( float fNewValue )
+void ConVar::InternalSetFloatValue(float fNewValue)
 {
-	InternalSetFloatValue2( fNewValue );
+	InternalSetFloatValue2(fNewValue);
 }
 
-void ConVar::InternalSetFloatValue2( float fNewValue, bool bForce )
+void ConVar::InternalSetFloatValue2(float fNewValue, bool bForce)
 {
-	if ( !bForce && fNewValue == m_fValue )
+	if (!bForce && fNewValue == m_fValue)
 		return;
 
-	if ( QueuedForMaterialThread( this ) )
+	if (QueuedForMaterialThread(this))
 	{
-		Console()->QueueMaterialThreadSetValue( this, fNewValue );
+		Console()->QueueMaterialThreadSetValue(this, fNewValue);
 		return;
 	}
 
-	Assert( m_pParent == this );
+	Assert(m_pParent == this);
 
-	ClampValue( fNewValue );
+	ClampValue(fNewValue);
 
 	const float flOldValue = m_fValue;
 	m_fValue = fNewValue;
 	m_nValue = (int)m_fValue;
 
-	if ( m_nFlags & FCVAR_NEVER_AS_STRING )
+	if (m_nFlags & FCVAR_NEVER_AS_STRING)
 	{
-		Assert( !m_fnChangeCallback );
+		Assert(!m_fnChangeCallback);
 		return;
 	}
 
 	char text[32];
-	snprintf( text, sizeof( text ), "%f", m_fValue );
-	ChangeStringValue( text, flOldValue );
+	snprintf(text, sizeof(text), "%f", m_fValue);
+	ChangeStringValue(text, flOldValue);
 }
 
-void ConVar::InternalSetIntValue( int nValue )
+void ConVar::InternalSetIntValue(int nValue)
 {
-	if ( nValue == m_nValue )
+	if (nValue == m_nValue)
 		return;
 
-	if ( QueuedForMaterialThread( this ) )
+	if (QueuedForMaterialThread(this))
 	{
-		Console()->QueueMaterialThreadSetValue( this, nValue );
+		Console()->QueueMaterialThreadSetValue(this, nValue);
 		return;
 	}
 
-	Assert( m_pParent == this );
+	Assert(m_pParent == this);
 
 	float flValue = (float)nValue;
-	if ( ClampValue( flValue ) )
+	if (ClampValue(flValue))
 		nValue = (int)flValue;
 
 	const float flOldValue = m_fValue;
 	m_fValue = flValue;
 	m_nValue = nValue;
 
-	if ( m_nFlags & FCVAR_NEVER_AS_STRING )
+	if (m_nFlags & FCVAR_NEVER_AS_STRING)
 	{
-		Assert( !m_fnChangeCallback );
+		Assert(!m_fnChangeCallback);
 		return;
 	}
 
 	char text[32];
-	snprintf( text, sizeof( text ), "%d", m_nValue );
-	ChangeStringValue( text, flOldValue );
+	snprintf(text, sizeof(text), "%d", m_nValue);
+	ChangeStringValue(text, flOldValue);
 }
 
-void ConVar::Create_Vtbl( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString, bool bMin,
-						  float fMin, bool bMax, float fMax, FnChangeCallback_t callback )
+void ConVar::Create_Vtbl(const char* pName, const char* pDefaultValue, int flags, const char* pHelpString, bool bMin,
+						 float fMin, bool bMax, float fMax, FnChangeCallback_t callback)
 {
-	Create( pName, pDefaultValue, flags, pHelpString, bMin, fMin, bMax, fMax, false, 0.0f, false, 0.0f, callback );
+	Create(pName, pDefaultValue, flags, pHelpString, bMin, fMin, bMax, fMax, false, 0.0f, false, 0.0f, callback);
 }
 
-void ConVar::Create( const char *pName, const char *pDefaultValue, int flags, const char *pHelpString, bool bMin,
-					 float fMin, bool bMax, float fMax, bool bCompMin, float fCompMin, bool bCompMax, float fCompMax,
-					 FnChangeCallback_t callback )
+void ConVar::Create(const char* pName, const char* pDefaultValue, int flags, const char* pHelpString, bool bMin,
+					float fMin, bool bMax, float fMax, bool bCompMin, float fCompMin, bool bCompMax, float fCompMax,
+					FnChangeCallback_t callback)
 {
 	m_pParent = this;
-	SetDefault( pDefaultValue );
+	SetDefault(pDefaultValue);
 
 	// The value starts as a copy of the default text.
-	m_StringLength = (int)strlen( m_pszDefaultValue ) + 1;
+	m_StringLength = (int)strlen(m_pszDefaultValue) + 1;
 	m_pszString = new char[m_StringLength];
-	memcpy( m_pszString, m_pszDefaultValue, m_StringLength );
+	memcpy(m_pszString, m_pszDefaultValue, m_StringLength);
 
 	m_fnChangeCallback = callback;
 	m_bCompetitiveRestrictions = false;
@@ -504,48 +503,48 @@ void ConVar::Create( const char *pName, const char *pDefaultValue, int flags, co
 	m_fCompMaxVal = fCompMax;
 
 	// The int is parsed from the text, not truncated from the float.
-	m_fValue = (float)atof( m_pszString );
-	m_nValue = atoi( m_pszString );
+	m_fValue = (float)atof(m_pszString);
+	m_nValue = atoi(m_pszString);
 
-	Assert( !m_bHasMin || m_fValue >= m_fMinVal );
-	Assert( !m_bHasMax || m_fValue <= m_fMaxVal );
+	Assert(!m_bHasMin || m_fValue >= m_fMinVal);
+	Assert(!m_bHasMax || m_fValue <= m_fMaxVal);
 
-	BaseClass::CreateBase( pName, pHelpString, flags );
+	BaseClass::CreateBase(pName, pHelpString, flags);
 }
 
-void ConVar::SetValue( const char *value )
+void ConVar::SetValue(const char* value)
 {
-	static_cast<ConVar *>( m_pParent )->InternalSetValue( value );
+	static_cast<ConVar*>(m_pParent)->InternalSetValue(value);
 }
 
-void ConVar::SetValue( float value )
+void ConVar::SetValue(float value)
 {
-	static_cast<ConVar *>( m_pParent )->InternalSetFloatValue2( value );
+	static_cast<ConVar*>(m_pParent)->InternalSetFloatValue2(value);
 }
 
-void ConVar::SetValue( int value )
+void ConVar::SetValue(int value)
 {
-	static_cast<ConVar *>( m_pParent )->InternalSetIntValue( value );
+	static_cast<ConVar*>(m_pParent)->InternalSetIntValue(value);
 }
 
-bool ConVar::GetMin( float &minVal ) const
+bool ConVar::GetMin(float& minVal) const
 {
 	minVal = m_pParent->m_fMinVal;
 	return m_pParent->m_bHasMin;
 }
 
-bool ConVar::GetMax( float &maxVal ) const
+bool ConVar::GetMax(float& maxVal) const
 {
 	maxVal = m_pParent->m_fMaxVal;
 	return m_pParent->m_bHasMax;
 }
 
-const char *ConVar::GetDefault() const
+const char* ConVar::GetDefault() const
 {
 	return m_pParent->m_pszDefaultValue;
 }
 
-void ConVar::SetDefault( const char *pszDefault )
+void ConVar::SetDefault(const char* pszDefault)
 {
 	m_pszDefaultValue = pszDefault ? pszDefault : "";
 }
@@ -559,49 +558,49 @@ class CMissingConVar : public ConVar
 {
 public:
 	CMissingConVar()
-		: ConVar( "", "0" )
+		: ConVar("", "0")
 	{
 	}
 
-	virtual void SetValue( const char * ) {}
+	virtual void SetValue(const char*) {}
 
-	virtual void SetValue( float ) {}
+	virtual void SetValue(float) {}
 
-	virtual void SetValue( int ) {}
+	virtual void SetValue(int) {}
 
-	virtual const char *GetName() const { return ""; }
+	virtual const char* GetName() const { return ""; }
 
-	virtual bool IsFlagSet( int ) const { return false; }
+	virtual bool IsFlagSet(int) const { return false; }
 };
 
 CMissingConVar s_MissingConVar;
 
 }
 
-ConVarRef::ConVarRef( const char *pName )
+ConVarRef::ConVarRef(const char* pName)
 {
-	Init( pName, false );
+	Init(pName, false);
 }
 
-void ConVarRef::Init( const char *pName, bool bIgnoreMissing )
+void ConVarRef::Init(const char* pName, bool bIgnoreMissing)
 {
-	ICvar *pConsole = Console();
-	IConVar *pFound = pConsole ? pConsole->FindVar( pName ) : NULL;
+	ICvar* pConsole = Console();
+	IConVar* pFound = pConsole ? pConsole->FindVar(pName) : NULL;
 	m_pConVar = pFound ? pFound : &s_MissingConVar;
-	m_pConVarState = static_cast<ConVar *>( m_pConVar );
+	m_pConVarState = static_cast<ConVar*>(m_pConVar);
 
-	if ( IsValid() )
+	if (IsValid())
 		return;
 
 	// A miss before the console exists is expected: nothing is registered yet.
-	if ( pConsole && !bIgnoreMissing )
-		Warning( "ConVarRef %s doesn't point to an existing ConVar\n", pName );
+	if (pConsole && !bIgnoreMissing)
+		Warning("ConVarRef %s doesn't point to an existing ConVar\n", pName);
 }
 
-ConVarRef::ConVarRef( IConVar *pConVar )
+ConVarRef::ConVarRef(IConVar* pConVar)
 {
 	m_pConVar = pConVar ? pConVar : &s_MissingConVar;
-	m_pConVarState = static_cast<ConVar *>( m_pConVar );
+	m_pConVarState = static_cast<ConVar*>(m_pConVar);
 }
 
 bool ConVarRef::IsValid() const

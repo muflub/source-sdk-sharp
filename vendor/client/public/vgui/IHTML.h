@@ -55,9 +55,9 @@ public:
 	virtual void unused_Obsolete_OnKeyDown() = 0;
 
 	virtual void unused_GetBitmap() = 0;
-	virtual void SetVisible( bool state ) = 0;
+	virtual void SetVisible(bool state) = 0;
 
-	virtual void SetSize( int wide, int tall ) = 0;
+	virtual void SetSize(int wide, int tall) = 0;
 
 	virtual void unused_OnMouse() = 0;
 	virtual void unused_OnChar() = 0;

@@ -20,19 +20,19 @@ namespace ss
 class IEngineHeap
 {
 public:
-	virtual void *Alloc( size_t nSize ) = 0;
-	virtual void *Realloc( void *pMem, size_t nSize ) = 0;
-	virtual void Free( void *pMem ) = 0;
+	virtual void* Alloc(size_t nSize) = 0;
+	virtual void* Realloc(void* pMem, size_t nSize) = 0;
+	virtual void Free(void* pMem) = 0;
 };
 
 // The process's tier0 allocator, or NULL when no libtier0.so is loaded.
-IEngineHeap *FindEngineHeap();
+IEngineHeap* FindEngineHeap();
 
 // The g_pMemAlloc a loaded module (named by file, e.g. "engine.so") resolves,
 // or NULL. For checking that FindEngineHeap is the allocator that module uses.
-IEngineHeap *EngineHeapSeenBy( const char *pszModuleFile );
+IEngineHeap* EngineHeapSeenBy(const char* pszModuleFile);
 
 // Free a block tier0's allocator made. NULL is a no-op; no allocator aborts.
-void EngineHeapFree( void *pMem );
+void EngineHeapFree(void* pMem);
 
 } // namespace ss

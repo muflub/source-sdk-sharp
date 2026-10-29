@@ -43,19 +43,19 @@
 namespace
 {
 
-FILE *OpenFixture( const char *pName )
+FILE* OpenFixture(const char* pName)
 {
-	const char *pDir = getenv( "SOURCESHARP_C2SIMS_FIXTURE_DIR" );
-	if ( !pDir || !*pDir )
+	const char* pDir = getenv("SOURCESHARP_C2SIMS_FIXTURE_DIR");
+	if (!pDir || !*pDir)
 	{
-		Msg( "[c2-sims probe] SOURCESHARP_C2SIMS_FIXTURE_DIR is not set; %s not written\n", pName );
+		Msg("[c2-sims probe] SOURCESHARP_C2SIMS_FIXTURE_DIR is not set; %s not written\n", pName);
 		return NULL;
 	}
 	char path[1024];
-	Q_snprintf( path, sizeof( path ), "%s/%s", pDir, pName );
-	FILE *f = fopen( path, "w" );
-	if ( !f )
-		Msg( "[c2-sims probe] cannot open %s\n", path );
+	Q_snprintf(path, sizeof(path), "%s/%s", pDir, pName);
+	FILE* f = fopen(path, "w");
+	if (!f)
+		Msg("[c2-sims probe] cannot open %s\n", path);
 	return f;
 }
 
@@ -87,40 +87,40 @@ FILE *OpenFixture( const char *pName )
 
 namespace
 {
-FILE *g_pSimFile = NULL;
+FILE* g_pSimFile = NULL;
 int g_nSimFramesLeft = 0;
 int g_nSimFrame = 0;
 bool g_bSimArmed = false;
-IUniformRandomStream *g_pSimSavedRandom = NULL;
+IUniformRandomStream* g_pSimSavedRandom = NULL;
 
 class CSimRecordingRandom : public IUniformRandomStream
 {
 public:
-	IUniformRandomStream *m_pInner = NULL;
+	IUniformRandomStream* m_pInner = NULL;
 
-	virtual void SetSeed( int iSeed ) { m_pInner->SetSeed( iSeed ); }
+	virtual void SetSeed(int iSeed) { m_pInner->SetSeed(iSeed); }
 
-	virtual float RandomFloat( float flMin, float flMax )
+	virtual float RandomFloat(float flMin, float flMax)
 	{
-		float v = m_pInner->RandomFloat( flMin, flMax );
-		if ( g_bSimArmed && g_pSimFile )
-			fprintf( g_pSimFile, "RF\t%.9g\t%.9g\t%.9g\n", flMin, flMax, v );
+		float v = m_pInner->RandomFloat(flMin, flMax);
+		if (g_bSimArmed && g_pSimFile)
+			fprintf(g_pSimFile, "RF\t%.9g\t%.9g\t%.9g\n", flMin, flMax, v);
 		return v;
 	}
 
-	virtual int RandomInt( int iMin, int iMax )
+	virtual int RandomInt(int iMin, int iMax)
 	{
-		int v = m_pInner->RandomInt( iMin, iMax );
-		if ( g_bSimArmed && g_pSimFile )
-			fprintf( g_pSimFile, "RI\t%d\t%d\t%d\n", iMin, iMax, v );
+		int v = m_pInner->RandomInt(iMin, iMax);
+		if (g_bSimArmed && g_pSimFile)
+			fprintf(g_pSimFile, "RI\t%d\t%d\t%d\n", iMin, iMax, v);
 		return v;
 	}
 
-	virtual float RandomFloatExp( float flMin, float flMax, float flExp )
+	virtual float RandomFloatExp(float flMin, float flMax, float flExp)
 	{
-		float v = m_pInner->RandomFloatExp( flMin, flMax, flExp );
-		if ( g_bSimArmed && g_pSimFile )
-			fprintf( g_pSimFile, "RX\t%.9g\t%.9g\t%.9g\t%.9g\n", flMin, flMax, flExp, v );
+		float v = m_pInner->RandomFloatExp(flMin, flMax, flExp);
+		if (g_bSimArmed && g_pSimFile)
+			fprintf(g_pSimFile, "RX\t%.9g\t%.9g\t%.9g\t%.9g\n", flMin, flMax, flExp, v);
 		return v;
 	}
 };
@@ -134,18 +134,18 @@ CSimRecordingRandom g_SimRandom;
 class CSimStream : public IUniformRandomStream
 {
 public:
-	virtual void SetSeed( int iSeed ) { RandomSeed( iSeed ); }
+	virtual void SetSeed(int iSeed) { RandomSeed(iSeed); }
 
-	virtual float RandomFloat( float flMin, float flMax ) { return ::RandomFloat( flMin, flMax ); }
+	virtual float RandomFloat(float flMin, float flMax) { return ::RandomFloat(flMin, flMax); }
 
-	virtual int RandomInt( int iMin, int iMax ) { return ::RandomInt( iMin, iMax ); }
+	virtual int RandomInt(int iMin, int iMax) { return ::RandomInt(iMin, iMax); }
 
-	virtual float RandomFloatExp( float flMin, float flMax, float flExp )
+	virtual float RandomFloatExp(float flMin, float flMax, float flExp)
 	{
-		float fl = ::RandomFloat( 0.0f, 1.0f );
-		if ( flExp != 1.0f )
-			fl = powf( fl, flExp );
-		return fl * ( flMax - flMin ) + flMin;
+		float fl = ::RandomFloat(0.0f, 1.0f);
+		if (flExp != 1.0f)
+			fl = powf(fl, flExp);
+		return fl * (flMax - flMin) + flMin;
 	}
 };
 
@@ -162,22 +162,22 @@ int C2SimsProbe_Frame()
 	return g_nSimFrame;
 }
 
-void C2SimsProbe_Arm( bool bArm )
+void C2SimsProbe_Arm(bool bArm)
 {
 	g_bSimArmed = bArm && g_pSimFile;
 }
 
-void C2SimsProbe_Row( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
+void C2SimsProbe_Row(const char* pFmt, ...) __attribute__((format(printf, 1, 2)));
 
-void C2SimsProbe_Row( const char *pFmt, ... )
+void C2SimsProbe_Row(const char* pFmt, ...)
 {
-	if ( !g_pSimFile )
+	if (!g_pSimFile)
 		return;
 	va_list ap;
-	va_start( ap, pFmt );
-	vfprintf( g_pSimFile, pFmt, ap );
-	va_end( ap );
-	fputc( '\n', g_pSimFile );
+	va_start(ap, pFmt);
+	vfprintf(g_pSimFile, pFmt, ap);
+	va_end(ap);
+	fputc('\n', g_pSimFile);
 }
 
 // Called once per frame by the patched sim, at the top of its Update: closes
@@ -185,19 +185,19 @@ void C2SimsProbe_Row( const char *pFmt, ... )
 // complete), else counts this frame in. False: not recording.
 bool C2SimsProbe_BeginFrame()
 {
-	if ( !g_pSimFile )
+	if (!g_pSimFile)
 		return false;
-	if ( g_nSimFramesLeft <= 0 )
+	if (g_nSimFramesLeft <= 0)
 	{
-		fclose( g_pSimFile );
+		fclose(g_pSimFile);
 		g_pSimFile = NULL;
 		g_bSimArmed = false;
-		if ( g_pSimSavedRandom )
+		if (g_pSimSavedRandom)
 		{
 			random = g_pSimSavedRandom;
 			g_pSimSavedRandom = NULL;
 		}
-		Msg( "[c2-sims probe] sim: recorded %d frame(s)\n", g_nSimFrame );
+		Msg("[c2-sims probe] sim: recorded %d frame(s)\n", g_nSimFrame);
 		return false;
 	}
 	--g_nSimFramesLeft;
@@ -207,30 +207,30 @@ bool C2SimsProbe_BeginFrame()
 
 CON_COMMAND(
 	cs_cl_probe_sim,
-	"c2-sims probe (debug): record a patched sim into $SOURCESHARP_C2SIMS_FIXTURE_DIR/<name>-stock.tsv. <name> <frames>" )
+	"c2-sims probe (debug): record a patched sim into $SOURCESHARP_C2SIMS_FIXTURE_DIR/<name>-stock.tsv. <name> <frames>")
 {
-	if ( args.ArgC() < 3 || g_pSimFile )
+	if (args.ArgC() < 3 || g_pSimFile)
 	{
-		Msg( "[c2-sims probe] usage: cs_cl_probe_sim <name> <frames> (one recording at a time)\n" );
+		Msg("[c2-sims probe] usage: cs_cl_probe_sim <name> <frames> (one recording at a time)\n");
 		return;
 	}
 	char name[128];
-	Q_snprintf( name, sizeof( name ), "%s-stock.tsv", args.Arg( 1 ) );
-	g_pSimFile = OpenFixture( name );
-	if ( !g_pSimFile )
+	Q_snprintf(name, sizeof(name), "%s-stock.tsv", args.Arg(1));
+	g_pSimFile = OpenFixture(name);
+	if (!g_pSimFile)
 		return;
-	g_nSimFramesLeft = atoi( args.Arg( 2 ) );
+	g_nSimFramesLeft = atoi(args.Arg(2));
 	g_nSimFrame = 0;
-	if ( random && !g_pSimSavedRandom )
+	if (random && !g_pSimSavedRandom)
 	{
 		g_pSimSavedRandom = random;
-		g_SimStream.SetSeed( 0x5eed );
+		g_SimStream.SetSeed(0x5eed);
 		g_SimRandom.m_pInner = &g_SimStream;
 		random = &g_SimRandom;
 	}
-	fprintf( g_pSimFile, "# c2-sims %s oracle, recorded by a patched sim (tools/probes/c2sims-%s-probe.diff)\n",
-			 args.Arg( 1 ), args.Arg( 1 ) );
-	Msg( "[c2-sims probe] sim: recording %s for %d frame(s)\n", args.Arg( 1 ), g_nSimFramesLeft );
+	fprintf(g_pSimFile, "# c2-sims %s oracle, recorded by a patched sim (tools/probes/c2sims-%s-probe.diff)\n",
+			args.Arg(1), args.Arg(1));
+	Msg("[c2-sims probe] sim: recording %s for %d frame(s)\n", args.Arg(1), g_nSimFramesLeft);
 }
 
 //=============================================================================//
@@ -254,20 +254,20 @@ CON_COMMAND(
 
 namespace
 {
-FILE *g_pEnvFile = NULL;
+FILE* g_pEnvFile = NULL;
 int g_nEnvFrames = 0;
 int g_nEnvFrame = 0;
-CSoundPatch *g_pEnvPatch = NULL;
+CSoundPatch* g_pEnvPatch = NULL;
 
-void EnvRow( const char *pFmt, ... ) __attribute__( ( format( printf, 1, 2 ) ) );
+void EnvRow(const char* pFmt, ...) __attribute__((format(printf, 1, 2)));
 
-void EnvRow( const char *pFmt, ... )
+void EnvRow(const char* pFmt, ...)
 {
 	va_list ap;
-	va_start( ap, pFmt );
-	vfprintf( g_pEnvFile, pFmt, ap );
-	va_end( ap );
-	fputc( '\n', g_pEnvFile );
+	va_start(ap, pFmt);
+	vfprintf(g_pEnvFile, pFmt, ap);
+	va_end(ap);
+	fputc('\n', g_pEnvFile);
 }
 }
 
@@ -279,81 +279,81 @@ void FrictionTick();
 void C2SimsProbe_Tick()
 {
 	FrictionTick();
-	if ( !g_pEnvFile || !g_pEnvPatch )
+	if (!g_pEnvFile || !g_pEnvPatch)
 		return;
-	CSoundEnvelopeController &c = CSoundEnvelopeController::GetController();
+	CSoundEnvelopeController& c = CSoundEnvelopeController::GetController();
 	const float t = gpGlobals->curtime;
 	const int f = ++g_nEnvFrame;
 
 	// The timed half of the script.
-	if ( f == 40 )
+	if (f == 40)
 	{
-		EnvRow( "C\t%.9g\tvolume\t0.4\t0.25", t );
-		c.SoundChangeVolume( g_pEnvPatch, 0.4f, 0.25f );
+		EnvRow("C\t%.9g\tvolume\t0.4\t0.25", t);
+		c.SoundChangeVolume(g_pEnvPatch, 0.4f, 0.25f);
 	}
-	if ( f == 60 )
+	if (f == 60)
 	{
-		envelopePoint_t pts[3] = { { 140, 140, 0.2f, 0.2f }, { 60, 60, 0.3f, 0.3f }, { 110, 110, 0.15f, 0.15f } };
-		const float total = c.SoundPlayEnvelope( g_pEnvPatch, SOUNDCTRL_CHANGE_PITCH, pts, 3 );
-		EnvRow( "C\t%.9g\tenvelope\t%.9g", t, total );
+		envelopePoint_t pts[3] = {{140, 140, 0.2f, 0.2f}, {60, 60, 0.3f, 0.3f}, {110, 110, 0.15f, 0.15f}};
+		const float total = c.SoundPlayEnvelope(g_pEnvPatch, SOUNDCTRL_CHANGE_PITCH, pts, 3);
+		EnvRow("C\t%.9g\tenvelope\t%.9g", t, total);
 	}
-	if ( f == 110 )
+	if (f == 110)
 	{
-		EnvRow( "C\t%.9g\tcommand\t0.1\t0\t0.2\t0.9", t );
-		c.CommandAdd( g_pEnvPatch, 0.1f, SOUNDCTRL_CHANGE_VOLUME, 0.2f, 0.9f );
+		EnvRow("C\t%.9g\tcommand\t0.1\t0\t0.2\t0.9", t);
+		c.CommandAdd(g_pEnvPatch, 0.1f, SOUNDCTRL_CHANGE_VOLUME, 0.2f, 0.9f);
 	}
-	if ( f == 140 )
+	if (f == 140)
 	{
-		EnvRow( "C\t%.9g\tplay\t0.5\t95", t );
-		c.Play( g_pEnvPatch, 0.5f, 95.0f );
+		EnvRow("C\t%.9g\tplay\t0.5\t95", t);
+		c.Play(g_pEnvPatch, 0.5f, 95.0f);
 	}
-	if ( f == 160 )
+	if (f == 160)
 	{
-		EnvRow( "C\t%.9g\tfadeout\t0.4", t );
-		c.SoundFadeOut( g_pEnvPatch, 0.4f, false );
+		EnvRow("C\t%.9g\tfadeout\t0.4", t);
+		c.SoundFadeOut(g_pEnvPatch, 0.4f, false);
 	}
 
-	EnvRow( "W\t%.9g\t%.9g\t%.9g\t%.9g", t, gpGlobals->frametime, c.SoundGetVolume( g_pEnvPatch ),
-			c.SoundGetPitch( g_pEnvPatch ) );
+	EnvRow("W\t%.9g\t%.9g\t%.9g\t%.9g", t, gpGlobals->frametime, c.SoundGetVolume(g_pEnvPatch),
+		   c.SoundGetPitch(g_pEnvPatch));
 
-	if ( f >= g_nEnvFrames )
+	if (f >= g_nEnvFrames)
 	{
-		c.SoundDestroy( g_pEnvPatch );
+		c.SoundDestroy(g_pEnvPatch);
 		g_pEnvPatch = NULL;
-		fclose( g_pEnvFile );
+		fclose(g_pEnvFile);
 		g_pEnvFile = NULL;
-		Msg( "[c2-sims probe] sndenv: recorded %d frame(s)\n", f );
+		Msg("[c2-sims probe] sndenv: recorded %d frame(s)\n", f);
 	}
 }
 
 CON_COMMAND(
 	cs_cl_probe_sndenv,
-	"c2-sims probe (debug): record the client sound envelope controller into $SOURCESHARP_C2SIMS_FIXTURE_DIR/soundenvelope-stock.tsv. <frames>" )
+	"c2-sims probe (debug): record the client sound envelope controller into $SOURCESHARP_C2SIMS_FIXTURE_DIR/soundenvelope-stock.tsv. <frames>")
 {
-	if ( args.ArgC() < 2 || g_pEnvFile )
+	if (args.ArgC() < 2 || g_pEnvFile)
 		return;
-	g_pEnvFile = OpenFixture( "soundenvelope-stock.tsv" );
-	if ( !g_pEnvFile )
+	g_pEnvFile = OpenFixture("soundenvelope-stock.tsv");
+	if (!g_pEnvFile)
 		return;
-	g_nEnvFrames = atoi( args.Arg( 1 ) );
+	g_nEnvFrames = atoi(args.Arg(1));
 	g_nEnvFrame = 0;
 	fprintf(
 		g_pEnvFile,
-		"# c2-sims soundenvelope oracle: stock CSoundEnvelopeController on the client (tools/probes/c2sims-sndenv-probe.diff)\n" );
-	CSoundEnvelopeController &c = CSoundEnvelopeController::GetController();
+		"# c2-sims soundenvelope oracle: stock CSoundEnvelopeController on the client (tools/probes/c2sims-sndenv-probe.diff)\n");
+	CSoundEnvelopeController& c = CSoundEnvelopeController::GetController();
 	CLocalPlayerFilter filter;
 	const float t = gpGlobals->curtime;
-	g_pEnvPatch = c.SoundCreate( filter, engine->GetLocalPlayer(), CHAN_STATIC, "ambient/wind/wind1.wav", ATTN_NORM );
-	EnvRow( "C\t%.9g\tcreate", t );
-	EnvRow( "C\t%.9g\tplay\t0\t100", t );
-	c.Play( g_pEnvPatch, 0.0f, 100.0f );
-	EnvRow( "C\t%.9g\tvolume\t1\t0.5", t );
-	c.SoundChangeVolume( g_pEnvPatch, 1.0f, 0.5f );
-	EnvRow( "C\t%.9g\tpitch\t150\t1", t );
-	c.SoundChangePitch( g_pEnvPatch, 150.0f, 1.0f );
-	EnvRow( "C\t%.9g\tcommand\t0.75\t1\t0.3\t80", t );
-	c.CommandAdd( g_pEnvPatch, 0.75f, SOUNDCTRL_CHANGE_PITCH, 0.3f, 80.0f );
-	Msg( "[c2-sims probe] sndenv: recording %d frame(s)\n", g_nEnvFrames );
+	g_pEnvPatch = c.SoundCreate(filter, engine->GetLocalPlayer(), CHAN_STATIC, "ambient/wind/wind1.wav", ATTN_NORM);
+	EnvRow("C\t%.9g\tcreate", t);
+	EnvRow("C\t%.9g\tplay\t0\t100", t);
+	c.Play(g_pEnvPatch, 0.0f, 100.0f);
+	EnvRow("C\t%.9g\tvolume\t1\t0.5", t);
+	c.SoundChangeVolume(g_pEnvPatch, 1.0f, 0.5f);
+	EnvRow("C\t%.9g\tpitch\t150\t1", t);
+	c.SoundChangePitch(g_pEnvPatch, 150.0f, 1.0f);
+	EnvRow("C\t%.9g\tcommand\t0.75\t1\t0.3\t80", t);
+	c.CommandAdd(g_pEnvPatch, 0.75f, SOUNDCTRL_CHANGE_PITCH, 0.3f, 80.0f);
+	Msg("[c2-sims probe] sndenv: recording %d frame(s)\n", g_nEnvFrames);
 }
 
 //=============================================================================//
@@ -383,42 +383,42 @@ HSOUNDSCRIPTHANDLE g_hFriction = SOUNDEMITTER_INVALID_HANDLE;
 
 void FrictionTick()
 {
-	if ( g_nFrictionFrame >= g_nFrictionFrames )
+	if (g_nFrictionFrame >= g_nFrictionFrames)
 		return;
-	if ( !g_PhysWorldObject )
+	if (!g_PhysWorldObject)
 	{
-		Msg( "[c2-sims probe] friction: no world physics object\n" );
+		Msg("[c2-sims probe] friction: no world physics object\n");
 		g_nFrictionFrames = 0;
 		return;
 	}
 	const int f = g_nFrictionFrame++;
-	const float flVolume = 0.3f + 0.6f * sinf( 3.14159265f * f / (float)g_nFrictionFrames );
-	PhysFrictionSound( (IGameEntity *)&g_FrictionKey, g_PhysWorldObject, g_szFrictionSound, g_hFriction, flVolume );
-	if ( g_nFrictionFrame == g_nFrictionFrames )
-		Msg( "[c2-sims probe] friction: drove %d frame(s) of %s (handle %d)\n", g_nFrictionFrames, g_szFrictionSound,
-			 (int)g_hFriction );
+	const float flVolume = 0.3f + 0.6f * sinf(3.14159265f * f / (float)g_nFrictionFrames);
+	PhysFrictionSound((IGameEntity*)&g_FrictionKey, g_PhysWorldObject, g_szFrictionSound, g_hFriction, flVolume);
+	if (g_nFrictionFrame == g_nFrictionFrames)
+		Msg("[c2-sims probe] friction: drove %d frame(s) of %s (handle %d)\n", g_nFrictionFrames, g_szFrictionSound,
+			(int)g_hFriction);
 }
 }
 
-CON_COMMAND( cs_cl_probe_friction,
-			 "c2-sims probe (debug): drive the client friction sound for <frames> frames. <frames> [sound]" )
+CON_COMMAND(cs_cl_probe_friction,
+			"c2-sims probe (debug): drive the client friction sound for <frames> frames. <frames> [sound]")
 {
-	if ( args.ArgC() < 2 )
+	if (args.ArgC() < 2)
 		return;
-	g_nFrictionFrames = atoi( args.Arg( 1 ) );
+	g_nFrictionFrames = atoi(args.Arg(1));
 	g_nFrictionFrame = 0;
 	// A valid handle answers for the sound it was looked up for, whatever the
 	// name, so a new sound starts from no handle.
-	if ( args.ArgC() > 2 && Q_strcmp( g_szFrictionSound, args.Arg( 2 ) ) )
+	if (args.ArgC() > 2 && Q_strcmp(g_szFrictionSound, args.Arg(2)))
 	{
-		Q_strncpy( g_szFrictionSound, args.Arg( 2 ), sizeof( g_szFrictionSound ) );
+		Q_strncpy(g_szFrictionSound, args.Arg(2), sizeof(g_szFrictionSound));
 		g_hFriction = SOUNDEMITTER_INVALID_HANDLE;
 	}
 	// Stock's GameSound_GetParameters( name, handle, params, NULL ) body: the
 	// handle is looked up (and cached) as PhysFrictionSound will use it.
 	CSoundParameters params;
-	const bool bKnown = soundemitterbase->GetParametersForSoundEx( g_szFrictionSound, g_hFriction, params,
-																   soundemitterbase->GetActorGender( NULL ), true );
-	Msg( "[c2-sims probe] friction: %s is %s\n", g_szFrictionSound,
-		 bKnown ? "a known sound script" : "NOT a known sound script" );
+	const bool bKnown = soundemitterbase->GetParametersForSoundEx(g_szFrictionSound, g_hFriction, params,
+																  soundemitterbase->GetActorGender(NULL), true);
+	Msg("[c2-sims probe] friction: %s is %s\n", g_szFrictionSound,
+		bKnown ? "a known sound script" : "NOT a known sound script");
 }

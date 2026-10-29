@@ -18,16 +18,16 @@
 class IServerNetworkable;
 
 // Defined in our TUs.
-void UTIL_ClearTrace( trace_t &trace );
-bool UTIL_ShouldShowBlood( int bloodColor );
+void UTIL_ClearTrace(trace_t& trace);
+bool UTIL_ShouldShowBlood(int bloodColor);
 
 namespace ss
 {
 
 // Case-insensitive string equality, true for the same pointer (NULL included).
-inline bool FStrEq( const char *sz1, const char *sz2 )
+inline bool FStrEq(const char* sz1, const char* sz2)
 {
-	return ( sz1 == sz2 || V_stricmp( sz1, sz2 ) == 0 );
+	return (sz1 == sz2 || V_stricmp(sz1, sz2) == 0);
 }
 
 } // namespace ss

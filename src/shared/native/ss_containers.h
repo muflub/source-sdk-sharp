@@ -16,29 +16,29 @@ struct CaselessLess
 {
 	using is_transparent = void;
 
-	bool operator()( const char *a, const char *b ) const { return StrICmp( a, b ) < 0; }
+	bool operator()(const char* a, const char* b) const { return StrICmp(a, b) < 0; }
 
-	bool operator()( const std::string &a, const std::string &b ) const { return StrICmp( a.c_str(), b.c_str() ) < 0; }
+	bool operator()(const std::string& a, const std::string& b) const { return StrICmp(a.c_str(), b.c_str()) < 0; }
 
-	bool operator()( const std::string &a, const char *b ) const { return StrICmp( a.c_str(), b ) < 0; }
+	bool operator()(const std::string& a, const char* b) const { return StrICmp(a.c_str(), b) < 0; }
 
-	bool operator()( const char *a, const std::string &b ) const { return StrICmp( a, b.c_str() ) < 0; }
+	bool operator()(const char* a, const std::string& b) const { return StrICmp(a, b.c_str()) < 0; }
 };
 
 struct CaselessEqual
 {
-	bool operator()( const std::string &a, const std::string &b ) const { return StrICmp( a.c_str(), b.c_str() ) == 0; }
+	bool operator()(const std::string& a, const std::string& b) const { return StrICmp(a.c_str(), b.c_str()) == 0; }
 };
 
 struct CaselessHash
 {
 	// FNV-1a over the ASCII-lowercased bytes.
-	size_t operator()( const std::string &s ) const
+	size_t operator()(const std::string& s) const
 	{
 		size_t h = (size_t)14695981039346656037ull;
-		for ( unsigned char c : s )
+		for (unsigned char c : s)
 		{
-			h ^= AsciiLower( c );
+			h ^= AsciiLower(c);
 			h *= (size_t)1099511628211ull;
 		}
 		return h;
@@ -48,7 +48,7 @@ struct CaselessHash
 class StringPool
 {
 public:
-	const char *Intern( const char *psz ) { return m_Strings.emplace( psz ).first->c_str(); }
+	const char* Intern(const char* psz) { return m_Strings.emplace(psz).first->c_str(); }
 
 	int Count() const { return (int)m_Strings.size(); }
 

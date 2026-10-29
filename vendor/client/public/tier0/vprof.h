@@ -13,8 +13,8 @@
 #define VPROF_ENABLED
 
 #ifdef _MSC_VER
-#pragma warning( push )
-#pragma warning( disable : 4251 )
+#pragma warning(push)
+#pragma warning(disable : 4251)
 #endif
 
 // enable this to get detailed nodes beneath budget
@@ -30,26 +30,25 @@
 
 #define VPROF_VTUNE_GROUP
 
-#define VPROF( name ) VPROF_( name, 1, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, 0 )
-#define VPROF_ASSERT_ACCOUNTED( name ) VPROF_( name, 1, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, true, 0 )
-#define VPROF_( name, detail, group, bAssertAccounted, budgetFlags ) \
-	VPROF_##detail( name, group, bAssertAccounted, budgetFlags )
+#define VPROF(name) VPROF_(name, 1, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, 0)
+#define VPROF_ASSERT_ACCOUNTED(name) VPROF_(name, 1, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, true, 0)
+#define VPROF_(name, detail, group, bAssertAccounted, budgetFlags) \
+	VPROF_##detail(name, group, bAssertAccounted, budgetFlags)
 
-#define VPROF_BUDGET( name, group ) VPROF_BUDGET_FLAGS( name, group, BUDGETFLAG_OTHER )
-#define VPROF_BUDGET_FLAGS( name, group, flags ) VPROF_( name, 0, group, false, flags )
+#define VPROF_BUDGET(name, group) VPROF_BUDGET_FLAGS(name, group, BUDGETFLAG_OTHER)
+#define VPROF_BUDGET_FLAGS(name, group, flags) VPROF_(name, 0, group, false, flags)
 
-#define VPROF_SCOPE_BEGIN( tag ) \
-	do                           \
-	{                            \
-	VPROF( tag )
+#define VPROF_SCOPE_BEGIN(tag) \
+	do                         \
+	{                          \
+	VPROF(tag)
 #define VPROF_SCOPE_END() \
 	}                     \
-	while ( 0 )
+	while (0)
 
-#define VPROF_ONLY( expression ) expression
+#define VPROF_ONLY(expression) expression
 
-#define VPROF_ENTER_SCOPE( name ) \
-	g_VProfCurrentProfile.EnterScope( name, 1, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, 0 )
+#define VPROF_ENTER_SCOPE(name) g_VProfCurrentProfile.EnterScope(name, 1, VPROF_BUDGETGROUP_OTHER_UNACCOUNTED, false, 0)
 #define VPROF_EXIT_SCOPE() g_VProfCurrentProfile.ExitScope()
 
 #define VPROF_BUDGET_GROUP_ID_UNACCOUNTED 0
@@ -60,7 +59,7 @@
 // which is BUDGETFLAG_OTHER.
 // Shows up in the client panel.
 // Shows up in the server panel.
-#define BUDGETFLAG_OTHER ( 1 << 2 ) // Unclassified (the client shows these but the dedicated server doesn't).
+#define BUDGETFLAG_OTHER (1 << 2) // Unclassified (the client shows these but the dedicated server doesn't).
 
 // NOTE: You can use strings instead of these defines. . they are defined here and added
 // in vprof.cpp so that they are always in the same order.
@@ -120,82 +119,82 @@
 //these macros exist to create VProf_<line number> variables. This is important because it avoids /analyze warnings about variable aliasing when VPROF's are nested within each other, and allows
 //for multiple VPROF's to exist within the same scope. Three macros must be used to force the __LINE__ to be resolved prior to the token concatenation, but just ignore the _INTERNAL macros and use
 //the VPROF_VAR_NAME
-#define VPROF_VAR_NAME_INTERNAL_CAT( a, b ) a##b
-#define VPROF_VAR_NAME_INTERNAL( a, b ) VPROF_VAR_NAME_INTERNAL_CAT( a, b )
-#define VPROF_VAR_NAME( a ) VPROF_VAR_NAME_INTERNAL( a, __LINE__ )
+#define VPROF_VAR_NAME_INTERNAL_CAT(a, b) a##b
+#define VPROF_VAR_NAME_INTERNAL(a, b) VPROF_VAR_NAME_INTERNAL_CAT(a, b)
+#define VPROF_VAR_NAME(a) VPROF_VAR_NAME_INTERNAL(a, __LINE__)
 
-#define VPROF_0( name, group, assertAccounted, budgetFlags )      \
-	tmZone( TELEMETRY_LEVEL2, TMZF_NONE, "(%s)%s", group, name ); \
-	CVProfScope VPROF_VAR_NAME( VProf_ )( name, 0, group, assertAccounted, budgetFlags );
+#define VPROF_0(name, group, assertAccounted, budgetFlags)      \
+	tmZone(TELEMETRY_LEVEL2, TMZF_NONE, "(%s)%s", group, name); \
+	CVProfScope VPROF_VAR_NAME(VProf_)(name, 0, group, assertAccounted, budgetFlags);
 
 #if VPROF_LEVEL > 0
-#define VPROF_1( name, group, assertAccounted, budgetFlags )      \
-	tmZone( TELEMETRY_LEVEL3, TMZF_NONE, "(%s)%s", group, name ); \
-	CVProfScope VPROF_VAR_NAME( VProf_ )( name, 1, group, assertAccounted, budgetFlags );
+#define VPROF_1(name, group, assertAccounted, budgetFlags)      \
+	tmZone(TELEMETRY_LEVEL3, TMZF_NONE, "(%s)%s", group, name); \
+	CVProfScope VPROF_VAR_NAME(VProf_)(name, 1, group, assertAccounted, budgetFlags);
 #else
-#define VPROF_1( name, group, assertAccounted, budgetFlags ) ( (void)0 )
+#define VPROF_1(name, group, assertAccounted, budgetFlags) ((void)0)
 #endif
 
 #if VPROF_LEVEL > 1
-#define VPROF_2( name, group, assertAccounted, budgetFlags ) \
-	CVProfScope VPROF_VAR_NAME( VProf_ )( name, 2, group, assertAccounted, budgetFlags );
+#define VPROF_2(name, group, assertAccounted, budgetFlags) \
+	CVProfScope VPROF_VAR_NAME(VProf_)(name, 2, group, assertAccounted, budgetFlags);
 #else
-#define VPROF_2( name, group, assertAccounted, budgetFlags ) ( (void)0 )
+#define VPROF_2(name, group, assertAccounted, budgetFlags) ((void)0)
 #endif
 
 #if VPROF_LEVEL > 2
-#define VPROF_3( name, group, assertAccounted, budgetFlags ) \
-	CVProfScope VPROF_VAR_NAME( VProf_ )( name, 3, group, assertAccounted, budgetFlags );
+#define VPROF_3(name, group, assertAccounted, budgetFlags) \
+	CVProfScope VPROF_VAR_NAME(VProf_)(name, 3, group, assertAccounted, budgetFlags);
 #else
-#define VPROF_3( name, group, assertAccounted, budgetFlags ) ( (void)0 )
+#define VPROF_3(name, group, assertAccounted, budgetFlags) ((void)0)
 #endif
 
 #if VPROF_LEVEL > 3
-#define VPROF_4( name, group, assertAccounted, budgetFlags ) \
-	CVProfScope VPROF_VAR_NAME( VProf_ )( name, 4, group, assertAccounted, budgetFlags );
+#define VPROF_4(name, group, assertAccounted, budgetFlags) \
+	CVProfScope VPROF_VAR_NAME(VProf_)(name, 4, group, assertAccounted, budgetFlags);
 #else
-#define VPROF_4( name, group, assertAccounted, budgetFlags ) ( (void)0 )
+#define VPROF_4(name, group, assertAccounted, budgetFlags) ((void)0)
 #endif
 
-#define VPROF_INCREMENT_COUNTER( name, amount ) \
-	do                                          \
-	{                                           \
-		static CVProfCounter _counter( name );  \
-		_counter.Increment( amount );           \
-	} while ( 0 )
-#define VPROF_INCREMENT_GROUP_COUNTER( name, group, amount ) \
-	do                                                       \
-	{                                                        \
-		static CVProfCounter _counter( name, group );        \
-		_counter.Increment( amount );                        \
-	} while ( 0 )
+#define VPROF_INCREMENT_COUNTER(name, amount) \
+	do                                        \
+	{                                         \
+		static CVProfCounter _counter(name);  \
+		_counter.Increment(amount);           \
+	} while (0)
+#define VPROF_INCREMENT_GROUP_COUNTER(name, group, amount) \
+	do                                                     \
+	{                                                      \
+		static CVProfCounter _counter(name, group);        \
+		_counter.Increment(amount);                        \
+	} while (0)
 
 #else
 
-#define VPROF( name ) ( (void)0 )
-#define VPROF_ASSERT_ACCOUNTED( name ) ( (void)0 )
-#define VPROF_( name, detail, group, bAssertAccounted, budgetFlags ) ( (void)0 )
-#define VPROF_BUDGET( name, group ) ( (void)0 )
-#define VPROF_BUDGET_FLAGS( name, group, flags ) ( (void)0 )
+#define VPROF(name) ((void)0)
+#define VPROF_ASSERT_ACCOUNTED(name) ((void)0)
+#define VPROF_(name, detail, group, bAssertAccounted, budgetFlags) ((void)0)
+#define VPROF_BUDGET(name, group) ((void)0)
+#define VPROF_BUDGET_FLAGS(name, group, flags) ((void)0)
 
-#define VPROF_SCOPE_BEGIN( tag ) \
-	do                           \
+#define VPROF_SCOPE_BEGIN(tag) \
+	do                         \
 	{
 #define VPROF_SCOPE_END() \
 	}                     \
-	while ( 0 )
+	while (0)
 
-#define VPROF_ONLY( expression ) ( (void)0 )
+#define VPROF_ONLY(expression) ((void)0)
 
-#define VPROF_ENTER_SCOPE( name )
+#define VPROF_ENTER_SCOPE(name)
 #define VPROF_EXIT_SCOPE()
 
-#define VPROF_INCREMENT_COUNTER( name, amount ) ( (void)0 )
-#define VPROF_INCREMENT_GROUP_COUNTER( name, group, amount ) ( (void)0 )
+#define VPROF_INCREMENT_COUNTER(name, amount) ((void)0)
+#define VPROF_INCREMENT_GROUP_COUNTER(name, group, amount) ((void)0)
 
-#define VPROF_TEST_SPIKE( msec ) ( (void)0 )
+#define VPROF_TEST_SPIKE(msec) ((void)0)
 
-#define VProfCode( code ) code
+#define VProfCode(code) code
 
 #endif
 
@@ -209,12 +208,12 @@ class DBG_CLASS CVProfNode
 	friend class CVProfile;
 
 public:
-	CVProfNode( const tchar *pszName, int detailLevel, CVProfNode *pParent, const tchar *pBudgetGroupName,
-				int budgetFlags );
+	CVProfNode(const tchar* pszName, int detailLevel, CVProfNode* pParent, const tchar* pBudgetGroupName,
+			   int budgetFlags);
 	~CVProfNode();
 
-	CVProfNode *GetSubNode( const tchar *pszName, int detailLevel, const tchar *pBudgetGroupName, int budgetFlags );
-	CVProfNode *GetParent();
+	CVProfNode* GetSubNode(const tchar* pszName, int detailLevel, const tchar* pBudgetGroupName, int budgetFlags);
+	CVProfNode* GetParent();
 
 	void MarkFrame();
 
@@ -223,12 +222,12 @@ public:
 	void EnterScope();
 	bool ExitScope();
 
-	const tchar *GetName();
+	const tchar* GetName();
 
 	int GetBudgetGroupID() { return m_BudgetGroupID; }
 
 #ifdef DBGFLAG_VALIDATE
-	void Validate( CValidator &validator, tchar *pchName ); // Validate our internal structures
+	void Validate(CValidator& validator, tchar* pchName); // Validate our internal structures
 #endif // DBGFLAG_VALIDATE
 
 	// Used by vprof record/playback.
@@ -236,12 +235,12 @@ private:
 	static int s_iCurrentUniqueNodeID;
 
 private:
-	const tchar *m_pszName;
-	alignas( 8 ) unsigned char unused_m_Timer[8];
+	const tchar* m_pszName;
+	alignas(8) unsigned char unused_m_Timer[8];
 
 	// L2 Cache data.
 	int m_iPrevL2CacheMiss;
-	alignas( 4 ) unsigned char unused_m_iCurL2CacheMiss[12];
+	alignas(4) unsigned char unused_m_iCurL2CacheMiss[12];
 
 	// L2 Cache data.
 	CL2Cache m_L2Cache;
@@ -259,9 +258,9 @@ private:
 
 	CCycleCount m_PeakTime;
 
-	CVProfNode *m_pParent;
-	CVProfNode *m_pChild;
-	CVProfNode *m_pSibling;
+	CVProfNode* m_pParent;
+	CVProfNode* m_pChild;
+	CVProfNode* m_pSibling;
 
 	int m_BudgetGroupID;
 
@@ -290,11 +289,11 @@ public:
 
 	// Runtime operations
 
-	bool InTargetThread() { return ( m_TargetThreadId == ThreadGetCurrentId() ); }
+	bool InTargetThread() { return (m_TargetThreadId == ThreadGetCurrentId()); }
 
-	void EnterScope( const tchar *pszName, int detailLevel, const tchar *pBudgetGroupName, bool bAssertAccounted );
-	void EnterScope( const tchar *pszName, int detailLevel, const tchar *pBudgetGroupName, bool bAssertAccounted,
-					 int budgetFlags );
+	void EnterScope(const tchar* pszName, int detailLevel, const tchar* pBudgetGroupName, bool bAssertAccounted);
+	void EnterScope(const tchar* pszName, int detailLevel, const tchar* pBudgetGroupName, bool bAssertAccounted,
+					int budgetFlags);
 	void ExitScope();
 
 	void Reset();
@@ -308,14 +307,14 @@ public:
 
 #endif
 
-	typedef void( __cdecl *StreamOut_t )( const char *pszFormat, ... );
+	typedef void(__cdecl* StreamOut_t)(const char* pszFormat, ...);
 
-	int BudgetGroupNameToBudgetGroupID( const tchar *pBudgetGroupName, int budgetFlagsToORIn );
+	int BudgetGroupNameToBudgetGroupID(const tchar* pBudgetGroupName, int budgetFlagsToORIn);
 
-	int *FindOrCreateCounter( const tchar *pName, CounterGroup_t eCounterGroup = COUNTER_GROUP_DEFAULT );
+	int* FindOrCreateCounter(const tchar* pName, CounterGroup_t eCounterGroup = COUNTER_GROUP_DEFAULT);
 
 #ifdef DBGFLAG_VALIDATE
-	void Validate( CValidator &validator, tchar *pchName ); // Validate our internal structures
+	void Validate(CValidator& validator, tchar* pchName); // Validate our internal structures
 #endif // DBGFLAG_VALIDATE
 
 protected:
@@ -327,7 +326,7 @@ protected:
 #endif
 	int m_enabled;
 	bool m_fAtRoot; // tracked for efficiency of the "not profiling" case
-	CVProfNode *m_pCurNode;
+	CVProfNode* m_pCurNode;
 	CVProfNode m_Root;
 	int m_nFrames;
 	int m_ProfileDetailLevel;
@@ -336,20 +335,20 @@ protected:
 	class CBudgetGroup
 	{
 	public:
-		tchar *m_pName;
+		tchar* m_pName;
 		int m_BudgetFlags;
 	};
 
-	CBudgetGroup *m_pBudgetGroups;
-	alignas( 8 ) unsigned char unused_m_nBudgetGroupNamesAllocated[4];
+	CBudgetGroup* m_pBudgetGroups;
+	alignas(8) unsigned char unused_m_nBudgetGroupNamesAllocated[4];
 	int m_nBudgetGroupNames;
-	alignas( 8 ) unsigned char unused_m_pNumBudgetGroupsChangedCallBack[8];
+	alignas(8) unsigned char unused_m_pNumBudgetGroupsChangedCallBack[8];
 
 	// Performance monitoring events.
 	bool m_bPMEInit;
 	bool m_bPMEEnabled;
 
-	alignas( 4 ) unsigned char unused_m_Counters[3340];
+	alignas(4) unsigned char unused_m_Counters[3340];
 
 	ThreadId_t m_TargetThreadId;
 
@@ -363,8 +362,8 @@ DBG_INTERFACE bool g_VProfSignalSpike;
 class CVProfSpikeDetector
 {
 public:
-	CVProfSpikeDetector( float spike )
-		: m_timeLast( GetTimeLast() )
+	CVProfSpikeDetector(float spike)
+		: m_timeLast(GetTimeLast())
 	{
 		m_spike = spike;
 		m_Timer.Start();
@@ -373,10 +372,10 @@ public:
 	~CVProfSpikeDetector()
 	{
 		m_Timer.End();
-		if ( Plat_FloatTime() - m_timeLast > 2.0 )
+		if (Plat_FloatTime() - m_timeLast > 2.0)
 		{
 			m_timeLast = Plat_FloatTime();
-			if ( m_Timer.GetDuration().GetMillisecondsF() > m_spike )
+			if (m_Timer.GetDuration().GetMillisecondsF() > m_spike)
 			{
 				g_VProfSignalSpike = true;
 			}
@@ -384,7 +383,7 @@ public:
 	}
 
 private:
-	static float &GetTimeLast()
+	static float& GetTimeLast()
 	{
 		static float timeLast = 0;
 		return timeLast;
@@ -392,17 +391,17 @@ private:
 
 	CFastTimer m_Timer;
 	float m_spike;
-	float &m_timeLast;
+	float& m_timeLast;
 };
 
 // Macro to signal a local spike. Meant as temporary instrumentation, do not leave in code
-#define VPROF_TEST_SPIKE( msec ) CVProfSpikeDetector UNIQUE_ID( msec )
+#define VPROF_TEST_SPIKE(msec) CVProfSpikeDetector UNIQUE_ID(msec)
 
 class CVProfScope
 {
 public:
-	CVProfScope( const tchar *pszName, int detailLevel, const tchar *pBudgetGroupName, bool bAssertAccounted,
-				 int budgetFlags );
+	CVProfScope(const tchar* pszName, int detailLevel, const tchar* pBudgetGroupName, bool bAssertAccounted,
+				int budgetFlags);
 	~CVProfScope();
 
 private:
@@ -411,22 +410,22 @@ private:
 
 // CVProfNode, inline methods
 
-inline CVProfNode::CVProfNode( const tchar *pszName, int detailLevel, CVProfNode *pParent,
-							   const tchar *pBudgetGroupName, int budgetFlags )
-	: m_pszName( pszName )
-	, m_nCurFrameCalls( 0 )
-	, m_nPrevFrameCalls( 0 )
-	, m_nRecursions( 0 )
-	, m_pParent( pParent )
-	, m_pChild( NULL )
-	, m_pSibling( NULL )
-	, m_iClientData( -1 )
+inline CVProfNode::CVProfNode(const tchar* pszName, int detailLevel, CVProfNode* pParent, const tchar* pBudgetGroupName,
+							  int budgetFlags)
+	: m_pszName(pszName)
+	, m_nCurFrameCalls(0)
+	, m_nPrevFrameCalls(0)
+	, m_nRecursions(0)
+	, m_pParent(pParent)
+	, m_pChild(NULL)
+	, m_pSibling(NULL)
+	, m_iClientData(-1)
 {
 	m_iUniqueNodeID = s_iCurrentUniqueNodeID++;
 
-	if ( m_iUniqueNodeID > 0 )
+	if (m_iUniqueNodeID > 0)
 	{
-		m_BudgetGroupID = g_VProfCurrentProfile.BudgetGroupNameToBudgetGroupID( pBudgetGroupName, budgetFlags );
+		m_BudgetGroupID = g_VProfCurrentProfile.BudgetGroupNameToBudgetGroupID(pBudgetGroupName, budgetFlags);
 	}
 	else
 	{
@@ -436,15 +435,15 @@ inline CVProfNode::CVProfNode( const tchar *pszName, int detailLevel, CVProfNode
 
 	Reset();
 
-	if ( m_pParent && ( m_BudgetGroupID == VPROF_BUDGET_GROUP_ID_UNACCOUNTED ) )
+	if (m_pParent && (m_BudgetGroupID == VPROF_BUDGET_GROUP_ID_UNACCOUNTED))
 	{
 		m_BudgetGroupID = m_pParent->GetBudgetGroupID();
 	}
 }
 
-inline CVProfNode *CVProfNode::GetParent()
+inline CVProfNode* CVProfNode::GetParent()
 {
-	Assert( m_pParent );
+	Assert(m_pParent);
 	return m_pParent;
 }
 
@@ -452,9 +451,9 @@ inline CVProfNode *CVProfNode::GetParent()
 // so it didn't seem like it was worth the memory waste to add the reverse
 // link per node.
 
-inline const tchar *CVProfNode::GetName()
+inline const tchar* CVProfNode::GetName()
 {
-	Assert( m_pszName );
+	Assert(m_pszName);
 	return m_pszName;
 }
 
@@ -462,31 +461,31 @@ inline const tchar *CVProfNode::GetName()
 
 inline bool CVProfile::IsEnabled() const
 {
-	return ( m_enabled != 0 );
+	return (m_enabled != 0);
 }
 
-inline void CVProfile::EnterScope( const tchar *pszName, int detailLevel, const tchar *pBudgetGroupName,
-								   bool bAssertAccounted, int budgetFlags )
+inline void CVProfile::EnterScope(const tchar* pszName, int detailLevel, const tchar* pBudgetGroupName,
+								  bool bAssertAccounted, int budgetFlags)
 {
-	if ( ( m_enabled != 0 || !m_fAtRoot ) &&
-		 InTargetThread() ) // if became disabled, need to unwind back to root before stopping
+	if ((m_enabled != 0 || !m_fAtRoot) &&
+		InTargetThread()) // if became disabled, need to unwind back to root before stopping
 	{
 		// Only account for vprof stuff on the primary thread.
 		//if( !Plat_IsPrimaryThread() )
 		//	return;
 
-		if ( pszName != m_pCurNode->GetName() )
+		if (pszName != m_pCurNode->GetName())
 		{
-			m_pCurNode = m_pCurNode->GetSubNode( pszName, detailLevel, pBudgetGroupName, budgetFlags );
+			m_pCurNode = m_pCurNode->GetSubNode(pszName, detailLevel, pBudgetGroupName, budgetFlags);
 		}
 		m_pBudgetGroups[m_pCurNode->GetBudgetGroupID()].m_BudgetFlags |= budgetFlags;
 
-#if defined( _DEBUG )
+#if defined(_DEBUG)
 		// 360 doesn't want this to allow tier0 debug/release .def files to match
-		if ( bAssertAccounted )
+		if (bAssertAccounted)
 		{
 			// FIXME
-			AssertOnce( m_pCurNode->GetBudgetGroupID() != 0 );
+			AssertOnce(m_pCurNode->GetBudgetGroupID() != 0);
 		}
 #endif
 		m_pCurNode->EnterScope();
@@ -494,15 +493,15 @@ inline void CVProfile::EnterScope( const tchar *pszName, int detailLevel, const 
 	}
 }
 
-inline void CVProfile::EnterScope( const tchar *pszName, int detailLevel, const tchar *pBudgetGroupName,
-								   bool bAssertAccounted )
+inline void CVProfile::EnterScope(const tchar* pszName, int detailLevel, const tchar* pBudgetGroupName,
+								  bool bAssertAccounted)
 {
-	EnterScope( pszName, detailLevel, pBudgetGroupName, bAssertAccounted, BUDGETFLAG_OTHER );
+	EnterScope(pszName, detailLevel, pBudgetGroupName, bAssertAccounted, BUDGETFLAG_OTHER);
 }
 
 inline void CVProfile::ExitScope()
 {
-	if ( ( !m_fAtRoot || m_enabled != 0 ) && InTargetThread() )
+	if ((!m_fAtRoot || m_enabled != 0) && InTargetThread())
 	{
 		// Only account for vprof stuff on the primary thread.
 		//if( !Plat_IsPrimaryThread() )
@@ -510,11 +509,11 @@ inline void CVProfile::ExitScope()
 
 		// ExitScope will indicate whether we should back up to our parent (we may
 		// be profiling a recursive function)
-		if ( m_pCurNode->ExitScope() )
+		if (m_pCurNode->ExitScope())
 		{
 			m_pCurNode = m_pCurNode->GetParent();
 		}
-		m_fAtRoot = ( m_pCurNode == &m_Root );
+		m_fAtRoot = (m_pCurNode == &m_Root);
 	}
 }
 
@@ -524,19 +523,19 @@ inline void CVProfile::Reset()
 	m_nFrames = 0;
 }
 
-inline CVProfScope::CVProfScope( const tchar *pszName, int detailLevel, const tchar *pBudgetGroupName,
-								 bool bAssertAccounted, int budgetFlags )
-	: m_bEnabled( g_VProfCurrentProfile.IsEnabled() )
+inline CVProfScope::CVProfScope(const tchar* pszName, int detailLevel, const tchar* pBudgetGroupName,
+								bool bAssertAccounted, int budgetFlags)
+	: m_bEnabled(g_VProfCurrentProfile.IsEnabled())
 {
-	if ( m_bEnabled )
+	if (m_bEnabled)
 	{
-		g_VProfCurrentProfile.EnterScope( pszName, detailLevel, pBudgetGroupName, bAssertAccounted, budgetFlags );
+		g_VProfCurrentProfile.EnterScope(pszName, detailLevel, pBudgetGroupName, bAssertAccounted, budgetFlags);
 	}
 }
 
 inline CVProfScope::~CVProfScope()
 {
-	if ( m_bEnabled )
+	if (m_bEnabled)
 	{
 		g_VProfCurrentProfile.ExitScope();
 	}
@@ -545,27 +544,27 @@ inline CVProfScope::~CVProfScope()
 class CVProfCounter
 {
 public:
-	CVProfCounter( const tchar *pName, CounterGroup_t group = COUNTER_GROUP_DEFAULT )
+	CVProfCounter(const tchar* pName, CounterGroup_t group = COUNTER_GROUP_DEFAULT)
 	{
-		m_pCounter = g_VProfCurrentProfile.FindOrCreateCounter( pName, group );
-		Assert( m_pCounter );
+		m_pCounter = g_VProfCurrentProfile.FindOrCreateCounter(pName, group);
+		Assert(m_pCounter);
 	}
 
 	~CVProfCounter() {}
 
-	void Increment( int val )
+	void Increment(int val)
 	{
-		Assert( m_pCounter );
+		Assert(m_pCounter);
 		*m_pCounter += val;
 	}
 
 private:
-	int *m_pCounter;
+	int* m_pCounter;
 };
 
 #endif
 
-#define VPROF_BEGIN_PIX_BLOCK( PIXConvar ) {
+#define VPROF_BEGIN_PIX_BLOCK(PIXConvar) {
 #define VPROF_END_PIX_BLOCK() }
 
 #ifdef VPROF_UNDO_PIX
@@ -579,5 +578,5 @@ private:
 #endif
 
 #ifdef _MSC_VER
-#pragma warning( pop )
+#pragma warning(pop)
 #endif

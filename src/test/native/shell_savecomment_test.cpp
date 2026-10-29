@@ -47,7 +47,7 @@ const int kEngineComment = 80;
 // defect this function exists to close -- so the fill has to be visible.
 struct PoisonedBuffer
 {
-	PoisonedBuffer() { memset( buf, '\xAB', sizeof( buf ) ); }
+	PoisonedBuffer() { memset(buf, '\xAB', sizeof(buf)); }
 
 	char buf[kEngineComment + 8];
 };
@@ -58,60 +58,60 @@ struct PoisonedBuffer
 // THE BODY.
 //-----------------------------------------------------------------------------
 
-TEST( SaveComment, AShortMapNameIsPaddedToSixtyFourSoTheClockStartsAtAFixedColumn )
+TEST(SaveComment, AShortMapNameIsPaddedToSixtyFourSoTheClockStartsAtAFixedColumn)
 {
 	PoisonedBuffer a, b;
 
-	ShellGameDll_FormatSaveComment( a.buf, kEngineComment, "dm_lockdown", 0, 0, false );
-	ShellGameDll_FormatSaveComment( b.buf, kEngineComment, "dm_powerhouse", 0, 0, false );
+	ShellGameDll_FormatSaveComment(a.buf, kEngineComment, "dm_lockdown", 0, 0, false);
+	ShellGameDll_FormatSaveComment(b.buf, kEngineComment, "dm_powerhouse", 0, 0, false);
 
 	// The clock is the last seven characters of both, at the same offset,
 	// regardless of how long the two names are.
-	ASSERT_EQ( strlen( a.buf ), strlen( b.buf ) )
+	ASSERT_EQ(strlen(a.buf), strlen(b.buf))
 		<< "two different map names produced different lengths: '" << a.buf << "' vs '" << b.buf << "'";
-	EXPECT_EQ( 71u, strlen( a.buf ) ) << "'" << a.buf << "'";
-	EXPECT_STREQ( "000:00", a.buf + 65 );
-	EXPECT_EQ( ' ', a.buf[64] );
+	EXPECT_EQ(71u, strlen(a.buf)) << "'" << a.buf << "'";
+	EXPECT_STREQ("000:00", a.buf + 65);
+	EXPECT_EQ(' ', a.buf[64]);
 }
 
-TEST( SaveComment, ALongMapNameIsCutAtSixtyFour )
+TEST(SaveComment, ALongMapNameIsCutAtSixtyFour)
 {
 	PoisonedBuffer p;
-	const std::string strLong( 100, 'm' );
+	const std::string strLong(100, 'm');
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, strLong.c_str(), 0, 0, false );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, strLong.c_str(), 0, 0, false);
 
-	EXPECT_EQ( 71u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( 'm', p.buf[63] );
-	EXPECT_EQ( ' ', p.buf[64] ) << "the 65th character of a 100-character name "
-								   "reached the buffer: the .64 precision is gone";
+	EXPECT_EQ(71u, strlen(p.buf)) << "'" << p.buf << "'";
+	EXPECT_EQ('m', p.buf[63]);
+	EXPECT_EQ(' ', p.buf[64]) << "the 65th character of a 100-character name "
+								 "reached the buffer: the .64 precision is gone";
 }
 
-TEST( SaveComment, TheClockIsThreeDigitMinutesAndTwoDigitSeconds )
-{
-	PoisonedBuffer p;
-
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 7, 4, false );
-
-	EXPECT_STREQ( "007:04", p.buf + 65 ) << "'" << p.buf << "'";
-}
-
-TEST( SaveComment, SecondsAtOrAboveSixtyRollIntoTheMinutes )
+TEST(SaveComment, TheClockIsThreeDigitMinutesAndTwoDigitSeconds)
 {
 	PoisonedBuffer p;
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 2, 90, false );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, "dm_lockdown", 7, 4, false);
 
-	EXPECT_STREQ( "003:30", p.buf + 65 ) << "'" << p.buf << "'";
+	EXPECT_STREQ("007:04", p.buf + 65) << "'" << p.buf << "'";
 }
 
-TEST( SaveComment, AThousandMinutesClampsToNineNineNineFiftyNine )
+TEST(SaveComment, SecondsAtOrAboveSixtyRollIntoTheMinutes)
 {
 	PoisonedBuffer p;
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 1000, 0, false );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, "dm_lockdown", 2, 90, false);
 
-	EXPECT_STREQ( "999:59", p.buf + 65 ) << "'" << p.buf << "'";
+	EXPECT_STREQ("003:30", p.buf + 65) << "'" << p.buf << "'";
+}
+
+TEST(SaveComment, AThousandMinutesClampsToNineNineNineFiftyNine)
+{
+	PoisonedBuffer p;
+
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, "dm_lockdown", 1000, 0, false);
+
+	EXPECT_STREQ("999:59", p.buf + 65) << "'" << p.buf << "'";
 }
 
 // STOCK'S ORDER, AND IT IS A CARRIED QUIRK RATHER THAN AN EDGE NOBODY THOUGHT
@@ -119,26 +119,26 @@ TEST( SaveComment, AThousandMinutesClampsToNineNineNineFiftyNine )
 // not bound what is printed. This is pinned by name so that a later reader who
 // "fixes" it has to come here and say why the bytes should stop matching
 // stock's -- the save UI parses this string by column.
-TEST( SaveComment, TheClampRunsBeforeTheRolloverExactlyAsStockDoesIt )
+TEST(SaveComment, TheClampRunsBeforeTheRolloverExactlyAsStockDoesIt)
 {
 	PoisonedBuffer p;
 
 	// 999 is UNDER the clamp, so the clamp does not fire; the two extra minutes
 	// the seconds carry then push the printed figure to four digits and every
 	// column after it moves.
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 999, 120, false );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, "dm_lockdown", 999, 120, false);
 
-	EXPECT_STREQ( "1001:00", p.buf + 65 ) << "the clamp moved relative to the rollover; stock prints 1001:00 here";
+	EXPECT_STREQ("1001:00", p.buf + 65) << "the clamp moved relative to the rollover; stock prints 1001:00 here";
 }
 
-TEST( SaveComment, NoTimeIsTheNameAloneWithNoClock )
+TEST(SaveComment, NoTimeIsTheNameAloneWithNoClock)
 {
 	PoisonedBuffer p;
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 7, 4, true );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, "dm_lockdown", 7, 4, true);
 
-	EXPECT_EQ( 64u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( NULL, strchr( p.buf, ':' ) ) << "a clock was written under bNoTime";
+	EXPECT_EQ(64u, strlen(p.buf)) << "'" << p.buf << "'";
+	EXPECT_EQ(NULL, strchr(p.buf, ':')) << "a clock was written under bNoTime";
 }
 
 // THE NO-TIME SPELLING TRUNCATES TOO, and this fact exists because arm 6 of
@@ -147,38 +147,38 @@ TEST( SaveComment, NoTimeIsTheNameAloneWithNoClock )
 // map name any of them handed that branch was eleven characters long. The
 // engine's buffer is 80 bytes, so an untruncated name is an overrun waiting for
 // a long enough map.
-TEST( SaveComment, ALongMapNameIsCutAtSixtyFourInTheNoTimeSpellingToo )
+TEST(SaveComment, ALongMapNameIsCutAtSixtyFourInTheNoTimeSpellingToo)
 {
 	PoisonedBuffer p;
-	const std::string strLong( 100, 'm' );
+	const std::string strLong(100, 'm');
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, strLong.c_str(), 0, 0, true );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, strLong.c_str(), 0, 0, true);
 
-	EXPECT_EQ( 64u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( '\0', p.buf[64] );
+	EXPECT_EQ(64u, strlen(p.buf)) << "'" << p.buf << "'";
+	EXPECT_EQ('\0', p.buf[64]);
 }
 
-TEST( SaveComment, TheNameLeadsTheStringInBothSpellings )
+TEST(SaveComment, TheNameLeadsTheStringInBothSpellings)
 {
 	PoisonedBuffer withTime, noTime;
 
-	ShellGameDll_FormatSaveComment( withTime.buf, kEngineComment, "dm_lockdown", 7, 4, false );
-	ShellGameDll_FormatSaveComment( noTime.buf, kEngineComment, "dm_lockdown", 7, 4, true );
+	ShellGameDll_FormatSaveComment(withTime.buf, kEngineComment, "dm_lockdown", 7, 4, false);
+	ShellGameDll_FormatSaveComment(noTime.buf, kEngineComment, "dm_lockdown", 7, 4, true);
 
-	EXPECT_EQ( 0, strncmp( withTime.buf, "dm_lockdown", 11 ) ) << "'" << withTime.buf << "'";
-	EXPECT_EQ( 0, strncmp( noTime.buf, "dm_lockdown", 11 ) ) << "'" << noTime.buf << "'";
+	EXPECT_EQ(0, strncmp(withTime.buf, "dm_lockdown", 11)) << "'" << withTime.buf << "'";
+	EXPECT_EQ(0, strncmp(noTime.buf, "dm_lockdown", 11)) << "'" << noTime.buf << "'";
 }
 
-TEST( SaveComment, FractionalMinutesAndSecondsTruncateTheWayStocksIntCastDoes )
+TEST(SaveComment, FractionalMinutesAndSecondsTruncateTheWayStocksIntCastDoes)
 {
 	PoisonedBuffer p;
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 7.9f, 4.9f, false );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, "dm_lockdown", 7.9f, 4.9f, false);
 
-	EXPECT_STREQ( "007:04", p.buf + 65 ) << "'" << p.buf << "'";
+	EXPECT_STREQ("007:04", p.buf + 65) << "'" << p.buf << "'";
 }
 
-TEST( SaveComment, AShortBufferTruncatesAndStillNullTerminates )
+TEST(SaveComment, AShortBufferTruncatesAndStillNullTerminates)
 {
 	PoisonedBuffer p;
 
@@ -197,52 +197,52 @@ TEST( SaveComment, AShortBufferTruncatesAndStillNullTerminates )
 	// than the thing being replaced.
 	volatile int nShortLength = 10;
 
-	ShellGameDll_FormatSaveComment( p.buf, (int)nShortLength, "dm_lockdown", 7, 4, false );
+	ShellGameDll_FormatSaveComment(p.buf, (int)nShortLength, "dm_lockdown", 7, 4, false);
 
-	EXPECT_EQ( 9u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_EQ( '\0', p.buf[9] );
-	EXPECT_EQ( '\xAB', p.buf[10] ) << "the formatter wrote past the length it was given";
+	EXPECT_EQ(9u, strlen(p.buf)) << "'" << p.buf << "'";
+	EXPECT_EQ('\0', p.buf[9]);
+	EXPECT_EQ('\xAB', p.buf[10]) << "the formatter wrote past the length it was given";
 }
 
-TEST( SaveComment, ANonPositiveLengthWritesNothingRatherThanOneNullByte )
+TEST(SaveComment, ANonPositiveLengthWritesNothingRatherThanOneNullByte)
 {
 	PoisonedBuffer zero, negative;
 
-	ShellGameDll_FormatSaveComment( zero.buf, 0, "dm_lockdown", 7, 4, false );
-	ShellGameDll_FormatSaveComment( negative.buf, -1, "dm_lockdown", 7, 4, false );
+	ShellGameDll_FormatSaveComment(zero.buf, 0, "dm_lockdown", 7, 4, false);
+	ShellGameDll_FormatSaveComment(negative.buf, -1, "dm_lockdown", 7, 4, false);
 
-	EXPECT_EQ( '\xAB', zero.buf[0] );
-	EXPECT_EQ( '\xAB', negative.buf[0] );
+	EXPECT_EQ('\xAB', zero.buf[0]);
+	EXPECT_EQ('\xAB', negative.buf[0]);
 }
 
-TEST( SaveComment, ANullBufferIsNotADereference )
+TEST(SaveComment, ANullBufferIsNotADereference)
 {
 	// The assertion is that this returns at all.
-	ShellGameDll_FormatSaveComment( NULL, kEngineComment, "dm_lockdown", 7, 4, false );
+	ShellGameDll_FormatSaveComment(NULL, kEngineComment, "dm_lockdown", 7, 4, false);
 	SUCCEED();
 }
 
-TEST( SaveComment, ANullMapNameProducesADefinedStringRatherThanACrash )
+TEST(SaveComment, ANullMapNameProducesADefinedStringRatherThanACrash)
 {
 	PoisonedBuffer p;
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, NULL, 7, 4, false );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, NULL, 7, 4, false);
 
-	EXPECT_EQ( 71u, strlen( p.buf ) ) << "'" << p.buf << "'";
-	EXPECT_STREQ( "007:04", p.buf + 65 );
-	EXPECT_EQ( ' ', p.buf[0] ) << "a NULL name should pad, not print a pointer";
+	EXPECT_EQ(71u, strlen(p.buf)) << "'" << p.buf << "'";
+	EXPECT_STREQ("007:04", p.buf + 65);
+	EXPECT_EQ(' ', p.buf[0]) << "a NULL name should pad, not print a pointer";
 }
 
 // THE DEFECT ITSELF, stated as a fact rather than implied by the others: the
 // engine's buffer comes back WRITTEN. Before this function existed the refusal
 // returned without touching it and the engine used whatever was on its stack.
-TEST( SaveComment, TheEnginesBufferIsWrittenAndNotLeftAsItWasFound )
+TEST(SaveComment, TheEnginesBufferIsWrittenAndNotLeftAsItWasFound)
 {
 	PoisonedBuffer p;
 
-	ShellGameDll_FormatSaveComment( p.buf, kEngineComment, "dm_lockdown", 0, 0, false );
+	ShellGameDll_FormatSaveComment(p.buf, kEngineComment, "dm_lockdown", 0, 0, false);
 
-	EXPECT_NE( '\xAB', p.buf[0] ) << "the buffer came back exactly as it went in";
+	EXPECT_NE('\xAB', p.buf[0]) << "the buffer came back exactly as it went in";
 }
 
 //-----------------------------------------------------------------------------

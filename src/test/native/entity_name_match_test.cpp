@@ -24,12 +24,12 @@
 //-----------------------------------------------------------------------------
 // The ordinary case, and the thing the rule is for.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, ExactNamesMatchAndDifferentOnesDoNot )
+TEST(EntityNameMatch, ExactNamesMatchAndDifferentOnesDoNot)
 {
-	EXPECT_TRUE( EntityNames_Match( "gate_north", "gate_north" ) );
-	EXPECT_FALSE( EntityNames_Match( "gate_north", "gate_south" ) );
-	EXPECT_FALSE( EntityNames_Match( "gate", "gate_north" ) );
-	EXPECT_FALSE( EntityNames_Match( "gate_north", "gate" ) );
+	EXPECT_TRUE(EntityNames_Match("gate_north", "gate_north"));
+	EXPECT_FALSE(EntityNames_Match("gate_north", "gate_south"));
+	EXPECT_FALSE(EntityNames_Match("gate", "gate_north"));
+	EXPECT_FALSE(EntityNames_Match("gate_north", "gate"));
 }
 
 //-----------------------------------------------------------------------------
@@ -37,14 +37,14 @@ TEST( EntityNameMatch, ExactNamesMatchAndDifferentOnesDoNot )
 // three-armed comparison does. A rule that only lowered the query would pass
 // the first of these and fail the second.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, ComparisonIsCaseInsensitiveBothWays )
+TEST(EntityNameMatch, ComparisonIsCaseInsensitiveBothWays)
 {
-	EXPECT_TRUE( EntityNames_Match( "GATE_NORTH", "gate_north" ) );
-	EXPECT_TRUE( EntityNames_Match( "gate_north", "GATE_NORTH" ) );
-	EXPECT_TRUE( EntityNames_Match( "GaTe_NoRtH", "gAtE_nOrTh" ) );
+	EXPECT_TRUE(EntityNames_Match("GATE_NORTH", "gate_north"));
+	EXPECT_TRUE(EntityNames_Match("gate_north", "GATE_NORTH"));
+	EXPECT_TRUE(EntityNames_Match("GaTe_NoRtH", "gAtE_nOrTh"));
 
 	// Non-alphabetic characters are not touched by the case arms.
-	EXPECT_FALSE( EntityNames_Match( "gate-north", "gate_north" ) );
+	EXPECT_FALSE(EntityNames_Match("gate-north", "gate_north"));
 }
 
 //-----------------------------------------------------------------------------
@@ -52,14 +52,14 @@ TEST( EntityNameMatch, ComparisonIsCaseInsensitiveBothWays )
 // "gate*" matches "gate" itself as well as everything under it -- the walk
 // consumes the shared prefix and then finds the '*' with nothing left to match.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, TrailingStarIsAPrefixWildcard )
+TEST(EntityNameMatch, TrailingStarIsAPrefixWildcard)
 {
-	EXPECT_TRUE( EntityNames_Match( "gate*", "gate_north" ) );
-	EXPECT_TRUE( EntityNames_Match( "gate*", "gate_south" ) );
-	EXPECT_TRUE( EntityNames_Match( "gate*", "gate" ) );
-	EXPECT_TRUE( EntityNames_Match( "*", "anything_at_all" ) );
+	EXPECT_TRUE(EntityNames_Match("gate*", "gate_north"));
+	EXPECT_TRUE(EntityNames_Match("gate*", "gate_south"));
+	EXPECT_TRUE(EntityNames_Match("gate*", "gate"));
+	EXPECT_TRUE(EntityNames_Match("*", "anything_at_all"));
 
-	EXPECT_FALSE( EntityNames_Match( "gate*", "door_north" ) );
+	EXPECT_FALSE(EntityNames_Match("gate*", "door_north"));
 }
 
 //-----------------------------------------------------------------------------
@@ -76,14 +76,14 @@ TEST( EntityNameMatch, TrailingStarIsAPrefixWildcard )
 // asking the class. A tidier rule here would be a behaviour change for every
 // map that ever used such a name.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, AStarAnywhereTheWalkStopsIsAWildcard )
+TEST(EntityNameMatch, AStarAnywhereTheWalkStopsIsAWildcard)
 {
-	EXPECT_TRUE( EntityNames_Match( "ga*e_north", "gate_north" ) );
-	EXPECT_TRUE( EntityNames_Match( "*_north", "gate_north" ) );
+	EXPECT_TRUE(EntityNames_Match("ga*e_north", "gate_north"));
+	EXPECT_TRUE(EntityNames_Match("*_north", "gate_north"));
 
 	// The star still has to be reached: a query that DIFFERS before it does not
 	// match, so this is not "any query containing a star matches anything".
-	EXPECT_FALSE( EntityNames_Match( "xa*e_north", "gate_north" ) );
+	EXPECT_FALSE(EntityNames_Match("xa*e_north", "gate_north"));
 }
 
 //=============================================================================//
@@ -99,16 +99,16 @@ TEST( EntityNameMatch, AStarAnywhereTheWalkStopsIsAWildcard )
 // changed behaviour for every unnamed entity in the game.
 //=============================================================================//
 
-TEST( EntityNameMatch, EmptyNameAnswersTheOldNullStringArm )
+TEST(EntityNameMatch, EmptyNameAnswersTheOldNullStringArm)
 {
 	// The three that matched NULL_STRING.
-	EXPECT_TRUE( EntityNames_Match( NULL, "" ) );
-	EXPECT_TRUE( EntityNames_Match( "", "" ) );
-	EXPECT_TRUE( EntityNames_Match( "*", "" ) );
+	EXPECT_TRUE(EntityNames_Match(NULL, ""));
+	EXPECT_TRUE(EntityNames_Match("", ""));
+	EXPECT_TRUE(EntityNames_Match("*", ""));
 
 	// ..and anything else did not.
-	EXPECT_FALSE( EntityNames_Match( "gate_north", "" ) );
-	EXPECT_FALSE( EntityNames_Match( "g*", "" ) );
+	EXPECT_FALSE(EntityNames_Match("gate_north", ""));
+	EXPECT_FALSE(EntityNames_Match("g*", ""));
 }
 
 //-----------------------------------------------------------------------------
@@ -116,12 +116,12 @@ TEST( EntityNameMatch, EmptyNameAnswersTheOldNullStringArm )
 // to "". A caller holding a string_t has "" ; one holding an optional pointer
 // has NULL; both mean the same thing and must get the same answer.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, NullNameAnswersTheSameAsEmpty )
+TEST(EntityNameMatch, NullNameAnswersTheSameAsEmpty)
 {
-	EXPECT_EQ( EntityNames_Match( NULL, "" ), EntityNames_Match( NULL, NULL ) );
-	EXPECT_EQ( EntityNames_Match( "", "" ), EntityNames_Match( "", NULL ) );
-	EXPECT_EQ( EntityNames_Match( "*", "" ), EntityNames_Match( "*", NULL ) );
-	EXPECT_EQ( EntityNames_Match( "gate_north", "" ), EntityNames_Match( "gate_north", NULL ) );
+	EXPECT_EQ(EntityNames_Match(NULL, ""), EntityNames_Match(NULL, NULL));
+	EXPECT_EQ(EntityNames_Match("", ""), EntityNames_Match("", NULL));
+	EXPECT_EQ(EntityNames_Match("*", ""), EntityNames_Match("*", NULL));
+	EXPECT_EQ(EntityNames_Match("gate_north", ""), EntityNames_Match("gate_north", NULL));
 }
 
 //-----------------------------------------------------------------------------
@@ -129,9 +129,9 @@ TEST( EntityNameMatch, NullNameAnswersTheSameAsEmpty )
 // is the arm that stops the NULL-name early-out from being read as "NULL
 // matches everything".
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, NullQueryAgainstARealNameIsFalse )
+TEST(EntityNameMatch, NullQueryAgainstARealNameIsFalse)
 {
-	EXPECT_FALSE( EntityNames_Match( NULL, "gate_north" ) );
+	EXPECT_FALSE(EntityNames_Match(NULL, "gate_north"));
 }
 
 //-----------------------------------------------------------------------------
@@ -140,15 +140,15 @@ TEST( EntityNameMatch, NullQueryAgainstARealNameIsFalse )
 // IDENT_STRINGS. It must agree with the walk rather than merely be faster --
 // and it must not make an empty string match a non-empty query by accident.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, IdenticalPointersAgreeWithTheWalk )
+TEST(EntityNameMatch, IdenticalPointersAgreeWithTheWalk)
 {
-	const char *pszPooled = "gate_north";
-	EXPECT_TRUE( EntityNames_Match( pszPooled, pszPooled ) );
+	const char* pszPooled = "gate_north";
+	EXPECT_TRUE(EntityNames_Match(pszPooled, pszPooled));
 
 	// The same text at a different address gets the same answer the long way.
 	char szCopy[] = "gate_north";
-	EXPECT_TRUE( EntityNames_Match( szCopy, pszPooled ) );
-	EXPECT_NE( (const void *)szCopy, (const void *)pszPooled );
+	EXPECT_TRUE(EntityNames_Match(szCopy, pszPooled));
+	EXPECT_NE((const void*)szCopy, (const void*)pszPooled);
 }
 
 //-----------------------------------------------------------------------------
@@ -156,9 +156,9 @@ TEST( EntityNameMatch, IdenticalPointersAgreeWithTheWalk )
 // unnamed arm answers TRUE for an empty query, and it would be easy to write a
 // rule where "" matched everything in both directions.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, EmptyQueryDoesNotMatchANamedEntity )
+TEST(EntityNameMatch, EmptyQueryDoesNotMatchANamedEntity)
 {
-	EXPECT_FALSE( EntityNames_Match( "", "gate_north" ) );
+	EXPECT_FALSE(EntityNames_Match("", "gate_north"));
 }
 
 //-----------------------------------------------------------------------------
@@ -166,8 +166,8 @@ TEST( EntityNameMatch, EmptyQueryDoesNotMatchANamedEntity )
 // the side that may carry a wildcard. Pinned so nobody "tidies" it into a
 // symmetric compare.
 //-----------------------------------------------------------------------------
-TEST( EntityNameMatch, TheQuerySideIsTheOnlyWildcardSide )
+TEST(EntityNameMatch, TheQuerySideIsTheOnlyWildcardSide)
 {
-	EXPECT_TRUE( EntityNames_Match( "gate*", "gate_north" ) );
-	EXPECT_FALSE( EntityNames_Match( "gate_north", "gate*" ) );
+	EXPECT_TRUE(EntityNames_Match("gate*", "gate_north"));
+	EXPECT_FALSE(EntityNames_Match("gate_north", "gate*"));
 }

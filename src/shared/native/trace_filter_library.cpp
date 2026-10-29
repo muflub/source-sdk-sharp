@@ -19,20 +19,20 @@
 // See util_shared.h.
 
 // Read by the UTIL_Trace* inlines in util_shared.h.
-ConVar r_visualizetraces( "r_visualizetraces", "0", FCVAR_CHEAT );
+ConVar r_visualizetraces("r_visualizetraces", "0", FCVAR_CHEAT);
 
 // The client has no AnyEntity_t, so past the pass entity itself this answers true.
-bool PassServerEntityFilter( const IHandleEntity *pTouch, const IHandleEntity *pPass )
+bool PassServerEntityFilter(const IHandleEntity* pTouch, const IHandleEntity* pPass)
 {
-	if ( !pPass )
+	if (!pPass)
 		return true;
-	if ( pTouch == pPass )
+	if (pTouch == pPass)
 		return false;
 	return true;
 }
 
 // On the client every entity reads as the static-prop case.
-bool StandardFilterRules( IHandleEntity *pHandleEntity, int fContentsMask )
+bool StandardFilterRules(IHandleEntity* pHandleEntity, int fContentsMask)
 {
 	return true;
 }
@@ -41,21 +41,21 @@ bool StandardFilterRules( IHandleEntity *pHandleEntity, int fContentsMask )
 // is hit.
 #define SS_SIMPLE_FILTER CTraceFilterSimple
 
-SS_SIMPLE_FILTER::CTraceFilterSimple( const IHandleEntity *passedict, int collisionGroup,
-									  ShouldHitFunc_t pExtraShouldHitFunc )
+SS_SIMPLE_FILTER::CTraceFilterSimple(const IHandleEntity* passedict, int collisionGroup,
+									 ShouldHitFunc_t pExtraShouldHitFunc)
 {
 	m_pPassEnt = passedict;
 	m_collisionGroup = collisionGroup;
 	m_pExtraShouldHitCheckFunction = pExtraShouldHitFunc;
 }
 
-bool SS_SIMPLE_FILTER::ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask )
+bool SS_SIMPLE_FILTER::ShouldHitEntity(IHandleEntity* pHandleEntity, int contentsMask)
 {
-	if ( !StandardFilterRules( pHandleEntity, contentsMask ) )
+	if (!StandardFilterRules(pHandleEntity, contentsMask))
 		return false;
-	if ( m_pPassEnt )
+	if (m_pPassEnt)
 	{
-		if ( !PassServerEntityFilter( pHandleEntity, m_pPassEnt ) )
+		if (!PassServerEntityFilter(pHandleEntity, m_pPassEnt))
 		{
 			return false;
 		}

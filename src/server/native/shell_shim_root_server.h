@@ -23,10 +23,10 @@ class CShimRootServer final : public IShimRoot
 {
 public:
 	// NULL for a name this side does not serve. Defined in shell_internalfactory.cpp.
-	void *Acquire( const char *pszName ) override;
+	void* Acquire(const char* pszName) override;
 
 	// The engine's interfaces by factory kind; this side's own (INTERNAL) from Acquire.
-	void *AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes ) override;
+	void* AcquireInterface(int32_t nType, const char* pszVersion, char* pError, int32_t nErrorBytes) override;
 
 	// The root lives as long as the DLL; this does nothing.
 	void Release() override {}
@@ -36,14 +36,14 @@ public:
 	CShimAreas m_Areas;
 
 	// The frame area, the DLL tier's (CServerFrame); NULL outside DLLInit..DLLShutdown.
-	IShimFrame *m_pFrame = nullptr;
+	IShimFrame* m_pFrame = nullptr;
 
 	// The level area, the DLL tier's (CServerLevel); NULL outside DLLInit..DLLShutdown.
-	IShimLevel *m_pLevel = nullptr;
+	IShimLevel* m_pLevel = nullptr;
 
 	// The engine's factories, the DLL tier's; NULL outside DLLInit..DLLShutdown.
-	const ss::factorylist_t *m_pFactories = nullptr;
+	const ss::factorylist_t* m_pFactories = nullptr;
 
 	// The engine's globals, from DLLInit to DLLShutdown.
-	CGlobalVars *m_pGlobals = nullptr;
+	CGlobalVars* m_pGlobals = nullptr;
 };

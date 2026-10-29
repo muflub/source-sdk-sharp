@@ -7,13 +7,13 @@
 
 #include <string>
 
-TEST( ServerDllSharedAppSystems, TheSoundEmitterAndSceneFileCacheAreAnsweredInStocksOrder )
+TEST(ServerDllSharedAppSystems, TheSoundEmitterAndSceneFileCacheAreAnsweredInStocksOrder)
 {
 	CServerDLLSharedAppSystems systems;
 
-	ASSERT_EQ( 2, systems.Count() );
-	EXPECT_EQ( std::string( "soundemittersystem" DLL_EXT_STRING ), systems.GetDllName( 0 ) );
-	EXPECT_EQ( std::string( "VSoundEmitter002" ), systems.GetInterfaceName( 0 ) );
-	EXPECT_EQ( std::string( "scenefilecache" DLL_EXT_STRING ), systems.GetDllName( 1 ) );
-	EXPECT_EQ( std::string( "SceneFileCache002" ), systems.GetInterfaceName( 1 ) );
+	ASSERT_EQ(2, systems.Count());
+	EXPECT_EQ(std::string("soundemittersystem" DLL_EXT_STRING), systems.GetDllName(0));
+	EXPECT_EQ(std::string("VSoundEmitter002"), systems.GetInterfaceName(0));
+	EXPECT_EQ(std::string("scenefilecache" DLL_EXT_STRING), systems.GetDllName(1));
+	EXPECT_EQ(std::string("SceneFileCache002"), systems.GetInterfaceName(1));
 }

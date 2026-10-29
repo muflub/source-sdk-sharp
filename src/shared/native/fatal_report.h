@@ -11,4 +11,4 @@ enum
 // Reports pKind ("ASSERT", "ERROR") and pMsg with the stack to stderr and, when
 // $SOURCESHARP_ASSERT_DIR names a directory, to <dir>/assert-<pid>.txt, then
 // ends the process with kSourceSharpFatalExitCode. Allocates nothing.
-[[noreturn]] void SourceSharp_FatalReport( const char *pKind, const char *pMsg );
+[[noreturn]] void SourceSharp_FatalReport(const char* pKind, const char* pMsg);

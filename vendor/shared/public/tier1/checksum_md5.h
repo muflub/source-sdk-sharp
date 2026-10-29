@@ -10,8 +10,8 @@ struct MD5Value_t
 {
 	unsigned char bits[MD5_DIGEST_LENGTH];
 
-	bool operator==( const MD5Value_t &src ) const;
-	bool operator!=( const MD5Value_t &src ) const;
+	bool operator==(const MD5Value_t& src) const;
+	bool operator!=(const MD5Value_t& src) const;
 };
 
 // MD5 Hash
@@ -23,14 +23,14 @@ typedef struct
 } MD5Context_t;
 
 /// Returns true if the values match.
-bool MD5_Compare( const MD5Value_t &data, const MD5Value_t &compare );
+bool MD5_Compare(const MD5Value_t& data, const MD5Value_t& compare);
 
-inline bool MD5Value_t::operator==( const MD5Value_t &src ) const
+inline bool MD5Value_t::operator==(const MD5Value_t& src) const
 {
-	return MD5_Compare( *this, src );
+	return MD5_Compare(*this, src);
 }
 
-inline bool MD5Value_t::operator!=( const MD5Value_t &src ) const
+inline bool MD5Value_t::operator!=(const MD5Value_t& src) const
 {
-	return !MD5_Compare( *this, src );
+	return !MD5_Compare(*this, src);
 }

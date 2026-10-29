@@ -212,6 +212,12 @@ def is_vec_constant(row):
     return row.size == VEC_SIZES[m.group(1)]
 
 
+def spaced_alike(text):
+    """text without its whitespace: a needle is code, and tools/clang-format
+    decides where its spaces go (`( a )` or `(a)`), not the census."""
+    return re.sub(r"\s+", "", text)
+
+
 def check_vec_subject(subject=None):
     """[] when the four definitions are where the exclusion says, else the
     complaints. An exclusion whose subject has moved must stop the run.
@@ -232,7 +238,7 @@ def check_vec_subject(subject=None):
                        "excludes have no known definition site" % rel)
             continue
         for n in needles:
-            if n not in text:
+            if spaced_alike(n) not in spaced_alike(text):
                 bad.append("%s no longer contains `%s`" % (rel, n))
     return bad
 
@@ -1186,7 +1192,7 @@ def check_floor_subject(subject=None):
         for prefix in CLIENT_FLOOR_PREFIXES:
             path = os.path.join(SRC, prefix + rel)
             try:
-                if needle in open(path, errors="replace").read():
+                if spaced_alike(needle) in spaced_alike(open(path, errors="replace").read()):
                     found = True
                     break
             except OSError:
@@ -1986,6 +1992,18 @@ def self_test():
           "CLIENT_DLL_INTERFACE_VERSION, g_ShellClientDLL )"),)) == [],
        "the root's mechanism is found under the sourcesharp/ prefix as well "
        "as the stock one, so moving the shell tree does not falsify it")
+    ok(check_floor_subject(
+        (("g_ShellClientDLL", "game/client/shell_clientdll.cpp",
+          "EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CShellClientDLL,IBaseClientDLL,"
+          "CLIENT_DLL_INTERFACE_VERSION,g_ShellClientDLL)"),)) == []
+       and check_vec_subject((("public/mathlib/vector2d.h", ("const Vector2D vec2_origin( 0, 0 )",)),)) == [],
+       "a mechanism is found however the formatter spaces it: the needle and the "
+       "file are compared without their whitespace")
+    ok(len(check_floor_subject(
+        (("x", "game/client/shell_clientdll.cpp",
+          "EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CShellClientDLL, IBaseClientDLL, "
+          "CLIENT_DLL_INTERFACE_VERSION, g_SomeoneElse )"),))) == 1,
+       "and a needle with other tokens still is not")
 
     # audit()'s side, which was hardcoded to "server": a client run with a
     # broken regex sent the reader to look at the edge that still works.

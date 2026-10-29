@@ -18,8 +18,8 @@ class CViewVectors
 public:
 	CViewVectors() {}
 
-	CViewVectors( Vector vView, Vector vHullMin, Vector vHullMax, Vector vDuckHullMin, Vector vDuckHullMax,
-				  Vector vDuckView, Vector vObsHullMin, Vector vObsHullMax, Vector vDeadViewHeight )
+	CViewVectors(Vector vView, Vector vHullMin, Vector vHullMax, Vector vDuckHullMin, Vector vDuckHullMax,
+				 Vector vDuckView, Vector vObsHullMin, Vector vObsHullMax, Vector vDeadViewHeight)
 	{
 		m_vView = vView;
 		m_vHullMin = vHullMin;

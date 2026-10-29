@@ -13,28 +13,28 @@
 class CSourceSharpMessageChars : public IMessageChars
 {
 public:
-	virtual void Create( vgui::VPANEL parent ) OVERRIDE {}
+	virtual void Create(vgui::VPANEL parent) OVERRIDE {}
 
 	virtual void Destroy() OVERRIDE {}
 
-	virtual int DrawString( vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE { return 0; }
+	virtual int DrawString(vgui::HFont, int, int, int, int, int, int, const char*, int, ...) OVERRIDE { return 0; }
 
-	virtual int DrawString( vgui::HFont, int, int, const char *, int, ... ) OVERRIDE { return 0; }
+	virtual int DrawString(vgui::HFont, int, int, const char*, int, ...) OVERRIDE { return 0; }
 
-	virtual int DrawStringForTime( float, vgui::HFont, int, int, int, int, int, int, const char *, int, ... ) OVERRIDE
+	virtual int DrawStringForTime(float, vgui::HFont, int, int, int, int, int, int, const char*, int, ...) OVERRIDE
 	{
 		return 0;
 	}
 
-	virtual int DrawStringForTime( float, vgui::HFont, int, int, const char *, int, ... ) OVERRIDE { return 0; }
+	virtual int DrawStringForTime(float, vgui::HFont, int, int, const char*, int, ...) OVERRIDE { return 0; }
 
-	virtual void RemoveStringsByID( int ) OVERRIDE {}
+	virtual void RemoveStringsByID(int) OVERRIDE {}
 
-	virtual void GetStringLength( vgui::HFont, int *width, int *height, const char *, ... ) OVERRIDE
+	virtual void GetStringLength(vgui::HFont, int* width, int* height, const char*, ...) OVERRIDE
 	{
-		if ( width )
+		if (width)
 			*width = 0;
-		if ( height )
+		if (height)
 			*height = 0;
 	}
 
@@ -42,4 +42,4 @@ public:
 };
 
 static CSourceSharpMessageChars g_MessageChars;
-IMessageChars *messagechars = &g_MessageChars;
+IMessageChars* messagechars = &g_MessageChars;

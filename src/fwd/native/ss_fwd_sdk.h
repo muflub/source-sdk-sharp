@@ -32,21 +32,21 @@
 
 #undef _AssertMsg
 #undef _AssertMsgOnce
-#define _AssertMsg( _exp, _msg, _executeExp, _bFatal ) \
-	do                                                 \
-	{                                                  \
-	} while ( 0 )
-#define _AssertMsgOnce( _exp, _msg, _bFatal ) \
-	do                                        \
-	{                                         \
-	} while ( 0 )
+#define _AssertMsg(_exp, _msg, _executeExp, _bFatal) \
+	do                                               \
+	{                                                \
+	} while (0)
+#define _AssertMsgOnce(_exp, _msg, _bFatal) \
+	do                                      \
+	{                                       \
+	} while (0)
 
-#if defined( _MSC_VER ) && defined( SS_NO_CRT )
+#if defined(_MSC_VER) && defined(SS_NO_CRT)
 // MSVC references _fltused from an object that touches floating point (the
 // SDK headers' inline math does), and the CRT defines it. A forwarder library
 // links no CRT (NO_RUNTIME), so it defines it, as code built without a CRT
 // does. A test that compiles a library's source into an executable with a CRT
 // has no SS_NO_CRT and leaves it to the CRT. Every forwarder TU includes this
 // header, so the definition is selectany: one survives the link.
-extern "C" __declspec( selectany ) int _fltused = 0;
+extern "C" __declspec(selectany) int _fltused = 0;
 #endif

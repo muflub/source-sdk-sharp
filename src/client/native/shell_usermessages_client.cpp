@@ -20,19 +20,19 @@
 
 #include "GameEventListener.h"
 
-extern IClientMode *GetClientModeNormal();
+extern IClientMode* GetClientModeNormal();
 
 // Facts for managed code's VGUIMenu handler: bit 0, the viewport has a panel by
 // that name; bit 1, the client mode allows the info (MOTD) panel now.
-int32_t SourceSharp_ClientViewportQuery( const char *pszPanel )
+int32_t SourceSharp_ClientViewportQuery(const char* pszPanel)
 {
 	int32_t nFacts = 0;
 
-	if ( gViewPortInterface && pszPanel && gViewPortInterface->FindPanelByName( pszPanel ) )
+	if (gViewPortInterface && pszPanel && gViewPortInterface->FindPanelByName(pszPanel))
 		nFacts |= 1;
 
-	IClientMode *pMode = GetClientModeNormal();
-	if ( pMode && pMode->IsInfoPanelAllowed() )
+	IClientMode* pMode = GetClientModeNormal();
+	if (pMode && pMode->IsInfoPanelAllowed())
 		nFacts |= 2;
 
 	return nFacts;
@@ -42,55 +42,55 @@ int32_t SourceSharp_ClientViewportQuery( const char *pszPanel )
 // 1 hand the panel its data (pPairs: name, NUL, value, NUL, ...), 2 take a
 // screenshot in a second, 4 fire ds_screenshot client side, 8 tell the client
 // mode the info panel was shown, 16 show (or hide, by bShow) the panel.
-void SourceSharp_ClientViewportShow( const char *pszPanel, int32_t bShow, const unsigned char *pPairs,
-									 int32_t nPairBytes, int32_t nFlags )
+void SourceSharp_ClientViewportShow(const char* pszPanel, int32_t bShow, const unsigned char* pPairs,
+									int32_t nPairBytes, int32_t nFlags)
 {
-	if ( !gViewPortInterface || !pszPanel )
+	if (!gViewPortInterface || !pszPanel)
 		return;
 
-	IViewPortPanel *pPanel = gViewPortInterface->FindPanelByName( pszPanel );
-	if ( !pPanel )
+	IViewPortPanel* pPanel = gViewPortInterface->FindPanelByName(pszPanel);
+	if (!pPanel)
 		return;
 
-	if ( ( nFlags & 1 ) && pPairs && nPairBytes > 0 )
+	if ((nFlags & 1) && pPairs && nPairBytes > 0)
 	{
-		KeyValues *pKeys = new KeyValues( "data" );
+		KeyValues* pKeys = new KeyValues("data");
 
-		const char *pszAt = (const char *)pPairs;
-		const char *pszEnd = pszAt + nPairBytes;
-		while ( pszAt < pszEnd )
+		const char* pszAt = (const char*)pPairs;
+		const char* pszEnd = pszAt + nPairBytes;
+		while (pszAt < pszEnd)
 		{
-			const char *pszName = pszAt;
-			pszAt += strnlen( pszAt, pszEnd - pszAt ) + 1;
-			if ( pszAt >= pszEnd )
+			const char* pszName = pszAt;
+			pszAt += strnlen(pszAt, pszEnd - pszAt) + 1;
+			if (pszAt >= pszEnd)
 				break;
-			const char *pszValue = pszAt;
-			pszAt += strnlen( pszAt, pszEnd - pszAt ) + 1;
-			pKeys->SetString( pszName, pszValue );
+			const char* pszValue = pszAt;
+			pszAt += strnlen(pszAt, pszEnd - pszAt) + 1;
+			pKeys->SetString(pszName, pszValue);
 		}
 
-		pPanel->SetData( pKeys );
+		pPanel->SetData(pKeys);
 		pKeys->deleteThis();
 	}
 
-	if ( nFlags & 2 )
-		gHUD.SetScreenShotTime( gpGlobals->curtime + 1.0f );
+	if (nFlags & 2)
+		gHUD.SetScreenShotTime(gpGlobals->curtime + 1.0f);
 
-	if ( nFlags & 4 )
+	if (nFlags & 4)
 	{
-		if ( IGameEvent *pEvent = gameeventmanager ? gameeventmanager->CreateEvent( "ds_screenshot" ) : NULL )
+		if (IGameEvent* pEvent = gameeventmanager ? gameeventmanager->CreateEvent("ds_screenshot") : NULL)
 		{
-			pEvent->SetFloat( "delay", 0.5f );
-			gameeventmanager->FireEventClientSide( pEvent );
+			pEvent->SetFloat("delay", 0.5f);
+			gameeventmanager->FireEventClientSide(pEvent);
 		}
 	}
 
-	if ( nFlags & 8 )
+	if (nFlags & 8)
 	{
-		if ( IClientMode *pMode = GetClientModeNormal() )
+		if (IClientMode* pMode = GetClientModeNormal())
 			pMode->InfoPanelDisplayed();
 	}
 
-	if ( nFlags & 16 )
-		gViewPortInterface->ShowPanel( pPanel, bShow != 0 );
+	if (nFlags & 16)
+		gViewPortInterface->ShowPanel(pPanel, bShow != 0);
 }

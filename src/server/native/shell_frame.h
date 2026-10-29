@@ -23,19 +23,19 @@ class IUploadGameStats;
 class CServerFrame final : public IShimFrame
 {
 public:
-	CServerFrame( CGlobalVars *pGlobals, IUploadGameStats *pGameStats, IMDLCache *pMdlCache,
-				  CServerDebugOverlays &overlays, CServerEntityContext &entities, const CServerWorldQueries &world )
-		: m_pGlobals( pGlobals )
-		, m_pGameStats( pGameStats )
-		, m_pMdlCache( pMdlCache )
-		, m_Overlays( overlays )
-		, m_Entities( entities )
-		, m_World( world )
+	CServerFrame(CGlobalVars* pGlobals, IUploadGameStats* pGameStats, IMDLCache* pMdlCache,
+				 CServerDebugOverlays& overlays, CServerEntityContext& entities, const CServerWorldQueries& world)
+		: m_pGlobals(pGlobals)
+		, m_pGameStats(pGameStats)
+		, m_pMdlCache(pMdlCache)
+		, m_Overlays(overlays)
+		, m_Entities(entities)
+		, m_World(world)
 	{
 	}
 
-	CServerFrame( const CServerFrame & ) = delete;
-	CServerFrame &operator=( const CServerFrame & ) = delete;
+	CServerFrame(const CServerFrame&) = delete;
+	CServerFrame& operator=(const CServerFrame&) = delete;
 
 	// gameinterface.cpp:1326. C# does the branching.
 	int32_t IsSimulatingOnAlternateTicks() override;
@@ -45,7 +45,7 @@ public:
 
 	// A pair, so the alternate-tick arithmetic stays in C# beside stock's.
 	float GetFrameTime() override;
-	void SetFrameTime( float flFrameTime ) override;
+	void SetFrameTime(float flFrameTime) override;
 
 	// gameinterface.cpp:1389.
 	void UpdateAllClientData() override;
@@ -72,12 +72,12 @@ public:
 	void EndModelCacheLock() override;
 
 private:
-	CGlobalVars *m_pGlobals;
-	IUploadGameStats *m_pGameStats;
-	IMDLCache *m_pMdlCache;
-	CServerDebugOverlays &m_Overlays;
-	CServerEntityContext &m_Entities;
+	CGlobalVars* m_pGlobals;
+	IUploadGameStats* m_pGameStats;
+	IMDLCache* m_pMdlCache;
+	CServerDebugOverlays& m_Overlays;
+	CServerEntityContext& m_Entities;
 
 	// The sky camera's parameters each player's client data is given.
-	const CServerWorldQueries &m_World;
+	const CServerWorldQueries& m_World;
 };

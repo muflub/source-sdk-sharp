@@ -13,8 +13,8 @@ struct client_textmessage_t
 	float fadeout;
 	float holdtime;
 	float fxtime;
-	alignas( 8 ) unsigned char unused_pVGuiSchemeFontName[16];
-	const char *pMessage;
-	alignas( 8 ) unsigned char unused_bRoundedRectBackdropBox[16];
-	char const *pClearMessage; // message to clear
+	alignas(8) unsigned char unused_pVGuiSchemeFontName[16];
+	const char* pMessage;
+	alignas(8) unsigned char unused_bRoundedRectBackdropBox[16];
+	char const* pClearMessage; // message to clear
 };

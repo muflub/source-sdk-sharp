@@ -18,33 +18,33 @@ public:
 		CRIT_FULL,
 	};
 
-	DECLARE_CLASS_NOBASE( CTakeDamageInfo );
+	DECLARE_CLASS_NOBASE(CTakeDamageInfo);
 
 	CTakeDamageInfo();
-	CTakeDamageInfo( CBaseEntity *pInflictor, CBaseEntity *pAttacker, float flDamage, int bitsDamageType,
-					 int iKillType = 0 );
-	CTakeDamageInfo( CBaseEntity *pInflictor, CBaseEntity *pAttacker, CBaseEntity *pWeapon, float flDamage,
-					 int bitsDamageType, int iKillType = 0 );
-	CTakeDamageInfo( CBaseEntity *pInflictor, CBaseEntity *pAttacker, const Vector &damageForce,
-					 const Vector &damagePosition, float flDamage, int bitsDamageType, int iKillType = 0,
-					 Vector *reportedPosition = NULL );
-	CTakeDamageInfo( CBaseEntity *pInflictor, CBaseEntity *pAttacker, CBaseEntity *pWeapon, const Vector &damageForce,
-					 const Vector &damagePosition, float flDamage, int bitsDamageType, int iKillType = 0,
-					 Vector *reportedPosition = NULL );
+	CTakeDamageInfo(CBaseEntity* pInflictor, CBaseEntity* pAttacker, float flDamage, int bitsDamageType,
+					int iKillType = 0);
+	CTakeDamageInfo(CBaseEntity* pInflictor, CBaseEntity* pAttacker, CBaseEntity* pWeapon, float flDamage,
+					int bitsDamageType, int iKillType = 0);
+	CTakeDamageInfo(CBaseEntity* pInflictor, CBaseEntity* pAttacker, const Vector& damageForce,
+					const Vector& damagePosition, float flDamage, int bitsDamageType, int iKillType = 0,
+					Vector* reportedPosition = NULL);
+	CTakeDamageInfo(CBaseEntity* pInflictor, CBaseEntity* pAttacker, CBaseEntity* pWeapon, const Vector& damageForce,
+					const Vector& damagePosition, float flDamage, int bitsDamageType, int iKillType = 0,
+					Vector* reportedPosition = NULL);
 
-	void Set( CBaseEntity *pInflictor, CBaseEntity *pAttacker, float flDamage, int bitsDamageType, int iKillType = 0 );
-	void Set( CBaseEntity *pInflictor, CBaseEntity *pAttacker, CBaseEntity *pWeapon, float flDamage, int bitsDamageType,
-			  int iKillType = 0 );
-	void Set( CBaseEntity *pInflictor, CBaseEntity *pAttacker, const Vector &damageForce, const Vector &damagePosition,
-			  float flDamage, int bitsDamageType, int iKillType = 0, Vector *reportedPosition = NULL );
-	void Set( CBaseEntity *pInflictor, CBaseEntity *pAttacker, CBaseEntity *pWeapon, const Vector &damageForce,
-			  const Vector &damagePosition, float flDamage, int bitsDamageType, int iKillType = 0,
-			  Vector *reportedPosition = NULL );
+	void Set(CBaseEntity* pInflictor, CBaseEntity* pAttacker, float flDamage, int bitsDamageType, int iKillType = 0);
+	void Set(CBaseEntity* pInflictor, CBaseEntity* pAttacker, CBaseEntity* pWeapon, float flDamage, int bitsDamageType,
+			 int iKillType = 0);
+	void Set(CBaseEntity* pInflictor, CBaseEntity* pAttacker, const Vector& damageForce, const Vector& damagePosition,
+			 float flDamage, int bitsDamageType, int iKillType = 0, Vector* reportedPosition = NULL);
+	void Set(CBaseEntity* pInflictor, CBaseEntity* pAttacker, CBaseEntity* pWeapon, const Vector& damageForce,
+			 const Vector& damagePosition, float flDamage, int bitsDamageType, int iKillType = 0,
+			 Vector* reportedPosition = NULL);
 
 protected:
-	void Init( CBaseEntity *pInflictor, CBaseEntity *pAttacker, CBaseEntity *pWeapon, const Vector &damageForce,
-			   const Vector &damagePosition, const Vector &reportedPosition, float flDamage, int bitsDamageType,
-			   int iKillType );
+	void Init(CBaseEntity* pInflictor, CBaseEntity* pAttacker, CBaseEntity* pWeapon, const Vector& damageForce,
+			  const Vector& damagePosition, const Vector& reportedPosition, float flDamage, int bitsDamageType,
+			  int iKillType);
 
 	Vector m_vecDamageForce;
 	Vector m_vecDamagePosition;
@@ -76,14 +76,14 @@ protected:
 // Purpose: Multi damage. Used to collect multiple damages in the same frame (i.e. shotgun pellets)
 class CMultiDamage : public CTakeDamageInfo
 {
-	DECLARE_CLASS( CMultiDamage, CTakeDamageInfo );
+	DECLARE_CLASS(CMultiDamage, CTakeDamageInfo);
 
 public:
 	CMultiDamage();
 
-	void Init( CBaseEntity *pTarget, CBaseEntity *pInflictor, CBaseEntity *pAttacker, CBaseEntity *pWeapon,
-			   const Vector &damageForce, const Vector &damagePosition, const Vector &reportedPosition, float flDamage,
-			   int bitsDamageType, int iKillType );
+	void Init(CBaseEntity* pTarget, CBaseEntity* pInflictor, CBaseEntity* pAttacker, CBaseEntity* pWeapon,
+			  const Vector& damageForce, const Vector& damagePosition, const Vector& reportedPosition, float flDamage,
+			  int bitsDamageType, int iKillType);
 
 protected:
 	EHANDLE m_hTarget;

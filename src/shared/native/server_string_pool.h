@@ -19,13 +19,13 @@
 class CServerStringPool
 {
 public:
-	const char *Allocate( const char *pszValue )
+	const char* Allocate(const char* pszValue)
 	{
-		Set::iterator it = m_Strings.find( pszValue );
-		if ( it != m_Strings.end() )
+		Set::iterator it = m_Strings.find(pszValue);
+		if (it != m_Strings.end())
 			return it->c_str();
 
-		return m_Strings.emplace_hint( it, pszValue )->c_str();
+		return m_Strings.emplace_hint(it, pszValue)->c_str();
 	}
 
 	void FreeAll() { m_Strings.clear(); }
@@ -34,10 +34,10 @@ public:
 
 	// Every pooled string, in order.
 	template <typename Fn>
-	void Visit( Fn fnVisit ) const
+	void Visit(Fn fnVisit) const
 	{
-		for ( typename Set::const_iterator it = m_Strings.begin(); it != m_Strings.end(); ++it )
-			fnVisit( it->c_str() );
+		for (typename Set::const_iterator it = m_Strings.begin(); it != m_Strings.end(); ++it)
+			fnVisit(it->c_str());
 	}
 
 protected:
@@ -46,14 +46,14 @@ protected:
 	{
 		typedef void is_transparent;
 
-		static const char *C( const char *p ) { return p; }
+		static const char* C(const char* p) { return p; }
 
-		static const char *C( const std::string &s ) { return s.c_str(); }
+		static const char* C(const std::string& s) { return s.c_str(); }
 
 		template <class A, class B>
-		bool operator()( const A &a, const B &b ) const
+		bool operator()(const A& a, const B& b) const
 		{
-			return ss::StrICmp( C( a ), C( b ) ) < 0;
+			return ss::StrICmp(C(a), C(b)) < 0;
 		}
 	};
 

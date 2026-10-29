@@ -10,18 +10,18 @@
 
 static CSaveRestoreSegment s_Upstream;
 
-void Upstream_InitSymbolTable( char **pTokens, int nTokens )
+void Upstream_InitSymbolTable(char** pTokens, int nTokens)
 {
 	s_Upstream = CSaveRestoreSegment();
-	s_Upstream.InitSymbolTable( pTokens, nTokens );
+	s_Upstream.InitSymbolTable(pTokens, nTokens);
 }
 
-unsigned short Upstream_FindCreateSymbol( const char *pszToken )
+unsigned short Upstream_FindCreateSymbol(const char* pszToken)
 {
-	return s_Upstream.FindCreateSymbol( pszToken );
+	return s_Upstream.FindCreateSymbol(pszToken);
 }
 
-const char *Upstream_StringFromSymbol( int token )
+const char* Upstream_StringFromSymbol(int token)
 {
-	return s_Upstream.StringFromSymbol( token );
+	return s_Upstream.StringFromSymbol(token);
 }

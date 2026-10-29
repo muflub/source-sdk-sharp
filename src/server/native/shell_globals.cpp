@@ -14,7 +14,7 @@
 
 // The list every ServerClass adds itself to from its static constructor, walked by the
 // engine. Constant-initialised, so it is NULL before any of those constructors run.
-ServerClass *g_pServerClassHead = 0;
+ServerClass* g_pServerClassHead = 0;
 
 // Read by the _DEBUG network-var assertions.
 

@@ -123,9 +123,11 @@ def self_test():
         if a != b:
             raise AssertionError("%s: %r != %r" % (what, a, b))
 
-    eq(format_text("int  f( void ){return 1;}\n", "a.cpp"), "int f( void )\n{\n\treturn 1;\n}\n",
-       "the style: Allman braces, tab indents, spaces inside parentheses")
-    eq(format_text("char* p;\n", "a.h"), "char *p;\n", "one pointer alignment, not the file's")
+    eq(format_text("int  f( void ){return 1;}\n", "a.cpp"), "int f(void)\n{\n\treturn 1;\n}\n",
+       "the style: Allman braces, tab indents, no spaces inside parentheses")
+    eq(format_text("if ( a ) g( b );\n", "a.cpp"), "if (a)\n\tg(b);\n", "none inside a condition's parentheses either")
+    eq(format_text("char *p;\nint &r = i;\n", "a.h"), "char* p;\nint& r = i;\n",
+       "pointers and references on the left, not the file's")
     eq(format_text("#include \"b.h\"\n#include \"a.h\"\n", "a.cpp"), "#include \"b.h\"\n#include \"a.h\"\n",
        "includes keep their order")
     long = 'void f()\n{\n\tWarning( "%s" );\n}\n' % ("x" * 150)

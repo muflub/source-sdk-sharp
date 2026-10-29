@@ -17,18 +17,18 @@ enum
 	STANDALONE_NETSERIAL_BITS = 10
 };
 
-inline int StandaloneNetSerial_ForHandle( unsigned long nHandleSerial )
+inline int StandaloneNetSerial_ForHandle(unsigned long nHandleSerial)
 {
-	return (int)( nHandleSerial & ( ( 1u << STANDALONE_NETSERIAL_BITS ) - 1 ) );
+	return (int)(nHandleSerial & ((1u << STANDALONE_NETSERIAL_BITS) - 1));
 }
 
 // Mirrors a newly assigned handle serial onto the edict. A null edict is a
 // server-only entity. Runs for INVALID_EHANDLE on removal too, as stock does.
 template <typename TEdict>
-inline void StandaloneNetSerial_Mirror( TEdict *pEdict, unsigned long nHandleSerial )
+inline void StandaloneNetSerial_Mirror(TEdict* pEdict, unsigned long nHandleSerial)
 {
-	if ( !pEdict )
+	if (!pEdict)
 		return;
 
-	pEdict->m_NetworkSerialNumber = (short)StandaloneNetSerial_ForHandle( nHandleSerial );
+	pEdict->m_NetworkSerialNumber = (short)StandaloneNetSerial_ForHandle(nHandleSerial);
 }

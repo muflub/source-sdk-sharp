@@ -9,4 +9,4 @@
 
 #include "shell_gametags.h"
 
-void CServerGameTags::GetTaggedConVarList( KeyValues *pCvarTagList ) {}
+void CServerGameTags::GetTaggedConVarList(KeyValues* pCvarTagList) {}

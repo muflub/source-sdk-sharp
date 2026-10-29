@@ -14,37 +14,37 @@
 class CParticleEffect : public IParticleEffect
 {
 public:
-	DECLARE_CLASS_NOBASE( CParticleEffect );
+	DECLARE_CLASS_NOBASE(CParticleEffect);
 
 	friend class CRefCountAccessor;
 
-	const char *GetEffectName();
+	const char* GetEffectName();
 
 	// IParticleEffect overrides
 public:
-	virtual void SetParticleCullRadius( float radius );
+	virtual void SetParticleCullRadius(float radius);
 	virtual void NotifyRemove();
-	virtual const Vector &GetSortOrigin();
-	virtual void NotifyDestroyParticle( Particle *pParticle );
-	virtual void Update( float flTimeDelta );
+	virtual const Vector& GetSortOrigin();
+	virtual void NotifyDestroyParticle(Particle* pParticle);
+	virtual void Update(float flTimeDelta);
 
 	virtual bool ShouldSimulate() const { return m_bSimulate; }
 
-	virtual void SetShouldSimulate( bool bSim ) { m_bSimulate = bSim; }
+	virtual void SetShouldSimulate(bool bSim) { m_bSimulate = bSim; }
 
 protected:
-	CParticleEffect( const char *pDebugName );
+	CParticleEffect(const char* pDebugName);
 	virtual ~CParticleEffect();
 
 	enum
 	{
-		FLAG_ALLOCATED = ( 1 << 1 ), // Most of the CParticleEffects are dynamically allocated but
+		FLAG_ALLOCATED = (1 << 1), // Most of the CParticleEffects are dynamically allocated but
 		// some are member variables of a class. If they're member variables.
-		FLAG_DONT_REMOVE = ( 1 << 2 ),
+		FLAG_DONT_REMOVE = (1 << 2),
 	};
 
 	// Used to track down bugs.
-	alignas( 8 ) unsigned char unused_m_pDebugName[312];
+	alignas(8) unsigned char unused_m_pDebugName[312];
 
 	bool m_bSimulate;
 	int m_nToolParticleEffectId;
@@ -57,7 +57,7 @@ private:
 	int m_RefCount; // When this goes to zero and the effect has no more active
 	// particles, (and it's dynamically allocated), it will delete itself.
 
-	CParticleEffect( const CParticleEffect & ); // not defined, not accessible
+	CParticleEffect(const CParticleEffect&); // not defined, not accessible
 };
 
 // CSimpleEmitter implements a common way to simulate and render particles.
@@ -69,14 +69,14 @@ class CSimpleEmitter : public CParticleEffect
 {
 	// IParticleEffect overrides.
 public:
-	DECLARE_CLASS( CSimpleEmitter, CParticleEffect );
+	DECLARE_CLASS(CSimpleEmitter, CParticleEffect);
 
-	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
-	virtual void RenderParticles( CParticleRenderIterator *pIterator );
+	virtual void SimulateParticles(CParticleSimulateIterator* pIterator);
+	virtual void RenderParticles(CParticleRenderIterator* pIterator);
 
 	// Overridables for variants like CEmberEffect.
 protected:
-	CSimpleEmitter( const char *pDebugName = NULL );
+	CSimpleEmitter(const char* pDebugName = NULL);
 	virtual ~CSimpleEmitter();
 
 	virtual void unused_UpdateAlpha() = 0;
@@ -89,7 +89,7 @@ protected:
 	float m_flNearClipMax;
 
 private:
-	CSimpleEmitter( const CSimpleEmitter & ); // not defined, not accessible
+	CSimpleEmitter(const CSimpleEmitter&); // not defined, not accessible
 };
 
 // EmberEffect

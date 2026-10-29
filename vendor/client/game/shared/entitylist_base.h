@@ -10,10 +10,10 @@
 class CEntInfo
 {
 public:
-	IHandleEntity *m_pEntity;
+	IHandleEntity* m_pEntity;
 	int m_SerialNumber;
-	CEntInfo *m_pPrev;
-	CEntInfo *m_pNext;
+	CEntInfo* m_pPrev;
+	CEntInfo* m_pNext;
 };
 
 class CBaseEntityList
@@ -23,7 +23,7 @@ public:
 	~CBaseEntityList();
 
 	// ehandles use this in their Get() function to produce a pointer to the entity.
-	IHandleEntity *LookupEntity( const CBaseHandle &handle ) const;
+	IHandleEntity* LookupEntity(const CBaseHandle& handle) const;
 
 	static CBaseHandle InvalidHandle();
 
@@ -43,26 +43,26 @@ private:
 	public:
 		CEntInfoList();
 
-		const CEntInfo *Head() const { return m_pHead; }
+		const CEntInfo* Head() const { return m_pHead; }
 
-		const CEntInfo *Tail() const { return m_pTail; }
+		const CEntInfo* Tail() const { return m_pTail; }
 
-		CEntInfo *Head() { return m_pHead; }
+		CEntInfo* Head() { return m_pHead; }
 
-		CEntInfo *Tail() { return m_pTail; }
+		CEntInfo* Tail() { return m_pTail; }
 
-		void AddToHead( CEntInfo *pElement ) { LinkAfter( NULL, pElement ); }
+		void AddToHead(CEntInfo* pElement) { LinkAfter(NULL, pElement); }
 
-		void AddToTail( CEntInfo *pElement ) { LinkBefore( NULL, pElement ); }
+		void AddToTail(CEntInfo* pElement) { LinkBefore(NULL, pElement); }
 
-		void LinkBefore( CEntInfo *pBefore, CEntInfo *pElement );
-		void LinkAfter( CEntInfo *pBefore, CEntInfo *pElement );
-		void Unlink( CEntInfo *pElement );
-		bool IsInList( CEntInfo *pElement );
+		void LinkBefore(CEntInfo* pBefore, CEntInfo* pElement);
+		void LinkAfter(CEntInfo* pBefore, CEntInfo* pElement);
+		void Unlink(CEntInfo* pElement);
+		bool IsInList(CEntInfo* pElement);
 
 	private:
-		CEntInfo *m_pHead;
-		CEntInfo *m_pTail;
+		CEntInfo* m_pHead;
+		CEntInfo* m_pTail;
 	};
 
 	// The first MAX_EDICTS entities are networkable. The rest are client-only or server-only.
@@ -73,13 +73,13 @@ private:
 
 // Inlines.
 
-inline IHandleEntity *CBaseEntityList::LookupEntity( const CBaseHandle &handle ) const
+inline IHandleEntity* CBaseEntityList::LookupEntity(const CBaseHandle& handle) const
 {
-	if ( handle.m_Index == INVALID_EHANDLE )
+	if (handle.m_Index == INVALID_EHANDLE)
 		return NULL;
 
-	const CEntInfo *pInfo = &m_EntPtrArray[handle.GetEntryIndex()];
-	if ( pInfo && pInfo->m_SerialNumber == handle.GetSerialNumber() )
+	const CEntInfo* pInfo = &m_EntPtrArray[handle.GetEntryIndex()];
+	if (pInfo && pInfo->m_SerialNumber == handle.GetSerialNumber())
 		return pInfo->m_pEntity;
 	else
 		return NULL;
@@ -90,4 +90,4 @@ inline CBaseHandle CBaseEntityList::InvalidHandle()
 	return INVALID_EHANDLE;
 }
 
-extern CBaseEntityList *g_pEntityList;
+extern CBaseEntityList* g_pEntityList;

@@ -33,25 +33,25 @@ public:
 	// ppManager is the engine's event manager slot, NULL until the engine hands it over;
 	// ppManaged this load's managed events area, NULL outside a load. bServerSide is
 	// stock CGameEventListener's: true on the server.
-	CGameEvents( IGameEventManager2 *const &ppManager, ManagedEventsArea_t *const &ppManaged, bool bServerSide )
-		: m_ppManager( ppManager )
-		, m_Listener( ppManaged )
-		, m_bServerSide( bServerSide )
+	CGameEvents(IGameEventManager2* const& ppManager, ManagedEventsArea_t* const& ppManaged, bool bServerSide)
+		: m_ppManager(ppManager)
+		, m_Listener(ppManaged)
+		, m_bServerSide(bServerSide)
 	{
 	}
 
-	CGameEvents( const CGameEvents & ) = delete;
-	CGameEvents &operator=( const CGameEvents & ) = delete;
+	CGameEvents(const CGameEvents&) = delete;
+	CGameEvents& operator=(const CGameEvents&) = delete;
 
-	void ListenForGameEvent( const char *pEventName ) override;
-	int32_t EventGetInt( void *hEvent, const char *pKey ) override;
-	float EventGetFloat( void *hEvent, const char *pKey ) override;
-	int32_t EventGetBool( void *hEvent, const char *pKey ) override;
-	const char *EventGetString( void *hEvent, const char *pKey ) override;
+	void ListenForGameEvent(const char* pEventName) override;
+	int32_t EventGetInt(void* hEvent, const char* pKey) override;
+	float EventGetFloat(void* hEvent, const char* pKey) override;
+	int32_t EventGetBool(void* hEvent, const char* pKey) override;
+	const char* EventGetString(void* hEvent, const char* pKey) override;
 #ifndef CLIENT_DLL
-	void EventSetInt( void *hEvent, const char *pKey, int32_t nValue ) override;
-	void EventSetBool( void *hEvent, const char *pKey, int32_t bValue ) override;
-	void EventSetString( void *hEvent, const char *pKey, const char *pValue ) override;
+	void EventSetInt(void* hEvent, const char* pKey, int32_t nValue) override;
+	void EventSetBool(void* hEvent, const char* pKey, int32_t bValue) override;
+	void EventSetString(void* hEvent, const char* pKey, const char* pValue) override;
 #endif
 
 	// Removes the listener before this DLL unloads: the engine keeps its listener list
@@ -67,18 +67,18 @@ private:
 	class CListener final : public IGameEventListener2
 	{
 	public:
-		explicit CListener( ManagedEventsArea_t *const &ppManaged )
-			: m_ppManaged( ppManaged )
+		explicit CListener(ManagedEventsArea_t* const& ppManaged)
+			: m_ppManaged(ppManaged)
 		{
 		}
 
-		void FireGameEvent( IGameEvent *pEvent ) override;
+		void FireGameEvent(IGameEvent* pEvent) override;
 
 	private:
-		ManagedEventsArea_t *const &m_ppManaged;
+		ManagedEventsArea_t* const& m_ppManaged;
 	};
 
-	IGameEventManager2 *const &m_ppManager;
+	IGameEventManager2* const& m_ppManager;
 	CListener m_Listener;
 	const bool m_bServerSide;
 

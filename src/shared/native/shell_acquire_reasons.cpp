@@ -16,9 +16,9 @@
 #include "ss_string.h"
 
 // A switch rather than an array so -Wswitch flags an unhandled enumerator.
-const char *SourceSharp_AcquireReason( SourceSharpAcquireReason eReason )
+const char* SourceSharp_AcquireReason(SourceSharpAcquireReason eReason)
 {
-	switch ( eReason )
+	switch (eReason)
 	{
 		case SOURCESHARP_ACQUIRE_NOT_YET_AVAILABLE:
 			return "factory not yet available";
@@ -34,10 +34,10 @@ const char *SourceSharp_AcquireReason( SourceSharpAcquireReason eReason )
 }
 
 // The reason into the caller's buffer, truncated to fit. A NULL or empty buffer writes nothing.
-void SourceSharp_SayAcquireReason( char *pOut, int32_t nBytes, SourceSharpAcquireReason eReason )
+void SourceSharp_SayAcquireReason(char* pOut, int32_t nBytes, SourceSharpAcquireReason eReason)
 {
-	if ( !pOut || nBytes <= 0 )
+	if (!pOut || nBytes <= 0)
 		return;
 
-	ss::StrCopy( pOut, SourceSharp_AcquireReason( eReason ), nBytes );
+	ss::StrCopy(pOut, SourceSharp_AcquireReason(eReason), nBytes);
 }

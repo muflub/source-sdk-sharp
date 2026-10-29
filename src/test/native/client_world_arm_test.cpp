@@ -52,9 +52,9 @@ namespace
 //-----------------------------------------------------------------------------
 // A handle built from an entry and a serial, which is what every case here is.
 //-----------------------------------------------------------------------------
-CBaseHandle H( int nEntry, int nSerial )
+CBaseHandle H(int nEntry, int nSerial)
 {
-	return CBaseHandle( nEntry, nSerial );
+	return CBaseHandle(nEntry, nSerial);
 }
 
 const CBaseHandle kUnbound = CBaseHandle();
@@ -107,121 +107,121 @@ const std::string kWorldCpp = "sourcesharp/game/client/world_adapter_client.cpp"
 // HALF B, THE RULE: does the world answer for this index?
 //=============================================================================
 
-TEST( ClientWorldArm, ABoundWorldAnswersForItsOwnEntry )
+TEST(ClientWorldArm, ABoundWorldAnswersForItsOwnEntry)
 {
-	EXPECT_TRUE( SourceSharp_ClientWorldAnswersForIndex( H( 0, 7 ), 0 ) );
+	EXPECT_TRUE(SourceSharp_ClientWorldAnswersForIndex(H(0, 7), 0));
 }
 
-TEST( ClientWorldArm, ABoundWorldRefusesEveryOtherEntry )
+TEST(ClientWorldArm, ABoundWorldRefusesEveryOtherEntry)
 {
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForIndex( H( 0, 7 ), 1 ) );
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForIndex( H( 0, 7 ), 2047 ) );
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForIndex(H(0, 7), 1));
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForIndex(H(0, 7), 2047));
 }
 
-TEST( ClientWorldArm, AnUnboundWorldRefusesEntryZero )
+TEST(ClientWorldArm, AnUnboundWorldRefusesEntryZero)
 {
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForIndex( kUnbound, 0 ) )
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForIndex(kUnbound, 0))
 		<< "between maps there is no world, and answering for entry 0 would "
 		   "hand the engine the previous level's object";
 }
 
-TEST( ClientWorldArm, AnUnboundWorldRefusesTheLastEntry )
+TEST(ClientWorldArm, AnUnboundWorldRefusesTheLastEntry)
 {
 	// THE GUARD THAT IS EASY TO LEAVE OUT. CBaseHandle::GetEntryIndex() answers
 	// NUM_ENT_ENTRIES-1 for an INVALID handle, on purpose (basehandle.h:145) --
 	// so `hWorld.GetEntryIndex() == nEntry` without the IsValid() test says
 	// "that is the world" to every caller asking about the last entry while no
 	// level is loaded.
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForIndex( kUnbound, NUM_ENT_ENTRIES - 1 ) );
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForIndex(kUnbound, NUM_ENT_ENTRIES - 1));
 }
 
 //=============================================================================
 // HALF B, THE RULE: does the world answer for this handle?
 //=============================================================================
 
-TEST( ClientWorldArm, ABoundWorldAnswersForItsOwnHandle )
+TEST(ClientWorldArm, ABoundWorldAnswersForItsOwnHandle)
 {
-	EXPECT_TRUE( SourceSharp_ClientWorldAnswersForHandle( H( 0, 7 ), H( 0, 7 ) ) );
+	EXPECT_TRUE(SourceSharp_ClientWorldAnswersForHandle(H(0, 7), H(0, 7)));
 }
 
-TEST( ClientWorldArm, ABoundWorldRefusesItsOwnEntryAtAnotherSerial )
+TEST(ClientWorldArm, ABoundWorldRefusesItsOwnEntryAtAnotherSerial)
 {
 	// THE RELOAD BUG, as a fact. C_World is a singleton reused for every map and
 	// the engine forces a fresh serial with each create call, so a handle taken
 	// on the PREVIOUS map names entry 0 at a serial this map's world does not
 	// have. An entry-only compare would resolve it to the new world and the
 	// caller would never know it was holding a dead reference.
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForHandle( H( 0, 8 ), H( 0, 7 ) ) );
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForHandle(H(0, 8), H(0, 7)));
 }
 
-TEST( ClientWorldArm, ABoundWorldRefusesAnInvalidHandle )
+TEST(ClientWorldArm, ABoundWorldRefusesAnInvalidHandle)
 {
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForHandle( H( 0, 7 ), kUnbound ) );
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForHandle(H(0, 7), kUnbound));
 }
 
-TEST( ClientWorldArm, AnUnboundWorldRefusesAnInvalidHandle )
+TEST(ClientWorldArm, AnUnboundWorldRefusesAnInvalidHandle)
 {
 	// NOTHING IS NOT THE WORLD, EVEN WHEN THERE IS NO WORLD -- world_subject.h's
 	// own defect, arriving from the other direction. Both sides invalid is the
 	// one case the IsValid() guard is needed for at all, and it is the case a
 	// caller meets during level load.
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForHandle( kUnbound, kUnbound ) );
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForHandle(kUnbound, kUnbound));
 }
 
-TEST( ClientWorldArm, ABoundWorldRefusesAnotherEntitysHandle )
+TEST(ClientWorldArm, ABoundWorldRefusesAnotherEntitysHandle)
 {
-	EXPECT_FALSE( SourceSharp_ClientWorldAnswersForHandle( H( 0, 7 ), H( 12, 7 ) ) );
+	EXPECT_FALSE(SourceSharp_ClientWorldAnswersForHandle(H(0, 7), H(12, 7)));
 }
 
 //=============================================================================
 // HALF B, THE RULE: the two counts IClientEntityList maintains
 //=============================================================================
 
-TEST( ClientWorldArm, AnUnboundWorldLeavesAnEmptyTablesHighestAtMinusOne )
+TEST(ClientWorldArm, AnUnboundWorldLeavesAnEmptyTablesHighestAtMinusOne)
 {
-	EXPECT_EQ( -1, SourceSharp_ClientHighestWithWorld( kUnbound, -1 ) );
+	EXPECT_EQ(-1, SourceSharp_ClientHighestWithWorld(kUnbound, -1));
 }
 
-TEST( ClientWorldArm, AnUnboundWorldDoesNotContributeTheLastEntryToTheHighest )
+TEST(ClientWorldArm, AnUnboundWorldDoesNotContributeTheLastEntryToTheHighest)
 {
 	// The same GetEntryIndex() trap as above, and here it is worse: this answer
 	// is a LOOP BOUND the engine walks (1,184 calls, all from engine.so), so an
 	// unbound world contributing 8191 sends it over eight thousand entries that
 	// do not exist.
-	EXPECT_EQ( 40, SourceSharp_ClientHighestWithWorld( kUnbound, 40 ) );
+	EXPECT_EQ(40, SourceSharp_ClientHighestWithWorld(kUnbound, 40));
 }
 
-TEST( ClientWorldArm, ABoundWorldAtEntryZeroRaisesAnEmptyTablesHighestToZero )
+TEST(ClientWorldArm, ABoundWorldAtEntryZeroRaisesAnEmptyTablesHighestToZero)
 {
-	EXPECT_EQ( 0, SourceSharp_ClientHighestWithWorld( H( 0, 7 ), -1 ) );
+	EXPECT_EQ(0, SourceSharp_ClientHighestWithWorld(H(0, 7), -1));
 }
 
-TEST( ClientWorldArm, ABoundWorldAtEntryZeroDoesNotLowerAHigherTableAnswer )
+TEST(ClientWorldArm, ABoundWorldAtEntryZeroDoesNotLowerAHigherTableAnswer)
 {
-	EXPECT_EQ( 40, SourceSharp_ClientHighestWithWorld( H( 0, 7 ), 40 ) );
+	EXPECT_EQ(40, SourceSharp_ClientHighestWithWorld(H(0, 7), 40));
 }
 
-TEST( ClientWorldArm, AWorldAboveTheTablesHighestRaisesIt )
+TEST(ClientWorldArm, AWorldAboveTheTablesHighestRaisesIt)
 {
 	// Not reachable today -- worldspawn is entity 0 -- and asserted anyway,
 	// because the rule is a maximum and a rule that only ever sees one of its
 	// two branches is a rule nobody has checked.
-	EXPECT_EQ( 41, SourceSharp_ClientHighestWithWorld( H( 41, 7 ), 40 ) );
+	EXPECT_EQ(41, SourceSharp_ClientHighestWithWorld(H(41, 7), 40));
 }
 
-TEST( ClientWorldArm, AnUnboundWorldAddsNothingToTheEntityCount )
+TEST(ClientWorldArm, AnUnboundWorldAddsNothingToTheEntityCount)
 {
-	EXPECT_EQ( 12, SourceSharp_ClientCountWithWorld( kUnbound, 12 ) );
+	EXPECT_EQ(12, SourceSharp_ClientCountWithWorld(kUnbound, 12));
 }
 
-TEST( ClientWorldArm, ABoundWorldAddsExactlyOneToTheEntityCount )
+TEST(ClientWorldArm, ABoundWorldAddsExactlyOneToTheEntityCount)
 {
-	EXPECT_EQ( 13, SourceSharp_ClientCountWithWorld( H( 0, 7 ), 12 ) );
+	EXPECT_EQ(13, SourceSharp_ClientCountWithWorld(H(0, 7), 12));
 }
 
-TEST( ClientWorldArm, ABoundWorldIsTheWholeCountWhenTheTableIsEmpty )
+TEST(ClientWorldArm, ABoundWorldIsTheWholeCountWhenTheTableIsEmpty)
 {
-	EXPECT_EQ( 1, SourceSharp_ClientCountWithWorld( H( 0, 7 ), 0 ) );
+	EXPECT_EQ(1, SourceSharp_ClientCountWithWorld(H(0, 7), 0));
 }
 
 //=============================================================================
@@ -239,30 +239,30 @@ TEST( ClientWorldArm, ABoundWorldIsTheWholeCountWhenTheTableIsEmpty )
 // client-only entity (upper half) answers -1, as its entindex() did.
 //=============================================================================
 
-TEST( ClientWorldArm, ATraceThatHitNothingHasNoIndex )
+TEST(ClientWorldArm, ATraceThatHitNothingHasNoIndex)
 {
-	EXPECT_EQ( -1, SourceSharp_ClientIndexOfHit( kUnbound, false ) );
+	EXPECT_EQ(-1, SourceSharp_ClientIndexOfHit(kUnbound, false));
 	// The guard that matters: an invalid handle's entry reads NUM_ENT_ENTRIES-1.
-	EXPECT_EQ( -1, SourceSharp_ClientIndexOfHit( kUnbound, true ) );
+	EXPECT_EQ(-1, SourceSharp_ClientIndexOfHit(kUnbound, true));
 }
 
-TEST( ClientWorldArm, ANetworkedHitAnswersItsEntry )
+TEST(ClientWorldArm, ANetworkedHitAnswersItsEntry)
 {
-	EXPECT_EQ( 0, SourceSharp_ClientIndexOfHit( H( 0, 3 ), true ) ); // the world
-	EXPECT_EQ( 42, SourceSharp_ClientIndexOfHit( H( 42, 9 ), true ) );
-	EXPECT_EQ( MAX_EDICTS - 1, SourceSharp_ClientIndexOfHit( H( MAX_EDICTS - 1, 1 ), true ) );
+	EXPECT_EQ(0, SourceSharp_ClientIndexOfHit(H(0, 3), true)); // the world
+	EXPECT_EQ(42, SourceSharp_ClientIndexOfHit(H(42, 9), true));
+	EXPECT_EQ(MAX_EDICTS - 1, SourceSharp_ClientIndexOfHit(H(MAX_EDICTS - 1, 1), true));
 }
 
-TEST( ClientWorldArm, AHandleTheTableDoesNotResolveHasNoIndex )
+TEST(ClientWorldArm, AHandleTheTableDoesNotResolveHasNoIndex)
 {
 	// A stale handle (the entry's occupant changed) or a static prop's.
-	EXPECT_EQ( -1, SourceSharp_ClientIndexOfHit( H( 42, 9 ), false ) );
+	EXPECT_EQ(-1, SourceSharp_ClientIndexOfHit(H(42, 9), false));
 }
 
-TEST( ClientWorldArm, AClientOnlyEntityHasNoIndex )
+TEST(ClientWorldArm, AClientOnlyEntityHasNoIndex)
 {
-	EXPECT_EQ( -1, SourceSharp_ClientIndexOfHit( H( MAX_EDICTS, 1 ), true ) );
-	EXPECT_EQ( -1, SourceSharp_ClientIndexOfHit( H( NUM_ENT_ENTRIES - 2, 1 ), true ) );
+	EXPECT_EQ(-1, SourceSharp_ClientIndexOfHit(H(MAX_EDICTS, 1), true));
+	EXPECT_EQ(-1, SourceSharp_ClientIndexOfHit(H(NUM_ENT_ENTRIES - 2, 1), true));
 }
 
 //=============================================================================

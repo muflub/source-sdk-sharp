@@ -15,14 +15,14 @@ class CEngineSprite
 	// NOTE: don't define a constructor or destructor so that this can be allocated
 	// as before.
 public:
-	IMaterial *GetMaterial( RenderMode_t nRenderMode ) { return m_material[nRenderMode]; }
+	IMaterial* GetMaterial(RenderMode_t nRenderMode) { return m_material[nRenderMode]; }
 
-	IMaterial *GetMaterial( RenderMode_t nRenderMode, int nFrame );
-	void SetFrame( RenderMode_t nRenderMode, int nFrame );
-	bool Init( const char *name );
+	IMaterial* GetMaterial(RenderMode_t nRenderMode, int nFrame);
+	void SetFrame(RenderMode_t nRenderMode, int nFrame);
+	bool Init(const char* name);
 	void Shutdown();
 	void UnloadMaterial();
-	void SetColor( float r, float g, float b );
+	void SetColor(float r, float g, float b);
 	int GetOrientation();
 
 	float GetUp() { return up; }
@@ -34,15 +34,15 @@ public:
 	float GetRight() { return right; }
 
 	bool IsVideo();
-	void GetTexCoordRange( float *pMinU, float *pMinV, float *pMaxU, float *pMaxV );
+	void GetTexCoordRange(float* pMinU, float* pMinV, float* pMaxU, float* pMaxV);
 
 private:
-	IVideoMaterial *m_VideoMaterial;
+	IVideoMaterial* m_VideoMaterial;
 	int m_width;
 	int m_height;
 	int m_numFrames;
-	IMaterial *m_material[kRenderModeCount];
+	IMaterial* m_material[kRenderModeCount];
 	int m_orientation;
-	alignas( 4 ) unsigned char unused_m_hudSpriteColor[12];
+	alignas(4) unsigned char unused_m_hudSpriteColor[12];
 	float up, down, left, right;
 };

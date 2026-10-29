@@ -15,80 +15,80 @@ class Dar : public CUtlVector<ELEMTYPE>
 public:
 	Dar() {}
 
-	Dar( int initialCapacity )
-		: BaseClass( 0, initialCapacity )
+	Dar(int initialCapacity)
+		: BaseClass(0, initialCapacity)
 	{
 	}
 
 public:
-	void SetCount( int count ) { this->EnsureCount( count ); }
+	void SetCount(int count) { this->EnsureCount(count); }
 
 	int GetCount() { return this->Count(); }
 
-	int AddElement( ELEMTYPE elem ) { return this->AddToTail( elem ); }
+	int AddElement(ELEMTYPE elem) { return this->AddToTail(elem); }
 
-	void MoveElementToEnd( ELEMTYPE elem )
+	void MoveElementToEnd(ELEMTYPE elem)
 	{
-		if ( this->Count() == 0 )
+		if (this->Count() == 0)
 			return;
 
 		// quick check to see if it's already at the end
-		if ( this->Element( this->Count() - 1 ) == elem )
+		if (this->Element(this->Count() - 1) == elem)
 			return;
 
-		int idx = this->Find( elem );
-		if ( idx == this->InvalidIndex() )
+		int idx = this->Find(elem);
+		if (idx == this->InvalidIndex())
 			return;
 
-		this->Remove( idx );
-		this->AddToTail( elem );
+		this->Remove(idx);
+		this->AddToTail(elem);
 	}
 
 	// returns the index of the element in the array, -1 if not found
-	int FindElement( ELEMTYPE elem ) { return this->Find( elem ); }
+	int FindElement(ELEMTYPE elem) { return this->Find(elem); }
 
-	bool HasElement( ELEMTYPE elem )
+	bool HasElement(ELEMTYPE elem)
 	{
-		if ( this->FindElement( elem ) != this->InvalidIndex() )
+		if (this->FindElement(elem) != this->InvalidIndex())
 		{
 			return true;
 		}
 		return false;
 	}
 
-	int PutElement( ELEMTYPE elem )
+	int PutElement(ELEMTYPE elem)
 	{
-		int index = this->FindElement( elem );
-		if ( index >= 0 )
+		int index = this->FindElement(elem);
+		if (index >= 0)
 		{
 			return index;
 		}
-		return this->AddElement( elem );
+		return this->AddElement(elem);
 	}
 
 	// insert element at index and move all the others down 1
-	void InsertElementAt( ELEMTYPE elem, int index ) { this->InsertBefore( index, elem ); }
+	void InsertElementAt(ELEMTYPE elem, int index) { this->InsertBefore(index, elem); }
 
-	void SetElementAt( ELEMTYPE elem, int index )
+	void SetElementAt(ELEMTYPE elem, int index)
 	{
-		this->EnsureCount( index + 1 );
-		this->Element( index ) = elem;
+		this->EnsureCount(index + 1);
+		this->Element(index) = elem;
 	}
 
-	void RemoveElementAt( int index ) { this->Remove( index ); }
+	void RemoveElementAt(int index) { this->Remove(index); }
 
-	void RemoveElementsBefore( int index )
+	void RemoveElementsBefore(int index)
 	{
-		if ( index <= 0 )
+		if (index <= 0)
 			return;
-		this->RemoveMultiple( 0, index - 1 );
+		this->RemoveMultiple(0, index - 1);
 	}
 
-	void RemoveElement( ELEMTYPE elem ) { this->FindAndRemove( elem ); }
+	void RemoveElement(ELEMTYPE elem) { this->FindAndRemove(elem); }
 
-	void *GetBaseData() { return this->Base(); }
+	void* GetBaseData() { return this->Base(); }
 
-	void CopyFrom( Dar<ELEMTYPE> &dar ) { this->CopyArray( dar.Base(), dar.Count() ); }
+	void CopyFrom(Dar<ELEMTYPE>& dar) { this->CopyArray(dar.Base(), dar.Count()); }
 };
 
 }

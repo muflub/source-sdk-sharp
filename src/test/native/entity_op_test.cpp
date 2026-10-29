@@ -63,7 +63,7 @@ namespace
 //-----------------------------------------------------------------------------
 struct Op_t
 {
-	const char *pszNative;
+	const char* pszNative;
 	int nValue;
 };
 
@@ -71,25 +71,25 @@ struct Op_t
 // below, so an op added to the enum and left off this list is caught by
 // EveryOpIsPinnedHere rather than being silently unchecked.
 const Op_t kOps[] = {
-	{ "ENTITY_OP_SPAWN", 0 },
-	{ "ENTITY_OP_KEY_VALUE", 1 },
-	{ "ENTITY_OP_INPUT", 2 },
-	{ "ENTITY_OP_THINK", 3 },
-	{ "ENTITY_OP_REMOVED", 4 },
-	{ "ENTITY_OP_START_TOUCH", 5 },
-	{ "ENTITY_OP_TOUCH", 6 },
-	{ "ENTITY_OP_END_TOUCH", 7 },
-	{ "ENTITY_OP_IMPACT", 8 },
-	{ "ENTITY_OP_MOVE_DONE", 9 },
-	{ "ENTITY_OP_BLOCKED", 10 },
-	{ "ENTITY_OP_DAMAGE", 11 },
-	{ "ENTITY_OP_KILLED", 12 },
-	{ "ENTITY_OP_FILTER_PASSES", 13 },
-	{ "ENTITY_OP_POSITION_CHANGED", 14 },
-	{ "ENTITY_OP_PHYSICS_CREATED", 15 },
+	{"ENTITY_OP_SPAWN", 0},
+	{"ENTITY_OP_KEY_VALUE", 1},
+	{"ENTITY_OP_INPUT", 2},
+	{"ENTITY_OP_THINK", 3},
+	{"ENTITY_OP_REMOVED", 4},
+	{"ENTITY_OP_START_TOUCH", 5},
+	{"ENTITY_OP_TOUCH", 6},
+	{"ENTITY_OP_END_TOUCH", 7},
+	{"ENTITY_OP_IMPACT", 8},
+	{"ENTITY_OP_MOVE_DONE", 9},
+	{"ENTITY_OP_BLOCKED", 10},
+	{"ENTITY_OP_DAMAGE", 11},
+	{"ENTITY_OP_KILLED", 12},
+	{"ENTITY_OP_FILTER_PASSES", 13},
+	{"ENTITY_OP_POSITION_CHANGED", 14},
+	{"ENTITY_OP_PHYSICS_CREATED", 15},
 };
 
-const size_t kOpCount = sizeof( kOps ) / sizeof( kOps[0] );
+const size_t kOpCount = sizeof(kOps) / sizeof(kOps[0]);
 
 } // namespace
 
@@ -102,34 +102,34 @@ const size_t kOpCount = sizeof( kOps ) / sizeof( kOps[0] );
 // enum: a loop would re-derive the numbers from the declaration under test and
 // pass whatever they became.
 //-----------------------------------------------------------------------------
-TEST( EntityOpNumbers, EveryOpHasItsFixedValue )
+TEST(EntityOpNumbers, EveryOpHasItsFixedValue)
 {
-	EXPECT_EQ( 0, (int)ENTITY_OP_SPAWN );
-	EXPECT_EQ( 1, (int)ENTITY_OP_KEY_VALUE );
-	EXPECT_EQ( 2, (int)ENTITY_OP_INPUT );
-	EXPECT_EQ( 3, (int)ENTITY_OP_THINK );
-	EXPECT_EQ( 4, (int)ENTITY_OP_REMOVED );
-	EXPECT_EQ( 5, (int)ENTITY_OP_START_TOUCH );
-	EXPECT_EQ( 6, (int)ENTITY_OP_TOUCH );
-	EXPECT_EQ( 7, (int)ENTITY_OP_END_TOUCH );
-	EXPECT_EQ( 8, (int)ENTITY_OP_IMPACT );
-	EXPECT_EQ( 9, (int)ENTITY_OP_MOVE_DONE );
-	EXPECT_EQ( 10, (int)ENTITY_OP_BLOCKED );
-	EXPECT_EQ( 11, (int)ENTITY_OP_DAMAGE );
-	EXPECT_EQ( 12, (int)ENTITY_OP_KILLED );
-	EXPECT_EQ( 13, (int)ENTITY_OP_FILTER_PASSES );
-	EXPECT_EQ( 14, (int)ENTITY_OP_POSITION_CHANGED );
-	EXPECT_EQ( 15, (int)ENTITY_OP_PHYSICS_CREATED );
+	EXPECT_EQ(0, (int)ENTITY_OP_SPAWN);
+	EXPECT_EQ(1, (int)ENTITY_OP_KEY_VALUE);
+	EXPECT_EQ(2, (int)ENTITY_OP_INPUT);
+	EXPECT_EQ(3, (int)ENTITY_OP_THINK);
+	EXPECT_EQ(4, (int)ENTITY_OP_REMOVED);
+	EXPECT_EQ(5, (int)ENTITY_OP_START_TOUCH);
+	EXPECT_EQ(6, (int)ENTITY_OP_TOUCH);
+	EXPECT_EQ(7, (int)ENTITY_OP_END_TOUCH);
+	EXPECT_EQ(8, (int)ENTITY_OP_IMPACT);
+	EXPECT_EQ(9, (int)ENTITY_OP_MOVE_DONE);
+	EXPECT_EQ(10, (int)ENTITY_OP_BLOCKED);
+	EXPECT_EQ(11, (int)ENTITY_OP_DAMAGE);
+	EXPECT_EQ(12, (int)ENTITY_OP_KILLED);
+	EXPECT_EQ(13, (int)ENTITY_OP_FILTER_PASSES);
+	EXPECT_EQ(14, (int)ENTITY_OP_POSITION_CHANGED);
+	EXPECT_EQ(15, (int)ENTITY_OP_PHYSICS_CREATED);
 }
 
 //-----------------------------------------------------------------------------
 // ENTITY_OP_COUNT is one past the last, which is what the shell range-checks
 // against and what sizes the crossing counter array on the far side.
 //-----------------------------------------------------------------------------
-TEST( EntityOpNumbers, CountIsOnePastTheLastOp )
+TEST(EntityOpNumbers, CountIsOnePastTheLastOp)
 {
-	EXPECT_EQ( (int)kOpCount, (int)ENTITY_OP_COUNT );
-	EXPECT_EQ( kOps[kOpCount - 1].nValue + 1, (int)ENTITY_OP_COUNT );
+	EXPECT_EQ((int)kOpCount, (int)ENTITY_OP_COUNT);
+	EXPECT_EQ(kOps[kOpCount - 1].nValue + 1, (int)ENTITY_OP_COUNT);
 }
 
 //-----------------------------------------------------------------------------
@@ -153,11 +153,11 @@ TEST( EntityOpNumbers, CountIsOnePastTheLastOp )
 // The mask.
 //=============================================================================//
 
-TEST( EntityOpMask, TheBitIsTheShift )
+TEST(EntityOpMask, TheBitIsTheShift)
 {
-	for ( size_t i = 0; i < kOpCount; i++ )
+	for (size_t i = 0; i < kOpCount; i++)
 	{
-		EXPECT_EQ( (uint32_t)( 1u << kOps[i].nValue ), ENTITY_OP_BIT( kOps[i].nValue ) );
+		EXPECT_EQ((uint32_t)(1u << kOps[i].nValue), ENTITY_OP_BIT(kOps[i].nValue));
 	}
 }
 
@@ -170,23 +170,23 @@ TEST( EntityOpMask, TheBitIsTheShift )
 // virtual to be computed from. An op added to this set is a crossing nobody can
 // ever switch off again; one removed from it is an entity with no managed half.
 //-----------------------------------------------------------------------------
-TEST( EntityOpMask, TheAlwaysMaskIsTheFourBookkeepingOps )
+TEST(EntityOpMask, TheAlwaysMaskIsTheFourBookkeepingOps)
 {
-	const uint32_t expected = ENTITY_OP_BIT( ENTITY_OP_SPAWN ) | ENTITY_OP_BIT( ENTITY_OP_KEY_VALUE ) |
-		ENTITY_OP_BIT( ENTITY_OP_REMOVED ) | ENTITY_OP_BIT( ENTITY_OP_FILTER_PASSES );
+	const uint32_t expected = ENTITY_OP_BIT(ENTITY_OP_SPAWN) | ENTITY_OP_BIT(ENTITY_OP_KEY_VALUE) |
+		ENTITY_OP_BIT(ENTITY_OP_REMOVED) | ENTITY_OP_BIT(ENTITY_OP_FILTER_PASSES);
 
-	EXPECT_EQ( expected, (uint32_t)ENTITY_OP_ALWAYS_MASK );
+	EXPECT_EQ(expected, (uint32_t)ENTITY_OP_ALWAYS_MASK);
 
 	// And nothing else. Counted rather than compared alone, so an op OR'd in
 	// with the same value by accident would still be caught.
 	int nBits = 0;
-	for ( int i = 0; i < (int)ENTITY_OP_COUNT; i++ )
+	for (int i = 0; i < (int)ENTITY_OP_COUNT; i++)
 	{
-		if ( ENTITY_OP_ALWAYS_MASK & ENTITY_OP_BIT( i ) )
+		if (ENTITY_OP_ALWAYS_MASK & ENTITY_OP_BIT(i))
 			nBits++;
 	}
 
-	EXPECT_EQ( 4, nBits );
+	EXPECT_EQ(4, nBits);
 }
 
 //-----------------------------------------------------------------------------
@@ -196,10 +196,10 @@ TEST( EntityOpMask, TheAlwaysMaskIsTheFourBookkeepingOps )
 // thinks to entities that DO override them, which is a game broken in a way no
 // build error names.
 //-----------------------------------------------------------------------------
-TEST( EntityOpMask, TheUnregisteredDefaultArmsEverything )
+TEST(EntityOpMask, TheUnregisteredDefaultArmsEverything)
 {
-	for ( int i = 0; i < (int)ENTITY_OP_COUNT; i++ )
-		EXPECT_NE( 0u, ENTITY_OP_MASK_ALL & ENTITY_OP_BIT( i ) ) << "op " << i;
+	for (int i = 0; i < (int)ENTITY_OP_COUNT; i++)
+		EXPECT_NE(0u, ENTITY_OP_MASK_ALL & ENTITY_OP_BIT(i)) << "op " << i;
 }
 
 //=============================================================================//
@@ -215,23 +215,23 @@ TEST( EntityOpMask, TheUnregisteredDefaultArmsEverything )
 // none -- and the size is asserted rather than trusted, on both sides
 // (EntityOpTests.OpArgsIsSixtyFourBytes).
 //-----------------------------------------------------------------------------
-TEST( EntityOpArgs, IsSixtyFourBytes )
+TEST(EntityOpArgs, IsSixtyFourBytes)
 {
-	EXPECT_EQ( (size_t)64, sizeof( SourceSharpOpArgs ) );
+	EXPECT_EQ((size_t)64, sizeof(SourceSharpOpArgs));
 }
 
-TEST( EntityOpArgs, EveryFieldIsWhereCsharpPinsIt )
+TEST(EntityOpArgs, EveryFieldIsWhereCsharpPinsIt)
 {
-	EXPECT_EQ( (size_t)0, offsetof( SourceSharpOpArgs, pBlob ) );
-	EXPECT_EQ( (size_t)8, offsetof( SourceSharpOpArgs, nBlobBytes ) );
-	EXPECT_EQ( (size_t)12, offsetof( SourceSharpOpArgs, hOther ) );
-	EXPECT_EQ( (size_t)16, offsetof( SourceSharpOpArgs, pText0 ) );
-	EXPECT_EQ( (size_t)24, offsetof( SourceSharpOpArgs, pText1 ) );
-	EXPECT_EQ( (size_t)32, offsetof( SourceSharpOpArgs, pText2 ) );
-	EXPECT_EQ( (size_t)40, offsetof( SourceSharpOpArgs, pVec0 ) );
-	EXPECT_EQ( (size_t)48, offsetof( SourceSharpOpArgs, pVec1 ) );
-	EXPECT_EQ( (size_t)56, offsetof( SourceSharpOpArgs, flFloat0 ) );
-	EXPECT_EQ( (size_t)60, offsetof( SourceSharpOpArgs, nInt0 ) );
+	EXPECT_EQ((size_t)0, offsetof(SourceSharpOpArgs, pBlob));
+	EXPECT_EQ((size_t)8, offsetof(SourceSharpOpArgs, nBlobBytes));
+	EXPECT_EQ((size_t)12, offsetof(SourceSharpOpArgs, hOther));
+	EXPECT_EQ((size_t)16, offsetof(SourceSharpOpArgs, pText0));
+	EXPECT_EQ((size_t)24, offsetof(SourceSharpOpArgs, pText1));
+	EXPECT_EQ((size_t)32, offsetof(SourceSharpOpArgs, pText2));
+	EXPECT_EQ((size_t)40, offsetof(SourceSharpOpArgs, pVec0));
+	EXPECT_EQ((size_t)48, offsetof(SourceSharpOpArgs, pVec1));
+	EXPECT_EQ((size_t)56, offsetof(SourceSharpOpArgs, flFloat0));
+	EXPECT_EQ((size_t)60, offsetof(SourceSharpOpArgs, nInt0));
 }
 
 //-----------------------------------------------------------------------------
@@ -240,14 +240,14 @@ TEST( EntityOpArgs, EveryFieldIsWhereCsharpPinsIt )
 // the fingerprint is computed from the C# side -- so a C++ width change is
 // precisely the drift it cannot see.
 //-----------------------------------------------------------------------------
-TEST( EntityOpArgs, TheScalarsAreFixedWidth )
+TEST(EntityOpArgs, TheScalarsAreFixedWidth)
 {
 	SourceSharpOpArgs args;
 
-	EXPECT_EQ( (size_t)4, sizeof( args.nBlobBytes ) );
-	EXPECT_EQ( (size_t)4, sizeof( args.hOther ) );
-	EXPECT_EQ( (size_t)4, sizeof( args.flFloat0 ) );
-	EXPECT_EQ( (size_t)4, sizeof( args.nInt0 ) );
+	EXPECT_EQ((size_t)4, sizeof(args.nBlobBytes));
+	EXPECT_EQ((size_t)4, sizeof(args.hOther));
+	EXPECT_EQ((size_t)4, sizeof(args.flFloat0));
+	EXPECT_EQ((size_t)4, sizeof(args.nInt0));
 }
 
 //=============================================================================//
@@ -260,8 +260,8 @@ namespace
 // One relay, and the op it must guard on before it crosses.
 struct Relay_t
 {
-	const char *pszSignature;
-	const char *pszOp;
+	const char* pszSignature;
+	const char* pszOp;
 };
 
 } // namespace

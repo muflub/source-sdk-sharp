@@ -112,9 +112,9 @@ public:
 	int nSweptBoxes;
 
 	CRecordingOverlay()
-		: nGrids( 0 )
-		, nClears( 0 )
-		, nSweptBoxes( 0 )
+		: nGrids(0)
+		, nClears(0)
+		, nSweptBoxes(0)
 	{
 	}
 
@@ -128,22 +128,22 @@ public:
 		nGrids = nClears = nSweptBoxes = 0;
 	}
 
-	virtual void AddEntityTextOverlay( int ent_index, int line_offset, float, int r, int g, int b, int a,
-									   const char *format, ... ) OVERRIDE
+	virtual void AddEntityTextOverlay(int ent_index, int line_offset, float, int r, int g, int b, int a,
+									  const char* format, ...) OVERRIDE
 	{
 		RecordedText t;
-		t.vecOrigin.Init( (float)ent_index, 0, 0 );
+		t.vecOrigin.Init((float)ent_index, 0, 0);
 		t.nLine = line_offset;
 		t.sText = format ? format : "";
 		t.r = r;
 		t.g = g;
 		t.b = b;
 		t.a = a;
-		entityText.push_back( t );
+		entityText.push_back(t);
 	}
 
-	virtual void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &maxs, QAngle const &orientation,
-								int r, int g, int b, int a, float duration ) OVERRIDE
+	virtual void AddBoxOverlay(const Vector& origin, const Vector& mins, const Vector& maxs, QAngle const& orientation,
+							   int r, int g, int b, int a, float duration) OVERRIDE
 	{
 		RecordedBox box;
 		box.vecOrigin = origin;
@@ -155,16 +155,16 @@ public:
 		box.b = b;
 		box.a = a;
 		box.flDuration = duration;
-		boxes.push_back( box );
+		boxes.push_back(box);
 	}
 
-	virtual void AddTriangleOverlay( const Vector &, const Vector &, const Vector &, int, int, int, int, bool,
-									 float ) OVERRIDE
+	virtual void AddTriangleOverlay(const Vector&, const Vector&, const Vector&, int, int, int, int, bool,
+									float) OVERRIDE
 	{
 	}
 
-	virtual void AddLineOverlay( const Vector &origin, const Vector &dest, int r, int g, int b, bool noDepthTest,
-								 float duration ) OVERRIDE
+	virtual void AddLineOverlay(const Vector& origin, const Vector& dest, int r, int g, int b, bool noDepthTest,
+								float duration) OVERRIDE
 	{
 		RecordedLine line;
 		line.vecOrigin = origin;
@@ -174,53 +174,53 @@ public:
 		line.b = b;
 		line.bNoDepthTest = noDepthTest;
 		line.flDuration = duration;
-		lines.push_back( line );
+		lines.push_back(line);
 	}
 
-	virtual void AddTextOverlay( const Vector &origin, float, const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlay(const Vector& origin, float, const char* format, ...) OVERRIDE
 	{
 		RecordedText t;
 		t.vecOrigin = origin;
 		t.nLine = 0;
 		t.sText = format ? format : "";
 		t.r = t.g = t.b = t.a = 0;
-		plainText.push_back( t );
+		plainText.push_back(t);
 	}
 
-	virtual void AddTextOverlay( const Vector &origin, int line_offset, float, const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlay(const Vector& origin, int line_offset, float, const char* format, ...) OVERRIDE
 	{
 		RecordedText t;
 		t.vecOrigin = origin;
 		t.nLine = line_offset;
 		t.sText = format ? format : "";
 		t.r = t.g = t.b = t.a = 0;
-		plainText.push_back( t );
+		plainText.push_back(t);
 	}
 
-	virtual void AddScreenTextOverlay( float, float, float, int, int, int, int, const char * ) OVERRIDE {}
+	virtual void AddScreenTextOverlay(float, float, float, int, int, int, int, const char*) OVERRIDE {}
 
-	virtual void AddSweptBoxOverlay( const Vector &, const Vector &, const Vector &, const Vector &, const QAngle &,
-									 int, int, int, int, float ) OVERRIDE
+	virtual void AddSweptBoxOverlay(const Vector&, const Vector&, const Vector&, const Vector&, const QAngle&, int, int,
+									int, int, float) OVERRIDE
 	{
 		nSweptBoxes++;
 	}
 
-	virtual void AddGridOverlay( const Vector & ) OVERRIDE { nGrids++; }
+	virtual void AddGridOverlay(const Vector&) OVERRIDE { nGrids++; }
 
-	virtual int ScreenPosition( const Vector &, Vector & ) OVERRIDE { return 0; }
+	virtual int ScreenPosition(const Vector&, Vector&) OVERRIDE { return 0; }
 
-	virtual int ScreenPosition( float, float, Vector & ) OVERRIDE { return 0; }
+	virtual int ScreenPosition(float, float, Vector&) OVERRIDE { return 0; }
 
-	virtual OverlayText_t *GetFirst( void ) OVERRIDE { return NULL; }
+	virtual OverlayText_t* GetFirst(void) OVERRIDE { return NULL; }
 
-	virtual OverlayText_t *GetNext( OverlayText_t * ) OVERRIDE { return NULL; }
+	virtual OverlayText_t* GetNext(OverlayText_t*) OVERRIDE { return NULL; }
 
-	virtual void ClearDeadOverlays( void ) OVERRIDE {}
+	virtual void ClearDeadOverlays(void) OVERRIDE {}
 
 	virtual void ClearAllOverlays() OVERRIDE { nClears++; }
 
-	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, float r, float g, float b,
-									float alpha, const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlayRGB(const Vector& origin, int line_offset, float, float r, float g, float b, float alpha,
+								   const char* format, ...) OVERRIDE
 	{
 		RecordedText t;
 		t.vecOrigin = origin;
@@ -230,11 +230,11 @@ public:
 		t.g = (int)g;
 		t.b = (int)b;
 		t.a = (int)alpha;
-		rgbText.push_back( t );
+		rgbText.push_back(t);
 	}
 
-	virtual void AddTextOverlayRGB( const Vector &origin, int line_offset, float, int r, int g, int b, int a,
-									const char *format, ... ) OVERRIDE
+	virtual void AddTextOverlayRGB(const Vector& origin, int line_offset, float, int r, int g, int b, int a,
+								   const char* format, ...) OVERRIDE
 	{
 		RecordedText t;
 		t.vecOrigin = origin;
@@ -244,17 +244,17 @@ public:
 		t.g = g;
 		t.b = b;
 		t.a = a;
-		rgbText.push_back( t );
+		rgbText.push_back(t);
 	}
 
-	virtual void AddLineOverlayAlpha( const Vector &, const Vector &, int, int, int, int, bool, float ) OVERRIDE {}
+	virtual void AddLineOverlayAlpha(const Vector&, const Vector&, int, int, int, int, bool, float) OVERRIDE {}
 
-	virtual void AddBoxOverlay2( const Vector &, const Vector &, const Vector &, QAngle const &, const Color &,
-								 const Color &, float ) OVERRIDE
+	virtual void AddBoxOverlay2(const Vector&, const Vector&, const Vector&, QAngle const&, const Color&, const Color&,
+								float) OVERRIDE
 	{
 	}
 
-	virtual void AddScreenTextOverlay2( float, float, int, float, int, int, int, int, const char * ) OVERRIDE {}
+	virtual void AddScreenTextOverlay2(float, float, int, float, int, int, int, int, const char*) OVERRIDE {}
 };
 
 CRecordingOverlay g_Recorder;
@@ -271,10 +271,10 @@ protected:
 	void SetUp() OVERRIDE { g_Recorder.Reset(); }
 
 	// Eyes at the origin looking down +X.
-	void SetLookingAlongX() { m_Library.SetViewer( Vector( 0, 0, 0 ), Vector( 1, 0, 0 ) ); }
+	void SetLookingAlongX() { m_Library.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0)); }
 
 	// A new library per fact: no viewer, zeroed counters, an empty pool.
-	COverlayLibrary m_Library{ &g_Recorder };
+	COverlayLibrary m_Library{&g_Recorder};
 };
 
 //-----------------------------------------------------------------------------
@@ -292,144 +292,144 @@ protected:
 // THE CLIP -- segments. NOT the point rule applied twice.
 //=============================================================================//
 
-TEST_F( OverlayLibrary, SegmentWithNoViewerIsNotVisible )
+TEST_F(OverlayLibrary, SegmentWithNoViewerIsNotVisible)
 {
-	EXPECT_FALSE( m_Library.SegmentIsVisible( Vector( 10, 0, 0 ), Vector( 20, 0, 0 ) ) );
+	EXPECT_FALSE(m_Library.SegmentIsVisible(Vector(10, 0, 0), Vector(20, 0, 0)));
 }
 
-TEST_F( OverlayLibrary, SegmentWithBothEndsAheadAndNearIsVisible )
+TEST_F(OverlayLibrary, SegmentWithBothEndsAheadAndNearIsVisible)
 {
 	SetLookingAlongX();
-	EXPECT_TRUE( m_Library.SegmentIsVisible( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ) ) );
+	EXPECT_TRUE(m_Library.SegmentIsVisible(Vector(10, 0, 0), Vector(200, 0, 0)));
 }
 
 // The near end is BEHIND the eye and the far end is in front. Point-by-point,
 // the near end fails; as a segment it is kept, because part of it is visible.
-TEST_F( OverlayLibrary, SegmentNearEndBehindFarEndAheadIsVisible )
+TEST_F(OverlayLibrary, SegmentNearEndBehindFarEndAheadIsVisible)
 {
 	SetLookingAlongX();
 
-	const Vector vecBehind( -50, 0, 0 );
-	const Vector vecAhead( 300, 0, 0 );
+	const Vector vecBehind(-50, 0, 0);
+	const Vector vecAhead(300, 0, 0);
 
-	EXPECT_TRUE( m_Library.SegmentIsVisible( vecBehind, vecAhead ) );
+	EXPECT_TRUE(m_Library.SegmentIsVisible(vecBehind, vecAhead));
 }
 
-TEST_F( OverlayLibrary, SegmentWithBothEndsBehindIsNotVisible )
+TEST_F(OverlayLibrary, SegmentWithBothEndsBehindIsNotVisible)
 {
 	SetLookingAlongX();
-	EXPECT_FALSE( m_Library.SegmentIsVisible( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ) ) );
+	EXPECT_FALSE(m_Library.SegmentIsVisible(Vector(-50, 0, 0), Vector(-300, 0, 0)));
 }
 
 // One end out of range and one end in it is kept: the distance rule needs BOTH
 // ends out of range before a line is dropped.
-TEST_F( OverlayLibrary, SegmentWithOneEndInRangeIsVisible )
+TEST_F(OverlayLibrary, SegmentWithOneEndInRangeIsVisible)
 {
 	SetLookingAlongX();
-	EXPECT_TRUE( m_Library.SegmentIsVisible( Vector( 10, 0, 0 ), Vector( kBeyondRange, 0, 0 ) ) );
+	EXPECT_TRUE(m_Library.SegmentIsVisible(Vector(10, 0, 0), Vector(kBeyondRange, 0, 0)));
 }
 
-TEST_F( OverlayLibrary, SegmentWithBothEndsOutOfRangeIsNotVisible )
+TEST_F(OverlayLibrary, SegmentWithBothEndsOutOfRangeIsNotVisible)
 {
 	SetLookingAlongX();
-	EXPECT_FALSE( m_Library.SegmentIsVisible( Vector( kBeyondRange, 0, 0 ), Vector( kBeyondRange + 100, 0, 0 ) ) );
+	EXPECT_FALSE(m_Library.SegmentIsVisible(Vector(kBeyondRange, 0, 0), Vector(kBeyondRange + 100, 0, 0)));
 }
 
 //=============================================================================//
 // THE READOUT -- which branch a call that drew nothing took
 //=============================================================================//
 
-TEST_F( OverlayLibrary, LineWithNoViewerCountsNoViewerAndDrawsNothing )
+TEST_F(OverlayLibrary, LineWithNoViewerCountsNoViewerAndDrawsNothing)
 {
-	m_Library.Line( Vector( 10, 0, 0 ), Vector( 20, 0, 0 ), 255, 0, 0, false, 0 );
+	m_Library.Line(Vector(10, 0, 0), Vector(20, 0, 0), 255, 0, 0, false, 0);
 
-	EXPECT_EQ( 0u, m_Library.Counts().nDrawn );
-	EXPECT_EQ( 1u, m_Library.Counts().nNoViewer );
-	EXPECT_EQ( 0u, g_Recorder.lines.size() );
+	EXPECT_EQ(0u, m_Library.Counts().nDrawn);
+	EXPECT_EQ(1u, m_Library.Counts().nNoViewer);
+	EXPECT_EQ(0u, g_Recorder.lines.size());
 }
 
-TEST_F( OverlayLibrary, ClippedLineCountsClippedAndDrawsNothing )
+TEST_F(OverlayLibrary, ClippedLineCountsClippedAndDrawsNothing)
 {
 	SetLookingAlongX();
 
-	m_Library.Line( Vector( -50, 0, 0 ), Vector( -300, 0, 0 ), 255, 0, 0, false, 0 );
+	m_Library.Line(Vector(-50, 0, 0), Vector(-300, 0, 0), 255, 0, 0, false, 0);
 
-	EXPECT_EQ( 0u, m_Library.Counts().nDrawn );
-	EXPECT_EQ( 1u, m_Library.Counts().nClipped );
-	EXPECT_EQ( 0u, m_Library.Counts().nNoViewer );
-	EXPECT_EQ( 0u, g_Recorder.lines.size() );
+	EXPECT_EQ(0u, m_Library.Counts().nDrawn);
+	EXPECT_EQ(1u, m_Library.Counts().nClipped);
+	EXPECT_EQ(0u, m_Library.Counts().nNoViewer);
+	EXPECT_EQ(0u, g_Recorder.lines.size());
 }
 
-TEST_F( OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour )
+TEST_F(OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour)
 {
 	SetLookingAlongX();
 
-	m_Library.Line( Vector( 10, 1, 2 ), Vector( 200, 3, 4 ), 11, 22, 33, true, 5.0f );
+	m_Library.Line(Vector(10, 1, 2), Vector(200, 3, 4), 11, 22, 33, true, 5.0f);
 
-	ASSERT_EQ( 1u, g_Recorder.lines.size() );
-	EXPECT_EQ( 11, g_Recorder.lines[0].r );
-	EXPECT_EQ( 22, g_Recorder.lines[0].g );
-	EXPECT_EQ( 33, g_Recorder.lines[0].b );
-	EXPECT_TRUE( g_Recorder.lines[0].bNoDepthTest );
-	EXPECT_FLOAT_EQ( 5.0f, g_Recorder.lines[0].flDuration );
-	EXPECT_EQ( 1u, m_Library.Counts().nDrawn );
+	ASSERT_EQ(1u, g_Recorder.lines.size());
+	EXPECT_EQ(11, g_Recorder.lines[0].r);
+	EXPECT_EQ(22, g_Recorder.lines[0].g);
+	EXPECT_EQ(33, g_Recorder.lines[0].b);
+	EXPECT_TRUE(g_Recorder.lines[0].bNoDepthTest);
+	EXPECT_FLOAT_EQ(5.0f, g_Recorder.lines[0].flDuration);
+	EXPECT_EQ(1u, m_Library.Counts().nDrawn);
 }
 
-TEST_F( OverlayLibrary, WithNoOverlayInterfaceADrawCountsNoOverlay )
+TEST_F(OverlayLibrary, WithNoOverlayInterfaceADrawCountsNoOverlay)
 {
-	COverlayLibrary none( nullptr );
-	none.SetViewer( Vector( 0, 0, 0 ), Vector( 1, 0, 0 ) );
+	COverlayLibrary none(nullptr);
+	none.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0));
 
-	none.Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 255, 0, 0, false, 0 );
+	none.Line(Vector(10, 0, 0), Vector(200, 0, 0), 255, 0, 0, false, 0);
 
-	EXPECT_EQ( 0u, none.Counts().nDrawn );
-	EXPECT_EQ( 1u, none.Counts().nNoOverlay );
+	EXPECT_EQ(0u, none.Counts().nDrawn);
+	EXPECT_EQ(1u, none.Counts().nNoOverlay);
 }
 
-TEST_F( OverlayLibrary, ResetCountsZeroesEveryCounter )
+TEST_F(OverlayLibrary, ResetCountsZeroesEveryCounter)
 {
 	SetLookingAlongX();
-	m_Library.Line( Vector( 10, 0, 0 ), Vector( 200, 0, 0 ), 1, 2, 3, false, 0 );
-	ASSERT_EQ( 1u, m_Library.Counts().nDrawn );
+	m_Library.Line(Vector(10, 0, 0), Vector(200, 0, 0), 1, 2, 3, false, 0);
+	ASSERT_EQ(1u, m_Library.Counts().nDrawn);
 
 	m_Library.ResetCounts();
 
-	EXPECT_EQ( 0u, m_Library.Counts().nDrawn );
-	EXPECT_EQ( 0u, m_Library.Counts().nClipped );
-	EXPECT_EQ( 0u, m_Library.Counts().nNoViewer );
-	EXPECT_EQ( 0u, m_Library.Counts().nNoOverlay );
+	EXPECT_EQ(0u, m_Library.Counts().nDrawn);
+	EXPECT_EQ(0u, m_Library.Counts().nClipped);
+	EXPECT_EQ(0u, m_Library.Counts().nNoViewer);
+	EXPECT_EQ(0u, m_Library.Counts().nNoOverlay);
 }
 
 //=============================================================================//
 // THE TWO FAMILIES ARE DIFFERENT -- unclipped entries do not want a viewer
 //=============================================================================//
 
-TEST_F( OverlayLibrary, TextAtPositionDrawsWithNoViewer )
+TEST_F(OverlayLibrary, TextAtPositionDrawsWithNoViewer)
 {
-	m_Library.TextAtPosition( Vector( 1, 2, 3 ), 4, "hello", 0.5f, 10, 20, 30, 40 );
+	m_Library.TextAtPosition(Vector(1, 2, 3), 4, "hello", 0.5f, 10, 20, 30, 40);
 
-	ASSERT_EQ( 1u, g_Recorder.rgbText.size() );
-	EXPECT_EQ( 4, g_Recorder.rgbText[0].nLine );
-	EXPECT_EQ( 10, g_Recorder.rgbText[0].r );
-	EXPECT_EQ( 40, g_Recorder.rgbText[0].a );
-	EXPECT_EQ( 1u, m_Library.Counts().nDrawn );
-	EXPECT_EQ( 0u, m_Library.Counts().nNoViewer );
+	ASSERT_EQ(1u, g_Recorder.rgbText.size());
+	EXPECT_EQ(4, g_Recorder.rgbText[0].nLine);
+	EXPECT_EQ(10, g_Recorder.rgbText[0].r);
+	EXPECT_EQ(40, g_Recorder.rgbText[0].a);
+	EXPECT_EQ(1u, m_Library.Counts().nDrawn);
+	EXPECT_EQ(0u, m_Library.Counts().nNoViewer);
 }
 
 //=============================================================================//
 // BOXES
 //=============================================================================//
 
-TEST_F( OverlayLibrary, BoxIsDrawnUnrotated )
+TEST_F(OverlayLibrary, BoxIsDrawnUnrotated)
 {
-	m_Library.Box( Vector( 5, 6, 7 ), Vector( -1, -2, -3 ), Vector( 1, 2, 3 ), 9, 8, 7, 6, 2.0f );
+	m_Library.Box(Vector(5, 6, 7), Vector(-1, -2, -3), Vector(1, 2, 3), 9, 8, 7, 6, 2.0f);
 
-	ASSERT_EQ( 1u, g_Recorder.boxes.size() );
-	EXPECT_FLOAT_EQ( 0.0f, g_Recorder.boxes[0].angles.x );
-	EXPECT_FLOAT_EQ( 0.0f, g_Recorder.boxes[0].angles.y );
-	EXPECT_FLOAT_EQ( 0.0f, g_Recorder.boxes[0].angles.z );
-	EXPECT_FLOAT_EQ( 5.0f, g_Recorder.boxes[0].vecOrigin.x );
-	EXPECT_EQ( 6, g_Recorder.boxes[0].a );
+	ASSERT_EQ(1u, g_Recorder.boxes.size());
+	EXPECT_FLOAT_EQ(0.0f, g_Recorder.boxes[0].angles.x);
+	EXPECT_FLOAT_EQ(0.0f, g_Recorder.boxes[0].angles.y);
+	EXPECT_FLOAT_EQ(0.0f, g_Recorder.boxes[0].angles.z);
+	EXPECT_FLOAT_EQ(5.0f, g_Recorder.boxes[0].vecOrigin.x);
+	EXPECT_EQ(6, g_Recorder.boxes[0].a);
 }
 
 // THE PADDED LINE's two facts (PaddedLineLiftsBothEndsInZOnly,
@@ -441,46 +441,46 @@ TEST_F( OverlayLibrary, BoxIsDrawnUnrotated )
 //=============================================================================//
 
 // Each fact fills every slot of a new library's pool.
-static void FillPool( COverlayLibrary &library, int r )
+static void FillPool(COverlayLibrary& library, int r)
 {
-	for ( int i = 0; i < COverlayLibrary::kPoolLines; i++ )
-		library.AddLine( Vector( 10.0f + i, 0, 0 ), Vector( 20.0f + i, 0, 0 ), true, r, 2, 3 );
+	for (int i = 0; i < COverlayLibrary::kPoolLines; i++)
+		library.AddLine(Vector(10.0f + i, 0, 0), Vector(20.0f + i, 0, 0), true, r, 2, 3);
 }
 
-TEST_F( OverlayLibrary, DrawingThePoolDrawsEveryArmedSlot )
+TEST_F(OverlayLibrary, DrawingThePoolDrawsEveryArmedSlot)
 {
 	SetLookingAlongX();
 
-	FillPool( m_Library, 7 );
+	FillPool(m_Library, 7);
 	m_Library.DrawPooledLines();
 
-	ASSERT_EQ( (size_t)COverlayLibrary::kPoolLines, g_Recorder.lines.size() );
-	EXPECT_EQ( (unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nDrawn );
-	for ( size_t i = 0; i < g_Recorder.lines.size(); i++ )
-		EXPECT_EQ( 7, g_Recorder.lines[i].r ) << "slot " << i << " drew a line this fact did not add";
+	ASSERT_EQ((size_t)COverlayLibrary::kPoolLines, g_Recorder.lines.size());
+	EXPECT_EQ((unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nDrawn);
+	for (size_t i = 0; i < g_Recorder.lines.size(); i++)
+		EXPECT_EQ(7, g_Recorder.lines[i].r) << "slot " << i << " drew a line this fact did not add";
 }
 
-TEST_F( OverlayLibrary, DrawingThePoolWithNoViewerDrawsNothingAndSaysWhy )
+TEST_F(OverlayLibrary, DrawingThePoolWithNoViewerDrawsNothingAndSaysWhy)
 {
-	FillPool( m_Library, 1 );
+	FillPool(m_Library, 1);
 	m_Library.DrawPooledLines();
 
-	EXPECT_EQ( 0u, g_Recorder.lines.size() );
-	EXPECT_EQ( (unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nNoViewer );
+	EXPECT_EQ(0u, g_Recorder.lines.size());
+	EXPECT_EQ((unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nNoViewer);
 }
 
 //=============================================================================//
 // THE VIEWER ITSELF
 //=============================================================================//
 
-TEST_F( OverlayLibrary, ClearingTheViewerUnsetsIt )
+TEST_F(OverlayLibrary, ClearingTheViewerUnsetsIt)
 {
 	SetLookingAlongX();
-	ASSERT_TRUE( m_Library.ViewerIsSet() );
+	ASSERT_TRUE(m_Library.ViewerIsSet());
 
 	m_Library.ClearViewer();
 
-	EXPECT_FALSE( m_Library.ViewerIsSet() );
+	EXPECT_FALSE(m_Library.ViewerIsSet());
 }
 
 //=============================================================================//
@@ -493,9 +493,9 @@ namespace
 std::string ResolvedCwd()
 {
 	char buf[4096];
-	if ( getcwd( buf, sizeof( buf ) ) )
-		return std::string( buf );
-	return std::string( "<getcwd failed>" );
+	if (getcwd(buf, sizeof(buf)))
+		return std::string(buf);
+	return std::string("<getcwd failed>");
 }
 
 } // namespace
@@ -537,28 +537,28 @@ namespace
 std::vector<std::string> ServerLinkLine()
 {
 	const std::string strBuild = cmake_graph::BuildDir();
-	const std::vector<std::string> rel = cmake_graph::LinkObjects( cmake_graph::kServer );
+	const std::vector<std::string> rel = cmake_graph::LinkObjects(cmake_graph::kServer);
 
 	std::vector<std::string> out;
-	for ( size_t i = 0; i < rel.size(); i++ )
+	for (size_t i = 0; i < rel.size(); i++)
 	{
-		if ( rel[i].size() > 2 && rel[i].compare( rel[i].size() - 2, 2, ".o" ) == 0 )
-			out.push_back( rel[i][0] == '/' ? rel[i] : strBuild + "/" + rel[i] );
+		if (rel[i].size() > 2 && rel[i].compare(rel[i].size() - 2, 2, ".o") == 0)
+			out.push_back(rel[i][0] == '/' ? rel[i] : strBuild + "/" + rel[i]);
 	}
 	return out;
 }
 
 // The proof-of-read for the link line: the object of the server's own overlay
 // shim, which imports the overlay entries the positive control below names.
-bool HasOverlayShimObject( const std::vector<std::string> &objs )
+bool HasOverlayShimObject(const std::vector<std::string>& objs)
 {
 	// CMake names an object after its source's path: this repo's
 	// src/server/native/shell_debugoverlays.cpp compiles to
 	// .../server_sourcesharp.dir/shell_debugoverlays.cpp.o.
 	const std::string kObj = "/server_sourcesharp.dir/shell_debugoverlays.cpp.o";
-	for ( size_t i = 0; i < objs.size(); i++ )
+	for (size_t i = 0; i < objs.size(); i++)
 	{
-		if ( objs[i].size() >= kObj.size() && objs[i].compare( objs[i].size() - kObj.size(), kObj.size(), kObj ) == 0 )
+		if (objs[i].size() >= kObj.size() && objs[i].compare(objs[i].size() - kObj.size(), kObj.size(), kObj) == 0)
 			return true;
 	}
 	return false;
@@ -566,31 +566,31 @@ bool HasOverlayShimObject( const std::vector<std::string> &objs )
 
 // `nm -C --undefined-only` over every object at once. Demangled, because the
 // namespace is only spelled `NDebugOverlay::` after demangling.
-std::string UndefinedSymbolsOnTheServerLink( const std::vector<std::string> &objs )
+std::string UndefinedSymbolsOnTheServerLink(const std::vector<std::string>& objs)
 {
-	if ( objs.empty() )
+	if (objs.empty())
 		return std::string();
 
 	std::string cmd = "nm -C --undefined-only";
-	for ( size_t i = 0; i < objs.size(); i++ )
+	for (size_t i = 0; i < objs.size(); i++)
 		cmd += " '" + objs[i] + "'";
 	cmd += " 2>/dev/null";
 
-	FILE *pPipe = popen( cmd.c_str(), "r" );
-	if ( !pPipe )
+	FILE* pPipe = popen(cmd.c_str(), "r");
+	if (!pPipe)
 		return std::string();
 
 	std::string out;
 	char buf[1024];
-	while ( fgets( buf, sizeof( buf ), pPipe ) )
+	while (fgets(buf, sizeof(buf), pPipe))
 		out += buf;
-	pclose( pPipe );
+	pclose(pPipe);
 	return out;
 }
 
 } // namespace
 
-TEST( OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt )
+TEST(OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt)
 {
 	const std::vector<std::string> objs = ServerLinkLine();
 
@@ -599,44 +599,44 @@ TEST( OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt )
 	// `>= 50 objects` floor that stood here is RETIRED IN 6b: cmake_graph
 	// throws on a missing graph or an empty edge, and the anchor below says the
 	// edge is the server's.)
-	ASSERT_TRUE( HasOverlayShimObject( objs ) )
+	ASSERT_TRUE(HasOverlayShimObject(objs))
 		<< "read " << objs.size() << " objects off server_sourcesharp's link edge in " << cmake_graph::BuildDir()
 		<< "/build.ninja and none is shell_debugoverlays.cpp.o"
 		<< " -- run `make debug` first. Working directory: " << ResolvedCwd();
 }
 
-TEST( OverlayLinkLine, TheScanReachesTheOverlayConsumers )
+TEST(OverlayLinkLine, TheScanReachesTheOverlayConsumers)
 {
 	const std::vector<std::string> objs = ServerLinkLine();
-	ASSERT_TRUE( HasOverlayShimObject( objs ) ) << "no server link line; working directory: " << ResolvedCwd();
+	ASSERT_TRUE(HasOverlayShimObject(objs)) << "no server link line; working directory: " << ResolvedCwd();
 
-	const std::string undefined = UndefinedSymbolsOnTheServerLink( objs );
+	const std::string undefined = UndefinedSymbolsOnTheServerLink(objs);
 
 	// THE POSITIVE CONTROL. shell_debugoverlays.o and shell_worldquery.o both
 	// import this entry, so an nm that ran and read the right objects says so.
 	// Without this, an empty string passes the absence below.
-	EXPECT_NE( std::string::npos, undefined.find( "COverlayLibrary::TextAtPosition" ) )
+	EXPECT_NE(std::string::npos, undefined.find("COverlayLibrary::TextAtPosition"))
 		<< "nm over " << objs.size()
 		<< " objects found no importer of a known "
 		   "imported overlay entry, so it measured nothing. Working directory: "
 		<< ResolvedCwd();
 }
 
-TEST( OverlayLinkLine, NoObjectAsksForAnNDebugOverlayEntry )
+TEST(OverlayLinkLine, NoObjectAsksForAnNDebugOverlayEntry)
 {
 	const std::vector<std::string> objs = ServerLinkLine();
-	ASSERT_TRUE( HasOverlayShimObject( objs ) ) << "no server link line; working directory: " << ResolvedCwd();
+	ASSERT_TRUE(HasOverlayShimObject(objs)) << "no server link line; working directory: " << ResolvedCwd();
 
-	const std::string undefined = UndefinedSymbolsOnTheServerLink( objs );
-	ASSERT_NE( std::string::npos, undefined.find( "COverlayLibrary::TextAtPosition" ) )
+	const std::string undefined = UndefinedSymbolsOnTheServerLink(objs);
+	ASSERT_NE(std::string::npos, undefined.find("COverlayLibrary::TextAtPosition"))
 		<< "the scan measured nothing; working directory: " << ResolvedCwd();
 
-	const size_t at = undefined.find( "NDebugOverlay::" );
-	EXPECT_EQ( std::string::npos, at ) << "an object on the server link line asks for an NDebugOverlay entry "
-										  "that nothing in this build defines. It links today only because "
-										  "--gc-sections drops the caller first; a caller makes it a link "
-										  "error. The spelling is COverlayLibrary:: now:\n"
-									   << ( at == std::string::npos ? std::string() : undefined.substr( at, 200 ) );
+	const size_t at = undefined.find("NDebugOverlay::");
+	EXPECT_EQ(std::string::npos, at) << "an object on the server link line asks for an NDebugOverlay entry "
+										"that nothing in this build defines. It links today only because "
+										"--gc-sections drops the caller first; a caller makes it a link "
+										"error. The spelling is COverlayLibrary:: now:\n"
+									 << (at == std::string::npos ? std::string() : undefined.substr(at, 200));
 }
 
 //=============================================================================//

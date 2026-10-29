@@ -27,58 +27,57 @@ public:
 
 	void unused_IsInEditMode() override {}
 
-	int PrecacheModel( const char *s, bool preload = false ) override { return {}; }
+	int PrecacheModel(const char* s, bool preload = false) override { return {}; }
 
-	int PrecacheSentenceFile( const char *s, bool preload = false ) override { return {}; }
+	int PrecacheSentenceFile(const char* s, bool preload = false) override { return {}; }
 
-	int PrecacheDecal( const char *name, bool preload = false ) override { return {}; }
+	int PrecacheDecal(const char* name, bool preload = false) override { return {}; }
 
 	void unused_PrecacheGeneric() override {}
 
-	bool IsModelPrecached( char const *s ) const override { return {}; }
+	bool IsModelPrecached(char const* s) const override { return {}; }
 
-	bool IsDecalPrecached( char const *s ) const override { return {}; }
+	bool IsDecalPrecached(char const* s) const override { return {}; }
 
 	void unused_IsGenericPrecached() override {}
 
-	int GetClusterForOrigin( const Vector &org ) override { return {}; }
+	int GetClusterForOrigin(const Vector& org) override { return {}; }
 
-	int GetPVSForCluster( int cluster, int outputpvslength, unsigned char *outputpvs ) override { return {}; }
+	int GetPVSForCluster(int cluster, int outputpvslength, unsigned char* outputpvs) override { return {}; }
 
 	void unused_CheckOriginInPVS() override {}
 
-	bool CheckBoxInPVS( const Vector &mins, const Vector &maxs, const unsigned char *checkpvs,
-						int checkpvssize ) override
+	bool CheckBoxInPVS(const Vector& mins, const Vector& maxs, const unsigned char* checkpvs, int checkpvssize) override
 	{
 		return {};
 	}
 
-	int GetPlayerUserId( const edict_t *e ) override { return {}; }
+	int GetPlayerUserId(const edict_t* e) override { return {}; }
 
 	void unused_GetPlayerNetworkIDString() override {}
 
 	int GetEntityCount() override { return {}; }
 
-	int IndexOfEdict( const edict_t *pEdict ) override { return {}; }
+	int IndexOfEdict(const edict_t* pEdict) override { return {}; }
 
-	edict_t *PEntityOfEntIndex( int iEntIndex ) override { return {}; }
+	edict_t* PEntityOfEntIndex(int iEntIndex) override { return {}; }
 
-	INetChannelInfo *GetPlayerNetInfo( int playerIndex ) override { return {}; }
+	INetChannelInfo* GetPlayerNetInfo(int playerIndex) override { return {}; }
 
-	edict_t *CreateEdict( int iForceEdictIndex = -1 ) override { return {}; }
+	edict_t* CreateEdict(int iForceEdictIndex = -1) override { return {}; }
 
-	void RemoveEdict( edict_t *e ) override {}
+	void RemoveEdict(edict_t* e) override {}
 
-	void *PvAllocEntPrivateData( long cb ) override { return {}; }
+	void* PvAllocEntPrivateData(long cb) override { return {}; }
 
-	void FreeEntPrivateData( void *pEntity ) override {}
+	void FreeEntPrivateData(void* pEntity) override {}
 
-	void *SaveAllocMemory( size_t num, size_t size ) override { return {}; }
+	void* SaveAllocMemory(size_t num, size_t size) override { return {}; }
 
-	void SaveFreeMemory( void *pSaveMem ) override {}
+	void SaveFreeMemory(void* pSaveMem) override {}
 
-	void EmitAmbientSound( int entindex, const Vector &pos, const char *samp, float vol, soundlevel_t soundlevel,
-						   int fFlags, int pitch, float delay = 0.0f ) override
+	void EmitAmbientSound(int entindex, const Vector& pos, const char* samp, float vol, soundlevel_t soundlevel,
+						  int fFlags, int pitch, float delay = 0.0f) override
 	{
 	}
 
@@ -88,7 +87,7 @@ public:
 
 	void unused_SentenceGroupPickSequential() override {}
 
-	int SentenceIndexFromName( const char *pSentenceName ) override { return {}; }
+	int SentenceIndexFromName(const char* pSentenceName) override { return {}; }
 
 	void unused_SentenceNameFromIndex() override {}
 
@@ -98,43 +97,43 @@ public:
 
 	void unused_SentenceLength() override {}
 
-	void ServerCommand( const char *str ) override {}
+	void ServerCommand(const char* str) override {}
 
 	void ServerExecute() override {}
 
-	void ClientCommand( edict_t *pEdict, PRINTF_FORMAT_STRING const char *szFmt, ... ) override {}
+	void ClientCommand(edict_t* pEdict, PRINTF_FORMAT_STRING const char* szFmt, ...) override {}
 
-	void LightStyle( int style, const char *val ) override {}
+	void LightStyle(int style, const char* val) override {}
 
-	void StaticDecal( const Vector &originInEntitySpace, int decalIndex, int entityIndex, int modelIndex,
-					  bool lowpriority ) override
+	void StaticDecal(const Vector& originInEntitySpace, int decalIndex, int entityIndex, int modelIndex,
+					 bool lowpriority) override
 	{
 	}
 
-	void Message_DetermineMulticastRecipients( bool usepas, const Vector &origin,
-											   CBitVec<ABSOLUTE_PLAYER_LIMIT> &playerbits ) override
+	void Message_DetermineMulticastRecipients(bool usepas, const Vector& origin,
+											  CBitVec<ABSOLUTE_PLAYER_LIMIT>& playerbits) override
 	{
 	}
 
 	void unused_EntityMessageBegin() override {}
 
-	bf_write *UserMessageBegin( IRecipientFilter *filter, int msg_type ) override { return {}; }
+	bf_write* UserMessageBegin(IRecipientFilter* filter, int msg_type) override { return {}; }
 
 	void MessageEnd() override {}
 
 	void unused_ClientPrintf() override {}
 
-	void Con_NPrintf( int pos, PRINTF_FORMAT_STRING const char *fmt, ... ) override {}
+	void Con_NPrintf(int pos, PRINTF_FORMAT_STRING const char* fmt, ...) override {}
 
-	void Con_NXPrintf( const struct con_nprint_s *info, PRINTF_FORMAT_STRING const char *fmt, ... ) override {}
+	void Con_NXPrintf(const struct con_nprint_s* info, PRINTF_FORMAT_STRING const char* fmt, ...) override {}
 
-	void SetView( const edict_t *pClient, const edict_t *pViewent ) override {}
+	void SetView(const edict_t* pClient, const edict_t* pViewent) override {}
 
 	float Time() override { return {}; }
 
 	void unused_CrosshairAngle() override {}
 
-	void GetGameDir( char *szGetGameDir, int maxlength ) override {}
+	void GetGameDir(char* szGetGameDir, int maxlength) override {}
 
 	void unused_CompareFileTime() override {}
 
@@ -142,20 +141,20 @@ public:
 
 	void unused_CreateFakeClient() override {}
 
-	const char *GetClientConVarValue( int clientIndex, const char *name ) override { return {}; }
+	const char* GetClientConVarValue(int clientIndex, const char* name) override { return {}; }
 
 	void unused_ParseFile() override {}
 
 	void unused_CopyFile() override {}
 
-	void ResetPVS( byte *pvs, int pvssize ) override {}
+	void ResetPVS(byte* pvs, int pvssize) override {}
 
-	void AddOriginToPVS( const Vector &origin ) override {}
+	void AddOriginToPVS(const Vector& origin) override {}
 
-	void SetAreaPortalState( int portalNumber, int isOpen ) override {}
+	void SetAreaPortalState(int portalNumber, int isOpen) override {}
 
-	void PlaybackTempEntity( IRecipientFilter &filter, float delay, const void *pSender, const SendTable *pST,
-							 int classID ) override
+	void PlaybackTempEntity(IRecipientFilter& filter, float delay, const void* pSender, const SendTable* pST,
+							int classID) override
 	{
 	}
 
@@ -163,13 +162,13 @@ public:
 
 	void unused_CheckAreasConnected() override {}
 
-	int GetArea( const Vector &origin ) override { return {}; }
+	int GetArea(const Vector& origin) override { return {}; }
 
-	void GetAreaBits( int area, unsigned char *bits, int buflen ) override {}
+	void GetAreaBits(int area, unsigned char* bits, int buflen) override {}
 
-	bool GetAreaPortalPlane( Vector const &vViewOrigin, int portalKey, VPlane *pPlane ) override { return {}; }
+	bool GetAreaPortalPlane(Vector const& vViewOrigin, int portalKey, VPlane* pPlane) override { return {}; }
 
-	bool LoadGameState( char const *pMapName, bool createPlayers ) override { return {}; }
+	bool LoadGameState(char const* pMapName, bool createPlayers) override { return {}; }
 
 	void unused_LoadAdjacentEnts() override {}
 
@@ -177,18 +176,18 @@ public:
 
 	void unused_GetMapEntitiesString() override {}
 
-	client_textmessage_t *TextMessageGet( const char *pName ) override { return {}; }
+	client_textmessage_t* TextMessageGet(const char* pName) override { return {}; }
 
 	void unused_LogPrint() override {}
 
-	void BuildEntityClusterList( edict_t *pEdict, PVSInfo_t *pPVSInfo ) override {}
+	void BuildEntityClusterList(edict_t* pEdict, PVSInfo_t* pPVSInfo) override {}
 
-	void SolidMoved( edict_t *pSolidEnt, ICollideable *pSolidCollide, const Vector *pPrevAbsOrigin,
-					 bool testSurroundingBoundsOnly ) override
+	void SolidMoved(edict_t* pSolidEnt, ICollideable* pSolidCollide, const Vector* pPrevAbsOrigin,
+					bool testSurroundingBoundsOnly) override
 	{
 	}
 
-	void TriggerMoved( edict_t *pTriggerEnt, bool testSurroundingBoundsOnly ) override {}
+	void TriggerMoved(edict_t* pTriggerEnt, bool testSurroundingBoundsOnly) override {}
 
 	void unused_CreateSpatialPartition() override {}
 
@@ -212,19 +211,19 @@ public:
 
 	void unused_IsInCommentaryMode() override {}
 
-	void SetAreaPortalStates( const int *portalNumbers, const int *isOpen, int nPortals ) override {}
+	void SetAreaPortalStates(const int* portalNumbers, const int* isOpen, int nPortals) override {}
 
 	void unused_NotifyEdictFlagsChange() override {}
 
 	void unused_GetPrevCheckTransmitInfo() override {}
 
-	CSharedEdictChangeInfo *GetSharedEdictChangeInfo() override { return {}; }
+	CSharedEdictChangeInfo* GetSharedEdictChangeInfo() override { return {}; }
 
 	void unused_AllowImmediateEdictReuse() override {}
 
 	void unused_IsInternalBuild() override {}
 
-	IChangeInfoAccessor *GetChangeAccessor( const edict_t *pEdict ) override { return {}; }
+	IChangeInfoAccessor* GetChangeAccessor(const edict_t* pEdict) override { return {}; }
 
 	void unused_GetMostRecentlyLoadedFileName() override {}
 
@@ -232,9 +231,9 @@ public:
 
 	void unused_MultiplayerEndGame() override {}
 
-	void ChangeTeam( const char *pTeamName ) override {}
+	void ChangeTeam(const char* pTeamName) override {}
 
-	void CleanUpEntityClusterList( PVSInfo_t *pPVSInfo ) override {}
+	void CleanUpEntityClusterList(PVSInfo_t* pPVSInfo) override {}
 
 	void unused_SetAchievementMgr() override {}
 
@@ -248,7 +247,7 @@ public:
 
 	void unused_InsertServerCommand() override {}
 
-	bool GetPlayerInfo( int ent_num, player_info_t *pinfo ) override { return {}; }
+	bool GetPlayerInfo(int ent_num, player_info_t* pinfo) override { return {}; }
 
 	void unused_IsClientFullyAuthenticated() override {}
 
@@ -262,9 +261,9 @@ public:
 
 	void unused_GetGameServerSteamID() override {}
 
-	void ClientCommandKeyValues( edict_t *pEdict, KeyValues *pCommand ) override {}
+	void ClientCommandKeyValues(edict_t* pEdict, KeyValues* pCommand) override {}
 
-	const CSteamID *GetClientSteamIDByPlayerIndex( int entnum ) override { return {}; }
+	const CSteamID* GetClientSteamIDByPlayerIndex(int entnum) override { return {}; }
 
 	void unused_GetClusterCount() override {}
 

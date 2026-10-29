@@ -46,19 +46,19 @@ class CSaveRestoreSegment
 {
 public:
 	CSaveRestoreSegment()
-		: pBaseData( nullptr )
-		, pCurrentData( nullptr )
-		, size( 0 )
-		, bufferSize( 0 )
-		, tokenCount( 0 )
-		, pTokens( nullptr )
+		: pBaseData(nullptr)
+		, pCurrentData(nullptr)
+		, size(0)
+		, bufferSize(0)
+		, tokenCount(0)
+		, pTokens(nullptr)
 	{
 	}
 
 	// The buffer.
-	void Init( void *pNewBase, int nBytes )
+	void Init(void* pNewBase, int nBytes)
 	{
-		pBaseData = static_cast<char *>( pNewBase );
+		pBaseData = static_cast<char*>(pNewBase);
 		pCurrentData = pBaseData;
 		size = 0;
 		bufferSize = nBytes;
@@ -70,9 +70,9 @@ public:
 
 	int GetCurPos() { return size; }
 
-	char *AccessCurPos() { return pCurrentData; }
+	char* AccessCurPos() { return pCurrentData; }
 
-	void MoveCurPos( int nBytes )
+	void MoveCurPos(int nBytes)
 	{
 		pCurrentData += nBytes;
 		size += nBytes;
@@ -80,11 +80,11 @@ public:
 
 	// The token table: an open-addressed hash of string pointers the engine
 	// shares, so the slot a token lands in is part of the save format.
-	void InitSymbolTable( char **pNewTokens, int nTokens )
+	void InitSymbolTable(char** pNewTokens, int nTokens)
 	{
 		tokenCount = nTokens;
 		pTokens = pNewTokens;
-		memset( pTokens, 0, sizeof( *pTokens ) * nTokens );
+		memset(pTokens, 0, sizeof(*pTokens) * nTokens);
 	}
 
 	int SizeSymbolTable() { return tokenCount; }
@@ -92,46 +92,46 @@ public:
 	// The slot holding pszToken, claiming the first empty one on the probe
 	// sequence when it is new. 0 when the table is full (upstream's answer, with
 	// a warning there).
-	unsigned short FindCreateSymbol( const char *pszToken )
+	unsigned short FindCreateSymbol(const char* pszToken)
 	{
-		const unsigned int start = HashString( pszToken ) % static_cast<unsigned int>( tokenCount );
-		for ( int probe = 0; probe < tokenCount; probe++ )
+		const unsigned int start = HashString(pszToken) % static_cast<unsigned int>(tokenCount);
+		for (int probe = 0; probe < tokenCount; probe++)
 		{
-			const int slot = static_cast<int>( ( start + probe ) % static_cast<unsigned int>( tokenCount ) );
-			if ( pTokens[slot] == nullptr || strcmp( pTokens[slot], pszToken ) == 0 )
+			const int slot = static_cast<int>((start + probe) % static_cast<unsigned int>(tokenCount));
+			if (pTokens[slot] == nullptr || strcmp(pTokens[slot], pszToken) == 0)
 			{
-				pTokens[slot] = const_cast<char *>( pszToken );
-				return static_cast<unsigned short>( slot );
+				pTokens[slot] = const_cast<char*>(pszToken);
+				return static_cast<unsigned short>(slot);
 			}
 		}
 		return 0;
 	}
 
-	const char *StringFromSymbol( int token )
+	const char* StringFromSymbol(int token)
 	{
-		return ( token >= 0 && token < tokenCount ) ? pTokens[token] : "<<illegal>>";
+		return (token >= 0 && token < tokenCount) ? pTokens[token] : "<<illegal>>";
 	}
 
 	// Rotate right by 4, xor in each character as a SIGNED char widened to
 	// unsigned (so bytes >= 0x80 set the high bits), as upstream's _rotr loop.
-	static unsigned int HashString( const char *pszToken )
+	static unsigned int HashString(const char* pszToken)
 	{
 		unsigned int hash = 0;
-		for ( ; *pszToken; pszToken++ )
+		for (; *pszToken; pszToken++)
 		{
-			hash = ( hash >> 4 ) | ( hash << 28 );
-			hash ^= static_cast<unsigned int>( static_cast<int>( static_cast<signed char>( *pszToken ) ) );
+			hash = (hash >> 4) | (hash << 28);
+			hash ^= static_cast<unsigned int>(static_cast<int>(static_cast<signed char>(*pszToken)));
 		}
 		return hash;
 	}
 
 private:
-	char *pBaseData; // start of the save data
-	char *pCurrentData; // the next byte to read or write
+	char* pBaseData; // start of the save data
+	char* pCurrentData; // the next byte to read or write
 	int size; // pCurrentData - pBaseData
 	int bufferSize; // bytes in the buffer
 	int tokenCount; // slots in pTokens
-	char **pTokens; // the token table (sparse)
+	char** pTokens; // the token table (sparse)
 };
 
 //-----------------------------------------------------------------------------
@@ -141,7 +141,7 @@ struct levellist_t
 {
 	char mapName[MAX_MAP_NAME_SAVE];
 	char landmarkName[32];
-	edict_t *pentLandmark;
+	edict_t* pentLandmark;
 	Vector vecLandmarkOrigin;
 };
 
@@ -195,15 +195,15 @@ class CGameSaveRestoreInfo
 {
 public:
 	CGameSaveRestoreInfo()
-		: tableCount( 0 )
-		, pTable( nullptr )
-		, m_pCurrentEntity( nullptr )
+		: tableCount(0)
+		, pTable(nullptr)
+		, m_pCurrentEntity(nullptr)
 	{
 		// Zeroed as bytes, as upstream does: value-initialising would run
 		// Vector's constructor instead.
-		memset( static_cast<void *>( &levelInfo ), 0, sizeof( levelInfo ) );
-		modelSpaceOffset.Init( 0, 0, 0 );
-		memset( m_EntityToIndex, 0, sizeof( m_EntityToIndex ) );
+		memset(static_cast<void*>(&levelInfo), 0, sizeof(levelInfo));
+		modelSpaceOffset.Init(0, 0, 0);
+		memset(m_EntityToIndex, 0, sizeof(m_EntityToIndex));
 	}
 
 	float GetBaseTime() const { return levelInfo.time; }
@@ -214,32 +214,32 @@ public:
 private:
 	// Held for the engine, which reads them; server.so writes no entity table.
 	// [[maybe_unused]] on clang only: gcc 10 (CI) ignores it on a member, warning.
-#if defined( __clang__ )
+#if defined(__clang__)
 #define SS_HELD [[maybe_unused]]
 #else
 #define SS_HELD
 #endif
 	SS_HELD int tableCount; // entries in pTable
-	SS_HELD entitytable_t *pTable; // one per entity
-	SS_HELD IGameEntity *m_pCurrentEntity; // the entity being saved, during its save only
+	SS_HELD entitytable_t* pTable; // one per entity
+	SS_HELD IGameEntity* m_pCurrentEntity; // the entity being saved, during its save only
 #undef SS_HELD
 	// Upstream's CUtlHash< CHashElement, ... >: the engine's PurgeEntityHash is
 	// the only touch it gets on server.so's block, and a zeroed one is empty.
-	alignas( 8 ) unsigned char m_EntityToIndex[40];
+	alignas(8) unsigned char m_EntityToIndex[40];
 };
 
 class CSaveRestoreData : public CSaveRestoreSegment, public CGameSaveRestoreInfo
 {
 public:
 	CSaveRestoreData()
-		: bAsync( false )
+		: bAsync(false)
 	{
 	}
 
 	bool bAsync;
 };
 
-inline CSaveRestoreData *MakeSaveRestoreData( void *pMemory )
+inline CSaveRestoreData* MakeSaveRestoreData(void* pMemory)
 {
-	return new ( pMemory ) CSaveRestoreData;
+	return new (pMemory) CSaveRestoreData;
 }

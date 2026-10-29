@@ -11,27 +11,27 @@
 
 #include "mesh_index_client.h"
 
-void GenerateSequentialIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )
+void GenerateSequentialIndexBuffer(unsigned short* pIndexMemory, int nIndexCount, int nFirstVertex)
 {
-	ss::meshutils::GenerateSequential( pIndexMemory, nIndexCount, nFirstVertex );
+	ss::meshutils::GenerateSequential(pIndexMemory, nIndexCount, nFirstVertex);
 }
 
-void GenerateQuadIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )
+void GenerateQuadIndexBuffer(unsigned short* pIndexMemory, int nIndexCount, int nFirstVertex)
 {
-	ss::meshutils::GenerateQuad( pIndexMemory, nIndexCount, nFirstVertex );
+	ss::meshutils::GenerateQuad(pIndexMemory, nIndexCount, nFirstVertex);
 }
 
-void GeneratePolygonIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )
+void GeneratePolygonIndexBuffer(unsigned short* pIndexMemory, int nIndexCount, int nFirstVertex)
 {
-	ss::meshutils::GeneratePolygon( pIndexMemory, nIndexCount, nFirstVertex );
+	ss::meshutils::GeneratePolygon(pIndexMemory, nIndexCount, nFirstVertex);
 }
 
-void GenerateLineStripIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )
+void GenerateLineStripIndexBuffer(unsigned short* pIndexMemory, int nIndexCount, int nFirstVertex)
 {
-	ss::meshutils::GenerateLineStrip( pIndexMemory, nIndexCount, nFirstVertex );
+	ss::meshutils::GenerateLineStrip(pIndexMemory, nIndexCount, nFirstVertex);
 }
 
-void GenerateLineLoopIndexBuffer( unsigned short *pIndexMemory, int nIndexCount, int nFirstVertex )
+void GenerateLineLoopIndexBuffer(unsigned short* pIndexMemory, int nIndexCount, int nFirstVertex)
 {
-	ss::meshutils::GenerateLineLoop( pIndexMemory, nIndexCount, nFirstVertex );
+	ss::meshutils::GenerateLineLoop(pIndexMemory, nIndexCount, nFirstVertex);
 }

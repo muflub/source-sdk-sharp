@@ -20,43 +20,43 @@
 // What the player is standing on, its hierarchy and how fast it moves, read from
 // native movement state directly. Stock's groundlist cannot see standalone
 // entities. tools/ reference it by name.
-SS_NATIVE_COMMAND( ss_ground )
+SS_NATIVE_COMMAND(ss_ground)
 {
-	CStandalonePlayer *pPlayer = services.m_EntityContext.CommandClient();
+	CStandalonePlayer* pPlayer = services.m_EntityContext.CommandClient();
 
-	if ( !pPlayer )
+	if (!pPlayer)
 	{
-		Msg( "[ss_ground] no standalone player issued this\n" );
+		Msg("[ss_ground] no standalone player issued this\n");
 		return;
 	}
 
-	IHandleEntity *pGround = pPlayer->MvGetGroundEntity();
+	IHandleEntity* pGround = pPlayer->MvGetGroundEntity();
 
-	if ( !pGround )
+	if (!pGround)
 	{
-		Msg( "[ss_ground] player at %.1f %.1f %.1f  ground=NONE  onground=%d  "
-			 "base=(%.1f %.1f %.1f)  fall=%.1f\n",
-			 pPlayer->GetAbsOrigin().x, pPlayer->GetAbsOrigin().y, pPlayer->GetAbsOrigin().z,
-			 ( pPlayer->MvGetFlags() & FL_ONGROUND ) != 0, pPlayer->MvGetBaseVelocity().x,
-			 pPlayer->MvGetBaseVelocity().y, pPlayer->MvGetBaseVelocity().z,
-			 // .Get(): a CNetworkVar passed to varargs is not converted to float.
-			 pPlayer->MvLocal().m_flFallVelocity.Get() );
+		Msg("[ss_ground] player at %.1f %.1f %.1f  ground=NONE  onground=%d  "
+			"base=(%.1f %.1f %.1f)  fall=%.1f\n",
+			pPlayer->GetAbsOrigin().x, pPlayer->GetAbsOrigin().y, pPlayer->GetAbsOrigin().z,
+			(pPlayer->MvGetFlags() & FL_ONGROUND) != 0, pPlayer->MvGetBaseVelocity().x, pPlayer->MvGetBaseVelocity().y,
+			pPlayer->MvGetBaseVelocity().z,
+			// .Get(): a CNetworkVar passed to varargs is not converted to float.
+			pPlayer->MvLocal().m_flFallVelocity.Get());
 		return;
 	}
 
-	IStaticPropMgrServer *pStaticProps = pPlayer->Context().m_pStaticProps;
-	const Vector vecGround = MovementGroundVelocity( pGround, pStaticProps );
+	IStaticPropMgrServer* pStaticProps = pPlayer->Context().m_pStaticProps;
+	const Vector vecGround = MovementGroundVelocity(pGround, pStaticProps);
 
-	IGameEntity *pGameEntity = ss::GameEntityFromEntityHandle( pStaticProps, pGround );
+	IGameEntity* pGameEntity = ss::GameEntityFromEntityHandle(pStaticProps, pGround);
 
-	const char *pszHierarchy = pGameEntity ? "CStandaloneEntity" : "neither";
+	const char* pszHierarchy = pGameEntity ? "CStandaloneEntity" : "neither";
 
-	const char *pszClass = pGameEntity ? StandaloneEntity_Name( pGameEntity ) : "?";
+	const char* pszClass = pGameEntity ? StandaloneEntity_Name(pGameEntity) : "?";
 
-	Msg( "[ss_ground] player at %.1f %.1f %.1f  ground=%s (%s)  onground=%d  "
-		 "groundvel=(%.1f %.1f %.1f)  base=(%.1f %.1f %.1f)  fall=%.1f\n",
-		 pPlayer->GetAbsOrigin().x, pPlayer->GetAbsOrigin().y, pPlayer->GetAbsOrigin().z, pszHierarchy, pszClass,
-		 ( pPlayer->MvGetFlags() & FL_ONGROUND ) != 0, vecGround.x, vecGround.y, vecGround.z,
-		 pPlayer->MvGetBaseVelocity().x, pPlayer->MvGetBaseVelocity().y, pPlayer->MvGetBaseVelocity().z,
-		 pPlayer->MvLocal().m_flFallVelocity.Get() );
+	Msg("[ss_ground] player at %.1f %.1f %.1f  ground=%s (%s)  onground=%d  "
+		"groundvel=(%.1f %.1f %.1f)  base=(%.1f %.1f %.1f)  fall=%.1f\n",
+		pPlayer->GetAbsOrigin().x, pPlayer->GetAbsOrigin().y, pPlayer->GetAbsOrigin().z, pszHierarchy, pszClass,
+		(pPlayer->MvGetFlags() & FL_ONGROUND) != 0, vecGround.x, vecGround.y, vecGround.z,
+		pPlayer->MvGetBaseVelocity().x, pPlayer->MvGetBaseVelocity().y, pPlayer->MvGetBaseVelocity().z,
+		pPlayer->MvLocal().m_flFallVelocity.Get());
 }

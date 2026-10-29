@@ -38,50 +38,50 @@ struct DIR
 	dirent entry;
 };
 
-inline DIR *opendir( const char *pszPath )
+inline DIR* opendir(const char* pszPath)
 {
-	if ( !pszPath || !*pszPath )
+	if (!pszPath || !*pszPath)
 		return NULL;
 	char szPattern[MAX_PATH];
-	size_t n = strlen( pszPath );
-	if ( n + 3 > sizeof( szPattern ) )
+	size_t n = strlen(pszPath);
+	if (n + 3 > sizeof(szPattern))
 		return NULL;
-	memcpy( szPattern, pszPath, n );
-	if ( pszPath[n - 1] != '/' && pszPath[n - 1] != '\\' )
+	memcpy(szPattern, pszPath, n);
+	if (pszPath[n - 1] != '/' && pszPath[n - 1] != '\\')
 		szPattern[n++] = '/';
 	szPattern[n++] = '*';
 	szPattern[n] = '\0';
-	DIR *pDir = (DIR *)calloc( 1, sizeof( DIR ) );
-	if ( !pDir )
+	DIR* pDir = (DIR*)calloc(1, sizeof(DIR));
+	if (!pDir)
 		return NULL;
-	pDir->hFind = FindFirstFileA( szPattern, &pDir->data );
-	if ( pDir->hFind == INVALID_HANDLE_VALUE )
+	pDir->hFind = FindFirstFileA(szPattern, &pDir->data);
+	if (pDir->hFind == INVALID_HANDLE_VALUE)
 	{
-		free( pDir );
+		free(pDir);
 		return NULL;
 	}
 	pDir->bFirst = true;
 	return pDir;
 }
 
-inline dirent *readdir( DIR *pDir )
+inline dirent* readdir(DIR* pDir)
 {
-	if ( !pDir )
+	if (!pDir)
 		return NULL;
-	if ( !pDir->bFirst && !FindNextFileA( pDir->hFind, &pDir->data ) )
+	if (!pDir->bFirst && !FindNextFileA(pDir->hFind, &pDir->data))
 		return NULL;
 	pDir->bFirst = false;
-	pDir->entry.d_type = ( pDir->data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY ) ? DT_DIR : DT_REG;
-	strncpy( pDir->entry.d_name, pDir->data.cFileName, sizeof( pDir->entry.d_name ) - 1 );
-	pDir->entry.d_name[sizeof( pDir->entry.d_name ) - 1] = '\0';
+	pDir->entry.d_type = (pDir->data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? DT_DIR : DT_REG;
+	strncpy(pDir->entry.d_name, pDir->data.cFileName, sizeof(pDir->entry.d_name) - 1);
+	pDir->entry.d_name[sizeof(pDir->entry.d_name) - 1] = '\0';
 	return &pDir->entry;
 }
 
-inline int closedir( DIR *pDir )
+inline int closedir(DIR* pDir)
 {
-	if ( !pDir )
+	if (!pDir)
 		return -1;
-	FindClose( pDir->hFind );
-	free( pDir );
+	FindClose(pDir->hFind);
+	free(pDir);
 	return 0;
 }

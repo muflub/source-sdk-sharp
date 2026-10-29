@@ -10,15 +10,15 @@ namespace
 {
 struct Fixture
 {
-	std::vector<int16_t> slots = std::vector<int16_t>( SS_BONE_BATCH_SLOTS, -1 );
+	std::vector<int16_t> slots = std::vector<int16_t>(SS_BONE_BATCH_SLOTS, -1);
 	SourceSharpBoneBatchEntry_t entry = {};
 	float matrices[12] = {};
 	SourceSharpBoneBatch_t batch = {};
 
-	float origin[3] = { 1.0f, 2.0f, 3.0f };
-	float angles[3] = { 0.0f, 90.0f, 0.0f };
-	float renderOrigin[3] = { 1.5f, 2.0f, 3.0f };
-	float renderAngles[3] = { 0.0f, 91.0f, 0.0f };
+	float origin[3] = {1.0f, 2.0f, 3.0f};
+	float angles[3] = {0.0f, 90.0f, 0.0f};
+	float renderOrigin[3] = {1.5f, 2.0f, 3.0f};
+	float renderAngles[3] = {0.0f, 91.0f, 0.0f};
 
 	Fixture()
 	{
@@ -27,7 +27,7 @@ struct Fixture
 		entry.nBones = 1;
 		entry.nModelIndex = 7;
 		entry.nViewModel = 0;
-		for ( int i = 0; i < 3; i++ )
+		for (int i = 0; i < 3; i++)
 		{
 			entry.flOrigin[i] = origin[i];
 			entry.flAngles[i] = angles[i];
@@ -43,70 +43,70 @@ struct Fixture
 		batch.pMatrices = matrices;
 	}
 
-	const SourceSharpBoneBatchEntry_t *Ask( uint32_t h = 0x00010005u, int32_t mask = 0x400, float time = 2.5f,
-											int32_t frame = 100, int32_t model = 7, int32_t view = 0 )
+	const SourceSharpBoneBatchEntry_t* Ask(uint32_t h = 0x00010005u, int32_t mask = 0x400, float time = 2.5f,
+										   int32_t frame = 100, int32_t model = 7, int32_t view = 0)
 	{
-		return SourceSharp_BoneBatchEntry( &batch, h, mask, time, frame, model, view, origin, angles, renderOrigin,
-										   renderAngles );
+		return SourceSharp_BoneBatchEntry(&batch, h, mask, time, frame, model, view, origin, angles, renderOrigin,
+										  renderAngles);
 	}
 };
 } // namespace
 
-TEST( BoneBatchEntry, TheAskItWasPosedForIsAnswered )
+TEST(BoneBatchEntry, TheAskItWasPosedForIsAnswered)
 {
 	Fixture f;
-	EXPECT_EQ( &f.entry, f.Ask() );
+	EXPECT_EQ(&f.entry, f.Ask());
 }
 
-TEST( BoneBatchEntry, AnotherFrameOrClockIsNot )
+TEST(BoneBatchEntry, AnotherFrameOrClockIsNot)
 {
 	Fixture f;
-	EXPECT_EQ( nullptr, f.Ask( 0x00010005u, 0x400, 2.5f, 101 ) );
-	EXPECT_EQ( nullptr, f.Ask( 0x00010005u, 0x400, 2.6f ) );
+	EXPECT_EQ(nullptr, f.Ask(0x00010005u, 0x400, 2.5f, 101));
+	EXPECT_EQ(nullptr, f.Ask(0x00010005u, 0x400, 2.6f));
 }
 
-TEST( BoneBatchEntry, AMaskWiderThanThePosedOneIsNot )
+TEST(BoneBatchEntry, AMaskWiderThanThePosedOneIsNot)
 {
 	Fixture f;
-	EXPECT_EQ( nullptr, f.Ask( 0x00010005u, 0x00100000 ) );
+	EXPECT_EQ(nullptr, f.Ask(0x00010005u, 0x00100000));
 }
 
-TEST( BoneBatchEntry, AnotherEntityInTheSameSlotIsNot )
+TEST(BoneBatchEntry, AnotherEntityInTheSameSlotIsNot)
 {
 	Fixture f;
-	EXPECT_EQ( nullptr, f.Ask( 0x00020005u ) );
+	EXPECT_EQ(nullptr, f.Ask(0x00020005u));
 }
 
-TEST( BoneBatchEntry, AnEmptySlotOrNoTableIsNot )
+TEST(BoneBatchEntry, AnEmptySlotOrNoTableIsNot)
 {
 	Fixture f;
-	EXPECT_EQ( nullptr, f.Ask( 0x00010006u ) );
-	EXPECT_EQ( nullptr,
-			   SourceSharp_BoneBatchEntry( nullptr, 0x00010005u, 0x400, 2.5f, 100, 7, 0, f.origin, f.angles,
-										   f.renderOrigin, f.renderAngles ) );
+	EXPECT_EQ(nullptr, f.Ask(0x00010006u));
+	EXPECT_EQ(nullptr,
+			  SourceSharp_BoneBatchEntry(nullptr, 0x00010005u, 0x400, 2.5f, 100, 7, 0, f.origin, f.angles,
+										 f.renderOrigin, f.renderAngles));
 }
 
-TEST( BoneBatchEntry, AnotherModelOrViewModelBitIsNot )
+TEST(BoneBatchEntry, AnotherModelOrViewModelBitIsNot)
 {
 	Fixture f;
-	EXPECT_EQ( nullptr, f.Ask( 0x00010005u, 0x400, 2.5f, 100, 8 ) );
-	EXPECT_EQ( nullptr, f.Ask( 0x00010005u, 0x400, 2.5f, 100, 7, 1 ) );
+	EXPECT_EQ(nullptr, f.Ask(0x00010005u, 0x400, 2.5f, 100, 8));
+	EXPECT_EQ(nullptr, f.Ask(0x00010005u, 0x400, 2.5f, 100, 7, 1));
 }
 
-TEST( BoneBatchEntry, AnEntityThatMovedSinceThePoseIsNot )
+TEST(BoneBatchEntry, AnEntityThatMovedSinceThePoseIsNot)
 {
-	for ( int which = 0; which < 4; which++ )
+	for (int which = 0; which < 4; which++)
 	{
 		Fixture f;
-		float *moved[4] = { f.origin, f.angles, f.renderOrigin, f.renderAngles };
+		float* moved[4] = {f.origin, f.angles, f.renderOrigin, f.renderAngles};
 		moved[which][2] += 0.5f;
-		EXPECT_EQ( nullptr, f.Ask() ) << "input " << which;
+		EXPECT_EQ(nullptr, f.Ask()) << "input " << which;
 	}
 }
 
-TEST( BoneBatchEntry, AnEntryIndexPastTheTableIsNot )
+TEST(BoneBatchEntry, AnEntryIndexPastTheTableIsNot)
 {
 	Fixture f;
 	f.slots[5] = 1;
-	EXPECT_EQ( nullptr, f.Ask() );
+	EXPECT_EQ(nullptr, f.Ask());
 }

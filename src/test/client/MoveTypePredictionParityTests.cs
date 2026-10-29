@@ -73,7 +73,7 @@ public class MoveTypePredictionParityTests
     [Fact]
     public void TheServersMoveCollideIsAlwaysTheDefaultSoNotSendingItIsSafe()
     {
-        Assert.Contains("m_MoveCollide( MOVECOLLIDE_DEFAULT )", Read(StandalonePlayerCpp), StringComparison.Ordinal);
+        Assert.Contains("m_MoveCollide(MOVECOLLIDE_DEFAULT)", Read(StandalonePlayerCpp), StringComparison.Ordinal);
 
         // The third source was stock's game/shared/gamemovement.cpp, whose
         // writes were all MOVECOLLIDE_DEFAULT. Neither DLL compiles it now (the

@@ -28,79 +28,78 @@ namespace
 class CEffectsThunk final : public IEffects
 {
 public:
-	void Beam( const Vector &Start, const Vector &End, int nModelIndex, int nHaloIndex, unsigned char frameStart,
-			   unsigned char frameRate, float flLife, unsigned char width, unsigned char endWidth,
-			   unsigned char fadeLength, unsigned char noise, unsigned char red, unsigned char green,
-			   unsigned char blue, unsigned char brightness, unsigned char speed ) override
+	void Beam(const Vector& Start, const Vector& End, int nModelIndex, int nHaloIndex, unsigned char frameStart,
+			  unsigned char frameRate, float flLife, unsigned char width, unsigned char endWidth,
+			  unsigned char fadeLength, unsigned char noise, unsigned char red, unsigned char green, unsigned char blue,
+			  unsigned char brightness, unsigned char speed) override
 	{
 		// Stock's is Assert(0) and draws nothing; nothing calls it.
 	}
 
-	void Smoke( const Vector &origin, int modelIndex, float scale, float framerate ) override
+	void Smoke(const Vector& origin, int modelIndex, float scale, float framerate) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->Smoke( origin.Base(), modelIndex, scale, framerate );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->Smoke(origin.Base(), modelIndex, scale, framerate);
 	}
 
-	void Sparks( const Vector &position, int nMagnitude = 1, int nTrailLength = 1,
-				 const Vector *pvecDir = NULL ) override
+	void Sparks(const Vector& position, int nMagnitude = 1, int nTrailLength = 1, const Vector* pvecDir = NULL) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->Sparks( position.Base(), nMagnitude, nTrailLength, pvecDir ? pvecDir->Base() : NULL );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->Sparks(position.Base(), nMagnitude, nTrailLength, pvecDir ? pvecDir->Base() : NULL);
 	}
 
-	void Dust( const Vector &pos, const Vector &dir, float size, float speed ) override
+	void Dust(const Vector& pos, const Vector& dir, float size, float speed) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->Dust( pos.Base(), dir.Base(), size, speed );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->Dust(pos.Base(), dir.Base(), size, speed);
 	}
 
-	void MuzzleFlash( const Vector &origin, const QAngle &angles, float fScale, int type ) override
+	void MuzzleFlash(const Vector& origin, const QAngle& angles, float fScale, int type) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->MuzzleFlash( origin.Base(), angles.Base(), fScale, type );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->MuzzleFlash(origin.Base(), angles.Base(), fScale, type);
 	}
 
-	void MetalSparks( const Vector &position, const Vector &direction ) override
+	void MetalSparks(const Vector& position, const Vector& direction) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->MetalSparks( position.Base(), direction.Base() );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->MetalSparks(position.Base(), direction.Base());
 	}
 
-	void EnergySplash( const Vector &position, const Vector &direction, bool bExplosive = false ) override
+	void EnergySplash(const Vector& position, const Vector& direction, bool bExplosive = false) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->EnergySplash( position.Base(), direction.Base(), bExplosive ? 1 : 0 );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->EnergySplash(position.Base(), direction.Base(), bExplosive ? 1 : 0);
 	}
 
-	void Ricochet( const Vector &position, const Vector &direction ) override
+	void Ricochet(const Vector& position, const Vector& direction) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->Ricochet( position.Base(), direction.Base() );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->Ricochet(position.Base(), direction.Base());
 	}
 
 	float Time() override { return gpGlobals->curtime; }
 
 	bool IsServer() override { return false; }
 
-	void SuppressEffectsSounds( bool bSuppress ) override
+	void SuppressEffectsSounds(bool bSuppress) override
 	{
-		if ( IManagedFxClient *pFx = ManagedFxClient() )
-			pFx->SuppressEffectsSounds( bSuppress ? 1 : 0 );
+		if (IManagedFxClient* pFx = ManagedFxClient())
+			pFx->SuppressEffectsSounds(bSuppress ? 1 : 0);
 	}
 };
 
 CEffectsThunk s_EffectsThunk;
 
-Vector V( const float *p )
+Vector V(const float* p)
 {
-	return Vector( p[0], p[1], p[2] );
+	return Vector(p[0], p[1], p[2]);
 }
 
 } // namespace
 
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR( CEffectsThunk, IEffects, IEFFECTS_INTERFACE_VERSION, s_EffectsThunk );
-IEffects *g_pEffects = &s_EffectsThunk;
+EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CEffectsThunk, IEffects, IEFFECTS_INTERFACE_VERSION, s_EffectsThunk);
+IEffects* g_pEffects = &s_EffectsThunk;
 
 // What SuppressTE reads: this IEffects' IPredictionSystem state, and a client
 // PVS filter's count.
@@ -109,8 +108,8 @@ int32_t SourceSharp_FxCanPredict()
 	return s_EffectsThunk.CanPredict() ? 1 : 0;
 }
 
-int32_t SourceSharp_FxRecipientCount( const float *pOriginXYZ )
+int32_t SourceSharp_FxRecipientCount(const float* pOriginXYZ)
 {
-	CPVSFilter filter( V( pOriginXYZ ) );
+	CPVSFilter filter(V(pOriginXYZ));
 	return filter.GetRecipientCount();
 }

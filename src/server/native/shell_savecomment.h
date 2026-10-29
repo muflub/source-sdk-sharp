@@ -14,17 +14,17 @@
 #include <stdio.h>
 
 // Writes nothing for a NULL buffer or a non-positive length.
-inline void ShellGameDll_FormatSaveComment( char *pOut, int nMaxLength, const char *pMapName, float flMinutes,
-											float flSeconds, bool bNoTime )
+inline void ShellGameDll_FormatSaveComment(char* pOut, int nMaxLength, const char* pMapName, float flMinutes,
+										   float flSeconds, bool bNoTime)
 {
-	if ( pOut == NULL || nMaxLength <= 0 )
+	if (pOut == NULL || nMaxLength <= 0)
 		return;
 
-	const char *pName = ( pMapName != NULL ) ? pMapName : "";
+	const char* pName = (pMapName != NULL) ? pMapName : "";
 
-	if ( bNoTime )
+	if (bNoTime)
 	{
-		snprintf( pOut, (size_t)nMaxLength, "%-64.64s", pName );
+		snprintf(pOut, (size_t)nMaxLength, "%-64.64s", pName);
 		pOut[nMaxLength - 1] = '\0';
 		return;
 	}
@@ -34,15 +34,15 @@ inline void ShellGameDll_FormatSaveComment( char *pOut, int nMaxLength, const ch
 
 	// Stock's clamp. It runs before the seconds roll over, so 999:120 still prints
 	// 1001 minutes; kept, as the output must match stock byte for byte.
-	if ( nMinutes >= 1000 )
+	if (nMinutes >= 1000)
 	{
 		nMinutes = 999;
 		nSeconds = 59;
 	}
 
-	const int nMinutesAdd = ( nSeconds / 60 );
+	const int nMinutesAdd = (nSeconds / 60);
 	nSeconds %= 60;
 
-	snprintf( pOut, (size_t)nMaxLength, "%-64.64s %03d:%02d", pName, ( nMinutes + nMinutesAdd ), nSeconds );
+	snprintf(pOut, (size_t)nMaxLength, "%-64.64s %03d:%02d", pName, (nMinutes + nMinutesAdd), nSeconds);
 	pOut[nMaxLength - 1] = '\0';
 }

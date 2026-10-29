@@ -51,140 +51,140 @@
 // The transmit set.
 //-----------------------------------------------------------------------------
 
-TEST( ShellTransmitSet, UnarmedDeclinesTheCapture )
+TEST(ShellTransmitSet, UnarmedDeclinesTheCapture)
 {
 	CShellTransmitSet set;
 
-	EXPECT_FALSE( set.Armed() );
-	EXPECT_FALSE( set.HaveCapture() );
+	EXPECT_FALSE(set.Armed());
+	EXPECT_FALSE(set.HaveCapture());
 
 	// The call site's whole cost every frame but one, and the answer that keeps
 	// CheckTransmit from walking 2048 edicts for nothing.
-	EXPECT_FALSE( set.BeginCapture( 1 ) );
-	EXPECT_FALSE( set.HaveCapture() );
+	EXPECT_FALSE(set.BeginCapture(1));
+	EXPECT_FALSE(set.HaveCapture());
 }
 
-TEST( ShellTransmitSet, ArmedCapturesExactlyOnce )
+TEST(ShellTransmitSet, ArmedCapturesExactlyOnce)
 {
 	CShellTransmitSet set;
 	set.Arm();
 
-	EXPECT_TRUE( set.BeginCapture( 1 ) );
+	EXPECT_TRUE(set.BeginCapture(1));
 
 	// ONE SHOT. Armed for a whole second, CheckTransmit runs 66 times and the
 	// set read back would be the LAST frame before the dump rather than a frame
 	// anybody chose -- and two runs of the gate would compare two different
 	// frames and call the difference a regression.
-	EXPECT_FALSE( set.BeginCapture( 2 ) );
-	EXPECT_EQ( 1, set.Recipient() );
+	EXPECT_FALSE(set.BeginCapture(2));
+	EXPECT_EQ(1, set.Recipient());
 }
 
-TEST( ShellTransmitSet, ArmedForOneRecipientWaitsForThatRecipient )
+TEST(ShellTransmitSet, ArmedForOneRecipientWaitsForThatRecipient)
 {
 	// With two clients CheckTransmit runs for each every snapshot, client 1
 	// first; an arm that took whoever came next could never see client 2.
 	CShellTransmitSet set;
-	set.Arm( 2 );
+	set.Arm(2);
 
-	EXPECT_FALSE( set.BeginCapture( 1 ) );
-	EXPECT_FALSE( set.HaveCapture() );
-	EXPECT_TRUE( set.Armed() );
-	EXPECT_TRUE( set.BeginCapture( 2 ) );
-	EXPECT_EQ( 2, set.Recipient() );
-	EXPECT_FALSE( set.BeginCapture( 2 ) );
+	EXPECT_FALSE(set.BeginCapture(1));
+	EXPECT_FALSE(set.HaveCapture());
+	EXPECT_TRUE(set.Armed());
+	EXPECT_TRUE(set.BeginCapture(2));
+	EXPECT_EQ(2, set.Recipient());
+	EXPECT_FALSE(set.BeginCapture(2));
 }
 
-TEST( ShellTransmitSet, TheRecipientIsPartOfTheAnswer )
+TEST(ShellTransmitSet, TheRecipientIsPartOfTheAnswer)
 {
 	CShellTransmitSet set;
-	EXPECT_EQ( -1, set.Recipient() );
+	EXPECT_EQ(-1, set.Recipient());
 
 	set.Arm();
-	set.BeginCapture( 7 );
-	EXPECT_EQ( 7, set.Recipient() );
+	set.BeginCapture(7);
+	EXPECT_EQ(7, set.Recipient());
 }
 
-TEST( ShellTransmitSet, MarksAreASet )
+TEST(ShellTransmitSet, MarksAreASet)
 {
 	CShellTransmitSet set;
 	set.Arm();
-	ASSERT_TRUE( set.BeginCapture( 1 ) );
+	ASSERT_TRUE(set.BeginCapture(1));
 
-	set.Mark( 0 );
-	set.Mark( 33 );
-	set.Mark( 33 );
-	set.Mark( 2047 );
+	set.Mark(0);
+	set.Mark(33);
+	set.Mark(33);
+	set.Mark(2047);
 
 	// A SET, so the second Mark( 33 ) is not a second member. The source is a
 	// CBitVec and this has to answer the way one does.
-	EXPECT_EQ( 3, set.Count() );
-	EXPECT_TRUE( set.IsSet( 0 ) );
-	EXPECT_TRUE( set.IsSet( 33 ) );
-	EXPECT_TRUE( set.IsSet( 2047 ) );
-	EXPECT_FALSE( set.IsSet( 1 ) );
-	EXPECT_FALSE( set.IsSet( 32 ) );
-	EXPECT_FALSE( set.IsSet( 34 ) );
+	EXPECT_EQ(3, set.Count());
+	EXPECT_TRUE(set.IsSet(0));
+	EXPECT_TRUE(set.IsSet(33));
+	EXPECT_TRUE(set.IsSet(2047));
+	EXPECT_FALSE(set.IsSet(1));
+	EXPECT_FALSE(set.IsSet(32));
+	EXPECT_FALSE(set.IsSet(34));
 }
 
-TEST( ShellTransmitSet, OutOfRangeMarksAreDroppedRatherThanCorrupting )
+TEST(ShellTransmitSet, OutOfRangeMarksAreDroppedRatherThanCorrupting)
 {
 	CShellTransmitSet set;
 	set.Arm();
-	ASSERT_TRUE( set.BeginCapture( 1 ) );
+	ASSERT_TRUE(set.BeginCapture(1));
 
-	set.Mark( -1 );
-	set.Mark( CShellTransmitSet::kMaxEdicts );
-	set.Mark( 999999 );
+	set.Mark(-1);
+	set.Mark(CShellTransmitSet::kMaxEdicts);
+	set.Mark(999999);
 
-	EXPECT_EQ( 0, set.Count() );
-	EXPECT_FALSE( set.IsSet( -1 ) );
-	EXPECT_FALSE( set.IsSet( CShellTransmitSet::kMaxEdicts ) );
+	EXPECT_EQ(0, set.Count());
+	EXPECT_FALSE(set.IsSet(-1));
+	EXPECT_FALSE(set.IsSet(CShellTransmitSet::kMaxEdicts));
 }
 
-TEST( ShellTransmitSet, ASecondCaptureClearsTheFirst )
+TEST(ShellTransmitSet, ASecondCaptureClearsTheFirst)
 {
 	CShellTransmitSet set;
 
 	set.Arm();
-	ASSERT_TRUE( set.BeginCapture( 1 ) );
-	set.Mark( 5 );
-	ASSERT_EQ( 1, set.Count() );
+	ASSERT_TRUE(set.BeginCapture(1));
+	set.Mark(5);
+	ASSERT_EQ(1, set.Count());
 
 	set.Arm();
-	ASSERT_TRUE( set.BeginCapture( 2 ) );
+	ASSERT_TRUE(set.BeginCapture(2));
 
 	// Not a union with the previous frame's. Two runs of the gate on one game
 	// must not accumulate.
-	EXPECT_EQ( 0, set.Count() );
-	EXPECT_FALSE( set.IsSet( 5 ) );
+	EXPECT_EQ(0, set.Count());
+	EXPECT_FALSE(set.IsSet(5));
 }
 
-TEST( ShellTransmitSet, NoCaptureIsDistinguishableFromAnEmptyOne )
+TEST(ShellTransmitSet, NoCaptureIsDistinguishableFromAnEmptyOne)
 {
 	// A client that received nothing and a capture that never happened are
 	// opposite findings, and the dump has to be able to tell them apart -- see
 	// the `nocapture` line in cs_sv_transmitset.
 	CShellTransmitSet never;
-	EXPECT_FALSE( never.HaveCapture() );
+	EXPECT_FALSE(never.HaveCapture());
 
 	CShellTransmitSet empty;
 	empty.Arm();
-	ASSERT_TRUE( empty.BeginCapture( 1 ) );
-	EXPECT_TRUE( empty.HaveCapture() );
-	EXPECT_EQ( 0, empty.Count() );
+	ASSERT_TRUE(empty.BeginCapture(1));
+	EXPECT_TRUE(empty.HaveCapture());
+	EXPECT_EQ(0, empty.Count());
 }
 
-TEST( ShellTransmitSet, TwoSetsShareNothing )
+TEST(ShellTransmitSet, TwoSetsShareNothing)
 {
 	CShellTransmitSet a, b;
 
 	a.Arm();
-	ASSERT_TRUE( a.BeginCapture( 1 ) );
-	a.Mark( 11 );
+	ASSERT_TRUE(a.BeginCapture(1));
+	a.Mark(11);
 
-	EXPECT_FALSE( b.HaveCapture() );
-	EXPECT_FALSE( b.IsSet( 11 ) );
-	EXPECT_EQ( 0, b.Count() );
+	EXPECT_FALSE(b.HaveCapture());
+	EXPECT_FALSE(b.IsSet(11));
+	EXPECT_EQ(0, b.Count());
 }
 
 //=============================================================================

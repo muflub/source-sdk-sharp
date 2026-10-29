@@ -16,17 +16,17 @@ class CPhysCollide;
 
 #include "gtest/gtest.h"
 
-TEST( VCollideLayout, TheKeyValueTextIsAtOffsetSixteen )
+TEST(VCollideLayout, TheKeyValueTextIsAtOffsetSixteen)
 {
-	EXPECT_EQ( 16u, offsetof( vcollide_t, pKeyValues ) );
+	EXPECT_EQ(16u, offsetof(vcollide_t, pKeyValues));
 }
 
-TEST( VCollideLayout, TheSolidsPointerIsAtOffsetEight )
+TEST(VCollideLayout, TheSolidsPointerIsAtOffsetEight)
 {
-	EXPECT_EQ( 8u, offsetof( vcollide_t, solids ) );
+	EXPECT_EQ(8u, offsetof(vcollide_t, solids));
 }
 
-TEST( VCollideLayout, TheStructIsTwentyFourBytes )
+TEST(VCollideLayout, TheStructIsTwentyFourBytes)
 {
-	EXPECT_EQ( 24u, sizeof( vcollide_t ) );
+	EXPECT_EQ(24u, sizeof(vcollide_t));
 }

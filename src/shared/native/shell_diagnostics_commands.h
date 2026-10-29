@@ -17,4 +17,4 @@ typedef IManagedDiagnosticsClient ManagedDiagnosticsArea_t;
 // The process-wide crossing counters, asked of this load's diagnostics area (NULL
 // outside a load). bReset closes the interval: the report printed is the one just
 // ended, and the counters start again at zero.
-void SourceSharp_PrintCrossings( ManagedDiagnosticsArea_t *pDiagnostics, bool bReset );
+void SourceSharp_PrintCrossings(ManagedDiagnosticsArea_t* pDiagnostics, bool bReset);

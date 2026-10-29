@@ -58,21 +58,21 @@
 #include "materialsystem/imaterial.h"
 
 #ifndef tmZone
-#define tmZone( ... )
+#define tmZone(...)
 #endif
 
 #ifndef DECLARE_CLASS
-#define DECLARE_CLASS( className, baseClassName ) \
-	typedef baseClassName BaseClass;              \
+#define DECLARE_CLASS(className, baseClassName) \
+	typedef baseClassName BaseClass;            \
 	typedef className ThisClass;
 #endif
 
 //-----------------------------------------------------------------------------
 // The log, and the subject's console output into it.
 //-----------------------------------------------------------------------------
-void PixelVisLog( const char *pFmt, ... ) FMTFUNCTION( 1, 2 );
-void PixelVisDevMsg( int level, const char *pFmt, ... ) FMTFUNCTION( 2, 3 );
-void PixelVisMsg( const char *pFmt, ... ) FMTFUNCTION( 1, 2 );
+void PixelVisLog(const char* pFmt, ...) FMTFUNCTION(1, 2);
+void PixelVisDevMsg(int level, const char* pFmt, ...) FMTFUNCTION(2, 3);
+void PixelVisMsg(const char* pFmt, ...) FMTFUNCTION(1, 2);
 #define DevMsg PixelVisDevMsg
 #define Msg PixelVisMsg
 
@@ -86,7 +86,7 @@ struct PixelVisGlobals_t
 	float curtime;
 };
 
-extern PixelVisGlobals_t *gpGlobals;
+extern PixelVisGlobals_t* gpGlobals;
 
 class IPixelVisEngine
 {
@@ -94,7 +94,7 @@ public:
 	int GetDXSupportLevel();
 };
 
-extern IPixelVisEngine *engine;
+extern IPixelVisEngine* engine;
 
 //-----------------------------------------------------------------------------
 // The game-system base the subject derives from (its two stages).
@@ -102,7 +102,7 @@ extern IPixelVisEngine *engine;
 class CAutoGameSystem
 {
 public:
-	explicit CAutoGameSystem( const char *pszName ) {}
+	explicit CAutoGameSystem(const char* pszName) {}
 
 	virtual ~CAutoGameSystem() {}
 
@@ -115,10 +115,10 @@ public:
 // The current view (view.h) and VR (sourcevr: never).
 //-----------------------------------------------------------------------------
 int CurrentViewID();
-const Vector &CurrentViewOrigin();
-const Vector &CurrentViewForward();
-const Vector &CurrentViewRight();
-const Vector &CurrentViewUp();
+const Vector& CurrentViewOrigin();
+const Vector& CurrentViewForward();
+const Vector& CurrentViewRight();
+const Vector& CurrentViewUp();
 
 inline bool UseVR()
 {
@@ -137,7 +137,7 @@ public:
 class IClientUnknown : public IHandleEntity
 {
 public:
-	virtual ICollideable *GetCollideable() = 0;
+	virtual ICollideable* GetCollideable() = 0;
 };
 
 // GlowSightDistance's zoom factor: this build's local-player accessor answers
@@ -145,7 +145,7 @@ public:
 class C_BasePlayer
 {
 public:
-	static C_BasePlayer *GetLocalPlayer() { return NULL; }
+	static C_BasePlayer* GetLocalPlayer() { return NULL; }
 
 	float GetFOVDistanceAdjustFactor() { return 1.0f; }
 };
@@ -156,10 +156,10 @@ public:
 class CTraceFilterSimple : public CTraceFilter
 {
 public:
-	CTraceFilterSimple( const IHandleEntity *passentity, int collisionGroup );
-	virtual bool ShouldHitEntity( IHandleEntity *pHandleEntity, int contentsMask );
+	CTraceFilterSimple(const IHandleEntity* passentity, int collisionGroup);
+	virtual bool ShouldHitEntity(IHandleEntity* pHandleEntity, int contentsMask);
 
-	const IHandleEntity *m_pPassEnt;
+	const IHandleEntity* m_pPassEnt;
 	int m_collisionGroup;
 };
 
@@ -169,7 +169,7 @@ public:
 //-----------------------------------------------------------------------------
 struct csurface_t
 {
-	const char *name;
+	const char* name;
 	short surfaceProps;
 	unsigned short flags;
 };
@@ -182,32 +182,32 @@ public:
 	csurface_t surface;
 	int hitgroup;
 	short physicsbone;
-	IHandleEntity *m_pEnt;
+	IHandleEntity* m_pEnt;
 	int hitbox;
 };
 
 typedef CGameTrace trace_t;
 
-void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, ITraceFilter *pFilter,
-					 trace_t *ptr );
+void UTIL_TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, ITraceFilter* pFilter,
+					trace_t* ptr);
 
 //-----------------------------------------------------------------------------
 // clienteffectprecachesystem.h's registration: the list is a row of the log.
 //-----------------------------------------------------------------------------
 struct PixelVisPrecache_t
 {
-	PixelVisPrecache_t( const char *pszName, const char *const *ppszMaterials, int nMaterials );
+	PixelVisPrecache_t(const char* pszName, const char* const* ppszMaterials, int nMaterials);
 };
 
-#define CLIENTEFFECT_REGISTER_BEGIN( className )             \
+#define CLIENTEFFECT_REGISTER_BEGIN(className)               \
 	namespace className                                      \
 	{                                                        \
-	static const char *const s_pszRegisterName = #className; \
-	static const char *const s_pszRegisterMaterials[] = {
-#define CLIENTEFFECT_MATERIAL( materialName ) materialName,
-#define CLIENTEFFECT_REGISTER_END()                                                  \
-	}                                                                                \
-	;                                                                                \
-	static PixelVisPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, \
-										  ARRAYSIZE( s_pszRegisterMaterials ) );     \
+	static const char* const s_pszRegisterName = #className; \
+	static const char* const s_pszRegisterMaterials[] = {
+#define CLIENTEFFECT_MATERIAL(materialName) materialName,
+#define CLIENTEFFECT_REGISTER_END()                                                 \
+	}                                                                               \
+	;                                                                               \
+	static PixelVisPrecache_t s_Register(s_pszRegisterName, s_pszRegisterMaterials, \
+										 ARRAYSIZE(s_pszRegisterMaterials));        \
 	}

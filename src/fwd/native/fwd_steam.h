@@ -22,7 +22,7 @@ int SSFwd_SteamCallback_SizeOf();
 // Builds the callback in pMemory (SizeOf bytes, pointer-aligned) over its
 // managed side, and answers the CCallbackBase * Steam registers. NULL, and
 // nothing built, without memory or a target.
-CCallbackBase *SSFwd_SteamCallback_Construct( void *pMemory, IManagedSteamCallback *pTarget, int nPayloadBytes );
+CCallbackBase* SSFwd_SteamCallback_Construct(void* pMemory, IManagedSteamCallback* pTarget, int nPayloadBytes);
 
 // Whether Steam holds the callback: unregister it before freeing it only then.
-bool SSFwd_SteamCallback_IsRegistered( CCallbackBase *pCallback );
+bool SSFwd_SteamCallback_IsRegistered(CCallbackBase* pCallback);

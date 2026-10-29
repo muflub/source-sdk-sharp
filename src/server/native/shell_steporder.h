@@ -19,7 +19,7 @@ public:
 	};
 
 	// Arms for the next CheckTransmit, or the next whose recipient is nOnlyRecipient.
-	void Arm( int nOnlyRecipient = -1 )
+	void Arm(int nOnlyRecipient = -1)
 	{
 		m_bArmed = true;
 		m_nOnlyRecipient = nOnlyRecipient;
@@ -37,12 +37,12 @@ public:
 	// leaves the set unchanged.
 	int SkyboxArea() const { return m_nSkyboxArea; }
 
-	void SetSkyboxArea( int nArea ) { m_nSkyboxArea = nArea; }
+	void SetSkyboxArea(int nArea) { m_nSkyboxArea = nArea; }
 
 	// Begins a capture if one is armed; false on every other frame.
-	bool BeginCapture( int nRecipientEdict )
+	bool BeginCapture(int nRecipientEdict)
 	{
-		if ( !m_bArmed || ( m_nOnlyRecipient >= 0 && nRecipientEdict != m_nOnlyRecipient ) )
+		if (!m_bArmed || (m_nOnlyRecipient >= 0 && nRecipientEdict != m_nOnlyRecipient))
 			return false;
 
 		m_bArmed = false;
@@ -50,28 +50,28 @@ public:
 		m_nRecipient = nRecipientEdict;
 		m_nCount = 0;
 		m_nSkyboxArea = 0;
-		memset( m_Words, 0, sizeof( m_Words ) );
+		memset(m_Words, 0, sizeof(m_Words));
 		return true;
 	}
 
-	void Mark( int iEdict )
+	void Mark(int iEdict)
 	{
-		if ( iEdict < 0 || iEdict >= kMaxEdicts )
+		if (iEdict < 0 || iEdict >= kMaxEdicts)
 			return;
 		const int w = iEdict / 32;
-		const unsigned int bit = 1u << ( iEdict % 32 );
-		if ( ( m_Words[w] & bit ) == 0 )
+		const unsigned int bit = 1u << (iEdict % 32);
+		if ((m_Words[w] & bit) == 0)
 		{
 			m_Words[w] |= bit;
 			m_nCount++;
 		}
 	}
 
-	bool IsSet( int iEdict ) const
+	bool IsSet(int iEdict) const
 	{
-		if ( iEdict < 0 || iEdict >= kMaxEdicts )
+		if (iEdict < 0 || iEdict >= kMaxEdicts)
 			return false;
-		return ( m_Words[iEdict / 32] & ( 1u << ( iEdict % 32 ) ) ) != 0;
+		return (m_Words[iEdict / 32] & (1u << (iEdict % 32))) != 0;
 	}
 
 private:

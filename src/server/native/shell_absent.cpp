@@ -18,5 +18,5 @@
 
 #include "ss_takedamageinfo.h"
 
-uint32_t SourceSharp_HandleFromEntity( IGameEntity *pEntity );
+uint32_t SourceSharp_HandleFromEntity(IGameEntity* pEntity);
 class CFunctor;

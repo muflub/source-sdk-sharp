@@ -21,19 +21,19 @@ class CBaseHandle
 
 public:
 	CBaseHandle();
-	CBaseHandle( INVALID_EHANDLE_tag );
-	CBaseHandle( const CBaseHandle &other );
-	explicit CBaseHandle( IHandleEntity *pHandleObj );
-	CBaseHandle( int iEntry, int iSerialNumber );
+	CBaseHandle(INVALID_EHANDLE_tag);
+	CBaseHandle(const CBaseHandle& other);
+	explicit CBaseHandle(IHandleEntity* pHandleObj);
+	CBaseHandle(int iEntry, int iSerialNumber);
 
 	// NOTE: The following constructor is not type-safe, and can allow creating an
 	//       arbitrary CBaseHandle that doesn't necessarily point to an actual object.
 	// It is your responsibility to ensure that the target of the handle actually points
 	// to the object you think it does.  Generally, the argument to this function should
 	// have been obtained from CBaseHandle::ToInt() on a valid handle.
-	static CBaseHandle UnsafeFromIndex( int index );
+	static CBaseHandle UnsafeFromIndex(int index);
 
-	void Init( int iEntry, int iSerialNumber );
+	void Init(int iEntry, int iSerialNumber);
 	void Term();
 
 	// Even if this returns true, Get() still can return return a non-null value.
@@ -44,18 +44,18 @@ public:
 	int GetSerialNumber() const;
 
 	int ToInt() const;
-	bool operator!=( const CBaseHandle &other ) const;
-	bool operator==( const CBaseHandle &other ) const;
-	bool operator==( const IHandleEntity *pEnt ) const;
-	bool operator!=( const IHandleEntity *pEnt ) const;
+	bool operator!=(const CBaseHandle& other) const;
+	bool operator==(const CBaseHandle& other) const;
+	bool operator==(const IHandleEntity* pEnt) const;
+	bool operator!=(const IHandleEntity* pEnt) const;
 
 	// Assign a value to the handle.
-	const CBaseHandle &operator=( const IHandleEntity *pEntity );
-	const CBaseHandle &Set( const IHandleEntity *pEntity );
+	const CBaseHandle& operator=(const IHandleEntity* pEntity);
+	const CBaseHandle& Set(const IHandleEntity* pEntity);
 
 	// Use this to dereference the handle.
 	// Note: this is implemented in game code (ehandle.h)
-	IHandleEntity *Get() const;
+	IHandleEntity* Get() const;
 
 protected:
 	// The low NUM_SERIAL_BITS hold the index. If this value is less than MAX_EDICTS, then the entity is networkable.
@@ -70,39 +70,39 @@ inline CBaseHandle::CBaseHandle()
 	m_Index = INVALID_EHANDLE_INDEX;
 }
 
-inline CBaseHandle::CBaseHandle( INVALID_EHANDLE_tag )
+inline CBaseHandle::CBaseHandle(INVALID_EHANDLE_tag)
 {
 	m_Index = INVALID_EHANDLE_INDEX;
 }
 
-inline CBaseHandle::CBaseHandle( const CBaseHandle &other )
+inline CBaseHandle::CBaseHandle(const CBaseHandle& other)
 {
 	m_Index = other.m_Index;
 }
 
-inline CBaseHandle::CBaseHandle( IHandleEntity *pEntity )
+inline CBaseHandle::CBaseHandle(IHandleEntity* pEntity)
 {
-	Set( pEntity );
+	Set(pEntity);
 }
 
-inline CBaseHandle::CBaseHandle( int iEntry, int iSerialNumber )
+inline CBaseHandle::CBaseHandle(int iEntry, int iSerialNumber)
 {
-	Init( iEntry, iSerialNumber );
+	Init(iEntry, iSerialNumber);
 }
 
-inline CBaseHandle CBaseHandle::UnsafeFromIndex( int index )
+inline CBaseHandle CBaseHandle::UnsafeFromIndex(int index)
 {
 	CBaseHandle ret;
 	ret.m_Index = index;
 	return ret;
 }
 
-inline void CBaseHandle::Init( int iEntry, int iSerialNumber )
+inline void CBaseHandle::Init(int iEntry, int iSerialNumber)
 {
-	Assert( iEntry >= 0 && ( iEntry & ENT_ENTRY_MASK ) == iEntry );
-	Assert( iSerialNumber >= 0 && iSerialNumber < ( 1 << NUM_SERIAL_NUM_BITS ) );
+	Assert(iEntry >= 0 && (iEntry & ENT_ENTRY_MASK) == iEntry);
+	Assert(iSerialNumber >= 0 && iSerialNumber < (1 << NUM_SERIAL_NUM_BITS));
 
-	m_Index = iEntry | ( iSerialNumber << NUM_SERIAL_NUM_SHIFT_BITS );
+	m_Index = iEntry | (iSerialNumber << NUM_SERIAL_NUM_SHIFT_BITS);
 }
 
 inline void CBaseHandle::Term()
@@ -129,7 +129,7 @@ inline int CBaseHandle::GetEntryIndex() const
 	// after a change to NUM_SERIAL_NUM_BITS increased the number of allowable
 	// static props in the world. So the if-stanza below detects this case and
 	// retains the prior (bug-submarining) behavior.
-	if ( !IsValid() )
+	if (!IsValid())
 		return NUM_ENT_ENTRIES - 1;
 	return m_Index & ENT_ENTRY_MASK;
 }
@@ -144,34 +144,34 @@ inline int CBaseHandle::ToInt() const
 	return (int)m_Index;
 }
 
-inline bool CBaseHandle::operator!=( const CBaseHandle &other ) const
+inline bool CBaseHandle::operator!=(const CBaseHandle& other) const
 {
 	return m_Index != other.m_Index;
 }
 
-inline bool CBaseHandle::operator==( const CBaseHandle &other ) const
+inline bool CBaseHandle::operator==(const CBaseHandle& other) const
 {
 	return m_Index == other.m_Index;
 }
 
-inline bool CBaseHandle::operator==( const IHandleEntity *pEnt ) const
+inline bool CBaseHandle::operator==(const IHandleEntity* pEnt) const
 {
 	return Get() == pEnt;
 }
 
-inline bool CBaseHandle::operator!=( const IHandleEntity *pEnt ) const
+inline bool CBaseHandle::operator!=(const IHandleEntity* pEnt) const
 {
 	return Get() != pEnt;
 }
 
-inline const CBaseHandle &CBaseHandle::operator=( const IHandleEntity *pEntity )
+inline const CBaseHandle& CBaseHandle::operator=(const IHandleEntity* pEntity)
 {
-	return Set( pEntity );
+	return Set(pEntity);
 }
 
-inline const CBaseHandle &CBaseHandle::Set( const IHandleEntity *pEntity )
+inline const CBaseHandle& CBaseHandle::Set(const IHandleEntity* pEntity)
 {
-	if ( pEntity )
+	if (pEntity)
 	{
 		*this = pEntity->GetRefEHandle();
 	}

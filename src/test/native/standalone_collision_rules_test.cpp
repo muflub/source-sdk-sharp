@@ -59,12 +59,12 @@ struct CountingObject
 // HAD a physics object, its solidity changed after that object was already in
 // the solver, and nothing asked vphysics again.
 //-----------------------------------------------------------------------------
-TEST( StandaloneCollisionRules, AnObjectIsAskedAgain )
+TEST(StandaloneCollisionRules, AnObjectIsAskedAgain)
 {
 	CountingObject object;
 
-	EXPECT_TRUE( SourceSharpCollisionRulesChanged( &object ) );
-	EXPECT_EQ( 1, object.nRechecks );
+	EXPECT_TRUE(SourceSharpCollisionRulesChanged(&object));
+	EXPECT_EQ(1, object.nRechecks);
 }
 
 //-----------------------------------------------------------------------------
@@ -73,15 +73,15 @@ TEST( StandaloneCollisionRules, AnObjectIsAskedAgain )
 // not free, and a caller that fired it twice for one change would be paying for
 // the whole list twice on every solidity change in the map.
 //-----------------------------------------------------------------------------
-TEST( StandaloneCollisionRules, ExactlyOnceEachTimeItIsAsked )
+TEST(StandaloneCollisionRules, ExactlyOnceEachTimeItIsAsked)
 {
 	CountingObject object;
 
-	SourceSharpCollisionRulesChanged( &object );
-	SourceSharpCollisionRulesChanged( &object );
-	SourceSharpCollisionRulesChanged( &object );
+	SourceSharpCollisionRulesChanged(&object);
+	SourceSharpCollisionRulesChanged(&object);
+	SourceSharpCollisionRulesChanged(&object);
 
-	EXPECT_EQ( 3, object.nRechecks );
+	EXPECT_EQ(3, object.nRechecks);
 }
 
 //-----------------------------------------------------------------------------
@@ -94,11 +94,11 @@ TEST( StandaloneCollisionRules, ExactlyOnceEachTimeItIsAsked )
 // no object" and "the object was told" have to be distinguishable, or a version
 // of this function that quietly did nothing at all would pass.
 //-----------------------------------------------------------------------------
-TEST( StandaloneCollisionRules, NoObjectIsAskedNothingAndSaysSo )
+TEST(StandaloneCollisionRules, NoObjectIsAskedNothingAndSaysSo)
 {
-	CountingObject *pNothing = nullptr;
+	CountingObject* pNothing = nullptr;
 
-	EXPECT_FALSE( SourceSharpCollisionRulesChanged( pNothing ) );
+	EXPECT_FALSE(SourceSharpCollisionRulesChanged(pNothing));
 }
 
 //-----------------------------------------------------------------------------
@@ -112,15 +112,15 @@ TEST( StandaloneCollisionRules, NoObjectIsAskedNothingAndSaysSo )
 // VPHYSICS_MAX_OBJECT_LIST_COUNT) and a port that carried the walk across
 // without the list would be reading past the one object it has.
 //-----------------------------------------------------------------------------
-TEST( StandaloneCollisionRules, TellingOneObjectDoesNotTouchAnother )
+TEST(StandaloneCollisionRules, TellingOneObjectDoesNotTouchAnother)
 {
 	CountingObject mine;
 	CountingObject somebodyElses;
 
-	SourceSharpCollisionRulesChanged( &mine );
+	SourceSharpCollisionRulesChanged(&mine);
 
-	EXPECT_EQ( 1, mine.nRechecks );
-	EXPECT_EQ( 0, somebodyElses.nRechecks );
+	EXPECT_EQ(1, mine.nRechecks);
+	EXPECT_EQ(0, somebodyElses.nRechecks);
 }
 
 //-----------------------------------------------------------------------------
@@ -130,20 +130,20 @@ TEST( StandaloneCollisionRules, TellingOneObjectDoesNotTouchAnother )
 // would make the two arms agree for a reason that has nothing to do with the
 // bug.
 //-----------------------------------------------------------------------------
-TEST( StandaloneCollisionRules, DisarmedAsksNothing )
+TEST(StandaloneCollisionRules, DisarmedAsksNothing)
 {
 	CountingObject object;
 
-	EXPECT_FALSE( SourceSharpCollisionRulesChanged( &object, false ) );
-	EXPECT_EQ( 0, object.nRechecks );
+	EXPECT_FALSE(SourceSharpCollisionRulesChanged(&object, false));
+	EXPECT_EQ(0, object.nRechecks);
 }
 
-TEST( StandaloneCollisionRules, ArmedAsksExactlyAsTheUnswitchedRuleDoes )
+TEST(StandaloneCollisionRules, ArmedAsksExactlyAsTheUnswitchedRuleDoes)
 {
 	CountingObject object;
 
-	EXPECT_TRUE( SourceSharpCollisionRulesChanged( &object, true ) );
-	EXPECT_EQ( 1, object.nRechecks );
+	EXPECT_TRUE(SourceSharpCollisionRulesChanged(&object, true));
+	EXPECT_EQ(1, object.nRechecks);
 }
 
 //-----------------------------------------------------------------------------
@@ -151,11 +151,11 @@ TEST( StandaloneCollisionRules, ArmedAsksExactlyAsTheUnswitchedRuleDoes )
 // conditions are independent and the switch must not turn a missing object into
 // a claim that something was told.
 //-----------------------------------------------------------------------------
-TEST( StandaloneCollisionRules, ArmedWithNoObjectAsksNothing )
+TEST(StandaloneCollisionRules, ArmedWithNoObjectAsksNothing)
 {
-	CountingObject *pNothing = nullptr;
+	CountingObject* pNothing = nullptr;
 
-	EXPECT_FALSE( SourceSharpCollisionRulesChanged( pNothing, true ) );
+	EXPECT_FALSE(SourceSharpCollisionRulesChanged(pNothing, true));
 }
 
 } // namespace

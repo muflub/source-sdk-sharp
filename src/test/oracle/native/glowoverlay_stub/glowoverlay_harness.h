@@ -62,7 +62,7 @@
 //-----------------------------------------------------------------------------
 // The log.
 //-----------------------------------------------------------------------------
-void GlowLog( const char *pFmt, ... ) FMTFUNCTION( 1, 2 );
+void GlowLog(const char* pFmt, ...) FMTFUNCTION(1, 2);
 
 //-----------------------------------------------------------------------------
 // The client's globals.
@@ -74,7 +74,7 @@ struct GlowGlobals_t
 	float curtime;
 };
 
-extern GlowGlobals_t *gpGlobals;
+extern GlowGlobals_t* gpGlobals;
 
 //-----------------------------------------------------------------------------
 // The game-system base glow_overlay.cpp's system derives from.
@@ -82,7 +82,7 @@ extern GlowGlobals_t *gpGlobals;
 class CAutoGameSystem
 {
 public:
-	explicit CAutoGameSystem( const char *pszName ) {}
+	explicit CAutoGameSystem(const char* pszName) {}
 
 	virtual ~CAutoGameSystem() {}
 
@@ -95,8 +95,8 @@ public:
 // The current view (view.h), the view render's setup and frustum
 // (iviewrender.h, view_shared.h), the frustum cull and the wireframe question.
 //-----------------------------------------------------------------------------
-const Vector &CurrentViewOrigin();
-const Vector &CurrentViewForward();
+const Vector& CurrentViewOrigin();
+const Vector& CurrentViewForward();
 
 class CViewSetup
 {
@@ -107,13 +107,13 @@ public:
 class CGlowViewRender
 {
 public:
-	const CViewSetup *GetViewSetup() const;
-	VPlane *GetFrustum();
+	const CViewSetup* GetViewSetup() const;
+	VPlane* GetFrustum();
 };
 
-extern CGlowViewRender *view;
+extern CGlowViewRender* view;
 
-bool R_CullSphere( VPlane const *pPlanes, int nPlanes, Vector const *pCenter, float radius );
+bool R_CullSphere(VPlane const* pPlanes, int nPlanes, Vector const* pCenter, float radius);
 bool ShouldDrawInWireFrameMode();
 
 //-----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ bool ShouldDrawInWireFrameMode();
 //-----------------------------------------------------------------------------
 struct csurface_t
 {
-	const char *name;
+	const char* name;
 	short surfaceProps;
 	unsigned short flags;
 };
@@ -132,20 +132,20 @@ public:
 	csurface_t surface;
 	int hitgroup;
 	short physicsbone;
-	IHandleEntity *m_pEnt;
+	IHandleEntity* m_pEnt;
 	int hitbox;
 };
 
 typedef CGameTrace trace_t;
 
-void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, const IHandleEntity *ignore,
-					 int collisionGroup, trace_t *ptr );
+void UTIL_TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, const IHandleEntity* ignore,
+					int collisionGroup, trace_t* ptr);
 
 //-----------------------------------------------------------------------------
 // VPROF (tier0/vprof.h is shadowed by glowoverlay_stub/tier0/vprof.h).
 //-----------------------------------------------------------------------------
 #ifndef VPROF
-#define VPROF( name )
+#define VPROF(name)
 #endif
 
 //-----------------------------------------------------------------------------
@@ -153,18 +153,17 @@ void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigne
 //-----------------------------------------------------------------------------
 struct GlowPrecache_t
 {
-	GlowPrecache_t( const char *pszName, const char *const *ppszMaterials, int nMaterials );
+	GlowPrecache_t(const char* pszName, const char* const* ppszMaterials, int nMaterials);
 };
 
-#define CLIENTEFFECT_REGISTER_BEGIN( className )             \
+#define CLIENTEFFECT_REGISTER_BEGIN(className)               \
 	namespace className                                      \
 	{                                                        \
-	static const char *const s_pszRegisterName = #className; \
-	static const char *const s_pszRegisterMaterials[] = {
-#define CLIENTEFFECT_MATERIAL( materialName ) materialName,
-#define CLIENTEFFECT_REGISTER_END()                                              \
-	}                                                                            \
-	;                                                                            \
-	static GlowPrecache_t s_Register( s_pszRegisterName, s_pszRegisterMaterials, \
-									  ARRAYSIZE( s_pszRegisterMaterials ) );     \
+	static const char* const s_pszRegisterName = #className; \
+	static const char* const s_pszRegisterMaterials[] = {
+#define CLIENTEFFECT_MATERIAL(materialName) materialName,
+#define CLIENTEFFECT_REGISTER_END()                                                                                 \
+	}                                                                                                               \
+	;                                                                                                               \
+	static GlowPrecache_t s_Register(s_pszRegisterName, s_pszRegisterMaterials, ARRAYSIZE(s_pszRegisterMaterials)); \
 	}

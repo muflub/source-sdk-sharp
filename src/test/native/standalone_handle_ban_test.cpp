@@ -63,11 +63,11 @@ class CStandaloneEntity;
 #include "basehandle.h"
 #include "ehandle.h"
 
-#if !defined( STANDALONE_HANDLE_BAN_ABSENT )
+#if !defined(STANDALONE_HANDLE_BAN_ABSENT)
 #include "standalone_handle_ban.h"
 #endif
 
-#if defined( STANDALONE_HANDLE_BAN_NOCOMPILE )
+#if defined(STANDALONE_HANDLE_BAN_NOCOMPILE)
 
 //-----------------------------------------------------------------------------
 // THE ILL-FORMED PROGRAM. One object of the banned type.
@@ -80,13 +80,13 @@ class CStandaloneEntity;
 //-----------------------------------------------------------------------------
 CHandle<CStandaloneEntity> g_hShell;
 
-TEST( StandaloneHandleBan, TheControlLegCompilesTheBannedTypeWhenTheBanIsAbsent )
+TEST(StandaloneHandleBan, TheControlLegCompilesTheBannedTypeWhenTheBanIsAbsent)
 {
 	// Reached only by the control leg. It exists so that leg RUNS something
 	// rather than merely linking: a control that compiles an unused object
 	// would still pass if the compiler folded it away.
-	EXPECT_FALSE( g_hShell.IsValid() ) << "a default-constructed handle is invalid; if this fails, the control "
-										  "leg is not exercising CHandle at all";
+	EXPECT_FALSE(g_hShell.IsValid()) << "a default-constructed handle is invalid; if this fails, the control "
+										"leg is not exercising CHandle at all";
 }
 
 #else // !STANDALONE_HANDLE_BAN_NOCOMPILE
@@ -100,11 +100,11 @@ TEST( StandaloneHandleBan, TheControlLegCompilesTheBannedTypeWhenTheBanIsAbsent 
 // or take a sizeof. Pinned so that a later, wider ban (one that broke this)
 // would be a deliberate change rather than a silent one.
 //-----------------------------------------------------------------------------
-TEST( StandaloneHandleBan, APointerToTheBannedTypeIsStillNameable )
+TEST(StandaloneHandleBan, APointerToTheBannedTypeIsStillNameable)
 {
-	CHandle<CStandaloneEntity> *pBanned = 0;
+	CHandle<CStandaloneEntity>* pBanned = 0;
 
-	EXPECT_EQ( (void *)0, (void *)pBanned );
+	EXPECT_EQ((void*)0, (void*)pBanned);
 }
 
 //-----------------------------------------------------------------------------
@@ -113,9 +113,9 @@ TEST( StandaloneHandleBan, APointerToTheBannedTypeIsStillNameable )
 // class you CAN instantiate — and every probe above would go green while the
 // property they stand for was gone.
 //-----------------------------------------------------------------------------
-static std::string ReadFile( const char *pszPath )
+static std::string ReadFile(const char* pszPath)
 {
-	std::ifstream in( pszPath );
+	std::ifstream in(pszPath);
 	std::stringstream ss;
 	ss << in.rdbuf();
 	return ss.str();
@@ -126,10 +126,10 @@ static std::string ReadFile( const char *pszPath )
 // Unset reads as empty, which the caller asserts against.
 static std::string ReadManifest()
 {
-	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
-	if ( !pszRepo || !*pszRepo )
+	const char* pszRepo = getenv("SOURCESHARP_REPO");
+	if (!pszRepo || !*pszRepo)
 		return std::string();
-	return ReadFile( ( std::string( pszRepo ) + "/src/test/native/CMakeLists.txt" ).c_str() );
+	return ReadFile((std::string(pszRepo) + "/src/test/native/CMakeLists.txt").c_str());
 }
 
 //-----------------------------------------------------------------------------
@@ -149,19 +149,19 @@ static std::string ReadManifest()
 // printing. Deleting the CONTROL is silent: the refusal still happens, still
 // matches, and nothing left says WHY it happens. So both names are pinned.
 //-----------------------------------------------------------------------------
-TEST( StandaloneHandleBan, TheBuildScriptCarriesBothLegs )
+TEST(StandaloneHandleBan, TheBuildScriptCarriesBothLegs)
 {
 	const std::string s = ReadManifest();
 
-	ASSERT_FALSE( s.empty() ) << "src/test/native/CMakeLists.txt is missing or "
-								 "SOURCESHARP_REPO is unset (ctest sets it)";
+	ASSERT_FALSE(s.empty()) << "src/test/native/CMakeLists.txt is missing or "
+							   "SOURCESHARP_REPO is unset (ctest sets it)";
 
 	// At the start of a line and up to the end of the name: see the client
 	// twin of this fact for the mutation that made both anchors necessary.
-	EXPECT_NE( std::string::npos, s.find( "\nss_must_not_compile(standalone_handle_ban\n" ) )
+	EXPECT_NE(std::string::npos, s.find("\nss_must_not_compile(standalone_handle_ban\n"))
 		<< "the refusal leg is gone; nothing checks that the ban bans anything.";
 
-	EXPECT_NE( std::string::npos, s.find( "\nss_cpptest(standalone_handle_ban_absent\n" ) )
+	EXPECT_NE(std::string::npos, s.find("\nss_cpptest(standalone_handle_ban_absent\n"))
 		<< "the CONTROL leg is gone. Without it the refusal is evidence of "
 		   "nothing -- a typo in the probe refuses just as loudly.";
 }

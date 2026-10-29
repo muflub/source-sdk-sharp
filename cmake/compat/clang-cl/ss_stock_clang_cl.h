@@ -25,15 +25,15 @@
 #pragma once
 
 #include "tier0/platform.h"
-#pragma push_macro( "RESTRICT" )
+#pragma push_macro("RESTRICT")
 #undef RESTRICT
 #define RESTRICT
 #include "tier1/bitbuf.h"
-#pragma pop_macro( "RESTRICT" )
+#pragma pop_macro("RESTRICT")
 
 #include "mathlib/vector.h"
 #include "mathlib/mathlib.h"
-#pragma push_macro( "POSIX" )
+#pragma push_macro("POSIX")
 #define POSIX 1
 #include "mathlib/ssemath.h"
-#pragma pop_macro( "POSIX" )
+#pragma pop_macro("POSIX")

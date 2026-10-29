@@ -22,7 +22,7 @@
 
 // Checks the value view_subject.h restates against the enum it came from.
 
-COMPILE_TIME_ASSERT( ViewSubject::WATER_LEVEL_EYES == WL_Eyes );
+COMPILE_TIME_ASSERT(ViewSubject::WATER_LEVEL_EYES == WL_Eyes);
 
 #include "sourcesharp.h"
 
@@ -31,17 +31,17 @@ bool SourceSharp_HasLocalViewer()
 	return SourceSharp_LocalPlayerShell() != NULL;
 }
 
-bool SourceSharp_ViewerAbsPosition( Vector *pOrigin, QAngle *pAngles )
+bool SourceSharp_ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles)
 {
-	C_StandaloneEntity *pPlayer = SourceSharp_LocalPlayerShell();
+	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
 
-	if ( !pPlayer )
+	if (!pPlayer)
 		return false;
 
-	if ( pOrigin )
+	if (pOrigin)
 		*pOrigin = pPlayer->GetAbsOrigin();
 
-	if ( pAngles )
+	if (pAngles)
 		*pAngles = pPlayer->GetAbsAngles();
 
 	return true;
@@ -50,50 +50,50 @@ bool SourceSharp_ViewerAbsPosition( Vector *pOrigin, QAngle *pAngles )
 // The engine's view entity, when it is not this client's own player.
 // GetClientEntity rather than GetEnt: a managed entity has no C_BaseEntity, and
 // IClientEntity is what both hierarchies implement.
-bool SourceSharp_ViewEntityPose( Vector *pOrigin, QAngle *pAngles )
+bool SourceSharp_ViewEntityPose(Vector* pOrigin, QAngle* pAngles)
 {
 	const int nViewEntity = render->GetViewEntity();
 
-	if ( !ViewSubject::ViewEntityOverridesTheEye( nViewEntity, engine->GetLocalPlayer() ) )
+	if (!ViewSubject::ViewEntityOverridesTheEye(nViewEntity, engine->GetLocalPlayer()))
 		return false;
 
-	IClientEntity *pViewEntity = SourceSharp_ClientEntityFromIndex( nViewEntity );
+	IClientEntity* pViewEntity = SourceSharp_ClientEntityFromIndex(nViewEntity);
 
-	if ( !pViewEntity )
+	if (!pViewEntity)
 		return false;
 
-	if ( pOrigin )
+	if (pOrigin)
 		*pOrigin = pViewEntity->GetAbsOrigin();
 
-	if ( pAngles )
+	if (pAngles)
 		*pAngles = pViewEntity->GetAbsAngles();
 
 	return true;
 }
 
 // Read from the engine block, the one copy of an entity's EF_* bits.
-bool SourceSharp_ViewerEffectActive( int nEffectBits )
+bool SourceSharp_ViewerEffectActive(int nEffectBits)
 {
-	C_StandaloneEntity *pPlayer = SourceSharp_LocalPlayerShell();
+	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
 
-	if ( !pPlayer )
+	if (!pPlayer)
 		return false;
 
-	return ViewSubject::EffectActive( pPlayer->Block().Head.Effects, nEffectBits );
+	return ViewSubject::EffectActive(pPlayer->Block().Head.Effects, nEffectBits);
 }
 
 // The sound listener is underwater when the viewer's eyes are (stock:
 // GetWaterLevel() >= WL_Eyes). vecMainViewOrigin, stock's spectator input, is unused.
-bool SourceSharp_ViewerAudioIsUnderwater( const Vector &vecMainViewOrigin )
+bool SourceSharp_ViewerAudioIsUnderwater(const Vector& vecMainViewOrigin)
 {
-	NOTE_UNUSED( vecMainViewOrigin );
+	NOTE_UNUSED(vecMainViewOrigin);
 
-	C_StandaloneEntity *pPlayer = SourceSharp_LocalPlayerShell();
+	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
 
-	if ( !pPlayer )
+	if (!pPlayer)
 		return false;
 
-	return ViewSubject::AudioIsUnderwater( pPlayer->Block().Head.WaterLevel );
+	return ViewSubject::AudioIsUnderwater(pPlayer->Block().Head.WaterLevel);
 }
 
 // The viewer's world fog, as managed code pushes it. NULL until something has
@@ -104,17 +104,17 @@ static bool g_bHaveViewerFog = false;
 
 // CNetworkColor32 wants its four components set, not an address written through.
 template <typename T>
-static void SourceSharp_UnpackViewerColor32( uint32_t packed, T &out )
+static void SourceSharp_UnpackViewerColor32(uint32_t packed, T& out)
 {
-	out.SetR( (unsigned char)( packed & 0xFF ) );
-	out.SetG( (unsigned char)( ( packed >> 8 ) & 0xFF ) );
-	out.SetB( (unsigned char)( ( packed >> 16 ) & 0xFF ) );
-	out.SetA( (unsigned char)( ( packed >> 24 ) & 0xFF ) );
+	out.SetR((unsigned char)(packed & 0xFF));
+	out.SetG((unsigned char)((packed >> 8) & 0xFF));
+	out.SetB((unsigned char)((packed >> 16) & 0xFF));
+	out.SetA((unsigned char)((packed >> 24) & 0xFF));
 }
 
-void SourceSharp_SetViewerFogParams( const SourceSharpFogParams *pParams )
+void SourceSharp_SetViewerFogParams(const SourceSharpFogParams* pParams)
 {
-	if ( !pParams )
+	if (!pParams)
 	{
 		// Cleared, which is not "fog off".
 		g_bHaveViewerFog = false;
@@ -125,10 +125,10 @@ void SourceSharp_SetViewerFogParams( const SourceSharpFogParams *pParams )
 	g_ViewerFog.blend = pParams->Blend != 0;
 	g_ViewerFog.radial = pParams->Radial != 0;
 
-	g_ViewerFog.dirPrimary = Vector( pParams->DirPrimaryXYZ[0], pParams->DirPrimaryXYZ[1], pParams->DirPrimaryXYZ[2] );
+	g_ViewerFog.dirPrimary = Vector(pParams->DirPrimaryXYZ[0], pParams->DirPrimaryXYZ[1], pParams->DirPrimaryXYZ[2]);
 
-	SourceSharp_UnpackViewerColor32( pParams->ColorPrimary, g_ViewerFog.colorPrimary );
-	SourceSharp_UnpackViewerColor32( pParams->ColorSecondary, g_ViewerFog.colorSecondary );
+	SourceSharp_UnpackViewerColor32(pParams->ColorPrimary, g_ViewerFog.colorPrimary);
+	SourceSharp_UnpackViewerColor32(pParams->ColorSecondary, g_ViewerFog.colorSecondary);
 
 	// The lerp targets are the current values, not zero: GetFogColor blends towards
 	// them whenever lerptime is in the future. The server already ran the lerp.
@@ -147,9 +147,9 @@ void SourceSharp_SetViewerFogParams( const SourceSharpFogParams *pParams )
 	g_bHaveViewerFog = true;
 }
 
-fogparams_t *SourceSharp_ViewerFogParams()
+fogparams_t* SourceSharp_ViewerFogParams()
 {
-	if ( !g_bHaveViewerFog )
+	if (!g_bHaveViewerFog)
 	{
 		return NULL;
 	}
@@ -163,16 +163,16 @@ fogparams_t *SourceSharp_ViewerFogParams()
 static sky3dparams_t g_ViewerSkybox;
 static bool g_bHaveViewerSkybox = false;
 
-void SourceSharp_SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams )
+void SourceSharp_SetViewerSkyboxParams(const SourceSharpSkyboxParams* pParams)
 {
-	if ( !pParams )
+	if (!pParams)
 	{
 		// Cleared, which is not area 255.
 		g_bHaveViewerSkybox = false;
 		return;
 	}
 
-	g_ViewerSkybox.origin = Vector( pParams->OriginXYZ[0], pParams->OriginXYZ[1], pParams->OriginXYZ[2] );
+	g_ViewerSkybox.origin = Vector(pParams->OriginXYZ[0], pParams->OriginXYZ[1], pParams->OriginXYZ[2]);
 	g_ViewerSkybox.scale = pParams->Scale;
 	g_ViewerSkybox.area = pParams->Area;
 
@@ -181,10 +181,10 @@ void SourceSharp_SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams )
 	g_ViewerSkybox.fog.radial = pParams->FogRadial != 0;
 
 	g_ViewerSkybox.fog.dirPrimary =
-		Vector( pParams->FogDirPrimaryXYZ[0], pParams->FogDirPrimaryXYZ[1], pParams->FogDirPrimaryXYZ[2] );
+		Vector(pParams->FogDirPrimaryXYZ[0], pParams->FogDirPrimaryXYZ[1], pParams->FogDirPrimaryXYZ[2]);
 
-	SourceSharp_UnpackViewerColor32( pParams->FogColorPrimary, g_ViewerSkybox.fog.colorPrimary );
-	SourceSharp_UnpackViewerColor32( pParams->FogColorSecondary, g_ViewerSkybox.fog.colorSecondary );
+	SourceSharp_UnpackViewerColor32(pParams->FogColorPrimary, g_ViewerSkybox.fog.colorPrimary);
+	SourceSharp_UnpackViewerColor32(pParams->FogColorSecondary, g_ViewerSkybox.fog.colorSecondary);
 
 	// The lerp targets are the current values, as for the world fog above.
 	g_ViewerSkybox.fog.colorPrimaryLerpTo = g_ViewerSkybox.fog.colorPrimary;
@@ -203,9 +203,9 @@ void SourceSharp_SetViewerSkyboxParams( const SourceSharpSkyboxParams *pParams )
 	g_bHaveViewerSkybox = true;
 }
 
-sky3dparams_t *SourceSharp_ViewerSkyboxParams()
+sky3dparams_t* SourceSharp_ViewerSkyboxParams()
 {
-	if ( !g_bHaveViewerSkybox )
+	if (!g_bHaveViewerSkybox)
 		return NULL;
 
 	return &g_ViewerSkybox;
@@ -215,18 +215,18 @@ sky3dparams_t *SourceSharp_ViewerSkyboxParams()
 // model leaves or joins the leaf system that frame rather than the next.
 void SourceSharp_ViewerCameraModeChanged()
 {
-	if ( C_StandaloneEntity *pPlayer = SourceSharp_LocalPlayerShell() )
+	if (C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell())
 		pPlayer->UpdateVisibility();
 }
 
 // HL2 aim assist: neither end of m_bAutoAimTarget's wire is in this build.
 bool SourceSharp_ViewerAimIsAssisted()
 {
-	SourceSharp_NotShipped( "HL2 autoaim assist (client)",
-							"CHL2_PlayerLocalData::m_bAutoAimTarget is written on the server by "
-							"hl2_player.cpp and networked through DT_HL2Local; neither file is in "
-							"this build and the state is not in the managed player's networked "
-							"declaration, so the joystick never dampens onto a target" );
+	SourceSharp_NotShipped("HL2 autoaim assist (client)",
+						   "CHL2_PlayerLocalData::m_bAutoAimTarget is written on the server by "
+						   "hl2_player.cpp and networked through DT_HL2Local; neither file is in "
+						   "this build and the state is not in the managed player's networked "
+						   "declaration, so the joystick never dampens onto a target");
 
 	return false;
 }

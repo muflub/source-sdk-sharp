@@ -60,34 +60,34 @@ namespace
 // CMake build (build/) the tool reads by default beside it. entity_census_test's list,
 // for its reasons.
 //-----------------------------------------------------------------------------
-const char *WorktreeRoot()
+const char* WorktreeRoot()
 {
-	static const char *kCandidates[] = { ".", "..", "../..", "../../.." };
-	for ( size_t i = 0; i < sizeof( kCandidates ) / sizeof( kCandidates[0] ); i++ )
+	static const char* kCandidates[] = {".", "..", "../..", "../../.."};
+	for (size_t i = 0; i < sizeof(kCandidates) / sizeof(kCandidates[0]); i++)
 	{
-		std::string szProbe = std::string( kCandidates[i] ) + "/tools/dead-conditionals";
+		std::string szProbe = std::string(kCandidates[i]) + "/tools/dead-conditionals";
 		struct stat st;
-		if ( stat( szProbe.c_str(), &st ) == 0 && S_ISREG( st.st_mode ) )
+		if (stat(szProbe.c_str(), &st) == 0 && S_ISREG(st.st_mode))
 			return kCandidates[i];
 	}
 	return NULL;
 }
 
-std::string RootPath( const char *pszRelative )
+std::string RootPath(const char* pszRelative)
 {
-	const char *pszRoot = WorktreeRoot();
-	if ( !pszRoot )
+	const char* pszRoot = WorktreeRoot();
+	if (!pszRoot)
 		return std::string();
-	return std::string( pszRoot ) + "/" + pszRelative;
+	return std::string(pszRoot) + "/" + pszRelative;
 }
 
-bool WriteFile( const std::string &szPath, const std::string &szBody )
+bool WriteFile(const std::string& szPath, const std::string& szBody)
 {
-	FILE *pFile = fopen( szPath.c_str(), "wb" );
-	if ( !pFile )
+	FILE* pFile = fopen(szPath.c_str(), "wb");
+	if (!pFile)
 		return false;
-	const size_t cWrote = fwrite( szBody.data(), 1, szBody.size(), pFile );
-	fclose( pFile );
+	const size_t cWrote = fwrite(szBody.data(), 1, szBody.size(), pFile);
+	fclose(pFile);
 	return cWrote == szBody.size();
 }
 
@@ -102,32 +102,32 @@ struct Run_t
 	std::string m_szOutput;
 };
 
-Run_t RunAtRoot( const std::string &szCommand )
+Run_t RunAtRoot(const std::string& szCommand)
 {
 	Run_t run;
 	run.m_nExit = -1;
 
-	const char *pszRoot = WorktreeRoot();
-	if ( !pszRoot )
+	const char* pszRoot = WorktreeRoot();
+	if (!pszRoot)
 		return run;
 
-	const std::string szFull = std::string( "cd '" ) + pszRoot + "' && " + szCommand + " 2>&1";
-	FILE *pPipe = popen( szFull.c_str(), "r" );
-	if ( !pPipe )
+	const std::string szFull = std::string("cd '") + pszRoot + "' && " + szCommand + " 2>&1";
+	FILE* pPipe = popen(szFull.c_str(), "r");
+	if (!pPipe)
 		return run;
 
 	char rgchBuf[4096];
-	while ( fgets( rgchBuf, sizeof( rgchBuf ), pPipe ) )
+	while (fgets(rgchBuf, sizeof(rgchBuf), pPipe))
 		run.m_szOutput += rgchBuf;
 
-	const int nStatus = pclose( pPipe );
-	run.m_nExit = WIFEXITED( nStatus ) ? WEXITSTATUS( nStatus ) : -1;
+	const int nStatus = pclose(pPipe);
+	run.m_nExit = WIFEXITED(nStatus) ? WEXITSTATUS(nStatus) : -1;
 	return run;
 }
 
-bool Contains( const std::string &szHaystack, const char *pszNeedle )
+bool Contains(const std::string& szHaystack, const char* pszNeedle)
 {
-	return szHaystack.find( pszNeedle ) != std::string::npos;
+	return szHaystack.find(pszNeedle) != std::string::npos;
 }
 
 //-----------------------------------------------------------------------------
@@ -135,8 +135,8 @@ bool Contains( const std::string &szHaystack, const char *pszNeedle )
 // one per line -- the same slice tools/dead-conditionals looks at. Prose that
 // merely MENTIONS a define is not a conditional and must not read as one.
 //-----------------------------------------------------------------------------
-const char *const kTool = "tools/dead-conditionals";
-const char *const kLedger = "tools/dead-conditionals-ledger";
+const char* const kTool = "tools/dead-conditionals";
+const char* const kLedger = "tools/dead-conditionals-ledger";
 
 // The exit codes the tool promises. 2 is "I could not take the measurement",
 // and it is a DIFFERENT thing from 1, "I took it and it is bad". A test that
@@ -167,66 +167,66 @@ const int kExitRefused = 2;
 class Fixture
 {
 public:
-	explicit Fixture( const char *pszName )
+	explicit Fixture(const char* pszName)
 	{
 		char rgchBuf[256];
-		snprintf( rgchBuf, sizeof( rgchBuf ), "/tmp/dead_conditionals_test_%d_%s", (int)getpid(), pszName );
+		snprintf(rgchBuf, sizeof(rgchBuf), "/tmp/dead_conditionals_test_%d_%s", (int)getpid(), pszName);
 		m_szRoot = rgchBuf;
 
-		Shell( std::string( "rm -rf '" ) + m_szRoot + "'" );
-		Shell( std::string( "mkdir -p '" ) + m_szRoot + "/src/sourcesharp'" );
+		Shell(std::string("rm -rf '") + m_szRoot + "'");
+		Shell(std::string("mkdir -p '") + m_szRoot + "/src/sourcesharp'");
 	}
 
-	~Fixture() { Shell( std::string( "rm -rf '" ) + m_szRoot + "'" ); }
+	~Fixture() { Shell(std::string("rm -rf '") + m_szRoot + "'"); }
 
 	// One compiled TU under sourcesharp/, in one project (CMake target).
-	void Source( const char *pszProject, const char *pszName, const std::string &szBody )
+	void Source(const char* pszProject, const char* pszName, const std::string& szBody)
 	{
-		EXPECT_TRUE( WriteFile( m_szRoot + "/src/sourcesharp/" + pszName, szBody ) );
-		m_vecSources.push_back( std::make_pair( std::string( pszProject ), std::string( "sourcesharp/" ) + pszName ) );
+		EXPECT_TRUE(WriteFile(m_szRoot + "/src/sourcesharp/" + pszName, szBody));
+		m_vecSources.push_back(std::make_pair(std::string(pszProject), std::string("sourcesharp/") + pszName));
 	}
 
-	void Defines( const char *pszProject, const std::string &szFlags ) { m_mapDefines[pszProject] = szFlags; }
+	void Defines(const char* pszProject, const std::string& szFlags) { m_mapDefines[pszProject] = szFlags; }
 
-	void Ledger( const std::string &szBody ) { EXPECT_TRUE( WriteFile( m_szRoot + "/ledger", szBody ) ); }
+	void Ledger(const std::string& szBody) { EXPECT_TRUE(WriteFile(m_szRoot + "/ledger", szBody)); }
 
 	Run_t Scan()
 	{
-		Shell( std::string( "mkdir -p '" ) + m_szRoot + "/build'" );
+		Shell(std::string("mkdir -p '") + m_szRoot + "/build'");
 
 		std::vector<std::pair<std::string, std::string>> vecAll = m_vecSources;
-		vecAll.push_back( std::make_pair( std::string( "other_fixture" ), std::string( "game/not_a_shim.cpp" ) ) );
+		vecAll.push_back(std::make_pair(std::string("other_fixture"), std::string("game/not_a_shim.cpp")));
 
 		std::string szDb = "[\n";
-		for ( size_t i = 0; i < vecAll.size(); i++ )
+		for (size_t i = 0; i < vecAll.size(); i++)
 		{
-			const std::string &szProject = vecAll[i].first;
+			const std::string& szProject = vecAll[i].first;
 			const std::string szFile = m_szRoot + "/src/" + vecAll[i].second;
 			const std::string szObject = "CMakeFiles/" + szProject + ".dir/" + vecAll[i].second + ".o";
-			std::map<std::string, std::string>::const_iterator it = m_mapDefines.find( szProject );
-			const std::string szFlags = ( it == m_mapDefines.end() ) ? std::string() : it->second;
+			std::map<std::string, std::string>::const_iterator it = m_mapDefines.find(szProject);
+			const std::string szFlags = (it == m_mapDefines.end()) ? std::string() : it->second;
 
-			szDb += std::string( i ? ",\n" : "" ) + "{\"directory\": \"" + m_szRoot + "/build\", " +
+			szDb += std::string(i ? ",\n" : "") + "{\"directory\": \"" + m_szRoot + "/build\", " +
 				"\"command\": \"c++ " + szFlags + " -o " + szObject + " -c " + szFile + "\", " + "\"file\": \"" +
 				szFile + "\", " + "\"output\": \"" + szObject + "\"}";
 		}
 		szDb += "\n]\n";
-		EXPECT_TRUE( WriteFile( m_szRoot + "/build/compile_commands.json", szDb ) );
+		EXPECT_TRUE(WriteFile(m_szRoot + "/build/compile_commands.json", szDb));
 
 		struct stat st;
-		if ( stat( ( m_szRoot + "/ledger" ).c_str(), &st ) != 0 )
-			Ledger( "" );
+		if (stat((m_szRoot + "/ledger").c_str(), &st) != 0)
+			Ledger("");
 
-		return RunAtRoot( std::string( kTool ) + " --root '" + m_szRoot + "'" + " --build-dir '" + m_szRoot +
-						  "/build'" + " --ledger '" + m_szRoot + "/ledger'" );
+		return RunAtRoot(std::string(kTool) + " --root '" + m_szRoot + "'" + " --build-dir '" + m_szRoot + "/build'" +
+						 " --ledger '" + m_szRoot + "/ledger'");
 	}
 
-	const std::string &Root() const { return m_szRoot; }
+	const std::string& Root() const { return m_szRoot; }
 
 private:
-	static void Shell( const std::string &szCommand )
+	static void Shell(const std::string& szCommand)
 	{
-		const int nRet = system( szCommand.c_str() );
+		const int nRet = system(szCommand.c_str());
 		(void)nRet;
 	}
 
@@ -241,164 +241,163 @@ private:
 //     subject is the failure mode this whole directory is about.
 //=============================================================================
 
-TEST( DeadConditionals, TheWorktreeRootIsFound )
+TEST(DeadConditionals, TheWorktreeRootIsFound)
 {
-	ASSERT_TRUE( WorktreeRoot() != NULL ) << "No directory among '.', '..', '../..' holds tools/dead-conditionals.";
+	ASSERT_TRUE(WorktreeRoot() != NULL) << "No directory among '.', '..', '../..' holds tools/dead-conditionals.";
 }
 
-TEST( DeadConditionals, TheToolIsExecutable )
+TEST(DeadConditionals, TheToolIsExecutable)
 {
-	const std::string szPath = RootPath( kTool );
-	ASSERT_FALSE( szPath.empty() );
+	const std::string szPath = RootPath(kTool);
+	ASSERT_FALSE(szPath.empty());
 	struct stat st;
-	ASSERT_EQ( 0, stat( szPath.c_str(), &st ) ) << szPath;
-	EXPECT_TRUE( ( st.st_mode & S_IXUSR ) != 0 ) << szPath << " is not executable";
+	ASSERT_EQ(0, stat(szPath.c_str(), &st)) << szPath;
+	EXPECT_TRUE((st.st_mode & S_IXUSR) != 0) << szPath << " is not executable";
 }
 
 //=============================================================================
 // (1) THE TREE IS CLEAN. This is the fact a dirty Phase 7 port fails.
 //=============================================================================
 
-TEST( DeadConditionals, TheShimCarriesNoUnledgeredDeadConditional )
+TEST(DeadConditionals, TheShimCarriesNoUnledgeredDeadConditional)
 {
-	const Run_t run = RunAtRoot( kTool );
-	EXPECT_EQ( kExitClean, run.m_nExit ) << run.m_szOutput
-										 << "\nA conditional this build never defines is dead code. Delete it,\n"
-											"keeping the arm the build takes -- or, if it is legitimately\n"
-											"conditional here, add a row to "
-										 << kLedger << " saying why.";
+	const Run_t run = RunAtRoot(kTool);
+	EXPECT_EQ(kExitClean, run.m_nExit) << run.m_szOutput
+									   << "\nA conditional this build never defines is dead code. Delete it,\n"
+										  "keeping the arm the build takes -- or, if it is legitimately\n"
+										  "conditional here, add a row to "
+									   << kLedger << " saying why.";
 }
 
-TEST( DeadConditionals, TheScanSawTheWholeShimAndNotAHandfulOfIt )
+TEST(DeadConditionals, TheScanSawTheWholeShimAndNotAHandfulOfIt)
 {
-	const Run_t run = RunAtRoot( kTool );
-	ASSERT_EQ( kExitClean, run.m_nExit ) << run.m_szOutput;
+	const Run_t run = RunAtRoot(kTool);
+	ASSERT_EQ(kExitClean, run.m_nExit) << run.m_szOutput;
 
 	// A scan that matched almost nothing would also exit 0, which is precisely
 	// the "check that cannot fail" shape. The shim is well over a hundred
 	// compiled translation units; a run reporting a handful has a broken
 	// object-table parse, not a clean tree.
 	int nTUs = 0;
-	const size_t at = run.m_szOutput.find( "dead-conditionals: " );
-	ASSERT_NE( std::string::npos, at ) << run.m_szOutput;
-	EXPECT_EQ( 1, sscanf( run.m_szOutput.c_str() + at, "dead-conditionals: %d compiled shim TU(s)", &nTUs ) )
+	const size_t at = run.m_szOutput.find("dead-conditionals: ");
+	ASSERT_NE(std::string::npos, at) << run.m_szOutput;
+	EXPECT_EQ(1, sscanf(run.m_szOutput.c_str() + at, "dead-conditionals: %d compiled shim TU(s)", &nTUs))
 		<< run.m_szOutput;
-	EXPECT_GT( nTUs, 100 ) << run.m_szOutput;
+	EXPECT_GT(nTUs, 100) << run.m_szOutput;
 }
 
 //=============================================================================
 // (2) THE CHECK CAN FAIL, AND FOR THE RIGHT REASON.
 //=============================================================================
 
-TEST( DeadConditionals, AModGuardIsReportedNamingFileAndDefine )
+TEST(DeadConditionals, AModGuardIsReportedNamingFileAndDefine)
 {
-	Fixture fx( "modguard" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL -DLINUX" );
-	fx.Source( "client_fixture", "ported.cpp",
-			   "#ifdef TF_CLIENT_DLL\n"
-			   "void OnlyInTeamFortress();\n"
-			   "#endif\n" );
+	Fixture fx("modguard");
+	fx.Defines("client_fixture", "-DCLIENT_DLL -DLINUX");
+	fx.Source("client_fixture", "ported.cpp",
+			  "#ifdef TF_CLIENT_DLL\n"
+			  "void OnlyInTeamFortress();\n"
+			  "#endif\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitFindings, run.m_nExit ) << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "sourcesharp/ported.cpp" ) ) << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "TF_CLIENT_DLL" ) ) << run.m_szOutput;
+	EXPECT_EQ(kExitFindings, run.m_nExit) << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "sourcesharp/ported.cpp")) << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "TF_CLIENT_DLL")) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, AnAllowlistedPortabilityGuardIsNotReported )
+TEST(DeadConditionals, AnAllowlistedPortabilityGuardIsNotReported)
 {
 	// THE ALLOWLIST'S OWN JOB, stated over a file that carries BOTH kinds of
 	// guard. WIN32 is dead here only because this build targets linux64; the
 	// surrounding SDK still carries Windows. TF_CLIENT_DLL is dead in a
 	// different way -- this is not that game. The check must tell them apart,
 	// or Phase 7 turns it off on the first file that has a WIN32 in it.
-	Fixture fx( "allowlisted" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL -DLINUX" );
-	fx.Source( "client_fixture", "ported.cpp",
-			   "#if defined( WIN32 )\n"
-			   "void OnWindows();\n"
-			   "#endif\n"
-			   "#ifdef TF_CLIENT_DLL\n"
-			   "void OnlyInTeamFortress();\n"
-			   "#endif\n" );
-	fx.Ledger( "allow\tWIN32\tportability, not a mod guard\n" );
+	Fixture fx("allowlisted");
+	fx.Defines("client_fixture", "-DCLIENT_DLL -DLINUX");
+	fx.Source("client_fixture", "ported.cpp",
+			  "#if defined( WIN32 )\n"
+			  "void OnWindows();\n"
+			  "#endif\n"
+			  "#ifdef TF_CLIENT_DLL\n"
+			  "void OnlyInTeamFortress();\n"
+			  "#endif\n");
+	fx.Ledger("allow\tWIN32\tportability, not a mod guard\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_FALSE( Contains( run.m_szOutput, "WIN32 is never defined" ) ) << "the allowlist did not waive WIN32:\n"
-																		 << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "TF_CLIENT_DLL" ) )
-		<< "waiving WIN32 also silenced the mod guard beside it:\n"
-		<< run.m_szOutput;
-	EXPECT_EQ( kExitFindings, run.m_nExit ) << run.m_szOutput;
+	EXPECT_FALSE(Contains(run.m_szOutput, "WIN32 is never defined")) << "the allowlist did not waive WIN32:\n"
+																	 << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "TF_CLIENT_DLL")) << "waiving WIN32 also silenced the mod guard beside it:\n"
+														   << run.m_szOutput;
+	EXPECT_EQ(kExitFindings, run.m_nExit) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, ADefineTheBuildCarriesIsNotReported )
+TEST(DeadConditionals, ADefineTheBuildCarriesIsNotReported)
 {
-	Fixture fx( "live" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL -DSOURCESHARP" );
-	fx.Source( "client_fixture", "ported.cpp",
-			   "#ifdef SOURCESHARP\n"
-			   "void Live();\n"
-			   "#endif\n" );
+	Fixture fx("live");
+	fx.Defines("client_fixture", "-DCLIENT_DLL -DSOURCESHARP");
+	fx.Source("client_fixture", "ported.cpp",
+			  "#ifdef SOURCESHARP\n"
+			  "void Live();\n"
+			  "#endif\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitClean, run.m_nExit ) << run.m_szOutput;
+	EXPECT_EQ(kExitClean, run.m_nExit) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, ASideMarkerIsJudgedAgainstItsOwnProjectsCommandLine )
+TEST(DeadConditionals, ASideMarkerIsJudgedAgainstItsOwnProjectsCommandLine)
 {
 	// A shared file is compiled into BOTH projects. CLIENT_DLL is on the
 	// client's command line only, so from the server's compile it looks
 	// undefined -- correctly. Merging the two -D lists would call it live
 	// everywhere and hide a real finding on the other side; judging per
 	// project is what makes the allowlist row for it necessary and honest.
-	Fixture fx( "sidemarker" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL" );
-	fx.Defines( "server_fixture", "-DGAME_DLL" );
-	fx.Source( "client_fixture", "shared.cpp",
-			   "#ifdef CLIENT_DLL\n"
-			   "void OnTheClient();\n"
-			   "#endif\n" );
-	fx.Source( "server_fixture", "shared.cpp",
-			   "#ifdef CLIENT_DLL\n"
-			   "void OnTheClient();\n"
-			   "#endif\n" );
+	Fixture fx("sidemarker");
+	fx.Defines("client_fixture", "-DCLIENT_DLL");
+	fx.Defines("server_fixture", "-DGAME_DLL");
+	fx.Source("client_fixture", "shared.cpp",
+			  "#ifdef CLIENT_DLL\n"
+			  "void OnTheClient();\n"
+			  "#endif\n");
+	fx.Source("server_fixture", "shared.cpp",
+			  "#ifdef CLIENT_DLL\n"
+			  "void OnTheClient();\n"
+			  "#endif\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitFindings, run.m_nExit ) << "the server's compile of a shared file sees CLIENT_DLL as undefined "
-											   "and the tool must say so unless a row waives it:\n"
-											<< run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "CLIENT_DLL" ) ) << run.m_szOutput;
+	EXPECT_EQ(kExitFindings, run.m_nExit) << "the server's compile of a shared file sees CLIENT_DLL as undefined "
+											 "and the tool must say so unless a row waives it:\n"
+										  << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "CLIENT_DLL")) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, ACommentOnADirectiveLineIsNotAnIdentifier )
+TEST(DeadConditionals, ACommentOnADirectiveLineIsNotAnIdentifier)
 {
 	// The first pass of this scanner reported "the", "to" and "a" as undefined
 	// macros, out of `#endif // ... the ...` trailers. A checker whose report
 	// is mostly noise gets switched off.
-	Fixture fx( "comments" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL" );
-	fx.Source( "client_fixture", "ported.cpp",
-			   "#ifdef CLIENT_DLL // because the client is the one that draws\n"
-			   "void Draw();\n"
-			   "#endif\n" );
+	Fixture fx("comments");
+	fx.Defines("client_fixture", "-DCLIENT_DLL");
+	fx.Source("client_fixture", "ported.cpp",
+			  "#ifdef CLIENT_DLL // because the client is the one that draws\n"
+			  "void Draw();\n"
+			  "#endif\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitClean, run.m_nExit ) << run.m_szOutput;
+	EXPECT_EQ(kExitClean, run.m_nExit) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, AFileThatDefinesItsOwnSwitchIsNotReported )
+TEST(DeadConditionals, AFileThatDefinesItsOwnSwitchIsNotReported)
 {
-	Fixture fx( "ownswitch" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL" );
-	fx.Source( "client_fixture", "ported.cpp",
-			   "#define SHELL_LOCAL_SWITCH 1\n"
-			   "#ifdef SHELL_LOCAL_SWITCH\n"
-			   "void Local();\n"
-			   "#endif\n" );
+	Fixture fx("ownswitch");
+	fx.Defines("client_fixture", "-DCLIENT_DLL");
+	fx.Source("client_fixture", "ported.cpp",
+			  "#define SHELL_LOCAL_SWITCH 1\n"
+			  "#ifdef SHELL_LOCAL_SWITCH\n"
+			  "void Local();\n"
+			  "#endif\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitClean, run.m_nExit ) << run.m_szOutput;
+	EXPECT_EQ(kExitClean, run.m_nExit) << run.m_szOutput;
 }
 
 //=============================================================================
@@ -406,67 +405,67 @@ TEST( DeadConditionals, AFileThatDefinesItsOwnSwitchIsNotReported )
 //     integrator named: an entry that has quietly stopped meaning anything.
 //=============================================================================
 
-TEST( DeadConditionals, APendingRowForASiteThatIsGoneIsStale )
+TEST(DeadConditionals, APendingRowForASiteThatIsGoneIsStale)
 {
-	Fixture fx( "stalepending" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL" );
-	fx.Source( "client_fixture", "ported.cpp", "void Clean();\n" );
-	fx.Ledger( "pending\tsourcesharp/ported.cpp\tTF_CLIENT_DLL\tcleaned up, row left behind\n" );
+	Fixture fx("stalepending");
+	fx.Defines("client_fixture", "-DCLIENT_DLL");
+	fx.Source("client_fixture", "ported.cpp", "void Clean();\n");
+	fx.Ledger("pending\tsourcesharp/ported.cpp\tTF_CLIENT_DLL\tcleaned up, row left behind\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitFindings, run.m_nExit ) << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "STALE ledger row" ) ) << run.m_szOutput;
+	EXPECT_EQ(kExitFindings, run.m_nExit) << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "STALE ledger row")) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, AnAllowRowNothingUsesIsStale )
+TEST(DeadConditionals, AnAllowRowNothingUsesIsStale)
 {
-	Fixture fx( "staleallowunused" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL" );
-	fx.Source( "client_fixture", "ported.cpp", "void Clean();\n" );
-	fx.Ledger( "allow\tSIXENSE\tnothing conditions on this any more\n" );
+	Fixture fx("staleallowunused");
+	fx.Defines("client_fixture", "-DCLIENT_DLL");
+	fx.Source("client_fixture", "ported.cpp", "void Clean();\n");
+	fx.Ledger("allow\tSIXENSE\tnothing conditions on this any more\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitFindings, run.m_nExit ) << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "STALE allow row" ) ) << run.m_szOutput;
+	EXPECT_EQ(kExitFindings, run.m_nExit) << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "STALE allow row")) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, AnAllowRowTheBuildDefinesEverywhereIsStale )
+TEST(DeadConditionals, AnAllowRowTheBuildDefinesEverywhereIsStale)
 {
 	// The dangerous kind: a guard that became LIVE while its waiver stayed.
 	// After that, the check is silent about a conditional that really does
 	// have two arms, which is the opposite of what it is for.
-	Fixture fx( "staleallowlive" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL -DNOW_LIVE" );
-	fx.Source( "client_fixture", "ported.cpp",
-			   "#ifdef NOW_LIVE\n"
-			   "void Live();\n"
-			   "#endif\n" );
-	fx.Ledger( "allow\tNOW_LIVE\tstale: the build defines this now\n" );
+	Fixture fx("staleallowlive");
+	fx.Defines("client_fixture", "-DCLIENT_DLL -DNOW_LIVE");
+	fx.Source("client_fixture", "ported.cpp",
+			  "#ifdef NOW_LIVE\n"
+			  "void Live();\n"
+			  "#endif\n");
+	fx.Ledger("allow\tNOW_LIVE\tstale: the build defines this now\n");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitFindings, run.m_nExit ) << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "DOES define" ) ) << run.m_szOutput;
+	EXPECT_EQ(kExitFindings, run.m_nExit) << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "DOES define")) << run.m_szOutput;
 }
 
 //=============================================================================
 // (4) CANNOT MEASURE IS NOT A PASS.
 //=============================================================================
 
-TEST( DeadConditionals, AMissingObjectTableIsRefusedRatherThanReportedClean )
+TEST(DeadConditionals, AMissingObjectTableIsRefusedRatherThanReportedClean)
 {
-	const Run_t run = RunAtRoot( std::string( kTool ) + " --build-dir /nonexistent/build" );
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "CANNOT MEASURE" ) ) << run.m_szOutput;
+	const Run_t run = RunAtRoot(std::string(kTool) + " --build-dir /nonexistent/build");
+	EXPECT_EQ(kExitRefused, run.m_nExit) << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "CANNOT MEASURE")) << run.m_szOutput;
 }
 
-TEST( DeadConditionals, AnObjectTableNamingNoShimSourceIsRefused )
+TEST(DeadConditionals, AnObjectTableNamingNoShimSourceIsRefused)
 {
-	Fixture fx( "emptytable" );
-	fx.Defines( "client_fixture", "-DCLIENT_DLL" );
+	Fixture fx("emptytable");
+	fx.Defines("client_fixture", "-DCLIENT_DLL");
 
 	const Run_t run = fx.Scan();
-	EXPECT_EQ( kExitRefused, run.m_nExit ) << run.m_szOutput;
-	EXPECT_TRUE( Contains( run.m_szOutput, "CANNOT MEASURE" ) ) << run.m_szOutput;
+	EXPECT_EQ(kExitRefused, run.m_nExit) << run.m_szOutput;
+	EXPECT_TRUE(Contains(run.m_szOutput, "CANNOT MEASURE")) << run.m_szOutput;
 }
 
 //=============================================================================

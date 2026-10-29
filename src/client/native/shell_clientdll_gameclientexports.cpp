@@ -23,33 +23,33 @@ class CGameClientExports : public IGameClientExports
 {
 public:
 	// ingame voice manipulation
-	bool IsPlayerGameVoiceMuted( int playerIndex ) { return GetClientVoiceMgr()->IsPlayerBlocked( playerIndex ); }
+	bool IsPlayerGameVoiceMuted(int playerIndex) { return GetClientVoiceMgr()->IsPlayerBlocked(playerIndex); }
 
-	void MutePlayerGameVoice( int playerIndex ) { GetClientVoiceMgr()->SetPlayerBlockedState( playerIndex, true ); }
+	void MutePlayerGameVoice(int playerIndex) { GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, true); }
 
-	void UnmutePlayerGameVoice( int playerIndex ) { GetClientVoiceMgr()->SetPlayerBlockedState( playerIndex, false ); }
+	void UnmutePlayerGameVoice(int playerIndex) { GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, false); }
 
 	void OnGameUIActivated()
 	{
-		IGameEvent *event = gameeventmanager->CreateEvent( "gameui_activated" );
-		if ( event )
+		IGameEvent* event = gameeventmanager->CreateEvent("gameui_activated");
+		if (event)
 		{
-			gameeventmanager->FireEventClientSide( event );
+			gameeventmanager->FireEventClientSide(event);
 		}
 	}
 
 	void OnGameUIHidden()
 	{
-		IGameEvent *event = gameeventmanager->CreateEvent( "gameui_hidden" );
-		if ( event )
+		IGameEvent* event = gameeventmanager->CreateEvent("gameui_hidden");
+		if (event)
 		{
-			gameeventmanager->FireEventClientSide( event );
+			gameeventmanager->FireEventClientSide(event);
 		}
 	}
 
 	// Stock's achievements interface is never set here and the econ strings are NULL
 	// without econ items, so these answer nothing.
-	void CreateAchievementsPanel( vgui::Panel *pParent ) {}
+	void CreateAchievementsPanel(vgui::Panel* pParent) {}
 
 	void DisplayAchievementPanel() {}
 
@@ -57,9 +57,9 @@ public:
 
 	int GetAchievementsPanelMinWidth() const { return 0; }
 
-	const char *GetHolidayString() { return NULL; }
+	const char* GetHolidayString() { return NULL; }
 
-	const char *GetOperationString() { return NULL; }
+	const char* GetOperationString() { return NULL; }
 };
 
-EXPOSE_SINGLE_INTERFACE( CGameClientExports, IGameClientExports, GAMECLIENTEXPORTS_INTERFACE_VERSION );
+EXPOSE_SINGLE_INTERFACE(CGameClientExports, IGameClientExports, GAMECLIENTEXPORTS_INTERFACE_VERSION);

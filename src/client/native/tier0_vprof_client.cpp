@@ -28,25 +28,25 @@ namespace
 // CVProfile's protected fields, by offset (CVProfile is standard-layout).
 struct ProfileLayout : CVProfile
 {
-	static constexpr size_t AtRoot() { return offsetof( ProfileLayout, m_fAtRoot ); }
+	static constexpr size_t AtRoot() { return offsetof(ProfileLayout, m_fAtRoot); }
 };
 
-[[noreturn]] void NeverEntered( const char *pszMember )
+[[noreturn]] void NeverEntered(const char* pszMember)
 {
-	fprintf( stderr,
-			 "[SourceSharp] CVProfNode::%s called in the client, whose vprof profile is "
-			 "never enabled (user ruling 2026-10-18); stopping.\n",
-			 pszMember );
-	fflush( stderr );
+	fprintf(stderr,
+			"[SourceSharp] CVProfNode::%s called in the client, whose vprof profile is "
+			"never enabled (user ruling 2026-10-18); stopping.\n",
+			pszMember);
+	fflush(stderr);
 	abort();
 }
 } // namespace
 
 namespace ss
 {
-struct alignas( CVProfile ) ClientVProfBytes
+struct alignas(CVProfile) ClientVProfBytes
 {
-	unsigned char m_Bytes[sizeof( CVProfile )];
+	unsigned char m_Bytes[sizeof(CVProfile)];
 };
 
 constexpr ClientVProfBytes NeverEnabledProfile()
@@ -62,34 +62,34 @@ extern "C"
 {
 ss::ClientVProfBytes g_VProfCurrentProfile = ss::NeverEnabledProfile();
 }
-SS_BIND_IMPORT( g_VProfCurrentProfile )
+SS_BIND_IMPORT(g_VProfCurrentProfile)
 
-CVProfNode *CVProfNode::GetSubNode( const tchar *, int, const tchar *, int )
+CVProfNode* CVProfNode::GetSubNode(const tchar*, int, const tchar*, int)
 {
-	NeverEntered( "GetSubNode" );
+	NeverEntered("GetSubNode");
 }
 
 void CVProfNode::EnterScope()
 {
-	NeverEntered( "EnterScope" );
+	NeverEntered("EnterScope");
 }
 
 bool CVProfNode::ExitScope()
 {
-	NeverEntered( "ExitScope" );
+	NeverEntered("ExitScope");
 }
 
-#if defined( _WIN32 )
+#if defined(_WIN32)
 // CVProfile's EnterScope and ExitScope are inline in vprof.h; a fork object that
 // did not inline one imports it from tier0.dll. Emitted here so the linker binds
 // each import to them (LNK4217). Nothing calls this function.
-#pragma optimize( "", off )
+#pragma optimize("", off)
 
-void SS_EmitVProfInlines( CVProfile *pProfile )
+void SS_EmitVProfInlines(CVProfile* pProfile)
 {
-	pProfile->EnterScope( "", 0, "", false, 0 );
+	pProfile->EnterScope("", 0, "", false, 0);
 	pProfile->ExitScope();
 }
 
-#pragma optimize( "", on )
+#pragma optimize("", on)
 #endif

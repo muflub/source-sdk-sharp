@@ -17,31 +17,31 @@ enum
 	GROUNDWIRE_INDEX_BITS = 11, // MAX_EDICT_BITS
 	GROUNDWIRE_SERIAL_BITS = 10, // NUM_NETWORKED_EHANDLE_SERIAL_NUMBER_BITS
 
-	GROUNDWIRE_INDEX_MASK = ( 1 << GROUNDWIRE_INDEX_BITS ) - 1,
+	GROUNDWIRE_INDEX_MASK = (1 << GROUNDWIRE_INDEX_BITS) - 1,
 
 	// INVALID_NETWORKED_EHANDLE_VALUE. Not zero, which would read as the world.
-	GROUNDWIRE_NONE = ( 1 << ( GROUNDWIRE_INDEX_BITS + GROUNDWIRE_SERIAL_BITS ) ) - 1,
+	GROUNDWIRE_NONE = (1 << (GROUNDWIRE_INDEX_BITS + GROUNDWIRE_SERIAL_BITS)) - 1,
 };
 
 // An entity index to the word; anything out of range encodes as nothing.
-inline int SourceSharpGroundWire_Encode( int nEntryIndex )
+inline int SourceSharpGroundWire_Encode(int nEntryIndex)
 {
-	if ( nEntryIndex < 0 || nEntryIndex > GROUNDWIRE_INDEX_MASK )
+	if (nEntryIndex < 0 || nEntryIndex > GROUNDWIRE_INDEX_MASK)
 		return GROUNDWIRE_NONE;
 
 	return nEntryIndex;
 }
 
 // The word to an entity index. False means no ground, and *pEntryIndex is then -1.
-inline bool SourceSharpGroundWire_Decode( int nEncoded, int *pEntryIndex )
+inline bool SourceSharpGroundWire_Decode(int nEncoded, int* pEntryIndex)
 {
-	if ( pEntryIndex )
+	if (pEntryIndex)
 		*pEntryIndex = -1;
 
-	if ( nEncoded < 0 || nEncoded > GROUNDWIRE_INDEX_MASK )
+	if (nEncoded < 0 || nEncoded > GROUNDWIRE_INDEX_MASK)
 		return false;
 
-	if ( pEntryIndex )
+	if (pEntryIndex)
 		*pEntryIndex = nEncoded;
 
 	return true;

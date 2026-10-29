@@ -18,39 +18,39 @@
 class CLateBoundServerGameEnts final : public IServerGameEnts
 {
 public:
-	void Bind( IServerGameEnts *pImpl ) { m_pImpl = pImpl; }
+	void Bind(IServerGameEnts* pImpl) { m_pImpl = pImpl; }
 
-	void SetDebugEdictBase( edict_t *base ) override { Impl( "SetDebugEdictBase" )->SetDebugEdictBase( base ); }
+	void SetDebugEdictBase(edict_t* base) override { Impl("SetDebugEdictBase")->SetDebugEdictBase(base); }
 
-	void MarkEntitiesAsTouching( edict_t *e1, edict_t *e2 ) override
+	void MarkEntitiesAsTouching(edict_t* e1, edict_t* e2) override
 	{
-		Impl( "MarkEntitiesAsTouching" )->MarkEntitiesAsTouching( e1, e2 );
+		Impl("MarkEntitiesAsTouching")->MarkEntitiesAsTouching(e1, e2);
 	}
 
-	void FreeContainingEntity( edict_t *a0 ) override { Impl( "FreeContainingEntity" )->FreeContainingEntity( a0 ); }
+	void FreeContainingEntity(edict_t* a0) override { Impl("FreeContainingEntity")->FreeContainingEntity(a0); }
 
-	edict_t *BaseEntityToEdict( CBaseEntity *pEnt ) override
+	edict_t* BaseEntityToEdict(CBaseEntity* pEnt) override
 	{
-		return Impl( "BaseEntityToEdict" )->BaseEntityToEdict( pEnt );
+		return Impl("BaseEntityToEdict")->BaseEntityToEdict(pEnt);
 	}
 
-	CBaseEntity *EdictToBaseEntity( edict_t *pEdict ) override
+	CBaseEntity* EdictToBaseEntity(edict_t* pEdict) override
 	{
-		return Impl( "EdictToBaseEntity" )->EdictToBaseEntity( pEdict );
+		return Impl("EdictToBaseEntity")->EdictToBaseEntity(pEdict);
 	}
 
-	void CheckTransmit( CCheckTransmitInfo *pInfo, const unsigned short *pEdictIndices, int nEdicts ) override
+	void CheckTransmit(CCheckTransmitInfo* pInfo, const unsigned short* pEdictIndices, int nEdicts) override
 	{
-		Impl( "CheckTransmit" )->CheckTransmit( pInfo, pEdictIndices, nEdicts );
+		Impl("CheckTransmit")->CheckTransmit(pInfo, pEdictIndices, nEdicts);
 	}
 
 private:
-	IServerGameEnts *Impl( const char *pszMethod ) const
+	IServerGameEnts* Impl(const char* pszMethod) const
 	{
-		if ( !m_pImpl )
-			Error( "[SourceSharp] IServerGameEnts::%s was called before DLLInit bound it\n", pszMethod );
+		if (!m_pImpl)
+			Error("[SourceSharp] IServerGameEnts::%s was called before DLLInit bound it\n", pszMethod);
 		return m_pImpl;
 	}
 
-	IServerGameEnts *m_pImpl = nullptr;
+	IServerGameEnts* m_pImpl = nullptr;
 };

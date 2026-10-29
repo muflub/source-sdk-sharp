@@ -76,12 +76,12 @@ struct mstudiodata_t
 // If you want to embed a pointer into one of the structures that is serialized, use this class! It will ensure that the pointers consume the
 // right amount of space and work correctly across 32 and 64 bit. It also makes sure that there is no surprise about how large the structure
 // is when placed in the middle of another structure, and supports Intel's desired behavior on 64-bit that pointers are always 8-byte aligned.
-#pragma pack( push, 4 )
+#pragma pack(push, 4)
 
 template <class T>
 struct ALIGN4 serializedstudioptr_t
 {
-	T *m_pData;
+	T* m_pData;
 #ifndef PLATFORM_64BITS
 	int32 padding;
 #endif
@@ -89,20 +89,20 @@ struct ALIGN4 serializedstudioptr_t
 	serializedstudioptr_t()
 	{
 		m_pData = nullptr;
-#if _DEBUG && !defined( PLATFORM_64BITS )
+#if _DEBUG && !defined(PLATFORM_64BITS)
 		padding = 0;
 #endif
 	}
 
-	inline operator T *() { return m_pData; }
+	inline operator T*() { return m_pData; }
 
-	inline operator const T *() const { return m_pData; }
+	inline operator const T*() const { return m_pData; }
 
-	inline const T *operator->() const { return m_pData; }
+	inline const T* operator->() const { return m_pData; }
 
 } ALIGN4_POST;
 
-#pragma pack( pop )
+#pragma pack(pop)
 
 struct mstudioaxisinterpbone_t
 {
@@ -116,7 +116,7 @@ struct mstudioaxisinterpbone_t
 
 private:
 	// No copy constructors allowed
-	mstudioaxisinterpbone_t( const mstudioaxisinterpbone_t &vOther );
+	mstudioaxisinterpbone_t(const mstudioaxisinterpbone_t& vOther);
 };
 
 struct mstudioquatinterpinfo_t
@@ -131,7 +131,7 @@ struct mstudioquatinterpinfo_t
 
 private:
 	// No copy constructors allowed
-	mstudioquatinterpinfo_t( const mstudioquatinterpinfo_t &vOther );
+	mstudioquatinterpinfo_t(const mstudioquatinterpinfo_t& vOther);
 };
 
 struct mstudioquatinterpbone_t
@@ -145,7 +145,7 @@ struct mstudioquatinterpbone_t
 
 private:
 	// No copy constructors allowed
-	mstudioquatinterpbone_t( const mstudioquatinterpbone_t &vOther );
+	mstudioquatinterpbone_t(const mstudioquatinterpbone_t& vOther);
 };
 
 // simple squash and stretch sinusoid "boing"
@@ -223,7 +223,7 @@ struct mstudioaimatbone_t
 
 private:
 	// No copy constructors allowed
-	mstudioaimatbone_t( const mstudioaimatbone_t &vOther );
+	mstudioaimatbone_t(const mstudioaimatbone_t& vOther);
 };
 
 // bones
@@ -232,7 +232,7 @@ struct mstudiobone_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	int parent; // parent bone
 	int bonecontroller[6]; // bone controller index, -1 == none
@@ -260,7 +260,7 @@ struct mstudiobone_t
 
 private:
 	// No copy constructors allowed
-	mstudiobone_t( const mstudiobone_t &vOther );
+	mstudiobone_t(const mstudiobone_t& vOther);
 };
 
 struct mstudiolinearbone_t
@@ -271,26 +271,26 @@ struct mstudiolinearbone_t
 
 	int flagsindex;
 
-	inline int flags( int i ) const
+	inline int flags(int i) const
 	{
-		Assert( i >= 0 && i < numbones );
-		return *( (int *)( ( (byte *)this ) + flagsindex ) + i );
+		Assert(i >= 0 && i < numbones);
+		return *((int*)(((byte*)this) + flagsindex) + i);
 	};
 
 	int parentindex;
 
-	inline int parent( int i ) const
+	inline int parent(int i) const
 	{
-		Assert( i >= 0 && i < numbones );
-		return *( (int *)( ( (byte *)this ) + parentindex ) + i );
+		Assert(i >= 0 && i < numbones);
+		return *((int*)(((byte*)this) + parentindex) + i);
 	};
 
 	int posindex;
 
-	inline Vector pos( int i ) const
+	inline Vector pos(int i) const
 	{
-		Assert( i >= 0 && i < numbones );
-		return *( (Vector *)( ( (byte *)this ) + posindex ) + i );
+		Assert(i >= 0 && i < numbones);
+		return *((Vector*)(((byte*)this) + posindex) + i);
 	};
 
 	int quatindex;
@@ -311,7 +311,7 @@ struct mstudiolinearbone_t
 
 private:
 	// No copy constructors allowed
-	mstudiolinearbone_t( const mstudiolinearbone_t &vOther );
+	mstudiolinearbone_t(const mstudiolinearbone_t& vOther);
 };
 
 // Component is one of Translate X, Y or Z [0,2] (StudioBoneFlexComponent_t)
@@ -328,7 +328,7 @@ struct mstudioboneflexdrivercontrol_t
 
 private:
 	// No copy constructors allowed
-	mstudioboneflexdrivercontrol_t( const mstudioboneflexdrivercontrol_t &vOther );
+	mstudioboneflexdrivercontrol_t(const mstudioboneflexdrivercontrol_t& vOther);
 };
 
 // Drive flex controllers from bone components
@@ -346,7 +346,7 @@ struct mstudioboneflexdriver_t
 
 private:
 	// No copy constructors allowed
-	mstudioboneflexdriver_t( const mstudioboneflexdriver_t &vOther );
+	mstudioboneflexdriver_t(const mstudioboneflexdriver_t& vOther);
 };
 
 // bone is physically simulated when physics are active
@@ -398,7 +398,7 @@ struct mstudiobbox_t
 
 private:
 	// No copy constructors allowed
-	mstudiobbox_t( const mstudiobbox_t &vOther );
+	mstudiobbox_t(const mstudiobbox_t& vOther);
 };
 
 // demand loaded sequence groups
@@ -408,7 +408,7 @@ struct mstudiomodelgroup_t
 	int szlabelindex; // textual name
 	int sznameindex; // file name
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 };
 
 // events
@@ -429,7 +429,7 @@ struct mstudioattachment_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	unsigned int flags;
 	int localbone;
@@ -447,7 +447,7 @@ struct mstudioikerror_t
 
 private:
 	// No copy constructors allowed
-	mstudioikerror_t( const mstudioikerror_t &vOther );
+	mstudioikerror_t(const mstudioikerror_t& vOther);
 };
 
 union mstudioanimvalue_t;
@@ -461,7 +461,7 @@ struct mstudiocompressedikerror_t
 
 private:
 	// No copy constructors allowed
-	mstudiocompressedikerror_t( const mstudiocompressedikerror_t &vOther );
+	mstudiocompressedikerror_t(const mstudiocompressedikerror_t& vOther);
 };
 
 struct mstudioikrule_t
@@ -509,7 +509,7 @@ struct mstudioikrule_t
 
 private:
 	// No copy constructors allowed
-	mstudioikrule_t( const mstudioikrule_t &vOther );
+	mstudioikrule_t(const mstudioikrule_t& vOther);
 };
 
 struct mstudioiklock_t
@@ -574,14 +574,14 @@ struct mstudioanim_t
 	byte flags; // weighing options
 
 	// valid for animating data only
-	inline byte *pData() const { return ( ( (byte *)this ) + sizeof( struct mstudioanim_t ) ); };
+	inline byte* pData() const { return (((byte*)this) + sizeof(struct mstudioanim_t)); };
 
 	short nextoffset;
 
-	inline mstudioanim_t *pNext() const
+	inline mstudioanim_t* pNext() const
 	{
-		if ( nextoffset != 0 )
-			return (mstudioanim_t *)( ( (byte *)this ) + nextoffset );
+		if (nextoffset != 0)
+			return (mstudioanim_t*)(((byte*)this) + nextoffset);
 		else
 			return NULL;
 	};
@@ -602,7 +602,7 @@ struct mstudiomovement_t
 
 private:
 	// No copy constructors allowed
-	mstudiomovement_t( const mstudiomovement_t &vOther );
+	mstudiomovement_t(const mstudiomovement_t& vOther);
 };
 
 struct studiohdr_t;
@@ -629,7 +629,7 @@ struct mstudioanimdesc_t
 
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	float fps; // frames per second
 	int flags; // looping/non-looping flags
@@ -664,7 +664,7 @@ struct mstudioanimdesc_t
 
 private:
 	// No copy constructors allowed
-	mstudioanimdesc_t( const mstudioanimdesc_t &vOther );
+	mstudioanimdesc_t(const mstudioanimdesc_t& vOther);
 };
 
 struct mstudioikrule_t;
@@ -689,7 +689,7 @@ struct mstudioactivitymodifier_t
 
 	int sznameindex;
 
-	inline char *pszName() { return ( sznameindex ) ? (char *)( ( (byte *)this ) + sznameindex ) : NULL; }
+	inline char* pszName() { return (sznameindex) ? (char*)(((byte*)this) + sznameindex) : NULL; }
 };
 
 // sequence descriptions
@@ -747,9 +747,9 @@ struct mstudioseqdesc_t
 
 	int weightlistindex;
 
-	inline float *pBoneweight( int i ) const { return ( (float *)( ( (byte *)this ) + weightlistindex ) + i ); };
+	inline float* pBoneweight(int i) const { return ((float*)(((byte*)this) + weightlistindex) + i); };
 
-	inline float weight( int i ) const { return *( pBoneweight( i ) ); };
+	inline float weight(int i) const { return *(pBoneweight(i)); };
 
 	// FIXME: make this 2D instead of 2x1D arrays
 	int posekeyindex;
@@ -772,7 +772,7 @@ struct mstudioseqdesc_t
 
 private:
 	// No copy constructors allowed
-	mstudioseqdesc_t( const mstudioseqdesc_t &vOther );
+	mstudioseqdesc_t(const mstudioseqdesc_t& vOther);
 };
 
 struct mstudioposeparamdesc_t
@@ -780,7 +780,7 @@ struct mstudioposeparamdesc_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	int flags; // ????
 	float start; // starting value
@@ -800,7 +800,7 @@ struct mstudioflexcontroller_t
 	int sztypeindex;
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	mutable int localToGlobal; // remapped at load time to master list
 	float min;
@@ -822,7 +822,7 @@ struct mstudioflexcontrollerui_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	// These are used like a union to save space
 	// Here are the possible configurations for a UI controller
@@ -836,7 +836,7 @@ struct mstudioflexcontrollerui_t
 	int szindex2;
 
 	// Number of controllers this ui description contains, 1, 2 or 3
-	inline int Count() const { return ( stereo ? 2 : 1 ) + ( remaptype == FLEXCONTROLLER_REMAP_NWAY ? 1 : 0 ); }
+	inline int Count() const { return (stereo ? 2 : 1) + (remaptype == FLEXCONTROLLER_REMAP_NWAY ? 1 : 0); }
 
 	unsigned char remaptype; // See the FlexControllerRemapType_t enum
 	bool stereo; // Is this a stereo control?
@@ -951,7 +951,7 @@ struct mstudiovertex_t
 
 private:
 	// No copy constructors allowed
-	mstudiovertex_t( const mstudiovertex_t &vOther );
+	mstudiovertex_t(const mstudiovertex_t& vOther);
 };
 
 // skin info
@@ -960,14 +960,14 @@ struct mstudiotexture_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	int flags;
 	int used;
 	int unused1;
 
-	mutable IMaterial *material; // fixme: this needs to go away . .isn't used by the engine, but is used by studiomdl
-	mutable void *clientmaterial; // gary, replace with client material pointer if used
+	mutable IMaterial* material; // fixme: this needs to go away . .isn't used by the engine, but is used by studiomdl
+	mutable void* clientmaterial; // gary, replace with client material pointer if used
 
 #ifdef PLATFORM_64BITS
 	int unused[8];
@@ -982,7 +982,7 @@ struct mstudioeyeball_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	int bone;
 	Vector org;
@@ -1012,7 +1012,7 @@ struct mstudioeyeball_t
 
 private:
 	// No copy constructors allowed
-	mstudioeyeball_t( const mstudioeyeball_t &vOther );
+	mstudioeyeball_t(const mstudioeyeball_t& vOther);
 };
 
 // ikinfo
@@ -1027,7 +1027,7 @@ struct mstudioiklink_t
 
 private:
 	// No copy constructors allowed
-	mstudioiklink_t( const mstudioiklink_t &vOther );
+	mstudioiklink_t(const mstudioiklink_t& vOther);
 };
 
 struct mstudioikchain_t
@@ -1035,13 +1035,13 @@ struct mstudioikchain_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	int linktype;
 	int numlinks;
 	int linkindex;
 
-	inline mstudioiklink_t *pLink( int i ) const { return (mstudioiklink_t *)( ( (byte *)this ) + linkindex ) + i; };
+	inline mstudioiklink_t* pLink(int i) const { return (mstudioiklink_t*)(((byte*)this) + linkindex) + i; };
 
 	// FIXME: add unused entries
 };
@@ -1056,28 +1056,28 @@ struct mstudiomodel_t;
 struct mstudio_modelvertexdata_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	Vector *Normal( int i ) const;
-	mstudiovertex_t *Vertex( int i ) const;
-	int GetGlobalVertexIndex( int i ) const;
+	Vector* Normal(int i) const;
+	mstudiovertex_t* Vertex(int i) const;
+	int GetGlobalVertexIndex(int i) const;
 
 	// base of external vertex data stores
-	const void *pVertexData;
-	const void *pTangentData;
+	const void* pVertexData;
+	const void* pTangentData;
 };
 #ifdef PLATFORM_64BITS
 // 64b - match 32-bit packing
-#pragma pack( push, 4 )
+#pragma pack(push, 4)
 #endif
 
 struct mstudio_meshvertexdata_t
 {
 	DECLARE_BYTESWAP_DATADESC();
-	Vector *Normal( int i ) const;
-	int GetModelVertexIndex( int i ) const;
+	Vector* Normal(int i) const;
+	int GetModelVertexIndex(int i) const;
 
 	// indirection to this mesh's model's vertex data
 #ifndef PLATFORM_64BITS
-	const mstudio_modelvertexdata_t *modelvertexdata;
+	const mstudio_modelvertexdata_t* modelvertexdata;
 #else
 	int unused_modelvertexdata;
 #endif
@@ -1125,7 +1125,7 @@ struct mstudiomesh_t
 
 private:
 	// No copy constructors allowed
-	mstudiomesh_t( const mstudiomesh_t &vOther );
+	mstudiomesh_t(const mstudiomesh_t& vOther);
 };
 
 // studio models
@@ -1133,7 +1133,7 @@ struct mstudiomodel_t
 {
 	DECLARE_BYTESWAP_DATADESC();
 
-	inline const char *pszName() const { return name; }
+	inline const char* pszName() const { return name; }
 
 	char name[64];
 
@@ -1165,77 +1165,77 @@ struct mstudiomodel_t
 };
 
 #ifdef PLATFORM_64BITS
-#pragma pack( pop )
+#pragma pack(pop)
 #endif
 
-inline int mstudio_modelvertexdata_t::GetGlobalVertexIndex( int i ) const
+inline int mstudio_modelvertexdata_t::GetGlobalVertexIndex(int i) const
 {
-	mstudiomodel_t *modelptr = (mstudiomodel_t *)( (byte *)this - offsetof( mstudiomodel_t, vertexdata ) );
-	Assert( ( modelptr->vertexindex % sizeof( mstudiovertex_t ) ) == 0 );
-	return ( i + ( modelptr->vertexindex / sizeof( mstudiovertex_t ) ) );
+	mstudiomodel_t* modelptr = (mstudiomodel_t*)((byte*)this - offsetof(mstudiomodel_t, vertexdata));
+	Assert((modelptr->vertexindex % sizeof(mstudiovertex_t)) == 0);
+	return (i + (modelptr->vertexindex / sizeof(mstudiovertex_t)));
 }
 
-inline mstudiovertex_t *mstudio_modelvertexdata_t::Vertex( int i ) const
+inline mstudiovertex_t* mstudio_modelvertexdata_t::Vertex(int i) const
 {
-	return (mstudiovertex_t *)pVertexData + GetGlobalVertexIndex( i );
+	return (mstudiovertex_t*)pVertexData + GetGlobalVertexIndex(i);
 }
 
-inline Vector *mstudio_modelvertexdata_t::Normal( int i ) const
+inline Vector* mstudio_modelvertexdata_t::Normal(int i) const
 {
-	return &Vertex( i )->m_vecNormal;
+	return &Vertex(i)->m_vecNormal;
 }
 
-inline int mstudio_meshvertexdata_t::GetModelVertexIndex( int i ) const
+inline int mstudio_meshvertexdata_t::GetModelVertexIndex(int i) const
 {
-	mstudiomesh_t *meshptr = (mstudiomesh_t *)( (byte *)this - offsetof( mstudiomesh_t, vertexdata ) );
+	mstudiomesh_t* meshptr = (mstudiomesh_t*)((byte*)this - offsetof(mstudiomesh_t, vertexdata));
 	return meshptr->vertexoffset + i;
 }
 
-inline Vector *mstudio_meshvertexdata_t::Normal( int i ) const
+inline Vector* mstudio_meshvertexdata_t::Normal(int i) const
 {
-	return modelvertexdata->Normal( GetModelVertexIndex( i ) );
+	return modelvertexdata->Normal(GetModelVertexIndex(i));
 };
 
 // runtime stuff
 
 struct studiomeshgroup_t
 {
-	IMesh *m_pMesh;
+	IMesh* m_pMesh;
 	int m_NumStrips;
 	int m_Flags; // see studiomeshgroupflags_t
-	OptimizedModel::StripHeader_t *m_pStripData;
-	unsigned short *m_pGroupIndexToMeshIndex;
+	OptimizedModel::StripHeader_t* m_pStripData;
+	unsigned short* m_pGroupIndexToMeshIndex;
 	int m_NumVertices;
-	int *m_pUniqueTris; // for performance measurements
-	unsigned short *m_pIndices;
+	int* m_pUniqueTris; // for performance measurements
+	unsigned short* m_pIndices;
 	bool m_MeshNeedsRestore;
 	short m_ColorMeshID;
-	IMorph *m_pMorph;
+	IMorph* m_pMorph;
 };
 
 // studio model data
 struct studiomeshdata_t
 {
 	int m_NumGroup;
-	studiomeshgroup_t *m_pMeshGroup;
+	studiomeshgroup_t* m_pMeshGroup;
 };
 
 struct studioloddata_t
 {
 	// not needed - this is really the same as studiohwdata_t.m_NumStudioMeshes
 	//int					m_NumMeshes;
-	studiomeshdata_t *m_pMeshData; // there are studiohwdata_t.m_NumStudioMeshes of these.
+	studiomeshdata_t* m_pMeshData; // there are studiohwdata_t.m_NumStudioMeshes of these.
 	float m_SwitchPoint;
 	// one of these for each lod since we can switch to simpler materials on lower lods.
 	int numMaterials;
-	IMaterial **ppMaterials; /* will have studiohdr_t.numtextures elements allocated */
+	IMaterial** ppMaterials; /* will have studiohdr_t.numtextures elements allocated */
 	// hack - this needs to go away.
-	int *pMaterialFlags; /* will have studiohdr_t.numtextures elements allocated */
+	int* pMaterialFlags; /* will have studiohdr_t.numtextures elements allocated */
 
 	// For decals on hardware morphing, we must actually do hardware skinning
 	// For this to work, we have to hope that the total # of bones used by
 	// hw flexed verts is < than the max possible for the dx level we're running under
-	int *m_pHWMorphDecalBoneRemap;
+	int* m_pHWMorphDecalBoneRemap;
 	int m_nDecalBoneCount;
 };
 
@@ -1243,7 +1243,7 @@ struct studiohwdata_t
 {
 	int m_RootLOD; // calced and clamped, nonzero for lod culling
 	int m_NumLODs;
-	studioloddata_t *m_pLODs;
+	studioloddata_t* m_pLODs;
 	int m_NumStudioMeshes;
 };
 
@@ -1253,7 +1253,7 @@ struct mstudiobodyparts_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	int nummodels;
 	int base;
@@ -1271,7 +1271,7 @@ struct mstudiomouth_t
 
 private:
 	// No copy constructors allowed
-	mstudiomouth_t( const mstudiomouth_t &vOther );
+	mstudiomouth_t(const mstudiomouth_t& vOther);
 };
 
 struct mstudiohitboxset_t
@@ -1279,7 +1279,7 @@ struct mstudiohitboxset_t
 	DECLARE_BYTESWAP_DATADESC();
 	int sznameindex;
 
-	inline char *const pszName() const { return ( (char *)this ) + sznameindex; }
+	inline char* const pszName() const { return ((char*)this) + sznameindex; }
 
 	int numhitboxes;
 	int hitboxindex;
@@ -1293,7 +1293,7 @@ struct mstudiosrcbonetransform_t
 
 	int sznameindex;
 
-	inline const char *pszName() const { return ( (char *)this ) + sznameindex; }
+	inline const char* pszName() const { return ((char*)this) + sznameindex; }
 
 	matrix3x4_t pretransform;
 	matrix3x4_t posttransform;
@@ -1307,7 +1307,7 @@ public:
 	virtualgroup_t() { cache = NULL; };
 
 	// tool dependant.  In engine this is a model_t, in tool it's a direct pointer
-	void *cache;
+	void* cache;
 
 	CUtlVector<int> boneMap; // maps global bone to local bone
 	CUtlVector<int> masterBone; // maps local bone to global bone
@@ -1349,14 +1349,13 @@ struct virtualmodel_t
 // 'thin' vertex data, used to do model decals (see Studio_CreateThinVertexes())
 struct thinModelVertices_t
 {
-	void Init( int numBoneInfluences, Vector *positions, unsigned short *normals, float *boneWeights,
-			   char *boneIndices )
+	void Init(int numBoneInfluences, Vector* positions, unsigned short* normals, float* boneWeights, char* boneIndices)
 	{
-		Assert( positions != NULL );
-		Assert( normals != NULL );
-		Assert( ( numBoneInfluences >= 0 ) && ( numBoneInfluences <= 3 ) );
-		Assert( numBoneInfluences > 0 ? !!boneIndices : !boneIndices );
-		Assert( numBoneInfluences > 1 ? !!boneWeights : !boneWeights );
+		Assert(positions != NULL);
+		Assert(normals != NULL);
+		Assert((numBoneInfluences >= 0) && (numBoneInfluences <= 3));
+		Assert(numBoneInfluences > 0 ? !!boneIndices : !boneIndices);
+		Assert(numBoneInfluences > 1 ? !!boneWeights : !boneWeights);
 		m_numBoneInfluences = numBoneInfluences;
 		m_vecPositions = positions;
 		m_vecNormals = normals;
@@ -1366,17 +1365,17 @@ struct thinModelVertices_t
 
 private:
 	int m_numBoneInfluences; // Number of bone influences per vertex, N
-	float *m_boneWeights; // This array stores (N-1) weights per vertex (unless N is zero)
-	char *m_boneIndices; // This array stores N indices per vertex
-	Vector *m_vecPositions;
-	unsigned short *m_vecNormals; // Normals are compressed into 16 bits apiece (see PackNormal_UBYTE4() )
+	float* m_boneWeights; // This array stores (N-1) weights per vertex (unless N is zero)
+	char* m_boneIndices; // This array stores N indices per vertex
+	Vector* m_vecPositions;
+	unsigned short* m_vecNormals; // Normals are compressed into 16 bits apiece (see PackNormal_UBYTE4() )
 };
 
 // Studio Model Vertex Data File
 // Position independent flat data for cache manager
 
 // little-endian "IDSV"
-#define MODEL_VERTEX_FILE_ID ( ( 'V' << 24 ) + ( 'S' << 16 ) + ( 'D' << 8 ) + 'I' )
+#define MODEL_VERTEX_FILE_ID (('V' << 24) + ('S' << 16) + ('D' << 8) + 'I')
 #define MODEL_VERTEX_FILE_VERSION 4
 
 // this id (IDCV) is used once the vertex data has been compressed (see CMDLCache::CreateThinVertexes)
@@ -1476,7 +1475,7 @@ struct studiohdr2_t
 
 	int sznameindex;
 
-	inline char *pszName() { return ( sznameindex ) ? (char *)( ( (byte *)this ) + sznameindex ) : NULL; }
+	inline char* pszName() { return (sznameindex) ? (char*)(((byte*)this) + sznameindex) : NULL; }
 
 	int m_nBoneFlexDriverCount;
 	int m_nBoneFlexDriverIndex;
@@ -1488,7 +1487,7 @@ struct studiohdr2_t
 	serializedstudioptr_t<void> pVertexBase;
 	serializedstudioptr_t<void> pIndexBase;
 
-	int reserved[56 - 4 * sizeof( serializedstudioptr_t<void> ) / sizeof( int )];
+	int reserved[56 - 4 * sizeof(serializedstudioptr_t<void>) / sizeof(int)];
 #else
 	int reserved[56];
 #endif
@@ -1502,9 +1501,9 @@ struct studiohdr_t
 
 	int checksum; // this has to be the same in the phy and vtx files to load!
 
-	inline const char *pszName() const
+	inline const char* pszName() const
 	{
-		if ( studiohdr2index && pStudioHdr2()->pszName() )
+		if (studiohdr2index && pStudioHdr2()->pszName())
 			return pStudioHdr2()->pszName();
 		else
 			return name;
@@ -1614,7 +1613,7 @@ struct studiohdr_t
 	// implementation specific back pointer to virtual data. Relocated to studiohdr2_t
 	int unused_virtualModel;
 #else
-	mutable void *virtualModel;
+	mutable void* virtualModel;
 #endif
 
 	// for demand loaded animation blocks
@@ -1625,7 +1624,7 @@ struct studiohdr_t
 	// implementation specific back pointer to virtual data. Relocated to studiohdr2_t
 	int unused_animblockModel;
 #else
-	mutable void *animblockModel;
+	mutable void* animblockModel;
 #endif
 
 	int bonetablebynameindex;
@@ -1637,8 +1636,8 @@ struct studiohdr_t
 	int unused_pVertexBase;
 	int unused_pIndexBase;
 #else
-	mutable void *pVertexBase;
-	mutable void *pIndexBase;
+	mutable void* pVertexBase;
+	mutable void* pIndexBase;
 #endif
 
 	// if STUDIOHDR_FLAGS_CONSTANT_DIRECTIONAL_LIGHT_DOT is set,
@@ -1671,22 +1670,22 @@ struct studiohdr_t
 	// FIXME: Remove when we up the model version. Move all fields of studiohdr2_t into studiohdr_t.
 	int studiohdr2index;
 
-	studiohdr2_t *pStudioHdr2() const { return (studiohdr2_t *)( ( (byte *)this ) + studiohdr2index ); }
+	studiohdr2_t* pStudioHdr2() const { return (studiohdr2_t*)(((byte*)this) + studiohdr2index); }
 
 #ifdef PLATFORM_64BITS
 
 #else
-	void *VirtualModel() const { return virtualModel; }
+	void* VirtualModel() const { return virtualModel; }
 
-	void SetVirtualModel( void *ptr ) { virtualModel = ptr; }
+	void SetVirtualModel(void* ptr) { virtualModel = ptr; }
 
-	void *VertexBase() const { return pVertexBase; }
+	void* VertexBase() const { return pVertexBase; }
 
-	void SetVertexBase( void *_pVertexBase ) const { pVertexBase = _pVertexBase; }
+	void SetVertexBase(void* _pVertexBase) const { pVertexBase = _pVertexBase; }
 
-	void *IndexBase() const { return pIndexBase; }
+	void* IndexBase() const { return pIndexBase; }
 
-	void SetIndexBase( void *_pIndexBase ) const { pIndexBase = _pIndexBase; }
+	void SetIndexBase(void* _pIndexBase) const { pIndexBase = _pIndexBase; }
 #endif
 
 	// NOTE: No room to add stuff? Up the .mdl file format version
@@ -1698,7 +1697,7 @@ struct studiohdr_t
 
 private:
 	// No copy constructors allowed
-	studiohdr_t( const studiohdr_t &vOther );
+	studiohdr_t(const studiohdr_t& vOther);
 
 	friend struct virtualmodel_t;
 };
@@ -1709,28 +1708,28 @@ class CStudioHdr
 {
 public:
 	CStudioHdr();
-	CStudioHdr( const studiohdr_t *pStudioHdr, IMDLCache *mdlcache = NULL );
+	CStudioHdr(const studiohdr_t* pStudioHdr, IMDLCache* mdlcache = NULL);
 
 	~CStudioHdr() { Term(); }
 
-	void Init( const studiohdr_t *pStudioHdr, IMDLCache *mdlcache = NULL );
+	void Init(const studiohdr_t* pStudioHdr, IMDLCache* mdlcache = NULL);
 	void Term();
 
 public:
-	inline bool IsValid() { return ( m_pStudioHdr != NULL ); };
+	inline bool IsValid() { return (m_pStudioHdr != NULL); };
 
 private:
-	mutable const studiohdr_t *m_pStudioHdr;
-	mutable virtualmodel_t *m_pVModel;
+	mutable const studiohdr_t* m_pStudioHdr;
+	mutable virtualmodel_t* m_pVModel;
 
-	mutable CUtlVector<const studiohdr_t *> m_pStudioHdrCache;
+	mutable CUtlVector<const studiohdr_t*> m_pStudioHdrCache;
 
 	mutable int m_nFrameUnlockCounter;
-	int *m_pFrameUnlockCounter;
+	int* m_pFrameUnlockCounter;
 	CThreadFastMutex m_FrameUnlockCounterMutex;
 
 public:
-	inline const char *pszName() const { return m_pStudioHdr->pszName(); };
+	inline const char* pszName() const { return m_pStudioHdr->pszName(); };
 
 	inline int flags() const { return m_pStudioHdr->flags; };
 
@@ -1760,7 +1759,7 @@ public:
 		{
 			short seqnum;
 			short weight; // the absolute value of the weight from the sequence header
-			CUtlSymbol *pActivityModifiers; // list of activity modifier symbols
+			CUtlSymbol* pActivityModifiers; // list of activity modifier symbols
 			int iNumActivityModifiers;
 		};
 
@@ -1784,29 +1783,29 @@ public:
 			int count;
 			int totalWeight;
 
-			HashValueType( int _actIdx, int _stIdx, int _ct, int _tW )
-				: activityIdx( _actIdx )
-				, startingIdx( _stIdx )
-				, count( _ct )
-				, totalWeight( _tW )
+			HashValueType(int _actIdx, int _stIdx, int _ct, int _tW)
+				: activityIdx(_actIdx)
+				, startingIdx(_stIdx)
+				, count(_ct)
+				, totalWeight(_tW)
 			{
 			}
 
 			// default constructor (ought not to be actually used)
 			HashValueType()
-				: activityIdx( -1 )
-				, startingIdx( -1 )
-				, count( -1 )
-				, totalWeight( -1 )
+				: activityIdx(-1)
+				, startingIdx(-1)
+				, count(-1)
+				, totalWeight(-1)
 			{
-				AssertMsg( false, "Don't use default HashValueType()!" );
+				AssertMsg(false, "Don't use default HashValueType()!");
 			}
 
 			class HashFuncs
 			{
 			public:
 				// dummy constructor (gndn)
-				HashFuncs( int ) {}
+				HashFuncs(int) {}
 			};
 		};
 
@@ -1816,22 +1815,22 @@ public:
 
 		// ctor
 		CActivityToSequenceMapping()
-			: m_pSequenceTuples( NULL )
-			, m_iSequenceTuplesCount( 0 )
-			, m_ActToSeqHash( 8, 0, 0 )
-			, m_expectedPStudioHdr( NULL )
-			, m_expectedVModel( NULL )
+			: m_pSequenceTuples(NULL)
+			, m_iSequenceTuplesCount(0)
+			, m_ActToSeqHash(8, 0, 0)
+			, m_expectedPStudioHdr(NULL)
+			, m_expectedVModel(NULL)
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
-			, m_bIsInitialized( false )
+			, m_bIsInitialized(false)
 #endif
 		{};
 
 		// dtor -- not virtual because this class has no inheritors
 		~CActivityToSequenceMapping()
 		{
-			if ( m_pSequenceTuples != NULL )
+			if (m_pSequenceTuples != NULL)
 			{
-				if ( m_pSequenceTuples->pActivityModifiers != NULL )
+				if (m_pSequenceTuples->pActivityModifiers != NULL)
 				{
 					delete[] m_pSequenceTuples->pActivityModifiers;
 				}
@@ -1840,7 +1839,7 @@ public:
 		}
 
 		/// The number of sequences available for an activity.
-		int NumSequencesForActivity( int forActivity );
+		int NumSequencesForActivity(int forActivity);
 
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
 		inline bool IsInitialized() { return m_bIsInitialized; }
@@ -1849,17 +1848,17 @@ public:
 	private:
 		/// Allocate my internal array. (It is freed in the destructor.) Also,
 		/// build the hash of activities to sequences and populate m_pSequenceTuples.
-		void Initialize( CStudioHdr *pstudiohdr );
+		void Initialize(CStudioHdr* pstudiohdr);
 
 		/// A more efficient version of the old SelectWeightedSequence() function in animation.cpp.
-		int SelectWeightedSequence( CStudioHdr *pstudiohdr, int activity, int curSequence );
+		int SelectWeightedSequence(CStudioHdr* pstudiohdr, int activity, int curSequence);
 
 		// selects the sequence with the most matching modifiers
-		int SelectWeightedSequenceFromModifiers( CStudioHdr *pstudiohdr, int activity, CUtlSymbol *pActivityModifiers,
-												 int iModifierCount );
+		int SelectWeightedSequenceFromModifiers(CStudioHdr* pstudiohdr, int activity, CUtlSymbol* pActivityModifiers,
+												int iModifierCount);
 
 		// Actually a big array, into which the hash values index.
-		SequenceTuple *m_pSequenceTuples;
+		SequenceTuple* m_pSequenceTuples;
 		unsigned int m_iSequenceTuplesCount; // (size of the whole array)
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
 		bool m_bIsInitialized;
@@ -1875,8 +1874,8 @@ public:
 
 		// we store these so we can know if the contents of the studiohdr have changed
 		// from underneath our feet (this is an emergency data integrity check)
-		const void *m_expectedPStudioHdr;
-		const void *m_expectedVModel;
+		const void* m_expectedPStudioHdr;
+		const void* m_expectedVModel;
 
 		friend class CStudioHdr;
 	};
@@ -1885,43 +1884,43 @@ public:
 
 	/// A more efficient version of the old SelectWeightedSequence() function in animation.cpp.
 	/// Returns -1 on failure to find a sequence
-	inline int SelectWeightedSequence( int activity, int curSequence )
+	inline int SelectWeightedSequence(int activity, int curSequence)
 	{
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
 		// We lazy-initialize the header on demand here, because CStudioHdr::Init() is
 		// called from the constructor, at which time the this pointer is illegitimate.
-		if ( !m_ActivityToSequence.IsInitialized() )
+		if (!m_ActivityToSequence.IsInitialized())
 		{
-			m_ActivityToSequence.Initialize( this );
+			m_ActivityToSequence.Initialize(this);
 		}
 #endif
-		return m_ActivityToSequence.SelectWeightedSequence( this, activity, curSequence );
+		return m_ActivityToSequence.SelectWeightedSequence(this, activity, curSequence);
 	}
 
-	inline int SelectWeightedSequenceFromModifiers( int activity, CUtlSymbol *pActivityModifiers, int iModifierCount )
+	inline int SelectWeightedSequenceFromModifiers(int activity, CUtlSymbol* pActivityModifiers, int iModifierCount)
 	{
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
 		// We lazy-initialize the header on demand here, because CStudioHdr::Init() is
 		// called from the constructor, at which time the this pointer is illegitimate.
-		if ( !m_ActivityToSequence.IsInitialized() )
+		if (!m_ActivityToSequence.IsInitialized())
 		{
-			m_ActivityToSequence.Initialize( this );
+			m_ActivityToSequence.Initialize(this);
 		}
 #endif
-		return m_ActivityToSequence.SelectWeightedSequenceFromModifiers( this, activity, pActivityModifiers,
-																		 iModifierCount );
+		return m_ActivityToSequence.SelectWeightedSequenceFromModifiers(this, activity, pActivityModifiers,
+																		iModifierCount);
 	}
 
 	/// True iff there is at least one sequence for the given activity.
-	inline bool HaveSequenceForActivity( int activity )
+	inline bool HaveSequenceForActivity(int activity)
 	{
 #if STUDIO_SEQUENCE_ACTIVITY_LAZY_INITIALIZE
-		if ( !m_ActivityToSequence.IsInitialized() )
+		if (!m_ActivityToSequence.IsInitialized())
 		{
-			m_ActivityToSequence.Initialize( this );
+			m_ActivityToSequence.Initialize(this);
 		}
 #endif
-		return ( m_ActivityToSequence.NumSequencesForActivity( activity ) > 0 );
+		return (m_ActivityToSequence.NumSequencesForActivity(activity) > 0);
 	}
 
 #ifdef STUDIO_ENABLE_PERF_COUNTERS
@@ -1969,7 +1968,7 @@ struct flexsetting_t
 	DECLARE_BYTESWAP_DATADESC();
 	int nameindex;
 
-	inline char *pszName() const { return (char *)( ( (byte *)this ) + nameindex ); }
+	inline char* pszName() const { return (char*)(((byte*)this) + nameindex); }
 
 	// Leaving this for legacy support
 	int obsolete1;
@@ -1991,7 +1990,7 @@ struct flexsettinghdr_t
 	int id;
 	int version;
 
-	inline const char *pszName() const { return name; }
+	inline const char* pszName() const { return name; }
 
 	char name[64];
 	int length;

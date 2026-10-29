@@ -19,128 +19,128 @@
 class CFakeVModelInfo : public IVModelInfo
 {
 public:
-	const model_t *GetModel( int modelindex ) override { return {}; }
+	const model_t* GetModel(int modelindex) override { return {}; }
 
-	int GetModelIndex( const char *name ) const override { return {}; }
+	int GetModelIndex(const char* name) const override { return {}; }
 
-	const char *GetModelName( const model_t *model ) const override { return {}; }
+	const char* GetModelName(const model_t* model) const override { return {}; }
 
-	vcollide_t *GetVCollide( const model_t *model ) override { return {}; }
+	vcollide_t* GetVCollide(const model_t* model) override { return {}; }
 
-	vcollide_t *GetVCollide( int modelindex ) override { return {}; }
+	vcollide_t* GetVCollide(int modelindex) override { return {}; }
 
-	void GetModelBounds( const model_t *model, Vector &mins, Vector &maxs ) const override {}
+	void GetModelBounds(const model_t* model, Vector& mins, Vector& maxs) const override {}
 
-	void GetModelRenderBounds( const model_t *model, Vector &mins, Vector &maxs ) const override {}
+	void GetModelRenderBounds(const model_t* model, Vector& mins, Vector& maxs) const override {}
 
-	int GetModelFrameCount( const model_t *model ) const override { return {}; }
+	int GetModelFrameCount(const model_t* model) const override { return {}; }
 
-	int GetModelType( const model_t *model ) const override { return {}; }
+	int GetModelType(const model_t* model) const override { return {}; }
 
-	void *GetModelExtraData( const model_t *model ) override { return {}; }
+	void* GetModelExtraData(const model_t* model) override { return {}; }
 
-	bool ModelHasMaterialProxy( const model_t *model ) const override { return {}; }
+	bool ModelHasMaterialProxy(const model_t* model) const override { return {}; }
 
-	bool IsTranslucent( model_t const *model ) const override { return {}; }
+	bool IsTranslucent(model_t const* model) const override { return {}; }
 
-	bool IsTranslucentTwoPass( const model_t *model ) const override { return {}; }
+	bool IsTranslucentTwoPass(const model_t* model) const override { return {}; }
 
-	void RecomputeTranslucency( const model_t *model, int nSkin, int nBody, void *pClientRenderable,
-								float fInstanceAlphaModulate = 1.0f ) override
+	void RecomputeTranslucency(const model_t* model, int nSkin, int nBody, void* pClientRenderable,
+							   float fInstanceAlphaModulate = 1.0f) override
 	{
 	}
 
-	int GetModelMaterialCount( const model_t *model ) const override { return {}; }
+	int GetModelMaterialCount(const model_t* model) const override { return {}; }
 
-	void GetModelMaterials( const model_t *model, int count, IMaterial **ppMaterial ) override {}
+	void GetModelMaterials(const model_t* model, int count, IMaterial** ppMaterial) override {}
 
-	bool IsModelVertexLit( const model_t *model ) const override { return {}; }
+	bool IsModelVertexLit(const model_t* model) const override { return {}; }
 
-	const char *GetModelKeyValueText( const model_t *model ) override { return {}; }
+	const char* GetModelKeyValueText(const model_t* model) override { return {}; }
 
-	bool GetModelKeyValue( const model_t *model, CUtlBuffer &buf ) override { return {}; }
+	bool GetModelKeyValue(const model_t* model, CUtlBuffer& buf) override { return {}; }
 
-	float GetModelRadius( const model_t *model ) override { return {}; }
+	float GetModelRadius(const model_t* model) override { return {}; }
 
-	const studiohdr_t *FindModel( const studiohdr_t *pStudioHdr, void **cache, const char *modelname ) const override
-	{
-		return {};
-	}
-
-	const studiohdr_t *FindModel( void *cache ) const override { return {}; }
-
-	virtualmodel_t *GetVirtualModel( const studiohdr_t *pStudioHdr ) const override { return {}; }
-
-	byte *GetAnimBlock( const studiohdr_t *pStudioHdr, int iBlock ) const override { return {}; }
-
-	void GetModelMaterialColorAndLighting( const model_t *model, Vector const &origin, QAngle const &angles,
-										   trace_t *pTrace, Vector &lighting, Vector &matColor ) override
-	{
-	}
-
-	void GetIlluminationPoint( const model_t *model, IClientRenderable *pRenderable, Vector const &origin,
-							   QAngle const &angles, Vector *pLightingCenter ) override
-	{
-	}
-
-	int GetModelContents( int modelIndex ) override { return {}; }
-
-	studiohdr_t *GetStudiomodel( const model_t *mod ) override { return {}; }
-
-	int GetModelSpriteWidth( const model_t *model ) const override { return {}; }
-
-	int GetModelSpriteHeight( const model_t *model ) const override { return {}; }
-
-	void SetLevelScreenFadeRange( float flMinSize, float flMaxSize ) override {}
-
-	void GetLevelScreenFadeRange( float *pMinArea, float *pMaxArea ) const override {}
-
-	void SetViewScreenFadeRange( float flMinSize, float flMaxSize ) override {}
-
-	unsigned char ComputeLevelScreenFade( const Vector &vecAbsOrigin, float flRadius, float flFadeScale ) const override
+	const studiohdr_t* FindModel(const studiohdr_t* pStudioHdr, void** cache, const char* modelname) const override
 	{
 		return {};
 	}
 
-	unsigned char ComputeViewScreenFade( const Vector &vecAbsOrigin, float flRadius, float flFadeScale ) const override
+	const studiohdr_t* FindModel(void* cache) const override { return {}; }
+
+	virtualmodel_t* GetVirtualModel(const studiohdr_t* pStudioHdr) const override { return {}; }
+
+	byte* GetAnimBlock(const studiohdr_t* pStudioHdr, int iBlock) const override { return {}; }
+
+	void GetModelMaterialColorAndLighting(const model_t* model, Vector const& origin, QAngle const& angles,
+										  trace_t* pTrace, Vector& lighting, Vector& matColor) override
+	{
+	}
+
+	void GetIlluminationPoint(const model_t* model, IClientRenderable* pRenderable, Vector const& origin,
+							  QAngle const& angles, Vector* pLightingCenter) override
+	{
+	}
+
+	int GetModelContents(int modelIndex) override { return {}; }
+
+	studiohdr_t* GetStudiomodel(const model_t* mod) override { return {}; }
+
+	int GetModelSpriteWidth(const model_t* model) const override { return {}; }
+
+	int GetModelSpriteHeight(const model_t* model) const override { return {}; }
+
+	void SetLevelScreenFadeRange(float flMinSize, float flMaxSize) override {}
+
+	void GetLevelScreenFadeRange(float* pMinArea, float* pMaxArea) const override {}
+
+	void SetViewScreenFadeRange(float flMinSize, float flMaxSize) override {}
+
+	unsigned char ComputeLevelScreenFade(const Vector& vecAbsOrigin, float flRadius, float flFadeScale) const override
 	{
 		return {};
 	}
 
-	int GetAutoplayList( const studiohdr_t *pStudioHdr, unsigned short **pAutoplayList ) const override { return {}; }
-
-	CPhysCollide *GetCollideForVirtualTerrain( int index ) override { return {}; }
-
-	bool IsUsingFBTexture( const model_t *model, int nSkin, int nBody, void *pClientRenderable ) const override
+	unsigned char ComputeViewScreenFade(const Vector& vecAbsOrigin, float flRadius, float flFadeScale) const override
 	{
 		return {};
 	}
 
-	MDLHandle_t GetCacheHandle( const model_t *model ) const override { return {}; }
+	int GetAutoplayList(const studiohdr_t* pStudioHdr, unsigned short** pAutoplayList) const override { return {}; }
 
-	int GetBrushModelPlaneCount( const model_t *model ) const override { return {}; }
+	CPhysCollide* GetCollideForVirtualTerrain(int index) override { return {}; }
 
-	void GetBrushModelPlane( const model_t *model, int nIndex, cplane_t &plane, Vector *pOrigin ) const override {}
+	bool IsUsingFBTexture(const model_t* model, int nSkin, int nBody, void* pClientRenderable) const override
+	{
+		return {};
+	}
 
-	int GetSurfacepropsForVirtualTerrain( int index ) override { return {}; }
+	MDLHandle_t GetCacheHandle(const model_t* model) const override { return {}; }
+
+	int GetBrushModelPlaneCount(const model_t* model) const override { return {}; }
+
+	void GetBrushModelPlane(const model_t* model, int nIndex, cplane_t& plane, Vector* pOrigin) const override {}
+
+	int GetSurfacepropsForVirtualTerrain(int index) override { return {}; }
 
 	void OnLevelChange() override {}
 
-	int GetModelClientSideIndex( const char *name ) const override { return {}; }
+	int GetModelClientSideIndex(const char* name) const override { return {}; }
 
-	int RegisterDynamicModel( const char *name, bool bClientSide ) override { return {}; }
+	int RegisterDynamicModel(const char* name, bool bClientSide) override { return {}; }
 
-	bool IsDynamicModelLoading( int modelIndex ) override { return {}; }
+	bool IsDynamicModelLoading(int modelIndex) override { return {}; }
 
-	void AddRefDynamicModel( int modelIndex ) override {}
+	void AddRefDynamicModel(int modelIndex) override {}
 
-	void ReleaseDynamicModel( int modelIndex ) override {}
+	void ReleaseDynamicModel(int modelIndex) override {}
 
-	bool RegisterModelLoadCallback( int modelindex, IModelLoadCallback *pCallback,
-									bool bCallImmediatelyIfLoaded = true ) override
+	bool RegisterModelLoadCallback(int modelindex, IModelLoadCallback* pCallback,
+								   bool bCallImmediatelyIfLoaded = true) override
 	{
 		return {};
 	}
 
-	void UnregisterModelLoadCallback( int modelindex, IModelLoadCallback *pCallback ) override {}
+	void UnregisterModelLoadCallback(int modelindex, IModelLoadCallback* pCallback) override {}
 };

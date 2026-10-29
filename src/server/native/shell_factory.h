@@ -7,8 +7,8 @@
 // One interface this DLL answers: its version name and the object that answers it.
 struct SourceSharpExposed
 {
-	const char *m_pszVersion;
-	void *( *m_pfnGet )();
+	const char* m_pszVersion;
+	void* (*m_pfnGet)();
 };
 
 extern const SourceSharpExposed kExposeServerGameDll;
@@ -21,4 +21,4 @@ extern const SourceSharpExposed kExposeServerDllSharedAppSystems;
 
 // The table CreateInterface reads, in its order, for diagnostics and tests.
 int SourceSharp_ExposedCount();
-const SourceSharpExposed &SourceSharp_ExposedAt( int nIndex );
+const SourceSharpExposed& SourceSharp_ExposedAt(int nIndex);

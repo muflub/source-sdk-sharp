@@ -20,7 +20,7 @@ class IMaterialSystem;
 
 // The library's manager with the client's particle query and built-in operators,
 // and the particle manifests read.
-bool ShellParticleMgr_Init( IMaterialSystem *pMaterials );
+bool ShellParticleMgr_Init(IMaterialSystem* pMaterials);
 
 // Releases the table's materials, uncaches the library's systems and the
 // material system's unused materials.
@@ -32,14 +32,14 @@ void ShellParticleMgr_LevelInit();
 void ShellParticleMgr_LevelShutdown();
 
 // The handle for a material by name, or NULL when the material system has none.
-PMaterialHandle ShellParticleMaterial_Find( const char *pszName );
+PMaterialHandle ShellParticleMaterial_Find(const char* pszName);
 
 // The handle's material, re-acquired if a level shutdown released it.
-IMaterial *ShellParticleMaterial_Material( PMaterialHandle hMaterial );
+IMaterial* ShellParticleMaterial_Material(PMaterialHandle hMaterial);
 
 // The draw state: the model-view matrix of the draw in progress, the light the
 // particle light proxy reads, and the argument particle binds carry.
-VMatrix &ShellParticleDraw_ModelView();
-void ShellParticleDraw_GetLight( CParticleLightInfo &info );
-void ShellParticleDraw_SetLight( const CParticleLightInfo &info );
-void *ShellParticleDraw_BindArg();
+VMatrix& ShellParticleDraw_ModelView();
+void ShellParticleDraw_GetLight(CParticleLightInfo& info);
+void ShellParticleDraw_SetLight(const CParticleLightInfo& info);
+void* ShellParticleDraw_BindArg();

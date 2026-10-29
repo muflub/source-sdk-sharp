@@ -29,7 +29,7 @@ enum VertexCompressionType_t
 };
 
 // DEFCONFIGMETHOD declares a pure virtual; its third argument is unused on PC.
-#define DEFCONFIGMETHOD( ret_type, method, unused_value ) virtual ret_type method const = 0;
+#define DEFCONFIGMETHOD(ret_type, method, unused_value) virtual ret_type method const = 0;
 
 // Material system configuration
 class IMaterialSystemHardwareConfig
@@ -46,7 +46,7 @@ public:
 	virtual void unused_SupportsVertexAndPixelShaders() = 0;
 	virtual void unused_SupportsPixelShaders_1_4() = 0;
 	virtual void unused_SupportsStaticControlFlow() = 0;
-	DEFCONFIGMETHOD( bool, SupportsPixelShaders_2_0(), true );
+	DEFCONFIGMETHOD(bool, SupportsPixelShaders_2_0(), true);
 	virtual void unused_SupportsVertexShaders_2_0() = 0;
 	virtual void unused_MaximumAnisotropicLevel() = 0; // 0 means no anisotropic filtering
 	virtual void unused_MaxTextureWidth() = 0;
@@ -74,7 +74,7 @@ public:
 
 	// This here should be the major item looked at when checking for compat
 	// from anywhere other than the material system	shaders
-	DEFCONFIGMETHOD( int, GetDXSupportLevel(), 98 );
+	DEFCONFIGMETHOD(int, GetDXSupportLevel(), 98);
 	virtual void unused_GetShaderDLLName() = 0;
 
 	virtual void unused_ReadPixelsFromFrontBuffer() = 0;
@@ -104,8 +104,8 @@ public:
 
 	// Does the card support sRGB reads/writes?
 	virtual void unused_SupportsSRGB() = 0;
-	DEFCONFIGMETHOD( bool, FakeSRGBWrite(), false );
-	DEFCONFIGMETHOD( bool, CanDoSRGBReadFromRTs(), true );
+	DEFCONFIGMETHOD(bool, FakeSRGBWrite(), false);
+	DEFCONFIGMETHOD(bool, CanDoSRGBReadFromRTs(), true);
 
 	virtual void unused_SupportsGLMixedSizeTargets() = 0;
 
@@ -120,7 +120,7 @@ public:
 	virtual HDRType_t GetHDRType() const = 0;
 	virtual void unused_GetHardwareHDRType() = 0;
 
-	DEFCONFIGMETHOD( bool, SupportsPixelShaders_2_b(), true );
+	DEFCONFIGMETHOD(bool, SupportsPixelShaders_2_b(), true);
 	virtual void unused_SupportsStreamOffset() = 0;
 
 	virtual void unused_StencilBufferBits() = 0;

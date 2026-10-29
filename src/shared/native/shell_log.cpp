@@ -32,16 +32,15 @@
 // The DLL's log, which the free calls below forward to. Set by its constructor; NULL
 // during static initialisation before the root is built, when the calls answer the
 // defaults (verbosity 1, lines to stdout).
-static CShellLog *s_pLog = NULL;
+static CShellLog* s_pLog = NULL;
 
 CShellLog::CShellLog()
 #ifdef CLIENT_DLL
-	: m_Verbose( SOURCESHARP_VERBOSE_CVAR, "1", FCVAR_NONE,
-				 "SourceSharp log verbosity: 0=errors, 1=startup, 2=verbose" )
+	: m_Verbose(SOURCESHARP_VERBOSE_CVAR, "1", FCVAR_NONE, "SourceSharp log verbosity: 0=errors, 1=startup, 2=verbose")
 #else
 	// Declared in managed code. Until it registers, the answer is the default of 1 rather
 	// than the unresolved ref's 0, so the earliest lines are not silenced.
-	: m_Verbose( SOURCESHARP_VERBOSE_CVAR )
+	: m_Verbose(SOURCESHARP_VERBOSE_CVAR)
 #endif
 {
 	s_pLog = this;
@@ -49,7 +48,7 @@ CShellLog::CShellLog()
 
 CShellLog::~CShellLog()
 {
-	if ( s_pLog == this )
+	if (s_pLog == this)
 		s_pLog = NULL;
 }
 
@@ -58,69 +57,68 @@ int CShellLog::Verbosity() const
 #ifdef CLIENT_DLL
 	return m_bReady ? m_Verbose.GetInt() : 1;
 #else
-	return ( m_bReady && m_Verbose.IsValid() ) ? m_Verbose.GetInt() : 1;
+	return (m_bReady && m_Verbose.IsValid()) ? m_Verbose.GetInt() : 1;
 #endif
 }
 
-void CShellLog::Print( const char *pFmt, ... )
+void CShellLog::Print(const char* pFmt, ...)
 {
 	char szBuf[512];
 	va_list args;
-	va_start( args, pFmt );
-	ss::FormatV( szBuf, sizeof( szBuf ), pFmt, args );
-	va_end( args );
+	va_start(args, pFmt);
+	ss::FormatV(szBuf, sizeof(szBuf), pFmt, args);
+	va_end(args);
 
 	// Msg() is not safe during static init, so fall back to stdout until the engine is up.
-	if ( m_bReady )
-		Msg( "%s", szBuf );
+	if (m_bReady)
+		Msg("%s", szBuf);
 	else
-		fputs( szBuf, stdout );
+		fputs(szBuf, stdout);
 }
 
-void CShellLog::Stub( const char *pWhat, bool *pbAlreadyLogged )
+void CShellLog::Stub(const char* pWhat, bool* pbAlreadyLogged)
 {
 	const int nVerbosity = Verbosity();
-	if ( nVerbosity < 1 )
+	if (nVerbosity < 1)
 		return;
 
-	if ( *pbAlreadyLogged && nVerbosity < 2 )
+	if (*pbAlreadyLogged && nVerbosity < 2)
 		return;
 
 	*pbAlreadyLogged = true;
-	Print( "[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n", pWhat,
-		   SOURCESHARP_SIDE_TAG );
+	Print("[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n", pWhat, SOURCESHARP_SIDE_TAG);
 }
 
-void CShellLog::Trace( const char *pWhat, const char *pDetail )
+void CShellLog::Trace(const char* pWhat, const char* pDetail)
 {
-	if ( Verbosity() < 1 )
+	if (Verbosity() < 1)
 		return;
 
-	if ( pDetail )
-		Print( "[SourceSharp] > %s (%s): %s\n", pWhat, SOURCESHARP_SIDE_TAG, pDetail );
+	if (pDetail)
+		Print("[SourceSharp] > %s (%s): %s\n", pWhat, SOURCESHARP_SIDE_TAG, pDetail);
 	else
-		Print( "[SourceSharp] > %s (%s)\n", pWhat, SOURCESHARP_SIDE_TAG );
+		Print("[SourceSharp] > %s (%s)\n", pWhat, SOURCESHARP_SIDE_TAG);
 }
 
-void CShellLog::EntityCreate( const char *pClassName )
+void CShellLog::EntityCreate(const char* pClassName)
 {
-	if ( Verbosity() < 1 )
+	if (Verbosity() < 1)
 		return;
 
-	Print( "[SourceSharp] entity factory: creating '%s'\n", pClassName ? pClassName : "(null)" );
+	Print("[SourceSharp] entity factory: creating '%s'\n", pClassName ? pClassName : "(null)");
 }
 
-void CShellLog::EntityCreateFailed( const char *pClassName )
+void CShellLog::EntityCreateFailed(const char* pClassName)
 {
-	Print( "[SourceSharp] entity factory MISS: no factory registered for '%s'\n", pClassName ? pClassName : "(null)" );
+	Print("[SourceSharp] entity factory MISS: no factory registered for '%s'\n", pClassName ? pClassName : "(null)");
 }
 
-void CShellLog::EntityDestroy( const char *pClassName )
+void CShellLog::EntityDestroy(const char* pClassName)
 {
-	if ( Verbosity() < 2 )
+	if (Verbosity() < 2)
 		return;
 
-	Print( "[SourceSharp] entity factory: destroying '%s'\n", pClassName ? pClassName : "(null)" );
+	Print("[SourceSharp] entity factory: destroying '%s'\n", pClassName ? pClassName : "(null)");
 }
 
 // The free calls the macros and stock translation units make.
@@ -131,104 +129,104 @@ int SourceSharp_GetVerbosity()
 
 void SourceSharp_MarkDiagnosticsReady()
 {
-	if ( s_pLog )
+	if (s_pLog)
 		s_pLog->MarkReady();
 }
 
-void SourceSharp_DiagPrint( const char *pFmt, ... )
+void SourceSharp_DiagPrint(const char* pFmt, ...)
 {
 	char szBuf[512];
 	va_list args;
-	va_start( args, pFmt );
-	ss::FormatV( szBuf, sizeof( szBuf ), pFmt, args );
-	va_end( args );
+	va_start(args, pFmt);
+	ss::FormatV(szBuf, sizeof(szBuf), pFmt, args);
+	va_end(args);
 
-	if ( s_pLog )
-		s_pLog->Print( "%s", szBuf );
+	if (s_pLog)
+		s_pLog->Print("%s", szBuf);
 	else
-		fputs( szBuf, stdout );
+		fputs(szBuf, stdout);
 }
 
-void SourceSharp_LogStub( const char *pWhat, bool *pbAlreadyLogged )
+void SourceSharp_LogStub(const char* pWhat, bool* pbAlreadyLogged)
 {
-	if ( s_pLog )
-		s_pLog->Stub( pWhat, pbAlreadyLogged );
-	else if ( !*pbAlreadyLogged )
+	if (s_pLog)
+		s_pLog->Stub(pWhat, pbAlreadyLogged);
+	else if (!*pbAlreadyLogged)
 	{
 		*pbAlreadyLogged = true;
-		SourceSharp_DiagPrint( "[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n", pWhat,
-							   SOURCESHARP_SIDE_TAG );
+		SourceSharp_DiagPrint("[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n", pWhat,
+							  SOURCESHARP_SIDE_TAG);
 	}
 }
 
-void SourceSharp_Trace( const char *pWhat, const char *pDetail )
+void SourceSharp_Trace(const char* pWhat, const char* pDetail)
 {
-	if ( s_pLog )
-		s_pLog->Trace( pWhat, pDetail );
-	else if ( pDetail )
-		SourceSharp_DiagPrint( "[SourceSharp] > %s (%s): %s\n", pWhat, SOURCESHARP_SIDE_TAG, pDetail );
+	if (s_pLog)
+		s_pLog->Trace(pWhat, pDetail);
+	else if (pDetail)
+		SourceSharp_DiagPrint("[SourceSharp] > %s (%s): %s\n", pWhat, SOURCESHARP_SIDE_TAG, pDetail);
 	else
-		SourceSharp_DiagPrint( "[SourceSharp] > %s (%s)\n", pWhat, SOURCESHARP_SIDE_TAG );
+		SourceSharp_DiagPrint("[SourceSharp] > %s (%s)\n", pWhat, SOURCESHARP_SIDE_TAG);
 }
 
-void SourceSharp_LogEntityCreate( const char *pClassName )
+void SourceSharp_LogEntityCreate(const char* pClassName)
 {
-	if ( s_pLog )
-		s_pLog->EntityCreate( pClassName );
+	if (s_pLog)
+		s_pLog->EntityCreate(pClassName);
 }
 
-void SourceSharp_LogEntityCreateFailed( const char *pClassName )
+void SourceSharp_LogEntityCreateFailed(const char* pClassName)
 {
-	if ( s_pLog )
-		s_pLog->EntityCreateFailed( pClassName );
+	if (s_pLog)
+		s_pLog->EntityCreateFailed(pClassName);
 	else
-		SourceSharp_DiagPrint( "[SourceSharp] entity factory MISS: no factory registered for '%s'\n",
-							   pClassName ? pClassName : "(null)" );
+		SourceSharp_DiagPrint("[SourceSharp] entity factory MISS: no factory registered for '%s'\n",
+							  pClassName ? pClassName : "(null)");
 }
 
 #ifndef CLIENT_DLL
-void SourceSharp_LogEntityDestroy( const char *pClassName )
+void SourceSharp_LogEntityDestroy(const char* pClassName)
 {
-	if ( s_pLog )
-		s_pLog->EntityDestroy( pClassName );
+	if (s_pLog)
+		s_pLog->EntityDestroy(pClassName);
 }
 #endif // !CLIENT_DLL
 
 #ifdef CLIENT_DLL
-void ShellNotShipped_Warning( const char *pName, const char *pReason, int nTotal )
+void ShellNotShipped_Warning(const char* pName, const char* pReason, int nTotal)
 {
-	SourceSharp_DiagPrint( "[SourceSharp] NOT SHIPPED (%s): %s -- %s [total %d]\n", SOURCESHARP_SIDE_TAG,
-						   pName ? pName : "(null)", pReason ? pReason : "(no reason given)", nTotal );
+	SourceSharp_DiagPrint("[SourceSharp] NOT SHIPPED (%s): %s -- %s [total %d]\n", SOURCESHARP_SIDE_TAG,
+						  pName ? pName : "(null)", pReason ? pReason : "(no reason given)", nTotal);
 }
 
-void SourceSharp_NotShipped( const char *pCapability, const char *pReason )
+void SourceSharp_NotShipped(const char* pCapability, const char* pReason)
 {
-	if ( s_pLog )
-		s_pLog->NotShipped().Reached( pCapability, pReason );
+	if (s_pLog)
+		s_pLog->NotShipped().Reached(pCapability, pReason);
 }
 
 // The not-shipped ledger for the dev API: one capability per index, with its reason
 // and reach count. Returns the number of names, and the total through pOutTotal.
-int32_t SourceSharp_ClientNotShipped( int32_t iIndex, char *pOutName, int32_t nNameBytes, char *pOutReason,
-									  int32_t nReasonBytes, int32_t *pOutCount, int32_t *pOutTotal )
+int32_t SourceSharp_ClientNotShipped(int32_t iIndex, char* pOutName, int32_t nNameBytes, char* pOutReason,
+									 int32_t nReasonBytes, int32_t* pOutCount, int32_t* pOutTotal)
 {
-	if ( pOutTotal )
+	if (pOutTotal)
 		*pOutTotal = 0;
-	if ( !s_pLog )
+	if (!s_pLog)
 		return 0;
 
-	const CShellNotShipped &ledger = s_pLog->NotShipped();
-	if ( pOutTotal )
+	const CShellNotShipped& ledger = s_pLog->NotShipped();
+	if (pOutTotal)
 		*pOutTotal = ledger.Total();
 
-	if ( iIndex >= 0 && iIndex < ledger.NameCount() )
+	if (iIndex >= 0 && iIndex < ledger.NameCount())
 	{
-		if ( pOutName && nNameBytes > 0 )
-			ss::StrCopy( pOutName, ledger.NameAt( iIndex ) ? ledger.NameAt( iIndex ) : "", nNameBytes );
-		if ( pOutReason && nReasonBytes > 0 )
-			ss::StrCopy( pOutReason, ledger.ReasonAt( iIndex ) ? ledger.ReasonAt( iIndex ) : "", nReasonBytes );
-		if ( pOutCount )
-			*pOutCount = ledger.CountAt( iIndex );
+		if (pOutName && nNameBytes > 0)
+			ss::StrCopy(pOutName, ledger.NameAt(iIndex) ? ledger.NameAt(iIndex) : "", nNameBytes);
+		if (pOutReason && nReasonBytes > 0)
+			ss::StrCopy(pOutReason, ledger.ReasonAt(iIndex) ? ledger.ReasonAt(iIndex) : "", nReasonBytes);
+		if (pOutCount)
+			*pOutCount = ledger.CountAt(iIndex);
 	}
 
 	return ledger.NameCount();
@@ -240,34 +238,33 @@ int32_t SourceSharp_ClientNotShipped( int32_t iIndex, char *pOutName, int32_t nN
 
 void SourceSharp_PrintNotShipped()
 {
-	if ( s_pLog )
+	if (s_pLog)
 		s_pLog->PrintNotShipped();
 }
 
 void CShellLog::PrintNotShipped() const
 {
-	const CShellNotShipped &led = m_NotShipped;
+	const CShellNotShipped& led = m_NotShipped;
 
-	Msg( "[SourceSharp] not-shipped ledger (%s): %d reach(es) across %d name(s)\n", SOURCESHARP_SIDE_TAG, led.Total(),
-		 led.NameCount() );
+	Msg("[SourceSharp] not-shipped ledger (%s): %d reach(es) across %d name(s)\n", SOURCESHARP_SIDE_TAG, led.Total(),
+		led.NameCount());
 
-	for ( int i = 0; i < led.NameCount(); i++ )
+	for (int i = 0; i < led.NameCount(); i++)
 	{
-		Msg( "[SourceSharp]   %-40s %6d  %s\n", led.NameAt( i ), led.CountAt( i ),
-			 led.ReasonAt( i ) ? led.ReasonAt( i ) : "" );
+		Msg("[SourceSharp]   %-40s %6d  %s\n", led.NameAt(i), led.CountAt(i), led.ReasonAt(i) ? led.ReasonAt(i) : "");
 	}
 
-	if ( led.Total() == 0 )
+	if (led.Total() == 0)
 	{
-		Msg( "[SourceSharp]   none -- nothing reached a capability or interface "
-			 "this build declares it does not ship\n" );
+		Msg("[SourceSharp]   none -- nothing reached a capability or interface "
+			"this build declares it does not ship\n");
 	}
 
 	int nRows = 0;
-	const ShellNotShippedRow_t *pRows = ShellNotShipped_Interfaces( &nRows );
+	const ShellNotShippedRow_t* pRows = ShellNotShipped_Interfaces(&nRows);
 
-	Msg( "[SourceSharp]   %d interface name(s) declared not shipped:\n", nRows );
+	Msg("[SourceSharp]   %d interface name(s) declared not shipped:\n", nRows);
 
-	for ( int i = 0; i < nRows; i++ )
-		Msg( "[SourceSharp]     %s\n", pRows[i].pszName );
+	for (int i = 0; i < nRows; i++)
+		Msg("[SourceSharp]     %s\n", pRows[i].pszName);
 }

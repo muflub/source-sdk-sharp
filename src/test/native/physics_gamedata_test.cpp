@@ -68,15 +68,15 @@ struct FakeShell
 
 // The word behind a game-data pointer, so a fact can talk about the arithmetic
 // rather than about the pointer.
-uintptr_t WordOf( const void *pGameData )
+uintptr_t WordOf(const void* pGameData)
 {
 	return (uintptr_t)pGameData;
 }
 
 // The tag stripped off, which is the half the bias lives in.
-uintptr_t PayloadOf( const void *pGameData )
+uintptr_t PayloadOf(const void* pGameData)
 {
-	return WordOf( pGameData ) & ~SOURCESHARP_PHYSICS_GAMEDATA_TAG;
+	return WordOf(pGameData) & ~SOURCESHARP_PHYSICS_GAMEDATA_TAG;
 }
 
 //-----------------------------------------------------------------------------
@@ -90,20 +90,20 @@ struct Sample_t
 {
 	int nEntry;
 	int nSerial;
-	const char *pszWhy;
+	const char* pszWhy;
 };
 
 const Sample_t kSamples[] = {
-	{ 0, 0, "entry 0 serial 0 -- packs to the integer ZERO, which is the whole reason for the bias" },
-	{ 0, 1, "entry 0, a serial that is not" },
-	{ 1, 0, "a serial of zero on a non-zero entry" },
-	{ MAX_EDICTS - 1, 7, "the last edict" },
-	{ MAX_EDICTS, 7, "the first entry the engine cannot see (§3.3)" },
-	{ NUM_ENT_ENTRIES - 1, 0, "the last entry in the table" },
-	{ NUM_ENT_ENTRIES - 1, SOURCESHARP_SLOT_SERIAL_MASK, "the largest word a valid handle can pack to" },
+	{0, 0, "entry 0 serial 0 -- packs to the integer ZERO, which is the whole reason for the bias"},
+	{0, 1, "entry 0, a serial that is not"},
+	{1, 0, "a serial of zero on a non-zero entry"},
+	{MAX_EDICTS - 1, 7, "the last edict"},
+	{MAX_EDICTS, 7, "the first entry the engine cannot see (§3.3)"},
+	{NUM_ENT_ENTRIES - 1, 0, "the last entry in the table"},
+	{NUM_ENT_ENTRIES - 1, SOURCESHARP_SLOT_SERIAL_MASK, "the largest word a valid handle can pack to"},
 };
 
-const size_t kNumSamples = sizeof( kSamples ) / sizeof( kSamples[0] );
+const size_t kNumSamples = sizeof(kSamples) / sizeof(kSamples[0]);
 
 //-----------------------------------------------------------------------------
 // Reading the tree, for the facts that are about what a FILE says rather than
@@ -119,14 +119,14 @@ const size_t kNumSamples = sizeof( kSamples ) / sizeof( kSamples[0] );
 // The fact the whole bias exists for. Handle (0,0) packs to the integer zero;
 // a raw store would make its game data indistinguishable from "no owner".
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataBias, AHandleOfZeroIsNotTheNullGameData )
+TEST(PhysicsGameDataBias, AHandleOfZeroIsNotTheNullGameData)
 {
-	const CBaseHandle zero( 0, 0 );
+	const CBaseHandle zero(0, 0);
 
-	ASSERT_TRUE( zero.IsValid() );
-	ASSERT_EQ( 0, zero.ToInt() ) << "the premise of this fact -- (0,0) must pack to zero";
+	ASSERT_TRUE(zero.IsValid());
+	ASSERT_EQ(0, zero.ToInt()) << "the premise of this fact -- (0,0) must pack to zero";
 
-	EXPECT_TRUE( PhysicsGameDataFromHandle( zero ) != NULL )
+	EXPECT_TRUE(PhysicsGameDataFromHandle(zero) != NULL)
 		<< "handle (0,0) stored as game data came out as NULL, which every "
 		   "reader in the tree reads as 'no owner'";
 
@@ -136,7 +136,7 @@ TEST( PhysicsGameDataBias, AHandleOfZeroIsNotTheNullGameData )
 	// at which point exactly one entity per map would go silently unowned. The
 	// bias has to carry this on its own, so the fact asks the half the bias
 	// lives in.
-	EXPECT_NE( (uintptr_t)0, PayloadOf( PhysicsGameDataFromHandle( zero ) ) )
+	EXPECT_NE((uintptr_t)0, PayloadOf(PhysicsGameDataFromHandle(zero)))
 		<< "with the tag stripped, handle (0,0)'s game data is the NULL that "
 		   "means 'no owner' -- the +1 is what stops that and it is missing";
 }
@@ -145,11 +145,11 @@ TEST( PhysicsGameDataBias, AHandleOfZeroIsNotTheNullGameData )
 // The other end of the same boundary, and it is a different question: NULL is
 // not a handle at all, so it decodes to nothing rather than to handle -1.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataBias, TheNullGameDataIsNobodyRatherThanAHandle )
+TEST(PhysicsGameDataBias, TheNullGameDataIsNobodyRatherThanAHandle)
 {
-	EXPECT_EQ( PHYSICS_GAMEDATA_NONE, PhysicsGameDataKindOf( NULL ) );
-	EXPECT_FALSE( PhysicsGameDataIsHandle( NULL ) );
-	EXPECT_FALSE( PhysicsHandleFromGameData( NULL ).IsValid() );
+	EXPECT_EQ(PHYSICS_GAMEDATA_NONE, PhysicsGameDataKindOf(NULL));
+	EXPECT_FALSE(PhysicsGameDataIsHandle(NULL));
+	EXPECT_FALSE(PhysicsHandleFromGameData(NULL).IsValid());
 }
 
 //-----------------------------------------------------------------------------
@@ -159,14 +159,14 @@ TEST( PhysicsGameDataBias, TheNullGameDataIsNobodyRatherThanAHandle )
 // trips just as well, and so does adding nothing at all for every handle except
 // (0,0). This fact reads the stored word and requires handle + 1.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataBias, TheStoredWordIsThePackedHandlePlusExactlyOne )
+TEST(PhysicsGameDataBias, TheStoredWordIsThePackedHandlePlusExactlyOne)
 {
-	for ( size_t i = 0; i < kNumSamples; i++ )
+	for (size_t i = 0; i < kNumSamples; i++)
 	{
-		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
+		const CBaseHandle handle(kSamples[i].nEntry, kSamples[i].nSerial);
 		const uintptr_t expected = (uintptr_t)(uint32)handle.ToInt() + 1;
 
-		EXPECT_EQ( expected, PayloadOf( PhysicsGameDataFromHandle( handle ) ) ) << kSamples[i].pszWhy;
+		EXPECT_EQ(expected, PayloadOf(PhysicsGameDataFromHandle(handle))) << kSamples[i].pszWhy;
 	}
 }
 
@@ -175,32 +175,32 @@ TEST( PhysicsGameDataBias, TheStoredWordIsThePackedHandlePlusExactlyOne )
 // the encoder, so that a bias that moved in BOTH directions together -- which a
 // round-trip test cannot see -- is still red here.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataBias, TheDecodeSubtractsExactlyOneFromAHandWrittenWord )
+TEST(PhysicsGameDataBias, TheDecodeSubtractsExactlyOneFromAHandWrittenWord)
 {
-	for ( size_t i = 0; i < kNumSamples; i++ )
+	for (size_t i = 0; i < kNumSamples; i++)
 	{
-		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
+		const CBaseHandle handle(kSamples[i].nEntry, kSamples[i].nSerial);
 
-		const uintptr_t word = ( (uintptr_t)(uint32)handle.ToInt() + 1 ) | SOURCESHARP_PHYSICS_GAMEDATA_TAG;
+		const uintptr_t word = ((uintptr_t)(uint32)handle.ToInt() + 1) | SOURCESHARP_PHYSICS_GAMEDATA_TAG;
 
-		const CBaseHandle back = PhysicsHandleFromGameData( (void *)word );
+		const CBaseHandle back = PhysicsHandleFromGameData((void*)word);
 
-		EXPECT_EQ( kSamples[i].nEntry, back.GetEntryIndex() ) << kSamples[i].pszWhy;
-		EXPECT_EQ( kSamples[i].nSerial, back.GetSerialNumber() ) << kSamples[i].pszWhy;
+		EXPECT_EQ(kSamples[i].nEntry, back.GetEntryIndex()) << kSamples[i].pszWhy;
+		EXPECT_EQ(kSamples[i].nSerial, back.GetSerialNumber()) << kSamples[i].pszWhy;
 	}
 }
 
 //-----------------------------------------------------------------------------
 // The round trip itself, over the whole range a handle can occupy.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataBias, EveryHandleComesBackAsItself )
+TEST(PhysicsGameDataBias, EveryHandleComesBackAsItself)
 {
-	for ( size_t i = 0; i < kNumSamples; i++ )
+	for (size_t i = 0; i < kNumSamples; i++)
 	{
-		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
-		const CBaseHandle back = PhysicsHandleFromGameData( PhysicsGameDataFromHandle( handle ) );
+		const CBaseHandle handle(kSamples[i].nEntry, kSamples[i].nSerial);
+		const CBaseHandle back = PhysicsHandleFromGameData(PhysicsGameDataFromHandle(handle));
 
-		EXPECT_TRUE( back == handle ) << kSamples[i].pszWhy;
+		EXPECT_TRUE(back == handle) << kSamples[i].pszWhy;
 	}
 }
 
@@ -212,13 +212,13 @@ TEST( PhysicsGameDataBias, EveryHandleComesBackAsItself )
 // handle whose GetEntryIndex() is NUM_ENT_ENTRIES-1 by basehandle.h's own
 // bug-submarining -- a real, bindable entry in the table.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataBias, AnEntityWithNoHandleStoresNoOwnerAndNotEntry8191 )
+TEST(PhysicsGameDataBias, AnEntityWithNoHandleStoresNoOwnerAndNotEntry8191)
 {
 	CBaseHandle invalid;
-	ASSERT_FALSE( invalid.IsValid() );
+	ASSERT_FALSE(invalid.IsValid());
 
-	EXPECT_TRUE( PhysicsGameDataFromHandle( invalid ) == NULL );
-	EXPECT_EQ( PHYSICS_GAMEDATA_NONE, PhysicsGameDataKindOf( PhysicsGameDataFromHandle( invalid ) ) );
+	EXPECT_TRUE(PhysicsGameDataFromHandle(invalid) == NULL);
+	EXPECT_EQ(PHYSICS_GAMEDATA_NONE, PhysicsGameDataKindOf(PhysicsGameDataFromHandle(invalid)));
 }
 
 //=============================================================================
@@ -228,15 +228,15 @@ TEST( PhysicsGameDataBias, AnEntityWithNoHandleStoresNoOwnerAndNotEntry8191 )
 //-----------------------------------------------------------------------------
 // Every handle this tree can pack reads back as a HANDLE, not as a pointer.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataKind, AStoredHandleReadsAsAHandle )
+TEST(PhysicsGameDataKind, AStoredHandleReadsAsAHandle)
 {
-	for ( size_t i = 0; i < kNumSamples; i++ )
+	for (size_t i = 0; i < kNumSamples; i++)
 	{
-		const CBaseHandle handle( kSamples[i].nEntry, kSamples[i].nSerial );
-		void *pGameData = PhysicsGameDataFromHandle( handle );
+		const CBaseHandle handle(kSamples[i].nEntry, kSamples[i].nSerial);
+		void* pGameData = PhysicsGameDataFromHandle(handle);
 
-		EXPECT_EQ( PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf( pGameData ) ) << kSamples[i].pszWhy;
-		EXPECT_TRUE( PhysicsGameDataIsHandle( pGameData ) ) << kSamples[i].pszWhy;
+		EXPECT_EQ(PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf(pGameData)) << kSamples[i].pszWhy;
+		EXPECT_TRUE(PhysicsGameDataIsHandle(pGameData)) << kSamples[i].pszWhy;
 	}
 }
 
@@ -249,29 +249,28 @@ TEST( PhysicsGameDataKind, AStoredHandleReadsAsAHandle )
 // Sixty-four allocations rather than one, because a single `new` proves very
 // little about where an allocator puts things.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataKind, ARealEntityPointerNeverReadsAsAHandle )
+TEST(PhysicsGameDataKind, ARealEntityPointerNeverReadsAsAHandle)
 {
-	static FakeShell s_static = { 0 };
-	FakeShell onStack = { 0 };
+	static FakeShell s_static = {0};
+	FakeShell onStack = {0};
 
-	EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( &s_static ) )
+	EXPECT_EQ(PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf(&s_static))
 		<< "a static-storage address carried the handle tag";
-	EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( &onStack ) )
-		<< "a stack address carried the handle tag";
+	EXPECT_EQ(PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf(&onStack)) << "a stack address carried the handle tag";
 
-	std::vector<FakeShell *> allocated;
-	for ( int i = 0; i < 64; i++ )
-		allocated.push_back( new FakeShell );
+	std::vector<FakeShell*> allocated;
+	for (int i = 0; i < 64; i++)
+		allocated.push_back(new FakeShell);
 
-	for ( size_t i = 0; i < allocated.size(); i++ )
+	for (size_t i = 0; i < allocated.size(); i++)
 	{
-		EXPECT_EQ( PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf( allocated[i] ) )
-			<< "heap allocation " << i << " at " << (void *)allocated[i]
+		EXPECT_EQ(PHYSICS_GAMEDATA_POINTER, PhysicsGameDataKindOf(allocated[i]))
+			<< "heap allocation " << i << " at " << (void*)allocated[i]
 			<< " carried the handle tag -- the discriminator is not exact";
-		EXPECT_FALSE( PhysicsHandleFromGameData( allocated[i] ).IsValid() ) << "a heap pointer decoded to a handle";
+		EXPECT_FALSE(PhysicsHandleFromGameData(allocated[i]).IsValid()) << "a heap pointer decoded to a handle";
 	}
 
-	for ( size_t i = 0; i < allocated.size(); i++ )
+	for (size_t i = 0; i < allocated.size(); i++)
 		delete allocated[i];
 }
 
@@ -280,12 +279,12 @@ TEST( PhysicsGameDataKind, ARealEntityPointerNeverReadsAsAHandle )
 // above an ABI fact rather than an observation: x86-64 user space is the
 // canonical LOW half, so bit 63 is never set in a user pointer.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataKind, TheTagIsTheTopBitOfAPointerSizedWord )
+TEST(PhysicsGameDataKind, TheTagIsTheTopBitOfAPointerSizedWord)
 {
-	EXPECT_EQ( (uintptr_t)1 << ( sizeof( void * ) * 8 - 1 ), SOURCESHARP_PHYSICS_GAMEDATA_TAG );
+	EXPECT_EQ((uintptr_t)1 << (sizeof(void*) * 8 - 1), SOURCESHARP_PHYSICS_GAMEDATA_TAG);
 
-	const CBaseHandle handle( 3, 4 );
-	EXPECT_TRUE( ( WordOf( PhysicsGameDataFromHandle( handle ) ) & SOURCESHARP_PHYSICS_GAMEDATA_TAG ) != 0 );
+	const CBaseHandle handle(3, 4);
+	EXPECT_TRUE((WordOf(PhysicsGameDataFromHandle(handle)) & SOURCESHARP_PHYSICS_GAMEDATA_TAG) != 0);
 }
 
 //=============================================================================
@@ -296,17 +295,17 @@ TEST( PhysicsGameDataKind, TheTagIsTheTopBitOfAPointerSizedWord )
 // The control, so that the failures below are failures and not silence: a live
 // handle in game data answers with its own shell.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataStale, ALiveHandleInGameDataAnswersWithItsOwnShell )
+TEST(PhysicsGameDataStale, ALiveHandleInGameDataAnswersWithItsOwnShell)
 {
 	CSourceSharpSlotTable table;
-	FakeShell crate = { 1 };
+	FakeShell crate = {1};
 
-	const CBaseHandle handle = table.Bind( 100, &crate );
-	ASSERT_TRUE( handle.IsValid() );
+	const CBaseHandle handle = table.Bind(100, &crate);
+	ASSERT_TRUE(handle.IsValid());
 
-	void *pGameData = PhysicsGameDataFromHandle( handle );
+	void* pGameData = PhysicsGameDataFromHandle(handle);
 
-	EXPECT_EQ( &crate, table.Resolve( PhysicsHandleFromGameData( pGameData ) ) );
+	EXPECT_EQ(&crate, table.Resolve(PhysicsHandleFromGameData(pGameData)));
 }
 
 //-----------------------------------------------------------------------------
@@ -320,30 +319,30 @@ TEST( PhysicsGameDataStale, ALiveHandleInGameDataAnswersWithItsOwnShell )
 // so an object whose entity is already gone is a state the solver produces on
 // its own every time something is removed mid-step.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataStale, AStaleHandleInGameDataResolvesToNullAndNotToTheNewOccupant )
+TEST(PhysicsGameDataStale, AStaleHandleInGameDataResolvesToNullAndNotToTheNewOccupant)
 {
 	CSourceSharpSlotTable table;
-	FakeShell dead = { 1 }, alive = { 2 };
+	FakeShell dead = {1}, alive = {2};
 
 	// The crate is created, simulated, and its object is handed its owner.
-	const CBaseHandle hDead = table.Bind( 100, &dead );
-	ASSERT_TRUE( hDead.IsValid() );
+	const CBaseHandle hDead = table.Bind(100, &dead);
+	ASSERT_TRUE(hDead.IsValid());
 
-	void *pGameData = PhysicsGameDataFromHandle( hDead );
-	ASSERT_EQ( &dead, table.Resolve( PhysicsHandleFromGameData( pGameData ) ) );
+	void* pGameData = PhysicsGameDataFromHandle(hDead);
+	ASSERT_EQ(&dead, table.Resolve(PhysicsHandleFromGameData(pGameData)));
 
 	// The crate is removed and something else takes its entry. The object --
 	// and therefore the word in its game data -- has not moved.
-	table.Unbind( 100 );
-	const CBaseHandle hAlive = table.Bind( 100, &alive );
-	ASSERT_TRUE( hAlive.IsValid() );
-	ASSERT_EQ( &alive, table.Resolve( hAlive ) );
+	table.Unbind(100);
+	const CBaseHandle hAlive = table.Bind(100, &alive);
+	ASSERT_TRUE(hAlive.IsValid());
+	ASSERT_EQ(&alive, table.Resolve(hAlive));
 
-	void *pResolved = table.Resolve( PhysicsHandleFromGameData( pGameData ) );
+	void* pResolved = table.Resolve(PhysicsHandleFromGameData(pGameData));
 
-	EXPECT_TRUE( pResolved == NULL ) << "a stale handle in game data resolved to something";
-	EXPECT_NE( &alive, pResolved ) << "a stale handle in game data resolved to the entry's NEW occupant -- "
-									  "a VPhysics callback about a dead entity would be delivered to a live one";
+	EXPECT_TRUE(pResolved == NULL) << "a stale handle in game data resolved to something";
+	EXPECT_NE(&alive, pResolved) << "a stale handle in game data resolved to the entry's NEW occupant -- "
+									"a VPhysics callback about a dead entity would be delivered to a live one";
 }
 
 //-----------------------------------------------------------------------------
@@ -351,17 +350,17 @@ TEST( PhysicsGameDataStale, AStaleHandleInGameDataResolvesToNullAndNotToTheNewOc
 // and is why it is a separate fact: a resolver that checked only the pointer
 // passes this one and fails the one above.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataStale, AHandleWhoseEntryIsNowEmptyResolvesToNull )
+TEST(PhysicsGameDataStale, AHandleWhoseEntryIsNowEmptyResolvesToNull)
 {
 	CSourceSharpSlotTable table;
-	FakeShell dead = { 1 };
+	FakeShell dead = {1};
 
-	const CBaseHandle hDead = table.Bind( 101, &dead );
-	void *pGameData = PhysicsGameDataFromHandle( hDead );
+	const CBaseHandle hDead = table.Bind(101, &dead);
+	void* pGameData = PhysicsGameDataFromHandle(hDead);
 
-	table.Unbind( 101 );
+	table.Unbind(101);
 
-	EXPECT_TRUE( table.Resolve( PhysicsHandleFromGameData( pGameData ) ) == NULL );
+	EXPECT_TRUE(table.Resolve(PhysicsHandleFromGameData(pGameData)) == NULL);
 }
 
 //-----------------------------------------------------------------------------
@@ -373,18 +372,18 @@ TEST( PhysicsGameDataStale, AHandleWhoseEntryIsNowEmptyResolvesToNull )
 // to the packed handle wearing an entity's clothes", which is worse than the
 // new occupant, not better.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataStale, AStaleHandleIsStillReadAsAHandleAndNeverAsAPointer )
+TEST(PhysicsGameDataStale, AStaleHandleIsStillReadAsAHandleAndNeverAsAPointer)
 {
 	CSourceSharpSlotTable table;
-	FakeShell dead = { 1 }, alive = { 2 };
+	FakeShell dead = {1}, alive = {2};
 
-	const CBaseHandle hDead = table.Bind( 100, &dead );
-	void *pGameData = PhysicsGameDataFromHandle( hDead );
+	const CBaseHandle hDead = table.Bind(100, &dead);
+	void* pGameData = PhysicsGameDataFromHandle(hDead);
 
-	table.Unbind( 100 );
-	table.Bind( 100, &alive );
+	table.Unbind(100);
+	table.Bind(100, &alive);
 
-	EXPECT_EQ( PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf( pGameData ) )
+	EXPECT_EQ(PHYSICS_GAMEDATA_HANDLE, PhysicsGameDataKindOf(pGameData))
 		<< "a stale handle stopped looking like a handle, so PhysicsOwnerOf "
 		   "would cast it to CBaseEntity * instead of answering 'no owner'";
 }
@@ -395,22 +394,22 @@ TEST( PhysicsGameDataStale, AStaleHandleIsStillReadAsAHandleAndNeverAsAPointer )
 // arithmetic, and a fact rather than an assumption because the halves are only
 // identical while nothing special-cases MAX_EDICTS.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataStale, TheStaleRuleHoldsAboveTheEdictRange )
+TEST(PhysicsGameDataStale, TheStaleRuleHoldsAboveTheEdictRange)
 {
 	CSourceSharpSlotTable table;
-	FakeShell dead = { 1 }, alive = { 2 };
+	FakeShell dead = {1}, alive = {2};
 
-	const CBaseHandle hDead = table.Bind( MAX_EDICTS + 17, &dead );
-	ASSERT_TRUE( hDead.IsValid() );
+	const CBaseHandle hDead = table.Bind(MAX_EDICTS + 17, &dead);
+	ASSERT_TRUE(hDead.IsValid());
 
-	void *pGameData = PhysicsGameDataFromHandle( hDead );
+	void* pGameData = PhysicsGameDataFromHandle(hDead);
 
-	table.Unbind( MAX_EDICTS + 17 );
-	table.Bind( MAX_EDICTS + 17, &alive );
+	table.Unbind(MAX_EDICTS + 17);
+	table.Bind(MAX_EDICTS + 17, &alive);
 
-	void *pResolved = table.Resolve( PhysicsHandleFromGameData( pGameData ) );
-	EXPECT_TRUE( pResolved == NULL );
-	EXPECT_NE( &alive, pResolved );
+	void* pResolved = table.Resolve(PhysicsHandleFromGameData(pGameData));
+	EXPECT_TRUE(pResolved == NULL);
+	EXPECT_NE(&alive, pResolved);
 }
 
 //-----------------------------------------------------------------------------
@@ -418,19 +417,19 @@ TEST( PhysicsGameDataStale, TheStaleRuleHoldsAboveTheEdictRange )
 // one that would be silently lost if the game data ever stopped carrying the
 // entry as well as the serial.
 //-----------------------------------------------------------------------------
-TEST( PhysicsGameDataStale, TwoObjectsGameDataAnswerWithTwoDifferentShells )
+TEST(PhysicsGameDataStale, TwoObjectsGameDataAnswerWithTwoDifferentShells)
 {
 	CSourceSharpSlotTable table;
-	FakeShell first = { 1 }, second = { 2 };
+	FakeShell first = {1}, second = {2};
 
-	void *pFirst = PhysicsGameDataFromHandle( table.Bind( 100, &first ) );
-	void *pSecond = PhysicsGameDataFromHandle( table.Bind( 101, &second ) );
+	void* pFirst = PhysicsGameDataFromHandle(table.Bind(100, &first));
+	void* pSecond = PhysicsGameDataFromHandle(table.Bind(101, &second));
 
-	ASSERT_TRUE( pFirst != NULL && pSecond != NULL );
-	EXPECT_NE( pFirst, pSecond );
+	ASSERT_TRUE(pFirst != NULL && pSecond != NULL);
+	EXPECT_NE(pFirst, pSecond);
 
-	EXPECT_EQ( &first, table.Resolve( PhysicsHandleFromGameData( pFirst ) ) );
-	EXPECT_EQ( &second, table.Resolve( PhysicsHandleFromGameData( pSecond ) ) );
+	EXPECT_EQ(&first, table.Resolve(PhysicsHandleFromGameData(pFirst)));
+	EXPECT_EQ(&second, table.Resolve(PhysicsHandleFromGameData(pSecond)));
 }
 
 //=============================================================================

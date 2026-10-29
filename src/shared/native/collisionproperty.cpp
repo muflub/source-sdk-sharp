@@ -20,7 +20,7 @@
 #include <thread>
 #include <vector>
 
-extern ISpatialPartition *partition;
+extern ISpatialPartition* partition;
 #else
 
 #include "predictable_entity.h"
@@ -47,7 +47,7 @@ class CDirtySpatialPartitionEntityList : public CServerSystem, public IPartition
 #endif
 {
 public:
-	CDirtySpatialPartitionEntityList( char const *name );
+	CDirtySpatialPartitionEntityList(char const* name);
 
 	// Members of IGameSystem
 	virtual bool Init();
@@ -55,16 +55,16 @@ public:
 	virtual void LevelShutdownPostEntity();
 
 	// Members of IPartitionQueryCallback
-	virtual void OnPreQuery_V1() { Assert( 0 ); }
+	virtual void OnPreQuery_V1() { Assert(0); }
 
-	virtual void OnPreQuery( SpatialPartitionListMask_t listMask );
-	virtual void OnPostQuery( SpatialPartitionListMask_t listMask );
+	virtual void OnPreQuery(SpatialPartitionListMask_t listMask);
+	virtual void OnPostQuery(SpatialPartitionListMask_t listMask);
 
 	~CDirtySpatialPartitionEntityList();
 
 	void LockPartitionForRead()
 	{
-		if ( t_readLockCount == 0 )
+		if (t_readLockCount == 0)
 		{
 			m_partitionMutex.lock_shared();
 		}
@@ -74,7 +74,7 @@ public:
 	void UnlockPartitionForRead()
 	{
 		t_readLockCount--;
-		if ( t_readLockCount == 0 )
+		if (t_readLockCount == 0)
 		{
 			m_partitionMutex.unlock_shared();
 		}
@@ -91,10 +91,10 @@ private:
 
 thread_local int CDirtySpatialPartitionEntityList::t_readLockCount = 0;
 
-static CDirtySpatialPartitionEntityList s_DirtyKDTree( "CDirtySpatialPartitionEntityList" );
+static CDirtySpatialPartitionEntityList s_DirtyKDTree("CDirtySpatialPartitionEntityList");
 
 #ifdef CLIENT_DLL
-CClientSystem *ClientSystem_DirtySpatialPartition()
+CClientSystem* ClientSystem_DirtySpatialPartition()
 {
 	return &s_DirtyKDTree;
 }
@@ -102,7 +102,7 @@ CClientSystem *ClientSystem_DirtySpatialPartition()
 
 #ifndef CLIENT_DLL
 // Lets the server's system list name this object, which has internal linkage.
-CServerSystem *DirtySpatialPartitionGameSystem()
+CServerSystem* DirtySpatialPartitionGameSystem()
 {
 	return &s_DirtyKDTree;
 }
@@ -118,22 +118,22 @@ void UpdateDirtySpatialPartitionEntities()
 #else
 	listMask = PARTITION_SERVER_GAME_EDICTS;
 #endif
-	s_DirtyKDTree.OnPreQuery( listMask );
-	s_DirtyKDTree.OnPostQuery( listMask );
+	s_DirtyKDTree.OnPreQuery(listMask);
+	s_DirtyKDTree.OnPostQuery(listMask);
 }
 #endif
 
 #ifdef CLIENT_DLL
 #ifdef CLIENT_DLL
-CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name )
-	: CClientSystem( name )
+CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList(char const* name)
+	: CClientSystem(name)
 #else
-CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name )
-	: CServerSystem( name )
+CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList(char const* name)
+	: CServerSystem(name)
 #endif
 #else
-CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList( char const *name )
-	: CServerSystem( name )
+CDirtySpatialPartitionEntityList::CDirtySpatialPartitionEntityList(char const* name)
+	: CServerSystem(name)
 #endif
 {
 	m_DirtyEntities.Purge();
@@ -146,13 +146,13 @@ CDirtySpatialPartitionEntityList::~CDirtySpatialPartitionEntityList()
 
 bool CDirtySpatialPartitionEntityList::Init()
 {
-	::partition->InstallQueryCallback( this );
+	::partition->InstallQueryCallback(this);
 	return true;
 }
 
 void CDirtySpatialPartitionEntityList::Shutdown()
 {
-	::partition->RemoveQueryCallback( this );
+	::partition->RemoveQueryCallback(this);
 }
 
 void CDirtySpatialPartitionEntityList::LevelShutdownPostEntity()
@@ -161,7 +161,7 @@ void CDirtySpatialPartitionEntityList::LevelShutdownPostEntity()
 }
 
 // Makes sure all entries in the KD tree are in the correct position.
-void CDirtySpatialPartitionEntityList::OnPreQuery( SpatialPartitionListMask_t listMask )
+void CDirtySpatialPartitionEntityList::OnPreQuery(SpatialPartitionListMask_t listMask)
 {
 #ifdef CLIENT_DLL
 	const int validMask = PARTITION_CLIENT_GAME_EDICTS;
@@ -169,39 +169,39 @@ void CDirtySpatialPartitionEntityList::OnPreQuery( SpatialPartitionListMask_t li
 	const int validMask = PARTITION_SERVER_GAME_EDICTS;
 #endif
 
-	if ( !( listMask & validMask ) )
+	if (!(listMask & validMask))
 		return;
 
-	if ( m_partitionWriteId.load() == std::this_thread::get_id() )
+	if (m_partitionWriteId.load() == std::this_thread::get_id())
 		return;
 
 	// if you're holding a read lock, then these are entities that were still dirty after your trace started
 	// or became dirty due to some other thread or callback. Updating them may cause corruption further up the
 	// stack (e.g. partition iterator).  Ignoring the state change should be safe since it happened after the
 	// trace was requested or was unable to be resolved in a previous attempt (still dirty).
-	if ( m_DirtyEntities.Count() && !t_readLockCount )
+	if (m_DirtyEntities.Count() && !t_readLockCount)
 	{
 		std::vector<CBaseHandle> vecStillDirty;
 		m_partitionMutex.lock();
 		m_partitionWriteId = std::this_thread::get_id();
 		CTSListWithFreeList<CBaseHandle>::Node_t *pCurrent, *pNext;
-		while ( ( pCurrent = m_DirtyEntities.Detach() ) != NULL )
+		while ((pCurrent = m_DirtyEntities.Detach()) != NULL)
 		{
-			while ( pCurrent )
+			while (pCurrent)
 			{
 				CBaseHandle handle = pCurrent->elem;
-				pNext = (CTSListWithFreeList<CBaseHandle>::Node_t *)pCurrent->Next;
-				m_DirtyEntities.FreeNode( pCurrent );
+				pNext = (CTSListWithFreeList<CBaseHandle>::Node_t*)pCurrent->Next;
+				m_DirtyEntities.FreeNode(pCurrent);
 				pCurrent = pNext;
 
 				// Nothing fills the list; the drain still frees anything that arrives.
 			}
 		}
-		if ( !vecStillDirty.empty() )
+		if (!vecStillDirty.empty())
 		{
-			for ( const CBaseHandle &handle : vecStillDirty )
+			for (const CBaseHandle& handle : vecStillDirty)
 			{
-				m_DirtyEntities.PushItem( handle );
+				m_DirtyEntities.PushItem(handle);
 			}
 		}
 		m_partitionWriteId = std::thread::id();
@@ -211,17 +211,17 @@ void CDirtySpatialPartitionEntityList::OnPreQuery( SpatialPartitionListMask_t li
 }
 
 // Releases the read lock OnPreQuery took.
-void CDirtySpatialPartitionEntityList::OnPostQuery( SpatialPartitionListMask_t listMask )
+void CDirtySpatialPartitionEntityList::OnPostQuery(SpatialPartitionListMask_t listMask)
 {
 #ifdef CLIENT_DLL
-	if ( !( listMask & PARTITION_CLIENT_GAME_EDICTS ) )
+	if (!(listMask & PARTITION_CLIENT_GAME_EDICTS))
 		return;
 #else
-	if ( !( listMask & PARTITION_SERVER_GAME_EDICTS ) )
+	if (!(listMask & PARTITION_SERVER_GAME_EDICTS))
 		return;
 #endif
 
-	if ( m_partitionWriteId.load() != std::thread::id() )
+	if (m_partitionWriteId.load() != std::thread::id())
 		return;
 
 	UnlockPartitionForRead();

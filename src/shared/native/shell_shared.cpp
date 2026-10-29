@@ -28,11 +28,11 @@
 
 // Default field of view. Native because view.cpp reads it through `extern ConVar`.
 #ifdef CLIENT_DLL
-ConVar default_fov( "default_fov", "90", FCVAR_REPLICATED | FCVAR_CHEAT, "Default field of view." );
+ConVar default_fov("default_fov", "90", FCVAR_REPLICATED | FCVAR_CHEAT, "Default field of view.");
 #endif
 
 // The client's prediction bracket lends it to the movement servicing.
 #ifdef CLIENT_DLL
 static CMoveData g_MoveData;
-CMoveData *g_pMoveData = &g_MoveData;
+CMoveData* g_pMoveData = &g_MoveData;
 #endif

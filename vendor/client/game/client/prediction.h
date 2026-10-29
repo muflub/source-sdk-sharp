@@ -18,7 +18,7 @@ class CPrediction : public IPrediction
 {
 	// Construction
 public:
-	DECLARE_CLASS_GAMEROOT( CPrediction, IPrediction );
+	DECLARE_CLASS_GAMEROOT(CPrediction, IPrediction);
 
 	CPrediction();
 	virtual ~CPrediction();
@@ -28,17 +28,17 @@ public:
 
 	// Implement IPrediction
 public:
-	virtual void Update( int startframe, // World update ( un-modded ) most recently received
-						 bool validframe, // Is frame data valid
-						 int incoming_acknowledged, // Last command acknowledged to have been run by server (un-modded)
-						 int outgoing_command // Last command (most recent) sent to server (un-modded)
+	virtual void Update(int startframe, // World update ( un-modded ) most recently received
+						bool validframe, // Is frame data valid
+						int incoming_acknowledged, // Last command acknowledged to have been run by server (un-modded)
+						int outgoing_command // Last command (most recent) sent to server (un-modded)
 	);
 
 	virtual void OnReceivedUncompressedPacket();
 
-	virtual void PreEntityPacketReceived( int commands_acknowledged, int current_world_update_packet );
+	virtual void PreEntityPacketReceived(int commands_acknowledged, int current_world_update_packet);
 	virtual void PostEntityPacketReceived();
-	virtual void PostNetworkDataReceived( int commands_acknowledged );
+	virtual void PostNetworkDataReceived(int commands_acknowledged);
 
 	virtual bool InPrediction() const;
 	virtual bool IsFirstTimePredicted() const;
@@ -46,13 +46,13 @@ public:
 	virtual int GetIncomingPacketNumber() const;
 
 	// The engine needs to be able to access a few predicted values
-	virtual void GetViewOrigin( Vector &org );
-	virtual void SetViewOrigin( Vector &org );
-	virtual void GetViewAngles( QAngle &ang );
-	virtual void SetViewAngles( QAngle &ang );
+	virtual void GetViewOrigin(Vector& org);
+	virtual void SetViewOrigin(Vector& org);
+	virtual void GetViewAngles(QAngle& ang);
+	virtual void SetViewAngles(QAngle& ang);
 
-	virtual void GetLocalViewAngles( QAngle &ang );
-	virtual void SetLocalViewAngles( QAngle &ang );
+	virtual void GetLocalViewAngles(QAngle& ang);
+	virtual void SetLocalViewAngles(QAngle& ang);
 
 	// SourceSharp: THE FIVE PLAYER-SHAPED VIRTUALS ARE GONE -- RunCommand,
 	// SetupMove, FinishMove, SetIdealPitch and _Update. Each took a C_BasePlayer *,
@@ -92,4 +92,4 @@ private:
 	int m_nIncomingPacketNumber;
 };
 
-extern CPrediction *prediction;
+extern CPrediction* prediction;

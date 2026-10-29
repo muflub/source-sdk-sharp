@@ -70,13 +70,13 @@ int ss_precip_rand();
 #include "timedevent.h"
 
 #ifndef VPROF_BUDGET
-#define VPROF_BUDGET( name, group )
+#define VPROF_BUDGET(name, group)
 #endif
 
 //-----------------------------------------------------------------------------
 // The harness's log. Every stand-in that the subject reaches writes here.
 //-----------------------------------------------------------------------------
-void PrecipLog( const char *pFmt, ... ) FMTFUNCTION( 1, 2 );
+void PrecipLog(const char* pFmt, ...) FMTFUNCTION(1, 2);
 
 //-----------------------------------------------------------------------------
 // Globals the client DLL provides.
@@ -88,12 +88,12 @@ struct PrecipGlobals_t
 	int framecount;
 };
 
-extern PrecipGlobals_t *gpGlobals;
+extern PrecipGlobals_t* gpGlobals;
 
 // stdlib's random() would collide with the client's `random`; the subject's
 // every `random->` is renamed with it.
 #define random ss_precip_random
-extern IUniformRandomStream *random;
+extern IUniformRandomStream* random;
 
 enum DataUpdateType_t
 {
@@ -127,18 +127,18 @@ enum
 // The recv-table and client-class declarations compile to nothing that
 // matters: an int array per table, so the macro bodies stay well formed.
 #define DECLARE_CLIENTCLASS()
-#define DECLARE_CLASS( className, baseClassName ) \
-	typedef baseClassName BaseClass;              \
+#define DECLARE_CLASS(className, baseClassName) \
+	typedef baseClassName BaseClass;            \
 	typedef className ThisClass;
-#define IMPLEMENT_CLIENTCLASS_DT( className, tableName, serverName ) static int ss_recv_##tableName[] = { 0,
-#define BEGIN_RECV_TABLE_NOBASE( className, tableName ) static int ss_recv_##tableName[] = { 0,
+#define IMPLEMENT_CLIENTCLASS_DT(className, tableName, serverName) static int ss_recv_##tableName[] = {0,
+#define BEGIN_RECV_TABLE_NOBASE(className, tableName) static int ss_recv_##tableName[] = {0,
 #define END_RECV_TABLE() \
 	}                    \
 	;
-#define RecvPropInt( ... ) 0
-#define RecvPropFloat( ... ) 0
-#define RecvPropVector( ... ) 0
-#define RecvPropDataTable( ... ) 0
+#define RecvPropInt(...) 0
+#define RecvPropFloat(...) 0
+#define RecvPropVector(...) 0
+#define RecvPropDataTable(...) 0
 
 //-----------------------------------------------------------------------------
 // The entity, as far as c_effects.cpp asks it anything.
@@ -151,7 +151,7 @@ struct PrecipRenderColor_t
 {
 	unsigned char r, g, b, a;
 
-	const PrecipRenderColor_t *operator->() const { return this; }
+	const PrecipRenderColor_t* operator->() const { return this; }
 };
 
 class C_BaseEntity
@@ -162,7 +162,7 @@ public:
 
 	virtual void Precache() {}
 
-	virtual void OnDataChanged( DataUpdateType_t updateType ) {}
+	virtual void OnDataChanged(DataUpdateType_t updateType) {}
 
 	virtual void ClientThink() {}
 
@@ -170,9 +170,9 @@ public:
 
 	virtual void AddEntity() {}
 
-	virtual int DrawModel( int ) { return 0; }
+	virtual int DrawModel(int) { return 0; }
 
-	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) {}
+	virtual void GetRenderBounds(Vector& mins, Vector& maxs) {}
 
 	virtual bool IsTransparent() { return false; }
 
@@ -180,30 +180,30 @@ public:
 
 	virtual void SpawnClientEntity() {}
 
-	void SetNextClientThink( float flTime );
-	bool InitializeAsClientEntity( const char *pszModelName, RenderGroup_t renderGroup );
+	void SetNextClientThink(float flTime);
+	bool InitializeAsClientEntity(const char* pszModelName, RenderGroup_t renderGroup);
 
 	int entindex() const { return m_nIndex; }
 
-	IClientRenderable *GetClientRenderable() { return (IClientRenderable *)this; }
+	IClientRenderable* GetClientRenderable() { return (IClientRenderable*)this; }
 
-	const Vector &WorldAlignMins() const { return m_vecMins; }
+	const Vector& WorldAlignMins() const { return m_vecMins; }
 
-	const Vector &WorldAlignMaxs() const { return m_vecMaxs; }
+	const Vector& WorldAlignMaxs() const { return m_vecMaxs; }
 
-	const Vector &GetAbsOrigin() const { return m_vecOrigin; }
+	const Vector& GetAbsOrigin() const { return m_vecOrigin; }
 
-	const QAngle &GetAbsAngles() const { return m_angAngles; }
+	const QAngle& GetAbsAngles() const { return m_angAngles; }
 
-	const Vector &GetRenderOrigin() const { return m_vecOrigin; }
+	const Vector& GetRenderOrigin() const { return m_vecOrigin; }
 
-	const model_t *GetModel() const { return NULL; }
+	const model_t* GetModel() const { return NULL; }
 
 	int GetRenderMode() const { return 0; }
 
 	color32 GetRenderColor() const
 	{
-		color32 c = { m_clrRender.r, m_clrRender.g, m_clrRender.b, m_clrRender.a };
+		color32 c = {m_clrRender.r, m_clrRender.g, m_clrRender.b, m_clrRender.a};
 		return c;
 	}
 
@@ -221,13 +221,13 @@ public:
 class C_BasePlayer : public C_BaseEntity
 {
 public:
-	static C_BasePlayer *GetLocalPlayer();
+	static C_BasePlayer* GetLocalPlayer();
 
 	Vector EyePosition() const { return m_vecEye; }
 
-	void GetVectors( Vector *pForward, Vector *pRight, Vector *pUp ) const;
+	void GetVectors(Vector* pForward, Vector* pRight, Vector* pUp) const;
 
-	const Vector &GetAbsVelocity() const { return m_vecVelocity; }
+	const Vector& GetAbsVelocity() const { return m_vecVelocity; }
 
 	Vector WorldSpaceCenter() const { return m_vecCenter; }
 
@@ -247,22 +247,22 @@ class CHandle
 {
 public:
 	CHandle()
-		: m_p( NULL )
+		: m_p(NULL)
 	{
 	}
 
-	CHandle &operator=( T *p )
+	CHandle& operator=(T* p)
 	{
 		m_p = p;
 		return *this;
 	}
 
-	operator T *() const { return m_p; }
+	operator T*() const { return m_p; }
 
-	T *operator->() const { return m_p; }
+	T* operator->() const { return m_p; }
 
 private:
-	T *m_p;
+	T* m_p;
 };
 
 // The world entity's bounds (r_RainHack's arm).
@@ -272,12 +272,12 @@ public:
 	Vector m_WorldMins, m_WorldMaxs;
 };
 
-C_World *GetClientWorldEntity();
+C_World* GetClientWorldEntity();
 
 class CAutoGameSystemPerFrame
 {
 public:
-	CAutoGameSystemPerFrame( const char *pszName ) {}
+	CAutoGameSystemPerFrame(const char* pszName) {}
 
 	virtual ~CAutoGameSystemPerFrame() {}
 
@@ -285,7 +285,7 @@ public:
 
 	virtual void LevelShutdownPreEntity() {}
 
-	virtual void Update( float frametime ) {}
+	virtual void Update(float frametime) {}
 };
 
 //-----------------------------------------------------------------------------
@@ -293,7 +293,7 @@ public:
 //-----------------------------------------------------------------------------
 struct csurface_t
 {
-	const char *name;
+	const char* name;
 	short surfaceProps;
 	unsigned short flags;
 };
@@ -304,7 +304,7 @@ public:
 	csurface_t surface;
 	int hitgroup;
 	short physicsbone;
-	C_BaseEntity *m_pEnt;
+	C_BaseEntity* m_pEnt;
 	int hitbox;
 };
 
@@ -313,15 +313,15 @@ typedef CGameTrace trace_t;
 class IPrecipEngineTrace
 {
 public:
-	int GetPointContents( const Vector &vecAbsPosition );
+	int GetPointContents(const Vector& vecAbsPosition);
 };
 
-extern IPrecipEngineTrace *enginetrace;
+extern IPrecipEngineTrace* enginetrace;
 
-void UTIL_TraceLine( const Vector &vecAbsStart, const Vector &vecAbsEnd, unsigned int mask, const C_BaseEntity *ignore,
-					 int collisionGroup, trace_t *ptr );
-void UTIL_TraceModel( const Vector &vecStart, const Vector &vecEnd, const Vector &hullMin, const Vector &hullMax,
-					  C_BaseEntity *pentModel, int collisionGroup, trace_t *ptr );
+void UTIL_TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, const C_BaseEntity* ignore,
+					int collisionGroup, trace_t* ptr);
+void UTIL_TraceModel(const Vector& vecStart, const Vector& vecEnd, const Vector& hullMin, const Vector& hullMax,
+					 C_BaseEntity* pentModel, int collisionGroup, trace_t* ptr);
 
 //-----------------------------------------------------------------------------
 // Materials and the renderer.
@@ -329,10 +329,10 @@ void UTIL_TraceModel( const Vector &vecStart, const Vector &vecEnd, const Vector
 class IMaterial
 {
 public:
-	const char *m_pszName;
+	const char* m_pszName;
 };
 
-#define INVALID_MATERIAL_HANDLE ( (IMaterial *)NULL )
+#define INVALID_MATERIAL_HANDLE ((IMaterial*)NULL)
 
 enum MaterialMatrixMode_t
 {
@@ -353,50 +353,50 @@ class IMesh
 class CMeshBuilder
 {
 public:
-	void Begin( IMesh *pMesh, MaterialPrimitiveType_t type, int nCount ) {}
+	void Begin(IMesh* pMesh, MaterialPrimitiveType_t type, int nCount) {}
 
-	void End( bool bSpewData = false, bool bDraw = false ) {}
+	void End(bool bSpewData = false, bool bDraw = false) {}
 };
 
 class IPrecipRenderContext
 {
 public:
-	void GetMatrix( MaterialMatrixMode_t mode, VMatrix *pMatrix );
+	void GetMatrix(MaterialMatrixMode_t mode, VMatrix* pMatrix);
 
-	void MatrixMode( MaterialMatrixMode_t mode ) {}
+	void MatrixMode(MaterialMatrixMode_t mode) {}
 
 	void LoadIdentity() {}
 
-	void LoadMatrix( const VMatrix &m ) {}
+	void LoadMatrix(const VMatrix& m) {}
 
-	void EnableUserClipTransformOverride( bool b ) {}
+	void EnableUserClipTransformOverride(bool b) {}
 
-	void UserClipTransform( const VMatrix &m ) {}
+	void UserClipTransform(const VMatrix& m) {}
 
-	void Bind( IMaterial *pMaterial ) {}
+	void Bind(IMaterial* pMaterial) {}
 
-	IMesh *GetDynamicMesh();
+	IMesh* GetDynamicMesh();
 };
 
 class IPrecipMaterialSystem
 {
 public:
-	IMaterial *FindMaterial( const char *pName, const char *pGroup );
+	IMaterial* FindMaterial(const char* pName, const char* pGroup);
 };
 
-extern IPrecipMaterialSystem *materials;
+extern IPrecipMaterialSystem* materials;
 
 class CMatRenderContextPtr
 {
 public:
-	CMatRenderContextPtr( IPrecipMaterialSystem * ) {}
+	CMatRenderContextPtr(IPrecipMaterialSystem*) {}
 
-	IPrecipRenderContext *operator->();
+	IPrecipRenderContext* operator->();
 };
 
-const VMatrix &CurrentWorldToViewMatrix();
-const Vector &CurrentViewForward();
-const Vector &CurrentViewOrigin();
+const VMatrix& CurrentWorldToViewMatrix();
+const Vector& CurrentViewForward();
+const Vector& CurrentViewOrigin();
 int CurrentViewID();
 
 class IPrecipViewRender
@@ -405,60 +405,60 @@ public:
 	int GetDrawFlags() { return 0; }
 };
 
-extern IPrecipViewRender *view;
+extern IPrecipViewRender* view;
 
 int ScreenWidth();
 
-void Tracer_Draw( CMeshBuilder *pMeshBuilder, Vector &start, Vector &delta, float width, float *color,
-				  float startV = 0.0, float endV = 1.0 );
-void FX_WaterRipple( const Vector &origin, float scale, Vector *pColor, float flLifetime = 1.5, float flAlpha = 1 );
+void Tracer_Draw(CMeshBuilder* pMeshBuilder, Vector& start, Vector& delta, float width, float* color,
+				 float startV = 0.0, float endV = 1.0);
+void FX_WaterRipple(const Vector& origin, float scale, Vector* pColor, float flLifetime = 1.5, float flAlpha = 1);
 
 class IPrecipEngine
 {
 public:
-	void Con_NPrintf( int pos, const char *fmt, ... ) {}
+	void Con_NPrintf(int pos, const char* fmt, ...) {}
 };
 
-extern IPrecipEngine *engine;
+extern IPrecipEngine* engine;
 
 class IPrecipModelInfo
 {
 public:
-	void GetModelBounds( const model_t *model, Vector &mins, Vector &maxs )
+	void GetModelBounds(const model_t* model, Vector& mins, Vector& maxs)
 	{
 		mins.Init();
 		maxs.Init();
 	}
 };
 
-extern IPrecipModelInfo *modelinfo;
+extern IPrecipModelInfo* modelinfo;
 
 class IPrecipDebugOverlay
 {
 public:
-	void AddBoxOverlay( const Vector &origin, const Vector &mins, const Vector &max, QAngle const &orientation, int r,
-						int g, int b, int a, float duration )
+	void AddBoxOverlay(const Vector& origin, const Vector& mins, const Vector& max, QAngle const& orientation, int r,
+					   int g, int b, int a, float duration)
 	{
 	}
 };
 
-extern IPrecipDebugOverlay *debugoverlay;
+extern IPrecipDebugOverlay* debugoverlay;
 
 class IPrecipLeafSystem
 {
 public:
-	bool IsRenderableInPVS( IClientRenderable *pRenderable );
+	bool IsRenderableInPVS(IClientRenderable* pRenderable);
 };
 
-extern IPrecipLeafSystem *g_pClientLeafSystem;
+extern IPrecipLeafSystem* g_pClientLeafSystem;
 
-void Draw_SetSpriteTexture( const model_t *pSpriteModel, int frame, int rendermode );
-void DrawBeamQuadratic( const Vector &start, const Vector &control, const Vector &end, float width, const Vector &color,
-						float scrollOffset );
+void Draw_SetSpriteTexture(const model_t* pSpriteModel, int frame, int rendermode);
+void DrawBeamQuadratic(const Vector& start, const Vector& control, const Vector& end, float width, const Vector& color,
+					   float scrollOffset);
 
 // The client effect precache list compiles to a list of names.
-#define CLIENTEFFECT_REGISTER_BEGIN( className ) static const char *ss_fx_##className[] = {
-#define CLIENTEFFECT_MATERIAL( materialName ) materialName,
+#define CLIENTEFFECT_REGISTER_BEGIN(className) static const char* ss_fx_##className[] = {
+#define CLIENTEFFECT_MATERIAL(materialName) materialName,
 #define CLIENTEFFECT_REGISTER_END() \
 	NULL                            \
 	}                               \
@@ -467,14 +467,14 @@ void DrawBeamQuadratic( const Vector &start, const Vector &control, const Vector
 //-----------------------------------------------------------------------------
 // The wind (env_wind_shared.h).
 //-----------------------------------------------------------------------------
-void GetWindspeedAtTime( float flTime, Vector &vecVelocity );
+void GetWindspeedAtTime(float flTime, Vector& vecVelocity);
 
 class CEnvWindShared
 {
 public:
-	void Init( int iEntIndex, int iRandomSeed, float flTime, int iWindDir, float flInitialWindSpeed ) {}
+	void Init(int iEntIndex, int iRandomSeed, float flTime, int iWindDir, float flInitialWindSpeed) {}
 
-	float WindThink( float flTime ) { return flTime + 1.0f; }
+	float WindThink(float flTime) { return flTime + 1.0f; }
 
 	int m_iMinWind, m_iMaxWind, m_iMinGust, m_iMaxGust;
 	float m_flMinGustDelay, m_flMaxGustDelay;
@@ -485,13 +485,13 @@ public:
 //-----------------------------------------------------------------------------
 // The particle manager's simple emitter (particles_simple.h).
 //-----------------------------------------------------------------------------
-typedef const char *PMaterialHandle;
+typedef const char* PMaterialHandle;
 
 class Particle
 {
 public:
 	Particle *m_pPrev, *m_pNext;
-	void *m_pSubTexture;
+	void* m_pSubTexture;
 	Vector m_Pos;
 };
 
@@ -525,33 +525,33 @@ public:
 class CParticleSimulateIterator
 {
 public:
-	CParticleSimulateIterator( CUtlVector<SimpleParticle *> *pList, float flTimeDelta )
-		: m_pList( pList )
-		, m_flTimeDelta( flTimeDelta )
-		, m_iCur( -1 )
+	CParticleSimulateIterator(CUtlVector<SimpleParticle*>* pList, float flTimeDelta)
+		: m_pList(pList)
+		, m_flTimeDelta(flTimeDelta)
+		, m_iCur(-1)
 	{
 	}
 
 	float GetTimeDelta() const { return m_flTimeDelta; }
 
-	Particle *GetFirst()
+	Particle* GetFirst()
 	{
 		m_iCur = 0;
 		return Cur();
 	}
 
-	Particle *GetNext()
+	Particle* GetNext()
 	{
 		++m_iCur;
 		return Cur();
 	}
 
-	void RemoveParticle( Particle *pParticle );
+	void RemoveParticle(Particle* pParticle);
 
 private:
-	Particle *Cur() { return m_iCur < m_pList->Count() ? ( *m_pList )[m_iCur] : NULL; }
+	Particle* Cur() { return m_iCur < m_pList->Count() ? (*m_pList)[m_iCur] : NULL; }
 
-	CUtlVector<SimpleParticle *> *m_pList;
+	CUtlVector<SimpleParticle*>* m_pList;
 	float m_flTimeDelta;
 	int m_iCur;
 };
@@ -559,54 +559,54 @@ private:
 class CPrecipBinding
 {
 public:
-	CPrecipBinding( CUtlVector<SimpleParticle *> *pList )
-		: m_pList( pList )
+	CPrecipBinding(CUtlVector<SimpleParticle*>* pList)
+		: m_pList(pList)
 	{
 	}
 
 	int GetNumActiveParticles() { return m_pList->Count(); }
 
-	void SetBBox( const Vector &bbMin, const Vector &bbMax, bool bDisableAutoUpdate = true );
+	void SetBBox(const Vector& bbMin, const Vector& bbMax, bool bDisableAutoUpdate = true);
 
 private:
-	CUtlVector<SimpleParticle *> *m_pList;
+	CUtlVector<SimpleParticle*>* m_pList;
 };
 
 class CSimpleEmitter
 {
 public:
-	CSimpleEmitter( const char *pDebugName );
+	CSimpleEmitter(const char* pDebugName);
 	virtual ~CSimpleEmitter();
 
 	// particles_simple.cpp's base behaviours, restated (see the file header).
-	virtual float UpdateAlpha( const SimpleParticle *pParticle );
-	virtual float UpdateScale( const SimpleParticle *pParticle );
-	virtual float UpdateRoll( SimpleParticle *pParticle, float timeDelta );
-	virtual void UpdateVelocity( SimpleParticle *pParticle, float timeDelta );
-	virtual Vector UpdateColor( const SimpleParticle *pParticle );
-	virtual void SimulateParticles( CParticleSimulateIterator *pIterator );
+	virtual float UpdateAlpha(const SimpleParticle* pParticle);
+	virtual float UpdateScale(const SimpleParticle* pParticle);
+	virtual float UpdateRoll(SimpleParticle* pParticle, float timeDelta);
+	virtual void UpdateVelocity(SimpleParticle* pParticle, float timeDelta);
+	virtual Vector UpdateColor(const SimpleParticle* pParticle);
+	virtual void SimulateParticles(CParticleSimulateIterator* pIterator);
 
-	void SetSortOrigin( const Vector &vSortOrigin ) { m_vSortOrigin = vSortOrigin; }
+	void SetSortOrigin(const Vector& vSortOrigin) { m_vSortOrigin = vSortOrigin; }
 
-	Particle *AddParticle( unsigned int particleSize, PMaterialHandle material, const Vector &origin );
+	Particle* AddParticle(unsigned int particleSize, PMaterialHandle material, const Vector& origin);
 
-	PMaterialHandle GetPMaterial( const char *name ) { return name; }
+	PMaterialHandle GetPMaterial(const char* name) { return name; }
 
-	CPrecipBinding &GetBinding() { return m_Binding; }
+	CPrecipBinding& GetBinding() { return m_Binding; }
 
 	void AddRef() { ++m_nRefs; }
 
 	void Release()
 	{
-		if ( --m_nRefs <= 0 )
+		if (--m_nRefs <= 0)
 			delete this;
 	}
 
 	// The harness's.
-	const char *m_pszDebugName;
+	const char* m_pszDebugName;
 	int m_nEmitter;
 	Vector m_vSortOrigin;
-	CUtlVector<SimpleParticle *> m_Particles; // newest first, as the manager's lists are
+	CUtlVector<SimpleParticle*> m_Particles; // newest first, as the manager's lists are
 	CPrecipBinding m_Binding;
 	int m_nRefs;
 };
@@ -614,7 +614,7 @@ public:
 class CPrecipParticleMgr
 {
 public:
-	PMaterialHandle GetPMaterial( const char *name ) { return name; }
+	PMaterialHandle GetPMaterial(const char* name) { return name; }
 };
 
-CPrecipParticleMgr *ParticleMgr();
+CPrecipParticleMgr* ParticleMgr();

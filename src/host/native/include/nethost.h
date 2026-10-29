@@ -8,7 +8,7 @@
 #ifdef _WIN32
 // Consuming the nethost as a static library
 // Shouldn't export attempt to dllimport.
-#define NETHOST_API __declspec( dllimport )
+#define NETHOST_API __declspec(dllimport)
 
 #define NETHOST_CALLTYPE __stdcall
 #ifdef _WCHAR_T_DEFINED
@@ -47,8 +47,8 @@ extern "C"
 struct get_hostfxr_parameters
 {
 	size_t size;
-	const char_t *assembly_path;
-	const char_t *dotnet_root;
+	const char_t* assembly_path;
+	const char_t* dotnet_root;
 };
 
 //
@@ -76,8 +76,8 @@ struct get_hostfxr_parameters
 //   The full search for the hostfxr library is done on every call. To minimize the need
 //   to call this function multiple times, pass a large buffer (e.g. PATH_MAX).
 //
-NETHOST_API int NETHOST_CALLTYPE get_hostfxr_path( char_t *buffer, size_t *buffer_size,
-												   const struct get_hostfxr_parameters *parameters );
+NETHOST_API int NETHOST_CALLTYPE get_hostfxr_path(char_t* buffer, size_t* buffer_size,
+												  const struct get_hostfxr_parameters* parameters);
 
 #ifdef __cplusplus
 }

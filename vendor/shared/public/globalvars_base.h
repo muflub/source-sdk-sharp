@@ -8,7 +8,7 @@ class CSaveRestoreData;
 class CGlobalVarsBase
 {
 public:
-	CGlobalVarsBase( bool bIsClient );
+	CGlobalVarsBase(bool bIsClient);
 
 public:
 	// Absolute time (per frame still - Use Plat_FloatTime() for a high precision real time
@@ -50,7 +50,7 @@ public:
 	int network_protocol;
 
 	// current saverestore data
-	CSaveRestoreData *pSaveData;
+	CSaveRestoreData* pSaveData;
 
 private:
 	// Set to true in client code.
@@ -63,9 +63,9 @@ private:
 	int nTimestampRandomizeWindow;
 };
 
-inline CGlobalVarsBase::CGlobalVarsBase( bool bIsClient )
-	: m_bClient( bIsClient )
-	, nTimestampNetworkingBase( 100 )
-	, nTimestampRandomizeWindow( 32 )
+inline CGlobalVarsBase::CGlobalVarsBase(bool bIsClient)
+	: m_bClient(bIsClient)
+	, nTimestampNetworkingBase(100)
+	, nTimestampRandomizeWindow(32)
 {
 }

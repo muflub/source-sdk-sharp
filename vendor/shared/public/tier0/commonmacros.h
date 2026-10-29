@@ -10,13 +10,13 @@
 // Compares a string with a 4-byte packed ID constant
 
 template <typename T>
-inline bool IsPowerOfTwo( T value )
+inline bool IsPowerOfTwo(T value)
 {
-	return ( value & ( value - (T)1 ) ) == (T)0;
+	return (value & (value - (T)1)) == (T)0;
 }
 
 #ifndef REFERENCE
-#define REFERENCE( arg ) ( (void)arg )
+#define REFERENCE(arg) ((void)arg)
 #endif
 
 //Wraps the integer in quotes, allowing us to form constant strings with it
@@ -38,11 +38,11 @@ inline bool IsPowerOfTwo( T value )
 #define RTL_NUMBER_OF_V1(A) (sizeof(A)/sizeof((A)[0]))
 // clang-format on
 
-#if defined( __cplusplus ) && _MSC_FULL_VER >= 13009466
+#if defined(__cplusplus) && _MSC_FULL_VER >= 13009466
 
 // From crtdefs.h
-#if !defined( UNALIGNED )
-#if defined( _M_AMD64 )
+#if !defined(UNALIGNED)
+#if defined(_M_AMD64)
 #define UNALIGNED __unaligned
 #else
 #define UNALIGNED
@@ -65,7 +65,7 @@ inline bool IsPowerOfTwo( T value )
 // That is the point.
 extern "C++" // templates cannot be declared to have 'C' linkage
 	template <typename T, size_t N>
-	char ( *RtlpNumberOf( UNALIGNED T ( & )[N] ) )[N];
+	char (*RtlpNumberOf(UNALIGNED T (&)[N]))[N];
 
 // clang-format off
 #define RTL_NUMBER_OF_V2(A) (sizeof(*RtlpNumberOf(A)))
@@ -110,5 +110,5 @@ extern "C++" // templates cannot be declared to have 'C' linkage
 #define _ARRAYSIZE(A)   RTL_NUMBER_OF_V1(A)
 // clang-format on
 
-#define Q_ARRAYSIZE( p ) ARRAYSIZE( p )
-#define V_ARRAYSIZE( p ) ARRAYSIZE( p )
+#define Q_ARRAYSIZE(p) ARRAYSIZE(p)
+#define V_ARRAYSIZE(p) ARRAYSIZE(p)

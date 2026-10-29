@@ -8,9 +8,9 @@
 
 #pragma once
 
-inline bool SkipPlayerAndViewModelHits( bool bPlayer, bool bViewModel, int nCollisionGroup )
+inline bool SkipPlayerAndViewModelHits(bool bPlayer, bool bViewModel, int nCollisionGroup)
 {
-	if ( bPlayer || bViewModel )
+	if (bPlayer || bViewModel)
 		return false;
 	return nCollisionGroup != COLLISION_GROUP_DEBRIS && nCollisionGroup != COLLISION_GROUP_INTERACTIVE_DEBRIS;
 }

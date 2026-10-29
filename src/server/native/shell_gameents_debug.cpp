@@ -16,24 +16,24 @@
 
 // Prints the engine-boundary probe's counters to the console (not the dev API
 // log), headed by the map and tick they cover.
-SS_NATIVE_COMMAND( ss_boundary_probe_report )
+SS_NATIVE_COMMAND(ss_boundary_probe_report)
 {
-	const CGlobalVars *pGlobals = services.m_EntityContext.m_pGlobals;
-	Msg( "[SourceSharp] engine-boundary probe (server): map '%s', tick %d\n",
-		 pGlobals->mapname.ToCStr() ? pGlobals->mapname.ToCStr() : "(none)", pGlobals->tickcount );
+	const CGlobalVars* pGlobals = services.m_EntityContext.m_pGlobals;
+	Msg("[SourceSharp] engine-boundary probe (server): map '%s', tick %d\n",
+		pGlobals->mapname.ToCStr() ? pGlobals->mapname.ToCStr() : "(none)", pGlobals->tickcount);
 
-	for ( int id = 0; id < kBoundaryProbeCount; id++ )
+	for (int id = 0; id < kBoundaryProbeCount; id++)
 	{
 		// The widest line: a 56-column name, three counts, sixteen 64-character callers.
 		char szLine[2048];
-		services.m_BoundaryProbes.FormatLine( id, szLine, sizeof( szLine ) );
-		Msg( "  %s\n", szLine );
+		services.m_BoundaryProbes.FormatLine(id, szLine, sizeof(szLine));
+		Msg("  %s\n", szLine);
 	}
 }
 
 // Lets one run separate what a map load calls from what play calls.
-SS_NATIVE_COMMAND( ss_boundary_probe_reset )
+SS_NATIVE_COMMAND(ss_boundary_probe_reset)
 {
 	services.m_BoundaryProbes.Reset();
-	Msg( "[SourceSharp] engine-boundary probe: counters zeroed\n" );
+	Msg("[SourceSharp] engine-boundary probe: counters zeroed\n");
 }

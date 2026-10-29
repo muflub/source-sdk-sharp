@@ -17,16 +17,16 @@ enum
 };
 
 // Bit 0 is forced on, or the effect would stay where it was created.
-inline int SourceSharpParticleFollow_Normalise( int nRequested )
+inline int SourceSharpParticleFollow_Normalise(int nRequested)
 {
 	return nRequested | kSourceSharpParticleFollowDefault;
 }
 
 // Whether the sweep keeps this point at the owner. Out-of-range points are not clamped.
-inline bool SourceSharpParticleFollow_Wants( int nMask, int nPoint )
+inline bool SourceSharpParticleFollow_Wants(int nMask, int nPoint)
 {
-	if ( nPoint < 0 || nPoint > kSourceSharpParticleMaxFollowPoint )
+	if (nPoint < 0 || nPoint > kSourceSharpParticleMaxFollowPoint)
 		return false;
 
-	return ( nMask & ( 1 << nPoint ) ) != 0;
+	return (nMask & (1 << nPoint)) != 0;
 }

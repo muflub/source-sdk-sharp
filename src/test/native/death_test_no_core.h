@@ -20,9 +20,9 @@
 #ifdef _WIN32
 // No core files to suppress on Windows: a crashed death-test child leaves no
 // dump unless the user configured one.
-#define SS_DEATH_NO_CORE() ( (void)0 )
+#define SS_DEATH_NO_CORE() ((void)0)
 #else
 #include <sys/prctl.h>
 
-#define SS_DEATH_NO_CORE() ( (void)prctl( PR_SET_DUMPABLE, 0, 0, 0, 0 ) )
+#define SS_DEATH_NO_CORE() ((void)prctl(PR_SET_DUMPABLE, 0, 0, 0, 0))
 #endif

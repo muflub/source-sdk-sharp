@@ -31,7 +31,7 @@ COLLISION DETECTION
 
 struct csurface_t
 {
-	const char *name;
+	const char* name;
 	short surfaceProps;
 	unsigned short
 		flags; // BUGBUG: These are declared per surface, not per material, but this database is per-material now
@@ -48,34 +48,34 @@ struct Ray_t
 	bool m_IsRay; // are the extents zero?
 	bool m_IsSwept; // is delta != 0?
 
-	void Init( Vector const &start, Vector const &end )
+	void Init(Vector const& start, Vector const& end)
 	{
-		VectorSubtract( end, start, m_Delta );
+		VectorSubtract(end, start, m_Delta);
 
-		m_IsSwept = ( m_Delta.LengthSqr() != 0 );
+		m_IsSwept = (m_Delta.LengthSqr() != 0);
 
-		VectorClear( m_Extents );
+		VectorClear(m_Extents);
 		m_IsRay = true;
 
 		// Offset m_Start to be in the center of the box...
-		VectorClear( m_StartOffset );
-		VectorCopy( start, m_Start );
+		VectorClear(m_StartOffset);
+		VectorCopy(start, m_Start);
 	}
 
-	void Init( Vector const &start, Vector const &end, Vector const &mins, Vector const &maxs )
+	void Init(Vector const& start, Vector const& end, Vector const& mins, Vector const& maxs)
 	{
-		VectorSubtract( end, start, m_Delta );
+		VectorSubtract(end, start, m_Delta);
 
-		m_IsSwept = ( m_Delta.LengthSqr() != 0 );
+		m_IsSwept = (m_Delta.LengthSqr() != 0);
 
-		VectorSubtract( maxs, mins, m_Extents );
+		VectorSubtract(maxs, mins, m_Extents);
 		m_Extents *= 0.5f;
-		m_IsRay = ( m_Extents.LengthSqr() < 1e-6 );
+		m_IsRay = (m_Extents.LengthSqr() < 1e-6);
 
 		// Offset m_Start to be in the center of the box...
-		VectorAdd( mins, maxs, m_StartOffset );
+		VectorAdd(mins, maxs, m_StartOffset);
 		m_StartOffset *= 0.5f;
-		VectorAdd( start, m_StartOffset, m_Start );
+		VectorAdd(start, m_StartOffset, m_Start);
 		m_StartOffset *= -1.0f;
 	}
 

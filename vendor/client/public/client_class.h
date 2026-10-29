@@ -15,18 +15,18 @@ class CMouthInfo;
 
 class ClientClass;
 // Linked list of all known client classes
-extern ClientClass *g_pClientClassHead;
+extern ClientClass* g_pClientClassHead;
 
 // The serial number that gets passed in is used for ehandles.
-typedef IClientNetworkable *( *CreateClientClassFn )( int entnum, int serialNum );
-typedef IClientNetworkable *( *CreateEventFn )();
+typedef IClientNetworkable* (*CreateClientClassFn)(int entnum, int serialNum);
+typedef IClientNetworkable* (*CreateEventFn)();
 
 // Purpose: Client side class definition
 class ClientClass
 {
 public:
-	ClientClass( const char *pNetworkName, CreateClientClassFn createFn, CreateEventFn createEventFn,
-				 RecvTable *pRecvTable )
+	ClientClass(const char* pNetworkName, CreateClientClassFn createFn, CreateEventFn createEventFn,
+				RecvTable* pRecvTable)
 	{
 		m_pNetworkName = pNetworkName;
 		m_pCreateFn = createFn;
@@ -38,30 +38,30 @@ public:
 		g_pClientClassHead = this;
 	}
 
-	const char *GetName() { return m_pNetworkName; }
+	const char* GetName() { return m_pNetworkName; }
 
 public:
 	CreateClientClassFn m_pCreateFn;
 	CreateEventFn m_pCreateEventFn; // Only called for event objects.
-	const char *m_pNetworkName;
-	RecvTable *m_pRecvTable;
-	ClientClass *m_pNext;
+	const char* m_pNetworkName;
+	RecvTable* m_pRecvTable;
+	ClientClass* m_pNext;
 	int m_ClassID; // Managed by the engine.
 };
 
-#define DECLARE_CLIENTCLASS_IMPL( MAYBE_OVERRIDE )                         \
+#define DECLARE_CLIENTCLASS_IMPL(MAYBE_OVERRIDE)                           \
 	virtual int YouForgotToImplementOrDeclareClientClass() MAYBE_OVERRIDE; \
-	virtual ClientClass *GetClientClass() MAYBE_OVERRIDE;                  \
-	static RecvTable *m_pClassRecvTable;                                   \
+	virtual ClientClass* GetClientClass() MAYBE_OVERRIDE;                  \
+	static RecvTable* m_pClassRecvTable;                                   \
 	DECLARE_CLIENTCLASS_NOBASE()
-#define DECLARE_CLIENTCLASS() DECLARE_CLIENTCLASS_IMPL( /* override */; )
+#define DECLARE_CLIENTCLASS() DECLARE_CLIENTCLASS_IMPL(/* override */;)
 // With warnings set to inconsistent-override, marking this properly as override would create warnings in all old files.
 // Instead, as files are converted to use override, just upgrade to this
 
 // This can be used to give all datatables access to protected and private members of the class.
 #define ALLOW_DATATABLES_PRIVATE_ACCESS() \
 	template <typename T>                 \
-	friend int ClientClassInit( T * );
+	friend int ClientClassInit(T*);
 
 #define DECLARE_CLIENTCLASS_NOBASE ALLOW_DATATABLES_PRIVATE_ACCESS
 
@@ -69,56 +69,56 @@ public:
 // the list can be given to the engine).
 // Use this macro to expose your client class to the engine.
 // networkName must match the network name of a class registered on the server.
-#define IMPLEMENT_CLIENTCLASS( clientClassName, dataTable, serverClassName )                                   \
-	INTERNAL_IMPLEMENT_CLIENTCLASS_PROLOGUE( clientClassName, dataTable, serverClassName )                     \
-	static IClientNetworkable *_##clientClassName##_CreateObject( int entnum, int serialNum )                  \
-	{                                                                                                          \
-		clientClassName *pRet = new clientClassName;                                                           \
-		if ( !pRet )                                                                                           \
-			return 0;                                                                                          \
-		pRet->Init( entnum, serialNum );                                                                       \
-		return pRet;                                                                                           \
-	}                                                                                                          \
-	ClientClass __g_##clientClassName##ClientClass( #serverClassName, _##clientClassName##_CreateObject, NULL, \
-													&dataTable::g_RecvTable );
+#define IMPLEMENT_CLIENTCLASS(clientClassName, dataTable, serverClassName)                                    \
+	INTERNAL_IMPLEMENT_CLIENTCLASS_PROLOGUE(clientClassName, dataTable, serverClassName)                      \
+	static IClientNetworkable* _##clientClassName##_CreateObject(int entnum, int serialNum)                   \
+	{                                                                                                         \
+		clientClassName* pRet = new clientClassName;                                                          \
+		if (!pRet)                                                                                            \
+			return 0;                                                                                         \
+		pRet->Init(entnum, serialNum);                                                                        \
+		return pRet;                                                                                          \
+	}                                                                                                         \
+	ClientClass __g_##clientClassName##ClientClass(#serverClassName, _##clientClassName##_CreateObject, NULL, \
+												   &dataTable::g_RecvTable);
 
 // Implement a client class and provide a factory so you can allocate and delete it yourself
 // (or make it a singleton).
 
 // The IMPLEMENT_CLIENTCLASS_DT macros do IMPLEMENT_CLIENT_CLASS and also do BEGIN_RECV_TABLE.
-#define IMPLEMENT_CLIENTCLASS_DT( clientClassName, dataTable, serverClassName ) \
-	IMPLEMENT_CLIENTCLASS( clientClassName, dataTable, serverClassName )        \
-	BEGIN_RECV_TABLE( clientClassName, dataTable )
+#define IMPLEMENT_CLIENTCLASS_DT(clientClassName, dataTable, serverClassName) \
+	IMPLEMENT_CLIENTCLASS(clientClassName, dataTable, serverClassName)        \
+	BEGIN_RECV_TABLE(clientClassName, dataTable)
 
 // Using IMPLEMENT_CLIENTCLASS_EVENT means the engine thinks the entity is an event so the entity
 // is responsible for freeing itself.
-#define IMPLEMENT_CLIENTCLASS_EVENT( clientClassName, dataTable, serverClassName )                             \
-	INTERNAL_IMPLEMENT_CLIENTCLASS_PROLOGUE( clientClassName, dataTable, serverClassName )                     \
-	static clientClassName __g_##clientClassName;                                                              \
-	static IClientNetworkable *_##clientClassName##_CreateObject()                                             \
-	{                                                                                                          \
-		return &__g_##clientClassName;                                                                         \
-	}                                                                                                          \
-	ClientClass __g_##clientClassName##ClientClass( #serverClassName, NULL, _##clientClassName##_CreateObject, \
-													&dataTable::g_RecvTable );
+#define IMPLEMENT_CLIENTCLASS_EVENT(clientClassName, dataTable, serverClassName)                              \
+	INTERNAL_IMPLEMENT_CLIENTCLASS_PROLOGUE(clientClassName, dataTable, serverClassName)                      \
+	static clientClassName __g_##clientClassName;                                                             \
+	static IClientNetworkable* _##clientClassName##_CreateObject()                                            \
+	{                                                                                                         \
+		return &__g_##clientClassName;                                                                        \
+	}                                                                                                         \
+	ClientClass __g_##clientClassName##ClientClass(#serverClassName, NULL, _##clientClassName##_CreateObject, \
+												   &dataTable::g_RecvTable);
 
 // Register a client event singleton but specify a pointer to give to the engine rather than
 // have a global instance. This is useful if you're using Initializers and your object's constructor
 // uses some other global object (so you must use Initializers so you're constructed afterwards).
 
 // Used internally..
-#define INTERNAL_IMPLEMENT_CLIENTCLASS_PROLOGUE( clientClassName, dataTable, serverClassName ) \
-	namespace dataTable                                                                        \
-	{                                                                                          \
-	extern RecvTable g_RecvTable;                                                              \
-	}                                                                                          \
-	extern ClientClass __g_##clientClassName##ClientClass;                                     \
-	RecvTable *clientClassName::m_pClassRecvTable = &dataTable::g_RecvTable;                   \
-	int clientClassName::YouForgotToImplementOrDeclareClientClass()                            \
-	{                                                                                          \
-		return 0;                                                                              \
-	}                                                                                          \
-	ClientClass *clientClassName::GetClientClass()                                             \
-	{                                                                                          \
-		return &__g_##clientClassName##ClientClass;                                            \
+#define INTERNAL_IMPLEMENT_CLIENTCLASS_PROLOGUE(clientClassName, dataTable, serverClassName) \
+	namespace dataTable                                                                      \
+	{                                                                                        \
+	extern RecvTable g_RecvTable;                                                            \
+	}                                                                                        \
+	extern ClientClass __g_##clientClassName##ClientClass;                                   \
+	RecvTable* clientClassName::m_pClassRecvTable = &dataTable::g_RecvTable;                 \
+	int clientClassName::YouForgotToImplementOrDeclareClientClass()                          \
+	{                                                                                        \
+		return 0;                                                                            \
+	}                                                                                        \
+	ClientClass* clientClassName::GetClientClass()                                           \
+	{                                                                                        \
+		return &__g_##clientClassName##ClientClass;                                          \
 	}

@@ -6,7 +6,7 @@
 
 // Temporarily turn off Valve defines
 
-#if !defined( _WCHAR_T_DEFINED ) && !defined( GNUC )
+#if !defined(_WCHAR_T_DEFINED) && !defined(GNUC)
 typedef unsigned short wchar_t;
 #define _WCHAR_T_DEFINED
 #endif
@@ -22,9 +22,9 @@ typedef unsigned char byte;
 
 // __WFILE__
 // This is a Unicode version of __FILE__
-#define WIDEN2( x ) L##x
-#define WIDEN( x ) WIDEN2( x )
-#define __WFILE__ WIDEN( __FILE__ )
+#define WIDEN2(x) L##x
+#define WIDEN(x) WIDEN2(x)
+#define __WFILE__ WIDEN(__FILE__)
 
 #ifdef _WIN32
 #include <tchar.h>
@@ -32,10 +32,10 @@ typedef unsigned char byte;
 
 #define _vsntprintf _vsnprintf
 
-#define _T( s ) s
+#define _T(s) s
 #endif
 
-#if defined( _UNICODE )
+#if defined(_UNICODE)
 typedef wchar tchar;
 #define tstring wstring
 #define __TFILE__ __WFILE__
@@ -47,7 +47,7 @@ typedef char tchar;
 
 #endif
 
-#if defined( _MSC_VER ) || defined( WIN32 )
+#if defined(_MSC_VER) || defined(WIN32)
 typedef wchar_t uchar16;
 typedef unsigned int uchar32;
 #else

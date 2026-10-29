@@ -9,14 +9,14 @@ class CChainStateNotify
 {
 public:
 	CChainStateNotify()
-		: m_pOwner( 0 )
-		, m_pfnNotify( 0 )
+		: m_pOwner(0)
+		, m_pfnNotify(0)
 	{
 	}
 
 	// Spelled as an assignment so IMPLEMENT_NETWORKVAR_CHAIN's `= this` still compiles.
 	template <class T>
-	CChainStateNotify &operator=( T *pOwner )
+	CChainStateNotify& operator=(T* pOwner)
 	{
 		m_pOwner = pOwner;
 		m_pfnNotify = &Notify<T>;
@@ -28,17 +28,17 @@ public:
 	// Does nothing between the struct's constructor and the containing entity's.
 	void NetworkStateChanged() const
 	{
-		if ( m_pOwner )
-			m_pfnNotify( m_pOwner );
+		if (m_pOwner)
+			m_pfnNotify(m_pOwner);
 	}
 
 private:
 	template <class T>
-	static void Notify( void *pOwner )
+	static void Notify(void* pOwner)
 	{
-		( (T *)pOwner )->NetworkStateChanged();
+		((T*)pOwner)->NetworkStateChanged();
 	}
 
-	void *m_pOwner;
-	void ( *m_pfnNotify )( void * );
+	void* m_pOwner;
+	void (*m_pfnNotify)(void*);
 };

@@ -39,49 +39,49 @@
 #include "server_models.h"
 
 // The values scripted_kinds.h restates, pinned to the engine's own.
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_NONE == (int)SOLID_NONE );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_BSP == (int)SOLID_BSP );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_BBOX == (int)SOLID_BBOX );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_SOLID_VPHYSICS == (int)SOLID_VPHYSICS );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_NOT_SOLID == (int)FSOLID_NOT_SOLID );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_TRIGGER == (int)FSOLID_TRIGGER );
-COMPILE_TIME_ASSERT( (int)SOURCESHARP_KIND_FSOLID_NOT_STANDABLE == (int)FSOLID_NOT_STANDABLE );
+COMPILE_TIME_ASSERT((int)SOURCESHARP_KIND_SOLID_NONE == (int)SOLID_NONE);
+COMPILE_TIME_ASSERT((int)SOURCESHARP_KIND_SOLID_BSP == (int)SOLID_BSP);
+COMPILE_TIME_ASSERT((int)SOURCESHARP_KIND_SOLID_BBOX == (int)SOLID_BBOX);
+COMPILE_TIME_ASSERT((int)SOURCESHARP_KIND_SOLID_VPHYSICS == (int)SOLID_VPHYSICS);
+COMPILE_TIME_ASSERT((int)SOURCESHARP_KIND_FSOLID_NOT_SOLID == (int)FSOLID_NOT_SOLID);
+COMPILE_TIME_ASSERT((int)SOURCESHARP_KIND_FSOLID_TRIGGER == (int)FSOLID_TRIGGER);
+COMPILE_TIME_ASSERT((int)SOURCESHARP_KIND_FSOLID_NOT_STANDABLE == (int)FSOLID_NOT_STANDABLE);
 
-void CServerEntityLifecycle::RegisterScriptedEntity( const char *pClassName, const char **ppOutputNames,
-													 int32_t nOutputCount, int32_t nKind )
+void CServerEntityLifecycle::RegisterScriptedEntity(const char* pClassName, const char** ppOutputNames,
+													int32_t nOutputCount, int32_t nKind)
 {
-	if ( !pClassName || !pClassName[0] )
+	if (!pClassName || !pClassName[0])
 		return;
 
-	const SourceSharpScriptedKindParams_t params = SourceSharp_ScriptedKindParams( nKind );
+	const SourceSharpScriptedKindParams_t params = SourceSharp_ScriptedKindParams(nKind);
 
 	// A shell-less class installs no factory, so no creation path can construct it.
 	// Managed creates these in the engine-invisible handle range instead.
-	if ( params.bShellLess )
+	if (params.bShellLess)
 		return;
 
-	InstallStandaloneClass( pClassName, ppOutputNames, nOutputCount, params.bServerOnly, params.nSolidType,
-							params.nSolidFlags, params.bTouchEveryTick, params.bPlayer );
+	InstallStandaloneClass(pClassName, ppOutputNames, nOutputCount, params.bServerOnly, params.nSolidType,
+						   params.nSolidFlags, params.bTouchEveryTick, params.bPlayer);
 }
 
 // Places a player at its spawn point. Called by managed from OnSelectSpawnPoint,
 // inside Spawn, before the player is solid or has a hull or physics shadow.
-void CServerPlayerQueries::PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pOriginXYZ, const float *pAnglesPYR )
+void CServerPlayerQueries::PlayerPlaceAtSpawn(uint32_t hPlayer, const float* pOriginXYZ, const float* pAnglesPYR)
 {
-	if ( !pOriginXYZ || !pAnglesPYR )
+	if (!pOriginXYZ || !pAnglesPYR)
 		return;
 
-	CStandalonePlayer *pPlayer = m_Entities.Player( hPlayer );
+	CStandalonePlayer* pPlayer = m_Entities.Player(hPlayer);
 
-	if ( !pPlayer )
+	if (!pPlayer)
 		return;
 
-	const Vector vecOrigin( pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2] );
-	const QAngle angles( pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2] );
+	const Vector vecOrigin(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]);
+	const QAngle angles(pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2]);
 
 	// Yaw only on the entity; the player state takes all three for the view.
-	pPlayer->SetAbsTransform( vecOrigin, QAngle( 0.0f, angles[YAW], 0.0f ) );
-	pPlayer->SetVelocity( vec3_origin );
+	pPlayer->SetAbsTransform(vecOrigin, QAngle(0.0f, angles[YAW], 0.0f));
+	pPlayer->SetVelocity(vec3_origin);
 
 	// fixangle makes the client adopt v_angle rather than predict over it.
 	pPlayer->PlayerStatePtr()->v_angle = angles;
@@ -90,56 +90,56 @@ void CServerPlayerQueries::PlayerPlaceAtSpawn( uint32_t hPlayer, const float *pO
 
 // Spawnflags are claimed by the engine during map parsing, so they never reach
 // the managed keyvalue hook.
-int32_t CServerEntities::EntityGetSpawnFlags( uint32_t hEntity )
+int32_t CServerEntities::EntityGetSpawnFlags(uint32_t hEntity)
 {
-	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve(hEntity);
 
 	return ent.pStandalone ? ent.pStandalone->GetSpawnFlags() : 0;
 }
 
-void CServerEntities::EntityGetSpawnOrigin( uint32_t hEntity, float *pOutXYZ )
+void CServerEntities::EntityGetSpawnOrigin(uint32_t hEntity, float* pOutXYZ)
 {
-	if ( !pOutXYZ )
+	if (!pOutXYZ)
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
+	if (CStandaloneEntity* pStandalone = m_Entities.Standalone(hEntity))
 	{
-		const Vector &vec = pStandalone->GetSpawnOrigin();
+		const Vector& vec = pStandalone->GetSpawnOrigin();
 		pOutXYZ[0] = vec.x;
 		pOutXYZ[1] = vec.y;
 		pOutXYZ[2] = vec.z;
 	}
 }
 
-void CServerEntities::EntityGetSpawnAngles( uint32_t hEntity, float *pOutPYR )
+void CServerEntities::EntityGetSpawnAngles(uint32_t hEntity, float* pOutPYR)
 {
-	if ( !pOutPYR )
+	if (!pOutPYR)
 		return;
 
 	pOutPYR[0] = pOutPYR[1] = pOutPYR[2] = 0.0f;
 
 	// Current angles, which for an entity that never moves are the mapper's.
-	if ( CStandaloneEntity *pStandalone = m_Entities.Standalone( hEntity ) )
+	if (CStandaloneEntity* pStandalone = m_Entities.Standalone(hEntity))
 	{
-		const QAngle &ang = pStandalone->GetSpawnAngles();
+		const QAngle& ang = pStandalone->GetSpawnAngles();
 		pOutPYR[0] = ang.x;
 		pOutPYR[1] = ang.y;
 		pOutPYR[2] = ang.z;
 	}
 }
 
-void CServerCollision::EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ )
+void CServerCollision::EntityGetBoundsSize(uint32_t hEntity, float* pOutXYZ)
 {
-	if ( !pOutXYZ )
+	if (!pOutXYZ)
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve(hEntity);
 
-	if ( ent.pStandalone )
+	if (ent.pStandalone)
 	{
 		// The collision bounds, which for a brush entity are its compiled submodel's.
 		const Vector vecSize = ent.pStandalone->OBBMaxs() - ent.pStandalone->OBBMins();
@@ -149,64 +149,64 @@ void CServerCollision::EntityGetBoundsSize( uint32_t hEntity, float *pOutXYZ )
 		return;
 	}
 
-	if ( !ent.pBase )
+	if (!ent.pBase)
 		return;
 }
 
-void CServerTransform::EntitySetAngles( uint32_t hEntity, const float *pPYR )
+void CServerTransform::EntitySetAngles(uint32_t hEntity, const float* pPYR)
 {
-	if ( !pPYR )
+	if (!pPYR)
 		return;
 
-	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve(hEntity);
 
-	if ( CStandaloneEntity *pStandalone = ent.pStandalone )
+	if (CStandaloneEntity* pStandalone = ent.pStandalone)
 	{
-		pStandalone->SetAbsAngles( QAngle( pPYR[0], pPYR[1], pPYR[2] ) );
+		pStandalone->SetAbsAngles(QAngle(pPYR[0], pPYR[1], pPYR[2]));
 
 		// SetAbsOrigin with the same position rebuilds the transform and relinks the entity.
-		pStandalone->SetAbsOrigin( pStandalone->GetAbsOrigin() );
+		pStandalone->SetAbsOrigin(pStandalone->GetAbsOrigin());
 		return;
 	}
 
-	if ( !ent.pBase )
+	if (!ent.pBase)
 		return;
 }
 
 // Degrees per second about the world's axes. Managed reads an IPhysicsObject's
 // own spin when there is one; this is the shell's member.
-void CServerTransform::EntitySetAngularVelocity( uint32_t hEntity, const float *pPYR )
+void CServerTransform::EntitySetAngularVelocity(uint32_t hEntity, const float* pPYR)
 {
-	if ( !pPYR )
+	if (!pPYR)
 		return;
 
-	if ( CStandaloneEntity *pStandalone = m_Entities.Resolve( hEntity ).pStandalone )
-		pStandalone->SetAngularVelocity( QAngle( pPYR[0], pPYR[1], pPYR[2] ) );
+	if (CStandaloneEntity* pStandalone = m_Entities.Resolve(hEntity).pStandalone)
+		pStandalone->SetAngularVelocity(QAngle(pPYR[0], pPYR[1], pPYR[2]));
 }
 
-void CServerEntities::EntityGetName( uint32_t hEntity, char *pOut, int32_t nOutSize )
+void CServerEntities::EntityGetName(uint32_t hEntity, char* pOut, int32_t nOutSize)
 {
-	if ( !pOut || nOutSize <= 0 )
+	if (!pOut || nOutSize <= 0)
 		return;
 
 	pOut[0] = 0;
 
-	const SourceSharpEntity_t ent = m_Entities.Resolve( hEntity );
+	const SourceSharpEntity_t ent = m_Entities.Resolve(hEntity);
 
-	if ( ent.pStandalone )
-		ss::StrCopy( pOut, ent.pStandalone->GetEntityName(), nOutSize );
+	if (ent.pStandalone)
+		ss::StrCopy(pOut, ent.pStandalone->GetEntityName(), nOutSize);
 }
 
-void CServerTransform::EntityGetAngularVelocity( uint32_t hEntity, float *pOutPYR )
+void CServerTransform::EntityGetAngularVelocity(uint32_t hEntity, float* pOutPYR)
 {
-	if ( !pOutPYR )
+	if (!pOutPYR)
 		return;
 
 	pOutPYR[0] = pOutPYR[1] = pOutPYR[2] = 0.0f;
 
-	if ( CStandaloneEntity *pStandalone = m_Entities.Resolve( hEntity ).pStandalone )
+	if (CStandaloneEntity* pStandalone = m_Entities.Resolve(hEntity).pStandalone)
 	{
-		const QAngle &angVelocity = pStandalone->GetAngularVelocity();
+		const QAngle& angVelocity = pStandalone->GetAngularVelocity();
 		pOutPYR[0] = angVelocity[0];
 		pOutPYR[1] = angVelocity[1];
 		pOutPYR[2] = angVelocity[2];
@@ -214,28 +214,28 @@ void CServerTransform::EntityGetAngularVelocity( uint32_t hEntity, float *pOutPY
 }
 
 // The entity's IPhysicsObject, or NULL.
-void *CServerPhysics::EntityPhysicsObject( uint32_t hEntity )
+void* CServerPhysics::EntityPhysicsObject(uint32_t hEntity)
 {
-	return m_Resolver.Resolve( hEntity ).Physics();
+	return m_Resolver.Resolve(hEntity).Physics();
 }
 
 // The level's IPhysicsEnvironment, or NULL between levels.
-void *CServerPhysics::PhysicsEnvironmentPointer()
+void* CServerPhysics::PhysicsEnvironmentPointer()
 {
 	return m_pEnv;
 }
 
 // The level's world physics object, or NULL between levels. Its game data is
 // NULL (PhysCreateWorld), so managed recognises it by identity.
-void *CServerPhysics::PhysicsWorldObject()
+void* CServerPhysics::PhysicsWorldObject()
 {
 	return m_pWorldObject;
 }
 
 // Scale of the server-side skeleton, which places attachments on a scaled model.
 // Managed validates it; this only stores it.
-void CServerModels::StandaloneSetModelScale( uint32_t hEntity, float flScale )
+void CServerModels::StandaloneSetModelScale(uint32_t hEntity, float flScale)
 {
-	if ( CStandaloneEntity *pEntity = m_Entities.Resolve( hEntity ).pStandalone )
-		pEntity->SetModelScale( flScale );
+	if (CStandaloneEntity* pEntity = m_Entities.Resolve(hEntity).pStandalone)
+		pEntity->SetModelScale(flScale);
 }

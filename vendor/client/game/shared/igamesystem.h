@@ -15,7 +15,7 @@ abstract_class IGameSystem
 {
 public:
 	// GameSystems are expected to implement these methods.
-	virtual char const *Name() = 0;
+	virtual char const* Name() = 0;
 
 	// Init, shutdown
 	// return true on success. false to abort DLL init!
@@ -51,8 +51,8 @@ public:
 	// These methods are used to add and remove server systems from the
 	// main server loop. The systems are invoked in the order in which
 	// they are added.
-	static void Add( IGameSystem * pSys );
-	static void Remove( IGameSystem * pSys );
+	static void Add(IGameSystem * pSys);
+	static void Remove(IGameSystem * pSys);
 	static void RemoveAll();
 };
 
@@ -66,7 +66,7 @@ public:
 	virtual void PreRender() = 0;
 
 	// Gets called each frame
-	virtual void Update( float frametime ) = 0;
+	virtual void Update(float frametime) = 0;
 
 	// Called after rendering
 	virtual void PostRender() = 0;
@@ -77,7 +77,7 @@ public:
 class CBaseGameSystem : public IGameSystem
 {
 public:
-	virtual char const *Name() { return "unnamed"; }
+	virtual char const* Name() { return "unnamed"; }
 
 	// Init, shutdown
 	// return true on success. false to abort DLL init!
@@ -113,7 +113,7 @@ private:
 	virtual void PreRender() {}
 
 	// Gets called each frame
-	virtual void Update( float frametime ) {}
+	virtual void Update(float frametime) {}
 
 	// Called after rendering
 	virtual void PostRender() {}
@@ -124,7 +124,7 @@ private:
 class CBaseGameSystemPerFrame : public IGameSystemPerFrame
 {
 public:
-	virtual char const *Name() { return "unnamed"; }
+	virtual char const* Name() { return "unnamed"; }
 
 	// Init, shutdown
 	// return true on success. false to abort DLL init!
@@ -157,7 +157,7 @@ public:
 	virtual void PreRender() {}
 
 	// Gets called each frame
-	virtual void Update( float frametime ) {}
+	virtual void Update(float frametime) {}
 
 	// Called after rendering
 	virtual void PostRender() {}
@@ -168,24 +168,24 @@ public:
 class CAutoGameSystem : public CBaseGameSystem
 {
 public:
-	CAutoGameSystem( char const *name = NULL ); // hooks in at startup, no need to explicitly add
-	CAutoGameSystem *m_pNext;
+	CAutoGameSystem(char const* name = NULL); // hooks in at startup, no need to explicitly add
+	CAutoGameSystem* m_pNext;
 
-	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
+	virtual char const* Name() { return m_pszName ? m_pszName : "unnamed"; }
 
 private:
-	char const *m_pszName;
+	char const* m_pszName;
 };
 
 // Purpose: This is a CAutoGameSystem which also cares about the "per frame" hooks
 class CAutoGameSystemPerFrame : public CBaseGameSystemPerFrame
 {
 public:
-	CAutoGameSystemPerFrame( char const *name = NULL );
-	CAutoGameSystemPerFrame *m_pNext;
+	CAutoGameSystemPerFrame(char const* name = NULL);
+	CAutoGameSystemPerFrame* m_pNext;
 
-	virtual char const *Name() { return m_pszName ? m_pszName : "unnamed"; }
+	virtual char const* Name() { return m_pszName ? m_pszName : "unnamed"; }
 
 private:
-	char const *m_pszName;
+	char const* m_pszName;
 };

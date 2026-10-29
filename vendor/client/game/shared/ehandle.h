@@ -10,10 +10,10 @@ class IHandleEntity;
 
 // Game-code CBaseHandle implementation.
 
-inline IHandleEntity *CBaseHandle::Get() const
+inline IHandleEntity* CBaseHandle::Get() const
 {
-	extern CBaseEntityList *g_pEntityList;
-	return g_pEntityList->LookupEntity( *this );
+	extern CBaseEntityList* g_pEntityList;
+	return g_pEntityList->LookupEntity(*this);
 }
 
 // CHandle.
@@ -27,19 +27,19 @@ class CHandle : public CBaseHandle
 {
 public:
 	CHandle();
-	CHandle( int iEntry, int iSerialNumber );
-	/*implicit*/ CHandle( T *pVal );
-	/*implicit*/ CHandle( INVALID_EHANDLE_tag );
+	CHandle(int iEntry, int iSerialNumber);
+	/*implicit*/ CHandle(T* pVal);
+	/*implicit*/ CHandle(INVALID_EHANDLE_tag);
 
 	// NOTE: The following two constructor functions are not type-safe, and can allow creating a
 	// CHandle<T> that doesn't actually point to an object of type T.
 	// It is your responsibility to ensure that the target of the handle actually points to the
 	// correct type of object before calling these functions.
 
-	static CHandle<T> UnsafeFromBaseHandle( const CBaseHandle &handle );
+	static CHandle<T> UnsafeFromBaseHandle(const CBaseHandle& handle);
 
 	// The index should have come from a call to CBaseHandle::ToInt(). If it hasn't, you're in trouble.
-	static CHandle<T> UnsafeFromIndex( int index );
+	static CHandle<T> UnsafeFromIndex(int index);
 
 	// h.ChangedFrom(p) is similar but not the same as h != p.
 	// There is one case where they are different:
@@ -60,13 +60,13 @@ public:
 	//        m_target = target;
 	//        // update stuff related to m_target
 	//    }
-	bool ChangedFrom( T * ) const;
+	bool ChangedFrom(T*) const;
 
-	T *Get() const;
-	void Set( const T *pVal );
+	T* Get() const;
+	void Set(const T* pVal);
 
-	/*implicit*/ operator T *();
-	/*implicit*/ operator T *() const;
+	/*implicit*/ operator T*();
+	/*implicit*/ operator T*() const;
 };
 
 // Inlines.
@@ -77,37 +77,37 @@ inline CHandle<T>::CHandle()
 }
 
 template <class T>
-inline CHandle<T>::CHandle( INVALID_EHANDLE_tag )
-	: CBaseHandle( INVALID_EHANDLE )
+inline CHandle<T>::CHandle(INVALID_EHANDLE_tag)
+	: CBaseHandle(INVALID_EHANDLE)
 {
 }
 
 template <class T>
-inline CHandle<T>::CHandle( int iEntry, int iSerialNumber )
+inline CHandle<T>::CHandle(int iEntry, int iSerialNumber)
 {
-	Init( iEntry, iSerialNumber );
+	Init(iEntry, iSerialNumber);
 }
 
 template <class T>
-inline CHandle<T>::CHandle( T *pObj )
-	: CBaseHandle( INVALID_EHANDLE )
+inline CHandle<T>::CHandle(T* pObj)
+	: CBaseHandle(INVALID_EHANDLE)
 {
-	Set( pObj );
+	Set(pObj);
 }
 
 template <class T>
-inline CHandle<T> CHandle<T>::UnsafeFromBaseHandle( const CBaseHandle &handle )
+inline CHandle<T> CHandle<T>::UnsafeFromBaseHandle(const CBaseHandle& handle)
 {
 	CHandle<T> ret;
 	// REI Hack: CBaseHandle doesn't allow us to directly access m_Index, but
 	// exposes it via ToInt().  Warning: code has not been tested
-	COMPILE_TIME_ASSERT( sizeof( uint32 ) == sizeof( handle.ToInt() ) );
+	COMPILE_TIME_ASSERT(sizeof(uint32) == sizeof(handle.ToInt()));
 	ret.m_Index = (uint32)handle.ToInt();
 	return ret;
 }
 
 template <class T>
-inline CHandle<T> CHandle<T>::UnsafeFromIndex( int index )
+inline CHandle<T> CHandle<T>::UnsafeFromIndex(int index)
 {
 	CHandle<T> ret;
 	ret.m_Index = index;
@@ -115,43 +115,43 @@ inline CHandle<T> CHandle<T>::UnsafeFromIndex( int index )
 }
 
 template <class T>
-inline bool CHandle<T>::ChangedFrom( T *ent ) const
+inline bool CHandle<T>::ChangedFrom(T* ent) const
 {
 	// "valid" is kind of a misnomer here.  It really means 'not pointing to NULL',
 	// but it could be a stale handle (to a deleted entity), in which case
 	// Get() == null.  We really want to show up as different from null in that case.
-	if ( ent == nullptr )
+	if (ent == nullptr)
 		return IsValid();
 
 	return ent != Get();
 }
 
 template <class T>
-inline T *CHandle<T>::Get() const
+inline T* CHandle<T>::Get() const
 {
-	return (T *)CBaseHandle::Get();
+	return (T*)CBaseHandle::Get();
 }
 
 template <class T>
-inline CHandle<T>::operator T *()
-{
-	return Get();
-}
-
-template <class T>
-inline CHandle<T>::operator T *() const
+inline CHandle<T>::operator T*()
 {
 	return Get();
 }
 
 template <class T>
-void CHandle<T>::Set( const T *pVal )
+inline CHandle<T>::operator T*() const
+{
+	return Get();
+}
+
+template <class T>
+void CHandle<T>::Set(const T* pVal)
 {
 	// We can't even verify that the class can successfully reinterpret-cast to IHandleEntity*
 	// because that will cause this function to fail to compile in Debug in the case of forward-declared
 	// pointer types.
 	//Assert( reinterpret_cast< const IHandleEntity* >( pVal ) == static_cast< IHandleEntity* >( pVal ) );
 
-	const IHandleEntity *pValInterface = reinterpret_cast<const IHandleEntity *>( pVal );
-	CBaseHandle::Set( pValInterface );
+	const IHandleEntity* pValInterface = reinterpret_cast<const IHandleEntity*>(pVal);
+	CBaseHandle::Set(pValInterface);
 }

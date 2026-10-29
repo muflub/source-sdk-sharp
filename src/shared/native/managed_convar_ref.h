@@ -17,10 +17,10 @@
 class CManagedConVarRef
 {
 public:
-	explicit CManagedConVarRef( const char *pName )
-		: m_pName( pName )
-		, m_Ref( (IConVar *)NULL )
-		, m_bResolved( false )
+	explicit CManagedConVarRef(const char* pName)
+		: m_pName(pName)
+		, m_Ref((IConVar*)NULL)
+		, m_bResolved(false)
 	{
 		// Not resolved here: construction at DLL load precedes managed registration.
 	}
@@ -34,45 +34,45 @@ public:
 
 	float GetFloat() const { return Resolve() ? m_Ref.GetFloat() : 0.0f; }
 
-	const char *GetString() const { return Resolve() ? m_Ref.GetString() : ""; }
+	const char* GetString() const { return Resolve() ? m_Ref.GetString() : ""; }
 
-	void SetValue( int nValue )
+	void SetValue(int nValue)
 	{
-		if ( Resolve() )
-			m_Ref.SetValue( nValue );
+		if (Resolve())
+			m_Ref.SetValue(nValue);
 	}
 
-	void SetValue( float flValue )
+	void SetValue(float flValue)
 	{
-		if ( Resolve() )
-			m_Ref.SetValue( flValue );
+		if (Resolve())
+			m_Ref.SetValue(flValue);
 	}
 
-	void SetValue( const char *pV )
+	void SetValue(const char* pV)
 	{
-		if ( Resolve() )
-			m_Ref.SetValue( pV );
+		if (Resolve())
+			m_Ref.SetValue(pV);
 	}
 
-	const char *GetName() const { return m_pName; }
+	const char* GetName() const { return m_pName; }
 
 private:
 	// bIgnoreMissing is true: a miss is expected before managed startup.
 	bool Resolve() const
 	{
-		if ( m_bResolved )
+		if (m_bResolved)
 			return true;
 
-		m_Ref.Init( m_pName, true );
+		m_Ref.Init(m_pName, true);
 
-		if ( !m_Ref.IsValid() )
+		if (!m_Ref.IsValid())
 			return false;
 
 		m_bResolved = true;
 		return true;
 	}
 
-	const char *m_pName;
+	const char* m_pName;
 	mutable ConVarRef m_Ref;
 	mutable bool m_bResolved;
 };

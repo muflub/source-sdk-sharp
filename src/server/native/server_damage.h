@@ -18,29 +18,29 @@ class IUniformRandomStream;
 class CServerDamage final : public IShimDamage
 {
 public:
-	CServerDamage( CServerEntityResolver &entities, IUniformRandomStream *pRandom )
-		: m_Entities( entities )
-		, m_pRandom( pRandom )
+	CServerDamage(CServerEntityResolver& entities, IUniformRandomStream* pRandom)
+		: m_Entities(entities)
+		, m_pRandom(pRandom)
 	{
 	}
 
-	CServerDamage( const CServerDamage & ) = delete;
-	CServerDamage &operator=( const CServerDamage & ) = delete;
+	CServerDamage(const CServerDamage&) = delete;
+	CServerDamage& operator=(const CServerDamage&) = delete;
 
-	void ApplyDamage( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType ) override;
+	void ApplyDamage(uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType) override;
 
 	// Damage from an emitter, and its force. CalculateExplosiveDamageForce scales, clamps
 	// and jitters the force per victim; the jitter is server randomness and stays here so
 	// managed is never a source of values demo playback must reproduce.
-	void EntityTakeDamage( uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-						   const float *pDirXYZ, const float *pForceOriginXYZ, int32_t bPhysicsOnly ) override;
+	void EntityTakeDamage(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+						  const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly) override;
 
-	void ApplyDamageForce( uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-						   const float *pForceXYZ, const float *pPositionXYZ ) override;
+	void ApplyDamageForce(uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+						  const float* pForceXYZ, const float* pPositionXYZ) override;
 
 private:
-	CServerEntityResolver &m_Entities;
+	CServerEntityResolver& m_Entities;
 
 	// The engine's: a blast's force is jittered per victim.
-	IUniformRandomStream *m_pRandom;
+	IUniformRandomStream* m_pRandom;
 };

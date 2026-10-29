@@ -18,44 +18,44 @@
 #include "client_entity.h"
 
 #include "managed_convar_ref.h"
-extern ISoundEmitterSystemBase *soundemitterbase;
+extern ISoundEmitterSystemBase* soundemitterbase;
 
 // A printf into a static buffer.
-char *VarArgs( const char *format, ... )
+char* VarArgs(const char* format, ...)
 {
 	va_list argptr;
 	static char string[1024];
 
-	va_start( argptr, format );
-	Q_vsnprintf( string, sizeof( string ), format, argptr );
-	va_end( argptr );
+	va_start(argptr, format);
+	Q_vsnprintf(string, sizeof(string), format, argptr);
+	va_end(argptr);
 
 	return string;
 }
 
 // Read by name (ConVarRef) by the post-process plan and the managed vision filter.
-ConVar localplayer_visionflags( "localplayer_visionflags", "0", FCVAR_DEVELOPMENTONLY );
+ConVar localplayer_visionflags("localplayer_visionflags", "0", FCVAR_DEVELOPMENTONLY);
 
-client_textmessage_t *TextMessageGet( const char *pName )
+client_textmessage_t* TextMessageGet(const char* pName)
 {
-	return engine->TextMessageGet( pName );
+	return engine->TextMessageGet(pName);
 }
 
 int ScreenHeight()
 {
 	int w, h;
-	GetHudSize( w, h );
+	GetHudSize(w, h);
 	return h;
 }
 
 int ScreenWidth()
 {
 	int w, h;
-	GetHudSize( w, h );
+	GetHudSize(w, h);
 	return w;
 }
 
-void ReloadSoundEntriesInList( IFileList *pFilesToReload )
+void ReloadSoundEntriesInList(IFileList* pFilesToReload)
 {
-	soundemitterbase->ReloadSoundEntriesInList( pFilesToReload );
+	soundemitterbase->ReloadSoundEntriesInList(pFilesToReload);
 }

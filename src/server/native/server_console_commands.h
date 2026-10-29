@@ -21,19 +21,19 @@ class IVEngineServer;
 class CServerConsoleCommands final : public IShimConsoleServer
 {
 public:
-	CServerConsoleCommands( CServerEntityResolver &entities, IVEngineServer *pEngine )
-		: m_Entities( entities )
-		, m_pEngine( pEngine )
+	CServerConsoleCommands(CServerEntityResolver& entities, IVEngineServer* pEngine)
+		: m_Entities(entities)
+		, m_pEngine(pEngine)
 	{
 	}
 
-	CServerConsoleCommands( const CServerConsoleCommands & ) = delete;
-	CServerConsoleCommands &operator=( const CServerConsoleCommands & ) = delete;
+	CServerConsoleCommands(const CServerConsoleCommands&) = delete;
+	CServerConsoleCommands& operator=(const CServerConsoleCommands&) = delete;
 
-	void SendClientCommand( uint32_t hPlayer, const char *pCommand ) override;
+	void SendClientCommand(uint32_t hPlayer, const char* pCommand) override;
 	uint32_t GetCommandClientHandle() override;
 
 private:
-	CServerEntityResolver &m_Entities;
-	IVEngineServer *m_pEngine;
+	CServerEntityResolver& m_Entities;
+	IVEngineServer* m_pEngine;
 };

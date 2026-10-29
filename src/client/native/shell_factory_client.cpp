@@ -10,39 +10,39 @@
 
 #include "client_factorylist.h"
 
-InterfaceReg *InterfaceReg::s_pInterfaceRegs = NULL;
+InterfaceReg* InterfaceReg::s_pInterfaceRegs = NULL;
 
-InterfaceReg::InterfaceReg( InstantiateInterfaceFn fn, const char *pName )
-	: m_pName( pName )
+InterfaceReg::InterfaceReg(InstantiateInterfaceFn fn, const char* pName)
+	: m_pName(pName)
 {
 	m_CreateFn = fn;
 	m_pNext = s_pInterfaceRegs;
 	s_pInterfaceRegs = this;
 }
 
-void *CreateInterface( const char *pName, int *pReturnCode )
+void* CreateInterface(const char* pName, int* pReturnCode)
 {
-	for ( InterfaceReg *pReg = InterfaceReg::s_pInterfaceRegs; pReg; pReg = pReg->m_pNext )
+	for (InterfaceReg* pReg = InterfaceReg::s_pInterfaceRegs; pReg; pReg = pReg->m_pNext)
 	{
-		if ( strcmp( pReg->m_pName, pName ) != 0 )
+		if (strcmp(pReg->m_pName, pName) != 0)
 			continue;
-		if ( pReturnCode )
+		if (pReturnCode)
 			*pReturnCode = IFACE_OK;
 		return pReg->m_CreateFn();
 	}
-	if ( pReturnCode )
+	if (pReturnCode)
 		*pReturnCode = IFACE_FAILED;
 	return NULL;
 }
 
 static factorylist_t s_Factories;
 
-void FactoryList_Store( const factorylist_t &sourceData )
+void FactoryList_Store(const factorylist_t& sourceData)
 {
 	s_Factories = sourceData;
 }
 
-void FactoryList_Retrieve( factorylist_t &destData )
+void FactoryList_Retrieve(factorylist_t& destData)
 {
 	destData = s_Factories;
 }

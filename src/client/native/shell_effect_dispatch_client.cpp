@@ -24,9 +24,9 @@
 #include "imanaged_areas_client.h"
 
 // Zero-initialised, so ready before any DECLARE_CLIENT_EFFECT constructor runs.
-CClientEffectRegistration *CClientEffectRegistration::s_pHead = NULL;
+CClientEffectRegistration* CClientEffectRegistration::s_pHead = NULL;
 
-CClientEffectRegistration::CClientEffectRegistration( const char *pEffectName, ClientEffectCallback fn )
+CClientEffectRegistration::CClientEffectRegistration(const char* pEffectName, ClientEffectCallback fn)
 {
 	m_pEffectName = pEffectName;
 	m_pFunction = fn;
@@ -37,25 +37,25 @@ CClientEffectRegistration::CClientEffectRegistration( const char *pEffectName, C
 namespace
 {
 
-CClientEffectRegistration *EffectRegistrationAt( int32_t iIndex )
+CClientEffectRegistration* EffectRegistrationAt(int32_t iIndex)
 {
-	if ( iIndex < 0 )
+	if (iIndex < 0)
 		return NULL;
-	CClientEffectRegistration *pReg = CClientEffectRegistration::s_pHead;
-	for ( int32_t i = 0; pReg && i < iIndex; ++i )
+	CClientEffectRegistration* pReg = CClientEffectRegistration::s_pHead;
+	for (int32_t i = 0; pReg && i < iIndex; ++i)
 		pReg = pReg->m_pNext;
 	return pReg;
 }
 
 // A negative entity index is no entity; anything else is looked up.
-void EffectDataToClient( const SourceSharpEffectData_t *pData, CEffectData *pOut )
+void EffectDataToClient(const SourceSharpEffectData_t* pData, CEffectData* pOut)
 {
-	CEffectData &data = *pOut;
+	CEffectData& data = *pOut;
 
-	data.m_vOrigin.Init( pData->OriginXYZ[0], pData->OriginXYZ[1], pData->OriginXYZ[2] );
-	data.m_vStart.Init( pData->StartXYZ[0], pData->StartXYZ[1], pData->StartXYZ[2] );
-	data.m_vNormal.Init( pData->NormalXYZ[0], pData->NormalXYZ[1], pData->NormalXYZ[2] );
-	data.m_vAngles.Init( pData->AnglesPYR[0], pData->AnglesPYR[1], pData->AnglesPYR[2] );
+	data.m_vOrigin.Init(pData->OriginXYZ[0], pData->OriginXYZ[1], pData->OriginXYZ[2]);
+	data.m_vStart.Init(pData->StartXYZ[0], pData->StartXYZ[1], pData->StartXYZ[2]);
+	data.m_vNormal.Init(pData->NormalXYZ[0], pData->NormalXYZ[1], pData->NormalXYZ[2]);
+	data.m_vAngles.Init(pData->AnglesPYR[0], pData->AnglesPYR[1], pData->AnglesPYR[2]);
 
 	data.m_fFlags = pData->Flags;
 	data.m_flScale = pData->Scale;
@@ -68,22 +68,22 @@ void EffectDataToClient( const SourceSharpEffectData_t *pData, CEffectData *pOut
 	data.m_nHitBox = pData->HitBox;
 	data.m_nColor = (unsigned char)pData->Color;
 
-	data.m_hEntity = ( pData->EntIndex >= 0 ) ? SourceSharp_ClientHandleFromIndex( pData->EntIndex ) : INVALID_EHANDLE;
+	data.m_hEntity = (pData->EntIndex >= 0) ? SourceSharp_ClientHandleFromIndex(pData->EntIndex) : INVALID_EHANDLE;
 
-	data.m_bCustomColors = ( pData->CustomColors != 0 );
-	data.m_CustomColors.m_vecColor1.Init( pData->Color1XYZ[0], pData->Color1XYZ[1], pData->Color1XYZ[2] );
-	data.m_CustomColors.m_vecColor2.Init( pData->Color2XYZ[0], pData->Color2XYZ[1], pData->Color2XYZ[2] );
+	data.m_bCustomColors = (pData->CustomColors != 0);
+	data.m_CustomColors.m_vecColor1.Init(pData->Color1XYZ[0], pData->Color1XYZ[1], pData->Color1XYZ[2]);
+	data.m_CustomColors.m_vecColor2.Init(pData->Color2XYZ[0], pData->Color2XYZ[1], pData->Color2XYZ[2]);
 
-	data.m_bControlPoint1 = ( pData->ControlPoint1 != 0 );
+	data.m_bControlPoint1 = (pData->ControlPoint1 != 0);
 	data.m_ControlPoint1.m_eParticleAttachment = (ParticleAttachment_t)pData->ControlPointAttachment;
-	data.m_ControlPoint1.m_vecOffset.Init( pData->ControlPointOffsetXYZ[0], pData->ControlPointOffsetXYZ[1],
-										   pData->ControlPointOffsetXYZ[2] );
+	data.m_ControlPoint1.m_vecOffset.Init(pData->ControlPointOffsetXYZ[0], pData->ControlPointOffsetXYZ[1],
+										  pData->ControlPointOffsetXYZ[2]);
 }
 
 // The handle crosses as its entry index, -1 for none.
-void EffectDataFromClient( const CEffectData &data, SourceSharpEffectData_t *pOut )
+void EffectDataFromClient(const CEffectData& data, SourceSharpEffectData_t* pOut)
 {
-	SourceSharpEffectData_t &d = *pOut;
+	SourceSharpEffectData_t& d = *pOut;
 
 	d.OriginXYZ[0] = data.m_vOrigin.x;
 	d.OriginXYZ[1] = data.m_vOrigin.y;
@@ -111,8 +111,8 @@ void EffectDataFromClient( const CEffectData &data, SourceSharpEffectData_t *pOu
 	d.Color = data.m_nColor;
 
 	d.CustomColors = data.m_bCustomColors ? 1 : 0;
-	const Vector &c1 = data.m_CustomColors.m_vecColor1;
-	const Vector &c2 = data.m_CustomColors.m_vecColor2;
+	const Vector& c1 = data.m_CustomColors.m_vecColor1;
+	const Vector& c2 = data.m_CustomColors.m_vecColor2;
 	d.Color1XYZ[0] = c1.x;
 	d.Color1XYZ[1] = c1.y;
 	d.Color1XYZ[2] = c1.z;
@@ -122,7 +122,7 @@ void EffectDataFromClient( const CEffectData &data, SourceSharpEffectData_t *pOu
 
 	d.ControlPoint1 = data.m_bControlPoint1 ? 1 : 0;
 	d.ControlPointAttachment = (int32_t)data.m_ControlPoint1.m_eParticleAttachment;
-	const Vector &off = data.m_ControlPoint1.m_vecOffset;
+	const Vector& off = data.m_ControlPoint1.m_vecOffset;
 	d.ControlPointOffsetXYZ[0] = off.x;
 	d.ControlPointOffsetXYZ[1] = off.y;
 	d.ControlPointOffsetXYZ[2] = off.z;
@@ -131,20 +131,20 @@ void EffectDataFromClient( const CEffectData &data, SourceSharpEffectData_t *pOu
 } // namespace
 
 // The handle resolved through the slot table.
-IClientRenderable *CEffectData::GetRenderable() const
+IClientRenderable* CEffectData::GetRenderable() const
 {
-	return SourceSharp_ClientRenderableFromHandle( m_hEntity );
+	return SourceSharp_ClientRenderableFromHandle(m_hEntity);
 }
 
 // NULL: on the client no entity is an IGameEntity. Use GetRenderable() or entindex().
-IGameEntity *CEffectData::GetEntity() const
+IGameEntity* CEffectData::GetEntity() const
 {
 	return NULL;
 }
 
 int CEffectData::entindex() const
 {
-	IClientNetworkable *pNet = SourceSharp_ClientNetworkableFromHandle( m_hEntity );
+	IClientNetworkable* pNet = SourceSharp_ClientNetworkableFromHandle(m_hEntity);
 	return pNet ? pNet->entindex() : -1;
 }
 
@@ -152,59 +152,59 @@ int CEffectData::entindex() const
 int32_t SourceSharp_EffectRegistrationCount()
 {
 	int32_t n = 0;
-	for ( CClientEffectRegistration *pReg = CClientEffectRegistration::s_pHead; pReg; pReg = pReg->m_pNext )
+	for (CClientEffectRegistration* pReg = CClientEffectRegistration::s_pHead; pReg; pReg = pReg->m_pNext)
 		++n;
 	return n;
 }
 
-int32_t SourceSharp_EffectRegistrationName( int32_t iIndex, char *pOut, int32_t nOutSize )
+int32_t SourceSharp_EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize)
 {
-	CClientEffectRegistration *pReg = EffectRegistrationAt( iIndex );
-	if ( !pReg || !pReg->m_pEffectName )
+	CClientEffectRegistration* pReg = EffectRegistrationAt(iIndex);
+	if (!pReg || !pReg->m_pEffectName)
 		return -1;
-	if ( pOut && nOutSize > 0 )
-		Q_strncpy( pOut, pReg->m_pEffectName, nOutSize );
-	return Q_strlen( pReg->m_pEffectName );
+	if (pOut && nOutSize > 0)
+		Q_strncpy(pOut, pReg->m_pEffectName, nOutSize);
+	return Q_strlen(pReg->m_pEffectName);
 }
 
-void SourceSharp_EffectRegistrationRun( int32_t iIndex, const SourceSharpEffectData_t *pData )
+void SourceSharp_EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData)
 {
-	CClientEffectRegistration *pReg = EffectRegistrationAt( iIndex );
-	if ( !pReg || !pReg->m_pFunction || !pData )
+	CClientEffectRegistration* pReg = EffectRegistrationAt(iIndex);
+	if (!pReg || !pReg->m_pFunction || !pData)
 		return;
 
 	CEffectData data;
-	EffectDataToClient( pData, &data );
-	pReg->m_pFunction( data );
+	EffectDataToClient(pData, &data);
+	pReg->m_pFunction(data);
 }
 
 // Managed decides which registration runs; outside a managed load nothing runs.
-void DispatchEffectToCallback( const char *pEffectName, const CEffectData &data )
+void DispatchEffectToCallback(const char* pEffectName, const CEffectData& data)
 {
-	IManagedFxClient *pFx = ManagedFxClient();
-	if ( !pFx || !pEffectName )
+	IManagedFxClient* pFx = ManagedFxClient();
+	if (!pFx || !pEffectName)
 		return;
 
 	SourceSharpEffectData_t d;
-	EffectDataFromClient( data, &d );
-	pFx->DispatchEffect( pEffectName, &d );
+	EffectDataFromClient(data, &d);
+	pFx->DispatchEffect(pEffectName, &d);
 }
 
 // TE_DispatchEffect is the client's ITempEntsSystem::DispatchEffect body; DispatchEffect
 // is a client dispatching for itself through that same te.
-void TE_DispatchEffect( IRecipientFilter &filter, float delay, const Vector &pos, const char *pName,
-						const CEffectData &data )
+void TE_DispatchEffect(IRecipientFilter& filter, float delay, const Vector& pos, const char* pName,
+					   const CEffectData& data)
 {
-	DispatchEffectToCallback( pName, data );
+	DispatchEffectToCallback(pName, data);
 }
 
-void DispatchEffect( const char *pName, const CEffectData &data )
+void DispatchEffect(const char* pName, const CEffectData& data)
 {
-	CPASFilter filter( data.m_vOrigin );
-	DispatchEffect( pName, data, filter );
+	CPASFilter filter(data.m_vOrigin);
+	DispatchEffect(pName, data, filter);
 }
 
-void DispatchEffect( const char *pName, const CEffectData &data, C_RecipientFilter &filter )
+void DispatchEffect(const char* pName, const CEffectData& data, C_RecipientFilter& filter)
 {
-	te->DispatchEffect( filter, 0.0, data.m_vOrigin, pName, data );
+	te->DispatchEffect(filter, 0.0, data.m_vOrigin, pName, data);
 }

@@ -26,7 +26,7 @@
 // own includes.
 #include "fwd_server.g.inc"
 
-SS_FWD_SERVER_API const SSForwarderTable *SSFwdServer_Table( const char *pszName )
+SS_FWD_SERVER_API const SSForwarderTable* SSFwdServer_Table(const char* pszName)
 {
-	return SSFwd_Find( s_ForwarderTables, pszName );
+	return SSFwd_Find(s_ForwarderTables, pszName);
 }

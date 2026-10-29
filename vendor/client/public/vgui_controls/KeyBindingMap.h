@@ -12,20 +12,20 @@ class Panel;
 
 enum
 {
-	MODIFIER_SHIFT = ( 1 << 0 ),
-	MODIFIER_CONTROL = ( 1 << 1 ),
-	MODIFIER_ALT = ( 1 << 2 ),
+	MODIFIER_SHIFT = (1 << 0),
+	MODIFIER_CONTROL = (1 << 1),
+	MODIFIER_ALT = (1 << 2),
 };
 
 // Purpose: An actual keybinding, where bindingname references a bindingmap mentioned below
 struct BoundKey_t
 {
 	BoundKey_t();
-	BoundKey_t( const BoundKey_t &src );
+	BoundKey_t(const BoundKey_t& src);
 	~BoundKey_t();
 
 	bool isbuiltin; // whether this was by the #DECLARE macros or via code/parsing a config file
-	char const *bindingname; // what it's bound to
+	char const* bindingname; // what it's bound to
 	int keycode; // vgui keycode
 	int modifiers; // which modifiers
 };
@@ -36,83 +36,82 @@ struct BoundKey_t
 struct KeyBindingMap_t
 {
 	KeyBindingMap_t();
-	KeyBindingMap_t( const KeyBindingMap_t &src );
+	KeyBindingMap_t(const KeyBindingMap_t& src);
 	~KeyBindingMap_t();
 
-	char const *bindingname; // for the script file
+	char const* bindingname; // for the script file
 	ALIGN16 MessageFunc_t func;
-	char const *helpstring; // e.g., #KeybindingPasteHelp
-	char const *docstring; // e.g., #KeybindingPasteHelp
+	char const* helpstring; // e.g., #KeybindingPasteHelp
+	char const* docstring; // e.g., #KeybindingPasteHelp
 	bool passive; // dispatch command, but still chain
 };
 
-#define DECLARE_KEYBINDINGMAP( className )                                                                  \
-	static void KB_AddToMap( char const *bindingname, vgui::KeyCode defaultcode, int default_modifiers,     \
-							 vgui::MessageFunc_t function, char const *helpstring, char const *docstring,   \
-							 bool passive )                                                                 \
-	{                                                                                                       \
-		vgui::PanelKeyBindingMap *map = vgui::FindOrAddPanelKeyBindingMap( GetPanelClassName() );           \
-                                                                                                            \
-		vgui::KeyBindingMap_t entry;                                                                        \
-		entry.bindingname = bindingname;                                                                    \
-                                                                                                            \
-		entry.func = function;                                                                              \
-                                                                                                            \
-		entry.helpstring = helpstring;                                                                      \
-		entry.docstring = docstring;                                                                        \
-                                                                                                            \
-		entry.passive = passive;                                                                            \
-                                                                                                            \
-		map->entries.AddToTail( entry );                                                                    \
-                                                                                                            \
-		vgui::BoundKey_t kb;                                                                                \
-		kb.isbuiltin = true;                                                                                \
-		kb.bindingname = bindingname;                                                                       \
-		kb.keycode = defaultcode;                                                                           \
-		kb.modifiers = default_modifiers;                                                                   \
-		map->defaultkeys.AddToTail( kb );                                                                   \
-		map->boundkeys.AddToTail( kb );                                                                     \
-	}                                                                                                       \
-                                                                                                            \
-	static void KB_ChainToMap()                                                                             \
-	{                                                                                                       \
-		static bool chained = false;                                                                        \
-		if ( chained )                                                                                      \
-			return;                                                                                         \
-		chained = true;                                                                                     \
-		vgui::PanelKeyBindingMap *map = vgui::FindOrAddPanelKeyBindingMap( GetPanelClassName() );           \
-		map->pfnClassName = &GetPanelClassName;                                                             \
-		if ( map && GetPanelBaseClassName() && GetPanelBaseClassName()[0] )                                 \
-		{                                                                                                   \
-			map->baseMap = vgui::FindOrAddPanelKeyBindingMap( GetPanelBaseClassName() );                    \
-		}                                                                                                   \
-	}                                                                                                       \
-                                                                                                            \
-	static void KB_AddBoundKey( char const *bindingname, int keycode, int modifiers )                       \
-	{                                                                                                       \
-		vgui::PanelKeyBindingMap *map = vgui::FindOrAddPanelKeyBindingMap( GetPanelClassName() );           \
-		vgui::BoundKey_t kb;                                                                                \
-		kb.isbuiltin = true;                                                                                \
-		kb.bindingname = bindingname;                                                                       \
-		kb.keycode = keycode;                                                                               \
-		kb.modifiers = modifiers;                                                                           \
-		map->defaultkeys.AddToTail( kb );                                                                   \
-		map->boundkeys.AddToTail( kb );                                                                     \
-	}                                                                                                       \
-                                                                                                            \
-	class className##_RegisterKBMap;                                                                        \
-	friend class className##_RegisterKBMap;                                                                 \
-	class className##_RegisterKBMap                                                                         \
-	{                                                                                                       \
-	public:                                                                                                 \
-		className##_RegisterKBMap() { className::KB_ChainToMap(); }                                         \
-	};                                                                                                      \
-	className##_RegisterKBMap m_RegisterClassKB;                                                            \
-                                                                                                            \
-	virtual vgui::PanelKeyBindingMap *GetKBMap()                                                            \
-	{                                                                                                       \
-		static vgui::PanelKeyBindingMap *s_pMap = vgui::FindOrAddPanelKeyBindingMap( GetPanelClassName() ); \
-		return s_pMap;                                                                                      \
+#define DECLARE_KEYBINDINGMAP(className)                                                                               \
+	static void KB_AddToMap(char const* bindingname, vgui::KeyCode defaultcode, int default_modifiers,                 \
+							vgui::MessageFunc_t function, char const* helpstring, char const* docstring, bool passive) \
+	{                                                                                                                  \
+		vgui::PanelKeyBindingMap* map = vgui::FindOrAddPanelKeyBindingMap(GetPanelClassName());                        \
+                                                                                                                       \
+		vgui::KeyBindingMap_t entry;                                                                                   \
+		entry.bindingname = bindingname;                                                                               \
+                                                                                                                       \
+		entry.func = function;                                                                                         \
+                                                                                                                       \
+		entry.helpstring = helpstring;                                                                                 \
+		entry.docstring = docstring;                                                                                   \
+                                                                                                                       \
+		entry.passive = passive;                                                                                       \
+                                                                                                                       \
+		map->entries.AddToTail(entry);                                                                                 \
+                                                                                                                       \
+		vgui::BoundKey_t kb;                                                                                           \
+		kb.isbuiltin = true;                                                                                           \
+		kb.bindingname = bindingname;                                                                                  \
+		kb.keycode = defaultcode;                                                                                      \
+		kb.modifiers = default_modifiers;                                                                              \
+		map->defaultkeys.AddToTail(kb);                                                                                \
+		map->boundkeys.AddToTail(kb);                                                                                  \
+	}                                                                                                                  \
+                                                                                                                       \
+	static void KB_ChainToMap()                                                                                        \
+	{                                                                                                                  \
+		static bool chained = false;                                                                                   \
+		if (chained)                                                                                                   \
+			return;                                                                                                    \
+		chained = true;                                                                                                \
+		vgui::PanelKeyBindingMap* map = vgui::FindOrAddPanelKeyBindingMap(GetPanelClassName());                        \
+		map->pfnClassName = &GetPanelClassName;                                                                        \
+		if (map && GetPanelBaseClassName() && GetPanelBaseClassName()[0])                                              \
+		{                                                                                                              \
+			map->baseMap = vgui::FindOrAddPanelKeyBindingMap(GetPanelBaseClassName());                                 \
+		}                                                                                                              \
+	}                                                                                                                  \
+                                                                                                                       \
+	static void KB_AddBoundKey(char const* bindingname, int keycode, int modifiers)                                    \
+	{                                                                                                                  \
+		vgui::PanelKeyBindingMap* map = vgui::FindOrAddPanelKeyBindingMap(GetPanelClassName());                        \
+		vgui::BoundKey_t kb;                                                                                           \
+		kb.isbuiltin = true;                                                                                           \
+		kb.bindingname = bindingname;                                                                                  \
+		kb.keycode = keycode;                                                                                          \
+		kb.modifiers = modifiers;                                                                                      \
+		map->defaultkeys.AddToTail(kb);                                                                                \
+		map->boundkeys.AddToTail(kb);                                                                                  \
+	}                                                                                                                  \
+                                                                                                                       \
+	class className##_RegisterKBMap;                                                                                   \
+	friend class className##_RegisterKBMap;                                                                            \
+	class className##_RegisterKBMap                                                                                    \
+	{                                                                                                                  \
+	public:                                                                                                            \
+		className##_RegisterKBMap() { className::KB_ChainToMap(); }                                                    \
+	};                                                                                                                 \
+	className##_RegisterKBMap m_RegisterClassKB;                                                                       \
+                                                                                                                       \
+	virtual vgui::PanelKeyBindingMap* GetKBMap()                                                                       \
+	{                                                                                                                  \
+		static vgui::PanelKeyBindingMap* s_pMap = vgui::FindOrAddPanelKeyBindingMap(GetPanelClassName());              \
+		return s_pMap;                                                                                                 \
 	}
 
 // For definding additional (non-default) keybindings
@@ -129,12 +128,12 @@ struct PanelKeyBindingMap
 
 	CUtlVector<KeyBindingMap_t> entries;
 	bool processed;
-	PanelKeyBindingMap *baseMap;
+	PanelKeyBindingMap* baseMap;
 	CUtlVector<BoundKey_t> defaultkeys;
 	CUtlVector<BoundKey_t> boundkeys;
-	char const *( *pfnClassName )();
+	char const* (*pfnClassName)();
 };
 
-PanelKeyBindingMap *FindOrAddPanelKeyBindingMap( char const *className );
+PanelKeyBindingMap* FindOrAddPanelKeyBindingMap(char const* className);
 
 } // namespace vgui

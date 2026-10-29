@@ -3,8 +3,7 @@
 #pragma once
 
 // Macro to get at joystick codes
-#define JOYSTICK_AXIS_INTERNAL( _joystick, _axis ) \
-	( JOYSTICK_FIRST_AXIS + ( ( _joystick ) * MAX_JOYSTICK_AXES ) + ( _axis ) )
+#define JOYSTICK_AXIS_INTERNAL(_joystick, _axis) (JOYSTICK_FIRST_AXIS + ((_joystick) * MAX_JOYSTICK_AXES) + (_axis))
 
 // Enumeration for analog input devices. Includes joysticks, mousewheel, mouse
 enum AnalogCode_t
@@ -16,7 +15,7 @@ enum AnalogCode_t
 	MOUSE_WHEEL,
 
 	JOYSTICK_FIRST_AXIS,
-	JOYSTICK_LAST_AXIS = JOYSTICK_AXIS_INTERNAL( MAX_JOYSTICKS - 1, MAX_JOYSTICK_AXES - 1 ),
+	JOYSTICK_LAST_AXIS = JOYSTICK_AXIS_INTERNAL(MAX_JOYSTICKS - 1, MAX_JOYSTICK_AXES - 1),
 
 	ANALOG_CODE_LAST,
 };

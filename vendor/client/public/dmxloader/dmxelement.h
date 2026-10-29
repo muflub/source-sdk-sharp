@@ -14,7 +14,7 @@
 class CDmxAttributeLess
 {
 public:
-	bool Less( const CDmxAttribute *pAttribute1, const CDmxAttribute *pAttribute2, void *pContext )
+	bool Less(const CDmxAttribute* pAttribute1, const CDmxAttribute* pAttribute2, void* pContext)
 	{
 		return pAttribute1->GetNameSymbol() < pAttribute2->GetNameSymbol();
 	}
@@ -24,25 +24,25 @@ public:
 // Also does not work with arrays.
 struct DmxElementUnpackStructure_t
 {
-	const char *m_pAttributeName;
-	const char *m_pDefaultString;
+	const char* m_pAttributeName;
+	const char* m_pDefaultString;
 	DmAttributeType_t m_AttributeType;
 	int m_nOffset;
 	int m_nSize;
-	const void *m_pUserData; // If you want to associate some app-specific data with each field
+	const void* m_pUserData; // If you want to associate some app-specific data with each field
 };
 
 #define DECLARE_DMXELEMENT_UNPACK() \
 	template <typename T>           \
-	friend DmxElementUnpackStructure_t *DmxElementUnpackInit( T * );
+	friend DmxElementUnpackStructure_t* DmxElementUnpackInit(T*);
 
-#define DMXELEMENT_UNPACK_FIELD( _attributeName, _defaultString, _type, _varName ) \
-	{ _attributeName,                                                              \
-	  _defaultString,                                                              \
-	  CDmAttributeInfo<_type>::AttributeType(),                                    \
-	  (int)offsetof( DestStructType_t, _varName ),                                 \
-	  sizeof( ( (DestStructType_t *)0 )->_varName ),                               \
-	  NULL },
+#define DMXELEMENT_UNPACK_FIELD(_attributeName, _defaultString, _type, _varName) \
+	{_attributeName,                                                             \
+	 _defaultString,                                                             \
+	 CDmAttributeInfo<_type>::AttributeType(),                                   \
+	 (int)offsetof(DestStructType_t, _varName),                                  \
+	 sizeof(((DestStructType_t*)0)->_varName),                                   \
+	 NULL},
 
 // Element used to read dmx files from mod code. Similar to keyvalues.
 class CDmxElement
@@ -50,36 +50,36 @@ class CDmxElement
 	DECLARE_DMX_ALLOCATOR();
 
 public:
-	CDmxAttribute *GetAttribute( const char *pAttributeName );
-	const CDmxAttribute *GetAttribute( const char *pAttributeName ) const;
-	CDmxAttribute *GetAttribute( int nIndex );
-	const CDmxAttribute *GetAttribute( int nIndex ) const;
+	CDmxAttribute* GetAttribute(const char* pAttributeName);
+	const CDmxAttribute* GetAttribute(const char* pAttributeName) const;
+	CDmxAttribute* GetAttribute(int nIndex);
+	const CDmxAttribute* GetAttribute(int nIndex) const;
 	CUtlSymbol GetType() const;
-	const char *GetName() const;
-	const DmObjectId_t &GetId() const;
+	const char* GetName() const;
+	const DmObjectId_t& GetId() const;
 
 	// Add+remove+rename can only occur during lock
 	// NOTE: AddAttribute will find or add; returning an existing attribute if
 	// one with the appropriate name exists
-	void LockForChanges( bool bLock );
-	CDmxAttribute *AddAttribute( const char *pAttributeName );
+	void LockForChanges(bool bLock);
+	CDmxAttribute* AddAttribute(const char* pAttributeName);
 
 	template <class T>
-	const T &GetValue( const char *pAttributeName ) const;
+	const T& GetValue(const char* pAttributeName) const;
 	template <class T>
-	const T &GetValue( const char *pAttributeName, const T &defaultValue ) const;
+	const T& GetValue(const char* pAttributeName, const T& defaultValue) const;
 
 private:
-	typedef CUtlSortVector<CDmxAttribute *, CDmxAttributeLess> AttributeList_t;
+	typedef CUtlSortVector<CDmxAttribute*, CDmxAttributeLess> AttributeList_t;
 
-	CDmxElement( const char *pType );
+	CDmxElement(const char* pType);
 	~CDmxElement();
 
 	// Finds an attribute by name
-	int FindAttribute( const char *pAttributeName ) const;
-	int FindAttribute( CUtlSymbol attributeName ) const;
+	int FindAttribute(const char* pAttributeName) const;
+	int FindAttribute(CUtlSymbol attributeName) const;
 
-	alignas( 8 ) unsigned char unused_m_Attributes[66];
+	alignas(8) unsigned char unused_m_Attributes[66];
 	char m_nLockCount;
 	mutable bool m_bResortNeeded : 1;
 	bool m_bIsMarkedForDeletion : 1;
@@ -91,22 +91,22 @@ private:
 // inline methods
 
 template <class T>
-inline const T &CDmxElement::GetValue( const char *pAttributeName ) const
+inline const T& CDmxElement::GetValue(const char* pAttributeName) const
 {
-	const CDmxAttribute *pAttribute = GetAttribute( pAttributeName );
-	if ( pAttribute )
+	const CDmxAttribute* pAttribute = GetAttribute(pAttributeName);
+	if (pAttribute)
 		return pAttribute->GetValue<T>();
 
 	static T defaultValue;
-	CDmAttributeInfo<T>::SetDefaultValue( defaultValue );
+	CDmAttributeInfo<T>::SetDefaultValue(defaultValue);
 	return defaultValue;
 }
 
 template <class T>
-inline const T &CDmxElement::GetValue( const char *pAttributeName, const T &defaultValue ) const
+inline const T& CDmxElement::GetValue(const char* pAttributeName, const T& defaultValue) const
 {
-	const CDmxAttribute *pAttribute = GetAttribute( pAttributeName );
-	if ( pAttribute )
+	const CDmxAttribute* pAttribute = GetAttribute(pAttributeName);
+	if (pAttribute)
 		return pAttribute->GetValue<T>();
 	return defaultValue;
 }
@@ -115,23 +115,23 @@ inline const T &CDmxElement::GetValue( const char *pAttributeName, const T &defa
 class CDmxElementModifyScope
 {
 public:
-	CDmxElementModifyScope( CDmxElement *pElement )
-		: m_pElement( pElement )
+	CDmxElementModifyScope(CDmxElement* pElement)
+		: m_pElement(pElement)
 	{
-		m_pElement->LockForChanges( true );
+		m_pElement->LockForChanges(true);
 	}
 
 	~CDmxElementModifyScope() { Release(); }
 
 	void Release()
 	{
-		if ( m_pElement )
+		if (m_pElement)
 		{
-			m_pElement->LockForChanges( false );
+			m_pElement->LockForChanges(false);
 			m_pElement = NULL;
 		}
 	}
 
 private:
-	CDmxElement *m_pElement;
+	CDmxElement* m_pElement;
 };

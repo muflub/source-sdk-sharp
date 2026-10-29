@@ -12,7 +12,7 @@
 #include "mathlib_test_env.h"
 
 // The links this file's subject imports.
-void SourceSharp_Trace( const char *, const char * ) {}
+void SourceSharp_Trace(const char*, const char*) {}
 
 int SourceSharp_GetVerbosity()
 {
@@ -32,7 +32,7 @@ public:
 class CommandClient : public ::testing::Test
 {
 protected:
-	bool Admin( int nSlot, bool bDedicated )
+	bool Admin(int nSlot, bool bDedicated)
 	{
 		m_Engine.m_bDedicated = bDedicated;
 		m_Players.m_nCommandClientSlot = nSlot;
@@ -45,50 +45,50 @@ protected:
 	unsigned short m_nWorldSerial = 0;
 	bool m_bManagedLoaded = false;
 	unsigned int m_nManagedGeneration = 1;
-	CServerModelPrecache m_Precache{ &m_Engine, nullptr, m_Holders.m_Areas };
+	CServerModelPrecache m_Precache{&m_Engine, nullptr, m_Holders.m_Areas};
 	CServerNetTables m_NetTables;
 	CSourceSharpSlotTable m_SlotTableForContext;
 	CSourceSharpEntitySlots m_EntitySlotsForContext;
-	CServerEntityContext m_Entities{ &m_Engine,
-									 nullptr,
-									 nullptr,
-									 nullptr,
-									 nullptr,
-									 nullptr,
-									 nullptr,
-									 m_Holders,
-									 m_bManagedLoaded,
-									 m_nManagedGeneration,
-									 m_Players,
-									 m_nWorldSerial,
-									 m_Precache,
-									 m_NetTables,
-									 m_SlotTableForContext,
-									 m_EntitySlotsForContext };
+	CServerEntityContext m_Entities{&m_Engine,
+									nullptr,
+									nullptr,
+									nullptr,
+									nullptr,
+									nullptr,
+									nullptr,
+									m_Holders,
+									m_bManagedLoaded,
+									m_nManagedGeneration,
+									m_Players,
+									m_nWorldSerial,
+									m_Precache,
+									m_NetTables,
+									m_SlotTableForContext,
+									m_EntitySlotsForContext};
 };
 } // namespace
 
-TEST_F( CommandClient, TheDedicatedConsoleIsAnAdmin )
+TEST_F(CommandClient, TheDedicatedConsoleIsAnAdmin)
 {
-	EXPECT_TRUE( Admin( -1, true ) );
+	EXPECT_TRUE(Admin(-1, true));
 }
 
-TEST_F( CommandClient, TheListenServersHostIsAnAdmin )
+TEST_F(CommandClient, TheListenServersHostIsAnAdmin)
 {
-	EXPECT_TRUE( Admin( 0, false ) );
+	EXPECT_TRUE(Admin(0, false));
 }
 
-TEST_F( CommandClient, NoPlayerOnADedicatedServerIsAnAdmin )
+TEST_F(CommandClient, NoPlayerOnADedicatedServerIsAnAdmin)
 {
-	EXPECT_FALSE( Admin( 0, true ) );
+	EXPECT_FALSE(Admin(0, true));
 }
 
-TEST_F( CommandClient, ASecondPlayerIsNotAnAdmin )
+TEST_F(CommandClient, ASecondPlayerIsNotAnAdmin)
 {
-	EXPECT_FALSE( Admin( 1, false ) );
+	EXPECT_FALSE(Admin(1, false));
 }
 
-TEST_F( CommandClient, StocksInitialSlotIsPlayerOne )
+TEST_F(CommandClient, StocksInitialSlotIsPlayerOne)
 {
-	EXPECT_EQ( 0, CServerPlayersDll().m_nCommandClientSlot );
+	EXPECT_EQ(0, CServerPlayersDll().m_nCommandClientSlot);
 }

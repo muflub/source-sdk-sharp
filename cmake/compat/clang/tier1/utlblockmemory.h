@@ -25,14 +25,14 @@
 #include "mathlib/mathlib.h"
 #include "tier0/memalloc.h"
 
-#pragma push_macro( "V_swap" )
+#pragma push_macro("V_swap")
 #undef V_swap
-#define V_swap( a, b )             \
-	do                             \
-	{                              \
-		auto ssCompatSwap = ( a ); \
-		( a ) = ( b );             \
-		( b ) = ssCompatSwap;      \
-	} while ( 0 )
+#define V_swap(a, b)             \
+	do                           \
+	{                            \
+		auto ssCompatSwap = (a); \
+		(a) = (b);               \
+		(b) = ssCompatSwap;      \
+	} while (0)
 #include_next "tier1/utlblockmemory.h"
-#pragma pop_macro( "V_swap" )
+#pragma pop_macro("V_swap")

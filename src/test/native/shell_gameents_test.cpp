@@ -23,24 +23,24 @@
 #include <memory>
 
 // The links this file's subject imports.
-IGameEntity *SourceSharp_GameEntityFromHandleEntity( CServerEntityResolver &, IHandleEntity * )
+IGameEntity* SourceSharp_GameEntityFromHandleEntity(CServerEntityResolver&, IHandleEntity*)
 {
 	return nullptr;
 }
 
-void SourceSharp_Trace( const char *, const char * ) {}
+void SourceSharp_Trace(const char*, const char*) {}
 
 int SourceSharp_GetVerbosity()
 {
 	return 0;
 }
 
-const model_t *CWorldCollideable::GetCollisionModel()
+const model_t* CWorldCollideable::GetCollisionModel()
 {
 	return nullptr;
 }
 
-void UTIL_ClearTrace( trace_t & ) {}
+void UTIL_ClearTrace(trace_t&) {}
 
 namespace
 {
@@ -49,11 +49,11 @@ constexpr int kEdicts = 8;
 class CPvsEngine : public CFakeVEngineServer
 {
 public:
-	edict_t *PEntityOfEntIndex( int iEntIndex ) override { return &m_Edicts[iEntIndex]; }
+	edict_t* PEntityOfEntIndex(int iEntIndex) override { return &m_Edicts[iEntIndex]; }
 
 	int GetEntityCount() override { return kEdicts; }
 
-	bool CheckBoxInPVS( const Vector &mins, const Vector &maxs, const byte *, int ) override { return mins.x >= 0.0f; }
+	bool CheckBoxInPVS(const Vector& mins, const Vector& maxs, const byte*, int) override { return mins.x >= 0.0f; }
 
 	edict_t m_Edicts[kEdicts]{};
 };
@@ -62,15 +62,15 @@ public:
 class CBoxCollideable : public CFakeCollideable
 {
 public:
-	explicit CBoxCollideable( float flX )
-		: m_flX( flX )
+	explicit CBoxCollideable(float flX)
+		: m_flX(flX)
 	{
 	}
 
-	void WorldSpaceSurroundingBounds( Vector *pMins, Vector *pMaxs ) override
+	void WorldSpaceSurroundingBounds(Vector* pMins, Vector* pMaxs) override
 	{
-		pMins->Init( m_flX, 0, 0 );
-		pMaxs->Init( m_flX + 1, 1, 1 );
+		pMins->Init(m_flX, 0, 0);
+		pMaxs->Init(m_flX + 1, 1, 1);
 	}
 
 	float m_flX;
@@ -79,12 +79,12 @@ public:
 class CBoxEntity : public CFakeServerEntity
 {
 public:
-	explicit CBoxEntity( float flX )
-		: m_Box( flX )
+	explicit CBoxEntity(float flX)
+		: m_Box(flX)
 	{
 	}
 
-	ICollideable *GetCollideable() override { return &m_Box; }
+	ICollideable* GetCollideable() override { return &m_Box; }
 
 	CBoxCollideable m_Box;
 };
@@ -94,13 +94,13 @@ public:
 bool s_bDeclineRecipient = false;
 int s_nAlways = 0;
 
-int32_t SkyboxAreaThree( IManagedClients *, int32_t, int32_t *pOutArea )
+int32_t SkyboxAreaThree(IManagedClients*, int32_t, int32_t* pOutArea)
 {
 	*pOutArea = 3;
 	return s_bDeclineRecipient ? 0 : 1;
 }
 
-int32_t AlwaysSent( IManagedClients *, int32_t )
+int32_t AlwaysSent(IManagedClients*, int32_t)
 {
 	return s_nAlways;
 }
@@ -120,131 +120,131 @@ protected:
 		m_Info.m_pTransmitEdict = &m_Sent;
 	}
 
-	void Flag( int iEdict, int nFlags ) { m_Engine.m_Edicts[iEdict].m_fStateFlags = nFlags; }
+	void Flag(int iEdict, int nFlags) { m_Engine.m_Edicts[iEdict].m_fStateFlags = nFlags; }
 
-	void Box( int iEdict, float flX )
+	void Box(int iEdict, float flX)
 	{
-		m_Entities.push_back( std::make_unique<CBoxEntity>( flX ) );
-		m_Engine.m_Edicts[iEdict].SetEdict( m_Entities.back().get(), true );
-		Flag( iEdict, FL_EDICT_FULL | FL_EDICT_PVSCHECK );
+		m_Entities.push_back(std::make_unique<CBoxEntity>(flX));
+		m_Engine.m_Edicts[iEdict].SetEdict(m_Entities.back().get(), true);
+		Flag(iEdict, FL_EDICT_FULL | FL_EDICT_PVSCHECK);
 	}
 
 	void Walk()
 	{
-		const unsigned short indices[] = { 1, 2, 3, 4, 5, 6, 7 };
-		m_Ents.CheckTransmit( &m_Info, indices, (int)( sizeof( indices ) / sizeof( indices[0] ) ) );
+		const unsigned short indices[] = {1, 2, 3, 4, 5, 6, 7};
+		m_Ents.CheckTransmit(&m_Info, indices, (int)(sizeof(indices) / sizeof(indices[0])));
 	}
 
 	CPvsEngine m_Engine;
 	CFakeMDLCache m_MdlCache;
 	SSManagedClientsTable m_Table{};
-	IManagedClients m_ManagedClients{ &m_Table };
+	IManagedClients m_ManagedClients{&m_Table};
 	CManagedAreas m_Managed{};
 	bool m_bManagedLoaded = true;
 	CShellTransmitSet m_TransmitSet;
 	CBoundaryProbe m_Probes;
 	CTestServerEntities m_Server;
-	CServerGameEnts m_Ents{ &m_Engine,     &m_MdlCache, m_Managed,          m_bManagedLoaded,
-							m_TransmitSet, m_Probes,    m_Server.m_Resolver };
+	CServerGameEnts m_Ents{&m_Engine,     &m_MdlCache, m_Managed,          m_bManagedLoaded,
+						   m_TransmitSet, m_Probes,    m_Server.m_Resolver};
 	std::vector<std::unique_ptr<CBoxEntity>> m_Entities;
 	CCheckTransmitInfo m_Info{};
 	CBitVec<MAX_EDICTS> m_Sent;
 };
 } // namespace
 
-TEST_F( ServerGameEnts, AlwaysIsSentDontSendIsNotAndAnUnflaggedEdictIsNot )
+TEST_F(ServerGameEnts, AlwaysIsSentDontSendIsNotAndAnUnflaggedEdictIsNot)
 {
-	Flag( 2, FL_EDICT_ALWAYS );
-	Flag( 3, FL_EDICT_DONTSEND | FL_EDICT_ALWAYS );
+	Flag(2, FL_EDICT_ALWAYS);
+	Flag(3, FL_EDICT_DONTSEND | FL_EDICT_ALWAYS);
 
 	Walk();
 
-	EXPECT_TRUE( m_Sent.Get( 2 ) );
-	EXPECT_FALSE( m_Sent.Get( 3 ) ) << "DONTSEND wins over ALWAYS";
-	EXPECT_FALSE( m_Sent.Get( 4 ) );
+	EXPECT_TRUE(m_Sent.Get(2));
+	EXPECT_FALSE(m_Sent.Get(3)) << "DONTSEND wins over ALWAYS";
+	EXPECT_FALSE(m_Sent.Get(4));
 }
 
-TEST_F( ServerGameEnts, APvsCheckedEdictIsSentOnlyWhenItsBoxIsInThePvs )
+TEST_F(ServerGameEnts, APvsCheckedEdictIsSentOnlyWhenItsBoxIsInThePvs)
 {
-	Box( 4, 10.0f );
-	Box( 5, -10.0f );
+	Box(4, 10.0f);
+	Box(5, -10.0f);
 
 	Walk();
 
-	EXPECT_TRUE( m_Sent.Get( 4 ) );
-	EXPECT_FALSE( m_Sent.Get( 5 ) );
+	EXPECT_TRUE(m_Sent.Get(4));
+	EXPECT_FALSE(m_Sent.Get(5));
 }
 
-TEST_F( ServerGameEnts, TheEdictManagedSaysIsAlwaysSentToThisClientIsSentOutsideThePvs )
+TEST_F(ServerGameEnts, TheEdictManagedSaysIsAlwaysSentToThisClientIsSentOutsideThePvs)
 {
 	s_nAlways = 5;
-	Box( 5, -10.0f );
+	Box(5, -10.0f);
 
 	Walk();
 
-	EXPECT_TRUE( m_Sent.Get( 5 ) );
+	EXPECT_TRUE(m_Sent.Get(5));
 }
 
-TEST_F( ServerGameEnts, WhileTheManagedSideIsDownNoRecipientIsSentAnything )
+TEST_F(ServerGameEnts, WhileTheManagedSideIsDownNoRecipientIsSentAnything)
 {
 	m_bManagedLoaded = false;
-	Flag( 2, FL_EDICT_ALWAYS );
+	Flag(2, FL_EDICT_ALWAYS);
 
 	Walk();
 
-	EXPECT_FALSE( m_Sent.Get( 2 ) );
+	EXPECT_FALSE(m_Sent.Get(2));
 }
 
-TEST_F( ServerGameEnts, ARecipientManagedDeclinesIsSentNothing )
+TEST_F(ServerGameEnts, ARecipientManagedDeclinesIsSentNothing)
 {
 	s_bDeclineRecipient = true;
-	Flag( 2, FL_EDICT_ALWAYS );
+	Flag(2, FL_EDICT_ALWAYS);
 
 	Walk();
 
-	EXPECT_FALSE( m_Sent.Get( 2 ) );
+	EXPECT_FALSE(m_Sent.Get(2));
 }
 
-TEST_F( ServerGameEnts, AnArmedCaptureRecordsTheSentSetAndTheSkyboxArea )
+TEST_F(ServerGameEnts, AnArmedCaptureRecordsTheSentSetAndTheSkyboxArea)
 {
-	Flag( 2, FL_EDICT_ALWAYS );
+	Flag(2, FL_EDICT_ALWAYS);
 	m_TransmitSet.Arm();
 
 	Walk();
 
-	ASSERT_TRUE( m_TransmitSet.HaveCapture() );
-	EXPECT_EQ( 1, m_TransmitSet.Recipient() );
-	EXPECT_EQ( 3, m_TransmitSet.SkyboxArea() );
-	EXPECT_TRUE( m_TransmitSet.IsSet( 2 ) );
-	EXPECT_FALSE( m_TransmitSet.IsSet( 3 ) );
+	ASSERT_TRUE(m_TransmitSet.HaveCapture());
+	EXPECT_EQ(1, m_TransmitSet.Recipient());
+	EXPECT_EQ(3, m_TransmitSet.SkyboxArea());
+	EXPECT_TRUE(m_TransmitSet.IsSet(2));
+	EXPECT_FALSE(m_TransmitSet.IsSet(3));
 }
 
-TEST( LateBoundServerGameEnts, ForwardsToTheImplementationItIsBoundTo )
+TEST(LateBoundServerGameEnts, ForwardsToTheImplementationItIsBoundTo)
 {
 	CPvsEngine engine;
 	CFakeMDLCache mdlCache;
 	SSManagedClientsTable table{};
 	table.ServerSkyboxAreaForClient = SkyboxAreaThree;
 	table.ServerTransmitAlwaysForClient = AlwaysSent;
-	IManagedClients clients( &table );
+	IManagedClients clients(&table);
 	CManagedAreas managed{};
 	managed.m_pClients = &clients;
 	bool bManagedLoaded = true;
 	CShellTransmitSet transmitSet;
 	CBoundaryProbe probes;
 	CTestServerEntities server;
-	CServerGameEnts impl( &engine, &mdlCache, managed, bManagedLoaded, transmitSet, probes, server.m_Resolver );
+	CServerGameEnts impl(&engine, &mdlCache, managed, bManagedLoaded, transmitSet, probes, server.m_Resolver);
 	CLateBoundServerGameEnts forwarder;
-	forwarder.Bind( &impl );
+	forwarder.Bind(&impl);
 
 	CCheckTransmitInfo info{};
 	CBitVec<MAX_EDICTS> sent;
 	info.m_pClientEnt = &engine.m_Edicts[1];
 	info.m_pTransmitEdict = &sent;
 	engine.m_Edicts[2].m_fStateFlags = FL_EDICT_ALWAYS;
-	const unsigned short indices[] = { 2 };
+	const unsigned short indices[] = {2};
 
-	forwarder.CheckTransmit( &info, indices, 1 );
+	forwarder.CheckTransmit(&info, indices, 1);
 
-	EXPECT_TRUE( sent.Get( 2 ) );
+	EXPECT_TRUE(sent.Get(2));
 }

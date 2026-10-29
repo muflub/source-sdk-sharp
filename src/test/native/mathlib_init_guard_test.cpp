@@ -77,21 +77,21 @@ namespace
 // unreadable reads as empty, and every claim below then FAILS on its size
 // floor rather than passing over nothing.
 //-----------------------------------------------------------------------------
-std::string ReadRepo( const std::string &strRelativeToRepo )
+std::string ReadRepo(const std::string& strRelativeToRepo)
 {
-	const char *pszRepo = getenv( "SOURCESHARP_REPO" );
-	if ( !pszRepo || !*pszRepo )
+	const char* pszRepo = getenv("SOURCESHARP_REPO");
+	if (!pszRepo || !*pszRepo)
 		return std::string();
 
-	std::string strPath( pszRepo );
+	std::string strPath(pszRepo);
 	strPath += "/";
 	strPath += strRelativeToRepo;
 
-	std::ifstream file( strPath.c_str() );
-	if ( !file.is_open() )
+	std::ifstream file(strPath.c_str());
+	if (!file.is_open())
 		return std::string();
 
-	return std::string( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
+	return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
 }
 
 //-----------------------------------------------------------------------------
@@ -101,27 +101,27 @@ std::string ReadRepo( const std::string &strRelativeToRepo )
 // that had lost the include and stay green. That exact mutation beat an earlier
 // scanner in this tree.
 //-----------------------------------------------------------------------------
-std::string CppCodeOnly( const std::string &s )
+std::string CppCodeOnly(const std::string& s)
 {
 	std::string out;
-	out.reserve( s.size() );
+	out.reserve(s.size());
 
 	bool bInBlock = false;
 	size_t at = 0;
-	while ( at < s.size() )
+	while (at < s.size())
 	{
-		size_t eol = s.find( '\n', at );
-		if ( eol == std::string::npos )
+		size_t eol = s.find('\n', at);
+		if (eol == std::string::npos)
 			eol = s.size();
 
-		std::string strLine = s.substr( at, eol - at );
+		std::string strLine = s.substr(at, eol - at);
 		at = eol + 1;
 
-		for ( size_t i = 0; i < strLine.size(); i++ )
+		for (size_t i = 0; i < strLine.size(); i++)
 		{
-			if ( bInBlock )
+			if (bInBlock)
 			{
-				if ( i + 1 < strLine.size() && strLine[i] == '*' && strLine[i + 1] == '/' )
+				if (i + 1 < strLine.size() && strLine[i] == '*' && strLine[i + 1] == '/')
 				{
 					bInBlock = false;
 					i++;
@@ -129,10 +129,10 @@ std::string CppCodeOnly( const std::string &s )
 				continue;
 			}
 
-			if ( i + 1 < strLine.size() && strLine[i] == '/' && strLine[i + 1] == '/' )
+			if (i + 1 < strLine.size() && strLine[i] == '/' && strLine[i + 1] == '/')
 				break;
 
-			if ( i + 1 < strLine.size() && strLine[i] == '/' && strLine[i + 1] == '*' )
+			if (i + 1 < strLine.size() && strLine[i] == '/' && strLine[i + 1] == '*')
 			{
 				bInBlock = true;
 				i++;
@@ -159,23 +159,23 @@ std::string CppCodeOnly( const std::string &s )
 // of prose that name `build_and_run_mathlib` and `mathlib.a`, and the counts
 // below are wrong — in the direction of passing — if that prose is scanned.
 //-----------------------------------------------------------------------------
-std::string ShellCodeOnly( const std::string &s )
+std::string ShellCodeOnly(const std::string& s)
 {
 	std::string out;
-	out.reserve( s.size() );
+	out.reserve(s.size());
 
 	size_t at = 0;
-	while ( at < s.size() )
+	while (at < s.size())
 	{
-		size_t eol = s.find( '\n', at );
-		if ( eol == std::string::npos )
+		size_t eol = s.find('\n', at);
+		if (eol == std::string::npos)
 			eol = s.size();
 
-		const std::string strLine = s.substr( at, eol - at );
+		const std::string strLine = s.substr(at, eol - at);
 		at = eol + 1;
 
-		size_t first = strLine.find_first_not_of( " \t" );
-		if ( first == std::string::npos || strLine[first] != '#' )
+		size_t first = strLine.find_first_not_of(" \t");
+		if (first == std::string::npos || strLine[first] != '#')
 			out += strLine;
 
 		out += '\n';
@@ -207,51 +207,51 @@ std::string ShellCodeOnly( const std::string &s )
 // TheGroupingKeepsAnInvocationWithNoEnvironmentFailing is the positive control
 // that says so.
 //-----------------------------------------------------------------------------
-std::vector<std::vector<std::string>> MathlibTestInvocations( const std::string &strCode )
+std::vector<std::vector<std::string>> MathlibTestInvocations(const std::string& strCode)
 {
 	std::vector<std::vector<std::string>> out;
 
 	const std::string kCall = "ss_cpptest_mathlib(";
 
 	size_t at = 0;
-	while ( at < strCode.size() )
+	while (at < strCode.size())
 	{
-		size_t eol = strCode.find( '\n', at );
-		if ( eol == std::string::npos )
+		size_t eol = strCode.find('\n', at);
+		if (eol == std::string::npos)
 			eol = strCode.size();
 
-		const bool bCall = strCode.compare( at, kCall.size(), kCall ) == 0;
+		const bool bCall = strCode.compare(at, kCall.size(), kCall) == 0;
 		const size_t lineStart = at;
 		at = eol + 1;
-		if ( !bCall )
+		if (!bCall)
 			continue;
 
-		size_t close = strCode.find( ')', lineStart );
-		if ( close == std::string::npos )
+		size_t close = strCode.find(')', lineStart);
+		if (close == std::string::npos)
 			close = strCode.size();
-		const std::string strCallText = strCode.substr( lineStart + kCall.size(), close - lineStart - kCall.size() );
+		const std::string strCallText = strCode.substr(lineStart + kCall.size(), close - lineStart - kCall.size());
 
 		std::vector<std::string> invocation;
 
 		size_t i = 0;
-		while ( i < strCallText.size() )
+		while (i < strCallText.size())
 		{
-			size_t b = strCallText.find_first_not_of( " \t\n", i );
-			if ( b == std::string::npos )
+			size_t b = strCallText.find_first_not_of(" \t\n", i);
+			if (b == std::string::npos)
 				break;
-			size_t e = strCallText.find_first_of( " \t\n", b );
-			if ( e == std::string::npos )
+			size_t e = strCallText.find_first_of(" \t\n", b);
+			if (e == std::string::npos)
 				e = strCallText.size();
 
-			const std::string strTok = strCallText.substr( b, e - b );
-			if ( strTok.size() > 4 && strTok.compare( strTok.size() - 4, 4, ".cpp" ) == 0 )
-				invocation.push_back( strTok );
+			const std::string strTok = strCallText.substr(b, e - b);
+			if (strTok.size() > 4 && strTok.compare(strTok.size() - 4, 4, ".cpp") == 0)
+				invocation.push_back(strTok);
 
 			i = e;
 		}
 
-		if ( !invocation.empty() )
-			out.push_back( invocation );
+		if (!invocation.empty())
+			out.push_back(invocation);
 	}
 
 	return out;
@@ -260,13 +260,13 @@ std::vector<std::vector<std::string>> MathlibTestInvocations( const std::string 
 //-----------------------------------------------------------------------------
 // The same sources, flat: every source named by a `ss_cpptest_mathlib` call.
 //-----------------------------------------------------------------------------
-std::vector<std::string> MathlibTestSources( const std::string &strCode )
+std::vector<std::string> MathlibTestSources(const std::string& strCode)
 {
 	std::vector<std::string> out;
 
-	const std::vector<std::vector<std::string>> calls = MathlibTestInvocations( strCode );
-	for ( size_t i = 0; i < calls.size(); i++ )
-		out.insert( out.end(), calls[i].begin(), calls[i].end() );
+	const std::vector<std::vector<std::string>> calls = MathlibTestInvocations(strCode);
+	for (size_t i = 0; i < calls.size(); i++)
+		out.insert(out.end(), calls[i].begin(), calls[i].end());
 
 	return out;
 }
@@ -275,16 +275,16 @@ std::vector<std::string> MathlibTestSources( const std::string &strCode )
 // The claim, in one place so the positive control below can run the SAME search
 // against a fixture that must fail it.
 //-----------------------------------------------------------------------------
-bool IncludesTheEnvironment( const std::string &strCode )
+bool IncludesTheEnvironment(const std::string& strCode)
 {
-	return strCode.find( "#include \"mathlib_test_env.h\"" ) != std::string::npos;
+	return strCode.find("#include \"mathlib_test_env.h\"") != std::string::npos;
 }
 
 // The helpers the calls expand to, where the link line and the runtime check
 // live (code only).
-const std::string &Helpers()
+const std::string& Helpers()
 {
-	static std::string s = ShellCodeOnly( ReadRepo( "cmake/SourceSharpTests.cmake" ) );
+	static std::string s = ShellCodeOnly(ReadRepo("cmake/SourceSharpTests.cmake"));
 	return s;
 }
 
@@ -294,7 +294,7 @@ const std::string &Helpers()
 // THE SCANNER, FIRST. Nothing below means anything if these fail.
 //=============================================================================//
 
-TEST( MathLibInitGuardScanner, CommentStrippingReallyStrips )
+TEST(MathLibInitGuardScanner, CommentStrippingReallyStrips)
 {
 	const std::string strIn = "alpha();\n"
 							  "// beta();\n"
@@ -303,36 +303,36 @@ TEST( MathLibInitGuardScanner, CommentStrippingReallyStrips )
 							  "   epsilon(); */\n"
 							  "zeta(); // theta();\n";
 
-	const std::string strOut = CppCodeOnly( strIn );
+	const std::string strOut = CppCodeOnly(strIn);
 
-	EXPECT_NE( strOut.find( "alpha" ), std::string::npos );
-	EXPECT_NE( strOut.find( "zeta" ), std::string::npos );
-	EXPECT_EQ( strOut.find( "beta" ), std::string::npos );
-	EXPECT_EQ( strOut.find( "gamma" ), std::string::npos );
-	EXPECT_EQ( strOut.find( "delta" ), std::string::npos );
-	EXPECT_EQ( strOut.find( "epsilon" ), std::string::npos );
-	EXPECT_EQ( strOut.find( "theta" ), std::string::npos );
+	EXPECT_NE(strOut.find("alpha"), std::string::npos);
+	EXPECT_NE(strOut.find("zeta"), std::string::npos);
+	EXPECT_EQ(strOut.find("beta"), std::string::npos);
+	EXPECT_EQ(strOut.find("gamma"), std::string::npos);
+	EXPECT_EQ(strOut.find("delta"), std::string::npos);
+	EXPECT_EQ(strOut.find("epsilon"), std::string::npos);
+	EXPECT_EQ(strOut.find("theta"), std::string::npos);
 }
 
-TEST( MathLibInitGuardScanner, ShellCommentStrippingReallyStrips )
+TEST(MathLibInitGuardScanner, ShellCommentStrippingReallyStrips)
 {
 	const std::string strIn = "ss_cpptest_mathlib(alpha_test SOURCES alpha.cpp)\n"
 							  "# ss_cpptest_mathlib(beta_test SOURCES beta.cpp)\n"
 							  "    # gamma\n"
 							  "message(\"a # b\")\n";
 
-	const std::string strOut = ShellCodeOnly( strIn );
+	const std::string strOut = ShellCodeOnly(strIn);
 
-	EXPECT_NE( strOut.find( "alpha.cpp" ), std::string::npos );
-	EXPECT_EQ( strOut.find( "beta.cpp" ), std::string::npos );
-	EXPECT_EQ( strOut.find( "gamma" ), std::string::npos );
+	EXPECT_NE(strOut.find("alpha.cpp"), std::string::npos);
+	EXPECT_EQ(strOut.find("beta.cpp"), std::string::npos);
+	EXPECT_EQ(strOut.find("gamma"), std::string::npos);
 
 	// A `#` inside an argument is not a comment, and eating from it would
 	// truncate real calls.
-	EXPECT_NE( strOut.find( "a # b" ), std::string::npos );
+	EXPECT_NE(strOut.find("a # b"), std::string::npos);
 }
 
-TEST( MathLibInitGuardScanner, TheParserJoinsContinuationsAndSkipsTheDefinition )
+TEST(MathLibInitGuardScanner, TheParserJoinsContinuationsAndSkipsTheDefinition)
 {
 	const std::string strIn = "function(ss_cpptest_mathlib name)\n"
 							  "  _ss_cpptest(MATHLIB ${name} notatest.cpp)\n"
@@ -341,11 +341,11 @@ TEST( MathLibInitGuardScanner, TheParserJoinsContinuationsAndSkipsTheDefinition 
 							  "    SOURCES sourcesharp/test/alpha_test.cpp)\n"
 							  "ss_cpptest(beta_test SOURCES sourcesharp/test/beta_test.cpp)\n";
 
-	const std::vector<std::string> got = MathlibTestSources( strIn );
+	const std::vector<std::string> got = MathlibTestSources(strIn);
 
-	ASSERT_EQ( 1u, got.size() ) << "the definition line or the non-mathlib "
-								   "invocation leaked into the list";
-	EXPECT_EQ( "sourcesharp/test/alpha_test.cpp", got[0] );
+	ASSERT_EQ(1u, got.size()) << "the definition line or the non-mathlib "
+								 "invocation leaked into the list";
+	EXPECT_EQ("sourcesharp/test/alpha_test.cpp", got[0]);
 }
 
 //-----------------------------------------------------------------------------
@@ -362,24 +362,24 @@ TEST( MathLibInitGuardScanner, TheParserJoinsContinuationsAndSkipsTheDefinition 
 // what turns the loop's `bRegistered` false and fails the claim. Fed one that
 // DOES register, it has to come back true for that one.
 //-----------------------------------------------------------------------------
-TEST( MathLibInitGuardScanner, TheGroupingKeepsAnInvocationWithNoEnvironmentFailing )
+TEST(MathLibInitGuardScanner, TheGroupingKeepsAnInvocationWithNoEnvironmentFailing)
 {
 	const std::string strScript = "ss_cpptest_mathlib(two_source_test\n"
 								  "    SOURCES sourcesharp/test/a_test.cpp\n"
 								  "            sourcesharp/game/shared/a_library.cpp)\n";
 
-	const std::vector<std::vector<std::string>> invocations = MathlibTestInvocations( ShellCodeOnly( strScript ) );
+	const std::vector<std::vector<std::string>> invocations = MathlibTestInvocations(ShellCodeOnly(strScript));
 
-	ASSERT_EQ( invocations.size(), (size_t)1 );
-	EXPECT_EQ( invocations[0].size(), (size_t)2 );
+	ASSERT_EQ(invocations.size(), (size_t)1);
+	EXPECT_EQ(invocations[0].size(), (size_t)2);
 
 	// Neither source registers, so the OR over the group is false -- which is
 	// the state the claim above reports as a failure.
-	EXPECT_FALSE( IncludesTheEnvironment( "#include \"gtest/gtest.h\"\n" ) );
-	EXPECT_FALSE( IncludesTheEnvironment( "#include \"overlay_library.h\"\n" ) );
+	EXPECT_FALSE(IncludesTheEnvironment("#include \"gtest/gtest.h\"\n"));
+	EXPECT_FALSE(IncludesTheEnvironment("#include \"overlay_library.h\"\n"));
 
 	// And one that does register flips it.
-	EXPECT_TRUE( IncludesTheEnvironment( "#include \"mathlib_test_env.h\"\n" ) );
+	EXPECT_TRUE(IncludesTheEnvironment("#include \"mathlib_test_env.h\"\n"));
 }
 
 //-----------------------------------------------------------------------------
@@ -387,18 +387,18 @@ TEST( MathLibInitGuardScanner, TheGroupingKeepsAnInvocationWithNoEnvironmentFail
 // grouped one have to name the same sources, or one of the two scans is reading
 // a different script from the other.
 //-----------------------------------------------------------------------------
-TEST( MathLibInitGuardScanner, TheSearchFailsOnASourceWithoutTheInclude )
+TEST(MathLibInitGuardScanner, TheSearchFailsOnASourceWithoutTheInclude)
 {
 	const std::string strWith = "#include \"gtest/gtest.h\"\n"
 								"#include \"mathlib_test_env.h\"\n";
 	const std::string strWithout = "#include \"gtest/gtest.h\"\n";
 	// The mutation that beats a scanner with no comment stripping.
-	const std::string strCommentedOut = CppCodeOnly( "#include \"gtest/gtest.h\"\n"
-													 "// #include \"mathlib_test_env.h\"\n" );
+	const std::string strCommentedOut = CppCodeOnly("#include \"gtest/gtest.h\"\n"
+													"// #include \"mathlib_test_env.h\"\n");
 
-	EXPECT_TRUE( IncludesTheEnvironment( strWith ) );
-	EXPECT_FALSE( IncludesTheEnvironment( strWithout ) );
-	EXPECT_FALSE( IncludesTheEnvironment( strCommentedOut ) );
+	EXPECT_TRUE(IncludesTheEnvironment(strWith));
+	EXPECT_FALSE(IncludesTheEnvironment(strWithout));
+	EXPECT_FALSE(IncludesTheEnvironment(strCommentedOut));
 }
 
 //=============================================================================//
@@ -425,12 +425,12 @@ TEST( MathLibInitGuardScanner, TheSearchFailsOnASourceWithoutTheInclude )
 // assertion text (the helper's FAIL_REGULAR_EXPRESSION). Deleting that check
 // should go red HERE.
 //-----------------------------------------------------------------------------
-TEST( MathLibInitGuard, TheRunnerStillChecksTheOutput )
+TEST(MathLibInitGuard, TheRunnerStillChecksTheOutput)
 {
-	const std::string &strCode = Helpers();
+	const std::string& strCode = Helpers();
 
-	ASSERT_FALSE( strCode.empty() ) << "cmake/SourceSharpTests.cmake not read";
-	EXPECT_NE( strCode.find( "FAIL_REGULAR_EXPRESSION \"s_bMathlibInitialized\"" ), std::string::npos )
+	ASSERT_FALSE(strCode.empty()) << "cmake/SourceSharpTests.cmake not read";
+	EXPECT_NE(strCode.find("FAIL_REGULAR_EXPRESSION \"s_bMathlibInitialized\""), std::string::npos)
 		<< "the mathlib tests no longer fail on the uninitialised-mathlib "
 		   "assertion in their output, which is the half of this guard that "
 		   "catches what source cannot show.";

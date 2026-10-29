@@ -8,7 +8,7 @@
 // is incomplete (save/restore); readers only Assert on it.
 inline bool s_bAbsQueriesValid = true;
 
-inline bool &EntityAbs_QueriesValidRef()
+inline bool& EntityAbs_QueriesValidRef()
 {
 	return s_bAbsQueriesValid;
 }
@@ -16,7 +16,7 @@ inline bool &EntityAbs_QueriesValidRef()
 // Whether CalcAbsolutePosition may recompute a coordinate frame right now. Client only.
 inline bool s_bAbsRecomputationEnabled = true;
 
-inline bool &EntityAbs_RecomputationEnabledRef()
+inline bool& EntityAbs_RecomputationEnabledRef()
 {
 	return s_bAbsRecomputationEnabled;
 }
@@ -26,10 +26,10 @@ inline bool &EntityAbs_RecomputationEnabledRef()
 #ifdef CLIENT_DLL
 
 // Off the main thread these are no-ops or answer true.
-void EntityAbs_SetQueriesValid( bool bValid );
+void EntityAbs_SetQueriesValid(bool bValid);
 bool EntityAbs_AreQueriesValid();
 
-void EntityAbs_SetRecomputationsEnabled( bool bEnable );
+void EntityAbs_SetRecomputationsEnabled(bool bEnable);
 bool EntityAbs_AreRecomputationsEnabled();
 
 #endif // CLIENT_DLL

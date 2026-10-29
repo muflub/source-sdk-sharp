@@ -33,52 +33,52 @@ class C_StandaloneEntity;
 
 class CShellNewParticleEffect : public CDefaultClientRenderable
 {
-	DECLARE_REFERENCED_CLASS( CShellNewParticleEffect );
+	DECLARE_REFERENCED_CLASS(CShellNewParticleEffect);
 
 public:
 	// The named system, allocated; the manager removes it when it finishes. A
 	// name no .pcf defines gives an effect that is not IsValid, as stock's did.
-	static CSmartPtr<CShellNewParticleEffect> Create( const char *pszName, const char *pszDebugName = NULL );
+	static CSmartPtr<CShellNewParticleEffect> Create(const char* pszName, const char* pszDebugName = NULL);
 
 	bool IsValid() const { return m_pCollection && m_pCollection->IsValid(); }
 
-	const char *GetEffectName() const { return m_pCollection ? m_pCollection->GetName() : ""; }
+	const char* GetEffectName() const { return m_pCollection ? m_pCollection->GetName() : ""; }
 
-	CParticleCollection *Collection() const { return m_pCollection; }
+	CParticleCollection* Collection() const { return m_pCollection; }
 
 	uint32_t Id() const { return m_nId; }
 
 	// The definition reads this control point (CParticleSystemDefinition::ReadsControlPoint).
-	bool DefinitionReadsControlPoint( int nPoint ) const;
+	bool DefinitionReadsControlPoint(int nPoint) const;
 
-	void SetSortOrigin( const Vector &vSortOrigin ) { m_vSortOrigin = vSortOrigin; }
+	void SetSortOrigin(const Vector& vSortOrigin) { m_vSortOrigin = vSortOrigin; }
 
-	const Vector &GetSortOrigin() const { return m_vSortOrigin; }
+	const Vector& GetSortOrigin() const { return m_vSortOrigin; }
 
-	void SetControlPoint( int nWhichPoint, const Vector &v );
-	void SetControlPointOrientation( int nWhichPoint, const Vector &forward, const Vector &right, const Vector &up );
-	void SetControlPointEntity( int nWhichPoint, C_StandaloneEntity *pEntity );
-	C_StandaloneEntity *GetControlPointEntity( int nWhichPoint ) const;
-	void StopEmission( bool bInfiniteOnly = false, bool bRemoveAllParticles = false, bool bWakeOnStop = false );
+	void SetControlPoint(int nWhichPoint, const Vector& v);
+	void SetControlPointOrientation(int nWhichPoint, const Vector& forward, const Vector& right, const Vector& up);
+	void SetControlPointEntity(int nWhichPoint, C_StandaloneEntity* pEntity);
+	C_StandaloneEntity* GetControlPointEntity(int nWhichPoint) const;
+	void StopEmission(bool bInfiniteOnly = false, bool bRemoveAllParticles = false, bool bWakeOnStop = false);
 
 	// The cull replacement EarlyRetireParticleSystems asked for: this one's
 	// particles removed, and the named system started at its control points.
-	CShellNewParticleEffect *ReplaceWith( const char *pszName );
+	CShellNewParticleEffect* ReplaceWith(const char* pszName);
 
 	// CSmartPtr's (CRefCountAccessor).
 	void AddRef();
 	void Release();
 
 	// IClientRenderable, answered as CNewParticleEffect did.
-	virtual const Vector &GetRenderOrigin() OVERRIDE { return m_vSortOrigin; }
+	virtual const Vector& GetRenderOrigin() OVERRIDE { return m_vSortOrigin; }
 
-	virtual const QAngle &GetRenderAngles() OVERRIDE { return vec3_angle; }
+	virtual const QAngle& GetRenderAngles() OVERRIDE { return vec3_angle; }
 
-	virtual const matrix3x4_t &RenderableToWorldTransform() OVERRIDE;
+	virtual const matrix3x4_t& RenderableToWorldTransform() OVERRIDE;
 
-	const char *GetDebugName() const { return m_pDebugName; }
+	const char* GetDebugName() const { return m_pDebugName; }
 
-	virtual void GetRenderBounds( Vector &mins, Vector &maxs ) OVERRIDE;
+	virtual void GetRenderBounds(Vector& mins, Vector& maxs) OVERRIDE;
 
 	virtual bool ShouldDraw() OVERRIDE { return true; }
 
@@ -86,7 +86,7 @@ public:
 	virtual bool IsTwoPass() OVERRIDE;
 	virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE;
 	virtual bool UsesFullFrameBufferTexture() OVERRIDE;
-	virtual int DrawModel( int flags ) OVERRIDE;
+	virtual int DrawModel(int flags) OVERRIDE;
 
 	bool IsReleasedSinceFrame() const { return m_bReleasedSinceFrame; }
 
@@ -99,12 +99,12 @@ public:
 	void Remove();
 
 private:
-	CShellNewParticleEffect( CParticleCollection *pCollection, const char *pszDebugName );
+	CShellNewParticleEffect(CParticleCollection* pCollection, const char* pszDebugName);
 	virtual ~CShellNewParticleEffect();
-	CShellNewParticleEffect( const CShellNewParticleEffect & ); // not defined
+	CShellNewParticleEffect(const CShellNewParticleEffect&); // not defined
 
-	CParticleCollection *m_pCollection;
-	const char *m_pDebugName;
+	CParticleCollection* m_pCollection;
+	const char* m_pDebugName;
 	uint32_t m_nId;
 	int m_nRefCount;
 	bool m_bRemoved;
@@ -121,11 +121,11 @@ private:
 
 // The live effects, newest first (stock's AddToHead order).
 int ShellNewParticles_Count();
-CShellNewParticleEffect *ShellNewParticles_At( int nIndex );
+CShellNewParticleEffect* ShellNewParticles_At(int nIndex);
 
 // The new-effect half of the frame: managed decides, this carries it out.
 // Called where CParticleMgr::Simulate runs.
-void ShellNewParticles_Frame( float flFrameTime );
+void ShellNewParticles_Frame(float flFrameTime);
 
 // CParticleMgr::RemoveAllNewEffects: level shutdown and the particle reload.
 void ShellNewParticles_RemoveAll();

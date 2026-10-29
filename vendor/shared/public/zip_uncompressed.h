@@ -6,7 +6,7 @@
 
 // compressionMethod field
 
-#pragma pack( 1 )
+#pragma pack(1)
 
 struct ZIP_EndOfCentralDirRecord
 {

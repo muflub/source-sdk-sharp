@@ -19,26 +19,26 @@ class IVEngineServer;
 class CServerUserMessages final : public IShimUserMessages
 {
 public:
-	CServerUserMessages( IVEngineServer *pEngine, const CGlobalVars *pGlobals )
-		: m_pEngine( pEngine )
-		, m_pGlobals( pGlobals )
+	CServerUserMessages(IVEngineServer* pEngine, const CGlobalVars* pGlobals)
+		: m_pEngine(pEngine)
+		, m_pGlobals(pGlobals)
 	{
 	}
 
-	CServerUserMessages( const CServerUserMessages & ) = delete;
-	CServerUserMessages &operator=( const CServerUserMessages & ) = delete;
+	CServerUserMessages(const CServerUserMessages&) = delete;
+	CServerUserMessages& operator=(const CServerUserMessages&) = delete;
 
 	// 1 when the engine was handed the message; 0 when nPlayerIndex names an empty
 	// slot (nothing is sent, so a message for one player never becomes a broadcast).
 	// nPlayerIndex 0 reaches every connected player.
-	int32_t UserMessageSend( int32_t nMsgId, const unsigned char *pData, int32_t nBytes, int32_t nPlayerIndex,
-							 int32_t bReliable ) override;
+	int32_t UserMessageSend(int32_t nMsgId, const unsigned char* pData, int32_t nBytes, int32_t nPlayerIndex,
+							int32_t bReliable) override;
 
 private:
 	// The engine reserves 1..maxClients for players, so a non-free edict there is one.
-	bool IsPlayerSlotLive( int nPlayerIndex ) const;
-	void Send( IRecipientFilter &filter, int32_t nMsgId, const unsigned char *pData, int32_t nBytes );
+	bool IsPlayerSlotLive(int nPlayerIndex) const;
+	void Send(IRecipientFilter& filter, int32_t nMsgId, const unsigned char* pData, int32_t nBytes);
 
-	IVEngineServer *m_pEngine;
-	const CGlobalVars *m_pGlobals;
+	IVEngineServer* m_pEngine;
+	const CGlobalVars* m_pGlobals;
 };

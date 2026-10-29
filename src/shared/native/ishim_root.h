@@ -21,10 +21,10 @@ abstract_class IShimRoot
 {
 public:
 	// A shim interface or forwarder table this side serves, by name, or NULL.
-	virtual void *Acquire( const char *pszName ) = 0;
+	virtual void* Acquire(const char* pszName) = 0;
 
 	// The engine's interfaces, by factory kind (a SourceSharpFactoryType) and version string.
-	virtual void *AcquireInterface( int32_t nType, const char *pszVersion, char *pError, int32_t nErrorBytes ) = 0;
+	virtual void* AcquireInterface(int32_t nType, const char* pszVersion, char* pError, int32_t nErrorBytes) = 0;
 
 	// The root lives as long as the DLL; this does nothing.
 	virtual void Release() = 0;
@@ -33,5 +33,5 @@ public:
 #ifdef CLIENT_DLL
 // The client's root, and its forwarder table in *ppTable. Defined in shell_internalfactory.cpp;
 // the server's is its game DLL's, handed to its managed side.
-IShimRoot *ShimRoot_Get( const void **ppTable );
+IShimRoot* ShimRoot_Get(const void** ppTable);
 #endif

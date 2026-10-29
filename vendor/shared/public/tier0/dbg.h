@@ -122,74 +122,74 @@ enum SpewRetval_t
 };
 
 /* type of externally defined function used to display debug spew */
-typedef SpewRetval_t ( *SpewOutputFunc_t )( SpewType_t spewType, const tchar *pMsg );
+typedef SpewRetval_t (*SpewOutputFunc_t)(SpewType_t spewType, const tchar* pMsg);
 
 /* Used to redirect spew output */
-DBG_INTERFACE void SpewOutputFunc( SpewOutputFunc_t func );
+DBG_INTERFACE void SpewOutputFunc(SpewOutputFunc_t func);
 
 /* Used to get the current spew output function */
 DBG_INTERFACE SpewOutputFunc_t GetSpewOutputFunc();
 
-DBG_INTERFACE bool IsSpewActive( const tchar *pGroupName, int level );
+DBG_INTERFACE bool IsSpewActive(const tchar* pGroupName, int level);
 
 /* Used to display messages, should never be called directly. */
-DBG_INTERFACE void _SpewInfo( SpewType_t type, const tchar *pFile, int line );
-DBG_INTERFACE SpewRetval_t _SpewMessage( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE void _SpewInfo(SpewType_t type, const tchar* pFile, int line);
+DBG_INTERFACE SpewRetval_t _SpewMessage(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 ;
 ;
 ;
-DBG_INTERFACE void _ExitOnFatalAssert( const tchar *pFile, int line );
+DBG_INTERFACE void _ExitOnFatalAssert(const tchar* pFile, int line);
 DBG_INTERFACE bool ShouldUseNewAssertDialog();
 
 // Returns true if they want to break in the debugger.
-DBG_INTERFACE bool DoNewAssertDialog( const tchar *pFile, int line, const tchar *pExpression );
+DBG_INTERFACE bool DoNewAssertDialog(const tchar* pFile, int line, const tchar* pExpression);
 
 // Provides a callback that is called on asserts regardless of spew levels
-typedef void ( *AssertFailedNotifyFunc_t )( const char *pchFile, int nLine, const char *pchMessage );
-DBG_INTERFACE void SetAssertFailedNotifyFunc( AssertFailedNotifyFunc_t func );
-DBG_INTERFACE void CallAssertFailedNotifyFunc( const char *pchFile, int nLine, const char *pchMessage );
+typedef void (*AssertFailedNotifyFunc_t)(const char* pchFile, int nLine, const char* pchMessage);
+DBG_INTERFACE void SetAssertFailedNotifyFunc(AssertFailedNotifyFunc_t func);
+DBG_INTERFACE void CallAssertFailedNotifyFunc(const char* pchFile, int nLine, const char* pchMessage);
 
 /* True if -hushasserts was passed on command line. */
 DBG_INTERFACE bool HushAsserts();
 
-#if defined( USE_SDL )
-DBG_INTERFACE void SetAssertDialogParent( struct SDL_Window *window );
+#if defined(USE_SDL)
+DBG_INTERFACE void SetAssertDialogParent(struct SDL_Window* window);
 #endif
 
 /* Used to define macros, never use these directly. */
 
-#define _AssertMsg( _exp, _msg, _executeExp, _bFatal )                                               \
-	do                                                                                               \
-	{                                                                                                \
-		if ( !( _exp ) )                                                                             \
-		{                                                                                            \
-			_SpewInfo( SPEW_ASSERT, __TFILE__, __LINE__ );                                           \
-			SpewRetval_t retAssert = _SpewMessage( "%s", static_cast<const char *>( _msg ) );        \
-			CallAssertFailedNotifyFunc( __TFILE__, __LINE__, _msg );                                 \
-			_executeExp;                                                                             \
-			if ( retAssert == SPEW_DEBUGGER )                                                        \
-			{                                                                                        \
-				if ( !ShouldUseNewAssertDialog() || DoNewAssertDialog( __TFILE__, __LINE__, _msg ) ) \
-				{                                                                                    \
-					DebuggerBreak();                                                                 \
-				}                                                                                    \
-				if ( _bFatal )                                                                       \
-				{                                                                                    \
-					_ExitOnFatalAssert( __TFILE__, __LINE__ );                                       \
-				}                                                                                    \
-			}                                                                                        \
-		}                                                                                            \
-	} while ( 0 )
+#define _AssertMsg(_exp, _msg, _executeExp, _bFatal)                                             \
+	do                                                                                           \
+	{                                                                                            \
+		if (!(_exp))                                                                             \
+		{                                                                                        \
+			_SpewInfo(SPEW_ASSERT, __TFILE__, __LINE__);                                         \
+			SpewRetval_t retAssert = _SpewMessage("%s", static_cast<const char*>(_msg));         \
+			CallAssertFailedNotifyFunc(__TFILE__, __LINE__, _msg);                               \
+			_executeExp;                                                                         \
+			if (retAssert == SPEW_DEBUGGER)                                                      \
+			{                                                                                    \
+				if (!ShouldUseNewAssertDialog() || DoNewAssertDialog(__TFILE__, __LINE__, _msg)) \
+				{                                                                                \
+					DebuggerBreak();                                                             \
+				}                                                                                \
+				if (_bFatal)                                                                     \
+				{                                                                                \
+					_ExitOnFatalAssert(__TFILE__, __LINE__);                                     \
+				}                                                                                \
+			}                                                                                    \
+		}                                                                                        \
+	} while (0)
 
-#define _AssertMsgOnce( _exp, _msg, _bFatal )                        \
-	do                                                               \
-	{                                                                \
-		static bool fAsserted;                                       \
-		if ( !fAsserted )                                            \
-		{                                                            \
-			_AssertMsg( _exp, _msg, ( fAsserted = true ), _bFatal ); \
-		}                                                            \
-	} while ( 0 )
+#define _AssertMsgOnce(_exp, _msg, _bFatal)                      \
+	do                                                           \
+	{                                                            \
+		static bool fAsserted;                                   \
+		if (!fAsserted)                                          \
+		{                                                        \
+			_AssertMsg(_exp, _msg, (fAsserted = true), _bFatal); \
+		}                                                        \
+	} while (0)
 
 /* Spew macros... */
 
@@ -200,32 +200,31 @@ DBG_INTERFACE void SetAssertDialogParent( struct SDL_Window *window );
 
 #ifdef DBGFLAG_ASSERTFATAL
 
-#define AssertFatal( _exp ) _AssertMsg( _exp, _T("Assertion Failed: ") _T( #_exp ), ( (void)0 ), true )
+#define AssertFatal(_exp) _AssertMsg(_exp, _T("Assertion Failed: ") _T(#_exp), ((void)0), true)
 
-#define AssertFatalMsg( _exp, _msg, ... ) \
-	_AssertMsg( _exp, (const tchar *)CDbgFmtMsg( _msg, ##__VA_ARGS__ ), ( (void)0 ), true )
+#define AssertFatalMsg(_exp, _msg, ...) _AssertMsg(_exp, (const tchar*)CDbgFmtMsg(_msg, ##__VA_ARGS__), ((void)0), true)
 
 #else // DBGFLAG_ASSERTFATAL
 
-#define AssertFatal( _exp ) ( (void)0 )
-#define AssertFatalOnce( _exp ) ( (void)0 )
-#define AssertFatalMsg( _exp, _msg ) ( (void)0 )
-#define AssertFatalMsgOnce( _exp, _msg ) ( (void)0 )
-#define AssertFatalFunc( _exp, _f ) ( (void)0 )
-#define AssertFatalEquals( _exp, _expectedValue ) ( (void)0 )
-#define AssertFatalFloatEquals( _exp, _expectedValue, _tol ) ( (void)0 )
-#define VerifyFatal( _exp ) ( _exp )
-#define VerifyEqualsFatal( _exp, _expectedValue ) ( _exp )
+#define AssertFatal(_exp) ((void)0)
+#define AssertFatalOnce(_exp) ((void)0)
+#define AssertFatalMsg(_exp, _msg) ((void)0)
+#define AssertFatalMsgOnce(_exp, _msg) ((void)0)
+#define AssertFatalFunc(_exp, _f) ((void)0)
+#define AssertFatalEquals(_exp, _expectedValue) ((void)0)
+#define AssertFatalFloatEquals(_exp, _expectedValue, _tol) ((void)0)
+#define VerifyFatal(_exp) (_exp)
+#define VerifyEqualsFatal(_exp, _expectedValue) (_exp)
 
-#define AssertFatalMsg1( _exp, _msg, a1 ) ( (void)0 )
-#define AssertFatalMsg2( _exp, _msg, a1, a2 ) ( (void)0 )
-#define AssertFatalMsg3( _exp, _msg, a1, a2, a3 ) ( (void)0 )
-#define AssertFatalMsg4( _exp, _msg, a1, a2, a3, a4 ) ( (void)0 )
-#define AssertFatalMsg5( _exp, _msg, a1, a2, a3, a4, a5 ) ( (void)0 )
-#define AssertFatalMsg6( _exp, _msg, a1, a2, a3, a4, a5, a6 ) ( (void)0 )
-#define AssertFatalMsg7( _exp, _msg, a1, a2, a3, a4, a5, a6, a7 ) ( (void)0 )
-#define AssertFatalMsg8( _exp, _msg, a1, a2, a3, a4, a5, a6, a7, a8 ) ( (void)0 )
-#define AssertFatalMsg9( _exp, _msg, a1, a2, a3, a4, a5, a6, a7, a8, a9 ) ( (void)0 )
+#define AssertFatalMsg1(_exp, _msg, a1) ((void)0)
+#define AssertFatalMsg2(_exp, _msg, a1, a2) ((void)0)
+#define AssertFatalMsg3(_exp, _msg, a1, a2, a3) ((void)0)
+#define AssertFatalMsg4(_exp, _msg, a1, a2, a3, a4) ((void)0)
+#define AssertFatalMsg5(_exp, _msg, a1, a2, a3, a4, a5) ((void)0)
+#define AssertFatalMsg6(_exp, _msg, a1, a2, a3, a4, a5, a6) ((void)0)
+#define AssertFatalMsg7(_exp, _msg, a1, a2, a3, a4, a5, a6, a7) ((void)0)
+#define AssertFatalMsg8(_exp, _msg, a1, a2, a3, a4, a5, a6, a7, a8) ((void)0)
+#define AssertFatalMsg9(_exp, _msg, a1, a2, a3, a4, a5, a6, a7, a8, a9) ((void)0)
 
 #endif // DBGFLAG_ASSERTFATAL
 
@@ -235,41 +234,39 @@ DBG_INTERFACE void SetAssertDialogParent( struct SDL_Window *window );
 
 #ifdef DBGFLAG_ASSERT
 
-#define Assert( _exp ) _AssertMsg( _exp, _T("Assertion Failed: ") _T( #_exp ), ( (void)0 ), false )
-#define AssertMsg( _exp, _msg, ... ) \
-	_AssertMsg( _exp, (const tchar *)CDbgFmtMsg( _msg, ##__VA_ARGS__ ), ( (void)0 ), false )
-#define AssertOnce( _exp ) _AssertMsgOnce( _exp, _T("Assertion Failed: ") _T( #_exp ), false )
-#define AssertMsgOnce( _exp, _msg ) _AssertMsgOnce( _exp, _msg, false )
-#define AssertFunc( _exp, _f ) _AssertMsg( _exp, _T("Assertion Failed: ") _T( #_exp ), _f, false )
-#define AssertEquals( _exp, _expectedValue ) \
-	AssertMsg2( ( _exp ) == ( _expectedValue ), _T("Expected %d but got %d!"), ( _expectedValue ), ( _exp ) )
-#define AssertFloatEquals( _exp, _expectedValue, _tol )                                                               \
-	AssertMsg2( fabs( ( _exp ) - ( _expectedValue ) ) <= ( _tol ), _T("Expected %f but got %f!"), ( _expectedValue ), \
-				( _exp ) )
-#define Verify( _exp ) Assert( _exp )
+#define Assert(_exp) _AssertMsg(_exp, _T("Assertion Failed: ") _T(#_exp), ((void)0), false)
+#define AssertMsg(_exp, _msg, ...) _AssertMsg(_exp, (const tchar*)CDbgFmtMsg(_msg, ##__VA_ARGS__), ((void)0), false)
+#define AssertOnce(_exp) _AssertMsgOnce(_exp, _T("Assertion Failed: ") _T(#_exp), false)
+#define AssertMsgOnce(_exp, _msg) _AssertMsgOnce(_exp, _msg, false)
+#define AssertFunc(_exp, _f) _AssertMsg(_exp, _T("Assertion Failed: ") _T(#_exp), _f, false)
+#define AssertEquals(_exp, _expectedValue) \
+	AssertMsg2((_exp) == (_expectedValue), _T("Expected %d but got %d!"), (_expectedValue), (_exp))
+#define AssertFloatEquals(_exp, _expectedValue, _tol) \
+	AssertMsg2(fabs((_exp) - (_expectedValue)) <= (_tol), _T("Expected %f but got %f!"), (_expectedValue), (_exp))
+#define Verify(_exp) Assert(_exp)
 
-#define VerifyEquals( _exp, _expectedValue ) AssertEquals( _exp, _expectedValue )
+#define VerifyEquals(_exp, _expectedValue) AssertEquals(_exp, _expectedValue)
 
-#define AssertMsg1( _exp, _msg, a1 ) AssertMsg( _exp, _msg, a1 )
-#define AssertMsg2( _exp, _msg, a1, a2 ) AssertMsg( _exp, _msg, a1, a2 )
-#define AssertMsg3( _exp, _msg, a1, a2, a3 ) AssertMsg( _exp, _msg, a1, a2, a3 )
+#define AssertMsg1(_exp, _msg, a1) AssertMsg(_exp, _msg, a1)
+#define AssertMsg2(_exp, _msg, a1, a2) AssertMsg(_exp, _msg, a1, a2)
+#define AssertMsg3(_exp, _msg, a1, a2, a3) AssertMsg(_exp, _msg, a1, a2, a3)
 
 #else // DBGFLAG_ASSERT
 
-#define Assert( _exp ) ( (void)0 )
-#define AssertOnce( _exp ) ( (void)0 )
-#define AssertMsg( _exp, _msg, ... ) ( (void)0 )
-#define AssertMsgOnce( _exp, _msg ) ( (void)0 )
-#define AssertFunc( _exp, _f ) ( (void)0 )
-#define AssertEquals( _exp, _expectedValue ) ( (void)0 )
-#define AssertFloatEquals( _exp, _expectedValue, _tol ) ( (void)0 )
-#define Verify( _exp ) ( _exp )
+#define Assert(_exp) ((void)0)
+#define AssertOnce(_exp) ((void)0)
+#define AssertMsg(_exp, _msg, ...) ((void)0)
+#define AssertMsgOnce(_exp, _msg) ((void)0)
+#define AssertFunc(_exp, _f) ((void)0)
+#define AssertEquals(_exp, _expectedValue) ((void)0)
+#define AssertFloatEquals(_exp, _expectedValue, _tol) ((void)0)
+#define Verify(_exp) (_exp)
 
-#define VerifyEquals( _exp, _expectedValue ) ( _exp )
+#define VerifyEquals(_exp, _expectedValue) (_exp)
 
-#define AssertMsg1( _exp, _msg, a1 ) ( (void)0 )
-#define AssertMsg2( _exp, _msg, a1, a2 ) ( (void)0 )
-#define AssertMsg3( _exp, _msg, a1, a2, a3 ) ( (void)0 )
+#define AssertMsg1(_exp, _msg, a1) ((void)0)
+#define AssertMsg2(_exp, _msg, a1, a2) ((void)0)
+#define AssertMsg3(_exp, _msg, a1, a2, a3) ((void)0)
 
 #endif // DBGFLAG_ASSERT
 
@@ -277,33 +274,33 @@ DBG_INTERFACE void SetAssertDialogParent( struct SDL_Window *window );
 // so they will be available even in release.
 
 // Stringify a number
-#define V_STRINGIFY_INTERNAL( x ) #x
+#define V_STRINGIFY_INTERNAL(x) #x
 // Extra level of indirection needed when passing in a macro to avoid getting the macro name instead of value
-#define V_STRINGIFY( x ) V_STRINGIFY_INTERNAL( x )
+#define V_STRINGIFY(x) V_STRINGIFY_INTERNAL(x)
 
 // Macros to help decorate warnings or errors with the location in code
 
 // Handy define for inserting clickable messages into the build output.
 // Use like this:
 // #pragma MESSAGE("Some message")
-#define MESSAGE( msg ) message( __FILE__ "(" V_STRINGIFY( __LINE__ ) "): " msg )
+#define MESSAGE(msg) message(__FILE__ "(" V_STRINGIFY(__LINE__) "): " msg)
 
 /* These are always compiled in */
-DBG_INTERFACE void Msg( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE void Msg(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 ;
 
-DBG_INTERFACE void Warning( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE void Warning(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 ;
 
-DBG_INTERFACE void Log( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE void Log(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 ;
 
 #ifdef Error
 // p4.cpp does a #define Error Warning and in that case the Error prototype needs to
 // be consistent with the Warning prototype.
-DBG_INTERFACE void Error( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE void Error(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 #else
-DBG_INTERFACE void NORETURN Error( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE void NORETURN Error(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 
 #endif
 
@@ -311,23 +308,23 @@ DBG_INTERFACE void NORETURN Error( PRINTF_FORMAT_STRING const tchar *pMsg, ... )
 // If the condition fails, then Error is called with the message. This macro is called
 // like AssertMsg, where msg must be enclosed in parenthesis:
 // ErrorIfNot( bCondition, ("a b c %d %d %d", 1, 2, 3) );
-#define ErrorIfNot( condition, msg ) \
-	if ( condition )                 \
-		;                            \
-	else                             \
-	{                                \
-		Error msg;                   \
+#define ErrorIfNot(condition, msg) \
+	if (condition)                 \
+		;                          \
+	else                           \
+	{                              \
+		Error msg;                 \
 	}
 
 /* A couple of super-common dynamic spew messages, here for convenience */
 /* These looked at the "developer" group */
-DBG_INTERFACE void DevMsg( int level, PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 2, 3 );
-DBG_INTERFACE void DevWarning( int level, PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 2, 3 );
+DBG_INTERFACE void DevMsg(int level, PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(2, 3);
+DBG_INTERFACE void DevWarning(int level, PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(2, 3);
 ;
 
 /* default level versions (level 1) */
-DBG_OVERLOAD void DevMsg( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
-DBG_OVERLOAD void DevWarning( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_OVERLOAD void DevMsg(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
+DBG_OVERLOAD void DevWarning(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 
 ;
 ;
@@ -335,8 +332,8 @@ DBG_OVERLOAD void DevWarning( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTF
 ;
 
 /* default console version (level 1) */
-DBG_OVERLOAD void ConColorMsg( const Color &clr, PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 2, 3 );
-DBG_OVERLOAD void ConMsg( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCTION( 1, 2 );
+DBG_OVERLOAD void ConColorMsg(const Color& clr, PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(2, 3);
+DBG_OVERLOAD void ConMsg(PRINTF_FORMAT_STRING const tchar* pMsg, ...) FMTFUNCTION(1, 2);
 
 ;
 ;
@@ -347,53 +344,53 @@ DBG_OVERLOAD void ConMsg( PRINTF_FORMAT_STRING const tchar *pMsg, ... ) FMTFUNCT
 ;
 ;
 
-void ValidateSpew( class CValidator &validator );
+void ValidateSpew(class CValidator& validator);
 
-DBG_INTERFACE void COM_TimestampedLog( PRINTF_FORMAT_STRING char const *fmt, ... ) FMTFUNCTION( 1, 2 );
+DBG_INTERFACE void COM_TimestampedLog(PRINTF_FORMAT_STRING char const* fmt, ...) FMTFUNCTION(1, 2);
 
 /* Code macros, debugger interface */
 
 #ifdef DBGFLAG_ASSERT
 
-#define DBG_CODE( _code ) \
-	if ( 0 )              \
-		;                 \
-	else                  \
-	{                     \
-		_code             \
+#define DBG_CODE(_code) \
+	if (0)              \
+		;               \
+	else                \
+	{                   \
+		_code           \
 	}
 
-#define DBG_DCODE( _g, _l, _code ) \
-	if ( IsSpewActive( _g, _l ) )  \
-	{                              \
-		_code                      \
-	}                              \
-	else                           \
-	{                              \
+#define DBG_DCODE(_g, _l, _code) \
+	if (IsSpewActive(_g, _l))    \
+	{                            \
+		_code                    \
+	}                            \
+	else                         \
+	{                            \
 	}
 #define DBG_BREAK() DebuggerBreak() /* defined in platform.h */
 
 #else /* not _DEBUG */
 
-#define DBG_CODE( _code ) ( (void)0 )
+#define DBG_CODE(_code) ((void)0)
 
-#define DBG_DCODE( _g, _l, _code ) ( (void)0 )
-#define DBG_BREAK() ( (void)0 )
+#define DBG_DCODE(_g, _l, _code) ((void)0)
+#define DBG_BREAK() ((void)0)
 
 #endif /* _DEBUG */
 
 class CScopeMsg
 {
 public:
-	CScopeMsg( const char *pszScope )
+	CScopeMsg(const char* pszScope)
 	{
 		m_pszScope = pszScope;
-		Msg( "%s { ", pszScope );
+		Msg("%s { ", pszScope);
 	}
 
-	~CScopeMsg() { Msg( "} %s", m_pszScope ); }
+	~CScopeMsg() { Msg("} %s", m_pszScope); }
 
-	const char *m_pszScope;
+	const char* m_pszScope;
 };
 
 // Utilities to suppress warnings or other annotations
@@ -412,30 +409,30 @@ public:
 
 // Have to use these stubs so we don't have to include windows.h here.
 
-DBG_INTERFACE void _AssertValidReadPtr( void *ptr, int count = 1 );
-DBG_INTERFACE void _AssertValidWritePtr( void *ptr, int count = 1 );
-DBG_INTERFACE void _AssertValidReadWritePtr( void *ptr, int count = 1 );
-DBG_INTERFACE void AssertValidStringPtr( const tchar *ptr, int maxchar = 0xFFFFFF );
+DBG_INTERFACE void _AssertValidReadPtr(void* ptr, int count = 1);
+DBG_INTERFACE void _AssertValidWritePtr(void* ptr, int count = 1);
+DBG_INTERFACE void _AssertValidReadWritePtr(void* ptr, int count = 1);
+DBG_INTERFACE void AssertValidStringPtr(const tchar* ptr, int maxchar = 0xFFFFFF);
 
 #ifdef DBGFLAG_ASSERT
 
-FORCEINLINE void AssertValidReadPtr( const void *ptr, int count = 1 )
+FORCEINLINE void AssertValidReadPtr(const void* ptr, int count = 1)
 {
-	_AssertValidReadPtr( (void *)ptr, count );
+	_AssertValidReadPtr((void*)ptr, count);
 }
 
-FORCEINLINE void AssertValidWritePtr( const void *ptr, int count = 1 )
+FORCEINLINE void AssertValidWritePtr(const void* ptr, int count = 1)
 {
-	_AssertValidWritePtr( (void *)ptr, count );
+	_AssertValidWritePtr((void*)ptr, count);
 }
 
 #else
 
-FORCEINLINE void AssertValidReadPtr( const void *ptr, int count = 1 ) {}
+FORCEINLINE void AssertValidReadPtr(const void* ptr, int count = 1) {}
 
-FORCEINLINE void AssertValidReadPtr( const void *ptr, size_t count ) {}
+FORCEINLINE void AssertValidReadPtr(const void* ptr, size_t count) {}
 
-FORCEINLINE void AssertValidWritePtr( const void *ptr, int count = 1 ) {}
+FORCEINLINE void AssertValidWritePtr(const void* ptr, int count = 1) {}
 
 #define AssertValidStringPtr AssertValidReadPtr
 
@@ -447,16 +444,16 @@ FORCEINLINE void AssertValidWritePtr( const void *ptr, int count = 1 ) {}
 class CReentryGuard
 {
 public:
-	CReentryGuard( int *pSemaphore )
-		: m_pSemaphore( pSemaphore )
+	CReentryGuard(int* pSemaphore)
+		: m_pSemaphore(pSemaphore)
 	{
-		++( *m_pSemaphore );
+		++(*m_pSemaphore);
 	}
 
-	~CReentryGuard() { --( *m_pSemaphore ); }
+	~CReentryGuard() { --(*m_pSemaphore); }
 
 private:
-	int *m_pSemaphore;
+	int* m_pSemaphore;
 };
 
 #endif
@@ -468,18 +465,18 @@ private:
 class CDbgFmtMsg
 {
 public:
-	CDbgFmtMsg( PRINTF_FORMAT_STRING const tchar *pszFormat, ... ) FMTFUNCTION( 2, 3 )
+	CDbgFmtMsg(PRINTF_FORMAT_STRING const tchar* pszFormat, ...) FMTFUNCTION(2, 3)
 	{
 		va_list arg_ptr;
 
-		va_start( arg_ptr, pszFormat );
-		_vsntprintf( m_szBuf, sizeof( m_szBuf ) - 1, pszFormat, arg_ptr );
-		va_end( arg_ptr );
+		va_start(arg_ptr, pszFormat);
+		_vsntprintf(m_szBuf, sizeof(m_szBuf) - 1, pszFormat, arg_ptr);
+		va_end(arg_ptr);
 
-		m_szBuf[sizeof( m_szBuf ) - 1] = 0;
+		m_szBuf[sizeof(m_szBuf) - 1] = 0;
 	}
 
-	operator const tchar *() const { return m_szBuf; }
+	operator const tchar*() const { return m_szBuf; }
 
 private:
 	tchar m_szBuf[256];
@@ -488,10 +485,10 @@ private:
 #include "tier0/valve_on.h"
 
 // Purpose: Embed debug info in each file.
-#if defined( _WIN32 )
+#if defined(_WIN32)
 
 #ifdef _DEBUG
-#pragma comment( compiler )
+#pragma comment(compiler)
 #endif
 
 #endif
@@ -504,18 +501,18 @@ template <class Type>
 class CDataWatcher
 {
 public:
-	const Type &Set( const Type &val )
+	const Type& Set(const Type& val)
 	{
 		// Put your breakpoint here
 		m_Value = val;
 		return m_Value;
 	}
 
-	Type &GetForModify() { return m_Value; }
+	Type& GetForModify() { return m_Value; }
 
-	operator const Type &() const { return m_Value; }
+	operator const Type&() const { return m_Value; }
 
-	const Type &Get() const { return m_Value; }
+	const Type& Get() const { return m_Value; }
 
 	Type m_Value;
 };

@@ -17,41 +17,41 @@ struct Crc32Table
 
 	constexpr Crc32Table()
 	{
-		for ( unsigned int i = 0; i < 256; i++ )
+		for (unsigned int i = 0; i < 256; i++)
 		{
 			uint32_t c = i;
-			for ( int k = 0; k < 8; k++ )
-				c = ( c & 1 ) ? ( 0xEDB88320u ^ ( c >> 1 ) ) : ( c >> 1 );
+			for (int k = 0; k < 8; k++)
+				c = (c & 1) ? (0xEDB88320u ^ (c >> 1)) : (c >> 1);
 			m_Entries[i] = c;
 		}
 	}
 
-	constexpr uint32_t operator[]( unsigned int i ) const { return m_Entries[i]; }
+	constexpr uint32_t operator[](unsigned int i) const { return m_Entries[i]; }
 };
 
 inline constexpr Crc32Table kCrc32Table;
 
-static_assert( kCrc32Table[1] == 0x77073096u, "the IEEE polynomial, reflected" );
+static_assert(kCrc32Table[1] == 0x77073096u, "the IEEE polynomial, reflected");
 
 inline uint32_t Crc32Start()
 {
 	return 0xFFFFFFFFu;
 }
 
-inline uint32_t Crc32Add( uint32_t crc, const void *pData, int nBytes )
+inline uint32_t Crc32Add(uint32_t crc, const void* pData, int nBytes)
 {
-	const unsigned char *p = (const unsigned char *)pData;
-	for ( int i = 0; i < nBytes; i++ )
-		crc = kCrc32Table[( crc ^ p[i] ) & 0xFFu] ^ ( crc >> 8 );
+	const unsigned char* p = (const unsigned char*)pData;
+	for (int i = 0; i < nBytes; i++)
+		crc = kCrc32Table[(crc ^ p[i]) & 0xFFu] ^ (crc >> 8);
 	return crc;
 }
 
-inline uint32_t Crc32Finish( uint32_t crc )
+inline uint32_t Crc32Finish(uint32_t crc)
 {
 	return crc ^ 0xFFFFFFFFu;
 }
 
-inline uint32_t Crc32TableEntry( unsigned int slot )
+inline uint32_t Crc32TableEntry(unsigned int slot)
 {
 	return kCrc32Table[slot & 0xFFu];
 }

@@ -13,19 +13,19 @@
 
 // flXform is the row-major 3x4 CollisionToWorldTransform, read only when
 // bAnglesAreZero is false.
-inline void CollideableCenter_Compute( const float flMins[3], const float flMaxs[3], bool bAnglesAreZero,
-									   const float flOrigin[3], const float flXform[12], float flOut[3] )
+inline void CollideableCenter_Compute(const float flMins[3], const float flMaxs[3], bool bAnglesAreZero,
+									  const float flOrigin[3], const float flXform[12], float flOut[3])
 {
 	// OBBCenter, in VectorLerp's own form.
 	float flCenter[3];
-	for ( int i = 0; i < 3; ++i )
+	for (int i = 0; i < 3; ++i)
 	{
-		flCenter[i] = flMins[i] + ( flMaxs[i] - flMins[i] ) * 0.5f;
+		flCenter[i] = flMins[i] + (flMaxs[i] - flMins[i]) * 0.5f;
 	}
 
-	if ( bAnglesAreZero )
+	if (bAnglesAreZero)
 	{
-		for ( int i = 0; i < 3; ++i )
+		for (int i = 0; i < 3; ++i)
 		{
 			flOut[i] = flCenter[i] + flOrigin[i];
 		}
@@ -33,9 +33,9 @@ inline void CollideableCenter_Compute( const float flMins[3], const float flMaxs
 	}
 
 	// VectorTransform: DotProduct( center, row ) + row[3].
-	for ( int i = 0; i < 3; ++i )
+	for (int i = 0; i < 3; ++i)
 	{
-		const float *flRow = &flXform[i * 4];
+		const float* flRow = &flXform[i * 4];
 		flOut[i] = flCenter[0] * flRow[0] + flCenter[1] * flRow[1] + flCenter[2] * flRow[2] + flRow[3];
 	}
 }

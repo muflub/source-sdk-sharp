@@ -13,7 +13,7 @@ enum
 	// we ever change how alpha is stored for displacements, we'll have to kill this feature
 	DLIGHT_ADD_DISPLACEMENT_ALPHA = 0x4,
 	DLIGHT_SUBTRACT_DISPLACEMENT_ALPHA = 0x8,
-	DLIGHT_DISPLACEMENT_MASK = ( DLIGHT_ADD_DISPLACEMENT_ALPHA | DLIGHT_SUBTRACT_DISPLACEMENT_ALPHA ),
+	DLIGHT_DISPLACEMENT_MASK = (DLIGHT_ADD_DISPLACEMENT_ALPHA | DLIGHT_SUBTRACT_DISPLACEMENT_ALPHA),
 };
 
 // This is the lighting value that is used to determine when something can be
@@ -35,7 +35,7 @@ struct dlight_t
 	float die; // stop lighting after this time
 	float decay; // drop this each second
 	float minlight; // don't add when contributing less
-	alignas( 4 ) unsigned char unused_key[4];
+	alignas(4) unsigned char unused_key[4];
 	int style; // lightstyle
 
 	// For spotlights. Use m_OuterAngle == 0 for point lights
