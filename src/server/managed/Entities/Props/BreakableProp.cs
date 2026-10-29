@@ -242,6 +242,22 @@ public abstract class BreakableProp : AnimatingEntity, IPhysGunTarget
             _explosiveDamage = IsOverride ? BreakableVars.ExplodeDamage : model.ExplosiveDamage ?? BreakableVars.ExplodeDamage;
             _explosiveRadius = IsOverride ? BreakableVars.ExplodeRadius : model.ExplosiveRadius ?? BreakableVars.ExplodeRadius;
             _multiplayerBreak = model.MultiplayerBreak ?? MultiplayerBreak.Default;
+            _chunkGroup = model.BreakableModel ?? string.Empty;
+
+            // CBreakableProp::Spawn: with no pieces of its own, a prop breaks
+            // into its prop data's generic chunks, if it names some.
+            if (_breakPieces == 0 && _chunkGroup.Length > 0 && model.BreakableCount is > 0 and var chunks)
+                _breakPieces = chunks;
+
+            // And it takes damage only with health and something to do with
+            // it: pieces, or one of the interactions that break or burn it.
+            // Otherwise it is DAMAGE_EVENTS_ONLY at no health.
+            const PropInteractions Breaks = PropInteractions.PhysgunBreakExplode | PropInteractions.PhysgunFirstBreak
+                                          | PropInteractions.FireFlammable | PropInteractions.FireIgniteHalfHealth
+                                          | PropInteractions.FireExplosiveResist;
+            if (_breakPieces == 0 && (_interactions & Breaks) == 0)
+                _startingHealth = 0;
+
             return _startingHealth;
         }
     }
@@ -250,6 +266,9 @@ public abstract class BreakableProp : AnimatingEntity, IPhysGunTarget
 
     /// <summary>m_mpBreakMode: which DLL makes its pieces in multiplayer, from its prop_data.</summary>
     private MultiplayerBreak _multiplayerBreak;
+
+    /// <summary>m_iszBreakableModel: the propdata.txt chunk group it breaks into without pieces of its own.</summary>
+    private string _chunkGroup = string.Empty;
 
     /// <summary>Placed as an _override class, whose map keys stand over its model's prop_data (OverridePropdata).</summary>
     [SaveField] protected bool IsOverride;

@@ -150,6 +150,16 @@ public class FuncBreakableTests
         Assert.Equal(0, trigger.Hit(50f, DamageType.Bullet));
     }
 
+    /// <summary>m_iHealth starts at none: a wooden one whose map gives no health key takes no damage.</summary>
+    [Fact]
+    public void With_no_health_key_it_has_none()
+    {
+        var wood = Spawned(("material", "1"));
+
+        Assert.Equal(0, wood.Health);
+        Assert.False(wood.Entity.TakesDamage);
+    }
+
     [Fact]
     public void Unbreakable_glass_does_not_break()
     {

@@ -56,7 +56,9 @@ public class PropDynamicBreakTests
         engine.Strict = false;
 
         var rig = new Rig { Registry = registry, Engine = engine };
+        // The chair breaks into its model's six pieces.
         engine.Returns("Precache.PrecacheModel", 3)
+              .Returns("Precache.BreakPieceCount", 6)
               .Returns("EntityRender.GetModelKeyValueText", text)
               .ReturnsEachCall("Entities.GetHealth", () => rig.Health);
 

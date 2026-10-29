@@ -16,8 +16,8 @@ namespace SourceSharp.Shared;
 ///
 /// <para>
 /// It was a native header (bullet_glass.h) that no compiled translation unit
-/// included; the rule is here for the round's re-fire when a managed
-/// <c>func_breakable</c> arrives (docs/todo.md). A CLASSNAME rather than an
+/// included; the server's Arsenal asks it of every round that lands on a
+/// managed <c>func_breakable</c>, and re-fires it from behind. A CLASSNAME rather than an
 /// entity, because the inline version dereferenced a NULL for everything that
 /// was not a CBaseEntity: something nothing can name is null, and null is not
 /// a func_breakable.

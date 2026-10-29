@@ -7743,149 +7743,20 @@ def step_view_camera(g):
     g.api.cmd("cs_cl_overview 0")
 
 
-def render_compare(g, slot, mutate, frozen):
-    """Asks /client/{slot}/render/compare and waits for its answer at /client/{slot}/render:
-    the frozen stock frame at `frozen` (a render-stock recording) against the
-    next plan frame (C7 step 3; the live stock compare left with the stock path)."""
-    arg = "?mutate=" + ("frozen-mutate:" if mutate else "frozen:") + frozen
-    asked = g.api.get("client", slot, "render/compare" + arg)
-    if not asked.get("accepted"):
-        g.check(False, "the client accepted render/compare: %r" % asked)
-        return None
-    seq = asked.get("sequence")
-
-    def done():
-        c = g.api.get("client", slot, "render").get("compare", {})
-        return c if c.get("sequence") == seq and c.get("state") == "done" else None
-    c = g.api.wait_for(done, 20.0)
-    if not c:
-        g.check(False, "the compare (sequence %s) finished within 20 s" % seq)
-    return c
-
-
 RENDER_PLAN_WINDOW_FRAMES = 120
+# Plan frames the debug-overlay check asks for before it reads one with them off as a failure.
+OVERLAY_TRIES = 5
 
 
-# A compare between two adjacent frames can part because the frames were asked
-# different questions, not because the plan answers differently: the leaf
-# system listed a view's renderables in another order (dm_lockdown pose 3: two
-# entities swap places in a bucket on alternate frames, seen on BOTH paths,
-# 2026-10-11), the frames looked from different places, or a call's argument
-# follows the clock (auto exposure's goal). Such a try is NOISE and is
-# retried; a try that parts with the same scenes on any other call is the
-# plan's difference, and fails at once.
-RENDER_PLAN_NOISE_TRIES = 8
-TIME_VARYING_CALLS = ("ctx.SetGoalToneMappingScale\t",)
-
-
-def compare_noise(c):
-    """Why a parted compare is input noise, or None when it is the plan's."""
-    stock, plan = c.get("stock") or "", c.get("plan") or ""
-    if stock.startswith("render.SetMainView\t") or plan.startswith("render.SetMainView\t"):
-        return None
-    if c.get("sceneDifference"):
-        return "scenes differ: " + c["sceneDifference"]
-    # Two frames that look from different places are NOT noise: the plan
-    # frame looking from the last stock frame's spot was the executor leaving
-    # CViewRender's m_CurrentView unset (2026-10-11).
-    for head in TIME_VARYING_CALLS:
-        if stock.startswith(head) and plan.startswith(head):
-            return "a clock-driven argument (%s)" % head.strip()
-    return None
-
-
-# The frozen stock frames the live plan frames are held to (C7 step 3: user
-# ruling "freeze recordings"): src/test/client/Fixtures/render-stock, recorded
-# at the scenario's renderStand and renderPoses (its README).
-FROZEN_RENDER_DIR = os.path.join(ROOT, "src", "test", "client", "Fixtures", "render-stock")
-FROZEN_RENDER_MODE = (1280, 720)
-# Seconds between frozen compares whose scenes differ by a renderable: HL2MP
-# items respawn within 30 s, and 8 tries at this spacing cover it.
-FROZEN_RESPAWN_WAIT = 5.0
-GATE_VIDEO_MODE = (640, 480)   # the launch's -w/-h
-
-
-def frozen_frame(g, name):
-    """The frozen frame's path, or None (checked) when it is missing."""
-    path = os.path.join(FROZEN_RENDER_DIR, name)
-    if not os.path.isfile(path):
-        g.check(False, "the frozen frame %s is there to hold the plan to" % path)
-        return None
-    return path
+def overlay_pushes(calls):
+    """The render-target pushes in a plan frame's calls: the debug overlays draw through one."""
+    return sum(1 for c in calls if c.startswith("ctx.PushRenderTargetAndViewport\t"))
 
 
 def seated(g, pose):
     """Teleports to `pose` and lets the props near it come to rest."""
     g.teleport(pose["position"], pose["angles"], settle=1.0)
     time.sleep(0.5)
-
-
-def equal_compare(g, slot, label, pose, frozen):
-    """A plain compare at the pose the player is at, retried while the two frames
-    differ only by input noise. Returns the equal compare, or None (checked).
-    With `pose`, a try whose frames looked from different places seats the
-    player again before the next (the shadow had not caught up)."""
-    noise = 0
-    for t in range(RENDER_PLAN_NOISE_TRIES):
-        c = render_compare(g, slot, mutate=False, frozen=frozen)
-        if not c:
-            return None
-        if c.get("equal") and pose is not None:
-            view = c.get("mainView") or ""
-            m = re.search(r"origin=([-0-9.e]+),([-0-9.e]+),", view)
-            g.check(bool(m) and abs(float(m.group(1)) - pose["position"][0]) < 1.0
-                    and abs(float(m.group(2)) - pose["position"][1]) < 1.0,
-                    "%s: both frames looked from the pose (%s)" % (label, view.split("\t", 1)[-1]))
-        if c.get("equal"):
-            g.check(c.get("stockCalls", 0) > 50 and c.get("planCalls") == c.get("stockCalls")
-                    and str(c.get("planNote", "")).startswith("ops="),
-                    "%s: the frozen frame and a plan frame made the same %d calls, the plan frame the plan's (%r)%s"
-                    % (label, c.get("planCalls", 0), c.get("planNote"),
-                       "" if noise == 0 else ", after %d noisy tries" % noise))
-            # The copy texture each frame began with is session history (a
-            # visit to ss_sandbox leaves _rt_fullframefb); say both, so a pass
-            # that held across different starts shows it did.
-            g.say("    (%s: the frames began with copy texture %r and %r)"
-                  % (label, c.get("stockCopyStart"), c.get("planCopyStart")))
-            return c
-        why = compare_noise(c)
-        g.say("    (%s try %d: parted at call %s: stock %r, plan %r; %s)"
-              % (label, t + 1, c.get("index"), c.get("stock"), c.get("plan"), why or "THE SAME INPUTS"))
-        if why is None:
-            g.check(False, "%s: the plan parted from stock with the same inputs (call %s: stock %r, plan %r)"
-                    % (label, c.get("index"), c.get("stock"), c.get("plan")))
-            return None
-        noise += 1
-        # Against a frozen frame, a scene with a renderable more or fewer is the
-        # world, not the frame: an item the gate's player picked up is gone
-        # until it respawns. Give it the time to come back.
-        if frozen and "entries against" in why:
-            time.sleep(FROZEN_RESPAWN_WAIT)
-    g.check(False, "%s: %d tries, and the two frames' inputs never held still" % (label, noise))
-    return None
-
-
-def control_compare(g, slot, label, frozen):
-    """The mutate control: the plan frame drops DrawLights, and the two frames
-    must part exactly there. A try that parts earlier on input noise
-    (compare_noise) is retried; the control must still see the drop."""
-    for t in range(RENDER_PLAN_NOISE_TRIES):
-        m = render_compare(g, slot, mutate=True, frozen=frozen)
-        if not m:
-            return None
-        if m.get("mutated") and not m.get("equal") and m.get("stock") == "render.DrawLights":
-            g.check(True, "%s, the control: with DrawLights dropped the frames part there (call %s)%s"
-                    % (label, m.get("index"), "" if t == 0 else ", after %d noisy tries" % t))
-            return m
-        why = None if m.get("equal") else compare_noise(m)
-        g.say("    (%s control try %d: parted at call %s: stock %r, plan %r; %s)"
-              % (label, t + 1, m.get("index"), m.get("stock"), m.get("plan"), why or "NOT AT THE DROP"))
-        if why is None:
-            break
-        if frozen and "entries against" in why:
-            time.sleep(FROZEN_RESPAWN_WAIT)
-    g.check(False, "%s, the control: with DrawLights dropped the frames part there" % label)
-    return None
 
 
 def view_program_counts(g, slot):
@@ -7960,29 +7831,18 @@ def plan_frame_invariants(g, slot, label):
 
 def step_render_plan(g):
     """
-    THE RENDER PLAN DRAWS WHAT STOCK DREW, CALL FOR CALL (plan_client_novalve 5.3,
-    C7; since step 3 against the FROZEN stock frames, user ruling "freeze
-    recordings": the live stock path is gone).
+    THE RENDER PLAN DRAWS ITS OWN FRAMES AT THE RENDER STAND (plan_client_novalve
+    5.3, C7).
 
-    At 1280x720 (the frames' mode), at the scenario's renderStand and both
-    renderPoses, /client/{slot}/render/compare?mutate=frozen:PATH holds the next
-    plan frame to src/test/client/Fixtures/render-stock/dm_lockdown-poseN.txt:
-    every call client.so makes on the engine's render interfaces, with each
-    frame's entities numbered by first appearance (the two sessions numbered
-    them apart).
-
-      plain:   equal, over 50 calls, the plan frame the plan's     the plan draws what stock drew
-      control: with DrawLights dropped from the plan frame, the    the compare can see one
-               two part exactly there (pose 1)                     missing call
-
-    A plain compare that differs is retried while the difference is input noise
-    (compare_noise: the scenes differ -- an item the player picked up is gone
-    until it respawns, so those tries wait -- or a clock-driven argument does),
-    up to RENDER_PLAN_NOISE_TRIES; one that parts with the same inputs fails at
-    once. Then the debug overlays (no frozen frame has them) are held to the
-    plan frame's own invariants, the views drew from managed's programs with
-    none declined, the view decisions and their oracle ran, and the plan's cost
-    at the stand is reported.
+    The frozen stock frames of dm_lockdown are held offline only
+    (RenderPlanFixtureTests, over each frame's own inputs): they carry the world
+    our server built on 2026-10-12, and the world has since moved toward stock's
+    (items fall and settle, a prop's skin), so a live frame can no longer be
+    asked the same question (user ruling 2026-10-28: drop the dm_lockdown arm).
+    Here: the debug overlays (no frozen frame has them) are held to the plan
+    frame's own invariants, the views drew from managed's programs with none
+    declined, the view decisions and their oracle ran, and the plan's cost at
+    the stand is reported.
     """
     players = g.api.ents(g.scen["playerClass"])
     if len(players) != 1:
@@ -8001,31 +7861,9 @@ def step_render_plan(g):
     # NOT phys_timescale 0: frozen physics leaves the player's physics shadow
     # where it was and the shadow update pulls the player back there on
     # alternate frames (every other frame looked from another spot,
-    # 2026-10-11). A pose must stand clear of props instead (renderPoses).
+    # 2026-10-11).
     seated(g, stand)
     try:
-        # C7 step 3: the plan frame held to the FROZEN stock frame at each
-        # recorded pose, and the control parts them at the dropped DrawLights.
-        frozen_poses = [(stand, "dm_lockdown-pose1.txt")] + list(zip(g.scen.get("renderPoses", []),
-                                                                      ["dm_lockdown-pose2.txt", "dm_lockdown-pose3.txt"]))
-        g.check(len(frozen_poses) == 3, "dm_lockdown has a frozen frame for the stand and each render pose (%d)" % len(frozen_poses))
-        # The frozen frames were drawn at 1280x720 (their README); the gate
-        # runs at 640x480, so the compares run at the frames' own mode.
-        g.api.cmd("mat_setvideomode %d %d 1" % FROZEN_RENDER_MODE)
-        try:
-            moded = g.api.wait_for(lambda: (lambda m: m if (m.get("w"), m.get("h")) == FROZEN_RENDER_MODE else None)(ui_menu(g, slot)), 20.0)
-            g.check(bool(moded), "the client is at the frozen frames' %dx%d" % FROZEN_RENDER_MODE)
-            for pose, name in frozen_poses:
-                path = frozen_frame(g, name)
-                if not path:
-                    continue
-                seated(g, pose)
-                equal_compare(g, slot, "frozen %s" % name, pose, frozen=path)
-                if name.endswith("pose1.txt"):
-                    control_compare(g, slot, "frozen %s" % name, frozen=path)
-        finally:
-            g.api.cmd("mat_setvideomode %d %d 1" % GATE_VIDEO_MODE)
-            g.api.wait_for(lambda: (lambda m: m if (m.get("w"), m.get("h")) == GATE_VIDEO_MODE else None)(ui_menu(g, slot)), 20.0)
         # C7 step 2: the 2D debug overlays are the plan's ops. No frozen frame
         # has them on, so with the ones that make recorded calls switched on the
         # plan frame is held to its own invariants, and draws more than without.
@@ -8035,11 +7873,21 @@ def step_render_plan(g):
         try:
             for name in overlays:
                 g.api.cmd("%s 1" % name)
-            time.sleep(0.3)
-            shown = plan_frame_invariants(g, slot, "debug overlays on (%s)" % ", ".join(overlays))
+            # The overlays' own call is a render-target push: counted, not the
+            # frame's length, which moves with the scene between two frames
+            # (150 against 170 with the overlays drawn). The convars reach the
+            # plan a frame or more after the command, so a frame without the
+            # push is asked again.
+            shown = None
+            for _ in range(OVERLAY_TRIES):
+                time.sleep(0.3)
+                shown = plan_frame_invariants(g, slot, "debug overlays on (%s)" % ", ".join(overlays))
+                if shown is None or plain is None or overlay_pushes(shown) > overlay_pushes(plain):
+                    break
             if plain is not None and shown is not None:
-                g.check(len(shown) > len(plain),
-                        "the debug overlays drew through the plan (%d calls against %d)" % (len(shown), len(plain)))
+                g.check(overlay_pushes(shown) > overlay_pushes(plain),
+                        "the debug overlays drew through the plan (%d render-target pushes against %d; %d calls against %d)"
+                        % (overlay_pushes(shown), overlay_pushes(plain), len(shown), len(plain)))
         finally:
             for name in overlays:
                 g.api.cmd("%s 0" % name)
@@ -8277,7 +8125,7 @@ def step_phys_convert(g):
 
 # The custom-draw batch (plan_client_novalve C7 item 7).
 DRAW_BATCH_ROUNDS = 3
-DRAW_BATCH_LABELS = ("sprite quads", "draw batches", "batched sprites", "batch fallbacks")
+DRAW_BATCH_LABELS = ("sprite quads", "draw batches", "batched sprites", "batch fallbacks", "batch in place")
 
 
 def effects_counts(g):
@@ -8305,7 +8153,9 @@ def step_draw_batch(g):
     rounds, read through cs_cl_effects_report and /client/{slot}/status:
 
       batch 1:  views batched (> 0), sprites drawn from their prepared plans
-                (> 0), fallbacks a few at most
+                (> 0), fallbacks a few at most; the point_spotlight beams,
+                which have no prepared form (stock's C_Beam draws at its
+                DrawModel), counted as drawn in place (> 0), not as fallbacks
       batch 0:  native still asks once a view and managed prepares nothing:
                 no sprite draws from a prepared plan, every custom draw
                 crosses on its own (the fallback counter grows) -- the
@@ -8359,6 +8209,12 @@ def step_draw_batch(g):
                     % (r + 1, on_d["draw batches"], on_d["batched sprites"]))
             g.check(on_d["batch fallbacks"] * 20 <= max(on_d["batched sprites"], 1),
                     "round %d, batch 1: %d fallbacks against %d batched" % (r + 1, on_d["batch fallbacks"], on_d["batched sprites"]))
+            g.check(on_d["batch in place"] > 0,
+                    "round %d, batch 1: the beams drew in place, %d of them, and are not counted as fallbacks"
+                    % (r + 1, on_d["batch in place"]))
+            g.check(off_d["batch in place"] == 0,
+                    "round %d, batch 0: nothing reads as drawn in place with the batch off (%d)"
+                    % (r + 1, off_d["batch in place"]))
             g.check(off_d["batched sprites"] == 0 and off_d["batch fallbacks"] > 0,
                     "round %d, batch 0: no sprite drew from a prepared plan (%d); every custom draw crossed on its own (%d)"
                     % (r + 1, off_d["batched sprites"], off_d["batch fallbacks"]))
@@ -9600,8 +9456,8 @@ EXTRA_STEPS = [
                      "(not in §5; C3, stock CLoadingDisc)", step_loading_disc),
     ("debug-overlay", "a point_message's text is drawn from the debug overlay "
                       "(not in §5; C3, stock CDebugOverlay)", step_debug_overlay),
-    ("render-plan", "a stock frame and a render-plan frame at the render stand make the same calls, "
-                    "and a plan frame missing one call is told apart (plan_client_novalve 5.3, C7)",
+    ("render-plan", "the render plan's frames at the render stand hold together and draw from "
+                    "managed's view programs (plan_client_novalve 5.3, C7)",
      step_render_plan),
     ("draw-batch", "a view's custom draws are prepared in one crossing and draw the same sprites "
                    "as one crossing each (not in §5; plan_client_novalve C7 item 7)", step_draw_batch),
@@ -10209,23 +10065,12 @@ def self_test():
        "a recurring thinker the reload dropped is caught (%s)" % short)
     req, have, short = think_survival(first, before, {}, 3.0)
     ok(req == 3 and have == 0, "the 8 -> 0 shape: everything dropped is caught (%s of %s)" % (have, req))
-    #-- compare_noise (C7 step 2) ---------------------------------------------
-    ok(compare_noise({"sceneDifference": "scene 0 entry 17: group 1 ent 329 against group 1 ent 66",
-                      "stock": "render.DrawBrushModelEx\tmodel=*37 mode=0",
-                      "plan": "render.SetColorModulation\t1,1,1"}) is not None,
-       "frames whose lists differ part as input noise")
-    ok(compare_noise({"sceneDifference": None, "stock": "ctx.SetGoalToneMappingScale\t1.32",
-                      "plan": "ctx.SetGoalToneMappingScale\t1.33"}) is not None,
-       "auto exposure's goal parting is input noise")
-    ok(compare_noise({"sceneDifference": None, "stock": "render.DrawBrushModelEx\tmodel=*37 mode=0",
-                      "plan": "render.SetColorModulation\t1,1,1"}) is None,
-       "the same inputs parting is the plan's difference")
-    ok(compare_noise({"sceneDifference": "scene 0: 115 entries against 226", "stock": "render.SetMainView\torigin=-4116,4600,65.9 angles=0,-90,0",
-                      "plan": "render.SetMainView\torigin=-3800.08,2500,63.77 angles=0,-90,0"}) is None,
-       "two frames that looked from different places are the plan's difference, not noise")
-    ok(compare_noise({"sceneDifference": None, "stock": "ctx.SetGoalToneMappingScale\t1.32",
-                      "plan": "render.SetBlend\t1"}) is None,
-       "a clock-driven call against a different call is the plan's difference")
+    #-- overlay_pushes (render-plan's debug overlays) --------------------------
+    ok(overlay_pushes(["render.SetMainView\torigin=0,0,0", "ctx.PushRenderTargetAndViewport\trt=- depth=-",
+                       "ctx.PopRenderTargetAndViewport"]) == 1,
+       "a plan frame's render-target push is counted, and its pop is not")
+    ok(overlay_pushes(["ctx.PushRenderTargetAndViewportEx\trt=-", "render.Push2DView\tx=0"]) == 0,
+       "a longer call name or another push is not the overlays' push")
 
     #-- client_reload_caches_verdict ------------------------------------------
     ok(client_reload_caches_verdict({"cachesDropped": 0})[0],

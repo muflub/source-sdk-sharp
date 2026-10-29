@@ -73,11 +73,24 @@ public interface IUiRuntime : IUiClientEvents, IDisposable
     /// <summary>The /client/{slot}/ui routes over this runtime.</summary>
     IDebugClientUi Debug { get; }
 
+    /// <summary>This runtime's HUD art library, or null when it has none.</summary>
+    SourceSharp.Client.Ui.IUiTextureLibrary? Textures { get; }
+
     /// <summary>Everything a reload carries: open screens, focus, per-id state, windows.</summary>
     byte[] Carry();
 
     /// <summary><see cref="Carry"/>'s bytes from the build before; answers the screens reopened.</summary>
     int Restore(byte[] carried);
+}
+
+/// <summary>
+/// The current UI's HUD art library, asked when it is needed: what a long-lived
+/// consumer holds instead of the library, which a UI-only reload replaces with
+/// its context (<see cref="UiLoader"/> answers it).
+/// </summary>
+public interface IUiTextureSource
+{
+    SourceSharp.Client.Ui.IUiTextureLibrary? Textures { get; }
 }
 
 /// <summary>What the UI host's composition is given: the core's sources and services.</summary>

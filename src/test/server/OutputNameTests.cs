@@ -21,7 +21,6 @@ public class OutputNameTests
     [Theory]
     [InlineData(EntityNames.FuncButton, "OnDamaged", "Damaged")]
     [InlineData(EntityNames.FuncPhysbox, "OnDamaged", "Damaged")]
-    [InlineData(EntityNames.FuncBreakableSurf, "OnDamaged", "Damaged")]
     [InlineData(EntityNames.LogicRelay, "OnSpawn", "OnRelaySpawn")]
     [InlineData(EntityNames.TriggerMultiple, "OnEndTouch", "OnLeft")]
     public void A_class_is_described_under_its_outputs_map_names_before_any_instance(string className, string declared, string field)

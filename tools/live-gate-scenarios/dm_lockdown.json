@@ -248,15 +248,6 @@
     "and inside the frustum from beamPose."
   ],
   "renderStand": { "position": [-4116, 4600, 3], "angles": [0, -90, 0] },
-  "_renderPoses": [
-    "The render plan's other recorded poses (src/test/client/Fixtures/render-stock/README.md):",
-    "render-plan compares stock and plan at each as well as at the stand, so the live evidence",
-    "covers every pose the oracle holds (C7 step 2)."
-  ],
-  "renderPoses": [
-    { "position": [-3843, 2894, 0], "angles": [25, 90, 0] },
-    { "position": [-3800, 2500, 0], "angles": [-20, 30, 0] }
-  ],
   "ropePose":  { "position": [-3800, 2500, 120], "angles": [-40, 30, 0] },
   "beamPose":  { "position": [-3800, 2500, 64],  "angles": [0, 0, 0] },
   "beamRing":  [-3640, 2500, 30]

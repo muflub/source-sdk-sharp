@@ -27,21 +27,47 @@ namespace SourceSharp.Server;
 /// what holds the rest up, and what falls when it stops holding. See
 /// <see cref="PaneGrid"/>, which has all of it and 30 tests.
 /// </para>
+///
+/// <para>
+/// It is a CBreakable, as stock's CBreakableSurface is: health, its inputs and
+/// OnBreak and OnHealthChanged are <see cref="BreakableBrush"/>'s, and glass with
+/// no health spawns at one and takes no damage. What it changes is how a hit
+/// lands. A traced hit (a bullet, a club, a blast) comes to its own
+/// TraceAttack, which counts it against its health and shatters panes whatever
+/// its take-damage mode says; TakeDamage only breaks it whole, for a crush, a
+/// blast or a slash; and being killed does nothing.
+/// </para>
 /// </summary>
 [ScriptedEntity(EntityNames.FuncBreakableSurf, ScriptedEntityKind.Brush)]
-public sealed class FuncBreakableSurf : ScriptedEntity
+public sealed class FuncBreakableSurf : BreakableBrush, ITraceAttacked
 {
     /// <summary>Stock's Spawn sets MOVETYPE_PUSH.</summary>
     public override bool MovesAsPusher => true;
 
-    /// <summary>CBreakableSurface: glass takes damage, which is how it breaks.</summary>
-    public override bool TakesDamage => true;
-
-    public FuncBreakableSurf(IEngineWorldQuery world, IEngineEffects effects)
+    public FuncBreakableSurf(IServerPropData propData, IEngineSound sound, IEnginePrecache precache, ITempEnts temps,
+                             IEngineHost host, IEngineDamage damage, IEngineWorldQuery world, IEngineEffects effects,
+                             IBlastSweep blast, IServerDecals decals, IEngineEntityPhysics physics,
+                             IEntityRoster<ITraceAttacked> traceAttacked, PhysicsDamageQueue impacts,
+                             ConVarRegistry? convars = null)
+        : base(propData, sound, precache, temps, host, damage, world, effects, blast, decals, physics, convars)
     {
         World = world;
         Effects = effects;
+        TraceAttacked = traceAttacked;
+        Impacts = impacts;
     }
+
+    /// <summary>The step's impact damage, delivered after it (PhysCallbackDamage).</summary>
+    private readonly PhysicsDamageQueue Impacts;
+
+    /// <summary>SF_BREAKABLESURF_CRACK_DECALS: a light knock leaves a mark.</summary>
+    private const int CrackDecals = 1;
+
+    /// <summary>SF_BREAKABLESURF_DAMAGE_FROM_HELD_OBJECTS: what a player carries can break it.</summary>
+    private const int DamageFromHeldObjects = 2;
+
+    /// <summary>The shots' roster, which a broken pane is on: a bullet passing through it still shatters panes.</summary>
+    private readonly IEntityRoster<ITraceAttacked> TraceAttacked;
 
     /// <summary>asking the world what is there.</summary>
     private readonly IEngineWorldQuery World;
@@ -49,16 +75,7 @@ public sealed class FuncBreakableSurf : ScriptedEntity
     /// <summary>The mark a shot leaves, which is the one thing here a player hears.</summary>
     private readonly IEngineEffects Effects;
     /// <summary>What a map may set on this entity. See <see cref="FuncBreakableSurfVars"/>.</summary>
-    [ScriptVars] public FuncBreakableSurfVars Vars = new();
-
-    public readonly Output OnBreak = new();
-
-    /// <summary>
-    /// Named without the "On" because the class also OVERRIDES OnDamaged, and a
-    /// field cannot share a name with a method. Of the two it is the field that
-    /// can be renamed without changing what a map writes.
-    /// </summary>
-    [OutputName("OnDamaged")] public readonly Output Damaged = new();
+    [ScriptVars] public FuncBreakableSurfVars SurfaceVars = new();
 
     /// <summary>What the client is told. Bound to this entity by the registry.</summary>
     [NetState] public BreakableSurfaceNetState State = new();
@@ -66,10 +83,11 @@ public sealed class FuncBreakableSurf : ScriptedEntity
     /// <summary>The grid, which does not exist until the sheet goes.</summary>
     private PaneGrid? _grid;
 
-    private bool _broken;
+    /// <summary>m_bIsBroken: the sheet has gone, and its panes are what is left.</summary>
+    private bool _isBroken;
 
     /// <summary>Tile does not fall apart on its own; glass does.</summary>
-    private bool IsTile => Vars.SurfaceType == 1;
+    private bool IsTile => SurfaceVars.SurfaceType == 1;
 
     /// <summary>
     /// WHAT THIS PANE IS MADE OF, as a surfaceprop index. -1 until spawn.
@@ -105,7 +123,7 @@ public sealed class FuncBreakableSurf : ScriptedEntity
     /// an assertion can both check. A surfaceprop index is opaque and depends on
     /// what the game happened to load.
     /// </summary>
-    public SurfaceMaterial Material => World.SurfacePropGameMaterial(SurfaceProp);
+    public SurfaceMaterial GameMaterial => World.SurfacePropGameMaterial(SurfaceProp);
 
     /// <summary>
     /// Works out <see cref="SurfaceProp"/>: the model first, the map key second.
@@ -135,90 +153,290 @@ public sealed class FuncBreakableSurf : ScriptedEntity
 
     public override void OnSpawn()
     {
-        if (Vars.QuadError != 0)
+        // CBreakable::Spawn first: its health, solidity and static object.
+        base.OnSpawn();
+
+        if (SurfaceVars.QuadError != 0)
         {
             // VBSP could not divide the face, so there is no grid to be had and
             // there never will be. Stock removes the entity; so does this, and
             // says which of its two complaints it was.
-            Log.Warning($"[SourceSharp] func_breakable_surf: vbsp reported error {Vars.QuadError} " +
+            Log.Warning($"[SourceSharp] func_breakable_surf: vbsp reported error {SurfaceVars.QuadError} " +
                            $"(1 = several drawn faces, 2 = the drawn face is not a quad); removed\n");
             Remove();
             return;
         }
 
-        // CBreakableSurface::Spawn: glass's own group, SOLID_BSP, and
-        // CBreakable::CreateVPhysics' static object, so a prop meets the pane.
+        // CBreakableSurface::Spawn: glass's own group.
         SetCollisionGroup(CollisionGroup.BreakableGlass);
-        SetSolidity(BrushSolidity.Solid);
-        InitStaticPhysics();
 
-        if (Vars.Health > 0)
-            Health = Vars.Health;
-
-        State.SurfaceType = (byte)Vars.SurfaceType;
+        State.SurfaceType = (byte)SurfaceVars.SurfaceType;
 
         ResolveSurfaceProp();
+        TraceAttacked.Add(this);
 
         Log.Msg($"[SourceSharp/C#] func_breakable_surf is made of surfaceprop {SurfaceProp} " +
-                $"(game material '{(char)Material}')\n");
+                $"(game material '{(char)GameMaterial}')\n");
+    }
+
+    public override void OnRemoved()
+    {
+        TraceAttacked.Remove(this);
+        base.OnRemoved();
     }
 
     /// <summary>
-    /// How much of a hit counts against the surface as a whole, and which pane
-    /// it took out on the way.
-    ///
-    /// <para>
-    /// Returning zero is not "ignore this": it is what a surface with no health
-    /// key does, and it leaves the stock behaviour in place — the pane that was
-    /// struck shatters and the sheet stays up. A blast, a crush or a slash takes
-    /// the whole thing down whatever the health says, which is stock's rule and
-    /// the only way a bullet-proof sheet can ever be cleared.
-    /// </para>
+    /// CBreakableSurface::OnTakeDamage: the blow itself takes nothing (the
+    /// traced hit already counted). A crush breaks the sheet, and glass breaks
+    /// to a blast or a slash, each from where it came.
     /// </summary>
     public override int OnDamagedAt(EntityHandle attacker, float damage, DamageType damageType,
                                     Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
     {
-        if (_broken)
-            return 0;
-
-        // Whole-sheet damage. Stock's list, unchanged: these are the ways glass
-        // goes all at once rather than a piece at a time.
-        const DamageType WholeSheet = DamageType.Blast | DamageType.Crush | DamageType.Slash;
-
-        if ((damageType & WholeSheet) != 0)
+        if (!_isBroken && damageType == DamageType.Crush)
         {
-            Break(attacker, force);
+            Die(attacker, force);
             return 0;
         }
 
-        // A shot. Stock does this in TraceAttack, which the hierarchy has no
-        // equivalent of — the position on the damage is what replaces it.
-        //
-        // THE FIRST SHOT BREAKS THE SHEET. Not visibly: breaking is what works
-        // the grid out, and until there is a grid there is no pane to take out.
-        // Stock does the same, in the same order, for the same reason.
-        if ((damageType & (DamageType.Bullet | DamageType.Club)) != 0)
+        if (!IsTile && (damageType & (DamageType.Blast | DamageType.Slash)) != 0)
+            Die(attacker, force);
+
+        return 0;
+    }
+
+    /// <summary>CBreakableSurface::Event_Killed: nothing; a sheet is never removed for its health.</summary>
+    public override void OnKilled(EntityHandle attacker) { }
+
+    /// <summary>
+    /// CBreakableSurface::TraceAttack. Every traced hit counts against its
+    /// health and says so, and breaks the sheet if it has not gone. A bullet
+    /// or a club takes out the pane it struck and what that disturbs. A blast
+    /// blows out a patch of tile, or the whole of a glass window.
+    /// </summary>
+    public void TraceAttack(EntityHandle attacker, float damage, DamageType damageType, Vector start, Vector end)
+    {
+        int health = (int)(Health - damage);
+        Health = health;
+        OnHealthChanged.Fire((float)health);
+
+        bool shot = (damageType & (DamageType.Bullet | DamageType.Club)) != 0;
+        Vector along = end - start;
+
+        // BEFORE the sheet goes, because breaking it makes it a trigger and the
+        // client re-traces this ray to place its decal -- through a pane that is
+        // no longer there, onto the wall behind it.
+        if (shot && !_isBroken)
+            Impact(end, along, damageType);
+
+        if (!_isBroken)
+            Die(attacker, along);
+
+        if (_grid is null)
+            return;
+
+        if (shot)
         {
-            ShatterAt(attacker, position, force, damageType);
-            return DamageTaken(damage);
+            var (w, h) = _grid.PanePos(end);
+            foreach (var (pw, ph) in _grid.PanesHitAt(w, h, spreads: !IsTile, coin: () => _random.Next(0, 2)))
+                BreakPane(pw, ph);
+        }
+        else if ((damageType & (DamageType.Sonic | DamageType.Blast)) != 0)
+        {
+            if (IsTile)
+            {
+                // A roughly circular patch of tile, with some randomness, about
+                // the attacker (or where the blast met the sheet).
+                var (fw, fh) = _grid.PanePos(attacker != EntityHandle.None ? Entities.GetOrigin(attacker) : end);
+                int cw = (int)fw, ch = (int)fh;
+                for (int pw = cw - 4; pw < cw + 4; pw++)
+                {
+                    for (int ph = ch - 4; ph < ch + 4; ph++)
+                    {
+                        if (Math.Abs(cw - pw) + Math.Abs(ch - ph) < _random.Next(2, 6) && pw >= 0 && ph >= 0
+                            && pw < _grid.Wide && ph < _grid.High)
+                            BreakPane(pw, ph);
+                    }
+                }
+            }
+            else
+            {
+                // Glass: the whole window goes.
+                foreach (var (pw, ph) in _grid.BreakAll())
+                    State.SetPaneSolid(pw, ph, false);
+            }
         }
 
-        return DamageTaken(damage);
+        // What is left has to settle: taking a pane out is what makes its
+        // neighbours unstable, and nothing else asks the question.
+        if (!IsTile)
+            SetNextThink(0.1f);
     }
 
     /// <summary>
-    /// How much a hit counts against the surface as a whole, which is nothing
-    /// unless the map asked for a health model.
+    /// TraceAttackToTriggers' half: once broken the sheet is a trigger, and a
+    /// shot through the plane of its panes, within them, crosses it there.
     /// </summary>
-    private int DamageTaken(float damage)
+    public bool ShotThrough(Vector start, Vector end, out Vector hit)
     {
-        int taken = (int)damage;
+        hit = default;
+        if (!_isBroken || _grid is null)
+            return false;
 
-        if (Vars.Health <= 0 || taken < Vars.MinimumDamage)
-            return 0;
+        Vector normal = _grid.Normal;
+        Vector along = end - start;
+        float across = along.Dot(normal);
+        if (MathF.Abs(across) < 1e-6f)
+            return false;
 
-        Damaged.Fire();
-        return taken;
+        float t = (_grid.Corner - start).Dot(normal) / across;
+        if (t < 0f || t > 1f)
+            return false;
+
+        hit = start + along * t;
+        var (w, h) = _grid.PanePos(hit);
+        return w >= 0f && h >= 0f && w < _grid.Wide && h < _grid.High;
+    }
+
+    /// <summary>
+    /// InputShatter: "x y radius". The sheet breaks if it has not, and every
+    /// pane whose centre is within the radius (in units) of the point x across
+    /// and y up it (fractions of the sheet) is taken out. Stock measures a
+    /// pane's height in panel widths, and so does this.
+    /// </summary>
+    [ScriptedEvent("Shatter")]
+    private void OnShatterInput(InputData input)
+    {
+        ScriptedVarParse.Vector(input.Value, out Vector shatter);
+
+        if (!_isBroken)
+            Die(EntityHandle.None, Vector.Zero);
+
+        if (_grid is null)
+            return;
+
+        float centerX = shatter.X * _grid.Wide;
+        float centerY = shatter.Y * _grid.High;
+
+        int minX = Math.Max(0, (int)(centerX - shatter.Z / _grid.PanelWidth));
+        int maxX = Math.Min(_grid.Wide, (int)(centerX + shatter.Z / _grid.PanelWidth) + 1);
+        int minY = Math.Max(0, (int)(centerY - shatter.Z / _grid.PanelHeight));
+        int maxY = Math.Min(_grid.High, (int)(centerY + shatter.Z / _grid.PanelHeight) + 1);
+
+        float actualX = centerX * _grid.PanelWidth, actualY = centerY * _grid.PanelHeight;
+        for (int w = minX; w < maxX; w++)
+        {
+            for (int h = minY; h < maxY; h++)
+            {
+                float dx = (w + 0.5f) * _grid.PanelWidth - actualX;
+                float dy = (h + 0.5f) * _grid.PanelWidth - actualY;
+                if (dx * dx + dy * dy <= shatter.Z * shatter.Z)
+                    BreakPane(w, h);
+            }
+        }
+
+        if (!IsTile)
+            SetNextThink(0.1f);
+    }
+
+    /// <summary>
+    /// CBreakableSurface::VPhysicsCollision: while whole, an impact is damage
+    /// by the glass table (the default for tile). Over 10 the sheet's own mass
+    /// is set to 2, "to get correct collision response for the object
+    /// breaking this", and the damage is dealt after the step: a crush, which
+    /// breaks it. A lighter knock leaves a mark where the map asks for one.
+    /// </summary>
+    public override void OnVPhysicsCollision(in PhysicsEvent ev, int index)
+    {
+        if (!_isBroken)
+        {
+            uint otherRaw = index == 0 ? ev.Entity1 : ev.Entity0;
+            var other = otherRaw == PhysicsEvent.NoEntity ? EntityHandle.None : new EntityHandle(otherRaw);
+            var parties = new ImpactParties(SelfIsPlayer: false,
+                                            OtherIsPlayer: other != EntityHandle.None && Entities.IsPlayer(other),
+                                            OtherIsWorld: other == EntityHandle.None, SelfIsFloating: false);
+
+            float damage = PhysicsImpactDamage.Calculate(in ev, index, IsTile ? ImpactDamageTables.Npc : ImpactDamageTables.Glass,
+                                                         1f, allowStaticDamage: false,
+                                                         damageFromHeldObjects: (SpawnFlags & DamageFromHeldObjects) != 0,
+                                                         parties, out DamageType damageType);
+
+            if (damage > 10f)
+            {
+                Physics.SetMass(Handle, 2f);
+                Impacts.Add(Handle, other, damage, damageType, in ev, index);
+            }
+            else if (damage > 0f && (SpawnFlags & CrackDecals) != 0)
+            {
+                Vector normal = index == 0 ? ev.Normal * -1f : ev.Normal;
+                var mark = World.TraceLineSurface(ev.Point - normal, ev.Point + normal, TraceMask.Brushes, EntityHandle.None);
+                if (mark.Hit && mark.Entity == Handle)
+                    Effects.ImpactEffect(ev.Point - normal, mark.End, mark.SurfaceProps, DamageType.Club, Handle);
+            }
+        }
+
+        base.OnVPhysicsCollision(in ev, index);
+    }
+
+    /// <summary>Once broken the sheet is a trigger, and whatever passes through it is touching it every frame.</summary>
+    public override bool TouchEveryTick => _isBroken || base.TouchEveryTick;
+
+    /// <summary>
+    /// CBreakableSurface::SurfaceTouch, once the sheet has broken (CBreakable's
+    /// touch before). Whatever passes through takes out the panes its box
+    /// covers on the sheet, and now and then the one either side of each row.
+    /// Tile gives only to something moving at 500 or more.
+    /// </summary>
+    public override void OnTouch(EntityHandle toucher)
+    {
+        if (!_isBroken || _grid is null)
+        {
+            base.OnTouch(toucher);
+            return;
+        }
+
+        if (IsTile && Entities.GetVelocity(toucher).Length < 500f)
+            return;
+
+        // The toucher's box, projected on to the sheet as stock does it.
+        Vector origin = Entities.GetOrigin(toucher);
+        var (mins, maxs) = Entities.GetBounds(toucher);
+        var (maxsW, maxsH) = _grid.PanePos(OnPlane(origin + maxs));
+        var (minsW, minsH) = _grid.PanePos(OnPlane(origin + mins));
+
+        int minWidth = (int)MathF.Floor(MathF.Max(0f, MathF.Min(maxsW, minsW)));
+        int maxWidth = (int)MathF.Ceiling(MathF.Min(_grid.Wide, MathF.Max(maxsW, minsW)));
+        int minHeight = (int)MathF.Floor(MathF.Max(0f, MathF.Min(maxsH, minsH)));
+        int maxHeight = (int)MathF.Ceiling(MathF.Min(_grid.High, MathF.Max(maxsH, minsH)));
+
+        bool broke = false;
+        for (int h = minHeight; h < maxHeight; h++)
+        {
+            // Randomly break the one before and after so it does not look square.
+            if (_random.Next(0, 2) == 1)
+                broke |= BreakPane(minWidth - 1, h);
+
+            for (int w = minWidth; w < maxWidth; w++)
+                broke |= BreakPane(w, h);
+
+            if (_random.Next(0, 2) == 1)
+                broke |= BreakPane(maxWidth + 1, h);
+        }
+
+        if (broke && !IsTile)
+            SetNextThink(0.1f);
+    }
+
+    /// <summary>SurfaceTouch's projection: the point moved along the sheet's normal by its distance from the corner's plane.</summary>
+    private Vector OnPlane(Vector point) => point + _grid!.Normal * _grid.Normal.Dot(point - _grid.Corner);
+
+    private bool BreakPane(int w, int h)
+    {
+        if (!_grid!.Break(w, h))
+            return false;
+
+        State.SetPaneSolid(w, h, false);
+        return true;
     }
 
     /// <summary>
@@ -230,7 +448,7 @@ public sealed class FuncBreakableSurf : ScriptedEntity
     /// </summary>
     /// <summary>Which way the sheet faces, from the four corners vbsp wrote.</summary>
     private Vector PaneNormal
-        => (Vars.LowerLeft - Vars.LowerRight).Cross(Vars.LowerLeft - Vars.UpperLeft).Normalized;
+        => (SurfaceVars.LowerLeft - SurfaceVars.LowerRight).Cross(SurfaceVars.LowerLeft - SurfaceVars.UpperLeft).Normalized;
 
     /// <summary>How far back along the shot the impact's start point is put.</summary>
     private const float ImpactBackoff = 32f;
@@ -263,55 +481,26 @@ public sealed class FuncBreakableSurf : ScriptedEntity
                              damageType, Handle);
     }
 
-    private void ShatterAt(EntityHandle attacker, Vector position, Vector force,
-                           DamageType damageType)
-    {
-        if (position.X == 0f && position.Y == 0f && position.Z == 0f)
-            return;
-
-        // BEFORE the sheet goes, because breaking it makes it a trigger and the
-        // client re-traces this ray to place its decal — through a pane that is
-        // no longer there, onto the wall behind it.
-        Impact(position, force, damageType);
-
-        Break(attacker, force);
-
-        if (_grid is null)
-            return;
-
-        var (w, h) = _grid.PanePos(position);
-
-        foreach (var (pw, ph) in _grid.PanesHitAt(w, h, spreads: !IsTile, coin: () => _random.Next(0, 2)))
-        {
-            if (_grid.Break(pw, ph))
-                State.SetPaneSolid(pw, ph, false);
-        }
-
-        // What is left has to settle: taking a pane out is what makes its
-        // neighbours unstable, and nothing else asks the question.
-        if (!IsTile)
-            SetNextThink(0.1f);
-    }
-
     private readonly Random _random = new();
 
-    public override void OnKilled(EntityHandle attacker) => Break(attacker, Vector.Zero);
-
     /// <summary>
-    /// The sheet goes: the grid is worked out, the client is told, and the
-    /// surface stops being something to walk into.
+    /// CBreakableSurface::Die. The sheet goes: no health left, OnBreak, the
+    /// grid is worked out, the client is told, and the surface stops being
+    /// something to walk into (its physics object goes with its solidity).
     ///
     /// The geometry happens HERE and not at spawn, which is stock's choice and a
     /// good one — a window nobody ever breaks pays for none of it.
     /// </summary>
-    private void Break(EntityHandle attacker, Vector attackDir)
+    private void Die(EntityHandle attacker, Vector attackDir)
     {
-        if (_broken)
+        if (_isBroken)
             return;
 
-        _broken = true;
+        _isBroken = true;
+        Health = 0;
+        OnBreak.Fire(attacker != EntityHandle.None ? attacker : Handle);
 
-        var quad = new PaneGrid.Quad(Vars.LowerLeft, Vars.LowerRight, Vars.UpperLeft, Vars.UpperRight);
+        var quad = new PaneGrid.Quad(SurfaceVars.LowerLeft, SurfaceVars.LowerRight, SurfaceVars.UpperLeft, SurfaceVars.UpperRight);
 
         _grid = PaneGrid.Derive(quad, PaneNormal, attackDir, Angles.RightUp);
 
@@ -329,9 +518,8 @@ public sealed class FuncBreakableSurf : ScriptedEntity
 
         // Walked through rather than into, from now on. A shattered window is a
         // hole with edges, and stock does the same.
+        Entities.DestroyPhysics(Handle);
         SetSolidity(BrushSolidity.Trigger);
-
-        OnBreak.Fire();
 
         Log.Msg($"[SourceSharp/C#] func_breakable_surf broke into {_grid.Wide}x{_grid.High} " +
                    $"panes of {_grid.PanelWidth:F1}x{_grid.PanelHeight:F1}\n");
@@ -350,7 +538,7 @@ public sealed class FuncBreakableSurf : ScriptedEntity
         if (_grid is null)
             return;
 
-        var falling = _grid.Settle(Vars.Fragility);
+        var falling = _grid.Settle(SurfaceVars.Fragility);
 
         foreach (var (w, h) in falling)
         {
@@ -397,18 +585,4 @@ public partial class FuncBreakableSurfVars
 
     /// <summary>0 glass, 1 tile. It decides the materials and whether panes fall at all.</summary>
     public int SurfaceType { get; set; }
-
-    /// <summary>
-    /// Shots the whole surface takes before it goes, over and above the panes
-    /// shattering individually.
-    ///
-    /// Zero — the default, and what every stock map writes — means the surface
-    /// has no health at all and behaves exactly as it does in stock. That
-    /// fallthrough is the point: a map that never heard of this gets stock.
-    /// </summary>
-    public int Health { get; set; }
-
-    /// <summary>Damage below this is ignored entirely, not reduced.</summary>
-    [VarName("minhealthdmg")]
-    public int MinimumDamage { get; set; }
 }

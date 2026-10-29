@@ -77,14 +77,13 @@ public interface IBlastSweep
 ///   points pass <c>CLASS_NONE</c>, and the guard is
 ///   <c>iClassIgnore != CLASS_NONE &amp;&amp; …</c>. Nothing in this mod is an
 ///   NPC with a faction.</item>
-///   <item><b><c>DispatchTraceAttack</c> versus <c>TakeDamage</c>.</b>
-///   <c>anyentity.h</c> resolves the first to <c>StandaloneEntity_TakeDamage</c>
-///   for everything on the parallel hierarchy — the same call — and says why:
-///   hitgroups and armour are not on that side, and inventing a hitgroup for a
-///   crate would be inventing a decision.</item>
-///   <item><b><c>TraceAttackToTriggers</c>.</b> <c>anyentity.h</c> guards it
-///   with <c>if ( pBase )</c>, deliberately, so an entity on the parallel
-///   hierarchy has never walked triggers on being blast-hit.</item>
+///   <item><b><c>DispatchTraceAttack</c> versus <c>TakeDamage</c>.</b> A
+///   victim the trace reached takes the traced hit only if it answers one
+///   itself (<see cref="ITraceAttacked"/>, a pane of glass); for everything
+///   else the two are the same call, as <c>anyentity.h</c> made them, because
+///   hitgroups and armour are not on that side.</item>
+///   <item><b><c>TraceAttackToTriggers</c></b> is walked along each victim's
+///   line, over the triggers that answer a shot (broken glass).</item>
 /// </list>
 ///
 /// <para>
@@ -105,6 +104,12 @@ public sealed class BlastSweep : IBlastSweep
     private readonly IEngineEntities _entities;
     private readonly IEngineEntityPhysics _physics;
     private readonly DamageInflictors? _inflictors;
+
+    /// <summary>What was hit, asked whether it answers a traced hit itself (DispatchTraceAttack).</summary>
+    private readonly IEntityDirectory? _directory;
+
+    /// <summary>The triggers that answer a shot, walked along each victim's line (TraceAttackToTriggers).</summary>
+    private readonly IEntityRoster<ITraceAttacked>? _traceAttacked;
     private readonly IEngineConsole _console;
     private readonly IServerSoundEnt _sounds;
 
@@ -121,8 +126,11 @@ public sealed class BlastSweep : IBlastSweep
     public BlastSweep(ILog log, IEngineWorldQuery world, IEngineDamage damage,
                       IEngineEntities entities, IEngineEntityPhysics physics,
                       IEngineConsole console, IServerSoundEnt sounds,
-                      DamageInflictors? inflictors = null)
+                      DamageInflictors? inflictors = null, IEntityDirectory? directory = null,
+                      IEntityRoster<ITraceAttacked>? traceAttacked = null)
     {
+        _directory = directory;
+        _traceAttacked = traceAttacked;
         _inflictors = inflictors;
         _sounds = sounds;
         _log = log;
@@ -344,9 +352,23 @@ public sealed class BlastSweep : IBlastSweep
             // to the attacker. Nobody named means the blast itself, where it went off.
             using (_inflictors?.Push(inflictor != EntityHandle.None ? inflictor : attacker, origin))
             {
-                _damage.TakeDamage(victim, attacker, adjusted, damageType,
-                                  direction: wantsForce ? dir : null,
-                                  forceOrigin: wantsForce ? source : default);
+                // The trace reached the victim: it takes a traced hit, which an
+                // entity that answers one itself (a pane of glass) takes in place
+                // of the damage (DispatchTraceAttack); otherwise TakeDamage.
+                if (tr.Fraction != 1f && tr.Entity == victim && _directory?.Get(victim) is ITraceAttacked attacked)
+                {
+                    attacked.TraceAttack(attacker, adjusted, damageType, source, tr.End);
+                }
+                else
+                {
+                    _damage.TakeDamage(victim, attacker, adjusted, damageType,
+                                      direction: wantsForce ? dir : null,
+                                      forceOrigin: wantsForce ? source : default);
+                }
+
+                // Now hit all triggers along the way that respond to damage.
+                if (_traceAttacked is { } triggers)
+                    TraceAttacks.ToTriggers(triggers, attacker, adjusted, damageType, source, tr.End);
             }
         }
 

@@ -29,10 +29,10 @@ public static class AmmoTypes
     /// </summary>
     public static readonly ImmutableArray<AmmoType> All =
     [
-        // Damage is per bullet and belongs to the ammo, not the weapon. Two
-        // weapons sharing a type hit equally hard and differ by rate of fire,
-        // spread and pellets — which is exactly how HL2 tells a pistol from an
-        // SMG. The numbers are HL2's own sk_plr_dmg_* defaults.
+        // Damage here is HL2's own sk_plr_dmg_* defaults, per bullet. HL2MP's
+        // ammo types carry none: a round deals its weapon script's "damage"
+        // (CHL2MP_Player::FireBullets, Arsenal), and these answer only for a
+        // weapon with no script.
         //
         // The force is NOT optional, and zero is not a quiet default: it is what
         // pushes a body or a physics prop when a bullet lands, and

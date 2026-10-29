@@ -47,7 +47,9 @@ public class PropCannonInputsTests
         services.AddInstance<IEntityDirectory>(registry);
         registry.Services = services;
         engine.Strict = false;
-        engine.Returns("EntityRender.GetModelKeyValueText", "mdlkeyvalue { prop_data { health 40 } }");
+        engine.Returns("EntityRender.GetModelKeyValueText", "mdlkeyvalue { prop_data { health 40 } }")
+              .Returns("Precache.BreakPieceCount", 4);
+        registry.KeyValue(Prop, EntityNames.PropPhysics, "model", "models/props_junk/wood_crate001a.mdl");
 
         foreach (var (key, value) in keys)
             registry.KeyValue(Prop, EntityNames.PropPhysics, key, value);

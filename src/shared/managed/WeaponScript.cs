@@ -281,6 +281,13 @@ public sealed class WeaponScript
     public bool ShowUsageHint { get; init; }
 
     /// <summary>
+    /// CHL2MPSWeaponInfo's <c>damage</c> key, m_iPlayerDamage: what each round
+    /// of an HL2MP weapon deals (CHL2MP_Player::FireBullets), or its grenade or
+    /// rocket. 0 when the script names none.
+    /// </summary>
+    public int PlayerDamage { get; init; }
+
+    /// <summary>
     /// The <c>SoundData</c> block, indexed by <see cref="WeaponScriptSound"/>.
     /// Always <see cref="WeaponScriptSounds.Count"/> long; an entry a script
     /// does not name is the EMPTY string, which is stock's zeroed buffer.
