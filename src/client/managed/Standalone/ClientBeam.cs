@@ -80,6 +80,9 @@ public sealed class ClientBeam : ClientStandaloneEntity
         Render.SetCustomDraw(Handle, mins, maxs);
     }
 
+    /// <summary>Drawn in place (see <see cref="OnDraw"/>), so nothing is prepared in the batch.</summary>
+    public override int OnDrawBatched() => DrawsInPlace;
+
     /// <summary>
     /// One beam, this frame: stock's <c>C_Beam::DrawModel</c>, which asks
     /// <c>beams->DrawBeam( this )</c> to build the beam from this entity's

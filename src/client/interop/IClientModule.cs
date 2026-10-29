@@ -89,7 +89,8 @@ public interface IClientModule
     /// <summary>
     /// A view's custom-draw entities, prepared in one crossing (C7 item 7): for
     /// each, what its DrawModel will answer once its prepared draw is carried
-    /// out, or -1 for one that must still draw in place.
+    /// out, -1 for one that must still draw in place, or -2 for one that has no
+    /// prepared form and always draws in place.
     /// </summary>
     void StandaloneDrawBatch(ReadOnlySpan<uint> handles, Span<int> results);
 

@@ -744,9 +744,12 @@ bool C_StandaloneEntity::GetAttachment( int number, Vector &origin, QAngle &angl
 
 // A view's custom draws in one crossing: the first to reach DrawModel asks
 // managed code for all of them, and each then draws its prepared plan. A sprite
-// whose plan was made under another blend falls back to its own crossing.
+// whose plan was made under another blend falls back to its own crossing; an
+// entity with no prepared form answers kDrawBatchInPlace and draws at its own.
 namespace
 {
+const int32_t kDrawBatchInPlace = -2;
+
 struct DrawBatchEntry_t
 {
 	C_StandaloneEntity *pEntity;
@@ -862,7 +865,10 @@ int C_StandaloneEntity::DrawModel( int flags )
 					return entry.nResult;
 				// A stored sprite under another blend: draw it the long way.
 			}
-			g_SourceSharpEffects.nDrawBatchFallbacks++;
+			if ( entry.nResult == kDrawBatchInPlace )
+				g_SourceSharpEffects.nDrawBatchInPlace++;
+			else
+				g_SourceSharpEffects.nDrawBatchFallbacks++;
 		}
 
 		IManagedStandaloneClient *pStandalone = ManagedStandaloneClient();

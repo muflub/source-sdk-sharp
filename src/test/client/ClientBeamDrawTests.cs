@@ -37,7 +37,7 @@ public class ClientBeamDrawTests
     {
         var (beam, _) = Lit();
 
-        Assert.Equal(-1, beam.OnDrawBatched());
+        Assert.Equal(ClientStandaloneEntity.DrawsInPlace, beam.OnDrawBatched());
     }
 
     [Fact]
