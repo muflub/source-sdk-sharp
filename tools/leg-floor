@@ -1065,9 +1065,11 @@ def self_test():
             rows = LEGS[leg]()
             ns = ', '.join('%s %s %d' % (u, o, n) for u, o, n, _h in rows)
             # A tier leg's floors come from a measured list, where one binary
-            # on one side of the line is a real answer; every other floor of 1
-            # is the slack this test exists to catch.
-            least = 1 if leg.endswith(('-fast', '-slow')) else 2
+            # on one side of the line is a real answer, and the census tier
+            # holds one binary (sdk_lib_members_test) since the globals ledger
+            # tests went (2026-11-01); every other floor of 1 is the slack this
+            # test exists to catch.
+            least = 1 if leg.endswith(('-fast', '-slow')) or leg == 'census' else 2
             ok = bool(rows) and all(n >= least for _u, _o, n, _h in rows)
         except CannotDerive as exc:
             ns, ok = str(exc), False
