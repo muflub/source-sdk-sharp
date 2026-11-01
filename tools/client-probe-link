@@ -109,8 +109,10 @@ def build():
     """(rc, log) of configuring and linking the probe tree."""
     if not os.path.isdir(os.path.join(REPO, "farm", "debug", "src")):
         return 1, "farm/debug/src is missing: run make setup"
+    # One TU per source (SS_UNITY_BATCH=0): the probes are diagnostics, several with the
+    # same file-scope names (kMaxRegs, g_pOrig), and what this proves is that they link.
     configure = [os.path.join(REPO, "tools", "build", "configure"), "debug", "-B", TREE,
-                 "-DSS_CLIENT_PROBES=ON", "-DSS_BUILD_TESTS=OFF",
+                 "-DSS_CLIENT_PROBES=ON", "-DSS_BUILD_TESTS=OFF", "-DSS_UNITY_BATCH=0",
                  "-DSS_DEPLOY_DIR=" + os.path.join(TREE, "deploy")]
     c = subprocess.run(configure, cwd=REPO, capture_output=True, text=True)
     if c.returncode != 0:
