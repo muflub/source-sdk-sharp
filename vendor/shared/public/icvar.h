@@ -174,6 +174,7 @@ inline ConCommandBase* ICvar::Iterator::Get()
 // These global names are defined by tier1.h, duplicated here so you
 // don't have to include tier1.h
 
-// These are marked DLL_EXPORT for Linux.
-DLL_EXPORT ICvar* cvar;
+// SourceSharp: C linkage, not exported. Stock marks these DLL_EXPORT for Linux; no game
+// DLL is asked for `cvar`, and the client defines it (tier_connect.cpp).
+extern "C" ICvar* cvar;
 extern ICvar* g_pCVar;

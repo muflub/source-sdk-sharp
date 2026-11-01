@@ -14,8 +14,9 @@ class IProcessUtils;
 // It is hoped that setting this, and using this library will be the common mechanism for
 // allowing link libraries to access tier1 library interfaces
 
-// These are marked DLL_EXPORT for Linux.
-DLL_EXPORT ICvar* cvar;
+// SourceSharp: C linkage, not exported. Stock marks these DLL_EXPORT for Linux; no game
+// DLL is asked for `cvar`, and the client defines it (tier_connect.cpp).
+extern "C" ICvar* cvar;
 extern ICvar* g_pCVar;
 extern IProcessUtils* g_pProcessUtils;
 
