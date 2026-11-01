@@ -242,7 +242,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test
 .PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
-        globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
+        sdk-census
 
 help:
 	@echo "SourceSharp"
@@ -1027,18 +1027,6 @@ oracle-test:
 	@$(ORACLE_TEST)
 
 #-----------------------------------------------------------------------------
-# plan_globals.md step G0: static-storage state on the server link line.
-#
-# Run in the debug farm: the tool reads build/ (the CMake binary dir), which only the
-# farm has, and finds its root from its own (unresolved) path.
-#
-# `globals-census` REPORTS; `globals-ledger` RECONCILES docs/globals-ledger.tsv
-# against the tree -- it carries every existing ruling forward and never
-# regenerates. Both read the DEBUG graph and refuse (exit 2) rather than answer
-# when they cannot measure: a missing object, or a graph-built archive newer
-# than the .so it links into, which is what `make debug && make release` leaves
-# behind because lib/public/linux64/*.a is not config-qualified.
-#-----------------------------------------------------------------------------
 # sdk-links/*.txt is the Valve code we still depend on, split by consumer
 # (client, server, shared, libs, tests). This prints each list's count and
 # fails if a list names a fork file nothing uses (not the build graph of either
@@ -1049,24 +1037,6 @@ oracle-test:
 # is stale, and would answer for code that has since moved.
 sdk-census:
 	@tools/sdk-census
-
-globals-census:
-	@cd farm/debug && python3 tools/globals-census summary
-	@echo
-	@cd farm/debug && python3 tools/globals-census gate
-
-globals-ledger:
-	@cd farm/debug && python3 tools/globals-census reseed --write
-
-# The client's half: docs/globals-client-ledger.tsv, the same tool with
-# --side client. Separate targets so the server's output is unchanged.
-globals-client-census:
-	@cd farm/debug && python3 tools/globals-census summary --side client
-	@echo
-	@cd farm/debug && python3 tools/globals-census gate --side client
-
-globals-client-ledger:
-	@cd farm/debug && python3 tools/globals-census reseed --side client --write
 
 # THE UI MOCK-UPS (plan_client_ui §7): every screen x sample x size, and the
 # gallery, to bin/<config>/ui-preview as SVG. PNG=1 adds PNGs (SkiaSharp, over

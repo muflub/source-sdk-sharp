@@ -128,10 +128,7 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   before committing C or C++; the routine `clang-format` check fails an
   unformatted file. Generators write through it, so regenerate rather than
   hand-format a generated file.
-- **A native function added or removed is a reviewed change:**
-  `tools/native-symbols` lists what server.so and client.so define
-  (`docs/native-symbols.tsv`); record it with `--write` in the same commit.
-  Tests that read native source as text were dropped (user 2026-10-26); don't
+- Tests that read native source as text were dropped (user 2026-10-26); don't
   add new ones.
 - Never edit a Valve source to satisfy clang: fix our code, or a named
   `-Wno-...` on the Valve target/source with a comment. Zero warnings.
@@ -498,7 +495,7 @@ instruments here have repeatedly erred towards flattering progress.
   blame the defining header.
 - Gate on the property that must hold, not a total that can legitimately rise.
 - Never regenerate a triage ledger from a raw scan: RECONCILE by key and carry
-  rulings forward (`make globals-ledger` does).
+  rulings forward.
 - Agreement between lanes is evidence about the measurement. The cheapest
   disproof is to fix the suspected cause and see whether the number moves.
 

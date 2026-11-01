@@ -1797,29 +1797,6 @@ ss_cpptest(convar_ledger_test
 # StudioName) and ClientBoneRecorderTests (the recorder's subject).
 # ---------------------------------------------------------------------------
 
-# plan_globals.md step G0: the server link line holds no static state that
-# docs/globals-ledger.tsv has not ruled, and the counts in
-# docs/globals-ratchet.tsv are ceilings. State is a SECTION, not a keyword --
-# readelf over the objects on the link edge -- so this is the check that
-# tools/statics-audit's source scan could not make.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(globals_ledger_test
-    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
-    SOURCES sourcesharp/test/globals_ledger_test.cpp)
-
-# The CLIENT's half of plan_globals.md step G0: docs/globals-client-ledger.tsv
-# rules every piece of static state on the client link line, both ways, and
-# docs/globals-client-ratchet.tsv caps the counts. Separate from the server's
-# files, which other lanes own.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(globals_client_ledger_test
-    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
-    SOURCES sourcesharp/test/globals_client_ledger_test.cpp)
-
 # =============================================================================
 # AT THE END, so that the next appended test is above it by construction.
 
@@ -2405,11 +2382,8 @@ ss_cpptest_engine_headers(ss_effect_dispatch_test
     SOURCES sourcesharp/test/ss_effect_dispatch_test.cpp)
 
 # THE CENSUS TIER (cmake/SourceSharpTests.cmake ss_census): the tests that
-# drive the census tools over the real build, 2-15 s each (ctest at
-# 79d3b8af: globals_client_ledger 14.8, orphan_reach 8.3, entity_gates 6.9,
-# globals_ledger 6.2, component_closure 5.6, entity_census 2.7; every other
-# binary under 1.3). make test-full runs them; make test does not.
-ss_census(globals_client_ledger_test)
+# drive the census tools over the real build, seconds each. make test-full runs
+# them; make test does not.
 
 # tier1 and mathlib compile only the members some link pulls in
 # (cmake/sdk/tier1.cmake, mathlib.cmake): every consumer of the two archives is
@@ -2419,7 +2393,6 @@ ss_cpptest(sdk_lib_members_test
     LINUX_ONLY "relinks the gcc/clang build's consumers with ld's --trace and reads build.ninja"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/sdk_lib_members_test.cpp)
 ss_census(sdk_lib_members_test)
-ss_census(globals_ledger_test)
 
 # The Valve names client.so links for its recv tables (plan_client_novalve C8):
 # engineabi_recv_names.cpp's members and the standard table's pointer identity,

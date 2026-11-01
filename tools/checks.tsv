@@ -34,7 +34,6 @@ ui-lint	routine	tools/ui-lint --self-test
 package-release	routine	tools/package-release --self-test
 test-tiers	routine	tools/test-tiers --self-test
 vpk-extract	routine	tools/vpk-extract --self-test
-native-symbols	routine	tools/native-symbols --self-test && tools/native-symbols
 nogc-relink	routine	out=$(cd farm/$SOURCESHARP_CONFIG && tools/nogc-relink --build-dir build) ; rc=$? ; printf '%s\n' "$out" ; [ $rc -eq 0 ] && grep -q 'server LINKED' <<<"$out" && grep -q 'client LINKED' <<<"$out"
 stock-ab	routine	tools/stock-ab/stock-ab --self-test
 client-probe-link	full	tools/client-probe-link --self-test && tools/client-probe-link

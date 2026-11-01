@@ -22,7 +22,7 @@
 # binary and checks the per-binary roster, so the floor would read 4,200
 # "binaries"; (2) a test binary runs its global environments (mathlib_test_env.h
 # calls MathLib_Init once per binary) and suite fixtures once, and several
-# binaries (globals_client_ledger_test: 11 s) pay a large one-time setup that
+# binaries pay a large one-time setup (MathLib_Init, a census's build read) that
 # would be paid per test; (3) tests inside one binary run in one process, in
 # order, as they always have. So each binary is one add_test(), which is also
 # what buildcpptests did: build it, run it once.
@@ -536,9 +536,8 @@ set(EXPECT [==[${A_EXPECT}]==])
 endfunction()
 
 # ss_census(<name>): moves an ss_cpptest*() binary into the `census` tier.
-# The census tests drive the census tools (globals-census, entity-census,
-# 4f-component, orphan reach) over the real build, 2-15 s each and about 70%
-# of the native leg's CPU; they run in `make test-full` (buildcpptests
+# The census tests drive the census tools over the real build, seconds each;
+# they run in `make test-full` (buildcpptests
 # --census), not in the routine `make test`. A label, not a second helper:
 # tools/leg-floor counts every `ss_cpptest*` call as a binary, and reads these
 # calls to split the native and census legs' rosters. Call it after the test

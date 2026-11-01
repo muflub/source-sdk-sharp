@@ -207,8 +207,7 @@ else()
   set(SS_OPT_debug -O0 -ggdb3)
   set(SS_OPT_release -O2 -g -fno-strict-aliasing -ffast-math -fno-omit-frame-pointer -ftree-vectorize)
   # DWARF 4, the version the VPC build's gcc 10 wrote by default. clang 22
-  # defaults to DWARF 5, where GNU `nm -l` finds no line for a DATA symbol, and
-  # tools/globals-census reads exactly that to categorise each static.
+  # defaults to DWARF 5, where GNU `nm -l` finds no line for a DATA symbol.
   list(APPEND SS_OPT_debug -gdwarf-4)
   list(APPEND SS_OPT_release -gdwarf-4)
   if(NOT SS_IS_CLANG)
