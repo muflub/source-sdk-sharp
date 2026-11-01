@@ -276,10 +276,6 @@ static const CNativeCommandBody* NativeBodyFor(const char* pName)
 #endif
 }
 
-#if defined(_MSC_VER)
-// 'this' in the initialiser list is deliberate. tier1/convar.h turns C4355 back on.
-#pragma warning(disable : 4355)
-#endif
 class CSourceSharpCommand final : public ICommandCallback
 {
 public:

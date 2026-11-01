@@ -200,12 +200,6 @@ CWorldNetworkable::CWorldNetworkable(CWorld* pOuter)
 	memset(&m_PVSInfo, 0, sizeof(m_PVSInfo));
 }
 
-#if defined(_MSC_VER)
-// 'this' in the initialiser list below is deliberate. tier1/convar.h re-enables
-// C4355 for the rest of any file that includes it.
-#pragma warning(disable : 4355)
-#endif
-
 // The members are constructed first, then the body hands &m_Networkable to edict 0.
 CWorld::CWorld(CServerEntityContext& context)
 	: m_Collideable(this)

@@ -299,10 +299,6 @@ int SourceSharp_StandaloneMinBlobBytes()
 	return SourceSharp_TierBytes(SourceSharp_StandaloneMinTier());
 }
 
-#if defined(_MSC_VER)
-// 'this' in the initialiser list is deliberate. tier1/convar.h re-enables C4355.
-#pragma warning(disable : 4355)
-#endif
 CStandaloneEntity::CStandaloneEntity(CServerEntityContext& context)
 	// First: members initialise in declaration order, and the header declares it first.
 	: m_pEngineBlock(reinterpret_cast<EngineBlock_t*>(reinterpret_cast<unsigned char*>(this) + BlockBase()))

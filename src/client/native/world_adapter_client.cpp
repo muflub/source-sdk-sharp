@@ -199,11 +199,6 @@ Vector C_World::GetWorldMaxs()
 	return SourceSharpWorld_ReadVector(DataBlob(), m_Fields.nWorldMaxs);
 }
 
-#if defined(_MSC_VER)
-// tier1/convar.h re-enables C4355; 'this' in the initialiser list below is deliberate.
-#pragma warning(disable : 4355)
-#endif
-
 // m_Collideable is named in the initialiser list so its owner pointer is valid before the body.
 C_World::C_World()
 	: m_bReportedOnce(false)
