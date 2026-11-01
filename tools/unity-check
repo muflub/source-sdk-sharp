@@ -1,63 +1,52 @@
 #!/usr/bin/env python3
-"""tools/unity-check -- every module target still compiles as one translation unit.
+"""tools/unity-check -- server.so and client.so still compile as one translation unit each.
 
     tools/unity-check                 check farm/<config>/build (SOURCESHARP_CONFIG
                                       or --config; default debug)
     tools/unity-check --build DIR     check another CMake build directory
     tools/unity-check --self-test
 
-CMake's unity build (-DCMAKE_UNITY_BUILD=ON) #includes a target's sources into
-a few translation units, so the headers they share are parsed once per batch
-instead of once per file. What breaks it is code that only works in a TU of
-its own:
+server.so and client.so compile in CMake unity batches (SS_UNITY_BATCH,
+cmake/SourceSharp.cmake): each batch #includes its sources into one
+translation unit, so the headers they share are parsed once per batch. What
+breaks a batch is code that only works in a TU of its own:
   - two files' file-local names: a static, or anything in an anonymous
     namespace, which every file in a unity TU shares;
   - a file-scope using-directive, which every later file inherits;
   - a declaration that depends on what an earlier file included: a header
     already read is skipped by its guard, so a macro redefined before it no
-    longer applies (that is how `cvar` came to be exported from a batch).
+    longer applies (that is how `cvar` came to be exported from a batch;
+    game_dll_exports_test holds the DLLs' exports, whatever the batch size).
 
-For server.so and client.so this compiles ALL of the target's sources that
-carry the target's flags (its largest group) as ONE translation unit, in the
-target's order: the largest batch CMake can make. A source with flags of its
-own (COMPILE_OPTIONS, as the fwd targets' -fno-rtti files have) is one CMake
-never batches, so it is not checked, and neither are the fwd targets: each has
-at most one source on its target's flags. It fails on:
-  - any error or warning (the targets build with -Werror);
-  - a difference between the exported symbols (defined, default visibility)
-    of that one TU and of the build's per-file objects.
-The per-file objects are the build's own, so a build that is not up to date
-(ninja -n has work to do for them) is a failure, never a pass, as is a target
-with nothing to check.
+The build compiles only the batches SS_UNITY_BATCH makes, so a clash between
+files in different batches goes unseen until a source is added or the size
+changes. This compiles ALL of each DLL's sources that carry the target's flags
+(its largest group of compile commands, a batch standing for its sources) as
+ONE translation unit, in the target's order: the largest batch CMake can make.
+A source with flags of its own (COMPILE_OPTIONS) is one CMake never batches, so
+it is not checked. Any error or warning fails (the targets build with -Werror),
+as does a target with nothing to check.
 """
 
 import argparse
 import concurrent.futures
 import json
 import os
-import re
 import shlex
 import shutil
 import subprocess
 import sys
 import tempfile
 
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import cmakegraph  # noqa: E402
+
 REPO = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 MODULES = ("server_sourcesharp", "client_sourcesharp")
-READELF = ("llvm-readelf-22", "llvm-readelf", "readelf")
-JOBS = 4
 
 
 class Finding(Exception):
     pass
-
-
-def tool(names):
-    for n in names:
-        path = shutil.which(n)
-        if path:
-            return path
-    raise Finding("none of %s is on PATH" % ", ".join(names))
 
 
 def split_command(entry):
@@ -72,140 +61,98 @@ def split_command(entry):
         if a in ("-o", "-MT", "-MF", "-MQ", "-c"):
             skip = True
             continue
-        if a in ("-MD", "-MMD"):
+        if a in ("-MD", "-MMD") or a == entry["file"]:
             continue
         flags.append(a)
     return args[0], flags
 
 
-def groups_of(build, modules):
-    """{module: [(compiler, flags, [(source, object)])]}: each module's sources
-    grouped by identical flags, in the target's order."""
-    db = os.path.join(build, "compile_commands.json")
-    if not os.path.exists(db):
-        raise Finding("no %s; build first" % db)
-    out = {m: {} for m in modules}
-    for e in json.load(open(db)):
-        m = re.search(r"CMakeFiles/([^/]+)\.dir/", e.get("output", ""))
-        if not m or m.group(1) not in out:
-            continue
-        cxx, flags = split_command(e)
-        src = os.path.realpath(os.path.join(e["directory"], e["file"]))
-        obj = os.path.join(e["directory"], e["output"])
-        out[m.group(1)].setdefault((cxx, tuple(flags)), []).append((src, obj))
-    return {m: [(cxx, list(fl), files) for (cxx, fl), files in g.items()] for m, g in out.items()}
+def main_group(build, module):
+    """(compiler, flags, [absolute source]) of the module's largest group of
+    compile commands sharing flags, in the target's order."""
+    try:
+        entries = cmakegraph.target_entries(module, build)
+        groups = {}
+        for e in entries:
+            cxx, flags = split_command(e)
+            groups.setdefault((cxx, tuple(flags)), []).extend(cmakegraph.entry_sources(e))
+    except cmakegraph.GraphError as e:
+        raise Finding(str(e))
+    (cxx, flags), files = max(groups.items(), key=lambda kv: len(kv[1]))
+    return cxx, list(flags), files
 
 
-def exported(readelf, obj):
-    """The names an object defines with default visibility, global or weak."""
-    r = subprocess.run([readelf, "-sW", obj], capture_output=True, text=True)
-    if r.returncode != 0:
-        raise Finding("%s: %s" % (obj, r.stderr.strip()))
-    names = set()
-    for line in r.stdout.splitlines():
-        f = line.split()
-        if len(f) >= 8 and f[0].endswith(":") and f[4] in ("GLOBAL", "WEAK") and f[5] == "DEFAULT" and f[6] != "UND":
-            names.add(f[7])
-    return names
-
-
-def require_current(build, objects):
-    r = subprocess.run(["ninja", "-C", build, "-n"] + [os.path.relpath(o, build) for o in objects],
-                       capture_output=True, text=True)
-    if r.returncode != 0:
-        raise Finding("ninja -n: %s" % (r.stderr.strip() or r.stdout.strip()))
-    if "no work to do" not in r.stdout:
-        raise Finding("%s is not up to date: build first (ninja -n has work to do)" % build)
-
-
-def check_group(build, readelf, scratch, name, cxx, flags, files):
-    """One module group's findings, as lines; [] when it compiles as one TU and
-    exports what its per-file objects export."""
-    tu = os.path.join(scratch, name + ".cpp")
+def check_one(build, scratch, module, cxx, flags, files):
+    tu = os.path.join(scratch, module + ".cpp")
     with open(tu, "w") as f:
-        for src, _ in files:
+        for src in files:
             f.write('#include "%s"\n' % src)
-    obj = os.path.join(scratch, name + ".o")
-    r = subprocess.run([cxx] + flags + ["-g0", "-c", tu, "-o", obj], cwd=build, capture_output=True, text=True)
+    r = subprocess.run([cxx] + flags + ["-fsyntax-only", tu], cwd=build, capture_output=True, text=True)
     diags = [l for l in r.stderr.splitlines() if " error: " in l or " warning: " in l]
     if r.returncode != 0 or diags:
-        return ["%s: its %d sources do not compile as one translation unit:" % (name, len(files))] + \
+        return ["%s: its %d sources do not compile as one translation unit:" % (module, len(files))] + \
                ["  " + l for l in (diags or r.stderr.splitlines())[:20]]
-    one = exported(readelf, obj)
-    each = set()
-    for _, o in files:
-        each |= exported(readelf, o)
-    if not each:
-        return ["%s: its per-file objects export nothing, so there is nothing to compare" % name]
-    lines = []
-    for n in sorted(one - each):
-        lines.append("  exported only from one TU: %s" % n)
-    for n in sorted(each - one):
-        lines.append("  exported only from the per-file objects: %s" % n)
-    if lines:
-        return ["%s: one TU and the per-file objects export different symbols:" % name] + lines
-    print("unity-check: %s: %d sources as one TU, %d exported symbols agree" % (name, len(files), len(one)))
+    print("unity-check: %s: %d sources compile as one TU" % (module, len(files)))
     return []
 
 
 def check(build, modules=MODULES):
-    readelf = tool(READELF)
-    groups = groups_of(build, modules)
     work = []
     for m in modules:
-        if not groups[m]:
-            raise Finding("%s: compile_commands.json has no source of it" % m)
-        cxx, flags, files = max(groups[m], key=lambda g: len(g[2]))
+        cxx, flags, files = main_group(build, m)
         if len(files) < 2:
             raise Finding("%s: no two sources share the target's flags, so nothing was checked" % m)
         work.append((m, cxx, flags, files))
-    require_current(build, [o for _, _, _, files in work for _, o in files])
     scratch = tempfile.mkdtemp(prefix="unity-check-")
     try:
-        with concurrent.futures.ThreadPoolExecutor(JOBS) as ex:
-            results = list(ex.map(lambda w: check_group(build, readelf, scratch, *w), work))
+        with concurrent.futures.ThreadPoolExecutor(len(work)) as ex:
+            results = list(ex.map(lambda w: check_one(build, scratch, *w), work))
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
     return [l for r in results for l in r]
 
 
 def self_test():
-    cxx = tool(("clang++-22", "clang++"))
+    cxx = next((shutil.which(n) for n in ("clang++-22", "clang++") if shutil.which(n)), None)
+    if not cxx:
+        raise SystemExit("tools/unity-check --self-test: no clang++-22 or clang++ on PATH")
     checks = 0
     root = tempfile.mkdtemp(prefix="unity-check-self-")
     try:
         build = os.path.join(root, "build")
         src = os.path.join(root, "src")
-        os.makedirs(build)
+        unity = os.path.join(build, "CMakeFiles", "server_sourcesharp.dir", "Unity")
+        os.makedirs(unity)
         os.makedirs(src)
-        flags = ["-std=c++17", "-fPIC", "-fvisibility=hidden", "-Wall", "-Werror", "-I" + src]
-        api = 'extern "C" __attribute__((visibility("default")))'
+        flags = "-std=c++17 -Wall -Werror"
 
-        def project(sources, mod="server_sourcesharp"):
-            """Writes the sources, a build.ninja and compile_commands.json for one
-            module target, and builds it."""
+        def project(sources, batch=()):
+            """Writes the sources and a compile_commands.json: each source its own
+            entry, except those in `batch`, which one unity batch includes."""
             for n, text in sources.items():
                 with open(os.path.join(src, n), "w") as f:
                     f.write(text)
-            rows, nin = [], ["rule cxx", "  command = %s %s -c $in -o $out" % (cxx, " ".join(flags))]
+            rows = []
+
+            def row(path, obj):
+                rows.append({"directory": build, "file": path, "output": obj,
+                             "command": "%s %s -o %s -c %s" % (cxx, flags, obj, path)})
+            if batch:
+                b = os.path.join(unity, "unity_0_cxx.cxx")
+                with open(b, "w") as f:
+                    f.write("/* generated by CMake */\n\n")
+                    for n in batch:
+                        f.write('/* NOLINTNEXTLINE(bugprone-suspicious-include) */\n#include "%s"\n\n'
+                                % os.path.join(src, n))
+                row(b, "CMakeFiles/server_sourcesharp.dir/Unity/unity_0_cxx.cxx.o")
             for n in sources:
-                if not n.endswith(".cpp"):
-                    continue
-                obj = "CMakeFiles/%s.dir/%s.o" % (mod, n)
-                nin.append("build %s: cxx %s" % (obj, os.path.join(src, n)))
-                rows.append({"directory": build, "file": os.path.join(src, n), "output": obj,
-                             "command": "%s %s -o %s -c %s" % (cxx, " ".join(flags), obj, os.path.join(src, n))})
-            with open(os.path.join(build, "build.ninja"), "w") as f:
-                f.write("\n".join(nin) + "\n")
+                if n.endswith(".cpp") and n not in batch:
+                    row(os.path.join(src, n), "CMakeFiles/server_sourcesharp.dir/%s.o" % n)
             with open(os.path.join(build, "compile_commands.json"), "w") as f:
                 json.dump(rows, f)
-            r = subprocess.run(["ninja", "-C", build], capture_output=True, text=True)
-            if r.returncode != 0:
-                raise AssertionError("self-test project did not build: %s" % r.stdout[-2000:])
 
-        def expect(sources, needle, what):
+        def expect(needle, what):
             nonlocal checks
-            project(sources)
             try:
                 lines = check(build, ("server_sourcesharp",))
             except Finding as e:
@@ -213,62 +160,46 @@ def self_test():
             text = "\n".join(lines)
             if needle is None and lines:
                 raise AssertionError("%s: expected a pass, got:\n%s" % (what, text))
-            if needle is not None and not re.search(needle, text):
-                raise AssertionError("%s: expected /%s/, got:\n%s" % (what, needle, text or "a pass"))
+            if needle is not None and needle not in text:
+                raise AssertionError("%s: expected %r, got:\n%s" % (what, needle, text or "a pass"))
             checks += 1
             print("  ok    %s" % what)
 
-        clean = {
-            "a.cpp": "static int Helper() { return 1; }\n%s int A() { return Helper(); }\n" % api,
-            "b.cpp": "static int Other() { return 2; }\n%s int B() { return Other(); }\n" % api,
-        }
-        expect(clean, None, "two files with distinct file-local names pass")
-
-        expect(dict(clean, **{"b.cpp": "static int Helper() { return 2; }\n%s int B() { return Helper(); }\n" % api}),
-               r"do not compile as one translation unit:\n.*redefinition of 'Helper'",
-               "the same static in two files is a redefinition in one TU")
-
-        expect(dict(clean, **{"a.cpp": "namespace { int s_n; }\n%s int A() { return s_n; }\n" % api,
-                              "b.cpp": "namespace { float s_n; }\n%s int B() { return (int)s_n; }\n" % api}),
-               r"do not compile as one translation unit", "anonymous namespaces are one namespace in one TU")
-
-        # cvar's shape: the header's guard skips it in the second file, so the
-        # second file's macro no longer decides the definition's visibility.
-        leak = {
-            "h.h": "#ifndef H_H\n#define H_H\n#ifndef EXPORT\n#define EXPORT %s\n#endif\nEXPORT int g;\n#endif\n" % api,
-            "a.cpp": '#include "h.h"\n%s int A() { return g; }\n' % api,
-            "b.cpp": '#undef EXPORT\n#define EXPORT extern "C"\n#include "h.h"\nint g = 0;\n',
-        }
-        expect(leak, r"export different symbols:\n  exported only from one TU: g\b",
-               "a definition exported only because an earlier file read its header first")
-
+        clean = {"a.cpp": "static int Helper() { return 1; }\nint A() { return Helper(); }\n",
+                 "b.cpp": "static int Other() { return 2; }\nint B() { return Other(); }\n",
+                 "c.cpp": "int C() { return 3; }\n"}
         project(clean)
-        with open(os.path.join(src, "a.cpp"), "a") as f:
-            f.write("// edited after the build\n")
-        try:
-            check(build, ("server_sourcesharp",))
-            raise AssertionError("a stale build passed")
-        except Finding as e:
-            if "not up to date" not in str(e):
-                raise AssertionError("a stale build: %s" % e)
-        checks += 1
-        print("  ok    a build that is not up to date is refused")
+        expect(None, "files with distinct file-local names pass")
 
-        expect({"a.cpp": clean["a.cpp"]}, r"nothing was checked", "a target with one source is refused, not passed")
+        clash = dict(clean, **{"c.cpp": "static int Helper() { return 3; }\nint C() { return Helper(); }\n"})
+        project(clash)
+        expect("redefinition of 'Helper'", "the same static in two files is a redefinition in one TU")
 
-        expect({"a.cpp": "static int Helper() { return 1; }\nint A() { return Helper(); }\n",
-                "b.cpp": "int B() { return 2; }\n"},
-               r"export nothing", "objects that export nothing are refused, not passed")
+        # The case the build itself cannot see: the two files sit in different
+        # batches (here a.cpp and b.cpp batched, c.cpp alone).
+        project(clash, batch=("a.cpp", "b.cpp"))
+        expect("redefinition of 'Helper'", "a clash across batches is found: a batch stands for its sources")
+
+        project(dict(clean, **{"a.cpp": "namespace { int s_n; }\nint A() { return s_n; }\n",
+                               "b.cpp": "namespace { float s_n; }\nint B() { return (int)s_n; }\n"}))
+        expect("do not compile as one translation unit", "anonymous namespaces are one namespace in one TU")
+
+        project(dict(clean, **{"a.cpp": "namespace n { int input() { return 1; } }\nusing namespace n;\n",
+                               "b.cpp": "int input = 2;\nint B() { return input; }\n"}))
+        expect("do not compile as one translation unit", "a file-scope using-directive reaches the next file")
+
+        for n in list(clean):
+            os.remove(os.path.join(src, n))
+        project({"a.cpp": clean["a.cpp"]})
+        expect("nothing was checked", "a target with one source is refused, not passed")
+
+        project(clean, batch=("a.cpp", "b.cpp"))
+        with open(os.path.join(unity, "unity_0_cxx.cxx"), "w") as f:
+            f.write("/* generated by CMake */\n")
+        expect("includes no source", "a unity batch that includes nothing is refused")
 
         os.remove(os.path.join(build, "compile_commands.json"))
-        try:
-            check(build, ("server_sourcesharp",))
-            raise AssertionError("a missing compile_commands.json passed")
-        except Finding as e:
-            if "no " not in str(e):
-                raise AssertionError("missing database: %s" % e)
-        checks += 1
-        print("  ok    a missing compile_commands.json is refused")
+        expect("compile_commands.json", "a missing compile_commands.json is refused")
     finally:
         shutil.rmtree(root, ignore_errors=True)
     print("tools/unity-check --self-test: %d checks passed" % checks)
@@ -291,10 +222,10 @@ def main():
         return 1
     if lines:
         print("\n".join(lines))
-        print("tools/unity-check: a module does not build as one translation unit "
-              "(see the file's header for the usual causes)")
+        print("tools/unity-check: a DLL does not compile as one translation unit "
+              "(see this file's header for the usual causes)")
         return 1
-    print("tools/unity-check: %d modules compile as one translation unit each" % len(MODULES))
+    print("tools/unity-check: %d DLLs compile as one translation unit each" % len(MODULES))
     return 0
 
 
