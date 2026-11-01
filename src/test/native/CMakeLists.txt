@@ -2343,6 +2343,16 @@ ss_cpptest_mathlib(precache_model_test
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/precache_model_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
+# standalone_player_sync.cpp and world_net_sync.cpp in one TU, as a unity build
+# compiles them, each resolving its own class's fields over a fake net-state area.
+ss_cpptest_mathlib(net_class_resolve_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/net_class_resolve_test.cpp)
 # shell_gameevents.cpp: CGameEvents over generated fakes (tools/native-fakes), as the server builds it.
 ss_cpptest_mathlib(game_events_test
     DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS

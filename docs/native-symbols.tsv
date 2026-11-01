@@ -3329,8 +3329,6 @@ client_sourcesharp	src/shared/native/ss_command_line.cpp	ss::CommandLineHasIn(ch
 client_sourcesharp	src/shared/native/ss_command_line.cpp	ss::CommandLineValue(char const*, char const*, char*, unsigned long)
 client_sourcesharp	src/shared/native/ss_command_line.cpp	ss::CommandLineValueIn(char const*, unsigned long, char const*, char const*, char*, unsigned long)
 client_sourcesharp	src/shared/native/ss_command_line.cpp	ss::LaunchArgsBlock[abi:cxx11](char const*)
-client_sourcesharp	src/shared/native/standalone_player_sync.cpp	ResolveOffset(SourceSharpNetStateAsk_t const&, char const*, bool*)
-client_sourcesharp	src/shared/native/standalone_player_sync.cpp	ResolvePacked(SourceSharpNetStateAsk_t const&, char const*, bool*)
 client_sourcesharp	src/shared/native/standalone_player_sync.cpp	SourceSharpPlayerFields_Resolve(SourceSharpPlayerFields_t*, unsigned int, IManagedStandaloneClient*)
 client_sourcesharp	src/shared/native/steamid.cpp	CSteamID::BValidExternalSteamID() const
 client_sourcesharp	src/shared/native/steamid.cpp	CSteamID::CSteamID(char const*, EUniverse)
@@ -3381,8 +3379,6 @@ client_sourcesharp	src/shared/native/trace_filter_library.cpp	PassServerEntityFi
 client_sourcesharp	src/shared/native/trace_filter_library.cpp	StandardFilterRules(IHandleEntity*, int)
 client_sourcesharp	src/shared/native/trace_filter_library.cpp	_GLOBAL__sub_I_trace_filter_library.cpp
 client_sourcesharp	src/shared/native/trace_filter_library.cpp	__cxx_global_var_init
-client_sourcesharp	src/shared/native/world_net_sync.cpp	ResolveOffset(SourceSharpNetStateAsk_t const&, char const*, bool*)
-client_sourcesharp	src/shared/native/world_net_sync.cpp	ResolvePacked(SourceSharpNetStateAsk_t const&, char const*, bool*)
 client_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorldFields_Resolve(SourceSharpWorldFields_t*, unsigned int, IManagedStandaloneClient*)
 client_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorld_ReadFlag(unsigned char const*, SourceSharpPackedField_t const&)
 client_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorld_ReadFloat(unsigned char const*, int)
@@ -4314,8 +4310,6 @@ server_sourcesharp	src/shared/native/ss_command_line.cpp	ss::(anonymous namespac
 server_sourcesharp	src/shared/native/ss_command_line.cpp	ss::CommandLineHas(char const*)
 server_sourcesharp	src/shared/native/ss_command_line.cpp	ss::CommandLineHasIn(char const*, unsigned long, char const*)
 server_sourcesharp	src/shared/native/ss_command_line.cpp	ss::LaunchArgsBlock[abi:cxx11](char const*)
-server_sourcesharp	src/shared/native/standalone_player_sync.cpp	ResolveOffset(SourceSharpNetStateAsk_t const&, char const*, bool*)
-server_sourcesharp	src/shared/native/standalone_player_sync.cpp	ResolvePacked(SourceSharpNetStateAsk_t const&, char const*, bool*)
 server_sourcesharp	src/shared/native/standalone_player_sync.cpp	SourceSharpPlayerFields_Resolve(SourceSharpPlayerFields_t*, unsigned int, IManagedNetState*)
 server_sourcesharp	src/shared/native/standalone_player_sync.cpp	SourceSharpPlayerSync_WriteEngineSide(unsigned char*, SourceSharpPlayerFields_t const&, unsigned int, Vector const&, int, bool)
 server_sourcesharp	src/shared/native/standalone_player_sync.cpp	WriteI32(unsigned char*, int, int)
@@ -4354,8 +4348,6 @@ server_sourcesharp	src/shared/native/tier0_spew_port.cpp	_SpewInfo
 server_sourcesharp	src/shared/native/tier0_spew_port.cpp	_SpewMessage
 server_sourcesharp	src/shared/native/tier0_spew_port.cpp	__cxx_global_var_init
 server_sourcesharp	src/shared/native/tier1_port.cpp	bf_read::SetOverflowFlag()
-server_sourcesharp	src/shared/native/world_net_sync.cpp	ResolveOffset(SourceSharpNetStateAsk_t const&, char const*, bool*)
-server_sourcesharp	src/shared/native/world_net_sync.cpp	ResolvePacked(SourceSharpNetStateAsk_t const&, char const*, bool*)
 server_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorldFields_Resolve(SourceSharpWorldFields_t*, unsigned int, IManagedNetState*)
 server_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorld_ReadFlag(unsigned char const*, SourceSharpPackedField_t const&)
 server_sourcesharp	src/shared/native/world_net_sync.cpp	SourceSharpWorld_ReadFloat(unsigned char const*, int)
