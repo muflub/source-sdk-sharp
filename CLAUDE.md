@@ -128,8 +128,17 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   before committing C or C++; the routine `clang-format` check fails an
   unformatted file. Generators write through it, so regenerate rather than
   hand-format a generated file.
-- Tests that read native source as text were dropped (user 2026-10-26); don't
-  add new ones.
+- **server.so and client.so compile in unity batches of 32 sources**
+  (`SS_UNITY_BATCH`, cmake/SourceSharp.cmake; user 2026-11-01). A file-local
+  name (a static, an anonymous namespace's member) is shared with the rest of
+  its batch, and a file-scope using-directive reaches the files after it: give
+  file-local names a file-specific spelling. `tools/unity-check` (routine)
+  compiles each DLL as one TU, so a clash between batches fails before a new
+  source moves the boundary. An object is a batch, not a source, so per-object
+  attribution tools were removed (globals-census, native-symbols; user
+  2026-11-01); `-DSS_UNITY_BATCH=0` gives one TU per source for a tool that
+  needs it (`tools/include-min`). Tests that read native source as text were
+  dropped (user 2026-10-26); don't add new ones.
 - Never edit a Valve source to satisfy clang: fix our code, or a named
   `-Wno-...` on the Valve target/source with a comment. Zero warnings.
 - **The object directory is not the link line.** Ninja keeps stale `.o` files

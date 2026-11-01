@@ -4,6 +4,7 @@ add_library(server_sourcesharp SHARED)
 set_target_properties(server_sourcesharp PROPERTIES OUTPUT_NAME server PREFIX "" NO_SONAME ON)
 ss_sdk_target(server_sourcesharp PROJECTDIR game/server RPATH_ORIGIN NO_WRAP
     VERSION_SCRIPT ${PROJECT_SOURCE_DIR}/cmake/version_script_server.txt)
+ss_unity_target(server_sourcesharp)
 
 set(server_sourcesharp_sources
     ${LOCAL}/exit_watch.cpp

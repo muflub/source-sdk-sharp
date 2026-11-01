@@ -4,6 +4,7 @@ add_library(client_sourcesharp SHARED)
 set_target_properties(client_sourcesharp PROPERTIES OUTPUT_NAME client PREFIX "" NO_SONAME ON)
 ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN NO_WRAP
     VERSION_SCRIPT ${SS_VENDOR}/client/devtools/version_script.linux.txt)
+ss_unity_target(client_sourcesharp)
 
 set(client_sourcesharp_sources
     ${LOCAL}/bitbuf_client.cpp
