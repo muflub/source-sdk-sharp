@@ -41,3 +41,4 @@ client-probe-link	full	tools/client-probe-link --self-test && tools/client-probe
 source-tidy	routine	tools/source-tidy --self-test && tools/source-tidy
 vendor-fields	routine	tools/vendor-fields --self-test
 clang-format	routine	tools/clang-format --self-test && tools/clang-format --check
+unity-check	routine	tools/unity-check --self-test && tools/unity-check --config $SOURCESHARP_CONFIG
