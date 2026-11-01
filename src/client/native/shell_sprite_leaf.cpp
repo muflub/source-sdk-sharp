@@ -117,7 +117,7 @@ static pixelvis_handle_t* s_pPlanQuery = NULL;
 // The blend the last request was gathered under.
 static float s_flDirectBlend = 0.0f;
 
-static void PutVector(float* p, const Vector& v)
+static void PutSpriteVector(float* p, const Vector& v)
 {
 	p[0] = v.x;
 	p[1] = v.y;
@@ -167,8 +167,8 @@ static bool GatherSprite(IClientEntity* entity, const model_t* model, const Vect
 	in[SS_SPRITE_IN_DOWN] = psprite->GetDown();
 	in[SS_SPRITE_IN_WIDTH] = (float)modelinfo->GetModelSpriteWidth(model);
 	in[SS_SPRITE_IN_HEIGHT] = (float)modelinfo->GetModelSpriteHeight(model);
-	PutVector(in + SS_SPRITE_IN_ORIGIN, origin);
-	PutVector(in + SS_SPRITE_IN_EFFECT_ORIGIN, effect_origin);
+	PutSpriteVector(in + SS_SPRITE_IN_ORIGIN, origin);
+	PutSpriteVector(in + SS_SPRITE_IN_EFFECT_ORIGIN, effect_origin);
 	in[SS_SPRITE_IN_ANGLES + 0] = angles.x;
 	in[SS_SPRITE_IN_ANGLES + 1] = angles.y;
 	in[SS_SPRITE_IN_ANGLES + 2] = angles.z;
@@ -185,9 +185,9 @@ static bool GatherSprite(IClientEntity* entity, const model_t* model, const Vect
 	// entity's DrawModel will find.
 	in[SS_SPRITE_IN_BLEND] = SourceSharp_StandaloneDrawBatchBlend(entity, render->GetBlend());
 	s_flDirectBlend = in[SS_SPRITE_IN_BLEND];
-	PutVector(in + SS_SPRITE_IN_VIEW_FORWARD, CurrentViewForward());
-	PutVector(in + SS_SPRITE_IN_VIEW_RIGHT, CurrentViewRight());
-	PutVector(in + SS_SPRITE_IN_VIEW_UP, CurrentViewUp());
+	PutSpriteVector(in + SS_SPRITE_IN_VIEW_FORWARD, CurrentViewForward());
+	PutSpriteVector(in + SS_SPRITE_IN_VIEW_RIGHT, CurrentViewRight());
+	PutSpriteVector(in + SS_SPRITE_IN_VIEW_UP, CurrentViewUp());
 	in[SS_SPRITE_IN_GLOW_PROXY_SIZE] = flGlowProxySize;
 
 	pending.pSprite = psprite;

@@ -112,8 +112,11 @@ void SourceSharp_FatalReport(const char* pKind, const char* pMsg)
 	// The alternate name always binds, so there is no null to test.
 	SourceSharp_FatalWitness(pKind, pMsg);
 #else
-	if (SourceSharp_FatalWitness)
-		SourceSharp_FatalWitness(pKind, pMsg);
+	// Through a pointer: where the strong definition shares this TU (a unity batch with
+	// exit_watch.cpp) the bare name cannot be null, and clang warns that it never is.
+	void (*pfnWitness)(const char*, const char*) = SourceSharp_FatalWitness;
+	if (pfnWitness)
+		pfnWitness(pKind, pMsg);
 #endif
 
 	const char* pszDir = getenv("SOURCESHARP_ASSERT_DIR");
