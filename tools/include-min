@@ -41,6 +41,8 @@ import re
 import shlex
 import subprocess
 import sys
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import cmakegraph  # noqa: E402  (refuse_unity)
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 REPO_REAL = os.path.realpath(REPO)
@@ -160,6 +162,7 @@ def measure(cfg):
     without the module's other includes, and what such a unit needs stays."""
     path = os.path.join(REPO, "farm", cfg, "build", "compile_commands.json")
     db = json.load(open(path))
+    cmakegraph.refuse_unity(db, "include-min", path)
     entries, seen = [], set()
     for e in db:
         if e.get("output") and e["output"] not in seen and e["file"].endswith((".cpp", ".cc", ".c")):
@@ -170,7 +173,9 @@ def measure(cfg):
     probes = os.path.join(REPO, "farm", "debug", "build-probes", "compile_commands.json")
     if not os.path.exists(probes):
         raise SystemExit("include-min: no probe build at farm/debug/build-probes (tools/client-probe-link)")
-    for e in json.load(open(probes)):
+    probe_db = json.load(open(probes))
+    cmakegraph.refuse_unity(probe_db, "include-min", probes)
+    for e in probe_db:
         if VD.target_of(e.get("output", "")) == "client_sourcesharp" and "/probes/" in e["file"]:
             entries.append(e)
     tus = []
@@ -281,6 +286,7 @@ def objects():
     for cfg, bdir, targets, _built in BUILDS:
         b = os.path.join(REPO, "farm", cfg, bdir)
         db = json.load(open(os.path.join(b, "compile_commands.json")))
+        cmakegraph.refuse_unity(db, "include-min", os.path.join(b, "compile_commands.json"))
         for e in db:
             t = VD.target_of(e.get("output", ""))
             if t in targets:

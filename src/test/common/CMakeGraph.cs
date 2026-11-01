@@ -169,6 +169,7 @@ internal static class CMakeGraph
 
     public static IReadOnlyList<Entry> CompileCommands() => Current.CompileCommands();
     public static IReadOnlyList<Entry> TargetEntries(string target) => Current.TargetEntries(target);
+    public static IReadOnlyList<string> EntrySources(Entry entry) => CMakeBuild.EntrySources(entry);
     public static string FarmRelative(string absolute) => Current.FarmRelative(absolute);
     public static IReadOnlySet<string> CompiledSources(string target) => Current.CompiledSources(target);
     public static bool Compiles(string target, string farmRelative) => Current.Compiles(target, farmRelative);
@@ -297,6 +298,29 @@ internal sealed class CMakeBuild(string buildDir)
         return found;
     }
 
+    /// <summary>
+    /// The absolute sources one entry compiles: its file, or a unity batch's
+    /// (CMake's UNITY_BUILD, SS_UNITY_BATCH): the entry's file is then
+    /// <c>CMakeFiles/&lt;t&gt;.dir/Unity/unity_&lt;n&gt;_cxx.cxx</c>, which #includes
+    /// the batch's sources, each compiled with the batch's command.
+    /// </summary>
+    public static IReadOnlyList<string> EntrySources(CMakeGraph.Entry entry)
+    {
+        if (!UnityBatch.IsMatch(entry.File))
+            return [entry.File];
+        string text = CMakeGraph.ReadRequired(entry.File, "a unity batch CMake writes at configure time -- re-run cmake");
+        var sources = UnityInclude.Matches(text).Select(m => m.Groups[1].Value).ToList();
+        if (sources.Count == 0)
+            throw new InvalidOperationException($"cmake_graph: {entry.File} is a unity batch that includes no source");
+        return sources;
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex UnityBatch =
+        new(@"/CMakeFiles/[^/]+\.dir/Unity/unity_[0-9]+_(cxx\.cxx|c\.c)$");
+
+    private static readonly System.Text.RegularExpressions.Regex UnityInclude =
+        new("^#include \"([^\"]+)\"\r?$", System.Text.RegularExpressions.RegexOptions.Multiline);
+
     private static string? StockSrc()
     {
         string? root = Environment.GetEnvironmentVariable("SOURCESHARP_VALVE_SDK");
@@ -335,7 +359,7 @@ internal sealed class CMakeBuild(string buildDir)
     /// </summary>
     public IReadOnlySet<string> CompiledSources(string target)
     {
-        var compiled = TargetEntries(target).Select(e => FarmRelative(e.File)).ToHashSet(StringComparer.Ordinal);
+        var compiled = TargetEntries(target).SelectMany(e => EntrySources(e)).Select(s => FarmRelative(s)).ToHashSet(StringComparer.Ordinal);
         var listed = CMakeGraph.ListedSources(target).ToHashSet(StringComparer.Ordinal);
         if (BuildConfig == "debug")
             listed.UnionWith(CMakeGraph.DebugListedSources(target));
@@ -357,8 +381,9 @@ internal sealed class CMakeBuild(string buildDir)
     public IReadOnlySet<string> GameSources() =>
         CompiledSources(CMakeGraph.Server).Union(CompiledSources(CMakeGraph.Client)).ToHashSet(StringComparer.Ordinal);
 
+    /// <summary>The command that compiles a source: a unity batch's, for a batched one (its flags are the source's).</summary>
     public string CompileCommand(string target, string farmRelative) =>
-        TargetEntries(target).FirstOrDefault(e => FarmRelative(e.File) == farmRelative)?.Command
+        TargetEntries(target).FirstOrDefault(e => EntrySources(e).Any(s => FarmRelative(s) == farmRelative))?.Command
         ?? throw new InvalidOperationException($"cmake_graph: {farmRelative} is not compiled into '{target}'");
 
     /// <summary>The -D definitions of the target's compile command (NAME or NAME=VALUE).</summary>
