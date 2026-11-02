@@ -2479,6 +2479,15 @@ ss_cpptest(bitbuf_client_test
             ${PROJECT_SOURCE_DIR}/src/client/native/bitbuf_client.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
 
+# strtools_client.cpp's V_strncpy: strncpy's bytes with the last always the terminator.
+ss_cpptest(strtools_client_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/strtools_client_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/strtools_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
+
 # client.so's KeyValues members (keyvalues_client.cpp, plan_client_novalve C9
 # K5) over keyvalues_scenario.h, held to the golden pristine KeyValues.cpp
 # wrote (keyvalues_members_oracle_test). tier1 so a member the scenario calls
