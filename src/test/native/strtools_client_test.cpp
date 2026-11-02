@@ -21,6 +21,7 @@ namespace
 struct Buffer
 {
 	char m_Bytes[8];
+
 	Buffer() { memset(m_Bytes, '#', sizeof(m_Bytes)); }
 };
 
