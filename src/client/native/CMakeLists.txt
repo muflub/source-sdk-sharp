@@ -5,6 +5,11 @@ set_target_properties(client_sourcesharp PROPERTIES OUTPUT_NAME client PREFIX ""
 ss_sdk_target(client_sourcesharp PROJECTDIR game/client RPATH_ORIGIN NO_WRAP
     VERSION_SCRIPT ${SS_VENDOR}/client/devtools/version_script.linux.txt)
 ss_unity_target(client_sourcesharp)
+# vstdlib_random_port.cpp redefines VSTDLIB_INTERFACE before vstdlib/random.h so that
+# client.dll exports none of its definitions, which holds only when it reads the header
+# first: in a batch, client.dll exported RandomFloat, RandomInt and RandomSeed
+# (game_dll_exports_test, win-x64). It compiles alone.
+set_source_files_properties(${LOCAL}/vstdlib_random_port.cpp PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 
 set(client_sourcesharp_sources
     ${LOCAL}/bitbuf_client.cpp
