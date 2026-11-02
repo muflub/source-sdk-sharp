@@ -523,6 +523,9 @@ void ConVar_Unregister();
 void ConVar_PrintFlags(const ConCommandBase* var);
 
 // Purpose: Utility class to quickly allow ConCommands to call member methods
+// SourceSharp: push and pop, not stock's disable and default: `default` turned C4355
+// on for the rest of the translation unit, a whole unity batch (SS_UNITY_BATCH).
+#pragma warning(push)
 #pragma warning(disable : 4355)
 
 template <class T>
@@ -565,7 +568,7 @@ private:
 	FnMemberCommandCompletionCallback_t m_CompletionFunc;
 };
 
-#pragma warning(default : 4355)
+#pragma warning(pop)
 
 // Purpose: Utility macros to quicky generate a simple console command
 #define CON_COMMAND(name, description)                          \

@@ -147,12 +147,14 @@ def compiled_sources(bdir, prefix):
         if not m:
             raise cmakegraph.GraphError('%s: an object outside any CMakeFiles/<target>.dir/: %s'
                                         % (os.path.join(bdir, 'compile_commands.json'), e['output']))
-        rel = cmakegraph.farm_relative(e['file'], bdir)
-        if not rel.startswith(prefix):
-            continue
-        target = m.group(1)
-        targets.add(target)
-        rows[(target, rel)] = command_defines(e)
+        # A unity batch's entry stands for each of its sources, with its -D set.
+        for src in cmakegraph.entry_sources(e):
+            rel = cmakegraph.farm_relative(src, bdir)
+            if not rel.startswith(prefix):
+                continue
+            target = m.group(1)
+            targets.add(target)
+            rows[(target, rel)] = command_defines(e)
     for t in sorted(targets):
         if t in KNOWN_TARGETS:
             cmakegraph.compiled_sources(t, bdir)   # refuses a stale database

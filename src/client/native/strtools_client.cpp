@@ -62,13 +62,15 @@ int _V_strcmp(const char*, int, const char* s1, const char* s2)
 }
 
 // strncpy's semantics: the rest is zero-filled, then the last byte is always
-// the terminator.
+// the terminator. Not strncpy itself: inlined into a caller (a unity batch), gcc
+// calls a strncpy it can see truncate -Wstringop-truncation, whatever follows it.
 void V_strncpy(char* pDest, const char* pSrc, int maxLen)
 {
 	if (maxLen <= 0)
 		return;
-	strncpy(pDest, pSrc, maxLen);
-	pDest[maxLen - 1] = 0;
+	const size_t nCopy = strnlen(pSrc, (size_t)maxLen - 1);
+	memcpy(pDest, pSrc, nCopy);
+	memset(pDest + nCopy, 0, (size_t)maxLen - nCopy);
 }
 
 int V_strncmp(const char* s1, const char* s2, int count)

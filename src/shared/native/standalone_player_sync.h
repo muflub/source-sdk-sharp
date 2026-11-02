@@ -75,6 +75,38 @@ struct SourceSharpNetStateAsk_t
 	}
 };
 
+// One class's fields, asked in turn. A field that is not published clears m_bAll, so
+// a set that did not all resolve warns once, naming its class, not once per field.
+struct SourceSharpNetClassResolve_t
+{
+	const SourceSharpNetStateAsk_t& m_Ask;
+	const char* m_pClassName;
+	bool m_bAll;
+
+	int32_t Offset(const char* pFieldName)
+	{
+		const int32_t nOffset = m_Ask.FieldOffset(m_pClassName, pFieldName);
+
+		if (nOffset < 0)
+			m_bAll = false;
+
+		return nOffset;
+	}
+
+	SourceSharpPackedField_t Packed(const char* pFieldName)
+	{
+		const int32_t nOffset = m_Ask.FieldOffset(m_pClassName, pFieldName);
+		const int32_t nBits = m_Ask.FieldBits(m_pClassName, pFieldName);
+
+		SourceSharpPackedField_t field = SourceSharpPayload_Place(nOffset, nBits);
+
+		if (!field.IsResolved())
+			m_bAll = false;
+
+		return field;
+	}
+};
+
 // pArea is the load's net-state area, read by the caller at the point of use: it goes
 // with each unload, and NULL (outside a load) answers false.
 bool SourceSharpPlayerFields_Resolve(SourceSharpPlayerFields_t* pFields, unsigned int nGeneration,

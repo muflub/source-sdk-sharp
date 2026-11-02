@@ -19,7 +19,8 @@ public class ServedInterfaceTests
     /// <summary>SourceSharpServes's body as <paramref name="target"/> compiles it.</summary>
     private static string ServedBy(string target)
     {
-        var entry = CMakeGraph.TargetEntries(target).Single(e => e.File.EndsWith("/" + Tu, StringComparison.Ordinal));
+        // The entry that compiles the TU: its own, or its unity batch's (which preprocesses it in place).
+        var entry = CMakeGraph.TargetEntries(target).Single(e => CMakeGraph.EntrySources(e).Any(s => s.EndsWith("/" + Tu, StringComparison.Ordinal)));
         var args = new List<string>();
         var words = ShellWords(entry.Command);
         for (int i = 0; i < words.Count; i++)

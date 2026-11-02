@@ -56,6 +56,12 @@ option(SS_COVERAGE "instrument every native target with --coverage" OFF)
 # lives in the object files (a .dSYM is dsymutil's job, not this build's).
 option(SS_SPLIT_DEBUG "release: split debug info into <name>.dbg on deploy" ON)
 
+# server.so and client.so compile as unity batches of this many sources
+# (CMake's UNITY_BUILD), so the headers they share are parsed once per batch.
+# 0 compiles one translation unit per source. tools/unity-check keeps every
+# batch size compiling and exporting what the per-file build does.
+set(SS_UNITY_BATCH 32 CACHE STRING "sources per unity batch of server.so and client.so; 0 = one TU per source")
+
 # The linker, for a clang build: lld, found on PATH. Distributions install it
 # versioned (ld.lld-22) with no unversioned ld.lld, hence --ld-path rather than
 # -fuse-ld=lld. SS_LINKER=bfd is the recorded fallback: GNU ld, through clang's
@@ -121,6 +127,18 @@ function(ss_stock_includes out)
     list(APPEND dirs ${SS_STOCK}/${sub})
   endforeach()
   set(${out} ${dirs} PARENT_SCOPE)
+endfunction()
+
+# ss_unity_target(<target>): compile the target in unity batches of SS_UNITY_BATCH
+# sources (none when it is 0). CMake never batches a source with COMPILE_OPTIONS of
+# its own.
+function(ss_unity_target tgt)
+  if(NOT SS_UNITY_BATCH MATCHES "^[0-9]+$")
+    message(FATAL_ERROR "SS_UNITY_BATCH is '${SS_UNITY_BATCH}': a number of sources, or 0 for none")
+  endif()
+  if(SS_UNITY_BATCH GREATER 0)
+    set_target_properties(${tgt} PROPERTIES UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE ${SS_UNITY_BATCH})
+  endif()
 endfunction()
 
 # ss_stock_target(<target>): what a target built from the clone needs beyond
@@ -207,8 +225,7 @@ else()
   set(SS_OPT_debug -O0 -ggdb3)
   set(SS_OPT_release -O2 -g -fno-strict-aliasing -ffast-math -fno-omit-frame-pointer -ftree-vectorize)
   # DWARF 4, the version the VPC build's gcc 10 wrote by default. clang 22
-  # defaults to DWARF 5, where GNU `nm -l` finds no line for a DATA symbol, and
-  # tools/globals-census reads exactly that to categorise each static.
+  # defaults to DWARF 5, where GNU `nm -l` finds no line for a DATA symbol.
   list(APPEND SS_OPT_debug -gdwarf-4)
   list(APPEND SS_OPT_release -gdwarf-4)
   if(NOT SS_IS_CLANG)

@@ -113,7 +113,7 @@ const int kMaxSites = 256;
 
 // Plain zero-initialised data with no constructor: it must work for the first
 // allocation any static initialiser makes, whatever the link order.
-struct State
+struct AllocState
 {
 	std::atomic<bool> lock;
 	Slot* slots;
@@ -129,7 +129,7 @@ struct State
 	int mode; // 0 not read, 1 off, 2 report, 3 abort
 };
 
-State g_State;
+AllocState g_State;
 thread_local int t_depth = 0;
 
 struct Guard

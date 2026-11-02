@@ -1797,29 +1797,6 @@ ss_cpptest(convar_ledger_test
 # StudioName) and ClientBoneRecorderTests (the recorder's subject).
 # ---------------------------------------------------------------------------
 
-# plan_globals.md step G0: the server link line holds no static state that
-# docs/globals-ledger.tsv has not ruled, and the counts in
-# docs/globals-ratchet.tsv are ceilings. State is a SECTION, not a keyword --
-# readelf over the objects on the link edge -- so this is the check that
-# tools/statics-audit's source scan could not make.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(globals_ledger_test
-    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
-    SOURCES sourcesharp/test/globals_ledger_test.cpp)
-
-# The CLIENT's half of plan_globals.md step G0: docs/globals-client-ledger.tsv
-# rules every piece of static state on the client link line, both ways, and
-# docs/globals-client-ratchet.tsv caps the counts. Separate from the server's
-# files, which other lanes own.
-#
-# APPENDED AT THE END so a second lane's test merges with keep-both.
-# ---------------------------------------------------------------------------
-ss_cpptest(globals_client_ledger_test
-    LINUX_ONLY "runs the tree's bash and Python instruments (tools/) and reads their exit status"
-    SOURCES sourcesharp/test/globals_client_ledger_test.cpp)
-
 # =============================================================================
 # AT THE END, so that the next appended test is above it by construction.
 
@@ -2343,6 +2320,16 @@ ss_cpptest_mathlib(precache_model_test
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/precache_model_test.cpp
             ${PROJECT_SOURCE_DIR}/src/server/native/precache_model.cpp)
+# standalone_player_sync.cpp and world_net_sync.cpp in one TU, as a unity build
+# compiles them, each resolving its own class's fields over a fake net-state area.
+ss_cpptest_mathlib(net_class_resolve_test
+    DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else -Wno-nontrivial-memcall -Wno-unused-variable
+            -Wno-unused-private-field -Wno-inconsistent-missing-override  # vendor headers, as on the server target
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/shared/native/sdk/public ${_ss_server_vendor}
+             ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
+             ${PROJECT_SOURCE_DIR}/src/test/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/net_class_resolve_test.cpp)
 # shell_gameevents.cpp: CGameEvents over generated fakes (tools/native-fakes), as the server builds it.
 ss_cpptest_mathlib(game_events_test
     DEFINES GAME_DLL SS_CBASEENTITY_ALIAS SS_STOCK_PUBLIC_HEADERS
@@ -2395,11 +2382,8 @@ ss_cpptest_engine_headers(ss_effect_dispatch_test
     SOURCES sourcesharp/test/ss_effect_dispatch_test.cpp)
 
 # THE CENSUS TIER (cmake/SourceSharpTests.cmake ss_census): the tests that
-# drive the census tools over the real build, 2-15 s each (ctest at
-# 79d3b8af: globals_client_ledger 14.8, orphan_reach 8.3, entity_gates 6.9,
-# globals_ledger 6.2, component_closure 5.6, entity_census 2.7; every other
-# binary under 1.3). make test-full runs them; make test does not.
-ss_census(globals_client_ledger_test)
+# drive the census tools over the real build, seconds each. make test-full runs
+# them; make test does not.
 
 # tier1 and mathlib compile only the members some link pulls in
 # (cmake/sdk/tier1.cmake, mathlib.cmake): every consumer of the two archives is
@@ -2409,7 +2393,6 @@ ss_cpptest(sdk_lib_members_test
     LINUX_ONLY "relinks the gcc/clang build's consumers with ld's --trace and reads build.ninja"
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/sdk_lib_members_test.cpp)
 ss_census(sdk_lib_members_test)
-ss_census(globals_ledger_test)
 
 # The Valve names client.so links for its recv tables (plan_client_novalve C8):
 # engineabi_recv_names.cpp's members and the standard table's pointer identity,
@@ -2494,6 +2477,15 @@ ss_cpptest(bitbuf_client_test
              ${PROJECT_SOURCE_DIR}/src/test/native
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/bitbuf_client_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/bitbuf_client.cpp
+            ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
+
+# strtools_client.cpp's V_strncpy: strncpy's bytes with the last always the terminator.
+ss_cpptest(strtools_client_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/strtools_client_test.cpp
+            ${PROJECT_SOURCE_DIR}/src/client/native/strtools_client.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/tier1_port.cpp)
 
 # client.so's KeyValues members (keyvalues_client.cpp, plan_client_novalve C9

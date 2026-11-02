@@ -47,9 +47,9 @@ OcclusionQueryObjectHandle_t QueryOf(int32_t nQuery)
 }
 
 // The commands a view's end answers with (PixelVisDraw's, in C#).
-CUtlVector<int32_t> s_Commands;
+CUtlVector<int32_t> s_PixelVisCommands;
 
-float FloatOf(int32_t nBits)
+float PixelVisFloat(int32_t nBits)
 {
 	float f;
 	memcpy(&f, &nBits, sizeof(f));
@@ -57,7 +57,7 @@ float FloatOf(int32_t nBits)
 }
 
 // One view's commands, in order.
-void Execute(const int32_t* pCmds, int nWords)
+void ExecutePixelVis(const int32_t* pCmds, int nWords)
 {
 	CMatRenderContextPtr pRenderContext(materials);
 	int i = 0;
@@ -71,7 +71,7 @@ void Execute(const int32_t* pCmds, int nWords)
 		}
 		else if (nKind == SS_PIXELVIS_CMD_DEPTHRANGE && i + 3 <= nWords)
 		{
-			pRenderContext->DepthRange(FloatOf(pCmds[i + 1]), FloatOf(pCmds[i + 2]));
+			pRenderContext->DepthRange(PixelVisFloat(pCmds[i + 1]), PixelVisFloat(pCmds[i + 2]));
 			i += 3;
 		}
 		else if (nKind == SS_PIXELVIS_CMD_PROXY && i + SS_PIXELVIS_PROXY_WORDS <= nWords)
@@ -85,7 +85,8 @@ void Execute(const int32_t* pCmds, int nWords)
 			meshBuilder.Begin(pMesh, MATERIAL_TRIANGLES, 4);
 			for (int v = 0; v < 12; v++)
 			{
-				const float pos[3] = {FloatOf(pVerts[v * 3]), FloatOf(pVerts[v * 3 + 1]), FloatOf(pVerts[v * 3 + 2])};
+				const float pos[3] = {PixelVisFloat(pVerts[v * 3]), PixelVisFloat(pVerts[v * 3 + 1]),
+									  PixelVisFloat(pVerts[v * 3 + 2])};
 				meshBuilder.Position3fv(pos);
 				meshBuilder.AdvanceVertex();
 			}
@@ -203,16 +204,17 @@ void ShellPixelVisEndView()
 		for (int c = 0; c < 4; c++)
 			view[13 + r * 4 + c] = m[r][c];
 
-	if (s_Commands.Count() < 4096)
-		s_Commands.SetCount(4096);
-	int32_t nWords = pManaged->EndView(view, SS_PIXELVIS_VIEW_FLOATS, s_Commands.Base(), s_Commands.Count());
-	if (nWords > s_Commands.Count())
+	if (s_PixelVisCommands.Count() < 4096)
+		s_PixelVisCommands.SetCount(4096);
+	int32_t nWords =
+		pManaged->EndView(view, SS_PIXELVIS_VIEW_FLOATS, s_PixelVisCommands.Base(), s_PixelVisCommands.Count());
+	if (nWords > s_PixelVisCommands.Count())
 	{
-		s_Commands.SetCount(nWords);
-		nWords = pManaged->Commands(s_Commands.Base(), s_Commands.Count());
+		s_PixelVisCommands.SetCount(nWords);
+		nWords = pManaged->Commands(s_PixelVisCommands.Base(), s_PixelVisCommands.Count());
 	}
-	if (nWords > 0 && nWords <= s_Commands.Count())
-		Execute(s_Commands.Base(), nWords);
+	if (nWords > 0 && nWords <= s_PixelVisCommands.Count())
+		ExecutePixelVis(s_PixelVisCommands.Base(), nWords);
 }
 
 void ShellPixelVisEndScene()

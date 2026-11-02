@@ -55,8 +55,6 @@
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 
-using namespace vgui;
-
 // IShimUiClient's draw primitives, one vgui::ISurface call each. Colours arrive
 // packed 0xRRGGBBAA; text arrives as UTF-16 and is widened to wchar_t. Draws are
 // refused outside the root panel's paint window, since a draw from elsewhere
@@ -85,7 +83,7 @@ const int kMaxVertices = 256;
 
 void SetColor(uint32_t nRgba)
 {
-	surface()->DrawSetColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF, nRgba & 0xFF);
+	vgui::surface()->DrawSetColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF, nRgba & 0xFF);
 }
 
 int Widen(const uint16_t* pText, int32_t nLength, wchar_t* pOut, int nOut)
@@ -121,7 +119,7 @@ void SourceSharp_UiDrawFilledRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1
 		return;
 
 	SetColor(nRgba);
-	surface()->DrawFilledRect(x0, y0, x1, y1);
+	vgui::surface()->DrawFilledRect(x0, y0, x1, y1);
 }
 
 void SourceSharp_UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba, int32_t nAlpha0,
@@ -131,7 +129,7 @@ void SourceSharp_UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int32_
 		return;
 
 	SetColor(nRgba);
-	surface()->DrawFilledRectFade(x0, y0, x1, y1, (unsigned int)nAlpha0, (unsigned int)nAlpha1, bHorizontal != 0);
+	vgui::surface()->DrawFilledRectFade(x0, y0, x1, y1, (unsigned int)nAlpha0, (unsigned int)nAlpha1, bHorizontal != 0);
 }
 
 void SourceSharp_UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
@@ -140,7 +138,7 @@ void SourceSharp_UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t 
 		return;
 
 	SetColor(nRgba);
-	surface()->DrawOutlinedRect(x0, y0, x1, y1);
+	vgui::surface()->DrawOutlinedRect(x0, y0, x1, y1);
 }
 
 void SourceSharp_UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
@@ -149,38 +147,38 @@ void SourceSharp_UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint
 		return;
 
 	SetColor(nRgba);
-	surface()->DrawLine(x0, y0, x1, y1);
+	vgui::surface()->DrawLine(x0, y0, x1, y1);
 }
 
 void SourceSharp_UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
 									float t0, float s1, float t1, uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen || x1 <= x0 || y1 <= y0 || !surface()->IsTextureIDValid(nTexture))
+	if (!g_UiPaint.bOpen || x1 <= x0 || y1 <= y0 || !vgui::surface()->IsTextureIDValid(nTexture))
 		return;
 
 	SetColor(nRgba);
-	surface()->DrawSetTexture(nTexture);
-	surface()->DrawTexturedSubRect(x0, y0, x1, y1, s0, t0, s1, t1);
+	vgui::surface()->DrawSetTexture(nTexture);
+	vgui::surface()->DrawTexturedSubRect(x0, y0, x1, y1, s0, t0, s1, t1);
 }
 
 void SourceSharp_UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba)
 {
 	if (!g_UiPaint.bOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices ||
-		!surface()->IsTextureIDValid(nTexture))
+		!vgui::surface()->IsTextureIDValid(nTexture))
 		return;
 
-	Vertex_t verts[kMaxVertices];
+	vgui::Vertex_t verts[kMaxVertices];
 	for (int i = 0; i < nVertices; i++)
 		verts[i].Init(Vector2D(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1]), Vector2D(pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]));
 
 	SetColor(nRgba);
-	surface()->DrawSetTexture(nTexture);
-	surface()->DrawTexturedPolygon(nVertices, verts);
+	vgui::surface()->DrawSetTexture(nTexture);
+	vgui::surface()->DrawTexturedPolygon(nVertices, verts);
 }
 
 void SourceSharp_UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength, uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen || nFont == INVALID_FONT)
+	if (!g_UiPaint.bOpen || nFont == vgui::INVALID_FONT)
 		return;
 
 	wchar_t wszText[kMaxText];
@@ -188,10 +186,10 @@ void SourceSharp_UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t*
 	if (n <= 0)
 		return;
 
-	surface()->DrawSetTextFont((HFont)nFont);
-	surface()->DrawSetTextColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF, nRgba & 0xFF);
-	surface()->DrawSetTextPos(x, y);
-	surface()->DrawPrintText(wszText, n);
+	vgui::surface()->DrawSetTextFont((vgui::HFont)nFont);
+	vgui::surface()->DrawSetTextColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF, nRgba & 0xFF);
+	vgui::surface()->DrawSetTextPos(x, y);
+	vgui::surface()->DrawPrintText(wszText, n);
 }
 
 void SourceSharp_UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLength, int32_t* pOutWidth,
@@ -201,7 +199,7 @@ void SourceSharp_UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLe
 		*pOutWidth = 0;
 	if (pOutHeight)
 		*pOutHeight = 0;
-	if (nFont == INVALID_FONT)
+	if (nFont == vgui::INVALID_FONT)
 		return;
 
 	wchar_t wszText[kMaxText];
@@ -209,7 +207,7 @@ void SourceSharp_UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLe
 		return;
 
 	int nWide = 0, nTall = 0;
-	surface()->GetTextSize((HFont)nFont, wszText, nWide, nTall);
+	vgui::surface()->GetTextSize((vgui::HFont)nFont, wszText, nWide, nTall);
 	if (pOutWidth)
 		*pOutWidth = nWide;
 	if (pOutHeight)
@@ -235,7 +233,7 @@ void SourceSharp_UiSetClip(int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1,
 
 int32_t SourceSharp_UiTextureCreate()
 {
-	return surface()->CreateNewTextureID(true);
+	return vgui::surface()->CreateNewTextureID(true);
 }
 
 void SourceSharp_UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t nWide, int32_t nTall)
@@ -243,7 +241,7 @@ void SourceSharp_UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t
 	if (!pRgba || nWide <= 0 || nTall <= 0)
 		return;
 
-	surface()->DrawSetTextureRGBA(nTexture, pRgba, nWide, nTall, 1, true);
+	vgui::surface()->DrawSetTextureRGBA(nTexture, pRgba, nWide, nTall, 1, true);
 }
 
 int32_t SourceSharp_UiFontAddFile(const char* pPath)
@@ -251,20 +249,20 @@ int32_t SourceSharp_UiFontAddFile(const char* pPath)
 	if (!pPath || !pPath[0])
 		return 0;
 
-	return surface()->AddCustomFontFile(NULL, pPath) ? 1 : 0;
+	return vgui::surface()->AddCustomFontFile(NULL, pPath) ? 1 : 0;
 }
 
 int32_t SourceSharp_UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags)
 {
 	if (!pFamily || !pFamily[0] || nTall <= 0)
-		return INVALID_FONT;
+		return vgui::INVALID_FONT;
 
-	HFont hFont = surface()->CreateFont();
-	if (hFont == INVALID_FONT)
-		return INVALID_FONT;
+	vgui::HFont hFont = vgui::surface()->CreateFont();
+	if (hFont == vgui::INVALID_FONT)
+		return vgui::INVALID_FONT;
 
-	if (!surface()->SetFontGlyphSet(hFont, pFamily, nTall, nWeight, 0, 0, nFlags))
-		return INVALID_FONT;
+	if (!vgui::surface()->SetFontGlyphSet(hFont, pFamily, nTall, nWeight, 0, 0, nFlags))
+		return vgui::INVALID_FONT;
 
 	return (int32_t)hFont;
 }
@@ -275,24 +273,24 @@ void SourceSharp_UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOutAs
 		*pOutTall = 0;
 	if (pOutAscent)
 		*pOutAscent = 0;
-	if (nFont == INVALID_FONT)
+	if (nFont == vgui::INVALID_FONT)
 		return;
 
 	if (pOutTall)
-		*pOutTall = surface()->GetFontTall((HFont)nFont);
+		*pOutTall = vgui::surface()->GetFontTall((vgui::HFont)nFont);
 	if (pOutAscent)
-		*pOutAscent = surface()->GetFontAscent((HFont)nFont, L'M');
+		*pOutAscent = vgui::surface()->GetFontAscent((vgui::HFont)nFont, L'M');
 }
 
 int32_t SourceSharp_UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances)
 {
-	if (nFont == INVALID_FONT || !pOutAdvances || nCount <= 0)
+	if (nFont == vgui::INVALID_FONT || !pOutAdvances || nCount <= 0)
 		return 0;
 
 	for (int i = 0; i < nCount; i++)
 	{
 		int a = 0, b = 0, c = 0;
-		surface()->GetCharABCwide((HFont)nFont, nFirst + i, a, b, c);
+		vgui::surface()->GetCharABCwide((vgui::HFont)nFont, nFirst + i, a, b, c);
 		pOutAdvances[i] = a + b + c;
 	}
 	return nCount;
@@ -301,7 +299,7 @@ int32_t SourceSharp_UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount
 void SourceSharp_UiPlaySound(const char* pPath)
 {
 	if (pPath && pPath[0])
-		surface()->PlaySound(pPath);
+		vgui::surface()->PlaySound(pPath);
 }
 
 // The engine's entity index for this client, 0 when there is no local player.
@@ -402,7 +400,7 @@ private:
 	{
 		// Screen coordinates are the root's own: it covers the screen from 0,0.
 		int x = 0, y = 0;
-		surface()->SurfaceGetCursorPos(x, y);
+		vgui::surface()->SurfaceGetCursorPos(x, y);
 		Forward(nKind, x, y, nCode, nChar, flDelta);
 	}
 
@@ -423,7 +421,7 @@ void SourceSharp_UiSetMenuInput(int32_t bMouse, int32_t bKeyboard)
 	pRoot->SetKeyBoardInputEnabled(bKeyboard != 0);
 	// To the front, so vgui2's input finds it first for the keyboard.
 	if (bMouse || bKeyboard)
-		surface()->MovePopupToFront(pRoot->GetVPanel());
+		vgui::surface()->MovePopupToFront(pRoot->GetVPanel());
 }
 
 void SourceSharp_UiSetCursor(int32_t nShape)
@@ -484,7 +482,7 @@ public:
 	virtual void OnScreenSizeChanged(int nOldWide, int nOldTall) OVERRIDE
 	{
 		int nWide, nTall;
-		surface()->GetScreenSize(nWide, nTall);
+		vgui::surface()->GetScreenSize(nWide, nTall);
 		if (IManagedUiClient* pUi = ManagedUiClient())
 			pUi->ScreenSizeChanged(nOldWide, nOldTall, nWide, nTall);
 	}

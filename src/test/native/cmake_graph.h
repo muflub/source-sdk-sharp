@@ -493,6 +493,38 @@ inline std::vector<CompileEntry> TargetEntries(const std::string& strTarget)
 	return out;
 }
 
+// A unity batch (CMake's UNITY_BUILD, SS_UNITY_BATCH) is one entry whose file,
+// CMakeFiles/<t>.dir/Unity/unity_<n>_cxx.cxx, #includes the batch's sources: it
+// stands for them, each compiled with the batch's command.
+inline bool IsUnityBatch(const CompileEntry& e)
+{
+	const size_t at = e.strFile.find("/Unity/unity_");
+	return at != std::string::npos && e.strFile.find("/CMakeFiles/") != std::string::npos &&
+		e.strFile.find('/', at + 1) == at + 6 && e.strFile.find('/', at + 7) == std::string::npos;
+}
+
+// The absolute sources one entry compiles: its file, or a unity batch's, in order.
+inline std::vector<std::string> EntrySources(const CompileEntry& e)
+{
+	if (!IsUnityBatch(e))
+		return std::vector<std::string>(1, e.strFile);
+	std::vector<std::string> out;
+	std::istringstream lines(ReadRequired(e.strFile, "a unity batch CMake writes at configure time -- re-run cmake"));
+	std::string strLine;
+	const std::string kOpen = "#include \"";
+	while (std::getline(lines, strLine))
+	{
+		if (strLine.compare(0, kOpen.size(), kOpen) != 0)
+			continue;
+		const size_t end = strLine.find('"', kOpen.size());
+		if (end != std::string::npos)
+			out.push_back(strLine.substr(kOpen.size(), end - kOpen.size()));
+	}
+	if (out.empty())
+		throw Error(e.strFile + " is a unity batch that includes no source");
+	return out;
+}
+
 // The pristine clone's src/ ($SOURCESHARP_VALVE_SDK, else valve-sdk.lock.local),
 // or empty when neither names one.
 inline std::string StockSrc()
@@ -543,7 +575,11 @@ inline std::set<std::string> CompiledSources(const std::string& strTarget)
 	std::set<std::string> compiled;
 	const std::vector<CompileEntry> entries = TargetEntries(strTarget);
 	for (size_t i = 0; i < entries.size(); i++)
-		compiled.insert(FarmRelative(entries[i].strFile));
+	{
+		const std::vector<std::string> srcs = EntrySources(entries[i]);
+		for (size_t j = 0; j < srcs.size(); j++)
+			compiled.insert(FarmRelative(srcs[j]));
+	}
 
 	const std::vector<std::string> listed = ListedSources(strTarget);
 	std::set<std::string> listedSet(listed.begin(), listed.end());
@@ -576,13 +612,18 @@ inline bool Compiles(const std::string& strTarget, const std::string& strFarmRel
 	return CompiledSources(strTarget).count(strFarmRelative) > 0;
 }
 
-// The compile command of one source of a target; throws if it is not compiled.
+// The compile command of one source of a target (a unity batch's, for a batched
+// source: its flags are the source's); throws if it is not compiled.
 inline std::string CompileCommand(const std::string& strTarget, const std::string& strFarmRelative)
 {
 	const std::vector<CompileEntry> entries = TargetEntries(strTarget);
 	for (size_t i = 0; i < entries.size(); i++)
-		if (FarmRelative(entries[i].strFile) == strFarmRelative)
-			return entries[i].strCommand;
+	{
+		const std::vector<std::string> srcs = EntrySources(entries[i]);
+		for (size_t j = 0; j < srcs.size(); j++)
+			if (FarmRelative(srcs[j]) == strFarmRelative)
+				return entries[i].strCommand;
+	}
 	throw Error(strFarmRelative + " is not compiled into '" + strTarget + "'");
 }
 

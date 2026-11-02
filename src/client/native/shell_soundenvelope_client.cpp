@@ -24,10 +24,10 @@
 
 #include "shell_standalone_client.h"
 
-namespace
-{
-
 // A copy of the caller's filter: it is usually a stack object, and the patch outlives it.
+// At file scope, not in an anonymous namespace: CSoundPatch holds one, and gcc refuses a
+// member of internal-linkage type in a class defined outside the main file
+// (-Wsubobject-linkage), which a unity batch makes every source.
 class CClientCopyFilter : public IRecipientFilter
 {
 public:
@@ -67,8 +67,6 @@ private:
 	bool m_bInitMessage;
 	CUtlVector<int> m_Recipients;
 };
-
-} // namespace
 
 class CSoundPatch
 {

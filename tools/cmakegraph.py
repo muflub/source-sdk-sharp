@@ -26,6 +26,14 @@ farm spelling through tools/module-map.tsv (repo_to_farm), so a caller asking
 path no module-map row covers is a GraphError, never a guess. Objects are
 absolute paths.
 
+A UNITY BATCH IS ITS SOURCES. server.so and client.so compile in CMake unity
+batches (SS_UNITY_BATCH): the entry's file is CMakeFiles/<t>.dir/Unity/
+unity_<n>_cxx.cxx, which #includes the batch's sources, and its object is the
+batch's. entry_sources() reads the batch, so "is X compiled into T" is answered
+for X itself, with the batch's command; an object stands for every source of
+its batch. A tool that needs one TU per source refuses a unity build
+(refuse_unity) and is pointed at -DSS_UNITY_BATCH=0.
+
 The C++ twin is src/test/native/cmake_graph.h, the C# one
 src/test/common/CMakeGraph.cs.
 """
@@ -179,6 +187,34 @@ def compile_commands(bdir):
     return entries
 
 
+# CMake names a unity batch unity_<n>_cxx.cxx (C: unity_<n>_c.c) under the target's Unity/.
+UNITY_FILE = re.compile(r'/CMakeFiles/[^/]+\.dir/Unity/unity_[0-9]+_(cxx\.cxx|c\.c)$')
+UNITY_INCLUDE = re.compile(r'^#include "([^"]+)"$', re.M)
+
+
+def is_unity(entry):
+    return bool(UNITY_FILE.search(entry['file']))
+
+
+def entry_sources(entry):
+    """The absolute sources one compile_commands entry compiles: its file, or a
+    unity batch's included sources, in order."""
+    if not is_unity(entry):
+        return [entry['file']]
+    srcs = UNITY_INCLUDE.findall(_read(entry['file'], 'a unity batch CMake writes at configure time -- re-run cmake'))
+    if not srcs:
+        raise GraphError('%s is a unity batch that includes no source' % entry['file'])
+    return srcs
+
+
+def refuse_unity(entries, who, path):
+    """For a tool that reads one TU per source: a unity build is refused, never read."""
+    batch = next((e['file'] for e in entries if is_unity(e)), None)
+    if batch:
+        raise SystemExit('%s: %s compiles unity batches (%s); this needs one TU per source: '
+                         'configure a build with -DSS_UNITY_BATCH=0' % (who, path, batch))
+
+
 def target_entries(target, bdir):
     mark = '/CMakeFiles/%s.dir/' % target
     found = [e for e in compile_commands(bdir) if mark in '/' + e['output']]
@@ -258,7 +294,7 @@ def farm_relative(path, bdir):
 def compiled_sources(target, bdir, repo=None):
     """THE ANSWER TO "IS X COMPILED INTO T": {farm-relative source}, equal to
     the CMakeLists list or a GraphError."""
-    compiled = {farm_relative(e['file'], bdir) for e in target_entries(target, bdir)}
+    compiled = {farm_relative(s, bdir) for e in target_entries(target, bdir) for s in entry_sources(e)}
     listed = set(listed_sources(target, repo))
     if config_of(bdir) == 'debug':
         listed |= set(debug_listed_sources(target, repo))
@@ -272,8 +308,10 @@ def compiled_sources(target, bdir, repo=None):
 
 
 def compile_command(target, source, bdir):
+    """The command that compiles `source` into `target`: a unity batch's, for a
+    batched source (its flags are the source's; its file and object the batch's)."""
     for e in target_entries(target, bdir):
-        if farm_relative(e['file'], bdir) == source:
+        if any(farm_relative(s, bdir) == source for s in entry_sources(e)):
             return e.get('command') or ' '.join(e['arguments'])
     raise GraphError("%s is not compiled into '%s'" % (source, target))
 
@@ -336,12 +374,13 @@ def link_edge(target, bdir):
 
 def link_objects(target, bdir):
     """The objects on the target's link edge (absolute), cross-checked: one per
-    compiled source, each present on disk."""
+    compile_commands entry (a unity batch is one), each present on disk."""
     objs = link_edge(target, bdir)['objects']
-    n = len(compiled_sources(target, bdir))
+    compiled_sources(target, bdir)  # refuses a stale database
+    n = len(target_entries(target, bdir))
     if len(objs) != n:
         raise GraphError("build.ninja links %d objects into '%s' but compile_commands.json "
-                         'compiles %d sources' % (len(objs), target, n))
+                         'has %d entries for it' % (len(objs), target, n))
     missing = [o for o in objs if not os.path.isfile(o)]
     if missing:
         raise GraphError("%d object(s) on '%s''s link edge are not built, e.g. %s -- build first"
@@ -349,22 +388,13 @@ def link_objects(target, bdir):
     return objs
 
 
-def object_source(obj, target, bdir):
-    """The farm-relative source an object of `target` was compiled from."""
-    for e in target_entries(target, bdir):
-        o = e['output'] if os.path.isabs(e['output']) else os.path.join(bdir, e['output'])
-        if os.path.normpath(o) == os.path.normpath(obj):
-            return farm_relative(e['file'], bdir)
-    raise GraphError('%s is not an object of %s in compile_commands.json' % (obj, target))
-
-
 def object_sources(target, bdir):
-    """{absolute object path: farm-relative source} for every object on the
-    target's link edge."""
+    """{absolute object path: [farm-relative source, ...]} for every object on
+    the target's link edge: one source, or a unity batch's."""
     by_out = {}
     for e in target_entries(target, bdir):
         o = e['output'] if os.path.isabs(e['output']) else os.path.join(bdir, e['output'])
-        by_out[os.path.normpath(o)] = farm_relative(e['file'], bdir)
+        by_out[os.path.normpath(o)] = [farm_relative(s, bdir) for s in entry_sources(e)]
     out = {}
     for obj in link_objects(target, bdir):
         src = by_out.get(os.path.normpath(obj))
@@ -403,7 +433,8 @@ def deployed_so(target, bdir):
 def main(argv):
     """cmakegraph.py {objects|sources|output|deployed|libs} TARGET [--build-dir D | --config C]
 
-    objects   "<absolute object> <farm-relative source>" per object on the link edge
+    objects   "<absolute object> <farm-relative source>..." per object on the link edge
+              (a unity batch's object names each of its sources)
     sources   the farm-relative sources compiled into TARGET, sorted
     output    the linked .so/.a in the build dir
     deployed  where the .so is deployed
@@ -423,8 +454,8 @@ def main(argv):
     bdir = os.path.abspath(a.build_dir) if a.build_dir else build_dir(a.config)
     try:
         if a.what == 'objects':
-            for obj, src in object_sources(target, bdir).items():
-                print('%s %s' % (obj, src))
+            for obj, srcs in object_sources(target, bdir).items():
+                print('%s %s' % (obj, ' '.join(srcs)))
         elif a.what == 'sources':
             for src in sorted(compiled_sources(target, bdir)):
                 print(src)

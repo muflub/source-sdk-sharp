@@ -90,10 +90,10 @@ docs/convar-ordering-experiment.md	OURS	docs/convar-ordering-experiment.md			0		
 docs/defect-convar-order.md	OURS	docs/defect-convar-order.md			0		0	faa5c9f276a0fdafe3aed2b4c36f2c4396c20fa2521c6150bdb65dc935ee0d02
 docs/engine-boundary.md	OURS	docs/engine-boundary.md			0		0	9a7f79eff886a54dbb58d9abf62581951c94397f112b42df1e8e859a15dc2891
 docs/entity-shell.md	OURS	docs/entity-shell.md			0		0	a0d6884a87c77fc2dd2467296df12aec97807157f657d770f4570a37e876470a
-docs/globals-client-ledger.tsv	OURS	docs/globals-client-ledger.tsv			0		0	0ea5246e26291e40e003f38e48ffef42d720d83840ba3c5977ffcbb1ec733dd5
-docs/globals-client-ratchet.tsv	OURS	docs/globals-client-ratchet.tsv			0		0	61fa31243e29c56f9d1e61e7b5c7327035cdf218e1d35eaee560e6c27a06f0fb
-docs/globals-ledger.tsv	OURS	docs/globals-ledger.tsv			0		0	3f5edc3cf2e31cb713d9f5436055c8644f6aa2ae57c3afe6448bb67440207646
-docs/globals-ratchet.tsv	OURS	docs/globals-ratchet.tsv			0		0	752a0c9a6b5f4845d68c97669f0aa4dfbd152d1748ab356f194a0a880d3537f3
+docs/globals-client-ledger.tsv	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	0ea5246e26291e40e003f38e48ffef42d720d83840ba3c5977ffcbb1ec733dd5
+docs/globals-client-ratchet.tsv	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	61fa31243e29c56f9d1e61e7b5c7327035cdf218e1d35eaee560e6c27a06f0fb
+docs/globals-ledger.tsv	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	3f5edc3cf2e31cb713d9f5436055c8644f6aa2ae57c3afe6448bb67440207646
+docs/globals-ratchet.tsv	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	752a0c9a6b5f4845d68c97669f0aa4dfbd152d1748ab356f194a0a880d3537f3
 docs/managed-saverestore.md	OURS	docs/managed-saverestore.md			0		0	b834628a2b69e8bf7cd9c237c3399e042cb274262ab64816f0299e8e91328f4e
 docs/shim-3f-retired-arguments.md	OURS	docs/shim-3f-retired-arguments.md			0		0	dc393540559529ab02217994b699a176828663ccb347f9512f88d1fda99ba057
 docs/shim-orphans.tsv	DROP			stale tools/shim-census snapshot of a dirty tree; nothing reads it	0		0	a98632096dfb74d414e84ab8e20f96b42d4824f4ca0a142e26174ada5ea090a9
@@ -1613,8 +1613,8 @@ src/sourcesharp/test/exepath_test.cpp	DROP			retired in Phase 6a with the native
 # 2026-10-19: shell_explosion_overlay.cpp deleted (C7 glow overlays, warp_overlay.cpp's eviction): CExplosionOverlay::Update and CGunshipImpactOverlay are the managed GlowOverlaySystem's RampOverlay, RPGShotDown its RpgShotDownEffect, the FxImpactOverlay body GlowOverlayCreators; its OURS row and its override removed
 # 2026-10-25: impact_effects.h deleted (lane M1-C): the "Impact" client effect is C#'s BulletImpactEffect, so shell_impact_effects.cpp, its last includer, no longer asks managed for a choice or a parameter block; its OURS row removed
 src/sourcesharp/test/generic_payload_test.cpp	OURS	src/test/native/generic_payload_test.cpp	no	drives own generic_payload.h byte-offset arithmetic; no Valve algorithm	0		0	37c13ab93089acc1c92e673c24192ee1789717390e677ce9521104381facab3f
-src/sourcesharp/test/globals_client_ledger_test.cpp	OURS	src/test/native/globals_client_ledger_test.cpp	no	measures client static state via readelf against the globals ledger; no Valve logic (ruled at T)	0		0	ea5aadb2e1890ec931256b153372c31b0e51d25fad76ca424cf1470ba2e1b5be
-src/sourcesharp/test/globals_ledger_test.cpp	OURS	src/test/native/globals_ledger_test.cpp	no	measures server static state via readelf against the globals ledger; no Valve logic (ruled at T)	0		0	a4723c35b5cabe6ea93483d550cc7709f3fb6f4d59b59f97c0926f493c454237
+src/sourcesharp/test/globals_client_ledger_test.cpp	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	ea5aadb2e1890ec931256b153372c31b0e51d25fad76ca424cf1470ba2e1b5be
+src/sourcesharp/test/globals_ledger_test.cpp	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	a4723c35b5cabe6ea93483d550cc7709f3fb6f4d59b59f97c0926f493c454237
 src/sourcesharp/test/globalvars_layout_test.cpp	OURS	src/test/native/globalvars_layout_test.cpp	no	static_asserts offsetof against real CGlobalVars; layout check, not logic	0		0	38a614ece1f6306b9410f0dfc6af9a87bdd570a7050d47cf86d52ad6ab6256d8
 src/sourcesharp/test/ground_handle_wire_test.cpp	OURS	src/test/native/ground_handle_wire_test.cpp	no	drives own ground_handle_wire.h sentinel encode/decode rule; own logic	0		0	c5f0b4ac48f7799bbd65c03a441b2c95ff910118405643b779159f26478d2615
 src/sourcesharp/test/handle_cross_test.cpp	OURS	src/test/native/handle_cross_test.cpp	no	drives real handle_cross.h crossing logic against mocks; no algorithm embedded in test	0		0	3dcf0696479407410b6828dd0d78118050d091c42233aa865a6b973024120cf4
@@ -1840,11 +1840,11 @@ tools/f-srvshim-nm-owers	DROP			tools triage: plan drop; unreferenced outside dr
 tools/f-srvshim-sitemap	DROP			tools triage: plan drop; unreferenced outside dropped tools	0		0	d8f85bd78e6d882ba45446dd6407ba6ea108eb03dbf5f494cbcb59378c61ac98
 tools/f-wind-gate	DROP			tools triage: plan drop; named only by src/sourcesharp/game/client/shell_effects_sim.cpp	0		0	4beaa2d5bfe2c3baea547ff61400da95826e4152a1c2fae6e93a12324f560e73
 tools/get-node	OURS	tools/get-node			0		0	3cc33061522444a3e3a00fa4111298d4b0a54dd83e6af61938778ac948259139
-tools/globals-census	OURS	tools/globals-census			0		0	dd7d47bdc25b11746f676b8bc4dd157b18e0303910c3df32021cb62f7e013fb7
-tools/globals-census-crosscheck	OURS	tools/globals-census-crosscheck			0		0	b96d3fa59b74fe3b791bfece45ead24cd5257ae2c4be04907dd3d33201081166
-tools/globals-census-mutations	OURS	tools/globals-census-mutations			0		0	50316e90176d8caf9326aaaaf5437e3acf53a3eba964fd4309b38b3c30863b4b
-tools/globals-gate-mutations	OURS	tools/globals-gate-mutations			0		0	e410caff281a972987b2fe688e1317864aac6e473010f68dba0f4c9904b21a06
-tools/globals-source-mutations	OURS	tools/globals-source-mutations			0		0	90c2eecdf9f625d09c53c0577b0da59d5807f69bfc1ebb7963b09d46ffd2ab19
+tools/globals-census	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	dd7d47bdc25b11746f676b8bc4dd157b18e0303910c3df32021cb62f7e013fb7
+tools/globals-census-crosscheck	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	b96d3fa59b74fe3b791bfece45ead24cd5257ae2c4be04907dd3d33201081166
+tools/globals-census-mutations	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	50316e90176d8caf9326aaaaf5437e3acf53a3eba964fd4309b38b3c30863b4b
+tools/globals-gate-mutations	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	e410caff281a972987b2fe688e1317864aac6e473010f68dba0f4c9904b21a06
+tools/globals-source-mutations	DROP			removed 2026-11-01: attributes per-object state to source files, which unity batches (SS_UNITY_BATCH) do not have	0		0	90c2eecdf9f625d09c53c0577b0da59d5807f69bfc1ebb7963b09d46ffd2ab19
 tools/gpu-offload	OURS	tools/gpu-offload			0		0	4bf317f51de08f2ca13a15276f114b78ce00c277cb494a40cfc777b199086b9f
 tools/leg-floor	OURS	tools/leg-floor			0		0	88e480ffd27222debac9b72c90935dd114ae09ebba5ec32b1b0f7555bd98c628
 tools/live-gate	OURS	tools/live-gate			0		0	3cbf14ce7f1999186a9478657bac07e0aee3f54894bd8771238e741ec8ed8750

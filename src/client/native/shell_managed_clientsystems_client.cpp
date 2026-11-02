@@ -15,7 +15,7 @@
 #include "imanaged_areas_client.h"
 
 // Must match ClientSystemStage in C#.
-enum ClientSystemStage_t
+enum ManagedClientSystemStage_t
 {
 	SS_CLIENT_SYSTEM_STAGE_Init = 0,
 	SS_CLIENT_SYSTEM_STAGE_PostInit = 1,

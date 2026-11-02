@@ -11,30 +11,6 @@
 
 #include "standalone_player_sync.h"
 
-// One warning per failed resolve, naming the class, not one per field.
-static int ResolveOffset(const SourceSharpNetStateAsk_t& ask, const char* pField, bool* pbAll)
-{
-	const int nOffset = ask.FieldOffset(SOURCESHARP_WORLD_NETCLASS, pField);
-
-	if (nOffset < 0)
-		*pbAll = false;
-
-	return nOffset;
-}
-
-static SourceSharpPackedField_t ResolvePacked(const SourceSharpNetStateAsk_t& ask, const char* pField, bool* pbAll)
-{
-	const int nOffset = ask.FieldOffset(SOURCESHARP_WORLD_NETCLASS, pField);
-	const int nBits = ask.FieldBits(SOURCESHARP_WORLD_NETCLASS, pField);
-
-	SourceSharpPackedField_t field = SourceSharpPayload_Place(nOffset, nBits);
-
-	if (!field.IsResolved())
-		*pbAll = false;
-
-	return field;
-}
-
 bool SourceSharpWorldFields_Resolve(SourceSharpWorldFields_t* pFields, unsigned int nGeneration, NetStateArea_t* pArea)
 {
 	if (!pFields || !pArea)
@@ -42,22 +18,22 @@ bool SourceSharpWorldFields_Resolve(SourceSharpWorldFields_t* pFields, unsigned 
 
 	const SourceSharpNetStateAsk_t ask = {*pArea};
 
-	bool bAll = true;
+	SourceSharpNetClassResolve_t resolve = {ask, SOURCESHARP_WORLD_NETCLASS, true};
 
 	// The C# property names, not stock's member spellings.
-	pFields->nWaveHeight = ResolveOffset(ask, "WaveHeight", &bAll);
-	pFields->nMaxOccludeeArea = ResolveOffset(ask, "MaxOccludeeArea", &bAll);
-	pFields->nMinOccluderArea = ResolveOffset(ask, "MinOccluderArea", &bAll);
-	pFields->nMaxPropScreenSpaceWidth = ResolveOffset(ask, "MaxPropScreenSpaceWidth", &bAll);
-	pFields->nMinPropScreenSpaceWidth = ResolveOffset(ask, "MinPropScreenSpaceWidth", &bAll);
-	pFields->nWorldMins = ResolveOffset(ask, "WorldMins", &bAll);
-	pFields->nWorldMaxs = ResolveOffset(ask, "WorldMaxs", &bAll);
-	pFields->nDetailSpriteMaterial = ResolveOffset(ask, "DetailSpriteMaterial", &bAll);
+	pFields->nWaveHeight = resolve.Offset("WaveHeight");
+	pFields->nMaxOccludeeArea = resolve.Offset("MaxOccludeeArea");
+	pFields->nMinOccluderArea = resolve.Offset("MinOccluderArea");
+	pFields->nMaxPropScreenSpaceWidth = resolve.Offset("MaxPropScreenSpaceWidth");
+	pFields->nMinPropScreenSpaceWidth = resolve.Offset("MinPropScreenSpaceWidth");
+	pFields->nWorldMins = resolve.Offset("WorldMins");
+	pFields->nWorldMaxs = resolve.Offset("WorldMaxs");
+	pFields->nDetailSpriteMaterial = resolve.Offset("DetailSpriteMaterial");
 
-	pFields->StartDark = ResolvePacked(ask, "StartDark", &bAll);
-	pFields->ColdWorld = ResolvePacked(ask, "ColdWorld", &bAll);
+	pFields->StartDark = resolve.Packed("StartDark");
+	pFields->ColdWorld = resolve.Packed("ColdWorld");
 
-	if (!bAll)
+	if (!resolve.m_bAll)
 	{
 		Warning("[SourceSharp] world sync: worldspawn's fields did not all resolve — is "
 				"SourceSharp.Shared.WorldNetState declared on this side?\n");

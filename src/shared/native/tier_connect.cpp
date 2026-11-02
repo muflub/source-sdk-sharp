@@ -2,12 +2,6 @@
 // The tier libraries are not linked; this does their engine-factory lookups into
 // globals of the same names and types, so every reader links as before.
 
-// Valve's headers declare `cvar` DLL_EXPORT, and defining it here would export
-// it; nothing imports it from a game DLL, so DLL_EXPORT is a plain declaration.
-#include "tier0/platform.h"
-#undef DLL_EXPORT
-#define DLL_EXPORT extern "C"
-
 #include "tier_connect.h"
 
 #include "datacache/imdlcache.h"

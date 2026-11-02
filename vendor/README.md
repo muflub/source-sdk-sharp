@@ -37,3 +37,5 @@ stopped reading the fork; a line at its top says so.
 | `client/game/client/c_rope.h` | `C_RopeKeyframe` over our `CShellRenderable` |
 | `client/game/client/c_env_fog_controller.h` | `DECLARE_CLASS_GAMEROOT` in place of `DECLARE_CLASS`: its base, `C_BaseEntity`, is our entity face, which declares no `CheckDeclareClass` for an MSVC debug build to validate against |
 | `shared/public/tier0/platform.h` | `SS_ABI_PICK( msvc, itanium )`, for the byte stubs `tools/vendor-fields` writes where the two record layouts disagree |
+| `shared/public/tier1/convar.h` | `#pragma warning(push)`/`pop` around `CConCommandMemberAccessor`, not `disable`/`default`: `default` turned C4355 back on (over `/wd4355`) for the rest of a unity batch |
+| `shared/public/icvar.h`, `shared/public/tier1/tier1.h` | `cvar` declared `extern "C"`, not `DLL_EXPORT`: no game DLL exports it, and a declaration that depended on include order exported it from a unity batch |

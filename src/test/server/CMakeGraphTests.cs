@@ -24,11 +24,14 @@ public class CMakeGraphTests
     [InlineData(CMakeGraph.Server, "out/server.so")]
     [InlineData(CMakeGraph.Client, "out/client.so")]
     [InlineData(CMakeGraph.Host, "out/libmanaged_host.so")]
-    public void TheLinkEdgeNamesOneObjectPerCompiledSource(string target, string output)
+    public void TheLinkEdgeNamesOneObjectPerCompileEntry(string target, string output)
     {
+        // One object per entry (a unity batch is one), and the entries' sources are the target's.
         CMakeGraph.LinkEdge edge = CMakeGraph.Link(target);
+        IReadOnlyList<CMakeGraph.Entry> entries = CMakeGraph.TargetEntries(target);
         Assert.Equal(output, edge.Output);
-        Assert.Equal(CMakeGraph.CompiledSources(target).Count, edge.Objects.Count);
+        Assert.Equal(entries.Count, edge.Objects.Count);
+        Assert.Equal(CMakeGraph.CompiledSources(target).Count, entries.Sum(e => CMakeGraph.EntrySources(e).Count));
         Assert.All(edge.Objects, o => Assert.Contains($"CMakeFiles/{target}.dir/", o, StringComparison.Ordinal));
     }
 

@@ -46,6 +46,7 @@
 
 #include "cmake_graph.h"
 
+#include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <string>
@@ -548,18 +549,25 @@ std::vector<std::string> ServerLinkLine()
 	return out;
 }
 
-// The proof-of-read for the link line: the object of the server's own overlay
-// shim, which imports the overlay entries the positive control below names.
+// The proof-of-read for the link line: the object that compiles the server's own
+// overlay shim (src/server/native/shell_debugoverlays.cpp, alone or in a unity
+// batch), which imports the overlay entries the positive control below names.
 bool HasOverlayShimObject(const std::vector<std::string>& objs)
 {
-	// CMake names an object after its source's path: this repo's
-	// src/server/native/shell_debugoverlays.cpp compiles to
-	// .../server_sourcesharp.dir/shell_debugoverlays.cpp.o.
-	const std::string kObj = "/server_sourcesharp.dir/shell_debugoverlays.cpp.o";
-	for (size_t i = 0; i < objs.size(); i++)
+	const std::string kSrc = "/src/server/native/shell_debugoverlays.cpp";
+	const std::string strBuild = cmake_graph::BuildDir();
+	const std::vector<cmake_graph::CompileEntry> entries = cmake_graph::TargetEntries(cmake_graph::kServer);
+	for (size_t i = 0; i < entries.size(); i++)
 	{
-		if (objs[i].size() >= kObj.size() && objs[i].compare(objs[i].size() - kObj.size(), kObj.size(), kObj) == 0)
-			return true;
+		const std::vector<std::string> srcs = cmake_graph::EntrySources(entries[i]);
+		for (size_t j = 0; j < srcs.size(); j++)
+		{
+			if (srcs[j].size() < kSrc.size() || srcs[j].compare(srcs[j].size() - kSrc.size(), kSrc.size(), kSrc) != 0)
+				continue;
+			const std::string strObj =
+				entries[i].strOutput[0] == '/' ? entries[i].strOutput : strBuild + "/" + entries[i].strOutput;
+			return std::find(objs.begin(), objs.end(), strObj) != objs.end();
+		}
 	}
 	return false;
 }
@@ -601,7 +609,7 @@ TEST(OverlayLinkLine, TheGraphNamesAServerLinkWithObjectsOnIt)
 	// edge is the server's.)
 	ASSERT_TRUE(HasOverlayShimObject(objs))
 		<< "read " << objs.size() << " objects off server_sourcesharp's link edge in " << cmake_graph::BuildDir()
-		<< "/build.ninja and none is shell_debugoverlays.cpp.o"
+		<< "/build.ninja and none compiles shell_debugoverlays.cpp"
 		<< " -- run `make debug` first. Working directory: " << ResolvedCwd();
 }
 

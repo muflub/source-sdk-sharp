@@ -246,33 +246,33 @@ void DrawTextureQuad(IMaterial* pMaterial, float w, float h)
 	pMesh->Draw();
 }
 
-SSShadowEnv s_Env;
+SSShadowEnv s_ShadowEnv;
 
 void BuildEnv()
 {
-	s_Env.ppShadowMgr = &shadowmgr;
-	s_Env.ppStaticPropMgr = &staticpropmgr;
-	s_Env.ppMaterials = &materials;
-	s_Env.ppHardwareConfig = &g_pMaterialSystemHardwareConfig;
-	s_Env.ppModelRender = &modelrender;
-	s_Env.ppRender = &render;
-	s_Env.ppEngine = &engine;
-	s_Env.ppModelInfo = &modelinfo;
-	s_Env.ppDebugOverlay = &debugoverlay;
-	s_Env.ppGlobals = reinterpret_cast<CGlobalVarsBase* const*>(&gpGlobals);
-	s_Env.pfnInitMaterial = InitMaterial;
-	s_Env.pfnShutdownMaterial = ShutdownMaterial;
-	s_Env.pfnMaterial = Material;
-	s_Env.pfnInitRenderTarget = InitRenderTarget;
-	s_Env.pfnShutdownTexture = ShutdownTexture;
-	s_Env.pfnTexture = Texture;
-	s_Env.pfnFlashlightTexture = FlashlightTexture;
-	s_Env.pfnAddRestoreFunc = AddRestoreFunc;
-	s_Env.pfnRemoveRestoreFunc = RemoveRestoreFunc;
-	s_Env.pfnToolsMode = ToolsMode;
-	s_Env.pfnRenderableOf = RenderableOf;
-	s_Env.pfnUpdateShadowDepthTexture = UpdateShadowDepthTexture;
-	s_Env.pfnDrawTextureQuad = DrawTextureQuad;
+	s_ShadowEnv.ppShadowMgr = &shadowmgr;
+	s_ShadowEnv.ppStaticPropMgr = &staticpropmgr;
+	s_ShadowEnv.ppMaterials = &materials;
+	s_ShadowEnv.ppHardwareConfig = &g_pMaterialSystemHardwareConfig;
+	s_ShadowEnv.ppModelRender = &modelrender;
+	s_ShadowEnv.ppRender = &render;
+	s_ShadowEnv.ppEngine = &engine;
+	s_ShadowEnv.ppModelInfo = &modelinfo;
+	s_ShadowEnv.ppDebugOverlay = &debugoverlay;
+	s_ShadowEnv.ppGlobals = reinterpret_cast<CGlobalVarsBase* const*>(&gpGlobals);
+	s_ShadowEnv.pfnInitMaterial = InitMaterial;
+	s_ShadowEnv.pfnShutdownMaterial = ShutdownMaterial;
+	s_ShadowEnv.pfnMaterial = Material;
+	s_ShadowEnv.pfnInitRenderTarget = InitRenderTarget;
+	s_ShadowEnv.pfnShutdownTexture = ShutdownTexture;
+	s_ShadowEnv.pfnTexture = Texture;
+	s_ShadowEnv.pfnFlashlightTexture = FlashlightTexture;
+	s_ShadowEnv.pfnAddRestoreFunc = AddRestoreFunc;
+	s_ShadowEnv.pfnRemoveRestoreFunc = RemoveRestoreFunc;
+	s_ShadowEnv.pfnToolsMode = ToolsMode;
+	s_ShadowEnv.pfnRenderableOf = RenderableOf;
+	s_ShadowEnv.pfnUpdateShadowDepthTexture = UpdateShadowDepthTexture;
+	s_ShadowEnv.pfnDrawTextureQuad = DrawTextureQuad;
 }
 
 // The five stages stock's CClientShadowMgr had bodies for, each one managed call. With
@@ -314,17 +314,17 @@ public:
 	void PreRender() override { ShellShadows_PreRender(); }
 };
 
-CShadowMgrGameSystem s_GameSystem;
+CShadowMgrGameSystem s_ShadowGameSystem;
 
 } // namespace
 
 // Built on the first ask: the engine interfaces it points at are set after load.
 void* ShadowEnv_Acquire()
 {
-	if (!s_Env.pfnRenderableOf)
+	if (!s_ShadowEnv.pfnRenderableOf)
 		BuildEnv();
 	s_Queue.SetSink(HandOverToManaged, NULL);
-	return &s_Env;
+	return &s_ShadowEnv;
 }
 
 void ShellShadows_MarkDirty(const CBaseHandle& hEntity, bool bTextureDirty)
@@ -427,7 +427,7 @@ void ShellShadows_RenderShadowTexture(int w, int h)
 
 CClientSystem* ClientShadowMgrGameSystem()
 {
-	return &s_GameSystem;
+	return &s_ShadowGameSystem;
 }
 
 // The texture table is the environment's, so a FlashlightState_t the manager hands the

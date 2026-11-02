@@ -151,9 +151,10 @@ int SourceSharp_StandaloneBlobOffset()
 // The entity factory dictionary. Native because Create is called synchronously from the
 // map parse and CreateEntityByName. The name table is entity_factory_table.h.
 
-namespace
-{
-
+// At file scope, not in an anonymous namespace: CServerEntityLifecycle::Impl holds one,
+// and gcc refuses a member of internal-linkage type in a class defined outside the main
+// file (-Wsubobject-linkage), which a unity batch makes every source.
+//
 // Refusals are printed once per classname and tallied for dumpentityfactories; the
 // tally survives map changes.
 class CSourceSharpFactoryDictionary : public ss::IEntityFactoryDictionary
@@ -252,8 +253,6 @@ private:
 				pClassName);
 	}
 };
-
-} // namespace
 
 std::unique_ptr<ss::IEntityFactory> SourceSharp_NewWorldFactory();
 

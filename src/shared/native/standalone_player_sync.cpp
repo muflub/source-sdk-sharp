@@ -26,30 +26,6 @@
 #include "PlayerState.h"
 #include "standalone_player_sync.h"
 
-// One warning per failed resolve attempt, not per field.
-static int ResolveOffset(const SourceSharpNetStateAsk_t& ask, const char* pField, bool* pbAll)
-{
-	const int nOffset = ask.FieldOffset("player", pField);
-
-	if (nOffset < 0)
-		*pbAll = false;
-
-	return nOffset;
-}
-
-static SourceSharpPackedField_t ResolvePacked(const SourceSharpNetStateAsk_t& ask, const char* pField, bool* pbAll)
-{
-	const int nOffset = ask.FieldOffset("player", pField);
-	const int nBits = ask.FieldBits("player", pField);
-
-	SourceSharpPackedField_t field = SourceSharpPayload_Place(nOffset, nBits);
-
-	if (!field.IsResolved())
-		*pbAll = false;
-
-	return field;
-}
-
 bool SourceSharpPlayerFields_Resolve(SourceSharpPlayerFields_t* pFields, unsigned int nGeneration,
 									 NetStateArea_t* pArea)
 {
@@ -58,42 +34,42 @@ bool SourceSharpPlayerFields_Resolve(SourceSharpPlayerFields_t* pFields, unsigne
 
 	const SourceSharpNetStateAsk_t ask = {*pArea};
 
-	bool bAll = true;
+	SourceSharpNetClassResolve_t resolve = {ask, "player", true};
 
-	pFields->nHealth = ResolveOffset(ask, "Health", &bAll);
-	pFields->nMaxSpeed = ResolveOffset(ask, "MaxSpeed", &bAll);
-	pFields->nFallVelocity = ResolveOffset(ask, "FallVelocity", &bAll);
-	pFields->nDuckTime = ResolveOffset(ask, "DuckTime", &bAll);
-	pFields->nDuckJumpTime = ResolveOffset(ask, "DuckJumpTime", &bAll);
-	pFields->nJumpTime = ResolveOffset(ask, "JumpTime", &bAll);
-	pFields->nStepSize = ResolveOffset(ask, "StepSize", &bAll);
-	pFields->nWaterJumpTime = ResolveOffset(ask, "WaterJumpTime", &bAll);
-	pFields->nSurfaceFriction = ResolveOffset(ask, "SurfaceFriction", &bAll);
-	pFields->nOldForwardMove = ResolveOffset(ask, "OldForwardMove", &bAll);
-	pFields->nFlags = ResolveOffset(ask, "Flags", &bAll);
-	pFields->nOldButtons = ResolveOffset(ask, "OldButtons", &bAll);
-	pFields->nTickBase = ResolveOffset(ask, "TickBase", &bAll);
-	pFields->nGroundEntity = ResolveOffset(ask, "GroundEntity", &bAll);
+	pFields->nHealth = resolve.Offset("Health");
+	pFields->nMaxSpeed = resolve.Offset("MaxSpeed");
+	pFields->nFallVelocity = resolve.Offset("FallVelocity");
+	pFields->nDuckTime = resolve.Offset("DuckTime");
+	pFields->nDuckJumpTime = resolve.Offset("DuckJumpTime");
+	pFields->nJumpTime = resolve.Offset("JumpTime");
+	pFields->nStepSize = resolve.Offset("StepSize");
+	pFields->nWaterJumpTime = resolve.Offset("WaterJumpTime");
+	pFields->nSurfaceFriction = resolve.Offset("SurfaceFriction");
+	pFields->nOldForwardMove = resolve.Offset("OldForwardMove");
+	pFields->nFlags = resolve.Offset("Flags");
+	pFields->nOldButtons = resolve.Offset("OldButtons");
+	pFields->nTickBase = resolve.Offset("TickBase");
+	pFields->nGroundEntity = resolve.Offset("GroundEntity");
 
-	pFields->Alive = ResolvePacked(ask, "Alive", &bAll);
-	pFields->Ducked = ResolvePacked(ask, "Ducked", &bAll);
-	pFields->Ducking = ResolvePacked(ask, "Ducking", &bAll);
-	pFields->InDuckJump = ResolvePacked(ask, "InDuckJump", &bAll);
-	pFields->AllowAutoMovement = ResolvePacked(ask, "AllowAutoMovement", &bAll);
-	pFields->WaterLevel = ResolvePacked(ask, "WaterLevel", &bAll);
-	pFields->WaterType = ResolvePacked(ask, "WaterType", &bAll);
-	pFields->MoveType = ResolvePacked(ask, "MoveType", &bAll);
+	pFields->Alive = resolve.Packed("Alive");
+	pFields->Ducked = resolve.Packed("Ducked");
+	pFields->Ducking = resolve.Packed("Ducking");
+	pFields->InDuckJump = resolve.Packed("InDuckJump");
+	pFields->AllowAutoMovement = resolve.Packed("AllowAutoMovement");
+	pFields->WaterLevel = resolve.Packed("WaterLevel");
+	pFields->WaterType = resolve.Packed("WaterType");
+	pFields->MoveType = resolve.Packed("MoveType");
 
-	pFields->nOrigin = ResolveOffset(ask, "Origin", &bAll);
-	pFields->nVelocity = ResolveOffset(ask, "Velocity", &bAll);
-	pFields->nBaseVelocity = ResolveOffset(ask, "BaseVelocity", &bAll);
-	pFields->nViewOffset = ResolveOffset(ask, "ViewOffset", &bAll);
-	pFields->nPunchAngle = ResolveOffset(ask, "PunchAngle", &bAll);
-	pFields->nPunchAngleVel = ResolveOffset(ask, "PunchAngleVel", &bAll);
-	pFields->nLadderNormal = ResolveOffset(ask, "LadderNormal", &bAll);
-	pFields->nWaterJumpVel = ResolveOffset(ask, "WaterJumpVel", &bAll);
+	pFields->nOrigin = resolve.Offset("Origin");
+	pFields->nVelocity = resolve.Offset("Velocity");
+	pFields->nBaseVelocity = resolve.Offset("BaseVelocity");
+	pFields->nViewOffset = resolve.Offset("ViewOffset");
+	pFields->nPunchAngle = resolve.Offset("PunchAngle");
+	pFields->nPunchAngleVel = resolve.Offset("PunchAngleVel");
+	pFields->nLadderNormal = resolve.Offset("LadderNormal");
+	pFields->nWaterJumpVel = resolve.Offset("WaterJumpVel");
 
-	if (!bAll)
+	if (!resolve.m_bAll)
 	{
 		Warning("[SourceSharp] player sync: player's fields did not all resolve — "
 				"is PlayerNetState published on this side?\n");

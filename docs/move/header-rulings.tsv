@@ -1348,5 +1348,3 @@ src/sourcesharp/test/vtable_hook_test.cpp	no	tests own vtable slot-of helper, or
 src/sourcesharp/test/vtable_index_agreement_test.cpp	no	verifies generated vtable layout matches compiler count
 src/sourcesharp/test/world_aligned_bounds_test.cpp	yes	checks shortcut against mathlib TransformAABB/AngleMatrix, same call CCollisionProperty::CollisionAABBToWorldAABB uses
 src/sourcesharp/test/world_subject_test.cpp	no	tests own partition-arm rule header plus source-scan ordering
-src/sourcesharp/test/globals_client_ledger_test.cpp	no	measures client static state via readelf against the globals ledger; no Valve logic (ruled at T)
-src/sourcesharp/test/globals_ledger_test.cpp	no	measures server static state via readelf against the globals ledger; no Valve logic (ruled at T)

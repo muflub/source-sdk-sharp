@@ -9,7 +9,7 @@
 # (std::string, container growth) allocates AND frees inside libstdc++.so, where
 # no reference is wrapped, so those blocks are invisible rather than foreign.
 # A static libstdc++ would bring the runtime's own mutable state into server.so,
-# which the globals ledger (rightly) counts as state this port added.
+# static state server.so would then carry as its own.
 #
 # SS_ALLOC_CHECK decides whether server.so carries it: on by default in debug,
 # never in release.
