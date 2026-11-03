@@ -6,8 +6,7 @@
 //=============================================================================//
 
 // SS_REASON d  a layout the engine reads at fixed offsets
-// The view pass's questions about the local player (view_facts.h), answered from
-// the engine block or the managed player's published pose. Nothing here decides.
+// CViewerFacts, and view_facts.h's free answers through it.
 
 #include "predictable_entity.h"
 #include "cdll_util.h"
@@ -19,21 +18,60 @@
 #include "shell_standalone_client.h"
 #include "shell_diagnostics.h"
 #include "shell_cliententitylist.h"
+#include "shell_standalone_clients.h"
+#include "client_entity_list.h"
+#include "shell_viewer_facts.h"
 
 // Checks the value view_subject.h restates against the enum it came from.
 
 COMPILE_TIME_ASSERT(ViewSubject::WATER_LEVEL_EYES == WL_Eyes);
 
-#include "sourcesharp.h"
-
-bool SourceSharp_HasLocalViewer()
+struct CViewerFacts::Pushed_t
 {
-	return SourceSharp_LocalPlayerShell() != NULL;
+	// NULL until pushed (no fog controller, or no player yet), as stock answers for a player
+	// with no fog controller; a zeroed struct would read as a real "no fog".
+	fogparams_t m_Fog;
+	bool m_bHaveFog = false;
+
+	// NULL means no sky camera has been heard from. Area 255 is a camera outside the sealed
+	// world; a zeroed struct is never returned, since area 0 is a real area.
+	sky3dparams_t m_Skybox;
+	bool m_bHaveSkybox = false;
+};
+
+CViewerFacts::CViewerFacts(CStandaloneClients& standalone, CClientEntityList& entityList)
+	: m_Standalone(standalone)
+	, m_EntityList(entityList)
+	, m_pPushed(NULL)
+{
 }
 
-bool SourceSharp_ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles)
+CViewerFacts::~CViewerFacts()
 {
-	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
+	if (m_pPushed)
+	{
+		m_pPushed->~Pushed_t();
+		free(m_pPushed);
+	}
+}
+
+// Zeroed before its constructors run, as the statics it replaces were: the pushes do
+// not write every field.
+CViewerFacts::Pushed_t* CViewerFacts::NewPushed()
+{
+	return new (calloc(1, sizeof(Pushed_t))) Pushed_t;
+}
+
+#include "sourcesharp.h"
+
+bool CViewerFacts::HasLocalViewer() const
+{
+	return m_Standalone.LocalPlayer() != NULL;
+}
+
+bool CViewerFacts::ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles) const
+{
+	C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer();
 
 	if (!pPlayer)
 		return false;
@@ -50,14 +88,15 @@ bool SourceSharp_ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles)
 // The engine's view entity, when it is not this client's own player.
 // GetClientEntity rather than GetEnt: a managed entity has no C_BaseEntity, and
 // IClientEntity is what both hierarchies implement.
-bool SourceSharp_ViewEntityPose(Vector* pOrigin, QAngle* pAngles)
+bool CViewerFacts::ViewEntityPose(Vector* pOrigin, QAngle* pAngles) const
 {
 	const int nViewEntity = render->GetViewEntity();
 
 	if (!ViewSubject::ViewEntityOverridesTheEye(nViewEntity, engine->GetLocalPlayer()))
 		return false;
 
-	IClientEntity* pViewEntity = SourceSharp_ClientEntityFromIndex(nViewEntity);
+	IClientUnknown* pViewUnknown = m_EntityList.UnknownFromIndex(nViewEntity);
+	IClientEntity* pViewEntity = pViewUnknown ? pViewUnknown->GetIClientEntity() : NULL;
 
 	if (!pViewEntity)
 		return false;
@@ -72,9 +111,9 @@ bool SourceSharp_ViewEntityPose(Vector* pOrigin, QAngle* pAngles)
 }
 
 // Read from the engine block, the one copy of an entity's EF_* bits.
-bool SourceSharp_ViewerEffectActive(int nEffectBits)
+bool CViewerFacts::ViewerEffectActive(int nEffectBits) const
 {
-	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
+	C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer();
 
 	if (!pPlayer)
 		return false;
@@ -84,23 +123,17 @@ bool SourceSharp_ViewerEffectActive(int nEffectBits)
 
 // The sound listener is underwater when the viewer's eyes are (stock:
 // GetWaterLevel() >= WL_Eyes). vecMainViewOrigin, stock's spectator input, is unused.
-bool SourceSharp_ViewerAudioIsUnderwater(const Vector& vecMainViewOrigin)
+bool CViewerFacts::ViewerAudioIsUnderwater(const Vector& vecMainViewOrigin) const
 {
 	NOTE_UNUSED(vecMainViewOrigin);
 
-	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
+	C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer();
 
 	if (!pPlayer)
 		return false;
 
 	return ViewSubject::AudioIsUnderwater(pPlayer->Block().Head.WaterLevel);
 }
-
-// The viewer's world fog, as managed code pushes it. NULL until something has
-// been pushed (no fog controller, or no player yet), as stock answers for a
-// player with no fog controller; a zeroed struct would read as a real "no fog".
-static fogparams_t g_ViewerFog;
-static bool g_bHaveViewerFog = false;
 
 // CNetworkColor32 wants its four components set, not an address written through.
 template <typename T>
@@ -112,110 +145,111 @@ static void SourceSharp_UnpackViewerColor32(uint32_t packed, T& out)
 	out.SetA((unsigned char)((packed >> 24) & 0xFF));
 }
 
-void SourceSharp_SetViewerFogParams(const SourceSharpFogParams* pParams)
+void CViewerFacts::SetViewerFogParams(const SourceSharpFogParams* pParams)
 {
+	if (!m_pPushed)
+		m_pPushed = NewPushed();
+
 	if (!pParams)
 	{
 		// Cleared, which is not "fog off".
-		g_bHaveViewerFog = false;
+		m_pPushed->m_bHaveFog = false;
 		return;
 	}
 
-	g_ViewerFog.enable = pParams->Enable != 0;
-	g_ViewerFog.blend = pParams->Blend != 0;
-	g_ViewerFog.radial = pParams->Radial != 0;
+	m_pPushed->m_Fog.enable = pParams->Enable != 0;
+	m_pPushed->m_Fog.blend = pParams->Blend != 0;
+	m_pPushed->m_Fog.radial = pParams->Radial != 0;
 
-	g_ViewerFog.dirPrimary = Vector(pParams->DirPrimaryXYZ[0], pParams->DirPrimaryXYZ[1], pParams->DirPrimaryXYZ[2]);
+	m_pPushed->m_Fog.dirPrimary =
+		Vector(pParams->DirPrimaryXYZ[0], pParams->DirPrimaryXYZ[1], pParams->DirPrimaryXYZ[2]);
 
-	SourceSharp_UnpackViewerColor32(pParams->ColorPrimary, g_ViewerFog.colorPrimary);
-	SourceSharp_UnpackViewerColor32(pParams->ColorSecondary, g_ViewerFog.colorSecondary);
+	SourceSharp_UnpackViewerColor32(pParams->ColorPrimary, m_pPushed->m_Fog.colorPrimary);
+	SourceSharp_UnpackViewerColor32(pParams->ColorSecondary, m_pPushed->m_Fog.colorSecondary);
 
 	// The lerp targets are the current values, not zero: GetFogColor blends towards
 	// them whenever lerptime is in the future. The server already ran the lerp.
-	g_ViewerFog.colorPrimaryLerpTo = g_ViewerFog.colorPrimary;
-	g_ViewerFog.colorSecondaryLerpTo = g_ViewerFog.colorSecondary;
-	g_ViewerFog.startLerpTo = pParams->Start;
-	g_ViewerFog.endLerpTo = pParams->End;
-	g_ViewerFog.lerptime = 0.0f;
-	g_ViewerFog.duration = 0.0f;
+	m_pPushed->m_Fog.colorPrimaryLerpTo = m_pPushed->m_Fog.colorPrimary;
+	m_pPushed->m_Fog.colorSecondaryLerpTo = m_pPushed->m_Fog.colorSecondary;
+	m_pPushed->m_Fog.startLerpTo = pParams->Start;
+	m_pPushed->m_Fog.endLerpTo = pParams->End;
+	m_pPushed->m_Fog.lerptime = 0.0f;
+	m_pPushed->m_Fog.duration = 0.0f;
 
-	g_ViewerFog.start = pParams->Start;
-	g_ViewerFog.end = pParams->End;
-	g_ViewerFog.farz = pParams->FarZ;
-	g_ViewerFog.maxdensity = pParams->MaxDensity;
+	m_pPushed->m_Fog.start = pParams->Start;
+	m_pPushed->m_Fog.end = pParams->End;
+	m_pPushed->m_Fog.farz = pParams->FarZ;
+	m_pPushed->m_Fog.maxdensity = pParams->MaxDensity;
 
-	g_bHaveViewerFog = true;
+	m_pPushed->m_bHaveFog = true;
 }
 
-fogparams_t* SourceSharp_ViewerFogParams()
+fogparams_t* CViewerFacts::ViewerFogParams()
 {
-	if (!g_bHaveViewerFog)
+	if (!m_pPushed || !m_pPushed->m_bHaveFog)
 	{
 		return NULL;
 	}
 
-	return &g_ViewerFog;
+	return &m_pPushed->m_Fog;
 }
 
-// The viewer's 3D skybox, as managed code pushes it. NULL means no sky camera
-// has been heard from, and callers handle it. Area 255 is a camera outside the
-// sealed world. A zeroed struct is never returned: area 0 is a real area.
-static sky3dparams_t g_ViewerSkybox;
-static bool g_bHaveViewerSkybox = false;
-
-void SourceSharp_SetViewerSkyboxParams(const SourceSharpSkyboxParams* pParams)
+void CViewerFacts::SetViewerSkyboxParams(const SourceSharpSkyboxParams* pParams)
 {
+	if (!m_pPushed)
+		m_pPushed = NewPushed();
+
 	if (!pParams)
 	{
 		// Cleared, which is not area 255.
-		g_bHaveViewerSkybox = false;
+		m_pPushed->m_bHaveSkybox = false;
 		return;
 	}
 
-	g_ViewerSkybox.origin = Vector(pParams->OriginXYZ[0], pParams->OriginXYZ[1], pParams->OriginXYZ[2]);
-	g_ViewerSkybox.scale = pParams->Scale;
-	g_ViewerSkybox.area = pParams->Area;
+	m_pPushed->m_Skybox.origin = Vector(pParams->OriginXYZ[0], pParams->OriginXYZ[1], pParams->OriginXYZ[2]);
+	m_pPushed->m_Skybox.scale = pParams->Scale;
+	m_pPushed->m_Skybox.area = pParams->Area;
 
-	g_ViewerSkybox.fog.enable = pParams->FogEnable != 0;
-	g_ViewerSkybox.fog.blend = pParams->FogBlend != 0;
-	g_ViewerSkybox.fog.radial = pParams->FogRadial != 0;
+	m_pPushed->m_Skybox.fog.enable = pParams->FogEnable != 0;
+	m_pPushed->m_Skybox.fog.blend = pParams->FogBlend != 0;
+	m_pPushed->m_Skybox.fog.radial = pParams->FogRadial != 0;
 
-	g_ViewerSkybox.fog.dirPrimary =
+	m_pPushed->m_Skybox.fog.dirPrimary =
 		Vector(pParams->FogDirPrimaryXYZ[0], pParams->FogDirPrimaryXYZ[1], pParams->FogDirPrimaryXYZ[2]);
 
-	SourceSharp_UnpackViewerColor32(pParams->FogColorPrimary, g_ViewerSkybox.fog.colorPrimary);
-	SourceSharp_UnpackViewerColor32(pParams->FogColorSecondary, g_ViewerSkybox.fog.colorSecondary);
+	SourceSharp_UnpackViewerColor32(pParams->FogColorPrimary, m_pPushed->m_Skybox.fog.colorPrimary);
+	SourceSharp_UnpackViewerColor32(pParams->FogColorSecondary, m_pPushed->m_Skybox.fog.colorSecondary);
 
 	// The lerp targets are the current values, as for the world fog above.
-	g_ViewerSkybox.fog.colorPrimaryLerpTo = g_ViewerSkybox.fog.colorPrimary;
-	g_ViewerSkybox.fog.colorSecondaryLerpTo = g_ViewerSkybox.fog.colorSecondary;
-	g_ViewerSkybox.fog.startLerpTo = pParams->FogStart;
-	g_ViewerSkybox.fog.endLerpTo = pParams->FogEnd;
-	g_ViewerSkybox.fog.lerptime = 0.0f;
-	g_ViewerSkybox.fog.duration = 0.0f;
+	m_pPushed->m_Skybox.fog.colorPrimaryLerpTo = m_pPushed->m_Skybox.fog.colorPrimary;
+	m_pPushed->m_Skybox.fog.colorSecondaryLerpTo = m_pPushed->m_Skybox.fog.colorSecondary;
+	m_pPushed->m_Skybox.fog.startLerpTo = pParams->FogStart;
+	m_pPushed->m_Skybox.fog.endLerpTo = pParams->FogEnd;
+	m_pPushed->m_Skybox.fog.lerptime = 0.0f;
+	m_pPushed->m_Skybox.fog.duration = 0.0f;
 
-	g_ViewerSkybox.fog.start = pParams->FogStart;
-	g_ViewerSkybox.fog.end = pParams->FogEnd;
-	g_ViewerSkybox.fog.maxdensity = pParams->FogMaxDensity;
+	m_pPushed->m_Skybox.fog.start = pParams->FogStart;
+	m_pPushed->m_Skybox.fog.end = pParams->FogEnd;
+	m_pPushed->m_Skybox.fog.maxdensity = pParams->FogMaxDensity;
 
 	// farz is not sent: sky_camera has no such key and CSkyboxView sets zFar itself.
 
-	g_bHaveViewerSkybox = true;
+	m_pPushed->m_bHaveSkybox = true;
 }
 
-sky3dparams_t* SourceSharp_ViewerSkyboxParams()
+sky3dparams_t* CViewerFacts::ViewerSkyboxParams()
 {
-	if (!g_bHaveViewerSkybox)
+	if (!m_pPushed || !m_pPushed->m_bHaveSkybox)
 		return NULL;
 
-	return &g_ViewerSkybox;
+	return &m_pPushed->m_Skybox;
 }
 
 // Refreshes visibility on the camera mode change's edge, so the player's own
 // model leaves or joins the leaf system that frame rather than the next.
-void SourceSharp_ViewerCameraModeChanged()
+void CViewerFacts::ViewerCameraModeChanged()
 {
-	if (C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell())
+	if (C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer())
 		pPlayer->UpdateVisibility();
 }
 
@@ -229,4 +263,40 @@ bool SourceSharp_ViewerAimIsAssisted()
 						   "declaration, so the joystick never dampens onto a target");
 
 	return false;
+}
+
+// The free answers, for the code not yet handed the viewer facts.
+bool SourceSharp_HasLocalViewer()
+{
+	return ShellClientDll_ViewerFacts().HasLocalViewer();
+}
+
+bool SourceSharp_ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles)
+{
+	return ShellClientDll_ViewerFacts().ViewerAbsPosition(pOrigin, pAngles);
+}
+
+bool SourceSharp_ViewEntityPose(Vector* pOrigin, QAngle* pAngles)
+{
+	return ShellClientDll_ViewerFacts().ViewEntityPose(pOrigin, pAngles);
+}
+
+bool SourceSharp_ViewerEffectActive(int nEffectBits)
+{
+	return ShellClientDll_ViewerFacts().ViewerEffectActive(nEffectBits);
+}
+
+bool SourceSharp_ViewerAudioIsUnderwater(const Vector& vecMainViewOrigin)
+{
+	return ShellClientDll_ViewerFacts().ViewerAudioIsUnderwater(vecMainViewOrigin);
+}
+
+fogparams_t* SourceSharp_ViewerFogParams()
+{
+	return ShellClientDll_ViewerFacts().ViewerFogParams();
+}
+
+sky3dparams_t* SourceSharp_ViewerSkyboxParams()
+{
+	return ShellClientDll_ViewerFacts().ViewerSkyboxParams();
 }

@@ -80,6 +80,9 @@ void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName);
 // client-only areas, forwarding to the body each row of the slot table names.
 // A base its own class implements is held by pointer, set by the client's owner.
 
+class CViewerFacts;
+class CSourceSharpClientMode;
+
 class CShimEngineClient final : public IShimEngine
 {
 public:
@@ -248,44 +251,6 @@ public:
 	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot) override;
 };
 
-class CShimStandaloneClient final : public IShimStandaloneClient
-{
-public:
-	void ActivateOccluder(int32_t nOccluderIndex, int32_t bActive) override;
-	void** ClientInterpBlocks(int32_t* pOutCount, float* pOutInterpAmount) override;
-	void** ClientPolicyBlocks(int32_t* pOutCount) override;
-	void DynamicLightRelease(int32_t nKey) override;
-	void DynamicLightUpdate(const SourceSharpDynamicLight* pLight) override;
-	int32_t StandaloneIsDormant(uint32_t hEntity) override;
-	void StandaloneSetBlending(uint32_t hEntity, int32_t bTranslucent, int32_t bIgnoreZ, int32_t nAlpha) override;
-	void StandaloneSetCustomDraw(uint32_t hEntity, const float* pMinsXYZ, const float* pMaxsXYZ) override;
-	void StandaloneSetFade(uint32_t hEntity, int32_t nStyle, float flStartDist, float flEndDist,
-						   float flMinAlpha) override;
-	void StandaloneSetOverlayModel(uint32_t hEntity, int32_t nModelIndex) override;
-	void StandaloneSetViewModel(uint32_t hEntity, int32_t bEnable) override;
-	int32_t StandaloneShadowCast(uint32_t hEntity, int32_t* pOutChoice) override;
-	int32_t ClientRecvProp(int32_t iIndex, char* pOutClass, int32_t nClassBytes, char* pOutTable, int32_t nTableBytes,
-						   char* pOutProp, int32_t nPropBytes, int32_t* pOutType, int32_t* pOutFlags,
-						   int32_t* pOutOffset, int32_t* pOutElements) override;
-	int32_t ClientSchemaRefusal(int32_t iIndex, uint32_t* pOutTypeId, uint32_t* pOutExpected, uint32_t* pOutSeen,
-								int32_t* pOutCount, char* pOutClass, int32_t nClassBytes,
-								int32_t* pOutRefusedUpdates) override;
-	void* StandaloneEngineBlock(uint32_t hEntity, int32_t* pOutBytes) override;
-	void StandaloneStoreSequence(uint32_t hEntity, int32_t nSequence, float flPlaybackRate, float flAnimTime,
-								 float flDuration, int32_t bLooping) override;
-	void StandaloneSetRagdoll(uint32_t hEntity, int32_t bRagdoll) override;
-	void EntitySetSkin(uint32_t hEntity, int32_t nSkin) override;
-	void RegisterAmmoType(const char* pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType,
-						  float flDamageForce, float flDamage) override;
-	int32_t StandaloneSurroundingBounds(const uint32_t* pHandles, int32_t nCount, float* pOutMinsMaxs) override;
-	int32_t SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, int32_t nMaterialBytes, char* pOutCrack,
-								 int32_t nCrackBytes, int32_t* pOutHasCrack) override;
-	void SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32_t nBytes, int32_t nFlags) override;
-	void SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords) override;
-	void ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount) override;
-	void EntitySetModelOverride(uint32_t hEntity, const char* pModel) override;
-};
-
 class CShimViewClient final : public IShimViewClient
 {
 public:
@@ -335,6 +300,10 @@ public:
 									float* pOutEndXYZ, int32_t* pOutEntityIndex, float* pOutEntityOriginXYZ) override;
 	int32_t ScreenOverlaySet(const char* pszName) override;
 	int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CViewerFacts* m_pViewerFacts = nullptr;
+	CSourceSharpClientMode* m_pSourceSharpClientMode = nullptr;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient
@@ -540,7 +509,7 @@ struct CShimAreasClient
 	CShimTempEntPoolClient m_TempEntPoolClient;
 	CShimTempEntBackendsClient m_TempEntBackendsClient;
 	CShimEffectsRenderClient m_EffectsRenderClient;
-	CShimStandaloneClient m_StandaloneClient;
+	IShimStandaloneClient* m_pStandaloneClient = nullptr; // CStandaloneClients
 	CShimViewClient m_ViewClient;
 	CShimUserMessagesClient m_UserMessagesClient;
 	CShimNetClient m_NetClient;

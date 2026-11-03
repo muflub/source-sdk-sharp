@@ -68,6 +68,8 @@ class CBoneBitList;
 
 void SourceSharp_KillDeadBeams(const CBaseHandle& hDeadEntity);
 
+class CStandaloneClients;
+
 class C_StandaloneEntity : public IClientEntity, public ICollideable
 {
 	// Declared first: the interpolated vars are set up over block fields, and
@@ -75,7 +77,7 @@ class C_StandaloneEntity : public IClientEntity, public ICollideable
 	EngineBlock_t m_EngineBlock;
 
 public:
-	C_StandaloneEntity(int nEntNum, int nSerialNum, ClientClass* pClass, int iTier);
+	C_StandaloneEntity(CStandaloneClients& clients, int nEntNum, int nSerialNum, ClientClass* pClass, int iTier);
 	virtual ~C_StandaloneEntity();
 
 	// Allocated longer than the object, by the blob size. There is no plain operator
@@ -477,6 +479,9 @@ private:
 
 	ClientThinkHandle_t m_hThink;
 
+	// The client DLL object's shells, which this one joins for its life.
+	CStandaloneClients& m_Clients;
+
 	ClientClass* m_pClientClass;
 
 	int m_iTier;
@@ -533,12 +538,6 @@ class C_StandaloneEntity* SourceSharp_LocalPlayerShell();
 
 int SourceSharp_StandaloneClientCount();
 class C_StandaloneEntity* SourceSharp_StandaloneClientAt(int nIndex);
-
-// Called after the temp entities and before the post-entity system pass, which
-// resets subsystems a surviving shell would hold handles into.
-int SourceSharp_StandaloneClientsLevelShutdown();
-
-void SourceSharp_StandaloneViewModelToEye(const Vector& vecEye, const QAngle& angEye);
 
 // Not CAM_IsThirdPerson(): a third-person camera pulled onto the eye by a wall
 // is first-person.

@@ -36,6 +36,7 @@
 #include "view_facts.h"
 
 #include "shell_input.h"
+#include "shell_viewer_facts.h"
 
 #include "ss_bitblock.h"
 #include "ss_command_line.h"
@@ -100,8 +101,9 @@ enum
 	INPUT_PUBLISHED_THIRD_PERSON = 1 << 3,
 };
 
-CSourceSharpInput::CSourceSharpInput(const CManagedAreasClient& areas)
+CSourceSharpInput::CSourceSharpInput(const CManagedAreasClient& areas, CViewerFacts& viewerFacts)
 	: m_Areas(areas)
+	, m_ViewerFacts(viewerFacts)
 	, m_pCommands(NULL)
 	, m_pVerifiedCommands(NULL)
 	, m_pCameraThirdData(NULL)
@@ -685,7 +687,7 @@ void CSourceSharpInput::InputSetLocalViewAngles(const float* pAngles)
 
 void CSourceSharpInput::InputViewerCameraModeChanged()
 {
-	SourceSharp_ViewerCameraModeChanged();
+	m_ViewerFacts.ViewerCameraModeChanged();
 }
 
 int32_t CSourceSharpInput::InputViewerAimIsAssisted()

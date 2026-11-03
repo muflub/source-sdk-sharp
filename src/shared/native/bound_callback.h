@@ -3,7 +3,8 @@
 // callback, and this hands them one that calls a method of the instance that owns it.
 //
 // The pointer is a small x86-64 stub in a page this object owns: it moves the arguments one
-// place along, loads the instance as the first argument and jumps to Trampoline. The page is
+// place along, loads the instance as the first argument and jumps to Trampoline. On Win64,
+// where that pushes the last argument onto the stack, it makes a frame and calls instead. The page is
 // written while read-write and only then made read-execute, never both. Uninstall the
 // pointer wherever it was installed before this object is destroyed.
 
@@ -18,9 +19,10 @@
 #error "CBoundCallback writes x86-64 code; this target has no thunk"
 #endif
 
-// The page holding a thunk: allocated read-write, filled, then made read-execute. NULL when
-// the system refuses either step. Defined in bound_callback.cpp.
-void* BoundCallback_MapCode(const unsigned char* pCode, size_t nBytes);
+// The page holding a thunk: allocated read-write, filled, then made read-execute, with the
+// unwind data for nFrame (Assemble's) on Windows. NULL when the system refuses a step.
+// Defined in bound_callback.cpp.
+void* BoundCallback_MapCode(const unsigned char* pCode, size_t nBytes, int nFrame);
 void BoundCallback_Unmap(void* pPage);
 
 namespace bound_callback
@@ -42,9 +44,11 @@ constexpr ArgClass ClassOf()
 }
 
 // The thunk's bytes for a signature of these argument classes, or 0 when it cannot be built
-// (too many arguments for registers). bWindows picks the Win64 convention over System V.
+// (System V: more integers than registers; Win64: more than six arguments with the
+// instance). bWindows picks the Win64 convention over System V. *pOutFrame is the stack the
+// thunk allocates, 0 for a bare jump.
 size_t Assemble(const ArgClass* pArgs, int nArgs, bool bWindows, uint64_t uInstance, uint64_t uTarget,
-				unsigned char* pOut, size_t nOut);
+				unsigned char* pOut, size_t nOut, int* pOutFrame = nullptr);
 
 } // namespace bound_callback
 
@@ -63,16 +67,17 @@ public:
 		static constexpr bound_callback::ArgClass kArgs[sizeof...(A) + 1] = {bound_callback::ClassOf<A>()...,
 																			 bound_callback::ArgClass::Integer};
 
-		unsigned char code[64];
+		unsigned char code[96];
 #if defined(_WIN32)
 		const bool bWindows = true;
 #else
 		const bool bWindows = false;
 #endif
+		int nFrame = 0;
 		const size_t nBytes =
 			bound_callback::Assemble(kArgs, (int)sizeof...(A), bWindows, (uint64_t)(uintptr_t)pInstance,
-									 (uint64_t)(uintptr_t)pfnTarget, code, sizeof(code));
-		m_pPage = nBytes ? BoundCallback_MapCode(code, nBytes) : nullptr;
+									 (uint64_t)(uintptr_t)pfnTarget, code, sizeof(code), &nFrame);
+		m_pPage = nBytes ? BoundCallback_MapCode(code, nBytes, nFrame) : nullptr;
 	}
 
 	~CBoundCallback() { BoundCallback_Unmap(m_pPage); }

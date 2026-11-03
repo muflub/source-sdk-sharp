@@ -4,35 +4,6 @@
 struct vrect_t;
 class CViewSetup;
 
-// CShellClientDLL::View_Render's body, after its empty-rect guard.
-void SourceSharp_ViewRender(vrect_t* rect);
-
-// The client's IViewRender, which client init sets `view` to.
-class IViewRender;
-IViewRender* ShellViewRender();
-
-bool ShellViewRender_ForceNoVis();
-
-// The view a plan frame is drawing (GetViewSetup's answer), and the list build numbers.
-void ShellViewRender_SetCurrentView(const CViewSetup& setup);
-void ShellViewRender_IncWorldListsNumber();
-void ShellViewRender_IncRenderablesListsNumber();
-int ShellViewRender_RenderablesListsNumber();
-
-// The client DLL object hands the executor its game systems for the plan's PreRender
-// op, from Init to Shutdown (NULL).
-class CClientSystems;
-void SourceSharp_ViewExecutorBind(CClientSystems* pSystems);
-
-// RenderView through the plan (false when there is no plan), a shadow-depth
-// view likewise, and the draw flags of the view being drawn.
-class ITexture;
-bool SourceSharp_RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw);
-bool SourceSharp_ShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView);
-int SourceSharp_ActiveViewDrawFlags();
-
-void SourceSharp_FreezeFrame(float flFreezeTime);
-
 // The view state stock kept in statics: the main view SetUpViews made (and the
 // last frame's) and the view being drawn now. MainViewOrigin and the other
 // stock names answer from it.
@@ -49,33 +20,74 @@ struct ShellCamera_t
 
 // view.cpp's ComputeCameraVariables: the view's bases and its world-to-view matrix.
 void ShellView_ComputeCamera(const Vector& vecOrigin, const QAngle& angles, ShellCamera_t& out);
-// SetUpViews' end: this frame's main view, the last one kept as the previous.
-void ShellView_SetMainView(const Vector& vecOrigin, const QAngle& angles);
-const ShellCamera_t& ShellView_Main();
-const Vector& ShellView_PrevMainOrigin();
-const QAngle& ShellView_PrevMainAngles();
-// viewrender.cpp's SetupCurrentView, FinishCurrentView and AllowCurrentViewAccess.
-// bEffects also hands the engine the screen fade range and the depth-to-alpha
-// parameter, as stock's SetupCurrentView did.
-void ShellView_SetupCurrentView(const Vector& vecOrigin, const QAngle& angles, int nViewID, bool bEffects);
-void ShellView_FinishCurrentView();
-void ShellView_AllowCurrentViewAccess(bool bAllow);
-bool ShellView_CurrentViewAccessAllowed();
-const ShellCamera_t& ShellView_Current();
-int ShellView_CurrentViewID();
+class ITexture;
+struct CManagedAreasClient;
+class CClientSystems;
+class CViewerFacts;
+class CStandaloneClients;
+class CSourceSharpClientMode;
+class CShellViewRender;
 
-// The save-game screenshot's view of the player's eye; false with no managed client.
-bool SourceSharp_ScreenshotView(const CViewSetup& eye, int nWidth, int nHeight, CViewSetup& out);
+namespace ShellViewExecutor
+{
+class CViewExecutorImpl;
+}
 
-// SetUpViews' planes and FOV as managed code decides them; false with no managed client.
-bool SourceSharp_SetUpView(float& flZFar, float& flZFarViewmodel, float& flZNear, float& flZNearViewmodel, float& flFov,
-						   float& flViewModelFovOffset);
+// The render plan's executor, a member of the client DLL object handed what the plan's
+// ops call. The executor itself (its frame state and the ops) is made on the first frame.
+class CViewExecutor final
+{
+public:
+	CViewExecutor(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
+				  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender)
+		: m_Areas(areas)
+		, m_Systems(systems)
+		, m_ViewerFacts(viewerFacts)
+		, m_Standalone(standalone)
+		, m_ClientMode(clientMode)
+		, m_ViewRender(viewRender)
+	{
+	}
 
-// GetZNear and GetZFar's planes as managed code decides them. False with no managed client.
-bool SourceSharp_AskViewPlanes(float& flZNear, float& flZFar);
+	~CViewExecutor();
 
-// This frame's view for CShellViewRender::Render: the eye RenderView draws, its
-// clear and draw flags, gl_clear_randomcolor's colour (pRandomClear: on, r, g, b)
-// and the level overview's green clear. False when managed code made none.
-bool SourceSharp_FrameViewDecision(CViewSetup& eye, int& nClearFlags, int& nDrawFlags, int* pRandomClear,
-								   bool& bOverview);
+	CViewExecutor(const CViewExecutor&) = delete;
+	CViewExecutor& operator=(const CViewExecutor&) = delete;
+
+	// CShellClientDLL::View_Render's body, after its empty-rect guard.
+	void ViewRender(vrect_t* rect);
+
+	// RenderView through the plan (false when there is no plan), a shadow-depth view
+	// likewise, and the draw flags of the view being drawn.
+	bool RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw);
+	bool ShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView);
+	int ActiveViewDrawFlags();
+
+	void FreezeFrame(float flFreezeTime);
+
+	// The save-game screenshot's view of the player's eye; false with no managed client.
+	bool ScreenshotView(const CViewSetup& eye, int nWidth, int nHeight, CViewSetup& out);
+
+	// SetUpViews' planes and FOV as managed code decides them; false with no managed client.
+	bool SetUpView(float& flZFar, float& flZFarViewmodel, float& flZNear, float& flZNearViewmodel, float& flFov,
+				   float& flViewModelFovOffset);
+
+	// GetZNear and GetZFar's planes as managed code decides them. False with no managed client.
+	bool AskViewPlanes(float& flZNear, float& flZFar);
+
+	// This frame's view for CShellViewRender::Render: the eye RenderView draws, its clear
+	// and draw flags, gl_clear_randomcolor's colour (pRandomClear: on, r, g, b) and the
+	// level overview's green clear. False when managed code made none.
+	bool FrameViewDecision(CViewSetup& eye, int& nClearFlags, int& nDrawFlags, int* pRandomClear, bool& bOverview);
+
+private:
+	ShellViewExecutor::CViewExecutorImpl& Impl();
+
+	const CManagedAreasClient& m_Areas;
+	CClientSystems& m_Systems;
+	CViewerFacts& m_ViewerFacts;
+	CStandaloneClients& m_Standalone;
+	CSourceSharpClientMode& m_ClientMode;
+	CShellViewRender& m_ViewRender;
+	ShellViewExecutor::CViewExecutorImpl* m_pImpl = nullptr;
+};

@@ -37,22 +37,10 @@ bool SourceSharp_ViewerAudioIsUnderwater(const Vector& vecMainViewOrigin);
 // does for a player with no fog controller, while a zeroed struct means "no fog".
 fogparams_t* SourceSharp_ViewerFogParams();
 
-// The fog the viewer stands in, pushed by managed code; NULL clears it.
-struct SourceSharpFogParams;
-void SourceSharp_SetViewerFogParams(const SourceSharpFogParams* pParams);
-
 // The viewer's 3D skybox parameters, as managed last pushed them, or NULL.
 // NULL makes CSkyboxView::PreRender3dSkyboxWorld answer "no 3D sky", as stock
 // does for a player with no sky camera.
 sky3dparams_t* SourceSharp_ViewerSkyboxParams();
-
-// The 3D skybox the viewer is shown, pushed by managed code; NULL clears it.
-struct SourceSharpSkyboxParams;
-void SourceSharp_SetViewerSkyboxParams(const SourceSharpSkyboxParams* pParams);
-
-// The camera mode changed between first and third person: refreshes the
-// viewer's visibility so its own model enters or leaves the leaf system.
-void SourceSharp_ViewerCameraModeChanged();
 
 // Whether the last frame's camera can see the viewer's own body: where the
 // camera ended up, not the third-person mode that was typed. Defined in

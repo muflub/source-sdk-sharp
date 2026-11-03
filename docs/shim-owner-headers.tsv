@@ -1,0 +1,5 @@
+# tools/shim-areas: the header that declares each class a forwarded shim area delegates slots to
+# (a `CClass::Method` body in docs/engineapi-areas.tsv whose area other bodies share).
+# class	header
+CSourceSharpClientMode	shell_client_mode.h
+CViewerFacts	shell_viewer_facts.h

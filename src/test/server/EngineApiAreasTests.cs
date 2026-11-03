@@ -155,21 +155,28 @@ public partial class EngineApiAreasTests
     /// plan_client_vtables CB, CC: the client implements each shared base and
     /// each client-only area by forwarding to a body. Since CC-last there is no
     /// struct fill to compare with, so every client forward must call exactly
-    /// the body its row names (client_body where the client's differs). A row
-    /// whose client body is a class's method (T6 part 3) has no forward: the
-    /// class is the area, held by pointer and acquired through it.
+    /// the body its row names (client_body where the client's differs). An area
+    /// whose every body is one class's method of the slot's name (T6 part 3) has
+    /// no forward: the class is the area, held by pointer and acquired through
+    /// it. A class's method in an area other bodies share is delegated: the
+    /// forward calls it through the area's pointer to that class.
     /// </summary>
     [Fact]
     public void EveryClientForwardCallsItsRowsBody()
     {
         string forwards = File.ReadAllText(RepoLayout.Repo("src", "client", "native", "shell_shim_areas_client.cpp"));
-        var calls = Regex.Matches(forwards, @"\bCShim\w+::(\w+)\([^)]*\)\s*\{\s*return ::(\w+)\(")
-                         .ToDictionary(m => m.Groups[1].Value, m => m.Groups[2].Value);
+        var calls = Regex.Matches(forwards, @"\bCShim\w+::(\w+)\([^)]*\)\s*\{\s*return (?:::(\w+)|m_p(\w+)->(\w+))\(")
+                         .ToDictionary(m => m.Groups[1].Value,
+                                       m => m.Groups[2].Success ? m.Groups[2].Value : $"C{m.Groups[3].Value}::{m.Groups[4].Value}");
 
         var served = Rows().Where(r => r.Struct == "EngineApi" && r.Kind is "shared" or "client"
                                        && r.Interface is not ("IShimConsole" or "IShimRoot")).ToList();
         static string ClientBody(Row r) => r.ClientBody.Length > 0 ? r.ClientBody : r.Body;
-        var owned = served.Where(r => ClientBody(r).Contains("::")).ToList();
+        var ownedAreas = served.GroupBy(r => r.Interface)
+                               .Where(g => g.Select(r => ClientBody(r).Split("::")[0]).Distinct().Count() == 1
+                                           && g.All(r => ClientBody(r) == $"{ClientBody(r).Split("::")[0]}::{r.Slot}"))
+                               .Select(g => g.Key).ToHashSet();
+        var owned = served.Where(r => ownedAreas.Contains(r.Interface)).ToList();
         var rows = served.Except(owned).ToList();
         Assert.True(rows.Count >= 170, $"{rows.Count} client-served rows");
         Assert.NotEmpty(owned);   // the control: CGameEvents is the client's events area
@@ -179,10 +186,9 @@ public partial class EngineApiAreasTests
         Assert.True(calls.Count == rows.Count, $"{calls.Count} forwards for {rows.Count} rows");
         Assert.Contains(rows, r => r.ClientBody.Length > 0);   // the control: some bodies differ
 
-        var wrong = rows.Where(r => !calls.TryGetValue(r.Slot, out var f)
-                                    || f != (r.ClientBody.Length > 0 ? r.ClientBody : r.Body))
+        var wrong = rows.Where(r => !calls.TryGetValue(r.Slot, out var f) || f != ClientBody(r))
                         .Select(r => $"{r.Slot}: forwards to {(calls.TryGetValue(r.Slot, out var f) ? f : "nothing")}, " +
-                                     $"the table says {(r.ClientBody.Length > 0 ? r.ClientBody : r.Body)}")
+                                     $"the table says {ClientBody(r)}")
                         .ToList();
         Assert.Empty(wrong);
     }

@@ -13,6 +13,7 @@
 #include "shell_soundscape_audio_client.h"
 
 class IDetailObjectSystem;
+class CStandaloneClients;
 class CClientEffectPrecacheSystem;
 
 // The client's game systems as one named table, in the order they run, a member of the
@@ -24,7 +25,7 @@ public:
 	// The systems the client DLL object owns, and the managed areas the managed rows call;
 	// the other rows are their files' objects.
 	CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
-				   CClientSystem& decals);
+				   CClientSystem& decals, CStandaloneClients& standalone);
 	~CClientSystems();
 
 	CClientSystems(const CClientSystems&) = delete;
@@ -60,6 +61,7 @@ private:
 	CClientSystem& m_ManagedFrame;
 	CClientSystem& m_Physics;
 	CClientSystem& m_Decals;
+	CStandaloneClients& m_Standalone;
 
 	// Stock's accessors answer a more specific type; these rows keep the table's column uniform.
 	CGameSystemRow<IDetailObjectSystem> m_DetailObjectRow{nullptr};

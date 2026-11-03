@@ -107,8 +107,11 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_clientsystems.h"
 #include "shell_physics_client.h"
 #include "shell_decals_client.h"
-
-extern IClientMode* GetClientModeNormal();
+#include "shell_standalone_clients.h"
+#include "client_entity_list.h"
+#include "shell_client_mode.h"
+#include "shell_viewer_facts.h"
+#include "shell_view_render.h"
 
 IVEngineClient* engine = NULL;
 IVModelRender* modelrender = NULL;
@@ -412,6 +415,16 @@ public:
 
 	CManagedSide& ManagedSide() { return m_ManagedSide; }
 
+	CClientEntityList& EntityList() { return m_EntityList; }
+
+	CSourceSharpClientMode& ClientMode() { return m_ClientMode; }
+
+	CStandaloneClients& Standalone() { return m_Standalone; }
+
+	CViewerFacts& ViewerFacts() { return m_ViewerFacts; }
+
+	CShellViewRender& ViewRender() { return m_ViewRender; }
+
 	virtual ~CShellClientDLL()
 	{
 		AssertMsg(ManagedHoldersClient_Empty(m_Managed),
@@ -429,6 +442,10 @@ private:
 	// The console: this DLL's carriers and the ICvar they reach.
 	CCVarRegistry m_CVars;
 
+	// The engine's VClientEntityList003 and the slot table behind it; the engine fetches
+	// it by name when it loads the DLL.
+	CClientEntityList m_EntityList;
+
 	// What managed acquires from native, handed to it at load.
 	CShimRootClient m_ShimRoot;
 	CManagedSide m_ManagedSide{m_Managed, m_Diagnostics, m_CVars, m_ShimRoot};
@@ -436,16 +453,29 @@ private:
 	// The convar area: watches through the root's console.
 	CConVarsClient m_ConVars{m_ShimRoot.m_Console};
 
-	// IInput and the shim input area, over the managed input area.
-	CSourceSharpInput m_Input{m_Managed.m_Areas};
-
 	// The game systems: the managed frame's row (which holds the runtime adapter) and the
 	// table that walks every row. The frame row clears its adapter in its Shutdown, which
 	// runs before the adapter is released.
 	CSourceSharpSystem m_ManagedFrame{m_ManagedSide};
 	CPhysicsClient m_Physics{m_Managed.m_Areas};
 	CShellDecalSystemClient m_Decals{m_Managed.m_Areas};
-	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics, m_Decals};
+	CStandaloneClients m_Standalone{m_Managed.m_Areas, m_EntityList};
+
+	// The local viewer's facts and the fog and sky managed pushes.
+	CViewerFacts m_ViewerFacts{m_Standalone, m_EntityList};
+
+	// IInput and the shim input area, over the managed input area.
+	CSourceSharpInput m_Input{m_Managed.m_Areas, m_ViewerFacts};
+
+	// IClientMode (g_pClientMode points at it from Init).
+	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas, m_Standalone};
+
+	// IViewRender (`view` points at it from Init).
+	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_ViewerFacts, m_ClientMode, m_ViewExecutor};
+	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics, m_Decals, m_Standalone};
+
+	// The render plan's executor; the view render calls it, and it calls the systems' PreRender.
+	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender};
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
@@ -467,6 +497,39 @@ CManagedHoldersClient& ShellClientDll_Managed()
 {
 	return g_ShellClientDLL.Managed();
 }
+
+CShellViewRender& ShellClientDll_ViewRender()
+{
+	return g_ShellClientDLL.ViewRender();
+}
+
+CViewerFacts& ShellClientDll_ViewerFacts()
+{
+	return g_ShellClientDLL.ViewerFacts();
+}
+
+CStandaloneClients& ShellClientDll_Standalone()
+{
+	return g_ShellClientDLL.Standalone();
+}
+
+CSourceSharpClientMode& ShellClientDll_ClientMode()
+{
+	return g_ShellClientDLL.ClientMode();
+}
+
+CClientEntityList& ShellClientDll_EntityList()
+{
+	return g_ShellClientDLL.EntityList();
+}
+
+// VClientEntityList003: the engine's CreateInterface hands out the member.
+static void* CreateClientEntityList()
+{
+	return static_cast<IClientEntityList*>(&g_ShellClientDLL.EntityList());
+}
+
+static InterfaceReg g_CreateClientEntityList(CreateClientEntityList, VCLIENTENTITYLIST_INTERFACE_VERSION);
 
 CManagedSide& ShellClientDll_ManagedSide()
 {
@@ -576,6 +639,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 {
 	gpGlobals = pGlobals;
 	input = &m_Input;
+	g_pClientMode = &m_ClientMode;
 	decalsystem = &m_Decals;
 
 	// The same two as members, served through IManagedRuntimeEnvironment.
@@ -679,7 +743,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	modemanager->Init();
 
-	g_pClientMode->InitViewport();
+	m_ClientMode.InitViewport();
 
 	// Before the HUD: gHUD.Init() hooks the user messages managed declares. The CLR comes up
 	// before m_Systems.Init() walks the client systems.
@@ -688,6 +752,9 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_pConVarsClient = &m_ConVars;
 	m_ShimRoot.m_Areas.m_pInputClient = &m_Input;
 	m_ShimRoot.m_Areas.m_pPhysicsClient = &m_Physics;
+	m_ShimRoot.m_Areas.m_pStandaloneClient = &m_Standalone;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = &m_ClientMode;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = &m_ViewerFacts;
 	m_pManagedRuntime = LoadManagedRuntime(this);
 
 	if (m_pManagedRuntime == NULL)
@@ -701,17 +768,16 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	gHUD.Init();
 
-	g_pClientMode->Init();
+	m_ClientMode.Init();
 
-	SourceSharp_ViewExecutorBind(&m_Systems);
 	if (!m_Systems.Init())
 		return false;
 
-	g_pClientMode->Enable();
+	m_ClientMode.Enable();
 
 	if (!view)
 	{
-		view = ShellViewRender();
+		view = &m_ViewRender;
 	}
 
 	view->Init();
@@ -785,8 +851,8 @@ void CShellClientDLL::Shutdown()
 
 	ClientVoiceMgr_Shutdown();
 
-	g_pClientMode->Disable();
-	g_pClientMode->Shutdown();
+	m_ClientMode.Disable();
+	m_ClientMode.Shutdown();
 
 	m_Input.Shutdown_All();
 	TermSmokeFogOverlay();
@@ -805,7 +871,6 @@ void CShellClientDLL::Shutdown()
 	}
 
 	m_Systems.Shutdown();
-	SourceSharp_ViewExecutorBind(NULL);
 
 	// After the walk, which cleared the row's copy of the pointer. Null-safe.
 	UnloadManagedRuntime(m_pManagedRuntime);
@@ -834,6 +899,9 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_pConVarsClient = NULL;
 	m_ShimRoot.m_Areas.m_pInputClient = NULL;
 	m_ShimRoot.m_Areas.m_pPhysicsClient = NULL;
+	m_ShimRoot.m_Areas.m_pStandaloneClient = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = NULL;
 	m_ShimRoot.m_pAppSystemFactory = nullptr;
 	m_ShimRoot.m_pPhysicsFactory = nullptr;
 	gameeventmanager = NULL;
@@ -856,7 +924,7 @@ int CShellClientDLL::HudVidInit()
 // Lets the client filter input messages before the move record is sent.
 void CShellClientDLL::HudProcessInput(bool bActive)
 {
-	g_pClientMode->ProcessInput(bActive);
+	m_ClientMode.ProcessInput(bActive);
 }
 
 void CShellClientDLL::HudUpdate(bool bActive)
@@ -979,7 +1047,7 @@ void CShellClientDLL::View_Render(vrect_t* rect)
 	if (rect->width == 0 || rect->height == 0)
 		return;
 
-	SourceSharp_ViewRender(rect);
+	m_ViewExecutor.ViewRender(rect);
 }
 
 bool CShellClientDLL::GetPlayerView(CViewSetup& playerView)
@@ -1145,9 +1213,10 @@ void CShellClientDLL::LevelShutdown()
 	// Shells, then the world, then the post-entity system shutdown: the server's order, and
 	// a shell's destructor can reach the world. Both must precede the subsystem reset below,
 	// which shells hold handles into.
-	int SourceSharp_StandaloneClientsLevelShutdown();
 
-	const int nShells = SourceSharp_StandaloneClientsLevelShutdown();
+	// After the temp entities and before the post-entity system pass, which resets
+	// subsystems a surviving shell would hold handles into.
+	const int nShells = m_Standalone.LevelShutdown();
 	const bool bWorld = SourceSharp_ClientWorldLevelShutdown();
 
 	Msg("[SourceSharp] client level shutdown: destroyed %d standalone shell(s), "
@@ -1548,28 +1617,17 @@ CStandardRecvProxies* CShellClientDLL::GetStandardRecvProxies()
 
 bool CShellClientDLL::CanRecordDemo(char* errorMsg, int length) const
 {
-	if (GetClientModeNormal())
-	{
-		return GetClientModeNormal()->CanRecordDemo(errorMsg, length);
-	}
-
-	return true;
+	return m_ClientMode.CanRecordDemo(errorMsg, length);
 }
 
 void CShellClientDLL::OnDemoRecordStart(char const* pDemoBaseName)
 {
-	if (GetClientModeNormal())
-	{
-		return GetClientModeNormal()->OnDemoRecordStart(pDemoBaseName);
-	}
+	m_ClientMode.OnDemoRecordStart(pDemoBaseName);
 }
 
 void CShellClientDLL::OnDemoRecordStop()
 {
-	if (GetClientModeNormal())
-	{
-		return GetClientModeNormal()->OnDemoRecordStop();
-	}
+	m_ClientMode.OnDemoRecordStop();
 }
 
 void CShellClientDLL::OnDemoPlaybackStart(char const* pDemoBaseName) {}

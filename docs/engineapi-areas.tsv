@@ -219,43 +219,43 @@ ParticleSystemStopExtra	EngineApi	IShimEffectsRenderClient	client		client	-	Sour
 ParticleSystemFollowEntity	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemFollowEntity	uint, int, uint, int, float*, int	
 ParticleSystemStartSlot	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStartSlot	uint, byte*, int, int	
 ParticleSystemStopSlot	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStopSlot	uint, int, void	
-ActivateOccluder	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ActivateOccluder	int, int, void	
-ClientInterpBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientInterpBlocks	int*, float*, void**	
-ClientPolicyBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientPolicyBlocks	int*, void**	
-DynamicLightRelease	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_DynamicLightRelease	int, void	
-DynamicLightUpdate	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_DynamicLightUpdate	DynamicLight*, void	
-StandaloneIsDormant	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneIsDormant	uint, int	
-StandaloneSetBlending	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetBlending	uint, int, int, int, void	
-StandaloneSetCustomDraw	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetCustomDraw	uint, float*, float*, void	
-StandaloneSetFade	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetFade	uint, int, float, float, float, void	
-StandaloneSetOverlayModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetOverlayModel	uint, int, void	
-StandaloneSetViewModel	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetViewModel	uint, int, void	
-StandaloneShadowCast	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneShadowCast	uint, int*, int	
-ClientRecvProp	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientRecvProp	int, byte*, int, byte*, int, byte*, int, int*, int*, int*, int*, int	
-ClientSchemaRefusal	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientSchemaRefusal	int, uint*, uint*, uint*, int*, byte*, int, int*, int	
-StandaloneEngineBlock	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneEngineBlock	uint, int*, void*	
-StandaloneStoreSequence	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneStoreSequence	uint, int, float, float, float, int, void	
-StandaloneSetRagdoll	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSetRagdoll	uint, int, void	
-EntitySetSkin	EngineApi	IShimStandaloneClient	client		client	S	SourceSharp_EntitySetSkin	uint, int, void	
-RegisterAmmoType	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_RegisterAmmoType	byte*, int, int, int, float, float, void	
-StandaloneSurroundingBounds	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_StandaloneSurroundingBounds	uint*, int, float*, int	
-SurfaceMaterialFacts	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceMaterialFacts	uint, byte*, int, byte*, int, int*, int	
-SurfaceSetMaterials	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetMaterials	uint, byte*, int, int, void	
-SurfaceSetPlan	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetPlan	uint, int*, int, void	
-ClientInterpAdmitted	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientInterpAdmitted	uint*, int, void	
-EntitySetModelOverride	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_EntitySetModelOverride	uint, byte*, void	
+ActivateOccluder	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ActivateOccluder	int, int, void	
+ClientInterpBlocks	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientInterpBlocks	int*, float*, void**	
+ClientPolicyBlocks	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientPolicyBlocks	int*, void**	
+DynamicLightRelease	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::DynamicLightRelease	int, void	
+DynamicLightUpdate	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::DynamicLightUpdate	DynamicLight*, void	
+StandaloneIsDormant	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneIsDormant	uint, int	
+StandaloneSetBlending	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetBlending	uint, int, int, int, void	
+StandaloneSetCustomDraw	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetCustomDraw	uint, float*, float*, void	
+StandaloneSetFade	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetFade	uint, int, float, float, float, void	
+StandaloneSetOverlayModel	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetOverlayModel	uint, int, void	
+StandaloneSetViewModel	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetViewModel	uint, int, void	
+StandaloneShadowCast	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneShadowCast	uint, int*, int	
+ClientRecvProp	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientRecvProp	int, byte*, int, byte*, int, byte*, int, int*, int*, int*, int*, int	
+ClientSchemaRefusal	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientSchemaRefusal	int, uint*, uint*, uint*, int*, byte*, int, int*, int	
+StandaloneEngineBlock	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneEngineBlock	uint, int*, void*	
+StandaloneStoreSequence	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneStoreSequence	uint, int, float, float, float, int, void	
+StandaloneSetRagdoll	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSetRagdoll	uint, int, void	
+EntitySetSkin	EngineApi	IShimStandaloneClient	client		client	S	CStandaloneClients::EntitySetSkin	uint, int, void	
+RegisterAmmoType	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::RegisterAmmoType	byte*, int, int, int, float, float, void	
+StandaloneSurroundingBounds	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::StandaloneSurroundingBounds	uint*, int, float*, int	
+SurfaceMaterialFacts	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::SurfaceMaterialFacts	uint, byte*, int, byte*, int, int*, int	
+SurfaceSetMaterials	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::SurfaceSetMaterials	uint, byte*, int, int, void	
+SurfaceSetPlan	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::SurfaceSetPlan	uint, int*, int, void	
+ClientInterpAdmitted	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientInterpAdmitted	uint*, int, void	
+EntitySetModelOverride	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::EntitySetModelOverride	uint, byte*, void	
 ConNPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNPrintf	void*, int, byte*, void	
 ConNXPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNXPrintf	void*, int, float, float*, int, byte*, void	
 GetLightForPoint	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPoint	void*, float*, int, float*, void	
 GetLightForPointFast	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPointFast	void*, float*, int, float*, void	
 ClientSetWorldRenderState	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientSetWorldRenderState	int, float*, int, void	
 GetLocalPlayerOrigin	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLocalPlayerOrigin	float*, int	
-SetViewerFogParams	EngineApi	IShimViewClient	client		client	-	SourceSharp_SetViewerFogParams	FogParams*, void	
-SetViewerSkyboxParams	EngineApi	IShimViewClient	client		client	-	SourceSharp_SetViewerSkyboxParams	SkyboxParams*, void	
+SetViewerFogParams	EngineApi	IShimViewClient	client		client	-	CViewerFacts::SetViewerFogParams	FogParams*, void	
+SetViewerSkyboxParams	EngineApi	IShimViewClient	client		client	-	CViewerFacts::SetViewerSkyboxParams	SkyboxParams*, void	
 ClientTraceLine	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientTraceLine	float*, float*, int, int, int, float*, float*, float*, int*, int*, int*, int*, int	
 ClientTraceHull	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientTraceHull	float*, float*, float*, float*, int, int, int, float*, float*, int	
 ClientEntityRenderPose	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientEntityRenderPose	int, float*, float*, int	
-ViewOverrideSet	EngineApi	IShimViewClient	client		client	-	SourceSharp_ViewOverrideSet	int, float*, float*, int, void	
+ViewOverrideSet	EngineApi	IShimViewClient	client		client	-	CSourceSharpClientMode::ViewOverrideSet	int, float*, float*, int, void	
 EntitiesUpdateVisibilityAll	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientEntitiesUpdateVisibilityAll	int	
 RenderViewToTarget	EngineApi	IShimViewClient	client		client	-	SourceSharp_RenderViewToTarget	int, ViewTargetSetup*, int	
 ViewTargetInfo	EngineApi	IShimViewClient	client		client	-	SourceSharp_ViewTargetInfo	int, int*, int	

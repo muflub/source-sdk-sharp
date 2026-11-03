@@ -210,16 +210,9 @@ void SourceSharp_SlotUnbind(CSourceSharpSlotTable& table, int nEntry);
 
 class C_StandaloneEntity;
 
-// The client's table, defined in shell_cliententitylist.cpp. There is no client Bind():
-// the server assigns serials, so the client only binds at the handle it is given.
-CSourceSharpSlotTable& SourceSharp_ClientSlotTable();
-
-// Binds at the handle the server assigned. False if the entry was bound or the handle invalid.
-bool SourceSharp_ClientSlotBindAt(const CBaseHandle& handle, C_StandaloneEntity* pShell);
-
-void SourceSharp_ClientSlotUnbind(int nEntry);
-
-// The first carries the client's one permitted downcast; the others go through it.
+// The client's table is CClientEntityList's (client_entity_list.h), a member of the client
+// DLL object. These answer through it; the first carries the client's one permitted
+// downcast.
 C_StandaloneEntity* SourceSharp_ClientShellFromHandle(const CBaseHandle& handle);
 C_StandaloneEntity* SourceSharp_ClientShellFromIndex(int nEntry);
 C_StandaloneEntity* SourceSharp_ClientShellFromHandleEntity(IHandleEntity* pHandleEntity);

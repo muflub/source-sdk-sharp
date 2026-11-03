@@ -49,8 +49,14 @@
 #include "shell_pixelvis_client.h"
 
 #include "shell_clientsystems.h"
+#include "shell_viewer_facts.h"
+#include "shell_standalone_clients.h"
+#include "shell_client_mode.h"
+#include "shell_view_render.h"
+#include "shell_managed_areas_client.h"
 #include "view_facts.h"
 #include "vtable_slot_patch.h"
+#include "bound_callback.h"
 #include "shell_render_trace_client.h"
 #include "shell_shadows_client.h"
 #include "shell_standalone_client.h"
@@ -66,7 +72,6 @@ IMaterial* SourceSharp_FxMaterialOf(int32_t nMaterial);
 #include "shell_particle_systems.h"
 
 extern void UpdateClientRenderableInPVSStatus();
-extern IClientMode* GetClientModeNormal();
 // viewrender.cpp's current-view setters, which stock declares at each use.
 void SetupCurrentView(const Vector& vecOrigin, const QAngle& angles, view_id_t viewID);
 void FinishCurrentView();
@@ -80,7 +85,7 @@ extern float g_flCustomAutoExposureMax;
 extern float g_flCustomBloomScale;
 extern float g_flCustomBloomScaleMinimum;
 
-namespace
+namespace ShellViewExecutor
 {
 
 // Must match RenderOpKind in C#.
@@ -443,7 +448,10 @@ struct WorldListEntry_t
 class CPlanView : public CRefCounted<>, protected CViewSetup
 {
 public:
-	CPlanView() {}
+	explicit CPlanView(CShellViewRender& viewRender)
+		: m_ViewRender(viewRender)
+	{
+	}
 
 	~CPlanView() { ReleaseLists(); }
 
@@ -522,6 +530,8 @@ private:
 	PlanWorldListInfo_t* m_pWorldListInfo = NULL;
 	int m_DrawFlags = 0;
 	int m_ClearFlags = 0;
+
+	CShellViewRender& m_ViewRender;
 };
 
 void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
@@ -538,7 +548,7 @@ void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntiti
 			if (memcmp(&cache[i].m_Key, &key, sizeof(key)) != 0)
 				continue;
 			UpdateClientRenderableInPVSStatus();
-			ShellViewRender_IncWorldListsNumber();
+			m_ViewRender.IncWorldListsNumber();
 			m_pWorldRenderList = cache[i].m_pList;
 			m_pWorldRenderList->AddRef();
 			m_pWorldListInfo = cache[i].m_pInfo;
@@ -550,7 +560,7 @@ void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntiti
 	if (!bFound)
 	{
 		UpdateClientRenderableInPVSStatus();
-		ShellViewRender_IncWorldListsNumber();
+		m_ViewRender.IncWorldListsNumber();
 		m_pWorldRenderList = render->CreateWorldList();
 		m_pWorldListInfo = new PlanWorldListInfo_t;
 		render->BuildWorldLists(m_pWorldRenderList, m_pWorldListInfo, iForceViewLeaf, NULL, bShadowDepth,
@@ -612,7 +622,7 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 	if (!bShadowDepth)
 		render->BeginUpdateLightmaps();
 
-	ShellViewRender_IncRenderablesListsNumber();
+	m_ViewRender.IncRenderablesListsNumber();
 	WorldListInfo_t& info = *m_pWorldListInfo;
 
 	for (int i = 0; i < RENDER_GROUP_COUNT; ++i)
@@ -621,18 +631,18 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 	{
 		SetupRenderInfo_t setupInfo;
 		setupInfo.m_pWorldListInfo = m_pWorldListInfo;
-		setupInfo.m_nRenderFrame = ShellViewRender_RenderablesListsNumber();
+		setupInfo.m_nRenderFrame = m_ViewRender.RenderablesListsNumber();
 		setupInfo.m_nDetailBuildFrame = view->BuildWorldListsNumber();
 		setupInfo.m_pRenderList = m_pRenderablesList;
 		setupInfo.m_bDrawDetailObjects = bDetail;
 		setupInfo.m_bDrawTranslucentObjects = bTranslucent;
 		setupInfo.m_vecRenderOrigin = origin;
-		setupInfo.m_vecRenderForward = CurrentViewForward();
+		setupInfo.m_vecRenderForward = m_ViewRender.m_Current.forward;
 		setupInfo.m_flRenderDistSq = flRenderDistSq;
 		// The leaf system is managed: both calls answer from the managed registry.
 		if (!bShadowDepth)
 			ClientLeafSystem()->ComputeTranslucentRenderLeaf(info.m_LeafCount, info.m_pLeafList, info.m_pLeafFogVolume,
-															 ShellViewRender_RenderablesListsNumber(), nViewID);
+															 m_ViewRender.RenderablesListsNumber(), nViewID);
 		ClientLeafSystem()->BuildRenderablesList(setupInfo);
 	}
 
@@ -664,10 +674,6 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 // The executor's state, made at the first frame.
 struct ExecutorState_t
 {
-	// The client DLL object's game systems, for the plan's PreRender op; NULL outside its
-	// Init..Shutdown.
-	CClientSystems* m_pSystems = NULL;
-
 	bool m_bHooked = false;
 	bool m_bPlanFrame = false;
 	VTableSlotPatch::Patch m_BuildRenderablesPatch = {};
@@ -716,16 +722,112 @@ struct ExecutorState_t
 	SourceSharpRenderOp_t m_Ops[kMaxRenderOps];
 };
 
-ExecutorState_t* g_pExecutor = NULL;
+struct ViewSceneBuffer_t;
 
-ExecutorState_t& State()
+// The executor: every function below that reads the frame's state is its method. One
+// object, made by the client DLL object's CViewExecutor on the first frame, and handed what
+// it calls.
+class CViewExecutorImpl
 {
-	if (!g_pExecutor)
-		g_pExecutor = new ExecutorState_t();
-	return *g_pExecutor;
+public:
+	CViewExecutorImpl(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
+					  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender)
+		: m_Areas(areas)
+		, m_Systems(systems)
+		, m_ViewerFacts(viewerFacts)
+		, m_Standalone(standalone)
+		, m_ClientMode(clientMode)
+		, m_ViewRender(viewRender)
+	{
+	}
+
+	~CViewExecutorImpl();
+
+	CViewExecutorImpl(const CViewExecutorImpl&) = delete;
+	CViewExecutorImpl& operator=(const CViewExecutorImpl&) = delete;
+
+	ExecutorState_t& State() { return m_State; }
+
+	void ToViewSetup(const SourceSharpViewSetup_t& in, CViewSetup& out);
+	void FromViewSetup(const CViewSetup& in, SourceSharpViewSetup_t& out);
+	void FromFog(const fogparams_t* pFog, SourceSharpFogParams_t& out);
+	void ParseColor(const char* pszValue, float* pOut);
+	void WaterVar(IMaterial* pMaterial, const char* pszVar, int32_t* pDefined, int32_t* pValue);
+	int32_t WaterTextureVar(IMaterial* pMaterial, const char* pszVar);
+	int32_t ViewPlaneIntersectsWater(const CViewSetup& setup, float waterZ, int leafWaterDataID);
+	void GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw, SourceSharpRenderInputs_t& in);
+	void NoteBytes(const char* pszHead, const char* pszBytesPrefix, const void* pData, int n);
+	void NoteInputs(const SourceSharpRenderInputs_t& in);
+	void NoteFrameEnvironment();
+	void BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* pInfo, CClientRenderablesList* pList, int nDetailFrame,
+						IWorldRenderList* pWorld, const int nTranslucentFlags[2], int nOpIndex);
+	ITexture* Target(int nTarget);
+	CPlanView* CurrentView();
+	void SetClearColorToFogColor();
+	bool UpdateRefractIfNeededByList(CUtlVector<IClientRenderable*>& list);
+	void DrawRenderablesInList(CUtlVector<IClientRenderable*>& list, int flags);
+	void ViewModels(const CViewSetup& setup, bool bDrawPlayer);
+	void DrawOverlayMaterial(IMaterial* pMaterial, int nBranch, int x, int y, int w, int h);
+	void UnderwaterOverlay();
+	void HudPaint(const CViewSetup& setup);
+	void Upscale(const CViewSetup& setup);
+	void FreezeFrameDraw(int x, int y, int w, int h, int nFlashAlpha);
+	void FlushListCache();
+	void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase);
+	void ViewScene(CPlanView* pView, const SourceSharpRenderOp_t& op, int nOpIndex);
+	void DrawProgramEntity(CPlanView* pView, const SourceSharpRenderOp_t& op);
+	void FrameBufferForEntity(const SourceSharpRenderOp_t& op);
+	void DebugQuad(const SourceSharpRenderOp_t& op);
+	ITexture* PostTexture(int nTexture);
+	void PostDumpTga(int nWidth, int nHeight, const char* pszName, int nIndex);
+	bool RunPostProgram(int nKind, const CViewSetup& setup, int x, int y, int w, int h, bool bFlashlight,
+						bool bPostVGui);
+	void PostOp(const SourceSharpRenderOp_t& op);
+	void DebugShowTexture(float flScale);
+	bool RunSection(CPlanView* pView);
+	void Execute(const SourceSharpRenderOp_t* pOps, int nOps);
+	bool PlanRenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw);
+	void AfterRenderablesList(const SetupRenderInfo_t& info);
+	bool PlanShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView);
+	bool InstallHooks();
+	bool RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw);
+	bool ShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView);
+	bool ScreenshotView(const CViewSetup& eye, int nWidth, int nHeight, CViewSetup& out);
+	void FreezeFrame(float flFreezeTime);
+	int ActiveViewDrawFlags();
+	bool FrameViewDecision(CViewSetup& eye, int& nClearFlags, int& nDrawFlags, int* pRandomClear, bool& bOverview);
+	void GatherViewSetUp(SourceSharpViewSetUpIn_t& in);
+	void GatherFrame(const vrect_t& rect, const CViewSetup& eye, SourceSharpRenderFrameIn_t& in);
+	bool SetUpView(float& flZFar, float& flZFarViewmodel, float& flZNear, float& flZNearViewmodel, float& flFov,
+				   float& flViewModelFovOffset);
+	bool AskViewPlanes(float& flZNear, float& flZFar);
+	void ViewRender(vrect_t* rect);
+
+private:
+	const CManagedAreasClient& m_Areas;
+	CClientSystems& m_Systems;
+	CViewerFacts& m_ViewerFacts;
+	CStandaloneClients& m_Standalone;
+	CSourceSharpClientMode& m_ClientMode;
+	CShellViewRender& m_ViewRender;
+	ExecutorState_t m_State;
+
+	// The leaf system's BuildRenderablesList slot, patched: the leaf system calls it with its
+	// own object as `this`, so the hook is a thunk bound to this executor (bound_callback.h).
+	typedef CBoundCallback<void(IClientLeafSystem*, const SetupRenderInfo_t&)> BuildRenderablesHook_t;
+	void HookBuildRenderablesList(IClientLeafSystem* self, const SetupRenderInfo_t& info);
+	BuildRenderablesHook_t m_BuildRenderablesHook{
+		this, &BuildRenderablesHook_t::Trampoline<CViewExecutorImpl, &CViewExecutorImpl::HookBuildRenderablesList>};
+};
+
+// The hook's slot goes back before its thunk's page does.
+CViewExecutorImpl::~CViewExecutorImpl()
+{
+	if (m_State.m_bHooked)
+		VTableSlotPatch::Remove(m_State.m_BuildRenderablesPatch);
 }
 
-void ToViewSetup(const SourceSharpViewSetup_t& in, CViewSetup& out)
+void CViewExecutorImpl::ToViewSetup(const SourceSharpViewSetup_t& in, CViewSetup& out)
 {
 	out.x = in.X;
 	out.y = in.Y;
@@ -762,7 +864,7 @@ void ToViewSetup(const SourceSharpViewSetup_t& in, CViewSetup& out)
 	memcpy(out.m_ViewToProjection.Base(), in.ViewToProjection, sizeof(in.ViewToProjection));
 }
 
-void FromViewSetup(const CViewSetup& in, SourceSharpViewSetup_t& out)
+void CViewExecutorImpl::FromViewSetup(const CViewSetup& in, SourceSharpViewSetup_t& out)
 {
 	memset(&out, 0, sizeof(out));
 	out.X = in.x;
@@ -804,7 +906,7 @@ void FromViewSetup(const CViewSetup& in, SourceSharpViewSetup_t& out)
 	memcpy(out.ViewToProjection, in.m_ViewToProjection.Base(), sizeof(out.ViewToProjection));
 }
 
-void FromFog(const fogparams_t* pFog, SourceSharpFogParams_t& out)
+void CViewExecutorImpl::FromFog(const fogparams_t* pFog, SourceSharpFogParams_t& out)
 {
 	memset(&out, 0, sizeof(out));
 	if (!pFog)
@@ -843,7 +945,7 @@ void FromFog(const fogparams_t* pFog, SourceSharpFogParams_t& out)
 	out.Radial = pFog->radial ? 1 : 0;
 }
 
-void ParseColor(const char* pszValue, float* pOut)
+void CViewExecutorImpl::ParseColor(const char* pszValue, float* pOut)
 {
 	pOut[0] = pOut[1] = pOut[2] = -1.0f;
 	if (pszValue)
@@ -851,14 +953,14 @@ void ParseColor(const char* pszValue, float* pOut)
 }
 
 // The water material's switch named pszVar: defined (1/0) and its int value.
-void WaterVar(IMaterial* pMaterial, const char* pszVar, int32_t* pDefined, int32_t* pValue)
+void CViewExecutorImpl::WaterVar(IMaterial* pMaterial, const char* pszVar, int32_t* pDefined, int32_t* pValue)
 {
 	IMaterialVar* pVar = pMaterial->FindVar(pszVar, NULL, false);
 	*pDefined = (pVar && pVar->IsDefined()) ? 1 : 0;
 	*pValue = *pDefined ? pVar->GetIntValueFast() : 0;
 }
 
-int32_t WaterTextureVar(IMaterial* pMaterial, const char* pszVar)
+int32_t CViewExecutorImpl::WaterTextureVar(IMaterial* pMaterial, const char* pszVar)
 {
 	IMaterialVar* pVar = pMaterial->FindVar(pszVar, NULL, false);
 	return (pVar && pVar->GetType() == MATERIAL_VAR_TYPE_TEXTURE) ? 1 : 0;
@@ -866,7 +968,7 @@ int32_t WaterTextureVar(IMaterial* pMaterial, const char* pszVar)
 
 // DoesViewPlaneIntersectWater's answer for the view, from the matrices the
 // view's Push3DView sets (GetMatricesForView), asked before anything is pushed.
-int32_t ViewPlaneIntersectsWater(const CViewSetup& setup, float waterZ, int leafWaterDataID)
+int32_t CViewExecutorImpl::ViewPlaneIntersectsWater(const CViewSetup& setup, float waterZ, int leafWaterDataID)
 {
 	if (leafWaterDataID == -1)
 		return 0;
@@ -905,7 +1007,8 @@ int32_t ViewPlaneIntersectsWater(const CViewSetup& setup, float waterZ, int leaf
 }
 
 // RenderView's inputs, gathered at its entry.
-void GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw, SourceSharpRenderInputs_t& in)
+void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw,
+									 SourceSharpRenderInputs_t& in)
 {
 	ExecutorState_t& state = State();
 	memset(&in, 0, sizeof(in));
@@ -922,18 +1025,18 @@ void GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw, Sour
 	in.UseFastClipping = g_pMaterialSystemHardwareConfig->UseFastClipping() ? 1 : 0;
 	in.IsHammerRunning = engine->IsHammerRunning() ? 1 : 0;
 	in.ScreenAspect = engine->GetScreenAspectRatio();
-	in.ClientModeDrawFog = g_pClientMode->ShouldDrawFog() ? 1 : 0;
-	in.ClientModeDrawDetail = g_pClientMode->ShouldDrawDetailObjects() ? 1 : 0;
+	in.ClientModeDrawFog = m_ClientMode.ShouldDrawFog() ? 1 : 0;
+	in.ClientModeDrawDetail = m_ClientMode.ShouldDrawDetailObjects() ? 1 : 0;
 	// Managed code fills the freeze frame's state.
 	in.FreezeActive = 0;
 	in.FreezeTake = 0;
 	in.FreezeFlash = 0.0f;
 	in.TakingScreenshot = engine->IsTakingScreenshot() ? 1 : 0;
-	in.ForceNoVis = ShellViewRender_ForceNoVis() ? 1 : 0;
+	in.ForceNoVis = m_ViewRender.ForceNoVis() ? 1 : 0;
 	in.PointContentsSolid = enginetrace->GetPointContents(setup.origin) == CONTENTS_SOLID ? 1 : 0;
 
 	in.SkyboxVisible = (int32_t)engine->IsSkyboxVisibleFromPoint(setup.origin);
-	if (sky3dparams_t* pSky = SourceSharp_ViewerSkyboxParams())
+	if (sky3dparams_t* pSky = m_ViewerFacts.ViewerSkyboxParams())
 	{
 		in.SkyPresent = 1;
 		in.SkyScale = pSky->scale;
@@ -944,7 +1047,7 @@ void GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw, Sour
 		in.SkyArea = pSky->area;
 		FromFog(&pSky->fog, in.SkyFog);
 	}
-	FromFog(SourceSharp_ViewerFogParams(), in.Fog);
+	FromFog(m_ViewerFacts.ViewerFogParams(), in.Fog);
 
 	VisibleFogVolumeInfo_t fog;
 	render->GetVisibleFogVolume(setup.origin, &fog);
@@ -994,12 +1097,12 @@ void GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw, Sour
 		in.GlassPlane[3] = glass.dist;
 	}
 
-	in.ThirdPersonSeesOwner = SourceSharp_ThirdPersonSeesOwner() ? 1 : 0;
+	in.ThirdPersonSeesOwner = m_Standalone.ThirdPersonSeesOwner() ? 1 : 0;
 	in.ViewEntity = render->GetViewEntity();
 
 	// The screen fade, as stock's GetFadeParams, from managed code.
 	int32_t fade[5] = {0, 0, 0, 0, 0};
-	if (IManagedRenderClient* p = ManagedRenderClient())
+	if (IManagedRenderClient* p = m_Areas.m_pRenderClient)
 		p->ViewEffectsFadeParams(gpGlobals->curtime, fade);
 	in.FadeColor[0] = (byte)fade[0];
 	in.FadeColor[1] = (byte)fade[1];
@@ -1013,7 +1116,7 @@ void GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw, Sour
 		in.ScreenOverlayFullFrame = pOverlay->NeedsFullFrameBufferTexture() ? 1 : 0;
 		in.ScreenOverlayPowerOfTwo = pOverlay->NeedsPowerOfTwoFrameBufferTexture() ? 1 : 0;
 	}
-	in.FlashlightOn = SourceSharp_ViewerEffectActive(EF_DIMLIGHT) ? 1 : 0;
+	in.FlashlightOn = m_ViewerFacts.ViewerEffectActive(EF_DIMLIGHT) ? 1 : 0;
 
 	for (int i = 0; i < kRenderCvarCount; ++i)
 	{
@@ -1028,7 +1131,7 @@ void GatherInputs(const CViewSetup& setup, int nClearFlags, int whatToDraw, Sour
 // A struct as recorded lines of hex bytes, so managed code reads back exactly
 // what this frame had. `in`/`inbytes` are the frame's inputs; `scene`/`scenebytes`
 // one view's scene.
-void NoteBytes(const char* pszHead, const char* pszBytesPrefix, const void* pData, int n)
+void CViewExecutorImpl::NoteBytes(const char* pszHead, const char* pszBytesPrefix, const void* pData, int n)
 {
 	static const char kHex[] = "0123456789abcdef";
 	const unsigned char* p = (const unsigned char*)pData;
@@ -1044,14 +1147,14 @@ void NoteBytes(const char* pszHead, const char* pszBytesPrefix, const void* pDat
 	RenderTrace::NoteLong(pszBytesPrefix, hex.Base());
 }
 
-void NoteInputs(const SourceSharpRenderInputs_t& in)
+void CViewExecutorImpl::NoteInputs(const SourceSharpRenderInputs_t& in)
 {
 	NoteBytes("in", "inbytes\t", &in, (int)sizeof(in));
 }
 
 // A traced frame's convars (`cvar`) and the engine answers post-processing reads
 // (`env`), keyed by name so recordings stay readable as inputs are added.
-void NoteFrameEnvironment()
+void CViewExecutorImpl::NoteFrameEnvironment()
 {
 	CMatRenderContextPtr pRenderContext(materials);
 	const Vector vScale = pRenderContext->GetToneMappingScaleLinear();
@@ -1115,8 +1218,9 @@ COMPILE_TIME_ASSERT(RENDER_GROUP_COUNT == 14);
 
 // Fills the buffer from a view's world list info and renderables list. A null
 // world list leaves every leaf's translucent answers 0.
-void BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* pInfo, CClientRenderablesList* pList, int nDetailFrame,
-					IWorldRenderList* pWorld, const int nTranslucentFlags[2], int nOpIndex)
+void CViewExecutorImpl::BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* pInfo, CClientRenderablesList* pList,
+									   int nDetailFrame, IWorldRenderList* pWorld, const int nTranslucentFlags[2],
+									   int nOpIndex)
 {
 	const int nLeaves = pInfo ? pInfo->m_LeafCount : 0;
 	int nEntries = 0;
@@ -1146,7 +1250,7 @@ void BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* pInfo, CClientRende
 	detail.SetCount(nLeaves);
 	for (int i = 0; i < nLeaves; ++i)
 		detail[i] = 0;
-	if (IManagedLeafSystemClient* pLeafSystem = nLeaves > 0 ? ManagedLeafSystemClient() : NULL)
+	if (IManagedLeafSystemClient* pLeafSystem = nLeaves > 0 ? m_Areas.m_pLeafSystemClient : NULL)
 		pLeafSystem->DetailLeaves(nDetailFrame, pInfo->m_pLeafList, nLeaves, detail.Base());
 	for (int i = 0; i < nLeaves; ++i)
 	{
@@ -1203,7 +1307,7 @@ void BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* pInfo, CClientRende
 }
 
 // The ops.
-ITexture* Target(int nTarget)
+ITexture* CViewExecutorImpl::Target(int nTarget)
 {
 	switch (nTarget)
 	{
@@ -1226,13 +1330,13 @@ ITexture* Target(int nTarget)
 	}
 }
 
-CPlanView* CurrentView()
+CPlanView* CViewExecutorImpl::CurrentView()
 {
 	ExecutorState_t& state = State();
 	return state.m_Views.Count() ? state.m_Views.Tail() : NULL;
 }
 
-void SetClearColorToFogColor()
+void CViewExecutorImpl::SetClearColorToFogColor()
 {
 	unsigned char ucFogColor[3];
 	CMatRenderContextPtr pRenderContext(materials);
@@ -1247,7 +1351,7 @@ void SetClearColorToFogColor()
 	pRenderContext->ClearColor4ub(ucFogColor[0], ucFogColor[1], ucFogColor[2], 255);
 }
 
-bool UpdateRefractIfNeededByList(CUtlVector<IClientRenderable*>& list)
+bool CViewExecutorImpl::UpdateRefractIfNeededByList(CUtlVector<IClientRenderable*>& list)
 {
 	for (int i = 0; i < list.Count(); ++i)
 	{
@@ -1261,7 +1365,7 @@ bool UpdateRefractIfNeededByList(CUtlVector<IClientRenderable*>& list)
 	return false;
 }
 
-void DrawRenderablesInList(CUtlVector<IClientRenderable*>& list, int flags)
+void CViewExecutorImpl::DrawRenderablesInList(CUtlVector<IClientRenderable*>& list, int flags)
 {
 	for (int i = 0; i < list.Count(); ++i)
 	{
@@ -1273,7 +1377,7 @@ void DrawRenderablesInList(CUtlVector<IClientRenderable*>& list, int flags)
 
 // The viewmodels' pass: managed code chose the view and whether the player's
 // viewmodel draws.
-void ViewModels(const CViewSetup& setup, bool bDrawPlayer)
+void CViewExecutorImpl::ViewModels(const CViewSetup& setup, bool bDrawPlayer)
 {
 	CMatRenderContextPtr pRenderContext(materials);
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
@@ -1303,7 +1407,7 @@ void ViewModels(const CViewSetup& setup, bool bDrawPlayer)
 }
 
 // A full-screen material, the three ways stock draws one (ScreenOverlayBranch).
-void DrawOverlayMaterial(IMaterial* pMaterial, int nBranch, int x, int y, int w, int h)
+void CViewExecutorImpl::DrawOverlayMaterial(IMaterial* pMaterial, int nBranch, int x, int y, int w, int h)
 {
 	if (nBranch == 1)
 	{
@@ -1325,7 +1429,7 @@ void DrawOverlayMaterial(IMaterial* pMaterial, int nBranch, int x, int y, int w,
 	}
 }
 
-void UnderwaterOverlay()
+void CViewExecutorImpl::UnderwaterOverlay()
 {
 	IMaterial* pOverlay = State().m_UnderWaterOverlay;
 	if (!pOverlay)
@@ -1341,7 +1445,7 @@ void UnderwaterOverlay()
 		pRenderContext->DrawScreenSpaceRectangle(pOverlay, 0, 0, w, h, 0, 0, 1, 1, 1, 1);
 }
 
-void HudPaint(const CViewSetup& setup)
+void CViewExecutorImpl::HudPaint(const CViewSetup& setup)
 {
 	const int viewWidth = setup.m_nUnscaledWidth;
 	const int viewHeight = setup.m_nUnscaledHeight;
@@ -1363,7 +1467,7 @@ void HudPaint(const CViewSetup& setup)
 	render->VGui_Paint(PAINT_INGAMEPANELS);
 	AllowCurrentViewAccess(false);
 	VGui_PostRender();
-	g_pClientMode->PostRenderVGui();
+	m_ClientMode.PostRenderVGui();
 
 	pRenderContext.GetFrom(materials);
 	pRenderContext->PopRenderTargetAndViewport();
@@ -1371,7 +1475,7 @@ void HudPaint(const CViewSetup& setup)
 	pRenderContext.SafeRelease();
 }
 
-void Upscale(const CViewSetup& setup)
+void CViewExecutorImpl::Upscale(const CViewSetup& setup)
 {
 	CMatRenderContextPtr pRenderContext(materials);
 	ITexture* pFullFrameFB1 = materials->FindTexture("_rt_FullFrameFB1", TEXTURE_GROUP_RENDER_TARGET);
@@ -1395,7 +1499,7 @@ void Upscale(const CViewSetup& setup)
 
 // CFreezeFrameView's material and two rectangles: the captured frame, then the
 // flash at the alpha managed code worked out.
-void FreezeFrameDraw(int x, int y, int w, int h, int nFlashAlpha)
+void CViewExecutorImpl::FreezeFrameDraw(int x, int y, int w, int h, int nFlashAlpha)
 {
 	ExecutorState_t& state = State();
 	if (!state.m_FreezeFrameMaterial.IsValid())
@@ -1421,7 +1525,7 @@ void FreezeFrameDraw(int x, int y, int w, int h, int nFlashAlpha)
 	pRenderContext->DrawScreenSpaceRectangle(pMaterial, x, y, w, h, 0, 0, w - 1, h - 1, w, h);
 }
 
-void FlushListCache()
+void CViewExecutorImpl::FlushListCache()
 {
 	ExecutorState_t& state = State();
 	for (int c = 0; c < state.m_ListCache.Count(); ++c)
@@ -1432,16 +1536,7 @@ void FlushListCache()
 	state.m_ListCache.RemoveAll();
 }
 
-void ViewScene(CPlanView* pView, const SourceSharpRenderOp_t& op, int nOpIndex);
-void DebugQuad(const SourceSharpRenderOp_t& op);
-void PostOp(const SourceSharpRenderOp_t& op);
-bool RunPostProgram(int nKind, const CViewSetup& setup, int x, int y, int w, int h, bool bFlashlight, bool bPostVGui);
-void DebugShowTexture(float flScale);
-void DrawProgramEntity(CPlanView* pView, const SourceSharpRenderOp_t& op);
-void FrameBufferForEntity(const SourceSharpRenderOp_t& op);
-bool RunSection(CPlanView* pView);
-
-void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
+void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 {
 	ExecutorState_t& state = State();
 	for (int i = 0; i < nOps; ++i)
@@ -1481,13 +1576,13 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 				render->PopView(view->GetFrustum());
 				break;
 			case RENDER_OP_SetupCurrentView:
-				ShellView_SetupCurrentView(setup.origin, setup.angles, op.I[0], true);
+				m_ViewRender.SetupCurrentView(setup.origin, setup.angles, op.I[0], true);
 				break;
 			case RENDER_OP_FinishCurrentView:
-				ShellView_FinishCurrentView();
+				m_ViewRender.FinishCurrentView();
 				break;
 			case RENDER_OP_AllowCurrentViewAccess:
-				ShellView_AllowCurrentViewAccess(op.I[0] != 0);
+				m_ViewRender.AllowCurrentViewAccess(op.I[0] != 0);
 				break;
 			case RENDER_OP_ShadowPreRender:
 				ShellShadows_PreRender();
@@ -1499,8 +1594,7 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 				ShellShadows_UnlockAllShadowDepthTextures();
 				break;
 			case RENDER_OP_ClientSystemsPreRender:
-				if (state.m_pSystems)
-					state.m_pSystems->PreRender();
+				m_Systems.PreRender();
 				break;
 			case RENDER_OP_ViewSetupVisEx:
 			{
@@ -1537,7 +1631,7 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 				break;
 			case RENDER_OP_WorldViewBegin:
 			{
-				CPlanView* pNew = new CPlanView();
+				CPlanView* pNew = new CPlanView(m_ViewRender);
 				pNew->Begin(setup, op.I[0], op.I[1]);
 				state.m_Views.AddToTail(pNew);
 				break;
@@ -1753,8 +1847,8 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 				if (pView)
 				{
 					DetailObjectSystem()->RenderTranslucentDetailObjects(
-						CurrentViewOrigin(), CurrentViewForward(), CurrentViewRight(), CurrentViewUp(),
-						pView->m_DetailLeaves.Count(), pView->m_DetailLeaves.Base());
+						m_ViewRender.m_Current.origin, m_ViewRender.m_Current.forward, m_ViewRender.m_Current.right,
+						m_ViewRender.m_Current.up, pView->m_DetailLeaves.Count(), pView->m_DetailLeaves.Base());
 					pView->m_DetailLeaves.RemoveAll();
 				}
 				break;
@@ -1762,9 +1856,9 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 			{
 				IClientRenderable* pEnt = pView ? pView->Entry(op.I[1]) : NULL;
 				Vector vecOrigin = pEnt ? pEnt->GetRenderOrigin() : vec3_origin;
-				DetailObjectSystem()->RenderTranslucentDetailObjectsInLeaf(CurrentViewOrigin(), CurrentViewForward(),
-																		   CurrentViewRight(), CurrentViewUp(), op.I[0],
-																		   pEnt ? &vecOrigin : NULL);
+				DetailObjectSystem()->RenderTranslucentDetailObjectsInLeaf(
+					m_ViewRender.m_Current.origin, m_ViewRender.m_Current.forward, m_ViewRender.m_Current.right,
+					m_ViewRender.m_Current.up, op.I[0], pEnt ? &vecOrigin : NULL);
 				break;
 			}
 			case RENDER_OP_TranslucentSurfaces:
@@ -1784,12 +1878,12 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 
 			// The second camera's pass.
 			case RENDER_OP_ViewerSeenBegin:
-				state.m_ViewerSeen.AddToTail(ShellClient_ViewerSeenBegin());
+				state.m_ViewerSeen.AddToTail(m_ClientMode.ViewerSeenBegin());
 				break;
 			case RENDER_OP_ViewerSeenEnd:
 				if (state.m_ViewerSeen.Count())
 				{
-					ShellClient_ViewerSeenEnd(state.m_ViewerSeen.Tail());
+					m_ClientMode.ViewerSeenEnd(state.m_ViewerSeen.Tail());
 					state.m_ViewerSeen.RemoveMultipleFromTail(1);
 				}
 				break;
@@ -1810,7 +1904,7 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 				break;
 			case RENDER_OP_DebugLightmapPage:
 			{
-				CPlanView* pDebug = new CPlanView();
+				CPlanView* pDebug = new CPlanView(m_ViewRender);
 				pDebug->Begin(setup, 0, 0);
 				Frustum frustum;
 				AllowCurrentViewAccess(true);
@@ -1944,7 +2038,7 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 				RunPostProgram(1, setup, setup.x, setup.y, setup.width, setup.height, false, false);
 				break;
 			case RENDER_OP_PostScreenSpaceEffects:
-				GetClientModeNormal()->DoPostScreenSpaceEffects(&setup);
+				m_ClientMode.DoPostScreenSpaceEffects(&setup);
 				break;
 			case RENDER_OP_ViewModels:
 				ViewModels(setup, op.I[0] != 0);
@@ -2047,7 +2141,7 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 			case RENDER_OP_SetCurrentViewSetup:
 			{
 				// GetViewSetup answers the view between frames too, so the plan's view is kept.
-				ShellViewRender_SetCurrentView(setup);
+				m_ViewRender.SetCurrentView(setup);
 				break;
 			}
 			default:
@@ -2060,11 +2154,11 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 
 // Gathers the view's scene once its lists are built and asks managed code for
 // its program.
-void ViewScene(CPlanView* pView, const SourceSharpRenderOp_t& op, int nOpIndex)
+void CViewExecutorImpl::ViewScene(CPlanView* pView, const SourceSharpRenderOp_t& op, int nOpIndex)
 {
 	pView->m_bHasProgram = false;
 	pView->m_nSectionStart = 0;
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	if (!pManaged)
 		return;
 
@@ -2096,7 +2190,7 @@ void ViewScene(CPlanView* pView, const SourceSharpRenderOp_t& op, int nOpIndex)
 // Stock's DrawOpaqueRenderable/DrawTranslucentRenderable after the colour and
 // blend managed code set, inside the renderable's clip plane when it has one and
 // r_entityclips honours it.
-void DrawProgramEntity(CPlanView* pView, const SourceSharpRenderOp_t& op)
+void CViewExecutorImpl::DrawProgramEntity(CPlanView* pView, const SourceSharpRenderOp_t& op)
 {
 	IClientRenderable* pEnt = pView->Entry(op.I[0]);
 	if (!pEnt)
@@ -2120,7 +2214,7 @@ void DrawProgramEntity(CPlanView* pView, const SourceSharpRenderOp_t& op)
 
 // The frame-buffer refresh before a translucent entity that samples it, at the
 // size of the render target in force (stock's two arms; I2 says which).
-void FrameBufferForEntity(const SourceSharpRenderOp_t& op)
+void CViewExecutorImpl::FrameBufferForEntity(const SourceSharpRenderOp_t& op)
 {
 	const bool bPow2 = op.I[0] != 0, bFull = op.I[1] != 0;
 	ITexture* rt;
@@ -2152,7 +2246,7 @@ void FrameBufferForEntity(const SourceSharpRenderOp_t& op)
 // viewdebug.cpp's overlay quad: the material managed code found, at its chosen
 // rectangle and texture coordinates, white; sized by the material's mapping when
 // asked. An error material draws nothing, as in stock.
-void DebugQuad(const SourceSharpRenderOp_t& op)
+void CViewExecutorImpl::DebugQuad(const SourceSharpRenderOp_t& op)
 {
 	IMaterial* pMaterial = SourceSharp_FxMaterialOf(op.I[0]);
 	if (!pMaterial || IsErrorMaterial(pMaterial))
@@ -2188,7 +2282,7 @@ void DebugQuad(const SourceSharpRenderOp_t& op)
 }
 
 // viewpostprocess.cpp's render-context calls, as the managed planner asks.
-ITexture* PostTexture(int nTexture)
+ITexture* CViewExecutorImpl::PostTexture(int nTexture)
 {
 	switch (nTexture)
 	{
@@ -2210,7 +2304,7 @@ const char* const kPostDumpNames[] = {"BackBuffer",    "QuarterSizeFB", "BlurX",
 									  "BlurYAndBloom", "EnginePost",    "MotionBlur"};
 
 // A render target's pixels to //MOD/<index>_<name>_PC.tga.
-void PostDumpTga(int nWidth, int nHeight, const char* pszName, int nIndex)
+void CViewExecutorImpl::PostDumpTga(int nWidth, int nHeight, const char* pszName, int nIndex)
 {
 	if (nWidth <= 0 || nHeight <= 0)
 		return;
@@ -2243,9 +2337,10 @@ void PostDumpTga(int nWidth, int nHeight, const char* pszName, int nIndex)
 
 // Gathers what the post-processing planner reads, then carries out its program.
 // False when managed code declined.
-bool RunPostProgram(int nKind, const CViewSetup& setup, int x, int y, int w, int h, bool bFlashlight, bool bPostVGui)
+bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x, int y, int w, int h, bool bFlashlight,
+									   bool bPostVGui)
 {
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	if (!pManaged)
 		return false;
 	ExecutorState_t& state = State();
@@ -2336,7 +2431,7 @@ bool RunPostProgram(int nKind, const CViewSetup& setup, int x, int y, int w, int
 	return true;
 }
 
-void PostOp(const SourceSharpRenderOp_t& op)
+void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 {
 	ExecutorState_t& state = State();
 	CMatRenderContextPtr ctx(materials);
@@ -2576,7 +2671,7 @@ void PostOp(const SourceSharpRenderOp_t& op)
 
 // viewdebug.cpp's OverlayShowTexture: mat_drawTexture's texture on ___debug's
 // $basetexture, at 32, 32, the texture's size times the scale.
-void DebugShowTexture(float flScale)
+void CViewExecutorImpl::DebugShowTexture(float flScale)
 {
 	ConVarRef drawTexture("mat_drawTexture", true);
 	const char* pszTexture = drawTexture.IsValid() ? drawTexture.GetString() : NULL;
@@ -2616,7 +2711,7 @@ void DebugShowTexture(float flScale)
 }
 
 // A list-dependent draw op: its section of the view's program.
-bool RunSection(CPlanView* pView)
+bool CViewExecutorImpl::RunSection(CPlanView* pView)
 {
 	int nStart = 0, nEnd = 0;
 	if (!pView || !pView->NextSection(nStart, nEnd))
@@ -2628,7 +2723,7 @@ bool RunSection(CPlanView* pView)
 	return true;
 }
 
-void Execute(const SourceSharpRenderOp_t* pOps, int nOps)
+void CViewExecutorImpl::Execute(const SourceSharpRenderOp_t* pOps, int nOps)
 {
 	ExecutorState_t& state = State();
 	ExecuteOps(pOps, nOps, 0);
@@ -2643,11 +2738,11 @@ void Execute(const SourceSharpRenderOp_t* pOps, int nOps)
 
 // RenderView through the plan. False when there is no plan to draw it with (no
 // managed client, the hooks not in, or the planner declined).
-bool PlanRenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
+bool CViewExecutorImpl::PlanRenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
 {
 	ExecutorState_t& state = State();
 	state.m_bDecisionPending = false;
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	const bool bPlan = state.m_bPlanFrame && pManaged != NULL;
 	if (!bPlan && !RenderTrace::Active())
 		return false;
@@ -2674,10 +2769,10 @@ bool PlanRenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
 
 // The leaf system's list for a view, captured as it is built: its custom-draw
 // entities are drawn from one batch.
-void AfterRenderablesList(const SetupRenderInfo_t& info)
+void CViewExecutorImpl::AfterRenderablesList(const SetupRenderInfo_t& info)
 {
 	if (info.m_pRenderList)
-		SourceSharp_StandaloneDrawBatchCapture(*info.m_pRenderList);
+		m_Standalone.DrawBatchCapture(*info.m_pRenderList);
 
 	// On a recorded frame, the scene the view's draws were decided over.
 	if (RenderTrace::Active())
@@ -2689,20 +2784,21 @@ void AfterRenderablesList(const SetupRenderInfo_t& info)
 	}
 }
 
-void H_BuildRenderablesList(IClientLeafSystem* self, const SetupRenderInfo_t& info)
+void CViewExecutorImpl::HookBuildRenderablesList(IClientLeafSystem* self, const SetupRenderInfo_t& info)
 {
 	typedef void (*BuildRenderablesList_t)(IClientLeafSystem*, const SetupRenderInfo_t&);
-	((BuildRenderablesList_t)State().m_BuildRenderablesPatch.pOriginal)(self, info);
+	((BuildRenderablesList_t)m_State.m_BuildRenderablesPatch.pOriginal)(self, info);
 	AfterRenderablesList(info);
 }
 
 // UpdateShadowDepthTexture inside a plan frame's ShadowComputeDepthTextures op:
 // managed code plans the shadow depth view and it runs inside the frame's plan.
 // False with no plan to draw it in.
-bool PlanShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView)
+bool CViewExecutorImpl::PlanShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture,
+											const CViewSetup& shadowView)
 {
 	ExecutorState_t& state = State();
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	if (state.m_bPlanFrame && pManaged)
 	{
 		SourceSharpViewSetup_t view;
@@ -2722,13 +2818,14 @@ bool PlanShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const
 	return false;
 }
 
-bool InstallHooks()
+bool CViewExecutorImpl::InstallHooks()
 {
 	ExecutorState_t& state = State();
 	if (state.m_bHooked)
 		return true;
-	if (!VTableSlotPatch::Install(ClientLeafSystem(), &IClientLeafSystem::BuildRenderablesList,
-								  (void*)&H_BuildRenderablesList, &state.m_BuildRenderablesPatch))
+	if (!m_BuildRenderablesHook.Get() ||
+		!VTableSlotPatch::Install(ClientLeafSystem(), &IClientLeafSystem::BuildRenderablesList,
+								  (void*)m_BuildRenderablesHook.Get(), &state.m_BuildRenderablesPatch))
 	{
 		return false;
 	}
@@ -2736,26 +2833,19 @@ bool InstallHooks()
 	return true;
 }
 
-} // namespace
-
-void SourceSharp_ViewExecutorBind(CClientSystems* pSystems)
-{
-	State().m_pSystems = pSystems;
-}
-
-bool SourceSharp_RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
+bool CViewExecutorImpl::RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
 {
 	return PlanRenderView(setup, nClearFlags, whatToDraw);
 }
 
-bool SourceSharp_ShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView)
+bool CViewExecutorImpl::ShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView)
 {
 	return PlanShadowDepthView(pRenderTarget, pDepthTexture, shadowView);
 }
 
-bool SourceSharp_ScreenshotView(const CViewSetup& eye, int nWidth, int nHeight, CViewSetup& out)
+bool CViewExecutorImpl::ScreenshotView(const CViewSetup& eye, int nWidth, int nHeight, CViewSetup& out)
 {
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	if (!pManaged)
 		return false;
 	SourceSharpViewSetup_t in, decided;
@@ -2766,20 +2856,20 @@ bool SourceSharp_ScreenshotView(const CViewSetup& eye, int nWidth, int nHeight, 
 	return true;
 }
 
-void SourceSharp_FreezeFrame(float flFreezeTime)
+void CViewExecutorImpl::FreezeFrame(float flFreezeTime)
 {
-	if (IManagedRenderClient* pManaged = ManagedRenderClient())
+	if (IManagedRenderClient* pManaged = m_Areas.m_pRenderClient)
 		pManaged->ViewFreezeFrame(flFreezeTime, gpGlobals->curtime);
 }
 
-int SourceSharp_ActiveViewDrawFlags()
+int CViewExecutorImpl::ActiveViewDrawFlags()
 {
 	CPlanView* pView = CurrentView();
 	return pView ? pView->GetDrawFlags() : 0;
 }
 
-bool SourceSharp_FrameViewDecision(CViewSetup& eye, int& nClearFlags, int& nDrawFlags, int* pRandomClear,
-								   bool& bOverview)
+bool CViewExecutorImpl::FrameViewDecision(CViewSetup& eye, int& nClearFlags, int& nDrawFlags, int* pRandomClear,
+										  bool& bOverview)
 {
 	ExecutorState_t& state = State();
 	if (!state.m_bDecisionPending)
@@ -2803,19 +2893,19 @@ float CvarFloat(const char* pszName)
 }
 
 // SetUpViews' inputs before the override (view.cpp).
-void GatherViewSetUp(SourceSharpViewSetUpIn_t& in)
+void CViewExecutorImpl::GatherViewSetUp(SourceSharpViewSetUpIn_t& in)
 {
 	in.FarZ = CvarFloat("r_farz");
 	in.MapExtents = CvarFloat("r_mapextents");
-	const fogparams_t* pFog = SourceSharp_ViewerFogParams();
+	const fogparams_t* pFog = m_ViewerFacts.ViewerFogParams();
 	in.FogFarZ = pFog ? pFog->farz : 0.0f;
 	in.DefaultFov = CvarFloat("default_fov");
-	in.ViewModelFov = g_pClientMode->GetViewModelFOV();
+	in.ViewModelFov = m_ClientMode.GetViewModelFOV();
 }
 
 // CViewRender::Render's inputs: the engine's, the client mode's and the convars,
 // with the client mode's viewport adjustment made on a copy of the rectangle.
-void GatherFrame(const vrect_t& rect, const CViewSetup& eye, SourceSharpRenderFrameIn_t& in)
+void CViewExecutorImpl::GatherFrame(const vrect_t& rect, const CViewSetup& eye, SourceSharpRenderFrameIn_t& in)
 {
 	FromViewSetup(eye, in.Eye);
 	in.ScreenAspect = engine->GetScreenAspectRatio();
@@ -2833,20 +2923,20 @@ void GatherFrame(const vrect_t& rect, const CViewSetup& eye, SourceSharpRenderFr
 		if (adapterInfo.m_VendorID == 0x1002 && g_pMaterialSystem->GetCurrentConfigForVideoCard().m_nAASamples > 1)
 			in.ClearColorForAntialiasing = 1;
 	}
-	in.ClientModeDrawViewModel = g_pClientMode->ShouldDrawViewModel() ? 1 : 0;
+	in.ClientModeDrawViewModel = m_ClientMode.ShouldDrawViewModel() ? 1 : 0;
 	in.LevelOverview = CvarFloat("cl_leveloverview");
 	int x = rect.x, y = rect.y, w = rect.width, h = rect.height;
-	g_pClientMode->AdjustEngineViewport(x, y, w, h);
+	m_ClientMode.AdjustEngineViewport(x, y, w, h);
 	in.ViewportX = x;
 	in.ViewportY = y;
 	in.ViewportWidth = w;
 	in.ViewportHeight = h;
 }
 
-bool SourceSharp_SetUpView(float& flZFar, float& flZFarViewmodel, float& flZNear, float& flZNearViewmodel, float& flFov,
-						   float& flViewModelFovOffset)
+bool CViewExecutorImpl::SetUpView(float& flZFar, float& flZFarViewmodel, float& flZNear, float& flZNearViewmodel,
+								  float& flFov, float& flViewModelFovOffset)
 {
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	if (!pManaged)
 		return false;
 	SourceSharpViewSetUpIn_t in;
@@ -2862,9 +2952,9 @@ bool SourceSharp_SetUpView(float& flZFar, float& flZFarViewmodel, float& flZNear
 	return true;
 }
 
-bool SourceSharp_AskViewPlanes(float& flZNear, float& flZFar)
+bool CViewExecutorImpl::AskViewPlanes(float& flZNear, float& flZFar)
 {
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	if (!pManaged)
 		return false;
 	SourceSharpViewSetUpIn_t in;
@@ -2876,7 +2966,7 @@ bool SourceSharp_AskViewPlanes(float& flZNear, float& flZFar)
 	return true;
 }
 
-void SourceSharp_ViewRender(vrect_t* rect)
+void CViewExecutorImpl::ViewRender(vrect_t* rect)
 {
 	ExecutorState_t& state = State();
 	if (!state.m_bHooked && !InstallHooks())
@@ -2904,7 +2994,7 @@ void SourceSharp_ViewRender(vrect_t* rect)
 	SourceSharpRenderFrameOut_t out;
 	memset(&out, 0, sizeof(out));
 
-	IManagedRenderClient* pManaged = ManagedRenderClient();
+	IManagedRenderClient* pManaged = m_Areas.m_pRenderClient;
 	if (pManaged)
 	{
 		pManaged->RenderFrame(&in, &out);
@@ -2938,4 +3028,69 @@ void SourceSharp_ViewRender(vrect_t* rect)
 		if (pManaged)
 			pManaged->RenderTraceDone(out.TraceTag, pText, nLength);
 	}
+}
+
+} // namespace ShellViewExecutor
+
+using ShellViewExecutor::CViewExecutorImpl;
+
+CViewExecutor::~CViewExecutor()
+{
+	delete m_pImpl;
+}
+
+CViewExecutorImpl& CViewExecutor::Impl()
+{
+	if (!m_pImpl)
+	{
+		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender);
+	}
+	return *m_pImpl;
+}
+
+void CViewExecutor::ViewRender(vrect_t* rect)
+{
+	Impl().ViewRender(rect);
+}
+
+bool CViewExecutor::RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
+{
+	return Impl().RenderView(setup, nClearFlags, whatToDraw);
+}
+
+bool CViewExecutor::ShadowDepthView(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView)
+{
+	return Impl().ShadowDepthView(pRenderTarget, pDepthTexture, shadowView);
+}
+
+int CViewExecutor::ActiveViewDrawFlags()
+{
+	return Impl().ActiveViewDrawFlags();
+}
+
+void CViewExecutor::FreezeFrame(float flFreezeTime)
+{
+	Impl().FreezeFrame(flFreezeTime);
+}
+
+bool CViewExecutor::ScreenshotView(const CViewSetup& eye, int nWidth, int nHeight, CViewSetup& out)
+{
+	return Impl().ScreenshotView(eye, nWidth, nHeight, out);
+}
+
+bool CViewExecutor::SetUpView(float& flZFar, float& flZFarViewmodel, float& flZNear, float& flZNearViewmodel,
+							  float& flFov, float& flViewModelFovOffset)
+{
+	return Impl().SetUpView(flZFar, flZFarViewmodel, flZNear, flZNearViewmodel, flFov, flViewModelFovOffset);
+}
+
+bool CViewExecutor::AskViewPlanes(float& flZNear, float& flZFar)
+{
+	return Impl().AskViewPlanes(flZNear, flZFar);
+}
+
+bool CViewExecutor::FrameViewDecision(CViewSetup& eye, int& nClearFlags, int& nDrawFlags, int* pRandomClear,
+									  bool& bOverview)
+{
+	return Impl().FrameViewDecision(eye, nClearFlags, nDrawFlags, pRandomClear, bOverview);
 }

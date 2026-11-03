@@ -18,6 +18,7 @@
 #include "cdll_client_int.h"
 
 #include "shell_clientsystems.h"
+#include "shell_standalone_clients.h"
 
 // Stock's IGameSystem keys its vtable on this destructor. client.so keeps no
 // system list of its own, so the body is empty.
@@ -26,14 +27,12 @@ IGameSystem::~IGameSystem() {}
 // The accessors. Declared here because this table is their only other reader.
 CClientSystem* GameStringSystem();
 
-CClientSystem* ClientSystem_StandaloneClient();
 CClientSystem* ClientSystem_DirtySpatialPartition();
 CClientSystem* ClientSystem_BulletWhizTimer();
 CClientSystem* ClientSystem_Sprite();
 CClientSystem* ClientSystem_WorldText();
 CClientSystem* ClientSystem_Rope();
 CClientSystem* ClientSystem_ManagedParticles();
-CClientSystem* ClientSystem_StandaloneInterp();
 
 // Stock's accessors answer a more specific type; the table's adapters keep its
 // column uniform.
@@ -67,10 +66,11 @@ const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
 }
 
 CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
-							   CClientSystem& decals)
+							   CClientSystem& decals, CStandaloneClients& standalone)
 	: m_ManagedFrame(managedFrame)
 	, m_Physics(physics)
 	, m_Decals(decals)
+	, m_Standalone(standalone)
 	, m_ViewportRow(areas, "CViewportClientSystem")
 	, m_GlowOverlayRow(areas, "CGlowOverlaySystem")
 	, m_PixelVisibilityRow(areas, "CPixelVisibilitySystem")
@@ -103,7 +103,7 @@ bool CClientSystems::Init()
 		{"C_SoundscapeSystem", &m_SoundscapeRow},
 
 		// The auto-registered systems, in stock's runtime order.
-		{"CSourceSharpStandaloneClientSystem", ClientSystem_StandaloneClient()},
+		{"CSourceSharpStandaloneClientSystem", &m_Standalone.TierSystem()},
 		{"CGlowOverlaySystem", &m_GlowOverlayRow},
 		{"CDecalEmitterSystem", &m_Decals},
 		{"CDirtySpatialPartitionEntityList", ClientSystem_DirtySpatialPartition()},
@@ -113,7 +113,7 @@ bool CClientSystems::Init()
 		{"CSourceSharpWorldTextSystem", ClientSystem_WorldText()},
 		{"CSourceSharpRopeSystem", ClientSystem_Rope()},
 		{"CSourceSharpManagedParticlesSystem", ClientSystem_ManagedParticles()},
-		{"CSourceSharpStandaloneInterpSystem", ClientSystem_StandaloneInterp()},
+		{"CSourceSharpStandaloneInterpSystem", &m_Standalone.InterpSystem()},
 
 		// The managed frame. The CLR is already up from CHLClient::Init.
 		{"SourceSharp", &m_ManagedFrame},

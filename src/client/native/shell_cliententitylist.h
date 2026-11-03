@@ -36,14 +36,6 @@ IClientRenderable* SourceSharp_ClientRenderableFromHandle(const CBaseHandle& hEn
 // The handle for an index, for a caller that must hold on to what it found.
 CBaseHandle SourceSharp_ClientHandleFromIndex(int nEntry);
 
-// C_StandaloneEntity's constructor and destructor: the only places a shell
-// enters or leaves the slot table. Takes the concrete type because
-// slot_table.h static_casts back what it stores.
-class C_StandaloneEntity;
-
-void SourceSharp_ClientEntityBind(C_StandaloneEntity* pShell, int nEntNum, int nSerialNum);
-void SourceSharp_ClientEntityUnbind(C_StandaloneEntity* pShell);
-
 // The world is not in the slot table; these compare a handle or index with the
 // handle the C_World singleton is bound to. The serial is compared, so the
 // previous map's world handle does not resolve. An unbound world answers NULL.

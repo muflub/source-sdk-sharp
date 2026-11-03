@@ -44,38 +44,44 @@
 
 #include "shell_view_targets.h"
 #include "shell_particle_systems.h"
+#include "shell_client_mode.h"
+#include "shell_standalone_clients.h"
 
-// The third-person camera. Its last fraction is published because whether the player's
-// model and viewmodel draw depend on it: a camera pulled onto the eye by a wall is a
-// first-person camera whatever mode was typed.
-static bool s_bThirdPersonSeesOwner = false;
-
+// The free answers for the code not yet handed the client mode.
 bool SourceSharp_ThirdPersonSeesOwner()
 {
-	return s_bThirdPersonSeesOwner;
+	return ShellClientDll_Standalone().ThirdPersonSeesOwner();
 }
 
-// A second camera that shows the viewer: for its draw the flag answers as a third-person
-// camera's would, and the body moves into the leaf system and back out.
 bool ShellClient_ViewerSeenBegin()
 {
-	const bool bWas = s_bThirdPersonSeesOwner;
-	s_bThirdPersonSeesOwner = true;
-	if (C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell())
-		pPlayer->UpdateVisibility();
-	return bWas;
+	return ShellClientDll_ClientMode().ViewerSeenBegin();
 }
 
 void ShellClient_ViewerSeenEnd(bool bWasSeen)
 {
-	s_bThirdPersonSeesOwner = bWasSeen;
-	if (C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell())
+	ShellClientDll_ClientMode().ViewerSeenEnd(bWasSeen);
+}
+
+bool CSourceSharpClientMode::ViewerSeenBegin()
+{
+	const bool bWas = m_Standalone.ThirdPersonSeesOwner();
+	m_Standalone.SetThirdPersonSeesOwner(true);
+	if (C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer())
+		pPlayer->UpdateVisibility();
+	return bWas;
+}
+
+void CSourceSharpClientMode::ViewerSeenEnd(bool bWasSeen)
+{
+	m_Standalone.SetThirdPersonSeesOwner(bWasSeen);
+	if (C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer())
 		pPlayer->UpdateVisibility();
 }
 
-static void SourceSharp_ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CViewSetup* pSetup)
+void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CViewSetup* pSetup)
 {
-	s_bThirdPersonSeesOwner = false;
+	m_Standalone.SetThirdPersonSeesOwner(false);
 
 	if (!::input || !::input->CAM_IsThirdPerson())
 	{
@@ -97,7 +103,7 @@ static void SourceSharp_ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CVie
 	if (!s_IdealDist.IsValid())
 		return;
 
-	IManagedPredictionClient* pPrediction = ManagedPredictionClient();
+	IManagedPredictionClient* pPrediction = m_Areas.m_pPredictionClient;
 
 	if (!pPrediction)
 	{
@@ -159,7 +165,7 @@ static void SourceSharp_ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CVie
 	pSetup->origin = vecEye + vecWish * flSurviving;
 	pSetup->angles = angCamera;
 
-	s_bThirdPersonSeesOwner = (io.bSeesOwner != 0);
+	m_Standalone.SetThirdPersonSeesOwner(io.bSeesOwner != 0);
 
 	// The leaf system never re-asks ShouldDraw for a world entity, so the player is moved in
 	// or out here when the camera changes, as stock's UpdateVisibility does.
@@ -167,9 +173,7 @@ static void SourceSharp_ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CVie
 		pPlayer->UpdateVisibility();
 }
 
-// The client mode: IClientMode implemented directly over the raw viewport. Its decisions
-// are managed's; native keeps the view setup, the sound DSP reset, the particle manager's
-// post-render, the rumble update and the team-255 broadcast sound.
+// CSourceSharpClientMode (shell_client_mode.h).
 
 static ConVar cl_show_num_particle_systems("cl_show_num_particle_systems", "0", FCVAR_CLIENTDLL,
 										   "Display the number of active particle systems.");
@@ -179,22 +183,11 @@ CON_COMMAND(cl_reload_localization_files, "Reloads all localization files")
 	g_pVGuiLocalize->ReloadLocalizationFiles();
 }
 
-// The view managed asked OverrideView to draw this frame.
-struct ViewOverride_t
-{
-	bool bActive = false;
-	bool bSetViewAngles = false;
-	Vector origin;
-	QAngle angles;
-};
-
-static ViewOverride_t s_ViewOverride;
-
 // Managed's screen shake: this frame's offset and roll, added at factor 1.
-static void ApplyManagedShake(Vector& origin, QAngle& angles)
+void CSourceSharpClientMode::ApplyManagedShake(Vector& origin, QAngle& angles)
 {
 	float out[4] = {0, 0, 0, 0};
-	if (IManagedRenderClient* p = ManagedRenderClient())
+	if (IManagedRenderClient* p = m_Areas.m_pRenderClient)
 		p->ViewEffectsCalcShake(gpGlobals->curtime, gpGlobals->frametime, out);
 	VectorMA(origin, 1.0f, Vector(out[0], out[1], out[2]), origin);
 	angles.z += out[3] * 1.0f;
@@ -203,12 +196,12 @@ static void ApplyManagedShake(Vector& origin, QAngle& angles)
 // The viewmodel bob is managed's whole (stock's CalcViewModelBobHelper and
 // AddViewModelBobHelper): the eye in, the bobbed viewmodel origin and angles
 // out -- the camera's are left as the frame set them. Native only marshals.
-static void ApplyManagedViewModelBob(Vector& origin, QAngle& angles)
+void CSourceSharpClientMode::ApplyManagedViewModelBob(Vector& origin, QAngle& angles)
 {
 	float inOrigin[3] = {origin.x, origin.y, origin.z};
 	float inAngles[3] = {angles.x, angles.y, angles.z};
 	float outOrigin[3], outAngles[3];
-	if (IManagedRenderClient* p = ManagedRenderClient())
+	if (IManagedRenderClient* p = m_Areas.m_pRenderClient)
 		p->ViewEffectsViewModelBob(gpGlobals->curtime, gpGlobals->frametime, inOrigin, inAngles, outOrigin, outAngles);
 	else
 		return;
@@ -218,298 +211,318 @@ static void ApplyManagedViewModelBob(Vector& origin, QAngle& angles)
 
 // Stock's CalcObserverView, decided by managed and carried out here: the view, the engine's
 // view angles when in-eye asks, and the shake. False when there is no override this frame.
-static bool ApplyViewOverride(CViewSetup* pSetup)
+bool CSourceSharpClientMode::ApplyViewOverride(CViewSetup* pSetup)
 {
-	if (!s_ViewOverride.bActive)
+	if (!m_ViewOverride.bActive)
 		return false;
-	pSetup->origin = s_ViewOverride.origin;
-	pSetup->angles = s_ViewOverride.angles;
-	if (s_ViewOverride.bSetViewAngles)
+	pSetup->origin = m_ViewOverride.origin;
+	pSetup->angles = m_ViewOverride.angles;
+	if (m_ViewOverride.bSetViewAngles)
 		engine->SetViewAngles(pSetup->angles);
 	ApplyManagedShake(pSetup->origin, pSetup->angles);
 	return true;
 }
 
-void SourceSharp_ViewOverrideSet(int32_t nActive, const float* pOriginXYZ, const float* pAngles, int32_t nSetViewAngles)
+void CSourceSharpClientMode::ViewOverrideSet(int32_t nActive, const float* pOriginXYZ, const float* pAngles,
+											 int32_t nSetViewAngles)
 {
-	s_ViewOverride.bActive = nActive != 0 && pOriginXYZ && pAngles;
-	if (!s_ViewOverride.bActive)
+	m_ViewOverride.bActive = nActive != 0 && pOriginXYZ && pAngles;
+	if (!m_ViewOverride.bActive)
 		return;
-	s_ViewOverride.origin.Init(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]);
-	s_ViewOverride.angles.Init(pAngles[0], pAngles[1], pAngles[2]);
-	s_ViewOverride.bSetViewAngles = nSetViewAngles != 0;
+	m_ViewOverride.origin.Init(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]);
+	m_ViewOverride.angles.Init(pAngles[0], pAngles[1], pAngles[2]);
+	m_ViewOverride.bSetViewAngles = nSetViewAngles != 0;
 }
 
-class CSourceSharpClientMode : public IClientMode, public CGameEventListener
+CSourceSharpClientMode::CSourceSharpClientMode(const CManagedAreasClient& areas, CStandaloneClients& standalone)
+	: m_Areas(areas)
+	, m_Standalone(standalone)
+	, m_pViewport(NULL)
 {
-public:
-	CSourceSharpClientMode()
-		: m_pViewport(NULL)
+	SOURCESHARP_TRACE();
+}
+
+CSourceSharpClientMode::~CSourceSharpClientMode()
+{
+	SOURCESHARP_TRACE();
+	delete m_pViewport;
+	m_pViewport = NULL;
+}
+
+void CSourceSharpClientMode::InitViewport()
+{
+	SOURCESHARP_TRACE();
+	m_pViewport = new CSourceSharpViewport();
+	m_pViewport->Start(gameeventmanager);
+}
+
+void CSourceSharpClientMode::Init()
+{
+	ListenForGameEvent("teamplay_broadcast_audio");
+}
+
+void CSourceSharpClientMode::VGui_Shutdown()
+{
+	delete m_pViewport;
+	m_pViewport = NULL;
+}
+
+void CSourceSharpClientMode::Enable()
+{
+	if (!m_pViewport)
+		return;
+	if (vgui::VPANEL root = VGui_GetClientDLLRootPanel())
+		m_pViewport->SetParent(root);
+	m_pViewport->SetCursor(vgui::dc_none);
+	vgui::surface()->SetCursor(vgui::dc_none);
+	m_pViewport->SetVisible(true);
+	Layout();
+}
+
+void CSourceSharpClientMode::Disable()
+{
+	if (!m_pViewport)
+		return;
+	m_pViewport->SetParent((vgui::VPANEL)0);
+	m_pViewport->SetVisible(false);
+}
+
+void CSourceSharpClientMode::Layout()
+{
+	vgui::VPANEL root = VGui_GetClientDLLRootPanel();
+	if (!m_pViewport || !root)
+		return;
+	int nWide, nTall;
+	vgui::ipanel()->GetSize(root, nWide, nTall);
+	m_pViewport->SetBounds(0, 0, nWide, nTall);
+}
+
+vgui::Panel* CSourceSharpClientMode::GetViewport()
+{
+	return NULL;
+}
+
+vgui::AnimationController* CSourceSharpClientMode::GetViewportAnimationController()
+{
+	return NULL;
+}
+
+vgui::VPANEL CSourceSharpClientMode::GetViewportVPanel()
+{
+	return m_pViewport ? m_pViewport->GetVPanel() : 0;
+}
+
+void CSourceSharpClientMode::ProcessInput(bool bActive)
+{
+	gHUD.ProcessInput(bActive);
+}
+
+bool CSourceSharpClientMode::ShouldDrawDetailObjects()
+{
+	return true;
+}
+
+bool CSourceSharpClientMode::ShouldDrawEntity(C_BaseEntity* pEnt)
+{
+	return true;
+}
+
+bool CSourceSharpClientMode::ShouldDrawParticles()
+{
+	return true;
+}
+
+bool CSourceSharpClientMode::ShouldDrawFog()
+{
+	return true;
+}
+
+bool CSourceSharpClientMode::ShouldDrawViewModel()
+{
+	return true;
+}
+
+bool CSourceSharpClientMode::ShouldDrawCrosshair()
+{
+	return true;
+}
+
+bool CSourceSharpClientMode::ShouldDrawLocalPlayer(C_BasePlayer* pPlayer)
+{
+	return m_Standalone.ThirdPersonSeesOwner();
+}
+
+vgui::Panel* CSourceSharpClientMode::GetMessagePanel()
+{
+	return NULL;
+}
+
+bool CSourceSharpClientMode::CreateMove(float flInputSampleTime, CUserCmd* cmd)
+{
+	return true;
+}
+
+void CSourceSharpClientMode::LevelInit(const char* newmap)
+{
+	if (IGameEvent* event = gameeventmanager->CreateEvent("game_newmap"))
 	{
-		SOURCESHARP_TRACE();
+		event->SetString("mapname", newmap);
+		gameeventmanager->FireEventClientSide(event);
 	}
+	CLocalPlayerFilter filter;
+	enginesound->SetPlayerDSP(filter, 0, true);
+}
 
-	virtual ~CSourceSharpClientMode()
+void CSourceSharpClientMode::LevelShutdown()
+{
+	CLocalPlayerFilter filter;
+	enginesound->SetPlayerDSP(filter, 0, true);
+}
+
+void CSourceSharpClientMode::PreRender(CViewSetup* pSetup)
+{
+	ShellViewTargets_RenderQueued();
+}
+
+void CSourceSharpClientMode::PostRender()
+{
+	ShellParticles_PostRender(); // the old-style effects, managed's
+}
+
+float CSourceSharpClientMode::GetViewModelFOV()
+{
+	ConVarRef viewmodelFov("viewmodel_fov", true);
+	return viewmodelFov.IsValid() ? viewmodelFov.GetFloat() : 54.0f;
+}
+
+bool CSourceSharpClientMode::CanRecordDemo(char* errorMsg, int length) const
+{
+	return true;
+}
+
+wchar_t* CSourceSharpClientMode::GetServerName()
+{
+	return NULL;
+}
+
+wchar_t* CSourceSharpClientMode::GetMapName()
+{
+	return NULL;
+}
+
+bool CSourceSharpClientMode::DoPostScreenSpaceEffects(const CViewSetup* pSetup)
+{
+	return true;
+}
+
+void CSourceSharpClientMode::Update()
+{
+	if (cl_show_num_particle_systems.GetBool())
 	{
-		SOURCESHARP_TRACE();
-		delete m_pViewport;
-		m_pViewport = NULL;
-	}
-
-	virtual void InitViewport() OVERRIDE
-	{
-		SOURCESHARP_TRACE();
-		m_pViewport = new CSourceSharpViewport();
-		m_pViewport->Start(gameeventmanager);
-	}
-
-	virtual void Init() OVERRIDE { ListenForGameEvent("teamplay_broadcast_audio"); }
-
-	virtual void VGui_Shutdown() OVERRIDE
-	{
-		delete m_pViewport;
-		m_pViewport = NULL;
-	}
-
-	virtual void Shutdown() OVERRIDE {}
-
-	// Under the client root, shown, laid out.
-	virtual void Enable() OVERRIDE
-	{
-		if (!m_pViewport)
-			return;
-		if (vgui::VPANEL root = VGui_GetClientDLLRootPanel())
-			m_pViewport->SetParent(root);
-		m_pViewport->SetCursor(vgui::dc_none);
-		vgui::surface()->SetCursor(vgui::dc_none);
-		m_pViewport->SetVisible(true);
-		Layout();
-	}
-
-	virtual void Disable() OVERRIDE
-	{
-		if (!m_pViewport)
-			return;
-		m_pViewport->SetParent((vgui::VPANEL)0);
-		m_pViewport->SetVisible(false);
-	}
-
-	// The viewport fills the client root.
-	virtual void Layout() OVERRIDE
-	{
-		vgui::VPANEL root = VGui_GetClientDLLRootPanel();
-		if (!m_pViewport || !root)
-			return;
-		int nWide, nTall;
-		vgui::ipanel()->GetSize(root, nWide, nTall);
-		m_pViewport->SetBounds(0, 0, nWide, nTall);
-	}
-
-	// The HUD and menu roots ask for the viewport's VPANEL instead.
-	virtual vgui::Panel* GetViewport() OVERRIDE { return NULL; }
-
-	virtual vgui::AnimationController* GetViewportAnimationController() OVERRIDE { return NULL; }
-
-	vgui::VPANEL GetViewportVPanel() { return m_pViewport ? m_pViewport->GetVPanel() : 0; }
-
-	virtual void ProcessInput(bool bActive) OVERRIDE { gHUD.ProcessInput(bActive); }
-
-	virtual bool ShouldDrawDetailObjects() OVERRIDE { return true; }
-
-	virtual bool ShouldDrawEntity(C_BaseEntity* pEnt) OVERRIDE { return true; }
-
-	virtual bool ShouldDrawParticles() OVERRIDE { return true; }
-
-	virtual bool ShouldDrawFog() OVERRIDE { return true; }
-
-	virtual bool ShouldDrawViewModel() OVERRIDE { return true; }
-
-	virtual bool ShouldDrawCrosshair() OVERRIDE { return true; }
-
-	// The body draws when the camera got far enough behind the eye to see it.
-	virtual bool ShouldDrawLocalPlayer(C_BasePlayer* pPlayer) OVERRIDE { return SourceSharp_ThirdPersonSeesOwner(); }
-
-	virtual void StartMessageMode(int iMessageModeType) OVERRIDE {}
-
-	virtual vgui::Panel* GetMessagePanel() OVERRIDE { return NULL; }
-
-	virtual void OverrideMouseInput(float* x, float* y) OVERRIDE {}
-
-	virtual bool CreateMove(float flInputSampleTime, CUserCmd* cmd) OVERRIDE { return true; }
-
-	// game_newmap, faked client side as stock did (clients connect after the server fired it),
-	// and the player's sound DSP reset.
-	virtual void LevelInit(const char* newmap) OVERRIDE
-	{
-		if (IGameEvent* event = gameeventmanager->CreateEvent("game_newmap"))
+		int nCount = 0;
+		for (int i = 0; i < g_pParticleSystemMgr->GetParticleSystemCount(); i++)
 		{
-			event->SetString("mapname", newmap);
-			gameeventmanager->FireEventClientSide(event);
+			CParticleSystemDefinition* pDef =
+				g_pParticleSystemMgr->FindParticleSystem(g_pParticleSystemMgr->GetParticleSystemNameFromIndex(i));
+			if (!pDef)
+				continue;
+			for (CParticleCollection* p = pDef->FirstCollection(); p; p = p->GetNextCollectionUsingSameDef())
+				++nCount;
 		}
-		CLocalPlayerFilter filter;
-		enginesound->SetPlayerDSP(filter, 0, true);
+		engine->Con_NPrintf(0, "# Active particle systems: %i", nCount);
 	}
+}
 
-	virtual void LevelShutdown() OVERRIDE
+bool CSourceSharpClientMode::ShouldBlackoutAroundHUD()
+{
+	return enginevgui->IsGameUIVisible();
+}
+
+HeadtrackMovementMode_t CSourceSharpClientMode::ShouldOverrideHeadtrackControl()
+{
+	return HMM_NOOVERRIDE;
+}
+
+bool CSourceSharpClientMode::IsInfoPanelAllowed()
+{
+	return true;
+}
+
+bool CSourceSharpClientMode::IsHTMLInfoPanelAllowed()
+{
+	return true;
+}
+
+void CSourceSharpClientMode::FireGameEvent(IGameEvent* event)
+{
+	if (V_strcmp(event->GetName(), "teamplay_broadcast_audio") || event->GetInt("team") != 255)
+		return;
+	EmitSound_t et;
+	et.m_pSoundName = event->GetString("sound");
+	et.m_nFlags = event->GetInt("additional_flags");
+	CLocalPlayerFilter filter;
+	ClientSound::Emit(filter, SOUND_FROM_LOCAL_PLAYER, et);
+}
+
+int CSourceSharpClientMode::KeyInput(int down, ButtonCode_t keynum, const char* pszCurrentBinding)
+{
+	IManagedUiClient* pUi = m_Areas.m_pUiClient;
+	if (!pUi)
+		return 1;
+	const int nDecision =
+		pUi->KeyInput(down, keynum, pszCurrentBinding, engine->Con_IsVisible() ? 1 : 0, gpGlobals->maxClients);
+	return nDecision >= 0 ? nDecision : 1;
+}
+
+void CSourceSharpClientMode::OverrideView(CViewSetup* pSetup)
+{
+	if (C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer())
 	{
-		CLocalPlayerFilter filter;
-		enginesound->SetPlayerDSP(filter, 0, true);
-	}
-
-	virtual void AdjustEngineViewport(int& x, int& y, int& width, int& height) OVERRIDE {}
-
-	// Before the main view, where stock's DrawMonitors draws point_cameras.
-	virtual void PreRender(CViewSetup* pSetup) OVERRIDE { ShellViewTargets_RenderQueued(); }
-
-	virtual void PostRender() OVERRIDE
-	{
-		ShellParticles_PostRender(); // the old-style effects, managed's
-	}
-
-	virtual void PostRenderVGui() OVERRIDE {}
-
-	// Nothing activates an in-game vgui context in this build.
-	virtual void ActivateInGameVGuiContext(vgui::Panel* pPanel) OVERRIDE {}
-
-	virtual void DeactivateInGameVGuiContext() OVERRIDE {}
-
-	virtual float GetViewModelFOV() OVERRIDE
-	{
-		ConVarRef viewmodelFov("viewmodel_fov", true);
-		return viewmodelFov.IsValid() ? viewmodelFov.GetFloat() : 54.0f;
-	}
-
-	virtual bool CanRecordDemo(char* errorMsg, int length) const OVERRIDE { return true; }
-
-	virtual void ComputeVguiResConditions(KeyValues* pkvConditions) OVERRIDE {}
-
-	virtual wchar_t* GetServerName() OVERRIDE { return NULL; }
-
-	virtual void SetServerName(wchar_t* name) OVERRIDE {}
-
-	virtual wchar_t* GetMapName() OVERRIDE { return NULL; }
-
-	virtual void SetMapName(wchar_t* name) OVERRIDE {}
-
-	virtual bool DoPostScreenSpaceEffects(const CViewSetup* pSetup) OVERRIDE { return true; }
-
-	virtual void DisplayReplayMessage(const char* pLocalizeName, float flDuration, bool bUrgent, const char* pSound,
-									  bool bDlg) OVERRIDE
-	{
-	}
-
-	// Stock's particle-system count when asked; the managed client frame steps the rumble mixer.
-	virtual void Update() OVERRIDE
-	{
-		if (cl_show_num_particle_systems.GetBool())
-		{
-			int nCount = 0;
-			for (int i = 0; i < g_pParticleSystemMgr->GetParticleSystemCount(); i++)
-			{
-				CParticleSystemDefinition* pDef =
-					g_pParticleSystemMgr->FindParticleSystem(g_pParticleSystemMgr->GetParticleSystemNameFromIndex(i));
-				if (!pDef)
-					continue;
-				for (CParticleCollection* p = pDef->FirstCollection(); p; p = p->GetNextCollectionUsingSameDef())
-					++nCount;
-			}
-			engine->Con_NPrintf(0, "# Active particle systems: %i", nCount);
-		}
-	}
-
-	virtual bool ShouldBlackoutAroundHUD() OVERRIDE { return enginevgui->IsGameUIVisible(); }
-
-	virtual HeadtrackMovementMode_t ShouldOverrideHeadtrackControl() OVERRIDE { return HMM_NOOVERRIDE; }
-
-	virtual bool IsInfoPanelAllowed() OVERRIDE { return true; }
-
-	virtual void InfoPanelDisplayed() OVERRIDE {}
-
-	virtual bool IsHTMLInfoPanelAllowed() OVERRIDE { return true; }
-
-	virtual void OnDemoRecordStart(char const* pDemoBaseName) OVERRIDE {}
-
-	virtual void OnDemoRecordStop() OVERRIDE {}
-
-	// A broadcast sound to every team (255) plays on the local player, as stock's.
-	virtual void FireGameEvent(IGameEvent* event) OVERRIDE
-	{
-		if (V_strcmp(event->GetName(), "teamplay_broadcast_audio") || event->GetInt("team") != 255)
+		if (ApplyViewOverride(pSetup))
 			return;
-		EmitSound_t et;
-		et.m_pSoundName = event->GetString("sound");
-		et.m_nFlags = event->GetInt("additional_flags");
-		CLocalPlayerFilter filter;
-		ClientSound::Emit(filter, SOUND_FROM_LOCAL_PLAYER, et);
+
+		pSetup->origin = pPlayer->EyePosition();
+		engine->GetViewAngles(pSetup->angles);
+
+		// Punch then shake, before the viewmodel is pinned, in stock CalcPlayerView's order.
+		VectorAdd(pSetup->angles, pPlayer->PredictedPunchAngle(), pSetup->angles);
+
+		ApplyManagedShake(pSetup->origin, pSetup->angles);
+
+		// The viewmodel is pinned to these eyes with the frame's actual view values,
+		// bobbed: stock's AddViewModelBob runs on the viewmodel's copy, not the camera's.
+		Vector vecBobbed = pSetup->origin;
+		QAngle angBobbed = pSetup->angles;
+		ApplyManagedViewModelBob(vecBobbed, angBobbed);
+		m_Standalone.ViewModelToEye(vecBobbed, angBobbed);
+
+		// Then the camera may leave the eye: the viewmodel stays at the eye, and only the camera
+		// moves to third person.
+		ApplyThirdPersonCamera(pPlayer, pSetup);
+		return;
 	}
 
-	// Managed decides: 1 the engine runs the binding, 0 the key was used, -1 no decision.
-	// With no decision or no managed side, the engine runs it.
-	virtual int KeyInput(int down, ButtonCode_t keynum, const char* pszCurrentBinding) OVERRIDE
+	// No viewer: stock's orthographic camera.
+	if (m_Standalone.LocalPlayer() && !::input->CAM_IsThirdPerson() && ::input->CAM_IsOrthographic())
 	{
-		IManagedUiClient* pUi = ManagedUiClient();
-		if (!pUi)
-			return 1;
-		const int nDecision =
-			pUi->KeyInput(down, keynum, pszCurrentBinding, engine->Con_IsVisible() ? 1 : 0, gpGlobals->maxClients);
-		return nDecision >= 0 ? nDecision : 1;
+		pSetup->m_bOrtho = true;
+		float w, h;
+		::input->CAM_OrthographicSize(w, h);
+		pSetup->m_OrthoLeft = -w * 0.5f;
+		pSetup->m_OrthoTop = -h * 0.5f;
+		pSetup->m_OrthoRight = w * 0.5f;
+		pSetup->m_OrthoBottom = h * 0.5f;
 	}
-
-	// SetUpViews calls this after zeroing the origin and before deriving the camera, audio
-	// state and g_vecRenderOrigin from it, so filling it here makes the view follow the player.
-	virtual void OverrideView(CViewSetup* pSetup) OVERRIDE
-	{
-		if (C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell())
-		{
-			if (ApplyViewOverride(pSetup))
-				return;
-
-			pSetup->origin = pPlayer->EyePosition();
-			engine->GetViewAngles(pSetup->angles);
-
-			// Punch then shake, before the viewmodel is pinned, in stock CalcPlayerView's order.
-			VectorAdd(pSetup->angles, pPlayer->PredictedPunchAngle(), pSetup->angles);
-
-			ApplyManagedShake(pSetup->origin, pSetup->angles);
-
-			// The viewmodel is pinned to these eyes with the frame's actual view values,
-			// bobbed: stock's AddViewModelBob runs on the viewmodel's copy, not the camera's.
-			Vector vecBobbed = pSetup->origin;
-			QAngle angBobbed = pSetup->angles;
-			ApplyManagedViewModelBob(vecBobbed, angBobbed);
-			SourceSharp_StandaloneViewModelToEye(vecBobbed, angBobbed);
-
-			// Then the camera may leave the eye: the viewmodel stays at the eye, and only the camera
-			// moves to third person.
-			SourceSharp_ApplyThirdPersonCamera(pPlayer, pSetup);
-			return;
-		}
-
-		// No viewer: stock's orthographic camera.
-		if (SourceSharp_HasLocalViewer() && !::input->CAM_IsThirdPerson() && ::input->CAM_IsOrthographic())
-		{
-			pSetup->m_bOrtho = true;
-			float w, h;
-			::input->CAM_OrthographicSize(w, h);
-			pSetup->m_OrthoLeft = -w * 0.5f;
-			pSetup->m_OrthoTop = -h * 0.5f;
-			pSetup->m_OrthoRight = w * 0.5f;
-			pSetup->m_OrthoBottom = h * 0.5f;
-		}
-	}
-
-private:
-	CSourceSharpViewport* m_pViewport;
-};
+}
 
 vgui::VPANEL SourceSharp_ClientViewportPanel();
 
-static CSourceSharpClientMode g_ClientMode;
-IClientMode* g_pClientMode = &g_ClientMode;
+// The client DLL object's member; set from its Init.
+IClientMode* g_pClientMode = NULL;
 
 vgui::VPANEL SourceSharp_ClientViewportPanel()
 {
-	return g_ClientMode.GetViewportVPanel();
+	return ShellClientDll_ClientMode().GetViewportVPanel();
 }
 
 // The client mode's Layout, when managed asks.
@@ -522,7 +535,7 @@ IClientMode* GetClientModeNormal()
 {
 	SOURCESHARP_TRACE_HOT();
 
-	return &g_ClientMode;
+	return &ShellClientDll_ClientMode();
 }
 
 class CSourceSharpModeManager : public IVModeManager
