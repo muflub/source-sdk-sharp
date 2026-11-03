@@ -49,6 +49,36 @@ public sealed class TFViewmodelActivityTests
                      Rule(TFWeaponRole.Melee).Translate(Player, WeaponAnim.Primary, "ACT_VM_HITCENTER"));
     }
 
+    /// <summary>
+    /// The <c>ACT_MP_ATTACK_*</c> arms of the table (tf_weaponbase.cpp:4307-4313
+    /// and the same set in the SECONDARY, MELEE and ITEM blocks): the attack
+    /// poses the weapon classes send are rewritten to the role's own set, so
+    /// the minigun's wind-up and wind-down finds its pose in the arms model.
+    /// </summary>
+    [Theory]
+    [InlineData(TFWeaponRole.Primary, "ACT_MP_ATTACK_STAND_PREFIRE", "ACT_PRIMARY_ATTACK_STAND_PREFIRE")]
+    [InlineData(TFWeaponRole.Primary, "ACT_MP_ATTACK_STAND_POSTFIRE", "ACT_PRIMARY_ATTACK_STAND_POSTFIRE")]
+    [InlineData(TFWeaponRole.Primary, "ACT_MP_ATTACK_STAND_STARTFIRE", "ACT_PRIMARY_ATTACK_STAND_STARTFIRE")]
+    [InlineData(TFWeaponRole.Primary, "ACT_MP_ATTACK_CROUCH_PREFIRE", "ACT_PRIMARY_ATTACK_CROUCH_PREFIRE")]
+    [InlineData(TFWeaponRole.Primary, "ACT_MP_ATTACK_SWIM_POSTFIRE", "ACT_PRIMARY_ATTACK_SWIM_POSTFIRE")]
+    [InlineData(TFWeaponRole.Secondary, "ACT_MP_ATTACK_STAND_PREFIRE", "ACT_SECONDARY_ATTACK_STAND_PREFIRE")]
+    [InlineData(TFWeaponRole.Melee, "ACT_MP_ATTACK_STAND_POSTFIRE", "ACT_MELEE_ATTACK_STAND_POSTFIRE")]
+    [InlineData(TFWeaponRole.Item1, "ACT_MP_ATTACK_STAND_PREFIRE", "ACT_ITEM1_ATTACK_STAND_PREFIRE")]
+    public void The_attack_activities_rename_to_the_roles_set(TFWeaponRole role, string activity, string wanted)
+        => Assert.Equal(wanted, Rule(role).Translate(Player, WeaponAnim.Primary, activity));
+
+    /// <summary>
+    /// Stock's blocks without the attack set (:4469-4507 — melee allclass,
+    /// secondary two, primary two) answer the base, per the table-miss arm.
+    /// </summary>
+    [Fact]
+    public void The_blocks_without_the_attack_rows_leave_them()
+    {
+        foreach (TFWeaponRole role in new[] { TFWeaponRole.MeleeAllclass, TFWeaponRole.Secondary2, TFWeaponRole.Primary2 })
+            Assert.Equal("ACT_MP_ATTACK_STAND_PREFIRE",
+                         Rule(role).Translate(Player, WeaponAnim.Primary, "ACT_MP_ATTACK_STAND_PREFIRE"));
+    }
+
     [Fact]
     public void A_base_the_table_does_not_name_stands()
     {

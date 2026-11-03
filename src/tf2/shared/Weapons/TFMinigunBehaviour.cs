@@ -150,6 +150,12 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                 weapon.NextPrimaryAttack = now + spinUp;
                 weapon.NextSecondaryAttack = now + spinUp;
                 weapon.TimeWeaponIdle = now + spinUp;
+
+                // Stock's idle arm keeps the pose's clock matched to the hook's spin-up
+                // (tf_weapon_minigun.cpp:262-270): the viewmodel plays at
+                // TF_MINIGUN_SPINUP_TIME / flSpinUpTime, so a half-second wind-up
+                // ends its lift with the gun, not half-way through it.
+                attack.ViewModel.PlaybackRate = SpinUpTime / Math.Max(spinUp, 0.00001f);
                 break;
 
             case State.StartFiring:
@@ -188,11 +194,19 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                     SetState(in attack, State.Firing);
                 else if (spinOnly)
                     SetState(in attack, State.Spinning);
+
+                // The spin pose carries the empty click and the spin alike
+                // (stock's DryFire tail :410, HandleFireOnEmpty :984).
+                SendAnim(in attack, WeaponAnim.Secondary);
                 break;
 
             case State.Spinning:
                 if (!spinOnly)
                     SetState(in attack, weapon.Reserve > 0 ? State.Firing : State.DryFire);
+
+                // Stock's spinning arm re-sends the spin pose every command (:433);
+                // the looping fire anim's gate is the primary anim's, not this one's.
+                SendAnim(in attack, WeaponAnim.Secondary);
                 break;
         }
 
@@ -288,6 +302,12 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     private void WindUp(in WeaponAttackContext attack)
     {
         var weapon = attack.Weapon;
+
+        // Stock's WindUp sends the held spin-up pose first
+        // (ACT_MP_ATTACK_STAND_PREFIRE, tf_weapon_minigun.cpp:757), before the
+        // state change (:760): the gun is lifted as it starts to spin.
+        SendAnim(in attack, WeaponAnim.Prefire);
+
         SetState(in attack, State.StartFiring);
         if (Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } conditions && attack.Command.OwnerIndex > 0)
             conditions.Add(TFCond.Aiming);
@@ -308,7 +328,9 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         if (!passed)
             return;
 
-        // WindDown.
+        // WindDown: the settle pose first, before the state change
+        // (stock's ACT_MP_ATTACK_STAND_POSTFIRE, :855 before :865).
+        SendAnim(in attack, WeaponAnim.Postfire);
         SetState(in attack, State.Idle);
         ClearAiming(attack.Command.OwnerIndex);
         weapon.TimeWeaponIdle = attack.Now + 2f;

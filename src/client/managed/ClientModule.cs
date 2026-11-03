@@ -2149,6 +2149,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<IClientPredictedState>>(locator => new Hooks<IClientPredictedState>(locator, log));
         _prediction = _services.Create<ClientPlayerPrediction>();
 
+        // The one working copy: the weapon's fov writes and the movement's
+        // predicted words share it, so the ring save of a command carries both
+        // and the ack judges one answer against the arrival.
+        _clientArsenal.WorkingPlayer = _prediction.WorkingState;
+
         // THE OBSERVER'S CAMERA (C7 item 5), after the standalones and the HUD
         // it reads exist: built earlier, its IClientStandalones did not resolve
         // and the container recursed until the stack ran out.

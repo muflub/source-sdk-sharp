@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using TF2.Server.Rules;
+using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Resources;
 using TF2.Shared.Rules;
@@ -47,7 +48,8 @@ public sealed class TeamControlPoint(
     IHudMaterialIndex materials,
     IEngineEntityRender render,
     IGameClock clock,
-    TFWinPanelCappers panelCappers) : ScriptedEntity
+    TFWinPanelCappers panelCappers,
+    TFConceptSpeech speech) : ScriptedEntity
 {
     public const string MapClass = "team_control_point";
 
@@ -468,6 +470,14 @@ public sealed class TeamControlPoint(
         // If we're playing a sound, this is a true cap by players.
         if (makeSound)
         {
+            // Make the members of our old team say something, then the cappers
+            // their captured-point line (team_control_point.cpp:635-665).
+            if (oldTeam > (int)TFTeam.Spectator && oldTeam != _team)
+                speech.SpeakTeam(oldTeam, TFConceptSpeech.LostControlPoint);
+
+            foreach (int capper in cappers)
+                speech.Speak(capper, TFConceptSpeech.CapturedPoint);
+
             if (_team == (int)TFTeam.Red)
                 OnOwnerChangedToTeam1.Fire();
             else if (_team == (int)TFTeam.Blue)
@@ -476,8 +486,6 @@ public sealed class TeamControlPoint(
             if (_team != (int)TFTeam.Unassigned && cappers.Count > 0)
                 SendCapString(_team, cappers);
         }
-
-        _ = oldTeam; // the lost-point and captured-point voice concepts are deferred (deferred.tsv)
 
         // Have control point master check the win conditions now!
         foreach (var master in objectiveEntities.Masters)
@@ -562,7 +570,8 @@ public sealed class TeamControlPoint(
         _loopingSound = string.Empty;
     }
 
-    /// <summary>CaptureBlocked: teamplay_capture_blocked (the blocker's voice concept is deferred).</summary>
+    /// <summary>CaptureBlocked: teamplay_capture_blocked, then the blocker's
+    /// voice concept (team_control_point.cpp:751-773, :970-976).</summary>
     public void CaptureBlocked(EntityHandle blocker, EntityHandle victim)
     {
         if (Vars.PrintName.Length == 0)
@@ -570,6 +579,8 @@ public sealed class TeamControlPoint(
 
         events.CaptureBlocked(PointIndex, Vars.PrintName, blocker.EntryIndex,
                               victim == EntityHandle.None ? 0 : victim.EntryIndex);
+
+        speech.Speak(blocker, TFConceptSpeech.CaptureBlocked);
     }
 
     /// <summary>UpdateCapPercentage: each team's pose parameter on the hologram.</summary>

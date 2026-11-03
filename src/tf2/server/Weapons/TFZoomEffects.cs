@@ -51,8 +51,11 @@ public sealed class TFZoomEffects(TFZoomTimes times, IEnginePlayers players, IEn
             DestroyDot(playerIndex);
         }
 
+        // The fov words themselves are the behaviour's predicted write
+        // (TFSniperRifleBehaviour's zoom arms, mirroring stock's BaseClass
+        // calls inside CTFSniperRifle::ZoomIn/ZoomOut); this seam keeps what
+        // only the server does: the clock stamp, the dot, the log line.
         int fov = zoomed ? ZoomFov : 0;
-        attack.Arms.SetFov(fov, ZoomFovTime);
         log.Msg($"[TF2/Zoom] player {playerIndex} fov {fov} ({(zoomed ? "in" : "out")})\n");
     }
 

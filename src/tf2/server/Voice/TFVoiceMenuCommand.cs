@@ -198,7 +198,7 @@ public sealed class TFVoiceMenuCommand(
         // (ai_speech.cpp: the concept, then the player's words).
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", entry.Concept);
-        AppendPlayerCriteria(player, carrierState, round, criteria);
+        TFPlayerCriteriaWords.Append(carrierState, teams.Team(player), round, criteria);
 
         if (!responseRules.FindBestResponse(criteria, out var response))
             return Outcome.Unmatched;
@@ -255,50 +255,6 @@ public sealed class TFVoiceMenuCommand(
 
         log?.Msg($"[TF2/Voice] player {index} spoke {response.Kind} {response.Name} (menu {menu} item {item})\n");
         return Outcome.Spoke;
-    }
-
-    /// <summary>
-    /// <c>CTFPlayer::ModifyOrAppendCriteria</c>'s words
-    /// (server/tf/tf_player.cpp:19212-19274) over the carrier's state, and
-    /// <c>CBasePlayer::ModifyOrAppendPlayerCriteria</c>'s class word before
-    /// them. The disguise's class is stock's override through the
-    /// <c>disguiseclass</c> modifier: appended last, it wins the lookup
-    /// (:19219-19224), so a disguised spy asks as what they show.
-    /// </summary>
-    private void AppendPlayerCriteria(EntityHandle speaker, TFPlayerNetState? state, ITeamRoundState? round, ResponseCriteriaSet criteria)
-    {
-        if (state is null)
-            return;
-
-        // The class, the disguise's where there is one (stock's else arm
-        // names it from g_aPlayerClassNames_NonLocalized).
-        TFClass shown = state.InCond(TFCond.Disguised) && state.DisguiseAs() != TFClass.Undefined
-            ? state.DisguiseAs()
-            : state.Class();
-        if (shown != TFClass.Undefined)
-            criteria.Append("playerclass", TFClassNames.NonLocalized(shown));
-
-        // OnRedTeam, the disguise's team where there is one (:19233-19238).
-        int team = state.InCond(TFCond.Disguised) ? state.DisguiseTeam : teams.Team(speaker);
-        criteria.Append("OnRedTeam", (TFTeam)team == TFTeam.Red ? "1" : "0");
-
-        bool disguised = state.InCond(TFCond.Disguised);
-        criteria.Append("disguised", disguised ? "1" : "0");
-        criteria.Append("cloaked", state.IsStealthed() || state.InCond(TFCond.StealthedBlink) ? "1" : "0");
-        criteria.Append("invulnerable", state.IsInvulnerable() ? "1" : "0");
-        criteria.Append("beinghealed", state.InCond(TFCond.HealthBuff) ? "1" : "0");
-        criteria.Append("waitingforplayers", round is { } r && r.InWaitingForPlayers ? "1" : "0");
-
-        // IsControlStunned / IsSnared over the carried stun entry, the same
-        // reading TFMovementRules makes (TFMovementRules.cs, the stock gates
-        // at tf_player_shared.cpp:9952-9986).
-        bool stunned = state.StunIndex >= 0 && state.InCond(TFCond.Stunned);
-        var stunFlags = stunned ? (TFStunFlags)state.StunFlags : TFStunFlags.None;
-        bool controlStunned = stunned && (stunFlags & TFStunFlags.Controls) != 0;
-        criteria.Append("stunned", controlStunned ? "1" : "0");
-        criteria.Append("snared", stunned && !controlStunned ? "1" : "0");
-        criteria.Append("dodging", state.InCond(TFCond.Phase) || state.InCond(TFCond.PasstimeInterception) ? "1" : "0");
-        criteria.Append("doublejumping", state.AirDash > 0 ? "1" : "0");
     }
 
     /// <summary>

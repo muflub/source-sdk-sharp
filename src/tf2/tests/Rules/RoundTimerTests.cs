@@ -521,6 +521,41 @@ public sealed class RoundTimerTests
         Assert.True(other.ShowInHud);
     }
 
+    /// <summary>Stock's cancel arm (teamplayroundbased_gamerules.cpp:962-969):
+    /// the hidden HUD timer the wait's creation left (their :1010 HideActive)
+    /// resumes when it is not meant to start paused, and counts again.</summary>
+    [Fact]
+    public void The_cancel_resumes_a_hidden_HUD_timer_the_map_does_not_start_paused()
+    {
+        var rig = new Rig();
+        var hud = rig.Timer(("timer_length", "100"), ("show_in_hud", "1"), ("start_paused", "0"));
+        rig.Timers.SetActive(hud);
+        rig.Timers.HideActive();   // the waiting timer's creation hid it (:1010)
+
+        rig.Timers.ResumeHiddenIfRunning();
+
+        Assert.False(hud.IsPaused);
+        rig.Run(hud, 3f);
+        Assert.InRange(hud.TimeRemaining, 96.9f, 97.1f);   // counting again: three seconds gone
+    }
+
+    /// <summary>The same arm's paused half (:965): a start_paused timer keeps
+    /// its pause -- the resume asks the map's key first.</summary>
+    [Fact]
+    public void A_hidden_start_paused_timer_keeps_its_pause_through_the_cancel_resume()
+    {
+        var rig = new Rig();
+        var hud = rig.Timer(("timer_length", "100"), ("show_in_hud", "1"));   // start_paused defaults to true
+        rig.Timers.SetActive(hud);
+        rig.Timers.HideActive();
+
+        rig.Timers.ResumeHiddenIfRunning();
+
+        Assert.True(hud.IsPaused);
+        rig.Run(hud, 3f);
+        Assert.Equal(100f, hud.TimeRemaining);   // the pause holds its seconds
+    }
+
     [Fact]
     public void A_retreating_wait_asks_SetTime_of_the_timer_it_already_has()
     {

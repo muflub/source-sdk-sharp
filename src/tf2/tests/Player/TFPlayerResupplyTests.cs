@@ -1,9 +1,13 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
+using SourceSharp.Shared;
+using SourceSharp.Tests;
 
 using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Econ;
 using TF2.Shared.Player;
+using TF2.Tests.Weapons;
 
 using Xunit;
 
@@ -240,13 +244,18 @@ public sealed class TFPlayerResupplyTests
     }
 
     [Fact]
-    public void Regenerate_gives_the_class_kit_again()
+    public void Regenerate_keeps_the_inventory_and_fills_the_kit()
     {
+        // Regenerate runs inside m_bRegenerating (tf_player.cpp:4033-4036), whose
+        // InitClass → ManageRegularWeapons keeps every weapon whose item still
+        // matches and gives only the missing ones (:4528-4662) — no
+        // RemoveAllItems, and the guard skips the closing Weapon_Switch (:4700):
+        // the locker draws nothing.
         var (rig, resupply, _) = Make(TFClass.Scout);
 
         resupply.Regenerate(PlayerRig.Player);
 
-        Assert.Equal(1, rig.Engine.CountOf("Players.RemoveAllItems"));
+        Assert.Equal(0, rig.Engine.CountOf("Players.RemoveAllItems"));
         Assert.Contains("tf_weapon_scattergun", rig.Engine.AllOf("Players.GiveItem").Select(c => c.ArgAs<string>(1)));
     }
 
@@ -275,5 +284,107 @@ public sealed class TFPlayerResupplyTests
         Assert.Equal(125, HealthSet(rig));
         Assert.Equal(0, rig.Engine.CountOf("Players.RemoveAllItems"));
         Assert.True(rig.State.InCond(TFCond.Burning));
+    }
+
+    [Fact]
+    public void A_resupply_resets_a_fired_clip_to_the_default()
+    {
+        // The bResetWeapons arm's GiveDefaultAmmo (tf_player.cpp:5209): the
+        // clip the soldier fired down to is the default again
+        // (basecombatweapon_shared.cpp:144-165), the reserve at its max from
+        // the fill that follows, and no redraw (the m_bRegenerating guard,
+        // :4700) — the deploy the first give made is the last stamp.
+        var world = new LockerWorld();
+
+        Assert.Equal(2, world.RocketClip); // two rockets gone
+
+        world.Resupply.Regenerate(PlayerRig.Player);
+
+        Assert.Equal(LockerWorld.RocketClipDefault, world.RocketClip);
+        Assert.True(world.Arsenal.PoolOf(PlayerRig.Player, TFAmmoNames.Name(TFAmmo.Primary), out int pool));
+        Assert.Equal(world.Rig.Classes[TFClass.Soldier].MaxAmmo(TFAmmo.Primary), pool);
+        Assert.Equal(world.DeployEpoch, world.RocketEpoch());
+    }
+
+    /// <summary>
+    /// The locker's world: the carrier rig above joined to the core arsenal of
+    /// the weapon rigs, the kit's calls routed through an
+    /// <see cref="ArsenalPlayers"/> so the regen's gives and its clip reset
+    /// land in the one carry the facts read.
+    /// </summary>
+    private sealed class LockerWorld
+    {
+        public const string Rocket = "tf_weapon_rocketlauncher";
+
+        /// <summary>The script's clip_size and default alike (the fixture).</summary>
+        public const int RocketClipDefault = 4;
+
+        public readonly PlayerRig Rig = new PlayerRig().As(TFClass.Soldier);
+        public readonly TFWeaponWorld Weapons = new();
+        public readonly RecordingEngine Engine;
+        public readonly ScriptedEntityRegistry Registry;
+        public readonly Arsenal Arsenal;
+        public readonly TFPlayerResupply Resupply;
+
+        private readonly EntityHandle _weapon = new(0x0500u);
+        private readonly EntityHandle _viewModel = new(0x0501u);
+
+        /// <summary>The deploy stamp the setup's first give made.</summary>
+        public int DeployEpoch { get; private set; }
+
+        public LockerWorld()
+        {
+            var created = new Queue<EntityHandle>([_weapon, _viewModel]);
+            Engine = new RecordingEngine()
+                .Returns("Entities.IsValid", true)
+                .Returns("Entities.GetIndex", PlayerRig.Index)
+                .Returns("Entities.GetClassName", EntityNames.Player)
+                .Returns("Entities.GetOrigin", default(Vector))
+                .Returns("Entities.GetAngles", default(Vector))
+                .Returns("Players.IsAlive", true)
+                .Returns("Entities.GetEyeAngles", default(Vector))
+                .Returns("EntityRender.LookupSequence", -1)
+                .Returns("EntityRender.LookupSequenceByActivity", -1)
+                .Returns("Clock.Now", 10f)
+                .ReturnsEachCall("Entities.Create", () => created.Dequeue());
+
+            Registry = new ScriptedEntityRegistry(TestEngines.Server());
+            Registry.RegisterAll(typeof(SsWeapon).Assembly);
+            Registry.Services = TestServices.Services(out _);
+            Registry.KeyValue(PlayerRig.Player, EntityNames.Player, "targetname", "fixture_player");
+            Registry.Spawn(_weapon, EntityNames.SsWeapon);
+            Registry.Spawn(_viewModel, EntityNames.PredictedViewModel);
+
+            var log = new RecordingLog();
+            Weapons.Owners.Classes[PlayerRig.Index] = TFClass.Soldier;
+            Arsenal = new Arsenal(log, Engine, Engine, Engine, Engine, Engine, Engine, Engine, Engine,
+                                  Registry, Engine, new DamageHitGroups(),
+                                  weapons: Weapons.Catalog, ammo: new AmmoCatalog(() => [new TFAmmoTypes()], log),
+                                  carryLimits: new AmmoCarry(new ListHooks<IAmmoCarryRule>(
+                                      new TFAmmoCarryRule(Rig.Classes, Weapons.Owners)), log));
+
+            Assert.True(Arsenal.GiveWeapon(PlayerRig.Player, Rocket), "the arsenal gives the rocket launcher");
+            Arsenal.SetClip(PlayerRig.Player, Rocket, 2);
+
+            DeployEpoch = RocketEpoch();
+
+            var conditions = new TFPlayerConditions(Rig.Carriers, Rig.Engine);
+            Resupply = new TFPlayerResupply(Rig.Carriers, Rig.Classes, new ArsenalPlayers(Rig.Engine, Arsenal),
+                                            Rig.Engine, conditions, Rig.Loadout, Rig.Engine,
+                                            Weapons.Owners, new AttributeHooks(),
+                                            scripts: new TFWeaponScripts(new RecordingLog(), WeaponFixtures.ShippedWithClasses()),
+                                            catalog: Weapons.Catalog, arsenal: Arsenal);
+        }
+
+        /// <summary>The rocket's clip, as the carry holds it.</summary>
+        public int RocketClip => Arsenal.Holdings(PlayerRig.Player).Single(h => h.ClassName == Rocket).Clip;
+
+        public int RocketEpoch() => ((SsWeapon)Registry.Get(_weapon)!).State.DeployEpoch;
+    }
+
+    private sealed class ListHooks<T>(params T[] hooks) : IHooks<T> where T : class
+    {
+        public IReadOnlyList<T> All => hooks;
+        public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }
     }
 }

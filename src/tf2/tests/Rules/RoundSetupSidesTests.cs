@@ -118,6 +118,8 @@ public sealed class RoundSetupSidesTests
         public void HideActive() { }
 
         public void RestoreActive() { }
+
+        public void ResumeHiddenIfRunning() { }
     }
 
     private sealed class FixedTimer : TF2.Server.Rules.ITeamRoundTimer
@@ -129,6 +131,10 @@ public sealed class RoundSetupSidesTests
         public bool ShowInHud => true;
 
         public bool IsDisabled => false;
+
+        public bool StartPaused => false;
+
+        public void ResumeTimer() { }
 
         public void SetShowInHud(bool show) { }
 

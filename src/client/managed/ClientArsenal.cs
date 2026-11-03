@@ -87,6 +87,10 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     private int _localIndex;
     private Vector _commandAngles;
 
+    // The replayed command's own clock, what its state writes stamp: the same
+    // instant the server's run of the command read.
+    private float _commandClock;
+
     // The predicted effects (stock's client-side WeaponSound, FireBullets and
     // bludgeon impacts), and the command they are for. Null in a composition
     // without them: the replay then predicts state and plays nothing.
@@ -217,6 +221,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // from the engine instead it was the frame's curtime, and every timer
         // the machine sets (TimeWeaponIdle, NextPrimaryAttack) mispredicted.
         _commandAngles = new Vector(cmd.Pitch, cmd.Yaw, cmd.Roll);
+        _commandClock = commandTime;
 
 
         // effectsLive is the FIRST prediction only, stock's
@@ -253,6 +258,16 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
     /// <summary>The working viewmodel state the replay runs, for tests.</summary>
     internal ViewModelNetState WorkingViewModel => _viewModel;
+
+    /// <summary>
+    /// The player's working copy the fov words of a predicted zoom are written
+    /// into (<see cref="ClientWeaponArms.SetFov"/>), handed over once at
+    /// composition so it is the same object the movement's replay runs on: a
+    /// command's ring save then carries both halves' words and the ack judges
+    /// one answer against the arrival. Null before a side binds it: the replay
+    /// then predicts the weapon's state and no fov.
+    /// </summary>
+    public PlayerNetState? WorkingPlayer { get; set; }
 
     /// <inheritdoc/>
     /// <remarks>
@@ -922,6 +937,35 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // A server-only path's sound (an animation event's): not predicted.
         public void ServerSound(string soundScript)
         {
+        }
+
+        // The zoom's fov write: the same predicted words the server's run of the
+        // command stamps (ServerPlayerMovement.SetFov — stock's m_iFOV and
+        // m_hZoomOwner are predict fields, written inside the command on both
+        // ends, c_baseplayer.cpp's BEGIN_PREDICTION_DATA block). The requester is
+        // the held weapon's handle and the clock the command's own, the arms'
+        // refuse arms mirrored: nobody asks for nothing, and another owner's
+        // running zoom is kept. fov 0 hands the slot back, anything else takes
+        // it; the new ramp starts where the old one left off at the command's
+        // clock, the same answer the server's write computed for the arrival.
+        public void SetFov(int fov, float rate)
+        {
+            if (_owner.WorkingPlayer is not { } working)
+                return;
+
+            if (_owner._localWeapon is not { } weapon || weapon.Handle == EntityHandle.None)
+                return;
+
+            uint requester = weapon.Handle.Value;
+            if (working.ZoomOwner != EntityHandle.None.Value && working.ZoomOwner != requester)
+                return;
+
+            working.ZoomOwner = fov == 0 ? EntityHandle.None.Value : requester;
+            working.FovStart = PlayerFov.Current(working.Fov, working.FovStart, working.FovTime, working.FovRate,
+                                                 working.FovDefault, _owner._commandClock);
+            working.FovTime = _owner._commandClock;
+            working.Fov = fov;
+            working.FovRate = rate;
         }
 
         // No shot without an eye to fire it from (a replay told none).

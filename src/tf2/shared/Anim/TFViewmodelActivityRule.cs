@@ -120,6 +120,13 @@ public static class TFViewmodelActTables
         (TFWeaponRole.Primary, "ACT_VM_IDLE_TO_LOWERED") => "ACT_PRIMARY_VM_IDLE_TO_LOWERED",
         (TFWeaponRole.Primary, "ACT_VM_IDLE_LOWERED") => "ACT_PRIMARY_VM_IDLE_LOWERED",
         (TFWeaponRole.Primary, "ACT_VM_LOWERED_TO_IDLE") => "ACT_PRIMARY_VM_LOWERED_TO_IDLE",
+        (TFWeaponRole.Primary, "ACT_MP_ATTACK_STAND_PREFIRE") => "ACT_PRIMARY_ATTACK_STAND_PREFIRE",
+        (TFWeaponRole.Primary, "ACT_MP_ATTACK_STAND_POSTFIRE") => "ACT_PRIMARY_ATTACK_STAND_POSTFIRE",
+        (TFWeaponRole.Primary, "ACT_MP_ATTACK_STAND_STARTFIRE") => "ACT_PRIMARY_ATTACK_STAND_STARTFIRE",
+        (TFWeaponRole.Primary, "ACT_MP_ATTACK_CROUCH_PREFIRE") => "ACT_PRIMARY_ATTACK_CROUCH_PREFIRE",
+        (TFWeaponRole.Primary, "ACT_MP_ATTACK_CROUCH_POSTFIRE") => "ACT_PRIMARY_ATTACK_CROUCH_POSTFIRE",
+        (TFWeaponRole.Primary, "ACT_MP_ATTACK_SWIM_PREFIRE") => "ACT_PRIMARY_ATTACK_SWIM_PREFIRE",
+        (TFWeaponRole.Primary, "ACT_MP_ATTACK_SWIM_POSTFIRE") => "ACT_PRIMARY_ATTACK_SWIM_POSTFIRE",
 
         //-----------------------------------------------------------------
         // TF_WPN_TYPE_SECONDARY (:4315-4327).
@@ -137,6 +144,13 @@ public static class TFViewmodelActTables
         (TFWeaponRole.Secondary, "ACT_VM_IDLE_TO_LOWERED") => "ACT_SECONDARY_VM_IDLE_TO_LOWERED",
         (TFWeaponRole.Secondary, "ACT_VM_IDLE_LOWERED") => "ACT_SECONDARY_VM_IDLE_LOWERED",
         (TFWeaponRole.Secondary, "ACT_VM_LOWERED_TO_IDLE") => "ACT_SECONDARY_VM_LOWERED_TO_IDLE",
+        (TFWeaponRole.Secondary, "ACT_MP_ATTACK_STAND_PREFIRE") => "ACT_SECONDARY_ATTACK_STAND_PREFIRE",
+        (TFWeaponRole.Secondary, "ACT_MP_ATTACK_STAND_POSTFIRE") => "ACT_SECONDARY_ATTACK_STAND_POSTFIRE",
+        (TFWeaponRole.Secondary, "ACT_MP_ATTACK_STAND_STARTFIRE") => "ACT_SECONDARY_ATTACK_STAND_STARTFIRE",
+        (TFWeaponRole.Secondary, "ACT_MP_ATTACK_CROUCH_PREFIRE") => "ACT_SECONDARY_ATTACK_CROUCH_PREFIRE",
+        (TFWeaponRole.Secondary, "ACT_MP_ATTACK_CROUCH_POSTFIRE") => "ACT_SECONDARY_ATTACK_CROUCH_POSTFIRE",
+        (TFWeaponRole.Secondary, "ACT_MP_ATTACK_SWIM_PREFIRE") => "ACT_SECONDARY_ATTACK_SWIM_PREFIRE",
+        (TFWeaponRole.Secondary, "ACT_MP_ATTACK_SWIM_POSTFIRE") => "ACT_SECONDARY_ATTACK_SWIM_POSTFIRE",
 
         //-----------------------------------------------------------------
         // TF_WPN_TYPE_MELEE (:4336-4348).
@@ -154,6 +168,13 @@ public static class TFViewmodelActTables
         (TFWeaponRole.Melee, "ACT_VM_LOWERED_TO_IDLE") => "ACT_MELEE_VM_LOWERED_TO_IDLE",
         (TFWeaponRole.Melee, "ACT_VM_HITCENTER") => "ACT_MELEE_VM_HITCENTER",
         (TFWeaponRole.Melee, "ACT_VM_SWINGHARD") => "ACT_MELEE_VM_SWINGHARD",
+        (TFWeaponRole.Melee, "ACT_MP_ATTACK_STAND_PREFIRE") => "ACT_MELEE_ATTACK_STAND_PREFIRE",
+        (TFWeaponRole.Melee, "ACT_MP_ATTACK_STAND_POSTFIRE") => "ACT_MELEE_ATTACK_STAND_POSTFIRE",
+        (TFWeaponRole.Melee, "ACT_MP_ATTACK_STAND_STARTFIRE") => "ACT_MELEE_ATTACK_STAND_STARTFIRE",
+        (TFWeaponRole.Melee, "ACT_MP_ATTACK_CROUCH_PREFIRE") => "ACT_MELEE_ATTACK_CROUCH_PREFIRE",
+        (TFWeaponRole.Melee, "ACT_MP_ATTACK_CROUCH_POSTFIRE") => "ACT_MELEE_ATTACK_CROUCH_POSTFIRE",
+        (TFWeaponRole.Melee, "ACT_MP_ATTACK_SWIM_PREFIRE") => "ACT_MELEE_ATTACK_SWIM_PREFIRE",
+        (TFWeaponRole.Melee, "ACT_MP_ATTACK_SWIM_POSTFIRE") => "ACT_MELEE_ATTACK_SWIM_POSTFIRE",
 
         //-----------------------------------------------------------------
         // TF_WPN_TYPE_PDA (:4375-4385).
@@ -186,6 +207,13 @@ public static class TFViewmodelActTables
         (TFWeaponRole.Item1, "ACT_VM_IDLE_TO_LOWERED") => "ACT_ITEM1_VM_IDLE_TO_LOWERED",
         (TFWeaponRole.Item1, "ACT_VM_IDLE_LOWERED") => "ACT_ITEM1_VM_IDLE_LOWERED",
         (TFWeaponRole.Item1, "ACT_VM_LOWERED_TO_IDLE") => "ACT_ITEM1_VM_LOWERED_TO_IDLE",
+        (TFWeaponRole.Item1, "ACT_MP_ATTACK_STAND_PREFIRE") => "ACT_ITEM1_ATTACK_STAND_PREFIRE",
+        (TFWeaponRole.Item1, "ACT_MP_ATTACK_STAND_POSTFIRE") => "ACT_ITEM1_ATTACK_STAND_POSTFIRE",
+        (TFWeaponRole.Item1, "ACT_MP_ATTACK_STAND_STARTFIRE") => "ACT_ITEM1_ATTACK_STAND_STARTFIRE",
+        (TFWeaponRole.Item1, "ACT_MP_ATTACK_CROUCH_PREFIRE") => "ACT_ITEM1_ATTACK_CROUCH_PREFIRE",
+        (TFWeaponRole.Item1, "ACT_MP_ATTACK_CROUCH_POSTFIRE") => "ACT_ITEM1_ATTACK_CROUCH_POSTFIRE",
+        (TFWeaponRole.Item1, "ACT_MP_ATTACK_SWIM_PREFIRE") => "ACT_ITEM1_ATTACK_SWIM_PREFIRE",
+        (TFWeaponRole.Item1, "ACT_MP_ATTACK_SWIM_POSTFIRE") => "ACT_ITEM1_ATTACK_SWIM_POSTFIRE",
 
         //-----------------------------------------------------------------
         // TF_WPN_TYPE_ITEM2 (:4410-4422).
@@ -203,6 +231,13 @@ public static class TFViewmodelActTables
         (TFWeaponRole.Item2, "ACT_VM_IDLE_TO_LOWERED") => "ACT_ITEM2_VM_IDLE_TO_LOWERED",
         (TFWeaponRole.Item2, "ACT_VM_IDLE_LOWERED") => "ACT_ITEM2_VM_IDLE_LOWERED",
         (TFWeaponRole.Item2, "ACT_VM_LOWERED_TO_IDLE") => "ACT_ITEM2_VM_LOWERED_TO_IDLE",
+        (TFWeaponRole.Item2, "ACT_MP_ATTACK_STAND_PREFIRE") => "ACT_ITEM2_ATTACK_STAND_PREFIRE",
+        (TFWeaponRole.Item2, "ACT_MP_ATTACK_STAND_POSTFIRE") => "ACT_ITEM2_ATTACK_STAND_POSTFIRE",
+        (TFWeaponRole.Item2, "ACT_MP_ATTACK_STAND_STARTFIRE") => "ACT_ITEM2_ATTACK_STAND_STARTFIRE",
+        (TFWeaponRole.Item2, "ACT_MP_ATTACK_CROUCH_PREFIRE") => "ACT_ITEM2_ATTACK_CROUCH_PREFIRE",
+        (TFWeaponRole.Item2, "ACT_MP_ATTACK_CROUCH_POSTFIRE") => "ACT_ITEM2_ATTACK_CROUCH_POSTFIRE",
+        (TFWeaponRole.Item2, "ACT_MP_ATTACK_SWIM_PREFIRE") => "ACT_ITEM2_ATTACK_SWIM_PREFIRE",
+        (TFWeaponRole.Item2, "ACT_MP_ATTACK_SWIM_POSTFIRE") => "ACT_ITEM2_ATTACK_SWIM_POSTFIRE",
 
         //-----------------------------------------------------------------
         // TF_WPN_TYPE_ITEM3 (:4430-4443).
@@ -220,6 +255,13 @@ public static class TFViewmodelActTables
         (TFWeaponRole.Item3, "ACT_VM_IDLE_TO_LOWERED") => "ACT_ITEM3_VM_IDLE_TO_LOWERED",
         (TFWeaponRole.Item3, "ACT_VM_IDLE_LOWERED") => "ACT_ITEM3_VM_IDLE_LOWERED",
         (TFWeaponRole.Item3, "ACT_VM_LOWERED_TO_IDLE") => "ACT_ITEM3_VM_LOWERED_TO_IDLE",
+        (TFWeaponRole.Item3, "ACT_MP_ATTACK_STAND_PREFIRE") => "ACT_ITEM3_ATTACK_STAND_PREFIRE",
+        (TFWeaponRole.Item3, "ACT_MP_ATTACK_STAND_POSTFIRE") => "ACT_ITEM3_ATTACK_STAND_POSTFIRE",
+        (TFWeaponRole.Item3, "ACT_MP_ATTACK_STAND_STARTFIRE") => "ACT_ITEM3_ATTACK_STAND_STARTFIRE",
+        (TFWeaponRole.Item3, "ACT_MP_ATTACK_CROUCH_PREFIRE") => "ACT_ITEM3_ATTACK_CROUCH_PREFIRE",
+        (TFWeaponRole.Item3, "ACT_MP_ATTACK_CROUCH_POSTFIRE") => "ACT_ITEM3_ATTACK_CROUCH_POSTFIRE",
+        (TFWeaponRole.Item3, "ACT_MP_ATTACK_SWIM_PREFIRE") => "ACT_ITEM3_ATTACK_SWIM_PREFIRE",
+        (TFWeaponRole.Item3, "ACT_MP_ATTACK_SWIM_POSTFIRE") => "ACT_ITEM3_ATTACK_SWIM_POSTFIRE",
 
         //-----------------------------------------------------------------
         // TF_WPN_TYPE_ITEM4 (:4450-4462).

@@ -209,6 +209,23 @@ void CServerGameClients::ClientPutInServer(edict_t* pEntity, const char* playern
 {
 	SS_BOUNDARY_HIT(m_Probes, kBoundaryProbe_Clients_ClientPutInServer);
 
+	// A level change whose new map could not be found early-outs the switch: the old
+	// level stays standing and the engine re-admits the still-connected client without
+	// a disconnect between. Whatever the old player shell was bound to is then still
+	// bound when the new shell is created, and the fresh player cannot issue its
+	// handle -- it binds to nothing and the client reads zeros. Release the entry the
+	// way ClientDisconnect does, before CreatePlayer attaches the new occupant.
+	if (CStandalonePlayer* pOld = m_Entities.PlayerFromEdict(pEntity))
+	{
+		// Since this client isn't around any more, reset their sound.
+		ss::SoundEnt_ResetClientSound(m_Managed.m_pSoundEnt, pOld->EntIndex());
+
+		// Before the delete: the announcement reads memory the delete frees.
+		SourceSharp_AnnounceStandaloneRemoved(pOld);
+
+		delete pOld;
+	}
+
 	// The engine hands us an edict and expects the mod to attach a player entity to it.
 	// Create fails only if managed registered no player class. Fail loudly: a client
 	// admitted with no player entity dies somewhere unrelated later.

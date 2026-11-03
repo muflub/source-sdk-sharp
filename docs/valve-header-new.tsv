@@ -1056,3 +1056,5 @@ src/client/native/client_entity_list.h	ports the client IClientEntityList surfac
 src/client/native/shell_client_mode.h	ports the client IClientMode surface (iclientmode.h, clientmode_shared.cpp) over managed; the class declaration split from shell_client.cpp
 src/client/native/shell_viewer_facts.h	native code built against SDK headers (playernet_vars.h); the viewer facts class over the standalone clients, from shell_view_facts.cpp
 src/client/native/shell_view_render.h	ports the client IViewRender surface (viewrender.h, view.cpp) as the render plan's carrier; the class declaration split from shell_viewrender_client.cpp
+src/tf2/server/Voice/TFConceptSpeech.cs	ports CBaseMultiplayerPlayer::SpeakConceptIfAllowed/SpeakIfAllowed and the response play (game/server/basemultiplayerplayer.cpp:71-108)
+src/tf2/server/Voice/TFPlayerCriteriaWords.cs	ports CTFPlayer::ModifyOrAppendCriteria's player words (server/tf/tf_player.cpp:19212-19274)

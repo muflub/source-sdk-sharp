@@ -64,6 +64,12 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     public const float UnzoomDelay = 0.5f;
     public const float RezoomDelay = 0.9f;
 
+    /// <summary>TF_WEAPON_ZOOM_FOV (tf_shareddefs.h:399): the fov a zoom owns.</summary>
+    public const int ZoomFov = 20;
+
+    /// <summary>The seconds the fov ramp takes both ways, stock's <c>iZoomTime</c> (tf_weaponbase_gun.cpp:1060, 1082).</summary>
+    public const float ZoomFovTime = 0.1f;
+
     /// <summary>TF_WEAPON_SNIPERRIFLE_NO_CRIT_AFTER_ZOOM_TIME (tf_weapon_sniperrifle.cpp:41): the zoom a headshot needs to be behind it.</summary>
     public const float NoCritAfterZoomTime = 0.2f;
 
@@ -291,6 +297,13 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
             || Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is not { } conditions)
             return;
 
+        // The fov write is the state write stock's BaseClass::ZoomIn makes
+        // (tf_weaponbase_gun.cpp:1046-1064): a predicted one, on both sides, so
+        // it rides the Arms ungated — a replay must re-write it every frame the
+        // command replays, like the clocks below (gating it on EffectsLive is
+        // what made the acked slot stand against the arrival). Stock calls it
+        // before the AddCond: the order holds here.
+        attack.Arms.SetFov(ZoomFov, ZoomFovTime);
         ClearDecayClock(attack.Weapon);
         conditions.Add(TFCond.Zoomed);
         conditions.Add(TFCond.Aiming);
@@ -301,6 +314,11 @@ public class TFSniperRifleBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(par
     private void ZoomOut(in WeaponAttackContext attack, TFWeaponScript script)
     {
         var weapon = attack.Weapon;
+
+        // Stock's BaseClass::ZoomOut first, before the condition drops
+        // (tf_weaponbase_gun.cpp:1066-1084): the fov back to the player's own,
+        // the same ungated predicted write as the zoom-in.
+        attack.Arms.SetFov(0, ZoomFovTime);
         if (attack.Command.OwnerIndex > 0 && Parts.Owners.ConditionsOf(attack.Command.OwnerIndex) is { } conditions)
         {
             conditions.Remove(TFCond.Zoomed);

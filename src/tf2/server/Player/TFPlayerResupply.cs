@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using SourceSharp.Shared;
 
 using TF2.Server.Econ;
 using TF2.Shared;
@@ -22,12 +23,13 @@ namespace TF2.Server.Player;
 /// <c>GiveAmmo</c> (:14077) over the carrier's class and the core's player.
 ///
 /// <para>
-/// Regenerate re-gives the kit (<see cref="TFLoadoutProvider"/>: the class's
-/// weapons, each with a full clip, then every ammo to its class maximum)
-/// where stock's <c>InitClass</c> → <c>ManageRegularWeapons</c> keeps each
-/// weapon whose item still matches and refills it: the core holds one carry
-/// per player and hands a fresh weapon its full clip, so the result is the
-/// same kit, though the first weapon is the one drawn (docs/divergences.md).
+/// Regenerate keeps the inventory, as stock's <c>InitClass</c> →
+/// <c>ManageRegularWeapons</c> does: the weapons held stay (an owned row
+/// becomes its default clip in the reserve), the missing ones are given, and
+/// every ammo is filled to its class maximum. The kept weapon's clip is the
+/// default again, as the bResetWeapons arm's <c>GiveDefaultAmmo</c> is
+/// (tf_player.cpp:5209). The fresh-kit strip is the spawn's
+/// (<c>TFPlayerSpawns.OnSpawning</c>, stock's <c>ForceRespawn</c>).
 /// The meters it refills (cloak, energy drink, charge, item meters) are not
 /// on the carrier yet (docs/plans/tf2/deferred.tsv).
 /// </para>
@@ -36,10 +38,15 @@ namespace TF2.Server.Player;
 public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable classes, IEnginePlayers players,
                                      IEngineEntities entities, ITFPlayerConditions conditions,
                                      TFLoadoutProvider loadout, IEngineGameEvents events,
-                                     ITFWeaponOwners? owners = null, AttributeHooks? attributes = null) : ITFPlayerResupply
+                                     ITFWeaponOwners? owners = null, AttributeHooks? attributes = null,
+                                     TFWeaponScripts? scripts = null, WeaponCatalog? catalog = null,
+                                     Arsenal? arsenal = null) : ITFPlayerResupply
 {
     private readonly ITFWeaponOwners _owners = owners ?? new NoTFWeaponOwners();
     private readonly AttributeHooks _attributes = attributes ?? new AttributeHooks();
+    private readonly TFWeaponScripts? _scripts = scripts;
+    private readonly WeaponCatalog? _catalog = catalog;
+    private readonly Arsenal? _arsenal = arsenal;
 
     /// <summary>The stock event a resupply fires.</summary>
     public const string RegenerateEvent = "player_regenerate";
@@ -90,14 +97,62 @@ public sealed class TFPlayerResupply(TFPlayerCarriers carriers, TFClassTable cla
             events.EventFire(e);
     }
 
-    /// <summary>The class's weapons (fresh, full clips) and every ammo to its class maximum.</summary>
+    /// <summary>
+    /// The class's missing weapons and every ammo to its maximum, the
+    /// inventory kept: a regen runs inside <c>m_bRegenerating</c>
+    /// (tf_player.cpp:4033-4036), whose <c>InitClass</c> →
+    /// <c>ManageRegularWeapons</c> keeps each weapon whose item still matches
+    /// and gives only the missing ones (:4528-4662), resets it
+    /// (<c>bResetWeapons</c>, :5205-5220), and the same guard skips the
+    /// closing <c>Weapon_Switch</c> (:4700) — the locker draws nothing.
+    /// The strip is the spawn's (<see cref="TFPlayerSpawns.OnSpawning"/>).
+    /// </summary>
     internal void GiveKit(EntityHandle player, TFClass cls)
     {
-        players.RemoveAllItems(player, stripSuit: false);
         foreach (string weapon in loadout.Weapons(player))
+        {
             players.GiveItem(player, weapon);
+            GiveDefaultAmmo(player, weapon);
+        }
+
         foreach (var (ammo, count) in loadout.Ammo(player))
             players.GiveAmmo(player, count, ammo);
+    }
+
+    /// <summary>
+    /// The kept weapon's <c>GiveDefaultAmmo</c> (<c>bResetWeapons</c>' arm,
+    /// tf_player.cpp:5209): the clip is the default again —
+    /// <c>CBaseCombatWeapon::GiveDefaultAmmo</c>
+    /// (basecombatweapon_shared.cpp:144-165) over <c>CTFWeaponBase</c>'s own
+    /// <c>GetDefaultClip1</c> (tf_weaponbase.cpp:631-635) — written through
+    /// the same seam the dropped-weapon pickup writes its restored clip by.
+    /// The clipless arm's reserve default and the energy refill
+    /// (tf_weaponbase.cpp:436-439) are the pool fill that follows and the
+    /// port's no-energy-weapon state (TFDroppedWeapon's m_nClip note); no row
+    /// here keeps a second clip. A weapon the kit just gave took the give's
+    /// own default, so the reset only settles what a held life fired down.
+    /// </summary>
+    private void GiveDefaultAmmo(EntityHandle player, string weapon)
+    {
+        if (_scripts?.Get(weapon) is not { } script
+            || _catalog?.For(weapon) is not { } type
+            || _arsenal is null
+            || type.ClipSize <= 0)
+            return;
+
+        // Stock reads the weapon's own attributes where the hooks do
+        // (AutoFiresFullClip, tf_weaponbase.cpp:1871-1877, and GetMaxClip1's
+        // mult_clipsize, :571-575 — the attribute arm of
+        // TFAttributeWeaponHook): the item behind the named weapon, the
+        // player's manager beside it.
+        int index = entities.GetIndex(player);
+        IAttributeProvider? item = _owners.ItemOf(index, weapon);
+
+        int clip = script.Base.DefaultClip1 <= 0 || _attributes.Int(0, "auto_fires_full_clip", item) != 0
+            ? 0
+            : _attributes.Int(type.ClipSize, "mult_clipsize", item);
+
+        _arsenal.SetClip(player, weapon, clip);
     }
 
     /// <summary>

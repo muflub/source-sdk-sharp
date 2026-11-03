@@ -291,6 +291,30 @@ public sealed class TFShellBehaviourTests
         Assert.Equal(0.75f, w.BehaviourMeter, 4);
     }
 
+    [Fact]
+    public void The_replayed_medigun_stamps_the_release_clock_as_the_servers_tail_does()
+    {
+        // The server's arm closes every command the gun answers with
+        // BehaviourTimeB = now (TFMedigunWeapon.Heal's tail, the clock the
+        // release drain's dt and the compare run on). The replay of a held gun
+        // with no beam and no release — the arm that touches no charge —
+        // stamps the same, or the clock stands at the decode and the held
+        // medigun mispredicts it on every arrival.
+        var data = new FakePredictedData();
+        var world = new TFWeaponWorld(data);
+        var (w, vm) = world.Armed("tf_weapon_medigun", clip: -1, reserve: 0);
+        var carrier = new TFPlayerNetState();
+        carrier.BindLocal();
+        carrier.HealTargetIndex = -1;
+        data.Carrier = carrier;
+
+        world.Run(w, vm, 0, 10f, live: false);
+        Assert.Equal(10f, w.BehaviourTimeB, 4);
+
+        world.Run(w, vm, 0, 10.015f, live: false);
+        Assert.Equal(10.015f, w.BehaviourTimeB, 4);
+    }
+
     [Theory]
     [InlineData("tf_weapon_builder")]
     [InlineData("tf_weapon_sapper")]

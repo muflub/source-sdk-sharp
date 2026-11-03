@@ -254,6 +254,44 @@ public class PlayerCompositesTests
         Assert.Equal(1, a1.Events.Count(e => e == "attach"));
     }
 
+    /// <summary>
+    /// A RE-ADMITTANCE, which a level change through a missing map does: the
+    /// old shell is gone and the engine answers a fresh handle for the same
+    /// index (slot_table.h bumps the serial on unbind), without a disconnect
+    /// between the two active events. The index must be served by the handle
+    /// issued NOW — the doubled-active early-return above is only right while
+    /// the handle is the same handle — and the stale handle must answer nothing,
+    /// the way every other dead handle answers nothing.
+    /// </summary>
+    [Fact]
+    public void AReadmittedPlayerIsReboundToTheHandleIssuedNow()
+    {
+        var first = new EntityHandle(0x0001_0002u);    // entry 1, serial 2
+        var second = new EntityHandle(0x0001_0003u);   // the same entry, serial bumped
+
+        var firstBadge = new BadgedComponent("first", 0);
+        var secondBadge = new BadgedComponent("second", 0);
+
+        int built = 0;
+        var src = new Source(_ => [built++ == 0 ? firstBadge : secondBadge]);
+        var rig = new Rig(src);
+
+        rig.Engine.Returns("Players.GetHandle", first);
+        rig.Active();
+
+        rig.Engine.Returns("Players.GetHandle", second);
+        rig.Active();   // the re-admit: same index, the engine's handle is fresh
+
+        Assert.True(firstBadge.AttachedTo == first, "the first attachment named the handle issued then");
+        Assert.True(secondBadge.AttachedTo == second,
+            "the re-admitted player is attached to the handle issued NOW, not the stale one");
+
+        Assert.Same(secondBadge, rig.Composites.Get<ISharedBadge>(second));   // the fresh handle is served
+        Assert.Null(rig.Composites.Get<ISharedBadge>(first));                  // the stale handle is dead
+
+        Assert.Equal(1, firstBadge.Events.Count(e => e == "detach"));          // the detach is owed to the old slot
+    }
+
     //---------------------------------------------------------------------
     // Get<T> across sources — the composite is the one object that saw both.
     //---------------------------------------------------------------------

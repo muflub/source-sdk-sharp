@@ -98,6 +98,9 @@ public sealed class TeamRoundTimer(IRoundTimerHost host, IRoundTimers timers, IE
 
     public bool IsDisabled => _disabled;
 
+    /// <summary>Stock's <c>StartPaused()</c> (teamplay_round_timer.h:36): the map's start_paused key.</summary>
+    public bool StartPaused => Vars.StartPaused;
+
     /// <summary>Whether the countdown is stopped.</summary>
     public bool IsPaused => _paused;
 

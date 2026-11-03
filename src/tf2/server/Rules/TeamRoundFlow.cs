@@ -1300,6 +1300,11 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
 
         if (_settings.WaitingForPlayersCancel)
         {
+            // Stock (:955-973): resume the hidden HUD timer BEFORE the clear
+            // drops its handle -- the restore inside SetInWaitingForPlayers
+            // forgets it (:957-960).
+            _timers.ResumeHiddenIfRunning();
+
             SetInWaitingForPlayers(false);
             _settings.WaitingForPlayersCancel = false;
         }

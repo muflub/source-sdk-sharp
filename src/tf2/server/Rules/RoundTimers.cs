@@ -43,6 +43,12 @@ public interface ITeamRoundTimer
 
     bool IsDisabled { get; }
 
+    /// <summary>Stock <c>StartPaused()</c> (teamplay_round_timer.h:36): the map's <c>start_paused</c> key.</summary>
+    bool StartPaused { get; }
+
+    /// <summary>Stock <c>ResumeTimer()</c> (teamplay_round_timer.cpp:1203): unpause at the seconds left.</summary>
+    void ResumeTimer();
+
     /// <summary>Stock <c>SetShowInHud</c>: the flag alone, no re-election.</summary>
     void SetShowInHud(bool show);
 
@@ -75,6 +81,13 @@ public interface IRoundTimers
 
     /// <summary>Stock <c>RestoreActiveTimer</c>: the remembered timer shows again.</summary>
     void RestoreActive();
+
+    /// <summary>
+    /// Stock's cancel arm (:962-969): the remembered hidden HUD timer resumes
+    /// when it is not a start_paused one. Called while the hidden handle
+    /// still stands -- the restore's clear drops it.
+    /// </summary>
+    void ResumeHiddenIfRunning();
 }
 
 /// <summary>
@@ -145,5 +158,15 @@ public sealed class RoundTimers(IEntityDirectory directory) : IRoundTimers, IGam
 
         _hidden = null;
         timer.InputShowInHud(true);
+    }
+
+    public void ResumeHiddenIfRunning()
+    {
+        // Stock's cancel arm (:955-973): read the hidden timer HERE, before
+        // SetInWaitingForPlayers' restore clears the handle, and resume it
+        // unless the map starts it paused (:965). The restore's own show
+        // still follows through RestoreActive.
+        if (_hidden is { StartPaused: false } timer)
+            timer.ResumeTimer();
     }
 }

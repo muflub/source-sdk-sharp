@@ -53,6 +53,11 @@ using ClientPrediction = client::TF2.Client.Player.TFPlayerPrediction;
 using ClientViewmodelActivity = client::SourceSharp.Shared.ViewmodelActivity;
 using ClientViewModelNet = client::SourceSharp.Shared.ViewModelNetState;
 using Views = client::TF2.Shared.Player.TFPlayerNetStateViews;
+using ClientConditions = client::TF2.Shared.Conditions.TFConditions;
+using ClientItem = client::TF2.Shared.Econ.IAttributeProvider;
+using ClientOwners = client::TF2.Shared.ITFWeaponOwners;
+using ClientPlayerNet = client::SourceSharp.Shared.PlayerNetState;
+using ClientSniperBehaviour = client::TF2.Shared.TFSniperRifleBehaviour;
 
 namespace TF2.Tests;
 
@@ -69,6 +74,7 @@ public sealed class TF2ClientPredictionTests
 {
     private const int Local = 1;
     private const string Scattergun = "tf_weapon_scattergun";
+    private const string SniperRifle = "tf_weapon_sniperrifle";
     private static readonly EntityHandle LocalPlayer = new(0x0001_0000u | Local);
     private static readonly EntityHandle WeaponHandle = new(0x0100_0041u);
     private static readonly EntityHandle ViewModelHandle = new(0x0100_0042u);
@@ -104,12 +110,12 @@ public sealed class TF2ClientPredictionTests
         /// side's really are. The extra hooks join the chain after TF2's own
         /// (a fact's forced crit).
         /// </summary>
-        public ClientParts Parts(params client::TF2.Shared.ITFWeaponHook[] extraHooks)
+        public ClientParts Parts(client::TF2.Shared.ITFWeaponOwners? owners = null, params client::TF2.Shared.ITFWeaponHook[] extraHooks)
         {
             List<client::TF2.Shared.ITFWeaponHook> hooks =
                 [new client::TF2.Shared.TFAttributeWeaponHook(new ClientHooks()), new client::TF2.Shared.TFCritBoostHook()];
             hooks.AddRange(extraHooks);
-            return new(Scripts, ClientChain.Of([.. hooks]), new ClientBuckets(), new NoRandomCrits());
+            return new(Scripts, ClientChain.Of([.. hooks]), new ClientBuckets(), new NoRandomCrits(), owners);
         }
 
         public ClientBehaviours Behaviours(ClientParts parts)
@@ -156,13 +162,18 @@ public sealed class TF2ClientPredictionTests
         public readonly ClientMachine Twin;
 
         public Rig(params client::TF2.Shared.ITFWeaponHook[] extraHooks)
-            : this(Scattergun, extraHooks)
+            : this(Scattergun, null, extraHooks)
         {
         }
 
         public Rig(string weaponClass, params client::TF2.Shared.ITFWeaponHook[] extraHooks)
+            : this(weaponClass, null, extraHooks)
         {
-            int typeId = World.Catalog.IndexOf(weaponClass);
+        }
+
+        public Rig(string className, client::TF2.Shared.ITFWeaponOwners? owners, params client::TF2.Shared.ITFWeaponHook[] extraHooks)
+        {
+            int typeId = World.Catalog.IndexOf(className);
 
             Weapon = new ClientWeapon(World.Engine) { Handle = WeaponHandle };
             Weapon.State.BindLocal();
@@ -181,7 +192,7 @@ public sealed class TF2ClientPredictionTests
 
             Arsenal = new ClientArsenal(World.Log, pair, World.Engine, World.Engine, World.Engine,
                                         ClientNetCatalog.Of(typeof(ClientArsenal).Assembly, World.Log),
-                                        World.Catalog, World.Ammo, World.Behaviours(World.Parts(extraHooks)));
+                                        World.Catalog, World.Ammo, World.Behaviours(World.Parts(owners, extraHooks)));
 
             TwinWeapon.BindLocal();
             TwinWeapon.OwnerIndex = Local;
@@ -192,7 +203,7 @@ public sealed class TF2ClientPredictionTests
             TwinViewModel.OwnerIndex = Local;
 
             TwinArms = new TwinArms(World.Engine, ViewModelHandle);
-            Twin = new ClientMachine(TwinArms, World.Catalog, World.Behaviours(World.Parts(extraHooks)), World.Ammo);
+            Twin = new ClientMachine(TwinArms, World.Catalog, World.Behaviours(World.Parts(owners, extraHooks)), World.Ammo);
         }
 
         /// <summary>The server's word arriving: the decoded states change and count a decode.</summary>
@@ -240,6 +251,9 @@ public sealed class TF2ClientPredictionTests
 
     private static UserCmd Command(int number, bool attack)
         => new() { CommandNumber = number, Buttons = attack ? (int)InputButtons.Attack : 0 };
+
+    private static UserCmd Command(int number, int buttons)
+        => new() { CommandNumber = number, Buttons = buttons };
 
     //-------------------------------------------------------------------------
     // A: the scattergun's shot through the weapon ring.
@@ -658,5 +672,91 @@ public sealed class TF2ClientPredictionTests
         Assert.Contains("public TFPlayerNetState? Predicted(int playerIndex)", clientSide, StringComparison.Ordinal);
         Assert.Contains("_hasWorking && playerIndex == _localIndex ? _working : null;", clientSide, StringComparison.Ordinal);
         Assert.Contains("public TFPlayerNetState? Networked(int playerIndex) => Find(playerIndex)?.State;", clientSide, StringComparison.Ordinal);
+    }
+
+    //-------------------------------------------------------------------------
+    // E: the sniper's zoom — the fov words a replayed command stamps.
+    //-------------------------------------------------------------------------
+
+    /// <summary>What the zoom facts ask of the holder: one player's conditions, grounded.</summary>
+    private sealed class ZoomOwners : ClientOwners
+    {
+        public readonly ClientConditions Conditions = new(authoritative: true);
+
+        public ClientClass ClassOf(int playerIndex) => ClientClass.Sniper;
+        public ClientConditions? ConditionsOf(int playerIndex) => Conditions;
+        public float CritMult(int playerIndex) => 1f;
+        public bool WinsCrits(int playerIndex) => false;
+        public ClientItem? ItemOf(int playerIndex, string weaponName) => null;
+        public ClientItem? ManagerOf(int playerIndex) => null;
+        public bool OffGround(int playerIndex) => false;
+        public bool EyesUnderwater(int playerIndex) => false;
+        public bool DuckingOf(int playerIndex) => false;
+    }
+
+    /// <summary>
+    /// The sniper's scope through the replay: stock's <c>CTFSniperRifle::ZoomIn</c>
+    /// and <c>ZoomOut</c> (<c>tf_weapon_sniperrifle.cpp:523-545</c>, :574-603) write
+    /// the fov through <c>SetFOV</c>, and stock's words are predict fields on both
+    /// ends (<c>m_iFOV</c>, <c>m_hZoomOwner</c>: <c>DEFINE_PRED_FIELD</c>s in
+    /// <c>c_baseplayer.cpp</c>'s <c>BEGIN_PREDICTION_DATA</c>) — so the client's
+    /// replay of the zoom command stamps them itself into the working copy the
+    /// ring saves from, and the acked slot carries what the server's run wrote.
+    /// The first press stamps zoom-in at the command's clock, the second press —
+    /// after the release that re-arms the toggle — takes them back, and a replay
+    /// of the already-predicted command says the same words again, so every
+    /// frame's slot holds and nothing stands judged against the arrival. Without
+    /// the client's stamp the slot keeps the basis' zeros and the fov words alone
+    /// stand — the live <c>MISPREDICTION ... Fov, FovStart, FovTime, ZoomOwner</c>
+    /// lines.
+    /// </summary>
+    [Fact]
+    public void A_replayed_zoom_stamps_the_fov_words_on_the_working_player_and_the_second_press_takes_them_back()
+    {
+        var owners = new ZoomOwners();
+        var rig = new Rig(SniperRifle, owners);
+        var working = new ClientPlayerNet();
+        working.BindLocal();
+        working.FovDefault = 90;
+        working.ZoomOwner = EntityHandle.None.Value;
+        rig.Arsenal.WorkingPlayer = working;
+
+        var basis = Command(10, attack: false);
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in basis, 2, false);
+
+        var press = Command(11, (int)InputButtons.Attack2);
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in press, 1, true, CommandClock);
+
+        // Zoom-in's words: the zoom's fov over the player's own, the ramp from
+        // it at the command's clock, the held weapon owning the zoom.
+        Assert.Equal(ClientSniperBehaviour.ZoomFov, working.Fov);
+        Assert.Equal(working.FovDefault, working.FovStart);
+        Assert.Equal(CommandClock, working.FovTime);
+        Assert.Equal(ClientSniperBehaviour.ZoomFovTime, working.FovRate);
+        Assert.Equal(WeaponHandle.Value, working.ZoomOwner);
+        Assert.True(owners.Conditions.Has(ClientCond.Zoomed));
+
+        // The replay of the same command an ack later: the same words again, so
+        // the slot it re-saves holds.
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in press, 1, false, CommandClock);
+        Assert.Equal(ClientSniperBehaviour.ZoomFov, working.Fov);
+        Assert.Equal(working.FovDefault, working.FovStart);
+        Assert.Equal(CommandClock, working.FovTime);
+        Assert.Equal(WeaponHandle.Value, working.ZoomOwner);
+
+        // Release, then press again once the zoom time has passed: the fov back
+        // to the player's own — the ramp starting where the zoom held it — and
+        // the zoom slot handed back.
+        var release = Command(12, 0);
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in release, 1, true, CommandClock + 0.5f);
+
+        var pressAgain = Command(13, (int)InputButtons.Attack2);
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in pressAgain, 1, true, CommandClock + 1f);
+
+        Assert.Equal(0, working.Fov);
+        Assert.Equal(ClientSniperBehaviour.ZoomFov, working.FovStart);
+        Assert.Equal(11f, working.FovTime);
+        Assert.Equal(EntityHandle.None.Value, working.ZoomOwner);
+        Assert.False(owners.Conditions.Has(ClientCond.Zoomed));
     }
 }

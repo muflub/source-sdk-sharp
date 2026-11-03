@@ -147,10 +147,23 @@ public sealed class PlayerComposites(ILog log,
 
     private void AttachPlayer(int entIndex)
     {
-        if (_byPlayer.ContainsKey(entIndex))
-            return;   // already in: a doubled active event must not attach twice
-
         var player = players.GetHandle(entIndex);
+
+        if (_byPlayer.TryGetValue(entIndex, out var old))
+        {
+            if (old.Player == player)
+                return;   // already in: a doubled active event must not attach twice
+
+            // A RE-ADMITTANCE with no disconnect between (the reload path that
+            // skips the level shutdown): the old shell is gone and the engine
+            // answers a fresh handle for the index, so the slot's handle is as
+            // dead as any removed entity's. Release everything the old handle
+            // was bound to before the new occupant is attached — an index with
+            // a dead handle answering for it reads the zeros of freed memory,
+            // which is what the reloaded player's health looked like.
+            DetachSlot(old);
+        }
+
         var components = Build(player);
 
         // Attempted attach means detach is OWED, whether or not the attach
@@ -177,6 +190,17 @@ public sealed class PlayerComposites(ILog log,
         if (!_byPlayer.Remove(entIndex, out var slot))
             return;
 
+        DetachSlot(slot);
+    }
+
+    /// <summary>
+    /// One slot's teardown: every component, in reverse, each in its own try so
+    /// one broken slice cannot skip the neighbours before it. Reached on leave
+    /// and on a re-admittance that replaces the slot — the detach is owed to the
+    /// old attachment whichever way its handle died.
+    /// </summary>
+    private void DetachSlot(Slot slot)
+    {
         foreach (var c in Enumerable.Reverse(slot.Components))
         {
             try

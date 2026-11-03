@@ -4,10 +4,12 @@ using SourceSharp.Tests;
 using TF2.Server.Entities;
 using TF2.Server.Entities.Ctf;
 using TF2.Server.Player;
+using TF2.Server.Voice;
 using TF2.Server.Rules;
 using TF2.Shared;
 using TF2.Shared.Rules;
 using TF2.Tests.Ctf;
+using TF2.Tests.Voice;
 using ModeSlot = TF2.Tests.Rules.ModeSlot;
 
 namespace TF2.Tests.Entities;
@@ -223,6 +225,10 @@ internal sealed class ObjectiveRig
     public readonly TFTeamScores Scores;
     public readonly CtfRules Ctf;
     public readonly FakeCarrierEffects Effects = new();
+    public readonly TFPlayerCarriers Carriers = new();
+    public readonly FakeConceptRules ConceptRules = new();
+    public readonly FakeConceptTeams ConceptTeams = new();
+    public readonly TFConceptSpeech Speech;
     public readonly ServiceContainer Services;
 
     private uint _next = 0x0040_0000u;
@@ -250,7 +256,11 @@ internal sealed class ObjectiveRig
               .Returns("Entities.GetOrigin", new Vector(100f, 200f, 300f))
               .Returns("EntityRender.LookupPoseParameter", -1)
               .Returns("EntityRender.SetPoseParameter", 0f)
-              .Returns("WorldQuery.TraceHull", new HullResult(false, false, EntityHandle.None));
+              .Returns("WorldQuery.TraceHull", new HullResult(false, false, EntityHandle.None))
+              // The speech path's reads (TFConceptSpeech): no one is alive and
+              // no index names a player, so the concept facts stage their own.
+              .Returns("Players.IsAlive", false)
+              .Returns("Players.GetHandle", EntityHandle.None);
 
         Services.AddInstance<IEntityDirectory>(Registry);
         Services.AddInstance(Registry.Directory);
@@ -283,6 +293,11 @@ internal sealed class ObjectiveRig
         // convar is left unregistered — Get answers null, so it stays off.
         Services.AddInstance(new ConVarRegistry(new RigConVarBackend()));
         Services.AddInstance<IRandomSeeds>(new RandomSeeds(7));
+        Services.AddInstance<IResponseRules>(ConceptRules);
+        Services.AddInstance<ITeams>(ConceptTeams);
+        Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
+            Services.Resolve<IEnginePlayers>()!, ConceptSceneImage(), Services.Resolve<IEngineSound>()!);
+        Services.AddInstance(Speech);
         Registry.Services = Services;
     }
 
@@ -357,6 +372,11 @@ internal sealed class ObjectiveRig
         Clock.Now = now;
         area.CaptureThink();
     }
+
+    /// <summary>A one-scene image, so a staged Scene response has sounds to name.</summary>
+    internal static TFSceneImage ConceptSceneImage()
+        => new(TFSceneImageTests.Files(("scenes/scenes.image",
+            TFSceneImageTests.Image(("scenes/concept.vcd", 1000, ["vo/concept.ogg"])))));
 }
 
 /// <summary>The convar table's backend: declared defaults held, writes kept.</summary>
@@ -375,4 +395,53 @@ internal sealed class RigConVarBackend : IConVarBackend
     public void Set(int id, string value) => _values[id] = value;
     public string Get(int id) => _values[id];
     public string? ValueOf(string name) => _names.Contains(name) ? _values[_names.IndexOf(name)] : null;
+}
+
+/// <summary>
+/// The concept search behind the rig's <see cref="TFConceptSpeech"/>: every
+/// ask recorded as the concept and playerclass words it carried, and the
+/// staged answer returned.
+/// </summary>
+internal sealed class FakeConceptRules : IResponseRules
+{
+    public readonly List<(string Concept, string PlayerClass)> Asked = new();
+
+    public bool Match = true;
+
+    public ResponseKind Kind = ResponseKind.Speak;
+
+    public string Name = "vo/concept.ogg";
+
+    public bool FindBestResponse(ResponseCriteriaSet criteria, out MatchedResponse response, IResponseFilter? filter = null)
+    {
+        Asked.Add((criteria.GetValue(criteria.Find("concept")), criteria.GetValue(criteria.Find("playerclass"))));
+
+        response = Match ? new MatchedResponse { Kind = Kind, Name = Name, Rule = "staged" } : new();
+        return Match;
+    }
+}
+
+/// <summary>Teams by handle, as a fact sets them; the speech service's roster.</summary>
+internal sealed class FakeConceptTeams : ITeams
+{
+    private readonly Dictionary<int, List<EntityHandle>> _members = [];
+
+    private readonly Dictionary<EntityHandle, int> _of = [];
+
+    public void SetTeam(int team, params EntityHandle[] players)
+    {
+        _members[team] = [.. players];
+        foreach (var player in players)
+            _of[player] = team;
+    }
+
+    public int Team(EntityHandle player) => _of.GetValueOrDefault(player);
+
+    public IReadOnlyList<EntityHandle> Players(int team) => _members.GetValueOrDefault(team) ?? [];
+
+    public int Count(int team) => Players(team).Count;
+
+    public JoinTeamResult Join(EntityHandle player, int requested) => throw new NotSupportedException();
+
+    public EntityHandle SelectSpawn(EntityHandle player) => EntityHandle.None;
 }

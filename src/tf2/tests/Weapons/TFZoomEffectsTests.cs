@@ -55,26 +55,32 @@ public sealed class TFZoomEffectsTests
         return (effects, times, world, world.Attack(w, vm, now), engine, dot);
     }
 
+    // The fov words are the behaviour's predicted write (both sides stamp them
+    // inside the command — stock's SetFOV behind CTFSniperRifle::ZoomIn/ZoomOut),
+    // so the seam asks for none itself: it carries what only the server does.
+    // The stamped values themselves the replay's facts hold
+    // (TF2ClientPredictionTests.A_replayed_zoom_stamps_the_fov_words...).
+
     [Fact]
-    public void Zooming_in_sets_the_stock_zoom_fov_and_stamps_the_time()
+    public void Zooming_in_stamps_the_zoom_in_clock_and_writes_no_fov_word_itself()
     {
         var (effects, times, world, attack, _, _) = Scope(10f);
 
         effects.Zoom(in attack, WeaponFixtures.Parse(Rifle), zoomed: true);
 
-        Assert.Equal(new[] { (TFZoomEffects.ZoomFov, TFZoomEffects.ZoomFovTime) }, world.Arms.Fovs);
+        Assert.Empty(world.Arms.Fovs);
         Assert.Equal(10f, times.ZoomedAt(Owner));
     }
 
     [Fact]
-    public void Zooming_out_restores_the_players_own_fov_and_clears_the_stamp()
+    public void Zooming_out_clears_the_stamp_and_writes_no_fov_word_either()
     {
         var (effects, times, world, attack, _, _) = Scope(10f);
         effects.Zoom(in attack, WeaponFixtures.Parse(Rifle), zoomed: true);
 
         effects.Zoom(in attack, WeaponFixtures.Parse(Rifle), zoomed: false);
 
-        Assert.Equal(new[] { (20, 0.1f), (0, 0.1f) }, world.Arms.Fovs);
+        Assert.Empty(world.Arms.Fovs);
         Assert.Equal(0f, times.ZoomedAt(Owner));
     }
 

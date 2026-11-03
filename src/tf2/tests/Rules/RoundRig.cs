@@ -340,16 +340,37 @@ internal sealed class FakeWinPanel : ITFWinPanel
     public void Send(TFWinPanelData data) => Sent.Add(data);
 }
 
-/// <summary>A timer set with a settable HUD timer.</summary>
+/// <summary>A timer set with a settable HUD timer, remembering the calls in order.</summary>
 internal sealed class FakeTimers : IRoundTimers
 {
     public ITeamRoundTimer? Active { get; set; }
     public int Hides { get; private set; }
     public int Restores { get; private set; }
+    public readonly List<string> Calls = new();
+    private ITeamRoundTimer? _hidden;
 
     public void SetActive(ITeamRoundTimer? newlyActive) => Active = newlyActive;
-    public void HideActive() => Hides++;
-    public void RestoreActive() => Restores++;
+
+    public void HideActive()
+    {
+        Hides++;
+        Calls.Add("hide");
+        _hidden = Active;
+    }
+
+    public void RestoreActive()
+    {
+        Restores++;
+        Calls.Add("restore");
+        _hidden = null;
+    }
+
+    public void ResumeHiddenIfRunning()
+    {
+        Calls.Add("resume_hidden");
+        if (_hidden is { StartPaused: false } timer)
+            timer.ResumeTimer();
+    }
 }
 
 internal sealed class FakeTimer : ITeamRoundTimer
@@ -358,8 +379,11 @@ internal sealed class FakeTimer : ITeamRoundTimer
     public float TimeRemaining { get; set; }
     public bool ShowInHud { get; set; } = true;
     public bool IsDisabled { get; set; }
+    public bool StartPaused { get; set; }
+    public int ResumeCalls { get; private set; }
     public void SetShowInHud(bool show) => ShowInHud = show;
     public void InputShowInHud(bool show) => ShowInHud = show;
+    public void ResumeTimer() => ResumeCalls++;
 }
 
 internal sealed class ListHooks<T>(params T[] hooks) : IHooks<T> where T : class

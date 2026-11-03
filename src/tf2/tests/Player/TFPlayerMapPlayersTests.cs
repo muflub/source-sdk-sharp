@@ -94,7 +94,7 @@ public sealed class TFPlayerMapPlayersTests
 
         Assert.Equal(200, rig.Engine.AllOf("Entities.SetHealth").Last().ArgAs<int>(1));
         Assert.False(rig.State.InCond(TFCond.Burning));
-        Assert.Equal(1, rig.Engine.CountOf("Players.RemoveAllItems"));
+        Assert.Equal(0, rig.Engine.CountOf("Players.RemoveAllItems"));
         Assert.Contains("tf_weapon_shotgun_soldier", rig.Engine.AllOf("Players.GiveItem").Select(c => c.ArgAs<string>(1)));
     }
 

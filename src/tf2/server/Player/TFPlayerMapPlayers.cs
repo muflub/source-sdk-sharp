@@ -24,7 +24,7 @@ namespace TF2.Server.Player;
 /// add and removal runs the condition arms and <see cref="ITFConditionHook"/>s,
 /// and a dead player takes none), the health and the ammo through
 /// <see cref="ITFPlayerResupply"/>, and the locker's <c>Regenerate</c> as
-/// stock's whole <c>CTFPlayer::Regenerate</c> (the kit again, full clips, the
+/// stock's whole <c>CTFPlayer::Regenerate</c> (the missing kit pieces, the
 /// class health, the nine conditions). The spy's cloak meter rides the
 /// predicted carrier, as the spy lane's own meter does.
 /// </summary>

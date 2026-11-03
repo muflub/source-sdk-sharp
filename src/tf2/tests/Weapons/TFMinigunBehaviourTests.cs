@@ -144,6 +144,86 @@ public sealed class TFMinigunBehaviourTests
         Assert.Equal(firstShotParity, vm.AnimationParity);
     }
 
+    /// <summary>
+    /// Stock's <c>WindUp</c> (:757) sends the held spin-up pose
+    /// (<c>ACT_MP_ATTACK_STAND_PREFIRE</c>) before the state change, and the
+    /// fire loop (<c>ACT_VM_PRIMARYATTACK</c> through <c>Fire</c>) takes it at
+    /// the first shot; the idle pose in between is why a gun that never gets
+    /// the prefire send hangs low out of view for the whole burst.
+    /// </summary>
+    [Fact]
+    public void The_wind_up_lifts_the_gun_to_the_prefire_pose_and_the_fire_pose_takes_it()
+    {
+        var (world, w, vm) = Heavy();
+        world.Arms.Sequences[WeaponAnim.Prefire] = 22;   // c_heavy_arms' spool-up pose
+        world.Arms.Sequences[WeaponAnim.Primary] = 21;   // its looping fire pose
+
+        world.Run(w, vm, Attack, now: 10f);
+        Assert.Equal(22, vm.Sequence);
+
+        Hold(world, w, vm, Attack, 10f, 10.9f);           // past the spin-up: the first shot
+        Assert.NotEmpty(world.Arms.Bullets);
+        Assert.Equal(21, vm.Sequence);
+    }
+
+    /// <summary>
+    /// Stock's Idle arm keeps the pose's clock matched to the hook's spin-up
+    /// (:262-270): <c>SetPlaybackRate(TF_MINIGUN_SPINUP_TIME / flSpinUpTime)</c>,
+    /// so a half-second wind-up plays the pose at double speed and still ends
+    /// when the gun does.
+    /// </summary>
+    [Fact]
+    public void A_half_spinup_runs_the_prefire_pose_at_the_inverse_rate()
+    {
+        var (world, w, vm) = Heavy();
+        world.Arms.Sequences[WeaponAnim.Prefire] = 22;
+        world.Owners.ByName.TryAdd(TFWeaponWorld.Owner, new() { [Minigun] = Scaling("mult_minigun_spinup_time", 0.5f) });
+
+        world.Run(w, vm, Attack, now: 10f);
+
+        Assert.Equal(2f, vm.PlaybackRate, 4);             // 0.75 / 0.375
+    }
+
+    /// <summary>
+    /// Stock's <c>WindDown</c> (:855) sends the settle pose
+    /// (<c>ACT_MP_ATTACK_STAND_POSTFIRE</c>) before the state change; the fire
+    /// loop's pose is what a released trigger leaves on the viewmodel without it.
+    /// </summary>
+    [Fact]
+    public void Letting_go_sends_the_postfire_settle_pose()
+    {
+        var (world, w, vm) = Heavy();
+        world.Arms.Sequences[WeaponAnim.Primary] = 21;
+        world.Arms.Sequences[WeaponAnim.Postfire] = 23;   // c_heavy_arms' spool-down pose
+
+        float t = Hold(world, w, vm, Attack, 10f, 11.5f);
+        Assert.Equal(21, vm.Sequence);
+        float lastShot = w.NextPrimaryAttack - 0.1f;
+
+        Hold(world, w, vm, 0, t, lastShot + 0.19f);       // still holding the fire pose
+        Assert.Equal(21, vm.Sequence);
+        Hold(world, w, vm, 0, lastShot + 0.19f, lastShot + 0.25f);   // past the idle: wind down
+        Assert.Equal(TFMinigunBehaviour.State.Idle, TFMinigunBehaviour.StateOf(w));
+        Assert.Equal(23, vm.Sequence);
+    }
+
+    /// <summary>
+    /// Stock's spin arms: the empty click sends the spin pose on the way out
+    /// (<c>HandleFireOnEmpty</c> :984, the <c>DryFire</c> tail :410) and the
+    /// spinning hold keeps re-sending it (<c>Spinning</c> :433). Same
+    /// <c>ACT_VM_SECONDARYATTACK</c> ask, same looping answer.
+    /// </summary>
+    [Fact]
+    public void A_spun_gun_holds_the_spin_pose_and_the_dry_click_starts_it()
+    {
+        var (world, w, vm) = Heavy();
+        world.Arms.Sequences[WeaponAnim.Secondary] = 3;   // the alt-fire hold pose
+
+        Hold(world, w, vm, Attack2, 10f, 11f);
+        Assert.Equal(TFMinigunBehaviour.State.Spinning, TFMinigunBehaviour.StateOf(w));
+        Assert.Equal(3, vm.Sequence);                     // Spinning's :433 send
+    }
+
     [Fact]
     public void The_secondary_spins_without_firing_and_holds_aiming()
     {

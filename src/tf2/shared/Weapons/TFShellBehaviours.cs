@@ -270,6 +270,13 @@ public class TFMedigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         else if (!attack.EffectsLive && Parts.PlayerData is { } data)
             PredictCharge(in attack, data);
 
+        // The tail's stamp, every command the gun answers: the server's arm
+        // closes with the release clock at this command (the dt the drain and
+        // the compare run on), so the replay — the release's own write below
+        // is this same value — stamps it too, on the first prediction and
+        // every pass, or a held gun's clock stands at the decode.
+        attack.Weapon.BehaviourTimeB = attack.Now;
+
         base.ItemPostFrame(in attack);
     }
 
@@ -294,7 +301,6 @@ public class TFMedigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
             float dt = now - weapon.BehaviourTimeB;
             if (dt is < 0f or > 1f)
                 dt = 0f;
-            weapon.BehaviourTimeB = now;
             weapon.BehaviourMeter = Math.Max(0f, weapon.BehaviourMeter - dt / ChargeReleaseRate);
         }
         else if (carrier.HealTargetIndex >= 0)

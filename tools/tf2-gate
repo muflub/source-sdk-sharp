@@ -382,6 +382,9 @@ class Run:
         # and the round restarts when it closes. The mode step still reads the
         # waiting time itself. Cleared once read, so each map load re-arms it.
         self.srv.cmd("mp_waitingforplayers_cancel 1")
+        # The first send can land before the wait arms; send again once the
+        # arming line itself says the window is up.
+        end_the_wait_when_armed(self)
         return True
 
     def relaunch_joiner(self):
@@ -942,6 +945,26 @@ def wait_pump(run, label, pred, seconds, step=1.0, beat=15.0):
                 label, now - t0, seconds))
             last_beat = now
         time.sleep(step)
+
+
+WAITING_LINE = "[TF2/Rounds] waiting for players"
+
+
+def end_the_wait_when_armed(run):
+    """Send mp_waitingforplayers_cancel again once the waiting-for-players
+    window is actually UP. The sends beside the joins can land before the
+    round machine arms the wait, and stock's cancel arm then spends the
+    convar for nothing (teamplayroundbased_gamerules.cpp:948-973: cleared on
+    whatever think reads it first). The managed SetInWaitingForPlayers logs
+    its arming line to the server console ([TF2/Rounds] waiting for players):
+    mark the console, wait for that line to appear AFTER the mark (each map
+    load answers for its own window), and send the cancel beside it -- the
+    window then closes in seconds instead of running its full time."""
+    run.mark()
+    wait_pump(run, "waiting-for-players window armed",
+              lambda: WAITING_LINE in run.read_console_since_mark() or None,
+              40.0, 0.5)
+    run.srv.cmd("mp_waitingforplayers_cancel 1")
 
 
 def carrier_conds(run, index):
@@ -2469,6 +2492,9 @@ def step_changelevel(run, state):
 
     # The new map's own waiting-for-players window ends up front too.
     run.srv.cmd("mp_waitingforplayers_cancel 1")
+    # And again once this map's own window is up (the send above can still
+    # beat the arming by a round of seconds).
+    end_the_wait_when_armed(run)
 
     # The map file beside the live world: the dev API's mapents answers for
     # the mod's own maps dir; a TF2 content map (pl_badwater is one) is read
@@ -2690,6 +2716,11 @@ def step_payload(run, state):
     if not wait_pump(run, "payload: the pusher is alive", lambda: run.is_alive(run.p1), 60.0):
         numbers["detail"] = "p1 never spawned on %s" % BADWATER
         return "FAIL", numbers
+    # The joins above move both players again, which re-arms the waiting
+    # window (ThinkStartGame arms it whenever the round starts fresh); the
+    # boot and change-level sends were spent BEFORE that re-arm, so this
+    # window would run its full time and the cart would sit out the pump.
+    end_the_wait_when_armed(run)
     if not wait_pump(run, "payload: the round is running",
                      lambda: (round_state(run) or "") == "RoundRunning", 120.0):
         numbers["detail"] = ("the round never ran on %s (state %r); the watcher only "

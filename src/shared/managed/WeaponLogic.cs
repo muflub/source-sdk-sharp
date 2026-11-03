@@ -383,6 +383,8 @@ public static class WeaponAnimNames
         WeaponAnim.Haulback     => new[] { "lob" },
         WeaponAnim.Fidget       => new[] { "idle_empty" },
         WeaponAnim.Miss         => new[] { "misscenter1", "misscenter" },
+        WeaponAnim.Prefire      => new[] { "prefire" },
+        WeaponAnim.Postfire     => new[] { "postfire" },
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -410,6 +412,8 @@ public static class WeaponAnimNames
         WeaponAnim.Haulback     => new[] { "ACT_VM_HAULBACK" },
         WeaponAnim.Fidget       => new[] { "ACT_VM_FIDGET" },
         WeaponAnim.Miss         => new[] { "ACT_VM_MISSCENTER" },
+        WeaponAnim.Prefire      => new[] { "ACT_MP_ATTACK_STAND_PREFIRE" },
+        WeaponAnim.Postfire     => new[] { "ACT_MP_ATTACK_STAND_POSTFIRE" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 

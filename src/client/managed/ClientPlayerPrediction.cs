@@ -315,6 +315,15 @@ public sealed class ClientPlayerPrediction
     public int GroundWord => _working.GroundEntity;
 
     /// <summary>
+    /// The working copy the replay runs its commands on: the movement's
+    /// predicted words and the weapon's fov writes land on the same object, so
+    /// the ring save of a command carries both and the ack judges one answer
+    /// against the arrival (stock's one <c>player_renderable_t</c> scribble).
+    /// Handed to the arsenal once, at composition (<c>ClientModule</c>).
+    /// </summary>
+    internal PlayerNetState WorkingState => _working;
+
+    /// <summary>
     /// The bytes the last replayed command saved into the ring.
     ///
     /// <para>

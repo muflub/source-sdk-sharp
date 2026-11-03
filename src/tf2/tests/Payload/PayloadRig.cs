@@ -6,9 +6,11 @@ using SourceSharp.Tests;
 using TF2.Server.Entities;
 using TF2.Server.Player;
 using TF2.Server.Rules;
+using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Rules;
 using TF2.Tests.Entities;
+using TF2.Tests.Voice;
 
 using Xunit;
 
@@ -111,6 +113,10 @@ internal sealed class PayloadRig
     public readonly FakeModeObjectives Mode = new();
     public readonly FakeRamps Ramps = new();
     public readonly FakeResupply Resupply = new();
+    public readonly TFPlayerCarriers Carriers = new();
+    public readonly FakeConceptRules ConceptRules = new();
+    public readonly FakeConceptTeams ConceptTeams = new();
+    public readonly TFConceptSpeech Speech;
     public readonly ObjectiveEntities Entities;
 
     /// <summary>What the engine answers for GetOrigin — moved per fact to stand for the train's place.</summary>
@@ -144,7 +150,11 @@ internal sealed class PayloadRig
               .Returns("Sound.SoundPatchCreate", 7)
               .Returns("EntityRender.LookupPoseParameter", -1)
               .Returns("EntityRender.SetPoseParameter", 0f)
-              .Returns("WorldQuery.EntitiesInSphere", 0);
+              .Returns("WorldQuery.EntitiesInSphere", 0)
+              // The speech path's reads (TFConceptSpeech): no one is alive and
+              // no index names a player, as on the objective rig.
+              .Returns("Players.IsAlive", false)
+              .Returns("Players.GetHandle", EntityHandle.None);
         Engine.ReturnsEachCall("Entities.GetOrigin", () => EngineOrigin);
         Engine.ReturnsEachCall("Entities.GetParent", () => ParentOf);
 
@@ -177,6 +187,13 @@ internal sealed class PayloadRig
         services.AddInstance<IHudMaterialIndex>(new FakeMaterials());
         services.AddInstance<IUniformRandom>(new FakeRandom());
         services.AddInstance(new TF2.Server.Rules.TFWinPanelCappers());
+
+        // the points' capture speech, the same staging the objective rig gives
+        services.AddInstance<IResponseRules>(ConceptRules);
+        services.AddInstance<ITeams>(ConceptTeams);
+        Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
+            services.Resolve<IEnginePlayers>()!, ObjectiveRig.ConceptSceneImage(), services.Resolve<IEngineSound>()!);
+        services.AddInstance(Speech);
 
         var convars = ConVarRegistry.For(TestServices.UnattachedConsole());
         convars.RegisterAll(typeof(TeamTrainWatcher).Assembly);

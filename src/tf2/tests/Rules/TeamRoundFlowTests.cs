@@ -499,6 +499,53 @@ public sealed class TeamRoundFlowTests
         Assert.False(rig.Settings.WaitingForPlayersCancel);
     }
 
+    /// <summary>Stock's cancel arm (teamplayroundbased_gamerules.cpp:955-973):
+    /// the hidden HUD timer is resumed BEFORE SetInWaitingForPlayers(false),
+    /// whose restore is what drops the remembered handle (:957-960). The rig's
+    /// fake world hides nothing itself, so the fact hides the way stock's
+    /// create arm does (HideActive at :1010).</summary>
+    [Fact]
+    public void The_cancel_while_the_wait_is_up_resumes_the_hidden_timer_before_the_restore()
+    {
+        var rig = new RoundRig();
+        rig.Settings.WaitingForPlayersTime = 30f;
+        rig.World.CreatedWaiting = true;
+        rig.Running();
+        Assert.True(rig.Flow.InWaitingForPlayers);
+
+        var hud = new FakeTimer();   // start_paused unset: not meant to start paused
+        rig.Timers.SetActive(hud);
+        rig.Timers.HideActive();     // the wait's creation hid the map's HUD timer
+        rig.Timers.Calls.Clear();
+
+        rig.Settings.WaitingForPlayersCancel = true;
+        Assert.True(rig.RunUntil(() => !rig.Flow.InWaitingForPlayers, limit: 1.5f));
+        Assert.False(rig.Settings.WaitingForPlayersCancel);
+
+        Assert.Equal(1, hud.ResumeCalls);   // the resume reached the hidden timer
+        int resumed = rig.Timers.Calls.IndexOf("resume_hidden");
+        int restored = rig.Timers.Calls.IndexOf("restore");
+        Assert.InRange(resumed, 0, restored);   // read while the restore still has the handle
+    }
+
+    /// <summary>The same arm with no wait up (stock :972): the convar is still
+    /// cleared, and nothing else moves.</summary>
+    [Fact]
+    public void A_cancel_while_not_waiting_clears_the_convar_and_changes_nothing()
+    {
+        var rig = new RoundRig();
+        rig.Running();   // no waiting time: the wait never armed
+        Assert.False(rig.Flow.InWaitingForPlayers);
+        rig.Timers.Calls.Clear();
+
+        rig.Settings.WaitingForPlayersCancel = true;
+        rig.Step(1.1f);   // the periodic think the check rides
+
+        Assert.False(rig.Settings.WaitingForPlayersCancel);
+        Assert.False(rig.Flow.InWaitingForPlayers);
+        Assert.Equal(RoundState.RoundRunning, rig.Flow.State);
+    }
+
     [Fact]
     public void The_wait_shows_its_HUD_timer_running_for_the_seconds_left()
     {

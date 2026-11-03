@@ -551,6 +551,16 @@ public enum WeaponAnim
 
     /// <summary>ACT_VM_MISSCENTER: a melee swing that met nothing.</summary>
     Miss = 14,
+
+    /// <summary>
+    /// ACT_MP_ATTACK_STAND_PREFIRE: the held spin-up pose the minigun's
+    /// <c>WindUp</c> sends (tf_weapon_minigun.cpp:757), rewritten per role by
+    /// stock's viewmodel act table (tf_weaponbase.cpp:4307).
+    /// </summary>
+    Prefire = 15,
+
+    /// <summary>ACT_MP_ATTACK_STAND_POSTFIRE: the settle pose the minigun's <c>WindDown</c> sends (:855).</summary>
+    Postfire = 16,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>
