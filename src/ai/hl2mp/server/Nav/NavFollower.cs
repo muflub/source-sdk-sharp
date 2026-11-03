@@ -167,6 +167,9 @@ public sealed class NavFollower
         }
 
         At = Locate(origin);
+        _corners.Clear();
+        _corridor.Clear();
+        _passed = 0;
         if (!At.IsValid)
         {
             state = FollowState.OffGraph;
@@ -182,6 +185,8 @@ public sealed class NavFollower
         // In the cell that touches the target: the last steps straight onto it.
         if (At == Objective)
         {
+            _corners.Add(new PathCorner(origin, NavEdgeType.Walk));
+            _corners.Add(new PathCorner(Target, NavEdgeType.Walk));
             state = FollowState.Moving;
             return new MoveIntent(MoveKind.Follow, MoveSpeed.Walk, 1, Target, default, default, default, default, _graph.Cell(At).CrouchOnly, 0);
         }
@@ -220,6 +225,7 @@ public sealed class NavFollower
         int skip = 0;
         while (skip < _corners.Count - 2 && Flat(_corners[skip + 1].Point, origin) < PassedRadius)
             skip++;
+        _passed = skip;
         int count = Math.Min(MoveIntent.MaxCorners, _corners.Count - 1 - skip);
         AiVector Corner(int i) => i < count ? _corners[i + 1 + skip].Point : default;
         NavEdgeType via = _field.ViaFrom(At.Index);
@@ -240,6 +246,52 @@ public sealed class NavFollower
         }
         state = FollowState.Moving;
         return new MoveIntent(kind, MoveSpeed.Run, (byte)Math.Max(count, 0), Corner(0), Corner(1), Corner(2), Corner(3), default, crouch, 0);
+    }
+
+    /// <summary>The most cells <see cref="Route"/> walks on past the corridor, whatever the map.</summary>
+    public const int RouteCells = 1024;
+
+    private int _passed;
+
+    /// <summary>
+    /// The way the bot is going, as its last <see cref="Next"/> worked it out
+    /// (the web UI's 3D view, plan_hl2mp_ai §7.1): where it stood, the corners
+    /// it steers by, then the field's cells from the corridor's end on to the
+    /// objective, a straight run of them as its two ends. Empty when that move
+    /// had no way: arrived, off the graph, no route. Read on the main thread,
+    /// which is the only one that moves this follower once it is driving.
+    /// </summary>
+    public void Route(List<AiVector> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        into.Clear();
+        if (_corners.Count == 0)
+            return;
+        into.Add(_corners[0].Point);
+        for (int i = 1 + _passed; i < _corners.Count; i++)
+            into.Add(_corners[i].Point);
+        if (_corridor.Count == 0 || _corridor[^1] == Objective)
+            return;
+
+        int at = _corridor[^1].Index;
+        for (int i = 0; i < RouteCells && _field.NextFrom(at).IsValid; i++)
+        {
+            at = _field.NextFrom(at).Index;
+            AiVector next = at == Objective.Index ? Target with { Z = _graph.Cell(Objective).FloorZ } : _graph.Cell(at).Centre;
+            if (into.Count >= 2 && Straight(into[^2], into[^1], next))
+                into[^1] = next;
+            else
+                into.Add(next);
+            if (at == Objective.Index)
+                break;
+        }
+    }
+
+    /// <summary>Whether <paramref name="b"/> lies on the way from <paramref name="a"/> to <paramref name="c"/>.</summary>
+    private static bool Straight(AiVector a, AiVector b, AiVector c)
+    {
+        AiVector first = (b - a).Normalised(), second = (c - b).Normalised();
+        return first.X * second.X + first.Y * second.Y + first.Z * second.Z > 0.9995f;
     }
 
     /// <summary>A corner nearer the bot than this, flat, is one it has passed.</summary>

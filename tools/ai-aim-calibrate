@@ -1,0 +1,183 @@
+#!/usr/bin/env python3
+"""Set a Medium bot to a person's measured hit rate (plan_hl2mp_ai §12.1, rulings 2026-11-02).
+
+  tools/ai-aim-calibrate RECORDING.airec|HITRATES.tsv
+                         [--presets easy,normal,hard,expert] [--rows 2] [--min-samples 50]
+                         [--factors 0.25,0.5,1,1.5,2.5] [--reps 5] [--seconds 3.5]
+                         [--pattern bot] [--compare strafe,stand] [--weapon weapon_smg1]
+                         [--probes FILE] [--config debug]
+
+A recording goes through `ai-replay metrics` and `ai-replay hitrates`: the person's
+hit rate per band, of the shots aimed at someone. A hit rate file is `weapon band
+hit_rate samples` (`any` for a band's rows, which the metrics do not split by
+weapon: the probes then use --weapon). For the most-used rows, a bot at each preset's
+mean levels is put on the aim range (tools/ai-aim-range) at each probe of
+aimErrorDeg (the shipped value at its Accuracy level, times each factor;
+`ai_curve`, for this game only), and `ai-replay calibrate` reads the values that make
+its hit rate in that band the row's (Medium) or the row's times the preset's
+`hitRateRatios` (the others).
+
+THE TARGET'S MOTION IS AN ASSUMPTION. --pattern `bot` matches what a person's
+recording was made shooting at: a bot on its own brains and a gun. At the value found
+for Medium, the bot is measured again against each --compare pattern (`strafe`, a
+scripted person's sidestep; `stand`), so the difference shows: a rate earned on
+bots may be too strong when turned on a person.
+
+It reports; the file on disk is changed by hand. Exit: 0 reached, 2 a target out of
+the probes' reach (a weapon's spread caps a hit rate), 1 anything else.
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BAND_RANGE = {"under300": 200, "300-800": 500, "over800": 1000}
+
+_loader = importlib.machinery.SourceFileLoader("ai_aim_range", os.path.join(ROOT, "tools", "ai-aim-range"))
+_spec = importlib.util.spec_from_loader("ai_aim_range", _loader)
+aim_range = importlib.util.module_from_spec(_spec)
+_loader.exec_module(aim_range)
+
+REPLAY = os.path.join(ROOT, "tools", "ai-replay")
+
+
+def hit_rates(source):
+    """A hit rate file from a recording, or the file given."""
+    if not source.endswith(".airec"):
+        return source
+    out = subprocess.run([REPLAY, "metrics", source], capture_output=True, text=True)
+    if out.returncode != 0:
+        raise SystemExit("ai-aim-calibrate: ai-replay metrics: %s" % out.stderr[-400:])
+    work = tempfile.mkdtemp(prefix="ai-aim-calibrate-")
+    metrics = os.path.join(work, "metrics.txt")
+    with open(metrics, "w") as f:
+        f.write(out.stdout)
+    for line in out.stdout.splitlines():
+        if " human " in line and " overall " in line:
+            print("person: " + " ".join(line.split()[2:]), flush=True)
+    rates = os.path.join(work, "hitrates.tsv")
+    subprocess.check_call([REPLAY, "hitrates", metrics, rates])
+    return rates
+
+
+def read_rows(path, min_samples):
+    rows = []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            p = line.split()
+            if len(p) != 4 or p[1] not in BAND_RANGE:
+                raise SystemExit("ai-aim-calibrate: %s: what is '%s'? (ai-replay calibrate says more)" % (path, line))
+            if int(p[3]) >= min_samples:
+                rows.append((p[0], p[1], float(p[2]), int(p[3])))
+    return sorted(rows, key=lambda r: -r[3])
+
+
+def band_rate(cell, band):
+    """The cell's hits and shots in the band: a bot on its brains closes in, so not all of them are at the range it began."""
+    hits = shots = 0
+    for w in cell["stats"]["by_weapon"]:
+        if w["band"] == band:
+            hits += w["hits"]
+            shots += w["shots"]
+    return hits, shots
+
+
+def set_curve(game, shipped, level, value):
+    # Each probe off the shipped file, whatever the last one left.
+    for lv, v in enumerate(shipped):
+        game.cmd("ai_curve aimErrorDeg %d %.4f" % (lv, v))
+    game.cmd("ai_curve aimErrorDeg %d %.4f" % (level, value))
+
+
+def main(argv):
+    p = argparse.ArgumentParser(prog="ai-aim-calibrate", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("source")
+    p.add_argument("--presets", default="easy,normal,hard,expert")
+    p.add_argument("--rows", type=int, default=2)
+    p.add_argument("--min-samples", type=int, default=50)
+    p.add_argument("--factors", default="0.25,0.5,1,1.5,2.5")
+    p.add_argument("--reps", type=int, default=5)
+    p.add_argument("--seconds", type=float, default=3.5)
+    p.add_argument("--pattern", default="bot")
+    p.add_argument("--compare", default="strafe,stand")
+    p.add_argument("--weapon", default="weapon_smg1")
+    p.add_argument("--probes")
+    p.add_argument("--config", default="debug")
+    a = p.parse_args(argv)
+    rates = hit_rates(a.source)
+    rows = read_rows(rates, a.min_samples)[:a.rows]
+    if not rows:
+        print("ai-aim-calibrate: no row of %s has %d samples: nothing to match" % (rates, a.min_samples), file=sys.stderr)
+        return 1
+    with open(os.path.join(ROOT, "game", "mod_test", "scripts", "ai", "hl2mp_skills.json")) as f:
+        skills = json.load(f)
+    shipped = skills["parameters"]["aimErrorDeg"]["levels"]
+    factors = [float(x) for x in a.factors.split(",")]
+    probes = []
+    game = aim_range.scenario.Game("ss_ai_range", a.config)
+    try:
+        game.start()
+        game.cmd("sv_cheats 1")
+        r = aim_range.Range(game, "ss_ai_range", "bot", a.seconds, a.reps, 1)
+        for preset in a.presets.split(","):
+            vector = aim_range.PRESET_SKILLS[preset]
+            level = int(vector.split("=")[1].split(",")[0])
+            for weapon, band, rate, samples in rows:
+                gun = a.weapon if weapon == "any" else weapon
+                for f in factors:
+                    value = shipped[level] * f
+                    set_curve(game, shipped, level, value)
+                    cell = r.cell(preset, gun, BAND_RANGE[band], a.pattern, vector)
+                    hits, shots = band_rate(cell, band)
+                    if shots == 0:
+                        print("ai-aim-calibrate: %s at %.2f fired nothing aimed in %s: no probe" % (preset, value, band), file=sys.stderr)
+                        continue
+                    probes.append((preset, level, weapon, band, value, hits / shots, shots))
+                    print("probe %-7s level %2d %-6s %-9s %s aimErrorDeg %5.2f: hit %5.1f%% over %d aimed shots" % (preset, level, weapon, band, a.pattern, value, 100.0 * hits / shots, shots), flush=True)
+        path = a.probes or os.path.join(ROOT, "bin", a.config, "ai-replay", "aim-probes.tsv")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write("# preset level weapon band aim_error_deg hit_rate shots\n")
+            for x in probes:
+                f.write("%s %d %s %s %.4f %.4f %d\n" % x)
+        solved = subprocess.run([REPLAY, "calibrate", rates, path, "--min-samples", str(a.min_samples)], capture_output=True, text=True)
+        print(solved.stdout, end="")
+        if solved.stderr:
+            print(solved.stderr, end="", file=sys.stderr)
+        compare(a, game, r, shipped, rows, solved.stdout)
+    finally:
+        game.stop(False)
+    return solved.returncode
+
+
+def compare(a, game, r, shipped, rows, report):
+    """Medium at the value found, against the other targets: what the rate means turned on a person."""
+    value = None
+    for line in report.splitlines():
+        p = line.split()
+        if p and p[0] == "normal":
+            value, level = float(p[3]), int(p[1])
+    if value is None:
+        return
+    set_curve(game, shipped, level, value)
+    vector = aim_range.PRESET_SKILLS["normal"]
+    for weapon, band, rate, samples in rows:
+        gun = a.weapon if weapon == "any" else weapon
+        for pattern in [a.pattern] + [x for x in a.compare.split(",") if x]:
+            cell = r.cell("normal", gun, BAND_RANGE[band], pattern, vector)
+            hits, shots = band_rate(cell, band)
+            nobody = cell.get("nobody_shots", 0)
+            print("medium at aimErrorDeg %.2f, %-8s target, %-9s: %s (the person %.1f%%); %d shots at no target" % (
+                value, pattern, band, "hit %.1f%% over %d aimed shots" % (100.0 * hits / shots, shots) if shots else "no aimed shot", 100.0 * rate, nobody), flush=True)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

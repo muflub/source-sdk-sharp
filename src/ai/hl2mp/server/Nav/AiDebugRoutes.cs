@@ -12,7 +12,8 @@ namespace SourceSharp.Ai.Hl2mp.Nav;
 /// What the web UI's map tab draws its nav and flow layers from.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IDebugRouteProvider)])]
-public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots = null, Senses.AiReplayRoutes? replay = null) : IDebugRouteProvider
+public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots = null, Senses.AiReplayRoutes? replay = null, Senses.AiWorldRoutes? world = null)
+    : IDebugRouteProvider
 {
     public IReadOnlyList<DebugRoute> Routes =>
     [
@@ -20,6 +21,7 @@ public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots
         new("GET", "/ai/flow", "a flow field: ?cell=N (or x=&y=&z=) &class=stand|crouch; each cell's next cell (-1 none) and cost (-1 unreachable)"),
         .. bots?.Routes ?? [],
         .. replay?.Routes ?? [],
+        .. world?.Routes ?? [],
     ];
 
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
@@ -28,6 +30,8 @@ public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots
             return bots.Handle(path, query);
         if (replay is not null && Senses.AiReplayRoutes.Serves(path))
             return replay.Handle(path, query);
+        if (world is not null && Senses.AiWorldRoutes.Serves(path))
+            return world.Handle();
 
         if (nav.Current is not { } loaded)
             return new DebugRouteReply(409, $"{{\"error\":{NavJson.Quote(nav.Refusal ?? "no navigation")}}}");

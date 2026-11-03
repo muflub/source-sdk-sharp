@@ -51,6 +51,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// <summary>A full key's move, as <c>cl_forwardspeed</c> and <c>cl_sidespeed</c> send it; the server's max speed caps it.</summary>
     public const float FullMove = 450f;
 
+    /// <summary>A move under this is none: the side of a way about 8.6° off the way the view points.</summary>
+    public const float MoveDeadband = FullMove * 0.15f;
+
     /// <summary>A path corner counts as reached inside this many units (2D).</summary>
     public const float CornerReached = 16f;
 
@@ -188,6 +191,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         {
             // A spawn, or the server turned the view (a teleport, a snap):
             // the view is what the server says it is.
+            if (bot.Spawned)
+                bot.ViewResets++;
             bot.Motion.Reset(facts.View);
             bot.Spawned = true;
         }
@@ -208,7 +213,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         int buttons = MoveInto(ref cmd, intent.Move, in facts, view, corner);
         bot.LastCorner = corner;
         bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
-        buttons |= HeldAction(bot, intent.Action, tick);
+        buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), tick);
 
         if (bot.OneShots.TryDequeue(out ActionIntent once))
         {
@@ -219,8 +224,32 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         }
 
         cmd.Buttons = buttons;
+        bot.LastButtons = buttons;
         return cmd;
     }
+
+    /// <summary>
+    /// §3.4.2's fire control: a bot aiming at someone does not press fire
+    /// before it has reacted, nor early in the flick to them; the flick's end and
+    /// the correction after it may fire, which is why a first shot is usually
+    /// worse than the fifth. Close, a body is wide: inside <see cref="CloseBody"/>
+    /// of the point at that distance the hands do not wait for the flick to end
+    /// (user ruling 2026-11-02). A scripted look at a point fires when told.
+    /// </summary>
+    private static ActionIntent HandsWaitForTheEye(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles view)
+    {
+        if (intent.Action.Kind != ActionKind.Fire || intent.Look.Kind != LookKind.Actor || !bot.Motion.NotYetOnAim)
+            return intent.Action;
+        float distance = (intent.Look.Point - facts.Eye).Length;
+        if (bot.Motion.Phase == AimPhase.Reacting || distance > AimStats.CloseRange)
+            return ActionIntent.None;
+        AiAngles to = AnglesTo(facts.Eye, intent.Look.Point);
+        float dp = to.Pitch - view.Pitch, dy = HumanMotion.AngleDelta(view.Yaw, to.Yaw);
+        return MathF.Sqrt(dp * dp + dy * dy) <= MathF.Atan2(CloseBody, distance) * (180f / MathF.PI) ? intent.Action : ActionIntent.None;
+    }
+
+    /// <summary>How far off a close target's point the hands will fire: about a body and a half, so 18° at 150 u and 7° at 400 u.</summary>
+    public const float CloseBody = 48f;
 
     private static void SetView(ref UserCmd cmd, AiAngles view)
     {
@@ -270,6 +299,17 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
     private static int StimulusOf(in LookIntent look)
     {
+        // One actor looked at one way is one stimulus wherever the brain's point
+        // falls: each decide moves that point (the target moves, the aim wanders),
+        // and a new stimulus restarts the reaction, so a point in the hash froze
+        // the view for as long as the fight lasted (§12.3, the aim range's first
+        // reading). Seeing again someone it was chasing is a new one: it flicks.
+        if (look.Actor.IsValid)
+        {
+            int who = HashCode.Combine((int)look.Kind, look.Actor);
+            return who == 0 ? 1 : who;
+        }
+
         // Quantised to 8 units so a point that only drifts stays one stimulus.
         int x = (int)MathF.Round(look.Point.X / 8f), y = (int)MathF.Round(look.Point.Y / 8f), z = (int)MathF.Round(look.Point.Z / 8f);
         int h = HashCode.Combine((int)look.Kind, look.Actor, x, y, z);
@@ -334,6 +374,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         float fx = MathF.Cos(yaw), fy = MathF.Sin(yaw);
         float forward = (wish.X * fx + wish.Y * fy) * FullMove;
         float side = (wish.X * fy - wish.Y * fx) * FullMove;
+        // Nobody's fingers hold a sliver of a sidestep: walking where it looks,
+        // the view's lag made a tiny side move that flipped its sign every few
+        // ticks (a 75 ms median, ai-replay metrics, §12.3).
+        if (MathF.Abs(side) < MoveDeadband)
+            side = 0f;
+        if (MathF.Abs(forward) < MoveDeadband)
+            forward = 0f;
         cmd.ForwardMove = forward;
         cmd.SideMove = side;
 
@@ -408,6 +455,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         public AiVector? LastCorner { get; set; }
 
         public (float Forward, float Side) LastMove { get; set; }
+
+        /// <summary>The buttons of the bot's last playing command (the aim meter's "firing").</summary>
+        public int LastButtons { get; set; }
+
+        /// <summary>Times the server's view differed from the motion's while playing (a teleport, a snap).</summary>
+        public long ViewResets { get; set; }
+
         public IntentCommand? Intent { get; set; }
         public int LastSeq { get; set; }
         public int LastOneShot { get; set; }

@@ -21,6 +21,60 @@ if (args.Length >= 2 && args[0] == "metrics")
     return 0;
 }
 
+//   calibrate <hitrates.tsv> <probes.tsv> <hl2mp_skills.json> [min-samples=50]
+//   hitrates <metrics.txt> <out.tsv>   a person's band rates from ai-replay metrics' output
+if (args.Length >= 3 && args[0] == "hitrates")
+{
+    try
+    {
+        var rows = AimCalibration.FromMetrics(File.ReadAllText(args[1]));
+        File.WriteAllText(args[2], AimCalibration.WriteFile(rows));
+        Console.WriteLine($"{args[2]}: {rows.Length} band(s)");
+        return 0;
+    }
+    catch (Exception e) when (e is InvalidDataException or IOException)
+    {
+        Console.Error.WriteLine($"ai-replay hitrates: {e.Message}");
+        return 1;
+    }
+}
+
+if (args.Length >= 4 && args[0] == "calibrate")
+{
+    try
+    {
+        long minSamples = args.Length > 4 ? long.Parse(args[4], CultureInfo.InvariantCulture) : 50;
+        var rows = AimCalibration.Usable(AimCalibration.ParseFile(File.ReadAllText(args[1])), minSamples);
+        var probes = AimCalibration.ParseProbes(File.ReadAllText(args[2]));
+        string skills = File.ReadAllText(args[3]);
+        var found = AimCalibration.Calibrate(rows, probes, SkillCurves.HitRateRatios(skills));
+        foreach (HitRateRow r in rows)
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"target  {r.Weapon,-15} {r.Band,-9} hit rate {100.0 * r.HitRate:F1}% over {r.Samples} shots"));
+        Console.WriteLine("preset  level  target  aimErrorDeg  shipped  reached");
+        SkillCurves.Curve shipped = SkillCurves.Parse(skills)["aimErrorDeg"];
+        foreach (PresetCalibration c in found)
+        {
+            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+                $"{c.Preset,-7} {c.Level,5}  {100.0 * c.Target,5:F1}%  {c.AimErrorDeg,11:F2}  {shipped.At(c.Level),7:F2}  {(c.Reached ? "yes" : "NO: the probes' nearest end")}"));
+        }
+
+        if (found.Length == 0)
+        {
+            Console.Error.WriteLine("ai-replay calibrate: no probe is of a row in the file");
+            return 1;
+        }
+
+        float[] curve = AimCalibration.Curve([.. found.Select(c => (c.Level, c.AimErrorDeg))], shipped.Levels);
+        Console.WriteLine("aimErrorDeg levels: [" + string.Join(", ", curve.Select(v => v.ToString("F3", CultureInfo.InvariantCulture))) + "]");
+        return found.All(c => c.Reached) ? 0 : 2;
+    }
+    catch (Exception e) when (e is InvalidDataException or IOException or System.Text.Json.JsonException or FormatException)
+    {
+        Console.Error.WriteLine($"ai-replay calibrate: {e.Message}");
+        return 1;
+    }
+}
+
 if (args.Length >= 4 && args[0] == "verify")
 {
     string vNav = args[1], vBsp = args[2], vRec = args[3];

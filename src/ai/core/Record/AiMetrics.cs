@@ -26,12 +26,16 @@ public readonly record struct HitLine(string Label, int Hits, int Shots)
 }
 
 /// <summary>
-/// An actor's hit rate (user ruling 2026-11-02): overall, per weapon, and per
-/// range band (under 300, 300 to 800, over 800 units). <see cref="Untargeted"/>
-/// shots had no sighted actor near the crosshair, so no range: they count
-/// overall and per weapon, in no band.
+/// An actor's hit rate (user rulings 2026-11-02: "After my recording set med bot
+/// to match my hit rate", "make sure to only count when i was shooting at bots,
+/// not things in the world"): overall, per weapon and per range band (under 300,
+/// 300 to 800, over 800 units), of the shots aimed at someone (<see cref="AimCone"/>)
+/// and the hits they made. <see cref="Untargeted"/> shots had nobody in that cone:
+/// they count in no rate, and a hit from one neither. <see cref="ByCone"/> is the
+/// overall rate at each of <see cref="AimCone.SensitivityMarginsDeg"/>, so the
+/// choice of cone can be seen.
 /// </summary>
-public sealed record HitRates(HitLine Overall, IReadOnlyList<HitLine> ByWeapon, IReadOnlyList<HitLine> ByRange, int Untargeted);
+public sealed record HitRates(HitLine Overall, IReadOnlyList<HitLine> ByWeapon, IReadOnlyList<HitLine> ByRange, int Untargeted, IReadOnlyList<HitLine> ByCone);
 
 /// <summary>
 /// The §3.4.4 metrics of a recording, per actor, humans' and bots' by the same
@@ -49,18 +53,27 @@ public sealed record HitRates(HitLine Overall, IReadOnlyList<HitLine> ByWeapon, 
 /// 2° of the target's body (the segment from its origin to its eye, from the
 /// frames), within the sighting or 3 s.</item>
 /// <item><b>reaction</b>: from the same <c>SightGained</c> to the first
-/// command pressing attack, or turning at <see cref="MovingDegPerSec"/> or
-/// more toward the target, within 2 s.</item>
+/// command pressing attack, or to the start of a turn at <see cref="MovingDegPerSec"/>
+/// or more that takes at least <see cref="ReactionTurnDeg"/> off the angle to the
+/// target, within 2 s: a person's hand is never still, and any small movement
+/// toward the target read as a 30 ms reaction. A button already held and a turn
+/// already going when the sight came are no answer to it: they count from the
+/// next press, or the next turn after the view has slowed.</item>
 /// <item><b>strafe interval</b>: between changes of <c>SideMove</c>'s sign
 /// (zeros skipped).</item>
 /// <item><b>reversals</b>: changes of the yaw step's sign (steps of 0.5° or
 /// more) per minute of commands.</item>
 /// <item><b>hit rate</b>: hits over shots. A shot is one trigger pull (a
 /// <c>ShotFired</c>), however many pellets; a hit is one victim hurt in one
-/// tick, however many pellets or events. By weapon: the weapon in the shooter's
-/// hands. By range band: a hit by its recorded range, a shot by the distance to
-/// the sighted actor nearest its crosshair within <see cref="TargetConeDeg"/>;
-/// a shot with none is untargeted and in no band.</item>
+/// tick, however many pellets or events. A shot counts only if a sighted actor's
+/// body was within <see cref="AimCone"/> of its crosshair; one with nobody there
+/// (at a crate, a door, a place) is untargeted, in no rate, and a hit counts only
+/// through a shot that counted: the same tick's, or a projectile's last shot. By
+/// weapon: the weapon in the shooter's hands. By range band: the distance to the
+/// actor the shot was aimed at. A hit by a weapon that fired no shot (a
+/// crowbar's swing is no <c>ShotFired</c>) stays on its weapon's line and out of
+/// the overall and band rates. A sighting held when the recording began gives a
+/// shot its target and no reaction.</item>
 /// </list>
 /// A step counts only while the actor lives (its frames), and not across a
 /// teleport or respawn. A bot's <c>SightGained</c> comes after its recognition delay; a person's
@@ -75,8 +88,11 @@ public static class AiMetrics
 
     public const double FlickMinDeg = 15, FlickMaxMs = 400, AcquireDeg = 2, AcquireWindowMs = 3000, ReactionWindowMs = 2000;
 
-    /// <summary>How near the crosshair a sighted actor must be to be what a shot was fired at.</summary>
-    public const double TargetConeDeg = 30;
+    /// <summary>How far a turn must take the view toward its target to be a reaction, not a hand that is never still.</summary>
+    public const double ReactionTurnDeg = 3;
+
+    /// <summary>How long after its shot a projectile's hit still belongs to that shot, in ticks (3 s).</summary>
+    public const int ProjectileTicks = 200;
 
     /// <summary>The range bands' labels; a range under 300 is the first, over 800 the last.</summary>
     public static readonly System.Collections.Immutable.ImmutableArray<string> RangeBands = ["<300", "300-800", ">800"];
@@ -184,7 +200,7 @@ public static class AiMetrics
         int gained = 0;
         foreach (AiEvent g in sights)
         {
-            if (g.Kind != AiEventKind.SightGained || g.Bot != actor)
+            if (g.Kind != AiEventKind.SightGained || g.Bot != actor || g.Code == AiEvent.HeldSight)
                 continue;
             gained++;
             int lost = sights.FirstOrDefault(e => e.Kind == AiEventKind.SightLost && e.Bot == actor && e.Other == g.Other && e.Tick.Value > g.Tick.Value).Tick.Value;
@@ -192,6 +208,11 @@ public static class AiMetrics
             int reactEnd = g.Tick.Value + Ticks(ReactionWindowMs);
             bool acquired = false, reacted = false;
             double lastAngle = double.NaN;
+            int turnFrom = -1;
+            double turnAngle = 0;
+            // What was already under way when the sight came is no answer to it: a
+            // button held on, a turn still going.
+            bool held = true, turnedBefore = true;
             for (int i = 0; i < commands.Count; i++)
             {
                 AiUserCmd c = commands[i];
@@ -203,10 +224,28 @@ public static class AiMetrics
                 double angle = AngleTo(c, actor, g.Other, frames);
                 if (!reacted && t <= reactEnd)
                 {
-                    bool fired = (c.Buttons & Attack) != 0;
-                    bool turned = !double.IsNaN(lastAngle) && !double.IsNaN(angle) && angle < lastAngle
-                                  && speedAt[i] >= MovingDegPerSec;
-                    if (fired || turned)
+                    bool attack = (c.Buttons & Attack) != 0;
+                    bool fired = attack && !held;
+                    held &= attack;
+                    turnedBefore &= speedAt[i] >= MovingDegPerSec;
+                    bool turning = !turnedBefore && !double.IsNaN(lastAngle) && !double.IsNaN(angle) && angle < lastAngle
+                                   && speedAt[i] >= MovingDegPerSec;
+                    if (!turning)
+                    {
+                        turnFrom = -1;
+                    }
+                    else if (turnFrom < 0)
+                    {
+                        turnFrom = t;
+                        turnAngle = lastAngle;
+                    }
+
+                    if (turning && turnAngle - angle >= ReactionTurnDeg)
+                    {
+                        reaction.Add((turnFrom - g.Tick.Value) * TickSeconds * 1000);
+                        reacted = true;
+                    }
+                    else if (fired)
                     {
                         reaction.Add((t - g.Tick.Value) * TickSeconds * 1000);
                         reacted = true;
@@ -275,44 +314,90 @@ public static class AiMetrics
                 hits.Add(e);   // one victim in one tick is one hit, however many pellets
         }
 
+        fired.Sort((a, b) => a.Tick.Value.CompareTo(b.Tick.Value));
+        var aims = new (double Over, float Range)?[fired.Count];
+        for (int i = 0; i < fired.Count; i++)
+            aims[i] = ShotAim(actor, fired[i].Tick.Value, commands, frames, sights);
+
         int[] bandShots = new int[RangeBands.Length], bandHits = new int[RangeBands.Length];
-        int untargeted = 0;
-        foreach (AiEvent shot in fired)
-        {
-            if (ShotRange(actor, shot.Tick.Value, commands, frames, sights) is { } range)
-                bandShots[RangeBand(range)]++;
-            else
-                untargeted++;
-        }
-
-        foreach (AiEvent hit in hits)
-        {
-            if (hit.Code2 >= 0)
-                bandHits[RangeBand(hit.Code2)]++;
-        }
-
         var byWeapon = new SortedDictionary<string, (int Hits, int Shots)>(StringComparer.Ordinal);
-        foreach (AiEvent shot in fired)
+        int untargeted = 0, aimed = 0;
+        for (int i = 0; i < fired.Count; i++)
         {
-            byWeapon.TryGetValue(Name(shot.Code), out var w);
-            byWeapon[Name(shot.Code)] = (w.Hits, w.Shots + 1);
+            if (aims[i] is not { } aim || aim.Over > AimCone.MarginDeg)
+            {
+                untargeted++;
+                continue;
+            }
+
+            aimed++;
+            bandShots[RangeBand(aim.Range)]++;
+            byWeapon.TryGetValue(Name(fired[i].Code), out var w);
+            byWeapon[Name(fired[i].Code)] = (w.Hits, w.Shots + 1);
         }
 
+        var firing = new HashSet<int>(fired.Select(f => f.Code));
+        int rated = 0;
+        int[] coneShots = new int[AimCone.SensitivityMarginsDeg.Length], coneHits = new int[coneShots.Length];
+        for (int m = 0; m < coneShots.Length; m++)
+            coneShots[m] = aims.Count(a => a is { } x && x.Over <= AimCone.SensitivityMarginsDeg[m]);
         foreach (AiEvent hit in hits)
         {
-            byWeapon.TryGetValue(Name(hit.Code), out var w);
-            byWeapon[Name(hit.Code)] = (w.Hits + 1, w.Shots);
+            // A weapon that fired no shot (a crowbar's swing is no Fired): on its own line, in no rate.
+            if (!firing.Contains(hit.Code))
+            {
+                byWeapon.TryGetValue(Name(hit.Code), out var w);
+                byWeapon[Name(hit.Code)] = (w.Hits + 1, w.Shots);
+                continue;
+            }
+
+            int shot = ShotOf(fired, hit);
+            if (shot < 0 || aims[shot] is not { } aim)
+                continue;
+            for (int m = 0; m < coneHits.Length; m++)
+            {
+                if (aim.Over <= AimCone.SensitivityMarginsDeg[m])
+                    coneHits[m]++;
+            }
+
+            if (aim.Over > AimCone.MarginDeg)
+                continue;
+            rated++;
+            bandHits[RangeBand(aim.Range)]++;
+            byWeapon.TryGetValue(Name(hit.Code), out var had);
+            byWeapon[Name(hit.Code)] = (had.Hits + 1, had.Shots);
         }
 
-        return new HitRates(new HitLine("overall", hits.Count, fired.Count),
+        return new HitRates(new HitLine("overall", rated, aimed),
                             [.. byWeapon.Select(kv => new HitLine(kv.Key, kv.Value.Hits, kv.Value.Shots))],
                             [.. RangeBands.Select((band, i) => new HitLine(band, bandHits[i], bandShots[i]))],
-                            untargeted);
+                            untargeted,
+                            [.. AimCone.SensitivityMarginsDeg.Select((margin, i) => new HitLine(string.Create(CultureInfo.InvariantCulture, $"+{margin:F0}\u00b0"), coneHits[i], coneShots[i]))]);
     }
 
-    /// <summary>The distance to the sighted actor nearest the crosshair within <see cref="TargetConeDeg"/> when the shot was fired, or null.</summary>
-    private static float? ShotRange(ActorId actor, int tick, IReadOnlyList<AiUserCmd> commands,
-                                    IReadOnlyDictionary<ActorId, SortedList<int, AiActorFrame>> frames, IReadOnlyList<AiEvent> sights)
+    /// <summary>The shot a hit came from: the same weapon's at its tick, or its last before within a projectile's flight; or -1.</summary>
+    private static int ShotOf(IReadOnlyList<AiEvent> fired, in AiEvent hit)
+    {
+        int found = -1;
+        for (int i = 0; i < fired.Count; i++)
+        {
+            int t = fired[i].Tick.Value;
+            if (t > hit.Tick.Value)
+                break;
+            if (fired[i].Code == hit.Code && hit.Tick.Value - t <= ProjectileTicks)
+                found = i;
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// The sighted actor nearest the crosshair when the shot was fired, by how
+    /// far past its body's angular half-width the crosshair was (see
+    /// <see cref="AimCone"/>) and its distance; or null with nobody sighted.
+    /// </summary>
+    private static (double Over, float Range)? ShotAim(ActorId actor, int tick, IReadOnlyList<AiUserCmd> commands,
+                                                       IReadOnlyDictionary<ActorId, SortedList<int, AiActorFrame>> frames, IReadOnlyList<AiEvent> sights)
     {
         AiUserCmd? view = null;
         foreach (AiUserCmd c in commands)
@@ -331,21 +416,18 @@ public static class AiMetrics
                 seen[e.Other] = e.Kind == AiEventKind.SightGained;
         }
 
-        double best = TargetConeDeg;
-        float? range = null;
+        (double Over, float Range)? best = null;
         foreach ((ActorId target, bool sighted) in seen)
         {
             if (!sighted || FrameAt(frames, target, tick) is not { } them)
                 continue;
-            double angle = AngleTo(v, actor, target, frames);
-            if (angle <= best)
-            {
-                best = angle;
-                range = me.Eye.DistanceTo(them.Origin + (them.Eye - them.Origin) * 0.5f);
-            }
+            float range = me.Eye.DistanceTo(them.Origin + (them.Eye - them.Origin) * 0.5f);
+            double over = AngleTo(v, actor, target, frames) - AimCone.HalfWidthDeg(range);
+            if (best is not { } b || over < b.Over)
+                best = (over, range);
         }
 
-        return range;
+        return best;
     }
 
     /// <summary>
@@ -380,13 +462,7 @@ public static class AiMetrics
     {
         if (FrameAt(frames, actor, c.Tick.Value) is not { } me || FrameAt(frames, target, c.Tick.Value) is not { } them)
             return double.NaN;
-        AiVector forward = VisionMath.Forward(c.View);
-        AiVector axis = them.Eye - them.Origin;
-        float len2 = axis.LengthSquared;
-        float u = len2 > 0 ? Math.Clamp((me.Eye - them.Origin).Dot(axis) / len2, 0f, 1f) : 0f;
-        AiVector to = (them.Origin + axis * u - me.Eye).Normalised();
-        double cos = Math.Clamp(forward.Dot(to), -1f, 1f);
-        return Math.Acos(cos) * 180 / Math.PI;
+        return AimCone.AngleToBody(c.View, me.Eye, them.Origin, them.Eye);
     }
 
     /// <summary>The actor's frame at the tick, or its last within four ticks before it.</summary>
@@ -428,7 +504,7 @@ public static class AiMetrics
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{m.ReversalsPerMinute,13:F1}"));
         }
 
-        sb.AppendLine("hit rate: hits/shots (a shot is one trigger pull, a hit one victim in one tick)");
+        sb.AppendLine("hit rate: hits/shots aimed at someone (a shot is one trigger pull with a sighted actor within the cone, a hit one victim in one tick)");
         foreach (ActorMetrics m in actors)
         {
             sb.Append(CultureInfo.InvariantCulture, $"{$"{m.Actor.Slot}#{m.Actor.Serial}",-21} {(m.Bot ? "bot" : "human"),-5} {Rate(m.Hits.Overall)} | ");
@@ -436,6 +512,7 @@ public static class AiMetrics
             sb.Append(" | ");
             sb.Append(string.Join(", ", m.Hits.ByRange.Select(Rate)));
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $", no target {m.Hits.Untargeted} shots"));
+            sb.AppendLine("  by cone (the body's half-width plus): " + string.Join(", ", m.Hits.ByCone.Select(Rate)));
         }
 
         return sb.ToString();

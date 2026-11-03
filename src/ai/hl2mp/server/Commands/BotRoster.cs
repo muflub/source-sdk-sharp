@@ -33,29 +33,26 @@ public interface IServerSlots
 }
 
 /// <summary>
-/// <see cref="IServerSlots"/> over the engine's clients: a slot with a user id
-/// holds a client from the moment it connects (it has its slot before its
-/// player entity), so a joining human counts before it spawns.
+/// <see cref="IServerSlots"/> over the engine's clients: a slot with a network
+/// channel holds a person from the moment it connects, before it has a player
+/// entity (an address, <c>GetPlayerNetInfo</c>); a bot has no channel. The
+/// user id answers only from the entity: it does not see a connecting client
+/// (found live: two humans in <c>status</c>, one counted).
 /// </summary>
 [SideService(Side.Server, As = [typeof(IServerSlots)])]
-public sealed class EngineServerSlots(IConnectedClients clients, IBotPlayers players, IEngineEnvironment environment, IEngineHost host) : IServerSlots
+public sealed class EngineServerSlots(IConnectedClients clients, IEngineEnvironment environment, IEngineHost host) : IServerSlots
 {
     public int MaxClients => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 0;
 
-    public int Humans => CountHumans(MaxClients, clients, players.Bots, host.IsDedicatedServer);
+    public int Humans => CountHumans(MaxClients, clients, host.IsDedicatedServer);
 
-    /// <summary>The clients of <paramref name="max"/> slots that are not <paramref name="bots"/>, and a listen server's host before it connects.</summary>
-    public static int CountHumans(int max, IConnectedClients clients, IReadOnlyList<BotPlayer> bots, bool dedicated)
+    /// <summary>The clients of <paramref name="max"/> slots with a channel, and a listen server's host before it connects.</summary>
+    public static int CountHumans(int max, IClientInfo clients, bool dedicated)
     {
         int humans = 0;
         for (int slot = 1; slot <= max; slot++)
         {
-            if (clients.UserId(slot) < 0)
-                continue;
-            bool bot = false;
-            for (int i = 0; i < bots.Count && !bot; i++)
-                bot = bots[i].EntIndex == slot;
-            if (!bot)
+            if (clients.Address(slot) is not null)
                 humans++;
         }
 
@@ -381,7 +378,10 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
         }
 
         if (active >= room || _bots.Count == active || tick < _holdUntil)
+        {
+            SayRoom(active, room);
             return;
+        }
 
         foreach (RosterBot bot in _bots.Where(b => !b.Active && b.RefusedOnLevel != _level).OrderBy(b => b.BenchOrder).ThenBy(b => b.Ordinal).ToArray())
         {
@@ -397,6 +397,20 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
             }
 
             active++;
+        }
+
+        SayRoom(active, room);
+    }
+
+    /// <summary>Whatever was said of a benched bot before, once the slots are full what keeps it out is the room.</summary>
+    private void SayRoom(int active, int room)
+    {
+        if (active < room)
+            return;
+        foreach (RosterBot bot in _bots)
+        {
+            if (!bot.Active && bot.RefusedOnLevel != _level)
+                bot.Reason = NoRoom();
         }
     }
 

@@ -57,6 +57,9 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     /// <summary>Line traces in all.</summary>
     public long Traces { get; private set; }
 
+    /// <summary>The tick of the last pass: its reads are of then, which after a level change is the last level.</summary>
+    public Tick LastRun { get; private set; }
+
     /// <summary>What the bot in <paramref name="botSlot"/> sees, or null.</summary>
     public SightTracker? SightOf(int botSlot) => _bots.TryGetValue(botSlot, out BotSight? b) ? b.Tracker : null;
 
@@ -88,6 +91,22 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
 
     /// <summary>The observers' slots.</summary>
     public IEnumerable<int> ObserverSlots => _observers.Keys;
+
+    /// <summary>
+    /// Every sighting the bots hold now, as events for a recording that starts
+    /// mid-game (§3.4.4): what a shot in its first ticks was fired at.
+    /// </summary>
+    public void HeldSights(Tick tick, List<AiEvent> into)
+    {
+        foreach (BotSight sight in _bots.Values)
+        {
+            for (int t = 1; t < Slots; t++)
+            {
+                if (sight.Tracker.Sees(t) && _reads[t] is { } them)
+                    into.Add(AiEvent.SightHeld(sight.Bot, tick, _actors[t], them.Origin, them.Velocity, sight.Fraction[t]));
+            }
+        }
+    }
 
     /// <summary>Line traces the observers spent, apart from the bots' budget.</summary>
     public long ObserverTraces { get; private set; }
@@ -154,6 +173,7 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     /// </summary>
     public void Run(Tick tick, float tickSeconds, ReadOnlySpan<SensedBot> bots, ReadOnlySpan<SensedActor> actors, List<AiEvent> events)
     {
+        LastRun = tick;
         Array.Clear(_reads);
         Array.Clear(_actors);
         foreach (SensedActor a in actors)

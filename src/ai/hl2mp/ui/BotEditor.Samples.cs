@@ -148,6 +148,8 @@ public sealed class AiParamLocalise : IUiLocalisation
     {
         "#Ai_Param_AimErrorDeg" => "Aim error %s1°",
         "#Ai_Param_LeadQuality" => "Lead %s1",
+        "#Ai_Param_TrackingLagMs" => "Tracking lag %s1 ms",
+        "#Ai_Param_FlickOvershootPct" => "Flick overshoot %s1%",
         "#Ai_Param_FovDeg" => "Field of view %s1°",
         "#Ai_Param_GlanceRate" => "Glances %s1/s",
         "#Ai_Param_ReactionMs" => "Reaction %s1 ms",

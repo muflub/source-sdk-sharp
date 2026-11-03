@@ -106,7 +106,7 @@ export function ammoBar(ammo: AiAmmo): { left: number; width: number } {
  * by its stage.
  */
 export function buildConeLayer(p: AiPerception, drawRange = 1024): Layer {
-  const lines: [Vec, Vec, readonly number[]][] = [];
+  const lines: Line[] = [];
   const reach = Math.min(p.range, drawRange);
   const edge = (deg: number): Vec => {
     const r = (deg * Math.PI) / 180;
@@ -115,7 +115,14 @@ export function buildConeLayer(p: AiPerception, drawRange = 1024): Layer {
   lines.push([p.eye, edge(p.yaw - p.fov / 2), CONE_COLOUR]);
   lines.push([p.eye, edge(p.yaw + p.fov / 2), CONE_COLOUR]);
   for (const c of p.candidates) lines.push([p.eye, c.at, STAGE_COLOURS[c.stage] ?? STAGE_COLOURS.none!]);
+  return linesLayer(lines);
+}
 
+/** One segment of a line layer: its two ends and its colour. */
+export type Line = [Vec, Vec, readonly number[]];
+
+/** Segments as the renderer's buffers. */
+export function linesLayer(lines: Line[]): Layer {
   const layer = { positions: new Float32Array(lines.length * 6), colours: new Float32Array(lines.length * 6) };
   lines.forEach(([a, b, colour], i) => {
     layer.positions.set(a, i * 6);

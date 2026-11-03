@@ -42,7 +42,7 @@ public class AiSkillRowTests
     public void TheSamplesLabelsAreTheLanguageFiles()
     {
         var sample = new AiParamLocalise();
-        string[] keys = ["AimErrorDeg", "LeadQuality", "FovDeg", "GlanceRate", "ReactionMs", "RecognizeS", "SightRange", "TurnPeakDegS",
+        string[] keys = ["AimErrorDeg", "LeadQuality", "TrackingLagMs", "FlickOvershootPct", "FovDeg", "GlanceRate", "ReactionMs", "RecognizeS", "SightRange", "TurnPeakDegS",
                          "ChaseSeconds", "PreferredRangeScale", "CoverWeight", "ReloadBelowPct", "HabitHalfLifeS", "MemoryHalfLifeS",
                          "SearchSeconds", "AmbushWeight", "RouteAltWeight", "FireRangeGate", "PushMarginSeconds", "PushTrust",
                          "StrafeMeanSeconds", "StrafeWeight", "RetreatHealthPct", "EasyTargetDiscount", "PathCapMultiplier", "RankBonus"];

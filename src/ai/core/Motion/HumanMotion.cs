@@ -107,6 +107,12 @@ public sealed class HumanMotion
 
     public AimPhase Phase { get; private set; }
 
+    /// <summary>The flick's first part: too far from the target for a shot. Its last part lands near enough to press fire (§3.4.2).</summary>
+    public const float FlickFiresFrom = 0.7f;
+
+    /// <summary>Whether the view has not yet come near enough to its target for the hands to press fire: reacting, or early in a flick.</summary>
+    public bool NotYetOnAim => Phase == AimPhase.Reacting || (Phase == AimPhase.Flick && _timer < FlickFiresFrom * _flickSeconds);
+
     /// <summary>The overshoot drawn for the flick under way, as a signed fraction of its length.</summary>
     public float FlickOvershoot { get; private set; }
 
@@ -252,33 +258,24 @@ public sealed class HumanMotion
 }
 
 /// <summary>
-/// The motion's skill curves (§10), the first cut: the turn peak follows the
-/// profile's overall level (300°/s at the easy preset's 20 points, 900°/s at
-/// the whole pool), the reaction follows Alertness through stock's
-/// recognition times (1.0/0.5/0.3/0.2 s at levels 2/4/6/7,
-/// hl2mp_bot_vision.cpp:122-151), and the overshoot and tracking lag fall
-/// with Accuracy. Phase 5b replaces these with the JSON curves.
+/// The motion's numbers from the skills (§10): the reaction, overshoot and
+/// tracking lag are the skill curves' (<see cref="DecisionParams"/>), and the
+/// turn peak follows the profile's overall level (300°/s at the easy preset's
+/// 20 points, 900°/s at the whole pool).
 /// </summary>
 public static class MotionCurves
 {
-    private static ReadOnlySpan<float> ReactionByAlertness => [1400f, 1200f, 1000f, 750f, 500f, 400f, 300f, 200f, 170f, 140f, 120f];
+    /// <summary>A bot with no curves to read (a scripted one, with no brains in the game): the middle of the envelope.</summary>
+    public static readonly MotionParams Scripted = new(150f, 600f, 10f, 150f);
 
-    public static MotionParams For(SkillProfile profile)
+    public static MotionParams For(SkillProfile profile, in DecisionParams skills)
     {
         ArgumentNullException.ThrowIfNull(profile);
-        int alertness = Level(profile, "alertness");
-        int accuracy = Level(profile, "accuracy");
         float overall = Math.Clamp((profile.Spent - 20f) / (StandardSkills.Pool - 20f), 0f, 1f);
         return new MotionParams(
-            ReactionByAlertness[alertness],
+            skills.ReactionMs,
             MotionEnvelope.MinPeakDegPerSec + overall * (MotionEnvelope.MaxPeakDegPerSec - MotionEnvelope.MinPeakDegPerSec),
-            25f - 2.2f * accuracy,
-            250f - 19f * accuracy);
-    }
-
-    private static int Level(SkillProfile profile, string key)
-    {
-        int i = profile.IndexOf(key);
-        return i < 0 ? 0 : Math.Clamp(profile.Levels[i], 0, StandardSkills.Cap);
+            skills.FlickOvershootPct,
+            skills.TrackingLagMs);
     }
 }

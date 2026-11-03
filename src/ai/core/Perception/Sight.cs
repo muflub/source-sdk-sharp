@@ -18,14 +18,16 @@ public readonly record struct VisionParams(float SightRange, float FovDeg, float
 }
 
 /// <summary>
-/// Vision from skills (§4.1, §10): recognition by Alertness through stock's
-/// four difficulties (1.0 / 0.5 / 0.3 / 0.2 s at the easy, normal, hard and
-/// expert presets' Alertness 2 / 4 / 6 / 7, hl2mp_bot_vision.cpp:128-131);
-/// the range is stock's, the field the client's.
+/// Vision from skills (§4.1, §10): recognition by Alertness (0.5 / 0.25 / 0.12 /
+/// 0.06 s at the easy, normal, hard and expert presets' Alertness 2 / 4 / 6 / 7:
+/// half stock's 1.0 / 0.5 / 0.3 / 0.2, hl2mp_bot_vision.cpp:128-131, since a
+/// reaction, the decide's latency and a flick all come after it here and the
+/// first shot is what the aim's targets name, §12.3); the range is stock's, the
+/// field the client's.
 /// </summary>
 public static class VisionCurves
 {
-    private static ReadOnlySpan<float> RecognizeByAlertness => [1.4f, 1.2f, 1.0f, 0.75f, 0.5f, 0.4f, 0.3f, 0.2f, 0.17f, 0.14f, 0.12f];
+    private static ReadOnlySpan<float> RecognizeByAlertness => [0.72f, 0.6f, 0.5f, 0.37f, 0.25f, 0.18f, 0.12f, 0.06f, 0.05f, 0.04f, 0.04f];
 
     /// <summary>How long an unseen target stays held before <c>SightLost</c>.</summary>
     public const float LostSightSeconds = 0.5f;

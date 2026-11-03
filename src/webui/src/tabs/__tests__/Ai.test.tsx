@@ -10,9 +10,14 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AI_REFRESH_MS, AiTab } from '../Ai';
 import type { AiBot } from '../../ai/aiInspect';
 
-vi.mock('../../api', () => ({ getAiBots: vi.fn(), getAiBot: vi.fn() }));
+vi.mock('../../api', () => ({ getAiBots: vi.fn(), getAiBot: vi.fn(), getAiWorld: vi.fn(), getMapGeometry: vi.fn(), getAiNav: vi.fn() }));
 
-const api = await import('../../api') as unknown as { getAiBots: ReturnType<typeof vi.fn>; getAiBot: ReturnType<typeof vi.fn> };
+const api = await import('../../api') as unknown as {
+  getAiBots: ReturnType<typeof vi.fn>; getAiBot: ReturnType<typeof vi.fn>; getAiWorld: ReturnType<typeof vi.fn>; getMapGeometry: ReturnType<typeof vi.fn>;
+};
+
+// jsdom has no WebGL: the panel says so, and the tab under it works.
+HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement['getContext'];
 
 const skills = {
   profile: 'hard', spent: 50, pool: 60, cap: 10,
@@ -46,6 +51,8 @@ const full: AiBot = {
 beforeEach(() => {
   vi.clearAllMocks();
   api.getAiBots.mockResolvedValue([{ slot: 2, serial: 1, name: 'Alyx', profile: 'hard', spent: 50 }]);
+  api.getAiWorld.mockResolvedValue({ tick: 1, tickSeconds: 0.015, map: 'dm_x', navRefusal: null, costUs: 1, actors: [], bots: [] });
+  api.getMapGeometry.mockResolvedValue({ error: 'none' });
 });
 
 it('shows what a bot remembers of an opponent, its ammo as a bar as wide as the range', async () => {
@@ -198,4 +205,17 @@ it('says a bot with no decision layer has none', async () => {
   api.getAiBot.mockResolvedValue({ ...full, record: { ...full.record, doing: null } });
   render(<AiTab visible />);
   expect(await screen.findByText('no decision layer')).toBeTruthy();
+});
+
+it('shares one selection between the bot buttons and the 3D panel', async () => {
+  api.getAiBot.mockResolvedValue(full);
+  api.getAiBots.mockResolvedValue([{ slot: 2, serial: 1, name: 'Alyx', profile: 'hard', spent: 50 }, { slot: 3, serial: 2, name: 'Barney', profile: 'easy', spent: 30 }]);
+  const bot = (slot: number, name: string) => ({ slot, name, stepping: false, truth: null, going: null, route: null, beliefs: { heard: [], remembered: [] } });
+  api.getAiWorld.mockResolvedValue({ tick: 1, tickSeconds: 0.015, map: 'dm_x', navRefusal: null, costUs: 1, actors: [], bots: [bot(2, 'Alyx'), bot(3, 'Barney')] });
+  render(<AiTab visible />);
+  await screen.findByTestId('actor-1');
+  await vi.waitFor(() => expect(screen.getByTestId('world-doing').textContent).toContain('Alyx'));
+  fireEvent.click(screen.getByText('Barney'));
+  await vi.waitFor(() => expect(screen.getByTestId('world-doing').textContent).toContain('Barney'));
+  expect(screen.getByText('Barney').getAttribute('aria-pressed')).toBe('true');
 });

@@ -1,23 +1,29 @@
 {
  "format": 1,
  "note": "The skill curves (plan_hl2mp_ai \u00a710): each parameter the brain reads is a value per level 0..10 of one skill. Read by the server through the game's file seam and handed to the AI core as data.",
+ "hitRateRatios": {
+  "easy": 0.48,
+  "normal": 1.0,
+  "hard": 1.2,
+  "expert": 1.35
+ },
  "parameters": {
   "aimErrorDeg": {
    "skill": "accuracy",
    "direction": "down",
-   "note": "the aim's error cone about the target point, degrees",
+   "note": "the aim's error about the target point once settled: its standard deviation, degrees; it drifts (no new draw per decide) and starts wider at first sight (Hl2mpDecider.AimSettleExtra)",
    "levels": [
-    9.0,
-    8.2,
-    7.4,
-    6.6,
-    5.8,
-    5.0,
-    4.2,
-    3.4,
-    2.6,
-    1.8,
-    1.0
+    11.2,
+    9.2,
+    7.8,
+    4.7,
+    1.55,
+    1.2,
+    0.8,
+    0.5,
+    0.2,
+    0.16,
+    0.12
    ]
   },
   "leadQuality": {
@@ -30,11 +36,11 @@
     0.36,
     0.44,
     0.52,
-    0.6,
-    0.68,
-    0.76,
-    0.84,
-    0.92,
+    0.62,
+    0.74,
+    0.85,
+    0.95,
+    0.98,
     1.0
    ]
   },
@@ -342,6 +348,60 @@
     0.44,
     0.37,
     0.3
+   ]
+  },
+  "reactionMs": {
+   "skill": "alertness",
+   "direction": "down",
+   "note": "after a target is recognised, before the view starts toward it and before the first shot (\u00a73.4.1); ms",
+   "levels": [
+    240.0,
+    190.0,
+    160.0,
+    130.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0,
+    100.0
+   ]
+  },
+  "trackingLagMs": {
+   "skill": "accuracy",
+   "direction": "down",
+   "note": "how far behind a moving target the view's pursuit runs, ms",
+   "levels": [
+    250.0,
+    231.0,
+    212.0,
+    193.0,
+    174.0,
+    150.0,
+    125.0,
+    100.0,
+    75.0,
+    65.0,
+    60.0
+   ]
+  },
+  "flickOvershootPct": {
+   "skill": "accuracy",
+   "direction": "down",
+   "note": "how far past or short of the target a flick lands, at most, in percent of its length",
+   "levels": [
+    25.0,
+    22.8,
+    20.6,
+    18.4,
+    16.2,
+    14.0,
+    11.8,
+    9.6,
+    7.4,
+    5.2,
+    3.0
    ]
   }
  }

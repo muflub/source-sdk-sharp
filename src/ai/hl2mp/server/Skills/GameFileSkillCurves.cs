@@ -10,6 +10,9 @@ public interface ISkillCurveSource
     SkillCurves? Curves { get; }
 
     string Refusal { get; }
+
+    /// <summary>Later bots read <paramref name="parameter"/> as <paramref name="value"/> at <paramref name="level"/>, until the game ends (<c>ai_curve</c>, the aim range's probes).</summary>
+    SkillCurves? Probe(string parameter, int level, float value);
 }
 
 /// <summary>
@@ -36,6 +39,9 @@ public sealed class GameFileSkillCurves(IEngineFiles files) : ISkillCurveSource
     }
 
     public string Refusal => _refusal ?? "";
+
+    public SkillCurves? Probe(string parameter, int level, float value)
+        => Curves is { } now ? _curves = now.With(parameter, level, value) : null;
 
     private void Load()
     {

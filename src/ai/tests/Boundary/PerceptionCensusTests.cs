@@ -45,6 +45,8 @@ public sealed class PerceptionCensusTests
         typeof(AiBotRoutes).FullName!,
         // The recording's hit: the weapon in the attacker's hands, written to the file, never to a brain (§3.4.4).
         typeof(ShotTap).FullName!,
+        // The 3D view's route (§7.1): the bot's own view too, for the web UI only; held below.
+        typeof(AiWorldRoutes).FullName!,
     ];
 
     private static bool IsRead(MethodBase m) => Reads.Contains($"{m.DeclaringType?.Name}::{m.Name}");
@@ -56,6 +58,21 @@ public sealed class PerceptionCensusTests
     {
         string[] callers = IlCallCensus.Callers(IsRead, Binding);
         Assert.True(Readers.Order(StringComparer.Ordinal).SequenceEqual(callers), "the readers: " + string.Join(", ", callers));
+    }
+
+    /// <summary>
+    /// A route is outside the bots' view (§7.1): the 3D view's truth reaches
+    /// nothing but the route provider, and its heard log, which only the tap
+    /// fills, nothing but the route.
+    /// </summary>
+    [Fact]
+    public void NoBrainReadsTheWorldRouteOrTheHeardLog()
+    {
+        string route = typeof(AiWorldRoutes).FullName!;
+        string[] routeCallers = [.. IlCallCensus.Callers(m => m.DeclaringType == typeof(AiWorldRoutes), Binding).Where(c => c != route)];
+        Assert.Equal(["SourceSharp.Ai.Hl2mp.Nav.AiDebugRoutes"], routeCallers);
+        string[] logCallers = [.. IlCallCensus.Callers(m => m.DeclaringType == typeof(HeardLog), Binding).Where(c => c != typeof(HeardLog).FullName)];
+        Assert.Equal(new[] { route, typeof(SoundTap).FullName! }.Order(StringComparer.Ordinal), logCallers);
     }
 
     [Fact]

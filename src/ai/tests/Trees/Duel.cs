@@ -12,10 +12,11 @@ public sealed class Duel
     public static readonly ActorId Bot = new(2, 1);
     public static readonly ActorId Opponent = new(3, 0x4000_0001);
     public static readonly ActorId Other = new(4, 0x4000_0002);
-    public const int Smg1 = 3, Pistol = 1;
+    public const int Smg1 = 3, Pistol = 1, Crowbar = 0;
     public static readonly AiVector Kit = new(-600f, 0f, 0f);
 
     public static readonly WeaponKnowledge Weapons = new([
+        new WeaponFacts(Crowbar, "weapon_crowbar", 0, 0.4f, 0f, false, false, 0f),
         new WeaponFacts(Pistol, "weapon_pistol", 18, 0.1f, 1.43f, true, false, 0f),
         new WeaponFacts(Smg1, "weapon_smg1", 45, 0.075f, 1.5f, true, false, 0f),
     ]);
@@ -67,6 +68,16 @@ public sealed class Duel
         _view.Reset(Bot, tick, self);
         foreach ((ActorId id, AiVector at) in sighted)
             _view.AddSighted(new ActorFacts(id, at, AiVector.Zero, Smg1, ActorActivity.None, 1f));
+        return Brain.Step(tick, _view, events);
+    }
+
+    /// <summary>A step with one opponent in sight, moving.</summary>
+    public IntentCommand StepMoving(SelfState self, ActorId id, AiVector at, AiVector velocity, params AiEvent[] events)
+    {
+        _tick += 6;
+        var tick = new Tick(_tick);
+        _view.Reset(Bot, tick, self);
+        _view.AddSighted(new ActorFacts(id, at, velocity, Smg1, ActorActivity.None, 1f));
         return Brain.Step(tick, _view, events);
     }
 

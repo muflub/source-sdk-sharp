@@ -1,0 +1,481 @@
+#!/usr/bin/env python3
+"""The aim range (plan_hl2mp_ai §12.3): how a bot aims and fires, measured in the game.
+
+  tools/ai-aim-range run [--map ss_ai_range] [--presets easy,normal,hard,expert]
+                         [--weapons weapon_smg1] [--ranges 200,500,1000]
+                         [--patterns stand,strafe,cross] [--target bot|human]
+                         [--reps 6] [--seconds 4] [--curve param:level:value ...]
+                         [--seed 1] [--out FILE.json] [--config debug] [--keep]
+
+Starts a headless game on the map (its own instance, temp dir, dev-API directory
+and port: AI_SCENARIO_API_DIR, AI_SCENARIO_TMPDIR, AI_SCENARIO_PORT), adds a
+shooter of each preset, and for every cell of presets x weapons x ranges x
+patterns stands it on its mark, then brings a target into its view, again and
+again: a scripted bot (`ai_bot_drive`, `ai_bot_act hold`) or the game's own
+client (`+moveleft`, `+moveright`). The target is held at full health
+(`ai_aim_tough`), so its hits are told and it outlives the cell. Each cell's
+numbers are the game's own aim meter (`/ai/aim`):
+
+  first   ms from coming into view to the first shot (median; n engagements that fired)
+  fire    share of in-sight ticks holding fire
+  hit     shots that damaged / shots fired, shots
+  dps     damage per in-sight second
+  err     the crosshair's angle to the chest, mean and spread, degrees
+  body    share of in-sight ticks with the crosshair's ray on the body
+  leaves  in-sight ticks by the brain's leaf
+
+  tools/ai-aim-range table FILE.json ...   earlier runs' cells as a markdown table
+
+  tools/ai-aim-range live [--map dm_lockdown] [--presets easy,normal,hard,expert]
+                          [--minutes 5] [--seed 1] [--out FILE.json]
+
+A whole game of those bots and the game's own client, scripted to hunt the nearest
+bot and fire at it: shots at the client a minute, the hit rate, shots at the other
+bots, who killed whom, and any view steeper than 40 degrees by the leaf it fell in.
+
+The map's hall has room for a 1,000 u shot; ss_ai_duel's room stops at about
+400 u and has nowhere to hide, so there a target is in view from the start. A game is killed by its PID at the end (--keep leaves it up).
+"""
+import argparse
+import importlib.machinery
+import importlib.util
+import json
+import math
+import os
+import random
+import re
+import statistics
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TICK_MS = 15.0
+RUN_SPEED = 190.0
+
+_loader = importlib.machinery.SourceFileLoader("ai_scenario", os.path.join(ROOT, "tools", "ai-scenario"))
+_spec = importlib.util.spec_from_loader("ai_scenario", _loader)
+scenario = importlib.util.module_from_spec(_spec)
+_loader.exec_module(scenario)
+
+# A preset's mean levels (SkillPresets.cs), so a measurement is of the preset and not of one
+# bot's draw from it (SkillSpread: `ai_bot_add Name normal` draws; a custom vector stays as built).
+PRESET_SKILLS = {
+    "easy": "skills=2,2,3,1,2,1,2,2,3,2",
+    "normal": "skills=4,4,4,3,3,3,4,3,4,3",
+    "hard": "skills=6,6,5,5,5,5,6,4,5,3",
+    "expert": "skills=8,7,6,6,6,6,7,5,5,4",
+}
+
+# (shooter's line, closet) for each map: the line runs along x; the target stands at its far end.
+MAPS = {
+    "ss_ai_range": {"far": (1240.0, 768.0, 16.0), "closet": (1400.0, 300.0, 16.0)},
+    "ss_ai_duel": {"far": (470.0, 256.0, 16.0), "closet": None},
+}
+
+
+def stats_of(row, seconds_per_tick=TICK_MS / 1000.0):
+    """One row of /ai/aim as the table's numbers."""
+    sight = max(1, row["inSightTicks"] if "inSightTicks" in row else row["in_sight_ticks"])
+    get = lambda k: row[k]
+    shots = get("shots")
+    first = [t * TICK_MS for t in get("first_shot_ticks")]
+    acquire = [t * TICK_MS for t in get("acquire_ticks")]
+    return {
+        "engagements": get("engagements"),
+        "first_shot_ms": statistics.median(first) if first else None,
+        "first_shots": len(first),
+        "acquire_ms": statistics.median(acquire) if acquire else None,
+        "clear_ticks": get("clear_ticks"),
+        "in_sight_ticks": get("in_sight_ticks"),
+        "fire_share": get("firing_ticks") / sight,
+        "shots": shots,
+        "hits": get("hits"),
+        "hit_rate": get("hits") / shots if shots else None,
+        "dps": get("damage") / (sight * seconds_per_tick),
+        "error_mean": get("error_mean"),
+        "error_spread": get("error_spread"),
+        "on_body": get("on_body_ticks") / sight,
+        "leaves": get("leaves"),
+        "shots_by_order": get("shots_by_order"),
+        "hits_by_order": get("hits_by_order"),
+        "by_weapon": get("by_weapon"),
+    }
+
+
+def line_of(cell):
+    s = cell["stats"]
+    fmt = lambda v, f: "-" if v is None else f % v
+    leaves = sorted(s["leaves"].items(), key=lambda kv: -kv[1])[:3]
+    return "%-7s %-15s %5d %-6s %-5s first %6s ms n %2d/%2d  fire %4.0f%%  hit %5s (%4d)  dps %5.1f  err %5.1f +- %4.1f  body %3.0f%%  %s" % (
+        cell["preset"], cell["weapon"], cell["range"], cell["pattern"], cell["target"],
+        fmt(s["first_shot_ms"], "%.0f"), s["first_shots"], s["engagements"], 100 * s["fire_share"],
+        fmt(None if s["hit_rate"] is None else 100 * s["hit_rate"], "%.1f%%"), s["shots"], s["dps"], s["error_mean"], s["error_spread"],
+        100 * s["on_body"], " ".join("%s:%d" % kv for kv in leaves))
+
+
+class Range:
+    def __init__(self, game, map_name, target_kind, seconds, reps, seed):
+        self.g = game
+        self.place = MAPS[map_name]
+        self.kind = target_kind
+        self.seconds = seconds
+        self.reps = reps
+        self.rng = random.Random(seed)
+        self.target_slot = 1
+        self.shooter_health = 0
+        if target_kind == "bot":
+            game.cmd("ai_bot_add Target easy")
+            self.wait_bot("Target")
+            self.target_slot = scenario.bots_by_name(game)["Target"]
+            game.cmd("ai_bot_kit Target weapon_crowbar")
+        game.cmd("ai_aim_tough %d 1000" % self.target_slot)
+
+    def wait_bot(self, name):
+        for _ in range(100):
+            if name in scenario.bots_by_name(self.g):
+                time.sleep(0.5)
+                return
+            time.sleep(0.1)
+        raise SystemExit("ai-aim-range: no bot %s" % name)
+
+    def target_hold(self, seconds):
+        if self.kind == "bot":
+            self.g.cmd("ai_bot_act Target hold %g" % seconds)
+
+    def target_keys(self, direction):
+        """-1 one way across the line, +1 the other, 0 stand."""
+        if self.kind == "bot":
+            if direction == 0:
+                self.target_hold(self.seconds + 2)
+            else:
+                self.g.cmd("ai_bot_drive Target %d %g" % (90 * direction, self.seconds + 2))
+        else:
+            self.g.cmd("-moveleft")
+            self.g.cmd("-moveright")
+            if direction:
+                # The client faces the shooter (yaw 180): its left is toward -y.
+                self.g.cmd("+moveright" if direction > 0 else "+moveleft")
+
+    def put(self, slot, x, y, z, yaw):
+        # No settle: a player under fire is nudged by each hit and never reads as at rest.
+        out = self.g.api("teleport", "pos=%g,%g,%g" % (x, y, z + 1), "ang=0,%g,0" % yaw, "player=%d" % slot)
+        if '"ok":true' not in out:
+            raise SystemExit("ai-aim-range: teleport of player %d to (%g %g %g) failed: %s" % (slot, x, y, z, out[:200]))
+
+    def target_to(self, x, y, z):
+        self.put(self.target_slot, x, y, z, 180)
+
+    def rep(self, shooter, kit, rng_range, pattern):
+        far = self.place["far"]
+        closet = self.place["closet"]
+        self.target_keys(0)
+        self.target_hold(30)
+        # Out of sight: long enough to be lost, and for the kit's draw.
+        if closet:
+            self.target_to(*closet)
+        self.g.cmd("ai_bot_kit Shooter %s" % kit)
+        if pattern == "bot":
+            self.g.cmd("ai_bot_kit Target weapon_smg1")
+            self.g.cmd("ai_aim_tough %d 100" % shooter)
+        time.sleep(1.0)
+        yaw = self.rng.uniform(-20.0, 20.0)
+        start_y = far[1]
+        if pattern == "cross":
+            direction = self.rng.choice((-1, 1))
+            # From inside the shooter's field: a close target runs out of it the sooner.
+            start_y = far[1] - direction * min(RUN_SPEED * self.seconds / 2.0, 0.7 * rng_range)
+        self.put(shooter, far[0] - rng_range, far[1], far[2], yaw)
+        self.target_to(far[0], start_y, far[2])
+        if pattern == "bot":
+            # A target on its own brains, moving as bots move: the target the user's
+            # own recording was made shooting at. A scripted hold is what stopped it.
+            self.g.cmd("ai_bot_act Target hold 0")
+            time.sleep(self.seconds)
+        elif pattern == "stand":
+            self.target_keys(0)
+            time.sleep(self.seconds)
+        elif pattern == "cross":
+            self.target_keys(direction)
+            time.sleep(self.seconds)
+        else:
+            end = time.time() + self.seconds
+            direction = self.rng.choice((-1, 1))
+            while time.time() < end:
+                self.target_keys(direction)
+                time.sleep(self.rng.uniform(0.35, 0.9))
+                direction = -direction
+
+    def cell(self, preset, weapon, rng_range, pattern, skills):
+        g = self.g
+        g.cmd("ai_bot_kick Shooter")
+        time.sleep(0.3)
+        g.cmd("ai_bot_add Shooter %s" % skills)
+        self.wait_bot("Shooter")
+        shooter = scenario.bots_by_name(g)["Shooter"]
+        if self.shooter_health:
+            g.cmd("ai_aim_tough %d %d" % (shooter, self.shooter_health))
+        g.json("/ai/aim?reset=1")
+        for _ in range(self.reps):
+            self.rep(shooter, weapon, rng_range, pattern)
+        self.target_keys(0)
+        report = g.json("/ai/aim")
+        for bot in report["bots"]:
+            if bot["slot"] != shooter:
+                continue
+            for row in bot["targets"]:
+                if row["slot"] == self.target_slot:
+                    return {"preset": preset, "weapon": weapon, "range": rng_range, "pattern": pattern, "target": self.kind,
+                            "human": row["human"], "stats": stats_of(row), "close": bot.get("close_by_leaf", []),
+                            "nobody_shots": sum(r["shots"] for r in bot["targets"] if r["slot"] == 0)}
+        return {"preset": preset, "weapon": weapon, "range": rng_range, "pattern": pattern, "target": self.kind,
+                "stats": stats_of({"engagements": 0, "clear_ticks": 0, "in_sight_ticks": 0, "firing_ticks": 0, "on_body_ticks": 0,
+                                   "error_mean": 0.0, "error_spread": 0.0, "shots": 0, "hits": 0, "damage": 0, "first_shot_ticks": [],
+                                   "acquire_ticks": [], "leaves": {}, "shots_by_order": [], "hits_by_order": [], "by_weapon": []})}
+
+
+def run(a):
+    bsp = os.path.join(ROOT, "bin", a.config, "mods", "test", "maps", a.map + ".bsp")
+    if not os.path.exists(bsp):
+        raise SystemExit("ai-aim-range: no %s: make map MAP=%s" % (bsp, a.map))
+    game = scenario.Game(a.map, a.config)
+    cells = []
+    try:
+        game.start()
+        if game.tick() <= 0:
+            raise SystemExit("ai-aim-range: the game's clock does not run")
+        game.cmd("sv_cheats 1")
+        for c in a.curve or []:
+            game.cmd("ai_curve %s" % c.replace(":", " "))
+        r = Range(game, a.map, a.target, a.seconds, a.reps, a.seed)
+        r.shooter_health = a.shooter_health
+        for preset in (a.presets.split(";") if ";" in a.presets else a.presets.split(",")):
+            skills = PRESET_SKILLS.get(preset, preset)
+            for weapon in a.weapons.split(","):
+                for rng in (int(x) for x in a.ranges.split(",")):
+                    for pattern in a.patterns.split(","):
+                        cell = r.cell(preset, weapon, rng, pattern, skills)
+                        cells.append(cell)
+                        print(line_of(cell), flush=True)
+                        if a.out:
+                            write(a, cells)
+    finally:
+        game.stop(a.keep)
+    if a.out:
+        write(a, cells)
+    if not any(c["stats"]["in_sight_ticks"] > 0 for c in cells):
+        print("ai-aim-range: no cell held its target in sight: nothing was measured", file=sys.stderr)
+        return 1
+    return 0
+
+
+def live(a):
+    """A game of bots of mixed presets and a scripted client: who they shoot at, and how it lands."""
+    bsp = os.path.join(ROOT, "bin", a.config, "mods", "test", "maps", a.map + ".bsp")
+    if not os.path.exists(bsp):
+        raise SystemExit("ai-aim-range: no %s: make map MAP=%s" % (bsp, a.map))
+    game = scenario.Game(a.map, a.config)
+    rng = random.Random(a.seed)
+    steep = {}
+    samples = 0
+    try:
+        game.start()
+        game.cmd("sv_cheats 1")
+        mark = len(game.lines())
+        presets = a.presets.split(",")
+        for i, p in enumerate(presets):
+            game.cmd("ai_bot_add Bot%d_%s %s" % (i, p, p))
+        time.sleep(3)
+        names = scenario.bots_by_name(game)
+        if len(names) != len(presets):
+            raise SystemExit("ai-aim-range: asked %d bots, have %s" % (len(presets), sorted(names)))
+        game.json("/ai/aim?reset=1")
+        keys = ("forward", "back", "moveleft", "moveright")
+        end = time.time() + a.minutes * 60.0
+        start_tick = game.tick()
+        while time.time() < end:
+            # The scripted person hunts: it turns toward the nearest bot it can
+            # tell of (as a player knows where the fight is), runs at it with a key
+            # to the side now and then, and fires when the bot is near.
+            near = nearest_bot(game, names)
+            for k in keys:
+                game.cmd("-%s" % k)
+            if near is None:
+                game.cmd("setang 0 %d 0" % rng.randrange(-180, 180))
+                game.cmd("+forward")
+            else:
+                yaw, dist = near
+                game.cmd("setang 0 %.0f 0" % (yaw + rng.uniform(-8.0, 8.0)))
+                game.cmd("+forward" if dist > 300 else "+%s" % rng.choice(("moveleft", "moveright")))
+                if rng.random() < 0.3:
+                    game.cmd("+%s" % rng.choice(("moveleft", "moveright")))
+            game.cmd("+attack")
+            time.sleep(0.05)
+            game.cmd("-attack")
+            for slot in names.values():
+                try:
+                    v = game.json("/ai/bot/%d/perception" % slot)
+                except ValueError:
+                    continue
+                samples += 1
+                if abs(v.get("pitch", 0.0)) > 40.0:
+                    doing = game.json("/ai/bot/%d/doing" % slot)
+                    key = "%s/%s" % (doing.get("branch", "?"), doing.get("leaf", "?"))
+                    steep[key] = steep.get(key, 0) + 1
+            time.sleep(rng.uniform(0.4, 1.2))
+        minutes = (game.tick() - start_tick) * TICK_MS / 60000.0
+        report = game.json("/ai/aim")
+        lines = game.lines()[mark:]
+    finally:
+        game.stop(a.keep)
+    return live_report(a, report, lines, minutes, steep, samples)
+
+
+def nearest_bot(game, names):
+    """The yaw and distance from the client to the nearest bot, by the debugger's truth; None when the client has no reading."""
+    best = None
+    for slot in names.values():
+        try:
+            v = game.json("/ai/bot/%d/perception" % slot)
+        except ValueError:
+            continue
+        for c in v.get("candidates", []):
+            if c["slot"] == 1:
+                eye = v["eye"]
+                dx, dy = eye[0] - c["at"][0], eye[1] - c["at"][1]
+                d = (dx * dx + dy * dy) ** 0.5
+                if best is None or d < best[1]:
+                    best = (math.degrees(math.atan2(dy, dx)), d)
+    return best
+
+
+def close_table(report):
+    """Each bot's ticks with someone seen within 400 u, by leaf, and the share holding fire."""
+    rows = {}
+    for bot in report["bots"]:
+        preset = re.sub(r"^.*_", "", bot["name"])
+        for c in bot.get("close_by_leaf", []):
+            t = rows.setdefault((preset, c["leaf"]), [0, 0])
+            t[0] += c["ticks"]
+            t[1] += c["firing"]
+    for (preset, leaf), (ticks, firing) in sorted(rows.items(), key=lambda kv: (kv[0][0], -kv[1][0])):
+        print("  close %-7s %-22s %5d ticks, firing %3.0f%%" % (preset, leaf or "-", ticks, 100.0 * firing / max(1, ticks)))
+    return [[p, l, t, f] for (p, l), (t, f) in sorted(rows.items())]
+
+
+def live_report(a, report, lines, minutes, steep, samples):
+    deaths = {}
+    for l in lines:
+        m = re.search(r"\[SourceSharp/Server\] #(\d+) killed by #(\d+)", l)
+        if m:
+            deaths[(int(m.group(2)), int(m.group(1)))] = deaths.get((int(m.group(2)), int(m.group(1))), 0) + 1
+    bots = {b["slot"]: b for b in report["bots"]}
+    out = {"map": a.map, "minutes": minutes, "steep_samples": steep, "view_samples": samples, "bots": [], "deaths": [[k[0], k[1], v] for k, v in deaths.items()]}
+    print("%.1f minutes on %s; %d bots and a scripted client" % (minutes, a.map, len(bots)))
+    client_shots = client_hits = client_sight = other_shots = other_hits = other_sight = 0
+    for b in report["bots"]:
+        row = {"slot": b["slot"], "name": b["name"], "at_client": {}, "at_bots": {}}
+        for t in b["targets"]:
+            st = stats_of(t)
+            if t["slot"] == 0:
+                row["at_nobody"] = t["shots"]
+            elif t["human"]:
+                row["at_client"] = st
+                client_shots += t["shots"]
+                client_hits += t["hits"]
+                client_sight += t["in_sight_ticks"]
+            else:
+                other_shots += t["shots"]
+                other_hits += t["hits"]
+                other_sight += t["in_sight_ticks"]
+        out["bots"].append(row)
+    rate = lambda h, s: "%.1f%%" % (100.0 * h / s) if s else "-"
+    per = lambda n, t: n / (t * TICK_MS / 1000.0) if t else 0.0
+    print("shots at the client: %.1f a minute, %d hits (%s), %.2f shots per in-sight second" % (client_shots / minutes, client_hits, rate(client_hits, client_shots), per(client_shots, client_sight)))
+    print("shots at bots:       %.1f a minute, %d hits (%s), %.2f shots per in-sight second" % (other_shots / minutes, other_hits, rate(other_hits, other_shots), per(other_shots, other_sight)))
+    slots = set(bots)
+    client_deaths = sum(v for (k, d), v in deaths.items() if d not in slots and k in slots)
+    bot_deaths = sum(v for (k, d), v in deaths.items() if d in slots and k in slots and k != d)
+    by_client = sum(v for (k, d), v in deaths.items() if k not in slots and d in slots)
+    out.update(client_shots=client_shots, client_hits=client_hits, client_sight=client_sight, other_shots=other_shots, other_hits=other_hits, other_sight=other_sight,
+               client_deaths=client_deaths, bot_deaths=bot_deaths, by_client=by_client)
+    out["close"] = close_table(report)
+    ticks = [t * TICK_MS for bot in report["bots"] for t in bot.get("side_interval_ticks", [])]
+    commands = sum(bot.get("commands", 0) for bot in report["bots"])
+    flips = sum(bot.get("yaw_reversals", 0) for bot in report["bots"])
+    if ticks:
+        print("bots' side move: median %.0f ms between sign changes (%d); yaw reversals %.1f a minute" % (statistics.median(ticks), len(ticks), flips / max(1e-6, commands * TICK_MS / 60000.0)))
+    out.update(side_interval_ms=statistics.median(ticks) if ticks else None, yaw_reversals_per_minute=flips / max(1e-6, commands * TICK_MS / 60000.0))
+    print("the client killed by bots %d times, bots by the client %d, bots by bots %d" % (client_deaths, by_client, bot_deaths))
+    print("views sampled %d; pitch over 40 degrees by leaf: %s" % (samples, steep))
+    if a.out:
+        with open(a.out, "w") as f:
+            json.dump(dict(out, raw=report), f, indent=1)
+            f.write("\n")
+    if client_sight + other_sight == 0:
+        print("ai-aim-range: nobody was in sight: nothing was measured", file=sys.stderr)
+        return 1
+    return 0
+
+
+def table(files):
+    """The cells of earlier runs' files, as a markdown table."""
+    print("| preset | weapon | range | pattern | target | first shot ms | fire | hit rate (shots) | dps | error deg | on body |")
+    print("|---|---|---|---|---|---|---|---|---|---|---|")
+    for path in files:
+        with open(path) as f:
+            for c in json.load(f)["cells"]:
+                s = c["stats"]
+                if s["in_sight_ticks"] == 0:
+                    print("| %s | %s | %d | %s | %s | never in sight (%d clear ticks) | | | | | |" % (c["preset"], c["weapon"], c["range"], c["pattern"], c["target"], s["clear_ticks"]))
+                    continue
+                hit = "%.1f %% (%d)" % (100 * s["hit_rate"], s["shots"]) if s["hit_rate"] is not None else "- (0)"
+                first = "%.0f" % s["first_shot_ms"] if s["first_shot_ms"] is not None else "-"
+                print("| %s | %s | %d | %s | %s | %s | %.0f %% | %s | %.1f | %.1f ± %.1f | %.0f %% |" % (
+                    c["preset"], c["weapon"], c["range"], c["pattern"], c["target"], first, 100 * s["fire_share"], hit, s["dps"], s["error_mean"], s["error_spread"], 100 * s["on_body"]))
+    return 0
+
+
+def write(a, cells):
+    tmp = a.out + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump({"map": a.map, "config": a.config, "target": a.target, "reps": a.reps, "seconds": a.seconds, "curve": a.curve or [], "cells": cells}, f, indent=1)
+        f.write("\n")
+    os.replace(tmp, a.out)
+
+
+def main(argv):
+    p = argparse.ArgumentParser(prog="ai-aim-range", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="what", required=True)
+    r = sub.add_parser("run")
+    r.add_argument("--map", default="ss_ai_range", choices=sorted(MAPS))
+    r.add_argument("--presets", default="easy,normal,hard,expert")
+    r.add_argument("--weapons", default="weapon_smg1")
+    r.add_argument("--ranges", default="200,500,1000")
+    r.add_argument("--patterns", default="stand,strafe,cross")
+    r.add_argument("--target", default="bot", choices=("bot", "human"))
+    r.add_argument("--reps", type=int, default=6)
+    r.add_argument("--seconds", type=float, default=4.0)
+    r.add_argument("--curve", action="append")
+    r.add_argument("--shooter-health", type=int, default=0)
+    r.add_argument("--seed", type=int, default=1)
+    r.add_argument("--out")
+    r.add_argument("--config", default="debug")
+    r.add_argument("--keep", action="store_true")
+    l = sub.add_parser("live")
+    l.add_argument("--map", default="dm_lockdown")
+    l.add_argument("--presets", default="easy,normal,hard,expert")
+    l.add_argument("--minutes", type=float, default=5.0)
+    l.add_argument("--seed", type=int, default=1)
+    l.add_argument("--out")
+    l.add_argument("--config", default="debug")
+    l.add_argument("--keep", action="store_true")
+    t = sub.add_parser("table")
+    t.add_argument("files", nargs="+")
+    a = p.parse_args(argv)
+    if a.what == "table":
+        return table(a.files)
+    return live(a) if a.what == "live" else run(a)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

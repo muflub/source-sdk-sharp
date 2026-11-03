@@ -293,14 +293,14 @@ public sealed class HumanReferenceTests : IDisposable
         {
             var s = new Sight(_ai);
             var tap = new CommandTap(_ai, _bots, Indexes(), AtTick(10));
-            new AiRecordCommand(_ai, new Mod(dir), _log).Execute("human");
+            new AiRecordCommand(_ai, s.Pass, AtTick(10), new Mod(dir), _log).Execute("human");
             for (int i = 0; i < 20; i++)
             {
                 s.Run(1);
                 tap.OnCommand(s.Person.Handle, new UserCmd { CommandNumber = i, TickCount = i, Yaw = 180, Buttons = 1 });
             }
 
-            new AiRecordCommand(_ai, new Mod(dir), _log).Execute("stop");
+            new AiRecordCommand(_ai, s.Pass, AtTick(10), new Mod(dir), _log).Execute("stop");
             string file = Assert.Single(Directory.GetFiles(Path.Combine(dir, "ai-recordings", "human"), "*.airec"));
             Assert.Matches(@"^\d{8}T\d{6}Z\.airec$", Path.GetFileName(file));
             byte[] bytes = File.ReadAllBytes(file);
@@ -432,8 +432,9 @@ public sealed class HumanReferenceTests : IDisposable
         var w = new Sight(_ai);
         var shots = new ShotTap(_ai, _bots, w.Pass, w.World.Engine(), WeaponCatalog.Stock(), Indexes(), AtTick(50));
         var senses = new Hl2mpSenses(_bots, _ai, w.Pass, null!, null!, null!, _log, w.Reference);
-        var weapons = new WeaponEventTap(senses, w.Pass, _bots, Indexes(), AtTick(50), shots);
-        var combat = new CombatTap(senses, w.Pass, _bots, null!, Indexes(), null!, AtTick(50), shots);
+        var meter = new AimMeter(_bots, w.Pass, _ai, AtTick(50), Indexes(), w.World.Engine(), WeaponCatalog.Stock());
+        var weapons = new WeaponEventTap(senses, w.Pass, _bots, Indexes(), AtTick(50), shots, meter);
+        var combat = new CombatTap(senses, w.Pass, _bots, null!, Indexes(), null!, AtTick(50), shots, meter);
         Start();
         w.Run(1);
         weapons.OnWeaponEvent(w.Person.Handle, 3, PlayerWeaponEvent.Fired, 1);
@@ -454,5 +455,29 @@ public sealed class HumanReferenceTests : IDisposable
         AiEvent hit = Assert.Single(Observed(Stopped(), AiEventKind.HitDealt));
         Assert.Equal(s.PersonId.Slot, hit.Other.Slot);
         Assert.NotEqual(s.PersonId, hit.Other);
+    }
+
+    /// <summary>A recording started mid-game names what the bots already see.</summary>
+    [Fact]
+    public void ARecordingStartedMidGameHoldsTheSightsAlreadyHeld()
+    {
+        var s = new Sight(_ai);
+        s.Run(40);   // the bot has recognised the person by now
+        Assert.Contains(s.Events, e => e.Kind == AiEventKind.SightGained && e.Bot == s.BotId);
+        string dir = Path.Combine(Path.GetTempPath(), $"ss-human-held-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            string file = Path.Combine(dir, "x.airec");
+            new AiRecordCommand(_ai, s.Pass, AtTick(41), new Mod(dir), _log).Execute($"start {file} ss_test");
+            _ai.Recording.Stop();
+            AiEvent held = Assert.Single(Observed(Record.Recordings.Records(File.ReadAllBytes(file)), AiEventKind.SightGained));
+            Assert.Equal((s.BotId, AiEvent.HeldSight, 41), (held.Bot, held.Code, held.Tick.Value));
+            Assert.Equal(2, held.Other.Slot);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
     }
 }

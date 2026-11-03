@@ -571,7 +571,7 @@ session and per actor, the distributions of:
 | strafe interval | time between `SideMove` sign changes |
 | shots per engagement | `IN_ATTACK` presses between `SightGained` and `SightLost` |
 | reaction time | `SightGained` to the first `IN_ATTACK` or first aim movement toward the target |
-| hit rate (ruling 2026-11-02) | hits over shots, overall, per weapon, and per range band (under 300, 300 to 800, over 800 u), with counts. A shot is one trigger pull (`IPlayerWeaponEventHook`'s `Fired`), a shotgun's pellets one shot; a hit is one victim hurt by the actor in one tick (`IPlayerHurtHook`), self-harm excluded, by the weapon in its hands, at the range then. A shot's band is the distance to the sighted actor nearest its crosshair within 30°; with none it is untargeted: overall and per weapon only |
+| hit rate (ruling 2026-11-02) | hits over shots, overall, per weapon, and per range band (under 300, 300 to 800, over 800 u), with counts. A shot is one trigger pull (`IPlayerWeaponEventHook`'s `Fired`), a shotgun's pellets one shot; a hit is one victim hurt by the actor in one tick (`IPlayerHurtHook`), self-harm excluded, by the weapon in its hands, at the range then. A shot's band is the distance to the sighted actor nearest its crosshair within 30°; with none it is untargeted: overall and per weapon only. A hit by a weapon that fired no shot (a crowbar's swing is no `Fired`) stays on its line and out of the rates |
 
 Gates: for each metric, the two-sample Kolmogorov–Smirnov statistic between
 the bot's distribution (at the preset matching the human's apparent skill,
@@ -705,8 +705,9 @@ unnamed custom), its shape and current allocation, and its seed.
   copy.
 - **Free slots.** Bots in the game ≤ `maxplayers − humans − ai_bot_reserve_slots`
   (default 1, so a person can always connect: a full server refuses before game
-  code sees it). A person is any engine client that is not a bot, from its
-  connect (a slot with a user id), and a listen server counts its host before it
+  code sees it). A person is any engine client with a network channel (a bot has
+  none), from its connect (`IClientInfo.Address`: the user id comes only with the
+  player entity, found live), and a listen server counts its host before it
   connects. Over that, the **newest active** bot (highest place in the order
   added) is kicked at once, with a console line. Under it, the **oldest benched**
   comes back (first benched first; the order added breaks a tie; bots active
@@ -1230,6 +1231,7 @@ map.
 | **Behaviour-tree trace** | the tree with the last decide's visited nodes, condition values, utilities, the chosen intent and its seq/expiry, the `reason` terms; `CommandRejected` reasons | `GET /ai/bot/<id>/trace` (ring of the last 64 decides) | scrubber panel |
 | **Aim trace** (§3.4) | view-angle path (yaw/pitch over time) against the target's angular position, flicks and pursuit segments coloured, reaction delay marked, the envelope drawn as a band | `GET /ai/bot/<id>/aim` (ring of the last 600 ticks) | scrubber panel; `ai-replay aim` PNG |
 | **Human-vs-bot distributions** (§3.4.4) | one histogram per metric, human reference over bot, with the KS statistic | — | `ai-replay metrics <human.airec> <bot.airec>` PNG set + JSON |
+| **Live 3D map** (ruling 2026-11-02) | every player over the map's wireframe in the `Ai` tab (§7.4): each bot's body and name, aim, view cone, a line to each opponent by outcome, its follower's route, goal and target, the sounds it heard fading with age, where it last saw those out of sight | `GET /ai/world`, about 5 Hz while the tab shows | — |
 | **Record/replay scrubber** | step a recording tick by tick (or decide by decide), all of the above at that tick, intent diff live-vs-replay highlighted | `ai_record start/stop` convars; live scrubbing = `ai_sync 1` + `ai_step` | the whole point: the web UI loads a `.airec` through `POST /ai/replay/load` served by the dev API (file read, no game needed beyond the API process) |
 
 ### 7.2 The per-bot inspector (ruling 2026-11-01): web UI only
@@ -1288,6 +1290,46 @@ cone, heatmap and aim layers on the map tab, with golden JSON facts as
 `DebugApiGolden*` do. `SourceSharp.Ai.Replay` (SkiaSharp, like `UiPreview`)
 renders frames, computes the §3.4.4 metrics and is the oracle for golden
 PNGs in the `ai` leg.
+
+### 7.4 The live 3D map (ruling 2026-11-02)
+
+A panel at the top of the `Ai` tab (`src/webui/src/ai/AiWorldPanel.tsx`, its
+layers built by the pure `ai/aiWorld.ts`), over `renderer.ts`'s `View` and the
+map tab's wireframe; the camera controls moved to `map/viewport/cameraControls.ts`
+and are shared. It polls `GET /ai/world` through the page's `usePoll` every
+200 ms, one call at a time, only while the tab shows and the browser tab is in
+front. The selected bot is the tab's own slot, so its buttons and a click on a
+marker or a label are one choice; it draws bright, the other bots dim (40 %).
+
+| group | layer | what it draws | source |
+|---|---|---|---|
+| truth | Bots | a box and a marker at each living player, its name projected through `View.project` (humans in another colour, not selectable) | vision pass reads |
+| truth | Aiming | a line from the eye along yaw and pitch, cyan, with a star at what a bullet would hit, or 2,048 u out if nothing is within 8,192 u | the engine's eye angles; a `MASK_SHOT` trace on the server |
+| truth | Sees | the view cone (round, as the vision pass judges it, tilted with the pitch, drawn to 400 u), and a line to each opponent: seen, partly seen, recognising, or the §7.1 colour of the stage that refused it | `VisionPass` |
+| plan | Going | the follower's own path, a diamond at its goal, a dashed line to the target where it truly stands | `NavFollower.Route`, the tree's `DoingRecord` |
+| beliefs | Heard | at each place the bot believes it heard a sound in the last 5 s a ring as wide as the sound was loud, a line back to the listener, by kind, fading with age | `HeardLog` |
+| beliefs | Remembers | a star where it last saw each opponent out of sight now, fading with confidence | the blackboard |
+
+Also: Other bots (their lines off, their bodies on), Nav cells (off by default:
+35,373 points on dm_lockdown, the links left to the map tab), Follow selected,
+Fit players, a legend, a readout (tick, `live` or `STALE n s` past 1 s without a
+new tick, the route's cost, the draw's), and a statement instead of a scene when
+the route is not served, nothing answers, there is no map, or no bots.
+
+**The route.** `/ai/world` answers every player in one call: `tick`, `tickSeconds`,
+`map`, `navRefusal`, `costUs`; `actors[]` (slot, name, isBot, alive, at); `bots[]`,
+each with `truth` (eye, yaw, pitch, fov, range, aimDistance, candidates: null
+while dead), `going` (branch, leaf, goal, targetSlot), `route` (source `brain` or
+`goto`, target, points), `stepping`, and `beliefs` (heard, remembered). Truth and
+beliefs are apart in the answer because they differ: a bot's heard place carries
+the hearing's error (§4.2). A brain stepping on a worker is not waited for: that
+bot answers `stepping: true` without `going` and `remembered`, and the panel keeps
+what it last said. Written through `AiJson`.
+
+**The perception boundary holds.** A route is outside the bots' view:
+`PerceptionCensusTests.NoBrainReadsTheWorldRouteOrTheHeardLog` holds that only the
+route provider calls `AiWorldRoutes` and only the tap and the route touch
+`HeardLog`, and `AiWorldRoutes` is a named reader in the census.
 
 ## 8. Tests
 
@@ -1673,6 +1715,32 @@ the Medium vector (the inline simulation of §8.2), and flattening that
 skill's curve turns the fact red; `turnPeakDegPerSec` at Accuracy 10 is
 still inside the envelope.
 
+**Aim and reaction, tuned (2026-11-02; Medium per the ruling in §12.1).** The curves
+are `aimErrorDeg`, `leadQuality`, `reactionMs`, `trackingLagMs` and
+`flickOvershootPct` in `hl2mp_skills.json`, and the recognition table in
+`VisionCurves`. Medium's `aimErrorDeg` comes from the user's own recording by
+`tools/ai-aim-calibrate <recording>`, one command to re-run when another is made;
+Easy, Hard and Expert follow it as `hitRateRatios` (0.48, 1, 1.2, 1.35) of its hit
+rate, so they move when Medium does. The first targets (first shot 900 / 600 / 400 /
+280 ms, hit rate 12 / 25 / 40 / 55 % strafing at 500 u) were interim: first shots land on
+them (892 / 540 / 360 / 270 ms); hit rates are now the user's measure, not those.
+
+| at the presets' Accuracy and Alertness | Easy (2, 2) | Medium (4, 4) | Hard (6, 6) | Expert (8, 7) |
+|---|---|---|---|---|
+| `aimErrorDeg`, was | 7.8, 7.4 | 1.55, 5.8 | 0.8, 4.2 | 0.2, 2.6 |
+| `recognize_s`, stock | 0.5, 1.0 | 0.25, 0.5 | 0.12, 0.3 | 0.06, 0.2 |
+| `reactionMs`, was | 160, 1000 | 100, 500 | 100, 300 | 100, 200 |
+| `leadQuality`, `trackingLagMs` | 0.36, 212 | 0.52, 174 | 0.74, 125 | 0.95, 75 |
+
+`aimErrorDeg` is now the standard deviation of a wander (0.7 s memory, smoothed
+once more), 2.5 times wider at first sight and settling in about 0.6 s, not a new
+draw at each decide. **Recognition is about half stock's** (ruled to stay,
+2026-11-02): here a reaction, the decide's latency (half of 90 ms) and a flick
+all follow it, stock's times being its bot's whole delay, and at stock's the first
+shot could not come near a person's: by arithmetic Medium would be about 790 ms against its measured 540. So a
+preset no longer recognises as its stock namesake did; the table above replaces the
+"stock recognition it matches" column.
+
 Turning (§3.3, §3.4) is a skill-driven curve inside a human envelope:
 Accuracy sets `flickOvershootPct`, `trackingLagMs` and the correction
 phase; `turnPeakDegPerSec` (300 easy → 900 expert) follows the preset's
@@ -1849,7 +1917,32 @@ rows of §3.1 (ruled). Hand-written native code: none.
   coordinator): "After my recording set med bot to match my hit rate". A
   recording holds each actor's shots and the hits they cause (§3.4.4), and
   `ai-replay metrics` prints the rate, overall, per weapon and per range band,
-  for both kinds of actor. The tuning itself waits for the user's recording.
+  for both kinds of actor. `tools/ai-aim-calibrate` takes a recording's measured
+  hit rate and reports the `aimErrorDeg` values that make a Medium bot match it
+  on the aim range. Easy, Hard and Expert stay defined relative to Medium, as
+  ratios of its hit rate (`hitRateRatios` in the skills file), so they follow
+  when Medium moves.
+- **A hit rate counts only shots at someone** (2026-11-02, through the
+  coordinator): "make sure to only count when i was shooting at bots, not
+  things in the world". A shot is aimed at someone only if a sighted opponent's
+  body was within its angular half-width plus 3° of the crosshair
+  (`AimCone`); a shot at a crate with a bot 25° away counts in neither hits nor
+  shots. The rates, the bands and the calibration use this, a person's and a
+  bot's alike; "no target" stays a separate count; `ai-replay metrics` also
+  prints the rate at +3°, +6°, +10° and +30°, so the choice can be seen.
+- **Bots fire first at close range** (2026-11-02, through the coordinator): "bots
+  should also fire if close to the player instead of trying to do other things".
+  Someone seen within `Hl2mpDecider.CloseRange` (400 u, one distance for every gun:
+  none reaches less, the shotgun's effective range being 400 at the lowest gate)
+  comes before everything else a bot is about, the nearest first, whatever the
+  scoreboard says; it may still move, strafe and retreat, firing. The exceptions are
+  physical: an empty clip reloads, a dry gun gives way to a loaded one, a melee
+  weapon or the gravity gun gives way to a gun. Close, the hands do not wait for a
+  flick's end once the view is within 48 u of the point.
+- **A live 3D map in the AI tab** (2026-11-02): "can a 3d map be added to the AI
+  tab that shows the bots, where they are aiming, what they see, what they hear,
+  where they are going". §7.4. It is a debug view of the truth, so it may show
+  more than a bot knows; what a bot only believes is labelled apart.
 
 ### 12.2 Open questions
 
@@ -1883,12 +1976,40 @@ that code when M1 starts, and changes nothing here.
 | the pool live (Phase 6 step 1), dm_lockdown, the Phase 5 four + an idle human, 4 workers, 2 minutes | main thread: `ai.sense.us` 185.9, `ai.publish.us` **90.2** (was 303.6–1,198 with the brains inline), `ai.apply.us` 769.9 (the followers, the motion model and the bots' commands run), `ai.main.us` 1,046.0 (300-tick means, µs); workers: `ai.brain.us` 1,292.1 wall / **1,067.8 CPU** per decide over 5,338 decides, `ai.pool.us` 105,172 µs a second (10.5 % of one core); field builds 630 on the workers, 4 on the main thread (a stuck re-route); `ai.steps.skipped` 0; `process.threads` 75 before and after two `changelevel dm_lockdown` (the pool stopped, joined and started again) | `/ai/counters` | `hl2mp-ai` Phase 6 step 1 tree, debug, `make headless`, 2026-11-02 |
 | the live gate's `bots` step, three passes (Phase 6 step 5) | dm_lockdown, three bots (the gate's four slots less its human) on 4 workers, the counters' 300-tick means at the step's end, passes 1 / 2 / 3: `ai.sense.us` 90.7 / 107.8 / 97.7; `ai.main.us` 290.6 / 257.3 / 299.6 (ceiling 1,000); `ai.brain.cpu.us` 683.9 / 603.6 / 616.3 per decide (ceiling 2,000); `ai.pool.us` 43,205 / 17,960 / 49,806 µs a second (ceiling 250,000); `ai.run.us` 344.6 / 534.7 / 333.4 (the bots' commands as players, not the AI's); `ai.steps.skipped` 0; the recordings (8,039 / 2,045 / 6,046 intents) replayed identical inline and at 1, 2 and 4 threads; the AI's worker threads 4 after every pair of map loads | `tools/live-gate --steps ai-nav,bots,ss-ai-nav,ss-ai-sight,ss-ai-hearing,map-change --passes 3` | `hl2mp-ai` at `7875092dc`, debug, 2026-11-02 |
 | pool CPU, 8 bots, 4 threads | — | | |
+| aim before any fix: Medium's crosshair against a target it was firing at, 500 u, SMG1 | **strafing: hit 3.2 % of 253 shots, error 23.0° ± 13.4, on the body 6 % of in-sight ticks, first shot 540 ms, firing 84 % of in-sight ticks**; standing: 8.2 % of 255, 13.9° ± 10.7, 16 %. Against a person's client the same (strafing 3.4 % of 235, 19.1° ± 12.8). Easy 10.8 %, Hard 3.0 %, Expert 3.4 % strafing: no skill shows, the differences are chance. Time to first shot equals recognition plus a tick or two at every preset (1,028 / 540 / 360 / 232 ms): the bots fire at once, where they happen to look | `tools/ai-aim-range run`, the game's `/ai/aim` (6 reps × 4 s, shooter ±20° off, target held at full health) on `ss_ai_range`, weapon_smg1 | `2faa6b2b1`, debug, box load 130-170 on 32 cores, 2026-11-02 |
+| a whole game before the fixes | 4.8 min, dm_lockdown, Easy + Medium + Hard + Expert and a client running about at random: 70.4 shots a minute at the client, 2.7 % hit; 424.1 a minute at bots, 3.6 % hit; 6.40 and 4.83 shots per in-sight second, so no preference between a person and a bot; bots killed the client 2 times, each other 6 times; views over 40° of pitch 22 of 832 (13 `Fight/chase`, 6 `Fight/hold range`) | `tools/ai-aim-range live` | as above |
+| aim before any fix: Medium's crosshair against a target it was firing at, 500 u, SMG1 | **strafing: hit 3.2 % of 253 shots, error 23.0° ± 13.4, on the body 6 % of in-sight ticks, first shot 540 ms, firing 84 %**; standing: 8.2 % of 255, 13.9° ± 10.7, 16 %. Against the game's client the same (strafing 3.4 % of 235, 19.1° ± 12.8). Easy 10.8 %, Hard 3.0 %, Expert 3.4 %: no skill shows. Time to first shot was recognition plus a tick or two at every preset (1,028 / 540 / 360 / 232 ms): the bots fired at once, where they happened to look. All shots counted, the old rule | `tools/ai-aim-range run`, the game's `/ai/aim` (6 reps × 4 s, shooter ±20° off, target held at full health), `ss_ai_range`, weapon_smg1 | `2faa6b2b1`, debug, box load 130-170 on 32 cores, 2026-11-02 |
+| aim after the fixes and the tuning, strafing scripted target, SMG1 | **hit of aimed shots at 200 / 500 / 1,000 u: Easy 25.5 / 29.0 / 17.8 %, Medium 67.5 / 54.1 / 43.3 %, Hard 79.0 / 67.7 / 44.9 %, Expert 86.4 / 73.1 / 59.4 %. First shot at 500 u 892 / 540 / 360 / 270 ms; crosshair error 10.3 / 3.6 / 1.8 / 1.2° (mean, flicks included).** Medium's other targets at 500 u: standing 53.6 %, across 44.8 %. Shots at no target at 500 u, of all fired: Easy 60 %, Medium 9 %, Hard 1 %, Expert 0.3 %. Spread caps it: Accuracy 10 with no own strafe made 74 % at 500 u, measured before the velocity fix and on all shots. Noise: ±5 points a run at 300 aimed shots | `tools/ai-aim-range run` (8 reps × 3.5 s), `/ai/aim`, aimed shots per `AimCone` | hl2mp-ai-aim, debug, load 90-140, 2026-11-02 |
+| other weapons, Medium, strafing, hit of aimed shots at 200 / 500 / 1,000 u | shotgun 100 / 95 / 82 % (15-20 shots; pellets are one shot, and it runs in at 1,000 u), pistol 51 / 43 / 20 %, 357 100 / 40 / 36 % (25), crossbow 89 / 44 / 60 % (10) | as above, 6 reps | as above |
+| a person's client as the target, against the scripted bot | Medium at 500 u strafing 44.8 % vs 54.1 %, standing 50.2 vs 53.6; Expert strafing 70.3 vs 73.1. Same first shot within noise (570 vs 540 ms). Shots per in-sight second at the client vs at bots, live: 5.70 vs 3.71 after, 1.98 vs 5.00 before (on 36 shots at the client): no preference for or against a person found. The client ran at 240.7 u/s in the gate's move step; the scripted bot about 200 | as above; `tools/live-gate --steps move` | as above |
+| a whole game before and after, 4 bots (a draw of each preset) and a scripted client hunting the nearest bot | **before: 7.4 shots a minute at the client, 0 of 36 hit, the client killed 0 times, bots killed by bots 9 (4.8 min). After: 42.9 a minute, 60 hits of 213 aimed (28.2 %), the client killed 3 times, bots by bots 21 (5.0 min).** The client's own fire killed nothing in either, so this is no kill ratio like the user's 38 : 7. Yaw reversals 152 a minute, side move's median 105 ms | `tools/ai-aim-range live --seed 5`; the before at `2faa6b2b1`'s build, whose meter counts every shot | as above |
+| the side move's jitter | the recording agent's 75 ms median (60 s live) is mostly the follower: live, 525 of about 700 flips of a Medium bot fell in `hunt`, with the next corner alternating (-2984, -3176 at ticks 591-597, 260 corner changes in 2,744 ticks). Not `StrafeMeanSeconds`, not the applier. A sliver of a sidestep under 15 % is dropped. With the follower untouched the median is 60-180 ms by run | `/ai/aim`'s `side_flips_by_leaf`, a temporary per-tick log | handed to the ladder lane |
+| firing within 400 u, by leaf (share of ticks with someone seen that close holding fire; a tap weapon presses every second tick, so 50 % is its most) | **before: hold range 48-73 %; hunt 216 ticks at Expert 0 %; go heal 42-87 % (Medium, Hard, Expert); back off reloading 0 % (1,790 ticks).** **After: hold range 55-79 %, hunt 63 at Expert 0 %, go heal 34-65 %, back off reloading 0-6 %, reload empty 0 %.** The hunt, chase and search ticks left (at most 63 a bot in 5 min) are thought to be the decide's latency, not measured | `tools/ai-aim-range live` `close` table; the before with the ruling's arms applied | as above |
+| a bot at low health going for a kit, a client in view at 150 and 300 u | `go heal` throughout; holding fire 72-87 % before and 74-79 % after: go heal already fired at its target. Hit 91-98 % at 150 u | `tools/ai-aim-range run --map ss_ai_duel --target human --shooter-health 20` | as above |
+| the user's recording `20261102T144141Z`, 11.1 min, one person, 4 old-build bots (not committed) | **63.6 % of 379 aimed shots: under 300 u 78.2 % of 179, 300-800 u 49.7 % of 191, over 800 u 6 of 9; 429 shots at no target.** At +6° 54.3 %, +10° 50.5 %, +30° 46.3 %. By the old 30° rule 50.9 %. Weapons: SMG1 70.9 % of 134, pistol 55.8 % of 154, AR2 62.9 % of 70. Reaction, median 240 ms (it read 30 ms) | `tools/ai-replay metrics` | as above |
+| calibration on that recording | Probing aimErrorDeg against a bot on its own brains with an SMG1: Medium 1.55 (Easy 7.8, Hard 0.8, Expert 0.2). **The assumption: the rate is matched against bots moving as today's bots move, the target the user shot.** The user's were old-build bots, which moved worse, so this flatters the user less than matching against them would, and it cannot be run: they are gone. Medium at 1.55: bot target 53.4 % (300-800) and 47.7 % (under 300), the person 49.7 and 78.2; strafing script 41.2 and 80.5; standing 39.4 and 72.3. Under 300 is short of the person against a bot target, at 65 aimed shots. Medium, Hard and Expert are marked not reached, on that band. A second whole run, on the curve so set: Medium 1.43 (Hard 0.61, Expert 0.28, Easy 14.3 not reached); Medium's rates against a bot 34.6 % of 26 and 55.1 % of 69, strafing script 40.8 and 60.9, standing 46.9 and 82.0. The curve stays at the first run's: the two agree within their noise for Medium, Hard and Expert, and against a bot on its own brains a band often has under 100 aimed shots, so it is the weakest number here | `tools/ai-aim-calibrate <recording>` | as above |
 | human reference: flicks / engagements recorded | — | | |
 | KS threshold per §3.4.4 metric (9 rows) | — | | |
 | human snaps > 90°/min ceiling | — | | |
+| `/ai/world`, the 3D view's route (§7.4), 4 bots + 1 human | game thread's CPU per answer, the JSON included, four runs: **p50 470 / 447 / 294 / 452 µs, mean 620 / 530 / 330 / 524, p95 2,095 / 1,390 / 470 / 947, max 4,366 / 2,564 / 2,562 / 2,185** (169–181 answers in 40 s of play, the page polling too): about 0.2 % of one core at 5 Hz, and the tick an answer lands on pays about one more tick's `ai.main.us` (394–1,936 µs in the same runs). In wall time, before the field moved to thread CPU: p50 448, p95 4,327, max 50,986 (box load 130–200) | the answer's own `costUs` (`ThreadCpuClock` around `Build` + `AiJson`), read by `curl` over the socket | `hl2mp-ai-3d`, debug, `make headless` dm_lockdown, `ai_bot_add` ×4, 2026-11-02 |
+| `/ai/world` payload, 4 bots + 1 human | depends on the shooting: **mean 16,874 / 18,481 / 18,957 bytes (max 20,268) through firefights, 6,907 (max 8,868) with little**: up to about 100 kB/s at 5 Hz over loopback. Most of it is heard sounds, each bot's log capped at 48 (three bots at 48 each: 14,096 bytes, of which actors and truth about 1,500) | `curl` body length, the same answers | as above |
+| the AI tab's page, 4 bots + 1 human | `view.draw` + labels 1.07–3.00 ms mean, 14.1 worst at 5 Hz. `requestAnimationFrame` gaps, four runs: orbiting p50 16.4 / 137.5 / 27.1 / 16.6 ms, p95 88.9 / 616.2 / 475.8 / 24.6; idle p50 16.8 / 16.7 / 18.7 / 16.7, p95 148.1 / 27.4 / 788.4 / 42.0. **Not a GPU number:** headless Chrome on SwiftShader (the CPU draws all 32,288 lines of dm_lockdown's wireframe) at box load 95–205. The fourth run, the box at its quietest, held 60 fps orbiting; the worse ones are read as the box's load, which was not varied on purpose. On a real GPU it is unmeasured | the panel's readout; a scratch rAF loop over CDP, Chrome `--headless=new --use-angle=swiftshader` | as above |
 
 ### 12.4 Choices made in this plan (small, stated)
 
+- The aim brief's premises, against what was found (2026-11-02): `ss_ai_duel`'s room
+  has no 1,000 u line, so `ss_ai_range` was added; its spawns are all at the far end,
+  since a bot with nothing to do walks to one. Bots now draw their levels from a
+  preset (`SkillSpread`), so the range measures a preset's mean levels as a custom
+  vector, and a real game's draws differ from it. "A person's reaction of 30 ms" was
+  the metric's, not the person's.
+- `IEngineEntities.GetVelocity` of a player answers the movement's velocity since the
+  aim work; `SetVelocity` on one still writes only the base field: letting it reach the
+  movement froze three of four bots at a dm_lockdown spawn (-4116 4600), cause not
+  found. So func_rotating's and func_tracktrain's shoves of a blocked player and
+  setpos's zeroing still do nothing to a player, as before.
+- A bot whose back is turned does not see someone walking up on it (its field is the
+  client's 90°): the close-range ruling starts at sight.
 - Hearing = recipient-filter membership + soundlevel, not room-graph path
   distance (§4.2): it is literally what a client gets, and we have no room
   graph.
@@ -2986,7 +3107,49 @@ that code when M1 starts, and changes nothing here.
   restores 1, and `ai_map_step` kicks its bots before going home (the roster would carry
   them). The brief's live "a full server (maxplayers 4) with 3 bots and 1 human" cannot
   stand with a reserve of 1: 4 slots hold 1 person and 2 bots, the third bot benched from
-  the start. Followed the reserve; the live run is that.
+  the start. Followed the reserve; the live run is that. "The bot comes back" is the oldest
+  benched: on that server Tariq, benched since the start, returned, not Kofi, who had made
+  room for the second person a minute before. **Seen once, not chased:** in one 60 s
+  recording (`372be9481`) a bot spawned on the balcony at (-3226 4438 128) stood there the
+  whole minute, firing nothing and seeing nobody, with 0 sights while another bot and the
+  person shot it; another run from the same spot moved off. **The first numbers for §12.3,
+  from a client aimed by `setang_exact`, no player:** bots 1.4 % to 3.6 % over 110 to 211
+  shots at Medium. That is what the user's recording is for.
+- **The 3D view's brief, against what was there (§7.4, 2026-11-02).** The
+  `heard` list of `/ai/bot/<slot>` holds one last-heard place per actor, so it
+  is no history: at 5 Hz a burst of fire is one row. The blackboard's
+  investigations are only the unexplained sounds and go when their source is
+  sighted. So a new `HeardLog` holds each bot's last 48, filled where the tap
+  hands the brain the event; in a firefight that is 2–4 s of the 5 the view
+  fades over. `buildConeLayer` is flat (yaw only); the map tab keeps it, and the
+  3D view draws a round cone tilted with the pitch, which is what the vision
+  pass judges. There is no scripted face command with a pitch: the live check
+  turned a bot with `/player/teleport ang=`, thinking off.
+- **Framing the players, not the map (§7.4).** dm_lockdown's bounds take in a 3D
+  skybox far from the playable map, so `View.frame` left the bots a few pixels
+  across; the panel frames once for the clip planes, then fits the living
+  players once a map and when asked.
+- **A level change, found only live (§7.4).** The vision pass's reads outlive
+  their level until the senses next run, so the first answer on a new map placed
+  the human where it had stood on the old one, and the view framed that for good:
+  a black canvas over a good wireframe. `/ai/world` now shows no read more than
+  33 ticks from `VisionPass.LastRun`, the panel drops the old wireframe at once,
+  and fits again on the new map. The roster now brings the bots back after the
+  change: live, 781 route points over 12 s on `ss_ai_nav`, none outside its bounds.
+- **The route is the follower's, as of its last move.** `NavFollower.Route`
+  gives the corners it steers by and then the field's cells on to the goal, a
+  straight run as its two ends. A move with no way (airborne off the graph, no
+  route) has no route for that poll, so a line can drop out for a poll in the
+  air: it is what the follower holds, not smoothed over. A brain's goal with no
+  field built yet shows the goal and no line.
+- **Live, a bot on dm_lockdown's z 128 ledge near (-3026, 4502) refused every
+  `ai_bot_goto`** ("no cell reaches ... from the bot") and showed a goal and no
+  route for as long as it stood there, while another bot on the same ledge later
+  routed off it. Again at the tip: a scripted walk along that z 128 walkway from
+  (-2811, 3651) kept within 26 u of its route for 19 polls, then at (-2810, 4083),
+  cell 25314, the follower logged `NoRoute, cost left Infinity` and the route went
+  from the view, the walk's goal at z 0. Twice in a session, not chased: it is the
+  nav's, not this view's. The view is what made it visible.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

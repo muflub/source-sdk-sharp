@@ -81,7 +81,7 @@ public sealed class SoundClassifier(WeaponCatalog weapons)
 /// players). Both are heard by the same rule.
 /// </para>
 [SideService(Side.Server, As = [typeof(ISoundEmitHook), typeof(IClientStepHook)])]
-public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier classifier, IBotHud hud, IEngineFrame frame, ILog log)
+public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier classifier, IBotHud hud, IEngineFrame frame, HeardLog heard, ILog log)
     : ISoundEmitHook, IClientStepHook
 {
     private readonly Dictionary<int, AiRandom> _random = new();
@@ -133,6 +133,7 @@ public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier
             if (TryHear(b.Id, hud.Read(player).Origin, Level(b.Skills, "alertness"), in sound, kind, weapon, source, tick, Rng(b.Id), out AiEvent e))
             {
                 senses.Push(e);
+                heard.Add(in e);
                 Heard++;
             }
         }

@@ -17,7 +17,8 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 
 import type { MapGeometry } from '../../types';
 import { keyOf, type Entity } from '../model';
-import { View, buildEntities, buildWorld, type Drag, type ViewMode } from './renderer';
+import { View, buildEntities, buildWorld, type ViewMode } from './renderer';
+import { attachCamera } from './cameraControls';
 import { getAiBot, getAiBots, getAiFlow, getAiNav } from '../../api';
 import { buildConeLayer, buildHeatLayer } from '../../ai/aiInspect';
 import { buildFlowLayer, buildNavLayers, type AiNav } from '../aiNav';
@@ -260,80 +261,17 @@ export function ViewportPane({ visible, entities, map, selectedKey, onSelect, lo
     return () => { cancelled = true; };
   }, [visible, showNav, aiNav, selectedKey, entities, draw]);
 
-  //-------------------------------------------------------------------------
-  // Orbiting, panning, zooming, picking.
-  //
-  // On the container rather than per canvas, and the move and release are on the
-  // window: a drag that leaves the canvas it started in should keep going, which
-  // is exactly what happens when someone spins a camera quickly.
-  //-------------------------------------------------------------------------
-
   useEffect(() => {
     const element = host.current;
     if (!element) return;
 
-    let dragging: { view: View; drag: Drag } | null = null;
-
-    const viewFor = (target: EventTarget | null): View | null => {
+    return attachCamera(element, target => {
       const canvas = (target as HTMLElement | null)?.closest?.('canvas');
       return views.current.find(view => view.canvas === canvas) ?? null;
-    };
-
-    const onMouseDown = (event: MouseEvent): void => {
-      const view = viewFor(event.target);
-      if (!view) return;
-
-      dragging = { view, drag: view.beginDrag(event) };
-      event.preventDefault();
-    };
-
-    const onMouseMove = (event: MouseEvent): void => {
-      if (!dragging) return;
-
-      dragging.view.applyDrag(dragging.drag,
-        event.clientX - dragging.drag.x, event.clientY - dragging.drag.y);
-
-      draw();
-    };
-
-    const onMouseUp = (event: MouseEvent): void => {
-      if (dragging && !dragging.drag.moved && event.button === 0) {
-        const rect = dragging.view.canvas.getBoundingClientRect();
-        const hit = dragging.view.pick(
-          event.clientX - rect.left, event.clientY - rect.top, latest.current.entities);
-
-        if (hit) latest.current.onSelect(hit);
-      }
-
-      dragging = null;
-    };
-
-    const onWheel = (event: WheelEvent): void => {
-      const view = viewFor(event.target);
-      if (!view) return;
-
-      event.preventDefault();
-      view.zoomBy(event.deltaY);
-      draw();
-    };
-
-    const noMenu = (event: Event): void => event.preventDefault();
-
-    element.addEventListener('mousedown', onMouseDown);
-    element.addEventListener('contextmenu', noMenu);
-
-    // Not passive, because zooming the map must not also scroll the page.
-    element.addEventListener('wheel', onWheel, { passive: false });
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-
-    return () => {
-      element.removeEventListener('mousedown', onMouseDown);
-      element.removeEventListener('contextmenu', noMenu);
-      element.removeEventListener('wheel', onWheel);
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
+    }, draw, (view, x, y) => {
+      const hit = view.pick(x, y, latest.current.entities);
+      if (hit) latest.current.onSelect(hit);
+    });
   }, [draw]);
 
   // A canvas that has never been shown has no size, so the first frame after the

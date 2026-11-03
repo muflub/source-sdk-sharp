@@ -98,7 +98,7 @@ public sealed class AiStepCommand(Hl2mpAiSession ai, ILog log) : IConCommand
 /// Recording changes nothing in play, so it needs no <c>sv_cheats</c>.
 /// </summary>
 [ConCommand("ai_record", Help = "ai_record human | start [path] [tag] | stop: record the AI session (every player's usercmds, anonymised) to an .airec; with no path, <mod>/ai-recordings/human/<utc>.airec")]
-public sealed class AiRecordCommand(Hl2mpAiSession ai, IModInfo mod, ILog log) : IConCommand
+public sealed class AiRecordCommand(Hl2mpAiSession ai, VisionPass vision, IEngineFrame frame, IModInfo mod, ILog log) : IConCommand
 {
     /// <summary>Where a recording with no path goes, under the mod's game dir.</summary>
     public const string HumanDirectory = "ai-recordings/human";
@@ -148,6 +148,10 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, IModInfo mod, ILog log) :
                 ai.Recording.World(new AiRecordedWorld(world.Map, world.TickSeconds, ai.Session.Curves?.Json ?? "", nav));
             // The bots already playing, so the recording knows them for bots (§3.4.4's metrics).
             ai.Session.AnnounceBots();
+            var held = new List<AiEvent>();
+            vision.HeldSights(new Tick(frame.TickCount()), held);
+            foreach (AiEvent e in held)
+                ai.Recording.Observed(e);
             log.Msg($"[SourceSharp/Ai] ai_record: recording to {path} ({tag}), nav {nav:x16}\n");
             return;
         }
@@ -176,7 +180,7 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, IModInfo mod, ILog log) :
 /// a scripted action through the bot's command path (the scenario harness's
 /// "human", §6.6), holding where it stands and looks.
 /// </summary>
-[ConCommand("ai_bot_act", Help = "ai_bot_act <name> fire <seconds> | reload | select <slot>: a scripted action", Flags = ConVarFlags.Cheat)]
+[ConCommand("ai_bot_act", Help = "ai_bot_act <name> fire <seconds> | hold <seconds> | reload | select <slot>: a scripted action", Flags = ConVarFlags.Cheat)]
 public sealed class AiBotActCommand(Hl2mpBots bots, ILog log) : IConCommand
 {
     public void Execute(string args)
@@ -187,13 +191,14 @@ public sealed class AiBotActCommand(Hl2mpBots bots, ILog log) : IConCommand
         ActionKind? kind = p.Length < 2 ? null : p[1] switch
         {
             "fire" when p.Length > 2 && float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out seconds) => ActionKind.Fire,
+            "hold" when p.Length > 2 && float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out seconds) => ActionKind.None,
             "reload" => ActionKind.Reload,
             "select" when p.Length > 2 && int.TryParse(p[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out slot) => ActionKind.SelectWeapon,
             _ => null,
         };
         if (kind is not { } k)
         {
-            log.Warning("[SourceSharp/Ai] usage: ai_bot_act <name> fire <seconds> | reload | select <slot>\n");
+            log.Warning("[SourceSharp/Ai] usage: ai_bot_act <name> fire <seconds> | hold <seconds> | reload | select <slot>\n");
             return;
         }
 

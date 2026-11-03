@@ -363,27 +363,28 @@ public sealed class RosterTests
 
     // ---- people -------------------------------------------------------------
 
-    private static IConnectedClients Clients(params int[] taken) => SourceSharp.Ai.Tests.Senses.FakeEngine.Of<IConnectedClients>((m, x) => m.Name switch
+    /// <summary>The engine's clients: <paramref name="connected"/> have a channel; a player entity, so a user id, comes only at the spawn.</summary>
+    private static IClientInfo Clients(int[] connected, params int[] spawned) => SourceSharp.Ai.Tests.Senses.FakeEngine.Of<IConnectedClients>((m, x) => m.Name switch
     {
-        "UserId" => taken.Contains((int)x[0]!) ? 100 + (int)x[0]! : -1,
+        "Address" => connected.Contains((int)x[0]!) ? "127.0.0.1:27005" : null,
+        "UserId" => spawned.Contains((int)x[0]!) ? 100 + (int)x[0]! : -1,
         _ => throw SourceSharp.Ai.Tests.Senses.FakeEngine.Unasked(m),
     });
 
-    /// <summary>A slot with a user id counts from the moment the client connects (slot 3 has no player entity yet); a bot's slot does not count.</summary>
+    /// <summary>A person counts from the connect: slot 3 has a channel and no player entity yet (found live: the engine's status said 2 humans, the user id 1). A bot has no channel.</summary>
     [Fact]
-    public void PeopleAreTheClientsThatAreNotBotsConnectingOrSpawned()
+    public void PeopleAreTheClientsWithAChannelConnectingOrSpawned()
     {
-        BotPlayer[] bots = [new BotPlayer(new EntityHandle(0x0002_0002u), 2, "Alyx")];
-        Assert.Equal(2, EngineServerSlots.CountHumans(4, Clients(1, 2, 3), bots, dedicated: false));
-        Assert.Equal(3, EngineServerSlots.CountHumans(4, Clients(1, 2, 3), [], dedicated: true));   // the control: the bot's slot was the one left out
+        Assert.Equal(2, EngineServerSlots.CountHumans(4, Clients([1, 3], 1), dedicated: false));
     }
 
     /// <summary>A listen server's host takes a slot only after the level is up: counted first, or a bot takes it at the level's start and is benched a second later.</summary>
     [Fact]
     public void AListenServerCountsItsHostBeforeItConnectsADedicatedOneNobody()
     {
-        Assert.Equal(1, EngineServerSlots.CountHumans(4, Clients(), [], dedicated: false));
-        Assert.Equal(0, EngineServerSlots.CountHumans(4, Clients(), [], dedicated: true));
+        Assert.Equal(1, EngineServerSlots.CountHumans(4, Clients([]), dedicated: false));
+        Assert.Equal(0, EngineServerSlots.CountHumans(4, Clients([]), dedicated: true));
+        Assert.Equal(1, EngineServerSlots.CountHumans(4, Clients([2]), dedicated: true));   // the control: a dedicated server counts who is there
     }
 
     // ---- the draw -----------------------------------------------------------

@@ -6,13 +6,15 @@
  * investigations; the items) and its skill allocation with what each drives.
  * The "doing and planning" part is the behaviour tree's: the chosen branch,
  * the push / hold / retreat verdict with its window arithmetic, the reason
- * terms, and the last decides' traces (the BT trace panel).
+ * terms, and the last decides' traces (the BT trace panel). Above them, the
+ * live 3D map of every bot (ai/AiWorldPanel.tsx), sharing the selection.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { getAiBot, getAiBots, getAiReplayBot, loadAiReplay } from '../api';
 import { usePoll } from '../hooks/usePoll';
+import { AiWorldPanel } from '../ai/AiWorldPanel';
 import { ammoBar, type AiActor, type AiBot, type AiBotListing, type AiDoing, type AiReplayFrame, type AiReplayStatus } from '../ai/aiInspect';
 
 function AmmoBar({ actor }: { actor: AiActor }): ReactNode {
@@ -145,6 +147,7 @@ export function AiTab({ visible }: { visible: boolean }): ReactNode {
         ))}
       </nav>
       {error && <p className="error">{error}</p>}
+      <AiWorldPanel visible={visible} selected={slot} onSelect={setSlot} />
       {bot && (
         <>
           <h3>Memory</h3>

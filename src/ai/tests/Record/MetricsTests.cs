@@ -176,7 +176,7 @@ public sealed class MetricsTests
         s.Cmd(Person, 201, 0);
         string table = AiMetrics.Table(s.Metrics());
         string[] rows = table.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(6, rows.Length);   // the header and a row per actor, for the metrics and for the hit rate
+        Assert.Equal(8, rows.Length);   // the header and a row per actor for the metrics; for the hit rate, the header and two rows per actor
         Assert.StartsWith("2#1073742115 ", rows[1], StringComparison.Ordinal);
         Assert.Contains(" human ", rows[1], StringComparison.Ordinal);
         Assert.Contains(" bot ", rows[2], StringComparison.Ordinal);
@@ -289,7 +289,14 @@ public sealed class MetricsTests
         var r = new AiRecorder(bytes, Recordings.Header);
         var map = new MapKnowledge("dm_x", [], [], new WeaponKnowledge([new WeaponFacts(Smg, "weapon_smg1", 45, 0.075f, 1.5f, true, false, 0f)]));
         r.World(new AiRecordedWorld(map, 0.015f, "", 0));
-        r.UserCmd(new AiUserCmd(Person, new Tick(1), 1, 1, default, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+        for (int t = 0; t < 5; t++)
+        {
+            r.UserCmd(new AiUserCmd(Person, new Tick(t), t, t, default, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0));
+            r.Frame(new AiActorFrame(Person, new Tick(t), default, new AiVector(0, 0, 64), default));
+            r.Frame(new AiActorFrame(Bot, new Tick(t), new AiVector(100, 0, 0), new AiVector(100, 0, 64), default));
+        }
+
+        r.Observed(AiEvent.SightGained(Person, new Tick(0), Bot, default, default, 1f));
         r.Observed(AiEvent.ShotFired(Person, new Tick(1), Smg, 1));
         r.Observed(AiEvent.ShotFired(Person, new Tick(2), Smg, 1));
         r.Observed(AiEvent.ShotFired(Person, new Tick(3), Pistol, 1));
@@ -319,7 +326,7 @@ public sealed class MetricsTests
         Assert.Equal(0, h.Untargeted);
     }
 
-    /// <summary>A shot at nobody near the crosshair, or at an actor not sighted, counts overall and in no band.</summary>
+    /// <summary>A shot at nobody near the crosshair, or at an actor not sighted, is in no rate.</summary>
     [Fact]
     public void AShotWithNoSightedTargetNearTheCrosshairIsInNoBand()
     {
@@ -338,7 +345,132 @@ public sealed class MetricsTests
         s.Recorder.Observed(AiEvent.SightLost(Person, new Tick(30), Bot, default, default));
         Shot(s, Person, 35);   // lost
         HitRates h = Of(s.Metrics(), Person).Hits;
-        Assert.Equal((4, 3, 1), (h.Overall.Shots, h.Untargeted, h.ByRange[1].Shots));
+        Assert.Equal((1, 3, 1), (h.Overall.Shots, h.Untargeted, h.ByRange[1].Shots));
+    }
+
+    /// <summary>A stream of a person looking at <paramref name="yaw"/>, with a sighted bot 500 u along yaw 0 taking a hit at each shot.</summary>
+    private static Stream ShotsWithTheViewAt(float yaw)
+    {
+        var s = new Stream();
+        for (int t = 0; t < 40; t++)
+        {
+            s.Frame(Person, t, new AiVector(0, 0, 0));
+            s.Frame(Bot, t, new AiVector(500, 0, 0));
+            s.Cmd(Person, t, yaw);
+        }
+
+        s.Recorder.Observed(AiEvent.SightGained(Person, new Tick(0), Bot, default, default, 1f));
+        Shot(s, Person, 10);
+        Hit(s, Person, Bot, 10, 500);
+        Shot(s, Person, 20);
+        return s;
+    }
+
+    /// <summary>The ruling's case: at a crate with a bot 25 degrees away, in no rate, the hit neither.</summary>
+    [Fact]
+    public void AShotAtTheWorldWithABot25DegreesAwayIsNotCounted()
+    {
+        HitRates h = Of(ShotsWithTheViewAt(25f).Metrics(), Person).Hits;
+        Assert.Equal(new HitLine("overall", 0, 0), h.Overall);
+        Assert.Equal(new HitLine("300-800", 0, 0), h.ByRange[1]);
+        Assert.Equal(2, h.Untargeted);
+    }
+
+    [Fact]
+    public void AShotOnTheTargetIsCounted()
+    {
+        HitRates h = Of(ShotsWithTheViewAt(1f).Metrics(), Person).Hits;
+        Assert.Equal(new HitLine("overall", 1, 2), h.Overall);
+        Assert.Equal(new HitLine("300-800", 1, 2), h.ByRange[1]);
+        Assert.Equal(0, h.Untargeted);
+    }
+
+    /// <summary>The cone is the body's half-width (1.8 degrees at 500 u) plus 3: 4 is in, 6 out; and close, a wider body.</summary>
+    [Theory]
+    [InlineData(500f, 4f, true)]
+    [InlineData(500f, 6f, false)]
+    [InlineData(100f, 12f, true)]
+    [InlineData(100f, 14f, false)]
+    public void TheConeIsTheBodysHalfWidthPlusTheMargin(float distance, float angle, bool holds)
+        => Assert.Equal(holds, AimCone.Holds(angle, distance));
+
+    /// <summary>The sensitivity line: 25 degrees off is out of every cone but the widest.</summary>
+    [Fact]
+    public void TheRateIsToldAtEachConeOfTheChoice()
+    {
+        HitRates h = Of(ShotsWithTheViewAt(25f).Metrics(), Person).Hits;
+        Assert.Equal([new HitLine("+3\u00b0", 0, 0), new HitLine("+6\u00b0", 0, 0), new HitLine("+10\u00b0", 0, 0), new HitLine("+30\u00b0", 1, 2)], h.ByCone);
+        Assert.Contains("by cone (the body's half-width plus): +3\u00b0 0/0 -, +6\u00b0 0/0 -, +10\u00b0 0/0 -, +30\u00b0 1/2 50.0%", AiMetrics.Table(ShotsWithTheViewAt(25f).Metrics()), StringComparison.Ordinal);
+    }
+
+    /// <summary>A person's hand is never still: a small movement toward the target is no reaction, the shot is.</summary>
+    [Fact]
+    public void ATinyMovementTowardTheTargetIsNoReaction()
+    {
+        var s = new Stream();
+        for (int t = 90; t < 160; t++)
+        {
+            s.Frame(Person, t, new AiVector(0, 0, 0));
+            s.Frame(Bot, t, new AiVector(500, 0, 0));
+            // 90 degrees off, the hand wandering a degree at 66 degrees a second, and still between.
+            s.Cmd(Person, t, t % 4 == 0 ? 91 : 90, buttons: t == 130 ? 1 : 0);
+        }
+
+        s.Recorder.Observed(AiEvent.SightGained(Person, new Tick(100), Bot, default, default, 1f));
+        Assert.Equal(450, Assert.Single(Of(s.Metrics(), Person).ReactionMs), 3);
+    }
+
+    /// <summary>A button already held when the sight came is no answer to it: the next press is.</summary>
+    [Fact]
+    public void AButtonAlreadyHeldAtTheSightIsNoReaction()
+    {
+        var s = new Stream();
+        for (int t = 90; t < 160; t++)
+        {
+            s.Frame(Person, t, new AiVector(0, 0, 0));
+            s.Frame(Bot, t, new AiVector(500, 0, 0));
+            s.Cmd(Person, t, 90, buttons: t < 110 || t >= 120 ? 1 : 0);
+        }
+
+        s.Recorder.Observed(AiEvent.SightGained(Person, new Tick(100), Bot, default, default, 1f));
+        Assert.Equal(300, Assert.Single(Of(s.Metrics(), Person).ReactionMs), 3);
+    }
+
+    /// <summary>A turn already going when the sight came is no answer to it: the next one, after the view has slowed, is.</summary>
+    [Fact]
+    public void ATurnAlreadyGoingAtTheSightIsNoReaction()
+    {
+        var s = new Stream();
+        float yaw = 120;
+        for (int t = 90; t < 160; t++)
+        {
+            s.Frame(Person, t, new AiVector(0, 0, 0));
+            s.Frame(Bot, t, new AiVector(500, 0, 0));
+            if (t < 105 || t >= 120)
+                yaw -= 3f;
+            s.Cmd(Person, t, yaw);
+        }
+
+        s.Recorder.Observed(AiEvent.SightGained(Person, new Tick(100), Bot, default, default, 1f));
+        // Still from 105 to 119; the new turn's first step is into tick 120.
+        Assert.Equal(300, Assert.Single(Of(s.Metrics(), Person).ReactionMs), 3);
+    }
+
+    /// <summary>A real turn toward the target is timed from where it began, not where it passed the threshold.</summary>
+    [Fact]
+    public void ARealTurnIsTimedFromItsStart()
+    {
+        var s = new Stream();
+        for (int t = 90; t < 160; t++)
+        {
+            s.Frame(Person, t, new AiVector(0, 0, 0));
+            s.Frame(Bot, t, new AiVector(500, 0, 0));
+            s.Cmd(Person, t, t < 110 ? 90 : Math.Max(0, 90 - 1.5f * (t - 110)));
+        }
+
+        s.Recorder.Observed(AiEvent.SightGained(Person, new Tick(100), Bot, default, default, 1f));
+        // The first step is into tick 111; 3 degrees are gone by 112.
+        Assert.Equal(165, Assert.Single(Of(s.Metrics(), Person).ReactionMs), 3);
     }
 
     [Fact]
@@ -374,5 +506,40 @@ public sealed class MetricsTests
         Assert.Contains("overall 1/2 50.0%", table, StringComparison.Ordinal);
         Assert.Contains("300-800 1/2 50.0%", table, StringComparison.Ordinal);
         Assert.Contains("no target 0 shots", table, StringComparison.Ordinal);
+    }
+
+    /// <summary>A crowbar's swing is no Fired event (seen live: "weapon_crowbar 10/0", and a band at 115 %): its hits stay on its line and out of the rates.</summary>
+    [Fact]
+    public void AHitByAWeaponThatFiredNoShotIsOutOfTheRates()
+    {
+        Stream s = Range(Person, Bot, 100);
+        Shot(s, Person, 10);
+        Hit(s, Person, Bot, 11, 100, weapon: 1);
+        Hit(s, Person, Bot, 10, 100);
+        HitRates h = Of(s.Metrics(), Person).Hits;
+        Assert.Equal((new HitLine("overall", 1, 1), new HitLine("<300", 1, 1)), (h.Overall, h.ByRange[0]));
+        Assert.Contains(new HitLine("weapon 1", 1, 0), h.ByWeapon);
+    }
+
+    /// <summary>A sighting held when a recording began (seen live: 94 of 110 shots read "no target") gives a shot its target, and no reaction or acquisition.</summary>
+    [Fact]
+    public void ASightingHeldAtTheStartGivesAShotItsTargetAndNoReaction()
+    {
+        var s = new Stream();
+        for (int t = 0; t < 30; t++)
+        {
+            s.Frame(Bot, t, new AiVector(0, 0, 0));
+            s.Frame(Person, t, new AiVector(500, 0, 0));
+            s.Cmd(Bot, t, 0, buttons: 1);
+        }
+
+        s.Recorder.BotAdded(Bot, 1, []);
+        s.Recorder.Observed(AiEvent.SightHeld(Bot, new Tick(0), Person, default, default, 1f));
+        Shot(s, Bot, 10);
+        ActorMetrics m = Of(s.Metrics(), Bot);
+        Assert.Equal((1, 0), (m.Hits.ByRange[1].Shots, m.Hits.Untargeted));
+        Assert.Equal(0, m.SightsGained);
+        Assert.Empty(m.ReactionMs);
+        Assert.Empty(m.TimeToAcquireMs);
     }
 }

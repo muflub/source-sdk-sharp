@@ -30,6 +30,14 @@ public sealed class Hl2mpDecider : IDecider
     /// <summary>An unsighted opponent is not hunted past this, times Headhunter's path cap.</summary>
     public const float HuntReach = 2048f;
 
+    /// <summary>
+    /// Within this someone in plain sight comes before anything else a bot is
+    /// about (user ruling 2026-11-02: "bots should also fire if close to the player
+    /// instead of trying to do other things"). The one distance for every gun: none
+    /// reaches less (the shotgun's effective range is this, at the lowest gate).
+    /// </summary>
+    public const float CloseRange = AimStats.CloseRange;
+
     /// <summary>A one-shot's weapon slot asks for a weapon by catalog kind: this plus the kind (the applier's convention).</summary>
     public const int SelectByKind = 1000;
 
@@ -89,6 +97,7 @@ public sealed class Hl2mpDecider : IDecider
     // What outlives a decide.
     private int _oneShot;
     private int _strafeSign = 1;
+    private bool _strafing;
     private Tick _strafeUntil;
     private AiVector _roamGoal;
     private Tick _roamUntil;
@@ -180,6 +189,8 @@ public sealed class Hl2mpDecider : IDecider
         ChooseTarget();
         if (_target is null || _targetSighted)
             _approachOf = ActorId.None;   // an approach ends in sight, or with nobody to approach
+        if (!_targetSighted)
+            _aimSighted = false;          // back in sight, the aim starts over
 
         _tree.Decide(this, _run, tick);
         if (!_targetSighted && _hasGoal && _look.Kind == LookKind.Path)
@@ -255,8 +266,9 @@ public sealed class Hl2mpDecider : IDecider
         _target = null;
         _targetSighted = false;
         _scoreboardTerm = 0f;
-        float best = 0f;
+        float best = 0f, closest = CloseRange;
         int rows = 0;
+        bool close = false;
         Blackboard board = _memory.Board;
         for (int s = 0; s < board.Slots; s++)
         {
@@ -282,7 +294,15 @@ public sealed class Hl2mpDecider : IDecider
             float rankTerm = _p.RankBonus * RankBonus(a.Rank, rows);
             float proximity = 1f / (1f + dist / 768f);
             float priority = (sighted ? 1f : 0.5f * a.Confidence) * (proximity * _p.EasyTargetDiscount + rankTerm);
-            if (priority > best)
+            // Someone close in plain sight outranks everyone else, the nearest first.
+            bool closer = sighted && dist <= closest;
+            if (closer)
+            {
+                closest = dist;
+                close = true;
+            }
+
+            if (closer || (!close && priority > best))
             {
                 best = priority;
                 _target = a;
@@ -393,7 +413,9 @@ public sealed class Hl2mpDecider : IDecider
             GoTo(cover, MoveSpeed.Run, MoveKind.Retreat);
         else
             Strafe(-0.8f);
-        LookAtTarget(fire: false);
+        // Rounds left in a reload a shot would break (a shotgun's): close, it fires;
+        // a reload a shot cannot break just ignores the button.
+        LookAtTarget(fire: _targetDist <= CloseRange && _self.Clip > 0);
         return true;
     }
 
@@ -477,8 +499,28 @@ public sealed class Hl2mpDecider : IDecider
             return false;
         _verdict = "chase";
         Approach(_target.LastSeenPos);
-        _look = new LookIntent(LookKind.Point, _target.LastSeenPos + new AiVector(0f, 0f, 48f), _target.Id, AimPoint.Body, 0f, 0);
+        _look = new LookIntent(LookKind.Point, ChaseLook(_target.LastSeenPos), _target.Id, AimPoint.Body, 0f, 0);
         return true;
+    }
+
+    /// <summary>Near the place it chases to, a bot looks on past it at head height (<see cref="ChaseLook"/>).</summary>
+    public const float ChaseLookNear = 128f;
+
+    /// <summary>
+    /// Where a chasing bot looks: at chest height of the place it last saw the
+    /// target, until it is close; then level, past the place. Looking at that
+    /// chest height from a pace away is a look at the floor (arriving, pitch
+    /// 49° and more on flat ground, §12.3).
+    /// </summary>
+    private AiVector ChaseLook(AiVector place)
+    {
+        var to = new AiVector(place.X - _self.Origin.X, place.Y - _self.Origin.Y, 0f);
+        float flat = to.Length;
+        if (flat >= ChaseLookNear)
+            return place + new AiVector(0f, 0f, 48f);
+        AiVector ahead = flat > 8f ? to * (1f / flat) : VisionMath.Forward(_self.Eye);
+        var level = new AiVector(ahead.X, ahead.Y, 0f).Normalised();
+        return _self.Origin + new AiVector(0f, 0f, 64f) + level * ChaseLookNear;
     }
 
     private bool Hunt()
@@ -746,16 +788,19 @@ public sealed class Hl2mpDecider : IDecider
 
     /// <summary>
     /// A fight's sidestep (§3.4: aperiodic, by Agility): a side drawn anew
-    /// after an exponential wait of mean <c>strafeMeanSeconds</c>, and the
-    /// share <c>strafeWeight</c> of decides strafing at all;
+    /// after an exponential wait of mean <c>strafeMeanSeconds</c>, and with
+    /// chance <c>strafeWeight</c> the stretch is a sidestep at all, not a stand;
     /// <paramref name="approach"/> mixes in moving toward (+) or away from (−)
-    /// the target.
+    /// the target. Drawn by the stretch, not by the decide: on and off ten times a
+    /// second the body jerks like nobody's does, and the bot's own view cannot
+    /// follow it (Expert hit 37 % with Agility 5, 75 % with 0, §12.3).
     /// </summary>
     private void Strafe(float approach)
     {
         if (_now >= _strafeUntil)
         {
             _strafeSign = _rng.NextFloat() < 0.5f ? -1 : 1;
+            _strafing = _rng.NextFloat() < _p.StrafeWeight;
             float u = Math.Max(_rng.NextFloat(), 1e-4f);
             float wait = -MathF.Log(u) * _p.StrafeMeanSeconds;
             _strafeUntil = _now + Math.Max(4, (int)(wait / _tick));
@@ -763,9 +808,74 @@ public sealed class Hl2mpDecider : IDecider
 
         AiVector to = new AiVector(_targetPos.X - _self.Origin.X, _targetPos.Y - _self.Origin.Y, 0f).Normalised();
         var side = new AiVector(-to.Y, to.X, 0f);
-        float strafe = _rng.NextFloat() < _p.StrafeWeight ? _strafeSign : 0f;
+        float strafe = _strafing ? _strafeSign : 0f;
         AiVector dir = to * approach + side * strafe;
         _move = dir.Length < 0.05f ? MoveIntent.Hold : new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, dir.Normalised(), false, 0);
+    }
+
+    /// <summary>How fast the aim's wander changes (§3.4.1's drift), seconds to fall to 1/e of its value.</summary>
+    public const float AimWanderSeconds = 0.7f;
+
+    /// <summary>The aim's error at first sight, on top of its settled size: 1.5 is 2.5 times the error (a first shot is usually worse than the fifth).</summary>
+    public const float AimSettleExtra = 1.5f;
+
+    /// <summary>How fast that extra error goes, seconds to fall to 1/e.</summary>
+    public const float AimSettleSeconds = 0.6f;
+
+    /// <summary>How smooth the wander's second filter makes it, seconds; its size stays nearly the same (a sixth smaller) at this.</summary>
+    public const float AimSmoothSeconds = 0.25f;
+
+    /// <summary>The aim's wander stops at this many of its standard deviations.</summary>
+    public const float AimWanderClip = 2.5f;
+
+    /// <summary>The aim's vertical error, as a share of its horizontal one: a body is taller than it is wide, and people misjudge across more than up.</summary>
+    public const float AimErrorUpShare = 0.6f;
+
+    private float _aimX, _aimZ, _aimSmoothX, _aimSmoothZ;
+    private ActorId _aimOf;
+    private Tick _aimSince;
+    private bool _aimSighted;
+
+    private float Gaussian()
+    {
+        // Both draws every time, so the stream does not depend on the value.
+        float u = Math.Max(_rng.NextFloat(), 1e-6f), v = _rng.NextFloat();
+        return MathF.Sqrt(-2f * MathF.Log(u)) * MathF.Cos(2f * MathF.PI * v);
+    }
+
+    /// <summary>
+    /// The aim's error as a share of <c>aimErrorDeg</c> (§3.4.1): drawn when the
+    /// target comes into sight, wandering slowly from there, not a new draw at
+    /// each decide; a person's crosshair drifts, it does not jump.
+    /// </summary>
+    private void WanderAim()
+    {
+        bool fresh = _target!.Id != _aimOf || !_aimSighted;
+        _aimSighted = _targetSighted;
+        float a = Gaussian(), b = Gaussian();
+        if (fresh)
+        {
+            _aimOf = _target.Id;
+            _aimSince = _now;
+            _aimX = a;
+            _aimZ = b;
+        }
+        else
+        {
+            float rho = MathF.Exp(-DecideSchedule.Period * _tick / AimWanderSeconds);
+            float rest = MathF.Sqrt(1f - rho * rho);
+            _aimX = rho * _aimX + rest * a;
+            _aimZ = rho * _aimZ + rest * b;
+        }
+
+        _aimX = Math.Clamp(_aimX, -AimWanderClip, AimWanderClip);
+        _aimZ = Math.Clamp(_aimZ, -AimWanderClip, AimWanderClip);
+
+        // Smoothed once more, so the crosshair's drift has no 10 Hz steps in it: each
+        // would turn the view back and forth (yaw reversals, ai-replay metrics).
+        float keep = fresh ? 0f : MathF.Exp(-DecideSchedule.Period * _tick / AimSmoothSeconds);
+        _aimSmoothX = keep * _aimSmoothX + (1f - keep) * _aimX;
+        _aimSmoothZ = keep * _aimSmoothZ + (1f - keep) * _aimZ;
     }
 
     private void LookAtTarget(bool fire)
@@ -774,6 +884,18 @@ public sealed class Hl2mpDecider : IDecider
             return;
         AiVector chest = _targetPos + new AiVector(0f, 0f, 48f);
         float lead = 0f;
+        if (_targetSighted)
+        {
+            // Where the target will be, seen from where the bot will be, when the
+            // view gets there (§5.3.3, §3.4.1's pursuit): the view runs
+            // trackingLagMs behind this point and the point is half a decide old
+            // on average. A person allows for their own sidestep, and for the
+            // target's by Accuracy; what they do not allow for is the error a
+            // fast strafer costs.
+            float allow = _p.TrackingLagMs / 1000f + (DecideSchedule.Period * 0.5f + 1f) * _tick;
+            chest += (_targetVel * _p.LeadQuality - _self.Velocity) * allow;
+        }
+
         if (_ownHasFacts && _ownFacts.ProjectileSpeed > 0f)
         {
             AiVector eye = _self.Origin + new AiVector(0f, 0f, 64f);
@@ -782,9 +904,11 @@ public sealed class Hl2mpDecider : IDecider
             chest = point;
         }
 
-        // The aim's error by Accuracy: a point off the target by the error cone at its distance.
-        float err = MathF.Tan(_p.AimErrorDeg * (MathF.PI / 180f)) * _targetDist * (_rng.NextFloat() * 2f - 1f);
-        float errUp = MathF.Tan(_p.AimErrorDeg * (MathF.PI / 180f)) * _targetDist * (_rng.NextFloat() - 0.5f);
+        // The aim's error by Accuracy: a point off the target by its wander, wider at first sight.
+        WanderAim();
+        float seconds = (_now - _aimSince) * _tick;
+        float size = MathF.Tan(_p.AimErrorDeg * (MathF.PI / 180f)) * _targetDist * (1f + AimSettleExtra * MathF.Exp(-seconds / AimSettleSeconds));
+        float err = size * _aimSmoothX, errUp = size * _aimSmoothZ * AimErrorUpShare;
         AiVector to = new AiVector(chest.X - _self.Origin.X, chest.Y - _self.Origin.Y, 0f).Normalised();
         chest += new AiVector(-to.Y * err, to.X * err, errUp);
         _look = new LookIntent(LookKind.Actor, chest, _target.Id, AimPoint.Body, lead, 0);
@@ -812,7 +936,10 @@ public sealed class Hl2mpDecider : IDecider
     /// </summary>
     private void Overlays()
     {
-        if (_action.Kind != ActionKind.None)
+        // A melee weapon or the gravity gun cannot reach what a gun can: in sight,
+        // holding one beats swinging it.
+        bool cannotReach = _targetSighted && (_use.Melee || _use.Family == "physgun");
+        if (_action.Kind != ActionKind.None && !cannotReach)
             return;
         if (!_targetSighted && _ownHasFacts && _ownFacts.HasClip && _self.Reserve > 0 && !SelfReloading
             && _self.Clip < _p.ReloadBelowPct * _ownFacts.ClipSize)
@@ -824,7 +951,7 @@ public sealed class Hl2mpDecider : IDecider
         if ((_now - _lastSelect) * _tick < 1f)
             return;
         int best = BestHeld(out int bestKind);
-        if (bestKind >= 0 && bestKind != _self.ActiveWeapon && best > _use.Rank)
+        if (bestKind >= 0 && bestKind != _self.ActiveWeapon && (best > _use.Rank || InHandDry))
         {
             _lastSelect = _now;
             _action = new ActionIntent(ActionKind.SelectWeapon, FireStyle.Tap, SelectByKind + bestKind, ++_oneShot);
@@ -853,12 +980,15 @@ public sealed class Hl2mpDecider : IDecider
         }
     }
 
+    /// <summary>The gun in hand has nothing left at all: anything loaded beats it, whatever its rank.</summary>
+    private bool InHandDry => _ownHasFacts && _ownFacts.HasClip && !_use.Melee && _self.Clip + _self.Reserve <= 0;
+
     /// <summary>The best rank among the held weapons (the HUD's), and its kind; with no holdings known, the one in hand.</summary>
     private int BestHeld(out int kind)
     {
         int held = _memory.HeldKinds;
         kind = _self.ActiveWeapon;
-        int best = _use.Rank;
+        int best = InHandDry ? -1 : _use.Rank;
         if (held == 0)
             return best;
         foreach (WeaponFacts w in _map.Weapons.All)
@@ -868,7 +998,7 @@ public sealed class Hl2mpDecider : IDecider
             WeaponUse u = Hl2mpWeaponRanges.For(w.Name);
             // The one in hand needs rounds; the HUD's others are loaded unless found empty.
             bool loaded = u.Melee || (w.Kind == _self.ActiveWeapon ? _self.Clip + _self.Reserve > 0 : (_dryKinds & (1 << w.Kind)) == 0);
-            if (u.Rank > best && loaded)
+            if (u.Rank > best && loaded && w.Kind != _self.ActiveWeapon)
             {
                 best = u.Rank;
                 kind = w.Kind;

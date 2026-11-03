@@ -166,6 +166,12 @@ void main() {
   gl_FragColor = vec4(vColour, uAlpha);
 }`;
 
+/** The AI tab's live layers, in the order they are drawn (ai/aiWorld.ts builds them). */
+export const BOT_LINE_LAYERS = ['botBodies', 'botSight', 'botGoing', 'botHeard', 'botMemory', 'botAim'] as const;
+
+/** What a frame is cleared to: the colour a layer fades toward to fade out. */
+export const BACKGROUND: Vec3 = [0.06, 0.07, 0.09];
+
 const hex = (value: string): Vec3 => [
   parseInt(value.slice(1, 3), 16) / 255,
   parseInt(value.slice(3, 5), 16) / 255,
@@ -325,7 +331,7 @@ export class View {
     }
 
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    gl.clearColor(0.06, 0.07, 0.09, 1);
+    gl.clearColor(BACKGROUND[0], BACKGROUND[1], BACKGROUND[2], 1);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
@@ -343,6 +349,8 @@ export class View {
     this.drawBuffer('navFlow', gl.LINES, 1, 0.9, 0);
     this.drawBuffer('aiHeat', gl.POINTS, 3, 0.9, 0);
     this.drawBuffer('aiCone', gl.LINES, 1, 0.95, 0);
+    for (const layer of BOT_LINE_LAYERS) this.drawBuffer(layer, gl.LINES, 1, 1, 0);
+    this.drawBuffer('botMarkers', gl.POINTS, 8, 1, 1);
     this.drawBuffer('entities', gl.POINTS, this.mode === 'persp' ? 7 : 6, 1, 1);
     this.drawBuffer('selection', gl.LINES, 1, 1, 0);
   }
@@ -452,9 +460,9 @@ export class View {
     }
   }
 
-  /** The entity nearest a click, if one is near enough to have been meant. */
-  pick(px: number, py: number, entities: Entity[]): Entity | null {
-    let best: Entity | null = null;
+  /** The thing nearest a click, if one is near enough to have been meant. */
+  pick<T extends { origin: Vec3 }>(px: number, py: number, entities: T[]): T | null {
+    let best: T | null = null;
     let bestDistance = 14 * 14;
 
     for (const entity of entities) {

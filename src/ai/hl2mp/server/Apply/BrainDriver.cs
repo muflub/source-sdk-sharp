@@ -32,6 +32,9 @@ public sealed class BrainDriver
     /// <summary>Field builds a worker made, for the cost counter.</summary>
     public int PooledBuilds { get; private set; }
 
+    /// <summary>The follower carrying out the bot's goal now, or null: the brain has no goal to walk to.</summary>
+    public NavFollower? FollowerOf(int slot) => _driven.TryGetValue(slot, out Driven? d) ? d.Follower : null;
+
     public void Forget(int slot)
     {
         _driven.Remove(slot);

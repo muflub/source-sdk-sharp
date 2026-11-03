@@ -152,6 +152,13 @@ public readonly record struct AiEvent(
     public static AiEvent ItemSeen(ActorId bot, Tick tick, int item, bool present)
         => new(AiEventKind.ItemSeen, bot, tick, ActorId.None, default, default, 0f, item, present ? 1 : 0);
 
+    /// <summary>Written for a sighting already held when a recording starts (Code 1): a shot's target, but no stimulus for a reaction.</summary>
+    public static AiEvent SightHeld(ActorId bot, Tick tick, ActorId target, AiVector pos, AiVector vel, float visibleFraction)
+        => new(AiEventKind.SightGained, bot, tick, target, pos, vel, visibleFraction, HeldSight, 0);
+
+    /// <summary>A <see cref="AiEventKind.SightGained"/>'s Code when the sighting began before the recording did.</summary>
+    public const int HeldSight = 1;
+
     /// <summary><see cref="AiEventKind.ShotFired"/>: for the recording, never a brain.</summary>
     public static AiEvent ShotFired(ActorId actor, Tick tick, int weaponKind, int rounds)
         => new(AiEventKind.ShotFired, actor, tick, ActorId.None, default, default, rounds, weaponKind, 0);

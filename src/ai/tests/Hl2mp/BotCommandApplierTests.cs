@@ -289,6 +289,165 @@ public class BotCommandApplierTests
         Assert.Equal((5f, 135f), (cmd.Pitch, cmd.Yaw));
     }
 
+    /// <summary>
+    /// A tick as in the game, where the server's view is the last command's;
+    /// <see cref="Self"/> otherwise stays at yaw 0 and the applier would
+    /// take every turn for a server snap.
+    /// </summary>
+    private UserCmd TickFollowingTheView()
+    {
+        UserCmd cmd = Tick();
+        _self.Facts = _self.Facts with { View = new AiAngles(cmd.Pitch, cmd.Yaw, 0f) };
+        return cmd;
+    }
+
+    private static readonly ActorId Foe = new(5, 0x4000_0001);
+
+    private void SubmitAim(AiVector point, ActionIntent action)
+        => _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold,
+                                             new LookIntent(LookKind.Actor, point, Foe, AimPoint.Body, 0f, 0), action, default));
+
+    /// <summary>
+    /// The aim's point moves at every decide while the target stays the same:
+    /// one stimulus (§3.4.1). As a new stimulus each move restarted the
+    /// reaction, and the view never moved for as long as the fight lasted.
+    /// </summary>
+    [Fact]
+    public void AnActorWhoseAimPointMovesIsOneStimulusAndTheViewGetsThere()
+    {
+        var rng = new Random(5);
+        for (int i = 0; i < 200; i++)
+        {
+            if (i % 6 == 0)
+                SubmitAim(new AiVector(rng.NextSingle() * 80f - 40f, 500f + rng.NextSingle() * 80f - 40f, 64f), ActionIntent.None);
+            TickFollowingTheView();
+        }
+
+        Assert.InRange(_self.Facts.View.Yaw, 80f, 100f);
+    }
+
+    /// <summary>The control: another actor is a new stimulus, and the view waits its reaction again.</summary>
+    [Fact]
+    public void AnotherActorIsANewStimulus()
+    {
+        for (int i = 0; i < 150; i++)
+        {
+            if (i % 6 == 0)
+                SubmitAim(new AiVector(0f, 500f, 64f), ActionIntent.None);
+            TickFollowingTheView();
+        }
+
+        float yaw = _self.Facts.View.Yaw;
+        var other = new LookIntent(LookKind.Actor, new AiVector(-500f, 0f, 64f), new ActorId(6, 0x4000_0001), AimPoint.Body, 0f, 0);
+        _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold, other, ActionIntent.None, default));
+        for (int i = 0; i < (int)(Normal.ReactionMs / 1000f / Dt) - 1; i++)
+            TickFollowingTheView();
+        Assert.Equal(yaw, _self.Facts.View.Yaw);
+    }
+
+    /// <summary>Someone it was chasing, seen again, is a new stimulus: it waits its reaction and flicks.</summary>
+    [Fact]
+    public void SeeingAgainSomeoneItChasedIsANewStimulus()
+    {
+        for (int i = 0; i < 150; i++)
+        {
+            if (i % 6 == 0)
+                _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold,
+                                                  new LookIntent(LookKind.Point, new AiVector(500f, 0f, 64f), Foe, AimPoint.Body, 0f, 0), ActionIntent.None, default));
+            TickFollowingTheView();
+        }
+
+        SubmitAim(new AiVector(0f, 500f, 64f), ActionIntent.None);
+        float yaw = TickFollowingTheView().Yaw;
+        Assert.Equal(AimPhase.Reacting, _applier.StateOf(Bot.Slot)!.Motion.Phase);
+        Assert.InRange(yaw, -1f, 1f);
+    }
+
+    /// <summary>
+    /// Walking almost where it looks, the side move is none at all: the view's
+    /// small lag either way made a side move that flipped sign every few ticks.
+    /// </summary>
+    [Theory]
+    [InlineData(3f)]
+    [InlineData(-3f)]
+    public void ASliverOfASidestepIsNone(float degreesOff)
+    {
+        float rad = degreesOff * (MathF.PI / 180f);
+        var corner = new AiVector(MathF.Cos(rad) * 500f, MathF.Sin(rad) * 500f, 0f);
+        _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), Follow(corner), Ahead, ActionIntent.None, default));
+        UserCmd c = Tick();
+        Assert.Equal(0f, c.SideMove);
+        Assert.True(c.ForwardMove > 400f, $"forward {c.ForwardMove}");
+    }
+
+    /// <summary>The control: a real sidestep is sent.</summary>
+    [Fact]
+    public void ARealSidestepIsSent()
+    {
+        var corner = new AiVector(MathF.Cos(0.6f) * 500f, -MathF.Sin(0.6f) * 500f, 0f);
+        _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), Follow(corner), Ahead, ActionIntent.None, default));
+        Assert.True(Tick().SideMove > 100f);
+    }
+
+    private static ActionIntent HoldFire => new(ActionKind.Fire, FireStyle.Spray, 0, 0);
+
+    [Fact]
+    public void TheHandsWaitForTheReactionAndTheFlick()
+    {
+        var fired = new List<int>();
+        int reaction = (int)(Normal.ReactionMs / 1000f / Dt);
+        for (int i = 0; i < 200; i++)
+        {
+            if (i % 6 == 0)
+                SubmitAim(new AiVector(0f, 500f, 64f), HoldFire);
+            if ((TickFollowingTheView().Buttons & (int)InputButtons.Attack) != 0)
+                fired.Add(i);
+        }
+
+        Assert.NotEmpty(fired);
+        Assert.True(fired[0] > reaction, $"first press at tick {fired[0]}, the reaction lasts {reaction}");
+        Assert.InRange(MathF.Abs(HumanMotion.AngleDelta(_self.Facts.View.Yaw, 90f)), 0f, 25f);
+    }
+
+    private int FirstPressAiming(AiVector point)
+    {
+        for (int i = 0; i < 300; i++)
+        {
+            if (i % 6 == 0)
+                SubmitAim(point, HoldFire);
+            if ((TickFollowingTheView().Buttons & (int)InputButtons.Attack) != 0)
+                return i;
+        }
+
+        return int.MaxValue;
+    }
+
+    /// <summary>
+    /// Close, a body is wide: the hands fire once the view is within it, not at a
+    /// flick's 70 %. The same 40 degrees' flick at 1,000 u presses later, and
+    /// neither presses in the reaction.
+    /// </summary>
+    [Fact]
+    public void CloseTheHandsDoNotWaitForTheFlicksEnd()
+    {
+        float rad = 40f * (MathF.PI / 180f);
+        int close = FirstPressAiming(new AiVector(MathF.Cos(rad) * 150f, MathF.Sin(rad) * 150f, 64f));
+        var other = new BotCommandApplierTests();
+        int far = other.FirstPressAiming(new AiVector(MathF.Cos(rad) * 1000f, MathF.Sin(rad) * 1000f, 64f));
+        int reaction = (int)(Normal.ReactionMs / 1000f / Dt);
+        Assert.True(close > reaction, $"close pressed at {close}, the reaction lasts {reaction}");
+        Assert.True(close < far, $"close pressed at {close}, far at {far}");
+    }
+
+    /// <summary>The control: a scripted look at a point fires when told, whatever the view is doing.</summary>
+    [Fact]
+    public void AScriptedLookFiresAtOnce()
+    {
+        var look = new LookIntent(LookKind.Point, new AiVector(0f, 500f, 64f), ActorId.None, AimPoint.Body, 0f, 0);
+        _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold, look, HoldFire, default));
+        Assert.NotEqual(0, TickFollowingTheView().Buttons & (int)InputButtons.Attack);
+    }
+
     [Fact]
     public void NoCommandTurnsTheViewFasterThanTheEnvelopeWhateverTheCurve()
     {

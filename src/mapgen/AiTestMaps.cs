@@ -225,23 +225,51 @@ public static class AiTestMaps
         return map;
     }
 
+    /// <summary>The aim range's one room, big enough for a 1,000 u shot and a target strafing across it.</summary>
+    public const float RangeCell = 1536f;
+
+    /// <summary>
+    /// ss_ai_range (§6.6, §12.3): one open hall, for the aim's measurements
+    /// (tools/ai-aim-range) at 200, 500 and 1,000 u with room to run across,
+    /// and a closet behind a partition at its east end where a target waits
+    /// out of sight between engagements.
+    /// </summary>
+    public static VmfMap Range()
+    {
+        var map = new VmfMap();
+        map.World.Add(new("skyname", "sky_day01_01"));
+        Room(map, 0, "hall", east: false, west: false, RangeCell);
+        // The spawns are the only places a bot with nothing to do walks to:
+        // all at the east end, behind where a target stands, so a shooter on
+        // its mark looks along the line and a target there is in its field.
+        foreach (float y in (float[])[672, 864])
+        {
+            Spawn(map, new Point(1264, y, 16));
+            Spawn(map, new Point(1168, y, 16));
+        }
+
+        // The closet's partition, open only at its north end.
+        map.WorldSolids.Add(VmfMap.Box(new Point(1280, 16, 16), new Point(1296, 1392, RangeCell - 16), Shell));
+        return map;
+    }
+
     /// <summary>The cell's low corner of the room at index <paramref name="i"/>.</summary>
     public static Point Origin(int i) => new(i * (Cell + Gap), 0, 0);
 
-    private static void Room(VmfMap map, int index, string name, bool east, bool west)
+    private static void Room(VmfMap map, int index, string name, bool east, bool west, float cell = Cell)
     {
         Point o = Origin(index);
-        float c = Cell, w = Wall;
+        float c = cell, w = Wall;
         map.WorldSolids.Add(VmfMap.Box(o, o + new Point(c, c, w), Floor));
         map.WorldSolids.Add(VmfMap.Box(o + new Point(0, 0, c - w), o + new Point(c, c, c), Shell));
         map.WorldSolids.Add(VmfMap.Box(o + new Point(0, 0, w), o + new Point(c, w, c - w), Shell));
         map.WorldSolids.Add(VmfMap.Box(o + new Point(0, c - w, w), o + new Point(c, c, c - w), Shell));
-        WallX(map, o, 0f, west);
-        WallX(map, o, c - w, east);
+        WallX(map, o, 0f, west, c);
+        WallX(map, o, c - w, east, c);
 
         var room = new VmfEntity { ClassName = "info_room" };
         room.Set("origin", o.ToString()).Set("name", name).Set("cell_size", $"{(int)c}").Set("door_width", $"{(int)DoorWidth}")
-            .Set("door_height", $"{(int)DoorHeight}").Set("wall_depth", $"{(int)w}");
+            .Set("door_height", $"{(int)(c - 2 * w)}").Set("wall_depth", $"{(int)w}");
         map.Entities.Add(room);
         var light = new VmfEntity { ClassName = "light" };
         light.Set("origin", (o + new Point(c / 2, c / 2, c - 64)).ToString()).Set("_light", "255 250 235 400");
@@ -249,9 +277,9 @@ public static class AiTestMaps
     }
 
     /// <summary>The wall at x = <paramref name="x"/> (cell-local), with a plugged door when it has one.</summary>
-    private static void WallX(VmfMap map, Point o, float x, bool door)
+    private static void WallX(VmfMap map, Point o, float x, bool door, float cell)
     {
-        float c = Cell, w = Wall, y0 = (c - DoorWidth) / 2, y1 = y0 + DoorWidth, z1 = w + DoorHeight;
+        float c = cell, w = Wall, y0 = (c - DoorWidth) / 2, y1 = y0 + DoorWidth, z1 = c - w;
         if (!door)
         {
             map.WorldSolids.Add(VmfMap.Box(o + new Point(x, w, w), o + new Point(x + w, c - w, c - w), Shell));

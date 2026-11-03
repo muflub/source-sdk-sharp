@@ -11,7 +11,7 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// tap also keeps what each player's animation shows, for the views.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IPlayerWeaponEventHook)])]
-public sealed class WeaponEventTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, IEngineEntities entities, IEngineFrame frame, ShotTap shots)
+public sealed class WeaponEventTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, IEngineEntities entities, IEngineFrame frame, ShotTap shots, AimMeter aim)
     : IPlayerWeaponEventHook
 {
     private readonly List<AiEvent> _events = new();
@@ -24,6 +24,7 @@ public sealed class WeaponEventTap(Hl2mpSenses senses, VisionPass vision, Hl2mpB
         if (slot is < 1 or >= VisionPass.Slots)
             return;
 
+        aim.Weapon(player, weaponType, e);
         ActorActivity a = senses.ActivityOf(slot);
         senses.SetActivity(slot, e switch
         {

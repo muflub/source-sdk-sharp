@@ -97,7 +97,8 @@ public sealed class Hl2mpTreeTests
         SkillProfile p = Duel.Preset("normal");
         var d = new Duel(p.With(p.IndexOf("headhunter"), headhunter));
         var leaderAt = new AiVector(1200f, 0f, 0f);
-        var lowAt = new AiVector(300f, 100f, 0f);
+        // Past close range: within it the nearest comes first, leader or not (CloseFireTests).
+        var lowAt = new AiVector(600f, 100f, 0f);
         (ActorId, AiVector)[] view = sighted ? [(Duel.Opponent, leaderAt), (Duel.Other, lowAt)] : [];
         AiEvent[] seen = [.. d.SeeAt(Duel.Opponent, leaderAt), .. d.SeeAt(Duel.Other, lowAt), d.Row(Duel.Opponent, 9, 1), d.Row(Duel.Other, 0, 3),
                           AiEvent.ScoreboardRow(Duel.Bot, new Tick(6), Duel.Bot, 1, 0, 2)];

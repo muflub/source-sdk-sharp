@@ -212,6 +212,11 @@ if (args.Length > 0 && args[0] == "aimaps")
     File.WriteAllText(Path.Combine(args[1], "ss_ai_duel.yaml"), AiTestMaps.Level("ss_ai_duel.vmf", ["arena"]));
     Console.WriteLine($"{Path.Combine(args[1], "ss_ai_duel.vmf")}: {duel.Entities.Count} entities, {duel.WorldSolids.Count} world brushes");
 
+    var range = AiTestMaps.Range();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_range.vmf"), range.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_range.yaml"), AiTestMaps.Level("ss_ai_range.vmf", ["hall"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_range.vmf")}: {range.Entities.Count} entities, {range.WorldSolids.Count} solids");
+
     var routes = AiTestMaps.Routes();
     File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.vmf"), routes.Write());
     File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.yaml"), AiTestMaps.Level("ss_ai_routes.vmf", ["west", "middle", "east"]));

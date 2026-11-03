@@ -133,7 +133,8 @@ public sealed class Hl2mpBots : IFrameLifecycle
         BotPlayer made = _players.Bots.Last(b => b.Player == player);
         _serial = serial;
         id = new ActorId(made.EntIndex, serial);
-        _applier.Add(id, player, MotionCurves.For(skills), stream.NextUInt64());
+        MotionParams motion = _ai?.Session.Curves is { } curves ? MotionCurves.For(skills, curves.For(skills)) : MotionCurves.Scripted;
+        _applier.Add(id, player, motion, stream.NextUInt64());
         _bots.Add(new Hl2mpBot(id, made.Name, skills) { SeedIndex = seedIndex });
         Version++;
         string label = BotSkillLabel.For(skills);
@@ -235,8 +236,9 @@ public sealed class Hl2mpBots : IFrameLifecycle
 
     /// <summary>
     /// A scripted action for the bot called <paramref name="name"/> (the
-    /// scenario harness's, §6.6): fire for <paramref name="seconds"/>, or a
-    /// one-shot reload or weapon select, holding where it stands and looks.
+    /// scenario harness's, §6.6): fire for <paramref name="seconds"/>, stand
+    /// doing nothing for as long (<see cref="ActionKind.None"/>), or a one-shot
+    /// reload or weapon select, holding where it stands and looks.
     /// </summary>
     public string? Act(string name, ActionKind kind, float seconds, int slot)
     {
@@ -248,13 +250,16 @@ public sealed class Hl2mpBots : IFrameLifecycle
         float yaw = self.View.Yaw * (MathF.PI / 180f), pitch = self.View.Pitch * (MathF.PI / 180f);
         AiVector lookAt = self.Eye + new AiVector(MathF.Cos(yaw) * MathF.Cos(pitch), MathF.Sin(yaw) * MathF.Cos(pitch), -MathF.Sin(pitch)) * 1000f;
         int tick = _frame.TickCount();
-        int until = tick + (kind == ActionKind.Fire ? Math.Max(1, (int)MathF.Round(seconds / 0.015f)) : 2);
+        int until = tick + (kind is ActionKind.Fire or ActionKind.None ? Math.Max(1, (int)MathF.Round(seconds / 0.015f)) : 2);
         _acts.RemoveAll(a => a.Bot == bot.Id);
         _gotos.RemoveAll(g => g.Bot == bot.Id);
         _drives.RemoveAll(d => d.Bot == bot.Id);
-        _acts.Add(new ScriptedAct(bot.Id, until, lookAt, kind == ActionKind.Fire
-            ? new ActionIntent(ActionKind.Fire, FireStyle.Tap, 0, 0)
-            : new ActionIntent(kind, FireStyle.Tap, slot, ++_oneShot)));
+        _acts.Add(new ScriptedAct(bot.Id, until, lookAt, kind switch
+        {
+            ActionKind.Fire => new ActionIntent(ActionKind.Fire, FireStyle.Tap, 0, 0),
+            ActionKind.None => ActionIntent.None,
+            _ => new ActionIntent(kind, FireStyle.Tap, slot, ++_oneShot),
+        }));
         return null;
     }
 
@@ -337,6 +342,18 @@ public sealed class Hl2mpBots : IFrameLifecycle
     public bool Thinking { get; set; } = true;
 
     public BrainDriver Driver => _driver;
+
+    /// <summary>The bot's scripted walk (<c>ai_bot_goto</c>) if it has one, which overrides its brain; for the debug views.</summary>
+    public NavFollower? ScriptedFollowerOf(int slot)
+    {
+        foreach (Goto g in _gotos)
+        {
+            if (g.Bot.Slot == slot)
+                return g.Follower;
+        }
+
+        return null;
+    }
 
     /// <summary>Each bot's brain's latest intent, carried out for this tick (§2.3).</summary>
     private void Think(Tick tick)

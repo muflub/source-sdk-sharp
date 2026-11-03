@@ -15,6 +15,7 @@ import type {
 } from './types';
 import type { AiFlow, AiNav } from './map/aiNav';
 import type { AiBot, AiBotListing, AiReplayFrame, AiReplayStatus } from './ai/aiInspect';
+import type { AiWorld } from './ai/aiWorld';
 
 /*
  * Which instance to address.
@@ -69,6 +70,9 @@ const post = <T>(path: string, body: string): Promise<T> =>
 //---------------------------------------------------------------------------
 
 export const getStatus = (): Promise<Status> => get('/status');
+
+/** Every player's live data in one call (plan_hl2mp_ai §7.1), for the AI tab's 3D view. */
+export const getAiWorld = (): Promise<AiWorld> => get('/ai/world');
 
 /** The AI's derived graph (plan_hl2mp_ai §7.1): served by the AI binding, a 404 or 409 body without it. */
 export const getAiNav = (): Promise<AiNav> => get('/ai/nav');

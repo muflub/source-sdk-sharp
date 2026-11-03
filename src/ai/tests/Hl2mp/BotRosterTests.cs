@@ -185,6 +185,7 @@ public class BotRosterTests
         Assert.Equal(2, _bots.Bots.Count);
         Assert.Equal(2, _roster.Benched);
         Assert.Equal(4, _roster.Bots.Count);
+        Assert.All(_roster.Bots.Where(b => !b.Active), b => Assert.Contains("no free slot", b.Reason, StringComparison.Ordinal));
     }
 
     [Fact]

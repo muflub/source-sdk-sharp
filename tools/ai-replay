@@ -17,13 +17,35 @@
 #       (angular speed, flicks and their peaks, time to acquire, reaction,
 #       strafe interval, yaw reversals); `ai_record human` writes the human
 #       sessions to bin/<config>/mods/test/ai-recordings/human/
+#   tools/ai-replay calibrate <hitrates.tsv> <probes.tsv> [--skills FILE] [--min-samples N]
+#       the aimErrorDeg values at which the probes reach the file's hit rates
+#       (tools/ai-aim-calibrate runs the probes; exits 2 if a target is out of reach)
+#   tools/ai-replay hitrates <metrics.txt> <out.tsv>
+#       a person's hit rate per band from `ai-replay metrics`' output, as a hit rate file
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dotnet="${DOTNET:-$HOME/.dotnet/dotnet}"
 verb="${1:-}"
-[[ ( "$verb" =~ ^(nav|metrics)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,22p' "$0"; exit 2; }
+if [[ "$verb" == "hitrates" && -n "${3:-}" ]]; then
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" hitrates "$(realpath "$2")" "$3"
+fi
+if [[ "$verb" == "calibrate" && -n "${3:-}" ]]; then
+  rates="$(realpath "$2")"; probes="$(realpath "$3")"; shift 3
+  skills="$root/game/mod_test/scripts/ai/hl2mp_skills.json"; min=50
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --skills) skills="$(realpath "$2")"; shift 2 ;;
+      --min-samples) min="$2"; shift 2 ;;
+      *) echo "ai-replay calibrate: what is $1?" >&2; exit 2 ;;
+    esac
+  done
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" calibrate "$rates" "$probes" "$skills" "$min"
+fi
+[[ ( "$verb" =~ ^(nav|metrics)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,27p' "$0"; exit 2; }
 if [[ "$verb" == metrics ]]; then
   shift
   config=debug; recs=()

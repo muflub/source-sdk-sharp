@@ -99,7 +99,6 @@ public static class BotInspect
     {
         VisionParams v = VisionCurves.For(p);
         MemoryParams m = MemoryParams.For(p);
-        MotionParams motion = MotionCurves.For(p);
         var derived = new Dictionary<string, float>
         {
             ["recognize_s"] = v.RecognizeSeconds,
@@ -107,11 +106,10 @@ public static class BotInspect
             ["fov_deg"] = v.FovDeg,
             ["memory_half_life_s"] = m.MemoryHalfLifeSeconds,
             ["habit_half_life_s"] = m.HabitHalfLifeSeconds,
-            ["reaction_ms"] = motion.ReactionMs,
-            ["turn_peak_deg_s"] = motion.TurnPeakDegPerSec,
         };
         if (decisions is { } d)
         {
+            derived["turn_peak_deg_s"] = MotionCurves.For(p, in d).TurnPeakDegPerSec;
             // Every curve's value (§10), by the parameter's own name.
             foreach (System.Reflection.PropertyInfo prop in typeof(DecisionParams).GetProperties())
                 derived[prop.Name] = (float)prop.GetValue(d)!;

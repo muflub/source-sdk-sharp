@@ -46,6 +46,64 @@ public sealed class NavFollowerTests
         Assert.True(move.CrouchOn);
     }
 
+    /// <summary>The route is the follower's own way: through the door's gap in the wall at x 608, where a straight line would cross solid wall.</summary>
+    [Fact]
+    public void TheRouteGoesThroughTheGapNotStraightAtTheGoal()
+    {
+        var target = new AiVector(700, 40, 16);
+        NavFollower follower = To(target);
+        follower.Next(new AiVector(560, 40, 16), out FollowState state);
+        var route = new List<AiVector>();
+        follower.Route(route);
+        Assert.Equal(FollowState.Moving, state);
+        Assert.Equal((560f, 40f), (route[0].X, route[0].Y));
+        Assert.Equal((target.X, target.Y), (route[^1].X, route[^1].Y));
+
+        // Where each leg crosses the wall's plane: inside the gap (y 224-288).
+        bool crossed = false;
+        for (int i = 1; i < route.Count; i++)
+        {
+            if (route[i - 1].X < 616f && route[i].X >= 616f)
+            {
+                float y = route[i - 1].Y + (route[i].Y - route[i - 1].Y) * (616f - route[i - 1].X) / (route[i].X - route[i - 1].X);
+                Assert.InRange(y, 224f, 288f);
+                crossed = true;
+            }
+        }
+
+        Assert.True(crossed, "the route crosses the wall's plane");
+    }
+
+    /// <summary>The steering corners stop at the corridor's end; the route goes on along the field to the goal.</summary>
+    [Fact]
+    public void TheRouteRunsPastTheCorridorToTheGoal()
+    {
+        NavGraph g = Nav.Value.Graph;
+        var target = new AiVector(700, 480, 16);
+        NavFollower follower = To(target);
+        var from = new AiVector(40, 40, 16);
+        MoveIntent move = follower.Next(from, out _);
+        var route = new List<AiVector>();
+        follower.Route(route);
+        Assert.True(g.Cell(NavPoints.CellNear(g, target, ClearanceClass.Crouch)).Centre.DistanceTo(from) > NavFollower.CorridorCells * 8f, "the control: the goal is past a corridor's reach");
+        Assert.Equal(move.Corner(0), route[1]);
+        Assert.Equal((target.X, target.Y), (route[^1].X, route[^1].Y));
+    }
+
+    /// <summary>A move with no way has no route: nothing of the last move's is left to draw.</summary>
+    [Fact]
+    public void ArrivedItHasNoRoute()
+    {
+        NavFollower follower = To(new AiVector(300, 300, 16));
+        var route = new List<AiVector>();
+        follower.Next(new AiVector(200, 300, 16), out _);
+        follower.Route(route);
+        Assert.NotEmpty(route);
+        follower.Next(new AiVector(300, 300, 16), out FollowState state);
+        follower.Route(route);
+        Assert.Equal((FollowState.Arrived, 0), (state, route.Count));
+    }
+
     [Fact]
     public void OnTheTargetItHasArrived()
     {

@@ -1,0 +1,7 @@
+# A hand-written hit rate file (plan_hl2mp_ai §12.1): what `ai-replay metrics`
+# gives for one actor, and what `tools/ai-aim-calibrate` takes.
+# weapon      band      hit_rate  samples
+weapon_smg1   300-800   0.27      412
+weapon_smg1   under300  0.46      188
+weapon_shotgun under300 0.58      61
+weapon_357    300-800   0.35      23

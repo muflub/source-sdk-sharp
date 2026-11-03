@@ -21,7 +21,7 @@ public class HumanMotionTests
     private static MotionParams Preset(string name)
     {
         Assert.True(SkillPresets.TryGet(name, out SkillProfile? p));
-        return MotionCurves.For(p!);
+        return MotionCurves.For(p!, SourceSharp.Ai.Tests.Skills.Curves.Game().For(p!));
     }
 
     /// <summary>The per-tick yaw turns while the view goes to a point 180° away, for 3 s.</summary>
@@ -118,12 +118,31 @@ public class HumanMotionTests
         Assert.NotEqual(0f, m.View.Yaw);
     }
 
+    /// <summary>
+    /// A person's reaction after noticing (§10): recognition already holds
+    /// stock's 1.0 / 0.5 / 0.3 / 0.2 s, so the reaction on top of it is short,
+    /// and falls with Alertness. It used to repeat those same numbers: a Medium
+    /// bot took a full second before its view moved at all.
+    /// </summary>
     [Fact]
-    public void TheReactionFollowsStocksRecognitionTimes()
+    public void TheReactionAfterRecognitionIsAPersonsAndFallsWithAlertness()
     {
-        // hl2mp_bot_vision.cpp:122-151: 1.0 / 0.5 / 0.3 / 0.2 s, at the
-        // presets' Alertness 2 / 4 / 6 / 7.
-        Assert.Equal([1000f, 500f, 300f, 200f], new[] { "easy", "normal", "hard", "expert" }.Select(n => Preset(n).ReactionMs));
+        float[] reaction = [.. new[] { "easy", "normal", "hard", "expert" }.Select(n => Preset(n).ReactionMs)];
+        for (int i = 1; i < reaction.Length; i++)
+            Assert.True(reaction[i] <= reaction[i - 1], string.Join(", ", reaction));
+        Assert.True(reaction[0] > reaction[^1], string.Join(", ", reaction));
+        Assert.All(reaction, r => Assert.InRange(r, MotionEnvelope.MinReactionMs, 300f));
+    }
+
+    /// <summary>The tuned recognition times (§10, §12.3): half stock's, since a reaction, the decide and a flick follow them.</summary>
+    [Fact]
+    public void RecognitionIsTheTunedTimesAndFallsWithAlertness()
+    {
+        Assert.Equal([0.5f, 0.25f, 0.12f, 0.06f], new[] { 2, 4, 6, 7 }.Select(l =>
+            VisionCurves.For(new SkillProfile("x", StandardSkills.Ten, [0, l, 0, 0, 0, 0, 0, 0, 0, 0])).RecognizeSeconds));
+        float[] all = [.. Enumerable.Range(0, 11).Select(l => VisionCurves.For(new SkillProfile("x", StandardSkills.Ten, [0, l, 0, 0, 0, 0, 0, 0, 0, 0])).RecognizeSeconds)];
+        for (int l = 1; l < all.Length; l++)
+            Assert.True(all[l] <= all[l - 1], string.Join(", ", all));
     }
 
     [Fact]

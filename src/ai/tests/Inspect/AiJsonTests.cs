@@ -104,6 +104,15 @@ public sealed class AiJsonTests
             Assert.Equal(JsonSerializer.Serialize(v, v?.GetType() ?? typeof(object), OldOptions()), AiJson.Write(v));
     }
 
+    /// <summary>The unload fact's sample of /ai/world holds a bot with every part, or the fact would write an empty answer.</summary>
+    [Fact]
+    public void TheSampleWorldFillsEveryPart()
+    {
+        string json = AiWorldRoutes.Json((AiWorld)Sample(typeof(AiWorld))!);
+        foreach (string part in (string[])["\"actors\":[{", "\"bots\":[{", "\"truth\":{", "\"candidates\":[{", "\"going\":{", "\"route\":{", "\"points\":[[", "\"beliefs\":{", "\"heard\":[{", "\"remembered\":[{"])
+            Assert.Contains(part, json, StringComparison.Ordinal);
+    }
+
     /// <summary>The sample reaches every member: a NaN and an array of each record kind are in the record's JSON.</summary>
     [Fact]
     public void TheSampleRecordFillsEveryPart()
@@ -166,6 +175,10 @@ public sealed class AiJsonTests
         int written = 0;
         foreach (string name in (string[])[typeof(BotInspectRecord).FullName!, typeof(IntentCommand).FullName!])
             written += ((string)write.Invoke(null, [Sample(core.GetType(name, true)!)])!).Length;
+
+        // /ai/world's answer, written as the route writes it.
+        Type world = binding.GetType(typeof(AiWorld).FullName!, true)!;
+        written += ((string)binding.GetType(typeof(AiWorldRoutes).FullName!, true)!.GetMethod(nameof(AiWorldRoutes.Json))!.Invoke(null, [Sample(world)])!).Length;
         var weak = new WeakReference(context, trackResurrection: true);
         context.Unload();
         return (weak, written);

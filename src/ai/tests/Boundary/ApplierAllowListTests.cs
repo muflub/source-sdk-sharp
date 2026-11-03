@@ -74,12 +74,16 @@ public class ApplierAllowListTests
         "ModelDescriptor::SequenceDuration", "WeaponType::get_ViewModel", "WeaponType::get_Behaviour", "WeaponType::get_Projectile",
         "WeaponType::get_LaunchSpeed", "WeaponType::get_ClipSize", "WeaponType::get_Interval", "WeaponType::get_Name",
         "IEnginePlayers::GetUserId",
+        // The aim range's cheats, measuring only (§12.3): ai_bot_kit's one weapon and reserve, ai_aim_tough's health.
+        "Arsenal::GiveAmmo", "Arsenal::GiveWeapon", "Arsenal::Strip", "Arsenal::Switch", "IEngineEntities::SetHealth",
         // The binding's own convars (ai_threads, ai_sync, §2.7): their base constructors.
         "IntConVar::.ctor", "BoolConVar::.ctor",
         // EngineServerSlots: the people on the server, for the roster's free slots (§3.5).
-        "IConnectedClients::UserId", "IEngineHost::get_IsDedicatedServer",
+        "IClientInfo::Address", "IEngineHost::get_IsDedicatedServer",
         // AiBotRosterService (Phase 5c): the roster convar, declared, read and cleared at the level's start.
         "StringConVar::.ctor", "ConVar`1::SetValue",
+        // AiWorldRoutes (§7.4): a human's name, for the debug view's label.
+        "PlayerNames::NameOf",
     ];
 
     /// <summary>Calls that move or turn a player outside its usercmd (§3.3): never, from any caller.</summary>

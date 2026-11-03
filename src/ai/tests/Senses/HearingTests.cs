@@ -25,6 +25,51 @@ public sealed class HearingTests
         return SoundTap.TryHear(Bot, at ?? AiVector.Zero, alertness, in sound, kind, weapon, Shooter, new Tick(5), new AiRandom(9), out e);
     }
 
+    private static AiEvent HeardAt(ActorId bot, int tick, SoundKind kind = SoundKind.Gunfire)
+        => AiEvent.SoundHeard(bot, new Tick(tick), kind, new AiVector(tick, 0, 0), 0.5f, Shooter, -1);
+
+    [Fact]
+    public void TheHeardLogAnswersARecentSoundWithItsPlaceKindAndSource()
+    {
+        var log = new HeardLog();
+        log.Add(HeardAt(Bot, 100, SoundKind.Footstep));
+        LoggedSound s = Assert.Single(log.Recent(Bot, new Tick(110), 300));
+        Assert.Equal((new Tick(100), SoundKind.Footstep, new AiVector(100, 0, 0), 0.5f, 2), (s.Tick, s.Kind, s.Place, s.Loudness, s.Source));
+    }
+
+    [Fact]
+    public void TheHeardLogDropsWhatIsTooOldOrFromTheLastLevel()
+    {
+        var log = new HeardLog();
+        log.Add(HeardAt(Bot, 100));
+        log.Add(HeardAt(Bot, 500));
+        log.Add(HeardAt(Bot, 900));
+        Assert.Equal([500], log.Recent(Bot, new Tick(600), 300).Select(s => s.Tick.Value));
+    }
+
+    [Fact]
+    public void TheHeardLogKeepsTheNewestWhenItIsFull()
+    {
+        var log = new HeardLog();
+        for (int t = 1; t <= HeardLog.Capacity + 5; t++)
+            log.Add(HeardAt(Bot, t));
+        LoggedSound[] kept = log.Recent(Bot, new Tick(HeardLog.Capacity + 5), 1000);
+        Assert.Equal(HeardLog.Capacity, kept.Length);
+        Assert.Equal((6, HeardLog.Capacity + 5), (kept[0].Tick.Value, kept[^1].Tick.Value));
+    }
+
+    [Fact]
+    public void AnotherBotInTheSlotStartsItsOwnHistory()
+    {
+        var log = new HeardLog();
+        log.Add(HeardAt(Bot, 100));
+        var next = new ActorId(Bot.Slot, Bot.Serial + 1);
+        Assert.Empty(log.Recent(next, new Tick(110), 300));
+        log.Add(HeardAt(next, 105));
+        Assert.Empty(log.Recent(Bot, new Tick(110), 300));
+        Assert.Single(log.Recent(next, new Tick(110), 300));
+    }
+
     [Fact]
     public void AGunshotWhoseRecipientsExcludeTheBotIsNotHeard()
         => Assert.False(Hear("Weapon_SMG1.Single", 2, [1, 4], out _));

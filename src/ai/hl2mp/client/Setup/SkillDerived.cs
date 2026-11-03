@@ -47,7 +47,7 @@ public static class SkillDerived
     /// <summary>The skill key a non-curve parameter of the inspector belongs to, or null (the overall turn speed belongs to none).</summary>
     public static string? SkillOf(string parameter) => parameter switch
     {
-        "recognize_s" or "sight_range" or "fov_deg" or "reaction_ms" => "alertness",
+        "recognize_s" or "sight_range" or "fov_deg" => "alertness",
         "memory_half_life_s" or "habit_half_life_s" => "tenacity",
         _ => null,
     };
