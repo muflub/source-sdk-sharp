@@ -26,14 +26,19 @@
 #include "imanaged_areas_client.h"
 #include "shell_standalone_clients.h"
 #include "shell_worldtext_client.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 class CManagedWorldText : public CShellRenderable
 {
 public:
 	DECLARE_CLASS_GAMEROOT(CManagedWorldText, CShellRenderable);
 
-	CManagedWorldText(const CManagedAreasClient& areas, uint32_t hOwner)
+	CManagedWorldText(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+					  const CViewCameras& cameras, uint32_t hOwner)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
 		, m_hOwner(hOwner)
 	{
 		m_vecMins.Init();
@@ -74,10 +79,10 @@ public:
 		view.AnglesPYR[0] = GetAbsAngles().x;
 		view.AnglesPYR[1] = GetAbsAngles().y;
 		view.AnglesPYR[2] = GetAbsAngles().z;
-		VectorCopy(CurrentViewForward().Base(), view.ForwardXYZ);
-		VectorCopy(CurrentViewRight().Base(), view.RightXYZ);
-		VectorCopy(CurrentViewUp().Base(), view.UpXYZ);
-		view.CurTime = gpGlobals->curtime;
+		VectorCopy(m_Cameras.CurrentForward().Base(), view.ForwardXYZ);
+		VectorCopy(m_Cameras.CurrentRight().Base(), view.RightXYZ);
+		VectorCopy(m_Cameras.CurrentUp().Base(), view.UpXYZ);
+		view.CurTime = m_Engines.m_pGlobals->curtime;
 
 		int32_t nVerts = pArea->Draw(m_hOwner, &view, m_Verts.Base(), m_Verts.Count());
 		if (nVerts > m_Verts.Count())
@@ -88,7 +93,7 @@ public:
 		if (nVerts < 4 || nVerts > m_Verts.Count())
 			return 0;
 
-		CMatRenderContextPtr pRenderContext(g_pMaterialSystem);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->Bind(pMaterial);
 		IMesh* pMesh = pRenderContext->GetDynamicMesh();
 
@@ -112,6 +117,8 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 	uint32_t m_hOwner;
 	CMaterialReference m_Material;
 	Vector m_vecMins;
@@ -144,7 +151,7 @@ int32_t CWorldTextClient::WorldTextMeshUpdate(uint32_t hOwner, const char* pszMa
 	int iEntry = ShellEffects_Find(m_Rows, hOwner);
 	if (iEntry < 0)
 	{
-		CManagedWorldText* pText = new CManagedWorldText(m_Areas, hOwner);
+		CManagedWorldText* pText = new CManagedWorldText(m_Areas, m_Engines, m_Cameras, hOwner);
 		pText->AddToLeafSystem(RENDER_GROUP_TRANSLUCENT_ENTITY);
 		pText->SetGoneCallback(m_ForgetHook.Get());
 		pText->SetAbsOrigin(pOwner->GetAbsOrigin());

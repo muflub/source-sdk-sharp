@@ -74,10 +74,12 @@ struct SurfaceEdgeTexture_t
 
 // One broken surface's draw, owned by the shell and made when managed code first
 // hands it materials or a plan.
+class CClientEngineInterfaces;
+
 class CSourceSharpSurfaceRenderer : public IBrushRenderer
 {
 public:
-	CSourceSharpSurfaceRenderer();
+	explicit CSourceSharpSurfaceRenderer(const CClientEngineInterfaces& engines);
 	virtual ~CSourceSharpSurfaceRenderer();
 
 	void SetMaterials(const char* const* ppNames, int nFlags);
@@ -92,6 +94,8 @@ public:
 	virtual bool RenderBrushModelSurface(IClientEntity* pBaseEntity, IBrushSurface* pBrushSurface) OVERRIDE;
 
 private:
+	const CClientEngineInterfaces& m_Engines;
+
 	void SetDetailTexture(ITexture* pTexture);
 	void Steps(Vector* pWidthStep, Vector* pHeightStep) const;
 	void DrawQuad(IBrushSurface* pBrushSurface, IMesh* pMesh, CMeshBuilder* pBuilder, const Vector& vStart,

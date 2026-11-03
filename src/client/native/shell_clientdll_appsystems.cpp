@@ -16,7 +16,8 @@
 #include "shell_gameui.h"
 #include "shell_clientdll_exports.h"
 
-CClientDLLSharedAppSystems::CClientDLLSharedAppSystems()
+CClientDLLSharedAppSystems::CClientDLLSharedAppSystems(CGameUiClient& gameUi)
+	: m_GameUi(gameUi)
 {
 	AddAppSystem("soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION);
 	AddAppSystem("scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION);
@@ -24,7 +25,7 @@ CClientDLLSharedAppSystems::CClientDLLSharedAppSystems()
 
 int CClientDLLSharedAppSystems::Count()
 {
-	ShellGameUi_InstallFactorySwap();
+	m_GameUi.InstallFactorySwap();
 	return m_Systems.Count();
 }
 

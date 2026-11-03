@@ -191,7 +191,7 @@ public class VCollideWireframeTests
         string forwards = Source("src", "sourcesharp", "game", "client", "shell_shim_areas_client.cpp");
 
         Assert.Contains("CShimViewClient::EntitiesUpdateVisibilityAll", forwards);
-        Assert.Contains("::SourceSharp_ClientEntitiesUpdateVisibilityAll(", forwards);
+        Assert.Contains("m_pStandaloneClients->EntitiesUpdateVisibilityAll(", forwards);
     }
 
     private static string Source(params string[] parts)

@@ -39,8 +39,10 @@ struct CViewerFacts::Pushed_t
 	bool m_bHaveSkybox = false;
 };
 
-CViewerFacts::CViewerFacts(CStandaloneClients& standalone, CClientEntityList& entityList)
-	: m_Standalone(standalone)
+CViewerFacts::CViewerFacts(const CClientEngineInterfaces& engines, CStandaloneClients& standalone,
+						   CClientEntityList& entityList)
+	: m_Engines(engines)
+	, m_Standalone(standalone)
 	, m_EntityList(entityList)
 	, m_pPushed(NULL)
 {
@@ -63,6 +65,7 @@ CViewerFacts::Pushed_t* CViewerFacts::NewPushed()
 }
 
 #include "sourcesharp.h"
+#include "shell_client_engine_interfaces.h"
 
 bool CViewerFacts::HasLocalViewer() const
 {
@@ -90,9 +93,9 @@ bool CViewerFacts::ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles) const
 // IClientEntity is what both hierarchies implement.
 bool CViewerFacts::ViewEntityPose(Vector* pOrigin, QAngle* pAngles) const
 {
-	const int nViewEntity = render->GetViewEntity();
+	const int nViewEntity = m_Engines.m_pRender->GetViewEntity();
 
-	if (!ViewSubject::ViewEntityOverridesTheEye(nViewEntity, engine->GetLocalPlayer()))
+	if (!ViewSubject::ViewEntityOverridesTheEye(nViewEntity, m_Engines.m_pEngine->GetLocalPlayer()))
 		return false;
 
 	IClientUnknown* pViewUnknown = m_EntityList.UnknownFromIndex(nViewEntity);

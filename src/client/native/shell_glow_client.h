@@ -16,6 +16,8 @@
 
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+class CViewCameras;
 class CEffectsListClient;
 
 enum
@@ -34,8 +36,11 @@ enum
 class CGlowOverlaysClient
 {
 public:
-	CGlowOverlaysClient(const CManagedAreasClient& areas, CEffectsListClient& effects)
+	CGlowOverlaysClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						const CViewCameras& cameras, CEffectsListClient& effects)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
 		, m_Effects(effects)
 	{
 	}
@@ -54,6 +59,8 @@ private:
 	void Execute(const int32_t* pCmds, int nWords);
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 	CEffectsListClient& m_Effects;
 
 	// The commands a draw answers with.

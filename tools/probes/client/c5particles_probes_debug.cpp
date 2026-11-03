@@ -66,8 +66,10 @@
 
 #include <time.h>
 
+#include "probe_accessors.h"
 #include "tier0/memdbgon.h"
 #include "shell_te_system_client.h"
+#include "client_entity_list.h"
 
 //-----------------------------------------------------------------------------
 // c5p_dispatch NAME x y z nx ny nz scale color flags [magnitude]: a client effect run
@@ -109,7 +111,7 @@ CON_COMMAND(
 {
 	if (args.ArgC() < 5 || !tempents)
 		return;
-	IClientEntity* pPlayer = SourceSharp_ClientEntityFromIndex(engine->GetLocalPlayer());
+	IClientEntity* pPlayer = ShellClientDll_EntityList().EntityFromIndex(engine->GetLocalPlayer());
 	if (!pPlayer)
 		return;
 	for (int i = 0; i < atoi(args[4]); i++)

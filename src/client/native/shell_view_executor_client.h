@@ -4,19 +4,9 @@
 struct vrect_t;
 class CViewSetup;
 
-// The view state stock kept in statics: the main view SetUpViews made (and the
-// last frame's) and the view being drawn now. MainViewOrigin and the other
-// stock names answer from it.
 #include "materialsystem/imaterialvar.h"
 #include "bsptreedata.h"
-
-struct ShellCamera_t
-{
-	Vector origin;
-	QAngle angles;
-	Vector forward, right, up;
-	VMatrix worldToView;
-};
+#include "shell_view_cameras.h"
 
 // view.cpp's ComputeCameraVariables: the view's bases and its world-to-view matrix.
 void ShellView_ComputeCamera(const Vector& vecOrigin, const QAngle& angles, ShellCamera_t& out);
@@ -30,6 +20,10 @@ class CShellViewRender;
 class CEffectsListClient;
 class CManagedParticlesClient;
 class CShellDetailProps;
+class CClientEngineInterfaces;
+class CViewTargetsClient;
+class CViewCameras;
+class CHudUiClient;
 class CShadowsClient;
 class CPrecipitationClient;
 class CPixelVisClient;
@@ -49,7 +43,8 @@ public:
 				  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
 				  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps,
 				  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis, CPrecipitationClient& precipitation,
-				  CShadowsClient& shadows)
+				  CShadowsClient& shadows, CHudUiClient& hudUi, CViewCameras& cameras, CViewTargetsClient& viewTargets,
+				  const CClientEngineInterfaces& engines)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -59,6 +54,10 @@ public:
 		, m_Effects(effects)
 		, m_Particles(particles)
 		, m_DetailProps(detailProps)
+		, m_Engines(engines)
+		, m_ViewTargets(viewTargets)
+		, m_Cameras(cameras)
+		, m_HudUi(hudUi)
 		, m_Shadows(shadows)
 		, m_Precipitation(precipitation)
 		, m_Glow(glow)
@@ -109,6 +108,10 @@ private:
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
 	CShellDetailProps& m_DetailProps;
+	const CClientEngineInterfaces& m_Engines;
+	CViewTargetsClient& m_ViewTargets;
+	CViewCameras& m_Cameras;
+	CHudUiClient& m_HudUi;
 	CShadowsClient& m_Shadows;
 	CPrecipitationClient& m_Precipitation;
 	CGlowOverlaysClient& m_Glow;

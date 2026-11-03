@@ -27,12 +27,15 @@
 
 #include "shell_effect_ledger.h"
 #include "shell_sprites_client.h"
+#include "shell_standalone_clients.h"
 
 #include "imanaged_areas_client.h"
 #include "shell_standalone_client.h"
 #include "ss_bitblock.h"
 
 #include <vector>
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 ConVar r_drawsprites("r_drawsprites", "1", FCVAR_CHEAT);
 
@@ -123,10 +126,10 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 							int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale, float flHDRColorScale,
 							float flGlowProxySize, float* in, Pending_t& pending)
 {
-	if (!model || modelinfo->GetModelType(model) != mod_sprite)
+	if (!model || m_Engines.m_pModelInfo->GetModelType(model) != mod_sprite)
 		return false;
 
-	CEngineSprite* psprite = (CEngineSprite*)modelinfo->GetModelExtraData(model);
+	CEngineSprite* psprite = (CEngineSprite*)m_Engines.m_pModelInfo->GetModelExtraData(model);
 	if (!psprite)
 		return false;
 
@@ -146,10 +149,10 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 	in[SS_SPRITE_IN_RIGHT] = psprite->GetRight();
 	in[SS_SPRITE_IN_UP] = psprite->GetUp();
 	in[SS_SPRITE_IN_DOWN] = psprite->GetDown();
-	in[SS_SPRITE_IN_WIDTH] = (float)modelinfo->GetModelSpriteWidth(model);
-	in[SS_SPRITE_IN_HEIGHT] = (float)modelinfo->GetModelSpriteHeight(model);
-	PutSpriteVector(in + SS_SPRITE_IN_ORIGIN, origin);
-	PutSpriteVector(in + SS_SPRITE_IN_EFFECT_ORIGIN, effect_origin);
+	in[SS_SPRITE_IN_WIDTH] = (float)m_Engines.m_pModelInfo->GetModelSpriteWidth(model);
+	in[SS_SPRITE_IN_HEIGHT] = (float)m_Engines.m_pModelInfo->GetModelSpriteHeight(model);
+	PutVector(in + SS_SPRITE_IN_ORIGIN, origin);
+	PutVector(in + SS_SPRITE_IN_EFFECT_ORIGIN, effect_origin);
 	in[SS_SPRITE_IN_ANGLES + 0] = angles.x;
 	in[SS_SPRITE_IN_ANGLES + 1] = angles.y;
 	in[SS_SPRITE_IN_ANGLES + 2] = angles.z;
@@ -164,11 +167,11 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 	in[SS_SPRITE_IN_HDR_COLOR_SCALE] = flHDRColorScale;
 	// The render's blend, or while managed prepares a view's draw batch, the one that
 	// entity's DrawModel will find.
-	in[SS_SPRITE_IN_BLEND] = SourceSharp_StandaloneDrawBatchBlend(entity, render->GetBlend());
+	in[SS_SPRITE_IN_BLEND] = m_Standalone.DrawBatchBlend(entity, m_Engines.m_pRender->GetBlend());
 	m_flDirectBlend = in[SS_SPRITE_IN_BLEND];
-	PutVector(in + SS_SPRITE_IN_VIEW_FORWARD, CurrentViewForward());
-	PutVector(in + SS_SPRITE_IN_VIEW_RIGHT, CurrentViewRight());
-	PutVector(in + SS_SPRITE_IN_VIEW_UP, CurrentViewUp());
+	PutVector(in + SS_SPRITE_IN_VIEW_FORWARD, m_Cameras.CurrentForward());
+	PutVector(in + SS_SPRITE_IN_VIEW_RIGHT, m_Cameras.CurrentRight());
+	PutVector(in + SS_SPRITE_IN_VIEW_UP, m_Cameras.CurrentUp());
 	in[SS_SPRITE_IN_GLOW_PROXY_SIZE] = flGlowProxySize;
 
 	pending.pSprite = psprite;
@@ -183,17 +186,18 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 int CSpritesClient::Execute(const Pending_t& pending, const float* out)
 {
 	if (out[SS_SPRITE_OUT_SET_BLEND] != 0.0f)
-		render->SetBlend(out[SS_SPRITE_OUT_BLEND]);
+		m_Engines.m_pRender->SetBlend(out[SS_SPRITE_OUT_BLEND]);
 
 	if (out[SS_SPRITE_OUT_QUAD] != 0.0f)
 	{
 		IMaterial* material = pending.pSprite->GetMaterial((RenderMode_t)pending.nRenderMode, pending.flFrame);
 		if (material)
 		{
-			CMatRenderContextPtr pRenderContext(materials);
+			CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 			if (out[SS_SPRITE_OUT_WIREFRAME] != 0.0f)
 			{
-				IMaterial* pMaterial = materials->FindMaterial("debug/debugspritewireframe", TEXTURE_GROUP_OTHER);
+				IMaterial* pMaterial =
+					m_Engines.m_pMaterials->FindMaterial("debug/debugspritewireframe", TEXTURE_GROUP_OTHER);
 				pRenderContext->Bind(pMaterial, NULL);
 			}
 			else
@@ -466,7 +470,7 @@ KeyValues* ReadSpriteKey(SpriteBlockReader& r, int nDepth)
 }
 } // namespace
 
-bool CEngineSprite::Init(const char* pName, IManagedMaterialFilesClient* pFiles)
+bool CEngineSprite::Init(const char* pName, IManagedMaterialFilesClient* pFiles, IMaterialSystem* pMaterials)
 {
 	m_VideoMaterial = NULL;
 	m_width = m_height = m_numFrames = 1;
@@ -511,8 +515,7 @@ bool CEngineSprite::Init(const char* pName, IManagedMaterialFilesClient* pFiles)
 
 		char szProcedural[MAX_PATH];
 		Q_snprintf(szProcedural, sizeof(szProcedural), "%s_rendermode_%d", szMaterial, nMode);
-		m_material[nMode] =
-			g_pMaterialSystem->FindProceduralMaterial(szProcedural, TEXTURE_GROUP_CLIENT_EFFECTS, pModeVmt);
+		m_material[nMode] = pMaterials->FindProceduralMaterial(szProcedural, TEXTURE_GROUP_CLIENT_EFFECTS, pModeVmt);
 		if (!m_material[nMode])
 			return false;
 		m_material[nMode]->IncrementReferenceCount();

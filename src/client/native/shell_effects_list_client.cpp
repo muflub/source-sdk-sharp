@@ -63,6 +63,9 @@
 
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
+#include "client_entity_list.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 int32_t CEffectsListClient::MaterialId(IMaterial* pMaterial)
 {
@@ -85,17 +88,7 @@ IMaterial* CEffectsListClient::MaterialOf(int32_t nMaterial) const
 }
 
 // A material id as the material, for the pixel-visibility command stream.
-IMaterial* SourceSharp_FxMaterialOf(int32_t nMaterial)
-{
-	return ShellClientDll_EffectsList().MaterialOf(nMaterial);
-}
-
 // A material as its id, no reference taken, for the glow overlays.
-int32_t SourceSharp_FxMaterialIdOf(IMaterial* pMaterial)
-{
-	return ShellClientDll_EffectsList().MaterialId(pMaterial);
-}
-
 void CEffectsListClient::DrawEffects(double frametime)
 {
 	// The view passes gpGlobals->frametime, a float: crossing as one is exact.
@@ -118,9 +111,9 @@ void CEffectsListClient::CBulletWhizRow::LevelInitPreEntity()
 // IShimFxClient: the effect list's carry-out.
 int32_t CEffectsListClient::FxMaterialFind(const char* pName)
 {
-	if (!pName || !materials)
+	if (!pName || !m_Engines.m_pMaterials)
 		return 0;
-	IMaterial* pMaterial = materials->FindMaterial(pName, TEXTURE_GROUP_CLIENT_EFFECTS);
+	IMaterial* pMaterial = m_Engines.m_pMaterials->FindMaterial(pName, TEXTURE_GROUP_CLIENT_EFFECTS);
 	if (!pMaterial)
 		return 0;
 	pMaterial->IncrementReferenceCount();
@@ -157,7 +150,7 @@ void CEffectsListClient::FxDrawQuads(int32_t nMaterial, int32_t nVertices, const
 	if (!pVertices || nVertices < 4 || (nVertices % 4) != 0)
 		return;
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	IMesh* pMesh = pRenderContext->GetDynamicMesh(true, NULL, NULL, MaterialOf(nMaterial));
 	CMeshBuilder meshBuilder;
 	meshBuilder.Begin(pMesh, MATERIAL_QUADS, nVertices / 4);
@@ -177,10 +170,10 @@ void CEffectsListClient::FxDrawQuads(int32_t nMaterial, int32_t nVertices, const
 	pMesh->Draw();
 }
 
-void SourceSharp_FxView(float* pOut)
+void CEffectsListClient::FxView(float* pOut)
 {
-	const Vector& origin = CurrentViewOrigin();
-	const Vector& forward = CurrentViewForward();
+	const Vector& origin = m_Cameras.CurrentOrigin();
+	const Vector& forward = m_Cameras.CurrentForward();
 	pOut[0] = origin.x;
 	pOut[1] = origin.y;
 	pOut[2] = origin.z;
@@ -190,36 +183,36 @@ void SourceSharp_FxView(float* pOut)
 	pOut[6] = (float)ScreenWidth();
 }
 
-void SourceSharp_FxMainViewOrigin(float* pOutXYZ)
+void CEffectsListClient::FxMainViewOrigin(float* pOutXYZ)
 {
-	const Vector& origin = MainViewOrigin();
+	const Vector& origin = m_Cameras.MainOrigin();
 	pOutXYZ[0] = origin.x;
 	pOutXYZ[1] = origin.y;
 	pOutXYZ[2] = origin.z;
 }
 
-int32_t SourceSharp_FxLocalPlayer()
+int32_t CEffectsListClient::FxLocalPlayer()
 {
-	return engine ? engine->GetLocalPlayer() : 0;
+	return engine ? m_Engines.m_pEngine->GetLocalPlayer() : 0;
 }
 
-void SourceSharp_FxViewAngles(float* pOutPYR)
+void CEffectsListClient::FxViewAngles(float* pOutPYR)
 {
 	QAngle angles(0, 0, 0);
-	if (engine)
-		engine->GetViewAngles(angles);
+	if (m_Engines.m_pEngine)
+		m_Engines.m_pEngine->GetViewAngles(angles);
 	pOutPYR[0] = angles.x;
 	pOutPYR[1] = angles.y;
 	pOutPYR[2] = angles.z;
 }
 
-int32_t SourceSharp_FxEntityAttachment(int32_t nEntIndex, int32_t nAttachment, float* pOutXYZ, char* pModelOut,
-									   int32_t nModelSize)
+int32_t CEffectsListClient::FxEntityAttachment(int32_t nEntIndex, int32_t nAttachment, float* pOutXYZ, char* pModelOut,
+											   int32_t nModelSize)
 {
 	if (pModelOut && nModelSize > 0)
 		pModelOut[0] = '\0';
 	IClientRenderable* pRenderable =
-		(nEntIndex >= 0) ? SourceSharp_ClientRenderableFromHandle(SourceSharp_ClientHandleFromIndex(nEntIndex)) : NULL;
+		(nEntIndex >= 0) ? m_EntityList.RenderableFromHandle(m_EntityList.HandleFromIndex(nEntIndex)) : NULL;
 	if (!pRenderable)
 		return -1;
 
@@ -234,17 +227,17 @@ int32_t SourceSharp_FxEntityAttachment(int32_t nEntIndex, int32_t nAttachment, f
 	if (!bFound)
 	{
 		if (pModelOut && nModelSize > 0)
-			Q_strncpy(pModelOut, modelinfo->GetModelName(pRenderable->GetModel()), nModelSize);
+			Q_strncpy(pModelOut, m_Engines.m_pModelInfo->GetModelName(pRenderable->GetModel()), nModelSize);
 		return 0;
 	}
 	return 1;
 }
 
 // The shell-eject effects' owner render angles, and the brass.
-int32_t SourceSharp_FxEntityRenderAngles(int32_t nEntIndex, float* pOutPYR)
+int32_t CEffectsListClient::FxEntityRenderAngles(int32_t nEntIndex, float* pOutPYR)
 {
 	IClientRenderable* pRenderable =
-		(nEntIndex >= 0) ? SourceSharp_ClientRenderableFromHandle(SourceSharp_ClientHandleFromIndex(nEntIndex)) : NULL;
+		(nEntIndex >= 0) ? m_EntityList.RenderableFromHandle(m_EntityList.HandleFromIndex(nEntIndex)) : NULL;
 	if (!pRenderable)
 		return 0;
 	const QAngle& angles = pRenderable->GetRenderAngles();
@@ -254,8 +247,8 @@ int32_t SourceSharp_FxEntityRenderAngles(int32_t nEntIndex, float* pOutPYR)
 	return 1;
 }
 
-void SourceSharp_FxEjectBrass(const float* pOriginXYZ, const float* pAnglesPYR, const float* pGunAnglesPYR,
-							  int32_t nType)
+void CEffectsListClient::FxEjectBrass(const float* pOriginXYZ, const float* pAnglesPYR, const float* pGunAnglesPYR,
+									  int32_t nType)
 {
 	tempents->EjectBrass(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]),
 						 QAngle(pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2]),
@@ -459,23 +452,23 @@ void CEffectsListClient::CPrecacheRow::LevelShutdownPostEntity()
 		pFx->EffectsPrecache(1);
 }
 
-int32_t SourceSharp_FxPrecacheCount()
+int32_t CEffectsListClient::FxPrecacheCount()
 {
 	return (int32_t)(ARRAYSIZE(kEffectPrecacheMaterials) + ARRAYSIZE(kPostProcessingMaterials));
 }
 
 // Precaches a material by artificially raising its reference count, or lets it go.
-void SourceSharp_FxPrecacheCache(int32_t nIndex, int32_t bPrecache)
+void CEffectsListClient::FxPrecacheCache(int32_t nIndex, int32_t bPrecache)
 {
 	const int32_t nEffects = (int32_t)ARRAYSIZE(kEffectPrecacheMaterials);
-	if (nIndex < 0 || nIndex >= SourceSharp_FxPrecacheCount())
+	if (nIndex < 0 || nIndex >= FxPrecacheCount())
 		return;
-	if (nIndex >= nEffects && engine->GetDXSupportLevel() < 90)
+	if (nIndex >= nEffects && m_Engines.m_pEngine->GetDXSupportLevel() < 90)
 		return;
 
 	const char* pszName =
 		nIndex < nEffects ? kEffectPrecacheMaterials[nIndex] : kPostProcessingMaterials[nIndex - nEffects];
-	IMaterial* pMaterial = materials->FindMaterial(pszName, TEXTURE_GROUP_CLIENT_EFFECTS);
+	IMaterial* pMaterial = m_Engines.m_pMaterials->FindMaterial(pszName, TEXTURE_GROUP_CLIENT_EFFECTS);
 	if (IsErrorMaterial(pMaterial))
 		return;
 
@@ -485,12 +478,12 @@ void SourceSharp_FxPrecacheCache(int32_t nIndex, int32_t bPrecache)
 		pMaterial->DecrementReferenceCount();
 }
 
-void SourceSharp_FxCacheUsedMaterials()
+void CEffectsListClient::FxCacheUsedMaterials()
 {
-	materials->CacheUsedMaterials();
+	m_Engines.m_pMaterials->CacheUsedMaterials();
 }
 
-void SourceSharp_FxCacheMaterialHandles()
+void CEffectsListClient::FxCacheMaterialHandles()
 {
 	FX_CacheMaterialHandles();
 }
@@ -501,9 +494,10 @@ void CEffectsListClient::InitSmokeFog()
 
 	m_flSmokeFogAlpha = 0;
 
-	if (materials)
+	if (m_Engines.m_pMaterials)
 	{
-		m_pSmokeFogMaterial = materials->FindMaterial("particle/screenspace_fog", TEXTURE_GROUP_CLIENT_EFFECTS);
+		m_pSmokeFogMaterial =
+			m_Engines.m_pMaterials->FindMaterial("particle/screenspace_fog", TEXTURE_GROUP_CLIENT_EFFECTS);
 		if (m_pSmokeFogMaterial)
 			m_pSmokeFogMaterial->IncrementReferenceCount();
 	}
@@ -525,11 +519,12 @@ void CEffectsListClient::DrawSmokeFog()
 		return;
 
 	float rgba[4];
-	if (!pFx->SmokeFogPlan(m_flSmokeFogAlpha, (m_pSmokeFogMaterial && materials) ? 1 : 0, m_SmokeFogColor, rgba))
+	if (!pFx->SmokeFogPlan(m_flSmokeFogAlpha, (m_pSmokeFogMaterial && m_Engines.m_pMaterials) ? 1 : 0, m_SmokeFogColor,
+						   rgba))
 		return;
 
 	// The plan overwrites the overlay colour, as stock's draw did.
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
 	pRenderContext->LoadIdentity();
 	pRenderContext->Ortho(0, 0, 1, 1, -99999, 99999);

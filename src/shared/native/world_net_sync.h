@@ -23,7 +23,6 @@ typedef IManagedStandaloneClient NetStateArea_t;
 // packed word, so they carry a placement rather than an offset.
 #ifdef CLIENT_DLL
 // The client's managed generation (CManagedSide::Generation); see standalone_player_sync.h.
-unsigned int SourceSharp_PlayerSyncGeneration();
 #endif
 
 struct SourceSharpWorldFields_t

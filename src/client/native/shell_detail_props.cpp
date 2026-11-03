@@ -31,6 +31,8 @@
 #include "shell_world_nettable_client.h"
 #include "detail_props_wire.h"
 #include "shell_detail_props.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 extern ConVar r_DrawDetailProps;
 
@@ -41,8 +43,10 @@ const char* const kWireframeMaterial = "debug/debugspritewireframe";
 class CShellDetailModel : public IClientUnknown, public IClientRenderable
 {
 public:
-	CShellDetailModel(const model_t* pModel, const Vector& origin, const QAngle& angles, int nOrdinal)
-		: m_pModel(pModel)
+	CShellDetailModel(const CClientEngineInterfaces& engines, const model_t* pModel, const Vector& origin,
+					  const QAngle& angles, int nOrdinal)
+		: m_Engines(engines)
+		, m_pModel(pModel)
 		, m_Origin(origin)
 		, m_Angles(angles)
 		, m_nAlpha(255)
@@ -101,7 +105,7 @@ public:
 
 	virtual bool ShouldDraw() OVERRIDE { return g_pClientMode->ShouldDrawDetailObjects(); }
 
-	virtual bool IsTransparent() OVERRIDE { return m_nAlpha < 255 || modelinfo->IsTranslucent(m_pModel); }
+	virtual bool IsTransparent() OVERRIDE { return m_nAlpha < 255 || m_Engines.m_pModelInfo->IsTranslucent(m_pModel); }
 
 	virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE { return false; }
 
@@ -121,7 +125,8 @@ public:
 	{
 		if (m_nAlpha == 0 || !m_pModel)
 			return 0;
-		return modelrender->DrawModel(flags, this, MODEL_INSTANCE_INVALID, -1, m_pModel, m_Origin, m_Angles, 0, 0, 0);
+		return m_Engines.m_pModelRender->DrawModel(flags, this, MODEL_INSTANCE_INVALID, -1, m_pModel, m_Origin,
+												   m_Angles, 0, 0, 0);
 	}
 
 	virtual int GetBody() OVERRIDE { return 0; }
@@ -149,7 +154,7 @@ public:
 		transform[0][3] = m_Origin.x;
 		transform[1][3] = m_Origin.y;
 		transform[2][3] = m_Origin.z;
-		studiohdr_t* pStudioHdr = modelinfo->GetStudiomodel(m_pModel);
+		studiohdr_t* pStudioHdr = m_Engines.m_pModelInfo->GetStudiomodel(m_pModel);
 		for (int i = 0; i < pStudioHdr->numbones; i++)
 			MatrixCopy(transform, pBoneToWorldOut[i]);
 		return true;
@@ -166,10 +171,10 @@ public:
 
 	virtual void GetRenderBounds(Vector& mins, Vector& maxs) OVERRIDE
 	{
-		const int nType = modelinfo->GetModelType(m_pModel);
+		const int nType = m_Engines.m_pModelInfo->GetModelType(m_pModel);
 		if (nType == mod_studio || nType == mod_brush)
 		{
-			modelinfo->GetModelRenderBounds(m_pModel, mins, maxs);
+			m_Engines.m_pModelInfo->GetModelRenderBounds(m_pModel, mins, maxs);
 			return;
 		}
 		mins.Init(0, 0, 0);
@@ -244,6 +249,7 @@ public:
 	virtual bool IgnoresZBuffer() const OVERRIDE { return false; }
 
 private:
+	const CClientEngineInterfaces& m_Engines;
 	const model_t* m_pModel;
 	Vector m_Origin;
 	QAngle m_Angles;
@@ -333,7 +339,7 @@ void CShellDetailProps::BuildDetailObjectRenderLists(const Vector& vViewOrigin)
 	IManagedDetailPropsClient* pArea = Managed();
 	if (!pArea)
 		return;
-	const Vector vecCurrent = CurrentViewOrigin();
+	const Vector vecCurrent = m_Cameras.CurrentOrigin();
 	const void* pView =
 		pArea->DetailBuildLists(vViewOrigin.Base(), vecCurrent.Base(), g_pClientMode->ShouldDrawDetailObjects() ? 1 : 0,
 								r_DrawDetailProps.GetInt(), m_matFullbright.GetInt());
@@ -343,7 +349,7 @@ void CShellDetailProps::BuildDetailObjectRenderLists(const Vector& vViewOrigin)
 		return;
 
 	m_nBuildWorldListNumber = view->BuildWorldListsNumber();
-	engine->GetBSPTreeQuery()->EnumerateLeavesInSphere(vecCurrent, flRadius, this, 0);
+	m_Engines.m_pEngine->GetBSPTreeQuery()->EnumerateLeavesInSphere(vecCurrent, flRadius, this, 0);
 }
 
 void CShellDetailProps::RenderOpaqueDetailObjects(int nLeafCount, LeafIndex_t* pLeafList)
@@ -408,7 +414,7 @@ void CShellDetailProps::Object(int i, void* pModel, const float* pOrigin, const 
 	CShellDetailModel* pObject = NULL;
 	if (pModel)
 	{
-		pObject = new CShellDetailModel((const model_t*)pModel, Vector(pOrigin[0], pOrigin[1], pOrigin[2]),
+		pObject = new CShellDetailModel(m_Engines, (const model_t*)pModel, Vector(pOrigin[0], pOrigin[1], pOrigin[2]),
 										QAngle(pAngles[0], pAngles[1], pAngles[2]), m_Models.Count());
 		m_Models.AddToTail(pObject);
 	}
@@ -424,7 +430,7 @@ void CShellDetailProps::Run(int leaf, int first, int count, bool bFast)
 
 void CShellDetailProps::Proxy(void* pModel)
 {
-	modelinfo->RecomputeTranslucency((const model_t*)pModel, 0, 0, NULL);
+	m_Engines.m_pModelInfo->RecomputeTranslucency((const model_t*)pModel, 0, 0, NULL);
 }
 
 void CShellDetailProps::Model(int i, unsigned char alpha, bool bSetAngles, const float* pAngles, const float* pColor)
@@ -471,7 +477,7 @@ void CShellDetailProps::Draw(int nKind, const Vector& viewOrigin, const Vector& 
 	if (!pArea)
 		return;
 
-	const Vector& current = CurrentViewOrigin();
+	const Vector& current = m_Cameras.CurrentOrigin();
 	const float view[15] = {viewOrigin.x,  viewOrigin.y, viewOrigin.z, viewForward.x, viewForward.y,
 							viewForward.z, viewRight.x,  viewRight.y,  viewRight.z,   viewUp.x,
 							viewUp.y,      viewUp.z,     current.x,    current.y,     current.z};
@@ -482,7 +488,7 @@ void CShellDetailProps::Draw(int nKind, const Vector& viewOrigin, const Vector& 
 	if (nMaterial == ss_detail::kMaterialNone)
 		return;
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->MatrixMode(MATERIAL_MODEL);
 	pRenderContext->PushMatrix();
 	pRenderContext->LoadIdentity();

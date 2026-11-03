@@ -28,6 +28,8 @@
 
 #include "shell_effect_registry.h"
 #include "imanaged_areas_client.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 // CEngineSprite::GetMaterial subscripts an array of kRenderModeCount with no check, so a
 // managed render mode out of range is refused rather than clamped. Each caller has its
@@ -50,8 +52,11 @@ static bool SpriteRenderModeRefused(int32_t nRenderMode, const char* pszCaller, 
 }
 
 // One managed sprite's renderer, kept for its pixel-visibility query handle.
-CSpritesClient::CSpritesClient(const CManagedAreasClient& areas, CStandaloneClients& standalone)
+CSpritesClient::CSpritesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+							   const CViewCameras& cameras, CStandaloneClients& standalone)
 	: m_Areas(areas)
+	, m_Engines(engines)
+	, m_Cameras(cameras)
 	, m_Standalone(standalone)
 	, m_Stored(DefLessFunc(IClientEntity*))
 {
@@ -92,9 +97,9 @@ int32_t CSpritesClient::DrawCore(uint32_t hOwner, const Vector& vecOffset, int32
 	if (!pOwner)
 		return 0;
 
-	const model_t* pModel = modelinfo->GetModel(nModelIndex);
+	const model_t* pModel = m_Engines.m_pModelInfo->GetModel(nModelIndex);
 
-	if (!pModel || modelinfo->GetModelType(pModel) != mod_sprite)
+	if (!pModel || m_Engines.m_pModelInfo->GetModelType(pModel) != mod_sprite)
 		return 0;
 
 	if (SpriteRenderModeRefused(nRenderMode, "DrawSprite", m_bWarnedDrawSprite))
@@ -162,8 +167,9 @@ public:
 	DECLARE_CLASS_GAMEROOT(CSourceSharpSpriteTrail, CShellRenderable);
 
 	// The block arrives zeroed, so only what a zero is wrong for is set.
-	explicit CSourceSharpSpriteTrail(const CManagedAreasClient& areas)
+	CSourceSharpSpriteTrail(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines)
 		: m_Areas(areas)
+		, m_Engines(engines)
 	{
 		m_bVisible = true;
 	}
@@ -181,7 +187,7 @@ public:
 
 		float origin[3];
 		PutOrigin(origin);
-		return pFx->SpriteTrailDraw(m_hOwner, gpGlobals->curtime, origin) > 0 ? 1 : 0;
+		return pFx->SpriteTrailDraw(m_hOwner, m_Engines.m_pGlobals->curtime, origin) > 0 ? 1 : 0;
 	}
 
 	virtual void GetRenderBounds(Vector& mins, Vector& maxs) OVERRIDE
@@ -199,7 +205,7 @@ public:
 
 		float origin[3], box[6];
 		PutOrigin(origin);
-		if (pFx->SpriteTrailTick(m_hOwner, gpGlobals->curtime, origin, box))
+		if (pFx->SpriteTrailTick(m_hOwner, m_Engines.m_pGlobals->curtime, origin, box))
 		{
 			m_vecRenderMins.Init(box[0], box[1], box[2]);
 			m_vecRenderMaxs.Init(box[3], box[4], box[5]);
@@ -222,6 +228,7 @@ private:
 	}
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 	uint32_t m_hOwner;
 	Vector m_vecRenderMins;
 	Vector m_vecRenderMaxs;
@@ -261,7 +268,7 @@ void CSpritesClient::SpriteTrailUpdate(uint32_t hOwner, int32_t nRenderMode, int
 
 	if (iEntry < 0)
 	{
-		CSourceSharpSpriteTrail* pNew = new CSourceSharpSpriteTrail(m_Areas);
+		CSourceSharpSpriteTrail* pNew = new CSourceSharpSpriteTrail(m_Areas, m_Engines);
 
 		if (!pNew)
 			return;

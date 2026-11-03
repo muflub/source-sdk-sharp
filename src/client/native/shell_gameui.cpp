@@ -14,11 +14,9 @@
 // exists are held (gameui_early_calls.h) and played to it at the first call
 // after; a question before then answers no.
 
-#include "GameUI/IGameUI.h"
-#include "GameUI/IGameConsole.h"
 #include "imanaged_areas_client.h"
+#include "shell_managed_areas_client.h"
 #include "import_slot.h"
-#include "gameui_early_calls.h"
 #include "shell_gameui.h"
 
 #include <string.h>
@@ -31,8 +29,6 @@
 
 namespace
 {
-
-GameUiEarly::Queue s_Early;
 
 void Play(IManagedGameUiClient* pManaged, const GameUiEarly::Entry& entry)
 {
@@ -88,295 +84,6 @@ void Play(IManagedGameUiClient* pManaged, const GameUiEarly::Entry& entry)
 	}
 }
 
-// The managed GameUI, the held calls played to it first; NULL before it exists.
-IManagedGameUiClient* Managed()
-{
-	IManagedGameUiClient* pManaged = ManagedGameUiClient();
-	if (pManaged && s_Early.Count() > 0)
-	{
-		auto sink = [pManaged](const GameUiEarly::Entry& entry)
-		{
-			Play(pManaged, entry);
-		};
-		s_Early.Replay(sink);
-	}
-	return pManaged;
-}
-
-// A call with no answer: to managed, or held until it exists.
-void Notify(GameUiEarly::Call call, uintptr_t arg = 0)
-{
-	if (IManagedGameUiClient* pManaged = Managed())
-	{
-		GameUiEarly::Entry entry = {call, arg};
-		Play(pManaged, entry);
-	}
-	else
-		s_Early.Push(call, arg);
-}
-
-class SSGameUI final : public IGameUI
-{
-public:
-	void Initialize(CreateInterfaceFn appFactory) override
-	{
-		Notify(GameUiEarly::Call::Initialize, reinterpret_cast<uintptr_t>(appFactory));
-	}
-
-	void PostInit() override { Notify(GameUiEarly::Call::PostInit); }
-
-	void Connect(CreateInterfaceFn gameFactory) override
-	{
-		Notify(GameUiEarly::Call::Connect, reinterpret_cast<uintptr_t>(gameFactory));
-	}
-
-	void Start() override { Notify(GameUiEarly::Call::Start); }
-
-	void Shutdown() override { Notify(GameUiEarly::Call::Shutdown); }
-
-	void RunFrame() override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->RunFrame();
-	}
-
-	void OnGameUIActivated() override { Notify(GameUiEarly::Call::OnGameUIActivated); }
-
-	void OnGameUIHidden() override { Notify(GameUiEarly::Call::OnGameUIHidden); }
-
-	void OLD_OnConnectToServer(const char* game, int IP, int port) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->OldOnConnectToServer(game, IP, port);
-	}
-
-	void OnDisconnectFromServer_OLD(uint8 eSteamLoginFailure, const char* username) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->OnDisconnectFromServerOld(eSteamLoginFailure, username);
-	}
-
-	void OnLevelLoadingStarted(bool bShowProgressDialog) override
-	{
-		Notify(GameUiEarly::Call::OnLevelLoadingStarted, bShowProgressDialog ? 1 : 0);
-	}
-
-	void OnLevelLoadingFinished(bool bError, const char* failureReason, const char* extendedReason) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->OnLevelLoadingFinished(bError, failureReason, extendedReason);
-	}
-
-	bool UpdateProgressBar(float progress, const char* statusText) override
-	{
-		IManagedGameUiClient* pManaged = Managed();
-		return pManaged && pManaged->UpdateProgressBar(progress, statusText) != 0;
-	}
-
-	bool SetShowProgressText(bool show) override
-	{
-		IManagedGameUiClient* pManaged = Managed();
-		return pManaged && pManaged->SetShowProgressText(show) != 0;
-	}
-
-	void ShowNewGameDialog(int chapter) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->ShowNewGameDialog(chapter);
-	}
-
-	void SessionNotification(const int notification, const int param) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->SessionNotification(notification, param);
-	}
-
-	void SystemNotification(const int notification) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->SystemNotification(notification);
-	}
-
-	void ShowMessageDialog(const uint nType, vgui::Panel* pOwner) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->ShowMessageDialog(nType, pOwner);
-	}
-
-	void UpdatePlayerInfo(uint64 nPlayerId, const char* pName, int nTeam, byte cVoiceState, int nPlayersNeeded,
-						  bool bHost) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->UpdatePlayerInfo(nPlayerId, pName, nTeam, cVoiceState, nPlayersNeeded, bHost);
-	}
-
-	void SessionSearchResult(int searchIdx, void* pHostData, XSESSION_SEARCHRESULT* pResult, int ping) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->SessionSearchResult(searchIdx, pHostData, pResult, ping);
-	}
-
-	void OnCreditsFinished() override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->OnCreditsFinished();
-	}
-
-	void SetLoadingBackgroundDialog(vgui::VPANEL panel) override
-	{
-		Notify(GameUiEarly::Call::SetLoadingBackgroundDialog, static_cast<uintptr_t>(panel));
-	}
-
-	void BonusMapUnlock(const char* pchFileName, const char* pchMapName) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->BonusMapUnlock(pchFileName, pchMapName);
-	}
-
-	void BonusMapComplete(const char* pchFileName, const char* pchMapName) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->BonusMapComplete(pchFileName, pchMapName);
-	}
-
-	void BonusMapChallengeUpdate(const char* pchFileName, const char* pchMapName, const char* pchChallengeName,
-								 int iBest) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->BonusMapChallengeUpdate(pchFileName, pchMapName, pchChallengeName, iBest);
-	}
-
-	// The single-player surface's out-parameters, answered empty here
-	// (docs/absence-client.md §16).
-	void BonusMapChallengeNames(char* pchFileName, char* pchMapName, char* pchChallengeName) override
-	{
-		if (pchFileName)
-			pchFileName[0] = 0;
-		if (pchMapName)
-			pchMapName[0] = 0;
-		if (pchChallengeName)
-			pchChallengeName[0] = 0;
-	}
-
-	void BonusMapChallengeObjectives(int& iBronze, int& iSilver, int& iGold) override { iBronze = iSilver = iGold = 0; }
-
-	void BonusMapDatabaseSave() override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->BonusMapDatabaseSave();
-	}
-
-	int BonusMapNumAdvancedCompleted() override
-	{
-		IManagedGameUiClient* pManaged = Managed();
-		return pManaged ? pManaged->BonusMapNumAdvancedCompleted() : 0;
-	}
-
-	void BonusMapNumMedals(int piNumMedals[3]) override
-	{
-		if (piNumMedals)
-			piNumMedals[0] = piNumMedals[1] = piNumMedals[2] = 0;
-	}
-
-	void OnConnectToServer2(const char* game, int IP, int connectionPort, int queryPort) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->OnConnectToServer2(game, IP, connectionPort, queryPort);
-	}
-
-	bool ValidateStorageDevice(int* pStorageDeviceValidated) override
-	{
-		IManagedGameUiClient* pManaged = Managed();
-		const bool bValid = pManaged && pManaged->ValidateStorageDevice() != 0;
-		if (pStorageDeviceValidated)
-			*pStorageDeviceValidated = bValid ? 1 : 0;
-		return bValid;
-	}
-
-	void SetProgressOnStart() override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->SetProgressOnStart();
-	}
-
-	void OnDisconnectFromServer(uint8 eSteamLoginFailure) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->OnDisconnectFromServer(eSteamLoginFailure);
-	}
-
-	void OnConfirmQuit() override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->OnConfirmQuit();
-	}
-
-	bool IsMainMenuVisible() override
-	{
-		IManagedGameUiClient* pManaged = Managed();
-		return pManaged && pManaged->IsMainMenuVisible() != 0;
-	}
-
-	void SetMainMenuOverride(vgui::VPANEL panel) override
-	{
-		Notify(GameUiEarly::Call::SetMainMenuOverride, static_cast<uintptr_t>(panel));
-	}
-
-	void SendMainMenuCommand(const char* pszCommand) override
-	{
-		if (IManagedGameUiClient* pManaged = Managed())
-			pManaged->SendMainMenuCommand(pszCommand);
-	}
-};
-
-class SSGameConsole final : public IGameConsole
-{
-public:
-	void Activate() override { Notify(GameUiEarly::Call::ConsoleActivate); }
-
-	void Initialize() override { Notify(GameUiEarly::Call::ConsoleInitialize); }
-
-	void Hide() override { Notify(GameUiEarly::Call::ConsoleHide); }
-
-	void Clear() override { Notify(GameUiEarly::Call::ConsoleClear); }
-
-	bool IsConsoleVisible() override
-	{
-		IManagedGameUiClient* pManaged = Managed();
-		return pManaged && pManaged->ConsoleIsVisible() != 0;
-	}
-
-	void SetParent(vgui::VPANEL parent) override
-	{
-		Notify(GameUiEarly::Call::ConsoleSetParent, static_cast<uintptr_t>(parent));
-	}
-};
-
-SSGameUI s_GameUI;
-SSGameConsole s_GameConsole;
-
-// The factory the engine is answered with: GameUI011 and GameConsole004.
-void* GameUiFactory(const char* pszName, int* pReturnCode)
-{
-	void* pInterface = nullptr;
-	if (pszName && strcmp(pszName, GAMEUI_INTERFACE_VERSION) == 0)
-		pInterface = &s_GameUI;
-	else if (pszName && strcmp(pszName, GAMECONSOLE_INTERFACE_VERSION) == 0)
-		pInterface = &s_GameConsole;
-	if (pReturnCode)
-		*pReturnCode = pInterface ? IFACE_OK : IFACE_FAILED;
-	return pInterface;
-}
-
-// The swapped import: the slot and what it held.
-struct Swap
-{
-	void** pSlot;
-	void* pOriginal;
-};
-
-Swap s_Swap;
-
 #if defined(_WIN32)
 const char kEngine[] = "engine.dll";
 const char kLookup[] = "GetProcAddress";
@@ -385,37 +92,339 @@ const char kEngine[] = "/engine.so";
 const char kLookup[] = "dlsym";
 #endif
 
+} // namespace
+
+void CGameUiClient::Initialize(CreateInterfaceFn appFactory)
+{
+	Notify(GameUiEarly::Call::Initialize, reinterpret_cast<uintptr_t>(appFactory));
+}
+
+void CGameUiClient::PostInit()
+{
+	Notify(GameUiEarly::Call::PostInit);
+}
+
+void CGameUiClient::Connect(CreateInterfaceFn gameFactory)
+{
+	Notify(GameUiEarly::Call::Connect, reinterpret_cast<uintptr_t>(gameFactory));
+}
+
+void CGameUiClient::Start()
+{
+	Notify(GameUiEarly::Call::Start);
+}
+
+void CGameUiClient::Shutdown()
+{
+	Notify(GameUiEarly::Call::Shutdown);
+}
+
+void CGameUiClient::RunFrame()
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->RunFrame();
+}
+
+void CGameUiClient::OnGameUIActivated()
+{
+	Notify(GameUiEarly::Call::OnGameUIActivated);
+}
+
+void CGameUiClient::OnGameUIHidden()
+{
+	Notify(GameUiEarly::Call::OnGameUIHidden);
+}
+
+void CGameUiClient::OLD_OnConnectToServer(const char* game, int IP, int port)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->OldOnConnectToServer(game, IP, port);
+}
+
+void CGameUiClient::OnDisconnectFromServer_OLD(uint8 eSteamLoginFailure, const char* username)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->OnDisconnectFromServerOld(eSteamLoginFailure, username);
+}
+
+void CGameUiClient::OnLevelLoadingStarted(bool bShowProgressDialog)
+{
+	Notify(GameUiEarly::Call::OnLevelLoadingStarted, bShowProgressDialog ? 1 : 0);
+}
+
+void CGameUiClient::OnLevelLoadingFinished(bool bError, const char* failureReason, const char* extendedReason)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->OnLevelLoadingFinished(bError, failureReason, extendedReason);
+}
+
+bool CGameUiClient::UpdateProgressBar(float progress, const char* statusText)
+{
+	IManagedGameUiClient* pManaged = Managed();
+	return pManaged && pManaged->UpdateProgressBar(progress, statusText) != 0;
+}
+
+bool CGameUiClient::SetShowProgressText(bool show)
+{
+	IManagedGameUiClient* pManaged = Managed();
+	return pManaged && pManaged->SetShowProgressText(show) != 0;
+}
+
+void CGameUiClient::ShowNewGameDialog(int chapter)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->ShowNewGameDialog(chapter);
+}
+
+void CGameUiClient::SessionNotification(const int notification, const int param)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->SessionNotification(notification, param);
+}
+
+void CGameUiClient::SystemNotification(const int notification)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->SystemNotification(notification);
+}
+
+void CGameUiClient::ShowMessageDialog(const uint nType, vgui::Panel* pOwner)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->ShowMessageDialog(nType, pOwner);
+}
+
+void CGameUiClient::UpdatePlayerInfo(uint64 nPlayerId, const char* pName, int nTeam, byte cVoiceState,
+									 int nPlayersNeeded, bool bHost)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->UpdatePlayerInfo(nPlayerId, pName, nTeam, cVoiceState, nPlayersNeeded, bHost);
+}
+
+void CGameUiClient::SessionSearchResult(int searchIdx, void* pHostData, XSESSION_SEARCHRESULT* pResult, int ping)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->SessionSearchResult(searchIdx, pHostData, pResult, ping);
+}
+
+void CGameUiClient::OnCreditsFinished()
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->OnCreditsFinished();
+}
+
+void CGameUiClient::SetLoadingBackgroundDialog(vgui::VPANEL panel)
+{
+	Notify(GameUiEarly::Call::SetLoadingBackgroundDialog, static_cast<uintptr_t>(panel));
+}
+
+void CGameUiClient::BonusMapUnlock(const char* pchFileName, const char* pchMapName)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->BonusMapUnlock(pchFileName, pchMapName);
+}
+
+void CGameUiClient::BonusMapComplete(const char* pchFileName, const char* pchMapName)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->BonusMapComplete(pchFileName, pchMapName);
+}
+
+void CGameUiClient::BonusMapChallengeUpdate(const char* pchFileName, const char* pchMapName,
+											const char* pchChallengeName, int iBest)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->BonusMapChallengeUpdate(pchFileName, pchMapName, pchChallengeName, iBest);
+}
+
+void CGameUiClient::BonusMapChallengeNames(char* pchFileName, char* pchMapName, char* pchChallengeName)
+{
+	if (pchFileName)
+		pchFileName[0] = 0;
+	if (pchMapName)
+		pchMapName[0] = 0;
+	if (pchChallengeName)
+		pchChallengeName[0] = 0;
+}
+
+void CGameUiClient::BonusMapChallengeObjectives(int& iBronze, int& iSilver, int& iGold)
+{
+	iBronze = iSilver = iGold = 0;
+}
+
+void CGameUiClient::BonusMapDatabaseSave()
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->BonusMapDatabaseSave();
+}
+
+int CGameUiClient::BonusMapNumAdvancedCompleted()
+{
+	IManagedGameUiClient* pManaged = Managed();
+	return pManaged ? pManaged->BonusMapNumAdvancedCompleted() : 0;
+}
+
+void CGameUiClient::BonusMapNumMedals(int piNumMedals[3])
+{
+	if (piNumMedals)
+		piNumMedals[0] = piNumMedals[1] = piNumMedals[2] = 0;
+}
+
+void CGameUiClient::OnConnectToServer2(const char* game, int IP, int connectionPort, int queryPort)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->OnConnectToServer2(game, IP, connectionPort, queryPort);
+}
+
+bool CGameUiClient::ValidateStorageDevice(int* pStorageDeviceValidated)
+{
+	IManagedGameUiClient* pManaged = Managed();
+	const bool bValid = pManaged && pManaged->ValidateStorageDevice() != 0;
+	if (pStorageDeviceValidated)
+		*pStorageDeviceValidated = bValid ? 1 : 0;
+	return bValid;
+}
+
+void CGameUiClient::SetProgressOnStart()
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->SetProgressOnStart();
+}
+
+void CGameUiClient::OnDisconnectFromServer(uint8 eSteamLoginFailure)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->OnDisconnectFromServer(eSteamLoginFailure);
+}
+
+void CGameUiClient::OnConfirmQuit()
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->OnConfirmQuit();
+}
+
+bool CGameUiClient::IsMainMenuVisible()
+{
+	IManagedGameUiClient* pManaged = Managed();
+	return pManaged && pManaged->IsMainMenuVisible() != 0;
+}
+
+void CGameUiClient::SetMainMenuOverride(vgui::VPANEL panel)
+{
+	Notify(GameUiEarly::Call::SetMainMenuOverride, static_cast<uintptr_t>(panel));
+}
+
+void CGameUiClient::SendMainMenuCommand(const char* pszCommand)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+		pManaged->SendMainMenuCommand(pszCommand);
+}
+
+void CGameConsoleClient::Activate()
+{
+	m_Owner.Notify(GameUiEarly::Call::ConsoleActivate);
+}
+
+void CGameConsoleClient::Initialize()
+{
+	m_Owner.Notify(GameUiEarly::Call::ConsoleInitialize);
+}
+
+void CGameConsoleClient::Hide()
+{
+	m_Owner.Notify(GameUiEarly::Call::ConsoleHide);
+}
+
+void CGameConsoleClient::Clear()
+{
+	m_Owner.Notify(GameUiEarly::Call::ConsoleClear);
+}
+
+bool CGameConsoleClient::IsConsoleVisible()
+{
+	IManagedGameUiClient* pManaged = m_Owner.Managed();
+	return pManaged && pManaged->ConsoleIsVisible() != 0;
+}
+
+void CGameConsoleClient::SetParent(vgui::VPANEL parent)
+{
+	m_Owner.Notify(GameUiEarly::Call::ConsoleSetParent, static_cast<uintptr_t>(parent));
+}
+
+CGameUiClient::CGameUiClient(const CManagedAreasClient& areas)
+	: m_Areas(areas)
+	, m_Console(*this)
+	, m_Factory(this, &Factory_t::Trampoline<CGameUiClient, &CGameUiClient::Factory>)
+	, m_SwapLookup(this, &Lookup_t::Trampoline<CGameUiClient, &CGameUiClient::SwapLookup>)
+{
+}
+
+// The managed GameUI, the held calls played to it first; NULL before it exists.
+IManagedGameUiClient* CGameUiClient::Managed()
+{
+	IManagedGameUiClient* pManaged = m_Areas.m_pGameUiClient;
+	if (pManaged && m_Early.Count() > 0)
+	{
+		auto sink = [pManaged](const GameUiEarly::Entry& entry)
+		{
+			Play(pManaged, entry);
+		};
+		m_Early.Replay(sink);
+	}
+	return pManaged;
+}
+
+// A call with no answer: to managed, or held until it exists.
+void CGameUiClient::Notify(GameUiEarly::Call call, uintptr_t arg)
+{
+	if (IManagedGameUiClient* pManaged = Managed())
+	{
+		GameUiEarly::Entry entry = {call, arg};
+		Play(pManaged, entry);
+	}
+	else
+		m_Early.Push(call, arg);
+}
+
+// The factory the engine is answered with: GameUI011 and GameConsole004.
+void* CGameUiClient::Factory(const char* pszName, int* pReturnCode)
+{
+	void* pInterface = nullptr;
+	if (pszName && strcmp(pszName, GAMEUI_INTERFACE_VERSION) == 0)
+		pInterface = static_cast<IGameUI*>(this);
+	else if (pszName && strcmp(pszName, GAMECONSOLE_INTERFACE_VERSION) == 0)
+		pInterface = static_cast<IGameConsole*>(&m_Console);
+	if (pReturnCode)
+		*pReturnCode = pInterface ? IFACE_OK : IFACE_FAILED;
+	return pInterface;
+}
+
 // The one lookup answered differently: CreateInterface resolving inside the
 // stock GameUI module. The import is put back first, so the swap lives for
 // that lookup alone.
-void* Answer(void* pFound, const char* pszName)
+void* CGameUiClient::Answer(void* pFound, const char* pszName)
 {
-	if (!pFound || !pszName || !s_Swap.pSlot || strcmp(pszName, "CreateInterface") != 0)
+	if (!pFound || !pszName || !m_pSwapSlot || strcmp(pszName, "CreateInterface") != 0)
 		return pFound;
 	if (!ShellGameUi_IsStockModule(pFound))
 		return pFound;
-	ImportSlot::Write(s_Swap.pSlot, s_Swap.pOriginal);
-	s_Swap.pSlot = nullptr;
-	return reinterpret_cast<void*>(&GameUiFactory);
+	ImportSlot::Write(m_pSwapSlot, m_pSwapOriginal);
+	m_pSwapSlot = nullptr;
+	return reinterpret_cast<void*>(m_Factory.Get());
 }
 
-#if defined(_WIN32)
-FARPROC WINAPI SwapLookup(HMODULE hModule, LPCSTR pszName)
+void* CGameUiClient::SwapLookup(void* hModule, const char* pszName)
 {
-	FARPROC pFound = GetProcAddress(hModule, pszName);
+#if defined(_WIN32)
+	FARPROC pFound = GetProcAddress(static_cast<HMODULE>(hModule), pszName);
 	// An ordinal is no name (its high word is zero).
 	if (reinterpret_cast<uintptr_t>(pszName) >> 16 == 0)
-		return pFound;
-	return reinterpret_cast<FARPROC>(Answer(reinterpret_cast<void*>(pFound), pszName));
-}
+		return reinterpret_cast<void*>(pFound);
+	return Answer(reinterpret_cast<void*>(pFound), pszName);
 #else
-void* SwapLookup(void* hModule, const char* pszName)
-{
 	return Answer(dlsym(hModule, pszName), pszName);
-}
 #endif
-
-} // namespace
+}
 
 bool ShellGameUi_IsStockModule(void* pAddress)
 {
@@ -433,17 +442,17 @@ bool ShellGameUi_IsStockModule(void* pAddress)
 #endif
 }
 
-bool ShellGameUi_InstallFactorySwap()
+bool CGameUiClient::InstallFactorySwap()
 {
-	if (s_Swap.pSlot)
+	if (m_pSwapSlot)
 		return true;
 	void** pSlot = ImportSlot::Find(kEngine, kLookup);
 	if (!pSlot)
 		return false;
-	s_Swap.pOriginal = *pSlot;
-	s_Swap.pSlot = pSlot;
-	if (ImportSlot::Write(pSlot, reinterpret_cast<void*>(&SwapLookup)))
+	m_pSwapOriginal = *pSlot;
+	m_pSwapSlot = pSlot;
+	if (ImportSlot::Write(pSlot, reinterpret_cast<void*>(m_SwapLookup.Get())))
 		return true;
-	s_Swap.pSlot = nullptr;
+	m_pSwapSlot = nullptr;
 	return false;
 }

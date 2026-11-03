@@ -17,8 +17,10 @@
 #include "viewrender.h"
 
 #include "shell_managed_areas_client.h"
+#include "shell_member_command.h"
 #include "shell_view_executor_client.h"
 
+class CClientEngineInterfaces;
 class CViewerFacts;
 class CSourceSharpClientMode;
 class CBeamsClient;
@@ -26,8 +28,9 @@ class CBeamsClient;
 class CShellViewRender final : public IViewRender, public IReplayScreenshotSystem
 {
 public:
-	CShellViewRender(const CManagedAreasClient& areas, CViewerFacts& viewerFacts, CSourceSharpClientMode& clientMode,
-					 CViewExecutor& executor, CBeamsClient& beams);
+	CShellViewRender(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines, CViewCameras& cameras,
+					 CViewerFacts& viewerFacts, CSourceSharpClientMode& clientMode, CViewExecutor& executor,
+					 CBeamsClient& beams);
 
 	void Init() override;
 
@@ -80,25 +83,48 @@ public:
 	// parameter, as stock's SetupCurrentView did.
 	void SetupCurrentView(const Vector& vecOrigin, const QAngle& angles, int nViewID, bool bEffects);
 
-	void FinishCurrentView() { m_bCanAccessCurrentView = false; }
+	void FinishCurrentView() { m_Cameras.m_bCanAccessCurrentView = false; }
 
-	void AllowCurrentViewAccess(bool bAllow) { m_bCanAccessCurrentView = bAllow; }
+	void AllowCurrentViewAccess(bool bAllow) { m_Cameras.m_bCanAccessCurrentView = bAllow; }
 
 	bool ForceNoVis() const;
 
-	ShellCamera_t m_Main;
-	Vector m_vecPrevMainOrigin = vec3_origin;
-	QAngle m_angPrevMainAngles = vec3_angle;
-	ShellCamera_t m_Current;
-	int m_nCurrentViewID = VIEW_NONE;
-	bool m_bCanAccessCurrentView = false;
+	// IShimViewClient: the screen overlay by name.
+	int32_t ScreenOverlaySet(const char* pszName);
+	int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes);
 
 private:
 	// The demo free camera: managed's DemoViewCamera, around the engine's view
 	// angles and the input's extra mouse sample it needs between its two steps.
 	void DemoCamera(Vector& origin, QAngle& angles);
 
+	void ViewPosition(const CCommand& args, Vector& vecOrigin, QAngle& angles, bool& bPlayer);
+	void SpecPosCommand(const CCommand& args);
+	void GetPosCommand(const CCommand& args);
+	void CenterViewCommand(const CCommand& args);
+	void CheapWaterCommand(const CCommand& args, bool bStart);
+
+	void CheapWaterStartCommand(const CCommand& args) { CheapWaterCommand(args, true); }
+
+	void CheapWaterEndCommand(const CCommand& args) { CheapWaterCommand(args, false); }
+
+	void ScreenOverlayCommand(const CCommand& args);
+
+	CMemberCommand<CShellViewRender, &CShellViewRender::SpecPosCommand> m_SpecPos{
+		*this, "spec_pos", "dump position and angles to the console", 0};
+	CMemberCommand<CShellViewRender, &CShellViewRender::GetPosCommand> m_GetPos{
+		*this, "getpos", "dump position and angles to the console", 0};
+	CMemberCommand<CShellViewRender, &CShellViewRender::CenterViewCommand> m_CenterView{*this, "centerview", "", 0};
+	CMemberCommand<CShellViewRender, &CShellViewRender::CheapWaterStartCommand> m_CheapWaterStart{
+		*this, "r_cheapwaterstart", "", 0};
+	CMemberCommand<CShellViewRender, &CShellViewRender::CheapWaterEndCommand> m_CheapWaterEnd{*this, "r_cheapwaterend",
+																							  "", 0};
+	CMemberCommand<CShellViewRender, &CShellViewRender::ScreenOverlayCommand> m_ScreenOverlay{
+		*this, "r_screenoverlay", "Draw specified material as an overlay", FCVAR_CHEAT | FCVAR_SERVER_CAN_EXECUTE};
+
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	CViewCameras& m_Cameras;
 	CViewerFacts& m_ViewerFacts;
 	CSourceSharpClientMode& m_ClientMode;
 	CViewExecutor& m_Executor;
@@ -181,4 +207,3 @@ public:
 
 // The client DLL object's view render, for the free answers the code not yet handed it
 // still calls. Defined in shell_clientdll.cpp.
-CShellViewRender& ShellClientDll_ViewRender();

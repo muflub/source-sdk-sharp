@@ -58,9 +58,8 @@ inline int32_t Options(bool bEmitCloseCaption, bool bWarnOnMissingCloseCaption, 
 
 // GameSound_Emit( filter, entindex, params ): the first lookup fills in the
 // EmitSound_t's handle (stock's mutable m_hSoundScriptHandle).
-inline void Emit(IRecipientFilter& filter, int iEntIndex, const EmitSound_t& ep)
+inline void Emit(IManagedSoundEmitterClient* pApi, IRecipientFilter& filter, int iEntIndex, const EmitSound_t& ep)
 {
-	IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient();
 	if (!pApi)
 		return;
 
@@ -75,10 +74,10 @@ inline void Emit(IRecipientFilter& filter, int iEntIndex, const EmitSound_t& ep)
 }
 
 // GameSound_Emit by the caller's handle, the direct-wave warning on.
-inline void Emit(IRecipientFilter& filter, int iEntIndex, const char* pszSoundName, HSOUNDSCRIPTHANDLE& handle,
-				 const Vector* pOrigin = NULL, float flSoundTime = 0.0f, float* pflDuration = NULL)
+inline void Emit(IManagedSoundEmitterClient* pApi, IRecipientFilter& filter, int iEntIndex, const char* pszSoundName,
+				 HSOUNDSCRIPTHANDLE& handle, const Vector* pOrigin = NULL, float flSoundTime = 0.0f,
+				 float* pflDuration = NULL)
 {
-	IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient();
 	if (!pApi || !pszSoundName)
 		return;
 
@@ -91,25 +90,24 @@ inline void Emit(IRecipientFilter& filter, int iEntIndex, const char* pszSoundNa
 }
 
 // GameSound_Emit by a handle of its own.
-inline void Emit(IRecipientFilter& filter, int iEntIndex, const char* pszSoundName, const Vector* pOrigin = NULL,
-				 float flSoundTime = 0.0f, float* pflDuration = NULL)
+inline void Emit(IManagedSoundEmitterClient* pApi, IRecipientFilter& filter, int iEntIndex, const char* pszSoundName,
+				 const Vector* pOrigin = NULL, float flSoundTime = 0.0f, float* pflDuration = NULL)
 {
 	HSOUNDSCRIPTHANDLE handle = SOUNDEMITTER_INVALID_HANDLE;
-	Emit(filter, iEntIndex, pszSoundName, handle, pOrigin, flSoundTime, pflDuration);
+	Emit(pApi, filter, iEntIndex, pszSoundName, handle, pOrigin, flSoundTime, pflDuration);
 }
 
 // GameSound_Stop( entindex, channel, sample ).
-inline void Stop(int iEntIndex, int iChannel, const char* pszSample)
+inline void Stop(IManagedSoundEmitterClient* pApi, int iEntIndex, int iChannel, const char* pszSample)
 {
-	if (IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient())
+	if (pApi)
 		pApi->ClientSoundStop(iEntIndex, iChannel, pszSample);
 }
 
 // GameSound_EmitCloseCaption; the origin list was never read on the client.
-inline void EmitCloseCaption(IRecipientFilter& filter, int iEntIndex, const char* pszToken, float flDuration,
-							 bool bWarnIfMissing)
+inline void EmitCloseCaption(IManagedSoundEmitterClient* pApi, IRecipientFilter& filter, int iEntIndex,
+							 const char* pszToken, float flDuration, bool bWarnIfMissing)
 {
-	IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient();
 	if (!pApi || !pszToken)
 		return;
 

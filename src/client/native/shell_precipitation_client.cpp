@@ -34,6 +34,10 @@
 #include "shell_standalone_client.h"
 #include "imanaged_areas_client.h"
 #include "shell_precipitation_draw_client.h"
+#include "shell_standalone_clients.h"
+#include "shell_precipitation_queries_client.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 namespace
 {
@@ -45,9 +49,9 @@ const int kSplashFloats = 6; // origin 3, scale, lifetime, alpha
 const int kMaxTracers = 16384;
 const int kMaxSplashes = 64;
 
-IMaterial* TracerMaterial(int nMaterial)
+IMaterial* TracerMaterial(IMaterialSystem* pMaterials, int nMaterial)
 {
-	return materials->FindMaterial(nMaterial == 1 ? "particle/snow" : "particle/rain", TEXTURE_GROUP_CLIENT_EFFECTS);
+	return pMaterials->FindMaterial(nMaterial == 1 ? "particle/snow" : "particle/rain", TEXTURE_GROUP_CLIENT_EFFECTS);
 }
 
 } // namespace
@@ -82,19 +86,19 @@ void CPrecipitationClient::Draw()
 		return;
 
 	float flView[kViewFloats];
-	const VMatrix& m = CurrentWorldToViewMatrix();
+	const VMatrix& m = m_Cameras.CurrentWorldToView();
 	for (int r = 0; r < 4; ++r)
 		for (int c = 0; c < 4; ++c)
 			flView[r * 4 + c] = m[r][c];
-	const Vector& fwd = CurrentViewForward();
-	const Vector& org = CurrentViewOrigin();
+	const Vector& fwd = m_Cameras.CurrentForward();
+	const Vector& org = m_Cameras.CurrentOrigin();
 	flView[16] = fwd.x;
 	flView[17] = fwd.y;
 	flView[18] = fwd.z;
 	flView[19] = org.x;
 	flView[20] = org.y;
 	flView[21] = org.z;
-	flView[22] = (float)CurrentViewID();
+	flView[22] = (float)m_Cameras.CurrentID();
 	flView[23] = (float)view->GetDrawFlags();
 
 	int32_t nSplashes = 0;
@@ -123,7 +127,7 @@ void CPrecipitationClient::Draw()
 		pParticles->TracerQuads(nCount, pPlan->TracerIn, pPlan->TracerVerts[0].Base(), pPlan->TracerValid) != nCount)
 		return;
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 
 	// In view space, as stock's Render: the identity view, and the user clip
 	// planes kept on the real one.
@@ -143,7 +147,7 @@ void CPrecipitationClient::Draw()
 		while (iEnd < nCount && pPlan->Tracers[iEnd * kTracerFloats + 9] == flVolume)
 			++iEnd;
 
-		pRenderContext->Bind(TracerMaterial((int)pPlan->Tracers[iStart * kTracerFloats + 8]));
+		pRenderContext->Bind(TracerMaterial(m_Engines.m_pMaterials, (int)pPlan->Tracers[iStart * kTracerFloats + 8]));
 		IMesh* pMesh = pRenderContext->GetDynamicMesh();
 		if (pMesh)
 		{
@@ -183,8 +187,8 @@ void CPrecipitationClient::Draw()
 // UTIL_TraceLine with stock's mask, through CTraceFilterSimple, ignoring the
 // local player when asked (the ash's forward trace). Out: fraction, end xyz,
 // surface flags.
-int32_t SourceSharp_PrecipitationTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask,
-										   int32_t bIgnorePlayer, float* pOut)
+int32_t CPrecipitationQueriesClient::PrecipitationTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask,
+															int32_t bIgnorePlayer, float* pOut)
 {
 	if (!pStartXYZ || !pEndXYZ || !pOut)
 		return 0;
@@ -192,7 +196,7 @@ int32_t SourceSharp_PrecipitationTraceLine(const float* pStartXYZ, const float* 
 	IHandleEntity* pIgnore = NULL;
 	if (bIgnorePlayer)
 	{
-		if (C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell())
+		if (C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer())
 			pIgnore = static_cast<IClientUnknown*>(pPlayer);
 	}
 
@@ -210,8 +214,9 @@ int32_t SourceSharp_PrecipitationTraceLine(const float* pStartXYZ, const float* 
 
 // UTIL_TraceModel against the volume's own brush: ClipRayToEntity, MASK_ALL.
 // Out: hit (the volume), fraction, start solid, end xyz.
-int32_t SourceSharp_PrecipitationTraceVolume(uint32_t hOwner, const float* pStartXYZ, const float* pEndXYZ,
-											 const float* pHullMinXYZ, const float* pHullMaxXYZ, float* pOut)
+int32_t CPrecipitationQueriesClient::PrecipitationTraceVolume(uint32_t hOwner, const float* pStartXYZ,
+															  const float* pEndXYZ, const float* pHullMinXYZ,
+															  const float* pHullMaxXYZ, float* pOut)
 {
 	if (!pStartXYZ || !pEndXYZ || !pHullMinXYZ || !pHullMaxXYZ || !pOut)
 		return 0;
@@ -225,13 +230,13 @@ int32_t SourceSharp_PrecipitationTraceVolume(uint32_t hOwner, const float* pStar
 
 	// Stock's ShouldCollide( group, MASK_ALL ) cull is true for every entity
 	// (only debris refuses, and MASK_ALL carries CONTENTS_DEBRIS), so it is not asked.
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
 	if (pOwner)
 	{
 		Ray_t ray;
 		ray.Init(vecStart, vecEnd, Vector(pHullMinXYZ[0], pHullMinXYZ[1], pHullMinXYZ[2]),
 				 Vector(pHullMaxXYZ[0], pHullMaxXYZ[1], pHullMaxXYZ[2]));
-		enginetrace->ClipRayToEntity(ray, MASK_ALL, static_cast<IClientUnknown*>(pOwner), &tr);
+		m_Engines.m_pTrace->ClipRayToEntity(ray, MASK_ALL, static_cast<IClientUnknown*>(pOwner), &tr);
 	}
 
 	const bool bHit = (tr.fraction < 1.0f || tr.startsolid) && tr.m_pEnt != NULL;
@@ -244,31 +249,30 @@ int32_t SourceSharp_PrecipitationTraceVolume(uint32_t hOwner, const float* pStar
 	return 6;
 }
 
-int32_t SourceSharp_PrecipitationPointContents(const float* pXYZ)
+int32_t CPrecipitationQueriesClient::PrecipitationPointContents(const float* pXYZ)
 {
-	return pXYZ ? enginetrace->GetPointContents(Vector(pXYZ[0], pXYZ[1], pXYZ[2])) : 0;
+	return pXYZ ? m_Engines.m_pTrace->GetPointContents(Vector(pXYZ[0], pXYZ[1], pXYZ[2])) : 0;
 }
 
-int32_t SourceSharp_PrecipitationInPvs(uint32_t hOwner)
+int32_t CPrecipitationQueriesClient::PrecipitationInPvs(uint32_t hOwner)
 {
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
 	return pOwner && g_pClientLeafSystem->IsRenderableInPVS(pOwner->GetClientRenderable()) ? 1 : 0;
 }
 
 // The local player as the weather reads it: origin xyz, eye xyz, view yaw,
 // world-space center xyz, FOV, default FOV. 0 with no local player.
-int32_t SourceSharp_PrecipitationPlayer(float* pOut)
+int32_t CPrecipitationQueriesClient::PrecipitationPlayer(float* pOut)
 {
-	C_StandaloneEntity* pPlayer = SourceSharp_LocalPlayerShell();
+	C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer();
 	if (!pOut || !pPlayer)
 		return 0;
 
 	const Vector origin = pPlayer->GetAbsOrigin();
 	const Vector eye = pPlayer->EyePosition();
 	QAngle angles;
-	engine->GetViewAngles(angles);
+	m_Engines.m_pEngine->GetViewAngles(angles);
 	const Vector center = origin + (pPlayer->OBBMins() + pPlayer->OBBMaxs()) * 0.5f;
-	static ConVarRef default_fov("default_fov");
 
 	pOut[0] = origin.x;
 	pOut[1] = origin.y;
@@ -281,11 +285,11 @@ int32_t SourceSharp_PrecipitationPlayer(float* pOut)
 	pOut[8] = center.y;
 	pOut[9] = center.z;
 	pOut[10] = view->GetPlayerViewSetup()->fov;
-	pOut[11] = default_fov.IsValid() ? (float)default_fov.GetInt() : 90.0f;
+	pOut[11] = m_DefaultFov.IsValid() ? (float)m_DefaultFov.GetInt() : 90.0f;
 	return 1;
 }
 
-void SourceSharp_PrecipitationWorldBounds(float* pOut6)
+void CPrecipitationQueriesClient::PrecipitationWorldBounds(float* pOut6)
 {
 	if (!pOut6)
 		return;
@@ -300,7 +304,7 @@ void SourceSharp_PrecipitationWorldBounds(float* pOut6)
 	pOut6[5] = maxs.z;
 }
 
-int32_t SourceSharp_PrecipitationScreenWidth()
+int32_t CPrecipitationQueriesClient::PrecipitationScreenWidth()
 {
 	return ScreenWidth();
 }

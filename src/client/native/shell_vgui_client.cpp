@@ -28,6 +28,8 @@
 #include "vgui/IInputInternal.h"
 
 #include "imanaged_areas_client.h"
+#include "shell_hud_ui_client.h"
+#include "shell_client_engine_interfaces.h"
 
 vgui::IInputInternal* g_InputInternal = NULL;
 
@@ -113,24 +115,21 @@ void VGui_Shutdown()
 
 // The engine facts the managed UI decides the loading and paused plaques from, sent when
 // they change. The seconds left on a timed pause, -1 without a timer.
-static int s_nPlaqueFacts = -1;
-static int s_nPausedSeconds = -1;
-
-void VGui_PreRender()
+void CHudUiClient::PlaquePreRender()
 {
-	const int nFacts = (engine->IsDrawingLoadingImage() ? 1 : 0) | (engine->IsPlayingDemo() ? 2 : 0) |
-		(enginevgui->IsGameUIVisible() ? 4 : 0) | (engine->IsPaused() ? 8 : 0) |
-		(engine->IsTakingScreenshot() ? 16 : 0);
-	const float flExpire = engine->GetPausedExpireTime();
+	const int nFacts = (m_Engines.m_pEngine->IsDrawingLoadingImage() ? 1 : 0) |
+		(m_Engines.m_pEngine->IsPlayingDemo() ? 2 : 0) | (m_Engines.m_pVGui->IsGameUIVisible() ? 4 : 0) |
+		(m_Engines.m_pEngine->IsPaused() ? 8 : 0) | (m_Engines.m_pEngine->IsTakingScreenshot() ? 16 : 0);
+	const float flExpire = m_Engines.m_pEngine->GetPausedExpireTime();
 	// The expiry is on the engine's clock, which engine->Time() answers.
-	const int nSeconds = flExpire != -1.f ? (int)(flExpire - engine->Time()) : -1;
-	if (nFacts == s_nPlaqueFacts && nSeconds == s_nPausedSeconds)
+	const int nSeconds = flExpire != -1.f ? (int)(flExpire - m_Engines.m_pEngine->Time()) : -1;
+	if (nFacts == m_nPlaqueFacts && nSeconds == m_nPausedSeconds)
 		return;
-	IManagedUiClient* pUi = ManagedUiClient();
+	IManagedUiClient* pUi = Managed();
 	if (!pUi)
 		return;
-	s_nPlaqueFacts = nFacts;
-	s_nPausedSeconds = nSeconds;
+	m_nPlaqueFacts = nFacts;
+	m_nPausedSeconds = nSeconds;
 	pUi->PlaqueState(nFacts, nSeconds);
 }
 

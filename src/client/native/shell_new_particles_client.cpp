@@ -27,6 +27,8 @@
 
 #include "shell_standalone_client.h"
 #include "slot_table.h"
+#include "client_entity_list.h"
+#include "shell_client_engine_interfaces.h"
 
 using ss::BitBlockBits;
 using ss::BitBlockSetBits;
@@ -188,7 +190,7 @@ void CShellNewParticleEffect::SetControlPointEntity(int nWhichPoint, C_Standalon
 
 C_StandaloneEntity* CShellNewParticleEffect::GetControlPointEntity(int nWhichPoint) const
 {
-	return SourceSharp_ClientShellFromHandle(m_hControlPointOwners[nWhichPoint]);
+	return m_Owner.EntityList().ShellFromHandle(m_hControlPointOwners[nWhichPoint]);
 }
 
 void CShellNewParticleEffect::StopEmission(bool bInfiniteOnly, bool bRemoveAllParticles, bool bWakeOnStop)
@@ -264,7 +266,7 @@ int CShellNewParticleEffect::DrawModel(int flags)
 
 	const ShellCollection* p = ShellCollection::Of(m_pCollection);
 	const CParticleSystemDefinition* pDef = m_pCollection->m_pDef;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Owner.Engines().m_pMaterials);
 
 	SourceSharpNewParticleDrawIn_t in;
 	V_memset(&in, 0, sizeof(in));
@@ -323,14 +325,16 @@ int CShellNewParticleEffect::DrawModel(int flags)
 	}
 
 	// DebugDrawBbox's overlay, in the colour managed chose.
-	if (out.BBox && debugoverlay)
+	if (out.BBox && m_Owner.Engines().m_pDebugOverlay)
 	{
 		const Vector center = GetRenderOrigin();
 		const Vector mins = p->MinBounds() - center;
 		const Vector maxs = p->MaxBounds() - center;
-		debugoverlay->AddBoxOverlay(center, mins, maxs, QAngle(0, 0, 0), out.BBoxR, out.BBoxG, out.BBoxB, 16, 0);
-		debugoverlay->AddTextOverlayRGB(center, 0, 0, out.BBoxR, out.BBoxG, out.BBoxB, 64, "%s:(%d)", GetEffectName(),
-										m_pCollection->m_nActiveParticles);
+		m_Owner.Engines().m_pDebugOverlay->AddBoxOverlay(center, mins, maxs, QAngle(0, 0, 0), out.BBoxR, out.BBoxG,
+														 out.BBoxB, 16, 0);
+		m_Owner.Engines().m_pDebugOverlay->AddTextOverlayRGB(center, 0, 0, out.BBoxR, out.BBoxG, out.BBoxB, 64,
+															 "%s:(%d)", GetEffectName(),
+															 m_pCollection->m_nActiveParticles);
 	}
 
 	return out.Action != 0 ? 1 : 0;
@@ -425,8 +429,8 @@ void CNewParticlesClient::Frame(float flFrameTime)
 	V_memset(pHeader, 0, sizeof(*pHeader));
 	pHeader->Dt = flFrameTime;
 	pHeader->Timescale = s_r_particle_timescale.GetFloat();
-	pHeader->CurTime = gpGlobals->curtime;
-	pHeader->FrameCount = gpGlobals->framecount;
+	pHeader->CurTime = m_Engines.m_pGlobals->curtime;
+	pHeader->FrameCount = m_Engines.m_pGlobals->framecount;
 	pHeader->AabbBuffer = s_cl_particleeffect_aabb_buffer.GetFloat();
 	pHeader->RetireCost = s_cl_particle_retire_cost.GetFloat();
 	pHeader->SpikeThresholdMs = s_r_particle_sim_spike_threshold_ms.GetInt();
@@ -440,7 +444,8 @@ void CNewParticlesClient::Frame(float flFrameTime)
 		pHeader->ViewFov = pView->fov;
 		CopyVector(pView->origin, pHeader->ViewOriginXYZ);
 		VMatrix worldToView, viewToProjection, worldToProjection, worldToScreen;
-		render->GetMatricesForView(*pView, &worldToView, &viewToProjection, &worldToProjection, &worldToScreen);
+		m_Engines.m_pRender->GetMatricesForView(*pView, &worldToView, &viewToProjection, &worldToProjection,
+												&worldToScreen);
 		V_memcpy(pHeader->WorldToScreen, worldToScreen.Base(), sizeof(pHeader->WorldToScreen));
 	}
 

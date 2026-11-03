@@ -19,6 +19,8 @@
 #include "shell_clientsystem.h"
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+class CViewCameras;
 class CManagedWorldText;
 class CShellRenderable;
 class CStandaloneClients;
@@ -26,8 +28,11 @@ class CStandaloneClients;
 class CWorldTextClient
 {
 public:
-	CWorldTextClient(const CManagedAreasClient& areas, CStandaloneClients& standalone)
+	CWorldTextClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+					 const CViewCameras& cameras, CStandaloneClients& standalone)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
 		, m_Standalone(standalone)
 	{
 	}
@@ -73,6 +78,8 @@ private:
 	void Follow();
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 	CStandaloneClients& m_Standalone;
 
 	CUtlVector<Row_t> m_Rows;

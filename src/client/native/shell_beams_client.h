@@ -13,6 +13,10 @@
 
 #pragma once
 
+class CClientEngineInterfaces;
+class CViewCameras;
+class CClientEntityList;
+
 #include <stdint.h>
 
 // The header names CBaseEntity, the client's alias for C_BaseEntity.
@@ -32,16 +36,34 @@ class IMaterial;
 class CBeamsClient final : public IViewRenderBeams
 {
 public:
-	explicit CBeamsClient(const CManagedAreasClient& areas)
+	CBeamsClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines, const CViewCameras& cameras,
+				 CClientEntityList& entityList)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
+		, m_EntityList(entityList)
 	{
 	}
 
 	CBeamsClient(const CBeamsClient&) = delete;
 	CBeamsClient& operator=(const CBeamsClient&) = delete;
 
+	// Shim slots: the models, the box and the strips a managed beam draws with.
+	int32_t BeamModelInfo(int32_t nModelIndex, int32_t* pOutFrameCount);
+	int32_t BeamModelIndex(const char* pszName);
+	int32_t BeamBoxVisibility(const float* pMinsXYZ, const float* pMaxsXYZ);
+	int32_t BeamScreenPosition(const float* pPointXYZ, float* pOutScreenXYZ);
+	int32_t BeamGlow(int32_t nModelIndex, int32_t bBind);
+	void BeamDrawStrip(const float* pVerts, int32_t nVerts);
+	void BeamDrawMesh(int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float* pVerts, int32_t nVerts);
+
 	// NULL outside a managed load.
 	IManagedBeamsClient* Managed() const { return m_Areas.m_pBeamsClient; }
+
+	// Shim slots: the view a managed rope or beam reads.
+	void ClientViewState(int32_t bCurrentView, float* pOutForwardXYZ, float* pOutOriginXYZ, float* pOutMainOriginXYZ,
+						 float* pOutCameraXYZ, int32_t* pOutScreenWidth, int32_t* pOutDxLevel, int32_t* pOutAAEnabled);
+	void BeamView(int32_t bCurrentView, float* pOut42);
 
 	// IViewRenderBeams. Nothing creates a beam through it, so the creators answer no Beam_t.
 	void InitBeams() override;
@@ -109,6 +131,9 @@ public:
 	void KillDeadBeams(const CBaseHandle& hDeadEntity);
 
 	// IShimEffectsRenderClient.
+	uint32_t BeamEntityAt(int32_t nEntry);
+	int32_t BeamEntityHasModel(uint32_t hEntity);
+	int32_t BeamEntityFacts(uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float* pOut9);
 	int32_t BeamRenderableAdd(const float* pOriginMinsMaxs9);
 	void BeamRenderableChanged(int32_t nRenderable, const float* pOriginMinsMaxs9);
 	void BeamRenderableRemove(int32_t nRenderable);
@@ -119,6 +144,9 @@ private:
 	CBeamRenderable* RenderableAt(int nIndex);
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
+	CClientEntityList& m_EntityList;
 
 	// One leaf-system renderable per drawn managed beam, pooled: a removed one is reused.
 	CUtlVector<CBeamRenderable*> m_Renderables;

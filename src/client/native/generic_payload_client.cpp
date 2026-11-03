@@ -14,21 +14,22 @@
 #include "generic_nettable.h"
 #include "ss_string.h"
 #include "imanaged_areas_client.h"
+#include "shell_standalone_clients.h"
 
 // Declared rather than included: shell_standalone_client.h is a long header.
 int SourceSharp_StandaloneBlobOffset();
 
 // Managed decides; this hands it what the type table holds for the type and carries out
 // the answer. With no managed side nothing is decoded.
-bool SourceSharpSchema_Accept(unsigned int nTypeId, unsigned int nSchemaHash, int nEntIndex,
-							  const char** ppOutClassName)
+bool CStandaloneClients::SchemaAccept(unsigned int nTypeId, unsigned int nSchemaHash, int nEntIndex,
+									  const char** ppOutClassName)
 {
 	const SourceSharpNetType_t* pType = SourceSharp_NetTypes().ById(nTypeId);
 
 	if (ppOutClassName)
 		*ppOutClassName = pType ? pType->szClass : NULL;
 
-	IManagedStandaloneClient* pStandalone = ManagedStandaloneClient();
+	IManagedStandaloneClient* pStandalone = m_Areas.m_pStandaloneClient;
 
 	if (!pStandalone)
 		return false;

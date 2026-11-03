@@ -234,11 +234,6 @@ bool CManagedSide::Reattached(void* pObject, char* pWhy, size_t nWhy)
 		ManagedAreasClient_Validate(managed.m_Areas, pWhy, nWhy);
 }
 
-IManagedRuntimeClient* ManagedRuntimeClient()
-{
-	return ShellClientDll_Managed().m_pRuntimeClient;
-}
-
 void CManagedSide::ReleaseRoot()
 {
 	CManagedHoldersClient& managed = m_Holders;

@@ -20,7 +20,10 @@
 #include "bound_callback.h"
 #include "shell_clientsystem.h"
 #include "shell_managed_areas_client.h"
+#include "shell_member_command.h"
 
+class CClientEngineInterfaces;
+class CViewCameras;
 class CManagedParticleEffect;
 class CShellParticleEffect;
 class CStandaloneClients;
@@ -28,8 +31,11 @@ class CStandaloneClients;
 class CManagedParticlesClient
 {
 public:
-	CManagedParticlesClient(const CManagedAreasClient& areas, CStandaloneClients& standalone)
+	CManagedParticlesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+							const CViewCameras& cameras, CStandaloneClients& standalone)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
 		, m_Standalone(standalone)
 	{
 	}
@@ -40,6 +46,9 @@ public:
 
 	CManagedParticlesClient(const CManagedParticlesClient&) = delete;
 	CManagedParticlesClient& operator=(const CManagedParticlesClient&) = delete;
+
+	// Shim slot: the model-view rows, the view id, and the view's origin and forward.
+	void ParticlesView(float* pModelView12, int32_t* pViewId, float* pOriginForward6);
 
 	// NULL outside a managed load.
 	IManagedParticlesClient* Managed() const { return m_Areas.m_pParticlesClient; }
@@ -73,6 +82,14 @@ public:
 	void ParticlesDestroy(uint32_t hOwner, int32_t nChannel);
 
 private:
+	void EffectKindsCommand(const CCommand& args) { PrintKinds(); }
+
+	CMemberCommand<CManagedParticlesClient, &CManagedParticlesClient::EffectKindsCommand> m_EffectKindsCommand{
+		*this, "cs_cl_effect_kinds",
+		"every live managed particle executor (trails, steam jets, smoke stacks, smoke volumes): "
+		"where it is drawn this frame and how many particles its binding is simulating",
+		0};
+
 	// Keeps each executor at its owner every frame, and releases them all at a level's end.
 	class CSystemRow final : public CClientSystemPerFrame
 	{
@@ -96,6 +113,8 @@ private:
 	void ReleaseAll();
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 	CStandaloneClients& m_Standalone;
 
 	CUtlVector<CManagedParticleEffect*> m_Effects;
@@ -108,7 +127,3 @@ private:
 
 	CSystemRow m_SystemRow{*this};
 };
-
-// The client DLL object's managed particles, for the free answers the code not yet handed
-// them still calls (cs_cl_effect_kinds). Defined in shell_clientdll.cpp.
-CManagedParticlesClient& ShellClientDll_ManagedParticles();

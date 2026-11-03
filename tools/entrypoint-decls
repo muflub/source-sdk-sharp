@@ -353,8 +353,9 @@ def generate():
         die("%d slot(s) have no SourceSharpEngineApi field or server area method: %s"
             % (len(unknown), ", ".join(f for f, _ in unknown[:6])))
 
-    # A floor, as above; 150 -> 100 at plan_server_native_v2 T4d.
-    if len(rows) < 100:
+    # A floor, as above; 150 -> 100 at plan_server_native_v2 T4d; 100 -> 50 at
+    # plan_client_native_t6 C1, whose slots become methods of their owners (91 read).
+    if len(rows) < 50:
         die("only %d prototypes derived; the scan lost its subject" % len(rows))
 
     rows.sort(key=lambda r: (r[0], r[2]))

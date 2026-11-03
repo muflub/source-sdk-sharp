@@ -25,6 +25,9 @@
 #include "imanaged_areas_client.h"
 #include "shell_managed_areas_client.h"
 #include "shell_sprites_client.h"
+#include "client_entity_list.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 // The pool's seam (shell_te_pool_client.cpp).
 
@@ -79,6 +82,11 @@ void C_LocalTempEntity::SetAcceleration(const Vector& vecVelocity)
 	m_vecTempEntAcceleration = vecVelocity;
 }
 
+IHandleEntity* C_LocalTempEntity::TempEntOwnerHandle() const
+{
+	return m_pPool->EntityList().UnknownFromHandle(m_hOwnerEntity);
+}
+
 IManagedFxClient* C_LocalTempEntity::ManagedFx() const
 {
 	return m_pAreas->m_pFxClient;
@@ -101,7 +109,7 @@ void C_LocalTempEntity::OnRemoveTempEntity() {}
 bool C_LocalTempEntity::IsTransparent()
 {
 	IManagedFxClient* pFx = ManagedFx();
-	const int bTranslucent = modelinfo->IsTranslucent(GetModel()) ? 1 : 0;
+	const int bTranslucent = Pool().Engines().m_pModelInfo->IsTranslucent(GetModel()) ? 1 : 0;
 	return pFx ? pFx->TempEntIsTransparent(bTranslucent, m_nRenderMode) != 0 : bTranslucent != 0;
 }
 
@@ -114,7 +122,7 @@ void C_LocalTempEntity::GetRenderBounds(Vector& theMins, Vector& theMaxs)
 		return;
 	}
 
-	modelinfo->GetModelRenderBounds(GetModel(), theMins, theMaxs);
+	Pool().Engines().m_pModelInfo->GetModelRenderBounds(GetModel(), theMins, theMaxs);
 }
 
 void C_LocalTempEntity::GetColorModulation(float* color)
@@ -136,20 +144,20 @@ RenderGroup_t C_LocalTempEntity::GetRenderGroup()
 	if (m_nRenderMode != kRenderNone)
 	{
 		const int nTempComputeFrame = m_nFXComputeFrame;
-		m_nFXComputeFrame = gpGlobals->framecount;
+		m_nFXComputeFrame = Pool().Engines().m_pGlobals->framecount;
 		nBlend = GetFxBlend();
 		m_nFXComputeFrame = nTempComputeFrame;
 	}
 
-	const int bTranslucent = modelinfo->IsTranslucent(GetModel()) ? 1 : 0;
-	const int bTwoPass = modelinfo->IsTranslucentTwoPass(GetModel()) ? 1 : 0;
+	const int bTranslucent = Pool().Engines().m_pModelInfo->IsTranslucent(GetModel()) ? 1 : 0;
+	const int bTwoPass = Pool().Engines().m_pModelInfo->IsTranslucentTwoPass(GetModel()) ? 1 : 0;
 	return (RenderGroup_t)pFx->TempEntRenderGroup(m_nRenderMode, nBlend, bTranslucent, bTwoPass);
 }
 
 void C_LocalTempEntity::ComputeFxBlend()
 {
 	// Don't recompute if we've already computed this frame
-	if (m_nFXComputeFrame == gpGlobals->framecount)
+	if (m_nFXComputeFrame == Pool().Engines().m_pGlobals->framecount)
 		return;
 
 	IManagedFxClient* pFx = ManagedFx();
@@ -161,17 +169,17 @@ void C_LocalTempEntity::ComputeFxBlend()
 	in[1] = (float)m_clrRender.a;
 	in[2] = (float)m_nRenderMode;
 	in[3] = (float)index;
-	in[4] = gpGlobals->curtime;
+	in[4] = Pool().Engines().m_pGlobals->curtime;
 	PutVector(in + 5, GetAbsOrigin());
-	PutVector(in + 8, CurrentViewOrigin());
-	PutVector(in + 11, CurrentViewForward());
+	PutVector(in + 8, Pool().Cameras().CurrentOrigin());
+	PutVector(in + 11, Pool().Cameras().CurrentForward());
 
 	int32_t out[2] = {255, m_clrRender.a};
 	pFx->TempEntBlend(in, out);
 
 	SetRenderColorA((byte)out[1]);
 	m_nRenderFXBlend = out[0];
-	m_nFXComputeFrame = gpGlobals->framecount;
+	m_nFXComputeFrame = Pool().Engines().m_pGlobals->framecount;
 
 	// The render group follows the blend, as stock's GetRenderHandle() update did.
 	if (IsInLeafSystem())
@@ -180,18 +188,18 @@ void C_LocalTempEntity::ComputeFxBlend()
 
 int C_LocalTempEntity::DrawStudioModel(int modelFlags)
 {
-	if (!GetModel() || modelinfo->GetModelType(GetModel()) != mod_studio)
+	if (!GetModel() || Pool().Engines().m_pModelInfo->GetModelType(GetModel()) != mod_studio)
 		return 0;
 
 	MDLCACHE_CRITICAL_SECTION();
-	if (!modelinfo->GetStudiomodel(GetModel()))
+	if (!Pool().Engines().m_pModelInfo->GetStudiomodel(GetModel()))
 		return 0;
 
 	if (m_pfnDrawHelper)
 		return (*m_pfnDrawHelper)(this, modelFlags);
 
-	return modelrender->DrawModel(modelFlags, this, MODEL_INSTANCE_INVALID, index, GetModel(), GetAbsOrigin(),
-								  GetAbsAngles(), m_nSkin, m_nBody, m_nHitboxSet);
+	return Pool().Engines().m_pModelRender->DrawModel(modelFlags, this, MODEL_INSTANCE_INVALID, index, GetModel(),
+													  GetAbsOrigin(), GetAbsAngles(), m_nSkin, m_nBody, m_nHitboxSet);
 }
 
 int C_LocalTempEntity::DrawModel(int modelFlags)
@@ -207,12 +215,12 @@ int C_LocalTempEntity::DrawModel(int modelFlags)
 			float in[9];
 			PutVector(in, m_vecNormal);
 			PutVector(in + 3, GetAbsOrigin());
-			PutVector(in + 6, MainViewOrigin());
+			PutVector(in + 6, Pool().Cameras().MainOrigin());
 			SetRenderColorA((byte)pFx->TempEntOccludedAlpha(flags, m_clrRender.a, tempent_renderamt, in));
 		}
 	}
 
-	switch (modelinfo->GetModelType(GetModel()))
+	switch (Pool().Engines().m_pModelInfo->GetModelType(GetModel()))
 	{
 		case mod_sprite:
 			// NULL entity: a tempent has no IClientEntity for the material proxies, and
@@ -255,14 +263,16 @@ bool C_LocalTempEntity::SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones, 
 	const model_t* pModel = GetModel();
 	IManagedBonesClient* pBones = m_pAreas->m_pBonesClient;
 
-	if (pBones && pModel && modelinfo->GetModelType(pModel) == mod_studio)
+	if (pBones && pModel && Pool().Engines().m_pModelInfo->GetModelType(pModel) == mod_studio)
 	{
 		const Vector& vecOrigin = GetRenderOrigin();
 		const QAngle& angAngles = GetRenderAngles();
 		const float flPlace[6] = {vecOrigin.x, vecOrigin.y, vecOrigin.z, angAngles.x, angAngles.y, angAngles.z};
 
-		if (pBones->PoseModel(modelinfo->GetModelIndex(modelinfo->GetModelName(pModel)), flPlace, matRender.Base(),
-							  pBoneToWorldOut[0].Base(), nMaxBones, boneMask, currentTime, gpGlobals->framecount))
+		if (pBones->PoseModel(
+				Pool().Engines().m_pModelInfo->GetModelIndex(Pool().Engines().m_pModelInfo->GetModelName(pModel)),
+				flPlace, matRender.Base(), pBoneToWorldOut[0].Base(), nMaxBones, boneMask, currentTime,
+				Pool().Engines().m_pGlobals->framecount))
 			return true;
 	}
 
@@ -294,7 +304,7 @@ static int BreakModelDrawHelper(C_LocalTempEntity* entity, int flags)
 			sInfo.pLightingOrigin = &pHead->GetAbsOrigin();
 	}
 
-	return modelrender->DrawModelEx(sInfo);
+	return entity->Pool().Engines().m_pModelRender->DrawModelEx(sInfo);
 }
 
 void SourceSharpTePool_JoinBreakGroup(C_LocalTempEntity* pTemp, bool bSlave)
@@ -303,10 +313,14 @@ void SourceSharpTePool_JoinBreakGroup(C_LocalTempEntity* pTemp, bool bSlave)
 		pTemp->SetDrawHelper(BreakModelDrawHelper);
 }
 
-CTempEnts::CTempEnts(const CManagedAreasClient& areas, CSpritesClient& sprites)
+CTempEnts::CTempEnts(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+					 const CViewCameras& cameras, CSpritesClient& sprites, CClientEntityList& entityList)
 	: m_TempEntsPool((MAX_TEMP_ENTITIES / 20), CUtlMemoryPool::GROW_SLOW)
 	, m_Areas(areas)
+	, m_Engines(engines)
+	, m_Cameras(cameras)
 	, m_Sprites(sprites)
+	, m_EntityList(entityList)
 {
 }
 
@@ -339,10 +353,10 @@ void CTempEnts::LevelShutdown()
 
 void CTempEnts::Update()
 {
-	if (!engine->IsInGame())
+	if (!m_Engines.m_pEngine->IsInGame())
 		return;
 
-	PoolUpdate(gpGlobals->frametime);
+	PoolUpdate(m_Engines.m_pGlobals->frametime);
 }
 
 void CTempEnts::Clear()
@@ -405,7 +419,7 @@ void CTempEnts::EjectBrass(const Vector& pos1, const QAngle& angles, const QAngl
 void CTempEnts::AttachTentToPlayer(int client, int modelIndex, float zoffset, float life)
 {
 	if (IManagedFxClient* pFx = m_Areas.m_pFxClient)
-		pFx->TempEntAttach(client, modelIndex, zoffset, life, gpGlobals->maxClients);
+		pFx->TempEntAttach(client, modelIndex, zoffset, life, m_Engines.m_pGlobals->maxClients);
 }
 
 // The slots nothing in this mod calls: each warns once.

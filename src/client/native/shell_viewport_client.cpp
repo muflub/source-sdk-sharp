@@ -18,12 +18,14 @@
 #include "vgui_controls/Controls.h"
 
 #include "shell_viewport_client.h"
+#include "shell_managed_areas_client.h"
 #include "imanaged_areas_client.h"
 
 IViewPort* gViewPortInterface = NULL;
 
-CSourceSharpViewport::CSourceSharpViewport()
+CSourceSharpViewport::CSourceSharpViewport(const CManagedAreasClient& areas)
 	: CSourceSharpRawPanel("SourceSharpViewport")
+	, m_Areas(areas)
 	, m_pGameEventManager(NULL)
 	, m_nRootWide(-1)
 	, m_nRootTall(-1)
@@ -77,7 +79,7 @@ void CSourceSharpViewport::OnRootSize(int nWide, int nTall)
 // By name: the managed UI opens or closes its screen for it.
 void CSourceSharpViewport::ShowPanel(const char* pName, bool state)
 {
-	if (IManagedUiClient* pUi = ManagedUiClient())
+	if (IManagedUiClient* pUi = m_Areas.m_pUiClient)
 	{
 		if (pName)
 			pUi->ViewportPanel(pName, state ? 1 : 0);

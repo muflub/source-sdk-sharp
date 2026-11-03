@@ -13,6 +13,10 @@
 
 #pragma once
 
+class CClientEngineInterfaces;
+class CViewCameras;
+class CClientEntityList;
+
 #include <stdint.h>
 
 #include "clientsideeffects.h"
@@ -24,13 +28,30 @@ class IMaterial;
 class CEffectsListClient final : public IEffectsList
 {
 public:
-	explicit CEffectsListClient(const CManagedAreasClient& areas)
+	CEffectsListClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+					   const CViewCameras& cameras, CClientEntityList& entityList)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
+		, m_EntityList(entityList)
 	{
 	}
 
 	CEffectsListClient(const CEffectsListClient&) = delete;
 	CEffectsListClient& operator=(const CEffectsListClient&) = delete;
+
+	// Shim slots: what managed effects ask of the engine.
+	int32_t FxLocalPlayer();
+	void FxViewAngles(float* pOutPYR);
+	void FxEjectBrass(const float* pOriginXYZ, const float* pAnglesPYR, const float* pGunAnglesPYR, int32_t nType);
+	int32_t FxPrecacheCount();
+	void FxPrecacheCache(int32_t nIndex, int32_t bPrecache);
+	void FxCacheUsedMaterials();
+	void FxCacheMaterialHandles();
+
+	// Shim slots: the view the effects read.
+	void FxView(float* pOut);
+	void FxMainViewOrigin(float* pOutXYZ);
 
 	// NULL outside a managed load.
 	IManagedFxClient* Managed() const { return m_Areas.m_pFxClient; }
@@ -72,6 +93,9 @@ public:
 	CClientSystem& PrecacheRow() { return m_PrecacheRow; }
 
 	// IShimFxClient.
+	int32_t FxEntityAttachment(int32_t nEntIndex, int32_t nAttachment, float* pOutXYZ, char* pModelOut,
+							   int32_t nModelSize);
+	int32_t FxEntityRenderAngles(int32_t nEntIndex, float* pOutPYR);
 	int32_t FxMaterialFind(const char* pName);
 	void FxMaterialAddRef(int32_t nMaterial);
 	void FxMaterialRelease(int32_t nMaterial);
@@ -112,6 +136,9 @@ private:
 	};
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
+	CClientEntityList& m_EntityList;
 
 	static const int kMaxMaterials = 1024;
 	IMaterial* m_pMaterials[kMaxMaterials] = {};
@@ -126,8 +153,3 @@ private:
 	CBulletWhizRow m_BulletWhizRow{*this};
 	CPrecacheRow m_PrecacheRow{*this};
 };
-
-// The client DLL object's effect list, for the free answers the code not yet handed it
-// still calls (the probe build's FX_* entries, the glow and pixel-visibility command
-// streams' material ids). Defined in shell_clientdll.cpp.
-CEffectsListClient& ShellClientDll_EffectsList();

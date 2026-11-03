@@ -23,6 +23,7 @@
 
 #include "imanaged_areas_client.h"
 #include "shell_te_system_client.h"
+#include "client_entity_list.h"
 
 // Zero-initialised, so ready before any DECLARE_CLIENT_EFFECT constructor runs.
 CClientEffectRegistration* CClientEffectRegistration::s_pHead = NULL;
@@ -49,7 +50,7 @@ CClientEffectRegistration* EffectRegistrationAt(int32_t iIndex)
 }
 
 // A negative entity index is no entity; anything else is looked up.
-void EffectDataToClient(const SourceSharpEffectData_t* pData, CEffectData* pOut)
+void EffectDataToClient(const CClientEntityList& entityList, const SourceSharpEffectData_t* pData, CEffectData* pOut)
 {
 	CEffectData& data = *pOut;
 
@@ -69,7 +70,7 @@ void EffectDataToClient(const SourceSharpEffectData_t* pData, CEffectData* pOut)
 	data.m_nHitBox = pData->HitBox;
 	data.m_nColor = (unsigned char)pData->Color;
 
-	data.m_hEntity = (pData->EntIndex >= 0) ? SourceSharp_ClientHandleFromIndex(pData->EntIndex) : INVALID_EHANDLE;
+	data.m_hEntity = (pData->EntIndex >= 0) ? entityList.HandleFromIndex(pData->EntIndex) : INVALID_EHANDLE;
 
 	data.m_bCustomColors = (pData->CustomColors != 0);
 	data.m_CustomColors.m_vecColor1.Init(pData->Color1XYZ[0], pData->Color1XYZ[1], pData->Color1XYZ[2]);
@@ -131,24 +132,6 @@ void EffectDataFromClient(const CEffectData& data, SourceSharpEffectData_t* pOut
 
 } // namespace
 
-// The handle resolved through the slot table.
-IClientRenderable* CEffectData::GetRenderable() const
-{
-	return SourceSharp_ClientRenderableFromHandle(m_hEntity);
-}
-
-// NULL: on the client no entity is an IGameEntity. Use GetRenderable() or entindex().
-IGameEntity* CEffectData::GetEntity() const
-{
-	return NULL;
-}
-
-int CEffectData::entindex() const
-{
-	IClientNetworkable* pNet = SourceSharp_ClientNetworkableFromHandle(m_hEntity);
-	return pNet ? pNet->entindex() : -1;
-}
-
 // The registration list, read and run by walk index.
 int32_t SourceSharp_EffectRegistrationCount()
 {
@@ -168,14 +151,14 @@ int32_t SourceSharp_EffectRegistrationName(int32_t iIndex, char* pOut, int32_t n
 	return Q_strlen(pReg->m_pEffectName);
 }
 
-void SourceSharp_EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData)
+void CTempEntsSystemClient::EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData)
 {
 	CClientEffectRegistration* pReg = EffectRegistrationAt(iIndex);
 	if (!pReg || !pReg->m_pFunction || !pData)
 		return;
 
 	CEffectData data;
-	EffectDataToClient(pData, &data);
+	EffectDataToClient(m_EntityList, pData, &data);
 	pReg->m_pFunction(data);
 }
 

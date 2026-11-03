@@ -46,22 +46,7 @@
 #include "shell_client_mode.h"
 #include "shell_managed_particles.h"
 #include "shell_standalone_clients.h"
-
-// The free answers for the code not yet handed the client mode.
-bool SourceSharp_ThirdPersonSeesOwner()
-{
-	return ShellClientDll_Standalone().ThirdPersonSeesOwner();
-}
-
-bool ShellClient_ViewerSeenBegin()
-{
-	return ShellClientDll_ClientMode().ViewerSeenBegin();
-}
-
-void ShellClient_ViewerSeenEnd(bool bWasSeen)
-{
-	ShellClientDll_ClientMode().ViewerSeenEnd(bWasSeen);
-}
+#include "shell_client_engine_interfaces.h"
 
 bool CSourceSharpClientMode::ViewerSeenBegin()
 {
@@ -188,7 +173,7 @@ void CSourceSharpClientMode::ApplyManagedShake(Vector& origin, QAngle& angles)
 {
 	float out[4] = {0, 0, 0, 0};
 	if (IManagedRenderClient* p = m_Areas.m_pRenderClient)
-		p->ViewEffectsCalcShake(gpGlobals->curtime, gpGlobals->frametime, out);
+		p->ViewEffectsCalcShake(m_Engines.m_pGlobals->curtime, m_Engines.m_pGlobals->frametime, out);
 	VectorMA(origin, 1.0f, Vector(out[0], out[1], out[2]), origin);
 	angles.z += out[3] * 1.0f;
 }
@@ -202,7 +187,8 @@ void CSourceSharpClientMode::ApplyManagedViewModelBob(Vector& origin, QAngle& an
 	float inAngles[3] = {angles.x, angles.y, angles.z};
 	float outOrigin[3], outAngles[3];
 	if (IManagedRenderClient* p = m_Areas.m_pRenderClient)
-		p->ViewEffectsViewModelBob(gpGlobals->curtime, gpGlobals->frametime, inOrigin, inAngles, outOrigin, outAngles);
+		p->ViewEffectsViewModelBob(m_Engines.m_pGlobals->curtime, m_Engines.m_pGlobals->frametime, inOrigin, inAngles,
+								   outOrigin, outAngles);
 	else
 		return;
 	origin.Init(outOrigin[0], outOrigin[1], outOrigin[2]);
@@ -218,7 +204,7 @@ bool CSourceSharpClientMode::ApplyViewOverride(CViewSetup* pSetup)
 	pSetup->origin = m_ViewOverride.origin;
 	pSetup->angles = m_ViewOverride.angles;
 	if (m_ViewOverride.bSetViewAngles)
-		engine->SetViewAngles(pSetup->angles);
+		m_Engines.m_pEngine->SetViewAngles(pSetup->angles);
 	ApplyManagedShake(pSetup->origin, pSetup->angles);
 	return true;
 }
@@ -234,11 +220,14 @@ void CSourceSharpClientMode::ViewOverrideSet(int32_t nActive, const float* pOrig
 	m_ViewOverride.bSetViewAngles = nSetViewAngles != 0;
 }
 
-CSourceSharpClientMode::CSourceSharpClientMode(const CManagedAreasClient& areas, CStandaloneClients& standalone,
-											   CManagedParticlesClient& particles)
+CSourceSharpClientMode::CSourceSharpClientMode(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+											   CStandaloneClients& standalone, CManagedParticlesClient& particles,
+											   CViewTargetsClient& viewTargets)
 	: m_Areas(areas)
+	, m_Engines(engines)
 	, m_Standalone(standalone)
 	, m_Particles(particles)
+	, m_ViewTargets(viewTargets)
 	, m_pViewport(NULL)
 {
 	SOURCESHARP_TRACE();
@@ -254,8 +243,8 @@ CSourceSharpClientMode::~CSourceSharpClientMode()
 void CSourceSharpClientMode::InitViewport()
 {
 	SOURCESHARP_TRACE();
-	m_pViewport = new CSourceSharpViewport();
-	m_pViewport->Start(gameeventmanager);
+	m_pViewport = new CSourceSharpViewport(m_Areas);
+	m_pViewport->Start(m_Engines.m_pEvents);
 }
 
 void CSourceSharpClientMode::Init()
@@ -366,24 +355,24 @@ bool CSourceSharpClientMode::CreateMove(float flInputSampleTime, CUserCmd* cmd)
 
 void CSourceSharpClientMode::LevelInit(const char* newmap)
 {
-	if (IGameEvent* event = gameeventmanager->CreateEvent("game_newmap"))
+	if (IGameEvent* event = m_Engines.m_pEvents->CreateEvent("game_newmap"))
 	{
 		event->SetString("mapname", newmap);
-		gameeventmanager->FireEventClientSide(event);
+		m_Engines.m_pEvents->FireEventClientSide(event);
 	}
 	CLocalPlayerFilter filter;
-	enginesound->SetPlayerDSP(filter, 0, true);
+	m_Engines.m_pSound->SetPlayerDSP(filter, 0, true);
 }
 
 void CSourceSharpClientMode::LevelShutdown()
 {
 	CLocalPlayerFilter filter;
-	enginesound->SetPlayerDSP(filter, 0, true);
+	m_Engines.m_pSound->SetPlayerDSP(filter, 0, true);
 }
 
 void CSourceSharpClientMode::PreRender(CViewSetup* pSetup)
 {
-	ShellViewTargets_RenderQueued();
+	m_ViewTargets.RenderQueued(*this);
 }
 
 void CSourceSharpClientMode::PostRender()
@@ -431,13 +420,13 @@ void CSourceSharpClientMode::Update()
 			for (CParticleCollection* p = pDef->FirstCollection(); p; p = p->GetNextCollectionUsingSameDef())
 				++nCount;
 		}
-		engine->Con_NPrintf(0, "# Active particle systems: %i", nCount);
+		m_Engines.m_pEngine->Con_NPrintf(0, "# Active particle systems: %i", nCount);
 	}
 }
 
 bool CSourceSharpClientMode::ShouldBlackoutAroundHUD()
 {
-	return enginevgui->IsGameUIVisible();
+	return m_Engines.m_pVGui->IsGameUIVisible();
 }
 
 HeadtrackMovementMode_t CSourceSharpClientMode::ShouldOverrideHeadtrackControl()
@@ -463,7 +452,7 @@ void CSourceSharpClientMode::FireGameEvent(IGameEvent* event)
 	et.m_pSoundName = event->GetString("sound");
 	et.m_nFlags = event->GetInt("additional_flags");
 	CLocalPlayerFilter filter;
-	ClientSound::Emit(filter, SOUND_FROM_LOCAL_PLAYER, et);
+	ClientSound::Emit(m_Areas.m_pSoundEmitterClient, filter, SOUND_FROM_LOCAL_PLAYER, et);
 }
 
 int CSourceSharpClientMode::KeyInput(int down, ButtonCode_t keynum, const char* pszCurrentBinding)
@@ -471,8 +460,8 @@ int CSourceSharpClientMode::KeyInput(int down, ButtonCode_t keynum, const char* 
 	IManagedUiClient* pUi = m_Areas.m_pUiClient;
 	if (!pUi)
 		return 1;
-	const int nDecision =
-		pUi->KeyInput(down, keynum, pszCurrentBinding, engine->Con_IsVisible() ? 1 : 0, gpGlobals->maxClients);
+	const int nDecision = pUi->KeyInput(down, keynum, pszCurrentBinding, m_Engines.m_pEngine->Con_IsVisible() ? 1 : 0,
+										m_Engines.m_pGlobals->maxClients);
 	return nDecision >= 0 ? nDecision : 1;
 }
 
@@ -484,7 +473,7 @@ void CSourceSharpClientMode::OverrideView(CViewSetup* pSetup)
 			return;
 
 		pSetup->origin = pPlayer->EyePosition();
-		engine->GetViewAngles(pSetup->angles);
+		m_Engines.m_pEngine->GetViewAngles(pSetup->angles);
 
 		// Punch then shake, before the viewmodel is pinned, in stock CalcPlayerView's order.
 		VectorAdd(pSetup->angles, pPlayer->PredictedPunchAngle(), pSetup->angles);
@@ -524,13 +513,6 @@ IClientMode* g_pClientMode = NULL;
 void SourceSharp_ClientModeLayout()
 {
 	g_pClientMode->Layout();
-}
-
-IClientMode* GetClientModeNormal()
-{
-	SOURCESHARP_TRACE_HOT();
-
-	return &ShellClientDll_ClientMode();
 }
 
 class CSourceSharpModeManager : public IVModeManager

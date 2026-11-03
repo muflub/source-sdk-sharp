@@ -22,6 +22,8 @@
 #include "ss_fwd.h"
 #include "fwd_leaf_system.h"
 #include "shell_managed_areas_client.h"
+#include "shell_detail_props.h"
+#include "shell_leaf_system_client.h"
 
 DEFINE_FIXEDSIZE_ALLOCATOR(CClientRenderablesList, 1, CUtlMemoryPool::GROW_SLOW);
 
@@ -51,72 +53,51 @@ void AppendRenderable(void* pVector, IClientRenderable* pRenderable)
 {
 	static_cast<CUtlVector<IClientRenderable*>*>(pVector)->AddToTail(pRenderable);
 }
-
-IDetailObjectSystem* DetailSystem()
-{
-	return DetailObjectSystem();
 }
 
-alignas(16) unsigned char s_Storage[kSSLeafSystemBytes];
-SSLeafSystemEnv s_Env;
+IDetailObjectSystem* CLeafSystemClient::DetailSystem()
+{
+	return &m_DetailProps;
+}
 
 // Built through the forwarder library's HAND table LeafSystem, slot 1 (Construct).
-IClientLeafSystem* BuildLeafSystem()
+CLeafSystemClient::CLeafSystemClient(const CManagedAreasClient& areas, CShellDetailProps& detailProps)
+	: m_DetailProps(detailProps)
 {
-	s_Env.ppTarget = &ShellClientDll_Managed().m_Areas.m_pLeafSystemClient;
-	s_Env.ppEngine = &engine;
-	s_Env.ppModelInfo = &modelinfo;
-	s_Env.ppRender = &render;
-	s_Env.ppGlobals = &gpGlobals;
-	s_Env.pfnDetailObjectSystem = DetailSystem;
-	s_Env.pfnAppendRenderable = AppendRenderable;
+	m_Env.ppTarget = &areas.m_pLeafSystemClient;
+	m_Env.ppEngine = &engine;
+	m_Env.ppModelInfo = &modelinfo;
+	m_Env.ppRender = &render;
+	m_Env.ppGlobals = &gpGlobals;
+	m_Env.pfnDetailObjectSystem = m_DetailSystem.Get();
+	m_Env.pfnAppendRenderable = AppendRenderable;
 
 	const SSForwarderTable* pTable = SSFwdClient_Table("SSFwd_LeafSystem");
-	if (!pTable || pTable->nSlots < 2)
-		return NULL;
-	typedef void* (*Construct_t)(void*, const SSLeafSystemEnv*);
-	return static_cast<IClientLeafSystem*>(reinterpret_cast<Construct_t>(pTable->ppSlots[1])(s_Storage, &s_Env));
-}
-
-void* CreateLeafSystem()
-{
-	return static_cast<IClientLeafSystemEngine*>(g_pClientLeafSystem);
-}
-
-InterfaceReg s_LeafSystemReg(CreateLeafSystem, CLIENTLEAFSYSTEM_INTERFACE_VERSION);
-
-// kClientSystems' per-frame walks use dynamic_cast, and libss_fwd_client is built without
-// RTTI, so this RTTI adapter is the row. It forwards the three stages stock had bodies for.
-class CLeafSystemGameSystem final : public CClientSystemPerFrame
-{
-public:
-	char const* Name() override { return "CClientLeafSystem"; }
-
-	void LevelInitPreEntity() override
+	if (pTable && pTable->nSlots >= 2)
 	{
-		if (g_pClientLeafSystem)
-			g_pClientLeafSystem->LevelInitPreEntity();
+		typedef void* (*Construct_t)(void*, const SSLeafSystemEnv*);
+		m_pSystem =
+			static_cast<IClientLeafSystem*>(reinterpret_cast<Construct_t>(pTable->ppSlots[1])(m_Storage, &m_Env));
 	}
-
-	void LevelShutdownPostEntity() override
-	{
-		if (g_pClientLeafSystem)
-			g_pClientLeafSystem->LevelShutdownPostEntity();
-	}
-
-	void PreRender() override
-	{
-		if (g_pClientLeafSystem)
-			g_pClientLeafSystem->PreRender();
-	}
-};
-
-CLeafSystemGameSystem s_GameSystem;
+	g_pClientLeafSystem = m_pSystem;
 }
 
-IClientLeafSystem* g_pClientLeafSystem = BuildLeafSystem();
-
-CClientSystem* ClientLeafSystemGameSystem()
+void CLeafSystemClient::CSystemRow::LevelInitPreEntity()
 {
-	return &s_GameSystem;
+	if (IClientLeafSystem* pSystem = m_Leaf.System())
+		pSystem->LevelInitPreEntity();
 }
+
+void CLeafSystemClient::CSystemRow::LevelShutdownPostEntity()
+{
+	if (IClientLeafSystem* pSystem = m_Leaf.System())
+		pSystem->LevelShutdownPostEntity();
+}
+
+void CLeafSystemClient::CSystemRow::PreRender()
+{
+	if (IClientLeafSystem* pSystem = m_Leaf.System())
+		pSystem->PreRender();
+}
+
+IClientLeafSystem* g_pClientLeafSystem = NULL;

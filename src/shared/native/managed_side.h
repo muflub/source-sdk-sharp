@@ -104,8 +104,3 @@ private:
 	bool m_bReloadRequested = false;
 	unsigned int m_nGeneration = 1;
 };
-
-#ifdef CLIENT_DLL
-// The client DLL object's side (shell_clientdll.cpp).
-CManagedSide& ShellClientDll_ManagedSide();
-#endif

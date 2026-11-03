@@ -20,6 +20,9 @@
 #define CWorld C_World
 
 class C_World;
+struct CManagedHoldersClient;
+class CClientEngineInterfaces;
+class CManagedSide;
 struct model_t;
 
 // The world's ICollideable, held as a member. The engine reaches it by pointer
@@ -114,8 +117,11 @@ private:
 class C_World : public IClientEntity
 {
 public:
-	C_World();
+	C_World(const CManagedHoldersClient& managed, const CClientEngineInterfaces& engines,
+			const CManagedSide& managedSide);
 	virtual ~C_World();
+
+	const CClientEngineInterfaces& Engines() const { return m_Engines; }
 
 	// The blob: allocation over-allocates by what C# declared and is zeroed.
 	// Both new forms, because tier0/memdbgon.h rewrites `new` to the four-argument one.
@@ -333,6 +339,9 @@ private:
 	};
 
 	unsigned char m_LastReported[REPORT_BUFFER];
+	const CManagedHoldersClient& m_Managed;
+	const CClientEngineInterfaces& m_Engines;
+	const CManagedSide& m_ManagedSide;
 	bool m_bReportedOnce;
 
 	CBaseHandle m_RefEHandle;
@@ -347,7 +356,8 @@ private:
 	CWorldClientCollideable m_Collideable;
 };
 
-void ClientWorldFactoryInit();
+void ClientWorldFactoryInit(const CManagedHoldersClient& managed, const CClientEngineInterfaces& engines,
+							const CManagedSide& managedSide);
 void ClientWorldFactoryShutdown();
 C_World* GetClientWorldEntity();
 

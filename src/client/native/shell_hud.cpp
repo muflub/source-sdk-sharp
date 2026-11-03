@@ -59,6 +59,8 @@
 #include "ienginevgui.h"
 #include "shell_gameui.h"
 #include "imanaged_areas_client.h"
+#include "shell_standalone_clients.h"
+#include "shell_client_engine_interfaces.h"
 
 // IShimUiClient's draw primitives, one vgui::ISurface call each. Colours arrive
 // packed 0xRRGGBBAA; text arrives as UTF-16 and is widened to wchar_t. Draws are
@@ -384,11 +386,11 @@ int32_t SourceSharp_GetLocalPlayerIndex()
 	return nIndex > 0 ? nIndex : 0;
 }
 
-int32_t SourceSharp_GetLocalPlayerHealth()
+int32_t CStandaloneClients::GetLocalPlayerHealth()
 {
 	// The health the managed player publishes each frame; -1 when there is no
 	// local player, so a HUD can tell "no player" from "dead".
-	if (C_StandaloneEntity* pShell = SourceSharp_LocalPlayerShell())
+	if (C_StandaloneEntity* pShell = LocalPlayer())
 		return pShell->PredictedHealth();
 
 	return -1;
@@ -522,11 +524,11 @@ void CHudUiClient::UiSetCursor(int32_t nShape)
 void CHudUiClient::MenuRootFollowGameUI()
 {
 	CSourceSharpRawPanel* pRoot = m_pMenuRoot;
-	if (!pRoot || !enginevgui)
+	if (!pRoot || !m_Engines.m_pVGui)
 		return;
 
-	const vgui::VPANEL home =
-		enginevgui->IsGameUIVisible() ? enginevgui->GetPanel(PANEL_GAMEUIDLL) : m_ClientMode.GetViewportVPanel();
+	const vgui::VPANEL home = m_Engines.m_pVGui->IsGameUIVisible() ? m_Engines.m_pVGui->GetPanel(PANEL_GAMEUIDLL)
+																   : m_ClientMode.GetViewportVPanel();
 	if (!home || ipanel()->GetParent(pRoot->GetVPanel()) == home)
 		return;
 

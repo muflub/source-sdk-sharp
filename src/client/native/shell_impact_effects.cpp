@@ -30,6 +30,9 @@
 #include "slot_table.h"
 
 #include "shell_particle_systems_client.h"
+#include "client_entity_list.h"
+#include "shell_standalone_clients.h"
+#include "shell_client_engine_interfaces.h"
 
 // Cached handles to commonly used materials.
 PMaterialHandle g_Mat_Fleck_Wood[2] = {NULL, NULL};
@@ -80,8 +83,8 @@ void FX_CacheMaterialHandles()
 // Out: floats [fraction, endpos xyz, plane normal xyz]; ints [DidHit, hitbox,
 // the hit's entity index (-1 for none or a client-only entity), surfaceProps,
 // surface flags, whether the hit is the world]. Answers DidHit (1 or 0).
-int32_t SourceSharp_ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ, int32_t nEntity, float* pOutFloats,
-									int32_t nOutFloats, int32_t* pOutInts, int32_t nOutInts)
+int32_t CStandaloneClients::ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ, int32_t nEntity,
+											float* pOutFloats, int32_t nOutFloats, int32_t* pOutInts, int32_t nOutInts)
 {
 	if (!pStartXYZ || !pEndXYZ || !pOutFloats || nOutFloats < 7 || !pOutInts || nOutInts < 6)
 		return -1;
@@ -95,13 +98,13 @@ int32_t SourceSharp_ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ
 
 	if (nEntity >= 0)
 	{
-		IClientEntity* pEntity = SourceSharp_ClientEntityFromIndex(nEntity);
+		IClientEntity* pEntity = EntityList().EntityFromIndex(nEntity);
 		if (!pEntity)
 			return -1;
 
 		Ray_t ray;
 		ray.Init(vecStart, vecEnd);
-		enginetrace->ClipRayToEntity(ray, MASK_SHOT, pEntity, &tr);
+		m_Engines.m_pTrace->ClipRayToEntity(ray, MASK_SHOT, pEntity, &tr);
 	}
 	else
 	{
@@ -123,7 +126,7 @@ int32_t SourceSharp_ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ
 	if (pHit)
 	{
 		const CBaseHandle hHit = pHit->GetRefEHandle();
-		nHit = SourceSharp_ClientIndexOfHit(hHit, SourceSharp_ClientNetworkableFromHandle(hHit) != NULL);
+		nHit = SourceSharp_ClientIndexOfHit(hHit, EntityList().NetworkableFromHandle(hHit) != NULL);
 	}
 
 	const bool bHit = tr.DidHit();
@@ -139,14 +142,14 @@ int32_t SourceSharp_ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ
 
 // GetColorForSurface's world read; managed has already pushed the end 1.1
 // along the ray, as stock does. Out: diffuse xyz, base xyz.
-void SourceSharp_ClientWorldLighting(const float* pStartXYZ, const float* pEndXYZ, float* pOut6)
+void CStandaloneClients::ClientWorldLighting(const float* pStartXYZ, const float* pEndXYZ, float* pOut6)
 {
 	if (!pStartXYZ || !pEndXYZ || !pOut6)
 		return;
 
 	Vector vecDiffuse, vecBase;
-	engine->TraceLineMaterialAndLighting(Vector(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]),
-										 Vector(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]), vecDiffuse, vecBase);
+	m_Engines.m_pEngine->TraceLineMaterialAndLighting(Vector(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]),
+													  Vector(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]), vecDiffuse, vecBase);
 
 	pOut6[0] = vecDiffuse.x;
 	pOut6[1] = vecDiffuse.y;
@@ -158,8 +161,8 @@ void SourceSharp_ClientWorldLighting(const float* pStartXYZ, const float* pEndXY
 
 // GetColorForSurface's static-prop read, over a trace holding the start, end
 // and plane normal the engine reads.
-void SourceSharp_ClientStaticPropLighting(const float* pStartXYZ, const float* pEndXYZ, const float* pNormalXYZ,
-										  int32_t nStaticProp, float* pOut6)
+void CStandaloneClients::ClientStaticPropLighting(const float* pStartXYZ, const float* pEndXYZ, const float* pNormalXYZ,
+												  int32_t nStaticProp, float* pOut6)
 {
 	if (!pStartXYZ || !pEndXYZ || !pNormalXYZ || !pOut6)
 		return;
@@ -171,7 +174,7 @@ void SourceSharp_ClientStaticPropLighting(const float* pStartXYZ, const float* p
 	tr.plane.normal.Init(pNormalXYZ[0], pNormalXYZ[1], pNormalXYZ[2]);
 
 	Vector vecDiffuse, vecBase;
-	staticpropmgr->GetStaticPropMaterialColorAndLighting(&tr, nStaticProp, vecDiffuse, vecBase);
+	m_Engines.m_pStaticProps->GetStaticPropMaterialColorAndLighting(&tr, nStaticProp, vecDiffuse, vecBase);
 
 	pOut6[0] = vecDiffuse.x;
 	pOut6[1] = vecDiffuse.y;
@@ -210,8 +213,8 @@ int32_t CParticleSystemsClient::ParticleSystemImpact(const char* pszName, const 
 	WatchOneShot(pEffect.GetObject());
 
 	// The shell the trace hit: GetGameEntity() answers nothing on the client.
-	IClientUnknown* pHit = (nEntity >= 0) ? SourceSharp_ClientUnknownFromIndex(nEntity) : NULL;
-	C_StandaloneEntity* pShell = pHit ? SourceSharp_ClientShellFromTraceHit(pHit) : NULL;
+	IClientUnknown* pHit = (nEntity >= 0) ? m_Standalone.EntityList().UnknownFromIndex(nEntity) : NULL;
+	C_StandaloneEntity* pShell = pHit ? m_Standalone.EntityList().ShellFromTraceHit(pHit) : NULL;
 
 	for (int nPoint = 0; nPoint < 3; nPoint++)
 	{

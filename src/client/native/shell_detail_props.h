@@ -9,8 +9,7 @@
 // decision (parse, fades, sorts, quads, batches) is managed's; this holds the model props'
 // renderables, the leaf system's tables, and the materials, render context and mesh that
 // carry out managed's draws. With no managed load nothing is drawn, as for a level without
-// detail props. The client systems table and the view executor are handed it; the leaf
-// system, built at static init, still reaches it as DetailObjectSystem().
+// detail props. The client systems table, the view executor and the leaf system are handed it.
 
 #pragma once
 
@@ -23,13 +22,18 @@
 
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+class CViewCameras;
 class CShellDetailModel;
 
 class CShellDetailProps final : public IDetailObjectSystem, public ISpatialLeafEnumerator
 {
 public:
-	explicit CShellDetailProps(const CManagedAreasClient& areas)
+	CShellDetailProps(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+					  const CViewCameras& cameras)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
 	{
 	}
 
@@ -115,6 +119,8 @@ private:
 			  const Vector& viewUp, const int32_t* pLeaves, int nLeaves, const Vector* pClosest);
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 
 	struct State_t
 	{

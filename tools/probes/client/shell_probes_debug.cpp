@@ -78,6 +78,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "iviewrender.h"
+#include "view_shared.h"
+
+#include "probe_accessors.h"
 #include "tier0/memdbgon.h"
 
 namespace
@@ -556,8 +560,9 @@ public:
 		if (m_pEffect.IsValid() && m_pEffect->IsValid())
 		{
 			Vector fwd;
-			AngleVectors(MainViewAngles(), &fwd);
-			Vector pos = MainViewOrigin() + fwd * 128.0f;
+			const CViewSetup* pPlayerView = view->GetPlayerViewSetup();
+			AngleVectors(pPlayerView->angles, &fwd);
+			Vector pos = pPlayerView->origin + fwd * 128.0f;
 			for (int cp = 0; cp < 4; cp++)
 				m_pEffect->SetControlPoint(cp, pos);
 		}

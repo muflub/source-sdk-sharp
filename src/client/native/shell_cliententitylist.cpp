@@ -21,6 +21,7 @@
 #include "handle_cross.h"
 
 #include "shell_boundary_probe.h"
+#include "shell_standalone_clients.h"
 
 C_StandaloneEntity* CClientEntityList::ShellFromHandle(const CBaseHandle& handle) const
 {
@@ -240,29 +241,8 @@ void CClientEntityList::Unbind(C_StandaloneEntity* pShell)
 	SourceSharp_LegacyListUnbind(hEnt);
 }
 
-// The free resolvers, for the code not yet handed the list.
-C_StandaloneEntity* SourceSharp_ClientShellFromHandle(const CBaseHandle& handle)
-{
-	return ShellClientDll_EntityList().ShellFromHandle(handle);
-}
-
-C_StandaloneEntity* SourceSharp_ClientShellFromIndex(int nEntry)
-{
-	return ShellClientDll_EntityList().ShellFromIndex(nEntry);
-}
-
-C_StandaloneEntity* SourceSharp_ClientShellFromHandleEntity(IHandleEntity* pHandleEntity)
-{
-	return ShellClientDll_EntityList().ShellFromHandleEntity(pHandleEntity);
-}
-
-C_StandaloneEntity* SourceSharp_ClientShellFromTraceHit(IHandleEntity* pHandleEntity)
-{
-	return ShellClientDll_EntityList().ShellFromTraceHit(pHandleEntity);
-}
-
 // Whether this side holds the entity a handle names, serial and all.
-int32_t SourceSharp_ClientEntityIsValid(uint32_t hEntity)
+int32_t CStandaloneClients::EntityIsValid(uint32_t hEntity)
 {
 	// Splitting the invalid handle would hand Init a serial out of range.
 	if (hEntity == INVALID_EHANDLE_INDEX)
@@ -270,68 +250,43 @@ int32_t SourceSharp_ClientEntityIsValid(uint32_t hEntity)
 
 	const CBaseHandle handle((int)(hEntity & ENT_ENTRY_MASK), (int)(hEntity >> NUM_SERIAL_NUM_SHIFT_BITS));
 
-	return ShellClientDll_EntityList().UnknownFromHandle(handle) ? 1 : 0;
+	return EntityList().UnknownFromHandle(handle) ? 1 : 0;
 }
 
-IClientUnknown* SourceSharp_ClientUnknownFromIndex(int nEntry)
+IClientEntity* CClientEntityList::EntityFromIndex(int nEntry) const
 {
-	return ShellClientDll_EntityList().UnknownFromIndex(nEntry);
-}
-
-IClientEntity* SourceSharp_ClientEntityFromIndex(int nEntry)
-{
-	IClientUnknown* pUnknown = ShellClientDll_EntityList().UnknownFromIndex(nEntry);
+	IClientUnknown* pUnknown = UnknownFromIndex(nEntry);
 	return pUnknown ? pUnknown->GetIClientEntity() : NULL;
 }
 
-IClientUnknown* SourceSharp_ClientUnknownFromHandle(const CBaseHandle& hEnt)
+IClientNetworkable* CClientEntityList::NetworkableFromHandle(const CBaseHandle& hEnt) const
 {
-	return ShellClientDll_EntityList().UnknownFromHandle(hEnt);
-}
-
-// Every EHANDLE resolve on the client: the slot table, then the world at entry 0.
-IHandleEntity* SourceSharp_EntityFromHandle(const CBaseHandle& handle)
-{
-	if (!handle.IsValid())
-		return NULL;
-
-	return ShellClientDll_EntityList().UnknownFromHandle(handle);
-}
-
-IClientNetworkable* SourceSharp_ClientNetworkableFromHandle(const CBaseHandle& hEnt)
-{
-	IClientUnknown* pUnknown = ShellClientDll_EntityList().UnknownFromHandle(hEnt);
+	IClientUnknown* pUnknown = UnknownFromHandle(hEnt);
 	return pUnknown ? pUnknown->GetClientNetworkable() : NULL;
 }
 
-IClientEntity* SourceSharp_ClientEntityFromHandle(const CBaseHandle& hEnt)
+IClientEntity* CClientEntityList::EntityFromHandle(const CBaseHandle& hEnt) const
 {
-	IClientUnknown* pUnknown = ShellClientDll_EntityList().UnknownFromHandle(hEnt);
+	IClientUnknown* pUnknown = UnknownFromHandle(hEnt);
 	return pUnknown ? pUnknown->GetIClientEntity() : NULL;
 }
 
-IClientRenderable* SourceSharp_ClientRenderableFromHandle(const CBaseHandle& hEnt)
+IClientRenderable* CClientEntityList::RenderableFromHandle(const CBaseHandle& hEnt) const
 {
-	IClientUnknown* pUnknown = ShellClientDll_EntityList().UnknownFromHandle(hEnt);
+	IClientUnknown* pUnknown = UnknownFromHandle(hEnt);
 	return pUnknown ? pUnknown->GetClientRenderable() : NULL;
 }
 
-CBaseHandle SourceSharp_ClientHandleFromIndex(int nEntry)
-{
-	return ShellClientDll_EntityList().HandleFromIndex(nEntry);
-}
-
 // `bound` should return to zero between maps; `refused` is a bind that did not happen.
-CON_COMMAND(cs_cl_slot_table, "SourceSharp: the client entity slot table (plan_entity.md 3.3)")
+void CClientEntityList::SlotTableCommand(const CCommand& args)
 {
-	CClientEntityList& list = ShellClientDll_EntityList();
-	const CSourceSharpSlotTable& table = list.Slots();
+	const CSourceSharpSlotTable& table = Slots();
 
 	Msg("[SourceSharp] client slot table: %d entries (%d edict, %d engine-invisible)\n",
 		CSourceSharpSlotTable::EntryCount(), MAX_EDICTS, CSourceSharpSlotTable::EntryCount() - MAX_EDICTS);
 	Msg("  bound %d  binds %d  unbinds %d  refused %d\n", table.BoundCount(), table.Binds(), table.Unbinds(),
 		table.Refused());
-	Msg("  highest networked entry %d  max entities %d\n", list.GetHighestEntityIndex(), list.GetMaxEntities());
+	Msg("  highest networked entry %d  max entities %d\n", GetHighestEntityIndex(), GetMaxEntities());
 }
 
 // The client's engine-boundary probe counters; client.so's are separate from server.so's.

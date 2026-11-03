@@ -20,7 +20,6 @@
 #include "tempent.h"
 #include "c_te_legacytempents.h"
 
-#include "env_wind_shared.h"
 #include "fx.h"
 #include "iefx.h"
 #include "dlight.h"
@@ -29,13 +28,10 @@
 
 #include "imanaged_areas_client.h"
 #include "shell_managed_areas_client.h"
-
-// The pool instance. CTempEnts is the only ITempEnts implementation linked into
-// this build, so the downcast is safe.
-static inline CTempEnts* ThePool()
-{
-	return static_cast<CTempEnts*>(tempents);
-}
+#include "client_entity_list.h"
+#include "shell_te_commands_client.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 static inline bool ValidSlot(int nSlot)
 {
@@ -260,28 +256,14 @@ int32_t CTempEnts::TempEntPoolReadStatics(int32_t nSlot, SourceSharpTempEntStati
 	return 1;
 }
 
-// GetWindspeedAtTime, what FTENT_WINDBLOWN accelerates towards; zero with no wind.
-void SourceSharp_ClientWindSpeed(float flTime, float* pOutXYZ)
-{
-	if (!pOutXYZ)
-		return;
-
-	Vector vecWind;
-	vecWind.Init();
-
-	GetWindspeedAtTime(flTime, vecWind);
-
-	VecOut(pOutXYZ, vecWind);
-}
-
 // A client entity's origin by index, for FTENT_PLYRATTACHMENT. Answers 0 and
 // writes nothing when the index names no entity, as stock's branch did.
-int32_t SourceSharp_ClientEntityOrigin(int32_t nEntityIndex, float* pOutXYZ)
+int32_t CTempEnts::ClientEntityOrigin(int32_t nEntityIndex, float* pOutXYZ)
 {
 	if (!pOutXYZ || nEntityIndex < 0)
 		return 0;
 
-	IClientEntity* pClient = SourceSharp_ClientEntityFromIndex(nEntityIndex);
+	IClientEntity* pClient = m_EntityList.EntityFromIndex(nEntityIndex);
 
 	if (!pClient)
 		return 0;
@@ -300,13 +282,13 @@ int32_t SourceSharp_ClientEntityOrigin(int32_t nEntityIndex, float* pOutXYZ)
 // model it is already world-space, which is what stock relies on. Resolved
 // through GetClientEntity so both hierarchies answer. Answers 0 and writes
 // nothing for no entity or no model.
-int32_t SourceSharp_ClientEntityModelBounds(int32_t nEntityIndex, float* pOutMinsXYZ, float* pOutMaxsXYZ,
-											float* pOutAnglesPYR)
+int32_t CTempEnts::ClientEntityModelBounds(int32_t nEntityIndex, float* pOutMinsXYZ, float* pOutMaxsXYZ,
+										   float* pOutAnglesPYR)
 {
 	if (nEntityIndex < 0)
 		return 0;
 
-	IClientEntity* pClient = SourceSharp_ClientEntityFromIndex(nEntityIndex);
+	IClientEntity* pClient = m_EntityList.EntityFromIndex(nEntityIndex);
 
 	if (!pClient)
 		return 0;
@@ -320,7 +302,7 @@ int32_t SourceSharp_ClientEntityModelBounds(int32_t nEntityIndex, float* pOutMin
 	{
 		Vector vecMins, vecMaxs;
 
-		modelinfo->GetModelBounds(pModel, vecMins, vecMaxs);
+		m_Engines.m_pModelInfo->GetModelBounds(pModel, vecMins, vecMaxs);
 
 		if (pOutMinsXYZ)
 		{
@@ -366,7 +348,7 @@ int32_t CTempEnts::TempEntPoolAddVisible(int32_t nSlot)
 
 // cs_cl_te_pool_shell: ejects shell casings through CTempEnts::EjectBrass in front of
 // the view, exercising the pool end to end. A diagnostic; cheat-flagged.
-static void TempEntPoolShell_f(const CCommand& args)
+void CTempEntCommandsClient::PoolShell(const CCommand& args)
 {
 	const int nCount = (args.ArgC() > 1) ? atoi(args[1]) : 1;
 	const int nType = (args.ArgC() > 2) ? atoi(args[2]) : 0;
@@ -378,12 +360,12 @@ static void TempEntPoolShell_f(const CCommand& args)
 	}
 
 	// The view, not the player's eyes: no client entity here is a C_BasePlayer.
-	const Vector vecOrigin = MainViewOrigin();
-	const QAngle angView = MainViewAngles();
+	const Vector vecOrigin = m_Cameras.MainOrigin();
+	const QAngle angView = m_Cameras.MainAngles();
 
 	for (int i = 0; i < nCount; i++)
 	{
-		tempents->EjectBrass(vecOrigin, angView, angView, nType);
+		m_Pool.EjectBrass(vecOrigin, angView, angView, nType);
 	}
 
 	Msg("[SourceSharp] cs_cl_te_pool_shell: asked the pool for %d shell(s) of type %d "
@@ -391,17 +373,11 @@ static void TempEntPoolShell_f(const CCommand& args)
 		nCount, nType, vecOrigin.x, vecOrigin.y, vecOrigin.z);
 }
 
-static ConCommand cs_cl_te_pool_shell(
-	"cs_cl_te_pool_shell", TempEntPoolShell_f,
-	"Eject brass through CTempEnts::EjectBrass -- the legacy temp entity pool's own entry "
-	"point, for verifying the pool end to end. cs_cl_te_pool_shell [count] [type 0|1|2]",
-	FCVAR_CHEAT);
-
 // The high-priority, player-attached half: AttachTentToPlayer allocates with
 // TempEntAllocHigh, FTENT_PLYRATTACHMENT and FTENT_PERSIST. It has no caller in
 // this build, so this exercises it. The model is sprites/bubble.vmt, which the
 // managed server precaches; a zero index is reported rather than passed on.
-static void TempEntPoolAttach_f(const CCommand& args)
+void CTempEntCommandsClient::PoolAttach(const CCommand& args)
 {
 	const int nCount = (args.ArgC() > 1) ? atoi(args[1]) : 1;
 	const int nPlayer = (args.ArgC() > 2) ? atoi(args[2]) : 1;
@@ -412,7 +388,7 @@ static void TempEntPoolAttach_f(const CCommand& args)
 		return;
 	}
 
-	const int nModelIndex = modelinfo->GetModelIndex("sprites/bubble.vmt");
+	const int nModelIndex = m_Engines.m_pModelInfo->GetModelIndex("sprites/bubble.vmt");
 
 	if (nModelIndex <= 0)
 	{
@@ -421,7 +397,7 @@ static void TempEntPoolAttach_f(const CCommand& args)
 		return;
 	}
 
-	const model_t* pModel = modelinfo->GetModel(nModelIndex);
+	const model_t* pModel = m_Engines.m_pModelInfo->GetModel(nModelIndex);
 
 	if (!pModel)
 	{
@@ -431,19 +407,13 @@ static void TempEntPoolAttach_f(const CCommand& args)
 
 	for (int i = 0; i < nCount; i++)
 	{
-		tempents->AttachTentToPlayer(nPlayer, nModelIndex, 40.0f, 30.0f);
+		m_Pool.AttachTentToPlayer(nPlayer, nModelIndex, 40.0f, 30.0f);
 	}
 
 	Msg("[SourceSharp] cs_cl_te_pool_attach: asked the pool for %d high-priority "
 		"attachment(s) on player %d, model %d\n",
 		nCount, nPlayer, nModelIndex);
 }
-
-static ConCommand cs_cl_te_pool_attach("cs_cl_te_pool_attach", TempEntPoolAttach_f,
-									   "Attach high-priority, FTENT_PLYRATTACHMENT tempents to a player through "
-									   "CTempEnts::AttachTentToPlayer -- what CTEKillPlayerAttachments kills. "
-									   "cs_cl_te_pool_attach [count] [player]",
-									   FCVAR_CHEAT);
 
 // cs_cl_te_live: each live tempent's position and owner. With "bones", asks
 // every live studio tempent for its bones, as the engine does, into a
@@ -458,7 +428,7 @@ static bool MatrixIsUnwritten(const matrix3x4_t& m)
 	return true;
 }
 
-static void TempEntPoolBones()
+static void TempEntPoolBones(CTempEnts& pool)
 {
 	matrix3x4_t bones[MAXSTUDIOBONES];
 
@@ -466,14 +436,14 @@ static void TempEntPoolBones()
 
 	for (int nSlot = 0; nSlot < CTempEnts::MAX_TEMP_ENTITIES; nSlot++)
 	{
-		C_LocalTempEntity* pTemp = ThePool()->PoolAtSlot(nSlot);
+		C_LocalTempEntity* pTemp = pool.PoolAtSlot(nSlot);
 		const model_t* pModel = pTemp ? pTemp->GetModel() : NULL;
 
-		if (!pModel || modelinfo->GetModelType(pModel) != mod_studio)
+		if (!pModel || pool.Engines().m_pModelInfo->GetModelType(pModel) != mod_studio)
 			continue;
 
 		MDLCACHE_CRITICAL_SECTION();
-		studiohdr_t* pHdr = modelinfo->GetStudiomodel(pModel);
+		studiohdr_t* pHdr = pool.Engines().m_pModelInfo->GetStudiomodel(pModel);
 		if (!pHdr)
 			continue;
 
@@ -483,7 +453,7 @@ static void TempEntPoolBones()
 				for (int c = 0; c < 4; c++)
 					bones[i][r][c] = flNaN;
 
-		if (!pTemp->SetupBones(bones, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, gpGlobals->curtime))
+		if (!pTemp->SetupBones(bones, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, pool.Engines().m_pGlobals->curtime))
 			continue;
 
 		nTempEnts++;
@@ -504,11 +474,11 @@ static void TempEntPoolBones()
 		nTempEnts, nModelBones, nUnwrittenModel, nUnwrittenAny, nTempEnts * MAXSTUDIOBONES);
 }
 
-static void TempEntPoolLive_f(const CCommand& args)
+void CTempEntCommandsClient::PoolLive(const CCommand& args)
 {
 	if (args.ArgC() > 1 && !V_stricmp(args.Arg(1), "bones"))
 	{
-		TempEntPoolBones();
+		TempEntPoolBones(m_Pool);
 		return;
 	}
 
@@ -519,7 +489,7 @@ static void TempEntPoolLive_f(const CCommand& args)
 
 	for (int i = 0; i < CTempEnts::MAX_TEMP_ENTITIES; i++)
 	{
-		C_LocalTempEntity* pTemp = ThePool()->PoolAtSlot(i);
+		C_LocalTempEntity* pTemp = m_Pool.PoolAtSlot(i);
 
 		if (!pTemp)
 			continue;
@@ -530,7 +500,8 @@ static void TempEntPoolLive_f(const CCommand& args)
 
 		Msg("[SourceSharp]   %4d  (%8.1f %8.1f %8.1f)  %6d  %5d  %7s  %08x  %6.2f\n", i, vecOrigin.x, vecOrigin.y,
 			vecOrigin.z, (int)pTemp->clientIndex, pTemp->TempEntOwnerIndex(),
-			pTemp->TempEntOwnerHandle() ? "yes" : "no", (unsigned int)pTemp->flags, pTemp->die - gpGlobals->curtime);
+			pTemp->TempEntOwnerHandle() ? "yes" : "no", (unsigned int)pTemp->flags,
+			pTemp->die - m_Engines.m_pGlobals->curtime);
 	}
 
 	Msg("[SourceSharp] cs_cl_te_live: %d live of %d\n", nLive, (int)CTempEnts::MAX_TEMP_ENTITIES);
@@ -540,8 +511,8 @@ static void TempEntPoolLive_f(const CCommand& args)
 	{
 		const int nEntity = atoi(args[1]);
 
-		const CBaseHandle hSeam = SourceSharp_ClientHandleFromIndex(nEntity);
-		IClientUnknown* pSeamed = SourceSharp_ClientUnknownFromHandle(hSeam);
+		const CBaseHandle hSeam = m_Pool.EntityList().HandleFromIndex(nEntity);
+		IClientUnknown* pSeamed = m_Pool.EntityList().UnknownFromHandle(hSeam);
 
 		Msg("[SourceSharp] cs_cl_te_live: owner lookup for entity %d\n"
 			"  seam handle  (what the spawn stores)        : %s, entry %d\n"
@@ -550,15 +521,6 @@ static void TempEntPoolLive_f(const CCommand& args)
 			pSeamed ? "yes" : "no");
 	}
 }
-
-static ConCommand cs_cl_te_live(
-	"cs_cl_te_live", TempEntPoolLive_f,
-	"Every live tempent's POSITION, its attachment client, its owner index and whether "
-	"that owner still resolves -- the geometry a pool counter cannot show. "
-	"cs_cl_te_live [entity], where the entity prints what an owner index resolves to "
-	"through each of the two lookups. cs_cl_te_live bones counts the bone matrices the "
-	"live studio tempents leave unwritten when asked as the engine's draw asks (0 is right).",
-	FCVAR_CHEAT);
 
 // What a managed spawn helper needs: construct into a slot, then write the
 // whole spawn record, so the helpers' bodies live in C# and there is one native
@@ -585,7 +547,7 @@ C_LocalTempEntity* CTempEnts::PoolCreateObject()
 // AddToLeafSystem, as stock orders them.
 int32_t CTempEnts::TempEntPoolCreate(int32_t nSlot, const float* pOriginXYZ, int32_t nModelIndex, int32_t nPriority)
 {
-	const model_t* pModel = (nModelIndex != 0) ? modelinfo->GetModel(nModelIndex) : NULL;
+	const model_t* pModel = (nModelIndex != 0) ? m_Engines.m_pModelInfo->GetModel(nModelIndex) : NULL;
 	return PoolCreateWithModel(nSlot, pOriginXYZ, pModel, nPriority);
 }
 
@@ -624,7 +586,7 @@ int32_t CTempEnts::PoolCreateWithModel(int32_t nSlot, const float* pOriginXYZ, c
 
 	m_pSlots[nSlot] = pTemp;
 
-	pTemp->Prepare(pModel, gpGlobals->curtime);
+	pTemp->Prepare(pModel, m_Engines.m_pGlobals->curtime);
 
 	pTemp->priority = nPriority;
 	pTemp->SetAbsOrigin(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]));
@@ -687,7 +649,7 @@ int32_t CTempEnts::TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEnt
 	// arrives, resolved to a handle for either hierarchy. A negative index
 	// stores the invalid handle, which means no owner, as stock passed NULL on.
 	if (pSpawn->OwnerEntityIndex >= 0)
-		pTemp->SetTempEntOwnerHandle(SourceSharp_ClientHandleFromIndex(pSpawn->OwnerEntityIndex));
+		pTemp->SetTempEntOwnerHandle(m_EntityList.HandleFromIndex(pSpawn->OwnerEntityIndex));
 	else
 		pTemp->SetTempEntOwnerHandle(CBaseHandle());
 
@@ -712,9 +674,9 @@ static void PutVectorAngles(float* pOut6, const Vector& v, const QAngle& a)
 	pOut6[5] = a.z;
 }
 
-int32_t SourceSharp_FxRenderableAttachment(uint32_t hEntity, int32_t nAttachment, float* pOut6)
+int32_t CTempEnts::FxRenderableAttachment(uint32_t hEntity, int32_t nAttachment, float* pOut6)
 {
-	IClientRenderable* pRenderable = SourceSharp_ClientRenderableFromHandle(FxHandle(hEntity));
+	IClientRenderable* pRenderable = m_EntityList.RenderableFromHandle(FxHandle(hEntity));
 	if (!pRenderable)
 		return 0;
 	Vector origin(0, 0, 0);
@@ -724,16 +686,16 @@ int32_t SourceSharp_FxRenderableAttachment(uint32_t hEntity, int32_t nAttachment
 	return 1;
 }
 
-int32_t SourceSharp_FxHandleEntityIndex(uint32_t hEntity)
+int32_t CTempEnts::FxHandleEntityIndex(uint32_t hEntity)
 {
-	IClientEntity* pEnt = SourceSharp_ClientEntityFromHandle(FxHandle(hEntity));
+	IClientEntity* pEnt = m_EntityList.EntityFromHandle(FxHandle(hEntity));
 	return pEnt ? pEnt->entindex() : -1;
 }
 
-void SourceSharp_FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
-						  float flRadius, float flDecay, float flDie)
+void CTempEnts::FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
+						 float flRadius, float flDecay, float flDie)
 {
-	dlight_t* el = effects->CL_AllocElight(nKey);
+	dlight_t* el = m_Engines.m_pEffects->CL_AllocElight(nKey);
 	if (!el)
 		return;
 	el->origin.Init(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]);
@@ -746,7 +708,7 @@ void SourceSharp_FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int3
 	el->die = flDie;
 }
 
-void SourceSharp_FxVectorRandom(float flLo, float flHi, float* pOutXYZ)
+void CTempEnts::FxVectorRandom(float flLo, float flHi, float* pOutXYZ)
 {
 	Vector v;
 	v.Random(flLo, flHi);
@@ -755,7 +717,7 @@ void SourceSharp_FxVectorRandom(float flLo, float flHi, float* pOutXYZ)
 	pOutXYZ[2] = v.z;
 }
 
-int32_t SourceSharp_FxMaterialsCached()
+int32_t CTempEnts::FxMaterialsCached()
 {
 	return (g_Mat_SMG_Muzzleflash[0] ? 1 : 0) | (g_Mat_Combine_Muzzleflash[0] ? 2 : 0);
 }
@@ -764,24 +726,24 @@ int32_t SourceSharp_FxMaterialsCached()
 // slot the managed pool reserved.
 int32_t CTempEnts::FxTempEntCreateNamed(int32_t nSlot, const float* pOriginXYZ, const char* pModel, int32_t nPriority)
 {
-	const model_t* pLoaded = pModel ? engine->LoadModel(pModel) : NULL;
+	const model_t* pLoaded = pModel ? m_Engines.m_pEngine->LoadModel(pModel) : NULL;
 	if (!pLoaded)
 		return 0;
 	return PoolCreateWithModel(nSlot, pOriginXYZ, pLoaded, nPriority);
 }
 
-void SourceSharp_FxLoadModel(const char* pModel)
+void CTempEnts::FxLoadModel(const char* pModel)
 {
 	if (pModel)
-		engine->LoadModel(pModel);
+		m_Engines.m_pEngine->LoadModel(pModel);
 }
 
 // modelinfo->GetModelFrameCount of engine->LoadModel( name ): what a named
 // tempent's frame count is (CTempEnts::RocketFlare's), or -1 for no model.
-int32_t SourceSharp_FxModelFrameCount(const char* pModel)
+int32_t CTempEnts::FxModelFrameCount(const char* pModel)
 {
-	const model_t* pLoaded = pModel ? engine->LoadModel(pModel) : NULL;
-	return pLoaded ? modelinfo->GetModelFrameCount(pLoaded) : -1;
+	const model_t* pLoaded = pModel ? m_Engines.m_pEngine->LoadModel(pModel) : NULL;
+	return pLoaded ? m_Engines.m_pModelInfo->GetModelFrameCount(pLoaded) : -1;
 }
 
 int CTempEnts::PoolSlotOf(const C_LocalTempEntity* pTemp)

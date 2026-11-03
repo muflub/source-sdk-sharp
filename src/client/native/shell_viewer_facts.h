@@ -22,10 +22,12 @@ class QAngle;
 struct SourceSharpFogParams;
 struct SourceSharpSkyboxParams;
 
+class CClientEngineInterfaces;
+
 class CViewerFacts final
 {
 public:
-	CViewerFacts(CStandaloneClients& standalone, CClientEntityList& entityList);
+	CViewerFacts(const CClientEngineInterfaces& engines, CStandaloneClients& standalone, CClientEntityList& entityList);
 	~CViewerFacts();
 
 	CViewerFacts(const CViewerFacts&) = delete;
@@ -46,6 +48,7 @@ public:
 	sky3dparams_t* ViewerSkyboxParams();
 
 private:
+	const CClientEngineInterfaces& m_Engines;
 	CStandaloneClients& m_Standalone;
 	CClientEntityList& m_EntityList;
 
@@ -55,6 +58,3 @@ private:
 	static Pushed_t* NewPushed();
 	Pushed_t* m_pPushed;
 };
-
-// The client DLL object's viewer facts. Defined in shell_clientdll.cpp.
-CViewerFacts& ShellClientDll_ViewerFacts();

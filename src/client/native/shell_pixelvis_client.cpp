@@ -24,6 +24,8 @@
 
 #include "shell_pixelvis_client.h"
 #include "shell_effects_list_client.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 namespace
 {
@@ -47,7 +49,7 @@ OcclusionQueryObjectHandle_t CPixelVisClient::QueryOf(int32_t nQuery) const
 // One view's commands, in order.
 void CPixelVisClient::Execute(const int32_t* pCmds, int nWords)
 {
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	int i = 0;
 	while (i < nWords)
 	{
@@ -94,9 +96,9 @@ void CPixelVisClient::Execute(const int32_t* pCmds, int nWords)
 
 int32_t CPixelVisClient::PixelVisQueryCreate()
 {
-	if (!materials)
+	if (!m_Engines.m_pMaterials)
 		return 0;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	const OcclusionQueryObjectHandle_t h = pRenderContext->CreateOcclusionQueryObject();
 	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE)
 		return 0;
@@ -115,9 +117,9 @@ int32_t CPixelVisClient::PixelVisQueryCreate()
 void CPixelVisClient::PixelVisQueryDestroy(int32_t nQuery)
 {
 	const OcclusionQueryObjectHandle_t h = QueryOf(nQuery);
-	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE || !materials)
+	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE || !m_Engines.m_pMaterials)
 		return;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->DestroyOcclusionQueryObject(h);
 	m_Queries[nQuery - 1] = INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
 }
@@ -125,9 +127,9 @@ void CPixelVisClient::PixelVisQueryDestroy(int32_t nQuery)
 void CPixelVisClient::PixelVisQueryReset(int32_t nQuery)
 {
 	const OcclusionQueryObjectHandle_t h = QueryOf(nQuery);
-	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE || !materials)
+	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE || !m_Engines.m_pMaterials)
 		return;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->ResetOcclusionQueryObject(h);
 }
 
@@ -137,9 +139,9 @@ void CPixelVisClient::PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int3
 		return;
 	pOut[0] = -1;
 	pOut[1] = -1;
-	if (!materials)
+	if (!m_Engines.m_pMaterials)
 		return;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	// The counting query first, as stock's GetFractionVisible read them.
 	const OcclusionQueryObjectHandle_t hCount = QueryOf(nCount);
 	if (hCount != INVALID_OCCLUSION_QUERY_OBJECT_HANDLE)
@@ -151,9 +153,9 @@ void CPixelVisClient::PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int3
 
 void CPixelVisClient::PixelVisDiameters(const float* pSpheres, int32_t nSpheres, float* pOut)
 {
-	if (!pSpheres || !pOut || nSpheres <= 0 || !materials)
+	if (!pSpheres || !pOut || nSpheres <= 0 || !m_Engines.m_pMaterials)
 		return;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	for (int i = 0; i < nSpheres; i++)
 	{
 		const float* s = pSpheres + i * 4;
@@ -165,7 +167,8 @@ int32_t CPixelVisClient::PixelVisView(float* pOut, int32_t nFloats)
 {
 	if (pOut && nFloats >= 12)
 	{
-		const Vector* axes[] = {&CurrentViewOrigin(), &CurrentViewForward(), &CurrentViewRight(), &CurrentViewUp()};
+		const Vector* axes[] = {&m_Cameras.CurrentOrigin(), &m_Cameras.CurrentForward(), &m_Cameras.CurrentRight(),
+								&m_Cameras.CurrentUp()};
 		for (int a = 0; a < 4; a++)
 		{
 			pOut[a * 3] = axes[a]->x;
@@ -173,7 +176,7 @@ int32_t CPixelVisClient::PixelVisView(float* pOut, int32_t nFloats)
 			pOut[a * 3 + 2] = axes[a]->z;
 		}
 	}
-	return CurrentViewID();
+	return m_Cameras.CurrentID();
 }
 
 void CPixelVisClient::EndView()
@@ -183,9 +186,9 @@ void CPixelVisClient::EndView()
 		return;
 
 	float view[SS_PIXELVIS_VIEW_FLOATS];
-	view[0] = (float)CurrentViewID();
+	view[0] = (float)m_Cameras.CurrentID();
 	PixelVisView(view + 1, 12);
-	const VMatrix& m = engine->WorldToScreenMatrix();
+	const VMatrix& m = m_Engines.m_pEngine->WorldToScreenMatrix();
 	for (int r = 0; r < 4; r++)
 		for (int c = 0; c < 4; c++)
 			view[13 + r * 4 + c] = m[r][c];

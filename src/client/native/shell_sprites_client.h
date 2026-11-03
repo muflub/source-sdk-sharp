@@ -22,6 +22,8 @@
 #include "shell_clientsystem.h"
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+class CViewCameras;
 class CEngineSprite;
 class CShellRenderable;
 class CSourceSharpSpriteTrail;
@@ -35,7 +37,8 @@ typedef int pixelvis_handle_t;
 class CSpritesClient
 {
 public:
-	CSpritesClient(const CManagedAreasClient& areas, CStandaloneClients& standalone);
+	CSpritesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+				   const CViewCameras& cameras, CStandaloneClients& standalone);
 
 	// Any trail still live forgets its gone callback first: the callback is this object's
 	// thunk, whose page goes with it.
@@ -149,6 +152,8 @@ private:
 	void LevelShutdown();
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 	CStandaloneClients& m_Standalone;
 
 	CUtlVector<Sprite_t*> m_Sprites;

@@ -22,18 +22,23 @@
 #include "ishim_areas_client.h"
 #include "shell_managed_areas_client.h"
 
+class CViewCameras;
+class CClientEntityList;
 class CManagedMaterialProxy;
 
 class CMaterialProxiesClient final : public IShimMaterialProxyClient
 {
 public:
-	explicit CMaterialProxiesClient(const CManagedAreasClient& areas);
+	CMaterialProxiesClient(const CManagedAreasClient& areas, const CViewCameras& cameras,
+						   CClientEntityList& entityList);
 
 	CMaterialProxiesClient(const CMaterialProxiesClient&) = delete;
 	CMaterialProxiesClient& operator=(const CMaterialProxiesClient&) = delete;
 
 	// NULL outside a managed load.
 	IManagedMaterialProxyClient* Managed() const { return m_Areas.m_pMaterialProxyClient; }
+
+	CClientEntityList& EntityList() const { return m_EntityList; }
 
 	// Handles are never reused, so a stale one finds nothing.
 	int32_t AddProxy(CManagedMaterialProxy* pProxy);
@@ -81,6 +86,8 @@ private:
 	};
 
 	const CManagedAreasClient& m_Areas;
+	const CViewCameras& m_Cameras;
+	CClientEntityList& m_EntityList;
 
 	CUtlMap<int32_t, CManagedMaterialProxy*> m_Proxies;
 	int32_t m_nNextProxy = 0;

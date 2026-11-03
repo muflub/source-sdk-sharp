@@ -17,17 +17,26 @@
 #include "GameEventListener.h"
 
 #include "shell_managed_areas_client.h"
+#include "ishim_areas_client.h"
 
+class CClientEngineInterfaces;
 class CSourceSharpViewport;
 class CStandaloneClients;
+class CViewTargetsClient;
 class CManagedParticlesClient;
 class C_StandaloneEntity;
 
-class CSourceSharpClientMode final : public IClientMode, public CGameEventListener
+class CSourceSharpClientMode final : public IClientMode, public IShimUserMessagesClient, public CGameEventListener
 {
 public:
-	CSourceSharpClientMode(const CManagedAreasClient& areas, CStandaloneClients& standalone,
-						   CManagedParticlesClient& particles);
+	// IShimUserMessagesClient: managed's VGUIMenu handler, over the viewport and this mode.
+	int32_t ClientViewportQuery(const char* pszPanel) override;
+	void ClientViewportShow(const char* pszPanel, int32_t bShow, const unsigned char* pPairs, int32_t nPairBytes,
+							int32_t nFlags) override;
+
+	CSourceSharpClientMode(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						   CStandaloneClients& standalone, CManagedParticlesClient& particles,
+						   CViewTargetsClient& viewTargets);
 
 	virtual ~CSourceSharpClientMode();
 
@@ -172,12 +181,10 @@ private:
 	};
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 	CStandaloneClients& m_Standalone;
 	CManagedParticlesClient& m_Particles;
+	CViewTargetsClient& m_ViewTargets;
 	CSourceSharpViewport* m_pViewport;
 	ViewOverride_t m_ViewOverride;
 };
-
-// The client DLL object's client mode, for the free answers the code not yet handed it
-// still calls. Defined in shell_clientdll.cpp.
-CSourceSharpClientMode& ShellClientDll_ClientMode();

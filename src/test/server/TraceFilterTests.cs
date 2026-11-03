@@ -193,7 +193,7 @@ public class TraceFilterTests
         string[] slots = ["ClientTraceLine", "ClientClipRayToEntities", "ClientTraceHull", "ClientTraceHullEntities"];
         foreach (string slot in slots)
         {
-            int at = code.IndexOf($"int32_t SourceSharp_{slot}(", StringComparison.Ordinal);
+            int at = code.IndexOf($"int32_t CWorldQueryClient::{slot}(", StringComparison.Ordinal);
             Assert.True(at >= 0, $"the client defines {slot}'s body");
             string body = code[at..code.IndexOf("\n}\n", at, StringComparison.Ordinal)];
             Assert.Matches(@"const\s+unsigned\s+int\s+nTraceMask\s*=\s*ClientTraceMaskOf\(\s*(?:req\.)?nMask\s*\)\s*;", body);

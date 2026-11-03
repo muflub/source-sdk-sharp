@@ -221,19 +221,8 @@ public:
 
 	void SetTempEntOwnerHandle(const CBaseHandle& hOwner) { m_hOwnerEntity = hOwner; }
 
-	IHandleEntity* TempEntOwnerHandle() const
-	{
-		// THROUGH THE SLOT TABLE. Lane `f-list`. This was
-		// `ClientEntityList().GetClientUnknownFromHandle( m_hOwnerEntity )` and
-		// SourceSharp_ClientUnknownFromHandle is that same contract with the
-		// table asked first and the world second.
-		// IT IS A HEADER INLINE AND THAT IS WHY IT MATTERED. `ClientEntityList()`
-		// is itself an inline over `*cl_entitylist`, so every TU that reached
-		// this function emitted a weak copy carrying the stock list's symbol --
-		// which is how shell_te_pool_client.o came to owe `cl_entitylist` while
-		// naming it nowhere in its own text.
-		return SourceSharp_ClientUnknownFromHandle(m_hOwnerEntity);
-	}
+	// Through the entity list its pool holds: the table first, then the world.
+	IHandleEntity* TempEntOwnerHandle() const;
 
 	// The same owner as an ENTITY INDEX, for the managed collision arm --
 	// ClientTraceLine's CTraceFilterSimple takes an index, never a handle

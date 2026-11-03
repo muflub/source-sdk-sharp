@@ -36,8 +36,6 @@ enum view_id_t
 	VIEW_ID_COUNT
 };
 
-view_id_t CurrentViewID();
-
 // Purpose: Stored pitch drifting variables
 class CPitchDrift
 {

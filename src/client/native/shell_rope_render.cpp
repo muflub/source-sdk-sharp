@@ -343,40 +343,6 @@ CClientSystem* ClientSystem_Rope()
 	return &g_SourceSharpRopeSystem;
 }
 
-// The reads a managed rope or beam makes, each a pass-through onto the engine.
-//
-// The view being drawn (CurrentViewForward/Origin, and the render context's
-// world-space camera the strip faces: only inside a view, which is what
-// bCurrentView says the caller is), the main view's origin, the screen width,
-// and the two hardware facts FakeAA rope smoothing reads.
-void SourceSharp_ClientViewState(int32_t bCurrentView, float* pOutForwardXYZ, float* pOutOriginXYZ,
-								 float* pOutMainOriginXYZ, float* pOutCameraXYZ, int32_t* pOutScreenWidth,
-								 int32_t* pOutDxLevel, int32_t* pOutAAEnabled)
-{
-	const Vector& vMain = MainViewOrigin();
-
-	if (bCurrentView)
-	{
-		if (pOutForwardXYZ)
-			VectorCopy(CurrentViewForward(), *reinterpret_cast<Vector*>(pOutForwardXYZ));
-		if (pOutOriginXYZ)
-			VectorCopy(CurrentViewOrigin(), *reinterpret_cast<Vector*>(pOutOriginXYZ));
-		if (pOutCameraXYZ)
-		{
-			CMatRenderContextPtr pRenderContext(materials);
-			pRenderContext->GetWorldSpaceCameraPosition(reinterpret_cast<Vector*>(pOutCameraXYZ));
-		}
-	}
-	if (pOutMainOriginXYZ)
-		VectorCopy(vMain, *reinterpret_cast<Vector*>(pOutMainOriginXYZ));
-	if (pOutScreenWidth)
-		*pOutScreenWidth = ScreenWidth();
-	if (pOutDxLevel)
-		*pOutDxLevel = engine->GetDXSupportLevel();
-	if (pOutAAEnabled)
-		*pOutAAEnabled = g_pMaterialSystemHardwareConfig && g_pMaterialSystemHardwareConfig->IsAAEnabled() ? 1 : 0;
-}
-
 // engine->ComputeLighting at a point: the averaged colour and the six box colours.
 void SourceSharp_ClientComputeLighting(const float* pPosXYZ, float* pOutColorRGB, float* pOutBoxRGB18)
 {

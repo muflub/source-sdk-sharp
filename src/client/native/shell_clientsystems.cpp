@@ -26,6 +26,7 @@
 #include "shell_worldtext_client.h"
 #include "shell_sprites_client.h"
 #include "shell_shadows_client.h"
+#include "shell_leaf_system_client.h"
 
 // Stock's IGameSystem keys its vtable on this destructor. client.so keeps no
 // system list of its own, so the body is empty.
@@ -42,10 +43,6 @@ CClientSystem* ClientSystem_Rope();
 class IClientLeafSystem;
 
 IClientLeafSystem* ClientLeafSystem();
-
-// The leaf system is libss_fwd_client's object, built without RTTI, so its row
-// is an adapter the per-frame walks can dynamic_cast.
-CClientSystem* ClientLeafSystemGameSystem();
 
 // The map's base name, or "" when no level is loaded.
 const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
@@ -67,7 +64,7 @@ CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& 
 							   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
 							   CManagedParticlesClient& particles, CParticleSystemsClient& particleSystems,
 							   CShellDetailProps& detailProps, CWorldTextClient& worldText, CSpritesClient& sprites,
-							   CShadowsClient& shadows)
+							   CShadowsClient& shadows, CLeafSystemClient& leafSystem)
 	: m_ManagedFrame(managedFrame)
 	, m_Physics(physics)
 	, m_Decals(decals)
@@ -79,6 +76,7 @@ CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& 
 	, m_WorldText(worldText)
 	, m_Sprites(sprites)
 	, m_Shadows(shadows)
+	, m_LeafSystem(leafSystem)
 	, m_ViewportRow(areas, "CViewportClientSystem")
 	, m_GlowOverlayRow(areas, "CGlowOverlaySystem")
 	, m_PixelVisibilityRow(areas, "CPixelVisibilitySystem")
@@ -100,7 +98,7 @@ bool CClientSystems::Init()
 
 		// "Client Leaf System has to be initialized first, since DetailObjectSystem
 		// uses it" (stock): it must precede DetailObjectSystem.
-		{"CClientLeafSystem", ClientLeafSystemGameSystem()},
+		{"CClientLeafSystem", &m_LeafSystem.SystemRow()},
 		{"CDetailObjectSystem", &m_DetailObjectRow},
 
 		{"CViewportClientSystem", &m_ViewportRow},

@@ -72,10 +72,6 @@ public:
 		m_ControlPoint1.m_vecOffset.Init();
 	}
 
-	IClientRenderable* GetRenderable() const;
-	C_BaseEntity* GetEntity() const;
-	int entindex() const;
-
 private:
 	DECLARE_CLIENTCLASS_NOBASE()
 

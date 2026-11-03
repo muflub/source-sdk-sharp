@@ -25,6 +25,9 @@
 #include "c_baseentity_statics.h"
 
 #include "shell_managed_areas_client.h"
+#include "managed_side.h"
+#include "shell_managed_areas_client.h"
+#include "shell_client_engine_interfaces.h"
 
 // What managed's answer to a world update asks this file to do.
 enum
@@ -78,14 +81,15 @@ int CWorldClientCollideable::GetCollisionModelIndex()
 
 const model_t* CWorldClientCollideable::GetCollisionModel()
 {
-	return modelinfo ? modelinfo->GetModel(GetCollisionModelIndex()) : NULL;
+	return modelinfo ? m_pOuter->Engines().m_pModelInfo->GetModel(GetCollisionModelIndex()) : NULL;
 }
 
 // One world per process, reused for every map and freed at DLL shutdown. Its handle must
 // be unbound per map (Release), or the next map's lookups would find the old serial.
-void ClientWorldFactoryInit()
+void ClientWorldFactoryInit(const CManagedHoldersClient& managed, const CClientEngineInterfaces& engines,
+							const CManagedSide& managedSide)
 {
-	g_pClientWorld = new C_World;
+	g_pClientWorld = new C_World(managed, engines, managedSide);
 }
 
 void ClientWorldFactoryShutdown()
@@ -173,11 +177,11 @@ int C_World::BlobBytes() const
 // when this fails rather than read offset zero, the vtable pointer.
 bool C_World::ResolveFields()
 {
-	const unsigned int nGeneration = SourceSharp_PlayerSyncGeneration();
+	const unsigned int nGeneration = m_ManagedSide.Generation();
 	if (m_Fields.IsCurrent(nGeneration))
 		return true;
 
-	return SourceSharpWorldFields_Resolve(&m_Fields, nGeneration, ManagedStandaloneClient());
+	return SourceSharpWorldFields_Resolve(&m_Fields, nGeneration, m_Managed.m_Areas.m_pStandaloneClient);
 }
 
 // The two values client.so still reads natively, through world_net_sync.cpp as the server does.
@@ -200,8 +204,12 @@ Vector C_World::GetWorldMaxs()
 }
 
 // m_Collideable is named in the initialiser list so its owner pointer is valid before the body.
-C_World::C_World()
-	: m_bReportedOnce(false)
+C_World::C_World(const CManagedHoldersClient& managed, const CClientEngineInterfaces& engines,
+				 const CManagedSide& managedSide)
+	: m_Managed(managed)
+	, m_Engines(engines)
+	, m_ManagedSide(managedSide)
+	, m_bReportedOnce(false)
 	, m_DataChangeEventRef(-1)
 	, m_hThink((ClientThinkHandle_t)(uintp)0xFFFF) // the think list's invalid handle
 	, m_hRender(INVALID_CLIENT_RENDER_HANDLE)
@@ -276,7 +284,7 @@ bool C_World::Init(int entnum, int iSerialNum)
 	if (const model_t* pModel = m_Collideable.GetCollisionModel())
 	{
 		Vector vecMins, vecMaxs;
-		modelinfo->GetModelBounds(pModel, vecMins, vecMaxs);
+		m_Engines.m_pModelInfo->GetModelBounds(pModel, vecMins, vecMaxs);
 		m_Collideable.SetBounds(vecMins, vecMaxs);
 	}
 
@@ -306,7 +314,7 @@ void C_World::OnDataChanged(DataUpdateType_t updateType)
 {
 	// WorldArrival's order: max occludee area, min occluder area, min and max prop screen width.
 	float flPlan[4] = {};
-	IManagedRuntimeClient* pRuntime = ManagedRuntimeClient();
+	IManagedRuntimeClient* pRuntime = m_Managed.m_pRuntimeClient;
 	const int nActions =
 		pRuntime ? pRuntime->WorldDataChanged(DataBlob(), BlobBytes(), (int32_t)updateType, flPlan, 4) : 0;
 
@@ -318,11 +326,11 @@ void C_World::OnDataChanged(DataUpdateType_t updateType)
 		OcclusionParams_t params;
 		params.m_flMaxOccludeeArea = flPlan[0];
 		params.m_flMinOccluderArea = flPlan[1];
-		engine->SetOcclusionParameters(params);
+		m_Engines.m_pEngine->SetOcclusionParameters(params);
 	}
 
 	if (nActions & kWorldArrival_ScreenFadeRange)
-		modelinfo->SetLevelScreenFadeRange(flPlan[2], flPlan[3]);
+		m_Engines.m_pModelInfo->SetLevelScreenFadeRange(flPlan[2], flPlan[3]);
 
 	// Prints only when the bytes change, in the server's format.
 	ReportIfChanged();
@@ -344,7 +352,7 @@ void C_World::ReportIfChanged()
 		m_bReportedOnce = true;
 	}
 
-	SourceSharpWorld_Report("Client", DataBlob(), BlobBytes(), m_Fields, SourceSharp_PlayerSyncGeneration());
+	SourceSharpWorld_Report("Client", DataBlob(), BlobBytes(), m_Fields, m_ManagedSide.Generation());
 }
 
 // The world's place is the origin and never moves. File-scope so references to them are

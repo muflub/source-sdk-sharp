@@ -20,8 +20,7 @@ interfaces are declared here instead. From the spec this writes:
                                           managed writes (Release, Validate, then
                                           the TSV's slots) and a class with NO
                                           VIRTUAL whose inline methods call it,
-                                          the object first; k<I>SlotHashes; the
-                                          accessor native calls each through
+                                          the object first; k<I>SlotHashes
                                           (plan_forwarders_everywhere.md phase 4)
   src/shared/native/imanaged_core.h, imanaged_runtime*.h, and
   src/fwd/native/imanaged_steam_callback.h   the same, for the root, the
@@ -31,9 +30,8 @@ interfaces are declared here instead. From the spec this writes:
                                           root holds by value
   src/shared/native/shell_managed_areas.inc  acquiring each from the managed
                                           root (accepted through its Validate,
-                                          managed_accept.h), releasing each, and
-                                          the accessors; included by
-                                          shell_internalfactory.cpp
+                                          managed_accept.h), and releasing each;
+                                          included by shell_internalfactory.cpp
   src/shared/interop/SharedManagedTables.g.cs, src/server/interop/ServerManagedTables.g.cs,
   src/client/interop/ClientManagedTables.g.cs   each table as C#, with each
                                           slot's hash, in the assembly whose code
@@ -99,7 +97,7 @@ OUT_MANAGED = 'src/server/interop/ManagedAreas.g.cs'   # SourceSharp.Server.Inte
 # plan_client_vtables CD: the client's side. Its areas are the spec's
 # interfaces whose names end in `Client`; its runtime is IManagedRuntimeClient.
 # The DECLARATIONS are unguarded (native tests compile them without
-# CLIENT_DLL); the holder, the bodies and the accessors are the client's only,
+# CLIENT_DLL); the holder and the bodies are the client's only,
 # in files of their own, so nothing about the server's files changes.
 OUT_RUNTIME_CLIENT = 'src/shared/native/imanaged_runtime_client.h'
 OUT_IFACE_CLIENT = 'src/shared/native/imanaged_areas_client.h'
@@ -634,17 +632,12 @@ def client_outputs(valve, cores, tables):
     h = [valve, '', GENERATED, '//',
          '// plan_client_vtables CE: the client\'s managed-built areas (docs/managed-interfaces.tsv,',
          '// the interfaces named *Client). IMPLEMENTED BY MANAGED, as imanaged_areas.h. The',
-         '// declarations are unguarded so native tests compile them; the accessors are the',
-         '// client\'s.', '',
+         '// declarations are unguarded so native tests compile them.', '',
          '#pragma once', '',
          '#include <stdint.h>', '#include "tier0/platform.h"', '#include "sourcesharp.h"',
          '#include "imanaged_core.h"', '']
     for i, ss in areas:
         h += interface_lines(i, ss) + hash_lines(i, ss)
-    h += ['#ifdef CLIENT_DLL', '']
-    for i, _ss in areas:
-        h.append('%s *Managed%s();   // this load\'s area, or NULL outside a load' % (i, short(i)))
-    h += ['', '#endif // CLIENT_DLL', '', '']
 
     # ---- the holder ------------------------------------------------------------
     c = [valve, '', GENERATED, '//',
@@ -661,10 +654,6 @@ def client_outputs(valve, cores, tables):
           '\tIManagedRoot *m_pRoot;',
           '\tIManagedRuntimeClient *m_pRuntimeClient;',
           '\tCManagedAreasClient m_Areas;', '};', '',
-          '// The client DLL object\'s holders (shell_clientdll.cpp).',
-          'CManagedHoldersClient &ShellClientDll_Managed();', '',
-          '// This load\'s runtime, or NULL outside a load (shell_internalfactory.cpp).',
-          'IManagedRuntimeClient *ManagedRuntimeClient();', '',
           '// True when the root, the runtime and every area have been released.',
           'inline bool ManagedHoldersClient_Empty( const CManagedHoldersClient &holders )', '{']
     held = ['holders.m_pRoot', 'holders.m_pRuntimeClient'] + ['holders.m_Areas.m_p%s' % short(i) for i, _ss in areas]
@@ -697,8 +686,6 @@ def client_outputs(valve, cores, tables):
     for i, _ss in areas:
         im.append('\tManagedRelease( areas.m_p%s );' % short(i))
     im += ['}', '']
-    for i, _ss in areas:
-        im += ['%s *Managed%s()' % (i, short(i)), '{', '\treturn ShellClientDll_Managed().m_Areas.m_p%s;' % short(i), '}', '']
 
     # ---- the managed contracts ----------------------------------------------------
     m = [GENERATED, '//',
@@ -814,6 +801,9 @@ def self_test():
     expect('the server emits no area accessor',
            'ManagedSoundEnt()' not in out[OUT_IMPL] and 'ManagedSoundEnt()' not in out[OUT_IFACE]
            and 'IManagedSoundEnt *ManagedSoundEnt' not in out[OUT_HOLDER])
+    # plan_client_native_t6 C1: the same on the client.
+    expect('the client emits no area accessor',
+           not any(re.search(r'\bManaged[A-Z]\w*Client\(\)', text) for text in out.values()))
     expect('the emptiness check names the area too',
            '\t\t&& !holders.m_Areas.m_pSoundEnt' in out[OUT_HOLDER])
 
@@ -852,9 +842,10 @@ def self_test():
            'class IManagedRuntimeClient : public IManagedObject' in out[OUT_RUNTIME_CLIENT]
            and 'kIManagedRuntimeClientSlotCount' in out[OUT_RUNTIME_CLIENT]
            and 'CLIENT_DLL' not in out[OUT_RUNTIME_CLIENT])
-    expect('the client holder is the client DLL object\'s, client-only',
-           'CManagedHoldersClient &ShellClientDll_Managed();' in out[OUT_HOLDER_CLIENT]
-           and out[OUT_HOLDER_CLIENT].index('#ifdef CLIENT_DLL') < out[OUT_HOLDER_CLIENT].index('struct CManagedHoldersClient'))
+    expect('the client holder is client-only, with no free accessor to it',
+           'struct CManagedHoldersClient' in out[OUT_HOLDER_CLIENT]
+           and '#ifdef CLIENT_DLL' in out[OUT_HOLDER_CLIENT]
+           and 'ShellClientDll_Managed' not in out[OUT_HOLDER_CLIENT])
     expect('no client interface reaches the server\'s files',
            not any(is_client(i) for i, _ss in model()) and any(i == 'IManagedClients' for i, _ss in model())
            and 'IManagedRuntimeClient' not in out[OUT_IFACE] + out[OUT_HOLDER] + out[OUT_IMPL] + out[OUT_MANAGED])

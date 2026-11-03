@@ -16,6 +16,7 @@
 #include "client_entity.h"
 
 #include "shell_standalone_client.h"
+#include "shell_standalone_clients.h"
 
 // The entity allocator. MEM_ALLOC_CREDIT() credits this file.
 void* EntityMem_Alloc(size_t stAllocateBlock)
@@ -79,14 +80,14 @@ static ConVar cl_interpolate("cl_interpolate", "1.0f", FCVAR_USERINFO | FCVAR_DE
 
 // Calls UpdateVisibility() on every standalone client shell; answers how many
 // it swept, since the effect is only visible next frame.
-int32_t SourceSharp_ClientEntitiesUpdateVisibilityAll()
+int32_t CStandaloneClients::EntitiesUpdateVisibilityAll()
 {
-	const int nCount = SourceSharp_StandaloneClientCount();
+	const int nCount = Count();
 	int32_t nSwept = 0;
 
 	for (int i = 0; i < nCount; i++)
 	{
-		if (C_StandaloneEntity* pEntity = SourceSharp_StandaloneClientAt(i))
+		if (C_StandaloneEntity* pEntity = At(i))
 		{
 			pEntity->UpdateVisibility();
 			nSwept++;

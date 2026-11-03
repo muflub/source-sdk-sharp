@@ -80,23 +80,32 @@ void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName);
 // client-only areas, forwarding to the body each row of the slot table names.
 // A base its own class implements is held by pointer, set by the client's owner.
 
+class CStandaloneClients;
+class CShellGameMovement;
 class CTempEnts;
+class CWindClient;
 class CTempEntTablesClient;
 class CSpritesClient;
 class CParticleSystemsClient;
 class CBeamsClient;
 class CViewerFacts;
+class CWorldQueryClient;
 class CSourceSharpClientMode;
+class CViewTargetsClient;
 class CPixelVisClient;
 class CGlowOverlaysClient;
+class CShellViewRender;
 class CHudUiClient;
 class CManagedParticlesClient;
 class CWorldTextClient;
 class CParticleManifestClient;
 class CParticleSystemQueryClient;
+class CDustClient;
+class CTempEntsSystemClient;
 class CEffectsClient;
 class CEffectsListClient;
-class CTempEntsSystemClient;
+class CSoundscapeAudioClient;
+class CSoundPatchesClient;
 class CShadowsClient;
 
 class CShimEngineClient final : public IShimEngine
@@ -122,6 +131,9 @@ public:
 	void EntityGetModelName(uint32_t hEntity, char* pOut, int32_t nOutSize) override;
 	int32_t EntitiesInvalidateMdlCacheAll() override;
 	void StandaloneSetModelScale(uint32_t hEntity, float flScale) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CStandaloneClients* m_pStandaloneClients = nullptr;
 };
 
 class CShimMovementClient final : public IShimMovement
@@ -132,15 +144,9 @@ public:
 	int32_t MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue) override;
 	float CurrentGravity() override;
 	void RegisterMovementParams(const SourceSharpMovementParams* pParams) override;
-};
 
-class CShimEntitiesClient final : public IShimEntities
-{
-public:
-	int32_t EntityGetIndex(uint32_t hEntity) override;
-	void EntityGetOrigin(uint32_t hEntity, float* pOutXYZ) override;
-	void EntityGetAngles(uint32_t hEntity, float* pOutPYR) override;
-	int32_t EntityIsValid(uint32_t hEntity) override;
+	// What the delegated slots call, set by the tier that owns each object.
+	CShellGameMovement* m_pShellGameMovement = nullptr;
 };
 
 class CShimHudClient final : public IShimHudClient
@@ -151,16 +157,9 @@ public:
 	void HudLocalise(const char* pToken, char* pOut, int32_t nOutSize) override;
 	void HudLookupBinding(const char* pBinding, char* pOut, int32_t nOutSize) override;
 	int32_t HudTextMessageGet(const char* pName, SourceSharpTextMessage* pOut) override;
-};
 
-class CShimPredictionClient final : public IShimPredictionClient
-{
-public:
-	int32_t ClientGetUserCmd(int32_t nCommandNumber, SourceSharpUserCmd* pOut) override;
-	void ClientPlayerPredictionDrive(uint32_t hEntity, const SourceSharpClientPlayerView* pView) override;
-	int32_t MoveBeginClientCommand(uint32_t hPlayer, int32_t nCommandNumber,
-								   SourceSharpMoveState* pOutConstants) override;
-	void MoveEndClientCommand(int32_t bRan, int32_t* pOutGroundIndex) override;
+	// What the delegated slots call, set by the tier that owns each object.
+	CStandaloneClients* m_pStandaloneClients = nullptr;
 };
 
 class CShimTempEntPoolClient final : public IShimTempEntPoolClient
@@ -183,6 +182,7 @@ public:
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CTempEnts* m_pTempEnts = nullptr;
+	CWindClient* m_pWindClient = nullptr;
 };
 
 class CShimTempEntBackendsClient final : public IShimTempEntBackendsClient
@@ -219,6 +219,7 @@ public:
 							   const char* pszTexture) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
+	CStandaloneClients* m_pStandaloneClients = nullptr;
 	CTempEntTablesClient* m_pTempEntTablesClient = nullptr;
 };
 
@@ -277,6 +278,7 @@ public:
 	// What the delegated slots call, set by the tier that owns each object.
 	CSpritesClient* m_pSpritesClient = nullptr;
 	CParticleSystemsClient* m_pParticleSystemsClient = nullptr;
+	CWindClient* m_pWindClient = nullptr;
 	CBeamsClient* m_pBeamsClient = nullptr;
 };
 
@@ -331,27 +333,14 @@ public:
 	int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
+	CStandaloneClients* m_pStandaloneClients = nullptr;
 	CViewerFacts* m_pViewerFacts = nullptr;
+	CWorldQueryClient* m_pWorldQueryClient = nullptr;
 	CSourceSharpClientMode* m_pSourceSharpClientMode = nullptr;
+	CViewTargetsClient* m_pViewTargetsClient = nullptr;
 	CPixelVisClient* m_pPixelVisClient = nullptr;
 	CGlowOverlaysClient* m_pGlowOverlaysClient = nullptr;
-};
-
-class CShimUserMessagesClient final : public IShimUserMessagesClient
-{
-public:
-	int32_t ClientViewportQuery(const char* pPanel) override;
-	void ClientViewportShow(const char* pPanel, int32_t bShow, const unsigned char* pPairs, int32_t nPairBytes,
-							int32_t nFlags) override;
-};
-
-class CShimNetClient final : public IShimNetClient
-{
-public:
-	int32_t SendServerMessage(const char* pKey, const uint8_t* pData, int32_t nLen) override;
-	int32_t ClientNetFlow(int32_t nFlow, float* pOut, int32_t nOut) override;
-	int32_t ClientNetChannel(float* pOut, int32_t nOut) override;
-	int32_t ClientNetPacket(int32_t nFlow, int32_t nFrame, float* pOut, int32_t nOut) override;
+	CShellViewRender* m_pShellViewRender = nullptr;
 };
 
 class CShimDiagnosticsClient final : public IShimDiagnosticsClient
@@ -439,6 +428,7 @@ public:
 	CParticleSystemsClient* m_pParticleSystemsClient = nullptr;
 	CParticleManifestClient* m_pParticleManifestClient = nullptr;
 	CParticleSystemQueryClient* m_pParticleSystemQueryClient = nullptr;
+	CDustClient* m_pDustClient = nullptr;
 };
 
 class CShimFxClient final : public IShimFxClient
@@ -487,9 +477,9 @@ public:
 	int32_t FxModelFrameCount(const char* pModel) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
+	CTempEntsSystemClient* m_pTempEntsSystemClient = nullptr;
 	CEffectsClient* m_pEffectsClient = nullptr;
 	CEffectsListClient* m_pEffectsListClient = nullptr;
-	CTempEntsSystemClient* m_pTempEntsSystemClient = nullptr;
 	CSpritesClient* m_pSpritesClient = nullptr;
 	CTempEnts* m_pTempEnts = nullptr;
 };
@@ -508,20 +498,10 @@ public:
 	void SoundPatchState(int32_t hPatch, int32_t* pnEntIndex, int32_t* pbFilterActive) override;
 	void SoundPatchFree(int32_t hPatch) override;
 	int32_t SoundPatchCreate(uint32_t hEntity, int32_t nChannel, const char* pSoundName, int32_t nSoundLevel) override;
-};
 
-class CShimPrecipitationClient final : public IShimPrecipitationClient
-{
-public:
-	int32_t PrecipitationTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask, int32_t bIgnorePlayer,
-								   float* pOut) override;
-	int32_t PrecipitationTraceVolume(uint32_t hOwner, const float* pStartXYZ, const float* pEndXYZ,
-									 const float* pHullMinXYZ, const float* pHullMaxXYZ, float* pOut) override;
-	int32_t PrecipitationPointContents(const float* pXYZ) override;
-	int32_t PrecipitationInPvs(uint32_t hOwner) override;
-	int32_t PrecipitationPlayer(float* pOut) override;
-	void PrecipitationWorldBounds(float* pOut6) override;
-	int32_t PrecipitationScreenWidth() override;
+	// What the delegated slots call, set by the tier that owns each object.
+	CSoundscapeAudioClient* m_pSoundscapeAudioClient = nullptr;
+	CSoundPatchesClient* m_pSoundPatchesClient = nullptr;
 };
 
 class CShimFlashlightClient final : public IShimFlashlightClient
@@ -541,28 +521,32 @@ struct CShimAreasClient
 	CShimNetworkClient m_Network;
 	CShimModelsClient m_Models;
 	CShimMovementClient m_Movement;
-	CShimEntitiesClient m_Entities;
+	IShimEntities* m_pEntities = nullptr; // CStandaloneClients
 	CShimHudClient m_HudClient;
-	CShimPredictionClient m_PredictionClient;
+	IShimPredictionClient* m_pPredictionClient = nullptr; // CPredictionSlotsClient
 	CShimTempEntPoolClient m_TempEntPoolClient;
 	CShimTempEntBackendsClient m_TempEntBackendsClient;
 	CShimEffectsRenderClient m_EffectsRenderClient;
 	IShimStandaloneClient* m_pStandaloneClient = nullptr; // CStandaloneClients
 	CShimViewClient m_ViewClient;
-	CShimUserMessagesClient m_UserMessagesClient;
-	CShimNetClient m_NetClient;
+	IShimUserMessagesClient* m_pUserMessagesClient = nullptr; // CSourceSharpClientMode
+	IShimNetClient* m_pNetClient = nullptr; // CNetChannelClient
 	CShimDiagnosticsClient m_DiagnosticsClient;
 	CShimUiClient m_UiClient;
 	CShimParticlesClient m_ParticlesClient;
 	CShimFxClient m_FxClient;
 	CShimSoundscapeClient m_SoundscapeClient;
-	CShimPrecipitationClient m_PrecipitationClient;
+	IShimPrecipitationClient* m_pPrecipitationClient = nullptr; // CPrecipitationQueriesClient
 	IShimMaterialProxyClient* m_pMaterialProxyClient = nullptr; // CMaterialProxiesClient
 	IShimInputClient* m_pInputClient = nullptr; // CSourceSharpInput
 	IShimPhysicsClient* m_pPhysicsClient = nullptr; // CPhysicsClient
 	IShimConVarsClient* m_pConVarsClient = nullptr; // CConVarsClient
 	CShimFlashlightClient m_FlashlightClient;
 };
+
+// The first delegate or owned area the client DLL object has not set, or NULL: a slot
+// through it would call NULL. Asked in Init, before managed can acquire an area.
+const char* ShimAreasClient_FirstUnset(const CShimAreasClient& areas);
 
 // The client factory's rows: each shared base by its own version string.
 void* ShimAreasClient_Acquire(CShimAreasClient& areas, const char* pszName);

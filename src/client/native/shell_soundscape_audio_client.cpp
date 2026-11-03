@@ -23,6 +23,8 @@
 #include "shell_soundscape_audio_client.h"
 
 #include "ss_command_line.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 void C_SoundscapeSystem::LevelInitPreEntity()
 {
@@ -45,38 +47,38 @@ void C_SoundscapeSystem::Update(float frametime)
 		pApi->ClientSoundscapesUpdate(frametime);
 }
 
-void SourceSharp_SoundscapeSetRoomType(int32_t nRoomType)
+void CSoundscapeAudioClient::SoundscapeSetRoomType(int32_t nRoomType)
 {
 	CLocalPlayerFilter filter;
-	enginesound->SetRoomType(filter, nRoomType);
+	m_Engines.m_pSound->SetRoomType(filter, nRoomType);
 }
 
-void SourceSharp_SoundscapeSetPlayerDsp(int32_t nDspType)
+void CSoundscapeAudioClient::SoundscapeSetPlayerDsp(int32_t nDspType)
 {
 	CLocalPlayerFilter filter;
-	enginesound->SetPlayerDSP(filter, nDspType, false);
+	m_Engines.m_pSound->SetPlayerDSP(filter, nDspType, false);
 }
 
-void SourceSharp_SoundscapeMainView(float* pOut9)
+void CSoundscapeAudioClient::SoundscapeMainView(float* pOut9)
 {
 	if (!pOut9)
 		return;
 
-	const Vector& o = MainViewOrigin();
-	const Vector& f = MainViewForward();
-	const Vector& r = MainViewRight();
+	const Vector& o = m_Cameras.MainOrigin();
+	const Vector& f = m_Cameras.MainForward();
+	const Vector& r = m_Cameras.MainRight();
 	const float v[9] = {o.x, o.y, o.z, f.x, f.y, f.z, r.x, r.y, r.z};
 	for (int i = 0; i < 9; ++i)
 		pOut9[i] = v[i];
 }
 
-int32_t SourceSharp_SoundscapeMakingResLists()
+int32_t CSoundscapeAudioClient::SoundscapeMakingResLists()
 {
 	return ss::CommandLineHas("-makereslists") ? 1 : 0;
 }
 
-void SourceSharp_SoundscapeTouchSoundFile(const char* pszWave)
+void CSoundscapeAudioClient::SoundscapeTouchSoundFile(const char* pszWave)
 {
 	if (pszWave)
-		filesystem->GetFileTime(VarArgs("sound/%s", PSkipSoundChars(pszWave)), "GAME");
+		m_Engines.m_pFileSystem->GetFileTime(VarArgs("sound/%s", PSkipSoundChars(pszWave)), "GAME");
 }

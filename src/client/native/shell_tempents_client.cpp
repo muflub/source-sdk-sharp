@@ -330,8 +330,3 @@ void CTempEntTablesClient::Dump(const char* pWanted) const
 	if (!m_bClosed)
 		Warning("     registration is still OPEN, which it should not be after DLL init\n");
 }
-
-CON_COMMAND(cs_cl_te_dump, "Every registered temp entity: its props as the ENGINE holds them")
-{
-	ShellClientDll_TempEntTables().Dump((args.ArgC() > 1) ? args[1] : NULL);
-}

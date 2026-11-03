@@ -51,6 +51,8 @@
 #include "shadow_pending_queue.h"
 #include "fwd_shadows.h"
 #include "sourcesharp_entrypoints.h"
+#include "client_entity_list.h"
+#include "shell_client_engine_interfaces.h"
 
 namespace
 {
@@ -151,12 +153,12 @@ void CShadowsClient::RestoreRenderState(int)
 
 void CShadowsClient::AddRestoreFunc()
 {
-	materials->AddRestoreFunc(m_RestoreFunc.Get());
+	m_Engines.m_pMaterials->AddRestoreFunc(m_RestoreFunc.Get());
 }
 
 void CShadowsClient::RemoveRestoreFunc()
 {
-	materials->RemoveRestoreFunc(m_RestoreFunc.Get());
+	m_Engines.m_pMaterials->RemoveRestoreFunc(m_RestoreFunc.Get());
 }
 
 static int32_t ToolsMode()
@@ -164,11 +166,11 @@ static int32_t ToolsMode()
 	return CommandLine()->CheckParm("-tools") ? 1 : 0;
 }
 
-static IClientRenderable* RenderableOf(uint32_t hEntity)
+IClientRenderable* CShadowsClient::RenderableOf(uint32_t hEntity)
 {
 	const CBaseHandle h((int)(hEntity & ENT_ENTRY_MASK), (int)(hEntity >> NUM_SERIAL_NUM_SHIFT_BITS));
 	IClientUnknown* pUnknown = NULL;
-	if (C_StandaloneEntity* pShell = SourceSharp_ClientShellFromHandle(h))
+	if (C_StandaloneEntity* pShell = m_EntityList.ShellFromHandle(h))
 		pUnknown = pShell->GetIClientUnknown();
 	if (!pUnknown)
 		pUnknown = SourceSharp_LegacyListUnknownFromHandle(h);
@@ -203,16 +205,16 @@ static void DrawTextureQuad(IMaterial* pMaterial, float w, float h)
 
 void CShadowsClient::BuildEnv()
 {
-	m_Env.ppShadowMgr = &shadowmgr;
-	m_Env.ppStaticPropMgr = &staticpropmgr;
-	m_Env.ppMaterials = &materials;
+	m_Env.ppShadowMgr = &m_Engines.m_pShadows;
+	m_Env.ppStaticPropMgr = &m_Engines.m_pStaticProps;
+	m_Env.ppMaterials = &m_Engines.m_pMaterials;
 	m_Env.ppHardwareConfig = &g_pMaterialSystemHardwareConfig;
-	m_Env.ppModelRender = &modelrender;
+	m_Env.ppModelRender = &m_Engines.m_pModelRender;
 	m_Env.ppRender = &render;
-	m_Env.ppEngine = &engine;
-	m_Env.ppModelInfo = &modelinfo;
-	m_Env.ppDebugOverlay = &debugoverlay;
-	m_Env.ppGlobals = reinterpret_cast<CGlobalVarsBase* const*>(&gpGlobals);
+	m_Env.ppEngine = &m_Engines.m_pEngine;
+	m_Env.ppModelInfo = &m_Engines.m_pModelInfo;
+	m_Env.ppDebugOverlay = &m_Engines.m_pDebugOverlay;
+	m_Env.ppGlobals = reinterpret_cast<CGlobalVarsBase* const*>(&m_Engines.m_pGlobals);
 	m_Env.pfnInitMaterial = m_InitMaterial.Get();
 	m_Env.pfnShutdownMaterial = m_ShutdownMaterial.Get();
 	m_Env.pfnMaterial = m_Material.Get();
@@ -223,7 +225,7 @@ void CShadowsClient::BuildEnv()
 	m_Env.pfnAddRestoreFunc = m_AddRestoreFunc.Get();
 	m_Env.pfnRemoveRestoreFunc = m_RemoveRestoreFunc.Get();
 	m_Env.pfnToolsMode = ToolsMode;
-	m_Env.pfnRenderableOf = RenderableOf;
+	m_Env.pfnRenderableOf = m_RenderableOf.Get();
 	m_Env.pfnUpdateShadowDepthTexture = UpdateShadowDepthTexture;
 	m_Env.pfnDrawTextureQuad = DrawTextureQuad;
 }

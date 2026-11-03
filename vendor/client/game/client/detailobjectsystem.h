@@ -35,4 +35,3 @@ public:
 };
 
 // System for dealing with detail objects
-IDetailObjectSystem* DetailObjectSystem();

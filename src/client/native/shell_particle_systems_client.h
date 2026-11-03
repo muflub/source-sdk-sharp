@@ -33,12 +33,15 @@ class CShellNewParticleEffect;
 class CNewParticlesClient;
 class CStandaloneClients;
 
+class CClientEngineInterfaces;
+
 class CParticleSystemsClient
 {
 public:
 	// Out of line, as the destructor is: the slots' entries hold an effect type this header
 	// only declares.
-	CParticleSystemsClient(CStandaloneClients& standalone, CNewParticlesClient& newParticles);
+	CParticleSystemsClient(const CClientEngineInterfaces& engines, CStandaloneClients& standalone,
+						   CNewParticlesClient& newParticles);
 	~CParticleSystemsClient();
 
 	CParticleSystemsClient(const CParticleSystemsClient&) = delete;
@@ -133,6 +136,7 @@ private:
 	void PreRender();
 	void LevelShutdown();
 
+	const CClientEngineInterfaces& m_Engines;
 	CStandaloneClients& m_Standalone;
 	CNewParticlesClient& m_NewParticles;
 

@@ -31,8 +31,10 @@
 
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
 class C_StandaloneEntity;
 class CNewParticlesClient;
+class CClientEntityList;
 
 class CShellNewParticleEffect : public CDefaultClientRenderable
 {
@@ -127,16 +129,23 @@ private:
 class CNewParticlesClient
 {
 public:
-	explicit CNewParticlesClient(const CManagedAreasClient& areas)
+	CNewParticlesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						CClientEntityList& entityList)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_EntityList(entityList)
 	{
 	}
+
+	const CClientEngineInterfaces& Engines() const { return m_Engines; }
 
 	CNewParticlesClient(const CNewParticlesClient&) = delete;
 	CNewParticlesClient& operator=(const CNewParticlesClient&) = delete;
 
 	// NULL outside a managed load.
 	IManagedParticlesClient* Managed() const { return m_Areas.m_pParticlesClient; }
+
+	CClientEntityList& EntityList() const { return m_EntityList; }
 
 	// The named system, allocated; the manager removes it when it finishes. A name no .pcf
 	// defines gives an effect that is not IsValid, as stock's did.
@@ -152,12 +161,10 @@ private:
 	friend class CShellNewParticleEffect;
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	CClientEntityList& m_EntityList;
 
 	// Ids rise with creation, so falling id order.
 	CUtlVector<CShellNewParticleEffect*> m_Effects;
 	uint32_t m_nNextId = 0;
 };
-
-// The probe build's particle sweep, started from a console command, asks for this.
-// Defined in shell_clientdll.cpp.
-CNewParticlesClient& ShellClientDll_NewParticles();

@@ -15,6 +15,9 @@
 
 #include "shell_standalone_client.h"
 #include "sourcesharp_entrypoints.h"
+#include "shell_standalone_clients.h"
+#include "shell_dust_render_object.h"
+#include "shell_client_engine_interfaces.h"
 
 // The owner's brush as a collideable the engine's point test answers for. The managed
 // entity's own collideable reports FSOLID_NOT_SOLID without FSOLID_VOLUME_CONTENTS, which
@@ -105,9 +108,9 @@ private:
 
 // The managed dust motes' spawn test: the owner's brush contents at a point. 0 for an
 // owner or model that is not there.
-int32_t SourceSharp_ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ)
+int32_t CDustClient::ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ)
 {
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
 	if (!pOwner || !pPointXYZ)
 		return 0;
 
@@ -116,9 +119,9 @@ int32_t SourceSharp_ParticlesBrushPointContents(uint32_t hOwner, const float* pP
 		return 0;
 
 	Vector vecMins, vecMaxs;
-	modelinfo->GetModelBounds(pModel, vecMins, vecMaxs);
+	m_Engines.m_pModelInfo->GetModelBounds(pModel, vecMins, vecMaxs);
 
 	CSourceSharpBrushCollideable brush;
 	brush.Bind(pOwner, vecMins, vecMaxs);
-	return enginetrace->GetPointContents_Collideable(&brush, Vector(pPointXYZ[0], pPointXYZ[1], pPointXYZ[2]));
+	return m_Engines.m_pTrace->GetPointContents_Collideable(&brush, Vector(pPointXYZ[0], pPointXYZ[1], pPointXYZ[2]));
 }

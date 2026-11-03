@@ -66,6 +66,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "client_entity_list.h"
+#include "shell_view_cameras.h"
 
 // The names are stock's EXPOSE_INTERFACE strings verbatim (some are lower case
 // with underscores: "spy_invis"), so each row carries the literal.
@@ -348,7 +350,7 @@ int32_t CManagedMaterialProxy::BindEntity(SourceSharpProxyEntity_t* pOut)
 		pOut->OriginXYZ[2] = origin.z;
 	}
 
-	if (C_StandaloneEntity* pShell = SourceSharp_ClientShellFromHandleEntity(pUnknown))
+	if (C_StandaloneEntity* pShell = m_Owner.EntityList().ShellFromHandleEntity(pUnknown))
 	{
 		pOut->RenderAlpha = (int32_t)pShell->Block().Client.RenderColorA;
 		pOut->IsNpc = (pShell->Block().Head.Flags & FL_NPC) ? 1 : 0;
@@ -360,8 +362,11 @@ int32_t CManagedMaterialProxy::BindEntity(SourceSharpProxyEntity_t* pOut)
 
 COMPILE_TIME_ASSERT(ARRAYSIZE(s_ProxyNames) == 81);
 
-CMaterialProxiesClient::CMaterialProxiesClient(const CManagedAreasClient& areas)
+CMaterialProxiesClient::CMaterialProxiesClient(const CManagedAreasClient& areas, const CViewCameras& cameras,
+											   CClientEntityList& entityList)
 	: m_Areas(areas)
+	, m_Cameras(cameras)
+	, m_EntityList(entityList)
 	, m_Proxies(DefLessFunc(int32_t))
 	, m_Regs{SS_PROXY_NAMES(SS_PROXY_REG)}
 {
@@ -427,7 +432,7 @@ int32_t CMaterialProxiesClient::ProxyReadView(int32_t nKind, float* pOut, int32_
 		return 0;
 	if (nKind == 0 && nFloats >= 3)
 	{
-		const Vector& v = CurrentViewOrigin();
+		const Vector& v = m_Cameras.CurrentOrigin();
 		pOut[0] = v.x;
 		pOut[1] = v.y;
 		pOut[2] = v.z;

@@ -909,12 +909,7 @@ void CManagedSide::RequestReload()
 	Msg("[SourceSharp] %s: managed reload queued for the next frame\n", SOURCESHARP_SIDE_TAG);
 }
 
-#ifdef CLIENT_DLL
-CON_COMMAND(cs_cl_reload, "Reload the CLIENT's managed assemblies in place, without restarting the game")
-{
-	ShellClientDll_ManagedSide().RequestReload();
-}
-#else
+#ifndef CLIENT_DLL
 SS_NATIVE_COMMAND(cs_sv_reload)
 {
 	services.m_ManagedSide.RequestReload();

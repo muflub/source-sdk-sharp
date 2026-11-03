@@ -35,6 +35,9 @@
 #include "imanaged_areas_client.h"
 #include "shell_beams_client.h"
 #include "ss_command_line.h"
+#include "client_entity_list.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 namespace
 {
@@ -154,13 +157,13 @@ void CBeamsClient::ClearBeams()
 void CBeamsClient::UpdateTempEntBeams()
 {
 	if (IManagedBeamsClient* pBeams = Managed())
-		pBeams->BeamsUpdate(gpGlobals->curtime, gpGlobals->frametime);
+		pBeams->BeamsUpdate(m_Engines.m_pGlobals->curtime, m_Engines.m_pGlobals->frametime);
 }
 
 void CBeamsClient::KillDeadBeams(const CBaseHandle& hDeadEntity)
 {
 	if (IManagedBeamsClient* pBeams = Managed())
-		pBeams->BeamsKillDead((uint32_t)hDeadEntity.ToInt(), gpGlobals->curtime);
+		pBeams->BeamsKillDead((uint32_t)hDeadEntity.ToInt(), m_Engines.m_pGlobals->curtime);
 }
 
 CBeamRenderable* CBeamsClient::RenderableAt(int nIndex)
@@ -171,7 +174,41 @@ CBeamRenderable* CBeamsClient::RenderableAt(int nIndex)
 	return p->m_bLive ? p : NULL;
 }
 
-void SourceSharp_BeamView(int32_t bCurrentView, float* pOut42)
+// The reads a managed rope or beam makes, each a pass-through onto the engine.
+//
+// The view being drawn (CurrentViewForward/Origin, and the render context's
+// world-space camera the strip faces: only inside a view, which is what
+// bCurrentView says the caller is), the main view's origin, the screen width,
+// and the two hardware facts FakeAA rope smoothing reads.
+void CBeamsClient::ClientViewState(int32_t bCurrentView, float* pOutForwardXYZ, float* pOutOriginXYZ,
+								   float* pOutMainOriginXYZ, float* pOutCameraXYZ, int32_t* pOutScreenWidth,
+								   int32_t* pOutDxLevel, int32_t* pOutAAEnabled)
+{
+	const Vector& vMain = m_Cameras.MainOrigin();
+
+	if (bCurrentView)
+	{
+		if (pOutForwardXYZ)
+			VectorCopy(m_Cameras.CurrentForward(), *reinterpret_cast<Vector*>(pOutForwardXYZ));
+		if (pOutOriginXYZ)
+			VectorCopy(m_Cameras.CurrentOrigin(), *reinterpret_cast<Vector*>(pOutOriginXYZ));
+		if (pOutCameraXYZ)
+		{
+			CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
+			pRenderContext->GetWorldSpaceCameraPosition(reinterpret_cast<Vector*>(pOutCameraXYZ));
+		}
+	}
+	if (pOutMainOriginXYZ)
+		VectorCopy(vMain, *reinterpret_cast<Vector*>(pOutMainOriginXYZ));
+	if (pOutScreenWidth)
+		*pOutScreenWidth = ScreenWidth();
+	if (pOutDxLevel)
+		*pOutDxLevel = engine->GetDXSupportLevel();
+	if (pOutAAEnabled)
+		*pOutAAEnabled = g_pMaterialSystemHardwareConfig && g_pMaterialSystemHardwareConfig->IsAAEnabled() ? 1 : 0;
+}
+
+void CBeamsClient::BeamView(int32_t bCurrentView, float* pOut42)
 {
 	if (!pOut42)
 		return;
@@ -179,49 +216,49 @@ void SourceSharp_BeamView(int32_t bCurrentView, float* pOut42)
 	Vector* v = reinterpret_cast<Vector*>(pOut42);
 	if (bCurrentView)
 	{
-		v[0] = CurrentViewOrigin();
-		v[1] = CurrentViewForward();
-		v[2] = CurrentViewRight();
-		v[3] = CurrentViewUp();
-		const QAngle& angles = CurrentViewAngles();
+		v[0] = m_Cameras.CurrentOrigin();
+		v[1] = m_Cameras.CurrentForward();
+		v[2] = m_Cameras.CurrentRight();
+		v[3] = m_Cameras.CurrentUp();
+		const QAngle& angles = m_Cameras.CurrentAngles();
 		v[4].Init(angles.x, angles.y, angles.z);
 
 		// The render context's world-space camera: what a strip faces.
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->GetWorldSpaceCameraPosition(reinterpret_cast<Vector*>(pOut42 + 39));
 	}
-	v[5] = MainViewUp();
-	v[6] = MainViewRight();
+	v[5] = m_Cameras.MainUp();
+	v[6] = m_Cameras.MainRight();
 
-	const VMatrix& worldToScreen = engine->WorldToScreenMatrix();
+	const VMatrix& worldToScreen = m_Engines.m_pEngine->WorldToScreenMatrix();
 	for (int i = 0; i < 16; i++)
 		pOut42[21 + i] = worldToScreen.m[i / 4][i % 4];
 
-	pOut42[37] = gpGlobals->curtime;
-	pOut42[38] = gpGlobals->frametime;
+	pOut42[37] = m_Engines.m_pGlobals->curtime;
+	pOut42[38] = m_Engines.m_pGlobals->frametime;
 }
 
-int32_t SourceSharp_BeamModelInfo(int32_t nModelIndex, int32_t* pOutFrameCount)
+int32_t CBeamsClient::BeamModelInfo(int32_t nModelIndex, int32_t* pOutFrameCount)
 {
-	const model_t* pModel = modelinfo->GetModel(nModelIndex);
+	const model_t* pModel = m_Engines.m_pModelInfo->GetModel(nModelIndex);
 	if (pOutFrameCount)
 		*pOutFrameCount = pModel ? modelinfo->GetModelFrameCount(pModel) : 0;
 	return pModel ? 1 : 0;
 }
 
-int32_t SourceSharp_BeamModelIndex(const char* pszName)
+int32_t CBeamsClient::BeamModelIndex(const char* pszName)
 {
-	return pszName ? modelinfo->GetModelIndex(pszName) : -1;
+	return pszName ? m_Engines.m_pModelInfo->GetModelIndex(pszName) : -1;
 }
 
-uint32_t SourceSharp_BeamEntityAt(int32_t nEntry)
+uint32_t CBeamsClient::BeamEntityAt(int32_t nEntry)
 {
-	return RawFromEntity(SourceSharp_ClientEntityFromIndex(nEntry));
+	return RawFromEntity(m_EntityList.EntityFromIndex(nEntry));
 }
 
-int32_t SourceSharp_BeamEntityHasModel(uint32_t hEntity)
+int32_t CBeamsClient::BeamEntityHasModel(uint32_t hEntity)
 {
-	IClientEntity* pEnt = SourceSharp_ClientEntityFromHandle(HandleFromRaw(hEntity));
+	IClientEntity* pEnt = m_EntityList.EntityFromHandle(HandleFromRaw(hEntity));
 	return (pEnt && pEnt->GetModel()) ? 1 : 0;
 }
 
@@ -238,13 +275,13 @@ enum BeamEntityFact_t
 	BEAM_FACT_COLLIDEABLE = 0x20,
 };
 
-int32_t SourceSharp_BeamEntityFacts(uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float* pOut9)
+int32_t CBeamsClient::BeamEntityFacts(uint32_t hEntity, int32_t nAttachment, int32_t bTryAttachment, float* pOut9)
 {
 	if (!pOut9)
 		return 0;
 	Vector* pOut = reinterpret_cast<Vector*>(pOut9);
 
-	IClientUnknown* pUnknown = SourceSharp_ClientUnknownFromHandle(HandleFromRaw(hEntity));
+	IClientUnknown* pUnknown = m_EntityList.UnknownFromHandle(HandleFromRaw(hEntity));
 	if (!pUnknown)
 		return 0;
 
@@ -255,7 +292,7 @@ int32_t SourceSharp_BeamEntityFacts(uint32_t hEntity, int32_t nAttachment, int32
 		return nFacts;
 	nFacts |= BEAM_FACT_RENDERABLE;
 
-	C_StandaloneEntity* pShell = SourceSharp_ClientShellFromHandleEntity(pUnknown);
+	C_StandaloneEntity* pShell = m_EntityList.ShellFromHandleEntity(pUnknown);
 	if (pShell && pShell->IsPlayerShell())
 		nFacts |= BEAM_FACT_PLAYER;
 
@@ -276,17 +313,17 @@ int32_t SourceSharp_BeamEntityFacts(uint32_t hEntity, int32_t nAttachment, int32
 	return nFacts;
 }
 
-int32_t SourceSharp_BeamBoxVisibility(const float* pMinsXYZ, const float* pMaxsXYZ)
+int32_t CBeamsClient::BeamBoxVisibility(const float* pMinsXYZ, const float* pMaxsXYZ)
 {
 	const Vector& mins = *reinterpret_cast<const Vector*>(pMinsXYZ);
 	const Vector& maxs = *reinterpret_cast<const Vector*>(pMaxsXYZ);
-	return (engine->IsBoxVisible(mins, maxs) ? 1 : 0) | (engine->CullBox(mins, maxs) ? 2 : 0);
+	return (m_Engines.m_pEngine->IsBoxVisible(mins, maxs) ? 1 : 0) | (m_Engines.m_pEngine->CullBox(mins, maxs) ? 2 : 0);
 }
 
-int32_t SourceSharp_BeamScreenPosition(const float* pPointXYZ, float* pOutScreenXYZ)
+int32_t CBeamsClient::BeamScreenPosition(const float* pPointXYZ, float* pOutScreenXYZ)
 {
 	Vector screen;
-	const int behind = debugoverlay->ScreenPosition(*reinterpret_cast<const Vector*>(pPointXYZ), screen);
+	const int behind = m_Engines.m_pDebugOverlay->ScreenPosition(*reinterpret_cast<const Vector*>(pPointXYZ), screen);
 	VectorCopy(screen, *reinterpret_cast<Vector*>(pOutScreenXYZ));
 	return behind;
 }
@@ -334,17 +371,17 @@ void CBeamsClient::BeamRenderableRemove(int32_t nRenderable)
 	m_FreeRenderables.AddToTail(nRenderable);
 }
 
-static CEngineSprite* SpriteFor(int32_t nModelIndex)
+static CEngineSprite* SpriteFor(IVModelInfoClient* pModelInfo, int32_t nModelIndex)
 {
-	const model_t* pModel = modelinfo->GetModel(nModelIndex);
-	return pModel ? (CEngineSprite*)modelinfo->GetModelExtraData(pModel) : NULL;
+	const model_t* pModel = pModelInfo->GetModel(nModelIndex);
+	return pModel ? (CEngineSprite*)pModelInfo->GetModelExtraData(pModel) : NULL;
 }
 
 // Binds a sprite model's material for a frame and render mode
 // (Draw_SetSpriteTexture, with the wireframe choice made by the caller).
 int32_t CBeamsClient::BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode, int32_t bWireframe)
 {
-	CEngineSprite* pSprite = SpriteFor(nModelIndex);
+	CEngineSprite* pSprite = SpriteFor(m_Engines.m_pModelInfo, nModelIndex);
 	if (!pSprite)
 		return 0;
 
@@ -352,11 +389,12 @@ int32_t CBeamsClient::BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_
 	if (!pMaterial)
 		return 0;
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	if (bWireframe)
 	{
 		if (!m_pWireframeMaterial)
-			m_pWireframeMaterial = materials->FindMaterial("shadertest/wireframevertexcolor", TEXTURE_GROUP_OTHER);
+			m_pWireframeMaterial =
+				m_Engines.m_pMaterials->FindMaterial("shadertest/wireframevertexcolor", TEXTURE_GROUP_OTHER);
 		pRenderContext->Bind(m_pWireframeMaterial, NULL);
 		return 1;
 	}
@@ -367,7 +405,7 @@ int32_t CBeamsClient::BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_
 
 void CBeamsClient::BeamSetHdrColorScale(int32_t nModelIndex, int32_t nRenderMode, float flScale)
 {
-	CEngineSprite* pSprite = SpriteFor(nModelIndex);
+	CEngineSprite* pSprite = SpriteFor(m_Engines.m_pModelInfo, nModelIndex);
 	IMaterial* pMaterial = pSprite ? pSprite->GetMaterial((RenderMode_t)nRenderMode) : NULL;
 	if (!pMaterial)
 		return;
@@ -377,28 +415,28 @@ void CBeamsClient::BeamSetHdrColorScale(int32_t nModelIndex, int32_t nRenderMode
 }
 
 // A halo sprite's glow material: whether it has one, or bind it as it is.
-int32_t SourceSharp_BeamGlow(int32_t nModelIndex, int32_t bBind)
+int32_t CBeamsClient::BeamGlow(int32_t nModelIndex, int32_t bBind)
 {
-	CEngineSprite* pSprite = SpriteFor(nModelIndex);
+	CEngineSprite* pSprite = SpriteFor(m_Engines.m_pModelInfo, nModelIndex);
 	IMaterial* pMaterial = pSprite ? pSprite->GetMaterial(kRenderGlow) : NULL;
 	if (!pMaterial)
 		return 0;
 
 	if (bBind)
 	{
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->Bind(pMaterial);
 	}
 	return 1;
 }
 
 // One strip over the bound material, two vertices a segment (beam_strip_vertex.h).
-void SourceSharp_BeamDrawStrip(const float* pVerts, int32_t nVerts)
+void CBeamsClient::BeamDrawStrip(const float* pVerts, int32_t nVerts)
 {
 	if (!pVerts || nVerts < 4 || (nVerts & 1))
 		return;
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	ss::beamstrip::DrawStrip(pRenderContext->GetDynamicMesh(), pVerts, nVerts);
 }
 
@@ -415,13 +453,13 @@ enum BeamColorKind_t
 	BEAM_COLOR_RGBA, // Color4ubv
 };
 
-void SourceSharp_BeamDrawMesh(int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float* pVerts,
-							  int32_t nVerts)
+void CBeamsClient::BeamDrawMesh(int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float* pVerts,
+								int32_t nVerts)
 {
 	if (!pVerts || nVerts <= 0 || nPrimitives <= 0)
 		return;
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	IMesh* pMesh = pRenderContext->GetDynamicMesh();
 
 	CMeshBuilder meshBuilder;

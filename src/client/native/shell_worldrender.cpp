@@ -19,6 +19,7 @@
 
 #include "shell_standalone_client.h"
 #include "sourcesharp.h"
+#include "shell_standalone_clients.h"
 
 // The tonemap controls viewpostprocess.cpp held as globals; written here, read
 // by the render executor's trace note.
@@ -151,14 +152,14 @@ bool SourceSharp_ColorCorrectionActive()
 // The local player's origin (stock's choice, not the view origin). Answers 0
 // with no local player rather than a zero vector, which would read as the map
 // origin.
-int32_t SourceSharp_GetLocalPlayerOrigin(float* pOutXYZ)
+int32_t CStandaloneClients::GetLocalPlayerOrigin(float* pOutXYZ)
 {
 	if (!pOutXYZ)
 		return 0;
 
 	Vector vecOrigin;
 
-	if (C_StandaloneEntity* pStandalone = SourceSharp_LocalPlayerShell())
+	if (C_StandaloneEntity* pStandalone = LocalPlayer())
 	{
 		vecOrigin = pStandalone->GetAbsOrigin();
 	}

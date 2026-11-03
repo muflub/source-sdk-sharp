@@ -523,23 +523,15 @@ private:
 };
 
 // The client-side shell for a managed entity handle, or NULL.
-class C_StandaloneEntity* SourceSharp_StandaloneFromHandle(uint32_t hEntity);
 
 // Capture takes each view's renderables list as the leaf system builds it. The
 // blend answers GatherSprite while managed code prepares the batch.
 class CClientRenderablesList;
-void SourceSharp_StandaloneDrawBatchCapture(const CClientRenderablesList& list);
-float SourceSharp_StandaloneDrawBatchBlend(IClientEntity* pEntity, float flFallback);
 
 // NULL between maps, before the player arrives, and with no player.
-class C_StandaloneEntity* SourceSharp_LocalPlayerShell();
-
-int SourceSharp_StandaloneClientCount();
-class C_StandaloneEntity* SourceSharp_StandaloneClientAt(int nIndex);
 
 // Not CAM_IsThirdPerson(): a third-person camera pulled onto the eye by a wall
 // is first-person.
-bool SourceSharp_ThirdPersonSeesOwner();
 
 int SourceSharp_StandaloneBlobOffset();
 

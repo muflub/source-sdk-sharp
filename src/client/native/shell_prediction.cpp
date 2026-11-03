@@ -31,6 +31,10 @@
 // The prediction-seed statics the client and the server share per command.
 #include "entity_shared_statics.h"
 #include "shell_gamemovement.h"
+#include "shell_standalone_clients.h"
+#include "shell_prediction_slots_client.h"
+#include "shell_gamemovement_client.h"
+#include "shell_client_engine_interfaces.h"
 
 // The prediction seed carried by one usercmd, or -1 ("not inside a usercmd") for NULL.
 void EntityPrediction_SetSeedFromCommand(const EntityPredictionCmd_t* cmd)
@@ -160,7 +164,7 @@ void CSourceSharpPrediction::PostNetworkDataReceived(int commands_acknowledged)
 
 // One command out of the engine's input ring, by absolute command number. 0 when the ring
 // does not hold it, which ends the frame's replay as stock's loop does.
-int32_t SourceSharp_ClientGetUserCmd(int32_t nCommandNumber, SourceSharpUserCmd* pOut)
+int32_t CPredictionSlotsClient::ClientGetUserCmd(int32_t nCommandNumber, SourceSharpUserCmd* pOut)
 {
 	if (!pOut || !::input)
 		return 0;
@@ -270,15 +274,13 @@ IMPLEMENT_MOVEHELPER();
 
 // The movement bracket. Scale matters: the hull macros multiply the hulls by it, and an
 // unscaled hull would walk through walls with plausible trace fractions.
-int32_t SourceSharp_MoveBeginClientCommand(uint32_t hPlayer, SourceSharpMoveState* pOut);
-void SourceSharp_MoveEndClientCommand(int32_t bRan, int32_t* pOutGroundIndex);
-
-int32_t SourceSharp_ClientBeginMoveCommand(uint32_t hPlayer, int32_t nCommandNumber, SourceSharpMoveState* pOut)
+int32_t CPredictionSlotsClient::MoveBeginClientCommand(uint32_t hPlayer, int32_t nCommandNumber,
+													   SourceSharpMoveState* pOut)
 {
-	if (!SourceSharp_MoveBeginClientCommand(hPlayer, pOut))
+	if (!m_GameMovement.BeginClientCommand(hPlayer, pOut))
 		return 0;
 
-	if (C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hPlayer))
+	if (C_StandaloneEntity* pEntity = m_Standalone.FromHandle(hPlayer))
 		pOut->flModelScale = pEntity->GetModelScale();
 
 	// The shared random stream, seeded from the replayed command so both sides agree on
@@ -290,24 +292,24 @@ int32_t SourceSharp_ClientBeginMoveCommand(uint32_t hPlayer, int32_t nCommandNum
 	return 1;
 }
 
-void SourceSharp_ClientEndMoveCommand(int32_t bRan, int32_t* pOutGroundIndex)
+void CPredictionSlotsClient::MoveEndClientCommand(int32_t bRan, int32_t* pOutGroundIndex)
 {
 	s_ClientMoveHelper.Uninstall();
 
 	// -1, "not inside a usercmd", which the SharedRandom* asserts check for.
 	EntityPrediction_SetSeedFromCommand(NULL);
 
-	SourceSharp_MoveEndClientCommand(bRan, pOutGroundIndex);
+	m_GameMovement.EndClientCommand(bRan, pOutGroundIndex);
 }
 
 // The managed player's view state into its shell. A handle that no longer resolves is a
 // player who just left; nothing is done.
-void SourceSharp_ClientPlayerPredictionDrive(uint32_t hEntity, const SourceSharpClientPlayerView* pView)
+void CPredictionSlotsClient::ClientPlayerPredictionDrive(uint32_t hEntity, const SourceSharpClientPlayerView* pView)
 {
 	if (!pView || pView->struct_size != (int32_t)sizeof(*pView))
 		return;
 
-	C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hEntity);
+	C_StandaloneEntity* pEntity = m_Standalone.FromHandle(hEntity);
 
 	if (!pEntity)
 		return;

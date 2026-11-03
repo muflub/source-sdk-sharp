@@ -7,6 +7,8 @@
 // on unmodified Valve headers, user 2026-10-25).
 #pragma once
 
+#include <stdint.h>
+
 #include "shared_classnames.h"
 #include "igameentity_fwd.h"
 #include "mathlib/vector.h"
@@ -25,9 +27,12 @@
 // for an entity of either hierarchy.
 class IClientRenderable;
 
+class CClientEngineInterfaces;
+class CViewCameras;
 class C_LocalTempEntity;
 struct CManagedAreasClient;
 class CSpritesClient;
+class CClientEntityList;
 class C_PhysPropClientside;
 class C_BasePlayer;
 typedef CBaseHandle ClientEntityHandle_t;
@@ -102,12 +107,26 @@ class CTempEnts : public ITempEnts
 {
 	// Construction
 public:
+	// Shim slots: what the temp entity pool asks of the engine.
+	void FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
+				  float flRadius, float flDecay, float flDie);
+	void FxVectorRandom(float flLo, float flHi, float* pOutXYZ);
+	int32_t FxMaterialsCached();
+	void FxLoadModel(const char* pModel);
+	int32_t FxModelFrameCount(const char* pModel);
 	// SourceSharp -- a member of the client DLL object, handed the managed areas its
 	// slots carry their arguments to.
-	CTempEnts(const CManagedAreasClient& areas, CSpritesClient& sprites);
+	CTempEnts(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines, const CViewCameras& cameras,
+			  CSpritesClient& sprites, CClientEntityList& entityList);
 	virtual ~CTempEnts();
 
 	CSpritesClient& Sprites() const { return m_Sprites; }
+
+	CClientEntityList& EntityList() const { return m_EntityList; }
+
+	const CViewCameras& Cameras() const { return m_Cameras; }
+
+	const CClientEngineInterfaces& Engines() const { return m_Engines; }
 
 	// IShimTempEntPoolClient.
 	int32_t TempEntPoolCapacity();
@@ -124,6 +143,12 @@ public:
 	// The slot a temp entity is in, and the temp entity in a slot; -1 and NULL for neither.
 	int PoolSlotOf(const C_LocalTempEntity* pTemp);
 	C_LocalTempEntity* PoolAtSlot(int nSlot);
+
+	// IShimTempEntPoolClient's and IShimFxClient's entity reads.
+	int32_t ClientEntityOrigin(int32_t nEntityIndex, float* pOutXYZ);
+	int32_t ClientEntityModelBounds(int32_t nEntityIndex, float* pOutMinsXYZ, float* pOutMaxsXYZ, float* pOutAnglesPYR);
+	int32_t FxRenderableAttachment(uint32_t hEntity, int32_t nAttachment, float* pOut6);
+	int32_t FxHandleEntityIndex(uint32_t hEntity);
 
 	// IShimFxClient.
 	int32_t FxTempEntCreateNamed(int32_t nSlot, const float* pOriginXYZ, const char* pModel, int32_t nPriority);
@@ -253,7 +278,10 @@ private:
 	int32_t PoolCreateWithModel(int32_t nSlot, const float* pOriginXYZ, const model_t* pModel, int32_t nPriority);
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 	CSpritesClient& m_Sprites;
+	CClientEntityList& m_EntityList;
 
 	// One row per slot the managed pool reserved, NULL when empty.
 	C_LocalTempEntity* m_pSlots[MAX_TEMP_ENTITIES] = {};

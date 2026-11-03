@@ -21,8 +21,10 @@
 #include "generic_nettable.h"
 #include "shell_clientsystem.h"
 #include "ishim_areas_client.h"
+#include "ishim_areas.h"
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
 class C_StandaloneEntity;
 class CClientEntityList;
 class CBeamsClient;
@@ -36,11 +38,12 @@ class Vector;
 class QAngle;
 struct SourceSharpBoneBatch_t;
 
-class CStandaloneClients final : public IShimStandaloneClient
+class CStandaloneClients final : public IShimStandaloneClient, public IShimEntities
 {
 public:
-	CStandaloneClients(const CManagedAreasClient& areas, CClientEntityList& entityList, CBeamsClient& beams,
-					   CSpritesClient& sprites, CShadowsClient& shadows);
+	CStandaloneClients(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+					   CClientEntityList& entityList, CBeamsClient& beams, CSpritesClient& sprites,
+					   CShadowsClient& shadows);
 
 	CStandaloneClients(const CStandaloneClients&) = delete;
 	CStandaloneClients& operator=(const CStandaloneClients&) = delete;
@@ -54,6 +57,24 @@ public:
 	CClientEntityList& EntityList() const { return m_EntityList; }
 
 	// The beams a removed entity's are killed through.
+	// Slots of other areas that only ask for an entity (their files define them).
+	int32_t GetLocalPlayerHealth();
+	int32_t GetLocalPlayerOrigin(float* pOutXYZ);
+	int32_t EntitiesUpdateVisibilityAll();
+	int32_t ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ, int32_t nEntity, float* pOutFloats,
+							int32_t nOutFloats, int32_t* pOutInts, int32_t nOutInts);
+	void ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const float* pPositionXYZ, const float* pSAxisXYZ,
+						  int32_t nFlags);
+	void ClientPlayerLogoDecal(const float* pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char* pszMaterial,
+							   const char* pszTexture);
+	int32_t ClientEntityModelType(int32_t nEntity);
+	void ClientDecalStudioModel(int32_t nEntity, const float* pRayStartXYZ, const float* pRayDeltaXYZ,
+								int32_t nDecalIndex);
+	void ClientDecalBrushModel(int32_t nEntity, const float* pDecalCenterXYZ, int32_t nDecalIndex);
+	int32_t EntityIsValid(uint32_t hEntity) override;
+	void EntityGetOrigin(uint32_t hEntity, float* pOutXYZ) override;
+	void EntityGetAngles(uint32_t hEntity, float* pOutPYR) override;
+
 	CBeamsClient& Beams() const { return m_Beams; }
 
 	CSpritesClient& Sprites() const { return m_Sprites; }
@@ -80,7 +101,27 @@ public:
 	// camera (a camera pulled onto the eye by a wall is first person whatever mode was
 	// typed), or a second camera that shows the viewer, decides; the player's model and
 	// viewmodel draw by it.
+	const CClientEngineInterfaces& Engines() const { return m_Engines; }
+
 	bool ThirdPersonSeesOwner() const { return m_bThirdPersonSeesOwner; }
+
+	// Whether this side recognises the type and layout an update was written with; false
+	// means the bytes must not be decoded. The decision is managed's. *ppOutClassName gets
+	// the classname the type id resolves to.
+	bool SchemaAccept(unsigned int nTypeId, unsigned int nSchemaHash, int nEntIndex, const char** ppOutClassName);
+
+	// Shim slots: the decals and lighting the temp entity backends ask of the engine.
+	int32_t ClientDecalIndexFromName(const char* pName);
+	void ClientDecalStaticProp(const float* pStartXYZ, const float* pEndXYZ, int32_t nStaticPropIndex,
+							   int32_t nDecalIndex);
+	void ClientWorldLighting(const float* pStartXYZ, const float* pEndXYZ, float* pOut6);
+	void ClientStaticPropLighting(const float* pStartXYZ, const float* pEndXYZ, const float* pNormalXYZ,
+								  int32_t nStaticProp, float* pOut6);
+
+	// Shim slots over a handle.
+	int32_t EntityGetIndex(uint32_t hEntity) override;
+	void StandaloneSetModelScale(uint32_t hEntity, float flScale);
+	void EntityGetModelName(uint32_t hEntity, char* pOut, int32_t nOutSize);
 
 	void SetThirdPersonSeesOwner(bool bSees) { m_bThirdPersonSeesOwner = bSees; }
 
@@ -223,6 +264,7 @@ private:
 	void AskDrawBatch();
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 	CClientEntityList& m_EntityList;
 	CBeamsClient& m_Beams;
 	CSpritesClient& m_Sprites;
@@ -252,7 +294,3 @@ private:
 	CTierCreate m_TierCreate[SOURCESHARP_TIER_MAX] = {{*this, 0}, {*this, 1}, {*this, 2}, {*this, 3},
 													  {*this, 4}, {*this, 5}, {*this, 6}};
 };
-
-// The client DLL object's standalone clients, for the free answers the code not yet
-// handed them still calls. Defined in shell_clientdll.cpp.
-CStandaloneClients& ShellClientDll_Standalone();

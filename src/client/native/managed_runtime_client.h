@@ -6,9 +6,6 @@
 
 #include "imanaged_runtime_client.h"
 
-// This load's managed-built runtime, held by the client DLL object.
-IManagedRuntimeClient* ManagedRuntimeClient();
-
 // The partner of LoadManagedRuntime (sourcesharp_gamesystem.cpp, shared by both DLLs).
 void SourceSharp_UnloadManagedSide();
 

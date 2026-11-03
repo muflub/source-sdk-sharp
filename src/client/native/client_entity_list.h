@@ -21,6 +21,7 @@
 
 #include "slot_table.h"
 #include "client_entity_counts.h"
+#include "shell_member_command.h"
 
 class C_StandaloneEntity;
 class IHandleEntity;
@@ -65,6 +66,12 @@ public:
 	IClientUnknown* UnknownFromIndex(int nEntry) const;
 	IClientUnknown* UnknownFromHandle(const CBaseHandle& hEnt) const;
 
+	// The same answer as each interface the caller holds. NULL when nothing answers.
+	IClientEntity* EntityFromIndex(int nEntry) const;
+	IClientEntity* EntityFromHandle(const CBaseHandle& hEnt) const;
+	IClientNetworkable* NetworkableFromHandle(const CBaseHandle& hEnt) const;
+	IClientRenderable* RenderableFromHandle(const CBaseHandle& hEnt) const;
+
 	// Index to handle: the occupant's own handle.
 	CBaseHandle HandleFromIndex(int nEntry) const;
 
@@ -73,11 +80,12 @@ public:
 	const CSourceSharpSlotTable& Slots() const { return m_Slots; }
 
 private:
+	void SlotTableCommand(const CCommand& args);
+
+	CMemberCommand<CClientEntityList, &CClientEntityList::SlotTableCommand> m_SlotTableCommand{
+		*this, "cs_cl_slot_table", "SourceSharp: the client entity slot table (plan_entity.md 3.3)", 0};
+
 	CSourceSharpSlotTable m_Slots;
 	CClientEntityCounts m_Counts;
 	bool m_bWarnedUnresolved = false;
 };
-
-// The client DLL object's list, for the free resolvers that the code not yet handed the
-// list still calls. Defined in shell_clientdll.cpp.
-CClientEntityList& ShellClientDll_EntityList();

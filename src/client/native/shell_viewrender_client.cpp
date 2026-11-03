@@ -47,10 +47,14 @@
 #include "view_facts.h"
 #include "shell_diagnostics.h"
 #include "ss_image_encode.h"
+#include "shell_client_engine_interfaces.h"
 
-CShellViewRender::CShellViewRender(const CManagedAreasClient& areas, CViewerFacts& viewerFacts,
-								   CSourceSharpClientMode& clientMode, CViewExecutor& executor, CBeamsClient& beams)
+CShellViewRender::CShellViewRender(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+								   CViewCameras& cameras, CViewerFacts& viewerFacts, CSourceSharpClientMode& clientMode,
+								   CViewExecutor& executor, CBeamsClient& beams)
 	: m_Areas(areas)
+	, m_Engines(engines)
+	, m_Cameras(cameras)
 	, m_ViewerFacts(viewerFacts)
 	, m_ClientMode(clientMode)
 	, m_Executor(executor)
@@ -81,7 +85,7 @@ void CShellViewRender::LevelShutdown()
 {
 	if (IManagedRenderClient* pManaged = m_Areas.m_pRenderClient)
 		pManaged->ScreenSpaceEffectsStage(1);
-	m_nCurrentViewID = VIEW_NONE;
+	m_Cameras.m_nCurrentViewID = VIEW_NONE;
 }
 
 void CShellViewRender::Shutdown()
@@ -297,24 +301,24 @@ void CShellViewRender::Render(vrect_t* rect)
 	}
 
 	CMatStubHandler matStub(m_Areas.m_pMaterialProxyClient);
-	engine->EngineStats_BeginFrame();
+	m_Engines.m_pEngine->EngineStats_BeginFrame();
 	m_bForceNoVis = false;
 
 	CViewSetup& player = m_View;
-	render->SetMainView(player.origin, player.angles);
+	m_Engines.m_pRender->SetMainView(player.origin, player.angles);
 
 	m_ClientMode.PreRender(&eye);
 
 	if (randomClear[0])
 	{
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->ClearColor3ub((unsigned char)randomClear[1], (unsigned char)randomClear[2],
 									  (unsigned char)randomClear[3]);
 		pRenderContext->ClearBuffers(true, false, false);
 	}
 	if (bOverview)
 	{
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->ClearColor4ub(0, 255, 0, 255);
 	}
 
@@ -322,7 +326,7 @@ void CShellViewRender::Render(vrect_t* rect)
 	RenderView(eye, nClearFlags, nDrawFlags);
 
 	m_ClientMode.PostRender();
-	engine->EngineStats_EndFrame();
+	m_Engines.m_pEngine->EngineStats_EndFrame();
 	matStub.End();
 
 	// The UI drawn full screen (the escape menu and the cursor).
@@ -331,9 +335,9 @@ void CShellViewRender::Render(vrect_t* rect)
 	view2d.y = rect->y;
 	view2d.width = rect->width;
 	view2d.height = rect->height;
-	render->Push2DView(view2d, 0, NULL, GetFrustum());
-	render->VGui_Paint(PAINT_UIPANELS | PAINT_CURSOR);
-	render->PopView(GetFrustum());
+	m_Engines.m_pRender->Push2DView(view2d, 0, NULL, GetFrustum());
+	m_Engines.m_pRender->VGui_Paint(PAINT_UIPANELS | PAINT_CURSOR);
+	m_Engines.m_pRender->PopView(GetFrustum());
 }
 
 // CViewRender::WriteSaveGameScreenshotOfSize: the player's eye drawn through the
@@ -350,7 +354,7 @@ void CShellViewRender::WriteSaveGameScreenshotOfSize(const char* pFilename, int 
 		return;
 	}
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
 	pRenderContext->PushMatrix();
 	pRenderContext->MatrixMode(MATERIAL_VIEW);
@@ -368,8 +372,9 @@ void CShellViewRender::WriteSaveGameScreenshotOfSize(const char* pFilename, int 
 	pRenderContext->ReadPixels(0, 0, width, height, ss::ImageEncodePixels(pBlock), IMAGE_FORMAT_RGB888);
 
 	int nFileBytes = 0;
-	unsigned char* pFile = ss::ImageEncode(bWriteVTF ? ss::kImageVtfRgb : ss::kImageTgaRgb, width, height,
-										   bCreatePowerOf2Padded, pBlock, nPixelBytes, &nFileBytes, true);
+	unsigned char* pFile =
+		ss::ImageEncode(m_Areas.m_pMaterialFilesClient, bWriteVTF ? ss::kImageVtfRgb : ss::kImageTgaRgb, width, height,
+						bCreatePowerOf2Padded, pBlock, nPixelBytes, &nFileBytes, true);
 	free(pBlock);
 	if (!pFile)
 		Error("Couldn't write bitmap data snapshot.\n");
@@ -378,7 +383,7 @@ void CShellViewRender::WriteSaveGameScreenshotOfSize(const char* pFilename, int 
 	// the filesystem frees it with tier0's allocator.
 	char szPathedFileName[MAX_PATH];
 	Q_snprintf(szPathedFileName, sizeof(szPathedFileName), "//MOD/%s", pFilename);
-	filesystem->AsyncWrite(szPathedFileName, pFile, nFileBytes, true);
+	m_Engines.m_pFileSystem->AsyncWrite(szPathedFileName, pFile, nFileBytes, true);
 
 	pRenderContext->PopRenderTargetAndViewport();
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
@@ -397,10 +402,10 @@ void CShellViewRender::DemoCamera(Vector& origin, QAngle& angles)
 	if (!pManaged->ViewDemoCamera(0, in, out))
 		return;
 	QAngle demoAngles(out[0], out[1], out[2]);
-	engine->SetViewAngles(demoAngles);
-	input->ExtraMouseSample(gpGlobals->absoluteframetime, true);
-	engine->GetViewAngles(demoAngles);
-	float move[6] = {demoAngles.x, demoAngles.y, demoAngles.z, gpGlobals->absoluteframetime, 0, 0};
+	m_Engines.m_pEngine->SetViewAngles(demoAngles);
+	input->ExtraMouseSample(m_Engines.m_pGlobals->absoluteframetime, true);
+	m_Engines.m_pEngine->GetViewAngles(demoAngles);
+	float move[6] = {demoAngles.x, demoAngles.y, demoAngles.z, m_Engines.m_pGlobals->absoluteframetime, 0, 0};
 	pManaged->ViewDemoCamera(1, move, out);
 	origin.Init(out[0], out[1], out[2]);
 	angles.Init(out[3], out[4], out[5]);
@@ -421,7 +426,7 @@ void CShellViewRender::SetUpViews()
 	eye.m_bViewToProjectionOverride = false;
 	eye.m_eStereoEye = STEREO_EYE_MONO;
 
-	::partition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
+	m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
 
 	// Names the refusal when the engine says this client watches a broadcast.
 	SourceSharp_HltvCameraAvailable();
@@ -443,20 +448,20 @@ void CShellViewRender::SetUpViews()
 		}
 	}
 
-	if (engine->IsPlayingDemo())
+	if (m_Engines.m_pEngine->IsPlayingDemo())
 		DemoCamera(eye.origin, eye.angles);
 
 	// The viewmodel's FOV moves with the override's zoom: the offset is
 	// managed's (ViewSetUpOut), the zoomed fov the one operand only this has.
 	eye.fovViewmodel = eye.fov + flViewModelFovOffset;
 
-	::partition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
+	m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
 
 	AudioState_t audioState;
 	audioState.m_Origin = eye.origin;
 	audioState.m_Angles = eye.angles;
 	audioState.m_bIsUnderwater = m_ViewerFacts.ViewerAudioIsUnderwater(eye.origin);
-	engine->SetAudioState(audioState);
+	m_Engines.m_pEngine->SetAudioState(audioState);
 
 	SetMainView(eye.origin, eye.angles);
 }
@@ -481,145 +486,32 @@ void ShellView_ComputeCamera(const Vector& vecOrigin, const QAngle& angles, Shel
 
 void CShellViewRender::SetMainView(const Vector& vecOrigin, const QAngle& angles)
 {
-	m_vecPrevMainOrigin = m_Main.origin;
-	m_angPrevMainAngles = m_Main.angles;
-	ShellView_ComputeCamera(vecOrigin, angles, m_Main);
+	m_Cameras.m_vecPrevMainOrigin = m_Cameras.m_Main.origin;
+	m_Cameras.m_angPrevMainAngles = m_Cameras.m_Main.angles;
+	ShellView_ComputeCamera(vecOrigin, angles, m_Cameras.m_Main);
 }
 
 void CShellViewRender::SetupCurrentView(const Vector& vecOrigin, const QAngle& angles, int nViewID, bool bEffects)
 {
-	ShellView_ComputeCamera(vecOrigin, angles, m_Current);
-	m_nCurrentViewID = nViewID;
-	m_bCanAccessCurrentView = true;
+	ShellView_ComputeCamera(vecOrigin, angles, m_Cameras.m_Current);
+	m_Cameras.m_nCurrentViewID = nViewID;
+	m_Cameras.m_bCanAccessCurrentView = true;
 	if (!bEffects)
 		return;
 
 	float flScreenFadeMinSize, flScreenFadeMaxSize;
 	GetScreenFadeDistances(&flScreenFadeMinSize, &flScreenFadeMaxSize);
-	modelinfo->SetViewScreenFadeRange(flScreenFadeMinSize, flScreenFadeMaxSize);
+	m_Engines.m_pModelInfo->SetViewScreenFadeRange(flScreenFadeMinSize, flScreenFadeMaxSize);
 
 	// INT_RENDERPARM_WRITE_DEPTH_TO_DESTALPHA is 10 (public/renderparm.h, which
 	// client.so does not otherwise include).
 	const int kWriteDepthToDestAlpha = 10;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->SetIntRenderingParameter(kWriteDepthToDestAlpha,
 											 (nViewID == VIEW_MAIN || nViewID == VIEW_3DSKY) ? 1 : 0);
 }
 
-// The names fork TUs still call, answered from CShellViewRender.
 IViewRender* view = NULL;
-
-const Vector& MainViewOrigin()
-{
-	return ShellClientDll_ViewRender().m_Main.origin;
-}
-
-const QAngle& MainViewAngles()
-{
-	return ShellClientDll_ViewRender().m_Main.angles;
-}
-
-const Vector& MainViewForward()
-{
-	return ShellClientDll_ViewRender().m_Main.forward;
-}
-
-const Vector& MainViewRight()
-{
-	return ShellClientDll_ViewRender().m_Main.right;
-}
-
-const Vector& MainViewUp()
-{
-	return ShellClientDll_ViewRender().m_Main.up;
-}
-
-const VMatrix& MainWorldToViewMatrix()
-{
-	return ShellClientDll_ViewRender().m_Main.worldToView;
-}
-
-const Vector& PrevMainViewOrigin()
-{
-	return ShellClientDll_ViewRender().m_vecPrevMainOrigin;
-}
-
-const QAngle& PrevMainViewAngles()
-{
-	return ShellClientDll_ViewRender().m_angPrevMainAngles;
-}
-
-const Vector& CurrentViewOrigin()
-{
-	const CShellViewRender& viewRender = ShellClientDll_ViewRender();
-	Assert(viewRender.m_bCanAccessCurrentView);
-	return viewRender.m_Current.origin;
-}
-
-const QAngle& CurrentViewAngles()
-{
-	const CShellViewRender& viewRender = ShellClientDll_ViewRender();
-	Assert(viewRender.m_bCanAccessCurrentView);
-	return viewRender.m_Current.angles;
-}
-
-const Vector& CurrentViewForward()
-{
-	const CShellViewRender& viewRender = ShellClientDll_ViewRender();
-	Assert(viewRender.m_bCanAccessCurrentView);
-	return viewRender.m_Current.forward;
-}
-
-const Vector& CurrentViewRight()
-{
-	const CShellViewRender& viewRender = ShellClientDll_ViewRender();
-	Assert(viewRender.m_bCanAccessCurrentView);
-	return viewRender.m_Current.right;
-}
-
-const Vector& CurrentViewUp()
-{
-	const CShellViewRender& viewRender = ShellClientDll_ViewRender();
-	Assert(viewRender.m_bCanAccessCurrentView);
-	return viewRender.m_Current.up;
-}
-
-const VMatrix& CurrentWorldToViewMatrix()
-{
-	const CShellViewRender& viewRender = ShellClientDll_ViewRender();
-	Assert(viewRender.m_bCanAccessCurrentView);
-	return viewRender.m_Current.worldToView;
-}
-
-view_id_t CurrentViewID()
-{
-	return (view_id_t)ShellClientDll_ViewRender().m_nCurrentViewID;
-}
-
-bool DrawingShadowDepthView()
-{
-	return ShellClientDll_ViewRender().m_nCurrentViewID == VIEW_SHADOW_DEPTH_TEXTURE;
-}
-
-void SetupCurrentView(const Vector& vecOrigin, const QAngle& angles, view_id_t viewID)
-{
-	ShellClientDll_ViewRender().SetupCurrentView(vecOrigin, angles, viewID, true);
-}
-
-void FinishCurrentView()
-{
-	ShellClientDll_ViewRender().FinishCurrentView();
-}
-
-void AllowCurrentViewAccess(bool allow)
-{
-	ShellClientDll_ViewRender().AllowCurrentViewAccess(allow);
-}
-
-bool IsCurrentViewAccessAllowed()
-{
-	return ShellClientDll_ViewRender().m_bCanAccessCurrentView;
-}
 
 bool R_CullSphere(VPlane const* pPlanes, int nPlanes, Vector const* pCenter, float radius)
 {
@@ -649,16 +541,16 @@ static ConVar cl_software_cursor("cl_software_cursor", "0", FCVAR_ARCHIVE,
 								 SoftwareCursorChanged);
 
 // getpos and spec_pos: the main view, or ("2") the player's own position.
-static void ViewPosition(const CCommand& args, Vector& vecOrigin, QAngle& angles, bool& bPlayer)
+void CShellViewRender::ViewPosition(const CCommand& args, Vector& vecOrigin, QAngle& angles, bool& bPlayer)
 {
-	vecOrigin = MainViewOrigin();
-	angles = MainViewAngles();
+	vecOrigin = m_Cameras.MainOrigin();
+	angles = m_Cameras.MainAngles();
 	bPlayer = args.ArgC() == 2 && atoi(args[1]) == 2;
 	if (bPlayer)
-		ShellClientDll_ViewerFacts().ViewerAbsPosition(&vecOrigin, &angles);
+		m_ViewerFacts.ViewerAbsPosition(&vecOrigin, &angles);
 }
 
-CON_COMMAND(spec_pos, "dump position and angles to the console")
+void CShellViewRender::SpecPosCommand(const CCommand& args)
 {
 	Vector o;
 	QAngle a;
@@ -667,7 +559,7 @@ CON_COMMAND(spec_pos, "dump position and angles to the console")
 	Warning("spec_goto %.1f %.1f %.1f %.1f %.1f\n", o.x, o.y, o.z, a.x, a.y);
 }
 
-CON_COMMAND(getpos, "dump position and angles to the console")
+void CShellViewRender::GetPosCommand(const CCommand& args)
 {
 	Vector o;
 	QAngle a;
@@ -678,58 +570,46 @@ CON_COMMAND(getpos, "dump position and angles to the console")
 }
 
 // centerview: pitch drift, which is not shipped.
-static void CenterView()
+void CShellViewRender::CenterViewCommand(const CCommand& args)
 {
-	view->StartPitchDrift();
+	StartPitchDrift();
 }
 
-static ConCommand centerview("centerview", CenterView);
-
 // r_cheapwaterstart / r_cheapwaterend: set one cheap-water distance, or print it.
-static void CheapWaterCommand(const CCommand& args, bool bStart)
+void CShellViewRender::CheapWaterCommand(const CCommand& args, bool bStart)
 {
 	if (args.ArgC() == 2)
 	{
 		const float flDistance = atof(args[1]);
 		if (bStart)
-			view->SetCheapWaterStartDistance(flDistance);
+			SetCheapWaterStartDistance(flDistance);
 		else
-			view->SetCheapWaterEndDistance(flDistance);
+			SetCheapWaterEndDistance(flDistance);
 		return;
 	}
 	float flStart, flEnd;
-	view->GetWaterLODParams(flStart, flEnd);
+	GetWaterLODParams(flStart, flEnd);
 	Warning("%s: %f\n", bStart ? "r_cheapwaterstart" : "r_cheapwaterend", bStart ? flStart : flEnd);
-}
-
-CON_COMMAND(r_cheapwaterstart, "")
-{
-	CheapWaterCommand(args, true);
-}
-
-CON_COMMAND(r_cheapwaterend, "")
-{
-	CheapWaterCommand(args, false);
 }
 
 // r_screenoverlay: a material drawn over the frame; "off" or "0" (or a
 // material that does not load) takes it away; no argument prints it.
-CON_COMMAND_F(r_screenoverlay, "Draw specified material as an overlay", FCVAR_CHEAT | FCVAR_SERVER_CAN_EXECUTE)
+void CShellViewRender::ScreenOverlayCommand(const CCommand& args)
 {
 	if (args.ArgC() != 2)
 	{
-		IMaterial* pShown = view->GetScreenOverlayMaterial();
+		IMaterial* pShown = GetScreenOverlayMaterial();
 		Warning("r_screenoverlay: %s\n", pShown ? pShown->GetName() : "off");
 		return;
 	}
 	IMaterial* pMaterial = NULL;
 	if (Q_stricmp("off", args[1]) != 0 && Q_stricmp("0", args[1]) != 0)
 	{
-		pMaterial = materials->FindMaterial(args[1], TEXTURE_GROUP_OTHER, false);
+		pMaterial = m_Engines.m_pMaterials->FindMaterial(args[1], TEXTURE_GROUP_OTHER, false);
 		if (IsErrorMaterial(pMaterial))
 			pMaterial = NULL;
 	}
-	view->SetScreenOverlayMaterial(pMaterial);
+	SetScreenOverlayMaterial(pMaterial);
 }
 
 // The post-processing materials stock precached for DX9 and up; when they are
@@ -739,7 +619,7 @@ CON_COMMAND_F(r_screenoverlay, "Draw specified material as an overlay", FCVAR_CH
 // (tf_player_shared.cpp:3602), an empty name or one that does not load
 // (IsErrorMaterial) leaving the standing overlay, stock's guard. The read
 // copies the standing overlay's name, empty when there is none.
-int32_t SourceSharp_ScreenOverlaySet(const char* pszName)
+int32_t CShellViewRender::ScreenOverlaySet(const char* pszName)
 {
 	if (!pszName)
 		return 0;
@@ -747,24 +627,24 @@ int32_t SourceSharp_ScreenOverlaySet(const char* pszName)
 	IMaterial* pMaterial = NULL;
 	if (pszName[0] != '\0')
 	{
-		if (!materials)
+		if (!m_Engines.m_pMaterials)
 			return 0;
 
-		pMaterial = materials->FindMaterial(pszName, TEXTURE_GROUP_CLIENT_EFFECTS, false);
+		pMaterial = m_Engines.m_pMaterials->FindMaterial(pszName, TEXTURE_GROUP_CLIENT_EFFECTS, false);
 		if (IsErrorMaterial(pMaterial))
 			return 0;
 	}
 
-	view->SetScreenOverlayMaterial(pMaterial);
+	SetScreenOverlayMaterial(pMaterial);
 	return 1;
 }
 
-int32_t SourceSharp_ScreenOverlayGet(char* pOutName, int32_t nNameBytes)
+int32_t CShellViewRender::ScreenOverlayGet(char* pOutName, int32_t nNameBytes)
 {
 	if (!pOutName || nNameBytes <= 0)
 		return 0;
 
-	IMaterial* pMaterial = view ? view->GetScreenOverlayMaterial() : NULL;
+	IMaterial* pMaterial = GetScreenOverlayMaterial();
 	if (!pMaterial)
 	{
 		pOutName[0] = '\0';

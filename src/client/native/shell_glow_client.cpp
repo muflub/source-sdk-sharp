@@ -28,6 +28,8 @@
 
 #include "shell_glow_client.h"
 #include "shell_effects_list_client.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 extern ConVar r_drawsprites;
 
@@ -45,7 +47,7 @@ float FloatOf(int32_t nBits)
 
 void CGlowOverlaysClient::Execute(const int32_t* pCmds, int nWords)
 {
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	bool bSaved = false;
 	int i = 0;
 	while (i < nWords)
@@ -117,9 +119,9 @@ void CGlowOverlaysClient::Execute(const int32_t* pCmds, int nWords)
 
 int32_t CGlowOverlaysClient::GlowMaterialFind(const char* pszName, const char* pszGroup)
 {
-	if (!pszName || !pszGroup || !materials)
+	if (!pszName || !pszGroup || !m_Engines.m_pMaterials)
 		return 0;
-	return m_Effects.MaterialId(materials->FindMaterial(pszName, pszGroup));
+	return m_Effects.MaterialId(m_Engines.m_pMaterials->FindMaterial(pszName, pszGroup));
 }
 
 void CGlowOverlaysClient::DrawOverlays(bool bCacheFullSceneState)
@@ -129,8 +131,8 @@ void CGlowOverlaysClient::DrawOverlays(bool bCacheFullSceneState)
 		return;
 
 	float in[SS_GLOW_VIEW_FLOATS];
-	const Vector& origin = CurrentViewOrigin();
-	const Vector& forward = CurrentViewForward();
+	const Vector& origin = m_Cameras.CurrentOrigin();
+	const Vector& forward = m_Cameras.CurrentForward();
 	in[0] = origin.x;
 	in[1] = origin.y;
 	in[2] = origin.z;
@@ -166,7 +168,7 @@ void CGlowOverlaysClient::UpdateSkyOverlays(float flZFar, bool bCacheFullSceneSt
 {
 	if (IManagedGlowClient* pManaged = m_Areas.m_pGlowClient)
 	{
-		const Vector& origin = CurrentViewOrigin();
+		const Vector& origin = m_Cameras.CurrentOrigin();
 		const float in[3] = {origin.x, origin.y, origin.z};
 		pManaged->UpdateSkyOverlays(in, flZFar, bCacheFullSceneState ? 1 : 0);
 	}

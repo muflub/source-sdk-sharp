@@ -18,6 +18,8 @@
 #include "shell_surface_render.h"
 #include "shell_standalone_client.h"
 #include "shell_diagnostics.h"
+#include "shell_standalone_clients.h"
+#include "shell_client_engine_interfaces.h"
 
 // The base texture of a material, which is what the detail swap replaces.
 static ITexture* SurfaceBaseTexture(IMaterial* pMaterial)
@@ -31,8 +33,9 @@ static ITexture* SurfaceBaseTexture(IMaterial* pMaterial)
 	return bFound ? pVar->GetTextureValue() : NULL;
 }
 
-CSourceSharpSurfaceRenderer::CSourceSharpSurfaceRenderer()
-	: m_vNormal(0, 0, 0)
+CSourceSharpSurfaceRenderer::CSourceSharpSurfaceRenderer(const CClientEngineInterfaces& engines)
+	: m_Engines(engines)
+	, m_vNormal(0, 0, 0)
 	, m_vCorner(0, 0, 0)
 	, m_flPanelWidth(0.0f)
 	, m_flPanelHeight(0.0f)
@@ -142,12 +145,12 @@ void CSourceSharpSurfaceRenderer::BeginDraw()
 			m_vCorner.z);
 	}
 
-	render->InstallBrushSurfaceRenderer(this);
+	m_Engines.m_pRender->InstallBrushSurfaceRenderer(this);
 }
 
 void CSourceSharpSurfaceRenderer::EndDraw()
 {
-	render->InstallBrushSurfaceRenderer(NULL);
+	m_Engines.m_pRender->InstallBrushSurfaceRenderer(NULL);
 }
 
 // Carries out the plan in order. A new mesh is begun whenever the material or
@@ -176,7 +179,7 @@ bool CSourceSharpSurfaceRenderer::RenderBrushModelSurface(IClientEntity* pEntity
 	Vector vWidthStep, vHeightStep;
 	Steps(&vWidthStep, &vHeightStep);
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	CMeshBuilder builder;
 	IMesh* pMesh = NULL;
 	int nBound = -1;
@@ -295,8 +298,8 @@ void CSourceSharpSurfaceRenderer::DrawQuad(IBrushSurface* pBrushSurface, IMesh* 
 
 // The brush model's material count and, when it is exactly one, that material's
 // name and its $crackmaterial. -1 for a handle that names no shell.
-int32_t SourceSharp_SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, int32_t nMaterialBytes, char* pOutCrack,
-										 int32_t nCrackBytes, int32_t* pOutHasCrack)
+int32_t CStandaloneClients::SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, int32_t nMaterialBytes,
+												 char* pOutCrack, int32_t nCrackBytes, int32_t* pOutHasCrack)
 {
 	if (pOutMaterial && nMaterialBytes > 0)
 		pOutMaterial[0] = '\0';
@@ -305,7 +308,7 @@ int32_t SourceSharp_SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, i
 	if (pOutHasCrack)
 		*pOutHasCrack = 0;
 
-	C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hEntity);
+	C_StandaloneEntity* pEntity = FromHandle(hEntity);
 
 	if (!pEntity)
 		return -1;
@@ -315,13 +318,13 @@ int32_t SourceSharp_SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, i
 	if (!pModel)
 		return 0;
 
-	const int nMaterials = modelinfo->GetModelMaterialCount(pModel);
+	const int nMaterials = m_Engines.m_pModelInfo->GetModelMaterialCount(pModel);
 
 	if (nMaterials != 1)
 		return nMaterials;
 
 	IMaterial* pMaterial = NULL;
-	modelinfo->GetModelMaterials(pModel, 1, &pMaterial);
+	m_Engines.m_pModelInfo->GetModelMaterials(pModel, 1, &pMaterial);
 
 	if (!pMaterial)
 		return nMaterials;
@@ -345,9 +348,9 @@ int32_t SourceSharp_SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, i
 
 // The materials managed code chose, NUL-separated in SurfaceSetMaterials' order;
 // the renderer is made on first ask. A block missing a name is refused.
-void SourceSharp_SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32_t nBytes, int32_t nFlags)
+void CStandaloneClients::SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32_t nBytes, int32_t nFlags)
 {
-	C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hEntity);
+	C_StandaloneEntity* pEntity = FromHandle(hEntity);
 
 	if (!pEntity || !pNames || nBytes <= 0)
 		return;
@@ -379,9 +382,9 @@ void SourceSharp_SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32
 }
 
 // Hands the shell's surface renderer a plan, making the renderer if needed.
-void SourceSharp_SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords)
+void CStandaloneClients::SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords)
 {
-	C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hEntity);
+	C_StandaloneEntity* pEntity = FromHandle(hEntity);
 
 	if (!pEntity)
 		return;

@@ -38,6 +38,7 @@
 #include "vstdlib/random.h"
 #include "sharedInterface.h"
 
+#include "probe_accessors.h"
 #include "tier0/memdbgon.h"
 
 namespace
@@ -372,6 +373,12 @@ CON_COMMAND(
 
 #include "client_sound.h" // soundemitterbase
 #include "physics_shared.h"
+#include "shell_sound_patches_client.h"
+
+CSoundEnvelopeController& CSoundEnvelopeController::GetController()
+{
+	return ShellClientDll_SoundPatches().Controller();
+}
 
 namespace
 {

@@ -258,12 +258,6 @@ const char* SourceSharpPayload_SendProxyName(const SendProp* pProp);
 
 #ifdef CLIENT_DLL
 
-// Whether this side recognises the type and layout an update was written with; false
-// means the bytes must not be decoded. The decision is managed's. *ppOutClassName gets
-// the classname the type id resolves to.
-bool SourceSharpSchema_Accept(unsigned int nTypeId, unsigned int nSchemaHash, int nEntIndex,
-							  const char** ppOutClassName);
-
 int SourceSharpPayload_BuildRecvProps(RecvProp* pProps, int nWords, int nBlobBase);
 
 bool SourceSharpPayload_IsFastRecvProxy(const RecvProp* pProp);

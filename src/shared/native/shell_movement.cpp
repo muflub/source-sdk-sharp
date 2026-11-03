@@ -54,6 +54,12 @@
 #include "imanaged_areas_client.h"
 #endif
 #include "shell_gamemovement.h"
+#ifdef CLIENT_DLL
+#include "client_entity_list.h"
+#include "shell_client_engine_interfaces.h"
+#include "shell_gamemovement_client.h"
+#include "shell_managed_areas_client.h"
+#endif
 
 #ifndef CLIENT_DLL
 // Server: stock macro names aliased to server.so's own spellings so the shared body
@@ -75,13 +81,6 @@
 #define VEC_DUCK_VIEW_SCALED(player) (g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale())
 
 #endif
-#ifdef CLIENT_DLL
-// A handle's entity through the slot table; stock's CBaseHandle::Get() reads an entity
-// list neither side builds.
-IHandleEntity* SourceSharp_EntityFromHandle(const CBaseHandle& handle);
-#define SS_HANDLE_ENTITY(h) SourceSharp_EntityFromHandle(h)
-#endif
-
 #ifdef CLIENT_DLL
 #define SOURCESHARP_MOVE_SIDE_TAG "client"
 #else
@@ -165,11 +164,11 @@ unsigned int SourceSharp_MoveManagedCalls()
 COMPILE_TIME_ASSERT(sizeof(SourceSharpMoveState) == 147 * 4);
 
 #ifdef CLIENT_DLL
-// The client's whole-loop crossing, one per command. A missing managed side is fatal
-// rather than a fallback: there is no stock movement in this build.
-bool SourceSharp_MoveProcessMovement(SourceSharpMoveState* pState)
+// A missing managed side is fatal rather than a fallback: there is no stock movement in
+// this build.
+bool CShellGameMovement::ProcessMovementManaged(SourceSharpMoveState* pState)
 {
-	IManagedPredictionClient* pCommands = ManagedPredictionClient();
+	IManagedPredictionClient* pCommands = m_Areas.m_pPredictionClient;
 
 	// Nothing to move this player with.
 	if (!pCommands || !pState)
@@ -266,64 +265,6 @@ void SourceSharp_MovementRequireManaged()
 
 // The client's IGameMovement, standalone rather than a CGameMovement subclass.
 #ifdef CLIENT_DLL
-class CShellGameMovement : public IGameMovement
-{
-public:
-	CShellGameMovement();
-	virtual ~CShellGameMovement();
-
-	// Stock's signatures; nothing calls them, the interface is published by name.
-	virtual void ProcessMovement(CBasePlayer* pPlayer, CMoveData* pMove) OVERRIDE;
-	virtual void StartTrackPredictionErrors(CBasePlayer* pPlayer) OVERRIDE;
-	virtual void FinishTrackPredictionErrors(CBasePlayer* pPlayer) OVERRIDE;
-
-	static IMovementPlayer* Player(CBasePlayer* pPlayer) { return reinterpret_cast<IMovementPlayer*>(pPlayer); }
-#ifdef CLIENT_DLL
-	virtual void DiffPrint(PRINTF_FORMAT_STRING char const* fmt, ...) OVERRIDE;
-	virtual Vector GetPlayerMins(bool ducked) const OVERRIDE;
-	virtual Vector GetPlayerMaxs(bool ducked) const OVERRIDE;
-	virtual Vector GetPlayerViewOffset(bool ducked) const OVERRIDE;
-#endif
-
-	bool RunManagedCommand();
-#ifdef CLIENT_DLL
-	void FillConstants(struct SourceSharpMoveState* pState);
-#endif
-	void WorldTrace(const float* pStart, const float* pEnd, const float* pMins, const float* pMaxs, int nMask,
-					int nCollisionGroup, struct SourceSharpMoveTraceResult* pOut);
-	int WorldEffect(int nKind, const float* pXYZ, float flValue, int nValue);
-
-	// The client replay never calls ProcessMovement, so it sets the move data here.
-	void SetMoveData(CMoveData* pMove) { mv = pMove; }
-
-	IHandleEntity* LastGround() const { return m_pLastGround; }
-
-	IMovementPlayer* player;
-
-private:
-	void ResetDuckLatched();
-
-	CMoveData* mv;
-
-	int m_nOldWaterLevel;
-	int m_nOnLadder;
-
-	// The last standable ground a serviced trace found: the loop carries only whether
-	// there is ground, not which entity. NULL until the first trace.
-	IHandleEntity* m_pLastGround;
-
-	// The last serviced trace, so the touch list can be replayed against it.
-	trace_t m_LastTrace;
-};
-
-// GameMovement001: no engine binary asks for it, but it is what HL2MP and TF export.
-static CShellGameMovement g_ShellGameMovement;
-IGameMovement* g_pGameMovement = (IGameMovement*)&g_ShellGameMovement;
-
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CShellGameMovement, IGameMovement, INTERFACENAME_GAMEMOVEMENT, g_ShellGameMovement);
-#endif // CLIENT_DLL
-
-#ifdef CLIENT_DLL
 // Commands that could not be run, counted by reason.
 static unsigned int* MovementRefusals()
 {
@@ -378,15 +319,6 @@ unsigned int SourceSharp_MovementRefusalCount(int nReason)
 	return MovementRefusals()[nReason];
 }
 #endif
-
-#ifdef CLIENT_DLL
-// The mover whose command is running, set only for the duration of one crossing.
-static CShellGameMovement** ActiveMover()
-{
-	static CShellGameMovement* s_pActive = NULL;
-	return &s_pActive;
-}
-#endif // CLIENT_DLL
 
 static void SS3E_FillVec(float* pOut, const Vector& v)
 {
@@ -445,10 +377,10 @@ void CShellGameMovement::FillConstants(SourceSharpMoveState* pState)
 	pState->flCvDuckSpeedScale = pParams->flDuckSpeedScale;
 	pState->bCvOptimizations = g_bMovementOptimizations ? 1 : 0;
 	pState->bCvSpecNoClip = SS_MOVEVAR(sv_specnoclip).GetBool() ? 1 : 0;
-	pState->nCvMaxClients = gpGlobals->maxClients;
+	pState->nCvMaxClients = m_Engines.m_pGlobals->maxClients;
 	pState->flCvTickInterval = TICK_INTERVAL;
 	pState->flCvJumpHeight = pParams->flJumpHeight;
-	pState->flEngineTime = engine->Time();
+	pState->flEngineTime = m_Engines.m_pEngine->Time();
 
 	const RulesViewVectors_t* vv = g_pGameRules->GetViewVectors();
 	SS3E_FillVec(pState->vecCvView, vv->m_vView);
@@ -470,7 +402,7 @@ bool CShellGameMovement::RunManagedCommand()
 	memset(&state, 0, sizeof(state));
 
 	state.nCommandNumber = player->MvCurrentCommandNumber();
-	state.flFrameTime = gpGlobals->frametime;
+	state.flFrameTime = m_Engines.m_pGlobals->frametime;
 	state.nMoveType = (int)player->MvGetMoveType();
 	state.nFlags = player->MvGetFlags();
 	state.nWaterLevel = player->MvGetWaterLevel();
@@ -535,7 +467,7 @@ bool CShellGameMovement::RunManagedCommand()
 	SS3E_FillVec(state.angAngles, mv->m_vecAngles);
 	SS3E_FillVec(state.angOldAngles, mv->m_vecOldAngles);
 	state.bFirstRunOfFunctions = mv->m_bFirstRunOfFunctions ? 1 : 0;
-	state.flCurTime = gpGlobals->curtime;
+	state.flCurTime = m_Engines.m_pGlobals->curtime;
 	state.bSurfaceDataValid = player->MvSurfaceData() ? 1 : 0;
 	state.bAllowAutoMovement = player->MvLocal().m_bAllowAutoMovement ? 1 : 0;
 	state.bSlowMovement = player->MvLocal().m_bSlowMovement ? 1 : 0;
@@ -543,11 +475,10 @@ bool CShellGameMovement::RunManagedCommand()
 
 	FillConstants(&state);
 
-	CShellGameMovement** ppActive = ActiveMover();
-	CShellGameMovement* pWas = *ppActive;
-	*ppActive = this;
-	const bool bRan = SourceSharp_MoveProcessMovement(&state);
-	*ppActive = pWas;
+	const bool bWasActive = m_bActive;
+	m_bActive = true;
+	const bool bRan = ProcessMovementManaged(&state);
+	m_bActive = bWasActive;
 
 	if (!bRan)
 		return false;
@@ -631,15 +562,31 @@ bool CShellGameMovement::RunManagedCommand()
 	return true;
 }
 
+// What a downward trace found to stand on, or NULL. The client asks the slot table: its
+// C_StandaloneEntity is no IGameEntity.
+IHandleEntity* CShellGameMovement::GroundFromTrace(const trace_t& tr)
+{
+	if (!tr.m_pEnt)
+		return NULL;
+
+	if (SourceSharp_IsTheWorld(ss::TraceHit(tr)))
+		return ss::TraceHit(tr);
+
+	if (m_EntityList.ShellFromTraceHit(ss::TraceHit(tr)) != NULL)
+		return ss::TraceHit(tr);
+
+	return NULL;
+}
+
 void CShellGameMovement::WorldTrace(const float* pStart, const float* pEnd, const float* pMins, const float* pMaxs,
 									int nMask, int nCollisionGroup, SourceSharpMoveTraceResult* pOut)
 {
 	trace_t pm;
 	Ray_t ray;
 	ray.Init(SS3E_ReadVec(pStart), SS3E_ReadVec(pEnd), SS3E_ReadVec(pMins), SS3E_ReadVec(pMaxs));
-	UTIL_TraceRay(ray, (unsigned int)nMask, SS_HANDLE_ENTITY(mv->m_nPlayerHandle), nCollisionGroup, &pm);
+	UTIL_TraceRay(ray, (unsigned int)nMask, m_EntityList.UnknownFromHandle(mv->m_nPlayerHandle), nCollisionGroup, &pm);
 
-	IHandleEntity* pGround = MovementGroundFromTrace(pm);
+	IHandleEntity* pGround = GroundFromTrace(pm);
 
 	// Kept so AddToTouched can be replayed with it: every AddToTouched in the loop is made
 	// with the trace it just asked for.
@@ -725,21 +672,16 @@ int CShellGameMovement::WorldEffect(int nKind, const float* pXYZ, float flValue,
 }
 #endif // CLIENT_DLL
 
-// The ABI slots, forwarding to the mover mid-crossing. Outside a crossing they refuse:
-// a zero trace with fraction 1 would read as "nothing in the way".
-void SourceSharp_MoveTrace(const float* pStart, const float* pEnd, const float* pMins, const float* pMaxs,
-						   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut)
+#ifdef CLIENT_DLL
+void CShellGameMovement::MoveTrace(const float* pStart, const float* pEnd, const float* pMins, const float* pMaxs,
+								   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut)
 {
 	if (!pOut)
 		return;
 
 	memset(pOut, 0, sizeof(*pOut));
 
-#ifdef CLIENT_DLL
-	CShellGameMovement* pMover = *ActiveMover();
-	if (!pMover)
-#endif
-	// The server always refuses: its hull traces go through SourceSharp_MoveTraceServer.
+	if (!m_bActive)
 	{
 		// Blocked at the start: never "the way is clear".
 		pOut->bStartSolid = 1;
@@ -748,10 +690,24 @@ void SourceSharp_MoveTrace(const float* pStart, const float* pEnd, const float* 
 		return;
 	}
 
-#ifdef CLIENT_DLL
-	pMover->WorldTrace(pStart, pEnd, pMins, pMaxs, nMask, nCollisionGroup, pOut);
-#endif
+	WorldTrace(pStart, pEnd, pMins, pMaxs, nMask, nCollisionGroup, pOut);
 }
+#else
+// The server always refuses: its hull traces go through MoveTraceServer.
+void SourceSharp_MoveTrace(const float* pStart, const float* pEnd, const float* pMins, const float* pMaxs,
+						   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut)
+{
+	if (!pOut)
+		return;
+
+	memset(pOut, 0, sizeof(*pOut));
+
+	// Blocked at the start: never "the way is clear".
+	pOut->bStartSolid = 1;
+	pOut->bAllSolid = 1;
+	SS3E_FillVec(pOut->vecEndPos, SS3E_ReadVec(pStart));
+}
+#endif
 
 #ifndef CLIENT_DLL
 // The server's movement hull trace through managed's filter, with no mover behind it.
@@ -803,23 +759,25 @@ void CServerMovement::MoveTraceServer(const float* pStart, const float* pEnd, co
 }
 #endif
 
-int32_t SourceSharp_MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue)
-{
 #ifdef CLIENT_DLL
-	CShellGameMovement* pMover = *ActiveMover();
-	if (!pMover)
+int32_t CShellGameMovement::MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue)
+{
+	if (!m_bActive)
 		return 1;
 
-	return pMover->WorldEffect(nKind, pXYZ, flValue, nValue);
+	return WorldEffect(nKind, pXYZ, flValue, nValue);
+}
 #else
+int32_t SourceSharp_MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue)
+{
 	// The server's movement answers its own effects.
 	(void)nKind;
 	(void)pXYZ;
 	(void)flValue;
 	(void)nValue;
 	return 1;
-#endif
 }
+#endif
 
 #ifdef CLIENT_DLL
 // The client's CMoveData singleton, borrowed for the servicing methods.
@@ -827,14 +785,10 @@ extern CMoveData* g_pMoveData;
 
 extern void SourceSharp_MoveNoteManagedCommand();
 
-// The client's replay bracket: fills the constant words of the crossing and makes this
-// mover the active one, so the slots answer for this command. player stays NULL.
-int32_t SourceSharp_MoveBeginClientCommand(uint32_t hPlayer, SourceSharpMoveState* pOut)
+int32_t CShellGameMovement::BeginClientCommand(uint32_t hPlayer, SourceSharpMoveState* pOut)
 {
 	if (!pOut)
 		return 0;
-
-	CShellGameMovement* pMover = &g_ShellGameMovement;
 
 	// m_nPlayerHandle is the trace filter's skip entity; without it every trace starts
 	// solid inside the player's own hull.
@@ -846,27 +800,25 @@ int32_t SourceSharp_MoveBeginClientCommand(uint32_t hPlayer, SourceSharpMoveStat
 	// The word came from ToInt() on this side's own valid handle, as UnsafeFromIndex needs.
 	pMove->m_nPlayerHandle = CBaseHandle::UnsafeFromIndex((int)hPlayer);
 
-	pMover->SetMoveData(pMove);
-	pMover->FillConstants(pOut);
+	SetMoveData(pMove);
+	FillConstants(pOut);
 
-	*ActiveMover() = pMover;
+	m_bActive = true;
 	return 1;
 }
 
-void SourceSharp_MoveEndClientCommand(int32_t bRan, int32_t* pOutGroundIndex)
+void CShellGameMovement::EndClientCommand(int32_t bRan, int32_t* pOutGroundIndex)
 {
-	CShellGameMovement* pMover = *ActiveMover();
-
 	// The ground the loop meant: the last trace's standable ground, or -1 to keep what
 	// the player had.
 	if (pOutGroundIndex)
 	{
-		IHandleEntity* pGround = pMover ? pMover->LastGround() : NULL;
+		IHandleEntity* pGround = m_bActive ? LastGround() : NULL;
 
 		*pOutGroundIndex = pGround ? pGround->GetRefEHandle().GetEntryIndex() : -1;
 	}
 
-	*ActiveMover() = NULL;
+	m_bActive = false;
 
 	// Counts runs, not asks.
 	if (bRan)
@@ -875,7 +827,11 @@ void SourceSharp_MoveEndClientCommand(int32_t bRan, int32_t* pOutGroundIndex)
 #endif // CLIENT_DLL
 
 #ifdef CLIENT_DLL
-CShellGameMovement::CShellGameMovement()
+CShellGameMovement::CShellGameMovement(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+									   CClientEntityList& entityList)
+	: m_Areas(areas)
+	, m_Engines(engines)
+	, m_EntityList(entityList)
 {
 	player = NULL;
 	mv = NULL;
@@ -906,11 +862,11 @@ void CShellGameMovement::ProcessMovement(CBasePlayer* pBasePlayer, CMoveData* pM
 		return;
 	}
 
-	const float flStoreFrametime = gpGlobals->frametime;
+	const float flStoreFrametime = m_Engines.m_pGlobals->frametime;
 
 	//!!HACK HACK: Adrian - slow down all player movement by this factor.
 	//!!Blame Yahn for this one.
-	gpGlobals->frametime *= pPlayer->MvGetLaggedMovementValue();
+	m_Engines.m_pGlobals->frametime *= pPlayer->MvGetLaggedMovementValue();
 
 	// StartTrackPredictionErrors should have set this
 	Assert(player == pPlayer);
@@ -926,7 +882,7 @@ void CShellGameMovement::ProcessMovement(CBasePlayer* pBasePlayer, CMoveData* pM
 	}
 
 	//This is probably not needed, but just in case.
-	gpGlobals->frametime = flStoreFrametime;
+	m_Engines.m_pGlobals->frametime = flStoreFrametime;
 }
 
 // PREDICTION_ERROR_CHECK_LEVEL is 0, so stock's pair is this assignment and nothing.

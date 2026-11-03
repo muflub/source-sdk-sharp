@@ -34,7 +34,6 @@
 
 #include "engine/IStaticPropMgr.h"
 
-#include "env_wind_shared.h"
 #include "materialsystem/imaterialsystemstub.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
 #include "engine/ivdebugoverlay.h"
@@ -97,6 +96,12 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_particle_systems_client.h"
 #include "shell_particle_query_client.h"
 #include "shell_detail_props.h"
+#include "shell_sound_patches_client.h"
+#include "shell_prediction_slots_client.h"
+#include "shell_worldquery_object.h"
+#include "shell_precipitation_queries_client.h"
+#include "shell_dust_render_object.h"
+#include "shell_leaf_system_client.h"
 #include "shell_shadows_client.h"
 #include "shell_te_tables_client.h"
 #include "shell_te_system_client.h"
@@ -133,6 +138,15 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_client_mode.h"
 #include "shell_viewer_facts.h"
 #include "shell_view_render.h"
+#include "shell_net_channel_client.h"
+#include "shell_client_engine_interfaces.h"
+#include "shell_gamemovement_client.h"
+#include "shell_view_targets.h"
+#include "shell_wind_client.h"
+#include "shell_member_command.h"
+#include "shell_diagnostics_commands.h"
+#include "shell_te_commands_client.h"
+#include "shell_soundscape_audio_client.h"
 #include "shell_gameui.h"
 
 IVEngineClient* engine = NULL;
@@ -383,6 +397,22 @@ private:
 	ConVar m_cl_team;
 	ConVar m_cl_class;
 
+	void ReloadCommand(const CCommand& args) { m_ManagedSide.RequestReload(); }
+
+	void CrossingsCommand(const CCommand& args)
+	{
+		SourceSharp_PrintCrossings(m_Managed.m_Areas.m_pDiagnosticsClient,
+								   args.ArgC() > 1 && ss::StrICmp(args.Arg(1), "reset") == 0);
+	}
+
+	CMemberCommand<CShellClientDLL, &CShellClientDLL::ReloadCommand> m_ReloadCommand{
+		*this, "cs_cl_reload", "Reload the CLIENT's managed assemblies in place, without restarting the game", 0};
+	CMemberCommand<CShellClientDLL, &CShellClientDLL::CrossingsCommand> m_CrossingsCommand{
+		*this, "cs_cl_crossings",
+		"Print the managed<->native ABI crossing counts. "
+		"Pass 'reset' to print the interval and start a new one.",
+		0};
+
 	// SDL_PumpEvents from the launcher's libSDL2, or NULL. Called during long loads so the
 	// window answers the compositor; SDL wants its main thread.
 	void (*m_pfnPumpEvents)() = nullptr;
@@ -433,31 +463,19 @@ private:
 
 public:
 	// Everything the client holds from managed: the root, the runtime, the areas.
-	CManagedHoldersClient& Managed() { return m_Managed; }
-
 	CManagedSide& ManagedSide() { return m_ManagedSide; }
 
-	CClientEntityList& EntityList() { return m_EntityList; }
-
-	CSourceSharpClientMode& ClientMode() { return m_ClientMode; }
-
-	CStandaloneClients& Standalone() { return m_Standalone; }
-
-	CViewerFacts& ViewerFacts() { return m_ViewerFacts; }
-
-	CEffectsListClient& EffectsList() { return m_EffectsList; }
-
-	CManagedParticlesClient& ManagedParticles() { return m_ManagedParticles; }
-
-	CShellDetailProps& DetailProps() { return m_DetailProps; }
-
+#ifdef SS_CLIENT_PROBES
 	CNewParticlesClient& NewParticles() { return m_NewParticles; }
 
 	CTempEntsSystemClient& TempEntsSystem() { return m_TempEntsSystem; }
 
-	CTempEntTablesClient& TempEntTables() { return m_TempEntTables; }
+	CSoundPatchesClient& SoundPatches() { return m_SoundPatches; }
 
-	CShellViewRender& ViewRender() { return m_ViewRender; }
+	CEffectsListClient& EffectsList() { return m_EffectsList; }
+
+	CClientEntityList& EntityList() { return m_EntityList; }
+#endif
 
 	virtual ~CShellClientDLL()
 	{
@@ -493,7 +511,10 @@ private:
 
 	// VClientDllSharedAppSystems001, the engine's first call into the client, and the
 	// GameUI's GameClientExports001.
-	CClientDLLSharedAppSystems m_AppSystems;
+	// GameUI011 and GameConsole004, handed to the engine by the swap the app systems install.
+	CGameUiClient m_GameUi{m_Managed.m_Areas};
+
+	CClientDLLSharedAppSystems m_AppSystems{m_GameUi};
 	CInterfaceMember m_AppSystemsReg{static_cast<IClientDLLSharedAppSystems*>(&m_AppSystems),
 									 CLIENT_DLL_SHARED_APPSYSTEMS};
 	CGameClientExports m_GameClientExports{m_VoiceStatus};
@@ -511,6 +532,26 @@ private:
 	// The convar area: watches through the root's console.
 	CConVarsClient m_ConVars{m_ShimRoot.m_Console};
 
+	// The engine interfaces Init acquires, handed to what calls them.
+	CClientEngineInterfaces m_Engines;
+
+	// The main and current cameras: CShellViewRender writes them, whatever draws reads them.
+	CViewCameras m_Cameras;
+
+	// The engine's net channel for managed: its messages and its statistics.
+	CNetChannelClient m_NetChannel{m_Engines};
+
+	// IClientRenderTargets (ClientRenderTargets001, asked for by name), and the view targets.
+	CViewTargetsClient m_ViewTargets{m_Engines};
+	CInterfaceMember m_ViewTargetsReg{static_cast<IClientRenderTargets*>(&m_ViewTargets),
+									  CLIENTRENDERTARGETS_INTERFACE_VERSION};
+
+	// The wind managed publishes.
+	CWindClient m_Wind;
+
+	// The soundscape slots: the room type, DSP and main view managed asks for.
+	CSoundscapeAudioClient m_SoundscapeAudio{m_Engines, m_Cameras};
+
 	// The game systems: the managed frame's row (which holds the runtime adapter) and the
 	// table that walks every row. The frame row clears its adapter in its Shutdown, which
 	// runs before the adapter is released.
@@ -518,39 +559,59 @@ private:
 	CPhysicsClient m_Physics{m_Managed.m_Areas};
 	CShellDecalSystemClient m_Decals{m_Managed.m_Areas};
 	// IViewRenderBeams, its renderables and its sprite bind.
-	CBeamsClient m_Beams{m_Managed.m_Areas};
+	CBeamsClient m_Beams{m_Managed.m_Areas, m_Engines, m_Cameras, m_EntityList};
 
 	// The managed sprites and trails, their plans and their client systems row.
-	CSpritesClient m_Sprites{m_Managed.m_Areas, m_Standalone};
+	CSpritesClient m_Sprites{m_Managed.m_Areas, m_Engines, m_Cameras, m_Standalone};
 
 	// The shadow manager's client half.
-	CShadowsClient m_Shadows{m_Managed.m_Areas};
+	CShadowsClient m_Shadows{m_Managed.m_Areas, m_Engines, m_EntityList};
 
-	CStandaloneClients m_Standalone{m_Managed.m_Areas, m_EntityList, m_Beams, m_Sprites, m_Shadows};
+	CStandaloneClients m_Standalone{m_Managed.m_Areas, m_Engines, m_EntityList, m_Beams, m_Sprites, m_Shadows};
 
 	// The local viewer's facts and the fog and sky managed pushes.
-	CViewerFacts m_ViewerFacts{m_Standalone, m_EntityList};
+	CViewerFacts m_ViewerFacts{m_Engines, m_Standalone, m_EntityList};
 
 	// The managed particle executors, their frame and their client systems row.
-	CManagedParticlesClient m_ManagedParticles{m_Managed.m_Areas, m_Standalone};
+	CManagedParticlesClient m_ManagedParticles{m_Managed.m_Areas, m_Engines, m_Cameras, m_Standalone};
 
 	// The material proxy trampoline: the registrations, the live proxies, the area.
-	CMaterialProxiesClient m_MaterialProxies{m_Managed.m_Areas};
+	CMaterialProxiesClient m_MaterialProxies{m_Managed.m_Areas, m_Cameras, m_EntityList};
 
 	// The managed point_worldtext renderables.
-	CWorldTextClient m_WorldText{m_Managed.m_Areas, m_Standalone};
+	CWorldTextClient m_WorldText{m_Managed.m_Areas, m_Engines, m_Cameras, m_Standalone};
 
 	// The particle manifests' reads.
 	CParticleManifestClient m_ParticleManifest{m_Managed.m_Areas};
 
 	// The detail props' executor.
-	CShellDetailProps m_DetailProps{m_Managed.m_Areas};
+	CShellDetailProps m_DetailProps{m_Managed.m_Areas, m_Engines, m_Cameras};
+
+	// The leaf system's storage; its ClientLeafSystem002, by name.
+	CLeafSystemClient m_LeafSystem{m_Managed.m_Areas, m_DetailProps};
+	CInterfaceMember m_LeafSystemReg{static_cast<IClientLeafSystemEngine*>(m_LeafSystem.System()),
+									 CLIENTLEAFSYSTEM_INTERFACE_VERSION};
+
+	CDustClient m_Dust{m_Engines, m_Standalone};
+
+	CPrecipitationQueriesClient m_PrecipitationQueries{m_Engines, m_Standalone};
+
+	CWorldQueryClient m_WorldQuery{m_Engines, m_Standalone};
+
+	// IGameMovement (GameMovement001: no engine binary asks for it, but HL2MP and TF export it).
+	CShellGameMovement m_GameMovement{m_Managed.m_Areas, m_Engines, m_EntityList};
+	CInterfaceMember m_GameMovementReg{static_cast<IGameMovement*>(&m_GameMovement), INTERFACENAME_GAMEMOVEMENT};
+
+	CPredictionSlotsClient m_PredictionSlots{m_Engines, m_Standalone, m_GameMovement};
+
+	// The sound envelope's patches.
+	CSoundPatchesClient m_SoundPatches{m_Managed.m_Areas, m_Standalone};
 
 	// The new-style particle effects' list and frame.
-	CNewParticlesClient m_NewParticles{m_Managed.m_Areas};
+	CNewParticlesClient m_NewParticles{m_Managed.m_Areas, m_Engines, m_EntityList};
 
 	// The new-style particle systems managed starts, and their client systems row.
-	CParticleSystemsClient m_ParticleSystems{m_Standalone, m_NewParticles};
+	CParticleSystemsClient m_ParticleSystems{m_Engines, m_Standalone, m_NewParticles};
 
 public:
 	// The query particles.a is handed at the particle manager's Init (g_pParticleSystemQuery).
@@ -561,43 +622,46 @@ private:
 	CSourceSharpInput m_Input{m_Managed.m_Areas, m_ViewerFacts, m_Prediction, m_VoiceStatus};
 
 	// The UI's native half: the paint window, the HUD element and the menu root.
-	CHudUiClient m_HudUi{m_Managed.m_Areas, m_ClientMode};
+	CHudUiClient m_HudUi{m_Managed.m_Areas, m_Engines, m_ClientMode};
 
 	// IClientMode (g_pClientMode points at it from Init).
-	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas, m_Standalone, m_ManagedParticles};
+	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas, m_Engines, m_Standalone, m_ManagedParticles, m_ViewTargets};
 
 	// The client-side effect list the view draws, its material table and smoke fog overlay.
-	CEffectsListClient m_EffectsList{m_Managed.m_Areas};
+	CEffectsListClient m_EffectsList{m_Managed.m_Areas, m_Engines, m_Cameras, m_EntityList};
 
 	// The glow overlays' and pixel visibility's native halves.
-	CGlowOverlaysClient m_Glow{m_Managed.m_Areas, m_EffectsList};
-	CPixelVisClient m_PixelVis{m_Managed.m_Areas, m_EffectsList};
+	CGlowOverlaysClient m_Glow{m_Managed.m_Areas, m_Engines, m_Cameras, m_EffectsList};
+	CPixelVisClient m_PixelVis{m_Managed.m_Areas, m_Engines, m_Cameras, m_EffectsList};
 
 	// The weather's draw.
-	CPrecipitationClient m_Precipitation{m_Managed.m_Areas};
+	CPrecipitationClient m_Precipitation{m_Managed.m_Areas, m_Engines, m_Cameras};
 
 	// The temp entity tables managed registers.
 	CTempEntTablesClient m_TempEntTables{m_Managed.m_Areas};
 
 	// The client's ITempEntsSystem, on SuppressHostEvents' list.
-	CTempEntsSystemClient m_TempEntsSystem{m_Managed.m_Areas};
+	CTempEntsSystemClient m_TempEntsSystem{m_Managed.m_Areas, m_EntityList};
+	CTempEntCommandsClient m_TempEntCommands{m_Engines, m_Cameras, m_TempEnts, m_TempEntsSystem, m_Standalone};
 
 	// IEffects (g_pEffects points at it from Init), over the managed FX area.
 	CEffectsClient m_Effects{m_Managed.m_Areas};
 
 	// ITempEnts (tempents points at it from Init): the legacy temp entities' object.
-	CTempEnts m_TempEnts{m_Managed.m_Areas, m_Sprites};
+	CTempEnts m_TempEnts{m_Managed.m_Areas, m_Engines, m_Cameras, m_Sprites, m_EntityList};
 
 	// IViewRender (`view` points at it from Init).
-	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_ViewerFacts, m_ClientMode, m_ViewExecutor, m_Beams};
-	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics,          m_Decals,
-							 m_Standalone,      m_EffectsList,  m_ManagedParticles, m_ParticleSystems,
-							 m_DetailProps,     m_WorldText,    m_Sprites,          m_Shadows};
+	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_Engines,      m_Cameras, m_ViewerFacts,
+								  m_ClientMode,      m_ViewExecutor, m_Beams};
+	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame,     m_Physics,         m_Decals,      m_Standalone,
+							 m_EffectsList,     m_ManagedParticles, m_ParticleSystems, m_DetailProps, m_WorldText,
+							 m_Sprites,         m_Shadows,          m_LeafSystem};
 
 	// The render plan's executor; the view render calls it, and it calls the systems' PreRender.
 	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,       m_ViewerFacts,      m_Standalone,  m_ClientMode,
 								 m_ViewRender,      m_EffectsList,   m_ManagedParticles, m_DetailProps, m_Glow,
-								 m_PixelVis,        m_Precipitation, m_Shadows};
+								 m_PixelVis,        m_Precipitation, m_Shadows,          m_HudUi,       m_Cameras,
+								 m_ViewTargets,     m_Engines};
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
@@ -620,31 +684,11 @@ void ShellClientDll_RefuseExternal(const char* pMethod)
 	g_ShellClientDLL.RefuseExternal(pMethod);
 }
 
-CManagedHoldersClient& ShellClientDll_Managed()
-{
-	return g_ShellClientDLL.Managed();
-}
+#ifdef SS_CLIENT_PROBES
+#include "probe_accessors.h"
 
-CShellViewRender& ShellClientDll_ViewRender()
-{
-	return g_ShellClientDLL.ViewRender();
-}
-
-CViewerFacts& ShellClientDll_ViewerFacts()
-{
-	return g_ShellClientDLL.ViewerFacts();
-}
-
-CEffectsListClient& ShellClientDll_EffectsList()
-{
-	return g_ShellClientDLL.EffectsList();
-}
-
-CManagedParticlesClient& ShellClientDll_ManagedParticles()
-{
-	return g_ShellClientDLL.ManagedParticles();
-}
-
+// The probe build's recorders start from console commands, and tools/probes is not handed
+// the objects it records.
 CNewParticlesClient& ShellClientDll_NewParticles()
 {
 	return g_ShellClientDLL.NewParticles();
@@ -655,42 +699,21 @@ CTempEntsSystemClient& ShellClientDll_TempEntsSystem()
 	return g_ShellClientDLL.TempEntsSystem();
 }
 
-CTempEntTablesClient& ShellClientDll_TempEntTables()
+CSoundPatchesClient& ShellClientDll_SoundPatches()
 {
-	return g_ShellClientDLL.TempEntTables();
+	return g_ShellClientDLL.SoundPatches();
 }
 
-// Stock's accessor, for the leaf system: it is built at static init, before it could be
-// handed the client DLL object's detail props.
-IDetailObjectSystem* DetailObjectSystem()
+CEffectsListClient& ShellClientDll_EffectsList()
 {
-	return &g_ShellClientDLL.DetailProps();
-}
-
-CStandaloneClients& ShellClientDll_Standalone()
-{
-	return g_ShellClientDLL.Standalone();
-}
-
-CSourceSharpClientMode& ShellClientDll_ClientMode()
-{
-	return g_ShellClientDLL.ClientMode();
+	return g_ShellClientDLL.EffectsList();
 }
 
 CClientEntityList& ShellClientDll_EntityList()
 {
 	return g_ShellClientDLL.EntityList();
 }
-
-CManagedSide& ShellClientDll_ManagedSide()
-{
-	return g_ShellClientDLL.ManagedSide();
-}
-
-unsigned int SourceSharp_PlayerSyncGeneration()
-{
-	return ShellClientDll_ManagedSide().Generation();
-}
+#endif
 
 // The client's loader entry points (managed_runtime_client.cpp and its adapter).
 bool SourceSharp_LoadManagedSide()
@@ -782,6 +805,7 @@ CShellClientDLL::CShellClientDLL()
 	, m_pGlobals(NULL)
 	, m_pManagedRuntime(NULL)
 {
+	m_Engines.m_pGlobals = &m_DummyGlobals;
 	g_bLevelInitialized = false;
 }
 
@@ -789,6 +813,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 						  CGlobalVarsBase* pGlobals)
 {
 	gpGlobals = pGlobals;
+	m_Engines.m_pGlobals = pGlobals;
 	input = &m_Input;
 	g_pClientMode = &m_ClientMode;
 	decalsystem = &m_Decals;
@@ -854,11 +879,30 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	if (!g_pMatSystemSurface)
 		return false;
 
+	m_Engines.m_pEngine = engine;
+	m_Engines.m_pRender = render;
+	m_Engines.m_pModelInfo = modelinfo;
+	m_Engines.m_pModelRender = modelrender;
+	m_Engines.m_pEffects = effects;
+	m_Engines.m_pTrace = enginetrace;
+	m_Engines.m_pSound = enginesound;
+	m_Engines.m_pVGui = enginevgui;
+	m_Engines.m_pDebugOverlay = debugoverlay;
+	m_Engines.m_pFileSystem = filesystem;
+	m_Engines.m_pStringTables = networkstringtable;
+	m_Engines.m_pEvents = gameeventmanager;
+	m_Engines.m_pStaticProps = staticpropmgr;
+	m_Engines.m_pShadows = shadowmgr;
+	m_Engines.m_pPartition = ::partition;
+	m_Engines.m_pSoundEmitter = soundemitterbase;
+	m_Engines.m_pMdlCache = mdlcache;
+	m_Engines.m_pMaterials = materials;
+
 	m_ShimRoot.m_pAppSystemFactory = appSystemFactory;
 	m_ShimRoot.m_pPhysicsFactory = physicsFactory;
 
 	// The server DLL connects too; the sound emitter system handles that.
-	if (!soundemitterbase->Connect(appSystemFactory))
+	if (!m_Engines.m_pSoundEmitter->Connect(appSystemFactory))
 	{
 		return false;
 	}
@@ -873,7 +917,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	m_CVars.Register(FCVAR_CLIENTDLL);
 
-	if (!ShellParticleMgr_Init(materials))
+	if (!ShellParticleMgr_Init(m_Engines.m_pMaterials))
 		return false;
 
 	// Send true to load the sheets.
@@ -881,7 +925,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	// A listen server's spawn reloads only what the map paks can have changed. Failing to
 	// install falls back to the stock full reload.
-	m_MapMaterials.Install(filesystem, materials);
+	m_MapMaterials.Install(filesystem, m_Engines.m_pMaterials);
 
 	// RTLD_NOLOAD: the launcher's SDL or nothing. Windows has no SDL to find.
 #ifndef _WIN32
@@ -915,7 +959,24 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_FxClient.m_pTempEntsSystemClient = &m_TempEntsSystem;
 	m_ShimRoot.m_Areas.m_pMaterialProxyClient = &m_MaterialProxies;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = &m_ClientMode;
+	m_ShimRoot.m_Areas.m_pUserMessagesClient = &m_ClientMode;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = &m_ViewerFacts;
+	m_ShimRoot.m_Areas.m_pNetClient = &m_NetChannel;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pShellViewRender = &m_ViewRender;
+	m_ShimRoot.m_Areas.m_Movement.m_pShellGameMovement = &m_GameMovement;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pViewTargetsClient = &m_ViewTargets;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pStandaloneClients = &m_Standalone;
+	m_ShimRoot.m_Areas.m_pEntities = &m_Standalone;
+	m_ShimRoot.m_Areas.m_Models.m_pStandaloneClients = &m_Standalone;
+	m_ShimRoot.m_Areas.m_HudClient.m_pStandaloneClients = &m_Standalone;
+	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pStandaloneClients = &m_Standalone;
+	m_ShimRoot.m_Areas.m_FlashlightClient.m_pShadowsClient = &m_Shadows;
+	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundPatchesClient = &m_SoundPatches;
+	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundscapeAudioClient = &m_SoundscapeAudio;
+	m_ShimRoot.m_Areas.m_pPredictionClient = &m_PredictionSlots;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pWorldQueryClient = &m_WorldQuery;
+	m_ShimRoot.m_Areas.m_pPrecipitationClient = &m_PrecipitationQueries;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pDustClient = &m_Dust;
 	m_ShimRoot.m_Areas.m_UiClient.m_pHudUiClient = &m_HudUi;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pGlowOverlaysClient = &m_Glow;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pPixelVisClient = &m_PixelVis;
@@ -926,10 +987,15 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pWorldTextClient = &m_WorldText;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemsClient = &m_ParticleSystems;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pBeamsClient = &m_Beams;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pWindClient = &m_Wind;
+	m_ShimRoot.m_Areas.m_TempEntPoolClient.m_pWindClient = &m_Wind;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pSpritesClient = &m_Sprites;
 	m_ShimRoot.m_Areas.m_FxClient.m_pSpritesClient = &m_Sprites;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemQueryClient = &m_ParticleQuery;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pParticleSystemsClient = &m_ParticleSystems;
+	if (const char* pszUnset = ShimAreasClient_FirstUnset(m_ShimRoot.m_Areas))
+		Error("[SourceSharp] the client DLL object never set shim area member %s", pszUnset);
+
 	m_pManagedRuntime = LoadManagedRuntime(this, m_Managed);
 
 	if (m_pManagedRuntime == NULL)
@@ -968,14 +1034,14 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_EffectsList.InitSmokeFog();
 
 	{
-		vgui::VPANEL parent = enginevgui->GetPanel(PANEL_CLIENTDLL);
+		vgui::VPANEL parent = m_Engines.m_pVGui->GetPanel(PANEL_CLIENTDLL);
 		m_VoiceStatus.Init(&m_VoiceStatusHelper, parent);
 	}
 
 	if (!m_Physics.DLLInit(physicsFactory))
 		return false;
 
-	ClientWorldFactoryInit();
+	ClientWorldFactoryInit(m_Managed, m_Engines, m_ManagedSide);
 
 #if defined(WIN32)
 	ConnectHaptics(appSystemFactory);
@@ -1006,10 +1072,10 @@ void CShellClientDLL::PostInit()
 		return;
 
 	int nMaxDxLevel = -1;
-	if (materials)
+	if (m_Engines.m_pMaterials)
 	{
 		MaterialAdapterInfo_t info{};
-		materials->GetDisplayAdapterInfo(materials->GetCurrentAdapter(), info);
+		m_Engines.m_pMaterials->GetDisplayAdapterInfo(m_Engines.m_pMaterials->GetCurrentAdapter(), info);
 		nMaxDxLevel = info.m_nMaxDXSupportLevel;
 	}
 	pRuntime->PostInit(nMaxDxLevel);
@@ -1077,7 +1143,24 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_FxClient.m_pTempEntsSystemClient = NULL;
 	m_ShimRoot.m_Areas.m_pMaterialProxyClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = NULL;
+	m_ShimRoot.m_Areas.m_pUserMessagesClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = NULL;
+	m_ShimRoot.m_Areas.m_pNetClient = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pShellViewRender = NULL;
+	m_ShimRoot.m_Areas.m_Movement.m_pShellGameMovement = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pViewTargetsClient = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pStandaloneClients = NULL;
+	m_ShimRoot.m_Areas.m_pEntities = NULL;
+	m_ShimRoot.m_Areas.m_Models.m_pStandaloneClients = NULL;
+	m_ShimRoot.m_Areas.m_HudClient.m_pStandaloneClients = NULL;
+	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pStandaloneClients = NULL;
+	m_ShimRoot.m_Areas.m_FlashlightClient.m_pShadowsClient = NULL;
+	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundPatchesClient = NULL;
+	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundscapeAudioClient = NULL;
+	m_ShimRoot.m_Areas.m_pPredictionClient = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pWorldQueryClient = NULL;
+	m_ShimRoot.m_Areas.m_pPrecipitationClient = NULL;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pDustClient = NULL;
 	m_ShimRoot.m_Areas.m_UiClient.m_pHudUiClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pGlowOverlaysClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pPixelVisClient = NULL;
@@ -1090,6 +1173,8 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemQueryClient = NULL;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pParticleSystemsClient = NULL;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pBeamsClient = NULL;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pWindClient = NULL;
+	m_ShimRoot.m_Areas.m_TempEntPoolClient.m_pWindClient = NULL;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pSpritesClient = NULL;
 	m_ShimRoot.m_Areas.m_FxClient.m_pSpritesClient = NULL;
 	m_ShimRoot.m_pAppSystemFactory = nullptr;
@@ -1119,7 +1204,7 @@ void CShellClientDLL::HudProcessInput(bool bActive)
 
 void CShellClientDLL::HudUpdate(bool bActive)
 {
-	float frametime = gpGlobals->frametime;
+	float frametime = m_Engines.m_pGlobals->frametime;
 
 	m_VoiceStatus.Frame(frametime);
 
@@ -1298,17 +1383,11 @@ void CShellClientDLL::ResetManagedViewEffects()
 		p->ViewEffectsReset(0);
 }
 
-// ResetToneMapping( 1.0 )'s native half.
-static void ResetToneMappingScale()
-{
-	CMatRenderContextPtr pRenderContext(materials);
-	pRenderContext->ResetToneMappingScale(1.0f);
-}
-
 void CShellClientDLL::ViewFade(const ScreenFade_t& sf)
 {
 	if (IManagedRenderClient* p = m_Managed.m_Areas.m_pRenderClient)
-		p->ViewEffectsFade(sf.duration, sf.holdTime, sf.fadeFlags, sf.r, sf.g, sf.b, sf.a, gpGlobals->curtime);
+		p->ViewEffectsFade(sf.duration, sf.holdTime, sf.fadeFlags, sf.r, sf.g, sf.b, sf.a,
+						   m_Engines.m_pGlobals->curtime);
 }
 
 void CShellClientDLL::View_Fade(ScreenFade_t* pSF)
@@ -1346,11 +1425,15 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	m_EffectsList.Flush();
 	view->LevelInit();
 	tempents->LevelInit();
-	ResetToneMappingScale();
+	// ResetToneMapping( 1.0 )'s native half.
+	{
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
+		pRenderContext->ResetToneMappingScale(1.0f);
+	}
 
 	m_Systems.LevelInitPreEntity();
 
-	ResetWindspeed();
+	m_Wind.Reset();
 
 	// Whether this level predicts is managed's; once per level, past the gate above.
 	if (pRuntime)
@@ -1441,7 +1524,7 @@ void CShellClientDLL::InitSprite(CEngineSprite* pSprite, const char* loadname)
 {
 	if (pSprite)
 	{
-		pSprite->Init(loadname, m_Managed.m_Areas.m_pMaterialFilesClient);
+		pSprite->Init(loadname, m_Managed.m_Areas.m_pMaterialFilesClient, m_Engines.m_pMaterials);
 	}
 }
 
@@ -1499,38 +1582,38 @@ void CShellClientDLL::InstallStringTableCallback(const char* tableName)
 {
 	if (!Q_strcasecmp(tableName, "VguiScreen"))
 	{
-		g_StringTableVguiScreen = networkstringtable->FindTable(tableName);
+		g_StringTableVguiScreen = m_Engines.m_pStringTables->FindTable(tableName);
 
 		g_StringTableVguiScreen->SetStringChangedCallback(NULL, OnVguiScreenTableChanged);
 	}
 	else if (!Q_strcasecmp(tableName, "Materials"))
 	{
-		g_pStringTableMaterials = networkstringtable->FindTable(tableName);
+		g_pStringTableMaterials = m_Engines.m_pStringTables->FindTable(tableName);
 
 		g_pStringTableMaterials->SetStringChangedCallback(NULL, OnMaterialStringTableChanged);
 	}
 	else if (!Q_strcasecmp(tableName, "EffectDispatch"))
 	{
-		g_StringTableEffectDispatch = networkstringtable->FindTable(tableName);
+		g_StringTableEffectDispatch = m_Engines.m_pStringTables->FindTable(tableName);
 	}
 	else if (!Q_strcasecmp(tableName, "InfoPanel"))
 	{
-		g_pStringTableInfoPanel = networkstringtable->FindTable(tableName);
+		g_pStringTableInfoPanel = m_Engines.m_pStringTables->FindTable(tableName);
 	}
 	else if (!Q_strcasecmp(tableName, "Scenes"))
 	{
-		g_pStringTableClientSideChoreoScenes = networkstringtable->FindTable(tableName);
+		g_pStringTableClientSideChoreoScenes = m_Engines.m_pStringTables->FindTable(tableName);
 		g_pStringTableClientSideChoreoScenes->SetStringChangedCallback(NULL, OnSceneStringTableChanged);
 	}
 	else if (!Q_strcasecmp(tableName, "ParticleEffectNames"))
 	{
-		g_pStringTableParticleEffectNames = networkstringtable->FindTable(tableName);
-		networkstringtable->SetAllowClientSideAddString(g_pStringTableParticleEffectNames, true);
+		g_pStringTableParticleEffectNames = m_Engines.m_pStringTables->FindTable(tableName);
+		m_Engines.m_pStringTables->SetAllowClientSideAddString(g_pStringTableParticleEffectNames, true);
 		g_pStringTableParticleEffectNames->SetStringChangedCallback(NULL, OnParticleSystemStringTableChanged);
 	}
 	else if (!Q_strcasecmp(tableName, "ServerMapCycle"))
 	{
-		g_pStringTableServerMapCycle = networkstringtable->FindTable(tableName);
+		g_pStringTableServerMapCycle = m_Engines.m_pStringTables->FindTable(tableName);
 	}
 
 	InstallStringTableCallback_GameRules();
@@ -1549,7 +1632,7 @@ void CShellClientDLL::PrecacheMaterial(const char* pMaterialName)
 		*pFound = 0;
 	}
 
-	IMaterial* pMaterial = materials->FindMaterial(pTempBuf, TEXTURE_GROUP_PRECACHED);
+	IMaterial* pMaterial = m_Engines.m_pMaterials->FindMaterial(pTempBuf, TEXTURE_GROUP_PRECACHED);
 	if (!IsErrorMaterial(pMaterial))
 	{
 		pMaterial->IncrementReferenceCount();
@@ -1600,7 +1683,7 @@ void CShellClientDLL::OnRenderStart()
 	MDLCACHE_CRITICAL_SECTION();
 	MDLCACHE_COARSE_LOCK();
 
-	::partition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
+	m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
 	EntityAbs_SetQueriesValid(false);
 
 	{
@@ -1616,7 +1699,7 @@ void CShellClientDLL::OnRenderStart()
 
 	RopeManager()->OnRenderStart();
 
-	::partition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
+	m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
 
 	// The world's deferred OnDataChanged: it must see a complete net update.
 	if (C_World* pWorld = GetClientWorldEntity())
@@ -1630,7 +1713,7 @@ void CShellClientDLL::OnRenderStart()
 	m_Physics.Simulate();
 
 	{
-		engine->FireEvents();
+		m_Engines.m_pEngine->FireEvents();
 
 		tempents->Update();
 
@@ -1640,8 +1723,8 @@ void CShellClientDLL::OnRenderStart()
 	{
 		FPExceptionEnabler enableExceptions;
 		// The old-style effects, then the new-style ones, as UpdateAllEffects ordered them.
-		m_ManagedParticles.Frame(gpGlobals->frametime);
-		m_NewParticles.Frame(gpGlobals->frametime);
+		m_ManagedParticles.Frame(m_Engines.m_pGlobals->frametime);
+		m_NewParticles.Frame(m_Engines.m_pGlobals->frametime);
 	}
 }
 
@@ -1709,7 +1792,7 @@ void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 		{
 			EntityAbs_SetRecomputationsEnabled(false);
 			EntityAbs_SetQueriesValid(false);
-			::partition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
+			m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
 		}
 		break;
 		case FRAME_NET_UPDATE_END:
@@ -1718,7 +1801,7 @@ void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 
 			EntityAbs_SetRecomputationsEnabled(true);
 			EntityAbs_SetQueriesValid(true);
-			::partition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
+			m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
 		}
 		break;
 		case FRAME_NET_UPDATE_POSTDATAUPDATE_START:
@@ -1743,7 +1826,7 @@ CSaveRestoreData* CShellClientDLL::SaveInit(int size)
 {
 	IManagedSaveRestoreClient* pArea = m_Managed.m_Areas.m_pSaveRestoreClient;
 	CSaveRestoreData* pSaveData =
-		pArea ? static_cast<CSaveRestoreData*>(pArea->SaveInit(size, gpGlobals->curtime)) : NULL;
+		pArea ? static_cast<CSaveRestoreData*>(pArea->SaveInit(size, m_Engines.m_pGlobals->curtime)) : NULL;
 
 	if (pSaveData == NULL)
 	{
@@ -1935,9 +2018,9 @@ CON_COMMAND(ss_cl_stage_crossings, "ss_cl_stage_crossings -- FrameStageNotify ca
 }
 
 // Sends a managed message to the server on the engine's net channel, reliable.
-int32_t SourceSharp_SendServerMessage(const char* pKey, const uint8_t* pData, int32_t nLen)
+int32_t CNetChannelClient::SendServerMessage(const char* pKey, const uint8_t* pData, int32_t nLen)
 {
-	INetChannel* pChannel = engine ? static_cast<INetChannel*>(engine->GetNetChannelInfo()) : NULL;
+	INetChannel* pChannel = static_cast<INetChannel*>(m_Engines.m_pEngine->GetNetChannelInfo());
 	if (!pChannel)
 		return 0;
 
@@ -1950,9 +2033,9 @@ int32_t SourceSharp_SendServerMessage(const char* pKey, const uint8_t* pData, in
 
 // The net channel reads for the dev API's netgraph route. Each answers how many values it
 // wrote, 0 with no channel.
-static INetChannelInfo* ShellNetChannel()
+INetChannelInfo* CNetChannelClient::Channel()
 {
-	return engine ? engine->GetNetChannelInfo() : NULL;
+	return m_Engines.m_pEngine->GetNetChannelInfo();
 }
 
 static int32_t ShellPut(float* pOut, int32_t nOut, int32_t i, float flValue)
@@ -1964,9 +2047,9 @@ static int32_t ShellPut(float* pOut, int32_t nOut, int32_t i, float flValue)
 
 // Latency, avg latency, avg loss, avg choke, avg data, avg packets, total data, sequence
 // number, for one flow (0 outgoing, 1 incoming).
-int32_t SourceSharp_ClientNetFlow(int32_t nFlow, float* pOut, int32_t nOut)
+int32_t CNetChannelClient::ClientNetFlow(int32_t nFlow, float* pOut, int32_t nOut)
 {
-	INetChannelInfo* pInfo = ShellNetChannel();
+	INetChannelInfo* pInfo = Channel();
 	if (!pInfo || nFlow < 0 || nFlow >= MAX_FLOWS)
 		return 0;
 
@@ -1984,9 +2067,9 @@ int32_t SourceSharp_ClientNetFlow(int32_t nFlow, float* pOut, int32_t nOut)
 
 // Net time, time connected, buffer size, data rate, loopback, timing out, time since last
 // received, remote frame time and deviation, timeout seconds, interpolation amount.
-int32_t SourceSharp_ClientNetChannel(float* pOut, int32_t nOut)
+int32_t CNetChannelClient::ClientNetChannel(float* pOut, int32_t nOut)
 {
-	INetChannelInfo* pInfo = ShellNetChannel();
+	INetChannelInfo* pInfo = Channel();
 	if (!pInfo)
 		return 0;
 
@@ -2010,9 +2093,9 @@ int32_t SourceSharp_ClientNetChannel(float* pOut, int32_t nOut)
 
 // One packet of one flow by sequence number: valid, send time, interpolation amount,
 // latency (ms), choke, then its bytes per message group, GENERIC through TOTAL.
-int32_t SourceSharp_ClientNetPacket(int32_t nFlow, int32_t nFrame, float* pOut, int32_t nOut)
+int32_t CNetChannelClient::ClientNetPacket(int32_t nFlow, int32_t nFrame, float* pOut, int32_t nOut)
 {
-	INetChannelInfo* pInfo = ShellNetChannel();
+	INetChannelInfo* pInfo = Channel();
 	if (!pInfo || nFlow < 0 || nFlow >= MAX_FLOWS)
 		return 0;
 

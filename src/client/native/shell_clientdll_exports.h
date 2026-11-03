@@ -25,10 +25,12 @@ class Panel;
 #include "game/client/IGameClientExports.h"
 
 // The shared app systems: soundemittersystem and scenefilecache.
+class CGameUiClient;
+
 class CClientDLLSharedAppSystems final : public IClientDLLSharedAppSystems
 {
 public:
-	CClientDLLSharedAppSystems();
+	explicit CClientDLLSharedAppSystems(CGameUiClient& gameUi);
 
 	// The engine's first call into the client, in CModAppSystemGroup::Create,
 	// before Host_Init loads the GameUI module: the GameUI factory swap goes in
@@ -42,6 +44,7 @@ public:
 private:
 	void AddAppSystem(char const* moduleName, char const* interfaceName);
 
+	CGameUiClient& m_GameUi;
 	CUtlVector<AppSystemInfo_t> m_Systems;
 };
 

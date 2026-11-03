@@ -41,9 +41,11 @@
 #include "shell_clientdll_refusals.h"
 #include "shell_cliententitylist.h"
 #include "ss_bitblock.h"
+#include "client_entity_list.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 // The view model FOV squash CLocalSpaceEmitter applied (FLE_VIEWMODEL).
-extern void FormatViewModelAttachment(Vector& vOrigin, bool bInverse);
 
 using ss::BitBlockBits;
 using ss::BitBlockSetBits;
@@ -163,16 +165,63 @@ void RenderAnglesQuad(ParticleDraw* pDraw, const SourceSharpParticleQuad_t& q, c
 	}
 }
 
+// Converts between viewmodel-FOV space and world space; stock's arithmetic.
+// Live for particles attached to the managed viewmodel, so it must not stub.
+void FormatViewModelAttachment(const CViewCameras& cameras, Vector& vOrigin, bool bInverse)
+{
+	// Presumably, SetUpView has been called so we know our FOV and render origin.
+	const CViewSetup* pViewSetup = view->GetPlayerViewSetup();
+
+	float worldx = tan(pViewSetup->fov * M_PI / 360.0);
+	float viewx = tan(pViewSetup->fovViewmodel * M_PI / 360.0);
+
+	// aspect ratio cancels out, so only need one factor
+	// the difference between the screen coordinates of the 2 systems is the ratio
+	// of the coefficients of the projection matrices (tan (fov/2) is that coefficient)
+	// NOTE: viewx was coming in as 0 when folks set their viewmodel_fov to 0 and show their weapon.
+	float factorX = viewx ? (worldx / viewx) : 0.0f;
+	float factorY = factorX;
+
+	// Get the coordinates in the viewer's space.
+	Vector tmp = vOrigin - pViewSetup->origin;
+	Vector vTransformed(cameras.MainRight().Dot(tmp), cameras.MainUp().Dot(tmp), cameras.MainForward().Dot(tmp));
+
+	// Now squash X and Y.
+	if (bInverse)
+	{
+		if (factorX != 0 && factorY != 0)
+		{
+			vTransformed.x /= factorX;
+			vTransformed.y /= factorY;
+		}
+		else
+		{
+			vTransformed.x = 0.0f;
+			vTransformed.y = 0.0f;
+		}
+	}
+	else
+	{
+		vTransformed.x *= factorX;
+		vTransformed.y *= factorY;
+	}
+
+	// Transform back to world space.
+	Vector vOut = (cameras.MainRight() * vTransformed.x) + (cameras.MainUp() * vTransformed.y) +
+		(cameras.MainForward() * vTransformed.z);
+	vOrigin = pViewSetup->origin + vOut;
+}
+
 // Which view the particle manager is drawing, as a key over its model-view matrix and
 // CurrentViewID(). Managed re-reads the view only when the key changes.
-int32_t ParticlesViewKey()
+int32_t ParticlesViewKey(const CViewCameras& cameras)
 {
 	const VMatrix& mv = ShellParticleDraw_ModelView();
 	const unsigned char* p = (const unsigned char*)&mv;
 	uint32_t h = 2166136261u;
 	for (size_t i = 0; i < sizeof(VMatrix); i++)
 		h = (h ^ p[i]) * 16777619u;
-	h = (h ^ (uint32_t)CurrentViewID()) * 16777619u;
+	h = (h ^ (uint32_t)cameras.CurrentID()) * 16777619u;
 	return (int32_t)h;
 }
 
@@ -181,8 +230,13 @@ int32_t ParticlesViewKey()
 class CManagedParticleEffect : public CShellParticleEffect
 {
 public:
-	CManagedParticleEffect(const CManagedAreasClient& areas, uint32_t hOwner, int32_t nChannel)
+	CManagedParticleEffect(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						   const CViewCameras& cameras, CClientEntityList& entityList, uint32_t hOwner,
+						   int32_t nChannel)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
+		, m_EntityList(entityList)
 		, m_hOwner(hOwner)
 		, m_nChannel(nChannel)
 		, m_hMaterial(INVALID_MATERIAL_HANDLE)
@@ -244,7 +298,7 @@ public:
 	// space, its origin the sort origin. The reading goes to managed.
 	void FollowSpace(SourceSharpParticleFollow_t* pOut)
 	{
-		IClientRenderable* pRenderable = SourceSharp_ClientRenderableFromHandle(m_hSpace);
+		IClientRenderable* pRenderable = m_EntityList.RenderableFromHandle(m_hSpace);
 		if (!pRenderable)
 			return;
 		matrix3x4_t mat;
@@ -395,6 +449,9 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
+	CClientEntityList& m_EntityList;
 
 	IMaterial* PageMaterial()
 	{
@@ -435,7 +492,7 @@ void CManagedParticleEffect::RenderStart(VMatrix& tempModel, VMatrix& tempView)
 {
 	if (m_nFlags & kFlagCameraSpace)
 	{
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->GetMatrix(MATERIAL_VIEW, &tempView);
 		pRenderContext->GetMatrix(MATERIAL_MODEL, &tempModel);
 		pRenderContext->EnableUserClipTransformOverride(true);
@@ -453,7 +510,7 @@ void CManagedParticleEffect::RenderEnd(VMatrix& tempModel, VMatrix& tempView)
 {
 	if (m_nFlags & kFlagCameraSpace)
 	{
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->EnableUserClipTransformOverride(false);
 		pRenderContext->MatrixMode(MATERIAL_MODEL);
 		pRenderContext->LoadMatrix(tempModel);
@@ -467,7 +524,7 @@ void CManagedParticleEffect::RenderEnd(VMatrix& tempModel, VMatrix& tempView)
 void CManagedParticleEffect::DrawQuads(IMaterial* pMaterial, float flFrameTime, const SourceSharpParticleQuad_t* pQuads,
 									   int nQuads, float* pKeys)
 {
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->Bind(pMaterial, ShellParticleDraw_BindArg());
 	IMesh* pMesh = pRenderContext->GetDynamicMesh(true);
 	CMeshBuilder builder;
@@ -513,7 +570,7 @@ void CManagedParticleEffect::DrawQuads(IMaterial* pMaterial, float flFrameTime, 
 				Vector vWorld;
 				VectorTransform(vPos, m_LocalSpace, vWorld);
 				if (m_nSpaceFlags & kSpaceViewModel)
-					FormatViewModelAttachment(vWorld, false);
+					FormatViewModelAttachment(m_Cameras, vWorld, false);
 				vPos = vWorld;
 			}
 			TransformParticle(mv, vPos, tPos);
@@ -558,7 +615,7 @@ int CManagedParticleEffect::DrawModel(int flags)
 	// Set before managed is asked, because its view read is keyed by it.
 	if (m_nFlags & kFlagCameraSpace)
 	{
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->GetMatrix(MATERIAL_VIEW, &ShellParticleDraw_ModelView());
 	}
 	else
@@ -576,8 +633,8 @@ int CManagedParticleEffect::DrawModel(int flags)
 	in.Wireframe = ShouldDrawInWireFrameMode() ? 1 : 0;
 	in.ShowBBox = cl_particle_show_bbox.GetBool() ? 1 : 0;
 	in.ShowBBoxCost = cl_particle_show_bbox_cost.GetInt();
-	in.ViewKey = ParticlesViewKey();
-	in.FrameTime = gpGlobals->frametime;
+	in.ViewKey = ParticlesViewKey(m_Cameras);
+	in.FrameTime = m_Engines.m_pGlobals->frametime;
 
 	const int nHeader = kBitBlockHeaderBytes + (int)sizeof(SourceSharpParticleDrawOut_t);
 	if (m_DrawBuffer.Count() < nHeader + 64 * (int)sizeof(SourceSharpParticleQuad_t))
@@ -622,8 +679,9 @@ int CManagedParticleEffect::DrawModel(int flags)
 	const Vector vMax(pOut->MaxXYZ[0], pOut->MaxXYZ[1], pOut->MaxXYZ[2]);
 	for (int nPass = 0; nPass < nPasses; nPass++)
 	{
-		IMaterial* pMaterial =
-			nPass == 0 ? pPage : materials->FindMaterial("debug/debugparticlewireframe", TEXTURE_GROUP_OTHER);
+		IMaterial* pMaterial = nPass == 0
+			? pPage
+			: m_Engines.m_pMaterials->FindMaterial("debug/debugparticlewireframe", TEXTURE_GROUP_OTHER);
 		// The wireframe pass draws the same quads again.
 		DrawQuads(pMaterial, flFrameTime, pQuads, nQuads, m_Keys.Base());
 
@@ -633,11 +691,11 @@ int CManagedParticleEffect::DrawModel(int flags)
 		pArea->DrawEnd(m_hOwner, m_nChannel, m_KeyBuffer.Base(), m_KeyBuffer.Count());
 	}
 
-	if (bBox && debugoverlay)
+	if (bBox && m_Engines.m_pDebugOverlay)
 	{
 		const Vector center = (vMin + vMax) / 2;
-		debugoverlay->AddBoxOverlay(center, vMin - center, vMax - center, QAngle(0, 0, 0), r, g, b, 16, 0);
-		debugoverlay->AddTextOverlayRGB(center, 0, 0, r, g, b, 64, "managed-%d:(%d)", m_nChannel, nActive);
+		m_Engines.m_pDebugOverlay->AddBoxOverlay(center, vMin - center, vMax - center, QAngle(0, 0, 0), r, g, b, 16, 0);
+		m_Engines.m_pDebugOverlay->AddTextOverlayRGB(center, 0, 0, r, g, b, 64, "managed-%d:(%d)", m_nChannel, nActive);
 	}
 
 	RenderEnd(mTempModel, mTempView);
@@ -676,7 +734,8 @@ int32_t CManagedParticlesClient::ParticlesCreate(uint32_t hOwner, int32_t nChann
 	if (!pOwner || !pszMaterial || Find(hOwner, nChannel) >= 0 || !m_ForgetHook.Get())
 		return 0;
 
-	CManagedParticleEffect* pEffect = new CManagedParticleEffect(m_Areas, hOwner, nChannel);
+	CManagedParticleEffect* pEffect =
+		new CManagedParticleEffect(m_Areas, m_Engines, m_Cameras, m_Standalone.EntityList(), hOwner, nChannel);
 	pEffect->SetAbsOrigin(pOwner->GetAbsOrigin());
 	pEffect->SetAbsAngles(pOwner->GetAbsAngles());
 	if (!pEffect->Start(pszMaterial, flCullRadius))
@@ -698,7 +757,8 @@ int32_t CManagedParticlesClient::ParticlesCreateAt(int32_t nId, const char* pszM
 	if (!pszMaterial || !pOriginXYZ || Find(SOURCESHARP_PARTICLE_NO_OWNER, nId) >= 0 || !m_ForgetHook.Get())
 		return 0;
 
-	CManagedParticleEffect* pEffect = new CManagedParticleEffect(m_Areas, SOURCESHARP_PARTICLE_NO_OWNER, nId);
+	CManagedParticleEffect* pEffect = new CManagedParticleEffect(
+		m_Areas, m_Engines, m_Cameras, m_Standalone.EntityList(), SOURCESHARP_PARTICLE_NO_OWNER, nId);
 	pEffect->SetAbsOrigin(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]));
 	if (!pEffect->Start(pszMaterial, flCullRadius))
 	{
@@ -754,10 +814,10 @@ void CManagedParticlesClient::Frame(float flFrameTime)
 	BitBlockSetBits(in.Base(), nIn * 8);
 	SourceSharpParticleFrameHeader_t* pHeader = (SourceSharpParticleFrameHeader_t*)(in.Base() + kBitBlockHeaderBytes);
 	pHeader->Dt = flFrameTime;
-	pHeader->CurTime = gpGlobals->curtime;
-	pHeader->FrameTime = gpGlobals->frametime;
+	pHeader->CurTime = m_Engines.m_pGlobals->curtime;
+	pHeader->FrameTime = m_Engines.m_pGlobals->frametime;
 	pHeader->AabbBuffer = cl_particleeffect_aabb_buffer.GetFloat();
-	VectorCopy(MainViewOrigin().Base(), pHeader->ViewOriginXYZ);
+	VectorCopy(m_Cameras.MainOrigin().Base(), pHeader->ViewOriginXYZ);
 	SourceSharpParticleFrameIn_t* pIn = (SourceSharpParticleFrameIn_t*)(pHeader + 1);
 	for (int i = 0; i < nExecutors; i++)
 		m_Effects[i]->FillFrameIn(pIn[i]);
@@ -883,13 +943,6 @@ void CManagedParticlesClient::PrintKinds() const
 	Msg("[SourceSharp] effect kinds: %d executor(s)\n", m_Effects.Count());
 }
 
-CON_COMMAND(cs_cl_effect_kinds,
-			"every live managed particle executor (trails, steam jets, smoke stacks, smoke volumes): "
-			"where it is drawn this frame and how many particles its binding is simulating")
-{
-	ShellClientDll_ManagedParticles().PrintKinds();
-}
-
 void CManagedParticlesClient::CSystemRow::PreRender()
 {
 	m_Particles.Follow();
@@ -913,8 +966,10 @@ void CManagedParticlesClient::ReleaseAll()
 
 // CParticleSystemsClient (shell_particle_systems_client.h).
 
-CParticleSystemsClient::CParticleSystemsClient(CStandaloneClients& standalone, CNewParticlesClient& newParticles)
-	: m_Standalone(standalone)
+CParticleSystemsClient::CParticleSystemsClient(const CClientEngineInterfaces& engines, CStandaloneClients& standalone,
+											   CNewParticlesClient& newParticles)
+	: m_Engines(engines)
+	, m_Standalone(standalone)
 	, m_NewParticles(newParticles)
 {
 }
@@ -946,7 +1001,7 @@ void CParticleSystemsClient::Watch(CShellNewParticleEffect* pEffect, uint32_t hO
 	pWatch->ref.Set(pEffect);
 	pWatch->hOwner = hOwner;
 	pWatch->nKind = nKind;
-	pWatch->flStarted = gpGlobals->curtime;
+	pWatch->flStarted = m_Engines.m_pGlobals->curtime;
 	m_Watched.AddToTail(pWatch);
 }
 
@@ -1171,7 +1226,7 @@ void CParticleSystemsClient::Sweep(Systems_t& systems)
 			if (!systems[i].hFollowEntity[nPoint])
 				continue;
 
-			IClientRenderable* pRenderable = SourceSharp_ClientRenderableFromHandle(
+			IClientRenderable* pRenderable = m_Standalone.EntityList().RenderableFromHandle(
 				CBaseHandle((int)(systems[i].hFollowEntity[nPoint] & ENT_ENTRY_MASK),
 							(int)(systems[i].hFollowEntity[nPoint] >> NUM_SERIAL_NUM_SHIFT_BITS)));
 
@@ -1256,7 +1311,7 @@ int32_t CParticleSystemsClient::ParticleSystemsRead(int32_t nIndex, SourceSharpP
 	memset(pOut, 0, sizeof(*pOut));
 	pOut->Kind = pWatch->nKind;
 	pOut->Owner = pWatch->hOwner;
-	pOut->Age = gpGlobals->curtime - pWatch->flStarted;
+	pOut->Age = m_Engines.m_pGlobals->curtime - pWatch->flStarted;
 
 	const int nOwned = ShellEffects_Find(m_Slots[0], pWatch->hOwner);
 	const bool bHeld = nOwned >= 0 && m_Slots[0][nOwned].pEffect.GetObject() == pEffect;
@@ -1475,7 +1530,7 @@ int32_t SourceSharp_ParticlesWorldTrace(const float* pStartXYZ, const float* pEn
 }
 
 // The model-view matrix's three rows, CurrentViewID(), and the view's origin and forward.
-void SourceSharp_ParticlesView(float* pModelView12, int32_t* pViewId, float* pOriginForward6)
+void CManagedParticlesClient::ParticlesView(float* pModelView12, int32_t* pViewId, float* pOriginForward6)
 {
 	if (pModelView12)
 	{
@@ -1485,11 +1540,11 @@ void SourceSharp_ParticlesView(float* pModelView12, int32_t* pViewId, float* pOr
 				pModelView12[r * 4 + c] = mv[r][c];
 	}
 	if (pViewId)
-		*pViewId = (int32_t)CurrentViewID();
+		*pViewId = (int32_t)m_Cameras.CurrentID();
 	if (pOriginForward6)
 	{
-		const Vector& vo = CurrentViewOrigin();
-		const Vector& vf = CurrentViewForward();
+		const Vector& vo = m_Cameras.CurrentOrigin();
+		const Vector& vf = m_Cameras.CurrentForward();
 		pOriginForward6[0] = vo.x;
 		pOriginForward6[1] = vo.y;
 		pOriginForward6[2] = vo.z;

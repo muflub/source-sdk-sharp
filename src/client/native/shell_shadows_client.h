@@ -8,6 +8,9 @@
 // and the queue the entity shells write.
 #pragma once
 
+class CClientEngineInterfaces;
+class CClientEntityList;
+
 #include <stdint.h>
 
 #include "ivrenderview.h"
@@ -40,8 +43,11 @@ enum ShellShadowPending_t
 class CShadowsClient
 {
 public:
-	explicit CShadowsClient(const CManagedAreasClient& areas)
+	CShadowsClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+				   CClientEntityList& entityList)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_EntityList(entityList)
 	{
 	}
 
@@ -153,6 +159,7 @@ private:
 	void RestoreRenderState(int);
 	void AddRestoreFunc();
 	void RemoveRestoreFunc();
+	IClientRenderable* RenderableOf(uint32_t hEntity);
 
 #define SS_SHADOW_THUNK(name, sig, method) \
 	typedef CBoundCallback<sig> name##_t;  \
@@ -168,9 +175,12 @@ private:
 	SS_SHADOW_THUNK(m_RestoreFunc, void(int), RestoreRenderState);
 	SS_SHADOW_THUNK(m_AddRestoreFunc, void(), AddRestoreFunc);
 	SS_SHADOW_THUNK(m_RemoveRestoreFunc, void(), RemoveRestoreFunc);
+	SS_SHADOW_THUNK(m_RenderableOf, IClientRenderable*(uint32_t), RenderableOf);
 #undef SS_SHADOW_THUNK
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	CClientEntityList& m_EntityList;
 
 	CReferenceTable<CMaterialReference> m_Materials;
 	CReferenceTable<CTextureReference> m_Textures;

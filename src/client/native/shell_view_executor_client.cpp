@@ -56,6 +56,10 @@
 #include "shell_effects_list_client.h"
 #include "shell_managed_particles.h"
 #include "shell_detail_props.h"
+#include "shell_client_engine_interfaces.h"
+#include "shell_view_targets.h"
+#include "shell_view_cameras.h"
+#include "shell_hud_ui_client.h"
 #include "shell_shadows_client.h"
 #include "shell_precipitation_draw_client.h"
 #include "shell_managed_areas_client.h"
@@ -65,7 +69,6 @@
 #include "shell_render_trace_client.h"
 #include "shell_shadows_client.h"
 #include "shell_standalone_client.h"
-#include "shell_view_targets.h"
 #include "ss_image_encode.h"
 
 bool SourceSharp_ColorCorrectionActive();
@@ -76,8 +79,6 @@ bool SourceSharp_ColorCorrectionActive();
 
 extern void UpdateClientRenderableInPVSStatus();
 // viewrender.cpp's current-view setters, which stock declares at each use.
-void SetupCurrentView(const Vector& vecOrigin, const QAngle& angles, view_id_t viewID);
-void FinishCurrentView();
 
 // The map's tonemap overrides (viewpostprocess.cpp's globals), noted with a traced frame.
 extern bool g_bUseCustomAutoExposureMin;
@@ -451,8 +452,11 @@ struct WorldListEntry_t
 class CPlanView : public CRefCounted<>, protected CViewSetup
 {
 public:
-	CPlanView(CShellViewRender& viewRender, CShellDetailProps& detailProps, CShadowsClient& shadows)
-		: m_ViewRender(viewRender)
+	CPlanView(const CClientEngineInterfaces& engines, CShellViewRender& viewRender, const CViewCameras& cameras,
+			  CShellDetailProps& detailProps, CShadowsClient& shadows)
+		: m_Engines(engines)
+		, m_ViewRender(viewRender)
+		, m_Cameras(cameras)
 		, m_DetailProps(detailProps)
 		, m_Shadows(shadows)
 	{
@@ -536,7 +540,9 @@ private:
 	int m_DrawFlags = 0;
 	int m_ClearFlags = 0;
 
+	const CClientEngineInterfaces& m_Engines;
 	CShellViewRender& m_ViewRender;
+	const CViewCameras& m_Cameras;
 	CShellDetailProps& m_DetailProps;
 	CShadowsClient& m_Shadows;
 };
@@ -568,10 +574,10 @@ void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntiti
 	{
 		UpdateClientRenderableInPVSStatus();
 		m_ViewRender.IncWorldListsNumber();
-		m_pWorldRenderList = render->CreateWorldList();
+		m_pWorldRenderList = m_Engines.m_pRender->CreateWorldList();
 		m_pWorldListInfo = new PlanWorldListInfo_t;
-		render->BuildWorldLists(m_pWorldRenderList, m_pWorldListInfo, iForceViewLeaf, NULL, bShadowDepth,
-								pReflectionWaterHeight);
+		m_Engines.m_pRender->BuildWorldLists(m_pWorldRenderList, m_pWorldListInfo, iForceViewLeaf, NULL, bShadowDepth,
+											 pReflectionWaterHeight);
 		if (bCache)
 		{
 			WorldListEntry_t entry = {WorldListKey_t(*this), m_pWorldRenderList, m_pWorldListInfo};
@@ -583,7 +589,7 @@ void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntiti
 
 	if (bDrawEntities)
 	{
-		staticpropmgr->ComputePropOpacity(origin, flOpacityFactor);
+		m_Engines.m_pStaticProps->ComputePropOpacity(origin, flOpacityFactor);
 		m_DetailProps.BuildDetailObjectRenderLists(origin);
 	}
 }
@@ -627,7 +633,7 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 	MDLCACHE_CRITICAL_SECTION();
 	const bool bShadowDepth = nViewID == VIEW_SHADOW_DEPTH_TEXTURE;
 	if (!bShadowDepth)
-		render->BeginUpdateLightmaps();
+		m_Engines.m_pRender->BeginUpdateLightmaps();
 
 	m_ViewRender.IncRenderablesListsNumber();
 	WorldListInfo_t& info = *m_pWorldListInfo;
@@ -644,7 +650,7 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 		setupInfo.m_bDrawDetailObjects = bDetail;
 		setupInfo.m_bDrawTranslucentObjects = bTranslucent;
 		setupInfo.m_vecRenderOrigin = origin;
-		setupInfo.m_vecRenderForward = m_ViewRender.m_Current.forward;
+		setupInfo.m_vecRenderForward = m_Cameras.m_Current.forward;
 		setupInfo.m_flRenderDistSq = flRenderDistSq;
 		// The leaf system is managed: both calls answer from the managed registry.
 		if (!bShadowDepth)
@@ -662,18 +668,18 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 		CClientRenderablesList::CEntry* pEntities = m_pRenderablesList->m_RenderGroups[RENDER_GROUP_OPAQUE_BRUSH];
 		const int nOpaque = m_pRenderablesList->m_RenderGroupCounts[RENDER_GROUP_OPAQUE_BRUSH];
 		for (int i = 0; i < nOpaque; ++i)
-			render->UpdateBrushModelLightmap((model_t*)pEntities[i].m_pRenderable->GetModel(),
-											 pEntities[i].m_pRenderable);
+			m_Engines.m_pRender->UpdateBrushModelLightmap((model_t*)pEntities[i].m_pRenderable->GetModel(),
+														  pEntities[i].m_pRenderable);
 
 		pEntities = m_pRenderablesList->m_RenderGroups[RENDER_GROUP_TRANSLUCENT_ENTITY];
 		const int nTranslucent = m_pRenderablesList->m_RenderGroupCounts[RENDER_GROUP_TRANSLUCENT_ENTITY];
 		for (int i = 0; i < nTranslucent; ++i)
 		{
 			const model_t* pModel = pEntities[i].m_pRenderable->GetModel();
-			if (pModel && modelinfo->GetModelType(pModel) == mod_brush)
-				render->UpdateBrushModelLightmap((model_t*)pModel, pEntities[i].m_pRenderable);
+			if (pModel && m_Engines.m_pModelInfo->GetModelType(pModel) == mod_brush)
+				m_Engines.m_pRender->UpdateBrushModelLightmap((model_t*)pModel, pEntities[i].m_pRenderable);
 		}
-		render->EndUpdateLightmaps();
+		m_Engines.m_pRender->EndUpdateLightmaps();
 	}
 	m_bBuiltRenderables = true;
 }
@@ -741,7 +747,8 @@ public:
 					  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
 					  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps,
 					  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis, CPrecipitationClient& precipitation,
-					  CShadowsClient& shadows)
+					  CShadowsClient& shadows, CHudUiClient& hudUi, CViewCameras& cameras,
+					  CViewTargetsClient& viewTargets, const CClientEngineInterfaces& engines)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -755,6 +762,10 @@ public:
 		, m_PixelVis(pixelVis)
 		, m_Precipitation(precipitation)
 		, m_Shadows(shadows)
+		, m_HudUi(hudUi)
+		, m_Cameras(cameras)
+		, m_ViewTargets(viewTargets)
+		, m_Engines(engines)
 	{
 	}
 
@@ -830,6 +841,10 @@ private:
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
 	CShellDetailProps& m_DetailProps;
+	const CClientEngineInterfaces& m_Engines;
+	CViewTargetsClient& m_ViewTargets;
+	CViewCameras& m_Cameras;
+	CHudUiClient& m_HudUi;
 	CShadowsClient& m_Shadows;
 	CPrecipitationClient& m_Precipitation;
 	CGlowOverlaysClient& m_Glow;
@@ -998,7 +1013,7 @@ int32_t CViewExecutorImpl::ViewPlaneIntersectsWater(const CViewSetup& setup, flo
 		return 0;
 
 	VMatrix worldToView, viewToProjection, worldToProjection, worldToPixels;
-	render->GetMatricesForView(setup, &worldToView, &viewToProjection, &worldToProjection, &worldToPixels);
+	m_Engines.m_pRender->GetMatricesForView(setup, &worldToView, &viewToProjection, &worldToProjection, &worldToPixels);
 	VMatrix viewProjection, inverse;
 	MatrixMultiply(viewToProjection, worldToView, viewProjection);
 	MatrixInverseGeneral(viewProjection, inverse);
@@ -1027,7 +1042,7 @@ int32_t CViewExecutorImpl::ViewPlaneIntersectsWater(const CViewSetup& setup, flo
 	Vector vecFudge(fudge, fudge, fudge);
 	mins -= vecFudge;
 	maxs += vecFudge;
-	return render->DoesBoxIntersectWaterVolume(mins, maxs, leafWaterDataID) ? 1 : 0;
+	return m_Engines.m_pRender->DoesBoxIntersectWaterVolume(mins, maxs, leafWaterDataID) ? 1 : 0;
 }
 
 // RenderView's inputs, gathered at its entry.
@@ -1040,26 +1055,26 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	FromViewSetup(setup, in.View);
 	in.ClearFlags = nClearFlags;
 	in.WhatToDraw = whatToDraw;
-	in.CurTime = gpGlobals->curtime;
-	in.FrameTime = gpGlobals->frametime;
-	in.FrameCount = gpGlobals->framecount;
-	in.MaxClients = gpGlobals->maxClients;
+	in.CurTime = m_Engines.m_pGlobals->curtime;
+	in.FrameTime = m_Engines.m_pGlobals->frametime;
+	in.FrameCount = m_Engines.m_pGlobals->framecount;
+	in.MaxClients = m_Engines.m_pGlobals->maxClients;
 	in.HdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
-	in.DxLevel = engine->GetDXSupportLevel();
+	in.DxLevel = m_Engines.m_pEngine->GetDXSupportLevel();
 	in.UseFastClipping = g_pMaterialSystemHardwareConfig->UseFastClipping() ? 1 : 0;
-	in.IsHammerRunning = engine->IsHammerRunning() ? 1 : 0;
-	in.ScreenAspect = engine->GetScreenAspectRatio();
+	in.IsHammerRunning = m_Engines.m_pEngine->IsHammerRunning() ? 1 : 0;
+	in.ScreenAspect = m_Engines.m_pEngine->GetScreenAspectRatio();
 	in.ClientModeDrawFog = m_ClientMode.ShouldDrawFog() ? 1 : 0;
 	in.ClientModeDrawDetail = m_ClientMode.ShouldDrawDetailObjects() ? 1 : 0;
 	// Managed code fills the freeze frame's state.
 	in.FreezeActive = 0;
 	in.FreezeTake = 0;
 	in.FreezeFlash = 0.0f;
-	in.TakingScreenshot = engine->IsTakingScreenshot() ? 1 : 0;
+	in.TakingScreenshot = m_Engines.m_pEngine->IsTakingScreenshot() ? 1 : 0;
 	in.ForceNoVis = m_ViewRender.ForceNoVis() ? 1 : 0;
-	in.PointContentsSolid = enginetrace->GetPointContents(setup.origin) == CONTENTS_SOLID ? 1 : 0;
+	in.PointContentsSolid = m_Engines.m_pTrace->GetPointContents(setup.origin) == CONTENTS_SOLID ? 1 : 0;
 
-	in.SkyboxVisible = (int32_t)engine->IsSkyboxVisibleFromPoint(setup.origin);
+	in.SkyboxVisible = (int32_t)m_Engines.m_pEngine->IsSkyboxVisibleFromPoint(setup.origin);
 	if (sky3dparams_t* pSky = m_ViewerFacts.ViewerSkyboxParams())
 	{
 		in.SkyPresent = 1;
@@ -1074,7 +1089,7 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	FromFog(m_ViewerFacts.ViewerFogParams(), in.Fog);
 
 	VisibleFogVolumeInfo_t fog;
-	render->GetVisibleFogVolume(setup.origin, &fog);
+	m_Engines.m_pRender->GetVisibleFogVolume(setup.origin, &fog);
 	in.FogVolume = fog.m_nVisibleFogVolume;
 	in.FogVolumeLeaf = fog.m_nVisibleFogVolumeLeaf;
 	in.EyeInFogVolume = fog.m_bEyeInFogVolume ? 1 : 0;
@@ -1122,12 +1137,12 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	}
 
 	in.ThirdPersonSeesOwner = m_Standalone.ThirdPersonSeesOwner() ? 1 : 0;
-	in.ViewEntity = render->GetViewEntity();
+	in.ViewEntity = m_Engines.m_pRender->GetViewEntity();
 
 	// The screen fade, as stock's GetFadeParams, from managed code.
 	int32_t fade[5] = {0, 0, 0, 0, 0};
 	if (IManagedRenderClient* p = m_Areas.m_pRenderClient)
-		p->ViewEffectsFadeParams(gpGlobals->curtime, fade);
+		p->ViewEffectsFadeParams(m_Engines.m_pGlobals->curtime, fade);
 	in.FadeColor[0] = (byte)fade[0];
 	in.FadeColor[1] = (byte)fade[1];
 	in.FadeColor[2] = (byte)fade[2];
@@ -1180,17 +1195,17 @@ void CViewExecutorImpl::NoteInputs(const SourceSharpRenderInputs_t& in)
 // (`env`), keyed by name so recordings stay readable as inputs are added.
 void CViewExecutorImpl::NoteFrameEnvironment()
 {
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	const Vector vScale = pRenderContext->GetToneMappingScaleLinear();
 	int nVx = 0, nVy = 0, nVw = 0, nVh = 0;
 	pRenderContext->GetViewport(nVx, nVy, nVw, nVh);
-	RenderTrace::Note("env\trealtime\t%.9g", gpGlobals->realtime);
-	RenderTrace::Note("env\tcurtime\t%.9g", gpGlobals->curtime);
-	RenderTrace::Note("env\tframetime\t%.9g", gpGlobals->frametime);
+	RenderTrace::Note("env\trealtime\t%.9g", m_Engines.m_pGlobals->realtime);
+	RenderTrace::Note("env\tcurtime\t%.9g", m_Engines.m_pGlobals->curtime);
+	RenderTrace::Note("env\tframetime\t%.9g", m_Engines.m_pGlobals->frametime);
 	RenderTrace::Note("env\thdrtype\t%d", (int)g_pMaterialSystemHardwareConfig->GetHDRType());
-	RenderTrace::Note("env\tdxlevel\t%d", engine->GetDXSupportLevel());
+	RenderTrace::Note("env\tdxlevel\t%d", m_Engines.m_pEngine->GetDXSupportLevel());
 	RenderTrace::Note("env\thwdxlevel\t%d", g_pMaterialSystemHardwareConfig->GetDXSupportLevel());
-	RenderTrace::Note("env\tmaphashdrlighting\t%d", engine->MapHasHDRLighting() ? 1 : 0);
+	RenderTrace::Note("env\tmaphashdrlighting\t%d", m_Engines.m_pEngine->MapHasHDRLighting() ? 1 : 0);
 	RenderTrace::Note("env\tcandosrgbreadfromrts\t%d", g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0);
 	RenderTrace::Note("env\tfakesrgbwrite\t%d", g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ? 1 : 0);
 	RenderTrace::Note("env\tsupportsps20\t%d", g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0);
@@ -1200,8 +1215,8 @@ void CViewExecutorImpl::NoteFrameEnvironment()
 	ITexture* pCopy = pRenderContext->GetFrameBufferCopyTexture(0);
 	RenderTrace::Note("env\tfbcopy0\t%s", pCopy ? pCopy->GetName() : "-");
 	RenderTrace::Note("env\tvideomodeheight\t%d",
-					  g_pMaterialSystem->GetCurrentConfigForVideoCard().m_VideoMode.m_Height);
-	RenderTrace::Note("env\tgamedirectory\t%s", engine->GetGameDirectory());
+					  m_Engines.m_pMaterials->GetCurrentConfigForVideoCard().m_VideoMode.m_Height);
+	RenderTrace::Note("env\tgamedirectory\t%s", m_Engines.m_pEngine->GetGameDirectory());
 	RenderTrace::Note("env\tcustomtonemap\t%d,%d,%d,%.9g,%.9g,%.9g,%.9g", g_bUseCustomAutoExposureMin ? 1 : 0,
 					  g_bUseCustomAutoExposureMax ? 1 : 0, g_bUseCustomBloomScale ? 1 : 0, g_flCustomAutoExposureMin,
 					  g_flCustomAutoExposureMax, g_flCustomBloomScale, g_flCustomBloomScaleMinimum);
@@ -1285,9 +1300,11 @@ void CViewExecutorImpl::BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* 
 		if (pWorld)
 		{
 			leaf.Translucent[0] =
-				render->LeafContainsTranslucentSurfaces(pWorld, leaf.ActualLeaf, nTranslucentFlags[0]) ? 1 : 0;
+				m_Engines.m_pRender->LeafContainsTranslucentSurfaces(pWorld, leaf.ActualLeaf, nTranslucentFlags[0]) ? 1
+																													: 0;
 			leaf.Translucent[1] =
-				render->LeafContainsTranslucentSurfaces(pWorld, leaf.ActualLeaf, nTranslucentFlags[1]) ? 1 : 0;
+				m_Engines.m_pRender->LeafContainsTranslucentSurfaces(pWorld, leaf.ActualLeaf, nTranslucentFlags[1]) ? 1
+																													: 0;
 		}
 	}
 
@@ -1316,7 +1333,7 @@ void CViewExecutorImpl::BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* 
 			if (pRenderable->UsesFullFrameBufferTexture())
 				flags |= 16;
 			const model_t* pModel = pRenderable->GetModel();
-			if (pModel && modelinfo->GetModelType(pModel) == mod_brush)
+			if (pModel && m_Engines.m_pModelInfo->GetModelType(pModel) == mod_brush)
 				flags |= 32;
 			if (pRenderable == g_pStudioStatsEntity)
 				flags |= 64;
@@ -1344,7 +1361,7 @@ ITexture* CViewExecutorImpl::Target(int nTarget)
 		case RENDER_TARGET_Saved:
 			return State().m_pSavedRenderTarget;
 		case RENDER_TARGET_ViewTarget0:
-			return ShellViewTargets_Texture(0);
+			return m_ViewTargets.Texture(0);
 		case RENDER_TARGET_ShadowColor:
 			return State().m_pShadowColor;
 		case RENDER_TARGET_ShadowDepth:
@@ -1363,7 +1380,7 @@ CPlanView* CViewExecutorImpl::CurrentView()
 void CViewExecutorImpl::SetClearColorToFogColor()
 {
 	unsigned char ucFogColor[3];
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->GetFogColor(ucFogColor);
 	if (g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_INTEGER)
 	{
@@ -1403,14 +1420,14 @@ void CViewExecutorImpl::DrawRenderablesInList(CUtlVector<IClientRenderable*>& li
 // viewmodel draws.
 void CViewExecutorImpl::ViewModels(const CViewSetup& setup, bool bDrawPlayer)
 {
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
 	pRenderContext->PushMatrix();
 
 	float one[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-	render->SetColorModulation(one);
-	render->SetBlend(1.0f);
-	render->Push3DView(setup, 0, NULL, view->GetFrustum(), NULL);
+	m_Engines.m_pRender->SetColorModulation(one);
+	m_Engines.m_pRender->SetBlend(1.0f);
+	m_Engines.m_pRender->Push3DView(setup, 0, NULL, view->GetFrustum(), NULL);
 	pRenderContext->DepthRange(0.0f, 0.1f);
 
 	if (bDrawPlayer)
@@ -1425,7 +1442,7 @@ void CViewExecutorImpl::ViewModels(const CViewSetup& setup, bool bDrawPlayer)
 	}
 
 	pRenderContext->DepthRange(0.0f, 1.0f);
-	render->PopView(view->GetFrustum());
+	m_Engines.m_pRender->PopView(view->GetFrustum());
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
 	pRenderContext->PopMatrix();
 }
@@ -1440,7 +1457,7 @@ void CViewExecutorImpl::DrawOverlayMaterial(IMaterial* pMaterial, int nBranch, i
 	else if (nBranch == 2)
 	{
 		UpdateRefractTexture(x, y, w, h, true);
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		ITexture* pTexture = ShellRenderTarget(SS_RT_PowerOfTwoFrameBuffer);
 		int sw = pTexture->GetActualWidth();
 		int sh = pTexture->GetActualHeight();
@@ -1449,7 +1466,7 @@ void CViewExecutorImpl::DrawOverlayMaterial(IMaterial* pMaterial, int nBranch, i
 	else if (nBranch == 3)
 	{
 		byte color[4] = {255, 255, 255, 255};
-		render->ViewDrawFade(color, pMaterial);
+		m_Engines.m_pRender->ViewDrawFade(color, pMaterial);
 	}
 }
 
@@ -1458,7 +1475,7 @@ void CViewExecutorImpl::UnderwaterOverlay()
 	IMaterial* pOverlay = State().m_UnderWaterOverlay;
 	if (!pOverlay)
 		return;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	int x, y, w, h;
 	pRenderContext->GetViewport(x, y, w, h);
 	if (pOverlay->NeedsFullFrameBufferTexture())
@@ -1474,26 +1491,26 @@ void CViewExecutorImpl::HudPaint(const CViewSetup& setup)
 	const int viewWidth = setup.m_nUnscaledWidth;
 	const int viewHeight = setup.m_nUnscaledHeight;
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->PushRenderTargetAndViewport(NULL, NULL, setup.m_nUnscaledX, setup.m_nUnscaledY, viewWidth,
 												viewHeight);
 	pRenderContext.SafeRelease();
 
-	VGui_PreRender();
-	vgui::VPANEL root = enginevgui->GetPanel(PANEL_CLIENTDLL);
+	m_HudUi.PlaquePreRender();
+	vgui::VPANEL root = m_Engines.m_pVGui->GetPanel(PANEL_CLIENTDLL);
 	if (root != 0)
 		vgui::ipanel()->SetSize(root, viewWidth, viewHeight);
-	root = enginevgui->GetPanel(PANEL_CLIENTDLL_TOOLS);
+	root = m_Engines.m_pVGui->GetPanel(PANEL_CLIENTDLL_TOOLS);
 	if (root != 0)
 		vgui::ipanel()->SetSize(root, viewWidth, viewHeight);
 
-	AllowCurrentViewAccess(true);
-	render->VGui_Paint(PAINT_INGAMEPANELS);
-	AllowCurrentViewAccess(false);
+	m_ViewRender.AllowCurrentViewAccess(true);
+	m_Engines.m_pRender->VGui_Paint(PAINT_INGAMEPANELS);
+	m_ViewRender.AllowCurrentViewAccess(false);
 	VGui_PostRender();
 	m_ClientMode.PostRenderVGui();
 
-	pRenderContext.GetFrom(materials);
+	pRenderContext.GetFrom(m_Engines.m_pMaterials);
 	pRenderContext->PopRenderTargetAndViewport();
 	pRenderContext->Flush();
 	pRenderContext.SafeRelease();
@@ -1501,9 +1518,9 @@ void CViewExecutorImpl::HudPaint(const CViewSetup& setup)
 
 void CViewExecutorImpl::Upscale(const CViewSetup& setup)
 {
-	CMatRenderContextPtr pRenderContext(materials);
-	ITexture* pFullFrameFB1 = materials->FindTexture("_rt_FullFrameFB1", TEXTURE_GROUP_RENDER_TARGET);
-	IMaterial* pCopyMaterial = materials->FindMaterial("dev/upscale", TEXTURE_GROUP_OTHER);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
+	ITexture* pFullFrameFB1 = m_Engines.m_pMaterials->FindTexture("_rt_FullFrameFB1", TEXTURE_GROUP_RENDER_TARGET);
+	IMaterial* pCopyMaterial = m_Engines.m_pMaterials->FindMaterial("dev/upscale", TEXTURE_GROUP_OTHER);
 	pCopyMaterial->IncrementReferenceCount();
 	Rect_t down, up;
 	down.x = setup.x;
@@ -1536,7 +1553,7 @@ void CViewExecutorImpl::FreezeFrameDraw(int x, int y, int w, int h, int nFlashAl
 		state.m_FreezeFrameMaterial.Init("FreezeFrame_FullScreen", TEXTURE_GROUP_OTHER, pVMTKeyValues);
 		state.m_FreezeFrameMaterial->Refresh();
 	}
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->DrawScreenSpaceRectangle(state.m_FreezeFrameMaterial, x, y, w, h, 0, 0, w - 1, h - 1, w, h);
 	if (nFlashAlpha < 0)
 		return;
@@ -1573,14 +1590,14 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 		switch (op.Kind)
 		{
 			case RENDER_OP_SceneBegin:
-				render->SceneBegin();
+				m_Engines.m_pRender->SceneBegin();
 				break;
 			case RENDER_OP_SceneEnd:
-				render->SceneEnd();
+				m_Engines.m_pRender->SceneEnd();
 				break;
 			case RENDER_OP_TurnOnToneMapping:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->TurnOnToneMapping();
 				break;
 			}
@@ -1589,15 +1606,16 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_Push3DView:
 				if (op.I[3])
-					render->Push3DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum(), Target(op.I[2]));
+					m_Engines.m_pRender->Push3DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum(),
+													Target(op.I[2]));
 				else
-					render->Push3DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum());
+					m_Engines.m_pRender->Push3DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum());
 				break;
 			case RENDER_OP_Push2DView:
-				render->Push2DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum());
+				m_Engines.m_pRender->Push2DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum());
 				break;
 			case RENDER_OP_PopView:
-				render->PopView(view->GetFrustum());
+				m_Engines.m_pRender->PopView(view->GetFrustum());
 				break;
 			case RENDER_OP_SetupCurrentView:
 				m_ViewRender.SetupCurrentView(setup.origin, setup.angles, op.I[0], true);
@@ -1624,7 +1642,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			{
 				Vector origin(op.F[0], op.F[1], op.F[2]);
 				unsigned int flags = 0;
-				render->ViewSetupVisEx(op.I[0] != 0, 1, &origin, flags);
+				m_Engines.m_pRender->ViewSetupVisEx(op.I[0] != 0, 1, &origin, flags);
 				state.m_nLastVisFlags = flags;
 				break;
 			}
@@ -1637,25 +1655,25 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_ClearColor4ub:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->ClearColor4ub(op.I[0], op.I[1], op.I[2], op.I[3]);
 				break;
 			}
 			case RENDER_OP_ClearColor3ub:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->ClearColor3ub(op.I[0], op.I[1], op.I[2]);
 				break;
 			}
 			case RENDER_OP_ForcedMaterialOverride:
-				modelrender->ForcedMaterialOverride(NULL, (OverrideType_t)op.I[0]);
+				m_Engines.m_pModelRender->ForcedMaterialOverride(NULL, (OverrideType_t)op.I[0]);
 				break;
 			case RENDER_OP_ParticleIncrementFrameCode:
 				m_Particles.FrameCode(); // the old-style effects' frame code
 				break;
 			case RENDER_OP_WorldViewBegin:
 			{
-				CPlanView* pNew = new CPlanView(m_ViewRender, m_DetailProps, m_Shadows);
+				CPlanView* pNew = new CPlanView(m_Engines, m_ViewRender, m_Cameras, m_DetailProps, m_Shadows);
 				pNew->Begin(setup, op.I[0], op.I[1]);
 				state.m_Views.AddToTail(pNew);
 				break;
@@ -1668,10 +1686,10 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				}
 				break;
 			case RENDER_OP_BeginUpdateLightmaps:
-				render->BeginUpdateLightmaps();
+				m_Engines.m_pRender->BeginUpdateLightmaps();
 				break;
 			case RENDER_OP_EndUpdateLightmaps:
-				render->EndUpdateLightmaps();
+				m_Engines.m_pRender->EndUpdateLightmaps();
 				break;
 			case RENDER_OP_BuildWorldLists:
 				if (pView)
@@ -1691,7 +1709,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_FogLinear:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				float color[3] = {op.F[0], op.F[1], op.F[2]};
 				ctx->FogMode(MATERIAL_FOG_LINEAR);
 				ctx->FogColor3fv(color);
@@ -1703,16 +1721,16 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			}
 			case RENDER_OP_FogNone:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->FogMode(MATERIAL_FOG_NONE);
 				break;
 			}
 			case RENDER_OP_FogVolumeState:
-				render->SetFogVolumeState(op.I[0], op.I[1] != 0);
+				m_Engines.m_pRender->SetFogVolumeState(op.I[0], op.I[1] != 0);
 				break;
 			case RENDER_OP_ClearColorFromFogColor:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				unsigned char ucFogColor[3];
 				ctx->GetFogColor(ucFogColor);
 				ctx->ClearColor4ub(ucFogColor[0], ucFogColor[1], ucFogColor[2], op.I[0]);
@@ -1723,23 +1741,23 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 					pView->ShadowTextures();
 				break;
 			case RENDER_OP_SoundExtraUpdate:
-				engine->Sound_ExtraUpdate();
+				m_Engines.m_pEngine->Sound_ExtraUpdate();
 				break;
 			case RENDER_OP_SetFogZ:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->SetFogZ(op.F[0]);
 				break;
 			}
 			case RENDER_OP_SetHeightClipZ:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->SetHeightClipZ(op.F[0]);
 				break;
 			}
 			case RENDER_OP_SetHeightClipMode:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->SetHeightClipMode((MaterialHeightClipMode_t)op.I[0]);
 				break;
 			}
@@ -1750,7 +1768,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 					clear |= VIEW_CLEAR_COLOR;
 				if (clear & (VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR | VIEW_CLEAR_STENCIL))
 				{
-					CMatRenderContextPtr ctx(materials);
+					CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 					if (clear & VIEW_CLEAR_OBEY_STENCIL)
 						ctx->ClearBuffersObeyStencil((clear & VIEW_CLEAR_COLOR) != 0, (clear & VIEW_CLEAR_DEPTH) != 0);
 					else
@@ -1761,7 +1779,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			}
 			case RENDER_OP_WaterLightmapScale:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				state.m_vSavedLightmapScale = ctx->GetToneMappingScaleLinear();
 				Vector scaled = state.m_vSavedLightmapScale;
 				scaled *= 0.25;
@@ -1771,14 +1789,14 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			case RENDER_OP_RestoreWaterLightmapScale:
 				if (state.m_vSavedLightmapScale.x >= 0)
 				{
-					CMatRenderContextPtr ctx(materials);
+					CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 					ctx->SetToneMappingScaleLinear(state.m_vSavedLightmapScale);
 					state.m_vSavedLightmapScale.x = -1;
 				}
 				break;
 			case RENDER_OP_FrameBufferCopyPush:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				state.m_FrameBufferCopies.AddToTail(ctx->GetFrameBufferCopyTexture(0));
 				if (op.I[0])
 					ctx->SetFrameBufferCopyTexture(ShellRenderTarget(SS_RT_PowerOfTwoFrameBuffer));
@@ -1787,14 +1805,15 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			case RENDER_OP_FrameBufferCopyPop:
 				if (state.m_FrameBufferCopies.Count())
 				{
-					CMatRenderContextPtr ctx(materials);
+					CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 					ctx->SetFrameBufferCopyTexture(state.m_FrameBufferCopies.Tail());
 					state.m_FrameBufferCopies.RemoveMultipleFromTail(1);
 				}
 				break;
 			case RENDER_OP_DrawWorld:
 				if (pView && pView->WorldList())
-					render->DrawWorldLists(pView->WorldList(), (unsigned long)(unsigned int)op.I[0], op.F[0]);
+					m_Engines.m_pRender->DrawWorldLists(pView->WorldList(), (unsigned long)(unsigned int)op.I[0],
+														op.F[0]);
 				break;
 			// The view's program is the only draw over its lists. A view without one draws
 			// nothing there; the first miss is reported.
@@ -1815,10 +1834,10 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			case RENDER_OP_SectionEnd:
 				break;
 			case RENDER_OP_SetBlend:
-				render->SetBlend(op.F[0]);
+				m_Engines.m_pRender->SetBlend(op.F[0]);
 				break;
 			case RENDER_OP_SetColorModulation:
-				render->SetColorModulation(op.F);
+				m_Engines.m_pRender->SetColorModulation(op.F);
 				break;
 			case RENDER_OP_DrawEntity:
 				if (pView)
@@ -1831,8 +1850,8 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			case RENDER_OP_DrawStaticPropsBatch:
 				if (pView && pView->m_Statics.Count())
 				{
-					staticpropmgr->DrawStaticProps(pView->m_Statics.Base(), pView->m_Statics.Count(), op.I[0] != 0,
-												   op.I[1] != 0);
+					m_Engines.m_pStaticProps->DrawStaticProps(pView->m_Statics.Base(), pView->m_Statics.Count(),
+															  op.I[0] != 0, op.I[1] != 0);
 					pView->m_Statics.RemoveAll();
 				}
 				break;
@@ -1856,7 +1875,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_FullScreenDepthTextureValidity:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->SetFullScreenDepthTextureValidityFlag(op.I[0] != 0);
 				break;
 			}
@@ -1871,8 +1890,8 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				if (pView)
 				{
 					m_DetailProps.RenderTranslucentDetailObjects(
-						m_ViewRender.m_Current.origin, m_ViewRender.m_Current.forward, m_ViewRender.m_Current.right,
-						m_ViewRender.m_Current.up, pView->m_DetailLeaves.Count(), pView->m_DetailLeaves.Base());
+						m_Cameras.m_Current.origin, m_Cameras.m_Current.forward, m_Cameras.m_Current.right,
+						m_Cameras.m_Current.up, pView->m_DetailLeaves.Count(), pView->m_DetailLeaves.Base());
 					pView->m_DetailLeaves.RemoveAll();
 				}
 				break;
@@ -1881,14 +1900,14 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				IClientRenderable* pEnt = pView ? pView->Entry(op.I[1]) : NULL;
 				Vector vecOrigin = pEnt ? pEnt->GetRenderOrigin() : vec3_origin;
 				m_DetailProps.RenderTranslucentDetailObjectsInLeaf(
-					m_ViewRender.m_Current.origin, m_ViewRender.m_Current.forward, m_ViewRender.m_Current.right,
-					m_ViewRender.m_Current.up, op.I[0], pEnt ? &vecOrigin : NULL);
+					m_Cameras.m_Current.origin, m_Cameras.m_Current.forward, m_Cameras.m_Current.right,
+					m_Cameras.m_Current.up, op.I[0], pEnt ? &vecOrigin : NULL);
 				break;
 			}
 			case RENDER_OP_TranslucentSurfaces:
 				if (pView && pView->WorldList())
-					render->DrawTranslucentSurfaces(pView->WorldList(), op.I[0], (unsigned long)(unsigned int)op.I[1],
-													op.I[2] != 0);
+					m_Engines.m_pRender->DrawTranslucentSurfaces(pView->WorldList(), op.I[0],
+																 (unsigned long)(unsigned int)op.I[1], op.I[2] != 0);
 				break;
 			case RENDER_OP_FrameBufferForEntity:
 				FrameBufferForEntity(op);
@@ -1912,7 +1931,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				}
 				break;
 			case RENDER_OP_ViewTargetDrawn:
-				ShellViewTargets_NoteDrawn(op.I[0]);
+				m_ViewTargets.NoteDrawn(op.I[0]);
 				break;
 
 			// viewdebug.cpp's overlays, as managed code placed them.
@@ -1928,16 +1947,16 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_DebugLightmapPage:
 			{
-				CPlanView* pDebug = new CPlanView(m_ViewRender, m_DetailProps, m_Shadows);
+				CPlanView* pDebug = new CPlanView(m_Engines, m_ViewRender, m_Cameras, m_DetailProps, m_Shadows);
 				pDebug->Begin(setup, 0, 0);
 				Frustum frustum;
-				AllowCurrentViewAccess(true);
-				render->Push3DView(setup, 0, NULL, frustum);
+				m_ViewRender.AllowCurrentViewAccess(true);
+				m_Engines.m_pRender->Push3DView(setup, 0, NULL, frustum);
 				pDebug->BuildWorld(state.m_ListCache, true, 1, true, false, NULL, op.F[0]);
-				render->PopView(frustum);
-				AllowCurrentViewAccess(false);
+				m_Engines.m_pRender->PopView(frustum);
+				m_ViewRender.AllowCurrentViewAccess(false);
 				if (pDebug->WorldList())
-					render->DrawLightmaps(pDebug->WorldList(), op.I[0]);
+					m_Engines.m_pRender->DrawLightmaps(pDebug->WorldList(), op.I[0]);
 				pDebug->Release();
 				break;
 			}
@@ -1948,26 +1967,26 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				DebugShowTexture(op.F[0]);
 				break;
 			case RENDER_OP_DebugFlashlightDepth:
-				shadowmgr->DrawFlashlightDepthTexture();
+				m_Engines.m_pShadows->DrawFlashlightDepthTexture();
 				break;
 			case RENDER_OP_Draw3DDebugOverlays:
-				render->Draw3DDebugOverlays();
+				m_Engines.m_pRender->Draw3DDebugOverlays();
 				break;
 			case RENDER_OP_DrawLineFile:
-				render->DrawLineFile();
+				m_Engines.m_pRender->DrawLineFile();
 				break;
 			case RENDER_OP_SmokeFogOverlayAlpha:
 				m_Effects.SetSmokeFogAlpha(op.F[0]);
 				break;
 			case RENDER_OP_PushDefaultTarget:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->PushRenderTargetAndViewport(NULL);
 				break;
 			}
 			case RENDER_OP_PopRenderTargetAndViewport:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->PopRenderTargetAndViewport();
 				break;
 			}
@@ -2006,7 +2025,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_Flush:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->Flush(op.I[0] != 0);
 				break;
 			}
@@ -2017,19 +2036,19 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				src.y = op.I[1];
 				src.width = op.I[2];
 				src.height = op.I[3];
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->CopyRenderTargetToTextureEx(ShellRenderTarget(SS_RT_WaterRefraction), 0, &src, NULL);
 				break;
 			}
 			case RENDER_OP_PushCustomClipPlane:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->PushCustomClipPlane(op.F);
 				break;
 			}
 			case RENDER_OP_PopCustomClipPlane:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->PopCustomClipPlane();
 				break;
 			}
@@ -2043,16 +2062,16 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				m_Precipitation.Draw();
 				break;
 			case RENDER_OP_ClientEffectsDraw:
-				m_Effects.DrawEffects(gpGlobals->frametime);
+				m_Effects.DrawEffects(m_Engines.m_pGlobals->frametime);
 				break;
 			case RENDER_OP_SetFXCreationAllowed:
 				m_Effects.SetCreationAllowed(op.I[0] != 0);
 				break;
 			case RENDER_OP_DrawPortals:
-				engine->DrawPortals();
+				m_Engines.m_pEngine->DrawPortals();
 				break;
 			case RENDER_OP_DrawLights:
-				render->DrawLights();
+				m_Engines.m_pRender->DrawLights();
 				break;
 			// CViewRender::RenderPlayerSprites: stock's body drew nothing for any entity this
 			// build has.
@@ -2080,9 +2099,9 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 					state.m_ModulateSingleColor.Init("engine/modulatesinglecolor", TEXTURE_GROUP_OTHER);
 				if (!state.m_TranslucentSingleColor.IsValid())
 					state.m_TranslucentSingleColor.Init("debug/debugtranslucentsinglecolor", TEXTURE_GROUP_OTHER);
-				render->ViewDrawFade(color,
-									 op.I[4] ? (IMaterial*)state.m_ModulateSingleColor
-											 : (IMaterial*)state.m_TranslucentSingleColor);
+				m_Engines.m_pRender->ViewDrawFade(color,
+												  op.I[4] ? (IMaterial*)state.m_ModulateSingleColor
+														  : (IMaterial*)state.m_TranslucentSingleColor);
 				break;
 			}
 			case RENDER_OP_ScreenOverlay:
@@ -2093,23 +2112,23 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				RunPostProgram(0, setup, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0, false);
 				break;
 			case RENDER_OP_GrabPreColorCorrectedFrame:
-				engine->GrabPreColorCorrectedFrame(op.I[0], op.I[1], op.I[2], op.I[3]);
+				m_Engines.m_pEngine->GrabPreColorCorrectedFrame(op.I[0], op.I[1], op.I[2], op.I[3]);
 				break;
 			case RENDER_OP_ToneMapScaleLinear:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->SetToneMappingScaleLinear(Vector(op.F[0], op.F[1], op.F[2]));
 				break;
 			}
 			case RENDER_OP_SaveRenderTarget:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				state.m_pSavedRenderTarget = ctx->GetRenderTarget();
 				break;
 			}
 			case RENDER_OP_SetRenderTargetSaved:
 			{
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->SetRenderTarget(state.m_pSavedRenderTarget);
 				break;
 			}
@@ -2121,7 +2140,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_Skybox3DAreaBits:
 			{
-				unsigned char** ppAreaBits = render->GetAreaBits();
+				unsigned char** ppAreaBits = m_Engines.m_pRender->GetAreaBits();
 				state.m_pSavedAreaBits = *ppAreaBits;
 				memset(state.m_AreaBits, 0, sizeof(state.m_AreaBits));
 				state.m_AreaBits[op.I[0] >> 3] |= 1 << (op.I[0] & 7);
@@ -2134,13 +2153,13 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			case RENDER_OP_ViewSetupVis:
 			{
 				Vector origin(op.F[0], op.F[1], op.F[2]);
-				render->ViewSetupVis(op.I[0] != 0, 1, &origin);
+				m_Engines.m_pRender->ViewSetupVis(op.I[0] != 0, 1, &origin);
 				break;
 			}
 			case RENDER_OP_SetUnderwaterOverlay:
 				if (state.m_szUnderwaterOverlay[0])
 					state.m_UnderWaterOverlay.Init(
-						materials->FindMaterial(state.m_szUnderwaterOverlay, TEXTURE_GROUP_OTHER));
+						m_Engines.m_pMaterials->FindMaterial(state.m_szUnderwaterOverlay, TEXTURE_GROUP_OTHER));
 				break;
 			case RENDER_OP_ClearUnderwaterOverlay:
 				state.m_UnderWaterOverlay.Shutdown();
@@ -2158,7 +2177,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				rect.y = op.I[1];
 				rect.width = op.I[2];
 				rect.height = op.I[3];
-				CMatRenderContextPtr ctx(materials);
+				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				ctx->CopyRenderTargetToTextureEx(ShellRenderTarget(SS_RT_Fullscreen), 0, &rect, &rect);
 				break;
 			}
@@ -2220,10 +2239,10 @@ void CViewExecutorImpl::DrawProgramEntity(CPlanView* pView, const SourceSharpRen
 	if (!pEnt)
 		return;
 	float* pClip = op.I[2] ? pEnt->GetRenderClipPlane() : NULL;
-	const bool bPushClip = pClip && !materials->UsingFastClipping();
+	const bool bPushClip = pClip && !m_Engines.m_pMaterials->UsingFastClipping();
 	if (bPushClip)
 	{
-		CMatRenderContextPtr ctx(materials);
+		CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 		ctx->PushCustomClipPlane(pClip);
 	}
 	// Unlike stock, no clipped depth box is drawn first under fast clipping
@@ -2231,7 +2250,7 @@ void CViewExecutorImpl::DrawProgramEntity(CPlanView* pView, const SourceSharpRen
 	pEnt->DrawModel(op.I[1]);
 	if (bPushClip)
 	{
-		CMatRenderContextPtr ctx(materials);
+		CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 		ctx->PopCustomClipPlane();
 	}
 }
@@ -2243,7 +2262,7 @@ void CViewExecutorImpl::FrameBufferForEntity(const SourceSharpRenderOp_t& op)
 	const bool bPow2 = op.I[0] != 0, bFull = op.I[1] != 0;
 	ITexture* rt;
 	{
-		CMatRenderContextPtr ctx(materials);
+		CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 		rt = ctx->GetRenderTarget();
 	}
 	if (op.I[2] == 0)
@@ -2280,7 +2299,7 @@ void CViewExecutorImpl::DebugQuad(const SourceSharpRenderOp_t& op)
 	const float h = op.I[1] ? (float)pMaterial->GetMappingHeight() : op.F[3];
 	const float s0 = op.F[4], t0 = op.F[5], s1 = op.F[6], t1 = op.F[7];
 
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->Bind(pMaterial);
 	IMesh* pMesh = pRenderContext->GetDynamicMesh(true);
 	CMeshBuilder meshBuilder;
@@ -2313,11 +2332,11 @@ ITexture* CViewExecutorImpl::PostTexture(int nTexture)
 		case 1:
 			return ShellRenderTarget(SS_RT_FullFrameFrameBuffer0);
 		case 2:
-			return materials->FindTexture("_rt_SmallFB0", TEXTURE_GROUP_RENDER_TARGET);
+			return m_Engines.m_pMaterials->FindTexture("_rt_SmallFB0", TEXTURE_GROUP_RENDER_TARGET);
 		case 3:
-			return materials->FindTexture("_rt_SmallFB1", TEXTURE_GROUP_RENDER_TARGET);
+			return m_Engines.m_pMaterials->FindTexture("_rt_SmallFB1", TEXTURE_GROUP_RENDER_TARGET);
 		case 4:
-			return materials->FindTexture("_rt_ResolvedFullFrameDepth", TEXTURE_GROUP_RENDER_TARGET);
+			return m_Engines.m_pMaterials->FindTexture("_rt_ResolvedFullFrameDepth", TEXTURE_GROUP_RENDER_TARGET);
 		default:
 			return NULL;
 	}
@@ -2332,7 +2351,7 @@ void CViewExecutorImpl::PostDumpTga(int nWidth, int nHeight, const char* pszName
 {
 	if (nWidth <= 0 || nHeight <= 0)
 		return;
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	const int nPixelBytes = nWidth * nHeight * 4;
 	uint8_t* pBlock = ss::ImageEncodeBlock(nPixelBytes);
 	if (!pBlock)
@@ -2341,7 +2360,8 @@ void CViewExecutorImpl::PostDumpTga(int nWidth, int nHeight, const char* pszName
 
 	// The TGA is encoded in managed code.
 	int nFileBytes = 0;
-	unsigned char* pFile = ss::ImageEncode(ss::kImageTgaRgba, nWidth, nHeight, false, pBlock, nPixelBytes, &nFileBytes);
+	unsigned char* pFile = ss::ImageEncode(m_Areas.m_pMaterialFilesClient, ss::kImageTgaRgba, nWidth, nHeight, false,
+										   pBlock, nPixelBytes, &nFileBytes);
 	free(pBlock);
 	if (!pFile)
 	{
@@ -2368,7 +2388,7 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 	if (!pManaged)
 		return false;
 	ExecutorState_t& state = State();
-	CMatRenderContextPtr ctx(materials);
+	CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 
 	SourceSharpPostInputs_t in;
 	V_memset(&in, 0, sizeof(in));
@@ -2380,9 +2400,9 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 	in.FlashlightOn = bFlashlight ? 1 : 0;
 	in.PostVGui = bPostVGui ? 1 : 0;
 	in.HdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
-	in.EngineDxLevel = engine->GetDXSupportLevel();
+	in.EngineDxLevel = m_Engines.m_pEngine->GetDXSupportLevel();
 	in.HardwareDxLevel = g_pMaterialSystemHardwareConfig->GetDXSupportLevel();
-	in.MapHasHdrLighting = engine->MapHasHDRLighting() ? 1 : 0;
+	in.MapHasHdrLighting = m_Engines.m_pEngine->MapHasHDRLighting() ? 1 : 0;
 	in.CanDoSrgbReadFromRts = g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0;
 	in.FakeSrgbWrite = g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ? 1 : 0;
 	in.SupportsPixelShaders20 = g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0;
@@ -2406,16 +2426,16 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 			in.TextureSize[2 * t + 1] = pTexture->GetActualHeight();
 		}
 	}
-	materials->GetBackBufferDimensions(in.BackBufferWidth, in.BackBufferHeight);
+	m_Engines.m_pMaterials->GetBackBufferDimensions(in.BackBufferWidth, in.BackBufferHeight);
 	in.UseCustomAutoExposureMin = g_bUseCustomAutoExposureMin ? 1 : 0;
 	in.UseCustomAutoExposureMax = g_bUseCustomAutoExposureMax ? 1 : 0;
 	in.UseCustomBloomScale = g_bUseCustomBloomScale ? 1 : 0;
 	in.CustomAutoExposureMin = g_flCustomAutoExposureMin;
 	in.CustomAutoExposureMax = g_flCustomAutoExposureMax;
 	in.CustomBloomScale = g_flCustomBloomScale;
-	in.RealTime = gpGlobals->realtime;
-	in.CurTime = gpGlobals->curtime;
-	in.FrameTime = gpGlobals->frametime;
+	in.RealTime = m_Engines.m_pGlobals->realtime;
+	in.CurTime = m_Engines.m_pGlobals->curtime;
+	in.FrameTime = m_Engines.m_pGlobals->frametime;
 	in.ToneScaleLinear = ctx->GetToneMappingScaleLinear().x;
 	for (int i = 0; i < 3; ++i)
 	{
@@ -2458,7 +2478,7 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 {
 	ExecutorState_t& state = State();
-	CMatRenderContextPtr ctx(materials);
+	CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 	switch (op.Kind)
 	{
 		case RENDER_OP_PostCopyScreenEffect:
@@ -2700,19 +2720,19 @@ void CViewExecutorImpl::DebugShowTexture(float flScale)
 	ConVarRef drawTexture("mat_drawTexture", true);
 	const char* pszTexture = drawTexture.IsValid() ? drawTexture.GetString() : NULL;
 	bool bFound = false;
-	IMaterial* pMaterial = materials->FindMaterial("___debug", TEXTURE_GROUP_OTHER, true);
+	IMaterial* pMaterial = m_Engines.m_pMaterials->FindMaterial("___debug", TEXTURE_GROUP_OTHER, true);
 	IMaterialVar* pBase = pMaterial->FindVar("$basetexture", &bFound, false);
 	if (!bFound)
 		return;
 	float w = 64.0f * flScale, h = 64.0f * flScale;
 	if (pszTexture && pszTexture[0])
 	{
-		ITexture* pTex = materials->FindTexture(pszTexture, TEXTURE_GROUP_OTHER, false);
+		ITexture* pTex = m_Engines.m_pMaterials->FindTexture(pszTexture, TEXTURE_GROUP_OTHER, false);
 		pBase->SetTextureValue(pTex);
 		w = pTex->GetActualWidth() * flScale;
 		h = pTex->GetActualHeight() * flScale;
 	}
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->Bind(pMaterial);
 	IMesh* pMesh = pRenderContext->GetDynamicMesh(true);
 	CMeshBuilder meshBuilder;
@@ -2883,7 +2903,7 @@ bool CViewExecutorImpl::ScreenshotView(const CViewSetup& eye, int nWidth, int nH
 void CViewExecutorImpl::FreezeFrame(float flFreezeTime)
 {
 	if (IManagedRenderClient* pManaged = m_Areas.m_pRenderClient)
-		pManaged->ViewFreezeFrame(flFreezeTime, gpGlobals->curtime);
+		pManaged->ViewFreezeFrame(flFreezeTime, m_Engines.m_pGlobals->curtime);
 }
 
 int CViewExecutorImpl::ActiveViewDrawFlags()
@@ -2932,9 +2952,9 @@ void CViewExecutorImpl::GatherViewSetUp(SourceSharpViewSetUpIn_t& in)
 void CViewExecutorImpl::GatherFrame(const vrect_t& rect, const CViewSetup& eye, SourceSharpRenderFrameIn_t& in)
 {
 	FromViewSetup(eye, in.Eye);
-	in.ScreenAspect = engine->GetScreenAspectRatio();
-	in.Windowed = engine->IsWindowedMode() ? 1 : 0;
-	in.MaxClients = gpGlobals->maxClients;
+	in.ScreenAspect = m_Engines.m_pEngine->GetScreenAspectRatio();
+	in.Windowed = m_Engines.m_pEngine->IsWindowedMode() ? 1 : 0;
+	in.MaxClients = m_Engines.m_pGlobals->maxClients;
 	in.RestrictAspectFov = (int32_t)CvarFloat("sv_restrict_aspect_ratio_fov");
 	in.ViewportScale = CvarFloat("mat_viewportscale");
 	in.GlClear = CvarFloat("gl_clear") != 0.0f ? 1 : 0;
@@ -2943,8 +2963,8 @@ void CViewExecutorImpl::GatherFrame(const vrect_t& rect, const CViewSetup& eye, 
 	if (IsPosix())
 	{
 		MaterialAdapterInfo_t adapterInfo;
-		materials->GetDisplayAdapterInfo(materials->GetCurrentAdapter(), adapterInfo);
-		if (adapterInfo.m_VendorID == 0x1002 && g_pMaterialSystem->GetCurrentConfigForVideoCard().m_nAASamples > 1)
+		m_Engines.m_pMaterials->GetDisplayAdapterInfo(m_Engines.m_pMaterials->GetCurrentAdapter(), adapterInfo);
+		if (adapterInfo.m_VendorID == 0x1002 && m_Engines.m_pMaterials->GetCurrentConfigForVideoCard().m_nAASamples > 1)
 			in.ClearColorForAntialiasing = 1;
 	}
 	in.ClientModeDrawViewModel = m_ClientMode.ShouldDrawViewModel() ? 1 : 0;
@@ -3009,8 +3029,8 @@ void CViewExecutorImpl::ViewRender(vrect_t* rect)
 	in.Y = rect->y;
 	in.Width = rect->width;
 	in.Height = rect->height;
-	in.FrameCount = gpGlobals->framecount;
-	in.CurTime = gpGlobals->curtime;
+	in.FrameCount = m_Engines.m_pGlobals->framecount;
+	in.CurTime = m_Engines.m_pGlobals->curtime;
 	in.LastPath = state.m_nLastPath;
 	in.LastRenderMs = state.m_flLastRenderMs;
 	GatherFrame(*rect, *view->GetPlayerViewSetup(), in);
@@ -3069,7 +3089,7 @@ CViewExecutorImpl& CViewExecutor::Impl()
 	{
 		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender,
 										m_Effects, m_Particles, m_DetailProps, m_Glow, m_PixelVis, m_Precipitation,
-										m_Shadows);
+										m_Shadows, m_HudUi, m_Cameras, m_ViewTargets, m_Engines);
 	}
 	return *m_pImpl;
 }

@@ -208,16 +208,7 @@ void SourceSharp_SlotUnbind(CSourceSharpSlotTable& table, int nEntry);
 
 #ifdef CLIENT_DLL
 
-class C_StandaloneEntity;
-
 // The client's table is CClientEntityList's (client_entity_list.h), a member of the client
-// DLL object. These answer through it; the first carries the client's one permitted
-// downcast.
-C_StandaloneEntity* SourceSharp_ClientShellFromHandle(const CBaseHandle& handle);
-C_StandaloneEntity* SourceSharp_ClientShellFromIndex(int nEntry);
-C_StandaloneEntity* SourceSharp_ClientShellFromHandleEntity(IHandleEntity* pHandleEntity);
-
-// A trace's m_pEnt to the shell it hit, or NULL (never a static prop).
-C_StandaloneEntity* SourceSharp_ClientShellFromTraceHit(IHandleEntity* pHandleEntity);
+// DLL object, which is where its resolvers are.
 
 #endif // CLIENT_DLL

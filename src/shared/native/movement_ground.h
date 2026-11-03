@@ -28,22 +28,6 @@
 // What a downward trace found to stand on, or NULL. A static prop is not an entity, so,
 // as in stock, standing on one reads as standing on nothing. The world is checked first.
 #if defined(CLIENT_DLL)
-inline IHandleEntity* MovementGroundFromTrace(const trace_t& tr)
-{
-	if (!tr.m_pEnt)
-		return NULL;
-
-	if (SourceSharp_IsTheWorld(ss::TraceHit(tr)))
-		return ss::TraceHit(tr);
-
-	// The client asks the slot table: its C_StandaloneEntity is no IGameEntity, so
-	// TraceGameEntity answers NULL there.
-	if (SourceSharp_ClientShellFromTraceHit(ss::TraceHit(tr)) != NULL)
-		return ss::TraceHit(tr);
-
-	return NULL;
-}
-
 // How fast the ground is moving, in world space. Zero: the client's ground is never a
 // game entity it can ask.
 inline Vector MovementGroundVelocity(IHandleEntity* pGround)

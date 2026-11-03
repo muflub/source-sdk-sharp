@@ -59,6 +59,10 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "iviewrender.h"
+#include "view_shared.h"
+
+#include "probe_accessors.h"
 #include "tier0/memdbgon.h"
 
 namespace
@@ -241,6 +245,7 @@ int FxProbeRandomInt(int iLow, int iHigh)
 #include "fx_quad.h"
 #include "clientsideeffects.h"
 #include "shareddefs.h"
+#include "client_entity_list.h"
 
 // The FX_* entries the probe build's effect probes call, carried to managed as they came.
 void FX_AddLine(const FXLineData_t& data)
@@ -317,8 +322,9 @@ namespace
 Vector Ahead(float flForward, float flRight, float flUp)
 {
 	Vector f, r, u;
-	AngleVectors(MainViewAngles(), &f, &r, &u);
-	return MainViewOrigin() + f * flForward + r * flRight + u * flUp;
+	const CViewSetup* pPlayerView = view->GetPlayerViewSetup();
+	AngleVectors(pPlayerView->angles, &f, &r, &u);
+	return pPlayerView->origin + f * flForward + r * flRight + u * flUp;
 }
 
 } // namespace
@@ -329,8 +335,10 @@ CON_COMMAND(cs_cl_probe_fxbattery,
 	if (FxProbeFd() < 0)
 		return;
 	const int nSet = args.ArgC() > 1 ? atoi(args.Arg(1)) : 0;
-	FxProbeLog("fxb-begin %d view=%.9g %.9g %.9g ang=%.9g %.9g %.9g", nSet, MainViewOrigin().x, MainViewOrigin().y,
-			   MainViewOrigin().z, MainViewAngles().x, MainViewAngles().y, MainViewAngles().z);
+	const CViewSetup* pPlayerView = view->GetPlayerViewSetup();
+	FxProbeLog("fxb-begin %d view=%.9g %.9g %.9g ang=%.9g %.9g %.9g", nSet, pPlayerView->origin.x,
+			   pPlayerView->origin.y, pPlayerView->origin.z, pPlayerView->angles.x, pPlayerView->angles.y,
+			   pPlayerView->angles.z);
 
 	// Lines: still, moving, alpha and scale ramps, two materials.
 	const char* pLineMats[] = {"effects/spark", "effects/gunshiptracer"};
@@ -440,7 +448,7 @@ CON_COMMAND(cs_cl_probe_fxshells,
 			CEffectData data;
 			data.m_vOrigin = Ahead(40.0f, 10.0f * n, -5.0f * o);
 			data.m_vAngles = QAngle(10.0f * o, 90.0f + 20.0f * n, 5.0f);
-			data.m_hEntity = owners[o] >= 0 ? SourceSharp_ClientHandleFromIndex(owners[o]) : INVALID_EHANDLE;
+			data.m_hEntity = owners[o] >= 0 ? ShellClientDll_EntityList().HandleFromIndex(owners[o]) : INVALID_EHANDLE;
 			ShellClientDll_TempEntsSystem().DispatchEffectToCallback(names[n], data);
 		}
 	}

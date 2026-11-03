@@ -37,11 +37,11 @@ inline unsigned char* ImageEncodePixels(uint8_t* pBlock)
 // not up or refused (the answer in *pnBytes). On the engine heap when
 // bEngineHeap (for a filesystem AsyncWrite, which frees with tier0's
 // allocator), else malloc()ed: free() it.
-inline unsigned char* ImageEncode(ImageFileKind_t eKind, int nWidth, int nHeight, bool bPadPowerOfTwo,
-								  const uint8_t* pBlock, int nPixelBytes, int* pnBytes, bool bEngineHeap = false)
+inline unsigned char* ImageEncode(IManagedMaterialFilesClient* pFiles, ImageFileKind_t eKind, int nWidth, int nHeight,
+								  bool bPadPowerOfTwo, const uint8_t* pBlock, int nPixelBytes, int* pnBytes,
+								  bool bEngineHeap = false)
 {
 	*pnBytes = -1;
-	IManagedMaterialFilesClient* pFiles = ManagedMaterialFilesClient();
 	if (!pFiles)
 		return NULL;
 	const int nBlockBytes = kBitBlockHeaderBytes + nPixelBytes;

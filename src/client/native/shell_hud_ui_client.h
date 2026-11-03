@@ -16,14 +16,17 @@
 
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
 class CSourceSharpClientMode;
 class CSourceSharpRawPanel;
 
 class CHudUiClient
 {
 public:
-	CHudUiClient(const CManagedAreasClient& areas, CSourceSharpClientMode& clientMode)
+	CHudUiClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+				 CSourceSharpClientMode& clientMode)
 		: m_Areas(areas)
+		, m_Engines(engines)
 		, m_ClientMode(clientMode)
 	{
 	}
@@ -46,6 +49,9 @@ public:
 	void SetMenuRoot(CSourceSharpRawPanel* pRoot) { m_pMenuRoot = pRoot; }
 
 	void MenuRootFollowGameUI();
+
+	// The loading and pause plaque's facts to managed, once a frame when they change.
+	void PlaquePreRender();
 
 	// IShimUiClient.
 	void UiDrawFilledRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba);
@@ -75,6 +81,7 @@ private:
 	void RefreshRefractFor(int32_t nTexture);
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 	CSourceSharpClientMode& m_ClientMode;
 
 	// The paint window, and the clip the open panel's traversal set, restored when managed
@@ -93,4 +100,9 @@ private:
 
 	int m_Additive[kMaxTextures] = {};
 	int m_nAdditive = 0;
+
+	// The plaque's facts as managed last heard them; the seconds left on a timed pause, -1
+	// without a timer.
+	int m_nPlaqueFacts = -1;
+	int m_nPausedSeconds = -1;
 };

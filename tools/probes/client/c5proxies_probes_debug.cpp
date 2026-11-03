@@ -82,6 +82,7 @@
 #include <unistd.h>
 
 #include "tier0/memdbgon.h"
+#include "client_entity_list.h"
 
 namespace
 {
@@ -662,7 +663,7 @@ public:
 			nAlpha = SourceSharp_RenderAlphaOfUnknown(pUnk);
 			nNpc = SourceSharp_RenderableIsNpc(pArg);
 		}
-		const Vector& vView = CurrentViewOrigin();
+		const Vector& vView = view->GetViewSetup()->origin;
 		float flStart = 0, flEnd = 0;
 		if (view)
 			view->GetWaterLODParams(flStart, flEnd);
@@ -994,13 +995,13 @@ void RunSceneTick()
 	IClientRenderable* pRends[4] = {NULL, NULL, NULL, NULL};
 	int nRends = 0;
 	pRends[nRends++] = NULL;
-	IClientEntity* pLocal = SourceSharp_ClientEntityFromIndex(engine->GetLocalPlayer());
+	IClientEntity* pLocal = ShellClientDll_EntityList().EntityFromIndex(engine->GetLocalPlayer());
 	if (pLocal && pLocal->GetClientRenderable())
 		pRends[nRends++] = pLocal->GetClientRenderable();
 	for (int tries = 0; tries < 64; ++tries)
 	{
 		const int e = 1 + ((k * 7 + tries) % 63);
-		IClientEntity* pEnt = SourceSharp_ClientEntityFromIndex(e);
+		IClientEntity* pEnt = ShellClientDll_EntityList().EntityFromIndex(e);
 		if (pEnt && pEnt->GetClientRenderable())
 		{
 			pRends[nRends++] = pEnt->GetClientRenderable();

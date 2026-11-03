@@ -12,8 +12,12 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #include "shell_clientsystem.h"
 #include "shell_managed_areas_client.h"
+
+class CViewCameras;
 
 class C_SoundscapeSystem final : public CClientSystemPerFrame
 {
@@ -30,4 +34,27 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+};
+
+// The soundscape shim slots: what the managed system asks of the engine's sound and the view.
+class CClientEngineInterfaces;
+
+class CSoundscapeAudioClient final
+{
+public:
+	CSoundscapeAudioClient(const CClientEngineInterfaces& engines, const CViewCameras& cameras)
+		: m_Engines(engines)
+		, m_Cameras(cameras)
+	{
+	}
+
+	void SoundscapeSetRoomType(int32_t nRoomType);
+	void SoundscapeSetPlayerDsp(int32_t nDspType);
+	void SoundscapeMainView(float* pOut9);
+	int32_t SoundscapeMakingResLists();
+	void SoundscapeTouchSoundFile(const char* pszWave);
+
+private:
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 };

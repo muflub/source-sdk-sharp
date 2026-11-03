@@ -22,6 +22,7 @@
 
 #include "bound_callback.h"
 #include "shell_managed_areas_client.h"
+#include "shell_member_command.h"
 
 class CSourceSharpTempEnt;
 class IClientNetworkable;
@@ -48,6 +49,11 @@ public:
 	void TempEntClientCloseRegistration();
 
 private:
+	void DumpCommand(const CCommand& args) { Dump((args.ArgC() > 1) ? args[1] : NULL); }
+
+	CMemberCommand<CTempEntTablesClient, &CTempEntTablesClient::DumpCommand> m_DumpCommand{
+		*this, "cs_cl_te_dump", "Every registered temp entity: its props as the ENGINE holds them", 0};
+
 	// The managed registry refuses past the same bound (TePropPlanner.MaxClasses).
 	enum
 	{
@@ -82,6 +88,3 @@ private:
 	// Names the engine keeps by pointer. A std::set node never moves, so c_str() stays valid.
 	std::set<std::string> m_Names;
 };
-
-// cs_cl_te_dump has no context. Defined in shell_clientdll.cpp.
-CTempEntTablesClient& ShellClientDll_TempEntTables();

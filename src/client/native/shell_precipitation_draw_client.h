@@ -12,11 +12,17 @@
 
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+class CViewCameras;
+
 class CPrecipitationClient
 {
 public:
-	explicit CPrecipitationClient(const CManagedAreasClient& areas)
+	CPrecipitationClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						 const CViewCameras& cameras)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Cameras(cameras)
 	{
 	}
 
@@ -32,6 +38,8 @@ private:
 	struct Plan_t;
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CViewCameras& m_Cameras;
 
 	// Made at the first draw: the plan's buffers are megabytes.
 	Plan_t* m_pPlan = nullptr;

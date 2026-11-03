@@ -19,20 +19,19 @@
 #include "hud.h"
 
 #include "GameEventListener.h"
-
-extern IClientMode* GetClientModeNormal();
+#include "shell_client_mode.h"
+#include "shell_client_engine_interfaces.h"
 
 // Facts for managed code's VGUIMenu handler: bit 0, the viewport has a panel by
 // that name; bit 1, the client mode allows the info (MOTD) panel now.
-int32_t SourceSharp_ClientViewportQuery(const char* pszPanel)
+int32_t CSourceSharpClientMode::ClientViewportQuery(const char* pszPanel)
 {
 	int32_t nFacts = 0;
 
 	if (gViewPortInterface && pszPanel && gViewPortInterface->FindPanelByName(pszPanel))
 		nFacts |= 1;
 
-	IClientMode* pMode = GetClientModeNormal();
-	if (pMode && pMode->IsInfoPanelAllowed())
+	if (IsInfoPanelAllowed())
 		nFacts |= 2;
 
 	return nFacts;
@@ -42,8 +41,8 @@ int32_t SourceSharp_ClientViewportQuery(const char* pszPanel)
 // 1 hand the panel its data (pPairs: name, NUL, value, NUL, ...), 2 take a
 // screenshot in a second, 4 fire ds_screenshot client side, 8 tell the client
 // mode the info panel was shown, 16 show (or hide, by bShow) the panel.
-void SourceSharp_ClientViewportShow(const char* pszPanel, int32_t bShow, const unsigned char* pPairs,
-									int32_t nPairBytes, int32_t nFlags)
+void CSourceSharpClientMode::ClientViewportShow(const char* pszPanel, int32_t bShow, const unsigned char* pPairs,
+												int32_t nPairBytes, int32_t nFlags)
 {
 	if (!gViewPortInterface || !pszPanel)
 		return;
@@ -74,21 +73,20 @@ void SourceSharp_ClientViewportShow(const char* pszPanel, int32_t bShow, const u
 	}
 
 	if (nFlags & 2)
-		gHUD.SetScreenShotTime(gpGlobals->curtime + 1.0f);
+		gHUD.SetScreenShotTime(m_Engines.m_pGlobals->curtime + 1.0f);
 
 	if (nFlags & 4)
 	{
-		if (IGameEvent* pEvent = gameeventmanager ? gameeventmanager->CreateEvent("ds_screenshot") : NULL)
+		if (IGameEvent* pEvent = gameeventmanager ? m_Engines.m_pEvents->CreateEvent("ds_screenshot") : NULL)
 		{
 			pEvent->SetFloat("delay", 0.5f);
-			gameeventmanager->FireEventClientSide(pEvent);
+			m_Engines.m_pEvents->FireEventClientSide(pEvent);
 		}
 	}
 
 	if (nFlags & 8)
 	{
-		if (IClientMode* pMode = GetClientModeNormal())
-			pMode->InfoPanelDisplayed();
+		InfoPanelDisplayed();
 	}
 
 	if (nFlags & 16)

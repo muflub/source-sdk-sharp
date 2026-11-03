@@ -164,6 +164,7 @@ if(SS_CONFIG STREQUAL "debug" AND SS_DT_PROBES)
 endif()
 option(SS_CLIENT_PROBES "debug client.so: compile the C0 probes (tools/probes/client)" OFF)
 if(SS_CONFIG STREQUAL "debug" AND SS_CLIENT_PROBES)
+  target_compile_definitions(client_sourcesharp PRIVATE SS_CLIENT_PROBES)
   target_sources(client_sourcesharp PRIVATE
       ${PROJECT_SOURCE_DIR}/tools/probes/client/c2sims_probes_debug.cpp
       ${PROJECT_SOURCE_DIR}/tools/probes/client/c5particles_probes_debug.cpp

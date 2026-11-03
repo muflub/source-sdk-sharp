@@ -479,6 +479,9 @@ def generate():
         else:
             c.append('\tCShim%s m_%s;' % (short(i), short(i)))
     c += ['};', '',
+          '// The first delegate or owned area the client DLL object has not set, or NULL: a slot',
+          '// through it would call NULL. Asked in Init, before managed can acquire an area.',
+          'const char *ShimAreasClient_FirstUnset( const CShimAreasClient &areas );', '',
           '// The client factory\'s rows: each shared base by its own version string.',
           'void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );',
           '', '#endif // CLIENT_DLL', '', '']
@@ -537,6 +540,21 @@ def generate():
             cim.append(decl(ret, 'CShim%s::%s' % (short(i), s), params, ''))
             cim.append('\t{ return %s; }' % forward_call(fill[s], args))
         cim.append('')
+    # A delegated or owned slot calls through a pointer the client DLL object sets; one left
+    # unset is a NULL call at the slot's first use, so Init asks this first and names it.
+    cim += ['const char *ShimAreasClient_FirstUnset( const CShimAreasClient &areas )', '{']
+    for i in client_bases + client_only:
+        area_slots = client_slots[i] if i in client_only else slots[i]
+        member_fill = fill if i in client_only else client_fill
+        if client_owned.get(i):
+            cim += ['\tif ( !areas.m_p%s )' % short(i), '\t\treturn "m_p%s";' % short(i)]
+            continue
+        area = short(i)
+        for line in delegate_members(area_slots, member_fill):
+            m = re.search(r'(m_p\w+) = nullptr;', line)
+            if m:
+                cim += ['\tif ( !areas.m_%s.%s )' % (area, m.group(1)), '\t\treturn "m_%s.%s";' % (area, m.group(1))]
+    cim += ['\treturn NULL;', '}', '']
     cim += ['void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName )', '{',
             '\tif ( !pszName )', '\t\treturn NULL;', '']
     for i in client_bases + client_only:
@@ -1110,8 +1128,8 @@ def self_test():
     # plan_client_vtables CB: the client's shared bases.
     expect('the client implements a shared base, forwarding to its own body where it differs',
            'class CShimModelsClient final : public IShimModels' in gen[OUT_CLASSES]
-           and 'CShimModelsClient::EntityGetModelName' in gen[OUT_IMPL_CLIENT]
-           and '::SourceSharp_ClientEntityGetModelName(' in gen[OUT_IMPL_CLIENT])
+           and 'CShimModelsClient::EntitiesInvalidateMdlCacheAll' in gen[OUT_IMPL_CLIENT]
+           and '::SourceSharp_ClientEntitiesInvalidateMdlCacheAll(' in gen[OUT_IMPL_CLIENT])
     expect('the server and client forwards are separate files, each included on its own side',
            'CShimModelsClient::' not in gen[OUT_IMPL] and 'CShimModelsServer::' not in gen[OUT_IMPL_CLIENT]
            and 'CShimModelsClient::EntityGetModelName' in gen[OUT_IMPL_CLIENT])
@@ -1333,6 +1351,10 @@ def self_test():
            and 'm_pToyLight->Texture(' in dgen[OUT_IMPL_CLIENT]
            and '::SourceSharp_FlashlightSupportsBorderColor(' in dgen[OUT_IMPL_CLIENT]
            and 'm_pToyLight' not in gen[OUT_CLASSES])
+    expect('a delegated slot\'s pointer is one the client DLL object\'s Init is told it never set',
+           'if ( !areas.m_FlashlightClient.m_pToyLight )' in dgen[OUT_IMPL_CLIENT]
+           and 'return "m_FlashlightClient.m_pToyLight";' in dgen[OUT_IMPL_CLIENT]
+           and 'm_pToyLight' not in gen[OUT_IMPL_CLIENT])
     expect('a delegated class with no row in %s is refused' % OWNER_HEADERS, no_header)
     expect('an interface missing from both headers is refused',
            any('IShimEngine' in p and 'no abstract_class' in p

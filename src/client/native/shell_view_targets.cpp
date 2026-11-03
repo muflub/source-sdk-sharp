@@ -28,6 +28,8 @@
 
 #include "sourcesharp_entrypoints.h"
 #include "shell_view_targets.h"
+#include "shell_client_mode.h"
+#include "shell_client_engine_interfaces.h"
 
 // The layout ViewTargetSetup.cs mirrors.
 COMPILE_TIME_ASSERT(sizeof(SourceSharpViewTargetSetup) == 64);
@@ -40,29 +42,11 @@ namespace
 {
 // Square; the view is drawn into its top left at the width and height asked
 // for, up to this.
-const int kViewTargets = 1;
 const int kViewTargetSize = 512;
 
 // Stock's sizes for the engine's three (CBaseClientRenderTargets' defaults).
 const int kWaterTextureSize = 1024;
 const int kCameraTextureSize = 256;
-
-struct ViewTarget
-{
-	ITexture* pTexture;
-	IMaterial* pMaterial; // UnlitGeneric over the texture, for vgui
-	int nVguiTexture; // 0 until the UI first asks
-	bool bPending;
-	SourceSharpViewTargetSetup Setup;
-	int nRenders;
-};
-
-// Zero-initialised PODs: no static initialiser.
-ViewTarget g_ViewTargets[kViewTargets];
-ITexture* g_pWaterReflection;
-ITexture* g_pWaterRefraction;
-ITexture* g_pCamera;
-bool g_bRenderingViewTarget;
 
 void Release(ITexture*& pTexture)
 {
@@ -84,77 +68,57 @@ void TargetName(int nTarget, char* pOut, int nOut)
 }
 }
 
-// The engine's interface, restated as it calls it: two slots, no base, no
-// destructor. The engine passes no sizes.
-abstract_class IClientRenderTargets
+void CViewTargetsClient::InitClientRenderTargets(IMaterialSystem* pMaterialSystem,
+												 IMaterialSystemHardwareConfig* pHardwareConfig)
 {
-public:
-	virtual void InitClientRenderTargets(IMaterialSystem * pMaterialSystem,
-										 IMaterialSystemHardwareConfig * pHardwareConfig) = 0;
-	virtual void ShutdownClientRenderTargets() = 0;
-};
+	const int iWaterTextureSize = kWaterTextureSize;
+	const int iCameraTextureSize = kCameraTextureSize;
 
-#define CLIENTRENDERTARGETS_INTERFACE_VERSION "ClientRenderTargets001"
+	// Exporting this interface stops the engine making these three, and the water
+	// and point_camera monitors read them by name.
+	m_pWaterReflection = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
+		"_rt_WaterReflection", iWaterTextureSize, iWaterTextureSize, RT_SIZE_PICMIP,
+		pMaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT,
+		CREATERENDERTARGETFLAGS_HDR));
+	m_pWaterRefraction = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
+		"_rt_WaterRefraction", iWaterTextureSize, iWaterTextureSize, RT_SIZE_PICMIP, IMAGE_FORMAT_RGBA8888,
+		MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, CREATERENDERTARGETFLAGS_HDR));
+	m_pCamera = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
+		"_rt_Camera", iCameraTextureSize, iCameraTextureSize, RT_SIZE_DEFAULT, pMaterialSystem->GetBackBufferFormat(),
+		MATERIAL_RT_DEPTH_SHARED, 0, CREATERENDERTARGETFLAGS_HDR));
 
-class CSourceSharpRenderTargets : public IClientRenderTargets
+	// A depth buffer of its own: a shared one is the back buffer's, and a window
+	// smaller than the target would leave it none.
+	for (int i = 0; i < kViewTargets; i++)
+	{
+		char szName[32];
+		TargetName(i, szName, sizeof(szName));
+		m_Targets[i].pTexture = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
+			szName, kViewTargetSize, kViewTargetSize, RT_SIZE_LITERAL, pMaterialSystem->GetBackBufferFormat(),
+			MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, CREATERENDERTARGETFLAGS_HDR));
+	}
+}
+
+void CViewTargetsClient::ShutdownClientRenderTargets()
 {
-public:
-	virtual void InitClientRenderTargets(IMaterialSystem* pMaterialSystem,
-										 IMaterialSystemHardwareConfig* pHardwareConfig) OVERRIDE
+	Release(m_pWaterReflection);
+	Release(m_pWaterRefraction);
+	Release(m_pCamera);
+	for (int i = 0; i < kViewTargets; i++)
 	{
-		const int iWaterTextureSize = kWaterTextureSize;
-		const int iCameraTextureSize = kCameraTextureSize;
-
-		// Exporting this interface stops the engine making these three, and the water
-		// and point_camera monitors read them by name.
-		g_pWaterReflection = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
-			"_rt_WaterReflection", iWaterTextureSize, iWaterTextureSize, RT_SIZE_PICMIP,
-			pMaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT,
-			CREATERENDERTARGETFLAGS_HDR));
-		g_pWaterRefraction = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
-			"_rt_WaterRefraction", iWaterTextureSize, iWaterTextureSize, RT_SIZE_PICMIP, IMAGE_FORMAT_RGBA8888,
-			MATERIAL_RT_DEPTH_SHARED, TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, CREATERENDERTARGETFLAGS_HDR));
-		g_pCamera = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
-			"_rt_Camera", iCameraTextureSize, iCameraTextureSize, RT_SIZE_DEFAULT,
-			pMaterialSystem->GetBackBufferFormat(), MATERIAL_RT_DEPTH_SHARED, 0, CREATERENDERTARGETFLAGS_HDR));
-
-		// A depth buffer of its own: a shared one is the back buffer's, and a window
-		// smaller than the target would leave it none.
-		for (int i = 0; i < kViewTargets; i++)
-		{
-			char szName[32];
-			TargetName(i, szName, sizeof(szName));
-			g_ViewTargets[i].pTexture = Hold(pMaterialSystem->CreateNamedRenderTargetTextureEx2(
-				szName, kViewTargetSize, kViewTargetSize, RT_SIZE_LITERAL, pMaterialSystem->GetBackBufferFormat(),
-				MATERIAL_RT_DEPTH_SEPARATE, TEXTUREFLAGS_CLAMPS | TEXTUREFLAGS_CLAMPT, CREATERENDERTARGETFLAGS_HDR));
-		}
+		Release(m_Targets[i].pTexture);
+		m_Targets[i].bPending = false;
 	}
-
-	virtual void ShutdownClientRenderTargets() OVERRIDE
-	{
-		Release(g_pWaterReflection);
-		Release(g_pWaterRefraction);
-		Release(g_pCamera);
-		for (int i = 0; i < kViewTargets; i++)
-		{
-			Release(g_ViewTargets[i].pTexture);
-			g_ViewTargets[i].bPending = false;
-		}
-	}
-};
-
-static CSourceSharpRenderTargets s_RenderTargets;
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CSourceSharpRenderTargets, IClientRenderTargets,
-								  CLIENTRENDERTARGETS_INTERFACE_VERSION, s_RenderTargets);
+}
 
 // Queues one view for this frame: 1 queued, 0 refused (no such target, never
 // made, or a size outside it). A second request in a frame replaces the first.
-int32_t SourceSharp_RenderViewToTarget(int32_t nTarget, const SourceSharpViewTargetSetup* pSetup)
+int32_t CViewTargetsClient::RenderViewToTarget(int32_t nTarget, const SourceSharpViewTargetSetup* pSetup)
 {
 	if (!pSetup || nTarget < 0 || nTarget >= kViewTargets)
 		return 0;
 
-	ViewTarget& t = g_ViewTargets[nTarget];
+	ViewTarget& t = m_Targets[nTarget];
 	if (!t.pTexture || t.pTexture->IsError())
 		return 0;
 
@@ -169,18 +133,18 @@ int32_t SourceSharp_RenderViewToTarget(int32_t nTarget, const SourceSharpViewTar
 
 // Width, height, the vgui texture id over the target (made on first ask), and
 // the views drawn into it since load. 0 for no such target.
-int32_t SourceSharp_ViewTargetInfo(int32_t nTarget, int32_t* pOut4)
+int32_t CViewTargetsClient::ViewTargetInfo(int32_t nTarget, int32_t* pOut4)
 {
 	if (!pOut4 || nTarget < 0 || nTarget >= kViewTargets)
 		return 0;
 
 	pOut4[0] = pOut4[1] = pOut4[2] = pOut4[3] = 0;
 
-	ViewTarget& t = g_ViewTargets[nTarget];
+	ViewTarget& t = m_Targets[nTarget];
 	if (!t.pTexture || t.pTexture->IsError())
 		return 0;
 
-	if (t.nVguiTexture == 0 && g_pMatSystemSurface && materials)
+	if (t.nVguiTexture == 0 && g_pMatSystemSurface && m_Engines.m_pMaterials)
 	{
 		char szTarget[32], szMaterial[48];
 		TargetName(nTarget, szTarget, sizeof(szTarget));
@@ -194,7 +158,7 @@ int32_t SourceSharp_ViewTargetInfo(int32_t nTarget, int32_t* pOut4)
 		pKeys->SetInt("$ignorez", 1);
 		pKeys->SetInt("$no_fullbright", 1);
 		pKeys->SetInt("$nolod", 1);
-		t.pMaterial = materials->CreateMaterial(szMaterial, pKeys);
+		t.pMaterial = m_Engines.m_pMaterials->CreateMaterial(szMaterial, pKeys);
 		if (t.pMaterial)
 		{
 			t.pMaterial->IncrementReferenceCount();
@@ -210,27 +174,27 @@ int32_t SourceSharp_ViewTargetInfo(int32_t nTarget, int32_t* pOut4)
 	return 1;
 }
 
-ITexture* ShellViewTargets_Texture(int nTarget)
+ITexture* CViewTargetsClient::Texture(int nTarget)
 {
 	if (nTarget < 0 || nTarget >= kViewTargets)
 		return NULL;
-	ITexture* pTexture = g_ViewTargets[nTarget].pTexture;
+	ITexture* pTexture = m_Targets[nTarget].pTexture;
 	return (pTexture && !pTexture->IsError()) ? pTexture : NULL;
 }
 
-void ShellViewTargets_NoteDrawn(int nTarget)
+void CViewTargetsClient::NoteDrawn(int nTarget)
 {
 	if (nTarget >= 0 && nTarget < kViewTargets)
-		g_ViewTargets[nTarget].nRenders++;
+		m_Targets[nTarget].nRenders++;
 }
 
 // Draws every queued view into its target through the client's own RenderView.
-void ShellViewTargets_RenderQueued()
+void CViewTargetsClient::RenderQueued(CSourceSharpClientMode& clientMode)
 {
-	if (g_bRenderingViewTarget || !view || !materials)
+	if (m_bRendering || !view || !m_Engines.m_pMaterials)
 		return;
 
-	g_bRenderingViewTarget = true;
+	m_bRendering = true;
 
 	// Pixel visibility is off for a second view: RenderView draws as VIEW_MAIN, and
 	// a second main view would re-issue each glow's query and answer the main view's
@@ -242,7 +206,7 @@ void ShellViewTargets_RenderQueued()
 
 	for (int i = 0; i < kViewTargets; i++)
 	{
-		ViewTarget& t = g_ViewTargets[i];
+		ViewTarget& t = m_Targets[i];
 		if (!t.bPending)
 			continue;
 		t.bPending = false;
@@ -273,20 +237,20 @@ void ShellViewTargets_RenderQueued()
 		v.m_bCacheFullSceneState = false;
 
 		const bool bViewer = (s.Flags & SOURCESHARP_VIEWTARGET_DRAW_VIEWER) != 0;
-		const bool bWasSeen = bViewer ? ShellClient_ViewerSeenBegin() : false;
+		const bool bWasSeen = bViewer ? clientMode.ViewerSeenBegin() : false;
 
-		CMatRenderContextPtr pRenderContext(materials);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->PushRenderTargetAndViewport(t.pTexture, 0, 0, s.Width, s.Height);
 		pRenderContext.SafeRelease();
 
 		view->RenderView(v, VIEW_CLEAR_COLOR | VIEW_CLEAR_DEPTH, RENDERVIEW_SUPPRESSMONITORRENDERING);
 
-		pRenderContext.GetFrom(materials);
+		pRenderContext.GetFrom(m_Engines.m_pMaterials);
 		pRenderContext->PopRenderTargetAndViewport();
 		pRenderContext.SafeRelease();
 
 		if (bViewer)
-			ShellClient_ViewerSeenEnd(bWasSeen);
+			clientMode.ViewerSeenEnd(bWasSeen);
 
 		t.nRenders++;
 	}
@@ -294,5 +258,5 @@ void ShellViewTargets_RenderQueued()
 	if (bPixelVisibility)
 		s_PixelVisibility.SetValue(1);
 
-	g_bRenderingViewTarget = false;
+	m_bRendering = false;
 }

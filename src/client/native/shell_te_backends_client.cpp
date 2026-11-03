@@ -39,6 +39,11 @@
 
 #include "shell_te_backend_args.h"
 #include "shell_te_system_client.h"
+#include "client_entity_list.h"
+#include "shell_standalone_clients.h"
+#include "shell_te_commands_client.h"
+#include "shell_view_cameras.h"
+#include "shell_client_engine_interfaces.h"
 
 using namespace TeBackendArgs;
 
@@ -147,15 +152,15 @@ static const model_t* DecalEntityModel(IClientEntity* pEntity)
 // A decal on the world, a brush model or a static prop. The entity is resolved
 // here because DecalShoot wants a model_t*, which does not cross; it answers for
 // either hierarchy, and entity 0 is the world. Callers test r_decals first.
-void SourceSharp_ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const float* pPositionXYZ,
-								  const float* pSAxisXYZ, int32_t nFlags)
+void CStandaloneClients::ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const float* pPositionXYZ,
+										  const float* pSAxisXYZ, int32_t nFlags)
 {
 	const DecalRequest req = DecalShoot(nDecalIndex, nEntity, pPositionXYZ, pSAxisXYZ, nFlags);
 
 	if (!req.bDraw || !effects)
 		return;
 
-	IClientEntity* pEntity = SourceSharp_ClientEntityFromIndex(req.nEntity);
+	IClientEntity* pEntity = EntityList().EntityFromIndex(req.nEntity);
 
 	if (!pEntity)
 	{
@@ -167,8 +172,9 @@ void SourceSharp_ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const fl
 	const Vector vecPosition(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z);
 	const Vector vecSAxis(req.vecSAxis.x, req.vecSAxis.y, req.vecSAxis.z);
 
-	effects->DecalShoot(req.nDecalIndex, req.nEntity, DecalEntityModel(pEntity), pEntity->GetAbsOrigin(),
-						pEntity->GetAbsAngles(), vecPosition, req.bHasSAxis ? &vecSAxis : NULL, req.nFlags);
+	m_Engines.m_pEffects->DecalShoot(req.nDecalIndex, req.nEntity, DecalEntityModel(pEntity), pEntity->GetAbsOrigin(),
+									 pEntity->GetAbsAngles(), vecPosition, req.bHasSAxis ? &vecSAxis : NULL,
+									 req.nFlags);
 }
 
 // Managed reads the logo CRC off player_info_t at this offset.
@@ -178,23 +184,23 @@ COMPILE_TIME_ASSERT(offsetof(player_info_t, customFiles) == 112);
 // managed's; this finds both by name (a name that does not resolve draws
 // nothing), points the logo material at the player's texture, and shoots the
 // decal on the entity.
-void SourceSharp_ClientPlayerLogoDecal(const float* pPositionXYZ, int32_t nPlayer, int32_t nEntity,
-									   const char* pszMaterial, const char* pszTexture)
+void CStandaloneClients::ClientPlayerLogoDecal(const float* pPositionXYZ, int32_t nPlayer, int32_t nEntity,
+											   const char* pszMaterial, const char* pszTexture)
 {
-	if (!pPositionXYZ || !pszMaterial || !pszTexture || !effects || !materials)
+	if (!pPositionXYZ || !pszMaterial || !pszTexture || !effects || !m_Engines.m_pMaterials)
 		return;
 
-	IClientEntity* pEntity = SourceSharp_ClientEntityFromIndex(nEntity);
+	IClientEntity* pEntity = EntityList().EntityFromIndex(nEntity);
 
 	if (!pEntity)
 		return;
 
-	IMaterial* pLogo = materials->FindMaterial(pszMaterial, TEXTURE_GROUP_DECAL);
+	IMaterial* pLogo = m_Engines.m_pMaterials->FindMaterial(pszMaterial, TEXTURE_GROUP_DECAL);
 
 	if (IsErrorMaterial(pLogo))
 		return;
 
-	ITexture* pTexture = materials->FindTexture(pszTexture, TEXTURE_GROUP_DECAL);
+	ITexture* pTexture = m_Engines.m_pMaterials->FindTexture(pszTexture, TEXTURE_GROUP_DECAL);
 
 	if (IsErrorTexture(pTexture))
 		return;
@@ -211,9 +217,9 @@ void SourceSharp_ClientPlayerLogoDecal(const float* pPositionXYZ, int32_t nPlaye
 
 	const color32 rgbaColour = {255, 255, 255, 255};
 
-	effects->PlayerDecalShoot(pLogo, (void*)(intp)nPlayer, nEntity, pEntity->GetModel(), pEntity->GetAbsOrigin(),
-							  pEntity->GetAbsAngles(), Vector(pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2]), 0, 0,
-							  rgbaColour);
+	m_Engines.m_pEffects->PlayerDecalShoot(pLogo, (void*)(intp)nPlayer, nEntity, pEntity->GetModel(),
+										   pEntity->GetAbsOrigin(), pEntity->GetAbsAngles(),
+										   Vector(pPositionXYZ[0], pPositionXYZ[1], pPositionXYZ[2]), 0, 0, rgbaColour);
 }
 
 // Unused: sprays end in SourceSharp_ClientPlayerLogoDecal. Kept because the
@@ -222,22 +228,22 @@ void SourceSharp_ClientPlayerDecalShoot(const float*, int32_t, int32_t) {}
 
 // A decal's index from its name in the engine's table, or -1 for a name the
 // engine does not know.
-int32_t SourceSharp_ClientDecalIndexFromName(const char* pName)
+int32_t CStandaloneClients::ClientDecalIndexFromName(const char* pName)
 {
 	if (!pName || !pName[0] || !effects)
 		return -1;
 
-	return effects->Draw_DecalIndexFromName((char*)pName);
+	return m_Engines.m_pEffects->Draw_DecalIndexFromName((char*)pName);
 }
 
 // A decal on a static prop. The trace is out-only, and bDoTrace is false as at
 // both of stock's call sites.
-void SourceSharp_ClientDecalStaticProp(const float* pStartXYZ, const float* pEndXYZ, int32_t nStaticPropIndex,
-									   int32_t nDecalIndex)
+void CStandaloneClients::ClientDecalStaticProp(const float* pStartXYZ, const float* pEndXYZ, int32_t nStaticPropIndex,
+											   int32_t nDecalIndex)
 {
 	const StaticPropDecalRequest req = DecalStaticProp(pStartXYZ, pEndXYZ, nStaticPropIndex, nDecalIndex);
 
-	if (!req.bDraw || !staticpropmgr)
+	if (!req.bDraw || !m_Engines.m_pStaticProps)
 		return;
 
 	// r_decals is not checked: neither of stock's callers tests it here.
@@ -245,7 +251,7 @@ void SourceSharp_ClientDecalStaticProp(const float* pStartXYZ, const float* pEnd
 	const Vector vecEnd(req.vecEnd.x, req.vecEnd.y, req.vecEnd.z);
 
 	trace_t tr;
-	staticpropmgr->AddDecalToStaticProp(vecStart, vecEnd, req.nStaticPropIndex, req.nDecalIndex, false, tr);
+	m_Engines.m_pStaticProps->AddDecalToStaticProp(vecStart, vecEnd, req.nStaticPropIndex, req.nDecalIndex, false, tr);
 }
 
 // A decal's name from its index, from the game's decal table (decalsystem), not
@@ -264,12 +270,12 @@ int32_t SourceSharp_ClientDecalNameFromIndex(int32_t nDecalIndex, char* pOut, in
 
 // A client entity's model type (modtype_t numbering), or -1 for no entity, no
 // model or no modelinfo; -1 is distinct from mod_bad.
-int32_t SourceSharp_ClientEntityModelType(int32_t nEntity)
+int32_t CStandaloneClients::ClientEntityModelType(int32_t nEntity)
 {
-	if (nEntity < 0 || !modelinfo)
+	if (nEntity < 0 || !m_Engines.m_pModelInfo)
 		return -1;
 
-	IClientEntity* pEntity = SourceSharp_ClientEntityFromIndex(nEntity);
+	IClientEntity* pEntity = EntityList().EntityFromIndex(nEntity);
 
 	if (!pEntity)
 		return -1;
@@ -280,22 +286,22 @@ int32_t SourceSharp_ClientEntityModelType(int32_t nEntity)
 		return -1;
 
 	// Passed through: SourceSharpModelType uses modtype_t's numbering.
-	return (int32_t)modelinfo->GetModelType(pModel);
+	return (int32_t)m_Engines.m_pModelInfo->GetModelType(pModel);
 }
 
 // A decal on a studio model (AddStudioDecal, doTrace false). Managed has
 // already tested r_drawmodeldecals and lengthened the ray. Decals are kept per
 // model instance, hence CreateModelInstance(); GetBody() is on the interface
 // either hierarchy is reached through.
-void SourceSharp_ClientDecalStudioModel(int32_t nEntity, const float* pRayStartXYZ, const float* pRayDeltaXYZ,
-										int32_t nDecalIndex)
+void CStandaloneClients::ClientDecalStudioModel(int32_t nEntity, const float* pRayStartXYZ, const float* pRayDeltaXYZ,
+												int32_t nDecalIndex)
 {
 	const StudioDecalRequest req = DecalStudioModel(nEntity, pRayStartXYZ, pRayDeltaXYZ, nDecalIndex);
 
-	if (!req.bDraw || !modelrender)
+	if (!req.bDraw || !m_Engines.m_pModelRender)
 		return;
 
-	IClientEntity* pEntity = SourceSharp_ClientEntityFromIndex(req.nEntity);
+	IClientEntity* pEntity = EntityList().EntityFromIndex(req.nEntity);
 
 	if (!pEntity)
 		return;
@@ -314,29 +320,29 @@ void SourceSharp_ClientDecalStudioModel(int32_t nEntity, const float* pRayStartX
 	// FIXME: Pass in decal up? (stock)
 	const Vector up(0.0f, 0.0f, 1.0f);
 
-	modelrender->AddDecal(pEntity->GetModelInstance(), ray, up, req.nDecalIndex, pEntity->GetBody(), false,
-						  ADDDECAL_TO_ALL_LODS);
+	m_Engines.m_pModelRender->AddDecal(pEntity->GetModelInstance(), ray, up, req.nDecalIndex, pEntity->GetBody(), false,
+									   ADDDECAL_TO_ALL_LODS);
 }
 
 // A decal on a brush model, the world included (AddBrushModelDecal, doTrace
 // false). r_decals is not checked, as stock does not. No S axis and no flags,
 // as stock passes.
-void SourceSharp_ClientDecalBrushModel(int32_t nEntity, const float* pDecalCenterXYZ, int32_t nDecalIndex)
+void CStandaloneClients::ClientDecalBrushModel(int32_t nEntity, const float* pDecalCenterXYZ, int32_t nDecalIndex)
 {
 	const BrushDecalRequest req = DecalBrushModel(nEntity, pDecalCenterXYZ, nDecalIndex);
 
 	if (!req.bDraw || !effects)
 		return;
 
-	IClientEntity* pEntity = SourceSharp_ClientEntityFromIndex(req.nEntity);
+	IClientEntity* pEntity = EntityList().EntityFromIndex(req.nEntity);
 
 	if (!pEntity)
 		return;
 
 	const Vector vecCenter(req.vecCenter.x, req.vecCenter.y, req.vecCenter.z);
 
-	effects->DecalShoot(req.nDecalIndex, req.nEntity, DecalEntityModel(pEntity), pEntity->GetAbsOrigin(),
-						pEntity->GetAbsAngles(), vecCenter, 0, 0);
+	m_Engines.m_pEffects->DecalShoot(req.nDecalIndex, req.nEntity, DecalEntityModel(pEntity), pEntity->GetAbsOrigin(),
+									 pEntity->GetAbsAngles(), vecCenter, 0, 0);
 }
 
 // The EffectDispatch string table, read backwards: the wire carries an index
@@ -360,8 +366,7 @@ void SourceSharp_EffectDispatchName(int32_t nIndex, char* pOut, int32_t nOutByte
 	Q_strncpy(pOut, pName, nOutBytes);
 }
 
-CON_COMMAND_F(cs_cl_te_backend, "TEMPORARY (C-Phase 2): fire one temp entity backend in front of the camera.",
-			  FCVAR_CLIENTDLL)
+void CTempEntCommandsClient::Backend(const CCommand& args)
 {
 	if (args.ArgC() < 2)
 	{
@@ -373,8 +378,8 @@ CON_COMMAND_F(cs_cl_te_backend, "TEMPORARY (C-Phase 2): fire one temp entity bac
 
 	const char* pWhich = args.Arg(1);
 
-	const Vector vecForward = MainViewForward();
-	const Vector vecAt = MainViewOrigin() + vecForward * 96.0f;
+	const Vector vecForward = m_Cameras.MainForward();
+	const Vector vecAt = m_Cameras.MainOrigin() + vecForward * 96.0f;
 
 	const float pAt[3] = {vecAt.x, vecAt.y, vecAt.z};
 	const float pDir[3] = {-vecForward.x, -vecForward.y, -vecForward.z};
@@ -416,12 +421,12 @@ CON_COMMAND_F(cs_cl_te_backend, "TEMPORARY (C-Phase 2): fire one temp entity bac
 		// The name lookup answers an index; -1 means the engine has no decal by
 		// that name.
 		const char* pName = (args.ArgC() > 2) ? args.Arg(2) : "Impact.Concrete";
-		const int32_t nIndex = SourceSharp_ClientDecalIndexFromName(pName);
+		const int32_t nIndex = m_Standalone.ClientDecalIndexFromName(pName);
 
 		Msg("[SourceSharp]   decal '%s' -> index %d\n", pName, nIndex);
 
 		// Entity 0 is the world, which is what a world decal asks for.
-		SourceSharp_ClientDecalShoot(nIndex, 0, pAt, NULL, 0);
+		m_Standalone.ClientDecalShoot(nIndex, 0, pAt, NULL, 0);
 	}
 	else if (!Q_stricmp(pWhich, "dispatch"))
 	{
@@ -432,7 +437,7 @@ CON_COMMAND_F(cs_cl_te_backend, "TEMPORARY (C-Phase 2): fire one temp entity bac
 		CEffectData effect;
 		effect.m_vOrigin.Init(pAt[0], pAt[1], pAt[2]);
 		effect.m_vNormal.Init(pDir[0], pDir[1], pDir[2]);
-		ShellClientDll_TempEntsSystem().DispatchEffectToCallback(pName, effect);
+		m_System.DispatchEffectToCallback(pName, effect);
 	}
 	else
 	{

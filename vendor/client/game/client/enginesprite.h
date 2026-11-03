@@ -21,7 +21,7 @@ public:
 
 	IMaterial* GetMaterial(RenderMode_t nRenderMode, int nFrame);
 	void SetFrame(RenderMode_t nRenderMode, int nFrame);
-	bool Init(const char* name, IManagedMaterialFilesClient* pFiles);
+	bool Init(const char* name, IManagedMaterialFilesClient* pFiles, IMaterialSystem* pMaterials);
 	void Shutdown();
 	void UnloadMaterial();
 	void SetColor(float r, float g, float b);

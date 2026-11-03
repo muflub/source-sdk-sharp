@@ -39,11 +39,7 @@
 
 #include "shell_standalone_clients.h"
 #include "client_entity_list.h"
-
-C_StandaloneEntity* SourceSharp_LocalPlayerShell()
-{
-	return ShellClientDll_Standalone().LocalPlayer();
-}
+#include "shell_client_engine_interfaces.h"
 
 C_StandaloneEntity::C_StandaloneEntity(CStandaloneClients& clients, int nEntNum, int nSerialNum, ClientClass* pClass,
 									   int iTier)
@@ -146,7 +142,7 @@ C_StandaloneEntity::~C_StandaloneEntity()
 	// As C_BaseEntity::Term does.
 	m_Clients.Beams().KillDeadBeams(GetRefEHandle());
 
-	m_ModelInstance.Destroy(modelrender);
+	m_ModelInstance.Destroy(m_Clients.Engines().m_pModelRender);
 
 	IManagedStandaloneClient* pStandalone = m_Clients.Managed();
 
@@ -222,7 +218,7 @@ void C_StandaloneEntity::PostDataUpdate(DataUpdateType_t updateType)
 
 	if (updateType == DATA_UPDATE_CREATED)
 	{
-		if (m_bPlayerShell && engine->GetLocalPlayer() == entindex())
+		if (m_bPlayerShell && m_Clients.Engines().m_pEngine->GetLocalPlayer() == entindex())
 		{
 			m_bLocalPlayer = true;
 			m_Clients.SetLocalPlayer(this);
@@ -240,8 +236,8 @@ void C_StandaloneEntity::PostDataUpdate(DataUpdateType_t updateType)
 	if (bJustMade && pStandalone)
 		pStandalone->OnStandaloneSpawn((uint32_t)BlockHandle().ToInt());
 
-	// Asked once: SourceSharpSchema_Accept counts refused updates.
-	const bool bSchemaOk = BlobBytes() > 0 && SourceSharpSchema_Accept(m_nTypeId, m_nSchemaHash, m_nEntIndex, NULL);
+	// Asked once: SchemaAccept counts refused updates.
+	const bool bSchemaOk = BlobBytes() > 0 && m_Clients.SchemaAccept(m_nTypeId, m_nSchemaHash, m_nEntIndex, NULL);
 
 	// Only with an accepted layout, so a class never decodes bytes it did not declare.
 	if (m_bHasManaged && pStandalone && bSchemaOk)
@@ -314,7 +310,7 @@ void C_StandaloneEntity::PushDormancy()
 // The packet's server time, not curtime, which drifts against the server's tick.
 void C_StandaloneEntity::NoteNetworkedPosition()
 {
-	Block().Client.SimulationTime = engine->GetLastTimeStamp();
+	Block().Client.SimulationTime = m_Clients.Engines().m_pEngine->GetLastTimeStamp();
 }
 
 void C_StandaloneEntity::PostInterpolate(float flCurrentTime)
@@ -415,7 +411,7 @@ const model_t* C_StandaloneEntity::GetModel() const
 	// Head.ModelIndex is the effective model: the override is re-asserted into
 	// it (ReassertModel), so every reader -- the draw, the bones, the hitboxes
 	// -- follows the same index, as stock's swap of m_nModelIndex carries them.
-	return Block().Head.ModelIndex > 0 ? modelinfo->GetModel(Block().Head.ModelIndex) : NULL;
+	return Block().Head.ModelIndex > 0 ? m_Clients.Engines().m_pModelInfo->GetModel(Block().Head.ModelIndex) : NULL;
 }
 
 void C_StandaloneEntity::SetModelOverride(int nModelIndex)
@@ -504,7 +500,7 @@ void C_StandaloneEntity::GetRenderBounds(Vector& mins, Vector& maxs)
 
 	if (const model_t* pModel = GetModel())
 	{
-		modelinfo->GetModelRenderBounds(pModel, mins, maxs);
+		m_Clients.Engines().m_pModelInfo->GetModelRenderBounds(pModel, mins, maxs);
 
 		// Custom-draw bounds above are already in world units and are not scaled.
 		mins *= m_flModelScale;
@@ -518,7 +514,7 @@ void C_StandaloneEntity::GetRenderBounds(Vector& mins, Vector& maxs)
 
 void C_StandaloneEntity::CreateModelInstance()
 {
-	m_ModelInstance.Ensure(modelrender, this, GetModel());
+	m_ModelInstance.Ensure(m_Clients.Engines().m_pModelRender, this, GetModel());
 }
 
 void C_StandaloneEntity::PublishModelFacts()
@@ -529,8 +525,8 @@ void C_StandaloneEntity::PublishModelFacts()
 	const model_t* pModel = GetModel();
 
 	// As stock\'s SetModelPointer: the old model\'s decals and lighting go with it.
-	m_ModelInstance.DropIfNotFor(modelrender, pModel);
-	Block().Client.ModelType = pModel ? (int32_t)modelinfo->GetModelType(pModel) : -1;
+	m_ModelInstance.DropIfNotFor(m_Clients.Engines().m_pModelRender, pModel);
+	Block().Client.ModelType = pModel ? (int32_t)m_Clients.Engines().m_pModelInfo->GetModelType(pModel) : -1;
 
 	BumpPolicyInputs();
 }
@@ -620,7 +616,7 @@ bool C_StandaloneEntity::TestHitboxes(const Ray_t& ray, unsigned int fContentsMa
 	nTrace[SS_BONE_TRACE_SURFACE_IS_STUDIO] = 0;
 
 	if (!pBones->TestHitboxes(GetRefEHandle().ToInt(), &Block(), flRay, (int32_t)fContentsMask, flTrace, nTrace,
-							  gpGlobals->curtime, gpGlobals->framecount))
+							  m_Clients.Engines().m_pGlobals->curtime, m_Clients.Engines().m_pGlobals->framecount))
 		return false;
 
 	for (int i = 0; i < 3; i++)
@@ -653,11 +649,11 @@ bool C_StandaloneEntity::TestHitboxes(const Ray_t& ray, unsigned int fContentsMa
 // entity, frame, clock and inputs, mask inside the posed one) are copied out.
 const SourceSharpBoneBatch_t* CStandaloneClients::FrameBoneBatch(IManagedBonesClient* pBones)
 {
-	if (m_nBoneBatchFrame != gpGlobals->framecount)
+	if (m_nBoneBatchFrame != m_Engines.m_pGlobals->framecount)
 	{
-		m_nBoneBatchFrame = gpGlobals->framecount;
-		m_pBoneBatch =
-			static_cast<const SourceSharpBoneBatch_t*>(pBones->BoneBatch(gpGlobals->framecount, gpGlobals->curtime));
+		m_nBoneBatchFrame = m_Engines.m_pGlobals->framecount;
+		m_pBoneBatch = static_cast<const SourceSharpBoneBatch_t*>(
+			pBones->BoneBatch(m_Engines.m_pGlobals->framecount, m_Engines.m_pGlobals->curtime));
 	}
 
 	return m_pBoneBatch;
@@ -675,10 +671,11 @@ bool C_StandaloneEntity::SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones,
 		return pBoneToWorldOut != NULL;
 	}
 
-	const SourceSharpBoneBatchEntry_t* pPosed = SourceSharp_BoneBatchEntry(
-		m_Clients.FrameBoneBatch(pBones), (uint32_t)GetRefEHandle().ToInt(), boneMask, currentTime,
-		gpGlobals->framecount, Block().Head.ModelIndex, Block().Client.ViewModel, Block().Head.Origin.Base(),
-		Block().Head.Angles.Base(), Block().Client.RenderOrigin.Base(), Block().Client.RenderAngles.Base());
+	const SourceSharpBoneBatchEntry_t* pPosed =
+		SourceSharp_BoneBatchEntry(m_Clients.FrameBoneBatch(pBones), (uint32_t)GetRefEHandle().ToInt(), boneMask,
+								   currentTime, m_Clients.Engines().m_pGlobals->framecount, Block().Head.ModelIndex,
+								   Block().Client.ViewModel, Block().Head.Origin.Base(), Block().Head.Angles.Base(),
+								   Block().Client.RenderOrigin.Base(), Block().Client.RenderAngles.Base());
 
 	if (pPosed)
 	{
@@ -704,8 +701,8 @@ bool C_StandaloneEntity::SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones,
 	const int32_t nOut = pOut ? nMaxBones : 0;
 	int32_t nAnswer;
 
-	nAnswer =
-		pBones->SetupBones(GetRefEHandle().ToInt(), &Block(), pOut, nOut, boneMask, currentTime, gpGlobals->framecount);
+	nAnswer = pBones->SetupBones(GetRefEHandle().ToInt(), &Block(), pOut, nOut, boneMask, currentTime,
+								 m_Clients.Engines().m_pGlobals->framecount);
 
 	// A refusal leaves the array untouched, so it gets the entity's own transform.
 	if (!nAnswer && pBoneToWorldOut)
@@ -736,8 +733,9 @@ bool C_StandaloneEntity::GetAttachment(int number, matrix3x4_t& matrix)
 	if (!pBones)
 		return false;
 
-	return pBones->GetAttachment(GetRefEHandle().ToInt(), &Block(), number, matrix.Base(), gpGlobals->curtime,
-								 gpGlobals->framecount) != 0;
+	return pBones->GetAttachment(GetRefEHandle().ToInt(), &Block(), number, matrix.Base(),
+								 m_Clients.Engines().m_pGlobals->curtime,
+								 m_Clients.Engines().m_pGlobals->framecount) != 0;
 }
 
 bool C_StandaloneEntity::GetAttachment(int number, Vector& origin, QAngle& angles)
@@ -851,16 +849,6 @@ bool CStandaloneClients::DrawBatchResult(const C_StandaloneEntity* pEntity, int3
 	return true;
 }
 
-void SourceSharp_StandaloneDrawBatchCapture(const CClientRenderablesList& list)
-{
-	ShellClientDll_Standalone().DrawBatchCapture(list);
-}
-
-float SourceSharp_StandaloneDrawBatchBlend(IClientEntity* pEntity, float flFallback)
-{
-	return ShellClientDll_Standalone().DrawBatchBlend(pEntity, flFallback);
-}
-
 int C_StandaloneEntity::DrawModel(int flags)
 {
 	// Before the model check: a beam has no model.
@@ -871,8 +859,8 @@ int C_StandaloneEntity::DrawModel(int flags)
 		{
 			if (nBatchResult >= 0)
 			{
-				const int nStored =
-					m_Clients.Sprites().ExecuteStored(static_cast<IClientEntity*>(this), render->GetBlend());
+				const int nStored = m_Clients.Sprites().ExecuteStored(static_cast<IClientEntity*>(this),
+																	  m_Clients.Engines().m_pRender->GetBlend());
 				if (nStored >= 0)
 				{
 					g_SourceSharpEffects.nDrawBatchedSprites++;
@@ -898,7 +886,7 @@ int C_StandaloneEntity::DrawModel(int flags)
 	if (!pModel)
 		return 0;
 
-	const int nModelType = modelinfo->GetModelType(pModel);
+	const int nModelType = m_Clients.Engines().m_pModelInfo->GetModelType(pModel);
 
 	if (nModelType != mod_studio && nModelType != mod_brush)
 	{
@@ -907,7 +895,7 @@ int C_StandaloneEntity::DrawModel(int flags)
 			m_bDrawReported = true;
 			Warning("[SourceSharp] standalone(client): '%s' is neither a studio "
 					"nor a brush model; nothing will draw it\n",
-					modelinfo->GetModelName(pModel));
+					m_Clients.Engines().m_pModelInfo->GetModelName(pModel));
 		}
 
 		return 0;
@@ -918,8 +906,9 @@ int C_StandaloneEntity::DrawModel(int flags)
 		m_bDrawReported = true;
 		DevMsg("[SourceSharp] standalone(client): '%s' drawing '%s' at (%.0f %.0f %.0f) "
 			   "angles (%.1f %.1f %.1f)\n",
-			   m_szClassname, modelinfo->GetModelName(pModel), Block().Head.Origin.x, Block().Head.Origin.y,
-			   Block().Head.Origin.z, Block().Head.Angles.x, Block().Head.Angles.y, Block().Head.Angles.z);
+			   m_szClassname, m_Clients.Engines().m_pModelInfo->GetModelName(pModel), Block().Head.Origin.x,
+			   Block().Head.Origin.y, Block().Head.Origin.z, Block().Head.Angles.x, Block().Head.Angles.y,
+			   Block().Head.Angles.z);
 	}
 
 	if (nModelType == mod_brush)
@@ -933,8 +922,8 @@ int C_StandaloneEntity::DrawModel(int flags)
 
 		if (depthMode != DEPTH_MODE_NORMAL)
 		{
-			render->DrawBrushModelShadowDepth(this, (model_t*)pModel, Block().Head.Origin, Block().Head.Angles,
-											  depthMode);
+			m_Clients.Engines().m_pRender->DrawBrushModelShadowDepth(this, (model_t*)pModel, Block().Head.Origin,
+																	 Block().Head.Angles, depthMode);
 		}
 		else
 		{
@@ -953,9 +942,10 @@ int C_StandaloneEntity::DrawModel(int flags)
 			// The fade is applied here: the world renderer reads the last blend it was
 			// handed rather than asking the renderable.
 			if (Block().Client.FadeStyle != 0)
-				render->SetBlend(Block().Client.FxBlend / 255.0f);
+				m_Clients.Engines().m_pRender->SetBlend(Block().Client.FxBlend / 255.0f);
 
-			render->DrawBrushModelEx(this, (model_t*)pModel, Block().Head.Origin, Block().Head.Angles, mode);
+			m_Clients.Engines().m_pRender->DrawBrushModelEx(this, (model_t*)pModel, Block().Head.Origin,
+															Block().Head.Angles, mode);
 
 			// Uninstalled unconditionally: it is process-global, and left set it would get
 			// every brush in the world.
@@ -965,18 +955,19 @@ int C_StandaloneEntity::DrawModel(int flags)
 			// Drawn by one entity so the two sort together (a fake window).
 			if (m_nOverlayModelIndex > 0)
 			{
-				model_t* pOverlay = (model_t*)modelinfo->GetModel(m_nOverlayModelIndex);
+				model_t* pOverlay = (model_t*)m_Clients.Engines().m_pModelInfo->GetModel(m_nOverlayModelIndex);
 
-				if (pOverlay && modelinfo->GetModelType(pOverlay) == mod_brush)
+				if (pOverlay && m_Clients.Engines().m_pModelInfo->GetModelType(pOverlay) == mod_brush)
 				{
-					render->SetBlend(1.0f);
-					render->DrawBrushModelEx(this, pOverlay, Block().Head.Origin, Block().Head.Angles, mode);
+					m_Clients.Engines().m_pRender->SetBlend(1.0f);
+					m_Clients.Engines().m_pRender->DrawBrushModelEx(this, pOverlay, Block().Head.Origin,
+																	Block().Head.Angles, mode);
 				}
 			}
 
 			// Put back: the blend is renderer-global.
 			if (Block().Client.FadeStyle != 0 || m_nOverlayModelIndex > 0)
-				render->SetBlend(1.0f);
+				m_Clients.Engines().m_pRender->SetBlend(1.0f);
 		}
 
 		return 1;
@@ -1007,7 +998,7 @@ int C_StandaloneEntity::DrawModel(int flags)
 	info.hitboxset = Block().Client.HitboxSet;
 	info.flags = flags;
 
-	const int nDrawn = modelrender->DrawModelEx(info);
+	const int nDrawn = m_Clients.Engines().m_pModelRender->DrawModelEx(info);
 	DrawExtras(flags, true);
 	return nDrawn;
 }
@@ -1186,7 +1177,7 @@ int C_StandaloneEntity::BlobBytes() const
 CSourceSharpSurfaceRenderer* C_StandaloneEntity::SurfaceRenderer(bool bCreate)
 {
 	if (!m_pSurface && bCreate)
-		m_pSurface = new CSourceSharpSurfaceRenderer;
+		m_pSurface = new CSourceSharpSurfaceRenderer(m_Clients.Engines());
 
 	return m_pSurface;
 }
@@ -1204,7 +1195,7 @@ IClientNetworkable* CStandaloneClients::CreateTier(int iTier, int nEntNum, int n
 
 	// An entity in 1..maxclients is a player: the only fact the create function has,
 	// since the classname arrives with the first update.
-	pEntity->SetPlayerShell(nEntNum >= 1 && nEntNum <= gpGlobals->maxClients);
+	pEntity->SetPlayerShell(nEntNum >= 1 && nEntNum <= m_Engines.m_pGlobals->maxClients);
 
 	return pEntity;
 }
@@ -1440,7 +1431,7 @@ void CStandaloneClients::CInterpSystem::PreRender()
 	for (int i = 0; i < m_Clients.m_Shells.Count(); i++)
 		m_Clients.m_Shells[i]->ApplyRenderPolicy();
 
-	const float flCurrentTime = gpGlobals->curtime;
+	const float flCurrentTime = m_Clients.Engines().m_pGlobals->curtime;
 
 	for (int i = 0; i < m_Clients.m_Shells.Count(); i++)
 	{
@@ -1479,7 +1470,8 @@ void CStandaloneClients::DynamicLightUpdate(const SourceSharpDynamicLight* pLigh
 	if (!pLight || !effects)
 		return;
 
-	dlight_t* dl = pLight->IsElight ? effects->CL_AllocElight(pLight->Key) : effects->CL_AllocDlight(pLight->Key);
+	dlight_t* dl = pLight->IsElight ? m_Engines.m_pEffects->CL_AllocElight(pLight->Key)
+									: m_Engines.m_pEffects->CL_AllocDlight(pLight->Key);
 
 	if (!dl)
 		return;
@@ -1500,7 +1492,7 @@ void CStandaloneClients::DynamicLightUpdate(const SourceSharpDynamicLight* pLigh
 	dl->m_OuterAngle = pLight->OuterAngle;
 	dl->minlight = 0;
 
-	dl->die = gpGlobals->curtime + pLight->LiveFor;
+	dl->die = m_Engines.m_pGlobals->curtime + pLight->LiveFor;
 
 	// Refreshed lights pass zero, which a fresh slot already holds.
 	dl->decay = pLight->Decay;
@@ -1512,11 +1504,11 @@ void CStandaloneClients::DynamicLightRelease(int32_t nKey)
 	if (!effects)
 		return;
 
-	if (dlight_t* dl = effects->CL_AllocDlight(nKey))
-		dl->die = gpGlobals->curtime;
+	if (dlight_t* dl = m_Engines.m_pEffects->CL_AllocDlight(nKey))
+		dl->die = m_Engines.m_pGlobals->curtime;
 
-	if (dlight_t* el = effects->CL_AllocElight(nKey))
-		el->die = gpGlobals->curtime;
+	if (dlight_t* el = m_Engines.m_pEffects->CL_AllocElight(nKey))
+		el->die = m_Engines.m_pGlobals->curtime;
 }
 
 bool C_StandaloneEntity::IsRagdoll() const
@@ -1570,19 +1562,9 @@ C_StandaloneEntity* CStandaloneClients::FromHandle(uint32_t hEntity) const
 	return m_EntityList.ShellFromIndex(nEntry);
 }
 
-C_StandaloneEntity* SourceSharp_StandaloneFromHandle(uint32_t hEntity)
+int32_t CStandaloneClients::EntityGetIndex(uint32_t hEntity)
 {
-	return ShellClientDll_Standalone().FromHandle(hEntity);
-}
-
-static C_StandaloneEntity* ResolveStandaloneClient(uint32_t hEntity)
-{
-	return SourceSharp_StandaloneFromHandle(hEntity);
-}
-
-int32_t SourceSharp_ClientEntityGetIndex(uint32_t hEntity)
-{
-	if (C_StandaloneEntity* pEntity = ResolveStandaloneClient(hEntity))
+	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
 		return pEntity->entindex();
 
 	return -1;
@@ -1648,30 +1630,30 @@ void CStandaloneClients::EntitySetModelOverride(uint32_t hEntity, const char* pM
 	if (!pModel)
 		return;
 
-	if (C_StandaloneEntity* pEntity = ResolveStandaloneClient(hEntity))
-		pEntity->SetModelOverride(pModel[0] ? modelinfo->GetModelIndex(pModel) : -1);
+	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
+		pEntity->SetModelOverride(pModel[0] ? m_Engines.m_pModelInfo->GetModelIndex(pModel) : -1);
 }
 
-void SourceSharp_StandaloneSetModelScale(uint32_t hEntity, float flScale)
+void CStandaloneClients::StandaloneSetModelScale(uint32_t hEntity, float flScale)
 {
-	if (C_StandaloneEntity* pEntity = ResolveStandaloneClient(hEntity))
+	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
 		pEntity->SetModelScale(flScale);
 }
 
-void SourceSharp_ClientEntityGetModelName(uint32_t hEntity, char* pOut, int32_t nOutSize)
+void CStandaloneClients::EntityGetModelName(uint32_t hEntity, char* pOut, int32_t nOutSize)
 {
 	if (!pOut || nOutSize <= 0)
 		return;
 
 	pOut[0] = '\0';
 
-	C_StandaloneEntity* pEntity = ResolveStandaloneClient(hEntity);
+	C_StandaloneEntity* pEntity = FromHandle(hEntity);
 
 	if (!pEntity)
 		return;
 
 	if (const model_t* pModel = pEntity->GetModel())
-		Q_strncpy(pOut, modelinfo->GetModelName(pModel), nOutSize);
+		Q_strncpy(pOut, m_Engines.m_pModelInfo->GetModelName(pModel), nOutSize);
 }
 
 // A handle that resolves to nothing answers 0: absent is not dormant.
@@ -1682,9 +1664,11 @@ int32_t CStandaloneClients::StandaloneIsDormant(uint32_t hEntity)
 	return (pEntity && pEntity->IsDormant()) ? 1 : 0;
 }
 
-CStandaloneClients::CStandaloneClients(const CManagedAreasClient& areas, CClientEntityList& entityList,
-									   CBeamsClient& beams, CSpritesClient& sprites, CShadowsClient& shadows)
+CStandaloneClients::CStandaloneClients(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+									   CClientEntityList& entityList, CBeamsClient& beams, CSpritesClient& sprites,
+									   CShadowsClient& shadows)
 	: m_Areas(areas)
+	, m_Engines(engines)
 	, m_EntityList(entityList)
 	, m_Beams(beams)
 	, m_Sprites(sprites)
@@ -1703,16 +1687,6 @@ C_StandaloneEntity* CStandaloneClients::At(int nIndex) const
 		return NULL;
 
 	return m_Shells[nIndex];
-}
-
-int SourceSharp_StandaloneClientCount()
-{
-	return ShellClientDll_Standalone().Count();
-}
-
-C_StandaloneEntity* SourceSharp_StandaloneClientAt(int nIndex)
-{
-	return ShellClientDll_Standalone().At(nIndex);
 }
 
 // Without this the shells survive the level change holding leaf-system and
@@ -1748,7 +1722,7 @@ void CStandaloneClients::ActivateOccluder(int32_t nOccluderIndex, int32_t bActiv
 	if (nOccluderIndex < 0)
 		return;
 
-	engine->ActivateOccluder(nOccluderIndex, bActive != 0);
+	m_Engines.m_pEngine->ActivateOccluder(nOccluderIndex, bActive != 0);
 }
 
 void C_StandaloneEntity::SetCustomDraw(const Vector& mins, const Vector& maxs)
@@ -1791,14 +1765,14 @@ int32_t CStandaloneClients::StandaloneShadowCast(uint32_t hEntity, int32_t* pOut
 	return (int32_t)pEntity->ShadowCastType();
 }
 
-void SourceSharp_ClientEntityGetOrigin(uint32_t hEntity, float* pOutXYZ)
+void CStandaloneClients::EntityGetOrigin(uint32_t hEntity, float* pOutXYZ)
 {
 	if (!pOutXYZ)
 		return;
 
 	pOutXYZ[0] = pOutXYZ[1] = pOutXYZ[2] = 0.0f;
 
-	if (C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hEntity))
+	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
 	{
 		const Vector& vecOrigin = pEntity->GetAbsOrigin();
 
@@ -1808,14 +1782,14 @@ void SourceSharp_ClientEntityGetOrigin(uint32_t hEntity, float* pOutXYZ)
 	}
 }
 
-void SourceSharp_ClientEntityGetAngles(uint32_t hEntity, float* pOutPYR)
+void CStandaloneClients::EntityGetAngles(uint32_t hEntity, float* pOutPYR)
 {
 	if (!pOutPYR)
 		return;
 
 	pOutPYR[0] = pOutPYR[1] = pOutPYR[2] = 0.0f;
 
-	if (C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hEntity))
+	if (C_StandaloneEntity* pEntity = FromHandle(hEntity))
 	{
 		const QAngle& ang = pEntity->GetAbsAngles();
 
@@ -1936,10 +1910,6 @@ int32_t SourceSharp_ClientSchemaRefusal(int32_t iIndex, uint32_t* pOutTypeId, ui
 										int32_t* pOutRefusedUpdates);
 void SourceSharp_RegisterAmmoType(const char* pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType,
 								  float flDamageForce, float flDamage);
-int32_t SourceSharp_SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, int32_t nMaterialBytes, char* pOutCrack,
-										 int32_t nCrackBytes, int32_t* pOutHasCrack);
-void SourceSharp_SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32_t nBytes, int32_t nFlags);
-void SourceSharp_SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords);
 
 int32_t CStandaloneClients::ClientRecvProp(int32_t iIndex, char* pOutClass, int32_t nClassBytes, char* pOutTable,
 										   int32_t nTableBytes, char* pOutProp, int32_t nPropBytes, int32_t* pOutType,
@@ -1961,21 +1931,4 @@ void CStandaloneClients::RegisterAmmoType(const char* pName, int32_t nDamageType
 										  int32_t nTracerType, float flDamageForce, float flDamage)
 {
 	SourceSharp_RegisterAmmoType(pName, nDamageType, nMaxCarry, nTracerType, flDamageForce, flDamage);
-}
-
-int32_t CStandaloneClients::SurfaceMaterialFacts(uint32_t hEntity, char* pOutMaterial, int32_t nMaterialBytes,
-												 char* pOutCrack, int32_t nCrackBytes, int32_t* pOutHasCrack)
-{
-	return SourceSharp_SurfaceMaterialFacts(hEntity, pOutMaterial, nMaterialBytes, pOutCrack, nCrackBytes,
-											pOutHasCrack);
-}
-
-void CStandaloneClients::SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32_t nBytes, int32_t nFlags)
-{
-	SourceSharp_SurfaceSetMaterials(hEntity, pNames, nBytes, nFlags);
-}
-
-void CStandaloneClients::SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords)
-{
-	SourceSharp_SurfaceSetPlan(hEntity, pWords, nWords);
 }

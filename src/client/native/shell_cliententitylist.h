@@ -22,19 +22,10 @@ class IClientThinkable;
 #include "igameentity.h"
 
 // By index. An index naming no entity answers NULL.
-IClientUnknown* SourceSharp_ClientUnknownFromIndex(int nEntry);
-IClientEntity* SourceSharp_ClientEntityFromIndex(int nEntry);
 
 // By handle. The serial is checked, so a dead entity's handle answers NULL.
-IClientUnknown* SourceSharp_ClientUnknownFromHandle(const CBaseHandle& hEnt);
-IClientEntity* SourceSharp_ClientEntityFromHandle(const CBaseHandle& hEnt);
-
-IClientNetworkable* SourceSharp_ClientNetworkableFromHandle(const CBaseHandle& hEnt);
-
-IClientRenderable* SourceSharp_ClientRenderableFromHandle(const CBaseHandle& hEnt);
 
 // The handle for an index, for a caller that must hold on to what it found.
-CBaseHandle SourceSharp_ClientHandleFromIndex(int nEntry);
 
 // The world is not in the slot table; these compare a handle or index with the
 // handle the C_World singleton is bound to. The serial is compared, so the

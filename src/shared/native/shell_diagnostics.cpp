@@ -218,12 +218,3 @@ void SourceSharp_PrintCrossings(ManagedDiagnosticsArea_t* pDiagnostics, bool bRe
 
 	free(pReport);
 }
-
-#ifdef CLIENT_DLL
-CON_COMMAND(cs_cl_crossings,
-			"Print the managed<->native ABI crossing counts. "
-			"Pass 'reset' to print the interval and start a new one.")
-{
-	SourceSharp_PrintCrossings(ManagedDiagnosticsClient(), args.ArgC() > 1 && ss::StrICmp(args.Arg(1), "reset") == 0);
-}
-#endif

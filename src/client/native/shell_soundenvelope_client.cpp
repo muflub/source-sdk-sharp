@@ -23,6 +23,8 @@
 #include "client_sound.h"
 
 #include "shell_standalone_client.h"
+#include "shell_sound_patches_client.h"
+#include "shell_standalone_clients.h"
 
 // A copy of the caller's filter: it is usually a stack object, and the patch outlives it.
 // At file scope, not in an anonymous namespace: CSoundPatch holds one, and gcc refuses a
@@ -71,8 +73,9 @@ private:
 class CSoundPatch
 {
 public:
-	CSoundPatch()
-		: m_nHandle(0)
+	explicit CSoundPatch(const CManagedAreasClient& areas)
+		: m_Areas(areas)
+		, m_nHandle(0)
 		, m_nEntIndex(-1)
 		, m_nChannel(CHAN_AUTO)
 		, m_SoundLevel(SNDLVL_NORM)
@@ -146,11 +149,12 @@ public:
 				ep.m_flSoundTime = flStartTime;
 		}
 
-		ClientSound::Emit(m_Filter, m_nEntIndex, ep);
+		ClientSound::Emit(m_Areas.m_pSoundEmitterClient, m_Filter, m_nEntIndex, ep);
 
 		if (bEmitCaption)
 		{
-			ClientSound::EmitCloseCaption(m_Filter, m_nEntIndex, m_szScriptName, m_flCaptionDuration, true);
+			ClientSound::EmitCloseCaption(m_Areas.m_pSoundEmitterClient, m_Filter, m_nEntIndex, m_szScriptName,
+										  m_flCaptionDuration, true);
 			m_bPlaying = true;
 		}
 	}
@@ -160,11 +164,12 @@ public:
 		if (!m_bPlaying)
 			return;
 		if (m_nEntIndex >= 0)
-			ClientSound::Stop(m_nEntIndex, m_nChannel, m_szSoundName);
+			ClientSound::Stop(m_Areas.m_pSoundEmitterClient, m_nEntIndex, m_nChannel, m_szSoundName);
 		m_bPlaying = false;
 	}
 
 private:
+	const CManagedAreasClient& m_Areas;
 	int m_nHandle;
 	int m_nEntIndex;
 	int m_nChannel;
@@ -178,11 +183,12 @@ private:
 	CClientCopyFilter m_Filter;
 };
 
-class CShellClientSoundController : public CSoundEnvelopeController
+class CShellClientSoundController final : public CSoundEnvelopeController
 {
 public:
-	CShellClientSoundController()
-		: m_nNextHandle(1)
+	explicit CShellClientSoundController(const CManagedAreasClient& areas)
+		: m_Areas(areas)
+		, m_nNextHandle(1)
 	{
 	}
 
@@ -365,7 +371,7 @@ private:
 	CSoundPatch* Track(IRecipientFilter& filter, int nEntIndex, int nChannel, const char* pszSoundName,
 					   soundlevel_t soundlevel)
 	{
-		CSoundPatch* pSound = new CSoundPatch;
+		CSoundPatch* pSound = new CSoundPatch(m_Areas);
 		pSound->Init(&filter, nEntIndex, nChannel, pszSoundName, soundlevel);
 		pSound->SetHandle(m_nNextHandle++);
 		m_Patches.AddToTail(pSound);
@@ -374,55 +380,61 @@ private:
 		return pSound;
 	}
 
-	static IManagedSoundControllerClient* Ask() { return ManagedSoundControllerClient(); }
+	IManagedSoundControllerClient* Ask() const { return m_Areas.m_pSoundControllerClient; }
 
+	const CManagedAreasClient& m_Areas;
 	CUtlVector<CSoundPatch*> m_Patches;
 	int m_nNextHandle;
 };
 
-static CShellClientSoundController* ShellClientSoundController()
+CSoundPatchesClient::CSoundPatchesClient(const CManagedAreasClient& areas, CStandaloneClients& standalone)
+	: m_Standalone(standalone)
+	, m_pController(new CShellClientSoundController(areas))
 {
-	static CShellClientSoundController s_Controller;
-	return &s_Controller;
 }
 
-CSoundEnvelopeController& CSoundEnvelopeController::GetController()
+CSoundPatchesClient::~CSoundPatchesClient()
 {
-	return *ShellClientSoundController();
+	delete m_pController;
 }
 
-void SourceSharp_ClientSoundPatchEmit(int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags,
-									  float flStartTime, int32_t bEmitCaption)
+CSoundEnvelopeController& CSoundPatchesClient::Controller()
 {
-	if (CSoundPatch* pSound = ShellClientSoundController()->Resolve(hPatch))
+	return *m_pController;
+}
+
+void CSoundPatchesClient::SoundPatchEmit(int32_t hPatch, float flVolume01, float flPitch, int32_t nFlags,
+										 float flStartTime, int32_t bEmitCaption)
+{
+	if (CSoundPatch* pSound = m_pController->Resolve(hPatch))
 		pSound->Emit(flVolume01, flPitch, nFlags, flStartTime, bEmitCaption != 0);
 }
 
-void SourceSharp_ClientSoundPatchStop(int32_t hPatch)
+void CSoundPatchesClient::SoundPatchStop(int32_t hPatch)
 {
-	if (CSoundPatch* pSound = ShellClientSoundController()->Resolve(hPatch))
+	if (CSoundPatch* pSound = m_pController->Resolve(hPatch))
 		pSound->Stop();
 }
 
-void SourceSharp_ClientSoundPatchState(int32_t hPatch, int32_t* pnEntIndex, int32_t* pbFilterActive)
+void CSoundPatchesClient::SoundPatchState(int32_t hPatch, int32_t* pnEntIndex, int32_t* pbFilterActive)
 {
-	CSoundPatch* pSound = ShellClientSoundController()->Resolve(hPatch);
+	CSoundPatch* pSound = m_pController->Resolve(hPatch);
 	if (pnEntIndex)
 		*pnEntIndex = pSound ? pSound->EntIndex() : -1;
 	if (pbFilterActive)
 		*pbFilterActive = (pSound && pSound->FilterIsActive()) ? 1 : 0;
 }
 
-void SourceSharp_ClientSoundPatchFree(int32_t hPatch)
+void CSoundPatchesClient::SoundPatchFree(int32_t hPatch)
 {
-	ShellClientSoundController()->Free(hPatch);
+	m_pController->Free(hPatch);
 }
 
 // A sound patch on the entity, as stock's client PhysFrictionSound builds it, or 0.
 // Handle 0 is the world, which managed passes for a clientside physics prop: it plays at
 // entindex 0 at the world's origin.
-int32_t SourceSharp_ClientSoundPatchCreate(uint32_t hEntity, int32_t nChannel, const char* pSoundName,
-										   int32_t nSoundLevel)
+int32_t CSoundPatchesClient::SoundPatchCreate(uint32_t hEntity, int32_t nChannel, const char* pSoundName,
+											  int32_t nSoundLevel)
 {
 	if (!pSoundName)
 		return 0;
@@ -430,7 +442,7 @@ int32_t SourceSharp_ClientSoundPatchCreate(uint32_t hEntity, int32_t nChannel, c
 	int nEntIndex = 0;
 	Vector vecOrigin = vec3_origin;
 
-	C_StandaloneEntity* pEntity = SourceSharp_StandaloneFromHandle(hEntity);
+	C_StandaloneEntity* pEntity = m_Standalone.FromHandle(hEntity);
 	if (pEntity)
 	{
 		nEntIndex = pEntity->entindex();
@@ -445,6 +457,6 @@ int32_t SourceSharp_ClientSoundPatchCreate(uint32_t hEntity, int32_t nChannel, c
 
 	const soundlevel_t level = (soundlevel_t)nSoundLevel;
 	CPASAttenuationFilter filter(vecOrigin, level);
-	CSoundPatch* pPatch = ShellClientSoundController()->SoundCreate(filter, nEntIndex, nChannel, pSoundName, level);
+	CSoundPatch* pPatch = m_pController->SoundCreate(filter, nEntIndex, nChannel, pSoundName, level);
 	return pPatch ? pPatch->Handle() : 0;
 }

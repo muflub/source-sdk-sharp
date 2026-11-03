@@ -8,6 +8,8 @@
 // on game_newmap and re-lays out the client mode when the root resizes.
 #pragma once
 
+struct CManagedAreasClient;
+
 #include "shell_rawpanel_client.h"
 #include "game/client/iviewport.h"
 #include "igameevents.h"
@@ -15,7 +17,7 @@
 class CSourceSharpViewport : public CSourceSharpRawPanel, public IViewPort, public IGameEventListener2
 {
 public:
-	CSourceSharpViewport();
+	explicit CSourceSharpViewport(const CManagedAreasClient& areas);
 	virtual ~CSourceSharpViewport();
 
 	void Start(IGameEventManager2* pGameEventManager);
@@ -40,6 +42,7 @@ public:
 
 private:
 	void OnRootSize(int nWide, int nTall);
+	const CManagedAreasClient& m_Areas;
 
 	IGameEventManager2* m_pGameEventManager;
 	int m_nRootWide;

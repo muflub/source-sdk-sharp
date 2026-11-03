@@ -18,7 +18,6 @@
 
 #ifdef CLIENT_DLL
 // The client's managed generation (CManagedSide::Generation), for its field sets.
-unsigned int SourceSharp_PlayerSyncGeneration();
 #endif
 
 // The resolved placements: whole-storage fields keep an offset, narrow ones the

@@ -64,12 +64,6 @@ struct CManagedHoldersClient
 	CManagedAreasClient m_Areas;
 };
 
-// The client DLL object's holders (shell_clientdll.cpp).
-CManagedHoldersClient& ShellClientDll_Managed();
-
-// This load's runtime, or NULL outside a load (shell_internalfactory.cpp).
-IManagedRuntimeClient* ManagedRuntimeClient();
-
 // True when the root, the runtime and every area have been released.
 inline bool ManagedHoldersClient_Empty(const CManagedHoldersClient& holders)
 {

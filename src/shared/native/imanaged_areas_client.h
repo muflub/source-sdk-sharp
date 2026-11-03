@@ -9,8 +9,7 @@
 //
 // plan_client_vtables CE: the client's managed-built areas (docs/managed-interfaces.tsv,
 // the interfaces named *Client). IMPLEMENTED BY MANAGED, as imanaged_areas.h. The
-// declarations are unguarded so native tests compile them; the accessors are the
-// client's.
+// declarations are unguarded so native tests compile them.
 
 #pragma once
 
@@ -2511,40 +2510,3 @@ static const uint32_t kIManagedGameUiClientSlotHashes[] = {
 static const int32_t kIManagedGameUiClientSlotCount = 43;
 static_assert(sizeof(SSManagedGameUiClientTable) == 43 * sizeof(void*),
 			  "SSManagedGameUiClientTable is one pointer per slot");
-
-#ifdef CLIENT_DLL
-
-IManagedCommandsClient* ManagedCommandsClient(); // this load's area, or NULL outside a load
-IManagedEventsClient* ManagedEventsClient(); // this load's area, or NULL outside a load
-IManagedUserMessagesClient* ManagedUserMessagesClient(); // this load's area, or NULL outside a load
-IManagedStandaloneClient* ManagedStandaloneClient(); // this load's area, or NULL outside a load
-IManagedPredictionClient* ManagedPredictionClient(); // this load's area, or NULL outside a load
-IManagedTempEntsClient* ManagedTempEntsClient(); // this load's area, or NULL outside a load
-IManagedSaveRestoreClient* ManagedSaveRestoreClient(); // this load's area, or NULL outside a load
-IManagedBeamsClient* ManagedBeamsClient(); // this load's area, or NULL outside a load
-IManagedDiagnosticsClient* ManagedDiagnosticsClient(); // this load's area, or NULL outside a load
-IManagedDecalsClient* ManagedDecalsClient(); // this load's area, or NULL outside a load
-IManagedParticlesClient* ManagedParticlesClient(); // this load's area, or NULL outside a load
-IManagedUiClient* ManagedUiClient(); // this load's area, or NULL outside a load
-IManagedWorldTextClient* ManagedWorldTextClient(); // this load's area, or NULL outside a load
-IManagedFxClient* ManagedFxClient(); // this load's area, or NULL outside a load
-IManagedSoundControllerClient* ManagedSoundControllerClient(); // this load's area, or NULL outside a load
-IManagedSoundscapesClient* ManagedSoundscapesClient(); // this load's area, or NULL outside a load
-IManagedPrecipitationClient* ManagedPrecipitationClient(); // this load's area, or NULL outside a load
-IManagedConsoleOutputClient* ManagedConsoleOutputClient(); // this load's area, or NULL outside a load
-IManagedMaterialFilesClient* ManagedMaterialFilesClient(); // this load's area, or NULL outside a load
-IManagedMaterialProxyClient* ManagedMaterialProxyClient(); // this load's area, or NULL outside a load
-IManagedRenderClient* ManagedRenderClient(); // this load's area, or NULL outside a load
-IManagedInputClient* ManagedInputClient(); // this load's area, or NULL outside a load
-IManagedBonesClient* ManagedBonesClient(); // this load's area, or NULL outside a load
-IManagedPhysicsClient* ManagedPhysicsClient(); // this load's area, or NULL outside a load
-IManagedDetailPropsClient* ManagedDetailPropsClient(); // this load's area, or NULL outside a load
-IManagedLeafSystemClient* ManagedLeafSystemClient(); // this load's area, or NULL outside a load
-IManagedSoundEmitterClient* ManagedSoundEmitterClient(); // this load's area, or NULL outside a load
-IManagedClientSystemsClient* ManagedClientSystemsClient(); // this load's area, or NULL outside a load
-IManagedPixelVisClient* ManagedPixelVisClient(); // this load's area, or NULL outside a load
-IManagedGlowClient* ManagedGlowClient(); // this load's area, or NULL outside a load
-IManagedShadowsClient* ManagedShadowsClient(); // this load's area, or NULL outside a load
-IManagedGameUiClient* ManagedGameUiClient(); // this load's area, or NULL outside a load
-
-#endif // CLIENT_DLL

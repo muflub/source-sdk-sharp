@@ -12,6 +12,8 @@
 
 #pragma once
 
+class CClientEntityList;
+
 #include <stdint.h>
 
 #include "itempents.h"
@@ -23,8 +25,9 @@ class CEffectData;
 class CTempEntsSystemClient final : public ITempEntsSystem
 {
 public:
-	explicit CTempEntsSystemClient(const CManagedAreasClient& areas)
+	CTempEntsSystemClient(const CManagedAreasClient& areas, CClientEntityList& entityList)
 		: m_Areas(areas)
+		, m_EntityList(entityList)
 	{
 	}
 
@@ -33,6 +36,9 @@ public:
 
 	// Managed decides which registration runs; outside a managed load nothing runs.
 	void DispatchEffectToCallback(const char* pEffectName, const CEffectData& data);
+
+	// IShimFxClient: one client effect registration run.
+	void EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData);
 
 	// IShimFxClient: DispatchParticleEffect, whose effect has no owner.
 	void FxDispatchParticleEffect(int32_t nSystem, const float* pStartXYZ, const float* pEndXYZ,
@@ -135,8 +141,5 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	CClientEntityList& m_EntityList;
 };
-
-// The console commands that fire an effect by hand, which have no context, ask for this.
-// Defined in shell_clientdll.cpp.
-CTempEntsSystemClient& ShellClientDll_TempEntsSystem();
