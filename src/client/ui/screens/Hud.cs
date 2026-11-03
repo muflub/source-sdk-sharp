@@ -127,7 +127,8 @@ public sealed class Hud : UiScreen
         }
 
         ui.Sub("maptext", _mapText);
-        ui.Sub("weaponselection", _selection);
+        if (!ui.Taken("hud.weaponselection"))
+            ui.Sub("weaponselection", _selection);
         ui.Sub("weaponplus", _plus);
         ui.Sub("weaponcarousel", _carousel);
         ui.Sub("history", _history);

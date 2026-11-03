@@ -1128,3 +1128,5 @@ src/client/native/shell_worldrender_object.h	ports the colour correction lookups
 src/client/native/shell_vgui_object.h	ports VGui_Startup and VGui_Shutdown (vgui_int.cpp) as a class
 src/client/native/shell_material_cache_client.h	ports PrecacheMaterial and CacheUsedMaterials' request (cdll_client_int.cpp) as a class
 src/client/native/shell_gamerules_client.h	native code built against SDK headers (igamerules.h): holds the rules object CGameRules registration made (gamerules_register.cpp) and its view vectors
+src/tf2/client/Ui/TFWeaponSelectUi.cs	ports CHudWeaponSelection's read side: the draw gate, the selected slot, the per-slot weapon and the sprite arms (tf_hud_weaponselection.cpp, weapons_resource.cpp)
+src/tf2/ui/screens/TFWeaponSelect.cs	ports CHudWeaponSelection::Draw's slot column, borders, numbers, labels and empty-ammo note (tf_hud_weaponselection.cpp)

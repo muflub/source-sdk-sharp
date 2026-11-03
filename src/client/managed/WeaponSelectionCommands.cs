@@ -35,18 +35,27 @@ public sealed class CancelSelectCommand(WeaponSelectionHud selection, IWeaponSel
 }
 
 /// <summary>
-/// A slot bind. With a forecast and a latch present (a mod that knows the
-/// loadout registers the forecast) it takes the PREDICTED path instead of the
-/// selection: stock's CreateMove latch, the row's type armed for the next
-/// usercmd's <c>weaponselect</c>; an empty row does nothing, as stock's
-/// choosing an empty slot did. Without them the selection answers, as stock's
-/// HUD does.
+/// A slot bind. The buckets hud (hud_fastswitch 0) shows the selection on the
+/// press and waits for the confirm — stock's <c>SelectSlot</c> arm — so the
+/// forecast must not leap in ahead of it: an armed latch would switch at once
+/// and the panel would never open. The other hud types switch on the press
+/// (fastswitch's <c>FastWeaponSwitch</c> plus <c>SelectWeapon</c>), and there
+/// the predicted path is stock's own: the row's type armed for the next
+/// usercmd's <c>weaponselect</c>. An empty row does nothing, as stock's
+/// choosing an empty slot did; without a forecast the selection answers, as
+/// stock's HUD does.
 /// </summary>
 public static class WeaponSlotBind
 {
     public static void Run(WeaponSelectionHud selection, int number,
                            IWeaponSlotForecast? forecast, IWeaponSelectionLatch? latch)
     {
+        if (selection.Mode == WeaponSelectionHud.HudTypeBuckets)
+        {
+            selection.SlotCommand(number);
+            return;
+        }
+
         if (forecast is not null && latch is not null)
         {
             int type = forecast.TypeAt(number - 1);

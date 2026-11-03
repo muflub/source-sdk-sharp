@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-scale="1">
+<rect x="1740" y="323" width="162" height="121" fill="#2e2b2a" fill-opacity="0.78" data-e="1"/>
+<text x="1744" y="434.5" font-family="TF2 Build" font-size="20" font-weight="500" fill="#ebe2ca" fill-opacity="0.86" xml:space="preserve" data-e="2">Rocket Launcher</text>
+<text x="1874" y="373.85" font-family="TF2" font-size="34" font-weight="500" fill="#fbebca" fill-opacity="0.86" xml:space="preserve" data-e="3">1</text>
+<rect x="1654" y="453" width="248" height="174" fill="#2e2b2a" fill-opacity="0.78" data-e="4"/>
+<text x="1726" y="613.68" font-family="TF2 Build" font-size="27" font-weight="500" fill="#ebe2ca" fill-opacity="0.86" xml:space="preserve" data-e="5">Shotgun</text>
+<text x="1873" y="504.85" font-family="TF2" font-size="34" font-weight="500" fill="#fbebca" fill-opacity="0.86" xml:space="preserve" data-e="6">2</text>
+<rect x="1740" y="636" width="162" height="121" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
+<text x="1770" y="744.68" font-family="TF2 Build" font-size="27" font-weight="500" fill="#ebe2ca" fill-opacity="0.86" xml:space="preserve" data-e="8">Fire Axe</text>
+<text x="1874" y="686.85" font-family="TF2" font-size="34" font-weight="500" fill="#fbebca" fill-opacity="0.86" xml:space="preserve" data-e="9">3</text>
+</svg>

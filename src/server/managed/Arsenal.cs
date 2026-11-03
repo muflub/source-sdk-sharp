@@ -1364,21 +1364,24 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (_directory.Get(carry.Player) is not SsPlayer player)
             return;
 
-        uint carried = 0, empty = 0;
+        ulong carried = 0, empty = 0;
         for (int slot = 0; slot < carry.Weapons.Count; slot++)
         {
             int typeIndex = carry.Weapons[slot].TypeIndex;
-            if (typeIndex < 0 || typeIndex >= 32 || _weapons.ByIndex(typeIndex) is not WeaponType type)
+            if (typeIndex < 0 || typeIndex >= PlayerNetState.WeaponMaskBits || _weapons.ByIndex(typeIndex) is not WeaponType type)
                 continue;
 
-            uint bit = 1u << typeIndex;
+            ulong bit = 1ul << typeIndex;
             carried |= bit;
             if (!CanBeSelected(carry, slot, in type))
                 empty |= bit;
         }
 
-        player.State.CarriedWeapons = carried;
-        player.State.EmptyWeapons = empty;
+        // The wire's words are 32-bit; the mask is the pair.
+        player.State.CarriedWeapons = (uint)carried;
+        player.State.CarriedWeaponsHigh = (uint)(carried >> 32);
+        player.State.EmptyWeapons = (uint)empty;
+        player.State.EmptyWeaponsHigh = (uint)(empty >> 32);
 
         // m_iAmmo, by wire index.
         for (int i = 0; i < _ammo.Count && i + 1 < PlayerNetState.MaxAmmoSlots; i++)

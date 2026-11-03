@@ -97,7 +97,21 @@ public static class TFWeaponScriptParser
             ExplosionPlayerEffect = Clipped(data, "ExplosionPlayerEffect"),
             ExplosionWaterEffect = Clipped(data, "ExplosionWaterEffect"),
             DontDrop = data.GetInt("DontDrop", 0) > 0,
+            IconInactive = HudIcon(data, "weapon"),
+            IconActive = HudIcon(data, "weapon_s"),
         };
+    }
+
+    /// <summary>One named <c>TextureData</c> entry (hud.cpp:118-141): the
+    /// file and the pixel rect; no file, no texture, as stock's null
+    /// <c>pszFormat</c> arm leaves the entry unread.</summary>
+    private static TFHudIcon? HudIcon(KeyValuesText data, string entry)
+    {
+        var texture = data.Find("TextureData")?.Find(entry);
+        string? file = texture?.GetString("file", null);
+        return file is null ? null : new TFHudIcon(file,
+            texture!.GetInt("x", 0), texture.GetInt("y", 0),
+            texture.GetInt("width", 0), texture.GetInt("height", 0));
     }
 
     /// <summary>The <c>"WeaponType"</c> words (:134-166), compared case-sensitively as <c>Q_strcmp</c> does.</summary>

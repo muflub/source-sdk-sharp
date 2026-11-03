@@ -1628,3 +1628,59 @@ public interface ITFRenderGroups
     /// arm, hud.cpp:288-303).</summary>
     bool GlobalLocked { get; }
 }
+
+/// <summary>
+/// One card of the weapon selection: the weapon a slot's box shows, as
+/// stock's item panel is set (<c>SetItem</c>, tf_hud_weaponselection.cpp:560)
+/// and the draw reads it. The icon is the script's own art for the local
+/// player's team (<c>GetSpriteInactive</c>, or <c>GetSpriteActive</c> on
+/// BLU, :806-813) as one file-and-rect — this contract assembly compiles no
+/// TF2.Shared source of its own, so the parsed pair rides flat. The name is
+/// the printname localised, the card's label; <see cref="CanSelect"/> is
+/// <c>CanBeSelected</c>, whose false draws the out-of-ammo note (:745-752).
+/// Every string is empty and every count 0 when the slot shows no weapon.
+/// </summary>
+public readonly record struct TFSelectionWeapon(
+    string IconFile,
+    int IconX,
+    int IconY,
+    int IconWide,
+    int IconTall,
+    string Name,
+    bool CanSelect);
+
+/// <summary>
+/// The weapon selection buckets, stock's <c>CHudWeaponSelection</c>
+/// (tf_hud_weaponselection.cpp) over the base's state
+/// (<c>CBaseHudWeaponSelection</c>, weapon_selection.cpp): which slots show,
+/// which is the selection, and what each card carries. The timeouts are the
+/// hud's own (<c>OnThink</c>, :259-278) and live on the selection state, not
+/// here; the screen draws while <see cref="Showing"/> holds.
+/// </summary>
+public interface ITFWeaponSelect
+{
+    /// <summary>Whether the buckets draw: <c>ShouldDrawInternal</c>'s
+    /// <c>m_bSelectionVisible</c> arm behind its player arms (:315-349) —
+    /// a living, armed player with the selection open under
+    /// hud_fastswitch 0.</summary>
+    bool Showing { get; }
+
+    /// <summary>The selected weapon's slot: the large box, whose card carries
+    /// the number and the out-of-ammo note (<c>iActiveSlot</c>, :707); -1
+    /// while nothing is selected.</summary>
+    int SelectedSlot { get; }
+
+    /// <summary>Whether the slot shows a card at all — <c>GetFirstPos</c>'s
+    /// find (:395-409, the slot holds a visible weapon).</summary>
+    bool SlotHasWeapon(int slot);
+
+    /// <summary>The card a slot shows: its held weapons as the panel takes
+    /// them, the last one set winning (<c>SetItem</c> per position,
+    /// :551-576) — read <see cref="SourceSharp.Client.Ui.IWeaponSelectionSource"/>
+    /// for the positions themselves.</summary>
+    TFSelectionWeapon WeaponInSlot(int slot);
+
+    /// <summary>The local player's team, 2 RED 3 BLU: the card art's
+    /// active/inactive pick (:806-813) and the border's colour (:565-572).</summary>
+    int Team { get; }
+}

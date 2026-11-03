@@ -30,8 +30,8 @@ public class WeaponSelectionTests
         public bool Exists => true;
         public bool HudAllowed => true;
         public bool FrozenOrDead => false;
-        public uint Carried => 0b111;
-        public uint Empty => 0;
+        public ulong Carried => 0b111;
+        public ulong Empty => 0;
         public int Active { get; set; } = 1;
         public float Now => 10f;
 
@@ -48,7 +48,7 @@ public class WeaponSelectionTests
         public void SendSelection(string line) { }
         public void Escape() => Escapes++;
 
-        public WeaponSelectionHud Hud() => new(this, this, this, this, () => 0);
+        public WeaponSelectionHud Hud(int mode = 0) => new(this, this, this, this, () => mode);
     }
 
     [Fact]
@@ -211,10 +211,26 @@ public class WeaponSelectionTests
     }
 
     [Fact]
+    public void A_slot_bind_on_the_buckets_hud_opens_the_selection_and_arms_nothing()
+    {
+        // hud_fastswitch 0 is stock's SelectSlot arm: the panel up on the press,
+        // the confirm to come -- the forecast must not switch behind its back.
+        var world = new World();
+        var hud = world.Hud(mode: WeaponSelectionHud.HudTypeBuckets);
+        var latch = new RecordingLatch();
+
+        new Slot2Command(hud, new Forecast(4, 7), latch).Execute("");
+
+        Assert.True(hud.Open);
+        Assert.Equal(1, hud.Selected);
+        Assert.Empty(latch.Latched);
+    }
+
+    [Fact]
     public void A_slot_bind_with_a_forecast_and_a_latch_arms_the_rows_type_and_leaves_the_selection_shut()
     {
         var world = new World();
-        var hud = world.Hud();
+        var hud = world.Hud(mode: WeaponSelectionHud.HudTypeFastSwitch);
         var latch = new RecordingLatch();
 
         new Slot2Command(hud, new Forecast(4, 7), latch).Execute("");
@@ -227,7 +243,7 @@ public class WeaponSelectionTests
     public void A_slot_bind_on_an_empty_forecast_row_arms_nothing()
     {
         var world = new World();
-        var hud = world.Hud();
+        var hud = world.Hud(mode: WeaponSelectionHud.HudTypeFastSwitch);
         var latch = new RecordingLatch();
 
         new Slot3Command(hud, new Forecast(4, 7), latch).Execute("");

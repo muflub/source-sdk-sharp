@@ -139,6 +139,10 @@ public static class ClientUi
         var fontFiles = new UiFontFiles([.. managed.Paths, .. game.Paths]);
         var surface = services.Require<IUiSurface>();
         var backend = new VguiBackend(surface, game.Metrics ?? fonts, fontFiles) { Icons = UiIconSet.Embedded() };
+        // The same measurer the backend draws with, for the screens that fit
+        // text the way stock's panels do (the weapon selection's name tiers);
+        // AddInstance so a UI reload replaces it, as the textures'.
+        services.AddInstance(game.Metrics ?? (IUiFontMetrics)fonts);
 
         // THE HUD ART (user ruling 2026-10-26): material names to uploaded
         // textures, over the engine's GAME paths. The mod's screens and the

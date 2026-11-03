@@ -58,6 +58,22 @@ public static class TFHudType
                                                       // TanLight misses 4.5:1 on the portrait stills
     public const float ProgressText = 27f;        // 12 tall
 
+    /// <summary>The weapon selection's number, the scheme's HudSelectionText
+    /// (clientscheme.res:1269, "TF2" weight 700, 15 tall at the base
+    /// resolution) — the hudlayout NumberFont the card's slot digit draws
+    /// in.</summary>
+    public const float HudSelectionNumber = 33.75f;    // 15 tall
+
+    /// <summary>The weapon selection's card name, the item panel's name
+    /// label (itemmodelpanel.res namelabel; clientscheme.res ItemFontName*,
+    /// "TF2 Build" weight 500). Its fit is the panel's own chain
+    /// (item_model_panel.cpp:2127-2191): the large face while the name fits
+    /// the card's width, then the small, then the smallest, and the centre
+    /// wrap only past the last — never an ellipsis.</summary>
+    public const float ItemNameLarge = 27f;        // ItemFontNameLarge, 12 tall
+    public const float ItemNameSmall = 20.25f;     // ItemFontNameSmall, 9 tall
+    public const float ItemNameSmallest = 18f;     // ItemFontNameSmallest, 8 tall
+
     /// <summary>The item-effect meters' label face, the res's TFFontSmall 8
     /// (huditemeffectmeter.res:62; clientscheme.res:2012-2021, hidef 10).</summary>
     public const float ItemEffectMeterLabel = 18f;    // 8 tall

@@ -19,8 +19,8 @@ public class WeaponSelectionUiTests
         public bool Exists => true;
         public bool HudAllowed => true;
         public bool FrozenOrDead => false;
-        public uint Carried => (1u << Smg) | (1u << Ar2);
-        public uint Empty { get; set; }
+        public ulong Carried => (1ul << Smg) | (1ul << Ar2);
+        public ulong Empty { get; set; }
         public int Active { get; set; } = -1;
         public float Now => 10f;
         public void Select(int weaponType) { }

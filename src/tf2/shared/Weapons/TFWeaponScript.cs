@@ -125,6 +125,15 @@ public readonly record struct TFWeaponModeData
 }
 
 /// <summary>
+/// One <c>TextureData</c> entry of a weapon script: the file and the pixel
+/// rectangle within it, stock's <c>CHudTexture</c> as
+/// <c>LoadHudTextures</c> fills it (hud.cpp:118-141) — the sub-rect
+/// <c>DrawSelf</c> scales to the box it is given
+/// (hud.cpp:590-609, <c>DrawTexturedSubRect</c>).
+/// </summary>
+public sealed record TFHudIcon(string File, int X, int Y, int Wide, int Tall);
+
+/// <summary>
 /// A parsed TF weapon script: <c>CTFWeaponInfo</c>, the base
 /// <c>FileWeaponInfo_t</c> keys (<see cref="WeaponScript"/>, the core's
 /// <c>WeaponScriptParser</c>) plus the TF keys of
@@ -184,6 +193,20 @@ public sealed class TFWeaponScript
 
     /// <summary>The script's name (stock's <c>szClassName</c>, the file the database was asked for).</summary>
     public string Name => Base.ClassName;
+
+    /// <summary>
+    /// The selection's inactive icon, the script's <c>TextureData</c>
+    /// <c>weapon</c> entry — the red team's art, <c>GetSpriteInactive</c>
+    /// (weapons_resource.cpp:85-100 hangs the parsed pair off
+    /// <c>iconInactive</c>/<c>iconActive</c>). The base class leaves the hud
+    /// sprites to the renderer that reads them
+    /// (<see cref="WeaponScript"/>'s note); the selection hud is ours, so
+    /// the pair lives here.
+    /// </summary>
+    public TFHudIcon? IconInactive { get; init; }
+
+    /// <summary>The selection's active icon, the <c>weapon_s</c> entry — the blue team's, <c>GetSpriteActive</c>.</summary>
+    public TFHudIcon? IconActive { get; init; }
 
     /// <summary>A sound category's script sound, or empty.</summary>
     public string Sound(WeaponScriptSound category) => Base.Sounds[(int)category];

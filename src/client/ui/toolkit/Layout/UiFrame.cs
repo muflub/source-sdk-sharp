@@ -262,6 +262,13 @@ public ref struct UiFrame
     // ---- leaves ----
 
     /// <summary>
+    /// The text a token resolves to, for a screen that must measure what its
+    /// text will draw before the node exists (a fit against the resolved name,
+    /// as the weapon selection's card labels are).
+    /// </summary>
+    public string Localised(string token) => Context.Localise(token, out _);
+
+    /// <summary>
     /// User-facing text: a <c>#Token</c>, resolved through the localiser. Literal
     /// text is reported by the lint (rule <c>localise</c>); game data such as a
     /// player name goes through <see cref="Data"/>, numbers through the

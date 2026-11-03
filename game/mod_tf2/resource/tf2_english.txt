@@ -223,5 +223,12 @@
 "TF2_MainMenu_LeaveBody"		"Leave the game? You will be disconnected from the server you are playing on."
 "TF2_MainMenu_Leave"		"Leave"
 "TF2_MainMenu_Stay"		"Stay"
+// The weapon selection's card labels and empty-magazine note, the printnames
+// the weapon scripts name (tf_english.txt's own values, kept beside the
+// TF2_* block so the previews and goldens read the same words the game does).
+"TF_Weapon_RocketLauncher"	"Rocket Launcher"
+"TF_Weapon_Shotgun"		"Shotgun"
+"TF_Weapon_FireAxe"		"Fire Axe"
+"TF_OUT_OF_AMMO"		"OUT OF AMMO"
 }
 }

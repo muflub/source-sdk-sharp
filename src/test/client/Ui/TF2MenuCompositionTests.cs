@@ -155,6 +155,12 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // The kill feed's player resolver (the module registers KillFeedPlayers):
         // the composition's fake answers the empty resource.
         services.AddInstance<IKillFeedPlayers>(new EmptyPlayers());
+        // The weapon selection state, as the module holds it before its UI
+        // section (ClientModule's own build over the local player): the
+        // composition's world holds nothing selected.
+        var selectionWorld = new SelectionWorld();
+        services.AddInstance(new WeaponSelectionHud(selectionWorld, selectionWorld, selectionWorld,
+                                                    selectionWorld, () => WeaponSelectionHud.HudTypeBuckets));
         // The target ID's view slots (the module registers the real engine's):
         // the fake throws on a query the screen never makes.
         services.AddInstance<IPixelVisSlots>(new ViewSlots());
@@ -201,6 +207,37 @@ public sealed class TF2MenuCompositionTests : IDisposable
         Assert.True(loader.Current.Has("tf2mainmenu"),
                     "and the main menu, over the core's IMainMenuSource and TF2's art and actions");
         loader.Dispose();
+    }
+
+    /// <summary>The selection's world, the four arms one object answers (the
+    /// weapon-selection tests' shape): nothing held, no clock advanced.</summary>
+    private sealed class SelectionWorld : IWeaponSelectionPlayer, IWeaponSelectionActions, IWeaponSlots, IGameClock
+    {
+        public bool Exists => false;
+
+        public bool HudAllowed => false;
+
+        public bool FrozenOrDead => true;
+
+        public ulong Carried => 0ul;
+
+        public ulong Empty => 0ul;
+
+        public int Active => -1;
+
+        public float Now => 0f;
+
+        public void Select(int weaponType) { }
+
+        public void LastWeapon() { }
+
+        public void Sound(string soundName) { }
+
+        public int Count => 0;
+
+        public int Slot(int weaponType) => -1;
+
+        public int Position(int weaponType) => -1;
     }
 
     private sealed class StillView : ICurrentView

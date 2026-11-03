@@ -39,7 +39,7 @@ public sealed class LocalPickupHistory : IClientLevelHook, IOrderedHook
     private readonly WeaponScriptDatabase _scripts;
 
     /// <summary>The weapons carried at the last look, as the server's bits.</summary>
-    private uint _carried;
+    private ulong _carried;
 
     /// <summary>m_iOldAmmo: each pool at the last look, by wire index.</summary>
     private readonly int[] _oldAmmo = new int[PlayerNetState.MaxAmmoSlots];
@@ -86,14 +86,14 @@ public sealed class LocalPickupHistory : IClientLevelHook, IOrderedHook
     {
         if (Local is { } player)
         {
-            uint carried = player.State.CarriedWeapons;
-            uint added = carried & ~_carried;
-            for (int type = 0; added != 0 && type < 32; type++)
+            ulong carried = (ulong)player.State.CarriedWeapons | ((ulong)player.State.CarriedWeaponsHigh << 32);
+            ulong added = carried & ~_carried;
+            for (int type = 0; added != 0 && type < PlayerNetState.WeaponMaskBits; type++)
             {
-                if ((added & (1u << type)) == 0)
+                if ((added & (1ul << type)) == 0)
                     continue;
 
-                added &= ~(1u << type);
+                added &= ~(1ul << type);
                 if (_weapons.ByIndex(type) is { } weapon)
                 {
                     WeaponScript? script = _scripts.ReadScript(weapon.Name);

@@ -142,6 +142,11 @@ public class UiGoldenTests
         { "boteditor", "mid-edit-with-points-left" },
         { "boteditor", "full-spend" },
         { "boteditor", "revisions-open" },
+        // The TF2 weapon selection: the soldier's three slots with the
+        // shotgun's card large, and the empty magazine on BLUE — the red
+        // note and the team's border arm.
+        { "tfweaponselect", "the-soldiers-three-slots" },
+        { "tfweaponselect", "empty-rocket-launcher-blue" },
     };
 
     private static UiContext Render(string group, string slug, int w, int h)

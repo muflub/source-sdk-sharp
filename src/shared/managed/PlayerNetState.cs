@@ -527,14 +527,30 @@ public partial class PlayerNetState
     // CanBeSelected. Only the active weapon is an entity here, so the server
     // says both answers as bits, one per WeaponTypes index.
 
-    /// <summary>The weapons carried: bit <c>1 &lt;&lt; WeaponTypeId</c>.</summary>
+    /// <summary>The two masks' width, in bits.</summary>
+    public const int WeaponMaskBits = 64;
+
+    /// <summary>
+    /// The weapons carried: bit <c>1 &lt;&lt; WeaponTypeId</c>, low word. The
+    /// mask is the pair of this and <see cref="CarriedWeaponsHigh"/> —
+    /// sixty-four bits, for the core table's twelve rows plus TF's thirty-two
+    /// appended ones: the syringe gun sits past the 32nd bit, which a single
+    /// uint dropped from the selection (2026-11-02).
+    /// </summary>
     public partial uint CarriedWeapons { get; set; }
+
+    /// <summary>The carried mask's high word, bits 32..63.</summary>
+    public partial uint CarriedWeaponsHigh { get; set; }
 
     /// <summary>
     /// The carried weapons that cannot be selected: stock's CanBeSelected is
     /// false, which is HasAmmo's answer (no clip, no pool, no select-on-empty).
+    /// Low word; <see cref="EmptyWeaponsHigh"/> is bits 32..63.
     /// </summary>
     public partial uint EmptyWeapons { get; set; }
+
+    /// <summary>The empty mask's high word, bits 32..63.</summary>
+    public partial uint EmptyWeaponsHigh { get; set; }
 
     /// <summary>MAX_AMMO_SLOTS: stock's m_iAmmo array length.</summary>
     public const int MaxAmmoSlots = 32;

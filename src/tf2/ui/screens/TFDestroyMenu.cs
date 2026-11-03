@@ -94,7 +94,10 @@ public sealed class TFDestroyMenu(ITFDestroyMenuSource source, TFDestroyTile til
 
     public override void Describe(ref UiFrame ui)
     {
-        if (ui.Narrow)
+        // Stock keeps the hudlayout centred panel on the scaled-down
+        // common window (the engine's ui_scale is stock's own scaling,
+        // not a narrow screen — the live A/B at 1280x720 with ui_scale 2).
+        if (ui.DesignWidth < UiScale.MinDesignW * 0.75f)
             DescribeStacked(ref ui);
         else
             DescribeStock(ref ui);

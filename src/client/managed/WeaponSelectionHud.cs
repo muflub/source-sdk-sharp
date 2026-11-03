@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client;
 
@@ -25,10 +26,10 @@ public interface IWeaponSelectionPlayer
     bool FrozenOrDead { get; }
 
     /// <summary>PlayerNetState.CarriedWeapons: bit per WeaponTypes index.</summary>
-    uint Carried { get; }
+    ulong Carried { get; }
 
     /// <summary>PlayerNetState.EmptyWeapons: the carried ones CanBeSelected refuses.</summary>
-    uint Empty { get; }
+    ulong Empty { get; }
 
     /// <summary>The weapon in hand, as a WeaponTypes index; -1 for none.</summary>
     int Active { get; }
@@ -87,8 +88,24 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     /// <summary>MAX_WEAPON_SLOTS, MAX_WEAPON_POSITIONS.</summary>
     public const int MaxSlots = 6, MaxPositions = 20;
 
+    /// <summary>The carried/empty masks' width, in bits: <see cref="PlayerNetState.WeaponMaskBits"/>.</summary>
+    private const int MaskBits = PlayerNetState.WeaponMaskBits;
+
     /// <summary>SELECTION_TIMEOUT_THRESHOLD and SELECTION_FADEOUT_TIME.</summary>
     public const float SelectionTimeout = 0.5f, SelectionFadeoutTime = 0.75f;
+
+    /// <summary>
+    /// The buckets' wait before the fade, and the fade's length, as this
+    /// game's hud sets them: the HL2 numbers here; TF2's hud element carries
+    /// its own OnThink and answers 2.5 s and 3.0 s
+    /// (tf_hud_weaponselection.cpp:259-267), so the TF side overwrites both
+    /// where the hud is composed. The fastswitch pair keeps its constants:
+    /// the mode is read fresh each Think either way.
+    /// </summary>
+    public float BucketTimeout { get; set; } = SelectionTimeout;
+
+    /// <summary>The buckets' fade length, <see cref="BucketTimeout"/>'s pair.</summary>
+    public float BucketFadeout { get; set; } = SelectionFadeoutTime;
 
     /// <summary>FASTSWITCH_DISPLAY_TIMEOUT and FASTSWITCH_FADEOUT_TIME.</summary>
     public const float FastSwitchTimeout = 1.5f, FastSwitchFadeoutTime = 1.5f;
@@ -256,10 +273,10 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     public int LastPositionInSlot(int slot)
     {
         int last = -1;
-        uint carried = _player.Carried;
+        ulong carried = _player.Carried;
         for (int t = 0; t < TypeCount; t++)
         {
-            if ((carried & (1u << t)) != 0 && _slots.Slot(t) == slot && _slots.Position(t) > last)
+            if ((carried & (1ul << t)) != 0 && _slots.Slot(t) == slot && _slots.Position(t) > last)
                 last = _slots.Position(t);
         }
 
@@ -269,10 +286,10 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     /// <summary>GetWeaponInSlot: the carried weapon at a bucket's position, -1 for none.</summary>
     public int WeaponInSlot(int slot, int position)
     {
-        uint carried = _player.Carried;
+        ulong carried = _player.Carried;
         for (int t = 0; t < TypeCount; t++)
         {
-            if ((carried & (1u << t)) != 0 && _slots.Slot(t) == slot && _slots.Position(t) == position)
+            if ((carried & (1ul << t)) != 0 && _slots.Slot(t) == slot && _slots.Position(t) == position)
                 return t;
         }
 
@@ -281,7 +298,7 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
 
     /// <summary>CanBeSelected for a carried weapon: it has something to fire.</summary>
     public bool CanBeSelected(int weaponType)
-        => weaponType >= 0 && weaponType < 32 && (_player.Empty & (1u << weaponType)) == 0;
+        => weaponType >= 0 && weaponType < MaskBits && (_player.Empty & (1ul << weaponType)) == 0;
 
     //-------------------------------------------------------------------------
     // The binds.
@@ -402,11 +419,11 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
         }
     }
 
-    private float Timeout => Mode != 0 ? FastSwitchTimeout : SelectionTimeout;
+    private float Timeout => Mode != 0 ? FastSwitchTimeout : BucketTimeout;
 
-    private float FadeoutTime => Mode != 0 ? FastSwitchFadeoutTime : SelectionFadeoutTime;
+    private float FadeoutTime => Mode != 0 ? FastSwitchFadeoutTime : BucketFadeout;
 
-    private int TypeCount => Math.Min(32, _slots.Count);
+    private int TypeCount => Math.Min(MaskBits, _slots.Count);
 
     //-------------------------------------------------------------------------
     // Stock's selection.
@@ -577,7 +594,7 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
 
     private bool CanBeSelectedInHud(int weaponType) => CanBeSelected(weaponType);
 
-    private bool Carries(int weaponType) => (_player.Carried & (1u << weaponType)) != 0;
+    private bool Carries(int weaponType) => (_player.Carried & (1ul << weaponType)) != 0;
 
     /// <summary>GetFirstPos: the lowest position carried in a bucket.</summary>
     private int FirstInSlot(int slot)

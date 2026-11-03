@@ -21,11 +21,12 @@ public class WeaponSelectionHudTests
         public bool Exists { get; set; } = true;
         public bool HudAllowed { get; set; } = true;
         public bool FrozenOrDead { get; set; }
-        public uint Carried { get; set; } = 0b1111;
-        public uint Empty { get; set; }
+        public ulong Carried { get; set; } = 0b1111;
+        public ulong Empty { get; set; }
         public int Active { get; set; } = Pistol;
         public float Now { get; set; } = 10f;
         public int FastSwitch;
+        public int Types { get; set; } = 4;
 
         public readonly List<int> Selected = new();
         public readonly List<string> Sounds = new();
@@ -35,7 +36,7 @@ public class WeaponSelectionHudTests
         public void LastWeapon() => LastWeapons++;
         public void Sound(string soundName) => Sounds.Add(soundName);
 
-        public int Count => 4;
+        public int Count => Types;
         public int Slot(int t) => t switch { Crowbar => 0, Pistol or Magnum => 1, _ => 2 };
         public int Position(int t) => t == Magnum ? 1 : 0;
 
@@ -93,6 +94,20 @@ public class WeaponSelectionHudTests
 
         Assert.False(rig.Hud.Open);
         Assert.Equal(["Player.WeaponSelectionMoveSlot"], rig.Sounds);
+    }
+
+    [Fact]
+    public void A_weapon_past_the_32nd_type_is_carried_and_selectable()
+    {
+        // The medic's syringe sits at catalogue row 41: while the carried mask
+        // was uint-wide its bit wrapped mod 32 and the bucket came up empty
+        // (the live medic drew two cards, 2026-11-02).
+        var rig = new Rig { Types = 40, Carried = 1ul << 39 };
+
+        rig.Hud.SlotCommand(3);
+
+        Assert.True(rig.Hud.Open);
+        Assert.Equal(39, rig.Hud.Selected);
     }
 
     [Fact]
