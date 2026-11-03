@@ -428,6 +428,11 @@ public sealed class ServerPlayerCommands
         Globals g = _environment.Globals;
         ServerPlayerMove m = _moves.For(player);
 
+        // PostThink's SetSimulationTime( gpGlobals->curtime ): the command's
+        // clock, before the tick base steps past it.
+        if (g.IsAvailable)
+            m.SimulationTime = g.CurTime;
+
         if (g.IsAvailable && g.FrameTime > 0)
             m.TickBase++;
 

@@ -516,6 +516,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     // The players' movement state and the server's command stages
     // (plan_server_native_v2 T4g).
     private readonly ServerPlayerMoves _playerMoves = new();
+
+    // The command each player is running (CBasePlayer::m_pCurrentCommand), for
+    // the lag compensation's StartLagCompensation( player, GetCurrentCommand() ).
+    private readonly PlayerCurrentCommands _currentCommands = new();
     private readonly ServerMoveData _moveData = new();
     private ServerPlayerCommands _serverCommands = null!;
 
@@ -728,6 +732,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<INameChangeGate>>(locator => new Hooks<INameChangeGate>(locator, log));
         _services.AddFactory<IHooks<IRespawnGate>>(locator => new Hooks<IRespawnGate>(locator, log));
         _services.AddFactory<IHooks<IRoundEndGate>>(locator => new Hooks<IRoundEndGate>(locator, log));
+        // A mod's WantsLagCompensationOnEntity (TF2's CTFPlayer override).
+        _services.AddFactory<IHooks<ILagCompensationTargets>>(locator => new Hooks<ILagCompensationTargets>(locator, log));
         // THE MOVEMENT RULES (phase 0.3) are a SINGLE-OWNER hook: a mod marks
         // its IMovementRules [SideService] like any other service, and the
         // MovementRulesResolver (asked once, below the mods' registration)
@@ -2036,6 +2042,34 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                                          _surfaceProps, _convars.Get<AnimThreeWayBlendConVar>());
         _services.AddInstance(_skeletons);
         _arsenal.Attachments = _skeletons;
+
+        // THE LAG COMPENSATION (player_lagcompensation.cpp's CLagCompensationManager):
+        // a frame participant that records every player after the hierarchy's
+        // frame, and the rewind the arsenal's and the mods' attacks wrap their
+        // traces in. After the skeletons, whose animation it records and
+        // rewinds; the commands each player is running are the module's
+        // (OnStandalonePlayerCommand).
+        _services.AddInstance<IServerEntityPlacement>(ServerEntityPlacement.For(_engine, _services.Require<IEngineEntities>()));
+        _services.AddInstance(_currentCommands);
+        _services.AddInstance<ILagCompensationWorld>(
+            new EngineLagCompensationWorld(_services.Require<IEngineEnvironment>(), _services.Require<IEnginePlayers>(),
+                                           _services.Require<IEngineEntities>(), _services.Require<IEngineWorldQuery>(),
+                                           _services.Require<IEngineConsole>(), _services.Require<IClientInfo>(),
+                                           _engineServer, _services.Require<IServerEntityPlacement>(), _skeletons,
+                                           _playerMoves));
+        var lagCompensation = new LagCompensation(
+            _services.Require<ILagCompensationWorld>(),
+            new LagCompensationConVars(
+                _convars.Get<SvUnlagConVar>() ?? throw new InvalidOperationException("sv_unlag is not registered"),
+                _convars.Get<SvMaxUnlagConVar>() ?? throw new InvalidOperationException("sv_maxunlag is not registered"),
+                _convars.Get<SvLagFlushBoneCacheConVar>()
+                    ?? throw new InvalidOperationException("sv_lagflushbonecache is not registered"),
+                _convars.Get<SvLagCompensationTeleportDistConVar>()
+                    ?? throw new InvalidOperationException("sv_lagcompensation_teleport_dist is not registered")),
+            _currentCommands, Log, _services.Require<IHooks<ILagCompensationTargets>>());
+        _services.AddInstance(lagCompensation);
+        _services.AddInstance<ILagCompensation>(lagCompensation);
+        _arsenal.LagCompensation = lagCompensation;
         _entities.Directory.RemovalForget = _skeletons.Forget;
 
         // The model descriptors are read from the same studio headers
@@ -2385,6 +2419,11 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         if (phase != 1)
             return;
+
+        // The command is the player's current one while its weapon frame runs
+        // (stock's SetCurrentCommand around RunCommand): what an attack's lag
+        // compensation reads.
+        using PlayerCurrentCommands.Scope running = _currentCommands.Begin(player, in cmd);
 
         _arsenal.OnPlayerCommand(player, in cmd, firstTime);
 

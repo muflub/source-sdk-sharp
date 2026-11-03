@@ -46909,15 +46909,16 @@ entity
 		"OnTrigger" "tempents_te_explosionFire4.42857-1"
 		"OnTrigger" "tempents_te_shattersurfaceFire4.57143-1"
 		"OnTrigger" "tempents_te_largefunnelFire4.71429-1"
-		"OnTrigger" "tempents_te_killplayerattachmentsFire4.85714-1"
-		"OnTrigger" "tempents_te_beamsplineFire5-1"
-		"OnTrigger" "tempents_te_clientprojectileFire5.14286-1"
-		"OnTrigger" "tempents_te_muzzleflashFire5.28572-1"
-		"OnTrigger" "tempents_te_impactFire5.42857-1"
-		"OnTrigger" "tempents_te_gaussexplosionFire5.57143-1"
-		"OnTrigger" "tempents_te_dustFire5.71429-1"
-		"OnTrigger" "tempents_te_effectdispatchFire5.85714-1"
-		"OnTrigger" "tempents_te_sparksFire6-1"
+		"OnTrigger" "tempents_te_playeranimeventFire4.85714-1"
+		"OnTrigger" "tempents_te_killplayerattachmentsFire5-1"
+		"OnTrigger" "tempents_te_beamsplineFire5.14286-1"
+		"OnTrigger" "tempents_te_clientprojectileFire5.28572-1"
+		"OnTrigger" "tempents_te_muzzleflashFire5.42857-1"
+		"OnTrigger" "tempents_te_impactFire5.57143-1"
+		"OnTrigger" "tempents_te_gaussexplosionFire5.71429-1"
+		"OnTrigger" "tempents_te_dustFire5.85714-1"
+		"OnTrigger" "tempents_te_effectdispatchFire6-1"
+		"OnTrigger" "tempents_te_sparksFire6.14286-1"
 	}
 	editor
 	{
@@ -47500,9 +47501,9 @@ entity
 {
 	"id" "3762"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_killplayerattachments"
+	"targetname" "tempents_te_playeranimevent"
 	"origin" "1792 2024 8"
-	"te" "CTEKillPlayerAttachments"
+	"te" "CTEPlayerAnimEvent"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47513,9 +47514,9 @@ entity
 {
 	"id" "3763"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_beamspline"
+	"targetname" "tempents_te_killplayerattachments"
 	"origin" "1408 2088 8"
-	"te" "CTEBeamSpline"
+	"te" "CTEKillPlayerAttachments"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47526,9 +47527,9 @@ entity
 {
 	"id" "3764"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_clientprojectile"
+	"targetname" "tempents_te_beamspline"
 	"origin" "1472 2088 8"
-	"te" "CTEClientProjectile"
+	"te" "CTEBeamSpline"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47539,9 +47540,9 @@ entity
 {
 	"id" "3765"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_muzzleflash"
+	"targetname" "tempents_te_clientprojectile"
 	"origin" "1536 2088 8"
-	"te" "CTEMuzzleFlash"
+	"te" "CTEClientProjectile"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47552,9 +47553,9 @@ entity
 {
 	"id" "3766"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_impact"
+	"targetname" "tempents_te_muzzleflash"
 	"origin" "1600 2088 8"
-	"te" "CTEImpact"
+	"te" "CTEMuzzleFlash"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47565,9 +47566,9 @@ entity
 {
 	"id" "3767"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_gaussexplosion"
+	"targetname" "tempents_te_impact"
 	"origin" "1664 2088 8"
-	"te" "CTEGaussExplosion"
+	"te" "CTEImpact"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47578,9 +47579,9 @@ entity
 {
 	"id" "3768"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_dust"
+	"targetname" "tempents_te_gaussexplosion"
 	"origin" "1728 2088 8"
-	"te" "CTEDust"
+	"te" "CTEGaussExplosion"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47591,9 +47592,9 @@ entity
 {
 	"id" "3769"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_effectdispatch"
+	"targetname" "tempents_te_dust"
 	"origin" "1792 2088 8"
-	"te" "CTEEffectDispatch"
+	"te" "CTEDust"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47604,9 +47605,9 @@ entity
 {
 	"id" "3770"
 	"classname" "ss_te_tester"
-	"targetname" "tempents_te_sparks"
+	"targetname" "tempents_te_effectdispatch"
 	"origin" "1408 2152 8"
-	"te" "CTESparks"
+	"te" "CTEEffectDispatch"
 	editor
 	{
 		"visgroupshown" "1"
@@ -47616,6 +47617,19 @@ entity
 entity
 {
 	"id" "3771"
+	"classname" "ss_te_tester"
+	"targetname" "tempents_te_sparks"
+	"origin" "1472 2152 8"
+	"te" "CTESparks"
+	editor
+	{
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+	}
+}
+entity
+{
+	"id" "3772"
 	"classname" "game_text"
 	"targetname" "ladders_title"
 	"origin" "-1600 2240 32"
@@ -47636,7 +47650,7 @@ entity
 }
 entity
 {
-	"id" "3772"
+	"id" "3773"
 	"classname" "game_text"
 	"targetname" "ladders_expect"
 	"origin" "-1600 2240 48"
@@ -47657,7 +47671,7 @@ entity
 }
 entity
 {
-	"id" "3773"
+	"id" "3774"
 	"classname" "game_text"
 	"targetname" "ladders_hint"
 	"origin" "-1600 2240 64"
@@ -47678,7 +47692,7 @@ entity
 }
 entity
 {
-	"id" "3774"
+	"id" "3775"
 	"classname" "game_text"
 	"targetname" "ladders_done"
 	"origin" "-1600 2240 80"
@@ -47699,17 +47713,17 @@ entity
 }
 entity
 {
-	"id" "3775"
+	"id" "3776"
 	"classname" "trigger_multiple"
 	"targetname" "ladders_zone"
 	"wait" "4"
 	"spawnflags" "1"
 	solid
 	{
-		"id" "3776"
+		"id" "3777"
 		side
 		{
-			"id" "3777"
+			"id" "3778"
 			"plane" "(-1888 2848 240) (-1312 2848 240) (-1312 2272 240)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47720,7 +47734,7 @@ entity
 		}
 		side
 		{
-			"id" "3778"
+			"id" "3779"
 			"plane" "(-1888 2272 8) (-1312 2272 8) (-1312 2848 8)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47731,7 +47745,7 @@ entity
 		}
 		side
 		{
-			"id" "3779"
+			"id" "3780"
 			"plane" "(-1312 2848 240) (-1312 2848 8) (-1312 2272 8)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -47742,7 +47756,7 @@ entity
 		}
 		side
 		{
-			"id" "3780"
+			"id" "3781"
 			"plane" "(-1888 2272 240) (-1888 2272 8) (-1888 2848 8)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -47753,7 +47767,7 @@ entity
 		}
 		side
 		{
-			"id" "3781"
+			"id" "3782"
 			"plane" "(-1312 2848 240) (-1888 2848 240) (-1888 2848 8)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47764,7 +47778,7 @@ entity
 		}
 		side
 		{
-			"id" "3782"
+			"id" "3783"
 			"plane" "(-1312 2272 8) (-1888 2272 8) (-1888 2272 240)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47794,7 +47808,7 @@ entity
 }
 entity
 {
-	"id" "3783"
+	"id" "3784"
 	"classname" "logic_relay"
 	"targetname" "ladders_reset"
 	"origin" "-1600 2220 16"
@@ -47814,17 +47828,17 @@ entity
 }
 entity
 {
-	"id" "3784"
+	"id" "3785"
 	"classname" "func_button"
 	"targetname" "ladders_button"
 	"wait" "1"
 	"spawnflags" "1024"
 	solid
 	{
-		"id" "3785"
+		"id" "3786"
 		side
 		{
-			"id" "3786"
+			"id" "3787"
 			"plane" "(-1616 2300 68) (-1584 2300 68) (-1584 2268 68)"
 			"material" "halflife/lab1_cmpm5"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47835,7 +47849,7 @@ entity
 		}
 		side
 		{
-			"id" "3787"
+			"id" "3788"
 			"plane" "(-1616 2268 44) (-1584 2268 44) (-1584 2300 44)"
 			"material" "halflife/lab1_cmpm5"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47846,7 +47860,7 @@ entity
 		}
 		side
 		{
-			"id" "3788"
+			"id" "3789"
 			"plane" "(-1584 2300 68) (-1584 2300 44) (-1584 2268 44)"
 			"material" "halflife/lab1_cmpm5"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -47857,7 +47871,7 @@ entity
 		}
 		side
 		{
-			"id" "3789"
+			"id" "3790"
 			"plane" "(-1616 2268 68) (-1616 2268 44) (-1616 2300 44)"
 			"material" "halflife/lab1_cmpm5"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -47868,7 +47882,7 @@ entity
 		}
 		side
 		{
-			"id" "3790"
+			"id" "3791"
 			"plane" "(-1584 2300 68) (-1616 2300 68) (-1616 2300 44)"
 			"material" "halflife/lab1_cmpm5"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47879,7 +47893,7 @@ entity
 		}
 		side
 		{
-			"id" "3791"
+			"id" "3792"
 			"plane" "(-1584 2268 44) (-1616 2268 44) (-1616 2268 68)"
 			"material" "halflife/lab1_cmpm5"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -47907,7 +47921,7 @@ entity
 }
 entity
 {
-	"id" "3792"
+	"id" "3793"
 	"classname" "point_spotlight"
 	"targetname" "ladders_beam"
 	"origin" "-1600 2284 188"
@@ -47927,7 +47941,7 @@ entity
 }
 entity
 {
-	"id" "3793"
+	"id" "3794"
 	"classname" "light"
 	"origin" "-1600 2308 132"
 	"_light" "255 200 120 45"
@@ -47943,7 +47957,7 @@ entity
 }
 entity
 {
-	"id" "3794"
+	"id" "3795"
 	"classname" "func_useableladder"
 	"targetname" "ladders_ladder"
 	"origin" "-1600 2639 72"
@@ -47957,7 +47971,7 @@ entity
 }
 entity
 {
-	"id" "3795"
+	"id" "3796"
 	"classname" "info_ladder_dismount"
 	"targetname" "ladders_top"
 	"origin" "-1600 2688 137"
@@ -47969,7 +47983,7 @@ entity
 }
 entity
 {
-	"id" "3796"
+	"id" "3797"
 	"classname" "info_ladder_dismount"
 	"targetname" "ladders_foot"
 	"origin" "-1600 2600 9"
@@ -47981,7 +47995,7 @@ entity
 }
 entity
 {
-	"id" "3797"
+	"id" "3798"
 	"classname" "info_ladder_dismount"
 	"targetname" "ladders_left"
 	"origin" "-1640 2639 9"
@@ -47994,7 +48008,7 @@ entity
 }
 entity
 {
-	"id" "3798"
+	"id" "3799"
 	"classname" "info_ladder_dismount"
 	"targetname" "ladders_right"
 	"origin" "-1560 2639 9"

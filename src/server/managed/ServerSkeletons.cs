@@ -34,6 +34,50 @@ public interface IMergedAttachments
 }
 
 /// <summary>
+/// A skeleton's animation as the lag compensation records it and puts it
+/// back: the base sequence, its cycle, whether the cycle was held, and the
+/// pose parameters. The server's skeletons carry no overlay layers, so there
+/// are none here (docs/divergences.md).
+/// </summary>
+public sealed class SkeletonAnimation
+{
+    /// <summary><c>GetSequence()</c>.</summary>
+    public int Sequence;
+
+    /// <summary><c>GetCycle()</c>: the base sequence's cycle when it was read.</summary>
+    public float Cycle;
+
+    /// <summary>A cycle a <c>SetCycle</c> held, or null for one the clock runs.</summary>
+    public float? HeldCycle;
+
+    /// <summary><c>GetPoseParameter( i )</c> for every slot.</summary>
+    public readonly float[] PoseParameters = new float[BoneEntityState.MaxPoseParameters];
+}
+
+/// <summary>
+/// What the lag compensation asks of a skeleton: its animation read, set for
+/// the rewind and put back, and its bone cache flushed
+/// (<c>sv_lagflushbonecache</c>'s <c>InvalidateBoneCache</c>).
+/// </summary>
+public interface ISkeletonAnimationRewind
+{
+    /// <summary>Reads <paramref name="entity"/>'s animation into <paramref name="into"/>; false for no skeleton.</summary>
+    bool Capture(EntityHandle entity, SkeletonAnimation into);
+
+    /// <summary>
+    /// <c>SetSequence</c>, <c>SetCycle</c> and <c>SetPoseParameter</c> for the
+    /// rewind: the cycle is held where it is put until the restore.
+    /// </summary>
+    void Pose(EntityHandle entity, int sequence, float cycle, ReadOnlySpan<float> poseParameters);
+
+    /// <summary>Puts back what <see cref="Capture"/> read, the cycle's clock included.</summary>
+    void Restore(EntityHandle entity, SkeletonAnimation saved);
+
+    /// <summary><c>InvalidateBoneCache()</c>.</summary>
+    void InvalidateBoneCache(EntityHandle entity);
+}
+
+/// <summary>
 /// THE SERVER'S SKELETONS, IN MANAGED CODE (plan physics_bones_native_zero
 /// steps 1.1-1.2).
 ///
@@ -74,7 +118,8 @@ public interface IMergedAttachments
 /// scale was set again.
 /// </para>
 /// </summary>
-public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom, IMergedAttachments
+public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes, IGameLifecycle, ISaveCustom, IMergedAttachments,
+                                      ISkeletonAnimationRewind
 {
     private readonly IStandaloneBlocks _blocks;
     private readonly StudioModels _models;
@@ -560,6 +605,65 @@ public sealed class ServerSkeletons : IStandaloneSkeletons, IStandaloneHitboxes,
         }
 
         return index;
+    }
+
+    // ---- the lag compensation's rewind -------------------------------------------
+
+    /// <inheritdoc/>
+    public bool Capture(EntityHandle entity, SkeletonAnimation into)
+    {
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return false;
+        }
+
+        into.Sequence = state.Sequence;
+        into.Cycle = state.SequenceCycle(_clock.Now);
+        into.HeldCycle = state.HeldCycle;
+        state.PoseParameter.AsSpan().CopyTo(into.PoseParameters);
+        return true;
+    }
+
+    /// <inheritdoc/>
+    public void Pose(EntityHandle entity, int sequence, float cycle, ReadOnlySpan<float> poseParameters)
+    {
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return;
+        }
+
+        // The block's clock is the client's and is not written: the rewind
+        // lasts one attack and is put back before anything is sent.
+        state.Sequence = sequence;
+        state.HeldCycle = cycle;
+        poseParameters[..Math.Min(poseParameters.Length, state.PoseParameter.Length)].CopyTo(state.PoseParameter);
+
+        // The attachments are read off the bones without asking whether the
+        // bones still stand: a new pose makes them stale.
+        state.AttachmentsValid = false;
+    }
+
+    /// <inheritdoc/>
+    public void Restore(EntityHandle entity, SkeletonAnimation saved)
+    {
+        if (!Find(entity, out _, out BoneEntityState state))
+        {
+            return;
+        }
+
+        state.Sequence = saved.Sequence;
+        state.HeldCycle = saved.HeldCycle;
+        saved.PoseParameters.AsSpan().CopyTo(state.PoseParameter);
+        state.AttachmentsValid = false;
+    }
+
+    /// <inheritdoc/>
+    public void InvalidateBoneCache(EntityHandle entity)
+    {
+        if (_states.TryGet(entity, out BoneEntityState? state) && state is not null)
+        {
+            state.InvalidateBoneCache();
+        }
     }
 
     // ---- lifetime -------------------------------------------------------------

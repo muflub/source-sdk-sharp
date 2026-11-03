@@ -259,6 +259,17 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     public IMergedAttachments? Attachments { get; set; }
 
     /// <summary>
+    /// The lag compensation the arms' traces run inside: HL2MP's
+    /// <c>CHL2MP_Player::FireBullets</c> and
+    /// <c>CBaseHL2MPBludgeonWeapon::PrimaryAttack</c> wrap theirs in
+    /// <c>StartLagCompensation</c> and <c>FinishLagCompensation</c>. Set by the
+    /// composition once the skeletons it rewinds exist, as
+    /// <see cref="Attachments"/> is. Null: every trace sees the players where
+    /// they are now.
+    /// </summary>
+    public ILagCompensation? LagCompensation { get; set; }
+
+    /// <summary>
     /// The weapon table this arsenal gives from — the one list this side reads,
     /// exposed so the decorator and the console report answer "do we have that
     /// weapon" from the arsenal's own answer rather than a second lookup.
@@ -306,6 +317,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // dot (m_hLaserDot). None when there is neither.
         public EntityHandle Missile = EntityHandle.None;
         public EntityHandle LaserDot = EntityHandle.None;
+
+        // The reload the weapon-event hooks were told began and not yet told
+        // over: its weapon type (-1 for none) and the clip it began with.
+        public int ToldReloadType = -1;
+        public int ToldReloadClip;
     }
 
     private readonly Dictionary<uint, Carry> _carries = new();
@@ -1069,8 +1085,20 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         int before = weapon.State.Reserve;
         int beforeSecondary = weapon.State.SecondaryReserve;
         int clipBefore = weapon.State.Clip;
+        int swingsBefore = carry.Arms.Swings;
         bool reloadingBefore = weapon.State.InReload;
         int typeBefore = weapon.State.WeaponTypeId;
+
+        // A reload told begun that is not the hands' reload now (the player
+        // switched away, or died, mid-reload) ended there, its clip unfilled:
+        // what a watching client sees when the other weapon comes up.
+        if (firstTime && carry.ToldReloadType >= 0 && (carry.ToldReloadType != typeBefore || !reloadingBefore))
+        {
+            int type = carry.ToldReloadType;
+            carry.ToldReloadType = -1;
+            if (_weaponEvents is not null)
+                Tell(player, type, PlayerWeaponEvent.ReloadFinished, carry.ToldReloadClip);
+        }
 
         // The command's random seed, which the predicting client derives from
         // the same command number: the pellets spread from it on both sides.
@@ -1094,7 +1122,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         if (firstTime && typeBefore == weapon.State.WeaponTypeId)
-            TellWeaponEvents(player, weapon.State, clipBefore, before, reloadingBefore);
+            TellWeaponEvents(carry, player, weapon.State, clipBefore, before, reloadingBefore,
+                             swung: carry.Arms.Swings != swingsBefore, secondary: weapon.State.SecondaryReserve < beforeSecondary);
 
         // What the machine spent comes out of the pools by name.
         SettlePool(carry, weapon.State.WeaponTypeId, primary: true,
@@ -1122,7 +1151,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// with no clip), a reload's start and end when <c>InReload</c> turned,
     /// and each shell a shell-by-shell reload put in.
     /// </summary>
-    private void TellWeaponEvents(EntityHandle player, WeaponNetState w, int clipBefore, int reserveBefore, bool reloadingBefore)
+    private void TellWeaponEvents(Carry carry, EntityHandle player, WeaponNetState w, int clipBefore, int reserveBefore, bool reloadingBefore,
+                                  bool swung, bool secondary)
     {
         int type = w.WeaponTypeId;
         bool clipless = _weapons.ByIndex(type) is { ClipSize: < 0 };
@@ -1130,7 +1160,12 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         bool shot = fired > 0 && !(reloadingBefore && w.InReload);
         bool reload = !reloadingBefore && w.InReload;
         string className = _weapons.ByIndex(type)?.Name ?? "";
-        if (shot && SourceSharp.Shared.Anim.PlayerAnimGestures.ShotShowsGesture(className))
+        // The attack gesture, once a command: a shot, a melee swing (hit or
+        // miss) or an alt-fire, each where its stock code calls
+        // SetAnimation( PLAYER_ATTACK1 ).
+        if ((shot && SourceSharp.Shared.Anim.PlayerAnimGestures.ShotShowsGesture(className))
+            || (swung && SourceSharp.Shared.Anim.PlayerAnimGestures.SwingShowsGesture(className))
+            || (secondary && SourceSharp.Shared.Anim.PlayerAnimGestures.SecondaryShowsGesture(className)))
             Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.AttackPrimary, type);
         if (reload && SourceSharp.Shared.Anim.PlayerAnimGestures.ReloadShowsGesture(className))
             Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.Reload, type);
@@ -1141,11 +1176,20 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (shot)
             Tell(player, type, PlayerWeaponEvent.Fired, fired);
         if (reload)
+        {
+            (carry.ToldReloadType, carry.ToldReloadClip) = (type, w.Clip);
             Tell(player, type, PlayerWeaponEvent.ReloadStarted, 0);
+        }
         if (reloadingBefore && w.InReload && w.Clip > clipBefore)
+        {
+            carry.ToldReloadClip = w.Clip;
             Tell(player, type, PlayerWeaponEvent.ReloadShell, w.Clip - clipBefore);
+        }
         if (reloadingBefore && !w.InReload)
+        {
+            carry.ToldReloadType = -1;
             Tell(player, type, PlayerWeaponEvent.ReloadFinished, w.Clip);
+        }
     }
 
     /// <summary>
@@ -1934,6 +1978,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         internal int CommandRandomSeed { get; set; }
 
+        /// <summary>Melee swings run, hit or miss: the arsenal's tell that a command swung.</summary>
+        internal int Swings { get; private set; }
+
         // The pellets' stream, re-seeded per pellet (ShotSpread).
         private readonly SeededUniformStream _spread = new();
 
@@ -2061,6 +2108,27 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         private void Shoot(in WeaponType type, int pellets, float spreadDegrees, float damage, DamageType damageType,
                            bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
+        {
+            // CHL2MP_Player::FireBullets (hl2mp_player.cpp:640-662): the other
+            // players moved back to where this shooter saw them for every
+            // pellet, and the shot noted (NoteWeaponFired) for the next
+            // command's compensation; TF's FX_FireBullets (tf_fx_shared.cpp:230,
+            // :399) wraps its pellets the same way.
+            ILagCompensation? lag = _arsenal.LagCompensation;
+            lag?.Start(_carry.Player);
+            lag?.NoteWeaponFired(_carry.Player);
+            try
+            {
+                ShootPellets(in type, pellets, spreadDegrees, damage, damageType, critical, fixedPellets, in ammo);
+            }
+            finally
+            {
+                lag?.Finish(_carry.Player);
+            }
+        }
+
+        private void ShootPellets(in WeaponType type, int pellets, float spreadDegrees, float damage,
+                                  DamageType damageType, bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
         {
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
@@ -2240,7 +2308,21 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         private const float ImpactBackoff = 32f;
 
         /// <inheritdoc />
-        public bool MeleeConnects(in WeaponType type) => MeleeAim(in type, out _, out _, out _);
+        public bool MeleeConnects(in WeaponType type)
+        {
+            // CBaseHL2MPBludgeonWeapon::PrimaryAttack (weapon_hl2mpbasebasebludgeon.cpp:103-115)
+            // wraps the whole swing, the hit-or-miss trace among it.
+            ILagCompensation? lag = _arsenal.LagCompensation;
+            lag?.Start(_carry.Player);
+            try
+            {
+                return MeleeAim(in type, out _, out _, out _);
+            }
+            finally
+            {
+                lag?.Finish(_carry.Player);
+            }
+        }
 
         /// <inheritdoc />
         public bool EyesUnderwater()
@@ -2339,6 +2421,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// </summary>
         public void MeleeMiss(in WeaponType type)
         {
+            Swings++;
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             Vector forward = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player)).Forward;
             Vector end = from + forward * type.MeleeRange;
@@ -2374,6 +2457,23 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// hitbox, so the hitgroup is Generic.
         /// </summary>
         public void MeleeSwing(in WeaponType type, ShotDamage shot)
+        {
+            Swings++;
+            // The swing's trace and hit inside the lag compensation, as
+            // CBaseHL2MPBludgeonWeapon::PrimaryAttack's Swing is.
+            ILagCompensation? lag = _arsenal.LagCompensation;
+            lag?.Start(_carry.Player);
+            try
+            {
+                Swing(in type, shot);
+            }
+            finally
+            {
+                lag?.Finish(_carry.Player);
+            }
+        }
+
+        private void Swing(in WeaponType type, ShotDamage shot)
         {
             if (!MeleeAim(in type, out SurfaceTraceResult trace, out Vector forward, out Vector lineEnd))
                 return;

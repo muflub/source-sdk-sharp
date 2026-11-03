@@ -76,10 +76,13 @@ public sealed class ClientSoundContext(Func<int> maxClients, Func<bool> closeCap
 /// </summary>
 public sealed class ClientSounds(IEngineEntities entities)
     : IClientEntitySounds, IFxGameSounds, IClientImpactSoundEmitter, IFxTracerSound, ISoundscapeSounds,
-      IClientSoundEmitterSink
+      IClientSoundEmitterSink, IClientStepSoundSink
 {
     /// <summary>CHAN_STATIC (soundflags.h).</summary>
     public const int ChanStatic = 6;
+
+    /// <summary>CHAN_BODY (soundflags.h).</summary>
+    public const int ChanBody = 4;
 
     private ClientSoundEmitter? _emitter;
     private ClientSoundEmitterSystem? _system;
@@ -114,6 +117,23 @@ public sealed class ClientSounds(IEngineEntities entities)
             index = SoundEmitterCore.SoundFromWorld;
 
         emitter.Emit(emitter.LocalPlayer(), index, soundName, origin);
+    }
+
+    /// <inheritdoc/>
+    public void EmitStep(int entIndex, string script, in Vector origin, float volume)
+    {
+        if (_emitter is not { } emitter || emitter.Parameters(script) is not { } p || p.Name.Length == 0)
+            return;
+
+        emitter.Emit(emitter.LocalPlayer(), entIndex, new EmitSoundParams
+        {
+            Channel = ChanBody,
+            SoundName = p.Name,
+            Volume = volume,
+            SoundLevel = p.SoundLevel,
+            Pitch = p.Pitch,
+            Origin = origin,
+        });
     }
 
     /// <inheritdoc/>

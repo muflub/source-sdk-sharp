@@ -180,6 +180,19 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
     }
 
     [Fact]
+    public void TheFinishRecordsTheCommandsClockAsTheSimulationTime()
+    {
+        _globals->curtime = 12.5f;
+        ServerPlayerMove m = _moves.For(Player);
+        m.SimulationTime = 3f;
+        var cmd = new UserCmd { CommandNumber = 1 };
+
+        _commands.Stage(Player, 0, 2, in cmd);
+
+        Assert.Equal(12.5f, m.SimulationTime);
+    }
+
+    [Fact]
     public void ANoClockFrameDoesNotStepTheTickBase()
     {
         _globals->frametime = 0f;

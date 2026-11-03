@@ -1081,3 +1081,9 @@ src/shared/managed/Anim/PlayerAnimGestures.cs	ports the HL2MP weapons' m_acttabl
 src/client/managed/TempEnts/ClientTePlayerAnimEvent.cs	ports C_TEPlayerAnimEvent::PostDataUpdate (c_sdk_player.cpp)
 src/server/interop/PlayerStepSounds.cs	ports CBasePlayer::UpdateStepSound's timer and CHL2MP_Player::PlayStepSound's server arm (baseplayer_shared.cpp, hl2mp_player_shared.cpp)
 src/ai/hl2mp/server/Trees/Hl2mpDecider.cs	the HL2MP bot behaviours of hl2mp/bot/behavior/ (retreat_to_cover, get_health, attack, melee_attack, seek_and_destroy, move_to_vantage_point, get_ammo) as tree shapes over ours, not their code
+src/client/managed/Sounds/ClientStepSounds.cs	ports the CLIENT_DLL arms of CBasePlayer::UpdateStepSound (baseplayer_shared.cpp) and CHL2MP_Player::PlayStepSound (hl2mp_player_shared.cpp)
+src/client/managed/Sounds/OtherPlayerSteps.cs	ports C_BasePlayer::Simulate's other-player step and GetGroundSurface (c_baseplayer.cpp)
+src/server/managed/LagCompensation.cs	ports CLagCompensationManager (game/server/player_lagcompensation.cpp:20-873: LagRecord, RestorePlayerTo, FrameUpdatePostEntityThink, StartLagCompensation, BacktrackPlayer, FinishLagCompensation) and the WantsLagCompensationOnEntity reach rules (game/server/player.cpp:750-783, game/server/hl2mp/hl2mp_player.cpp:683-714)
+src/server/managed/LagCompensationConVars.cs	ports the sv_unlag, sv_maxunlag, sv_lagflushbonecache and sv_lagcompensation_teleport_dist declarations (game/server/player_lagcompensation.cpp:28-35)
+src/server/managed/LagCompensationWorld.cs	ports CBasePlayer::ClientSettingsChanged's m_fLerpTime and m_bLagCompensation (game/server/player.cpp:3474-3532) for the lag compensation's world
+src/tf2/server/Weapons/TFLagCompensationTargets.cs	ports CTFPlayer::WantsLagCompensationOnEntity (game/server/tf/tf_player.cpp:20079-20154)

@@ -235,6 +235,7 @@ internal static class DefaultForwarders
         public string? ClientAddress(int entIndex) => null;
 
         public float? ClientAvgLatency(int entIndex) => null;
+        public float? ClientLatency(int entIndex) => null;
 
         public string? ClientConVarValue(int entIndex, string name) => null;
 

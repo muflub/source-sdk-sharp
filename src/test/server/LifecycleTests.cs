@@ -604,6 +604,9 @@ public class LifecycleTests
                                            // the engine drops with the level, are
                                            // forgotten at level shutdown. The next
                                            // free hundred; none moved.
+        (typeof(LagCompensation),  1120),  // CLagCompensationManager's ClearHistory
+                                           // at level shutdown. In the 1100/1150
+                                           // gap; none moved.
     };
 
     [Fact]

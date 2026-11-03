@@ -88,6 +88,20 @@ public sealed class PredictWeaponsConVar : BoolConVar
 {
 }
 
+/// <summary>
+/// Stock's <c>cl_lagcompensation</c> (prediction.cpp:38): whether the server
+/// moves the other players back to where this client drew them while its
+/// attacks are judged. USERINFO because the server reads it: with
+/// <c>cl_predict</c> it is <c>CBasePlayer::m_bLagCompensation</c>
+/// (player.cpp:3524), and a client that did not declare it reads as 0 there
+/// and is never compensated.
+/// </summary>
+[ConVar("cl_lagcompensation", "1", Flags = ConVarFlags.UserInfo | ConVarFlags.NotConnected,
+        Help = "Perform server side lag compensation of weapon firing events.")]
+public sealed class LagCompensationConVar : BoolConVar
+{
+}
+
 //=============================================================================
 // THE SHIM'S POLICY KNOBS, MOVED OUT OF C++ — the client's half.
 //

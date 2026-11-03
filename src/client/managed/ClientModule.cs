@@ -140,6 +140,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private LocalPickupHistory? _pickupHistory;
     private WeaponEffects.WeaponDrawEffects? _weaponEffects;
     private UnderwaterAmbience? _underwater;
+    private Sounds.OtherPlayerSteps? _otherSteps;
     private IHooks<IClientFrameThink>? _frameThinks;
     private ClientPlayerPrediction _prediction = null!;
 
@@ -413,11 +414,22 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // The prediction's world carries stock's client move helper
         // (ClientPredictionMoveWorld, lane c6-input): the predicted swim
         // sound, and the helper's no-op answers taken here.
+        // The footsteps the client makes itself (the local player's predicted
+        // ones and the other players' from their networked movement), as
+        // stock's CLIENT_DLL arms of the step sound make them.
+        var steps = new Sounds.ClientStepSounds(_clientSounds,
+            () => _convars.Get<SvFootstepsConVar>()?.Value != false,
+            () => _services.Require<IEngineEnvironment>() is { Globals.IsAvailable: true } env ? env.Globals.MaxClients : 1,
+            index => _services.Require<IClientStandalones>().GetByIndex(index) is { } player
+                ? _services.Require<IEngineEntityRender>().GetModelName(player.Handle)
+                : null);
+        _services.AddInstance(steps);
         _movement = MovementRunner.For(_engine, _services.Require<IFwdEngineTrace>(), _services.Require<IFwdPhysicsSurfaceProps>(),
             world => new ClientPredictionMoveWorld(world,
             () => _prediction?.PredictingHost ?? EntityHandle.None,
             () => _prediction?.FirstRunOfFunctions ?? false,
-            _clientSounds));
+            _clientSounds, steps,
+            () => _prediction?.PredictingMove));
         _services.AddInstance(_movement);
 
         // And the module's engine itself, for what acquires an engine
@@ -2271,6 +2283,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             _clientArsenal);
         _services.AddInstance<WeaponEffects.IWeaponDrawEffects>(_weaponEffects);
         _underwater = _services.Create<UnderwaterAmbience>();
+        _otherSteps = _services.Create<Sounds.OtherPlayerSteps>();
         _frameThinks = _services.Require<IHooks<IClientFrameThink>>();
 
         IEngineConsole inputConsole = _services.Require<IEngineConsole>();
@@ -2481,6 +2494,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The local player's underwater ambience (its PreThink's UpdateUnderwaterState).
         _underwater?.Frame();
+
+        // The other players' footsteps (C_BasePlayer::Simulate's step).
+        _otherSteps?.Frame(frameTime);
 
         // Game logic's per-frame thinks (stock's entity ClientThink), stepped
         // once a frame after the core's own work this frame. An empty chain

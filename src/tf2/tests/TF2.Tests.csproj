@@ -43,6 +43,7 @@
     <Compile Include="..\..\test\common\TestMapSpawner.cs" Link="common\TestMapSpawner.cs" />
     <Compile Include="..\..\test\common\RecordingDecals.cs" Link="common\RecordingDecals.cs" />
     <Compile Include="..\..\test\common\RecordingServerSkins.cs" Link="common\RecordingServerSkins.cs" />
+    <Compile Include="..\..\test\common\LagWorld.cs" Link="common\LagWorld.cs" />
     <Compile Include="..\..\test\common\RecordingEffectDispatch.cs" Link="common\RecordingEffectDispatch.cs" />
     <Compile Include="..\..\test\common\RecordingJointTables.cs" Link="common\RecordingJointTables.cs" />
     <Compile Include="..\..\test\common\RecordingBlastSweep.cs" Link="common\RecordingBlastSweep.cs" />

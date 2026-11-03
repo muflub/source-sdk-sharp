@@ -49,11 +49,17 @@ public class ClientPredictionMoveWorldTests
         public void StopFrom(EntityHandle entity, string soundName) { }
     }
 
+    private sealed class NoSteps : IClientStepSoundSink
+    {
+        public void EmitStep(int entIndex, string script, in Vector origin, float volume) { }
+    }
+
     private static (ClientPredictionMoveWorld World, Engine Engine, Sounds Sound) Rig(bool firstRun)
     {
         var engine = new Engine();
         var sound = new Sounds();
-        return (new ClientPredictionMoveWorld(engine, () => Host, () => firstRun, sound), engine, sound);
+        var steps = new ClientStepSounds(new NoSteps(), () => true, () => 8, _ => null);
+        return (new ClientPredictionMoveWorld(engine, () => Host, () => firstRun, sound, steps, () => null), engine, sound);
     }
 
     [Fact]
@@ -117,7 +123,8 @@ public class ClientPredictionMoveWorldTests
         Assert.Equal(7f, w.EngineTime());
         w.ResetDuckLatched();
         w.SetPlayerSurface(0);
-        Assert.Equal(new[] { "Trace", "PointContents", "ResetPointContentsCache", "Surface", "PlayStepSound", "UpdateStepSound", "Splash",
+        // The steps are the client's own (ClientStepSoundsTests): nothing crosses.
+        Assert.Equal(new[] { "Trace", "PointContents", "ResetPointContentsCache", "Surface", "Splash",
                              "RumbleEffect", "EngineTime", "ResetDuckLatched", "SetPlayerSurface" }, engine.Seen);
     }
 }

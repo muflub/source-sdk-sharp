@@ -574,4 +574,82 @@ public class ServerSkeletonsTests
         Assert.True((int)LifecycleStage.Skeletons > (int)LifecycleStage.Standalone);
         Assert.Equal((int)LifecycleStage.Skeletons, new Rig().Skeletons.LifecycleOrder);
     }
+
+    // ---- the lag compensation's rewind (ISkeletonAnimationRewind) -----------
+
+    private static Vector Muzzle(Rig rig)
+    {
+        Assert.True(rig.Skeletons.GetAttachment(Entity, 1, out Vector origin, out _, out _));
+        return origin;
+    }
+
+    [Fact]
+    public void ARewindPoseMovesTheSkeletonToItsCycleAndTheRestorePutsTheClockBack()
+    {
+        // The ramp started at t=1: at t=1.05 its clock is at cycle 0.75 and the
+        // root has moved off the origin (AFreshSkeletonTakesItsClockFromTheBlock).
+        Rig rig = new();
+        rig.Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f), animTime: 1f);
+        rig.Clock.Now = 1.05f;
+        var saved = new SkeletonAnimation();
+        Assert.True(rig.Skeletons.Capture(Entity, saved));
+        Vector before = Muzzle(rig);
+
+        // Cycle 0, held for the rewind.
+        rig.Skeletons.Pose(Entity, saved.Sequence, 0f, saved.PoseParameters);
+        Vector posed = Muzzle(rig);
+
+        rig.Skeletons.Restore(Entity, saved);
+        Vector after = Muzzle(rig);
+
+        // The oracle: the same skeleton whose clock is at cycle 0 (t=1).
+        Rig atZero = new();
+        atZero.Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f), animTime: 1f);
+        atZero.Clock.Now = 1f;
+        Vector cycleZero = Muzzle(atZero);
+
+        Assert.True(saved.HeldCycle is null && saved.Cycle > 0f, $"the control: a clock cycle {saved.Cycle}");
+        Assert.NotEqual(cycleZero.X, before.X);
+        Assert.Equal(cycleZero, posed);
+        Assert.Equal(before, after);
+        Assert.Null(rig.Skeletons.States.GetOrCreate(Entity).HeldCycle);
+    }
+
+    [Fact]
+    public void ARewindPoseCarriesThePoseParametersAndTheRestoreTheSavedOnes()
+    {
+        Rig rig = new();
+        var saved = new SkeletonAnimation();
+        rig.Skeletons.States.GetOrCreate(Entity).PoseParameter[2] = 0.25f;
+        Assert.True(rig.Skeletons.Capture(Entity, saved));
+
+        float[] rewound = new float[BoneEntityState.MaxPoseParameters];
+        rewound[2] = 0.75f;
+        rig.Skeletons.Pose(Entity, saved.Sequence, 0f, rewound);
+        float posed = rig.Skeletons.States.GetOrCreate(Entity).PoseParameter[2];
+
+        rig.Skeletons.Restore(Entity, saved);
+
+        Assert.Equal((0.25f, 0.75f, 0.25f),
+                     (saved.PoseParameters[2], posed, rig.Skeletons.States.GetOrCreate(Entity).PoseParameter[2]));
+    }
+
+    [Fact]
+    public void AFlushedBoneCacheIsRebuiltOnTheNextAsk()
+    {
+        Rig rig = new();
+        Muzzle(rig);
+        BoneEntityState state = rig.Skeletons.States.GetOrCreate(Entity);
+        Assert.True(state.CachedBones.Length > 0 && state.CacheKey.ModelIndex == Model, "the control: a built cache");
+
+        rig.Skeletons.InvalidateBoneCache(Entity);
+
+        Assert.NotEqual(Model, state.CacheKey.ModelIndex);
+    }
+
+    [Fact]
+    public void AHandleWithNoBlockCapturesNothing()
+    {
+        Assert.False(new Rig().Skeletons.Capture(Other, new SkeletonAnimation()));
+    }
 }

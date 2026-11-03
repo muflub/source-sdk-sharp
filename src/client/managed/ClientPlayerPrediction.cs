@@ -513,6 +513,9 @@ public sealed class ClientPlayerPrediction
     /// <summary>Whether the command being predicted runs for the first time (g_pMoveData-&gt;m_bFirstRunOfFunctions).</summary>
     public bool FirstRunOfFunctions => _move.FirstRunOfFunctions;
 
+    /// <summary>The move state of the command being predicted, for the move helper's footsteps.</summary>
+    public MoveState PredictingMove => _move;
+
     private bool RunOne(ClientSsPlayer player, in UserCmd cmd, bool firstTime)
     {
         PredictingHost = player.Handle;
@@ -579,7 +582,13 @@ public sealed class ClientPlayerPrediction
             loop.Hl2Player = _hl2Player;
             _move.SuitEquipped = _hl2Player is not null;
 
+            // The step timer is a predicted field (stock's m_flStepSoundTime in
+            // C_BasePlayer's prediction table): what a command run again does to
+            // it is discarded, so each command counts it down once, on its first run.
+            float stepSoundTime = _move.StepSoundTime;
             ran = loop.ProcessMovement(_move);
+            if (!firstTime)
+                _move.StepSoundTime = stepSoundTime;
             _movement.NoteClientCommand(ran);
 
             // Phase 1 — the weapon machine, over the same command the movement

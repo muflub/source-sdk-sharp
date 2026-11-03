@@ -327,6 +327,9 @@ FORWARD = [
         side='server',
         methods=[
             'GetAddress', 'GetAvgLatency',
+            # The lag compensation's latency (player_lagcompensation.cpp
+            # StartLagCompensation: GetLatency( FLOW_OUTGOING )).
+            'GetLatency',
         ],
     ),
     dict(

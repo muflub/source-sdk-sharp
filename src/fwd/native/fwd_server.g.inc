@@ -273,19 +273,22 @@ static void *const s_UniformRandomStreamSlots[] = {
 static const SSForwarderTable s_UniformRandomStreamTable = { s_UniformRandomStreamSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// NetChannelInfo: 2 forwarder(s) over INetChannelInfo.
+// NetChannelInfo: 3 forwarder(s) over INetChannelInfo.
 //-----------------------------------------------------------------------------
 // const char * INetChannelInfo::GetAddress( void )
 static const char * SSFwd_NetChannelInfo_GetAddress( INetChannelInfo *self ) { return self->GetAddress(); }
 // float INetChannelInfo::GetAvgLatency( int )
 static float SSFwd_NetChannelInfo_GetAvgLatency( INetChannelInfo *self, int a0 ) { return self->GetAvgLatency( a0 ); }
+// float INetChannelInfo::GetLatency( int )
+static float SSFwd_NetChannelInfo_GetLatency( INetChannelInfo *self, int a0 ) { return self->GetLatency( a0 ); }
 
 static void *const s_NetChannelInfoSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_NetChannelInfo_GetAddress ),
 	reinterpret_cast< void * >( &SSFwd_NetChannelInfo_GetAvgLatency ),
+	reinterpret_cast< void * >( &SSFwd_NetChannelInfo_GetLatency ),
 };
 
-static const SSForwarderTable s_NetChannelInfoTable = { s_NetChannelInfoSlots, 2 };
+static const SSForwarderTable s_NetChannelInfoTable = { s_NetChannelInfoSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // NetworkStringTableContainer: 3 forwarder(s) over INetworkStringTableContainer.

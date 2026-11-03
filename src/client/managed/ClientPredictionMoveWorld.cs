@@ -18,7 +18,8 @@ namespace SourceSharp.Client;
 /// stand-in.
 /// </summary>
 public sealed class ClientPredictionMoveWorld(IMoveWorld engine, Func<EntityHandle> host, Func<bool> firstRun,
-                                              Sounds.IClientEntitySounds sound) : IMoveWorld
+                                              Sounds.IClientEntitySounds sound, Sounds.ClientStepSounds steps,
+                                              Func<MoveState?> move) : IMoveWorld
 {
     public MoveTrace Trace(in Vector start, in Vector end, in Vector mins, in Vector maxs, uint mask, int collisionGroup)
         => engine.Trace(start, end, mins, maxs, mask, collisionGroup);
@@ -65,11 +66,35 @@ public sealed class ClientPredictionMoveWorld(IMoveWorld engine, Func<EntityHand
     /// <summary>"Do nothing; falling damage is applied in MoveHelper_Server::PlayerFallingDamage."</summary>
     public bool PlayerFallingDamage(float damage) => true;
 
+    /// <summary>
+    /// <c>CHL2MP_Player::PlayStepSound</c> on the client: "during prediction
+    /// play footstep sounds only once", the command's first run; the step side
+    /// turns and the local player hears it (the server sends it to the PAS
+    /// less the PVS, which the predicting player is in).
+    /// </summary>
     public void PlayStepSound(in Vector origin, int surfaceProps, float volume, bool force)
-        => engine.PlayStepSound(origin, surfaceProps, volume, force);
+    {
+        if (!firstRun() || move() is not { } s)
+            return;
 
+        steps.Play(s.EntIndex, origin, volume, s.Flags);
+    }
+
+    /// <summary>
+    /// <c>CBasePlayer::UpdateStepSound</c> over the predicted move state's step
+    /// timer (stock's predicted <c>m_flStepSoundTime</c>), the step played
+    /// through <see cref="PlayStepSound"/>'s first-run gate.
+    /// </summary>
     public void UpdateStepSound(in Vector origin, in Vector velocity, int surfaceProps)
-        => engine.UpdateStepSound(origin, velocity, surfaceProps);
+    {
+        if (move() is not { } s)
+            return;
+
+        int material = surfaceProps >= 0 && engine.Surface(surfaceProps) is { Valid: true } surface ? surface.Material : -1;
+        float vol = steps.Update(ref s.StepSoundTime, s.FrameTime, s.Flags, s.MoveType, s.WaterLevel, velocity, material);
+        if (vol > 0f)
+            PlayStepSound(origin, surfaceProps, vol, false);
+    }
 
     public void Splash() => engine.Splash();
 

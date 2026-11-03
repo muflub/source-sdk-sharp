@@ -778,6 +778,10 @@ public class FrameLifecycleTests
         // ManageObjectRelocation, which ends CHL2MPRules::Think: just after
         // the rules, in the 300/400 gap.
         (typeof(PlacedObjects), 310),
+        // CLagCompensationManager's FrameUpdatePostEntityThink: every player's
+        // place once the hierarchy's frame has run their commands, before
+        // anything else reads the frame. In the 50/100 gap; none moved.
+        (typeof(LagCompensation), 75),
     };
 
     [Fact]

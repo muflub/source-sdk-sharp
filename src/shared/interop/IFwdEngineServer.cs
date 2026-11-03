@@ -159,6 +159,14 @@ public interface IFwdEngineServer
     /// </summary>
     float? ClientAvgLatency(int entIndex);
 
+    /// <summary>
+    /// The client's current outgoing latency in seconds
+    /// (<c>GetPlayerNetInfo(entIndex)->GetLatency(FLOW_OUTGOING)</c>), what
+    /// stock's <c>CLagCompensationManager::StartLagCompensation</c> adds to
+    /// its correction; null for an empty slot or a client with no channel.
+    /// </summary>
+    float? ClientLatency(int entIndex);
+
     /// <summary>A client's convar value as the server holds it (<c>GetClientConVarValue</c>), or null.</summary>
     string? ClientConVarValue(int entIndex, string name);
 

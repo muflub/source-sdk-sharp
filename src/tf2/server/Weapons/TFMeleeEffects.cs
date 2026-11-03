@@ -18,7 +18,8 @@ namespace TF2.Server.Weapons;
 /// The melee arm of the weapon effects (<c>ITFWeaponEffects.Melee</c>): what
 /// stock's smack (<c>CTFWeaponBaseMelee::Smack</c>,
 /// <c>shared/tf/tf_weaponbase_melee.cpp:702-790</c>) does at its time — the
-/// swing's trace, and on a hit, the hit itself.
+/// swing's trace, and on a hit, the hit itself, inside the lag compensation
+/// stock's smack opens around both.
 ///
 /// <para>
 /// The trace is <c>DoSwingTraceInternal</c> (:392-540): a MASK_SOLID line
@@ -34,7 +35,8 @@ namespace TF2.Server.Weapons;
 [SideService(Side.Server, As = [typeof(ITFMeleeEffects)])]
 public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers players,
                                    IEngineWorldQuery world, IEngineDamage damage,
-                                   DamageHitGroups hitGroups, ILog log) : ITFMeleeEffects
+                                   DamageHitGroups hitGroups, ILog log,
+                                   ILagCompensation? lagCompensation = null) : ITFMeleeEffects
 {
     /// <summary><c>tf_meleeattackforcescale</c>'s 80 (<c>tf_weaponbase_melee.cpp:50</c>).</summary>
     public const float ForceScale = 80f;
@@ -45,6 +47,22 @@ public sealed class TFMeleeEffects(IEngineEntities entities, IEnginePlayers play
         if (!entities.IsValid(owner))
             return;
 
+        // Smack's lag compensation (:711-712, :788): the other players where
+        // the swinger saw them for the swing's traces and its hit.
+        lagCompensation?.Start(owner);
+        try
+        {
+            Smack(in attack, script, shot, in trace, owner);
+        }
+        finally
+        {
+            lagCompensation?.Finish(owner);
+        }
+    }
+
+    private void Smack(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, in SwingTrace trace,
+                       EntityHandle owner)
+    {
         // The eye along the eye angles, over the smack's reach (:408-425).
         Vector from = players.GetShootOrigin(owner);
         Vector forward = Angles.Forward(entities.GetEyeAngles(owner));

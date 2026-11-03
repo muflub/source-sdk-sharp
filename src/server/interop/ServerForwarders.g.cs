@@ -125,7 +125,7 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>INetChannelInfo</c> through its forwarders (SSFwd_NetChannelInfo): 2 slot(s).
+/// <c>INetChannelInfo</c> through its forwarders (SSFwd_NetChannelInfo): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct NetChannelInfoFwd : IForwarderTable
@@ -138,6 +138,9 @@ internal unsafe struct NetChannelInfoFwd : IForwarderTable
 
     // float INetChannelInfo::GetAvgLatency( int )
     public delegate* unmanaged<void*, int, float> GetAvgLatency;
+
+    // float INetChannelInfo::GetLatency( int )
+    public delegate* unmanaged<void*, int, float> GetLatency;
 }
 
 /// <summary>

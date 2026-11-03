@@ -263,6 +263,15 @@ public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceS
         return _netInfo->GetAvgLatency(channel, 0);   // FLOW_OUTGOING
     }
 
+    public float? ClientLatency(int entIndex)
+    {
+        void* channel = _fwd->GetPlayerNetInfo(_self, entIndex);
+        if (channel is null)
+            return null;
+
+        return _netInfo->GetLatency(channel, 0);   // FLOW_OUTGOING
+    }
+
     public string? ClientConVarValue(int entIndex, string name)
     {
         byte[] bytes = Vtable.Utf8(name);

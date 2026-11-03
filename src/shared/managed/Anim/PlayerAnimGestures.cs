@@ -35,9 +35,25 @@ public static class PlayerAnimGestures
     /// <summary>
     /// Whether a shot shows the attack gesture: every weapon whose fire calls
     /// <c>SetAnimation( PLAYER_ATTACK1 )</c>, which the crossbow's
-    /// <c>FireBolt</c> does not.
+    /// <c>FireBolt</c> does not, nor HL2MP's physcannon (its punt and its pull
+    /// in weapon_physcannon.cpp call no SetAnimation at all).
     /// </summary>
-    public static bool ShotShowsGesture(string weaponClass) => Suffix(weaponClass) is not null && weaponClass != "weapon_crossbow";
+    public static bool ShotShowsGesture(string weaponClass)
+        => Suffix(weaponClass) is not null && weaponClass is not ("weapon_crossbow" or "weapon_physcannon");
+
+    /// <summary>
+    /// Whether a melee swing shows the attack gesture: <c>CBaseHL2MPBludgeonWeapon::Swing</c>
+    /// calls <c>SetAnimation( PLAYER_ATTACK1 )</c> on a hit and a miss alike,
+    /// for the crowbar and the stunstick (their acttables' MELEE row).
+    /// </summary>
+    public static bool SwingShowsGesture(string weaponClass) => weaponClass is "weapon_crowbar" or "weapon_stunstick";
+
+    /// <summary>
+    /// Whether an alt-fire paid from the secondary pool shows the attack
+    /// gesture: the SMG1's grenade (<c>CWeaponSMG1::SecondaryAttack</c>'s
+    /// "player shoot animation"); the AR2's energy ball calls none.
+    /// </summary>
+    public static bool SecondaryShowsGesture(string weaponClass) => weaponClass == "weapon_smg1";
 
     /// <summary>
     /// Whether a reload shows the reload gesture: every weapon that reloads

@@ -33,6 +33,15 @@ public sealed class ServerPlayerMove
     /// </summary>
     public int TickBase { get; set; }
 
+    /// <summary>
+    /// m_flSimulationTime: the clock of the last command the player ran,
+    /// written where stock's CBasePlayer::PostThink wrote
+    /// <c>SetSimulationTime( gpGlobals-&gt;curtime )</c> (player.cpp:4730),
+    /// before the tick base steps. The lag compensation's history is keyed on
+    /// it; 0 for a player who has run no command.
+    /// </summary>
+    public float SimulationTime { get; set; }
+
     /// <summary>What the player stands on (m_hGround), or <see cref="EntityHandle.None"/>.</summary>
     public EntityHandle Ground { get; set; }
 

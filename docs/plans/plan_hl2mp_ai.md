@@ -2566,6 +2566,57 @@ that code when M1 starts, and changes nothing here.
   Reloading"; Alyx's `/ai/bot/2/trace` at tick 7306: `own reload` success,
   `reloading in sight` success, `back off reloading` success.
 
+- **Phase 6's second leftover: the client's footsteps** (2026-11-02), the
+  divergence Phase 5 found (`shell_movement.cpp:697-705` has no player on
+  a client command, and nothing did `C_BasePlayer::Simulate`'s step). Now
+  managed and no native line: `ClientStepSounds` (the CLIENT_DLL arms of
+  `UpdateStepSound` and `CHL2MP_Player::PlayStepSound` over the shared
+  `StepSoundRules`), the prediction's move world playing the local
+  player's step on a command's first run only, its timer the predicted
+  move state's (a re-run's count-down is discarded, as stock's prediction
+  table restores `m_flStepSoundTime`), and `OtherPlayerSteps` once a frame
+  for every other player. Two choices differ from stock and are stated in
+  the class: the other players' velocity is the networked one their
+  animation reads (stock estimated it from the interpolated origin's
+  history), and the ground is a 64 u ray, not the player's box. Facts
+  `ClientStepSoundsTests` (9); `tools/ai-mutations` client-steps-local,
+  client-steps-other, client-steps-frame. Live (dm_lockdown, a human and
+  two bots, `sv_soundemitter_trace 1`): "(cl) EmitSound: Raw wave emitted
+  'npc/footsteps/hardboot_generic4.wav' (ent 2)" 138 times for the bot in
+  the human's PVS while the server's "(sv)" steps went to the other bot's
+  PAS less PVS; the human walking 150 ticks (`+forward`): 5 "(cl) ... (ent
+  1)".
+
+- **Found with the first leftover: a reload switched away from never
+  ended** (2026-11-02). The arsenal tells the weapon-event hooks from the
+  hands' weapon's own state, so a reload the player left by switching
+  weapons (or by dying) was never told over: live, a bot's own
+  `Reloading` held for 37,114 ticks in one run (a reload is about 100),
+  and the trees' 'retreat (own reload)' with it. The arsenal now keeps
+  the reload it told begun and tells its end, the clip unfilled, at the
+  first command whose hands are not reloading it
+  (`PlayerWeaponEventHookTests.AReloadSwitchedAwayFromIsToldAsEnded`, red
+  before; `tools/ai-mutations reload-abort-untold`).
+
+- **Phase 6's third leftover: the gestures Phase 5 did not cover**
+  (2026-11-02). Compared with stock's code: `CBaseHL2MPBludgeonWeapon::Swing`
+  calls `SetAnimation( PLAYER_ATTACK1 )` on a hit and a miss
+  (`weapon_hl2mpbasebasebludgeon.cpp:361`), so the crowbar's and the
+  stunstick's swings play their acttable's `..._MELEE` gesture (the
+  server's arms count a swing; the shot test reads ammo, which a melee
+  weapon spends none of); `CWeaponSMG1::SecondaryAttack` calls it for the
+  grenade (`weapon_smg1.cpp:237`), so an alt-fire paid from the secondary
+  pool plays `..._SMG1` (the AR2's ball calls none, `weapon_ar2.cpp`).
+  **Premise half false: HL2MP's physcannon shows no gesture** — its
+  `weapon_physcannon.cpp` (game/shared/hl2mp) calls no `SetAnimation` at
+  all, so it joins the crossbow's shot as "none, as stock", and
+  `ShotShowsGesture` no longer answers yes for it. The weapon-event hook
+  is unchanged (a swing and a grenade are not rounds of a clip). Facts:
+  `PlayerWeaponEventHookTests.ACrowbarSwingSendsTheAttackEvent`,
+  `TheSmg1sGrenadeSendsTheAttackEvent`, `ThePhyscannonShowsNoGesture`;
+  `tools/ai-mutations` anim-swing-none, anim-secondary-none,
+  anim-physcannon.
+
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 
 - `src/game/server/NextBot/Player/NextBotPlayer.h` — `NextBotCreatePlayerBot` (:36–60), `_NextBot_BuildUserCommand` (:558), `PhysicsSimulate` (:577): how a stock bot synthesises its usercmd.

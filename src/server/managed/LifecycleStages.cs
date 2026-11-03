@@ -210,6 +210,12 @@ public enum LifecycleStage
     Standalone = 1100,
 
     /// <summary>
+    /// The lag compensation's history goes with the level
+    /// (<c>CLagCompensationManager::LevelShutdownPostEntity</c>'s <c>ClearHistory</c>).
+    /// </summary>
+    LagCompensation = 1120,
+
+    /// <summary>
     /// The managed server skeletons (plan physics_bones_native_zero step 1.2):
     /// every entity's bone state and every model image copied this level go
     /// at level shutdown. AFTER Standalone, so the hierarchy's teardown --
@@ -412,6 +418,13 @@ public enum FrameStage
     /// deletes. Everything below observes what this produced.
     /// </summary>
     Standalone = 50,
+
+    /// <summary>
+    /// The lag compensation's history (<c>CLagCompensationManager::FrameUpdatePostEntityThink</c>):
+    /// every player's place after the hierarchy's frame has run their commands
+    /// and moved them, before anything below reads the frame.
+    /// </summary>
+    LagCompensation = 75,
 
     /// <summary>Which soundscape each player is hearing.</summary>
     Soundscapes = 100,
