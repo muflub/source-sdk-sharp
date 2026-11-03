@@ -135,6 +135,16 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
         weapon.NextPrimaryAttack = attack.Now + FireDelay(in attack, script);
         weapon.TimeWeaponIdle = weapon.NextPrimaryAttack;
         Parts.Hooks.AfterFire(in context, in attack);
+
+        // The launch ends as every stock shot of a gun does, in the tail
+        // DoFireEffects of CTFWeaponBaseGun::FireProjectile
+        // (tf_weaponbase_gun.cpp:357, the case block's common end :330-368):
+        // the muzzle flash, unless the weapon vetoes it
+        // (ShouldDoMuzzleFlash, :1008-1018 — no launcher does). The rocket
+        // launcher's shipped script names no effect, so its ask is the empty
+        // name's no-op, as stock's is.
+        if (attack.EffectsLive && ShouldDoMuzzleFlash && script.MuzzleFlashParticleEffect.Length > 0)
+            attack.Arms.MuzzleFlash(attack.Type, script.MuzzleFlashParticleEffect);
     }
 }
 

@@ -61,7 +61,7 @@ public sealed class TFPlayerCarriersTests
             var source = new TFPlayerComponents(Engine, new Directory(CarrierHandle, Entity), Carriers, Log, new TFPlayerItems(),
                                                 new TFPlayerConditions(Carriers, Engine),
                                                 new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), Engine,
-                                                EconTestFiles.TrimmedSchema(), new PoollessGiver());
+                                                EconTestFiles.TrimmedSchema(), new PoollessGiver(), Engine, Engine);
             Composites = new PlayerComposites(Log, new Hooks<IPlayerComponentSource>(source), Engine, Engine);
         }
 

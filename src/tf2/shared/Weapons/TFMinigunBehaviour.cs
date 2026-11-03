@@ -65,8 +65,14 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     // Past every idle a spun minigun sets itself (0.1, 0.2, 0.75 s).
     private const float IdlePushedOut = 2.5f;
 
+    /// <summary>The last shot's crit flag, beside the state bits (<c>m_bCritShot</c>, :376-377; the loop's firing arm reads it at :1411).</summary>
+    public const int CritLatchMask = 1 << (ModeKindShift + 3);
+
     /// <summary>The weapon's minigun state.</summary>
     public static State StateOf(WeaponNetState weapon) => (State)((weapon.BehaviourMode & StateMask) >> ModeKindShift);
+
+    /// <summary>Whether the last shot crit — the firing loop's burst arm.</summary>
+    public static bool CritLatched(WeaponNetState weapon) => (weapon.BehaviourMode & CritLatchMask) != 0;
 
     /// <summary>
     /// <c>SetWeaponState</c> (<c>tf_weapon_minigun.cpp:471-484</c>): a change
@@ -162,13 +168,31 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                 if (weapon.NextPrimaryAttack <= now)
                 {
                     SetState(in attack, spinOnly ? State.Spinning : State.Firing);
+
+                    // The hand-over speaks (:293-301): the wind line for the
+                    // spin, the fire line for the loop. Named concepts ride
+                    // no clock.
+                    if (attack.EffectsLive)
+                        Parts.Effects.SpeakWeaponFire(in attack,
+                            spinOnly ? "TLK_WINDMINIGUN" : "TLK_FIREMINIGUN");
+
                     weapon.NextSecondaryAttack = weapon.NextPrimaryAttack = weapon.TimeWeaponIdle = now + 0.1f;
                 }
                 break;
 
             case State.Firing:
                 if (spinOnly)
+                {
+                    // Pressing the spin cuts the fire scene off and winds
+                    // instead (:315-322): the clear first, then the wind line.
+                    if (attack.EffectsLive)
+                    {
+                        Parts.Effects.ClearWeaponFireScene(in attack);
+                        Parts.Effects.SpeakWeaponFire(in attack, "TLK_WINDMINIGUN");
+                    }
+
                     SetState(in attack, State.Spinning);
+                }
 
                 if (StateOf(weapon) == State.Spinning)
                 {
@@ -183,6 +207,12 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
                     // m_flStartedFiringAt, folded into the wind-up start.
                     if (weapon.BehaviourMeter <= 0f)
                         weapon.BehaviourMeter = now - SpinUpTime;
+
+                    // Each shot asks the firing concept (:336-341); the ask's
+                    // own clock is the arm's, beside the scene's.
+                    if (attack.EffectsLive)
+                        Parts.Effects.FiringSpeech(in attack);
+
                     Fire(in attack, script);
                     weapon.TimeWeaponIdle = now + 0.2f;
                 }
@@ -202,7 +232,24 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
             case State.Spinning:
                 if (!spinOnly)
-                    SetState(in attack, weapon.Reserve > 0 ? State.Firing : State.DryFire);
+                {
+                    // Back from the spin to a gun with a pool: the scene is
+                    // cut off and the fire line answers (:417-426).
+                    if (weapon.Reserve > 0)
+                    {
+                        if (attack.EffectsLive)
+                        {
+                            Parts.Effects.ClearWeaponFireScene(in attack);
+                            Parts.Effects.SpeakWeaponFire(in attack, "TLK_FIREMINIGUN");
+                        }
+
+                        SetState(in attack, State.Firing);
+                    }
+                    else
+                    {
+                        SetState(in attack, State.DryFire);
+                    }
+                }
 
                 // Stock's spinning arm re-sends the spin pose every command (:433);
                 // the looping fire anim's gate is the primary anim's, not this one's.
@@ -252,6 +299,13 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
         weapon.Reserve -= Math.Min(weapon.Reserve, Math.Max(1, script.Primary.AmmoPerShot));
         var shot = ModifyShot(in attack, default);
+
+        // The shot's crit rides beside the state bits (:376-377): the loop's
+        // firing arm takes its burst sound from the latch, the plain double
+        // otherwise (:1411).
+        weapon.BehaviourMode = shot.Critical
+            ? weapon.BehaviourMode | CritLatchMask
+            : weapon.BehaviourMode & ~CritLatchMask;
         float spread = TFWeaponTypes.SpreadDegrees(script.Primary.Spread * SpreadScale(SpinTime(weapon, attack.Now)));
 
         SendAnim(in attack, WeaponAnim.Primary);

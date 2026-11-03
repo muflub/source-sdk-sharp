@@ -48,13 +48,13 @@ public interface IPredictedWeaponFx
 
     /// <summary>
     /// The muzzle flash of a predicted shot: the script's muzzle-flash
-    /// particle, attached at the hands' muzzle — stock's
-    /// <c>CTFWeaponBase::CreateMuzzleFlashEffects</c> particle branch, which
-    /// hands the effect to the entity and its attachment name and lets the
-    /// registry present it. Nothing by default: a test's recording fx and any
-    /// composition without the registry keep the behaviour they had.
+    /// particle, on <paramref name="bearer"/> — the entity whose model carries
+    /// the <c>muzzle</c> attachment (the viewmodel attachment, TF's gun on the
+    /// hands) — stock's <c>CTFWeaponBase::CreateMuzzleFlashEffects</c> particle
+    /// branch. Nothing by default: a test's recording fx and any composition
+    /// without the registry keep the behaviour they had.
     /// </summary>
-    void MuzzleFlash(EntityHandle viewModel, string particleEffect)
+    void MuzzleFlash(EntityHandle bearer, string particleEffect)
     {
     }
 
@@ -96,6 +96,7 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
 {
     private readonly IClientEntitySounds _sounds;
     private readonly IClientEffectDispatch _effects;
+    private readonly IEngineEffects _particles;
     private readonly IEngineWorldQuery _world;
     private readonly IEngineEntityRender _render;
     private readonly IEngineEntities _entities;
@@ -110,12 +111,14 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     // the shooter's, built for the shooter it was last built for.
     private readonly EntityCandidates _candidates = new();
 
-    public PredictedWeaponFx(IClientEntitySounds sounds, IClientEffectDispatch effects, IEngineWorldQuery world,
+    public PredictedWeaponFx(IClientEntitySounds sounds, IClientEffectDispatch effects, IEngineEffects particles,
+                             IEngineWorldQuery world,
                              IEngineEntityRender render, IEngineEntities entities,
                              AmmoCatalog ammo, PredictWeaponsConVar predictWeapons)
     {
         _sounds = sounds;
         _effects = effects;
+        _particles = particles;
         _world = world;
         _render = render;
         _entities = entities;
@@ -170,31 +173,30 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
 
     /// <summary>
     /// <c>CTFWeaponBase::CreateMuzzleFlashEffects</c> (<c>tf_weaponbase.cpp:3113-3193</c>),
-    /// particle branch: with a "muzzle" attachment on the hands,
-    /// <c>DispatchMuzzleFlash</c> dispatches the script's particle at the
-    /// entity and its attachment name (<c>DispatchParticleEffect</c>'s
-    /// <c>PATTACH_POINT_FOLLOW</c>) — so the data names the entity and the
-    /// attachment and the effect's own registry places it. Stock's dynamic
-    /// light for this branch is commented out (:3150-3153), so there is
-    /// none here either; the flash-model branch is a client entity this
-    /// port has not grown (the model, its lifetime, its muzzle attachment).
+    /// particle branch, and its <c>DispatchMuzzleFlash</c> (:3195-3198): the
+    /// script's particle starts on the entity that carries the gun — TF's
+    /// viewmodel attachment, the c_model riding the hands, whose mesh names
+    /// <c>muzzle</c> (the viewmodel itself is the class's arms and has none) —
+    /// at that entity's <c>muzzle</c> attachment,
+    /// <c>DispatchParticleEffect</c>'s <c>PATTACH_POINT_FOLLOW</c>. The
+    /// particle seam is the client's owned system: one per bearer, the next
+    /// shot replacing the last, the collection ending as the definition's
+    /// duration runs out. Stock's dynamic light for the branch is commented
+    /// out (:3150-3153), so there is none here either; the flash-model branch
+    /// has no arm (no shipped weapon script names a
+    /// <c>MuzzleFlashModel</c>).
     /// </summary>
-    public void MuzzleFlash(EntityHandle viewModel, string particleEffect)
+    public void MuzzleFlash(EntityHandle bearer, string particleEffect)
     {
-        if (!_predictWeapons.Value || particleEffect.Length == 0)
+        if (!_predictWeapons.Value || particleEffect.Length == 0 || bearer == EntityHandle.None)
             return;
 
-        int muzzle = _render.LookupAttachment(viewModel, "muzzle");
+        int muzzle = _render.LookupAttachment(bearer, "muzzle");
         if (muzzle <= 0)
             return;
 
-        var data = new EffectData
-        {
-            EntIndex = _entities.GetIndex(viewModel),
-            AttachmentIndex = muzzle,
-            Scale = 1f,
-        };
-        _effects.Dispatch(particleEffect, in data);
+        if (_particles.ParticleSystemStart(bearer, particleEffect))
+            _particles.ParticleSystemFollowEntity(bearer, 0, bearer, muzzle);
     }
 
     /// <summary>

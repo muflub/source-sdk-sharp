@@ -29,6 +29,7 @@ public sealed class TFPlayerSpawnsTests
         public readonly TFCritBuckets Buckets = new();
         public readonly TFPlayerSpawns Spawns;
         public readonly TFPlayerClass Class;
+        public readonly TFBlastJumpState Jump;
         public readonly Observers Observers;
         public readonly ConVarRegistry ConVars;
 
@@ -46,6 +47,8 @@ public sealed class TFPlayerSpawnsTests
             Observers = new Observers(Player.Log, directory, engine, engine, engine, engine, engine, engine, engine, convars);
             Conditions = new TFPlayerConditions(Player.Carriers, engine);
             Class = new TFPlayerClass(Player.Carriers, Player.Items);
+            Jump = new TFBlastJumpState(Player.Carriers, Conditions, engine, directory, engine, engine);
+            Player.Extra.Add(Jump);
             Player.Extra.Add(Class);
             Player.Join();
             Spawns = new TFPlayerSpawns(Player.Carriers, Player.Classes, engine, engine, engine, Conditions, Buckets,
@@ -90,6 +93,21 @@ public sealed class TFPlayerSpawnsTests
 
         Assert.False(ov.HasOverride);
         Assert.Null(ov.Location);
+    }
+
+    /// <summary>The spawn zeroes the blast jump (<c>m_iBlastJumpState = 0</c>,
+    /// tf_player.cpp:3746): a death in the air leaves no jump for the new
+    /// life to land.</summary>
+    [Fact]
+    public void The_spawn_clears_the_blast_jump()
+    {
+        var rig = new Rig();
+        rig.Jump.Set(TFBlastJump.RocketJumped);
+        Assert.Equal(TFBlastJump.RocketJumped, rig.Jump.State);
+
+        rig.Spawns.OnSpawning(PlayerRig.Player, 0f);
+
+        Assert.Equal(TFBlastJump.None, rig.Jump.State);
     }
 
     [Fact]

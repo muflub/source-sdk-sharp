@@ -81,7 +81,7 @@
 78	MinicritboostedOnKill	TF_COND_MINICRITBOOSTED_ON_KILL	later	-	-	-	item, attribute or later system
 79	ObscuredSmoke	TF_COND_OBSCURED_SMOKE	later	-	-	-	item, attribute or later system
 80	ParachuteActive	TF_COND_PARACHUTE_ACTIVE	later	1810	2139	T3130	item, attribute or later system
-81	Blastjumping	TF_COND_BLASTJUMPING	milestone	-	-	-	rocket/sticky jump (tf_player.cpp:8701, 2.7)
+81	Blastjumping	TF_COND_BLASTJUMPING	milestone	-	-	-	rocket/sticky jump: TFBlastJumpState adds it on the self blast and clears it on the landing (tf_player.cpp:8676-8713, 1441-1483; no OnConditionAdded/Removed case, 2.7)
 82	HalloweenKart	TF_COND_HALLOWEEN_KART	later	1818	2147	-	mode or event: Halloween event
 83	HalloweenKartDash	TF_COND_HALLOWEEN_KART_DASH	later	1814	2143	-	mode or event: Halloween event
 84	BalloonHead	TF_COND_BALLOON_HEAD	later	1822	2151	-	item, attribute or later system

@@ -144,6 +144,17 @@ public partial class ObjectiveResourceNetState
     /// <summary>m_iWarnOnCap (CP_WARN_*).</summary>
     [NetArray(ObjectiveLimits.MaxControlPoints)] public partial NetArray<byte> WarnOnCap { get; }
 
+    /// <summary>
+    /// m_iszWarnSound, as each point's warn sound through the engine's sound
+    /// script index rather than its string: the server writes what
+    /// <c>IFwdSoundEmitter.SoundIndex</c> answers for the point's
+    /// <c>point_warn_sound</c> name, the client reads the name back with
+    /// <c>SoundName</c>; -1 for none. Both DLLs share the engine's sound table
+    /// in this build, so an index means the same sound on each side (a run of
+    /// strings would not fit the tier; docs/divergences.md).
+    /// </summary>
+    [NetArray(ObjectiveLimits.MaxControlPoints)] public partial NetArray<short> WarnSoundIndexes { get; }
+
     /// <summary>m_bCPLocked.</summary>
     [NetArray(ObjectiveLimits.MaxControlPoints)] public partial NetArray<bool> Locked { get; }
 

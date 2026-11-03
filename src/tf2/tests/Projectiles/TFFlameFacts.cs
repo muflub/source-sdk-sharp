@@ -115,7 +115,8 @@ internal sealed class FlameRig
         var blast = new TFBlastApplier(Engine, Engine, Engine, Scopes, HitGroups, new DamageInflictors(),
                                        new ProjectileRig.FixedClasses(), Log,
                                        Engine, Owners, new TF2.Shared.Econ.AttributeHooks(),
-                                       new ProjectileRig.Resupply(), Engine, Engine, new ProjectileRig.DirectoryView());
+                                       new ProjectileRig.Resupply(), Engine, Engine, new ProjectileRig.DirectoryView(),
+                                       Carriers);
         Rocket = new TFRocket(Engine, Motion, blast, Owners, Engine, new TF2.Shared.Econ.AttributeHooks(),
                               new TFPlayerCarriers(), new RecordingEffectDispatch(), Engine);
         Rocket.BindAreas(TestServices.Areas(Engine));

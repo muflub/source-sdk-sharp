@@ -108,7 +108,7 @@ internal sealed class ProjectileRig
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
-                    Engine, Owners, Hooks, Health, Engine, Engine, Directory, preroundPush);
+                    Engine, Owners, Hooks, Health, Engine, Engine, Directory, Carriers, preroundPush);
         Effects = new(Engine, Directory, Engine, Tray, Log, Owners, Random, Hooks, Temps, Engine, Engine);
 
         Engine.Returns("Entities.Create", ProjectileHandle);
@@ -139,6 +139,9 @@ internal sealed class ProjectileRig
         Engine.Returns("Entities.GetBounds", (default(Vector), default(Vector)));
         Engine.Returns("Entities.IsValid", true);
         Engine.Returns("Entities.GetIndex", 1);
+        // The blast jump's health gate reads its soldier alive; a fact's
+        // Returns decides the wound.
+        Engine.Returns("Entities.GetHealth", 100);
         // The needle's precached model index, asked when the syringe hands its
         // client effect out (tf_projectile_base.cpp:229); a fact's Returns turns it.
         Engine.Returns("Precache.PrecacheModel", 44);

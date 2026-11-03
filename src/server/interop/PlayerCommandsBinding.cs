@@ -48,6 +48,8 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
             (i, ms) => game.GetBackpedalLimit(i, ms),
             (i, t, b, f, s, u) => game.GetMovementStun(i, t, b, f, s, u),
             (i, t, f) => game.GetMovementTaunt(i, t, f),
+            i => game.GetCategorizePosition(i),
+            (i, v, n) => game.GetFooting(i, v, n),
             () => game.GetNoHl2Arms());
 
         if (serverCommands is not null)

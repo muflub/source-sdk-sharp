@@ -87,9 +87,10 @@ internal sealed class MedigunRig
 
     /// <summary>A medigun over this rig's healing, as the composition builds it: the weapon
     /// reports its release to the healing, which holds the answer the recalc reads.</summary>
-    public TFMedigunWeapon NewWeapon()
+    public TFMedigunWeapon NewWeapon(ILagCompensation? lag = null)
         => new(Engine, Engine, Engine, Healing, Conditions, Resupply, ConVars.Get<TFInvulnTimeConVar>()!,
-               ConVars.Get<WeaponMedigunChargeRateConVar>()!, Rooms, Hooks, Owners, Stats, Events, Clients, Data, Setup);
+               ConVars.Get<WeaponMedigunChargeRateConVar>()!, Rooms, Hooks, Owners, Stats, Events, Clients, Data, Setup,
+               ConVars.Get<TFMedigunLagCompConVar>()!, lag);
 
     public void QueueHit(EntityHandle hit) => TraceQueue.Add(new TraceResult(true, 1f, default, default, hit));
     public void QueueMiss() => TraceQueue.Add(new TraceResult(false, 1f, default, default, default));

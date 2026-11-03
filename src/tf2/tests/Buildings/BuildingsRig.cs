@@ -233,7 +233,7 @@ internal sealed partial class BuildingsRig
         Services.AddInstance(new TFBlastApplier(Engine, Engine, Engine, Services.Resolve<TFDamageScopes>()!,
                                                 hitGroups, Services.Resolve<DamageInflictors>()!, classes, Log, Engine,
                                                 Owners, new TF2.Shared.Econ.AttributeHooks(),
-                                                resupply, Engine, Engine, Registry));
+                                                resupply, Engine, Engine, Registry, Carriers));
 
         // The typed convars the subjects read, held by a backend of the rig's
         // own (the engine's console only records): the declared defaults, and

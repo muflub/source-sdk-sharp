@@ -69,6 +69,9 @@ public sealed class TFMovementRules : IMovementRules
     private readonly TFClampBackSpeedMinConVar? _backSpeedMin;
     private readonly Rules.ITFRoundStateView? _rounds;
     private readonly TFPlayerMovementRestartFreezeConVar? _restartFreeze;
+    private readonly TFMovementAircurrentFrictionMultConVar? _airCurrentFriction;
+    private readonly TFMovementLostFootingRestickConVar? _lostFootingRestick;
+    private readonly TFMovementLostFootingFrictionConVar? _lostFootingFriction;
 
     public TFMovementRules(TFClassTable classes, ITFPlayerData players,
                            TFScoutAirDashCountConVar? dashCount = null,
@@ -77,7 +80,10 @@ public sealed class TFMovementRules : IMovementRules
                            TFClampBackSpeedConVar? backSpeed = null,
                            TFClampBackSpeedMinConVar? backSpeedMin = null,
                            Rules.ITFRoundStateView? rounds = null,
-                           TFPlayerMovementRestartFreezeConVar? restartFreeze = null)
+                           TFPlayerMovementRestartFreezeConVar? restartFreeze = null,
+                           TFMovementAircurrentFrictionMultConVar? airCurrentFriction = null,
+                           TFMovementLostFootingRestickConVar? lostFootingRestick = null,
+                           TFMovementLostFootingFrictionConVar? lostFootingFriction = null)
     {
         _classes = classes;
         _players = players;
@@ -89,6 +95,9 @@ public sealed class TFMovementRules : IMovementRules
         _backSpeedMin = backSpeedMin;
         _rounds = rounds;
         _restartFreeze = restartFreeze;
+        _airCurrentFriction = airCurrentFriction;
+        _lostFootingRestick = lostFootingRestick;
+        _lostFootingFriction = lostFootingFriction;
     }
 
     /// <summary><c>tf_scout_air_dash_count</c> (default 1).</summary>
@@ -189,6 +198,84 @@ public sealed class TFMovementRules : IMovementRules
         => _players.Predicted(playerIndex) is { } state
             ? TFViewVectors.ClassEyeHeight(state.Class(), standing)
             : standing;
+
+    /// <summary>
+    /// <c>CTFGameMovement::CategorizePosition</c>'s shape
+    /// (tf_gamemovement.cpp:2334-2459) against the base's
+    /// (gamemovement.cpp:3794-3931), as the one record: the observer refusal
+    /// first (:2337), any ladder off the ground (:2351), the 250 rise
+    /// (:2358) without the base's lift relief (:3836-3850), the step-size
+    /// probe and its endpos snap (:2376-2384, :2440-2454), and no player
+    /// surface material block (the base's :3889-3915 is not in the override).
+    /// Unconditional: every field is a fact about the build, not the player.
+    /// </summary>
+    public CategorizePositionRules? CategorizePosition(int playerIndex) => new(
+        ObserverFirst: true,
+        GroundlessLadder: true,
+        RiseVelocity: 250f,
+        GroundVelocityRelief: false,
+        StepSizeProbe: true,
+        PlayerSurfaceMaterial: false);
+
+    /// <summary>
+    /// The override's two condition arms (tf_gamemovement.cpp:2392-2418), the
+    /// footing asked with the ground trace's plane. The air-current friction
+    /// (:2392-2395) and lost footing's takeoff, slide friction and restick
+    /// (:2397-2418). The restick clears the condition's word in the predicted
+    /// state itself — the mask-level half of <c>CTFPlayerShared::RemoveCond</c>
+    /// (tf_player_shared.cpp:1181): nothing arms on or hooks LostFooting today
+    /// (TFConditionArms's switch has no case, no ITFConditionHook is
+    /// registered for it), and a re-add refreshes the duration, so the stale
+    /// expiry entry the words-level clear leaves is inert. Null with neither
+    /// condition: no arm, the friction untouched — the base's own answer.
+    /// </summary>
+    public FootingAnswer? Footing(int playerIndex, in Vector velocity, in Vector planeNormal)
+    {
+        if (_players.Predicted(playerIndex) is not { } state)
+            return null;
+
+        bool airCurrent = state.InCond(TFCond.AirCurrent);
+        bool lostFooting = state.InCond(TFCond.LostFooting);
+        if (!airCurrent && !lostFooting)
+            return null;
+
+        float groundFriction = 1f, airFriction = 1f;
+        bool inAir = false;
+
+        if (airCurrent)
+            airFriction *= _airCurrentFriction?.Value ?? 0.75f;   // :2394
+
+        if (lostFooting)
+        {
+            // The away-from-ground takeoff, then the slide-or-restick pair
+            // (:2400-2416): the velocity along the plane tells standing from
+            // leaving, and the across-plane speed against the restick convar
+            // tells sliding from stopped.
+            float along = velocity.Dot(planeNormal);              // :2400
+            if (along > 0f)
+            {
+                inAir = true;                                     // :2403
+            }
+            else
+            {
+                Vector across = velocity - planeNormal * along;   // :2407
+                if (across.Length >= (_lostFootingRestick?.Value ?? 50f))
+                    groundFriction *= _lostFootingFriction?.Value ?? 0.1f;   // :2410
+                else
+                    ClearCond(state, TFCond.LostFooting);         // :2415
+            }
+        }
+
+        return new FootingAnswer(inAir, groundFriction, airFriction);
+    }
+
+    /// <summary>The words-level condition clear the restick is.</summary>
+    private static void ClearCond(TFPlayerNetState state, TFCond cond)
+    {
+        var bits = state.Conditions();
+        bits.Clear(cond);
+        state.SetConditions(in bits);
+    }
 
     /// <summary>
     /// Stock's <c>BUNNYJUMP_MAX_SPEED_FACTOR</c> (tf_gamemovement.cpp:1087):

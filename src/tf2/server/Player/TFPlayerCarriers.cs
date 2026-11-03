@@ -123,10 +123,10 @@ public sealed class TFPlayerCarrier : IPlayerComponent
 /// <summary>
 /// TF2's per-player components (Stage 2.3's <c>TFPlayerComponents</c>), in
 /// their order: the carrier (0), the class (10), the condition countdown (20),
-/// the stun stack (30) and the respawn override (40). Each is its own class;
-/// nothing here decides anything. The countdown takes the medigun lane's
-/// healing (2.9) to report the frame's healer count; a container without the
-/// lane passes none and the count is 2.3's none.
+/// the blast jump (25), the stun stack (30) and the respawn override (40).
+/// Each is its own class; nothing here decides anything. The countdown takes
+/// the medigun lane's healing (2.9) to report the frame's healer count; a
+/// container without the lane passes none and the count is 2.3's none.
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirectory directory,
@@ -135,6 +135,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
                                        ITFMapPlayers players, IGameClock clock,
                                        IEngineNetworking networking, TF2.Shared.Econ.ItemSchema schema,
                                        IWeaponGiver arsenal,
+                                       IEnginePlayers enginePlayers, IEngineGameEvents events,
                                        ITFPlayerHealing? healing = null)
     : IPlayerComponentSource, IOrderedHook
 {
@@ -145,6 +146,7 @@ public sealed class TFPlayerComponents(IEngineEntities entities, IEntityDirector
         yield return new TFPlayerCarrier(entities, directory, carriers, log);
         yield return new TFPlayerClass(carriers, items);
         yield return new TFPlayerConditionTicker(carriers, conditions, networking, healing);
+        yield return new TFBlastJumpState(carriers, conditions, networking, directory, enginePlayers, events);
         yield return new TFStunStack(carriers, players, clock);
         yield return new TFRespawnOverride(carriers, clock);
         yield return new TFPlayerAttributes(carriers, items, schema, clock);

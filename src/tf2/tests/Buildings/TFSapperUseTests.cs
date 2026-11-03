@@ -1,5 +1,7 @@
 using SourceSharp.Abi;
+using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Tests;
 
 using TF2.Server.Buildings;
 using TF2.Server.Combat;
@@ -31,9 +33,9 @@ public sealed class TFSapperUseTests
     /// <summary>The reach the wrench hook asks the seam with: <c>CTFWrench::Smack</c>'s 70 (tf_weapon_wrench.cpp:165).</summary>
     private const float Swing = TFWrenchHook.SmackRange;
 
-    private static TFSapperUse Use(BuildingsRig rig) =>
+    private static TFSapperUse Use(BuildingsRig rig, ILagCompensation? lag = null) =>
         new(rig.Players, rig.Engine, rig.Engine, rig.Engine, rig.Buildings(), rig.Engine,
-            rig.Scopes, rig.Spawner, rig.Log);
+            rig.Scopes, rig.Spawner, rig.Log, lag);
 
     /// <summary>
     /// The stubbed player world: every named player resolves from its own
@@ -498,6 +500,85 @@ public sealed class TFSapperUseTests
         Assert.True(sapper.IsDead);
         Assert.False(sentry.HasSapper);
         Assert.True(sentry.IsDisabled);   // the SAPPER_REMOVE_DISABLE_TIME stumble
+    }
+
+    /// <summary>The lag world's rewind line: the victim's x at <paramref name="tick"/>.</summary>
+    private static Vector At(int tick) => new(100f + 10f * (tick - 100), 0f, 0f);
+
+    [Fact]
+    public void The_wrench_smack_traces_inside_the_lag_session()
+    {
+        var (rig, _, _, engineer) = ASappedBuilding();
+
+        var world = new LagWorld();
+        world.Add(engineer.EntryIndex);
+        world.Players[engineer.EntryIndex] = new LagPlayer(engineer);   // the rig's handle, as the seam names it
+        LagPlayer victim = world.Add(4);
+        world.Players[engineer.EntryIndex].Latency = 5 * LagWorld.Tick;
+        var commands = new PlayerCurrentCommands();
+        var lag = new LagCompensation(world, new LagSettings(), commands, new RecordingLog());
+        for (int tick = 100; tick <= 110; tick++)
+        {
+            world.At(tick);
+            victim.Origin = At(tick);
+            lag.RecordFrame();
+        }
+
+        var inside = new List<bool>();
+        var seen = new List<Vector>();
+        rig.Engine.ReturnsEachCall("WorldQuery.TraceLine", () =>
+        {
+            inside.Add(lag.IsCurrentlyDoingLagCompensation);
+            seen.Add(victim.Origin);
+            return new TraceResult(true, 1f, default, default, EntityHandle.None);   // a clear swing line
+        });
+
+        var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = Attack };
+        using (commands.Begin(engineer, in cmd))
+            Assert.True(Use(rig, lag).WrenchSmack(engineer.EntryIndex, Swing));
+
+        Assert.True(Assert.Single(inside));                 // the swing's trace runs inside the session
+        Assert.Equal(At(105), Assert.Single(seen));         // the building pick sees the rewound world
+        Assert.Equal(At(110), victim.Origin);               // put back after
+        Assert.False(lag.IsCurrentlyDoingLagCompensation);
+        Assert.Single(rig.Engine.AllOf("Damage.TakeDamage"));   // the blow still lands on the sapper
+    }
+
+    [Fact]
+    public void Without_the_compensation_the_same_smack_traces_outside_a_session()
+    {
+        var (rig, _, _, engineer) = ASappedBuilding();
+
+        var world = new LagWorld();
+        world.Add(engineer.EntryIndex);
+        world.Players[engineer.EntryIndex] = new LagPlayer(engineer);
+        LagPlayer victim = world.Add(4);
+        world.Players[engineer.EntryIndex].Latency = 5 * LagWorld.Tick;
+        var commands = new PlayerCurrentCommands();
+        var lag = new LagCompensation(world, new LagSettings(), commands, new RecordingLog());
+        for (int tick = 100; tick <= 110; tick++)
+        {
+            world.At(tick);
+            victim.Origin = At(tick);
+            lag.RecordFrame();
+        }
+
+        var inside = new List<bool>();
+        var seen = new List<Vector>();
+        rig.Engine.ReturnsEachCall("WorldQuery.TraceLine", () =>
+        {
+            inside.Add(lag.IsCurrentlyDoingLagCompensation);
+            seen.Add(victim.Origin);
+            return new TraceResult(true, 1f, default, default, EntityHandle.None);
+        });
+
+        var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = Attack };
+        using (commands.Begin(engineer, in cmd))
+            Assert.True(Use(rig, null).WrenchSmack(engineer.EntryIndex, Swing));
+
+        Assert.False(Assert.Single(inside));
+        Assert.Equal(At(110), Assert.Single(seen));         // the trace saw the current spot
+        Assert.Single(rig.Engine.AllOf("Damage.TakeDamage"));
     }
 
     //---------------------------------------------------------------------

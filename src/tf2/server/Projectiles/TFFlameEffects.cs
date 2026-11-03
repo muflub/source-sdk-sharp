@@ -48,7 +48,8 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
                                    TFFlameThrowerBurstZvelocityConVar burstZvelocity,
                                    TFPushbackScaleConVar pushbackScale,
                                    TFPushbackScaleVerticalConVar pushbackScaleVertical,
-                                   TFPlayerCarriers carriers)
+                                   TFPlayerCarriers carriers,
+                                   ILagCompensation? lagCompensation = null)
     : ITFFlameEffects, IOrderedHook
 {
     /// <summary>Stage 2.11's band (+960..+979 of TF2's thousand).</summary>
@@ -77,28 +78,38 @@ public sealed class TFFlameEffects(IEngineEntities entities, IEnginePlayers play
         if (!entities.IsValid(owner))
             return;
 
-        Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
+        // The flame's session (tf_weapon_flamethrower.cpp:808, :934): the
+        // per-tick cone work sees the other players where the pyro saw them.
+        lagCompensation?.Start(owner);
+        try
+        {
+            Vector forward = Angles.Forward(entities.GetEyeAngles(owner));
 
-        // The muzzle: the eye plus the flame offset's forward and right (the
-        // convar's "40 5 0"; the up is 0) — GetFlameOriginPos
-        // (tf_weapon_flamethrower.cpp:2111-2128).
-        Vector right = Angles.RightUp(forward).Right;
-        Vector muzzle = entities.GetEyePosition(owner)
-                      + forward * TFAirBlastDefs.MuzzleForward + right * TFAirBlastDefs.MuzzleRight;
+            // The muzzle: the eye plus the flame offset's forward and right (the
+            // convar's "40 5 0"; the up is 0) — GetFlameOriginPos
+            // (tf_weapon_flamethrower.cpp:2111-2128).
+            Vector right = Angles.RightUp(forward).Right;
+            Vector muzzle = entities.GetEyePosition(owner)
+                          + forward * TFAirBlastDefs.MuzzleForward + right * TFAirBlastDefs.MuzzleRight;
 
-        if (ManagerFor(owner) is not { } manager)
-            return;
+            if (ManagerFor(owner) is not { } manager)
+                return;
 
-        // UpdateDamage and AddPoint each firing interval (:892-897). Stock
-        // reads the pyro's class off the attacker per collide; the seam reads
-        // classes by index, so the answer rides in here.
-        manager.UpdateDamage(script, shot, TFFlameManagerDefs.BurnFrequency,
-                             owners.ClassOf(attack.Command.OwnerIndex) == TFClass.Pyro);
+            // UpdateDamage and AddPoint each firing interval (:892-897). Stock
+            // reads the pyro's class off the attacker per collide; the seam reads
+            // classes by index, so the answer rides in here.
+            manager.UpdateDamage(script, shot, TFFlameManagerDefs.BurnFrequency,
+                                 owners.ClassOf(attack.Command.OwnerIndex) == TFClass.Pyro);
 
-        // The shooter's own velocity rides along (InitializePoint,
-        // tf_flame.cpp:250-260).
-        manager.AddPoint(muzzle, forward, entities.GetVelocity(owner));
-        log.Msg($"[TF2/Flames] flame point by {owner}, {manager.PointCount} live\n");
+            // The shooter's own velocity rides along (InitializePoint,
+            // tf_flame.cpp:250-260).
+            manager.AddPoint(muzzle, forward, entities.GetVelocity(owner));
+            log.Msg($"[TF2/Flames] flame point by {owner}, {manager.PointCount} live\n");
+        }
+        finally
+        {
+            lagCompensation?.Finish(owner);
+        }
     }
 
     /// <summary>

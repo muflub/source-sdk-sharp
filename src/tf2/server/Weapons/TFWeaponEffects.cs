@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
+using TF2.Server.Voice;
 using TF2.Shared;
 
 namespace TF2.Server.Weapons;
@@ -89,8 +90,11 @@ public interface ITFMinigunEffects
 public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, ITFFlameEffects? flames = null,
                                     ITFHealEffects? heal = null, ITFZoomEffects? zoom = null,
                                     ITFClassSkillEffects? skills = null, ITFItemSwitchEffects? itemSwitch = null,
-                                    ITFMeleeEffects? melee = null, ITFMinigunEffects? minigun = null) : ITFWeaponEffects
+                                    ITFMeleeEffects? melee = null, ITFMinigunEffects? minigun = null,
+                                    TFConceptSpeech? speech = null) : ITFWeaponEffects
 {
+    private readonly TFConceptSpeech? _speech = speech;
+
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge)
         => projectiles?.Projectile(in attack, script, shot, charge);
 
@@ -126,4 +130,62 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
 
     public void Rearmed(in WeaponAttackContext attack)
         => minigun?.Rearmed(in attack);
+
+    /// <summary>The scene clock's window and the firing gate's (tf_player.cpp:20158-20183).</summary>
+    public const float SpeechWindow = 5f;
+
+    private readonly Dictionary<int, float> _speechGate = [];
+    private readonly Dictionary<int, float> _firingGate = [];
+
+    /// <summary>
+    /// <c>CTFPlayer::SpeakWeaponFire</c> (:20158-20183): the empty concept is
+    /// the plain fire concept behind the scene clock — it waits while the
+    /// clock is ahead (:20162), and the ask re-arms it five seconds out; the
+    /// scene's own length overwrite is a recorded divergence. A named concept
+    /// always speaks (:20170).
+    /// </summary>
+    public void SpeakWeaponFire(in WeaponAttackContext attack, string concept)
+    {
+        int owner = attack.Command.OwnerIndex;
+        if (owner <= 0 || _speech is null)
+            return;
+
+        if (concept.Length == 0)
+        {
+            if (_speechGate.TryGetValue(owner, out float next) && next > attack.Now)
+                return;
+
+            concept = TFConceptSpeech.FireWeapon;
+            _speechGate[owner] = attack.Now + SpeechWindow;
+        }
+
+        _speech.Speak(owner, concept);
+    }
+
+    /// <summary>ClearWeaponFireScene (:20185-20188): the clock drops to now, so the next plain ask gets in.</summary>
+    public void ClearWeaponFireScene(in WeaponAttackContext attack)
+    {
+        int owner = attack.Command.OwnerIndex;
+        if (owner > 0)
+            _speechGate[owner] = attack.Now;
+    }
+
+    /// <summary>
+    /// The minigun's firing concept (<c>tf_weapon_minigun.cpp:336-341</c>):
+    /// the shot asks once, and the ask speaks when its own clock has passed,
+    /// re-arming five seconds out; the clock lives beside the scene's, never
+    /// on it.
+    /// </summary>
+    public void FiringSpeech(in WeaponAttackContext attack)
+    {
+        int owner = attack.Command.OwnerIndex;
+        if (owner <= 0 || _speech is null)
+            return;
+
+        if (_firingGate.TryGetValue(owner, out float next) && next >= attack.Now)
+            return;
+
+        _firingGate[owner] = attack.Now + SpeechWindow;
+        _speech.Speak(owner, TFConceptSpeech.MinigunFireWeapon);
+    }
 }

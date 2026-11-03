@@ -176,7 +176,7 @@ internal sealed class CtfRig
     public readonly FakeAnnouncer Announcer = new();
     public readonly TF2.Tests.Rules.FakeAnnouncer RoundAnnouncer = new();
     public readonly FakeRespawnRooms RespawnRooms = new();
-    public readonly ObjectiveResource Objectives = new();
+    public readonly ObjectiveResource Objectives = new(new TF2.Tests.Client.ServerWarnScripts());
     public readonly TF2.Shared.Resources.ObjectiveResourceNetState ObjectiveState = new();
     public readonly TeamResource TeamTable = new();
     public readonly TFTeamScores Scores;

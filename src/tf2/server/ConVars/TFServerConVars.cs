@@ -102,6 +102,14 @@ public sealed class TFCTFBonusTimeConVar : FloatConVar { }
 [ConVar("tf_meleeattackforcescale", "80.0", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]
 public sealed class TFMeleeAttackForceScaleConVar : FloatConVar { }
 
+// ---- shared/tf/tf_weapon_medigun.cpp (#if !defined (CLIENT_DLL)) ------------
+
+/// <summary>The medigun's heal-trace gate (<c>tf_weapon_medigun.cpp:86</c>):
+/// the target search runs inside a lag-compensation session while it is on
+/// (<c>tf_weapon_medigun.cpp:1774-1775</c>, :1799-1801).</summary>
+[ConVar("tf_medigun_lagcomp", "1", Flags = ConVarFlags.DevelopmentOnly)]
+public sealed class TFMedigunLagCompConVar : BoolConVar { }
+
 // ---- shared/tf/tf_weapon_grenade_pipebomb.cpp (#ifdef GAME_DLL) -------------
 
 [ConVar("tf_grenade_forcefrom_bullet", "2.0", Flags = ConVarFlags.Cheat | ConVarFlags.DevelopmentOnly)]

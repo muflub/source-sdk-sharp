@@ -1124,6 +1124,156 @@ public class MovementTests
         Assert.Empty(grounded);
     }
 
+    //=========================================================================
+    // THE TF GROUND CATEGORIZER (tf_gamemovement.cpp:2334) through the rules.
+    // Each fact is one divergence the override carries and the base's
+    // CategorizePosition (gamemovement.cpp:3794) does not; the record is the
+    // seam, so every arm is reachable with the loop's own stock path beside it.
+    //=========================================================================
+
+    /// <summary>The override's shape, as <c>TFMovementRules</c> publishes it.</summary>
+    private static CategorizePositionRules TFGround() => new(
+        ObserverFirst: true, GroundlessLadder: true, RiseVelocity: 250f,
+        GroundVelocityRelief: false, StepSizeProbe: true, PlayerSurfaceMaterial: false);
+
+    /// <summary>
+    /// The step-size probe's endpos snap (:2376-2384, :2440-2454): a walking
+    /// player on the ground has the origin's z pulled to the downward trace's
+    /// end once that is over half a networked coordinate away. The base never
+    /// moves the origin from in here — its probe is a fixed two units and its
+    /// hit only grounds.
+    /// </summary>
+    [Fact]
+    public void AStepProbeDragsTheOriginToTheTracesEnd()
+    {
+        var movement = new GameMovement(new ScriptedWorld { OnTrace = FarFloorOnly },
+                                        MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with { Categorize = _ => TFGround() },
+        };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.True(s.HasGround, "the step below took the player");
+        // FarFloorOnly stops the probe (origin-2 minus the 18 step) half way:
+        // ten units under the origin the walk kept.
+        Assert.Equal(54f, s.Origin.Z, 0.01f);
+    }
+
+    /// <summary>The control: stock's categorizer grounds and never moves the origin.</summary>
+    [Fact]
+    public void AStockCategorizeLeavesTheOriginWhereTheWalkLeftIt()
+    {
+        var movement = new GameMovement(new ScriptedWorld { OnTrace = FarFloorOnly },
+                                        MoveConstantDefaults.Stock);
+        MoveState s = BaselineState();
+        s.HasGround = true;
+
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.Equal(64f, s.Origin.Z, 0.01f);
+    }
+
+    /// <summary>
+    /// The rise (:2358): TF's categorizer takes the ground from 250 up, not
+    /// NON_JUMP_VELOCITY's 140 — so a game-moved rise of 200, which stock's
+    /// arm lifts (<see cref="AGameMovedPlayerAnswersToCategorizePositionsThreshold"/>),
+    /// keeps the ground and the walk eats it.
+    /// </summary>
+    [Fact]
+    public void AGameMovedPlayerUnderTheModsRiseKeepsTheGround()
+    {
+        GameMovement movement = OnAFloor();
+        movement.Rules = MovementRules.Stock with { Categorize = _ => TFGround() };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.GameCodeMovedPlayer = true;
+        s.Velocity = new Vector(0f, 0f, 200f);
+
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.True(s.HasGround, "250 is the rise, not 140: 200 stays grounded");
+    }
+
+    /// <summary>A wall the ladder check sticks to: any not-downward trace is the climb.</summary>
+    private static readonly Func<Vector, Vector, Vector, Vector, uint, int, MoveTrace> LadderWall =
+        (start, end, _, _, _, _) => end.Z < start.Z
+            ? ScriptedWorld.Floor(start, end)
+            : new MoveTrace
+            {
+                Fraction = 0.5f,
+                EndPos = new Vector(start.X + (end.X - start.X) * 0.5f,
+                                     start.Y + (end.Y - start.Y) * 0.5f,
+                                     start.Z),
+                PlaneNormal = new Vector(0f, 0f, 1f),
+                Contents = GameMovement.ContentsLadder,
+                SurfaceProps = 3,
+                HasEntity = true,
+                HasGround = true,
+                HitWorld = true,
+            };
+
+    /// <summary>Any ladder takes the ground, still or moving (tf_gamemovement.cpp:2351-2355).</summary>
+    [Fact]
+    public void ALadderPlayerLosesTheGroundWhateverTheirRise()
+    {
+        var movement = new GameMovement(new ScriptedWorld { OnTrace = LadderWall },
+                                        MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with { Categorize = _ => TFGround() },
+        };
+        MoveState s = BaselineState();
+        s.MoveType = GameMovement.MoveTypeLadder;
+        s.HasGround = true;
+
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.Equal(GameMovement.MoveTypeLadder, s.MoveType);  // still on it, the arm ran first
+        Assert.False(s.HasGround, "the ladder arm struck the player from the ground");
+    }
+
+    /// <summary>
+    /// The footing ask (:2392-2418): the rule's inAir — lost footing's takeoff —
+    /// lifts the player from ground the trace found, past the quadrants.
+    /// </summary>
+    [Fact]
+    public void AFootingAnswerOfAirLiftsThePlayerFromTheGround()
+    {
+        GameMovement movement = OnAFloor();
+        int asked = 0;
+        movement.Rules = MovementRules.Stock with
+        {
+            Footing = (_, _, _) => { asked++; return new FootingAnswer(true, 1f, 1f); },
+        };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.True(asked > 0, "the ground trace's footing ask reached the rule");
+        Assert.False(s.HasGround, "the rule's inAir took the ground back");
+    }
+
+    /// <summary>The footing friction lands in the surface friction the walk runs on.</summary>
+    [Fact]
+    public void TheFootingGroundFrictionScalesTheSurfacesFriction()
+    {
+        GameMovement movement = OnAFloor();
+        movement.Rules = MovementRules.Stock with
+        {
+            Footing = (_, _, _) => new FootingAnswer(false, 0.5f, 1f),
+        };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+
+        Assert.True(movement.ProcessMovement(s));
+
+        // The floor's 0.8 vphysics is 1.0 for a player; the answer halves it.
+        Assert.Equal(0.5f, s.SurfaceFriction, 0.001f);
+    }
+
     /// <summary>
     /// A ducked player who lets go of duck in the open air unducks at once,
     /// and the standing eye comes from the rules: the table's 64 under stock

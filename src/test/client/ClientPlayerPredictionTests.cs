@@ -220,7 +220,12 @@ public class ClientPlayerPredictionTests
                                                     runner,
                                                     null, new PredictionErrorRing(),
                                                     NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()),
-                                                    predicted, ladders: ladders, hl2Player: hl2Player),
+                                                    predicted,
+                                                    new Playback(),
+                                                    new SmoothClock(1f),
+                                                    ConVarOf(new ClSmoothConVar(), "1"),
+                                                    ConVarOf(new ClSmoothTimeConVar(), "0.1"),
+                                                    ladders: ladders, hl2Player: hl2Player),
         };
     }
 
@@ -1419,5 +1424,323 @@ public class ClientPlayerPredictionTests
 
         public void CommandRan(EntityHandle player, int commandNumber, bool firstTime)
             => Saved.Add($"{commandNumber}={_working}");
+    }
+
+    //=========================================================================
+    // 2. The view smoothing after a corrected origin (stock's CheckError /
+    //    NotePredictionError / GetPredictionErrorSmoothingVector chain,
+    //    prediction.cpp:169-197 and c_baseplayer.cpp:2641-2738).
+    //=========================================================================
+
+    /// <summary>
+    /// The bench the smoothing facts need: stock's clock is scripted, so a
+    /// published frame's fraction of <c>cl_smoothtime</c> is a number the fact
+    /// chose rather than one it hopes the wall clock left it. Same standing
+    /// player the regular bench decodes.
+    /// </summary>
+    private static Bench BuildSmooth(IGameClock? clock = null,
+                                     IPlaybackState? playback = null,
+                                     ClSmoothConVar? smooth = null,
+                                     ClSmoothTimeConVar? smoothTime = null,
+                                     params int[] ringCommands)
+    {
+        clock ??= new SmoothClock(1f);
+        playback ??= new Playback();
+        smooth ??= ConVarOf(new ClSmoothConVar(), "1");
+        smoothTime ??= ConVarOf(new ClSmoothTimeConVar(), "0.1");
+
+        var engine = Fake();
+        engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
+
+        var player = new ClientSsPlayer(engine) { Handle = new EntityHandle(LocalHandle) };
+        player.State.BindLocal();
+        player.Enabled = false;
+
+        player.State.Origin = new Vector(64f, 128f, 16f);
+        player.State.ViewOffset = new Vector(0f, 0f, 64f);
+        player.State.MaxSpeed = 320f;
+        player.State.StepSize = 18f;
+        player.State.Alive = true;
+        player.State.MoveType = 2;   // MOVETYPE_WALK
+        player.State.GroundEntity = ClientPlayerPrediction.GroundWireNone;
+
+        var standalones = new Standalones();
+        standalones.Entities.Add(player);
+
+        var replay = new Replay();
+        var runner = TestSides.Movement(new ClientModuleEngine(TestSides.Create(Side.Client)));
+
+        foreach (int command in ringCommands)
+            replay.Ring.Add(command);
+
+        var log = new RecordingLog();
+
+        return new Bench
+        {
+            Log = log,
+            Engine = engine,
+            Standalones = standalones,
+            Replay = replay,
+            Player = player,
+            Runner = runner,
+            Prediction = new ClientPlayerPrediction(log, standalones, engine, replay,
+                                                    runner, null, new PredictionErrorRing(),
+                                                    NetStateCatalog.Of(TestServices.ClientGame,
+                                                                       new RecordingLog()),
+                                                    new ListHooks(),
+                                                    clock: clock, playback: playback,
+                                                    smooth: smooth, smoothTime: smoothTime),
+        };
+    }
+
+    /// <summary>
+    /// The rocket-jump case the lane measured live: the ack's arrival carries an
+    /// origin the replay did not reach, so the eye is eased from the predicted
+    /// place toward it rather than snapping. Stock: the offset rides the eye from
+    /// the full delta at the correction to nothing a smoothing time later
+    /// (c_baseplayer.cpp:2724-2734).
+    /// </summary>
+    [Fact]
+    public void TheEyeIsEasedToTheCorrectedOriginAndTheEntityDoesNotMove()
+    {
+        var clock = new SmoothClock(1f);
+        var bench = BuildSmooth(clock, ringCommands: [11]);
+
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.Equal(1, bench.Prediction.Mispredicts);
+
+        // The eye is at the predicted place (64), not at the corrected one: the
+        // entity origin published is the decoded word and the whole difference
+        // rides the eye offset. Predicted minus Server — the sign the smoothing
+        // decays along.
+        Assert.Equal(new Vector(96f, 128f, 16f), bench.Replay.LastOrigin);
+        Assert.Equal(-32f, bench.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>
+    /// The ease is linear and it ends: half a smoothing time left halves the
+    /// offset, and past it the eye is the decoded origin with nothing owed.
+    /// </summary>
+    [Fact]
+    public void TheEaseDecaysLinearlyAndEndsAtTheSmoothingTime()
+    {
+        var clock = new SmoothClock(1f);
+        var bench = BuildSmooth(clock,
+                                smoothTime: ConVarOf(new ClSmoothTimeConVar(), "0.25"),
+                                ringCommands: [11]);
+
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(-32f, bench.Replay.LastViewOffset.X);
+
+        clock.Now = 1.125f;   // half the 0.25 smoothing window still left
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(-16f, bench.Replay.LastViewOffset.X);
+
+        clock.Now = 1.375f;   // past the window: nothing owed, the eye is the arrival's
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(0f, bench.Replay.LastViewOffset.X);
+        Assert.Equal(new Vector(96f, 128f, 16f), bench.Replay.LastOrigin);
+    }
+
+    /// <summary>
+    /// The window is stock's: a difference at or under <c>MIN_PREDICTION_EPSILON</c>
+    /// is noise the eye is not eased for, and one past <c>MAX_PREDICTION_ERROR</c>
+    /// reads as a teleport and clears instead of easing (prediction.cpp:173-180).
+    /// </summary>
+    [Fact]
+    public void TooSmallAndTooBigADifferenceDoNotEaseTheEye()
+    {
+        var clock = new SmoothClock(1f);
+        var small = BuildSmooth(clock, ringCommands: [11]);
+        small.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        small.Player.State.Decode(small.Prediction.LastSavedBytes.ToArray());
+        small.Player.State.Origin = new Vector(64.4f, 128f, 16f);   // 0.4, under the epsilon
+        small.Packet();
+        small.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(new Vector(64.4f, 128f, 16f), small.Replay.LastOrigin);
+        Assert.Equal(0f, small.Replay.LastViewOffset.X);
+
+        var big = BuildSmooth(clock, ringCommands: [11]);
+        big.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        big.Player.State.Decode(big.Prediction.LastSavedBytes.ToArray());
+        big.Player.State.Origin = new Vector(200f, 128f, 16f);      // 136, past the cap
+        big.Packet();
+        big.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(new Vector(200f, 128f, 16f), big.Replay.LastOrigin);
+        Assert.Equal(0f, big.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>
+    /// The second error within the window sums onto what the eye still owes, at
+    /// its half-decayed amount — stock sums all errors within the smoothing time
+    /// onto the current remainder and restamps the clock
+    /// (c_baseplayer.cpp:2648-2656). Two corrections, half a window apart, leave
+    /// the second note at the new delta plus a half-decayed first one.
+    /// </summary>
+    [Fact]
+    public void TwoErrorsWithinTheWindowSumOntoTheRemainder()
+    {
+        var clock = new SmoothClock(1f);
+        var bench = BuildSmooth(clock,
+                                smoothTime: ConVarOf(new ClSmoothTimeConVar(), "0.25"),
+                                ringCommands: [11, 12]);
+
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 12, worldUpdateArrived: true);
+        Assert.Equal(-32f, bench.Replay.LastViewOffset.X);
+
+        // The rebase replays command 12 from the corrected basis, so the next
+        // slot's predicted origin is the corrected 96; the arrival lands twelve
+        // further out, half a smoothing time after the first note.
+        clock.Now = 1.125f;
+        bench.Player.State.Origin = new Vector(128f, 128f, 16f);
+        bench.Packet();
+        bench.Prediction.Update(0, true, 12, 12, worldUpdateArrived: true);
+
+        // The new delta (predicted 96 minus arrival 128) over the half-remained
+        // first note: −32 + (−32 * 0.5) = −48, at the fresh note's full amount.
+        Assert.Equal(new Vector(128f, 128f, 16f), bench.Replay.LastOrigin);
+        Assert.Equal(-48f, bench.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>
+    /// <c>cl_smooth</c> off closes the ease; on, it holds. Stock reads the ConVar
+    /// on every publish (c_baseplayer.cpp:2718), so the console decides.
+    /// </summary>
+    [Fact]
+    public void ClSmoothOffClosesTheEaseAndOnHoldsIt()
+    {
+        var clock = new SmoothClock(1f);
+
+        var off = new ClSmoothConVar();
+        off.NotifyChanged("0", "1");
+        var offBench = BuildSmooth(clock, smooth: off, ringCommands: [11]);
+        offBench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        offBench.Player.State.Decode(offBench.Prediction.LastSavedBytes.ToArray());
+        offBench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        offBench.Packet();
+        offBench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(0f, offBench.Replay.LastViewOffset.X);
+
+        var on = new ClSmoothConVar();
+        on.NotifyChanged("1", "0");
+        var onBench = BuildSmooth(clock, smooth: on, ringCommands: [11]);
+        onBench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        onBench.Player.State.Decode(onBench.Prediction.LastSavedBytes.ToArray());
+        onBench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        onBench.Packet();
+        onBench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(-32f, onBench.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>
+    /// <c>cl_smoothtime</c> is the window: a quarter-second convar still owes half
+    /// its offset a quarter-second in, where the declared default of 0.1 has
+    /// finished. Stock's bounds (0.01..2.0) are held at the declaration.
+    /// </summary>
+    [Fact]
+    public void ClSmoothtimeIsTheWindowTheEaseDecaysOver()
+    {
+        var clock = new SmoothClock(1f);
+        var time = new ClSmoothTimeConVar();
+        time.NotifyChanged("0.5", "0.1");
+
+        var bench = BuildSmooth(clock, smoothTime: time, ringCommands: [11]);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(-32f, bench.Replay.LastViewOffset.X);
+
+        clock.Now = 1.25f;   // halfway through the half-second window
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(-16f, bench.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>
+    /// Demo playback and a paused game close the ease, both of the checks stock's
+    /// <c>GetPredictionErrorSmoothingVector</c> opens with
+    /// (c_baseplayer.cpp:2718).
+    /// </summary>
+    [Fact]
+    public void DemoAndPauseCloseTheEase()
+    {
+        var clock = new SmoothClock(1f);
+
+        var paused = BuildSmooth(clock, playback: new Playback(paused: true), ringCommands: [11]);
+        paused.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        paused.Player.State.Decode(paused.Prediction.LastSavedBytes.ToArray());
+        paused.Player.State.Origin = new Vector(96f, 128f, 16f);
+        paused.Packet();
+        paused.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(0f, paused.Replay.LastViewOffset.X);
+
+        var demo = BuildSmooth(clock, playback: new Playback(demo: true), ringCommands: [11]);
+        demo.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        demo.Player.State.Decode(demo.Prediction.LastSavedBytes.ToArray());
+        demo.Player.State.Origin = new Vector(96f, 128f, 16f);
+        demo.Packet();
+        demo.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(0f, demo.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>A dead player notes nothing (stock's <c>IsAlive</c> arm, c_baseplayer.cpp:2644).</summary>
+    [Fact]
+    public void ADeadPlayerIsNotSmoothed()
+    {
+        var clock = new SmoothClock(1f);
+        var bench = BuildSmooth(clock, ringCommands: [11]);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Player.State.Alive = false;
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(0f, bench.Replay.LastViewOffset.X);
+    }
+
+    /// <summary>The engine facts the smoothing gates on.</summary>
+    private sealed class Playback(bool paused = false, bool demo = false) : IPlaybackState
+    {
+        public bool IsPaused => paused;
+        public bool IsPlayingDemo => demo;
+        public bool IsPlayingTimeDemo => false;
+    }
+
+    /// <summary>
+    /// The scripted clock the smoothing facts pace on: float seconds exactly
+    /// as the seam answers, so a scripted fraction is the number the fact chose.
+    /// </summary>
+    private sealed class SmoothClock(float now) : IGameClock
+    {
+        public float Now { get; set; } = now;
+    }
+
+    /// <summary>
+    /// Binds a fresh convar instance to a value the way the registry's engine
+    /// callback does, so a test-held convar reads that value rather than the
+    /// zero an unbound instance defaults to.
+    /// </summary>
+    private static T ConVarOf<T>(T conVar, string value)
+        where T : ConVarBase
+    {
+        conVar.NotifyChanged(value, "");
+        return conVar;
     }
 }

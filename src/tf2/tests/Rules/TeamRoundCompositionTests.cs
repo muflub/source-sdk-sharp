@@ -7,6 +7,8 @@ using TF2.Server.Rules;
 using TF2.Shared;
 using TF2.Shared.Rules;
 
+using TF2.Tests.Client;
+
 using Xunit;
 
 namespace TF2.Tests.Rules;
@@ -58,7 +60,7 @@ public sealed class TeamRoundCompositionTests
         services.AddInstance<IMapCleanup>(new NoMapCleanup());   // the core registers one; no map here
 
         // The objectives' rules, real, over their own neighbours.
-        services.AddInstance<IObjectiveResource>(new ObjectiveResource());
+        services.AddInstance<IObjectiveResource>(new ObjectiveResource(new ServerWarnScripts()));
         services.AddInstance<IObjectiveSettings>(new Settings());
         services.AddInstance<IObjectiveEntities>(new ObjectiveEntities(registry));
 

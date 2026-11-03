@@ -1,7 +1,9 @@
+using SourceSharp.Abi;
 using SourceSharp.Shared;
 
 using TF2.Server.Weapons;
 using TF2.Shared;
+using TF2.Tests.Entities;
 
 using Xunit;
 
@@ -90,5 +92,94 @@ public sealed class TFWeaponEffectsTests
         effects.SelectLast(in Attack, rifle);
 
         Assert.Empty(seams.Calls);
+    }
+
+    //-------------------------------------------------------------------------
+    // The speech arms (CTFPlayer::SpeakWeaponFire and ClearWeaponFireScene,
+    // tf_player.cpp:20158-20188; the firing gate at tf_weapon_minigun.cpp:336).
+    //-------------------------------------------------------------------------
+
+    private static WeaponAttackContext At(float now) =>
+        new(default, default!, default!, now, EffectsLive: true, new RecordingArms(), new WeaponCommand(1, 5, 3));
+
+    private static ObjectiveRig SpeechRig(out EntityHandle speaker)
+    {
+        var rig = new ObjectiveRig();
+        rig.Engine.Returns("Players.IsAlive", true);
+        speaker = new EntityHandle(0x0001_0000u | 3);
+        rig.Engine.Returns("Players.GetHandle", speaker);
+        return rig;
+    }
+
+    /// <summary>
+    /// The plain fire ask (the empty concept) waits on the scene clock, which
+    /// the five-second arming and the scene's own length keep shut;
+    /// <c>ClearWeaponFireScene</c> opens it again (:20162, :20185-20188).
+    /// </summary>
+    [Fact]
+    public void The_plain_fire_ask_waits_for_the_scene_and_the_clear_lets_it_in()
+    {
+        var rig = SpeechRig(out EntityHandle speaker);
+        var effects = new TFWeaponEffects(speech: rig.Speech);
+
+        effects.SpeakWeaponFire(At(10f), "");
+        Assert.Equal("TLK_FIREWEAPON", rig.ConceptRules.Asked[0].Concept);
+
+        effects.SpeakWeaponFire(At(10.2f), "");          // clock armed to 15
+        Assert.Single(rig.ConceptRules.Asked);
+
+        effects.ClearWeaponFireScene(At(10.2f));
+        effects.SpeakWeaponFire(At(10.3f), "");
+        Assert.Equal(2, rig.ConceptRules.Asked.Count);
+        Assert.Equal("TLK_FIREWEAPON", rig.ConceptRules.Asked[1].Concept);
+
+        // The ask sounded for the owner named by the command.
+        EngineCall spoken = rig.Engine.AllOf("Sound.EntityEmitSound").First();
+        Assert.Equal(speaker, spoken.ArgAs<EntityHandle>(0));
+        Assert.Equal("vo/concept.ogg", spoken.ArgAs<string>(1));
+    }
+
+    /// <summary>
+    /// A named concept — the minigun's wind and fire lines — ignores the
+    /// clock and speaks every time (:20164-20178).
+    /// </summary>
+    [Fact]
+    public void A_named_concept_ignores_the_scene_clock()
+    {
+        var rig = SpeechRig(out _);
+        var effects = new TFWeaponEffects(speech: rig.Speech);
+
+        effects.SpeakWeaponFire(At(10f), "TLK_WINDMINIGUN");
+        effects.SpeakWeaponFire(At(10.1f), "TLK_WINDMINIGUN");
+        effects.SpeakWeaponFire(At(10.2f), "TLK_FIREMINIGUN");
+
+        Assert.Equal(["TLK_WINDMINIGUN", "TLK_WINDMINIGUN", "TLK_FIREMINIGUN"],
+                     [.. rig.ConceptRules.Asked.Select(a => a.Concept)]);
+    }
+
+    /// <summary>
+    /// The firing concept's own gate (:336-341): the first shot speaks, the
+    /// next five seconds wait, and the ask rides its own clock beside the
+    /// scene's.
+    /// </summary>
+    [Fact]
+    public void The_firing_concept_speaks_once_across_its_five_seconds()
+    {
+        var rig = SpeechRig(out _);
+        var effects = new TFWeaponEffects(speech: rig.Speech);
+
+        effects.FiringSpeech(At(10f));
+        Assert.Single(rig.ConceptRules.Asked);
+        Assert.Equal("TLK_MINIGUN_FIREWEAPON", rig.ConceptRules.Asked[0].Concept);
+
+        effects.FiringSpeech(At(10.2f));                 // inside the window
+        Assert.Single(rig.ConceptRules.Asked);
+
+        effects.FiringSpeech(At(15.1f));                 // the clock has passed
+        Assert.Equal(2, rig.ConceptRules.Asked.Count);
+
+        // The scene clock is the other arm's; the firing gate never touched it.
+        effects.SpeakWeaponFire(At(15.2f), "");
+        Assert.Equal(3, rig.ConceptRules.Asked.Count);
     }
 }

@@ -431,6 +431,67 @@ public readonly record struct MovementTaunt(
     float MaxSpeed, float ForwardMove, float ClientMaxSpeed);
 
 /// <summary>
+/// The ground-categorizing shape a mod's <c>CategorizePosition</c> runs
+/// instead of the base's (<c>CTFGameMovement::CategorizePosition</c>,
+/// tf_gamemovement.cpp:2334-2459, against
+/// <c>CGameMovement::CategorizePosition</c>, gamemovement.cpp:3794-3931): one
+/// field per divergence, and the loop applies only the fields set. Null —
+/// every mod's default — is the base body untouched.
+/// </summary>
+/// <param name="ObserverFirst">
+/// The observer refusal runs BEFORE the friction reset and the water check
+/// (:2337-2338), where the base orders it after both (:3800, :3812, :3815).
+/// </param>
+/// <param name="GroundlessLadder">
+/// Any <c>MOVETYPE_LADDER</c> leaves the ground behind (:2351-2355); the base
+/// takes only a RISING ladder off, at :3853-3857.
+/// </param>
+/// <param name="RiseVelocity">
+/// The rise that is "definitely not ground" (:2358's 250, against the base's
+/// NON_JUMP_VELOCITY 140 at :3830).
+/// </param>
+/// <param name="GroundVelocityRelief">
+/// The base's lift correction stands: a grounded player's rise is measured
+/// against the ground's own z (:3836-3850). TF drops it.
+/// </param>
+/// <param name="StepSizeProbe">
+/// While walking on ground in the open, the downward probe extends by the step
+/// size (:2376-2384), and a hit short of the whole way pulls the origin's z
+/// down to the trace's end when that differs by over half a networked
+/// coordinate (:2440-2454) — the base probes a fixed two units and never
+/// moves the origin.
+/// </param>
+/// <param name="PlayerSurfaceMaterial">
+/// The base's player-surface material notification stands (:3889-3915); TF's
+/// override carries no such block.
+/// </param>
+public readonly record struct CategorizePositionRules(
+    bool ObserverFirst,
+    bool GroundlessLadder,
+    float RiseVelocity,
+    bool GroundVelocityRelief,
+    bool StepSizeProbe,
+    bool PlayerSurfaceMaterial);
+
+/// <summary>
+/// The footing answer, asked once a CategorizePosition trace exists with the
+/// command's velocity and that trace's plane: the two condition arms of stock
+/// TF's override (tf_gamemovement.cpp:2392-2418) folded into one. InAir is
+/// lost footing's away-from-ground takeoff (:2400-2404), which also skips the
+/// steep and endpos arms below it; the two scales apply at the closing
+/// multiply (:2458), the ground one on a footed player
+/// (tf_movement_lost_footing_friction, :2410) and the air one in an air
+/// current (tf_movement_aircurrent_friction_mult, :2394). The restick — the
+/// condition's own clear under tf_movement_lost_footing_restick (:2407-2416) —
+/// is the answering rule's side effect, on the same carrier the rule already
+/// holds.
+/// </summary>
+public readonly record struct FootingAnswer(
+    bool InAir,
+    float GroundFrictionScale,
+    float AirFrictionScale);
+
+/// <summary>
 /// The managed DECISIONS over how movement feels, as one immutable value a run
 /// hands its loop (statics to zero): how much of a jump the player gets (1 is
 /// the ordinary jump), the friction the loop computed, scaled, the speed it
@@ -440,8 +501,10 @@ public readonly record struct MovementTaunt(
 /// mod's per-player one), the fastest a jump may leave (0, stock
 /// Half-Life, crops nothing), the backpedal clamp (null, stock
 /// Half-Life, crops nothing), the stun's rewrite of the command (null,
-/// stock Half-Life, rewrites nothing) and the taunt's rewrite of the same
-/// command (null, stock Half-Life, rewrites nothing).
+/// stock Half-Life, rewrites nothing), the taunt's rewrite of the same
+/// command (null, stock Half-Life, rewrites nothing), the ground-categorizing
+/// overrides (null, the base's <c>CategorizePosition</c> body) and the
+/// footing answer behind it (null, no condition arm).
 /// <see cref="Stock"/> is the identity, so
 /// a loop nobody hands rules to moves exactly like Half-Life: no jump is ever
 /// taken in the air, no walk is clamped for backing away, nobody is ever
@@ -458,6 +521,8 @@ public readonly record struct MovementRules(
     Func<int, float, BackpedalLimit?> Backpedal,
     Func<int, float, int, float, float, float, MovementStun?> Stun,
     Func<int, float, float, MovementTaunt?> Taunt,
+    Func<int, CategorizePositionRules?> Categorize,
+    Func<int, Vector, Vector, FootingAnswer?> Footing,
     Func<bool> NoHl2Arms)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
@@ -471,6 +536,8 @@ public readonly record struct MovementRules(
         static (_, _) => 0f,
         static (_, _) => null,
         static (_, _, _, _, _, _) => null,
+        static (_, _, _) => null,
+        static _ => null,
         static (_, _, _) => null,
         static () => false);
 }
@@ -2579,9 +2646,23 @@ public sealed partial class GameMovement
         pm.EndPos = endpos;
     }
 
-    /// <summary><c>CategorizePosition</c> (gamemovement.cpp:4203).</summary>
+    /// <summary>
+    /// <c>CGameMovement::CategorizePosition</c> (gamemovement.cpp:3794), with a
+    /// mod's overrides — each divergence a field of
+    /// <see cref="CategorizePositionRules"/>, the condition arms one ask to
+    /// <see cref="MovementRules.Footing"/>. Nothing here is stock TF's body
+    /// copied: with no rules the arms below are the base's exactly.
+    /// </summary>
     private void CategorizePosition()
     {
+        CategorizePositionRules? cat = Rules.Categorize(_s.EntIndex);
+
+        // Stock TF refuses the observer before the friction reset and the water
+        // check (tf_gamemovement.cpp:2337-2338); the base orders them the other
+        // way round and an observer still gets both (:3800, :3812, :3815).
+        if (cat is { ObserverFirst: true } && IsObserver())
+            return;
+
         // Reset each time, otherwise the friction is bogus after plunging into
         // water at speed.
         _s.SurfaceFriction = 1.0f;
@@ -2591,20 +2672,29 @@ public sealed partial class GameMovement
         if (IsObserver())
             return;
 
+        // Stock TF takes ANY ladder off the ground (:2351-2355); the base's
+        // ladder arm, below, takes only a rising one (:3853-3857).
+        if (cat is { GroundlessLadder: true } && _s.MoveType == MoveTypeLadder)
+        {
+            SetGroundEntity(null);
+            return;
+        }
+
         const float offset = 2.0f;
-        var point = new Vector(_s.Origin.X, _s.Origin.Y, _s.Origin.Z - offset);
+        Vector point = new(_s.Origin.X, _s.Origin.Y, _s.Origin.Z - offset);
         Vector bumpOrigin = _s.Origin;
 
+        float rise = cat?.RiseVelocity ?? NonJumpVelocity;
         float zvel = _s.Velocity.Z;
         bool movingUp = zvel > 0.0f;
-        bool movingUpRapidly = zvel > NonJumpVelocity;
-        if (movingUpRapidly)
+        bool movingUpRapidly = zvel > rise;
+        if (movingUpRapidly && (cat is null || cat.Value.GroundVelocityRelief))
         {
             // A player restored on a lift has a high abs velocity that is the
             // lift's, not theirs. Subtracting the ground's z is what tells the
-            // two apart.
+            // two apart (:3836-3850); TF's override drops the relief.
             if (_s.HasGround)
-                movingUpRapidly = (zvel - _s.GroundVelocity.Z) > NonJumpVelocity;
+                movingUpRapidly = (zvel - _s.GroundVelocity.Z) > rise;
         }
 
         if (movingUpRapidly || (movingUp && _s.MoveType == MoveTypeLadder))
@@ -2613,10 +2703,33 @@ public sealed partial class GameMovement
         }
         else
         {
+            // The step-size probe (:2376-2384): walking on ground in the open,
+            // the trace reaches a step further down, so slopes are ridden
+            // rather than bounced off. The base probes a fixed two units.
+            bool endPosMove = false;
+            if (cat is { StepSizeProbe: true } && _s.MoveType == MoveTypeWalk
+                && _s.HasGround && _s.WaterLevel < WlEyes)
+            {
+                point.Z -= _s.StepSize;
+                endPosMove = true;
+            }
+
             MoveTrace pm = _w.Trace(bumpOrigin, point, GetPlayerMins(), GetPlayerMaxs(),
                                     MaskPlayerSolid, CollisionGroupPlayerMovement);
 
-            if (!pm.HasEntity || pm.PlaneNormal.Z < 0.7)
+            // The footing ask (:2392-2418): lost footing's takeoff, the two
+            // friction scales, and the restick as the rule's own side effect.
+            // The base's mults are one and its bInAir never rises here.
+            bool inAir = false;
+            float groundFriction = 1f, airFriction = 1f;
+            if (Rules.Footing(_s.EntIndex, _s.Velocity, pm.PlaneNormal) is { } footing)
+            {
+                inAir = footing.InAir;
+                groundFriction = footing.GroundFrictionScale;
+                airFriction = footing.AirFrictionScale;
+            }
+
+            if (!inAir && (!pm.HasEntity || pm.PlaneNormal.Z < 0.7))
             {
                 TryTouchGroundInQuadrants(bumpOrigin, point, MaskPlayerSolid,
                                           CollisionGroupPlayerMovement, ref pm);
@@ -2632,27 +2745,50 @@ public sealed partial class GameMovement
                     SetGroundEntity(pm);
                 }
             }
+            else if (!inAir)
+            {
+                // The endpos snap (:2440-2454), stock TF's StayOnGround
+                // debounce: a hit short of the whole way pulls the origin's z
+                // down to the trace's end once that is more than half a
+                // networked coordinate away. The base never moves the origin.
+                if (endPosMove && !pm.StartSolid && pm.Fraction > 0.0f && pm.Fraction < 1.0f
+                    && MathF.Abs(_s.Origin.Z - pm.EndPos.Z) > 0.5f * CoordResolution)
+                {
+                    _s.Origin = new Vector(_s.Origin.X, _s.Origin.Y, pm.EndPos.Z);
+                }
+
+                SetGroundEntity(pm);
+            }
             else
             {
-                SetGroundEntity(pm);
+                // Lost footing away from the ground: no quadrants, no snap
+                // (:2419-2457 through bInAir).
+                SetGroundEntity(null);
             }
 
             // Tell any player surface triggers watching that the material
             // underfoot changed. Server-only in stock, and it is a
             // notification rather than a decision — nothing in the loop reads
-            // the answer back.
-            if (!_s.InAVehicle)
+            // the answer back. TF's override carries no such block
+            // (:3889-3915 against tf_gamemovement.cpp:2334-2459).
+            if (cat is null || cat.Value.PlayerSurfaceMaterial)
             {
-                MoveSurface surface = _w.Surface(pm.SurfaceProps);
-                int currentMaterial = surface.Material;
-                if (!_s.HasGround)
-                    currentMaterial = 0;
+                if (!_s.InAVehicle)
+                {
+                    MoveSurface surface = _w.Surface(pm.SurfaceProps);
+                    int currentMaterial = surface.Material;
+                    if (!_s.HasGround)
+                        currentMaterial = 0;
 
-                if (_previousTextureType != currentMaterial)
-                    _w.SetPlayerSurface(currentMaterial);
+                    if (_previousTextureType != currentMaterial)
+                        _w.SetPlayerSurface(currentMaterial);
 
-                _previousTextureType = currentMaterial;
+                    _previousTextureType = currentMaterial;
+                }
             }
+
+            // The closing multiply (:2458): identity while the scales are one.
+            _s.SurfaceFriction *= inAir ? airFriction : groundFriction;
         }
     }
 

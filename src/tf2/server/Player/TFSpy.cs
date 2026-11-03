@@ -47,7 +47,8 @@ public sealed class TFSpyComponent(
     IEngineEntities entities, IEngineWorldQuery world, IEngineDamage damage, DamageHitGroups hitGroups,
     TFDamageScopes scopes, IUniformRandom random, TFClassTable classes, TFSpy source,
     TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
-    ITFWeaponOwners owners, IEngineSound sound, ICtfRules? ctf = null) : IPlayerComponent
+    ITFWeaponOwners owners, IEngineSound sound, ICtfRules? ctf = null,
+    ILagCompensation? lagCompensation = null) : IPlayerComponent
 {
     /// <summary><c>TF_TIME_TO_DISGUISE</c> (tf_shareddefs.h:674).</summary>
     public const float TimeToDisguise = 2.0f;
@@ -496,49 +497,60 @@ public sealed class TFSpyComponent(
     {
         _backstabbed = false;
 
-        Vector from = enginePlayers.GetShootOrigin(_player);
-        var aim = Angles.Vectors(entities.GetEyeAngles(_player));
-
-        var trace = world.TraceLine(from, from + aim.Forward * range, TraceMask.Shot, _player);
-        if (!trace.Hit || !entities.IsPlayer(trace.Entity))
-            return false;
-
-        // Stock's gate is the trace and the dot test only
-        // (tf_weapon_knife.cpp:199-213): no alive check — a corpse is
-        // normally non-solid anyway.
-        if (enginePlayers.GetTeam(trace.Entity) == enginePlayers.GetTeam(_player))
-            return false;
-
-        // IsBehindAndFacingTarget: three dot products over the flat vectors.
-        Vector toTarget = entities.GetWorldSpaceCenter(trace.Entity) - entities.GetWorldSpaceCenter(_player);
-        toTarget.Z = 0f;
-        float length = toTarget.Length;
-        if (length < 1f)
-            return false;
-        toTarget = toTarget * (1f / length);
-
-        Vector victimForward = Flat(Angles.Vectors(entities.GetEyeAngles(trace.Entity)).Forward);
-        Vector ownerForward = Flat(aim.Forward);
-
-        if (toTarget.Dot(victimForward) > 0f && toTarget.Dot(ownerForward) > 0.5f
-            && victimForward.Dot(ownerForward) > -0.3f)
+        // The knife's session (tf_weapon_knife.cpp:192, :225): the swing's
+        // trace and the behind-and-facing check see the other players where
+        // the spy saw them.
+        lagCompensation?.Start(_player);
+        try
         {
-            _backstabbed = true;
+            Vector from = enginePlayers.GetShootOrigin(_player);
+            var aim = Angles.Vectors(entities.GetEyeAngles(_player));
 
-            float backstab = entities.GetHealth(trace.Entity) * 2f;
-            using (hitGroups.Push(HitGroup.Generic, critical: true))
-            using (scopes.Push(TFDamageCustom.Backstab, TFWeaponId.Knife, TFKnifeHook.KnifeScript))
-                // The trace's end, as the core's MeleeSwing dispatches
-                // (tf_weaponbase_melee.cpp:820-880, Arsenal's trace.End); the
-                // plain swing trace names no hitbox, so the group is Generic.
-                damage.ApplyAt(trace.Entity, _player, backstab, DamageType.Club,
-                               DamageForceRules.MeleeForce(aim.Forward, backstab),
-                               trace.End);
+            var trace = world.TraceLine(from, from + aim.Forward * range, TraceMask.Shot, _player);
+            if (!trace.Hit || !entities.IsPlayer(trace.Entity))
+                return false;
 
-            return true;
+            // Stock's gate is the trace and the dot test only
+            // (tf_weapon_knife.cpp:199-213): no alive check — a corpse is
+            // normally non-solid anyway.
+            if (enginePlayers.GetTeam(trace.Entity) == enginePlayers.GetTeam(_player))
+                return false;
+
+            // IsBehindAndFacingTarget: three dot products over the flat vectors.
+            Vector toTarget = entities.GetWorldSpaceCenter(trace.Entity) - entities.GetWorldSpaceCenter(_player);
+            toTarget.Z = 0f;
+            float length = toTarget.Length;
+            if (length < 1f)
+                return false;
+            toTarget = toTarget * (1f / length);
+
+            Vector victimForward = Flat(Angles.Vectors(entities.GetEyeAngles(trace.Entity)).Forward);
+            Vector ownerForward = Flat(aim.Forward);
+
+            if (toTarget.Dot(victimForward) > 0f && toTarget.Dot(ownerForward) > 0.5f
+                && victimForward.Dot(ownerForward) > -0.3f)
+            {
+                _backstabbed = true;
+
+                float backstab = entities.GetHealth(trace.Entity) * 2f;
+                using (hitGroups.Push(HitGroup.Generic, critical: true))
+                using (scopes.Push(TFDamageCustom.Backstab, TFWeaponId.Knife, TFKnifeHook.KnifeScript))
+                    // The trace's end, as the core's MeleeSwing dispatches
+                    // (tf_weaponbase_melee.cpp:820-880, Arsenal's trace.End); the
+                    // plain swing trace names no hitbox, so the group is Generic.
+                    damage.ApplyAt(trace.Entity, _player, backstab, DamageType.Club,
+                                   DamageForceRules.MeleeForce(aim.Forward, backstab),
+                                   trace.End);
+
+                return true;
+            }
+
+            return false;
         }
-
-        return false;
+        finally
+        {
+            lagCompensation?.Finish(_player);
+        }
     }
 
     /// <summary>Whether the swing just made backstabbed: its smack lands nothing.</summary>
@@ -567,7 +579,8 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
                           TFSpyInvisUnstealthTimeConVar unstealthTime,
                           TFSpyCloakNoAttackTimeConVar noAttackTime,
                           TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
-                          ITFWeaponOwners owners, IEngineSound sound, ICtfRules? ctf = null)
+                          ITFWeaponOwners owners, IEngineSound sound, ICtfRules? ctf = null,
+                          ILagCompensation? lagCompensation = null)
     : IPlayerComponentSource, IOrderedHook, ITFSpyState, ITFConditionHook
 {
     private readonly Dictionary<int, TFSpyComponent> _byIndex = new();
@@ -585,7 +598,7 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     {
         yield return new TFSpyComponent(players, conditions, enginePlayers, entities, world, damage,
                                         hitGroups, scopes, random, classes, this, winners,
-                                        rooms, hooks, owners, sound, ctf);
+                                        rooms, hooks, owners, sound, ctf, lagCompensation);
     }
 
     internal TFSpyCloakConsumeRateConVar ConsumeRate => consumeRate;

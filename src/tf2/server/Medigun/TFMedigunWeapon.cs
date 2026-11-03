@@ -88,6 +88,8 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     private readonly AttributeHooks hooks;
     private readonly ITFWeaponOwners owners;
     private readonly ITFRoundSetup? roundSetup;
+    private readonly TFMedigunLagCompConVar? lagGate;
+    private readonly ILagCompensation? lagCompensation;
 
     private readonly Dictionary<int, MedicState> medics = new();
 
@@ -98,7 +100,8 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
                            ITFWeaponOwners owners,
                            ITFPlayerStats? stats = null, IEngineGameEvents? events = null,
                            IConnectedClients? clients = null, ITFPlayerData? data = null,
-                           ITFRoundSetup? roundSetup = null)
+                           ITFRoundSetup? roundSetup = null, TFMedigunLagCompConVar? lagGate = null,
+                           ILagCompensation? lagCompensation = null)
     {
         this.players = players;
         this.entities = entities;
@@ -116,6 +119,8 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         this.clients = clients;
         this.data = data;
         this.roundSetup = roundSetup;
+        this.lagGate = lagGate;
+        this.lagCompensation = lagCompensation;
     }
 
     public int HookOrder => TFMedigunOrders.Weapon;
@@ -279,6 +284,25 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
     // ---- CWeaponMedigun::PrimaryAttack / FindAndHealTargets ------------------------------------
 
     private void PrimaryAttack(int owner, MedicState state, TFWeaponModeData mode, float now)
+    {
+        // The medigun's session (tf_weapon_medigun.cpp:1774-1775, :1799-1801):
+        // while tf_medigun_lagcomp is on, the target search sees the other
+        // players where the medic saw them; stock reads the flag at both ends.
+        EntityHandle shooter = players.GetHandle(owner);
+        if (lagGate?.Value ?? true)
+            lagCompensation?.Start(shooter);
+        try
+        {
+            HealPrimary(owner, state, mode, now);
+        }
+        finally
+        {
+            if (lagGate?.Value ?? true)
+                lagCompensation?.Finish(shooter);
+        }
+    }
+
+    private void HealPrimary(int owner, MedicState state, TFWeaponModeData mode, float now)
     {
         int heldIndex = state.HealingTarget;    // :1232's capture, before maintain and find
 

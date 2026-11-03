@@ -48,4 +48,10 @@ public sealed class TFClientWeaponEffects(TFPlayerPrediction players) : ITFWeapo
     public void RingOfFire(in WeaponAttackContext attack, int damage) { }
 
     public void Rearmed(in WeaponAttackContext attack) { }
+
+    public void SpeakWeaponFire(in WeaponAttackContext attack, string concept) { }
+
+    public void ClearWeaponFireScene(in WeaponAttackContext attack) { }
+
+    public void FiringSpeech(in WeaponAttackContext attack) { }
 }

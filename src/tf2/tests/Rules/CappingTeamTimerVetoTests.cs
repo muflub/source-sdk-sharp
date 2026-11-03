@@ -6,6 +6,7 @@ using TF2.Server.Rules;
 using TF2.Shared;
 using TF2.Shared.Rules;
 
+using TF2.Tests.Client;
 using TF2.Tests.Entities;
 
 using Xunit;
@@ -24,7 +25,7 @@ public sealed class CappingTeamTimerVetoTests
 {
     private static (ObjectiveResource Objectives, FakeClock Clock, CappingTeamTimerVeto Veto) Rig()
     {
-        var objectives = new ObjectiveResource();
+        var objectives = new ObjectiveResource(new ServerWarnScripts());
         objectives.SetNumControlPoints(4);
         var clock = new FakeClock { Now = 100f };
         return (objectives, clock, new CappingTeamTimerVeto(objectives, clock));

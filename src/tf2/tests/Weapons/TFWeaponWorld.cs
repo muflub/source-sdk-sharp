@@ -23,6 +23,7 @@ internal sealed class RecordingArms : IWeaponArms
     public readonly List<string> Sounds = new();
     public readonly List<string> Launches = new();
     public readonly List<(int Fov, float Time)> Fovs = new();
+    public readonly List<(string Weapon, string Particle)> Flashes = new();
 
     /// <summary>The reload animation's length; 0 is no such sequence (the viewmodels' default).</summary>
     public float ReloadSeconds { get; set; }
@@ -51,6 +52,7 @@ internal sealed class RecordingArms : IWeaponArms
         => Sequences.TryGetValue(anim, out int sequence) ? sequence : anim == WeaponAnim.Reload && ReloadSeconds > 0f ? 7 : -1;
     public float AnimDuration(WeaponAnim anim) => anim == WeaponAnim.Reload ? ReloadSeconds : 0f;
     public void SetFov(int fov, float time) => Fovs.Add((fov, time));
+    public void MuzzleFlash(in WeaponType type, string particleEffect) => Flashes.Add((type.Name, particleEffect));
 }
 
 /// <summary>Records what the TF effects were asked to do.</summary>
@@ -68,6 +70,9 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public readonly List<(int Projectiles, bool Critical)> Sweeps = new();
     public readonly List<int> Rings = new();
     public int RearmedCount;
+    public readonly List<string> Speeches = new();
+    public int SceneClears;
+    public readonly List<string> Firings = new();
 
     public void Projectile(in WeaponAttackContext attack, TFWeaponScript script, ShotDamage shot, float charge) => Projectiles.Add((script.Name, shot, charge));
     public void Detonate(in WeaponAttackContext attack, TFWeaponScript script) => Detonations++;
@@ -86,6 +91,9 @@ internal sealed class RecordingEffects : ITFWeaponEffects
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) => Sweeps.Add((projectiles, critical));
     public void RingOfFire(in WeaponAttackContext attack, int damage) => Rings.Add(damage);
     public void Rearmed(in WeaponAttackContext attack) => RearmedCount++;
+    public void SpeakWeaponFire(in WeaponAttackContext attack, string concept) => Speeches.Add(concept);
+    public void ClearWeaponFireScene(in WeaponAttackContext attack) => SceneClears++;
+    public void FiringSpeech(in WeaponAttackContext attack) => Firings.Add("TLK_MINIGUN_FIREWEAPON");
 }
 
 /// <summary>What the builder's placement was asked, for the builder's facts.</summary>

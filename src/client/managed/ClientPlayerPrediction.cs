@@ -248,10 +248,29 @@ public sealed class ClientPlayerPrediction
     private readonly PredictionErrorRing _errors;
     private readonly NetStateCatalog _catalog;
 
+    // Stock's view smoothing, on the player rather than in a static (C_BasePlayer's
+    // m_vecPredictionError / m_flPredictionErrorTime, c_baseplayer.cpp:2641-2738):
+    // what the eye still owes, and the clock second when the last error was noted.
+    private Vector _smoothError;
+    private double _smoothStamp;
+
+    // The smoothing's three inputs: the engine clock the decay counts against,
+    // the playback state that stops it, and the two ConVars that shape it.
+    private readonly IGameClock _clock;
+    private readonly IPlaybackState _playback;
+    private readonly ClSmoothConVar _smooth;
+    private readonly ClSmoothTimeConVar _smoothTime;
+
+    /// <param name="clock">Current engine seconds — stock's
+    /// <c>gpGlobals-&gt;curtime</c>, which the smoothing's decay counts against
+    /// (<see cref="IGameClock"/>, the client's clock seam; a test hands a fake
+    /// that answers scripted seconds).</param>
     public ClientPlayerPrediction(ILog log, IClientStandalones standalones, IEngineHud screen,
                                   IClientReplayEngine engine, MovementRunner movement,
                                   ClientArsenal? arsenal, PredictionErrorRing errors,
                                   NetStateCatalog catalog, IHooks<IClientPredictedState> predicted,
+                                  IPlaybackState playback, IGameClock clock,
+                                  ClSmoothConVar smooth, ClSmoothTimeConVar smoothTime,
                                   ViewReadout? view = null,
                                   ILadderWorld? ladders = null, IHl2PlayerMove? hl2Player = null)
     {
@@ -268,6 +287,10 @@ public sealed class ClientPlayerPrediction
         _view = view;
         _ladders = ladders;
         _hl2Player = hl2Player;
+        _playback = playback;
+        _clock = clock;
+        _smooth = smooth;
+        _smoothTime = smoothTime;
 
         _working.BindLocal();
     }
@@ -898,6 +921,14 @@ public sealed class ClientPlayerPrediction
             return;
         }
 
+        // THE VIEW OWES THE DIFFERENCE. Stock's CheckError notes the origin delta
+        // of every acknowledged command outside its field judge
+        // (prediction.cpp:169-197), so this runs before the judge's verdict and
+        // survives one that forgives every field: an origin the tolerances
+        // forgive still moves the eye where the server says, and stock eases
+        // that move rather than snapping it.
+        NoteSmoothingError(player, predicted);
+
         // THE VISUALISER'S CAPTURE, before the verdict and not after, so a
         // difference every tolerance forgave is still recorded. A tolerated
         // difference that is GROWING is the early warning for one that will not
@@ -1136,15 +1167,96 @@ public sealed class ClientPlayerPrediction
             ? QAngle.FromVector(_move.PunchAngleVel)
             : player.State.PunchAngleVel;
 
-        _view?.PublishEye(origin + viewOffset);
+        // STOCK'S EASE, NOT A SNAP. CalcPlayerView adds the still-owed error to
+        // the eye origin it publishes (baseplayer_shared.cpp's CLIENT_DLL arm),
+        // and the owed amount decays over cl_smoothtime to nothing. The eye is
+        // origin plus view offset here as it is there, so the ease rides the
+        // view offset — the entity's drawn origin stays the server's word,
+        // which is exactly what stock's eyeOrigin-only smoothing does.
+        Vector eyeShift = viewOffset + SmoothOffsetAt(NowSeconds());
+
+        _view?.PublishEye(origin + eyeShift);
 
         // THE HEALTH IS THE DECODED ONE EITHER WAY, and deliberately: it is
         // the server's word about a number the client cannot predict — damage
         // is the server's decision — so the replay has nothing better to say
         // about it than the packet does.
-        _engine.PublishView(player.Handle, in origin, in viewOffset, in punch, in punchVel,
+        _engine.PublishView(player.Handle, in origin, in eyeShift, in punch, in punchVel,
                             driving, player.State.Health);
     }
+
+    /// <summary>Stock's seconds, the clock the decay counts against — the engine's
+    /// own <c>gpGlobals-&gt;curtime</c> through the client's clock seam. Tests
+    /// hand a fake clock that answers scripted seconds.</summary>
+    private double NowSeconds() => _clock.Now;
+
+    /// <summary>
+    /// Stock's <c>CPrediction::CheckError</c> origin arm (prediction.cpp:169-197):
+    /// the acked slot's predicted origin against the arrival's, outside the field
+    /// judge. The window is stock's — a difference past the cap is read as a
+    /// teleport and cleared instead of eased; one under the epsilon is noise
+    /// (prediction_private.h:28,31). Within it, stock sums every error still in
+    /// the window (c_baseplayer.cpp:2648-2656), which is why the new delta joins
+    /// the amount the eye still owes rather than replacing it.
+    /// </summary>
+    private void NoteSmoothingError(ClientSsPlayer player, byte[] predicted)
+    {
+        var probe = new PlayerNetState();
+        probe.BindLocal();
+        probe.Decode(predicted);
+
+        Vector delta = probe.Origin - player.State.Origin;
+        float len = delta.Length;
+
+        if (len > MaxPredictionError || len <= MinPredictionEpsilon)
+            return;
+
+        // Stock notes nothing for a dead player (c_baseplayer.cpp:2644).
+        if (!player.State.Alive)
+            return;
+
+        double now = NowSeconds();
+        _smoothError = delta + SmoothOffsetAt(now);
+        _smoothStamp = now;
+    }
+
+    /// <summary>
+    /// Stock's <c>C_BasePlayer::GetPredictionErrorSmoothingVector</c>
+    /// (c_baseplayer.cpp:2715-2738): the owed error scaled by the fraction of
+    /// <c>cl_smoothtime</c> still left, and nothing at all during demo playback
+    /// or a pause, with <c>cl_smooth</c> off, or with prediction itself off.
+    /// </summary>
+    private Vector SmoothOffsetAt(double now)
+    {
+        if (_playback.IsPlayingDemo || _playback.IsPaused)
+            return Vector.Zero;
+
+        // cl_smooth off, or no prediction to smooth into. A convar never heard
+        // from reads stock's default, which is on.
+        if (!Enabled || _smooth.Value == 0)
+            return Vector.Zero;
+
+        // cl_smoothtime, stock's bounds 0.01 to 2.0 held at the declaration. An
+        // unbound convar's zero falls back to the declared default.
+        float declared = _smoothTime.Value;
+        double seconds = declared > 0f ? declared : DefaultSmoothTimeSeconds;
+
+        double fraction = (now - _smoothStamp) / seconds;
+
+        if (fraction >= 1.0)
+            return Vector.Zero;
+
+        return _smoothError * (float)(1.0 - fraction);
+    }
+
+    /// <summary><c>MIN_PREDICTION_EPSILON</c> (prediction_private.h:28).</summary>
+    public const float MinPredictionEpsilon = 0.5f;
+
+    /// <summary><c>MAX_PREDICTION_ERROR</c> (prediction_private.h:31).</summary>
+    public const float MaxPredictionError = 64.0f;
+
+    /// <summary><c>cl_smoothtime</c>'s declared default, seconds.</summary>
+    public const double DefaultSmoothTimeSeconds = 0.1;
 }
 
 /// <summary>
@@ -1207,3 +1319,20 @@ public sealed class PlayerPredictPokeCommand : IConCommand
             : "[SourceSharp] player prediction: nothing ringed at that offset\n");
     }
 }
+
+/// <summary>
+/// <c>cl_smooth</c>: whether the eye is eased to the server's position after a
+/// prediction error at all. Stock declares it for this side
+/// (<c>game/client/c_baseplayer.cpp:96</c>), on by default.
+/// </summary>
+[ConVar("cl_smooth", "1", Help = "Smooth view/eye origin after prediction errors")]
+public sealed class ClSmoothConVar : IntConVar { }
+
+/// <summary>
+/// <c>cl_smoothtime</c>: how many seconds that ease takes. Stock declares it
+/// with bounds 0.01 to 2.0 (<c>game/client/c_baseplayer.cpp:97-104</c>) — the
+/// engine clamps every write into that window.
+/// </summary>
+[ConVar("cl_smoothtime", "0.1", Min = 0.01f, Max = 2.0f,
+        Help = "Smooth client's view after prediction error over this many seconds")]
+public sealed class ClSmoothTimeConVar : FloatConVar { }

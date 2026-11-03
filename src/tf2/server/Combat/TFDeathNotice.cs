@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
+using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
 
@@ -47,7 +48,9 @@ namespace TF2.Server.Combat;
 ///   <c>weapon_logclassname</c> (the same name: no item log names yet),
 ///   <c>silent_kill</c> false, <c>stun_flags</c> 0 and <c>death_flags</c>:
 ///   stock's domination and revenge (<see cref="TFDominations"/>, computed
-///   before the kill is recorded, tf_gamerules.cpp:11500-11518).
+///   before the kill is recorded, tf_gamerules.cpp:11500-11518); and
+///   <c>rocket_jump</c>: the victim's blast jump (<see cref="TFBlastJumpState"/>),
+///   stock's direct read of the dying player (tf_gamerules.cpp:13116).
 /// </para>
 ///
 /// <para>
@@ -58,7 +61,7 @@ namespace TF2.Server.Combat;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entities, TFDamageRecords records,
-                                  IGameClock clock, TFDominations? dominations = null)
+                                  IGameClock clock, TFPlayerCarriers carriers, TFDominations? dominations = null)
     : IDeathNoticeHook, IOrderedHook
 {
     /// <summary>Stage 2.7's band (+700..+799 of TF2's thousand).</summary>
@@ -118,6 +121,11 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
             scorer != EntityHandle.None ? entities.GetIndex(scorer) : -1,
             assister != EntityHandle.None ? entities.GetIndex(assister) : -1) ?? 0);
         fields.SetInt("stun_flags", 0);
+        // Stock reads the victim's state directly (tf_gamerules.cpp:13116,
+        // RocketJumped() == 1): a death in the air carries the word, one after
+        // the landing — the state cleared — does not.
+        TFBlastJump jumped = carriers.Part<TFBlastJumpState>(victimIndex)?.State ?? TFBlastJump.None;
+        fields.SetBool("rocket_jump", (jumped & TFBlastJump.RocketJumped) != 0);
         fields.SetInt("crit_type", (int)(hit?.Crit ?? TFCritType.None));
     }
 

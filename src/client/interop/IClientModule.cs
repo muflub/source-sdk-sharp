@@ -117,6 +117,20 @@ public interface IClientModule
     /// </summary>
     MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => null;
 
+    /// <summary>
+    /// The ground-categorizing overrides of <c>CategorizePosition</c>
+    /// (null, stock's body). Runs on both sides; see
+    /// <c>IMovementRules.CategorizePosition</c>.
+    /// </summary>
+    CategorizePositionRules? GetCategorizePosition(int playerIndex) => null;
+
+    /// <summary>
+    /// The footing answer behind <c>CategorizePosition</c>'s ground trace
+    /// (null, no condition arm). Runs on both sides; see
+    /// <c>IMovementRules.Footing</c>.
+    /// </summary>
+    FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => null;
+
     //-------------------------------------------------------------------------
     // The standalone entity hierarchy, client side. Same shape as the server's,
     // asked at a different moment — see ClientStandaloneRegistry.

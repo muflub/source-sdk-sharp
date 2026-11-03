@@ -260,6 +260,30 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     internal ViewModelNetState WorkingViewModel => _viewModel;
 
     /// <summary>
+    /// The entity the local gun's muzzle flash hangs off: the viewmodel
+    /// attachment — the weapon's own model riding the hands, whose mesh names
+    /// <c>muzzle</c> — when the player has one in view; else the viewmodel
+    /// itself, the hands whose own model then carries the attachment (stock's
+    /// <c>GetViewModel</c>'s not-attach arm, <c>tf_weaponbase.cpp:651-676</c>).
+    /// The attachment is decided exactly as its draw is (<see
+    /// cref="ClientSsViewmodelAttachment.IsLocal"/>), so a hidden or foreign
+    /// one names nothing and the flash with it.
+    /// </summary>
+    private EntityHandle? MuzzleBearer()
+    {
+        int local = _screen.LocalPlayerIndex;
+
+        foreach (var entity in _standalones.OfClass(EntityNames.SsViewmodelAttachment))
+        {
+            if (entity is ClientSsViewmodelAttachment attachment && attachment.IsLocal
+                && attachment.State.OwnerIndex == local)
+                return attachment.Handle;
+        }
+
+        return _localViewModel?.Handle;
+    }
+
+    /// <summary>
     /// The player's working copy the fov words of a predicted zoom are written
     /// into (<see cref="ClientWeaponArms.SetFov"/>), handed over once at
     /// composition so it is the same object the movement's replay runs on: a
@@ -990,8 +1014,8 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // and the bullets go through.
         public void MuzzleFlash(in WeaponType type, string particleEffect)
         {
-            if (_owner._localViewModel is { } vm)
-                _owner._fx?.MuzzleFlash(vm.Handle, particleEffect);
+            if (_owner.MuzzleBearer() is { } bearer)
+                _owner._fx?.MuzzleFlash(bearer, particleEffect);
         }
 
         public void ShellEject(in WeaponType type, int itemDefIndex, int weaponId)

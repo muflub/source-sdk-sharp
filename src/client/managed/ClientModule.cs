@@ -2171,6 +2171,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<IHl2PlayerMove>(new ClientHl2PlayerMove(_convars));
         // The mods' own predicted states ride the same frame (IClientPredictedState).
         _services.AddFactory<IHooks<IClientPredictedState>>(locator => new Hooks<IClientPredictedState>(locator, log));
+
+        // THE SMOOTHING'S THREE INPUTS, held like the ladders and the HL2 player
+        // above: the replay reads them every time it publishes the eye. The
+        // clock is the side's own IGameClock — stock's curtime for the decay
+        // (c_baseplayer.cpp:2724) — registered beside the other engine seams
+        // above. The two ConVars are the bound ones from the walk, so a console
+        // change is heard by the next publish.
+        _services.AddInstance(_convars.Get<ClSmoothConVar>() ?? throw new InvalidOperationException("cl_smooth is not registered"));
+        _services.AddInstance(_convars.Get<ClSmoothTimeConVar>() ?? throw new InvalidOperationException("cl_smoothtime is not registered"));
         _prediction = _services.Create<ClientPlayerPrediction>();
 
         // The one working copy: the weapon's fov writes and the movement's
@@ -3273,6 +3282,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public MovementStun? GetMovementStun(int playerIndex, float curTime, int buttons, float forwardMove, float sideMove, float upMove) => _movementRules.Rules.Stun(playerIndex, curTime, buttons, forwardMove, sideMove, upMove);
 
     public MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => _movementRules.Rules.Taunt(playerIndex, frameTime, forwardMove);
+
+    public CategorizePositionRules? GetCategorizePosition(int playerIndex) => _movementRules.Rules.Categorize(playerIndex);
+
+    public FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => _movementRules.Rules.Footing(playerIndex, velocity, planeNormal);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

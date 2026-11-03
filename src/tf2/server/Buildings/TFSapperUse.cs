@@ -63,7 +63,8 @@ namespace TF2.Server.Buildings;
 [SideService(Side.Server, As = [typeof(ITFSapperState)])]
 public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlayers, IEngineEntities entities,
                                 IEngineWorldQuery world, ITFBuildings buildings, IEngineDamage damage,
-                                TFDamageScopes scopes, ITFObjectSpawner spawner, ILog log) : ITFSapperState
+                                TFDamageScopes scopes, ITFObjectSpawner spawner, ILog log,
+                                ILagCompensation? lagCompensation = null) : ITFSapperState
 {
     /// <summary>The player's <c>m_flFieldOfView</c> (player.cpp:5108).</summary>
     public const float FieldOfView = 0.766f;
@@ -161,74 +162,85 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         if (player == EntityHandle.None)
             return false;
 
-        int team = players.Team(player);
-        Vector eye = enginePlayers.GetShootOrigin(player);
-        Vector aim = Angles.Vectors(entities.GetEyeAngles(player)).Forward;
-        Vector reach = eye + aim * range;
-
-        // Stock's line trace shortens the swing to what it reaches: a wall
-        // before a point stops the blow. One trace serves every candidate.
-        TraceResult wall = world.TraceLine(eye, reach, TraceMask.Brushes, player);
-
-        TFBaseObject? best = null;
-        TFSapper? bestSapper = null;
-        float bestAlong = 0f;
-
-        foreach (TFBaseObject building in buildings.OwnedBy())
+        // The wrench's session (tf_weapon_wrench.cpp:497, :521): the swing's
+        // trace and the building pick see the other players where the
+        // engineer saw them.
+        lagCompensation?.Start(player);
+        try
         {
-            // OnFriendlyBuildingHit: the building is the engineer's team's.
-            if (building.Team != team)
-                continue;
+            int team = players.Team(player);
+            Vector eye = enginePlayers.GetShootOrigin(player);
+            Vector aim = Angles.Vectors(entities.GetEyeAngles(player)).Forward;
+            Vector reach = eye + aim * range;
 
-            // The swing's ±18 hull reaches a building whose centre sits this
-            // close to the swing's line (buildings are non-solid, so the
-            // hull sweep stands in as a point distance).
-            Vector point = entities.GetWorldSpaceCenter(building.Handle);
-            if (PointLineDistance(eye, reach, point) > SwingHull)
-                continue;
+            // Stock's line trace shortens the swing to what it reaches: a wall
+            // before a point stops the blow. One trace serves every candidate.
+            TraceResult wall = world.TraceLine(eye, reach, TraceMask.Brushes, player);
 
-            // Stock's trace lands the blow on the nearest hit along the
-            // swing (tf_weapon_wrench.cpp:170-186) — the engine's answer is
-            // the closest entity, not the first enumerated.
-            float along = (point - eye).Dot(aim);
-            if (wall.Hit && wall.Fraction * range < along)
-                continue;
+            TFBaseObject? best = null;
+            TFSapper? bestSapper = null;
+            float bestAlong = 0f;
 
-            if (best is not null && along >= bestAlong)
-                continue;
-
-            best = building;
-            bestSapper = building.HasSapper ? SapperOn(building) : null;
-            bestAlong = along;
-        }
-
-        if (best is null)
-            return false;
-
-        // InputWrenchHit's arms (tf_obj.cpp:2746-2794): a sapped building's
-        // blow goes to its sapper; anything else is the building's own
-        // OnWrenchHit — the repair, the refill and the upgrade metal.
-        if (bestSapper is not null)
-        {
-            using (scopes.Push(TFDamageCustom.WrenchFix, TFWeaponId.Wrench, TFWrenchHook.WrenchScript))
+            foreach (TFBaseObject building in buildings.OwnedBy())
             {
-                // InputWrenchHit's sapper arm: the one blow a sapper takes.
-                damage.TakeDamage(bestSapper.Handle, player, WrenchDmgVsSapper, DamageType.Club);
+                // OnFriendlyBuildingHit: the building is the engineer's team's.
+                if (building.Team != team)
+                    continue;
 
-                // The pair block of CObjectSapper::OnTakeDamage: the match's
-                // sapper takes the same blow, wherever it rides.
-                if (best is TFTeleporter tp
-                    && tp.Match is { } match && match.HasSapper
-                    && SapperOn(match) is { } twin)
-                {
-                    damage.TakeDamage(twin.Handle, player, WrenchDmgVsSapper, DamageType.Club);
-                }
+                // The swing's ±18 hull reaches a building whose centre sits this
+                // close to the swing's line (buildings are non-solid, so the
+                // hull sweep stands in as a point distance).
+                Vector point = entities.GetWorldSpaceCenter(building.Handle);
+                if (PointLineDistance(eye, reach, point) > SwingHull)
+                    continue;
+
+                // Stock's trace lands the blow on the nearest hit along the
+                // swing (tf_weapon_wrench.cpp:170-186) — the engine's answer is
+                // the closest entity, not the first enumerated.
+                float along = (point - eye).Dot(aim);
+                if (wall.Hit && wall.Fraction * range < along)
+                    continue;
+
+                if (best is not null && along >= bestAlong)
+                    continue;
+
+                best = building;
+                bestSapper = building.HasSapper ? SapperOn(building) : null;
+                bestAlong = along;
             }
 
-            return true;
-        }
+            if (best is null)
+                return false;
 
-        return best.WrenchHit(player);
+            // InputWrenchHit's arms (tf_obj.cpp:2746-2794): a sapped building's
+            // blow goes to its sapper; anything else is the building's own
+            // OnWrenchHit — the repair, the refill and the upgrade metal.
+            if (bestSapper is not null)
+            {
+                using (scopes.Push(TFDamageCustom.WrenchFix, TFWeaponId.Wrench, TFWrenchHook.WrenchScript))
+                {
+                    // InputWrenchHit's sapper arm: the one blow a sapper takes.
+                    damage.TakeDamage(bestSapper.Handle, player, WrenchDmgVsSapper, DamageType.Club);
+
+                    // The pair block of CObjectSapper::OnTakeDamage: the match's
+                    // sapper takes the same blow, wherever it rides.
+                    if (best is TFTeleporter tp
+                        && tp.Match is { } match && match.HasSapper
+                        && SapperOn(match) is { } twin)
+                    {
+                        damage.TakeDamage(twin.Handle, player, WrenchDmgVsSapper, DamageType.Club);
+                    }
+                }
+
+                return true;
+            }
+
+            return best.WrenchHit(player);
+        }
+        finally
+        {
+            lagCompensation?.Finish(player);
+        }
     }
 
     /// <summary>The sapper riding <paramref name="building"/>, as the use layer keeps it.</summary>

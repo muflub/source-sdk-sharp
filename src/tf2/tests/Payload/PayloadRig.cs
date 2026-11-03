@@ -170,7 +170,7 @@ internal sealed class PayloadRig
         services.AddInstance<ITFPlayerResupply>(Resupply);
 
         // the points and master read the same table the watcher writes
-        var objectives = new ObjectiveResource();
+        var objectives = new ObjectiveResource(new TF2.Tests.Client.ServerWarnScripts());
         var settings = new FakeSettings();
         services.AddInstance<IObjectiveResource>(objectives);
         services.AddInstance<IObjectiveSettings>(settings);

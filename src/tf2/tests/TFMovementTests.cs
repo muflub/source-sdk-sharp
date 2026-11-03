@@ -552,6 +552,96 @@ public sealed class TFMovementRulesTests
     public void The_loop_runs_the_arms_stock_tf2_was_built_with()
         => Assert.True(((IMovementRules)Make().Rules).NoHl2Arms);
 
+    /// <summary>
+    /// The categorizer record is the override's shape, unconditional: the
+    /// observer refusal first, any ladder off the ground, the 250 rise without
+    /// the base's lift relief, the step probe, and no player-surface block
+    /// (tf_gamemovement.cpp:2334-2459 against gamemovement.cpp:3794-3931).
+    /// </summary>
+    [Fact]
+    public void The_categorize_rules_are_the_override_and_nobody_else()
+    {
+        CategorizePositionRules r = Make().Rules.CategorizePosition(Index)!.Value;
+
+        Assert.True(r.ObserverFirst);
+        Assert.True(r.GroundlessLadder);
+        Assert.Equal(250f, r.RiseVelocity);            // not NON_JUMP_VELOCITY's 140
+        Assert.False(r.GroundVelocityRelief);          // the base's :3836-3850 dropped
+        Assert.True(r.StepSizeProbe);
+        Assert.False(r.PlayerSurfaceMaterial);
+    }
+
+    [Fact]
+    public void Footing_without_a_carrier_answers_nothing()
+        => Assert.Null(Make().Rules.Footing(Index, default, new Vector(0f, 0f, 1f)));
+
+    [Fact]
+    public void Footing_without_either_condition_answers_nothing()
+    {
+        var (rules, players) = Make();
+        _ = players.Add(Index, TFClass.Soldier);
+
+        Assert.Null(rules.Footing(Index, new Vector(0f, 100f, 0f), new Vector(0f, 0f, 1f)));
+    }
+
+    /// <summary>The air current slows the air, not the ground (tf_gamemovement.cpp:2392-2395).</summary>
+    [Fact]
+    public void Air_current_scales_the_air_friction_alone()
+    {
+        var (rules, players) = Make();
+        players.Add(Index, TFClass.Soldier).SetConditions(TFCondMask.Of(TFCond.AirCurrent));
+
+        FootingAnswer a = rules.Footing(Index, new Vector(0f, 100f, 0f), new Vector(0f, 0f, 1f))!.Value;
+
+        Assert.False(a.InAir);
+        Assert.Equal(1f, a.GroundFrictionScale);
+        Assert.Equal(0.75f, a.AirFrictionScale);
+    }
+
+    /// <summary>Lost footing's takeoff: any away-from-ground velocity is air (:2400-2404).</summary>
+    [Fact]
+    public void Lost_footings_rise_is_air()
+    {
+        var (rules, players) = Make();
+        players.Add(Index, TFClass.Soldier).SetConditions(TFCondMask.Of(TFCond.LostFooting));
+
+        FootingAnswer a = rules.Footing(Index, new Vector(30f, 0f, 40f), new Vector(0f, 0f, 1f))!.Value;
+
+        Assert.True(a.InAir);
+        Assert.Equal(1f, a.GroundFrictionScale);
+    }
+
+    /// <summary>Sliding on lost footing scrapes at the friction convar (:2407-2411).</summary>
+    [Fact]
+    public void Lost_footings_slide_scrapes_the_ground_friction()
+    {
+        var (rules, players) = Make();
+        var state = players.Add(Index, TFClass.Soldier);
+        state.SetConditions(TFCondMask.Of(TFCond.LostFooting));
+
+        // 100 across the floor plane, nothing along it: a slide over the 50 restick.
+        FootingAnswer a = rules.Footing(Index, new Vector(100f, 0f, 0f), new Vector(0f, 0f, 1f))!.Value;
+
+        Assert.False(a.InAir);
+        Assert.Equal(0.1f, a.GroundFrictionScale);
+        Assert.True(state.InCond(TFCond.LostFooting), "a slide keeps the condition");
+    }
+
+    /// <summary>Too slow to slide, the footing comes back and the condition goes (:2412-2417).</summary>
+    [Fact]
+    public void Lost_footings_restick_clears_the_condition()
+    {
+        var (rules, players) = Make();
+        var state = players.Add(Index, TFClass.Soldier);
+        state.SetConditions(TFCondMask.Of(TFCond.LostFooting));
+
+        FootingAnswer a = rules.Footing(Index, new Vector(10f, 0f, 0f), new Vector(0f, 0f, 1f))!.Value;
+
+        Assert.False(a.InAir);
+        Assert.Equal(1f, a.GroundFrictionScale);
+        Assert.False(state.InCond(TFCond.LostFooting), "the footing came back");
+    }
+
     [Fact]
     public void Max_speed_is_the_carriers_class_speed_whatever_the_engine_arrived_at()
     {

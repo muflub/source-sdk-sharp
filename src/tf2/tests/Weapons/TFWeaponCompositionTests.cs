@@ -128,6 +128,11 @@ public sealed class TFWeaponCompositionTests
                                                       engine, engine, engine, engine, new TF2.Tests.Combat.NoEntities(),
                                                       engine, new SourceSharp.Server.DamageHitGroups()));
         SideServices.Register(c, Side.Server, typeof(TFWeaponBehaviour).Assembly.GetTypes());
+        // The speech behind the weapon-fire concepts rides the dispatcher's
+        // optional arm; its search and its roster join as the rigs' own fakes,
+        // so the chain under the effects composes here as it does in the game.
+        c.AddInstance<SourceSharp.Abi.IResponseRules>(new TF2.Tests.Entities.FakeConceptRules());
+        c.AddInstance<SourceSharp.Server.ITeams>(new TF2.Tests.Entities.FakeConceptTeams());
         // The healing's CTF seam answers only the flag rules; the scan's real
         // CtfRules sits on the round machine, which TeamRoundCompositionTests
         // composes — here the seam takes the fake the medigun's facts hold,

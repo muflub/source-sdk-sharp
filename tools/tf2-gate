@@ -1758,6 +1758,152 @@ def parse_round_state(line):
     return word or None
 
 
+def parse_round_wait(line):
+    """(state, waiting) of a tf2_dev_win bare echo -- the waiting word is the
+    InWaitingForPlayers flag the echo already prints (TFDevWinCommand.cs), so
+    the pump samples read the whole round half of the chain from one line.
+    PURE, so --self-test holds it without a game."""
+    state = parse_round_state(line)
+    waiting = None
+    if line and ROUND_STATE_PREFIX in line and "waiting " in line:
+        waiting = line.rsplit("waiting ", 1)[1].strip() or None
+    return state, waiting
+
+
+def round_echo(run):
+    """One fresh tf2_dev_win echo read by the pump sampler: (state, waiting)
+    of the newest echo line, the same reads round_state makes."""
+    run.srv.cmd("tf2_dev_win")
+    lines = [l for l in run.team_lines() if ROUND_STATE_PREFIX in l]
+    return parse_round_wait(lines[-1] if lines else None)
+
+
+def _pick(fields, keys):
+    """The first of `keys` the field dump answers, or '-' -- so a sample
+    names what the field really holds without one key guess hiding a second."""
+    for k in keys:
+        v = fields.get(k)
+        if v not in (None, ""):
+            return str(v)
+    return "-"
+
+
+def _safe_fields(srv, index):
+    try:
+        return srv.fields(index) or {}
+    except lg.ApiError:
+        return {}
+
+
+def chain_sample(run, p1, cur, cart_index, area_index, cp_index, watcher_index):
+    """One pump tick of the cart chain, as (line, waiting): the round state
+    and the waiting-for-players flag from one tf2_dev_win echo (a); the
+    pusher's alive/team/class/origin and his distance to the cart (b); the
+    capture volume's index, touch count, BLU count and the field dump's own
+    enabled/cap-time answers (c); the checkpoint's locked field and the
+    derived PointsMayBeCaptured -- round running-or-stalemate and not waiting,
+    ControlPointRules.PointsMayBeCaptured (d); the watcher's index, speed and
+    disabled answers (e). Every read is the SERVER's, each wrapped: a sampler
+    that throws would make the pump itself the thing that fails. The field
+    names the dump really answers for the area and the watcher ride along in
+    the first-sample line, so a wrong key guess shows instead of silently
+    reading '-' forever."""
+    parts = []
+    rs, wt = round_echo(run)
+    parts.append("rs=%s" % rs)
+    parts.append("w=%s" % wt)
+    # (e)'s observable half: the watcher drives the cart through its speed,
+    # so the cart's own speed answer names whether the watcher ever applied it.
+    try:
+        ce = (run.srv.entity(index=cart_index) or {}) if cart_index is not None else {}
+    except lg.ApiError:
+        ce = {}
+    parts.append("cs=%s" % ce.get("speed"))
+    # (b) the pusher: alive, team, class, origin, distance to the cart
+    f1 = _safe_fields(run.srv, p1)
+    parts.append("pu_al=%s" % f1.get("Alive"))
+    parts.append("tm=%s" % run.team_now(p1))
+    cjn = run.class_evidence(p1)
+    parts.append("cl=%s" % (cjn[1] if cjn and len(cjn) > 1 else "-"))
+    try:
+        pe = run.srv.entity(index=p1) or {}
+    except lg.ApiError:
+        pe = {}
+    po = pe.get("origin")
+    parts.append("po=%s" % (po,))
+    d = _d2(po, cur) if po and cur else None
+    parts.append("pd=%s" % (round(d, 1) if d is not None else None))
+    # (c) the capture volume: touch directory, BLU count, dump's own answers
+    fa = _safe_fields(run.srv, area_index) if area_index is not None else {}
+    parts.append("ar=%s" % area_index)
+    try:
+        touch = (run.srv.get("touching", area_index) or {}).get("touching", []) \
+            if area_index is not None else []
+    except lg.ApiError:
+        touch = ["read_error"]
+    # The touch directory answers either shape: a bare entity index, or the
+    # entity's raw handle ((gen<<16)|index). Mask the low 16 bits so both
+    # shapes name the same entry, so "how many BLU players the volume counts"
+    # names the player once rather than hiding him behind a shape guess.
+    def _entry_index(t):
+        v = t.get("index") if isinstance(t, dict) else t
+        try:
+            return int(str(v), 0) & 0xFFFF
+        except (TypeError, ValueError):
+            return None
+    blu = sum(1 for t in touch if _entry_index(t) == p1)
+    parts.append("touch=%d blu=%d" % (len(touch), blu))
+    # The raw first entries, so the shape behind blu is readable from the row
+    # itself and the comparison above can be pinned to what the endpoint says.
+    parts.append("tr=%.70s" % str(list(touch)[:3]))
+    parts.append("en=%s ct=%s" % (_pick(fa, ("Enabled", "Disabled")),
+                                  _pick(fa, ("CapTime", "area_time_to_cap"))))
+    parts.append("ar_f=%s" % ",".join(sorted(fa))[:80])
+    # (d) the checkpoint: locked field, PointsMayBeCaptured as the rules answer it
+    fc = _safe_fields(run.srv, cp_index) if cp_index is not None else {}
+    lock = _pick(fc, ("Locked", "IsLocked"))
+    pmb = "True" if rs in ("RoundRunning", "Stalemate") and wt == "False" else "False"
+    parts.append("cp=%s lock=%s pmb=%s" % (cp_index, lock, pmb))
+    # (e) the watcher: its speed and the dump's disabled answer
+    fw = _safe_fields(run.srv, watcher_index) if watcher_index is not None else {}
+    try:
+        we = (run.srv.entity(index=watcher_index) or {}) if watcher_index is not None else {}
+    except lg.ApiError:
+        we = {}
+    parts.append("wat=%s spd=%s dis=%s" % (watcher_index, we.get("speed"),
+                                           _pick(fw, ("Disabled", "IsDisabled", "start_disabled"))))
+    parts.append("wat_f=%s" % ",".join(sorted(fw))[:80])
+    return " ".join(parts).replace("\t", " ")[:700], wt
+
+
+def phase_rec():
+    """A pump's sampler state: count, first and last line, the first sample
+    whose waiting flag reads False (what sample the wait went off at)."""
+    return {"n": 0, "first": None, "last": None, "wait_off": None}
+
+
+def note_sample(run, rec, cur, cart_index, area_index, cp_index, watcher_index):
+    """Read one chain sample and keep first/last/count/wait-off in the rec."""
+    line, wt = chain_sample(run, run.p1, cur, cart_index, area_index, cp_index, watcher_index)
+    rec["n"] += 1
+    if rec["first"] is None:
+        rec["first"] = line
+    rec["last"] = line
+    if wt == "False" and rec["wait_off"] is None:
+        rec["wait_off"] = str(rec["n"])
+    return line
+
+
+def note_phase(numbers, prefix, rec):
+    """Put a pump's sampler into the report numbers; the lines stay, so a
+    failing step names its own broken link and a passing one proves the chain
+    end to end."""
+    numbers[prefix + "_s_first"] = rec["first"] or "(no sample)"
+    numbers[prefix + "_s_last"] = rec["last"] or "(no sample)"
+    numbers[prefix + "_s_n"] = rec["n"]
+    numbers[prefix + "_s_waitoff"] = rec["wait_off"] or "never"
+
+
 def round_state(run):
     """The round machine's state word, read the way the existing steps read
     state: the server's console.log. tf2_dev_win with no argument only logs
@@ -2754,6 +2900,17 @@ def step_payload(run, state):
     goal_origin = cps_by_near[-1][2]
     numbers["cp1"] = "#%s(%s)@%s" % (cp1_index, cp1_name, cp1_origin)
 
+    # The sampler's fixed indices: the capture volume and the train watcher,
+    # read once before the pumps so every tick can name its chain links (c)
+    # and (e). The pump phases reuse them; the old mid-step read of the same
+    # two lists just moves here.
+    areas = [a for a in _ents_with_origins(run, "trigger_capture_area") if a[2]]
+    numbers["capture_areas"] = _fmt_ents(areas)
+    watchers = [w for w in _ents_with_origins(run, "team_train_watcher") if w[2]]
+    watcher_index = watchers[0][0] if watchers else None
+    area_index = areas[0][0] if areas else None
+    push_rec, rec_rec, cap_rec = phase_rec(), phase_rec(), phase_rec()
+
     ev_head, _, ev_probe = events_snapshot(run, CP_OWNER_NEEDLES)
     numbers["events_head_at_start"] = ev_head
 
@@ -2769,6 +2926,7 @@ def step_payload(run, state):
         cur = cart_now()
         if not cur:
             return None
+        note_sample(run, push_rec, cur, cart_index, area_index, cp1_index, watcher_index)
         d = _d2(cur, cp1_origin)
         if d is not None:
             best["d"] = min(best["d"], d)
@@ -2781,6 +2939,7 @@ def step_payload(run, state):
 
     pushed = wait_pump(run, "payload: the cart advances %g u toward checkpoint 1" % CART_PUSH_U,
                        pushing, 90.0, 2.5)
+    note_phase(numbers, "push", push_rec)
     best_d = round(best["d"], 1)
     numbers["cart_to_cp1_best"] = best_d
     numbers["cart_after_push"] = cart_now()
@@ -2797,12 +2956,14 @@ def step_payload(run, state):
         cur = cart_now()
         if not cur:
             return None
+        note_sample(run, rec_rec, cur, cart_index, area_index, cp1_index, watcher_index)
         settle_on(run, run.p1, _behind(cur, goal_origin, 500.0),
                   (0.0, _yaw_to(cur, goal_origin), 0.0), tries=2, prove=False)
         d = _d2(cur, pushed_at)
         return cur if (d is not None and d >= CART_RECEDE_U) else None
 
     receded = wait_pump(run, "payload: the cart recedes without a pusher", away, 60.0, 3.0)
+    note_phase(numbers, "rec", rec_rec)
     numbers["cart_after_recede"] = cart_now()
     if not receded:
         numbers["detail"] = ("the cart did not recede %g u after the pusher left it "
@@ -2830,9 +2991,7 @@ def step_payload(run, state):
     # does not use.)
     probe_box = [ev_probe]
     STALL_U, STALL_PUMPS = 2.0, 3   # held capper, cart unmoving, three pumps
-
-    areas = [a for a in _ents_with_origins(run, "trigger_capture_area") if a[2]]
-    numbers["capture_areas"] = _fmt_ents(areas)
+    # (the areas list and its capture_areas number are read ahead of the pumps)
 
     def capper_diag():
         """The numbers a stall or a timeout is judged by."""
@@ -2862,6 +3021,7 @@ def step_payload(run, state):
         cur = cart_now()
         if not cur:
             return None
+        note_sample(run, cap_rec, cur, cart_index, area_index, cp1_index, watcher_index)
         if not run.is_alive(run.p1):
             # The cart advances only while the watcher counts a capper; a
             # dead one parks it (run F at this tip stalled at the track's
@@ -2891,6 +3051,7 @@ def step_payload(run, state):
         return None
 
     capped = wait_pump(run, "payload: checkpoint 1 changes owner", capped, 150.0, 2.5)
+    note_phase(numbers, "cap", cap_rec)
     numbers["cart_after_cp1"] = cart_now()
     if not capped or capped == "STALL":
         why = state["stalled"] or capper_diag()
@@ -3291,6 +3452,13 @@ def self_test():
           "a transition line is NOT a state echo")
     check(parse_round_state(None) is None and parse_round_state("") is None,
           "no line answers no state, never a guess")
+    check(parse_round_wait("[TF2/Rounds] state RoundRunning, winner Unassigned, waiting False")
+          == ("RoundRunning", "False"), "the pump sample reads waiting beside its state")
+    check(parse_round_wait("[TF2/Rounds] state Pregame, winner Unassigned, waiting True")
+          == ("Pregame", "True"), "a waiting echo says waiting True")
+    check(parse_round_wait("[TF2/Rounds] RoundRunning -> TeamWin") == (None, None),
+          "a transition line is not an echo, for the pair either")
+    check(parse_round_wait(None) == (None, None), "no line answers the pair as nothing")
 
     # current_server_map: the gate's only answer to "which map is loaded",
     # because the engine's host_map names the boot map forever after a

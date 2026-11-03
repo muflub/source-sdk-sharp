@@ -82,6 +82,7 @@ public sealed class TFBlastApplier
     private readonly IEngineGameEvents Events;
     private readonly IEngineNetworking Networking;
     private readonly IEntityDirectory Directory;
+    private readonly TFPlayerCarriers Carriers;
     private readonly TFPreroundPushFromDamageEnableConVar? PreroundPush;
 
     /// <summary>TFViewVectors' crouched hull size, the shape a self push folds (:10246-10252).</summary>
@@ -94,6 +95,7 @@ public sealed class TFBlastApplier
                           IEnginePlayers players, ITFWeaponOwners owners, AttributeHooks hooks,
                           ITFPlayerResupply health, IEngineGameEvents events,
                           IEngineNetworking networking, IEntityDirectory directory,
+                          TFPlayerCarriers carriers,
                           TFPreroundPushFromDamageEnableConVar? preroundPush = null)
     {
         World = world;
@@ -111,6 +113,7 @@ public sealed class TFBlastApplier
         Events = events;
         Networking = networking;
         Directory = directory;
+        Carriers = carriers;
         PreroundPush = preroundPush;
         CrouchHullSize = new Vector(TFViewVectors.Params.DuckHullMax.X * 2f,
                                     TFViewVectors.Params.DuckHullMax.Y * 2f,
@@ -209,6 +212,7 @@ public sealed class TFBlastApplier
                                                  damagedOtherPlayers: selfRadius > 0f && enemiesDamaged > 0,
                                                  Entities.GetIndex(attacker));
                     selfPushMult = Hooks.Float(1f, "mult_dmgself_push_force", item);
+                    ClaimBlastJump(attacker, victimDamage, active.Bits, item);
                 }
                 if (victimDamage <= 0f && !(self && forceDamage > 0f))
                     continue;
@@ -278,6 +282,7 @@ public sealed class TFBlastApplier
                     // (their answer is realDamage, :10535; only -1 stops it),
                     // and the push there reads the force damage (:10647-10656):
                     // the Rocket Jumper hurts nothing and throws as hard.
+                    ClaimBlastJump(attacker, selfDamage, selfBlast.Bits, item);
                     bool hit = selfDamage <= 0f
                                || Deliver(attacker, attacker, selfDamage, selfBlast.Bits, weapon, weaponName, critical,
                                           inflictor, origin) > 0;
@@ -357,6 +362,44 @@ public sealed class TFBlastApplier
             blast: (bits & DamageType.Blast) != 0,
             onGround: IsOnGround(attacker),
             inWater: Directory.Get(attacker) is SsPlayer { State.WaterLevel: not 0 });
+
+    /// <summary>
+    /// The blast jump, stock's <c>OnTakeDamage</c> arms
+    /// (<c>tf_player.cpp:8919-8922</c>, <c>:9150-9182</c>): a self blast — the
+    /// attacker is the victim on both paths here — carrying <c>DMG_BLAST</c>,
+    /// caught airborne and dry. The soldier's rocket jump also needs the
+    /// damage to leave health (<c>m_iHealthBefore - flDamage &gt; 0</c>, the
+    /// health as this hit finds him, before it lands); the demoman's sticky
+    /// jump has no gate. <c>no_self_blast_dmg</c> on the firing weapon is the
+    /// sound arm's <c>bPlaySound</c>, stock's
+    /// <c>CALL_ATTRIB_HOOK_INT_ON_OTHER</c> reading it only when present.
+    /// </summary>
+    private void ClaimBlastJump(EntityHandle attacker, float damage, DamageType bits, IAttributeProvider? item)
+    {
+        if ((bits & DamageType.Blast) == 0
+            || IsOnGround(attacker)
+            || Directory.Get(attacker) is SsPlayer { State.WaterLevel: not 0 })
+            return;
+
+        TFBlastJump jump;
+        if (Classes.ClassOf(attacker) == TFClass.Soldier)
+        {
+            if (Entities.GetHealth(attacker) - damage <= 0f) // m_iHealthBefore - flDamage > 0
+                return;
+            jump = TFBlastJump.RocketJumped;
+        }
+        else if (Classes.ClassOf(attacker) == TFClass.Demoman)
+        {
+            jump = TFBlastJump.StickyJumped;
+        }
+        else
+        {
+            return;
+        }
+
+        Carriers.Part<TFBlastJumpState>(attacker.EntryIndex)?.Set(jump,
+            playSound: Hooks.Int(0, "no_self_blast_dmg", item) != 0);
+    }
 
     private bool IsOnGround(EntityHandle player)
         => Networking.EntityGetState(player, out _).HasFlag(EntityState.OnGround);
@@ -445,6 +488,18 @@ public sealed class TFBlastApplier
             // only.
             impulse *= Hooks.Float(1f, "damage_force_reduction", Owners.ManagerOf(Entities.GetIndex(victim)));
         }
+        // The soldier's push is also the jump's second claim
+        // (:10275): BOTH of the self blast's ground arms — the grounded
+        // badrj at :10266-10269 and the airborne rj at :10270-10273 — name
+        // TF_PLAYER_ROCKET_JUMPED, with no health test and stock's silent
+        // bPlaySound, so a grounded self rocket jumps too and an airborne
+        // soldier is named by this arm and OnTakeDamage's (:9180) alike.
+        // The duck reset beside it (:10277, m_Shared.SetAirDucked( 0 )) is
+        // the air-duck counter's, deferred with the duck overrides
+        // (docs/plans/tf2/deferred.tsv).
+        if (self && cls == TFClass.Soldier && (blast.Bits & DamageType.Blast) != 0)
+            Carriers.Part<TFBlastJumpState>(victim.EntryIndex)?.Set(TFBlastJump.RocketJumped);
+
         // Stock adds the impulse and nothing else (:10470): the next command's
         // PlayerMove lets go of the ground for a rise over its 250
         // (gamemovement.cpp:4612), so both passes hand over the impulse alone.

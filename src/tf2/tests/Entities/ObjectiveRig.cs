@@ -214,7 +214,7 @@ internal sealed class ObjectiveRig
     public readonly TFPlayerObjectiveTimes ObjectiveTimes = new();
     public readonly TF2.Server.Player.TFPlayerStats Stats = new();
     public readonly TF2.Tests.Medigun.TFHealingEvents GameEvents = new();
-    public readonly ObjectiveResource Objectives = new();
+    public readonly ObjectiveResource Objectives = new(new TF2.Tests.Client.ServerWarnScripts());
     public readonly FakeRoundRules RoundRules = new();
     public readonly ControlPointRules Rules;
     public readonly ObjectiveEntities Entities;

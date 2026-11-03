@@ -180,7 +180,7 @@ internal sealed class SpyRig
     /// <summary>The item owners whose per-player managers the hook reads.</summary>
     public FakeOwners Owners { get; } = new();
 
-    public SpyRig(TFClass playerClass = TFClass.Spy, ICtfRules? ctf = null)
+    public SpyRig(TFClass playerClass = TFClass.Spy, ICtfRules? ctf = null, ILagCompensation? lag = null)
     {
         Damage = new SpyDamage(Scopes, HitGroups);
         _states.Add(Spy.EntryIndex, playerClass);
@@ -216,11 +216,11 @@ internal sealed class SpyRig
                           ConVars.Get<TFSpyCloakConsumeRateConVar>()!, ConVars.Get<TFSpyCloakRegenRateConVar>()!,
                           ConVars.Get<TFSpyInvisTimeConVar>()!, ConVars.Get<TFSpyInvisUnstealthTimeConVar>()!,
                           ConVars.Get<TFSpyCloakNoAttackTimeConVar>()!,
-                          Winners, Rooms, Hooks, Owners, Engine, ctf);
+                          Winners, Rooms, Hooks, Owners, Engine, ctf, lag);
         Conditions.Spies = Spies;   // the rig's chain: removals run the disguise arms
         var component = new TFSpyComponent(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random,
                                            Classes, Spies,
-                                           Winners, Rooms, Hooks, Owners, Engine, ctf);
+                                           Winners, Rooms, Hooks, Owners, Engine, ctf, lag);
         component.Attach(Spy);
         Slice = component;
     }

@@ -77,6 +77,10 @@ public sealed class TFPlayerSpawns(TFPlayerCarriers carriers, TFClassTable class
         // too, after the spawn walk has read them (the core selects the spot
         // before this hook runs).
         carriers.Part<TFRespawnOverride>(index)?.ClearOnSpawn();
+
+        // CTFPlayer::Spawn's m_iBlastJumpState = 0 (tf_player.cpp:3746): the
+        // jump a death in the air left does not land under the new life.
+        carriers.Part<TFBlastJumpState>(index)?.ClearOnSpawn();
     }
 
     public void OnSpawned(EntityHandle player, float now)

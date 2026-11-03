@@ -190,6 +190,8 @@ public sealed class TFConVarsTests
         { "weapon_medigun_charge_rate", Medigun, StockSide.Both },
         // tf_weapon_medigun.cpp:82, #ifdef CLIENT_DLL: the client declares it, the server reads it per player.
         { "tf_medigun_autoheal", Medigun, StockSide.Client },
+        // tf_weapon_medigun.cpp:86, #if !defined (CLIENT_DLL): the heal traces' lag-compensation gate.
+        { "tf_medigun_lagcomp", Medigun, StockSide.Server },
         // c_tf_player.cpp:211, the client declares it and the server reads it per player
         // (tf_gamerules.cpp:10269): USERINFO | ARCHIVE.
         { "cl_autoreload", TFPlayerClient, StockSide.Client },

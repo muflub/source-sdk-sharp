@@ -178,6 +178,7 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
     private readonly bool[] _inMiniRound = new bool[Points];
     private readonly int[] _warnOnCap = new int[Points];
     private readonly string[] _warnSound = new string[Points];
+    private readonly IFwdSoundEmitter _warnScripts;
     private readonly bool[] _locked = new bool[Points];
     private readonly float[] _unlockTimes = new float[Points];
     private readonly float[] _timerTimes = new float[Points];
@@ -219,8 +220,9 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
     private readonly Vector[] _zoneOrigin = new Vector[Teams];
 
     /// <summary>Stock's constructor and Spawn: the table a level starts from.</summary>
-    public ObjectiveResource()
+    public ObjectiveResource(IFwdSoundEmitter warnScripts)
     {
+        _warnScripts = warnScripts;
         Clear();
     }
 
@@ -346,6 +348,7 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
             s.LazyCapPerc[i] = _lazyCapPerc[i];
             s.InMiniRound[i] = _inMiniRound[i];
             s.WarnOnCap[i] = (byte)_warnOnCap[i];
+            s.WarnSoundIndexes[i] = WarnIndex(_warnSound[i]);
             s.Locked[i] = _locked[i];
             s.UnlockTimes[i] = _unlockTimes[i];
             s.TimerTimes[i] = _timerTimes[i];
@@ -516,13 +519,23 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
     }
 
     /// <summary>
-    /// Kept on the server only: a run of strings has no wire form here
-    /// (NetArray refuses one), and stock's reader is the client's announcer,
-    /// which is Stage 3's (docs/plans/tf2/deferred.tsv).
+    /// m_iszWarnSound: the name stays here for the server's reads; the wire
+    /// carries the engine sound-script index for it, so the client can read
+    /// the name back through its half of the engine's sound table
+    /// (WarnSoundIndexes' note). An empty name is the warn-less point: -1.
     /// </summary>
-    public void SetWarnSound(int index, string sound) => _warnSound[Point(index)] = sound ?? string.Empty;
+    public void SetWarnSound(int index, string sound)
+    {
+        _warnSound[Point(index)] = sound ?? string.Empty;
+        if (_state is { } s)
+            s.WarnSoundIndexes[index] = WarnIndex(_warnSound[index]);
+    }
 
     public string GetWarnSound(int index) => _warnSound[Point(index)];
+
+    /// <summary>The warn name as the engine sound table indexes it; -1 for none.</summary>
+    private short WarnIndex(string sound)
+        => sound.Length == 0 ? (short)-1 : (short)_warnScripts.SoundIndex(sound);
 
     public void SetCPGroup(int index, int group)
     {

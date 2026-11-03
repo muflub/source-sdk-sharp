@@ -226,7 +226,7 @@ public sealed class TFDominationsTests
 
         var dominations = new TFDominations();
         Kills(dominations, CombatRig.Victim.EntryIndex, CombatRig.Attacker.EntryIndex, 3);
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, dominations);
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers, dominations);
         var fields = new TFDeathNoticeTests.Fields();
 
         notice.Fill(new DeathNoticeFacts(CombatRig.Victim, CombatRig.Attacker, CombatRig.Attacker,

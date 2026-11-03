@@ -2,6 +2,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server.Combat;
+using TF2.Server.Player;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Conditions;
@@ -29,7 +30,7 @@ public sealed class TFDeathNoticeTests
     private static Dictionary<string, object> Fill(CombatRig rig, EntityHandle attacker, EntityHandle? inflictor = null,
                                                    string coreWeapon = "tf_weapon_scattergun")
     {
-        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock);
+        var notice = new TFDeathNotice(rig.Engine, rig.Engine, rig.Records, rig.Clock, rig.Carriers);
         var fields = new Fields();
         EntityHandle scorer = attacker == CombatRig.Attacker || attacker == CombatRig.Third || attacker == CombatRig.Victim
             ? attacker : EntityHandle.None;
@@ -155,4 +156,51 @@ public sealed class TFDeathNoticeTests
     [InlineData("trigger_hurt", "trigger_hurt")]
     public void The_weapon_name_loses_stocks_prefixes(string name, string expected)
         => Assert.Equal(expected, TFDeathNotice.StockName(name));
+
+    /// <summary>The victim's blast jump component, as the rig's players have it.</summary>
+    private static TFBlastJumpState Jump(CombatRig rig, TFBlastJump state)
+    {
+        var jump = new TFBlastJumpState(rig.Carriers, new TFPlayerConditions(rig.Carriers, rig.Engine), rig.Engine,
+                                        new NoEntities(), rig.Engine, rig.Engine);
+        jump.Attach(CombatRig.Victim);
+        if (state != TFBlastJump.None)
+        {
+            // Set() fires the jump's own event; the record is what the word reads.
+            rig.Engine.Returns("GameEvents.EventCreate", new IntPtr(7));
+            rig.Engine.Returns("GameEvents.EventFire", true);
+            jump.Set(state);
+        }
+        return jump;
+    }
+
+    /// <summary>The death's <c>rocket_jump</c> word (tf_gamerules.cpp:13116): the victim's
+    /// <c>RocketJumped</c> state at the death.</summary>
+    [Fact]
+    public void A_rocket_jump_victim_dies_with_the_rocket_jump_word()
+    {
+        var rig = new CombatRig();
+        Jump(rig, TFBlastJump.RocketJumped);
+        rig.Hit(6f, DamageType.Bullet);
+
+        Assert.True((bool)Fill(rig, CombatRig.Attacker)["rocket_jump"]);
+    }
+
+    [Fact]
+    public void A_sticky_jump_victim_dies_without_the_rocket_jump_word()
+    {
+        var rig = new CombatRig();
+        Jump(rig, TFBlastJump.StickyJumped);
+        rig.Hit(6f, DamageType.Bullet);
+
+        Assert.False((bool)Fill(rig, CombatRig.Attacker)["rocket_jump"]);
+    }
+
+    [Fact]
+    public void A_victim_who_never_jumped_dies_without_the_rocket_jump_word()
+    {
+        var rig = new CombatRig();
+        rig.Hit(6f, DamageType.Bullet);
+
+        Assert.False((bool)Fill(rig, CombatRig.Attacker)["rocket_jump"]);
+    }
 }

@@ -120,7 +120,7 @@ public sealed class TFPlayerClassTests
         var source = new TFPlayerComponents(rig.Engine, new SingleEntity(rig.Entity), rig.Carriers, rig.Log, rig.Items,
                                             new TFPlayerConditions(rig.Carriers, rig.Engine),
                                             new TF2.Tests.Entities.Items.FakeMapPlayers(), new TF2.Tests.Rules.FakeClock(), rig.Engine,
-                                            rig.Schema, new PoollessGiver());
+                                            rig.Schema, new PoollessGiver(), rig.Engine, rig.Engine);
 
         var block = source.Create(PlayerRig.Player).ToList();
 
@@ -128,6 +128,7 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFPlayerCarrier>(c),
             c => Assert.IsType<TFPlayerClass>(c),
             c => Assert.IsType<TFPlayerConditionTicker>(c),
+            c => Assert.IsType<TFBlastJumpState>(c),
             c => Assert.IsType<TFStunStack>(c),
             c => Assert.IsType<TFRespawnOverride>(c),
             c => Assert.IsType<TFPlayerAttributes>(c),

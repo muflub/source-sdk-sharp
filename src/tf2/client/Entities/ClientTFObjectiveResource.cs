@@ -231,13 +231,14 @@ public sealed class ClientTFObjectiveResource : ClientStandaloneEntity
 
     public ClientTFObjectiveResource(IEngineEntityRender render, TFClientObjectiveResources resources,
                                      ITFObjectiveSettings settings, IGameClock clock,
-                                     IClientEntitySounds sounds, ITFLocalPlayer localPlayer)
+                                     IClientEntitySounds sounds, ITFLocalPlayer localPlayer,
+                                     IFwdSoundEmitter warnScripts)
         : base(render)
     {
         _resources = resources;
         _settings = settings;
         _clock = clock;
-        _contested = new ContestedAnnouncer(sounds, localPlayer);
+        _contested = new ContestedAnnouncer(sounds, localPlayer, warnScripts);
     }
 
     public override string ClassName => ObjectiveClassNames.ObjectiveResource;
@@ -415,7 +416,7 @@ public sealed class ClientTFObjectiveResource : ClientStandaloneEntity
     public float CapProgress(int point, float now)
     {
         Point(point);
-        _capTimes.Advance(State, _settings, now);
+        _capTimes.Advance(State, _settings, _contested, now);
         return _capTimes.Percentage(State, point);
     }
 
@@ -589,6 +590,9 @@ internal sealed class TFCapTimes
     /// <summary><c>CP_WARN_NORMAL</c> (shareddefs.h:900): the only level the contested sound plays at.</summary>
     private const int CPWarnNormal = 0;
 
+    /// <summary><c>CP_WARN_FINALCAP</c> (shareddefs.h:900): the level the warn-sound arm plays at.</summary>
+    private const int CPWarnFinalCap = 1;
+
     /// <summary>
     /// The contested-point announcer's seat (c_tf_objective_resource.cpp:135-161):
     /// stock's client <c>SetCappingTeam</c> plays the sound from the local
@@ -599,8 +603,21 @@ internal sealed class TFCapTimes
         /// <summary>The local player's team (<c>GetLocalPlayer()-&gt;GetTeamNumber()</c>).</summary>
         int LocalTeam { get; }
 
-        /// <summary>A cap has begun on <paramref name="point"/>, owned by <paramref name="ownerTeam"/>.</summary>
+        /// <summary>
+        /// A cap has begun on <paramref name="point"/>, owned by
+        /// <paramref name="ownerTeam"/>: the generic announcer name, contested
+        /// when the point has an owner and neutral when it has none.
+        /// </summary>
         void Contested(int point, int ownerTeam);
+
+        /// <summary>
+        /// The FINALCAP countdown's warn (c_team_objectiveresource.cpp:404-424):
+        /// the point's own name, the engine sound-script index
+        /// <paramref name="warnSoundIndex"/> read back (<c>m_iszWarnSound</c>;
+        /// -1 for none), played from the local player. A name the index answers
+        /// nothing for plays nothing.
+        /// </summary>
+        void FinalCapWarn(short warnSoundIndex);
     }
 
     private readonly float[] _capTimeLeft = new float[ObjectiveLimits.MaxControlPoints];
@@ -608,6 +625,8 @@ internal sealed class TFCapTimes
     private readonly byte[] _oldCappingTeam = new byte[ObjectiveLimits.MaxControlPoints];
     private readonly byte[] _oldOwner = new byte[ObjectiveLimits.MaxControlPoints];
     private readonly float[] _oldLazyCapPerc = new float[ObjectiveLimits.MaxControlPoints];
+    private readonly bool[] _warnedOnFinalCap = new bool[ObjectiveLimits.MaxControlPoints];
+    private readonly float[] _lastCapWarningTime = new float[ObjectiveLimits.MaxControlPoints];
 
     /// <summary>The receive proxies and OnDataChanged's lazy-percentage seeding, over one packet.</summary>
     public void DataChanged(ObjectiveResourceNetState state, float now, IContestedCapSounds? contested = null)
@@ -653,13 +672,16 @@ internal sealed class TFCapTimes
         }
     }
 
-    /// <summary>Stock <c>SetCappingTeam</c> (:324-341), with the owner as the proxy saw it.</summary>
+    /// <summary>Stock <c>SetCappingTeam</c> (:324-341), with the owner as the proxy saw it.
+    /// A new capping team re-arms the warn (:336).</summary>
     private void SetCappingTeam(int point, int team, ObjectiveResourceNetState state, float now)
     {
         if (team != _oldOwner[point] && team > LastSharedTeam)
             _capTimeLeft[point] = state.TeamCapTime[ObjectiveLimits.TeamArray(point, team)];
         else
             _capTimeLeft[point] = 0f;
+
+        _warnedOnFinalCap[point] = false;
 
         _lastThink[point] = now;
     }
@@ -675,7 +697,8 @@ internal sealed class TFCapTimes
     }
 
     /// <summary>Stock <c>ClientThink</c> (:373-464), over the interval to <paramref name="now"/>.</summary>
-    public void Advance(ObjectiveResourceNetState state, ITFObjectiveSettings settings, float now)
+    public void Advance(ObjectiveResourceNetState state, ITFObjectiveSettings settings,
+                        IContestedCapSounds? contested, float now)
     {
         for (int point = 0; point < ObjectiveLimits.MaxControlPoints; point++)
         {
@@ -708,6 +731,25 @@ internal sealed class TFCapTimes
                 {
                     deteriorateNormally = false;
                     _capTimeLeft[point] -= reduction;
+
+                    // Stock's warn arm (:404-424): while the countdown runs,
+                    // an enemy capping a final-cap point makes its own warn
+                    // sound play once through the local player, no more often
+                    // than every five seconds. Stock's <c>pPlayer</c> guard is
+                    // the seated interface; without one nothing is asked for.
+                    if (!_warnedOnFinalCap[point] && contested is { } announcer)
+                    {
+                        int capping = state.CappingTeam[point];
+                        if (capping != (int)TFTeam.Unassigned
+                            && announcer.LocalTeam != capping
+                            && state.WarnOnCap[point] == CPWarnFinalCap
+                            && now > _lastCapWarningTime[point] + 5f)
+                        {
+                            announcer.FinalCapWarn(state.WarnSoundIndexes[point]);
+                            _warnedOnFinalCap[point] = true;
+                            _lastCapWarningTime[point] = now;
+                        }
+                    }
                 }
                 else if (OwningTeam(state, point) == (int)TFTeam.Unassigned
                          && teamInZone != (int)TFTeam.Unassigned)
@@ -731,6 +773,8 @@ internal sealed class TFCapTimes
                 {
                     _capTimeLeft[point] = 0f;
                 }
+
+                _warnedOnFinalCap[point] = false;
             }
 
             _lastThink[point] = now;
@@ -842,18 +886,38 @@ internal sealed class TFCapTimes
 }
 
 /// <summary>
-/// The contested sound itself (c_tf_objective_resource.cpp:147-155): stock's
+/// The sounds themselves. Stock's contested announcer
+/// (c_tf_objective_resource.cpp:147-155) is
 /// <c>C_BaseEntity::EmitSound( CLocalPlayerFilter, -1, name )</c> — the local
-/// player's ears, no entity — which is <see cref="IClientEntitySounds.EmitFrom"/>
-/// from no handle. A point with no owner is contested neutral (:148-155).
+/// player's ears, no entity — and its FINALCAP warn (c_team_objectiveresource.cpp:417)
+/// is <c>pPlayer-&gt;EmitSound( GetWarnSound( i ) )</c>, the local player's own
+/// ears either way: both are <see cref="IClientEntitySounds.EmitFrom"/> from
+/// no handle. A point with no owner is contested neutral (:148-155).
 /// </summary>
-public sealed class ContestedAnnouncer(IClientEntitySounds sounds, ITFLocalPlayer localPlayer) : TFCapTimes.IContestedCapSounds
+public sealed class ContestedAnnouncer(IClientEntitySounds sounds, ITFLocalPlayer localPlayer,
+                                       IFwdSoundEmitter warnScripts) : TFCapTimes.IContestedCapSounds
 {
     /// <summary>Stock's <c>pLocalPlayer-&gt;GetTeamNumber()</c>; 0 while no row has arrived.</summary>
     public int LocalTeam => localPlayer.Team;
 
+    /// <summary>
+    /// The generic announcer names, as stock plays them: contested on an
+    /// owned point, neutral on one with no owner. The point's warn sound
+    /// never enters this arm (:145-155).
+    /// </summary>
     public void Contested(int point, int ownerTeam)
         => sounds.EmitFrom(EntityHandle.None, ownerTeam == (int)TFTeam.Unassigned
             ? "Announcer.ControlPointContested_Neutral"
             : "Announcer.ControlPointContested");
+
+    /// <summary>
+    /// The point's warn sound at the FINALCAP countdown: the name the engine's
+    /// sound table answers at the wire's index. An empty name, or an index it
+    /// answers nothing for, plays nothing.
+    /// </summary>
+    public void FinalCapWarn(short warnSoundIndex)
+    {
+        string? warn = warnSoundIndex >= 0 ? warnScripts.SoundName(warnSoundIndex) : null;
+        sounds.EmitFrom(EntityHandle.None, warn ?? string.Empty);
+    }
 }

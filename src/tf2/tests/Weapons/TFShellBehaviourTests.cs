@@ -144,6 +144,81 @@ public sealed class TFShellBehaviourTests
     }
 
     [Fact]
+    public void A_grenade_launch_asks_the_scripts_muzzle_flash_once()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_grenadelauncher", clip: 4, reserve: 16);
+
+        world.Run(w, vm, Attack, 10f, NoCrit);
+
+        // The FireProjectile tail's DoFireEffects (tf_weaponbase_gun.cpp:357),
+        // the script's effect at the hands' muzzle.
+        var flash = Assert.Single(world.Arms.Flashes);
+        Assert.Equal(("tf_weapon_grenadelauncher", "muzzle_grenadelauncher"), flash);
+    }
+
+    [Fact]
+    public void A_stickys_release_asks_the_muzzle_flash_once()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_pipebomblauncher", clip: 8, reserve: 24);
+
+        int k = 0;
+        for (; 10f + k * Tick < 11f; k++)
+            world.Run(w, vm, Attack, 10f + k * Tick, NoCrit);
+        world.Run(w, vm, 0, 10f + k * Tick, NoCrit);
+
+        // The release fires through the same CTFPipebombLauncher::FireProjectile
+        // (tf_weapon_pipebomblauncher.cpp:374) whose base tail asks the flash.
+        Assert.Equal(("tf_weapon_pipebomblauncher", "muzzle_pipelauncher"),
+                     Assert.Single(world.Arms.Flashes));
+    }
+
+    [Fact]
+    public void A_rocket_launch_asks_no_flash_its_script_names_none()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_rocketlauncher", clip: 4, reserve: 20);
+
+        world.Run(w, vm, Attack, 10f, NoCrit);
+
+        // The ask runs (the same tail); the shipped script —
+        // tf2_misc_dir.vpk's scripts/tf_weapon_rocketlauncher.ctx — names no
+        // MuzzleFlashParticleEffect, so the gated ask is empty, as stock's is.
+        Assert.Empty(world.Arms.Flashes);
+        Assert.Single(world.Effects.Projectiles);
+    }
+
+    [Fact]
+    public void A_replayed_launch_asks_no_flash()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_grenadelauncher", clip: 4, reserve: 16);
+
+        world.Run(w, vm, Attack, 10f, NoCrit, live: false);
+
+        Assert.Empty(world.Arms.Flashes);
+    }
+
+    [Fact]
+    public void The_miniguns_fires_ask_no_muzzle_flash()
+    {
+        var world = new TFWeaponWorld();
+        world.Owners.Classes[TFWeaponWorld.Owner] = TFClass.HeavyWeapons;
+        world.Owners.Of(TFWeaponWorld.Owner);
+        var (w, vm) = world.Armed("tf_weapon_minigun", clip: -1, reserve: 200);
+
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+        for (int k = 0; 10f + k * Tick < 11.2f; k++)
+            world.Run(w, vm, Attack, 10f + k * Tick, seed);
+
+        // Stock's veto (ShouldDoMuzzleFlash false, tf_weapon_minigun.h:78):
+        // the spin-up fires past the tail and asks nothing.
+        Assert.NotEmpty(world.Arms.Bullets);
+        Assert.Empty(world.Arms.Flashes);
+    }
+
+    [Fact]
     public void The_flamethrower_burns_fourteen_rounds_a_second_through_a_remainder()
     {
         var world = new TFWeaponWorld();

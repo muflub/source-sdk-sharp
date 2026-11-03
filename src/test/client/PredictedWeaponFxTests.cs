@@ -59,9 +59,10 @@ public class PredictedWeaponFxTests
         _world.Returns("WorldQuery.PointContents", Contents.Empty);
     }
 
-    // The same fake answers the render and the entities the muzzle flash and
-    // the brass ask for; the facts that do not dispatch them never set them.
-    private PredictedWeaponFx Fx() => new(_sounds, _dispatch, _world, _world, _world,
+    // The same fake answers the render, the entities and the particle seam the
+    // muzzle flash and the brass ask for; the facts that do not start anything
+    // never set them.
+    private PredictedWeaponFx Fx() => new(_sounds, _dispatch, _world, _world, _world, _world,
                                           AmmoCatalog.Stock(), _predict);
 
     private static PredictedShot Shot(int seed = 1234) => new(Player, LocalPlayer, Eye, Vector.Zero, seed);
@@ -232,31 +233,44 @@ public class PredictedWeaponFxTests
     private static readonly EntityHandle ViewModel = new(0x0100_0042u);
 
     [Fact]
-    public void The_muzzle_flash_dispatches_the_script_particle_attached_to_the_hands()
+    public void The_muzzle_flash_starts_the_script_particle_at_the_bearers_muzzle()
     {
-        // CreateMuzzleFlashEffects' particle branch: the named effect at the
-        // entity and its "muzzle" attachment, placement left to the registry.
-        _world.Returns("Entities.GetIndex", 66).Returns("EntityRender.LookupAttachment", 3);
+        // CreateMuzzleFlashEffects' particle branch, DispatchMuzzleFlash's
+        // PATTACH_POINT_FOLLOW: the named system on the bearer, its first
+        // control point chained to the bearer's "muzzle" attachment.
+        _world.Returns("EntityRender.LookupAttachment", 3).Returns("Effects.ParticleSystemStart", true)
+              .Returns("Effects.ParticleSystemFollowEntity", true);
 
-        Fx().MuzzleFlash(ViewModel, "muzzle_flash_scattergun");
+        Fx().MuzzleFlash(ViewModel, "muzzle_scattergun");
 
-        var (name, data) = Assert.Single(_dispatch.Ran);
-        Assert.Equal(("muzzle_flash_scattergun", 66, 3), (name, data.EntIndex, data.AttachmentIndex));
-        var lookup = _world.Calls.Single(c => c.Member == "EntityRender.LookupAttachment");
-        Assert.Equal(ViewModel, lookup.ArgAs<EntityHandle>(0));
-        Assert.Equal("muzzle", lookup.ArgAs<string>(1));
+        var start = _world.Calls.Single(c => c.Member == "Effects.ParticleSystemStart");
+        Assert.Equal((ViewModel, "muzzle_scattergun"), (start.ArgAs<EntityHandle>(0), start.ArgAs<string>(1)));
+        var follow = _world.Calls.Single(c => c.Member == "Effects.ParticleSystemFollowEntity");
+        Assert.Equal((ViewModel, 0, ViewModel, 3),
+                     (follow.ArgAs<EntityHandle>(0), follow.ArgAs<int>(1),
+                      follow.ArgAs<EntityHandle>(2), follow.ArgAs<int>(3)));
     }
 
     [Fact]
-    public void A_script_with_no_flash_particle_or_hands_with_no_muzzle_dispatches_nothing()
+    public void A_flash_the_particle_seam_refuses_follows_nothing()
     {
-        _world.Returns("Entities.GetIndex", 66);
+        _world.Returns("EntityRender.LookupAttachment", 3).Returns("Effects.ParticleSystemStart", false);
+
+        Fx().MuzzleFlash(ViewModel, "muzzle_scattergun");
+
+        Assert.DoesNotContain(_world.Calls, c => c.Member == "Effects.ParticleSystemFollowEntity");
+    }
+
+    [Fact]
+    public void A_script_with_no_flash_particle_or_a_bearer_with_no_muzzle_starts_nothing()
+    {
+        _world.Returns("EntityRender.LookupAttachment", 3).Returns("Effects.ParticleSystemStart", false);
         Fx().MuzzleFlash(ViewModel, "");
 
         _world.Returns("EntityRender.LookupAttachment", 0);
-        Fx().MuzzleFlash(ViewModel, "muzzle_flash_scattergun");
+        Fx().MuzzleFlash(ViewModel, "muzzle_scattergun");
 
-        Assert.Empty(_dispatch.Ran);
+        Assert.DoesNotContain(_world.Calls, c => c.Member == "Effects.ParticleSystemStart");
         // The empty name asks nothing of the model at all.
         Assert.Equal(1, _world.Calls.Count(c => c.Member == "EntityRender.LookupAttachment"));
     }

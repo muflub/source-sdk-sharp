@@ -162,6 +162,24 @@ public interface IMovementRules
     /// Unchanged by default.
     /// </summary>
     float EyeHeight(int playerIndex, float standing) => standing;
+
+    /// <summary>
+    /// The ground-categorizing overrides, asked once per
+    /// <c>CategorizePosition</c>: null — the default and stock Half-Life —
+    /// runs the base body untouched. See <c>CategorizePositionRules</c> for
+    /// the one-field-per-divergence shape and stock TF's
+    /// <c>CTFGameMovement::CategorizePosition</c>
+    /// (tf_gamemovement.cpp:2334-2459) for the values.
+    /// </summary>
+    CategorizePositionRules? CategorizePosition(int playerIndex) => null;
+
+    /// <summary>
+    /// The footing answer, asked once a ground trace exists with the command's
+    /// velocity and that trace's plane normal: lost footing's takeoff, the two
+    /// friction scales, and the condition's own clear. Null — the default and
+    /// stock Half-Life — no condition arm, the friction untouched.
+    /// </summary>
+    FootingAnswer? Footing(int playerIndex, in Vector velocity, in Vector planeNormal) => null;
 }
 
 /// <summary>
@@ -255,6 +273,8 @@ public sealed class MovementRulesResolver
                 (i, ms) => _rules.BackpedalLimit(i, ms),
                 (i, t, b, f, s, u) => _rules.MovementStun(i, t, b, f, s, u),
                 (i, t, f) => _rules.MovementTaunt(i, t, f),
+                i => _rules.CategorizePosition(i),
+                (i, v, n) => _rules.Footing(i, v, n),
                 () => _rules.NoHl2Arms);
     }
 

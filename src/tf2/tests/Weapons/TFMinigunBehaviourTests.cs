@@ -364,6 +364,124 @@ public sealed class TFMinigunBehaviourTests
         Assert.Equal(spun + 1, world.Effects.RearmedCount);
     }
 
+    /// <summary>
+    /// Stock's <c>AC_STATE_STARTFIRING</c> GAME_DLL arm
+    /// (<c>tf_weapon_minigun.cpp:293-301</c>): the hand-over to the fire loop
+    /// asks <c>SpeakWeaponFire(MP_CONCEPT_FIREMINIGUN)</c>, once per wind-up.
+    /// </summary>
+    [Fact]
+    public void The_hand_over_to_the_fire_loop_speaks_the_fire_concept_once()
+    {
+        var (world, w, vm) = Heavy();
+
+        Hold(world, w, vm, Attack, 10f, 10.9f);
+
+        Assert.Equal(["TLK_FIREMINIGUN"], world.Effects.Speeches);
+        Assert.Equal(0, world.Effects.SceneClears);
+    }
+
+    /// <summary>
+    /// The same arm's spin half: an Attack2-only hand-over asks
+    /// <c>SpeakWeaponFire(MP_CONCEPT_WINDMINIGUN)</c> instead.
+    /// </summary>
+    [Fact]
+    public void The_hand_over_to_the_spin_loops_the_wind_concept()
+    {
+        var (world, w, vm) = Heavy();
+
+        Hold(world, w, vm, Attack2, 10f, 10.76f);
+
+        Assert.Equal(["TLK_WINDMINIGUN"], world.Effects.Speeches);
+        Assert.Equal(0, world.Effects.SceneClears);
+    }
+
+    /// <summary>
+    /// The spinning arm's primary half (:425-431): a held primary takes the
+    /// spun gun back to firing, clearing the last scene and speaking the
+    /// fire concept again.
+    /// </summary>
+    [Fact]
+    public void Back_from_the_spin_the_fire_concept_is_asked_after_a_cleared_scene()
+    {
+        var (world, w, vm) = Heavy();
+        Hold(world, w, vm, Attack2, 10f, 10.76f);
+
+        world.Run(w, vm, Attack, now: 11f);
+
+        Assert.Equal(["TLK_WINDMINIGUN", "TLK_FIREMINIGUN"], world.Effects.Speeches);
+        Assert.Equal(1, world.Effects.SceneClears);
+    }
+
+    /// <summary>
+    /// The firing arm's spin-only half (:324-331): pressing the spin on a
+    /// firing gun clears the scene and asks the wind concept; the firing
+    /// shots' own ask rides beside it, one per shot.
+    /// </summary>
+    [Fact]
+    public void Pressing_the_spin_on_a_firing_gun_winds_and_clears()
+    {
+        var (world, w, vm) = Heavy();
+        Hold(world, w, vm, Attack, 10f, 10.9f);          // fired at least once
+        Assert.NotEmpty(world.Arms.Bullets);
+
+        world.Run(w, vm, Attack2, now: w.NextSecondaryAttack + 0.01f);
+
+        Assert.Equal(["TLK_FIREMINIGUN", "TLK_WINDMINIGUN"], world.Effects.Speeches);
+        Assert.Equal(1, world.Effects.SceneClears);
+        Assert.Equal(world.Arms.Bullets.Count, world.Effects.Firings.Count);
+        Assert.All(world.Effects.Firings, f => Assert.Equal("TLK_MINIGUN_FIREWEAPON", f));
+    }
+
+    /// <summary>
+    /// The firing speech arm (:336): every shot past the fire delay asks it;
+    /// the five-second gate itself is the server implementation's.
+    /// </summary>
+    [Fact]
+    public void Every_fired_shot_asks_the_firing_concept()
+    {
+        var (world, w, vm) = Heavy();
+
+        Hold(world, w, vm, Attack, 10f, 11.1f);
+
+        Assert.NotEmpty(world.Arms.Bullets);
+        Assert.Equal(world.Arms.Bullets.Count, world.Effects.Firings.Count);
+        Assert.All(world.Effects.Firings, f => Assert.Equal("TLK_MINIGUN_FIREWEAPON", f));
+    }
+
+    /// <summary>
+    /// The loop sound's crit arm (<c>WeaponSoundUpdate</c>) reads the last
+    /// shot's crit: the burst flag rides the predicted state with it.
+    /// </summary>
+    [Fact]
+    public void A_boosted_shot_latches_the_burst_flag_on_the_state()
+    {
+        var (world, w, vm) = Heavy();
+        world.Owners.Of(TFWeaponWorld.Owner).Add(TFCond.Critboosted);
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        world.Run(w, vm, Attack, now: 10f);                     // wind up
+        world.Run(w, vm, Attack, now: 10.8f, seed);             // hand over to the fire loop
+        world.Run(w, vm, Attack, now: 10.95f, seed);            // the boosted first shot
+
+        Assert.NotEmpty(world.Arms.Bullets);
+        Assert.True(TFMinigunBehaviour.CritLatched(w));
+    }
+
+    /// <summary>A plain shot clears the flag again, so the next burst picks the plain loop.</summary>
+    [Fact]
+    public void A_plain_shot_leaves_the_flag_for_the_plain_loop()
+    {
+        var (world, w, vm) = Heavy();
+        int seed = TFWeaponWorld.GunSeed(200, 10000);
+
+        world.Run(w, vm, Attack, now: 10f);
+        world.Run(w, vm, Attack, now: 10.8f, seed);
+        world.Run(w, vm, Attack, now: 10.95f, seed);
+
+        Assert.NotEmpty(world.Arms.Bullets);
+        Assert.False(TFMinigunBehaviour.CritLatched(w));
+    }
+
     /// <summary>Winds up at 10 and spins from <paramref name="spinAt"/> on, draining <paramref name="perSecond"/> a second while spun.</summary>
     private static (TFWeaponWorld World, WeaponNetState W, ViewModelNetState Vm) Draining(float perSecond, float spinAt)
     {

@@ -88,6 +88,27 @@ public interface ITFWeaponEffects
     /// second ahead, beside the drain clock it keeps.
     /// </summary>
     void Rearmed(in WeaponAttackContext attack);
+
+    /// <summary>
+    /// <c>CTFPlayer::SpeakWeaponFire</c>
+    /// (<c>tf_player.cpp:20158-20183</c>): the owner speaks this concept —
+    /// an empty one is the plain fire concept behind its own clock; a named
+    /// one always speaks (the minigun's wind and fire concepts,
+    /// <c>tf_weapon_minigun.cpp:293-301</c>).
+    /// </summary>
+    void SpeakWeaponFire(in WeaponAttackContext attack, string concept);
+
+    /// <summary>
+    /// <c>CTFPlayer::ClearWeaponFireScene</c> (:20185-20188): the gate opens,
+    /// so the next plain fire ask speaks again at once.
+    /// </summary>
+    void ClearWeaponFireScene(in WeaponAttackContext attack);
+
+    /// <summary>
+    /// The minigun's firing concept (<c>tf_weapon_minigun.cpp:336-340</c>):
+    /// <c>MP_CONCEPT_MINIGUN_FIREWEAPON</c>, once past its five-second gate.
+    /// </summary>
+    void FiringSpeech(in WeaponAttackContext attack);
 }
 
 /// <summary>
@@ -114,4 +135,7 @@ public sealed class NoTFWeaponEffects : ITFWeaponEffects
     public void AttackEnemyProjectiles(in WeaponAttackContext attack, int projectiles, bool critical) { }
     public void RingOfFire(in WeaponAttackContext attack, int damage) { }
     public void Rearmed(in WeaponAttackContext attack) { }
+    public void SpeakWeaponFire(in WeaponAttackContext attack, string concept) { }
+    public void ClearWeaponFireScene(in WeaponAttackContext attack) { }
+    public void FiringSpeech(in WeaponAttackContext attack) { }
 }

@@ -3,10 +3,15 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using SourceSharp.Tests;
 
+using TF2.Server;
 using TF2.Server.Econ;
 using TF2.Server.Medigun;
+using TF2.Server.Projectiles;
 using TF2.Server.Weapons;
 using TF2.Shared;
+using TF2.Tests.Medigun;
+using TF2.Tests.Projectiles;
+using TF2.Tests.Spy;
 
 using Xunit;
 
@@ -190,5 +195,289 @@ public sealed class TFLagCompensationTargetsTests
         convars.Get<MpFriendlyFireConVar>()!.NotifyChanged("1", "0");
 
         Assert.Equal(Decision.Yes, rule.WantsLagCompensationOnEntity(Asked(Mate, yaw: 90f)));
+    }
+}
+
+/// <summary>
+/// The knife's backstab check (<c>TFSpyComponent.Swing</c>; tf_weapon_knife.cpp:192
+/// Start, :225 Finish): the swing's trace sees the other players where the spy saw
+/// them. The victim (entity 4) ran along +x and is at x=200 now; the spy's command
+/// was sent at tick 105, when the victim stood at x=150. The trace names the victim
+/// only while the session holds the rewind.
+/// </summary>
+public sealed class TFKnifeBackstabLagTests
+{
+    private static Vector At(int tick) => new(100f + 10f * (tick - 100), 0f, 0f);
+
+    private sealed class Rig
+    {
+        public LagWorld World { get; } = new();
+        public PlayerCurrentCommands Commands { get; } = new();
+        public LagCompensation Lag { get; }
+        public LagPlayer Swinger { get; }
+        public LagPlayer Victim { get; }
+        public SpyRig Spy { get; }
+        public List<bool> Inside { get; } = [];
+        public List<Vector> SeenAt { get; } = [];
+
+        public Rig(bool withSession = true)
+        {
+            Swinger = World.Add(3);
+            Victim = World.Add(4);
+            Assert.Equal((SpyRig.Spy, SpyRig.Victim), (Swinger.Handle, Victim.Handle));
+            Lag = new LagCompensation(World, new LagSettings(), Commands, new RecordingLog());
+            Spy = new SpyRig(lag: withSession ? Lag : null);
+            Swinger.Latency = 5 * LagWorld.Tick;
+
+            Spy.Engine.ReturnsEachCall("WorldQuery.TraceLine", () =>
+            {
+                Inside.Add(Lag.IsCurrentlyDoingLagCompensation);
+                SeenAt.Add(Victim.Origin);
+                return Victim.Origin.Equals(At(105))
+                    ? new TraceResult(true, 1f, new Vector(60f, 2f, 63f), default, SpyRig.Victim)
+                    : new TraceResult(false, 1f, default, default, EntityHandle.None);
+            });
+
+            for (int tick = 100; tick <= 110; tick++)
+            {
+                World.At(tick);
+                Victim.Origin = At(tick);
+                Lag.RecordFrame();
+            }
+        }
+
+        public bool Swing()
+        {
+            var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = (int)InputButtons.Attack };
+            using (Commands.Begin(SpyRig.Spy, in cmd))
+                return Spy.Spies.Swing(SpyRig.Spy.EntryIndex, 48f);
+        }
+    }
+
+    [Fact]
+    public void The_backstab_trace_names_the_victim_where_the_spy_saw_him()
+    {
+        var rig = new Rig();
+
+        Assert.True(rig.Swing());
+
+        Assert.True(Assert.Single(rig.Inside));                    // the trace ran inside the session
+        Assert.Equal(At(105), Assert.Single(rig.SeenAt));          // judged at the rewound spot
+        SpyHit hit = Assert.Single(rig.Spy.Damage.Hits);           // health 100 doubled
+        Assert.Equal((SpyRig.Victim, 200f), (hit.Victim, hit.Damage));
+        Assert.Equal(At(110), rig.Victim.Origin);                  // put back after
+        Assert.False(rig.Lag.IsCurrentlyDoingLagCompensation);
+    }
+
+    [Fact]
+    public void Without_the_compensation_the_same_swing_misses_the_running_victim()
+    {
+        var rig = new Rig(withSession: false);
+
+        Assert.False(rig.Swing());
+
+        Assert.False(Assert.Single(rig.Inside));
+        Assert.Equal(At(110), Assert.Single(rig.SeenAt));          // the trace saw the current spot
+        Assert.Empty(rig.Spy.Damage.Hits);
+    }
+}
+
+/// <summary>
+/// The flamethrower's per-tick flame (<c>TFFlameEffects::Flames</c>;
+/// tf_weapon_flamethrower.cpp:808 Start, :934 Finish): the cone work runs with the
+/// other players rewound. The pyro (entity 3) fired the command at tick 105; the
+/// victim (entity 5) ran along +x and is at x=200 now, at x=150 when the pyro saw
+/// him. The tick's reads fall inside the session.
+/// </summary>
+public sealed class TFFlameTickLagTests
+{
+    private static Vector At(int tick) => new(100f + 10f * (tick - 100), 0f, 0f);
+
+    private sealed class Rig
+    {
+        public ManagerRig Flame { get; } = new();
+        public LagWorld World { get; } = new();
+        public PlayerCurrentCommands Commands { get; } = new();
+        public LagCompensation Lag { get; }
+        public LagPlayer Swinger { get; }
+        public LagPlayer Victim { get; }
+        public TFFlameEffects Effects { get; }
+        public List<bool> Inside { get; } = [];
+        public List<Vector> SeenAt { get; } = [];
+
+        public Rig(bool withSession = true)
+        {
+            Swinger = World.Add(ManagerRig.Attacker.EntryIndex);
+            Victim = World.Add(ManagerRig.Victim.EntryIndex);
+            Assert.Equal((ManagerRig.Attacker, ManagerRig.Victim), (Swinger.Handle, Victim.Handle));
+            World.MaxClients = ManagerRig.Victim.EntryIndex;     // the rig's victim sits at slot 5
+            Lag = new LagCompensation(World, new LagSettings(), Commands, new RecordingLog());
+            Effects = new TFFlameEffects(Flame.Engine, Flame.Engine, Flame.Directory, Flame.Engine, Flame.Engine,
+                                         Flame.Conditions, Flame.Owners, Flame.Log,
+                                         Flame.Convars.Get<TFAirBlastCrayConVar>()!,
+                                         Flame.Convars.Get<TFFlameThrowerBurstZvelocityConVar>()!,
+                                         Flame.Convars.Get<TFPushbackScaleConVar>()!,
+                                         Flame.Convars.Get<TFPushbackScaleVerticalConVar>()!, Flame.Carriers,
+                                         withSession ? Lag : null);
+            Swinger.Latency = 5 * LagWorld.Tick;
+            Flame.Directory.Instance = Flame.Manager;
+
+            Flame.Engine.ReturnsEachCall("Entities.GetEyeAngles", () =>
+            {
+                Inside.Add(Lag.IsCurrentlyDoingLagCompensation);
+                SeenAt.Add(Victim.Origin);
+                return new Vector(0f, 0f, 0f);
+            });
+
+            for (int tick = 100; tick <= 110; tick++)
+            {
+                World.At(tick);
+                Victim.Origin = At(tick);
+                Lag.RecordFrame();
+            }
+        }
+
+        public void Tick()
+        {
+            var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = (int)InputButtons.Attack };
+            var attack = new WeaponAttackContext(default!, null!, null!, 1f, true, null!,
+                                                 new WeaponCommand(1, 5, ManagerRig.Attacker.EntryIndex));
+            using (Commands.Begin(ManagerRig.Attacker, in cmd))
+                Effects.Flames(in attack, WeaponFixtures.Parse("tf_weapon_flamethrower"), new ShotDamage(13f));
+        }
+    }
+
+    [Fact]
+    public void The_flame_tick_runs_inside_the_session_with_the_players_rewound()
+    {
+        var rig = new Rig();
+
+        rig.Tick();
+
+        Assert.True(Assert.Single(rig.Inside));                    // the tick's reads fall inside
+        Assert.Equal(At(105), Assert.Single(rig.SeenAt));          // the victim as the pyro saw him
+        Assert.Single(rig.Flame.Manager.Points);                   // the flame point itself went in
+        Assert.Equal(At(110), rig.Victim.Origin);                  // put back after
+        Assert.False(rig.Lag.IsCurrentlyDoingLagCompensation);
+    }
+
+    [Fact]
+    public void Without_the_compensation_the_same_tick_sees_the_current_spot()
+    {
+        var rig = new Rig(withSession: false);
+
+        rig.Tick();
+
+        Assert.False(Assert.Single(rig.Inside));
+        Assert.Equal(At(110), Assert.Single(rig.SeenAt));
+        Assert.Single(rig.Flame.Manager.Points);                   // the tick itself does not need the session
+    }
+}
+
+/// <summary>
+/// The medigun's target search (<c>TFMedigunWeapon.PrimaryAttack</c>;
+/// tf_weapon_medigun.cpp:1774-1775 Start, :1799-1801 Finish, both gated on
+/// <c>tf_medigun_lagcomp</c>, declared :86): with the flag on the aim traces see
+/// the other players where the medic saw them. The patient (entity 3) ran along +x
+/// and is at x=200 now; the medic's (entity 1) command was sent at tick 105, when
+/// the patient stood at x=150. The beam takes him only from inside the session.
+/// </summary>
+public sealed class TFMedigunBeamLagTests
+{
+    private static readonly TFWeaponScript MedigunScript = WeaponFixtures.Parse("tf_weapon_medigun");
+
+    private static Vector At(int tick) => new(100f + 10f * (tick - 100), 0f, 0f);
+
+    private sealed class Rig
+    {
+        public MedigunRig Med { get; } = new();
+        public LagWorld World { get; } = new();
+        public PlayerCurrentCommands Commands { get; } = new();
+        public LagCompensation Lag { get; }
+        public LagPlayer Swinger { get; }
+        public LagPlayer Victim { get; }
+        public TFMedigunWeapon Weapon { get; }
+        public List<bool> Inside { get; } = [];
+        public List<Vector> SeenAt { get; } = [];
+
+        public Rig(bool withSession = true)
+        {
+            Swinger = World.Add(1);
+            Victim = World.Add(3);
+            Assert.Equal((MedigunRig.HandleFor(1), MedigunRig.HandleFor(3)), (Swinger.Handle, Victim.Handle));
+            Lag = new LagCompensation(World, new LagSettings(), Commands, new RecordingLog());
+            Med.Give(1, 100, 100);
+            Med.Give(3, 100, 125);
+            Weapon = Med.NewWeapon(withSession ? Lag : null);
+            Swinger.Latency = 5 * LagWorld.Tick;
+
+            Med.Engine.ReturnsEachCall("WorldQuery.TraceLine", () =>
+            {
+                Inside.Add(Lag.IsCurrentlyDoingLagCompensation);
+                SeenAt.Add(Victim.Origin);
+                return Victim.Origin.Equals(At(105))
+                    ? new TraceResult(true, 1f, default, default, MedigunRig.HandleFor(3))
+                    : new TraceResult(false, 1f, default, default, EntityHandle.None);
+            });
+
+            for (int tick = 100; tick <= 110; tick++)
+            {
+                World.At(tick);
+                Victim.Origin = At(tick);
+                Lag.RecordFrame();
+            }
+        }
+
+        public void Heal()
+        {
+            var weapon = new WeaponNetState();
+            weapon.BindLocal();
+            var view = new ViewModelNetState();
+            view.BindLocal();
+            var attack = new WeaponAttackContext(default, weapon, view, 10f, true, default!,
+                                                 new WeaponCommand(0, 9, 1));
+            var cmd = new UserCmd { TickCount = 105, CommandNumber = 7, Buttons = (int)InputButtons.Attack };
+            using (Commands.Begin(MedigunRig.HandleFor(1), in cmd))
+                Weapon.Heal(in attack, MedigunScript, held: true);
+        }
+    }
+
+    [Fact]
+    public void The_beam_takes_the_patient_where_the_medic_saw_him()
+    {
+        var rig = new Rig();
+
+        rig.Heal();
+
+        Assert.Equal(3, rig.Weapon.HealingTargetIndex(1));         // the rewound patient was in reach
+        Assert.True(rig.Inside[0]);                                // both aim traces ran inside the session
+        Assert.Equal(At(105), rig.SeenAt[0]);                      // judged at the rewound spot
+        Assert.Equal(At(110), rig.Victim.Origin);                  // put back after
+        Assert.False(rig.Lag.IsCurrentlyDoingLagCompensation);
+    }
+
+    [Fact]
+    public void Without_the_compensation_the_same_beam_misses_the_running_patient()
+    {
+        var rig = new Rig(withSession: false);
+
+        rig.Heal();
+
+        Assert.Equal(-1, rig.Weapon.HealingTargetIndex(1));
+        Assert.False(rig.Inside[0]);
+        Assert.Equal(At(110), rig.SeenAt[0]);                      // the traces saw the current spot
+    }
+
+    [Fact]
+    public void With_tf_medigun_lagcomp_off_the_beam_refuses_even_a_session_ready_medic()
+    {
+        var rig = new Rig();                                         // the lag service is wired
+        rig.Med.Set<TFMedigunLagCompConVar>("0");                    // stock's gate: off
+
+        rig.Heal();
+
+        Assert.Equal(-1, rig.Weapon.HealingTargetIndex(1));          // no session: the current spot, a miss
+        Assert.False(rig.Inside[0]);
+        Assert.Equal(At(110), rig.SeenAt[0]);
     }
 }

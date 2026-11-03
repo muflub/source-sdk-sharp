@@ -47,6 +47,18 @@ public sealed class TFConceptSpeech(
     /// <summary>MP_CONCEPT_CAPTURE_BLOCKED (mp_shareddefs.cpp:63).</summary>
     public const string CaptureBlocked = "TLK_CAPTURE_BLOCKED";
 
+    /// <summary>MP_CONCEPT_FIREWEAPON, the plain fire concept behind <see cref="SpeakWeaponFire"/>'s own clock.</summary>
+    public const string FireWeapon = "TLK_FIREWEAPON";
+
+    /// <summary>MP_CONCEPT_MINIGUN_WIND, the wind-up line a spun gun speaks.</summary>
+    public const string WindMinigun = "TLK_WINDMINIGUN";
+
+    /// <summary>MP_CONCEPT_MINIGUN_FIRE, the line for handing a spun gun to its fire loop.</summary>
+    public const string FireMinigun = "TLK_FIREMINIGUN";
+
+    /// <summary>MP_CONCEPT_MINIGUN_FIREWEAPON, the firing concept behind its five-second gate.</summary>
+    public const string MinigunFireWeapon = "TLK_MINIGUN_FIREWEAPON";
+
     /// <summary>The player speaks the concept; false when dead, uncarried or unmatched.</summary>
     public bool Speak(EntityHandle speaker, string concept)
     {

@@ -4,6 +4,7 @@ using SourceSharp.Tests;
 using TF2.Server.Entities;
 using TF2.Shared;
 using TF2.Shared.Resources;
+using TF2.Tests.Client;
 
 using Xunit;
 
@@ -28,7 +29,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void A_new_table_holds_stocks_spawn_defaults()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         var state = LocalState();
         table.Attach(state);
 
@@ -47,7 +48,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void Attaching_publishes_what_was_written_before_the_entity_existed()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         table.SetNumControlPoints(3);
         table.SetOwningTeam(2, Red);
         table.SetCPPosition(1, new Vector(10f, 20f, 30f));
@@ -65,7 +66,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void A_write_after_attaching_reaches_the_net_state()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         var state = LocalState();
         table.Attach(state);
         table.SetNumControlPoints(2);
@@ -80,7 +81,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void Setting_the_owner_clears_the_capping_team()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         table.SetNumControlPoints(1);
         table.SetCappingTeam(0, Blue);
         Assert.Equal(Blue, table.GetCappingTeam(0));
@@ -93,7 +94,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void An_owner_past_the_point_count_reads_unassigned()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         table.SetNumControlPoints(1);
         table.SetOwningTeam(4, Red);
 
@@ -106,7 +107,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void The_hud_parity_bumps_on_a_visible_change_and_wraps_at_its_bits()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         table.SetNumControlPoints(1);
 
         table.SetCapBlocked(0, true);
@@ -125,7 +126,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void The_lazy_percentage_follows_only_a_point_being_captured()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         table.SetNumControlPoints(2);
         table.SetCPCapPercentage(0, 0.25f);
         table.SetCPCapPercentage(1, 0.75f);
@@ -140,7 +141,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void Hill_data_appends_per_team_and_reset_clears_it()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         var state = LocalState();
         table.Attach(state);
 
@@ -162,7 +163,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void The_cap_layout_keeps_stocks_buffer_length()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         var state = LocalState();
         table.Attach(state);
 
@@ -174,7 +175,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void A_point_or_team_outside_the_table_throws()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
 
         Assert.Throws<ArgumentOutOfRangeException>(() => table.SetOwningTeam(ObjectiveLimits.MaxControlPoints, Red));
         Assert.Throws<ArgumentOutOfRangeException>(() => table.SetCPCapTime(0, ObjectiveLimits.Teams, 1f));
@@ -183,7 +184,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void The_mode_parts_reach_the_net_state()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         var state = LocalState();
         table.Attach(state);
 
@@ -217,7 +218,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void The_watchers_cart_values_return_to_their_defaults_on_clear()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         var state = LocalState();
         table.Attach(state);
         IModeObjectives mode = table;
@@ -239,7 +240,7 @@ public sealed class ObjectiveResourceTests
     [Fact]
     public void Clear_returns_a_written_table_to_the_defaults()
     {
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         var state = LocalState();
         table.Attach(state);
         table.SetNumControlPoints(2);
@@ -265,7 +266,7 @@ public sealed class ObjectiveResourceTests
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(ObjectiveResourceEntity).Assembly);
         var services = TestServices.Services(out RecordingEngine engine);
-        var table = new ObjectiveResource();
+        var table = new ObjectiveResource(new ServerWarnScripts());
         table.SetNumControlPoints(4);
         services.AddInstance<IObjectiveResource>(table);
         registry.Services = services;
@@ -279,5 +280,48 @@ public sealed class ObjectiveResourceTests
 
         table.SetOwningTeam(3, Blue);
         Assert.Equal((byte)Blue, entity.State.Owner[3]);
+    }
+
+    /// <summary>
+    /// m_iszWarnSound on the wire (stock holds the name on the entity):
+    /// SetWarnSound keeps the name for the server's reads and writes the
+    /// engine sound-script index into the attached state, so the client's
+    /// warn arm can read the name back through its half of the engine table.
+    /// </summary>
+    [Fact]
+    public void A_warn_sound_rides_the_wire_as_its_engine_sound_index()
+    {
+        var table = new ObjectiveResource(new ServerWarnScripts("_zero", "cp_warn_final"));
+        var state = LocalState();
+        table.Attach(state);
+
+        table.SetWarnSound(1, "cp_warn_final");
+
+        Assert.Equal(1, state.WarnSoundIndexes[1]);     // the table's second entry
+        Assert.Equal("cp_warn_final", table.GetWarnSound(1));
+    }
+
+    /// <summary>The index replays through Publish for a write made before the entity attached.</summary>
+    [Fact]
+    public void A_warn_sound_written_before_the_entity_attached_publishes_its_index()
+    {
+        var table = new ObjectiveResource(new ServerWarnScripts("_zero", "cp_warn_final"));
+        table.SetWarnSound(2, "cp_warn_final");
+
+        var state = LocalState();
+        table.Attach(state);
+
+        Assert.Equal(1, state.WarnSoundIndexes[2]);     // the table's second entry
+    }
+
+    /// <summary>A point with no warn sound publishes no index (-1): silence, not a lookup.</summary>
+    [Fact]
+    public void A_point_with_no_warn_sound_publishes_no_index()
+    {
+        var table = new ObjectiveResource(new ServerWarnScripts());
+        var state = LocalState();
+        table.Attach(state);
+
+        Assert.Equal(-1, state.WarnSoundIndexes[3]);
     }
 }
