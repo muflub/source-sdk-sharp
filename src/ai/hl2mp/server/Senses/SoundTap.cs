@@ -81,7 +81,7 @@ public sealed class SoundClassifier(WeaponCatalog weapons)
 /// players). Both are heard by the same rule.
 /// </para>
 [SideService(Side.Server, As = [typeof(ISoundEmitHook), typeof(IClientStepHook)])]
-public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier classifier, IBotHud hud, IEngineFrame frame, HeardLog heard, ILog log)
+public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier classifier, IBotHud hud, IEngineFrame frame, HeardLog heard, ILog log, IEnginePlayers players)
     : ISoundEmitHook, IClientStepHook
 {
     private readonly Dictionary<int, AiRandom> _random = new();
@@ -107,9 +107,15 @@ public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier
     /// <summary>A step the clients in the walker's PVS make themselves: heard as a client in the PVS hears it.</summary>
     public void OnClientStep(in EmittedSound step) => Deliver(in step, "client step");
 
+    /// <summary>Someone watching makes no noise a bot goes looking for (§4.1).</summary>
+    public static bool Hushed(IEnginePlayers players, int owner)
+        => owner is >= 1 and < VisionPass.Slots && Spectators.Is(players, players.GetHandle(owner));
+
     private void Deliver(in EmittedSound sound, string way)
     {
         if (bots.Bots.Count == 0 || sound.Recipients.IsEmpty)
+            return;
+        if (Hushed(players, sound.Owner))
             return;
 
         (SoundKind kind, int weapon) = classifier.Classify(sound.SoundName);

@@ -19,12 +19,13 @@ public sealed class SnapshotBuilderTests
 
     private static readonly VisionParams Eyes = new(6000f, 90f, 0.3f, 0.5f);
 
-    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false)
+    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false, float eye = 64f)
     {
         var w = new SenseWorld();
         SenseWorld.Player bot = w.Add(1, new AiVector(0, 0, 0));
         SenseWorld.Player seen = w.Add(2, new AiVector(500, 0, 0));
         seen.Weapon = "weapon_shotgun";
+        seen.EyeHeight = eye;
         SenseWorld.Player hidden = w.Add(3, new AiVector(500, 600, 0));
         w.Occluder(new AiVector(250, 100, -10), new AiVector(266, 2000, 300), SenseWorld.Solid);
         var pass = new VisionPass(w.Engine(), w.Entities(), w.Traces());
@@ -51,6 +52,19 @@ public sealed class SnapshotBuilderTests
         Assert.Equal(WeaponCatalog.Stock().IndexOf("weapon_shotgun"), f.WeaponSeen);
         Assert.Equal(ActorActivity.Reloading, f.Activity);
         Assert.Equal(1f, f.VisibleFraction);
+    }
+
+    /// <summary>A crouched body is one a client can see: its eye over its feet says so (§4.3).</summary>
+    [Fact]
+    public void AnOpponentCrouchedIsSeenCrouched()
+    {
+        (PerceivedView standing, ActorId seen, _) = Build();
+        Assert.True(standing.TryActor(seen, out ActorFacts up));
+        Assert.Equal(ActorActivity.None, up.Activity & ActorActivity.Crouched);
+
+        (PerceivedView ducked, ActorId same, _) = Build(eye: 28f);
+        Assert.True(ducked.TryActor(same, out ActorFacts down));
+        Assert.Equal(ActorActivity.Crouched, down.Activity & ActorActivity.Crouched);
     }
 
     [Fact]

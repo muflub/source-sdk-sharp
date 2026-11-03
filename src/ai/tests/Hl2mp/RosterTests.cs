@@ -75,7 +75,10 @@ public sealed class RosterTests
         public string? Refusal { get; set; }
         public LoadedNav? Current => null;
         public NavObstacleState? Obstacles => null;
+        public NavObstacleState? ObstaclesFor(EntityHandle player) => null;
         public NavSight? Sight => null;
+
+        public ChokeSlot? Chokes => null;
     }
 
     private sealed class Names : IBotNameSource
@@ -94,15 +97,16 @@ public sealed class RosterTests
     private sealed class Rig
     {
         public readonly Lines Log = new();
-        public readonly Players Players = new();
+        public readonly Players Players;
         public readonly BotRosterTests.Slots Slots = new() { MaxClients = 8, Humans = 1 };
         public readonly ScoreboardTags Tags = new();
         public readonly Navigation Nav = new();
         public readonly Hl2mpBots Bots;
         public readonly Hl2mpRoster Roster;
 
-        public Rig()
+        public Rig(Players? players = null)
         {
+            Players = players ?? new Players();
             Bots = new Hl2mpBots(Players, new Runner(), DispatchProxy.Create<IEnginePlayers, Defaults>(), DispatchProxy.Create<IEngineEntities, Defaults>(),
                                  WeaponCatalog.Stock(), DispatchProxy.Create<IEngineFrame, Defaults>(), Nav, DispatchProxy.Create<IBotInventory, Defaults>(),
                                  new Names(), Tags, Log);
@@ -132,7 +136,169 @@ public sealed class RosterTests
     private static (string Name, string Levels, int Seed, string Tag)[] Facts(Rig r)
         => [.. r.Roster.Bots.Select(b => (b.Name, string.Join(",", b.Skills.Levels), b.SeedIndex, BotSkillLabel.For(b.Skills)))];
 
+    // ---- a hot reload (user ruling 2026-11-02) ---------------------------------
+
+    /// <summary>The swap: the old build writes its record, and a new rig over the same engine clients takes it back.</summary>
+    private static Rig Reloaded(Rig before)
+    {
+        var record = new SourceSharp.Abi.ReloadRecord("roster");
+        before.Roster.Save(new SourceSharp.Abi.SaveRecordAccess(record, record.Owner, before.Log));
+        var after = new Rig(before.Players);
+        after.Slots.Humans = before.Slots.Humans;
+        Assert.Empty(after.Bots.Bots);
+        after.Roster.Resume(new SourceSharp.Abi.SaveRecordAccess(record, record.Owner, before.Log));
+        return after;
+    }
+
+    private static Rig TwoBots()
+    {
+        var r = new Rig();
+        Assert.Null(r.Add("Alyx", "hard"));
+        Assert.Null(r.Add("Barney", "normal"));
+        r.Frame(8);
+        return r;
+    }
+
+    [Fact]
+    public void BotsInSlotsArePlayedAfterAReloadWithNoneAddedOrKicked()
+    {
+        Rig before = TwoBots();
+        var slots = before.Players.Made.Select(b => (b.EntIndex, b.Player, b.Name)).ToArray();
+
+        Rig after = Reloaded(before);
+        after.Frame(16);
+
+        Assert.Equal(["Alyx", "Barney"], before.Players.Added);
+        Assert.Empty(before.Players.Kicked);
+        Assert.Equal((2, 0), (after.Bots.Adopted, after.Bots.Added));
+        Assert.Equal(slots, after.Bots.Bots.OrderBy(b => b.Id.Slot).Select(b => (b.Id.Slot, after.Bots.Applier.PlayerOf(b.Id), b.Name)));
+        Assert.Equal(["Alyx", "Barney"], after.ActiveNames);
+    }
+
+    [Fact]
+    public void AReloadKeepsEveryBotsNameSkillsSeedAndTag()
+    {
+        Rig before = TwoBots();
+        Assert.NotEqual(Facts(before)[0].Levels, Facts(before)[1].Levels);
+
+        Rig after = Reloaded(before);
+
+        Assert.Equal(Facts(before), Facts(after));
+        Assert.Equal(before.Bots.Bots.OrderBy(b => b.Id.Slot).Select(b => (b.Skills.Levels.Sum(), b.SeedIndex, b.Skills.Name)),
+                     after.Bots.Bots.OrderBy(b => b.Id.Slot).Select(b => (b.Skills.Levels.Sum(), b.SeedIndex, b.Skills.Name)));
+        foreach (BotPlayer live in before.Players.Made)
+            Assert.Equal(before.Tags.TagOf(live.Player), after.Tags.TagOf(live.Player));
+    }
+
+    [Fact]
+    public void AfterAReloadAKickClearsThem()
+    {
+        Rig after = Reloaded(TwoBots());
+
+        Assert.Equal(2, after.Roster.Remove("all"));
+        after.Frame(16);
+
+        Assert.Equal(["Alyx", "Barney"], after.Players.Kicked);
+        Assert.Empty(after.Roster.Bots);
+        Assert.Empty(after.Bots.Bots);
+    }
+
+    [Fact]
+    public void AfterAReloadAMapChangeBringsTheSameBotsBack()
+    {
+        Rig before = TwoBots();
+        var facts = Facts(before);
+        Rig after = Reloaded(before);
+
+        after.ChangeLevel("dm_other");
+
+        Assert.Equal(facts, Facts(after));
+        Assert.Equal(["Alyx", "Barney"], after.ActiveNames);
+        Assert.Equal(["Alyx", "Barney", "Alyx", "Barney"], after.Players.Added);
+    }
+
+    [Fact]
+    public void AfterAReloadABotGivesItsSlotToAPerson()
+    {
+        Rig after = Reloaded(TwoBots());
+        after.Slots.MaxClients = 3;
+        after.Roster.Reserve = 0;
+        after.Slots.Humans = 2;
+
+        after.Frame(16);
+
+        Assert.Equal(["Barney"], after.Players.Kicked);
+        Assert.Equal(["Alyx"], after.ActiveNames);
+        Assert.Equal("Barney", Assert.Single(after.Roster.Bots, b => !b.Active).Name);
+    }
+
+    [Fact]
+    public void ABotWithNoRecordPlaysAsTheDefaultAndSaysSo()
+    {
+        Rig before = TwoBots();
+        var after = new Rig(before.Players);
+
+        after.Roster.Resume(null);
+
+        Assert.Equal(["Alyx", "Barney"], after.ActiveNames);
+        Assert.All(after.Roster.Bots, b => Assert.Equal(Hl2mpRoster.ReloadDefault, b.Shape.Name));
+        Assert.Equal(2, after.Log.All.Count(l => l.Contains("has no record through the reload", StringComparison.Ordinal)));
+        Assert.Empty(before.Players.Kicked);
+    }
+
+    [Fact]
+    public void AWantedBotWhoseSlotHasGoneComesBackOnce()
+    {
+        Rig before = TwoBots();
+        before.Players.Made.RemoveAt(1);
+
+        Rig after = Reloaded(before);
+        Assert.Equal(["Alyx"], after.ActiveNames);
+        after.Frame(16);
+        after.Frame(24);
+
+        Assert.Equal(["Alyx", "Barney"], after.ActiveNames);
+        Assert.Equal(["Alyx", "Barney", "Barney"], after.Players.Added);
+    }
+
+    [Fact]
+    public void ABotALevelCannotPlayIsKickedNotStranded()
+    {
+        Rig before = TwoBots();
+        var record = new SourceSharp.Abi.ReloadRecord("roster");
+        before.Roster.Save(new SourceSharp.Abi.SaveRecordAccess(record, record.Owner, before.Log));
+        var after = new Rig(before.Players);
+        after.Nav.Refusal = "no nav for this map";
+
+        after.Roster.Resume(new SourceSharp.Abi.SaveRecordAccess(record, record.Owner, before.Log));
+
+        Assert.Equal(["Alyx", "Barney"], after.Players.Kicked);
+        Assert.Empty(after.Players.Made);
+        Assert.Equal(2, after.Roster.Benched);
+    }
+
     // ---- map change ---------------------------------------------------------
+
+    [Fact]
+    public void ANameAPersonHasGetsANumeral()
+    {
+        var r = new Rig();
+        r.Slots.People.Add("Alyx");
+        Assert.Null(r.Add("Alyx", "easy"));
+        Assert.Equal("Alyx 2", r.Roster.Bots.Single().Name);
+    }
+
+    /// <summary>A bot on the bench holds its first name as one in the game does.</summary>
+    [Fact]
+    public void ABenchedBotKeepsItsFirstNameFromOthers()
+    {
+        var r = new Rig();
+        r.Slots.MaxClients = 2;
+        for (int i = 0; i < 12; i++)
+            Assert.Null(r.Add(null, "normal"));
+        string[] firsts = [.. r.Roster.Bots.Select(b => b.Name.Split(' ')[0])];
+        Assert.Equal(firsts.Length, firsts.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
 
     [Fact]
     public void ALevelChangeBringsEveryBotBackWithItsNameSkillsAndSeed()
@@ -376,6 +542,13 @@ public sealed class RosterTests
     public void PeopleAreTheClientsWithAChannelConnectingOrSpawned()
     {
         Assert.Equal(2, EngineServerSlots.CountHumans(4, Clients([1, 3], 1), dedicated: false));
+    }
+
+    /// <summary>A spectator holds a slot as anyone does (§4.1): the count is of channels, and asks no team.</summary>
+    [Fact]
+    public void ASpectatorCountsAsAPersonForTheSlots()
+    {
+        Assert.Equal(1, EngineServerSlots.CountHumans(4, Clients([2], 1), dedicated: true));
     }
 
     /// <summary>A listen server's host takes a slot only after the level is up: counted first, or a bot takes it at the level's start and is benched a second later.</summary>

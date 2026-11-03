@@ -27,6 +27,15 @@
 #       the same definitions (§3.4.5): stuck, wall bump, decision flips,
 #       in-sight not firing by leaf, strafe interval, yaw reversals, idle; the
 #       worst places of each; a headline score with its weights
+#   tools/ai-replay style [--skills FILE]
+#       over 500 drawn bots by difficulty: who holds a place, named campers apart,
+#       and what each name's skill does, from the skills file (§10)
+#   tools/ai-replay chokes <map> [--config ..] [--scale ..]
+#       the map's choke points, busiest first with their places, and the graph with
+#       them ringed at bin/<config>/ai-replay/<map>-chokes.png (§5.5)
+#   tools/ai-replay tactics <map> <recording.airec>... [--config ..]
+#       per bot, its camps (how long, how far from a pickup and a choke, kills
+#       there) and its prefires (bursts a minute, rounds, hits, kills) (§5.4, §5.5)
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
@@ -50,7 +59,27 @@ if [[ "$verb" == "calibrate" && -n "${3:-}" ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" calibrate "$rates" "$probes" "$skills" "$min"
 fi
-[[ ( "$verb" =~ ^(nav|metrics|jank)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,31p' "$0"; exit 2; }
+if [[ "$verb" == style ]]; then
+  skills="$root/game/mod_test/scripts/ai/hl2mp_skills.json"
+  [[ "${2:-}" == "--skills" ]] && skills="$(realpath "$3")"
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" style "$skills"
+fi
+[[ ( "$verb" =~ ^(nav|metrics|jank|chokes)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify|tactics)$ && -n "${3:-}" ) ]] || { sed -n '2,40p' "$0"; exit 2; }
+if [[ "$verb" == tactics ]]; then
+  map="$2"; shift 2
+  config=debug; recs=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      *) [[ -f "$1" ]] || { echo "ai-replay: no recording $1" >&2; exit 1; }; recs+=("$(realpath "$1")"); shift ;;
+    esac
+  done
+  maps="$root/bin/$config/mods/test/maps"
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" tactics "$maps/$map.nav3d" "$maps/$map.bsp" "${recs[@]}"
+fi
 if [[ "$verb" =~ ^(metrics|jank)$ ]]; then
   shift
   config=debug; recs=()
@@ -84,7 +113,9 @@ mkdir -p "$out"
 cfg=Debug; [[ "$config" == release ]] && cfg=Release
 "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
 dll="$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll"
-if [[ "$verb" == nav ]]; then
+if [[ "$verb" == chokes ]]; then
+  "$dotnet" "$dll" chokes "$maps/$map.nav3d" "$maps/$map.bsp" "$out/$map-chokes.png" "$scale"
+elif [[ "$verb" == nav ]]; then
   "$dotnet" "$dll" nav "$maps/$map.nav3d" "$maps/$map.bsp" "$out/$map-nav.png" "$scale"
 elif [[ "$verb" == verify ]]; then
   [[ -f "$recording" ]] || { echo "ai-replay: no recording $recording" >&2; exit 1; }

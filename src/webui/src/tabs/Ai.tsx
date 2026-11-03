@@ -39,7 +39,7 @@ export function MemoryPart({ bot }: { bot: AiBot }): ReactNode {
     <>
       <table className="ai-memory">
         <thead>
-          <tr><th>actor</th><th>sight</th><th>sure</th><th>last seen</th><th>health</th><th>ammo</th><th>belief</th><th>intent</th><th>habits</th><th>rank</th></tr>
+          <tr><th>actor</th><th>sight</th><th>sure</th><th>last seen</th><th>health</th><th>ammo</th><th>belief</th><th>intent</th><th>habits</th><th>rank</th><th>grudge</th></tr>
         </thead>
         <tbody>
           {memory.actors.map(a => (
@@ -54,6 +54,7 @@ export function MemoryPart({ bot }: { bot: AiBot }): ReactNode {
               <td>{a.intent} {a.intentScore.toFixed(2)}</td>
               <td>{a.habits ? `retreat ${a.habits.retreatTendency.toFixed(2)}, aggr ${a.habits.aggression.toFixed(2)}` : '—'}</td>
               <td>{a.rank || '—'} ({a.frags}/{a.deaths})</td>
+              <td data-testid={`grudge-${a.slot}`}>{a.grudge > 0.05 ? a.grudge.toFixed(1) : '—'}</td>
             </tr>
           ))}
         </tbody>
@@ -261,6 +262,12 @@ function DoingPart({ doing }: { doing: AiDoing | null }): ReactNode {
       <p data-testid="doing-window" className="muted">
         P(empty) {f2(doing.pEmpty)} + P(reloading) {f2(doing.pReloading)} · window {f2(doing.windowSeconds)} s vs arrive {f2(doing.arriveSeconds)} s
         {' '}· ammoTerm {f2(doing.ammoTerm)} · scoreboardTerm {f2(doing.scoreboardTerm)} · expires tick {doing.expires}
+      </p>
+      <p data-testid="doing-habit" className="muted">
+        grudgeTerm {f2(doing.grudgeTerm)}
+        {doing.habitSpot && <> · their usual place ({doing.habitSpot.map(v => v.toFixed(0)).join(' ')}){doing.preAiming ? ', looking at it' : ''}</>}
+        {doing.moment && <> · last moment: {doing.moment}</>}
+        {doing.streak && <> · on a {doing.streak} streak (aim error {f2(doing.streakAimErrorDeg ?? 0)}°)</>}
       </p>
       <ol className="ai-decides" data-testid="decides">
         {doing.decides.map(d => (

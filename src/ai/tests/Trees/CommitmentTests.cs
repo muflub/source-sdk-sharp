@@ -272,7 +272,7 @@ public sealed class CommitmentTests
         IntentCommand there = d.Step(At(d, spot), []);
         Assert.Equal("Ambush", d.Decider.Doing.Branch);
         Assert.Equal(MoveKind.Hold, there.Move.Kind);
-        Assert.Equal(LookKind.Point, there.Look.Kind);
+        Assert.Equal(LookKind.Watch, there.Look.Kind);
     }
 
     // ---- the target and the windows -----------------------------------------

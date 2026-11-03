@@ -45,6 +45,61 @@ public class NavGraphFromNav3dTests
     private static NavEdgeType? EdgeType(DerivedNav d, int fromLeaf, int toLeaf)
         => d.Graph.TryEdge(d.CellOfLeaf[fromLeaf], d.CellOfLeaf[toLeaf], out NavEdge e) ? e.Type : null;
 
+    /// <summary>
+    /// A ladder's column whose middle does not hold a crouched body at its centre, as
+    /// dm_lockdown's (-4148 4188) does between z 96 and z 128 beside a floor's lip:
+    /// <paramref name="ceiling"/> over the low and high climbs, the gap's two leaves having none.
+    /// </summary>
+    private static (FakeNavSource Src, int Low, int High) GappedLadder()
+    {
+        var s = new FakeNavSource();
+        int low = s.Add(0, 0, 48f, 96f, walkable: false, ladder: true);
+        int gapA = s.Add(0, 0, 96f, 112f, walkable: false, ladder: true);
+        int gapB = s.Add(0, 0, 112f, 128f, walkable: false, ladder: true);
+        int high = s.Add(0, 0, 128f, 200f, walkable: false, ladder: true);
+        s.Stack(low, gapA, gapB, high);
+        return (s, low, high);
+    }
+
+    private static DerivedNav DeriveLadder(FakeNavSource s, params LadderClimb[] climbs)
+        => NavGraphFromNav3d.Derive(s, Numbers, NavEdgeCosts.Default, [], climbs);
+
+    [Fact]
+    public void AUseableLaddersLineBridgesTheLeavesABodyDoesNotFitAtTheCentreOf()
+    {
+        var (s, low, high) = GappedLadder();
+
+        DerivedNav d = DeriveLadder(s, new LadderClimb(new AiVector(8f, 8f, 4f), new AiVector(8f, 8f, 133f)));
+
+        Assert.Equal((NavEdgeType.Ladder, NavEdgeType.Ladder), (EdgeType(d, low, high), EdgeType(d, high, low)));
+    }
+
+    /// <summary>The control, the file's own climb: with no ladder's line there the gap is a gap.</summary>
+    [Fact]
+    public void WithNoLineTheGapStays()
+    {
+        var (s, low, high) = GappedLadder();
+
+        Assert.Null(EdgeType(DeriveLadder(s), low, high));
+    }
+
+    [Fact]
+    public void ALineElsewhereDoesNotBridgeIt()
+    {
+        var (s, low, high) = GappedLadder();
+
+        Assert.Null(EdgeType(DeriveLadder(s, new LadderClimb(new AiVector(200f, 8f, 4f), new AiVector(200f, 8f, 133f))), low, high));
+    }
+
+    /// <summary>A line that stops below the far side of the gap does not climb to it.</summary>
+    [Fact]
+    public void ALineEndingInTheGapDoesNotBridgeIt()
+    {
+        var (s, low, high) = GappedLadder();
+
+        Assert.Null(EdgeType(DeriveLadder(s, new LadderClimb(new AiVector(8f, 8f, 4f), new AiVector(8f, 8f, 110f))), low, high));
+    }
+
     [Fact]
     public void AnEighteenUnitStepIsAWalkBothWays()
     {

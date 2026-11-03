@@ -43,6 +43,35 @@ public static class NavPng
         return png.ToArray();
     }
 
+    /// <summary>The graph with its choke points ringed and numbered, busiest first.</summary>
+    public static byte[] RenderChokes(DerivedNav nav, ChokeMap chokes, float pixelsPerUnit)
+    {
+        using SKBitmap bitmap = Draw(nav, pixelsPerUnit);
+        NavGraph g = nav.Graph;
+        float minX = float.MaxValue, maxY = float.MinValue;
+        for (int c = 0; c < g.CellCount; c++)
+        {
+            minX = MathF.Min(minX, g.Cell(c).MinX);
+            maxY = MathF.Max(maxY, g.Cell(c).MaxY);
+        }
+
+        using var canvas = new SKCanvas(bitmap);
+        using var ring = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 3f, Color = new SKColor(255, 40, 200) };
+        using var font = new SKFont { Size = 22f };
+        using var text = new SKPaint { IsAntialias = true, Color = SKColors.White };
+        for (int i = 0; i < chokes.Top.Length; i++)
+        {
+            ChokePoint p = chokes.Top[i];
+            float x = Margin + (p.Position.X - minX) * pixelsPerUnit, y = Margin + (maxY - p.Position.Y) * pixelsPerUnit;
+            canvas.DrawCircle(x, y, 8f + 16f * p.Score, ring);
+            canvas.DrawText((i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture), x + 12f, y - 12f, SKTextAlign.Left, font, text);
+        }
+
+        canvas.Flush();
+        using SKData png = bitmap.Encode(SKEncodedImageFormat.Png, 100);
+        return png.ToArray();
+    }
+
     public static SKBitmap Draw(DerivedNav nav, float pixelsPerUnit)
     {
         ArgumentNullException.ThrowIfNull(nav);

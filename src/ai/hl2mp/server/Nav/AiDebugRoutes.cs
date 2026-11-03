@@ -17,7 +17,7 @@ public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots
 {
     public IReadOnlyList<DebugRoute> Routes =>
     [
-        new("GET", "/ai/nav", "the level's derived AI graph: cells [minX,minY,maxX,maxY,floorZ,classes,flags], non-walk links [from,to,type], obstacles"),
+        new("GET", "/ai/nav", "the level's derived AI graph: cells [minX,minY,maxX,maxY,floorZ,classes,flags], non-walk links [from,to,type], obstacles, chokes [{x,y,z,score}] (empty until worked out)"),
         new("GET", "/ai/flow", "a flow field: ?cell=N (or x=&y=&z=) &class=stand|crouch; each cell's next cell (-1 none) and cost (-1 unreachable)"),
         .. bots?.Routes ?? [],
         .. replay?.Routes ?? [],
@@ -37,7 +37,7 @@ public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots
             return new DebugRouteReply(409, $"{{\"error\":{NavJson.Quote(nav.Refusal ?? "no navigation")}}}");
         NavObstacleState obstacles = nav.Obstacles ?? new NavObstacleState(loaded.Nav.Graph.ObstacleCount);
         if (path == "/ai/nav")
-            return new DebugRouteReply(200, NavJson.Nav(loaded.Map, loaded.Nav, obstacles));
+            return new DebugRouteReply(200, NavJson.Nav(loaded.Map, loaded.Nav, obstacles, nav.Chokes?.Map));
 
         NavGraph g = loaded.Nav.Graph;
         ClearanceClass cls = query.GetValueOrDefault("class") == "crouch" ? ClearanceClass.Crouch : ClearanceClass.Stand;
@@ -65,7 +65,7 @@ public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots
 /// <summary>The graph and a field as the routes write them.</summary>
 public static class NavJson
 {
-    public static string Nav(string map, DerivedNav nav, NavObstacleState obstacles)
+    public static string Nav(string map, DerivedNav nav, NavObstacleState obstacles, ChokeMap? chokes = null)
     {
         NavGraph g = nav.Graph;
         var json = new StringBuilder(g.CellCount * 40);
@@ -98,6 +98,14 @@ public static class NavJson
             NavObstacleInfo info = nav.Obstacles[o];
             json.Append(o == 0 ? "" : ",").Append("{\"name\":").Append(Quote(info.Name)).Append(",\"kind\":").Append(Quote(info.Kind.ToString()))
                 .Append(",\"blocking\":").Append(o < obstacles.Count && obstacles.Blocking(o) ? "true" : "false").Append('}');
+        }
+
+        json.Append("],\"chokes\":[");
+        for (int i = 0; chokes is not null && i < chokes.Top.Length; i++)
+        {
+            ChokePoint p = chokes.Top[i];
+            json.Append(i == 0 ? "" : ",").Append("{\"x\":").Append(F(p.Position.X)).Append(",\"y\":").Append(F(p.Position.Y)).Append(",\"z\":")
+                .Append(F(p.Position.Z)).Append(",\"score\":").Append(p.Score.ToString("0.###", CultureInfo.InvariantCulture)).Append('}');
         }
 
         return json.Append("]}").ToString();

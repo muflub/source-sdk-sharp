@@ -61,7 +61,10 @@ public class BotRosterTests
         public string? Refusal => null;
         public LoadedNav? Current => null;
         public NavObstacleState? Obstacles => null;
+        public NavObstacleState? ObstaclesFor(SourceSharp.Abi.EntityHandle player) => Obstacles;
         public NavSight? Sight => null;
+
+        public ChokeSlot? Chokes => null;
     }
 
     private sealed class DataFileNames : IBotNameSource
@@ -81,6 +84,10 @@ public class BotRosterTests
     /// <summary>The server's slots as a fact sets them.</summary>
     internal sealed class Slots : IServerSlots
     {
+        public readonly List<string> People = new();
+
+        public IEnumerable<string> PeopleNames => People;
+
         public int MaxClients { get; set; } = 8;
         public int Humans { get; set; } = 1;
     }

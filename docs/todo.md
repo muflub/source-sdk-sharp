@@ -43,14 +43,6 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
-## dm_lockdown: the ladder at (-4148 4188) is not on the graph's way, and a gate is walked into (2026-11-02)
-
-The nav file's climb there stops at z 96 and starts again at z 128 (the leaves
-between do not hold a crouched body at their centre), so the graph has no way
-up it and a route to its top goes 3,000 u round. At (-3644 4664) a barred gate
-stands shut that the file calls open floor (its bars let a ray through): a bot
-walks into it, and the stuck detector routes it round after 3 s.
-
 ## tools/box-ready does not gate on GPU memory (2026-11-01)
 
 `tools/box-ready gate` said "ready" (36.9 GiB RAM, 24.5 cores idle) while

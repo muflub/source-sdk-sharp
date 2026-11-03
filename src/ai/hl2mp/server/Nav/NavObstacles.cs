@@ -42,7 +42,7 @@ public static class ObstacleRule
 /// the file gives it), its spawn place remembered, and its state re-read
 /// through <see cref="IObstacleEyes"/>.
 /// </summary>
-public sealed class NavObstacles(DerivedNav nav, IObstacleEyes eyes)
+public sealed class NavObstacles(DerivedNav nav, IObstacleEyes eyes, bool propsAreTheField = false)
 {
     // A shut door is a way through for the planner: a player opens it (Phase 5; the bot holds +use at it).
     private readonly NavObstacleState _state = new(nav.Graph.ObstacleCount) { OpenDoors = true };
@@ -86,7 +86,10 @@ public sealed class NavObstacles(DerivedNav nav, IObstacleEyes eyes)
             ObstacleSighting s = e == EntityHandle.None ? default
                 : !eyes.Alive(e) ? new ObstacleSighting(true, false, 0f, 0f)
                 : new ObstacleSighting(true, true, eyes.Origin(e).DistanceTo(_spawnOrigin[o]), eyes.Angles(e).DistanceTo(_spawnAngles[o]));
-            bool b = ObstacleRule.Blocking(nav.Obstacles[o].Kind, s);
+            // With the field, a prop is where each bot last saw it (NavObstacleField), not
+            // where the file has it for everybody.
+            bool b = ObstacleRule.Blocking(nav.Obstacles[o].Kind, s)
+                     && !(propsAreTheField && nav.Obstacles[o].Kind is NavObstacleKind.Physics or NavObstacleKind.Prop);
             _state.Set(o, b);
             if (b)
                 blocking++;

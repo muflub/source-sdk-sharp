@@ -39,6 +39,9 @@ public sealed class PerceptionCensusTests
         typeof(EngineBotSelf).FullName!, typeof(ArsenalBotInventory).FullName!, typeof(EngineBotHud).FullName!,
         // Doors and props the nav blocks, never a player (§6.3).
         "SourceSharp.Ai.Hl2mp.Nav.EngineObstacleEyes",
+        // The solid entities' cells (ruling 2026-11-02), never a player, a weapon or an item: the
+        // field reads the truth and gives a bot only what was in its PVS (NavObstacleField).
+        "SourceSharp.Ai.Hl2mp.Nav.EngineObstacleWorld",
         // ai_bot_goto: the debug command's target, an item by class or a point.
         "SourceSharp.Ai.Hl2mp.AiBotGotoCommand",
         // The inspector's perception part (§7.1): the bot's own view, for the web UI only.
@@ -73,6 +76,31 @@ public sealed class PerceptionCensusTests
         Assert.Equal(["SourceSharp.Ai.Hl2mp.Nav.AiDebugRoutes"], routeCallers);
         string[] logCallers = [.. IlCallCensus.Callers(m => m.DeclaringType == typeof(HeardLog), Binding).Where(c => c != typeof(HeardLog).FullName)];
         Assert.Equal(new[] { route, typeof(SoundTap).FullName! }.Order(StringComparer.Ordinal), logCallers);
+    }
+
+    /// <summary>
+    /// The obstacle field reads the world's truth so a bot need not (ruling 2026-11-02): only
+    /// it asks the world's seam, and what a bot routes by reaches it through
+    /// <see cref="SourceSharp.Ai.Hl2mp.Nav.IObstacleSight"/>, the PVS a client would be sent an entity by.
+    /// </summary>
+    [Fact]
+    public void OnlyTheObstacleFieldAsksTheObstacleWorld()
+    {
+        string[] callers = IlCallCensus.Callers(m => m.DeclaringType == typeof(SourceSharp.Ai.Hl2mp.Nav.IObstacleWorld), Binding);
+        Assert.Equal(["SourceSharp.Ai.Hl2mp.Nav.NavObstacleField"], callers);
+        Assert.Equal(["SourceSharp.Ai.Hl2mp.Nav.NavObstacleField"], IlCallCensus.Callers(m => m.DeclaringType == typeof(SourceSharp.Ai.Hl2mp.Nav.IObstacleSight), Binding));
+    }
+
+    /// <summary>A player, a weapon or an item stops nobody by our collision rules, and is not a thing the field may read.</summary>
+    [Fact]
+    public void TheObstacleWorldsRostersNameNoPlayerWeaponOrItem()
+    {
+        var world = new SourceSharp.Ai.Hl2mp.Nav.EngineObstacleWorld(null!);
+        string[] classes = [.. Enumerable.Range(0, world.RosterCount).Select(SourceSharp.Ai.Hl2mp.Nav.EngineObstacleWorld.RosterClass)];
+        Assert.Equal(world.RosterCount, classes.Distinct().Count());
+        Assert.Contains("prop_physics", classes);
+        Assert.Contains("func_brush", classes);
+        Assert.DoesNotContain(classes, c => c == "player" || c.StartsWith("weapon_", StringComparison.Ordinal) || c.StartsWith("item_", StringComparison.Ordinal));
     }
 
     [Fact]

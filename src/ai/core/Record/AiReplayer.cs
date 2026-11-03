@@ -91,7 +91,10 @@ public static class AiReplayer
                     session.RemoveBot(AiRecordFormat.ReadActor(r));
                     break;
                 case AiRecordType.Event:
-                    session.Push(AiRecordFormat.ReadEvent(r));
+                    AiEvent pushed = AiRecordFormat.ReadEvent(r);
+                    if (pushed.Kind == AiEventKind.ChokesKnown && session.World is { Graph: { } chokeGraph, Chokes: { } chokes } chokeWorld)
+                        chokes.EnsureFor(chokeGraph, chokeWorld.Map);
+                    session.Push(pushed);
                     break;
                 case AiRecordType.Snapshot:
                     AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, session.Snapshots);
@@ -130,7 +133,7 @@ public static class AiReplayer
                     (NavGraph? graph, ICellSight? sight) = nav(known);
                     if (known.NavGraphHash != 0 && graph?.Hash != known.NavGraphHash)
                         throw new InvalidDataException($"the recording's nav graph is {known.NavGraphHash:x16}, the one at hand {graph?.Hash ?? 0:x16}: rebuild the map's nav or re-record");
-                    session.World = new MemoryWorld(known.Map, graph, known.TickSeconds, id => id.ToString(), sight);
+                    session.World = new MemoryWorld(known.Map, graph, known.TickSeconds, id => id.ToString(), sight, new ChokeSlot());
                     session.Curves = known.CurvesJson.Length > 0 ? SkillCurves.Parse(known.CurvesJson) : null;
                     break;
             }

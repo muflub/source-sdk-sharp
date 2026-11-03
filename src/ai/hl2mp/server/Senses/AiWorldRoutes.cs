@@ -21,7 +21,7 @@ public sealed record WorldCandidate(int Slot, AiVector At, string Stage, float F
 public sealed record WorldTruth(AiVector Eye, float Yaw, float Pitch, float Fov, float Range, float AimDistance, WorldCandidate[] Candidates);
 
 /// <summary>What the bot's tree chose: its branch and leaf, its goal, the slot of its target (-1 none).</summary>
-public sealed record WorldGoing(string Branch, string Leaf, AiVector? Goal, int TargetSlot);
+public sealed record WorldGoing(string Branch, string Leaf, AiVector? Goal, int TargetSlot, string Prefire = "", AiVector? PrefireAt = null);
 
 /// <summary>The path the bot's follower is on: whose (<c>brain</c>, or <c>goto</c> for a scripted walk), where to, its points.</summary>
 public sealed record WorldRoute(string Source, AiVector Target, AiVector[] Points);
@@ -198,7 +198,7 @@ public sealed class AiWorldRoutes(Hl2mpBots bots, VisionPass vision, Hl2mpAiSess
         if (brain.Decider is not { } decider)
             return null;
         DoingRecord d = decider.Doing;
-        return new WorldGoing(d.Branch, d.Leaf, d.HasGoal ? d.Goal : null, d.Target.IsValid ? d.Target.Slot : -1);
+        return new WorldGoing(d.Branch, d.Leaf, d.HasGoal ? d.Goal : null, d.Target.IsValid ? d.Target.Slot : -1, d.Prefire, d.PrefireAt == default ? null : d.PrefireAt);
     }
 
     private static WorldRemembered[]? Remembered(Brain brain)

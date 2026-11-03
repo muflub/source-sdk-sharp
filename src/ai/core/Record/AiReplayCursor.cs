@@ -138,7 +138,7 @@ public sealed class AiReplayCursor
                 (NavGraph? graph, ICellSight? sight) = _nav(known);
                 if (known.NavGraphHash != 0 && graph?.Hash != known.NavGraphHash)
                     throw new InvalidDataException($"the recording's nav graph is {known.NavGraphHash:x16}, the one at hand {graph?.Hash ?? 0:x16}");
-                _session.World = new MemoryWorld(known.Map, graph, known.TickSeconds, id => id.ToString(), sight);
+                _session.World = new MemoryWorld(known.Map, graph, known.TickSeconds, id => id.ToString(), sight, new ChokeSlot());
                 _session.Curves = known.CurvesJson.Length > 0 ? SkillCurves.Parse(known.CurvesJson) : null;
                 _session.Deciders = _deciders;
                 break;
@@ -151,7 +151,10 @@ public sealed class AiReplayCursor
                 _session.RemoveBot(AiRecordFormat.ReadActor(r));
                 break;
             case AiRecordType.Event:
-                _session.Push(AiRecordFormat.ReadEvent(r));
+                AiEvent pushed = AiRecordFormat.ReadEvent(r);
+                if (pushed.Kind == AiEventKind.ChokesKnown && _session.World is { Graph: { } chokeGraph, Chokes: { } chokes } chokeWorld)
+                    chokes.EnsureFor(chokeGraph, chokeWorld.Map);
+                _session.Push(pushed);
                 break;
             case AiRecordType.Snapshot:
                 AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, _session.Snapshots);

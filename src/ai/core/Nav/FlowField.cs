@@ -109,11 +109,16 @@ public sealed class FlowField
             Reachable++;
             if (avoided is not null && cell != objective.Index && avoided.Contains(cell))
                 continue;
+            // A blocked cell has a way out and is on nobody's way through: a bot standing
+            // in one still finds its field, and the objective is never blocked for itself.
+            if (cell != objective.Index && obstacles.CellBlocked(cell))
+                continue;
+            float extra = obstacles.CellExtra(cell);
             foreach (NavEdge e in graph.EdgesTo(cell))
             {
-                if (!graph.Passable(e, cls, obstacles))
+                if (!graph.Admits(e, cls, obstacles))
                     continue;
-                float c = _cost[cell] + e.Cost;
+                float c = _cost[cell] + e.Cost + extra;
                 if (c < _cost[e.From] || (c == _cost[e.From] && Nearer(graph, cell, _next[e.From], target)))
                 {
                     bool improved = c < _cost[e.From];

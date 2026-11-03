@@ -69,6 +69,37 @@ public sealed class BotNamerTests
     }
 
     [Fact]
+    public void ThirtyTwoBotsHaveThirtyTwoFirstNames()
+    {
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var firsts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (ulong seed = 1; seed <= 32; seed++)
+        {
+            string name = BotNamer.Name(Pools.Value, Profile(9, 1, 1, 1, 1, 1, 1, 1, 1, 1), seed, taken);
+            Assert.True(taken.Add(name));
+            Assert.True(firsts.Add(Pools.Value.First.First(f => name.StartsWith(f + " ", StringComparison.Ordinal))), $"{name} has a first name in use");
+        }
+    }
+
+    /// <summary>Past the pool the first names repeat, and the whole names still do not.</summary>
+    [Fact]
+    public void PastThePoolWholeNamesStayUnique()
+    {
+        var taken = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (ulong seed = 1; seed <= (ulong)Pools.Value.First.Length + 10; seed++)
+            Assert.True(taken.Add(BotNamer.Name(Pools.Value, Profile(9, 1, 1, 1, 1, 1, 1, 1, 1, 1), seed, taken)));
+    }
+
+    /// <summary>A name taken gets a numeral of ours; one free is left alone.</summary>
+    [Fact]
+    public void ATakenNameGetsANumeral()
+    {
+        var taken = new HashSet<string>(["Alyx", "Alyx 2"], StringComparer.OrdinalIgnoreCase);
+        Assert.Equal("alyx 3", BotNamer.Distinct("alyx", taken));
+        Assert.Equal("Barney", BotNamer.Distinct("Barney", taken));
+    }
+
+    [Fact]
     public void AStuffedPoolFallsBackToANumeral()
     {
         var pools = new BotNamePools(["Kai"], ImmutableDictionary<string, TraitPools>.Empty.Add("accuracy", new(["Sniper"], ["Wild"])));

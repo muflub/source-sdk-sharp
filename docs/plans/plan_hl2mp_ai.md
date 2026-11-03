@@ -730,6 +730,10 @@ pool's even spread (spent / skills), high when above it and low when below;
 the bot's seed picks the first name and the entry; a name another bot holds
 is re-drawn, and a numeral is the last resort; the name is cut to the
 engine's `MAX_PLAYER_NAME_LENGTH` (32 with its NUL), the first name first.
+A first name in use on the roster, benched bots included, or by a person, is passed over
+while the pool of 41 has another. A name given to `ai_bot_add`, or taken since, gets a numeral
+of ours ("Alyx 2"): nothing reaches the engine for it to make "(1)Alyx". `medium` is a
+preset's word as `normal` is, any case.
 
 #### 3.5.2 The roster: the server's wanted bots (rulings 2026-11-02, §12.1)
 
@@ -915,6 +919,20 @@ The static LOS bitsets of §6.2 are world-only, used only for planning
 (cover/vantage scores), and are refreshed for cells next to a door or a
 moved prop when that entity's state changes (a `DoorMoved`/`PropMoved`
 gameplay event).
+
+**Spectators** (ruling 2026-11-02, §12.1). Someone watching is not there to a bot: team
+spectator, or in an observer mode while not dead (`Spectators.Is`). Someone dead and waiting
+to respawn is in an observer mode too and stays in the game: the kill feed and the board go on
+having them. A spectator is no actor (`ActorDirectory.Living`), so no read of their camera, no
+trace budget, no place on `GiveWay`'s list; the obstacle field's rosters never held players.
+Nothing they emit is heard (`SoundTap.Hushed`). The board's ranks are of those in the game
+(`CombatTap.RowsInTheGame`), so a spectator atop it is nobody's leader. `CombatTap` tells every
+bot when someone goes or returns (`AiEventKind.ActorSpectating`, recorded); going, they are
+forgotten as no dead player is, position, belief, sounds to look into, and nothing more is
+learnt of them; a grudge goes dormant, fading as ever, awake on their return, when they are
+otherwise new. The slots still count them (`CountHumans` reads client channels). Chat's board
+leaves them out (no rival, no leader), but **a bot still answers what a spectator says**, if
+`HostSay.CanHear` lets it hear: a person in the server is talking, and no opponent is implied.
 
 **Negative facts (one each)** also cover the occluders: an opponent behind
 a closed door, behind a stack of `prop_physics` crates, and behind another
@@ -1148,6 +1166,52 @@ the path-length cap and the "easier target nearer" discount are both
 weighted down by the trait, so a Headhunter walks further and passes up
 easy kills. The `reason` carries `scoreboardTerm`.
 
+**Prefire** (user request 2026-11-02, §12.1). A bot fires at the place it believes
+someone is, before seeing them: the corner someone just went behind, the doorway
+footsteps came from, the spot a habit says someone camps. `Hl2mpDecider.Prefire`, after
+the tree, and its rules are these.
+
+- *From what it knows only.* The target's belief: lost from sight at most 2.5 s ago, or
+  heard at most 1.5 s ago, each with confidence at least 0.5; or the corner a pre-aimed
+  approach is looking at (§5.5), with confidence at least 0.25. A bot with no belief does
+  nothing, whatever anyone answers it.
+- *Only down a line it has looked along.* The place is the believed cell or, with the map's
+  sight table, the nearest cell to it along the graph that the bot's cell can see (up to
+  512 cells): someone gone round a corner is behind that opening. The brain asks
+  (`DoingRecord.LineAsk`, `LineAt`), the main thread answers next tick
+  (`VisionPass.AnswerLine`, `ITraceQueries.Line` from the bot's own eye, 4 a tick apart
+  from the sight budget) and an `AiEventKind.LineAnswer` comes back, recorded, so a
+  replay decides alike. **The mask is the sight mask less bodies**: the world and the
+  props, which anyone can see; who stands behind them it cannot say. Refused, it tries the
+  place it last saw them, once, then gives up. No answer is no line; an answer about
+  another place, or from over 48 u back, is no line; it asks again every decide. The
+  fire itself goes down the view, so the applier's "hands wait for the eye" rule holds it
+  too (`LookKind.CornerCheck`).
+- *When.* In a fight-like leaf (hunt, chase, ambush, or a fight just out of sight) with
+  nobody at all in sight; the place within the gun's reach times `fireRangeGate`, over 96 u
+  away, and within 60° of where it looks (a human turn: about 0.2 s of a flick).
+- *How much.* A chance of `prefireChance × prefireThrift` (§10) at most every 2 s, drawn once the place is in reach; a
+  burst of `prefireBurstSeconds` (0.3 to 0.9 s), then 2 s before another chance: a person
+  sprays a corner for under a second, then checks.
+- *Ammo sense.* A pistol, 357, SMG, AR2 or shotgun with at least 25 % of its clip left: no crossbow, RPG, grenade or melee, no last rounds, nothing mid-reload.
+  It reloads afterwards by the same rule as anyone.
+- *What ends it.* Anyone seen, at the next decide, whatever the burst had left; the aim
+  goes to them. The commitment's interrupt list is unchanged.
+
+The inspector shows it: `prefire` ("", "aiming" or "firing") and `prefireAt` in
+`/ai/bot/<id>/trace` and in `/ai/world`'s going, a star and a line in the 3D map's Remembers
+layer, the Beliefs group.
+
+**Crouching in a fight** (ruling 2026-11-02, §12.1). In the fight's holding leaf, with someone
+in sight past close range (400 u) and its feet on the ground, a bot holds IN_DUCK some of the
+time while it fires: `crouchShare` of the fight (Cover, a style curve, about 2.5 % at Medium's
+height, 30 % at the top). A third of them are a quick dip of 0.35 to 0.6 s, the rest a stretch of
+0.6 to 2.5 s; a gap of at least 0.6 s follows, drawn to make the holds that share of the time.
+A sidestep goes on ducked; a walk closing a long range stops for the crouch and goes on after it.
+Chasing, retreating, close, on a ladder or in the air it stays up. Holds and gaps run by the
+clock from their own stream. Its aim comes from its eye, which a crouch lowers. Seeing someone
+ducked (an eye under 46 u over the feet) is seeing a lower chest: the aim drops by 24 u.
+
 ### 5.5 Feel: commitment and personality (ruling 2026-11-02)
 
 The jank score (§3.4.5) measures, then this fixes; both start from main once the
@@ -1203,6 +1267,95 @@ The driver answers what the tree cannot see (§2.3): a body under 8 u in 0.6 s o
 plain floor reports stuck at once (a door, ladder or jump on the way keeps its own
 wait); stopped again within 48 u it is wedged, and tries a different way each half
 second, turning 135 deg a try, with a jump every other try.
+
+**The personality numbers (stage 3, 2026-11-02).** All in memory, none on disk.
+
+*Grudges.* `KnownActor.GrudgeAt`: one for each time it killed the bot, fading by
+half in 180 s; killing them back halves it and is a `revenge` moment. It adds
+`grudgeWeight` (Tenacity: 0 to 0.5, §10) times its share of 2 kills to that
+opponent's priority, and 0.3 of that to Hunt's utility. It changes the choice and
+not the information: someone under 5 % confidence is no target, however hated.
+
+*Habits.* Camps within 128 u are one place, killing someone where it was just seen
+counts as finding it there, and 1.8 visits (two, faded) make it a habit. An approach
+to someone with a habit draws once: chance `ambushWeight x 1.25` (Cunning) of
+pre-aiming that corner from within 1,024 u, and `routeAltWeight x 2` of another way
+in. Finding them within 256 u of it on a pre-aimed approach is a `spot` moment, at
+most once in 20 s. A grenade at the corner is not built: the two above already
+show it, and a thrown frag needs its own aim model.
+
+*Traits.* A high Cunning or Cover, or a low Aggression, holds a place: `camp =
+max(ambushWeight, 0.8 x coverWeight, 0.8 x max(0, 1 - 2 x chaseSeconds/8))`, and from 0.48
+a bot with no habit to go on holds a place (below), up to 8 s walking (longer if the way is) and `12 + 45 x camp` s holding, its
+view swaying 20 deg either side over 5 s; planned it is worth `0.1 + 0.85 x camp`, held `0.35
++ 0.5 x camp`, and the planned worth stands for a bot of Cover or patience who also knows someone's corner. Aggression goes looking: Hunt is worth `0.4 + 0.3 x chaseSeconds/8` before
+the scoreboard and any grudge. These read the style levels of §10.
+
+*Observables* (`ai-replay jank`, no part of the score): walked u/min, the share of a
+life nobody held sight of it, kills and those from ambush (it had walked under 64 u
+in the 3 s before it saw its victim), mean hit range.
+
+**Where a camper goes (user request 2026-11-02, §12.1).** The camp is where people have to
+come. Candidates are what a bot knows before playing (§5.0): the map's pickups, and its
+choke points.
+
+*Choke points* (`ChokeMap`, core, pure). Route betweenness between the places people go,
+the map's spawns and pickups: from each of them (at most 96 sources) every cheapest route
+to each other is counted once, ties shared equally (Brandes' accumulation on the directed
+graph, every door open). Routes alone rate the open floor where a big room's routes
+converge before its door, so a place's routes are divided by `1 + clearance / 48 u`, its
+clearance the walk to the nearest cell with a wall beside it. Smoothed over a cell's walking
+neighbours, normalised to the busiest; `Top` is up to 16, at least 384 u apart and at least
+5 % of the busiest. It runs on a worker (`Hl2mpNav.StartChokes`), with its result cached
+beside the graph (`<navgraph>.chokes<Revision>`, whose header names the graph's hash and
+`ChokeMap.Revision`). It may finish at any tick, so a brain reads it only after its
+`AiEventKind.ChokesKnown` (recorded): the tick is in the recording and a replay decides
+alike. `/ai/nav`'s `chokes`, a column of bright points on the map tab and the 3D map under
+"Nav cells", and `tools/ai-replay chokes <map>` (the list, and a PNG with them ringed).
+
+*The choice* (`Hl2mpDecider.PlanCamp`, once a second). A pickup's worth: health 0.8 plus
+0.8 of its hurt, a charger 0.7 plus the same, armour 0.6, ammo 0.25, a gun its rank / 8,
+times 1.5 if the bot's best gun ranks under 5. A choke's: its score times
+`0.3 + Cunning's share` (`ambushWeight / 0.8`). Divided by `1 + distance / 256 u`, times
+`1 + 0.6 × whim`, a number from the bot's seed, the place and the time (it turns over every
+90 s). Passed over: beyond 1,536 u, one of the last 3 it watched, in another joined-up
+part of the map, or where someone was seen in the last 15 s within 192 u.
+
+*Two campers.* A place falls to one slot of 3 at a time, by `(place + epoch) % 3`, the epoch
+turning over every 30 s; with 3 or fewer places on the map this is off. (6 slots left so few places near a bot that a camper's next one was a long run off.) No bot knows what
+another means to do (they are opponents): a rule both follow keeps two that cannot see
+each other off one spot, and being seen does the rest.
+
+*Where it stands* (`CampSpot`). Not on the item: a breadth-first walk back from the place
+along the edges into it, so it can walk there; a standing cell, no ladder or water, at least
+96 u off, with a clear line by the sight table. Best is nearest `preferred range × 1.25`
+(192 to 512 u), plus `0.5 × coverWeight × (1 − exposure)`, the exposure being the share of
+places in range that see it, less a little for being out of its way, and less its own choke score (not in the doorway it watches, nor in anyone else's way). No such cell, and it is
+no place to hold. It looks at what it holds, swaying (§5.5's numbers above), and runs there,
+walking the last 256 u, with time enough for the way.
+
+The commitment numbers and "someone seen close comes first" are unchanged. How often a bot
+camps is §10's.
+
+*Moments.* `DoingRecord.MomentSeq/Kind/Other`, read on the main thread by
+`Hl2mpBots`: a console line, `TakeMoments()` for chat (`spot` becomes
+`ChatDirector.CaughtAtSpot`; chat tells its own revenge from the kill feed), and the
+AI tab shows grudges, the habit and the last moment.
+
+**Streaks** (ruling 2026-11-02, §12.1). A bot sometimes runs hot: its own levels lift for 8 to
+20 s, by `3 (1 - level/10)²` and to no more than 6.5 (Expert's Accuracy is 8, its Alertness 7),
+so Easy's Accuracy 2 reads about 3.9, a decent Medium's aim, Medium's 4 reads 5.1, Hard's 6
+reads 6.5, and Expert's does not move, so an Expert runs none. Only the aim's error and lead,
+the reaction and the recognition change (`StreakParams`): a turn's limits stay a person's. A
+good bot that died twice in 20 s can go cold, the same way, smaller (`1.2 (level/10)²` down, 6 to
+12 s). It is mostly earned: a kill starts one at 25 %, two kills within 8 s at 60 %; from nothing
+one starts at about 0.1 a minute. A death ends a hot one; 45 s of rest follow any. The brain
+holds it, from its own stream, told `ai_bot_streaks` (default 1) as an event as it is told
+anything, off until then so a recording from before them replays as it was. The aim and lead
+are the brain's; the reaction and recognition the record carries to the main thread, where
+they run. It shows as `streak` in `/ai/bot/<id>/trace` and the AI tab, a console line at each
+end, and a word in chat if chat is on. `ai_bot_streak <name> hot|cold` starts one by hand, for
+the aim range.
 
 ## 6. Navigation from the map tools' `.nav3d` (ruling 2026-11-01)
 
@@ -1282,6 +1435,8 @@ over the reader's answers; cached):
 | water, hazards | the water flag → cost 2 (the file's) ; `trigger_hurt` volumes from the entity lump → forbidden (the file does not mark them) |
 | static LOS bitsets for cover/vantage (`cover(cell, from)`, `vantage(cell, path)`, read by §5.4) | a voxel ray through the file's solid/free columns between cell pairs within 1,024 u — **no engine traces**: the grid is the world at 16 u, good enough for planning (perception never reads it, §4.1) |
 | `MapKnowledge` items and spawns | from the entity lump as before (§5.0); the file's points of interest, where the map's author set them, add hints |
+
+**Breakables** (ruling 2026-11-02, §12.1). `NavObstacleField` marks the cells of something a gun can break `NavCellBlocks.Breakable`: a `prop_physics*`, `func_physbox*`, `func_breakable` or `func_breakable_surf` with 1 to 150 hit points, not trigger-only, and not an explosive drum (dm_lockdown has 21; its 34 wood crates are what this is about). A step into one costs 100 u over the edge: a crate across a corridor, four or five cells, is worth about 500 u of walking round, so a short way round is still taken. `BrainDriver.Break` carries it out as it does a door: within 16 route steps and 256 u, down a shot's clear line (`EngineBreakableAim`), with no one in its view (its look is not on an actor) and no one-shot to press, the bot looks at the middle of it and taps fire, walking on until 72 u off, then standing, near enough for a crowbar. After 5 s without it going, it gives up on it and asks the follower to route round. Unbreakable bodies are as they were. The hit points are read once, when the body is enrolled; a person can tell a crate from a safe. What is in the bot's way is its own knowledge (§6.2's views). Gun, not melee: the weapon in hand, so a swap is not needed; a bot with a crowbar in hand walks up and swings.
 
 Cache: `bin/<config>/mods/test/ai-nav/<map>-<sha256(bsp)[:16]>-<sha256(nav3d)[:16]>-v<MapFormatsVersion>.navgraph`,
 rebuilt on any hash or version mismatch; a fact mutates one byte of the
@@ -1850,7 +2005,7 @@ level 0–10 and maps through a JSON curve to the parameters the brain reads:
 | Alertness | `fovDeg` (≤ 90), `sightRange`, `hearingAccuracy`, `recognizeSeconds`, `reactionMs`, `glanceRate`, `placementSkill` | detection delay ↓ |
 | Aggression | `preferredRange` per weapon family, `chaseSeconds`, `hesitationPct` ↓ | mean engagement distance ↓ |
 | Cover | `coverWeight`, `reloadRetreat`, `reloadBelowPct`, `peekSeconds` | share of time in cells unseen by the target ↑ |
-| Tenacity | `memoryHalfLifeS`, `searchSeconds` | search time ↑ |
+| Tenacity | `memoryHalfLifeS`, `searchSeconds`, **`grudgeWeight`** (§5.4) | search time ↑ |
 | Cunning | `routeAltWeight`, `ambushWeight`, `predictionDepthS` | share of non-shortest approaches ↑ |
 | Discipline | `fireRangeGate`, `burstLength`, `burstPauseMs`, `targetPriority`, **`pushTrust`**, **`pushMarginS`** (how far the ammo estimate is trusted, §5.4) | shots beyond effective range ↓; pushes inside the true reload window ↑ |
 | Agility | `strafeWeight`, `strafeMeanMs`, `dodgeWeight`, `jumpUse` | projectiles dodged ↑ |
@@ -1896,6 +2051,27 @@ the committed recordings hold their levels and replay unchanged; the scenario
 harness's and the gate's placed bots spend their old preset's levels as named
 custom bots (`skills=`) so their numbers still mean what they did.
 The table above is each preset's mean: a bot's own Alertness, and so its recognition, varies with its draw.
+
+**Style reads a height, competence a level** (ruling 2026-11-02, §12.1). A curve that says
+`"reads": "style"` in the skills file is read at
+
+    styleLevel = clamp(3.5 + 2.5 × (level − mean) / max(1, spread), 0, 10)
+
+between its levels, `mean` and `spread` being the mean and standard deviation of the bot's
+own ten levels (`SkillCurves.StyleLevel`). How far a skill sits above that bot's own mean, in
+its own spread: Easy's favourite is about 2.7 levels up and Hard's about 4.3, and each stands
+about two of its own spreads clear. 3.5 is Medium's mean, so a nearly even bot reads as about
+a Medium one does. A curve without `reads` reads its level, and a recording's own curves
+text keeps the reading it was made with.
+
+| reads | curves |
+|---|---|
+| **style** | `preferredRangeScale`, `chaseSeconds` (Aggression); `coverWeight`, `reloadBelowPct` (Cover); `searchSeconds`, `grudgeWeight`, `giveUpHealth` (Tenacity); `ambushWeight`, `routeAltWeight`, `prefireChance` (Cunning); `prefireThrift`, `prefireBurstSeconds` (Discipline); `retreatHealthPct` (Nerve); `rankBonus`, `pathCapMultiplier`, `easyTargetDiscount` (Headhunter) |
+| **level** | `aimErrorDeg`, `leadQuality`, `trackingLagMs`, `flickOvershootPct` (Accuracy); `glanceRate`, `reactionMs`, and recognition, sight and memory, which were never curves here (Alertness); `fireRangeGate`, `pushTrust`, `pushMarginSeconds` (Discipline: fire control and how far the estimate is trusted); `strafeWeight`, `strafeMeanSeconds` (Agility: a body's skill, and a bot's own strafing moves its hit rate, which the Medium calibration must not), turn speed |
+
+New curves, 2026-11-02: `prefireChance` (Cunning, 0 to 1), `prefireThrift` (Discipline, 1 to
+0.2) and `prefireBurstSeconds` (Discipline, 0.9 to 0.3 s), §5.4; `giveUpHealth` (Tenacity, 0.6, 0.3 and then 0): below it, with someone on it, a bot leaves the fight whatever its nerve,
+which is what "Runs Away", "Quitter" and "Bails Out" say.
 
 (Sums checked: 2+2+3+1+2+1+2+2+3+2 = 20; 4+4+4+3+3+3+4+3+4+3 = 35;
 6+6+5+5+5+5+6+4+5+3 = 50; 8+7+6+6+6+6+7+5+5+4 = 60.) The Alertness curve
@@ -2157,6 +2333,42 @@ rows of §3.1 (ruled). Hand-written native code: none.
   CPU rule (`num_gpu: 0`, `num_thread: 4`). If Vulkan on the AMD does not work,
   it falls back to the CPU, never to the NVIDIA, and says so. Under about 4 GB
   of VRAM; the service on 11434 and its models are not touched.
+- **A hot reload restarts the bots in their slots** (2026-11-02, through the
+  coordinator): "a hot reload should restart the bots based on player slots that
+  are bots". The new code walks the player slots, and each one holding a fake
+  client plays on under the AI, the same slot and entity, not kicked and added
+  again; its memory and brain start empty. `Hl2mpRoster` carries its record through
+  `ReloadSave`, so name, skills, tag and seed are unchanged and the bot stays on the
+  roster; one with no record plays as `normal`, with new skills, and a warning says
+  so. `ai_bot_kick all` clears them.
+
+- **"the nav should know about static props and entites the client would know
+  about"** (user, 2026-11-02). Static props are the file's, from each model's `.phy` under
+  `-game`. A client's knowledge is the limit for a bot's: the entity lump's layout from the
+  start, and a thing that moved once its place is in the bot's PVS. `NavObstacleField`
+  (§12.3 has its numbers) turns solid entities into per-bot routing cells on the main
+  thread and hands them to the workers as data; a small shovable prop takes none, a big
+  one costs and does not block.
+
+- **Bots prefire, and camp where people come** (2026-11-02, through the coordinator): "Make
+  bots prefire spots it thinks players are at, camping should prefer item pickups like health
+  good weapons or choke points". §5.4's prefire, §5.5's places. Only from what a bot knows, and
+  only down a line clear of solid world.
+- **A bot's strongest trait shows at any difficulty** (2026-11-02, through the coordinator):
+  "Can fix bot strongest trait to show at lower difficulty". Style reads how far a skill sits
+  above the bot's own mean; competence stays absolute, so difficulty still means skill and the
+  Medium calibration does not move. §10.
+
+- **"bots should not spawn with same name"** (2026-11-02, the user, live). `medium` is a preset; first names do not repeat while the pool lasts; a name taken gets our numeral. §3.5.1.
+- **"bots still have same skin"** (2026-11-02, the user, live). A bot's `cl_playermodel` is set while the engine puts it in the server, before its first spawn. §3.1.
+- **"bots should shoot creates if blocking path"** (2026-11-02, the user, live). §6.2.
+- **Bots ignore spectators** (2026-11-02, through the coordinator): "bots should ignore
+  spectators as well". §4.1.
+- **"bots should crouch as well when shooting to make it hard to hit"** (2026-11-02, the user,
+  through the coordinator). §5.4.
+- **"some times bad bots become great for a very short stint"** (2026-11-02, the user, through
+  the coordinator). Streaks, mostly earned; only aim, lead, reaction and recognition; a weak
+  bot the most, never to Expert. §5.5.
 
 ### 12.2 Open questions
 
@@ -2214,6 +2426,46 @@ that code when M1 starts, and changes nothing here.
 | jank score, before and after commitment, three standard runs each, one tool (`ffe36e3fd`'s definitions) | **before 52.5, 45.6, 51.0 (mean 49.0)**: stuck 6.57, 4.73, 5.37; turn backs 3.80, 2.25, 2.53; wall 3.71, 2.20, 3.43; flips branch 1.4, 2.3, 3.0 and leaf 4.0, 5.3, 4.6; goal jumps 49.7, 31.0, 29.3. **Commitment alone** (`9fa61c831`) 58.6, 46.5, 46.0: goal jumps halved, stuck unmoved. **After 38.0: 39.1, 37.6, 37.3**: stuck 3.82, 3.83, 4.12; turn backs 1.98, 2.14, 1.83; wall 1.84, 1.58, 1.37; flips branch 1.9, 1.3, 1.2 and leaf 2.5, 3.0, 3.3; goal jumps 16.2, 19.7, 17.6. No shot unchanged (under 400 u 25, 19, 19 %; from 400 u 41, 43, 43 %). The user's session by the same tool: bots 130.6, the person 28.0 (stuck 0.43, turn backs 0.32) | `make ai-jank`, `tools/ai-replay jank` | before `82cc931c6`; after `692fbba6e`; debug, box shared |
 | what a stuck second was, at `9fa61c831` | 47 % a body blocked by something the nav does not know, 30 % a U-turn on a change of leaf, 8 % on a change of goal, 7-12 % at a door, 3-6 % a player. Of leaf flips, 70-85 % were hold range and chase. The top blocked spots stand beside physics props (`prison_heater001a` at (-3812 5335) and (-2656 4050), `controlroom_filecabinet` at (-3232 4440), `wood_crate` at (-3140 2040) and (-3415 3619)) | a scratch reader over three recordings' frames and intents; the entity lump | the classes are of episodes by path and net, a door within 128 u, a player within 64 u |
 
+- **The obstacle field** (2026-11-02, `NavObstacleField`, debug, dm_lockdown, four bots of mixed
+  presets, a scripted client, `tools/ai-scenario jank`, 5 minutes, base 874d021f8 against the
+  field on the same main). Bots' stuck s/min 3.85, 3.56, 5.17 (mean 4.19) -> 3.20, 2.77,
+  2.55 (mean 2.84); wall bump 0.97, 0.94, 2.41 (mean 1.44) -> 1.99, 1.37, 1.20 (mean 1.52,
+  no change within its spread); score 37.0, 35.6, 47.6 -> 34.1, 32.5, 31.7. The wedge on two file
+  cabinets (-3170 4437 134), 22.4 s of one before run, is off both top-ten lists after.
+  The main thread: `ai.obstacles.us` 30-34 µs a tick mean over six 20 s windows; `ai.main.us`,
+  which does not count it, 360-1014 with the field and 286-1108 on the base, the same box and
+  the same spread. Per-bot views did not need to give way to a shared field: 209 solid
+  entities, 533 cells blocked and about 1,550 costly of 35,373; 44-50 had moved after two minutes, 135 publishes
+  (35 KB each) in the first 6,800 ticks. First measured at 124-147 µs: the solver's angles
+  against the map's read as every prop moved (the wrap, fixed), and each bot asked after all of
+  them every 4 ticks (now a bot every 4 ticks, and a slice of the bodies over 16).
+  Live: a frozen crate placed in sight on a bot's straight route was known within 8 s (a new entity
+  is enrolled by roster, one class every 33 ticks; a move within 16), and 10 of 10 runs went round
+  it at x -3556 of the straight -3620, 0 stuck lines; one placed in a room out of the bot's PVS
+  read `knows 0, truly 2` after 10 s and `knows 2` once the bot stood there. In a 96-wide doorway the
+  same crate leaves no way, and the route went 3,289 round. `tools/ai-mutations`, 10 field arms and 2
+  ladder arms, each red (one first green: its fact could not fail, fixed).
+  Static props: the file has them. `ai_nav_validate 5000 7 31`: 1 of 4,975 standing cells refused by
+  the world's hull trace. `ai_nav_probe` over 81 points round each of the feel lane's five top
+  cells and the gate: every Stand cell the world refused was refused by an entity (prop_physics,
+  prop_physics_respawnable, func_brush); no static prop missed. The cabinets, heaters, crates
+  and sinks at those cells are prop_physics, which the file's obstacle only held at their
+  map position with a centre-only fit.
+| jank score after personality, three standard runs | **26.7, 26.6, 29.6 (mean 27.6)**, against main `daeda3863`'s 32.8 as the coordinator measured it: stuck 1.81, 1.51, 2.00; turn backs 1.18, 1.91, 2.09; wall 1.13, 0.71, 0.89; flips branch 1.7, 2.7, 1.9 and leaf 2.2, 3.3, 1.9; goal jumps 17.6, 20.1, 19.9; no shot under 400 u 21, 21, 26 %; from 400 u 36, 43, 41 %; idle 2.18, 0.81, 0.82 | `make ai-jank` | `d13ccce3b`, debug, box shared |
+| how opposite spreads play, of one point total (50), two campers and two chasers, two 5-minute runs | walked u/min: campers 3,842, 6,232, 4,374, 293; chasers 9,383, 10,455, 9,984, 10,120. Kills from ambush: campers 43, 31, 20, 0 %; chasers 8, 0, 0, 10 %. Mean hit range: campers 355, 398, 347, 275; chasers 286, 264, 344, 330. Unseen share does not separate them: campers 80, 62, 82, 99 %; chasers 85, 72, 67, 76 %. Kills: campers 7, 13, 10, 1; chasers 12, 15, 10, 10 | `tools/ai-scenario traits` | `d13ccce3b` |
+| a habit, live: the listen client stood at (-3411 3606 1), put back when it dies, among three bots of Cunning 10 | sampled from each inspector over 5 minutes, first half and second: no bot knew the habit in the first half of either run (0 of about 690 samples each). In the second half, of about 230 samples a bot: run 1, 40 (19 of them pre-aiming) and 18; run 2, 34 (2 pre-aiming). Moments `spot on slot 1` at ticks 14367 and 14987, and 15135 and 17590, none before tick 10,000. One bot of three in run 1 and two in run 2 never learnt it: the habit is earned by each, and a 5-minute run does not always get there | `tools/ai-scenario habit` | `d13ccce3b`; samples at about 2 a second |
+| the presets' spread and these traits | over 500 draws, the share that would hold a place with nothing to hunt, then over a hunt: Easy 2 %, 0 %; Medium 25 %, 0 %; Hard 70 %, 5 %; Expert 93 %, 6 %. Aggression 7 or more: Easy 0 %, Medium 6 %, Hard 16 %, Expert 32 % | a throwaway probe over `SkillSpread.Draw`, not committed | `d13ccce3b`. So a "Camps Alot" of Easy or Medium does not really camp: see §12.4 |
+| `ANewEndpointIsAskedAtOnce`, 8 parallel loops of the chat rig's facts | **16 of 120 runs failed; 0 of 480 after.** The Settle fix alone: 15, 11, 12, 16 of 120, so it was not the cause: the fact raced the worker's warm-up | `dotnet test` on the built assembly, load 25-60 | `a3a258482`, then `4ffaec376` |
+| choke points of dm_lockdown, `tools/ai-replay chokes` | **route betweenness between the map's 54 spawns and pickups over 35,373 cells, 259,494 edges: 288-497 ms on 4 worker threads (debug), then cached.** Top 10: (-2744 3512 128) 1.00, (-2760 2888 128) 0.70, (-3096 5832 2) 0.69, (-3192 4264 0) 0.55, (-3640 5304 0) 0.53, (-3464 3272 0) 0.52, (-2968 3800 0) 0.51, (-2904 5096 0) 0.49, (-3736 5832 2) 0.47, (-3720 4600 0) 0.42. By the PNG all ten and in-game screenshots of the top six: 1 a narrow walkway at a ladder on the upper floor, 2 an upper corridor, 3 a doorway, 4 a gap between bars and a wall, 6 a tiled passage: real; 5 a room's mouth, open floor, the weakest. Before the routes ran between places and the openness divisor, the top two were an open yard's floor before its door | the tool's PNG (opened), four views each at the top six (opened) | this lane, 2026-11-02 |
+| who holds a place, by difficulty, over 500 drawn bots | the share that holds with nothing to hunt, then over a hunt. **Named for it** (name from a high Cover or Cunning or a low Aggression; n 81, 81, 88, 74): Easy 100, 96 %; Medium 100, 93 %; Hard 99, 90 %; Expert 97, 77 %. **The rest:** 5, 0 %; 16, 4 %; 29, 9 %; 37, 14 %. **Everyone**, against §12.3's earlier row: Easy 20, 16 % (was 2, 0); Medium 30, 18 % (25, 0); Hard 41, 23 % (70, 5); Expert 46, 23 % (93, 6). `tools/ai-replay style` also lists each name's skill against everyone, on its curve, per difficulty: for instance Medium, Cover high 0.97 and low 0.03 against 0.40 ("Stands In Open"), Tenacity low gives up at 0.45 against 0.05 ("Runs Away"), Easy, Cover high 0.96 against 0.33 | `tools/ai-replay style`, committed; `StyleTests` holds it | this lane, 2026-11-02 |
+| opposite spreads at each total, walked u/min, kills, from ambush, mean hit range. Two campers, two chasers, 5 minutes | **50 points, 3 runs.** Before: campers walked 234, 3,573, 3,383, 511, 1,058, 72, kills 0, 5, 8, 0, 2, 1; chasers 7,606-9,894, kills 10-17. After: campers 7,320, 5,639, 6,041, 4,764, 4,586, 5,045, kills 13, 13, 5, 9, 12, 7, from ambush 15, 8, 0, 67, 33, 0 %, range 371-461; chasers 9,120-10,163, kills 8-17, from ambush 0-15 %, range 278-439. **35 points, 2 runs.** Before: campers 4,858, 2,735, 236, 430, kills 10, 5, 0, 0; chasers 8,845-9,817. After: campers 6,434, 7,535, 5,952, 6,696, kills 13, 11, 8, 6, from ambush 46, 27, 25, 17 %, range 300-452; chasers 8,398-9,762, kills 11-16, from ambush 0-18 %, range 189-355. **20 points, 2 runs.** Before: campers 771, 2,959, 6,969, 3,435, kills 0, 3, 3, 4; chasers 2,287-8,903. After: campers 3,463, 1,482, 5,370, 5,716, kills 5, 3, 3, 3, from ambush 60, 67, 0, 0 %; chasers 8,594-9,261, kills 3-7, from ambush 0 %. So the same direction at each total and clear on kills from ambush and range. **On distance it is narrower than before at 50 and 35: a camper now plays**, where before it sat at one or two places with few kills or none | `tools/ai-scenario traits --points N`, `ai-replay jank`'s observables | before `6dc0e4029`, after this lane; debug, 3 games at once on a shared box |
+| camps, high Cunning and Cover at 50 points, 3 runs, 2 campers each | hold seconds (still under the ambush leaf) 294, 158, 157, 280, 258, 296 -> 52, 110, 103, 127, 130, 132; **mean distance while holding to a good pickup 321 -> 258 u (bots 274-390 -> 115-349), to a choke 488 -> 326 u (241-1,095 -> 195-494)**; places held (192 u squares) 2-12 -> 18-31; campers' kills 16 -> 59, of them while holding or just after 5 -> 43. Everyone killed at a pickup's spawn 21 of 99 (21 %) -> 39 of 139 (28 %), by someone holding 1 -> 11. Two holders within 96 u of each other: 0.0 s in all 3 runs and in a 4-camper run | `tools/ai-replay tactics dm_lockdown`, over the same recordings as the row above | as above |
+| prefire, scripted | ss_ai_sight, a god-mode client seen 1 s then gone behind a wall, 30 trials: Cunning 10 Discipline 0 drew a burst after 10 and 13 of 30 (the rest: its clip spent or reloading after a second's fire, or looking elsewhere), 4.1 and 7.2 bursts/min, first burst 0.09 s to 3.4 s after the teleport, mean 1.0 s, 49 and 52 rounds of 260; the same bot at Cunning 0, **0 of 30**. Back in sight mid-burst: over within 0.07 s worst (one decide) in free play | `tools/ai-scenario prefire`, `ai-replay tactics` | this lane, debug |
+| prefire, free play | the jank run's four mixed bots, 3 runs: 0.51 bursts/min (0 to 1.76 by bot), 59 rounds of 4,669 (1.3 %), **0 hits, 0 kills**. It does not get kills here: it is a thing you see. No-target shots per kill 14.7 -> 17.8 (these are chiefly shots at a target's last point after losing it, and vary run to run: 12.3 in the round before) | `ai-replay tactics`, `ai-replay metrics` | before `6dc0e4029`, after this lane |
+| jank score, three standard runs | **before 28.7, 26.7, 30.4 (mean 28.6), stuck 1.35, 1.49, 1.92, no shot under 400 u 23, 20, 27 %, idle 1.91, 1.34, 1.12. After 26.1, 21.1, 23.7 (mean 23.6), stuck 1.15, 1.15, 1.06, no shot 22, 19, 19 %, idle 1.07, 1.00, 1.21.** Not raised; the fall's parts were not measured apart. A search that gets nowhere giving up on its noise is the likeliest | `make ai-jank`'s run, 5 minutes each | as above |
+| the Medium calibration, hit of aimed shots, SMG1, strafing target, 200 / 500 / 1,000 u, 8 reps | base two runs 69.4, 48.1, 31.2 and 67.8, 51.2, 35.1; this lane two runs 67.1, 44.7, 33.0 and 71.5, 53.8, 39.4: **means 68.6, 49.7, 33.2 against 69.3, 49.3, 36.2: within the ±5 of a run. `aimErrorDeg` at the Medium preset is the curve's own value (`StyleTests`), not moved.** Two things did move and are not aim: first shot at 500 u about 562 -> 480 ms and the crosshair's mean error 3.9 -> 1.7 deg, because a view waits where someone was last seen, not where they got to (the lost-sight fix below), so it often has no flick to make. Prefire shots count as no target under `AimCone`, in no rate, so `tools/ai-aim-calibrate` reads the same rates and its "shots at no target" line is where they show | `tools/ai-aim-range run --presets normal --ranges 200,500,1000 --patterns strafe,stand --reps 8 --seconds 3.5`, `6dc0e4029` in a worktree of its own against this lane; debug; two seeds each | 2026-11-02 |
+| spectators, live | a client played, went to spectate (`spectate`), and was flown through three Hard bots for 40 s on dm_lockdown: **of 279 bot samples none listed it in `/ai/bot/<id>/memory` and none was about it; back with `jointeam 2` a bot took it up and all 3 listed it**. The same script at `6dc0e4029`: **231 of 261 listed it, 24 were about it** | `tools/ai-scenario spectator` | 2026-11-02 |
+
 ### 12.4 Choices made in this plan (small, stated)
 
 - The aim brief's premises, against what was found (2026-11-02): `ss_ai_duel`'s room
@@ -2239,6 +2491,24 @@ that code when M1 starts, and changes nothing here.
   PhysicsImpact): nothing reported a solid brush's contact, so no hurting brush had ever
   thrown anyone, and `SsPlayer.TakesDamage` answers m_takedamage, which the kind's default
   had as no for every brush that asks.
+- The barred gate at (-3644 4664) of `docs/todo.md` was a false premise (2026-11-02). It is
+  `models/props_wasteland/prison_gate001c.mdl`, a static prop at (-3616 4698 62), solid 6, and
+  the file has it right: its `.phy`'s 11 pieces are a top bar at z 109-114, posts and bars
+  either side, and between the posts (x -3664 to -3568) a doorway with nothing in it, and
+  no door entity (`showers_gate1_light_closed` is a sprite with no gate). The red lamp and
+  the bars read as shut. The bars' columns have no leaf at y 4696; no jump link crosses
+  them. `ai_bot_drive` through at x -3640, -3620 and -3600 went from y 4640 to 5081, and
+  140 `ai_bot_goto`s (7 approaches of 20: diagonals, past each post, flank to flank round
+  by the doorway), expert, arrived with 0 stuck lines. Three logs of three lanes hold
+  4 stuck lines within 80 u of it, all at the post, none reproduced. No fix, a fact
+  (`TheGatesDoorwayIsAWayAndItsBarsAreNot`).
+- The ladder at (-4148 4188) (2026-11-02): each column's centre beside it is held off by a
+  floor's lip between z 96 and z 128 (its body would overlap the walkway), though the file
+  flags those leaves ladder. The movement holds a climber to the func_useableladder's
+  line, not a column's centre, so the derivation bridges such a gap when the ladder's
+  point0-point1 runs on through it (`LadderClimb`, graph revision 4). This side, no
+  map-tools change. Live, `ai_bot_goto` from its foot to the walkway: 12 of 12 expert, 12 of
+  12 normal, median 1.2 s and 1.4 s, 2.0 s worst, 0 stuck lines; the old way was 3,000 u.
 - A bot whose back is turned does not see someone walking up on it (its field is the
   client's 90°): the close-range ruling starts at sight.
 - Hearing = recipient-filter membership + soundlevel, not room-graph path
@@ -3552,6 +3822,29 @@ that code when M1 starts, and changes nothing here.
   in a run); wriggling is a person's last resort, and the props should really be on the
   nav (`docs/todo.md`'s gate at (-3644 4664) is the same kind of thing). Budgets for
   `ai-jank` wait for stage 3.
+
+- **Personality (§5.4), the choices and what is short.** (1) `grudgeWeight` is
+  Tenacity's: a bot that keeps after someone. (2) A grenade at the corner is not built.
+  (3) Time in cover is read as the time nobody held sight of the bot, from the other
+  players' sight events, needing no nav; it does not separate campers from chasers
+  (their fights keep them seen), so it is reported and not relied on. (4) **The
+  presets' spread is not enough for traits at Easy or Medium** (§12.3): the curves are
+  absolute, so a Medium bot's best skill of about 7 gives `camp` 0.56, whose 0.43 never
+  beats a hunt's 0.5. A bot named "Tommy Camps Alot" at Medium hunts like the rest.
+  Proposed, not done: read `camp` and the hunt's pull from a level's height above the
+  bot's own mean, so a favourite shows at any difficulty; it changes what difficulty
+  means, so it is the user's to rule on. (5) The moment's number on a dead bot's record
+  read as a new moment on each life, repeating the last one and printing an empty one
+  (41 lines in one run, 9 and 18 since): found by the live run, not the facts, and now
+  held by one. (6) `tools/ai-scenario
+  live` is the recipe for the committed live recording, which had none. A recording
+  made after `bf7f595e2` also showed `LiveRecordingTests` had a copy of the loader's
+  derive that had drifted from it; it now uses the loader.
+
+- **Prefire and camping: what the measuring showed** (2026-11-02). (1) **A lost sight carried the truth.** `VisionPass` sent `SightLost` with where the target had got to by the end of the half-second lost-sight wait: up to 95 u behind the wall, seen by nobody. The brief's "only from what it knows" would have failed through it; it now carries where they were last seen, with a fact. (2) **A held view was frozen.** `StimulusOf` hashed a point to 8 u, so a sway across a place was a new stimulus each decide, each restarting the reaction: the view never moved (166 s idle in one run once holds lasted). `LookKind.Watch` is one stimulus a place. (3) **Betweenness over all cells is a statement about area.** The first map's top two were an open yard's floor, since half the cells, so half the sources, are that yard. Routes between spawns and pickups, and dividing by openness, gave places that look like chokes. (4) **Two campers: a rule, not a shared board.** They are opponents and brains share nothing (§2.7), so a place falls to one slot of 3 by the place's number and the time; a bot seen near a place makes it taken. Slots equal mod 3 can still meet, and being seen covers that: 0.0 s shared in the runs. With 6 slots a camper's next place was a long run off, and it walked as a chaser does. (5) **A search that gets nowhere gives up on its noise** (beyond the brief): with Tenacity reading a height, a favourite searched 25 s against a wall. (6) **A camper with a known corner stopped camping**: `PlanAmbush`'s lower worth won over `PlanCamp`'s. A bot of Cover or patience keeps its camp's worth; Cunning alone still goes at the corner, so §10's flank and pre-aim stand. (7) The prefire's chance is drawn only once a place is in reach, or a bot looking the other way spent its chance. (8) `SkillObservable`'s and the opposite-spreads simulation's numbers moved: the search fact now walks (a still body "gets nowhere"), and the simulation's walked comparison is chaser over camper, not 1.5 times: on its floor a chaser hovers at a belief it reached, and the live row has the distances. An aim fact on one seed (`AMovingTargetIsAimedAheadAndAccuracyAllowsForMore`) was noise-sized, about 8 u, and now reads 12.
+- **Style: the choices** (2026-11-02). (1) **The formula has the bot's own spread in it**, beyond "height above its mean": a Hard bot's walk moves more points than an Easy one's, so raw height made Hard's second favourite a camper while Easy's first was not. (2) **The anchor is 4.5.** At 3.5, a bot's non-favourites read about 2.5, under any preset's levels, and every bot retreated at about 0.5 health: jank rose to 34-40. At 4.5 they read about Medium's 3 to 4. (3) **Agility reads its level.** The ruling's list of competence does not name it; a bot's own strafing costs its hit rate (§12.3's Expert row), so moving it would move the calibration; a named Dodger still stands out, since its level is above its peers'. (4) **`reloadBelowPct` reads style and `pushTrust` level**: when it likes to reload is manner, how far it trusts an estimate is skill. (5) A low Aggression now camps and a low Tenacity gives up (`giveUpHealth`), or those names lied. "Never Reloads" had no behaviour behind it and is "Burns Ammo". (6) Monotonic facts stay as they were: with the rest at Medium, a level is a height, and one level's curve can only reach its clamp sooner. The flat arms now return the curve's middle for the skill, red as before.
+- **Spectators: what was there** (2026-11-02). Vision was already right for an observer mode (`Living`), not for team 1 with none; `NavObstacleField`'s rosters and `GiveWay`'s list never held one; the roster counts client channels, so a spectator counts: those three needed no change, and their facts could not fail first, so they carry no arm but `spec-actor`. What was wrong: memory kept them and their last place (231 of 261 samples live), the board ranked them, a source slot's sound was heard. **Dead is not spectating**: a dead player waits in an observer mode too (`Players.DeathView`), and is on the kill feed and the board. **Chat answers them**, under `HostSay.CanHear`, as anyone in the server; its board leaves them out. A grudge fades through dormancy at its usual half-life, not paused.
+- **Measuring beside other games**: more than about 4 games at once on the box's 8 GB NVIDIA card fail device creation (`DxvkAdapter: Failed to create device`, exit 133, 8 of about 65 starts in this lane; others' games count). The lane's batches ran 3 at a time.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

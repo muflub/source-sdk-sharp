@@ -558,4 +558,111 @@ public sealed class BrainDriverTests
         Assert.Equal(goal, d.TakeUnreachable(Bot.Slot));   // and the brain hears, once
         Assert.Null(d.TakeUnreachable(Bot.Slot));
     }
+
+    // ---- a breakable on the route (§6.2) ---------------------------------------
+
+    private sealed class Aim(AiVector point, bool clear = true) : SourceSharp.Ai.Hl2mp.Nav.IBreakableAim
+    {
+        public bool TryAim(int cell, AiVector eye, SourceSharp.Abi.EntityHandle shooter, out AiVector at)
+        {
+            at = point;
+            return clear;
+        }
+    }
+
+    private static NavObstacleState Breaking(NavGraph g, params int[] cells)
+    {
+        var bytes = new byte[g.CellCount];
+        foreach (int c in cells)
+            bytes[c] = NavCellBlocks.Breakable;
+        return new NavObstacleState(0) { Cells = new NavCellBlocks(bytes) };
+    }
+
+    private static IntentCommand Walk(BrainDriver d, NavGraph g, IntentCommand brain, AiVector at, NavObstacleState state, int tick = 2)
+        => d.Drive(brain, at, new Tick(tick), tick, g, state);
+
+    [Fact]
+    public void ACrateOnTheRouteIsShotAndWalkedThroughOnceItIsGone()
+    {
+        var (g, ground, _) = Course();
+        AiVector crate = g.Cell(ground[2]).Centre + new AiVector(0f, 0f, 24f);
+        var d = new BrainDriver { Breakables = new Aim(crate) };
+        IntentCommand i = Walk(d, g, Brain(g.Cell(ground[4]).Centre), g.Cell(ground[0]).Centre, Breaking(g, ground[2].Index));
+        Assert.Equal((ActionKind.Fire, LookKind.CornerCheck, crate), (i.Action.Kind, i.Look.Kind, i.Look.Point));
+        Assert.Equal(1, d.Breaks);
+        // Gone: no state, no shot, on it goes.
+        i = Walk(d, g, Brain(g.Cell(ground[4]).Centre), g.Cell(ground[0]).Centre, new NavObstacleState(0), 3);
+        Assert.Equal(ActionKind.None, i.Action.Kind);
+        Assert.Equal(MoveKind.Follow, i.Move.Kind);
+    }
+
+    /// <summary>Near it, it stands and shoots; walking into a crate does no good.</summary>
+    [Fact]
+    public void AtTheCrateItStands()
+    {
+        var (g, ground, _) = Course();
+        AiVector crate = g.Cell(ground[2]).Centre;
+        var d = new BrainDriver { Breakables = new Aim(crate) };
+        IntentCommand i = Walk(d, g, Brain(g.Cell(ground[4]).Centre), g.Cell(ground[1]).Centre, Breaking(g, ground[2].Index));
+        Assert.Equal(MoveKind.Hold, i.Move.Kind);
+        Assert.Equal(ActionKind.Fire, i.Action.Kind);
+    }
+
+    /// <summary>An unbreakable one is not fired at: its cells are not breakable, whatever is asked.</summary>
+    [Fact]
+    public void AnUnbreakableOneIsNotShot()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver { Breakables = new Aim(g.Cell(ground[2]).Centre) };
+        var bytes = new byte[g.CellCount];
+        bytes[ground[2].Index] = NavCellBlocks.Costly;
+        IntentCommand i = Walk(d, g, Brain(g.Cell(ground[4]).Centre), g.Cell(ground[0]).Centre, new NavObstacleState(0) { Cells = new NavCellBlocks(bytes) });
+        Assert.Equal(ActionKind.None, i.Action.Kind);
+        Assert.Equal(0, d.Breaks);
+    }
+
+    /// <summary>Someone in view comes first: the brain's look and hands stand.</summary>
+    [Fact]
+    public void ASeenEnemyComesFirst()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver { Breakables = new Aim(g.Cell(ground[2]).Centre) };
+        IntentCommand brain = Brain(g.Cell(ground[4]).Centre) with { Look = new LookIntent(LookKind.Actor, new AiVector(0f, 500f, 48f), new ActorId(3, 1), AimPoint.Body, 0f, 0), Action = new ActionIntent(ActionKind.Fire, FireStyle.Burst, 0, 0) };
+        IntentCommand i = Walk(d, g, brain, g.Cell(ground[0]).Centre, Breaking(g, ground[2].Index));
+        Assert.Equal((LookKind.Actor, FireStyle.Burst), (i.Look.Kind, i.Action.Style));
+        Assert.Equal(0, d.Breaks);
+    }
+
+    /// <summary>A prop that is not in the way is left alone: the loft's crate, while the route is along the ground.</summary>
+    [Fact]
+    public void APropNotInTheWayIsLeftAlone()
+    {
+        var (g, ground, loft) = Course();
+        var d = new BrainDriver { Breakables = new Aim(g.Cell(loft[2]).Centre) };
+        IntentCommand i = Walk(d, g, Brain(g.Cell(ground[3]).Centre), g.Cell(ground[0]).Centre, Breaking(g, loft[2].Index));
+        Assert.Equal(ActionKind.None, i.Action.Kind);
+    }
+
+    /// <summary>With no clear line it does not fire: it walks on until it has one.</summary>
+    [Fact]
+    public void NoLineNoShot()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver { Breakables = new Aim(g.Cell(ground[2]).Centre, clear: false) };
+        IntentCommand i = Walk(d, g, Brain(g.Cell(ground[4]).Centre), g.Cell(ground[0]).Centre, Breaking(g, ground[2].Index));
+        Assert.Equal(ActionKind.None, i.Action.Kind);
+        Assert.Equal(MoveKind.Follow, i.Move.Kind);
+    }
+
+    /// <summary>One that does not go gets its patience, and then the bot asks for a way round.</summary>
+    [Fact]
+    public void ItGivesUpOnOneThatWillNotBreak()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver { Breakables = new Aim(g.Cell(ground[2]).Centre) };
+        NavObstacleState state = Breaking(g, ground[2].Index);
+        for (int t = 2; t < BrainDriver.BreakPatienceTicks + 4; t++)
+            Walk(d, g, Brain(g.Cell(ground[4]).Centre), g.Cell(ground[0]).Centre, state, t);
+        Assert.Equal(1, d.BreaksGivenUp);
+    }
 }

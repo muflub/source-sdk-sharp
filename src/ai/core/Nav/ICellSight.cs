@@ -12,4 +12,7 @@ public interface ICellSight
 
     /// <summary>Whether a standing eye at cell <paramref name="a"/> sees one at cell <paramref name="b"/>.</summary>
     bool Visible(int a, int b);
+
+    /// <summary>The share of the places in range that see cell <paramref name="cell"/>, 0..1: how exposed standing there is.</summary>
+    float Exposure(int cell);
 }

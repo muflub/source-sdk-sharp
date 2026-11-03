@@ -3093,6 +3093,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // the slot. See LivenessMirror.Save.
         ReloadStore reload = _engine.Reload;
         reload.Put(LivenessMirror.ReloadSection, _liveness.Save(), 1);
+        reload.Put(LevelReloadSection, System.Text.Encoding.UTF8.GetBytes(_currentMap), 1);
 
         int rows = _entities.SaveForReload(reload);
 
@@ -3169,7 +3170,30 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 $"{tally.Fields} field(s), {tally.Bytes} byte(s); {tally.Parts} subsystem " +
                 $"record(s) into {reached} participant(s), {tally.PartFields} field(s)\n");
 
+        CarryLevel(reload);
+
         return restored;
+    }
+
+    /// <summary>The section that carries which level is running across a hot reload.</summary>
+    internal const string LevelReloadSection = "server.level";
+
+    /// <summary>This composition's view of the running level.</summary>
+    internal ILevelInfo RunningLevel => _levelInfo;
+
+    // The level's init ran for the composition that went: this one learns the
+    // map from what it left, and its participants that hold level state build it.
+    private void CarryLevel(ReloadStore reload)
+    {
+        byte[]? map = reload.Take(LevelReloadSection);
+        if (map is not { Length: > 0 })
+            return;
+
+        _currentMap = System.Text.Encoding.UTF8.GetString(map);
+        _levelInfo.Map = _currentMap;
+        _levelInfo.IsReady = true;
+        _gameDll?.LevelCarried(_currentMap);
+        _lifecycle?.LevelCarried(_currentMap);
     }
 
     /// <summary>

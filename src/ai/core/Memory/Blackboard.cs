@@ -25,7 +25,10 @@ public sealed class KnownActor
 {
     public ActorId Id { get; internal set; }
 
-    public bool Known => Id.IsValid;
+    public bool Known => Id.IsValid && !Spectating;
+
+    /// <summary>Gone to watch (§4.1): nothing is known of it, but a grudge stays against its return.</summary>
+    public bool Spectating { get; private set; }
 
     public AiVector LastSeenPos { get; internal set; }
 
@@ -71,18 +74,55 @@ public sealed class KnownActor
 
     public AmmoEstimate Ammo { get; } = new();
 
+    private float _grudge;
+    private Tick _grudgeTick;
+
+    /// <summary>How long a grudge takes to fade by half (§5.5).</summary>
+    public const float GrudgeHalfLifeSeconds = 180f;
+
+    /// <summary>The grudge a bot holds against it now: one for each time it killed the bot, fading. In memory only, as all of this is.</summary>
+    public float GrudgeAt(Tick now, float tickSeconds)
+        => _grudge <= 0f ? 0f : _grudge * MathF.Pow(0.5f, Math.Max(0, now - _grudgeTick) * tickSeconds / GrudgeHalfLifeSeconds);
+
+    internal void AddGrudge(Tick now, float tickSeconds, float amount)
+    {
+        _grudge = GrudgeAt(now, tickSeconds) + amount;
+        _grudgeTick = now;
+    }
+
+    /// <summary>Evened up: the bot killed it back, which halves the grudge.</summary>
+    internal void Avenged(Tick now, float tickSeconds)
+    {
+        _grudge = GrudgeAt(now, tickSeconds) * 0.5f;
+        _grudgeTick = now;
+    }
+
     /// <summary>Where it is now while unseen (§5.3.1), or null with no nav graph.</summary>
     public PositionPredictor? Where { get; internal set; }
 
     /// <summary>The last perception of any kind.</summary>
     public Tick LastPerceivedTick => LastSeenTick > LastHeardTick ? LastSeenTick : LastHeardTick;
 
+    /// <summary>It went to watch: everything goes as for a stranger, but who it is and any grudge.</summary>
+    internal void GoneToWatch()
+    {
+        (ActorId id, float grudge, Tick grudgeTick) = (Id, _grudge, _grudgeTick);
+        Clear();
+        (Id, _grudge, _grudgeTick) = (id, grudge, grudgeTick);
+        Spectating = true;
+    }
+
+    /// <summary>Back in the game: a new player to the bot, whose grudge is awake again.</summary>
+    internal void BackFromWatching() => Spectating = false;
+
     internal void Clear()
     {
         Id = ActorId.None;
+        Spectating = false;
         LastSeenPos = LastSeenVel = LastHeardPos = default;
         LastSeenTick = LastHeardTick = default;
         EverSeen = EverHeard = InSight = Dead = false;
+        _grudge = 0f;
         LastHeardKind = SoundKind.Unknown;
         Confidence = 0f;
         HealthEstimate = 100;
@@ -250,6 +290,20 @@ public sealed class Blackboard
             Investigation v = _investigations[i];
             bool done = v.Position.DistanceTo(at) <= radius || (source.IsValid && v.Source == source);
             if (!done)
+                _investigations[n++] = v;
+        }
+
+        InvestigationCount = n;
+    }
+
+    /// <summary>Drops every investigation of a sound from <paramref name="source"/>.</summary>
+    public void ForgetSource(ActorId source)
+    {
+        int n = 0;
+        for (int i = 0; i < InvestigationCount; i++)
+        {
+            Investigation v = _investigations[i];
+            if (v.Source != source)
                 _investigations[n++] = v;
         }
 

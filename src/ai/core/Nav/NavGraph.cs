@@ -87,6 +87,7 @@ public sealed class NavGraph
     // its footprint overlaps, so a point's cells are one lookup away.
     private const float Bucket = 64f;
     private readonly Dictionary<(int, int), int[]> _buckets;
+    private readonly int[] _component;
 
     internal NavGraph(ImmutableArray<NavCell> cells, ImmutableArray<NavEdge> edges, int obstacles)
     {
@@ -95,6 +96,7 @@ public sealed class NavGraph
         (_out, _outStart) = Csr(cells.Length, edges, e => e.From);
         (_in, _inStart) = Csr(cells.Length, edges, e => e.To);
         _buckets = Index(cells);
+        _component = Components(cells.Length, _out);
         Hash = ComputeHash();
     }
 
@@ -110,6 +112,9 @@ public sealed class NavGraph
     public NavCell Cell(CellId id) => _cells[id.Index];
 
     public NavCell Cell(int index) => _cells[index];
+
+    /// <summary>Which joined-up part of the map a cell is in (edges either way): a place in another part can never be walked to.</summary>
+    public int ComponentOf(int cell) => _component[cell];
 
     /// <summary>The cell without a copy, for the predictors' hops.</summary>
     internal ref readonly NavCell CellRef(int index) => ref _cells.ItemRef(index);
@@ -237,11 +242,73 @@ public sealed class NavGraph
     /// <summary>
     /// Whether an agent of <paramref name="cls"/> may take <paramref name="e"/>
     /// with the obstacles as <paramref name="obstacles"/> says: both ends admit
-    /// it, and no shut obstacle blocks it.
+    /// it, no shut obstacle blocks it, and it does not step into a blocked cell.
     /// </summary>
     public bool Passable(in NavEdge e, ClearanceClass cls, NavObstacleState obstacles)
+        => Admits(e, cls, obstacles) && !obstacles.CellBlocked(e.To);
+
+    /// <summary>
+    /// <see cref="Passable"/> without the cell it steps into: a field's search, which
+    /// goes backwards from the objective and says for itself which cells it goes on from
+    /// (a route may end in a blocked cell, or start in one).
+    /// </summary>
+    public bool Admits(in NavEdge e, ClearanceClass cls, NavObstacleState obstacles)
         => _cells[e.From].Admits(cls) && _cells[e.To].Admits(cls)
            && (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle) || (obstacles.OpenDoors && e.Type == NavEdgeType.Door));
+
+    /// <summary>
+    /// The cells whose footprints may meet the box from (<paramref name="minX"/>,
+    /// <paramref name="minY"/>) to (<paramref name="maxX"/>, <paramref name="maxY"/>), each
+    /// once, into <paramref name="into"/>: the index's squares, so a caller still tests each.
+    /// </summary>
+    public void CellsNear(float minX, float minY, float maxX, float maxY, List<int> into)
+    {
+        ArgumentNullException.ThrowIfNull(into);
+        into.Clear();
+        var seen = new HashSet<int>();
+        for (int bx = (int)MathF.Floor(minX / Bucket); bx <= (int)MathF.Floor(maxX / Bucket); bx++)
+        {
+            for (int by = (int)MathF.Floor(minY / Bucket); by <= (int)MathF.Floor(maxY / Bucket); by++)
+            {
+                if (_buckets.TryGetValue((bx, by), out int[]? cells))
+                {
+                    foreach (int c in cells)
+                    {
+                        if (seen.Add(c))
+                            into.Add(c);
+                    }
+                }
+            }
+        }
+    }
+
+    private static int[] Components(int cells, ImmutableArray<NavEdge> edges)
+    {
+        var parent = new int[cells];
+        for (int c = 0; c < cells; c++)
+            parent[c] = c;
+        int Root(int c)
+        {
+            while (parent[c] != c)
+            {
+                parent[c] = parent[parent[c]];
+                c = parent[c];
+            }
+
+            return c;
+        }
+
+        foreach (NavEdge e in edges)
+        {
+            int a = Root(e.From), b = Root(e.To);
+            if (a != b)
+                parent[Math.Max(a, b)] = Math.Min(a, b);
+        }
+
+        for (int c = 0; c < cells; c++)
+            parent[c] = Root(c);
+        return parent;
+    }
 
     private static bool Holds(in NavCell c, float x, float y) => x >= c.MinX && x < c.MaxX && y >= c.MinY && y < c.MaxY;
 
@@ -328,6 +395,30 @@ public sealed class NavObstacleState
 {
     private readonly bool[] _blocking;
     private bool[]? _shovable;
+    private NavCellBlocks? _cells;
+    private NavObstacleState? _live;
+
+    /// <summary>
+    /// The cells the entities this state's owner knows of take, or null for none. A
+    /// <see cref="Shoved"/> copy follows its original's; a <see cref="Clone"/> keeps what it
+    /// was cloned with, which a worker reads while the main thread publishes newer ones.
+    /// </summary>
+    public NavCellBlocks? Cells
+    {
+        get => _live is not null ? _live.Cells : _cells;
+        set => _cells = value;
+    }
+
+    /// <summary>Whether no route goes through <paramref name="cell"/>.</summary>
+    public bool CellBlocked(int cell) => Cells is { } cells && cells.State(cell) == NavCellBlocks.Blocked;
+
+    /// <summary>What a step into <paramref name="cell"/> costs over the edge's own.</summary>
+    public float CellExtra(int cell) => Cells?.State(cell) switch
+    {
+        NavCellBlocks.Costly => NavCellBlocks.ShoveCost,
+        NavCellBlocks.Breakable => NavCellBlocks.BreakCost,
+        _ => 0f,
+    };
 
     public NavObstacleState(int obstacles) => _blocking = new bool[obstacles];
 
@@ -351,6 +442,8 @@ public sealed class NavObstacleState
     public NavObstacleState Shoved()
     {
         NavObstacleState copy = Clone();
+        copy._cells = null;
+        copy._live = _live ?? this;
         for (int o = 0; _shovable is not null && o < _blocking.Length; o++)
         {
             if (_shovable[o])
@@ -366,7 +459,45 @@ public sealed class NavObstacleState
         var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors };
         _blocking.CopyTo(copy._blocking, 0);
         copy._shovable = _shovable;
+        copy._cells = Cells;
         return copy;
+    }
+}
+
+/// <summary>
+/// What the solid entities a bot knows of do to the graph's cells (plan_hl2mp_ai §6.2,
+/// ruling 2026-11-02): one byte a cell, immutable once made, so a field built on a
+/// worker reads it as it stood when asked for. A <see cref="Blocked"/> cell is on no
+/// route's way (a route can still start in one, or end in one); a <see cref="Costly"/>
+/// one is a big prop a player can shove, gone through only for more than the way round;
+/// a <see cref="Breakable"/> one is something the bot can shoot out of its way.
+/// </summary>
+public sealed class NavCellBlocks(byte[] cells)
+{
+    public const byte Free = 0, Costly = 1, Blocked = 2, Breakable = 3;
+
+    /// <summary>
+    /// What a step into a breakable's cell costs: a crate across a corridor, four or
+    /// five cells, is worth some 500 u of walking round. Shooting it takes a second or two.
+    /// </summary>
+    public const float BreakCost = 100f;
+
+    /// <summary>What a step into a costly cell costs, in units: a crate five cells across is worth 2,500 u of walking round.</summary>
+    public const float ShoveCost = 512f;
+
+    public byte State(int cell) => (uint)cell < (uint)cells.Length ? cells[cell] : Free;
+
+    /// <summary>How many cells are <see cref="Blocked"/> and how many <see cref="Costly"/>, by counting.</summary>
+    public (int Blocked, int Costly) Count()
+    {
+        int blocked = 0, costly = 0;
+        foreach (byte c in cells)
+        {
+            blocked += c == Blocked ? 1 : 0;
+            costly += c == Costly ? 1 : 0;
+        }
+
+        return (blocked, costly);
     }
 }
 

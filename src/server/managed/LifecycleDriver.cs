@@ -110,6 +110,9 @@ public sealed class LifecycleDriver
     /// <summary>The PostEntity half, under the name the module already calls.</summary>
     public void LevelShutdown() => LevelShutdownPostEntity();
 
+    /// <summary>A hot reload came up under a running level: <see cref="IGameLifecycle.OnLevelCarried"/>.</summary>
+    public void LevelCarried(string mapName) => Dispatch("OnLevelCarried", p => p.OnLevelCarried(mapName));
+
     public void Shutdown() => Dispatch("OnShutdown", p => p.OnShutdown());
 
     //-------------------------------------------------------------------------

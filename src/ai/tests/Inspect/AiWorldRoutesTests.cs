@@ -48,8 +48,12 @@ public sealed class AiWorldRoutesTests
         public string? Refusal => null;
 
         public NavObstacleState? Obstacles { get; } = new(Course.Value.Nav.Graph.ObstacleCount);
+        public NavObstacleState? ObstaclesFor(SourceSharp.Abi.EntityHandle player) => Obstacles;
 
         public NavSight? Sight => null;
+
+
+        public ChokeSlot? Chokes => null;
     }
 
     private sealed class Runner : IPlayerCommandRunner

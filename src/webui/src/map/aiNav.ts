@@ -17,6 +17,8 @@ export interface AiNav {
   cell: number[];
   link: number[];
   obstacles: { name: string; kind: string; blocking: boolean }[];
+  /** The places most routes must pass, busiest first (plan_hl2mp_ai §5.5); empty until worked out. */
+  chokes?: { x: number; y: number; z: number; score: number }[];
   error?: string;
 }
 
@@ -36,6 +38,9 @@ export const CROUCH = 2;
 export const WATER = 1;
 export const LADDER = 2;
 
+/** How many points draw one choke point's column. */
+export const CHOKE_POINTS = 24;
+
 /** Link types, in NavEdgeType's order. */
 export const LINK_TYPES = ['walk', 'jump', 'crouchjump', 'drop', 'ladder', 'door'] as const;
 
@@ -45,6 +50,7 @@ export const NAV_COLOURS = {
   crouch: [0.95, 0.78, 0.25],
   water: [0.30, 0.55, 0.95],
   ladder: [0.30, 0.90, 0.90],
+  choke: [1.0, 0.2, 0.8],
   walk: [0.5, 0.5, 0.5],
   jump: [0.95, 0.55, 0.20],
   crouchjump: [0.95, 0.30, 0.20],
@@ -73,11 +79,22 @@ export interface Layer { positions: Float32Array; colours: Float32Array }
 /** A point per cell, and a line per non-walk link. */
 export function buildNavLayers(nav: AiNav): { cells: Layer; links: Layer } {
   const n = Math.floor(nav.cell.length / 7);
-  const cells = { positions: new Float32Array(n * 3), colours: new Float32Array(n * 3) };
+  const chokes = nav.chokes ?? [];
+  const extra = chokes.length * CHOKE_POINTS;
+  const cells = { positions: new Float32Array((n + extra) * 3), colours: new Float32Array((n + extra) * 3) };
   for (let i = 0; i < n; i++) {
     cells.positions.set(cellCentre(nav, i), i * 3);
     cells.colours.set(cellColour(nav, i), i * 3);
   }
+
+  // A choke point is a column of bright points standing on its cell, taller as it is busier.
+  chokes.forEach((c, k) => {
+    for (let p = 0; p < CHOKE_POINTS; p++) {
+      const at = (n + k * CHOKE_POINTS + p) * 3;
+      cells.positions.set([c.x, c.y, c.z + (p / CHOKE_POINTS) * 32 * (1 + 3 * c.score)], at);
+      cells.colours.set(NAV_COLOURS.choke, at);
+    }
+  });
 
   const m = Math.floor(nav.link.length / 3);
   const links = { positions: new Float32Array(m * 6), colours: new Float32Array(m * 6) };

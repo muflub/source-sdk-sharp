@@ -19,6 +19,7 @@ public sealed class AiWorkerPool(string name = "ai-worker") : IDisposable
     private readonly List<Thread> _threads = new();
     private volatile bool _running;
     private long _busyTicks;
+    private long _busyCpuNanos;
     private long _ran;
     private long _faults;
     private string? _lastFault;
@@ -47,6 +48,18 @@ public sealed class AiWorkerPool(string name = "ai-worker") : IDisposable
 
     /// <summary>Wall time the workers spent running work, in microseconds (<c>ai.pool.us</c>'s numerator).</summary>
     public double BusyMicros => Interlocked.Read(ref _busyTicks) * 1e6 / Stopwatch.Frequency;
+
+    /// <summary>
+    /// The calling thread's CPU clock in microseconds, or null: with one a
+    /// worker's work is charged what it ran, not the time it waited for a core.
+    /// </summary>
+    public Func<double>? CpuClock { get; init; }
+
+    /// <summary>
+    /// CPU time the workers spent running work, in microseconds
+    /// (<c>ai.pool.cpu.us</c>'s numerator); the wall time with no clock.
+    /// </summary>
+    public double BusyCpuMicros => CpuClock is null ? BusyMicros : Interlocked.Read(ref _busyCpuNanos) / 1e3;
 
     /// <summary>Work that threw; the worker goes on.</summary>
     public long Faults => Interlocked.Read(ref _faults);
@@ -123,6 +136,7 @@ public sealed class AiWorkerPool(string name = "ai-worker") : IDisposable
             if (!_queue.TryDequeue(out IAiWork? work))
                 continue;
             long start = Stopwatch.GetTimestamp();
+            double cpuStart = CpuClock?.Invoke() ?? 0d;
             try
             {
                 work.Run();
@@ -134,6 +148,8 @@ public sealed class AiWorkerPool(string name = "ai-worker") : IDisposable
             }
 
             Interlocked.Add(ref _busyTicks, Stopwatch.GetTimestamp() - start);
+            if (CpuClock is { } cpu)
+                Interlocked.Add(ref _busyCpuNanos, (long)((cpu() - cpuStart) * 1e3));
             Interlocked.Increment(ref _ran);
         }
     }

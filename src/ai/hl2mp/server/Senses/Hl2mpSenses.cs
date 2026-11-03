@@ -18,7 +18,7 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapons, ModelDescriptors models, IEnginePlayers players,
                                    ILog log, ConVarRegistry? convars = null, Skills.ISkillCurveSource? curves = null) : IGameLifecycle
 {
-    private readonly AiWorkerPool _pool = new();
+    private readonly AiWorkerPool _pool = new() { CpuClock = ThreadCpuClock.Micros() };
     private readonly InlineTransport _inline = new();
     private PooledTransport? _pooled;
 
@@ -130,7 +130,7 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
                                                   convars?.Get<WeaponRespawnTimeConVar>()?.Value ?? 20f,
                                                   convars?.Get<ItemRespawnTimeConVar>()?.Value ?? 30f)
             : new MapKnowledge(mapName, [], [], facts);
-        Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight);
+        Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight, nav.Chokes);
         // The level counts its ticks from low again: the last level's snapshots go.
         Session.Snapshots.Reset();
         bool sync = convars?.Get<AiSyncConVar>()?.Value == true;
@@ -145,6 +145,9 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
         log.Msg($"[SourceSharp/Ai] {mapName}: the bots know {map.Items.Length} item spawns, {map.Spawns.Length} spawns, "
                 + $"{facts.All.Count(f => f.HasClip)} clip weapons ({string.Join(", ", facts.All.Where(f => f.HasClip).Select(f => $"{f.Name} {f.ClipSize}/{f.ReloadSeconds:F2}s"))})\n");
     }
+
+    /// <summary>A hot reload came up under a running level: the bots' knowledge and the pool go with the composition.</summary>
+    public void OnLevelCarried(string mapName) => OnLevelInitPostEntity(mapName);
 
     /// <summary>
     /// An opponent's identity for its habits, as the main thread knew it
@@ -189,7 +192,8 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
     private readonly Dictionary<int, ActorId> _inSession = new();
     private readonly double[] _us = new double[Window];
     private readonly double[] _publishUs = new double[Window];
-    private double _senseUs, _stepUs;
+    private double _senseUs, _stepUs, _senseCpuUs, _stepCpuUs;
+    private readonly Func<double>? _cpu = ThreadCpuClock.Micros();
     private readonly ActorActivity[] _activity = new ActorActivity[VisionPass.Slots];
     private int _samples;
     private int _sensedCount;
@@ -213,6 +217,16 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
     /// <c>ai.publish.us</c>, kept apart from the senses' <c>ai.sense.us</c>.
     /// </summary>
     public double PublishMeanUs => _samples == 0 ? 0 : _publishUs.AsSpan(0, Math.Min(_samples, Window)).ToArray().Average();
+
+    /// <summary>
+    /// The senses' cost as the main thread's own CPU time, a <see cref="Window"/>-tick
+    /// mean: <c>ai.sense.cpu.us</c>, what §9's budget gates. <see cref="SenseMeanUs"/>
+    /// is the wall, which a busy box stretches with no change to the code.
+    /// </summary>
+    public double SenseCpuMeanUs => _samples == 0 ? 0 : _senseCpu.AsSpan(0, Math.Min(_samples, Window)).ToArray().Average();
+
+    /// <summary>The same of the publish.</summary>
+    public double PublishCpuMeanUs => _samples == 0 ? 0 : _publishCpu.AsSpan(0, Math.Min(_samples, Window)).ToArray().Average();
 
     /// <summary>The worst tick in the window, in microseconds.</summary>
     public double SenseMaxUs => _samples == 0 ? 0 : _us.AsSpan(0, Math.Min(_samples, Window)).ToArray().Max();
@@ -241,27 +255,35 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         Sense(new Tick(now), frameTime > 0f ? frameTime : 0.015f);
         _us[_samples % Window] = _senseUs;
         _publishUs[_samples % Window] = _stepUs;
+        _senseCpu[_samples % Window] = _senseCpuUs;
+        _publishCpu[_samples % Window] = _stepCpuUs;
         _poolBusy[_samples % Window] = ai.Pool.BusyMicros;
+        _poolBusyCpu[_samples % Window] = ai.Pool.BusyCpuMicros;
         _samples++;
     }
 
     private readonly double[] _poolBusy = new double[Window];
+    private readonly double[] _poolBusyCpu = new double[Window];
+    private readonly double[] _senseCpu = new double[Window];
+    private readonly double[] _publishCpu = new double[Window];
 
     /// <summary>
     /// The workers' busy time over the last <see cref="Window"/> ticks, as
     /// microseconds a second (<c>ai.pool.us</c>; §9's ceiling is a quarter of
     /// one core, 250,000).
     /// </summary>
-    public double PoolUsPerSecond
+    public double PoolUsPerSecond => PerSecond(_poolBusy);
+
+    /// <summary>The same in the workers' CPU time: <c>ai.pool.cpu.us</c>, what the budget gates.</summary>
+    public double PoolCpuUsPerSecond => PerSecond(_poolBusyCpu);
+
+    private double PerSecond(double[] busy)
     {
-        get
-        {
-            int n = Math.Min(_samples, Window);
-            if (n < 2)
-                return 0;
-            double newest = _poolBusy[(_samples - 1) % Window], oldest = _poolBusy[(_samples - n) % Window];
-            return (newest - oldest) / ((n - 1) * Hl2mpAiSession.TickSeconds);
-        }
+        int n = Math.Min(_samples, Window);
+        if (n < 2)
+            return 0;
+        double newest = busy[(_samples - 1) % Window], oldest = busy[(_samples - n) % Window];
+        return (newest - oldest) / ((n - 1) * Hl2mpAiSession.TickSeconds);
     }
 
     /// <summary>
@@ -283,7 +305,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         {
             EntityHandle p = bots.Applier.PlayerOf(b.Id);
             if (p != EntityHandle.None)
-                _sensed[n++] = new SensedBot(b.Id, p, VisionCurves.For(b.Skills));
+                _sensed[n++] = new SensedBot(b.Id, p, VisionCurves.For(b.Skills, ai.Session.LastDoing(b.Id.Slot)?.StreakRecognizeSeconds ?? 0f));
         }
 
         _sensedCount = n;
@@ -296,6 +318,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         ReadOnlySpan<SensedActor> living = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_actors);
         ReadOnlySpan<SensedBot> observers = reference.Observers(living, _botIn);
         long start = Stopwatch.GetTimestamp();
+        double cpuStart = _cpu?.Invoke() ?? 0d;
         vision.Run(tick, tickSeconds, sensed, living, _events, observers, _observed);
         _nearby.Clear();
         foreach (SensedActor a in _actors)
@@ -311,7 +334,18 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
                 _activity[i] = ActorActivity.None;   // gone or dead: nothing to draw
         }
         if (ai.Session.World is { } world)
+        {
             vision.RunItems(tick, sensed, world.Map.Items, _events);
+            ChokesKnown(tick, sensed, world);
+            StreaksKnown(tick, sensed);
+        }
+
+        foreach (ref readonly SensedBot b in sensed)
+        {
+            if (ai.Session.LastDoing(b.Id.Slot) is { LineAsk: > 0 } doing)
+                vision.AnswerLine(tick, in b, doing.LineAsk, doing.LineAt, _events);
+        }
+
         foreach (AiEvent e in _events)
         {
             ai.Session.Push(e);
@@ -325,13 +359,56 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         AiSnapshot snapshot = ai.Session.Snapshots.BeginWrite(tick);
         builder.Build(snapshot, sensed, vision, ActivityOf);
         _senseUs = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
+        double cpuPublish = _cpu?.Invoke() ?? 0d;
+        _senseCpuUs = _cpu is null ? _senseUs : cpuPublish - cpuStart;
         long publish = Stopwatch.GetTimestamp();
         ai.Session.Publish(snapshot);
         _stepUs = Stopwatch.GetElapsedTime(publish).TotalMicroseconds;
+        _stepCpuUs = _cpu is null ? _stepUs : _cpu() - cpuPublish;
 
         // A shot's flash lasts the tick it was seen in.
         for (int i = 0; i < _activity.Length; i++)
             _activity[i] &= ~ActorActivity.Firing;
+    }
+
+    private readonly (ActorId Bot, bool On)[] _toldStreaks = new (ActorId, bool)[VisionPass.Slots];
+
+    /// <summary>Each bot is told whether streaks are on, as it joins and when <c>ai_bot_streaks</c> changes: a brain knows only what it is told (§5.5).</summary>
+    private void StreaksKnown(Tick tick, ReadOnlySpan<SensedBot> sensed)
+    {
+        foreach (ref readonly SensedBot b in sensed)
+        {
+            (ActorId bot, bool on) = _toldStreaks[b.Id.Slot];
+            if (bot != b.Id || on != bots.Streaks)
+            {
+                _toldStreaks[b.Id.Slot] = (b.Id, bots.Streaks);
+                _events.Add(AiEvent.StreaksSet(b.Id, tick, bots.Streaks ? AiEvent.StreaksOn : AiEvent.StreaksOff));
+            }
+        }
+    }
+
+    private readonly ActorId[] _toldChokes = new ActorId[VisionPass.Slots];
+    private ChokeSlot? _toldOf;
+
+    /// <summary>Once the level's choke points are worked out, each bot is told, once: from that tick its brain may use them (§5.5).</summary>
+    private void ChokesKnown(Tick tick, ReadOnlySpan<SensedBot> sensed, MemoryWorld world)
+    {
+        if (world.Chokes is not { Map: not null } slot)
+            return;
+        if (!ReferenceEquals(_toldOf, slot))
+        {
+            _toldOf = slot;
+            Array.Clear(_toldChokes);
+        }
+
+        foreach (ref readonly SensedBot b in sensed)
+        {
+            if (_toldChokes[b.Id.Slot] != b.Id)
+            {
+                _toldChokes[b.Id.Slot] = b.Id;
+                _events.Add(AiEvent.ChokesKnown(b.Id, tick));
+            }
+        }
     }
 
     /// <summary>

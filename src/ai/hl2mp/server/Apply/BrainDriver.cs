@@ -1,3 +1,4 @@
+using SourceSharp.Abi;
 using SourceSharp.Ai.Hl2mp.Nav;
 
 namespace SourceSharp.Ai.Hl2mp;
@@ -47,6 +48,7 @@ public sealed class BrainDriver
         _stuckSaid.Remove(slot);
         _giveWay.Forget(slot);
         _unreachable.Remove(slot);
+        _breaking.Remove(slot);
     }
 
     /// <summary>
@@ -55,7 +57,7 @@ public sealed class BrainDriver
     /// on a ladder, the climb's, whatever the brain said.
     /// </summary>
     public IntentCommand Drive(in IntentCommand brain, AiVector origin, Tick tick, int seq, NavGraph? graph, NavObstacleState? obstacles,
-                               bool onLadder = false, AiAngles view = default)
+                               bool onLadder = false, AiAngles view = default, EntityHandle shooter = default)
     {
         int slot = brain.Bot.Slot;
         MoveIntent move = brain.Move;
@@ -75,7 +77,12 @@ public sealed class BrainDriver
 
         if (graph is not null)
             Ladder(slot, d, origin, view, tick, onLadder, graph, ref move, ref look, ref action);
-        if (d is not null && !onLadder)
+        if (d is not null && !onLadder && Break(slot, d, origin, tick, obstacles, shooter, ref move, ref look, ref action))
+        {
+            _progress.Remove(slot);
+            _body.Remove(slot);
+        }
+        else if (d is not null && !onLadder)
         {
             _giveWay.Step(slot, d.Follower, origin, tick, Players, ref move);
             if (_giveWay.Waiting)
@@ -97,6 +104,67 @@ public sealed class BrainDriver
         }
 
         return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason);
+    }
+
+    /// <summary>The shots asked for, for the counters: how many breakables a bot has gone at, and how many times it gave up on one.</summary>
+    public long Breaks { get; private set; }
+
+    public long BreaksGivenUp { get; private set; }
+
+    /// <summary>What a bot's hands ask of the breakable on its route; the side sets it.</summary>
+    public SourceSharp.Ai.Hl2mp.Nav.IBreakableAim? Breakables { get; set; }
+
+    /// <summary>A breakable this many route steps on is one to deal with, and a shot goes this far: a person shoots a crate from a little way off, on the move.</summary>
+    public const int BreakHops = 16;
+
+    public const float BreakRange = 256f;
+
+    /// <summary>It walks on, firing, until this near what it is shooting, then stands; near enough for a crowbar.</summary>
+    public const float BreakStand = 72f;
+
+    /// <summary>How long one breakable gets (5 s) before the bot goes round it.</summary>
+    public const int BreakPatienceTicks = 333;
+
+    private readonly Dictionary<int, (int Cell, int Since)> _breaking = new();
+
+    /// <summary>
+    /// A breakable on the route (§6.2, user report 2026-11-02: "bots should shoot
+    /// creates if blocking path"): carried out here as a door is, the hands kept for
+    /// it, unless the brain has someone in view (its look is on an actor) or a one-shot
+    /// to press. Only down a shot's clear line; then the bot goes on. Answers whether it is at it.
+    /// </summary>
+    private bool Break(int slot, Driven d, AiVector origin, Tick tick, NavObstacleState? obstacles, EntityHandle shooter,
+                       ref MoveIntent move, ref LookIntent look, ref ActionIntent action)
+    {
+        if (Breakables is not { } aim || obstacles?.Cells is not { } cells || look.Kind == LookKind.Actor || action.OneShotSeq != 0
+            || d.Follower.BreakableAhead(cells, BreakHops) is not (>= 0 and var cell)
+            || !aim.TryAim(cell, origin + new AiVector(0f, 0f, EyeHeight), shooter, out AiVector point)
+            || (point - origin).Length2D > BreakRange)
+        {
+            _breaking.Remove(slot);
+            return false;
+        }
+
+        if (!_breaking.TryGetValue(slot, out (int Cell, int Since) was))
+        {
+            _breaking[slot] = was = (cell, tick.Value);
+            Breaks++;
+        }
+
+        if (tick.Value - was.Since > BreakPatienceTicks)
+        {
+            // It does not break, or not for this gun: round it, as for anything else in the way.
+            _breaking.Remove(slot);
+            BreaksGivenUp++;
+            ReportStuck(slot, d, origin);
+            return false;
+        }
+
+        look = new LookIntent(LookKind.CornerCheck, point, ActorId.None, AimPoint.Body, 0f, 0);
+        action = new ActionIntent(ActionKind.Fire, FireStyle.Tap, 0, 0);
+        if ((point - origin).Length2D <= BreakStand)
+            move = MoveIntent.Hold;
+        return true;
     }
 
     private readonly Dictionary<int, Driven> _scripted = new();

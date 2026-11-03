@@ -6,7 +6,7 @@ namespace SourceSharp.Ai;
 /// identity an opponent's habits are kept under (§5.2), and the map's static
 /// sight between cells for planning cover (null with none).
 /// </summary>
-public sealed record MemoryWorld(MapKnowledge Map, NavGraph? Graph, float TickSeconds, Func<ActorId, string> IdentityOf, ICellSight? Sight = null)
+public sealed record MemoryWorld(MapKnowledge Map, NavGraph? Graph, float TickSeconds, Func<ActorId, string> IdentityOf, ICellSight? Sight = null, ChokeSlot? Chokes = null)
 {
     public static MemoryWorld Empty(float tickSeconds = 0.015f)
         => new(MapKnowledge.Empty(new WeaponKnowledge([])), null, tickSeconds, id => id.ToString());
@@ -35,6 +35,7 @@ public sealed class BotMemory
     private readonly HabitStore _habits;
     private readonly Track[] _track;
     private Tick _lastAdvance;
+    private bool _chokesKnown;
 
     public BotMemory(ActorId bot, int slots, MemoryParams p, MemoryWorld world, HabitStore habits)
     {
@@ -58,6 +59,9 @@ public sealed class BotMemory
 
     public ActorId Bot { get; }
 
+    /// <summary>The last time the bot killed someone it held a grudge against (§5.5).</summary>
+    public (ActorId Who, Tick When) LastRevenge { get; private set; }
+
     public Blackboard Board { get; }
 
     public MemoryWorld World { get; }
@@ -71,6 +75,24 @@ public sealed class BotMemory
 
     /// <summary>The weapons the bot holds (its HUD), a mask of catalog kinds; 0 before the first <see cref="AiEventKind.Holdings"/>.</summary>
     public int HeldKinds { get; private set; }
+
+    /// <summary>The level's choke points once the bot was told they are worked out (<see cref="AiEventKind.ChokesKnown"/>), else null.</summary>
+    public ChokeMap? Chokes => _chokesKnown ? World.Chokes?.Map : null;
+
+    /// <summary>Whether a streak can start (§5.5): off until told, so a recording made before them replays as it was.</summary>
+    public bool StreaksOn { get; private set; }
+
+    /// <summary>A streak a console asked for: how many were, and the last's <see cref="AiEvent.StreakHot"/> or <see cref="AiEvent.StreakCold"/>.</summary>
+    public (int Seq, int Code) StreakAsked { get; private set; }
+
+    /// <summary>When the bot's last two kills were; tick 0 for none.</summary>
+    public (Tick Last, Tick Before) OwnKills { get; private set; }
+
+    /// <summary>When the bot's last two deaths were; tick 0 for none.</summary>
+    public (Tick Last, Tick Before) OwnDeaths { get; private set; }
+
+    /// <summary>The last answer to a look along a line (§5.4's prefire): the ask's number, the point, and whether it was clear.</summary>
+    public (int Ask, AiVector Point, bool Clear) LastLine { get; private set; }
 
     /// <summary>The habits of <paramref name="opponent"/> on this map.</summary>
     public OpponentHabits HabitsOf(ActorId opponent)
@@ -128,10 +150,32 @@ public sealed class BotMemory
         if (e.Other == Bot && e.Kind is not (AiEventKind.Killed or AiEventKind.Damaged))
             return;
 
+        if (e.Kind == AiEventKind.ActorSpectating)
+        {
+            Spectating(e.Other, e.Code != 0);
+            return;
+        }
+
+        // Nothing is learnt of someone watching, whatever comes (§4.1): the taps tell nothing, and this holds if one does.
+        if (Board.Of(e.Other, make: false) is { Spectating: true })
+            return;
+
         switch (e.Kind)
         {
             case AiEventKind.Holdings:
                 HeldKinds = e.Code;
+                break;
+            case AiEventKind.ChokesKnown:
+                _chokesKnown = true;
+                break;
+            case AiEventKind.StreaksSet:
+                if (e.Code is AiEvent.StreaksOff or AiEvent.StreaksOn)
+                    StreaksOn = e.Code == AiEvent.StreaksOn;
+                else
+                    StreakAsked = (StreakAsked.Seq + 1, e.Code);
+                break;
+            case AiEventKind.LineAnswer:
+                LastLine = (e.Code, e.Position, e.Amount > 0f);
                 break;
             case AiEventKind.SightGained:
                 Gained(e);
@@ -174,19 +218,37 @@ public sealed class BotMemory
 
                 break;
             case AiEventKind.KillFeed:
+                if (e.Killer == Bot)
+                    OwnKills = (e.Tick, OwnKills.Last);
                 if (Board.Of(e.Other, make: true) is { } dead)
                 {
                     // It comes back at full health with a clip nobody knows (§5.2).
+                    // Seen where it fell, a moment ago: one more time found there (§5.5).
+                    if (dead.EverSeen && (e.Tick - dead.LastSeenTick) * World.TickSeconds < CampSeconds && World.Graph is { } graph)
+                    {
+                        CellId fell = graph.FindCell(dead.LastSeenPos + new AiVector(0f, 0f, 1f));
+                        if (fell.IsValid)
+                            HabitsOf(dead.Id).Camped(fell);
+                    }
+
                     dead.Dead = true;
                     dead.InSight = false;
                     dead.HealthEstimate = 100;
                     dead.Ammo.Reset();
                     dead.Where?.Clear();
                     dead.Confidence = 0f;
+                    if (new ActorId(e.Code, e.Code2) == Bot && dead.GrudgeAt(e.Tick, World.TickSeconds) > 0f)
+                    {
+                        dead.Avenged(e.Tick, World.TickSeconds);
+                        LastRevenge = (dead.Id, e.Tick);
+                    }
                 }
 
                 break;
             case AiEventKind.Killed:
+                OwnDeaths = (e.Tick, OwnDeaths.Last);
+                if (e.Other != Bot && Board.Of(e.Other, make: true) is { } killer)
+                    killer.AddGrudge(e.Tick, World.TickSeconds, 1f);
                 Board.ForgetLife();
                 break;
             case AiEventKind.ScoreboardRow:
@@ -201,6 +263,28 @@ public sealed class BotMemory
             case AiEventKind.ItemSeen:
                 Board.SeeItem(e.Code, e.Code2 != 0, e.Tick, Dt);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Someone went to watch: forgotten like a dead player and more, position, belief,
+    /// sounds to look into and scoreboard row, and what it was doing with them; a
+    /// grudge goes dormant. Coming back they are new, the grudge awake (§4.1, ruling
+    /// 2026-11-02: "bots should ignore spectators as well").
+    /// </summary>
+    private void Spectating(ActorId actor, bool watching)
+    {
+        if (Board.Of(actor, make: true) is not { } a)
+            return;
+        if (watching)
+        {
+            a.GoneToWatch();
+            Board.ForgetSource(actor);
+            _track[actor.Slot] = default;
+        }
+        else
+        {
+            a.BackFromWatching();
         }
     }
 

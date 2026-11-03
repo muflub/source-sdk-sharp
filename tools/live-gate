@@ -5724,6 +5724,26 @@ def hot_reload_ui_arm(g):
     g.api.cmd("-showscores")
 
 
+def hot_reload_ai_arm(g):
+    """The AI came back with the level (plan_hl2mp_ai §6.3).
+
+    No level init runs for the composition a reload brings up, so the nav, the
+    bots' knowledge and the worker pool are built on the carried level. The
+    gate's order hid it (map-reload sits between hot-reload and bots); a
+    `--steps` run without map-reload refused every bot: "no level is loaded".
+    """
+    c = ai_counters(g)
+    if c is None:
+        g.note("the game answers no /ai/counters: no AI binding to carry")
+        return
+    want = g.scen["map"]
+    g.check(not c.get("nav.refusal") and c.get("nav.map") == want and c.get("nav.cells", 0) >= 1000,
+            "the AI's nav came back with the level (%r, %s cells, refusal %r)"
+            % (c.get("nav.map"), c.get("nav.cells"), c.get("nav.refusal")))
+    g.check(c.get("ai.pool.alive", 0) >= 1, "and its worker pool is running (%s)" % c.get("ai.pool.alive"))
+    g.check(c.get("ai.obstacles.bodies", 0) >= 1, "and its obstacle field follows the level's bodies (%s)" % c.get("ai.obstacles.bodies"))
+
+
 def step_hot_reload(g):
     """14. hot reload with the world intact.
 
@@ -6485,6 +6505,7 @@ and a door's are MovingBrush's.
 
     hot_reload_ui_arm(g)
     hot_reload_client_arm(g)
+    hot_reload_ai_arm(g)
 
     if not g.api.status().get("map"):
         g.note("KNOWN DEFECT: debug-api status reports no map after cs_sv_reload. "
@@ -9387,9 +9408,11 @@ AI_GATE_BOTS = [("Alyx", "hard"), ("Barney", "normal"), ("Gordon", "easy"),
 
 # §9's budgets with §12.3's measurements (plan ceilings; the live numbers are
 # far inside them on the pool): main thread per tick, brain CPU per decide,
-# the pool's busy time a second (a quarter of one core).
-AI_BUDGET = {"ai.sense.us": 400.0, "ai.main.us": 1000.0, "ai.brain.cpu.us": 2000.0,
-             "ai.pool.us": 250000.0}
+# the pool's busy time a second (a quarter of one core). In CPU time: the wall
+# went 680 -> 1,970 us on ai.main.us between one pass and the next on a box at
+# load 100, with no change to the code (the 2026-11-02 daily gate).
+AI_BUDGET = {"ai.sense.cpu.us": 400.0, "ai.main.cpu.us": 1000.0, "ai.brain.cpu.us": 2000.0,
+             "ai.pool.cpu.us": 250000.0}
 
 
 def ai_counters(g):
@@ -9446,11 +9469,12 @@ def step_bots(g):
         server's "#V killed by #K" lines, by slot);
       * no intent was refused for a stale or unknown actor (the handle kinds),
         no step faulted;
-      * the AI's costs are inside §9's budgets over the last 300 ticks: the
-        senses (ai.sense.us), the main thread's share (ai.main.us: senses,
-        hand-over and apply; the bots' commands run as players, ai.run.us, are
-        a client's cost and are reported beside it), a decide's CPU on its
-        worker (ai.brain.cpu.us) and the pool's busy time (ai.pool.us);
+      * the AI's costs are inside §9's budgets over the last 300 ticks, in CPU
+        time: the senses (ai.sense.cpu.us), the main thread's share
+        (ai.main.cpu.us: senses, hand-over and apply; the bots' commands run
+        as players, ai.run.us, are a client's cost and are reported beside it),
+        a decide on its worker (ai.brain.cpu.us) and the pool's busy time
+        (ai.pool.cpu.us); the wall figures are said beside them;
       * the recording replays to its intents byte for byte inline and on 1, 2
         and 4 worker threads (tools/ai-replay verify), the determinism over a
         live session the plan asks of every run.
@@ -9519,7 +9543,9 @@ def step_bots(g):
     g.check(c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0) > 1000,
             "the brains decided (%d steps)" % (c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0)))
     for key, ceiling in AI_BUDGET.items():
-        g.check(c.get(key, ceiling + 1) <= ceiling, "%s %.1f within %.0f" % (key, c.get(key, -1), ceiling))
+        g.check(0 < c.get(key, ceiling + 1) <= ceiling, "%s %.1f within %.0f" % (key, c.get(key, -1), ceiling))
+    g.say("    wall ai.sense.us %.1f, ai.main.us %.1f, ai.pool.us %.1f"
+          % (c.get("ai.sense.us", -1), c.get("ai.main.us", -1), c.get("ai.pool.us", -1)))
     g.say("    ai.run.us %.1f (the bots' commands as players), ai.steps.skipped %s, threads %s"
           % (c.get("ai.run.us", -1), c.get("ai.steps.skipped"), c.get("process.threads")))
 
@@ -9608,6 +9634,126 @@ def step_ai_jank(g):
         g.note("REPORT ONLY, NOT A PASS OF THE SCORE: jank score %.1f, no budget set yet (plan_hl2mp_ai §3.4.5)" % score)
     else:
         g.check(score <= AI_JANK_BUDGET, "the jank score %.1f is within its budget %.1f" % (score, AI_JANK_BUDGET))
+
+
+def step_ai_reload(g):
+    """A hot reload with bots in the game (not in §5; user ruling 2026-11-02).
+
+    The new managed code walks the player slots, and every slot that is a bot
+    comes back under the AI with a new brain, not kicked and added again: the
+    same names, slots, entities and skills, moving and shooting after it, one
+    engine count throughout, and `ai_bot_kick all` clears them. The world goes
+    through the reload as well, and a bot added after it stands at a spawn
+    point: a save that threw once left the world with no managed half and put
+    every new player at the origin, with the bots' rows all passing.
+    """
+    c0 = ai_counters(g)
+    if c0 is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    if c0.get("nav.refusal"):
+        g.check(False, "no bots without the map's nav: %s" % c0["nav.refusal"])
+        return
+
+    def engine_bots():
+        before = g.count_console("players :")
+        g.api.cmd("status")
+        g.api.wait_for(lambda: g.count_console("players :") > before or None, 10.0)
+        m = re.search(r"(\d+) bots", g.last_console_line("players :") or "")
+        return int(m.group(1)) if m else None
+
+    def epoch():
+        try:
+            return g.api.get("console", 0, 1).get("epoch")
+        except ApiError:
+            return None
+
+    def who():
+        """What must come through the reload, by name, and where they stand."""
+        handles = {e["index"]: e["handle"] for e in g.api.ents(g.scen["playerClass"])}
+        return {b["name"]: (b["slot"], handles.get(b["slot"]), b["profile"], tuple(b["levels"]), b["tag"])
+                for b in ai_bots(g)}
+
+    def origins():
+        slots = {v[0] for v in who().values()}
+        return {e["index"]: e["origin"] for e in g.api.ents(g.scen["playerClass"]) if e["index"] in slots}
+
+    g.cheats()
+    g.api.cmd("ai_bot_reserve_slots 0")
+    added = AI_GATE_BOTS[:2]
+    for name, skill in added:
+        g.api.cmd("ai_bot_add %s %s" % (name, skill))
+    g.api.wait_for(lambda: all(ai_slot(g, n) for n, _ in added) or None, 15.0)
+    before = who()
+    g.check(len(before) == len(added), "the bots joined before the reload (%s)" % sorted(before))
+    bots = g.api.wait_for(lambda: engine_bots() or None, 15.0)
+    g.check(bots == len(added), "and the engine counts them (%s bots: the positive arm)" % bots)
+    g.ticks(2.0)
+
+    census_before = g.api.census()[0]
+    earlier = epoch()
+    # From this reload's own line: a reload begins a new /console epoch and the
+    # mirror reads the ring again, so its counts hold lines twice.
+    def since_reload():
+        lines = g.console_lines("")
+        starts = [i for i, l in enumerate(lines) if "server: managed reload queued" in l]
+        return "\n".join(lines[starts[-1]:]) if starts else ""
+
+    g.api.cmd("cs_sv_reload")
+    g.api.wait_for(lambda: (epoch() not in (None, earlier)) or None, 90.0, 0.25)
+    if not g.api.alive():
+        g.check(False, "the process did not survive cs_sv_reload")
+        return
+    g.api.wait_for(lambda: "server: managed reload complete" in since_reload() or None, 90.0, 0.25)
+    g.ticks(1.0)
+
+    # A save that throws says "-1 entity(ies) saved": the world stands with no
+    # managed half, and every player after it spawns at the world's origin.
+    m = re.search(r"server: managed reload complete -- (-?\d+) entity\(ies\) saved, (\d+) restored", since_reload())
+    carried = m is not None and int(m.group(1)) == int(m.group(2)) and int(m.group(2)) > 0
+    g.check(carried, "the world was carried through it (%s)" % (m.group(0) if m else "no reload line"))
+
+    after = who()
+    g.check(after == before, "the same bots came back: name, slot, entity, profile, levels and tag (%s; were %s)" % (after, before))
+    g.check(engine_bots() == len(added), "and the engine counts the same, no client added or kicked")
+    c = ai_counters(g) or {}
+    g.check(c.get("ai.bots.adopted") == len(added) and c.get("ai.bots.added") == 0,
+            "and each came back through its slot, no client made (%s adopted, %s added)"
+            % (c.get("ai.bots.adopted"), c.get("ai.bots.added")))
+    g.check(("map %s" % g.scen["map"]) in (g.last_console_line("sourcesharp : ") or ""),
+            "and `status` names the map (%s)" % g.last_console_line("sourcesharp : "))
+
+    # The commands are the bots' own after the reload, seen in the world and on the aim meter.
+    start = origins()
+    moved = g.api.wait_for(lambda: all(distance(start[i], o) >= 64.0 for i, o in origins().items()) and start or None, 60.0)
+    g.check(bool(moved), "every bot walked on after it (from %s to %s)" % (start, origins()))
+
+    def shots():
+        got = g.api.raw("route", "/ai/aim")
+        return sum(int(n) for n in re.findall(r'"shots":(\d+)', got))
+
+    fired = g.api.wait_for(lambda: shots() or None, 120.0)
+    g.check(bool(fired), "and shot (%s shots on the aim meter, whose count starts at the reload)" % fired)
+
+    gone_name, _ = added[-1]
+    g.api.cmd("ai_bot_kick %s" % gone_name)
+    g.check(bool(g.api.wait_for(lambda: engine_bots() == len(added) - 1 or None, 30.0)),
+            "`ai_bot_kick %s` ends the one it names" % gone_name)
+    name, skill = AI_GATE_BOTS[2]
+    g.api.cmd("ai_bot_add %s %s" % (name, skill))
+    slot = g.api.wait_for(lambda: ai_slot(g, name), 15.0)
+    g.check(bool(slot), "with no map change a new bot is added and listed")
+    if slot:
+        at = [e for e in g.api.ents(g.scen["playerClass"]) if e["index"] == slot]
+        g.check(bool(at) and at[0]["origin"] != [0.0, 0.0, 0.0],
+                "and it stands at a spawn point, not the world's origin (%s)" % (at[0]["origin"] if at else None))
+    g.check(g.api.census()[0] >= census_before - 1, "and the world is all there (%d, was %d with the bots in)"
+            % (g.api.census()[0], census_before))
+
+    g.api.cmd("ai_bot_kick all")
+    g.api.cmd("ai_bot_reserve_slots 1")
+    g.check(bool(g.api.wait_for(lambda: engine_bots() == 0 or None, 30.0)), "and ai_bot_kick all ends them")
+    g.check(not ai_bots(g), "and the roster lists none (%s)" % ai_bots(g))
 
 
 def ai_slot(g, name):
@@ -9862,6 +10008,8 @@ EXTRA_STEPS = [
              "(not in §5; plan_hl2mp_ai §8.2)", step_bots),
     ("ai-jank", "the bots' jank score over two minutes of play: reported; it fails above a budget "
                 "once one is set (not in §5; plan_hl2mp_ai §3.4.5)", step_ai_jank),
+    ("ai-reload", "bots in the game through a hot reload come back in their slots, moving and "
+                  "shooting, none added or kicked (not in §5; plan_hl2mp_ai §12.1)", step_ai_reload),
     ("ss-ai-nav", "a bot walks ss_ai_nav to the .357 (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_nav),
     ("ss-ai-sight", "a bot sees another on ss_ai_sight (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_sight),
     ("ss-ai-hearing", "a bot hears another on ss_ai_hearing (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_hearing),
@@ -9879,7 +10027,7 @@ RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "vi
              "push", "contact-touch", "start-asleep", "trigger", "penetration", "prop-hurts-player", "knock-loose", "impact-damage", "stress", "door", "lift", "die", "respawn",
              "skinned-model", "viewmodel-merge",
              "engine-vectors", "second-client", "frag-credit", "chat", "spectate", "round-end", "save-load", "hot-reload", "map-reload",
-             "phys-convert", "render-plan-sandbox", "ai-nav", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
+             "phys-convert", "render-plan-sandbox", "ai-nav", "ai-reload", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
              "map-change", "sigterm-shutdown", "shutdown"]
 
 BY_ID = {step[0]: step for step in ALL_STEPS}

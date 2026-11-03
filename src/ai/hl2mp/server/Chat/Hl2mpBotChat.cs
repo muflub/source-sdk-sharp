@@ -121,7 +121,7 @@ public sealed class OllamaChatWriterFactory : IBotChatWriterFactory
 [SideService(Side.Server, As = [typeof(IPlayerChatHook), typeof(IDeathNoticeHook)])]
 public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory directory, IConnectedClients clients, IEngineEntities entities,
                                  IEngineFrame frame, IBotInventory inventory, IBotFightClock fights, IChatWordsSource wordsSource, IBotChatWriterFactory writers, ILog log,
-                                 IChatConfig config)
+                                 IChatConfig config, IEnginePlayers players)
     : IPlayerChatHook, IDeathNoticeHook, IGameLifecycle, IFrameLifecycle, IChatWorld
 {
     /// <summary>How long the bots stay quiet before asking a server that did not answer again.</summary>
@@ -196,6 +196,15 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
             {
                 ApplySettings(director);
                 Scan(director, now);
+            }
+
+            foreach (BotMoment moment in bots.TakeMoments())
+            {
+                // A revenge the kill feed has told chat already; a corner only the bot knows of.
+                if (moment.Kind == "spot")
+                    director.CaughtAtSpot(moment.Slot, NameOf(moment.Other.Slot), now);
+                else if (moment.Kind == "hot")
+                    director.RunningHot(moment.Slot, now);
             }
 
             director.Tick(now);
@@ -343,13 +352,26 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
     private string NameOf(int slot) => clients.ClientConVar(slot, "name") ?? "someone";
 
     /// <inheritdoc />
-    public ChatScore ScoreOf(int slot)
+    public ChatScore ScoreOf(int slot) => Score(slot, directory.All, entities.GetIndex, p => Spectators.Is(players, p), NameOf);
+
+    /// <summary>
+    /// The scoreboard as a bot talks about it: of those in the game. Someone watching is
+    /// no rival and no leader (§4.1), though a bot may answer what they say (the say
+    /// path's own rule, <c>HostSay.CanHear</c>: they can be heard).
+    /// </summary>
+    public static ChatScore Score(int slot, IEnumerable<(EntityHandle Player, PlayerRecord Record)> all, Func<EntityHandle, int> slotOf, Func<EntityHandle, bool> watching, Func<int, string> nameOf)
     {
-        int frags = 0, deaths = 0, players = 0, better = 0, leaderFrags = int.MinValue, leaderSlot = 0;
-        foreach ((EntityHandle player, PlayerRecord record) in directory.All)
+        ArgumentNullException.ThrowIfNull(all);
+        ArgumentNullException.ThrowIfNull(slotOf);
+        ArgumentNullException.ThrowIfNull(watching);
+        ArgumentNullException.ThrowIfNull(nameOf);
+        int frags = 0, deaths = 0, playing = 0, better = 0, leaderFrags = int.MinValue, leaderSlot = 0;
+        foreach ((EntityHandle player, PlayerRecord record) in all)
         {
-            int s = entities.GetIndex(player);
-            players++;
+            if (watching(player))
+                continue;
+            int s = slotOf(player);
+            playing++;
             if (s == slot)
             {
                 frags = record.Kills;
@@ -363,13 +385,13 @@ public sealed class Hl2mpBotChat(Hl2mpBots bots, HostSay say, IPlayerDirectory d
             }
         }
 
-        foreach ((EntityHandle _, PlayerRecord record) in directory.All)
+        foreach ((EntityHandle other, PlayerRecord record) in all)
         {
-            if (record.Kills > frags)
+            if (record.Kills > frags && !watching(other))
                 better++;
         }
 
-        return new ChatScore(frags, deaths, better + 1, players, leaderSlot == slot ? "you" : leaderSlot == 0 ? "nobody" : NameOf(leaderSlot), Math.Max(leaderFrags, 0));
+        return new ChatScore(frags, deaths, better + 1, playing, leaderSlot == slot ? "you" : leaderSlot == 0 ? "nobody" : nameOf(leaderSlot), Math.Max(leaderFrags, 0));
     }
 
     /// <inheritdoc />

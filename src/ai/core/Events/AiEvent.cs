@@ -46,6 +46,18 @@ public enum AiEventKind : byte
     /// <summary>The weapons the bot holds, as its HUD's weapon selection shows them: a mask of catalog kinds in Code.</summary>
     Holdings = 44,
 
+    /// <summary>The level's choke points are worked out: from here the bot may use them (§5.5). They are map knowledge; the event only fixes the tick, so a replay decides alike.</summary>
+    ChokesKnown = 45,
+
+    /// <summary>The answer to a bot's look along a line (§5.4's prefire): Position the point, Code the ask's number, Amount 1 if nothing solid is in the way. World and props only: no player stops it.</summary>
+    LineAnswer = 46,
+
+    /// <summary>The scoreboard says an actor went to watch (Code 1) or came back to play (Code 0): to a bot, gone or new (§4.1, ruling 2026-11-02).</summary>
+    ActorSpectating = 47,
+
+    /// <summary>The server's <c>ai_bot_streaks</c> as told to a bot (§5.5): Code 0 off, 1 on; a console's asking for one now, 2 hot, 3 cold.</summary>
+    StreaksSet = 48,
+
     // recorded only, as Observed records (§3.4.4's hit rate): no brain is told
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
     ShotFired = 50,
@@ -148,6 +160,20 @@ public readonly record struct AiEvent(
 
     public static AiEvent Holdings(ActorId bot, Tick tick, int heldKinds)
         => new(AiEventKind.Holdings, bot, tick, ActorId.None, default, default, 0f, heldKinds, 0);
+
+    public static AiEvent ChokesKnown(ActorId bot, Tick tick) => new(AiEventKind.ChokesKnown, bot, tick, ActorId.None, default, default, 0f, 0, 0);
+
+    /// <summary>What a <see cref="AiEventKind.StreaksSet"/> says.</summary>
+    public const int StreaksOff = 0, StreaksOn = 1, StreakHot = 2, StreakCold = 3;
+
+    public static AiEvent StreaksSet(ActorId bot, Tick tick, int code)
+        => new(AiEventKind.StreaksSet, bot, tick, ActorId.None, default, default, 0f, code, 0);
+
+    public static AiEvent ActorSpectating(ActorId bot, Tick tick, ActorId actor, bool spectating)
+        => new(AiEventKind.ActorSpectating, bot, tick, actor, default, default, 0f, spectating ? 1 : 0, 0);
+
+    public static AiEvent LineAnswer(ActorId bot, Tick tick, AiVector point, int ask, bool clear)
+        => new(AiEventKind.LineAnswer, bot, tick, ActorId.None, point, default, clear ? 1f : 0f, ask, 0);
 
     public static AiEvent ItemSeen(ActorId bot, Tick tick, int item, bool present)
         => new(AiEventKind.ItemSeen, bot, tick, ActorId.None, default, default, 0f, item, present ? 1 : 0);

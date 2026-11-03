@@ -32,6 +32,21 @@ public static class VisionCurves
     /// <summary>How long an unseen target stays held before <c>SightLost</c>.</summary>
     public const float LostSightSeconds = 0.5f;
 
+    /// <summary>The recognition at an Alertness between its levels (§5.5's streaks).</summary>
+    public static float RecognizeAt(float alertness)
+    {
+        float l = Math.Clamp(alertness, 0f, StandardSkills.Cap);
+        int below = (int)MathF.Floor(l), above = Math.Min(below + 1, StandardSkills.Cap);
+        return RecognizeByAlertness[below] + (RecognizeByAlertness[above] - RecognizeByAlertness[below]) * (l - below);
+    }
+
+    /// <summary>A bot's vision, with what a streak makes of its recognition; 0 for none (§5.5).</summary>
+    public static VisionParams For(SkillProfile profile, float streakRecognizeSeconds)
+    {
+        VisionParams own = For(profile);
+        return streakRecognizeSeconds > 0f ? own with { RecognizeSeconds = streakRecognizeSeconds } : own;
+    }
+
     public static VisionParams For(SkillProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);

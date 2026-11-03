@@ -51,6 +51,9 @@ public sealed class EngineBotHud(IEnginePlayers players, IEngineEntities entitie
 [SideService(Side.Server)]
 public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapons, IBotHud hud)
 {
+    /// <summary>An eye under this over its feet is a crouched body's (standing 64, crouched 28): what a client draws.</summary>
+    public const float CrouchedEye = 46f;
+
     /// <summary>
     /// Adds a view for every bot in <paramref name="bots"/> to
     /// <paramref name="snapshot"/>; <paramref name="activityOf"/> answers what
@@ -73,7 +76,8 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
                 if (t == b.Id.Slot || !sight.Sees(t) || vision.ReadOf(t) is not { } them)
                     continue;
                 int weapon = weapons.IndexOf(players.GetActiveWeapon(them.Player));
-                view.AddSighted(new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activityOf(t), sight.FractionOf(t)));
+                ActorActivity activity = activityOf(t) | (them.Eye.Z - them.Origin.Z < CrouchedEye ? ActorActivity.Crouched : ActorActivity.None);
+                view.AddSighted(new ActorFacts(sight.TargetOf(t), them.Origin, them.Velocity, weapon, activity, sight.FractionOf(t)));
             }
         }
     }

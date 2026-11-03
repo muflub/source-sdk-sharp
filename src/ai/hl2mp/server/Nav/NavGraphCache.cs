@@ -56,6 +56,52 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
         File.Move(temp, path, overwrite: true);
     }
 
+    /// <summary>A graph's choke points beside it: the graph's own name, and the map's revision.</summary>
+    public string ChokesPathFor(string map, string bspSha256, string navSha256)
+        => $"{PathFor(map, bspSha256, navSha256)}.chokes{ChokeMap.Revision}";
+
+    /// <summary>The cached choke points, or null when there are none or they are of another graph.</summary>
+    public ChokeMap? TryReadChokes(string map, string bspSha256, string navSha256, NavGraph graph)
+    {
+        string path = ChokesPathFor(map, bspSha256, navSha256);
+        if (!File.Exists(path))
+            return null;
+        try
+        {
+            ReadOnlySpan<byte> bytes = File.ReadAllBytes(path);
+            if (bytes.Length != 16 + graph.CellCount * sizeof(float)
+                || BinaryPrimitives.ReadUInt64LittleEndian(bytes) != graph.Hash
+                || BinaryPrimitives.ReadInt32LittleEndian(bytes[8..]) != ChokeMap.Revision
+                || BinaryPrimitives.ReadInt32LittleEndian(bytes[12..]) != graph.CellCount)
+                return null;
+            var score = new float[graph.CellCount];
+            for (int c = 0; c < score.Length; c++)
+                score[c] = BitConverter.Int32BitsToSingle(BinaryPrimitives.ReadInt32LittleEndian(bytes[(16 + c * sizeof(float))..]));
+            return ChokeMap.FromScores(graph, score);
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+    }
+
+    public void WriteChokes(string map, string bspSha256, string navSha256, NavGraph graph, ChokeMap chokes)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(chokes);
+        System.IO.Directory.CreateDirectory(directory);
+        var bytes = new byte[16 + chokes.CellCount * sizeof(float)];
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes, graph.Hash);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(8), ChokeMap.Revision);
+        BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(12), chokes.CellCount);
+        for (int c = 0; c < chokes.CellCount; c++)
+            BinaryPrimitives.WriteInt32LittleEndian(bytes.AsSpan(16 + c * sizeof(float)), BitConverter.SingleToInt32Bits(chokes.ScoreOf(c)));
+        string path = ChokesPathFor(map, bspSha256, navSha256);
+        string temp = path + ".tmp";
+        File.WriteAllBytes(temp, bytes);
+        File.Move(temp, path, overwrite: true);
+    }
+
     public byte[] Encode(string map, string bspSha256, string navSha256, DerivedNav nav)
     {
         ArgumentNullException.ThrowIfNull(nav);

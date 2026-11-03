@@ -78,13 +78,20 @@ public sealed class AimModelTests
         Assert.InRange(pitch, -10f, 10f);
     }
 
+    /// <summary>Over many seeds: an Easy bot's aim wanders by some 68 u at this range, about 8 u on one seed's 45 s, so one seed says little.</summary>
     private static double MeanAhead(string preset, AiVector velocity)
     {
-        Duel d = Fight(preset);
+        const int Seeds = 12;
         double sum = 0.0;
-        for (int i = 0; i < 500; i++)
-            sum += Sideways(d.StepMoving(d.Self(), Duel.Opponent, At, velocity));
-        return sum / 500.0;
+        for (ulong seed = 1; seed <= Seeds; seed++)
+        {
+            var d = new Duel(Duel.Preset(preset), Duel.Bot, seed, null, null, null);
+            d.Step(d.Self(), [(Duel.Opponent, At)], d.SeeAt(Duel.Opponent, At));
+            for (int i = 0; i < 500; i++)
+                sum += Sideways(d.StepMoving(d.Self(), Duel.Opponent, At, velocity));
+        }
+
+        return sum / (500.0 * Seeds);
     }
 
     [Fact]

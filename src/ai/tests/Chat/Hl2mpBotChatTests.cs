@@ -75,7 +75,10 @@ public sealed class Hl2mpBotChatTests
         public string? Refusal => null;
         public LoadedNav? Current => null;
         public NavObstacleState? Obstacles => null;
+        public NavObstacleState? ObstaclesFor(EntityHandle player) => null;
         public NavSight? Sight => null;
+
+        public ChokeSlot? Chokes => null;
     }
 
     private sealed class Names : IBotNameSource
@@ -197,7 +200,7 @@ public sealed class Hl2mpBotChatTests
             var chain = new ChatHookForwarder();
             Say = new HostSay(Log, Any<IEnginePlayers>(), entities, Any<IEntityDirectory>(), new Sender(), new Clients(), Any<IEngineGameEvents>(), Any<IEngineHost>(),
                               chatHooks: new Chain<IPlayerChatHook>(chain), audience: new Chain<IChatAudience>(new Audience(audience)));
-            Chat = new Hl2mpBotChat(Bots, Say, Any<IPlayerDirectory>(), new Clients(), entities, engineFrame, new Inventory(), new FightClock(), WordsSource, Writers, Log, Config);
+            Chat = new Hl2mpBotChat(Bots, Say, Any<IPlayerDirectory>(), new Clients(), entities, engineFrame, new Inventory(), new FightClock(), WordsSource, Writers, Log, Config, Any<IEnginePlayers>());
             chain.Target = Chat;
             Assert.True(SkillPresets.TryGet("normal", out SkillProfile? normal));
             Assert.Null(Bots.Add("Pia Bullseye", normal!));
@@ -213,16 +216,28 @@ public sealed class Hl2mpBotChatTests
             }
         }
 
-        /// <summary>Ticks until the worker has answered what it was asked, and the line, due at once, has been said.</summary>
+        /// <summary>
+        /// Ticks until the worker has answered everything it was asked and a
+        /// further pass of ticks asks nothing new, then the line, due at once, is
+        /// said. A wish is posted some ticks after it is made, so "nothing is
+        /// outstanding" on the first tick says only that nothing has been asked yet.
+        /// </summary>
         public void Settle()
         {
             long stop = Environment.TickCount64 + 5000;
+            long asked = -1;
             while (Environment.TickCount64 < stop)
             {
-                Tick();
-                if (Chat.Counters.Requests == Chat.Counters.Finished)
+                Tick(8);
+                while (Chat.Counters.Requests != Chat.Counters.Finished && Environment.TickCount64 < stop)
+                {
+                    Tick();
+                    Thread.Sleep(1);
+                }
+
+                if (Chat.Counters.Requests == asked)
                     break;
-                Thread.Sleep(1);
+                asked = Chat.Counters.Requests;
             }
 
             Tick(8);
@@ -343,9 +358,17 @@ public sealed class Hl2mpBotChatTests
         var r = new Rig();
         r.Writers.Writer.Fails = ChatFailure.ServerDown;
         r.Tick(2);
-        r.HumanSays("hey pia");
-        r.Settle();
-        Assert.True(r.Chat.Director!.PausedUntil > 0f, "the outage paused the bots");
+        // The worker's warm-up finds the outage on its own thread. Saying a line before
+        // that raced it: the line could be asked for first, and its reply interval then
+        // held the second line back, 3 s of ticks this fact never runs.
+        long stop = Environment.TickCount64 + 5000;
+        while (r.Chat.Director!.PausedUntil <= 0f && Environment.TickCount64 < stop)
+        {
+            r.Tick();
+            Thread.Sleep(1);
+        }
+
+        Assert.True(r.Chat.Director.PausedUntil > 0f, "the outage paused the bots");
         int asked = r.Writers.Writer.Calls;
 
         r.Writers.Writer.Fails = ChatFailure.None;

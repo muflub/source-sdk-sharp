@@ -183,6 +183,17 @@ public interface IGameLifecycle
     void OnLevelShutdown() { }
 
     /// <summary>
+    /// A hot reload put this composition under a level already running: the
+    /// level's init ran for the composition that went, so a participant that
+    /// builds level state in <see cref="OnLevelInitPostEntity"/> and does not
+    /// carry it through <see cref="ISaveCustom"/> builds it here. Runs after
+    /// the entities and the carried records are back. A save's load never
+    /// reaches this: it is a level start and runs the init.
+    /// </summary>
+    /// <param name="mapName">The map, bare: no <c>maps/</c>, no <c>.bsp</c>.</param>
+    void OnLevelCarried(string mapName) { }
+
+    /// <summary>
     /// The server is shutting down for good. Distinct from
     /// <see cref="OnLevelShutdown"/>: that one runs on every map change.
     /// </summary>

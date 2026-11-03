@@ -214,6 +214,14 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
         }
     }
 
+    /// <summary>The bot in <paramref name="slot"/> found <paramref name="other"/> at the corner it expected them at (§5.5).</summary>
+    public void CaughtAtSpot(int slot, string other, float now)
+        => Want(slot, new ChatTrigger(ChatTriggerKind.Spot, other, Short: true), Settings.MomentChance, now);
+
+    /// <summary>The bot in <paramref name="slot"/> is suddenly playing above itself (§5.5): it can tell.</summary>
+    public void RunningHot(int slot, float now)
+        => Want(slot, new ChatTrigger(ChatTriggerKind.Hot, Short: true), Settings.MomentChance, now);
+
     /// <summary>The bot in <paramref name="slot"/> picked up <paramref name="weapon"/>; only the ones worth having are worth a word.</summary>
     public void PickedUp(int slot, string weapon, float now)
     {

@@ -194,6 +194,25 @@ public sealed class VisionPassTests
         Assert.Contains(r.Events, e => e.Kind == AiEventKind.SightLost && e.Other == r.ThemId);
     }
 
+    /// <summary>
+    /// A person sees someone go behind a wall where they went, not where they have got
+    /// to by the time they stop expecting them: the place the event carries is the last
+    /// one with a clear line, however far they went while it was deciding.
+    /// </summary>
+    [Fact]
+    public void ALostSightSaysWhereTheyWereLastSeen()
+    {
+        var seen = new AiVector(500, 0, 0);
+        var r = new Rig(seen);
+        r.Run(40);
+        Assert.True(r.Sees);
+        r.World.Occluder(new AiVector(100, -300, 0), new AiVector(120, 300, 200), 0x1);
+        r.Them.Origin = new AiVector(900, 700, 0);
+        r.Run(VisionParams.Ticks(Eyes.LostSightSeconds, Tick) + 4);
+        AiEvent lost = r.Events.First(e => e.Kind == AiEventKind.SightLost && e.Other == r.ThemId);
+        Assert.Equal(seen, lost.Position);
+    }
+
     [Fact]
     public void ADeadOpponentIsLostAtOnce()
     {

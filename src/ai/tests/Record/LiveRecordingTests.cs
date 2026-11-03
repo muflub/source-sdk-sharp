@@ -20,13 +20,13 @@ public sealed class LiveRecordingTests
 
     public static string Recording => SourceSharp.Tests.RepoLayout.Repo("src", "ai", "tests", "recordings", "live", "dm_lockdown-4bots.airec");
 
+    // The game's own load, so this graph is the one a recording is made over (the
+    // map's entities in it, as a level start has them) and not a copy of its steps.
     private static readonly Lazy<(NavGraph Graph, NavSight Sight)> Nav = new(() =>
     {
-        byte[] bsp = File.ReadAllBytes(PerTreeNav.BspPath(Map));
-        Nav3dReader reader = Nav3dReader.Open(File.ReadAllBytes(PerTreeNav.NavPath(Map)));
-        MapEntities entities = MapEntities.Read(bsp);
-        DerivedNav nav = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader), Hl2mpNavNumbers.Stock(reader.JumpHeight), NavEdgeCosts.Default, entities.Hurt);
-        return (nav.Graph, NavSight.Build(nav.Graph, new Nav3dVoxelSpace(reader)));
+        NavLoadResult l = NavLoader.Load(Map, p => File.ReadAllBytes(p.EndsWith(".nav3d", StringComparison.Ordinal) ? PerTreeNav.NavPath(Map) : PerTreeNav.BspPath(Map)), null);
+        Assert.True(l.Nav is not null, l.Refusal);
+        return (l.Nav!.Nav.Graph, NavSight.Build(l.Nav.Nav.Graph, new Nav3dVoxelSpace(l.Nav.Reader)));
     });
 
     internal static AiReplayResult Replay(IAiTransport transport)

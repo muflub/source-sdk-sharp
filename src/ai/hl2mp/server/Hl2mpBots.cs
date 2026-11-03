@@ -6,6 +6,9 @@ using SourceSharp.Ai.Hl2mp.Nav;
 
 namespace SourceSharp.Ai.Hl2mp;
 
+/// <summary>A moment a player would recognise (§5.5): "revenge" on someone it held a grudge against, "spot" for someone found at the corner it pre-aimed.</summary>
+public readonly record struct BotMoment(int Slot, string Kind, ActorId Other);
+
 /// <summary>
 /// One bot the binding plays: its actor, its name and its skills.
 /// <see cref="SeedIndex"/> names its seeds in the match (its appearance, motion
@@ -64,7 +67,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
         _log = log;
         _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory, networking);
         _inventory = inventory;
-        _applier = new BotCommandApplier(runner, _self);
+        _applier = new BotCommandApplier(runner, _self, _cpu);
         // A new goal's field is built on the AI's workers unless the brains run inline (ai_sync 1).
         _driver.Post = ai is null ? null : work => !ai.Sync && ai.Pool.Post(work);
     }
@@ -136,12 +139,49 @@ public sealed class Hl2mpBots : IFrameLifecycle
         MotionParams motion = _ai?.Session.Curves is { } curves ? MotionCurves.For(skills, curves.For(skills)) : MotionCurves.Scripted;
         _applier.Add(id, player, motion, stream.NextUInt64());
         _bots.Add(new Hl2mpBot(id, made.Name, skills) { SeedIndex = seedIndex });
+        Added++;
         Version++;
         string label = BotSkillLabel.For(skills);
         _tags.Set(player, label);
         _log.Msg($"[SourceSharp/Ai] bot {made.Name} {label} added: client {made.EntIndex}, {skills.Name} ({skills.Spent} points, {skills.StyleName})\n");
         return null;
     }
+
+    /// <summary>The bots this composition made a client for: <c>ai.bots.added</c>.</summary>
+    public int Added { get; private set; }
+
+    /// <summary>The bots it found in the slots after a hot reload: <c>ai.bots.adopted</c>.</summary>
+    public int Adopted { get; private set; }
+
+    /// <summary>The engine's bots as the core knows them, whether or not this binding plays them.</summary>
+    public IReadOnlyList<BotPlayer> InGame => _players.Bots;
+
+    /// <summary>
+    /// Plays a bot already in the game (a hot reload left it there): the same
+    /// slot and entity, a new brain, seeded as <see cref="Add(string, SkillProfile, int, out ActorId)"/>
+    /// seeds one. Answers null, or why not; then nothing plays it.
+    /// </summary>
+    public string? Adopt(BotPlayer live, string name, SkillProfile skills, int seedIndex, out ActorId id)
+    {
+        id = ActorId.None;
+        if (AddRefusal is { } refused)
+            return refused;
+        var stream = new AiRandom(AiRandom.SeedFor(MatchSeed, seedIndex));
+        BotAppearance.For(stream);   // its draws, so the motion's seed is the one it had
+        id = new ActorId(live.EntIndex, ++_serial);
+        MotionParams motion = _ai?.Session.Curves is { } curves ? MotionCurves.For(skills, curves.For(skills)) : MotionCurves.Scripted;
+        _applier.Add(id, live.Player, motion, stream.NextUInt64());
+        _bots.Add(new Hl2mpBot(id, live.Name.Length > 0 ? live.Name : name, skills) { SeedIndex = seedIndex });
+        Adopted++;
+        Version++;
+        string label = BotSkillLabel.For(skills);
+        _tags.Set(live.Player, label);
+        _log.Msg($"[SourceSharp/Ai] bot {name} {label} back after a reload: client {live.EntIndex}, {skills.Name} ({skills.Spent} points)\n");
+        return null;
+    }
+
+    /// <summary>Ends a bot this binding does not play; false when the core does not know it.</summary>
+    public bool Kick(BotPlayer live, string reason) => _players.Kick(live.Player, reason);
 
     /// <summary>Kicks the bot <paramref name="id"/>, saying <paramref name="reason"/>; false when it is not in the game.</summary>
     public bool Kick(ActorId id, string reason)
@@ -197,13 +237,15 @@ public sealed class Hl2mpBots : IFrameLifecycle
     /// </summary>
     public string? GoTo(string name, AiVector target, string? pickup)
     {
-        if (_nav.Current is not { } nav || _nav.Obstacles is not { } obstacles)
+        if (_nav.Current is not { } nav)
             return _nav.Refusal ?? "no navigation";
         int at = _bots.FindIndex(b => string.Equals(b.Name, name, StringComparison.OrdinalIgnoreCase));
         if (at < 0)
             return $"no bot called '{name}'";
 
         Hl2mpBot bot = _bots[at];
+        if (_nav.ObstaclesFor(_applier.PlayerOf(bot.Id)) is not { } obstacles)
+            return _nav.Refusal ?? "no navigation";
         BotSelfFacts self = _self.Read(_applier.PlayerOf(bot.Id));
         NavGraph graph = nav.Nav.Graph;
         CellId objective = CellId.None;
@@ -300,7 +342,9 @@ public sealed class Hl2mpBots : IFrameLifecycle
     public void OnPreThink(float frameTime)
     {
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        double cpuStart = _cpu?.Invoke() ?? 0d;
         _driver.Ladders = _nav.Current?.Entities.Ladders ?? [];
+        _driver.Breakables = _nav.Breakables;
         Follow();
         var tick = new Tick(_frame.TickCount());
         Steer(tick);
@@ -310,6 +354,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
         _applier.ApplyTick(tick, frameTime > 0f ? frameTime : 0.015f);
         double all = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMicroseconds;
         _runUs[_applySamples % ApplyWindow] = _applier.RunMicrosLastTick;
+        _applyCpuUs[_applySamples % ApplyWindow] = (_cpu is null ? all : _cpu() - cpuStart) - _applier.RunCpuMicrosLastTick;
         _applyUs[_applySamples++ % ApplyWindow] = all - _applier.RunMicrosLastTick;
     }
 
@@ -329,6 +374,8 @@ public sealed class Hl2mpBots : IFrameLifecycle
 
     private const int ApplyWindow = 300;
     private readonly double[] _applyUs = new double[ApplyWindow];
+    private readonly double[] _applyCpuUs = new double[ApplyWindow];
+    private readonly Func<double>? _cpu = Senses.ThreadCpuClock.Micros();
     private int _applySamples;
 
     /// <summary>
@@ -338,6 +385,9 @@ public sealed class Hl2mpBots : IFrameLifecycle
     /// <see cref="RunMeanUs"/>.
     /// </summary>
     public double ApplyMeanUs => Mean(_applyUs);
+
+    /// <summary>The same in the main thread's own CPU time: <c>ai.main.cpu.us</c>'s third part.</summary>
+    public double ApplyCpuMeanUs => Mean(_applyCpuUs);
 
     private readonly Senses.Hl2mpAiSession? _ai;
     private readonly BrainDriver _driver = new();
@@ -374,7 +424,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
             if (player == EntityHandle.None)
                 continue;
             BotSelfFacts self = _self.Read(player);
-            IntentCommand now = _driver.Drive(in brain, self.Origin, tick, ++_seq, _nav.Current?.Nav.Graph, _nav.Obstacles, self.OnLadder, self.View);
+            IntentCommand now = _driver.Drive(in brain, self.Origin, tick, ++_seq, _nav.Current?.Nav.Graph, _nav.ObstaclesFor(player), self.OnLadder, self.View, shooter: player);
             _applier.Submit(in now);
             SayLadder(bot.Id, bot.Name, self, tick);
             SayJump(bot.Id, bot.Name, now.Move.Kind, tick, self);
@@ -382,8 +432,14 @@ public sealed class Hl2mpBots : IFrameLifecycle
                 ForgetPickupsAt(bot.Id, goal, tick, world);
             if (_driver.TakeStuckLine(bot.Id.Slot) is { } stuck)
                 _log.Msg($"[SourceSharp/Ai] bot {bot.Id.Serial} ({bot.Name}) {stuck}, tick {tick.Value}\n");
-            if (LogThink && _ai.Session.LastDoing(bot.Id.Slot) is { } doing)
-                SayDoing(bot, doing, self.Origin, tick);
+            if (_ai.Session.LastDoing(bot.Id.Slot) is { } doing)
+            {
+                if (LogThink)
+                    SayDoing(bot, doing, self.Origin, tick);
+                NoteMoment(bot, doing, tick);
+                _applier.SetStreakReaction(bot.Id, doing.StreakReactionMs);
+                SayStreak(bot, doing, tick);
+            }
         }
     }
 
@@ -400,16 +456,68 @@ public sealed class Hl2mpBots : IFrameLifecycle
         }
     }
 
+    /// <summary>Whether streaks can start, as <c>ai_bot_streaks</c> says (§5.5): told to each brain by the senses.</summary>
+    public bool Streaks { get; set; } = true;
+
     /// <summary>Whether each change of a bot's branch, leaf or verdict is written to the console (<c>ai_think_log</c>).</summary>
     public bool LogThink { get; set; }
 
     private readonly Dictionary<int, (string, string, string)> _said = new();
 
+    private readonly Dictionary<int, int> _momentSeen = new();
+    private readonly List<BotMoment> _moments = new();
+
+    /// <summary>How many moments wait for a reader before the oldest goes: chat may be off.</summary>
+    public const int MomentsKept = 16;
+
+    /// <summary>The grudge and habit moments since the last read, oldest first (§5.5): chat's to take.</summary>
+    public IReadOnlyList<BotMoment> TakeMoments()
+    {
+        if (_moments.Count == 0)
+            return [];
+        BotMoment[] all = [.. _moments];
+        _moments.Clear();
+        return all;
+    }
+
+    private readonly Dictionary<int, string> _streakSaid = new();
+
+    /// <summary>The streaks begun since the game started (§5.5): the inspector's counters.</summary>
+    public int HotStreaks { get; private set; }
+
+    public int ColdStreaks { get; private set; }
+
+    /// <summary>Each streak's start and end, in the console with what it did to the aim (§5.5).</summary>
+    private void SayStreak(Hl2mpBot bot, in DoingRecord d, Tick tick)
+    {
+        _streakSaid.TryGetValue(bot.Id.Slot, out string? said);
+        if (string.Equals(said ?? "", d.Streak, StringComparison.Ordinal))
+            return;
+        _streakSaid[bot.Id.Slot] = d.Streak;
+        HotStreaks += d.Streak == "hot" ? 1 : 0;
+        ColdStreaks += d.Streak == "cold" ? 1 : 0;
+        _log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] streak {tick.Value} {bot.Name}: {(d.Streak.Length == 0 ? "over" : d.Streak)}, aim error {d.StreakAimErrorDeg:F2} deg, reaction {d.StreakReactionMs:F0} ms, recognition {d.StreakRecognizeSeconds:F2} s\n"));
+    }
+
+    private void NoteMoment(Hl2mpBot bot, in DoingRecord d, Tick tick)
+    {
+        _momentSeen.TryGetValue(bot.Id.Slot, out int seen);
+        if (d.MomentSeq == seen || d.MomentKind.Length == 0)
+            return;
+        _momentSeen[bot.Id.Slot] = d.MomentSeq;
+        if (_moments.Count == MomentsKept)
+            _moments.RemoveAt(0);
+        _moments.Add(new BotMoment(bot.Id.Slot, d.MomentKind, d.MomentOther));
+        _log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] moment {tick.Value} {bot.Name}: {d.MomentKind} on slot {d.MomentOther.Slot}\n"));
+    }
+
     private void SayDoing(Hl2mpBot bot, in DoingRecord d, AiVector at, Tick tick)
     {
         SelfFlags flags = _ai is not null && _ai.Session.Snapshots.TryGet(new Tick(tick.Value - 1), out AiSnapshot snap) && snap.ViewFor(bot.Id.Slot) is { } v
             ? v.Self.Flags : SelfFlags.None;
-        (string, string, string) key = (d.Branch, d.Leaf, d.Verdict + ((flags & SelfFlags.Reloading) != 0 ? "+r" : ""));
+        (string, string, string) key = (d.Branch, d.Leaf, d.Verdict + ((flags & SelfFlags.Reloading) != 0 ? "+r" : "") + d.Prefire);
         if (_said.TryGetValue(bot.Id.Slot, out (string, string, string) last) && last == key)
             return;
         _said[bot.Id.Slot] = key;
@@ -417,7 +525,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
             $"[SourceSharp/Ai] think {tick.Value} {bot.Name}: {d.Branch}/{d.Leaf} verdict '{d.Verdict}' target {(d.Target.IsValid ? d.Target.Slot : -1)} "
             + $"at ({at.X:F0} {at.Y:F0} {at.Z:F0}) goal {(d.HasGoal ? $"({d.Goal.X:F0} {d.Goal.Y:F0} {d.Goal.Z:F0})" : "-")} "
             + $"P(empty) {d.PEmpty:F2} P(reloading) {d.PReloading:F2} window {d.WindowSeconds:F2}s arrive {d.ArriveSeconds:F2}s "
-            + $"scoreboard {d.ScoreboardTerm:F2} ammo {d.AmmoTerm:F2} self {flags}\n"));
+            + $"scoreboard {d.ScoreboardTerm:F2} ammo {d.AmmoTerm:F2} self {flags} prefire '{d.Prefire}'\n"));
     }
 
     private bool Scripted(ActorId bot)

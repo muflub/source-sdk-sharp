@@ -43,6 +43,8 @@ public sealed class SenseWorld
         public float EyeHeight = 64f;
         public bool Alive = true;
         public string Weapon = "weapon_smg1";
+        public int Team;
+        public ObserverMode Mode;
     }
 
     public readonly record struct Box(AiVector Min, AiVector Max, uint Contents, EntityHandle Entity);
@@ -87,13 +89,17 @@ public sealed class SenseWorld
     {
         "BoxInPvs" => Pvs((EntityHandle)a[0]!, (Vector)a[1]!, (Vector)a[2]!),
         "GetActiveWeapon" => By((EntityHandle)a[0]!).Weapon,
+        "GetTeam" => Players.FirstOrDefault(p => p.Handle == (EntityHandle)a[0]!)?.Team ?? 0,
+        "GetObserverMode" => Players.FirstOrDefault(p => p.Handle == (EntityHandle)a[0]!)?.Mode ?? ObserverMode.None,
+        "IsAlive" => Players.FirstOrDefault(p => p.Handle == (EntityHandle)a[0]!)?.Alive ?? false,
+        "GetHandle" => Players.FirstOrDefault(p => p.Slot == (int)a[0]!)?.Handle ?? EntityHandle.None,
         _ => throw FakeEngine.Unasked(m),
     });
 
     public ITraceQueries Traces() => new Tracer(this);
 
     public SensedActor[] Living(params SensedBot[] bots)
-        => [.. Players.Where(p => p.Alive).OrderBy(p => p.Slot)
+        => [.. Players.Where(p => p.Alive && p.Team != 1).OrderBy(p => p.Slot)
                       .Select(p => new SensedActor(bots.FirstOrDefault(b => b.Player == p.Handle).Id is { IsValid: true } id ? id : ActorDirectory.HumanActor(p.Slot, p.Handle), p.Handle))];
 
     private sealed class Tracer(SenseWorld w) : ITraceQueries

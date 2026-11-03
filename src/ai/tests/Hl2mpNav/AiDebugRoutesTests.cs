@@ -19,8 +19,12 @@ public sealed class AiDebugRoutesTests
         public LoadedNav? Current => current;
         public string? Refusal => refusal;
         public NavObstacleState? Obstacles => obstacles;
+        public NavObstacleState? ObstaclesFor(SourceSharp.Abi.EntityHandle player) => Obstacles;
 
         public NavSight? Sight => null;
+
+
+        public ChokeSlot? Chokes => null;
     }
 
     private static readonly Lazy<LoadedNav> Course = new(() =>

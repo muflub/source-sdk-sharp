@@ -213,6 +213,18 @@ describe('what a bot remembers', () => {
 
   it('takes no memory at all while a brain steps', () =>
     expect(memoryLines(bot(2, { beliefs: { heard: [], remembered: null } }), 1)).toEqual([]));
+
+  it('marks a prefire at the place it believes, firing brighter than aiming', () => {
+    const going = (prefire: string) => ({ branch: 'Hunt', leaf: 'hunt', goal: null, targetSlot: 1, prefire, prefireAt: [100, 0, 48] as Vec });
+    const firing = memoryLines(bot(2, { going: going('firing'), beliefs: { heard: [], remembered: [] } }), 1);
+    const aiming = memoryLines(bot(2, { going: going('aiming'), beliefs: { heard: [], remembered: [] } }), 1);
+    expect(firing.length).toBeGreaterThan(0);
+    close(firing[0]![2], fade(WORLD_COLOURS.prefire, 1));
+    close(aiming[0]![2], fade(WORLD_COLOURS.prefire, 0.5));
+  });
+
+  it('marks no prefire with none under way', () =>
+    expect(memoryLines(bot(2, { going: { branch: 'Hunt', leaf: 'hunt', goal: null, targetSlot: 1, prefire: '', prefireAt: null }, beliefs: { heard: [], remembered: [] } }), 1)).toEqual([]));
 });
 
 describe('the layers', () => {

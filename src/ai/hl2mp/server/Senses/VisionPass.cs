@@ -29,6 +29,15 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     /// <summary>The sight line's mask: <c>MASK_BLOCKLOS_AND_NPCS | CONTENTS_IGNORE_NODRAW_OPAQUE</c>.</summary>
     public const uint SightMask = ContentsSolid | ContentsMoveable | ContentsBlockLos | ContentsMonster | ContentsIgnoreNodrawOpaque;
 
+    /// <summary>
+    /// A prefire's line (§5.4): the sight mask less bodies. What it answers is the
+    /// world and the props, as anyone can see them; who stands behind them it cannot say.
+    /// </summary>
+    public const uint LineMask = ContentsSolid | ContentsMoveable | ContentsBlockLos | ContentsIgnoreNodrawOpaque;
+
+    /// <summary>The lines a tick answers, apart from the sight budget: there are few, a bot's one at a time while it means to fire.</summary>
+    public const int LineTracesPerTick = 4;
+
     /// <summary>A player's sample points: head, chest, pelvis, two shoulders.</summary>
     public const int PlayerSamples = 5;
 
@@ -70,7 +79,11 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     public ActorId ActorIn(int slot) => (uint)slot < Slots ? _actors[slot] : ActorId.None;
 
     /// <summary>Starts serving <paramref name="bot"/>, forgetting any earlier bot in its slot.</summary>
-    public void Add(ActorId bot) => _bots[bot.Slot] = new BotSight(bot, new SightTracker(Slots));
+    public void Add(ActorId bot)
+    {
+        _bots[bot.Slot] = new BotSight(bot, new SightTracker(Slots));
+        _lineAnswered[bot.Slot] = 0;
+    }
 
     public void Remove(int slot) => _bots.Remove(slot);
 
@@ -159,8 +172,8 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
                 if (c == SightChange.Gained)
                     observed.Add(AiEvent.SightGained(o.Id, tick, _actors[t], them.Origin, them.Velocity, sight.Fraction[t]));
                 else if (c == SightChange.Lost)
-                    observed.Add(AiEvent.SightLost(o.Id, tick, _actors[t], them.Origin, them.Velocity));
-                if (c != SightChange.None || sight.Tracker.Sees(t))
+                    observed.Add(AiEvent.SightLost(o.Id, tick, _actors[t], sight.Last[t].Origin, sight.Last[t].Velocity));
+                if (c == SightChange.Gained || sight.Tracker.Sees(t))
                     sight.Last[t] = them;
             }
         }
@@ -259,10 +272,9 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
                 if (c == SightChange.Gained)
                     events.Add(AiEvent.SightGained(b.Id, tick, _actors[t], them.Origin, them.Velocity, sight.Fraction[t]));
                 else if (c == SightChange.Lost)
-                    events.Add(AiEvent.SightLost(b.Id, tick, _actors[t], them.Origin, them.Velocity));
-                if (c != SightChange.None)
-                    sight.Last[t] = them;
-                else if (sight.Tracker.Sees(t))
+                    events.Add(AiEvent.SightLost(b.Id, tick, _actors[t], sight.Last[t].Origin, sight.Last[t].Velocity));
+                // Where it last saw them, not where they got to while it was deciding it had lost them (§4.1).
+                if (c == SightChange.Gained || sight.Tracker.Sees(t))
                     sight.Last[t] = them;
             }
         }
@@ -356,6 +368,36 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
         => (uint)botSlot < Slots && (uint)fromSlot < Slots && _reads[botSlot] is { } me && _reads[fromSlot] is { } them
             ? (them.Origin - me.Origin).Normalised()
             : AiVector.Zero;
+
+    private readonly int[] _lineAnswered = new int[Slots];
+    private int _linesThisTick;
+    private int _linesTick = -1;
+
+    /// <summary>
+    /// A bot's look along a line (§5.4's prefire): from its own eye to
+    /// <paramref name="point"/>, once for each ask, within <see cref="LineTracesPerTick"/>
+    /// a tick; one over the budget is answered the next tick. Asks of a slot start over
+    /// when <see cref="Add"/> serves a new bot there.
+    /// </summary>
+    public void AnswerLine(Tick tick, in SensedBot bot, int ask, AiVector point, List<AiEvent> events)
+    {
+        int slot = bot.Id.Slot;
+        if (ask <= _lineAnswered[slot] || _reads[slot] is not { } me)
+            return;
+        if (_linesTick != tick.Value)
+        {
+            _linesTick = tick.Value;
+            _linesThisTick = 0;
+        }
+
+        if (_linesThisTick >= LineTracesPerTick)
+            return;
+        _linesThisTick++;
+        Traces++;
+        _lineAnswered[slot] = ask;
+        TraceAnswer t = traces_.Line(new Vector(me.Eye.X, me.Eye.Y, me.Eye.Z), new Vector(point.X, point.Y, point.Z), LineMask, bot.Player);
+        events.Add(AiEvent.LineAnswer(bot.Id, tick, point, ask, t.Fraction >= 1f));
+    }
 
     /// <summary>How far a bot looks for an item spawn, and how many it checks and traces a tick.</summary>
     public const float ItemRange = 1500f;

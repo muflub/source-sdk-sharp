@@ -21,13 +21,56 @@ public sealed class SkillCurves
         "aimErrorDeg", "leadQuality", "glanceRate", "preferredRangeScale", "chaseSeconds", "coverWeight", "reloadBelowPct",
         "searchSeconds", "ambushWeight", "routeAltWeight", "fireRangeGate", "pushTrust", "pushMarginSeconds", "strafeWeight",
         "strafeMeanSeconds", "retreatHealthPct", "rankBonus", "pathCapMultiplier", "easyTargetDiscount",
-        "reactionMs", "trackingLagMs", "flickOvershootPct",
+        "reactionMs", "trackingLagMs", "flickOvershootPct", "grudgeWeight",
+        "prefireChance", "prefireThrift", "prefireBurstSeconds", "giveUpHealth", "crouchShare",
     ];
 
+    /// <summary>
+    /// The style level of a skill at its own mean. Spending points on favourites puts
+    /// the rest about half a spread under the mean, so a bot's other skills read about
+    /// 3.25, where Medium's levels 3 and 4 are: a favourite stands out against a bot
+    /// that otherwise plays as Medium does, at any difficulty.
+    /// </summary>
+    public const float StyleMid = 4.5f;
+
+    /// <summary>How many style levels one of the bot's own spreads above its mean is worth.</summary>
+    public const float StyleGain = 2.5f;
+
+    /// <summary>
+    /// How strong a style a skill makes (§10, ruling 2026-11-02: "Can fix bot
+    /// strongest trait to show at lower difficulty"): how far it sits above the bot's
+    /// own mean, in the bot's own spread (the standard deviation of its levels, at
+    /// least 1), not how high it is, so a favourite shows at any difficulty. Easy's
+    /// favourite is 2.7 levels up and Hard's 4.3 (§10's spread), and each stands about
+    /// two of its own spreads clear of its mean.
+    /// </summary>
+    public static float StyleLevel(int level, float mean, float spread) => Math.Clamp(StyleMid + StyleGain * (level - mean) / Math.Max(1f, spread), 0f, StandardSkills.Cap);
+
+    /// <summary>A profile's levels' mean and standard deviation.</summary>
+    public static (float Mean, float Spread) OwnSpread(SkillProfile profile)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        int n = profile.Levels.Length;
+        if (n == 0)
+            return (0f, 0f);
+        float mean = (float)profile.Levels.Sum() / n, sum = 0f;
+        foreach (int l in profile.Levels)
+            sum += (l - mean) * (l - mean);
+        return (mean, MathF.Sqrt(sum / n));
+    }
+
     /// <summary>One parameter's curve.</summary>
-    public sealed record Curve(string Parameter, string Skill, bool Rises, ImmutableArray<float> Levels)
+    public sealed record Curve(string Parameter, string Skill, bool Rises, ImmutableArray<float> Levels, bool Style = false)
     {
         public float At(int level) => Levels[Math.Clamp(level, 0, Levels.Length - 1)];
+
+        /// <summary>The curve between its levels.</summary>
+        public float At(float level)
+        {
+            float l = Math.Clamp(level, 0f, Levels.Length - 1);
+            int below = (int)MathF.Floor(l), above = Math.Min(below + 1, Levels.Length - 1);
+            return Levels[below] + (Levels[above] - Levels[below]) * (l - below);
+        }
     }
 
     private readonly Dictionary<string, Curve> _curves;
@@ -68,7 +111,10 @@ public sealed class SkillCurves
             ImmutableArray<float> levels = [.. p.Value.GetProperty("levels").EnumerateArray().Select(v => v.GetSingle())];
             if (levels.Length != StandardSkills.Cap + 1)
                 throw new InvalidDataException($"skill curves: '{p.Name}' has {levels.Length} levels, not {StandardSkills.Cap + 1}");
-            var curve = new Curve(p.Name, skill, direction == "up", levels);
+            string reads = p.Value.TryGetProperty("reads", out JsonElement r) ? r.GetString() ?? "" : "level";
+            if (reads is not ("level" or "style"))
+                throw new InvalidDataException($"skill curves: '{p.Name}' reads '{reads}', not level or style");
+            var curve = new Curve(p.Name, skill, direction == "up", levels, reads == "style");
             if (!Moves(curve))
                 throw new InvalidDataException($"skill curves: '{p.Name}' does not go {direction} with {skill}");
             curves[p.Name] = curve;
@@ -146,22 +192,64 @@ public sealed class SkillCurves
         return [.. list];
     }
 
+    /// <summary>
+    /// How far a hot streak lifts a level (§5.5, ruling 2026-11-02: "some times bad bots become
+    /// great for a very short stint"), and the level it stops at: the most at the bottom,
+    /// next to nothing near the top, and never to Expert's (Accuracy 8, Alertness 7).
+    /// </summary>
+    public const float HotLift = 3f, HotCap = 6.5f;
+
+    /// <summary>How far a cold spell drops a level: the most at the top, next to nothing at the bottom.</summary>
+    public const float ColdDrop = 1.2f;
+
+    /// <summary>A level on a hot streak: Easy's Accuracy 2 reads about 3.9, near Medium's 4; one at the cap or over it stays.</summary>
+    public static float HotLevel(float level)
+    {
+        float gap = 1f - level / StandardSkills.Cap;
+        return MathF.Max(level, MathF.Min(level + HotLift * gap * gap, HotCap));
+    }
+
+    /// <summary>A level on a cold spell.</summary>
+    public static float ColdLevel(float level)
+    {
+        float top = level / StandardSkills.Cap;
+        return MathF.Max(0f, level - ColdDrop * top * top);
+    }
+
+    /// <summary>What a streak changes, at a shift of the bot's own levels: only these (§5.5). A turn's limits stay a person's.</summary>
+    private StreakParams Streak(SkillProfile profile, Func<float, float> shift)
+    {
+        float Level(string parameter, out Curve curve)
+        {
+            curve = _curves[parameter];
+            int i = profile.IndexOf(curve.Skill);
+            return shift(i < 0 ? 0 : profile.Levels[i]);
+        }
+
+        float error = Level("aimErrorDeg", out Curve errors), lead = Level("leadQuality", out Curve leads), reaction = Level("reactionMs", out Curve reactions);
+        return new StreakParams(errors.At(error), leads.At(lead), reactions.At(reaction), VisionCurves.RecognizeAt(reaction));
+    }
+
     /// <summary>The parameters at a profile's levels.</summary>
     public DecisionParams For(SkillProfile profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
+        (float mean, float spread) = OwnSpread(profile);
         float V(string p)
         {
             Curve c = _curves[p];
             int i = profile.IndexOf(c.Skill);
-            return c.At(i < 0 ? 0 : profile.Levels[i]);
+            int level = i < 0 ? 0 : profile.Levels[i];
+            return c.Style ? c.At(StyleLevel(level, mean, spread)) : c.At(level);
         }
 
         return new DecisionParams(V("aimErrorDeg"), V("leadQuality"), V("glanceRate"), V("preferredRangeScale"), V("chaseSeconds"),
                                   V("coverWeight"), V("reloadBelowPct"), V("searchSeconds"), V("ambushWeight"), V("routeAltWeight"),
                                   V("fireRangeGate"), V("pushTrust"), V("pushMarginSeconds"), V("strafeWeight"), V("strafeMeanSeconds"),
                                   V("retreatHealthPct"), V("rankBonus"), V("pathCapMultiplier"), V("easyTargetDiscount"),
-                                  V("reactionMs"), V("trackingLagMs"), V("flickOvershootPct"));
+                                  V("reactionMs"), V("trackingLagMs"), V("flickOvershootPct"), V("grudgeWeight"),
+                                  V("prefireChance"), V("prefireThrift"), V("prefireBurstSeconds"), V("giveUpHealth"), V("crouchShare"),
+                                  Streak(profile, HotLevel), Streak(profile, ColdLevel));
     }
 }
 
@@ -188,4 +276,15 @@ public readonly record struct DecisionParams(
     float EasyTargetDiscount,
     float ReactionMs,
     float TrackingLagMs,
-    float FlickOvershootPct);
+    float FlickOvershootPct,
+    float GrudgeWeight = 0f,
+    float PrefireChance = 0f,
+    float PrefireThrift = 1f,
+    float PrefireBurstSeconds = 0f,
+    float GiveUpHealth = 0f,
+    float CrouchShare = 0f,
+    StreakParams Hot = default,
+    StreakParams Cold = default);
+
+/// <summary>What a streak changes while it lasts (§5.5): the aim's error and lead, the reaction, the recognition.</summary>
+public readonly record struct StreakParams(float AimErrorDeg, float LeadQuality, float ReactionMs, float RecognizeSeconds);

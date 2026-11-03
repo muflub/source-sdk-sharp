@@ -66,6 +66,7 @@
    "skill": "aggression",
    "direction": "down",
    "note": "the weapon family's preferred engagement range is scaled by this",
+   "reads": "style",
    "levels": [
     1.4,
     1.32,
@@ -84,6 +85,7 @@
    "skill": "aggression",
    "direction": "up",
    "note": "how long the bot chases an opponent it lost sight of before it searches",
+   "reads": "style",
    "levels": [
     1.0,
     1.7,
@@ -102,6 +104,7 @@
    "skill": "cover",
    "direction": "up",
    "note": "how much a fighting bot prefers a spot the opponent cannot see",
+   "reads": "style",
    "levels": [
     0.0,
     0.1,
@@ -120,6 +123,7 @@
    "skill": "cover",
    "direction": "up",
    "note": "the clip share under which the bot reloads when nobody is sighted",
+   "reads": "style",
    "levels": [
     0.0,
     0.06,
@@ -138,6 +142,7 @@
    "skill": "tenacity",
    "direction": "up",
    "note": "how long the bot searches the belief's cells before it gives up",
+   "reads": "style",
    "levels": [
     3.0,
     5.2,
@@ -152,10 +157,30 @@
     25.0
    ]
   },
+  "grudgeWeight": {
+   "skill": "tenacity",
+   "direction": "up",
+   "note": "how much who killed the bot most weighs when it has a choice of opponent",
+   "reads": "style",
+   "levels": [
+    0.0,
+    0.05,
+    0.1,
+    0.15,
+    0.2,
+    0.25,
+    0.3,
+    0.35,
+    0.4,
+    0.45,
+    0.5
+   ]
+  },
   "ambushWeight": {
    "skill": "cunning",
    "direction": "up",
    "note": "Ambush's utility when an opponent's route is known",
+   "reads": "style",
    "levels": [
     0.0,
     0.08,
@@ -174,6 +199,7 @@
    "skill": "cunning",
    "direction": "up",
    "note": "the cost added to the shortest approach's cells, so a cunning bot comes another way",
+   "reads": "style",
    "levels": [
     0.0,
     0.06,
@@ -282,6 +308,7 @@
    "skill": "nerve",
    "direction": "down",
    "note": "the health share under which the bot retreats from an approaching opponent",
+   "reads": "style",
    "levels": [
     0.6,
     0.55,
@@ -300,6 +327,7 @@
    "skill": "headhunter",
    "direction": "up",
    "note": "the target-priority weight of the opponent's scoreboard rank (\u00a75.4)",
+   "reads": "style",
    "levels": [
     0.0,
     0.1,
@@ -318,6 +346,7 @@
    "skill": "headhunter",
    "direction": "up",
    "note": "how much farther than the nearest opponent the bot will walk to its target",
+   "reads": "style",
    "levels": [
     1.0,
     1.2,
@@ -336,6 +365,7 @@
    "skill": "headhunter",
    "direction": "down",
    "note": "the priority a nearer, easier target keeps against the leader",
+   "reads": "style",
    "levels": [
     1.0,
     0.93,
@@ -403,6 +433,100 @@
     5.2,
     3.0
    ]
+  },
+  "prefireChance": {
+   "skill": "cunning",
+   "direction": "up",
+   "reads": "style",
+   "note": "the chance a bot with a belief fires a burst at the place it thinks someone is, drawn at most once per Hl2mpDecider.PrefireCheckSeconds (\u00a75.4): using a prediction",
+   "levels": [
+    0.0,
+    0.25,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.85,
+    0.9,
+    0.95,
+    1.0
+   ]
+  },
+  "prefireThrift": {
+   "skill": "discipline",
+   "direction": "down",
+   "reads": "style",
+   "note": "prefireChance is multiplied by this: a disciplined bot saves its ammo for what it can see (\u00a75.4)",
+   "levels": [
+    1.0,
+    1.0,
+    0.92,
+    0.84,
+    0.76,
+    0.68,
+    0.6,
+    0.52,
+    0.44,
+    0.32,
+    0.2
+   ]
+  },
+  "prefireBurstSeconds": {
+   "skill": "discipline",
+   "direction": "down",
+   "reads": "style",
+   "note": "how long a prefire holds the trigger: a person sprays a corner for under a second, then checks (\u00a75.4)",
+   "levels": [
+    0.9,
+    0.84,
+    0.78,
+    0.72,
+    0.66,
+    0.6,
+    0.54,
+    0.48,
+    0.42,
+    0.36,
+    0.3
+   ]
+  },
+  "giveUpHealth": {
+   "skill": "tenacity",
+   "direction": "down",
+   "reads": "style",
+   "note": "below this share of its health, with someone on it, a bot leaves the fight whatever its nerve (the low-Tenacity names: Runs Away, Quitter, Bails Out)",
+   "levels": [
+    0.6,
+    0.3,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  "crouchShare": {
+   "skill": "cover",
+   "direction": "up",
+   "reads": "style",
+   "note": "the share of a fight at range, holding position, a bot spends crouched while it fires (\u00a75.4, ruling 2026-11-02); Medium's height reads about what the user's recordings show of a person: rarely",
+   "levels": [0.0,
+    0.005,
+    0.01,
+    0.015,
+    0.02,
+    0.03,
+    0.05,
+    0.09,
+    0.15,
+    0.22,
+    0.3]
   }
- }
+ },
+ "styleNote": "A parameter that reads 'style' is read at a skill's height above the bot's own mean (SkillCurves.StyleLevel, \u00a710, ruling 2026-11-02), not its level, so a bot's favourite shows at any difficulty; the rest read the level itself, so difficulty still means skill."
 }

@@ -25,8 +25,12 @@ public sealed class ReplayScrubberTests
         public string? Refusal => "none";
 
         public NavObstacleState? Obstacles => null;
+        public NavObstacleState? ObstaclesFor(SourceSharp.Abi.EntityHandle player) => Obstacles;
 
         public NavSight? Sight => null;
+
+
+        public ChokeSlot? Chokes => null;
     }
 
     private sealed class Log : SourceSharp.Abi.ILog

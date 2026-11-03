@@ -13,6 +13,58 @@ public sealed class MetricsTests
 {
     private static readonly ActorId Person = new(2, 0x4000_0123), Bot = new(3, 7);
 
+    private static AiUserCmd Press(int tick, int buttons)
+        => new(Person, new Tick(tick), tick, tick, default, 0, 0, 0, buttons, 0, 0, 0, 0, 0, 0);
+
+    /// <summary>Ticks holding fire, those ducked, and each duck's hold (§5.4): the figures a bot's crouch is held against.</summary>
+    [Fact]
+    public void DuckingCountsTheShootingTicksDuckedAndEachHold()
+    {
+        const int Attack = 1, Duck = 4;
+        var commands = new List<AiUserCmd>();
+        for (int t = 0; t < 100; t++)
+            commands.Add(Press(t, t < 50 ? Attack : 0));
+        for (int t = 100; t < 120; t++)
+            commands.Add(Press(t, Attack | Duck));
+        for (int t = 120; t < 130; t++)
+            commands.Add(Press(t, Duck));
+        commands.Add(Press(130, 0));
+
+        (int shooting, int ducked, double[] holds) = AiMetrics.Ducking(commands);
+
+        Assert.Equal(70, shooting);
+        Assert.Equal(20, ducked);
+        Assert.Equal(30 * AiMetrics.TickSeconds * 1000, Assert.Single(holds), 3);
+    }
+
+    /// <summary>A crouch jump is a jump: no hold of a crouch.</summary>
+    [Fact]
+    public void ACrouchJumpIsNoDuckHold()
+    {
+        const int Duck = 4, Jump = 2;
+        var commands = new List<AiUserCmd>();
+        for (int t = 0; t < 30; t++)
+            commands.Add(Press(t, Duck | (t < 5 ? Jump : 0)));
+        commands.Add(Press(30, 0));
+        Assert.Empty(AiMetrics.Ducking(commands).HoldsMs);
+    }
+
+    /// <summary>A gap in the commands (a death, a respawn) ends a hold: no duck runs across it.</summary>
+    [Fact]
+    public void AGapEndsADuckHold()
+    {
+        const int Duck = 4;
+        var commands = new List<AiUserCmd>();
+        for (int t = 0; t < 10; t++)
+            commands.Add(Press(t, Duck));
+        for (int t = 1000; t < 1010; t++)
+            commands.Add(Press(t, Duck));
+        commands.Add(Press(1010, 0));
+        (_, _, double[] holds) = AiMetrics.Ducking(commands);
+        Assert.Equal(2, holds.Length);
+        Assert.All(holds, h => Assert.Equal(10 * AiMetrics.TickSeconds * 1000, h, 3));
+    }
+
     private sealed class Stream
     {
         private readonly MemoryStream _bytes = new();
@@ -176,7 +228,7 @@ public sealed class MetricsTests
         s.Cmd(Person, 201, 0);
         string table = AiMetrics.Table(s.Metrics());
         string[] rows = table.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        Assert.Equal(8, rows.Length);   // the header and a row per actor for the metrics; for the hit rate, the header and two rows per actor
+        Assert.Equal(11, rows.Length);   // the ducking section is a header and a row per actor; the rest: the header and a row per actor for the metrics; for the hit rate, the header and two rows per actor
         Assert.StartsWith("2#1073742115 ", rows[1], StringComparison.Ordinal);
         Assert.Contains(" human ", rows[1], StringComparison.Ordinal);
         Assert.Contains(" bot ", rows[2], StringComparison.Ordinal);

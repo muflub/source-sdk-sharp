@@ -16,7 +16,14 @@ public sealed record ActorMetrics(
     double[] ReactionMs,
     double[] StrafeIntervalMs,
     double ReversalsPerMinute,
-    HitRates Hits);
+    HitRates Hits,
+    int ShootingTicks = 0,
+    int DuckedShootingTicks = 0,
+    double[]? DuckHoldsMs = null)
+{
+    /// <summary>The share of the ticks holding fire spent ducked, or NaN with none.</summary>
+    public double DuckedShootingShare => ShootingTicks > 0 ? DuckedShootingTicks / (double)ShootingTicks : double.NaN;
+}
 
 /// <summary>Hits of shots, under a label.</summary>
 public readonly record struct HitLine(string Label, int Hits, int Shots)
@@ -292,8 +299,9 @@ public static class AiMetrics
         }
 
         double minutes = commands.Count < 2 ? 0 : (commands[^1].TickCount - commands[0].TickCount) * TickSeconds / 60.0;
+        (int shooting, int ducked, double[] holds) = Ducking(commands);
         return new ActorMetrics(actor, bot, commands.Count, minutes, [.. speeds], [.. peaks], gained, [.. acquire], [.. reaction], [.. strafes],
-                                minutes > 0 ? reversals / minutes : 0, HitRatesOf(actor, commands, frames, sights, shots, weapons));
+                                minutes > 0 ? reversals / minutes : 0, HitRatesOf(actor, commands, frames, sights, shots, weapons), shooting, ducked, holds);
     }
 
     private static HitRates HitRatesOf(ActorId actor, IReadOnlyList<AiUserCmd> commands, IReadOnlyDictionary<ActorId, SortedList<int, AiActorFrame>> frames,
@@ -489,6 +497,45 @@ public static class AiMetrics
     }
 
     /// <summary>The table <c>ai-replay metrics</c> prints: one row per actor.</summary>
+    /// <summary>
+    /// How an actor ducks (§5.4, ruling 2026-11-02): the ticks holding fire, those ducked, and how
+    /// long each duck was held. A run of IN_DUCK that was in the air with IN_JUMP pressed is a
+    /// crouch jump, no crouch; a command gap ends a run.
+    /// </summary>
+    public static (int Shooting, int Ducked, double[] HoldsMs) Ducking(IReadOnlyList<AiUserCmd> commands)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        const int Attack = 1, Duck = 4, Jump = 2;
+        int shooting = 0, ducked = 0, runStart = -1;
+        bool jumped = false;
+        var holds = new List<double>();
+        for (int i = 0; i <= commands.Count; i++)
+        {
+            bool down = i < commands.Count && (commands[i].Buttons & Duck) != 0;
+            bool gap = i > 0 && i < commands.Count && commands[i].TickCount - commands[i - 1].TickCount > 8;
+            if (runStart >= 0 && (!down || gap))
+            {
+                if (!jumped)
+                    holds.Add((commands[i - 1].TickCount - commands[runStart].TickCount + 1) * TickSeconds * 1000);
+                runStart = -1;
+                jumped = false;
+            }
+
+            if (i == commands.Count)
+                break;
+            if (down && runStart < 0)
+                runStart = i;
+            jumped |= down && (commands[i].Buttons & Jump) != 0;
+            if ((commands[i].Buttons & Attack) != 0)
+            {
+                shooting++;
+                ducked += down ? 1 : 0;
+            }
+        }
+
+        return (shooting, ducked, [.. holds]);
+    }
+
     public static string Table(IReadOnlyList<ActorMetrics> actors)
     {
         var sb = new StringBuilder();
@@ -502,6 +549,14 @@ public static class AiMetrics
             sb.Append(CultureInfo.InvariantCulture, $"{m.ReactionMs.Length,10} {F(Quantile(m.ReactionMs, 0.5)),6} | ");
             sb.Append(CultureInfo.InvariantCulture, $"{m.StrafeIntervalMs.Length,8} {F(Quantile(m.StrafeIntervalMs, 0.5)),6} | ");
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"{m.ReversalsPerMinute,13:F1}"));
+        }
+
+        sb.AppendLine("ducking: the ticks holding fire, the share of them ducked; holds of duck (a crouch jump is none), n, median, p90 ms");
+        foreach (ActorMetrics m in actors)
+        {
+            double[] holds = m.DuckHoldsMs ?? [];
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"{$"{m.Actor.Slot}#{m.Actor.Serial}",-21} {(m.Bot ? "bot" : "human"),-5} {m.ShootingTicks,6} {(double.IsNaN(m.DuckedShootingShare) ? "-" : $"{m.DuckedShootingShare * 100:F1}%"),6} | {holds.Length,4} {F(Quantile(holds, 0.5)),6} {F(Quantile(holds, 0.9)),6}"));
         }
 
         sb.AppendLine("hit rate: hits/shots aimed at someone (a shot is one trigger pull with a sighted actor within the cone, a hit one victim in one tick)");

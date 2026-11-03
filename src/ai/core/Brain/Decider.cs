@@ -22,7 +22,21 @@ public readonly record struct DoingRecord(
     float ArriveSeconds,
     float ScoreboardTerm,
     float AmmoTerm,
-    Tick Expires);
+    Tick Expires,
+    float GrudgeTerm = 0f,
+    bool PreAiming = false,
+    AiVector HabitSpot = default,
+    int MomentSeq = 0,
+    string MomentKind = "",
+    ActorId MomentOther = default,
+    int LineAsk = 0,
+    AiVector LineAt = default,
+    string Prefire = "",
+    AiVector PrefireAt = default,
+    string Streak = "",
+    float StreakAimErrorDeg = 0f,
+    float StreakReactionMs = 0f,
+    float StreakRecognizeSeconds = 0f);
 
 /// <summary>
 /// A game's decision layer for one bot (plan_hl2mp_ai §9 Phase 5 step 3):

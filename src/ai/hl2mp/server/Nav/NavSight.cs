@@ -69,6 +69,18 @@ public sealed class NavSight : ICellSight
         return at >= 0 && _seen[na][at];
     }
 
+    /// <summary>The share of the places within <see cref="Range"/> whose eye sees this cell's: the planner's measure of cover.</summary>
+    public float Exposure(int cell)
+    {
+        int node = _nodeOfCell[cell];
+        if (_near[node].Length == 0)
+            return 0f;
+        int seen = 0;
+        foreach (bool b in _seen[node])
+            seen += b ? 1 : 0;
+        return seen / (float)_near[node].Length;
+    }
+
     public static NavSight Build(NavGraph graph, IVoxelSpace space)
     {
         ArgumentNullException.ThrowIfNull(graph);

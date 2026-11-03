@@ -41,6 +41,34 @@ public sealed class AiBotKitCommand(Hl2mpBots bots, Arsenal arsenal, WeaponCatal
 }
 
 /// <summary>
+/// <c>ai_bot_streak &lt;name&gt; hot|cold</c> (§5.5): the bot starts that streak now, for the aim
+/// range to measure a streak by itself; told to its brain as an event, as anything is.
+/// </summary>
+[ConCommand("ai_bot_streak", Help = "ai_bot_streak <name> hot|cold: the bot starts that streak now", Flags = ConVarFlags.Cheat)]
+public sealed class AiBotStreakCommand(Hl2mpBots bots, Senses.Hl2mpAiSession ai, IEngineFrame frame, ILog log) : IConCommand
+{
+    public void Execute(string args)
+    {
+        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (p.Length < 2 || p[1] is not ("hot" or "cold"))
+        {
+            log.Warning("[SourceSharp/Ai] usage: ai_bot_streak <name> hot|cold\n");
+            return;
+        }
+
+        foreach (Hl2mpBot bot in bots.Bots)
+        {
+            if (!string.Equals(bot.Name, p[0], StringComparison.OrdinalIgnoreCase))
+                continue;
+            ai.Session.Push(AiEvent.StreaksSet(bot.Id, new Tick(frame.TickCount()), p[1] == "hot" ? AiEvent.StreakHot : AiEvent.StreakCold));
+            return;
+        }
+
+        log.Warning($"[SourceSharp/Ai] ai_bot_streak: no bot called '{p[0]}'\n");
+    }
+}
+
+/// <summary>
 /// <c>ai_aim_tough &lt;slot&gt; &lt;health&gt;</c> (§12.3): the player in that slot is
 /// held at that health every tick, so a target outlives its measurement and
 /// its hits are still told; 0 stops.

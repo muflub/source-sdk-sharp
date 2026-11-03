@@ -14,6 +14,8 @@ public enum ChatTriggerKind
     Leader,
     Pickup,
     Reply,
+    Spot,
+    Hot,
 }
 
 /// <summary>A bot's self as chat speaks it: its name, the first name it answers to, and the tone of its most distinctive trait.</summary>
@@ -98,6 +100,8 @@ public sealed class ChatPromptBuilder(ChatWords words)
             ChatTriggerKind.Streak => Fill("streak", ("count", Num(trigger.Count))),
             ChatTriggerKind.Leader => Fill("leader"),
             ChatTriggerKind.Pickup => Fill("pickup", ("weapon", words.WeaponName(trigger.Weapon))),
+            ChatTriggerKind.Spot => Fill("spot", ("other", other)),
+            ChatTriggerKind.Hot => Fill("hot"),
             _ => Fill("reply", ("other", other), ("text", Untrusted(heard?.Text, MaxHeard))),
         }).Append('\n').Append(words.Prompts["tail"]);
         return new ChatPrompt(system, user.ToString(), Tokens);

@@ -250,6 +250,56 @@ public class BotCommandApplierTests
         Assert.Equal(BotCommandApplier.FullMove, cmd.ForwardMove, 2);
     }
 
+    /// <summary>A crouched strafe (§5.4): the fight's sidestep goes on, with the duck held.</summary>
+    [Fact]
+    public void ACrouchedStrafeDucksAndStillSteps()
+    {
+        Submit(new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, new AiVector(1f, 0f, 0f), true, 0));
+        UserCmd cmd = Tick();
+        Assert.True(cmd.IsPressed(InputButtons.Duck));
+        Assert.Equal(BotCommandApplier.FullMove, cmd.ForwardMove, 2);
+    }
+
+    /// <summary>The control: an ordinary sidestep stands up.</summary>
+    [Fact]
+    public void AStrafeDoesNotDuckUnlessItIsAskedTo()
+    {
+        Submit(new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, new AiVector(1f, 0f, 0f), false, 0));
+        Assert.False(Tick().IsPressed(InputButtons.Duck));
+    }
+
+    /// <summary>On a ladder a duck lets go of the rungs: the fight's crouch waits.</summary>
+    [Fact]
+    public void OnALadderTheFightsCrouchDoesNotDuck()
+    {
+        _self.Facts = _self.Facts with { OnLadder = true };
+        Submit(Kind(MoveKind.Crouch, crouch: true));
+        Assert.False(Tick().IsPressed(InputButtons.Duck));
+        Submit(new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, new AiVector(1f, 0f, 0f), true, 0));
+        Assert.False(Tick().IsPressed(InputButtons.Duck));
+    }
+
+    /// <summary>
+    /// Crouching lowers the eye, and the aim is from the eye: after the settle the view goes
+    /// through the same point, at the angle from the lower eye.
+    /// </summary>
+    [Fact]
+    public void ACrouchedBotsAimStaysOnItsTarget()
+    {
+        var target = new AiVector(500f, 0f, 64f);
+        for (int i = 0; i < 400; i++)
+        {
+            if (i % 6 == 0)
+                SubmitAim(target, ActionIntent.None);
+            if (i == 200)
+                _self.Facts = _self.Facts with { Eye = new AiVector(0f, 0f, 28f) };
+            TickFollowingTheView();
+        }
+
+        // Up by atan(36 / 500): about 4.1 degrees, and pitch runs negative upward.
+        Assert.InRange(_self.Facts.View.Pitch, -6f, -2.5f);
+    }
+
     [Fact]
     public void ASprayHoldsFireAndATapLetsGoBetweenPresses()
     {
@@ -477,6 +527,47 @@ public class BotCommandApplierTests
         Assert.NotEmpty(fired);
         Assert.True(fired[0] > reaction, $"first press at tick {fired[0]}, the reaction lasts {reaction}");
         Assert.InRange(MathF.Abs(HumanMotion.AngleDelta(_self.Facts.View.Yaw, 90f)), 0f, 25f);
+    }
+
+    /// <summary>A bot holding a place sways its view across it: each decide's new point is no new stimulus, or the view never moves (it stood frozen, 166 s of idle in one run).</summary>
+    [Fact]
+    public void AHeldViewFollowsItsSway()
+    {
+        float first = _self.Facts.View.Yaw, most = 0f;
+        for (int i = 0; i < 200; i++)
+        {
+            if (i % 6 == 0)
+            {
+                float yaw = 90f + 20f * MathF.Sin(i * 0.015f * 2f * MathF.PI / 5f);
+                var point = new AiVector(MathF.Cos(yaw * MathF.PI / 180f) * 300f, MathF.Sin(yaw * MathF.PI / 180f) * 300f, 64f);
+                _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold,
+                                                  new LookIntent(LookKind.Watch, point, ActorId.None, AimPoint.Body, 0f, 1), ActionIntent.None, default));
+            }
+
+            TickFollowingTheView();
+            most = MathF.Max(most, MathF.Abs(HumanMotion.AngleDelta(first, _self.Facts.View.Yaw)));
+        }
+
+        Assert.True(most > 20f, $"the view moved {most} degrees");
+    }
+
+    /// <summary>A prefire looks at a corner, and the hands wait for the eye there as they do for a person (§5.4).</summary>
+    [Fact]
+    public void AtACornerTheHandsWaitForTheEye()
+    {
+        var fired = new List<int>();
+        int reaction = (int)(Normal.ReactionMs / 1000f / Dt);
+        for (int i = 0; i < 200; i++)
+        {
+            if (i % 6 == 0)
+                _applier.Submit(new IntentCommand(Bot, new Tick(_tick), ++_seq, new Tick(_tick + IntentCommand.LifetimeTicks), MoveIntent.Hold,
+                                                  new LookIntent(LookKind.CornerCheck, new AiVector(0f, 500f, 64f), Foe, AimPoint.Body, 0f, 0), HoldFire, default));
+            if ((TickFollowingTheView().Buttons & (int)InputButtons.Attack) != 0)
+                fired.Add(i);
+        }
+
+        Assert.NotEmpty(fired);
+        Assert.True(fired[0] > reaction, $"first press at tick {fired[0]}, the reaction lasts {reaction}");
     }
 
     private int FirstPressAiming(AiVector point)

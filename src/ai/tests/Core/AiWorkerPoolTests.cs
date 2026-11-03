@@ -42,6 +42,44 @@ public sealed class AiWorkerPoolTests
             }
         });
 
+    private sealed class Sleep(ManualResetEventSlim done) : IAiWork
+    {
+        public void Run()
+        {
+            Thread.Sleep(100);
+            done.Set();
+        }
+    }
+
+    [Fact]
+    public void AWorkerIsChargedCpuForWhatItRanNotForWaiting()
+    {
+        // The stand-in clock moves 5 us a read, whatever the wall does.
+        double now = 0d;
+        using var pool = new AiWorkerPool { CpuClock = () => now += 5d };
+        pool.Start(1);
+        using var done = new ManualResetEventSlim();
+        Assert.True(pool.Post(new Sleep(done)));
+        Assert.True(done.Wait(TimeSpan.FromSeconds(10)), "the work ran");
+        Assert.True(SpinWait.SpinUntil(() => pool.Ran == 1, TimeSpan.FromSeconds(10)), "the work was counted");
+
+        Assert.True(pool.BusyMicros >= 90_000d, $"the wall saw the sleep ({pool.BusyMicros:F0} us)");
+        Assert.Equal(5d, pool.BusyCpuMicros);
+    }
+
+    [Fact]
+    public void WithNoClockThePoolsCpuIsItsWall()
+    {
+        using var pool = new AiWorkerPool();
+        pool.Start(1);
+        using var done = new ManualResetEventSlim();
+        Assert.True(pool.Post(new Sleep(done)));
+        Assert.True(done.Wait(TimeSpan.FromSeconds(10)), "the work ran");
+        Assert.True(SpinWait.SpinUntil(() => pool.Ran == 1, TimeSpan.FromSeconds(10)), "the work was counted");
+
+        Assert.Equal(pool.BusyMicros, pool.BusyCpuMicros);
+    }
+
     [Fact]
     public void WorkRunsOnAWorkerNotTheCaller()
     {

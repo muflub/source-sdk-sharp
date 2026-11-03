@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import {
+import { CHOKE_POINTS,
   NAV_COLOURS, buildFlowLayer, buildNavLayers, cellCentre, type AiFlow, type AiNav,
 } from '../aiNav';
 
@@ -31,6 +31,15 @@ describe('the nav layers', () => {
 
   it('puts a point at each cell centre, on its floor', () => {
     expect(Array.from(cells.positions)).toEqual([8, 8, 2, 24, 8, 2, 40, 8, 32]);
+  });
+
+  it('stands a column of choke-coloured points on each choke point, after the cells', () => {
+    const before = buildNavLayers(nav).cells.positions.length / 3;
+    const { cells } = buildNavLayers({ ...nav, chokes: [{ x: 5, y: 6, z: 7, score: 1 }] });
+    expect(cells.positions.length / 3).toBe(before + CHOKE_POINTS);
+    expect([...cells.positions.slice(before * 3, before * 3 + 3)]).toEqual([5, 6, 7]);
+    const colour = [...cells.colours.slice(before * 3, before * 3 + 3)];
+    NAV_COLOURS.choke.forEach((v, i) => expect(colour[i]).toBeCloseTo(v));
   });
 
   it('colours a cell by who may stand there', () => {

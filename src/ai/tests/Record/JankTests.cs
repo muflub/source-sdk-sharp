@@ -481,6 +481,67 @@ public sealed class JankTests
         Assert.True(drift.Of(Bot).IdleSeconds >= Seconds(198), $"{drift.Of(Bot).IdleSeconds}");
     }
 
+    // ---- how it plays -------------------------------------------------------
+
+    [Fact]
+    public void WalkingIsMeasuredInUnitsPerMinute()
+    {
+        var r = new Rec(Bot);
+        for (int t = 0; t < 4000; t++)
+            r.At(Bot, t, t * 2f, forward: 450);
+        JankActor a = r.Of(Bot);
+        Assert.Equal(3999 * 2.0, a.Traits.WalkedUnits, 0);
+        Assert.InRange(a.WalkedPerMinute, 7990.0, 8010.0);     // 2 u a tick, 66.67 ticks a second
+    }
+
+    /// <summary>Time in cover is the time nobody held sight of it: seen by someone from tick 100 to 300 of 400.</summary>
+    [Fact]
+    public void UnseenIsTheTimeNobodyHeldSightOfIt()
+    {
+        var r = new Rec(Bot);
+        r.Sees(Other, 100, Bot);
+        r.R.Event(AiEvent.SightLost(Other, new Tick(300), Bot, default, default));
+        for (int t = 0; t < 400; t++)
+        {
+            r.At(Bot, t, 100);
+            r.At(Other, t, 500);
+        }
+
+        Assert.Equal(Seconds(200), r.Of(Bot).Traits.UnseenSeconds, 6);
+        Assert.Equal(0.5, r.Of(Bot).UnseenShare, 6);
+    }
+
+    /// <summary>One kill, told to two bots' HUDs, is one kill. It is from ambush if the killer stood until it saw its victim, however it moved in the fight; running into them is not.</summary>
+    [Fact]
+    public void AKillIsCountedOnceAndFromAmbushIfItStoodUntilItSawThem()
+    {
+        var r = new Rec(Bot);
+        // Runs to tick 400, stands to 600, then moves about in the fight it picks.
+        for (int t = 0; t < 800; t++)
+            r.At(Bot, t, t < 400 ? t * 2.85f : t < 600 ? 400 * 2.85f : 400 * 2.85f + (t - 600) * 2.85f);
+        r.Sees(Bot, 300, Other);
+        r.R.Event(AiEvent.SightLost(Bot, new Tick(340), Other, default, default));
+        r.R.Event(AiEvent.KillFeed(Bot, new Tick(350), Other, Bot));   // seen while running
+        r.R.Event(AiEvent.KillFeed(Other, new Tick(350), Other, Bot)); // the same kill on another HUD
+        r.Sees(Bot, 590, Other);
+        r.R.Event(AiEvent.KillFeed(Bot, new Tick(700), Other, Bot));   // seen while standing, killed on the move
+        JankActor a = r.Of(Bot);
+        Assert.Equal((2, 1), (a.Traits.Kills, a.Traits.KillsFromAmbush));
+        Assert.Equal(0.5, a.FromAmbushShare, 6);
+    }
+
+    [Fact]
+    public void AHitsRangeIsItsRecordedOneAndOneWithNoneDoesNotCount()
+    {
+        var r = new Rec(Bot);
+        for (int t = 0; t < 10; t++)
+            r.At(Bot, t, 0);
+        r.R.Observed(AiEvent.HitDealt(Bot, new Tick(1), Other, 10f, Pistol, 300));
+        r.R.Observed(AiEvent.HitDealt(Bot, new Tick(2), Other, 10f, Pistol, 500));
+        r.R.Observed(AiEvent.HitDealt(Bot, new Tick(3), Other, 10f, Pistol, -1));
+        Assert.Equal(400, r.Of(Bot).MeanHitRange, 6);
+    }
+
     // ---- reuse, places, the score, the tree --------------------------------
 
     /// <summary>The strafe interval and the reversals are the metrics table's, not a copy of its code that can drift.</summary>

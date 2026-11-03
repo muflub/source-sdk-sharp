@@ -56,7 +56,7 @@ public sealed class AimMeter(Hl2mpBots bots, VisionPass vision, Hl2mpAiSession a
         foreach ((int slot, int health) in _tough)
         {
             EntityHandle p = players.GetHandle(slot);
-            if (p != EntityHandle.None && players.IsAlive(p))
+            if (p != EntityHandle.None && players.IsAlive(p) && !Spectators.Is(players, p))
                 entities.SetHealth(p, health);
         }
 

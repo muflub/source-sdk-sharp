@@ -46,7 +46,7 @@ public enum IntentRefusal : byte
 /// watching bot, is refused at the tick and the bot holds.
 /// </para>
 /// </summary>
-public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self)
+public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self, Func<double>? cpu = null)
 {
     /// <summary>A full key's move, as <c>cl_forwardspeed</c> and <c>cl_sidespeed</c> send it; the server's max speed caps it.</summary>
     public const float FullMove = 450f;
@@ -84,6 +84,13 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// <summary>The corner the bot's last command steered to and the move it sent, for a stuck line.</summary>
     public (AiVector? Corner, float Forward, float Side) LastOf(ActorId bot)
         => Find(bot.Slot) is { } b && b.Id == bot ? (b.LastCorner, b.LastMove.Forward, b.LastMove.Side) : (null, 0f, 0f);
+
+    /// <summary>What a bot's streak makes of its reaction, 0 for its own (§5.5).</summary>
+    public void SetStreakReaction(ActorId bot, float ms)
+    {
+        if (Find(bot.Slot) is { } b && b.Id == bot)
+            b.Motion.StreakReactionMs = ms;
+    }
 
     public EntityHandle PlayerOf(ActorId bot) => Find(bot.Slot) is { } b && b.Id == bot ? b.Player : EntityHandle.None;
 
@@ -151,6 +158,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     public void ApplyTick(Tick tick, float dt)
     {
         long run = 0;
+        double runCpu = 0d;
         for (int i = 0; i < _bots.Count; i++)
         {
             BotState bot = _bots[i];
@@ -158,12 +166,15 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             UserCmd cmd = Build(bot, tick, in facts, dt);
             runner.Queue(bot.Player, in cmd);
             long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            double cpuStart = cpu?.Invoke() ?? 0d;
             runner.RunQueued(bot.Player);
             run += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            runCpu += cpu is null ? 0d : cpu() - cpuStart;
             Applied++;
         }
 
         RunMicrosLastTick = run * 1e6 / System.Diagnostics.Stopwatch.Frequency;
+        RunCpuMicrosLastTick = cpu is null ? RunMicrosLastTick : runCpu;
     }
 
     /// <summary>
@@ -172,6 +183,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// <c>ai.run.us</c>, kept out of the AI's own <c>ai.apply.us</c>.
     /// </summary>
     public double RunMicrosLastTick { get; private set; }
+
+    /// <summary>The same in the thread's own CPU time; the wall with no clock.</summary>
+    public double RunCpuMicrosLastTick { get; private set; }
 
     /// <summary>The command <paramref name="bot"/> sends this tick. Advances its view, its command number and its channels.</summary>
     internal UserCmd Build(BotState bot, Tick tick, in BotSelfFacts facts, float dt)
@@ -247,11 +261,12 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// the correction after it may fire, which is why a first shot is usually
     /// worse than the fifth. Close, a body is wide: inside <see cref="CloseBody"/>
     /// of the point at that distance the hands do not wait for the flick to end
-    /// (user ruling 2026-11-02). A scripted look at a point fires when told.
+    /// (user ruling 2026-11-02). A prefire's look at a corner waits the same (§5.4).
+    /// A scripted look at a point fires when told.
     /// </summary>
     private static ActionIntent HandsWaitForTheEye(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles view)
     {
-        if (intent.Action.Kind != ActionKind.Fire || intent.Look.Kind != LookKind.Actor || !bot.Motion.NotYetOnAim)
+        if (intent.Action.Kind != ActionKind.Fire || intent.Look.Kind is not (LookKind.Actor or LookKind.CornerCheck) || !bot.Motion.NotYetOnAim)
             return intent.Action;
         float distance = (intent.Look.Point - facts.Eye).Length;
         if (bot.Motion.Phase == AimPhase.Reacting || distance > AimStats.CloseRange)
@@ -325,6 +340,14 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             return who == 0 ? 1 : who;
         }
 
+        // A place held, its view swaying: the sway is no news, or every decide would
+        // start the reaction over and the view would never move.
+        if (look.Kind == LookKind.Watch)
+        {
+            int place = HashCode.Combine((int)look.Kind, look.Ticks);
+            return place == 0 ? 1 : place;
+        }
+
         // Quantised to 8 units so a point that only drifts stays one stimulus.
         int x = (int)MathF.Round(look.Point.X / 8f), y = (int)MathF.Round(look.Point.Y / 8f), z = (int)MathF.Round(look.Point.Z / 8f);
         int h = HashCode.Combine((int)look.Kind, look.Actor, x, y, z);
@@ -369,6 +392,8 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
                 break;
             case MoveKind.Strafe:
                 wish = new AiVector(move.Direction.X, move.Direction.Y, 0f).Normalised();
+                if (move.CrouchOn && !facts.OnLadder)
+                    buttons |= (int)InputButtons.Duck;
                 break;
             case MoveKind.Jump:
             case MoveKind.CrouchJump:
@@ -378,7 +403,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
                 buttons |= move.Kind == MoveKind.Jump ? (int)InputButtons.Jump : (int)(InputButtons.Jump | InputButtons.Duck);
                 break;
             case MoveKind.Crouch:
-                if (move.CrouchOn)
+                if (move.CrouchOn && !facts.OnLadder)
                     buttons |= (int)InputButtons.Duck;
                 break;
         }

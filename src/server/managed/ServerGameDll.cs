@@ -607,6 +607,9 @@ public sealed class ServerGameDll : IServerLifetime, IServerLevel, IServerFrame,
         return true;
     }
 
+    /// <summary>A hot reload came up under a running level: the map this composition missed the load of.</summary>
+    internal void LevelCarried(string mapName) => _currentMap = mapName;
+
     /// <summary>
     /// What all four arms have in common. The arms stay four methods because the
     /// two save-cluster ones are refused separately (Part 7) and a single method

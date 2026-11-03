@@ -100,7 +100,8 @@ public sealed class SkillObservableTests
         int searching = 0;
         for (int i = 0; i < 6000; i++)
         {
-            d.Step(d.Self(), []);
+            // On its way: one that got nowhere gives up on the noise (§5.4).
+            d.Step(d.Self() with { Origin = new AiVector(i * 40f, 0f, 0f) }, []);
             if (d.Decider.Doing.Branch == "Search")
                 searching++;
         }
@@ -134,6 +135,8 @@ public sealed class SkillObservableTests
     {
         public float Range => 4096f;
         public bool Visible(int a, int b) => graph.Cell(b).Centre.X < edge;
+
+        public float Exposure(int cell) => 0f;
     }
 
     /// <summary>

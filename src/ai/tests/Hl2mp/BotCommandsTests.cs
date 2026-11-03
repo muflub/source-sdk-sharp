@@ -124,8 +124,12 @@ public class BotCommandsTests
         public LoadedNav? Current => null;
 
         public NavObstacleState? Obstacles => null;
+        public NavObstacleState? ObstaclesFor(SourceSharp.Abi.EntityHandle player) => Obstacles;
 
         public NavSight? Sight => null;
+
+
+        public ChokeSlot? Chokes => null;
     }
 
     private readonly Navigation _nav = new();
@@ -282,6 +286,43 @@ public class BotCommandsTests
         Assert.Contains(' ', bot.Name);
         Assert.True(bot.Name.Length <= BotNamer.MaxLength);
         Assert.Equal("(Hard)", _tags.TagOf(_players.Made[0].Player));
+    }
+
+    [Fact]
+    public void EveryModelABotDrawsIsOneAPlayerMayWear()
+    {
+        for (int i = 0; i < BotAppearance.ModelCount; i++)
+            Assert.True(SourceSharp.Server.PlayerModels.IsValid(BotAppearance.Model(i)), BotAppearance.Model(i));
+    }
+
+    [Fact]
+    public void MediumIsAPresetNotAName()
+    {
+        Add("medium");
+        Hl2mpBot bot = Assert.Single(_bots.Bots);
+        Assert.NotEqual("medium", bot.Name);
+        Assert.Equal("normal", bot.Skills.Name);
+    }
+
+    /// <summary>The same words for the other way of asking, any case.</summary>
+    [Theory]
+    [InlineData("medium", "normal")]
+    [InlineData("Medium", "normal")]
+    [InlineData("normal", "normal")]
+    [InlineData("EASY", "easy")]
+    public void APresetsWordIsRead(string word, string preset)
+    {
+        Assert.True(BotSkillSpec.Parse("x", word, out SkillProfile? p).Accepted);
+        Assert.Equal(preset, p!.Name);
+    }
+
+    /// <summary>A name given twice comes in with our numeral, never the engine's "(1)".</summary>
+    [Fact]
+    public void ANameGivenTwiceGetsANumeral()
+    {
+        Add("Alyx easy");
+        Add("Alyx hard");
+        Assert.Equal(new[] { "Alyx", "Alyx 2" }, _bots.Bots.Select(b => b.Name));
     }
 
     [Fact]

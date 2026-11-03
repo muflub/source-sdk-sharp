@@ -102,6 +102,28 @@ public sealed class NavFollower
         return end.IsValid && MathF.Abs(_graph.Cell(end).FloorZ - _graph.Cell(At).FloorZ) > OnFloorReach ? end : CellId.None;
     }
 
+    /// <summary>The first cell a breakable takes on the route within <paramref name="hops"/> steps, the bot's own first, or -1.</summary>
+    public int BreakableAhead(NavCellBlocks cells, int hops)
+    {
+        ArgumentNullException.ThrowIfNull(cells);
+        if (!At.IsValid)
+            return -1;
+        int at = At.Index;
+        if (cells.State(at) == NavCellBlocks.Breakable)
+            return at;
+        for (int i = 0; i < hops; i++)
+        {
+            CellId next = _field.NextFrom(at);
+            if (!next.IsValid)
+                return -1;
+            if (cells.State(next.Index) == NavCellBlocks.Breakable)
+                return next.Index;
+            at = next.Index;
+        }
+
+        return -1;
+    }
+
     /// <summary>The next step from where the bot was last found, for a stuck line: the cell, its floor point, and the edge.</summary>
     public string NextStep()
     {
@@ -116,8 +138,40 @@ public sealed class NavFollower
     public void Rebuild()
     {
         _builds++;
+        _builtOver = _obstacles.Cells;
         _field.Build(_graph, Objective, Class, _obstacles, _avoided.Count > 0 ? _avoided : null, At);
     }
+
+    // What the last build knew of the entities.
+    private NavCellBlocks? _builtOver;
+
+    /// <summary>
+    /// What the bot knows of the entities changed since its field was built: a build, if
+    /// it now knows of something on the rest of its corridor. Only then: a way that
+    /// opened waits for the next goal, or a bot round a corner from a prop that was shoved
+    /// aside and back would turn on every shove (the corner it holds stays, _held).
+    /// </summary>
+    private void ReplanIfTheWayIsTaken()
+    {
+        NavCellBlocks? now = _obstacles.Cells;
+        if (ReferenceEquals(now, _builtOver))
+            return;
+        _builtOver = now;
+        int at = At.Index;
+        for (int i = 0; i < CorridorCells && _field.NextFrom(at).IsValid; i++)
+        {
+            at = _field.NextFrom(at).Index;
+            if (at != Objective.Index && now?.State(at) is NavCellBlocks.Blocked or NavCellBlocks.Costly)
+            {
+                Replans++;
+                Rebuild();
+                return;
+            }
+        }
+    }
+
+    /// <summary>How many times a field was built again for a thing learned to be on its way.</summary>
+    public long Replans { get; private set; }
 
     /// <summary>
     /// The first build, on a worker (§2.7's flow-field job): from
@@ -129,6 +183,7 @@ public sealed class NavFollower
     {
         _builds++;
         At = from;
+        _builtOver = obstacles.Cells;
         _field.Build(_graph, Objective, Class, obstacles, null, from);
     }
 
@@ -323,6 +378,8 @@ public sealed class NavFollower
 
             return new MoveIntent(last, MoveSpeed.Walk, 1, Target, default, default, default, default, _graph.Cell(At).CrouchOnly, 0);
         }
+
+        ReplanIfTheWayIsTaken();
 
         // Off the cells a partial field settled: ask again from here.
         if (!float.IsFinite(_field.CostAt(At.Index)) && _field.IsPartial)

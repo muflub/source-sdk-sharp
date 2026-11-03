@@ -73,7 +73,10 @@ public sealed class HumanReferenceTests : IDisposable
         public string? Refusal => null;
         public LoadedNav? Current => null;
         public NavObstacleState? Obstacles => null;
+        public NavObstacleState? ObstaclesFor(SourceSharp.Abi.EntityHandle player) => Obstacles;
         public NavSight? Sight => null;
+
+        public ChokeSlot? Chokes => null;
     }
 
     private sealed class Names : IBotNameSource
@@ -434,7 +437,7 @@ public sealed class HumanReferenceTests : IDisposable
         var senses = new Hl2mpSenses(_bots, _ai, w.Pass, null!, null!, null!, _log, w.Reference);
         var meter = new AimMeter(_bots, w.Pass, _ai, AtTick(50), Indexes(), w.World.Engine(), WeaponCatalog.Stock());
         var weapons = new WeaponEventTap(senses, w.Pass, _bots, Indexes(), AtTick(50), shots, meter);
-        var combat = new CombatTap(senses, w.Pass, _bots, null!, Indexes(), null!, AtTick(50), shots, meter);
+        var combat = new CombatTap(senses, w.Pass, _bots, w.World.Engine(), Indexes(), null!, AtTick(50), shots, meter);
         Start();
         w.Run(1);
         weapons.OnWeaponEvent(w.Person.Handle, 3, PlayerWeaponEvent.Fired, 1);

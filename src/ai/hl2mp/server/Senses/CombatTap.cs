@@ -28,6 +28,11 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
     /// <summary>How often the scoreboard is read: twice a second.</summary>
     public const int ScoreTicks = 33;
 
+    /// <summary>How often who is watching is read: as often as a brain decides.</summary>
+    public const int SpectatorTicks = 6;
+
+    private readonly ActorId[] _watching = new ActorId[VisionPass.Slots];
+
     private readonly List<AiEvent> _events = new();
     private readonly List<ScoreRow> _rows = new();
     private readonly Dictionary<ActorId, (int Frags, int Deaths, int Rank)> _shown = new();
@@ -45,6 +50,7 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
         _shown.Clear();
         _alive.Clear();
         _lastHit.Clear();
+        Array.Clear(_watching);
     }
 
     private ActorId ActorOf(EntityHandle p, out int slot)
@@ -53,7 +59,7 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
         if (p == EntityHandle.None)
             return ActorId.None;
         slot = entities.GetIndex(p);
-        if (slot is < 1 or >= VisionPass.Slots)
+        if (slot is < 1 or >= VisionPass.Slots || Spectators.Is(players, p))
             return ActorId.None;
         ActorId bot = BotIn(slot);
         return bot.IsValid ? bot : ActorDirectory.HumanActor(slot, p);
@@ -154,6 +160,8 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
         Tick tick = Tick;
         _events.Clear();
         Lives(tick);
+        if (tick.Value % SpectatorTicks == 0)
+            Watchers(tick);
         if (tick.Value % ScoreTicks == 0)
             Scores(tick);
         Push();
@@ -172,18 +180,61 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
         }
     }
 
-    private void Scores(Tick tick)
+    /// <summary>
+    /// Who has gone to watch or come back, for every bot's memory (§4.1). A bot added
+    /// later is not told of one already watching: it has nothing to forget, and nothing
+    /// tells it of them (the rows and the taps leave them out).
+    /// </summary>
+    private void Watchers(Tick tick)
     {
-        _rows.Clear();
-        foreach ((EntityHandle player, PlayerRecord record) in directory.All)
+        foreach ((EntityHandle player, PlayerRecord _) in directory.All)
         {
             int slot = entities.GetIndex(player);
-            if (slot is < 1 or >= VisionPass.Slots)
+            if (slot is < 1 or >= VisionPass.Slots || BotIn(slot).IsValid)
                 continue;
-            ActorId bot = BotIn(slot);
-            _rows.Add(new ScoreRow(bot.IsValid ? bot : ActorDirectory.HumanActor(slot, player), record.Kills, record.Deaths));
+            ActorId actor = ActorDirectory.HumanActor(slot, player);
+            if (!WatchingChanged(_watching, slot, actor, Spectators.Is(players, player), out bool watching))
+                continue;
+            // Back on the board as anyone new is.
+            _shown.Remove(actor);
+            foreach (Hl2mpBot b in bots.Bots)
+                _events.Add(AiEvent.ActorSpectating(b.Id, tick, actor, watching));
         }
+    }
 
+    /// <summary>Whether <paramref name="actor"/> in <paramref name="slot"/> has just gone to watch or come back; <paramref name="watched"/> is kept by slot.</summary>
+    public static bool WatchingChanged(ActorId[] watched, int slot, ActorId actor, bool now, out bool watching)
+    {
+        watching = now;
+        if (now == (watched[slot] == actor))
+            return false;
+        watched[slot] = now ? actor : ActorId.None;
+        return true;
+    }
+
+    /// <summary>
+    /// The rows of those in the game (§4.1, §5.4): a spectator atop the board is nobody's leader.
+    /// </summary>
+    public static void RowsInTheGame(IEnumerable<(EntityHandle Player, PlayerRecord Record)> all, Func<EntityHandle, int> slotOf, Func<int, ActorId> botIn, IEnginePlayers players, List<ScoreRow> into)
+    {
+        ArgumentNullException.ThrowIfNull(all);
+        ArgumentNullException.ThrowIfNull(slotOf);
+        ArgumentNullException.ThrowIfNull(botIn);
+        ArgumentNullException.ThrowIfNull(into);
+        into.Clear();
+        foreach ((EntityHandle player, PlayerRecord record) in all)
+        {
+            int slot = slotOf(player);
+            if (slot is < 1 or >= VisionPass.Slots || Spectators.Is(players, player))
+                continue;
+            ActorId bot = botIn(slot);
+            into.Add(new ScoreRow(bot.IsValid ? bot : ActorDirectory.HumanActor(slot, player), record.Kills, record.Deaths));
+        }
+    }
+
+    private void Scores(Tick tick)
+    {
+        RowsInTheGame(directory.All, entities.GetIndex, BotIn, players, _rows);
         int[] ranks = Ranks(_rows);
         for (int i = 0; i < _rows.Count; i++)
         {

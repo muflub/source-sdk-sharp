@@ -22,7 +22,11 @@ export interface WorldTruth {
   aimDistance: number;
   candidates: WorldCandidate[];
 }
-export interface WorldGoing { branch: string | null; leaf: string | null; goal: Vec | null; targetSlot: number }
+export interface WorldGoing {
+  branch: string | null; leaf: string | null; goal: Vec | null; targetSlot: number;
+  /** The bot's prefire: "" none, "aiming" or "firing", at the place it thinks someone is. */
+  prefire?: string; prefireAt?: Vec | null;
+}
 export interface WorldRoute { source: string; target: Vec; points: Vec[] }
 export interface WorldHeard { source: number; at: Vec; tick: number; kind: string; loudness: number }
 export interface WorldRemembered { slot: number; at: Vec; tick: number; confidence: number; inSight: boolean }
@@ -84,6 +88,7 @@ export const WORLD_COLOURS = {
   route: [1.0, 0.35, 0.9],
   target: [1.0, 1.0, 1.0],
   remembered: [1.0, 0.75, 0.3],
+  prefire: [1.0, 0.25, 0.1],
 } as const;
 
 /** A heard sound's colour, by its kind (SoundKind's names, lower case). */
@@ -271,6 +276,13 @@ export function memoryLines(bot: WorldBot, share: number): Line[] {
   for (const r of bot.beliefs.remembered ?? []) {
     if (r.inSight) continue;
     lines.push(...star(bodyMiddle(r.at), 14, fade(WORLD_COLOURS.remembered, share * Math.max(0.25, r.confidence))));
+  }
+  // The place it is firing at, or about to, on what it believes: a line from its eye.
+  const at = bot.going?.prefireAt;
+  if (at) {
+    const colour = fade(WORLD_COLOURS.prefire, bot.going?.prefire === 'firing' ? share : share * 0.5);
+    lines.push(...star(at, 18, colour));
+    if (bot.truth) lines.push([bot.truth.eye, at, colour]);
   }
   return lines;
 }

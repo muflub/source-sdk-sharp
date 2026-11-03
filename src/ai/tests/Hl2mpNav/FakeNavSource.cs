@@ -69,9 +69,21 @@ internal sealed class FakeNavSource : INavSource
         return count;
     }
 
-    public int Below(int leaf) => -1;
+    public int Below(int leaf) => _below.TryGetValue(leaf, out int at) ? at : -1;
 
-    public int Above(int leaf) => -1;
+    public int Above(int leaf) => _above.TryGetValue(leaf, out int at) ? at : -1;
+
+    private readonly Dictionary<int, int> _above = new(), _below = new();
+
+    /// <summary>Stacks the leaves in a column, low to high, each touching the next.</summary>
+    public void Stack(params int[] leaves)
+    {
+        for (int i = 0; i + 1 < leaves.Length; i++)
+        {
+            _above[leaves[i]] = leaves[i + 1];
+            _below[leaves[i + 1]] = leaves[i];
+        }
+    }
 
     public int Jumps(int leaf, Span<NavJumpLink> into)
     {

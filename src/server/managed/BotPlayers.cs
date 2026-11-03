@@ -61,9 +61,10 @@ public interface IBotPlayers
 /// </para>
 /// </summary>
 public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, IConnectedClients clients,
-                               ServerPlayerMoves moves) : IBotPlayers, IClientLifecycle, IGameLifecycle
+                               ServerPlayerMoves moves, IEngineEnvironment environment) : IBotPlayers, IClientLifecycle, IGameLifecycle
 {
     private readonly List<BotPlayer> _bots = new();
+    private IReadOnlyList<KeyValuePair<string, string>> _pendingInfo = [];
 
     // Set while Add waits in CreateFakeClientEx: the claim of the client the
     // engine puts in meanwhile.
@@ -96,6 +97,7 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
         _pending = true;
         _claimedIndex = 0;
         _claimedName = "";
+        _pendingInfo = userInfo;
         try
         {
             index = engine.CreateFakeClient(name);
@@ -103,6 +105,7 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
         finally
         {
             _pending = false;
+            _pendingInfo = [];
         }
 
         if (index <= 0)
@@ -128,8 +131,6 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
 
         Mark(player);
         engine.SetFakeClientConVar(index, "name", _claimedName);
-        foreach (KeyValuePair<string, string> pair in userInfo)
-            engine.SetFakeClientConVar(index, pair.Key, pair.Value);
 
         _bots.Add(new BotPlayer(player, index, _claimedName));
         refusal = "";
@@ -146,6 +147,12 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
         {
             _claimedIndex = entIndex;
             _claimedName = name;
+
+            // Now, not when CreateFakeClientEx returns: it spawns the player first, and
+            // PlayerModels' first spawn reads cl_playermodel and fixes what it wears. Set after,
+            // every bot wore the fallback, and the change was "too soon" (user report 2026-11-02).
+            foreach (KeyValuePair<string, string> pair in _pendingInfo)
+                engine.SetFakeClientConVar(entIndex, pair.Key, pair.Value);
         }
     }
 
@@ -160,6 +167,27 @@ public sealed class BotPlayers(IFakeClients engine, IEnginePlayers players, ICon
 
         clients.Kick(_bots[at].EntIndex, reason);
         return true;
+    }
+
+    /// <summary>A hot reload came up under a running level: the slots say who the bots are.</summary>
+    public void OnLevelCarried(string mapName) => FindBotsInSlots(environment.Globals.MaxClients);
+
+    /// <summary>
+    /// The clients a hot reload left in the engine: every slot whose player
+    /// carries <c>FL_FAKECLIENT</c> (published for the composition after, so
+    /// the record is the same one <see cref="IsBot"/> reads) is a bot of this
+    /// composition, called what its client is called. The engine made no new
+    /// client and no one was kicked.
+    /// </summary>
+    internal void FindBotsInSlots(int maxClients)
+    {
+        for (int i = 1; i <= maxClients; i++)
+        {
+            EntityHandle player = players.GetHandle(i);
+            if (player != EntityHandle.None && (moves.For(player).Move.Flags & ServerCommandRules.FlFakeClient) != 0
+                && _bots.FindIndex(b => b.EntIndex == i) < 0)
+                _bots.Add(new BotPlayer(player, i, clients.ClientConVar(i, "name") ?? ""));
+        }
     }
 
     /// <summary>A bot's client left (kicked, or the server's own disconnect): it is no longer one of these.</summary>

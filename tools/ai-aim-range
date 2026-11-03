@@ -3,7 +3,7 @@
 
   tools/ai-aim-range run [--map ss_ai_range] [--presets easy,normal,hard,expert]
                          [--weapons weapon_smg1] [--ranges 200,500,1000]
-                         [--patterns stand,strafe,cross] [--target bot|human]
+                         [--patterns stand,strafe,cross,crouch] [--streak hot|cold] [--target bot|human]
                          [--reps 6] [--seconds 4] [--curve param:level:value ...]
                          [--seed 1] [--out FILE.json] [--config debug] [--keep]
 
@@ -119,6 +119,7 @@ class Range:
         self.place = MAPS[map_name]
         self.kind = target_kind
         self.seconds = seconds
+        self.streak = None
         self.reps = reps
         self.rng = random.Random(seed)
         self.target_slot = 1
@@ -168,6 +169,10 @@ class Range:
     def rep(self, shooter, kit, rng_range, pattern):
         far = self.place["far"]
         closet = self.place["closet"]
+        if pattern == "crouch" and self.kind != "human":
+            raise SystemExit("ai-aim-range: a crouching target needs --target human: only a client holds the key")
+        if self.kind == "human":
+            self.g.cmd("-duck")
         self.target_keys(0)
         self.target_hold(30)
         # Out of sight: long enough to be lost, and for the kit's draw.
@@ -185,6 +190,8 @@ class Range:
             # From inside the shooter's field: a close target runs out of it the sooner.
             start_y = far[1] - direction * min(RUN_SPEED * self.seconds / 2.0, 0.7 * rng_range)
         self.put(shooter, far[0] - rng_range, far[1], far[2], yaw)
+        if self.streak:
+            self.g.cmd("ai_bot_streak Shooter %s" % self.streak)
         self.target_to(far[0], start_y, far[2])
         if pattern == "bot":
             # A target on its own brains, moving as bots move: the target the user's
@@ -194,6 +201,12 @@ class Range:
         elif pattern == "stand":
             self.target_keys(0)
             time.sleep(self.seconds)
+        elif pattern == "crouch":
+            # Standing still, held ducked: what the crouch is worth by itself (§5.4).
+            self.target_keys(0)
+            self.g.cmd("+duck")
+            time.sleep(self.seconds)
+            self.g.cmd("-duck")
         elif pattern == "cross":
             self.target_keys(direction)
             time.sleep(self.seconds)
@@ -248,6 +261,9 @@ def run(a):
             game.cmd("ai_curve %s" % c.replace(":", " "))
         r = Range(game, a.map, a.target, a.seconds, a.reps, a.seed)
         r.shooter_health = a.shooter_health
+        # A measurement is of what it names: streaks off unless one is asked for (§5.5).
+        r.streak = a.streak
+        game.cmd("ai_bot_streaks %d" % (1 if a.streak else 0))
         for preset in (a.presets.split(";") if ";" in a.presets else a.presets.split(",")):
             skills = PRESET_SKILLS.get(preset, preset)
             for weapon in a.weapons.split(","):
@@ -452,6 +468,7 @@ def main(argv):
     r.add_argument("--weapons", default="weapon_smg1")
     r.add_argument("--ranges", default="200,500,1000")
     r.add_argument("--patterns", default="stand,strafe,cross")
+    r.add_argument("--streak", default=None, choices=("hot", "cold"), help="the shooter starts this streak at every rep; without it streaks are off")
     r.add_argument("--target", default="bot", choices=("bot", "human"))
     r.add_argument("--reps", type=int, default=6)
     r.add_argument("--seconds", type=float, default=4.0)

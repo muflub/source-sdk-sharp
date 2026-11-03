@@ -76,6 +76,80 @@ if (args.Length >= 4 && args[0] == "calibrate")
     }
 }
 
+if (args.Length >= 2 && args[0] == "style")
+{
+    // style <hl2mp_skills.json>: who holds a place by difficulty, and what a name's skill does (§10, §12.3)
+    SkillCurves curves = SkillCurves.Parse(File.ReadAllText(args[1]));
+    Console.WriteLine($"over {SourceSharp.Ai.Hl2mp.Trees.Hl2mpStyleSurvey.Draws} draws: preset, named for camping (n), they hold / over a hunt; the rest hold / over a hunt; everyone hold / over a hunt");
+    foreach (string preset in SkillPresets.Names)
+    {
+        SkillPresets.TryGet(preset, out SkillProfile? mean);
+        SourceSharp.Ai.Hl2mp.Trees.StyleShares s = SourceSharp.Ai.Hl2mp.Trees.Hl2mpStyleSurvey.Of(curves, mean!);
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{preset,-7} named {s.Campers,3}: {s.CampersHold * 100,3:F0} % / {s.CampersOverHunt * 100,3:F0} %; rest {s.RestHold * 100,3:F0} % / {s.RestOverHunt * 100,3:F0} %; everyone {s.EveryoneHold * 100,3:F0} % / {s.EveryoneOverHunt * 100,3:F0} %"));
+    }
+
+    foreach (string preset in SkillPresets.Names)
+    {
+        SkillPresets.TryGet(preset, out SkillProfile? mean);
+        Console.Write(SourceSharp.Ai.Hl2mp.Trees.Hl2mpStyleSurvey.Names(curves, preset, mean!));
+    }
+
+    return 0;
+}
+
+if (args.Length >= 3 && args[0] == "chokes")
+{
+    // chokes <map.nav3d> <map.bsp> <out.png> [pixels-per-unit]
+    string chokeMap = Path.GetFileNameWithoutExtension(args[1]);
+    NavLoadResult c = NavLoader.Load(chokeMap, p => p.EndsWith(".nav3d", StringComparison.Ordinal) ? File.ReadAllBytes(args[1]) : File.ReadAllBytes(args[2]), null);
+    if (c.Nav is not { } cn)
+    {
+        Console.Error.WriteLine($"ai-replay: {c.Refusal}");
+        return 1;
+    }
+
+    long chokeStart = System.Diagnostics.Stopwatch.GetTimestamp();
+    ChokeMap chokes = ChokeMap.Compute(cn.Nav.Graph, cn.Entities.PeoplesPlaces());
+    Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+        $"chokes of {chokeMap}: {cn.Nav.Graph.CellCount} cells, {cn.Nav.Graph.EdgeCount} edges, {Math.Min(ChokeMap.Sources, cn.Nav.Graph.CellCount)} sources in {System.Diagnostics.Stopwatch.GetElapsedTime(chokeStart).TotalMilliseconds:F0} ms (revision {ChokeMap.Revision})"));
+    for (int i = 0; i < chokes.Top.Length; i++)
+    {
+        ChokePoint p = chokes.Top[i];
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{i + 1,3} ({p.Position.X:F0} {p.Position.Y:F0} {p.Position.Z:F0}) score {p.Score:F3}"));
+    }
+
+    if (args.Length > 3)
+    {
+        File.WriteAllBytes(args[3], NavPng.RenderChokes(cn.Nav, chokes, args.Length > 4 ? float.Parse(args[4], CultureInfo.InvariantCulture) : 0.25f));
+        Console.WriteLine($"wrote {args[3]}");
+    }
+
+    return 0;
+}
+
+if (args.Length >= 3 && args[0] == "tactics")
+{
+    // tactics <map.nav3d> <map.bsp> <recording.airec>...
+    string tacticsMap = Path.GetFileNameWithoutExtension(args[1]);
+    NavLoadResult tn = NavLoader.Load(tacticsMap, p => p.EndsWith(".nav3d", StringComparison.Ordinal) ? File.ReadAllBytes(args[1]) : File.ReadAllBytes(args[2]), null);
+    if (tn.Nav is not { } tnav)
+    {
+        Console.Error.WriteLine($"ai-replay: {tn.Refusal}");
+        return 1;
+    }
+
+    AiVector[] chokeSpots = [.. ChokeMap.Compute(tnav.Nav.Graph, tnav.Entities.PeoplesPlaces()).Top.Select(p => p.Position)];
+    foreach (string rec in args.Skip(3))
+    {
+        using FileStream input = File.OpenRead(rec);
+        Console.WriteLine($"ai-replay: tactics {Path.GetFileName(rec)}");
+        Console.Write(AiTactics.Table(AiTactics.Read(input, chokeSpots, w => SourceSharp.Ai.Hl2mp.Trees.Hl2mpWeaponRanges.For(w).Rank)));
+    }
+
+    return 0;
+}
+
 if (args.Length >= 2 && args[0] == "jank")
 {
     int empty = 0;

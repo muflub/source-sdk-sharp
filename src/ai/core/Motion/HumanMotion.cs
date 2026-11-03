@@ -102,6 +102,9 @@ public sealed class HumanMotion
     /// <summary>The parameters in use: the ones given, inside the envelope.</summary>
     public MotionParams Parameters { get; }
 
+    /// <summary>A streak's reaction, 0 for its own (§5.5): inside the same envelope, and nothing else about a turn moves.</summary>
+    public float StreakReactionMs { get; set; }
+
     /// <summary>The view now.</summary>
     public AiAngles View { get; private set; }
 
@@ -141,7 +144,7 @@ public sealed class HumanMotion
             if (stimulus != 0)
             {
                 Phase = AimPhase.Reacting;
-                _timer = Parameters.ReactionMs / 1000f;
+                _timer = (StreakReactionMs > 0f ? Math.Clamp(StreakReactionMs, MotionEnvelope.MinReactionMs, MotionEnvelope.MaxReactionMs) : Parameters.ReactionMs) / 1000f;
             }
             else
             {

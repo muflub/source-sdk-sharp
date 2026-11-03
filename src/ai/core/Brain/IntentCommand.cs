@@ -29,6 +29,9 @@ public enum LookKind : byte
     Actor,
     Glance,
     CornerCheck,
+
+    /// <summary>Holding a place, the view swaying across it: one stimulus while <see cref="LookIntent.Ticks"/> names the same place.</summary>
+    Watch,
 }
 
 /// <summary>Which part of an actor to aim at.</summary>

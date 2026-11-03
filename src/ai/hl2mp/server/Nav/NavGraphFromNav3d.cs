@@ -3,6 +3,22 @@ namespace SourceSharp.Ai.Hl2mp.Nav;
 /// <summary>A volume no bot may stand in: a <c>trigger_hurt</c> from the entity lump (the file does not mark them).</summary>
 public readonly record struct HurtVolume(AiVector Min, AiVector Max);
 
+/// <summary>
+/// A <c>func_useableladder</c>'s line: the movement holds a climber's origin to it
+/// (CGameMovement::LadderMove), so what stands in the way of a body at a column's centre
+/// beside it does not stand in the way of the climb.
+/// </summary>
+public readonly record struct LadderClimb(AiVector Point0, AiVector Point1)
+{
+    /// <summary>Whether a climb along the line passes from <paramref name="low"/> to the height <paramref name="high"/> of a leaf's column.</summary>
+    public bool Spans(in NavLeaf low, float high, float reach)
+    {
+        float x = (low.MinX + low.MaxX) * 0.5f, y = (low.MinY + low.MaxY) * 0.5f;
+        return MathF.Abs(x - Point0.X) <= reach && MathF.Abs(y - Point0.Y) <= reach
+            && MathF.Min(Point0.Z, Point1.Z) <= low.TopZ && high <= MathF.Max(Point0.Z, Point1.Z);
+    }
+}
+
 /// <summary>The derived graph and how it maps back onto the file: each cell's leaf, each leaf's cell (-1 for none), and each graph obstacle's file record.</summary>
 public sealed record DerivedNav(NavGraph Graph, int[] CellOfLeaf, int[] LeafOfCell, NavObstacleInfo[] Obstacles, int Leaves);
 
@@ -38,12 +54,13 @@ public static class NavGraphFromNav3d
     /// from a graph the old one wrote for the same files. Raise it with any
     /// change to what the derivation yields.
     /// </summary>
-    public const int Revision = 3;
+    public const int Revision = 4;
 
     // The most leaves one column, or jump links one leaf, may answer.
     private const int MaxLinks = 512;
 
-    public static DerivedNav Derive(INavSource src, Hl2mpNavNumbers n, NavEdgeCosts costs, IReadOnlyList<HurtVolume> hurt)
+    public static DerivedNav Derive(INavSource src, Hl2mpNavNumbers n, NavEdgeCosts costs, IReadOnlyList<HurtVolume> hurt,
+                                    IReadOnlyList<LadderClimb>? ladders = null)
     {
         ArgumentNullException.ThrowIfNull(src);
         ArgumentNullException.ThrowIfNull(hurt);
@@ -180,6 +197,22 @@ public static class NavGraphFromNav3d
                     AddLadder(b, added, from, cellOfLeaf[other], costs);
             }
 
+            // Across the leaves that do not hold a crouched body at their centre (a
+            // floor's lip beside the ladder), when a ladder's own line goes on through
+            // them: dm_lockdown's (-4148 4188) stopped at z 96 and began again at z 128.
+            if (ladders is { Count: > 0 })
+            {
+                int past = src.Above(leaf);
+                if (past >= 0 && !climb[past] && src.Leaf(past).Ladder)
+                {
+                    while (past >= 0 && !climb[past] && src.Leaf(past).Ladder)
+                        past = src.Above(past);
+
+                    if (past >= 0 && climb[past] && cellOfLeaf[past] >= 0 && ClimbsThrough(ladders, l, src.Leaf(past).BottomZ, voxel * 2f))
+                        AddLadder(b, added, from, cellOfLeaf[past], costs);
+                }
+            }
+
             // On and off: floors the box reaches at the climb's span.
             float bottom = l.BottomZ - n.StepHeight, top = l.TopZ + n.StepHeight;
             for (int dy = -reach; dy <= reach; dy++)
@@ -199,6 +232,17 @@ public static class NavGraphFromNav3d
         }
 
         return new DerivedNav(b.Build(), cellOfLeaf, [.. leafOfCell], infos, leaves);
+    }
+
+    private static bool ClimbsThrough(IReadOnlyList<LadderClimb> ladders, in NavLeaf low, float high, float reach)
+    {
+        foreach (LadderClimb ladder in ladders)
+        {
+            if (ladder.Spans(low, high, reach))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>

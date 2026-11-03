@@ -34,7 +34,7 @@ export interface AiHabits {
 export interface AiActor {
   slot: number; serial: number; inSight: boolean; confidence: number; lastSeen: Vec; lastSeenTick: number; lastHeard: Vec;
   lastHeardTick: number; lastHeardKind: string; healthEstimate: number; weaponSeen: number; rank: number; frags: number; deaths: number;
-  ammo: AiAmmo; belief: AiBelief | null; intent: string; intentScore: number; habits: AiHabits | null;
+  ammo: AiAmmo; belief: AiBelief | null; intent: string; intentScore: number; habits: AiHabits | null; grudge: number;
 }
 
 export interface AiMemory {
@@ -56,6 +56,7 @@ export interface AiDecide { tick: number; chosen: string; utility: number; score
 export interface AiDoing {
   branch: string; leaf: string; goal: Vec | null; targetSlot: number; verdict: string; pEmpty: number; pReloading: number;
   windowSeconds: number; arriveSeconds: number; scoreboardTerm: number; ammoTerm: number; expires: number; decides: AiDecide[];
+  grudgeTerm: number; preAiming: boolean; habitSpot: Vec | null; moment: string; streak?: string; streakAimErrorDeg?: number;
 }
 
 export interface AiRecord { slot: number; serial: number; tick: number; memory: AiMemory | null; skills: AiSkills; doing: AiDoing | null }

@@ -33,6 +33,8 @@ public class ApplierAllowListTests
         "IEnginePlayers::IsAlive", "WeaponCatalog::IndexOf",
         // EngineBotSelf: whether the bot is on a ladder, its own move type as its client predicts it (Phase 5's ladders).
         "IEngineNetworking::EntityGetState",
+        // The roster's record through a hot reload (ReloadSave, user ruling 2026-11-02).
+        "ISaveReader::Has", "ISaveReader::ReadBool", "ISaveReader::ReadInt", "ISaveReader::ReadString", "ISaveWriter::Write",
         // The tick a bot's command runs on.
         "IEngineFrame::TickCount",
         "ILog::Msg", "ILog::Warning",
@@ -56,7 +58,7 @@ public class ApplierAllowListTests
         "ITraceQueries::Line", "TraceAnswer::get_End", "TraceAnswer::get_Hit",
         "IEngineEntities::GetIndex", "Vector::.ctor",
         // ActorDirectory: the living players by slot, a human's actor from its handle (Phase 4 step 1).
-        "IEngineEnvironment::get_Globals", "Globals::get_IsAvailable", "Globals::get_MaxClients", "IEnginePlayers::GetHandle",
+        "IEngineEnvironment::get_Globals", "IEnginePlayers::GetTeam", "IEngineEntityRender::GetModelName", "Globals::get_IsAvailable", "Globals::get_MaxClients", "IEnginePlayers::GetHandle",
         "EntityHandle::get_Value",
         // VisionPass (§4.1): other players' origin, eye, velocity and the bot's view; the engine's PVS; the sight lines.
         "IEngineEntities::GetVelocity", "IEnginePlayers::BoxInPvs",
@@ -90,6 +92,9 @@ public class ApplierAllowListTests
         "StringConVar::.ctor", "ConVar`1::SetValue",
         // AiWorldRoutes (§7.4): a human's name, for the debug view's label.
         "PlayerNames::NameOf",
+        // NavObstacleField: the solid entities' place, size and solidity, on the main thread (ruling 2026-11-02).
+        "IEngineEntities::GetBounds", "IEngineEntities::GetSolidFlags", "IEngineEntities::GetSolidType", "IEngineEntities::GetSpawnFlags",
+        "Angles::Vectors", "Basis::get_Forward", "Basis::get_Right", "Basis::get_Up", "Vector::op_Addition", "Vector::op_Multiply", "Vector::op_Subtraction",
     ];
 
     /// <summary>Calls that move or turn a player outside its usercmd (§3.3): never, from any caller.</summary>

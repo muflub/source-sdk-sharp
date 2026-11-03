@@ -20,9 +20,18 @@ public static class SkillPresets
     /// <summary>The preset names, easiest first.</summary>
     public static readonly ImmutableArray<string> Names = ["easy", "normal", "hard", "expert"];
 
+    /// <summary>A preset's word as a person types it, any case; "medium" is what the slider and the tag call <c>normal</c>.</summary>
+    public static string Canonical(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        string lower = name.ToLowerInvariant();
+        return lower == "medium" ? "normal" : lower;
+    }
+
     /// <summary>The preset called <paramref name="name"/>, or false.</summary>
     public static bool TryGet(string name, out SkillProfile? profile)
     {
+        name = Canonical(name);
         ImmutableArray<int> levels = name switch
         {
             "easy" => EasyLevels,

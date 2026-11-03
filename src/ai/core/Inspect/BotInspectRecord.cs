@@ -18,7 +18,7 @@ public sealed record InspectHabits(float RetreatTendency, float Aggression, floa
 /// <summary>One opponent as the bot remembers it (§7.2, memory).</summary>
 public sealed record InspectActor(int Slot, int Serial, bool InSight, float Confidence, AiVector LastSeen, int LastSeenTick, AiVector LastHeard,
                                   int LastHeardTick, string LastHeardKind, int HealthEstimate, int WeaponSeen, int Rank, int Frags, int Deaths,
-                                  InspectAmmo Ammo, InspectBelief? Belief, string Intent, float IntentScore, InspectHabits? Habits);
+                                  InspectAmmo Ammo, InspectBelief? Belief, string Intent, float IntentScore, InspectHabits? Habits, float Grudge = 0f);
 
 /// <summary>An item spawn as the bot believes it (§5.1).</summary>
 public sealed record InspectItem(int Index, string ClassName, AiVector Position, string Present, int SeenTick, int ExpectedBack, float RespawnSeconds);
@@ -49,7 +49,8 @@ public sealed record BotInspectRecord(int Slot, int Serial, int Tick, InspectMem
 /// </summary>
 public sealed record InspectDoing(string Branch, string Leaf, AiVector? Goal, int TargetSlot, string Verdict, float PEmpty, float PReloading,
                                   float WindowSeconds, float ArriveSeconds, float ScoreboardTerm, float AmmoTerm, int Expires,
-                                  IReadOnlyList<InspectDecide> Decides);
+                                  IReadOnlyList<InspectDecide> Decides, float GrudgeTerm = 0f, bool PreAiming = false, AiVector? HabitSpot = null, string Moment = "",
+                                  string Prefire = "", AiVector? PrefireAt = null, string Streak = "", float StreakAimErrorDeg = 0f);
 
 /// <summary>One decide's trace: its tick, the reason, and each node visited with its answer and value.</summary>
 public sealed record InspectDecide(int Tick, string Chosen, float Utility, float ScoreboardTerm, float AmmoTerm, IReadOnlyList<InspectNode> Nodes);
@@ -92,7 +93,9 @@ public static class BotInspect
         }
 
         return new InspectDoing(d.Branch, d.Leaf, d.HasGoal ? d.Goal : null, d.Target.IsValid ? d.Target.Slot : -1, d.Verdict, d.PEmpty, d.PReloading,
-                                d.WindowSeconds, d.ArriveSeconds, d.ScoreboardTerm, d.AmmoTerm, d.Expires.Value, list);
+                                d.WindowSeconds, d.ArriveSeconds, d.ScoreboardTerm, d.AmmoTerm, d.Expires.Value, list,
+                                d.GrudgeTerm, d.PreAiming, d.HabitSpot == default ? null : d.HabitSpot, d.MomentKind,
+                                d.Prefire, d.PrefireAt == default ? null : d.PrefireAt, d.Streak, d.StreakAimErrorDeg);
     }
 
     public static InspectSkills Skills(SkillProfile p, int pool, int cap, DecisionParams? decisions = null)
@@ -112,7 +115,11 @@ public static class BotInspect
             derived["turn_peak_deg_s"] = MotionCurves.For(p, in d).TurnPeakDegPerSec;
             // Every curve's value (§10), by the parameter's own name.
             foreach (System.Reflection.PropertyInfo prop in typeof(DecisionParams).GetProperties())
-                derived[prop.Name] = (float)prop.GetValue(d)!;
+            {
+                // A streak's values are what its levels would read, no knob of their own.
+                if (prop.PropertyType == typeof(float))
+                    derived[prop.Name] = (float)prop.GetValue(d)!;
+            }
         }
 
         InspectSkill[] list = [.. p.Skills.Select((s, i) => new InspectSkill(s.Key, s.Name, p.Levels[i]))];
@@ -142,7 +149,7 @@ public static class BotInspect
             (OpponentIntent intent, float score) = IntentClassifier.Top(inputs);
             actors.Add(new InspectActor(a.Id.Slot, a.Id.Serial, a.InSight, a.Confidence, a.LastSeenPos, a.LastSeenTick.Value, a.LastHeardPos,
                                         a.LastHeardTick.Value, a.LastHeardKind.ToString(), a.HealthEstimate, a.WeaponSeen, a.Rank, a.Frags, a.Deaths,
-                                        ammo, belief, intent.ToString(), score, h is null ? null : Habits(h)));
+                                        ammo, belief, intent.ToString(), score, h is null ? null : Habits(h), a.GrudgeAt(now, m.World.TickSeconds)));
         }
 
         InspectInvestigation[] inv = [.. m.Board.Investigations.ToArray()

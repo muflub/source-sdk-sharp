@@ -6,7 +6,7 @@ namespace SourceSharp.Ai.Hl2mp;
 
 /// <summary>
 /// The skills an <c>ai_bot_add</c> names (plan_hl2mp_ai §3.1.4, §3.5): a preset
-/// (<c>easy|normal|hard|expert</c>), or <c>skills=a,b,…,j</c>, which the
+/// (<c>easy|medium|hard|expert</c>), or <c>skills=a,b,…,j</c>, which the
 /// server judges against the pool whatever the client did. Nothing names
 /// "normal" when nothing is given.
 /// </summary>
@@ -34,12 +34,12 @@ public static class BotSkillSpec
 }
 
 /// <summary>
-/// <c>ai_bot_add [name] [easy|normal|hard|expert | skills=a,b,…,j]</c>: with no
+/// <c>ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,…,j]</c>: with no
 /// name, the bot is named from the pools by its most distinctive trait
 /// (§3.5.1); a name is used as given. The bot joins the roster (§3.5); a
 /// preset bot draws its levels from its seed.
 /// </summary>
-[ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|normal|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]: add a bot (no name: one is drawn)")]
+[ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]: add a bot (no name: one is drawn)")]
 public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log) : IConCommand
 {
     public void Execute(string args)
@@ -47,12 +47,12 @@ public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log) : IConCommand
         string[] parts = args.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (parts.Length > 2)
         {
-            log.Warning("[SourceSharp/Ai] usage: ai_bot_add [name] [easy|normal|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]\n");
+            log.Warning("[SourceSharp/Ai] usage: ai_bot_add [name] [easy|medium|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]\n");
             return;
         }
 
         // One word is a skill spec when it reads as one, else a name.
-        bool specOnly = parts.Length == 1 && (parts[0].StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.Names.Contains(parts[0]));
+        bool specOnly = parts.Length == 1 && (parts[0].StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.TryGet(parts[0], out _));
         string? name = parts.Length == 0 || specOnly ? null : parts[0];
         string? spec = specOnly ? parts[0] : parts.Length > 1 ? parts[1] : null;
         string who = name ?? "(unnamed)";
@@ -159,6 +159,41 @@ public sealed class AiBotGotoCommand(Hl2mpBots bots, Nav.IHl2mpNavigation nav, I
 
         if (bots.GoTo(p[0], target, pickup) is { } refusal)
             log.Warning($"[SourceSharp/Ai] ai_bot_goto refused: {refusal}\n");
+    }
+}
+
+/// <summary>
+/// <c>ai_bot_knows &lt;name&gt; x y z</c>: the cell at a point as the bot routes by it (free, costly
+/// or blocked) and as the entities truly take it, for a live proof that a bot does not know
+/// what it has not been sent.
+/// </summary>
+[ConCommand("ai_bot_knows", Help = "ai_bot_knows <name> x y z: the cell at a point as the bot knows it, and truly", Flags = ConVarFlags.Cheat)]
+public sealed class AiBotKnowsCommand(Hl2mpBots bots, Nav.Hl2mpNav nav, ILog log) : IConCommand
+{
+    public void Execute(string args)
+    {
+        string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (p.Length != 4 || nav.Current is not { } n || nav.Field is not { } field
+            || !float.TryParse(p[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float x)
+            || !float.TryParse(p[2], NumberStyles.Float, CultureInfo.InvariantCulture, out float y)
+            || !float.TryParse(p[3], NumberStyles.Float, CultureInfo.InvariantCulture, out float z))
+        {
+            log.Warning("[SourceSharp/Ai] usage: ai_bot_knows <name> x y z (with navigation loaded)\n");
+            return;
+        }
+
+        CellId cell = n.Nav.Graph.FindCell(new AiVector(x, y, z));
+        foreach (Hl2mpBot bot in bots.Bots)
+        {
+            if (!string.Equals(bot.Name, p[0], StringComparison.OrdinalIgnoreCase))
+                continue;
+            byte known = cell.IsValid ? field.StateFor(bots.Applier.PlayerOf(bot.Id)).Cells?.State(cell.Index) ?? NavCellBlocks.Free : NavCellBlocks.Free;
+            log.Msg(string.Create(CultureInfo.InvariantCulture,
+                $"[SourceSharp/Ai] ai_bot_knows {bot.Name} ({x:F0} {y:F0} {z:F0}): cell {cell.Index}, knows {known}, truly {(cell.IsValid ? field.TruthAt(cell.Index) : 0)} (0 free, 1 costly, 2 blocked)\n"));
+            return;
+        }
+
+        log.Warning($"[SourceSharp/Ai] ai_bot_knows: no bot called '{p[0]}'\n");
     }
 }
 

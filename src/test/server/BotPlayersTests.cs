@@ -37,8 +37,12 @@ public class BotPlayersTests
 
             int index = NextIndex++;
             Bots!.PutInServer(index, Rename(name));
+            // The engine spawns the player before it returns: what the first spawn could read.
+            AtFirstSpawn = new(ConVars);
             return index;
         }
+
+        public Dictionary<(int, string), string> AtFirstSpawn = new();
 
         public bool SetFakeClientConVar(int entIndex, string name, string value)
         {
@@ -84,6 +88,7 @@ public class BotPlayersTests
     private readonly Engine _engine = new();
     private readonly IEnginePlayers _players = DispatchProxy.Create<IEnginePlayers, HandlesOnly>();
     private readonly ServerPlayerMoves _moves = new();
+    private readonly IEngineEnvironment _environment = DispatchProxy.Create<IEngineEnvironment, HandlesOnly>();
     private readonly Clients _clients;
     private readonly BotPlayers _bots;
 
@@ -96,7 +101,7 @@ public class BotPlayersTests
     public BotPlayersTests()
     {
         _clients = new Clients(_engine);
-        _bots = new BotPlayers(_engine, _players, _clients, _moves);
+        _bots = new BotPlayers(_engine, _players, _clients, _moves, _environment);
         _engine.Bots = _bots;
         for (int i = 1; i <= 8; i++)
             Slots[i] = new EntityHandle((uint)(0x0001_0000 * i + i));
@@ -112,6 +117,14 @@ public class BotPlayersTests
         Assert.Equal("", why);
         Assert.Equal(Slots[2], bot);
         Assert.Equal([new BotPlayer(Slots[2], 2, "Alyx")], _bots.Bots);
+    }
+
+    /// <summary>The first spawn fixes what a player wears: a bot's cl_playermodel must be there by then, or every bot wears the fallback.</summary>
+    [Fact]
+    public void TheUserInfoIsThereBeforeTheFirstSpawn()
+    {
+        _bots.Add("Alyx", [new("cl_playermodel", "models/police.mdl")], out _);
+        Assert.Equal("models/police.mdl", _engine.AtFirstSpawn[(2, "cl_playermodel")]);
     }
 
     [Fact]
@@ -156,7 +169,7 @@ public class BotPlayersTests
         // IndexOfEdict must name the client the engine put in: a mismatch is
         // a wrong claim, never a bot.
         var liar = new LyingEngine { Bots = null };
-        var bots = new BotPlayers(liar, _players, _clients, _moves);
+        var bots = new BotPlayers(liar, _players, _clients, _moves, _environment);
         liar.Bots = bots;
 
         EntityHandle bot = bots.Add("Alyx", Appearance, out string why);
@@ -207,6 +220,36 @@ public class BotPlayersTests
         Assert.Equal("Alyx", _clients.ClientConVar(2, "name"));
         Assert.Equal("models/humans/group03/female_02.mdl", _clients.ClientConVar(2, "cl_playermodel"));
         Assert.Equal("weapon_smg1", _clients.ClientConVar(2, "cl_defaultweapon"));
+    }
+
+    [Fact]
+    public void AfterAHotReloadTheSlotsSayWhoTheBotsAre()
+    {
+        EntityHandle alyx = _bots.Add("Alyx", Appearance, out _), barney = _bots.Add("Barney", Appearance, out _);
+        Assert.Equal(Slots[3], barney);
+        int created = _engine.NextIndex;
+        var after = new BotPlayers(_engine, _players, _clients, _moves, _environment);
+        Assert.Empty(after.Bots);
+
+        after.FindBotsInSlots(8);
+
+        Assert.Equal([new BotPlayer(alyx, 2, "Alyx"), new BotPlayer(barney, 3, "Barney")], after.Bots);
+        Assert.Equal(created, _engine.NextIndex);
+        Assert.Empty(_clients.Kicks);
+        Assert.True(after.Kick(alyx, "kicked"));
+        Assert.Equal([(2, "kicked")], _clients.Kicks);
+    }
+
+    [Fact]
+    public void ASlotWithAPersonOrNoPlayerIsNoBotAfterAHotReload()
+    {
+        _moves.For(Slots[4]).Move.Flags |= ServerCommandRules.FlClient;
+        Slots[5] = EntityHandle.None;
+        var after = new BotPlayers(_engine, _players, _clients, _moves, _environment);
+
+        after.FindBotsInSlots(5);
+
+        Assert.Empty(after.Bots);
     }
 
     [Fact]

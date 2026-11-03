@@ -71,7 +71,7 @@ public static class NavLoader
         if (derived is null)
         {
             derived = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader), Hl2mpNavNumbers.Stock(reader.JumpHeight), NavEdgeCosts.Default,
-                                               entities.Hurt);
+                                               entities.Hurt, entities.LadderClimbs);
             cache?.Write(map, bspSha, navSha, derived);
         }
 

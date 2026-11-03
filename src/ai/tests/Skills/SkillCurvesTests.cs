@@ -29,7 +29,8 @@ public sealed class SkillCurvesTests
             for (int l = 1; l < values.Length; l++)
                 Assert.True(curve.Rises ? values[l] >= values[l - 1] : values[l] <= values[l - 1], $"{curve.Parameter} at {curve.Skill} {l}");
             Assert.NotEqual(values[0], values[10]);
-            foreach (int other in Enumerable.Range(0, 10).Where(o => o != i))
+            // A style reads the skill's height above the bot's other levels (StyleTests), so only a level's reading is free of them.
+            foreach (int other in Enumerable.Range(0, 10).Where(o => o != i && !curve.Style))
                 Assert.Equal(Param(c.For(normal), curve.Parameter), Param(c.For(normal.With(other, normal.Levels[other] == 0 ? 10 : 0)), curve.Parameter));
         }
     }

@@ -30,6 +30,9 @@ public interface IServerSlots
     /// a slot only after the level is up.
     /// </summary>
     int Humans { get; }
+
+    /// <summary>What those people are called: a bot of the same name would come in as "(1)name".</summary>
+    IEnumerable<string> PeopleNames { get; }
 }
 
 /// <summary>
@@ -45,6 +48,18 @@ public sealed class EngineServerSlots(IConnectedClients clients, IEngineEnvironm
     public int MaxClients => environment.Globals.IsAvailable ? environment.Globals.MaxClients : 0;
 
     public int Humans => CountHumans(MaxClients, clients, host.IsDedicatedServer);
+
+    public IEnumerable<string> PeopleNames
+    {
+        get
+        {
+            for (int slot = 1; slot <= MaxClients; slot++)
+            {
+                if (clients.Address(slot) is not null && clients.ClientConVar(slot, "name") is { Length: > 0 } name)
+                    yield return name;
+            }
+        }
+    }
 
     /// <summary>The clients of <paramref name="max"/> slots with a channel, and a listen server's host before it connects.</summary>
     public static int CountHumans(int max, IClientInfo clients, bool dedicated)
@@ -217,13 +232,21 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
             bot.Skills = Draw(shape, bot.SeedIndex);
         if (name is null && NameFor(bot) is { } refusal)
             return refusal;
+        if (name is not null)
+            bot.Name = Unique(name, bot);
         _bots.Add(bot);
         return null;
     }
 
+    /// <summary>The names no new name may be: the roster's, benched ones too, and the people's.</summary>
+    private IEnumerable<string> NamesBesides(RosterBot bot) => _bots.Where(b => !ReferenceEquals(b, bot)).Select(b => b.Name).Concat(slots.PeopleNames);
+
+    /// <summary>A name that reaches the engine as it is: taken, it gets a numeral of ours (§3.5.1).</summary>
+    private string Unique(string name, RosterBot bot) => BotNamer.Distinct(name, new HashSet<string>(NamesBesides(bot), StringComparer.OrdinalIgnoreCase));
+
     private string? NameFor(RosterBot bot)
     {
-        IEnumerable<string> taken = _bots.Where(b => !ReferenceEquals(b, bot)).Select(b => b.Name);
+        IEnumerable<string> taken = NamesBesides(bot);
         if (bots.DrawName(bot.Skills, bot.SeedIndex, taken, out string? drawn) is { } refusal)
             return refusal;
         bot.Name = drawn!;
@@ -325,7 +348,7 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
             bot.Skills = Draw(bot.Shape, bot.SeedIndex);
             bot.Name = "";
             if (bot.GivenName is not null)
-                bot.Name = bot.GivenName;
+                bot.Name = Unique(bot.GivenName, bot);
             else if (NameFor(bot) is { } refusal)
                 log.Warning($"[SourceSharp/Ai] ai_bot_reroll_on_map: bot {bot.Ordinal} keeps no name: {refusal}\n");
         }
@@ -427,6 +450,8 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
 
     private string? Activate(RosterBot bot)
     {
+        // Someone may have come in called this since it was named.
+        bot.Name = Unique(bot.Name, bot);
         if (bots.Add(bot.Name, bot.Skills, bot.SeedIndex, out ActorId id) is { } refusal)
             return refusal;
         bot.Actor = id;
@@ -446,6 +471,146 @@ public sealed class Hl2mpRoster(Hl2mpBots bots, IBotProfileSource profiles, ISer
                 ? $"[SourceSharp/Ai]   {bot.Name}: client {bot.Actor.Slot}, {skills}\n"
                 : $"[SourceSharp/Ai]   {bot.Name}: benched, {bot.Reason}, {skills}\n";
         }
+    }
+
+    // ---- a hot reload (user ruling 2026-11-02) -----------------------------
+
+    /// <summary>
+    /// The roster, for the composition after a hot reload. A bot is in the
+    /// game by its slot; its levels are written out, since a preset's draw and
+    /// a profile's file are not to be made again.
+    /// </summary>
+    public void Save(ISaveWriter w)
+    {
+        w.Write("next", _nextOrdinal);
+        w.Write("benchCount", _benchCount.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        w.Write("level", _level);
+        w.Write("reserve", Reserve);
+        w.Write("count", _bots.Count);
+        for (int i = 0; i < _bots.Count; i++)
+        {
+            RosterBot b = _bots[i];
+            string at = "bot" + i.ToString(System.Globalization.CultureInfo.InvariantCulture) + ".";
+            w.Write(at + "ordinal", b.Ordinal);
+            w.Write(at + "given", b.GivenName ?? "");
+            w.Write(at + "hasGiven", b.GivenName is not null);
+            w.Write(at + "kind", (int)b.Kind);
+            w.Write(at + "shapeName", b.Shape.Name);
+            w.Write(at + "shape", string.Join(",", b.Shape.Levels));
+            w.Write(at + "skillsName", b.Skills.Name);
+            w.Write(at + "skills", string.Join(",", b.Skills.Levels));
+            w.Write(at + "seed", b.SeedIndex);
+            w.Write(at + "name", b.Name);
+            w.Write(at + "slot", b.Actor.IsValid ? b.Actor.Slot : 0);
+            w.Write(at + "reason", b.Reason);
+            w.Write(at + "benchOrder", b.BenchOrder.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            w.Write(at + "refused", b.RefusedOnLevel);
+        }
+    }
+
+    /// <summary>
+    /// The composition after a hot reload takes the roster back and plays the
+    /// bots the core found in the slots: a slot on the record has its bot's
+    /// name, skills, tag and seed, and its memory and brain start empty. A bot
+    /// not on the record plays as <see cref="ReloadDefault"/>, and says so; one
+    /// this level cannot play is kicked, not stranded, and waits benched. A
+    /// wanted bot whose slot has gone comes back by <see cref="Reconcile"/>.
+    /// No client is made here, and a level's start does not run after it.
+    /// </summary>
+    public void Resume(ISaveReader? carried)
+    {
+        var bySlot = new Dictionary<int, RosterBot>();
+        if (carried is not null)
+            ReadRoster(carried, bySlot);
+        _recount = true;
+
+        foreach (BotPlayer live in bots.InGame.ToArray())
+        {
+            if (!bySlot.Remove(live.EntIndex, out RosterBot? bot))
+                bot = Unrecorded(live);
+            string? refusal = bots.Adopt(live, bot.Name, bot.Skills, bot.SeedIndex, out ActorId id);
+            if (refusal is not null)
+            {
+                bots.Kick(live, refusal);
+                Bench(bot, refusal);
+                log.Warning($"[SourceSharp/Ai] bot {bot.Name} in client {live.EntIndex} is kicked after the reload: {refusal}\n");
+                continue;
+            }
+
+            bot.Actor = id;
+            bot.Reason = "";
+        }
+
+        foreach (RosterBot gone in bySlot.Values)
+            Bench(gone, "it left the game");
+    }
+
+    /// <summary>What a bot in a slot plays as when the reload carried no record of it.</summary>
+    public const string ReloadDefault = "normal";
+
+    private RosterBot Unrecorded(BotPlayer live)
+    {
+        SkillPresets.TryGet(ReloadDefault, out SkillProfile? shape);
+        var bot = new RosterBot(++_nextOrdinal, live.Name, RosterKind.Preset, shape!) { SeedIndex = _nextOrdinal };
+        bot.Skills = Draw(shape!, bot.SeedIndex);
+        _bots.Add(bot);
+        log.Warning($"[SourceSharp/Ai] bot {live.Name} in client {live.EntIndex} has no record through the reload: it plays as {ReloadDefault}, with new skills\n");
+        return bot;
+    }
+
+    private void ReadRoster(ISaveReader r, Dictionary<int, RosterBot> bySlot)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        _nextOrdinal = r.ReadInt("next");
+        _benchCount = long.Parse(r.ReadString("benchCount", "0"), culture);
+        _level = r.ReadInt("level");
+        Reserve = r.ReadInt("reserve", Reserve);
+        int count = r.ReadInt("count");
+        for (int i = 0; i < count; i++)
+        {
+            string at = "bot" + i.ToString(culture) + ".";
+            string name = r.ReadString(at + "name");
+            SkillProfile? shape = CarriedProfile(r.ReadString(at + "shapeName"), r.ReadString(at + "shape"));
+            SkillProfile? skills = CarriedProfile(r.ReadString(at + "skillsName"), r.ReadString(at + "skills"));
+            if (shape is null || skills is null)
+            {
+                // This build's skills are not the ones it was written with: a slot's bot is then unrecorded, and says so.
+                log.Warning($"[SourceSharp/Ai] the reload's record of bot {name} does not fit this build's skills\n");
+                continue;
+            }
+
+            var bot = new RosterBot(r.ReadInt(at + "ordinal"), r.ReadBool(at + "hasGiven") ? r.ReadString(at + "given") : null,
+                                    (RosterKind)r.ReadInt(at + "kind"), shape)
+            {
+                Skills = skills,
+                SeedIndex = r.ReadInt(at + "seed"),
+                Name = name,
+                Reason = r.ReadString(at + "reason"),
+                BenchOrder = long.Parse(r.ReadString(at + "benchOrder", "0"), culture),
+                RefusedOnLevel = r.ReadInt(at + "refused", -1),
+            };
+            _bots.Add(bot);
+            int slot = r.ReadInt(at + "slot");
+            if (slot > 0)
+                bySlot[slot] = bot;
+        }
+    }
+
+    private static SkillProfile? CarriedProfile(string name, string levels)
+    {
+        var skills = StandardSkills.StandardPool().Skills;
+        string[] parts = levels.Split(',');
+        if (parts.Length != skills.Length)
+            return null;
+        var read = System.Collections.Immutable.ImmutableArray.CreateBuilder<int>(parts.Length);
+        foreach (string part in parts)
+        {
+            if (!int.TryParse(part, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int level))
+                return null;
+            read.Add(level);
+        }
+
+        return new SkillProfile(name, skills, read.MoveToImmutable());
     }
 
     /// <summary>The name, skills and kind an entry stands for, judged by this server's pool.</summary>
@@ -503,6 +668,13 @@ public sealed class AiBotRosterConVar : StringConVar { }
 public sealed class AiBotRerollConVar : BoolConVar { }
 
 /// <summary>
+/// <c>ai_bot_streaks</c> (§5.5, ruling 2026-11-02): 1, bots run hot and cold for a few seconds;
+/// 0, a bot plays at its own levels all the time.
+/// </summary>
+[ConVar("ai_bot_streaks", "1", Help = "1: bots sometimes play above or below themselves for a few seconds; 0: never")]
+public sealed class AiBotStreaksConVar : BoolConVar { }
+
+/// <summary>
 /// <c>ai_bot_reserve_slots</c>: the slots the roster's bots leave free, so a
 /// person can always connect (a full server refuses before game code sees it).
 /// </summary>
@@ -515,7 +687,7 @@ public sealed class AiBotReserveConVar : IntConVar { }
 /// level changed; each frame, reconciles it (plan_hl2mp_ai §3.5).
 /// </summary>
 [SideService(Side.Server)]
-public sealed class AiBotRosterService(Hl2mpRoster roster, ConVarRegistry convars, IEngineFrame frame, ILog log) : IGameLifecycle, IFrameLifecycle
+public sealed class AiBotRosterService(Hl2mpRoster roster, Hl2mpBots bots, ConVarRegistry convars, IEngineFrame frame, ILog log) : ISaveCustom, IGameLifecycle, IFrameLifecycle
 {
     /// <summary>After the navigation (400), the senses (450) and the binding's level line (500).</summary>
     public int LifecycleOrder => ModStages.First + 700;
@@ -531,8 +703,29 @@ public sealed class AiBotRosterService(Hl2mpRoster roster, ConVarRegistry convar
     /// </summary>
     public int FrameOrder => ModStages.First + 550;
 
+    private ISaveReader? _carried;
+
+    /// <summary>
+    /// The roster's record, for a hot reload: read back only by
+    /// <see cref="OnLevelCarried"/>. A save's load is a level start, and the
+    /// level starts with the bots it was told of; that record is dropped.
+    /// </summary>
+    public void OnSave(ISaveWriter writer) => roster.Save(writer);
+
+    public void OnRestore(ISaveReader reader) => _carried = reader.Has("count") ? reader : null;
+
+    /// <summary>A hot reload came up under this level: the bots in its slots play on, none added (user ruling 2026-11-02).</summary>
+    public void OnLevelCarried(string mapName)
+    {
+        roster.Resume(_carried);
+        _carried = null;
+        // The new composition's convar reads its default until told: the roster's reserve is the server's.
+        convars.Get<AiBotReserveConVar>()?.SetValue(roster.Reserve);
+    }
+
     public void OnLevelInitPostEntity(string mapName)
     {
+        _carried = null;
         if (convars.Get<AiBotRosterConVar>() is { } convar && convar.Value.Trim().Length > 0)
         {
             string spec = convar.Value;
@@ -549,6 +742,8 @@ public sealed class AiBotRosterService(Hl2mpRoster roster, ConVarRegistry convar
     {
         if (convars.Get<AiBotReserveConVar>() is { } reserve)
             roster.Reserve = reserve.Value;
+        if (convars.Get<AiBotStreaksConVar>() is { } streaks)
+            bots.Streaks = streaks.Value;
         roster.Reconcile(frame.TickCount());
     }
 }

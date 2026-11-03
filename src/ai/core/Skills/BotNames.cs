@@ -86,21 +86,48 @@ public static class BotNamer
             : [];
         var rng = new AiRandom(seed);
         string name = "";
+        // Two Ineses are one too many while the pool has someone else (user report 2026-11-02).
+        string[] free = [.. pools.First.Where(f => !FirstNameUsed(f, taken))];
+        ReadOnlySpan<string> firsts = free.Length > 0 ? free : pools.First.AsSpan();
         for (int draw = 0; draw < Redraws; draw++)
         {
-            string first = pools.First[rng.NextInt(pools.First.Length)];
+            string first = firsts[rng.NextInt(firsts.Length)];
             string descriptor = descriptors.IsEmpty ? "" : descriptors[rng.NextInt(descriptors.Length)];
             name = Fit(first, descriptor);
             if (!taken.Contains(name))
                 return name;
         }
 
+        return Distinct(name, taken);
+    }
+
+    /// <summary>
+    /// <paramref name="name"/>, or with a numeral if it is taken ("Alyx 2"): the
+    /// engine would make it "(1)Alyx" otherwise, and nobody is called that.
+    /// </summary>
+    public static string Distinct(string name, IReadOnlySet<string> taken)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(taken);
+        if (!taken.Contains(name))
+            return name;
         for (int n = 2; ; n++)
         {
             string numbered = Fit(name, "", $" {n}");
             if (!taken.Contains(numbered))
                 return numbered;
         }
+    }
+
+    private static bool FirstNameUsed(string first, IReadOnlySet<string> taken)
+    {
+        foreach (string t in taken)
+        {
+            if (t.Equals(first, StringComparison.OrdinalIgnoreCase) || t.StartsWith(first + " ", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+
+        return false;
     }
 
     /// <summary>"first descriptor" within <see cref="MaxLength"/>, the first name cut before the descriptor.</summary>

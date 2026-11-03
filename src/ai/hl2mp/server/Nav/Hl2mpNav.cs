@@ -18,8 +18,20 @@ public interface IHl2mpNavigation
     /// <summary>The obstacles as the entities stand now, or null with no navigation.</summary>
     NavObstacleState? Obstacles { get; }
 
+    /// <summary>
+    /// The obstacles as <paramref name="player"/> knows them: the map's layout, and what has
+    /// moved since only once it was in the player's PVS (ruling 2026-11-02); null with no navigation.
+    /// </summary>
+    NavObstacleState? ObstaclesFor(EntityHandle player);
+
     /// <summary>The static sight table between the level's cells, or null with no navigation.</summary>
     NavSight? Sight { get; }
+
+    /// <summary>The level's choke points, empty until a worker has them (§5.5); null with no navigation.</summary>
+    ChokeSlot? Chokes { get; }
+
+    /// <summary>What a bot's hands ask of a breakable on its route; null with no navigation.</summary>
+    IBreakableAim? Breakables => null;
 }
 
 /// <summary>
@@ -32,11 +44,12 @@ public interface IHl2mpNavigation
 /// re-read every <see cref="ObstacleTicks"/> ticks.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IHl2mpNavigation)])]
-public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities entities, ILog log) : IGameLifecycle, IFrameLifecycle, IHl2mpNavigation
+public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities entities, ILog log, IEnginePlayers players, ITraceQueries traces, IEngineEntityRender? render = null) : IGameLifecycle, IFrameLifecycle, IHl2mpNavigation
 {
     public const int ObstacleTicks = 8;
 
     private NavObstacles? _obstacles;
+    private NavObstacleField? _field;
     private int _ticks;
 
     /// <summary>Before the bots, so a bot added at level start finds the nav.</summary>
@@ -48,10 +61,25 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
 
     public NavSight? Sight { get; private set; }
 
+    public ChokeSlot? Chokes { get; private set; }
+
+    /// <summary>How long the last level's choke points took on their worker, in milliseconds, and whether they came from the cache.</summary>
+    public (double Ms, bool FromCache) ChokeCost { get; private set; }
+
+    private CancellationTokenSource? _chokeCancel;
+    private Task? _chokeWork;
+
     /// <summary>Why there is no navigation for this level, or null.</summary>
     public string? Refusal { get; private set; } = "no level is loaded";
 
     public NavObstacleState? Obstacles => _obstacles?.State;
+
+    public NavObstacleState? ObstaclesFor(EntityHandle player) => _field?.StateFor(player);
+
+    /// <summary>The solid entities' cells and who knows of them, or null with no navigation.</summary>
+    public NavObstacleField? Field => _field;
+
+    public IBreakableAim? Breakables { get; private set; }
 
     /// <summary>
     /// Beside the maps: a game started with <c>-instance</c> runs from a
@@ -62,11 +90,76 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
 
     public void OnLevelInitPostEntity(string mapName) => Load(mapName);
 
+    /// <summary>A hot reload came up under a running level: the nav goes with the composition, so it loads again.</summary>
+    public void OnLevelCarried(string mapName) => Load(mapName);
+
+    /// <summary>The worker stops before the composition goes: a hot reload's unload waits for nothing of ours.</summary>
+    public void OnShutdown() => StopChokes();
+
+    private void StopChokes()
+    {
+        _chokeCancel?.Cancel();
+        try
+        {
+            _chokeWork?.Wait();
+        }
+        catch (AggregateException e) when (e.InnerExceptions.All(x => x is OperationCanceledException))
+        {
+            // What Cancel asks for.
+        }
+
+        _chokeCancel?.Dispose();
+        _chokeCancel = null;
+        _chokeWork = null;
+    }
+
+    /// <summary>
+    /// The level's choke points, off the main thread: from the cache if it has them,
+    /// else worked out and written to it. The slot fills when they are done; a bot is
+    /// told at its next senses (<see cref="AiEventKind.ChokesKnown"/>), so the moment
+    /// changes nothing a replay decides.
+    /// </summary>
+    private void StartChokes(LoadedNav nav, NavGraphCache cache)
+    {
+        var slot = new ChokeSlot();
+        Chokes = slot;
+        var cancel = new CancellationTokenSource();
+        _chokeCancel = cancel;
+        CancellationToken token = cancel.Token;
+        _chokeWork = Task.Run(() =>
+        {
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            ChokeMap? map = cache.TryReadChokes(nav.Map, nav.BspSha256, nav.NavSha256, nav.Nav.Graph);
+            bool cached = map is not null;
+            if (map is null)
+            {
+                map = ChokeMap.Compute(nav.Nav.Graph, nav.Entities.PeoplesPlaces(), cancel: token);
+                token.ThrowIfCancellationRequested();
+                try
+                {
+                    cache.WriteChokes(nav.Map, nav.BspSha256, nav.NavSha256, nav.Nav.Graph, map);
+                }
+                catch (IOException e)
+                {
+                    log.Warning($"[SourceSharp/Ai] the choke points for {nav.Map} are not cached: {e.Message}\n");
+                }
+            }
+
+            double ms = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            ChokeCost = (ms, cached);
+            slot.Map = map;
+        }, token);
+    }
+
     public void OnLevelShutdown()
     {
+        StopChokes();
+        Chokes = null;
         Current = null;
         Sight = null;
         _obstacles = null;
+        _field = null;
+        Breakables = null;
         Refusal = "no level is loaded";
     }
 
@@ -74,12 +167,14 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
     {
         if (_obstacles is not null && ++_ticks % ObstacleTicks == 0)
             _obstacles.Update();
+        _field?.Tick();
     }
 
     public void Load(string mapName)
     {
         OnLevelShutdown();
-        NavLoadResult result = NavLoader.Load(mapName, files.ReadGameFileBytes, new NavGraphCache(CacheDirectory, NavEdgeCosts.Default));
+        var cache = new NavGraphCache(CacheDirectory, NavEdgeCosts.Default);
+        NavLoadResult result = NavLoader.Load(mapName, files.ReadGameFileBytes, cache);
         if (result.Nav is not { } nav)
         {
             Refusal = result.Refusal;
@@ -90,15 +185,20 @@ public sealed class Hl2mpNav(IEngineFiles files, IModInfo mod, IEngineEntities e
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
         Sight = NavSight.Build(nav.Nav.Graph, new Nav3dVoxelSpace(nav.Reader));
         double sightMs = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-        _obstacles = new NavObstacles(nav.Nav, new EngineObstacleEyes(entities));
+        _obstacles = new NavObstacles(nav.Nav, new EngineObstacleEyes(entities), propsAreTheField: true);
         _obstacles.Resolve();
+        _field = new NavObstacleField(nav.Nav.Graph, new EngineObstacleWorld(entities, render is null ? null : render.GetModelName), new EnginePvsSight(players), nav.Nav.Obstacles, _obstacles.State);
+        _field.OnLevelStart();
+        Breakables = new EngineBreakableAim(_field, traces);
+        StartChokes(nav, cache);
         Current = nav;
         Refusal = null;
         NavGraph g = nav.Nav.Graph;
         log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] navigation for {mapName}: {g.CellCount} cells, {g.EdgeCount} edges, {g.ObstacleCount} obstacles "
             + $"({_obstacles.Matched} matched, {_obstacles.Blocking} blocking); {(nav.FromCache ? "read from the cache" : "derived")} in {nav.DeriveMs:F0} ms; "
-            + $"sight {Sight.NodeCount} nodes, {Sight.Pairs} pairs in {sightMs:F0} ms\n"));
+            + $"sight {Sight.NodeCount} nodes, {Sight.Pairs} pairs in {sightMs:F0} ms; "
+            + $"{_field.Bodies} solid entities take {_field.TruthCells.Blocked} cells and cost {_field.TruthCells.Costly}, {_field.BreakableBodies} a gun can break\n"));
     }
 }
 

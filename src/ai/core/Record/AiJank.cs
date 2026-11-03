@@ -12,6 +12,17 @@ public readonly record struct JankShare(int NotFiring, int Ticks)
     public static JankShare operator +(JankShare a, JankShare b) => new(a.NotFiring + b.NotFiring, a.Ticks + b.Ticks);
 }
 
+/// <summary>
+/// How an actor plays, not how well (§5.5): none of it is in the score. A camper
+/// and a chaser should differ here. <see cref="WalkedUnits"/> over the life;
+/// <see cref="UnseenSeconds"/> with nobody holding sight of it (time in cover, as
+/// the other players' eyes measure it); kills, those from ambush (it had walked
+/// under <see cref="AiJank.StandUnits"/> in the <see cref="AiJank.StandTicks"/>
+/// before it first saw its victim, whatever it did in the fight after); and its
+/// hits' ranges.
+/// </summary>
+public readonly record struct JankTraits(double WalkedUnits, double UnseenSeconds, int Kills, int KillsFromAmbush, double HitRangeSum, int HitsWithRange);
+
 /// <summary>One actor's parts of the jank score (or a total's), by <see cref="AiJank"/>'s definitions.</summary>
 public sealed record JankActor(
     ActorId Actor,
@@ -28,7 +39,8 @@ public sealed record JankActor(
     double ReversalsPerMinute,
     double CommandMinutes,
     int GoalJumps = 0,
-    double TurnBackSeconds = 0)
+    double TurnBackSeconds = 0,
+    JankTraits Traits = default)
 {
     public double AliveMinutes => AliveSeconds / 60.0;
 
@@ -47,6 +59,17 @@ public sealed record JankActor(
     public double GoalJumpsPerMinute => PerMinute(GoalJumps);
 
     public double TurnBackPerMinute => PerMinute(TurnBackSeconds);
+
+    public double WalkedPerMinute => PerMinute(Traits.WalkedUnits);
+
+    /// <summary>The share of its life nobody held sight of it.</summary>
+    public double UnseenShare => AliveSeconds > 0 ? Traits.UnseenSeconds / AliveSeconds : 0;
+
+    /// <summary>The share of its kills made from ambush, or NaN with none.</summary>
+    public double FromAmbushShare => Traits.Kills > 0 ? Traits.KillsFromAmbush / (double)Traits.Kills : double.NaN;
+
+    /// <summary>The mean range of its hits, or NaN with none.</summary>
+    public double MeanHitRange => Traits.HitsWithRange > 0 ? Traits.HitRangeSum / Traits.HitsWithRange : double.NaN;
 }
 
 /// <summary>What happened under one leaf: its in-sight, not-firing ticks, and its seconds of stuck (those with an opponent in sight apart), wall bump and idle.</summary>
@@ -166,6 +189,11 @@ public static class AiJank
     public const double IdleLookDeg = 2;
     public const float GoalJumpUnits = 256f;
 
+    /// <summary>A kill from ambush: the killer walked under this in <see cref="StandTicks"/> (3 s) before it saw its victim.</summary>
+    public const float StandUnits = 64f;
+
+    public const int StandTicks = 200;
+
     /// <summary>The cadence of a shot of a weapon the recording's world does not name.</summary>
     public const float DefaultCadenceSeconds = 0.25f;
 
@@ -218,7 +246,9 @@ public static class AiJank
                              new JankShare(of.Sum(a => a.Close.NotFiring), of.Sum(a => a.Close.Ticks)),
                              new JankShare(of.Sum(a => a.Far.NotFiring), of.Sum(a => a.Far.Ticks)),
                              [.. of.SelectMany(a => a.StrafeIntervalMs)],
-                             minutes > 0 ? of.Sum(a => a.ReversalsPerMinute * a.CommandMinutes) / minutes : 0, minutes, of.Sum(a => a.GoalJumps), of.Sum(a => a.TurnBackSeconds));
+                             minutes > 0 ? of.Sum(a => a.ReversalsPerMinute * a.CommandMinutes) / minutes : 0, minutes, of.Sum(a => a.GoalJumps), of.Sum(a => a.TurnBackSeconds),
+                             new JankTraits(of.Sum(a => a.Traits.WalkedUnits), of.Sum(a => a.Traits.UnseenSeconds), of.Sum(a => a.Traits.Kills),
+                                            of.Sum(a => a.Traits.KillsFromAmbush), of.Sum(a => a.Traits.HitRangeSum), of.Sum(a => a.Traits.HitsWithRange)));
     }
 
     /// <summary>One leaf's totals while the sweep runs.</summary>
@@ -236,6 +266,7 @@ public static class AiJank
         public readonly Dictionary<ActorId, SortedList<int, AiActorFrame>> Frames = [];
         public readonly List<AiEvent> Sights = [];
         public readonly List<AiEvent> Shots = [];
+        public readonly HashSet<(ActorId Killer, ActorId Victim, int Tick)> Kills = [];
         public readonly Dictionary<int, WeaponFacts> Weapons = [];
         public readonly Dictionary<int, string> WeaponNames = [];
         public readonly Dictionary<ActorId, List<(int Tick, int Weapon)>> Held = [];
@@ -277,6 +308,8 @@ public static class AiJank
                         Sights.Add(e);
                     else if (e.Kind is AiEventKind.ShotFired or AiEventKind.HitDealt)
                         Shots.Add(e);
+                    else if (e.Kind == AiEventKind.KillFeed)
+                        Kills.Add((new ActorId(e.Code, e.Code2), e.Other, e.Tick.Value));   // each bot's HUD tells it: one kill
                     break;
                 case AiRecordType.World:
                     foreach (WeaponFacts w in AiRecordFormat.ReadWorld(r).Map.Weapons.All)
@@ -378,6 +411,10 @@ public static class AiJank
             List<AiEvent> shots = [.. data.Shots.Where(e => e.Bot == actor && e.Kind == AiEventKind.ShotFired).OrderBy(e => e.Tick.Value)];
             List<(int Tick, int Weapon)> held = data.Held.GetValueOrDefault(actor) ?? [];
             var seen = new HashSet<ActorId>();
+            List<AiEvent> sightsOfMe = [.. data.Sights.Where(e => e.Other == actor).OrderBy(e => e.Tick.Value)];
+            var seenBy = new HashSet<ActorId>();
+            int nextOfMe = 0;
+            double unseen = 0;
 
             int nextCommand = 0, nextSight = 0, nextShot = 0, nextHeld = 0, nextDecision = 0, windowFrom = 0;
             int weapon = -1, node = -1, lastShot = int.MinValue, lastSideFlip = int.MinValue, sideSign = 0;
@@ -434,6 +471,18 @@ public static class AiJank
                     else
                         seen.Remove(e.Other);
                 }
+
+                while (nextOfMe < sightsOfMe.Count && sightsOfMe[nextOfMe].Tick.Value <= t)
+                {
+                    AiEvent e = sightsOfMe[nextOfMe++];
+                    if (e.Kind == AiEventKind.SightGained)
+                        seenBy.Add(e.Bot);
+                    else
+                        seenBy.Remove(e.Bot);
+                }
+
+                if (seenBy.Count == 0)
+                    unseen += span * AiMetrics.TickSeconds;
 
                 bool fresh = hasCommand && t - last.Tick.Value <= CommandStale;
                 bool moving = fresh && (MathF.Abs(last.ForwardMove) >= 1f || MathF.Abs(last.SideMove) >= 1f);
@@ -524,7 +573,61 @@ public static class AiJank
             Flips();
             ActorMetrics metrics = AiMetrics.For(actor, _bot, _commands, data.Frames, data.Sights, data.Shots, data.WeaponNames);
             return new JankActor(actor, _bot, aliveTicks * AiMetrics.TickSeconds, _stuck, _wall, _idle, _branchFlips, _leafFlips, _close, _far,
-                                 metrics.StrafeIntervalMs, metrics.ReversalsPerMinute, metrics.Minutes, _goalJumps, _turnBack);
+                                 metrics.StrafeIntervalMs, metrics.ReversalsPerMinute, metrics.Minutes, _goalJumps, _turnBack,
+                                 Traits(ticks, walked, unseen));
+        }
+
+        private JankTraits Traits(IList<int> ticks, double[] walked, double unseen)
+        {
+            int kills = 0, fromAmbush = 0, hits = 0;
+            double ranges = 0;
+            foreach ((ActorId killer, ActorId victim, int tick) in data.Kills)
+            {
+                if (killer != actor)
+                    continue;
+                kills++;
+                int saw = int.MinValue;
+                foreach (AiEvent e in data.Sights)
+                {
+                    if (e.Bot == actor && e.Other == victim && e.Kind == AiEventKind.SightGained && e.Tick.Value <= tick && e.Tick.Value > saw)
+                        saw = e.Tick.Value;
+                }
+
+                if (saw != int.MinValue && WalkedBy(ticks, walked, saw) - WalkedBy(ticks, walked, saw - StandTicks) < StandUnits)
+                    fromAmbush++;
+            }
+
+            foreach (AiEvent e in data.Shots)
+            {
+                if (e.Bot == actor && e.Kind == AiEventKind.HitDealt && e.Code2 >= 0)
+                {
+                    ranges += e.Code2;
+                    hits++;
+                }
+            }
+
+            return new JankTraits(walked.Length > 0 ? walked[^1] : 0, unseen, kills, fromAmbush, ranges, hits);
+        }
+
+        /// <summary>How far the actor had walked by a tick.</summary>
+        private static double WalkedBy(IList<int> ticks, double[] walked, int tick)
+        {
+            int lo = 0, hi = ticks.Count - 1, at = -1;
+            while (lo <= hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (ticks[mid] <= tick)
+                {
+                    at = mid;
+                    lo = mid + 1;
+                }
+                else
+                {
+                    hi = mid - 1;
+                }
+            }
+
+            return at >= 0 ? walked[at] : 0;
         }
 
         /// <summary>A run counts whole once it is long enough: all of it on the tick it gets there, each tick after.</summary>
@@ -672,6 +775,13 @@ public static class AiJank
         {
             sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
                 $"  {l.Leaf,-22} stuck {l.StuckSeconds,6:F1} s ({l.StuckSeenSeconds,5:F1}) | turn {l.TurnBackSeconds,6:F1} s | wall {l.WallBumpSeconds,6:F1} s | idle {l.IdleSeconds,6:F1} s | no shot <400 {Share(l.Close),-18} >=400 {Share(l.Far)}"));
+        }
+
+        sb.AppendLine("how each plays (no part of the score): walked u/min | unseen share | kills, from ambush | mean hit range");
+        foreach (JankActor a in report.Actors)
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"  {a.Actor.Slot}#{a.Actor.Serial,-18} {(a.Bot ? "bot" : "human"),-5} {a.WalkedPerMinute,8:F0} | {a.UnseenShare * 100,4:F0}% | {a.Traits.Kills,3}, {Pct(a.FromAmbushShare),4} | {F0(a.MeanHitRange),5}"));
         }
 
         sb.AppendLine("worst places:");

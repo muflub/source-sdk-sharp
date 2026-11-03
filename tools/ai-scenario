@@ -4,8 +4,13 @@
   tools/ai-scenario sight   [--config debug] [--keep]
   tools/ai-scenario hearing [--config debug] [--keep]
   tools/ai-scenario duel|routes|nav [--config debug] [--keep]
-  tools/ai-scenario jank [--minutes 5] [--config debug] [--keep]   (`make ai-jank`)
+  tools/ai-scenario jank [--minutes 5] [--streaks 0|1] [--config debug] [--keep]   (`make ai-jank`)
   tools/ai-scenario live [--config debug] [--keep]
+  tools/ai-scenario traits [--minutes 5] [--points 50|35|20] [--config debug] [--keep]
+  tools/ai-scenario habit [--minutes 5] [--config debug] [--keep]
+  tools/ai-scenario prefire [--trials 30] [--skills skills=a,b,...] [--config debug] [--keep]
+  tools/ai-scenario camp [--minutes 5] [--config debug] [--keep]
+  tools/ai-scenario spectator [--config debug] [--keep]
 
 Starts a headless game on the map (`make headless`, its own instance, temp
 dir, dev-API directory and port), records the AI session (`ai_record`), adds
@@ -31,7 +36,23 @@ into the tree's recordings.
 `live` makes the committed live session again, after a change to what the brains
 decide: dm_lockdown, the four bots of LiveRecordingTests, 2,400 ticks on the pool
 beside an idle human, to src/ai/tests/recordings/live/dm_lockdown-4bots.airec.
+
+`traits` and `habit` show personality live (plan_hl2mp_ai §5.5). `traits`: two
+campers and two chasers of one point total (--points: Hard's 50, Medium's 35 or
+Easy's 20) with a scripted client, scored as `jank` is. `habit`: the listen client stands at one spot and is put back there
+when it dies, among high-Cunning bots: what each bot did about it, sampled from
+its inspector record, first half against second, with the moment lines.
+
+`prefire` (plan_hl2mp_ai §5.4): on ss_ai_sight a god-mode scripted client stands in
+the open until the bot has it, then is gone behind a wall (teleported, a duck behind
+a corner with no walk to watch), and every third trial comes back during the burst.
+`camp` (§5.5): dm_lockdown, four bots of high Cunning and Cover at 50 points and a
+scripted client. Both are read with `tools/ai-replay tactics`, which they call.
+`spectator` (§4.1, ruling 2026-11-02): the client plays until a bot knows it, goes to
+spectate, is flown through the bots, then comes back: while it watches no bot may list it,
+be about it or hit it; back in play one must take it up. Exit 1 if any fails.
 """
+import collections
 import hashlib
 import json
 import os
@@ -373,7 +394,7 @@ class ScriptedClient:
             self.game.cmd("-" + key)
 
 
-def jank(config, keep, minutes):
+def jank(config, keep, minutes, streaks=1):
     """The standard run: its exit is the score tool's, and a run with too few bots or too little play is a failure."""
     sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
     out_dir = os.path.join(ROOT, "bin", config, "ai-jank")
@@ -383,6 +404,7 @@ def jank(config, keep, minutes):
     try:
         game.start()
         game.cmd("ai_record start %s dm_lockdown" % rec)
+        game.cmd("ai_bot_streaks %d" % streaks)
         for name, preset in JANK_BOTS:
             game.cmd("ai_bot_add %s %s" % (name, preset))
         time.sleep(2)
@@ -393,9 +415,14 @@ def jank(config, keep, minutes):
         end = start + minutes * TICKS_PER_MINUTE
         client = ScriptedClient(game)
         client.begin()
+        counters = game.json("/ai/counters")
+        crates = counters.get("ai.breakables")
         while game.tick() < end:
             client.step()
         client.end()
+        counters = game.json("/ai/counters")
+        print("ai-scenario: ai_bot_streaks %d: hot %s, cold %s" % (streaks, counters.get("ai.streaks.hot"), counters.get("ai.streaks.cold")))
+        print("ai-scenario: breakables on the map %s -> %s; shots at them begun %s, given up %s" % (crates, counters.get("ai.breakables"), counters.get("ai.breaks"), counters.get("ai.breaks.given_up")))
         game.cmd("ai_record stop")
         time.sleep(1)
     finally:
@@ -444,17 +471,328 @@ def live(config, keep):
     return 0
 
 
+# Acc Ale Agg Cov Ten Cun Dis Agi Ner Head, 50 points each (Hard's total), apart only where it shows.
+CAMPER = "skills=5,5,1,10,3,10,5,3,5,3"
+CHASER = "skills=5,5,10,1,8,1,5,7,5,3"
+# The same two shapes at Medium's and Easy's totals, aim and sight at that difficulty's own levels.
+SPREADS = {
+    50: (CAMPER, CHASER),
+    35: ("skills=4,4,1,7,2,7,4,2,3,1", "skills=4,4,8,1,5,1,4,4,3,1"),
+    20: ("skills=2,2,0,5,1,5,2,1,1,1", "skills=2,2,6,0,3,0,2,3,1,1"),
+}
+# High Cunning at the rest of a Hard's levels: where the corner should be noticed.
+HABIT_BOTS = [("Alyx", "skills=6,6,5,5,5,10,6,4,5,3"), ("Barney", "skills=6,6,5,5,5,10,6,4,5,3"), ("Gordon", "skills=6,6,5,5,5,10,6,4,5,3")]
+# A health kit's place on dm_lockdown's floor.
+HABIT_SPOT = (-3411, 3606, 1)
+
+
+def scored(rec, config, header):
+    p = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "jank", rec, "--config", config], capture_output=True, text=True)
+    report = header + p.stdout + p.stderr
+    with open(rec + ".txt", "w") as f:
+        f.write(report)
+    print(report, end="")
+    if p.returncode != 0:
+        raise SystemExit("ai-scenario: the score failed (exit %d)" % p.returncode)
+
+
+def new_recording(config, what):
+    sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
+    out_dir = os.path.join(ROOT, "bin", config, "ai-jank")
+    os.makedirs(out_dir, exist_ok=True)
+    return sha, os.path.join(out_dir, "%s-%s-%s.airec" % (what, time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), sha))
+
+
+def traits(config, keep, minutes, points=50):
+    sha, rec = new_recording(config, "traits%d" % points)
+    camper, chaser = SPREADS[points]
+    bots = [("Tommy", camper), ("Sniper", camper), ("Rush", chaser), ("Hound", chaser)]
+    game = Game("dm_lockdown", config)
+    try:
+        game.start()
+        game.cmd("ai_record start %s dm_lockdown" % rec)
+        for name, skills in bots:
+            game.cmd("ai_bot_add %s %s" % (name, skills))
+        time.sleep(2)
+        slots = bots_by_name(game)
+        if len(slots) != len(bots):
+            raise SystemExit("ai-scenario: %d of the %d bots came in: %s" % (len(slots), len(bots), sorted(slots)))
+        end = game.tick() + minutes * TICKS_PER_MINUTE
+        client = ScriptedClient(game)
+        client.begin()
+        while game.tick() < end:
+            client.step()
+        client.end()
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    scored(rec, config, "ai-scenario: traits at %s: %g minutes, slots %s, campers %s, chasers %s\n" % (sha, minutes, slots, camper, chaser))
+    return 0
+
+
+# High Cunning, low Discipline: it uses a prediction and spends ammo on it. Cunning 0 is the control.
+PREFIRE_BOT = "skills=5,5,4,3,4,10,0,4,5,3"
+
+
+def tactics(rec, config, map_name, header):
+    p = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "tactics", map_name, rec, "--config", config], capture_output=True, text=True)
+    report = header + p.stdout + p.stderr
+    with open(rec + ".tactics.txt", "w") as f:
+        f.write(report)
+    print(report, end="")
+    if p.returncode != 0:
+        raise SystemExit("ai-scenario: tactics failed (exit %d)" % p.returncode)
+
+
+def place(game, slot, at, yaw=0.0):
+    """A teleport with no wait: a bot that keeps thinking does not settle."""
+    x, y, z = at
+    game.api("teleport", "pos=%g,%g,%g" % (x, y, z + 1), "ang=0,%g,0" % yaw, "player=%d" % slot, "settle=1", "timeout=1")
+
+
+def prefire(config, keep, trials, skills):
+    sha, rec = new_recording(config, "prefire")
+    game = Game("ss_ai_sight", config)
+    hidden_spot, open_spot, post = (400, 100, 16), (200, 300, 16), (64, 300, 16)
+    returned = 0
+    gone = []
+    try:
+        game.start()
+        game.cmd("ai_record start %s ss_ai_sight" % rec)
+        game.cmd("god")
+        game.cmd("ai_bot_add Corner %s" % skills)
+        time.sleep(2)
+        slots = bots_by_name(game)
+        if "Corner" not in slots:
+            raise SystemExit("ai-scenario: the bot did not come in: %s" % sorted(slots))
+        for trial in range(trials):
+            place(game, slots["Corner"], post)
+            place(game, 1, open_spot, 180)
+            # Long enough to be seen and fired at, short of emptying its clip.
+            time.sleep(1.0)
+            place(game, 1, hidden_spot, 180)
+            gone.append(game.tick())
+            if trial % 3 == 2:
+                time.sleep(1.1)
+                place(game, 1, open_spot, 180)
+                returned += 1
+                time.sleep(1.0)
+            else:
+                time.sleep(3.0)
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    tactics(rec, config, "ss_ai_sight", "ai-scenario: prefire at %s: %d trials (%d back in sight), bot %s, %s\n" % (sha, trials, returned, skills, rec))
+    with open(rec + ".tactics.txt") as f:
+        m = re.search(r"^bursts of \d+: (.*)$", f.read(), re.M)
+    bursts = [int(t) for t in m.group(1).split()] if m else []
+    delays = []
+    for t in gone:
+        after = [b for b in bursts if b >= t and b < t + 240]
+        if after:
+            delays.append((after[0] - t) * 0.015)
+    print("ai-scenario: %d of %d disappearances drew a burst; delay from gone to the first burst: mean %.2f s, min %.2f, max %.2f (the tick of the teleport is read a moment after it)" %
+          (len(delays), len(gone), sum(delays) / len(delays) if delays else float("nan"), min(delays or [float("nan")]), max(delays or [float("nan")])))
+    return 0
+
+
+# High Cunning and Cover at Hard's 50 points, each with the same rest: where to camp is what differs.
+CAMP_BOTS = [("Holder%d" % i, CAMPER) for i in range(1, 5)]
+
+
+def camp(config, keep, minutes):
+    sha, rec = new_recording(config, "camp")
+    game = Game("dm_lockdown", config)
+    try:
+        game.start()
+        game.cmd("ai_record start %s dm_lockdown" % rec)
+        for name, skills in CAMP_BOTS:
+            game.cmd("ai_bot_add %s %s" % (name, skills))
+        time.sleep(2)
+        slots = bots_by_name(game)
+        if len(slots) != len(CAMP_BOTS):
+            raise SystemExit("ai-scenario: %d of the %d bots came in: %s" % (len(slots), len(CAMP_BOTS), sorted(slots)))
+        end = game.tick() + minutes * TICKS_PER_MINUTE
+        client = ScriptedClient(game)
+        client.begin()
+        while game.tick() < end:
+            client.step()
+        client.end()
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    tactics(rec, config, "dm_lockdown", "ai-scenario: camp at %s: %g minutes, %s\n" % (sha, minutes, rec))
+    return 0
+
+
+def spectator(config, keep):
+    sha, rec = new_recording(config, "spectator")
+    game = Game("dm_lockdown", config)
+    failed = []
+    try:
+        game.start()
+        game.cmd("ai_record start %s dm_lockdown" % rec)
+        for name, skills in (("Alyx", "hard"), ("Barney", "hard"), ("Gordon", "hard")):
+            game.cmd("ai_bot_add %s %s" % (name, skills))
+        time.sleep(2)
+        slots = bots_by_name(game)
+
+        def knows():
+            n = 0
+            for slot in slots.values():
+                if any(a.get("slot") == 1 for a in game.json("/ai/bot/%d/memory" % slot).get("actors", [])):
+                    n += 1
+            return n
+
+        def about():
+            return sum(1 for slot in slots.values() if game.json("/ai/bot/%d/doing" % slot).get("targetSlot") == 1)
+
+        # In play: a bot learns of it (a scoreboard row at the least, a sight if it can).
+        deadline = time.time() + 60
+        while time.time() < deadline and knows() == 0:
+            time.sleep(1)
+        before = knows()
+        print("ai-scenario: in play, %d of %d bots list the client" % (before, len(slots)))
+        if before == 0:
+            failed.append("no bot ever listed the client in play")
+
+        game.cmd("spectate")
+        time.sleep(1.0)
+        world = game.json("/ai/world")
+        me = [a for a in world.get("actors", []) if a.get("slot") == 1]
+        print("ai-scenario: went to spectate: %s" % (me[:1],))
+        hurt0 = game.json("/ai/counters").get("tick")
+        listed = aimed = samples = 0
+        end = time.time() + 40
+        spots = list(slots.values())
+        i = 0
+        while time.time() < end:
+            # Through each bot in turn: its body, as a camera.
+            read = [a for a in game.json("/ai/world").get("actors", []) if a.get("slot") == spots[i % len(spots)] and a.get("at")]
+            if read:
+                x, y, z = read[0]["at"]
+                game.api("teleport", "pos=%g,%g,%g" % (x, y, z + 40), "ang=0,0,0", "player=1", "settle=1", "timeout=1")
+            i += 1
+            for _ in range(3):
+                listed += knows()
+                aimed += about()
+                samples += len(slots)
+                time.sleep(0.3)
+        print("ai-scenario: spectating, of %d bot samples: %d listed it, %d were about it" % (samples, listed, aimed))
+        if listed or aimed:
+            failed.append("a bot knew a spectator: %d listed, %d about" % (listed, aimed))
+
+        game.cmd("jointeam 2")
+        game.cmd("+jump")
+        time.sleep(0.2)
+        game.cmd("-jump")
+        taken = None
+        deadline = time.time() + 90
+        client = ScriptedClient(game)
+        client.begin()
+        while time.time() < deadline and taken is None:
+            client.step()
+            if about() > 0:
+                taken = time.time()
+        client.end()
+        print("ai-scenario: back in play, a bot took it up: %s; %d list it" % ("yes" if taken else "NO", knows()))
+        if taken is None:
+            failed.append("back in play no bot took the client up")
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    print("ai-scenario: spectator at %s, %s: %s" % (sha, rec, "; ".join(failed) if failed else "PASS"))
+    return 1 if failed else 0
+
+
+def habit(config, keep, minutes):
+    sha, rec = new_recording(config, "habit")
+    game = Game("dm_lockdown", config)
+    samples = {}
+    grudges = {}
+    try:
+        game.start()
+        game.cmd("ai_record start %s dm_lockdown" % rec)
+        for name, skills in HABIT_BOTS:
+            game.cmd("ai_bot_add %s %s" % (name, skills))
+        time.sleep(2)
+        slots = bots_by_name(game)
+        if len(slots) != len(HABIT_BOTS):
+            raise SystemExit("ai-scenario: %d of the %d bots came in: %s" % (len(slots), len(HABIT_BOTS), sorted(slots)))
+        start = game.tick()
+        end = start + minutes * TICKS_PER_MINUTE
+        x, y, z = HABIT_SPOT
+        beat = 0
+        while game.tick() < end:
+            # Back at the spot, a press to respawn if dead, facing about.
+            game.cmd("+jump")
+            time.sleep(0.1)
+            game.cmd("-jump")
+            game.api("teleport", "pos=%g,%g,%g" % (x, y, z + 1), "ang=0,%g,0" % (beat * 37 % 360), "player=1", "settle=1", "timeout=50")
+            beat += 1
+            for _ in range(4):
+                now = game.tick()
+                half = "first" if now < start + (end - start) / 2 else "second"
+                for name, slot in slots.items():
+                    d = game.json("/ai/bot/%d/doing" % slot)
+                    row = samples.setdefault((name, half), collections.Counter())
+                    row["decides"] += 1
+                    if d.get("leaf") in ("hunt", "chase"):
+                        row["hunting"] += 1
+                    if d.get("preAiming"):
+                        row["preAiming"] += 1
+                    if d.get("habitSpot"):
+                        row["habitKnown"] += 1
+                        grudges.setdefault(name, {})["habitSpot"] = d["habitSpot"]
+                time.sleep(0.5)
+        for name, slot in slots.items():
+            memory = game.json("/ai/bot/%d/memory" % slot)
+            grudges.setdefault(name, {})["grudges"] = {str(a["slot"]): round(a.get("grudge", 0), 2) for a in memory.get("actors", []) if a.get("grudge", 0) > 0}
+        moments = [l for l in game.lines() if "[SourceSharp/Ai] moment " in l]
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    print("ai-scenario: habit at %s: %g minutes at %s, bots %s" % (sha, minutes, HABIT_SPOT, slots))
+    for (name, half), row in sorted(samples.items()):
+        print("  %-8s %-6s half: %s" % (name, half, dict(row)))
+    for name, g in sorted(grudges.items()):
+        print("  %-8s %s" % (name, g))
+    print("  %d moment lines:" % len(moments))
+    for l in moments[:40]:
+        print("    " + l.strip()[:120])
+    scored(rec, config, "")
+    return 0
+
+
 def main(argv):
-    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav", "jank", "live"):
+    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav", "jank", "live", "traits", "habit", "prefire", "camp", "spectator"):
         print(__doc__)
         return 2
     which = argv[0]
     config = argv[argv.index("--config") + 1] if "--config" in argv else "debug"
     keep = "--keep" in argv
     if which == "jank":
-        return jank(config, keep, float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0)
+        return jank(config, keep, float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0,
+                    int(argv[argv.index("--streaks") + 1]) if "--streaks" in argv else 1)
     if which == "live":
         return live(config, keep)
+    minutes = float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0
+    if which == "traits":
+        return traits(config, keep, minutes, int(argv[argv.index("--points") + 1]) if "--points" in argv else 50)
+    if which == "habit":
+        return habit(config, keep, minutes)
+    if which == "spectator":
+        return spectator(config, keep)
+    if which == "camp":
+        return camp(config, keep, minutes)
+    if which == "prefire":
+        return prefire(config, keep, int(argv[argv.index("--trials") + 1]) if "--trials" in argv else 30,
+                       argv[argv.index("--skills") + 1] if "--skills" in argv else PREFIRE_BOT)
     map_name = "ss_ai_" + which
     bsp = os.path.join(ROOT, "bin", config, "mods", "test", "maps", map_name + ".bsp")
     vmf = os.path.join(ROOT, "game", "mod_test", "maps", "src", "ai", map_name + ".vmf")

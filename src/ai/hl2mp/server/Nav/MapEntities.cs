@@ -7,7 +7,8 @@ using SourceSharp.MapFormats.Bsp.Structs;
 namespace SourceSharp.Ai.Hl2mp.Nav;
 
 /// <summary>One entity of interest from the map's entity lump: its classname, name, origin and, for a brush entity, its bounds in the world.</summary>
-public readonly record struct MapEntity(string ClassName, string? Name, AiVector Origin, AiVector? Mins, AiVector? Maxs);
+public readonly record struct MapEntity(string ClassName, string? Name, AiVector Origin, AiVector? Mins, AiVector? Maxs,
+                                        AiVector? Point0 = null, AiVector? Point1 = null);
 
 /// <summary>
 /// What a bot knows about the map before it plays (plan_hl2mp_ai §5.0, §6.2),
@@ -41,10 +42,18 @@ public sealed class MapEntities
     /// <summary>The items the map places (health, armour, ammo, chargers).</summary>
     public IEnumerable<MapEntity> Items => All.Where(e => e.ClassName.StartsWith("item_", StringComparison.Ordinal));
 
+    /// <summary>Where people go: the spawns and the pickups, what the choke points' routes run between (§5.5).</summary>
+    public IEnumerable<AiVector> PeoplesPlaces() => Spawns.Concat(Weapons).Concat(Items).Select(e => e.Origin);
+
     /// <summary>A point of each <c>func_useableladder</c>: its origin, whose x and y are the ladder's.</summary>
     public IReadOnlyList<AiVector> Ladders => _ladders ??= [.. All.Where(e => e.ClassName == "func_useableladder").Select(e => e.Origin)];
 
     private IReadOnlyList<AiVector>? _ladders;
+
+    /// <summary>Where each <c>func_useableladder</c> climbs: its point0 and point1, which the movement holds a climber to.</summary>
+    public IReadOnlyList<LadderClimb> LadderClimbs =>
+        [.. All.Where(e => e.ClassName == "func_useableladder" && e.Point0 is not null && e.Point1 is not null)
+               .Select(e => new LadderClimb(e.Point0!.Value, e.Point1!.Value))];
 
     /// <summary>The <c>trigger_hurt</c> volumes, which no derived cell may stand in.</summary>
     public IReadOnlyList<HurtVolume> Hurt =>
@@ -79,7 +88,7 @@ public sealed class MapEntities
                 maxs = origin + new AiVector(F(m, 12), F(m, 16), F(m, 20));
             }
 
-            all.Add(new MapEntity(e.ClassName, e.Get("targetname"), origin, mins, maxs));
+            all.Add(new MapEntity(e.ClassName, e.Get("targetname"), origin, mins, maxs, Vec(e.Get("point0")), Vec(e.Get("point1"))));
         }
 
         return new MapEntities(all, levelId);

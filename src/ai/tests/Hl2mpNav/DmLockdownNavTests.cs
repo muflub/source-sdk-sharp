@@ -23,7 +23,7 @@ public sealed class DmLockdownNavTests
         Nav3dReader reader = Nav3dReader.Open(File.ReadAllBytes(PerTreeNav.NavPath(Map)));
         MapEntities entities = MapEntities.Read(bsp);
         DerivedNav nav = NavGraphFromNav3d.Derive(new Nav3dNavSource(reader), Hl2mpNavNumbers.Stock(reader.JumpHeight), NavEdgeCosts.Default,
-                                                  entities.Hurt);
+                                                  entities.Hurt, entities.LadderClimbs);
         return (reader, nav, entities, bsp);
     });
 
@@ -204,7 +204,75 @@ public sealed class DmLockdownNavTests
         Assert.Equal(lump, nav);
     }
 
+    /// <summary>
+    /// The ladder at (-4148 4188): the file's climb stops at z 96 and begins again at z
+    /// 128, and a route from its foot to the walkway at its top went 3,000 u round. Its
+    /// own line bridges them, so the way up is the ladder.
+    /// </summary>
     [PerTreeNavFact(Map)]
+    public void TheWayUpLadderTwoFromItsFootIsTheLadder()
+    {
+        NavGraph g = Loaded.Value.Nav.Graph;
+        CellId foot = NavPoints.CellNear(g, new AiVector(-4116f, 4188f, 0f), Class);
+        CellId top = NavPoints.CellNear(g, new AiVector(-4116f, 4188f, 129f), Class);
+        Assert.True(foot.IsValid && top.IsValid, $"foot {foot}, top {top}");
+        Assert.True(g.Cell(top).FloorZ > 120f, $"the top's floor is {g.Cell(top).FloorZ}");
+
+        var field = new FlowField();
+        field.Build(g, top, Class, new NavObstacleState(g.ObstacleCount));
+        var vias = new List<NavEdgeType>();
+        float travelled = 0f;
+        int at = foot.Index;
+        for (int i = 0; i < 400 && at != top.Index; i++)
+        {
+            Assert.True(field.NextFrom(at).IsValid, $"cell {at} has no way on");
+            vias.Add(field.ViaFrom(at));
+            int next = field.NextFrom(at).Index;
+            travelled += g.Cell(at).Centre.DistanceTo(g.Cell(next).Centre);
+            at = next;
+        }
+
+        Assert.Equal(top.Index, at);
+        Assert.Contains(NavEdgeType.Ladder, vias);
+        Assert.True(travelled < 400f, $"the way up is {travelled} u long");
+    }
+
+    /// <summary>
+    /// prison_gate001c, the static prop at (-3616 4698 62): its .phy holds bars and posts
+    /// either side of a doorway 96 wide with nothing in it. A body goes through the doorway
+    /// (140 live trials of ai_bot_goto from each side, no stuck line) and no way goes through
+    /// the bars, a walk, a jump or a drop.
+    /// </summary>
+    [PerTreeNavFact(Map)]
+    public void TheGatesDoorwayIsAWayAndItsBarsAreNot()
+    {
+        NavGraph g = Loaded.Value.Nav.Graph;
+        const float Line = 4698f;
+        int doorway = 0;
+        var bars = new List<string>();
+        for (int c = 0; c < g.CellCount; c++)
+        {
+            NavCell from = g.Cell(c);
+            if (from.FloorZ > 40f || from.Centre.X < -3720f || from.Centre.X > -3510f)
+                continue;
+            foreach (NavEdge e in g.EdgesFrom(c).ToArray())
+            {
+                AiVector a = from.Centre, b = g.Cell(e.To).Centre;
+                if ((a.Y - Line) * (b.Y - Line) >= 0f || b.Z > 40f)
+                    continue;
+                float x = a.X + (b.X - a.X) * (Line - a.Y) / (b.Y - a.Y);
+                if (x > -3664f && x < -3568f)
+                    doorway++;
+                else
+                    bars.Add($"{e.Type} {a} -> {b}");
+            }
+        }
+
+        Assert.True(doorway > 0, "no way through the doorway");
+        Assert.Empty(bars);
+    }
+
+        [PerTreeNavFact(Map)]
     public void EveryUseableLadderHasLadderPlacesInTheGraph()
     {
         (_, DerivedNav nav, MapEntities entities, _) = Loaded.Value;

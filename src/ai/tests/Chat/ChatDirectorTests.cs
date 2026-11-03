@@ -62,6 +62,26 @@ public sealed class ChatDirectorTests
         Assert.Contains(r.Writer.Asked, p => p.User.Contains("revenge on lodle", StringComparison.Ordinal));
     }
 
+    /// <summary>The seam from the trees (§5.5): found at the corner the bot expected, a moment worth a word.</summary>
+    [Fact]
+    public void FindingThemAtTheirSpotIsAMomentToTeaseThem()
+    {
+        using var r = new ChatRig.Room(Certain(interval: 1f, cooldown: 0f));
+        r.Director.CaughtAtSpot(A, "lodle", r.Now);
+        r.Settle(0.1f, 30);
+        Assert.Contains(r.Writer.Asked, p => p.User.Contains("lodle always hides", StringComparison.Ordinal));
+    }
+
+    /// <summary>A bot on a hot streak can tell (§5.5): a moment worth a word.</summary>
+    [Fact]
+    public void RunningHotIsAMomentToSaySo()
+    {
+        using var r = new ChatRig.Room(Certain(interval: 1f, cooldown: 0f));
+        r.Director.RunningHot(A, r.Now);
+        r.Settle(0.1f, 30);
+        Assert.Contains(r.Writer.Asked, p => p.User.Contains("far above yourself", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void TheThirdKillInARowIsAStreak()
     {

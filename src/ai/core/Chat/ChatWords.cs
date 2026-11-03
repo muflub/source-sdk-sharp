@@ -44,7 +44,7 @@ public sealed record ChatWords(ImmutableDictionary<string, string> Prompts, Immu
                                   [.. Strings("chatter")], Set("commands"), Set("consoleWords"), Set("loneCommands"), Set("notNames"));
         if (words.Banned.IsEmpty || words.Chatter.IsEmpty || words.Commands.IsEmpty)
             throw new InvalidDataException("the chat file has an empty word list");
-        foreach (string key in (string[])["system", "score", "recent", "earlier", "you", "tail", "kill", "death", "suicide", "revenge", "streak", "leader", "pickup", "reply",
+        foreach (string key in (string[])["system", "score", "recent", "earlier", "you", "tail", "kill", "death", "suicide", "revenge", "streak", "leader", "pickup", "reply", "spot", "hot",
                                           "recentKill", "recentDeath", "recentSuicide"])
         {
             if (!words.Prompts.ContainsKey(key))
