@@ -7,7 +7,9 @@
 
 #include "bound_callback.h"
 
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -319,18 +321,25 @@ TEST(BoundCallback, TheWin64FrameThunkRunsAndPassesEveryArgument)
 
 namespace
 {
+// The start of the function holding uPc, by the unwind entry the system finds for it; 0 for none.
+DWORD64 FunctionStart(DWORD64 uPc)
+{
+	DWORD64 uImageBase = 0;
+	const PRUNTIME_FUNCTION pEntry = RtlLookupFunctionEntry(uPc, &uImageBase, NULL);
+	return pEntry ? uImageBase + pEntry->BeginAddress : 0;
+}
+
+// Walks the stack the way exception dispatch does, with RtlLookupFunctionEntry and
+// RtlVirtualUnwind, recording each frame's pc. CaptureStackBackTrace is not the walk to
+// hold a thunk's page to: on win-x64 it stops at the page's frame although
+// RtlLookupFunctionEntry finds the page's entry and RtlVirtualUnwind unwinds through it
+// (PR #40's first run: 3 frames against the unwinder's 19, where the caller had 15).
 class CStackWalker
 {
 public:
-	void Walk(void*, const char*, const char*, int)
-	{
-		m_nFrames = CaptureStackBackTrace(0, 62, m_Frames, NULL);
-		m_nUnwound = UnwindFromHere();
-	}
+	void Walk(void*, const char*, const char*, int) { m_nFrames = UnwindFromHere(m_Frames, 62); }
 
-	// The frames a walk with RtlLookupFunctionEntry and RtlVirtualUnwind finds from its caller,
-	// the routines exception dispatch unwinds with; a frame with no entry is a leaf.
-	static __declspec(noinline) USHORT UnwindFromHere()
+	static __declspec(noinline) USHORT UnwindFromHere(DWORD64* pFrames, USHORT nMax)
 	{
 		ULONG_PTR uLow = 0, uHigh = 0;
 		GetCurrentThreadStackLimits(&uLow, &uHigh);
@@ -338,14 +347,15 @@ public:
 		CONTEXT context = {};
 		RtlCaptureContext(&context);
 		USHORT nFrames = 0;
-		while (context.Rip != 0 && nFrames < 62)
+		while (context.Rip != 0 && nFrames < nMax)
 		{
 			// A frame unwound from a wrong return address can leave the stack: stop there.
 			if (context.Rsp < uLow || context.Rsp + 8 > uHigh)
 				break;
 
+			pFrames[nFrames++] = context.Rip;
 			DWORD64 uImageBase = 0;
-			PRUNTIME_FUNCTION pEntry = RtlLookupFunctionEntry(context.Rip, &uImageBase, NULL);
+			const PRUNTIME_FUNCTION pEntry = RtlLookupFunctionEntry(context.Rip, &uImageBase, NULL);
 			if (pEntry)
 			{
 				PVOID pHandler = NULL;
@@ -355,45 +365,79 @@ public:
 			}
 			else
 			{
+				// A leaf: its return address is on top of the stack.
 				context.Rip = *(DWORD64*)context.Rsp;
 				context.Rsp += 8;
 			}
-			nFrames++;
 		}
 		return nFrames;
 	}
 
-	// Each frame the walk captured: its address, its offset in the thunk's page when it is in
-	// it, and whether the system finds unwind data for it.
-	std::string Describe(const void* pPage) const
+	// The pc of the frame after the first one in [pPage, pPage + nBytes), or 0 when the walk
+	// never reached the page or ended in it.
+	DWORD64 FrameAfter(const void* pPage, size_t nBytes) const
+	{
+		for (USHORT k = 0; k + 1 < m_nFrames; k++)
+		{
+			if (m_Frames[k] >= (DWORD64)(uintptr_t)pPage && m_Frames[k] < (DWORD64)(uintptr_t)pPage + nBytes)
+				return m_Frames[k + 1];
+		}
+		return 0;
+	}
+
+	bool ReachedPage(const void* pPage, size_t nBytes) const
+	{
+		for (USHORT k = 0; k < m_nFrames; k++)
+		{
+			if (m_Frames[k] >= (DWORD64)(uintptr_t)pPage && m_Frames[k] < (DWORD64)(uintptr_t)pPage + nBytes)
+				return true;
+		}
+		return false;
+	}
+
+	// Each frame: its pc, the start of its function by its unwind entry, and whether it is
+	// in the thunk's page.
+	std::string Describe(const void* pPage, size_t nBytes) const
 	{
 		std::string out;
 		char line[128];
 		for (USHORT k = 0; k < m_nFrames; k++)
 		{
-			const uintptr_t uAt = (uintptr_t)m_Frames[k];
-			DWORD64 uImageBase = 0;
-			const bool bEntry = RtlLookupFunctionEntry((DWORD64)uAt, &uImageBase, NULL) != NULL;
-			const bool bInPage = uAt >= (uintptr_t)pPage && uAt < (uintptr_t)pPage + 4096;
-			snprintf(line, sizeof(line), "  #%u %p%s%s\n", (unsigned)k, m_Frames[k], bInPage ? " (thunk page)" : "",
-					 bEntry ? " entry" : " no entry");
+			const bool bInPage =
+				m_Frames[k] >= (DWORD64)(uintptr_t)pPage && m_Frames[k] < (DWORD64)(uintptr_t)pPage + nBytes;
+			snprintf(line, sizeof(line), "  #%u pc %016llx in %016llx%s\n", (unsigned)k,
+					 (unsigned long long)m_Frames[k], (unsigned long long)FunctionStart(m_Frames[k]),
+					 bInPage ? " (thunk page)" : "");
 			out += line;
 		}
 		return out;
 	}
 
-	void* m_Frames[62] = {};
+	DWORD64 m_Frames[62] = {};
 	USHORT m_nFrames = 0;
-	USHORT m_nUnwound = 0;
 };
 
-__declspec(noinline) USHORT CallThrough(AddSearchPathCallback::Fn fn)
+// Calls fn and nothing else, so no pc in this function is left on the stack below its frame.
+__declspec(noinline) void CallThrough(AddSearchPathCallback::Fn fn)
 {
-	void* frames[62] = {};
-	const USHORT nHere = CaptureStackBackTrace(0, 62, frames, NULL);
 	fn(nullptr, "a", "b", 1);
-	return nHere;
 }
+
+// The start of CallThrough, through the jump an incrementally linked image puts at its address.
+DWORD64 CallThroughStart()
+{
+	const unsigned char* p = (const unsigned char*)&CallThrough;
+	if (p[0] == 0xE9)
+	{
+		int32_t nRel = 0;
+		memcpy(&nRel, p + 1, sizeof(nRel));
+		p += 5 + nRel;
+	}
+	return FunctionStart((DWORD64)(uintptr_t)p);
+}
+
+// The bytes a thunk page holds code in (BoundCallback_MapCode puts its unwind data after them).
+const size_t kThunkBytes = 128;
 } // namespace
 
 TEST(BoundCallback, AStackWalkThroughAFrameThunkReachesItsCaller)
@@ -402,12 +446,57 @@ TEST(BoundCallback, AStackWalkThroughAFrameThunkReachesItsCaller)
 	AddSearchPathCallback callback(&walker, &AddSearchPathCallback::Trampoline<CStackWalker, &CStackWalker::Walk>);
 	ASSERT_NE(nullptr, callback.Get());
 
-	const USHORT nCaller = CallThrough(callback.Get());
+	CallThrough(callback.Get());
+	const DWORD64 uCaller = CallThroughStart();
+	ASSERT_NE(0u, uCaller);
 
-	// Without the page's unwind data the walk stops inside the thunk's frame.
-	EXPECT_GT(walker.m_nFrames, nCaller) << "CaptureStackBackTrace's frames:\n"
-										 << walker.Describe(callback.Get()) << "RtlVirtualUnwind found "
-										 << walker.m_nUnwound << " frames";
+	// The walk passed through the thunk, and the frame the unwinder gives for it is its caller's.
+	ASSERT_TRUE(walker.ReachedPage((const void*)callback.Get(), kThunkBytes))
+		<< walker.Describe((const void*)callback.Get(), kThunkBytes);
+	EXPECT_EQ(uCaller, FunctionStart(walker.FrameAfter((const void*)callback.Get(), kThunkBytes)))
+		<< "caller at " << std::hex << uCaller << ", the walk:\n"
+		<< walker.Describe((const void*)callback.Get(), kThunkBytes);
+}
+
+// The control, varying only the page's function table entry: the same frame thunk's bytes on
+// a page with none. The unwinder then takes the thunk for a leaf, reads a return address from
+// inside its frame, and the frame after the thunk is not its caller: the fact above holds the
+// entry BoundCallback_MapCode registers. (Leaving the entry with no unwind codes would not do:
+// the return address is the thunk's epilog, add rsp then ret, which the unwinder recognizes
+// and replays, so it unwinds right either way.)
+TEST(BoundCallback, WithoutItsFunctionTableEntryAStackWalkLosesTheFrameThunksCaller)
+{
+	CStackWalker walker;
+	const bound_callback::ArgClass kArgs[] = {bound_callback::ArgClass::Integer, bound_callback::ArgClass::Integer,
+											  bound_callback::ArgClass::Integer, bound_callback::ArgClass::Integer,
+											  bound_callback::ArgClass::Integer};
+	unsigned char code[96];
+	int nFrame = 0;
+	const size_t n = bound_callback::Assemble(
+		kArgs, 4, true, (uint64_t)(uintptr_t)&walker,
+		(uint64_t)(uintptr_t)&AddSearchPathCallback::Trampoline<CStackWalker, &CStackWalker::Walk>, code, sizeof(code),
+		&nFrame);
+	ASSERT_NE(0u, n);
+	ASSERT_GT(nFrame, 0);
+
+	void* pPage = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	ASSERT_NE(nullptr, pPage);
+	memcpy(pPage, code, n);
+	DWORD nOld = 0;
+	ASSERT_TRUE(VirtualProtect(pPage, 4096, PAGE_EXECUTE_READ, &nOld));
+	FlushInstructionCache(GetCurrentProcess(), pPage, n);
+	ASSERT_EQ(0u, FunctionStart((DWORD64)(uintptr_t)pPage));
+
+	CallThrough((AddSearchPathCallback::Fn)pPage);
+	const bool bReached = walker.ReachedPage(pPage, kThunkBytes);
+	const DWORD64 uAfter = FunctionStart(walker.FrameAfter(pPage, kThunkBytes));
+	const std::string walk = walker.Describe(pPage, kThunkBytes);
+	VirtualFree(pPage, 0, MEM_RELEASE);
+
+	const DWORD64 uCaller = CallThroughStart();
+	ASSERT_NE(0u, uCaller);
+	ASSERT_TRUE(bReached) << walk;
+	EXPECT_NE(uCaller, uAfter) << walk;
 }
 #endif
 
