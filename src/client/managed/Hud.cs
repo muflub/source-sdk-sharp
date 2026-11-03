@@ -34,7 +34,8 @@ public sealed class Hud : IHud
                IUserMessageEvent<IReadOnlyList<string>> keyHints,
                BuildInfo build,
                ViewReadout? view = null,
-               IHooks<IDamageListener>? listeners = null)
+               IHooks<IDamageListener>? listeners = null,
+               IEngineEnvironment? environment = null)
     {
         Clock = clock;
         _damage = damage;
@@ -55,6 +56,9 @@ public sealed class Hud : IHud
             _build.DebugLine = () => view.Known
                 ? ViewReadout.Line(clock.Now, view.Eye, view.Pitch, view.Yaw)
                 : null;
+
+        if (environment is not null)
+            _build.FrameSeconds = () => environment.Globals is { IsAvailable: true } globals ? globals.AbsoluteFrameTime : 0f;
     }
 
     /// <summary>what the server thinks the time is.</summary>

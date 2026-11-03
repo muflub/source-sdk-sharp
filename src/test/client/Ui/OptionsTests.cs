@@ -380,4 +380,19 @@ public class OptionsTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    /// <summary>Every tab shows at the window's default width (TF2's wider face needed about 920 du of it, live).</summary>
+    [Fact]
+    public void Every_tab_fits_the_window_at_its_default_width()
+    {
+        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), new UiFontLibrary(), UiSamplesTests.Language());
+        var options = OptionsSamples.Build(new UiSampleServices());
+        UiSamples.Render(ctx, options, UiSamples.Screen(1920, 1080), 100.0);
+        var frame = UiTestKit.Named(ctx, "wnd-frame").Rect;
+        var last = UiTestKit.Elements(ctx).Where(e => UiTestKit.NameOf(ctx, e).Contains("Advanced", StringComparison.OrdinalIgnoreCase)
+                                                      || UiTestKit.NameOf(ctx, e).Contains("ADVANCED", StringComparison.Ordinal)).ToList();
+        Assert.NotEmpty(last);
+        Assert.All(last, e => Assert.True(e.Rect.X + e.Rect.W <= frame.X + frame.W, $"{UiTestKit.NameOf(ctx, e)} ends at {e.Rect.X + e.Rect.W}, the window at {frame.X + frame.W}"));
+        Assert.Equal(960f, frame.W, 1);
+    }
 }

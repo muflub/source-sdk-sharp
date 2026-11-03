@@ -4,35 +4,67 @@ using SourceSharp.Client.Ui.Toolkit;
 namespace SourceSharp.Client.Ui.Screens;
 
 /// <summary>
-/// The key bindings (stock: GameUI's COptionsSubKeyboard over kb_act.lst):
-/// each row a command, its field the key bound to it. Clicked, a field takes
-/// the next key or mouse button; Esc gives up, Delete clears. The form that
-/// proves the key capture kind (plan_client_ui §6).
+/// The key bindings (stock: GameUI's COptionsSubKeyboard): each row a command
+/// from the mod's action list (<see cref="IUiKeyActions"/>, stock's
+/// scripts/kb_act.lst), so each game lists its own, under its own headings; its
+/// field the key bound to it. Clicked, a field takes the next key or mouse
+/// button; Esc gives up, Delete clears. The form that proves the key capture
+/// kind (plan_client_ui §6).
 /// </summary>
-public sealed partial class KeyBindings(UiWindows windows, IUiKeyBindingStore keys)
+public sealed class KeyBindings(UiWindows windows, IUiKeyBindingStore keys, IUiKeyActions actions)
     : UiForm<KeyBindings.Model>(windows, null, keys)
 {
-    [UiFormModel]
-    public sealed partial class Model
+    /// <summary>
+    /// The rows, known only at run time, so written by hand where a form of
+    /// fixed fields has them generated. Every field is a key capture.
+    /// </summary>
+    public sealed class Model : IUiFormModel<Model>
     {
-        [Field("#SS_UI_Keys_Forward", Section = "#SS_UI_Keys_Movement")] public KeyBinding Forward;
-        [Field("#SS_UI_Keys_Back", Section = "#SS_UI_Keys_Movement")] public KeyBinding Back;
-        [Field("#SS_UI_Keys_Left", Section = "#SS_UI_Keys_Movement")] public KeyBinding Left;
-        [Field("#SS_UI_Keys_Right", Section = "#SS_UI_Keys_Movement")] public KeyBinding Right;
-        [Field("#SS_UI_Keys_Jump", Section = "#SS_UI_Keys_Movement")] public KeyBinding Jump;
-        [Field("#SS_UI_Keys_Duck", Section = "#SS_UI_Keys_Movement")] public KeyBinding Duck;
-        [Field("#SS_UI_Keys_Sprint", Section = "#SS_UI_Keys_Movement")] public KeyBinding Sprint;
+        private UiFieldInfo[] _fields = [];
+        private KeyBinding[] _keys = [];
 
-        [Field("#SS_UI_Keys_Attack", Section = "#SS_UI_Keys_Combat")] public KeyBinding Attack;
-        [Field("#SS_UI_Keys_Attack2", Section = "#SS_UI_Keys_Combat")] public KeyBinding Attack2;
-        [Field("#SS_UI_Keys_Reload", Section = "#SS_UI_Keys_Combat")] public KeyBinding Reload;
-        [Field("#SS_UI_Keys_Use", Section = "#SS_UI_Keys_Combat")] public KeyBinding Use;
-        [Field("#SS_UI_Keys_LastWeapon", Section = "#SS_UI_Keys_Combat")] public KeyBinding LastWeapon;
+        internal void Rows(IReadOnlyList<UiKeyAction> rows)
+        {
+            _fields = new UiFieldInfo[rows.Count];
+            _keys = new KeyBinding[rows.Count];
+            for (int i = 0; i < rows.Count; i++)
+                _fields[i] = new UiFieldInfo(rows[i].Command, rows[i].Label, UiFieldKind.Capture, 0f, 0f, 0f, rows[i].Section, 0, false);
+        }
 
-        [Field("#SS_UI_Keys_Chat", Section = "#SS_UI_Keys_Talk")] public KeyBinding Chat;
-        [Field("#SS_UI_Keys_TeamChat", Section = "#SS_UI_Keys_Talk")] public KeyBinding TeamChat;
-        [Field("#SS_UI_Keys_Voice", Section = "#SS_UI_Keys_Talk")] public KeyBinding Voice;
-        [Field("#SS_UI_Keys_Scores", Section = "#SS_UI_Keys_Talk")] public KeyBinding Scores;
+        /// <summary>The row of a command, or -1.</summary>
+        public int Row(string command) => Array.FindIndex(_fields, f => f.Name == command);
+
+        public int FieldCount => _fields.Length;
+
+        public UiFieldInfo Field(int i) => _fields[i];
+
+        public KeyBinding GetKey(int i) => _keys[i];
+
+        public void SetKey(int i, KeyBinding value) => _keys[i] = value;
+
+        public void CopyFrom(Model other) => other._keys.CopyTo(_keys, 0);
+
+        public bool Same(int i, Model other) => _keys[i] == other._keys[i];
+
+        public bool GetBool(int i) => throw NotThatKind(i);
+
+        public void SetBool(int i, bool value) => throw NotThatKind(i);
+
+        public float GetNumber(int i) => throw NotThatKind(i);
+
+        public void SetNumber(int i, float value) => throw NotThatKind(i);
+
+        public int GetChoice(int i) => throw NotThatKind(i);
+
+        public void SetChoice(int i, int value) => throw NotThatKind(i);
+
+        public string ChoiceName(int i, int choice) => throw NotThatKind(i);
+
+        public string GetText(int i) => throw NotThatKind(i);
+
+        public void SetText(int i, string value) => throw NotThatKind(i);
+
+        private InvalidOperationException NotThatKind(int i) => new($"{_fields[i].Name} is a key capture");
     }
 
     public override string Name => "keybindings";
@@ -47,20 +79,11 @@ public sealed partial class KeyBindings(UiWindows windows, IUiKeyBindingStore ke
         => new(MathF.Min(640, screenW), MathF.Min(720, screenH), 420, 320, screenW, screenH, 520);
 
     protected override void Bind(UiFormBindings<Model> b)
-        => b.Key(Model.Fields.Forward, "+forward")
-            .Key(Model.Fields.Back, "+back")
-            .Key(Model.Fields.Left, "+moveleft")
-            .Key(Model.Fields.Right, "+moveright")
-            .Key(Model.Fields.Jump, "+jump")
-            .Key(Model.Fields.Duck, "+duck")
-            .Key(Model.Fields.Sprint, "+speed")
-            .Key(Model.Fields.Attack, "+attack")
-            .Key(Model.Fields.Attack2, "+attack2")
-            .Key(Model.Fields.Reload, "+reload")
-            .Key(Model.Fields.Use, "+use")
-            .Key(Model.Fields.LastWeapon, "lastinv")
-            .Key(Model.Fields.Chat, "messagemode")
-            .Key(Model.Fields.TeamChat, "messagemode2")
-            .Key(Model.Fields.Voice, "+voicerecord")
-            .Key(Model.Fields.Scores, "+showscores");
+    {
+        var rows = actions.Actions();
+        Saved.Rows(rows);
+        Working.Rows(rows);
+        for (int i = 0; i < rows.Count; i++)
+            b.Key(i, rows[i].Command);
+    }
 }

@@ -199,7 +199,7 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed, IUiOptionsPage
                 if (f.Section is { } s && s != section)
                 {
                     section = s;
-                    ui.Text(s, Text.Label, Tone.Accent).Key(-1 - i);
+                    (s.StartsWith('#') ? ui.Text(s, Text.Label, Tone.Accent) : ui.Data(s, Text.Label, Tone.Accent)).Key(-1 - i);
                     ui.Spacer(Size.Du(1), Size.Du(1)).Key(-1000 - i);
                 }
                 Row(ref ui, i, f, m);
@@ -212,7 +212,9 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed, IUiOptionsPage
         using (ui.Row(Space.XS).Key(i))
         {
             // The dirty mark's room comes off the wrap width.
-            ui.Text(f.LabelToken, Text.Body, Tone.Text).Wrap(LabelColumnDu - 16);
+            // A label from a mod's file may be its own words: data, not a token.
+            (f.LabelToken.StartsWith('#') ? ui.Text(f.LabelToken, Text.Body, Tone.Text) : ui.Data(f.LabelToken, Text.Body, Tone.Text))
+                .Wrap(LabelColumnDu - 16);
             if (IsDirty(i))
                 ui.Rect(Tone.Accent, Size.Du(8), Size.Du(8)).Round(Radius.S).Name("dirty");
         }

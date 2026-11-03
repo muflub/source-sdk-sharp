@@ -1,4 +1,5 @@
 using SourceSharp.Client.Ui;
+using SourceSharp.Client.Ui.Screens.Samples;
 using SourceSharp.Client.Ui.Toolkit;
 
 namespace SourceSharp.Client.Ui.Screens;
@@ -87,6 +88,8 @@ public static class KeyBindingsSamples
         if (!s.Has<IUiWindowStore>())
             s.Add<IUiWindowStore>(new MemoryWindowStore());
         s.Add<IUiKeyBindingStore>(store);
+        if (!s.Has<IUiKeyActions>())
+            s.Add<IUiKeyActions>(new FakeKeyActions());
         return s.Create<KeyBindings>();
     }
 

@@ -1,4 +1,5 @@
 using SourceSharp.Client.Ui;
+using SourceSharp.Client.Ui.Screens.Samples;
 using SourceSharp.Client.Ui.Toolkit;
 
 namespace SourceSharp.Client.Ui.Screens;
@@ -137,6 +138,8 @@ public static class OptionsSamples
             s.Add<IUiConVarStore>(Convars());
         if (!s.Has<IUiKeyBindingStore>())
             s.Add<IUiKeyBindingStore>(KeyBindingsSamples.Stock());
+        if (!s.Has<IUiKeyActions>())
+            s.Add<IUiKeyActions>(new FakeKeyActions());
         if (!s.Has<IUiCommandLine>())
             s.Add<IUiCommandLine>(new RecordingCommandLine());
         if (!s.Has<IVideoModeSource>())

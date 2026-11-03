@@ -1,5 +1,6 @@
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Screens;
+using SourceSharp.Client.Ui.Screens.Samples;
 using SourceSharp.Client.Ui.Toolkit;
 using SourceSharp.Client.Vgui;
 
@@ -488,6 +489,41 @@ public class UiTaskbarTests
         r.Frame();
         Assert.False(r.Layer.IsOpen("taskbar"));
         Assert.Equal(0f, r.Windows.DockReserved);
+    }
+
+    private sealed class PauseMenu : IMainMenuSource, IMainMenuCommands
+    {
+        public bool InLevel => true;
+        public bool CanPlay => false;
+        public void Play() { }
+        public void Resume() { }
+        public void OpenOptions() { }
+        public void Quit() { }
+        public void Run(string command) { }
+    }
+
+    /// <summary>The pause menu shows which build this is, standing on the bar rather than under it.</summary>
+    [Fact]
+    public void The_pause_menus_build_stamp_stands_above_the_taskbar()
+    {
+        var windows = new UiWindows(new MemoryWindowStore());
+        var ctx = Context();
+        var service = new TaskbarService(windows, () => new DateTime(2026, 11, 1, 21, 47, 0));
+        var fake = new PauseMenu();
+        var layer = new UiLayer([new MainMenu(fake, fake, new BuildStampPanel(new FakeBuildStamp())),
+                                 new Taskbar(service, service, new FixedTaskbar(), windows)],
+                                ctx, new SvgBackend(new SvgBackendTests.FixedMetrics()), windows);
+        service.Bind(layer, _ => { });
+        layer.ChromeWith = "mainmenu";
+        layer.Open("mainmenu");
+
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 1);
+        layer.Frame(UiLayerKind.Menu, Screen(1920, 1080), 2);
+
+        UiRect stamp = Named(ctx, "build-stamp").Rect;
+        UiRect bar = Named(ctx, "taskbar-bar").Rect;
+        Assert.True(bar.H > 0, "the bar is up");
+        Assert.True(stamp.Y + stamp.H <= bar.Y, $"the stamp {stamp} stands above the bar {bar}");
     }
 
     /// <summary>A mod's buttons stand on the bar: a left one first at the bar's

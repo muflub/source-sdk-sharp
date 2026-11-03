@@ -11,7 +11,7 @@ namespace SourceSharp.Client.Ui.Screens;
 /// mod's maplist), Find servers, Create server, Options, Quit (which asks).
 /// The menu's commands go by stock's names through the GameUI's table.
 /// </summary>
-public sealed class MainMenu(IMainMenuSource menu, IMainMenuCommands commands) : UiScreen
+public sealed class MainMenu(IMainMenuSource menu, IMainMenuCommands commands, BuildStampPanel build) : UiScreen
 {
     public override string Name => "mainmenu";
 
@@ -48,5 +48,11 @@ public sealed class MainMenu(IMainMenuSource menu, IMainMenuCommands commands) :
             if (ui.Button("quit", "#SS_UI_Main_Quit", width: Size.Fill).Clicked)
                 menu.Quit();
         }
+
+        // The HUD's stamp and debug line, which go with the client viewport the GameUI
+        // hides. An overlay of its own, so the dialog's scrim does not dim them; a plain
+        // screen is laid out above the taskbar's band, so the stamp stands on the bar.
+        using (ui.Overlay("build"))
+            ui.Sub("build", build);
     }
 }

@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using SourceSharp.Abi;
 using SourceSharp.Client.Ui;
 
@@ -88,6 +90,12 @@ public sealed class HudBuildStamp : IBuildStampSource
     public Func<string?> DebugLine { get; set; } = static () => null;
 
     /// <summary>
+    /// The seconds the last frame took (gpGlobals->absoluteframetime, real time, whatever
+    /// the host timescale), averaged into the debug line's fps. Zero while unknown: no fps.
+    /// </summary>
+    public Func<float> FrameSeconds { get; set; } = static () => 0f;
+
+    /// <summary>
     /// One half: tag, warning, local build time, short hash —
     /// <c>n 19:04:12 1a0e</c>. The warning goes before the stamp, so a line too
     /// wide for the window loses the tail rather than the advice.
@@ -145,6 +153,8 @@ public sealed class HudBuildStamp : IBuildStampSource
     private bool _lineBuilt;
     private string _debug = string.Empty;
     private double _debugAt = double.NegativeInfinity;
+    private float _frameSum;
+    private int _frameCount;
 
     /// <summary>
     /// Once a frame, before the UI describes the HUD: the stamp's line is
@@ -165,11 +175,29 @@ public sealed class HudBuildStamp : IBuildStampSource
             _lineBuilt = true;
         }
 
+        // Averaged per frame, not counted against the clock: the HUD and the pause menu
+        // both refresh, so one frame can arrive here twice.
+        _frameSum += FrameSeconds();
+        _frameCount++;
+
         if (now < _debugAt || now - _debugAt >= DebugLineSeconds)
         {
             _debugAt = now;
-            _debug = DebugLine() ?? string.Empty;
+            _debug = WithFps(DebugLine(), _frameSum / _frameCount);
+            _frameSum = 0f;
+            _frameCount = 0;
         }
+    }
+
+    /// <summary>The debug line with the fps its frames averaged; empty for no line.</summary>
+    public static string WithFps(string? line, float meanFrameSeconds)
+    {
+        if (line is null)
+            return string.Empty;
+
+        return meanFrameSeconds > 0f
+            ? string.Create(CultureInfo.InvariantCulture, $"{line}  fps {1f / meanFrameSeconds:F0}")
+            : line;
     }
 
     bool IBuildStampSource.Visible => Visible();

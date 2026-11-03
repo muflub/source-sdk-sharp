@@ -2120,6 +2120,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(kills);
         _services.AddInstance<SourceSharp.Client.Ui.IKillFeedSource>(kills);
 
+        var dealt = new Vgui.DamageDealtNumbers(_clock, killPlayers);
+        dealt.Subscribe(_services.Require<PlayerHurtEvent>());
+        _services.AddInstance<SourceSharp.Client.Ui.IDamageDealtSource>(dealt);
+
         // Since U5 the toolkit, the screens and their composition load in the
         // UI's own collectible context (Vgui.UiLoader), which a UI-only deploy
         // swaps without this module; this module names none of their types.

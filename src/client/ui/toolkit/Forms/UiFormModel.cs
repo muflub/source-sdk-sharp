@@ -69,7 +69,8 @@ public readonly record struct UiFieldInfo(
 
 /// <summary>
 /// A form model's fields by index, typed accessors and copies: generated for a
-/// <see cref="UiFormModelAttribute"/> class, never written by hand.
+/// <see cref="UiFormModelAttribute"/> class, written by hand only when the fields
+/// are known at run time (the keyboard page's, from the mod's action list).
 /// </summary>
 public interface IUiFormModel<TSelf> where TSelf : IUiFormModel<TSelf>
 {

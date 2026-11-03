@@ -1,5 +1,6 @@
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Screens;
+using SourceSharp.Client.Ui.Screens.Samples;
 using SourceSharp.Client.Ui.Toolkit;
 using SourceSharp.Client.Vgui;           // the host's source: MainMenuUi, MenuMapList
 
@@ -37,7 +38,7 @@ public sealed class MainMenuTests
 
     private static UiContext Drawn(RecordingSource source)
     {
-        var screen = new MainMenu(source, source);
+        var screen = new MainMenu(source, source, new BuildStampPanel(new FakeBuildStamp()));
         var ctx = Context();
         Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui));
         return ctx;
@@ -139,7 +140,7 @@ public sealed class MainMenuTests
     public void Clicking_find_servers_sends_stocks_command()
     {
         var menu = new RecordingSource { InLevel = false };
-        var screen = new MainMenu(menu, menu);
+        var screen = new MainMenu(menu, menu, new BuildStampPanel(new FakeBuildStamp()));
         var ctx = Context();
         Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui));
         Click(ctx, screen, "#SS_UI_Main_FindServers");
@@ -190,7 +191,7 @@ public sealed class MainMenuTests
     public void Clicking_play_loads_the_map()
     {
         var menu = new RecordingSource { InLevel = false };
-        var screen = new MainMenu(menu, menu);
+        var screen = new MainMenu(menu, menu, new BuildStampPanel(new FakeBuildStamp()));
         var ctx = Context();
         Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui));
         Assert.Empty(menu.Clicked);

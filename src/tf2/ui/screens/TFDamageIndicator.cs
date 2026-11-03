@@ -34,9 +34,9 @@ public sealed class TFDamageIndicator(ITFDamageHistory hits, ITFCombatText dealt
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
 
-    // The core HUD's damage vignette: this screen replaces it (Hud.cs's
-    // hud.damage gate).
-    private readonly string[] _takes = ["hud.damage"];
+    // The core HUD's damage vignette and its dealt numbers: this screen replaces
+    // both (Hud.cs's hud.damage and hud.dealt gates), the combat text being its own.
+    private readonly string[] _takes = ["hud.damage", "hud.dealt"];
 
     public override IReadOnlyList<string> Takes => _takes;
 

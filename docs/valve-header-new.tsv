@@ -1087,3 +1087,4 @@ src/server/managed/LagCompensation.cs	ports CLagCompensationManager (game/server
 src/server/managed/LagCompensationConVars.cs	ports the sv_unlag, sv_maxunlag, sv_lagflushbonecache and sv_lagcompensation_teleport_dist declarations (game/server/player_lagcompensation.cpp:28-35)
 src/server/managed/LagCompensationWorld.cs	ports CBasePlayer::ClientSettingsChanged's m_fLerpTime and m_bLagCompensation (game/server/player.cpp:3474-3532) for the lag compensation's world
 src/tf2/server/Weapons/TFLagCompensationTargets.cs	ports CTFPlayer::WantsLagCompensationOnEntity (game/server/tf/tf_player.cpp:20079-20154)
+src/client/managed/Ui/KeyActionList.cs	ports COptionsSubKeyboard::ParseActionDescriptions (gameui/OptionsSubKeyboard.cpp): the keyboard page's rows from scripts/kb_act.lst

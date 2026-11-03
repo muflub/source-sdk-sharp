@@ -16,6 +16,8 @@
 #   MOD    the mods.yaml id (default: the launcher's default mod)
 #   G0_OPEN menu screens to open at the menu (cs_ui_open), space-separated,
 #          in order, then shot as shot-open.tga, e.g. "console options"
+#   G0_MOCKUP a segment id: asks the game's /preview/live for the list and
+#          that segment's render, saved as live-list.json and live-render.json
 #   G0_CMD  a console line run at the menu, shot G0_CMD_WAIT s (default 4)
 #          later as shot-cmd.tga, e.g. "gamemenucommand OpenServerBrowser"
 #   G0_LEVEL_CMD a console line run in the level after its shot, shot 4 s
@@ -97,6 +99,11 @@ sleep 12
 shot menu
 # The stock GameUI module runs ServerBrowser.so's load from its Initialize: mapped, the stock module ran.
 result "maps GameUI.so=$(grep -c '/GameUI.so' /proc/$pid/maps) ServerBrowser.so=$(grep -c '/ServerBrowser.so' /proc/$pid/maps)"
+if [[ -n "${G0_MOCKUP:-}" ]]; then
+  api mockups '{"op":"list"}' > "$OUT/live-list.json" 2>&1
+  api mockups "{\"op\":\"render\",\"segment\":\"$G0_MOCKUP\",\"w\":1280,\"h\":720}" > "$OUT/live-render.json" 2>&1
+  result "live-list bytes=$(wc -c < "$OUT/live-list.json") live-render bytes=$(wc -c < "$OUT/live-render.json")"
+fi
 if [[ -n "${G0_OPEN:-}" ]]; then
   for screen in $G0_OPEN; do api cmd "cs_ui_open $screen" > /dev/null 2>&1; sleep 1; done
   sleep 2; shot open

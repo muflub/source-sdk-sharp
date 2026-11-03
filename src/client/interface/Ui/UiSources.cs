@@ -239,6 +239,20 @@ public interface IKillFeedSource
     KillFeedLine Line(int i);
 }
 
+/// <summary>
+/// One number of damage the local player dealt: how much, and how far through its
+/// short life it is, 0 fresh to 1 gone.
+/// </summary>
+public readonly record struct DamageNumber(int Amount, float Age);
+
+/// <summary>The damage the local player just dealt, oldest first.</summary>
+public interface IDamageDealtSource
+{
+    int NumberCount { get; }
+
+    DamageNumber Number(int i);
+}
+
 /// <summary>The last damage the local player took.</summary>
 public interface IPlayerDamage
 {
@@ -773,6 +787,18 @@ public interface IUiKeyBindingStore
 
     /// <summary>The engine's name for a button code (inputsystem's ButtonCode_t), upper case, or null.</summary>
     string? KeyName(int buttonCode);
+}
+
+/// <summary>
+/// One row of the keyboard page: the console line a key runs, what the row says
+/// (a #Token or the file's own words) and the heading it sits under (the same).
+/// </summary>
+public readonly record struct UiKeyAction(string Command, string Label, string? Section);
+
+/// <summary>The keyboard page's rows, the running mod's: stock reads them from its scripts/kb_act.lst.</summary>
+public interface IUiKeyActions
+{
+    IReadOnlyList<UiKeyAction> Actions();
 }
 
 /// <summary>Convars by name, as a form's bindings read and write them: the engine's in game, a dictionary in a sample.</summary>

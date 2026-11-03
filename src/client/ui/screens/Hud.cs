@@ -32,12 +32,15 @@ public sealed class Hud : UiScreen
     private readonly WeaponPlusPanel _plus;
     private readonly WeaponCarouselPanel _carousel;
     private readonly PickupHistoryPanel _history;
+    private readonly DamageDealtPanel _dealt;
 
     /// <summary>The HUD reads only whether there is a player; each element reads its own sources.</summary>
     public Hud(IPlayerLife life, VitalsPanel vitals, AmmoPanel ammo, CrosshairPanel crosshair, DamagePanel damage,
                MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice,
-               WeaponSelectionPanel selection, WeaponPlusPanel plus, WeaponCarouselPanel carousel, PickupHistoryPanel history)
+               WeaponSelectionPanel selection, WeaponPlusPanel plus, WeaponCarouselPanel carousel, PickupHistoryPanel history,
+               DamageDealtPanel dealt)
     {
+        _dealt = dealt;
         _selection = selection;
         _plus = plus;
         _carousel = carousel;
@@ -78,6 +81,8 @@ public sealed class Hud : UiScreen
             ui.Sub("damage", _damage);
         if (!ui.Taken("hud.crosshair"))
             ui.Sub("crosshair", _crosshair, 5f);
+        if (!ui.Taken("hud.dealt"))
+            ui.Sub("dealt", _dealt);
 
         // The bottom line: vitals left, hints centre, ammo right. On a narrow
         // screen (ui.Narrow) the panels are compact and the hints move above the
@@ -421,6 +426,35 @@ public sealed class HintsPanel : UiPanel
     }
 }
 
+/// <summary>
+/// How much the local player's hits did: a number beside the crosshair, rising and
+/// fading as it goes.
+/// </summary>
+public sealed class DamageDealtPanel(IDamageDealtSource dealt) : UiPanel
+{
+    /// <summary>Where a fresh number stands, as a fraction of the screen: off the crosshair to its right.</summary>
+    public const float FreshX = 0.54f, FreshY = 0.46f;
+
+    /// <summary>How far it rises over its life, as a fraction of the screen.</summary>
+    public const float Rise = 0.18f;
+
+    public override void Describe(ref UiFrame ui)
+    {
+        int n = dealt.NumberCount;
+        if (n == 0)
+            return;
+
+        using (ui.Box().Size(Size.Fill, Size.Fill).Layered())
+            for (int i = 0; i < n; i++)
+            {
+                DamageNumber d = dealt.Number(i);
+                using (ui.Box().PlaceFraction(FreshX, FreshY - Rise * d.Age).Opacity(1f - d.Age).Key(i).Layered()
+                         .Fill(Tone.Surface).Round(Radius.M).Pad(Space.S, Space.XS))
+                    ui.Text($"{d.Amount}", ui.Narrow ? Text.Title : Text.Number, Tone.Text);
+            }
+    }
+}
+
 /// <summary>Which build this is, on a small pill at the bottom; the debug line (when and where) at the top right.</summary>
 public sealed class BuildStampPanel : UiPanel
 {
@@ -433,7 +467,7 @@ public sealed class BuildStampPanel : UiPanel
         var s = _stamp;
         if (!s.Visible)
             return;
-        using (ui.Box().At(UiAnchor.Bottom).Inset(Space.None, Space.XS).Fill(Tone.Surface).Round(Radius.M).Pad(Space.S, Space.XS))
+        using (ui.Box("build-stamp").At(UiAnchor.Bottom).Inset(Space.None, Space.XS).Fill(Tone.Surface).Round(Radius.M).Pad(Space.S, Space.XS))
             ui.Data(s.Line, Text.Caption, s.Stale ? Tone.Accent : Tone.TextMuted);
         if (s.DebugLine.Length > 0)
             using (ui.Box().At(UiAnchor.TopRight).Inset(Space.S).Fill(Tone.Surface).Round(Radius.M).Pad(Space.S, Space.XS))

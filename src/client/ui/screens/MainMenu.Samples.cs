@@ -1,4 +1,5 @@
 using SourceSharp.Client.Ui;
+using SourceSharp.Client.Ui.Screens.Samples;
 using SourceSharp.Client.Ui.Toolkit;
 
 namespace SourceSharp.Client.Ui.Screens;
@@ -32,5 +33,7 @@ internal static class MainMenuSamples
 
     [UiSample("in game: resume, disconnect, players, then the rest")]
     private static UiScreen Column(UiSampleServices s)
-        => s.Add<IMainMenuSource>(new Fake()).Add<IMainMenuCommands>(new Commands()).Create<MainMenu>();
+        => s.Add<IMainMenuSource>(new Fake()).Add<IMainMenuCommands>(new Commands())
+            .Add<IBuildStampSource>(new FakeBuildStamp { DebugLine = "t 34.305  pos -2739.0 2563.0 192.8  ang 0.0 -150.0  fps 144" })
+            .Create<MainMenu>();
 }

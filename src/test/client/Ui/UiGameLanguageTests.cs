@@ -86,6 +86,17 @@ public sealed class UiGameLanguageTests : IDisposable
         Assert.Equal("resource/gameui_english.txt", ClientUi.GameUiLanguageFile);
     }
 
+    /// <summary>The keyboard page's rows (#Valve_*) come from the other file
+    /// the stock GameUI module loaded at its Initialize.</summary>
+    [Fact]
+    public void The_engines_shared_strings_resolve_through_the_chain_unlisted()
+    {
+        var files = new PathFiles(new() { [ClientUi.ValveLanguageFile] = Utf16("\"Valve_Flashlight\" \"Flashlight\"") });
+        var lang = ClientUi.Language(_dir, new RecordingLog(), files, []);
+        Assert.Equal("Flashlight", lang.Find("#Valve_Flashlight"));
+        Assert.Equal("resource/valve_english.txt", ClientUi.ValveLanguageFile);
+    }
+
     /// <summary>A GameUI file that is no language file (a foreign or broken
     /// one) is said and skipped; the rest of the chain still loads. Found by
     /// the TF2 composition fact, whose engine double answers every read alike.</summary>

@@ -315,6 +315,14 @@ public sealed class FakeChat : IChatSource
     public ChatLine Line(int i) => Lines[i];
 }
 
+/// <summary>The damage dealt as a sample.</summary>
+public sealed class FakeDamageDealt : IDamageDealtSource
+{
+    public DamageNumber[] Numbers { get; init; } = [];
+    public int NumberCount => Numbers.Length;
+    public DamageNumber Number(int i) => Numbers[i];
+}
+
 /// <summary>The build stamp as a sample.</summary>
 public sealed record FakeBuildStamp : IBuildStampSource
 {
@@ -532,4 +540,23 @@ public sealed record FakeVoice : IVoiceSource
     public int Count => Speakers.Length;
 
     public VoiceSpeaker Speaker(int i) => Speakers[i];
+}
+
+/// <summary>The keyboard page's rows as a mod's action list has them, in the list's own words.</summary>
+public sealed class FakeKeyActions : IUiKeyActions
+{
+    private const string Move = "MOVEMENT", Combat = "COMBAT", Talk = "COMMUNICATION", Misc = "MISCELLANEOUS";
+
+    private readonly UiKeyAction[] _rows =
+    [
+        new("+forward", "Move forward", Move), new("+back", "Move back", Move), new("+moveleft", "Move left", Move),
+        new("+moveright", "Move right", Move), new("+speed", "Sprint", Move), new("+jump", "Jump", Move), new("+duck", "Duck", Move),
+        new("+attack", "Primary attack", Combat), new("+attack2", "Secondary attack", Combat), new("+reload", "Reload", Combat),
+        new("+use", "Use", Combat), new("impulse 100", "Flashlight", Combat), new("slot1", "Weapon category 1", Combat),
+        new("invnext", "Next weapon", Combat), new("lastinv", "Last weapon", Combat),
+        new("+voicerecord", "Voice", Talk), new("messagemode", "Chat", Talk), new("messagemode2", "Team chat", Talk),
+        new("+showscores", "Scores", Misc), new("impulse 201", "Spray logo", Misc), new("jpeg", "Screenshot", Misc),
+    ];
+
+    public IReadOnlyList<UiKeyAction> Actions() => _rows;
 }

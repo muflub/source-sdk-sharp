@@ -203,6 +203,36 @@ public class HudBuildStampTests
     }
 
     [Fact]
+    public void The_debug_line_ends_with_the_fps_its_frames_averaged()
+    {
+        Assert.Equal("pos 1  fps 50", HudBuildStamp.WithFps("pos 1", 0.02f));
+    }
+
+    [Fact]
+    public void An_unknown_frame_time_shows_no_fps_and_no_line_stays_no_line()
+    {
+        Assert.Equal("pos 1", HudBuildStamp.WithFps("pos 1", 0f));
+        Assert.Equal(string.Empty, HudBuildStamp.WithFps(null, 0.02f));
+    }
+
+    /// <summary>The mean of every frame since the last line, so a one frame spike does not read as the rate.</summary>
+    [Fact]
+    public void The_fps_is_the_mean_of_the_frames_between_lines()
+    {
+        var stamp = Stamp(Fake(), Half("aaaaaaaa", Noon), Half("bbbbbbbb", Noon));
+        float frame = 0.01f;
+        stamp.DebugLine = () => "pos";
+        stamp.FrameSeconds = () => frame;
+        stamp.Refresh(1.0);
+
+        stamp.Refresh(1.1);
+        frame = 0.03f;
+        stamp.Refresh(1.3);
+
+        Assert.Equal("pos  fps 50", ((IBuildStampSource)stamp).DebugLine);
+    }
+
+    [Fact]
     public void NoDebugLineTakesNoRoom()
     {
         var engine = Fake();

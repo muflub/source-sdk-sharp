@@ -59,6 +59,7 @@
 #   tools/debug-api ents item_healthkit   live entities of a class; "*" is all of them
 #   tools/debug-api route /ai/counters [k=v ...]   GET a route a mod adds (/routes lists them)
 #   tools/debug-api route-post /ai/replay/load path=X   the same, as a POST
+#   tools/debug-api mockups ['{"op":"list"}']   the UI's live mock-ups (the Mockups tab's Live view)
 #   tools/debug-api ent index=40          one entity (or handle=H, name=N): velocity,
 #                                     speed, asleep, ground
 #
@@ -454,6 +455,7 @@ case "${1:-status}" in
     status) "${CURL[@]}" "$BASE/status" ;;
     log)    "${CURL[@]}" "$BASE/log?since=${2:-0}&max=${3:-500}" ;;
     cmd)    "${CURL[@]}" -X POST "$BASE/command" --data-binary "${2:?command required}" ;;
+    mockups) "${CURL[@]}" -X POST "$BASE/preview/live" --data-binary "${2:-{\"op\":\"list\"\}}" ;;
     # The same, answering what the command printed to the console (the
     # engine's lines and managed code's), scoped to that command.
     capture) "${CURL[@]}" -X POST "$BASE/command?capture=1" --data-binary "${2:?command required}" ;;

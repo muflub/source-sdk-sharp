@@ -4,6 +4,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Analyzers;
 using SourceSharp.Client.Ui.Screens;
+using SourceSharp.Client.Ui.Screens.Samples;
 using SourceSharp.Client.Ui.Toolkit;
 using SourceSharp.Tests.Ui.Analyzers;
 
@@ -21,7 +22,6 @@ namespace SourceSharp.Tests.Ui;
 public class UiKeyCaptureTests
 {
     private const int KeyE = 15, KeyF = 16, KeyS = 29, KeyW = 33;
-    private const int Fwd = KeyBindings.Model.Fields.Forward, Use = KeyBindings.Model.Fields.Use;
 
     private sealed class Rig
     {
@@ -33,7 +33,7 @@ public class UiKeyCaptureTests
 
         public Rig()
         {
-            Form = new KeyBindings(Windows, Store);
+            Form = new KeyBindings(Windows, Store, new FakeKeyActions());
             Ctx.RecordNames = true;
             Frame();
             Frame();
@@ -44,6 +44,10 @@ public class UiKeyCaptureTests
             UiTestKit.Frame(Ctx, UiTestKit.Screen(1920, 1080), (ref UiFrame ui) => Form.Describe(ref ui), _now);
             _now += 1 / 60.0;
         }
+
+        public string? KeyOf(string command) => Form.Working.GetKey(Form.Working.Row(command)).Key;
+
+        public bool Bound(string command) => Form.Working.GetKey(Form.Working.Row(command)).IsBound;
 
         public UiElementInfo Named(string name) => UiTestKit.Named(Ctx, name);
 
@@ -69,8 +73,8 @@ public class UiKeyCaptureTests
     public void A_KeyBinding_field_is_a_capture_and_loads_the_key_its_command_has()
     {
         var r = new Rig();
-        Assert.Equal(UiFieldKind.Capture, r.Form.Working.Field(Fwd).Kind);
-        Assert.Equal(("W", "E"), (r.Form.Working.Forward.Key, r.Form.Working.Use.Key));
+        Assert.Equal(UiFieldKind.Capture, r.Form.Working.Field(r.Form.Working.Row("+forward")).Kind);
+        Assert.Equal(("W", "E"), (r.KeyOf("+forward"), r.KeyOf("+use")));
         Assert.False(r.Form.AnyDirty);
     }
 
@@ -78,11 +82,11 @@ public class UiKeyCaptureTests
     public void Clicked_it_takes_the_next_key_and_writes_nothing_until_apply()
     {
         var r = new Rig();
-        r.Click("Forward");
-        Assert.Equal("W", r.Form.Working.Forward.Key);       // armed, not yet taken
+        r.Click("+forward");
+        Assert.Equal("W", r.KeyOf("+forward"));       // armed, not yet taken
         r.Key(KeyF);
-        Assert.Equal("F", r.Form.Working.Forward.Key);
-        Assert.True(r.Form.IsDirty(Fwd));
+        Assert.Equal("F", r.KeyOf("+forward"));
+        Assert.True(r.Form.IsDirty(r.Form.Working.Row("+forward")));
         Assert.Empty(r.Store.Writes);
     }
 
@@ -98,7 +102,7 @@ public class UiKeyCaptureTests
     public void Apply_unbinds_the_old_key_then_binds_the_new()
     {
         var r = new Rig();
-        r.Click("Forward");
+        r.Click("+forward");
         r.Key(KeyF);
         Assert.True(r.Form.Apply());
         Assert.Equal(["unbind W", "bind F +forward"], r.Store.Writes);
@@ -109,10 +113,10 @@ public class UiKeyCaptureTests
     public void A_key_taken_from_another_row_leaves_it_empty_and_is_bound_once()
     {
         var r = new Rig();
-        r.Click("Forward");
+        r.Click("+forward");
         r.Key(KeyE);                                          // E was Use's
-        Assert.Equal("E", r.Form.Working.Forward.Key);
-        Assert.False(r.Form.Working.Use.IsBound);
+        Assert.Equal("E", r.KeyOf("+forward"));
+        Assert.False(r.Bound("+use"));
         Assert.True(r.Form.Apply());
         Assert.Equal("+forward", r.Store.CommandOn("E"));
         Assert.Null(r.Store.KeyFor("+use"));
@@ -123,11 +127,11 @@ public class UiKeyCaptureTests
     public void Two_rows_swapping_keys_end_with_both_bound()
     {
         var r = new Rig();
-        r.Click("Forward");
+        r.Click("+forward");
         r.Key(KeyS);                                          // S was Back's
-        r.Click("Back");
+        r.Click("+back");
         r.Key(KeyW);
-        Assert.Equal(("S", "W"), (r.Form.Working.Forward.Key, r.Form.Working.Back.Key));
+        Assert.Equal(("S", "W"), (r.KeyOf("+forward"), r.KeyOf("+back")));
         Assert.True(r.Form.Apply());
         Assert.Equal(("S", "W"), (r.Store.KeyFor("+forward"), r.Store.KeyFor("+back")));
     }
@@ -136,21 +140,21 @@ public class UiKeyCaptureTests
     public void Escape_gives_up_the_capture_and_the_form_stays_open()
     {
         var r = new Rig();
-        r.Click("Forward");
+        r.Click("+forward");
         r.Key((int)UiKey.Escape);
-        Assert.Equal("W", r.Form.Working.Forward.Key);
+        Assert.Equal("W", r.KeyOf("+forward"));
         Assert.False(r.Windows.Closing("keybindings"));
         r.Key(KeyF);                                          // no longer armed
-        Assert.Equal("W", r.Form.Working.Forward.Key);
+        Assert.Equal("W", r.KeyOf("+forward"));
     }
 
     [Fact]
     public void Delete_clears_the_field_and_apply_unbinds_it()
     {
         var r = new Rig();
-        r.Click("Forward");
+        r.Click("+forward");
         r.Key((int)UiKey.Delete);
-        Assert.False(r.Form.Working.Forward.IsBound);
+        Assert.False(r.Bound("+forward"));
         Assert.True(r.Form.Apply());
         Assert.Equal(["unbind W"], r.Store.Writes);
     }
@@ -159,21 +163,21 @@ public class UiKeyCaptureTests
     public void A_mouse_button_is_taken_and_its_release_does_not_arm_again()
     {
         var r = new Rig();
-        r.Click("Reload");
-        r.Click("Reload");                                    // MOUSE1, pressed on the field itself
-        Assert.Equal("MOUSE1", r.Form.Working.Reload.Key);
+        r.Click("+reload");
+        r.Click("+reload");                                    // MOUSE1, pressed on the field itself
+        Assert.Equal("MOUSE1", r.KeyOf("+reload"));
         r.Key(KeyF);
-        Assert.Equal("MOUSE1", r.Form.Working.Reload.Key);    // the release did not arm it again
+        Assert.Equal("MOUSE1", r.KeyOf("+reload"));    // the release did not arm it again
     }
 
     [Fact]
     public void The_wheel_is_taken_as_its_fake_buttons()
     {
         var r = new Rig();
-        r.Click("Jump");
+        r.Click("+jump");
         r.Ctx.Input(new UiInputEvent(UiInputKind.Wheel, 10, 10, 0, '\0', -1f));
         r.Frame();
-        Assert.Equal("MWHEELDOWN", r.Form.Working.Jump.Key);
+        Assert.Equal("MWHEELDOWN", r.KeyOf("+jump"));
     }
 
     [Fact]

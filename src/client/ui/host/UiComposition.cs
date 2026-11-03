@@ -55,11 +55,17 @@ public static class ClientUi
     public const string GameUiLanguageFile = "resource/gameui_english.txt";
 
     /// <summary>
+    /// The engine's shared strings (#Valve_*: the keyboard page's rows): the
+    /// stock GameUI module loaded this at its Initialize too.
+    /// </summary>
+    public const string ValveLanguageFile = "resource/valve_english.txt";
+
+    /// <summary>
     /// The UI's copy, first file wins: the mod's language file on disk (it may
     /// override any core string and adds its own), then the files mods.yaml
     /// lists (<c>localisation</c>, engine GAME paths, so a VPK-mounted
     /// <c>resource/tf_english.txt</c> counts), then the engine's GameUI strings
-    /// (<see cref="GameUiLanguageFile"/>), then the core's #SS_UI_ strings,
+    /// (<see cref="GameUiLanguageFile"/>, <see cref="ValveLanguageFile"/>), then the core's #SS_UI_ strings,
     /// embedded in the toolkit, so a mod with no file (tf2_descent) still has
     /// them. GameUiLocaliser asks the engine for whatever this lacks.
     /// </summary>
@@ -74,19 +80,22 @@ public static class ClientUi
         foreach (string path in gameFiles)
             if (GameLanguage(files, path, log) is { } file)
                 chain.Add(file);
-        if (files?.ReadGameFileBytes(GameUiLanguageFile) is { } gameUi)
+        foreach (string path in (ReadOnlySpan<string>)[GameUiLanguageFile, ValveLanguageFile])
         {
-            try
+            if (files?.ReadGameFileBytes(path) is { } bytes)
             {
-                chain.Add(UiLanguageFile.Parse(gameUi));
+                try
+                {
+                    chain.Add(UiLanguageFile.Parse(bytes));
+                }
+                catch (InvalidDataException e)
+                {
+                    log.Warning($"[SourceSharp/Ui] {path} is no language file ({e.Message}): its tokens fall to the engine\n");
+                }
             }
-            catch (InvalidDataException e)
-            {
-                log.Warning($"[SourceSharp/Ui] {GameUiLanguageFile} is no language file ({e.Message}): #GameUI_ tokens fall to the engine\n");
-            }
+            else if (files is not null)
+                log.Warning($"[SourceSharp/Ui] {path} is on no GAME path: its tokens fall to the engine\n");
         }
-        else if (files is not null)
-            log.Warning($"[SourceSharp/Ui] {GameUiLanguageFile} is on no GAME path: #GameUI_ tokens fall to the engine\n");
         chain.Add(UiLanguageFile.Core());
         return UiLanguageFile.Chain([.. chain]);
     }
@@ -237,7 +246,8 @@ public static class ClientUi
                                            new PickupHistoryPanel(services.Resolve<PickupHistory>() is { } history
                                                && services.Resolve<LocalPickupHistory>() is { } feed
                                                ? new PickupHistoryUi(history, feed)
-                                               : new NoPickupHistory()));
+                                               : new NoPickupHistory()),
+                                           new DamageDealtPanel(services.Require<IDamageDealtSource>()));
         var centre = new Ui.Screens.CentrePrint(services.Require<ICentrePrintSource>());
         var chat = new Chat(services.Require<IChatSource>());
         var overlayText = new Ui.Screens.DebugOverlayText(services.Require<IDebugOverlaySource>());
@@ -286,7 +296,7 @@ public static class ClientUi
         services.AddInstance<IServerHistory>(browser);
         var options = new Options(windows,
         [
-            new KeyBindings(windows, services.Require<IUiKeyBindingStore>()),
+            new KeyBindings(windows, services.Require<IUiKeyBindingStore>(), new ModKeyActions(optionsFiles)),
             new MouseOptions(windows, convarStore),
             new AudioOptions(windows, convarStore, commandLine),
             new VideoOptions(new EngineVideoModes(services.Require<IFwdGameUIFuncs>(), services.Require<IFwdMaterialSystem>()),
@@ -312,7 +322,7 @@ public static class ClientUi
                                                          services.Require<IVoiceBlockEvents>())),
             new Taskbar(taskbar, taskbar, services.Resolve<ITaskbarLaunchers>() ?? new NoTaskbarLaunchers(), windows),
             new ChatInput(services.Require<IChatInputSource>()),
-            new MainMenu(mainMenu, mainMenu),
+            new MainMenu(mainMenu, mainMenu, new BuildStampPanel(build)),
             new MenuBackground(menuBackground, textures),
             new LoadingProgress(loading),
             new DisconnectMessage(loading),

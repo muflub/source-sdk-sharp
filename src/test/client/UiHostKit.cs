@@ -75,6 +75,7 @@ internal static class UiHostKit
             .AddInstance<IPlayerNames>(new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()))
             .AddInstance<IEngineEnvironment>(engine)
             .AddInstance<IKillFeedSource>(new NoKills())
+            .AddInstance<IDamageDealtSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeDamageDealt())
             .AddInstance<ICentrePrintSource>(new CentrePrint(engine))
             .AddInstance<IChatSource>(new ChatFeed(engine, new RecordingLog(), engine, new NoChatPlayers()))
             .AddInstance<IChatInputSource>(new ChatInputUi(new DefaultForwarders.NoEngineClient()))

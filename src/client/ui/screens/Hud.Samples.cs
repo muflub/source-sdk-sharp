@@ -9,7 +9,8 @@ public static class HudSamples
     /// <summary>The HUD from fakes, registered one per interface, built by the services as DI will.</summary>
     public static UiScreen Build(UiSampleServices s, FakeLocalPlayer player, FakeHudText? text = null, FakeBuildStamp? stamp = null,
                                  FakeKillFeed? kills = null, FakeVoice? voice = null, FakeWeaponSelection? selection = null,
-                                 FakePickupHistory? history = null, FakeWeaponPlus? plus = null, FakeWeaponCarousel? carousel = null)
+                                 FakePickupHistory? history = null, FakeWeaponPlus? plus = null, FakeWeaponCarousel? carousel = null,
+                                 FakeDamageDealt? dealt = null)
     {
         s.Add<IWeaponSelectionSource>(selection ?? new FakeWeaponSelection { Showing = false });
         s.Add<IWeaponPlusSource>(plus ?? new FakeWeaponPlus { Showing = false });
@@ -19,6 +20,7 @@ public static class HudSamples
         (text ?? new FakeHudText()).Register(s);
         s.Add<IBuildStampSource>(stamp ?? new FakeBuildStamp());
         s.Add<IKillFeedSource>(kills ?? new FakeKillFeed());
+        s.Add<IDamageDealtSource>(dealt ?? new FakeDamageDealt());
         s.Add<IVoiceSource>(voice ?? new FakeVoice());
         return s.Create<Hud>();
     }
@@ -127,6 +129,10 @@ public static class HudSamples
             Line = "n 19:04:12 1a0e REBUILT-cs_cl_reload · m 20:31:40 4337 · client-ui@8cd02c00",
             DebugLine = "t 34.305  pos -2739.0 2563.0 192.8  ang 0.0 -150.0",
         });
+
+    [UiSample("damage dealt, a fresh hit and an older one")]
+    private static UiScreen DamageDealt(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        dealt: new FakeDamageDealt { Numbers = [new DamageNumber(44, 0.6f), new DamageNumber(12, 0f)] });
 
     [UiSample("aux power draining")]
     private static UiScreen AuxPower(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 62f, SuitDevices = 1 });

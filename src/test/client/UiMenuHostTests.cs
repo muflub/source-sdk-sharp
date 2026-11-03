@@ -339,7 +339,7 @@ public class UiMenuHostTests
         var host0 = UiHostKit.Build(surface, []);
         var m = host0.Menus;
         var fake = new FakeMainMenu();
-        UiScreen[] menus = [new MainMenu(fake, fake), .. extra];
+        UiScreen[] menus = [new MainMenu(fake, fake, new BuildStampPanel(new FakeBuildStamp())), .. extra];
         float seconds = 3;   // IGameClock.Now is a float: a boxed double answers default.
         var engine = TestServices.Fake().ReturnsEachCall("Clock.Now", () => seconds += 1);
         return (UiHostKit.Build(surface, [], menus, m, engine), surface);
@@ -434,7 +434,7 @@ public class UiMenuHostTests
         var host0 = UiHostKit.Build(surface, []);
         var m = host0.Menus;
         var fake = new FakeMainMenu();
-        UiScreen[] menus = [new MainMenu(fake, fake)];
+        UiScreen[] menus = [new MainMenu(fake, fake, new BuildStampPanel(new FakeBuildStamp()))];
         var engine = TestServices.Fake().Returns("Clock.Now", 5f);   // one frozen frame
         var host = UiHostKit.Build(surface, [], menus, m, engine);
         host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);

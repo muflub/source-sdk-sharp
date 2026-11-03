@@ -54,7 +54,7 @@ public sealed class Options : UiScreen, IUiWindowed
     public int Tab { get; set; }
 
     public static UiWindowSpec Spec(float screenW, float screenH)
-        => new(MathF.Min(860, screenW), MathF.Min(680, screenH), 520, 420, screenW, screenH, 640);
+        => new(MathF.Min(960, screenW), MathF.Min(680, screenH), 520, 420, screenW, screenH, 640);
 
     public bool AnyDirty
     {

@@ -215,6 +215,7 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     {
         long start = Stopwatch.GetTimestamp();
         double now = _clock.Now;
+        _build.Refresh(now);        // the pause menu draws the stamp the HUD's refresh keeps
         if (now < _menusReadAt || now - _menusReadAt >= MenuRefreshSeconds)
         {
             _menusReadAt = now;
