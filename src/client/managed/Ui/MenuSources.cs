@@ -24,6 +24,9 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
     private readonly string[] _names = new string[Slots];
     private readonly int[] _nameUserIds = new int[Slots];
     private readonly bool[] _fake = new bool[Slots];
+    // Each slot's tag, read again only when its networked bytes change (no allocation a frame).
+    private readonly string[] _tags = new string[Slots];
+    private readonly byte[] _tagBytes = new byte[Slots * PlayerResourceNetState.TagBytes];
     private int _count, _teamCount;
     private Standalone.ClientPlayerResource? _resource;
 
@@ -67,6 +70,26 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
         _ => "Deathmatch",
     };
 
+    /// <summary>A slot's tag, decoded again only when its bytes changed.</summary>
+    private string TagOf(PlayerResourceNetState state, int slot)
+    {
+        bool changed = _tags[slot] is null;
+        int at = slot * PlayerResourceNetState.TagBytes;
+        for (int i = 0; i < PlayerResourceNetState.TagBytes; i++)
+        {
+            byte b = state.Tag[at + i];
+            if (_tagBytes[at + i] != b)
+            {
+                _tagBytes[at + i] = b;
+                changed = true;
+            }
+        }
+
+        if (changed)
+            _tags[slot] = state.TagOf(slot);
+        return _tags[slot];
+    }
+
     public void Refresh()
     {
         if (_resource is null || !standalones.Live().Contains(_resource))
@@ -104,7 +127,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
             teams |= team >= 2;
             _players[_count++] = new ScoreboardPlayer(slot, _names[slot], team, state.Score[slot], state.Deaths[slot],
                 state.Ping[slot],
-                state.HasFlag(slot, PlayerResourceNetState.FlagAlive), fake, slot == local);
+                state.HasFlag(slot, PlayerResourceNetState.FlagAlive), fake, slot == local, TagOf(state, slot));
         }
 
         // Most frags first, fewer deaths breaking a tie (stock's order). Insertion: no allocation.

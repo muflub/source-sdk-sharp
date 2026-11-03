@@ -28,6 +28,9 @@ public sealed class SoundEmitter : SoundEmitterCore
 {
     private readonly SoundRecipients _recipients;
     private readonly ICloseCaptions _captions;
+    private readonly Func<IReadOnlyList<ISoundEmitHook>>? _hooks;
+    private readonly Func<int, Vector?>? _sourceOrigin;
+    private readonly Action<string> _warn;
 
     /// <param name="speakerModel">
     /// The model name of the entity at an index, or null when there is none:
@@ -36,13 +39,43 @@ public sealed class SoundEmitter : SoundEmitterCore
     /// <param name="traceOn"><c>sv_soundemitter_trace</c>.</param>
     /// <param name="msg">The console (<c>Msg</c>).</param>
     /// <param name="devMsg">The developer console (<c>DevMsg</c>).</param>
+    /// <param name="hooks">The registered <see cref="ISoundEmitHook"/>s, asked when a sound goes out.</param>
+    /// <param name="sourceOrigin">Where the entity at an index is, for a sound that names no point; null for none.</param>
     public SoundEmitter(ISoundEmitterEngine engine, SoundRecipients recipients, ICloseCaptions captions,
                         IGameClock clock, Func<int, string?> speakerModel, Func<bool> traceOn,
-                        Action<string> msg, Action<string> devMsg)
+                        Action<string> msg, Action<string> devMsg,
+                        Func<IReadOnlyList<ISoundEmitHook>>? hooks = null, Func<int, Vector?>? sourceOrigin = null)
         : base(engine, clock, speakerModel, traceOn, msg, devMsg)
     {
         _recipients = recipients;
         _captions = captions;
+        _hooks = hooks;
+        _sourceOrigin = sourceOrigin;
+        _warn = msg;
+    }
+
+    /// <summary>Hands every <see cref="ISoundEmitHook"/> the sound with its final recipients (plan_hl2mp_ai §4.2).</summary>
+    protected override void Emitted(IRecipientList filter, int entIndex, string soundName, int soundLevel, Vector? origin)
+    {
+        if (_hooks?.Invoke() is not { Count: > 0 } hooks)
+            return;
+
+        Span<int> slots = filter.Count <= 128 ? stackalloc int[filter.Count] : new int[filter.Count];
+        for (int i = 0; i < slots.Length; i++)
+            slots[i] = filter.IndexAt(i);
+        Vector at = origin ?? _sourceOrigin?.Invoke(entIndex) ?? Vector.Zero;
+        var sound = new EmittedSound(at, soundLevel, soundName, entIndex, slots);
+        foreach (ISoundEmitHook hook in hooks)
+        {
+            try
+            {
+                hook.OnEmitted(in sound);
+            }
+            catch (Exception e)
+            {
+                _warn($"[SourceSharp] ISoundEmitHook.OnEmitted on {hook.GetType().FullName} threw: {e}\n");
+            }
+        }
     }
 
     /// <summary>The recipient rules this emitter's callers build their filters with.</summary>

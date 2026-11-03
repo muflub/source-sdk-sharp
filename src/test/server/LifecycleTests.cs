@@ -600,6 +600,10 @@ public class LifecycleTests
                                           // after; TWO THOUSAND FOUR HUNDRED is
                                           // the next free hundred. Appended; none
                                           // moved.
+        (typeof(BotPlayers),       2500),  // plan_hl2mp_ai §3.1: the bots, which
+                                           // the engine drops with the level, are
+                                           // forgotten at level shutdown. The next
+                                           // free hundred; none moved.
     };
 
     [Fact]

@@ -1,0 +1,34 @@
+<Project>
+  <!-- The repo's own props first: output paths, warnings as errors, net10.0. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    SourceSharp.MapFormats, map-tools' reader of the .nav3d the AI navigates by
+    (docs/plans/plan_hl2mp_ai.md §6.1), comes from map-tools' local feed,
+    MAPTOOLS_DIR/bin/nupkg, never from nuget.org and never as a project
+    reference across repositories: the package version is the contract, and
+    the derived graph's cache names it. The checkout is the one `make setup`
+    verified against maptools.lock and recorded in maptools.lock.local; a
+    MAPTOOLS_DIR in the environment names another. Each drop is a new version
+    (memory host-sdk-rev-every-drop); bump MapFormatsVersion with the lock.
+  -->
+  <PropertyGroup>
+    <MapToolsRoot Condition="'$(MapToolsRoot)' == '' and '$(MAPTOOLS_DIR)' != ''">$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(RepoRoot)', '$(MAPTOOLS_DIR)'))))</MapToolsRoot>
+    <MapToolsRoot Condition="'$(MapToolsRoot)' == '' and Exists('$(RepoRoot)maptools.lock.local')">$([System.IO.File]::ReadAllText('$(RepoRoot)maptools.lock.local').Trim())</MapToolsRoot>
+    <MapToolsRoot Condition="'$(MapToolsRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RepoRoot)../source-sdk-map-tools'))</MapToolsRoot>
+    <MapToolsRoot>$([MSBuild]::EnsureTrailingSlash('$(MapToolsRoot)'))</MapToolsRoot>
+    <MapFormatsPackageDir>$(MapToolsRoot)bin/nupkg</MapFormatsPackageDir>
+    <MapFormatsVersion>1.0.2</MapFormatsVersion>
+    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(MapFormatsPackageDir)</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <!--
+    A missing package is a failure that names its fix, before restore gets to
+    report "unable to find package" against nuget.org.
+  -->
+  <Target Name="CheckMapFormatsPackage" BeforeTargets="Restore;_GenerateRestoreGraph;CollectPackageReferences"
+          Condition="'@(PackageReference->WithMetadataValue('Identity','SourceSharp.MapFormats'))' != ''">
+    <Error Condition="!Exists('$(MapFormatsPackageDir)/SourceSharp.MapFormats.$(MapFormatsVersion).nupkg')"
+           Text="SourceSharp.MapFormats $(MapFormatsVersion) is not in $(MapFormatsPackageDir): run `make setup` (it checks MAPTOOLS_DIR against maptools.lock), then `make mapformats-pack` in a checkout at the lock." />
+  </Target>
+</Project>

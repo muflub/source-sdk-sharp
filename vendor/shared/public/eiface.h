@@ -292,7 +292,7 @@ public:
 	virtual void unused_ClearSaveDirAfterClientLoad() = 0;
 
 	// Sets a USERINFO client ConVar for a fakeclient
-	virtual void unused_SetFakeClientConVarValue() = 0;
+	virtual void SetFakeClientConVarValue(edict_t * pEntity, const char* cvar, const char* value) = 0;
 
 	// Marks the material (vmt file) for consistency checking.  If the client and server have different
 	// contents for the file, the client's vmt can only use the VertexLitGeneric shader, and can only
@@ -382,7 +382,7 @@ public:
 	virtual void unused_GetAllClusterBounds() = 0;
 
 	// Create a bot with the given name.  Returns NULL if fake client can't be created
-	virtual void unused_CreateFakeClientEx() = 0;
+	virtual edict_t* CreateFakeClientEx(const char* netname, bool bReportFakeClient = true) = 0;
 
 	// Server version from the steam.inf, this will be compared to the GC version
 	virtual void unused_GetServerVersion() = 0;

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The AI's offline renderer (plan_hl2mp_ai §7.1, §7.3): `tools/ai-replay nav`
+    draws a level's derived graph to PNG with SkiaSharp, as UiPreview draws
+    the UI. A TOOL, not the game: it builds into bin/<config>/tools/ai-replay,
+    never into the game's managed directory. The AI's facts reference it for
+    the nav golden.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>SourceSharp.Ai.Replay</AssemblyName>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/tools/ai-replay/</OutputPath>
+    <RootNamespace>SourceSharp.Ai.Replay</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="SkiaSharp" Version="4.153.1" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="4.153.1" />
+    <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
+  </ItemGroup>
+</Project>

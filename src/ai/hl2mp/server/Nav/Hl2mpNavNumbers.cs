@@ -34,4 +34,15 @@ public readonly record struct Hl2mpNavNumbers(
 public readonly record struct NavEdgeCosts(float Jump, float CrouchJump, float Drop, float Ladder, float DoorWait)
 {
     public static NavEdgeCosts Default => new(16f, 32f, 8f, 64f, 64f);
+
+    /// <summary>What crossing an edge of <paramref name="type"/> adds to its distance.</summary>
+    public float ExtraFor(NavEdgeType type) => type switch
+    {
+        NavEdgeType.Jump => Jump,
+        NavEdgeType.CrouchJump => CrouchJump,
+        NavEdgeType.Drop => Drop,
+        NavEdgeType.Ladder => Ladder,
+        NavEdgeType.Door => DoorWait,
+        _ => 0f,
+    };
 }

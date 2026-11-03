@@ -205,7 +205,7 @@ public:
 
 	void unused_ClearSaveDirAfterClientLoad() override {}
 
-	void unused_SetFakeClientConVarValue() override {}
+	void SetFakeClientConVarValue(edict_t* pEntity, const char* cvar, const char* value) override {}
 
 	void unused_ForceSimpleMaterial() override {}
 
@@ -269,7 +269,7 @@ public:
 
 	void unused_GetAllClusterBounds() override {}
 
-	void unused_CreateFakeClientEx() override {}
+	edict_t* CreateFakeClientEx(const char* netname, bool bReportFakeClient = true) override { return {}; }
 
 	void unused_GetServerVersion() override {}
 

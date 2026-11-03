@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""Check the map-tools checkout against maptools.lock (plan_hl2mp_ai §6.4.1).
+
+The AI reads its navigation with map-tools' SourceSharp.MapFormats package
+and `make` builds dm_lockdown's .nav3d with map-tools' ssmap, so "the nav I
+built matches the reader I run" holds only when the checkout both come from
+is the commit this tree pins. `make setup` runs this:
+
+  tools/maptools-lock check [--dir DIR]   refuse a checkout at another commit,
+                                          with tracked edits, or without the
+                                          pinned package; record DIR in
+                                          maptools.lock.local on success
+  tools/maptools-lock path                the recorded (or default) checkout
+  tools/maptools-lock --self-test
+
+DIR defaults to $MAPTOOLS_DIR, then maptools.lock.local, then
+../source-sdk-map-tools, resolved against the repo root. Nothing here writes
+to the checkout: building the package is `make mapformats-pack`.
+"""
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+class LockError(Exception):
+    pass
+
+
+def git(repo, *args):
+    p = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True,
+                       env={k: v for k, v in os.environ.items() if not k.startswith("GIT_")})
+    if p.returncode != 0:
+        raise LockError(f"git {' '.join(args)} in {repo} failed: {p.stderr.strip()}")
+    return p.stdout.strip()
+
+
+def read_lock(repo):
+    path = os.path.join(repo, "maptools.lock")
+    if not os.path.exists(path):
+        raise LockError("maptools.lock is missing")
+    words = open(path).read().split()
+    if not words or not re.fullmatch(r"[0-9a-f]{40}", words[0]):
+        raise LockError("maptools.lock does not hold a full commit sha")
+    return words[0]
+
+
+def mapformats_version(repo):
+    props = os.path.join(repo, "src", "ai", "Directory.Build.props")
+    m = re.search(r"<MapFormatsVersion>([^<]+)</MapFormatsVersion>", open(props).read())
+    if not m:
+        raise LockError(f"{props} names no MapFormatsVersion")
+    return m.group(1).strip()
+
+
+def default_dir(repo, env=None):
+    env = os.environ if env is None else env
+    if env.get("MAPTOOLS_DIR"):
+        return os.path.normpath(os.path.join(repo, env["MAPTOOLS_DIR"]))
+    local = os.path.join(repo, "maptools.lock.local")
+    if os.path.exists(local) and open(local).read().strip():
+        return open(local).read().strip()
+    return os.path.normpath(os.path.join(repo, "..", "source-sdk-map-tools"))
+
+
+def check(repo, mt, version=None):
+    """Verify `mt` is a clean checkout at the lock holding the pinned package;
+    answers the lines to print. Raises LockError naming the lock."""
+    lock = read_lock(repo)
+    version = version or mapformats_version(repo)
+    if not os.path.isdir(mt):
+        raise LockError(f"no map-tools checkout at {mt}: maptools.lock pins {lock[:12]}; "
+                        f"clone source-sdk-map-tools there at that commit, or set MAPTOOLS_DIR")
+    if not os.path.exists(os.path.join(mt, ".git")):
+        raise LockError(f"MAPTOOLS_DIR {mt} is not a git checkout (maptools.lock pins {lock[:12]})")
+    head = git(mt, "rev-parse", "HEAD")
+    if head != lock:
+        raise LockError(f"map-tools at {mt} is at {head[:12]}, but maptools.lock pins {lock[:12]}: "
+                        f"check out {lock[:12]} there, or set MAPTOOLS_DIR to a checkout at it")
+    edits = git(mt, "status", "--porcelain", "--untracked-files=no")
+    if edits:
+        raise LockError(f"map-tools at {mt} has tracked edits ({len(edits.splitlines())} files); "
+                        f"maptools.lock pins {lock[:12]} as committed")
+    package = os.path.join(mt, "bin", "nupkg", f"SourceSharp.MapFormats.{version}.nupkg")
+    if not os.path.exists(package):
+        raise LockError(f"{package} is missing: run `make mapformats-pack` (map-tools' tools/pack-mapformats.sh)")
+    return [f"map-tools: {mt} at {lock[:12]} (maptools.lock), SourceSharp.MapFormats {version}"]
+
+
+def record(repo, mt):
+    with open(os.path.join(repo, "maptools.lock.local"), "w") as f:
+        f.write(os.path.abspath(mt) + "\n")
+
+
+def self_test():
+    failures = []
+
+    def expect(name, cond):
+        print(f"{'ok ' if cond else 'BAD'} {name}")
+        if not cond:
+            failures.append(name)
+
+    with tempfile.TemporaryDirectory(prefix="mtlock-") as tmp:
+        repo = os.path.join(tmp, "repo")
+        mt = os.path.join(tmp, "mt")
+        os.makedirs(os.path.join(repo, "src", "ai"))
+        with open(os.path.join(repo, "src", "ai", "Directory.Build.props"), "w") as f:
+            f.write("<Project><PropertyGroup><MapFormatsVersion>9.9.9</MapFormatsVersion></PropertyGroup></Project>\n")
+        os.makedirs(os.path.join(mt, "bin", "nupkg"))
+        env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        env.update(GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t", GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+
+        def run(*args):
+            subprocess.run(["git", "-C", mt, *args], check=True, capture_output=True, env=env)
+
+        run("init", "-q")
+        with open(os.path.join(mt, "a.txt"), "w") as f:
+            f.write("one\n")
+        run("add", "a.txt")
+        run("commit", "-q", "-m", "one")
+        first = git(mt, "rev-parse", "HEAD")
+        with open(os.path.join(mt, "a.txt"), "w") as f:
+            f.write("two\n")
+        run("commit", "-q", "-am", "two")
+        second = git(mt, "rev-parse", "HEAD")
+        with open(os.path.join(mt, "bin", "nupkg", "SourceSharp.MapFormats.9.9.9.nupkg"), "w") as f:
+            f.write("pkg")
+        with open(os.path.join(mt, ".git", "info", "exclude"), "a") as f:
+            f.write("bin/\n")
+
+        def refusal(lock_sha):
+            with open(os.path.join(repo, "maptools.lock"), "w") as f:
+                f.write(lock_sha + "\n")
+            try:
+                check(repo, mt)
+                return None
+            except LockError as e:
+                return str(e)
+
+        # The positive arm first: the checkout at the lock is accepted.
+        expect("a clean checkout at the lock is accepted", refusal(second) is None)
+        why = refusal(first)
+        expect("a checkout at another commit is refused, naming the lock",
+               why is not None and "maptools.lock pins " + first[:12] in why and second[:12] in why)
+        with open(os.path.join(mt, "a.txt"), "w") as f:
+            f.write("edited\n")
+        why = refusal(second)
+        expect("tracked edits are refused", why is not None and "tracked edits" in why)
+        run("checkout", "-q", "--", "a.txt")
+        expect("restored, it is accepted again", refusal(second) is None)
+        os.remove(os.path.join(mt, "bin", "nupkg", "SourceSharp.MapFormats.9.9.9.nupkg"))
+        why = refusal(second)
+        expect("a missing package is refused, naming the version", why is not None and "MapFormats.9.9.9.nupkg" in why)
+        why = None
+        try:
+            check(repo, os.path.join(tmp, "nowhere"))
+        except LockError as e:
+            why = str(e)
+        expect("no checkout at all is refused, naming the lock", why is not None and "maptools.lock pins" in why)
+        with open(os.path.join(repo, "maptools.lock"), "w") as f:
+            f.write("af063fa\n")
+        why = refusal("af063fa")
+        expect("a short sha in the lock is refused", why is not None and "full commit sha" in why)
+        expect("MAPTOOLS_DIR wins over the recorded dir",
+               default_dir(repo, {"MAPTOOLS_DIR": "/x/y"}) == "/x/y")
+        record(repo, mt)
+        expect("the recorded dir is the default after a check", default_dir(repo, {}) == os.path.abspath(mt))
+        os.remove(os.path.join(repo, "maptools.lock.local"))
+        expect("with nothing recorded, the default is the sibling checkout",
+               default_dir(repo, {}) == os.path.normpath(os.path.join(repo, "..", "source-sdk-map-tools")))
+    print(f"maptools-lock self-test: {'FAILED ' + str(len(failures)) if failures else 'ok'}")
+    return 1 if failures else 0
+
+
+def main(argv):
+    if argv[:1] == ["--self-test"]:
+        return self_test()
+    if argv[:1] == ["path"]:
+        print(default_dir(ROOT))
+        return 0
+    if argv[:1] != ["check"]:
+        print(__doc__)
+        return 2
+    mt = default_dir(ROOT)
+    if len(argv) >= 3 and argv[1] == "--dir":
+        mt = os.path.normpath(os.path.join(ROOT, argv[2]))
+    try:
+        for line in check(ROOT, mt):
+            print(line)
+    except LockError as e:
+        print(f"maptools-lock: {e}", file=sys.stderr)
+        return 1
+    record(ROOT, mt)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

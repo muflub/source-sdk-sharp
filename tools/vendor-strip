@@ -68,6 +68,12 @@ KEEP = {
     # platform.h's, for the byte stubs tools/vendor-fields writes where MSVC
     # and Itanium lay a record out differently; kept for the next such run.
     "SS_ABI_PICK",
+    # eiface.h's IVEngineServer virtuals the AI's bot path forwards
+    # (plan_hl2mp_ai §3.1): no module object calls them, so the stub pass
+    # would turn them back into unused_ slots.
+    "CreateFakeClientEx",
+    "SetFakeClientConVarValue",
+    "IndexOfEdict",
 }
 
 CLANG_RESOURCE = "/usr/lib/llvm-22/lib/clang/22/include"

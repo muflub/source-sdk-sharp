@@ -1,0 +1,229 @@
+{
+ "format": 1,
+ "note": "Bot names (plan_hl2mp_ai \u00a73.5.1, user rulings 2026-11-01): a first name, then a word or short phrase from the pool of the bot's most distinctive skill, high or low. Each entry must fit the engine's 31 characters with the shortest first name and a space.",
+ "first": [
+  "Ada",
+  "Arlo",
+  "Bobby",
+  "Bram",
+  "Cass",
+  "Dara",
+  "Emil",
+  "Felix",
+  "Gwen",
+  "Hugo",
+  "Ines",
+  "Ivo",
+  "Jonas",
+  "Jules",
+  "Kai",
+  "Kofi",
+  "Lars",
+  "Leila",
+  "Lena",
+  "Mateo",
+  "Mei",
+  "Mira",
+  "Nadia",
+  "Nico",
+  "Noor",
+  "Omar",
+  "Otto",
+  "Pia",
+  "Priya",
+  "Ravi",
+  "Rhys",
+  "Sana",
+  "Suki",
+  "Tariq",
+  "Theo",
+  "Tommy",
+  "Uma",
+  "Vera",
+  "Wren",
+  "Yuki",
+  "Zoe"
+ ],
+ "traits": {
+  "accuracy": {
+   "high": [
+    "Sniper",
+    "Deadeye",
+    "Marksman",
+    "Hawkeye",
+    "Never Misses",
+    "Bullseye"
+   ],
+   "low": [
+    "Sprays Wildly",
+    "Misses Often",
+    "Blindfire",
+    "Wild Shot",
+    "Barn Door",
+    "Shoots Walls"
+   ]
+  },
+  "alertness": {
+   "high": [
+    "Lookout",
+    "Eagle Eye",
+    "Watchful",
+    "Never Sleeps",
+    "Owl",
+    "Sentry"
+   ],
+   "low": [
+    "Daydreamer",
+    "Sleepwalker",
+    "Never Looks Up",
+    "Distracted",
+    "Snoozer",
+    "Head In Clouds"
+   ]
+  },
+  "aggression": {
+   "high": [
+    "Brawler",
+    "Berserker",
+    "Shoots First",
+    "Rusher",
+    "Hothead",
+    "Wrecker"
+   ],
+   "low": [
+    "Camps Alot",
+    "Pacifist",
+    "Shy",
+    "Waits Forever",
+    "Turtle",
+    "Hangs Back"
+   ]
+  },
+  "cover": {
+   "high": [
+    "Wallhugger",
+    "Bunker",
+    "Hides Well",
+    "Ghost",
+    "Shadow",
+    "Corner Lurker"
+   ],
+   "low": [
+    "Stands In Open",
+    "Target Practice",
+    "Exposed",
+    "No Cover",
+    "Center Stage",
+    "Wide Open"
+   ]
+  },
+  "tenacity": {
+   "high": [
+    "Bulldog",
+    "Never Quits",
+    "Stubborn",
+    "Ironside",
+    "Grinder",
+    "Last Stand"
+   ],
+   "low": [
+    "Runs Away",
+    "Quitter",
+    "Gives Up",
+    "Folds Early",
+    "Flighty",
+    "Bails Out"
+   ]
+  },
+  "cunning": {
+   "high": [
+    "Fox",
+    "Trickster",
+    "Always Flanking",
+    "Schemer",
+    "Sly",
+    "Ambusher"
+   ],
+   "low": [
+    "Predictable",
+    "Straight Line",
+    "Open Book",
+    "Simple Plan",
+    "No Tricks",
+    "Takes Bait"
+   ]
+  },
+  "discipline": {
+   "high": [
+    "Steady",
+    "Cool Head",
+    "Soldier",
+    "Precise",
+    "By The Book",
+    "Saves Ammo"
+   ],
+   "low": [
+    "Never Reloads",
+    "Trigger Happy",
+    "Reckless",
+    "Spray And Pray",
+    "Loose Cannon",
+    "Wasteful"
+   ]
+  },
+  "agility": {
+   "high": [
+    "Dodger",
+    "Quickstep",
+    "Bunnyhop",
+    "Slippery",
+    "Acrobat",
+    "Sidestep"
+   ],
+   "low": [
+    "Plodder",
+    "Slowpoke",
+    "Heavy Boots",
+    "Sitting Duck",
+    "Tortoise",
+    "Statue"
+   ]
+  },
+  "nerve": {
+   "high": [
+    "Ice Cold",
+    "Fearless",
+    "Unshaken",
+    "Steel Nerves",
+    "Daredevil",
+    "Cool Cat"
+   ],
+   "low": [
+    "Jumpy",
+    "Nervous",
+    "Panics",
+    "Shaky Hands",
+    "Scaredy Cat",
+    "Flinches"
+   ]
+  },
+  "headhunter": {
+   "high": [
+    "Bounty",
+    "Headhunter",
+    "Kingslayer",
+    "Hunts Leaders",
+    "Top Hunter",
+    "Contract"
+   ],
+   "low": [
+    "Any Target",
+    "Bottom Feeder",
+    "Random Pick",
+    "Mob Fighter",
+    "Nearest First",
+    "Picks On Weak"
+   ]
+  }
+ }
+}

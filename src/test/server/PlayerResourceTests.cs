@@ -31,7 +31,8 @@ public class PlayerResourceTests
     private static PlayerResource Spawn(out RecordingEngine engine,
                                         out Players roster,
                                         bool anyoneConnected,
-                                        IClientInfo? clients = null)
+                                        IClientInfo? clients = null,
+                                        IScoreboardTags? tags = null)
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PlayerResource).Assembly);
@@ -45,6 +46,8 @@ public class PlayerResourceTests
         services.AddInstance<IPlayerDirectory>(roster);
         if (clients is not null)
             services.AddInstance(clients);
+        if (tags is not null)
+            services.AddInstance(tags);
 
         registry.Services = services;
 
@@ -156,6 +159,38 @@ public class PlayerResourceTests
         Assert.True(resource.State.IsConnected(6));
         Assert.True(resource.State.IsAlive(6));
         Assert.True(resource.State.IsValid(6));
+    }
+
+    /// <summary>
+    /// A player's scoreboard tag (a bot's skill, user ruling 2026-11-01) is
+    /// set by a mod through <see cref="IScoreboardTags"/> and rides the row.
+    /// </summary>
+    private static void Stub(RecordingEngine engine)
+        => engine.Returns("Players.GetUserId", 41).Returns("Players.GetTeam", 0).Returns("Players.IsAlive", true).Returns("Entities.GetHealth", 100);
+
+    [Fact]
+    public void AConnectedRowCarriesThePlayersTag()
+    {
+        var tags = new ScoreboardTags();
+        tags.Set(new EntityHandle(7), "(Hard)");
+        var resource = Spawn(out var engine, out _, anyoneConnected: true, tags: tags);
+        Stub(engine);
+
+        resource.UpdateSlot(6);
+
+        Assert.Equal("(Hard)", resource.State.TagOf(6));
+    }
+
+    [Fact]
+    public void AnUntaggedPlayerHasNone()
+    {
+        var resource = Spawn(out var engine, out _, anyoneConnected: true, tags: new ScoreboardTags());
+        Stub(engine);
+        resource.State.SetTag(6, "(stale)");
+
+        resource.UpdateSlot(6);
+
+        Assert.Equal("", resource.State.TagOf(6));
     }
 
     /// <summary>

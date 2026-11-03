@@ -53,6 +53,15 @@ public static class CollisionRules
         if (a > b)
             (a, b) = (b, a);
 
+        // A player's movement passes through weapons and items: both game
+        // rules this repo hosts override the base so (CHL2MPRules::
+        // ShouldCollide, hl2mp_gamerules.cpp:909; CTFGameRules::ShouldCollide,
+        // "don't stand on COLLISION_GROUP_WEAPONs"). Without it a player
+        // spawned beside an ammo box is held stuck inside it.
+        if ((a == EngineCollisionGroup.Player || a == EngineCollisionGroup.PlayerMovement)
+            && b == EngineCollisionGroup.Weapon)
+            return false;
+
         // Players do not collide with pushaway props; the player-pushaway code
         // moves them instead.
         if ((a == EngineCollisionGroup.Player || a == EngineCollisionGroup.PlayerMovement)

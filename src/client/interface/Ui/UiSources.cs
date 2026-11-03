@@ -7,10 +7,14 @@ namespace SourceSharp.Client.Ui;
 // previewable. Index-and-count shapes rather than lists, so reading them each
 // frame allocates nothing.
 
-/// <summary>One player, as the scoreboard shows them.</summary>
+/// <summary>
+/// One player, as the scoreboard shows them. <see cref="Tag"/> is a short
+/// label a mod gives the player (a bot's skill, user ruling 2026-11-01),
+/// shown beside the name as a secondary tag; empty for most players.
+/// </summary>
 public readonly record struct ScoreboardPlayer(
     int Index, string Name, int Team, int Frags, int Deaths, int Ping,
-    bool Alive, bool Bot, bool Local);
+    bool Alive, bool Bot, bool Local, string Tag = "");
 
 /// <summary>One team. <see cref="Number"/> is the game's team number.</summary>
 public readonly record struct ScoreboardTeam(int Number, string Name, int Score);

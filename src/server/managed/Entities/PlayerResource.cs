@@ -60,8 +60,10 @@ public sealed class PlayerResource : ScriptedEntity
                           IPlayerDirectory roster,
                           IClientInfo? clients = null,
                           IEngineEnvironment? environment = null,
-                          GameModes? modes = null)
+                          GameModes? modes = null,
+                          IScoreboardTags? tags = null)
     {
+        Tags = tags;
         Clients = clients;
         Environment = environment;
         Render = render;
@@ -82,6 +84,9 @@ public sealed class PlayerResource : ScriptedEntity
     /// wiring this is an ordinary constructor parameter.
     /// </summary>
     private readonly GameModes? Modes;
+
+    // A mod's label per player, beside the name on the scoreboard (user ruling 2026-11-01).
+    private readonly IScoreboardTags? Tags;
 
     /// <summary>Each client's channel latency and cl_cmdrate, for the ping; none in a test without an engine.</summary>
     private readonly IClientInfo? Clients;
@@ -306,5 +311,6 @@ public sealed class PlayerResource : ScriptedEntity
                      connected: true,
                      alive:     PlayerApi.IsAlive(player),
                      valid:     true);
+        State.SetTag(slot, Tags?.TagOf(player));
     }
 }

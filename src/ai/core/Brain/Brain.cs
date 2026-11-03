@@ -14,8 +14,9 @@ public sealed class Brain
     private readonly AiRandom _random;
     private int _seq;
 
-    public Brain(ActorId bot, ulong seed)
+    public Brain(ActorId bot, ulong seed, BotMemory? memory = null)
     {
+        Memory = memory;
         if (!bot.IsValid)
             throw new ArgumentException("a brain needs a valid actor", nameof(bot));
         Bot = bot;
@@ -26,6 +27,9 @@ public sealed class Brain
     public ActorId Bot { get; }
 
     public ulong Seed { get; }
+
+    /// <summary>What the bot remembers (§5.1), or null for a brain with no map to remember (a fact's).</summary>
+    public BotMemory? Memory { get; }
 
     /// <summary>The last tick this brain stepped at, or null before its first step.</summary>
     public Tick? LastStep { get; private set; }
@@ -42,7 +46,7 @@ public sealed class Brain
             throw new ArgumentOutOfRangeException(nameof(tick), tick.Value, $"a brain steps forward; it last stepped at {last}");
 
         LastStep = tick;
-        _ = events;
+        Memory?.Step(tick, view, events);
         _ = _random;
         return IntentCommand.Hold(Bot, tick, ++_seq);
     }

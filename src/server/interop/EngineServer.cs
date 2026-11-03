@@ -16,7 +16,7 @@ namespace SourceSharp.Abi;
 /// through its vtable.
 /// </summary>
 public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine,
-                                          SourceSharp.Server.Interop.IEdictSlots
+                                          SourceSharp.Server.Interop.IEdictSlots, SourceSharp.Server.Interop.IFakeClients
 {
     /// <summary><see cref="IFwdEngineServer.InterfaceVersion"/>.</summary>
     public const string InterfaceVersion = IFwdEngineServer.InterfaceVersion;
@@ -78,6 +78,28 @@ public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceS
 
     /// <summary>IVEngineServer::AllowImmediateEdictReuse.</summary>
     void SourceSharp.Server.Interop.IEdictSlots.AllowImmediateReuse() => _fwd->AllowImmediateEdictReuse(_self);
+
+    /// <summary>IVEngineServer::CreateFakeClientEx, then IndexOfEdict (plan_hl2mp_ai §3.1).</summary>
+    int SourceSharp.Server.Interop.IFakeClients.CreateFakeClient(string name)
+    {
+        void* edict;
+        fixed (byte* p = Vtable.Utf8(name))
+            edict = _fwd->CreateFakeClientEx(_self, p, 1);
+        return edict == null ? 0 : _fwd->IndexOfEdict(_self, edict);
+    }
+
+    /// <summary>IVEngineServer::SetFakeClientConVarValue on the client at an index.</summary>
+    bool SourceSharp.Server.Interop.IFakeClients.SetFakeClientConVar(int entIndex, string name, string value)
+    {
+        void* edict = entIndex > 0 ? _fwd->PEntityOfEntIndex(_self, entIndex) : null;
+        if (edict == null)
+            return false;
+
+        fixed (byte* n = Vtable.Utf8(name))
+        fixed (byte* v = Vtable.Utf8(value))
+            _fwd->SetFakeClientConVarValue(_self, edict, n, v);
+        return true;
+    }
 
     /// <inheritdoc/>
     public int PlayerUserId(int entIndex)

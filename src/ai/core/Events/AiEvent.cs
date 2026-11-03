@@ -19,6 +19,9 @@ public enum AiEventKind : byte
     Killed = 21,
     AttackerSeenKill = 22,
 
+    /// <summary>The bot's own hit hurt another player (its hit marker, §5.1's health estimate).</summary>
+    DealtDamage = 23,
+
     // self
     Spawned = 30,
     Removed = 31,
@@ -33,6 +36,12 @@ public enum AiEventKind : byte
     // gameplay (the HUD)
     ScoreboardRow = 40,
     MatchState = 41,
+
+    /// <summary>A death notice on the HUD's kill feed: who died, and who killed them.</summary>
+    KillFeed = 42,
+
+    /// <summary>The bot looked at a static item spawn: Code the spawn's index, Code2 1 if the item was there.</summary>
+    ItemSeen = 43,
 }
 
 /// <summary>What a heard sound was. The binding classifies by sound name.</summary>
@@ -48,6 +57,9 @@ public enum SoundKind : byte
     Pickup,
     Door,
     Physics,
+
+    /// <summary>A weapon's dry click: the shooter pulled the trigger on an empty clip.</summary>
+    DryFire,
 }
 
 /// <summary>Which part of a reload a bot saw (the animation a client renders).</summary>
@@ -102,14 +114,30 @@ public readonly record struct AiEvent(
     public static AiEvent SightLost(ActorId bot, Tick tick, ActorId target, AiVector lastPos, AiVector lastVel)
         => new(AiEventKind.SightLost, bot, tick, target, lastPos, lastVel, 0f, 0, 0);
 
-    public static AiEvent SeenFire(ActorId bot, Tick tick, ActorId shooter, int weaponKind)
-        => new(AiEventKind.SeenFire, bot, tick, shooter, default, default, 0f, 0, weaponKind);
+    /// <summary>The bot saw <paramref name="shooter"/> fire <paramref name="rounds"/> rounds (the muzzle flash a client draws, §4.5).</summary>
+    public static AiEvent SeenFire(ActorId bot, Tick tick, ActorId shooter, int weaponKind, int rounds = 1)
+        => new(AiEventKind.SeenFire, bot, tick, shooter, default, default, 0f, rounds, weaponKind);
 
-    public static AiEvent SeenReload(ActorId bot, Tick tick, ActorId actor, ReloadPhase phase)
-        => new(AiEventKind.SeenReload, bot, tick, actor, default, default, 0f, (int)phase, 0);
+    /// <summary>The bot saw <paramref name="actor"/>'s reload gesture (§4.5); <paramref name="rounds"/> is the shells a loop put in.</summary>
+    public static AiEvent SeenReload(ActorId bot, Tick tick, ActorId actor, ReloadPhase phase, int weaponKind = -1, int rounds = 0)
+        => new(AiEventKind.SeenReload, bot, tick, actor, default, default, rounds, (int)phase, weaponKind);
 
     public static AiEvent Damaged(ActorId bot, Tick tick, ActorId attacker, float amount, AiVector dirFromBot, int damageType)
         => new(AiEventKind.Damaged, bot, tick, attacker, dirFromBot, default, amount, damageType, 0);
+
+    /// <summary>The bot's own hit took <paramref name="amount"/> health from <paramref name="victim"/>.</summary>
+    public static AiEvent DealtDamage(ActorId bot, Tick tick, ActorId victim, float amount, int healthLeft)
+        => new(AiEventKind.DealtDamage, bot, tick, victim, default, default, amount, healthLeft, 0);
+
+    /// <summary>The kill feed showed <paramref name="victim"/> killed by <paramref name="killer"/> (none for the world or a suicide); the killer rides in Code and Code2.</summary>
+    public static AiEvent KillFeed(ActorId bot, Tick tick, ActorId victim, ActorId killer)
+        => new(AiEventKind.KillFeed, bot, tick, victim, default, default, 0f, killer.Slot, killer.Serial);
+
+    /// <summary>The killer of a <see cref="AiEventKind.KillFeed"/> event.</summary>
+    public ActorId Killer => Kind == AiEventKind.KillFeed ? new ActorId(Code, Code2) : ActorId.None;
+
+    public static AiEvent ItemSeen(ActorId bot, Tick tick, int item, bool present)
+        => new(AiEventKind.ItemSeen, bot, tick, ActorId.None, default, default, 0f, item, present ? 1 : 0);
 
     public static AiEvent Killed(ActorId bot, Tick tick, ActorId attacker)
         => new(AiEventKind.Killed, bot, tick, attacker, default, default, 0f, 0, 0);
@@ -117,10 +145,14 @@ public readonly record struct AiEvent(
     public static AiEvent Spawned(ActorId bot, Tick tick, AiVector pos)
         => new(AiEventKind.Spawned, bot, tick, ActorId.None, pos, default, 0f, 0, 0);
 
+    /// <summary>The bot picked something up where it stands: <paramref name="itemKind"/> is the binding's code for what (a weapon's catalog type + 1).</summary>
+    public static AiEvent PickedUp(ActorId bot, Tick tick, int itemKind, AiVector pos)
+        => new(AiEventKind.PickedUp, bot, tick, ActorId.None, pos, default, 0f, itemKind, 0);
+
     public static AiEvent CommandRejected(ActorId bot, Tick tick, int seq, RejectReason why)
         => new(AiEventKind.CommandRejected, bot, tick, ActorId.None, default, default, 0f, (int)why, seq);
 
-    /// <summary>One scoreboard row as the bot's HUD shows it: an actor's frags and deaths.</summary>
-    public static AiEvent ScoreboardRow(ActorId bot, Tick tick, ActorId actor, int frags, int deaths)
-        => new(AiEventKind.ScoreboardRow, bot, tick, actor, default, default, 0f, frags, deaths);
+    /// <summary>One scoreboard row as the bot's HUD shows it: an actor's frags, deaths and rank (1 the leader, in <see cref="Amount"/>).</summary>
+    public static AiEvent ScoreboardRow(ActorId bot, Tick tick, ActorId actor, int frags, int deaths, int rank = 0)
+        => new(AiEventKind.ScoreboardRow, bot, tick, actor, default, default, rank, frags, deaths);
 }

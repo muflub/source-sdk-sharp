@@ -11,7 +11,8 @@ public sealed class DebugServerHooks(IDebugLog log, IDebugBuild build, IDebugEnt
                                    IDebugWorld world, IDebugNetSchema netSchema,
                                    IDebugCounterGroups? counterGroups = null,
                                    IDebugProcess? process = null,
-                                   IDebugCommandRun? commandRun = null) : IDebugServerHooks
+                                   IDebugCommandRun? commandRun = null,
+                                   Func<IReadOnlyList<IDebugRouteProvider>>? routeProviders = null) : IDebugServerHooks
 {
     public IDebugLog Log { get; } = log ?? throw new ArgumentNullException(nameof(log));
 
@@ -36,6 +37,8 @@ public sealed class DebugServerHooks(IDebugLog log, IDebugBuild build, IDebugEnt
     public IDebugProcess Process { get; } = process ?? new NoProcess();
 
     public IDebugCommandRun CommandRun { get; } = commandRun ?? new NoRun();
+
+    public IReadOnlyList<IDebugRouteProvider> RouteProviders => routeProviders?.Invoke() ?? [];
 
     /// <summary>No recorders: a composition that hands none over (the tests' default).</summary>
     private sealed class NoProcess : IDebugProcess

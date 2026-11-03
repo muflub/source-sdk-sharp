@@ -178,8 +178,13 @@ internal static class DefaultForwarders
 #if TEST_SUPPORT_SERVER
     /// <summary>An engine server with no level answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
     internal sealed unsafe class NoEngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine,
-                                                 SourceSharp.Server.Interop.IEdictSlots
+                                                 SourceSharp.Server.Interop.IEdictSlots, SourceSharp.Server.Interop.IFakeClients
     {
+        // No client slots: every bot refused, as a full server refuses one.
+        public int CreateFakeClient(string name) => 0;
+
+        public bool SetFakeClientConVar(int entIndex, string name, string value) => false;
+
         // No allocator: a save is refused, said by the save session.
         public void* SaveAlloc(nuint count, nuint size) => null;
 

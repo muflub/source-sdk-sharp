@@ -45,8 +45,9 @@ public class PhysicsSolverRulesTests
         uint[] stock =
         [
             0x000FABFFu, 0x00020001u, 0x00000001u, 0x000EAAC1u, 0x000EABE1u,
-            0x000C23F1u, 0x000EABB9u, 0x000EB3F9u, 0x000CABF1u, 0x000EE3F9u,
-            0x00000000u, 0x000E8959u, 0x00000080u, 0x000E83F9u, 0x000E8200u,
+            // PLAYER_MOVEMENT and WEAPON without each other: CHL2MPRules and CTFGameRules.
+            0x000C23F1u, 0x000EABB9u, 0x000EB3F9u, 0x000CA3F1u, 0x000EE3F9u,
+            0x00000000u, 0x000E8859u, 0x00000080u, 0x000E83F9u, 0x000E8200u,
             0x000EEBD9u, 0x00000001u, 0x000EEADBu, 0x000EEBF9u, 0x000EEBF9u,
         ];
 

@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# The AI's offline views (plan_hl2mp_ai §7.1, §7.3).
+#
+#   tools/ai-replay nav <map> [--config debug|release] [--scale px-per-unit]
+#       draws the map's derived nav graph from above to
+#       bin/<config>/ai-replay/<map>-nav.png (the per-tree nav: `make map MAP=<map>`)
+#   tools/ai-replay heat <map> <recording.airec> [--every ticks] [--config ..] [--scale ..]
+#       replays the recording with the brains remembering over the map's graph
+#       and writes each bot's beliefs every N ticks (66) as
+#       bin/<config>/ai-replay/<map>-heat/heat-bot<slot>-t<tick>.png
+#
+# Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+dotnet="${DOTNET:-$HOME/.dotnet/dotnet}"
+verb="${1:-}"
+[[ ( "$verb" == "nav" && -n "${2:-}" ) || ( "$verb" == "heat" && -n "${3:-}" ) ]] || { sed -n '2,13p' "$0"; exit 2; }
+map="$2"; shift 2
+recording=""
+if [[ "$verb" == heat ]]; then recording="$(realpath "$1")"; shift; fi
+config=debug; scale=0.25; every=66
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --config) config="$2"; shift 2 ;;
+    --scale) scale="$2"; shift 2 ;;
+    --every) every="$2"; shift 2 ;;
+    *) echo "ai-replay: unknown argument $1" >&2; exit 2 ;;
+  esac
+done
+maps="$root/bin/$config/mods/test/maps"
+[[ -f "$maps/$map.nav3d" ]] || { echo "ai-replay: no $maps/$map.nav3d: make map MAP=$map" >&2; exit 1; }
+out="$root/bin/$config/ai-replay"
+mkdir -p "$out"
+cfg=Debug; [[ "$config" == release ]] && cfg=Release
+"$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+dll="$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll"
+if [[ "$verb" == nav ]]; then
+  "$dotnet" "$dll" nav "$maps/$map.nav3d" "$maps/$map.bsp" "$out/$map-nav.png" "$scale"
+else
+  [[ -f "$recording" ]] || { echo "ai-replay: no recording $recording" >&2; exit 1; }
+  "$dotnet" "$dll" heat "$maps/$map.nav3d" "$maps/$map.bsp" "$recording" "$out/$map-heat" "$every" "$scale"
+fi

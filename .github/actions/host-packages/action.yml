@@ -34,8 +34,14 @@ runs:
         beside="$(cd "$ws/.." && pwd)"
         git clone -q --depth 1 --branch "${{ inputs.host-ref }}" \
           https://github.com/muflub/source-sdk-sharp-host "$beside/source-sdk-sharp-host"
-        git clone -q --depth 1 \
-          https://github.com/muflub/source-sdk-sharp-map-tools "$beside/source-sdk-map-tools"
+        # The map tools at maptools.lock: the AI restores SourceSharp.MapFormats
+        # from their feed, and `make setup` refuses a checkout at another commit.
+        lock="$(cut -c1-40 "$ws/maptools.lock")"
+        git init -q "$beside/source-sdk-map-tools"
+        git -C "$beside/source-sdk-map-tools" fetch -q --depth 1 \
+          https://github.com/muflub/source-sdk-sharp-map-tools "$lock"
+        git -C "$beside/source-sdk-map-tools" checkout -q --detach FETCH_HEAD
+        echo "map-tools: $(git -C "$beside/source-sdk-map-tools" log --oneline -1)"
         echo "host: $(git -C "$beside/source-sdk-sharp-host" log --oneline -1)"
         printf '<Project>\n  <PropertyGroup>\n    <MapToolsRoot>%s/</MapToolsRoot>\n  </PropertyGroup>\n</Project>\n' \
           "$beside/source-sdk-map-tools" > "$beside/source-sdk-sharp-host/roots.props"
@@ -57,3 +63,15 @@ runs:
           test -f "$host/bin/nupkg/$want.nupkg" \
             || { echo "::error::the host packs no $want.nupkg: this tree pins a version the host at ${{ inputs.host-ref }} does not build"; exit 1; }
         done
+
+    - name: Pack SourceSharp.MapFormats (the AI's .nav3d reader) at maptools.lock
+      shell: bash
+      run: |
+        set -euo pipefail
+        ws="$(cygpath -u "$GITHUB_WORKSPACE" 2> /dev/null || echo "$GITHUB_WORKSPACE")"
+        mt="$(cd "$ws/.." && pwd)/source-sdk-map-tools"
+        want="$(sed -n 's:.*<MapFormatsVersion>\(.*\)</MapFormatsVersion>.*:\1:p' "$ws/src/ai/Directory.Build.props")"
+        [[ -n "$want" ]] || { echo "::error::no MapFormatsVersion in src/ai/Directory.Build.props"; exit 1; }
+        DOTNET=dotnet bash "$mt/tools/pack-mapformats.sh"
+        test -f "$mt/bin/nupkg/SourceSharp.MapFormats.$want.nupkg" \
+          || { echo "::error::map-tools at maptools.lock packs no SourceSharp.MapFormats.$want.nupkg"; exit 1; }

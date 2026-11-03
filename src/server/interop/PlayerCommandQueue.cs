@@ -5,6 +5,8 @@
 //
 //=============================================================================//
 
+using SourceSharp.Server.Interop;
+
 namespace SourceSharp.Abi;
 
 /// <summary>
@@ -388,7 +390,7 @@ public sealed unsafe class PlayerCommandQueue
     /// </param>
     internal int Run(EntityHandle player, int nativeCount, PlayerCommandStage stage,
                      EngineSide? side, ISideModule? module, IServerModule? serverModule, bool shadowEnabled)
-        => Run(player, nativeCount, new ModuleSink(module, serverModule), stage, shadowEnabled, side);
+        => Run(player, nativeCount, new ModuleSink(module, serverModule, Observers, _log), stage, shadowEnabled, side);
 
     /// <inheritdoc cref="Run(EntityHandle,int,PlayerCommandStage,EngineSide,ISideModule,IServerModule,bool)"/>
     /// <param name="sink">
@@ -506,15 +508,41 @@ public sealed unsafe class PlayerCommandQueue
     {
         private readonly ISideModule? _module;
         private readonly IServerModule? _server;
+        private readonly IHooks<IPlayerCommandObserver>? _observers;
+        private readonly ILog _log;
 
-        public ModuleSink(ISideModule? module, IServerModule? server)
+        public ModuleSink(ISideModule? module, IServerModule? server, IHooks<IPlayerCommandObserver>? observers, ILog log)
         {
             _module = module;
             _server = server;
+            _observers = observers;
+            _log = log;
         }
 
         public void Command(EntityHandle player, in UserCmd cmd, int phase)
-            => _module?.OnStandalonePlayerCommand(player, in cmd, phase, true);
+        {
+            if (phase == 0 && _observers is not null)
+                Observe(player, in cmd);
+            _module?.OnStandalonePlayerCommand(player, in cmd, phase, true);
+        }
+
+        // An index walk, not Each: Each takes a closure, which would allocate
+        // per command per player, and `in` cannot be captured.
+        private void Observe(EntityHandle player, in UserCmd cmd)
+        {
+            IReadOnlyList<IPlayerCommandObserver> all = _observers!.All;
+            for (int i = 0; i < all.Count; i++)
+            {
+                try
+                {
+                    all[i].OnCommand(player, in cmd);
+                }
+                catch (Exception e)
+                {
+                    _log.Warning($"[SourceSharp] {all[i].GetType().Name}.OnCommand threw: {e}\n");
+                }
+            }
+        }
 
         public void Buttons(EntityHandle player, int buttons)
             => _server?.OnPlayerRunCommand(player, buttons);
@@ -562,6 +590,13 @@ public sealed unsafe class PlayerCommandQueue
         _queued = 0;
         _ran = 0;
     }
+
+    /// <summary>
+    /// Every command's observers (<see cref="IPlayerCommandObserver"/>), called
+    /// by the shipped sink at phase 0; null calls none. Set by the composition
+    /// that owns this queue.
+    /// </summary>
+    public IHooks<IPlayerCommandObserver>? Observers { get; set; }
 
     /// <summary>
     /// The player physics shadow's run state this queue steps (statics to

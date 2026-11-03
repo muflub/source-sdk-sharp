@@ -11,7 +11,7 @@ import type { Connection, StatusState } from '../hooks/useStatus';
 import type { InstancesState } from '../hooks/useInstances';
 import { BuildStamp } from './BuildStamp';
 
-export const TABS = ['logs', 'commands', 'convars', 'services', 'map', 'mapfile', 'scripted', 'nettables', 'prediction', 'mockups'] as const;
+export const TABS = ['logs', 'commands', 'convars', 'services', 'map', 'mapfile', 'scripted', 'nettables', 'prediction', 'mockups', 'ai'] as const;
 export type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
@@ -25,6 +25,7 @@ const TAB_LABELS: Record<Tab, string> = {
   nettables: 'Net tables',
   prediction: 'Prediction',
   mockups: 'Mockups',
+  ai: 'AI',
 };
 
 export function Header({ status, instances, rebuilt, onSelectInstance }: {

@@ -170,6 +170,29 @@ public class PlayerNamesTests
         Assert.Equal("<BOB>", scores.Player(0).Name);
         Assert.True(scores.Player(0).Bot);
     }
+
+    /// <summary>
+    /// The player's scoreboard tag (a bot's skill beside its name, user ruling
+    /// 2026-11-01) reaches the scoreboard's row from the player resource, and
+    /// a changed tag is read again.
+    /// </summary>
+    [Fact]
+    public void TheScoreboardShowsThePlayersTag()
+    {
+        var engine = Fake().Returns("Hud.LocalPlayerIndex", 1).Returns("Environment.Globals", default(Globals))
+                          .Returns("Console.FindConVarValue", (string?)null);
+        Standalones standalones = BobConnected();
+        var resource = (Client.Standalone.ClientPlayerResource)standalones.All[0];
+        resource.State.SetTag(2, "(Hard)");
+        var scores = new ScoreboardUi(standalones, engine, new DefaultForwarders.NoEngineClient(), Names(), engine, engine);
+
+        scores.Refresh();
+        string first = scores.Player(0).Tag;
+        resource.State.SetTag(2, "(Custom 45)");
+        scores.Refresh();
+
+        Assert.Equal(("(Hard)", "(Custom 45)"), (first, scores.Player(0).Tag));
+    }
 }
 
 /// <summary>

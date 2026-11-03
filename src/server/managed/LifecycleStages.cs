@@ -349,6 +349,13 @@ public enum LifecycleStage
     /// others does not matter; the value is the next free hundred.
     /// </summary>
     ResponseRules = 2400,
+
+    /// <summary>
+    /// BotPlayers (plan_hl2mp_ai §3.1): forgets a bot when its client
+    /// leaves. Only a client order; nothing else reads its bots, so the value
+    /// is the next free hundred.
+    /// </summary>
+    BotPlayers = 2500,
 }
 
 /// <summary>

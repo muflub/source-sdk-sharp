@@ -5,10 +5,18 @@
     (SS0010-SS0013: the core reached only by injection) and the static-state
     one (Directory.Build.props).
   -->
+  <PropertyGroup>
+    <!-- The bootstrap loads assemblies by simple name from bin/<config>/bin/managed,
+         so SourceSharp.MapFormats must be copied there: a class library does not
+         copy its packages by default. -->
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <!-- map-tools' .nav3d reader (§6.1), from MAPTOOLS_DIR/bin/nupkg (src/ai/Directory.Build.props). -->
+    <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
     <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\..\server\managed\SourceSharp.Server.csproj" />

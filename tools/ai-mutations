@@ -24,14 +24,27 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOTNET = os.environ.get("DOTNET", os.path.expanduser("~/.dotnet/dotnet"))
-PROJECT = os.path.join(ROOT, "src", "ai", "tests", "SourceSharp.Ai.Tests.csproj")
-DLL = os.path.join(ROOT, "bin", "debug", "ai-tests", "SourceSharp.Ai.Tests.dll")
-# The AI's assemblies as the test run loads them: a mutant must change one.
-BUILT = [os.path.join(ROOT, "bin", "debug", "ai-tests", n) for n in ("SourceSharp.Ai.dll", "SourceSharp.Ai.Hl2mp.dll")]
+# Each test project an arm can run: its project, its test assembly, and the
+# subject assemblies as the run loads them (a mutant must change one). The AI's
+# own facts are "ai"; the core services the AI needs (§3.1, §3.2) are held by
+# the server's facts.
+PROJECTS = {
+    "ai": (os.path.join(ROOT, "src", "ai", "tests", "SourceSharp.Ai.Tests.csproj"),
+           os.path.join(ROOT, "bin", "debug", "ai-tests", "SourceSharp.Ai.Tests.dll"),
+           [os.path.join(ROOT, "bin", "debug", "ai-tests", n) for n in ("SourceSharp.Ai.dll", "SourceSharp.Ai.Hl2mp.dll", "SourceSharp.Ai.Replay.dll")]),
+    "server": (os.path.join(ROOT, "src", "test", "server", "SourceSharp.Server.Tests.csproj"),
+               os.path.join(ROOT, "bin", "debug", "tests-server", "SourceSharp.Server.Tests.dll"),
+               [os.path.join(ROOT, "bin", "debug", "tests-server", n)
+                for n in ("SourceSharp.Server.dll", "SourceSharp.Server.Interop.dll", "Debug.Api.Server.dll")]),
+    "client": (os.path.join(ROOT, "src", "test", "client", "SourceSharp.Client.Tests.csproj"),
+               os.path.join(ROOT, "bin", "debug", "tests-client", "SourceSharp.Client.Tests.dll"),
+               [os.path.join(ROOT, "bin", "debug", "tests-client", n)
+                for n in ("SourceSharp.Client.dll", "SourceSharp.Client.Ui.Toolkit.dll")]),
+}
 
 
-def built_digest():
-    return [digest(p) for p in BUILT]
+def built_digest(project="ai"):
+    return [digest(p) for p in PROJECTS[project][2]]
 
 
 def path(rel):
@@ -43,17 +56,17 @@ def digest(p):
         return hashlib.sha256(f.read()).hexdigest()
 
 
-def build():
-    p = subprocess.run([DOTNET, "build", PROJECT, "-v", "q", "--nologo", "-c", "Debug"],
+def build(project="ai"):
+    p = subprocess.run([DOTNET, "build", PROJECTS[project][0], "-v", "q", "--nologo", "-c", "Debug"],
                        cwd=ROOT, capture_output=True, text=True)
     if p.returncode != 0:
         tail = "\n".join(l for l in p.stdout.splitlines() if "error" in l)[:2000]
         raise SystemExit("ai-mutations: the build failed:\n" + tail)
 
 
-def run(filt):
+def run(filt, project="ai"):
     """(failed, passed) of the facts the filter names; a run that ran none is an error."""
-    p = subprocess.run([DOTNET, "test", DLL, "--nologo", "--filter", filt],
+    p = subprocess.run([DOTNET, "test", PROJECTS[project][1], "--nologo", "--filter", filt],
                        cwd=ROOT, capture_output=True, text=True)
     m = re.search(r"Failed:\s*(\d+), Passed:\s*(\d+)", p.stdout)
     failed, passed = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
@@ -175,45 +188,320 @@ ARMS = {
                   [Edit("src/ai/core/Nav/NavGraph.cs", "* (a.CostMultiplier + b.CostMultiplier) * 0.5f + extraCost;", "* (a.CostMultiplier + b.CostMultiplier) * 0.5f;")],
                   "FullyQualifiedName~FlowFieldTests.ADoorCosts", True),
     "jump-split": ("the derivation calls a crouch jump a jump",
-                   [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "                else if (rise <= n.MaxJumpRise)", "                else if (rise <= n.MaxCrouchJumpRise)")],
+                   [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "                                : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump\n                                : rise > 0f ? NavEdgeType.Jump",
+                         "                                : rise > n.MaxCrouchJumpRise ? NavEdgeType.CrouchJump\n                                : rise > 0f ? NavEdgeType.Jump")],
                    "FullyQualifiedName~NavGraphFromNav3dTests.AFiftyUnitLedgeIsACrouchJumpUp", True),
     "door-edge": ("the derivation walks through doors",
-                  [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "door >= 0 ? NavEdgeType.Door : NavEdgeType.Walk", "NavEdgeType.Walk")],
+                  [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "            type = NavEdgeType.Door;\n", "            type = NavEdgeType.Walk;\n")],
                   "FullyQualifiedName~NavGraphFromNav3dTests.ADoorsLeafIsReachedByADoorEdgeOfItsObstacle", True),
     "crouch-class": ("the derivation lets a standing body under a low ceiling",
-                     [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "n.HullWidth, n.StandHeight, shut: false)", "n.HullWidth, n.CrouchHeight, shut: false)")],
+                     [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "classes = src.Stands(leaf, n.HullWidth, n.StandHeight)", "classes = src.Stands(leaf, n.HullWidth, n.CrouchHeight)")],
                      "FullyQualifiedName~NavGraphFromNav3dTests.AFortyUnitCeilingIsACrouchOnlyCell", True),
+    "near-move": ("the derivation never crosses a step's foot",
+                  [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "for (int k = 1; k <= 2; k++)", "for (int k = 1; k <= 1; k++)")],
+                  "FullyQualifiedName~Nav3dFixtureTests.AnEighteenUnitStepIsWalkedUpAndDown", True),
+    "centre-fit": ("the adapter asks the plain fit (origin anywhere in the voxel)",
+                   [Edit("src/ai/hl2mp/server/Nav/Nav3dNavSource.cs",
+                         "public bool Stands(int leaf, float width, float height) => reader.StandableAtCentre(leaf, width, height, Player);",
+                         "public bool Stands(int leaf, float width, float height) => reader.Standable(leaf, reader.Leaf(leaf).ZLo, width, height, Player);")],
+                   "FullyQualifiedName~Nav3dFixtureTests.ThePlacesAreMapToolsPlaces", True),
+    "obstacle-reach": ("an obstacle takes every leaf its records name",
+                       [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs",
+                             "                if (src.StandsWithShut(leaf, o, n.HullWidth, height))\n                    continue;\n", "")],
+                       "FullyQualifiedName~Nav3dFixtureTests.OnlyTheLeavesTheDoorTakesCarryIt", True),
+    "reader-version": ("the cache would name another reader version",
+                       [Edit("src/ai/hl2mp/server/Nav/NavReaderVersion.cs", 'return $"{v.Major}.{v.Minor}.{v.Build}";', 'return "1.0.0";')],
+                       "FullyQualifiedName~MapFormatsPackageTests.TheAssemblyIsThePinnedPackageVersion", True),
+    "nav-bsp-bind": ("a nav built from another bsp loads",
+                     [Edit("src/ai/hl2mp/server/Nav/NavLoader.cs", "        else if (!reader.MatchesBsp(bsp))", "        else if (false && !reader.MatchesBsp(bsp))")],
+                     "FullyQualifiedName~NavLoaderTests.ANavBuiltFromAnotherBspIsRefusedByName", True),
+    "nav-missing": ("a missing nav is not refused",
+                    [Edit("src/ai/hl2mp/server/Hl2mpBots.cs", "        if (_nav.Refusal is { } refused)\n            return refused;\n", "")],
+                    "FullyQualifiedName~BotCommandsTests.WithNoNavigationNoBotIsAddedAndTheRefusalIsSaid", True),
+    "cache-name": ("the cache is named without the nav's hash",
+                   [Edit("src/ai/hl2mp/server/Nav/NavGraphCache.cs", "{map}-{bspSha256[..16]}-{navSha256[..16]}-v", "{map}-{bspSha256[..16]}-v")],
+                   "FullyQualifiedName~NavCacheTests.AOneByteChangeToTheNavDerivesAgain", True),
+    "cache-header": ("the cache trusts its file name",
+                     [Edit("src/ai/hl2mp/server/Nav/NavGraphCache.cs", "if (version != NavReaderVersion.Package || bsp != bspSha256 || nav != navSha256 || name != map)",
+                           "if (false)")],
+                     "FullyQualifiedName~NavCacheTests.ACacheWhoseHeaderNamesOtherFilesIsIgnoredAndRewritten", True),
+    "sight-ray": ("the sight ray passes through walls",
+                  [Edit("src/ai/hl2mp/server/Nav/NavSight.cs", "            if (!space.Free(a + (b - a) * t))\n                return false;", "            _ = t;")],
+                  "FullyQualifiedName~NavSightTests.TheWallHidesOneSideFromTheOther", True),
+    "door-state": ("a shut door never blocks",
+                   [Edit("src/ai/hl2mp/server/Nav/NavObstacles.cs", "NavObstacleKind.Door => s.Moved < Shut && s.Turned < Shut,", "NavObstacleKind.Door => false,")],
+                   "FullyQualifiedName~NavObstaclesTests.TheTrackerBlocksTheShutDoorAndOpensItWhenItMoves", True),
+    "validator-blind": ("the validator passes any mismatch rate",
+                        [Edit("src/ai/hl2mp/server/Nav/NavValidator.cs", "public bool Passed => Asked > 0 && Rate <= Ceiling;", "public bool Passed => Asked > 0;")],
+                        "FullyQualifiedName~NavValidatorTests.FloorsThatMovedThirtyTwoUnitsFailIt", True),
+    "validator-standing": ("the validator's standing arm counts no mismatch",
+                           [Edit("src/ai/hl2mp/server/Nav/NavValidator.cs", "                standingBad++;\n", "")],
+                           "FullyQualifiedName~NavValidatorTests.FloorsRaisedThirtyTwoUnitsFailTheStandingArm", True),
+    "validator-floor": ("the validator's floor arm counts no phantom floor",
+                        [Edit("src/ai/hl2mp/server/Nav/NavValidator.cs", "                floorBad++;\n", "")],
+                        "FullyQualifiedName~NavValidatorTests.APlatformTheWorldLacksFailsTheFloorArm", True),
+    "validator-solid": ("the validator's solid arm counts no open solid",
+                        [Edit("src/ai/hl2mp/server/Nav/NavValidator.cs", "                solidBad++;\n", "")],
+                        "FullyQualifiedName~NavValidatorTests.AFloorTheWorldHasThinnerFailsTheSolidArm", True),
+    "follow-jump": ("the follower walks at a jump edge",
+                    [Edit("src/ai/hl2mp/server/Nav/NavFollower.cs", "            NavEdgeType.Jump => MoveKind.Jump,\n", "")],
+                    "FullyQualifiedName~NavFollowerTests.AtALedgesTakeOffItJumps", True),
+    "follow-crouch": ("the follower stands into a crawlspace",
+                      [Edit("src/ai/hl2mp/server/Nav/NavFollower.cs", "                crouch = true;\n", "                crouch = false;\n")],
+                      "FullyQualifiedName~NavFollowerTests.IntoTheCrawlspaceItDucks", True),
+    "nav-json-state": ("/ai/nav reports every obstacle open",
+                       [Edit("src/ai/hl2mp/server/Nav/AiDebugRoutes.cs", "o < obstacles.Count && obstacles.Blocking(o) ? \"true\" : \"false\"", "\"false\"")],
+                       "FullyQualifiedName~AiDebugRoutesTests.NavCarriesEveryCellAndNonWalkLinkAndTheObstacleState", True),
+    "nav-png-colour": ("the nav picture draws a crawlspace as a standing floor",
+                       [Edit("src/ai/replay/NavPng.cs", ": c.CrouchOnly ? ((byte)242, (byte)199, (byte)64) : ((byte)77, (byte)199, (byte)107);",
+                             ": ((byte)77, (byte)199, (byte)107);")],
+                       "FullyQualifiedName~NavPngTests", True),
+    "ss-ai-nav-split": ("the derivation calls ss_ai_nav's crouch jump a jump",
+                        [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "                                : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump\n                                : rise > 0f ? NavEdgeType.Jump",
+                              "                                : rise > n.MaxCrouchJumpRise ? NavEdgeType.CrouchJump\n                                : rise > 0f ? NavEdgeType.Jump"),
+                         Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "                        : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump\n                        : rise > 0f || link.Columns > 1", "                        : rise > n.MaxCrouchJumpRise ? NavEdgeType.CrouchJump\n                        : rise > 0f || link.Columns > 1")],
+                        "FullyQualifiedName~SsAiNavTests.The357IsACrouchJumpUp", True),
+    "name-pool-side": ("a trait draws from its other pool",
+                       [Edit("src/ai/core/Skills/BotNames.cs", "? trait.High ? p.High : p.Low", "? trait.High ? p.Low : p.High")],
+                       "FullyQualifiedName~BotNamerTests.AHighTraitDrawsFromItsHighPool|FullyQualifiedName~BotNamerTests.ALowTraitDrawsFromItsLowPool", True),
+    "name-low-trait": ("only a skill above the even spread can be a trait",
+                       [Edit("src/ai/core/Skills/BotNames.cs", "            float size = MathF.Abs(d);", "            float size = d;")],
+                       "FullyQualifiedName~BotNamerTests.ALowTraitDrawsFromItsLowPool", True),
+    "name-tie": ("a tie ignores the seed",
+                 [Edit("src/ai/core/Skills/BotNames.cs", "return tied[(int)(seed % (ulong)tied.Count)];", "return tied[0];")],
+                 "FullyQualifiedName~BotNamerTests.ATieGoesBySkillOrderThenTheSeed", True),
+    "name-seed": ("the name ignores the seed's stream",
+                  [Edit("src/ai/core/Skills/BotNames.cs", "        var rng = new AiRandom(seed);", "        var rng = new AiRandom((ulong)Guid.NewGuid().GetHashCode());")],
+                  "FullyQualifiedName~BotNamerTests.TheSameSeedGivesTheSameName", True),
+    "name-unique": ("a taken name is given again",
+                    [Edit("src/ai/core/Skills/BotNames.cs", "            if (!taken.Contains(name))\n                return name;\n        }", "            if (draw >= 0 || !taken.Contains(name))\n                return name;\n        }")],
+                    "FullyQualifiedName~BotNamerTests.ThirtyTwoBotsOfOneProfileHaveThirtyTwoNames|FullyQualifiedName~BotNamerTests.AStuffedPoolFallsBackToANumeral", True),
+    "name-length": ("a long name is not cut",
+                    [Edit("src/ai/core/Skills/BotNames.cs", "        return (first.Length > room ? first[..room].TrimEnd() : first) + tail;", "        return first + tail;")],
+                    "FullyQualifiedName~BotNamerTests.ANameFitsTheEnginesLimitCuttingTheFirstNameFirst", True),
+    "name-data": ("the data file gains an entry too long to fit",
+                  [Edit("game/mod_test/scripts/ai/hl2mp_bot_names.json", '"Sniper",', '"Sniper Who Never Ever Misses Once",')],
+                  "FullyQualifiedName~BotNamerTests.EveryEntryOfTheDataFileFitsBesideTheShortestFirstName", False),
+    "name-tag-word": ("the data file gains a phrase with a skill tag word",
+                      [Edit("game/mod_test/scripts/ai/hl2mp_bot_names.json", '"Wide Open"', '"Easy Mark"')],
+                      "FullyQualifiedName~BotNamerTests.NoFirstNameOrPhraseOfTheDataFileContainsASkillTagWord", False),
+    "name-given": ("a given name is replaced by a drawn one",
+                   [Edit("src/ai/hl2mp/server/Hl2mpBots.cs", "        if (name is null)\n        {\n            if (_names.Pools", "        if (name is null || name.Length > 0)\n        {\n            if (_names.Pools")],
+                   "FullyQualifiedName~BotCommandsTests.AGivenNameIsUsedAsGiven", True),
+    "name-tag": ("the binding never labels its bots",
+                 [Edit("src/ai/hl2mp/server/Hl2mpBots.cs", "        _tags.Set(player, label);\n", "")],
+                 "FullyQualifiedName~BotCommandsTests.AnUnnamedBotIsNamedByItsTraitAndTaggedWithItsPreset", True),
+    "turn-clamp": ("the envelope lets any turn speed through",
+                   [Edit("src/ai/core/Motion/HumanMotion.cs",
+                         "        Math.Clamp(p.TurnPeakDegPerSec, MinPeakDegPerSec, MaxPeakDegPerSec),",
+                         "        p.TurnPeakDegPerSec,")],
+                   "FullyQualifiedName~HumanMotionTests.ACurveOutsideTheEnvelopeIsClamped"
+                   "|FullyQualifiedName~BotCommandApplierTests.NoCommandTurnsTheViewFasterThanTheEnvelopeWhateverTheCurve", True),
+    "pool-refusal-server": ("ai_bot_add judges skills= against a pool other than the standard one",
+                            [Edit("src/ai/hl2mp/server/Commands/BotCommands.cs",
+                                  "return StandardSkills.StandardPool().TryParse(",
+                                  "return new SkillPool(StandardSkills.Ten, 1000, 1000).TryParse(")],
+                            "FullyQualifiedName~BotCommandsTests.AnOverspentSkillsListIsRefusedOnTheServerAndAddsNoBot", True),
+    "applier-allow-list": ("the applier places a player outside its usercmd",
+                           [Edit("src/ai/hl2mp/server/Apply/BotCommandApplier.cs",
+                                 "    private BotState? Find(int slot)\n",
+                                 "    internal static void Snap(IEnginePlayers players, EntityHandle player)\n"
+                                 "        => players.PlaceAtSpawn(player, default, default);\n\n"
+                                 "    private BotState? Find(int slot)\n")],
+                           "FullyQualifiedName~ApplierAllowListTests", True),
+    "item-collide": ("a player's movement collides with weapons and items again",
+                     [Edit("src/shared/managed/CollisionRules.cs",
+                           "        if ((a == EngineCollisionGroup.Player || a == EngineCollisionGroup.PlayerMovement)\n            && b == EngineCollisionGroup.Weapon)\n            return false;\n\n        // Players do not collide",
+                           "        // Players do not collide")],
+                     "FullyQualifiedName~CollisionRulesTests.APlayersMovementPassesThroughWeaponsAndItems",
+                     True, "server"),
+    "route-provider": ("the dev API never asks a mod's route provider",
+                       [Edit("src/debug_api/DebugApiServer.cs",
+                             "                if (TryProvider(request, out HttpReply provided))\n                    return provided;\n", "")],
+                       "FullyQualifiedName~DebugApiRouteProviderTests.AProvidersPathIsAnsweredByItOnTheGameThread",
+                       True, "server"),
+    "tag-row": ("the player resource does not network a player's scoreboard tag",
+                [Edit("src/server/managed/Entities/PlayerResource.cs", "        State.SetTag(slot, Tags?.TagOf(player));\n", "")],
+                "FullyQualifiedName~PlayerResourceTests.AConnectedRowCarriesThePlayersTag", True, "server"),
+    "tag-client": ("the scoreboard source drops the tag",
+                   [Edit("src/client/managed/Ui/MenuSources.cs", "slot == local, TagOf(state, slot));", "slot == local);")],
+                   "FullyQualifiedName~PlayerNamesTests.TheScoreboardShowsThePlayersTag", True, "client"),
+    "fake-fixangle": ("a bot's command keeps a fixangle the engine never sends it",
+                      [Edit("src/server/interop/ServerPlayerCommands.cs",
+                            "int pendingFix = _fakeClient && _facts.FixAngle",
+                            "int pendingFix = !_fakeClient && _facts.FixAngle")],
+                      "FullyQualifiedName~PlayerCommandRunnerTests.ABotsAbsoluteFixAngleCountsAsDeliveredAndItsCommandTurnsIt",
+                      True, "server"),
+    "clock-restore": ("the bot runner leaves the command's clock in the frame",
+                      [Edit("src/server/interop/PlayerCommandRunner.cs",
+                            "            if (g.IsAvailable)\n                g.SetClock(curTime, frameTime);\n", "")],
+                      "FullyQualifiedName~PlayerCommandRunnerTests.TheFramesClockIsPutBackAfterTheBatch", True, "server"),
+    "no-pvs": ("the vision pass skips the engine's PVS stage",
+               [Edit("src/ai/hl2mp/server/Senses/VisionPass.cs",
+                     "        if (!players.BoxInPvs(b.Player, mins, maxs))\n            return SightStage.Pvs;\n", "        _ = players;\n")],
+               "FullyQualifiedName~VisionPassTests.AnOpponentOutsideThePvsIsNotSeenThoughTheLineIsClear", True),
+    "no-cone": ("the vision pass sees behind the bot",
+                [Edit("src/ai/hl2mp/server/Senses/VisionPass.cs",
+                      "        if (!VisionMath.InCone(eye, forward, centre, b.Vision.FovDeg))\n            return SightStage.Cone;\n", "")],
+                "FullyQualifiedName~VisionPassTests.AnOpponentOutsideTheConeIsNotSeenEvenTenUnitsAway", True),
+    "no-recognition": ("a clear line is recognised at once",
+                       [Edit("src/ai/core/Perception/Sight.cs",
+                             "pair.ClearTicks >= VisionParams.Ticks(p.RecognizeSeconds, tickSeconds)", "pair.ClearTicks >= 1")],
+                       "FullyQualifiedName~VisionPassTests.ATargetSeenForLessThanTheRecognitionTimeYieldsNoEvent", True),
+    "budget-ignored": ("the trace budget serves every pair whatever the budget",
+                       [Edit("src/ai/core/Perception/Sight.cs", "        if (keys.IsEmpty || budget <= 0)\n            return 0;\n", "        budget = int.MaxValue;\n")],
+                       "FullyQualifiedName~VisionPassTests.ATraceBudgetStarvedForAHundredTicksNeverProducesASight", True),
+    "sight-through-players": ("the sight mask lets lines through players",
+                              [Edit("src/ai/hl2mp/server/Senses/VisionPass.cs",
+                                    "ContentsBlockLos | ContentsMonster | ContentsIgnoreNodrawOpaque;", "ContentsBlockLos | ContentsIgnoreNodrawOpaque;")],
+                              "FullyQualifiedName~VisionPassTests.AnOpponentBehindAnotherPlayerIsNeverSeen", True),
+    "sight-reader": ("a type outside perception reads another player's origin",
+                     [Edit("src/ai/hl2mp/server/Hl2mpBots.cs", "    private sealed record Goto(",
+                           "    internal static Vector Peek(IEngineEntities e, EntityHandle p) => e.GetOrigin(p);\n\n    private sealed record Goto(")],
+                     "FullyQualifiedName~PerceptionCensusTests.OnlyTheNamedTypesReadAnActorsState", True),
+    "true-clip-view": ("the snapshot builder reads another player's true clip",
+                       [Edit("src/ai/hl2mp/server/Senses/SnapshotBuilder.cs", "    public void Build(AiSnapshot snapshot,",
+                             "    internal static int TrueClip(Arsenal a, EntityHandle p) => a.CarriedClipOf(p, 0);\n\n    public void Build(AiSnapshot snapshot,")],
+                       "FullyQualifiedName~PerceptionCensusTests.TheSnapshotBuilderNeverReadsHealthArmourClipOrReserve", True),
+    "sound-hook": ("the sound emitter never tells its hooks of a script's sound",
+                   [Edit("src/shared/managed/SoundEmitterCore.cs",
+                         "        Emitted(filter, entIndex, ep.SoundName ?? wave, parameters.SoundLevel, ep.Origin);\n", "")],
+                   "FullyQualifiedName~SoundEmitHookTests.TheHookSeesTheFinalRecipientsWithoutThePredictingShooter", True, "server"),
+    "no-recipient-check": ("a bot hears a sound it was not sent",
+                           [Edit("src/ai/hl2mp/server/Senses/SoundTap.cs",
+                                 "        if (bot.Slot == sound.Owner || !sound.Recipients.Contains(bot.Slot))\n            return false;",
+                                 "        if (bot.Slot == sound.Owner)\n            return false;")],
+                           "FullyQualifiedName~HearingTests.AGunshotWhoseRecipientsExcludeTheBotIsNotHeard", True),
+    "hear-own-steps": ("a bot hears its own footsteps",
+                       [Edit("src/ai/hl2mp/server/Senses/SoundTap.cs",
+                             "        if (bot.Slot == sound.Owner || !sound.Recipients.Contains(bot.Slot))",
+                             "        if (!sound.Recipients.Contains(bot.Slot))")],
+                       "FullyQualifiedName~HearingTests.ABotsOwnFootstepsAreNeverHeard", True),
+    "weapon-events": ("the arsenal never tells its hooks of a shot or a reload",
+                      [Edit("src/server/managed/Arsenal.cs",
+                            "            TellWeaponEvents(player, weapon.State, clipBefore, before, reloadingBefore);\n", "            _ = clipBefore + (reloadingBefore ? 1 : 0);\n")],
+                      "FullyQualifiedName~PlayerWeaponEventHookTests", True, "server"),
+    "seen-unsighted": ("a bot sees the shot of a player it cannot see",
+                       [Edit("src/ai/hl2mp/server/Senses/WeaponEventTap.cs", "            if (bot.Slot == slot || !sight.Sees(slot))", "            if (bot.Slot == slot)")],
+                       "FullyQualifiedName~WeaponEventTapTests.AnUnsightedShootersShotIsNoEventForTheBotThatCannotSeeIt", True),
+    "hurt-hook": ("a hit on a player tells no hurt hook",
+                  [Edit("src/server/managed/Entities/Players/SsPlayer.cs",
+                        "            hooks.Each(nameof(IPlayerHurtHook.OnPlayerHurt), h => h.OnPlayerHurt(in hurt));\n", "            _ = hurt;\n")],
+                  "FullyQualifiedName~PlayerHurtEventTests.AHitTellsTheHurtHooksWhoHitWhomForHowMuch", True, "server"),
+    "hit-marker-all": ("every bot is told of a hit, not only the two in it",
+                       [Edit("src/ai/hl2mp/server/Senses/CombatTap.cs", "            else if (b == attacker && victim.IsValid)", "            else if (victim.IsValid)")],
+                       "FullyQualifiedName~CombatTapTests.AHitIsTheVictimsDamageAndTheAttackersHitMarkerAndNobodyElses", True),
+    "rank-order": ("the scoreboard ranks the fewest frags first",
+                   [Edit("src/ai/hl2mp/server/Senses/CombatTap.cs", ".OrderByDescending(i => rows[i].Frags)", ".OrderBy(i => rows[i].Frags)")],
+                   "FullyQualifiedName~CombatTapTests.TheLeaderRanksFirstAndATieGoesToFewerDeaths", True),
+    "confidence-decay": ("confidence never fades",
+                         [Edit("src/ai/core/Memory/Blackboard.cs", "        => halfLife <= 0f ? 0f : confidence * MathF.Pow(2f, -seconds / halfLife);", "        => confidence;")],
+                         "FullyQualifiedName~BotMemoryTests.ConfidenceHalvesEveryMemoryHalfLife", True),
+    "shot-twice": ("a shot heard and seen at once counts twice",
+                   [Edit("src/ai/core/Memory/BotMemory.cs", "        int counted = t.ShotTick == tick ? t.ShotRounds : 0;", "        int counted = 0;")],
+                   "FullyQualifiedName~BotMemoryTests.AShotHeardAndSeenAtOnceIsOneShot", True),
+    "habits-to-disk": ("an opponent's habits are written to a file",
+                       [Edit("src/ai/core/Memory/OpponentHabits.cs", "    public void Camped(CellId cell) => Bump(_camps, cell);",
+                             "    public void Camped(CellId cell) { Bump(_camps, cell); File.AppendAllText(Path.Combine(Path.GetTempPath(), \"ai-habits\"), Opponent); }")],
+                       "FullyQualifiedName~BotMemoryTests.NoMemoryTypeTouchesAFile", True),
+    "ammo-no-shift": ("a perceived shot leaves the estimate where it was",
+                      [Edit("src/ai/core/Memory/AmmoEstimate.cs", "        Max = Math.Max(0, Max - rounds);\n", "")],
+                      "FullyQualifiedName~AmmoEstimateTests.SeventeenHeardShotsLeaveAtMostTwentyEight", True),
+    "reload-audible-all": ("every weapon's reload is heard",
+                           [Edit("src/ai/hl2mp/server/Knowledge/Hl2mpKnowledge.cs", "AudibleReload(w.Behaviour) && w.ReloadSound.Length > 0", "w.ReloadSound.Length > 0")],
+                           "FullyQualifiedName~WeaponKnowledgeTests.TheHeardReloadsAreThoseWhoseBehaviourPlaysTheReloadSoundOnTheServer", True),
+    "crossed-above": ("the derivation's step over a sheer face ignores map-tools' voxel above the feet",
+                      [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs",
+                            "            if (src.FitsAbove(into[i], feet, width, height))\n                return true;",
+                            "            _ = src.FitsAbove(into[i], feet, width, height);")],
+                      "FullyQualifiedName~DmLockdownNavTests.EveryJoinMapToolsMakesIsOneOfOurs", True),
+    "self-in-as": ("a binding service names its own type in its As list",
+                   [Edit("src/ai/hl2mp/server/Senses/CombatTap.cs", "As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook)]",
+                         "As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook), typeof(CombatTap)]")],
+                   "FullyQualifiedName~BindingCompositionTests", True),
+    "stuck-no-reroute": ("a stuck bot keeps steering into the same spot",
+                         [Edit("src/ai/hl2mp/server/Nav/NavFollower.cs", "                _avoided.Add(c);", "                _ = c;")],
+                         "FullyQualifiedName~NavFollowerTests.AStuckBotRoutesRoundWhereItStuck", True),
+    "zero-route-prior": ("the position predictor ignores the route prior",
+                         [Edit("src/ai/core/Predict/PositionPredictor.cs", "public const float PriorWeight = 1f;", "public const float PriorWeight = 0f;")],
+                         "FullyQualifiedName~PositionPredictorTests.TheLearnedRoutePutsMostOfTheMassOnB", True),
+    "lead-ignored": ("the aim lead aims at the target's present place",
+                     [Edit("src/ai/core/Predict/Predictors.cs", "        return target + velocity * (time * Math.Clamp(leadQuality, 0f, 1f));", "        return target + velocity * (0f * time * leadQuality);")],
+                     "FullyQualifiedName~PredictorTests.TheLeadOnACrossingTargetLandsOnTheAnalyticIntercept", True),
+    "push-any-time": ("the push ignores whether the bot gets there before the reload ends",
+                      [Edit("src/ai/core/Predict/Predictors.cs", "        bool push = pEmpty + pReload >= trust && arrive <= left - marginSeconds;", "        bool push = pEmpty + pReload >= trust || arrive < 0f;")],
+                      "FullyQualifiedName~PredictorTests.APerceivedReloadPushesWhenTheBotArrivesInTime", True),
+    "ammo-no-room": ("the ammo range keeps no room for a missed shot",
+                     [Edit("src/ai/core/Memory/AmmoEstimate.cs", "        int room = 1 + (int)MathF.Ceiling(MissShare * _counted);", "        int room = 0 * _counted;")],
+                     "FullyQualifiedName~AmmoAccuracyTests.TheRangeHoldsTheTrueClipMostOfTheTimeInHearing", True),
+    "route-prefix": ("a route ending in a slash serves only itself",
+                     [Edit("src/debug_api/DebugApiServer.cs", "        => routePath == requestPath\n           || (routePath.EndsWith('/')", "        => routePath == requestPath\n           && (routePath.EndsWith('/')")],
+                     "FullyQualifiedName~DebugApiRouteProviderTests.ARouteEndingInASlashServesThePathsUnderIt", True, "server"),
+    "bar-width": ("the inspector's ammo bar is the whole clip whatever the range",
+                  [Edit("src/ai/core/Inspect/BotInspectRecord.cs", "    public float BarWidth => Clip <= 0 ? 0f : (Max - Min) / (float)Clip;", "    public float BarWidth => Clip <= 0 ? 0f : 1f;")],
+                  "FullyQualifiedName~BotInspectTests.TheMemoryPartCarriesTheOpponentAndItsAmmoBarIsTheRange", True),
+    "heat-in-sight": ("ai-replay heat draws the belief of an opponent in sight",
+                      [Edit("src/ai/replay/HeatPng.cs", "if (!a.Known || a.InSight || a.Where is not { Active: true } w)", "if (!a.Known || a.Where is not { Active: true } w)"),
+                       Edit("src/ai/core/Memory/BotMemory.cs", "        a.InSight = true;\n        a.Dead = false;\n        Seen(a, e.Position, e.Velocity, e.Tick);",
+                            "        a.InSight = true;\n        a.Dead = false;\n        a.Where?.LostAt(CellAt(e.Position), default);\n        Seen(a, e.Position, e.Velocity, e.Tick);")],
+                      "FullyQualifiedName~HeatTests.NoHeatWhileSeenThenABeliefThatSpreads", True),
+    "scenario-stale-map": ("a scenario replays a recording made from another map source",
+                           [Edit("game/mod_test/maps/src/ai/ss_ai_sight.vmf", None, "// ai-mutations: the map changed after its recording\n")],
+                           "FullyQualifiedName~SsAiSightScenarioTests.EveryOccluderScenePassesAsTheMapSays", False),
+    "scenario-expect": ("the sight scene behind the wall expects the target seen",
+                        [Edit("src/ai/tests/recordings/ss_ai_sight.json", '"expect": "hidden"\n  },\n  {\n   "name": "window"',
+                              '"expect": "seen"\n  },\n  {\n   "name": "window"')],
+                        "FullyQualifiedName~SsAiSightScenarioTests.EveryOccluderScenePassesAsTheMapSays", False),
+    "belief-unbounded": ("the belief spreads over every cell, for ever",
+                         [Edit("src/ai/core/Predict/PositionPredictor.cs", "    public const int MaxCells = 2048;", "    public const int MaxCells = int.MaxValue;")],
+                         "FullyQualifiedName~PositionPredictorTests.TheBeliefStaysOnABoundedSetOfCellsAndStopsSpreading", True),
+    "memory-self": ("a bot remembers itself from its own scoreboard row",
+                    [Edit("src/ai/core/Memory/BotMemory.cs", "        if (e.Other == Bot && e.Kind is not (AiEventKind.Killed or AiEventKind.Damaged))\n            return;\n", "")],
+                    "FullyQualifiedName~BotMemoryTests.TheBotIsNotAnActorItRemembersAndARowIsNoPlace", True),
+    "sense-cost": ("the vision pass traces every sample point four hundred times",
+                   [Edit("src/ai/hl2mp/server/Senses/VisionPass.cs", "            TraceAnswer t = traces_.Line(from, new Vector(p.X, p.Y, p.Z), SightMask, me.Player);",
+                         "            TraceAnswer t = default;\n            for (int k = 0; k < 400; k++)\n                t = traces_.Line(from, new Vector(p.X, p.Y, p.Z), SightMask, me.Player);")],
+                   "FullyQualifiedName~SenseCostTests.FourBotsAndThreeOthersSenseWithinTheBudget", True),
 }
+
+
+def project_of(name):
+    """The test project an arm's facts are in: its fifth field, or the AI's."""
+    arm = ARMS[name]
+    return arm[4] if len(arm) > 4 else "ai"
 
 
 def main(argv):
     if "--list" in argv:
-        for name, (what, _e, _f, _b) in ARMS.items():
-            print("%-16s %s" % (name, what))
+        for name, arm in ARMS.items():
+            print("%-16s %s" % (name, arm[0]))
         return 0
     names = [a for a in argv if not a.startswith("-")] or list(ARMS)
     unknown = [n for n in names if n not in ARMS]
     if unknown:
         raise SystemExit("ai-mutations: no arm %s (--list)" % ", ".join(unknown))
 
-    build()
+    projects = sorted({project_of(n) for n in names})
+    for proj in projects:
+        build(proj)
     for name in names:
-        failed, passed = run(ARMS[name][2])
+        failed, passed = run(ARMS[name][2], project_of(name))
         if failed:
             raise SystemExit("ai-mutations: %s's facts are red before the mutation (%d failed)" % (name, failed))
 
     bad = []
     for name in names:
-        what, edits, filt, rebuild = ARMS[name]
-        built_before = built_digest()
+        what, edits, filt, rebuild = ARMS[name][:4]
+        proj = project_of(name)
+        built_before = built_digest(proj)
         try:
             for e in edits:
                 e.apply()
             if rebuild:
-                build()
-                if built_digest() == built_before:
-                    raise SystemExit("ai-mutations: %s: no AI assembly changed, so no rebuild took effect" % name)
-            failed, passed = run(filt)
+                build(proj)
+                if built_digest(proj) == built_before:
+                    raise SystemExit("ai-mutations: %s: no subject assembly changed, so no rebuild took effect" % name)
+            failed, passed = run(filt, proj)
         finally:
             for e in reversed(edits):
                 e.restore()
@@ -222,9 +510,10 @@ def main(argv):
         if not failed:
             bad.append(name)
 
-    build()
+    for proj in projects:
+        build(proj)
     for name in names:
-        failed, _ = run(ARMS[name][2])
+        failed, _ = run(ARMS[name][2], project_of(name))
         if failed:
             bad.append(name + " (still red after restore)")
 

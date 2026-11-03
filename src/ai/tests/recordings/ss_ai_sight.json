@@ -1,0 +1,72 @@
+{
+ "map": "ss_ai_sight",
+ "source_sha256": "9b8b6d31973d098d59d2d510daa6da40833c8c584ec32fd40c6d43afd27204e4",
+ "scenes": [
+  {
+   "name": "open",
+   "from": 208,
+   "to": 408,
+   "watcher": 2,
+   "target": 3,
+   "expect": "seen"
+  },
+  {
+   "name": "wall",
+   "from": 424,
+   "to": 622,
+   "watcher": 2,
+   "target": 3,
+   "expect": "hidden"
+  },
+  {
+   "name": "window",
+   "from": 641,
+   "to": 842,
+   "watcher": 2,
+   "target": 3,
+   "expect": "seen"
+  },
+  {
+   "name": "player",
+   "from": 858,
+   "to": 1059,
+   "watcher": 2,
+   "target": 3,
+   "expect": "hidden"
+  },
+  {
+   "name": "door",
+   "from": 1074,
+   "to": 1276,
+   "watcher": 2,
+   "target": 3,
+   "expect": "hidden"
+  },
+  {
+   "name": "crates",
+   "from": 1291,
+   "to": 1492,
+   "watcher": 2,
+   "target": 3,
+   "expect": "hidden"
+  },
+  {
+   "name": "open again",
+   "from": 1506,
+   "to": 1707,
+   "watcher": 2,
+   "target": 3,
+   "expect": "seen"
+  }
+ ],
+ "counters": {
+  "tick": 1709,
+  "ai.sense.us": 79.8,
+  "ai.sense.us.max": 189.4,
+  "ai.publish.us": 2893.8,
+  "ai.sense.ticks": 300,
+  "ai.sense.traces": 30,
+  "ai.sense.traces.total": 45390,
+  "bots": 3
+ }
+}

@@ -48,8 +48,15 @@ public sealed class AiSession : IBrainStepRunner
     /// <summary>How many bots the session holds.</summary>
     public int BotCount { get; private set; }
 
-    /// <summary>Adds a bot with its own seed and skill levels.</summary>
-    public void AddBot(ActorId id, ulong seed, ReadOnlySpan<byte> skillLevels)
+    /// <summary>The map the bots' memories work over (§5.0); set by the binding when a level starts, before its bots.</summary>
+    public MemoryWorld? World { get; set; }
+
+    /// <summary>
+    /// Adds a bot with its own seed and skill levels; with a <see cref="World"/>,
+    /// its brain remembers, its opponents' habits in <paramref name="habits"/>
+    /// (kept by the caller across the bot's lives and the maps, §5.2).
+    /// </summary>
+    public void AddBot(ActorId id, ulong seed, ReadOnlySpan<byte> skillLevels, HabitStore? habits = null)
     {
         if (!id.IsValid)
             throw new ArgumentException("a bot needs a valid actor", nameof(id));
@@ -58,7 +65,16 @@ public sealed class AiSession : IBrainStepRunner
         if (_bots[id.Slot] is { } held)
             throw new InvalidOperationException($"slot {id.Slot} already holds {held.Brain.Bot}");
 
-        _bots[id.Slot] = new Bot(new Brain(id, seed));
+        BotMemory? memory = null;
+        if (World is { } world)
+        {
+            MemoryParams p = skillLevels.Length == StandardSkills.Ten.Length
+                ? MemoryParams.For(new SkillProfile("session", StandardSkills.Ten, [.. skillLevels.ToArray().Select(b => (int)b)]))
+                : new MemoryParams(5f, MemoryParams.HabitHalfLife);
+            memory = new BotMemory(id, _bots.Length, p, world, habits ?? new HabitStore());
+        }
+
+        _bots[id.Slot] = new Bot(new Brain(id, seed, memory));
         BotCount++;
         _sink.BotAdded(id, seed, skillLevels);
     }
@@ -105,6 +121,9 @@ public sealed class AiSession : IBrainStepRunner
             _transport.Dispatch(_job, this);
         }
     }
+
+    /// <summary>The brain in <paramref name="slot"/>, or null.</summary>
+    public Brain? BrainIn(int slot) => (uint)slot < (uint)_bots.Length ? _bots[slot]?.Brain : null;
 
     /// <summary>The bot's newest intent, if it has one.</summary>
     public bool TryLatestIntent(int slot, out IntentCommand intent)

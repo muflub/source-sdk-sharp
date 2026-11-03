@@ -16,8 +16,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import type { MapGeometry } from '../../types';
-import type { Entity } from '../model';
+import { keyOf, type Entity } from '../model';
 import { View, buildEntities, buildWorld, type Drag, type ViewMode } from './renderer';
+import { getAiBot, getAiBots, getAiFlow, getAiNav } from '../../api';
+import { buildConeLayer, buildHeatLayer } from '../../ai/aiInspect';
+import { buildFlowLayer, buildNavLayers, type AiNav } from '../aiNav';
 
 const VIEWS: [ViewMode, string][] = [
   ['persp', '3D'],
@@ -41,6 +44,10 @@ export function ViewportPane({ visible, entities, map, selectedKey, onSelect, lo
   const [note, setNote] = useState('');
 
   const [geometry, setGeometry] = useState<MapGeometry | null>(null);
+
+  // The AI's nav and flow layers (plan_hl2mp_ai §7.1), off until asked for.
+  const [showNav, setShowNav] = useState(false);
+  const [aiNav, setAiNav] = useState<AiNav | null>(null);
   const loadedFor = useRef('');
 
   /*
@@ -157,6 +164,102 @@ export function ViewportPane({ visible, entities, map, selectedKey, onSelect, lo
     draw();
   }, [visible, entities, geometry, selectedKey, draw]);
 
+  useEffect(() => {
+    if (!visible || !showNav) return;
+    let cancelled = false;
+    void getAiNav().then(answer => {
+      if (cancelled) return;
+      if (answer.error || !answer.cell) {
+        setNote(`AI nav: ${answer.error ?? 'not served'}`);
+        setAiNav(null);
+        return;
+      }
+      setAiNav(answer);
+    });
+    return () => { cancelled = true; };
+  }, [visible, showNav, map]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const empty = new Float32Array(0);
+    const layers = showNav && aiNav ? buildNavLayers(aiNav) : null;
+    for (const view of views.current) {
+      view.upload('navCells', layers?.cells.positions ?? empty, layers?.cells.colours ?? empty);
+      view.upload('navLinks', layers?.links.positions ?? empty, layers?.links.colours ?? empty);
+    }
+    draw();
+  }, [visible, showNav, aiNav, draw]);
+
+  // The bots' eyes and beliefs (plan_hl2mp_ai §7.1): each bot's cone and its
+  // lines to every candidate by stage, and every unseen opponent's belief as
+  // a heatmap, polled while the nav layers are on.
+  const [aiTick, setAiTick] = useState(0);
+  useEffect(() => {
+    if (!visible || !showNav) return;
+    const id = setInterval(() => setAiTick(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [visible, showNav]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const empty = new Float32Array(0);
+    if (!showNav || !aiNav) {
+      for (const view of views.current) {
+        view.upload('aiCone', empty, empty);
+        view.upload('aiHeat', empty, empty);
+      }
+      draw();
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const list = await getAiBots();
+      if (cancelled || !Array.isArray(list)) return;
+      const bots = await Promise.all(list.map(b => getAiBot(b.slot)));
+      if (cancelled) return;
+      const cones = bots.filter(b => b.perception).map(b => buildConeLayer(b.perception));
+      const heats = bots.flatMap(b => b.record?.memory?.actors ?? []).filter(a => a.belief && !a.inSight).map(a => buildHeatLayer(aiNav, a.belief!));
+      const join = (layers: { positions: Float32Array; colours: Float32Array }[]) => {
+        const n = layers.reduce((s, l) => s + l.positions.length, 0);
+        const out = { positions: new Float32Array(n), colours: new Float32Array(n) };
+        let at = 0;
+        for (const l of layers) {
+          out.positions.set(l.positions, at);
+          out.colours.set(l.colours, at);
+          at += l.positions.length;
+        }
+        return out;
+      };
+      const cone = join(cones), heat = join(heats);
+      for (const view of views.current) {
+        view.upload('aiCone', cone.positions, cone.colours);
+        view.upload('aiHeat', heat.positions, heat.colours);
+      }
+      draw();
+    })();
+    return () => { cancelled = true; };
+  }, [visible, showNav, aiNav, aiTick, draw]);
+
+  // The flow field to the selected entity: where a bot sent there would go.
+  useEffect(() => {
+    if (!visible) return;
+    const empty = new Float32Array(0);
+    const target = entities.find(e => keyOf(e) === selectedKey);
+    if (!showNav || !aiNav || !target) {
+      for (const view of views.current) view.upload('navFlow', empty, empty);
+      draw();
+      return;
+    }
+    let cancelled = false;
+    void getAiFlow(target.origin[0], target.origin[1], target.origin[2]).then(flow => {
+      if (cancelled || flow.error || !flow.next) return;
+      const layer = buildFlowLayer(aiNav, flow);
+      for (const view of views.current) view.upload('navFlow', layer.positions, layer.colours);
+      draw();
+    });
+    return () => { cancelled = true; };
+  }, [visible, showNav, aiNav, selectedKey, entities, draw]);
+
   //-------------------------------------------------------------------------
   // Orbiting, panning, zooming, picking.
   //
@@ -242,6 +345,11 @@ export function ViewportPane({ visible, entities, map, selectedKey, onSelect, lo
   return (
     <>
       <p className="note" hidden={!note}>{note}</p>
+
+      <label className="note">
+        <input type="checkbox" checked={showNav} onChange={e => setShowNav(e.target.checked)} />
+        {' '}AI nav: cells by who stands there, links by how they are crossed, and the flow field to the selected entity
+      </label>
 
       <div className="viewports" ref={host}>
         {VIEWS.map(([mode, label]) => (

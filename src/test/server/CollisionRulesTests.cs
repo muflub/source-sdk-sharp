@@ -7,7 +7,8 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// The C# collision rules are stock's: the matrix the predicate builds is the
 /// one stock's <c>CGameRules::ShouldCollide</c> answers over all four hundred
-/// pairs, which native once held as its default table and which
+/// pairs, with the one arm both hosted games' rules add (a player's movement
+/// passes through weapons: CHL2MPRules and CTFGameRules), which native once held as its default table and which
 /// <c>PhysicsSolverRulesTests</c> holds for the solver's copy.
 /// </summary>
 public class CollisionRulesTests
@@ -27,10 +28,10 @@ public class CollisionRulesTests
         0x000C23F1u, // COLLISION_GROUP_PLAYER
         0x000EABB9u, // COLLISION_GROUP_BREAKABLE_GLASS
         0x000EB3F9u, // COLLISION_GROUP_VEHICLE
-        0x000CABF1u, // COLLISION_GROUP_PLAYER_MOVEMENT
+        0x000CA3F1u, // COLLISION_GROUP_PLAYER_MOVEMENT (not WEAPON: CHL2MPRules / CTFGameRules)
         0x000EE3F9u, // COLLISION_GROUP_NPC
         0x00000000u, // COLLISION_GROUP_IN_VEHICLE
-        0x000E8959u, // COLLISION_GROUP_WEAPON
+        0x000E8859u, // COLLISION_GROUP_WEAPON (not PLAYER_MOVEMENT)
         0x00000080u, // COLLISION_GROUP_VEHICLE_CLIP
         0x000E83F9u, // COLLISION_GROUP_PROJECTILE
         0x000E8200u, // COLLISION_GROUP_DOOR_BLOCKER
@@ -40,6 +41,10 @@ public class CollisionRulesTests
         0x000EEBF9u, // COLLISION_GROUP_NPC_ACTOR
         0x000EEBF9u, // COLLISION_GROUP_NPC_SCRIPTED
     ];
+
+    [Fact]
+    public void APlayersMovementPassesThroughWeaponsAndItems()
+        => Assert.False(CollisionRules.ShouldCollide(EngineCollisionGroup.PlayerMovement, EngineCollisionGroup.Weapon));
 
     [Fact]
     public void TheBuiltMatrixIsStocksTable()

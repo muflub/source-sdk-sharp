@@ -10,15 +10,20 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <!-- The fixtures are written with map-tools' own Nav3dWriter (§8.2). -->
+    <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
+    <!-- The nav PNG and its golden (§7.3). -->
+    <ProjectReference Include="..\replay\SourceSharp.Ai.Replay.csproj" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- So facts can find the repository the way the core tests do. -->
     <Compile Include="..\..\test\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+    <Compile Include="..\..\test\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
   </ItemGroup>
 </Project>

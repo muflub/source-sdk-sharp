@@ -1410,3 +1410,13 @@ td.near-ceiling { color: var(--warn); }
 .gallery-states { display: flex; flex-wrap: wrap; gap: 12px; }
 .gallery-states figure { margin: 0; width: 480px; }
 .gallery-states figcaption { font-size: 12px; color: var(--dim); }
+
+/* The bot inspector (plan_hl2mp_ai §7.2). */
+.ai-tab { padding: 8px; overflow: auto; }
+.ai-bots { display: flex; gap: 6px; margin-bottom: 8px; }
+.ai-memory { border-collapse: collapse; font-size: 12px; }
+.ai-memory th, .ai-memory td { padding: 2px 6px; border-bottom: 1px solid var(--border, #444); text-align: left; }
+.ai-ammo { display: inline-flex; align-items: center; gap: 6px; }
+.ai-ammo-track { position: relative; display: inline-block; width: 90px; height: 8px; background: var(--muted-bg, #333); }
+.ai-ammo-range { position: absolute; top: 0; bottom: 0; background: var(--accent, #e8a33c); min-width: 2px; }
+.ai-skills meter { width: 120px; }

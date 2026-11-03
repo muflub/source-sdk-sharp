@@ -13,6 +13,8 @@ import type {
   SaveResult, ScriptedClass,
   ScriptedInstance, SpawnResult, Status,
 } from './types';
+import type { AiFlow, AiNav } from './map/aiNav';
+import type { AiBot, AiBotListing } from './ai/aiInspect';
 
 /*
  * Which instance to address.
@@ -67,6 +69,19 @@ const post = <T>(path: string, body: string): Promise<T> =>
 //---------------------------------------------------------------------------
 
 export const getStatus = (): Promise<Status> => get('/status');
+
+/** The AI's derived graph (plan_hl2mp_ai §7.1): served by the AI binding, a 404 or 409 body without it. */
+export const getAiNav = (): Promise<AiNav> => get('/ai/nav');
+
+/** The AI's bots (plan_hl2mp_ai §7.2). */
+export const getAiBots = (): Promise<AiBotListing[]> => get('/ai/bots');
+
+/** One bot's inspector record and perception. */
+export const getAiBot = (slot: number): Promise<AiBot> => get(`/ai/bot/${slot}`);
+
+/** A flow field to a point, crouching where it must. */
+export const getAiFlow = (x: number, y: number, z: number): Promise<AiFlow> =>
+  get(`/ai/flow${query({ x, y, z, class: 'crouch' })}`);
 
 /**
  * A stamp of the interface files the game is serving, and whether they can

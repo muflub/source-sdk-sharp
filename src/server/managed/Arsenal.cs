@@ -183,8 +183,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    ViewmodelActivity? viewmodelActivity = null,
                    ViewmodelModel? viewmodelModel = null,
                    ViewmodelSkin? viewmodelSkin = null,
-                   IServerSkins? skins = null)
+                   IServerSkins? skins = null,
+                   IHooks<IPlayerWeaponEventHook>? weaponEvents = null)
     {
+        _weaponEvents = weaponEvents;
         _traceAttacked = traceAttacked;
         _scripts = scripts;
         _messages = messages;
@@ -235,6 +237,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// </para>
     /// </summary>
     public Action<EntityHandle, EntityHandle, Vector, float>? Launched { get; set; }
+
+    private readonly IHooks<IPlayerWeaponEventHook>? _weaponEvents;
 
     /// <summary>
     /// The side's temp entities, for the named client effects a weapon
@@ -1064,6 +1068,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         int before = weapon.State.Reserve;
         int beforeSecondary = weapon.State.SecondaryReserve;
+        int clipBefore = weapon.State.Clip;
+        bool reloadingBefore = weapon.State.InReload;
+        int typeBefore = weapon.State.WeaponTypeId;
 
         // The command's random seed, which the predicting client derives from
         // the same command number: the pellets spread from it on both sides.
@@ -1086,6 +1093,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                      WeaponCommand.For(in cmd, carry.Weapon, player));
         }
 
+        if (firstTime && typeBefore == weapon.State.WeaponTypeId)
+            TellWeaponEvents(player, weapon.State, clipBefore, before, reloadingBefore);
+
         // What the machine spent comes out of the pools by name.
         SettlePool(carry, weapon.State.WeaponTypeId, primary: true,
                    before - weapon.State.Reserve);
@@ -1105,6 +1115,33 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             RemoveActive(carry);
         }
     }
+
+    /// <summary>
+    /// The weapon events one new command showed (plan_hl2mp_ai §4.5): a shot
+    /// when the clip went down outside a reload (or the reserve, for a weapon
+    /// with no clip), a reload's start and end when <c>InReload</c> turned,
+    /// and each shell a shell-by-shell reload put in.
+    /// </summary>
+    private void TellWeaponEvents(EntityHandle player, WeaponNetState w, int clipBefore, int reserveBefore, bool reloadingBefore)
+    {
+        if (_weaponEvents is null || _weaponEvents.All.Count == 0)
+            return;
+
+        int type = w.WeaponTypeId;
+        bool clipless = _weapons.ByIndex(type) is { ClipSize: < 0 };
+        int fired = clipless ? reserveBefore - w.Reserve : clipBefore - w.Clip;
+        if (fired > 0 && !(reloadingBefore && w.InReload))
+            Tell(player, type, PlayerWeaponEvent.Fired, fired);
+        if (!reloadingBefore && w.InReload)
+            Tell(player, type, PlayerWeaponEvent.ReloadStarted, 0);
+        if (reloadingBefore && w.InReload && w.Clip > clipBefore)
+            Tell(player, type, PlayerWeaponEvent.ReloadShell, w.Clip - clipBefore);
+        if (reloadingBefore && !w.InReload)
+            Tell(player, type, PlayerWeaponEvent.ReloadFinished, w.Clip);
+    }
+
+    private void Tell(EntityHandle player, int type, PlayerWeaponEvent e, int count)
+        => _weaponEvents!.Each(nameof(IPlayerWeaponEventHook.OnWeaponEvent), h => h.OnWeaponEvent(player, type, e, count));
 
     /// <summary>
     /// CWeaponRPG::NotifyRocketDied, at the first command after the missile

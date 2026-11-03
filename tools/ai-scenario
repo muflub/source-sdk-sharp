@@ -1,0 +1,252 @@
+#!/usr/bin/env python3
+"""Run one of the AI's purpose-built test maps' scenarios (plan_hl2mp_ai §6.6).
+
+  tools/ai-scenario sight   [--config debug] [--keep]
+  tools/ai-scenario hearing [--config debug] [--keep]
+
+Starts a headless game on the map (`make headless`, its own instance, temp
+dir, dev-API directory and port), records the AI session (`ai_record`), adds
+the scenario's bots, places them with the dev API's teleport, drives the
+scripted target through the bots' own command path (`ai_bot_act`,
+`ai_bot_drive`), stops the recording, and writes
+
+  src/ai/tests/recordings/<map>.airec   the session: bots, events, snapshots
+  src/ai/tests/recordings/<map>.json    the scenes (tick windows and what each
+                                        expects), the hearing truth lines, the
+                                        map source's sha256 and ai.sense.us
+
+which the scenario facts replay (SsAiScenarioTests). The map is per-tree
+build output: `make map MAP=ss_ai_<name>` first; a missing map is a failure.
+The game is killed by its PID at the end (--keep leaves it up).
+"""
+import hashlib
+import json
+import os
+import re
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEBUG_API = os.path.join(ROOT, "tools", "debug-api")
+USER = os.environ.get("USER", "ss")
+
+
+def sha256(path):
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+class Game:
+    def __init__(self, map_name, config):
+        self.map = map_name
+        self.config = config
+        self.api_dir = os.environ.get("AI_SCENARIO_API_DIR", "/tmp/ss-ais-%s" % USER)
+        self.tmp = os.environ.get("AI_SCENARIO_TMPDIR", "/tmp/ss-ais-tmp-%s" % USER)
+        self.port = os.environ.get("AI_SCENARIO_PORT", "27265")
+        os.makedirs(self.api_dir, exist_ok=True)
+        os.makedirs(self.tmp, exist_ok=True)
+        self.pid = None
+        self.console = None
+
+    def start(self):
+        before = set(os.listdir(self.api_dir))
+        env = dict(os.environ, DEBUG_API_DIR=self.api_dir, DEBUG_API_UI_PORT=str(int(self.port) + 1), TMPDIR=self.tmp)
+        args = "$(RUN_ARGS) -assertlog -port %s +maxplayers 8 +sv_cheats 1" % self.port
+        self.log = open(os.path.join(self.tmp, "ai-scenario-%s.log" % self.map), "w")
+        self.make = subprocess.Popen(["make", "-C", ROOT, "headless", "CONFIG=" + self.config, "MAP=" + self.map, "HEADLESS_ARGS=" + args],
+                                     env=env, stdout=self.log, stderr=subprocess.STDOUT)
+        deadline = time.time() + 600
+        while time.time() < deadline:
+            if self.make.poll() is not None:
+                raise SystemExit("ai-scenario: the game exited (rc %s): see %s" % (self.make.returncode, self.log.name))
+            new = [s for s in set(os.listdir(self.api_dir)) - before if s.endswith(".sock")]
+            if new:
+                self.pid = int(new[0].split(".")[0])
+                break
+            time.sleep(1)
+        if self.pid is None:
+            raise SystemExit("ai-scenario: no dev-API socket in %s" % self.api_dir)
+        cmd = open("/proc/%d/cmdline" % self.pid, "rb").read().split(b"\0")
+        game_dir = cmd[cmd.index(b"-game") + 1].decode()
+        self.console = os.path.join(game_dir, "console.log")
+        self.wait_for(r"\[SourceSharp/Ai\] %s: the bots know" % re.escape(self.map), 300)
+        self.wait_for(r"client 1 active", 300)
+
+    def lines(self):
+        try:
+            with open(self.console, errors="replace") as f:
+                return f.read().splitlines()
+        except FileNotFoundError:
+            return []
+
+    def wait_for(self, pattern, seconds):
+        deadline = time.time() + seconds
+        while time.time() < deadline:
+            if any(re.search(pattern, l) for l in self.lines()):
+                return
+            if self.make.poll() is not None:
+                raise SystemExit("ai-scenario: the game exited while waiting for %r" % pattern)
+            time.sleep(0.5)
+        raise SystemExit("ai-scenario: never saw %r in %s" % (pattern, self.console))
+
+    def api(self, *args):
+        env = dict(os.environ, DEBUG_API_DIR=self.api_dir, DEBUG_API_PID=str(self.pid))
+        p = subprocess.run([DEBUG_API] + list(args), env=env, capture_output=True, text=True)
+        return p.stdout
+
+    def cmd(self, text):
+        self.api("cmd", text)
+
+    def json(self, path):
+        env = dict(os.environ, DEBUG_API_DIR=self.api_dir, DEBUG_API_PID=str(self.pid))
+        sock = os.path.join(self.api_dir, "%d.sock" % self.pid)
+        out = subprocess.run(["curl", "-s", "--unix-socket", sock, "http://x" + path], env=env, capture_output=True, text=True).stdout
+        return json.loads(out)
+
+    def tick(self):
+        return self.json("/ai/counters")["tick"]
+
+    def teleport(self, slot, x, y, z, yaw=0.0):
+        out = self.api("teleport", "pos=%g,%g,%g" % (x, y, z + 1), "ang=0,%g,0" % yaw, "player=%d" % slot, "settle=1", "timeout=200")
+        if '"ok":true' not in out:
+            raise SystemExit("ai-scenario: teleport of player %d to (%g %g %g) failed: %s" % (slot, x, y, z, out[:300]))
+
+    def stop(self, keep):
+        if keep or self.pid is None:
+            return
+        args = open("/proc/%d/cmdline" % self.pid, "rb").read() if os.path.exists("/proc/%d" % self.pid) else b""
+        if b"hl2_linux64" in args:
+            os.kill(self.pid, signal.SIGTERM)
+        self.make.wait(timeout=60)
+
+
+def bots_by_name(game):
+    return {b["name"]: b["slot"] for b in game.json("/ai/bots")}
+
+
+def sight(game):
+    """The watcher holds a post; the target stands past each occluder (§6.6)."""
+    game.cmd("ai_sense_log 1")
+    game.cmd("ai_bot_add Watcher expert")
+    game.cmd("ai_bot_add Target easy")
+    game.cmd("ai_bot_add Blocker easy")
+    time.sleep(2)
+    slots = bots_by_name(game)
+    w, t, b = slots["Watcher"], slots["Target"], slots["Blocker"]
+    room1 = 512.0  # ssmap link lays the rooms 512 apart (the level grid), not the library's 768
+    park = (room1 + 440, 80, 17)
+    scenes = [
+        # name, watcher (x y z yaw), target, blocker or None, expect
+        ("open", (64, 300, 16, 0), (200, 300, 16), None, "seen"),
+        ("wall", (64, 224, 16, 0), (400, 100, 16), None, "hidden"),
+        ("window", (64, 224, 16, 0), (420, 224, 16), None, "seen"),
+        ("player", (64, 300, 16, 0), (240, 300, 16), (160, 300, 16), "hidden"),
+        ("door", (room1 + 64, 256, 16, 0), (room1 + 400, 256, 16), None, "hidden"),
+        ("crates", (room1 + 64, 400, 16, 0), (room1 + 200, 400, 16), None, "hidden"),
+        ("open again", (64, 300, 16, 0), (200, 300, 16), None, "seen"),
+    ]
+    out = []
+    for name, wp, tp, bp, expect in scenes:
+        game.teleport(b, *(bp or park), yaw=180)
+        game.teleport(t, *tp, yaw=180)
+        game.teleport(w, *wp)
+        start = game.tick()
+        time.sleep(3.0)
+        end = game.tick()
+        out.append({"name": name, "from": start, "to": end, "watcher": w, "target": t, "expect": expect})
+        print("ai-scenario: %-10s ticks %d..%d expect %s" % (name, start, end, expect))
+    return out
+
+
+def hearing(game):
+    """A listener holds still; the target fires, reloads and walks at scripted distances (§6.6)."""
+    game.cmd("ai_sense_log 1")
+    game.cmd("ai_bot_add Listener expert")
+    game.cmd("ai_bot_add Target easy")
+    time.sleep(2)
+    slots = bots_by_name(game)
+    l, t = slots["Listener"], slots["Target"]
+    far = 2 * 512.0  # the level grid's, see sight()
+    game.teleport(l, 64, 256, 16)
+    scenes = []
+
+    def scene(name, steps, seconds):
+        start = game.tick()
+        for s in steps:
+            if isinstance(s, tuple):
+                game.teleport(t, *s, yaw=0)
+            else:
+                game.cmd(s)
+                time.sleep(0.2)
+        time.sleep(seconds)
+        scenes.append({"name": name, "from": start, "to": game.tick()})
+        print("ai-scenario: %-14s ticks %d..%d" % (name, start, scenes[-1]["to"]))
+
+    scene("near smg1", [(200, 256, 16), "ai_bot_act Target select 2"], 1.0)
+    scene("near smg1 fire", ["ai_bot_act Target fire 1"], 1.5)
+    scene("near smg1 reload", ["ai_bot_act Target reload"], 2.5)
+    scene("near pistol", ["ai_bot_act Target select 1", "ai_bot_act Target fire 1"], 1.5)
+    scene("near pistol reload", ["ai_bot_act Target reload"], 2.5)
+    scene("near 357", [(256, 96, 16)], 1.5)
+    scene("near 357 fire", ["ai_bot_act Target select 5", "ai_bot_act Target fire 2.5"], 3.0)
+    scene("near 357 reload", ["ai_bot_act Target reload"], 4.5)
+    scene("far smg1", [(far + 200, 256, 16), "ai_bot_act Target select 2", "ai_bot_act Target fire 1"], 1.5)
+    scene("far smg1 reload", ["ai_bot_act Target reload"], 2.5)
+    scene("far steps", ["ai_bot_drive Target 90 1.5"], 2.0)
+    scene("own steps", ["ai_bot_drive Listener 90 1.5"], 2.0)
+    truth = []
+    for line in game.lines():
+        m = re.search(r"\[SourceSharp/Ai\] sound (\d+) to (\d+): (\S+) owner (-?\d+) in ([01]) dist ([\d.]+) reach (\S+) share ([\d.]+) kind (\w+) weapon (-?\d+)", line)
+        if m and int(m.group(2)) == l:
+            truth.append({"tick": int(m.group(1)), "bot": l, "sound": m.group(3), "owner": int(m.group(4)), "in": m.group(5) == "1",
+                          "dist": float(m.group(6)), "reach": float(m.group(7)) if re.match(r"^[\d.]+$", m.group(7)) else 1e30,
+                          "share": float(m.group(8)), "kind": m.group(9), "weapon": int(m.group(10))})
+    return scenes, truth, {"listener": l, "target": t}
+
+
+def main(argv):
+    if not argv or argv[0] not in ("sight", "hearing"):
+        print(__doc__)
+        return 2
+    which = argv[0]
+    config = argv[argv.index("--config") + 1] if "--config" in argv else "debug"
+    keep = "--keep" in argv
+    map_name = "ss_ai_" + which
+    bsp = os.path.join(ROOT, "bin", config, "mods", "test", "maps", map_name + ".bsp")
+    vmf = os.path.join(ROOT, "game", "mod_test", "maps", "src", "ai", map_name + ".vmf")
+    if not os.path.exists(bsp):
+        raise SystemExit("ai-scenario: no %s: make map MAP=%s" % (bsp, map_name))
+    out_dir = os.path.join(ROOT, "src", "ai", "tests", "recordings")
+    os.makedirs(out_dir, exist_ok=True)
+    rec = os.path.join(out_dir, map_name + ".airec")
+    source = sha256(vmf)
+    game = Game(map_name, config)
+    try:
+        game.start()
+        game.cmd("ai_record start %s %s@%s" % (rec, map_name, source[:12]))
+        time.sleep(0.5)
+        summary = {"map": map_name, "source_sha256": source}
+        if which == "sight":
+            summary["scenes"] = sight(game)
+        else:
+            scenes, truth, who = hearing(game)
+            summary.update(scenes=scenes, truth=truth, **who)
+        counters = game.json("/ai/counters")
+        summary["counters"] = counters
+        game.cmd("ai_record stop")
+        time.sleep(1)
+        print("ai-scenario: ai.sense.us mean %s, worst %s over %s ticks, ai.publish.us %s, %s bots" %
+              (counters["ai.sense.us"], counters["ai.sense.us.max"], counters["ai.sense.ticks"], counters["ai.publish.us"], counters["bots"]))
+    finally:
+        game.stop(keep)
+    with open(os.path.join(out_dir, map_name + ".json"), "w") as f:
+        json.dump(summary, f, indent=1)
+        f.write("\n")
+    print("ai-scenario: wrote %s (%d bytes) and %s.json" % (rec, os.path.getsize(rec), map_name))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

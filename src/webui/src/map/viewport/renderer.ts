@@ -338,6 +338,11 @@ export class View {
 
     this.drawBuffer('world', gl.LINES, 1, 0.25, 0);
     this.drawBuffer('brushes', gl.LINES, 1, 0.7, 0);
+    this.drawBuffer('navCells', gl.POINTS, 2, 0.8, 0);
+    this.drawBuffer('navLinks', gl.LINES, 1, 0.9, 0);
+    this.drawBuffer('navFlow', gl.LINES, 1, 0.9, 0);
+    this.drawBuffer('aiHeat', gl.POINTS, 3, 0.9, 0);
+    this.drawBuffer('aiCone', gl.LINES, 1, 0.95, 0);
     this.drawBuffer('entities', gl.POINTS, this.mode === 'persp' ? 7 : 6, 1, 1);
     this.drawBuffer('selection', gl.LINES, 1, 1, 0);
   }

@@ -667,6 +667,26 @@ from a smaller pool loads; one from a larger pool is refused). The
 built-in presets are read-only profiles the store answers without a file.
 `System.Text.Json` as `src/tf2_descent/rules/TF2DescentRules.cs` uses.
 
+#### 3.5.1 A bot's name and its skill on the scoreboard (rulings 2026-11-01, §12.1)
+
+**The label.** `IScoreboardTags` (core, `SourceSharp.Server`) gives any
+player a short public label; the player resource networks it as twelve bytes
+a row (`PlayerResourceNetState.Tag`, which moved `player_manager` from the
+512-byte to the 1,024-byte declaration tier, 1,300 bytes with the engine
+block); the scoreboard source carries it as `ScoreboardPlayer.Tag` and the
+team table draws it beside the name, secondary (`Text.Label`, muted), with
+a bot's ping column reading BOT as stock's does
+(`hl2mpclientscoreboard.cpp:535`). The HL2MP binding sets it when it adds a
+bot: "(Easy)", "(Medium)" for `normal`, "(Hard)", "(Expert)", or "(Custom N)".
+
+**The name.** `BotNamer` (core, pure) over `BotNamePools` (data:
+`game/mod_test/scripts/ai/hl2mp_bot_names.json`, read through
+`IEngineFiles`): the trait is the skill whose level is furthest from the
+pool's even spread (spent / skills), high when above it and low when below;
+the bot's seed picks the first name and the entry; a name another bot holds
+is re-drawn, and a numeral is the last resort; the name is cut to the
+engine's `MAX_PLAYER_NAME_LENGTH` (32 with its NUL), the first name first.
+
 ## 4. The perception boundary: a bot is a client
 
 ### 4.1 Sight (main-thread vision pass, in `OnPostThink`)
@@ -1056,6 +1076,21 @@ command) and a slow-tier fact run through the live scenario harness: for `n`
 standing box at the cell's floor must be clear, and for `n` random solid
 voxels adjacent to a cell a trace must hit; both from the main thread. It
 reports mismatches as a count and a list, and the fact fails above 0.5 %.
+**Ruled 2026-11-02 (the coordinator): three arms, each reported and gated
+on its own**, because the solid arm cannot meet 0.5 % for a bsp-built file
+(map-tools over-estimates solids by design, format §17.6):
+
+| arm | asks | ceiling |
+|---|---|---|
+| **standing** | the nav stands a player, the world blocks one | ≤ 0.5 % |
+| **floor** | the nav stands a player, the world has no ground within the step height + 1 voxel below (a phantom floor: the case that routes a bot over air) | ≤ 0.5 % |
+| **solid** | the nav is solid, the world is open | ≤ 3 %, drift evidence only |
+
+The 32 u floor-shift mutant still turns the gate red; each arm has its own
+mutant (`tools/ai-mutations validator-standing|validator-floor|validator-solid`).
+A red floor arm on a map whose nav waits on a map-tools fix may be tolerated
+only through a named waiver row the coordinator removes at the lock bump
+(none is needed: dm_lockdown's floor arm is green, §12.3).
 Its purpose is to catch a `.nav3d` built from geometry that drifted from the
 shipped bsp (a stale build, a wrong tool version) — §6.4 — not to build anything.
 
@@ -1710,6 +1745,26 @@ rows of §3.1 (ruled). Hand-written native code: none.
   lag, never raw turn speed, and every preset stays inside the human
   envelope.
 
+- **The scoreboard shows a bot's skill, next to its name** (2026-11-01,
+  through the coordinator): "The leaderboard should show bot skill", then
+  "Next to their name": a preset bot's preset ("(Easy)", "(Medium)",
+  "(Hard)", "(Expert)"), a custom bot's "(Custom N)" (N the points spent),
+  blank for humans, styled as a secondary tag beside the name in the name
+  column, not a column of its own; bots keep stock's "BOT" in the ping
+  column. Only the short label is networked, through a generic per-player
+  tag the core names no AI type for (§3.5.1).
+- **Bots are named from pools by their most distinctive trait** (2026-11-01,
+  through the coordinator): "The bot names should have a pool of words
+  describing their best trait like 'Bobby Sniper (Hard)'", widened by "Or
+  'Tommy Camps Alot (Easy)'": a first name from a pool of ours plus a word
+  or short phrase from the pool of the skill furthest from the even spread
+  of the bot's points, high or low (each skill a high pool and a low pool);
+  ties stable (skill order, then the bot's seed); the seed picks the entry;
+  no two bots share a name (re-pick, a numeral last); the name fits the
+  engine's limit (the first name is cut first); the pools are a data file,
+  read through the file seam; a profile's own name wins; `ai_bot_add`
+  without a name generates one. The skill label stays a separate tag (§3.5.1).
+
 ### 12.2 Open questions
 
 None. The §3.1 exposure and the map-tools nav work were ruled on
@@ -1724,8 +1779,17 @@ that code when M1 starts, and changes nothing here.
 | 16 BoxInPvs + 32 Line per tick, main thread | mean 165.3 / 122.0 / 120.4 µs, p50 136.2 / 116.3 / 119.2 µs, p95 321.0 / 175.5 / 160.0 µs, max 600.2 / 476.9 / 486.2 µs (three runs of 300 ticks, one human, listen server) | a temporary `ai_probe` console command (`Stopwatch` around each tick's batch, one batch per frame through `IFrameScheduler.Delay(0)`): 16 `IEnginePlayers.BoxInPvs(player 1, 32×32×72 box)` at seeded random points ±2,000 u, then 32 `ITraceQueries.Line` from `GetShootOrigin` to seeded points 1,500 u away (mask `MASK_BLOCKLOS`+`CONTENTS_MONSTER`, pass = the player); 4,800 PVS asks answered true 754 times, 9,600 lines hit 9,304 times; removed after measuring, never committed | base `1ca008249` + the probe, debug, `make headless` dm_lockdown, 2026-11-01 |
 | 2,000 Hull traces (validator) at load | 1.88 / 1.67 / 1.30 ms wall (0.94 / 0.83 / 0.65 µs per trace) | the same probe after its 300 ticks: 2,000 `ITraceQueries.Hull` of the standing box (±16, ±16, 0–72) swept 1 u up from seeded points ±1,500 u around the player, 64 u below its eyes, mask `MASK_PLAYERSOLID`; 1,547 of 2,000 clear. Run from a console command after the load, not inside it: the trace cost does not depend on when it is asked | as above |
 | Phase 0 budget decision | vision: keep `ai_vision_traces_per_tick` 32 and the 400 µs `ai.sense.us` ceiling (measured 16 PVS + 32 lines ≈ 120–165 µs mean, ≤ 600 µs worst tick, debug); validator: `n = 2,000` costs ≈ 2 ms, so it may run at level load on the main thread in debug builds | §9 Budgets | from the two rows above |
-| `.nav3d` read + derivation, ss_ai_nav / dm_lockdown | — | | |
-| vision pass 4 bots | — | | |
+| `ssmap nav3d` dm_lockdown per tree | 3.3 s and 4.4 s inside ssmap (two builds), 6.5 s wall through `make map MAP=dm_lockdown` (`dotnet run` of the built ssmap); 598,892 bytes, 143,399 leaves, sha256 `34c786c9…`, the bytes map-tools' agent reported; a second `make map` is a no-op by the stamp | `tools/ai-nav-build` (its own timer, written to the stamp) and ssmap's own line | map-tools `af063fa` (maptools.lock), MapFormats 1.0.1, `-game bin/debug/mods/test`, 2026-11-01 |
+| `.nav3d` load + derivation, ss_ai_nav / ss_ai_sight / dm_lockdown, offline | ss_ai_nav (2,104 cells): load+derive 14–50 ms, derive 11–23 ms; ss_ai_sight (1,412 cells): 11 ms, derive 8–9 ms; dm_lockdown (35,471 cells): 254–488 ms, derive 157–294 ms (three runs each, the first cold) | `NavLoader.Load` under a `Stopwatch` in a scratch fact (removed), `LoadedNav.DeriveMs` | `hl2mp-ai` Phase 2 step 4 tree, debug, 2026-11-01 |
+| `make ai-maps` (ss_ai_nav + ss_ai_sight: generate, `ssmap room`, `ssmap link`) | 15.4 s for both; ss_ai_nav alone: room 5.2 s, link 3.0 s | `time make ai-maps`; `time ssmap ...` | map-tools `af063fa` |
+| `.nav3d` derivation, dm_lockdown | derived 207 / 220 / 231 / 305 ms (35,471 cells, 222,171 edges, 215 obstacles, from 143,399 leaves); read from the `.navgraph` cache 61 ms; sight table 1,048 nodes, 139,496 pairs, 357–503 ms | `Hl2mpNav.Load`'s `Stopwatch` around derive-or-cache (after the file reads and `Nav3dReader.Open`) and around `NavSight.Build`, logged at level start | `hl2mp-ai` at `84f4201b`+ (Phase 2 step 3 tree), debug, `make headless` dm_lockdown, 2026-11-01 |
+| `.nav3d` validator, dm_lockdown, n = 2,000 | seeds 1 / 2 / 3: 29 / 30 / 23 of ~3,990 mismatched (0.73 / 0.75 / 0.58 %): standing arm 1 / 2 / 0 of ~1,990 (≤ 0.1 %; 5–10 more had a weapon, charger or player on them), solid arm 28 / 28 / 23 of 2,000 (1.15–1.4 %); 6–14 ms per run | `ai_nav_validate 2000 <seed>` (`NavValidator` + `EngineWorldProbe`, `MASK_PLAYERSOLID` hull traces, standing box 31 wide above the 18 u step band) | as above |
+| validator, three arms (ruled 2026-11-02), n = 2,000 | dm_lockdown seeds 1 / 2 / 3: standing 1/1994, 2/1990, 0/1993 (≤ 0.10 %); floor 4, 1, 4 of 2,000 (0.20 / 0.05 / 0.20 %); solid 31, 25, 27 of 2,000 (1.55 / 1.25 / 1.35 %); all PASS, 9–19 ms. ss_ai_nav seeds 1 / 2 / 3: 0 on every arm (standing 0/1924, 0/1931, 0/1921; floor 0/1995; solid 0/1995), PASS | `ai_nav_validate 2000 <seed>` (the floor arm sweeps a 31-wide slab from 1 u above the cell's floor to 34 u below it) | `hl2mp-ai` at `97bf58581` + the split, debug, `make headless` dm_lockdown then `changelevel ss_ai_nav`, 2026-11-02 |
+| after the map-tools bump (lock `8f4be03`, MapFormats 1.0.2), dm_lockdown | nav 733,923 bytes, sha256 `84740bf8…` (16.0 s per tree); graph 35,373 cells, 268,893 edges (was 35,471 / 222,171), 215 obstacles, **215 matched** (was 206); validator n = 2,000 seeds 1 / 2 / 3: standing 3/1993, 1/1992, 4/1992 (≤ 0.20 %), floor 4, 1, 3 of 2,000 before the floor arm's centre ray, **0, 0, 0** with it; solid 1, 1, 3 of 2,000 (0.05–0.15 %, was 1.25–1.55 %); all PASS | `ai_nav_validate 2000 <seed>`, the level-start line | `hl2mp-ai` at the bump, debug, `make headless` dm_lockdown, 2026-11-02 |
+| after the bump, ss_ai_nav | 2,104 cells, 15,244 edges (was 14,352), 1 obstacle matched; validator seeds 1 / 2 / 3: 0 on every arm | as above | `changelevel ss_ai_nav` in the same run |
+| vision pass 4 bots (`ai.sense.us`) | live, dm_lockdown, 4 bots and one human (4 × 4 others): 71.9 µs mean, 155.7 worst over 300 ticks, before the belief cap; after it 81.1 / 494.8 and, bots walking, 114.8 / 1,504.1; within the 400 µs ceiling (mean). Offline, `SenseCostTests` (4 bots × 3 others, fake engine, inline session) holds ≤ 400 µs. Scenarios (recording on): ss_ai_sight 3 bots 79.8 / 189.4, ss_ai_hearing 2 bots 137.2 / 3,259.8 | `/ai/counters` (`ai.sense.us`: the vision pass, the item pass and the views, 300-tick mean and worst), `tools/ai-scenario` | `hl2mp-ai` Phase 4 gate tree, debug, `make headless` dm_lockdown, 2026-11-02 |
+| inline brains' publish (`ai.publish.us`) | dm_lockdown 4 bots: 13,114 µs mean before the belief cap (16 beliefs spreading over the map), 1,615 after it, 1,128 with the bots walking; ss_ai_sight 2,894 and ss_ai_hearing 4,514 with the recording on | `/ai/counters` | as above |
+
 | brain decide per bot | — | | |
 | pool CPU, 8 bots, 4 threads | — | | |
 | human reference: flicks / engagements recorded | — | | |
@@ -1798,6 +1862,575 @@ that code when M1 starts, and changes nothing here.
   `src/shared/interop/Movement.cs:567` (not :504). The derivation reads the
   numbers from `SourceSharp.Shared.Movement.Current` and
   `MoveMath.PlayerMaxSafeFallSpeed` instead of restating them.
+
+- **`docs/native-symbols.tsv` does not see forwarders** (Phase 3 step 1,
+  2026-11-01; §3.1 and §3.3 expected the census to gain the three rows):
+  `tools/native-symbols` reads only `server_sourcesharp` and
+  `client_sourcesharp` (its `MODULES`), and the forwarders are static
+  functions of `libss_fwd_server.so` (`src/fwd/native`), so `--write` after
+  the rows was a no-op (4,477 functions; 0 added, 0 gone). The rows commit
+  is held instead by `ZeroNativeTests`: exactly one lane commit whose subject
+  starts `AI rows:`, changing exactly the vendor header, `tools/vendor-strip`,
+  `tools/engine-forwarders` and the three files the generators write
+  (`fwd_server.g.inc`, `ServerForwarders.g.cs`, and the test fake
+  `src/test/native/fakes/fake_engine_server.g.h`, which `tools/native-fakes
+  --write` regenerates: §3.1 did not name that generator), each added line
+  naming one of the three slots or a count that moved. The census allow-list
+  stays as the guard against a server.so symbol.
+- **`tools/vendor-layout snapshot` of vendor/ needs a windows-cross build**
+  (`farm/<config>/build-windows-cross`), which this tree does not have; the
+  Itanium layouts were compared Linux-only against the pristine snapshot:
+  `IVEngineServer` slots 20/86/118 equal (`IndexOfEdict`,
+  `SetFakeClientConVarValue`, `CreateFakeClientEx`). MSVC is unaffected by
+  construction: neither name is overloaded, so the restored declaration takes
+  its stub's place in either ABI.
+
+- **FL_FAKECLIENT is the game's, and is `1 << 9`** (Phase 3 step 2,
+  2026-11-01; §3.1 said the engine sets it and cited `vendor/shared/public/const.h:86`):
+  :86 is the single-player block (`1 << 8`); HL2MP compiles the multiplayer
+  block, whose `FL_FAKECLIENT` is `(1<<9)` (the clone's `src/public/const.h:161`;
+  vendor/ keeps only its comment). The engine's `CreateFakeClient`
+  sets no flag: stock's `NextBotCreatePlayerBot`
+  adds `FL_CLIENT | FL_FAKECLIENT` after the call (`NextBotPlayer.h:74-75`)
+  and `CBasePlayer::Spawn` keeps it (`player.cpp:5049-5052`). `BotPlayers`
+  does the same on the player's flag word (`ServerPlayerMove.Move.Flags`),
+  as `ServerCommandRules.FlFakeClient`.
+- **Our server does not read `cl_playermodel`** (Phase 3 step 2; §3.1 said it
+  does, citing `src/server/managed/PlayerNames.cs:24`): that line is the
+  comment saying CHL2MPRules' `cl_playermodel` half is not ported, and every
+  player is `SsPlayer.PlayerModel` (`models/humans/group03/male_01.mdl`,
+  `src/server/managed/Entities/Players/SsPlayer.cs:42`). A bot's
+  `cl_playermodel` is still set and reads back (the fact), so the model
+  follows the convar once the player model choice is ported; until then a
+  bot looks like every human. `cl_defaultweapon` is read (`SpawnWeapon.cs:40`).
+
+- **`IPlayerCommandRunner` and `IPlayerCommandObserver` are in
+  `SourceSharp.Server.Interop`** (Phase 3 step 3; §3.2 and §3.4.4 said
+  `SourceSharp.Server`): the loop they wrap (`PlayerCommandQueue`, its
+  shipped sink) and the stages (`ServerPlayerCommands`) are interop types,
+  the runner holds the side's `EngineSide` for the shadow step as
+  `PlayerCommandsBinding` does (game logic may not name it), and the observer
+  is called from the queue's own sink so a human's and a bot's command reach
+  it by one path. `IBotPlayers` is in `SourceSharp.Server`. The runner adds
+  `Queue(player, in cmd)` (a packet of one) beside `RunQueued`, because a mod
+  cannot reach `PlayerCommandQueue.Queue`'s pointer form. The observer's
+  signature is `OnCommand(player, in UserCmd)`: the command carries its tick.
+- **A bot's random seed is its command number's, as a human's** (Phase 3
+  step 3; §2.4 and §3.2 said `RandomSeed` from the bot's stream): the queue
+  stores `UserCmd`, which has no seed, and the server derives every
+  command's seed from `CommandNumber` (`UserCmdCodec.RandomSeedFor`,
+  `src/shared/interop/UserCmdCodec.cs:62`; `Arsenal.cs:1072`), as stock's
+  server does from `command_number`. The applier controls a bot's spread
+  through its monotonic command number; no seed field is written.
+
+- **`weaponselect` is the weapon catalog's type + 1, not an entity index**
+  (Phase 3 step 4; §2.4 said an entity index): the server reads the wire as
+  `Arsenal.SwitchType(player, cmd.WeaponSelect - 1)`
+  (`src/server/managed/ServerModule.cs`, `OnStandalonePlayerCommand` phase 0).
+  The applier still selects by the bot's own inventory slot: `EngineBotSelf`
+  takes `IEnginePlayers.GetWeaponEntity(player, slot)`, its class name, and
+  `WeaponCatalog.IndexOf` + 1.
+- **A bot's command runs at `IFrameLifecycle.OnPreThink`, humans' at
+  `OnThink`** (Phase 3 step 4, as §3.2 step 2 planned): native runs humans'
+  queues from `StandaloneHierarchy.OnThink` (`FrameStage.Standalone`, first in
+  that pass, `src/server/managed/StandaloneHierarchy.cs:214`), so both run
+  before the entities think, the bots a stage earlier. The motion's skill
+  curves are a first cut in code (`MotionCurves`: peak by overall spend,
+  reaction through stock's recognition times, overshoot and lag by
+  Accuracy); Phase 5b replaces them with the JSON curves.
+
+- **A bot's fixangle is never sent, so the runner counts it as delivered**
+  (Phase 3 live run, 2026-11-01; §3.2 assumed the human stages run a bot's
+  command unchanged): the spawn sets `FIXANGLE_ABSOLUTE`, the engine clears
+  it only when it sends it to a networked client and returns first for a fake
+  client, and our stages keep an absolute fixangle until it is
+  sent (`ServerCommandRules.CommandAngles`), so a bot's view never turned
+  (live: `ai_bot_drive Alyx 0 2` moved it 174 u with its view still at 270).
+  Stock's bots snap their eyes every tick instead (`NextBotPlayerBody.cpp:324`),
+  which §3.3 forbids. `ServerPlayerCommands.FakeClientStage`, which the runner
+  uses, takes an absolute fixangle as delivered: the applier reads the server's
+  view before every command and rebases on it, so the set angle reaches the
+  bot as it reaches a client. Facts: a human's stays held, a bot's command
+  turns; `tools/ai-mutations fake-fixangle` turns the second red.
+
+- **A level change ends every bot** (Phase 3 live run, 2026-11-01): the
+  engine clears its fake clients when it inactivates the clients
+  (`InactivateClients`), so no bot survives a
+  `changelevel` (live: `[SourceSharp/Ai] bot Alyx left` at the reload, the
+  server up and a new bot added after it). `BotPlayers` forgets its bots at
+  `OnLevelShutdown`; stock's quota manager re-adds bots each level, and so
+  will `ai_bot_roster` (§3.5). The bots-across-a-reload arm of the live gate
+  is therefore "the server survives and bots can be added again", not "the
+  same bots continue".
+
+- **The derivation fits a player at the voxel's centre** (Phase 2 step 3,
+  2026-11-01; corrects §6.2's `Standable(leaf, z, 32, 72, Player, shut)`):
+  the plain fit counts a box as fitting only with its origin anywhere in the
+  16 u voxel, so a 32-wide player needs 48 u across and loses dm_lockdown's
+  narrow passages and ladders (map-tools measured 20 of 86 targets joined that
+  way, 86 of 86 with the centre fit; format §7.6, §17.6). `Nav3dNavSource`
+  asks `StandableAtCentre`, `FitsAtCentre` and `PassableAtCentre`, and the
+  places and moves are those of map-tools' reference `Nav3dWalk` for
+  `Nav3dWalker.Player` (walk to a column beside within the step, the file's
+  jump links, ladders up and down and on and off). `INavSource` was reshaped
+  to those questions. Facts: our cells are exactly `Nav3dWalk`'s places, and
+  each of its components lies inside one of ours (`Nav3dFixtureTests`,
+  `DmLockdownNavTests`); `tools/ai-mutations centre-fit` turns the first red.
+- **A sheer step's foot holds no centred player, so the graph also moves
+  two columns along** (Phase 2 step 3): with the centre fit, the column at
+  the foot of an 18 u step (or a ledge, or a 100 u platform's side) is no
+  place (a box centred 8 u from the face overlaps it), and map-tools' jump
+  links skip a pair with a floor between (LevelNavLinker.FindJumps), so
+  `Nav3dWalk` leaves the top of a sheer step in a component of its own
+  (`Nav3dFixtureTests.TheStepJoinsWhatMapToolsLeavesApart`). The derivation
+  adds the move two columns along an axis when the column between is free
+  from the higher floor up through the crouched height, typed by rise as a
+  move beside is (Walk, Jump, CrouchJump, Drop). Ours therefore joins a
+  superset of map-tools' components. A note for map-tools, not changed there.
+- **An obstacle's leaves are the places it takes when shut** (Phase 2 step
+  3; §6.2 read `ObstacleLeaves` as the door's leaves): the file's records name
+  a dynamic obstacle in every leaf within reach of it (cells are built from
+  solids within 128 u, format §17.6), so taking `ObstacleLeaves` as the door
+  turned 2,371 of 4,860 fixture edges into Door edges. The derivation keeps a
+  leaf for obstacle `o` only when the player stands there with every
+  obstacle open but not with `o` shut (`StandableAtCentre` with `blocking`),
+  and every obstacle kind (door, mover, toggle, breakable, physics, prop) is a
+  graph obstacle the binding blocks from its entity's state; only a door's
+  edges are typed Door. `tools/ai-mutations obstacle-reach` turns
+  `OnlyTheLeavesTheDoorTakesCarryIt` red.
+
+- **The validator's standing box is 31 wide above the step band, an entity
+  on the spot is counted apart, and its solid arm sweeps a slab** (Phase 2
+  step 3, live on dm_lockdown; §6.3 said "a `Hull` trace of the standing box
+  at the cell's floor"). At the floor a 16 u column's floor is the highest
+  surface in it (a ramp or displacement rises inside it), so the box starts
+  18 u up (the engine steps a player out of that band); at 32 wide 25 of
+  2,000 cells failed against the world, at 31 wide 6, every one a 32 u gap
+  the file fits exactly (the engine's box traces stop a fraction short); a
+  weapon, a charger or a player on the cell is no geometry the file was built
+  from. A solid voxel is probed by a slab swept from the cell's free column
+  across it, since a displacement is a surface a box only meets.
+- **The validator fails the 0.5 % ceiling on dm_lockdown, on its solid arm**
+  (Phase 2 gate, 2026-11-01; numbers in §12.3): the standing arm, the one
+  that would send a bot into a wall, is 0–0.1 %; the solid arm is 1.15–1.4 %,
+  places where the file is solid and the world is open. `ai_nav_probe`
+  shows phantom floors: at (-3128 1688) the file's floor is 16.5 and the
+  world's ground -3.3; at (-3288 1416) the file stands a player at 109 with
+  no ground within 64 u. map-tools documents its solids as over-estimates
+  (format §17.6: a prop's `.phy` pieces as boxes, a displacement extruded a
+  voxel), so a solid arm under 0.5 % does not hold for a bsp-built file by
+  construction; the second case is a nav defect to raise in map-tools (it can
+  put a bot's route over air). Recorded as the gate's one red item.
+- **The validator is three arms (ruled by the coordinator 2026-11-02;
+  §6.3)**: standing and floor at 0.5 %, solid at 3 % as drift evidence.
+  The floor arm is the phantom floor the previous entry found by hand;
+  on dm_lockdown it is 0.05–0.20 % (4, 1, 4 of 2,000; the four of seed 1 are
+  at (-2920 1368 73), (-2840 1512 116), (-2936 1592 50), (-2920 1416 70)),
+  so it is green and needs no waiver; the solid arm is 1.25–1.55 % and
+  green under its 3 %. The previous entry's "one red item" is closed by the
+  ruling. Facts: `NavValidatorTests` (the course on every arm, the 32 u
+  shift, one drift per arm), each with an `ai-mutations` arm.
+- **dm_lockdown's RPG room is reached through a crawl** (Phase 2 gate; the
+  gate said "by a `Stand` route"): the only way in from the spawns is an
+  L-shaped stretch (x -3232..-3088, y 5680..5824, floor 2) with 39 u of head
+  room by the nav, and the world agrees (`ai_nav_probe`: a 32-wide box clears
+  36 u there, then the world). `DmLockdownNavTests` therefore joins every
+  spawn to the 18 weapons and 59 items crouching where the map makes a
+  player crouch; standing, the RPG room's 10 targets are not reached.
+- **The `.navgraph` cache lives in `maps/ai-nav/`** (Phase 2 step 3; §6.2
+  said `bin/<config>/mods/test/ai-nav/`): a game started with `-instance`
+  (every tool launch) runs from a private game dir per process, so a cache
+  there died with the game; its `maps` is a link to the tree's, so the cache
+  goes there (cache read 61 ms against 207 ms derived).
+- **Every dynamic obstacle's state comes from what a player sees of its
+  entity** (Phase 2 step 3): matched once at load by `targetname`, or,
+  unnamed, the entity of its class nearest the place the file gives it
+  (206 of 215 on dm_lockdown); a door blocks while it sits where and as it
+  spawned, a breakable or toggle while it stands, a physics or dynamic prop
+  while within 16 u of its place, a mover never (`ObstacleRule`), re-read
+  every 8 ticks. A shut door that would open on a touch is still a wall to
+  the planner; opening doors is Phase 5's.
+- **The sight table is per sight node, not per cell pair** (Phase 2 step 3;
+  §6.2 said "between cell pairs within 1,024 u"): with 16 u cells that is
+  ~10^8 rays on dm_lockdown; cells are grouped into 128 u squares per 64 u
+  floor band (1,048 nodes, 139,496 pairs within range, a ray each, 0.4 s).
+
+- **`make debug` builds no map, so the per-tree nav is `make map` /
+  `make ai-nav`** (Phase 2 step 5; §6.4.1 and §6.6 said `make debug` builds
+  the generated maps "already"): `make debug` is `buildsourcesharp debug`
+  and compiles no map; the sandbox map is `make map MAP=ss_sandbox`, which
+  the daily gate runs as its own step (`tools/daily-gate` `SANDBOX_MAP`).
+  So `make map MAP=dm_lockdown` (any of `NAV_MAPS`) runs `tools/ai-nav-build`,
+  and `make ai-nav` builds every one; the per-tree facts skip, visibly, in a
+  tree that has not. Making `make debug` need map-tools would break CI's
+  build-only jobs. The `.nav3d` and its stamp go beside the bsp in
+  `bin/<config>/mods/test/maps/` (where the sandbox's bsp is built), not in
+  `game/mod_test/maps/`. `tools/ai-nav-build --self-test` (a checks row) holds
+  the stamp: a no-op when current, a rebuild on a changed bsp, lock, reader
+  version or nav, with the stand-in ssmap's run count as the differential
+  (a count of files cannot tell a kept nav from a rebuilt one).
+
+- **The bot stuck at (-3195 3768 3) was our collision rules, not the spawn**
+  (Phase 3 step 5, live 2026-11-01; the previous run left it "unexplained"):
+  the nav has a standing cell there (cell 23440); an `item_ammo_pistol` lies
+  18 u from that spawn, and a player spawned there was held inside it
+  (ground -1, `ai_bot_drive` moved it 0 u; killing the ammo boxes freed it:
+  366 u in 2 s). `CollisionRules.ShouldCollide` transcribed `CGameRules`'s
+  predicate but not the override both hosted games' rules add:
+  `PLAYER_MOVEMENT` passes through `COLLISION_GROUP_WEAPON` (`CHL2MPRules::
+  ShouldCollide`, `hl2mp_gamerules.cpp:909`; `CTFGameRules::ShouldCollide`).
+  Fixed in the shared rules, a human's case too; `tools/ai-mutations
+  item-collide` turns its fact red.
+
+- **The live walk (Phase 3 step 5) runs on the nav, and ladders wait for
+  Phase 5** (2026-11-01, dm_lockdown): `ai_bot_goto <name> <classname|x y
+  z>` holds `Follow` along a flow field (`NavFollower`: field to the cells
+  that touch the target, the corridor funnelled and shortcut each tick, a
+  Jump/CrouchJump edge out of the bot's cell a jump toward its landing, a
+  crouch-only cell ahead held ducked). Evidence: "bot 1 (Alyx) picked up
+  weapon_ar2 at (-3394 1507 0): PickedUp", "bot 1 arrived cell 1752 at
+  (-3416 1457 0) after 15.7 s (Alyx)", then "lodle killed Alyx with
+  physcannon". A route that takes a Ladder edge stops at the ladder's foot
+  ("stuck at (-2845 3443 0) ... next Ladder"): dm_lockdown's ladders are
+  `func_useableladder`s, mounted with +use and climbed by looking, which the
+  applier does not do yet; climbing is Phase 5's (§3.4), and until then a
+  walk's target is chosen off the ladders. A held weapon's entity is the
+  core's `ss_weapon` shell, so a bot's own holdings (and the weapon-select
+  slot) come from `Arsenal.Holdings` (`ArsenalBotInventory`), not the
+  entity's classname as Phase 3 step 4 had it.
+
+- **The test maps go through the rooms pipeline with two map-tools
+  defects worked round** (Phase 2 step 4, 2026-11-01): a door stands on the
+  floor only at the full height (`door_height` = cell − 2 × wall, 480 in a
+  512 cell; `ssmap rooms` refuses a shorter one), so the rooms are joined by
+  floor-to-ceiling doorways. (1) A `func_useableladder`'s `point0`/`point1`
+  are not moved by the room split, the room compile or the link (only
+  `origin` is), so its climb lands where the library put it: the ladder room
+  is first in the library and in the level, where the frames agree. (2) A
+  brush entity with an `origin` key gets its obstacle box about the map
+  origin (its model's own bounds, `(-6 -32 -56)..(6 32 56)` for the door), so
+  the door has none. Both are map-tools bugs to raise there. The library
+  and level are generated (`src/mapgen` `aimaps`) into
+  `game/mod_test/maps/src/ai/` and committed; `make map MAP=ss_ai_nav` (or
+  `make ai-maps`) regenerates and links them per tree into the test mod's
+  `maps/` (15 s for both; `tools/setup` links the sources, so a fresh tree
+  runs `make setup` first).
+
+- **The Phase 2 and Phase 3 gates, 2026-11-01** (tip `6d528cebd`; `make
+  test` rc=0, every leg passed; `make test-full` rc=0; the Valve clone
+  clean). Phase 2: ss_ai_nav's graph joins its spawn to every pickup by the
+  edge type its room needs (`SsAiNavTests`); dm_lockdown's joins every spawn
+  to all 18 weapons and 59 items, crouching through the RPG room's crawl
+  (a `Stand` route does not exist; the world agrees, entry above); the
+  refusal facts are green; the PNG golden matches; the derivation and nav
+  build times are in §12.3. **Red: the validator, 0.58–0.75 % on
+  dm_lockdown against the 0.5 % ceiling**, all of it the solid arm (entry
+  above). Phase 3: the facts of steps 2–4, the applier allow-list and the
+  zero-native fact are green; the live walk is logged ("bot 1 arrived cell
+  1752 ... after 15.7 s", "picked up weapon_ar2", "lodle killed Alyx"), and
+  on ss_ai_nav a bot crouch-jumped to the 357 ("arrived cell 2038 after
+  4.7 s"); a level change keeps the server up and bots can be added again.
+- **A live scoreboard with named, tagged bots** (2026-11-01, `266ceab79`):
+  "Pia Easy Prey (Hard)", "Kofi Turtle (Custom 45)", "Tariq Berserker
+  (Easy)" beside an untagged human, BOT in each bot's ping column, and the
+  join lines name the bots without the tag. "Easy Prey" (headhunter's low
+  pool) read as a taunt beside "(Hard)" and became "Picks On Weak".
+
+- **Phase 4 step 1, the vision pass** (2026-11-02): `VisionPass` and
+  `SnapshotBuilder` (src/ai/hl2mp/server/Senses) over the core's pure
+  `SightTracker`, `TraceBudget` and `VisionMath` (src/ai/core/Perception).
+  Choices: (1) `ITraceQueries.Line` takes the engine's mask as a number, so
+  the sight mask is `VisionPass.SightMask` (0x2006041, stock's
+  `MASK_BLOCKLOS_AND_NPCS|CONTENTS_IGNORE_NODRAW_OPAQUE`, a fact holds the
+  bits) and no `TraceMask` value was added (§4.1 said one would be). (2) The
+  budget serves a pair whole (its five sample points, 5 traces), so 32 a tick
+  serve 6 pairs; 4 bots × 3 others (12 pairs) are each served every second
+  tick. (3) A view holds an actor only while recognised **and** clear this
+  tick: the lost-sight grace delays the `SightLost` event, never shows a
+  position behind a wall. (4) The §4.1 negatives run over a fake engine in
+  the AI's own tests (`SenseWorld`: `DispatchProxy` fakes of
+  `IEnginePlayers`/`IEngineEntities`, a slab tracer over boxes with
+  contents), not a `FakeShimRoot`, which the AI test project does not
+  reference; "a PVS slot that answers false" is its `Pvs` answer.
+  (5) Recognition by Alertness through stock's four times at the presets'
+  Alertness (2/4/6/7 → 1.0/0.5/0.3/0.2 s); lost sight after 0.5 s.
+  (6) Humans are actors with their handle's serial and bit 30 set
+  (`ActorDirectory.HumanActor`), so no human equals a bot. (7) `ai.sense.us`
+  is the binding's own counter (`ai_sense_cost`, and `/ai/counters` from step
+  7), not a core `/counters` group: the core's groups are a fixed list a mod
+  cannot add to. Live, dm_lockdown, 4 bots and one human (`hl2mp-ai` step 1
+  tree, debug): "actor 4#3 sees actor 1#1073741824 at (-3667 3439 2)" and
+  `ai.sense.us mean 110.2 max 557.9 over 300 ticks; 4 bots; ai.sense.traces 5
+  last tick, 8030 in all`. Two bots that spawned on dm_lockdown's 128 u
+  balconies stuck at a `Drop` edge ("next Drop to cell 11463"): the follower's
+  drop, not the senses; Phase 5's.
+
+- **Phase 4 step 2, hearing** (2026-11-02): `ISoundEmitHook` sits in the
+  shared `SoundEmitterCore`'s two emit arms (a raw wave and a script), after
+  the engine was handed the sound, and the server's `SoundEmitter` calls the
+  registered hooks with the final filter's indices; one place covers
+  `EmitPredicted` (the weapons' `IWeaponSounds.Emit`), `MoveSound` (the
+  footsteps' bridge) and every entity sound (§4.2 named three call sites).
+  A sound naming no point is placed at its source's world-space centre, the
+  point its PAS was asked from. `SoundTap` classifies by the weapon table's
+  own names (`FireSound`, `Secondary.Sound`, `ReloadSound`, `EmptySound`;
+  no second list) and by stock's script families for the rest; a dry click
+  is a new `SoundKind.DryFire` (it says a clip is empty, §5.3.4). The reach
+  is `CPASAttenuationFilter`'s (`2 · SOUND_NORMAL_CLIP_DIST / attenuation`),
+  of which Alertness hears 50–100 %; the heard place's error is 30 % of the
+  distance at Alertness 0, 5 % at 10. The facts run on `SoundTap.TryHear`
+  with an `EmittedSound` built in the test; `ISoundEmitHook`'s own fact is in
+  the server's tests (`SoundEmitHookTests`).
+
+- **No player animation event reaches a client in this port** (Phase 4
+  step 3, 2026-11-02; §4.5 said a sighted reloader is seen "while its
+  animation state is in `PlayerAnimEvent.Reload/ReloadLoop/ReloadEnd`",
+  citing `MultiplayerAnimState.cs:1328-1343`): `MultiplayerAnimState.
+  DoAnimationEvent` (`src/shared/managed/Anim/MultiplayerAnimState.cs:1317`)
+  has no caller on either side, and nothing sends stock's
+  `TE_PlayerAnimEvent`, so the reload gesture a stock client draws is not
+  drawn here, and there is no event to tap. What is true of the game is
+  stock's: every other client is shown a player's attack and reload
+  gestures. So the core's arsenal tells a new `IPlayerWeaponEventHook` (in
+  `SourceSharp.Server`) of each new command's shot (rounds), reload start,
+  shell and end, from the weapon state the command changed, and the
+  binding's `WeaponEventTap` turns them into `SeenFire`/`SeenReload` only
+  for a bot that sees the player that tick (its `SightTracker.Sees`); the
+  same tap keeps each player's `ActorActivity` (Reloading between start and
+  end, Firing for the tick) for the views. `SeenFire` carries its rounds in
+  `Code`, `SeenReload` its weapon in `Code2` and a loop's shells in
+  `Amount`. The "unperceived changes nothing" facts at the estimate land
+  with the estimate (step 5); here an unsighted shooter's shot is no event,
+  and the 357's row names no reload sound for the hearing to count.
+
+- **Phase 4 step 4, damage, deaths and the scoreboard** (2026-11-02): a
+  mod may not subscribe to the core's game events (analyzer SS0013), so the
+  hits come by a new core `IPlayerHurtHook` (`SsPlayer.Hurt`, where
+  `player_hurt` is made) and the deaths by the existing `IPlayerDeathHook`.
+  Each bot is told only what its HUD shows: its own hits taken (`Damaged`,
+  with the damage indicator's direction, which `VisionPass.DirectionFrom`
+  computes so no other type reads a position), its own hits dealt (a new
+  `DealtDamage`, its hit marker, carrying the health left, §5.1's
+  health estimate), every death on the kill feed (a new `KillFeed`, victim
+  and killer), its own death (`Killed`) and respawn (`Spawned`, from its own
+  life turning), and the scoreboard rows (the player directory's kills and
+  deaths, what the player resource networks) with their rank in `Amount`
+  (most frags, then fewest deaths, then slot), pushed twice a second when a
+  row changes.
+
+- **Phase 4 step 5, knowledge and memory** (2026-11-02). `WeaponKnowledge`
+  (core) is built by `WeaponKnowledgeBuilder` from the weapon table (clip,
+  refire `Interval`, projectile speed), the view model's `ACT_VM_RELOAD`
+  sequence length through `ModelDescriptors` (the reload animation §5.0
+  names), the shotgun's shell-by-shell behaviour, and the audible reloads:
+  the four behaviours whose code plays `ReloadSound` through
+  `IWeaponArms.Sound` (a fact reads their IL; the crossbow's is
+  `ClientSound`). The scripts fact reads `game/mod_test/scripts/weapon_*.txt`
+  through `WeaponScriptDatabase` and diffs `clip_size`. `MapKnowledge` lists
+  the lump's weapons and items in lump order with the respawn convars'
+  values (a charger has none); dm_lockdown: 18 weapons, 9 spawns, every
+  item exactly the lump's (per-tree fact). Choices: (1) a weapon seen
+  switched starts its estimate **unknown** (§5.1 said it narrows to
+  `clip − shots`; the bot cannot know the new weapon's clip). (2) A shot
+  heard and seen at the same tick is one shot (the larger of the two
+  counts). (3) The gap widening counts from the last perception: down by
+  the shots the cadence allows, up to a full clip once the gap could hold
+  a reload, the mass blending to flat at half a share per reload length.
+  (4) An opponent's habits are keyed by its user id (a client keeps it while
+  connected, across map loads) and kept per bot **name** in
+  `Hl2mpAiSession` (the engine drops every bot at a level change, §12.4
+  above, so a bot's serial does not survive one; a re-added bot of the same
+  name finds its habits); in memory only, which an IL fact holds (no core
+  type calls `System.IO`'s file APIs). (5) Items are observed by a slice of
+  (bot, spawn) pairs a tick inside `VisionPass` (24 checks, 4 traces), an
+  `ItemSeen` pushed on a change or every 2 s; a gone item is expected back
+  after the rule, and an earlier reappearance shortens it (never below half).
+  (6) Memory's halves: confidence by `memoryHalfLife` = 2 + Alertness s;
+  habits by 120 s (the route prior's bytes shift once per half-life).
+
+- **The map-tools bump to `8f4be03` / MapFormats 1.0.2** (2026-11-02, the
+  coordinator's instruction, which overrode the brief's "don't change
+  `maptools.lock`"). Map-tools fixed static-prop pieces (solid only to their
+  own top: phantom floors 61 → 0 by `ssmap nav3d -check`), brush entities
+  with an origin (obstacle boxes where they stand), linked ladders'
+  `point0`/`point1`, and taught `Nav3dWalk` to cross a sheer step two
+  columns along. Measured here (§12.3): dm_lockdown's solid arm fell from
+  1.25–1.55 % to 0.05–0.15 %; every one of the 215 obstacles now matches its
+  entity (206 before); the facts `DmLockdownNavTests`, `SsAiNavTests` (the
+  ladder room's Ladder edges) and `SsAiSightTests` pass on the rebuilt per-tree
+  navs. **Our two-column step stays, and gains map-tools' test**: the course
+  fixture's 18 u step is still left apart by `Nav3dWalk` 1.0.2
+  (`Nav3dFixtureTests.TheStepJoinsWhatMapToolsLeavesApart` passes), so ours
+  is not a duplicate; and on dm_lockdown `Nav3dWalk` now joins 524 leaves in
+  16 of our components that ours did not (stairs of 16 u risers two columns
+  apart, e.g. (-3312 6240 24) to (-3312 6208 8)), because ours asked the
+  column between for a leaf whose bottom is at or under the higher floor,
+  and map-tools asks the first voxel at or above the feet with a centred
+  crouched box (`Nav3dWalk.Crosses`). The derivation now takes either
+  (`INavSource.FitsAbove`, `CrossedAbove`), and
+  `EveryJoinMapToolsMakesIsOneOfOurs` is green again;
+  `tools/ai-mutations crossed-above` turns it red. The floor arm's four
+  dm_lockdown "phantom floors" at (-2840..-2936, 1368..1592) were ground the
+  31-wide slab's sweep slipped past and a ray finds (`ai_nav_probe`: the
+  ground 3.6 u below the floor), the shower pipes map-tools named; the arm
+  now asks the slab, then a ray at the centre, and is 0 of 2,000 on three
+  seeds. No offline fact models it (a box world's slab meets whatever a ray
+  meets); the live numbers are the evidence.
+
+- **The bots stuck on dm_lockdown's balconies were a follower without a
+  way round** (2026-11-02; the step 1 entry above called it the follower's
+  drop, and the coordinator ruled it fixed in this run). Reproduced: a bot
+  spawned at (-2651 4225 128) stopped at (-2656 4065 128) steering at full
+  forward to its next corner ("forward 450 side 0"), against a
+  `prop_physics` (entity 308 at (-2632 4032 154)) the file's obstacle box
+  under-states, so the graph's cells there stay open. `NavFollower.
+  ReportStuck`, called when a bot makes no progress for 3 s, avoids a strip
+  of cells 64 u ahead and a player's width across for 8 s and rebuilds the
+  field (`FlowField.Build` takes the avoided cells; shortcuts are skipped
+  meanwhile, since a straight line knows nothing of them); with no way
+  round it crouch-jumps at the blockage instead. Live, the same bot: "is
+  stuck ... routes round 12 cells", then "arrived cell 19182 at (-3587 3438
+  0) after 13.9 s". The stuck line now names the corners and the command
+  the applier sent. Fact: `NavFollowerTests.AStuckBotRoutesRoundWhereItStuck`;
+  `tools/ai-mutations stuck-no-reroute` turns it red.
+
+- **Phase 4 step 6, the predictors** (2026-11-02; core `Predict/`). Numbers
+  (ai-tests, seeded, synthetic streams the test reads and the estimators
+  cannot): **position** — corridor A then B, 2 s after sight is lost at A's
+  end: 81.5 % of the mass on B with the route prior and the last velocity,
+  25.0 % for the flat baseline (no prior, no velocity); the two halves
+  alone: prior without velocity 43.1 %, velocity without prior 44.9 %. So
+  §5.3's "≤ 35 % with a flat prior" holds only for a baseline that knows
+  neither where the opponent goes nor which way it went (the predictor's
+  mass keeps going the way it arrived: a player rarely turns back). Loop of
+  corridors, unseen ≤ 3 s: arg-max within 2 cells 79.6 % (flat 5.8 %).
+  **Ammo** (an SMG1 duel, 120 s, 95 % of shots heard in hearing, deaf
+  spells): the range holds the true clip 93.0 % of 6,676 ticks in hearing,
+  is at most half a clip wide 74.2 % of them (ignore-ammo baseline: never);
+  the push fires inside the true reload window 98.0 % of 49 pushes, the
+  health-only push 21.8 % of 731. To get there the estimate changed from
+  step 5: the low end keeps room for one missed shot and a tenth of those
+  counted since the clip was known (a mass ramp over the range); in hearing,
+  silence is evidence (no downward widening, no unheard audible reload);
+  widening never narrows; a shot fired during a perceived reload ends it,
+  and a shot the range has no round for is an unperceived reload.
+  **Lead**: the plan's "300 u/s crossing target at 100 u/s bolt" has no
+  intercept (a bolt slower than a crossing target never meets it; a fact
+  says so); the fact uses 1,000 u/s (the RPG's order) and lands on the
+  analytic intercept. **Intent**: retreat tendency 0.8 vs 0.2 flips Retreat
+  over Approach at equal health. **Discipline**: 10 pushes on 0.6 with a
+  0.2 s margin, 0 never. The position predictor runs per known opponent in
+  `BotMemory` (lost sight places the mass, hearing collapses it, each step
+  spreads it at HL2MP's 190 u/s run by the opponent's route prior); its
+  negative evidence (`SeenEmpty`) waits on the brain's view of which cells
+  it saw (Phase 5's search), and the accuracy over the scenario recordings
+  is step 8's.
+
+- **Phase 4 step 7, the inspector's data** (2026-11-02). `BotInspectRecord`
+  (core `Inspect/`): the memory part (each known opponent with confidence,
+  last seen and heard, health and ammo estimates — the ammo bar's width is
+  the range over the clip — the belief's arg-max, entropy and mass by cell,
+  the predicted intent, the habits), the investigations, the items, and the
+  skills part with what they drive; "doing and planning" says it is Phase
+  5's. Routes: `/ai/bots`, `/ai/bot/<slot>[/memory|skills|perception]`,
+  `/ai/counters` (`ai.sense.us`), served through the binding's one
+  `IDebugRouteProvider` (a mod registers a contract once:
+  `BindingCompositionTests` caught a second provider), and the core's
+  provider routes now serve the paths under a route ending in '/' (a fact).
+  Perception's candidate positions are the debugger's (the inspector reads
+  `VisionPass`'s reads), not the bot's. Web UI: an `AI` tab (bot list,
+  memory and skills parts) and the map tab's cone (eye, field edges, a line
+  per candidate in §7.1's stage colours) and heat layers (each unseen
+  opponent's belief), polled once a second while the nav layers are on;
+  Vitest facts over recorded samples (a full memory, an empty one) and the
+  layer builders, shown red with the bar's width broken. `tools/ai-replay
+  heat <map> <recording>` replays a recording with the brains remembering
+  over the map's graph (`AiReplayer.Replay` takes a `MemoryWorld` and a
+  per-snapshot callback) and draws each bot's beliefs every N ticks. Not
+  here: the offline `POST /ai/replay/load` and the live-vs-offline agreement
+  fact (Phase 6's record/replay live), the trace and aim parts (Phase 5).
+
+- **Phase 4 step 8, the scenario maps and harness** (2026-11-02).
+  `tools/ai-scenario sight|hearing` starts a headless game on the per-tree
+  map (its own instance, temp dir, dev-API dir and port), starts
+  `ai_record`, adds the scenario's bots, places them with the dev API's
+  teleport (setup, outside the bots' command path), drives the scripted
+  target through `ai_bot_act` (fire, reload, select) and `ai_bot_drive`,
+  and writes `src/ai/tests/recordings/<map>.airec` and `.json` (the scenes'
+  tick windows and expectations, the hearing truth, the map source's
+  sha256, the counters); `SsAiSightScenarioTests` and
+  `SsAiHearingScenarioTests` replay them, and a recording made from another
+  map source is refused (`tools/ai-mutations scenario-stale-map`).
+  **ss_ai_sight**: open floor seen whole, the wall hiding, the window
+  (an opening, part of the target seen), another player hiding, the closed
+  door hiding, the stacked crates hiding, open again: every scene as
+  expected live. **ss_ai_hearing** (new: three rooms, partitions, a 357, a
+  shotgun and an SMG1 on the floors): from the first scene on, the
+  listener's heard events equal the recipient truth the tap logged at emit
+  time, sound for sound; the 357's shots are heard and its reload never;
+  the SMG1's and the pistol's reloads are heard with their weapons.
+  Premises found false: (1) **footsteps are not server sounds here**: the
+  server's `PlayStepSound` is a no-op (`src/server/interop/
+  ServerMoveWorld.cs:166`), so no footstep reaches `ISoundEmitHook` and the
+  hearing scenario has none (§6.6 and §4.2 named footsteps; the own-steps
+  rule is held offline in `HearingTests`). (2) `ssmap link` lays a level's
+  rooms 512 u apart (the level grid), not at the library's 768 spacing
+  (`AiTestMaps.Origin`): ss_ai_sight's door stands at x 770–782, its
+  crates at x 640. (3) ss_ai_sight has no glass and no grate (its "window"
+  is an opening), so the window/grate negatives stay offline
+  (`VisionPassTests`, the mask fact); half cover was not exercised live (a
+  40 u block under a standing eye hides nothing). (4) Before the first
+  scene, the bots' spawn-time claw sounds (`Weapon_PhysCannon.Open/
+  CloseClaws`) show in the truth log without matching heard events; the
+  fact starts at the first scene and the cause is open (the in-scene sounds
+  match one for one). Costs (live, debug, recording on): ss_ai_sight 3
+  bots `ai.sense.us` 79.8 µs mean, 189.4 worst; ss_ai_hearing 2 bots 137.2,
+  3,259.8 worst; `ai.publish.us` (the inline brains' steps and the
+  recording) 2,894 and 4,514 µs: the publish, not the senses, is the
+  main-thread cost to watch (§12.3).
+
+- **Relocked to map-tools main `38446d1`** (2026-11-02, the coordinator):
+  PR #136 merged as squash commit `38446d1` (parent `83bbf57`), whose tree
+  is `8f4be03`'s (`git diff 8f4be03 38446d1` empty), so MapFormats stays
+  1.0.2. `maptools.lock` → `38446d1aa577…`; the override to the
+  `mt-nav3d-from-bsp` worktree is gone (the old `maptools.lock.local` moved
+  aside, `make setup` with the default `MAPTOOLS_DIR` wrote
+  `../source-sdk-map-tools` back: "map-tools: ../
+  source-sdk-map-tools at 38446d1aa577 (maptools.lock), SourceSharp.MapFormats
+  1.0.2"); `make mapformats-pack` built `SourceSharp.MapFormats.1.0.2.nupkg`
+  in the default checkout, the restore took it from there; `make ai-nav`
+  rebuilt dm_lockdown's nav: 733,923 bytes, sha256 `84740bf87513da51…`,
+  the bytes the bump recorded.
+
+- **The Phase 4 gate's live run** (2026-11-02, dm_lockdown, one human,
+  3 then 4 bots). Two defects it found, fixed with facts: (1) a bot's
+  memory listed itself and its scoreboard-only rivals with a decaying
+  confidence (`TheBotIsNotAnActorItRemembersAndARowIsNoPlace`,
+  `tools/ai-mutations memory-self`); (2) the inline brains cost 13.1 ms a
+  tick with 4 bots, the beliefs spreading over all of dm_lockdown's 35,373
+  cells: a belief now keeps at most 2,048 cells and stops spreading 8 s
+  after the loss (`TheBeliefStaysOnABoundedSetOfCellsAndStopsSpreading`,
+  `belief-unbounded`), 1.1–1.6 ms after. **The publish is still over the
+  §9 main-thread ceiling** (1,000 µs for sense + publish + apply with 8
+  bots): the brains run inline until Phase 6's worker pool takes them off
+  the main thread, which is that phase's to measure. Evidence: "actor 2#1
+  sees actor 1#1073741824 at (-3450 3439 2), tick 3348", Alyx's
+  `/ai/bot/2/memory` names slot 1, serial 1073741824 (the human's handle
+  serial with bit 30, `status`: client 1 "lodle") at (-3450 3439 1.8),
+  last seen tick 3729, confidence 0.67, weapon 11 (the gravity gun).
+
+- **The Phase 4 gate, 2026-11-02**: `make test` at `c0e60ca75` rc=0, all 9
+  legs passed; `make test-full` at `d5996a998` rc=0 (ai 419, managed 2,261,
+  server 9,070 + 6 skipped, client 4,263, tf2 3,616, tf2_descent 172, ui
+  503, native 159 binaries, runner 71, checks 35, checks-full 4, oracle
+  237 + 37, census 3); the Valve clone clean. `tools/ai-mutations`, every
+  arm: "96 arm(s), every one red, every one green again after restore"
+  (no-pvs, zero-route-prior and true-clip-view among them). The §4.1
+  negatives, the §5.3 numbers (above) and the scenario facts are green;
+  `ai.sense.us` is within its 400 µs ceiling live (4 bots × 4 others,
+  71.9–114.8 µs mean) and offline (`SenseCostTests`, thread CPU time).
+  Red against the plan: `ai.publish.us` (the inline brains, 1.1–1.6 ms
+  live) over §9's 1,000 µs main-thread ceiling until Phase 6's pool.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

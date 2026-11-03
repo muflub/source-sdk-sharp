@@ -1144,9 +1144,16 @@ public sealed class DebugApiServer : IDebugApi
                                   Get(request, "target"), Get(request, "input"),
                                   Get(request, "param"), Get(request, "delay"), Get(request, "times")));
 
+            case "/routes":
+                return Ok(ProviderRoutes());
+
             default:
                 if (request.Path.StartsWith("/ui", StringComparison.Ordinal))
                     return UiAssets.Serve(request.Path);
+
+                // A mod's own routes (plan_hl2mp_ai §7.3), after every one of ours.
+                if (TryProvider(request, out HttpReply provided))
+                    return provided;
 
                 // Paths with something in the middle of them, which the switch
                 // above cannot express. Both are named in Part 13 with the id
@@ -1167,6 +1174,62 @@ public sealed class DebugApiServer : IDebugApi
     }
 
     private const string TimedOut = "{\"error\":\"timed out; is the game running frames?\"}";
+
+    //-------------------------------------------------------------------------
+    // ROUTES A MOD ADDS (plan_hl2mp_ai §7.3). Each IDebugRouteProvider the
+    // composition registered names its exact paths; a request for one is
+    // answered on the game thread, as the server's own game-state routes are.
+    //-------------------------------------------------------------------------
+
+    private bool TryProvider(HttpRequest request, out HttpReply reply)
+    {
+        foreach (IDebugRouteProvider provider in _hooks.RouteProviders)
+        {
+            foreach (DebugRoute route in provider.Routes)
+            {
+                if (!Serves(route.Path, request.Path))
+                    continue;
+                int status = 504;
+                string body = OnGameThread(() =>
+                {
+                    DebugRouteReply answer = provider.Handle(request.Path, request.Query);
+                    status = answer.Status;
+                    return answer.Json;
+                }, TimedOut);
+                reply = new HttpReply(status, body);
+                return true;
+            }
+        }
+
+        reply = default;
+        return false;
+    }
+
+    /// <summary>
+    /// Whether a route serves a request's path: the exact path, or, for a
+    /// route path ending in '/', any path under it (<c>/ai/bot/</c> serves
+    /// <c>/ai/bot/3/memory</c>), the rest of the path the provider's to read.
+    /// </summary>
+    internal static bool Serves(string routePath, string requestPath)
+        => routePath == requestPath
+           || (routePath.EndsWith('/') && requestPath.Length > routePath.Length && requestPath.StartsWith(routePath, StringComparison.Ordinal));
+
+    private string ProviderRoutes()
+    {
+        var json = new StringBuilder("{\"routes\":[");
+        bool first = true;
+        foreach (IDebugRouteProvider provider in _hooks.RouteProviders)
+        {
+            foreach (DebugRoute route in provider.Routes)
+            {
+                json.Append(first ? "" : ",").Append("{\"method\":").Append(Quote(route.Method)).Append(",\"path\":").Append(Quote(route.Path))
+                    .Append(",\"description\":").Append(Quote(route.Description)).Append('}');
+                first = false;
+            }
+        }
+
+        return json.Append("]}").ToString();
+    }
 
     //-------------------------------------------------------------------------
     // A CLIENT'S OWN STATE, proxied over the debug channel (plan_side_isolation
@@ -1310,6 +1373,7 @@ public sealed class DebugApiServer : IDebugApi
     private static string Help() => """
         {
           "endpoints": {
+            "GET  /routes":                "the routes the game's mods add (an AI's /ai/nav, ...): method, path, what each answers",
             "GET  /status":                "map, time, tick count, the ABI crossing counters and consoleLinesLost (engine console lines the native buffer could not hold)",
             "GET  /counters?group=G":      "counter groups as numbers: physics (cs_sv_physics_events), playershadow (cs_sv_playershadow)",
             "GET  /wait?<one condition>&timeout=TICKS&wall=S": "until a condition holds, checked once per server tick: ticks=N, field=F (with index|handle|name, op, value), exists=1, gone=1, event=KIND, settled=1, census=N, io=empty",

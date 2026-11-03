@@ -79,11 +79,13 @@ public sealed class PlayerResourceNetStateTests
     /// of <c>Slots</c> rows, plus the team-score run of <c>MaxTeams</c>.
     /// </summary>
     [Fact]
-    public void TheTableIsExactlyTheSevenRunsAndTheTeamRun()
+    public void TheTableIsExactlyTheSevenRunsTheTeamRunAndTheTags()
     {
         // The eighth run is the mode's team score (tf2 stage 0.7 part C); the
-        // seventh, the scoreboard's ping (plan_client_ui U3), stock's m_iPing.
-        Assert.Equal(7 * PlayerResourceNetState.Slots + SourceSharp.Abi.EngineLimits.MaxTeams,
+        // seventh, the scoreboard's ping (plan_client_ui U3), stock's m_iPing;
+        // the tags, TagBytes a row (user ruling 2026-11-01).
+        Assert.Equal(7 * PlayerResourceNetState.Slots + SourceSharp.Abi.EngineLimits.MaxTeams
+                     + PlayerResourceNetState.Slots * PlayerResourceNetState.TagBytes,
                      PlayerResourceNetState.NetLayout.Fields.Count);
     }
 
@@ -91,60 +93,72 @@ public sealed class PlayerResourceNetStateTests
     /// It fits a tier with room to spare, and BOTH bounds matter.
     ///
     /// <para>
-    /// 404 bytes — 340 of player rows plus the 64-byte team-score run (tf2
-    /// stage 0.7 part C) — lands in the 512 tier at seven ninths full, which
-    /// still leaves room for a run to be added without the whole thing moving
-    /// to 1,024 and doubling its payload words. The first version of this
-    /// class sat at 1,020 of 1,024 — 99.6%, which <c>debug-api nettable</c>
-    /// flagged as <c>nearCeiling</c> — because it declared 102 rows for a
-    /// build whose MAX_PLAYERS is 33.
+    /// 812 bytes: 340 of player rows, the 64-byte team-score run (tf2 stage 0.7
+    /// part C) and 408 of scoreboard tags (twelve bytes a row; user ruling
+    /// 2026-11-01, a bot's skill beside its name). The tags moved the
+    /// declaration from the 512 tier (404 bytes, seven ninths full) to the
+    /// 1,024 one: a label of eleven bytes a player has no narrower home on this
+    /// class, and a carrier of its own would be a second singleton for one
+    /// string a row. The first version of this class sat at 1,020 of 1,024
+    /// (<c>nearCeiling</c>) because it declared 102 rows for a build whose
+    /// MAX_PLAYERS is 33.
     /// </para>
     ///
     /// <para>
     /// The lower bound is the one that catches the mistake going the other way:
-    /// a declaration that shrank past 256 would mean a run was dropped, and the
+    /// a declaration that shrank past 512 would mean a run was dropped, and the
     /// scoreboard would lose a column with nothing else complaining.
     /// </para>
     /// </summary>
     [Fact]
-    public void FitsTheFiveHundredAndTwelveByteTierWithRoomOver()
+    public void FitsTheThousandAndTwentyFourByteTierWithRoomOver()
     {
-        // THE DECLARATION, not the blob. Every blob now opens with the engine
-        // block (plan_entity.md §3.2), and the bounds below are about how many
-        // scoreboard rows this class declares -- so what is measured is what the
-        // class itself asks for. The blob it lands in is a separate fact, and it
-        // is the one below.
+        // THE DECLARATION, not the blob: the bounds are about how many
+        // scoreboard rows and runs this class declares.
         int declared = PlayerResourceNetState.NetLayout.Size - EngineBlock.SizeBytes;
 
-        Assert.True(declared <= 512,
-            $"the declaration is {declared} bytes, "
-            + "which no longer fits the 512-byte tier — check that the slot count "
-            + "still matches the engine's MAX_PLAYERS before raising this");
+        Assert.True(declared <= 1024 - 64,
+            $"the declaration is {declared} bytes, which no longer leaves 64 bytes over in the 1,024-byte tier");
 
-        Assert.True(declared > 256,
-            $"the declaration is down to {declared} "
-            + "bytes; a run has been dropped, or the slot count has collapsed");
+        Assert.True(declared > 512,
+            $"the declaration is down to {declared} bytes; a run has been dropped, or the slot count has collapsed");
     }
 
     /// <summary>
-    /// And which tier the whole blob lands in, said out loud.
-    ///
-    /// <para>
-    /// THE BLOCK MOVED THIS CLASS UP A TIER, and that is a real cost of putting
-    /// the engine block at the front of every blob rather than something to hide
-    /// behind a relative bound. The declaration is comfortably inside 512; the
-    /// declaration plus a 352-byte block is not, so player_manager is a
-    /// 1024-byte entity now. Written down here because the next person to wonder
-    /// why deserves to find the answer rather than rediscover it.
-    /// </para>
+    /// And which tier the whole blob lands in, said out loud: the declaration
+    /// plus the engine block is 1,300 bytes, the 2,048 tier, native's largest
+    /// (a carrier over 2,048 is refused at bind; memory tf2-carrier-pitfalls).
     /// </summary>
     [Fact]
-    public void TheWholeBlobLandsInTheThousandAndTwentyFourByteTier()
+    public void TheWholeBlobLandsInTheTwoThousandAndFortyEightByteTier()
     {
         int blob = PlayerResourceNetState.NetLayout.Size;
 
-        Assert.True(blob > 512, $"the blob is {blob} bytes, which would fit 512 after all");
-        Assert.True(blob <= 1024, $"the blob is {blob} bytes and no longer fits the 1024 tier");
+        Assert.True(blob > 1024, $"the blob is {blob} bytes, which would fit 1024 after all");
+        Assert.True(blob <= 2048, $"the blob is {blob} bytes and no longer fits the 2048 tier, native's largest");
+    }
+
+    [Fact]
+    public void ATagReadsBackAndIsCutOnACharactersEdge()
+    {
+        var state = new PlayerResourceNetState();
+        state.BindLocal();
+        state.SetTag(3, "(Custom 45)");
+        state.SetTag(4, "(Custom 45) and more");
+        state.SetTag(5, "(Héros éé)");
+        Assert.Equal(("(Custom 45)", "(Custom 45)", ""), (state.TagOf(3), state.TagOf(4), state.TagOf(2)));
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(state.TagOf(5)) <= PlayerResourceNetState.TagBytes - 1);
+        Assert.StartsWith("(H", state.TagOf(5), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ClearingARowClearsItsTag()
+    {
+        var state = new PlayerResourceNetState();
+        state.BindLocal();
+        state.SetTag(3, "(Hard)");
+        state.ClearRow(3);
+        Assert.Equal("", state.TagOf(3));
     }
 
     /// <summary>

@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""Build a map's .nav3d per tree with map-tools' ssmap (plan_hl2mp_ai §6.4.1).
+
+  tools/ai-nav-build MAP [--config debug] [--force]   build MOD/maps/MAP.nav3d
+  tools/ai-nav-build --self-test
+
+The navigation is a pure function of the map and the pinned tools, so it is
+built in each tree, never committed or copied between trees (CLAUDE.md, on
+the sandbox map), and stamped: MOD/maps/MAP.nav3d.stamp names the bsp's
+sha256, the map-tools commit (maptools.lock) and MapFormatsVersion. A build
+whose stamp still matches is a no-op; a changed bsp, lock or reader version
+rebuilds. A build that wrote no file, or a file the stamp does not describe,
+fails. ssmap runs with `-game MOD`, the mod's content (static props need
+their models, or they are missing from the nav).
+
+$SSMAP overrides how ssmap runs (a published binary, or the self-test's
+stand-in); by default `dotnet run` in MAPTOOLS_DIR, after
+tools/maptools-lock check.
+"""
+import hashlib
+import json
+import os
+import shlex
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DOTNET = os.environ.get("DOTNET", os.path.expanduser("~/.dotnet/dotnet"))
+
+
+class BuildError(Exception):
+    pass
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+
+def tools_identity(repo):
+    lock = open(os.path.join(repo, "maptools.lock")).read().split()[0]
+    props = open(os.path.join(repo, "src", "ai", "Directory.Build.props")).read()
+    version = props.split("<MapFormatsVersion>")[1].split("</MapFormatsVersion>")[0].strip()
+    return lock, version
+
+
+def wanted_stamp(bsp, lock, version):
+    return {"bsp_sha256": sha256(bsp), "maptools": lock, "mapformats": version}
+
+
+def read_stamp(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def build(repo, mod, name, ssmap, force=False, out=print):
+    """Build MOD/maps/NAME.nav3d unless its stamp says it is current. Answers
+    'built' or 'current'; raises BuildError naming what is wrong."""
+    maps = os.path.join(mod, "maps")
+    bsp = os.path.join(maps, name + ".bsp")
+    nav = os.path.join(maps, name + ".nav3d")
+    stamp_path = nav + ".stamp"
+    if not os.path.exists(bsp):
+        raise BuildError(f"no {bsp}: the map must be there first")
+    lock, version = tools_identity(repo)
+    want = wanted_stamp(bsp, lock, version)
+    have = read_stamp(stamp_path)
+    if not force and have is not None and os.path.exists(nav):
+        if {k: have.get(k) for k in want} == want and have.get("nav_sha256") == sha256(nav):
+            out(f"ai-nav-build: {name}.nav3d is current (bsp {want['bsp_sha256'][:12]}, map-tools {lock[:12]}, "
+                f"MapFormats {version})")
+            return "current"
+    for p in (nav, stamp_path):
+        if os.path.exists(p):
+            os.remove(p)
+    cmd = ssmap + ["nav3d", bsp, "-out", nav, "-game", mod]
+    out("ai-nav-build: " + " ".join(shlex.quote(c) for c in cmd))
+    start = time.monotonic()
+    p = subprocess.run(cmd, capture_output=True, text=True)
+    seconds = time.monotonic() - start
+    for line in (p.stdout + p.stderr).splitlines():
+        if "wrote" in line or "error" in line.lower():
+            out("  " + line)
+    if p.returncode != 0:
+        raise BuildError(f"ssmap nav3d {name} failed (rc={p.returncode}):\n{(p.stdout + p.stderr)[-2000:]}")
+    if not os.path.exists(nav) or os.path.getsize(nav) == 0:
+        raise BuildError(f"ssmap nav3d {name} wrote no {nav}")
+    stamp = dict(want, nav_sha256=sha256(nav), seconds=round(seconds, 2))
+    with open(stamp_path, "w") as f:
+        json.dump(stamp, f, indent=1, sort_keys=True)
+        f.write("\n")
+    out(f"ai-nav-build: {name}.nav3d built in {seconds:.1f} s ({os.path.getsize(nav):,} bytes, sha256 {stamp['nav_sha256'][:12]})")
+    return "built"
+
+
+def default_ssmap(repo):
+    if os.environ.get("SSMAP"):
+        return shlex.split(os.environ["SSMAP"])
+    lock_tool = os.path.join(repo, "tools", "maptools-lock")
+    p = subprocess.run([lock_tool, "path"], capture_output=True, text=True, check=True)
+    mt = p.stdout.strip()
+    check = subprocess.run([lock_tool, "check", "--dir", mt], capture_output=True, text=True)
+    if check.returncode != 0:
+        raise BuildError(check.stderr.strip() or check.stdout.strip())
+    return [DOTNET, "run", "--project", os.path.join(mt, "src", "SourceSharp.MapCompile"), "-c", "Release", "--"]
+
+
+def self_test():
+    failures = []
+
+    def expect(name, cond):
+        print(f"{'ok ' if cond else 'BAD'} {name}")
+        if not cond:
+            failures.append(name)
+
+    with tempfile.TemporaryDirectory(prefix="ainav-") as tmp:
+        repo = os.path.join(tmp, "repo")
+        mod = os.path.join(tmp, "mod")
+        os.makedirs(os.path.join(repo, "src", "ai"))
+        os.makedirs(os.path.join(mod, "maps"))
+        with open(os.path.join(repo, "maptools.lock"), "w") as f:
+            f.write("a" * 40 + "\n")
+        props = os.path.join(repo, "src", "ai", "Directory.Build.props")
+        with open(props, "w") as f:
+            f.write("<Project><PropertyGroup><MapFormatsVersion>1.2.3</MapFormatsVersion></PropertyGroup></Project>\n")
+        bsp = os.path.join(mod, "maps", "m.bsp")
+        with open(bsp, "wb") as f:
+            f.write(b"VBSP one")
+        count = os.path.join(tmp, "runs")
+        fake = os.path.join(tmp, "fake-ssmap")
+        # The stand-in writes the bsp's bytes reversed (a pure function of
+        # its input) and counts its runs, so a rebuild is visible.
+        with open(fake, "w") as f:
+            f.write("#!/usr/bin/env python3\nimport sys\nargs = sys.argv[1:]\n"
+                    f"open({count!r}, 'a').write('x')\n"
+                    "assert args[0] == 'nav3d' and args[2] == '-out' and args[4] == '-game'\n"
+                    "open(args[3], 'wb').write(open(args[1], 'rb').read()[::-1])\n")
+        os.chmod(fake, 0o755)
+        quiet = lambda *_: None
+
+        def runs():
+            return len(open(count).read()) if os.path.exists(count) else 0
+
+        nav = os.path.join(mod, "maps", "m.nav3d")
+        expect("a first build builds", build(repo, mod, "m", [fake], out=quiet) == "built" and runs() == 1)
+        expect("it wrote the nav and its stamp", os.path.exists(nav) and read_stamp(nav + ".stamp")["mapformats"] == "1.2.3")
+        expect("a second build is a no-op", build(repo, mod, "m", [fake], out=quiet) == "current" and runs() == 1)
+        # Negative control: a count of files cannot tell a kept nav from a
+        # rebuilt one, so the differential is the runs and the bytes.
+        before = sha256(nav)
+        with open(bsp, "wb") as f:
+            f.write(b"VBSP two")
+        expect("a changed bsp rebuilds", build(repo, mod, "m", [fake], out=quiet) == "built" and runs() == 2)
+        expect("and the nav follows the new bsp", sha256(nav) != before)
+        with open(props, "w") as f:
+            f.write("<Project><PropertyGroup><MapFormatsVersion>1.2.4</MapFormatsVersion></PropertyGroup></Project>\n")
+        expect("a new reader version rebuilds", build(repo, mod, "m", [fake], out=quiet) == "built" and runs() == 3)
+        with open(os.path.join(repo, "maptools.lock"), "w") as f:
+            f.write("b" * 40 + "\n")
+        expect("a new lock rebuilds", build(repo, mod, "m", [fake], out=quiet) == "built" and runs() == 4)
+        with open(nav, "ab") as f:
+            f.write(b"!")
+        expect("a nav edited behind the stamp rebuilds", build(repo, mod, "m", [fake], out=quiet) == "built" and runs() == 5)
+        expect("forced, it rebuilds", build(repo, mod, "m", [fake], force=True, out=quiet) == "built" and runs() == 6)
+        broken = os.path.join(tmp, "broken")
+        with open(broken, "w") as f:
+            f.write("#!/bin/sh\nexit 0\n")
+        os.chmod(broken, 0o755)
+        os.remove(nav + ".stamp")
+        why = None
+        try:
+            build(repo, mod, "m", [broken], out=quiet)
+        except BuildError as e:
+            why = str(e)
+        expect("a build that writes nothing fails", why is not None and "wrote no" in why)
+        expect("and leaves no stale nav behind", not os.path.exists(nav))
+        why = None
+        try:
+            build(repo, mod, "absent", [fake], out=quiet)
+        except BuildError as e:
+            why = str(e)
+        expect("a missing map fails, naming it", why is not None and "absent.bsp" in why)
+    print(f"ai-nav-build self-test: {'FAILED ' + str(len(failures)) if failures else 'ok'}")
+    return 1 if failures else 0
+
+
+def main(argv):
+    if argv[:1] == ["--self-test"]:
+        return self_test()
+    names = [a for a in argv if not a.startswith("--")]
+    config = "debug"
+    if "--config" in argv:
+        config = argv[argv.index("--config") + 1]
+        names.remove(config)
+    if not names:
+        print(__doc__)
+        return 2
+    mod = os.path.join(ROOT, "bin", config, "mods", "test")
+    try:
+        ssmap = default_ssmap(ROOT)
+        for name in names:
+            build(ROOT, mod, name, ssmap, force="--force" in argv)
+    except BuildError as e:
+        print(f"ai-nav-build: {e}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

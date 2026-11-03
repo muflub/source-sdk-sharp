@@ -70,6 +70,22 @@ public sealed class FakeScoreboard : IScoreboardSource
             [.. players]);
     }
 
+    /// <summary>
+    /// Deathmatch with bots (user ruling 2026-11-01): one human, a preset bot
+    /// and a custom one, each bot's skill tag beside its name.
+    /// </summary>
+    public static FakeScoreboard Bots()
+    {
+        ScoreboardPlayer[] players =
+        [
+            new(1, "lodle", 0, 12, 4, 24, Alive: true, Bot: false, Local: true),
+            new(2, "Bobby Sniper", 0, 9, 7, 0, Alive: true, Bot: true, Local: false, Tag: "(Hard)"),
+            new(3, "Tommy Camps Alot", 0, 3, 11, 0, Alive: false, Bot: true, Local: false, Tag: "(Custom 45)"),
+        ];
+        return new FakeScoreboard("SourceSharp Deathmatch | dm_lockdown 24/7", "dm_lockdown", 16,
+            [new ScoreboardTeam(0, "Deathmatch", 24)], players);
+    }
+
     public static FakeScoreboard Empty()
         => new("SourceSharp Deathmatch | dm_lockdown 24/7", "dm_lockdown", 16,
                [new ScoreboardTeam(2, "Combine", 0), new ScoreboardTeam(3, "Rebels", 0)], []);

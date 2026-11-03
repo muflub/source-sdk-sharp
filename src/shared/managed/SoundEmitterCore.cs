@@ -156,6 +156,15 @@ public abstract class SoundEmitterCore
     protected abstract IRecipientList AllPlayersReliable();
 
     /// <summary>The engine calls, for a side's own arms.</summary>
+    /// <summary>
+    /// A sound went to the engine with its final <paramref name="filter"/>,
+    /// by the name it was emitted under (the script, or the raw wave), at the
+    /// level its script gives: a side's hooks see it here (plan_hl2mp_ai §4.2).
+    /// </summary>
+    protected virtual void Emitted(IRecipientList filter, int entIndex, string soundName, int soundLevel, Vector? origin)
+    {
+    }
+
     protected ISoundEmitterEngine Engine => _engine;
 
     /// <summary>The model of the speaker at an index, as the gender is read from it.</summary>
@@ -229,6 +238,7 @@ public abstract class SoundEmitterCore
 
             _engine.EmitSound(filter, entIndex, ep.Channel, name, ep.Volume, ep.SoundLevel, ep.Flags, ep.Pitch,
                               ep.SpecialDsp, ep.Origin, ep.SoundTime, ep.SpeakerEntity);
+            Emitted(filter, entIndex, name, ep.SoundLevel, ep.Origin);
             if (ep.WantDuration)
                 ep.Duration = _engine.SoundDuration(name);
 
@@ -279,6 +289,7 @@ public abstract class SoundEmitterCore
 
         _engine.EmitSound(filter, entIndex, parameters.Channel, wave, parameters.Volume, parameters.SoundLevel,
                           ep.Flags, parameters.Pitch, ep.SpecialDsp, ep.Origin, st, ep.SpeakerEntity);
+        Emitted(filter, entIndex, ep.SoundName ?? wave, parameters.SoundLevel, ep.Origin);
         if (ep.WantDuration)
             ep.Duration = _engine.SoundDuration(wave);
 

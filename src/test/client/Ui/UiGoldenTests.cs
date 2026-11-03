@@ -22,6 +22,7 @@ public class UiGoldenTests
     public static TheoryData<string, string> Exemplars() => new()
     {
         { "scoreboard", "12-players-two-teams" },
+        { "scoreboard", "deathmatch-with-bots" },
         { "hud", "full-health-smg" },
         { "hud", "low-health-hurt-from-the-left" },
         { "hud", "smg-2-of-3-grenades" },

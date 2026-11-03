@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 31 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 34 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -113,6 +113,15 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // void IVEngineServer::AllowImmediateEdictReuse( void )
     public delegate* unmanaged<void*, void> AllowImmediateEdictReuse;
+
+    // edict_t * IVEngineServer::CreateFakeClientEx( const char *, bool )
+    public delegate* unmanaged<void*, byte*, byte, void*> CreateFakeClientEx;
+
+    // int IVEngineServer::IndexOfEdict( const edict_t * )
+    public delegate* unmanaged<void*, void*, int> IndexOfEdict;
+
+    // void IVEngineServer::SetFakeClientConVarValue( edict_t *, const char *, const char * )
+    public delegate* unmanaged<void*, void*, byte*, byte*, void> SetFakeClientConVarValue;
 }
 
 /// <summary>

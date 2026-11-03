@@ -24,6 +24,7 @@ import { PredictionTab } from './prediction/PredictionTab';
 import { createSelection } from './map/selection';
 import { ConVarsTab } from './tabs/ConVars';
 import { ServicesTab } from './tabs/Services';
+import { AiTab } from './tabs/Ai';
 import { useLiveReload } from './hooks/useLiveReload';
 import { usePoll } from './hooks/usePoll';
 import { useStatus } from './hooks/useStatus';
@@ -215,6 +216,11 @@ export function App() {
                   looking in different directions. */}
               <section className="panel mapfile-panel" data-panel="mapfile" hidden={tab !== 'mapfile'}>
         <MapFileTab visible={tab === 'mapfile'} />
+      </section>
+
+              {/* The bot inspector (plan_hl2mp_ai §7.2): web UI only. */}
+              <section className="panel" data-panel="ai" hidden={tab !== 'ai'}>
+        <AiTab visible={tab === 'ai'} />
       </section>
 
               <section className="panel" data-panel="scripted" hidden={tab !== 'scripted'}>

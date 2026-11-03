@@ -159,6 +159,24 @@ public sealed class ServerPlayerCommands
 
     private PlayerCommandStage? _stage;
 
+    /// <summary>
+    /// The same stages for a fake client's commands (plan_hl2mp_ai §3.2):
+    /// a FIXANGLE_ABSOLUTE counts as delivered. The engine clears a fixangle
+    /// when it sends it to a networked client
+    /// and returns before that for a fake client, so a bot's would hold
+    /// forever and no command of its could turn it. A bot's applier reads the
+    /// server's view before every command and builds the command from it, so
+    /// the angle the game set reaches the bot as it reaches a client, and the
+    /// command's angles are taken. (Stock's bots snap their eyes each tick
+    /// instead, NextBotPlayerBody.cpp:324, which a bot here may not.)
+    /// </summary>
+    public PlayerCommandStage FakeClientStage => _fakeClientStage ??= RunFakeClientStage;
+
+    private PlayerCommandStage? _fakeClientStage;
+
+    // Set while a fake client's stage runs.
+    private bool _fakeClient;
+
     /// <summary>How many commands the loop ran.</summary>
     public long Ran { get; private set; }
 
@@ -188,6 +206,19 @@ public sealed class ServerPlayerCommands
             m.TickBase, g.TickCount, commands, g.SimTicksThisFrame,
             ServerCommandRules.ClockCorrectionTicks(g.IntervalPerTick),
             m.TickBase == 0 || g.MaxClients == 1);
+    }
+
+    private int RunFakeClientStage(EntityHandle player, int index, int stage, in UserCmd cmd)
+    {
+        _fakeClient = true;
+        try
+        {
+            return RunStage(player, index, stage, in cmd);
+        }
+        finally
+        {
+            _fakeClient = false;
+        }
     }
 
     private int RunStage(EntityHandle player, int index, int stage, in UserCmd cmd)
@@ -236,10 +267,13 @@ public sealed class ServerPlayerCommands
         // The old angles are last command's authority, recorded before this
         // command's overwrite them.
         Vector oldAngles = _facts.VAngle;
+        int pendingFix = _fakeClient && _facts.FixAngle == ServerCommandRules.FixAngleAbsolute
+            ? ServerCommandRules.FixAngleNone
+            : _facts.FixAngle;
         (Vector vAngle, int fixAngle) = ServerCommandRules.CommandAngles(
-            _facts.VAngle, _facts.FixAngle, _facts.AngleChange, viewAngles);
+            _facts.VAngle, pendingFix, _facts.AngleChange, viewAngles);
 
-        if (_facts.FixAngle != ServerCommandRules.FixAngleAbsolute)
+        if (pendingFix != ServerCommandRules.FixAngleAbsolute)
             _api.PlayerCommandView(_movementArea, player, vAngle, fixAngle);
 
         ServerCommandRules.SetupMove(s, in cmd, viewAngles, vAngle, oldAngles, _facts.Origin,

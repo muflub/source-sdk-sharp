@@ -4,8 +4,8 @@ public static partial class EngineServices
 {
     // The server's own engine interfaces: IVEngineServer (whose acquirer
     // EngineServerBinding installs) and its slices, the save allocator, the
-    // area portal records' three calls and the round cleanup's edict slots,
-    // the same object; the engine sound and the filesystem.
+    // area portal records' three calls, the round cleanup's edict slots and
+    // the bots' fake clients, the same object; the engine sound and the filesystem.
     static partial void AddSideForwarders(ServiceContainer services, EngineSide side)
     {
         IFwdEngineServer server = EngineBound.Server(side);
@@ -13,6 +13,7 @@ public static partial class EngineServices
         services.AddInstance(Slice<ISaveMemory>(server));
         services.AddInstance(Slice<SourceSharp.Server.Interop.IAreaPortalEngine>(server));
         services.AddInstance(Slice<SourceSharp.Server.Interop.IEdictSlots>(server));
+        services.AddInstance(Slice<SourceSharp.Server.Interop.IFakeClients>(server));
         services.AddInstance(EngineBound.SoundServer(side));
         services.AddInstance(EngineBound.FileSystem(side));
     }

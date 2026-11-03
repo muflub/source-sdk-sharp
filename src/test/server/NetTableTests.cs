@@ -1021,8 +1021,15 @@ public partial class NetTableTests
         //
         // 960 since the client tail's four unwritten Studio*Count words went
         // (2026-10-18): the block shrank 504 -> 488, so 488 + 472 = 960.
-        Assert.True(blob == EngineBlock.SizeBytes + 472, $"the hierarchy's declared blob is 472 bytes past the engine block ({blob})");
-        Assert.Equal(960, blob);
+        //
+        // 880 since the scoreboard tags (user ruling 2026-11-01, a bot's skill
+        // beside its name): twelve bytes a row, 408 bytes, took the
+        // declaration 472 -> 880 past the block, 488 + 880 = 1368, rounded to
+        // sixteen 1376. player_manager moves from the 1024 tier to 2048; no
+        // other class moved.
+        Assert.True(blob == 1376 && Size("player_manager") == EngineBlock.SizeBytes + 880,
+                    $"the hierarchy's declared blob is 1376, player_manager 880 bytes past the engine block ({blob})");
+        Assert.Equal(1376, blob);
 
         // The greediest classes, BY NAME. A max with no name would still pass
         // with color_correction back at 276 — it is WHICH class sets the number
@@ -1049,7 +1056,7 @@ public partial class NetTableTests
                           .OrderBy(n => n)
                           .ToArray();
 
-        Assert.True(greediest.Size == Block + 472
+        Assert.True(greediest.Size == Block + 880
               && atTheTop.SequenceEqual(new[] { "player_manager" }),
             $"player_manager is the greediest declaration ({string.Join(", ", atTheTop)} at {greediest.Size})");
 
@@ -1080,7 +1087,8 @@ public partial class NetTableTests
         // 340 plus a 352-byte block does not. Recorded as the number it is
         // rather than as an inequality, because a tier is a doubling and the
         // step that was taken here is worth being able to point at.
-        Assert.True(tiers.Ceiling(blob) == 1024, $"the greediest declaration lands on the 1024 tier ({tiers.Ceiling(blob)})");
+        // 2048 since the scoreboard tags (above); 1024 before them.
+        Assert.True(tiers.Ceiling(blob) == 2048, $"the greediest declaration lands on the 2048 tier ({tiers.Ceiling(blob)})");
 
         Assert.True(tiers.Ceiling(288) == 512, "and 288 -- what color_correction alone once forced -- lands on 512, not 2048");
 
@@ -1111,9 +1119,11 @@ public partial class NetTableTests
         // all three on the 1024 tier, so not even its own entity changes tier;
         // no other class's size depends on either (each is its own declaration
         // since Part 18).
-        Assert.True(Size("player_manager") == Block + 472, $"player_manager is {Size("player_manager")}");
-        Assert.True(tiers.Ceiling(Block + 340) == 1024 && tiers.Ceiling(Size("player_manager")) == 1024,
-            "player_manager is on the 1024 tier before the ping, after it, and after the team totals");
+        // The scoreboard tags (user ruling 2026-11-01) are the run that moved
+        // it: 408 more bytes, 976 -> 1368, the 2048 tier, its own entity only.
+        Assert.True(Size("player_manager") == Block + 880, $"player_manager is {Size("player_manager")}");
+        Assert.True(tiers.Ceiling(Block + 340) == 1024 && tiers.Ceiling(Block + 472) == 1024 && tiers.Ceiling(Size("player_manager")) == 2048,
+            "player_manager was on the 1024 tier before the ping, after it and after the team totals, and is on 2048 with the tags");
     }
 
     /// <summary>

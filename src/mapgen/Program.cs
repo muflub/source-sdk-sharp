@@ -182,6 +182,33 @@ if (args.Length > 0 && args[0] == "town")
     return 0;
 }
 
+// "aimaps" writes the AI's test maps (plan_hl2mp_ai §6.6) into the directory
+// given: each a room library and its level, which `make map MAP=ss_ai_*`
+// links with map-tools' rooms pipeline.
+if (args.Length > 0 && args[0] == "aimaps")
+{
+    if (args.Length < 2)
+    {
+        Console.Error.WriteLine("usage: MapGen aimaps <dir>");
+        return 2;
+    }
+
+    Directory.CreateDirectory(args[1]);
+    var nav = AiTestMaps.Nav();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_nav.vmf"), nav.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_nav.yaml"), AiTestMaps.Level("ss_ai_nav.vmf", ["climb", "spawn", "ledges"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_nav.vmf")}: {nav.Entities.Count} entities, {nav.WorldSolids.Count} world brushes");
+    var sight = AiTestMaps.Sight();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_sight.vmf"), sight.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_sight.yaml"), AiTestMaps.Level("ss_ai_sight.vmf", ["watch", "doors"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_sight.vmf")}: {sight.Entities.Count} entities, {sight.WorldSolids.Count} world brushes");
+    var hearing = AiTestMaps.Hearing();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_hearing.vmf"), hearing.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_hearing.yaml"), AiTestMaps.Level("ss_ai_hearing.vmf", ["near", "middle", "far"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_hearing.vmf")}: {hearing.Entities.Count} entities, {hearing.WorldSolids.Count} world brushes");
+    return 0;
+}
+
 // "stockmap" writes the copy of a compiled ss_sandbox that stock hl2mp loads:
 // the SourceSharp-only classnames renamed (StockMap.Renames), nothing else
 // changed. tools/stock-ab makes it on every run, from the tree's own .bsp.

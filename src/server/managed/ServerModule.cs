@@ -226,6 +226,17 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_playerCommands);
         _services.AddInstance(_playerCommands.Shadow);
 
+        // Every command's observers, humans' and bots' (plan_hl2mp_ai
+        // §3.4.4), and the runner a bot's commands go through, the human
+        // binding's two calls with native's tick gate and clock restore
+        // (§3.2).
+        _services.AddFactory<IHooks<IPlayerCommandObserver>>(
+            locator => new Hooks<IPlayerCommandObserver>(locator, locator.Require<ILog>()));
+        _playerCommands.Observers = _services.Require<IHooks<IPlayerCommandObserver>>();
+        _services.AddInstance<IPlayerCommandRunner>(
+            PlayerCommandRunner.For(_playerCommands, _serverCommands, _services.Require<IEngineEnvironment>(), this, this,
+                                    _engine, () => _playerShadow?.Value ?? true));
+
         // This side's declared networked states by name (statics to zero: it
         // was three static maps every side's Discover wrote), for native's
         // layout asks through the net-state binding.
@@ -1099,6 +1110,18 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         _services.AddInstance<IEnginePlayers>(
             new ArsenalPlayers(_services.Require<IEnginePlayers>(), _arsenal));
+
+        // Bots as engine clients (plan_hl2mp_ai §3.1): the fake-client slice,
+        // the players' handles (after the decorator), the kick and the
+        // players' flag words.
+        var bots = _services.Create<BotPlayers>();
+        _services.AddInstance(bots);
+        _services.AddInstance<IBotPlayers>(bots);
+
+        // A short label per player beside its name on the scoreboard, which a
+        // mod sets (user ruling 2026-11-01: a bot's skill) and the player
+        // resource networks.
+        _services.AddInstance<IScoreboardTags>(new ScoreboardTags());
 
         // AFTER the decorator: the notice names the scorer's active weapon,
         // which ArsenalPlayers answers (the engine's arm answers nothing for
@@ -3355,9 +3378,22 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             return speaker == EntityHandle.None ? null : render.GetModelName(speaker);
         }
 
+        // Where a sound's source is, for one that names no point: a player by
+        // its slot, anything else by its index; the middle of its bounds, as
+        // the PAS was asked from (ServerSounds).
+        Vector? SourceOrigin(int index)
+        {
+            EntityHandle source = index >= 1 && index <= EngineLimits.MaxPlayerSlots ? players.GetHandle(index) : EntityHandle.None;
+            if (source == EntityHandle.None && index > 0)
+                source = _entities.Directory.HandleOf(index);
+            return source == EntityHandle.None ? null : entities.GetWorldSpaceCenter(source);
+        }
+
+        // The sounds the AI hears (plan_hl2mp_ai §4.2), collected once on the first emit.
+        var soundHooks = new Hooks<ISoundEmitHook>(_services, Log);
         var emitter = new SoundEmitter(engine, recipients, _services.Require<ICloseCaptions>(),
                                        _services.Require<IGameClock>(), SpeakerModel, () => trace?.Value == true,
-                                       text => Log.Msg(text), DeveloperMessage);
+                                       text => Log.Msg(text), DeveloperMessage, () => soundHooks.All, SourceOrigin);
         _serverSounds = new ServerSounds(emitter, entities, handle => _soundController.Create(handle),
                                          text => Log.Warning(text), _soundSystem);
         ServerSoundRouting.Route(_services, _serverSounds);
@@ -3597,6 +3633,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
     public void OnClientPutInServer(int entIndex, string playerName)
     {
         _services.Resolve<PlayerNames>()?.PutInServer(entIndex, playerName);
+        // The bot BotPlayers.Add is waiting for, or a bot a level change put in again.
+        _services.Resolve<BotPlayers>()?.PutInServer(entIndex, playerName);
         // Reads two C#-declared ConVars — proof they hold live engine values.
         if (_verboseJoinsVar?.Value != false)
             Log.Msg($"[SourceSharp/Server] {_greeting?.Value ?? "hello"}, {playerName} (ent {entIndex})\n");
@@ -3796,7 +3834,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // registry (the one RegisterAll filled) and container, so a capture
         // runs a fresh instance of the real class with its real dependencies
         // and only its print channels watched (user ruling 2026-10-07).
-        new DebugCommandRun(_commands, () => _services, _services.Require<ILog>()));
+        new DebugCommandRun(_commands, () => _services, _services.Require<ILog>()),
+
+        // The routes the composition's mods add (plan_hl2mp_ai §7.3): every
+        // registered IDebugRouteProvider, collected when a request asks, so a
+        // mod composed after this hook is built is still found.
+        () => new Hooks<IDebugRouteProvider>(_services, _services.Require<ILog>()).All);
 
     /// <summary>The counters /status reports (group G7); read off the game thread.</summary>
     private DebugCounters StatusCounters()

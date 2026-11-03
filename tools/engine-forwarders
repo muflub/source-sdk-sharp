@@ -282,6 +282,10 @@ FORWARD = [
             # real delete and the re-create into the old slots (stock's
             # CTeamplayRoundBasedRules::CleanUpMap).
             'AllowImmediateEdictReuse',
+            # plan_hl2mp_ai §3.1: a bot is an engine client. The engine's
+            # client-slot allocator, the slot's entity index, and the fake
+            # client's USERINFO convars (name, cl_playermodel, cl_defaultweapon).
+            'CreateFakeClientEx', 'IndexOfEdict', 'SetFakeClientConVarValue',
         ],
     ),
     dict(

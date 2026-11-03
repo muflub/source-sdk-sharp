@@ -243,14 +243,17 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
 
 PHONY_LOADPROF := loadprof loadprof-probe
 PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test
-.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
-        sdk-census
+.PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-maps windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
+        globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
 
 help:
 	@echo "SourceSharp"
 	@echo
 	@echo "  make setup [VALVE_SDK=..]           build the farms and bin/ from the pristine Valve clone"
 	@echo "  make host-pack [HOST_ROOT=..]       build the host's SDK packages the TF2Descent mod restores from"
+	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing) in this tree"
+	@echo "  make ai-nav                         build the AI's .nav3d of NAV_MAPS (dm_lockdown) in this tree, stamped"
+	@echo "  make mapformats-pack                pack SourceSharp.MapFormats (the AI's .nav3d reader) in MAPTOOLS_DIR at maptools.lock"
 	@echo "  make dedicated [DEDICATED_MOD=tf2_descent] [HOSTED=1]   a dedicated server (unhosted unless HOSTED=1)"
 	@echo "  make join ADDR=host:port [JOIN_MOD=tf2_descent]         a client joining a server"
 	@echo "  make town                            generate and compile tf2_descent_town into the tf2_descent mod"
@@ -301,6 +304,16 @@ SETUP_ARGS ?=
 # Directory.Build.props: Sdk 2.6.0, Contracts 1.0.0). A host change within a
 # version keeps the same package identity, so the machine-wide NuGet cache is
 # cleared of them first, or restore keeps a stale copy.
+# SourceSharp.MapFormats, the .nav3d reader the AI restores from map-tools'
+# local feed (src/ai/Directory.Build.props, plan_hl2mp_ai §6.1): packed in the
+# map-tools checkout at maptools.lock, the NuGet cache cleared of it first for
+# the reason host-pack gives.
+mapformats-pack:
+	@test "$$(git -C $(MAPTOOLS_DIR) rev-parse HEAD 2>/dev/null)" = "$$(cat maptools.lock)" || { \
+	    echo "mapformats-pack: $(MAPTOOLS_DIR) is not at maptools.lock ($$(cut -c1-12 maptools.lock))"; exit 1; }
+	rm -rf $(HOME)/.nuget/packages/sourcesharp.mapformats
+	DOTNET=$(DOTNET) $(MAPTOOLS_DIR)/tools/pack-mapformats.sh
+
 host-pack:
 	@test -d $(HOST_ROOT) || { echo "host-pack: HOST_ROOT=$(HOST_ROOT) is not a checkout of source-sdk-sharp-host"; exit 1; }
 	rm -rf $(HOME)/.nuget/packages/sourcesharp.host.sdk $(HOME)/.nuget/packages/sourcesharp.host.contracts
@@ -314,6 +327,7 @@ setup:
 	@tools/setup $(if $(VALVE_SDK),--valve-sdk $(VALVE_SDK)) $(SETUP_ARGS)
 	@if ! ls $(HOST_PACKAGES) >/dev/null 2>&1; then \
 	    echo "setup: the host packages are missing; building them (make host-pack)"; $(MAKE) --no-print-directory host-pack; fi
+	@tools/maptools-lock check --dir $(MAPTOOLS_DIR)
 
 # The oracle tests (src/test/oracle) find the pristine clone here; a missing
 # clone fails them. `make setup` provisions it and records its path.
@@ -533,7 +547,9 @@ run-release: release
 # move to source-sdk-sharp: ssmap runs natively and reads the mod's gameinfo.txt
 # itself, so none of it has anything left to find.
 #-----------------------------------------------------------------------------
-MAPTOOLS_DIR ?= ../source-sdk-map-tools
+# The checkout `make setup` verified against maptools.lock and recorded in
+# maptools.lock.local (tools/maptools-lock); the sibling one when none is.
+MAPTOOLS_DIR ?= $(or $(shell cat $(CURDIR)/maptools.lock.local 2>/dev/null),../source-sdk-map-tools)
 MAPCOMPILE   := $(MAPTOOLS_DIR)/src/SourceSharp.MapCompile
 
 # How ssmap is run. `$(DOTNET) run` builds it on first use; point SSMAP at a
@@ -637,6 +653,46 @@ loadprof: $(CONFIG) loadprof-probe
 	tools/box-ready gate --wait
 	tools/loadprof/lp listen --config $(CONFIG) $(LOADPROF_ARGS)
 
+# The AI's navigation (plan_hl2mp_ai §6.4.1): a stock map's .nav3d, built from
+# its bsp per tree by map-tools' `ssmap nav3d` at maptools.lock, beside the map
+# in bin/<config>/mods/test/maps (never committed or copied between trees, like
+# the sandbox map), with a stamp (bsp sha256, map-tools commit,
+# MapFormatsVersion) that makes a second build a no-op. `make map MAP=<one of
+# NAV_MAPS>` builds it; `make ai-nav` builds them all. tools/ai-nav-build.
+NAV_MAPS := dm_lockdown
+
+ai-nav:
+	$(call require-setup,$(CONFIG))
+	@tools/ai-nav-build $(NAV_MAPS) --config $(CONFIG)
+
+# The AI's own test maps (plan_hl2mp_ai §6.6): room libraries and their
+# levels, generated by src/mapgen (`aimaps`) into game/mod_test/maps/src/ai,
+# compiled per tree by map-tools' rooms pipeline: `ssmap room` packs the
+# library into bin/<config>/ai-maps, `ssmap link` writes the level's bsp and
+# its .nav3d into the test mod's maps/. `make map MAP=<one of LINKED_MAPS>`;
+# `make ai-maps` builds them all.
+LINKED_MAPS := ss_ai_nav ss_ai_sight ss_ai_hearing
+AISRC       := $(MAPSRC)/src/ai
+
+ai-maps:
+	@for m in $(LINKED_MAPS); do $(MAKE) --no-print-directory map MAP=$$m || exit 1; done
+
+ifneq ($(filter $(MAP),$(NAV_MAPS)),)
+map:
+	$(call require-setup,$(CONFIG))
+	@tools/ai-nav-build $(MAP) --config $(CONFIG)
+else ifneq ($(filter $(MAP),$(LINKED_MAPS)),)
+map:
+	$(call require-setup,$(CONFIG))
+	@tools/maptools-lock check --dir $(MAPTOOLS_DIR) >/dev/null
+	@$(DOTNET) run --project $(MAPGEN) -- aimaps $(CURDIR)/$(AISRC)
+	@mkdir -p bin/$(CONFIG)/ai-maps $(MOD)/maps
+	@echo "==> ssmap room $(MAP)"
+	@set -o pipefail; $(SSMAP) room $(AISRC)/$(MAP).vmf -game $(MOD) -out bin/$(CONFIG)/ai-maps/$(MAP).roompack 2>&1 | grep -v 'mounted nothing'
+	@echo "==> ssmap link $(MAP)"
+	@set -o pipefail; $(SSMAP) link $(AISRC)/$(MAP).yaml -rooms bin/$(CONFIG)/ai-maps/$(MAP).roompack -out $(MOD)/maps/$(MAP).bsp -require-nav 2>&1 | grep -v 'mounted nothing'
+	@test -f $(MOD)/maps/$(MAP).bsp && test -f $(MOD)/maps/$(MAP).nav3d || { echo "error: no $(MAP).bsp and .nav3d in $(MOD)/maps"; exit 1; }
+else
 map: $(if $(filter $(MAP),$(GENERATED_MAPS)),sandbox)
 	@test -d "$(MAPCOMPILE)" || { \
 	    echo "error: no map compiler at $(MAPCOMPILE)"; \
@@ -684,6 +740,7 @@ map: $(if $(filter $(MAP),$(GENERATED_MAPS)),sandbox)
 # fails on the spot, while the person who compiled it is still watching.
 	$(if $(filter $(MAP),$(GENERATED_MAPS)),@echo "==> staleness: $(MAP).bsp against the generator that produced it")
 	$(if $(filter $(MAP),$(GENERATED_MAPS)),@$(DOTNET) run --project $(MAPGEN) --no-build -- mapdrift $(MOD)/maps/$(MAP).bsp)
+endif
 #-----------------------------------------------------------------------------
 # Tests.
 #

@@ -81,8 +81,10 @@ public sealed class SsPlayer : AnimatingEntity
                     SourceSharp.Shared.Anim.AnimStateLayers? animLayers = null,
                     SourceSharp.Server.Interop.ServerPlayerMoves? moves = null, IEngineSound? sound = null,
                     IEngineDamage? damage = null, IEngineGameEvents? events = null,
-                    IEngineEntities? entities = null, DamageHitGroups? hitGroups = null)
+                    IEngineEntities? entities = null, DamageHitGroups? hitGroups = null,
+                    IHooks<IPlayerHurtHook>? hurtHooks = null)
     {
+        _hurtHooks = hurtHooks;
         _damage = damage;
         _events = events;
         _entities = entities;
@@ -146,6 +148,7 @@ public sealed class SsPlayer : AnimatingEntity
     // for a player built by hand, which takes every hit, as CMultiplayRules'
     // own answer does.
     private readonly IGameRules? _rules;
+    private readonly IHooks<IPlayerHurtHook>? _hurtHooks;
     // player_debug_print_damage: null for a player built without the registry.
     private readonly PlayerDebugPrintDamageConVar? _printDamage;
 
@@ -508,6 +511,12 @@ public sealed class SsPlayer : AnimatingEntity
     /// </summary>
     private void Hurt(EntityHandle attacker, int taken, int healthLeft)
     {
+        if (_hurtHooks is { All.Count: > 0 } hooks)
+        {
+            var hurt = new PlayerHurt(Handle, attacker, taken, Math.Max(0, healthLeft));
+            hooks.Each(nameof(IPlayerHurtHook.OnPlayerHurt), h => h.OnPlayerHurt(in hurt));
+        }
+
         if (_events is null)
             return;
 

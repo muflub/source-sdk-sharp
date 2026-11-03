@@ -21,7 +21,14 @@ public sealed record AiReplayResult(
 /// </summary>
 public static class AiReplayer
 {
-    public static AiReplayResult Replay(Stream recording, IAiTransport transport)
+    public static AiReplayResult Replay(Stream recording, IAiTransport transport) => Replay(recording, transport, null, null);
+
+    /// <summary>
+    /// Replays with the brains remembering over <paramref name="world"/>
+    /// (§5.0), and <paramref name="published"/> told after each snapshot's
+    /// steps ran: what <c>ai-replay heat</c> draws the beliefs from.
+    /// </summary>
+    public static AiReplayResult Replay(Stream recording, IAiTransport transport, MemoryWorld? world, Action<AiSession, Tick>? published)
     {
         ArgumentNullException.ThrowIfNull(recording);
         ArgumentNullException.ThrowIfNull(transport);
@@ -33,7 +40,7 @@ public static class AiReplayer
 
         AiRecordingHeader header = Parse(headerBytes, AiRecordFormat.ReadHeader);
         var replayed = new IntentCapture();
-        var session = new AiSession(transport, replayed, header.Slots, header.SightedCapacity);
+        var session = new AiSession(transport, replayed, header.Slots, header.SightedCapacity) { World = world };
         var recorded = new IntentCapture();
         int userCmds = 0;
 
@@ -57,7 +64,9 @@ public static class AiReplayer
                     session.Push(AiRecordFormat.ReadEvent(r));
                     break;
                 case AiRecordType.Snapshot:
-                    session.Publish(AiRecordFormat.ReadSnapshot(r, session.Snapshots));
+                    AiSnapshot snap = AiRecordFormat.ReadSnapshot(r, session.Snapshots);
+                    session.Publish(snap);
+                    published?.Invoke(session, snap.Tick);
                     break;
                 case AiRecordType.Intent:
                     recorded.Intent(AiRecordFormat.ReadIntent(r));

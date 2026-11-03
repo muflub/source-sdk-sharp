@@ -9,7 +9,8 @@ public readonly record struct TeamTableProps(int TeamIndex, Tone Tone);
 /// One team of a scoreboard (plan_client_ui §5.8.2): a header band in the team's
 /// colour with its name, score and head count; a column header; then a row per
 /// player, sorted by score then deaths, the local player highlighted, dead
-/// players muted, bots tagged, ping as signal bars. An empty team says so.
+/// players muted, a player's tag beside the name, ping as signal bars and BOT
+/// for a bot. An empty team says so.
 /// Embed one per team with <c>ui.Sub(key, table, props)</c>: one instance
 /// serves every team (its per-team state is keyed by the Sub scope).
 /// </summary>
@@ -41,6 +42,9 @@ public sealed class TeamTable : UiPanel<TeamTableProps>
             return string.CompareOrdinal(pa.Name, pb.Name);
         }
     }
+
+    /// <summary>The widest a tagged player's name is drawn, du, so its tag fits beside it in the narrowest name column.</summary>
+    public const float TaggedNameDu = 180f;
 
     /// <summary>Signal bars for a ping: 4 under 50 ms, 1 over 150.</summary>
     public static int Bars(int ping) => ping < 50 ? 4 : ping < 90 ? 3 : ping < 150 ? 2 : 1;
@@ -121,7 +125,7 @@ public sealed class TeamTable : UiPanel<TeamTableProps>
     /// <summary>A localised word for use inside interpolated text.</summary>
     private static string Localised(ref UiFrame ui, string token) => ui.Context.Localise(token, out _);
 
-    /// <summary>One player: stripe (local), name, tag (bot / dead), score, deaths, ping.</summary>
+    /// <summary>One player: stripe (local), name and its tag, a dead mark, score, deaths, ping (BOT for a bot).</summary>
     public static void PlayerRow(ref UiFrame ui, in ScoreboardPlayer p, scoped ReadOnlySpan<UiSize> columns, int row)
     {
         var fill = p.Local ? ((UiPaint)Tone.Accent).WithOpacity(0.16f) : (row % 2 == 1 ? ((UiPaint)Tone.SurfaceRaised).WithOpacity(0.35f) : Tone.None);
@@ -130,11 +134,23 @@ public sealed class TeamTable : UiPanel<TeamTableProps>
         using (ui.Grid(columns, Space.S).Key(p.Index).Height(Size.Du(36)).Fill(fill).Pad(Space.None, Space.None, Space.S, Space.None))
         {
             ui.Rect(p.Local ? Tone.Accent : Tone.None, Size.Du(4), Size.Fill);
-            ui.Data(p.Name, Text.Body, ink).Elide();
+            // The name, and beside it the player's tag as a secondary label
+            // (a bot's skill, "Hard" or "Custom 45"; user ruling 2026-11-01).
+            if (p.Tag.Length == 0)
+            {
+                ui.Data(p.Name, Text.Body, ink).Elide();
+            }
+            else
+            {
+                // The name cut short enough that its tag stays in the column.
+                using (ui.Row(Space.S).Align(Align.Start, Align.Centre).Width(Size.Fill))
+                {
+                    ui.Data(p.Name, Text.Body, ink).MaxWidth(TaggedNameDu).Elide();
+                    ui.Data(p.Tag, Text.Label, Tone.TextMuted);
+                }
+            }
 
-            if (p.Bot)
-                ui.Text("#SS_UI_Bot", Text.Label, Tone.TextMuted);
-            else if (!p.Alive)
+            if (!p.Alive)
                 ui.Text("#SS_UI_Dead", Text.Label, Tone.Danger);
             else
                 ui.Spacer(Size.Du(1), Size.Du(1));
@@ -144,8 +160,13 @@ public sealed class TeamTable : UiPanel<TeamTableProps>
 
             using (ui.Row(Space.XS).Align(Align.End, Align.Centre))
             {
-                // A bot has no connection to measure: its tag already says so.
-                if (!p.Bot)
+                // A bot has no connection to measure: its ping column says BOT,
+                // as stock's does (hl2mpclientscoreboard.cpp:535).
+                if (p.Bot)
+                {
+                    ui.Text("#SS_UI_Bot", Text.Label, Tone.TextMuted);
+                }
+                else
                 {
                     ui.Number(p.Ping, Text.Body, Tone.TextMuted);
                     ui.Shape(UiShape.Signal, ink, 16, Bars(p.Ping));

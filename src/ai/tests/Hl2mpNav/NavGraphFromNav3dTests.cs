@@ -30,15 +30,6 @@ public class NavGraphFromNav3dTests
         int solid = s.Add(1, 1, 0, walkable: false);
         int hurt = s.Add(5, 5, 0);
         int tall = s.Add(-1, 1, 70);
-        s.Beside(floor, step);
-        s.Beside(floor, ledge30);
-        s.Beside(floor, ledge50);
-        s.Beside(floor, pit);
-        s.Beside(ledge30, low);
-        s.Beside(step, door);
-        s.Beside(door, squeeze);
-        s.Beside(floor, solid);
-        s.Beside(floor, tall);
         s.JumpLink(floor, ledge30);
         s.JumpLink(floor, ledge50);
         s.JumpLink(floor, tall);
@@ -112,12 +103,21 @@ public class NavGraphFromNav3dTests
         Fixture f = Build();
         DerivedNav d = Derive(f);
         d.Graph.TryEdge(d.CellOfLeaf[f.Step], d.CellOfLeaf[f.Door], out NavEdge e);
-        Assert.Equal((NavEdgeType.Door, 0, "door_east"), (e.Type, e.Obstacle, d.ObstacleNames[e.Obstacle]));
+        Assert.Equal((NavEdgeType.Door, 0, "door_east"), (e.Type, e.Obstacle, d.Obstacles[e.Obstacle].Name));
     }
 
     [Fact]
-    public void OnlyDoorsBecomeGraphObstacles()
-        => Assert.Equal(["door_east"], Derive(Build()).ObstacleNames);
+    public void EveryObstacleBecomesAGraphObstacle()
+        => Assert.Equal(["door_east", "crate_1"], Derive(Build()).Obstacles.Select(o => o.Name));
+
+    [Fact]
+    public void AWalkIntoAPropsLeafCarriesTheProp()
+    {
+        Fixture f = Build();
+        DerivedNav d = Derive(f);
+        d.Graph.TryEdge(d.CellOfLeaf[f.Step], d.CellOfLeaf[f.Floor], out NavEdge e);
+        Assert.Equal((NavEdgeType.Walk, 1), (e.Type, e.Obstacle));
+    }
 
     [Fact]
     public void ALeafNobodyFitsUnderIsNoCell()
@@ -156,10 +156,14 @@ public class NavGraphFromNav3dTests
         DerivedNav d = Derive(f);
         var types = Enumerable.Range(0, d.Graph.CellCount).SelectMany(c => d.Graph.EdgesFrom(c).ToArray()).GroupBy(e => e.Type)
             .ToDictionary(g => g.Key, g => g.Count());
-        // Walk: floor<->step, ledge30<->low. Jump: floor->ledge30. CrouchJump:
-        // floor->ledge50. Drop: both ledges and the tall leaf down to the floor,
-        // the floor into the pit. Door: step<->door.
-        Assert.Equal((4, 1, 1, 4, 2), (types[NavEdgeType.Walk], types[NavEdgeType.Jump], types[NavEdgeType.CrouchJump],
+        // Beside: Walk floor<->step, ledge30<->low; Jump floor->ledge30;
+        // CrouchJump floor->ledge50; Drop ledge30 and ledge50 to the floor, the
+        // floor into the pit, the tall leaf onto the 30 u ledge, the pit and (by
+        // its link) the floor. Two columns over the one between: Door
+        // floor<->door and step<->door; Jump floor->low and ledge30->ledge50;
+        // CrouchJump ledge30->tall; Drop low->floor, step->pit and
+        // ledge50->ledge30.
+        Assert.Equal((4, 3, 2, 9, 4),(types[NavEdgeType.Walk], types[NavEdgeType.Jump], types[NavEdgeType.CrouchJump],
                                        types[NavEdgeType.Drop], types[NavEdgeType.Door]));
     }
 

@@ -8,6 +8,9 @@ internal static class ScoreboardSamples
     [UiSample("12 players, two teams")]
     private static UiScreen TwelvePlayers(UiSampleServices s) => s.Add<IScoreboardSource>(FakeScoreboard.Teams(6)).Create<Scoreboard>();
 
+    [UiSample("deathmatch with bots")]
+    private static UiScreen Bots(UiSampleServices s) => s.Add<IScoreboardSource>(FakeScoreboard.Bots()).Create<Scoreboard>();
+
     [UiSample("empty server")]
     private static UiScreen Empty(UiSampleServices s) => s.Add<IScoreboardSource>(FakeScoreboard.Empty()).Create<Scoreboard>();
 

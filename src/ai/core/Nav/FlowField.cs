@@ -44,7 +44,12 @@ public sealed class FlowField
         return da < db || (da == db && a < b);
     }
 
-    public void Build(NavGraph graph, CellId objective, ClearanceClass cls, NavObstacleState obstacles)
+    /// <summary>
+    /// Builds the field to <paramref name="objective"/>; no route passes
+    /// through a cell of <paramref name="avoided"/> (a follower's stuck spot,
+    /// for a while), though the objective itself is never avoided.
+    /// </summary>
+    public void Build(NavGraph graph, CellId objective, ClearanceClass cls, NavObstacleState obstacles, IReadOnlySet<int>? avoided = null)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(obstacles);
@@ -78,6 +83,8 @@ public sealed class FlowField
             if (key.Cost > _cost[cell])
                 continue;
             Reachable++;
+            if (avoided is not null && cell != objective.Index && avoided.Contains(cell))
+                continue;
             foreach (NavEdge e in graph.EdgesTo(cell))
             {
                 if (!graph.Passable(e, cls, obstacles))

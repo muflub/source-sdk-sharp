@@ -159,6 +159,59 @@ public partial class PlayerResourceNetState
     /// </summary>
     [NetArray(Slots)] public partial NetArray<byte> Flags { get; }
 
+    /// <summary>The bytes of one row's <see cref="Tag"/>: eleven of UTF-8 and the NUL that ends a shorter one.</summary>
+    public const int TagBytes = 12;
+
+    /// <summary>
+    /// A short public label the scoreboard shows beside a player's name,
+    /// secondary to it (user ruling 2026-11-01: a bot's skill, "Hard" or
+    /// "Custom 45"); empty for most players. Set by a mod through
+    /// <c>IScoreboardTags</c>, so this class and the scoreboard name no mod's
+    /// type. <see cref="TagBytes"/> per row, row-major, NUL-padded.
+    /// </summary>
+    [NetArray(Slots * TagBytes)] public partial NetArray<byte> Tag { get; }
+
+    /// <summary>Writes <paramref name="slot"/>'s tag, cut at <see cref="TagBytes"/> - 1 bytes on a character's edge.</summary>
+    public void SetTag(int slot, string? tag)
+    {
+        if (!InRange(slot))
+            return;
+        Span<byte> bytes = stackalloc byte[TagBytes];
+        bytes.Clear();
+        int written = 0;
+        if (!string.IsNullOrEmpty(tag))
+        {
+            var encoder = System.Text.Encoding.UTF8;
+            for (int chars = tag.Length; chars > 0; chars--)
+            {
+                if (encoder.GetByteCount(tag.AsSpan(0, chars)) <= TagBytes - 1)
+                {
+                    written = encoder.GetBytes(tag.AsSpan(0, chars), bytes);
+                    break;
+                }
+            }
+        }
+
+        for (int i = 0; i < TagBytes; i++)
+            Tag[slot * TagBytes + i] = i < written ? bytes[i] : (byte)0;
+    }
+
+    /// <summary><paramref name="slot"/>'s tag, empty for none or for a slot that is not a row.</summary>
+    public string TagOf(int slot)
+    {
+        if (!InRange(slot))
+            return string.Empty;
+        Span<byte> bytes = stackalloc byte[TagBytes];
+        int length = 0;
+        while (length < TagBytes && Tag[slot * TagBytes + length] != 0)
+        {
+            bytes[length] = Tag[slot * TagBytes + length];
+            length++;
+        }
+
+        return length == 0 ? string.Empty : System.Text.Encoding.UTF8.GetString(bytes[..length]);
+    }
+
     /// <summary>In the server's player list right now.</summary>
     public const int FlagConnected = 1 << 0;
 
@@ -231,6 +284,7 @@ public partial class PlayerResourceNetState
         SetRow(slot, 0, 0, 0, 0, 0, connected: false, alive: false, valid: false);
         if (InRange(slot))
             Ping[slot] = 0;
+        SetTag(slot, null);
     }
 
     /// <summary>Every row, at level start.</summary>

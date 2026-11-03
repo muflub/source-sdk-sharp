@@ -47,4 +47,7 @@ public interface IDebugServerHooks
     /// 2026-10-07: command capture is all managed logic, no native code).
     /// </summary>
     IDebugCommandRun CommandRun { get; }
+
+    /// <summary>The routes the composition's mods add (plan_hl2mp_ai §7.3), read when a request asks.</summary>
+    IReadOnlyList<IDebugRouteProvider> RouteProviders { get; }
 }

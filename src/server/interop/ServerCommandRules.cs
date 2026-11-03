@@ -29,6 +29,14 @@ public static class ServerCommandRules
     /// <summary><c>FL_CLIENT</c> (const.h, the multiplayer block).</summary>
     public const int FlClient = 1 << 8;
 
+    /// <summary>
+    /// <c>FL_FAKECLIENT</c> (the Valve clone's const.h:161, the multiplayer
+    /// block; vendor/'s copy keeps only its comment): a bot, simulated on the
+    /// server. Stock's NextBotCreatePlayerBot adds it with FL_CLIENT after the
+    /// engine made the client, and CBasePlayer::Spawn keeps it.
+    /// </summary>
+    public const int FlFakeClient = 1 << 9;
+
     /// <summary><c>FIXANGLE_NONE</c>, <c>_ABSOLUTE</c>, <c>_RELATIVE</c> (PlayerState.h's users, edict.h).</summary>
     public const int FixAngleNone = 0, FixAngleAbsolute = 1, FixAngleRelative = 2;
 

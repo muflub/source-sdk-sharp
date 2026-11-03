@@ -119,4 +119,35 @@ public class PlayerHurtEventTests
         Assert.Equal(0, taken);
         Assert.Empty(events.Fired);
     }
+
+    private sealed class Told : IPlayerHurtHook, IHooks<IPlayerHurtHook>
+    {
+        public readonly List<PlayerHurt> All = new();
+
+        IReadOnlyList<IPlayerHurtHook> IHooks<IPlayerHurtHook>.All => [this];
+
+        public void Each(string what, Action<IPlayerHurtHook> call) => call(this);
+
+        public void OnPlayerHurt(in PlayerHurt hurt) => All.Add(hurt);
+    }
+
+    [Fact]
+    public void AHitTellsTheHurtHooksWhoHitWhomForHowMuch()
+    {
+        var engine = Fake();
+        engine.Returns("Entities.GetHealth", 100).Returns("Entities.GetIndex", 3)
+              .Returns("Entities.IsValid", true).Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f))
+              .Returns("Entities.IsPlayer", false);
+        var told = new Told();
+        var player = new SsPlayer(engine, engine, Impacts(engine), Fluid(), messages: engine,
+                                  rules: PlayerDamageRulesTests.Rules(team: 0), entities: engine, hurtHooks: told)
+            { Handle = Victim };
+        player.BindAreas(Areas(engine));
+        player.State.BindLocal();
+
+        int taken = player.OnDamagedAt(Attacker, 25f, DamageType.Bullet, default, default);
+
+        Assert.Equal([new PlayerHurt(Victim, Attacker, taken, 100 - taken)], told.All);
+        Assert.True(taken > 0, "the hit took health");
+    }
 }

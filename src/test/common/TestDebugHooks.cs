@@ -31,7 +31,8 @@ internal static partial class TestDebugHooks
                                         IDebugWorld? world = null,
                                         IDebugCounterGroups? counterGroups = null,
                                         IDebugProcess? process = null,
-                                        IDebugCommandRun? commandRun = null)
+                                        IDebugCommandRun? commandRun = null,
+                                        Func<IReadOnlyList<IDebugRouteProvider>>? routeProviders = null)
     {
         engine ??= TestEngines.Server().Engine;
         return new(new DebugLog(log ?? new RecordingLog(), lines ?? new ConsoleLines()), new DebugBuild(build ?? new BuildInfo(), crossings ?? new Crossings()),
@@ -44,6 +45,6 @@ internal static partial class TestDebugHooks
                    new DebugNetTrafficHook(traffic, resetTraffic ?? (() => { })),
                    world ?? DebugWorld.From(engine, touching),
                    netSchema ?? new DebugNetSchema(() => [], () => EmptyTiers.Instance, () => null, NetEntityBlob.Missing),
-                   counterGroups, process, commandRun);
+                   counterGroups, process, commandRun, routeProviders);
     }
 }

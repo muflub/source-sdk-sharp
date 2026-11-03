@@ -147,7 +147,7 @@ static void *const s_FileSystemSlots[] = {
 static const SSForwarderTable s_FileSystemTable = { s_FileSystemSlots, 5 };
 
 //-----------------------------------------------------------------------------
-// EngineServer: 31 forwarder(s) over IVEngineServer.
+// EngineServer: 34 forwarder(s) over IVEngineServer.
 //-----------------------------------------------------------------------------
 // bool IVEngineServer::IsDedicatedServer( void )
 static bool SSFwd_EngineServer_IsDedicatedServer( IVEngineServer *self ) { return self->IsDedicatedServer(); }
@@ -211,6 +211,12 @@ static void SSFwd_EngineServer_StaticDecal( IVEngineServer *self, const Vector &
 static float SSFwd_EngineServer_Time( IVEngineServer *self ) { return self->Time(); }
 // void IVEngineServer::AllowImmediateEdictReuse( void )
 static void SSFwd_EngineServer_AllowImmediateEdictReuse( IVEngineServer *self ) { self->AllowImmediateEdictReuse(); }
+// edict_t * IVEngineServer::CreateFakeClientEx( const char *, bool )
+static edict_t * SSFwd_EngineServer_CreateFakeClientEx( IVEngineServer *self, const char * a0, bool a1 ) { return self->CreateFakeClientEx( a0, a1 ); }
+// int IVEngineServer::IndexOfEdict( const edict_t * )
+static int SSFwd_EngineServer_IndexOfEdict( IVEngineServer *self, const edict_t * a0 ) { return self->IndexOfEdict( a0 ); }
+// void IVEngineServer::SetFakeClientConVarValue( edict_t *, const char *, const char * )
+static void SSFwd_EngineServer_SetFakeClientConVarValue( IVEngineServer *self, edict_t * a0, const char * a1, const char * a2 ) { self->SetFakeClientConVarValue( a0, a1, a2 ); }
 
 static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_IsDedicatedServer ),
@@ -244,9 +250,12 @@ static void *const s_EngineServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineServer_StaticDecal ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_Time ),
 	reinterpret_cast< void * >( &SSFwd_EngineServer_AllowImmediateEdictReuse ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_CreateFakeClientEx ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_IndexOfEdict ),
+	reinterpret_cast< void * >( &SSFwd_EngineServer_SetFakeClientConVarValue ),
 };
 
-static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 31 };
+static const SSForwarderTable s_EngineServerTable = { s_EngineServerSlots, 34 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 2 forwarder(s) over IUniformRandomStream.
