@@ -1792,7 +1792,10 @@ that code when M1 starts, and changes nothing here.
 
 | brain decide per bot (`ai.brain.us`) | live, dm_lockdown, 4 bots (hard, normal, easy, a Headhunter 10 / Discipline 10 custom) and one idle human, 2 minutes: **2,251 µs mean** per decide over 5,330 decides, worst 36,865 µs (wall time, main thread, inline). Offline `BrainCostTests` (64 × 64 graph, one opponent in sight, three lost and spreading): within 2,000 µs (thread CPU, least of five 300-decide means). **Red live against §9's 2,000 µs ceiling, in debug**; the publish (below) barely moved since Phase 4 (1,128–1,615 µs then, memory only), so the memory's belief spreading, not the trees, is the cost to cut (Phase 6 moves it off the main thread) | `/ai/counters` `ai.brain.us`, `ai_sense_cost` | `hl2mp-ai` at `314b5d6f7`, debug, `make headless`, 2026-11-02 |
 | inline publish with the trees (`ai.publish.us`) | dm_lockdown 4 bots + human: 1,198 µs mean (300 ticks; 1,247 in the console's read); `ai.sense.us` 245 µs mean, 3,408 worst; follower field builds 591 in 2 min. Scenarios (recording on): ss_ai_duel 2 bots 383, ss_ai_routes 4 bots 632, ss_ai_nav 1 bot 428 | `/ai/counters`, `tools/ai-scenario` | as above |
+| brain decide per bot after the predictor's cut (Phase 6 leftover 5) | **profile** (offline, dm_lockdown's per-tree graph, the hard preset, three opponents lost 8 s apart from saturating at 2,048 cells each, wall µs per decide over 200 decides, debug): memory 7,358 of 7,574 µs, of which the position predictor's hops 7,350 µs; events 21, view 3, decay 2, the trees ≈ 200. **Cut**: the hop's two dictionaries became a dense per-bot scratch (stamped, never cleared) with the active cells in arrays; the 2,048-cell floor is a selection, not a sort of a new array; `Normalise` no longer copies the keys; each edge's unit direction is computed once (it was twice) and cells are read by reference — same sums in the same order, so every belief is bit-identical (the predictor and accuracy facts unchanged). Offline after: 2,689–3,454 µs (three runs, the box shared). **Live** dm_lockdown, the Phase 5 four (hard, normal, easy, Headhunter 10 / Discipline 10) and an idle human, 2 minutes: **1,529.5 µs mean** per decide over 5,838 decides (was 2,251), worst 17,022 (was 36,865); `ai.publish.us` 303.6, `ai.sense.us` 110.9 | the scratch `Stopwatch` split in `BotMemory.Step` (removed), `/ai/counters` | `hl2mp-ai` Phase 6 tree, debug, `make headless`, 2026-11-02 |
 | follower's field, dm_lockdown, offline | whole graph 16–19 ms a build; from the bot's cell with the 1.5× + 512 stop 3.5 ms (10 goals, 4,856 cells settled); A* 4–6 ms | a scratch fact over the per-tree nav (removed) | `hl2mp-ai` Phase 5 step 3 tree, debug |
+| the pool live (Phase 6 step 1), dm_lockdown, the Phase 5 four + an idle human, 4 workers, 2 minutes | main thread: `ai.sense.us` 185.9, `ai.publish.us` **90.2** (was 303.6–1,198 with the brains inline), `ai.apply.us` 769.9 (the followers, the motion model and the bots' commands run), `ai.main.us` 1,046.0 (300-tick means, µs); workers: `ai.brain.us` 1,292.1 wall / **1,067.8 CPU** per decide over 5,338 decides, `ai.pool.us` 105,172 µs a second (10.5 % of one core); field builds 630 on the workers, 4 on the main thread (a stuck re-route); `ai.steps.skipped` 0; `process.threads` 75 before and after two `changelevel dm_lockdown` (the pool stopped, joined and started again) | `/ai/counters` | `hl2mp-ai` Phase 6 step 1 tree, debug, `make headless`, 2026-11-02 |
+| the live gate's `bots` step, three passes (Phase 6 step 5) | dm_lockdown, three bots (the gate's four slots less its human) on 4 workers, the counters' 300-tick means at the step's end, passes 1 / 2 / 3: `ai.sense.us` 90.7 / 107.8 / 97.7; `ai.main.us` 290.6 / 257.3 / 299.6 (ceiling 1,000); `ai.brain.cpu.us` 683.9 / 603.6 / 616.3 per decide (ceiling 2,000); `ai.pool.us` 43,205 / 17,960 / 49,806 µs a second (ceiling 250,000); `ai.run.us` 344.6 / 534.7 / 333.4 (the bots' commands as players, not the AI's); `ai.steps.skipped` 0; the recordings (8,039 / 2,045 / 6,046 intents) replayed identical inline and at 1, 2 and 4 threads; the AI's worker threads 4 after every pair of map loads | `tools/live-gate --steps ai-nav,bots,ss-ai-nav,ss-ai-sight,ss-ai-hearing,map-change --passes 3` | `hl2mp-ai` at `7875092dc`, debug, 2026-11-02 |
 | pool CPU, 8 bots, 4 threads | — | | |
 | human reference: flicks / engagements recorded | — | | |
 | KS threshold per §3.4.4 metric (9 rows) | — | | |
@@ -2545,6 +2548,100 @@ that code when M1 starts, and changes nothing here.
   `tools/ai-mutations`: "135 arm(s), every one red, every one green again
   after restore" (two old arms' needles followed this phase's edits:
   crouch-cells, follow-jump).
+- **Phase 5c, bot setup** (2026-11-02, `hl2mp-ai-ui` from `871c11e08`).
+  (1) **Premise false: `AiUiSources.cs` cannot sit in
+  `SourceSharp.Ai.Hl2mp.Ui`** (§3.5, §11). The UI loader holds a mod's UI
+  assemblies in its own collectible context
+  (`src/client/ui/host/UiModScreens.cs:21-27`) and the container resolves
+  a screen's sources by interface type identity, so the client assembly's
+  adapters and the screens must name one type the parent context holds:
+  TF2 met the same and keeps its contract in `TF2.Client.Interface`
+  (`src/tf2/interface/TFUiSources.cs:1-13`). The interfaces live in a third
+  project, `src/ai/hl2mp/interface/SourceSharp.Ai.Hl2mp.Client.Interface`
+  (interface role, data only); `.Client` answers them, `.Ui` draws them.
+  (2) **The profile store's directory and listing are not on
+  `IFwdBaseFileSystem`** (§3.5 "Storage"): the client's table has
+  `ReadAll`, `Open`, `Write` and `Close` but no `CreateDirHierarchy` (a
+  server-only `IFwdFileSystem` row) and no `FindFirst`, and the engine's
+  `Open` for writing makes no directory, so a fresh game dir could never
+  hold `cfg/ai/bots/<name>.json`. The bytes still go through the engine on
+  the `MOD` path; `ModProfileDisk` makes and lists the directory under
+  `IModInfo.GameDir` (the `-game` dir the MOD path names), as the UI host
+  reads its theme file from disk. No forwarder row was added. The file
+  carries each revision's number (`"n"`), so "restored #n" keeps meaning
+  across loads; a missing skill is refused as an unknown one is.
+  (3) **`ai_bot_roster` adds its bots on the frames after the level's
+  start**, not inside `OnLevelInitPostEntity`: the service reads and clears
+  the convar there and queues the judged entries; a frame adds them while
+  the bots number fewer than `maxplayers − 1`, so a roster never takes the
+  listen server's own player's slot (the rest are dropped with a line). An
+  entry is a preset word or `name=<n>`, `skills=…`, `profile=<p>` fields
+  joined by `:`; a profile is read from the server's own game paths. The
+  quoted `;` and `:` survive the console (live: `ai_bot_roster
+  "easy;easy;name=Deadeye:skills=8,7,6,6,6,6,1,1,2,2;name=Cheat:skills=10,…"`
+  then `changelevel` added "Pia Wrecker (Easy)", "Kofi No Tricks (Easy)",
+  "Deadeye (Custom 45)" and refused entry 4 naming its 100 of 60 points).
+  Under `-instance` the game dir, and so the profiles' MOD path, is the
+  instance's own copy (`/tmp/ssi-<user>/<pid>/test`).
+  (4) **Create server and the bot editor are two windowed screens**
+  (`createserver`, `boteditor`), not a `UiPageStack` page: each is a
+  window with its own samples and goldens (§8.2 names both), the editor
+  opens over the list (`cs_ui_open boteditor` from Add custom / Edit) and
+  Done puts the bot on it. The main menu's Create server is generic
+  (`IMainMenuSource.CanCreateServer`, wired only when the menu layer holds a
+  `createserver` screen). Start sends its lines through
+  `IFwdEngineClient.SubmitConsoleLine` (`ClientCmd`, as the menu's Play
+  does), not `InputHost.ClientCmdUnrestricted`: the input host is not a
+  service the UI's adapters can take, and `ClientCmd` is unrestricted while
+  the client sets no restriction. (5) **No shift-click**: the toolkit has no
+  modifier state, and the Descent sheet's ±5 is a step toggle (1 / 5), not a
+  shift-click; the editor copies the toggle. (6) **The derived parameters
+  are the inspector's names** (`BotInspect.Skills`, e.g. `AimErrorDeg`,
+  `reaction_ms`), each under the skill whose curve drives it; vision,
+  memory and reaction under Alertness and Tenacity. (7) A built-in preset
+  loads as one undoable edit (`EditHistory.Apply`); a saved profile loads
+  as that profile, with its name and revisions. A + that would pass the cap
+  or the pool is drawn dead, so the editor cannot make an overspent profile
+  and Save cannot write one; the store and the server judge again.
+  (8) **Live, two findings fixed in step 6.** Start sends its lines as
+  one console text, newline-split as stock's dialog does: a `wait` delays
+  only the commands added in the same text (the command buffer's tick is
+  per add), so line by line the waits delayed nothing; and it waits 30
+  frames, not stock's two, after `disconnect`: with bots on the server two
+  were too few ("Cannot change maxplayers while the server is running"
+  before the bots were dropped). `AiBotRosterService` adds after
+  `Hl2mpBots` has followed the core's bots (frame order 550 > 500): a
+  restart ends every bot, and a roster bot added first took an old bot's
+  slot and the old entry was rebound to it (`/ai/bots` listed five for
+  three). (9) **The live start** (debug, this tree, `-instance`): from the
+  main menu's Create server, max players 10, bots 2 at Easy, Add custom
+  (Medium + 10: Accuracy 8, Alertness 7, Aggression 6, Cover 4), Save as
+  "Deadeye" (`cfg/ai/bots/Deadeye.json` written with revision #1 "saved as
+  Deadeye"), Done, Start: "maxplayers set to 10", `ai_bot_roster for
+  dm_lockdown: easy;easy;name=Deadeye:skills=8,7,6,4,3,3,4,3,4,3`, "bot Pia
+  Wrecker (Easy) added", "bot Kofi No Tricks (Easy) added", "bot Deadeye
+  (Custom 45) added"; Start again in game with max players 12: the three
+  left, three new joined, "maxplayers set to 12", `/ai/bots` three. The
+  scoreboard: "Deadeye (Custom 45)", "Ines Stands In Open (Easy)", "Wren
+  Straight Line (Easy)", BOT pings, 4 / 12; the web inspector's AI tab
+  shows each one's allocation (easy 20 of 60; Deadeye 45 of 60, levels
+  8,7,6,4,3,3,4,3,4,3). The AI tab lists no bots when it is first shown
+  before the page has chosen its game (it fetches once per showing);
+  shown again it lists them.
+  (10) **The gate's runs**: `make test` at `66e5955b4` rc=0, all 9 legs
+  (ai 581, managed 2,261, server 9,098, client 4,284, tf2 3,616,
+  tf2_descent 172, native 1,771 gtests in 152 binaries, ui 505, checks
+  35); `make test-full` at `66e5955b4` rc=0, all 14 legs (+ runner 130,
+  checks-full 4, oracle 237 + 158 in 37 binaries, census 35 in 3; the ai
+  leg 581 with none skipped after `make ai-maps`); `make ui-lint` 0
+  findings; `tools/ai-mutations` over the 15 Phase 5c arms and the five
+  older bot-setup arms (redo-clear, undo-depth, pool-sum, skill-cap,
+  pool-refusal-server): "20 arm(s), every one red, every one green again
+  after restore"; the Valve clone clean. Two Phase 5 allocation facts
+  (`Hl2mpTreeTests.AThousandSteadyBrainStepsAllocateNothing`,
+  `BtTests.ASteadyDecideAllocatesNothing`) were red in 2 of 11 `make
+  ai-test` runs on this tree (3,720 bytes over 1,000 steps once), each green
+  alone 3 of 3: flaky under a busy run, not touched here.
 
 - **Phase 6's first leftover: the bot's own reload, and every weapon and
   hurt tap, were dead live** (2026-11-02). Phase 5 (7) left the cause
@@ -2616,6 +2713,157 @@ that code when M1 starts, and changes nothing here.
   `TheSmg1sGrenadeSendsTheAttackEvent`, `ThePhyscannonShowsNoGesture`;
   `tools/ai-mutations` anim-swing-none, anim-secondary-none,
   anim-physcannon.
+
+- **Phase 6's fourth leftover: `coverWeight` and `routeAltWeight` act**
+  (2026-11-02). §10 names an observable for each, so they are wired, not
+  removed. Cover: a bot reloading in sight of its opponent, or retreating
+  with no health kit to run to, goes for the nearest place within
+  `coverWeight` × 512 u along the graph that the opponent's cell does not
+  see in the map's static sight table (`NavSight`, now behind a core
+  `ICellSight` on `MemoryWorld`, planning only as §6.2 says; beyond the
+  table's 1,024 u it seeks none). Cunning: an approach to an opponent lost
+  from sight (Chase, Hunt) goes, with chance `routeAltWeight` drawn once
+  per approach from its own seeded stream, by a flank waypoint half the
+  distance out and at most 512 u to one side, then to the opponent.
+  Facts `SkillObservableTests.CoverSeeksUnseenPlacesFarther` (the layouts
+  in which the bot ends unseen rise with Cover) and
+  `CunningTakesTheLongWayMore` (the share of flanking approaches rises with
+  Cunning); `tools/ai-mutations` flat-cover-weight, flat-route-alt (and the
+  old flat-cover, flat-cunning) red.
+
+- **Phase 6, the worker pool** (2026-11-02, `hl2mp-ai` `cc449e401`..).
+  (1) **How the count stays out of the result.** A step is handed over
+  with its own copy of the bot's view at its decide tick and the events
+  since the bot's last step, so the snapshot ring is never read off the
+  main thread; each bot has a lane whose steps run one after another on
+  whichever worker takes it; the main thread takes results back in
+  hand-over order, (tick, slot), stopping at the first unfinished one
+  (`AiSession.Drain`), so the applier, the recording and the inspector
+  see the same intent stream inline and at any thread count. A lane with
+  `LaneDepth` (8) unstarted steps drops its oldest, counted
+  (`ai.steps.skipped`), its events carried into the next: §2.5's "a step
+  whose snapshot left the 8-tick ring", without the ring. (2) **Found:
+  the brains asked the engine from a worker.** `MemoryWorld.IdentityOf`
+  (an opponent's habits key, §5.2) called `IEnginePlayers` on whatever
+  thread stepped the brain; the identity is now learnt on the main thread
+  when the actor is first sensed (`Hl2mpAiSession.KnowActor`) and only
+  read by the brains. Also read off the main thread before: the think log
+  read the decider's `Doing` (now the step's copy, taken back with its
+  intent) and the inspector routes read memory while a worker might step
+  it (now `TryReadBrain`, a lock taken without waiting: 503 "ask again").
+  (3) **The pool's life** is the level's: started in the session's
+  `OnLevelInitPostEntity` with `ai_threads` (0: `min(4, cores − 1)`),
+  stopped and joined in `OnLevelShutdownPreEntity` (a lane already
+  running finishes its queue), steps not run counted; `process.threads`
+  75 before and after two `changelevel`s live. `ai_sync 1` runs the
+  brains inline (debugging); `ai_step [ticks|off]` holds them and lets the
+  next ticks' decides run, a held tick unrecorded so its replay steps
+  exactly what ran. (4) **A new goal's flow field is built on a worker**
+  (`BrainDriver.Post`): until it is done the bot keeps its old way (or goes
+  straight at the goal); a stuck re-route still rebuilds on the main
+  thread (4 of 634 builds in two minutes live). (5) **`ai.apply.us` is the
+  AI's own share** (intents taken back, followers, motion model, each
+  command made); the bots' commands run as players (movement and weapons,
+  what a human client costs the server too) are `ai.run.us`, reported
+  beside it and not in `ai.main.us`. (6) **Format 2 of `.airec`** adds the
+  World record (what the brains knew), so a live session replays offline
+  over the tree's graph with the game's trees; `ai_record stop` takes back
+  every step in flight first (the first live recording was one intent
+  short without it). (7) **Premise false, §8.2's live `bots` step: "the
+  spin-bot detector over the step's recording".** The detector is Phase
+  5b's (human motion metrics) and Phase 5b has not been done; the step
+  says so and checks the recording's determinism at 1, 2 and 4 threads
+  instead (`tools/ai-replay verify`). (8) **§9 Phase 6 step 4's "make
+  setup + make debug build it"** repeats Phase 2's false premise (`make
+  debug` builds no map): `tools/daily-gate` now runs `make ai-nav
+  ai-maps` after the sandbox map, and the gate's `ai-nav` step fails on
+  the §6.3 refusal (the counters' `nav.refusal`).
+
+- **What the live gate's runs found** (Phase 6 step 5, 2026-11-02; each
+  fixed with a fact that was red first, and a `tools/ai-mutations` arm).
+  (1) **The senses stood still after every map change**: they ran on a
+  tick newer than the last (`Hl2mpSenses.IsNewTick`), and the snapshot ring
+  refused a tick no newer than the last published (`SnapshotRing.Reset`
+  at level start), while a new level counts its ticks from low again: no
+  bot decided, saw or heard on any level after the first until its tick
+  passed the old one's (the console: "Hl2mpSenses.OnPostThink threw:
+  snapshots are written in tick order", 22 times in one run).
+  (2) **A bot that left kept its scripted act, walk and goal**, submitted
+  every tick for a gone actor (82 stale-handle and 6 no-bot refusals).
+  (3) **A weapon found empty in hand was asked for again every second**
+  (the decider took every HUD weapon not in hand for loaded): a bot
+  flipped pistol and SMG1 for minutes. (4) **`GET /ai/bots` kept the
+  server's collectible load context alive** ("ServerALC did NOT unload" at
+  every gate shutdown): System.Text.Json's caches over the binding's
+  anonymous type; the list is written by hand now. **Open:** the
+  inspector's record and the replay frame (`/ai/bot/<slot>`,
+  `/ai/replay/bot/<slot>`) still serialise the core's records through the
+  serializer and leave the same leak when asked before a shutdown (a
+  resolver of the options' own did not help); the gate does not ask them.
+  **Closed 2026-11-02:** every AI route now writes through one writer,
+  `AiJson` (public properties onto a `Utf8JsonWriter`, the same spelling
+  byte for byte), and nothing in the AI calls `JsonSerializer`; facts
+  `AiJsonTests.TheServersContextUnloadsAfterTheRecordRoutesAnswered` (a
+  second, collectible load of the AI's assemblies writes a record and an
+  intent and is collected), `AiJsonSpellsWhatTheSerializerSpelled`,
+  `NoAiRouteCallsTheSerializer`; `tools/ai-mutations` routes-serializer.
+
+- **The bot editor's rows read as a player reads them** (2026-11-02). The
+  rows showed the inspector's raw parameter names ("AimErrorDeg 5.8 ·
+  LeadQuality 0.52", "fov_deg 90 · reaction_ms 500"). The model now hands
+  each row its parameters as data (`BotParameter`: a PascalCase key and a
+  value) and the screen labels each from the mod's language file,
+  `#Ai_Param_<Key>` with `%s1` for the value and its unit ("Aim error
+  5.8° · Lead 0.52", "Field of view 90° · Reaction 500 ms", a `...Pct`
+  share as a percentage); the web inspector keeps the raw names. The step
+  toggle reads "Step ±1" / "Step ±5". Facts `AiSkillRowTests` (client),
+  `BotEditorModelTests.EveryParameterARowShowsHasALabelInTheLanguageFile`;
+  `tools/ai-mutations` editor-raw-names.
+
+- **Landing on main's GameUI (2026-11-02).** Main's G1-G3 gave the core
+  menu its own Create server (stock's OpenCreateMultiplayerGameDialog) and a
+  core `createserver` screen. The lane's menu hook (`CanCreateServer`, a
+  second button) was dropped in the rebase; the AI's screen is now named
+  `createserverbots` and answers `createserver` through `UiScreen.Aliases`,
+  so on the test mod Create server, `gamemenucommand
+  OpenCreateMultiplayerGameDialog` and `cs_ui_open createserver` open the
+  bot setup in place of the core's dialog (the core's server and game
+  pages, hostname and password, are not on it: a bots page in the core
+  dialog would be the follow-up that keeps both). Facts
+  `UiMenuHostTests.A_mods_screen_answering_createserver_opens_in_place_of_the_cores`,
+  `AiUiSourceUseTests.The_ai_create_server_answers_the_cores_name_under_a_name_of_its_own`.
+  (5) **The gate's server holds four players** (`-maxplayers 4`), so the
+  `bots` step fits three bots beside the human, not §8.2's four; with
+  three on dm_lockdown a minute can pass with no death, so the step plays
+  until a bot has killed and a bot has died, at most five minutes. (6)
+  **The process's thread count wanders** with the runtime's thread pool
+  (80 to 83 across one map change, the AI's workers the same), so the
+  gate counts the AI's own workers by name (`ai.pool.os_threads`) against
+  the pool's count. (7) A placed walker spawned inside the human on
+  ss_ai_nav stood stuck: the step places it as `tools/ai-scenario` does.
+  (8) Not reproduced: once, a bot's pistol reload was told begun and never
+  over for a minute (its `Reloading` held); the abort fix of the first
+  leftover tells a switched-away reload over, and later runs showed none.
+
+- **The Phase 6 gate, 2026-11-02** (`hl2mp-ai` at `d758acc3a`). The live
+  gate by hand as §9 names it, `tools/live-gate --steps bots,map-change
+  --passes 3`: PASS PASS PASS, exit 0, the shutdown clean; per pass a bot
+  killed and a bot died, `ai.main.us` 244.7 / 274.9 / 240.5,
+  `ai.brain.cpu.us` 670.0 / 642.0 / 591.1, `ai.sense.us` 77.0 / 123.4 /
+  95.1, `ai.pool.us` 59,485 / 31,414 / 17,813, the recordings (2,036 /
+  2,037 / 2,037 intents) identical inline and at 1, 2 and 4 threads; the
+  map-change's census 475 back each time. The wider run before the ALC
+  fix (`--steps ai-nav,bots,ss-ai-nav,ss-ai-sight,ss-ai-hearing,map-change
+  --passes 3`, `7875092dc`) passed every step in all three passes (§12.3),
+  only its shutdown fault open, which `d758acc3a` closed. `make test` at
+  `b30665281` rc=0, all 9 legs (ai 512, managed 2,261, server 9,103,
+  client 4,273, tf2 3,616, tf2_descent 172, native 1,771 gtests in 152
+  binaries, ui 509, checks 35); `make test-full` at `f0434b9ea` rc=0, all
+  14 legs (+ runner 130, checks-full 5, oracle 237 + 158 in 37 binaries,
+  census 35 in 3); the Valve clone clean; `tools/ai-mutations`: 156 arms,
+  every one red and green again after restore (93 + 1 + 62 over three
+  runs: two arms' needles and one mutant that no longer compiled followed
+  the code first, `29623357d`, the belief-unbounded commit after it).
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

@@ -113,24 +113,59 @@ public class AiSessionTests
         Assert.Equal((Environment.CurrentManagedThreadId, 1L), (spy.Thread, s.Counters.StepsRun));
     }
 
-    /// <summary>The inline transport, with the thread each step ran on noted.</summary>
-    private sealed class RunnerSpy : IAiTransport, IBrainStepRunner
+    /// <summary>ai_step's hold: a held session runs no step and keeps the bot's events for the step it lets run.</summary>
+    [Fact]
+    public void AHeldSessionStepsOnlyWhenLetAndKeepsTheEvents()
     {
-        private readonly InlineTransport _inline = new();
-        private IBrainStepRunner? _inner;
+        AiSession s = Session();
+        s.AddBot(Bot, 1, []);
+        s.Stepping = true;
+        s.Push(AiEvent.Spawned(Bot, new Tick(1), default));
+        Publish(s, 4);
+        Publish(s, 10);
+        Assert.Equal((0L, 2L), (s.Counters.StepsRun, s.Counters.StepsHeld));
 
+        s.StepTicks = 6;   // every slot's decide once
+        for (int t = 11; t <= 16; t++)
+            Publish(s, t);
+        Assert.Equal((1L, 1L, 0), (s.Counters.StepsRun, s.Counters.EventsProcessed, s.StepTicks));
+
+        Publish(s, 22);
+        Assert.Equal((1L, 3L), (s.Counters.StepsRun, s.Counters.StepsHeld));
+    }
+
+    /// <summary>A held tick is not recorded, so a replay of a stepped session steps exactly what ran.</summary>
+    [Fact]
+    public void ASteppedSessionReplaysToTheSameIntents()
+    {
+        byte[] rec = SourceSharp.Ai.Tests.Record.Recordings.Make(s =>
+        {
+            s.AddBot(Bot, 1, []);
+            s.Stepping = true;
+            for (int t = 1; t <= 40; t++)
+            {
+                if (t == 20)
+                    s.StepTicks = 6;
+                Publish(s, t);
+            }
+        });
+        AiReplayResult r = SourceSharp.Ai.Tests.Record.Recordings.Replay(rec);
+        Assert.Equal(1, r.RecordedIntentCount);
+        Assert.True(r.Identical, "the replay ran a step the stepped session held");
+    }
+
+    /// <summary>The inline transport, with the thread each step ran on noted.</summary>
+    private sealed class RunnerSpy : IAiTransport
+    {
         public int Thread { get; private set; } = -1;
 
-        public void Dispatch(BrainStepJob job, IBrainStepRunner runner)
-        {
-            _inner = runner;
-            _inline.Dispatch(job, this);
-        }
+        public bool Inline => true;
 
-        public void Run(BrainStepJob job)
+        public bool Dispatch(IAiWork work)
         {
             Thread = Environment.CurrentManagedThreadId;
-            _inner!.Run(job);
+            work.Run();
+            return true;
         }
     }
 }

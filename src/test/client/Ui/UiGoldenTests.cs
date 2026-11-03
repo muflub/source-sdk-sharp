@@ -131,6 +131,16 @@ public class UiGoldenTests
         // arms whose copy differs (the victims' and the actor's own line).
         { "tfnotifications", "the-enemy-has-our-flag-red-local" },
         { "tfnotifications", "touching-the-enemy-zone-red-local" },
+        // The HL2MP AI's bot setup (plan_hl2mp_ai §3.5, §8.2): create server
+        // at its defaults, and with custom bots (a saved one, one the server
+        // names, Expert's full spend) beside two Easy preset bots.
+        { "createserverbots", "default" },
+        { "createserverbots", "with-custom-bots" },
+        // The bot editor: mid-edit with points left, the whole pool spent
+        // (every + dead), and the revision list open.
+        { "boteditor", "mid-edit-with-points-left" },
+        { "boteditor", "full-spend" },
+        { "boteditor", "revisions-open" },
     };
 
     private static UiContext Render(string group, string slug, int w, int h)

@@ -9353,6 +9353,291 @@ def step_input_usercmd(g):
                 % (r + 1, dx, got, want, m_yaw, sens, dx, device, recent))
 
 
+#=============================================================================
+# THE AI's STEPS (plan_hl2mp_ai §8.2's live gate, Phase 6 steps 4 and 5)
+#=============================================================================
+# Not §5's: the AI binding's own, run on the listen server only (ruling
+# 2026-11-01). Each asks the binding's dev-API routes (/ai/counters,
+# /ai/bots), so a game without the binding skips them as a scenario gap.
+
+# Four bots as the plan's live sessions ran them: the three slider presets and
+# a Headhunter 10 / Discipline 10 custom.
+AI_GATE_BOTS = [("Alyx", "hard"), ("Barney", "normal"), ("Gordon", "easy"),
+                ("Hunter", "skills=4,4,4,3,3,3,10,3,4,10")]
+
+# §9's budgets with §12.3's measurements (plan ceilings; the live numbers are
+# far inside them on the pool): main thread per tick, brain CPU per decide,
+# the pool's busy time a second (a quarter of one core).
+AI_BUDGET = {"ai.sense.us": 400.0, "ai.main.us": 1000.0, "ai.brain.cpu.us": 2000.0,
+             "ai.pool.us": 250000.0}
+
+
+def ai_counters(g):
+    """The binding's /ai/counters, or None without the binding."""
+    try:
+        got = g.api.get("route", "/ai/counters")
+    except ApiError:
+        return None
+    return got if isinstance(got, dict) and "ai.sense.us" in got else None
+
+
+def ai_bots(g):
+    try:
+        got = g.api.get("route", "/ai/bots")
+    except ApiError:
+        return []
+    return got if isinstance(got, list) else []
+
+
+def step_ai_nav(g):
+    """The AI's nav for this map is this tree's build output (plan_hl2mp_ai
+    Phase 6 step 4, §6.3, §6.4.1).
+
+    `make ai-nav` (tools/daily-gate runs it after `make debug`; `make debug`
+    builds no map) writes the map's .nav3d through the pinned ssmap. A missing
+    or stale file is refused at level start with the §6.3 refusal line, and
+    the bots would have nothing to walk on: this step fails then, naming the
+    refusal, rather than letting the bots step fail for a reason that looks
+    nothing like it.
+    """
+    c = ai_counters(g)
+    if c is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    want = g.scen["map"]
+    refusal = c.get("nav.refusal")
+    g.check(not refusal, "the level's nav was not refused (the §6.3 line: %s)" % (refusal or "none"))
+    g.check(c.get("nav.map") == want, "the nav is %s's (%r)" % (want, c.get("nav.map")))
+    g.check(c.get("nav.cells", 0) >= 1000, "it holds %d cells" % c.get("nav.cells", 0))
+    line = g.last_console_line("[SourceSharp/Ai] navigation for %s:" % want)
+    g.check(bool(line), "the level-start line names it: %s" % (line or "none"))
+
+
+def step_bots(g):
+    """Four bots play for a minute (plan_hl2mp_ai §8.2's `bots` step).
+
+    On the listen server, with the human of the gate and its second client
+    connected: four bots added with `ai_bot_add` while `ai_record` records the
+    session. Asserted, every one positively:
+      * the four are listed, and their brains run on the worker pool, not the
+        main thread (ai_sync 0, a live pool);
+      * in a minute at least one bot kills and at least one bot dies (the
+        server's "#V killed by #K" lines, by slot);
+      * no intent was refused for a stale or unknown actor (the handle kinds),
+        no step faulted;
+      * the AI's costs are inside §9's budgets over the last 300 ticks: the
+        senses (ai.sense.us), the main thread's share (ai.main.us: senses,
+        hand-over and apply; the bots' commands run as players, ai.run.us, are
+        a client's cost and are reported beside it), a decide's CPU on its
+        worker (ai.brain.cpu.us) and the pool's busy time (ai.pool.us);
+      * the recording replays to its intents byte for byte inline and on 1, 2
+        and 4 worker threads (tools/ai-replay verify), the determinism over a
+        live session the plan asks of every run.
+    The bots are kicked at the end, so the steps after it find the map as the
+    scenario left it. The spin-bot detector of §3.4.4 is Phase 5b's and does
+    not exist yet: noted, not checked.
+    """
+    c0 = ai_counters(g)
+    if c0 is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    if c0.get("nav.refusal"):
+        g.check(False, "no bots without the map's nav: %s" % c0["nav.refusal"])
+        return
+    g.cheats()
+    rec = os.path.join(g.scratch, "bots-%s.airec" % time.strftime("%H%M%S"))
+    g.api.cmd("ai_record start %s %s" % (rec, g.scen["map"]))
+    before = len(g.console_lines(" killed by #"))
+    threw_before = len(g.console_lines(" threw: "))
+    for name, skill in AI_GATE_BOTS:
+        g.api.cmd("ai_bot_add %s %s" % (name, skill))
+    # The gate's server holds -maxplayers 4: the bots fill what the humans
+    # leave (three beside the one human, two with the second client in).
+    g.api.wait_ticks(66)
+    listed = ai_bots(g)
+    g.check(len(listed) >= 2, "%d of the %d bots were added (the server's slots allow what the humans leave)"
+            % (len(listed), len(AI_GATE_BOTS)))
+    if len(listed) < 2:
+        g.api.cmd("ai_record stop")
+        return
+    slots = {b["slot"] for b in listed}
+
+    # A minute at 66 ticks a second, up to five while no bot has both killed
+    # and died yet: three bots (the gate's four slots less its human) on a
+    # large map can miss one another, or heal, for minutes.
+    def deaths():
+        found = []
+        for line in g.console_lines(" killed by #")[before:]:
+            m = re.search(r"#(\d+) killed by #(\d+)", line)
+            if m:
+                found.append((int(m.group(1)), int(m.group(2))))
+        return found
+
+    for _ in range(5):
+        g.api.wait_ticks(4000)
+        if any(k in slots and k != v for v, k in deaths()) and any(v in slots for v, _k in deaths()):
+            break
+    c = ai_counters(g) or {}
+    g.api.cmd("ai_record stop")
+
+    kills = deaths()
+    by_bots = [(v, k) for v, k in kills if k in slots and k != v]
+    of_bots = [(v, k) for v, k in kills if v in slots]
+    g.say("    %d deaths: %d by a bot, %d of a bot" % (len(kills), len(by_bots), len(of_bots)))
+    g.check(len(by_bots) >= 1, "a bot killed someone (%d)" % len(by_bots))
+    g.check(len(of_bots) >= 1, "a bot died (%d)" % len(of_bots))
+
+    g.check(c.get("ai.sync") == 0 and c.get("ai.pool.alive", 0) >= 1,
+            "the brains ran on %s worker thread(s), not the main thread (ai_sync %s)"
+            % (c.get("ai.pool.alive"), c.get("ai.sync")))
+    for key in ("ai.refused.stale", "ai.refused.unknown"):
+        g.check(c.get(key, 0) - c0.get(key, 0) == 0, "no intent refused as %s (%d)" % (key, c.get(key, 0) - c0.get(key, 0)))
+    g.check(c.get("ai.steps.faulted", 0) == 0, "no brain step faulted (%s)" % c.get("ai.steps.faulted"))
+    g.check(c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0) > 1000,
+            "the brains decided (%d steps)" % (c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0)))
+    for key, ceiling in AI_BUDGET.items():
+        g.check(c.get(key, ceiling + 1) <= ceiling, "%s %.1f within %.0f" % (key, c.get(key, -1), ceiling))
+    g.say("    ai.run.us %.1f (the bots' commands as players), ai.steps.skipped %s, threads %s"
+          % (c.get("ai.run.us", -1), c.get("ai.steps.skipped"), c.get("process.threads")))
+
+    verify = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "verify", g.scen["map"], rec],
+                            cwd=ROOT, capture_output=True, text=True, timeout=600)
+    for line in verify.stdout.splitlines():
+        g.say("    " + line)
+    g.check(verify.returncode == 0, "the step's recording replays to its intents inline and at 1, 2 and 4 threads (exit %d%s)"
+            % (verify.returncode, (": " + verify.stderr.strip()[-200:]) if verify.returncode else ""))
+    g.note("the spin-bot detector (§3.4.4) is Phase 5b's and not built: not checked")
+    threw = [l for l in g.console_lines(" threw: ")[threw_before:] if "Ai" in l or "Hl2mp" in l]
+    g.check(not threw, "no AI service threw in the minute (%d: %s)" % (len(threw), threw[:1]))
+
+    g.api.cmd("ai_bot_kick all")
+    gone = g.api.wait_for(lambda: not ai_bots(g) or None, 30.0)
+    g.check(bool(gone), "the bots were kicked, the map left as the scenario has it")
+
+
+def ai_slot(g, name):
+    for b in ai_bots(g):
+        if b.get("name") == name:
+            return b["slot"]
+    return None
+
+
+def ai_explain(g):
+    """Each bot's perception, said when a map step's condition never held."""
+    for b in ai_bots(g):
+        try:
+            g.say("    perception of #%s: %s" % (b["slot"], g.api.raw("route", "/ai/bot/%d/perception" % b["slot"])[:500]))
+        except ApiError as e:
+            g.say("    perception of #%s: %s" % (b["slot"], e))
+
+
+def ai_map_step(g, map_name, setup, ready, what, seconds=30.0):
+    """One of §6.6's ss_ai_* maps: loaded (its nav per tree, `make ai-maps`),
+    `setup(g)` run (the scenario harness's placements, tools/ai-scenario),
+    `ready()` waited for, then back to the scenario's map. Two map loads later
+    the AI's pool holds as many worker threads as it did, its old workers
+    joined (the process's own count wanders with the runtime's thread pool,
+    so the AI's threads are counted by name)."""
+    if ai_counters(g) is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    g.cheats()
+    threads = (ai_counters(g) or {}).get("ai.pool.os_threads")
+    threw_before = len(g.console_lines(" threw: "))
+    g.api.cmd("map %s" % map_name)
+    up = g.api.wait_for(lambda: (ai_counters(g) or {}).get("nav.map") == map_name or None, 120.0, 1.0)
+    c = ai_counters(g) or {}
+    g.check(bool(up), "%s loaded with its nav (%s cells; refusal %s)" % (map_name, c.get("nav.cells"), c.get("nav.refusal")))
+    # The listen server's own client rejoins first: until it has, the level
+    # stands still and a bot placed in it sees and hears nothing.
+    joined = up and g.api.wait_for(lambda: g.api.player(g.scen["playerClass"]), 90.0)
+    g.check(bool(joined), "the client rejoined %s" % map_name)
+    if joined:
+        g.api.cmd("sv_cheats 1")
+        setup(g)
+        got = g.api.wait_for(ready, seconds, 1.0)
+        g.check(bool(got), "%s: %s" % (map_name, what))
+        if not got:
+            ai_explain(g)
+        threw = [l for l in g.console_lines(" threw: ")[threw_before:] if "Ai" in l or "Hl2mp" in l]
+        g.check(not threw, "no AI service threw on %s (%d: %s)" % (map_name, len(threw), threw[:1]))
+    home = g.scen["map"]
+    g.api.cmd("map %s" % home)
+    back = g.api.wait_map(g.scen["entities"], 180.0)
+    player = g.api.wait_for(lambda: g.api.player(g.scen["playerClass"]), 60.0)
+    g.check(bool(back) and bool(player), "back on %s, the client rejoined" % home)
+    # §2.5: two map loads later the AI's pool was stopped, joined and started
+    # again, and the process holds as many threads as it did.
+    now = lambda: ai_counters(g) or {}
+    same = g.api.wait_for(lambda: now().get("ai.pool.os_threads") == threads == now().get("ai.pool.threads") or None, 15.0, 1.0)
+    g.check(bool(same), "two map loads later the AI holds %s worker threads, as before, its old ones joined (%s now; process %s)"
+            % (threads, now().get("ai.pool.os_threads"), now().get("process.threads")))
+
+
+def step_ss_ai_nav(g):
+    """ss_ai_nav (plan_hl2mp_ai §6.6): a bot walks the room library's floors,
+    stairs, crawl and drop to the .357 and picks it up ("arrived")."""
+    needle = "(Walker)"
+    before = len([l for l in g.console_lines(needle) if " arrived cell " in l])
+
+    def setup(g):
+        # tools/ai-scenario's start: the walker placed clear of the spawn the
+        # human may share (a bot spawned inside a player stands stuck).
+        g.api.cmd("ai_think 0")
+        g.api.cmd("ai_bot_add Walker expert")
+        g.api.wait_ticks(66)
+        g.api.teleport((720, 420, 17), settle=True, player=ai_slot(g, "Walker"))
+        g.api.cmd("ai_bot_goto Walker weapon_357")
+    ai_map_step(g, "ss_ai_nav", setup,
+                lambda: len([l for l in g.console_lines(needle) if " arrived cell " in l]) > before,
+                "the bot followed the field to the .357 and arrived", 45.0)
+    g.api.cmd("ai_think 1")
+
+
+def step_ss_ai_sight(g):
+    """ss_ai_sight (§6.6): two bots across the sight rooms; one sees the other
+    through the vision pass (ai_sense_log's "sees" line)."""
+    before = g.count_console(" sees ")
+
+    def setup(g):
+        # tools/ai-scenario's "open" scene: the watcher at its post facing the target.
+        for line in ("ai_think 0", "ai_sense_log 1", "ai_bot_add Watcher expert", "ai_bot_add Target easy"):
+            g.api.cmd(line)
+        g.api.wait_ticks(132)
+        g.api.teleport((200, 300, 17), (0, 180, 0), settle=True, player=ai_slot(g, "Target"))
+        g.api.teleport((64, 300, 17), (0, 0, 0), settle=True, player=ai_slot(g, "Watcher"))
+    ai_map_step(g, "ss_ai_sight", setup, lambda: g.count_console(" sees ") > before, "the watcher saw the target")
+    g.api.cmd("ai_sense_log 0")
+    g.api.cmd("ai_think 1")
+
+
+def step_ss_ai_hearing(g):
+    """ss_ai_hearing (§6.6): two bots out of sight of each other; one hears the
+    other (its perception lists a heard actor)."""
+    def heard():
+        for b in ai_bots(g):
+            try:
+                p = g.api.get("route", "/ai/bot/%d/perception" % b["slot"])
+            except ApiError:
+                continue
+            if isinstance(p, dict) and p.get("heard"):
+                return True
+        return None
+    def setup(g):
+        # tools/ai-scenario's "near smg1" scene: the target fires beside the listener.
+        for line in ("ai_think 0", "ai_bot_add Listener expert", "ai_bot_add Target easy"):
+            g.api.cmd(line)
+        g.api.wait_ticks(132)
+        g.api.teleport((64, 256, 17), (0, 0, 0), settle=True, player=ai_slot(g, "Listener"))
+        g.api.teleport((200, 256, 17), (0, 0, 0), settle=True, player=ai_slot(g, "Target"))
+        g.api.cmd("ai_bot_act Target select 2")
+        g.api.wait_ticks(33)
+        g.api.cmd("ai_bot_act Target fire 1")
+    ai_map_step(g, "ss_ai_hearing", setup, heard, "the listener heard the target fire")
+
+    g.api.cmd("ai_think 1")
+
+
 STEPS = [
     ("join",          "join",                                        step_join),
     ("move",          "move",                                        step_move),
@@ -9473,6 +9758,14 @@ EXTRA_STEPS = [
     ("input-usercmd", "an injected mouse delta turns the next command by the "
                       "sensitivity-scaled amount and nothing else turns it "
                       "(plan_client_novalve 5.3)", step_input_usercmd),
+    ("ai-nav", "the AI's nav for the map is this tree's, not refused (not in §5; "
+               "plan_hl2mp_ai Phase 6 step 4)", step_ai_nav),
+    ("bots", "four bots play a minute on the worker pool: kills and deaths, no handle "
+             "refusal, the costs in budget, the recording replays at 1, 2 and 4 threads "
+             "(not in §5; plan_hl2mp_ai §8.2)", step_bots),
+    ("ss-ai-nav", "a bot walks ss_ai_nav to the .357 (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_nav),
+    ("ss-ai-sight", "a bot sees another on ss_ai_sight (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_sight),
+    ("ss-ai-hearing", "a bot hears another on ss_ai_hearing (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_hearing),
 ]
 
 ALL_STEPS = STEPS + EXTRA_STEPS
@@ -9487,7 +9780,8 @@ RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "vi
              "push", "contact-touch", "start-asleep", "trigger", "penetration", "prop-hurts-player", "knock-loose", "impact-damage", "stress", "door", "lift", "die", "respawn",
              "skinned-model", "viewmodel-merge",
              "engine-vectors", "second-client", "frag-credit", "chat", "spectate", "round-end", "save-load", "hot-reload", "map-reload",
-             "phys-convert", "render-plan-sandbox", "map-change", "sigterm-shutdown", "shutdown"]
+             "phys-convert", "render-plan-sandbox", "ai-nav", "bots", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
+             "map-change", "sigterm-shutdown", "shutdown"]
 
 BY_ID = {step[0]: step for step in ALL_STEPS}
 

@@ -35,36 +35,63 @@ public sealed class PositionPredictor
     public const float Stay = 0.1f;
 
     private readonly NavGraph _graph;
-    private readonly Dictionary<int, float> _mass = new();
-    private readonly Dictionary<int, float> _next = new();
+    private readonly PredictorScratch _scratch;
 
-    // The mass-weighted direction each cell's mass arrived from: a player
-    // keeps going the way it goes, so mass rarely turns back.
-    private readonly Dictionary<int, AiVector> _dir = new();
-    private readonly Dictionary<int, AiVector> _nextDir = new();
+    // The cells with mass, in the order they gained it this hop (the order
+    // every sum runs in), their mass, and the mass-weighted direction each
+    // cell's mass arrived from: a player keeps going the way it goes, so mass
+    // rarely turns back.
+    private int[] _cells = new int[MaxCells];
+    private float[] _mass = new float[MaxCells];
+    private AiVector[] _dir = new AiVector[MaxCells];
+    private int _n;
     private float _carry;
 
-    public PositionPredictor(NavGraph graph)
+    /// <summary>A predictor with scratch of its own (a fact's).</summary>
+    public PositionPredictor(NavGraph graph) : this(graph, new PredictorScratch(graph?.CellCount ?? 0))
     {
-        ArgumentNullException.ThrowIfNull(graph);
-        _graph = graph;
     }
 
-    public bool Active => _mass.Count > 0;
+    /// <summary>
+    /// A predictor over <paramref name="graph"/> whose hops accumulate in
+    /// <paramref name="scratch"/>, which the predictors of one bot share: they
+    /// step one after another on the bot's own thread, never at once.
+    /// </summary>
+    public PositionPredictor(NavGraph graph, PredictorScratch scratch)
+    {
+        ArgumentNullException.ThrowIfNull(graph);
+        ArgumentNullException.ThrowIfNull(scratch);
+        if (scratch.CellCount < graph.CellCount)
+            throw new ArgumentException($"the scratch holds {scratch.CellCount} cells, the graph {graph.CellCount}", nameof(scratch));
+        _graph = graph;
+        _scratch = scratch;
+    }
 
-    public int CellsWithMass => _mass.Count;
+    public bool Active => _n > 0;
+
+    public int CellsWithMass => _n;
+
+    /// <summary>The cells holding mass, in their order.</summary>
+    public ReadOnlySpan<int> MassCells => _cells.AsSpan(0, _n);
+
+    /// <summary>Each of <see cref="MassCells"/>' mass.</summary>
+    public ReadOnlySpan<float> Masses => _mass.AsSpan(0, _n);
 
     /// <summary>The probability on <paramref name="cell"/>.</summary>
-    public float P(int cell) => _mass.GetValueOrDefault(cell);
+    public float P(int cell)
+    {
+        int i = Array.IndexOf(_cells, cell, 0, _n);
+        return i < 0 ? 0f : _mass[i];
+    }
 
     /// <summary>The mass on the cells <paramref name="cells"/> picks.</summary>
     public float MassOn(Func<int, bool> cells)
     {
         float m = 0f;
-        foreach ((int c, float p) in _mass)
+        for (int i = 0; i < _n; i++)
         {
-            if (cells(c))
-                m += p;
+            if (cells(_cells[i]))
+                m += _mass[i];
         }
 
         return m;
@@ -77,8 +104,10 @@ public sealed class PositionPredictor
         {
             int best = -1;
             float top = -1f;
-            foreach ((int c, float p) in _mass)
+            for (int i = 0; i < _n; i++)
             {
+                int c = _cells[i];
+                float p = _mass[i];
                 if (p > top || (p == top && c < best))
                     (best, top) = (c, p);
             }
@@ -93,8 +122,9 @@ public sealed class PositionPredictor
         get
         {
             float h = 0f;
-            foreach (float p in _mass.Values)
+            for (int i = 0; i < _n; i++)
             {
+                float p = _mass[i];
                 if (p > 0f)
                     h -= p * MathF.Log2(p);
             }
@@ -105,8 +135,7 @@ public sealed class PositionPredictor
 
     public void Clear()
     {
-        _mass.Clear();
-        _dir.Clear();
+        _n = 0;
         _carry = 0f;
         _spread = 0f;
     }
@@ -117,8 +146,7 @@ public sealed class PositionPredictor
         Clear();
         if (!cell.IsValid)
             return;
-        _mass[cell.Index] = 1f;
-        _dir[cell.Index] = new AiVector(velocity.X, velocity.Y, 0f).Normalised();
+        Put(cell.Index, 1f, new AiVector(velocity.X, velocity.Y, 0f).Normalised());
     }
 
     /// <summary>Heard at <paramref name="cell"/>: the mass collapses onto the cells within <paramref name="radius"/> of it.</summary>
@@ -128,26 +156,39 @@ public sealed class PositionPredictor
             return;
         Clear();
         AiVector at = _graph.Cell(cell).Centre;
-        var near = new List<int> { cell.Index };
-        var seen = new HashSet<int> { cell.Index };
-        for (int i = 0; i < near.Count; i++)
+        PredictorScratch x = _scratch;
+        int stamp = x.NextStamp();
+        int count = 0;
+        x.Touch(ref count, cell.Index, stamp);
+        for (int i = 0; i < count; i++)
         {
-            foreach (NavEdge e in _graph.EdgesFrom(near[i]))
+            foreach (NavEdge e in _graph.EdgesFrom(x.Touched[i]))
             {
-                if (seen.Add(e.To) && _graph.Cell(e.To).Centre.DistanceTo(at) <= radius)
-                    near.Add(e.To);
+                if (x.Stamp[e.To] != stamp && _graph.Cell(e.To).Centre.DistanceTo(at) <= radius)
+                    x.Touch(ref count, e.To, stamp);
+                else
+                    x.Stamp[e.To] = stamp;
             }
         }
 
-        foreach (int c in near)
-            _mass[c] = (c == cell.Index ? 2f : 1f) / (near.Count + 1);
+        for (int i = 0; i < count; i++)
+        {
+            int c = x.Touched[i];
+            Put(c, (c == cell.Index ? 2f : 1f) / (count + 1), default);
+        }
     }
 
     /// <summary>The bot looked at <paramref name="cell"/> and nobody was there: it holds no mass.</summary>
     public void SeenEmpty(int cell)
     {
-        if (_mass.Remove(cell))
-            Normalise();
+        int i = Array.IndexOf(_cells, cell, 0, _n);
+        if (i < 0)
+            return;
+        Array.Copy(_cells, i + 1, _cells, i, _n - i - 1);
+        Array.Copy(_mass, i + 1, _mass, i, _n - i - 1);
+        Array.Copy(_dir, i + 1, _dir, i, _n - i - 1);
+        _n--;
+        Normalise();
     }
 
     /// <summary>
@@ -158,10 +199,10 @@ public sealed class PositionPredictor
     /// </summary>
     public void Step(float seconds, float speed, ReadOnlySpan<byte> routePrior, ClearanceClass cls = ClearanceClass.Crouch)
     {
-        if (_mass.Count == 0 || seconds <= 0f || _spread >= MaxSpreadSeconds)
+        if (_n == 0 || seconds <= 0f || _spread >= MaxSpreadSeconds)
             return;
         _spread += seconds;
-        float cell = MathF.Max(1f, _graph.Cell(_mass.Keys.First()).MaxX - _graph.Cell(_mass.Keys.First()).MinX);
+        float cell = MathF.Max(1f, _graph.Cell(_cells[0]).MaxX - _graph.Cell(_cells[0]).MinX);
         _carry += speed * seconds / cell;
         int hops = (int)_carry;
         _carry -= hops;
@@ -171,31 +212,39 @@ public sealed class PositionPredictor
 
     private void Hop(ReadOnlySpan<byte> prior, ClearanceClass cls)
     {
-        _next.Clear();
-        _nextDir.Clear();
+        PredictorScratch x = _scratch;
+        int stamp = x.NextStamp();
+        int count = 0;
         Span<float> w = stackalloc float[64];
-        foreach ((int c, float p) in _mass)
+        Span<AiVector> unit = stackalloc AiVector[64];
+        for (int k = 0; k < _n; k++)
         {
-            AiVector here = _graph.Cell(c).Centre;
+            int c = _cells[k];
+            float p = _mass[k];
+            AiVector v = _dir[k];
+            bool momentum = v.LengthSquared > 0f;
+            AiVector here = _graph.CellRef(c).Centre;
             ReadOnlySpan<NavEdge> edges = _graph.EdgesFrom(c);
             int n = Math.Min(edges.Length, w.Length);
             float sum = 0f;
             for (int i = 0; i < n; i++)
             {
-                NavEdge e = edges[i];
-                if (!_graph.Cell(e.To).Admits(cls))
+                int to = edges[i].To;
+                ref readonly NavCell next = ref _graph.CellRef(to);
+                if (!next.Admits(cls))
                 {
                     w[i] = 0f;
                     continue;
                 }
 
-                float weight = 1f + (e.To < prior.Length ? PriorWeight * prior[e.To] : 0f);
-                AiVector v = _dir.GetValueOrDefault(c);
-                if (v.LengthSquared > 0f)
+                // The step's direction in the ground plane, once: the weight's and the arrival's.
+                AiVector d = next.Centre - here;
+                unit[i] = new AiVector(d.X, d.Y, 0f).Normalised();
+                float weight = 1f + (to < prior.Length ? PriorWeight * prior[to] : 0f);
+                if (momentum)
                 {
                     // Forward favoured, back nearly ruled out.
-                    AiVector d = _graph.Cell(e.To).Centre - here;
-                    float along = new AiVector(d.X, d.Y, 0f).Normalised().Dot(v);
+                    float along = unit[i].Dot(v);
                     weight *= along >= 0f ? 1f + along : 1f - Backtrack * -along;
                 }
 
@@ -205,62 +254,178 @@ public sealed class PositionPredictor
 
             if (sum <= 0f)
             {
-                Add(c, p, default);
+                x.Add(ref count, c, p, default, stamp);
                 continue;
             }
 
-            Add(c, p * Stay, _dir.GetValueOrDefault(c));
+            x.Add(ref count, c, p * Stay, v, stamp);
             float moving = p * (1f - Stay);
             for (int i = 0; i < n; i++)
             {
                 if (w[i] <= 0f)
                     continue;
-                AiVector d = _graph.Cell(edges[i].To).Centre - here;
-                Add(edges[i].To, moving * w[i] / sum, new AiVector(d.X, d.Y, 0f).Normalised());
+                x.Add(ref count, edges[i].To, moving * w[i] / sum, unit[i], stamp);
             }
         }
 
-        _mass.Clear();
-        _dir.Clear();
         float keep = Floor;
-        if (_next.Count > MaxCells)
+        if (count > MaxCells)
         {
             // The MaxCells-th largest mass is the floor this hop.
-            float[] masses = [.. _next.Values];
-            Array.Sort(masses);
-            keep = MathF.Max(keep, masses[masses.Length - MaxCells]);
+            Span<float> masses = x.Order(count);
+            for (int i = 0; i < count; i++)
+                masses[i] = x.Mass[x.Touched[i]];
+            keep = MathF.Max(keep, PredictorScratch.Select(masses, count - MaxCells));
         }
 
-        foreach ((int c, float p) in _next)
+        _n = 0;
+        for (int i = 0; i < count; i++)
         {
-            if (p >= keep && _mass.Count < MaxCells)
-            {
-                _mass[c] = p;
-                _dir[c] = _nextDir.GetValueOrDefault(c).Normalised();
-            }
+            int c = x.Touched[i];
+            float p = x.Mass[c];
+            if (p >= keep && _n < MaxCells)
+                Put(c, p, x.Dir[c].Normalised());
         }
 
         Normalise();
     }
 
-    private void Add(int c, float p, AiVector from)
+    private void Put(int c, float p, AiVector dir)
     {
-        _next[c] = _next.GetValueOrDefault(c) + p;
-        _nextDir[c] = _nextDir.GetValueOrDefault(c) + from * p;
+        if (_n == _cells.Length)
+        {
+            Array.Resize(ref _cells, _n * 2);
+            Array.Resize(ref _mass, _n * 2);
+            Array.Resize(ref _dir, _n * 2);
+        }
+
+        _cells[_n] = c;
+        _mass[_n] = p;
+        _dir[_n] = dir;
+        _n++;
     }
 
     private void Normalise()
     {
         float s = 0f;
-        foreach (float p in _mass.Values)
-            s += p;
+        for (int i = 0; i < _n; i++)
+            s += _mass[i];
         if (s <= 0f)
         {
-            _mass.Clear();
+            _n = 0;
             return;
         }
 
-        foreach (int c in _mass.Keys.ToArray())
-            _mass[c] /= s;
+        for (int i = 0; i < _n; i++)
+            _mass[i] /= s;
+    }
+}
+
+/// <summary>
+/// A bot's predictors' working space for one hop (dense by cell, so a hop
+/// costs its frontier and no hashing): the mass and direction each touched
+/// cell gathers, which cells were touched in which order, and a stamp per
+/// cell so nothing is cleared between hops. One per bot: its predictors run
+/// one after another on the thread its brain runs on, never two at once.
+/// </summary>
+public sealed class PredictorScratch
+{
+    private int _stamp;
+    private float[] _order = new float[PositionPredictor.MaxCells * 4];
+
+    public PredictorScratch(int cellCount)
+    {
+        CellCount = cellCount;
+        Mass = new float[cellCount];
+        Dir = new AiVector[cellCount];
+        Stamp = new int[cellCount];
+        Touched = new int[Math.Min(cellCount, PositionPredictor.MaxCells * 4) + 1];
+    }
+
+    public int CellCount { get; }
+
+    internal float[] Mass { get; }
+
+    internal AiVector[] Dir { get; }
+
+    internal int[] Stamp { get; }
+
+    internal int[] Touched { get; private set; }
+
+    internal int NextStamp()
+    {
+        if (++_stamp == int.MaxValue)
+        {
+            Array.Clear(Stamp);
+            _stamp = 1;
+        }
+
+        return _stamp;
+    }
+
+    /// <summary>Marks <paramref name="cell"/> touched this stamp, in order, with nothing gathered yet.</summary>
+    internal void Touch(ref int count, int cell, int stamp)
+    {
+        Stamp[cell] = stamp;
+        Mass[cell] = 0f;
+        Dir[cell] = default;
+        if (count == Touched.Length)
+        {
+            int[] grown = Touched;
+            Array.Resize(ref grown, count * 2);
+            Touched = grown;
+        }
+
+        Touched[count++] = cell;
+    }
+
+    /// <summary>Gathers <paramref name="p"/> of mass arriving from <paramref name="from"/> on <paramref name="cell"/>.</summary>
+    internal void Add(ref int count, int cell, float p, AiVector from, int stamp)
+    {
+        if (Stamp[cell] != stamp)
+            Touch(ref count, cell, stamp);
+        Mass[cell] += p;
+        Dir[cell] += from * p;
+    }
+
+    /// <summary>Room for <paramref name="count"/> masses to order.</summary>
+    internal Span<float> Order(int count)
+    {
+        if (_order.Length < count)
+            _order = new float[Math.Max(count, _order.Length * 2)];
+        return _order.AsSpan(0, count);
+    }
+
+    /// <summary>The <paramref name="k"/>-th smallest of <paramref name="v"/> (0-based): what sorting it ascending puts at <paramref name="k"/>. Reorders <paramref name="v"/>.</summary>
+    internal static float Select(Span<float> v, int k)
+    {
+        int lo = 0, hi = v.Length - 1;
+        while (lo < hi)
+        {
+            float pivot = v[lo + ((hi - lo) >> 1)];
+            int i = lo, j = hi;
+            while (i <= j)
+            {
+                while (v[i] < pivot)
+                    i++;
+                while (v[j] > pivot)
+                    j--;
+                if (i <= j)
+                {
+                    (v[i], v[j]) = (v[j], v[i]);
+                    i++;
+                    j--;
+                }
+            }
+
+            if (k <= j)
+                hi = j;
+            else if (k >= i)
+                lo = i;
+            else
+                return v[k];
+        }
+
+        return v[k];
     }
 }

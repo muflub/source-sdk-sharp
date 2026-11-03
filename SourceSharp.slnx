@@ -41,5 +41,8 @@
   <Project Path="src/debug_api_client/interfaces/Debug.Api.Client.Interfaces.csproj" />
   <Project Path="src/ai/core/SourceSharp.Ai.csproj" />
   <Project Path="src/ai/hl2mp/server/SourceSharp.Ai.Hl2mp.csproj" />
+  <Project Path="src/ai/hl2mp/client/SourceSharp.Ai.Hl2mp.Client.csproj" />
+  <Project Path="src/ai/hl2mp/interface/SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
+  <Project Path="src/ai/hl2mp/ui/SourceSharp.Ai.Hl2mp.Ui.csproj" />
   <Project Path="src/ai/tests/SourceSharp.Ai.Tests.csproj" />
 </Solution>

@@ -182,17 +182,19 @@ public static class BotInspect
     private static InspectBelief Belief(BotMemory m, PositionPredictor w)
     {
         NavGraph g = m.World.Graph!;
-        var cells = new List<int>();
-        var mass = new List<float>();
-        for (int c = 0; c < g.CellCount; c++)
+        // In cell order, as the record has always listed them.
+        var held = new List<(int Cell, float P)>();
+        ReadOnlySpan<int> on = w.MassCells;
+        ReadOnlySpan<float> masses = w.Masses;
+        for (int i = 0; i < on.Length; i++)
         {
-            float p = w.P(c);
-            if (p > 0f)
-            {
-                cells.Add(c);
-                mass.Add(p);
-            }
+            if (masses[i] > 0f)
+                held.Add((on[i], masses[i]));
         }
+
+        held.Sort((a, b) => a.Cell.CompareTo(b.Cell));
+        var cells = held.ConvertAll(h => h.Cell);
+        var mass = held.ConvertAll(h => h.P);
 
         CellId arg = w.ArgMax;
         return new InspectBelief(arg.Index, arg.IsValid ? g.Cell(arg).Centre : default, w.Entropy, [.. cells], [.. mass]);

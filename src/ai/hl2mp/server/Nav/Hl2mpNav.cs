@@ -17,6 +17,9 @@ public interface IHl2mpNavigation
 
     /// <summary>The obstacles as the entities stand now, or null with no navigation.</summary>
     NavObstacleState? Obstacles { get; }
+
+    /// <summary>The static sight table between the level's cells, or null with no navigation.</summary>
+    NavSight? Sight { get; }
 }
 
 /// <summary>

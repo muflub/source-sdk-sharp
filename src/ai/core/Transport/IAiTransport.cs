@@ -1,60 +1,45 @@
 namespace SourceSharp.Ai;
 
-/// <summary>
-/// One brain step to run: the bot, its decide tick, and the events it has
-/// not yet seen (plan_hl2mp_ai §2.6). The inputs are fixed when the job is
-/// made, so the transport only decides where and when it runs.
-/// </summary>
-public sealed class BrainStepJob
+/// <summary>A piece of work a transport runs: a bot's queued brain steps, or a flow field to build.</summary>
+public interface IAiWork
 {
-    private AiEvent[] _events;
-
-    internal BrainStepJob(int capacity) => _events = new AiEvent[capacity];
-
-    public Tick Tick { get; private set; }
-
-    public int Slot { get; private set; }
-
-    public int EventCount { get; private set; }
-
-    public ReadOnlySpan<AiEvent> Events => _events.AsSpan(0, EventCount);
-
-    internal void Set(int slot, Tick tick, ReadOnlySpan<AiEvent> events)
-    {
-        Slot = slot;
-        Tick = tick;
-        if (events.Length > _events.Length)
-            _events = new AiEvent[Math.Max(events.Length, _events.Length * 2)];
-        events.CopyTo(_events);
-        EventCount = events.Length;
-    }
-}
-
-/// <summary>Runs a <see cref="BrainStepJob"/> (the session's side of the hand-off).</summary>
-public interface IBrainStepRunner
-{
-    void Run(BrainStepJob job);
+    void Run();
 }
 
 /// <summary>
 /// The hand-off between the main thread and wherever brains run (§2.6):
-/// <see cref="InlineTransport"/> runs a step on the caller, the pooled
-/// transport (Phase 6) on a worker. A transport never changes a step's
-/// inputs, only when it runs.
+/// <see cref="InlineTransport"/> runs work on the caller, the
+/// <see cref="PooledTransport"/> on a worker of an <see cref="AiWorkerPool"/>.
+/// A transport never changes a step's inputs, only when and where it runs.
 /// </summary>
 public interface IAiTransport
 {
-    /// <summary>Hands one step over. The jobs of one tick arrive in bot-slot order.</summary>
-    void Dispatch(BrainStepJob job, IBrainStepRunner runner);
+    /// <summary>Whether work runs on the caller, done when <see cref="Dispatch"/> returns.</summary>
+    bool Inline { get; }
+
+    /// <summary>Hands work over; false when nothing will run it (a stopped pool), and the caller keeps it.</summary>
+    bool Dispatch(IAiWork work);
 }
 
-/// <summary>Runs each step at once, on the caller (the main thread's <c>OnPostThink</c>; <c>ai_sync 1</c>).</summary>
+/// <summary>Runs work at once, on the caller (the main thread's <c>OnPostThink</c> under <c>ai_sync 1</c>, the facts, the replay tool).</summary>
 public sealed class InlineTransport : IAiTransport
 {
-    public void Dispatch(BrainStepJob job, IBrainStepRunner runner)
+    public bool Inline => true;
+
+    public bool Dispatch(IAiWork work)
     {
-        ArgumentNullException.ThrowIfNull(job);
-        ArgumentNullException.ThrowIfNull(runner);
-        runner.Run(job);
+        ArgumentNullException.ThrowIfNull(work);
+        work.Run();
+        return true;
     }
+}
+
+/// <summary>Runs work on the workers of <paramref name="pool"/> (§2.7): never on the caller.</summary>
+public sealed class PooledTransport(AiWorkerPool pool) : IAiTransport
+{
+    public bool Inline => false;
+
+    public AiWorkerPool Pool => pool;
+
+    public bool Dispatch(IAiWork work) => pool.Post(work);
 }

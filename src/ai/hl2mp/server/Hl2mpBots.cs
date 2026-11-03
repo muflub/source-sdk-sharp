@@ -58,6 +58,8 @@ public sealed class Hl2mpBots : IFrameLifecycle
         _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory, networking);
         _inventory = inventory;
         _applier = new BotCommandApplier(runner, _self);
+        // A new goal's field is built on the AI's workers unless the brains run inline (ai_sync 1).
+        _driver.Post = ai is null ? null : work => !ai.Sync && ai.Pool.Post(work);
     }
 
     /// <summary>Before the entities think, so a bot's command runs in the same frame stage order every tick.</summary>
@@ -250,6 +252,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
 
     public void OnPreThink(float frameTime)
     {
+        long start = System.Diagnostics.Stopwatch.GetTimestamp();
         Follow();
         var tick = new Tick(_frame.TickCount());
         Steer(tick);
@@ -257,7 +260,36 @@ public sealed class Hl2mpBots : IFrameLifecycle
         Acting(tick);
         Think(tick);
         _applier.ApplyTick(tick, frameTime > 0f ? frameTime : 0.015f);
+        double all = System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMicroseconds;
+        _runUs[_applySamples % ApplyWindow] = _applier.RunMicrosLastTick;
+        _applyUs[_applySamples++ % ApplyWindow] = all - _applier.RunMicrosLastTick;
     }
+
+    private readonly double[] _runUs = new double[ApplyWindow];
+
+    /// <summary>The bots' commands run as players, a 300-tick mean in microseconds: <c>ai.run.us</c>.</summary>
+    public double RunMeanUs => Mean(_runUs);
+
+    private double Mean(double[] window)
+    {
+        int n = Math.Min(_applySamples, ApplyWindow);
+        double sum = 0;
+        for (int i = 0; i < n; i++)
+            sum += window[i];
+        return n == 0 ? 0 : sum / n;
+    }
+
+    private const int ApplyWindow = 300;
+    private readonly double[] _applyUs = new double[ApplyWindow];
+    private int _applySamples;
+
+    /// <summary>
+    /// The main thread's apply (the intents taken back, the followers, the
+    /// motion model, each bot's command made), a 300-tick mean in
+    /// microseconds: <c>ai.apply.us</c>. The commands' run as players is
+    /// <see cref="RunMeanUs"/>.
+    /// </summary>
+    public double ApplyMeanUs => Mean(_applyUs);
 
     private readonly Senses.Hl2mpAiSession? _ai;
     private readonly BrainDriver _driver = new();
@@ -272,6 +304,8 @@ public sealed class Hl2mpBots : IFrameLifecycle
     {
         if (_ai is null || !Thinking)
             return;
+        // The steps the pool has finished, in hand-over order: the newest intents.
+        _ai.Session.Drain();
         foreach (Hl2mpBot bot in _bots)
         {
             if (Scripted(bot.Id) || !_ai.Session.TryLatestIntent(bot.Id.Slot, out IntentCommand brain) || brain.Bot != bot.Id)
@@ -283,8 +317,8 @@ public sealed class Hl2mpBots : IFrameLifecycle
             IntentCommand now = _driver.Drive(in brain, self.Origin, tick, ++_seq, _nav.Current?.Nav.Graph, _nav.Obstacles, self.OnLadder);
             _applier.Submit(in now);
             SayLadder(bot.Id, bot.Name, self, tick);
-            if (LogThink && _ai.Session.BrainIn(bot.Id.Slot)?.Decider is { } decider)
-                SayDoing(bot, decider.Doing, self.Origin, tick);
+            if (LogThink && _ai.Session.LastDoing(bot.Id.Slot) is { } doing)
+                SayDoing(bot, doing, self.Origin, tick);
         }
     }
 
@@ -339,7 +373,12 @@ public sealed class Hl2mpBots : IFrameLifecycle
             if (at < 0)
             {
                 _applier.Remove(bot.Id.Slot);
+                // Its scripts go with it: left, they were submitted every tick
+                // for an actor that is gone (the live gate's stale refusals).
                 _drives.RemoveAll(d => d.Bot == bot.Id);
+                _gotos.RemoveAll(g => g.Bot == bot.Id);
+                _acts.RemoveAll(a => a.Bot == bot.Id);
+                _driver.Forget(bot.Id.Slot);
                 _bots.RemoveAt(i);
                 Version++;
                 _log.Msg($"[SourceSharp/Ai] bot {bot.Name} left\n");

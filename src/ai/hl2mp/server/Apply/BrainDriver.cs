@@ -17,13 +17,25 @@ public sealed class BrainDriver
     public const int RegoalTicks = 33;
 
     private readonly Dictionary<int, Driven> _driven = new();
+    private readonly Dictionary<int, FieldJob> _building = new();
 
-    /// <summary>Field builds the followers made, for the cost counter.</summary>
+    /// <summary>
+    /// Where a new goal's field is built (§2.7's flow-field job): the AI's
+    /// workers, or null to build it here on the main thread when first followed.
+    /// A worker that will not take it (a stopped pool) is the same as none.
+    /// </summary>
+    public Func<IAiWork, bool>? Post { get; set; }
+
+    /// <summary>Field builds the followers made on the main thread, for the cost counter.</summary>
     public int Builds { get; private set; }
+
+    /// <summary>Field builds a worker made, for the cost counter.</summary>
+    public int PooledBuilds { get; private set; }
 
     public void Forget(int slot)
     {
         _driven.Remove(slot);
+        _building.Remove(slot);
         _scripted.Remove(slot);
     }
 
@@ -46,6 +58,7 @@ public sealed class BrainDriver
         else
         {
             _driven.Remove(brain.Bot.Slot);
+            _building.Remove(brain.Bot.Slot);
         }
 
         return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason);
@@ -166,15 +179,43 @@ public sealed class BrainDriver
         if (!cell.IsValid)
             return move;
 
-        if (!_driven.TryGetValue(slot, out Driven? d) || (d.Follower.Objective != cell && tick.Value - d.Built >= RegoalTicks))
+        // A field a worker finished for this bot's newer goal takes over.
+        if (_building.TryGetValue(slot, out FieldJob? built) && built.Done)
         {
-            d = new Driven(new NavFollower(graph, cell, goal, ClearanceClass.Crouch, obstacles), tick.Value);
-            _driven[slot] = d;
+            _building.Remove(slot);
+            PooledBuilds++;
+            _driven[slot] = new Driven(built.Follower, built.Asked);
         }
 
-        int before = d.Follower.Builds;
-        MoveIntent next = d.Follower.Next(origin, out FollowState state);
-        Builds += d.Follower.Builds - before;
+        bool have = _driven.TryGetValue(slot, out Driven? d);
+        if (!have || (d!.Follower.Objective != cell && tick.Value - d.Built >= RegoalTicks))
+        {
+            var fresh = new NavFollower(graph, cell, goal, ClearanceClass.Crouch, obstacles);
+            if (_building.ContainsKey(slot))
+            {
+                // A field is on its way (one at a time a bot): keep to the old one meanwhile.
+            }
+            else if (Post is { } post && post(_building[slot] = new FieldJob(fresh, graph.FindCell(origin + new AiVector(0f, 0f, 1f)), obstacles.Clone(), tick.Value)))
+            {
+                // Built on a worker: until it is done the bot keeps its old way,
+                // or, with none, goes straight at the goal as a player would.
+            }
+            else
+            {
+                _building.Remove(slot);
+                d = new Driven(fresh, tick.Value);
+                _driven[slot] = d;
+                have = true;
+            }
+
+            if (!have)
+                return move;
+        }
+
+        Driven driven = d!;
+        int before = driven.Follower.Builds;
+        MoveIntent next = driven.Follower.Next(origin, out FollowState state);
+        Builds += driven.Follower.Builds - before;
         return state switch
         {
             FollowState.Arrived => MoveIntent.Hold,
@@ -182,6 +223,24 @@ public sealed class BrainDriver
             // Off the graph or with no route: straight at the goal, as a player would try.
             _ => move,
         };
+    }
+
+    /// <summary>A new goal's first field, built on a worker over the obstacles as they stood when it was asked.</summary>
+    private sealed class FieldJob(NavFollower follower, CellId from, NavObstacleState obstacles, int asked) : IAiWork
+    {
+        private volatile bool _done;
+
+        public NavFollower Follower { get; } = follower;
+
+        public int Asked { get; } = asked;
+
+        public bool Done => _done;
+
+        public void Run()
+        {
+            Follower.BuildFrom(from, obstacles);
+            _done = true;
+        }
     }
 
     private sealed class Driven(NavFollower follower, int built)

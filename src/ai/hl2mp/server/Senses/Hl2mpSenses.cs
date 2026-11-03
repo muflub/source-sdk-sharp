@@ -8,13 +8,24 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 
 /// <summary>
 /// The HL2MP binding's AI session (plan_hl2mp_ai §2.1): the core's
-/// <see cref="AiSession"/> over the inline transport, sized for the engine's
-/// player slots. The senses publish into it; the taps push events into it.
+/// <see cref="AiSession"/>, sized for the engine's player slots. The senses
+/// publish into it; the taps push events into it. Its brains run on the AI's
+/// worker pool (§2.7, <c>ai_threads</c>), started when a level is up and
+/// stopped and joined before the level's entities go, or inline on the main
+/// thread under <c>ai_sync 1</c> (a debugging switch).
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapons, ModelDescriptors models, IEnginePlayers players,
                                    ILog log, ConVarRegistry? convars = null, Skills.ISkillCurveSource? curves = null) : IGameLifecycle
 {
+    private readonly AiWorkerPool _pool = new();
+    private readonly InlineTransport _inline = new();
+    private PooledTransport? _pooled;
+
+    // Each actor's identity for its habits (§5.2), written on the main thread
+    // when the actor is first sensed and only read by the brains after.
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<ActorId, string> _identities = new();
+
     /// <summary>How many actors one view can hold sighted: every other player.</summary>
     public const int SightedCapacity = VisionPass.Slots - 1;
 
@@ -31,7 +42,69 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
 
     private AiSession? _session;
 
-    public AiSession Session => _session ??= new AiSession(new InlineTransport(), Recording, VisionPass.Slots, SightedCapacity);
+    public AiSession Session => _session ??= new AiSession(_inline, Recording, VisionPass.Slots, SightedCapacity) { CpuClock = ThreadCpuClock.Micros() };
+
+    /// <summary>The AI's worker threads (§2.7).</summary>
+    public AiWorkerPool Pool => _pool;
+
+    /// <summary>Whether the brains run inline on the main thread (<c>ai_sync 1</c>).</summary>
+    public bool Sync => Session.Transport.Inline;
+
+    /// <summary>The worker count a level starts with: <c>ai_threads</c>, or 0 for <see cref="AiWorkerPool.DefaultThreads"/>.</summary>
+    public int ThreadsWanted
+    {
+        get
+        {
+            int n = convars?.Get<AiThreadsConVar>()?.Value ?? 0;
+            return n > 0 ? n : AiWorkerPool.DefaultThreads;
+        }
+    }
+
+    /// <summary>
+    /// Runs the brains inline (<paramref name="sync"/>) or on the pool: what
+    /// is in flight finishes first (the one place the main thread waits for a
+    /// step, at a debugging command), then the transport changes.
+    /// </summary>
+    public void SetSync(bool sync)
+    {
+        Session.Drain(wait: true);
+        if (!sync && !_pool.Running)
+            _pool.Start(ThreadsWanted);
+        Session.Transport = sync ? _inline : _pooled ??= new PooledTransport(_pool);
+    }
+
+    /// <summary>Follows <c>ai_sync</c>: a change takes effect at the next tick's senses.</summary>
+    public void FollowSync()
+    {
+        if (convars?.Get<AiSyncConVar>() is { } sync && sync.Value != Sync)
+        {
+            SetSync(sync.Value);
+            log.Msg(sync.Value ? "[SourceSharp/Ai] the brains run inline (ai_sync 1)\n" : $"[SourceSharp/Ai] the brains run on {_pool.Threads} worker thread(s)\n");
+        }
+    }
+
+    /// <summary>The habits' name for <paramref name="id"/>, known from the tick it is first sensed (main thread).</summary>
+    public void KnowActor(ActorId id)
+    {
+        if (id.IsValid && !_identities.ContainsKey(id))
+            _identities[id] = IdentityFor(id);
+    }
+
+    /// <summary>The level's pool stops and is joined before its entities go (§2.5); steps not run are dropped and counted.</summary>
+    public void OnLevelShutdownPreEntity()
+    {
+        int discarded = _pool.Stop();
+        Session.Abandon();
+        _identities.Clear();
+        if (discarded > 0)
+            log.Msg($"[SourceSharp/Ai] the pool stopped with {discarded} lane(s) unrun\n");
+    }
+
+    public void OnShutdown()
+    {
+        _pool.Stop();
+        Session.Abandon();
+    }
 
     /// <summary>After the navigation (+400), before the bots are re-added.</summary>
     public int LifecycleOrder => ModStages.First + 450;
@@ -57,7 +130,14 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
                                                   convars?.Get<WeaponRespawnTimeConVar>()?.Value ?? 20f,
                                                   convars?.Get<ItemRespawnTimeConVar>()?.Value ?? 30f)
             : new MapKnowledge(mapName, [], [], facts);
-        Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf);
+        Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf, nav.Sight);
+        // The level counts its ticks from low again: the last level's snapshots go.
+        Session.Snapshots.Reset();
+        bool sync = convars?.Get<AiSyncConVar>()?.Value == true;
+        if (!sync)
+            _pool.Start(ThreadsWanted);
+        Session.Transport = sync ? _inline : _pooled ??= new PooledTransport(_pool);
+        log.Msg(sync ? "[SourceSharp/Ai] the brains run inline (ai_sync 1)\n" : $"[SourceSharp/Ai] the brains run on {_pool.Threads} worker thread(s)\n");
         Session.Curves = curves?.Curves;
         Session.Deciders = setup => new Trees.Hl2mpDecider(setup);
         if (curves is not null && Session.Curves is null)
@@ -66,8 +146,15 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
                 + $"{facts.All.Count(f => f.HasClip)} clip weapons ({string.Join(", ", facts.All.Where(f => f.HasClip).Select(f => $"{f.Name} {f.ClipSize}/{f.ReloadSeconds:F2}s"))})\n");
     }
 
+    /// <summary>
+    /// An opponent's identity for its habits, as the main thread knew it
+    /// (<see cref="KnowActor"/>): a brain asks from a worker, which never asks
+    /// the engine. One not yet known is named by its actor.
+    /// </summary>
+    private string IdentityOf(ActorId id) => _identities.TryGetValue(id, out string? known) ? known : id.ToString();
+
     /// <summary>An opponent's identity across its lives and the maps (§5.2): its user id, which a client keeps while connected.</summary>
-    private string IdentityOf(ActorId id)
+    private string IdentityFor(ActorId id)
     {
         EntityHandle p = players.GetHandle(id.Slot);
         return p == EntityHandle.None ? id.ToString() : $"user {players.GetUserId(p)}";
@@ -144,18 +231,48 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
     public void OnPostThink(float frameTime)
     {
         int now = frame.TickCount();
-        if (now <= _lastTick)
+        if (!IsNewTick(now, _lastTick))
             return;
         _lastTick = now;
         Sense(new Tick(now), frameTime > 0f ? frameTime : 0.015f);
         _us[_samples % Window] = _senseUs;
         _publishUs[_samples % Window] = _stepUs;
+        _poolBusy[_samples % Window] = ai.Pool.BusyMicros;
         _samples++;
     }
+
+    private readonly double[] _poolBusy = new double[Window];
+
+    /// <summary>
+    /// The workers' busy time over the last <see cref="Window"/> ticks, as
+    /// microseconds a second (<c>ai.pool.us</c>; §9's ceiling is a quarter of
+    /// one core, 250,000).
+    /// </summary>
+    public double PoolUsPerSecond
+    {
+        get
+        {
+            int n = Math.Min(_samples, Window);
+            if (n < 2)
+                return 0;
+            double newest = _poolBusy[(_samples - 1) % Window], oldest = _poolBusy[(_samples - n) % Window];
+            return (newest - oldest) / ((n - 1) * Hl2mpAiSession.TickSeconds);
+        }
+    }
+
+    /// <summary>
+    /// Whether the frame's tick is one the senses have not run: any other than
+    /// the last. A new level starts its tick count again, lower than the last
+    /// level's; read as "not newer", the senses stood still on every level
+    /// after the first until its tick passed the old one (the live gate's
+    /// second pass: bots added after two map changes never decided).
+    /// </summary>
+    public static bool IsNewTick(int now, int last) => now != last;
 
     /// <summary>One tick of the senses (the facts call it with their own clock).</summary>
     public void Sense(Tick tick, float tickSeconds)
     {
+        ai.FollowSync();
         Follow();
         int n = 0;
         foreach (Hl2mpBot b in bots.Bots)
@@ -168,6 +285,8 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         _sensedCount = n;
         ReadOnlySpan<SensedBot> sensed = _sensed.AsSpan(0, n);
         directory.Living(_actors, _botIn ??= BotIn);
+        foreach (SensedActor a in _actors)
+            ai.KnowActor(a.Id);
         _events.Clear();
         long start = Stopwatch.GetTimestamp();
         vision.Run(tick, tickSeconds, sensed, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_actors), _events);

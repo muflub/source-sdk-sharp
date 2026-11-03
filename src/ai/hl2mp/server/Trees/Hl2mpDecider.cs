@@ -33,6 +33,18 @@ public sealed class Hl2mpDecider : IDecider
     /// <summary>A one-shot's weapon slot asks for a weapon by catalog kind: this plus the kind (the applier's convention).</summary>
     public const int SelectByKind = 1000;
 
+    /// <summary>§10 Cover: how far along the graph a bot at <c>coverWeight</c> 1 goes for a place its opponent cannot see.</summary>
+    public const float CoverReach = 512f;
+
+    /// <summary>The most cells one cover search visits.</summary>
+    public const int CoverCells = 4096;
+
+    /// <summary>§10 Cunning: a flanking approach's waypoint lies this far to the side of the straight line, at most.</summary>
+    public const float FlankReach = 512f;
+
+    /// <summary>A flank's waypoint is done with inside this.</summary>
+    public const float FlankArrive = 128f;
+
     private readonly BotMemory _memory;
     private readonly DecisionParams _p;
     private readonly MapKnowledge _map;
@@ -44,6 +56,10 @@ public sealed class Hl2mpDecider : IDecider
     private readonly BtUtilitySelector<Hl2mpDecider> _root;
     private readonly string[] _names;
     private readonly ActorId _bot;
+    private readonly AiRandom _routeRng;
+    private readonly int[] _coverSeen;
+    private readonly int[] _coverQueue = new int[CoverCells];
+    private int _coverStamp;
 
     // This decide's inputs.
     private PerceivedView _view = null!;
@@ -81,6 +97,27 @@ public sealed class Hl2mpDecider : IDecider
     private AiVector _ambushSpot, _ambushWatch;
     private Tick _lastSelect;
 
+    // The weapons the bot found empty in its hands (the HUD shows them so), by
+    // catalog kind, and when; forgotten when the weapon is picked up again or
+    // after DryForgetSeconds (an ammo pickup the bot did not see as one).
+    private int _dryKinds;
+    private int _lastHeld;
+    private Tick _dryAt;
+
+    /// <summary>How long a weapon found empty is not asked for again (an ammo pickup may have filled it since).</summary>
+    public const float DryForgetSeconds = 30f;
+    private ActorId _approachOf;
+    private bool _flanking;
+    private AiVector _flank;
+
+    /// <summary>Approaches begun, and those that took a flank (§10 Cunning's observable), for the facts and the inspector.</summary>
+    public int Approaches { get; private set; }
+
+    public int Flanks { get; private set; }
+
+    /// <summary>Decides on which the bot went for a place its opponent cannot see (§10 Cover), for the facts.</summary>
+    public int CoverMoves { get; private set; }
+
     public Hl2mpDecider(BrainSetup setup)
     {
         ArgumentNullException.ThrowIfNull(setup);
@@ -91,6 +128,8 @@ public sealed class Hl2mpDecider : IDecider
         _graph = setup.Memory.World.Graph;
         _tick = setup.TickSeconds;
         _rng = new AiRandom(setup.Seed ^ 0x5452_4545UL);
+        _routeRng = new AiRandom(setup.Seed ^ 0x524F_5554UL);
+        _coverSeen = new int[_graph?.CellCount ?? 0];
         Trace = new BtTrace();
         _run = new BtRun(_rng, Trace, _tick);
         _root = Build();
@@ -128,6 +167,7 @@ public sealed class Hl2mpDecider : IDecider
             _tree.Reset();
             _roaming = false;
             _ambushUntil = default;
+            _approachOf = ActorId.None;
             Trace.Begin(tick);
             Trace.End(default);
             Doing = new DoingRecord("dead", "", false, default, ActorId.None, "", 0f, 0f, 0f, 0f, 0f, 0f, tick);
@@ -135,8 +175,11 @@ public sealed class Hl2mpDecider : IDecider
         }
 
         _ownHasFacts = _map.Weapons.TryGet(_self.ActiveWeapon, out _ownFacts);
+        NoteDry();
         _use = Hl2mpWeaponRanges.For(_ownHasFacts ? _ownFacts.Name : "");
         ChooseTarget();
+        if (_target is null || _targetSighted)
+            _approachOf = ActorId.None;   // an approach ends in sight, or with nobody to approach
 
         _tree.Decide(this, _run, tick);
         if (!_targetSighted && _hasGoal && _look.Kind == LookKind.Path)
@@ -346,7 +389,10 @@ public sealed class Hl2mpDecider : IDecider
     private bool BackOffReloading()
     {
         _verdict = "retreat (own reload)";
-        Strafe(-0.8f);
+        if (CoverSpot(out AiVector cover))
+            GoTo(cover, MoveSpeed.Run, MoveKind.Retreat);
+        else
+            Strafe(-0.8f);
         LookAtTarget(fire: false);
         return true;
     }
@@ -402,6 +448,8 @@ public sealed class Hl2mpDecider : IDecider
         _verdict = "retreat";
         if (NearestItem(ItemKind.Health, out AiVector heal, out _))
             GoTo(heal, MoveSpeed.Run, MoveKind.Retreat);
+        else if (CoverSpot(out AiVector cover))
+            GoTo(cover, MoveSpeed.Run, MoveKind.Retreat);
         else
             GoTo(Away(_targetPos, 512f), MoveSpeed.Run, MoveKind.Retreat);
         LookAtTargetAndFire();
@@ -428,7 +476,7 @@ public sealed class Hl2mpDecider : IDecider
         if (_target is null)
             return false;
         _verdict = "chase";
-        GoTo(_target.LastSeenPos, MoveSpeed.Run, MoveKind.Follow);
+        Approach(_target.LastSeenPos);
         _look = new LookIntent(LookKind.Point, _target.LastSeenPos + new AiVector(0f, 0f, 48f), _target.Id, AimPoint.Body, 0f, 0);
         return true;
     }
@@ -437,8 +485,102 @@ public sealed class Hl2mpDecider : IDecider
     {
         if (_target is null)
             return false;
-        GoTo(_targetPos, MoveSpeed.Run, MoveKind.Follow);
+        Approach(_targetPos);
         return true;
+    }
+
+    /// <summary>
+    /// §10 Cunning's route alternatives: an approach to an unsighted opponent
+    /// is begun once per opponent, and with chance <c>routeAltWeight</c> (its
+    /// own seeded stream) it goes by a flank: a waypoint to one side of the
+    /// straight line, half the distance out and at most <see cref="FlankReach"/>
+    /// aside, on the graph, then the opponent. Otherwise the shortest way.
+    /// </summary>
+    private void Approach(AiVector at)
+    {
+        if (_target is null)
+            return;
+        if (_approachOf != _target.Id)
+        {
+            _approachOf = _target.Id;
+            Approaches++;
+            // Both draws every time, so the stream does not depend on the weight.
+            float u = _routeRng.NextFloat(), side = _routeRng.NextFloat() < 0.5f ? -1f : 1f;
+            _flanking = u < _p.RouteAltWeight && Flank(at, side, out _flank);
+            if (_flanking)
+                Flanks++;
+        }
+
+        if (_flanking && _self.Origin.DistanceTo(_flank) < FlankArrive)
+            _flanking = false;
+        GoTo(_flanking ? _flank : at, MoveSpeed.Run, MoveKind.Follow);
+    }
+
+    private bool Flank(AiVector at, float side, out AiVector waypoint)
+    {
+        waypoint = default;
+        AiVector d = at - _self.Origin;
+        float len = MathF.Sqrt(d.X * d.X + d.Y * d.Y);
+        if (_graph is null || len < 2f * FlankArrive)
+            return false;
+        float aside = Math.Min(0.5f * len, FlankReach) * side;
+        AiVector mid = _self.Origin + d * 0.5f + new AiVector(-d.Y / len * aside, d.X / len * aside, 0f);
+        CellId cell = _graph.FindCell(mid);
+        if (!cell.IsValid)
+            return false;
+        waypoint = _graph.Cell(cell).Centre;
+        return true;
+    }
+
+    /// <summary>
+    /// §10 Cover: the nearest place within <c>coverWeight</c> × <see cref="CoverReach"/>
+    /// along the graph that the opponent's cell does not see in the map's sight
+    /// table. False with no table, no opponent within the table's range, a bot
+    /// already unseen there (it holds), or no such place in reach.
+    /// </summary>
+    private bool CoverSpot(out AiVector at)
+    {
+        at = default;
+        ICellSight? sight = _memory.World.Sight;
+        float reach = CoverReach * _p.CoverWeight;
+        if (_graph is null || sight is null || reach <= 0f || _target is null || _targetDist > sight.Range)
+            return false;
+        CellId from = _graph.FindCell(_self.Origin), threat = _graph.FindCell(_targetPos);
+        if (!from.IsValid || !threat.IsValid || !sight.Visible(threat.Index, from.Index))
+            return false;
+
+        if (++_coverStamp == int.MaxValue)
+        {
+            Array.Clear(_coverSeen);
+            _coverStamp = 1;
+        }
+
+        int head = 0, tail = 0;
+        _coverQueue[tail++] = from.Index;
+        _coverSeen[from.Index] = _coverStamp;
+        while (head < tail)
+        {
+            int c = _coverQueue[head++];
+            AiVector centre = _graph.Cell(c).Centre;
+            if (centre.DistanceTo(_self.Origin) > reach)
+                continue;
+            if (!sight.Visible(threat.Index, c))
+            {
+                at = centre;
+                CoverMoves++;
+                return true;
+            }
+
+            foreach (NavEdge e in _graph.EdgesFrom(c))
+            {
+                if (_coverSeen[e.To] == _coverStamp || tail >= _coverQueue.Length)
+                    continue;
+                _coverSeen[e.To] = _coverStamp;
+                _coverQueue[tail++] = e.To;
+            }
+        }
+
+        return false;
     }
 
     private bool Search()
@@ -689,6 +831,28 @@ public sealed class Hl2mpDecider : IDecider
         }
     }
 
+    /// <summary>What the HUD says of the weapon in hand: empty, or loaded again; a weapon picked up again is loaded.</summary>
+    private void NoteDry()
+    {
+        int held = _memory.HeldKinds;
+        _dryKinds &= ~(held & ~_lastHeld);
+        _lastHeld = held;
+        if (_dryKinds != 0 && (_now - _dryAt) * _tick > DryForgetSeconds)
+            _dryKinds = 0;
+        int kind = _self.ActiveWeapon;
+        if (kind is < 0 or >= 31 || !_ownHasFacts || Hl2mpWeaponRanges.For(_ownFacts.Name).Melee)
+            return;
+        if (_self.Clip + _self.Reserve > 0)
+        {
+            _dryKinds &= ~(1 << kind);
+        }
+        else if ((_dryKinds & (1 << kind)) == 0)
+        {
+            _dryKinds |= 1 << kind;
+            _dryAt = _now;
+        }
+    }
+
     /// <summary>The best rank among the held weapons (the HUD's), and its kind; with no holdings known, the one in hand.</summary>
     private int BestHeld(out int kind)
     {
@@ -702,8 +866,8 @@ public sealed class Hl2mpDecider : IDecider
             if (w.Kind < 0 || w.Kind >= 31 || (held & (1 << w.Kind)) == 0)
                 continue;
             WeaponUse u = Hl2mpWeaponRanges.For(w.Name);
-            // The one in hand needs rounds; the HUD's other weapons are taken as loaded.
-            bool loaded = w.Kind != _self.ActiveWeapon || u.Melee || _self.Clip + _self.Reserve > 0;
+            // The one in hand needs rounds; the HUD's others are loaded unless found empty.
+            bool loaded = u.Melee || (w.Kind == _self.ActiveWeapon ? _self.Clip + _self.Reserve > 0 : (_dryKinds & (1 << w.Kind)) == 0);
             if (u.Rank > best && loaded)
             {
                 best = u.Rank;

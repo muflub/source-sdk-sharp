@@ -213,7 +213,9 @@ public static class UiFormWidgets
             }
         }
         using (box)
-            ui.TextField(null, text, placeholderToken, focused ? text.Length : -1);
+            // The field draws; this box takes the click, so the focus a click
+            // gives is the one checked above (an interactive inner field took it).
+            ui.TextField(null, text, placeholderToken, focused ? text.Length : -1, interactive: false);
         return text;
     }
 }

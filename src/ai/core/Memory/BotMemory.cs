@@ -2,10 +2,11 @@ namespace SourceSharp.Ai;
 
 /// <summary>
 /// What a bot's memory works over for one map (plan_hl2mp_ai §5.0): the map's
-/// knowledge, its graph (null with no navigation), the tick length, and the
-/// identity an opponent's habits are kept under (§5.2).
+/// knowledge, its graph (null with no navigation), the tick length, the
+/// identity an opponent's habits are kept under (§5.2), and the map's static
+/// sight between cells for planning cover (null with none).
 /// </summary>
-public sealed record MemoryWorld(MapKnowledge Map, NavGraph? Graph, float TickSeconds, Func<ActorId, string> IdentityOf)
+public sealed record MemoryWorld(MapKnowledge Map, NavGraph? Graph, float TickSeconds, Func<ActorId, string> IdentityOf, ICellSight? Sight = null)
 {
     public static MemoryWorld Empty(float tickSeconds = 0.015f)
         => new(MapKnowledge.Empty(new WeaponKnowledge([])), null, tickSeconds, id => id.ToString());
@@ -46,8 +47,9 @@ public sealed class BotMemory
         _track = new Track[slots];
         if (world.Graph is { } graph)
         {
+            var scratch = new PredictorScratch(graph.CellCount);
             for (int i = 0; i < slots; i++)
-                Board.Actor(i).Where = new PositionPredictor(graph);
+                Board.Actor(i).Where = new PositionPredictor(graph, scratch);
         }
     }
 

@@ -6,6 +6,41 @@ using SourceSharp.Ai.Replay;
 // tools/ai-replay's entry point (plan_hl2mp_ai §7.3):
 //   nav  <map.nav3d> <map.bsp> <out.png> [pixels-per-unit]
 //   heat <map.nav3d> <map.bsp> <recording.airec> <out-dir> [every=66] [pixels-per-unit]
+//   verify <map.nav3d> <map.bsp> <recording.airec> [threads=0,1,2,4]   (0 is inline)
+if (args.Length >= 4 && args[0] == "verify")
+{
+    string vNav = args[1], vBsp = args[2], vRec = args[3];
+    int[] counts = (args.Length > 4 ? args[4] : "0,1,2,4").Split(',').Select(s => int.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+    string vMap = Path.GetFileNameWithoutExtension(vNav);
+    NavLoadResult v = NavLoader.Load(vMap, p => p.EndsWith(".nav3d", StringComparison.Ordinal) ? File.ReadAllBytes(vNav)
+                                               : File.Exists(vBsp) ? File.ReadAllBytes(vBsp) : null, null);
+    if (v.Nav is not { } vn)
+    {
+        Console.Error.WriteLine($"ai-replay: {v.Refusal}");
+        return 1;
+    }
+
+    NavSight vSight = NavSight.Build(vn.Nav.Graph, new Nav3dVoxelSpace(vn.Reader));
+    byte[] bytes = File.ReadAllBytes(vRec);
+    int differ = 0;
+    foreach (int threads in counts)
+    {
+        using var pool = new AiWorkerPool("ai-verify");
+        IAiTransport transport = threads <= 0 ? new InlineTransport() : new PooledTransport(pool);
+        if (threads > 0)
+            pool.Start(threads);
+        AiReplayResult r = AiReplayer.ReplayWithRecordedWorld(new MemoryStream(bytes), transport, _ => (vn.Nav.Graph, vSight),
+                                                              setup => new SourceSharp.Ai.Hl2mp.Trees.Hl2mpDecider(setup));
+        bool same = r.Identical && r.RecordedIntentCount == r.ReplayedIntentCount && r.RecordedIntentCount > 0;
+        if (!same)
+            differ++;
+        Console.WriteLine($"ai-replay: verify {Path.GetFileName(vRec)} {(threads <= 0 ? "inline" : $"{threads} thread(s)")}: "
+                          + $"{r.RecordedIntentCount} intents recorded, {r.ReplayedIntentCount} replayed, {(same ? "identical" : "DIFFERENT")}");
+    }
+
+    return differ == 0 ? 0 : 1;
+}
+
 if (args.Length >= 5 && args[0] == "heat")
 {
     string heatNav = args[1], heatBsp = args[2], rec = args[3], dir = args[4];

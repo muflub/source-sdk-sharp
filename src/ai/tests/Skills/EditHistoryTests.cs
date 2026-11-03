@@ -136,4 +136,23 @@ public class EditHistoryTests
         var h = new EditHistory(StandardSkills.StandardPool(), StandardSkills.StandardPool().Empty("bot"), [saved]);
         Assert.Equal(8, h.Save(T0.AddMinutes(1), "new").Number);
     }
+
+    [Fact]
+    public void APresetAppliedIsOneUndoableEdit()
+    {
+        EditHistory h = Fresh();
+        h.Stage(0, 2);
+        Assert.True(h.Apply(SkillPresets.ExpertLevels).Accepted);
+        Assert.Equal((0, 8), (h.PointsLeft, h.Current.Levels[0]));
+        h.Undo();
+        Assert.Equal("2,0,0,0,0,0,0,0,0,0", string.Join(",", h.Current.Levels));
+    }
+
+    [Fact]
+    public void AnOverspentApplyIsRefusedAndChangesNothing()
+    {
+        EditHistory h = Fresh();
+        SkillVerdict v = h.Apply([10, 10, 10, 10, 10, 10, 10, 0, 0, 0]);
+        Assert.Equal((false, 0, false), (v.Accepted, h.Current.Spent, h.CanUndo));
+    }
 }

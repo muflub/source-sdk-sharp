@@ -15,6 +15,24 @@ public class SnapshotRingTests
         ring.Publish(s);
     }
 
+    /// <summary>
+    /// A new level counts its ticks from low again: before a reset the ring
+    /// refuses them (the live gate's second pass: after two map changes the
+    /// senses threw every tick and no bot decided), after it they publish and
+    /// the old level's are gone.
+    /// </summary>
+    [Fact]
+    public void AfterAResetANewLevelsLowTicksPublish()
+    {
+        SnapshotRing ring = Ring();
+        Publish(ring, 5000);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ring.BeginWrite(new Tick(12)));
+        ring.Reset();
+        Publish(ring, 12);
+        Assert.True(ring.TryGet(new Tick(12), out _), "the new level's tick 12 is readable");
+        Assert.False(ring.TryGet(new Tick(5000), out _), "the old level's tick is gone");
+    }
+
     [Fact]
     public void APublishedTickIsReadable()
     {

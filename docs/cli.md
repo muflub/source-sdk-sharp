@@ -72,6 +72,8 @@ tools/debug-api flags Cheat commands    # only what carries that flag
 tools/debug-api classes
 tools/debug-api instances
 tools/debug-api ents item_healthkit     # "*" is every entity
+tools/debug-api route /ai/counters      # a route a mod adds (GET /routes lists them)
+tools/debug-api route-post /ai/replay/load path=/x/s.airec
 ```
 
 ## The live gate

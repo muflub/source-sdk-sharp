@@ -78,6 +78,10 @@ public class StaticStateCensusTests
         // would be shared between brains) and its HL2MP server binding.
         Assembly.Load("SourceSharp.Ai"),
         Assembly.Load("SourceSharp.Ai.Hl2mp"),
+        // Phase 5c: its client side, the screens' contract and the screens.
+        Assembly.Load("SourceSharp.Ai.Hl2mp.Client"),
+        Assembly.Load("SourceSharp.Ai.Hl2mp.Client.Interface"),
+        Assembly.Load("SourceSharp.Ai.Hl2mp.Ui"),
     };
 
     private static bool IsConstantType(Type t)

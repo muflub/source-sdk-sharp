@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The HL2MP AI's client contract (docs/plans/plan_hl2mp_ai.md §3.5, Phase
+    5c): the data the bot-setup screens read and the actions they ask for
+    (AiUiSources.cs). Interfaces, enums and pure data only (SS0030, role
+    "interface"). Its own assembly, as TF2.Client.Interface is TF2's: the UI
+    loader holds SourceSharp.Ai.Hl2mp.Ui in its collectible context and
+    resolves everything else from the core's, so this assembly is the one
+    interface identity both SourceSharp.Ai.Hl2mp.Client's adapters and the
+    screens name.
+  -->
+</Project>

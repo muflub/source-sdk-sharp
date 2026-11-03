@@ -58,6 +58,53 @@ public class BotCommandsTests
         public int RunQueued(EntityHandle player) => 0;
     }
 
+    /// <summary>/ai/bots, written by hand (System.Text.Json kept the server's load context from unloading): the same fields, a name quoted safely.</summary>
+    [Fact]
+    public void TheBotsListIsJsonWithEachBotsFields()
+    {
+        Add("Alyx hard");
+        Add("Bo\"b skills=8,7,6,6,6,6,7,5,5,4");
+        using var doc = System.Text.Json.JsonDocument.Parse(SourceSharp.Ai.Hl2mp.Senses.AiBotRoutes.BotsJson(_bots.Bots));
+        var rows = doc.RootElement.EnumerateArray().ToArray();
+        Assert.Equal(2, rows.Length);
+        Assert.Equal(("Alyx", "hard", 50, _bots.Bots[0].Id.Slot, _bots.Bots[0].Id.Serial),
+                     (rows[0].GetProperty("name").GetString(), rows[0].GetProperty("profile").GetString(), rows[0].GetProperty("spent").GetInt32(),
+                      rows[0].GetProperty("slot").GetInt32(), rows[0].GetProperty("serial").GetInt32()));
+        Assert.Equal(_bots.Bots[1].Name, rows[1].GetProperty("name").GetString());
+    }
+
+    /// <summary>An engine interface that answers every call with its type's default.</summary>
+    public class Defaults : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+            => method?.ReturnType is { IsValueType: true } t && t != typeof(void) ? Activator.CreateInstance(t) : null;
+    }
+
+    /// <summary>
+    /// A bot that leaves takes its scripted act (and walk and goal) with it.
+    /// Before, they stayed and were submitted every tick for an actor that was
+    /// gone: the live gate's second pass refused 82 intents as a stale handle
+    /// and 6 as no bot, the ss_ai_nav walker's goal outliving its map.
+    /// </summary>
+    [Fact]
+    public void ABotThatLeavesTakesItsScriptsWithIt()
+    {
+        var bots = new Hl2mpBots(_players, new Runner(), DispatchProxy.Create<IEnginePlayers, Defaults>(),
+                                 DispatchProxy.Create<IEngineEntities, Defaults>(), WeaponCatalog.Stock(),
+                                 DispatchProxy.Create<IEngineFrame, Defaults>(), _nav, DispatchProxy.Create<IBotInventory, Defaults>(),
+                                 new DataFileNames(), _tags, _log);
+        new AiBotAddCommand(bots, _log).Execute("Alyx hard");
+        Assert.Null(bots.Act("Alyx", ActionKind.Fire, 5f, 0));
+        bots.OnPreThink(0.015f);
+        Assert.Equal(0L, bots.Applier.Refused(IntentRefusal.UnknownBot) + bots.Applier.Refused(IntentRefusal.StaleSerial));
+
+        _players.Made.Clear();   // the engine dropped it (a level change, a kick)
+        for (int i = 0; i < 5; i++)
+            bots.OnPreThink(0.015f);
+        Assert.Empty(bots.Bots);
+        Assert.Equal(0L, bots.Applier.Refused(IntentRefusal.UnknownBot) + bots.Applier.Refused(IntentRefusal.StaleSerial));
+    }
+
     /// <summary>An engine interface the commands must not reach: any call is a failure.</summary>
     public class Unasked : DispatchProxy
     {
@@ -73,6 +120,8 @@ public class BotCommandsTests
         public LoadedNav? Current => null;
 
         public NavObstacleState? Obstacles => null;
+
+        public NavSight? Sight => null;
     }
 
     private readonly Navigation _nav = new();
@@ -239,6 +288,19 @@ public class BotCommandsTests
 
     [Fact]
     public void NormalIsTaggedMedium() => Assert.Equal("(Medium)", BotSkillLabel.For(SkillPresets.TryGet("normal", out SkillProfile? p) ? p! : null!));
+
+    /// <summary>
+    /// The senses run once a tick, and on the next level from its first tick:
+    /// its count starts again below the last level's (found by the live gate's
+    /// second pass, where bots added after two map changes never decided).
+    /// </summary>
+    [Fact]
+    public void TheSensesRunOnANewLevelsFirstTicks()
+    {
+        Assert.False(SourceSharp.Ai.Hl2mp.Senses.Hl2mpSenses.IsNewTick(5000, 5000));
+        Assert.True(SourceSharp.Ai.Hl2mp.Senses.Hl2mpSenses.IsNewTick(5001, 5000));
+        Assert.True(SourceSharp.Ai.Hl2mp.Senses.Hl2mpSenses.IsNewTick(12, 5000));
+    }
 
     /// <summary>
     /// A bot hears from the tick it joins: an event pushed before the next

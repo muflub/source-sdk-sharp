@@ -62,6 +62,18 @@ export interface AiPerception {
 
 export interface AiBot { record: AiRecord; perception: AiPerception; error?: string }
 
+/** The scrubber's recording (plan_hl2mp_ai §7.1): GET /ai/replay, and the answer to POST /ai/replay/load. */
+export interface AiReplayStatus {
+  path: string; map: string; seed: number; world: boolean; first: number; last: number; ticks: number;
+  bots: { slot: number; levels: number[] }[]; at: number; seeking: number; fault: string | null; error?: string;
+}
+
+/** One bot in the replay at a tick: its record, and the intent the recording holds beside the one the replay made. */
+export interface AiReplayFrame {
+  tick: number; decide: number; same: boolean; recorded: unknown; replayed: unknown; record: AiRecord;
+  seeking?: number; at?: number; error?: string;
+}
+
 /** The inspector's colours: §7.1's green sighted, grey range, yellow cone, orange PVS, red trace. */
 export const STAGE_COLOURS: Record<string, readonly number[]> = {
   clear: [0.30, 0.85, 0.35],

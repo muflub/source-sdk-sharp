@@ -129,6 +129,60 @@ public sealed class SkillObservableTests
         return ambush;
     });
 
+    /// <summary>The map's sight for the cover facts: every cell at or beyond <paramref name="edge"/> on x is out of the opponent's sight.</summary>
+    private sealed class HiddenBeyond(float edge, NavGraph graph) : ICellSight
+    {
+        public float Range => 4096f;
+        public bool Visible(int a, int b) => graph.Cell(b).Centre.X < edge;
+    }
+
+    /// <summary>
+    /// Cover's §10 observable (<c>coverWeight</c>): a bot reloading in sight of
+    /// its opponent goes for a place the opponent cannot see, over cover at a
+    /// range of distances; how far it goes for one rises, so the share of the
+    /// layouts in which it ends unseen rises.
+    /// </summary>
+    [Fact]
+    public void CoverSeeksUnseenPlacesFarther() => Monotonic("cover", rises: true, level =>
+    {
+        var (g, _) = Grids.Parse([.. Enumerable.Repeat(new string('.', 30), 3)]);
+        int unseen = 0;
+        for (float edge = 64f; edge <= 640f; edge += 32f)
+        {
+            SkillProfile p = Duel.Preset("normal");
+            var d = new Duel(p.With(p.IndexOf("cover"), level), g, new HiddenBeyond(edge, g), Far);
+            var at = new AiVector(300f, 48f, 0f);
+            d.Step(d.Self(), [(Duel.Opponent, at)], d.SeeAt(Duel.Opponent, at));
+            IntentCommand c = d.Step(d.Self(extra: SelfFlags.Reloading), [(Duel.Opponent, at)]);
+            if (d.Decider.Doing.Verdict == "retreat (own reload)" && c.Move.Kind == MoveKind.Retreat && c.Move.Corner0.X >= edge)
+                unseen++;
+        }
+
+        return unseen;
+    });
+
+    /// <summary>
+    /// Cunning's §10 observable (<c>routeAltWeight</c>): the share of
+    /// approaches to an opponent lost from sight that go by a flank, not the
+    /// shortest way, rises.
+    /// </summary>
+    [Fact]
+    public void CunningTakesTheLongWayMore() => Monotonic("cunning", rises: true, level =>
+    {
+        var (g, _) = Grids.Parse([.. Enumerable.Repeat(new string('.', 40), 40)]);
+        var d = At("cunning", level, g, Far);
+        var at = new AiVector(1000f, 1000f, 0f);
+        for (int i = 0; i < 300; i++)
+        {
+            d.Step(d.Self(), [(Duel.Opponent, at)], d.SeeAt(Duel.Opponent, at));
+            d.Step(d.Self(), [], AiEvent.SightLost(Duel.Bot, new Tick(d.Tick + 6), Duel.Opponent, at, AiVector.Zero));
+            d.Step(d.Self(), []);
+        }
+
+        Assert.True(d.Decider.Approaches >= 250, $"the approaches were begun: {d.Decider.Approaches}");
+        return d.Decider.Flanks / (double)d.Decider.Approaches;
+    });
+
     /// <summary>Discipline: pushes on an opponent seen to empty its clip, over a range of distances, rise.</summary>
     [Fact]
     public void DisciplinePushesOnTheEstimateMore() => Monotonic("discipline", rises: true, level =>

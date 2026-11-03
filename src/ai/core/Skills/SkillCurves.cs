@@ -31,7 +31,14 @@ public sealed class SkillCurves
 
     private readonly Dictionary<string, Curve> _curves;
 
-    private SkillCurves(Dictionary<string, Curve> curves) => _curves = curves;
+    private SkillCurves(Dictionary<string, Curve> curves, string json)
+    {
+        _curves = curves;
+        Json = json;
+    }
+
+    /// <summary>The text these were read from, for a recording's world (§2.6).</summary>
+    public string Json { get; }
 
     public IReadOnlyCollection<Curve> All => _curves.Values;
 
@@ -72,7 +79,7 @@ public sealed class SkillCurves
                 throw new InvalidDataException($"skill curves: no '{r}'");
         }
 
-        return new SkillCurves(curves);
+        return new SkillCurves(curves, json);
     }
 
     /// <summary>Whether a curve never goes against its direction and ends apart from where it starts (a knob that moves).</summary>

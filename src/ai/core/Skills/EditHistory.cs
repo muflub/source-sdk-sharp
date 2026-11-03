@@ -68,6 +68,19 @@ public sealed class EditHistory
         return verdict;
     }
 
+    /// <summary>
+    /// Makes <paramref name="levels"/> current as one undoable edit (a preset
+    /// loaded as a starting point), if they fit the pool.
+    /// </summary>
+    public SkillVerdict Apply(ImmutableArray<int> levels)
+    {
+        var next = new SkillProfile(Current.Name, Current.Skills, levels);
+        SkillVerdict verdict = _pool.Judge(next);
+        if (verdict.Accepted && !next.SameLevels(Current))
+            Push(next);
+        return verdict;
+    }
+
     public bool Undo()
     {
         if (_undo.Last is not { } last)

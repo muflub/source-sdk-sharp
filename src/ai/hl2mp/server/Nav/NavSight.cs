@@ -27,7 +27,7 @@ public sealed class Nav3dVoxelSpace(Nav3dReader reader) : IVoxelSpace
 /// perception never reads it (§4.1), and dynamic obstacles are open space
 /// here, as in the file.
 /// </summary>
-public sealed class NavSight
+public sealed class NavSight : ICellSight
 {
     public const float Range = 1024f;
     public const float NodeSize = 128f;
@@ -49,6 +49,8 @@ public sealed class NavSight
     }
 
     public int NodeCount => _eye.Length;
+
+    float ICellSight.Range => Range;
 
     /// <summary>How many node pairs the table holds (each direction once).</summary>
     public long Pairs { get; private init; }

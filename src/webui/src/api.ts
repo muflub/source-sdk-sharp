@@ -14,7 +14,7 @@ import type {
   ScriptedInstance, SpawnResult, Status,
 } from './types';
 import type { AiFlow, AiNav } from './map/aiNav';
-import type { AiBot, AiBotListing } from './ai/aiInspect';
+import type { AiBot, AiBotListing, AiReplayFrame, AiReplayStatus } from './ai/aiInspect';
 
 /*
  * Which instance to address.
@@ -78,6 +78,12 @@ export const getAiBots = (): Promise<AiBotListing[]> => get('/ai/bots');
 
 /** One bot's inspector record and perception. */
 export const getAiBot = (slot: number): Promise<AiBot> => get(`/ai/bot/${slot}`);
+
+/** Loads an .airec into the scrubber (plan_hl2mp_ai §7.1): a path on the game's machine. */
+export const loadAiReplay = (path: string): Promise<AiReplayStatus> => post(`/ai/replay/load${query({ path })}`, '');
+
+/** One bot in the replay at a tick; while the replay seeks, the answer says so ({ seeking, at }) and is asked again. */
+export const getAiReplayBot = (slot: number, tick: number): Promise<AiReplayFrame> => get(`/ai/replay/bot/${slot}${query({ tick })}`);
 
 /** A flow field to a point, crouching where it must. */
 export const getAiFlow = (x: number, y: number, z: number): Promise<AiFlow> =>

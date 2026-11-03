@@ -12,19 +12,22 @@ namespace SourceSharp.Ai.Hl2mp.Nav;
 /// What the web UI's map tab draws its nav and flow layers from.
 /// </summary>
 [SideService(Side.Server, As = [typeof(IDebugRouteProvider)])]
-public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots = null) : IDebugRouteProvider
+public sealed class AiDebugRoutes(IHl2mpNavigation nav, Senses.AiBotRoutes? bots = null, Senses.AiReplayRoutes? replay = null) : IDebugRouteProvider
 {
     public IReadOnlyList<DebugRoute> Routes =>
     [
         new("GET", "/ai/nav", "the level's derived AI graph: cells [minX,minY,maxX,maxY,floorZ,classes,flags], non-walk links [from,to,type], obstacles"),
         new("GET", "/ai/flow", "a flow field: ?cell=N (or x=&y=&z=) &class=stand|crouch; each cell's next cell (-1 none) and cost (-1 unreachable)"),
         .. bots?.Routes ?? [],
+        .. replay?.Routes ?? [],
     ];
 
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
     {
         if (bots is not null && Senses.AiBotRoutes.Serves(path))
             return bots.Handle(path, query);
+        if (replay is not null && Senses.AiReplayRoutes.Serves(path))
+            return replay.Handle(path, query);
 
         if (nav.Current is not { } loaded)
             return new DebugRouteReply(409, $"{{\"error\":{NavJson.Quote(nav.Refusal ?? "no navigation")}}}");
@@ -115,5 +118,5 @@ public static class NavJson
 
     private static string F(float v) => v.ToString("0.#", CultureInfo.InvariantCulture);
 
-    public static string Quote(string s) => System.Text.Json.JsonSerializer.Serialize(s);
+    public static string Quote(string s) => Senses.AiJson.Quote(s);
 }

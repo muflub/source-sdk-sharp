@@ -53,6 +53,7 @@
          adds its reference here (docs/plans/descent_ui.md §4). -->
     <ProjectReference Include="..\..\tf2_descent\ui\TF2.Descent.Client.Ui.csproj" />
     <ProjectReference Include="..\..\tf2\ui\TF2.Client.Ui.csproj" />
+    <ProjectReference Include="..\..\ai\hl2mp\ui\SourceSharp.Ai.Hl2mp.Ui.csproj" />
     <ProjectReference Include="..\..\tf2\client\TF2.Client.csproj" />
     <!-- A mod UI assembly of the facts' own (stage 0.9): its sources are its
          project's, not this one's. -->

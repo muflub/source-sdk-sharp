@@ -245,7 +245,9 @@ public class ModsConfigTests
         Assert.Equal("test", mod.Id);
         // HL2MP's AI binding is a mod assembly beside the core (plan_hl2mp_ai §1.3).
         Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Hl2mp"], mod.ServerAssemblies);
-        Assert.Equal(["SourceSharp.Client"], mod.ClientAssemblies);
+        // Its client side and screens: bot setup when creating a server (§3.5).
+        Assert.Equal(["SourceSharp.Client", "SourceSharp.Ai.Hl2mp.Client"], mod.ClientAssemblies);
+        Assert.Equal(["SourceSharp.Ai.Hl2mp.Ui"], mod.ClientUiAssemblies);
     }
 
     [Theory]
@@ -388,7 +390,7 @@ public class ModsConfigTests
         Assert.Empty(test.Client.Env);
         // The second deliberate change: the HL2MP AI binding (plan_hl2mp_ai §1.3).
         Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Hl2mp"], test.ServerAssemblies);
-        Assert.Equal(["SourceSharp.Client"], test.ClientAssemblies);
+        Assert.Equal(["SourceSharp.Client", "SourceSharp.Ai.Hl2mp.Client"], test.ClientAssemblies);
         Assert.Equal(Full(System.IO.Path.Combine(dir, "mods/test/bin/managed")), test.ManagedDir);
     }
 

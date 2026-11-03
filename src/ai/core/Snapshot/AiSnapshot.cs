@@ -80,6 +80,17 @@ public sealed class SnapshotRing
     /// <summary>The newest published tick, or null before the first.</summary>
     public Tick? Latest { get; private set; }
 
+    /// <summary>
+    /// A new level: its ticks count from low again, so nothing of the last
+    /// level's stays readable and the next tick written may be any.
+    /// </summary>
+    public void Reset()
+    {
+        foreach (AiSnapshot s in _ring)
+            s.Published = false;
+        Latest = null;
+    }
+
     /// <summary>The snapshot to fill for <paramref name="tick"/>; it replaces whatever tick held its slot.</summary>
     public AiSnapshot BeginWrite(Tick tick)
     {

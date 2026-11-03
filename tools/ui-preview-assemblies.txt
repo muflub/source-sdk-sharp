@@ -9,3 +9,4 @@
 # facts all discover through PreviewRun.AllSamples.
 TF2.Descent.Client.Ui=game/mod_tf2_descent
 TF2.Client.Ui=game/mod_tf2
+SourceSharp.Ai.Hl2mp.Ui=game/mod_test

@@ -162,6 +162,48 @@ public sealed class Hl2mpTreeTests
         Assert.Contains(calls, c => !c.Caller.StartsWith("SourceSharp.Ai.Hl2mp.Trees.", StringComparison.Ordinal));   // the control: the census sees the binding's engine calls
     }
 
+    /// <summary>
+    /// A weapon the bot found empty in its hands is not asked for again while
+    /// it stays empty: the HUD shows it so. Before, the decider took every
+    /// weapon not in hand for loaded, so a bot whose SMG1 ran dry (the game
+    /// switching it to the pistol) asked for the SMG1 back every second, and
+    /// the game switched it away again (live: Barney flipping pistol and SMG1
+    /// for minutes in the live gate's bots step).
+    /// </summary>
+    [Fact]
+    public void AWeaponFoundEmptyIsNotAskedForAgain()
+    {
+        var d = new Duel(Duel.Preset("normal"));
+        int held = (1 << Duel.Pistol) | (1 << Duel.Smg1);
+        d.Step(d.Self(clip: 0, reserve: 0, weapon: Duel.Smg1), [], AiEvent.Holdings(Duel.Bot, new Tick(d.Tick + 6), held));
+        int asked = 0;
+        for (int i = 0; i < 60; i++)
+        {
+            IntentCommand c = d.Step(d.Self(clip: 18, reserve: 50, weapon: Duel.Pistol), []);
+            if (c.Action.Kind == ActionKind.SelectWeapon && c.Action.WeaponSlot == Hl2mpDecider.SelectByKind + Duel.Smg1)
+                asked++;
+        }
+
+        Assert.Equal(0, asked);
+    }
+
+    /// <summary>The control: a loaded better weapon in the HUD is asked for.</summary>
+    [Fact]
+    public void ALoadedBetterWeaponIsAskedFor()
+    {
+        var d = new Duel(Duel.Preset("normal"));
+        int held = (1 << Duel.Pistol) | (1 << Duel.Smg1);
+        d.Step(d.Self(clip: 18, reserve: 50, weapon: Duel.Pistol), [], AiEvent.Holdings(Duel.Bot, new Tick(d.Tick + 6), held));
+        bool asked = false;
+        for (int i = 0; i < 60 && !asked; i++)
+        {
+            IntentCommand c = d.Step(d.Self(clip: 18, reserve: 50, weapon: Duel.Pistol), []);
+            asked = c.Action.Kind == ActionKind.SelectWeapon && c.Action.WeaponSlot == Hl2mpDecider.SelectByKind + Duel.Smg1;
+        }
+
+        Assert.True(asked, "the SMG1 was never asked for");
+    }
+
     /// <summary>§9 Phase 5's gate: a steady brain step with the trees allocates nothing over 1,000 decides.</summary>
     [Fact]
     public void AThousandSteadyBrainStepsAllocateNothing()
@@ -173,10 +215,7 @@ public sealed class Hl2mpTreeTests
 
         (ActorId, AiVector)[] view = [(Duel.Opponent, Near)];
         SelfState self = d.Self();
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++)
-            d.Step(self, view);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-        Assert.True(allocated == 0, $"{allocated} bytes over 1,000 steps");
+        long allocated = SourceSharp.Ai.Tests.Core.SteadyAllocation.Measure(() => d.Step(self, view), 1000);
+        Assert.True(allocated == 0, $"{allocated} bytes over 1,000 steps (the least of the windows)");
     }
 }

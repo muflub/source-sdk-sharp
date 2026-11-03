@@ -177,9 +177,7 @@ public sealed class BtTests
         for (int t = 1; t <= 10; t++)
             tree.Decide(s, run, new Tick(t));
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int t = 11; t <= 1010; t++)
-            tree.Decide(s, run, new Tick(t));
-        Assert.Equal(0L, GC.GetAllocatedBytesForCurrentThread() - before);
+        int now = 10;
+        Assert.Equal(0L, SourceSharp.Ai.Tests.Core.SteadyAllocation.Measure(() => tree.Decide(s, run, new Tick(++now)), 1000));
     }
 }

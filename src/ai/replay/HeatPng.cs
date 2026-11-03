@@ -31,11 +31,12 @@ public static class HeatPng
                     KnownActor a = m.Board.Actor(s);
                     if (!a.Known || a.InSight || a.Where is not { Active: true } w)
                         continue;
-                    for (int c = 0; c < world.Graph!.CellCount; c++)
+                    ReadOnlySpan<int> cells = w.MassCells;
+                    ReadOnlySpan<float> masses = w.Masses;
+                    for (int i = 0; i < cells.Length; i++)
                     {
-                        float p = w.P(c);
-                        if (p > 0f)
-                            mass[c] = mass.GetValueOrDefault(c) + p;
+                        if (masses[i] > 0f)
+                            mass[cells[i]] = mass.GetValueOrDefault(cells[i]) + masses[i];
                     }
                 }
 

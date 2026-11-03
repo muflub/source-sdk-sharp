@@ -45,6 +45,9 @@ public sealed class RecordingSwitch : IAiRecordSink
     public void Intent(in IntentCommand intent) => _recorder?.Intent(intent);
 
     public void UserCmd(in AiUserCmd cmd) => _recorder?.UserCmd(cmd);
+
+    /// <summary>What the brains know of the world, written right after the header (format 2).</summary>
+    public void World(AiRecordedWorld world) => _recorder?.World(world);
 }
 
 /// <summary>
@@ -52,6 +55,33 @@ public sealed class RecordingSwitch : IAiRecordSink
 /// session's inputs and outputs to an <c>.airec</c> (the scenario harness's
 /// recordings, §6.6); the tag names the map and its source's hash.
 /// </summary>
+/// <summary>
+/// <c>ai_step [ticks|off]</c> (§7.3's live scrubbing, with <c>ai_sync 1</c>):
+/// holds the brains, then lets the next <c>ticks</c> ticks' decides run (6:
+/// every bot once); <c>off</c> lets them run every tick again.
+/// </summary>
+[ConCommand("ai_step", Help = "ai_step [ticks|off]: hold the bots' brains and let the next ticks' decides run (6 = every bot once); off resumes", Flags = ConVarFlags.Cheat)]
+public sealed class AiStepCommand(Hl2mpAiSession ai, ILog log) : IConCommand
+{
+    public void Execute(string args)
+    {
+        string a = args.Trim();
+        if (a == "off")
+        {
+            ai.Session.Stepping = false;
+            ai.Session.StepTicks = 0;
+            log.Msg("[SourceSharp/Ai] ai_step off: the brains run every tick\n");
+            return;
+        }
+
+        int ticks = int.TryParse(a, NumberStyles.Integer, CultureInfo.InvariantCulture, out int n) && n >= 0 ? n : DecideSchedule.Period;
+        ai.Session.Stepping = true;
+        ai.Session.StepTicks += ticks;
+        log.Msg(string.Create(CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] ai_step: held; {ai.Session.StepTicks} tick(s) of decides to run, {ai.Session.Counters.StepsRun} run, {ai.Session.Counters.StepsHeld} held\n"));
+    }
+}
+
 [ConCommand("ai_record", Help = "ai_record start <path> [tag] | stop: record the AI session to an .airec", Flags = ConVarFlags.Cheat)]
 public sealed class AiRecordCommand(Hl2mpAiSession ai, ILog log) : IConCommand
 {
@@ -61,13 +91,21 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, ILog log) : IConCommand
         if (p.Length >= 2 && p[0] == "start")
         {
             string tag = p.Length > 2 ? p[2] : "";
-            ai.Recording.Start(p[1], new AiRecordingHeader(Hl2mpBots.MatchSeed, tag, 0, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity));
-            log.Msg($"[SourceSharp/Ai] ai_record: recording to {p[1]} ({tag})\n");
+            MemoryWorld? world = ai.Session.World;
+            ulong nav = world?.Graph?.Hash ?? 0;
+            ai.Recording.Start(p[1], new AiRecordingHeader(Hl2mpBots.MatchSeed, tag, nav, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity));
+            // The brains' world, so the recording replays as the game decided (§2.6).
+            if (world is not null)
+                ai.Recording.World(new AiRecordedWorld(world.Map, world.TickSeconds, ai.Session.Curves?.Json ?? "", nav));
+            log.Msg($"[SourceSharp/Ai] ai_record: recording to {p[1]} ({tag}), nav {nav:x16}\n");
             return;
         }
 
         if (p.Length == 1 && p[0] == "stop")
         {
+            // Every step handed over is taken back first, so the recording
+            // holds the intent of every decide whose snapshot it holds.
+            ai.Session.Drain(wait: true);
             int records = ai.Recording.Records;
             ai.Recording.Stop();
             log.Msg(string.Create(CultureInfo.InvariantCulture, $"[SourceSharp/Ai] ai_record: stopped after {records} records\n"));

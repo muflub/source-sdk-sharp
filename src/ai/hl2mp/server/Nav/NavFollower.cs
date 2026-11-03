@@ -86,6 +86,19 @@ public sealed class NavFollower
         _field.Build(_graph, Objective, Class, _obstacles, _avoided.Count > 0 ? _avoided : null, At);
     }
 
+    /// <summary>
+    /// The first build, on a worker (§2.7's flow-field job): from
+    /// <paramref name="from"/> over <paramref name="obstacles"/> as they stood
+    /// when it was asked. The main thread does not touch the follower until it
+    /// is done.
+    /// </summary>
+    public void BuildFrom(CellId from, NavObstacleState obstacles)
+    {
+        _builds++;
+        At = from;
+        _field.Build(_graph, Objective, Class, obstacles, null, from);
+    }
+
     /// <summary>Field builds so far, for the cost counters.</summary>
     public int Builds => _builds;
 

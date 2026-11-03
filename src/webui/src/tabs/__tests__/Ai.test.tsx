@@ -4,10 +4,10 @@
  * empty one; the skills part's meters.
  */
 
-import { render, screen } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import { AiTab } from '../Ai';
+import { AI_REFRESH_MS, AiTab } from '../Ai';
 import type { AiBot } from '../../ai/aiInspect';
 
 vi.mock('../../api', () => ({ getAiBots: vi.fn(), getAiBot: vi.fn() }));
@@ -73,6 +73,95 @@ it('shows the skill allocation with a meter per skill', async () => {
   const accuracy = await screen.findByTestId('skill-accuracy');
   expect((accuracy.querySelector('meter') as HTMLMeterElement).value).toBe(7);
   expect(screen.getByText('hard: 50 of 60 points (10 left)')).toBeTruthy();
+});
+
+it('lays each skill out as a row of three cells, so the meters share a column', async () => {
+  api.getAiBot.mockResolvedValue(full);
+  render(<AiTab visible />);
+  const row = await screen.findByTestId('skill-accuracy');
+  const cells = Array.from(row.children);
+  expect(cells.map(c => c.tagName)).toEqual(['SPAN', 'METER', 'SPAN']);
+  expect(cells[0]!.textContent).toBe('Accuracy');
+  expect(cells[2]!.textContent).toBe('7');
+});
+
+it('marks the bot being looked at, and only it, as the pressed button', async () => {
+  api.getAiBots.mockResolvedValue([
+    { slot: 2, serial: 1, name: 'Alyx', profile: 'hard', spent: 50 },
+    { slot: 3, serial: 1, name: 'Barney', profile: 'easy', spent: 20 },
+  ]);
+  api.getAiBot.mockResolvedValue(full);
+  render(<AiTab visible />);
+  const alyx = await screen.findByRole('button', { name: 'Alyx' });
+  const barney = screen.getByRole('button', { name: 'Barney' });
+  expect(alyx.getAttribute('aria-pressed')).toBe('true');
+  expect(barney.getAttribute('aria-pressed')).toBe('false');
+  fireEvent.click(barney);
+  expect(alyx.getAttribute('aria-pressed')).toBe('false');
+  expect(barney.getAttribute('aria-pressed')).toBe('true');
+});
+
+const atSkill = (level: number): AiBot => ({
+  ...full,
+  record: { ...full.record, skills: { ...skills, skills: [{ key: 'accuracy', name: 'Accuracy', level }] } },
+});
+
+const passTime = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+
+afterEach(() => { vi.useRealTimers(); });
+
+it('asks for the chosen bot again every few seconds, and shows the new answer', async () => {
+  vi.useFakeTimers();
+  api.getAiBot.mockResolvedValue(atSkill(7));
+  render(<AiTab visible />);
+  await passTime(0);
+  expect((screen.getByTestId('skill-accuracy').querySelector('meter') as HTMLMeterElement).value).toBe(7);
+
+  api.getAiBot.mockResolvedValue(atSkill(2));
+  await passTime(AI_REFRESH_MS + 50);
+  expect((screen.getByTestId('skill-accuracy').querySelector('meter') as HTMLMeterElement).value).toBe(2);
+  expect(AI_REFRESH_MS).toBeLessThanOrEqual(5000);
+});
+
+it('picks up a bot that joined after the tab first asked', async () => {
+  vi.useFakeTimers();
+  api.getAiBots.mockResolvedValue([]);
+  api.getAiBot.mockResolvedValue(full);
+  render(<AiTab visible />);
+  await passTime(0);
+  expect(screen.getByText('no bots')).toBeTruthy();
+
+  api.getAiBots.mockResolvedValue([{ slot: 2, serial: 1, name: 'Alyx', profile: 'hard', spent: 50 }]);
+  await passTime(AI_REFRESH_MS + 50);
+  expect(screen.getByRole('button', { name: 'Alyx' }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByTestId('skill-accuracy')).toBeTruthy();
+});
+
+it('moves to the first bot when the chosen one has left', async () => {
+  vi.useFakeTimers();
+  api.getAiBots.mockResolvedValue([
+    { slot: 2, serial: 1, name: 'Alyx', profile: 'hard', spent: 50 },
+    { slot: 3, serial: 1, name: 'Barney', profile: 'easy', spent: 20 },
+  ]);
+  api.getAiBot.mockResolvedValue(full);
+  render(<AiTab visible />);
+  await passTime(0);
+  fireEvent.click(screen.getByRole('button', { name: 'Barney' }));
+  await passTime(0);
+
+  api.getAiBots.mockResolvedValue([{ slot: 2, serial: 1, name: 'Alyx', profile: 'hard', spent: 50 }]);
+  await passTime(AI_REFRESH_MS + 50);
+  expect(screen.queryByRole('button', { name: 'Barney' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Alyx' }).getAttribute('aria-pressed')).toBe('true');
+});
+
+it('asks nothing while the tab is hidden', async () => {
+  vi.useFakeTimers();
+  api.getAiBot.mockResolvedValue(full);
+  render(<AiTab visible={false} />);
+  await passTime(AI_REFRESH_MS * 3);
+  expect(api.getAiBots).not.toHaveBeenCalled();
+  expect(api.getAiBot).not.toHaveBeenCalled();
 });
 
 it('shows what the bot is doing: the verdict, its window arithmetic and the reason terms, and the trace', async () => {

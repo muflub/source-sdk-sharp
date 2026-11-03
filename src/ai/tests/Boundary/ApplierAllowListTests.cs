@@ -72,6 +72,10 @@ public class ApplierAllowListTests
         "ModelDescriptor::SequenceDuration", "WeaponType::get_ViewModel", "WeaponType::get_Behaviour", "WeaponType::get_Projectile",
         "WeaponType::get_LaunchSpeed", "WeaponType::get_ClipSize", "WeaponType::get_Interval", "WeaponType::get_Name",
         "IEnginePlayers::GetUserId",
+        // The binding's own convars (ai_threads, ai_sync, §2.7): their base constructors.
+        "IntConVar::.ctor", "BoolConVar::.ctor",
+        // AiBotRosterService (Phase 5c): the roster convar, declared, read and cleared at the level's start.
+        "StringConVar::.ctor", "ConVar`1::SetValue",
     ];
 
     /// <summary>Calls that move or turn a player outside its usercmd (§3.3): never, from any caller.</summary>

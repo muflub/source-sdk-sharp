@@ -97,6 +97,17 @@ public sealed class PerceivedView
         SightedCount = 0;
     }
 
+    /// <summary>Makes this view a copy of <paramref name="other"/> (a step's own copy, so the ring can move on, §2.7).</summary>
+    public void CopyFrom(PerceivedView other)
+    {
+        ArgumentNullException.ThrowIfNull(other);
+        if (other.SightedCount > _sighted.Length)
+            throw new InvalidOperationException($"the view holds {_sighted.Length} sighted actors at most, the copied one {other.SightedCount}");
+        Reset(other.Bot, other.Tick, other.Self);
+        other.Sighted.CopyTo(_sighted);
+        SightedCount = other.SightedCount;
+    }
+
     /// <summary>Adds an actor the bot has sight of this tick.</summary>
     public void AddSighted(in ActorFacts facts)
     {

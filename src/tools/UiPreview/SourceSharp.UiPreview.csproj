@@ -27,5 +27,6 @@
          build beside the tool; each listed game adds its reference here. -->
     <ProjectReference Include="..\..\tf2_descent\ui\TF2.Descent.Client.Ui.csproj" />
     <ProjectReference Include="..\..\tf2\ui\TF2.Client.Ui.csproj" />
+    <ProjectReference Include="..\..\ai\hl2mp\ui\SourceSharp.Ai.Hl2mp.Ui.csproj" />
   </ItemGroup>
 </Project>

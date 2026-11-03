@@ -61,7 +61,7 @@ public sealed class BotInspectTests
     public void TheRoutesJsonSpellsTheRecord()
     {
         (Brain brain, SkillProfile skills) = Stepped();
-        string json = JsonSerializer.Serialize(BotInspect.Build(brain, skills, new Tick(30)), AiBotRoutes.Options());
+        string json = AiJson.Write(BotInspect.Build(brain, skills, new Tick(30)));
         using JsonDocument d = JsonDocument.Parse(json);
         JsonElement ammo = d.RootElement.GetProperty("memory").GetProperty("actors")[0].GetProperty("ammo");
         Assert.Equal(28, ammo.GetProperty("max").GetInt32());

@@ -138,16 +138,28 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// </summary>
     public void ApplyTick(Tick tick, float dt)
     {
+        long run = 0;
         for (int i = 0; i < _bots.Count; i++)
         {
             BotState bot = _bots[i];
             BotSelfFacts facts = self.Read(bot.Player);
             UserCmd cmd = Build(bot, tick, in facts, dt);
             runner.Queue(bot.Player, in cmd);
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
             runner.RunQueued(bot.Player);
+            run += System.Diagnostics.Stopwatch.GetTimestamp() - start;
             Applied++;
         }
+
+        RunMicrosLastTick = run * 1e6 / System.Diagnostics.Stopwatch.Frequency;
     }
+
+    /// <summary>
+    /// The last tick's commands run as players (the movement and the weapons,
+    /// what a human client's command costs the server too), in microseconds:
+    /// <c>ai.run.us</c>, kept out of the AI's own <c>ai.apply.us</c>.
+    /// </summary>
+    public double RunMicrosLastTick { get; private set; }
 
     /// <summary>The command <paramref name="bot"/> sends this tick. Advances its view, its command number and its channels.</summary>
     internal UserCmd Build(BotState bot, Tick tick, in BotSelfFacts facts, float dt)

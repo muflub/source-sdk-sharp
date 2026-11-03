@@ -58,6 +58,14 @@ public sealed class AiRecorder : IAiRecordSink
         End(AiRecordType.Intent);
     }
 
+    /// <summary>What the brains know of the world (§2.6): written before the bots, so a replay builds them over it.</summary>
+    public void World(AiRecordedWorld world)
+    {
+        ArgumentNullException.ThrowIfNull(world);
+        AiRecordFormat.Write(Begin(), world);
+        End(AiRecordType.World);
+    }
+
     public void UserCmd(in AiUserCmd cmd)
     {
         AiRecordFormat.Write(Begin(), cmd);

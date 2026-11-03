@@ -74,9 +74,32 @@ public class FormatTests
     public void AnotherFormatVersionIsRefusedByNumber()
     {
         byte[] rec = Recordings.Make(_ => { });
-        rec[8] = 2;
+        rec[8] = 3;
         var e = Assert.Throws<InvalidDataException>(() => Recordings.Replay(rec));
-        Assert.Contains("format 2", e.Message, StringComparison.Ordinal);
+        Assert.Contains("format 3", e.Message, StringComparison.Ordinal);
+    }
+
+    /// <summary>Format 2 added the World record; a format 1 file (the scenario recordings) still reads.</summary>
+    [Fact]
+    public void AFormatOneFileStillReads()
+    {
+        byte[] rec = Recordings.Make(s => s.AddBot(new ActorId(2, 1), 1, []));
+        Assert.Equal(2, rec[8]);
+        rec[8] = 1;
+        Assert.Equal(0, Recordings.Replay(rec).RecordedIntentCount);
+    }
+
+    /// <summary>The World record round-trips: the map's knowledge, the tick, the curves' text and the graph's hash.</summary>
+    [Fact]
+    public void TheWorldRecordRoundTrips()
+    {
+        var map = new MapKnowledge("dm_x", [new ItemSpawn(3, "weapon_smg1", ItemKind.Weapon, new AiVector(1, 2, 3), 20f, 3)], [new AiVector(4, 5, 6)],
+                                   new WeaponKnowledge([new WeaponFacts(3, "weapon_smg1", 45, 0.075f, 1.5f, true, false, 0f)]));
+        var world = new AiRecordedWorld(map, 0.015f, "{\"format\":1}", 0xABCDUL);
+        byte[] bytes = Encode(w => AiRecordFormat.Write(w, world));
+        AiRecordedWorld back = AiRecordFormat.ReadWorld(new BinaryReader(new MemoryStream(bytes)));
+        Assert.Equal(bytes, Encode(w => AiRecordFormat.Write(w, back)));
+        Assert.Equal(("dm_x", 0.015f, 0xABCDUL, 45), (back.Map.Map, back.TickSeconds, back.NavGraphHash, back.Map.Weapons.All[0].ClipSize));
     }
 
     [Fact]

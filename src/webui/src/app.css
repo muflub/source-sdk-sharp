@@ -1467,10 +1467,14 @@ td.near-ceiling { color: var(--warn); }
 
 /* The bot inspector (plan_hl2mp_ai §7.2). */
 .ai-tab { padding: 8px; overflow: auto; }
-.ai-bots { display: flex; gap: 6px; margin-bottom: 8px; }
+.ai-bots { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ai-bots button[aria-pressed="true"] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
 .ai-memory { border-collapse: collapse; font-size: 12px; }
 .ai-memory th, .ai-memory td { padding: 2px 6px; border-bottom: 1px solid var(--border, #444); text-align: left; }
 .ai-ammo { display: inline-flex; align-items: center; gap: 6px; }
 .ai-ammo-track { position: relative; display: inline-block; width: 90px; height: 8px; background: var(--muted-bg, #333); }
 .ai-ammo-range { position: absolute; top: 0; bottom: 0; background: var(--accent, #e8a33c); min-width: 2px; }
-.ai-skills meter { width: 120px; }
+.ai-skills ul { display: grid; grid-template-columns: max-content 160px max-content; gap: 3px 10px; align-items: center; margin: 0 0 8px; padding: 0; list-style: none; }
+.ai-skills li { display: contents; }
+.ai-skills meter { width: 100%; }
+.ai-skill-level { text-align: right; font-variant-numeric: tabular-nums; }

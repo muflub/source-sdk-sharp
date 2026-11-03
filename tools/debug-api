@@ -57,6 +57,8 @@
 #   tools/debug-api services [type|name|all] what an entity may ask for: contracts, or console names
 #   tools/debug-api instances             live scripted entities and their values
 #   tools/debug-api ents item_healthkit   live entities of a class; "*" is all of them
+#   tools/debug-api route /ai/counters [k=v ...]   GET a route a mod adds (/routes lists them)
+#   tools/debug-api route-post /ai/replay/load path=X   the same, as a POST
 #   tools/debug-api ent index=40          one entity (or handle=H, name=N): velocity,
 #                                     speed, asleep, ground
 #
@@ -457,6 +459,11 @@ case "${1:-status}" in
     capture) "${CURL[@]}" -X POST "$BASE/command?capture=1" --data-binary "${2:?command required}" ;;
     convar) "${CURL[@]}" "$BASE/convar?name=${2:?name required}${3+&value=$3}" ;;
     ents)   "${CURL[@]}" "$BASE/entities?class=${2:?class required}" ;;
+    # A route a mod adds (an AI's /ai/counters, /ai/bots, ...), with key=value query words.
+    route)  query_args "${@:3}"
+            "${CURL[@]}" --get "$BASE${2:?a route path is required}" "${QA[@]}" ;;
+    route-post) query_args "${@:3}"
+            "${CURL[@]}" -X POST --get "$BASE${2:?a route path is required}" "${QA[@]}" ;;
     # One entity: `ent index=40`, `ent handle=262177` or `ent name=crate_a`.
     ent)    query_args "${@:2}"
             "${CURL[@]}" --get "$BASE/entity" "${QA[@]}" ;;

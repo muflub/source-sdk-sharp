@@ -19,6 +19,8 @@ public sealed class AiDebugRoutesTests
         public LoadedNav? Current => current;
         public string? Refusal => refusal;
         public NavObstacleState? Obstacles => obstacles;
+
+        public NavSight? Sight => null;
     }
 
     private static readonly Lazy<LoadedNav> Course = new(() =>

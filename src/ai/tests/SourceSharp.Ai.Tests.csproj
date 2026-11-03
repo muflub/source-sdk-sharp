@@ -20,6 +20,15 @@
     <ProjectReference Include="..\replay\SourceSharp.Ai.Replay.csproj" />
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
     <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
+    <!-- Bot setup's client side (Phase 5c). The client compiles the shared
+         interop and interface too, so its copies are named under the client
+         alias and the unqualified names stay the server's (as in
+         src/test/managed). -->
+    <ProjectReference Include="..\hl2mp\client\SourceSharp.Ai.Hl2mp.Client.csproj" Aliases="client" />
+    <ProjectReference Include="..\hl2mp\interface\SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\client\managed\SourceSharp.Client.csproj" Aliases="client" />
+    <ProjectReference Include="..\..\client\interop\SourceSharp.Client.Interop.csproj" Aliases="client" />
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" Aliases="client" />
   </ItemGroup>
   <ItemGroup>
     <!-- So facts can find the repository the way the core tests do. -->

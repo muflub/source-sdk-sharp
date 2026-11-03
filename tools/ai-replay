@@ -8,22 +8,27 @@
 #       replays the recording with the brains remembering over the map's graph
 #       and writes each bot's beliefs every N ticks (66) as
 #       bin/<config>/ai-replay/<map>-heat/heat-bot<slot>-t<tick>.png
+#   tools/ai-replay verify <map> <recording.airec> [--threads 0,1,2,4] [--config ..]
+#       replays a recording made with ai_record over the map's graph with the
+#       game's trees, inline (0) and on each pool size, and exits 1 unless
+#       every replay gives the recording's intents byte for byte
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dotnet="${DOTNET:-$HOME/.dotnet/dotnet}"
 verb="${1:-}"
-[[ ( "$verb" == "nav" && -n "${2:-}" ) || ( "$verb" == "heat" && -n "${3:-}" ) ]] || { sed -n '2,13p' "$0"; exit 2; }
+[[ ( "$verb" == "nav" && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,17p' "$0"; exit 2; }
 map="$2"; shift 2
 recording=""
-if [[ "$verb" == heat ]]; then recording="$(realpath "$1")"; shift; fi
-config=debug; scale=0.25; every=66
+if [[ "$verb" =~ ^(heat|verify)$ ]]; then recording="$(realpath "$1")"; shift; fi
+config=debug; scale=0.25; every=66; threads=0,1,2,4
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --config) config="$2"; shift 2 ;;
     --scale) scale="$2"; shift 2 ;;
     --every) every="$2"; shift 2 ;;
+    --threads) threads="$2"; shift 2 ;;
     *) echo "ai-replay: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -36,6 +41,9 @@ cfg=Debug; [[ "$config" == release ]] && cfg=Release
 dll="$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll"
 if [[ "$verb" == nav ]]; then
   "$dotnet" "$dll" nav "$maps/$map.nav3d" "$maps/$map.bsp" "$out/$map-nav.png" "$scale"
+elif [[ "$verb" == verify ]]; then
+  [[ -f "$recording" ]] || { echo "ai-replay: no recording $recording" >&2; exit 1; }
+  exec "$dotnet" "$dll" verify "$maps/$map.nav3d" "$maps/$map.bsp" "$recording" "$threads"
 else
   [[ -f "$recording" ]] || { echo "ai-replay: no recording $recording" >&2; exit 1; }
   "$dotnet" "$dll" heat "$maps/$map.nav3d" "$maps/$map.bsp" "$recording" "$out/$map-heat" "$every" "$scale"

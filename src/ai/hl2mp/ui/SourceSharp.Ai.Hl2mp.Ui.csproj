@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The HL2MP AI's screens (docs/plans/plan_hl2mp_ai.md §3.5, Phase 5c): the
+    create-server screen and the custom bot editor on the SourceSharp UI
+    toolkit — the toolkit and the data contract only, never the AI core, the
+    engine or Abi (the assembly rule UiAssemblyRulesTests holds over the core
+    screens). The data arrives through SourceSharp.Ai.Hl2mp.Client.Interface;
+    the adapters that answer it live in src/ai/hl2mp/client. Listed in
+    mods.yaml's client_ui for the test mod, and discovered by the preview,
+    lint and UI tests through tools/ui-preview-assemblies.txt.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\client\ui\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+    <ProjectReference Include="..\interface\SourceSharp.Ai.Hl2mp.Client.Interface.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,27 +1,10 @@
 using System.Globalization;
 using System.Text;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Debug.Api.Server.Interfaces;
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
 namespace SourceSharp.Ai.Hl2mp.Senses;
-
-/// <summary>An <see cref="AiVector"/> as <c>[x, y, z]</c>, rounded to a tenth.</summary>
-public sealed class AiVectorJson : JsonConverter<AiVector>
-{
-    public override AiVector Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) => throw new NotSupportedException();
-
-    public override void Write(Utf8JsonWriter writer, AiVector value, JsonSerializerOptions options)
-    {
-        writer.WriteStartArray();
-        writer.WriteNumberValue(MathF.Round(value.X, 1));
-        writer.WriteNumberValue(MathF.Round(value.Y, 1));
-        writer.WriteNumberValue(MathF.Round(value.Z, 1));
-        writer.WriteEndArray();
-    }
-}
 
 /// <summary>
 /// The bot inspector's routes (plan_hl2mp_ai §7.2, §7.3), web UI only:
@@ -34,23 +17,61 @@ public sealed class AiVectorJson : JsonConverter<AiVector>
 /// (<c>Nav.AiDebugRoutes</c>, a mod registers a contract once) serves them.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass vision, IEngineFrame frame, IEngineEntities entities) 
+public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass vision, IEngineFrame frame, IEngineEntities entities,
+                                Hl2mpAiSession ai, Nav.IHl2mpNavigation nav)
 {
-    private readonly JsonSerializerOptions _json = Options();
+    private AiWorkerPool Pool => ai.Pool;
 
-    /// <summary>The inspector's JSON: camel case, vectors as arrays, NaN spelled out.</summary>
-    public static JsonSerializerOptions Options() => new()
+    /// <summary>
+    /// The AI's worker threads the kernel lists now, by name (§2.5's gate:
+    /// after a level change it equals the pool's count, the old workers
+    /// joined), or -1 off Linux.
+    /// </summary>
+    public static int WorkerThreads()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        Converters = { new AiVectorJson() },
-        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
-    };
+        if (!Directory.Exists("/proc/self/task"))
+            return -1;
+        int n = 0;
+        foreach (string task in Directory.GetDirectories("/proc/self/task"))
+        {
+            try
+            {
+                if (File.ReadAllText(Path.Combine(task, "comm")).StartsWith("ai-worker", StringComparison.Ordinal))
+                    n++;
+            }
+            catch (IOException)
+            {
+                // a thread that ended while listed
+            }
+        }
+
+        return n;
+    }
+
+    /// <summary><c>/ai/bots</c>: each bot's slot, serial, name, profile and points spent.</summary>
+    public static string BotsJson(IReadOnlyList<Hl2mpBot> list)
+        => AiJson.Write(list.Select(b => new { slot = b.Id.Slot, serial = b.Id.Serial, name = b.Name, profile = b.Skills.Name, spent = b.Skills.Spent }));
+
+    /// <summary>The process's threads now (the gate's baseline across map loads, §2.5).</summary>
+    public static int ProcessThreads()
+    {
+        try
+        {
+            return Directory.Exists("/proc/self/task")
+                ? Directory.GetDirectories("/proc/self/task").Length
+                : System.Diagnostics.Process.GetCurrentProcess().Threads.Count;
+        }
+        catch (IOException)
+        {
+            return -1;
+        }
+    }
 
     public IReadOnlyList<DebugRoute> Routes =>
     [
         new("GET", "/ai/bots", "the bots: slot, serial, name, skill label"),
         new("GET", "/ai/bot/", "one bot's inspector: /ai/bot/<slot>[/memory|skills|perception|trace]"),
-        new("GET", "/ai/counters", "the AI's main-thread counters: ai.sense.us (300-tick mean and worst), ai.sense.traces"),
+        new("GET", "/ai/counters", "the AI's counters: ai.sense.us, ai.publish.us, ai.apply.us, ai.main.us (300-tick means), ai.brain.us per decide, ai.pool.* (threads, busy µs a second), ai.steps.* (skipped, faulted, in flight), process.threads"),
     ];
 
     /// <summary>Whether <paramref name="path"/> is one of these routes'.</summary>
@@ -59,31 +80,37 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
     {
         if (path == "/ai/bots")
-            return new DebugRouteReply(200, JsonSerializer.Serialize(bots.Bots.Select(b => new
-            {
-                slot = b.Id.Slot, serial = b.Id.Serial, name = b.Name, profile = b.Skills.Name, spent = b.Skills.Spent,
-            }), _json));
+            return new DebugRouteReply(200, BotsJson(bots.Bots));
         if (path == "/ai/counters")
             return new DebugRouteReply(200, string.Create(CultureInfo.InvariantCulture,
-                $"{{\"tick\":{frame.TickCount()},\"ai.sense.us\":{senses.SenseMeanUs:F1},\"ai.sense.us.max\":{senses.SenseMaxUs:F1},\"ai.publish.us\":{senses.PublishMeanUs:F1},\"ai.sense.ticks\":{Math.Min(senses.SenseTicks, Hl2mpSenses.Window)},\"ai.sense.traces\":{vision.TracesLastTick},\"ai.sense.traces.total\":{vision.Traces},\"ai.brain.us\":{senses.Session.Counters.BrainMicrosMean:F1},\"ai.brain.us.max\":{senses.Session.Counters.BrainMicrosMax:F1},\"ai.brain.steps\":{senses.Session.Counters.StepsRun},\"ai.follow.builds\":{bots.Driver.Builds},\"bots\":{bots.Bots.Count}}}"));
+                $"{{\"tick\":{frame.TickCount()},\"ai.sense.us\":{senses.SenseMeanUs:F1},\"ai.sense.us.max\":{senses.SenseMaxUs:F1},\"ai.publish.us\":{senses.PublishMeanUs:F1},\"ai.sense.ticks\":{Math.Min(senses.SenseTicks, Hl2mpSenses.Window)},\"ai.sense.traces\":{vision.TracesLastTick},\"ai.sense.traces.total\":{vision.Traces},\"ai.brain.us\":{senses.Session.Counters.BrainMicrosMean:F1},\"ai.brain.us.max\":{senses.Session.Counters.BrainMicrosMax:F1},\"ai.brain.cpu.us\":{senses.Session.Counters.BrainCpuMicrosMean:F1},\"ai.brain.steps\":{senses.Session.Counters.StepsRun},\"ai.follow.builds\":{bots.Driver.Builds},\"ai.follow.pooled\":{bots.Driver.PooledBuilds},\"bots\":{bots.Bots.Count},"
+                + $"\"ai.apply.us\":{bots.ApplyMeanUs:F1},\"ai.run.us\":{bots.RunMeanUs:F1},"
+                + $"\"ai.refused.stale\":{bots.Applier.Refused(IntentRefusal.StaleSerial)},\"ai.refused.unknown\":{bots.Applier.Refused(IntentRefusal.UnknownBot)},"
+                + $"\"ai.refused.expired\":{bots.Applier.Refused(IntentRefusal.Expired)},\"ai.main.us\":{senses.SenseMeanUs + senses.PublishMeanUs + bots.ApplyMeanUs:F1},"
+                + $"\"ai.sync\":{(senses.Session.Transport.Inline ? 1 : 0)},\"ai.pool.threads\":{Pool.Threads},\"ai.pool.alive\":{Pool.Alive},\"ai.pool.os_threads\":{WorkerThreads()},\"ai.pool.us\":{senses.PoolUsPerSecond:F1},"
+                + $"\"ai.pool.ran\":{Pool.Ran},\"ai.pool.faults\":{Pool.Faults},\"ai.steps.skipped\":{senses.Session.Counters.StepsSkipped},\"ai.steps.faulted\":{senses.Session.Counters.StepsFaulted},\"ai.steps.held\":{senses.Session.Counters.StepsHeld},"
+                + $"\"ai.steps.inflight\":{senses.Session.Counters.InFlight},\"ai.steps.inflight.max\":{senses.Session.Counters.InFlightMax},\"process.threads\":{ProcessThreads()},"
+                + $"\"nav.map\":{AiJson.Quote(nav.Current?.Map ?? "")},\"nav.cells\":{nav.Current?.Nav.Graph.CellCount ?? 0},\"nav.refusal\":{AiJson.Quote(nav.Refusal)}}}"));
 
         string[] parts = path["/ai/bot/".Length..].Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0 || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int slot)
             || bots.Bots.FirstOrDefault(b => b.Id.Slot == slot) is not { Id.IsValid: true } bot)
             return new DebugRouteReply(404, "{\"error\":\"no bot in that slot: GET /ai/bots\"}");
-        if (senses.Session.BrainIn(slot) is not { } brain)
+        if (senses.Session.BrainIn(slot) is null)
             return new DebugRouteReply(409, "{\"error\":\"the bot has no brain yet (the senses add it on their next tick)\"}");
 
         string part = parts.Length > 1 ? parts[1] : "all";
         var tick = new Tick(frame.TickCount());
-        BotInspectRecord record = BotInspect.Build(brain, bot.Skills, tick);
+        // Read only while none of its steps runs on a worker; never waited for.
+        if (!senses.Session.TryReadBrain(slot, b => BotInspect.Build(b, bot.Skills, tick), out BotInspectRecord record))
+            return new DebugRouteReply(503, "{\"error\":\"the bot's brain is stepping on a worker: ask again\"}");
         return part switch
         {
-            "memory" => new DebugRouteReply(200, JsonSerializer.Serialize(record.Memory, _json)),
-            "skills" => new DebugRouteReply(200, JsonSerializer.Serialize(record.Skills, _json)),
+            "memory" => new DebugRouteReply(200, AiJson.Write(record.Memory)),
+            "skills" => new DebugRouteReply(200, AiJson.Write(record.Skills)),
             "perception" => new DebugRouteReply(200, Perception(bot)),
-            "trace" or "doing" => new DebugRouteReply(200, JsonSerializer.Serialize(record.Doing, _json)),
-            "all" => new DebugRouteReply(200, $"{{\"record\":{JsonSerializer.Serialize(record, _json)},\"perception\":{Perception(bot)}}}"),
+            "trace" or "doing" => new DebugRouteReply(200, AiJson.Write(record.Doing)),
+            "all" => new DebugRouteReply(200, $"{{\"record\":{AiJson.Write(record)},\"perception\":{Perception(bot)}}}"),
             _ => new DebugRouteReply(404, "{\"error\":\"parts: memory, skills, perception, trace\"}"),
         };
     }
@@ -118,8 +145,10 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
 
         json.Append("],\"heard\":[");
         first = true;
-        if (senses.Session.BrainIn(bot.Id.Slot)?.Memory is { } m)
+        senses.Session.TryReadBrain(bot.Id.Slot, b =>
         {
+            if (b.Memory is not { } m)
+                return 0;
             for (int s = 0; s < m.Board.Slots; s++)
             {
                 KnownActor a = m.Board.Actor(s);
@@ -129,7 +158,9 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
                     $"{{\"slot\":{s},\"at\":[{a.LastHeardPos.X:F1},{a.LastHeardPos.Y:F1},{a.LastHeardPos.Z:F1}],\"tick\":{a.LastHeardTick.Value},\"kind\":\"{a.LastHeardKind}\"}}");
                 first = false;
             }
-        }
+
+            return 0;
+        }, out int _);
 
         return json.Append("]}").ToString();
     }

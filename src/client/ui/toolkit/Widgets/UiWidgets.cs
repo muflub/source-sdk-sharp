@@ -246,15 +246,18 @@ public static class UiWidgets
     /// is 0 or more, the accent border when focused, and a muted placeholder
     /// when empty. Answers what the pointer did. A null key leaves the box
     /// unkeyed, for a field drawn inside a keyed box of its own (EditText).
+    /// <paramref name="interactive"/> false draws the field for a parent that
+    /// takes the pointer itself (<see cref="UiFormWidgets.EditText"/>): a click
+    /// then focuses the parent, and the field answers no interaction.
     /// </summary>
     public static UiInteraction TextField(this ref UiFrame ui, string? key, string text, string placeholderToken,
                                           int caret = -1, int selStart = 0, int selLength = 0, UiSize? width = null,
-                                          Text role = Text.Body)
+                                          Text role = Text.Body, bool interactive = true)
     {
         bool focused = caret >= 0;
         var box = ui.Box(key).Size(width ?? Size.Fill, Size.Du(40)).Fill(Tone.Surface).Round(Radius.M)
                     .Border(focused ? Tone.Accent : Tone.Line, focused ? 2 : 1).Pad(Space.M, Space.None).Clip();
-        var hit = ui.Interact(box);
+        var hit = interactive ? ui.Interact(box) : default;
         using (box)
         {
             if (text.Length == 0 && !focused)

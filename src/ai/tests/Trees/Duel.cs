@@ -27,12 +27,17 @@ public sealed class Duel
     {
     }
 
-    public Duel(SkillProfile profile, NavGraph? graph, params ItemSpawn[] items)
+    public Duel(SkillProfile profile, NavGraph? graph, params ItemSpawn[] items) : this(profile, graph, null, items)
+    {
+    }
+
+    /// <summary>A duel over <paramref name="graph"/> whose map's static sight is <paramref name="sight"/> (§10 Cover).</summary>
+    public Duel(SkillProfile profile, NavGraph? graph, ICellSight? sight, params ItemSpawn[] items)
     {
         Params = SourceSharp.Ai.Tests.Skills.Curves.Game().For(profile);
         ItemSpawn[] all = items.Length > 0 ? items : [new ItemSpawn(0, "item_healthkit", ItemKind.Health, Kit, 30f)];
         var map = new MapKnowledge("duel", [.. all], [], Weapons);
-        Memory = new BotMemory(Bot, 33, MemoryParams.For(profile), new MemoryWorld(map, graph, 0.015f, id => id.ToString()), new HabitStore());
+        Memory = new BotMemory(Bot, 33, MemoryParams.For(profile), new MemoryWorld(map, graph, 0.015f, id => id.ToString(), sight), new HabitStore());
         Decider = new Hl2mpDecider(new BrainSetup(Bot, 7, Memory, Params, 0.015f));
         Brain = new Brain(Bot, 7, Memory, Params, Decider);
     }

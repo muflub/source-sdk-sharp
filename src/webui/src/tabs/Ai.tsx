@@ -9,10 +9,11 @@
  * terms, and the last decides' traces (the BT trace panel).
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { getAiBot, getAiBots } from '../api';
-import { ammoBar, type AiActor, type AiBot, type AiBotListing, type AiDoing } from '../ai/aiInspect';
+import { getAiBot, getAiBots, getAiReplayBot, loadAiReplay } from '../api';
+import { usePoll } from '../hooks/usePoll';
+import { ammoBar, type AiActor, type AiBot, type AiBotListing, type AiDoing, type AiReplayFrame, type AiReplayStatus } from '../ai/aiInspect';
 
 function AmmoBar({ actor }: { actor: AiActor }): ReactNode {
   const a = actor.ammo;
@@ -69,7 +70,9 @@ export function SkillsPart({ bot }: { bot: AiBot }): ReactNode {
       <ul>
         {s.skills.map(k => (
           <li key={k.key} data-testid={`skill-${k.key}`}>
-            {k.name} <meter min={0} max={s.cap} value={k.level} /> {k.level}
+            <span>{k.name}</span>
+            <meter min={0} max={s.cap} value={k.level} />
+            <span className="ai-skill-level">{k.level}</span>
           </li>
         ))}
       </ul>
@@ -80,37 +83,54 @@ export function SkillsPart({ bot }: { bot: AiBot }): ReactNode {
   );
 }
 
+/** How often the tab asks the game again while it is showing. */
+export const AI_REFRESH_MS = 2000;
+
 export function AiTab({ visible }: { visible: boolean }): ReactNode {
   const [bots, setBots] = useState<AiBotListing[]>([]);
   const [slot, setSlot] = useState<number | null>(null);
   const [bot, setBot] = useState<AiBot | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // The newest selection, for answers that arrive after it moved on.
+  const chosen = useRef(slot);
+  chosen.current = slot;
+
+  const refresh = async (): Promise<void> => {
+    const list = await getAiBots();
+    if (!Array.isArray(list)) {
+      setError('the AI binding does not answer /ai/bots');
+      return;
+    }
+    setBots(list);
+    const asked = chosen.current;
+    const current = list.some(b => b.slot === asked) ? asked : (list[0]?.slot ?? null);
+    if (current !== asked) {
+      chosen.current = current;
+      setSlot(current);
+    }
+    if (current === null) {
+      setBot(null);
+      setError(null);
+      return;
+    }
+    const answer = await getAiBot(current);
+    if (chosen.current !== current) return;
+    if (answer.error) setError(answer.error);
+    else {
+      setBot(answer);
+      setError(null);
+    }
+  };
+
+  // At once when the tab is shown or another bot is chosen, then on the poll.
   useEffect(() => {
-    if (!visible) return;
-    let cancelled = false;
-    void getAiBots().then(list => {
-      if (cancelled) return;
-      if (!Array.isArray(list)) {
-        setError('the AI binding does not answer /ai/bots');
-        return;
-      }
-      setBots(list);
-      if (slot === null && list.length > 0) setSlot(list[0]!.slot);
-    });
-    return () => { cancelled = true; };
+    if (visible) void refresh();
   }, [visible, slot]);
 
-  useEffect(() => {
-    if (!visible || slot === null) return;
-    let cancelled = false;
-    void getAiBot(slot).then(answer => {
-      if (cancelled) return;
-      if (answer.error) setError(answer.error);
-      else setBot(answer);
-    });
-    return () => { cancelled = true; };
-  }, [visible, slot]);
+  usePoll(async () => {
+    if (visible) await refresh();
+  }, AI_REFRESH_MS);
 
   return (
     <div className="ai-tab">
@@ -128,6 +148,90 @@ export function AiTab({ visible }: { visible: boolean }): ReactNode {
           <SkillsPart bot={bot} />
           <h3>Doing and planning</h3>
           <DoingPart doing={bot.record.doing} />
+        </>
+      )}
+      <h3>Replay</h3>
+      <ReplayScrubber />
+    </div>
+  );
+}
+
+/**
+ * The record/replay scrubber (plan_hl2mp_ai §7.1): an .airec loaded on the
+ * game's machine, a tick to stand at, a bot; its record there (the same three
+ * parts as live) and the intent the recording holds beside the one the replay
+ * made, highlighted when they differ. While the replay seeks the answer says
+ * so and is asked again.
+ */
+export function ReplayScrubber({ pollMs = 250 }: { pollMs?: number }): ReactNode {
+  const [path, setPath] = useState('');
+  const [status, setStatus] = useState<AiReplayStatus | null>(null);
+  const [tick, setTick] = useState(0);
+  const [slot, setSlot] = useState<number | null>(null);
+  const [frame, setFrame] = useState<AiReplayFrame | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = async () => {
+    setError(null);
+    try {
+      const s = await loadAiReplay(path);
+      if (s.error) { setError(s.error); return; }
+      setStatus(s);
+      setTick(s.first);
+      setSlot(s.bots.length > 0 ? s.bots[0]!.slot : null);
+    } catch (e) {
+      setError(`the recording would not load (${String(e)})`);
+    }
+  };
+
+  useEffect(() => {
+    if (!status || slot === null) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const ask = () => {
+      void getAiReplayBot(slot, tick).then(answer => {
+        if (cancelled) return;
+        if (answer.error) setError(answer.error);
+        else if (answer.seeking !== undefined) timer = setTimeout(ask, pollMs);
+        else setFrame(answer);
+      });
+    };
+    ask();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [status, slot, tick, pollMs]);
+
+  return (
+    <div className="ai-replay">
+      <form onSubmit={e => { e.preventDefault(); void load(); }}>
+        <input aria-label="recording" placeholder="/path/to/session.airec" value={path} onChange={e => setPath(e.target.value)} />
+        <button type="submit">Load</button>
+      </form>
+      {error && <p className="error">{error}</p>}
+      {status && (
+        <>
+          <p data-testid="replay-status">{status.map}: ticks {status.first}–{status.last}, {status.bots.length} bots{status.world ? '' : ' (no world: the brains hold)'}</p>
+          <input type="range" aria-label="tick" min={status.first} max={status.last} value={tick} onChange={e => setTick(Number(e.target.value))} />
+          <span> tick {tick}</span>
+          <nav className="ai-bots">
+            {status.bots.map(b => (
+              <button key={b.slot} type="button" aria-pressed={b.slot === slot} onClick={() => setSlot(b.slot)}>#{b.slot}</button>
+            ))}
+          </nav>
+        </>
+      )}
+      {frame && (
+        <>
+          <p data-testid="replay-intent" className={frame.same ? 'ai-same' : 'ai-diff'}>
+            at tick {frame.tick}, decide {frame.decide}: {frame.same ? 'the replay made the recorded intent' : 'the intents DIFFER'}
+          </p>
+          {!frame.same && (
+            <div className="ai-diff-pair">
+              <pre data-testid="replay-recorded">{JSON.stringify(frame.recorded, null, 1)}</pre>
+              <pre data-testid="replay-replayed">{JSON.stringify(frame.replayed, null, 1)}</pre>
+            </div>
+          )}
+          <MemoryPart bot={{ record: frame.record } as AiBot} />
+          <DoingPart doing={frame.record.doing} />
         </>
       )}
     </div>

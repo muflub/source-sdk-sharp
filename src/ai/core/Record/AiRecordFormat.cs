@@ -17,7 +17,16 @@ public enum AiRecordType : byte
     Snapshot = 5,
     Intent = 6,
     UserCmd = 7,
+    World = 8,
 }
+
+/// <summary>
+/// What the brains of a recording knew of the world (format 2's World record):
+/// the map's knowledge (§5.0), the tick, the skill curves' text (§10) and the
+/// nav graph's hash. A replay rebuilds the brains' world from it and the
+/// graph the hash names, so a live recording replays as the game decided.
+/// </summary>
+public sealed record AiRecordedWorld(MapKnowledge Map, float TickSeconds, string CurvesJson, ulong NavGraphHash);
 
 /// <summary>
 /// What a recording was made under: the match seed, the map, the nav graph's
@@ -37,8 +46,8 @@ public static class AiRecordFormat
     /// <summary>The first eight bytes of every <c>.airec</c> file.</summary>
     public static ReadOnlySpan<byte> Magic => "SSAIREC\0"u8;
 
-    /// <summary>The format this build writes, and the only one it reads.</summary>
-    public const ushort Version = 1;
+    /// <summary>The format this build writes. It reads this one and 1 (format 2 added the World record).</summary>
+    public const ushort Version = 2;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -60,8 +69,8 @@ public static class AiRecordFormat
         if (!head[..8].SequenceEqual(Magic))
             throw new InvalidDataException("not an .airec file: the magic is wrong");
         ushort version = BinaryPrimitives.ReadUInt16LittleEndian(head[8..]);
-        if (version != Version)
-            throw new InvalidDataException($".airec format {version} is not {Version}, the one this build reads");
+        if (version is < 1 or > Version)
+            throw new InvalidDataException($".airec format {version} is not one this build reads (1..{Version})");
     }
 
     /// <summary>Writes one record: its type, its length, its payload.</summary>
@@ -116,6 +125,78 @@ public static class AiRecordFormat
         w.Write(h.Slots);
         w.Write(h.SightedCapacity);
     }
+
+    public static void Write(BinaryWriter w, AiRecordedWorld world)
+    {
+        WriteString(w, world.Map.Map);
+        w.Write(world.TickSeconds);
+        w.Write(world.NavGraphHash);
+        w.Write(world.Map.Items.Length);
+        foreach (ItemSpawn i in world.Map.Items)
+        {
+            w.Write(i.Index);
+            WriteString(w, i.ClassName);
+            w.Write((byte)i.Kind);
+            Write(w, i.Position);
+            w.Write(i.RespawnSeconds);
+            w.Write(i.WeaponKind);
+        }
+
+        w.Write(world.Map.Spawns.Length);
+        foreach (AiVector s in world.Map.Spawns)
+            Write(w, s);
+        w.Write(world.Map.Weapons.All.Length);
+        foreach (WeaponFacts f in world.Map.Weapons.All)
+        {
+            w.Write(f.Kind);
+            WriteString(w, f.Name);
+            w.Write(f.ClipSize);
+            w.Write(f.CadenceSeconds);
+            w.Write(f.ReloadSeconds);
+            w.Write(f.ReloadAudible);
+            w.Write(f.ShellByShell);
+            w.Write(f.ProjectileSpeed);
+        }
+
+        byte[] curves = Encoding.UTF8.GetBytes(world.CurvesJson);
+        w.Write(curves.Length);
+        w.Write(curves);
+    }
+
+    public static AiRecordedWorld ReadWorld(BinaryReader r)
+    {
+        string map = ReadString(r);
+        float tick = r.ReadSingle();
+        ulong nav = r.ReadUInt64();
+        var items = new ItemSpawn[Count(r)];
+        for (int i = 0; i < items.Length; i++)
+            items[i] = new ItemSpawn(r.ReadInt32(), ReadString(r), (ItemKind)r.ReadByte(), ReadVector(r), r.ReadSingle(), r.ReadInt32());
+        var spawns = new AiVector[Count(r)];
+        for (int i = 0; i < spawns.Length; i++)
+            spawns[i] = ReadVector(r);
+        var weapons = new WeaponFacts[Count(r)];
+        for (int i = 0; i < weapons.Length; i++)
+            weapons[i] = new WeaponFacts(r.ReadInt32(), ReadString(r), r.ReadInt32(), r.ReadSingle(), r.ReadSingle(), r.ReadBoolean(), r.ReadBoolean(), r.ReadSingle());
+        string curves = Encoding.UTF8.GetString(r.ReadBytes(Count(r)));
+        return new AiRecordedWorld(new MapKnowledge(map, [.. items], [.. spawns], new WeaponKnowledge(weapons)), tick, curves, nav);
+    }
+
+    private static int Count(BinaryReader r)
+    {
+        int n = r.ReadInt32();
+        if (n < 0 || n > MaxPayload)
+            throw new InvalidDataException($"a count of {n} is no count");
+        return n;
+    }
+
+    private static void WriteString(BinaryWriter w, string s)
+    {
+        byte[] b = Encoding.UTF8.GetBytes(s);
+        w.Write((ushort)b.Length);
+        w.Write(b);
+    }
+
+    private static string ReadString(BinaryReader r) => Encoding.UTF8.GetString(r.ReadBytes(r.ReadUInt16()));
 
     public static AiRecordingHeader ReadHeader(BinaryReader r)
     {

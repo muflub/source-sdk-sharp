@@ -111,6 +111,9 @@ public sealed class NavGraph
 
     public NavCell Cell(int index) => _cells[index];
 
+    /// <summary>The cell without a copy, for the predictors' hops.</summary>
+    internal ref readonly NavCell CellRef(int index) => ref _cells.ItemRef(index);
+
     /// <summary>The edges leaving <paramref name="cell"/>, in the order they were added.</summary>
     public ReadOnlySpan<NavEdge> EdgesFrom(int cell) => _out.AsSpan(_outStart[cell], _outStart[cell + 1] - _outStart[cell]);
 
@@ -299,6 +302,14 @@ public sealed class NavObstacleState
     public bool OpenDoors { get; set; }
 
     public void Set(int obstacle, bool blocking) => _blocking[obstacle] = blocking;
+
+    /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
+    public NavObstacleState Clone()
+    {
+        var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors };
+        _blocking.CopyTo(copy._blocking, 0);
+        return copy;
+    }
 }
 
 /// <summary>Builds a <see cref="NavGraph"/>: cells first, then edges between them.</summary>
