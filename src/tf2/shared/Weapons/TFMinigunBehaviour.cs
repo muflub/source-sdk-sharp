@@ -99,6 +99,15 @@ public class TFMinigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
     public static float SpinTime(WeaponNetState weapon, float now) =>
         weapon.BehaviourMeter > 0f ? now - weapon.BehaviourMeter - SpinUpTime : -SpinUpTime;
 
+    /// <summary>
+    /// How long the gun has fired (<c>GetFiringDuration</c>, <c>tf_weapon_minigun.h:97</c>): on the folded clock
+    /// the firing start is the wind-up start plus the spin-up, so the answer is <see cref="SpinTime"/>'s without
+    /// the negative tail — the wind-up's own start still answers 0, as stock's unstamped
+    /// <c>m_flStartedFiringAt</c> does.
+    /// </summary>
+    public static float FiringDuration(WeaponNetState? weapon, float now) =>
+        weapon is { } w && w.BehaviourMeter > 0f ? Math.Max(now - w.BehaviourMeter - SpinUpTime, 0f) : 0f;
+
     /// <summary><c>GetProjectileDamage</c>'s ramp over the first second.</summary>
     public static float DamageScale(float spinTime) =>
         spinTime < PenaltyPeriod ? CritBucket.RemapValClamped(spinTime, 0.2f, PenaltyPeriod, 0.5f, 1f) : 1f;

@@ -228,6 +228,7 @@ internal sealed class ObjectiveRig
     public readonly TFPlayerCarriers Carriers = new();
     public readonly FakeConceptRules ConceptRules = new();
     public readonly FakeConceptTeams ConceptTeams = new();
+    public readonly FakeRandom Random = new();
     public readonly TFConceptSpeech Speech;
     public readonly ServiceContainer Services;
 
@@ -279,7 +280,7 @@ internal sealed class ObjectiveRig
         Services.AddInstance<IObjectiveEntities>(Entities);
         Services.AddInstance<IObjectiveEvents>(Events);
         Services.AddInstance<IHudMaterialIndex>(new FakeMaterials());
-        Services.AddInstance<IUniformRandom>(new FakeRandom());
+        Services.AddInstance<IUniformRandom>(Random);
         Services.AddInstance(new TF2.Server.Rules.TFWinPanelCappers());
         Services.AddInstance<IRoundTimerHost>(TimerHost);
         Services.AddInstance<IRoundTimers>(new RoundTimers(Registry));
@@ -297,7 +298,7 @@ internal sealed class ObjectiveRig
         Services.AddInstance<IResponseRules>(ConceptRules);
         Services.AddInstance<ITeams>(ConceptTeams);
         Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
-            Services.Resolve<IEnginePlayers>()!, ConceptSceneImage(), Services.Resolve<IEngineSound>()!);
+            Services.Resolve<IEnginePlayers>()!, ConceptSceneImage(), Services.Resolve<IEngineSound>()!, Random);
         Services.AddInstance(Speech);
         Registry.Services = Services;
     }
@@ -407,6 +408,9 @@ internal sealed class FakeConceptRules : IResponseRules
 {
     public readonly List<(string Concept, string PlayerClass)> Asked = new();
 
+    /// <summary>The weapon and roll words the ask carried, in ask order.</summary>
+    public readonly List<(string Key, string Value)> Words = new();
+
     public bool Match = true;
 
     public ResponseKind Kind = ResponseKind.Speak;
@@ -416,6 +420,8 @@ internal sealed class FakeConceptRules : IResponseRules
     public bool FindBestResponse(ResponseCriteriaSet criteria, out MatchedResponse response, IResponseFilter? filter = null)
     {
         Asked.Add((criteria.GetValue(criteria.Find("concept")), criteria.GetValue(criteria.Find("playerclass"))));
+        foreach (string key in new[] { "playerweapon", "minigunfiretime", "randomnum" })
+            Words.Add((key, criteria.GetValue(criteria.Find(key))));
 
         response = Match ? new MatchedResponse { Kind = Kind, Name = Name, Rule = "staged" } : new();
         return Match;

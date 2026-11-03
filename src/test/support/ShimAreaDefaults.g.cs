@@ -394,6 +394,7 @@ internal sealed unsafe class DefaultEffectsRenderClientArea : IEffectsRenderClie
     public int ParticleSystemFollowEntity(uint a0, int a1, uint a2, int a3, float* a4) => default;
     public int ParticleSystemStartSlot(uint a0, byte* a1, int a2) => default;
     public void ParticleSystemStopSlot(uint a0, int a1) { }
+    public int ParticleSystemFollowEntitySlot(uint a0, int a1, uint a2, int a3, int a4, float* a5) => default;
 }
 
 /// <summary><see cref="IStandaloneClientArea"/> for a test with no engine: every call answers its default.</summary>

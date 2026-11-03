@@ -170,6 +170,10 @@ public:
 	// a slot replaces that slot's system only; an unknown slot refuses.
 	virtual int32_t ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot) = 0;
 	virtual void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot) = 0;
+	// The follow of a slot other than the first: the blast jump's smoke wears a foot per
+	// slot. Same rules as the slot-0 follow; an unknown slot refuses.
+	virtual int32_t ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
+												   int32_t nAttachment, int32_t nSlot, const float* pOffsetXYZ) = 0;
 };
 
 abstract_class IShimStandaloneClient

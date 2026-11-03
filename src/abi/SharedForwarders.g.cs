@@ -2055,7 +2055,7 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEffectsRenderClient</c> through its forwarders (SSFwd_ShimEffectsRenderClient): 34 slot(s).
+/// <c>IShimEffectsRenderClient</c> through its forwarders (SSFwd_ShimEffectsRenderClient): 35 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
@@ -2164,6 +2164,9 @@ internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
 
     // void IShimEffectsRenderClient::ParticleSystemStopSlot( uint32_t, int32_t )
     public delegate* unmanaged<void*, uint, int, void> ParticleSystemStopSlot;
+
+    // int32_t IShimEffectsRenderClient::ParticleSystemFollowEntitySlot( uint32_t, int32_t, uint32_t, int32_t, int32_t, const float * )
+    public delegate* unmanaged<void*, uint, int, uint, int, int, void*, int> ParticleSystemFollowEntitySlot;
 }
 
 /// <summary>

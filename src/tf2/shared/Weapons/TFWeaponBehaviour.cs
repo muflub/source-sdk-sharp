@@ -630,6 +630,11 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
         weapon.BehaviourMode |= ModeReloadingSingly;
         weapon.BehaviourTimeA = firstRound;
         HoldReloadPast(weapon, firstRound, round);
+
+        // TF_RELOAD_START's own animation (:1978). It lands after the
+        // machine's entry send in this same command, whose plain reload it
+        // replaces — stock's singly path never plays the plain reload first.
+        SendAnim(attack, WeaponAnim.ReloadStart);
     }
 
     private void ReloadSinglyFrame(in WeaponAttackContext attack, TFWeaponScript script)
@@ -665,17 +670,23 @@ public class TFWeaponBehaviour(TFWeaponParts parts) : IWeaponBehaviour
 
         if (weapon.Clip >= clipSize || weapon.Reserve <= 0)
         {
+            // TF_RELOAD_FINISH, once there is nothing left to load (:2080).
+            SendAnim(attack, WeaponAnim.ReloadFinish);
+
             // TF_RELOAD_FINISH: the machine's own finish (nothing left to load) ends it next command.
             EndReload(weapon, attack.Now, aborted: false);
             return;
         }
 
         // The next round: TF_RELOADING's sound and timer, this round's clock
-        // through SetReloadTimer like stock's (UpdateReloadTimers(false), :2259).
+        // through SetReloadTimer like stock's (UpdateReloadTimers(false), :2259),
+        // and the reload again over the wait — stock replays it per shell
+        // (:2013), which is what keeps the load's rhythm on the viewmodel.
         float round = ScaleReloadTime(attack.Type, mode.TimeReload, attack.Command.OwnerIndex);
         float next = weapon.BehaviourTimeA + round;
         if (attack.EffectsLive && attack.Type.ReloadSound.Length > 0)
             attack.Arms.Sound(attack.Type.ReloadSound);
+        SendAnim(attack, WeaponAnim.Reload);
         weapon.BehaviourTimeA = next;
         HoldReloadPast(weapon, next, round);
     }

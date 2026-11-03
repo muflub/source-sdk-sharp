@@ -282,10 +282,10 @@ TEST( FwdShimAreas, ShimTempEntBackendsClientIs21Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimEffectsRenderClientIs34Slots )
+TEST( FwdShimAreas, ShimEffectsRenderClientIs35Slots )
 {
-	const int compiler = VTableHook::MemberOf( &IShimEffectsRenderClient::ParticleSystemStopSlot ).slot + 1;
-	EXPECT_EQ( 34, compiler );
+	const int compiler = VTableHook::MemberOf( &IShimEffectsRenderClient::ParticleSystemFollowEntitySlot ).slot + 1;
+	EXPECT_EQ( 35, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimEffectsRenderClient" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

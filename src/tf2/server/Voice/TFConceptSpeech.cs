@@ -35,6 +35,7 @@ public sealed class TFConceptSpeech(
     IEnginePlayers players,
     TFSceneImage scenes,
     IEngineSound sound,
+    IUniformRandom rng,
     ITeamRoundState? round = null,
     ILog? log = null)
 {
@@ -60,7 +61,15 @@ public sealed class TFConceptSpeech(
     public const string MinigunFireWeapon = "TLK_MINIGUN_FIREWEAPON";
 
     /// <summary>The player speaks the concept; false when dead, uncarried or unmatched.</summary>
-    public bool Speak(EntityHandle speaker, string concept)
+    public bool Speak(EntityHandle speaker, string concept) => Speak(speaker, concept, "", 0f);
+
+    /// <summary>
+    /// The player speaks with its held weapon's words beside the player's own
+    /// (<c>CTFPlayer::ModifyOrAppendCriteria</c>, tf_player.cpp:19212+: the classname
+    /// of the weapon in hand, and its firing duration to one decimal), and with the
+    /// roll the percent-chance criteria read.
+    /// </summary>
+    public bool Speak(EntityHandle speaker, string concept, string weaponName, float firingDuration)
     {
         // SpeakIfAllowed's gate (basemultiplayerplayer.cpp:71-78).
         if (!players.IsAlive(speaker))
@@ -69,6 +78,16 @@ public sealed class TFConceptSpeech(
         var criteria = new ResponseCriteriaSet();
         criteria.Append("concept", concept);
         TFPlayerCriteriaWords.Append(carriers.Get(speaker.EntryIndex), teams.Team(speaker), round, criteria);
+
+        // The roll behind the percent-chance criteria (SpeakInternal): a missing key
+        // fails them all, so it rides every ask.
+        criteria.Append("randomnum", rng.RandomInt(0, 100).ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        if (!string.IsNullOrEmpty(weaponName))
+        {
+            criteria.Append("playerweapon", weaponName);
+            criteria.Append("minigunfiretime", firingDuration.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
+        }
 
         if (!responseRules.FindBestResponse(criteria, out var response))
             return false;
@@ -113,6 +132,13 @@ public sealed class TFConceptSpeech(
     {
         EntityHandle speaker = players.GetHandle(playerIndex);
         return speaker != EntityHandle.None && Speak(speaker, concept);
+    }
+
+    /// <summary>The player at an entry index speaks with its held weapon's words beside.</summary>
+    public bool Speak(int playerIndex, string concept, string weaponName, float firingDuration)
+    {
+        EntityHandle speaker = players.GetHandle(playerIndex);
+        return speaker != EntityHandle.None && Speak(speaker, concept, weaponName, firingDuration);
     }
 
     /// <summary>

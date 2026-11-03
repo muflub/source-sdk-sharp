@@ -436,8 +436,10 @@ public partial class EngineApiCensusTests
     // slot beside the burn's and the glow's (259 + 2, after the scope's material texture).
     // The condition overlays (tf2 2.3): ScreenOverlaySet and ScreenOverlayGet,
     // the full-screen material by name, the client's view alone (261 + 2).
-    // (253 + 10 = 263; less ClientIsLowViolence: 262.)
-    private const int ClientOnly = 262;
+    // The blast jump's smoke (tf2 2.x): ParticleSystemFollowEntitySlot, a follow
+    // of a slot other than the first, the smoke's foot per slot (262 + 1).
+    // (253 + 11 = 264; less ClientIsLowViolence: 263.)
+    private const int ClientOnly = 263;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

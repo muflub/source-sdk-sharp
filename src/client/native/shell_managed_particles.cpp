@@ -1045,7 +1045,22 @@ int32_t CParticleSystemsClient::ParticleSystemFollowPoints(uint32_t hOwner, int3
 int32_t CParticleSystemsClient::ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
 														   int32_t nAttachment, const float* pOffsetXYZ)
 {
-	int nIndex = ShellEffects_Find(m_Slots[0], hOwner);
+	return ParticleSystemFollowEntitySlot(hOwner, nPoint, hEntity, nAttachment, 0, pOffsetXYZ);
+}
+
+// The slot-addressed follow: the blast jump's smoke wears a foot per slot, beside the
+// slot-0 point the medigun beam's ends follow. Every slot's sweep honours the entry, so
+// only the setter had to learn the slot.
+int32_t CParticleSystemsClient::ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
+															   int32_t nAttachment, int32_t nSlot,
+															   const float* pOffsetXYZ)
+{
+	Systems_t* pSystems = Slot(nSlot);
+
+	if (!pSystems)
+		return 0;
+
+	int nIndex = ShellEffects_Find(*pSystems, hOwner);
 
 	if (nIndex < 0)
 		return 0;
@@ -1053,7 +1068,7 @@ int32_t CParticleSystemsClient::ParticleSystemFollowEntity(uint32_t hOwner, int3
 	if (nPoint < 0 || nPoint > kSourceSharpParticleMaxFollowPoint)
 		return 0;
 
-	System_t& entry = m_Slots[0][nIndex];
+	System_t& entry = (*pSystems)[nIndex];
 
 	if (hEntity == 0)
 	{

@@ -56,6 +56,8 @@ public:
 	void ParticleSystemStopExtra(uint32_t hOwner);
 	int32_t ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot);
 	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot);
+	int32_t ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
+										   int32_t nSlot, const float* pOffsetXYZ);
 
 	// IShimParticlesClient: the one-shots, watched and not held, and the dev API's read. The
 	// impact's is in shell_impact_effects.cpp.
@@ -111,10 +113,11 @@ private:
 	};
 
 	// The slots by index: 0 the first, 1 the crit glow's extra, 2 the urine's drips, 3 the
-	// milk's. NULL is a slot outside the table: its start refuses, its stop has nothing to free.
+	// milk's, 4 and 5 the blast jump's smoke, a foot per slot. NULL is a slot outside the
+	// table: its start refuses, its stop has nothing to free.
 	enum
 	{
-		kSlots = 4
+		kSlots = 6
 	};
 
 	Systems_t* Slot(int nSlot) { return (nSlot >= 0 && nSlot < kSlots) ? &m_Slots[nSlot] : NULL; }
@@ -133,9 +136,10 @@ private:
 	CStandaloneClients& m_Standalone;
 	CNewParticlesClient& m_NewParticles;
 
-	// Slot 0 holds one system per owner; the crit glow runs beside the trail in slot 1, and
-	// the condition drips (jarate's and the milk's) beside the burn, the glow and each other
-	// in slots 2 and 3, as stock holds one member per effect on the player.
+	// Slot 0 holds one system per owner; the crit glow runs beside the trail in slot 1, the
+	// condition drips (jarate's and the milk's) beside the burn, the glow and each other in
+	// slots 2 and 3, and the blast jump's smoke wears a foot per slot in 4 and 5, as stock
+	// holds one member per effect on the player.
 	Systems_t m_Slots[kSlots];
 
 	CUtlVector<Watched_t*> m_Watched;

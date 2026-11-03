@@ -456,6 +456,9 @@ public interface IEngineEffects
     /// <inheritdoc cref="ParticleSystemStartSlot"/>
     void ParticleSystemStopSlot(EntityHandle owner, int slot);
 
+    /// <inheritdoc cref="ParticleSystemFollowEntity"/>
+    bool ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset = null);
+
     /// <inheritdoc cref="EngineSide.SpriteTrailUpdate"/>
     void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible);
 

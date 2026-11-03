@@ -186,6 +186,7 @@ public sealed class TFWeaponEffects(ITFProjectileEffects? projectiles = null, IT
             return;
 
         _firingGate[owner] = attack.Now + SpeechWindow;
-        _speech.Speak(owner, TFConceptSpeech.MinigunFireWeapon);
+        _speech.Speak(owner, TFConceptSpeech.MinigunFireWeapon, attack.Type.Name,
+                      TFMinigunBehaviour.FiringDuration(attack.Weapon, attack.Now));
     }
 }

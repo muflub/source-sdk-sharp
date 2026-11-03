@@ -1109,3 +1109,5 @@ src/client/native/shell_particle_manifest_client.h	ports the manifest reads' dec
 src/client/native/shell_precipitation_draw_client.h	ports C_Precipitation's draw entry's declaration (c_effects.cpp) as a class; split from shell_precipitation_client.cpp
 src/client/native/shell_te_system_client.h	ports C_TempEntsSystem's interface (c_te.cpp) as a thunk onto managed decisions; split from shell_te_forwards_client.cpp
 src/client/native/shell_te_tables_client.h	native code built against SDK headers (dt_recv.h, client_class.h): the temp entity tables as a class, from shell_tempents_client.cpp
+src/tf2/client/Weapons/TFMinigunLoop.cs	ports CTFMinigun::WeaponSoundUpdate loop switching by weapon state (tf_weapon_minigun.cpp:1381-1496)
+src/tf2/client/Player/TFBlastJumpSmoke.cs	ports the client half of the blast-jump smoke arm (game/server/tf/tf_player.cpp:1509-1515, 8707-8713)

@@ -99,6 +99,9 @@ public static class TFClientConditionOrders
     public const int TauntCamera = Band + 5;
     /// <summary>The team-coloured teammate glows of <c>TF_COND_TEAM_GLOWS</c> (the team glow arm).</summary>
     public const int TeamGlows = Band + 6;
+
+    /// <summary>The blast jump's feet smoke (the smoke arm).</summary>
+    public const int BlastJumpSmoke = Band + 7;
 }
 
 /// <summary>The TF2 client's condition seam: the driver's chain, which only a registrar can name.</summary>

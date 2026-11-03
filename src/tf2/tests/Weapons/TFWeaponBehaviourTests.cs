@@ -489,6 +489,69 @@ public sealed class TFWeaponBehaviourTests
         Assert.Equal(24, w.Reserve);
     }
 
+    // The viewmodel animations of a single-shell reload, stock's
+    // CTFWeaponBase::ReloadSingly arms: the start when the reload begins
+    // (tf_weaponbase.cpp:1978), the reload again with each shell (:2013) and
+    // the finish once the clip is full (:2080).
+    private const int StartSeq = 21;
+    private const int ReloadSeq = 22;
+    private const int FinishSeq = 23;
+
+    private (TFWeaponWorld World, WeaponNetState W, ViewModelNetState Vm) ArmedForReloadAnims()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 0, reserve: 32);
+        world.Arms.Sequences[WeaponAnim.ReloadStart] = StartSeq;
+        world.Arms.Sequences[WeaponAnim.Reload] = ReloadSeq;
+        world.Arms.Sequences[WeaponAnim.ReloadFinish] = FinishSeq;
+        return (world, w, vm);
+    }
+
+    [Fact]
+    public void A_singly_reload_opens_on_the_reload_start_animation()
+    {
+        var (world, w, vm) = ArmedForReloadAnims();
+
+        world.Run(w, vm, buttons: 0, now: 10f);
+
+        Assert.True(w.InReload);
+        Assert.Equal(StartSeq, vm.Sequence);
+    }
+
+    [Fact]
+    public void A_singly_replays_the_reload_with_each_shell()
+    {
+        var (world, w, vm) = ArmedForReloadAnims();
+
+        world.Run(w, vm, 0, now: 10f);
+        int startParity = vm.AnimationParity;
+
+        // The first shell (TimeReloadStart 0.1 + TimeReload 0.5): the reload
+        // animation restarts for the wait that loads the next one.
+        world.Run(w, vm, 0, now: 10.6f);
+        Assert.Equal(1, w.Clip);
+        Assert.Equal(ReloadSeq, vm.Sequence);
+        Assert.NotEqual(startParity, vm.AnimationParity);
+
+        world.Run(w, vm, 0, now: 11.1f);
+        Assert.Equal(2, w.Clip);
+        Assert.Equal(ReloadSeq, vm.Sequence);
+    }
+
+    [Fact]
+    public void A_singly_reload_ends_on_the_reload_finish_animation()
+    {
+        var (world, w, vm) = ArmedForReloadAnims();
+
+        world.Run(w, vm, 0, now: 10f);
+        for (float t = 10.05f; t < 14f; t += 0.05f)
+            world.Run(w, vm, 0, now: t);
+
+        Assert.Equal(6, w.Clip);
+        Assert.False(w.InReload);
+        Assert.Equal(FinishSeq, vm.Sequence);
+    }
+
     /// <summary>
     /// The whole-clip reload's clock is the viewmodel's reload animation,
     /// finished 0.2 s early — stock's <c>DefaultReload</c>
@@ -787,6 +850,22 @@ public sealed class TFWeaponBehaviourTests
         foreach (string name in new[] { Scattergun, Pistol, "tf_weapon_smg", "tf_weapon_revolver", "tf_weapon_shotgun_soldier" })
             Assert.IsAssignableFrom<TFWeaponBehaviour>(world.Behaviour(name));
         Assert.DoesNotContain(world.Log.Warnings(), l => l.Contains("tf2.gun") || l.Contains("tf2.shotgun"));
+    }
+
+    [Fact]
+    public void A_gun_shots_tail_asks_the_muzzle_flash_the_launchers_do()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Scattergun, clip: 6, reserve: 12);
+
+        world.Run(w, vm, Attack, now: 10f);
+
+        // The behaviour tail the machine runs after its shot (PrimaryAttack's
+        // end): DoFireEffects' muzzle flash — the same ask the launchers'
+        // FireProjectile tail makes, the script's effect at the hands' muzzle.
+        Assert.Equal(("tf_weapon_scattergun", "muzzle_scattergun"),
+                     Assert.Single(world.Arms.Flashes));
+        Assert.Single(world.Arms.Bullets);
     }
 }
 

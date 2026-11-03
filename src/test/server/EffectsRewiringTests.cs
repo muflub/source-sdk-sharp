@@ -437,10 +437,12 @@ public class EffectsRewiringTests
                                             .OrderBy(m => m.Name, StringComparer.Ordinal)
                                             .ToList();
 
-        Assert.True(members.Count == 54,
-            $"IEngineEffects has fifty-four members ({members.Count} found) — if this "
+        Assert.True(members.Count == 55,
+            $"IEngineEffects has fifty-five members ({members.Count} found) — if this "
           + "number moved, a member arrived and this sweep is the thing that decides whether "
-          + "it was wired. It has moved twenty-nine times (the twenty-ninth UP: tf2 2.3 added "
+          + "it was wired. It has moved thirty times (the thirtieth UP: tf2 2.x added "
+          + "ParticleSystemFollowEntitySlot, the blast jump's smoke wearing a foot per slot; "
+          + "the twenty-ninth UP: tf2 2.3 added "
           + "ParticleSystemStartSlot and ParticleSystemStopSlot, a caller that counts its own "
           + "systems starting one in a numbered slot — the condition drips beside the burn's "
           + "and the glow's; the twenty-eighth UP: tf2 3.x added "
@@ -486,6 +488,10 @@ public class EffectsRewiringTests
         // several conditions wears several effects.
         Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemStartSlot"), members);
         Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemStopSlot"), members);
+
+        // The smoke's slot-follow: a point of a numbered slot's system riding an
+        // entity's attachment, the blast jump's foot.
+        Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemFollowEntitySlot"), members);
 
         // The one member whose stock behaviour is to refuse the arguments a
         // reflective sweep can invent. Named rather than skipped silently.
@@ -563,8 +569,8 @@ public class EffectsRewiringTests
                 $"{expected} is answered over ITempEnts");
         }
 
-        Assert.True(forwarded.Count == 42,
-            "and forty-two reached the engine unchanged — fifty-three less the eight that moved and the three "
+        Assert.True(forwarded.Count == 43,
+            "and forty-three reached the engine unchanged — fifty-four less the eight that moved and the three "
           + "that refused the sweep (the three FireEffect forwards and BloodDecal went with their "
           + "slots, plan_server_native_v2 T2, ClientExplosionFireball with the glow overlays' port, "
           + "C7; BubbleEffect and PaintDecal moved at T4f; TempEntPoolSimulate left in the serialised "

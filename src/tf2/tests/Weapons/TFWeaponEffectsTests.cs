@@ -182,4 +182,34 @@ public sealed class TFWeaponEffectsTests
         effects.SpeakWeaponFire(At(15.2f), "");
         Assert.Equal(3, rig.ConceptRules.Asked.Count);
     }
+
+    /// <summary>
+    /// The firing ask carries its held weapon's words beside the concept
+    /// (<c>CTFPlayer::ModifyOrAppendCriteria</c>, tf_player.cpp:19212+): the
+    /// classname in hand, the firing duration to one decimal
+    /// (<c>GetFiringDuration</c>, tf_weapon_minigun.h:97), and the roll the
+    /// percent-chance criteria read.
+    /// </summary>
+    [Fact]
+    public void The_firing_ask_carries_the_held_weapon_words()
+    {
+        var rig = SpeechRig(out _);
+        rig.Random.Next = 80;
+        var effects = new TFWeaponEffects(speech: rig.Speech);
+
+        var weaponState = new WeaponNetState();
+        weaponState.BindLocal();
+        weaponState.BehaviourMeter = 10f - TFMinigunBehaviour.SpinUpTime - 5f;
+
+        var attack = new WeaponAttackContext(
+            new WeaponType("tf_weapon_minigun", 0.1f), weaponState,
+            default!, 10f, EffectsLive: true, new RecordingArms(), new WeaponCommand(1, 5, 3));
+
+        effects.FiringSpeech(in attack);
+
+        Assert.Equal("TLK_MINIGUN_FIREWEAPON", rig.ConceptRules.Asked[0].Concept);
+        Assert.Contains(("playerweapon", "tf_weapon_minigun"), rig.ConceptRules.Words);
+        Assert.Contains(("minigunfiretime", "5.0"), rig.ConceptRules.Words);
+        Assert.Contains(("randomnum", "80"), rig.ConceptRules.Words);
+    }
 }

@@ -192,7 +192,8 @@ internal sealed class PayloadRig
         services.AddInstance<IResponseRules>(ConceptRules);
         services.AddInstance<ITeams>(ConceptTeams);
         Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
-            services.Resolve<IEnginePlayers>()!, ObjectiveRig.ConceptSceneImage(), services.Resolve<IEngineSound>()!);
+            services.Resolve<IEnginePlayers>()!, ObjectiveRig.ConceptSceneImage(), services.Resolve<IEngineSound>()!,
+            services.Resolve<IUniformRandom>()!);
         services.AddInstance(Speech);
 
         var convars = ConVarRegistry.For(TestServices.UnattachedConsole());

@@ -1257,6 +1257,7 @@ public sealed class RecordingEngine :
     bool IEngineEffects.ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntity", owner, point, entity, attachment, offset);
     bool IEngineEffects.ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => Record<bool>("Effects.ParticleSystemStartSlot", owner, name, slot);
     void IEngineEffects.ParticleSystemStopSlot(EntityHandle owner, int slot) => RecordVoid("Effects.ParticleSystemStopSlot", owner, slot);
+    bool IEngineEffects.ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntitySlot", owner, point, entity, attachment, slot, offset);
     void IEngineEffects.SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => RecordVoid("Effects.SpriteTrailUpdate", owner, renderMode, visible);
     void IEngineEffects.SpriteTrailDestroy(EntityHandle owner) => RecordVoid("Effects.SpriteTrailDestroy", owner);
     void IEngineEffects.DustEffect(Vector origin, Vector direction, float size, float speed) => RecordVoid("Effects.DustEffect", origin, direction, size, speed);

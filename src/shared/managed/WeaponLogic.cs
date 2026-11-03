@@ -417,8 +417,11 @@ public static class WeaponAnimNames
         WeaponAnim.Secondary    => new[] { "ACT_VM_SECONDARYATTACK" },
         WeaponAnim.DryFire      => new[] { "ACT_VM_DRYFIRE" },
         WeaponAnim.Pump         => new[] { "ACT_SHOTGUN_PUMP" },
-        WeaponAnim.ReloadStart  => new[] { "ACT_SHOTGUN_RELOAD_START" },
-        WeaponAnim.ReloadFinish => new[] { "ACT_SHOTGUN_RELOAD_FINISH" },
+        // After the shotgun's names, TF's own base activities: a singly reload
+        // asks them (tf_weaponbase.cpp:1978/:2080) and the viewmodel act table
+        // rewrites them per role, which the shotgun names reach no TF row of.
+        WeaponAnim.ReloadStart  => new[] { "ACT_SHOTGUN_RELOAD_START", "ACT_RELOAD_START" },
+        WeaponAnim.ReloadFinish => new[] { "ACT_SHOTGUN_RELOAD_FINISH", "ACT_RELOAD_FINISH" },
         WeaponAnim.PullbackHigh => new[] { "ACT_VM_PULLBACK_HIGH" },
         WeaponAnim.PullbackLow  => new[] { "ACT_VM_PULLBACK_LOW" },
         WeaponAnim.Throw        => new[] { "ACT_VM_THROW" },

@@ -219,6 +219,7 @@ ParticleSystemStopExtra	EngineApi	IShimEffectsRenderClient	client		client	-	CPar
 ParticleSystemFollowEntity	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemFollowEntity	uint, int, uint, int, float*, int	
 ParticleSystemStartSlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemStartSlot	uint, byte*, int, int	
 ParticleSystemStopSlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemStopSlot	uint, int, void	
+ParticleSystemFollowEntitySlot	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemFollowEntitySlot	uint, int, uint, int, int, float*, int	
 ActivateOccluder	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ActivateOccluder	int, int, void	
 ClientInterpBlocks	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientInterpBlocks	int*, float*, void**	
 ClientPolicyBlocks	EngineApi	IShimStandaloneClient	client		client	-	CStandaloneClients::ClientPolicyBlocks	int*, void**	
