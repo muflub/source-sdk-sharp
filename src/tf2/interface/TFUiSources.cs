@@ -78,6 +78,12 @@ public interface ITFLocalPlayer
     /// undefined row is) plus the script's <c>MaxClip1</c> when it has
     /// one. 0 with no weapon to count.</summary>
     int MaxTotalAmmo { get; }
+
+    /// <summary>The engineer's metal stock: the local player's
+    /// <c>TF_AMMO_METAL</c> pool, the account the metal panel counts
+    /// (stock's changed-metal event payload,
+    /// c_tf_player.cpp:4799-4813) and the build menu's purse.</summary>
+    int Metal { get; }
 }
 
 /// <summary>
@@ -1507,4 +1513,22 @@ public interface ITFMainMenuActions
     /// <summary>In game: ReportPlayerButton, the GameUI's
     /// <c>OpenReportPlayerDialog</c>.</summary>
     void ReportPlayer();
+}
+
+/// <summary>
+/// The demoman's sticky-bomb counter (tf_hud_demomanpipes.cpp): the pipes
+/// panel's count, stock's <c>CHudDemomanPipes::OnTick</c>
+/// <c>GetNumActivePipebombs</c> read (tf_player_shared.cpp:13065). ShouldDraw's
+/// remaining arms — the Halloween ghost, the minigame and the match summary
+/// (:112-119) — have no port to gate on yet.
+/// </summary>
+public interface ITFDemomanPipes
+{
+    /// <summary>ShouldDraw's arms the port holds: a live demoman
+    /// (tf_hud_demomanpipes.cpp:104-110).</summary>
+    bool Present { get; }
+
+    /// <summary>The sticky bombs out — the launcher's
+    /// <c>m_iPipebombCount</c> through <c>GetNumActivePipebombs</c>.</summary>
+    int Count { get; }
 }

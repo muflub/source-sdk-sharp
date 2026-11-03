@@ -77,6 +77,14 @@ public sealed class TeamStatusPanel(ITFTeamStatus status, ITFRoundTimer timer, I
     private const string Portraits = "vgui/class_portraits/";
     private const string Silhouette = Portraits + "silhouette_alpha";
 
+    // The band's TFFatLineBorder image (clientscheme.res:3368-3378): 23-px
+    // source corners at 5 units; the slices key from 600, above the row
+    // keys' 400-respawn ceiling.
+    private const string BrownPanel = "hud/color_panel_brown";
+    private const float SrcCorner = 23f;
+    private const float DrawCorner = 5f;
+    private const int SliceKeyBase = 600;
+
     // The match backdrop and the counter's centre art, in res units:
     // hudmatchstatus.res BGFrame cs-0.5 y-5 365x28 — its 5-unit hang above
     // the screen clipped, the border the visible frame — and
@@ -121,15 +129,19 @@ public sealed class TeamStatusPanel(ITFTeamStatus status, ITFRoundTimer timer, I
         }
         float frameWide = MathF.Min(FrameWide, screen.Wide);
         var frame = StockRes.Spot(new StockRect(Clamp(centre - frameWide / 2f, frameWide), top - FrameTall, frameWide, FrameTall), screen);
-        // Stock's BGFrame is its TFFatLineBorder alone — no fill (hudmatchstatus
-        // res:210-228). The Surface fill and the frame line are both the artless
-        // fallback: once the material binds, the art itself is the backdrop the
-        // clock's digits and these chips read over, and no outline should stand
-        // around it (the live shot's thin rectangle over the bar).
-        bool artless = StockArt.Missing(textures, "hud/comp_round_timer");
-        ui.Rect(artless ? Tone.Surface : Tone.None, Size.Du(frame.Wide), Size.Du(frame.Tall))
-            .AtRes(UiAnchor.BottomLeft, frame.Left, frame.Bottom)
-            .Border(artless ? Tone.Line : Tone.None, 1).Layered().Key("match bg");
+        // Stock's BGFrame is its TFFatLineBorder: the hud/color_panel_brown
+        // scalable image across the whole panel — 23-px source corners at 5
+        // units, edges and centre stretched (clientscheme.res:3368-3378,
+        // hudmatchstatus.res:210-228) — the framed band the clock's digits
+        // and these chips read over. The Surface fill and the frame line are
+        // the artless fallback alone.
+        if (!StockArt.Scalable(ref ui, textures, "match bg", BrownPanel,
+                frame.Left, frame.Bottom, frame.Wide, frame.Tall, SrcCorner, DrawCorner, SliceKeyBase))
+        {
+            ui.Rect(Tone.Surface, Size.Du(frame.Wide), Size.Du(frame.Tall))
+                .AtRes(UiAnchor.BottomLeft, frame.Left, frame.Bottom)
+                .Border(Tone.Line, 1).Layered().Key("match bg");
+        }
         var art = StockRes.Spot(new StockRect(centre - ArtWide / 2f, top - ArtTall, ArtWide, ArtTall), screen);
         StockArt.Draw(ref ui, textures, "round counter", "hud/comp_round_timer",
             art.Left, art.Bottom, art.Wide, art.Tall);

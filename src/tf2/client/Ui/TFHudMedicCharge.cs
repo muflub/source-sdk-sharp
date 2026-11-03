@@ -14,6 +14,7 @@ using SourceSharp.Shared;
 
 using TF2.Client.Player;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Client.Ui;
@@ -25,16 +26,16 @@ namespace TF2.Client.Ui;
 /// prediction of it while it is fresh), the release (<c>m_bCharging</c>) and
 /// the beam's patient (<c>m_hHealTarget</c>, named through g_PR's
 /// GetPlayerName) off the decoded carrier. ShouldDraw (:147-170) is a live
-/// medic whose active weapon is the medigun, the bonesaw or a syringe gun
-/// with an ÜberCharge spend; the script surface carries no per-shot ammo
-/// count, so the syringe arm is a medic holding a projectile weapon (the
-/// syringe gun is the medic's only one), recorded in docs/divergences.md.
+/// medic whose active weapon is the medigun, the bonesaw — the medic's every
+/// melee is the bonesaw's class — or a syringe gun whose item spends
+/// ubercharge per shot (<see cref="TFUberSpend"/>).
 /// </summary>
 [SideService(Side.Client, As = [typeof(ITFMedicCharge)])]
 public sealed class TFHudMedicCharge(IEngineHud screen, ITFPlayerData data,
                                      ILocalArsenal arsenal, TFWeaponScripts scripts,
                                      IPlayerNames names, IClientStandalones standalones,
-                                     IWeaponDrawStates states) : ITFMedicCharge
+                                     IWeaponDrawStates states, ITFWeaponOwners owners,
+                                     AttributeHooks hooks) : ITFMedicCharge
 {
     public float Charge
         => Carried() is { } weapon
@@ -75,9 +76,15 @@ public sealed class TFHudMedicCharge(IEngineHud screen, ITFPlayerData data,
             if (!arsenal.TryGetActive(out string name, out _, out _)
                 || scripts.Get(name) is not { } script)
                 return false;                    // empty hands: stock's no-weapon arm (:156-161)
-            return TFWeaponKinds.Of(script) is TFWeaponKind.Medigun      // the medigun (:163)
-                or TFWeaponKind.Melee                                    // the bonesaw
-                or TFWeaponKind.Projectile;                              // the syringe gun (divergence, see the header)
+
+            // The weapon arms (:163-167): the medigun, the bonesaw, or the
+            // syringe gun whose item pays ubercharge per shot — the vanilla
+            // syringe spends none, so the meter leaves it to the ammo panel.
+            TFWeaponKind kind = TFWeaponKinds.Of(script);
+            return kind == TFWeaponKind.Medigun
+                || kind == TFWeaponKind.Melee
+                || (script.Id == TFWeaponId.SyringegunMedic
+                    && TFUberSpend.PerShot(hooks, owners, screen.LocalPlayerIndex, name) > 0f);
         }
     }
 

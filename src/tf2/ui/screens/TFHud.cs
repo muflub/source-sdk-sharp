@@ -20,7 +20,8 @@ namespace TF2.Client.Ui;
 public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel ammo,
                           ITFRoundTimer timer, RoundTimerPanel clock, ControlPointIconsPanel icons,
                           EscortPanel escort, FlagStatusPanel flags, MedicChargePanel medic,
-                          TeamStatusPanel teams, CloakPanel cloak, DisguisePanel disguise, ChatPanel chat) : UiScreen
+                          TeamStatusPanel teams, CloakPanel cloak, DisguisePanel disguise, ChatPanel chat,
+                          MetalPanel metal, DemomanPipesPanel pipes) : UiScreen
 {
     public override string Name => "tfhud";
     public override UiLayerKind Layer => UiLayerKind.Hud;
@@ -46,23 +47,22 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
             .Size(Size.Percent(100), Size.Percent(100)).Layered().Key("player corner");
 
         // Stock hangs the item-effect meters over the ammo corner. The
-        // invis watch rides the spy's override (huditemeffectmeter_spy.res:
-        // xpos r162 ypos r92, 100x50 — hudlayout.res:57-72's base row r52 is
-        // the sandman's); the medic rides HudMedicCharge (hudlayout.res:74-87:
-        // r138 r69, 200x100) whose visible Background is 130x65 at the panel's
-        // origin (hudmediccharge.res) — the panel's far side hangs 62 units
-        // past the screen, the background is what shows. The medic keeps its
-        // plate until its stock art lands, as the player status's layers do;
-        // the cloak's art is its own background, a bare host.
+        // invis watch rides the base meter row (huditemeffectmeter.res:
+        // xpos r174 ypos r62, 100x50 — huditemeffectmeter_spy.res's r162 r92
+        // is the revolver's meter); the medic rides HudMedicCharge
+        // (hudlayout.res:74-87: r138 r69, 200x100) whose visible Background
+        // is 130x65 at the panel's origin (hudmediccharge.res) — the panel's
+        // far side hangs 62 units past the screen, the background is what
+        // shows. Both are bare hosts: the plate is the panel's own art.
+        var medicAt = StockRes.Spot(HealthPanel.MedicBg, HealthPanel.MedicPanel, ui.Screen);
         if (medic.Present)
-            using (ui.Box().AtRes(UiAnchor.BottomRight, StockRes.Spot(HealthPanel.MedicBg, HealthPanel.MedicPanel, ui.Screen).Right,
-                                      StockRes.Spot(HealthPanel.MedicBg, HealthPanel.MedicPanel, ui.Screen).Bottom).Layered()
-                     .Fill(Tone.Surface).Border(Tone.Line, 1).Round(Radius.M).Pad(Space.S, Space.M).Key("medic corner"))
+            using (ui.Box().AtRes(UiAnchor.BottomRight, medicAt.Right, medicAt.Bottom)
+                               .Size(Size.Du(medicAt.Wide), Size.Du(medicAt.Tall)).Layered().Key("medic corner"))
                 ui.Sub("medic charge", medic);
 
-        // The cloak meter is a bare host: huditemeffectmeter_spy.res's own
-        // art is the background, the panel r162 r92 (the base row's r52 is
-        // the sandman's) — the spy res's override.
+        // The cloak meter is a bare host: huditemeffectmeter.res's own
+        // art is the background, the panel r174 r62 — the base row (the
+        // spy res's r92 is the revolver's).
         if (cloak.Present)
         {
             var cloakAt = StockRes.Spot(CloakPanel.Panel, ui.Screen);
@@ -95,6 +95,32 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
         if (player.ShowsAmmo)
             ui.Sub("ammo corner", ammo).AtRes(UiAnchor.BottomRight, ammoAt.Right, ammoAt.Bottom)
                 .Size(Size.Du(ammoAt.Wide), Size.Du(ammoAt.Tall));
+
+        // Left of the ammo, stock's CHudAccountPanel (hudlayout.res:199-211):
+        // xpos r162 ypos r152, 116x180 — the element's top 152 units up, its
+        // canvas hanging 28 past the screen's bottom, only the AccountBG
+        // plate at 5,103 showing (hudaccountpanel.res). A living engineer
+        // only (CHudAccountPanel::ShouldDraw, tf_hud_account.cpp:274-294);
+        // the plate's right slides under the ammo's art, the res boxes
+        // overlapping by 18 units, so the corner rides over.
+        if (metal.Present)
+        {
+            // The screen clips the canvas's hang (vgui clips what past the
+            // edge), so the host is the visible band.
+            var metalScreen = StockRes.Screen(ui.Screen);
+            var metalAt = StockRes.Spot(StockRes.ClippedToScreen(MetalPanel.Stock.Panel.Rect(metalScreen)), metalScreen);
+            ui.Sub("metal corner", metal).AtRes(UiAnchor.BottomRight, metalAt.Right, metalAt.Bottom)
+                .Size(Size.Du(metalAt.Wide), Size.Du(metalAt.Tall)).Layered();
+        }
+        // Right, above the ammo corner: stock's HudDemomanPipes
+        // (hudlayout.res:1045-1058) — r162 r52, 100x50, the sticky count and
+        // its icon. The corner exists only for a live demoman (ShouldDraw,
+        // tf_hud_demomanpipes.cpp:102-122): an empty box would draw a stray
+        // panel, as the ammo corner's rule has it.
+        var pipesAt = StockRes.Spot(new StockBox("r162", "r52", 100, 50), ui.Screen);
+        if (pipes.Present)
+            ui.Sub("pipes corner", pipes).AtRes(UiAnchor.BottomRight, pipesAt.Right, pipesAt.Bottom)
+                .Size(Size.Du(pipesAt.Wide), Size.Du(pipesAt.Tall));
 
         // Top-centre, under the clock: stock's CTFTeamStatus (hudmatchstatus
         // TeamStatus, z2) — the match backdrop, the round counter's centre
@@ -416,6 +442,54 @@ internal static class StockArt
     /// alone — no dark box under a texture's transparent margins — and the
     /// artless preview keeps the plate its contrast rule reads.</summary>
     public static bool Missing(IUiTextureLibrary textures, string name) => textures.Find(name) == 0;
+
+    /// <summary>Stock's scalable image: the texture in nine slices, the
+    /// source's <paramref name="srcCorner"/>-pixel corners drawn
+    /// <paramref name="drawCorner"/> du wide and the edges and centre
+    /// stretched (vgui's <c>backgroundtype 2</c> — the scheme borders and the
+    /// res panels that carry one). The corners keep their shape at every
+    /// panel size, which the one-quad stretch does not. A texture whose
+    /// extents are unknown or too small for the corner falls back to the
+    /// whole stretch. The nine slices share the caller's name, keyed
+    /// <paramref name="key"/> plus the slice number from
+    /// <paramref name="keyBase"/>.</summary>
+    /// <returns>Whether the texture was found (a miss draws nothing).</returns>
+    public static bool Scalable(ref UiFrame ui, IUiTextureLibrary textures, string key, string name,
+                                float left, float bottom, float wide, float tall,
+                                float srcCorner, float drawCorner, int keyBase)
+    {
+        if (textures.About(name) is not { } info
+            || info.Wide < srcCorner * 2 || info.Tall < srcCorner * 2
+            || wide < drawCorner * 2 || tall < drawCorner * 2)
+            return Draw(ref ui, textures, key, name, left, bottom, wide, tall);
+
+        float u = srcCorner / info.Wide;
+        float v = srcCorner / info.Tall;
+        float right = left + wide;
+        float top = bottom + tall;
+        float middleW = wide - drawCorner * 2;
+        float middleH = tall - drawCorner * 2;
+        for (int row = 0; row < 3; row++)
+        {
+            // Bottom-up rows over a top-down texture: the bottom slice is
+            // the texture's last rows (v near 1).
+            float y = row == 0 ? bottom : row == 1 ? bottom + drawCorner : top - drawCorner;
+            float h = row == 1 ? middleH : drawCorner;
+            float v0 = row == 0 ? 1f - v : row == 1 ? v : 0f;
+            float vh = row == 1 ? 1f - v * 2 : v;
+            for (int col = 0; col < 3; col++)
+            {
+                float x = col == 0 ? left : col == 1 ? left + drawCorner : right - drawCorner;
+                float w = col == 1 ? middleW : drawCorner;
+                float u0 = col == 0 ? 0f : col == 1 ? u : 1f - u;
+                float uw = col == 1 ? 1f - u * 2 : u;
+                _ = ui.Texture(info.Handle, Size.Du(w), Size.Du(h), new UiRect(u0, v0, uw, vh))
+                    .AtRes(UiAnchor.BottomLeft, x, y).Layered()
+                    .Key(keyBase + row * 3 + col).Name(key);
+            }
+        }
+        return true;
+    }
 
     /// <returns>Whether the material was found (a miss draws nothing — the
     /// caller's fallback stands).</returns>

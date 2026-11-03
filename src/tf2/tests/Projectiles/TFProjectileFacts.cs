@@ -1150,6 +1150,66 @@ public class TFStickyTrayFacts
         Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
         Assert.Equal(2, rig.Engine.CountOf("Entities.Remove"));
     }
+
+    // ------- the carrier's pipebomb count (HudDemomanPipes's m_iPipebombCount) -------
+
+    /// <summary>
+    /// A real player_data carrier under index 3, attached as the composite
+    /// does: the attach's make answers a fixed handle the rig's directory
+    /// holds a <see cref="TFPlayerDataEntity"/> under.
+    /// </summary>
+    private static TFStickyTray ACarrieredTray(ProjectileRig rig)
+    {
+        var carrierHandle = new EntityHandle(0x0004_0020u);
+        rig.Engine.Returns("Entities.Create", carrierHandle)
+                  .Returns("Entities.GetIndex", 3);
+        var data = new TFPlayerDataEntity(rig.Engine);
+        data.State.BindLocal();     // the registry's bind, as Build's rig does
+        rig.Directory.Holds(carrierHandle, data);
+        new TFPlayerCarrier(rig.Engine, rig.Directory, rig.Carriers, rig.Log)
+            .Attach(ProjectileRig.Player);
+        return new TFStickyTray(rig.Carriers);
+    }
+
+    [Fact]
+    public void TheTrayPublishesItsCountToTheOwnersCarrier()
+    {
+        // CTFPipebombLauncher::IncrementPipebombCount's netword
+        // m_iPipebombCount (tf_weapon_pipebomblauncher.cpp:46) is what
+        // GetNumActivePipebombs hands the HUD (tf_player_shared.cpp:13065);
+        // this port's count rides the carrier, written by every tray change.
+        var rig = new ProjectileRig();
+        TFStickyTray tray = ACarrieredTray(rig);
+        Assert.Equal(0, rig.Carriers.Get(3)?.PipebombCount);
+
+        var sticky = rig.Sticky();
+        sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
+                        TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);
+        tray.Register(3, sticky);
+        Assert.Equal(1, rig.Carriers.Get(3)?.PipebombCount);
+
+        tray.Unregister(3, sticky);
+        Assert.Equal(0, rig.Carriers.Get(3)?.PipebombCount);
+    }
+
+    [Fact]
+    public void TheFizzleEmptiesTheCarriersCountToo()
+    {
+        var rig = new ProjectileRig();
+        TFStickyTray tray = ACarrieredTray(rig);
+
+        for (int i = 0; i < 2; i++)
+        {
+            var sticky = rig.Sticky();
+            sticky.ThrownBy(ProjectileRig.Player, new Vector(2400f, 0f, 0f), 90f, 146f,
+                            TFWeaponId.Pipebomblauncher, "tf_weapon_pipebomblauncher", critical: false);
+            tray.Register(3, sticky);
+        }
+        Assert.Equal(2, rig.Carriers.Get(3)?.PipebombCount);
+
+        tray.FizzleAll(3);
+        Assert.Equal(0, rig.Carriers.Get(3)?.PipebombCount);
+    }
 }
 
 /// <summary>

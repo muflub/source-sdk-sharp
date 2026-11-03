@@ -1060,3 +1060,7 @@ src/tf2/server/Voice/TFConceptSpeech.cs	ports CBaseMultiplayerPlayer::SpeakConce
 src/tf2/server/Voice/TFPlayerCriteriaWords.cs	ports CTFPlayer::ModifyOrAppendCriteria's player words (server/tf/tf_player.cpp:19212-19274)
 src/client/managed/Ui/OptionsScript.cs	ports CScriptObject and CDescription (common/GameUI/scriptobject.cpp): the options script read, its values sent and the script written back
 src/client/native/shell_gameui.cpp	native code built against SDK headers (common/GameUI/IGameUI.h, IGameConsole.h): the engine's GameUI011 and GameConsole004 answered in managed, and the factory swap that hands them to the engine
+src/tf2/ui/screens/TFHudAccount.cs	ports CHudAccountPanel's metal account panel and its ShouldDraw (game/client/tf/tf_hud_account.cpp, resource/ui/hudaccountpanel.res)
+src/tf2/client/Ui/TFHudDemomanPipes.cs	ports CHudDemomanPipes and its ShouldDraw/OnTick count read (tf_hud_demomanpipes.cpp)
+src/tf2/ui/screens/TFHudDemomanPipes.cs	ports the HudDemomanPipes panel layout (resource/ui/huddemomanpipes.res; hudlayout.res) as the screens box tree
+src/tf2/client/Ui/TFUberSpend.cs	ports CTFWeaponBase::UberChargeAmmoPerShot (shared/tf/tf_weaponbase.h), the uberspend the ammo panel and the charge meter gate on

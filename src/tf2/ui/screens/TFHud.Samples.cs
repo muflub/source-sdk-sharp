@@ -14,7 +14,8 @@ public static class TFHudSamples
                                  FakeCapturePoints? points = null, FakeEscort? escort = null,
                                  FakeFlags? flags = null, FakeMedicCharge? medic = null, FakeSpy? spy = null,
                                  FakeCapProgress? progress = null, FakeTextureLibrary? textures = null,
-                                 FakeChat? chat = null, FakeTeamStatus? teams = null)
+                                 FakeChat? chat = null, FakeTeamStatus? teams = null,
+                                 FakeDemomanPipes? pipes = null)
     {
         s.Add<ITFLocalPlayer>(player ?? new FakeLocalPlayer());
         s.Add<ITFRoundTimer>(timer ?? new FakeRoundTimer());   // no clock by default
@@ -26,6 +27,8 @@ public static class TFHudSamples
         s.Add<ITFSpy>(spy ?? new FakeSpy());                   // no spy by default
         s.Add<IChatSource>(chat ?? new FakeChat());            // no chat by default
         s.Add<ITFTeamStatus>(teams ?? new FakeTeamStatus());   // nobody on a team by default
+        s.Add<ITFDemomanPipes>(pipes ?? new FakeDemomanPipes());   // no demoman by default
+        s.Add<IUiLocalisation>(new SampleLocalise());
         // The art: a fact's recording fake answers its names; without one the
         // preview run's --content seed stands, and a seedless build draws the
         // fallbacks (the container answers a stateless none).
@@ -106,6 +109,19 @@ public static class TFHudSamples
     private static UiScreen LowAmmoBoundary(UiSampleServices s) => Build(s,
         new FakeLocalPlayer { ClassName = "Soldier", Health = 120, MaxHealth = 200, MaxBuffedHealth = 300,
                               ShowsAmmo = true, Clip = 4, Reserve = 20, MaxTotalAmmo = 60 });
+
+    // The engineer's metal account (CHudAccountPanel): the full 200 beside
+    // the shotgun's readout, the stock still's corner; and spent, at the
+    // zero the account keeps while the pool is out.
+    [UiSample("engineer with metal")]
+    private static UiScreen EngineerMetal(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { ClassName = "Engineer", Health = 125, MaxHealth = 125, MaxBuffedHealth = 185,
+                              ShowsAmmo = true, Clip = 6, Reserve = 32, Metal = 200 });
+
+    [UiSample("engineer out of metal")]
+    private static UiScreen EngineerSpent(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { ClassName = "Engineer", Health = 125, MaxHealth = 125, MaxBuffedHealth = 185,
+                              ShowsAmmo = true, Clip = 6, Reserve = 32, Metal = 0 });
 
     // The round clock's states (tf_time_panel.cpp:674-814): the countdown,
     // the count-up (:696-699), the setup label over the pre-round (:479-486)
@@ -342,7 +358,7 @@ public static class TFHudSamples
         new FakeLocalPlayer { ClassName = "Medic", Health = 150, MaxHealth = 150, MaxBuffedHealth = 225 },
         medic: new FakeMedicCharge { Present = true, Charge = 0.55f, HealTarget = "Heavy" });
 
-    // In the blink's visible quarter (an odd 0.5 s interval, HudMedicCharged).
+    // In the pulse's dark half (100.6 / 0.3 odd, the 0.6 s HudMedicCharged loop).
     [UiSample("medic uber ready", Now = 100.6)]
     private static UiScreen MedicReady(UiSampleServices s) => Build(s,
         new FakeLocalPlayer { ClassName = "Medic", Health = 150, MaxHealth = 150, MaxBuffedHealth = 225 },
@@ -491,6 +507,19 @@ public static class TFHudSamples
 
         return rows;
     }
+
+    // The pipes corner's two arms (tf_hud_demomanpipes.cpp:138-144): bombs
+    // out counts them by the live icon; the empty tray keeps the corner, the
+    // same label dull by the faded one.
+    [UiSample("demoman pipes out")]
+    private static UiScreen PipesOut(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { ClassName = "Demoman", Team = Red, Health = 160, MaxHealth = 160 },
+        pipes: new FakeDemomanPipes { Present = true, Count = 3 });
+
+    [UiSample("demoman tray empty")]
+    private static UiScreen PipesEmpty(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { ClassName = "Demoman", Team = Blue, Health = 160, MaxHealth = 160 },
+        pipes: new FakeDemomanPipes { Present = true, Count = 0 });
 
     // The raw TF team numbers (tf_shareddefs.h): TF_TEAM_BLUE 3, TF_TEAM_RED 2.
     private const int Blue = 3;
@@ -662,6 +691,10 @@ public sealed class FakeLocalPlayer : ITFLocalPlayer
     public int Clip { get; init; } = -1;
     public int Reserve { get; init; }
     public int MaxTotalAmmo { get; init; }
+
+    /// <summary>The metal account, at the spawn locker's full 200 for a
+    /// fresh engineer unless the sample says less.</summary>
+    public int Metal { get; init; }
 }
 
 /// <summary>The round timer as the election left it; at rest there is no
@@ -730,6 +763,14 @@ public sealed class FakeMedicCharge : ITFMedicCharge
     public float Charge { get; init; }
     public bool Releasing { get; init; }
     public string HealTarget { get; init; } = "";
+}
+
+/// <summary>The demoman's sticky count as the tray publishes it; at rest no
+/// demoman stands, so the corner draws nothing.</summary>
+public sealed class FakeDemomanPipes : ITFDemomanPipes
+{
+    public bool Present { get; init; }
+    public int Count { get; init; }
 }
 
 /// <summary>The spy's meters as the carrier states them; at rest no spy

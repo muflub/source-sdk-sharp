@@ -13,7 +13,9 @@ using Arsenal = client::SourceSharp.Client.ILocalArsenal;
 using ClientFilesShim = client::SourceSharp.Abi.IEngineFiles;
 using ClientPlayerInfo = client::SourceSharp.Abi.ClientPlayerInfo;
 using Engine = client::SourceSharp.Abi.RecordingEngine;
+using Econ = client::TF2.Shared.Econ;
 using HudLocalPlayer = client::TF2.Client.Ui.TFHudLocalPlayer;
+using OwnersContract = client::TF2.Shared.ITFWeaponOwners;
 using HudRoundTimer = client::TF2.Client.Ui.TFHudRoundTimer;
 using MedicCharge = client::TF2.Client.Ui.TFHudMedicCharge;
 using HudSpy = client::TF2.Client.Ui.TFHudSpy;
@@ -34,6 +36,7 @@ using Limits = client::TF2.Shared.Resources.ObjectiveLimits;
 using Team = client::TF2.Shared.TFTeam;
 using RoundState = client::TF2.Shared.Rules.RoundState;
 using ClockLimit = client::SourceSharp.Client.ClMpTimeLimitConVar;
+using LocalPools = client::SourceSharp.Client.ILocalAmmoPools;
 using ShowServerLimit = client::TF2.Client.TFHudShowServerTimeLimitConVar;
 
 namespace TF2.Tests.Client;
@@ -289,7 +292,8 @@ public sealed class TFHudSourcesTests
         var stands = new GunStands();
         var states = new DrawStates();
         var medic = new MedicCharge(engine, carriers, new Hands("tf_weapon_medigun", 0, 40),
-                                    scripts, new Roster((3, "Bob")), stands, states);
+                                    scripts, new Roster((3, "Bob")), stands, states,
+                                    new RigOwners(), new Econ.AttributeHooks());
 
         // No carrier decoded yet: stock's ShouldDraw refuses (tf_hud_mediccharge.cpp:147-170).
         Assert.False(medic.Present);
@@ -322,7 +326,65 @@ public sealed class TFHudSourcesTests
         engine.Returns("Hud.LocalPlayerHealth", 0);
         Assert.False(medic.Present);
         engine.Returns("Hud.LocalPlayerHealth", 150);
-        Assert.False(new MedicCharge(engine, carriers, new Hands(null, 0, 0), scripts, new Roster(), stands, states).Present);
+        Assert.False(new MedicCharge(engine, carriers, new Hands(null, 0, 0), scripts, new Roster(), stands, states,
+                                     new RigOwners(), new Econ.AttributeHooks()).Present);
+    }
+
+    [Fact]
+    public void The_charge_meter_draws_for_the_medigun_the_saw_and_a_spending_syringe()
+    {
+        var engine = new Engine();
+        engine.Returns("Hud.LocalPlayerIndex", 2);
+        engine.Returns("Hud.LocalPlayerHealth", 150);
+        var carriers = new Carriers();
+        var carrier = new Carrier();
+        carrier.BindLocal();
+        carrier.PlayerClass = (int)TFClassId.Medic;
+        carriers.States[2] = carrier;
+        var stands = new GunStands();
+        stands.Gun(2, 0.5f);
+        var owners = new RigOwners();
+        var scripts = ServeScripts();
+        MedicCharge Meter(Hands hands) => new(engine, carriers, hands, scripts, new Roster(), stands,
+                                              new DrawStates(), owners, new Econ.AttributeHooks());
+
+        // The medigun in hand: the meter (tf_hud_mediccharge.cpp:163).
+        Assert.True(Meter(new Hands("tf_weapon_medigun", 0, 40)).Present);
+
+        // The bonesaw: stock's second id (:163) — the medic's every melee.
+        Assert.True(Meter(new Hands("tf_weapon_bonesaw", 0, 0)).Present);
+
+        // The vanilla syringe spends no uber per shot: no meter, the ammo
+        // panel's guest instead (:163-167 over UberChargeAmmoPerShot,
+        // tf_weaponbase.h:299).
+        Assert.False(Meter(new Hands("tf_weapon_syringegun_medic", 40, 200)).Present);
+
+        // A syringe whose item pays uber per charge percent (the attrib over
+        // 100) draws the meter again.
+        owners.Item("ubercharge_ammo", 20f);
+        Assert.True(Meter(new Hands("tf_weapon_syringegun_medic", 40, 200)).Present);
+
+        // Any other weapon: neither arm, no meter.
+        Assert.False(Meter(new Hands("tf_weapon_rocketlauncher", 4, 20)).Present);
+    }
+
+    [Fact]
+    public void A_weapon_that_spends_uber_per_shot_leaves_the_readout_to_the_meter()
+    {
+        var engine = new Engine();
+        engine.Returns("Hud.LocalPlayerIndex", 2);
+        var owners = new RigOwners();
+        var scripts = ServeScripts(("tf_weapon_syringegun_medic", "\"primary_ammo\" \"TF_AMMO_PRIMARY\""));
+        var source = Cross(engine, new PlayerResources(), new Hands("tf_weapon_syringegun_medic", 40, 200),
+                           scripts, owners: owners);
+
+        // The vanilla syringe: no per-shot spend, the readout is the ammo
+        // panel's (tf_hud_ammostatus.cpp:150-151).
+        Assert.True(source.ShowsAmmo);
+
+        // An item that pays uber per shot reads on the charge meter instead.
+        owners.Item("ubercharge_ammo", 20f);
+        Assert.False(source.ShowsAmmo);
     }
 
     [Fact]
@@ -370,10 +432,74 @@ public sealed class TFHudSourcesTests
     /// unloaded — a fact that reaches MaxTotalAmmo without a script never
     /// indexes it.</summary>
     private static HudLocalPlayer Cross(Engine engine, PlayerResources resources,
-        Arsenal? weapon = null, Scripts? scripts = null) =>
+        Arsenal? weapon = null, Scripts? scripts = null, LocalPools? pools = null,
+        RigOwners? owners = null, Econ.AttributeHooks? hooks = null) =>
         new(engine, resources, weapon ?? new Hands(null, 0, 0),
             scripts ?? new Scripts(new RecordingLog(), new EmptyFiles()),
-            new client::TF2.Shared.TFClassTable(new RecordingLog(), new EmptyFiles()));
+            new client::TF2.Shared.TFClassTable(new RecordingLog(), new EmptyFiles()),
+            pools ?? new NoPools(),
+            owners ?? new RigOwners(), hooks ?? new Econ.AttributeHooks());
+
+    /// <summary>The local player's item as the client contract sees it (the
+    /// crosshair rig's <c>RigOwners</c> shape): no item until one is set, the
+    /// empty answer every per-shot ask then reads.</summary>
+    private sealed class RigOwners : OwnersContract
+    {
+        private Econ.IAttributeProvider? _item;
+
+        public void Item(string hook, float value)
+        {
+            var container = new Econ.AttributeContainer(null, Econ.AttributeProviderType.Generic);
+            container.Set(Econ.AttributeValue.OfFloat(
+                new Econ.AttributeDefinition(9100, "attr 9100", hook,
+                    Econ.AttributeDescriptionFormat.Additive, Econ.AttributeEffectType.Neutral,
+                    false, false, Econ.AttributeValueType.Default, Econ.MergedKeys.Block("x")), value));
+            _item = container;
+        }
+
+        public TFClassId ClassOf(int playerIndex) => TFClassId.Undefined;
+        public client::TF2.Shared.Conditions.TFConditions? ConditionsOf(int playerIndex) => null;
+        public float CritMult(int playerIndex) => 1f;
+        public bool WinsCrits(int playerIndex) => false;
+        public Econ.IAttributeProvider? ItemOf(int playerIndex, string weaponName) => _item;
+        public Econ.IAttributeProvider? ManagerOf(int playerIndex) => null;
+        public bool OffGround(int playerIndex) => false;
+        public bool EyesUnderwater(int playerIndex) => false;
+        public bool DuckingOf(int playerIndex) => false;
+    }
+
+    /// <summary>No side published: every pool unpublished, the metal
+    /// account's zero arm.</summary>
+    private sealed class NoPools : LocalPools
+    {
+        public bool PoolOf(string ammoName, out int count)
+        {
+            count = 0;
+            return false;
+        }
+    }
+
+    /// <summary>A side's published word, by name.</summary>
+    private sealed class PublishedPools(System.Collections.Generic.Dictionary<string, int> pools) : LocalPools
+    {
+        public bool PoolOf(string ammoName, out int count)
+        {
+            count = 0;
+            return pools.TryGetValue(ammoName, out count);
+        }
+    }
+
+    [Fact]
+    public void The_metal_account_reads_the_published_pool()
+    {
+        var engine = new Engine();
+        var published = Cross(engine, new PlayerResources(),
+            pools: new PublishedPools(new System.Collections.Generic.Dictionary<string, int> { ["TF_AMMO_METAL"] = 137 }));
+        Assert.Equal(137, published.Metal);
+
+        // Unpublished: the account panel's own opening zero.
+        Assert.Equal(0, Cross(engine, new PlayerResources()).Metal);
+    }
 
     /// <summary>Scripts served sealed as the pack holds them: every shipped
     /// fixture, plus the names a fact asks of written on the spot.</summary>

@@ -109,11 +109,20 @@ public sealed class FakeBuildingStatus : ITFBuildingStatus
     public TFBuildingStatusLine Building(int i) => Lines[i];
 }
 
-/// <summary>The two words the score label localises, as the mod's table does.</summary>
+/// <summary>The words the mod's table localises, as tf2_english.txt does
+/// (the not-built label's one token over its two lines, the HUD's uber
+/// label and its healing line).</summary>
 public sealed class SampleLocalise : IUiLocalisation
 {
     public string? Find(string token) => token switch
     {
+        "#TF2_Hud_UberCharge" => "ÜBERCHARGE:",
+        "#TF2_Hud_Healing" => "Healing",
+        "#TF2_Building_Building" => "Building...",
+        "#TF2_Building_NotBuilt_Sentry" => "Sentry\nNot Built",
+        "#TF2_Building_NotBuilt_Dispenser" => "Dispenser\nNot Built",
+        "#TF2_Building_NotBuilt_Entrance" => "Entrance\nNot Built",
+        "#TF2_Building_NotBuilt_Exit" => "Exit\nNot Built",
         "#TF2_Building_Kills" => "Kills:",
         "#TF2_Building_Assists" => "Assists:",
         _ => null,

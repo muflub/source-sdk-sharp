@@ -14,7 +14,9 @@ namespace TF2.Client.Ui;
 /// The engineer's building status, stock's
 /// <c>CHudBuildingStatusContainer_Engineer</c> (tf_hud_building_status.cpp)
 /// in the stock layout: the <c>BuildingStatus_Engineer</c> panel of
-/// hudlayout.res (xpos_hidef 32 ypos_hidef 16 over the 640x480 canvas) with
+/// hudlayout.res (xpos 0 ypos 0 over the 640x480 canvas — the <c>_hidef</c>
+/// keys are the console suffixes, applied only by ProcessResolutionKeys on
+/// the X360; PC hud res keeps the base keys, BuildGroup.cpp:949-959) with
 /// the per-kind items stacked from XRES(9)/YRES(9) with no gap
 /// (RepositionObjectPanels :1465-1505 — "the fade around the panels gives
 /// a gap"), the sentry's item 160x60 (hud_obj_sentrygun.res) and the
@@ -51,10 +53,11 @@ public sealed class TFBuildingStatus(ITFBuildingStatus buildings, IUiTextureLibr
     // The stock numbers, in the 640x480 .res space; resolved to du per Describe.
     private static class Stock
     {
-        // The container's own spot: hidef 32,16 (hudlayout.res:312-342);
+        // The container's own spot: the base keys 0,0 (hudlayout.res:332,335;
+        // the _hidef pair is the console suffix, never applied on the PC);
         // the items stack from 9,9 inside it.
-        public const float OriginX = 32f;
-        public const float OriginY = 16f;
+        public const float OriginX = 0f;
+        public const float OriginY = 0f;
         public const float Margin = 9f;
 
         // Item frames: the sentry's 160x60 (hud_obj_sentrygun.res:4-21),
@@ -153,8 +156,10 @@ public sealed class TFBuildingStatus(ITFBuildingStatus buildings, IUiTextureLibr
             }
 
         // The kind's icon: the sentry's per level (Icon_Sentry_1..3, 22,12
-        // 36x36), the others' single (24,1 28x28); the level pip right of
-        // the bar (Icon_Upgrade_1..3, 46,4 8x8).
+        // 36x36), the others' single (24,1 28x28) — children of the item
+        // itself in the .res, so they ride every state, the not-built one
+        // too; the level pip right of the bar (Icon_Upgrade_1..3, 46,4 8x8)
+        // is a BuiltPanel child and waits for the build.
         string icon = line.Kind switch
         {
             TFBuildingLineKind.Sentry => line.Level switch
@@ -167,17 +172,10 @@ public sealed class TFBuildingStatus(ITFBuildingStatus buildings, IUiTextureLibr
             TFBuildingLineKind.TeleporterEntrance => "hud/hud_obj_status_tele_entrance",
             _ => "hud/hud_obj_status_tele_exit",
         };
-        if (sentry)
-        {
-            string pip = line.Level switch
-            {
-                2 => "hud/hud_upgrade_2",
-                >= 3 => "hud/hud_upgrade_3",
-                _ => "hud/hud_upgrade_1",
-            };
-            if (!Art(ref ui, textures, pip, "level pip", 46f, 4f, 8f, 8f, tall, u))
-                Plate(ref ui, 46f, 4f, 8f, tall, u, Tone.Accent, "level pip");
-        }
+        float iconWide = sentry ? 36f : 28f;
+        float iconTop = sentry ? 12f : 1f;
+        if (!Art(ref ui, textures, icon, "kind icon", sentry ? 22f : 24f, iconTop, iconWide, iconWide, tall, u))
+            Plate(ref ui, sentry ? 22f : 24f, iconTop, iconWide, tall, u, Tone.SurfaceRaised, "kind icon");
 
         if (line.Placing)
         {
@@ -189,6 +187,18 @@ public sealed class TFBuildingStatus(ITFBuildingStatus buildings, IUiTextureLibr
                 .Elide().Wrap(60f * u)
                 .AtRes(UiAnchor.BottomLeft, 60f * u, 0f).Layered().Name("not built");
             return;
+        }
+
+        if (sentry)
+        {
+            string pip = line.Level switch
+            {
+                2 => "hud/hud_upgrade_2",
+                >= 3 => "hud/hud_upgrade_3",
+                _ => "hud/hud_upgrade_1",
+            };
+            if (!Art(ref ui, textures, pip, "level pip", 46f, 4f, 8f, 8f, tall, u))
+                Plate(ref ui, 46f, 4f, 8f, tall, u, Tone.Accent, "level pip");
         }
 
         // The health bar (13,3 8x53 sentry / 8x24 others), filling upward
@@ -296,12 +306,6 @@ public sealed class TFBuildingStatus(ITFBuildingStatus buildings, IUiTextureLibr
                 break;
             }
         }
-
-        // The kind icon rides over the rows, at its .res spot.
-        float iconWide = sentry ? 36f : 28f;
-        float iconTop = sentry ? 12f : 1f;
-        if (!Art(ref ui, textures, icon, "kind icon", sentry ? 22f : 24f, iconTop, iconWide, iconWide, tall, u))
-            Plate(ref ui, sentry ? 22f : 24f, iconTop, iconWide, tall, u, Tone.SurfaceRaised, "kind icon");
 
         // The alert tray (AlertTray 114,0 44x60 / 113,0 34x31): the sapper
         // icon for a sapper, else the wrench for the low-health and the

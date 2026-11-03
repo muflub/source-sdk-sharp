@@ -88,4 +88,5 @@ internal sealed class LocalPlayer : Local
     public int Clip => -1;
     public int Reserve => 0;
     public int MaxTotalAmmo => 0;
+    public int Metal => 0;
 }

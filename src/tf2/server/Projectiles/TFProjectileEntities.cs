@@ -1171,9 +1171,11 @@ public sealed class TFSyringe : FlyingProjectile
 /// fizzle (:479-486) — fizzles the whole tray.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class TFStickyTray : IPlayerDeathHook
+public sealed class TFStickyTray(TFPlayerCarriers? carriers = null) : IPlayerDeathHook
 {
     private readonly Dictionary<int, List<TFStickybomb>> _trays = new();
+
+    private readonly TFPlayerCarriers? _carriers = carriers;
 
     /// <summary>Records a sticky and removes the oldest past <see cref="TFProjectileDefs.MaxStickies"/>.</summary>
     public void Register(int ownerIndex, TFStickybomb sticky)
@@ -1192,6 +1194,8 @@ public sealed class TFStickyTray : IPlayerDeathHook
             tray.RemoveAt(0);
             oldest.Detonate();
         }
+
+        Publish(ownerIndex);
     }
 
     /// <summary>
@@ -1207,6 +1211,8 @@ public sealed class TFStickyTray : IPlayerDeathHook
     {
         if (_trays.TryGetValue(ownerIndex, out var tray))
             tray.Remove(sticky);
+
+        Publish(ownerIndex);
     }
 
     /// <summary>
@@ -1244,6 +1250,8 @@ public sealed class TFStickyTray : IPlayerDeathHook
                 sticky.Detonate();
             }
         }
+
+        Publish(ownerIndex);
     }
 
     /// <summary>
@@ -1266,6 +1274,8 @@ public sealed class TFStickyTray : IPlayerDeathHook
             sticky.Fizzle();
             sticky.Detonate();
         }
+
+        Publish(ownerIndex);
     }
 
     /// <summary>
@@ -1279,4 +1289,17 @@ public sealed class TFStickyTray : IPlayerDeathHook
 
     /// <summary>How many stickies an owner has out (the facts' window).</summary>
     public int Count(int ownerIndex) => _trays.TryGetValue(ownerIndex, out var tray) ? tray.Count : 0;
+
+    /// <summary>
+    /// The owner's carrier hears the new count — the HUD's pipebomb panel
+    /// reads it there (<see cref="TF2.Shared.Player.TFPlayerNetState.PipebombCount"/>).
+    /// No carrier, no write: a player between lives has nothing the HUD reads.
+    /// </summary>
+    private void Publish(int ownerIndex)
+    {
+        if (_carriers?.Get(ownerIndex) is not { } state)
+            return;
+
+        state.PipebombCount = Count(ownerIndex);
+    }
 }

@@ -44,26 +44,29 @@ public class TFHudTeamStatusTests
     }
 
     [Fact]
-    public void The_backdrop_plate_stands_only_while_the_art_misses()
+    public void The_band_is_the_border_image_and_the_plate_only_falls_back()
     {
-        // Stock's BGFrame is its own line border over the material
-        // (hudmatchstatus.res:210-228): once the material binds, the art is
-        // the backdrop and the plate — fill and outline both — draws no quad
-        // over it (the live shot's thin rectangle); the artless build keeps
-        // the quad, Surface and line, as the plate the chips read over.
-        var loaded = Render(TwoSides(), new FakeTextureLibrary(Names().ToArray()));
-        Assert.False(DrawsQuad(loaded, "match bg"));
+        // Stock's BGFrame is its TFFatLineBorder: the hud/color_panel_brown
+        // scalable image across the whole panel (clientscheme.res:3368-3378,
+        // hudmatchstatus.res:210-228) — the framed band, artful. The Surface
+        // fill and line quad are the artless fallback alone.
+        var art = new FakeTextureLibrary(Names().ToArray());
+        var loaded = Render(TwoSides(), art);
+        Assert.Contains("hud/color_panel_brown", art.Asked);
+        Assert.True(DrawsOp(loaded, "match bg", UiPrimitiveKind.TexturedQuad));
+        Assert.False(DrawsOp(loaded, "match bg", UiPrimitiveKind.Quad));
         var artless = Render(TwoSides(), new FakeTextureLibrary());
-        Assert.True(DrawsQuad(artless, "match bg"));
+        Assert.True(DrawsOp(artless, "match bg", UiPrimitiveKind.Quad));
+        Assert.False(DrawsOp(artless, "match bg", UiPrimitiveKind.TexturedQuad));
     }
 
-    /// <summary>Whether the named element emitted a quad: the plate's fill
-    /// and outline live and die together in the one op.</summary>
-    private static bool DrawsQuad(UiContext ctx, string name)
+    /// <summary>Whether the named element emitted an op of the kind: the
+    /// band's texture and the fallback's fill live in the one element.</summary>
+    private static bool DrawsOp(UiContext ctx, string name, UiPrimitiveKind kind)
     {
         int e = IndexOf(ctx, name);
         foreach (var op in ctx.List.AsDrawList().Ops)
-            if (op.Element == e && op.Kind == UiPrimitiveKind.Quad)
+            if (op.Element == e && op.Kind == kind)
                 return true;
         return false;
     }
@@ -180,6 +183,7 @@ public class TFHudTeamStatusTests
     // centre art — the art layers all draw.
     private static string[] Names() =>
     [
+        "hud/color_panel_brown",
         "hud/comp_round_timer",
         "vgui/class_portraits/soldier_alpha",
         "vgui/class_portraits/medic_alpha",

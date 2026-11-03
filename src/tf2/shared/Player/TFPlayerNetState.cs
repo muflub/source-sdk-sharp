@@ -365,4 +365,18 @@ public partial class TFPlayerNetState
     /// </para>
     /// </summary>
     [NetArray(ClipRows)] public partial NetArray<int> Clips { get; }
+
+    /// <summary>
+    /// The sticky bombs this player has out — stock's pipebomb launcher's
+    /// <c>m_iPipebombCount</c> (<c>tf_weapon_pipebomblauncher.cpp:46</c>),
+    /// which the HUD reads through the launcher the player owns
+    /// (<c>CTFPlayer::GetNumActivePipebombs</c>, tf_player_shared.cpp:13065).
+    /// It rides the carrier as the clips do: the hierarchy holds one weapon
+    /// entity per player, whichever is in hand, so a holstered launcher's
+    /// count has no entity of its own to ride. Written by the tray on every
+    /// stickying and unstickying (<see cref="TF2.Server.Projectiles.TFStickyTray"/>).
+    /// Sent, not predicted: the tray writes outside the command's tick, as
+    /// the <see cref="Ammo"/> rows' rule.
+    /// </summary>
+    public partial int PipebombCount { get; set; }
 }

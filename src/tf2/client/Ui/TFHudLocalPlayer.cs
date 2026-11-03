@@ -10,6 +10,7 @@ using SourceSharp.Client;
 
 using TF2.Client.Player;
 using TF2.Shared;
+using TF2.Shared.Econ;
 using TF2.Shared.Player;
 
 namespace TF2.Client.Ui;
@@ -27,7 +28,8 @@ namespace TF2.Client.Ui;
 [SideService(Side.Client, As = [typeof(ITFLocalPlayer)])]
 public sealed class TFHudLocalPlayer(IEngineHud screen, TFClientPlayerResources resources,
                                      ILocalArsenal arsenal, TFWeaponScripts scripts,
-                                     TFClassTable classes) : ITFLocalPlayer
+                                     TFClassTable classes, ILocalAmmoPools pools,
+                                     ITFWeaponOwners owners, AttributeHooks hooks) : ITFLocalPlayer
 {
     public string ClassName
     {
@@ -57,9 +59,16 @@ public sealed class TFHudLocalPlayer(IEngineHud screen, TFClientPlayerResources 
             if (scripts.Get(name) is not { } script)
                 return false;                   // no script: stock's empty gNullWeaponInfo, which spends nothing
             if (TFWeaponKinds.Of(script) == TFWeaponKind.Medigun)
-                return false;                   // the medigun (:137-140; its charge is the :150 test's subject too)
-            return script.Base.Ammo1.Length > 0 // UsesPrimaryAmmo (:143-144): the scripts spell "None" empty
-                && script.Base.Ammo1 != "TF_AMMO_METAL";   // metal is the engineer's build pool, not a readout (:147-148)
+                return false;                   // the medigun (:137-140)
+            if (script.Base.Ammo1.Length == 0)
+                return false;                   // UsesPrimaryAmmo (:143-144): the scripts spell "None" empty
+            if (script.Base.Ammo1 == "TF_AMMO_METAL")
+                return false;                   // metal is the engineer's build pool, not a readout (:147-148)
+
+            // A weapon whose item spends ubercharge per shot reads on the
+            // charge meter, not here (:150-151) — the medigun arm above is
+            // its every-day case, this the syringe with the spend.
+            return TFUberSpend.PerShot(hooks, owners, screen.LocalPlayerIndex, name) <= 0f;
         }
     }
 
@@ -68,6 +77,12 @@ public sealed class TFHudLocalPlayer(IEngineHud screen, TFClientPlayerResources 
     public int Reserve => arsenal.TryGetActive(out _, out _, out int reserve) ? reserve : 0;
 
     public int Team => Row is ({ } live, var index) ? live.State.Team[index] : 0;
+
+    /// <summary>The published metal pool — the local carrier's
+    /// <c>TF_AMMO_METAL</c> row (the <see cref="ILocalAmmoPools"/> word),
+    /// the account the hud's metal panel counts; 0 while unpublished, as
+    /// the account panel's own opening variable is.</summary>
+    public int Metal => pools.PoolOf(TFAmmoNames.Name(TFAmmo.Metal), out int metal) ? metal : 0;
 
     /// <summary>Stock's <c>nMaxTotalAmmo</c> (tf_hud_ammostatus.cpp:313-319):
     /// the class's <c>m_aAmmoMax</c> for the weapon's primary ammo — zero

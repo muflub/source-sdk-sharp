@@ -2,10 +2,10 @@
 <rect x="20" y="945" width="225" height="113" fill="#2e2b2a" fill-opacity="0.78" data-e="2"/>
 <rect x="164" y="884" width="124" height="124" fill="#2e2b2a" fill-opacity="0.78" data-e="3"/>
 <text x="191" y="962" font-family="TF2 Secondary" font-size="40" font-weight="500" fill="#756b5e" xml:space="preserve" data-e="4">125</text>
-<rect x="2222" y="873" width="172" height="99" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
-<rect x="2252" y="925" width="90" height="13" fill="#b2b2b2" data-e="8"/>
-<rect x="2252" y="925" width="27" height="13" fill="#ebebeb" data-e="9"/>
-<text x="2257" y="962.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="10">Cloak</text>
+<rect x="2196" y="954" width="224" height="112" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
+<rect x="2274" y="1004" width="68" height="11" fill="#b2b2b2" data-e="8"/>
+<rect x="2274" y="1004" width="20" height="11" fill="#ebebeb" data-e="9"/>
+<text x="2280" y="1031.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ffffff" xml:space="preserve" data-e="10">CLOAK</text>
 <rect x="22" y="922" width="272" height="66" rx="4" fill="#2e2b2a" fill-opacity="0.78" data-e="11"/>
 <rect x="22.5" y="922.5" width="271" height="65" rx="3.5" fill="none" stroke="#ebe2ca" stroke-opacity="0.1" stroke-width="1" data-e="11"/>
 <text x="30" y="966.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="14">Disguised</text>

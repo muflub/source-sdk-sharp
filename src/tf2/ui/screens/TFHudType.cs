@@ -51,4 +51,8 @@ public static class TFHudType
                                                       // large-text floor, under which the digits'
                                                       // TanLight misses 4.5:1 on the portrait stills
     public const float ProgressText = 27f;        // 12 tall
+
+    /// <summary>The item-effect meters' label face, the res's TFFontSmall 8
+    /// (huditemeffectmeter.res:62; clientscheme.res:2012-2021, hidef 10).</summary>
+    public const float ItemEffectMeterLabel = 18f;    // 8 tall
 }

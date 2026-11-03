@@ -2,12 +2,9 @@
 <rect x="20" y="945" width="225" height="113" fill="#2e2b2a" fill-opacity="0.78" data-e="2"/>
 <rect x="164" y="884" width="124" height="124" fill="#2e2b2a" fill-opacity="0.78" data-e="3"/>
 <text x="191" y="962" font-family="TF2 Secondary" font-size="40" font-weight="500" fill="#756b5e" xml:space="preserve" data-e="4">150</text>
-<rect x="2287" y="941" width="255" height="130" rx="4" fill="#2e2b2a" fill-opacity="0.78" data-e="5"/>
-<rect x="2287.5" y="941.5" width="254" height="129" rx="3.5" fill="none" stroke="#ebe2ca" stroke-opacity="0.1" stroke-width="1" data-e="5"/>
-<text x="2295" y="990.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="9">UberCharge</text>
-<text x="2486" y="994" font-family="TF2 Secondary" font-size="40" font-weight="500" fill="#d47f19" xml:space="preserve" data-e="11">55</text>
-<rect x="2295" y="1009" width="239" height="4" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="12"/>
-<rect x="2295" y="1009" width="131" height="4" rx="2" fill="#d47f19" data-e="13"/>
-<text x="2295" y="1049.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="15">Healing</text>
-<text x="2411" y="1049.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">Heavy</text>
+<rect x="2250" y="925" width="292" height="146" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
+<text x="2317" y="1000.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="8">ÜBERCHARGE: 55%</text>
+<rect x="2317" y="1010" width="193" height="18" fill="#faeac9" fill-opacity="0.2" data-e="9"/>
+<rect x="2317" y="1010" width="106" height="18" fill="#fbebca" data-e="10"/>
+<text x="2317" y="1047.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="11">Healing Heavy</text>
 </svg>
