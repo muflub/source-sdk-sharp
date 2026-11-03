@@ -161,8 +161,8 @@ public sealed class NavGraph
     /// Whether a body of <paramref name="cls"/> can walk the straight line from
     /// <paramref name="a"/> to <paramref name="b"/>, starting in cell
     /// <paramref name="from"/>: every cell the line crosses in the ground plane
-    /// admits it, and each is reached from the one before by a passable Walk or
-    /// Door edge. What lets a path leave the cell corridor's corners and go
+    /// admits it, each is reached from the one before by a passable Walk or
+    /// Door edge, and the last is on <paramref name="b"/>'s floor. What lets a path leave the cell corridor's corners and go
     /// straight across open ground (<see cref="PathSmoother.Shortcut"/>).
     /// </summary>
     public bool WalkableLine(int from, AiVector a, AiVector b, ClearanceClass cls, NavObstacleState obstacles)
@@ -191,7 +191,47 @@ public sealed class NavGraph
             at = next;
         }
 
-        return true;
+        return MathF.Abs(_cells[at].FloorZ - b.Z) <= CornerFloorReach;
+    }
+
+    /// <summary>
+    /// How far from the floor the line ends on a corner may be. A line over
+    /// one cell's footprint to a corner on the floor under it is no walk: live,
+    /// dm_lockdown's stair landing cut straight to the corner beneath it.
+    /// </summary>
+    public const float CornerFloorReach = 20f;
+
+    /// <summary>
+    /// The cell nearest <paramref name="goal"/> an agent of <paramref name="cls"/>
+    /// in cell <paramref name="from"/> can get to: where it goes for a goal with no
+    /// route, as a person goes as near as they can.
+    /// </summary>
+    public CellId NearestReachable(CellId from, AiVector goal, ClearanceClass cls, NavObstacleState obstacles)
+    {
+        var seen = new bool[_cells.Length];
+        var open = new Stack<int>();
+        seen[from.Index] = true;
+        open.Push(from.Index);
+        int best = from.Index;
+        float bestDistance = _cells[from.Index].Centre.DistanceTo(goal);
+        while (open.Count > 0)
+        {
+            foreach (NavEdge e in EdgesFrom(open.Pop()))
+            {
+                if (seen[e.To] || !Passable(e, cls, obstacles))
+                    continue;
+                seen[e.To] = true;
+                open.Push(e.To);
+                float distance = _cells[e.To].Centre.DistanceTo(goal);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = e.To;
+                }
+            }
+        }
+
+        return new CellId(best);
     }
 
     /// <summary>
@@ -287,6 +327,7 @@ public sealed class NavGraph
 public sealed class NavObstacleState
 {
     private readonly bool[] _blocking;
+    private bool[]? _shovable;
 
     public NavObstacleState(int obstacles) => _blocking = new bool[obstacles];
 
@@ -303,11 +344,28 @@ public sealed class NavObstacleState
 
     public void Set(int obstacle, bool blocking) => _blocking[obstacle] = blocking;
 
+    /// <summary>Says a player can get through <paramref name="obstacle"/> by walking into it: a prop that moves when pushed.</summary>
+    public void SetShovable(int obstacle) => (_shovable ??= new bool[_blocking.Length])[obstacle] = true;
+
+    /// <summary>A copy with the obstacles a player can shove aside out of the way: where a bot goes with no other way out.</summary>
+    public NavObstacleState Shoved()
+    {
+        NavObstacleState copy = Clone();
+        for (int o = 0; _shovable is not null && o < _blocking.Length; o++)
+        {
+            if (_shovable[o])
+                copy._blocking[o] = false;
+        }
+
+        return copy;
+    }
+
     /// <summary>A copy as the obstacles stand now, for a field built on a worker while the main thread keeps this one current.</summary>
     public NavObstacleState Clone()
     {
         var copy = new NavObstacleState(_blocking.Length) { OpenDoors = OpenDoors };
         _blocking.CopyTo(copy._blocking, 0);
+        copy._shovable = _shovable;
         return copy;
     }
 }

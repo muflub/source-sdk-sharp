@@ -347,3 +347,5 @@ bots	rate	92.09	1437027	54.727	957885	17503	6	226285	957885
 ss-ai-nav	rate	69.921	38060	39.948	22890	573	3	22890	25240
 ss-ai-sight	rate	113.037	41205	68.691	25828	376	3	25828	27337
 ss-ai-hearing	rate	95.582	34860	57.055	20825	365	3	20299	23107
+# ai-jank (plan_hl2mp_ai §3.4.5): recorded 2026-11-02 by `tools/live-gate --steps ai-jank --passes 2 --record --budget <scratch copy>` (debug, hl2mp-ai-feel at b92167c08: 660562/9397 and 533482/9385); only this row carried.
+ai-jank	rate	115.442	991043	70.295	660562	9397	2	533482	660562

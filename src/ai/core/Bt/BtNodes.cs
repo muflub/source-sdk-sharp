@@ -361,6 +361,27 @@ public sealed class BehaviorTree<T> where T : class
 
     public void Reset() => Root.Reset();
 
+    /// <summary>
+    /// Each node's branch by id: the id of the root's child it lies under. The
+    /// root's own is its id, and a node shared by two branches is the first's.
+    /// </summary>
+    public int[] Branches()
+    {
+        int[] of = new int[_nodes.Length];
+        Array.Fill(of, Root.Id);
+        ReadOnlySpan<BtNode<T>> branches = Root.Children;
+        for (int i = branches.Length - 1; i >= 0; i--)
+            Mark(branches[i], branches[i].Id, of);
+        return of;
+    }
+
+    private static void Mark(BtNode<T> node, int branch, int[] of)
+    {
+        of[node.Id] = branch;
+        foreach (BtNode<T> c in node.Children)
+            Mark(c, branch, of);
+    }
+
     private static void Number(BtNode<T> node, List<BtNode<T>> all)
     {
         if (node.Id >= 0)

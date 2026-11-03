@@ -4,6 +4,7 @@
   tools/ai-scenario sight   [--config debug] [--keep]
   tools/ai-scenario hearing [--config debug] [--keep]
   tools/ai-scenario duel|routes|nav [--config debug] [--keep]
+  tools/ai-scenario jank [--minutes 5] [--config debug] [--keep]   (`make ai-jank`)
 
 Starts a headless game on the map (`make headless`, its own instance, temp
 dir, dev-API directory and port), records the AI session (`ai_record`), adds
@@ -19,10 +20,17 @@ scripted target through the bots' own command path (`ai_bot_act`,
 which the scenario facts replay (SsAiScenarioTests). The map is per-tree
 build output: `make map MAP=ss_ai_<name>` first; a missing map is a failure.
 The game is killed by its PID at the end (--keep leaves it up).
+
+`jank` is the standard run of the jank score (plan_hl2mp_ai §3.4.5), not a map
+scenario: dm_lockdown (`make ai-nav`), four bots of mixed presets and a scripted
+client, recorded for the minutes asked, scored with `tools/ai-replay jank`. It
+writes bin/<config>/ai-jank/<utc>-<sha>.airec and its report beside it, never
+into the tree's recordings.
 """
 import hashlib
 import json
 import os
+import random
 import re
 import signal
 import subprocess
@@ -308,7 +316,7 @@ def nav(game):
     slots = bots_by_name(game)
     w = slots["Walker"]
     game.teleport(w, 720, 420, 16)
-    pickups = ["weapon_shotgun", "weapon_smg1", "weapon_357", "item_battery", "weapon_crossbow"]
+    pickups = ["weapon_shotgun", "weapon_smg1", "weapon_357", "item_battery", "weapon_crossbow", "item_ammo_crossbow"]
     out = []
     for item in pickups:
         start = game.tick()
@@ -322,16 +330,96 @@ def nav(game):
         out.append({"name": item, "from": start, "to": game.tick(), "arrived": arrived})
         print("ai-scenario: %-16s ticks %d..%d %s" % (item, start, out[-1]["to"], "arrived" if arrived else "NOT ARRIVED"))
     ladder = [l for l in game.lines() if re.search(r"\[SourceSharp/Ai\] bot \d+ \(Walker\) (is on a ladder|got off the ladder)", l)]
-    return out, {"walker": w, "ladder": ladder}
+    jumps = [l for l in game.lines() if re.search(r"\[SourceSharp/Ai\] bot \d+ \(Walker\) (crouch-)?jumps at", l)]
+    stuck = [l for l in game.lines() if re.search(r"\[SourceSharp/Ai\] bot \d+ \(Walker\) is stuck", l)]
+    return out, {"walker": w, "ladder": ladder, "jumps": jumps, "stuck": stuck}
+
+
+# The standard run's bots: one of each preset (plan_hl2mp_ai §3.4.5).
+JANK_BOTS = [("Alyx", "expert"), ("Barney", "hard"), ("Gordon", "normal"), ("Kleiner", "easy")]
+TICKS_PER_MINUTE = 60 / 0.015
+
+
+class ScriptedClient:
+    """The listen server's own client, played by keys through the console: it
+    runs forward, turns, jumps and fires at seeded random, and a press respawns
+    it. A moving target and a real command stream, no person's skill."""
+
+    def __init__(self, game, seed=7):
+        self.game = game
+        self.rng = random.Random(seed)
+
+    def begin(self):
+        self.game.cmd("+forward")
+
+    def step(self):
+        turn = self.rng.choice(["left", "right"])
+        self.game.cmd("+" + turn)
+        time.sleep(self.rng.uniform(0.2, 0.8))
+        self.game.cmd("-" + turn)
+        press = self.rng.choice(["jump", "attack", "attack"])
+        self.game.cmd("+" + press)
+        time.sleep(0.2)
+        self.game.cmd("-" + press)
+        time.sleep(self.rng.uniform(0.5, 2.0))
+
+    def end(self):
+        for key in ("forward", "left", "right", "jump", "attack"):
+            self.game.cmd("-" + key)
+
+
+def jank(config, keep, minutes):
+    """The standard run: its exit is the score tool's, and a run with too few bots or too little play is a failure."""
+    sha = subprocess.run(["git", "-C", ROOT, "rev-parse", "--short=9", "HEAD"], capture_output=True, text=True).stdout.strip()
+    out_dir = os.path.join(ROOT, "bin", config, "ai-jank")
+    os.makedirs(out_dir, exist_ok=True)
+    rec = os.path.join(out_dir, "%s-%s.airec" % (time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()), sha))
+    game = Game("dm_lockdown", config)
+    try:
+        game.start()
+        game.cmd("ai_record start %s dm_lockdown" % rec)
+        for name, preset in JANK_BOTS:
+            game.cmd("ai_bot_add %s %s" % (name, preset))
+        time.sleep(2)
+        bots = bots_by_name(game)
+        if len(bots) != len(JANK_BOTS):
+            raise SystemExit("ai-scenario: %d of the %d bots came in: %s" % (len(bots), len(JANK_BOTS), sorted(bots)))
+        start = game.tick()
+        end = start + minutes * TICKS_PER_MINUTE
+        client = ScriptedClient(game)
+        client.begin()
+        while game.tick() < end:
+            client.step()
+        client.end()
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    p = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "jank", rec, "--config", config], capture_output=True, text=True)
+    header = "ai-scenario: jank at %s: %s, dm_lockdown, %g minutes, bots %s, %s\n" % (
+        sha, config, minutes, " ".join("%s=%s" % b for b in JANK_BOTS), rec)
+    report = header + p.stdout + p.stderr
+    with open(rec + ".txt", "w") as f:
+        f.write(report)
+    print(report, end="")
+    m = re.search(r"^jank: bots score \S+ over (\S+) bot-minutes", p.stdout, re.M)
+    if p.returncode != 0 or not m:
+        raise SystemExit("ai-scenario: the score failed (exit %d)" % p.returncode)
+    # The stimulus reached the subject: four bots alive for most of the run.
+    if float(m.group(1)) < 2 * minutes:
+        raise SystemExit("ai-scenario: only %s bot-minutes in a %g minute run with %d bots: no score" % (m.group(1), minutes, len(JANK_BOTS)))
+    return 0
 
 
 def main(argv):
-    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav"):
+    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav", "jank"):
         print(__doc__)
         return 2
     which = argv[0]
     config = argv[argv.index("--config") + 1] if "--config" in argv else "debug"
     keep = "--keep" in argv
+    if which == "jank":
+        return jank(config, keep, float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0)
     map_name = "ss_ai_" + which
     bsp = os.path.join(ROOT, "bin", config, "mods", "test", "maps", map_name + ".bsp")
     vmf = os.path.join(ROOT, "game", "mod_test", "maps", "src", "ai", map_name + ".vmf")

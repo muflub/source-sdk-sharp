@@ -164,6 +164,8 @@ public sealed class AiSession
         _lanes[id.Slot] = new Lane(new Brain(id, seed, memory, decisions, decider), _sightedCapacity) { Levels = skillLevels.ToArray() };
         BotCount++;
         _sink.BotAdded(id, seed, skillLevels);
+        if (decider is not null)
+            _sink.DecisionTree(decider.NodeNames, decider.NodeBranches);
     }
 
     /// <summary>
@@ -190,8 +192,11 @@ public sealed class AiSession
     {
         foreach (Lane? lane in _lanes)
         {
-            if (lane is not null)
-                _sink.BotAdded(lane.Brain.Bot, lane.Brain.Seed, lane.Levels);
+            if (lane is null)
+                continue;
+            _sink.BotAdded(lane.Brain.Bot, lane.Brain.Seed, lane.Levels);
+            if (lane.Brain.Decider is { } decider)
+                _sink.DecisionTree(decider.NodeNames, decider.NodeBranches);
         }
     }
 

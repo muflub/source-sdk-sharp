@@ -242,7 +242,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
                  $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg
 
 PHONY_LOADPROF := loadprof loadprof-probe
-PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test
+PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test ai-jank
 .PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack mapformats-pack ai-nav ai-maps windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         globals-census globals-ledger globals-client-census globals-client-ledger sdk-census
 
@@ -253,6 +253,7 @@ help:
 	@echo "  make host-pack [HOST_ROOT=..]       build the host's SDK packages the TF2Descent mod restores from"
 	@echo "  make ai-maps                        build the AI's test maps (LINKED_MAPS: ss_ai_nav, ss_ai_sight, ss_ai_hearing, ss_ai_duel, ss_ai_routes, ss_ai_range) in this tree"
 	@echo "  make ai-nav                         build the AI's .nav3d of NAV_MAPS (dm_lockdown) in this tree, stamped"
+	@echo "  make ai-jank [MINUTES=5]            the jank score's standard run: dm_lockdown, four bots, a scripted client, recorded and scored"
 	@echo "  make mapformats-pack                pack SourceSharp.MapFormats (the AI's .nav3d reader) in MAPTOOLS_DIR at maptools.lock"
 	@echo "  make dedicated [DEDICATED_MOD=tf2_descent] [HOSTED=1]   a dedicated server (unhosted unless HOSTED=1)"
 	@echo "  make join ADDR=host:port [JOIN_MOD=tf2_descent]         a client joining a server"
@@ -1090,6 +1091,12 @@ tf2-test:
 # The AI facts alone (the ai leg of `make test`), FILTER as above.
 ai-test:
 	@$(AI_TEST) $(if $(FILTER),--filter '$(FILTER)' -- RunConfiguration.TreatNoTestsAsError=true)
+
+# The jank score's standard run (plan_hl2mp_ai §3.4.5): dm_lockdown, four bots of
+# mixed presets and a scripted client, recorded and scored. MINUTES as asked (5).
+MINUTES ?= 5
+ai-jank:
+	@tools/ai-scenario jank --config $(CONFIG) --minutes $(MINUTES)
 
 # The oracle leg alone.
 oracle-test:

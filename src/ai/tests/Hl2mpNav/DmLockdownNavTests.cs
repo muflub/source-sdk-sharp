@@ -108,6 +108,90 @@ public sealed class DmLockdownNavTests
         Assert.True(compared > 10_000, $"{compared} places compared");
     }
 
+    /// <summary>
+    /// The live reports' places: a walkway cell whose route to the floor dropped
+    /// through the wall south of it, and the rail at y 4313 whose top is 40 u
+    /// over the walkway, measured with the game's own traces and a player's
+    /// crouch-jump onto it.
+    /// </summary>
+    [PerTreeNavFact(Map)]
+    public void TheWalkwaysWallIsNoDropAndItsRailIsACrouchJump()
+    {
+        NavGraph g = Loaded.Value.Nav.Graph;
+        CellId byWall = g.FindCell(new AiVector(-3544f, 4424f, 129f)), walkway = g.FindCell(new AiVector(-3544f, 4344f, 129f));
+        CellId rail = g.FindCell(new AiVector(-3544f, 4312f, 169f)), under = g.FindCell(new AiVector(-3544f, 4392f, 1f));
+        Assert.Equal((128f, 128f, 168f, 0f), (g.Cell(byWall).FloorZ, g.Cell(walkway).FloorZ, g.Cell(rail).FloorZ, g.Cell(under).FloorZ));
+        Assert.False(g.TryEdge(byWall.Index, under.Index, out _), "a drop through the wall south of the walkway");
+        NavEdge[] drops = [.. g.EdgesFrom(walkway.Index).ToArray().Where(e => e.Type == NavEdgeType.Drop)];
+        Assert.DoesNotContain(drops, e => g.FindCell(g.Cell(e.To).Centre with { Z = 129f }) is { IsValid: true } over && g.Cell(over).FloorZ == 128f);
+        Assert.True(g.TryEdge(walkway.Index, rail.Index, out NavEdge up), "no way onto the rail");
+        Assert.Equal(NavEdgeType.CrouchJump, up.Type);
+    }
+
+    /// <summary>
+    /// The way down from the rail's top, where a real file's column is split in
+    /// short leaves: the floor beyond it, and no floor under the walkway behind
+    /// it. A body asked of the lower floor's own leaf at the rail's height fits
+    /// nowhere, which took every drop off this map's floors away.
+    /// </summary>
+    [PerTreeNavFact(Map)]
+    public void TheRailsTopDropsToTheFloorBeyondIt()
+    {
+        NavGraph g = Loaded.Value.Nav.Graph;
+        CellId rail = g.FindCell(new AiVector(-3544f, 4312f, 169f));
+        NavEdge[] drops = [.. g.EdgesFrom(rail.Index).ToArray().Where(e => e.Type == NavEdgeType.Drop)];
+        Assert.Contains(drops, e => g.Cell(e.To).FloorZ == 0f && g.Cell(e.To).Centre.Y < 4304f);
+        Assert.DoesNotContain(drops, e => g.Cell(e.To).FloorZ == 0f && g.Cell(e.To).Centre.Y > 4320f);
+    }
+
+    /// <summary>
+    /// Nowhere a bot can get to from a spawn is a trap: the drops the walkway's
+    /// fact takes away were the only way out of nothing a player can reach.
+    /// </summary>
+    [PerTreeNavFact(Map)]
+    public void EveryCellASpawnReachesReachesTheSpawnBack()
+    {
+        (_, DerivedNav nav, MapEntities entities, _) = Loaded.Value;
+        NavGraph g = nav.Graph;
+        CellId spawn = NavPoints.CellNear(g, entities.Spawns.First().Origin, Class);
+        var seen = new bool[g.CellCount];
+        var open = new Stack<int>();
+        seen[spawn.Index] = true;
+        open.Push(spawn.Index);
+        int reached = 0;
+        while (open.Count > 0)
+        {
+            int at = open.Pop();
+            reached++;
+            foreach (NavEdge e in g.EdgesFrom(at))
+            {
+                if (!seen[e.To] && g.Cell(e.To).Admits(Class))
+                {
+                    seen[e.To] = true;
+                    open.Push(e.To);
+                }
+            }
+        }
+
+        var field = new FlowField();
+        field.Build(g, spawn, Class, new NavObstacleState(g.ObstacleCount));
+        NavCell[] traps = [.. Enumerable.Range(0, g.CellCount).Where(c => seen[c] && !float.IsFinite(field.CostAt(c))).Select(c => g.Cell(c))];
+        Assert.True(reached > 10_000, $"{reached} cells reached");
+        Assert.True(traps.Length == 0, $"{traps.Length} cells reached from the spawn with no way back: {string.Join(" ", traps.Take(12).Select(c => c.Centre))}");
+    }
+
+    /// <summary>A window's sill in the control room: the drop through its pane carries the pane, whatever prop's leaf the sill is also in (a prop would be shoved through).</summary>
+    [PerTreeNavFact(Map)]
+    public void TheDropOffAWindowsSillCarriesThePane()
+    {
+        (_, DerivedNav nav, _, _) = Loaded.Value;
+        NavGraph g = nav.Graph;
+        CellId sill = g.FindCell(new AiVector(-2985f, 4600f, 163f));
+        NavEdge[] outside = [.. g.EdgesFrom(sill.Index).ToArray().Where(e => e.Type == NavEdgeType.Drop && g.Cell(e.To).Centre.X > -2970f)];
+        Assert.NotEmpty(outside);
+        Assert.All(outside, e => Assert.Equal("func_breakable_surf", nav.Obstacles[e.Obstacle].ClassName));
+    }
+
     [PerTreeNavFact(Map)]
     public void TheNavsDoorsAreTheLumpsDoors()
     {

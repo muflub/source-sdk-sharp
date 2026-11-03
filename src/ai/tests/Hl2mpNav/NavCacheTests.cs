@@ -69,7 +69,7 @@ public sealed class NavCacheTests : IDisposable
     {
         LoadedNav n = Load(Nav()).Nav!;
         string path = Cache.PathFor("dm_test", n.BspSha256, n.NavSha256);
-        Assert.EndsWith($"dm_test-{n.BspSha256[..16]}-{n.NavSha256[..16]}-v{NavReaderVersion.Package}.navgraph", path, StringComparison.Ordinal);
+        Assert.EndsWith($"dm_test-{n.BspSha256[..16]}-{n.NavSha256[..16]}-v{NavReaderVersion.Package}-g{NavGraphFromNav3d.Revision}.navgraph", path, StringComparison.Ordinal);
         string head = System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(path).AsSpan(0, 200));
         Assert.Contains(NavReaderVersion.Package, head, StringComparison.Ordinal);
         Assert.Contains(n.BspSha256, head, StringComparison.Ordinal);

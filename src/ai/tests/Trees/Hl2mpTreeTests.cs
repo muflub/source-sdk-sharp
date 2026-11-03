@@ -80,6 +80,28 @@ public sealed class Hl2mpTreeTests
         Assert.Equal((ActionKind.Reload, true), (i.Action.Kind, i.Action.OneShotSeq > 0));
     }
 
+    /// <summary>
+    /// Two kits and a player in sight right by the nearer one: the bot goes for
+    /// the other rather than push them for it (user report 2026-11-02: two stuck
+    /// together on one goal). The control: with nobody by, the nearer kit.
+    /// </summary>
+    [Fact]
+    public void APickupANearerPlayerIsAboutToTakeIsLeftToThem()
+    {
+        AiVector nearKit = new(200f, 0f, 0f), farKit = new(-600f, 0f, 0f);
+        ItemSpawn[] kits = [new ItemSpawn(0, "item_healthkit", ItemKind.Health, nearKit, 30f), new ItemSpawn(1, "item_healthkit", ItemKind.Health, farKit, 30f)];
+        var alone = new Duel(Duel.Preset("normal"), kits);
+        Assert.Equal(nearKit, Corner(alone.Step(alone.Self(health: 10), [])));
+
+        var pressed = new Duel(Duel.Preset("normal"), kits);
+        IntentCommand i = pressed.Step(pressed.Self(health: 10), [(Duel.Opponent, nearKit + new AiVector(30f, 0f, 0f))]);
+        for (int t = 0; t < 8; t++)
+            i = pressed.Step(pressed.Self(health: 10), [(Duel.Opponent, nearKit + new AiVector(30f, 0f, 0f))]);
+        Assert.Equal(farKit, Corner(i));
+    }
+
+    private static AiVector Corner(in IntentCommand i) => i.Move.Corner0;
+
     /// <summary>Under Nerve's retreat health with an opponent in sight, the bot goes for the health it knows.</summary>
     [Fact]
     public void AHurtBotUnderFireGoesForTheHealthKit()

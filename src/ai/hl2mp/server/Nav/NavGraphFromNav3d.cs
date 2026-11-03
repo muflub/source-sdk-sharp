@@ -19,8 +19,10 @@ public sealed record DerivedNav(NavGraph Graph, int[] CellOfLeaf, int[] LeafOfCe
 /// crouched one does), and per ladder leaf it climbs; none inside a hurt
 /// volume.</item>
 /// <item>Walk to a place in a column beside whose floor is within the step;
-/// Drop to a lower one within the safe drop that the body reaches over the
-/// edge; Jump, CrouchJump or Drop along the file's jump links, split by
+/// Drop to a lower one within the safe drop whose column holds the body from
+/// the higher floor down, so over an edge and never through a floor, a wall or
+/// a rail;
+/// Jump, CrouchJump or Drop along the file's jump links, split by
 /// HL2MP's numbers; Ladder up and down a climb's column and on and off it to
 /// floors the body reaches; Door when either end is a door's leaf.</item>
 /// <item>Every dynamic obstacle is a graph obstacle; an edge with an end in
@@ -30,6 +32,14 @@ public sealed record DerivedNav(NavGraph Graph, int[] CellOfLeaf, int[] LeafOfCe
 /// </summary>
 public static class NavGraphFromNav3d
 {
+    /// <summary>
+    /// The derivation's revision: part of a cached graph's name and header
+    /// (<see cref="NavGraphCache"/>), so a changed derivation is not answered
+    /// from a graph the old one wrote for the same files. Raise it with any
+    /// change to what the derivation yields.
+    /// </summary>
+    public const int Revision = 3;
+
     // The most leaves one column, or jump links one leaf, may answer.
     private const int MaxLinks = 512;
 
@@ -101,6 +111,7 @@ public static class NavGraphFromNav3d
         var added = new HashSet<(int, int)>();
         Span<NavJumpLink> jumps = new NavJumpLink[MaxLinks];
         Span<int> between = new int[MaxLinks];
+        Span<int> fall = new int[MaxLinks];
         float voxel = src.VoxelSize;
         int reach = (int)MathF.Ceiling((n.HullWidth * 0.5f + voxel * 0.5f) / voxel);
         for (int leaf = 0; leaf < leaves; leaf++)
@@ -135,10 +146,10 @@ public static class NavGraphFromNav3d
                                 : rise > n.MaxCrouchJumpRise ? null
                                 : rise > n.MaxJumpRise ? NavEdgeType.CrouchJump
                                 : rise > 0f ? NavEdgeType.Jump
-                                : -rise <= n.SafeDrop && (k == 2 || src.FitsAt(other, l.FloorZ, n.HullWidth, n.CrouchHeight)) ? NavEdgeType.Drop
+                                : -rise <= n.SafeDrop && FallsClear(src, leaf, dx * k, dy * k, l.FloorZ, floorO, n, fall) ? NavEdgeType.Drop
                                 : null;
                             if (type is { } t)
-                                AddMove(b, added, infos, obstacleOfLeaf, costs, leaf, other, from, cellOfLeaf[other], t);
+                                AddMove(src, b, added, infos, obstacleOfLeaf, costs, leaf, other, from, cellOfLeaf[other], t);
                         }
                     }
                 }
@@ -155,7 +166,7 @@ public static class NavGraphFromNav3d
                         : rise > 0f || link.Columns > 1 ? NavEdgeType.Jump
                         : -rise <= n.SafeDrop ? NavEdgeType.Drop : null;
                     if (type is { } t)
-                        AddMove(b, added, infos, obstacleOfLeaf, costs, leaf, link.Leaf, from, cellOfLeaf[link.Leaf], t);
+                        AddMove(src, b, added, infos, obstacleOfLeaf, costs, leaf, link.Leaf, from, cellOfLeaf[link.Leaf], t);
                 }
             }
 
@@ -190,6 +201,27 @@ public static class NavGraphFromNav3d
         return new DerivedNav(b.Build(), cellOfLeaf, [.. leafOfCell], infos, leaves);
     }
 
+    /// <summary>
+    /// Whether a crouched body falls clear down the column at (dx, dy) from the
+    /// higher floor to the lower one, a voxel at a time, in whichever of its
+    /// leaves holds each height (a real file splits a column's open run): over
+    /// an edge, and never through a floor, a wall or a rail.
+    /// </summary>
+    private static bool FallsClear(INavSource src, int leaf, int dx, int dy, float from, float to, Hl2mpNavNumbers n, Span<int> into)
+    {
+        int count = src.ColumnLeaves(leaf, dx, dy, into);
+        for (float z = from; z > to; z -= src.VoxelSize)
+        {
+            bool fits = false;
+            for (int i = 0; i < count && !fits; i++)
+                fits = src.FitsAt(into[i], z, n.HullWidth, n.CrouchHeight);
+            if (!fits)
+                return false;
+        }
+
+        return true;
+    }
+
     /// <summary>The leaf of the column beside <paramref name="leaf"/> towards (dx, dy) that is free from <paramref name="z"/> up through <paramref name="height"/> (a body passes over it there), or -1.</summary>
     /// <summary>
     /// Whether a crouched body crosses the column between at the higher floor
@@ -222,16 +254,73 @@ public static class NavGraphFromNav3d
         return -1;
     }
 
-    private static void AddMove(NavGraphBuilder b, HashSet<(int, int)> added, NavObstacleInfo[] infos, int[] obstacleOfLeaf,
+    private static void AddMove(INavSource src, NavGraphBuilder b, HashSet<(int, int)> added, NavObstacleInfo[] infos, int[] obstacleOfLeaf,
                                 NavEdgeCosts costs, int fromLeaf, int toLeaf, int from, int to, NavEdgeType type)
     {
         int a = obstacleOfLeaf[fromLeaf], c = obstacleOfLeaf[toLeaf];
         int obstacle = a >= 0 && (c < 0 || infos[a].Kind == NavObstacleKind.Door) ? a : c;
+        if ((obstacle < 0 || infos[obstacle].Kind != NavObstacleKind.Door) && type is NavEdgeType.Drop or NavEdgeType.Jump or NavEdgeType.CrouchJump)
+        {
+            int pane = PaneAcross(infos, src.Leaf(fromLeaf), src.Leaf(toLeaf));
+            if (pane >= 0)
+                obstacle = pane;
+        }
+
         if (obstacle >= 0 && infos[obstacle].Kind == NavObstacleKind.Door && type == NavEdgeType.Walk)
             type = NavEdgeType.Door;
         float extra = costs.ExtraFor(type);
         if (from != to && added.Add((from, to)))
             b.AddEdge(new CellId(from), new CellId(to), type, extra, obstacle);
+    }
+
+    /// <summary>
+    /// The glass or toggled brush a jump or a drop goes through, at the height of
+    /// the higher floor and a crouched body over it, or -1. Its leaves are open
+    /// floor on both sides, so no place carries it: live, dm_lockdown's bots stood
+    /// on a window's sill for a drop through the pane in front of them.
+    /// </summary>
+    private static int PaneAcross(NavObstacleInfo[] infos, in NavLeaf from, in NavLeaf to)
+    {
+        float ax = (from.MinX + from.MaxX) * 0.5f, ay = (from.MinY + from.MaxY) * 0.5f;
+        float bx = (to.MinX + to.MaxX) * 0.5f, by = (to.MinY + to.MaxY) * 0.5f;
+        float low = MathF.Max(from.FloorZ, to.FloorZ), high = low + PaneHeight;
+        for (int o = 0; o < infos.Length; o++)
+        {
+            NavObstacleInfo i = infos[o];
+            if (i.Kind is not (NavObstacleKind.Breakable or NavObstacleKind.Toggle) || i.Maxs.Z <= low || i.Mins.Z >= high)
+                continue;
+            if (SegmentCrosses(ax, ay, bx, by, i.Mins.X, i.Mins.Y, i.Maxs.X, i.Maxs.Y))
+                return o;
+        }
+
+        return -1;
+    }
+
+    /// <summary>How far over the higher floor a pane in the way stops a jump or a drop: a crouched body.</summary>
+    private const float PaneHeight = 36f;
+
+    private static bool SegmentCrosses(float ax, float ay, float bx, float by, float minX, float minY, float maxX, float maxY)
+    {
+        float t0 = 0f, t1 = 1f;
+        foreach ((float d, float a, float lo, float hi) in ((float, float, float, float)[])[(bx - ax, ax, minX, maxX), (by - ay, ay, minY, maxY)])
+        {
+            if (MathF.Abs(d) < 1e-4f)
+            {
+                if (a < lo || a > hi)
+                    return false;
+                continue;
+            }
+
+            float n = (lo - a) / d, f = (hi - a) / d;
+            if (n > f)
+                (n, f) = (f, n);
+            t0 = MathF.Max(t0, n);
+            t1 = MathF.Min(t1, f);
+            if (t0 > t1)
+                return false;
+        }
+
+        return true;
     }
 
     private static void AddLadder(NavGraphBuilder b, HashSet<(int, int)> added, int a, int c, NavEdgeCosts costs)

@@ -29,8 +29,9 @@ public static class AiTestMaps
     /// <summary>
     /// ss_ai_nav: the spawn and a step up to a platform; a 32 u and a 48 u
     /// ledge, a 40 u crawlspace to a nook, a hurt strip; a ladder to a 160 u
-    /// platform with a drop off it, and a door in a partition. A pickup on
-    /// each, so a bot sent to each pickup in turn crosses every edge type.
+    /// platform with a drop off it and a 40 u hand rail along its east edge,
+    /// and a door in a partition. A pickup on each, so a bot sent to each
+    /// pickup in turn crosses every edge type.
     /// </summary>
     public static VmfMap Nav()
     {
@@ -75,6 +76,10 @@ public static class AiTestMaps
         o = Origin(0);
         map.WorldSolids.Add(VmfMap.Box(o + new Point(160, 288, 16), o + new Point(352, 496, 176), Ledge));
         Item(map, "weapon_crossbow", o + new Point(256, 440, 192));
+        // A hand rail along the platform's east edge, 40 u up and 4 u thick: over
+        // a plain jump's reach (39), so it takes a crouch-jump, with ammo past it.
+        map.WorldSolids.Add(VmfMap.Box(o + new Point(348, 288, 176), o + new Point(352, 496, 216), Ledge));
+        Item(map, "item_ammo_crossbow", o + new Point(376, 400, 24));
         var ladder = new VmfEntity { ClassName = "func_useableladder" };
         // point0 and point1 stay as written through map-tools' room split, its
         // room compile and its link (only origins move; plan_hl2mp_ai §12.4),

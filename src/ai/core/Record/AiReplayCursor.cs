@@ -169,6 +169,8 @@ public sealed class AiReplayCursor
 
         public void BotRemoved(ActorId bot) { }
 
+        public void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches) { }
+
         public void Event(in AiEvent e) { }
 
         public void Snapshot(AiSnapshot snapshot) { }

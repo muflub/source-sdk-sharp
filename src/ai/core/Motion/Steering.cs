@@ -32,12 +32,21 @@ public static class Steering
         return push;
     }
 
-    /// <summary>A way to go, bent by a separation push: the sum, normalised; the way itself when nothing pushes.</summary>
+    /// <summary>How much of a push against the way turns to the right of it.</summary>
+    public const float KeepRight = 1.5f;
+
+    /// <summary>A way to go, bent by a separation push: the sum, with what opposes the way turned to its right, normalised; the way itself when nothing pushes.</summary>
     public static AiVector Bend(AiVector way, AiVector push, float weight = 1.5f)
     {
         if (push.LengthSquared < 1e-6f)
             return way;
-        AiVector bent = new AiVector(way.X, way.Y, 0f).Normalised() + push * weight;
+        AiVector forward = new AiVector(way.X, way.Y, 0f).Normalised();
+        AiVector bent = forward + push * weight;
+        // Pushed straight back (someone coming the other way): to the right, as
+        // both do, or the push only slows two bots to a stand at each other.
+        float against = -(forward.X * push.X + forward.Y * push.Y);
+        if (against > 0f)
+            bent += new AiVector(forward.Y, -forward.X, 0f) * (against * weight * KeepRight);
         return bent.LengthSquared < 1e-6f ? way : bent.Normalised();
     }
 }

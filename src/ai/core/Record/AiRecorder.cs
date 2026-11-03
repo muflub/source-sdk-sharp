@@ -46,6 +46,12 @@ public sealed class AiRecorder : IAiRecordSink
         End(AiRecordType.BotRemoved);
     }
 
+    public void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches)
+    {
+        AiRecordFormat.Write(Begin(), new AiDecisionTree([.. names], [.. branches]));
+        End(AiRecordType.DecisionTree);
+    }
+
     public void Event(in AiEvent e)
     {
         AiRecordFormat.Write(Begin(), _actors is null ? e : _actors.Map(e));

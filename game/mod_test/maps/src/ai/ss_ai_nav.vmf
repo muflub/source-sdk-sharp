@@ -2762,8 +2762,8 @@ world
 		side
 		{
 			"id" "255"
-			"plane" "(400 96 496) (416 96 496) (416 16 496)"
-			"material" "DEV/DEV_MEASUREWALL01A"
+			"plane" "(348 496 216) (352 496 216) (352 288 216)"
+			"material" "DEV/DEV_MEASUREGENERIC01"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 -1 0 0] 0.25"
 			"rotation" "0"
@@ -2773,8 +2773,8 @@ world
 		side
 		{
 			"id" "256"
-			"plane" "(400 16 16) (416 16 16) (416 96 16)"
-			"material" "DEV/DEV_MEASUREWALL01A"
+			"plane" "(348 288 176) (352 288 176) (352 496 176)"
+			"material" "DEV/DEV_MEASUREGENERIC01"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 -1 0 0] 0.25"
 			"rotation" "0"
@@ -2784,8 +2784,8 @@ world
 		side
 		{
 			"id" "257"
-			"plane" "(416 96 496) (416 96 16) (416 16 16)"
-			"material" "DEV/DEV_MEASUREWALL01A"
+			"plane" "(352 496 216) (352 496 176) (352 288 176)"
+			"material" "DEV/DEV_MEASUREGENERIC01"
 			"uaxis" "[0 1 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
 			"rotation" "0"
@@ -2795,8 +2795,8 @@ world
 		side
 		{
 			"id" "258"
-			"plane" "(400 16 496) (400 16 16) (400 96 16)"
-			"material" "DEV/DEV_MEASUREWALL01A"
+			"plane" "(348 288 216) (348 288 176) (348 496 176)"
+			"material" "DEV/DEV_MEASUREGENERIC01"
 			"uaxis" "[0 1 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
 			"rotation" "0"
@@ -2806,8 +2806,8 @@ world
 		side
 		{
 			"id" "259"
-			"plane" "(416 96 496) (400 96 496) (400 96 16)"
-			"material" "DEV/DEV_MEASUREWALL01A"
+			"plane" "(352 496 216) (348 496 216) (348 496 176)"
+			"material" "DEV/DEV_MEASUREGENERIC01"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
 			"rotation" "0"
@@ -2817,8 +2817,8 @@ world
 		side
 		{
 			"id" "260"
-			"plane" "(416 16 16) (400 16 16) (400 16 496)"
-			"material" "DEV/DEV_MEASUREWALL01A"
+			"plane" "(352 288 176) (348 288 176) (348 288 216)"
+			"material" "DEV/DEV_MEASUREGENERIC01"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
 			"rotation" "0"
@@ -2838,7 +2838,7 @@ world
 		side
 		{
 			"id" "262"
-			"plane" "(400 496 496) (416 496 496) (416 160 496)"
+			"plane" "(400 96 496) (416 96 496) (416 16 496)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 -1 0 0] 0.25"
@@ -2849,7 +2849,7 @@ world
 		side
 		{
 			"id" "263"
-			"plane" "(400 160 16) (416 160 16) (416 496 16)"
+			"plane" "(400 16 16) (416 16 16) (416 96 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 -1 0 0] 0.25"
@@ -2860,7 +2860,7 @@ world
 		side
 		{
 			"id" "264"
-			"plane" "(416 496 496) (416 496 16) (416 160 16)"
+			"plane" "(416 96 496) (416 96 16) (416 16 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[0 1 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
@@ -2871,7 +2871,7 @@ world
 		side
 		{
 			"id" "265"
-			"plane" "(400 160 496) (400 160 16) (400 496 16)"
+			"plane" "(400 16 496) (400 16 16) (400 96 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[0 1 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
@@ -2882,7 +2882,7 @@ world
 		side
 		{
 			"id" "266"
-			"plane" "(416 496 496) (400 496 496) (400 496 16)"
+			"plane" "(416 96 496) (400 96 496) (400 96 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
@@ -2893,7 +2893,7 @@ world
 		side
 		{
 			"id" "267"
-			"plane" "(416 160 16) (400 160 16) (400 160 496)"
+			"plane" "(416 16 16) (400 16 16) (400 16 496)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
@@ -2914,7 +2914,7 @@ world
 		side
 		{
 			"id" "269"
-			"plane" "(400 160 496) (416 160 496) (416 96 496)"
+			"plane" "(400 496 496) (416 496 496) (416 160 496)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 -1 0 0] 0.25"
@@ -2925,7 +2925,7 @@ world
 		side
 		{
 			"id" "270"
-			"plane" "(400 96 128) (416 96 128) (416 160 128)"
+			"plane" "(400 160 16) (416 160 16) (416 496 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 -1 0 0] 0.25"
@@ -2936,7 +2936,7 @@ world
 		side
 		{
 			"id" "271"
-			"plane" "(416 160 496) (416 160 128) (416 96 128)"
+			"plane" "(416 496 496) (416 496 16) (416 160 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[0 1 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
@@ -2947,7 +2947,7 @@ world
 		side
 		{
 			"id" "272"
-			"plane" "(400 96 496) (400 96 128) (400 160 128)"
+			"plane" "(400 160 496) (400 160 16) (400 496 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[0 1 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
@@ -2958,7 +2958,7 @@ world
 		side
 		{
 			"id" "273"
-			"plane" "(416 160 496) (400 160 496) (400 160 128)"
+			"plane" "(416 496 496) (400 496 496) (400 496 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
 			"vaxis" "[0 0 -1 0] 0.25"
@@ -2969,6 +2969,82 @@ world
 		side
 		{
 			"id" "274"
+			"plane" "(416 160 16) (400 160 16) (400 160 496)"
+			"material" "DEV/DEV_MEASUREWALL01A"
+			"uaxis" "[1 0 0 0] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		editor
+		{
+			"color" "0 180 220"
+			"visgroupshown" "1"
+			"visgroupautoshown" "1"
+		}
+	}
+	solid
+	{
+		"id" "275"
+		side
+		{
+			"id" "276"
+			"plane" "(400 160 496) (416 160 496) (416 96 496)"
+			"material" "DEV/DEV_MEASUREWALL01A"
+			"uaxis" "[1 0 0 0] 0.25"
+			"vaxis" "[0 -1 0 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "277"
+			"plane" "(400 96 128) (416 96 128) (416 160 128)"
+			"material" "DEV/DEV_MEASUREWALL01A"
+			"uaxis" "[1 0 0 0] 0.25"
+			"vaxis" "[0 -1 0 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "278"
+			"plane" "(416 160 496) (416 160 128) (416 96 128)"
+			"material" "DEV/DEV_MEASUREWALL01A"
+			"uaxis" "[0 1 0 0] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "279"
+			"plane" "(400 96 496) (400 96 128) (400 160 128)"
+			"material" "DEV/DEV_MEASUREWALL01A"
+			"uaxis" "[0 1 0 0] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "280"
+			"plane" "(416 160 496) (400 160 496) (400 160 128)"
+			"material" "DEV/DEV_MEASUREWALL01A"
+			"uaxis" "[1 0 0 0] 0.25"
+			"vaxis" "[0 0 -1 0] 0.25"
+			"rotation" "0"
+			"lightmapscale" "16"
+			"smoothing_groups" "0"
+		}
+		side
+		{
+			"id" "281"
 			"plane" "(416 96 128) (400 96 128) (400 96 496)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -2987,7 +3063,7 @@ world
 }
 entity
 {
-	"id" "275"
+	"id" "282"
 	"classname" "info_room"
 	"origin" "768 0 0"
 	"name" "spawn"
@@ -3003,7 +3079,7 @@ entity
 }
 entity
 {
-	"id" "276"
+	"id" "283"
 	"classname" "light"
 	"origin" "1024 256 448"
 	"_light" "255 250 235 400"
@@ -3015,7 +3091,7 @@ entity
 }
 entity
 {
-	"id" "277"
+	"id" "284"
 	"classname" "info_player_deathmatch"
 	"origin" "864 192 16"
 	"angles" "0 0 0"
@@ -3027,7 +3103,7 @@ entity
 }
 entity
 {
-	"id" "278"
+	"id" "285"
 	"classname" "info_player_deathmatch"
 	"origin" "864 256 16"
 	"angles" "0 0 0"
@@ -3039,7 +3115,7 @@ entity
 }
 entity
 {
-	"id" "279"
+	"id" "286"
 	"classname" "info_player_deathmatch"
 	"origin" "864 320 16"
 	"angles" "0 0 0"
@@ -3051,7 +3127,7 @@ entity
 }
 entity
 {
-	"id" "280"
+	"id" "287"
 	"classname" "info_player_deathmatch"
 	"origin" "864 384 16"
 	"angles" "0 0 0"
@@ -3063,7 +3139,7 @@ entity
 }
 entity
 {
-	"id" "281"
+	"id" "288"
 	"classname" "item_healthkit"
 	"origin" "928 256 24"
 	editor
@@ -3074,7 +3150,7 @@ entity
 }
 entity
 {
-	"id" "282"
+	"id" "289"
 	"classname" "weapon_shotgun"
 	"origin" "1224 96 96"
 	editor
@@ -3085,7 +3161,7 @@ entity
 }
 entity
 {
-	"id" "283"
+	"id" "290"
 	"classname" "info_room"
 	"origin" "1536 0 0"
 	"name" "ledges"
@@ -3101,7 +3177,7 @@ entity
 }
 entity
 {
-	"id" "284"
+	"id" "291"
 	"classname" "light"
 	"origin" "1792 256 448"
 	"_light" "255 250 235 400"
@@ -3113,7 +3189,7 @@ entity
 }
 entity
 {
-	"id" "285"
+	"id" "292"
 	"classname" "weapon_smg1"
 	"origin" "1680 440 64"
 	editor
@@ -3124,7 +3200,7 @@ entity
 }
 entity
 {
-	"id" "286"
+	"id" "293"
 	"classname" "weapon_357"
 	"origin" "1904 440 80"
 	editor
@@ -3135,7 +3211,7 @@ entity
 }
 entity
 {
-	"id" "287"
+	"id" "294"
 	"classname" "item_battery"
 	"origin" "1672 48 24"
 	editor
@@ -3146,17 +3222,17 @@ entity
 }
 entity
 {
-	"id" "288"
+	"id" "295"
 	"classname" "trigger_hurt"
 	"damage" "20"
 	"damagetype" "0"
 	"spawnflags" "1"
 	solid
 	{
-		"id" "289"
+		"id" "296"
 		side
 		{
-			"id" "290"
+			"id" "297"
 			"plane" "(1888 224 48) (1952 224 48) (1952 160 48)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3167,7 +3243,7 @@ entity
 		}
 		side
 		{
-			"id" "291"
+			"id" "298"
 			"plane" "(1888 160 16) (1952 160 16) (1952 224 16)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3178,7 +3254,7 @@ entity
 		}
 		side
 		{
-			"id" "292"
+			"id" "299"
 			"plane" "(1952 224 48) (1952 224 16) (1952 160 16)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -3189,7 +3265,7 @@ entity
 		}
 		side
 		{
-			"id" "293"
+			"id" "300"
 			"plane" "(1888 160 48) (1888 160 16) (1888 224 16)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -3200,7 +3276,7 @@ entity
 		}
 		side
 		{
-			"id" "294"
+			"id" "301"
 			"plane" "(1952 224 48) (1888 224 48) (1888 224 16)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3211,7 +3287,7 @@ entity
 		}
 		side
 		{
-			"id" "295"
+			"id" "302"
 			"plane" "(1952 160 16) (1888 160 16) (1888 160 48)"
 			"material" "TOOLS/TOOLSTRIGGER"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3235,7 +3311,7 @@ entity
 }
 entity
 {
-	"id" "296"
+	"id" "303"
 	"classname" "info_room"
 	"origin" "0 0 0"
 	"name" "climb"
@@ -3251,7 +3327,7 @@ entity
 }
 entity
 {
-	"id" "297"
+	"id" "304"
 	"classname" "light"
 	"origin" "256 256 448"
 	"_light" "255 250 235 400"
@@ -3263,7 +3339,7 @@ entity
 }
 entity
 {
-	"id" "298"
+	"id" "305"
 	"classname" "weapon_crossbow"
 	"origin" "256 440 192"
 	editor
@@ -3274,7 +3350,18 @@ entity
 }
 entity
 {
-	"id" "299"
+	"id" "306"
+	"classname" "item_ammo_crossbow"
+	"origin" "376 400 24"
+	editor
+	{
+		"visgroupshown" "1"
+		"visgroupautoshown" "1"
+	}
+}
+entity
+{
+	"id" "307"
 	"classname" "func_useableladder"
 	"origin" "256 270 16"
 	"point0" "256 270 16"
@@ -3289,7 +3376,7 @@ entity
 }
 entity
 {
-	"id" "300"
+	"id" "308"
 	"classname" "info_ladder_dismount"
 	"origin" "256 320 184"
 	editor
@@ -3300,7 +3387,7 @@ entity
 }
 entity
 {
-	"id" "301"
+	"id" "309"
 	"classname" "func_door"
 	"targetname" "ai_door"
 	"movedir" "-90 0 0"
@@ -3310,10 +3397,10 @@ entity
 	"spawnflags" "1024"
 	solid
 	{
-		"id" "302"
+		"id" "310"
 		side
 		{
-			"id" "303"
+			"id" "311"
 			"plane" "(402 160 128) (414 160 128) (414 96 128)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3324,7 +3411,7 @@ entity
 		}
 		side
 		{
-			"id" "304"
+			"id" "312"
 			"plane" "(402 96 16) (414 96 16) (414 160 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3335,7 +3422,7 @@ entity
 		}
 		side
 		{
-			"id" "305"
+			"id" "313"
 			"plane" "(414 160 128) (414 160 16) (414 96 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -3346,7 +3433,7 @@ entity
 		}
 		side
 		{
-			"id" "306"
+			"id" "314"
 			"plane" "(402 96 128) (402 96 16) (402 160 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[0 1 0 0] 0.25"
@@ -3357,7 +3444,7 @@ entity
 		}
 		side
 		{
-			"id" "307"
+			"id" "315"
 			"plane" "(414 160 128) (402 160 128) (402 160 16)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3368,7 +3455,7 @@ entity
 		}
 		side
 		{
-			"id" "308"
+			"id" "316"
 			"plane" "(414 96 16) (402 96 16) (402 96 128)"
 			"material" "DEV/DEV_MEASUREWALL01A"
 			"uaxis" "[1 0 0 0] 0.25"
@@ -3392,7 +3479,7 @@ entity
 }
 entity
 {
-	"id" "309"
+	"id" "317"
 	"classname" "weapon_ar2"
 	"origin" "376 128 24"
 	editor

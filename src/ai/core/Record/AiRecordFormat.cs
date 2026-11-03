@@ -24,6 +24,22 @@ public enum AiRecordType : byte
 
     /// <summary>An event about an actor no brain plays, a human's sight computed by the bots' vision pass (format 3): for the metrics, never fed to a brain.</summary>
     Observed = 10,
+
+    /// <summary>The tree the intents' node ids are of (format 4), written with each bot: the jank score names leaves and branches by it.</summary>
+    DecisionTree = 11,
+}
+
+/// <summary>
+/// A decision tree's shape as a recording holds it: each node's name by id, and
+/// each node's branch (the id of the root's child it lies under).
+/// </summary>
+public sealed record AiDecisionTree(string[] Names, int[] Branches)
+{
+    /// <summary>A node's name; an id outside the tree (no leaf ran) says so.</summary>
+    public string Name(int node) => (uint)node < (uint)Names.Length ? Names[node] : "(none)";
+
+    /// <summary>The node's branch's id, or -1 outside the tree.</summary>
+    public int BranchOf(int node) => (uint)node < (uint)Branches.Length ? Branches[node] : -1;
 }
 
 /// <summary>
@@ -53,10 +69,11 @@ public static class AiRecordFormat
     public static ReadOnlySpan<byte> Magic => "SSAIREC\0"u8;
 
     /// <summary>
-    /// The format this build writes. It reads this one, 2 and 1 (format 2
-    /// added the World record, format 3 the Frame and Observed records).
+    /// The format this build writes. It reads this one, 3, 2 and 1 (format 2
+    /// added the World record, format 3 the Frame and Observed records, format
+    /// 4 the DecisionTree record).
     /// </summary>
-    public const ushort Version = 3;
+    public const ushort Version = 4;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -170,6 +187,26 @@ public static class AiRecordFormat
         byte[] curves = Encoding.UTF8.GetBytes(world.CurvesJson);
         w.Write(curves.Length);
         w.Write(curves);
+    }
+
+    public static void Write(BinaryWriter w, AiDecisionTree tree)
+    {
+        w.Write(tree.Names.Length);
+        foreach (string name in tree.Names)
+            WriteString(w, name);
+        foreach (int branch in tree.Branches)
+            w.Write(branch);
+    }
+
+    public static AiDecisionTree ReadDecisionTree(BinaryReader r)
+    {
+        var names = new string[Count(r)];
+        for (int i = 0; i < names.Length; i++)
+            names[i] = ReadString(r);
+        int[] branches = new int[names.Length];
+        for (int i = 0; i < branches.Length; i++)
+            branches[i] = r.ReadInt32();
+        return new AiDecisionTree(names, branches);
     }
 
     public static AiRecordedWorld ReadWorld(BinaryReader r)

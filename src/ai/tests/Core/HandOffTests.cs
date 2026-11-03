@@ -30,6 +30,8 @@ public sealed class HandOffTests
 
         public IReadOnlyList<string> NodeNames => [];
 
+        public IReadOnlyList<int> NodeBranches => [];
+
         public IntentCommand Decide(Tick tick, PerceivedView view, int seq)
         {
             Ran.Add((tick, view.Tick));
@@ -155,6 +157,8 @@ public sealed class HandOffTests
         public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels) { }
 
         public void BotRemoved(ActorId bot) { }
+
+        public void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches) { }
 
         public void Event(in AiEvent e) { }
 

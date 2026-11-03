@@ -53,6 +53,83 @@ public sealed class Nav3dFixtureTests
 
     private static int Floor => CellAt(40, 40, 16);
 
+    /// <summary>
+    /// A walkway slab whose top is at 128 over a floor at 16, a wall along its
+    /// east side down to the floor's height of a passage under it, and a rail
+    /// 40 u high and 4 u thick along its north side: dm_lockdown's shape.
+    /// </summary>
+    private static readonly Lazy<NavGraph> Walkway = new(() => NavGraphFromNav3d.Derive(new Nav3dNavSource(new VoxelNavFixture(2, 2, 24)
+            .Solid(0, 0, 0, 512, 512, 16)
+            .Solid(64, 64, 112, 256, 256, 128)
+            .Solid(256, 0, 112, 272, 512, 384)
+            .Solid(64, 256, 128, 256, 260, 168)
+            .Open()), Hl2mpNavNumbers.Stock(56f), NavEdgeCosts.Default, []).Graph);
+
+    private static int WalkwayCell(float x, float y, float z)
+    {
+        CellId c = Walkway.Value.FindCell(new AiVector(x, y, z));
+        Assert.True(c.IsValid, $"no cell at ({x} {y} {z})");
+        return c.Index;
+    }
+
+    private static NavCell[] DropsFrom(float x, float y, float z)
+    {
+        NavGraph g = Walkway.Value;
+        return [.. g.EdgesFrom(WalkwayCell(x, y, z)).ToArray().Where(e => e.Type == NavEdgeType.Drop).Select(e => g.Cell(e.To))];
+    }
+
+    /// <summary>
+    /// The floor under a walkway is two columns along from the walkway too, and
+    /// no way down: live, dm_lockdown's bots stood on the walkway pressing at
+    /// its floor, its wall and its rail ("next Drop to" the floor beneath) for
+    /// good. Its open edge is the way down, which doing less cannot satisfy.
+    /// </summary>
+    [Fact]
+    public void AWalkwaysOnlyDropsAreOverItsOpenEdge()
+    {
+        Assert.Empty(DropsFrom(152, 152, 129));
+        Assert.Empty(DropsFrom(232, 152, 129));
+        NavCell[] west = DropsFrom(72, 152, 129);
+        Assert.NotEmpty(west);
+        Assert.All(west, c => Assert.True(c.MaxX <= 64f, $"a drop from the west edge lands under the slab: {c.Centre}"));
+    }
+
+    /// <summary>A rail a player stands on is a crouch-jump up (40 u: a plain jump's 39 falls short) and a drop on off its far side.</summary>
+    [Fact]
+    public void ARailFortyUnitsUpIsACrouchJumpFromTheWalkwayAndADropBeyond()
+    {
+        NavGraph g = Walkway.Value;
+        int walkway = WalkwayCell(152, 232, 129), rail = WalkwayCell(152, 264, 169), beyond = WalkwayCell(152, 296, 17);
+        Assert.Equal(168f, g.Cell(rail).FloorZ);
+        Assert.True(g.TryEdge(walkway, rail, out NavEdge up), "no edge from the walkway onto its rail");
+        Assert.Equal(NavEdgeType.CrouchJump, up.Type);
+        Assert.True(g.TryEdge(rail, beyond, out NavEdge off), "no way off the rail's far side");
+        Assert.Equal(NavEdgeType.Drop, off.Type);
+    }
+
+    /// <summary>
+    /// A pane along a ledge's edge: a drop through it is shut while the pane
+    /// stands and open when it is broken, though both floors are open either side
+    /// (live, dm_lockdown: bots on a window's sill for a drop through the glass).
+    /// </summary>
+    [Fact]
+    public void ADropThroughAPaneIsShutWhileThePaneStands()
+    {
+        NavGraph g = NavGraphFromNav3d.Derive(new Nav3dNavSource(new VoxelNavFixture(2, 2, 24)
+            .Solid(0, 0, 0, 512, 512, 16)
+            .Solid(64, 64, 16, 256, 256, 128)
+            .Obstacle("pane", "func_breakable_surf", Nav3dObstacleKind.Breakable, 62, 64, 128, 64, 256, 200)
+            .Open()), Hl2mpNavNumbers.Stock(56f), NavEdgeCosts.Default, []).Graph;
+        CellId ledge = g.FindCell(new AiVector(72f, 152f, 129f)), floor = g.FindCell(new AiVector(40f, 152f, 17f));
+        Assert.True(g.TryEdge(ledge.Index, floor.Index, out NavEdge drop), "no drop off the ledge");
+        Assert.Equal(NavEdgeType.Drop, drop.Type);
+        Assert.Equal(0, drop.Obstacle);
+
+        CellId east = g.FindCell(new AiVector(248f, 152f, 129f)), beyond = g.FindCell(new AiVector(280f, 152f, 17f));
+        Assert.True(g.TryEdge(east.Index, beyond.Index, out NavEdge open), "no drop off the far edge");
+        Assert.Equal(-1, open.Obstacle);
+    }
+
     [Fact]
     public void AnEighteenUnitStepIsWalkedUpAndDown()
     {

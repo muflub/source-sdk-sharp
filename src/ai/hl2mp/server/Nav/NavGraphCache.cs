@@ -5,9 +5,10 @@ namespace SourceSharp.Ai.Hl2mp.Nav;
 
 /// <summary>
 /// The derived graph cached on disk (plan_hl2mp_ai §6.2):
-/// <c>&lt;dir&gt;/&lt;map&gt;-&lt;sha256(bsp)[:16]&gt;-&lt;sha256(nav3d)[:16]&gt;-v&lt;MapFormatsVersion&gt;.navgraph</c>.
-/// The name and the header both carry the two hashes and the reader version,
-/// so a changed map, a changed nav or another reader finds no file, and a
+/// <c>&lt;dir&gt;/&lt;map&gt;-&lt;sha256(bsp)[:16]&gt;-&lt;sha256(nav3d)[:16]&gt;-v&lt;MapFormatsVersion&gt;-g&lt;revision&gt;.navgraph</c>.
+/// The name and the header both carry the two hashes, the reader version and
+/// the derivation's revision, so a changed map, a changed nav, another reader
+/// or a changed derivation finds no file, and a
 /// file whose header disagrees with its name is ignored and rewritten. A
 /// cached graph rebuilds through <see cref="NavGraphBuilder"/>, so it hashes
 /// equal to a fresh derivation.
@@ -22,10 +23,13 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
 {
     private static ReadOnlySpan<byte> Magic => "SSNAVG01"u8;
 
+    /// <summary>What a cached graph was written by: the reader's package and the derivation's revision.</summary>
+    private static string Version => $"{NavReaderVersion.Package}-g{NavGraphFromNav3d.Revision}";
+
     public string Directory => directory;
 
     public string PathFor(string map, string bspSha256, string navSha256)
-        => Path.Combine(directory, $"{map}-{bspSha256[..16]}-{navSha256[..16]}-v{NavReaderVersion.Package}.navgraph");
+        => Path.Combine(directory, $"{map}-{bspSha256[..16]}-{navSha256[..16]}-v{Version}.navgraph");
 
     /// <summary>The cached graph, or null when there is none or it does not describe these files.</summary>
     public DerivedNav? TryRead(string map, string bspSha256, string navSha256)
@@ -57,7 +61,7 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
         ArgumentNullException.ThrowIfNull(nav);
         var w = new Writer();
         w.Bytes(Magic);
-        w.Str(NavReaderVersion.Package);
+        w.Str(Version);
         w.Str(bspSha256);
         w.Str(navSha256);
         w.Str(map);
@@ -110,7 +114,7 @@ public sealed class NavGraphCache(string directory, NavEdgeCosts costs)
         if (!r.Bytes(Magic.Length).SequenceEqual(Magic))
             throw new InvalidDataException("not a .navgraph");
         string version = r.Str(), bsp = r.Str(), nav = r.Str(), name = r.Str();
-        if (version != NavReaderVersion.Package || bsp != bspSha256 || nav != navSha256 || name != map)
+        if (version != Version || bsp != bspSha256 || nav != navSha256 || name != map)
             throw new InvalidDataException($"the cache names {name} {bsp[..Math.Min(16, bsp.Length)]} {nav[..Math.Min(16, nav.Length)]} v{version}");
         int leaves = r.I32();
         var b = new NavGraphBuilder();

@@ -234,6 +234,7 @@ import inspect
 import json
 import math
 import os
+import random
 import re
 import shutil
 import signal
@@ -9530,6 +9531,77 @@ def step_bots(g):
     g.check(bool(gone), "the bots were kicked, the map left as the scenario has it")
 
 
+# The bots' jank score the step fails above (plan_hl2mp_ai §3.4.5). None until
+# decision commitment and personality land and budgets come from what they
+# measure: till then the step reports and says it judged nothing.
+AI_JANK_BUDGET = None
+AI_JANK_SECONDS = 120
+AI_JANK_LINE = re.compile(r"^jank: bots score (\S+) over (\S+) bot-minutes", re.M)
+
+
+def step_ai_jank(g):
+    """The bots' jank score over two minutes of play (plan_hl2mp_ai §3.4.5).
+
+    The gate's bots and its listen client running, turning, jumping and firing
+    by keys, recorded and scored by `tools/ai-replay jank`. Asserted: the score
+    tool read the recording and the bots played (at least 2 bot-minutes alive),
+    so a score was measured. The score itself fails the step only above
+    AI_JANK_BUDGET, which is not set yet: the step says so, and a pass of it
+    says nothing of how the bots looked.
+    """
+    c0 = ai_counters(g)
+    if c0 is None:
+        g.skip("the game answers no /ai/counters: the AI binding is not loaded")
+        return
+    if c0.get("nav.refusal"):
+        g.check(False, "no bots without the map's nav: %s" % c0["nav.refusal"])
+        return
+    g.cheats()
+    rec = os.path.join(g.scratch, "jank-%s.airec" % time.strftime("%H%M%S"))
+    g.api.cmd("ai_record start %s %s" % (rec, g.scen["map"]))
+    g.api.cmd("ai_bot_reserve_slots 0")
+    for name, skill in AI_GATE_BOTS:
+        g.api.cmd("ai_bot_add %s %s" % (name, skill))
+    g.api.wait_ticks(66)
+    listed = ai_bots(g)
+    g.check(len(listed) >= 2, "%d of the %d bots were added" % (len(listed), len(AI_GATE_BOTS)))
+    rng = random.Random(7)
+    g.api.cmd("+forward")
+    played = 0.0
+    while played < AI_JANK_SECONDS:
+        turning, resting = rng.uniform(0.2, 0.8), rng.uniform(0.5, 2.0)
+        turn = rng.choice(["left", "right"])
+        g.api.cmd("+" + turn)
+        g.ticks(turning)
+        g.api.cmd("-" + turn)
+        press = rng.choice(["jump", "attack", "attack"])
+        g.api.cmd("+" + press)
+        g.ticks(0.2)
+        g.api.cmd("-" + press)
+        g.ticks(resting)
+        played += turning + 0.2 + resting
+    g.api.cmd("-forward")
+    g.api.cmd("ai_record stop")
+    g.api.cmd("ai_bot_kick all")
+    g.api.cmd("ai_bot_reserve_slots 1")
+    g.check(bool(g.api.wait_for(lambda: not ai_bots(g) or None, 30.0)), "the bots were kicked, the map left as the scenario has it")
+
+    scored = subprocess.run([os.path.join(ROOT, "tools", "ai-replay"), "jank", rec], cwd=ROOT, capture_output=True, text=True, timeout=600)
+    for line in scored.stdout.splitlines():
+        g.say("    " + line)
+    m = AI_JANK_LINE.search(scored.stdout)
+    g.check(scored.returncode == 0 and bool(m), "the recording was scored (exit %d%s)"
+            % (scored.returncode, (": " + scored.stderr.strip()[-200:]) if scored.returncode else ""))
+    if not m:
+        return
+    score, minutes = float(m.group(1)), float(m.group(2))
+    g.check(minutes >= 2.0, "the bots played: %.1f bot-minutes alive" % minutes)
+    if AI_JANK_BUDGET is None:
+        g.note("REPORT ONLY, NOT A PASS OF THE SCORE: jank score %.1f, no budget set yet (plan_hl2mp_ai §3.4.5)" % score)
+    else:
+        g.check(score <= AI_JANK_BUDGET, "the jank score %.1f is within its budget %.1f" % (score, AI_JANK_BUDGET))
+
+
 def ai_slot(g, name):
     for b in ai_bots(g):
         if b.get("name") == name:
@@ -9780,6 +9852,8 @@ EXTRA_STEPS = [
     ("bots", "four bots play a minute on the worker pool: kills and deaths, no handle "
              "refusal, the costs in budget, the recording replays at 1, 2 and 4 threads "
              "(not in §5; plan_hl2mp_ai §8.2)", step_bots),
+    ("ai-jank", "the bots' jank score over two minutes of play: reported; it fails above a budget "
+                "once one is set (not in §5; plan_hl2mp_ai §3.4.5)", step_ai_jank),
     ("ss-ai-nav", "a bot walks ss_ai_nav to the .357 (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_nav),
     ("ss-ai-sight", "a bot sees another on ss_ai_sight (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_sight),
     ("ss-ai-hearing", "a bot hears another on ss_ai_hearing (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_hearing),
@@ -9797,7 +9871,7 @@ RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "vi
              "push", "contact-touch", "start-asleep", "trigger", "penetration", "prop-hurts-player", "knock-loose", "impact-damage", "stress", "door", "lift", "die", "respawn",
              "skinned-model", "viewmodel-merge",
              "engine-vectors", "second-client", "frag-credit", "chat", "spectate", "round-end", "save-load", "hot-reload", "map-reload",
-             "phys-convert", "render-plan-sandbox", "ai-nav", "bots", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
+             "phys-convert", "render-plan-sandbox", "ai-nav", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
              "map-change", "sigterm-shutdown", "shutdown"]
 
 BY_ID = {step[0]: step for step in ALL_STEPS}

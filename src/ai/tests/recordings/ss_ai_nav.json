@@ -1,51 +1,91 @@
 {
  "map": "ss_ai_nav",
- "source_sha256": "0e313bdc4a1b48ae3c1acb0791eed54964a72df939f25cf6a489859ef87f3be4",
+ "source_sha256": "fbfe23aa4e6561c81ad0b98e18e10e42dc206a66431ff04363ec3010b2b56288",
  "scenes": [
   {
    "name": "weapon_shotgun",
-   "from": 267,
-   "to": 436,
+   "from": 257,
+   "to": 431,
    "arrived": true
   },
   {
    "name": "weapon_smg1",
-   "from": 437,
-   "to": 606,
+   "from": 432,
+   "to": 637,
    "arrived": true
   },
   {
    "name": "weapon_357",
-   "from": 607,
-   "to": 776,
+   "from": 638,
+   "to": 909,
    "arrived": true
   },
   {
    "name": "item_battery",
-   "from": 776,
-   "to": 1045,
+   "from": 910,
+   "to": 1214,
    "arrived": true
   },
   {
    "name": "weapon_crossbow",
-   "from": 1046,
-   "to": 1714,
+   "from": 1215,
+   "to": 2019,
+   "arrived": true
+  },
+  {
+   "name": "item_ammo_crossbow",
+   "from": 2020,
+   "to": 2190,
    "arrived": true
   }
  ],
  "walker": 2,
  "ladder": [
-  "[SourceSharp/Ai] bot 1 (Walker) is on a ladder at (256 270 19), tick 1591",
-  "[SourceSharp/Ai] bot 1 (Walker) got off the ladder at (256 270 175), 156 u from where it got on, tick 1643"
+  "[SourceSharp/Ai] bot 1 (Walker) is on a ladder at (256 270 16), tick 1840",
+  "[SourceSharp/Ai] bot 1 (Walker) got off the ladder at (256 270 178), 162 u from where it got on, tick 1939"
  ],
+ "jumps": [
+  "[SourceSharp/Ai] bot 1 (Walker) crouch-jumps at (1101 321 16)",
+  "[SourceSharp/Ai] bot 1 (Walker) crouch-jumps at (1344 320 16)",
+  "[SourceSharp/Ai] bot 1 (Walker) crouch-jumps at (307 390 176)"
+ ],
+ "stuck": [],
  "counters": {
-  "tick": 1715,
-  "ai.sense.us": 27.9,
-  "ai.sense.us.max": 77.6,
-  "ai.publish.us": 428.1,
+  "tick": 2191,
+  "ai.sense.us": 95.4,
+  "ai.sense.us.max": 2440.5,
+  "ai.publish.us": 61.4,
   "ai.sense.ticks": 300,
-  "ai.sense.traces": 0,
-  "ai.sense.traces.total": 4189,
-  "bots": 1
+  "ai.sense.traces": 5,
+  "ai.sense.traces.total": 6370,
+  "ai.brain.us": 1545.9,
+  "ai.brain.us.max": 18148.2,
+  "ai.brain.cpu.us": 1228.8,
+  "ai.brain.steps": 345,
+  "ai.follow.builds": 0,
+  "ai.follow.pooled": 0,
+  "bots": 1,
+  "ai.apply.us": 169.5,
+  "ai.run.us": 378.3,
+  "ai.refused.stale": 0,
+  "ai.refused.unknown": 0,
+  "ai.refused.expired": 4,
+  "ai.main.us": 326.2,
+  "ai.sync": 0,
+  "ai.pool.threads": 4,
+  "ai.pool.alive": 4,
+  "ai.pool.os_threads": 4,
+  "ai.pool.us": 26345.2,
+  "ai.pool.ran": 345,
+  "ai.pool.faults": 0,
+  "ai.steps.skipped": 0,
+  "ai.steps.faulted": 0,
+  "ai.steps.held": 0,
+  "ai.steps.inflight": 0,
+  "ai.steps.inflight.max": 1,
+  "process.threads": 74,
+  "nav.map": "ss_ai_nav",
+  "nav.cells": 2104,
+  "nav.refusal": null
  }
 }

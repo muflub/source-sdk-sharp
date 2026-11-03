@@ -41,6 +41,11 @@ public sealed class MapEntities
     /// <summary>The items the map places (health, armour, ammo, chargers).</summary>
     public IEnumerable<MapEntity> Items => All.Where(e => e.ClassName.StartsWith("item_", StringComparison.Ordinal));
 
+    /// <summary>A point of each <c>func_useableladder</c>: its origin, whose x and y are the ladder's.</summary>
+    public IReadOnlyList<AiVector> Ladders => _ladders ??= [.. All.Where(e => e.ClassName == "func_useableladder").Select(e => e.Origin)];
+
+    private IReadOnlyList<AiVector>? _ladders;
+
     /// <summary>The <c>trigger_hurt</c> volumes, which no derived cell may stand in.</summary>
     public IReadOnlyList<HurtVolume> Hurt =>
         [.. All.Where(e => e.ClassName == "trigger_hurt" && e.Mins is not null).Select(e => new HurtVolume(e.Mins!.Value, e.Maxs!.Value))];

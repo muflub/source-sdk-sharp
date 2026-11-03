@@ -120,6 +120,9 @@ public static class AiReplayer
                     // A person's sight: the metrics', never a brain's.
                     AiRecordFormat.ReadEvent(r);
                     break;
+                case AiRecordType.DecisionTree:
+                    AiRecordFormat.ReadDecisionTree(r);
+                    break;
                 case AiRecordType.World:
                     AiRecordedWorld known = AiRecordFormat.ReadWorld(r);
                     if (nav is null)
@@ -174,6 +177,8 @@ public static class AiReplayer
         public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels) { }
 
         public void BotRemoved(ActorId bot) { }
+
+        public void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches) { }
 
         public void Event(in AiEvent e) { }
 

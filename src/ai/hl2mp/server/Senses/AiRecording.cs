@@ -38,6 +38,8 @@ public sealed class RecordingSwitch : IAiRecordSink
 
     public void BotRemoved(ActorId bot) => _recorder?.BotRemoved(bot);
 
+    public void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches) => _recorder?.DecisionTree(names, branches);
+
     public void Event(in AiEvent e) => _recorder?.Event(e);
 
     public void Snapshot(AiSnapshot snapshot) => _recorder?.Snapshot(snapshot);

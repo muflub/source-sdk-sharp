@@ -40,4 +40,7 @@ public interface IDecider
 
     /// <summary>The tree's node names by id, for the trace's readers.</summary>
     IReadOnlyList<string> NodeNames { get; }
+
+    /// <summary>Each node's branch by id (<see cref="BehaviorTree{T}.Branches"/>), for a recording to name a leaf's branch.</summary>
+    IReadOnlyList<int> NodeBranches { get; }
 }

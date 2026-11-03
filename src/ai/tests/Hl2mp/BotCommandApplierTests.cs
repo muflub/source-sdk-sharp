@@ -158,6 +158,76 @@ public class BotCommandApplierTests
         Assert.Equal((int)InputButtons.Duck, Tick().Buttons);
     }
 
+    /// <summary>
+    /// A held jump lets go now and then, and the duck stays: stock jumps only on
+    /// the press, and a bot that held the key fell back from a rail and stood
+    /// at it ducked with the key down, for good.
+    /// </summary>
+    [Fact]
+    public void ACrouchJumpLetsGoOfTheJumpNowAndThenHoldingTheDuck()
+    {
+        var pressed = new List<bool>();
+        for (int i = 0; i < BotCommandApplier.JumpCycle * 2; i++)
+        {
+            Submit(Kind(MoveKind.CrouchJump));
+            UserCmd cmd = Tick();
+            pressed.Add(cmd.IsPressed(InputButtons.Jump));
+            Assert.True(cmd.IsPressed(InputButtons.Duck), $"the duck let go at {i}");
+        }
+
+        Assert.True(pressed[0], "the first tick presses");
+        Assert.Contains(false, pressed);
+        Assert.True(pressed[BotCommandApplier.JumpCycle], "pressed again after the let-go");
+    }
+
+    /// <summary>A landing near across on another floor is still ahead: a bot at a drop's edge stopped with it "reached" under its feet.</summary>
+    [Fact]
+    public void ACornerOnAnotherFloorIsNotReachedByBeingUnderIt()
+    {
+        Submit(Follow(new AiVector(10f, 0f, -128f)));
+        Assert.True(Tick().ForwardMove != 0f || _runner.Queued[^1].Cmd.SideMove != 0f, "it stopped at the edge");
+    }
+
+    /// <summary>The last corner it was told of (a link's take-off) is walked right up to; one with another after it is cut, as a path is.</summary>
+    [Fact]
+    public void TheLastCornerIsWalkedRightUpToAndAnEarlierOneIsCut()
+    {
+        Submit(Follow(new AiVector(10f, 0f, 0f)));
+        UserCmd last = Tick();
+        Assert.True(last.ForwardMove != 0f || last.SideMove != 0f, "it stopped short of its last corner");
+        Submit(new MoveIntent(MoveKind.Follow, MoveSpeed.Run, 2, new AiVector(10f, 0f, 0f), new AiVector(0f, 500f, 0f), default, default, default, false, 0));
+        Tick();
+        Assert.Equal(new AiVector(0f, 500f, 0f), _applier.LastOf(Bot).Corner);
+    }
+
+    /// <summary>Two dead bots press to respawn on ticks of their own: together, they came back in one tick and stood in each other on one spot.</summary>
+    [Fact]
+    public void DeadBotsPressToRespawnOnTicksOfTheirOwn()
+    {
+        var other = new ActorId(4, 2);
+        var otherPlayer = new EntityHandle(0x0001_0004u);
+        _applier.Add(other, otherPlayer, Normal, 43);
+        _self.Facts = _self.Facts with { Alive = false };
+        var pressedBy = new HashSet<EntityHandle>();
+        var ticks = new Dictionary<int, EntityHandle>();
+        for (int i = 0; i < BotCommandApplier.RespawnPressTicks * 2; i++)
+        {
+            int before = _runner.Queued.Count;
+            _applier.ApplyTick(new Tick(_tick++), Dt);
+            foreach ((EntityHandle p, UserCmd c) in _runner.Queued.Skip(before))
+            {
+                if (c.IsPressed(InputButtons.Attack))
+                {
+                    Assert.False(ticks.TryGetValue(_tick, out EntityHandle same) && same != p, "both pressed on one tick");
+                    ticks[_tick] = p;
+                    pressedBy.Add(p);
+                }
+            }
+        }
+
+        Assert.Equal(2, pressedBy.Count);
+    }
+
     [Fact]
     public void AJumpWithACornerRunsTowardItPressingJump()
     {

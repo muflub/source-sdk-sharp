@@ -180,6 +180,8 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
     /// <summary>The window the sense cost is averaged over (§9: a 300-tick mean).</summary>
     public const int Window = 300;
 
+    private readonly List<NearbyPlayer> _nearby = new();
+
     private readonly List<SensedActor> _actors = new();
     private readonly List<AiEvent> _events = new();
     private readonly List<AiEvent> _observed = new();
@@ -295,6 +297,14 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         ReadOnlySpan<SensedBot> observers = reference.Observers(living, _botIn);
         long start = Stopwatch.GetTimestamp();
         vision.Run(tick, tickSeconds, sensed, living, _events, observers, _observed);
+        _nearby.Clear();
+        foreach (SensedActor a in _actors)
+        {
+            if (vision.ReadOf(a.Id.Slot) is { } read)
+                _nearby.Add(new NearbyPlayer(a.Id.Slot, read.Origin));
+        }
+
+        bots.Driver.Players = _nearby;
         for (int i = 0; i < _activity.Length; i++)
         {
             if (!vision.ActorIn(i).IsValid)

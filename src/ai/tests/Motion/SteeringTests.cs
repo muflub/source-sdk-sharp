@@ -51,6 +51,29 @@ public sealed class SteeringTests
         return closest;
     }
 
+    /// <summary>
+    /// Two coming straight at each other each turn to their own right, so they
+    /// pass: the push alone only slowed them to a stand, with nothing to choose a
+    /// side (user report 2026-11-02: "head on").
+    /// </summary>
+    [Fact]
+    public void TwoComingStraightAtEachOtherEachKeepToTheirRight()
+    {
+        AiVector east = new(1f, 0f, 0f);
+        AiVector bent = Steering.Bend(east, Steering.Separation(new AiVector(0f, 0f, 0f), [new AiVector(40f, 0f, 0f)]));
+        Assert.True(bent.Y < -0.2f, $"going east with someone ahead it bends south: {bent}");
+        AiVector back = Steering.Bend(-east, Steering.Separation(new AiVector(40f, 0f, 0f), [new AiVector(0f, 0f, 0f)]));
+        Assert.True(back.Y > 0.2f, $"going west it bends north: {back}");
+    }
+
+    /// <summary>A push from beside only bends the way, as before: nothing to the right of it.</summary>
+    [Fact]
+    public void APushFromBesideDoesNotTurnRight()
+    {
+        AiVector bent = Steering.Bend(new AiVector(1f, 0f, 0f), new AiVector(0f, 0.5f, 0f));
+        Assert.True(bent.Y > 0f, $"pushed north it bends north: {bent}");
+    }
+
     /// <summary>§8.2: the strafe's turns are not periodic: the intervals spread (CV &gt; 0.4) and do not follow one another (lag-1 autocorrelation under 0.3).</summary>
     [Fact]
     public void TheFightsStrafeIsNotPeriodic()

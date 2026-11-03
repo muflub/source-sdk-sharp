@@ -22,6 +22,11 @@
 #       (tools/ai-aim-calibrate runs the probes; exits 2 if a target is out of reach)
 #   tools/ai-replay hitrates <metrics.txt> <out.tsv>
 #       a person's hit rate per band from `ai-replay metrics`' output, as a hit rate file
+#   tools/ai-replay jank <recording.airec>... [--config ..]
+#       prints what makes a bot look wrong, per actor and in total, people by
+#       the same definitions (§3.4.5): stuck, wall bump, decision flips,
+#       in-sight not firing by leaf, strafe interval, yaw reversals, idle; the
+#       worst places of each; a headline score with its weights
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
@@ -45,8 +50,8 @@ if [[ "$verb" == "calibrate" && -n "${3:-}" ]]; then
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c Debug -v q --nologo >/dev/null
   exec "$dotnet" "$root/bin/debug/tools/ai-replay/SourceSharp.Ai.Replay.dll" calibrate "$rates" "$probes" "$skills" "$min"
 fi
-[[ ( "$verb" =~ ^(nav|metrics)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,27p' "$0"; exit 2; }
-if [[ "$verb" == metrics ]]; then
+[[ ( "$verb" =~ ^(nav|metrics|jank)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,31p' "$0"; exit 2; }
+if [[ "$verb" =~ ^(metrics|jank)$ ]]; then
   shift
   config=debug; recs=()
   while [[ $# -gt 0 ]]; do
@@ -57,7 +62,7 @@ if [[ "$verb" == metrics ]]; then
   done
   cfg=Debug; [[ "$config" == release ]] && cfg=Release
   "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
-  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" metrics "${recs[@]}"
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" "$verb" "${recs[@]}"
 fi
 map="$2"; shift 2
 recording=""

@@ -57,6 +57,15 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     /// <summary>A path corner counts as reached inside this many units (2D).</summary>
     public const float CornerReached = 16f;
 
+    /// <summary>
+    /// A corner on another floor (a ledge's landing, a drop's), or the last it
+    /// was told of (a link's take-off), is not reached by being near it: the bot
+    /// goes on toward it, until it is this near across. Reached by the flat
+    /// alone, a bot at a drop's edge stopped there, and one short of a ladder's
+    /// foot never stood in its cell.
+    /// </summary>
+    public const float CornerHeld = 1f, CornerFloorReach = 24f;
+
     /// <summary>A dead bot presses fire every this many ticks, as a player presses to respawn.</summary>
     public const int RespawnPressTicks = 30;
 
@@ -182,7 +191,10 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             bot.OneShots.Clear();
             bot.Spawned = false;
             SetView(ref cmd, facts.View);
-            if (tick.Value % RespawnPressTicks == 0)
+            // On a tick of its own, by slot: pressed together, bots respawned in
+            // one tick, each before the spawn check could see the other on the
+            // spot, and stood in each other at it (live, dm_lockdown: 127 s).
+            if ((tick.Value + bot.Id.Slot) % RespawnPressTicks == 0)
                 cmd.Buttons = (int)InputButtons.Attack;
             return cmd;
         }
@@ -211,6 +223,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         SetView(ref cmd, view);
 
         int buttons = MoveInto(ref cmd, intent.Move, in facts, view, corner);
+        buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
         bot.LastCorner = corner;
         bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
         buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), tick);
@@ -270,7 +283,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         for (int i = 0; i < move.CornerCount; i++)
         {
             AiVector c = move.Corner(i);
-            if (new AiVector(c.X - facts.Origin.X, c.Y - facts.Origin.Y, 0f).Length > CornerReached)
+            float flat = new AiVector(c.X - facts.Origin.X, c.Y - facts.Origin.Y, 0f).Length;
+            bool last = i == move.CornerCount - 1;
+            if (flat > CornerReached || (flat > CornerHeld && (last || MathF.Abs(c.Z - facts.Origin.Z) > CornerFloorReach)))
                 return c;
         }
 
@@ -397,6 +412,25 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         return buttons;
     }
 
+    /// <summary>
+    /// A jump held every this many ticks lets go for one. Stock jumps only on
+    /// the press (m_nOldButtons): a bot that held it fell back from a ledge or
+    /// a rail and stood at it with the key down, for good.
+    /// </summary>
+    public const int JumpCycle = 8;
+
+    /// <summary>A move's jump, let go on every <see cref="JumpCycle"/>th tick of a run of them. The duck stays held.</summary>
+    private static int JumpLetGo(BotState bot, MoveKind kind, int buttons)
+    {
+        if (kind is not (MoveKind.Jump or MoveKind.CrouchJump))
+        {
+            bot.JumpTicks = 0;
+            return buttons;
+        }
+
+        return ++bot.JumpTicks % JumpCycle == 0 ? buttons & ~(int)InputButtons.Jump : buttons;
+    }
+
     /// <summary>The held action's buttons this tick: a spray or burst holds, a tap presses every other tick.</summary>
     private static int HeldAction(BotState bot, in ActionIntent action, Tick tick)
     {
@@ -468,5 +502,6 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         public Queue<ActionIntent> OneShots { get; } = new();
         public bool Spawned { get; set; }
         public bool TapDown { get; set; }
+        public int JumpTicks { get; set; }
     }
 }

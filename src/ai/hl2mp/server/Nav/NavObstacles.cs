@@ -64,6 +64,8 @@ public sealed class NavObstacles(DerivedNav nav, IObstacleEyes eyes)
         for (int o = 0; o < nav.Obstacles.Length; o++)
         {
             NavObstacleInfo info = nav.Obstacles[o];
+            if (info.Kind is NavObstacleKind.Physics or NavObstacleKind.Prop)
+                _state.SetShovable(o);
             _entity[o] = eyes.Find(info.Name, info.ClassName, (info.Mins + info.Maxs) * 0.5f);
             if (_entity[o] == EntityHandle.None)
                 continue;

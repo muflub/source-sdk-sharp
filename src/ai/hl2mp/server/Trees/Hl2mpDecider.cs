@@ -154,6 +154,8 @@ public sealed class Hl2mpDecider : IDecider
 
     public IReadOnlyList<string> NodeNames => _names;
 
+    public IReadOnlyList<int> NodeBranches => _tree.Branches();
+
     /// <summary>The parameters the skills made (§10).</summary>
     public DecisionParams Params => _p;
 
@@ -1024,7 +1026,7 @@ public sealed class Hl2mpDecider : IDecider
             if (Hl2mpWeaponRanges.For(item.ClassName).Rank < 3)
                 continue;
             float d = _self.Origin.DistanceTo(item.Position);
-            if (d < best)
+            if (d < best && !SomeoneTakesFirst(item.Position, d))
             {
                 best = d;
                 at = item.Position;
@@ -1032,6 +1034,27 @@ public sealed class Hl2mpDecider : IDecider
         }
 
         return float.IsFinite(best);
+    }
+
+    /// <summary>How far from a pickup a player in sight is about to take it.</summary>
+    public const float TakesFirstReach = 256f;
+
+    /// <summary>
+    /// A player in sight nearer the pickup, and close to it, gets there first: the
+    /// bot goes for another rather than push them for it (user report
+    /// 2026-11-02: two stuck together on one goal). Ties go to the lower slot, so
+    /// one of two always goes on.
+    /// </summary>
+    private bool SomeoneTakesFirst(AiVector item, float mine)
+    {
+        foreach (ref readonly ActorFacts f in _view.Sighted)
+        {
+            float theirs = f.Origin.DistanceTo(item);
+            if (theirs < TakesFirstReach && (theirs < mine || (theirs == mine && f.Id.Slot < _bot.Slot)))
+                return true;
+        }
+
+        return false;
     }
 
     private bool NearestItem(ItemKind kind, out AiVector at, out int index)
@@ -1046,7 +1069,7 @@ public sealed class Hl2mpDecider : IDecider
             if (item.Kind != kind || (i < beliefs.Length && beliefs[i].Present == false))
                 continue;
             float d = _self.Origin.DistanceTo(item.Position);
-            if (d < best)
+            if (d < best && !SomeoneTakesFirst(item.Position, d))
             {
                 best = d;
                 at = item.Position;

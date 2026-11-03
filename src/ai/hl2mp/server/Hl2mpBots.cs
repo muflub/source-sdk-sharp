@@ -209,9 +209,12 @@ public sealed class Hl2mpBots : IFrameLifecycle
         CellId objective = CellId.None;
         var field = new FlowField();
         CellId from = graph.FindCell(self.Origin + new AiVector(0f, 0f, 1f));
+        // Over the props a player can shove, as the follower goes when there is no
+        // other way: a bot behind one had every goal refused (live, dm_lockdown).
+        NavObstacleState shoved = obstacles.Shoved();
         foreach (CellId c in NavPoints.CellsNear(graph, target, ClearanceClass.Crouch).Take(8))
         {
-            field.Build(graph, c, ClearanceClass.Crouch, obstacles);
+            field.Build(graph, c, ClearanceClass.Crouch, shoved);
             if (!from.IsValid || float.IsFinite(field.CostAt(from.Index)))
             {
                 objective = c;
@@ -292,11 +295,12 @@ public sealed class Hl2mpBots : IFrameLifecycle
     public const int ProgressTicks = 133;
 
     /// <summary>How long a follower may make no progress before it says it is stuck.</summary>
-    public const int StuckTicks = 200;
+    public const int StuckTicks = BrainDriver.StuckTicks;
 
     public void OnPreThink(float frameTime)
     {
         long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        _driver.Ladders = _nav.Current?.Entities.Ladders ?? [];
         Follow();
         var tick = new Tick(_frame.TickCount());
         Steer(tick);
@@ -370,11 +374,29 @@ public sealed class Hl2mpBots : IFrameLifecycle
             if (player == EntityHandle.None)
                 continue;
             BotSelfFacts self = _self.Read(player);
-            IntentCommand now = _driver.Drive(in brain, self.Origin, tick, ++_seq, _nav.Current?.Nav.Graph, _nav.Obstacles, self.OnLadder);
+            IntentCommand now = _driver.Drive(in brain, self.Origin, tick, ++_seq, _nav.Current?.Nav.Graph, _nav.Obstacles, self.OnLadder, self.View);
             _applier.Submit(in now);
             SayLadder(bot.Id, bot.Name, self, tick);
+            SayJump(bot.Id, bot.Name, now.Move.Kind, tick, self);
+            if (_driver.TakeUnreachable(bot.Id.Slot) is { } goal && _ai.Session.World is { } world)
+                ForgetPickupsAt(bot.Id, goal, tick, world);
+            if (_driver.TakeStuckLine(bot.Id.Slot) is { } stuck)
+                _log.Msg($"[SourceSharp/Ai] bot {bot.Id.Serial} ({bot.Name}) {stuck}, tick {tick.Value}\n");
             if (LogThink && _ai.Session.LastDoing(bot.Id.Slot) is { } doing)
                 SayDoing(bot, doing, self.Origin, tick);
+        }
+    }
+
+    /// <summary>How near a goal out of reach a pickup is that goal, across and up.</summary>
+    public const float PickupAtGoal = 32f;
+
+    /// <summary>A goal the bot cannot get to, if it is a pickup, is no pickup for now: told as seeing it gone, until it sees it there again.</summary>
+    private void ForgetPickupsAt(ActorId bot, AiVector goal, Tick tick, MemoryWorld world)
+    {
+        foreach (ItemSpawn item in world.Map.Items)
+        {
+            if (item.Position.DistanceTo(goal) <= PickupAtGoal)
+                _ai!.Session.Push(AiEvent.ItemSeen(bot, tick, item.Index, false));
         }
     }
 
@@ -514,8 +536,9 @@ public sealed class Hl2mpBots : IFrameLifecycle
                     + $"{state}, cost left {cost:F0}, {move.Kind} {move.CornerCount} corners, next {g.Follower.NextStep()}\n"));
             }
 
-            if (cost < g.BestCost - 1f)
-                _gotos[i] = g = g with { BestCost = cost, ProgressTick = tick.Value };
+            // On a ladder its climb is the driver's: it has a stall of its own, and the field no cell mid-way.
+            if (cost < g.BestCost - 1f || self.OnLadder)
+                _gotos[i] = g = g with { BestCost = self.OnLadder ? float.PositiveInfinity : cost, ProgressTick = tick.Value };
             else if (tick.Value - g.ProgressTick > StuckTicks)
             {
                 _log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
@@ -528,8 +551,9 @@ public sealed class Hl2mpBots : IFrameLifecycle
             var look = new LookIntent(LookKind.Path, default, ActorId.None, AimPoint.Body, 0f, 0);
             ActionIntent action = ActionIntent.None;
             if (_nav.Current?.Nav.Graph is { } graph)
-                _driver.LadderFor(g.Bot.Slot, g.Follower, self.Origin, tick, self.OnLadder, graph, ref move, ref look, ref action);
+                _driver.LadderFor(g.Bot.Slot, g.Follower, self.Origin, self.View, tick, self.OnLadder, graph, ref move, ref look, ref action);
             SayLadder(g.Bot, g.Name, self, tick);
+            SayJump(g.Bot, g.Name, move.Kind, tick, self);
             var intent = new IntentCommand(g.Bot, tick, ++_seq, tick + IntentCommand.LifetimeTicks, move, look, action, default);
             _applier.Submit(in intent);
         }
@@ -549,6 +573,24 @@ public sealed class Hl2mpBots : IFrameLifecycle
         _log.Msg(self.OnLadder
             ? string.Create(inv, $"[SourceSharp/Ai] bot {bot.Serial} ({name}) is on a ladder at ({at.X:F0} {at.Y:F0} {at.Z:F0}), tick {tick.Value}\n")
             : string.Create(inv, $"[SourceSharp/Ai] bot {bot.Serial} ({name}) got off the ladder at ({at.X:F0} {at.Y:F0} {at.Z:F0}), {at.Z - from.Z:F0} u from where it got on, tick {tick.Value}\n"));
+    }
+
+    private readonly Dictionary<int, (MoveKind Kind, int Tick)> _jumping = new();
+
+    /// <summary>How long a bot's jump is one take-off, for the line that says it (1 s).</summary>
+    public const int JumpSayTicks = 66;
+
+    /// <summary>A bot taking off, said once a jump, and with which jump.</summary>
+    private void SayJump(ActorId bot, string name, MoveKind kind, Tick tick, in BotSelfFacts self)
+    {
+        if (kind is not (MoveKind.Jump or MoveKind.CrouchJump))
+            return;
+        if (_jumping.TryGetValue(bot.Slot, out (MoveKind Kind, int Tick) last) && last.Kind == kind && tick.Value - last.Tick < JumpSayTicks)
+            return;
+        _jumping[bot.Slot] = (kind, tick.Value);
+        AiVector at = self.Origin;
+        _log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] bot {bot.Serial} ({name}) {(kind == MoveKind.CrouchJump ? "crouch-jumps" : "jumps")} at ({at.X:F0} {at.Y:F0} {at.Z:F0})\n"));
     }
 
     /// <summary>The corners a move carries and what the applier made of them, for a stuck line.</summary>

@@ -10,6 +10,9 @@ public interface IAiRecordSink
 
     void BotRemoved(ActorId bot);
 
+    /// <summary>The tree a bot's intents name their leaves in (format 4): an intent carries only a node's id, and ids move when a tree changes.</summary>
+    void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches);
+
     void Event(in AiEvent e);
 
     void Snapshot(AiSnapshot snapshot);
@@ -31,6 +34,8 @@ public sealed class NoRecording : IAiRecordSink
     public void BotAdded(ActorId bot, ulong seed, ReadOnlySpan<byte> skillLevels) { }
 
     public void BotRemoved(ActorId bot) { }
+
+    public void DecisionTree(IReadOnlyList<string> names, IReadOnlyList<int> branches) { }
 
     public void Event(in AiEvent e) { }
 

@@ -104,6 +104,22 @@ public class PathSmootherTests
         Assert.Equal((3, new AiVector(32, 32, 0)), (corners.Count, corners[1].Point));
     }
 
+    /// <summary>A corner on the floor under the bot's cell is no straight walk: live, dm_lockdown's stair landing cut to the corner beneath it and held there.</summary>
+    [Fact]
+    public void AShortcutDoesNotCutToACornerOnTheFloorUnderIt()
+    {
+        const ClearanceClasses Both = ClearanceClasses.Stand | ClearanceClasses.Crouch;
+        var b = new NavGraphBuilder();
+        CellId landing = b.AddCell(new NavCell(0f, 0f, 32f, 32f, 64f, Both, NavCellFlags.None, 1f));
+        CellId beside = b.AddCell(new NavCell(32f, 0f, 64f, 32f, 64f, Both, NavCellFlags.None, 1f));
+        b.AddCell(new NavCell(0f, 0f, 32f, 32f, 0f, Both, NavCellFlags.None, 1f));
+        b.AddBoth(landing, beside, NavEdgeType.Walk);
+        NavGraph g = b.Build();
+        var open = new NavObstacleState(0);
+        Assert.True(g.WalkableLine(landing.Index, new AiVector(8f, 16f, 64f), new AiVector(48f, 16f, 64f), ClearanceClass.Crouch, open));
+        Assert.False(g.WalkableLine(landing.Index, new AiVector(8f, 16f, 64f), new AiVector(24f, 16f, 0f), ClearanceClass.Crouch, open));
+    }
+
     [Fact]
     public void AStraightRunHasOnlyItsEnds()
     {

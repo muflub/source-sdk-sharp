@@ -8,6 +8,7 @@ using SourceSharp.Ai.Replay;
 //   heat <map.nav3d> <map.bsp> <recording.airec> <out-dir> [every=66] [pixels-per-unit]
 //   verify <map.nav3d> <map.bsp> <recording.airec> [threads=0,1,2,4]   (0 is inline)
 //   metrics <recording.airec>...   (§3.4.4: per actor, humans' and bots')
+//   jank <recording.airec>...      (§3.4.5: what makes a bot look wrong, as numbers)
 if (args.Length >= 2 && args[0] == "metrics")
 {
     foreach (string rec in args.Skip(1))
@@ -73,6 +74,27 @@ if (args.Length >= 4 && args[0] == "calibrate")
         Console.Error.WriteLine($"ai-replay calibrate: {e.Message}");
         return 1;
     }
+}
+
+if (args.Length >= 2 && args[0] == "jank")
+{
+    int empty = 0;
+    foreach (string rec in args.Skip(1))
+    {
+        JankReport report = JankTool.Read(rec);
+        Console.WriteLine($"ai-replay: jank {Path.GetFileName(rec)}: {report.Actors.Count(a => !a.Bot)} human, {report.Actors.Count(a => a.Bot)} bot; leaves named by {report.TreeSource}");
+        // A recording with no one in it measured nothing, and says so.
+        if (report.Actors.Count == 0)
+        {
+            Console.Error.WriteLine($"ai-replay: {rec} holds no actor's frames (before format 3, or nobody played): no score");
+            empty++;
+            continue;
+        }
+
+        Console.Write(AiJank.Table(report));
+    }
+
+    return empty == 0 ? 0 : 1;
 }
 
 if (args.Length >= 4 && args[0] == "verify")

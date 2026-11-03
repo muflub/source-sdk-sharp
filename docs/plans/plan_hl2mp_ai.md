@@ -585,6 +585,45 @@ measured; §12.3). Mutants that must turn these red: remove the flick model
 (aim snaps instantly); remove the reaction delay; lock the look to the path
 direction.
 
+**3.4.5 The jank score (ruling 2026-11-02).**
+
+What makes a bot look wrong, as numbers, so a regression shows up and a fix
+proves itself. `tools/ai-replay jank <recording.airec>...` (`AiJank`, core,
+pure) prints per actor and in total, people by the same definitions where they
+apply (a person has no leaves, so no flips):
+
+| part | definition |
+|---|---|
+| stuck | s per alive minute: a 1 s window (66 ticks) whose every tick holds a move key, under 32 u net between its ends. Not a window in which `SideMove` changed sign with an opponent in sight (a fight's dodge) |
+| wall bump | s per alive minute: a move key held at under 20 u/s for over 0.5 s (34 ticks), the whole run. Any move key, not only forward: a bot's wish is in its view's frame, so one backing into a wall holds no forward |
+| decision flips | per alive minute, branch and leaf apart: A to B and back to A with B lasting at most 1 s, each return one flip; a death ends the sequence |
+| in-sight not firing | ticks of no shot over ticks with an opponent seen in the held weapon's reach (`Hl2mpWeaponRanges`), by leaf, split at 400 u (the ruling: close-range firing comes first). A shot is a `ShotFired` or a press of attack and lasts the weapon's cadence. A person's weapon is the one they last fired |
+| strafe interval, yaw reversals | §3.4.4's, from `AiMetrics.For`, not a copy |
+| idle | s per alive minute: at least 1 s with no move key, no shot and the view within 2° of where the run began, the whole run (a bot's drift is no look) |
+
+Speeds and progress come from the frames' origins: it is where the body went
+that looks wrong. Each part names its ten worst places (a 128 u cell: mean
+position, seconds or flips, the actors).
+
+The headline is `sum(weight x part / full)`, `full` being what reads as plainly
+wrong, not clamped: stuck 25/6 s/min, wall bump 10/6 s/min, branch flips 10/10
+per min, leaf flips 10/20 per min, no shot under 400 u 20/0.5, no shot from
+400 u 5/0.8, idle 10/12 s/min, yaw reversals over 120 per min 5/120, a median
+strafe interval short of 300 ms 5/1 as a share of it. The parts are what matter.
+
+A recording names its leaves by the tree it carries (format 4's `DecisionTree`
+record: an intent holds only a node's id, and ids move when a tree changes); one
+that carries none uses this build's and says so.
+
+The standard run is `make ai-jank [MINUTES=5]` (`tools/ai-scenario jank`):
+dm_lockdown, four bots of one preset each (expert, hard, normal, easy) and a
+scripted client (the listen client on seeded random keys), recorded and scored,
+writing `bin/<config>/ai-jank/<utc>-<sha>.airec` and its report. The gate's step
+is `ai-jank` (`tools/live-gate`, run by `tools/daily-gate`): two minutes, the
+gate's bots. It **reports and does not judge** until budgets are set from what
+decision commitment and personality (§5.5) measure (`AI_JANK_BUDGET`), and its
+note says so.
+
 ### 3.5 Adding bots: the create-server screen, presets, custom profiles (ruling 2026-11-01)
 
 **Where bots are added.** On the server, always: `ai_bot_add` (§3.1.3) or
@@ -1006,6 +1045,28 @@ cell (its own §5.3.1 map) rather than the nearest or most likely opponent;
 the path-length cap and the "easier target nearer" discount are both
 weighted down by the trait, so a Headhunter walks further and passes up
 easy kills. The `reason` carries `scoreboardTerm`.
+
+### 5.5 Feel: commitment and personality (ruling 2026-11-02)
+
+The jank score (§3.4.5) measures, then this fixes; both start from main once the
+aim and ladder lanes have landed, because they change the same decider.
+
+- **Decision commitment.** A minimum commitment per behaviour once chosen, and a
+  margin a new choice must beat to replace the current one (hysteresis on the
+  utility scores), the numbers per branch stated in §5.4 when they are set. Some
+  things interrupt at once whatever the timer: an opponent seen close, taking
+  damage, an empty clip, a goal gone, being stuck. A commitment must not hide a
+  window: a reload window that closes still ends a push.
+- **Personality you can notice.** All of it from what that bot knows, in memory
+  only (§12.1: no opponent memory on disk), no knowledge unearned and no aim it
+  has not got. *Grudges*: who killed it most, leaned towards when it has a
+  choice, fading. *Habits you can see*: where an opponent tends to be, used
+  visibly (another door, a pre-aimed corner, a grenade), scaled by Cunning.
+  *Traits you can feel*: a high-Cover or high-Cunning bot holds angles and
+  ambushes, a high-Aggression one pushes and chases, with observables to hold it
+  (distance travelled, time in cover, kills from ambush, engagement range).
+  Grudge and habit moments are a small generic event a chat lane can use. The
+  web AI tab shows them.
 
 ## 6. Navigation from the map tools' `.nav3d` (ruling 2026-11-01)
 
@@ -1944,6 +2005,11 @@ rows of §3.1 (ruled). Hand-written native code: none.
   where they are going". §7.4. It is a debug view of the truth, so it may show
   more than a bot knows; what a bot only believes is labelled apart.
 
+- **Less janky, worth playing with** (2026-11-02): asked how to make the AI feel
+  less janky and make people want to play with the bots, then "Yes do those two
+  things and personality": a repeatable jank score (§3.4.5), decision commitment
+  and personality you can notice (§5.5).
+
 ### 12.2 Open questions
 
 None. The §3.1 exposure and the map-tools nav work were ruled on
@@ -1994,6 +2060,9 @@ that code when M1 starts, and changes nothing here.
 | `/ai/world`, the 3D view's route (§7.4), 4 bots + 1 human | game thread's CPU per answer, the JSON included, four runs: **p50 470 / 447 / 294 / 452 µs, mean 620 / 530 / 330 / 524, p95 2,095 / 1,390 / 470 / 947, max 4,366 / 2,564 / 2,562 / 2,185** (169–181 answers in 40 s of play, the page polling too): about 0.2 % of one core at 5 Hz, and the tick an answer lands on pays about one more tick's `ai.main.us` (394–1,936 µs in the same runs). In wall time, before the field moved to thread CPU: p50 448, p95 4,327, max 50,986 (box load 130–200) | the answer's own `costUs` (`ThreadCpuClock` around `Build` + `AiJson`), read by `curl` over the socket | `hl2mp-ai-3d`, debug, `make headless` dm_lockdown, `ai_bot_add` ×4, 2026-11-02 |
 | `/ai/world` payload, 4 bots + 1 human | depends on the shooting: **mean 16,874 / 18,481 / 18,957 bytes (max 20,268) through firefights, 6,907 (max 8,868) with little**: up to about 100 kB/s at 5 Hz over loopback. Most of it is heard sounds, each bot's log capped at 48 (three bots at 48 each: 14,096 bytes, of which actors and truth about 1,500) | `curl` body length, the same answers | as above |
 | the AI tab's page, 4 bots + 1 human | `view.draw` + labels 1.07–3.00 ms mean, 14.1 worst at 5 Hz. `requestAnimationFrame` gaps, four runs: orbiting p50 16.4 / 137.5 / 27.1 / 16.6 ms, p95 88.9 / 616.2 / 475.8 / 24.6; idle p50 16.8 / 16.7 / 18.7 / 16.7, p95 148.1 / 27.4 / 788.4 / 42.0. **Not a GPU number:** headless Chrome on SwiftShader (the CPU draws all 32,288 lines of dm_lockdown's wireframe) at box load 95–205. The fourth run, the box at its quietest, held 60 fps orbiting; the worse ones are read as the box's load, which was not varied on purpose. On a real GPU it is unmeasured | the panel's readout; a scratch rAF loop over CDP, Chrome `--headless=new --use-angle=swiftshader` | as above |
+| jank score, the user's session (older bots, the "before") | **bots 139.6** over 41.9 bot-minutes (stuck 21.83 s/min, wall bump 12.57 s/min, flips 4.7 branch / 6.9 leaf per min, no shot 27 % under 400 u / 33 % from 400 u, strafe 75 ms, yaw reversals 66/min, idle 3.53 s/min); **the person 28.5** over 10.7 min (stuck 0.66, wall bump 0.08, no shot 46 % / 72 %, strafe 1,230 ms, reversals 58/min, idle 3.30). Worst stuck: (-2779 3165 128) 104.8 s, (-3160 4096 128) 87.5 s, (-3097 4442 128) 76.8 s. Wall-bump seconds per bot agree to two decimals with a second reader written in Python over the raw records | `tools/ai-replay jank 20261102T144141Z.airec` (read only, not committed); leaves by this build's tree (`Build()` unchanged since before the session: no tree line in `git show a6eb342c5 31d7fc8b1`) | tool at `b92167c08`, debug |
+| jank score, the gate's `ai-jank` step, two minutes, the gate's bots | **98.6 and 64.7** in two passes, 6.6 and 6.8 bot-minutes: a two-minute score moves by half between passes, so a budget must allow for it or take more passes | `tools/live-gate --steps ai-jank --passes 2 --record --budget <scratch copy>` | `b92167c08`, debug |
+| jank score, the standard run (the baseline stages 2 and 3 are compared with) | **bots 230.5** over 20.2 bot-minutes (stuck 36.79 s/min, wall bump 26.87 s/min, flips 2.3 branch / 6.9 leaf per min, no shot 44 % under 400 u / 38 % from 400 u, strafe 45 ms, yaw reversals 48/min, idle 2.91 s/min). Per bot 97.6, 308.0, 294.2, 185.5. Worst stuck: (-2865 3418 135) 251.9 s one bot, (-3180 4437 128) 226.6 s one bot, (-2865 3418 61) 131.5 s one bot: three bots held in place for most of the run, so this is one run's luck on the map as much as a rate, and it wants a re-run before a budget is read from it. Biggest no-shot leaves: hold range 3,066/8,661 under 400 u, chase 1,352/1,704, back off reloading 1,163/1,590 | `make ai-jank` (`bin/debug/ai-jank/20261102T172637Z-b92167c08.airec`) | `hl2mp-ai-feel` `b92167c08`, debug, box shared (load over 100) |
 
 ### 12.4 Choices made in this plan (small, stated)
 
@@ -3150,6 +3219,95 @@ that code when M1 starts, and changes nothing here.
   cell 25314, the follower logged `NoRoute, cost left Infinity` and the route went
   from the view, the walk's goal at z 0. Twice in a session, not chased: it is the
   nav's, not this view's. The view is what made it visible.
+
+- **Jank score (§3.4.5), what differs from its brief.** (1) A wall bump counts any
+  move key, not only forward: a bot's wish is decomposed in its view's frame, so
+  a bot backing or sidling into a wall holds no forward, and forward alone would
+  miss it. (2) Stage 1 was to leave the decider alone; naming a leaf's branch
+  needed one line there (`NodeBranches`, from the tree's own shape), and the
+  format went to 4 so a recording names its own leaves, because the decider's
+  node ids will move in stage 2 and would then misname every earlier recording.
+  (3) The speeds read the frames' origins: `AiActorFrame.Velocity` was reading
+  zero for players (the aim lane's velocity fix), and origin is what looks wrong
+  anyway. (4) The strafe interval is §3.4.4's definition and reads 45 to 60 ms
+  median on bots against a person's 1,230 ms: not key presses but the sign of a
+  wish decomposed in a view that wanders, so a near-zero `SideMove` flips. It is
+  reported as defined, with a small weight; whether a person would see it is not
+  shown, and §3.4.4's own gate should read a `SideMove` above a dead zone. (5)
+  `tools/box-ready check` waited over fifteen minutes on idle cores taken by
+  services outside this repo (postgres, `manage.py`, load over 100); the build
+  went with `BOX_READY_NEED_CORES=2`, its documented override. (6) The daily
+  gate's own bisect was running when the `ai-jank` step was recorded (250 commits
+  left, in `ss-daily-gate`); no session's gate was, and the step ran on its own
+  worktree, API directory and port, touching nothing of it.
+- **Bots stuck: the ladder, the walkway, the rail, the balcony, each other**
+  (2026-11-02, `hl2mp-ai-ladder`; user reports "stuck on top of the ladder",
+  "on the walkway up top and cant jump over the hand rail", "stuck next to each
+  other"). Live on dm_lockdown; the movement port read term by term against
+  `hl_gamemovement.cpp` is stock's, so humans were not affected by the ladder.
+  (1) **The graph had a way down through everything.** A near move two columns
+  along was a Drop with no question asked of the column it landed in: 11,287
+  Drop links in `/ai/nav`, through a walkway's floor, wall and rail, down to
+  1,872 now. A drop now needs a crouched body to fall clear down the column, a
+  voxel at a time, in whichever leaf holds the height (a real file splits a
+  column's open run; the one-column stride's question of the lower floor's own
+  leaf answered no nearly always). The graph cache names a derivation revision.
+  (2) **The rail** at y 4313 is 40 u over the walkway by the game's traces, past
+  a plain jump's 39: a CrouchJump, its top a Drop on. The user stood on it and
+  says it needs a crouch-jump. A follower holds the duck until it lands
+  (letting go in the air dropped the feet 36 u into the rail), lets go of the
+  jump key every 8th tick (stock jumps on the press), overshoots a drop's
+  landing (or the box stands on the lip), and does not steer while falling.
+  (3) **A window's pane** is open floor to the file on both sides: a jump or a
+  drop through a standing pane or toggled brush now carries it, ahead of any
+  prop. (4) **The follower's place and corners.** A bot over a column whose only
+  cell is a floor far below was taken to be on that floor; corners were "passed"
+  by being near across, through a wall (the balcony at (-3226 4438 128)) or to
+  a ladder's foot; a corner on another floor was "reached" by being under it; a
+  straight line ran to a corner on the floor beneath. (5) **The balcony's minute**
+  is the graph's three false drops from its cell, then that corner: not a cause
+  of its own. (6) **The climb.** The stall's first height was NaN and never
+  written, so +use fired every 33 ticks and let go mid-span; the climb lived on
+  the follower, lost to a new goal or the mount's forced move, holding the bot at
+  z 72 or pressing at the top; the look asked up or down from where the bot was;
+  forward with the view across the ladder is stock's auto-dismount, so the bot
+  looks along it (pitch and yaw) first, and faces the ladder for +use, since the
+  far end's cell can be behind it; a Ladder link along a floor is walked. (7)
+  **Stuck detector**: only a scripted walk had one. Now any bot of the brains
+  with no fall in the field's cost for 3 s acts, whatever the edge, across new
+  goals: route round, the failed link avoided, jump. A goal nothing reaches is
+  gone as near as the bot can get after 0.5 s, and a pickup there is told to the
+  brain as seen gone. With no way out a field goes through props a player can
+  shove (props cut 1,756 and 986 cells off a spawn's field, measured alone over
+  the file by kind). (8) **Corner hold**: a walking bot keeps the corner it was
+  making for until passed, gone from sight or no longer leading to the
+  objective: two routes round a block cost the same, so the field's next step
+  flipped on the ridge. (9) **Each other**: two coming straight at each other keep
+  right; a bot held up by a player in front gives way if it is the higher slot,
+  clear across if there is room, else back the way it came; a lower bot behind
+  someone still routes round after 1 s; a bot leaves a pickup to a nearer player
+  in sight and stands off a place someone is on. (10) **Overlap, against stock**:
+  the spawn check looked at the first 16 entities within 128 u, so a spot among
+  lights and decals never saw a player on it, and two stood in each other for
+  minutes at (-4116 4600 2): a game bug, a person's too, fixed. Stock's spawn
+  frag stays out on purpose (`SpawnPoints`' header); `docs/todo.md`.
+  **Numbers**, one bot by `ai_bot_goto`, expert unless said, debug, box loaded,
+  trials arrived before -> after: ladder (-2865 3418) 0/6 (held z 72) -> 20/20
+  with 20 mounts; (-2720 5060) 0/8 -> 20/20 with 20; easy 10/10 with 10; walkway
+  rail 0/3 -> 20/20 with exactly 20 crouch-jumps, easy 10/10; the wall spot 0/2 ->
+  10/10; balcony -> 10/10, no stuck line; rail top 5/5; stair landing to the kit
+  under it 5/5. Two bots head on: one-cell walkway 2/5 -> median 3.7-6.4 s, 12 to
+  20 of 20 both arrived within 25 s (a miss: the first arrived and, with
+  `ai_think 0`, stands idle in the doorway the other needs), three-cell 3/4 ->
+  9/10. Free play, 6 expert bots and an idle human, 5 min: ladder get-offs at the
+  top 3 of 19 -> 4 of 4; pairs within 40 u unmoved 3+ s 1 in 200 samples -> 0 in
+  221; stuck lines were none (no detector), then 121 mostly NoRoute, now 46.
+  Metrics on the live recording's recipe (four bots, 2,400 ticks, `tools/ai-replay
+  metrics`), main `897b627b4`'s then this lane's: strafes 174/63/39/55 -> 31/46/27/18,
+  median ms 75/255/240/45 -> 1065/255/675/495, reversals a minute
+  134.7/86.9/64.4/84.0 -> 62.7/102.7/38.3/41.8. Open: `docs/todo.md`'s ladder at
+  (-4148 4188), off the graph by a gap in the file's climb, and the barred gate
+  at (-3644 4664), which the file calls floor and the detector walks round.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 
