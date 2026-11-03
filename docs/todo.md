@@ -1160,6 +1160,34 @@ and `RestartGame` onto `GameRules`' NullMode arm, over `GameModes.CleanUpMap`
 Done: 9b999f84e (port + `RestartGameTests`, 2026-10-25; the corrected
 divergence row `Core round restart, ported` names the old row for deletion).
 
+## TF2: the minigun's wind-down leaves the sound list early (2026-11-02)
+
+`TFMinigunLoop` holds the wind-down patch for the wave's length: at 5a3e0db8a a
+per-frame trace had it created at t=37.283 and destroyed at t=40.664, 3.38 s
+over 199 frames, against a 3.33 s wave. A native probe agreed: one start, no
+stop or steal in between. Yet `snd_show 1` stops listing the channel within
+about 0.2 s, while stock still lists it 60 frames after release.
+
+Ruled out: the pacing (tag archive/tf2-winddown2-rejected made it shorter), and
+the precache (waves load, with no not-precached errors; stock's weapon does
+precache every script sound, basecombatweapon_shared.cpp:303-308, and ours
+takes six kinds at Arsenal.PrecacheAll, which is still a difference worth
+porting). Known difference: the script moves the patch from the requested
+CHAN_STATIC to CHAN_WEAPON, on our standalone weapon's entity. Not known: whether
+a player can hear it stop, which is the first thing to check by ear. Next: find
+what ends the channel, starting from what else plays on that entity and channel.
+
+## TF2: thirdperson's weapon redraw has no regression test (2026-11-02)
+
+f5ac6388a re-asks every shell when the third-person flag flips, in
+`CStandaloneClients::SetRestingThirdPersonSeen`. The client-shell objects do not
+compose into a gtest without the client's full include context, so the only
+evidence is live: at that commit, soldier and heavy draw their weapons in third
+person. Nothing fails if it regresses. Also unproven by a picture: another
+player's weapon; two-client boots failed to connect (`Connection failed after 4
+retries`), so "not affected" rests on `ClientSsWeapon.OnDataChanged` and a render
+trace. Next: a step in tools/tf2-gate over its two clients, which covers both.
+
 ## Rulings and divergences recorded only here (not open work)
 
 Kept because nothing else records them. Each was ruled or measured as

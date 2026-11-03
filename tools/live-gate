@@ -4049,6 +4049,9 @@ def _trigger_in_still_air(g, trigger):
             "and a plain setpos's shadow caught up too: in %s command(s)" % plain)
 
 
+DOOR_ANGLE_SLOP = 2.0  # degrees
+
+
 def step_door(g):
     """8. open a door -- both kinds this map has."""
     g.cheats()
@@ -4056,7 +4059,7 @@ def step_door(g):
     rotating = g.scen["rotatingDoor"]
 
     before = {e["index"]: e["origin"] for e in g.api.ents("func_door")}
-    before_yaw = {e["index"]: e["angles"] for e in g.api.ents("func_door_rotating")}
+    hinged = [e for e in g.api.ents("func_door_rotating") if e.get("name") == rotating["name"]]
 
     if not before:
         g.skip("this map has no func_door")
@@ -4089,19 +4092,27 @@ def step_door(g):
     g.check(bool(moved), "the sliding door travelled %s"
             % (["%d: %.0f units" % m for m in (moved or [])],))
 
-    def turned():
-        now = {e["index"]: e["angles"] for e in g.api.ents("func_door_rotating")}
-        spun = [(i, abs(now[i][1] - before_yaw[i][1]))
-                for i in before_yaw
-                if i in now and abs(now[i][1] - before_yaw[i][1]) >= rotating["minYaw"]]
-        return spun or None
+    # About the axis the door's spawnflags name (CBaseToggle::AxisDir) and through
+    # the map's distance. This door is a pitch door: a check that read only yaw
+    # went red on 2026-10-28, when the door began turning the way stock's does.
+    if not hinged:
+        g.check(False, "the map has the rotating door %s" % rotating["name"])
+        return
+    axis, want = {"pitch": 0, "yaw": 1, "roll": 2}[rotating["axis"]], rotating["distance"]
+    closed = hinged[0]["angles"]
 
-    if before_yaw:
-        spun = g.api.wait_for(turned, 12.0)
-        g.check(bool(spun), "the rotating door turned %s"
-                % (["%d: %.0f degrees" % s for s in (spun or [])],))
-    else:
-        g.note("this map has no func_door_rotating; only the sliding kind is measured")
+    def angles_now():
+        return [e["angles"] for e in g.api.ents("func_door_rotating") if e["index"] == hinged[0]["index"]][0]
+
+    def turned():
+        return abs(abs(angles_now()[axis] - closed[axis]) - want) <= DOOR_ANGLE_SLOP or None
+
+    arrived = g.api.wait_for(turned, 12.0)
+    opened = angles_now()
+    g.check(bool(arrived), "the rotating door turned %.0f degrees about its %s axis (want %d: %s -> %s)"
+            % (abs(opened[axis] - closed[axis]), rotating["axis"], want, closed, opened))
+    g.check(all(abs(opened[k] - closed[k]) <= DOOR_ANGLE_SLOP for k in range(3) if k != axis),
+            "and about no other axis (%s -> %s)" % (closed, opened))
 
 
 def step_lift(g):
@@ -8837,6 +8848,18 @@ def step_kill_feed(g):
         return sum(1 for d in h.get("draws", []) if d.get("kind") == "Text" and d.get("text") == name
                    and d["x0"] > w / 2 and d["y0"] < ht / 3) // 2   # each text is drawn with its shadow
 
+    def line_icons(name):
+        """The textured quads on one of `name`'s rows, left of the name, as the
+        feed lays a line out. The top right also holds the pickup history's
+        icons (a respawn's ammo), which are nobody's line: counted by region,
+        those made one icon read three."""
+        h = hud()
+        draws = h.get("draws", [])
+        rows = [d for d in draws if d.get("kind") == "Text" and d.get("text") == name
+                and d["x0"] > h.get("w", 0) / 2 and d["y0"] < h.get("h", 0) / 3]
+        return [t for t in draws if t.get("kind") == "Texture"
+                and any(t["y0"] - 4 <= r["y0"] <= t["y1"] + 4 and t["x1"] <= r["x0"] + 1 for r in rows)]
+
     try:
         g.api.cmd("hud_deathnotice_time 6")
         time.sleep(7.0)                                 # a feed from an earlier step expires
@@ -8883,11 +8906,9 @@ def step_kill_feed(g):
         g.check(lines("__nobody__") == 0, "control: a name nobody has draws no line")
         one = lines(name)
         g.check(one == 1, "one death, one line for %s (%d)" % (name, one))
-        h = hud()
-        icons = [d for d in h.get("draws", []) if d.get("kind") == "Texture"
-                 and d["x0"] > h.get("w", 0) / 2 and d["y0"] < h.get("h", 0) / 3]
+        icons = line_icons(name)
         g.check(len(icons) == 1 and icons[0]["x1"] > icons[0]["x0"],
-                "and its icon is drawn from the icon atlas through the surface's texture (%d textured quads)" % len(icons))
+                "and its icon is drawn from the icon atlas through the surface's texture (%d textured quads on the name's row)" % len(icons))
 
         g.api.cmd("cs_cl_death me me smg1")
         time.sleep(0.5)
@@ -9411,6 +9432,7 @@ AI_GATE_BOTS = [("Alyx", "hard"), ("Barney", "normal"), ("Gordon", "easy"),
 # the pool's busy time a second (a quarter of one core). In CPU time: the wall
 # went 680 -> 1,970 us on ai.main.us between one pass and the next on a box at
 # load 100, with no change to the code (the 2026-11-02 daily gate).
+AI_BUDGET_WINDOW = 300  # ticks, the counters' mean
 AI_BUDGET = {"ai.sense.cpu.us": 400.0, "ai.main.cpu.us": 1000.0, "ai.brain.cpu.us": 2000.0,
              "ai.pool.cpu.us": 250000.0}
 
@@ -9469,8 +9491,8 @@ def step_bots(g):
         server's "#V killed by #K" lines, by slot);
       * no intent was refused for a stale or unknown actor (the handle kinds),
         no step faulted;
-      * the AI's costs are inside §9's budgets over the last 300 ticks, in CPU
-        time: the senses (ai.sense.cpu.us), the main thread's share
+      * the AI's costs are inside §9's budgets, the middle of the minute's
+        300-tick windows, in CPU time: the senses (ai.sense.cpu.us), the main thread's share
         (ai.main.cpu.us: senses, hand-over and apply; the bots' commands run
         as players, ai.run.us, are a client's cost and are reported beside it),
         a decide on its worker (ai.brain.cpu.us) and the pool's busy time
@@ -9520,8 +9542,11 @@ def step_bots(g):
                 found.append((int(m.group(1)), int(m.group(2))))
         return found
 
+    windows = []
     for _ in range(5):
-        g.api.wait_ticks(4000)
+        for _ in range(4000 // AI_BUDGET_WINDOW):
+            g.api.wait_ticks(AI_BUDGET_WINDOW)
+            windows.append(ai_counters(g) or {})
         if any(k in slots and k != v for v, k in deaths()) and any(v in slots for v, _k in deaths()):
             break
     c = ai_counters(g) or {}
@@ -9542,8 +9567,16 @@ def step_bots(g):
     g.check(c.get("ai.steps.faulted", 0) == 0, "no brain step faulted (%s)" % c.get("ai.steps.faulted"))
     g.check(c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0) > 1000,
             "the brains decided (%d steps)" % (c.get("ai.brain.steps", 0) - c0.get("ai.brain.steps", 0)))
+    # The middle window of the minute, from when the bots' first goals are made:
+    # one window is one fight or one replan (the main thread's share read 1,025,
+    # 348 and 222 in three passes of one build), and only what is true of most
+    # of the minute is the code's cost.
+    played = windows[2:]
     for key, ceiling in AI_BUDGET.items():
-        g.check(0 < c.get(key, ceiling + 1) <= ceiling, "%s %.1f within %.0f" % (key, c.get(key, -1), ceiling))
+        values = sorted(w.get(key, ceiling + 1) for w in played) or [ceiling + 1]
+        middle = values[len(values) // 2]
+        g.check(0 < middle <= ceiling, "%s %.1f within %.0f (the middle of %d windows, worst %.1f)"
+                % (key, middle, ceiling, len(values), values[-1]))
     g.say("    wall ai.sense.us %.1f, ai.main.us %.1f, ai.pool.us %.1f"
           % (c.get("ai.sense.us", -1), c.get("ai.main.us", -1), c.get("ai.pool.us", -1)))
     g.say("    ai.run.us %.1f (the bots' commands as players), ai.steps.skipped %s, threads %s"
@@ -9565,10 +9598,10 @@ def step_bots(g):
     g.check(bool(gone), "the bots were kicked, the map left as the scenario has it")
 
 
-# The bots' jank score the step fails above (plan_hl2mp_ai §3.4.5). None until
-# decision commitment and personality land and budgets come from what they
-# measure: till then the step reports and says it judged nothing.
-AI_JANK_BUDGET = None
+# The bots' jank score the step fails above (plan_hl2mp_ai §3.4.5): measured 24.9,
+# 38.8 and 25.3 over this step's two minutes at cac6a9552, which moves a lot pass to
+# pass, so half as much again as the worst. None makes the step report only, and say so.
+AI_JANK_BUDGET = 60.0
 AI_JANK_SECONDS = 120
 AI_JANK_LINE = re.compile(r"^jank: bots score (\S+) over (\S+) bot-minutes", re.M)
 
@@ -9579,9 +9612,7 @@ def step_ai_jank(g):
     The gate's bots and its listen client running, turning, jumping and firing
     by keys, recorded and scored by `tools/ai-replay jank`. Asserted: the score
     tool read the recording and the bots played (at least 2 bot-minutes alive),
-    so a score was measured. The score itself fails the step only above
-    AI_JANK_BUDGET, which is not set yet: the step says so, and a pass of it
-    says nothing of how the bots looked.
+    so a score was measured, and the score is within AI_JANK_BUDGET.
     """
     c0 = ai_counters(g)
     if c0 is None:
@@ -10006,8 +10037,8 @@ EXTRA_STEPS = [
     ("bots", "four bots play a minute on the worker pool: kills and deaths, no handle "
              "refusal, the costs in budget, the recording replays at 1, 2 and 4 threads "
              "(not in §5; plan_hl2mp_ai §8.2)", step_bots),
-    ("ai-jank", "the bots' jank score over two minutes of play: reported; it fails above a budget "
-                "once one is set (not in §5; plan_hl2mp_ai §3.4.5)", step_ai_jank),
+    ("ai-jank", "the bots' jank score over two minutes of play is within its budget "
+                "(not in §5; plan_hl2mp_ai §3.4.5)", step_ai_jank),
     ("ai-reload", "bots in the game through a hot reload come back in their slots, moving and "
                   "shooting, none added or kicked (not in §5; plan_hl2mp_ai §12.1)", step_ai_reload),
     ("ss-ai-nav", "a bot walks ss_ai_nav to the .357 (not in §5; plan_hl2mp_ai §6.6)", step_ss_ai_nav),

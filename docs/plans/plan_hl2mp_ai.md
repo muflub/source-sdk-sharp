@@ -624,9 +624,8 @@ dm_lockdown, four bots of one preset each (expert, hard, normal, easy) and a
 scripted client (the listen client on seeded random keys), recorded and scored,
 writing `bin/<config>/ai-jank/<utc>-<sha>.airec` and its report. The gate's step
 is `ai-jank` (`tools/live-gate`, run by `tools/daily-gate`): two minutes, the
-gate's bots. It **reports and does not judge** until budgets are set from what
-decision commitment and personality (§5.5) measure (`AI_JANK_BUDGET`), and its
-note says so.
+gate's bots, failing above `AI_JANK_BUDGET`, 60: half as much again as the worst
+of 24.9, 38.8 and 25.3 at `cac6a9552`, since two minutes moves a lot pass to pass.
 
 ### 3.5 Adding bots: the create-server screen, presets, custom profiles (ruling 2026-11-01)
 

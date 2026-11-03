@@ -97,6 +97,19 @@ GENERATED_TRACKED = ["game/mod_test/maps/ss_sandbox.vmf", "game/mod_test/maps/sr
 # ===========================================================================
 # PURE DECISIONS (driven by --self-test with faked results)
 # ===========================================================================
+def ai_map_command(makefile):
+    """The AI's map targets a commit's Makefile has, as a command, or None.
+
+    A bisect reaches commits from before them. `make ai-nav` there is "No rule
+    to make target": it counted as a map that did not build, so the commit was
+    skipped after its whole build: 134 commits, the last 2.6 h of 2026-11-02's
+    6, until the service's limit killed the run with no first bad commit.
+    Such a commit has no AI step to gate, so it needs no AI map.
+    """
+    targets = [t for t in AI_MAPS[1:] if re.search(r"^%s\s*:" % re.escape(t), makefile, re.M)]
+    return ["make"] + targets if targets else None
+
+
 def decide_skip(main_sha, last_green):
     """Skip the run when main has not moved since the last green run."""
     return bool(main_sha) and main_sha == last_green
@@ -568,8 +581,9 @@ def bisect_step(args):
         report.say("build failed: skip")
         return SKIP_EXIT
     map_rc = run_step(report, "map", SANDBOX_MAP, wt, env, log)
-    if map_rc == 0:
-        map_rc = run_step(report, "ai-maps", AI_MAPS, wt, env, log)
+    ai_maps = ai_map_command(open(os.path.join(wt, "Makefile")).read())
+    if map_rc == 0 and ai_maps:
+        map_rc = run_step(report, "ai-maps", ai_maps, wt, env, log)
     # The built map is what the gate loads; the rewritten vmf would refuse the
     # bisect's next checkout.
     restore_generated(wt)
@@ -795,6 +809,12 @@ def self_test():
     ok(not decide_skip("abd", "abc"), "main moved: run")
     ok(not decide_skip("abc", ""), "no green run yet: run")
     ok(not decide_skip("", ""), "an unreadable sha never skips")
+    # a bisect's commit from before the AI's map targets
+    ok(ai_map_command("ai-nav:\n\t@x\nai-maps:\n\t@y\n") == AI_MAPS, "a commit with both targets builds both")
+    ok(ai_map_command("ai-nav:\n\t@x\n") == ["make", "ai-nav"], "a commit with one builds that one")
+    ok(ai_map_command("debug:\n\t@x\n") is None, "a commit with neither builds no AI map, and is not skipped for it")
+    ok(ai_map_command(".PHONY: ai-nav ai-maps\n\t@echo make ai-nav\n") is None,
+       "a name in .PHONY or a recipe is not a target")
     # failing steps
     d = doc({"join": ["pass", "pass"], "push": ["pass", "fail"], "door": ["fail", "fail"]})
     ok(failing_steps(d) == ["push", "door"], "a fail on any pass names the step, in run order")

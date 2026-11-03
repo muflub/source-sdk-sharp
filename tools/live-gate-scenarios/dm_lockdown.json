@@ -123,11 +123,12 @@
 
   "_door": [
     "showers_gate3 slides 130 units along +Y on Open (movedir 0 90 0, wait -1 so",
-    "it stays open). tport_switch_cover_1 is the rotating kind and turns to yaw",
-    "160. Both are checked, because 'a door opened' is two different mechanisms."
+    "it stays open). tport_switch_cover_1 is the rotating kind and turns through",
+    "160 degrees of PITCH (spawnflags 696 hold SF_DOOR_ROTATE_PITCH, distance 160).",
+    "Both are checked, because 'a door opened' is two different mechanisms."
   ],
   "door":         { "name": "showers_gate3",         "minMove": 64 },
-  "rotatingDoor": { "name": "tport_switch_cover_1",  "minYaw": 45 },
+  "rotatingDoor": { "name": "tport_switch_cover_1",  "axis": "pitch", "distance": 160 },
 
   "_lift": [
     "dm_lockdown HAS NO LIFT -- no func_plat, no func_tracktrain, no vertical",
