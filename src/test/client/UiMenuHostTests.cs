@@ -5,6 +5,7 @@ using SourceSharp.Client.Ui.Screens.Samples;
 using SourceSharp.Client.Ui.Toolkit;
 using SourceSharp.Client.Vgui;
 using SourceSharp.Tests.Ui;
+using SourceSharp.UiPreview;
 
 using Xunit;
 
@@ -569,5 +570,52 @@ public class UiMenuHostTests
         Assert.True(host.ViewportPanel("all", false));
         Assert.True(host.Menu.IsOpen("scoreboard"));
         Assert.False(host.ViewportPanel("all", true));
+    }
+
+    [Fact]
+    public void A_hud_layer_screen_opens_and_closes_through_the_host()
+    {
+        // The TF2 scoreboard is a hud screen (Layer Hud): the host opens and
+        // closes it on the hud layer — visible over the hud while the game
+        // renders, not held under the menu root (TFScoreboardTests holds the
+        // layering; this holds the routing).
+        var scoreboard = Assert.Single(PreviewRun.AllSamples(),
+                                       s => !s.Gallery && s.Group == "scoreboard" && s.Slug == "two-teams-and-the-clock").Create();
+        var host = UiHostKit.Build(new UiFidelityTests.RecordingSurface(), [scoreboard]);
+
+        Assert.True(host.ViewportPanel("scores", true));
+        Assert.True(host.IsOpen("scoreboard"));
+        Assert.True(host.Layer.IsOpen("scoreboard"));
+        Assert.False(host.Menu.IsOpen("scoreboard"));
+
+        Assert.True(host.ViewportPanel("scores", false));
+        Assert.False(host.IsOpen("scoreboard"));
+    }
+
+    [Fact]
+    public void A_menu_layer_scoreboards_source_refreshes_again_after_the_cadence()
+    {
+        // When no mod screen takes the core scoreboard's slot it stays on the
+        // menu layer, and the host re-reads its source on the menu cadence
+        // while it shows — the hud layer's arm answers only the mod's screen.
+        float now = 5f;
+        var engine = new RecordingEngine()
+            .Returns("Hud.LocalPlayerHealth", 80).Returns("Hud.LocalPlayerIndex", 1)
+            .Returns("Console.FindConVarValue", "host a").Returns("Environment.Globals", default(Globals))
+            .ReturnsEachCall("Clock.Now", () => now);
+        var surface = new UiFidelityTests.RecordingSurface();
+        var seed = UiHostKit.Build(surface, [], null, null, engine);
+        var scores = seed.Menus.Scores;
+        var host = UiHostKit.Build(surface, [],
+            new UiScreen[] { new Client.Ui.Screens.Scoreboard(scores, new TeamTable(scores)) }, seed.Menus, engine);
+
+        host.Open("scoreboard");
+        host.Paint((int)UiLayerKind.Menu, 1280, 720);
+        Assert.Equal("host a", host.Menus.Scores.ServerName);
+
+        engine.Returns("Console.FindConVarValue", "host b");
+        now += 0.3f;                                    // past MenuRefreshSeconds
+        host.Paint((int)UiLayerKind.Menu, 1280, 720);
+        Assert.Equal("host b", host.Menus.Scores.ServerName);
     }
 }

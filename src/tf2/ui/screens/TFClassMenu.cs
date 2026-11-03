@@ -192,6 +192,13 @@ public sealed class TFClassMenu : UiScreen
         ui.Rect(Tone.Window, Size.Percent(100), Size.Percent(100))
             .AtRes(UiAnchor.BottomLeft, 0, 0).Layered().Key("backdrop");
 
+        // Stock's dark band across the screen top behind the tile row and
+        // the bucket labels: the canvas's top ~110 units — its bottom lands
+        // just under the labels (ypos 96 tall 12 = the classselection.res
+        // rows, :103 and :96+12).
+        ui.Rect(Tone.Surface, Size.Percent(100), Size.Du(110f * StockRes.Scale))
+            .AtRes(UiAnchor.TopLeft, 0f, 0f).Layered().Key("top band");
+
         // The bar under the title and Cancel (stock's zpos: ShadedBar 4,
         // ClassMenuSelect 5, CancelButton 6).
         ShadedBar(ref ui);
@@ -211,6 +218,11 @@ public sealed class TFClassMenu : UiScreen
     internal static class Stock
     {
         public static readonly StockRect Canvas = StockRect.Screen;
+
+        /// <summary>The gap stock keeps between the canvas top and the tile
+        /// row (its frames read y 45-143 on a 720-high screen: about 30
+        /// canvas units below the top).</summary>
+        public const float TileTopInset = 30f;
 
         // The ten tiles: 50x100 at ypos -5 — each hangs 5 units past the
         // canvas top, and the visible band is what draws (random :36-45,
@@ -270,14 +282,18 @@ public sealed class TFClassMenu : UiScreen
 
         // The visible band of a stock box: the tiles hang 5 units past the
         // canvas top (ypos -5, 100 tall), and the screen clips what hangs
-        // past it — the band is the box to draw.
+        // past it. Stock keeps the row clear of the screen edge: its frames
+        // sit about 30 units below the canvas top (y 45-143 on a 720-high
+        // screen), inside the dark band — the visible band hangs from
+        // there, keeping its bottom where the labels start right under it.
         static StockSpot Visible(StockBox box, StockRect canvas)
         {
             var r = box.Rect(canvas);
             float over = r.Bottom + r.Tall - (canvas.Bottom + canvas.Tall);
             if (over > 0f)
                 r = new StockRect(r.Left, r.Bottom, r.Wide, r.Tall - over);
-            return StockRes.Spot(r, canvas);
+            float inset = MathF.Min(Stock.TileTopInset, r.Tall);
+            return StockRes.Spot(new StockRect(r.Left, r.Bottom, r.Wide, r.Tall - inset), canvas);
         }
 
         // The title (ClassMenuSelect, :803-825). Stock's
@@ -457,9 +473,10 @@ public sealed class TFClassMenu : UiScreen
 
     // ---- shared ----
 
-    /// <summary>The art's hung 5%: the tiles' visible band maps to the
-    /// image below its top 5 units (the part the screen clips).</summary>
-    private static readonly UiRect ClassUv = new(0f, 0.05f, 1f, 0.95f);
+    /// <summary>The art's hung and inset top: the tiles' visible band maps
+    /// to the image below its top (the hung 5 units and the row's ~30-unit
+    /// inset below the canvas top — the part the screen clips).</summary>
+    private static readonly UiRect ClassUv = new(0f, 0.35f, 1f, 0.65f);
 
     private TFClassTileProps Props(int number, int menuTeam, bool showCounts, UiRect uv)
     {

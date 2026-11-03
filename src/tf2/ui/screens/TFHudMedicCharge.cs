@@ -106,9 +106,12 @@ public sealed class MedicChargePanel(ITFMedicCharge medic, ITFLocalPlayer player
         bool dark = ready && (int)(ui.Now / 0.3) % 2 == 1;
 
         // The label, the charge as its percent: stock's single CExLabel, the
-        // dialog variable inside the sentence (tf_english.txt:8396).
-        ui.Text($"{Localised("#TF2_Hud_UberCharge")} {(int)(charge * 100)}%", Text.Caption).Color(Light)
-            .Width(Size.Du(label.Wide)).Height(Size.Du(label.Tall)).TextAlign(Align.Start).Elide()
+        // dialog variable inside the sentence (tf_english.txt:8396), in the
+        // res's HudFontSmallest (hudmediccharge.res:40) — clientscheme's
+        // TF2 Secondary 500, the Label role's face — at the box its
+        // autoResize grows to, the text's own width.
+        ui.Text($"{Localised("#TF2_Hud_UberCharge")} {(int)(charge * 100)}%", Text.Label).Color(Light)
+            .TextSize(TFHudType.Smallest).Height(Size.Du(label.Tall)).TextAlign(Align.Start)
             .Opacity(dark ? PulseDim : 1f)
             .AtRes(UiAnchor.BottomLeft, label.Left, label.Bottom).Layered().Key("uber label");
 

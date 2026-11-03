@@ -81,6 +81,7 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     private bool _menuInput;
     private UiCursor _cursor;
     private double _menusReadAt = double.NegativeInfinity;
+    private double _hudReadAt = double.NegativeInfinity;
 
     public UiHost(ILog log, IGameClock clock, UiLayer hud, UiLayer menu, VguiBackend backend, IUiSurface surface,
                   LocalPlayerUi player, HudMessages messages, HudBuildStamp build, UiScaleConVar? scale, UiMenus menus)
@@ -195,6 +196,15 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         _messages.Refresh(now);
         _build.Refresh(now);
 
+        // The scoreboard lives on this layer: its roster reads on the same
+        // cadence the menu screens refresh at.
+        if (now < _hudReadAt || now - _hudReadAt >= MenuRefreshSeconds)
+        {
+            _hudReadAt = now;
+            if (_hud.IsOpen("scoreboard"))
+                _menus.Scores.Refresh();
+        }
+
         Screen = ScreenFor(screenWidth, screenHeight);
         _backend.Ledger = HudLedger;
         _hud.Frame(UiLayerKind.Hud, Screen, now);
@@ -211,7 +221,7 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
             if (_menu.IsOpen("teammenu"))
                 _menus.Teams.Refresh();          // reads the scores too
             else if (_menu.IsOpen("scoreboard"))
-                _menus.Scores.Refresh();
+                _menus.Scores.Refresh();         // the core scoreboard: no mod screen took its slot
         }
 
         MenuScreen = ScreenFor(screenWidth, screenHeight);
@@ -409,17 +419,29 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         if (screen == "teammenu") _menus.Teams.Refresh();
         if (screen == "scoreboard") _menus.Scores.Refresh();
         _menusReadAt = _clock.Now;
-        _menu.Open(screen);
-        if (_gameUiUp && IsViewportScreen(screen))
+        if (_hud.Has(screen))
+            _hud.Open(screen);              // the hud-drawn screens (the scoreboard)
+        else
+            _menu.Open(screen);
+        if (_gameUiUp && !_hud.Has(screen) && IsViewportScreen(screen))
             _menu.Hold(screen, true);       // shown under the hidden viewport, as stock's
         _log.Msg($"[SourceSharp/Ui] open {screen}\n");
     }
 
     public void Close(string screen)
     {
-        if (!_menu.IsOpen(screen))
-            return;
-        _menu.Close(screen);
+        if (_hud.Has(screen))
+        {
+            if (!_hud.IsOpen(screen))
+                return;
+            _hud.Close(screen);
+        }
+        else
+        {
+            if (!_menu.IsOpen(screen))
+                return;
+            _menu.Close(screen);
+        }
         _log.Msg($"[SourceSharp/Ui] close {screen}\n");
     }
 
@@ -454,9 +476,9 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     public bool Answers(string panel) => PanelsFor(panel) is not null || Absorbed.Contains(panel);
 
     /// <summary>Whether a screen, or a panel a screen claims, answers the name.</summary>
-    public bool Has(string screen) => _menu.Has(screen) || _aliases.ContainsKey(screen) || _claims.ContainsKey(screen);
+    public bool Has(string screen) => _menu.Has(screen) || _hud.Has(screen) || _aliases.ContainsKey(screen) || _claims.ContainsKey(screen);
 
-    public bool IsOpen(string screen) => _menu.IsOpen(screen);
+    public bool IsOpen(string screen) => _menu.IsOpen(screen) || _hud.IsOpen(screen);
 
     /// <summary>The GameUI's IsMainMenuVisible: the main menu, the claimed one or the core's.</summary>
     public bool MainMenuOpen => _menu.IsOpen(MainMenuScreen);

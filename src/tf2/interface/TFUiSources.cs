@@ -733,6 +733,44 @@ public interface ITFScoreboardDominations
 }
 
 /// <summary>
+/// One player's details grid, stock's LocalPlayerStatsPanel values
+/// (UpdatePlayerDetails, tf_clientscoreboard.cpp:1880-1964) minus the deaths
+/// — stock reads those off <c>g_TF_PR</c> too, and this screen takes them
+/// from the row it already shows. Every count is the round's.
+/// </summary>
+/// <param name="Kills">The score the list's column shows
+/// (<c>g_TF_PR-&gt;GetPlayerScore</c>, :1883).</param>
+/// <param name="Assists"><c>m_Shared.GetKillAssists</c>, :1893.</param>
+/// <param name="Destruction"><c>GetBuildingsDestroyed</c>, :1898.</param>
+/// <param name="Captures"><c>GetCaptures</c>, :1903.</param>
+/// <param name="Defenses"><c>GetDefenses</c>, :1908.</param>
+/// <param name="Dominations"><c>GetDominations</c>, :1913.</param>
+/// <param name="Revenge"><c>GetRevenge</c>, :1918.</param>
+/// <param name="Healing"><c>GetHealPoints</c>, :1923.</param>
+/// <param name="Invulns"><c>GetInvulns</c>, :1928.</param>
+/// <param name="Teleports"><c>GetTeleports</c>, :1933.</param>
+/// <param name="Headshots"><c>GetHeadshots</c>, :1938.</param>
+/// <param name="Backstabs"><c>GetBackstabs</c>, :1943.</param>
+/// <param name="Bonus"><c>GetBonusPoints</c>, :1948.</param>
+/// <param name="Support"><c>CalcPlayerSupportScore</c>'s client arm — damage
+/// assist + healing assist + damage blocked + bonus × 25
+/// (tf_gamerules.cpp:17072-17075), :1954.</param>
+/// <param name="Damage"><c>g_TF_PR-&gt;GetDamage</c>, :1960.</param>
+public readonly record struct TFScoreboardPlayerDetails(
+    int Kills, int Assists, int Destruction, int Captures, int Defenses, int Dominations,
+    int Revenge, int Healing, int Invulns, int Teleports, int Headshots, int Backstabs,
+    int Bonus, int Support, int Damage);
+
+/// <summary>
+/// The details grid's counts for a player, off the live
+/// <c>tf_player_manager</c>; all zeros when it has not arrived.
+/// </summary>
+public interface ITFScoreboardDetails
+{
+    TFScoreboardPlayerDetails Of(int playerIndex);
+}
+
+/// <summary>
 /// The death screen's reads (stock's <c>CTFFreezePanel</c>,
 /// tf_hud_freezepanel.cpp): the local player's last death — its
 /// <c>TF_DEATH_*</c> flags and the killer's row, snapshotted as the death

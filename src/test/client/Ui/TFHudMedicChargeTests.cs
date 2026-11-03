@@ -36,6 +36,28 @@ public class TFHudMedicChargeTests
     }
 
     [Fact]
+    public void The_label_is_the_res_HudFontSmallest_face()
+    {
+        // hudmediccharge.res:40 fonts ChargeLabel HudFontSmallest — the
+        // Smallest step (TFHudType, 24.75 du), not the caption role's body
+        // face; the box grows with the text as the res's autoResize does.
+        var (ctx, elements) = Rendered("medic-builds-the-ubercharge");
+        var list = ctx.List.AsDrawList();
+        int label = Elements(ctx).FindIndex(e => UiTestKit.NameOf(ctx, e) == "uber label");
+        var font = GlyphFont(list, label);
+        Assert.Equal(25, font.PxHeight);           // 24.75 du at the 1080 canvas
+    }
+
+    /// <summary>The font of the first glyph run on the named element.</summary>
+    private static UiFontSpec GlyphFont(UiDrawList list, int element)
+    {
+        foreach (var op in list.Ops)
+            if (op.Kind == UiPrimitiveKind.GlyphRun && op.Element == element)
+                return list.Fonts[list.GlyphRuns[op.Index].Font];
+        throw new InvalidOperationException("no uber label glyph run drew");
+    }
+
+    [Fact]
     public void The_patient_names_only_when_the_beam_is_out()
     {
         Assert.True(HasElement("medic-builds-the-ubercharge", "healing"));

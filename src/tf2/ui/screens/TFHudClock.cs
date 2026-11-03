@@ -51,10 +51,11 @@ public sealed class RoundTimerPanel(ITFRoundTimer timer) : UiPanel
     private const float ValueTall = 10f;
     private const float ValueTop = 12f;
 
-    // The bands' label row: full-width at y21 (hudobjectivetimepanel.res
-    // if_match); the box is the label's line, the text centred in it.
+    // The bands' label row: full-width at y21, the res's own tall 19 carried
+    // through if_match (hudobjectivetimepanel.res:74-81) — the label box,
+    // the text centred in it as stock's label paints.
     private const float BandTop = 21f;
-    private const float BandTall = 10f;
+    private const float BandTall = 19f;
 
     /// <summary>The band box's slack each side of the panel: the longest
     /// label (WAITING FOR PLAYERS, HudFontSmallestBold) runs a few du past

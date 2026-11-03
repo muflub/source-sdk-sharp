@@ -13,14 +13,18 @@ namespace TF2.Client.Ui;
 /// <summary>
 /// The TF2 scoreboard (stock's <c>CTFClientScoreBoardDialog</c>,
 /// tf_clientscoreboard.cpp, restyled over the toolkit): the two team bands
-/// with the round clock between them (<c>TimerBG</c>, the HUD's own
-/// <see cref="RoundTimerPanel"/>), the blue list left and the red right
-/// (scoreboard.res: BluePlayerList x5, RedPlayerList x325, each 310x280 at a
-/// 640-wide panel — rows of the 18-px linespacing), the spectator line at
-/// the bottom (<c>UpdateSpectatorList</c>, :1646-1705) and the shaded bar
-/// with the local player, the server and the map (ShadedBar 633x72,
-/// PlayerNameLabel, ServerLabelNew, MapName). The panel is 1440 du wide
-/// (640 px) and starts 70 du down (ypos 31).
+/// with the server-time box between them (<c>TimerBG</c> + the
+/// ServerTimeLeft labels, <c>UpdateServerTimeLeft</c>, :2031-2114), the blue
+/// list left and the red right (scoreboard.res: BluePlayerList x5,
+/// RedPlayerList x325, each 310x280 at a 640-wide panel — rows of the 18-px
+/// linespacing) under each list's column-header section (<c>InitPlayerList</c>'s
+/// "name"/"score" header entries, :909/:914, always visible :892), the
+/// spectator line at the bottom (<c>UpdateSpectatorList</c>, :1646-1705) and
+/// the shaded bar with the local player's name strip, details grid, the
+/// server and the map (ShadedBar 633x72, PlayerNameBG, PlayerNameLabel,
+/// LocalPlayerStatsPanel, ServerLabelNew, MapName — <c>UpdatePlayerDetails</c>,
+/// :1799-2026). The panel is 1440 du wide (640 px) and starts 70 du down
+/// (ypos 31).
 ///
 /// <para>
 /// Each row is stock's column layout (scoreboard.res:16-26, laid left to
@@ -44,12 +48,11 @@ namespace TF2.Client.Ui;
 /// class image (g_pszClassIcons, tf_shareddefs.cpp:1856-1877, 13x13,
 /// tf_clientscoreboard.cpp:350-355) — the local team's rows only, stock's
 /// gate <c>!AreEnemyTeams(row, local) &amp;&amp; local != TEAM_UNASSIGNED</c>
-/// (:1467-1468) — with the darker "_d" set on a dead row (:1498). Stock
-/// shows no column headers and no deaths column; neither do we.
+/// (:1467-1468) — with the darker "_d" set on a dead row (:1498).
 /// </para>
 /// </summary>
 public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses classes, ITFScoreboardDominations dominations,
-                                 ITFRoundTimer timer, IUiTextureLibrary textures) : UiScreen
+                                 ITFScoreboardDetails details, ITFRoundTimer timer, IUiTextureLibrary textures) : UiScreen
 {
     private const int Red = 2;               // TF_TEAM_RED (tf_shareddefs.h)
     private const int Blue = 3;              // TF_TEAM_BLUE
@@ -58,6 +61,7 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
     private readonly IScoreboardSource _source = source;
     private readonly ITFScoreboardClasses _classes = classes;
     private readonly ITFScoreboardDominations _dominations = dominations;
+    private readonly ITFScoreboardDetails _details = details;
     private readonly ITFRoundTimer _timer = timer;
     private readonly IUiTextureLibrary _textures = textures;
 
@@ -81,6 +85,26 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         public const float Icon = 13f;               // the images' 13x13 (:350-355)
         public const float LineSpacing = 18f;        // linespacing 18 (scoreboard.res:506)
         public const float FirstIndent = 6f;         // COLUMN_DATA_INDENT 6
+
+        // The server-time box (scoreboard.res: TimerBG 80x43 at the panel's
+        // centre, the label above the inset and the value inside it,
+        // :384-466); the box takes the gap column's width, the heights are
+        // the res's own.
+        public const float TimerTall = 43f;          // TimerBG tall (:391)
+        public const float TimerWide = 80f;          // TimerBG wide (:390)
+        public const float TimerLabelTall = 10f;     // ServerTimeLeftLabel tall (:446)
+        public const float TimerInsetTall = 23f;     // ServerTimeLeftInsetBG tall (:421)
+        public const float TimerInsetPad = 6f;       // the inset's side pad (286 - 280)
+
+        // The details grid's tracks (LocalPlayerStatsPanel's label/value
+        // columns, scoreboard.res:1133-1723): the label widths are the res's
+        // own, the values 35, a 10-px track between the groups where the
+        // res's overlapping boxes leave one.
+        public const float GridLabel = 95f;          // KillsLabel wide (:1160)
+        public const float GridLabelWide = 100f;     // CapturesLabel wide (:1642)
+        public const float GridValue = 35f;          // Kills wide (:1601)
+        public const float GridGap = 10f;
+        public const float GridRow = 24f;            // the 10-px rows at the panel's 27.5-du pitch, rounded to the lint's grid
     }
 
     private int[] _order = new int[64];
@@ -88,9 +112,6 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
     /// <summary>The scoreboard's stock canvas: the 640x448 panel the .res
     /// writes its children against (scoreboard.res:9-10).</summary>
     private static readonly StockRect Canvas = new(0f, 0f, 640f, 448f);
-
-    /// <summary>The clock the bands share — one panel, not one a frame.</summary>
-    private readonly RoundTimerPanel _clock = new(timer);
 
     /// <summary>The spectator names joined, rebuilt when the roster moves.</summary>
     private string _spectators = "";
@@ -100,6 +121,18 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
     private int _rosterVersion = -1;
 
     public override string Name => "scoreboard";
+
+    // Stock's scoreboard is a hud-drawn dialog, not a menu: it covers the
+    // hud — the team-goal hint included — while TAB is held, and the game
+    // under it keeps drawing (tf_clientscoreboard.cpp:361-362 paints the
+    // dialog's background transparent over the hud pass). Order 1 above
+    // TFHud's 0.
+    public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    public override int Order => 1;
+
+    // Opened by +showscores; the hud screens otherwise always show.
+    public override bool OpenByDefault => false;
 
     /// <summary>Shown while TAB is held, over play: no cursor until asked for.</summary>
     public override bool WantsMouse => false;
@@ -112,7 +145,7 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
     {
         var src = _source;
         bool hasLocal = false;
-        int localTeam = Unassigned, localIndex = 0;
+        int localTeam = Unassigned, localIndex = 0, localDeaths = 0;
         string localName = "";
         for (int i = 0; i < src.PlayerCount; i++)
         {
@@ -123,6 +156,7 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
             localTeam = p.Team;
             localIndex = p.Index;
             localName = p.Name;
+            localDeaths = p.Deaths;
         }
 
         // The spectator line's roster: a cheap fold of who is on, rebuilt
@@ -158,22 +192,19 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
 
         bool wide = !ui.Narrow;
 
-        // Narrow: when the stacked teams are taller than the screen, the
-        // panel takes the screen's height and the stack scrolls (the core
-        // scoreboard's arrangement).
-        float stacked = 2 * 160 + 40 * src.PlayerCount + 160 + 2 * (float)Space.L;
-        bool scrolls = !wide && stacked > ui.DesignHeight - 2 * (float)Space.Huge;
-
         Span<UiSize> columns = stackalloc UiSize[ColumnCount];
         Columns(columns);
 
         // The scores panel: stock's 640x448 at ypos 31 (scoreboard.res) is
-        // 1440x1008 du; 1472 leaves the panel's own pad a 1440 interior. The
-        // lists row takes what height is left, so a short screen squeezes
-        // the lists (they scroll) and never pushes the bar off screen.
-        using (ui.Box().Size(Size.Fill, Size.Fill).Pad(Space.L, Space.L, Space.L, Space.L))
-        using (ui.Panel().At(UiAnchor.Top).Size(Size.Fill, wide || scrolls ? Size.Fill : Size.Auto)
-                 .MaxWidth(1472).Name("tf scoreboard panel"))
+        // 1440x1008 du; the panel's pad is the res's own 5-px list inset, so
+        // 1448 caps it at a 1440 interior. The side pads follow the res: the
+        // details grid's 1419 du must fit a 4:3 screen's 1440. The panel is
+        // the screen's height and the lists row (or, narrow, the stacked
+        // scroll) takes what height is left, so a short screen squeezes the
+        // lists (they scroll) and never pushes the bar off screen.
+        using (ui.Box().Size(Size.Fill, Size.Fill).Pad(Space.XS, Space.L, Space.XS, Space.L))
+        using (ui.Panel(Space.XS).At(UiAnchor.Top).Size(Size.Fill, Size.Fill)
+                 .MaxWidth(1448).Name("tf scoreboard panel"))
         {
             if (left < 0)
             {
@@ -186,11 +217,12 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                     TeamBand(ref ui, src, left, Size.Fr());
                     if (right >= 0)
                     {
-                        // The clock zone between the bands (scoreboard.res:
-                        // TimerBG 80x43 px at the panel's centre) — the same
-                        // panel the HUD draws, so its rules ride along.
-                        using (ui.Column(Space.XS, Align.Centre).Width(Size.Du(152)).Align(Align.Centre, Align.Centre))
-                            ui.Sub("timer", _clock);
+                        // The server-time box between the bands (scoreboard.res:
+                        // TimerBG 80x43 px astride the bands' seam, its label
+                        // and inset value inside — UpdateServerTimeLeft,
+                        // tf_clientscoreboard.cpp:2031-2114).
+                        using (ui.Column(Space.None, Align.Centre).Width(Size.Du(Stock.TimerWide * StockRes.Scale)).Align(Align.Centre, Align.Centre))
+                            ServerTimeLeft(ref ui);
                         TeamBand(ref ui, src, right, Size.Fr());
                     }
                 }
@@ -201,20 +233,19 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                     TeamList(ref ui, src, left, columns, localTeam, Size.Fill, Size.Fr());
                     if (right >= 0)
                     {
-                        ui.Spacer(Size.Du(152), Size.Du(1));
+                        ui.Spacer(Size.Du(Stock.TimerWide * StockRes.Scale), Size.Du(1));
                         TeamList(ref ui, src, right, columns, localTeam, Size.Fill, Size.Fr());
                     }
                 }
 
                 Spectators(ref ui);
-                BottomBar(ref ui, hasLocal, localName, localIndex, localTeam);
+                BottomBar(ref ui, hasLocal, localName, localIndex, localTeam, localDeaths);
             }
             else
             {
-                // Narrow: the teams stack; the lists take their rows' own
-                // height and the stack scrolls once it is taller than the
-                // screen.
-                using (ui.Scroll("stacked", Space.M).Width(Size.Fill).Height(scrolls ? Size.Fill : Size.Auto))
+                // Narrow: the teams stack; the stack fills the panel and
+                // scrolls once its rows are taller than it.
+                using (ui.Scroll("stacked", Space.M).Width(Size.Fill).Height(Size.Fill))
                 {
                     TeamBand(ref ui, src, left, Size.Fill);
                     TeamList(ref ui, src, left, columns, localTeam, Size.Auto, Size.Fill);
@@ -224,7 +255,7 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                         TeamList(ref ui, src, right, columns, localTeam, Size.Auto, Size.Fill);
                     }
                     Spectators(ref ui);
-                    BottomBar(ref ui, hasLocal, localName, localIndex, localTeam);
+                    BottomBar(ref ui, hasLocal, localName, localIndex, localTeam, localDeaths);
                 }
             }
         }
@@ -259,6 +290,12 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
     internal static class RowPaints
     {
         public static readonly UiPaint RowBg = UiPaint.FromGame(new UiColor(0, 0, 0, 80));
+
+        /// <summary>The details labels' green on a counted row (cGreen, tf_clientscoreboard.cpp:1880).</summary>
+        public static readonly UiPaint Counted = UiPaint.FromGame(new UiColor(0, 255, 0, 255));
+
+        /// <summary>The server-time value's ink (clientscheme.res:53 BrightYellow).</summary>
+        public static readonly UiPaint Yellow = UiPaint.FromGame(new UiColor(251, 235, 0, 255));
     }
 
     /// <summary>
@@ -309,8 +346,23 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         bool blue = team.Number == Blue;
         using (ui.Box().Width(width).Height(Size.Du(160)).Fill((UiPaint)tone).Name(blue ? "tf band blue" : "tf band red"))
         {
-            using (blue ? ui.Column(Space.M, Align.Start).At(UiAnchor.TopLeft).Inset(Space.XL, Space.Huge)
-                        : ui.Column(Space.M, Align.End).At(UiAnchor.TopRight).Inset(Space.XL, Space.Huge))
+            // The team badge at the outer top corner (BlueTeamImage 60x60 at
+            // 11,0 of the band, RedTeamImage 80x80 mirrored to the right —
+            // scoreboard.res:48-70, 115-141); stock's red art hangs 14 px
+            // above the band's top edge, the band's empty upper strip here.
+            float s = StockRes.Scale;
+            if (blue)
+                StockArt.Draw(ref ui, _textures, "tf badge blue", "hud/team_blue",
+                              11f * s, 11f * s, 60f * s, 60f * s);
+            else
+                StockArt.Draw(ref ui, _textures, "tf badge red", "hud/team_red",
+                              7f * s, 5f * s, 80f * s, 80f * s, corner: UiAnchor.BottomRight);
+            // The name clears the badge by stock's gap (BlueTeamLabel x80
+            // against the 60-wide badge at 7; RedTeamLabel's right edge 561
+            // against the 80-wide badge inset 7 — scoreboard.res:186-199,
+            // 290-303): 11+60+13 here, 7+80+10 mirrored there.
+            using (blue ? ui.Column(Space.M, Align.Start).AtRes(UiAnchor.TopLeft, 84f * s, (int)Space.Huge)
+                        : ui.Column(Space.M, Align.End).AtRes(UiAnchor.TopRight, 97f * s, (int)Space.Huge))
             {
                 ui.Data(team.Name, Text.Title, Tone.OnAccent).Name(blue ? "tf name blue" : "tf name red");
                 // The count is a token pair in stock (TF_ScoreBoard_Player
@@ -371,6 +423,33 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         var scroll = ui.Scroll(team.Number == Blue ? "players-blu" : "players-red", Space.XS).Height(height).Width(width);
         using (scroll)
         {
+            // The section header stock keeps always visible over every team's
+            // rows (SetSectionAlwaysVisible, tf_clientscoreboard.cpp:892): the
+            // name and score heads in the row grid's own columns (:909/:914),
+            // the rule under it the section's separator.
+            Span<UiSize> head = stackalloc UiSize[ColumnCount];
+            Columns(head);
+            using (ui.Grid(head, Space.None).Height(Size.Du(Stock.LineSpacing * StockRes.Scale))
+                     .Key(team.Number == Blue ? "head-blue" : "head-red"))
+            {
+                ui.Spacer(Size.Du(1), Size.Du(1));           // medal
+                ui.Spacer(Size.Du(1), Size.Du(1));           // avatar
+                ui.Spacer(Size.Du(1), Size.Du(1));           // stock's spacer column
+                using (ui.Row(Space.XS))
+                {
+                    ui.Spacer(Size.Du(Stock.FirstIndent * StockRes.Scale), Size.Du(1));
+                    ui.Text("#TF2_Scoreboard_Name", Text.Label, Tone.Text);
+                }
+                ui.Spacer(Size.Du(1), Size.Du(1));           // killstreak
+                ui.Spacer(Size.Du(1), Size.Du(1));           // killstreak image
+                ui.Spacer(Size.Du(1), Size.Du(1));           // dominating
+                ui.Spacer(Size.Du(1), Size.Du(1));           // nemesis
+                ui.Text("#TF2_Scoreboard_Score", Text.Label, Tone.Text).TextAlign(Align.End);
+                ui.Spacer(Size.Du(1), Size.Du(1));           // class
+                ui.Spacer(Size.Du(1), Size.Du(1));           // ping
+            }
+            ui.Divider();
+
             for (int r = 0; r < count; r++)
             {
                 var p = src.Player(_order[r]);
@@ -631,15 +710,18 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
 
     /// <summary>
     /// The shaded bar (stock's ShadedBar 633x72 px, fillcolor 0 0 0 153,
-    /// scoreboard.res:606-627): the local player's name
-    /// (PlayerNameLabel 115,377, :809-831) clear of the ClassImage
+    /// scoreboard.res:606-627): the local player's name in its bordered strip
+    /// (PlayerNameBG 105,372 485x29 TFThinLineBorder, :789-812; PlayerNameLabel
+    /// 115,377, :813-831 — its ink the row's team colour, :1969-1970), the
+    /// details grid under it (LocalPlayerStatsPanel y395, :1132-1723, its
+    /// labels green on a counted row, :1884-1963), the server and the map at
+    /// the top right (ServerLabelNew, MapName 315,375/385) and the ClassImage
     /// (22,350 92x92, :628-647 — 18 from the bar's left, its bottom 2 above
-    /// the bar's), the server and the map at the far edge (ServerLabelNew,
-    /// MapName). The image is stock's gate (tf_clientscoreboard.cpp:
+    /// the bar's). The image is stock's gate (tf_clientscoreboard.cpp:
     /// 1981-1982) over the selected player — the local one: on a game team,
     /// a normal class — drawn from the HUD's own table.
     /// </summary>
-    private void BottomBar(ref UiFrame ui, bool hasLocal, string localName, int localIndex, int localTeam)
+    private void BottomBar(ref UiFrame ui, bool hasLocal, string localName, int localIndex, int localTeam, int localDeaths)
     {
         // The bar and the image, resolved against the scoreboard's 640x448
         // stock canvas (scoreboard.res:9-10).
@@ -648,15 +730,26 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         // .res is the 640x448 panel, not the bar), so resolve it there and
         // take the bar-relative spot afterwards.
         var portrait = StockRes.Spot(new StockBox("22", "350", 92, 92).Rect(Canvas), bar);
+        var strip = StockRes.Spot(new StockBox("105", "372", 485, 29).Rect(Canvas), bar);
+        var grid = StockRes.Spot(new StockBox("80", "395", 500, 49).Rect(Canvas), bar);
         string own = hasLocal ? _classes.ClassNameOf(localIndex) : "";
         string image = hasLocal && localTeam >= Red ? HealthPanel.Portrait(own, localTeam) : "";
+        var details = hasLocal ? _details.Of(localIndex) : default;
 
-        using (ui.Box().Width(Size.Fill).Height(Size.Du(160)).Fill(Tone.Scrim).Round(Radius.M))
+        using (ui.Box().Width(Size.Fill).Height(Size.Du(bar.Tall * StockRes.Scale)).Fill(Tone.Scrim).Round(Radius.M))
         {
             if (image.Length > 0)
                 StockArt.Draw(ref ui, _textures, "class image", image, portrait.Left, portrait.Bottom,
                               portrait.Wide, portrait.Tall);
-            using (ui.Row(Space.L).Width(Size.Fill).Height(Size.Fill).Align(Align.Stretch, Align.Centre)
+
+            // The name strip's rule (PlayerNameBG's TFThinLineBorder), under
+            // the name and beside the grid's first row as the res overlaps them.
+            using (ui.Box().AtRes(UiAnchor.BottomLeft, strip.Left, strip.Bottom)
+                     .Size(Size.Du(strip.Wide), Size.Du(strip.Tall)).Border(Tone.Line, 1f).Layered()
+                     .Name("tf name strip"))
+            { }
+
+            using (ui.Row(Space.L).Width(Size.Fill).Height(Size.Fill).Align(Align.Stretch, Align.Start)
                      .Pad(Space.L, Space.None))
             {
                 // The name clears the image: PlayerNameLabel x115 against the
@@ -665,7 +758,10 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                 using (ui.Column(Space.XS, Align.Start))
                 {
                     if (hasLocal)
-                        ui.Data(localName, Text.Body, Tone.Text).Elide();
+                    {
+                        var ink = localTeam >= Red ? (UiPaint)TFHudTeams.ToneOf(localTeam) : (UiPaint)Tone.Text;
+                        ui.Data(localName, Text.Body).Color(ink).Elide();
+                    }
                 }
                 ui.Flex();
                 using (ui.Column(Space.XS, Align.End))
@@ -678,7 +774,132 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                     ui.Data(_source.MapName, Text.Label, Tone.TextMuted).TextAlign(Align.End).Elide();
                 }
             }
+
+            // The details grid (UpdatePlayerDetails's arms): four label/value
+            // groups at the res's columns, a label green when its count is up
+            // (:1884-1963). The deaths ride the row the lists already show.
+            // Its 1420 du of columns are the res's own; the stacked narrow
+            // screen's panel is half that, so there the row carries the record.
+            if (hasLocal && !ui.Narrow)
+            {
+                float s = StockRes.Scale;
+                float row = Stock.GridRow;
+                Span<UiSize> columns = stackalloc UiSize[11];
+                float label = Stock.GridLabel * s, wide = Stock.GridLabelWide * s,
+                    value = Stock.GridValue * s, gap = Stock.GridGap * s;
+                columns[0] = Size.Du(label);
+                columns[1] = Size.Du(value);
+                columns[2] = Size.Du(gap);
+                columns[3] = Size.Du(wide);
+                columns[4] = Size.Du(value);
+                columns[5] = Size.Du(gap);
+                columns[6] = Size.Du(label);
+                columns[7] = Size.Du(value);
+                columns[8] = Size.Du(gap);
+                columns[9] = Size.Du(label);
+                columns[10] = Size.Du(value);
+                using (ui.Grid(columns, Space.None).AtRes(UiAnchor.BottomLeft, grid.Left, grid.Bottom)
+                         .Width(Size.Du(grid.Wide)).Height(Size.Du(grid.Tall)).Layered().Name("tf details"))
+                {
+                    Cell(ref ui, "#TF2_Scoreboard_Kills", details.Kills, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Captures", details.Captures, row, wide, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Invulns", details.Invulns, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Backstabs", details.Backstabs, row, label, value);
+
+                    Cell(ref ui, "#TF2_Scoreboard_Deaths", localDeaths, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Defenses", details.Defenses, row, wide, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Headshots", details.Headshots, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Bonus", details.Bonus, row, label, value);
+
+                    Cell(ref ui, "#TF2_Scoreboard_Assists", details.Assists, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Dominations", details.Dominations, row, wide, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Teleports", details.Teleports, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Support", details.Support, row, label, value);
+
+                    Cell(ref ui, "#TF2_Scoreboard_Destruction", details.Destruction, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Revenge", details.Revenge, row, wide, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Healing", details.Healing, row, label, value);
+                    ui.Spacer(Size.Du(1), Size.Du(1));
+                    Cell(ref ui, "#TF2_Scoreboard_Damage", details.Damage, row, label, value);
+                }
+            }
         }
+    }
+
+    /// <summary>One label/value pair of the details grid: the label right-
+    /// aligned over its count, green when the count is up (the cGreen arms,
+    /// tf_clientscoreboard.cpp:1884-1963).</summary>
+    private static void Cell(ref UiFrame ui, string label, int value, float row, float labelWide, float valueWide)
+    {
+        var ink = value != 0 ? RowPaints.Counted : (UiPaint)Tone.Text;
+        ui.Text(label, Text.Label).Color(ink).TextSize(TFHudType.ScoreboardVerySmall).TextAlign(Align.End)
+            .Width(Size.Du(labelWide)).Height(Size.Du(row)).Pad(Space.None, Space.None, Space.M, Space.None);
+        ui.Number(value, Text.Label).TextSize(TFHudType.ScoreboardVerySmall).Color(Tone.Text)
+            .Width(Size.Du(valueWide)).Height(Size.Du(row));
+    }
+
+    /// <summary>
+    /// The server-time box between the bands (TimerBG's TFThinLineBorder, the
+    /// ServerTimeLeftInsetBG inset and the pair of labels inside,
+    /// scoreboard.res:384-466). The value is UpdateServerTimeLeft's arms
+    /// (tf_clientscoreboard.cpp:2031-2114): no limit the no-time-limit line,
+    /// a spent one the change-on-round-end line, else the h:mm:ss / m:ss
+    /// count. The value's ink is the res's BrightYellow (clientscheme.res:53).
+    /// </summary>
+    private void ServerTimeLeft(ref UiFrame ui)
+    {
+        float s = StockRes.Scale;
+        using (ui.Column(Space.None, Align.Centre).Width(Size.Fill).Height(Size.Du(Stock.TimerTall * s))
+                 .Border(Tone.Line, 1f).Name("tf server time"))
+        {
+            ui.Text("#TF2_Scoreboard_TimeLeftLabel", Text.Label, Tone.Text).TextSize(TFHudType.ScoreboardVerySmall)
+                .TextAlign(Align.Centre).Height(Size.Du(Stock.TimerLabelTall * s))
+                .Pad(new UiLength(0f, false), new UiLength(2f * s, false), new UiLength(0f, false), new UiLength(0f, false));
+
+            // The inset the value sits in, its own rule inside the box's.
+            using (ui.Column(Space.None, Align.Centre).Width(Size.Fill)
+                     .Height(Size.Du(Stock.TimerInsetTall * s))
+                     .Pad(new UiLength(Stock.TimerInsetPad * s, false), new UiLength(0f, false),
+                          new UiLength(Stock.TimerInsetPad * s, false), new UiLength(0f, false))
+                     .Border(Tone.Line, 1f).Name("tf server time inset"))
+            {
+                int limit = _timer.ServerTimeLeft;
+                if (_timer.ServerTimeLimit == 0)
+                    NoTime(ref ui, "#TF2_Scoreboard_NoTimeLimit");
+                else if (limit <= 0)
+                    NoTime(ref ui, "#TF2_Scoreboard_ChangeOnRoundEnd");
+                else if (limit / 3600 == 0)
+                    TimeLeft(ref ui, -1, limit / 60, limit % 60);
+                else
+                    TimeLeft(ref ui, limit / 3600, limit % 3600 / 60, limit % 60);
+            }
+        }
+    }
+
+    /// <summary>The box's word arms: the no-limit and spent-limit lines, and
+    /// the counted seconds as m:ss or h:mm:ss (tf_clientscoreboard.cpp:
+    /// :2098-2107) — the clock's own interpolation. A negative hour is the
+    /// no-hours arm.</summary>
+    private static void NoTime(ref UiFrame ui, string token)
+        => ui.Text(token, Text.Label).Color(RowPaints.Yellow).TextSize(TFHudType.ScoreboardVerySmall).TextAlign(Align.Centre);
+
+    private static void TimeLeft(ref UiFrame ui, int hours, int minutes, int seconds)
+    {
+        var text = hours < 0
+            ? ui.Text($"{minutes}:{seconds:00}", Text.Label).Color(RowPaints.Yellow)
+            : ui.Text($"{hours}:{minutes:00}:{seconds:00}", Text.Label).Color(RowPaints.Yellow);
+        text.TextSize(TFHudType.ScoreboardMediumSmall).TextAlign(Align.Centre);
     }
 
     private readonly struct ByScore(IScoreboardSource source) : IComparer<int>

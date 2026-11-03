@@ -592,6 +592,27 @@ public class TFClassMenuTests
         Assert.True(DrewLabel("#TF2_ClassMenu_Full", chosen));
     }
 
+    /// <summary>Stock wears a dark band across the screen top behind the
+    /// tile row (~the canvas's top 110 units), and hangs the row clear of
+    /// the screen edge inside it: the group frames land about 30 canvas
+    /// units below the canvas top, not flush at it (classselection.res
+    /// ypos -5, :129; the y
+    /// 45-143 band of a 720-high screen).</summary>
+    [Fact]
+    public void The_tile_row_hangs_in_the_top_band_below_the_screen_edge()
+    {
+        var ctx = Drawn(Screen(new FakeTFClassMenuSource { Team = 2 }));
+
+        var band = Named(ctx, "top band").Rect;
+        Assert.Equal(0f, band.Y, 0.5f);                             // the band starts at the screen top ...
+        Assert.Equal(110f * StockRes.Scale, band.H, 0.5f);          // ... to just under the bucket labels
+
+        var frame = Named(ctx, "offense frame").Rect;
+        Assert.Equal(30f * StockRes.Scale, frame.Y, 0.5f);           // the row hangs ~30 canvas units down ...
+                                                                     // ... (before: the frames sat flush at y 0)
+        Assert.True(frame.Y + frame.H <= band.Y + band.H + 0.5f);   // and the whole row fits under the band
+    }
+
     /// <summary>Whether the token's text drew anywhere on a 1920x1080 frame.</summary>
     private static bool DrewToken(string token, FakeTFClassMenuSource source)
         => TextIndex(Drawn(Screen(source)), token) >= 0;

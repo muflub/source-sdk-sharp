@@ -161,6 +161,25 @@ public class TFScoreboardArtTests
         Assert.DoesNotContain(UiTestKit.Elements(ctx), e => e.Kind == UiElementKind.Image);
     }
 
+    [Fact]
+    public void The_team_names_sit_beside_the_badges_not_over_them()
+    {
+        // Stock seats each name past its badge (BlueTeamLabel x80 against
+        // the 60-wide badge at 7; RedTeamLabel's right edge 561 against the
+        // badge's left 571 — scoreboard.res:186-199, 290-303): BLU's name
+        // right of the badge, RED's left of it, mirrored.
+        var (ctx, _) = Render("two-teams-and-the-clock");
+        var blueName = UiTestKit.Named(ctx, "tf name blue").Rect;
+        var blueBadge = UiTestKit.Named(ctx, "tf badge blue").Rect;
+        Assert.True(blueName.X >= blueBadge.X + blueBadge.W - 1f,
+                    $"blue name {blueName} over badge {blueBadge}");
+
+        var redName = UiTestKit.Named(ctx, "tf name red").Rect;
+        var redBadge = UiTestKit.Named(ctx, "tf badge red").Rect;
+        Assert.True(redName.X + redName.W <= redBadge.X + 1f,
+                    $"red name {redName} over badge {redBadge}");
+    }
+
     private static (UiContext Ctx, RecordingLibrary Lib) Render(string slug)
     {
         var sample = Assert.Single(PreviewRun.AllSamples(),

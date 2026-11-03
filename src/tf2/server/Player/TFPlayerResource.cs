@@ -61,12 +61,22 @@ public sealed class TFPlayerResourceRows(TFPlayerCarriers carriers, ITFPlayerRes
             var player = players.GetHandle(i);
             if (sendStats)
             {
-                state.Damage[i] = stats.Round(i, TFStat.Damage);
-                state.DamageAssist[i] = stats.Round(i, TFStat.DamageAssist);
-                state.Healing[i] = stats.Round(i, TFStat.Healing);
-                state.HealingAssist[i] = stats.Round(i, TFStat.HealingAssist);
-                state.DamageBlocked[i] = stats.Round(i, TFStat.DamageBlocked);
-                state.BonusPoints[i] = stats.Round(i, TFStat.BonusPoints);
+                state.Damage[i] = (ushort)stats.Round(i, TFStat.Damage);
+                state.DamageAssist[i] = (ushort)stats.Round(i, TFStat.DamageAssist);
+                state.Healing[i] = (ushort)stats.Round(i, TFStat.Healing);
+                state.HealingAssist[i] = (ushort)stats.Round(i, TFStat.HealingAssist);
+                state.DamageBlocked[i] = (ushort)stats.Round(i, TFStat.DamageBlocked);
+                state.BonusPoints[i] = (ushort)stats.Round(i, TFStat.BonusPoints);
+                state.KillAssists[i] = (byte)stats.Round(i, TFStat.Killassists);
+                state.BuildingsDestroyed[i] = (byte)stats.Round(i, TFStat.Buildingsdestroyed);
+                state.Captures[i] = (byte)stats.Round(i, TFStat.Captures);
+                state.Defenses[i] = (byte)stats.Round(i, TFStat.Defenses);
+                state.Dominations[i] = (byte)stats.Round(i, TFStat.Dominations);
+                state.Revenges[i] = (byte)stats.Round(i, TFStat.Revenge);
+                state.Invulns[i] = (byte)stats.Round(i, TFStat.Invulns);
+                state.Headshots[i] = (byte)stats.Round(i, TFStat.Headshots);
+                state.Backstabs[i] = (byte)stats.Round(i, TFStat.Backstabs);
+                state.Teleports[i] = (byte)stats.Round(i, TFStat.Teleports);
             }
 
             short max = (short)resupply.MaxHealth(player);
@@ -105,6 +115,16 @@ public sealed class TFPlayerResourceRows(TFPlayerCarriers carriers, ITFPlayerRes
         state.HealingAssist[i] = 0;
         state.DamageBlocked[i] = 0;
         state.BonusPoints[i] = 0;
+        state.KillAssists[i] = 0;
+        state.BuildingsDestroyed[i] = 0;
+        state.Captures[i] = 0;
+        state.Defenses[i] = 0;
+        state.Dominations[i] = 0;
+        state.Revenges[i] = 0;
+        state.Invulns[i] = 0;
+        state.Headshots[i] = 0;
+        state.Backstabs[i] = 0;
+        state.Teleports[i] = 0;
     }
 }
 

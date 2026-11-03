@@ -37,9 +37,22 @@ public sealed class TFSpectatorGui(IObserverSource observer, ITFLocalPlayer loca
                                    IUiLocalisation localise, IUiKeyBindingStore keys,
                                    ITFMapInfoSource maps) : UiScreen
 {
-    public override string Name => "tf2spectatorgui";
+    // Stock's own name (spectator.res:14-16 answers the core specgui with an
+    // empty block, suppressing the base panel): the core SpecGui is stock's
+    // "Map CTF_2FORT / death cam" chrome, which TF2 does not draw. Taking
+    // its name drops it in the composition, the core's slot on this layer.
+    public override string Name => "specgui";
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    /// <summary>The bars are backdrop the HUD reads over: stock paints the
+    /// panel's own background transparent and only the two bars black
+    /// (SpectatorGUI.cpp:485-487), and the panel sets no z-pos of its own
+    /// (its sole SetZPos is the CSP scope guarantee, :494), so the hud
+    /// elements — the clock, the kill feed, the respawn hint — draw over
+    /// it. Order -1 joins this screen ahead of the Order-0 hud screens, the
+    /// scope's place.</summary>
+    public override int Order => -1;
 
     /// <summary>Stock's panel rides while the viewport has it shown — the
     /// player is observing (the death cam included; the reinforcements
@@ -54,7 +67,7 @@ public sealed class TFSpectatorGui(IObserverSource observer, ITFLocalPlayer loca
         using (ui.Box().AtRes(UiAnchor.TopLeft, 0, 0)
                        .Size(Size.Fill, Size.Du(topAt.Tall)).Layered().Key("top bar"))
         {
-            ui.Rect(Tone.Surface, Size.Fill, Size.Du(topAt.Tall)).Layered().Key("top plate");
+            ui.Rect(BlackBar, Size.Fill, Size.Du(topAt.Tall)).Layered().Key("top plate");
 
             // "map: <name>" (UpdateKeyLabels :678-703) — the token's %s1
             // takes the map's display name, stock's GetMapDisplayName
@@ -93,7 +106,7 @@ public sealed class TFSpectatorGui(IObserverSource observer, ITFLocalPlayer loca
         using (ui.Box().AtRes(UiAnchor.BottomLeft, 0, 0)
                        .Size(Size.Fill, Size.Du(bottomAt.Tall)).Layered().Key("bottom bar"))
         {
-            ui.Rect(Tone.Surface, Size.Fill, Size.Du(bottomAt.Tall)).Layered().Key("bottom plate");
+            ui.Rect(BlackBar, Size.Fill, Size.Du(bottomAt.Tall)).Layered().Key("bottom plate");
         }
     }
 
@@ -143,4 +156,9 @@ public sealed class TFSpectatorGui(IObserverSource observer, ITFLocalPlayer loca
     // The raw TF team numbers (tf_shareddefs.h): 2 RED, 3 BLU.
     private const int Red = 2;
     private const int Blue = 3;
+
+    /// <summary>The bars' fill: GetBlackBarColor's TF override, the opaque
+    /// 52 48 45 (tf_spectatorgui.h:68) ApplySchemeSettings paints the bars
+    /// with (SpectatorGUI.cpp:486-487) — the world shows through nothing.</summary>
+    public static readonly UiPaint BlackBar = UiPaint.FromGame(new UiColor(52, 48, 45, 255));
 }

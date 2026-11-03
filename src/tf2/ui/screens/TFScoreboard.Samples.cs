@@ -12,17 +12,24 @@ public static class TFScoreboardSamples
 {
     public static UiScreen Build(UiSampleServices s, FakeTFScoreboard? source = null,
                                  ITFScoreboardClasses? classes = null, FakeRoundTimer? timer = null,
-                                 FakeTextureLibrary? textures = null, ITFScoreboardDominations? dominations = null)
+                                 FakeTextureLibrary? textures = null, ITFScoreboardDominations? dominations = null,
+                                 ITFScoreboardDetails? details = null)
     {
         s.Add<IScoreboardSource>(source ?? FakeTFScoreboard.Teams(6));
         s.Add<ITFScoreboardClasses>(classes ?? new FakeTFScoreboardClasses());
         s.Add<ITFScoreboardDominations>(dominations ?? new FakeTFScoreboardDominations());
-        s.Add<ITFRoundTimer>(timer ?? new FakeRoundTimer { Present = true, ShowTimeRemaining = true, SecondsLeft = 371 });
+        s.Add<ITFScoreboardDetails>(details ?? new FakeTFScoreboardDetails());
+        s.Add<ITFRoundTimer>(timer ?? new FakeRoundTimer
+        {
+            Present = true, ShowTimeRemaining = true, SecondsLeft = 371,
+            ServerTimeLimit = 1200, ServerTimeLeft = 371,
+        });
         s.Add<IUiTextureLibrary>(textures ?? new FakeTextureLibrary());   // no art by default: the fallback draws
         return s.Create<TFScoreboard>();
     }
 
-    /// <summary>The stock picture: twelve players, the clock between the bands.</summary>
+    /// <summary>The stock picture: twelve players, the server-time box
+    /// between the bands.</summary>
     [UiSample("two teams and the clock")]
     private static UiScreen TwoTeams(UiSampleServices s) => Build(s);
 
@@ -30,9 +37,16 @@ public static class TFScoreboardSamples
     [UiSample("two teams with spectators")]
     private static UiScreen WithSpectators(UiSampleServices s) => Build(s, FakeTFScoreboard.Teams(5, spectators: 3));
 
-    /// <summary>The clock gone (no team_round_timer is up): the bands stay.</summary>
+    /// <summary>No map time limit (UpdateServerTimeLeft's first arm): the
+    /// box names it.</summary>
     [UiSample("no round timer")]
     private static UiScreen NoTimer(UiSampleServices s) => Build(s, timer: new FakeRoundTimer());
+
+    /// <summary>A limit past the hour: the h:mm:ss count
+    /// (tf_clientscoreboard.cpp:2098-2107's wide arm).</summary>
+    [UiSample("server time in hours")]
+    private static UiScreen HoursTimer(UiSampleServices s) =>
+        Build(s, timer: new FakeRoundTimer { ServerTimeLimit = 7200, ServerTimeLeft = 4500 });
 
     /// <summary>The token pair's singular arm (TF_ScoreBoard_Player,
     /// tf_english.txt:59): one head per band.</summary>
@@ -167,4 +181,20 @@ public sealed class FakeTFScoreboardDominations : ITFScoreboardDominations
     public bool DominatesLocal(int playerIndex) => playerIndex is 2 or 4;
 
     public bool DominatedByLocal(int playerIndex) => playerIndex is 9 or 12;
+}
+
+/// <summary>The details grid's data: a count per row derived from the player
+/// index, so every cell reads and the green arms show (the grid's counts are
+/// the round's, one local row shown).</summary>
+public sealed class FakeTFScoreboardDetails : ITFScoreboardDetails
+{
+    public TFScoreboardPlayerDetails Of(int playerIndex)
+        => playerIndex >= 1
+            ? new TFScoreboardPlayerDetails(
+                Kills: 21, Assists: 3 + playerIndex % 5, Destruction: playerIndex % 3, Captures: playerIndex % 2,
+                Defenses: playerIndex % 4, Dominations: playerIndex % 6, Revenge: playerIndex % 3, Healing: 3400,
+                Invulns: playerIndex % 2, Teleports: playerIndex % 7, Headshots: playerIndex % 5,
+                Backstabs: playerIndex % 4, Bonus: playerIndex % 3,
+                Support: 340 * (playerIndex % 3) + 25 * (playerIndex % 2), Damage: 3400 + 137 * playerIndex)
+            : default;
 }

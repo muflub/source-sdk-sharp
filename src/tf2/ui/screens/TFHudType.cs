@@ -68,4 +68,10 @@ public static class TFHudType
     /// ~13 tall, the step between Smallest and Small.</summary>
     public const float ClockDigits = 29.25f;      // ~13 tall at 720 lines
     public const float BandLabel = 21.5f;         // ~9.5 tall at 720 lines
+
+    /// <summary>The scoreboard's own faces (clientscheme.res:1584/:1610):
+    /// the details grid's labels and values and the server-time label are
+    /// ScoreboardVerySmall 8, the server-time value ScoreboardMediumSmall 14.</summary>
+    public const float ScoreboardVerySmall = 18f;         // 8 tall
+    public const float ScoreboardMediumSmall = 31.5f;     // 14 tall
 }

@@ -1,5 +1,6 @@
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Toolkit;
+using SourceSharp.Client.Vgui;
 using SourceSharp.UiPreview;
 
 using Xunit;
@@ -10,8 +11,9 @@ namespace SourceSharp.Tests.Ui;
 /// The TF2 scoreboard's stock rules, held over the samples: the class
 /// column's gate (<c>!AreEnemyTeams(row, local) &amp;&amp; local !=
 /// TEAM_UNASSIGNED</c>, tf_clientscoreboard.cpp:1467-1468), the spectator
-/// line of <c>UpdateSpectatorList</c> (:1646-1705), the clock between the
-/// bands (<c>TimerBG</c>), and the head-count token pair
+/// line of <c>UpdateSpectatorList</c> (:1646-1705), the server-time box
+/// between the bands (<c>TimerBG</c>, UpdateServerTimeLeft :2031-2114), and
+/// the head-count token pair
 /// (TF_ScoreBoard_Player/Players, tf_english.txt:59-60).
 /// </summary>
 public class TFScoreboardTests
@@ -46,11 +48,16 @@ public class TFScoreboardTests
     }
 
     [Fact]
-    public void The_clock_sits_between_the_bands()
+    public void The_server_time_box_counts_down_between_the_bands()
     {
         Assert.True(HasText("two-teams-and-the-clock", "6:11"));     // 371 s
         Assert.False(HasText("no-round-timer", "6:11"));
+        Assert.True(HasText("server-time-in-hours", "1:15:00"));     // 4500 s
     }
+
+    [Fact]
+    public void The_server_time_box_names_a_server_without_a_limit()
+        => Assert.True(HasText("no-round-timer", "NO TIME LIMIT"));
 
     [Theory]
     [InlineData("one-player-each", "PLAYER")]
@@ -99,6 +106,39 @@ public class TFScoreboardTests
             Assert.True(centre > band.Rect.Y && centre < band.Rect.Y + band.Rect.H,
                         "the score is not inside its band's height");
         }
+    }
+
+    [Fact]
+    public void The_scoreboard_covers_the_hud_as_a_hud_screen()
+    {
+        // Stock's scoreboard is a hud dialog drawn over the hud — the
+        // team-goal hint included — while the game under it keeps rendering
+        // (tf_clientscoreboard.cpp:361-362 paints the dialog transparently
+        // in the hud pass): the composition drops the core's menu-layer
+        // scoreboard and lands this screen on the hud's tail, after TFHud.
+        var scoreboard = Sample("two-teams-and-the-clock").Create();
+        var (hud, menu) = UiModScreens.Place([],
+            [new LayerStub("scoreboard", UiLayerKind.Menu)],
+            [new LayerStub("tfhud", UiLayerKind.Hud), scoreboard]);
+
+        Assert.DoesNotContain(menu, s => s.Name == "scoreboard");
+        Assert.Equal(2, hud.Length);
+        Assert.Equal("tfhud", hud[0].Name);
+        Assert.Same(scoreboard, hud[1]);
+    }
+
+    private static UiSample Sample(string slug)
+        => Assert.Single(PreviewRun.AllSamples(),
+                         s => !s.Gallery && s.Group == "scoreboard" && s.Slug == slug);
+
+    /// <summary>A named, layered screen placeholder: Place reads only the
+    /// identity, the layer and the order.</summary>
+    private sealed class LayerStub(string name, UiLayerKind layer, int order = 0) : UiScreen
+    {
+        public override string Name => name;
+        public override UiLayerKind Layer => layer;
+        public override int Order => order;
+        public override void Describe(ref UiFrame ui) { }
     }
 
     /// <summary>The rendered sample's context (the idiom of

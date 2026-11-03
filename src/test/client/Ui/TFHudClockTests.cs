@@ -132,6 +132,8 @@ public class TFHudClockTests
         Assert.Equal(830f, band.X, 0.5f);         // centred on the panel, the 6-du slack half each side
         Assert.Equal(47.25f, band.Y, 0.5f);       // 21 x 2.25
         Assert.Equal(260f, band.W, 0.5f);         // the panel's width plus the slack, as laid out
+        Assert.Equal(42.75f, band.H, 0.5f);       // the res's tall 19 through if_match: the label box,
+                                                  // its text centred in it as stock paints (hudobjectivetimepanel.res:74-81)
     }
 
     [Fact]

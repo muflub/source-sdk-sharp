@@ -53,23 +53,61 @@ public partial class TFPlayerResourceNetState
     /// <summary><c>m_iChargeLevel</c>: the medigun charge in percent, in tournament mode; 0 otherwise.</summary>
     [NetArray(Slots)] public partial NetArray<byte> ChargeLevel { get; }
 
-    /// <summary><c>m_iDamage</c>: the round's <c>TFSTAT_DAMAGE</c>, sent once a second.</summary>
-    [NetArray(Slots)] public partial NetArray<int> Damage { get; }
+    /// <summary><c>m_iDamage</c>: the round's <c>TFSTAT_DAMAGE</c>, sent once a second. A
+    /// ushort — the two-kilobyte tier prices the row, and a round's damage
+    /// stays under its span.</summary>
+    [NetArray(Slots)] public partial NetArray<ushort> Damage { get; }
 
     /// <summary><c>m_iDamageAssist</c>: the round's <c>TFSTAT_DAMAGE_ASSIST</c>.</summary>
-    [NetArray(Slots)] public partial NetArray<int> DamageAssist { get; }
+    [NetArray(Slots)] public partial NetArray<ushort> DamageAssist { get; }
 
     /// <summary><c>m_iHealing</c>: the round's <c>TFSTAT_HEALING</c>.</summary>
-    [NetArray(Slots)] public partial NetArray<int> Healing { get; }
+    [NetArray(Slots)] public partial NetArray<ushort> Healing { get; }
 
     /// <summary><c>m_iHealingAssist</c>: the round's <c>TFSTAT_HEALING_ASSIST</c>.</summary>
-    [NetArray(Slots)] public partial NetArray<int> HealingAssist { get; }
+    [NetArray(Slots)] public partial NetArray<ushort> HealingAssist { get; }
 
     /// <summary><c>m_iDamageBlocked</c>: the round's <c>TFSTAT_DAMAGE_BLOCKED</c>.</summary>
-    [NetArray(Slots)] public partial NetArray<int> DamageBlocked { get; }
+    [NetArray(Slots)] public partial NetArray<ushort> DamageBlocked { get; }
 
     /// <summary><c>m_iBonusPoints</c>: the round's <c>TFSTAT_BONUS_POINTS</c>.</summary>
-    [NetArray(Slots)] public partial NetArray<int> BonusPoints { get; }
+    [NetArray(Slots)] public partial NetArray<ushort> BonusPoints { get; }
+
+    // The details grid's counts (UpdatePlayerDetails's GetKillAssists .. Get-
+    // Teleports arms, tf_clientscoreboard.cpp:1893-1946): stock's client reads
+    // them off each player's shared stats, which this build carries no per-
+    // player stat rows of — they ride the resource as bytes, the round's
+    // accumulated counts like the damage rows above.
+
+    /// <summary>The round's <c>TFSTAT_KILLASSIST</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> KillAssists { get; }
+
+    /// <summary>The round's <c>TFSTAT_BUILDINGSDESTROYED</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> BuildingsDestroyed { get; }
+
+    /// <summary>The round's <c>TFSTAT_CAPTURES</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Captures { get; }
+
+    /// <summary>The round's <c>TFSTAT_DEFENSES</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Defenses { get; }
+
+    /// <summary>The round's <c>TFSTAT_DOMINATIONS</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Dominations { get; }
+
+    /// <summary>The round's <c>TFSTAT_REVENGES</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Revenges { get; }
+
+    /// <summary>The round's <c>TFSTAT_INVULNS</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Invulns { get; }
+
+    /// <summary>The round's <c>TFSTAT_HEADSHOTS</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Headshots { get; }
+
+    /// <summary>The round's <c>TFSTAT_BACKSTABS</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Backstabs { get; }
+
+    /// <summary>The round's <c>TFSTAT_TELEPORTS</c>.</summary>
+    [NetArray(Slots)] public partial NetArray<byte> Teleports { get; }
 
     /// <summary>
     /// The gamerules' round state, a <see cref="TF2.Shared.Rules.RoundState"/>:
