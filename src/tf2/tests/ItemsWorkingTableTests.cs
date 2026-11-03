@@ -93,7 +93,7 @@ public sealed class ItemsWorkingTableTests
     /// The table holds exactly one data row per selected schema item, counted
     /// through the managed parse, and its header is the agreed one.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void TheTableHasOneRowPerSchemaItem()
     {
         string[][] rows = TableRows();
@@ -123,7 +123,7 @@ public sealed class ItemsWorkingTableTests
     /// behaviour attribute whose item_class has a behaviour row of its own —
     /// the only works rows the audit itself may write.
     /// </summary>
-    [Fact]
+    [NotOnCiFact("reads the shipped TF2 schema: the Steam install under bin/<config>/content, which a runner has not")]
     public void NoRowIsWorksWithoutEvidenceExceptNoAttributeStockRows()
     {
         string[][] rows = TableRows();

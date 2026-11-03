@@ -60,10 +60,15 @@ public sealed class UiMockupsHostTests : IDisposable
     [Fact]
     public void A_directory_without_the_toolkit_answers_503_naming_it()
     {
-        using var host = new UiMockups(() => _dir, () => "");
+        // A backslash in the path, as every Windows path has one: the reply is JSON, which
+        // escapes it, so the name is read from the parsed error, not matched in the raw body.
+        string dir = Directory.CreateDirectory(Path.Combine(_dir, "with\\backslash")).FullName;
+        Assert.Contains('\\', dir);
+        using var host = new UiMockups(() => dir, () => "");
         var reply = host.Answer("""{"op":"list"}""");
         Assert.Equal(503, reply.Status);
-        Assert.Contains($"no {UiMockups.Toolkit}.dll in {_dir}", reply.Body);
+        Assert.Contains($"no {UiMockups.Toolkit}.dll in {dir}",
+            JsonDocument.Parse(reply.Body).RootElement.GetProperty("error").GetString());
     }
 
     [Fact]
