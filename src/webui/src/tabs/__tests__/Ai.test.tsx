@@ -61,6 +61,24 @@ it('shows what a bot remembers of an opponent, its ammo as a bar as wide as the 
   expect(range.style.left).toBe(`${(10 / 45) * 100}%`);
 });
 
+it('lists the roster: a benched bot says why and cannot be inspected, a bot in the game shows its tag and drawn levels', async () => {
+  api.getAiBots.mockResolvedValue([
+    { slot: -1, serial: 0, name: 'Benny', profile: 'easy', spent: 20, tag: '(Easy)', style: 'Nerve Cover', levels: [1, 1, 2, 2, 2, 2, 2, 2, 5, 1], state: 'benched', reason: 'no free slot' },
+    { slot: 2, serial: 1, name: 'Alyx', profile: 'normal', spent: 35, tag: '(Medium)', style: 'Nerve Agility', levels: [4, 3, 2, 3, 3, 3, 4, 4, 7, 2], state: 'active', reason: '' },
+  ]);
+  api.getAiBot.mockResolvedValue(full);
+  render(<AiTab visible />);
+  const alyx = await screen.findByRole('button', { name: 'Alyx (Medium)' });
+  expect(alyx.getAttribute('aria-pressed')).toBe('true');
+  expect(alyx.getAttribute('title')).toContain('4 3 2 3 3 3 4 4 7 2');
+  const benny = screen.getByRole('button', { name: 'Benny (Easy)' }) as HTMLButtonElement;
+  expect(benny.disabled).toBe(true);
+  expect(benny.title).toContain('benched: no free slot');
+  await screen.findByTestId('actor-1');
+  expect(api.getAiBot).toHaveBeenCalledWith(2);
+  expect(api.getAiBot).not.toHaveBeenCalledWith(-1);
+});
+
 it('says so when the bot remembers nobody', async () => {
   api.getAiBot.mockResolvedValue({ ...full, record: { ...full.record, memory: { actors: [], investigations: [], items: [] } } });
   render(<AiTab visible />);

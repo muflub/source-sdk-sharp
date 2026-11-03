@@ -9,7 +9,7 @@ public static class BotSkillLabel
     public static string For(SkillProfile skills)
     {
         ArgumentNullException.ThrowIfNull(skills);
-        if (SkillPresets.TryGet(skills.Name, out SkillProfile? preset) && preset!.SameLevels(skills))
+        if (SkillPresets.TryGet(skills.Name, out SkillProfile? preset) && preset!.Spent == skills.Spent)
         {
             return skills.Name switch
             {

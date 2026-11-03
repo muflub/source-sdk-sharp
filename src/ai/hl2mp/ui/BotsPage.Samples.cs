@@ -3,18 +3,10 @@ using SourceSharp.Client.Ui.Toolkit;
 
 namespace SourceSharp.Ai.Hl2mp.Ui;
 
-/// <summary>The create-server screen's state for samples, recording what it was asked.</summary>
+/// <summary>The bots page's state for samples, recording what it was asked.</summary>
 public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
 {
-    public string MapName { get; set; } = "dm_lockdown";
-
-    public bool MapFound { get; set; } = true;
-
     public int MaxPlayers { get; set; } = 8;
-
-    public int MaxPlayersMin => 2;
-
-    public int MaxPlayersMax => 16;
 
     public int BotCount { get; set; } = 3;
 
@@ -44,11 +36,11 @@ public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
 
     public CustomBotRow Custom(int i) => Customs[i];
 
-    public string StartRefusalToken { get; set; } = "";
+    public string Refusal { get; set; } = "";
+
+    public string StartRefusalToken(int maxPlayers) => Refusal;
 
     public List<string> Asked { get; } = [];
-
-    public void SetMapName(string name) => MapName = name;
 
     public void SetMaxPlayers(int count) => MaxPlayers = count;
 
@@ -62,7 +54,15 @@ public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
 
     public void RemoveCustom(int i) => Asked.Add($"remove {i}");
 
-    public void Start() => Asked.Add("start");
+    public bool NewBotsEachMap { get; set; }
+
+    public void SetNewBotsEachMap(bool on) => NewBotsEachMap = on;
+
+    public void BeforeMap(List<string> lines)
+    {
+        Asked.Add("before map");
+        lines.Add("ai_bot_roster \"\"");
+    }
 
     /// <summary>Three custom bots: a saved one, an unnamed one, and Expert's full spend.</summary>
     public static List<CustomBotRow> Three() =>
@@ -80,27 +80,33 @@ public sealed class FakeCreateServer : ICreateServerSource, ICreateServerActions
     }
 }
 
-internal static class CreateServerSamples
+internal static class BotsPageSamples
 {
+    /// <summary>The page in the create-server window's frame, on its tab, as the window hands it 8 slots.</summary>
+    private static UiScreen Page(UiSampleServices s, FakeCreateServer fake, int maxPlayers = 8, MemoryWindowStore? store = null)
+    {
+        fake.MaxPlayers = maxPlayers;
+        fake.Register(s, store);
+        return new CreateServerPagePreview(s.Create<UiWindows>(), s.Create<BotsPage>(), new CreateServerChoices("dm_lockdown", maxPlayers));
+    }
+
     [UiSample("default")]
-    private static UiScreen Default(UiSampleServices s) => new FakeCreateServer().Register(s).Create<CreateServer>();
+    private static UiScreen Default(UiSampleServices s) => Page(s, new FakeCreateServer());
 
     [UiSample("with custom bots")]
     private static UiScreen WithCustom(UiSampleServices s)
-        => new FakeCreateServer { BotCount = 2, Difficulty = 0, Customs = FakeCreateServer.Three() }.Register(s).Create<CreateServer>();
+        => Page(s, new FakeCreateServer { BotCount = 2, Difficulty = 0, Customs = FakeCreateServer.Three() });
 
-    [UiSample("map not found")]
-    private static UiScreen NoMap(UiSampleServices s)
-        => new FakeCreateServer { MapName = "dm_nowhere", MapFound = false, StartRefusalToken = "#Ai_Start_NoMap" }
-           .Register(s).Create<CreateServer>();
+    [UiSample("too many bots")]
+    private static UiScreen TooMany(UiSampleServices s)
+        => Page(s, new FakeCreateServer { BotCount = 7, Customs = FakeCreateServer.Three(), Refusal = "#Ai_Start_TooMany" });
 
     [UiSample("full server, hard")]
     private static UiScreen Full(UiSampleServices s)
-        => new FakeCreateServer { MaxPlayers = 16, BotCount = 12, Difficulty = 2, Customs = FakeCreateServer.Three() }
-           .Register(s).Create<CreateServer>();
+        => Page(s, new FakeCreateServer { BotCount = 12, Difficulty = 2, Customs = FakeCreateServer.Three() }, maxPlayers: 16);
 
     [UiSample("resized to its minimum")]
     private static UiScreen Minimum(UiSampleServices s)
-        => new FakeCreateServer { BotCount = 2, Customs = FakeCreateServer.Three() }
-           .Register(s, new MemoryWindowStore().With("createserverbots", new UiWindowPlacement(200, 120, 10, 10))).Create<CreateServer>();
+        => Page(s, new FakeCreateServer { BotCount = 2, Customs = FakeCreateServer.Three() },
+                store: new MemoryWindowStore().With(CreateServerWindow.Id, new UiWindowPlacement(200, 120, 10, 10)));
 }

@@ -33,13 +33,14 @@ public class AiUiSourceUseTests
     private static bool IsAiSource(Type t) => t.IsInterface && t.Assembly == Contract;
 
     private static List<Type> UiTypes()
-        => Screens.GetTypes().Where(t => !t.IsAbstract && (typeof(UiScreen).IsAssignableFrom(t) || IsPanel(t))).ToList();
+        => Screens.GetTypes().Where(t => !t.IsAbstract && (typeof(UiScreen).IsAssignableFrom(t) || typeof(CreateServerPage).IsAssignableFrom(t) || IsPanel(t)))
+                  .ToList();
 
     [Fact]
     public void The_ai_screens_are_discovered_and_take_their_sources()
     {
         var types = UiTypes();
-        Assert.Contains(typeof(CreateServer), types);
+        Assert.Contains(typeof(BotsPage), types);
         Assert.Contains(typeof(CustomBotList), types);
         Assert.Contains(typeof(BotEditor), types);
         Assert.Contains(typeof(SkillRowPanel), types);
@@ -47,19 +48,42 @@ public class AiUiSourceUseTests
     }
 
     /// <summary>
-    /// The AI's create-server screen and the core's are both on the test mod's
-    /// menu layer: the AI's has a name of its own and answers the core's
-    /// (<c>createserver</c>, stock's OpenCreateMultiplayerGameDialog) as an alias,
-    /// so the main menu's Create server opens it (UiMenuHostTests pins the host's half).
+    /// The bots are a page of the core's create-server window, which keeps its
+    /// server and game pages (hostname, password, ...): the window finds the
+    /// page in the AI's UI assembly, and no AI screen answers the window's
+    /// name (at the landing, the AI's screen answered <c>createserver</c> and
+    /// hid the core's pages).
     /// </summary>
     [Fact]
-    public void The_ai_create_server_answers_the_cores_name_under_a_name_of_its_own()
+    public void The_ai_bots_are_a_page_of_the_cores_create_server_window_and_no_ai_screen_takes_its_name()
     {
-        var screen = new FakeCreateServer().Register(new UiSampleServices()).Create<CreateServer>();
-        var core = new SourceSharp.Client.Ui.Screens.CreateServer(null!, null!, null!, null!);
-        Assert.Equal("createserver", core.Name);
-        Assert.NotEqual(core.Name, screen.Name);
-        Assert.Contains(core.Name, screen.Aliases);
+        Assert.Equal([typeof(BotsPage)], CreateServerPages.Discover(Screens));
+        var screens = Screens.GetTypes().Where(t => !t.IsAbstract && typeof(UiScreen).IsAssignableFrom(t)).ToList();
+        Assert.NotEmpty(screens);   // the control: the editor is a screen of the assembly
+        foreach (Type t in screens)
+        {
+            var screen = (UiScreen)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(t);
+            Assert.NotEqual(CreateServerWindow.Id, screen.Name);
+        }
+
+        var page = new FakeCreateServer().Register(new UiSampleServices()).Create<BotsPage>();
+        Assert.Equal("#Ai_CreateServer_BotsTab", page.TabToken);
+    }
+
+    /// <summary>
+    /// The window grows to what the page needs: at the core's minimum (380 du)
+    /// the custom list ran under the buttons (seen in the minimum sample). The
+    /// page asks for its chrome (title, tabs, form, list header, buttons: 420
+    /// du) and three narrow rows.
+    /// </summary>
+    [Fact]
+    public void The_window_grows_to_show_the_bots_page_three_narrow_rows()
+    {
+        var page = new FakeCreateServer().Register(new UiSampleServices()).Create<BotsPage>();
+        (float w, float h) = CreateServerWindow.Minimum([page]);
+        Assert.True(h >= 420 + 3 * CustomBotList.NarrowRowDu, $"the window's minimum is {h} du tall");
+        Assert.True(w >= CreateServerWindow.MinWidthDu);
+        Assert.Equal((CreateServerWindow.MinWidthDu, CreateServerWindow.MinHeightDu), CreateServerWindow.Minimum([]));   // the control: no page, the core's own
     }
 
     [Fact]

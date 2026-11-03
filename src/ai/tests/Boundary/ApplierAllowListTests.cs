@@ -37,6 +37,8 @@ public class ApplierAllowListTests
         // The applier: the human path (§3.2) and the command's angles.
         "IPlayerCommandRunner::Queue", "IPlayerCommandRunner::RunQueued",
         "UserCmd::set_Pitch", "UserCmd::set_Roll", "UserCmd::set_Yaw",
+        // CommandTap: every player's command's view angles, read into the recording (§3.4.4).
+        "UserCmd::get_Pitch", "UserCmd::get_Roll", "UserCmd::get_Yaw",
         // Hl2mpNavNumbers: the movement code's step, jump and fall numbers (Phase 2).
         "Movement::get_Current",
         // Hl2mpNav: the level's files through the file seam, the cache under the game dir (Phase 2 step 3).
@@ -74,6 +76,8 @@ public class ApplierAllowListTests
         "IEnginePlayers::GetUserId",
         // The binding's own convars (ai_threads, ai_sync, §2.7): their base constructors.
         "IntConVar::.ctor", "BoolConVar::.ctor",
+        // EngineServerSlots: the people on the server, for the roster's free slots (§3.5).
+        "IConnectedClients::UserId", "IEngineHost::get_IsDedicatedServer",
         // AiBotRosterService (Phase 5c): the roster convar, declared, read and cleared at the level's start.
         "StringConVar::.ctor", "ConVar`1::SetValue",
     ];

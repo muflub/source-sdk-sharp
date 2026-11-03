@@ -13,10 +13,13 @@ namespace SourceSharp.Client.Ui.Screens;
 /// cfg/settings.scr), its hostname, maxplayers and sv_password drawn on the
 /// Server page. Start writes the script's values and file, then starts the
 /// server through <see cref="ICreateServerActions"/>; a mod with no script
-/// has only the Server page's four. Bots join this window from the AI plan
-/// (plan_hl2mp_ai.md §3.5).
+/// has only the Server page's four. A mod adds pages of its own after these
+/// two (<see cref="CreateServerPage"/>, found in its UI assemblies; the HL2MP
+/// AI's bots, plan_hl2mp_ai.md §3.5): each may refuse Start with a reason,
+/// and its console lines run after the server's size and before the map.
 /// </summary>
-public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServerSettingsSource settings, ICreateServerActions actions)
+public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServerSettingsSource settings, ICreateServerActions actions,
+                                 IReadOnlyList<CreateServerPage> pages)
     : UiScreen, IUiWindowed
 {
     private const float LabelColumnDu = UiForm<MouseOptions.Model>.LabelColumnDu;
@@ -26,13 +29,18 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
     private const int DefaultMaxPlayers = 32, MaxPlayersCeiling = 32;
 
     private readonly ScriptRows _game = new(HostNameVar, MaxPlayersVar, PasswordVar);
-    private readonly string[] _tabs = ["#SS_UI_Create_Server", "#SS_UI_Create_Game"];
+    private readonly string[] _tabs = CreateServerWindow.Tabs(pages);
     private readonly List<string> _mapNames = [];
+    private readonly List<string> _beforeMap = [];
+    private readonly (float W, float H) _minimum = CreateServerWindow.Minimum(pages);
     private long _lastFrame = long.MinValue;
 
-    public override string Name => "createserver";
+    public override string Name => CreateServerWindow.Id;
 
-    public string WindowId => "createserver";
+    public string WindowId => CreateServerWindow.Id;
+
+    /// <summary>The mod's pages, after the core's two tabs.</summary>
+    public IReadOnlyList<CreateServerPage> Pages => pages;
 
     public int Tab { get; set; }
 
@@ -50,8 +58,27 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
 
     public ScriptRows Game => _game;
 
-    public static UiWindowSpec Spec(float screenW, float screenH)
-        => new(MathF.Min(760, screenW), MathF.Min(600, screenH), 480, 380, screenW, screenH, 600);
+    /// <summary>The window's size: the core's, grown to what the mod's pages need.</summary>
+    public UiWindowSpec Spec(float screenW, float screenH) => CreateServerWindow.Spec(screenW, screenH, _minimum);
+
+    /// <summary>What the window has chosen, as the mod's pages see it: the map (null while random) and the size.</summary>
+    public CreateServerChoices Choices => new(Map > 0 && Map <= Maps.Count ? Maps[Map - 1] : null, (int)MathF.Round(MaxPlayers));
+
+    /// <summary>The first page's reason to refuse Start, or "".</summary>
+    public string StartRefusalToken
+    {
+        get
+        {
+            CreateServerChoices choices = Choices;
+            for (int i = 0; i < pages.Count; i++)
+            {
+                if (pages[i].StartRefusalToken(choices) is { Length: > 0 } refusal)
+                    return refusal;
+            }
+
+            return "";
+        }
+    }
 
     public void Load()
     {
@@ -72,16 +99,20 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
 
     public void Start(Random random)
     {
-        if (ChosenMap(random) is not { } map)
+        if (StartRefusalToken.Length > 0 || ChosenMap(random) is not { } map)
             return;
         int max = (int)MathF.Round(MaxPlayers);
+        var choices = new CreateServerChoices(map, max);
+        _beforeMap.Clear();
+        for (int i = 0; i < pages.Count; i++)
+            pages[i].BeforeMap(choices, _beforeMap);
         _game.Set(HostNameVar, HostName);
         _game.Set(MaxPlayersVar, max.ToString(CultureInfo.InvariantCulture));
         _game.Set(PasswordVar, Password);
         if (_game.Entries.Count > 0)
             settings.Save(_game.Entries, _game.Values);
         _game.TakeSaved();
-        actions.Start(map, max, HostName, Password);
+        actions.Start(map, max, HostName, Password, _beforeMap);
         windows.RequestClose(WindowId);
     }
 
@@ -91,28 +122,30 @@ public sealed class CreateServer(UiWindows windows, IMapListSource maps, IServer
             Load();
         _lastFrame = ui.FrameNumber;
 
-        using (ui.Window(windows, WindowId, "#SS_UI_Create_Title", Spec(ui.DesignWidth, ui.DesignHeight)))
+        using (ui.Window(windows, WindowId, CreateServerWindow.TitleToken, Spec(ui.DesignWidth, ui.DesignHeight)))
         {
             Tab = ui.TabBar(_tabs, Tab);
-            using (ui.Scroll("fields", Space.M).Size(Size.Fill, Size.Fill))
-            using (ui.FormGrid(LabelColumnDu).Width(Size.Fill))
+            if (Tab >= CreateServerWindow.CorePages && Tab - CreateServerWindow.CorePages < pages.Count)
             {
-                if (Tab == 0)
-                    ServerPage(ref ui);
-                else if (_game.Describe(ref ui, GameKeyBase) is var pressed and >= 0)
-                    settings.Press(_game.Entries[pressed]);
+                using (ui.Column(Space.M, Align.Stretch).Size(Size.Fill, Size.Fill))
+                    pages[Tab - CreateServerWindow.CorePages].Describe(ref ui, Choices);
             }
-            if (Tab == 1 && !_game.AnyShown)
-                ui.EmptyState(UiShape.Dot, "#SS_UI_Create_NoSettings", "#SS_UI_Create_NoSettingsBody").Size(Size.Fill, Size.Fill);
+            else
+            {
+                using (ui.Scroll("fields", Space.M).Size(Size.Fill, Size.Fill))
+                using (ui.FormGrid(LabelColumnDu).Width(Size.Fill))
+                {
+                    if (Tab == 0)
+                        ServerPage(ref ui);
+                    else if (_game.Describe(ref ui, GameKeyBase) is var pressed and >= 0)
+                        settings.Press(_game.Entries[pressed]);
+                }
+                if (Tab == 1 && !_game.AnyShown)
+                    ui.EmptyState(UiShape.Dot, "#SS_UI_Create_NoSettings", "#SS_UI_Create_NoSettingsBody").Size(Size.Fill, Size.Fill);
+            }
 
-            using (ui.DialogButtons().Width(Size.Fill))
-            {
-                if (ui.Button("cancel", "#SS_UI_Cancel").Clicked)
-                    windows.RequestClose(WindowId);
-                ui.Flex();
-                if (ui.Button("start", "#SS_UI_Create_Start", primary: true, enabled: Maps.Count > 0).Clicked)
-                    Start(Random.Shared);
-            }
+            if (CreateServerWindow.Buttons(ref ui, windows, StartRefusalToken, Maps.Count > 0))
+                Start(Random.Shared);
         }
     }
 

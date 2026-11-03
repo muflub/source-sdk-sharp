@@ -13,7 +13,8 @@ public sealed class AiThreadsConVar : IntConVar { }
 /// <summary>
 /// <c>ai_sync</c> (§2.6): 1 runs the bots' brains inline on the main thread
 /// (debugging, and live scrubbing with <c>ai_step</c>); 0, the default, on the
-/// worker pool. The intents are the same either way.
+/// worker pool. The intents are the same either way, but a step lands sooner
+/// inline, so it is a cheat as <c>ai_step</c> is.
 /// </summary>
-[ConVar("ai_sync", "0", Help = "1 runs the bots' brains inline on the main thread (debugging); 0 on the AI's worker threads")]
+[ConVar("ai_sync", "0", Help = "1 runs the bots' brains inline on the main thread (debugging); 0 on the AI's worker threads", Flags = ConVarFlags.Cheat)]
 public sealed class AiSyncConVar : BoolConVar { }

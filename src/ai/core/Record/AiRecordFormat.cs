@@ -18,6 +18,12 @@ public enum AiRecordType : byte
     Intent = 6,
     UserCmd = 7,
     World = 8,
+
+    /// <summary>Where a living actor stood and moved at a tick, humans and bots alike (format 3, §3.4.4's metrics).</summary>
+    Frame = 9,
+
+    /// <summary>An event about an actor no brain plays, a human's sight computed by the bots' vision pass (format 3): for the metrics, never fed to a brain.</summary>
+    Observed = 10,
 }
 
 /// <summary>
@@ -46,8 +52,11 @@ public static class AiRecordFormat
     /// <summary>The first eight bytes of every <c>.airec</c> file.</summary>
     public static ReadOnlySpan<byte> Magic => "SSAIREC\0"u8;
 
-    /// <summary>The format this build writes. It reads this one and 1 (format 2 added the World record).</summary>
-    public const ushort Version = 2;
+    /// <summary>
+    /// The format this build writes. It reads this one, 2 and 1 (format 2
+    /// added the World record, format 3 the Frame and Observed records).
+    /// </summary>
+    public const ushort Version = 3;
 
     /// <summary>The largest payload a reader accepts; anything bigger is a corrupt length.</summary>
     public const int MaxPayload = 1 << 24;
@@ -278,8 +287,12 @@ public static class AiRecordFormat
     public static ActorFacts ReadFacts(BinaryReader r)
         => new(ReadActor(r), ReadVector(r), ReadVector(r), r.ReadInt32(), (ActorActivity)r.ReadByte(), r.ReadSingle());
 
-    /// <summary>A snapshot: its tick, then each present view in slot order.</summary>
-    public static void Write(BinaryWriter w, AiSnapshot s)
+    /// <summary>
+    /// A snapshot: its tick, then each present view in slot order; each
+    /// sighted actor named through <paramref name="actors"/> when given (the
+    /// recorder's anonymiser, §3.4.4).
+    /// </summary>
+    public static void Write(BinaryWriter w, AiSnapshot s, Func<ActorId, ActorId>? actors = null)
     {
         w.Write(s.Tick.Value);
         int present = 0;
@@ -295,7 +308,7 @@ public static class AiRecordFormat
             Write(w, view.Self);
             w.Write((ushort)view.SightedCount);
             foreach (ref readonly ActorFacts f in view.Sighted)
-                Write(w, f);
+                Write(w, actors is null ? f : f with { Id = actors(f.Id) });
         }
     }
 
@@ -389,6 +402,18 @@ public static class AiRecordFormat
         w.Write(c.MouseDx);
         w.Write(c.MouseDy);
     }
+
+    public static void Write(BinaryWriter w, in AiActorFrame f)
+    {
+        Write(w, f.Actor);
+        w.Write(f.Tick.Value);
+        Write(w, f.Origin);
+        Write(w, f.Eye);
+        Write(w, f.Velocity);
+    }
+
+    public static AiActorFrame ReadFrame(BinaryReader r)
+        => new(ReadActor(r), new Tick(r.ReadInt32()), ReadVector(r), ReadVector(r), ReadVector(r));
 
     public static AiUserCmd ReadUserCmd(BinaryReader r)
         => new(ReadActor(r), new Tick(r.ReadInt32()), r.ReadInt32(), r.ReadInt32(), ReadAngles(r), r.ReadSingle(),

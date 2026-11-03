@@ -6,16 +6,17 @@ using Xunit;
 using CreateServerModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.CreateServerModel;
 using CustomBot = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBot;
 using CustomBots = client::SourceSharp.Ai.Hl2mp.Client.Setup.CustomBots;
-using IFwdBaseFileSystem = client::SourceSharp.Abi.IFwdBaseFileSystem;
 using IFwdEngineClient = client::SourceSharp.Abi.IFwdEngineClient;
 using BotEditorModel = client::SourceSharp.Ai.Hl2mp.Client.Setup.BotEditorModel;
+using IEngineConsole = client::SourceSharp.Abi.IEngineConsole;
 
 namespace SourceSharp.Ai.Tests.Setup;
 
 /// <summary>
-/// The create-server screen's model (plan_hl2mp_ai §3.5, §8.2): the
-/// difficulty slider's stops, the bot slots, the map check, and the console
-/// lines Start sends.
+/// The bots page's model (plan_hl2mp_ai §3.5, §8.2): the difficulty
+/// slider's stops, the bot slots within the window's player count, and the
+/// roster line Start runs (the core window runs it after maxplayers and
+/// before the map: CreateServerTests holds that half).
 /// </summary>
 public class CreateServerModelTests
 {
@@ -36,34 +37,25 @@ public class CreateServerModelTests
         }
     }
 
-    /// <summary>A file system that has the maps it is given.</summary>
-    public class Maps : DispatchProxy
+    /// <summary>A console that holds what a fact gives it.</summary>
+    public class ConVars : DispatchProxy
     {
-        public HashSet<string> Present { get; } = new();
-
-        public List<string> Asked { get; } = new();
+        public Dictionary<string, string> Values { get; } = new();
 
         protected override object? Invoke(MethodInfo? method, object?[]? args)
-        {
-            if (method?.Name == "FileExists")
-            {
-                Asked.Add($"{args![0]} {args[1]}");
-                return Present.Contains((string)args[0]!);
-            }
-
-            throw new InvalidOperationException($"asked {method?.Name}");
-        }
+            => method?.Name == "FindConVarValue" && Values.TryGetValue((string)args![0]!, out string? v) ? v
+               : method?.Name == "FindConVarValue" ? null
+               : throw new InvalidOperationException($"asked {method?.Name}");
     }
 
     private readonly IFwdEngineClient _engine = DispatchProxy.Create<IFwdEngineClient, Lines>();
-    private readonly IFwdBaseFileSystem _files = DispatchProxy.Create<IFwdBaseFileSystem, Maps>();
+    private readonly IEngineConsole _console = DispatchProxy.Create<IEngineConsole, ConVars>();
     private readonly CustomBots _customs = new();
     private readonly CreateServerModel _model;
 
     public CreateServerModelTests()
     {
-        ((Maps)(object)_files).Present.Add("maps/dm_lockdown.bsp");
-        _model = new CreateServerModel(_engine, _files, _customs, BotEditorModelTests.Editor(_customs));
+        _model = new CreateServerModel(_engine, _console, _customs, BotEditorModelTests.Editor(_customs));
     }
 
     private List<string> Sent => ((Lines)(object)_engine).Sent;
@@ -95,22 +87,21 @@ public class CreateServerModelTests
         Assert.DoesNotContain("expert", Enumerable.Range(0, _model.DifficultyStops).Select(CreateServerModel.StopPreset));
     }
 
+    private List<string> BeforeMap()
+    {
+        var lines = new List<string>();
+        _model.BeforeMap(lines);
+        return lines;
+    }
+
     [Fact]
-    public void TwoEasyAndOneCustomStartWithTheExpectedCommands()
+    public void TwoEasyAndOneCustomStartWithTheExpectedRoster()
     {
         _model.SetBotCount(2);
         _model.SetDifficulty(0);
         _customs.Add(new CustomBot(Profile("Deadeye", 8, 7, 6, 6, 6, 6, 1, 1, 2, 2), []));
-        Assert.Equal(["disconnect", "wait 30", "maxplayers 8",
-                      "ai_bot_roster \"easy;easy;name=Deadeye:skills=8,7,6,6,6,6,1,1,2,2\"", "map dm_lockdown"], _model.StartCommands());
-    }
-
-    [Fact]
-    public void StartSendsTheLinesAsOneTextSoTheWaitsDelayWhatFollows()
-    {
-        _model.SetBotCount(1);
-        _model.Start();
-        Assert.Equal(["disconnect\nwait 30\nmaxplayers 8\nai_bot_roster \"normal\"\nmap dm_lockdown"], Sent);
+        Assert.Equal(["ai_bot_kick all", "ai_bot_roster \"easy;easy;name=Deadeye:skills=8,7,6,6,6,6,1,1,2,2\"", "ai_bot_reroll_on_map 0"], BeforeMap());
+        Assert.Empty(Sent);   // the window sends it, with its own lines
     }
 
     [Fact]
@@ -125,32 +116,34 @@ public class CreateServerModelTests
     public void NoBotsStillClearsTheRoster()
     {
         _model.SetBotCount(0);
-        Assert.Contains("ai_bot_roster \"\"", _model.StartCommands());
+        Assert.Equal(["ai_bot_kick all", "ai_bot_roster \"\"", "ai_bot_reroll_on_map 0"], BeforeMap());
     }
 
+    /// <summary>The box starts as the server's archived cvar stands, and Start says what the box says.</summary>
     [Fact]
-    public void AMissingMapRefusesStartAndSendsNothing()
+    public void NewBotsEachMapStartsFromTheCvarAndStartSetsIt()
     {
-        _model.SetMapName("dm_nowhere");
-        Assert.Equal((false, "#Ai_Start_NoMap"), (_model.MapFound, _model.StartRefusalToken));
-        _model.Start();
-        Assert.Empty(Sent);
+        ((ConVars)(object)_console).Values[CreateServerModel.RerollConVar] = "1";
+        Assert.True(_model.NewBotsEachMap);
+        Assert.Contains("ai_bot_reroll_on_map 1", BeforeMap());
+        _model.SetNewBotsEachMap(false);
+        Assert.False(_model.NewBotsEachMap);
+        Assert.Contains("ai_bot_reroll_on_map 0", BeforeMap());
     }
 
+    /// <summary>The window's size bounds the bots: more than its slots less the player's refuse Start, and the page adds no line.</summary>
     [Fact]
-    public void AMapNameThatCouldBreakTheLineIsRefusedWithoutAskingTheDisk()
+    public void MoreBotsThanTheWindowsSlotsRefuseStart()
     {
-        _model.SetMapName("dm_lockdown;quit");
-        Assert.Equal("#Ai_Start_BadMap", _model.StartRefusalToken);
-        Assert.Empty(((Maps)(object)_files).Asked);
-    }
-
-    [Fact]
-    public void TheMapIsAskedForOncePerName()
-    {
-        _ = _model.MapFound;
-        _ = _model.MapFound;
-        Assert.Equal(["maps/dm_lockdown.bsp GAME"], ((Maps)(object)_files).Asked);
+        _model.SetMaxPlayers(8);
+        _model.SetBotCount(5);
+        _customs.Add(new CustomBot(Profile("", 4, 4, 4, 3, 3, 3, 4, 3, 4, 3), []));
+        _customs.Add(new CustomBot(Profile("", 4, 4, 4, 3, 3, 3, 4, 3, 4, 3), []));
+        Assert.Equal("", _model.StartRefusalToken(8));   // the control: 7 bots in 8 slots
+        Assert.Equal("#Ai_Start_TooMany", _model.StartRefusalToken(7));
+        _model.SetMaxPlayers(2);   // the presets clamp to none; two custom bots in one slot still refuse
+        Assert.Equal("#Ai_Start_TooMany", _model.StartRefusalToken(2));
+        Assert.Empty(BeforeMap());
     }
 
     [Fact]

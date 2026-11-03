@@ -83,12 +83,99 @@ public class CreateServerTests
     }
 
     [Fact]
-    public void The_server_starts_with_stocks_command_sequence()
+    public void The_server_starts_with_stocks_command_sequence_as_one_text()
     {
         var lines = new RecordingCommandLine();
-        new CreateServerActions(lines).Start("dm_lockdown", 16, "my \"server\"", "");
-        Assert.Equal(["disconnect", "wait", "wait", "sv_lan 1", "setmaster enable", "maxplayers 16", "sv_password \"\"",
-                      "hostname \"my server\"", "progress_enable", "map dm_lockdown"], lines.Lines);
+        new CreateServerActions(lines).Start("dm_lockdown", 16, "my \"server\"", "", []);
+        Assert.Equal(["disconnect\nwait 30\nsv_lan 1\nsetmaster enable\nmaxplayers 16\nsv_password \"\"\n"
+                      + "hostname \"my server\"\nprogress_enable\nmap dm_lockdown"], lines.Lines);
+    }
+
+    /// <summary>
+    /// A mod page's lines (the AI's bot roster) run after the server's size
+    /// and name and before the map, in the one text: a roster set after the
+    /// map is read too late, at the level's start (plan_hl2mp_ai §3.5).
+    /// </summary>
+    [Fact]
+    public void The_pages_lines_run_after_the_servers_size_and_before_the_map()
+    {
+        var lines = new RecordingCommandLine();
+        new CreateServerActions(lines).Start("dm_lockdown", 8, "lan", "", ["ai_bot_roster \"easy;easy\""]);
+        string[] sent = Assert.Single(lines.Lines).Split('\n');
+        int roster = Array.IndexOf(sent, "ai_bot_roster \"easy;easy\"");
+        Assert.True(roster > Array.IndexOf(sent, "maxplayers 8") && roster > Array.IndexOf(sent, "hostname \"lan\""), string.Join(" | ", sent));
+        Assert.True(roster < Array.IndexOf(sent, "map dm_lockdown"), string.Join(" | ", sent));
+    }
+
+    /// <summary>A page a mod adds: a tab, a refusal while it holds one, and its line.</summary>
+    public sealed class TestPage : CreateServerPage
+    {
+        public string Refusal { get; set; } = "";
+
+        public List<CreateServerChoices> Seen { get; } = [];
+
+        public override string TabToken => "#SS_UI_Create_Game";
+
+        public override void Describe(ref UiFrame ui, in CreateServerChoices choices) => ui.Text("#SS_UI_Create_Game", Text.Body);
+
+        public override string StartRefusalToken(in CreateServerChoices choices) => Refusal;
+
+        public override void BeforeMap(in CreateServerChoices choices, List<string> lines)
+        {
+            Seen.Add(choices);
+            lines.Add($"test_line {choices.MaxPlayers}");
+        }
+    }
+
+    private sealed class NoServices : IServiceLocator
+    {
+        public object? Resolve(Type serviceType) => null;
+        public object? ResolveNamed(string name) => null;
+        public bool IsRegistered(Type serviceType) => false;
+        public IReadOnlyCollection<Type> ServiceTypes => [];
+        public IReadOnlyCollection<string> Names => [];
+    }
+
+    private static Rig WithPage(TestPage page) => new(s => s.Add<IReadOnlyList<CreateServerPage>>([page]));
+
+    [Fact]
+    public void A_mods_page_is_a_tab_after_the_cores_two()
+    {
+        var r = WithPage(new TestPage());
+        Assert.Equal(["#SS_UI_Create_Server", "#SS_UI_Create_Game", "#SS_UI_Create_Game"], CreateServerWindow.Tabs(r.Screen.Pages));
+    }
+
+    [Fact]
+    public void Start_hands_the_page_its_choices_and_runs_its_lines()
+    {
+        var page = new TestPage();
+        var r = WithPage(page);
+        r.Screen.Map = 1;
+        r.Screen.MaxPlayers = 6;
+        r.Screen.Start(new Random(1));
+        Assert.Equal(new CreateServerChoices("dm_lockdown", 6), Assert.Single(page.Seen));
+        Assert.Equal(["test_line 6"], Assert.Single(r.Started.BeforeMap));
+    }
+
+    [Fact]
+    public void A_pages_refusal_stops_start_and_names_why()
+    {
+        var page = new TestPage { Refusal = "#SS_UI_Create_NoMaps" };
+        var r = WithPage(page);
+        Assert.Equal("#SS_UI_Create_NoMaps", r.Screen.StartRefusalToken);
+        r.Screen.Start(new Random(1));
+        Assert.Empty(r.Started.Started);
+        page.Refusal = "";
+        r.Screen.Start(new Random(1));
+        Assert.Single(r.Started.Started);   // the control: allowed again, it starts
+    }
+
+    [Fact]
+    public void The_window_finds_a_mods_pages_by_type_and_builds_them_through_the_container()
+    {
+        Assert.Contains(typeof(TestPage), CreateServerPages.Discover(typeof(TestPage).Assembly));
+        IReadOnlyList<CreateServerPage> built = UiModScreens.Pages(new NoServices(), [typeof(TestPage).Assembly], new UiWindows(new MemoryWindowStore()));
+        Assert.Contains(built, p => p is TestPage);
     }
 
     private sealed class Finder(params string[] files) : IFwdFileFinder

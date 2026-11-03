@@ -12,13 +12,31 @@
 #       replays a recording made with ai_record over the map's graph with the
 #       game's trees, inline (0) and on each pool size, and exits 1 unless
 #       every replay gives the recording's intents byte for byte
+#   tools/ai-replay metrics <recording.airec>... [--config ..]
+#       prints the plan's §3.4.4 metrics per actor, humans' and bots' alike
+#       (angular speed, flicks and their peaks, time to acquire, reaction,
+#       strafe interval, yaw reversals); `ai_record human` writes the human
+#       sessions to bin/<config>/mods/test/ai-recordings/human/
 #
 # Builds src/ai/replay (SkiaSharp, a tool: never in the game's managed dir).
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 dotnet="${DOTNET:-$HOME/.dotnet/dotnet}"
 verb="${1:-}"
-[[ ( "$verb" == "nav" && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,17p' "$0"; exit 2; }
+[[ ( "$verb" =~ ^(nav|metrics)$ && -n "${2:-}" ) || ( "$verb" =~ ^(heat|verify)$ && -n "${3:-}" ) ]] || { sed -n '2,22p' "$0"; exit 2; }
+if [[ "$verb" == metrics ]]; then
+  shift
+  config=debug; recs=()
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --config) config="$2"; shift 2 ;;
+      *) [[ -f "$1" ]] || { echo "ai-replay: no recording $1" >&2; exit 1; }; recs+=("$(realpath "$1")"); shift ;;
+    esac
+  done
+  cfg=Debug; [[ "$config" == release ]] && cfg=Release
+  "$dotnet" build "$root/src/ai/replay/SourceSharp.Ai.Replay.csproj" -c "$cfg" -v q --nologo >/dev/null
+  exec "$dotnet" "$root/bin/$config/tools/ai-replay/SourceSharp.Ai.Replay.dll" metrics "${recs[@]}"
+fi
 map="$2"; shift 2
 recording=""
 if [[ "$verb" =~ ^(heat|verify)$ ]]; then recording="$(realpath "$1")"; shift; fi

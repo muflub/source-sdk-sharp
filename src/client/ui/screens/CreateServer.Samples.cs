@@ -28,7 +28,14 @@ public sealed class RecordingCreateServer : ICreateServerActions
 {
     public List<(string Map, int MaxPlayers, string HostName, string Password)> Started { get; } = [];
 
-    public void Start(string map, int maxPlayers, string hostName, string password) => Started.Add((map, maxPlayers, hostName, password));
+    /// <summary>Each Start's lines from the mod's pages.</summary>
+    public List<string[]> BeforeMap { get; } = [];
+
+    public void Start(string map, int maxPlayers, string hostName, string password, IReadOnlyList<string> beforeMap)
+    {
+        Started.Add((map, maxPlayers, hostName, password));
+        BeforeMap.Add([.. beforeMap]);
+    }
 }
 
 public static class CreateServerSamples
@@ -56,6 +63,8 @@ public static class CreateServerSamples
             s.Add<IServerSettingsSource>(Script());
         if (!s.Has<ICreateServerActions>())
             s.Add<ICreateServerActions>(new RecordingCreateServer());
+        if (!s.Has<IReadOnlyList<CreateServerPage>>())
+            s.Add<IReadOnlyList<CreateServerPage>>([]);
         var screen = s.Create<CreateServer>();
         screen.Tab = tab;
         return screen;

@@ -134,16 +134,16 @@ class Game:
 
 
 def bots_by_name(game):
-    return {b["name"]: b["slot"] for b in game.json("/ai/bots")}
+    return {b["name"]: b["slot"] for b in game.json("/ai/bots") if b.get("state", "active") == "active"}
 
 
 def sight(game):
     """The watcher holds a post; the target stands past each occluder (§6.6)."""
     game.cmd("ai_think 0")
     game.cmd("ai_sense_log 1")
-    game.cmd("ai_bot_add Watcher expert")
-    game.cmd("ai_bot_add Target easy")
-    game.cmd("ai_bot_add Blocker easy")
+    game.cmd("ai_bot_add Watcher skills=8,7,6,6,6,6,7,5,5,4")
+    game.cmd("ai_bot_add Target skills=2,2,3,1,2,1,2,2,3,2")
+    game.cmd("ai_bot_add Blocker skills=2,2,3,1,2,1,2,2,3,2")
     time.sleep(2)
     slots = bots_by_name(game)
     w, t, b = slots["Watcher"], slots["Target"], slots["Blocker"]
@@ -176,8 +176,8 @@ def hearing(game):
     """A listener holds still; the target fires, reloads and walks at scripted distances (§6.6)."""
     game.cmd("ai_think 0")
     game.cmd("ai_sense_log 1")
-    game.cmd("ai_bot_add Listener expert")
-    game.cmd("ai_bot_add Target easy")
+    game.cmd("ai_bot_add Listener skills=8,7,6,6,6,6,7,5,5,4")
+    game.cmd("ai_bot_add Target skills=2,2,3,1,2,1,2,2,3,2")
     time.sleep(2)
     slots = bots_by_name(game)
     l, t = slots["Listener"], slots["Target"]
@@ -259,7 +259,7 @@ def duel(game):
     game.cmd("ai_sense_log 1")
     game.cmd("ai_think_log 1")
     game.cmd("ai_bot_add Pusher skills=8,7,6,6,6,6,10,5,4,2")
-    game.cmd("ai_bot_add Target easy")
+    game.cmd("ai_bot_add Target skills=2,2,3,1,2,1,2,2,3,2")
     time.sleep(2)
     slots = bots_by_name(game)
     p, t = slots["Pusher"], slots["Target"]
@@ -282,8 +282,8 @@ def routes(game):
     game.cmd("ai_think_log 1")
     game.cmd("ai_bot_add Hunter skills=4,4,4,3,3,3,4,3,4,10")
     game.cmd("ai_bot_add Plain skills=4,4,4,3,3,3,4,3,4,0")
-    game.cmd("ai_bot_add Leader easy")
-    game.cmd("ai_bot_add Low easy")
+    game.cmd("ai_bot_add Leader skills=2,2,3,1,2,1,2,2,3,2")
+    game.cmd("ai_bot_add Low skills=2,2,3,1,2,1,2,2,3,2")
     time.sleep(2)
     slots = bots_by_name(game)
     h, pl, le, lo = slots["Hunter"], slots["Plain"], slots["Leader"], slots["Low"]
@@ -303,7 +303,7 @@ def routes(game):
 def nav(game):
     """One bot sent to every pickup of ss_ai_nav in turn, by ai_bot_goto: every edge type, the ladder and the door (§6.6)."""
     game.cmd("ai_think 0")
-    game.cmd("ai_bot_add Walker hard")
+    game.cmd("ai_bot_add Walker skills=6,6,5,5,5,5,6,4,5,3")
     time.sleep(2)
     slots = bots_by_name(game)
     w = slots["Walker"]

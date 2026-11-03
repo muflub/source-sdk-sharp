@@ -7,6 +7,20 @@ using SourceSharp.Ai.Replay;
 //   nav  <map.nav3d> <map.bsp> <out.png> [pixels-per-unit]
 //   heat <map.nav3d> <map.bsp> <recording.airec> <out-dir> [every=66] [pixels-per-unit]
 //   verify <map.nav3d> <map.bsp> <recording.airec> [threads=0,1,2,4]   (0 is inline)
+//   metrics <recording.airec>...   (§3.4.4: per actor, humans' and bots')
+if (args.Length >= 2 && args[0] == "metrics")
+{
+    foreach (string rec in args.Skip(1))
+    {
+        using FileStream input = File.OpenRead(rec);
+        IReadOnlyList<ActorMetrics> actors = AiMetrics.Read(input);
+        Console.WriteLine($"ai-replay: metrics {Path.GetFileName(rec)}: {actors.Count} actor(s), {actors.Count(a => !a.Bot)} human, {actors.Count(a => a.Bot)} bot");
+        Console.Write(AiMetrics.Table(actors));
+    }
+
+    return 0;
+}
+
 if (args.Length >= 4 && args[0] == "verify")
 {
     string vNav = args[1], vBsp = args[2], vRec = args[3];

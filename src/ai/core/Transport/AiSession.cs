@@ -161,7 +161,7 @@ public sealed class AiSession
         IDecider? decider = memory is not null && decisions is { } dp && Deciders is { } make
             ? make(new BrainSetup(id, seed, memory, dp, World!.TickSeconds))
             : null;
-        _lanes[id.Slot] = new Lane(new Brain(id, seed, memory, decisions, decider), _sightedCapacity);
+        _lanes[id.Slot] = new Lane(new Brain(id, seed, memory, decisions, decider), _sightedCapacity) { Levels = skillLevels.ToArray() };
         BotCount++;
         _sink.BotAdded(id, seed, skillLevels);
     }
@@ -178,6 +178,21 @@ public sealed class AiSession
         _lanes[id.Slot] = null;
         BotCount--;
         _sink.BotRemoved(id);
+    }
+
+    /// <summary>
+    /// Tells the sink every bot already in the session, in slot order, as
+    /// though added now: a recording started mid-game (a human reference
+    /// session, §3.4.4) names its bots and their seeds and skills. Their
+    /// brains are not new, so such a recording measures; it does not replay.
+    /// </summary>
+    public void AnnounceBots()
+    {
+        foreach (Lane? lane in _lanes)
+        {
+            if (lane is not null)
+                _sink.BotAdded(lane.Brain.Bot, lane.Brain.Seed, lane.Levels);
+        }
     }
 
     /// <summary>Queues an event for its bot's next step.</summary>
@@ -393,6 +408,9 @@ public sealed class AiSession
         private bool _busy;
 
         public Brain Brain { get; } = brain;
+
+        /// <summary>The skill levels the bot was added with (what a recording started later announces).</summary>
+        public byte[] Levels { get; init; } = [];
 
         /// <summary>Held while a step of this brain runs; a reader takes it without waiting.</summary>
         public object BrainLock { get; } = new();

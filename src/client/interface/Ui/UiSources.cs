@@ -902,10 +902,14 @@ public interface IMapListSource
     string GameName { get; }
 }
 
-/// <summary>Starts a listen server as stock's create-server OK did.</summary>
+/// <summary>
+/// Starts a listen server as stock's create-server OK did, with the mod pages'
+/// console lines (<paramref name="beforeMap"/> of <c>Start</c>) after the
+/// server's size and name and before the map.
+/// </summary>
 public interface ICreateServerActions
 {
-    void Start(string map, int maxPlayers, string hostName, string password);
+    void Start(string map, int maxPlayers, string hostName, string password, IReadOnlyList<string> beforeMap);
 }
 
 /// <summary>One player as the player list shows them: their name, and whether muted, a bot, or this client.</summary>

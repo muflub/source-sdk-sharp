@@ -161,5 +161,9 @@ public sealed class HandOffTests
         public void Snapshot(AiSnapshot snapshot) { }
 
         public void UserCmd(in AiUserCmd cmd) { }
+
+        public void Frame(in AiActorFrame frame) { }
+
+        public void Observed(in AiEvent e) { }
     }
 }

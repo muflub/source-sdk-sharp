@@ -6,8 +6,15 @@ using SourceSharp.Ai.Hl2mp.Nav;
 
 namespace SourceSharp.Ai.Hl2mp;
 
-/// <summary>One bot the binding plays: its actor, its name and its skills.</summary>
-public readonly record struct Hl2mpBot(ActorId Id, string Name, SkillProfile Skills);
+/// <summary>
+/// One bot the binding plays: its actor, its name and its skills.
+/// <see cref="SeedIndex"/> names its seeds in the match (its appearance, motion
+/// and brain): the same when the roster brings it back after a map change.
+/// </summary>
+public readonly record struct Hl2mpBot(ActorId Id, string Name, SkillProfile Skills)
+{
+    public int SeedIndex { get; init; }
+}
 
 /// <summary>
 /// The HL2MP binding's bots (plan_hl2mp_ai §3.1, Phase 3 step 4): adds them as
@@ -80,34 +87,66 @@ public sealed class Hl2mpBots : IFrameLifecycle
     /// </summary>
     public string? Add(string? name, SkillProfile skills)
     {
-        // No navigation, no bot (plan_hl2mp_ai §6.3): the same line the level load printed.
-        if (_nav.Refusal is { } refused)
+        if (AddRefusal is { } refused)
             return refused;
 
         int serial = _serial + 1;
-        if (name is null)
-        {
-            if (_names.Pools is not { } pools)
-                return _names.Refusal;
-            var taken = new HashSet<string>(_bots.Select(b => b.Name), StringComparer.OrdinalIgnoreCase);
-            name = BotNamer.Name(pools, skills, AiRandom.SeedFor(MatchSeed ^ NameSalt, serial), taken);
-        }
+        if (name is null && DrawName(skills, serial, _bots.Select(b => b.Name), out name) is { } unnamed)
+            return unnamed;
+        return Add(name!, skills, serial, out _);
+    }
 
-        var stream = new AiRandom(AiRandom.SeedFor(MatchSeed, serial));
+    /// <summary>No navigation, no bot (plan_hl2mp_ai §6.3): the same line the level load printed; null when bots can be added.</summary>
+    public string? AddRefusal => _nav.Refusal;
+
+    /// <summary>
+    /// A name for a bot with <paramref name="skills"/> from the pools, by its
+    /// most distinctive trait (§3.5.1), drawn from the seed
+    /// <paramref name="seedIndex"/> names, apart from every one of
+    /// <paramref name="taken"/>. Answers null, or why not.
+    /// </summary>
+    public string? DrawName(SkillProfile skills, int seedIndex, IEnumerable<string> taken, out string? name)
+    {
+        name = null;
+        if (_names.Pools is not { } pools)
+            return _names.Refusal;
+        name = BotNamer.Name(pools, skills, AiRandom.SeedFor(MatchSeed ^ NameSalt, seedIndex), new HashSet<string>(taken, StringComparer.OrdinalIgnoreCase));
+        return null;
+    }
+
+    /// <summary>
+    /// Adds a bot called <paramref name="name"/> whose seeds are
+    /// <paramref name="seedIndex"/>'s (the roster's: the same when it comes
+    /// back); <paramref name="id"/> is its actor. Answers null, or why not.
+    /// </summary>
+    public string? Add(string name, SkillProfile skills, int seedIndex, out ActorId id)
+    {
+        id = ActorId.None;
+        if (AddRefusal is { } refused)
+            return refused;
+        int serial = _serial + 1;
+        var stream = new AiRandom(AiRandom.SeedFor(MatchSeed, seedIndex));
         EntityHandle player = _players.Add(name, BotAppearance.For(stream), out string refusal);
         if (player == EntityHandle.None)
             return refusal;
 
         BotPlayer made = _players.Bots.Last(b => b.Player == player);
         _serial = serial;
-        var id = new ActorId(made.EntIndex, serial);
+        id = new ActorId(made.EntIndex, serial);
         _applier.Add(id, player, MotionCurves.For(skills), stream.NextUInt64());
-        _bots.Add(new Hl2mpBot(id, made.Name, skills));
+        _bots.Add(new Hl2mpBot(id, made.Name, skills) { SeedIndex = seedIndex });
         Version++;
         string label = BotSkillLabel.For(skills);
         _tags.Set(player, label);
         _log.Msg($"[SourceSharp/Ai] bot {made.Name} {label} added: client {made.EntIndex}, {skills.Name} ({skills.Spent} points, {skills.StyleName})\n");
         return null;
+    }
+
+    /// <summary>Kicks the bot <paramref name="id"/>, saying <paramref name="reason"/>; false when it is not in the game.</summary>
+    public bool Kick(ActorId id, string reason)
+    {
+        EntityHandle player = _applier.PlayerOf(id);
+        return player != EntityHandle.None && _players.Kick(player, reason);
     }
 
     /// <summary>Kicks the bot called <paramref name="name"/>, or every bot for "all"; answers how many.</summary>

@@ -571,6 +571,7 @@ session and per actor, the distributions of:
 | strafe interval | time between `SideMove` sign changes |
 | shots per engagement | `IN_ATTACK` presses between `SightGained` and `SightLost` |
 | reaction time | `SightGained` to the first `IN_ATTACK` or first aim movement toward the target |
+| hit rate (ruling 2026-11-02) | hits over shots, overall, per weapon, and per range band (under 300, 300 to 800, over 800 u), with counts. A shot is one trigger pull (`IPlayerWeaponEventHook`'s `Fired`), a shotgun's pellets one shot; a hit is one victim hurt by the actor in one tick (`IPlayerHurtHook`), self-harm excluded, by the weapon it last fired, at the range then. A shot's band is the distance to the sighted actor nearest its crosshair within 30°; with none it is untargeted: overall and per weapon only |
 
 Gates: for each metric, the two-sample Kolmogorov–Smirnov statistic between
 the bot's distribution (at the preset matching the human's apparent skill,
@@ -686,6 +687,39 @@ pool's even spread (spent / skills), high when above it and low when below;
 the bot's seed picks the first name and the entry; a name another bot holds
 is re-drawn, and a numeral is the last resort; the name is cut to the
 engine's `MAX_PLAYER_NAME_LENGTH` (32 with its NUL), the first name first.
+
+#### 3.5.2 The roster: the server's wanted bots (rulings 2026-11-02, §12.1)
+
+`Hl2mpRoster`, in the server process's memory, never on disk. Every bot of
+`ai_bot_add` and `ai_bot_roster` joins it (the create-server window sets the
+roster: its page runs `ai_bot_kick all` and `ai_bot_roster "<spec>"` before
+the map); `ai_bot_kick <name|all>` takes a bot out of the game and off the
+roster. An entry holds its name, its kind (preset, named custom or saved,
+unnamed custom), its shape and current allocation, and its seed.
+
+- **Map change.** The engine ends its fake clients with the level
+  (`InactivateClients`). On the new level (`LevelStarted`), every entry comes
+  back with its name, skills and seed; its opponent memory is new. A spec in
+  `ai_bot_roster` is the roster from then on, so a server.cfg that sets the same
+  spec each level holds the same bots: the Phase 5c path is this one, no second
+  copy.
+- **Free slots.** Bots in the game ≤ `maxplayers − humans − ai_bot_reserve_slots`
+  (default 1, so a person can always connect: a full server refuses before game
+  code sees it). A person is any engine client that is not a bot, from its
+  connect (a slot with a user id), and a listen server counts its host before it
+  connects. Over that, the **newest active** bot (highest place in the order
+  added) is kicked at once, with a console line. Under it, the **oldest benched**
+  comes back (first benched first; the order added breaks a tie; bots active
+  when the level changed come first of all), not before **5 s (336 ticks) after
+  the last bench**: the hysteresis, so a quick connect and drop costs one kick
+  and one return. A person's count is read every 8 ticks.
+- **Refusals.** A level with no nav refuses bots: they stay wanted, say so once
+  and come back on the next level. A bot kicked from the console by another route
+  (`kick`) is still wanted, so it comes back.
+- **What it shows.** `ai_bot_count` prints every entry, active or benched with
+  its reason, with the drawn levels; `/ai/bots` answers the same rows (slot -1
+  benched); the web inspector's list disables a benched bot and titles each with
+  its tag, style and levels.
 
 ## 4. The perception boundary: a bot is a client
 
@@ -1598,6 +1632,32 @@ which is why Expert is not a slider stop (§3.5).
 | Hard (slider) | 50 | 6 | 6 | 5 | 5 | 5 | 5 | 6 | 4 | 5 | 3 | 0.3 s |
 | Expert (custom only) | 60 | 8 | 7 | 6 | 6 | 6 | 6 | 7 | 5 | 5 | 4 | 0.2 s |
 
+**The spread** (ruling 2026-11-02, `SkillSpread`, pure; facts `SkillSpreadTests`).
+A preset's levels are the mean of its bots, not their levels: each preset bot
+draws its own from its seed. Two favourites are drawn; a walk of `(total + 2)
+/ 5` moves (Easy 4, Medium 7, Hard 10, Expert 12) moves one point at a time,
+first lifting the first favourite to two above the even spread, then to the
+first favourite one move in 4, the second one in 4, any skill the rest, each
+from a random skill that is no favourite while one has a point to give. Exact
+total, cap 10, floor 1 (0 only for a total under 10). Over 500 seeds (`seed =
+SeedFor(0x5EED0001, i)`, measured at this commit by a throwaway fact):
+
+| preset | moves | best skill, mean (max) | lowest skill, mean | distinct of 32 | best traits of 32 | three draws |
+|---|---|---|---|---|---|---|
+| Easy 20 | 4 | 4.66 (7) | 1.00 | 32 | 9 | `3,1,2,1,3,1,1,2,4,2` `2,3,1,1,5,1,1,2,2,2` `2,2,3,1,3,1,1,1,1,5` |
+| Medium 35 | 7 | 7.38 (10) | 1.26 | 32 | 8 | `2,5,3,4,3,2,3,3,7,3` `4,5,4,1,6,3,4,1,3,4` `7,4,2,3,2,3,2,2,4,6` |
+| Hard 50 | 10 | 9.29 (10) | 1.78 | 32 | 9 | `3,7,5,6,4,4,5,4,10,2` `6,7,1,7,9,2,6,3,5,4` `9,7,2,5,2,5,4,3,5,8` |
+| Expert 60 | 12 | 9.91 (10) | 2.29 | 32 | 10 | `4,9,8,6,6,4,7,3,10,3` `8,9,1,8,10,3,7,4,4,6` `10,6,5,6,2,5,7,4,5,10` |
+
+The tag stays the difficulty ("(Medium)"); the name comes from the drawn
+allocation. A recording replays because its BotAdded holds the drawn levels and
+the seed. §10's monotonic facts and the presets' own facts read the fixed
+allocations (`SkillPresets`, the means, and explicit levels) and are untouched;
+the committed recordings hold their levels and replay unchanged; the scenario
+harness's and the gate's placed bots spend their old preset's levels as named
+custom bots (`skills=`) so their numbers still mean what they did.
+The table above is each preset's mean: a bot's own Alertness, and so its recognition, varies with its draw.
+
 (Sums checked: 2+2+3+1+2+1+2+2+3+2 = 20; 4+4+4+3+3+3+4+3+4+3 = 35;
 6+6+5+5+5+5+6+4+5+3 = 50; 8+7+6+6+6+6+7+5+5+4 = 60.) The Alertness curve
 passes through stock's four recognition times at levels 2/4/6/7, so a
@@ -1764,6 +1824,32 @@ rows of §3.1 (ruled). Hand-written native code: none.
   engine's limit (the first name is cut first); the pools are a data file,
   read through the file seam; a profile's own name wins; `ai_bot_add`
   without a name generates one. The skill label stays a separate tag (§3.5.1).
+- **Bots stay across map changes and give way to people** (2026-11-02,
+  through the coordinator): "Bots should stay on map change, also on player
+  join, bots should leave if not enough free slots and add back on player
+  leave". The server keeps a roster of wanted bots (§3.5.2): a level change
+  brings every one back, the bots in the game are at most `maxplayers −
+  humans − 1`, and a person's joining benches the newest bot, its leaving
+  brings the oldest benched back.
+- **A cvar re-rolls the bots on map load** (2026-11-02, through the
+  coordinator): "Also add an cvar to randomise the bots on map load with new
+  traits and names". `ai_bot_reroll_on_map` (0/1, default 0, archived): at 1
+  each new level gives every roster bot, benched ones too, a new seed from
+  the match seed and the level, a new spread and a new name from its new
+  traits. A preset keeps its difficulty, total and tag. **A custom bot with
+  a name or a saved profile stays as built; an unnamed custom allocation
+  keeps its total and is spread anew; a name given to a preset bot stays**
+  (the choices asked of this plan).
+- **Preset bots vary** (2026-11-02, through the coordinator): "seems all the
+  bot skills are exactly the same for med bots, not variance". A preset is
+  now a point budget and a shape: each preset bot draws its own levels from
+  its seed when it joins the roster, always, by the same function the re-roll
+  uses (§10's spread).
+- **A human's hit rate is what Medium is tuned to** (2026-11-02, through the
+  coordinator): "After my recording set med bot to match my hit rate". A
+  recording holds each actor's shots and the hits they cause (§3.4.4), and
+  `ai-replay metrics` prints the rate, overall, per weapon and per range band,
+  for both kinds of actor. The tuning itself waits for the user's recording.
 
 ### 12.2 Open questions
 
@@ -2864,6 +2950,43 @@ that code when M1 starts, and changes nothing here.
   every one red and green again after restore (93 + 1 + 62 over three
   runs: two arms' needles and one mutant that no longer compiled followed
   the code first, `29623357d`, the belief-unbounded commit after it).
+
+- **The follow-ups after the landing (2026-11-02, base `a26b0fbb5`).**
+  *Human recording (Phase 5b's first step).* Premises checked: `IPlayerCommandObserver`
+  exists but carries no tick, so the tap reads the frame's (`IEngineFrame.TickCount`, and
+  the command's own `TickCount` is kept); `ai_sync` carried no cheat flag, now it does.
+  A recording names a person by a serial drawn for that recording, in every record
+  (events, the kill feed's codes, snapshots, intents, usercmds, frames). A person's sight
+  is the vision pass's own stages, traced every tick apart from the bots' budget, so the
+  bots' sight and traces are what they were without the person (a fact). **Time to
+  acquire and reaction start from a bot's `SightGained` after its recognition delay, but
+  a person's at the first clear line**: Phase 5b's gate has to add the recognition back
+  when it compares them. A step counts only while the actor lives and did not teleport
+  (the first live recording showed "6,121 °/s": a respawn's first command carries the
+  dead view). A recording started mid-game announces the bots already playing: it
+  measures, it does not replay. `make headless` runs on an instance removed at exit, so
+  a recording with no path lands in the tree's mod dir through the instance's `maps`
+  link (the first cut followed `gameinfo.txt`, whose link goes on into the repo's
+  `game/mod_test`, and wrote a recording there). **Open for 5b's tuning:** bots' strafe
+  interval is 75 ms at the median (`SideMove` flips with the follower's steering), far
+  from the plan's `strafeMeanMs`: measured, not fixed here.
+  *Create server.* The bots are `CreateServerPage`, a generic toolkit seam (a tab after
+  Server and Game, found in a mod's UI assemblies, a refusal and console lines before
+  the map); the AI's screen and its `createserver` alias are gone. The toolkit holds
+  the seam because a mod's UI assembly may reference only the toolkit, and a preview
+  host (`CreateServerPagePreview`) because it cannot build the core's window. The AI's
+  typed map field and its facts went: the core's window lists only maps on disk. The
+  window grows to a page's minimum (`MinWidthDu`, `MinHeightDu`). The core's Start is one
+  text with `wait 30` (the 5c finding, now for every mod). Left as found: the core's
+  `ServerSettingsSource.Save` issues `maxplayers` before the disconnect, so a Start from a
+  running server prints one harmless "Cannot change maxplayers while the server is
+  running"; the line in the one text, after the wait, is the one that takes.
+  *Roster.* §3.5.2, §12.1. `ai_bot_reserve_slots` is a convar (default 1) so the gate's
+  `bots` step, on `-maxplayers 4`, can keep its four-slot minute: the step sets 0 and
+  restores 1, and `ai_map_step` kicks its bots before going home (the roster would carry
+  them). The brief's live "a full server (maxplayers 4) with 3 bots and 1 human" cannot
+  stand with a reserve of 1: 4 slots hold 1 person and 2 bots, the third bot benched from
+  the start. Followed the reserve; the live run is that.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

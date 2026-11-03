@@ -10,7 +10,14 @@ import { cellCentre, type AiNav, type Layer } from '../map/aiNav';
 
 export type Vec = [number, number, number];
 
-export interface AiBotListing { slot: number; serial: number; name: string; profile: string; spent: number }
+/**
+ * One bot of the roster (plan_hl2mp_ai §3.5): in the game, or benched (slot -1)
+ * for `reason`; `levels` is its drawn allocation, in the ten skills' order.
+ */
+export interface AiBotListing {
+  slot: number; serial: number; name: string; profile: string; spent: number;
+  tag?: string; style?: string; levels?: number[]; state?: 'active' | 'benched'; reason?: string;
+}
 
 export interface AiAmmo {
   weapon: number; clip: number; min: number; max: number; histogram: number[];

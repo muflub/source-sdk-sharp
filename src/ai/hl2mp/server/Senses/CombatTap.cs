@@ -17,7 +17,7 @@ public readonly record struct ScoreRow(ActorId Actor, int Frags, int Deaths);
 /// </summary>
 [SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook)])]
 public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, IEnginePlayers players, IEngineEntities entities,
-                              IPlayerDirectory directory, IEngineFrame frame) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle
+                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle
 {
     /// <summary>How often the scoreboard is read: twice a second.</summary>
     public const int ScoreTicks = 33;
@@ -62,6 +62,7 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
 
     public void OnPlayerHurt(in PlayerHurt hurt)
     {
+        shots.OnPlayerHurt(hurt);
         if (bots.Bots.Count == 0)
             return;
         ActorId victim = ActorOf(hurt.Player, out int victimSlot);

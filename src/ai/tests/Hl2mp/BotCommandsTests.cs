@@ -64,13 +64,17 @@ public class BotCommandsTests
     {
         Add("Alyx hard");
         Add("Bo\"b skills=8,7,6,6,6,6,7,5,5,4");
-        using var doc = System.Text.Json.JsonDocument.Parse(SourceSharp.Ai.Hl2mp.Senses.AiBotRoutes.BotsJson(_bots.Bots));
+        using var doc = System.Text.Json.JsonDocument.Parse(SourceSharp.Ai.Hl2mp.Senses.AiBotRoutes.BotsJson(_roster.Bots));
         var rows = doc.RootElement.EnumerateArray().ToArray();
         Assert.Equal(2, rows.Length);
         Assert.Equal(("Alyx", "hard", 50, _bots.Bots[0].Id.Slot, _bots.Bots[0].Id.Serial),
                      (rows[0].GetProperty("name").GetString(), rows[0].GetProperty("profile").GetString(), rows[0].GetProperty("spent").GetInt32(),
                       rows[0].GetProperty("slot").GetInt32(), rows[0].GetProperty("serial").GetInt32()));
         Assert.Equal(_bots.Bots[1].Name, rows[1].GetProperty("name").GetString());
+        // The drawn levels, the tag, the style and the state: what the inspector shows.
+        Assert.Equal(_bots.Bots[0].Skills.Levels, rows[0].GetProperty("levels").EnumerateArray().Select(l => l.GetInt32()));
+        Assert.Equal(("(Hard)", "active", _bots.Bots[0].Skills.StyleName),
+                     (rows[0].GetProperty("tag").GetString(), rows[0].GetProperty("state").GetString(), rows[0].GetProperty("style").GetString()));
     }
 
     /// <summary>An engine interface that answers every call with its type's default.</summary>
@@ -93,7 +97,7 @@ public class BotCommandsTests
                                  DispatchProxy.Create<IEngineEntities, Defaults>(), WeaponCatalog.Stock(),
                                  DispatchProxy.Create<IEngineFrame, Defaults>(), _nav, DispatchProxy.Create<IBotInventory, Defaults>(),
                                  new DataFileNames(), _tags, _log);
-        new AiBotAddCommand(bots, _log).Execute("Alyx hard");
+        new AiBotAddCommand(new Hl2mpRoster(bots, new NoProfiles(), new BotRosterTests.Slots(), _log), _log).Execute("Alyx hard");
         Assert.Null(bots.Act("Alyx", ActionKind.Fire, 5f, 0));
         bots.OnPreThink(0.015f);
         Assert.Equal(0L, bots.Applier.Refused(IntentRefusal.UnknownBot) + bots.Applier.Refused(IntentRefusal.StaleSerial));
@@ -127,6 +131,11 @@ public class BotCommandsTests
     private readonly Navigation _nav = new();
     private readonly ScoreboardTags _tags = new();
 
+    private sealed class NoProfiles : IBotProfileSource
+    {
+        public byte[]? Read(string path) => null;
+    }
+
     /// <summary>The pools from the committed data file, as the game reads it.</summary>
     private sealed class DataFileNames : IBotNameSource
     {
@@ -138,6 +147,7 @@ public class BotCommandsTests
     private readonly Lines _log = new();
     private readonly Players _players = new();
     private readonly Hl2mpBots _bots;
+    private readonly Hl2mpRoster _roster;
 
     public BotCommandsTests()
     {
@@ -145,9 +155,10 @@ public class BotCommandsTests
                               DispatchProxy.Create<IEngineEntities, Unasked>(), WeaponCatalog.Stock(),
                               DispatchProxy.Create<IEngineFrame, Unasked>(), _nav, DispatchProxy.Create<IBotInventory, Unasked>(),
                               new DataFileNames(), _tags, _log);
+        _roster = new Hl2mpRoster(_bots, new NoProfiles(), new BotRosterTests.Slots(), _log);
     }
 
-    private void Add(string args) => new AiBotAddCommand(_bots, _log).Execute(args);
+    private void Add(string args) => new AiBotAddCommand(_roster, _log).Execute(args);
 
     [Fact]
     public void APresetAddsABotWithThatPresetsSkills()
@@ -226,10 +237,10 @@ public class BotCommandsTests
         Add("Barney");
         Add("Gordon");
 
-        new AiBotKickCommand(_bots, _log).Execute("barney");
+        new AiBotKickCommand(_roster, _log).Execute("barney");
         Assert.Equal([new EntityHandle(0x0003_0003u)], _players.Kicked);
 
-        new AiBotKickCommand(_bots, _log).Execute("all");
+        new AiBotKickCommand(_roster, _log).Execute("all");
         Assert.Empty(_players.Made);
         Assert.Contains("[SourceSharp/Ai] ai_bot_kick all: 2 kicked\n", _log.All);
     }
@@ -241,11 +252,13 @@ public class BotCommandsTests
         Add("Barney expert");
         _log.All.Clear();
 
-        new AiBotCountCommand(_bots, _log).Execute("");
+        new AiBotCountCommand(_roster, _log).Execute("");
 
-        Assert.Equal(["[SourceSharp/Ai] bots: 2\n",
-                      "[SourceSharp/Ai]   Alyx: client 2, easy (20 points)\n",
-                      "[SourceSharp/Ai]   Barney: client 3, expert (60 points)\n"], _log.All);
+        Assert.Equal("[SourceSharp/Ai] bots: 2 active, 0 benched of 2 wanted (1 human(s), 8 slots, 1 kept free)\n", _log.All[0]);
+        Assert.StartsWith("[SourceSharp/Ai]   Alyx: client 2, (Easy) easy (20 points, ", _log.All[1], StringComparison.Ordinal);
+        Assert.Contains(string.Join(",", _bots.Bots[0].Skills.Levels), _log.All[1], StringComparison.Ordinal);
+        Assert.StartsWith("[SourceSharp/Ai]   Barney: client 3, (Expert) expert (60 points, ", _log.All[2], StringComparison.Ordinal);
+        Assert.Equal(3, _log.All.Count);
     }
 
     [Fact]
@@ -312,8 +325,9 @@ public class BotCommandsTests
     {
         var w = new SourceSharp.Ai.Tests.Senses.SenseWorld();
         var ai = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, _log);
-        var senses = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpSenses(_bots, ai, new SourceSharp.Ai.Hl2mp.Senses.VisionPass(w.Engine(), w.Entities(), w.Traces()),
-                                                                null!, null!, null!, _log);
+        var vision = new SourceSharp.Ai.Hl2mp.Senses.VisionPass(w.Engine(), w.Entities(), w.Traces());
+        var senses = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpSenses(_bots, ai, vision, null!, null!, null!, _log,
+                                                                new SourceSharp.Ai.Hl2mp.Senses.ReferenceRecorder(ai, vision));
         Add("Alyx hard");
         Hl2mpBot bot = Assert.Single(_bots.Bots);
 

@@ -45,6 +45,13 @@ public enum AiEventKind : byte
 
     /// <summary>The weapons the bot holds, as its HUD's weapon selection shows them: a mask of catalog kinds in Code.</summary>
     Holdings = 44,
+
+    // recorded only, as Observed records (§3.4.4's hit rate): no brain is told
+    /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
+    ShotFired = 50,
+
+    /// <summary>The actor's fire hurt Other: Amount the damage, Code the weapon it last fired (-1 none), Code2 the range in units (-1 unknown).</summary>
+    HitDealt = 51,
 }
 
 /// <summary>What a heard sound was. The binding classifies by sound name.</summary>
@@ -144,6 +151,14 @@ public readonly record struct AiEvent(
 
     public static AiEvent ItemSeen(ActorId bot, Tick tick, int item, bool present)
         => new(AiEventKind.ItemSeen, bot, tick, ActorId.None, default, default, 0f, item, present ? 1 : 0);
+
+    /// <summary><see cref="AiEventKind.ShotFired"/>: for the recording, never a brain.</summary>
+    public static AiEvent ShotFired(ActorId actor, Tick tick, int weaponKind, int rounds)
+        => new(AiEventKind.ShotFired, actor, tick, ActorId.None, default, default, rounds, weaponKind, 0);
+
+    /// <summary><see cref="AiEventKind.HitDealt"/>: for the recording, never a brain.</summary>
+    public static AiEvent HitDealt(ActorId actor, Tick tick, ActorId victim, float damage, int weaponKind, int range)
+        => new(AiEventKind.HitDealt, actor, tick, victim, default, default, damage, weaponKind, range);
 
     public static AiEvent Killed(ActorId bot, Tick tick, ActorId attacker)
         => new(AiEventKind.Killed, bot, tick, attacker, default, default, 0f, 0, 0);

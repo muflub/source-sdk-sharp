@@ -214,7 +214,8 @@ public static class ClientUi
         // THE MOD'S SCREENS (stage 0.9): every UiScreen in its UI assemblies,
         // built through the container, after the core's on the layer each names.
         var windows = new UiWindows(new MemoryWindowStore());
-        var modScreens = UiModScreens.Build(services, UiModScreens.Assemblies(mod.UiAssemblies), windows);
+        var modAssemblies = UiModScreens.Assemblies(mod.UiAssemblies);
+        var modScreens = UiModScreens.Build(services, modAssemblies, windows);
 
         var selectionHud = services.Resolve<WeaponSelectionHud>();
 
@@ -272,7 +273,8 @@ public static class ClientUi
         // mod's server script, and stock's start sequence.
         var createServer = new CreateServer(windows,
             new EngineMapList(services.Require<IFwdFileFinder>(), File.Exists(gameInfoPath) ? File.ReadAllText(gameInfoPath) : null),
-            new ServerSettingsSource(optionsFiles, convarStore, commandLine), new CreateServerActions(commandLine));
+            new ServerSettingsSource(optionsFiles, convarStore, commandLine), new CreateServerActions(commandLine),
+            UiModScreens.Pages(services, modAssemblies, windows));
         // THE SERVER BROWSER (plan_gameui_managed.md G3): A2S over the client's
         // datagram transport for LAN, favourites, history and players; Steam's
         // internet list; the remembered servers in Steam, or a file without it.

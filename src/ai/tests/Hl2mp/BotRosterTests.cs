@@ -78,6 +78,14 @@ public class BotRosterTests
         public byte[]? Read(string path) => Files.TryGetValue(path, out byte[]? b) ? b : null;
     }
 
+    /// <summary>The server's slots as a fact sets them.</summary>
+    internal sealed class Slots : IServerSlots
+    {
+        public int MaxClients { get; set; } = 8;
+        public int Humans { get; set; } = 1;
+    }
+
+    private readonly Slots _slots = new();
     private readonly Lines _log = new();
     private readonly Players _players = new();
     private readonly ScoreboardTags _tags = new();
@@ -91,7 +99,7 @@ public class BotRosterTests
                               DispatchProxy.Create<IEngineEntities, Unasked>(), WeaponCatalog.Stock(),
                               DispatchProxy.Create<IEngineFrame, Unasked>(), new Navigation(), DispatchProxy.Create<IBotInventory, Unasked>(),
                               new DataFileNames(), _tags, _log);
-        _roster = new Hl2mpRoster(_bots, _disk, _log);
+        _roster = new Hl2mpRoster(_bots, _disk, _slots, _log);
     }
 
     private string[] Labels() => [.. _bots.Bots.Select(b => $"{b.Skills.Name} {b.Skills.Spent}")];
@@ -100,7 +108,7 @@ public class BotRosterTests
     public void TwoEasyAndACustomBotAreAdded()
     {
         _roster.Take("easy;easy;name=Deadeye:skills=8,7,6,6,6,6,1,1,2,2");
-        Assert.Equal(3, _roster.AddPending(7));
+        _roster.Reconcile(0);
         Assert.Equal(["easy 20", "easy 20", "Deadeye 45"], Labels());
         Assert.Equal("Deadeye", _bots.Bots[2].Name);
     }
@@ -109,7 +117,7 @@ public class BotRosterTests
     public void ACustomBotIsLabelledWithItsSpend()
     {
         _roster.Take("name=Deadeye:skills=8,7,6,6,6,6,1,1,2,2");
-        _roster.AddPending(7);
+        _roster.Reconcile(0);
         Assert.Equal("(Custom 45)", BotSkillLabel.For(Assert.Single(_bots.Bots).Skills));
     }
 
@@ -117,7 +125,7 @@ public class BotRosterTests
     public void AnOverspentEntryIsRefusedOnTheServerAndAddsNoBot()
     {
         _roster.Take("name=Cheater:skills=10,10,10,10,10,10,10,10,10,10");
-        _roster.AddPending(7);
+        _roster.Reconcile(0);
         Assert.Empty(_players.Made);
         Assert.Equal(["[SourceSharp/Ai] ai_bot_roster refused entry 1 'skills=10,10,10,10,10,10,10,10,10,10': profile 'Cheater' spends 100 of a 60-point pool\n"],
                      _log.All);
@@ -135,7 +143,7 @@ public class BotRosterTests
     public void ARefusedEntryLeavesTheOthers()
     {
         _roster.Take("hard;skills=11,0,0,0,0,0,0,0,0,0;normal");
-        Assert.Equal(2, _roster.AddPending(7));
+        _roster.Reconcile(0);
         Assert.Equal(["hard 50", "normal 35"], Labels());
     }
 
@@ -145,7 +153,7 @@ public class BotRosterTests
         _disk.Files["cfg/ai/bots/Sniper.json"] = ProfileFile.Write(new BotProfileDocument(
             new SkillProfile("Sniper", StandardSkills.Ten, [10, 10, 2, 2, 2, 2, 10, 0, 0, 2]), 60, []));
         _roster.Take("profile=Sniper");
-        _roster.AddPending(7);
+        _roster.Reconcile(0);
         Assert.Equal(("Sniper", 40), (Assert.Single(_bots.Bots).Name, _bots.Bots[0].Skills.Spent));
     }
 
@@ -167,13 +175,16 @@ public class BotRosterTests
         Assert.Contains("spends 70 of a 60-point pool", Assert.Single(_log.All), StringComparison.Ordinal);
     }
 
+    /// <summary>A roster larger than the room waits, benched: it is the server's wanted set, nothing is dropped (ruling 2026-11-02).</summary>
     [Fact]
-    public void ARosterLargerThanTheRoomStopsAtTheRoom()
+    public void ARosterLargerThanTheRoomBenchesTheRest()
     {
+        _slots.MaxClients = 4;
         _roster.Take("easy;easy;easy;easy");
-        Assert.Equal(2, _roster.AddPending(2));
-        Assert.Equal(0, _roster.Pending);
-        Assert.Contains("[SourceSharp/Ai] ai_bot_roster dropped entry 3 and 1 after it: no room on the server\n", _log.All);
+        _roster.Reconcile(0);
+        Assert.Equal(2, _bots.Bots.Count);
+        Assert.Equal(2, _roster.Benched);
+        Assert.Equal(4, _roster.Bots.Count);
     }
 
     [Fact]

@@ -39,6 +39,15 @@ public static class UiModScreens
         => [.. UiScreens.Discover([.. assemblies]).Select(t => (UiScreen)new PartLocator(services, assemblies, windows).Build(t))];
 
     /// <summary>
+    /// Every create-server page in <paramref name="assemblies"/>
+    /// (<see cref="CreateServerPages.Discover"/>), built through the side's
+    /// container as a screen is, for the core's create-server window. A page
+    /// whose constructor cannot be filled throws, naming it, as a screen does.
+    /// </summary>
+    public static IReadOnlyList<CreateServerPage> Pages(IServiceLocator services, IReadOnlyList<Assembly> assemblies, UiWindows windows)
+        => [.. CreateServerPages.Discover([.. assemblies]).Select(t => (CreateServerPage)new PartLocator(services, assemblies, windows).Build(t))];
+
+    /// <summary>
     /// The core's screens, then the mod's: HUD-layer screens to
     /// <paramref name="hud"/>, every other to <paramref name="menu"/>. The
     /// core's order is kept; the mod's follow it by <see cref="UiScreen.Order"/>

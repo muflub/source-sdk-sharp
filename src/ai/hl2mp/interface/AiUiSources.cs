@@ -16,20 +16,15 @@ public readonly record struct CustomBotRow(
     string StyleFirstToken,   // the style name's two skills, highest first (#Ai_Skill_*)
     string StyleSecondToken);
 
-/// <summary>The create-server screen's state: the map, the player count, the bots.</summary>
+/// <summary>
+/// The bots page's state (the core's create-server window holds the map and
+/// the player count, and hands the page the count): the preset bots and the
+/// custom ones.
+/// </summary>
 public interface ICreateServerSource
 {
-    /// <summary>The map typed so far (ui.Data).</summary>
-    string MapName { get; }
-
-    /// <summary>Whether <c>maps/&lt;name&gt;.bsp</c> is on the game's paths (the live check).</summary>
-    bool MapFound { get; }
-
+    /// <summary>The player count the page last had from the window.</summary>
     int MaxPlayers { get; }
-
-    int MaxPlayersMin { get; }
-
-    int MaxPlayersMax { get; }
 
     /// <summary>Bots at the difficulty slider's preset.</summary>
     int BotCount { get; }
@@ -53,15 +48,17 @@ public interface ICreateServerSource
 
     CustomBotRow Custom(int i);
 
-    /// <summary>Why Start is refused (#Ai_Start_*), or "" when it is allowed.</summary>
-    string StartRefusalToken { get; }
+    /// <summary>Whether every bot is drawn anew on each new level (<c>ai_bot_reroll_on_map</c>).</summary>
+    bool NewBotsEachMap { get; }
+
+    /// <summary>Why Start is refused with <paramref name="maxPlayers"/> slots (#Ai_Start_*), or "" when it is allowed.</summary>
+    string StartRefusalToken(int maxPlayers);
 }
 
-/// <summary>What the create-server screen asks for.</summary>
+/// <summary>What the bots page asks for.</summary>
 public interface ICreateServerActions
 {
-    void SetMapName(string name);
-
+    /// <summary>The window's player count, which bounds the bots.</summary>
     void SetMaxPlayers(int count);
 
     void SetBotCount(int count);
@@ -76,8 +73,10 @@ public interface ICreateServerActions
 
     void RemoveCustom(int i);
 
-    /// <summary>Starts the listen server with the chosen bots.</summary>
-    void Start();
+    void SetNewBotsEachMap(bool on);
+
+    /// <summary>The console lines Start runs for the bots, after the server's size and before the map (the roster).</summary>
+    void BeforeMap(List<string> lines);
 }
 
 /// <summary>One skill row of the editor.</summary>

@@ -120,24 +120,38 @@ public sealed class EngineMapList(IFwdFileFinder finder, string? gameInfoText) :
 
 /// <summary>
 /// Starts the server as stock's create-server OK did: drop any game, a LAN
-/// server with the chosen size, password and name, the progress dialog, the
-/// map. Stock also reverted the replicated and cheat convars first, which
-/// the engine's console offers no command for: not done.
+/// server with the chosen size, password and name, the mod pages' lines
+/// (a bot roster), the progress dialog, the map. Stock also reverted the
+/// replicated and cheat convars first, which the engine's console offers no
+/// command for: not done. The lines go as ONE console text, split by
+/// newlines as stock's dialog sent them: a <c>wait</c> delays only the
+/// commands added in the same text, so sent one by one the waits delayed
+/// nothing and <c>maxplayers</c> could run before the old server was down
+/// ("Cannot change maxplayers while the server is running", seen live with
+/// bots on it, plan_hl2mp_ai §12.4); half a second (30 frames at the local
+/// fps_max) in place of stock's two, which were too few with bots.
 /// </summary>
 public sealed class CreateServerActions(IUiCommandLine commands) : ICreateServerActions
 {
-    public void Start(string map, int maxPlayers, string hostName, string password)
+    /// <summary>Frames between <c>disconnect</c> and <c>maxplayers</c>.</summary>
+    public const int ShutdownWaitFrames = 30;
+
+    public void Start(string map, int maxPlayers, string hostName, string password, IReadOnlyList<string> beforeMap)
     {
-        commands.Submit("disconnect");
-        commands.Submit("wait");
-        commands.Submit("wait");
-        commands.Submit("sv_lan 1");
-        commands.Submit("setmaster enable");
-        commands.Submit(string.Create(System.Globalization.CultureInfo.InvariantCulture, $"maxplayers {maxPlayers}"));
-        commands.Submit("sv_password \"" + password.Replace("\"", "", StringComparison.Ordinal) + "\"");
-        commands.Submit("hostname \"" + hostName.Replace("\"", "", StringComparison.Ordinal) + "\"");
-        commands.Submit("progress_enable");
-        commands.Submit("map " + map);
+        var lines = new List<string>
+        {
+            "disconnect",
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"wait {ShutdownWaitFrames}"),
+            "sv_lan 1",
+            "setmaster enable",
+            string.Create(System.Globalization.CultureInfo.InvariantCulture, $"maxplayers {maxPlayers}"),
+            "sv_password \"" + password.Replace("\"", "", StringComparison.Ordinal) + "\"",
+            "hostname \"" + hostName.Replace("\"", "", StringComparison.Ordinal) + "\"",
+        };
+        lines.AddRange(beforeMap);
+        lines.Add("progress_enable");
+        lines.Add("map " + map);
+        commands.Submit(string.Join("\n", lines));
     }
 }
 

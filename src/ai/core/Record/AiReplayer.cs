@@ -113,6 +113,13 @@ public static class AiReplayer
                     AiRecordFormat.ReadUserCmd(r);
                     userCmds++;
                     break;
+                case AiRecordType.Frame:
+                    AiRecordFormat.ReadFrame(r);
+                    break;
+                case AiRecordType.Observed:
+                    // A person's sight: the metrics', never a brain's.
+                    AiRecordFormat.ReadEvent(r);
+                    break;
                 case AiRecordType.World:
                     AiRecordedWorld known = AiRecordFormat.ReadWorld(r);
                     if (nav is null)
@@ -173,5 +180,9 @@ public static class AiReplayer
         public void Snapshot(AiSnapshot snapshot) { }
 
         public void UserCmd(in AiUserCmd cmd) { }
+
+        public void Frame(in AiActorFrame frame) { }
+
+        public void Observed(in AiEvent e) { }
     }
 }

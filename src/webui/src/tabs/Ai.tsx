@@ -104,7 +104,8 @@ export function AiTab({ visible }: { visible: boolean }): ReactNode {
     }
     setBots(list);
     const asked = chosen.current;
-    const current = list.some(b => b.slot === asked) ? asked : (list[0]?.slot ?? null);
+    const playing = list.filter(b => b.state !== 'benched');
+    const current = playing.some(b => b.slot === asked) ? asked : (playing[0]?.slot ?? null);
     if (current !== asked) {
       chosen.current = current;
       setSlot(current);
@@ -136,7 +137,11 @@ export function AiTab({ visible }: { visible: boolean }): ReactNode {
     <div className="ai-tab">
       <nav className="ai-bots">
         {bots.length === 0 ? <span className="muted">no bots</span> : bots.map(b => (
-          <button key={b.slot} type="button" aria-pressed={b.slot === slot} onClick={() => setSlot(b.slot)}>{b.name}</button>
+          <button key={b.name} type="button" aria-pressed={b.slot === slot} disabled={b.state === 'benched'}
+                  title={[b.tag, b.style, b.levels?.join(' '), b.state === 'benched' ? `benched: ${b.reason}` : ''].filter(Boolean).join(' · ')}
+                  onClick={() => setSlot(b.slot)}>
+            {b.name}{b.tag ? ` ${b.tag}` : ''}
+          </button>
         ))}
       </nav>
       {error && <p className="error">{error}</p>}

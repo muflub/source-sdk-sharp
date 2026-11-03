@@ -172,7 +172,8 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vision, SnapshotBuilder builder, ActorDirectory directory,
-                                IEngineFrame frame, ILog log, IBotInventory? inventory = null, WeaponCatalog? weapons = null) : IFrameLifecycle
+                                IEngineFrame frame, ILog log, ReferenceRecorder reference, IBotInventory? inventory = null, WeaponCatalog? weapons = null)
+    : IFrameLifecycle
 {
     private readonly int[] _held = new int[VisionPass.Slots];
 
@@ -181,6 +182,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
 
     private readonly List<SensedActor> _actors = new();
     private readonly List<AiEvent> _events = new();
+    private readonly List<AiEvent> _observed = new();
     private readonly SensedBot[] _sensed = new SensedBot[VisionPass.Slots];
     private readonly Dictionary<int, ActorId> _inSession = new();
     private readonly double[] _us = new double[Window];
@@ -288,8 +290,11 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         foreach (SensedActor a in _actors)
             ai.KnowActor(a.Id);
         _events.Clear();
+        _observed.Clear();
+        ReadOnlySpan<SensedActor> living = System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_actors);
+        ReadOnlySpan<SensedBot> observers = reference.Observers(living, _botIn);
         long start = Stopwatch.GetTimestamp();
-        vision.Run(tick, tickSeconds, sensed, System.Runtime.InteropServices.CollectionsMarshal.AsSpan(_actors), _events);
+        vision.Run(tick, tickSeconds, sensed, living, _events, observers, _observed);
         for (int i = 0; i < _activity.Length; i++)
         {
             if (!vision.ActorIn(i).IsValid)
@@ -306,6 +311,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         }
 
         Holdings(tick, sensed);
+        reference.Write(tick, living, _observed);
         AiSnapshot snapshot = ai.Session.Snapshots.BeginWrite(tick);
         builder.Build(snapshot, sensed, vision, ActivityOf);
         _senseUs = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
@@ -390,7 +396,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
             if (_inSession.ContainsKey(b.Id.Slot))
                 continue;
             byte[] levels = [.. b.Skills.Levels.Select(l => (byte)l)];
-            ai.Session.AddBot(b.Id, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ Hl2mpAiSession.BrainSalt, b.Id.Serial), levels, ai.HabitsFor(b.Name));
+            ai.Session.AddBot(b.Id, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ Hl2mpAiSession.BrainSalt, b.SeedIndex), levels, ai.HabitsFor(b.Name));
             vision.Add(b.Id);
             _inSession[b.Id.Slot] = b.Id;
         }

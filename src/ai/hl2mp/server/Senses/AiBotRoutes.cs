@@ -17,7 +17,7 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// (<c>Nav.AiDebugRoutes</c>, a mod registers a contract once) serves them.
 /// </summary>
 [SideService(Side.Server)]
-public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass vision, IEngineFrame frame, IEngineEntities entities,
+public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses senses, VisionPass vision, IEngineFrame frame, IEngineEntities entities,
                                 Hl2mpAiSession ai, Nav.IHl2mpNavigation nav)
 {
     private AiWorkerPool Pool => ai.Pool;
@@ -49,8 +49,20 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
     }
 
     /// <summary><c>/ai/bots</c>: each bot's slot, serial, name, profile and points spent.</summary>
-    public static string BotsJson(IReadOnlyList<Hl2mpBot> list)
-        => AiJson.Write(list.Select(b => new { slot = b.Id.Slot, serial = b.Id.Serial, name = b.Name, profile = b.Skills.Name, spent = b.Skills.Spent }));
+    public static string BotsJson(IReadOnlyList<RosterBot> list)
+        => AiJson.Write(list.Select(b => new
+        {
+            slot = b.Active ? b.Actor.Slot : -1,
+            serial = b.Actor.Serial,
+            name = b.Name,
+            profile = b.Skills.Name,
+            spent = b.Skills.Spent,
+            tag = BotSkillLabel.For(b.Skills),
+            style = b.Skills.StyleName,
+            levels = b.Skills.Levels.ToArray(),
+            state = b.Active ? "active" : "benched",
+            reason = b.Reason,
+        }));
 
     /// <summary>The process's threads now (the gate's baseline across map loads, §2.5).</summary>
     public static int ProcessThreads()
@@ -69,7 +81,7 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
 
     public IReadOnlyList<DebugRoute> Routes =>
     [
-        new("GET", "/ai/bots", "the bots: slot, serial, name, skill label"),
+        new("GET", "/ai/bots", "the roster: each wanted bot's slot (-1 benched), serial, name, skills, drawn levels, state and reason"),
         new("GET", "/ai/bot/", "one bot's inspector: /ai/bot/<slot>[/memory|skills|perception|trace]"),
         new("GET", "/ai/counters", "the AI's counters: ai.sense.us, ai.publish.us, ai.apply.us, ai.main.us (300-tick means), ai.brain.us per decide, ai.pool.* (threads, busy µs a second), ai.steps.* (skipped, faulted, in flight), process.threads"),
     ];
@@ -80,7 +92,7 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
     {
         if (path == "/ai/bots")
-            return new DebugRouteReply(200, BotsJson(bots.Bots));
+            return new DebugRouteReply(200, BotsJson(roster.Bots));
         if (path == "/ai/counters")
             return new DebugRouteReply(200, string.Create(CultureInfo.InvariantCulture,
                 $"{{\"tick\":{frame.TickCount()},\"ai.sense.us\":{senses.SenseMeanUs:F1},\"ai.sense.us.max\":{senses.SenseMaxUs:F1},\"ai.publish.us\":{senses.PublishMeanUs:F1},\"ai.sense.ticks\":{Math.Min(senses.SenseTicks, Hl2mpSenses.Window)},\"ai.sense.traces\":{vision.TracesLastTick},\"ai.sense.traces.total\":{vision.Traces},\"ai.brain.us\":{senses.Session.Counters.BrainMicrosMean:F1},\"ai.brain.us.max\":{senses.Session.Counters.BrainMicrosMax:F1},\"ai.brain.cpu.us\":{senses.Session.Counters.BrainCpuMicrosMean:F1},\"ai.brain.steps\":{senses.Session.Counters.StepsRun},\"ai.follow.builds\":{bots.Driver.Builds},\"ai.follow.pooled\":{bots.Driver.PooledBuilds},\"bots\":{bots.Bots.Count},"

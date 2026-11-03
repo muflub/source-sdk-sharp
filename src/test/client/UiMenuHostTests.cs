@@ -373,8 +373,9 @@ public class UiMenuHostTests
     }
 
     /// <summary>
-    /// A mod's create-server screen takes the core's place (the HL2MP AI's bot
-    /// setup, plan_hl2mp_ai §3.5): one that answers the name <c>createserver</c>
+    /// A mod's create-server screen takes the core's place (a mod that
+    /// replaces the whole window; one that only adds bots adds a page,
+    /// plan_hl2mp_ai §3.5): one that answers the name <c>createserver</c>
     /// (<see cref="UiScreen.Aliases"/>) is what the main menu's Create server,
     /// stock's OpenCreateMultiplayerGameDialog, opens, and the core's own stays
     /// shut; a mod without one gets the core's.

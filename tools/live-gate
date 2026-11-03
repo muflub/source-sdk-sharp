@@ -9386,7 +9386,8 @@ def ai_bots(g):
         got = g.api.get("route", "/ai/bots")
     except ApiError:
         return []
-    return got if isinstance(got, list) else []
+    # The route lists the roster, benched bots too (slot -1): the gate asks of the bots in the game.
+    return [b for b in got if b.get("state", "active") == "active"] if isinstance(got, list) else []
 
 
 def step_ai_nav(g):
@@ -9449,10 +9450,12 @@ def step_bots(g):
     g.api.cmd("ai_record start %s %s" % (rec, g.scen["map"]))
     before = len(g.console_lines(" killed by #"))
     threw_before = len(g.console_lines(" threw: "))
+    # The gate's server holds -maxplayers 4: this step fills what the humans
+    # leave (three beside the one human, two with the second client in), so it
+    # gives the roster's kept-free slot up for its minute.
+    g.api.cmd("ai_bot_reserve_slots 0")
     for name, skill in AI_GATE_BOTS:
         g.api.cmd("ai_bot_add %s %s" % (name, skill))
-    # The gate's server holds -maxplayers 4: the bots fill what the humans
-    # leave (three beside the one human, two with the second client in).
     g.api.wait_ticks(66)
     listed = ai_bots(g)
     g.check(len(listed) >= 2, "%d of the %d bots were added (the server's slots allow what the humans leave)"
@@ -9511,6 +9514,7 @@ def step_bots(g):
     g.check(not threw, "no AI service threw in the minute (%d: %s)" % (len(threw), threw[:1]))
 
     g.api.cmd("ai_bot_kick all")
+    g.api.cmd("ai_bot_reserve_slots 1")
     gone = g.api.wait_for(lambda: not ai_bots(g) or None, 30.0)
     g.check(bool(gone), "the bots were kicked, the map left as the scenario has it")
 
@@ -9561,6 +9565,8 @@ def ai_map_step(g, map_name, setup, ready, what, seconds=30.0):
             ai_explain(g)
         threw = [l for l in g.console_lines(" threw: ")[threw_before:] if "Ai" in l or "Hl2mp" in l]
         g.check(not threw, "no AI service threw on %s (%d: %s)" % (map_name, len(threw), threw[:1]))
+    # The roster keeps its bots across a map change (§3.5): this step's go with it.
+    g.api.cmd("ai_bot_kick all")
     home = g.scen["map"]
     g.api.cmd("map %s" % home)
     back = g.api.wait_map(g.scen["entities"], 180.0)
@@ -9584,7 +9590,7 @@ def step_ss_ai_nav(g):
         # tools/ai-scenario's start: the walker placed clear of the spawn the
         # human may share (a bot spawned inside a player stands stuck).
         g.api.cmd("ai_think 0")
-        g.api.cmd("ai_bot_add Walker expert")
+        g.api.cmd("ai_bot_add Walker skills=8,7,6,6,6,6,7,5,5,4")
         g.api.wait_ticks(66)
         g.api.teleport((720, 420, 17), settle=True, player=ai_slot(g, "Walker"))
         g.api.cmd("ai_bot_goto Walker weapon_357")
@@ -9601,7 +9607,7 @@ def step_ss_ai_sight(g):
 
     def setup(g):
         # tools/ai-scenario's "open" scene: the watcher at its post facing the target.
-        for line in ("ai_think 0", "ai_sense_log 1", "ai_bot_add Watcher expert", "ai_bot_add Target easy"):
+        for line in ("ai_think 0", "ai_sense_log 1", "ai_bot_add Watcher skills=8,7,6,6,6,6,7,5,5,4", "ai_bot_add Target skills=2,2,3,1,2,1,2,2,3,2"):
             g.api.cmd(line)
         g.api.wait_ticks(132)
         g.api.teleport((200, 300, 17), (0, 180, 0), settle=True, player=ai_slot(g, "Target"))
@@ -9625,7 +9631,7 @@ def step_ss_ai_hearing(g):
         return None
     def setup(g):
         # tools/ai-scenario's "near smg1" scene: the target fires beside the listener.
-        for line in ("ai_think 0", "ai_bot_add Listener expert", "ai_bot_add Target easy"):
+        for line in ("ai_think 0", "ai_bot_add Listener skills=8,7,6,6,6,6,7,5,5,4", "ai_bot_add Target skills=2,2,3,1,2,1,2,2,3,2"):
             g.api.cmd(line)
         g.api.wait_ticks(132)
         g.api.teleport((64, 256, 17), (0, 0, 0), settle=True, player=ai_slot(g, "Listener"))

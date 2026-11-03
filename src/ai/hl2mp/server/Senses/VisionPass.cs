@@ -39,6 +39,7 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     public const int Slots = 65;
 
     private readonly Dictionary<int, BotSight> _bots = new();
+    private readonly Dictionary<int, BotSight> _observers = new();
     private readonly ActorRead?[] _reads = new ActorRead?[Slots];
     private readonly ActorId[] _actors = new ActorId[Slots];
     private readonly TraceBudget _budget = new();
@@ -69,6 +70,82 @@ public sealed class VisionPass(IEnginePlayers players, IEngineEntities entities,
     public void Add(ActorId bot) => _bots[bot.Slot] = new BotSight(bot, new SightTracker(Slots));
 
     public void Remove(int slot) => _bots.Remove(slot);
+
+    /// <summary>
+    /// How a person sees for the reference sessions (§3.4.4): a bot's range
+    /// and field, recognised the first tick a line is clear (the stimulus,
+    /// not a recognition), lost as a bot loses.
+    /// </summary>
+    public static VisionParams PersonVision => new(VisionParams.StockRange, VisionParams.MaxFovDeg, 0f, VisionCurves.LostSightSeconds);
+
+    /// <summary>Starts serving a person in <paramref name="human"/>'s slot as an observer (§3.4.4), forgetting any earlier one there.</summary>
+    public void AddObserver(ActorId human) => _observers[human.Slot] = new BotSight(human, new SightTracker(Slots));
+
+    public void RemoveObserver(int slot) => _observers.Remove(slot);
+
+    /// <summary>The observer served in <paramref name="slot"/>, or none.</summary>
+    public ActorId ObserverIn(int slot) => _observers.TryGetValue(slot, out BotSight? o) ? o.Bot : ActorId.None;
+
+    /// <summary>The observers' slots.</summary>
+    public IEnumerable<int> ObserverSlots => _observers.Keys;
+
+    /// <summary>Line traces the observers spent, apart from the bots' budget.</summary>
+    public long ObserverTraces { get; private set; }
+
+    /// <summary>
+    /// One tick with observers: the bots' pass exactly as without them, then
+    /// each observer through the same stages (range, cone, PVS, the five
+    /// sample lines, recognition) with every unserved pair traced this tick,
+    /// apart from the bots' budget, so a person's sight neither waits for nor
+    /// delays a bot's. The observers' sight events go to <paramref name="observed"/>.
+    /// </summary>
+    public void Run(Tick tick, float tickSeconds, ReadOnlySpan<SensedBot> bots, ReadOnlySpan<SensedActor> actors, List<AiEvent> events,
+                    ReadOnlySpan<SensedBot> observers, List<AiEvent> observed)
+    {
+        Run(tick, tickSeconds, bots, actors, events);
+        foreach (SensedBot o in observers)
+        {
+            if (!_observers.TryGetValue(o.Id.Slot, out BotSight? sight) || sight.Bot != o.Id)
+                continue;
+            sight.Vision = o.Vision;
+            if (_reads[o.Id.Slot] is not { } me)
+            {
+                for (int t = 1; t < Slots; t++)
+                    Lose(sight, t, tick, observed);
+                continue;
+            }
+
+            Vector ang = entities.GetEyeAngles(o.Player);
+            AiVector forward = VisionMath.Forward(new AiAngles(ang.X, ang.Y, ang.Z));
+            for (int t = 1; t < Slots; t++)
+            {
+                if (t == o.Id.Slot || _reads[t] is not { } them)
+                {
+                    Lose(sight, t, tick, observed);
+                    continue;
+                }
+
+                if (sight.Tracker.TargetOf(t) != _actors[t])
+                    Lose(sight, t, tick, observed);
+                SightStage stage = Stage(me.Eye, forward, Centre(them), them, o);
+                if (stage == SightStage.Unserved)
+                {
+                    sight.Fraction[t] = Trace(me, them);
+                    ObserverTraces += PlayerSamples;
+                    stage = sight.Fraction[t] > 0f ? SightStage.Clear : SightStage.Trace;
+                }
+
+                sight.Stage[t] = stage;
+                SightChange c = sight.Tracker.Observe(_actors[t], stage, stage == SightStage.Clear ? sight.Fraction[t] : 0f, sight.Vision, tickSeconds);
+                if (c == SightChange.Gained)
+                    observed.Add(AiEvent.SightGained(o.Id, tick, _actors[t], them.Origin, them.Velocity, sight.Fraction[t]));
+                else if (c == SightChange.Lost)
+                    observed.Add(AiEvent.SightLost(o.Id, tick, _actors[t], them.Origin, them.Velocity));
+                if (c != SightChange.None || sight.Tracker.Sees(t))
+                    sight.Last[t] = them;
+            }
+        }
+    }
 
     /// <summary>
     /// One tick: reads every living actor once, runs the stages for every

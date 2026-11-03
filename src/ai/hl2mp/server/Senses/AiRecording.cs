@@ -19,11 +19,11 @@ public sealed class RecordingSwitch : IAiRecordSink
 
     public int Records => _recorder?.Records ?? 0;
 
-    public void Start(string path, in AiRecordingHeader header)
+    public void Start(string path, in AiRecordingHeader header, ActorAnonymiser? actors = null)
     {
         Stop();
         _file = File.Create(path);
-        _recorder = new AiRecorder(_file, header);
+        _recorder = new AiRecorder(_file, header, actors);
     }
 
     public void Stop()
@@ -45,6 +45,10 @@ public sealed class RecordingSwitch : IAiRecordSink
     public void Intent(in IntentCommand intent) => _recorder?.Intent(intent);
 
     public void UserCmd(in AiUserCmd cmd) => _recorder?.UserCmd(cmd);
+
+    public void Frame(in AiActorFrame frame) => _recorder?.Frame(frame);
+
+    public void Observed(in AiEvent e) => _recorder?.Observed(e);
 
     /// <summary>What the brains know of the world, written right after the header (format 2).</summary>
     public void World(AiRecordedWorld world) => _recorder?.World(world);
@@ -82,22 +86,69 @@ public sealed class AiStepCommand(Hl2mpAiSession ai, ILog log) : IConCommand
     }
 }
 
-[ConCommand("ai_record", Help = "ai_record start <path> [tag] | stop: record the AI session to an .airec", Flags = ConVarFlags.Cheat)]
-public sealed class AiRecordCommand(Hl2mpAiSession ai, ILog log) : IConCommand
+/// <summary>
+/// <c>ai_record start [path] [tag]</c> / <c>ai_record human</c> /
+/// <c>ai_record stop</c>: the session's inputs and outputs to an
+/// <c>.airec</c> (the scenario harness's recordings, §6.6), every player's
+/// usercmds and frames and a person's sight with them (§3.4.4). With no path
+/// (or <c>human</c>), the file is the mod's
+/// <c>ai-recordings/human/&lt;utc&gt;.airec</c>, local and outside git. Every
+/// person is anonymised at write time: a random actor serial for the
+/// session, and nothing of a name, a Steam id or chat is ever written.
+/// Recording changes nothing in play, so it needs no <c>sv_cheats</c>.
+/// </summary>
+[ConCommand("ai_record", Help = "ai_record human | start [path] [tag] | stop: record the AI session (every player's usercmds, anonymised) to an .airec; with no path, <mod>/ai-recordings/human/<utc>.airec")]
+public sealed class AiRecordCommand(Hl2mpAiSession ai, IModInfo mod, ILog log) : IConCommand
 {
+    /// <summary>Where a recording with no path goes, under the mod's game dir.</summary>
+    public const string HumanDirectory = "ai-recordings/human";
+
+    /// <summary>
+    /// The mod's own game dir: <paramref name="gameDir"/>, or, for a game run
+    /// on an instance (<c>-instance</c>: a private game dir whose entries are
+    /// links to the tree's, removed when the game exits), the tree's dir its
+    /// <c>maps</c> link points into, so a recording outlives the instance. A
+    /// tree's own <c>maps</c> is a directory (its gameinfo.txt may be a link,
+    /// into the repo's game/ sources, which is why that one is not followed).
+    /// </summary>
+    public static string TreeGameDir(string gameDir)
+    {
+        var maps = new DirectoryInfo(Path.Combine(gameDir, "maps"));
+        return maps.Exists && maps.LinkTarget is { } target
+               && Path.GetDirectoryName(Path.TrimEndingDirectorySeparator(Path.GetFullPath(target, gameDir))) is { } tree
+            ? tree
+            : gameDir;
+    }
+
+    /// <summary>The file a recording started at <paramref name="utc"/> with no path goes to.</summary>
+    public static string HumanPath(string gameDir, DateTime utc)
+        => Path.Combine(gameDir, "ai-recordings", "human", utc.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture) + ".airec");
+
     public void Execute(string args)
     {
         string[] p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length >= 2 && p[0] == "start")
+        if (p.Length >= 1 && (p[0] == "start" || (p[0] == "human" && p.Length == 1)))
         {
-            string tag = p.Length > 2 ? p[2] : "";
+            string path;
+            if (p.Length >= 2 && p[0] == "start")
+                path = p[1];
+            else
+            {
+                path = HumanPath(TreeGameDir(mod.GameDir), DateTime.UtcNow);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            }
+
             MemoryWorld? world = ai.Session.World;
+            string tag = p.Length > 2 ? p[2] : world?.Map.Map ?? "";
             ulong nav = world?.Graph?.Hash ?? 0;
-            ai.Recording.Start(p[1], new AiRecordingHeader(Hl2mpBots.MatchSeed, tag, nav, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity));
+            ai.Recording.Start(path, new AiRecordingHeader(Hl2mpBots.MatchSeed, tag, nav, 0, VisionPass.Slots, Hl2mpAiSession.SightedCapacity),
+                               Anonymiser(BitConverter.ToUInt64(System.Security.Cryptography.RandomNumberGenerator.GetBytes(8))));
             // The brains' world, so the recording replays as the game decided (§2.6).
             if (world is not null)
                 ai.Recording.World(new AiRecordedWorld(world.Map, world.TickSeconds, ai.Session.Curves?.Json ?? "", nav));
-            log.Msg($"[SourceSharp/Ai] ai_record: recording to {p[1]} ({tag}), nav {nav:x16}\n");
+            // The bots already playing, so the recording knows them for bots (§3.4.4's metrics).
+            ai.Session.AnnounceBots();
+            log.Msg($"[SourceSharp/Ai] ai_record: recording to {path} ({tag}), nav {nav:x16}\n");
             return;
         }
 
@@ -112,8 +163,12 @@ public sealed class AiRecordCommand(Hl2mpAiSession ai, ILog log) : IConCommand
             return;
         }
 
-        log.Warning("[SourceSharp/Ai] usage: ai_record start <path> [tag] | stop\n");
+        log.Warning("[SourceSharp/Ai] usage: ai_record human | start [path] [tag] | stop\n");
     }
+
+    /// <summary>A recording's anonymiser: every person (a human's actor, <see cref="ActorDirectory.HumanSerialBit"/>) by a random serial.</summary>
+    public static ActorAnonymiser Anonymiser(ulong seed)
+        => new(id => (id.Serial & ActorDirectory.HumanSerialBit) != 0, ActorDirectory.HumanSerialBit, seed);
 }
 
 /// <summary>

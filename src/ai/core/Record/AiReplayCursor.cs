@@ -174,5 +174,9 @@ public sealed class AiReplayCursor
         public void Snapshot(AiSnapshot snapshot) { }
 
         public void UserCmd(in AiUserCmd cmd) { }
+
+        public void Frame(in AiActorFrame frame) { }
+
+        public void Observed(in AiEvent e) { }
     }
 }

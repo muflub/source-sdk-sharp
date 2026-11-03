@@ -35,10 +35,11 @@ public static class BotSkillSpec
 /// <summary>
 /// <c>ai_bot_add [name] [easy|normal|hard|expert | skills=a,b,…,j]</c>: with no
 /// name, the bot is named from the pools by its most distinctive trait
-/// (§3.5.1); a name is used as given.
+/// (§3.5.1); a name is used as given. The bot joins the roster (§3.5); a
+/// preset bot draws its levels from its seed.
 /// </summary>
 [ConCommand("ai_bot_add", Help = "ai_bot_add [name] [easy|normal|hard|expert | skills=a,b,c,d,e,f,g,h,i,j]: add a bot (no name: one is drawn)")]
-public sealed class AiBotAddCommand(Hl2mpBots bots, ILog log) : IConCommand
+public sealed class AiBotAddCommand(Hl2mpRoster roster, ILog log) : IConCommand
 {
     public void Execute(string args)
     {
@@ -53,22 +54,15 @@ public sealed class AiBotAddCommand(Hl2mpBots bots, ILog log) : IConCommand
         bool specOnly = parts.Length == 1 && (parts[0].StartsWith("skills=", StringComparison.Ordinal) || SkillPresets.Names.Contains(parts[0]));
         string? name = parts.Length == 0 || specOnly ? null : parts[0];
         string? spec = specOnly ? parts[0] : parts.Length > 1 ? parts[1] : null;
-        SkillVerdict verdict = BotSkillSpec.Parse(name ?? "custom", spec, out SkillProfile? skills);
         string who = name ?? "(unnamed)";
-        if (!verdict.Accepted)
-        {
-            log.Warning($"[SourceSharp/Ai] ai_bot_add {who} refused: {verdict.Refusal}\n");
-            return;
-        }
-
-        if (bots.Add(name, skills!) is { } refusal)
+        if (roster.Add(name, spec) is { } refusal)
             log.Warning($"[SourceSharp/Ai] ai_bot_add {who} refused: {refusal}\n");
     }
 }
 
-/// <summary><c>ai_bot_kick &lt;name|all&gt;</c>.</summary>
-[ConCommand("ai_bot_kick", Help = "ai_bot_kick <name|all>: kick a bot, or every bot")]
-public sealed class AiBotKickCommand(Hl2mpBots bots, ILog log) : IConCommand
+/// <summary><c>ai_bot_kick &lt;name|all&gt;</c>: out of the game and off the roster.</summary>
+[ConCommand("ai_bot_kick", Help = "ai_bot_kick <name|all>: remove a bot, or every bot, from the game and the roster")]
+public sealed class AiBotKickCommand(Hl2mpRoster roster, ILog log) : IConCommand
 {
     public void Execute(string args)
     {
@@ -79,20 +73,19 @@ public sealed class AiBotKickCommand(Hl2mpBots bots, ILog log) : IConCommand
             return;
         }
 
-        int kicked = bots.Kick(name);
+        int kicked = roster.Remove(name);
         log.Msg($"[SourceSharp/Ai] ai_bot_kick {name}: {kicked} kicked\n");
     }
 }
 
-/// <summary><c>ai_bot_count</c>: how many bots, and each one's name, client and skills.</summary>
-[ConCommand("ai_bot_count", Help = "ai_bot_count: the bots in the game")]
-public sealed class AiBotCountCommand(Hl2mpBots bots, ILog log) : IConCommand
+/// <summary><c>ai_bot_count</c>: the roster: each bot's name, skills and drawn levels, active or benched and why.</summary>
+[ConCommand("ai_bot_count", Help = "ai_bot_count: the bots wanted, in the game or benched and why")]
+public sealed class AiBotCountCommand(Hl2mpRoster roster, ILog log) : IConCommand
 {
     public void Execute(string args)
     {
-        log.Msg($"[SourceSharp/Ai] bots: {bots.Bots.Count}\n");
-        foreach (Hl2mpBot bot in bots.Bots)
-            log.Msg($"[SourceSharp/Ai]   {bot.Name}: client {bot.Id.Slot}, {bot.Skills.Name} ({bot.Skills.Spent} points)\n");
+        foreach (string line in roster.Status())
+            log.Msg(line);
     }
 }
 
