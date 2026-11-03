@@ -35,7 +35,7 @@ public class ManagedClientSystemsAbiTests
     [Fact]
     public void EveryAdaptedRowIsAManagedSystem()
     {
-        var rows = Regex.Matches(Native("shell_clientsystems.cpp"), @"\bm_\w+Row\( areas, ""(\w+)"" \)")
+        var rows = Regex.Matches(Native("shell_clientsystems.cpp"), @"\bm_\w+Row\(areas, ""(\w+)""\)")
                         .Select(m => m.Groups[1].Value).ToList();
         Assert.Equal(3, rows.Count);
         var names = new[] { new ViewportClientSystem(new NullLayout()).Name,

@@ -384,7 +384,7 @@ public class PolicyKnobDeclarationTests
         // declaration, not a substring, so text added around it is seen.
         string shared = File.ReadAllText(Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game",
                                                       "shared", "shell_shared.cpp"));
-        Assert.DoesNotContain("ConVar default_fov( \"default_fov\"",
+        Assert.DoesNotContain("ConVar default_fov(\"default_fov\"",
                               shared.Replace("\r\n", "\n"), StringComparison.Ordinal);
     }
 

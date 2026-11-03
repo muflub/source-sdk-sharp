@@ -112,7 +112,7 @@ static pixelvis_handle_t HandleOf(float f)
 
 COMPILE_TIME_ASSERT(sizeof(pixelvis_handle_t) == sizeof(float));
 
-static void PutVector(float* p, const Vector& v)
+static void PutSpriteVector(float* p, const Vector& v)
 {
 	p[0] = v.x;
 	p[1] = v.y;
@@ -150,8 +150,8 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 	in[SS_SPRITE_IN_DOWN] = psprite->GetDown();
 	in[SS_SPRITE_IN_WIDTH] = (float)m_Engines.m_pModelInfo->GetModelSpriteWidth(model);
 	in[SS_SPRITE_IN_HEIGHT] = (float)m_Engines.m_pModelInfo->GetModelSpriteHeight(model);
-	PutVector(in + SS_SPRITE_IN_ORIGIN, origin);
-	PutVector(in + SS_SPRITE_IN_EFFECT_ORIGIN, effect_origin);
+	PutSpriteVector(in + SS_SPRITE_IN_ORIGIN, origin);
+	PutSpriteVector(in + SS_SPRITE_IN_EFFECT_ORIGIN, effect_origin);
 	in[SS_SPRITE_IN_ANGLES + 0] = angles.x;
 	in[SS_SPRITE_IN_ANGLES + 1] = angles.y;
 	in[SS_SPRITE_IN_ANGLES + 2] = angles.z;
@@ -168,9 +168,9 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 	// entity's DrawModel will find.
 	in[SS_SPRITE_IN_BLEND] = m_Standalone.DrawBatchBlend(entity, m_Engines.m_pRender->GetBlend());
 	m_flDirectBlend = in[SS_SPRITE_IN_BLEND];
-	PutVector(in + SS_SPRITE_IN_VIEW_FORWARD, m_Cameras.CurrentForward());
-	PutVector(in + SS_SPRITE_IN_VIEW_RIGHT, m_Cameras.CurrentRight());
-	PutVector(in + SS_SPRITE_IN_VIEW_UP, m_Cameras.CurrentUp());
+	PutSpriteVector(in + SS_SPRITE_IN_VIEW_FORWARD, m_Cameras.CurrentForward());
+	PutSpriteVector(in + SS_SPRITE_IN_VIEW_RIGHT, m_Cameras.CurrentRight());
+	PutSpriteVector(in + SS_SPRITE_IN_VIEW_UP, m_Cameras.CurrentUp());
 	in[SS_SPRITE_IN_GLOW_PROXY_SIZE] = flGlowProxySize;
 
 	pending.pSprite = psprite;

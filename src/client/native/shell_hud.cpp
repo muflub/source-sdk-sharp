@@ -182,7 +182,7 @@ void CHudUiClient::UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t n
 		return;
 
 	RefreshRefractFor(nTexture);
-	Vertex_t verts[kMaxVertices];
+	vgui::Vertex_t verts[kMaxVertices];
 	for (int i = 0; i < nVertices; i++)
 		verts[i].Init(Vector2D(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1]), Vector2D(pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]));
 
@@ -205,7 +205,7 @@ void CHudUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int3
 		return;
 
 	RefreshRefractFor(nTexture);
-	Vertex_t verts[kMaxVertices];
+	vgui::Vertex_t verts[kMaxVertices];
 	for (int i = 0; i < nVertices; i++)
 		verts[i].Init(Vector2D(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1]), Vector2D(pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]));
 
@@ -260,7 +260,7 @@ int32_t CHudUiClient::UiMaterialTexture(const char* pName)
 void CHudUiClient::UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength,
 							  uint32_t nRgba)
 {
-	if (!m_bPaintOpen || nFont == INVALID_FONT)
+	if (!m_bPaintOpen || nFont == vgui::INVALID_FONT)
 		return;
 
 	wchar_t wszText[kMaxText];
@@ -268,7 +268,7 @@ void CHudUiClient::UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_
 	if (n <= 0)
 		return;
 
-	m_Engines.m_pVGuiSurface->DrawSetTextFont((HFont)nFont);
+	m_Engines.m_pVGuiSurface->DrawSetTextFont((vgui::HFont)nFont);
 	m_Engines.m_pVGuiSurface->DrawSetTextColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF,
 											   nRgba & 0xFF);
 	m_Engines.m_pVGuiSurface->DrawSetTextPos(x, y);
@@ -290,7 +290,7 @@ void CHudUiClient::UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t n
 		return;
 
 	int nWide = 0, nTall = 0;
-	m_Engines.m_pVGuiSurface->GetTextSize((HFont)nFont, wszText, nWide, nTall);
+	m_Engines.m_pVGuiSurface->GetTextSize((vgui::HFont)nFont, wszText, nWide, nTall);
 	if (pOutWidth)
 		*pOutWidth = nWide;
 	if (pOutHeight)
@@ -339,12 +339,12 @@ int32_t CHudUiClient::UiFontCreate(const char* pFamily, int32_t nTall, int32_t n
 	if (!pFamily || !pFamily[0] || nTall <= 0)
 		return vgui::INVALID_FONT;
 
-	HFont hFont = m_Engines.m_pVGuiSurface->CreateFont();
-	if (hFont == INVALID_FONT)
-		return INVALID_FONT;
+	vgui::HFont hFont = m_Engines.m_pVGuiSurface->CreateFont();
+	if (hFont == vgui::INVALID_FONT)
+		return vgui::INVALID_FONT;
 
 	if (!m_Engines.m_pVGuiSurface->SetFontGlyphSet(hFont, pFamily, nTall, nWeight, 0, 0, nFlags))
-		return INVALID_FONT;
+		return vgui::INVALID_FONT;
 
 	return (int32_t)hFont;
 }
@@ -359,9 +359,9 @@ void CHudUiClient::UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOut
 		return;
 
 	if (pOutTall)
-		*pOutTall = m_Engines.m_pVGuiSurface->GetFontTall((HFont)nFont);
+		*pOutTall = m_Engines.m_pVGuiSurface->GetFontTall((vgui::HFont)nFont);
 	if (pOutAscent)
-		*pOutAscent = m_Engines.m_pVGuiSurface->GetFontAscent((HFont)nFont, L'M');
+		*pOutAscent = m_Engines.m_pVGuiSurface->GetFontAscent((vgui::HFont)nFont, L'M');
 }
 
 int32_t CHudUiClient::UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances)
@@ -372,7 +372,7 @@ int32_t CHudUiClient::UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCou
 	for (int i = 0; i < nCount; i++)
 	{
 		int a = 0, b = 0, c = 0;
-		m_Engines.m_pVGuiSurface->GetCharABCwide((HFont)nFont, nFirst + i, a, b, c);
+		m_Engines.m_pVGuiSurface->GetCharABCwide((vgui::HFont)nFont, nFirst + i, a, b, c);
 		pOutAdvances[i] = a + b + c;
 	}
 	return nCount;

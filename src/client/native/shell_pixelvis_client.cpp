@@ -30,7 +30,7 @@
 namespace
 {
 
-float FloatOf(int32_t nBits)
+float PixelVisFloat(int32_t nBits)
 {
 	float f;
 	memcpy(&f, &nBits, sizeof(f));

@@ -335,7 +335,7 @@ public class MoveVarsTests
             "src/sourcesharp/game/client/shell_convars_client.h");
         var text = File.ReadAllText(path);
 
-        Assert.Contains("ConVar m_closecaption{ \"closecaption\"", text);
+        Assert.Contains("ConVar m_closecaption{\"closecaption\"", text);
         Assert.DoesNotContain("\"english\"", text);
 
         Assert.False(DeclarationsIn(ClientAssembly).ContainsKey("closecaption"),

@@ -44,3 +44,4 @@ vendor-fields	routine	tools/vendor-fields --self-test
 clang-format	routine	tools/clang-format --self-test && tools/clang-format --check
 maptools-lock	routine	tools/maptools-lock --self-test
 ai-nav-build	routine	tools/ai-nav-build --self-test
+unity-check	routine	tools/unity-check --self-test && tools/unity-check --config $SOURCESHARP_CONFIG
