@@ -1,0 +1,25 @@
+	WeaponData
+{
+	"printname"			"#TF_Weapon_Bat"
+	"BuiltRightHanded"		"0"
+	"MeleeWeapon"			"1"
+	"weight"			"1"
+	"WeaponType"		"melee"
+	"ITEM_FLAG_NOITEMPICKUP" 	"1"
+	"HasTeamSkins_Viewmodel"			"1"
+	"Damage"			"35"
+	"TimeFireDelay"			"0.5"
+	"TimeIdle"			"5.0"
+	"primary_ammo"			"None"
+	"secondary_ammo"		"None"
+	"bucket"			"2"
+	"bucket_position"		"0"
+	"anim_prefix"			"bat"
+	SoundData
+	{
+		"melee_miss"		"Weapon_Bat.Miss"
+		"melee_hit"		"Weapon_Bat.HitFlesh"
+		"melee_hit_world"	"Weapon_Bat.HitWorld"
+		"burst"			"Weapon_Bat.MissCrit"
+	}
+}

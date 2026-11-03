@@ -1,0 +1,7 @@
+Weapon scripts outside the milestone set (TestData/weapons holds exactly the
+milestone's 32, which the weapon-table facts enumerate): read only by the facts
+that name them, through WeaponFixtures.WithExtras.
+
+tf_weapon_handgun_scout_secondary: the scout's back_headshot pistol class, for
+TFDamageLayerTests' hit-location fact (CTFPistol_ScoutSecondary::GetDamageType).
+Extracted and trimmed exactly as TestData/weapons/README describes.

@@ -18,10 +18,16 @@ public class UiAssemblyRulesTests
 {
     private static readonly string[] Allowed = ["SourceSharp.Client.Interface", "SourceSharp.Client.Ui.Toolkit"];
 
+    /// <summary>
+    /// A mod's own client contract (TF2.Client.Interface): interfaces only, held by the core's
+    /// context, the one identity its screens and its client adapters share.
+    /// </summary>
+    private static bool ModContract(string name) => name.EndsWith(".Client.Interface", StringComparison.Ordinal);
+
     /// <summary>What <paramref name="asm"/> references beyond the runtime and the UI contract.</summary>
     internal static List<string> Forbidden(IEnumerable<AssemblyName> references)
         => references.Select(r => r.Name!)
-            .Where(n => !(n.StartsWith("System", StringComparison.Ordinal) || n is "netstandard" or "mscorlib" || Allowed.Contains(n)))
+            .Where(n => !(n.StartsWith("System", StringComparison.Ordinal) || n is "netstandard" or "mscorlib" || Allowed.Contains(n) || ModContract(n)))
             .ToList();
 
     [Fact]
@@ -42,9 +48,10 @@ public class UiAssemblyRulesTests
     [Fact]
     public void A_core_or_engine_reference_is_reported()
     {
-        Assert.Equal(["SourceSharp.Client", "SourceSharp.Abi"],
+        Assert.Equal(["SourceSharp.Client", "SourceSharp.Abi", "TF2.Client"],
             Forbidden([new AssemblyName("System.Runtime"), new AssemblyName("SourceSharp.Client"), new AssemblyName("SourceSharp.Abi"),
-                       new AssemblyName("SourceSharp.Client.Interface")]));
+                       new AssemblyName("SourceSharp.Client.Interface"), new AssemblyName("TF2.Client"),
+                       new AssemblyName("TF2.Client.Interface")]));
     }
 
     /// <summary>Screen types with no sample whose screen has their name.</summary>

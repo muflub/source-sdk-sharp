@@ -1,0 +1,65 @@
+// Synthetic (not from the game): three items whose prefab words name the
+// same two prefabs in both orders, each layer writing its own name into one
+// key, so the merged value says which layer was applied last.
+"items_game"
+{
+	"qualities"
+	{
+		"normal"	{ "value" "0" }
+		"unique"	{ "value" "6" }
+	}
+	"prefabs"
+	{
+		"base"
+		{
+			"layer"	"base"
+			"from_base"	"1"
+			"item_class"	"tf_weapon_bat"
+		}
+		"noun"
+		{
+			"prefab"	"base"
+			"layer"	"noun"
+			"from_noun"	"1"
+			"used_by_classes"
+			{
+				"scout"	"1"
+			}
+		}
+		"adjective"
+		{
+			"layer"	"adjective"
+			"from_adjective"	"1"
+			"used_by_classes"
+			{
+				"pyro"	"secondary"
+			}
+		}
+	}
+	"items"
+	{
+		"1"
+		{
+			"name"	"ADJECTIVE_NOUN"
+			"prefab"	"adjective noun"
+			"item_slot"	"melee"
+		}
+		"2"
+		{
+			"name"	"NOUN_ADJECTIVE"
+			"prefab"	"noun adjective"
+			"item_slot"	"melee"
+		}
+		"3"
+		{
+			"name"	"ITEM_OVER_BOTH"
+			"prefab"	"adjective noun"
+			"layer"	"item"
+			"item_slot"	"melee"
+			"item_quality"	"unique"
+		}
+	}
+	"attributes"
+	{
+	}
+}

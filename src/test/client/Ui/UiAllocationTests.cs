@@ -91,7 +91,7 @@ public class UiAllocationTests(ITestOutputHelper output)
     public void A_frame_allocates_nothing(string group, string slug)
     {
         var sample = PreviewRun.AllSamples().Single(s => !s.Gallery && s.Group == group && s.Slug == slug);
-        var screen = sample.Create();
+        var screen = sample.Create(TFHudTests.AllArt.Library);   // the art layers draw, as the preview's does
         var ctx = new UiContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language(), []);
         Assert.False(ctx.RecordNames);
         var info = UiSamples.Screen(1920, 1080);
@@ -133,7 +133,7 @@ public class UiAllocationTests(ITestOutputHelper output)
     public void A_frame_through_vgui_allocates_nothing(string group, string slug)
     {
         var sample = PreviewRun.AllSamples().Single(s => !s.Gallery && s.Group == group && s.Slug == slug);
-        var screen = sample.Create();
+        var screen = sample.Create(TFHudTests.AllArt.Library);   // the art layers draw, as the preview's does
         var surface = new CountingSurface();
         var backend = new SourceSharp.Client.Vgui.VguiBackend(surface, Fonts, new SourceSharp.Client.Vgui.UiFontFiles([]));
         var ctx = new UiContext(SourceSharpTheme.Create(), backend, UiSamplesTests.Language(), []);

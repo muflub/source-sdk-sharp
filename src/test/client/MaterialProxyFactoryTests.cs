@@ -3,6 +3,8 @@ using System.Text.RegularExpressions;
 using SourceSharp.Abi;
 using SourceSharp.Client.MaterialProxies;
 
+using TF2.Client.Proxies;
+
 using Xunit;
 
 namespace SourceSharp.Tests;
@@ -26,7 +28,7 @@ public class MaterialProxyFactoryTests
         int start = text.IndexOf("#define SS_PROXY_NAMES( X )", StringComparison.Ordinal);
         Assert.True(start >= 0, "the trampoline defines SS_PROXY_NAMES");
         int end = text.IndexOf("\n\n", start, StringComparison.Ordinal);
-        var names = Regex.Matches(text[start..end], @"X\(\s*(\d+)\s*,\s*(\w+)\s*\)")
+        var names = Regex.Matches(text[start..end], @"X\(\s*(\d+)\s*,\s*""(\w+)""\s*\)")
                          .Select(m => (Index: int.Parse(m.Groups[1].Value), Name: m.Groups[2].Value))
                          .ToList();
         Assert.Equal(Enumerable.Range(0, names.Count), names.Select(n => n.Index));
@@ -41,12 +43,21 @@ public class MaterialProxyFactoryTests
         List<string> native = NativeNames();
         var managed = Factory().Names.ToHashSet(StringComparer.Ordinal);
 
-        // The cluster 1 names, viewpostprocess.cpp's MotionBlur and engine_post (C7), particle_proxies.cpp's ParticleSphereProxy, clientshadowmgr.cpp's Shadow and ShadowModel (C7 cluster 12 S2).
-        Assert.True(native.Count == 49 && native.Distinct().Count() == 49, $"49 distinct names in the trampoline, not {native.Count}");
-        string[] nativeOnly = native.Where(n => !managed.Contains(n)).ToArray();
+        // The cluster 1 names, proxyplayer.cpp's seven (PlayerProximity, PlayerTeamMatch,
+        // PlayerView, PlayerSpeed, PlayerPosition, EntitySpeed, EntityRandom),
+        // viewpostprocess.cpp's MotionBlur and engine_post (C7), particle_proxies.cpp's
+        // ParticleSphereProxy, clientshadowmgr.cpp's Shadow and ShadowModel (C7 cluster
+        // 12 S2) — and the mods' names (TF2's, answered by TFMaterialProxies beside the
+        // core's table).
+        IReadOnlyCollection<string> modNames = TFMaterialProxies.ProxyNames;
+        int expected = 56 + modNames.Count;
+        Assert.True(native.Count == expected && native.Distinct().Count() == expected, $"{expected} distinct names in the trampoline, not {native.Count}");
+        string[] nativeOnly = native.Where(n => !managed.Contains(n) && !modNames.Contains(n)).ToArray();
         string[] managedOnly = managed.Where(n => !native.Contains(n)).ToArray();
+        string[] modOnly = modNames.Where(n => !native.Contains(n)).ToArray();
         Assert.True(nativeOnly.Length == 0, "registered by native, answered by nobody: " + string.Join(", ", nativeOnly));
         Assert.True(managedOnly.Length == 0, "answered by managed, never registered: " + string.Join(", ", managedOnly));
+        Assert.True(modOnly.Length == 0, "answered by a provider, never registered: " + string.Join(", ", modOnly));
     }
 
     [Fact]
@@ -68,5 +79,23 @@ public class MaterialProxyFactoryTests
 
     [Fact]
     public void AnUnknownNameMakesNoProxy()
-        => Assert.Null(Factory().Create("PlayerProximity"));
+        => Assert.Null(Factory().Create("PlayerProximityy"));
+
+    /// <summary>
+    /// The names proxyplayer.cpp exposed — two were asked for by name in the
+    /// console on ctf_2fort and answered "not found"; the table now answers all
+    /// seven.
+    /// </summary>
+    [Fact]
+    public void ThePlayerProxiesOfProxyplayerAreAllAnswered()
+    {
+        foreach (string name in new[]
+                 {
+                     "PlayerProximity", "PlayerTeamMatch", "PlayerView", "PlayerSpeed",
+                     "PlayerPosition", "EntitySpeed", "EntityRandom",
+                 })
+        {
+            Assert.NotNull(Factory().Create(name));
+        }
+    }
 }

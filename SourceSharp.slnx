@@ -32,6 +32,8 @@
   <Project Path="src/tf2/client/TF2.Client.csproj" />
   <Project Path="src/tf2/server/TF2.Server.csproj" />
   <Project Path="src/tf2/tests/TF2.Tests.csproj" />
+  <Project Path="src/tf2/interface/TF2.Client.Interface.csproj" />
+  <Project Path="src/tf2/ui/TF2.Client.Ui.csproj" />
   <Project Path="src/test/oracle/managed/SourceSharp.OracleTests.csproj" />
   <Project Path="src/tools/UiPreview/SourceSharp.UiPreview.csproj" />
   <Project Path="src/tools/StockAb/SourceSharp.StockAb.csproj" />

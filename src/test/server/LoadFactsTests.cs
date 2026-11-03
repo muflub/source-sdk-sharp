@@ -181,6 +181,47 @@ public sealed class LoadFactsTests
         Assert.Throws<FormatException>(() => SideFacts.ParseLoad(Encoding.UTF8.GetBytes(text)));
     }
 
+    // ---- the mod's ICE key (the sealed .ctx scripts, stock's GetEncryptionKey) ----
+
+    [Fact]
+    public void The_mods_encryption_key_reaches_IModInfo_through_the_facts()
+    {
+        // mods.yaml's encryption_key -> Bootstrap's WriteLoad -> the side's
+        // ParseLoad -> ModInfo.Publish's AppContext data -> what IModInfo
+        // answers the weapon-script readers (the seat stock's callers fill
+        // from g_pGameRules->GetEncryptionKey()).
+        byte[] block = LoadFacts.WriteLoad("/m", "tf2", "/g", [], [], null, null, null, "E2NcUkG2");
+
+        SideFacts facts = SideFacts.ParseLoad(Text(block));
+        Assert.Equal("E2NcUkG2", facts.ModEncryptionKey);
+
+        var data = new Dictionary<string, object?> { [ModInfo.Keys.EncryptionKey] = facts.ModEncryptionKey };
+        Assert.Equal("E2NcUkG2", new ModInfo(k => data.GetValueOrDefault(k)).EncryptionKey);
+    }
+
+    [Fact]
+    public void A_mod_that_names_no_key_writes_an_empty_row_and_reads_none()
+    {
+        // The empty row is the mod's own answer, not the empty key: it reads
+        // back null, and the weapon scripts stay plain .txt.
+        SideFacts facts = SideFacts.ParseLoad(Text(LoadBlock()));
+        Assert.Null(facts.ModEncryptionKey);
+
+        var data = new Dictionary<string, object?> { [ModInfo.Keys.EncryptionKey] = "" };
+        Assert.Null(new ModInfo(k => data.GetValueOrDefault(k)).EncryptionKey);
+        Assert.Null(new ModInfo(_ => null).EncryptionKey);
+    }
+
+    [Fact]
+    public void A_load_block_from_a_Bootstrap_without_the_key_row_reads_as_none_not_an_error()
+    {
+        // The same optional-row rule the stage-0.9 lists keep.
+        string without = Encoding.UTF8.GetString(Text(LoadBlock()))
+            .Split('\n').Where(l => !l.StartsWith("encryption_key\t", StringComparison.Ordinal))
+            .Aggregate((a, b) => a + "\n" + b);
+        Assert.Null(SideFacts.ParseLoad(Encoding.UTF8.GetBytes(without)).ModEncryptionKey);
+    }
+
     [Fact]
     public void TheBootstrapsHashIsTheStampsHash()
     {

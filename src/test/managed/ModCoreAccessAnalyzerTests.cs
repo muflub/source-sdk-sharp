@@ -68,6 +68,26 @@ public class ModCoreAccessAnalyzerTests
     public void AVarsTableNameOutsideAScriptVarsClassIsReported() =>
         Reports(ModCoreAccessAnalyzer.StaticFieldId, "s_Descriptors", "namespace M; sealed class V { static readonly int[] s_Descriptors = []; }");
 
+    /// <summary>Stand-ins for the attribute and the two layout types NetStateGenerator writes, named as the rule names them.</summary>
+    private const string NetLayoutTypes = "namespace SourceSharp.Abi { public sealed class StandaloneNetStateAttribute : System.Attribute { public StandaloneNetStateAttribute(string n) { } } "
+                                          + "public sealed class NetFieldLayout { } public sealed class StandaloneNetState { } } ";
+
+    [Fact]
+    public void TheLayoutOfAStandaloneNetStateIsSilent() =>
+        Silent(NetLayoutTypes + "namespace M { [SourceSharp.Abi.StandaloneNetState(\"x\")] sealed partial class S { static readonly SourceSharp.Abi.NetFieldLayout s_A = new(); public static readonly SourceSharp.Abi.StandaloneNetState NetLayout = new(); } }");
+
+    [Fact]
+    public void ALayoutOutsideAStandaloneNetStateIsReported() =>
+        Reports(ModCoreAccessAnalyzer.StaticFieldId, "s_A", NetLayoutTypes + "namespace M { sealed class S { static readonly SourceSharp.Abi.NetFieldLayout s_A = new(); } }");
+
+    [Fact]
+    public void OtherStaticsOfAStandaloneNetStateAreReported() =>
+        Reports(ModCoreAccessAnalyzer.StaticFieldId, "s_Cache", NetLayoutTypes + "namespace M { [SourceSharp.Abi.StandaloneNetState(\"x\")] sealed partial class S { static readonly int[] s_Cache = []; } }");
+
+    [Fact]
+    public void AMutableLayoutFieldOfAStandaloneNetStateIsReported() =>
+        Reports(ModCoreAccessAnalyzer.StaticFieldId, "s_A", NetLayoutTypes + "namespace M { [SourceSharp.Abi.StandaloneNetState(\"x\")] sealed partial class S { static SourceSharp.Abi.NetFieldLayout s_A = new(); } }");
+
     [Fact]
     public void AnEventWithAccessorsIsReported() =>
         Reports(ModCoreAccessAnalyzer.DeclaresEventId, "'M.C.Changed'", "using System; namespace M; sealed class C { public event Action? Changed { add { } remove { } } }");
@@ -141,6 +161,10 @@ public class ModCoreAccessAnalyzerTests
     [Fact]
     public void TheEventAdapterMaySubscribe() =>
         Silent("using System; namespace TF2.Descent.Server; public sealed class HostLink { public void Run(AppDomain d) => d.ProcessExit += (_, _) => { }; }");
+
+    [Fact]
+    public void TheTF2ClientEventAdapterMaySubscribe() =>
+        Silent("using System; namespace TF2.Client; public sealed class EventLink { public void Run(AppDomain d) => d.ProcessExit += (_, _) => { }; }");
 
     [Fact]
     public void AClassNestedInTheEventAdapterMayNot() =>

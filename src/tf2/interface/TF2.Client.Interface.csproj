@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    TF2's client contract assembly (SS0030, role "interface"): the data the
+    TF2 screens read (TFUiSources.cs). Interfaces, enums and pure data only.
+    The UI loader holds TF2.Client.Ui in its collectible context and resolves
+    everything else from the core's, so this assembly is the one interface
+    identity both TF2.Client's adapters and TF2.Client.Ui's screens name.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+  </ItemGroup>
+</Project>

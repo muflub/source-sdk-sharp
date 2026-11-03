@@ -1,0 +1,14 @@
+The ten TF2 player class scripts, for TfClassDataTests / TfClassTableTests.
+
+Source: scripts/playerclasses/<raw class name>.ctx in the shipped
+tf/tf2_misc_dir.vpk (Steam install, sha256 b1e36819d6ae5f5f...), extracted
+2026-10-25 with
+
+    tools/vpk-extract bin/debug/content/tf/tf2_misc_dir.vpk \
+        scripts/playerclasses/{scout,sniper,soldier,demoman,medic,heavyweapons,pyro,spy,engineer,civilian}.ctx \
+        -o OUT --ice-key E2NcUkG2
+
+(ICE level 0 under GetTFEncryptionKey(), TfEncryption.Key), then trimmed:
+CRLF to LF, comment lines and trailing comments removed (the shipped files
+keep older values commented out, e.g. scout's `// "speed_max" "450"`).
+Every key the files set is kept; no value was edited.

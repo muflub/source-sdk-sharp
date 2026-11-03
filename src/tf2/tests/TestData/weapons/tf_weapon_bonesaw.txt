@@ -1,0 +1,26 @@
+WeaponData
+{
+	"printname"				"#TF_Weapon_Bonesaw"
+	"BuiltRightHanded"		"0"
+	"MeleeWeapon"			"1"
+	"weight"				"1"
+	"WeaponType"			"melee"
+	"ITEM_FLAG_NOITEMPICKUP" 	"1"
+	"Damage"				"65"
+	"TimeFireDelay"			"0.8"
+	"TimeIdle"				"5.0"
+	"HasTeamSkins_Viewmodel"		"1"
+	"primary_ammo"			"None"
+	"secondary_ammo"		"None"
+	"bucket"				"2"
+	"bucket_position"		"0"
+	"anim_prefix"			"bonesaw"
+	SoundData
+	{
+		"melee_miss"		"Weapon_Bonesaw.Miss"
+		"melee_hit"			"Weapon_Bonesaw.HitFlesh"
+		"melee_hit_world"	"Weapon_Bonesaw.HitWorld"
+		"burst"				"Weapon_BoneSaw.MissCrit"
+		"taunt"				"Taunt.MedicViolin"
+	}
+}

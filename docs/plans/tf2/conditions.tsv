@@ -1,0 +1,133 @@
+# id	cond	stock	class	add_arm	remove_arm	tick_arm	note
+# One row per TFCond (TF_COND_AIMING..TF_COND_LAST-1). Arms are lines of the PRISTINE src/game/shared/tf/tf_player_shared.cpp at valve-sdk.lock: add = OnConditionAdded's case, remove = OnConditionRemoved's case, tick = lines naming the condition in ConditionGameRulesThink (G, 2334-3088, server) / ConditionThink (T, 3108-3300, shared), first-last. The generic countdown (G2346-2375) applies to every timed condition and is TFConditions.Tick. '-' = no arm. class: milestone (a Stage 1-4 system adds it; the stage in the note) | later | never. Condition-only arms are TFConditionArms; every other arm is the player components' (Stage 2.3+).
+0	Aiming	TF_COND_AIMING	milestone	-	-	-	minigun spin-up, sniper charge (1.9)
+1	Zoomed	TF_COND_ZOOMED	milestone	1575	1896	-	sniper rifle zoom (1.9)
+2	Disguising	TF_COND_DISGUISING	milestone	1641	1959	-	spy disguise kit (2.12)
+3	Disguised	TF_COND_DISGUISED	milestone	1645	1955	G2436-3026	spy disguise kit (2.12)
+4	Stealthed	TF_COND_STEALTHED	milestone	1595	1950	-	spy invis watch (2.12)
+5	Invulnerable	TF_COND_INVULNERABLE	milestone	1600	1963	-	medigun uber (2.9); server arm ported in TFConditionArms
+6	Teleported	TF_COND_TELEPORTED	milestone	1606	1969	-	teleporter (2.10)
+7	Taunting	TF_COND_TAUNTING	milestone	1661	2039	G2761-2765,T3295	taunts (2.3)
+8	InvulnerableWearingoff	TF_COND_INVULNERABLE_WEARINGOFF	milestone	-	1993	-	medigun uber fade (2.9)
+9	StealthedBlink	TF_COND_STEALTHED_BLINK	milestone	-	-	G2987-2993	invis watch blink when bumped or hit (2.12)
+10	SelectedToTeleport	TF_COND_SELECTED_TO_TELEPORT	milestone	-	-	-	teleporter (2.10)
+11	Critboosted	TF_COND_CRITBOOSTED	milestone	1614	1904	-	crit boost (crit policy 1.9, kritzkrieg later); CTFConditionList: add/remove/tick tf_condition.cpp:57-93/113-139/196-242, ported in TFConditions
+12	Tmpdamagebonus	TF_COND_TMPDAMAGEBONUS	later	-	1931	-	item, attribute or later system
+13	FeignDeath	TF_COND_FEIGN_DEATH	later	1591	1946	G2997-3001	item, attribute or later system
+14	Phase	TF_COND_PHASE	later	1669	1977	-	item, attribute or later system
+15	Stunned	TF_COND_STUNNED	later	1665	1973	T3172-3207	item, attribute or later system
+16	Offensebuff	TF_COND_OFFENSEBUFF	later	1673	1997	-	item, attribute or later system
+17	ShieldCharge	TF_COND_SHIELD_CHARGE	later	1691	2015	-	item, attribute or later system
+18	DemoBuff	TF_COND_DEMO_BUFF	later	1695	2019	-	item, attribute or later system
+19	EnergyBuff	TF_COND_ENERGY_BUFF	later	1699	2023	-	item, attribute or later system
+20	Radiusheal	TF_COND_RADIUSHEAL	later	1703	2027	-	item, attribute or later system
+21	HealthBuff	TF_COND_HEALTH_BUFF	milestone	1578	1935	G2393-2791	medigun/dispenser heal (2.9, 2.10)
+22	Burning	TF_COND_BURNING	milestone	1610	1900	G2676-2946	flamethrower afterburn (2.11); server remove arm ported in TFConditionArms
+23	HealthOverhealed	TF_COND_HEALTH_OVERHEALED	milestone	1587	1942	G2693-2699	overheal (2.9)
+24	Urine	TF_COND_URINE	later	1649	1981	G2359-3010	item, attribute or later system
+25	Bleeding	TF_COND_BLEEDING	later	1657	1989	G2682-3064	item, attribute or later system
+26	Defensebuff	TF_COND_DEFENSEBUFF	later	1677	2001	-	item, attribute or later system
+27	MadMilk	TF_COND_MAD_MILK	later	1711	2035	G3013-3016	item, attribute or later system
+28	Megaheal	TF_COND_MEGAHEAL	later	1707	2031	G2490	item, attribute or later system
+29	Regenondamagebuff	TF_COND_REGENONDAMAGEBUFF	later	1683	2007	-	item, attribute or later system
+30	Markedfordeath	TF_COND_MARKEDFORDEATH	later	1653	1985	-	item, attribute or later system
+31	Nohealingdamagebuff	TF_COND_NOHEALINGDAMAGEBUFF	later	1687	2011	-	item, attribute or later system
+32	SpeedBoost	TF_COND_SPEED_BOOST	later	1715	2043	-	item, attribute or later system
+33	CritboostedPumpkin	TF_COND_CRITBOOSTED_PUMPKIN	later	1625	1915	-	item, attribute or later system
+34	CritboostedUserBuff	TF_COND_CRITBOOSTED_USER_BUFF	later	1626	1916	-	item, attribute or later system
+35	CritboostedDemoCharge	TF_COND_CRITBOOSTED_DEMO_CHARGE	later	1618	1908	-	item, attribute or later system
+36	SodapopperHype	TF_COND_SODAPOPPER_HYPE	later	1637	1927	-	item, attribute or later system
+37	CritboostedFirstBlood	TF_COND_CRITBOOSTED_FIRST_BLOOD	later	1623	1913	-	item, attribute or later system
+38	CritboostedBonusTime	TF_COND_CRITBOOSTED_BONUS_TIME	milestone	1627	1917	-	round-win crits (tf_gamerules.cpp:9590, 2.1)
+39	CritboostedCtfCapture	TF_COND_CRITBOOSTED_CTF_CAPTURE	milestone	1628	1918	-	CTF capture crits (tf_gamerules.cpp:20535, 2.5)
+40	CritboostedOnKill	TF_COND_CRITBOOSTED_ON_KILL	later	1629	1919	-	item, attribute or later system
+41	CannotSwitchFromMelee	TF_COND_CANNOT_SWITCH_FROM_MELEE	later	-	-	-	item, attribute or later system
+42	DefensebuffNoCritBlock	TF_COND_DEFENSEBUFF_NO_CRIT_BLOCK	later	1678	2002	-	item, attribute or later system
+43	Reprogrammed	TF_COND_REPROGRAMMED	later	1721	2050	-	mode or event: MvM
+44	CritboostedRageBuff	TF_COND_CRITBOOSTED_RAGE_BUFF	later	1630	1920	-	item, attribute or later system
+45	DefensebuffHigh	TF_COND_DEFENSEBUFF_HIGH	later	1679	2003	-	item, attribute or later system
+46	SniperchargeRageBuff	TF_COND_SNIPERCHARGE_RAGE_BUFF	later	1631	1921	-	item, attribute or later system
+47	DisguiseWearingoff	TF_COND_DISGUISE_WEARINGOFF	milestone	-	-	-	disguise removal (tf_player_shared.cpp:8387, 2.12)
+48	MarkedfordeathSilent	TF_COND_MARKEDFORDEATH_SILENT	later	1726	2055	-	item, attribute or later system
+49	DisguisedAsDispenser	TF_COND_DISGUISED_AS_DISPENSER	later	1730	2059	-	item, attribute or later system
+50	Sapped	TF_COND_SAPPED	later	1717	2046	-	mode or event: MvM robot sapper
+51	InvulnerableHideUnlessDamaged	TF_COND_INVULNERABLE_HIDE_UNLESS_DAMAGED	later	-	-	-	item, attribute or later system
+52	InvulnerableUserBuff	TF_COND_INVULNERABLE_USER_BUFF	later	1601	1964	-	item, attribute or later system
+53	HalloweenBombHead	TF_COND_HALLOWEEN_BOMB_HEAD	later	1734	2063	T3234-3245	mode or event: Halloween event
+54	HalloweenThriller	TF_COND_HALLOWEEN_THRILLER	later	1738	2067	-	mode or event: Halloween event
+55	RadiushealOnDamage	TF_COND_RADIUSHEAL_ON_DAMAGE	later	1742	2071	-	item, attribute or later system
+56	CritboostedCardEffect	TF_COND_CRITBOOSTED_CARD_EFFECT	later	1632	1922	-	mode or event: Halloween cards
+57	InvulnerableCardEffect	TF_COND_INVULNERABLE_CARD_EFFECT	later	1602	1965	-	mode or event: Halloween cards
+58	MedigunUberBulletResist	TF_COND_MEDIGUN_UBER_BULLET_RESIST	later	1746	2075	-	item, attribute or later system
+59	MedigunUberBlastResist	TF_COND_MEDIGUN_UBER_BLAST_RESIST	later	1750	2079	-	item, attribute or later system
+60	MedigunUberFireResist	TF_COND_MEDIGUN_UBER_FIRE_RESIST	later	1754	2083	-	item, attribute or later system
+61	MedigunSmallBulletResist	TF_COND_MEDIGUN_SMALL_BULLET_RESIST	later	1758	2087	-	item, attribute or later system
+62	MedigunSmallBlastResist	TF_COND_MEDIGUN_SMALL_BLAST_RESIST	later	1762	2091	-	item, attribute or later system
+63	MedigunSmallFireResist	TF_COND_MEDIGUN_SMALL_FIRE_RESIST	later	1766	2095	-	item, attribute or later system
+64	StealthedUserBuff	TF_COND_STEALTHED_USER_BUFF	later	1596	1951	-	item, attribute or later system
+65	MedigunDebuff	TF_COND_MEDIGUN_DEBUFF	later	-	-	-	item, attribute or later system
+66	StealthedUserBuffFading	TF_COND_STEALTHED_USER_BUFF_FADING	later	1770	2099	-	item, attribute or later system
+67	BulletImmune	TF_COND_BULLET_IMMUNE	later	1774	2103	-	item, attribute or later system
+68	BlastImmune	TF_COND_BLAST_IMMUNE	later	1778	2107	-	item, attribute or later system
+69	FireImmune	TF_COND_FIRE_IMMUNE	later	1782	2111	-	item, attribute or later system
+70	PreventDeath	TF_COND_PREVENT_DEATH	later	-	-	-	item, attribute or later system
+71	MvmBotStunRadiowave	TF_COND_MVM_BOT_STUN_RADIOWAVE	later	1786	2115	-	mode or event: MvM
+72	HalloweenSpeedBoost	TF_COND_HALLOWEEN_SPEED_BOOST	later	1790	2119	-	mode or event: Halloween event
+73	HalloweenQuickHeal	TF_COND_HALLOWEEN_QUICK_HEAL	later	1794	2123	-	mode or event: Halloween event
+74	HalloweenGiant	TF_COND_HALLOWEEN_GIANT	later	1798	2127	-	mode or event: Halloween event
+75	HalloweenTiny	TF_COND_HALLOWEEN_TINY	later	1802	2131	-	mode or event: Halloween event
+76	HalloweenInHell	TF_COND_HALLOWEEN_IN_HELL	later	-	-	-	mode or event: Halloween event
+77	HalloweenGhostMode	TF_COND_HALLOWEEN_GHOST_MODE	later	1806	2135	-	mode or event: Halloween event
+78	MinicritboostedOnKill	TF_COND_MINICRITBOOSTED_ON_KILL	later	-	-	-	item, attribute or later system
+79	ObscuredSmoke	TF_COND_OBSCURED_SMOKE	later	-	-	-	item, attribute or later system
+80	ParachuteActive	TF_COND_PARACHUTE_ACTIVE	later	1810	2139	T3130	item, attribute or later system
+81	Blastjumping	TF_COND_BLASTJUMPING	milestone	-	-	-	rocket/sticky jump (tf_player.cpp:8701, 2.7)
+82	HalloweenKart	TF_COND_HALLOWEEN_KART	later	1818	2147	-	mode or event: Halloween event
+83	HalloweenKartDash	TF_COND_HALLOWEEN_KART_DASH	later	1814	2143	-	mode or event: Halloween event
+84	BalloonHead	TF_COND_BALLOON_HEAD	later	1822	2151	-	item, attribute or later system
+85	MeleeOnly	TF_COND_MELEE_ONLY	later	1826	2155	-	item, attribute or later system
+86	SwimmingCurse	TF_COND_SWIMMING_CURSE	later	1830	2159	-	item, attribute or later system
+87	FreezeInput	TF_COND_FREEZE_INPUT	later	-	-	-	item, attribute or later system
+88	HalloweenKartCage	TF_COND_HALLOWEEN_KART_CAGE	later	1834	2162	-	mode or event: Halloween event
+89	Donotuse0	TF_COND_DONOTUSE_0	never	-	-	-	unused id
+90	RuneStrength	TF_COND_RUNE_STRENGTH	later	-	-	-	mode or event: Mannpower
+91	RuneHaste	TF_COND_RUNE_HASTE	later	-	-	-	mode or event: Mannpower
+92	RuneRegen	TF_COND_RUNE_REGEN	later	-	-	-	mode or event: Mannpower
+93	RuneResist	TF_COND_RUNE_RESIST	later	1838	2166	-	mode or event: Mannpower
+94	RuneVampire	TF_COND_RUNE_VAMPIRE	later	-	-	-	mode or event: Mannpower
+95	RuneReflect	TF_COND_RUNE_REFLECT	later	-	-	-	mode or event: Mannpower
+96	RunePrecision	TF_COND_RUNE_PRECISION	later	-	-	-	mode or event: Mannpower
+97	RuneAgility	TF_COND_RUNE_AGILITY	later	-	-	-	mode or event: Mannpower
+98	Grapplinghook	TF_COND_GRAPPLINGHOOK	later	-	-	-	mode or event: Mannpower grappling hook
+99	GrapplinghookSafefall	TF_COND_GRAPPLINGHOOK_SAFEFALL	later	-	-	-	mode or event: Mannpower grappling hook
+100	GrapplinghookLatched	TF_COND_GRAPPLINGHOOK_LATCHED	later	1842	2170	-	mode or event: Mannpower grappling hook
+101	GrapplinghookBleeding	TF_COND_GRAPPLINGHOOK_BLEEDING	later	-	-	-	mode or event: Mannpower grappling hook
+102	AfterburnImmune	TF_COND_AFTERBURN_IMMUNE	later	-	-	-	item, attribute or later system
+103	RuneKnockout	TF_COND_RUNE_KNOCKOUT	later	-	-	-	mode or event: Mannpower
+104	RuneImbalance	TF_COND_RUNE_IMBALANCE	later	-	-	-	mode or event: Mannpower
+105	CritboostedRuneTemp	TF_COND_CRITBOOSTED_RUNE_TEMP	later	1633	1923	-	mode or event: Mannpower
+106	PasstimeInterception	TF_COND_PASSTIME_INTERCEPTION	later	1846	2174	-	mode or event: PASS Time mode
+107	SwimmingNoEffects	TF_COND_SWIMMING_NO_EFFECTS	later	-	-	-	item, attribute or later system
+108	Purgatory	TF_COND_PURGATORY	later	1858	2186	T3279	mode or event: Halloween
+109	RuneKing	TF_COND_RUNE_KING	later	-	2190	-	mode or event: Mannpower
+110	RunePlague	TF_COND_RUNE_PLAGUE	later	1850	2178	-	mode or event: Mannpower
+111	RuneSupernova	TF_COND_RUNE_SUPERNOVA	later	-	2198	-	mode or event: Mannpower
+112	Plague	TF_COND_PLAGUE	later	1854	2182	-	mode or event: Mannpower plague
+113	KingBuffed	TF_COND_KING_BUFFED	later	-	2194	-	mode or event: Mannpower king
+114	TeamGlows	TF_COND_TEAM_GLOWS	later	-	-	-	item, attribute or later system
+115	KnockedIntoAir	TF_COND_KNOCKED_INTO_AIR	milestone	-	-	T3127	airblast (tf_weapon_flamethrower.cpp:1761, 2.11)
+116	CompetitiveWinner	TF_COND_COMPETITIVE_WINNER	later	1862	2202	-	mode or event: competitive match summary
+117	CompetitiveLoser	TF_COND_COMPETITIVE_LOSER	later	1866	2206	-	mode or event: competitive match summary
+118	HealingDebuff	TF_COND_HEALING_DEBUFF	milestone	-	-	G2537	afterburn heal reduction (tf_player_shared.cpp:6653, 2.11)
+119	PasstimePenaltyDebuff	TF_COND_PASSTIME_PENALTY_DEBUFF	later	1725	2054	-	mode or event: PASS Time mode
+120	GrappledToPlayer	TF_COND_GRAPPLED_TO_PLAYER	later	-	-	-	item, attribute or later system
+121	GrappledByPlayer	TF_COND_GRAPPLED_BY_PLAYER	later	-	-	-	item, attribute or later system
+122	ParachuteDeployed	TF_COND_PARACHUTE_DEPLOYED	later	-	-	T3131	item, attribute or later system
+123	Gas	TF_COND_GAS	later	1870	2210	G3019-3022	item, attribute or later system
+124	BurningPyro	TF_COND_BURNING_PYRO	later	-	2218	G2891	item, attribute or later system
+125	Rocketpack	TF_COND_ROCKETPACK	later	1874	2214	T3133-3151	item, attribute or later system
+126	LostFooting	TF_COND_LOST_FOOTING	later	-	-	-	item, attribute or later system
+127	AirCurrent	TF_COND_AIR_CURRENT	milestone	-	-	T3128	airblast (tf_weapon_flamethrower.cpp:1760, 2.11)
+128	HalloweenHellHeal	TF_COND_HALLOWEEN_HELL_HEAL	later	1878	2222	-	mode or event: Halloween event
+129	PowerupmodeDominant	TF_COND_POWERUPMODE_DOMINANT	later	-	-	-	mode or event: Mannpower
+130	ImmuneToPushback	TF_COND_IMMUNE_TO_PUSHBACK	later	-	-	-	item, attribute or later system

@@ -419,6 +419,61 @@ public class ModsConfigTests
         Assert.True(File.Exists(RepoLayout.Repo("game", "mod_tf2", "gameinfo.txt")));
     }
 
+    [Fact]
+    public void The_tf2_mod_names_the_key_its_sealed_weapon_scripts_open_with()
+    {
+        // Shipped TF2 content carries its scripts only as ICE-sealed .ctx
+        // (ReadEncryptedKVFile's second arm, weapon_parse.cpp:222-253): the
+        // key is stock's GetEncryptionKey() literal, and a boot that opens
+        // none says so in the log. The test mod encrypts nothing.
+        var config = ModsConfig.Load(RepoLayout.Repo("game", "mods.yaml"));
+        Assert.Equal("E2NcUkG2", config.Select("tf2").EncryptionKey);
+        Assert.Null(config.Select("test").EncryptionKey);
+    }
+
+    [Fact]
+    public void The_descent_mod_opens_tf2s_sealed_scripts_with_the_same_key()
+    {
+        // TF2Descent loads TF2's assemblies over TF2's content (its mods.yaml
+        // row), and a mod inherits only the defaults: without its own row the
+        // core's weapon-script readers ask its .ctx scripts keyless.
+        var config = ModsConfig.Load(RepoLayout.Repo("game", "mods.yaml"));
+        Assert.Equal(config.Select("tf2").EncryptionKey, config.Select("tf2_descent").EncryptionKey);
+    }
+
+    [Fact]
+    public void An_encryption_key_replaces_the_defaults_as_the_other_scalars_do()
+    {
+        var config = ModsConfig.Parse("""
+            defaults:
+              game_dir: mods/{id}
+              encryption_key: 12345678
+            mods:
+              a: {}
+              b:
+                encryption_key: abcdefgh
+            """, Path);
+        Assert.Equal("12345678", config.Select("a").EncryptionKey);
+        Assert.Equal("abcdefgh", config.Select("b").EncryptionKey);
+        // No defaults row at all is the null arm: The_tf2_mod_names_the_key...
+        // covers it from the real file (the test mod publishes none).
+    }
+
+    [Fact]
+    public void An_encryption_key_that_is_not_an_ice_key_is_refused_at_load()
+    {
+        // IceKey::set reads exactly 8 bytes; a wrong length is said at the
+        // line that wrote it, not as an exception on the first script read.
+        var e = Assert.Throws<ModsConfigException>(() => ModsConfig.Parse("""
+            mods:
+              test:
+                game_dir: mods/test
+                encryption_key: short
+            """, Path));
+        Assert.Contains("encryption_key", e.Message);
+        Assert.Contains("8", e.Message);
+    }
+
     //-------------------------------------------------------------------------
     // The mod's UI assemblies and language files (stage 0.9)
     //-------------------------------------------------------------------------

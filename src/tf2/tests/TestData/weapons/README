@@ -1,0 +1,14 @@
+The TF2 weapon scripts of the milestone weapons, for TfWeaponScriptTests and
+the weapon facts beside it: every weaponN of the ten class scripts (30
+names), plus tf_weapon_builder and tf_weapon_sapper.
+
+Source: scripts/tf_weapon_<name>.ctx in the shipped tf/tf2_misc_dir.vpk
+(Steam install, sha256 b1e36819d6ae5f5f...), extracted 2026-10-25 with
+
+    tools/vpk-extract bin/debug/content/tf/tf2_misc_dir.vpk \
+        scripts/tf_weapon_<name>.ctx ... -o OUT --ice-key E2NcUkG2
+
+(ICE level 0 under GetTFEncryptionKey(), TfEncryption.Key), then trimmed:
+CRLF to LF, comment lines, trailing comments and blank lines removed, and the
+TextureData block (the client HUD's sprite rectangles, which neither weapon
+parser reads) dropped. Every other key is kept; no value was edited.

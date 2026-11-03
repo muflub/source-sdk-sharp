@@ -8,3 +8,4 @@
 # silent skip: tools/ui-preview, tools/ui-lint and the SourceSharp.Tests.Ui
 # facts all discover through PreviewRun.AllSamples.
 TF2.Descent.Client.Ui=game/mod_tf2_descent
+TF2.Client.Ui=game/mod_tf2

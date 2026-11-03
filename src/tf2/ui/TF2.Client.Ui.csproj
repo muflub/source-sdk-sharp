@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The TF2 client HUD (docs/plans/tf2/stage3_client.md Stage 3): the game's
+    screens on the SourceSharp UI toolkit, mirroring src/client/ui/screens —
+    the toolkit and the data contract only, never the core, the engine or
+    Abi (the same assembly rule UiAssemblyRulesTests holds over the core
+    screens). Game state arrives through the ITF* interfaces in
+    src/tf2/interface/TFUiSources.cs (TF2.Client.Interface) — TF2's contract
+    assembly, not beside these files, so the game-side adapters and this held
+    assembly share one interface identity — and the adapters that answer them live
+    in src/tf2/client/Ui, not here. Discovered by the preview, lint and UI
+    tests through tools/ui-preview-assemblies.txt.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\client\ui\analyzers\SourceSharp.Client.Ui.Analyzers.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\client\interface\SourceSharp.Client.Interface.csproj" />
+    <ProjectReference Include="..\..\client\ui\toolkit\SourceSharp.Client.Ui.Toolkit.csproj" />
+    <ProjectReference Include="..\interface\TF2.Client.Interface.csproj" />
+  </ItemGroup>
+</Project>
