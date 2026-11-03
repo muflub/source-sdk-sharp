@@ -49,6 +49,9 @@ public sealed class SoundEmitterTests
         public readonly Dictionary<string, string> WavFiles = new(StringComparer.Ordinal);
         public Func<string, float> Duration = _ => 1.5f;
         public uint[] PasBits = new uint[IFwdEngineServer.PlayerBitWords];
+
+        /// <summary>The PVS's players, when a fact sets them apart from the PAS's; null answers the PAS's.</summary>
+        public uint[]? PvsBits;
         public int GenderOf(string? model) => model?.Contains("female", StringComparison.Ordinal) == true ? 2 : 1;
         public int LastGender = -1;
         public short LastHandleIn;
@@ -130,7 +133,7 @@ public sealed class SoundEmitterTests
         public void MulticastRecipients(bool usePas, Vector origin, Span<uint> playerBits)
         {
             Asked.Add($"Multicast {usePas}");
-            PasBits.CopyTo(playerBits);
+            (usePas || PvsBits is null ? PasBits : PvsBits).CopyTo(playerBits);
         }
     }
 

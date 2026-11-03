@@ -784,6 +784,19 @@ public sealed class TempEnts : ITempEnts
         _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
     }
 
+    /// <inheritdoc/>
+    public void PlayerAnimEvent(TeFilter filter, float delay, int packedPlayer, int animEvent, int data)
+    {
+        var state = new TePlayerAnimEvent { Player = packedPlayer, Event = animEvent, Data = data };
+
+        TempEntType? type = Resolve(state);
+
+        if (type is null)
+            return;
+
+        _engine.TempEntPlayback(type.Handle, state.ToBlob(type), filter, delay);
+    }
+
     // ------------------------------------------------------------------
     // Lane S5's two (plan Part 8). Neither is a new table: CTEMuzzleFlash is
     // lane F's declaration and DT_TEEffectDispatch is lane S4's. What is new

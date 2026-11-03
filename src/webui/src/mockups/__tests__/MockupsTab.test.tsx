@@ -1,7 +1,8 @@
 /*
- * The Mockups tab: what it says when there is no preview, and that it shows
- * the chosen screen, sample and size, names what the pointer is over, and
- * reloads when the watcher says it rendered.
+ * The Mockups tab: it opens on the Live view (LiveView.test.tsx); its
+ * Screens view says what to run when there are no pictures, shows the chosen
+ * screen, sample and size, names what the pointer is over, and reloads when
+ * the watcher says it rendered.
  */
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -45,7 +46,13 @@ function respond(url: string): Response {
   return new Response('', { status: 404 });
 }
 
+/** The pictures' views are a click away: the tab opens on Live. */
+async function openScreens(): Promise<void> {
+  await userEvent.click(await screen.findByRole('tab', { name: 'Screens' }));
+}
+
 beforeEach(() => {
+  localStorage.clear();
   requested = [];
   listeners = {};
   vi.stubGlobal('fetch', vi.fn(async (url: string) => { requested.push(url); return respond(url); }));
@@ -61,12 +68,14 @@ afterEach(() => vi.unstubAllGlobals());
 it('says how to start the preview when there is none', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 404 })));
   render(<MockupsTab visible />);
+  await openScreens();
   expect(await screen.findByText('No mock-ups here')).toBeTruthy();
   expect(screen.getByText('make ui-preview WATCH=1')).toBeTruthy();
 });
 
 it('shows the first sample of the first screen at 1920x1080, then the size and sample chosen', async () => {
   const { container } = render(<MockupsTab visible />);
+  await openScreens();
   await waitFor(() => expect(container.querySelector('svg[data-file="screens/scoreboard/12-1920x1080.svg"]')).toBeTruthy());
 
   await userEvent.click(screen.getByRole('button', { name: '2560x1080' }));
@@ -78,6 +87,7 @@ it('shows the first sample of the first screen at 1920x1080, then the size and s
 
 it('names the element under the pointer', async () => {
   render(<MockupsTab visible />);
+  await openScreens();
   const frame = await screen.findByTestId('mockup-frame');
   await waitFor(() => expect(requested.some(u => u.includes('12-1920x1080.json'))).toBe(true));
   frame.getBoundingClientRect = () => ({ left: 0, top: 0, width: 960, height: 540, right: 960, bottom: 540, x: 0, y: 0, toJSON: () => ({}) });
@@ -98,6 +108,15 @@ it('reloads when the watcher says it rendered', async () => {
   listeners.render!();
   await waitFor(() => expect(requested.filter(u => u.includes('manifest.json')).length).toBe(before + 1));
   expect(requested.at(-1)).toContain('?v=1');
+});
+
+it('opens on the Live view, and comes back to the view last chosen', async () => {
+  const first = render(<MockupsTab visible />);
+  expect((await screen.findByRole('tab', { name: 'Live' })).getAttribute('aria-selected')).toBe('true');
+  await openScreens();
+  first.unmount();
+  render(<MockupsTab visible />);
+  expect((await screen.findByRole('tab', { name: 'Screens' })).getAttribute('aria-selected')).toBe('true');
 });
 
 it('lists every gallery part in the gallery view', async () => {

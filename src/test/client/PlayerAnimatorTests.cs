@@ -735,4 +735,37 @@ public class PlayerAnimatorTests
         Assert.True(player.ShownSequence == 7 && player.ShownPosture == PlayerPosture.Idle,
             $"and the body stands in the HL2 layer's idle ({player.ShownSequence}, {player.ShownPosture})");
     }
+
+    private sealed class OnePlayerAt1(ClientStandaloneEntity player) : IClientStandalones
+    {
+        public IReadOnlyList<ClientStandaloneEntity> Live() => [player];
+        public ClientStandaloneEntity? GetByIndex(int entityIndex) => entityIndex == 1 ? player : null;
+    }
+
+    /// <summary>
+    /// C_TEPlayerAnimEvent's PostDataUpdate: the decoded event reaches the
+    /// named player's animation state, and a shot plays the gesture of the
+    /// weapon the event names (HL2MP's ACT_HL2MP_GESTURE_RANGE_ATTACK_SMG1) on
+    /// a gesture layer.
+    /// </summary>
+    [Fact]
+    public void AnAnimationEventPlaysTheWeaponsGestureOnTheNamedPlayer()
+    {
+        RecordingEngine engine = Engine();
+        ClientSsPlayer player = Player(engine);
+        Update(player);
+        var te = new SourceSharp.Client.TempEnts.ClientTePlayerAnimEvent(new OnePlayerAt1(player), SourceSharp.Shared.WeaponCatalog.Stock());
+
+        te.Play(new SourceSharp.Shared.TePlayerAnimEvent
+        {
+            Player = TempEntWriter.PackEHandle(new EntityHandle(HandleRaw)),
+            Event = (int)PlayerAnimEvent.AttackPrimary,
+            Data = SourceSharp.Shared.WeaponCatalog.Stock().IndexOf("weapon_smg1"),
+        });
+
+        Assert.Equal(1, te.Played);
+        Assert.Contains(engine.Calls, c => c.Member == "EntityRender.LookupSequenceByActivity"
+                                            && c.ArgAs<string>(1) == "ACT_HL2MP_GESTURE_RANGE_ATTACK_SMG1");
+        Assert.Contains(engine.Calls, c => c.Member == "EntityRender.SetAnimLayer" && c.ArgAs<int>(2) == 7);
+    }
 }

@@ -84,7 +84,11 @@ The rules that make every screen previewable, reloadable and cheap:
 5. Fix, and go to 2. `make ui-preview WATCH=1 PNG=1` re-renders on every save
    and prints the time from save to picture; the dev web UI's **Mockups**
    tab at `http://127.0.0.1:7191/#mockups` shows the pictures, reloads itself,
-   and names whatever is under the pointer.
+   and names whatever is under the pointer. Its **Live** view (the game's dev
+   API serves it too, from the UI assemblies beside it) lists every screen, HUD
+   element, gallery part and panel (`UiLive`), draws the chosen one at any size,
+   and lists every value it read to edit, randomise or reset: a screen with no
+   sample still draws, over made-up data (`UiMockSources`).
 6. Goldens: `UI_GOLDEN_WRITE=1 make managed-test FILTER='FullyQualifiedName~UiGoldenTests'`
    writes the SVG and pixel goldens; review the diff, commit them with the
    screen.

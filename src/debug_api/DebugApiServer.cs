@@ -123,6 +123,9 @@ public sealed class DebugApiServer : IDebugApi
     internal EntityEventLog EventsForTest => _events;
     private readonly EntitySampler _sampler;
 
+    // The UI's live mock-ups, its assemblies loaded on the first request.
+    private readonly UiMockups _mockups;
+
     // The game's own console, which the managed sink cannot see. Its own ring
     // rather than the managed one: managed lines reach the console too, and one
     // feed carrying both would show every one of them twice.
@@ -238,6 +241,7 @@ public sealed class DebugApiServer : IDebugApi
                                 () => DebugCommandLine.Value(_args, "-game", ""));
         _maps = directories.MapDirectory is { } named ? new MapSource(named) : new MapSource(_layout);
         _sampler = new EntitySampler(_events);
+        _mockups = new UiMockups(() => _layout.ManagedDirectory, () => _layout.ModDirectory);
     }
 
     /// <summary>
@@ -904,6 +908,9 @@ public sealed class DebugApiServer : IDebugApi
         _debugChannel?.Dispose();
         _debugChannel = null;
 
+        // Its assemblies' context is collectible, and pins nothing once unloaded.
+        _mockups.Dispose();
+
         // The socket file would otherwise stay behind and look like a live
         // instance to anything listing the directory.
         if (_socketPath is not null)
@@ -1146,6 +1153,10 @@ public sealed class DebugApiServer : IDebugApi
 
             case "/routes":
                 return Ok(ProviderRoutes());
+
+            // The UI's live mock-ups (the Mockups tab): off the game thread.
+            case "/preview/live":
+                return _mockups.Answer(request.Body);
 
             default:
                 if (request.Path.StartsWith("/ui", StringComparison.Ordinal))
@@ -1411,6 +1422,7 @@ public sealed class DebugApiServer : IDebugApi
             "GET  /player/aim":            "where a player is looking, and what they are looking at",
             "GET  /player/teleport?player=N&pos=x,y,z&ang=p,y,r&settle=1": "teleport a player (setpos_exact, no cheats); with settle, answer once it has landed",
             "GET  /entities/remove?name=G|class=G|index=I|handle=H": "remove what matches; answer once it is gone",
+            "POST /preview/live":          "the UI's live mock-ups: {op:list} or {op:render, segment, preset, w, h, scale, values}",
             "GET  /ui":                    "the web interface"
           }
         }

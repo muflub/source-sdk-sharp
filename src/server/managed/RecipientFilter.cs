@@ -199,6 +199,27 @@ public sealed class SoundRecipients(IServerSoundEmitterEngine engine, ISoundList
     /// </summary>
     public RecipientFilter Pas(Vector origin) => Multicast(true, origin);
 
+    /// <summary>gpGlobals-&gt;maxClients: the server's player slots.</summary>
+    public int MaxClients => listeners.MaxClients;
+
+    /// <summary>
+    /// <c>AddRecipientsByPAS( origin )</c> then, on a multiplayer server,
+    /// <c>RemoveRecipientsByPVS( origin )</c>: the players who hear a step the
+    /// server makes, since a player in its PVS makes that step itself, client
+    /// side (CBasePlayer::PlayStepSound, CHL2MP_Player::PlayStepSound).
+    /// </summary>
+    public RecipientFilter PasOutsidePvs(Vector origin)
+    {
+        RecipientFilter filter = Pas(origin);
+        if (listeners.MaxClients > 1)
+        {
+            foreach (int slot in Multicast(false, origin).Slots)
+                filter.Remove(slot);
+        }
+
+        return filter;
+    }
+
     /// <summary>
     /// <c>CPVSFilter( origin )</c>: AddRecipientsByPVS, the same rule over the
     /// PVS (plan_server_native_v2 T4b: the temp entities' PVS sends).

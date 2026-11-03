@@ -109,6 +109,8 @@ internal abstract class TempEntsDouble : ITempEnts
                                     int modelIndex, int reversed) { }
 
     public virtual void KillPlayerAttachments(TeFilter filter, float delay, int player) { }
+
+    public virtual void PlayerAnimEvent(TeFilter filter, float delay, int packedPlayer, int animEvent, int data) { }
     public virtual void DispatchEffect(TeFilter filter, float delay, int effectNameIndex,
                                        in TeEffectData data) { }
 

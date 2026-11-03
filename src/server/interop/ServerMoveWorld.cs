@@ -22,8 +22,9 @@ namespace SourceSharp.Server.Interop;
 /// managed here: the touch list's one-report-per-entity dedupe and the record
 /// of what was touched, the swim and fall noises (the managed SoundEmitter's,
 /// as they were), the surface change, and the fall's damage, which native
-/// carries out through the shell's damage path. The rest of IMoveHelper was
-/// empty on the server (animation, step sounds, splash, rumble, the duck
+/// carries out through the shell's damage path, and the player's footsteps
+/// (CBasePlayer::UpdateStepSound, CHL2MP_Player::PlayStepSound). The rest of
+/// IMoveHelper was empty on the server (animation, splash, rumble, the duck
 /// latch) and is empty here.
 /// </para>
 ///
@@ -163,9 +164,24 @@ internal sealed unsafe class ServerMoveWorld(EngineSide api, IMovementServerArea
         return alive;
     }
 
-    public void PlayStepSound(in Vector origin, int surfaceProps, float volume, bool force) { }
+    /// <summary><c>CHL2MP_Player::PlayStepSound</c>, the server's arm (<see cref="PlayerStepSounds.Play"/>).</summary>
+    public void PlayStepSound(in Vector origin, int surfaceProps, float volume, bool force)
+    {
+        if (Host is { } host)
+            _steps.Play(host, EntIndex, origin, volume, sounds);
+    }
 
-    public void UpdateStepSound(in Vector origin, in Vector velocity, int surfaceProps) { }
+    /// <summary><c>CBasePlayer::UpdateStepSound</c> (<see cref="PlayerStepSounds.Update"/>).</summary>
+    public void UpdateStepSound(in Vector origin, in Vector velocity, int surfaceProps)
+    {
+        if (Host is not { } host)
+            return;
+
+        int material = surfaceProps >= 0 && surfaces.Surface(surfaceProps) is { Valid: true } surface ? surface.Material : -1;
+        _steps.Update(host, EntIndex, origin, velocity, material, sounds);
+    }
+
+    private readonly PlayerStepSounds _steps = new();
 
     public void Splash() { }
 

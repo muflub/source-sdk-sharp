@@ -35,3 +35,18 @@ public interface ISoundEmitHook
 {
     void OnEmitted(in EmittedSound sound);
 }
+
+/// <summary>
+/// Sees each footstep the clients make themselves (plan_hl2mp_ai §4.2): in
+/// multiplayer the server sends a player's step only to the PAS less the PVS,
+/// because each client in the PVS makes the step from the player's networked
+/// movement by the same rules (C_BasePlayer::Simulate's UpdateStepSound). The
+/// step is taken where the server's movement decides it, with the stepping
+/// player as <see cref="EmittedSound.Owner"/> and the PVS's players, whose
+/// clients make it, as <see cref="EmittedSound.Recipients"/>. Called on the
+/// game thread.
+/// </summary>
+public interface IClientStepHook
+{
+    void OnClientStep(in EmittedSound step);
+}

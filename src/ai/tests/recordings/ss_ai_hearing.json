@@ -4,144 +4,73 @@
  "scenes": [
   {
    "name": "near smg1",
-   "from": 224,
-   "to": 311
+   "from": 262,
+   "to": 347
   },
   {
    "name": "near smg1 fire",
-   "from": 313,
-   "to": 430
+   "from": 348,
+   "to": 464
   },
   {
    "name": "near smg1 reload",
-   "from": 431,
-   "to": 612
+   "from": 465,
+   "to": 647
   },
   {
    "name": "near pistol",
-   "from": 613,
-   "to": 743
+   "from": 648,
+   "to": 777
   },
   {
    "name": "near pistol reload",
-   "from": 744,
-   "to": 927
+   "from": 778,
+   "to": 960
   },
   {
    "name": "near 357",
-   "from": 929,
-   "to": 1035
+   "from": 961,
+   "to": 1067
   },
   {
    "name": "near 357 fire",
-   "from": 1037,
-   "to": 1269
+   "from": 1068,
+   "to": 1298
   },
   {
    "name": "near 357 reload",
-   "from": 1272,
-   "to": 1590
+   "from": 1299,
+   "to": 1614
   },
   {
    "name": "far smg1",
-   "from": 1591,
-   "to": 1730
+   "from": 1615,
+   "to": 1748
   },
   {
    "name": "far smg1 reload",
-   "from": 1732,
-   "to": 1916
+   "from": 1749,
+   "to": 1931
   },
   {
    "name": "far steps",
-   "from": 1917,
-   "to": 2068
+   "from": 1932,
+   "to": 2080
   },
   {
    "name": "own steps",
-   "from": 2068,
-   "to": 2218
+   "from": 2081,
+   "to": 2229
   }
  ],
  "truth": [
   {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 88,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 3,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 89,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
+   "way": "sound",
    "tick": 123,
    "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 3,
-   "in": true,
+   "sound": "Weapon_PhysCannon.OpenClaws",
+   "owner": 2,
+   "in": false,
    "dist": 36.0,
    "reach": 2500.0,
    "share": 0.85,
@@ -149,20 +78,9 @@
    "weapon": -1
   },
   {
+   "way": "sound",
    "tick": 124,
    "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 70,
-   "bot": 2,
    "sound": "Weapon_PhysCannon.OpenClaws",
    "owner": 3,
    "in": true,
@@ -173,19 +91,8 @@
    "weapon": -1
   },
   {
-   "tick": 71,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 104,
+   "way": "sound",
+   "tick": 158,
    "bot": 2,
    "sound": "Weapon_PhysCannon.CloseClaws",
    "owner": 2,
@@ -197,7 +104,8 @@
    "weapon": -1
   },
   {
-   "tick": 105,
+   "way": "sound",
+   "tick": 159,
    "bot": 2,
    "sound": "Weapon_PhysCannon.CloseClaws",
    "owner": 3,
@@ -209,295 +117,8 @@
    "weapon": -1
   },
   {
-   "tick": 106,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 112,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 47.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 147,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 47.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 86,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 3,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 121,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 3,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 86,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 3,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 87,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 121,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 3,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 4,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 88,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 89,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.OpenClaws",
-   "owner": 3,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 122,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 1,
-   "in": true,
-   "dist": 227.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 123,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 2,
-   "in": false,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 124,
-   "bot": 2,
-   "sound": "Weapon_PhysCannon.CloseClaws",
-   "owner": 3,
-   "in": true,
-   "dist": 36.0,
-   "reach": 2500.0,
-   "share": 0.85,
-   "kind": "Unknown",
-   "weapon": -1
-  },
-  {
-   "tick": 316,
+   "way": "sound",
+   "tick": 350,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -509,7 +130,8 @@
    "weapon": 3
   },
   {
-   "tick": 322,
+   "way": "sound",
+   "tick": 356,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -521,7 +143,8 @@
    "weapon": 3
   },
   {
-   "tick": 328,
+   "way": "sound",
+   "tick": 362,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -533,7 +156,8 @@
    "weapon": 3
   },
   {
-   "tick": 334,
+   "way": "sound",
+   "tick": 368,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -545,7 +169,8 @@
    "weapon": 3
   },
   {
-   "tick": 340,
+   "way": "sound",
+   "tick": 374,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -557,7 +182,8 @@
    "weapon": 3
   },
   {
-   "tick": 346,
+   "way": "sound",
+   "tick": 380,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -569,7 +195,8 @@
    "weapon": 3
   },
   {
-   "tick": 352,
+   "way": "sound",
+   "tick": 386,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -581,7 +208,8 @@
    "weapon": 3
   },
   {
-   "tick": 358,
+   "way": "sound",
+   "tick": 392,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -593,7 +221,8 @@
    "weapon": 3
   },
   {
-   "tick": 364,
+   "way": "sound",
+   "tick": 398,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -605,7 +234,8 @@
    "weapon": 3
   },
   {
-   "tick": 370,
+   "way": "sound",
+   "tick": 404,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -617,7 +247,8 @@
    "weapon": 3
   },
   {
-   "tick": 376,
+   "way": "sound",
+   "tick": 410,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -629,7 +260,8 @@
    "weapon": 3
   },
   {
-   "tick": 382,
+   "way": "sound",
+   "tick": 416,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -641,7 +273,8 @@
    "weapon": 3
   },
   {
-   "tick": 388,
+   "way": "sound",
+   "tick": 422,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -653,7 +286,8 @@
    "weapon": 3
   },
   {
-   "tick": 394,
+   "way": "sound",
+   "tick": 428,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -665,7 +299,8 @@
    "weapon": 3
   },
   {
-   "tick": 433,
+   "way": "sound",
+   "tick": 467,
    "bot": 2,
    "sound": "Weapon_SMG1.Reload",
    "owner": 3,
@@ -677,7 +312,8 @@
    "weapon": 3
   },
   {
-   "tick": 630,
+   "way": "sound",
+   "tick": 665,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -689,7 +325,8 @@
    "weapon": 1
   },
   {
-   "tick": 638,
+   "way": "sound",
+   "tick": 673,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -701,7 +338,8 @@
    "weapon": 1
   },
   {
-   "tick": 646,
+   "way": "sound",
+   "tick": 681,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -713,7 +351,8 @@
    "weapon": 1
   },
   {
-   "tick": 654,
+   "way": "sound",
+   "tick": 689,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -725,7 +364,8 @@
    "weapon": 1
   },
   {
-   "tick": 662,
+   "way": "sound",
+   "tick": 697,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -737,7 +377,8 @@
    "weapon": 1
   },
   {
-   "tick": 670,
+   "way": "sound",
+   "tick": 705,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -749,7 +390,8 @@
    "weapon": 1
   },
   {
-   "tick": 678,
+   "way": "sound",
+   "tick": 713,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -761,7 +403,8 @@
    "weapon": 1
   },
   {
-   "tick": 686,
+   "way": "sound",
+   "tick": 721,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -773,7 +416,8 @@
    "weapon": 1
   },
   {
-   "tick": 694,
+   "way": "sound",
+   "tick": 729,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -785,7 +429,8 @@
    "weapon": 1
   },
   {
-   "tick": 702,
+   "way": "sound",
+   "tick": 737,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -797,7 +442,8 @@
    "weapon": 1
   },
   {
-   "tick": 710,
+   "way": "sound",
+   "tick": 745,
    "bot": 2,
    "sound": "Weapon_Pistol.Single",
    "owner": 3,
@@ -809,7 +455,8 @@
    "weapon": 1
   },
   {
-   "tick": 746,
+   "way": "sound",
+   "tick": 780,
    "bot": 2,
    "sound": "Weapon_Pistol.Reload",
    "owner": 3,
@@ -821,7 +468,8 @@
    "weapon": 1
   },
   {
-   "tick": 1075,
+   "way": "sound",
+   "tick": 1105,
    "bot": 2,
    "sound": "Weapon_357.Single",
    "owner": 3,
@@ -833,7 +481,8 @@
    "weapon": 2
   },
   {
-   "tick": 1125,
+   "way": "sound",
+   "tick": 1155,
    "bot": 2,
    "sound": "Weapon_357.Single",
    "owner": 3,
@@ -845,7 +494,8 @@
    "weapon": 2
   },
   {
-   "tick": 1175,
+   "way": "sound",
+   "tick": 1205,
    "bot": 2,
    "sound": "Weapon_357.Single",
    "owner": 3,
@@ -857,7 +507,8 @@
    "weapon": 2
   },
   {
-   "tick": 1225,
+   "way": "sound",
+   "tick": 1255,
    "bot": 2,
    "sound": "Weapon_357.Single",
    "owner": 3,
@@ -869,7 +520,8 @@
    "weapon": 2
   },
   {
-   "tick": 1634,
+   "way": "sound",
+   "tick": 1655,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -881,7 +533,8 @@
    "weapon": 3
   },
   {
-   "tick": 1640,
+   "way": "sound",
+   "tick": 1661,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -893,7 +546,8 @@
    "weapon": 3
   },
   {
-   "tick": 1646,
+   "way": "sound",
+   "tick": 1667,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -905,7 +559,8 @@
    "weapon": 3
   },
   {
-   "tick": 1652,
+   "way": "sound",
+   "tick": 1673,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -917,7 +572,8 @@
    "weapon": 3
   },
   {
-   "tick": 1658,
+   "way": "sound",
+   "tick": 1679,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -929,7 +585,8 @@
    "weapon": 3
   },
   {
-   "tick": 1664,
+   "way": "sound",
+   "tick": 1685,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -941,7 +598,8 @@
    "weapon": 3
   },
   {
-   "tick": 1670,
+   "way": "sound",
+   "tick": 1691,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -953,7 +611,8 @@
    "weapon": 3
   },
   {
-   "tick": 1676,
+   "way": "sound",
+   "tick": 1697,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -965,7 +624,8 @@
    "weapon": 3
   },
   {
-   "tick": 1682,
+   "way": "sound",
+   "tick": 1703,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -977,7 +637,8 @@
    "weapon": 3
   },
   {
-   "tick": 1688,
+   "way": "sound",
+   "tick": 1709,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -989,7 +650,8 @@
    "weapon": 3
   },
   {
-   "tick": 1694,
+   "way": "sound",
+   "tick": 1715,
    "bot": 2,
    "sound": "Weapon_SMG1.Single",
    "owner": 3,
@@ -1001,7 +663,8 @@
    "weapon": 3
   },
   {
-   "tick": 1735,
+   "way": "sound",
+   "tick": 1751,
    "bot": 2,
    "sound": "Weapon_SMG1.Reload",
    "owner": 3,
@@ -1011,18 +674,96 @@
    "share": 0.85,
    "kind": "Reload",
    "weapon": 3
+  },
+  {
+   "way": "client step",
+   "tick": 1938,
+   "bot": 2,
+   "sound": "npc/footsteps/hardboot_generic1.wav",
+   "owner": 3,
+   "in": true,
+   "dist": 1160.0,
+   "reach": 2500.0,
+   "share": 0.85,
+   "kind": "Footstep",
+   "weapon": -1
+  },
+  {
+   "way": "client step",
+   "tick": 1965,
+   "bot": 2,
+   "sound": "npc/footsteps/hardboot_generic2.wav",
+   "owner": 3,
+   "in": true,
+   "dist": 1163.0,
+   "reach": 2500.0,
+   "share": 0.85,
+   "kind": "Footstep",
+   "weapon": -1
+  },
+  {
+   "way": "client step",
+   "tick": 1992,
+   "bot": 2,
+   "sound": "npc/footsteps/hardboot_generic5.wav",
+   "owner": 3,
+   "in": true,
+   "dist": 1170.0,
+   "reach": 2500.0,
+   "share": 0.85,
+   "kind": "Footstep",
+   "weapon": -1
+  },
+  {
+   "way": "client step",
+   "tick": 2087,
+   "bot": 2,
+   "sound": "npc/footsteps/hardboot_generic3.wav",
+   "owner": 2,
+   "in": true,
+   "dist": 0.0,
+   "reach": 2500.0,
+   "share": 0.85,
+   "kind": "Footstep",
+   "weapon": -1
+  },
+  {
+   "way": "client step",
+   "tick": 2114,
+   "bot": 2,
+   "sound": "npc/footsteps/hardboot_generic4.wav",
+   "owner": 2,
+   "in": true,
+   "dist": 0.0,
+   "reach": 2500.0,
+   "share": 0.85,
+   "kind": "Footstep",
+   "weapon": -1
+  },
+  {
+   "way": "client step",
+   "tick": 2141,
+   "bot": 2,
+   "sound": "npc/footsteps/hardboot_generic1.wav",
+   "owner": 2,
+   "in": true,
+   "dist": 0.0,
+   "reach": 2500.0,
+   "share": 0.85,
+   "kind": "Footstep",
+   "weapon": -1
   }
  ],
  "listener": 2,
  "target": 3,
  "counters": {
-  "tick": 2221,
-  "ai.sense.us": 137.2,
-  "ai.sense.us.max": 3259.8,
-  "ai.publish.us": 4513.8,
+  "tick": 2230,
+  "ai.sense.us": 58.2,
+  "ai.sense.us.max": 167.8,
+  "ai.publish.us": 267.9,
   "ai.sense.ticks": 300,
   "ai.sense.traces": 0,
-  "ai.sense.traces.total": 17381,
+  "ai.sense.traces.total": 17155,
   "bots": 2
  }
 }

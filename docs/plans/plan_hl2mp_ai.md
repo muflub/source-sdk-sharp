@@ -2432,6 +2432,60 @@ that code when M1 starts, and changes nothing here.
   Red against the plan: `ai.publish.us` (the inline brains, 1.1–1.6 ms
   live) over §9's 1,000 µs main-thread ceiling until Phase 6's pool.
 
+- **Phase 5's first two commits are the divergences Phase 4 found**
+  (2026-11-02). (1) **Footsteps.** The server's `PlayStepSound` and
+  `UpdateStepSound` were empty (`src/server/interop/ServerMoveWorld.cs:166`).
+  Stock's HL2MP server arm (`CBasePlayer::UpdateStepSound`'s timer and
+  volumes, `CHL2MP_Player::PlayStepSound`'s model prefix, its no-step while
+  ducking, `sv_footsteps`) is `StepSoundRules` (shared, pure) over
+  `PlayerStepSounds` (the timer on the move state, the step side on the
+  player's record), and the step goes to `SoundRecipients.PasOutsidePvs`:
+  the PAS of the feet less the PVS. The six `RunFootstep` scripts were not
+  precached (live: "hardboot_generic3.wav not precached") and now are. The
+  in-PVS half is a core hook, `IClientStepHook`, told of each step with the
+  PVS's players as its recipients: the step is taken where the server's
+  movement decides it, which is the networked movement the PVS's clients
+  make it from by the same rules (their per-frame timer over an estimated
+  velocity differs by at most a frame); `SoundTap` hears both ways by one
+  rule. Live (dm_lockdown): "client step 974 to 2: npc/footsteps/
+  hardboot_generic4.wav owner 2 in 1" beside "sound 1222 to 3: ... owner 2
+  in 1" for a bot outside the walker's PVS; the re-recorded ss_ai_hearing
+  has the target's steps heard. **Found, not in the brief: the client makes
+  no footstep either** (its own, predicted, nor anyone else's: the move
+  helper's step effects reach native with no player on a client command,
+  `shell_movement.cpp:697-705`, and nothing does C_BasePlayer::Simulate's
+  step for other players), so a human hears only the server's PAS-less-PVS
+  share. The shared rules are the client arm's when it is ported; it is
+  client sound work outside the AI and is reported to the coordinator.
+  (2) **Animation events.** The premise was half true: nothing called
+  `MultiplayerAnimState.DoAnimationEvent`, so no client saw another
+  player's attack or reload gesture, but stock HL2MP does not send
+  `TE_PlayerAnimEvent` (only the SDK, TF2 and CS players do): its
+  `CHL2MP_Player::SetAnimation( PLAYER_ATTACK1 / PLAYER_RELOAD )` restarts
+  the weapon's `ACT_HL2MP_GESTURE_RANGE_ATTACK_*` / `_RELOAD_*` (its
+  acttable) on the server's networked overlay layers. This port animates
+  each player in every client's own copy of the multiplayer state and
+  networks no layers, so the event travels as the SDK's does:
+  `TE_PlayerAnimEvent` to the PVS of the eyes, from the arsenal where a
+  new command's shot or reload is known, its data the weapon's catalog type
+  (stock's client read the weapon from the networked active weapon, which
+  this port does not network for others), the client's
+  `ClientTePlayerAnimEvent` playing the acttable gesture on that player.
+  The crossbow's shot and the shotgun's reload show none, as stock. Not
+  covered: a melee swing, the physcannon and the SMG1's grenade, whose
+  stock code calls `SetAnimation( PLAYER_ATTACK1 )` without the arsenal's
+  clip-or-reserve shot (the behaviours have no animation arm). Live:
+  `scratchpad/ai-p5-anim-pair.jpg` (a bot before and 0.35 s after its SMG1
+  reload: the hands come to the weapon). `IPlayerWeaponEventHook` stays the
+  AI's tap. (3) **The spawn-time claw sounds** in ss_ai_hearing's truth
+  without heard events were the binding's: the taps pushed a joining bot's
+  first events before the senses pass told the session of it, so the
+  session dropped them; the taps now push through `Hl2mpSenses.Push`, which
+  brings the session up to the bots first. Re-recording found a second
+  defect, in `tools/ai-scenario`: the console log is shared by every game
+  of a tree and the truth read all of it; it now reads from the log's size
+  when its own game's socket appeared. The hearing fact runs from tick 0.
+
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 
 - `src/game/server/NextBot/Player/NextBotPlayer.h` — `NextBotCreatePlayerBot` (:36–60), `_NextBot_BuildUserCommand` (:558), `PhysicsSimulate` (:577): how a stock bot synthesises its usercmd.

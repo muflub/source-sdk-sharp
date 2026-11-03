@@ -15,7 +15,10 @@ by SkiaSharp over the dm_lockdown backdrops, plus gallery/sheet.png.
 file or ui-theme.yaml) it rebuilds and re-renders, prints the time from save
 to picture, and serves the pictures and the dev web UI on 127.0.0.1:<port>:
 open http://127.0.0.1:7191/#mockups. The page reloads itself over
-/preview/events (server-sent events) after each render.
+/preview/events (server-sent events) after each render. POST /preview/live is
+the live mock-ups (UiLive): every screen, HUD element, part and panel drawn on
+request with its data editable, answered by the tool's --live process, which
+is stopped for each rebuild and started again after it.
 
 `make ui-preview [PNG=1] [WATCH=1]` runs this.
 """
@@ -101,6 +104,55 @@ def render(config, png, only, quiet=False):
     return subprocess.run(cmd).returncode
 
 
+class LiveProcess:
+    """The tool's --live process: one JSON request line in, one answer line out."""
+
+    def __init__(self, config, cmd=None):
+        self.config = config
+        self.cmd = cmd
+        self.lock = threading.Lock()
+        self.proc = None
+
+    def start(self):
+        with self.lock:
+            self._stop()
+            cmd = self.cmd or ['dotnet', tool_dll(self.config), '--root', ROOT, '--live', '--quiet']
+            if MOD and not self.cmd:
+                cmd += ['--mod', MOD]
+            self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+            ready = self.proc.stdout.readline()
+            if not ready.startswith('{"ready":true'):
+                self._stop()
+                print('ui-preview: the live mock-ups did not start', file=sys.stderr)
+
+    def stop(self):
+        with self.lock:
+            self._stop()
+
+    def _stop(self):
+        if self.proc is not None:
+            try:
+                self.proc.stdin.close()
+                self.proc.wait(timeout=5)
+            except (OSError, subprocess.TimeoutExpired):
+                self.proc.kill()
+            self.proc = None
+
+    def ask(self, body):
+        """The answer to one request, as bytes; None while the tool is rebuilding or down."""
+        line = ' '.join(body.decode('utf-8', 'replace').splitlines()) or '{"op":"list"}'
+        with self.lock:
+            if self.proc is None or self.proc.poll() is not None:
+                return None
+            try:
+                self.proc.stdin.write(line + '\n')
+                self.proc.stdin.flush()
+                answer = self.proc.stdout.readline()
+            except OSError:
+                return None
+            return answer.encode() if answer else None
+
+
 class Clients:
     """The pages listening on /preview/events."""
 
@@ -125,7 +177,19 @@ class Clients:
                 q.append(payload)
 
 
-def serve(config, port, clients):
+def local_path(path, out, webui):
+    """The file a request names: /preview/* from the pictures, the page's own
+    files from the built web UI, which the page names under /ui/ as the game
+    serves them (/ui/app.js), and the page itself for / and /ui."""
+    path = path.split('?', 1)[0].split('#', 1)[0]
+    if path.startswith('/preview/'):
+        return os.path.join(out, path[len('/preview/'):])
+    if path == '/ui' or path.startswith('/ui/'):
+        path = path[len('/ui'):]
+    return os.path.join(webui, path.lstrip('/') or 'index.html')
+
+
+def serve(config, port, clients, live=None):
     out = os.path.join(ROOT, 'bin', config, 'ui-preview')
     webui = os.path.join(ROOT, 'src', 'debug_api', 'ui')
 
@@ -134,10 +198,7 @@ def serve(config, port, clients):
             pass
 
         def translate_path(self, path):
-            path = path.split('?', 1)[0].split('#', 1)[0]
-            if path.startswith('/preview/'):
-                return os.path.join(out, path[len('/preview/'):])
-            return os.path.join(webui, path.lstrip('/') or 'index.html')
+            return local_path(path, out, webui)
 
         def end_headers(self):
             self.send_header('Cache-Control', 'no-store')
@@ -164,6 +225,22 @@ def serve(config, port, clients):
                 return
             super().do_GET()
 
+        def do_POST(self):
+            if self.path.split('?', 1)[0] != '/preview/live':
+                self.send_error(404)
+                return
+            body = self.rfile.read(int(self.headers.get('Content-Length') or 0))
+            answer = live.ask(body) if live else None
+            if answer is None:
+                answer = json.dumps({'error': 'the live mock-ups are rebuilding; try again'}).encode()
+                self.send_response(503)
+            else:
+                self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(answer)))
+            self.end_headers()
+            self.wfile.write(answer)
+
     server = http.server.ThreadingHTTPServer(('127.0.0.1', port), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     if not os.path.isfile(os.path.join(webui, 'index.html')):
@@ -173,10 +250,12 @@ def serve(config, port, clients):
 
 def watch(config, png, only, port):
     clients = Clients()
-    serve(config, port, clients)
+    live = LiveProcess(config)
+    serve(config, port, clients, live)
     if build(config) != 0:
         print('ui-preview: the first build failed; fix it and save', file=sys.stderr)
     else:
+        live.start()
         render(config, png, only)
     before = snapshot()
     while True:
@@ -188,7 +267,15 @@ def watch(config, png, only, port):
         saved = max(after.get(p, 0) for p in paths) / 1e9
         time.sleep(0.05)               # let an editor finish writing
         before = snapshot()
-        ok = (not needs_build(paths) or build(config) == 0) and render(config, png, only, quiet=True) == 0
+        # The --live process holds the tool's assemblies open: stopped for the
+        # build, started over the new ones (a theme or copy edit too).
+        built = not needs_build(paths)
+        if not built:
+            live.stop()
+            built = build(config) == 0
+        if built:
+            live.start()
+        ok = built and render(config, png, only, quiet=True) == 0
         took = time.time() - saved
         print(f'ui-preview: {len(paths)} file(s) changed -> {"picture" if ok else "FAILED"} in {took:.2f} s from save', flush=True)
         clients.send(sse('render' if ok else 'failed', {'seconds': round(took, 3), 'files': [os.path.relpath(p, ROOT) for p in paths]}))
@@ -222,6 +309,21 @@ def self_test():
     check(needs_build(['/x/src/client/ui/screens/Hud.cs', '/x/ui-theme.yaml']), 'a .cs edit needs a build')
     check(sse('render', {'seconds': 1.5}) == b'event: render\ndata: {"seconds": 1.5}\n\n', 'sse format')
     check(tool_dll('debug').endswith('bin/debug/tools/ui-preview/SourceSharp.UiPreview.dll'), 'tool path')
+
+    check(local_path('/ui/app.js', '/o', '/w') == '/w/app.js', 'the page\'s /ui/ files are the built web UI\'s')
+    check(local_path('/ui', '/o', '/w') == '/w/index.html', '/ui is the page')
+    check(local_path('/?x=1', '/o', '/w') == '/w/index.html', '/ is the page')
+    check(local_path('/preview/manifest.json?v=2', '/o', '/w') == '/o/manifest.json', '/preview/ is the pictures')
+
+    live = LiveProcess('debug', [sys.executable, '-c',
+                                 'import sys\nprint(\'{"ready":true}\', flush=True)\n'
+                                 'for l in sys.stdin: print(l.strip()[::-1], flush=True)'])
+    check(live.ask(b'{}') is None, 'a live process not started answers nothing')
+    live.start()
+    check(live.ask(b'{"a":\n1}') == b'}1 :"a"{\n', 'a request goes over as one line and its answer line comes back')
+    check(live.ask(b'') == b'}"tsil":"po"{\n', 'an empty request asks for the list')
+    live.stop()
+    check(live.ask(b'{}') is None, 'a stopped live process answers nothing')
 
     for f in failures:
         print('FAIL:', f)

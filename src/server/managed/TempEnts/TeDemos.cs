@@ -768,6 +768,14 @@ public static class TeDemos
                 TeArg.Int("Reversed", 1),
             ]),
 
+        new("CTEPlayerAnimEvent", "playeranimevent",
+            "a player's animation event (a shot's gesture) for each client's copy of its animation state. The tester names no player, so nothing plays",
+            [
+                TeArg.NoOwner("Player"),
+                TeArg.Int("Event", 0),
+                TeArg.Int("Data", 0),
+            ]),
+
         new("CTEKillPlayerAttachments", "killplayerattachments",
             "drops everything stuck to a player. The player is a SLOT, five bits",
             [

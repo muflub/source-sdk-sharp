@@ -42,7 +42,7 @@ public sealed class WeaponEventTap(Hl2mpSenses senses, VisionPass vision, Hl2mpB
         _events.Clear();
         Perceive(slot, weaponType, e, count, _watchers, new Tick(frame.TickCount()), _events);
         foreach (AiEvent ev in _events)
-            senses.Session.Push(ev);
+            senses.Push(ev);
     }
 
     /// <summary>

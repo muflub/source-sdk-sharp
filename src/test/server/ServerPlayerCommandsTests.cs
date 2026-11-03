@@ -43,6 +43,14 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         public readonly List<string> Scripts = [];
 
         public void MoveSoundScript(int entIndex, Vector origin, string soundName) => Scripts.Add(soundName);
+
+        public readonly List<(int Ent, Vector Origin, float Volume, bool Left)> Steps = [];
+
+        public bool Footsteps { get; set; } = true;
+
+        public int MaxClients { get; set; } = 8;
+
+        public void StepSound(int entIndex, Vector origin, float volume, bool left) => Steps.Add((entIndex, origin, volume, left));
     }
 
     private readonly NoSounds _sounds = new();

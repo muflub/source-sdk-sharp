@@ -1065,6 +1065,19 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The named effects a weapon sends itself (the stunstick's) reach the
         // temp entities, composed before it (ComposeEffects), through this door.
         _arsenal.Temps = _services.Require<ITempEnts>();
+
+        // A shot's and a reload's gesture in the server's copy of the
+        // player's animation state, as each client's copy plays it.
+        WeaponCatalog animWeapons = _services.Require<WeaponCatalog>();
+        _arsenal.ServerAnimEvent = (player, e, weapon) =>
+        {
+            if ((_entities?.Get(player) as SsPlayer)?.AnimStateOrNull is not { } state)
+                return;
+            if (SourceSharp.Shared.Anim.PlayerAnimGestures.Activity(e, animWeapons.ByIndex(weapon)?.Name ?? "") is { } gesture)
+                state.DoAnimationEvent(SourceSharp.Shared.Anim.PlayerAnimEvent.CustomGesture, 0, gesture);
+            else
+                state.DoAnimationEvent(e, weapon);
+        };
         _services.AddInstance(_arsenal);
         _services.AddInstance<IWeaponGiver>(_arsenal);
 
@@ -3391,11 +3404,14 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // The sounds the AI hears (plan_hl2mp_ai §4.2), collected once on the first emit.
         var soundHooks = new Hooks<ISoundEmitHook>(_services, Log);
+        var stepHooks = new Hooks<IClientStepHook>(_services, Log);
         var emitter = new SoundEmitter(engine, recipients, _services.Require<ICloseCaptions>(),
                                        _services.Require<IGameClock>(), SpeakerModel, () => trace?.Value == true,
                                        text => Log.Msg(text), DeveloperMessage, () => soundHooks.All, SourceOrigin);
+        var footsteps = _convars.Get<SvFootstepsConVar>();
         _serverSounds = new ServerSounds(emitter, entities, handle => _soundController.Create(handle),
-                                         text => Log.Warning(text), _soundSystem);
+                                         text => Log.Warning(text), _soundSystem, SpeakerModel,
+                                         () => footsteps?.Value != false, () => stepHooks.All);
         ServerSoundRouting.Route(_services, _serverSounds);
 
         // The temp entities' send (plan_server_native_v2 T4b): the same managed
@@ -3441,6 +3457,13 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         public void MoveSoundScript(int entIndex, Vector origin, string soundName)
             => sink()?.MoveSoundScript(entIndex, origin, soundName);
+
+        public bool Footsteps => sink()?.Footsteps ?? false;
+
+        public int MaxClients => sink()?.MaxClients ?? 1;
+
+        public void StepSound(int entIndex, Vector origin, float volume, bool left)
+            => sink()?.StepSound(entIndex, origin, volume, left);
     }
 
     /// <summary>

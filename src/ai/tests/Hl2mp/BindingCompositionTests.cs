@@ -19,5 +19,6 @@ public sealed class BindingCompositionTests
         IReadOnlyList<Type> registered = SideServices.Register(services, Side.Server, typeof(VisionPass).Assembly.GetTypes());
         Assert.Contains(typeof(CombatTap), registered);
         Assert.Contains(typeof(SourceSharp.Server.ISoundEmitHook), registered);
+        Assert.Contains(typeof(SourceSharp.Server.IClientStepHook), registered);
     }
 }

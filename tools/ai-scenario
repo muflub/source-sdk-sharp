@@ -49,6 +49,7 @@ class Game:
         os.makedirs(self.tmp, exist_ok=True)
         self.pid = None
         self.console = None
+        self.mark = 0
 
     def start(self):
         before = set(os.listdir(self.api_dir))
@@ -71,13 +72,22 @@ class Game:
         cmd = open("/proc/%d/cmdline" % self.pid, "rb").read().split(b"\0")
         game_dir = cmd[cmd.index(b"-game") + 1].decode()
         self.console = os.path.join(game_dir, "console.log")
+        # The console log is appended to by every game of this tree (the
+        # instance links it), so this run's lines are those after its size
+        # now, when this game has its socket and has not loaded the map: an
+        # earlier game's lines are no truth of this one.
+        try:
+            self.mark = os.path.getsize(self.console)
+        except FileNotFoundError:
+            self.mark = 0
         self.wait_for(r"\[SourceSharp/Ai\] %s: the bots know" % re.escape(self.map), 300)
         self.wait_for(r"client 1 active", 300)
 
     def lines(self):
         try:
-            with open(self.console, errors="replace") as f:
-                return f.read().splitlines()
+            with open(self.console, "rb") as f:
+                f.seek(self.mark)
+                return f.read().decode(errors="replace").splitlines()
         except FileNotFoundError:
             return []
 
@@ -198,11 +208,11 @@ def hearing(game):
     scene("own steps", ["ai_bot_drive Listener 90 1.5"], 2.0)
     truth = []
     for line in game.lines():
-        m = re.search(r"\[SourceSharp/Ai\] sound (\d+) to (\d+): (\S+) owner (-?\d+) in ([01]) dist ([\d.]+) reach (\S+) share ([\d.]+) kind (\w+) weapon (-?\d+)", line)
-        if m and int(m.group(2)) == l:
-            truth.append({"tick": int(m.group(1)), "bot": l, "sound": m.group(3), "owner": int(m.group(4)), "in": m.group(5) == "1",
-                          "dist": float(m.group(6)), "reach": float(m.group(7)) if re.match(r"^[\d.]+$", m.group(7)) else 1e30,
-                          "share": float(m.group(8)), "kind": m.group(9), "weapon": int(m.group(10))})
+        m = re.search(r"\[SourceSharp/Ai\] (sound|client step) (\d+) to (\d+): (\S+) owner (-?\d+) in ([01]) dist ([\d.]+) reach (\S+) share ([\d.]+) kind (\w+) weapon (-?\d+)", line)
+        if m and int(m.group(3)) == l:
+            truth.append({"way": m.group(1), "tick": int(m.group(2)), "bot": l, "sound": m.group(4), "owner": int(m.group(5)), "in": m.group(6) == "1",
+                          "dist": float(m.group(7)), "reach": float(m.group(8)) if re.match(r"^[\d.]+$", m.group(8)) else 1e30,
+                          "share": float(m.group(9)), "kind": m.group(10), "weapon": int(m.group(11))})
     return scenes, truth, {"listener": l, "target": t}
 
 

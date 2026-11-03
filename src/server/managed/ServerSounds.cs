@@ -25,6 +25,12 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     private readonly ServerSoundPatches _patches;
     private readonly SoundEmitterSystem? _system;
     private bool _saidUnresolved;
+    private readonly Func<int, string?>? _playerModel;
+    private readonly Func<bool>? _footsteps;
+    private readonly Func<IReadOnlyList<IClientStepHook>>? _stepHooks;
+
+    /// <summary>CHAN_BODY (soundflags.h).</summary>
+    private const int ChanBody = 4;
 
     /// <param name="onPatchCreated">
     /// The managed sound controller's <c>Create</c>: a new patch's handle is
@@ -34,13 +40,20 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     /// The sound emitter system every <see cref="PrecacheSound"/> goes to; null
     /// precaches nothing (the module has said why).
     /// </param>
+    /// <param name="playerModel">The model of the entity at an index (the step's sound prefix); null, none.</param>
+    /// <param name="footsteps"><c>sv_footsteps</c>; null, on.</param>
+    /// <param name="stepHooks">The registered <see cref="IClientStepHook"/>s, told of each step the PVS's clients make.</param>
     public ServerSounds(SoundEmitter emitter, IEngineEntities entities, Action<int> onPatchCreated,
-                        Action<string> warning, SoundEmitterSystem? system = null)
+                        Action<string> warning, SoundEmitterSystem? system = null, Func<int, string?>? playerModel = null,
+                        Func<bool>? footsteps = null, Func<IReadOnlyList<IClientStepHook>>? stepHooks = null)
     {
+        _stepHooks = stepHooks;
         _emitter = emitter;
         _entities = entities;
         _warning = warning;
         _system = system;
+        _playerModel = playerModel;
+        _footsteps = footsteps;
         _patches = new ServerSoundPatches(emitter, entities, onPatchCreated);
     }
 
@@ -62,6 +75,56 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     {
         int index = _entities.GetIndex(entity);
         return index > 0 ? index : SoundEmitter.SoundFromWorld;
+    }
+
+    public bool Footsteps => _footsteps?.Invoke() ?? true;
+
+    public int MaxClients => _emitter.Recipients.MaxClients;
+
+    /// <summary>
+    /// <c>CHL2MP_Player::PlayStepSound</c> from the name on: the model's
+    /// prefix and the side's <c>RunFootstep</c> script, its wave, level and
+    /// pitch at the step's volume on CHAN_BODY, from the player to the PAS of
+    /// the feet less the PVS on a multiplayer server (a player in the PVS
+    /// makes the step itself, client side). No script, no step.
+    /// </summary>
+    public void StepSound(int entIndex, Vector origin, float volume, bool left)
+    {
+        string name = StepSoundRules.Hl2mpStepName(StepSoundRules.Hl2mpSoundPrefix(_playerModel?.Invoke(entIndex)), left);
+        if (_emitter.Parameters(name) is not { } parameters || parameters.Name.Length == 0)
+            return;
+
+        RecipientFilter filter = _emitter.Recipients.PasOutsidePvs(origin);
+        _emitter.Emit(filter, entIndex, new EmitSoundParams
+        {
+            SoundName = parameters.Name,
+            Channel = ChanBody,
+            Volume = volume,
+            SoundLevel = parameters.SoundLevel,
+            Pitch = parameters.Pitch,
+            Origin = origin,
+        });
+
+        // The PVS's clients make this step themselves; the hooks are told who.
+        if (MaxClients <= 1 || _stepHooks?.Invoke() is not { Count: > 0 } hooks)
+            return;
+
+        RecipientFilter pvs = _emitter.Recipients.Pvs(origin);
+        Span<int> slots = pvs.Count <= 128 ? stackalloc int[pvs.Count] : new int[pvs.Count];
+        for (int i = 0; i < slots.Length; i++)
+            slots[i] = pvs.IndexAt(i);
+        var step = new EmittedSound(origin, parameters.SoundLevel, parameters.Name, entIndex, slots);
+        foreach (IClientStepHook hook in hooks)
+        {
+            try
+            {
+                hook.OnClientStep(in step);
+            }
+            catch (Exception e)
+            {
+                _warning($"[SourceSharp] IClientStepHook.OnClientStep on {hook.GetType().FullName} threw: {e}\n");
+            }
+        }
     }
 
     /// <summary>

@@ -721,6 +721,20 @@ public class DebugApiTests
         public void Execute(string args) { }
     }
 
+    /// <summary>
+    /// /preview/live reaches the UI's live mock-ups. The server's test bin
+    /// holds no client UI, so the answer is the refusal that names the
+    /// missing toolkit; the client's facts (UiMockupsHostTests) draw.
+    /// </summary>
+    [Fact]
+    public void PreviewLiveReachesTheUiMockups()
+    {
+        var server = DebugApiServer.ForTest(TestDebugHooks.Server());
+        var reply = Reply(server, "POST", "/preview/live", "{\"op\":\"list\"}");
+        Assert.Equal(503, reply.Status);
+        Assert.Contains("SourceSharp.Client.Ui.Toolkit.dll", reply.Body);
+    }
+
     private static HttpReply Reply(DebugApiServer server, string method, string path, string body = "")
     {
         HttpSocketServer.TryParse($"{method} {(path.Length == 0 ? "/" : path)} HTTP/1.1\r\n\r\n{body}", out var request);

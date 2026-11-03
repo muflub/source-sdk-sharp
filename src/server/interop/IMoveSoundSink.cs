@@ -22,4 +22,17 @@ public interface IMoveSoundSink
 
     /// <summary>StartSound( origin, soundname ).</summary>
     void MoveSoundScript(int entIndex, Vector origin, string soundName);
+
+    /// <summary><c>sv_footsteps</c>.</summary>
+    bool Footsteps { get; }
+
+    /// <summary>gpGlobals-&gt;maxClients.</summary>
+    int MaxClients { get; }
+
+    /// <summary>
+    /// <c>CHL2MP_Player::PlayStepSound</c>'s emit: the player's step on the
+    /// side given, at the volume given, to the PAS of the feet less its PVS
+    /// on a multiplayer server.
+    /// </summary>
+    void StepSound(int entIndex, Vector origin, float volume, bool left);
 }

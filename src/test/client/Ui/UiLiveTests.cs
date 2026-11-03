@@ -234,6 +234,7 @@ public class UiLiveTests
         var list = Ask("""{"op":"list"}""");
         var board = list.GetProperty("segments").EnumerateArray().Single(s => s.GetProperty("id").GetString() == "screen:scoreboard");
         var presets = board.GetProperty("presets").EnumerateArray().Select(p => p.GetProperty("slug").GetString()).ToList();
+        Assert.Equal("Scoreboard", board.GetProperty("name").GetString());
         Assert.Equal("12-players-two-teams", presets[0]);
         Assert.Equal(UiSegment.Auto, presets[^1]);
         Assert.Contains(list.GetProperty("sizes").EnumerateArray(), s => s.GetProperty("name").GetString() == "1920x1080");

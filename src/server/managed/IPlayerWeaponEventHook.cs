@@ -4,11 +4,10 @@ namespace SourceSharp.Server;
 
 /// <summary>
 /// What another client is shown of a player's weapon (plan_hl2mp_ai §4.5):
-/// the shot and reload gestures stock sends every other client as player
-/// animation events (<c>CHL2MP_Player::DoAnimationEvent</c>'s
-/// <c>TE_PlayerAnimEvent</c>: <c>PLAYERANIMEVENT_ATTACK_PRIMARY</c>,
-/// <c>PLAYERANIMEVENT_RELOAD</c>), and the clip a shotgun's shell-by-shell
-/// reload fills.
+/// the shot and the reload, whose gestures every client that sees the player
+/// plays (HL2MP's <c>SetAnimation( PLAYER_ATTACK1 / PLAYER_RELOAD )</c>; here
+/// the arsenal's <c>TE_PlayerAnimEvent</c>), and the clip a shotgun's
+/// shell-by-shell reload fills.
 /// </summary>
 public enum PlayerWeaponEvent : byte
 {

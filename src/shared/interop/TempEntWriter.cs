@@ -202,7 +202,14 @@ public readonly ref struct TempEntWriter
     /// be an engine call per field written.
     /// </para>
     /// </summary>
-    public bool EHandle(string name, EntityHandle entity)
+    public bool EHandle(string name, EntityHandle entity) => Int(name, PackEHandle(entity));
+
+    /// <summary>
+    /// <see cref="EHandle(string, EntityHandle)"/>'s number, for a declaration
+    /// that keeps its handle as the packed int (the reader's
+    /// <see cref="TempEntReader.EntryIndexOf"/> undoes it).
+    /// </summary>
+    public static int PackEHandle(EntityHandle entity)
     {
         const int EntryMask     = (1 << 16) - 1;   // ENT_ENTRY_MASK
         const int SerialShift   = 16;              // NUM_SERIAL_NUM_SHIFT_BITS
@@ -211,12 +218,12 @@ public readonly ref struct TempEntWriter
         const int InvalidHandle = (1 << 21) - 1;   // INVALID_NETWORKED_EHANDLE_VALUE
 
         if (entity == EntityHandle.None || entity.Value == uint.MaxValue)
-            return Int(name, InvalidHandle);
+            return InvalidHandle;
 
         int entry  = (int)(entity.Value & EntryMask);
         int serial = (int)(entity.Value >> SerialShift) & SerialMask;
 
-        return Int(name, entry | (serial << MaxEdictBits));
+        return entry | (serial << MaxEdictBits);
     }
 
     private bool Slot(string name, out TeField field, out Span<byte> at)

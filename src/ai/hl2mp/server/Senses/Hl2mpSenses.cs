@@ -203,9 +203,27 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         return ActorId.None;
     }
 
+    /// <summary>
+    /// An event for the session, after the session has caught up with the
+    /// binding's bots: a bot hears and is hit from the tick it joins, which is
+    /// before the next senses pass would have added it (its spawn's sounds were
+    /// dropped that way).
+    /// </summary>
+    public void Push(in AiEvent e)
+    {
+        Follow();
+        ai.Session.Push(e);
+    }
+
+    private int _followed = -1;
+
     /// <summary>The session and the vision serve exactly the binding's bots.</summary>
     private void Follow()
     {
+        if (_followed == bots.Version)
+            return;
+        _followed = bots.Version;
+
         foreach ((int slot, ActorId id) in _inSession.ToArray())
         {
             if (bots.Bots.Any(b => b.Id == id))

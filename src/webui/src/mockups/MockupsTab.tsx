@@ -1,25 +1,45 @@
 /*
- * Mock-ups of the game's UI, without the game (plan_client_ui §7).
+ * Mock-ups of the game's UI (plan_client_ui §7). Three views:
  *
- * `make ui-preview WATCH=1` renders every screen sample at every mock-up size
- * and serves the pictures here under /preview/; each save re-renders, and the
- * tool says so over /preview/events, so this tab reloads what it shows. Two
- * views: Screens (pick a screen, a sample, a size, a world backdrop; hover to
- * see what each element is and where) and Gallery (every part in every state,
- * to pick from by looking).
+ * Live (LiveView): every screen, HUD element, gallery part and panel in the
+ * UI assemblies, drawn on request at any size with its data editable. The
+ * game's dev API answers it from the UI assemblies it loads itself, and so
+ * does `make ui-preview WATCH=1`.
  *
- * Served by the game instead, there is no /preview/: the tab says how to start
- * the preview rather than showing an empty page.
+ * Screens and Gallery: the pictures `make ui-preview WATCH=1` renders of every
+ * sample at every mock-up size, served under /preview/; each save re-renders,
+ * and the tool says so over /preview/events, so the tab reloads what it shows
+ * (Live redraws too). Screens picks a screen, a sample, a size and a world
+ * backdrop, and names the element under the pointer; Gallery shows every part
+ * in every state. Served by the game, there are no pictures: those two views
+ * say how to start the preview.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react';
 
+import { LiveView } from './LiveView';
 import {
   elementAt, fontFaces, groups, parseSize, pathOf, pngFor, previewBase, sizesOf,
   type Element, type Manifest, type Sample,
 } from './manifest';
 
-type View = 'screens' | 'gallery';
+const VIEWS = ['live', 'screens', 'gallery'] as const;
+type View = (typeof VIEWS)[number];
+const VIEW_TITLES: Record<View, string> = { live: 'Live', screens: 'Screens', gallery: 'Gallery' };
+
+/** The view last shown, from this browser's storage (guarded: it can refuse). */
+function savedView(): View {
+  try {
+    const v = localStorage.getItem('ss-mockups:tab-view');
+    return (VIEWS as readonly string[]).includes(v ?? '') ? v as View : 'live';
+  } catch {
+    return 'live';
+  }
+}
+
+function saveTabView(v: View): void {
+  try { localStorage.setItem('ss-mockups:tab-view', v); } catch { /* storage refused */ }
+}
 const BACKDROPS = ['none', 'busy', 'dark', 'bright'] as const;
 type Backdrop = (typeof BACKDROPS)[number];
 
@@ -55,38 +75,44 @@ function useManifest(base: string, visible: boolean): { manifest: Manifest | nul
 export function MockupsTab({ visible }: { visible: boolean }): ReactNode {
   const base = useMemo(() => previewBase(), []);
   const { manifest, error, version } = useManifest(base, visible);
-  const [view, setView] = useState<View>('screens');
-
-  if (!manifest) {
-    return (
-      <div className="mockups-empty">
-        <h3>No mock-ups here</h3>
-        <p>
-          The pictures come from the preview tool, not the game. Run{' '}
-          <code>make ui-preview WATCH=1</code> and open{' '}
-          <a href="http://127.0.0.1:7191/#mockups">http://127.0.0.1:7191/#mockups</a>.
-        </p>
-        {error && <p className="dim">({base}manifest.json: {error})</p>}
-      </div>
-    );
-  }
+  const [view, setViewState] = useState<View>(savedView);
+  const setView = (v: View): void => { setViewState(v); saveTabView(v); };
 
   return (
-    <div className="mockups">
-      <style>{fontFaces(manifest, base)}</style>
+    <div className={view === 'live' ? 'mockups mockups-live' : 'mockups'}>
+      {manifest && <style>{fontFaces(manifest, base)}</style>}
       <div className="mockups-bar">
         <div className="segmented" role="tablist">
-          {(['screens', 'gallery'] as const).map(v => (
+          {VIEWS.map(v => (
             <button key={v} role="tab" aria-selected={view === v} onClick={() => setView(v)}>
-              {v === 'screens' ? 'Screens' : 'Gallery'}
+              {VIEW_TITLES[v]}
             </button>
           ))}
         </div>
-        <span className="dim">rendered {new Date(manifest.generated).toLocaleTimeString()}</span>
+        {manifest && view !== 'live' && <span className="dim">rendered {new Date(manifest.generated).toLocaleTimeString()}</span>}
       </div>
-      {view === 'screens'
-        ? <ScreensView manifest={manifest} base={base} version={version} />
-        : <GalleryView manifest={manifest} base={base} version={version} />}
+      {view === 'live'
+        ? (visible || version > 0) && <LiveView base={base} version={version} />
+        : !manifest
+          ? <NoPictures base={base} error={error} />
+          : view === 'screens'
+            ? <ScreensView manifest={manifest} base={base} version={version} />
+            : <GalleryView manifest={manifest} base={base} version={version} />}
+    </div>
+  );
+}
+
+function NoPictures({ base, error }: { base: string; error: string | null }): ReactNode {
+  return (
+    <div className="mockups-empty">
+      <h3>No mock-ups here</h3>
+      <p>
+        The pictures come from the preview tool, not the game. Run{' '}
+        <code>make ui-preview WATCH=1</code> and open{' '}
+        <a href="http://127.0.0.1:7191/#mockups">http://127.0.0.1:7191/#mockups</a>. The Live view draws
+        without them.
+      </p>
+      {error && <p className="dim">({base}manifest.json: {error})</p>}
     </div>
   );
 }

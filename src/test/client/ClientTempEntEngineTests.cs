@@ -20,8 +20,8 @@ namespace SourceSharp.Tests;
 /// THE PLANS ARE HELD TO A RECORDING, not to themselves. The fixture
 /// (<c>Fixtures/tempents-client-plan-native.tsv</c>) is the live client at
 /// ab8f56ef2, where tempent_schema.h still planned every table: cs_cl_te_dump's
-/// TE| line for each of the 255 RecvProps the engine held, and the registration
-/// line for each of the 45 tables. Every client temp entity is registered here
+/// TE| line for each of the 258 RecvProps (255 recorded natively, CTEPlayerAnimEvent's 3 by the managed planner) the engine held, and the registration
+/// line for each of the 46 tables. Every client temp entity is registered here
 /// through the managed engine and every field is compared, so a name, a type, an
 /// offset, a flag, a width, a nested table, a handle or a worst case that moved
 /// fails on the table it moved in.
@@ -173,8 +173,8 @@ public sealed class ClientTempEntEngineTests
 
         // The stimulus has to reach the subject: a fixture cut short would
         // compare nothing and pass.
-        Assert.Equal(45, reg.Count);
-        Assert.Equal(255, props.Count);
+        Assert.Equal(46, reg.Count);
+        Assert.Equal(258, props.Count);
         Assert.Equal(reg.Sum(r => r.Props), props.Count);
     }
 
@@ -229,7 +229,7 @@ public sealed class ClientTempEntEngineTests
             }
         }
 
-        Assert.Equal(255, compared);
+        Assert.Equal(258, compared);
     }
 
     [Fact]
@@ -256,7 +256,7 @@ public sealed class ClientTempEntEngineTests
             }
         }
 
-        Assert.Equal(255, compared);
+        Assert.Equal(258, compared);
     }
 
     [Fact]

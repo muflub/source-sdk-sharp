@@ -56,6 +56,23 @@ public sealed class UiLive
     public IReadOnlyList<UiSegment> Segments => _segments;
 
     /// <summary>
+    /// The live mock-ups as a game host serves them (the dev API's
+    /// /preview/live): the segments of <paramref name="assemblies"/>, the
+    /// default theme with <paramref name="themeFile"/> laid over it when it
+    /// exists, the language files first-wins and then the toolkit's own copy,
+    /// and the toolkit's faces measuring text.
+    /// </summary>
+    public static UiLive ForGame(IReadOnlyList<Assembly> assemblies, string? themeFile, IReadOnlyList<string> languageFiles)
+    {
+        var theme = SourceSharpTheme.Create();
+        if (themeFile is not null && File.Exists(themeFile))
+            UiThemeFile.Apply(theme, File.ReadAllText(themeFile));
+        var lang = UiLanguageFile.Chain([.. languageFiles.Select(f => UiLanguageFile.Parse(File.ReadAllBytes(f))), UiLanguageFile.Core()]);
+        var fonts = new UiFontLibrary();
+        return new UiLive(Discover([.. assemblies]), theme, fonts, lang, fonts.Faces);
+    }
+
+    /// <summary>
     /// Every segment in <paramref name="assemblies"/>: each sampled screen
     /// (grouped by its name), each gallery part, then each screen and
     /// sub-panel type with no sample, in assembly then name order. The
@@ -81,7 +98,7 @@ public sealed class UiLive
             bool frame = type is null || IsFrame(type);
             if (!frame)
                 sampledTypes.Add(type!);
-            list.Add(new UiSegment("screen:" + group.Key.Group, group.Key.Group, screen?.Layer == UiLayerKind.Hud ? "hud" : "screen",
+            list.Add(new UiSegment("screen:" + group.Key.Group, frame ? group.Key.Group : type!.Name, screen?.Layer == UiLayerKind.Hud ? "hud" : "screen",
                 type is null || frame ? asm : type.Assembly.GetName().Name!, frame ? null : type, group.ToList()));
         }
 

@@ -384,6 +384,14 @@ public interface ITempEnts
     /// entities. Its end width is its width and it has no fade, as stock's.
     /// </summary>
     void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look, int flags = 0);
+
+    /// <summary>
+    /// sdk_player.cpp's <c>TE_PlayerAnimEvent</c>: a player's animation event
+    /// (a <see cref="Anim.PlayerAnimEvent"/>) with its data, to the clients the
+    /// filter names. The player is its handle as <c>SendProxy_EHandleToInt</c>
+    /// packs it (<see cref="TempEntWriter.PackEHandle"/>).
+    /// </summary>
+    void PlayerAnimEvent(TeFilter filter, float delay, int packedPlayer, int animEvent, int data);
 }
 
 /// <summary>What stock's <c>te-&gt;Beam*</c> calls carry after their ends: the look and life of the beam.</summary>

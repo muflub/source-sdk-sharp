@@ -89,7 +89,7 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
     private void Push()
     {
         foreach (AiEvent ev in _events)
-            senses.Session.Push(ev);
+            senses.Push(ev);
     }
 
     /// <summary>

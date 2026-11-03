@@ -73,8 +73,16 @@ public sealed class SoundClassifier(WeaponCatalog weapons)
 /// (<c>2 · SOUND_NORMAL_CLIP_DIST / attenuation</c>), and Alertness can only
 /// shrink that reach.
 /// </summary>
-[SideService(Side.Server, As = [typeof(ISoundEmitHook)])]
-public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier classifier, IBotHud hud, IEngineFrame frame, ILog log) : ISoundEmitHook
+/// <para>
+/// A footstep reaches a bot by two ways, as it reaches a client: the server
+/// sends it to the PAS less the PVS (<see cref="ISoundEmitHook"/>), and each
+/// client in the PVS makes it itself from the player's networked movement
+/// (<see cref="IClientStepHook"/>, the step's recipients being the PVS's
+/// players). Both are heard by the same rule.
+/// </para>
+[SideService(Side.Server, As = [typeof(ISoundEmitHook), typeof(IClientStepHook)])]
+public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier classifier, IBotHud hud, IEngineFrame frame, ILog log)
+    : ISoundEmitHook, IClientStepHook
 {
     private readonly Dictionary<int, AiRandom> _random = new();
 
@@ -94,7 +102,12 @@ public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier
         return attn <= 0f ? float.PositiveInfinity : 2f * SoundRecipients.NormalClipDistance / attn;
     }
 
-    public void OnEmitted(in EmittedSound sound)
+    public void OnEmitted(in EmittedSound sound) => Deliver(in sound, "sound");
+
+    /// <summary>A step the clients in the walker's PVS make themselves: heard as a client in the PVS hears it.</summary>
+    public void OnClientStep(in EmittedSound step) => Deliver(in step, "client step");
+
+    private void Deliver(in EmittedSound sound, string way)
     {
         if (bots.Bots.Count == 0 || sound.Recipients.IsEmpty)
             return;
@@ -111,7 +124,7 @@ public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier
                 AiVector me = hud.Read(player).Origin;
                 var at = new AiVector(sound.Origin.X, sound.Origin.Y, sound.Origin.Z);
                 log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
-                    $"[SourceSharp/Ai] sound {tick.Value} to {b.Id.Slot}: {sound.SoundName} owner {sound.Owner} in {(sound.Recipients.Contains(b.Id.Slot) ? 1 : 0)} "
+                    $"[SourceSharp/Ai] {way} {tick.Value} to {b.Id.Slot}: {sound.SoundName} owner {sound.Owner} in {(sound.Recipients.Contains(b.Id.Slot) ? 1 : 0)} "
                     + $"dist {me.DistanceTo(at):F0} reach {Reach(sound.SoundLevel):F0} share {ReachShare(Level(b.Skills, "alertness")):F2} kind {kind} weapon {weapon}\n"));
             }
 
@@ -119,7 +132,7 @@ public sealed class SoundTap(Hl2mpSenses senses, Hl2mpBots bots, SoundClassifier
                 continue;
             if (TryHear(b.Id, hud.Read(player).Origin, Level(b.Skills, "alertness"), in sound, kind, weapon, source, tick, Rng(b.Id), out AiEvent e))
             {
-                senses.Session.Push(e);
+                senses.Push(e);
                 Heard++;
             }
         }

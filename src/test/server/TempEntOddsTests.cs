@@ -495,8 +495,9 @@ public class TempEntOddsTests
             $"DT_TEBeamSpline's Spline — stock's m_vecPoints — is the only SendPropArray in the "
           + $"inventory; found [{string.Join(", ", arrays)}]");
 
-        Assert.True(handles.Count == 1 && handles[0] == "DT_TEClientProjectile.Owner",
-            "DT_TEClientProjectile's Owner — stock's m_hOwner — is the only SendPropEHandle — "
+        Assert.True(handles.Order(StringComparer.Ordinal).SequenceEqual(["DT_TEClientProjectile.Owner", "DT_TEPlayerAnimEvent.Player"]),
+            "DT_TEClientProjectile's Owner (stock's m_hOwner) and DT_TEPlayerAnimEvent's Player (sdk_player.cpp's "
+          + "m_hPlayer) are the only SendPropEHandles — "
           + $"found [{string.Join(", ", handles)}]");
     }
 

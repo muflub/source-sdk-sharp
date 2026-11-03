@@ -263,6 +263,20 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     }
 
     /// <summary>The machine, built once on the first drive, over this entity.</summary>
+    /// <summary>
+    /// <c>C_SDKPlayer::DoAnimationEvent</c>, as <c>C_TEPlayerAnimEvent</c>
+    /// calls it for a player that is not dormant: this client's copy of the
+    /// player's animation state plays the event.
+    /// </summary>
+    public bool DoAnimationEvent(PlayerAnimEvent animEvent, int data = 0, string? activity = null)
+    {
+        if (Render is null || Render.IsDormant(Handle) || EnsureMachine() is not { } machine)
+            return false;
+
+        machine.DoAnimationEvent(animEvent, data, activity);
+        return true;
+    }
+
     private MultiplayerAnimState? EnsureMachine()
     {
         if (_state is not null)

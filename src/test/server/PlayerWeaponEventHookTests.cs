@@ -1,6 +1,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using SourceSharp.Shared;
+using SourceSharp.Shared.Anim;
 using Xunit;
 
 using static SourceSharp.Tests.TestServices;
@@ -34,7 +35,15 @@ public sealed class PlayerWeaponEventHookTests
         public void OnWeaponEvent(EntityHandle player, int weaponType, PlayerWeaponEvent e, int count) => All.Add((e, count));
     }
 
-    private static (Arsenal Arsenal, RecordingEngine Engine, ScriptedEntityRegistry Registry, Seen Seen) Armed()
+    private sealed class AnimTemps : TempEntsDouble
+    {
+        public readonly List<(TeFilter Filter, int Player, PlayerAnimEvent Event, int Data)> Sent = new();
+
+        public override void PlayerAnimEvent(TeFilter filter, float delay, int packedPlayer, int animEvent, int data)
+            => Sent.Add((filter, packedPlayer, (PlayerAnimEvent)animEvent, data));
+    }
+
+    private static (Arsenal Arsenal, RecordingEngine Engine, ScriptedEntityRegistry Registry, Seen Seen) Armed(AnimTemps? temps = null)
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
             .Returns("Entities.GetClassName", EntityNames.Player)
@@ -51,7 +60,7 @@ public sealed class PlayerWeaponEventHookTests
         var seen = new Seen();
         var arsenal = new Arsenal(new RecordingLog(), new WeaponSwitchTests.SpawningEntities(engine, registry), engine, engine, engine,
                                   engine, engine, engine, engine, registry, engine, new DamageHitGroups(),
-                                  weaponEvents: new ListHooks<IPlayerWeaponEventHook>(seen));
+                                  weaponEvents: new ListHooks<IPlayerWeaponEventHook>(seen)) { Temps = temps };
         Assert.True(arsenal.GiveWeapon(Player, EntityNames.WeaponSmg1));
         engine.Returns("Entities.IsValid", true);
         engine.Strict = false;
@@ -87,4 +96,53 @@ public sealed class PlayerWeaponEventHookTests
         Command(arsenal, engine, 40f, (InputButtons)0, 2);
         Assert.Equal([(PlayerWeaponEvent.ReloadStarted, 0), (PlayerWeaponEvent.ReloadFinished, 45)], seen.All);
     }
+
+    /// <summary>
+    /// The shot every client that sees the player is shown
+    /// (CSDKPlayer::DoAnimationEvent's TE_PlayerAnimEvent, HL2MP's
+    /// SetAnimation( PLAYER_ATTACK1 )): the primary attack event with the
+    /// weapon's type, to the PVS of the player's eyes, once per new command.
+    /// </summary>
+    [Fact]
+    public void AShotSendsThePrimaryAttackEventToThePvsOfTheEyes()
+    {
+        var temps = new AnimTemps();
+        var (arsenal, engine, _, _) = Armed(temps);
+        Command(arsenal, engine, 30f, InputButtons.Attack, 1);
+        Command(arsenal, engine, 30f, InputButtons.Attack, 1, firstTime: false);
+
+        var sent = Assert.Single(temps.Sent);
+        Assert.Equal((TempEntWriter.PackEHandle(Player), PlayerAnimEvent.AttackPrimary, WeaponCatalog.Stock().IndexOf(EntityNames.WeaponSmg1)), (sent.Player, sent.Event, sent.Data));
+        Assert.Equal(TeFilters.Pvs(new Vector(0f, 0f, 64f)), sent.Filter);
+    }
+
+    [Fact]
+    public void AReloadSendsTheReloadEvent()
+    {
+        var temps = new AnimTemps();
+        var (arsenal, engine, registry, _) = Armed(temps);
+        WeaponNetState w = ((SsWeapon)registry.Get(arsenal.CarriedPair(Player).Weapon)!).State;
+        w.Clip = 10;
+        w.Reserve = 100;
+        arsenal.CarryFor(Player).Ammo["SMG1"] = 100;
+        Command(arsenal, engine, 30f, InputButtons.Reload, 1);
+        Assert.Equal([PlayerAnimEvent.Reload], temps.Sent.Select(t => t.Event));
+    }
+
+    /// <summary>Each weapon's acttable gesture, and the two weapons whose code shows none (the crossbow's shot, the shotgun's reload).</summary>
+    [Fact]
+    public void TheGestureIsTheWeaponsActtableRow()
+    {
+        Assert.Equal("ACT_HL2MP_GESTURE_RANGE_ATTACK_SMG1", PlayerAnimGestures.Activity(PlayerAnimEvent.AttackPrimary, "weapon_smg1"));
+        Assert.Equal("ACT_HL2MP_GESTURE_RELOAD_PISTOL", PlayerAnimGestures.Activity(PlayerAnimEvent.Reload, "weapon_357"));
+        Assert.Equal("ACT_HL2MP_GESTURE_RANGE_ATTACK_MELEE", PlayerAnimGestures.Activity(PlayerAnimEvent.AttackPrimary, "weapon_stunstick"));
+        Assert.False(PlayerAnimGestures.ShotShowsGesture("weapon_crossbow"));
+        Assert.False(PlayerAnimGestures.ReloadShowsGesture("weapon_shotgun"));
+        Assert.True(PlayerAnimGestures.ShotShowsGesture("weapon_shotgun"));
+    }
+
+    /// <summary>Q_log2( PLAYERANIMEVENT_COUNT ) + 1: the event's six bits hold every event.</summary>
+    [Fact]
+    public void TheEventsBitsHoldEveryEvent()
+        => Assert.Equal(6, (int)Math.Floor(Math.Log2((int)PlayerAnimEvent.Count)) + 1);
 }

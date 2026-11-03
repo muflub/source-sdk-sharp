@@ -292,6 +292,7 @@ public static class ClientUi
             new VoiceOptions(windows, convarStore, new EngineMicrophone(services.Require<IVoiceTweakControls>())),
             new MultiplayerOptions(convarStore, commandLine, new EngineFileList(services.Require<IFwdFileFinder>()),
                                    new OptionsScriptSource(optionsFiles, convarStore, commandLine)),
+            new AdvancedOptions(windows, convarStore),
         ]);
         UiScreen[] menuScreens =
         [

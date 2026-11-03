@@ -1124,21 +1124,44 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// </summary>
     private void TellWeaponEvents(EntityHandle player, WeaponNetState w, int clipBefore, int reserveBefore, bool reloadingBefore)
     {
-        if (_weaponEvents is null || _weaponEvents.All.Count == 0)
-            return;
-
         int type = w.WeaponTypeId;
         bool clipless = _weapons.ByIndex(type) is { ClipSize: < 0 };
         int fired = clipless ? reserveBefore - w.Reserve : clipBefore - w.Clip;
-        if (fired > 0 && !(reloadingBefore && w.InReload))
+        bool shot = fired > 0 && !(reloadingBefore && w.InReload);
+        bool reload = !reloadingBefore && w.InReload;
+        string className = _weapons.ByIndex(type)?.Name ?? "";
+        if (shot && SourceSharp.Shared.Anim.PlayerAnimGestures.ShotShowsGesture(className))
+            Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.AttackPrimary, type);
+        if (reload && SourceSharp.Shared.Anim.PlayerAnimGestures.ReloadShowsGesture(className))
+            Animate(player, SourceSharp.Shared.Anim.PlayerAnimEvent.Reload, type);
+
+        if (_weaponEvents is null || _weaponEvents.All.Count == 0)
+            return;
+
+        if (shot)
             Tell(player, type, PlayerWeaponEvent.Fired, fired);
-        if (!reloadingBefore && w.InReload)
+        if (reload)
             Tell(player, type, PlayerWeaponEvent.ReloadStarted, 0);
         if (reloadingBefore && w.InReload && w.Clip > clipBefore)
             Tell(player, type, PlayerWeaponEvent.ReloadShell, w.Clip - clipBefore);
         if (reloadingBefore && !w.InReload)
             Tell(player, type, PlayerWeaponEvent.ReloadFinished, w.Clip);
     }
+
+    /// <summary>
+    /// <c>CSDKPlayer::DoAnimationEvent</c>: the server's own copy of the
+    /// player's animation state plays the event, and every client that can see
+    /// the player is sent it (<c>TE_PlayerAnimEvent</c>, the PVS of the eyes)
+    /// with the weapon's type as its data, which picks the gesture there.
+    /// </summary>
+    private void Animate(EntityHandle player, SourceSharp.Shared.Anim.PlayerAnimEvent e, int weaponType)
+    {
+        ServerAnimEvent?.Invoke(player, e, weaponType);
+        Temps?.PlayerAnimEvent(TeFilters.Pvs(_players.GetShootOrigin(player)), 0f, TempEntWriter.PackEHandle(player), (int)e, weaponType);
+    }
+
+    /// <summary>The server's copy of a player's animation state, told of an event; null tells nobody.</summary>
+    public Action<EntityHandle, SourceSharp.Shared.Anim.PlayerAnimEvent, int>? ServerAnimEvent { get; set; }
 
     private void Tell(EntityHandle player, int type, PlayerWeaponEvent e, int count)
         => _weaponEvents!.Each(nameof(IPlayerWeaponEventHook.OnWeaponEvent), h => h.OnWeaponEvent(player, type, e, count));

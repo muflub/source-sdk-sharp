@@ -151,7 +151,7 @@ public static class OptionsSamples
         return new Options(windows,
         [
             s.Create<KeyBindings>(), s.Create<MouseOptions>(), s.Create<AudioOptions>(), s.Create<VideoOptions>(),
-            s.Create<VoiceOptions>(), s.Create<MultiplayerOptions>(),
+            s.Create<VoiceOptions>(), s.Create<MultiplayerOptions>(), s.Create<AdvancedOptions>(),
         ]) { Tab = tab };
     }
 

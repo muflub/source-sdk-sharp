@@ -138,6 +138,21 @@ public static class SprintSounds
 }
 
 /// <summary>
+/// The players' footsteps (<c>CHL2MP_Player::PrecacheFootStepSounds</c>,
+/// hl2mp_player_shared.cpp:35): each model sound type's left and right run
+/// step, which the movement's step sound plays (StepSoundRules).
+/// </summary>
+[Precache(PrecacheKind.Sound, "NPC_Citizen.RunFootstepLeft")]
+[Precache(PrecacheKind.Sound, "NPC_Citizen.RunFootstepRight")]
+[Precache(PrecacheKind.Sound, "NPC_CombineS.RunFootstepLeft")]
+[Precache(PrecacheKind.Sound, "NPC_CombineS.RunFootstepRight")]
+[Precache(PrecacheKind.Sound, "NPC_MetroPolice.RunFootstepLeft")]
+[Precache(PrecacheKind.Sound, "NPC_MetroPolice.RunFootstepRight")]
+public static class FootstepSounds
+{
+}
+
+/// <summary>
 /// The five noises the weapon-selection HUD makes.
 ///
 /// <para>

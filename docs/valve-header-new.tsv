@@ -1075,3 +1075,8 @@ src/tf2/client/Weapons/TFClientMedigunPrediction.cs	ports the client half of CWe
 src/tf2/client/Projectiles/TFSyringeProjectileEffect.cs	ports ClientsideProjectileSyringeCallback and the ClientsideProjectileCallback gravity arm (game/shared/tf/tf_projectile_nail.cpp:121-143, tf_projectile_base.cpp:304-370) as the ClientProjectile_Syringe client effect
 src/tf2/client/Ui/TFScoreboardDetails.cs	ports CTFClientScoreBoardDialog::UpdatePlayerDetails's details grid reads (tf_clientscoreboard.cpp:1880-1964 with tf_gamerules.cpp:17072-17075 Support) off the tf_player_manager carrier
 src/ai/hl2mp/server/BotAppearance.cs	ports hl2mp_bot.h's g_ppszRandomModels list and the cl_playermodel draw of CHL2MPBotManager / hl2mp_bot.cpp:246
+src/shared/interop/StepSoundRules.cs	ports CBasePlayer::UpdateStepSound, GetStepSoundVelocities, SetStepSoundTime (baseplayer_shared.cpp) and CHL2MP_Player::PlayStepSound, SetupPlayerSoundsByModel (hl2mp_player_shared.cpp, hl2mp_player.cpp)
+src/shared/managed/TempEnts/TePlayerAnimEvent.cs	ports CTEPlayerAnimEvent's DT_TEPlayerAnimEvent and TE_PlayerAnimEvent (sdk_player.cpp)
+src/shared/managed/Anim/PlayerAnimGestures.cs	ports the HL2MP weapons' m_acttable gesture rows and their SetAnimation( PLAYER_ATTACK1 / PLAYER_RELOAD ) callers (game/shared/hl2mp/weapon_*.cpp, basecombatweapon_shared.cpp)
+src/client/managed/TempEnts/ClientTePlayerAnimEvent.cs	ports C_TEPlayerAnimEvent::PostDataUpdate (c_sdk_player.cpp)
+src/server/interop/PlayerStepSounds.cs	ports CBasePlayer::UpdateStepSound's timer and CHL2MP_Player::PlayStepSound's server arm (baseplayer_shared.cpp, hl2mp_player_shared.cpp)

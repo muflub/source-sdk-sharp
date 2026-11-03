@@ -239,4 +239,25 @@ public class BotCommandsTests
 
     [Fact]
     public void NormalIsTaggedMedium() => Assert.Equal("(Medium)", BotSkillLabel.For(SkillPresets.TryGet("normal", out SkillProfile? p) ? p! : null!));
+
+    /// <summary>
+    /// A bot hears from the tick it joins: an event pushed before the next
+    /// senses pass reaches the session, which learns of the bot first (the
+    /// hearing scenario's spawn-time claw sounds were dropped that way).
+    /// </summary>
+    [Fact]
+    public void AnEventInTheTickABotJoinsReachesItsBrain()
+    {
+        var w = new SourceSharp.Ai.Tests.Senses.SenseWorld();
+        var ai = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpAiSession(_nav, WeaponCatalog.Stock(), null!, null!, _log);
+        var senses = new SourceSharp.Ai.Hl2mp.Senses.Hl2mpSenses(_bots, ai, new SourceSharp.Ai.Hl2mp.Senses.VisionPass(w.Engine(), w.Entities(), w.Traces()),
+                                                                null!, null!, null!, _log);
+        Add("Alyx hard");
+        Hl2mpBot bot = Assert.Single(_bots.Bots);
+
+        senses.Push(AiEvent.SoundHeard(bot.Id, new Tick(87), SoundKind.Unknown, new AiVector(36, 0, 0), 1f, ActorId.None, -1));
+
+        Assert.Equal((0L, 1L), (ai.Session.Counters.EventsDropped, ai.Session.Counters.EventsIn));
+        Assert.NotNull(ai.Session.BrainIn(bot.Id.Slot));
+    }
 }

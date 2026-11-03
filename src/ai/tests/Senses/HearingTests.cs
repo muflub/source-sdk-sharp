@@ -48,6 +48,28 @@ public sealed class HearingTests
         Assert.Equal(SoundKind.Footstep, (SoundKind)e.Code);
     }
 
+    /// <summary>
+    /// The server sends a step as the script's wave (CHL2MP_Player::PlayStepSound
+    /// emits params.soundname), so the wave is what the tap classifies.
+    /// </summary>
+    [Fact]
+    public void TheStepsWaveIsAFootstep()
+        => Assert.Equal((SoundKind.Footstep, -1), Classifier.Classify("npc/footsteps/hardboot_generic1.wav"));
+
+    /// <summary>
+    /// A step the clients in the walker's PVS make themselves comes with the
+    /// PVS's players as its recipients: a bot among them hears it, a bot
+    /// outside the PVS hears it only as the server's emit (the PAS less the PVS).
+    /// </summary>
+    [Fact]
+    public void ABotInTheWalkersPvsHearsTheStepItsClientMakes()
+    {
+        var step = new EmittedSound(new Vector(300, 0, 0), 70, "npc/footsteps/hardboot_generic1.wav", 2, [2, 3]);
+        Assert.True(SoundTap.TryHear(Bot, AiVector.Zero, 5, in step, SoundKind.Footstep, -1, Shooter, new Tick(1), new AiRandom(1), out AiEvent e));
+        Assert.Equal(SoundKind.Footstep, (SoundKind)e.Code);
+        Assert.False(SoundTap.TryHear(new ActorId(4, 1), AiVector.Zero, 5, in step, SoundKind.Footstep, -1, Shooter, new Tick(1), new AiRandom(1), out _));
+    }
+
     [Fact]
     public void TheWeaponTableNamesEachWeaponsReloadAndDryClick()
     {

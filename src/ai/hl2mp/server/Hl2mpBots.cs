@@ -63,6 +63,9 @@ public sealed class Hl2mpBots : IFrameLifecycle
 
     public IReadOnlyList<Hl2mpBot> Bots => _bots;
 
+    /// <summary>Counts every change to <see cref="Bots"/>, so a reader keeps up with a compare.</summary>
+    public int Version { get; private set; }
+
     public BotCommandApplier Applier => _applier;
 
     /// <summary>
@@ -96,6 +99,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
         var id = new ActorId(made.EntIndex, serial);
         _applier.Add(id, player, MotionCurves.For(skills), stream.NextUInt64());
         _bots.Add(new Hl2mpBot(id, made.Name, skills));
+        Version++;
         string label = BotSkillLabel.For(skills);
         _tags.Set(player, label);
         _log.Msg($"[SourceSharp/Ai] bot {made.Name} {label} added: client {made.EntIndex}, {skills.Name} ({skills.Spent} points, {skills.StyleName})\n");
@@ -271,6 +275,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
                 _applier.Remove(bot.Id.Slot);
                 _drives.RemoveAll(d => d.Bot == bot.Id);
                 _bots.RemoveAt(i);
+                Version++;
                 _log.Msg($"[SourceSharp/Ai] bot {bot.Name} left\n");
                 continue;
             }

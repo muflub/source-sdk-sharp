@@ -39,6 +39,9 @@ public sealed class ServerPlayerMove
     /// <summary>Where the last command left the player (m_vecPreviouslyPredictedOrigin).</summary>
     public Vector PreviouslyPredictedOrigin { get; set; }
 
+    /// <summary>m_Local.m_nStepside: the foot the last step was on (a set side is the left).</summary>
+    public bool StepSide { get; set; }
+
     /// <summary>m_flMaxSpeed: never written after the constructor's 320 in this build.</summary>
     public float MaxSpeed { get; set; } = 320f;
 

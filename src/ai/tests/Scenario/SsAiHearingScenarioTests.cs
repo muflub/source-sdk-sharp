@@ -24,9 +24,11 @@ public sealed class SsAiHearingScenarioTests
     public void TheListenerHearsExactlyWhatTheRecipientTruthSays()
     {
         ScenarioRecording r = Recording.Value;
-        // From the first scripted scene on: the bots' joining (their spawn's
-        // claw sounds) is not the scenario.
-        int first = r.Summary.GetProperty("scenes")[0].GetProperty("from").GetInt32();
+        // From the bots' joining on: their spawn's claw sounds are heard from
+        // the tick each bot joins (the session learns of a bot before its first
+        // event), and a step reaches the listener by either way a client hears
+        // one: the server's (the PAS less the PVS) or its own (the PVS).
+        const int first = 0;
         var expected = new Dictionary<(int Tick, int Kind, int Weapon), int>();
         int truths = 0;
         foreach (JsonElement t in r.Summary.GetProperty("truth").EnumerateArray())
@@ -75,6 +77,22 @@ public sealed class SsAiHearingScenarioTests
         AiEvent[] reloads = [.. r.Events.Where(e => e.Kind == AiEventKind.SoundHeard && e.Bot.Slot == Listener && (SoundKind)e.Code == SoundKind.Reload)];
         Assert.Contains(reloads, e => e.Code2 == Weapons.IndexOf("weapon_smg1"));
         Assert.Contains(reloads, e => e.Code2 == Weapons.IndexOf("weapon_pistol"));
+    }
+
+    /// <summary>
+    /// The target's steps are heard: inside the listener's PVS as the steps
+    /// its client makes, and the server sends its own share of them too.
+    /// </summary>
+    [Fact]
+    public void TheTargetsStepsAreHeard()
+    {
+        ScenarioRecording r = Recording.Value;
+        int target = r.Summary.GetProperty("target").GetInt32();
+        JsonElement[] steps = [.. r.Summary.GetProperty("truth").EnumerateArray()
+            .Where(t => t.GetProperty("kind").GetString() == "Footstep" && t.GetProperty("owner").GetInt32() == target)];
+        Assert.Contains(steps, t => t.GetProperty("way").GetString() == "client step" && t.GetProperty("in").GetBoolean());
+        Assert.Contains(r.Events, e => e.Kind == AiEventKind.SoundHeard && e.Bot.Slot == Listener && e.Other.Slot == target
+                                       && (SoundKind)e.Code == SoundKind.Footstep);
     }
 
     [Fact]

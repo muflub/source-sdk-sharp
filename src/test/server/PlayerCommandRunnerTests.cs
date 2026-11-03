@@ -196,6 +196,12 @@ public sealed unsafe class PlayerCommandRunnerTests : IDisposable
                               int flags, int pitch) { }
 
         public void MoveSoundScript(int entIndex, Vector origin, string soundName) { }
+
+        public bool Footsteps => false;
+
+        public int MaxClients => 1;
+
+        public void StepSound(int entIndex, Vector origin, float volume, bool left) { }
     }
 
     [UnmanagedCallersOnly]
