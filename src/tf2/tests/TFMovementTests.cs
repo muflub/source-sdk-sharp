@@ -571,6 +571,38 @@ public sealed class TFMovementRulesTests
         Assert.False(r.PlayerSurfaceMaterial);
     }
 
+    /// <summary>
+    /// Stock's WalkMove trims the walked xy back to the max every command right
+    /// after Accelerating (tf_gamemovement.cpp:1808-1815), and comments both
+    /// <c>StayOnGround</c> calls out since its CategorizePosition covers the
+    /// ground test (:1906, :1944-1945). HL2 clamps only the wish speed and holds
+    /// the ground, so both answers differ from the identity.
+    /// </summary>
+    [Fact]
+    public void The_walk_trims_xy_and_skips_the_ground_hold()
+    {
+        var rules = (IMovementRules)Make().Rules;
+
+        Assert.True(rules.ClampXY(Index));
+        Assert.False(rules.KeepGround(Index));
+    }
+
+    /// <summary>
+    /// TIME_TO_DUCK is 0.2 under TF_DLL (shareddefs.h:105-113 against HL2's
+    /// 0.4), TIME_TO_UNDUCK is 0.2 everywhere — every easing site takes the
+    /// fifth of a second whatever constant it passes. The GAME_DLL
+    /// SetDuckTimer cooldown (TF_TIME_TO_DUCK 0.3, tf_gamemovement.cpp:3295)
+    /// is a different timer and is not this hook's answer.
+    /// </summary>
+    [Fact]
+    public void The_duck_eases_across_a_fifth_of_a_second()
+    {
+        var rules = (IMovementRules)Make().Rules;
+
+        Assert.Equal(0.2f, rules.DuckSeconds(Index, 0.4f));
+        Assert.Equal(0.2f, rules.DuckSeconds(Index, 0.2f));
+    }
+
     [Fact]
     public void Footing_without_a_carrier_answers_nothing()
         => Assert.Null(Make().Rules.Footing(Index, default, new Vector(0f, 0f, 1f)));

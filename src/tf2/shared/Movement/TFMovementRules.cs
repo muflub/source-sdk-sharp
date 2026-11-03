@@ -318,6 +318,34 @@ public sealed class TFMovementRules : IMovementRules
         => new(BackSpeedFraction, BackSpeedMin);
 
     /// <summary>
+    /// Stock's WalkMove trims the walked xy back to the max every command,
+    /// right after Accelerating (tf_gamemovement.cpp:1808-1815), unconditionally
+    /// and before the back clamp — HL2 leaves the excess.
+    /// </summary>
+    public bool ClampXY(int playerIndex) => true;
+
+    /// <summary>
+    /// Stock comments both <c>StayOnGround</c> calls of the walk out
+    /// (tf_gamemovement.cpp:1906, :1944-1945) — its own
+    /// <see cref="CategorizePosition"/> answer covers the ground test — so a
+    /// clear walk step skips the two downward probes.
+    /// </summary>
+    public bool KeepGround(int playerIndex) => false;
+
+    /// <summary>
+    /// Stock's duck easing is <c>TIME_TO_DUCK</c> = 0.2 under TF_DLL
+    /// (shareddefs.h:105-113; HL2's is 0.4), and <c>TIME_TO_UNDUCK</c> is 0.2
+    /// everywhere, so every easing site takes the same fifth-of-a-second. The
+    /// duck-JUMP timer pair (the GAME_DLL writes at tf_gamemovement.cpp:3295's
+    /// SetDuckTimer, the TF_TIME_TO_DUCK 0.3 cooldown) is not this easing and
+    /// stays on the constants.
+    /// </summary>
+    public float DuckSeconds(int playerIndex, float seconds) => TFTimeToDuck;
+
+    /// <summary>Stock's TIME_TO_DUCK/TIME_TO_UNDUCK pair under TF_DLL.</summary>
+    private const float TFTimeToDuck = 0.2f;
+
+    /// <summary>
     /// The fade trio of one player (<c>CTFPlayerShared</c>'s
     /// <c>m_flStunLerpTarget</c> / <c>m_flLastMovementStunChange</c> /
     /// <c>m_bStunNeedsFadeOut</c>, the members StunMove mutates at

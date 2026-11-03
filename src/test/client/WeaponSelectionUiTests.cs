@@ -29,6 +29,7 @@ public class WeaponSelectionUiTests
         public int Count => Weapons.Count;
         public int Slot(int t) => t == Smg || t == Ar2 ? 2 : -1;
         public int Position(int t) => t == Ar2 ? 1 : 0;
+        public bool VisibleInSelection(int weaponType) => true;
     }
 
     private static (WeaponSelectionUi Ui, World World) Open()

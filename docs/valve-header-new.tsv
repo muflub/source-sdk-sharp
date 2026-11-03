@@ -1135,3 +1135,8 @@ src/tf2/client/Weapons/TFWeaponSlots.cs	ports CTFWeaponBuilder::GetSlot/GetPosit
 src/tf2/server/Player/TFSpawnWeaponWalk.cs	ports CTFPlayer::Spawn's post-kit weapon walk and its arms (tf_player.cpp:4700-4726), the second arm's unnegated CanBeSelected included
 src/tf2/client/Weapons/TFRocketBackblast.cs	ports CTFRocketLauncher::CreateMuzzleFlashEffects's backblast tail (tf_weapon_rocketlauncher.cpp:378-390)
 src/tf2/server/Rules/TFTeamRoles.cs	ports CTFTeam::SetRole/GetRole and the tf_gamerules role inputs (tf_team.h, tf_gamerules.cpp)
+src/tf2/server/Player/TFTauntThink.cs	ports the taunt arm of the player think and CTFPlayer::ShouldStopTaunting's water half (tf_player.cpp:1485-1507, tf_player_shared.cpp:13140-13144)
+src/client/managed/Effects/CombineBallEffects.cs	ports CombineBallImpactCallback and CombineBallExplosionCallback (c_prop_combine_ball.cpp)
+src/shared/managed/CombineBallNetState.cs	ports DT_PropCombineBall (prop_combine_ball.cpp)
+src/client/managed/Standalone/ClientCombineBall.cs	ports C_PropCombineBall::DrawModel (c_prop_combine_ball.cpp)
+src/tf2/server/Player/TFDisguiseWeapon.cs	ports CTFPlayerShared::DetermineDisguiseWeapon's disguise weapon dress over the one carried entity (tf_player_shared.cpp:8394-8460); the second fake weapon entity is collapsed into it

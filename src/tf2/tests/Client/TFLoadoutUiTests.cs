@@ -9,6 +9,7 @@ using Xunit;
 using Abi = client::SourceSharp.Abi;
 using ClientFilesShim = client::SourceSharp.Abi.IEngineFiles;
 using ClientLog = client::SourceSharp.Abi.RecordingLog;
+using ClientUi = client::SourceSharp.Client.Ui;
 using Engine = client::SourceSharp.Abi.RecordingEngine;
 using Nav = client::TF2.Client.Ui.ITFMenuNavigation;
 using Ui = client::TF2.Client.Ui.TFLoadoutUi;
@@ -107,6 +108,82 @@ public sealed class TFLoadoutUiTests
         Assert.Equal(["tf2loadout"], rig.Nav.Closed);
     }
 
+    // The quality prefix over the displayed item name, over a small inline
+    // schema: the schema qualities table's word in front of the item's own
+    // name token, the Australium word after it when the item carries the
+    // attribute (the stock arms in econ_item_description.cpp:748-789,
+    // :822-832). The name part rides the mod's token chain, so the token
+    // file below answers the token the fixture items carry.
+
+    private const string QualityItems =
+        "\"3\" { \"name\" \"RL\" \"item_class\" \"tf_weapon_rocketlauncher\" \"item_name\" \"#TF_Weapon_RocketLauncher\" } " +
+        "\"4\" { \"name\" \"RLStrange\" \"item_class\" \"tf_weapon_rocketlauncher\" \"item_name\" \"#TF_Weapon_RocketLauncher\" \"item_quality\" \"strange\" } " +
+        "\"5\" { \"name\" \"RLUnique\" \"item_class\" \"tf_weapon_rocketlauncher\" \"item_name\" \"#TF_Weapon_RocketLauncher\" \"item_quality\" \"unique\" } " +
+        "\"6\" { \"name\" \"RLAustralium\" \"item_class\" \"tf_weapon_rocketlauncher\" \"item_name\" \"#TF_Weapon_RocketLauncher\" \"item_quality\" \"strange\" \"attributes\" { \"is australium item\" { \"value\" \"1\" } } }";
+
+    /// <summary>The source over the inline schema, with a name token file.</summary>
+    private static Ui SourceWith(string items, params (string Token, string Text)[] tokens)
+    {
+        var schema = new ClientSchema(new FilesShim(
+            "\"items_game\" { \"qualities\" { \"normal\" { \"value\" \"0\" } \"unique\" { \"value\" \"6\" } \"strange\" { \"value\" \"11\" } } " +
+            "\"prefabs\" { } \"attributes\" { \"1\" { \"name\" \"is australium item\" } } \"items\" { " + items + " } }"), new ClientLog());
+
+        return new Ui(new EngineClient(), new Engine(), schema, new Recorder(),
+                      new TokenFile(tokens.ToDictionary(t => t.Token, t => t.Text)));
+    }
+
+    private static Reply StrangeReply(uint defindex) => new()
+    {
+        Class = 3,
+        EquippedSlots = [0],
+        EquippedDefindexes = [defindex],
+        OwnedDefindexes = [defindex],
+        OwnedSlots = [0],
+    };
+
+    [Fact]
+    public void AStrangeItemsNameIsPrefixedStrange()
+    {
+        var ui = SourceWith(QualityItems, ("#TF_Weapon_RocketLauncher", "Rocket Launcher"));
+        ((Hook)ui).OnLoadoutReply(StrangeReply(4));
+
+        Assert.Equal("Strange Rocket Launcher", ui.Slot(0).ItemName);
+    }
+
+    [Fact]
+    public void AUniqueItemsNameHasNoPrefix()
+    {
+        // Unique's stock arm is the article-or-empty one (econ_item_description.cpp:761-778):
+        // the name stands as it is.
+        var ui = SourceWith(QualityItems, ("#TF_Weapon_RocketLauncher", "Rocket Launcher"));
+        ((Hook)ui).OnLoadoutReply(StrangeReply(5));
+
+        Assert.Equal("#TF_Weapon_RocketLauncher", ui.Slot(0).ItemName);
+    }
+
+    [Fact]
+    public void AnAustraliumItemsNameIsPrefixedAustralium()
+    {
+        // The stock order: the quality word first, Australium after it
+        // (econ_item_description.cpp:748-789, :822-832).
+        var ui = SourceWith(QualityItems, ("#TF_Weapon_RocketLauncher", "Rocket Launcher"));
+        ((Hook)ui).OnLoadoutReply(StrangeReply(6));
+
+        Assert.Equal("Strange Australium Rocket Launcher", ui.Slot(0).ItemName);
+    }
+
+    [Fact]
+    public void TheTargetIdReadsThePrefixedName()
+    {
+        // The kill-feed/target-ID string is the one string the loadout source
+        // builds: both the slot row and the owned row of the same item carry it.
+        var ui = SourceWith(QualityItems, ("#TF_Weapon_RocketLauncher", "Rocket Launcher"));
+        ((Hook)ui).OnLoadoutReply(StrangeReply(4));
+
+        Assert.Equal("Strange Rocket Launcher", ui.Slot(0).ItemName);
+        Assert.Equal(ui.Slot(0).ItemName, ui.Owned(0).Name);
+    }
+
     // ---- the rig ----
 
     private sealed class Rig
@@ -119,7 +196,7 @@ public sealed class TFLoadoutUiTests
         public Rig()
         {
             Engine.Returns("Networking.SendServerMessage", true);
-            Ui = new Ui(Sent, Engine, Schema(), Nav);
+            Ui = new Ui(Sent, Engine, Schema(), Nav, new TokenFile([]));
         }
 
         public ITFLoadoutSource Source => Ui;
@@ -140,6 +217,12 @@ public sealed class TFLoadoutUiTests
         public string? ReadGameFile(string path) => ReadGameFileBytes(path) is { } b ? Encoding.UTF8.GetString(b) : null;
         public byte[]? ReadGameFileBytes(string path) => path == client::TF2.Shared.Econ.ItemSchema.FilePath ? _schema : null;
         public byte[]? ReadFileOnPath(string path, string pathId) => pathId == "GAME" ? ReadGameFileBytes(path) : null;
+    }
+
+    /// <summary>A mod token file for the name chain: the shipped tokens and their text.</summary>
+    private sealed class TokenFile(Dictionary<string, string> tokens) : ClientUi.IUiLocalisation
+    {
+        public string? Find(string token) => tokens.TryGetValue(token, out var text) ? text : null;
     }
 
     private sealed class Recorder : Nav

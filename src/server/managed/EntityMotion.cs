@@ -529,7 +529,7 @@ public sealed class EntityMotion
         // entity" looks like everywhere else in this API and is what the world
         // reports as when a trace stopped on brushwork.
         var struck = _directory.Resolve(handle);
-        (struck as FlyingProjectile)?.OnStruckSurface(trace.Normal);
+        (struck as FlyingProjectile)?.OnStruckSurface(trace.Normal, trace.Entity);
         struck?.OnTouch(trace.Entity);
     }
 

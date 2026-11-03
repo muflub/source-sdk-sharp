@@ -197,6 +197,33 @@ public interface IMovementRules
     /// after <c>FinishMove</c>). Nothing by default.
     /// </summary>
     void EndCommand(int playerIndex) { }
+
+    /// <summary>
+    /// The walk's xy trim: right after Accelerating, the walked xy is scaled
+    /// back to the max speed (stock TF's <c>CTFGameMovement::WalkMove</c>,
+    /// tf_gamemovement.cpp:1808-1815 — HL2 clamps the wish speed, never the
+    /// walked xy). False — keep everything Accelerate gave — is the default
+    /// and stock Half-Life.
+    /// </summary>
+    bool ClampXY(int playerIndex) => false;
+
+    /// <summary>
+    /// The ground hold on a fully clear walk step: after the endpos is set,
+    /// HL2's walk calls <c>StayOnGround</c>, two downward probes, on both walk
+    /// exits. TF2 comments both calls out — its own <c>CategorizePosition</c>
+    /// covers the test (tf_gamemovement.cpp:1906, :1944-1945). True — hold the
+    /// ground — is the default and stock Half-Life.
+    /// </summary>
+    bool KeepGround(int playerIndex) => true;
+
+    /// <summary>
+    /// The seconds a duck or an unduck eases across: standing to full duck and
+    /// back blend over this time (stock's <c>TIME_TO_DUCK</c> and
+    /// <c>TIME_TO_UNDUCK</c>, shareddefs.h:105-113 — under TF both are 0.2, HL2's
+    /// duck is 0.4 and its unduck 0.2). The loop passes the constant the site
+    /// would otherwise use; echoing it is the default and stock Half-Life.
+    /// </summary>
+    float DuckSeconds(int playerIndex, float seconds) => seconds;
 }
 
 /// <summary>
@@ -294,7 +321,10 @@ public sealed class MovementRulesResolver
                 (i, v, n) => _rules.Footing(i, v, n),
                 () => _rules.NoHl2Arms,
                 i => _rules.EnemyBlasted(i),
-                i => _rules.EndCommand(i));
+                i => _rules.EndCommand(i),
+                i => _rules.ClampXY(i),
+                i => _rules.KeepGround(i),
+                (i, s) => _rules.DuckSeconds(i, s));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

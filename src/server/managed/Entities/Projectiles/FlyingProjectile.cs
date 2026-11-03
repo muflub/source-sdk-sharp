@@ -94,8 +94,8 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// </summary>
     protected virtual Vector HullExtent => Vector.Zero;
 
-    /// <summary>The flight struck a surface with this normal, just before <see cref="OnTouch"/>.</summary>
-    protected internal virtual void OnStruckSurface(Vector normal) { }
+    /// <summary>The flight struck <paramref name="struck"/> with this normal, just before <see cref="OnTouch"/>.</summary>
+    protected internal virtual void OnStruckSurface(Vector normal, EntityHandle struck) { }
 
     /// <summary>What it does to whatever it ran into. <paramref name="hit"/> may be the world.</summary>
     protected abstract void Impact(EntityHandle hit);

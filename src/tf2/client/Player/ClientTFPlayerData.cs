@@ -85,10 +85,17 @@ public sealed class ClientTFPlayerData : ClientStandaloneEntity
 
         // The decode's changed conditions, as stock's OnDataChanged runs
         // SyncConditions per word (tf_player_shared.cpp:1452-1457): the arms
-        // see the new words, then the seen words move.
+        // see the new words, then the seen words move. Before the player's own
+        // shell has arrived the arms would name a default handle, so the words
+        // are held instead — neither synced nor seen — and the first decode
+        // that names a shell reports them (the join decodes again on the
+        // team and class writes that follow).
         TFCondMask now = State.Conditions();
-        _conditions.Sync(PlayerHandle(), _syncedConditions, in now);
-        _syncedConditions = now;
+        if (PlayerHandle() != EntityHandle.None)
+        {
+            _conditions.Sync(PlayerHandle(), _syncedConditions, in now);
+            _syncedConditions = now;
+        }
 
         DressBody();
     }

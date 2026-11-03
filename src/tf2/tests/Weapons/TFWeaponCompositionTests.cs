@@ -128,6 +128,11 @@ public sealed class TFWeaponCompositionTests
                                                       engine, engine, engine, engine, new TF2.Tests.Combat.NoEntities(),
                                                       engine, new SourceSharp.Server.DamageHitGroups()));
         SideServices.Register(c, Side.Server, typeof(TFWeaponBehaviour).Assembly.GetTypes());
+        // The disguise's dress (2.12) reads the econ triple; ServerModule
+        // registers each over the scan, as the game's composition does.
+        c.AddInstance(EconTestFiles.TrimmedSchema());
+        c.AddInstance(new TFClassTable(new RecordingLog(), WeaponFixtures.ShippedWithClasses()));
+        c.AddInstance(new SourceSharp.Shared.WeaponCatalog(() => c.ResolveAll<SourceSharp.Shared.IWeaponTypeSource>(), null));
         // The speech behind the weapon-fire concepts rides the dispatcher's
         // optional arm; its search and its roster join as the rigs' own fakes,
         // so the chain under the effects composes here as it does in the game.

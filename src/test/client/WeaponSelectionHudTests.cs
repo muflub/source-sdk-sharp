@@ -39,6 +39,8 @@ public class WeaponSelectionHudTests
         public int Count => Types;
         public int Slot(int t) => t switch { Crowbar => 0, Pistol or Magnum => 1, _ => 2 };
         public int Position(int t) => t == Magnum ? 1 : 0;
+        public ulong Hidden { get; set; }
+        public bool VisibleInSelection(int t) => (Hidden & (1ul << t)) == 0;
 
         public readonly WeaponSelectionHud Hud;
 
@@ -94,6 +96,32 @@ public class WeaponSelectionHudTests
 
         Assert.False(rig.Hud.Open);
         Assert.Equal(["Player.WeaponSelectionMoveSlot"], rig.Sounds);
+    }
+
+    [Fact]
+    public void A_weapon_the_hud_hides_is_passed_over_by_its_slot_key()
+    {
+        // VisibleInWeaponSelection's arm of CanBeSelectedInHUD
+        // (weapon_selection.cpp:247): the key's walk skips it.
+        var rig = new Rig { Hidden = 1u << Pistol };
+
+        rig.Hud.SlotCommand(2);
+
+        Assert.Equal(Magnum, rig.Hud.Selected);
+        Assert.True(rig.Hud.SlotHasWeapon(1), "the bucket's shown weapon still names a card");
+    }
+
+    [Fact]
+    public void A_bucket_of_nothing_shown_is_no_card_at_all()
+    {
+        // GetFirstPos's visibility arm (:637) and the panel walk's
+        // (tf_hud_weaponselection.cpp:557): no shown weapon, no card, no name.
+        var hidden = new Rig { Hidden = (1u << Pistol) | (1u << Magnum) };
+        Assert.False(hidden.Hud.SlotHasWeapon(1));
+        Assert.Equal(-1, hidden.Hud.LastPositionInSlot(1));
+
+        var shown = new Rig();
+        Assert.Equal(1, shown.Hud.LastPositionInSlot(1));
     }
 
     [Fact]

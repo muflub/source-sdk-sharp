@@ -238,6 +238,8 @@ public sealed class TF2MenuCompositionTests : IDisposable
         public int Slot(int weaponType) => -1;
 
         public int Position(int weaponType) => -1;
+
+        public bool VisibleInSelection(int weaponType) => true;
     }
 
     private sealed class StillView : ICurrentView

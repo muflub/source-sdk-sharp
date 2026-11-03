@@ -364,8 +364,10 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     /// <c>CBaseObject::Spawn</c> + <c>Precache</c> (tf_obj.cpp:356, :381): the
     /// state's models are precached and the blueprint is worn — stock spawns
     /// dressed (<c>SetModel(SENTRY_MODEL_PLACEMENT)</c>,
-    /// tf_obj_sentrygun.cpp:180). The sapper, stock's
-    /// <c>OF_DOESNT_HAVE_A_MODEL</c>, wears nothing and is not drawn.
+    /// tf_obj_sentrygun.cpp:180), and the sapper dresses itself in its own
+    /// Spawn before the base's (tf_obj_sapper.cpp:88). As everywhere down
+    /// this class, the model string gates the dress, not the object table the
+    /// sapper has no row in.
     /// </summary>
     public override void OnSpawn()
     {
@@ -375,14 +377,14 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         Entities.SetHealth(Handle, 0);
         SetSolidity(BrushSolidity.None);
 
-        if (TFObjectInfo.Of(Type) is null)
-        {
-            SetVisible(false);
-        }
-        else
+        if (TFObjectModels.Placement(Type, _mode).Length > 0)
         {
             PrecacheAll();
             Dress(TFObjectModels.Placement(Type, _mode));
+        }
+        else
+        {
+            SetVisible(false);
         }
 
         SetNextThink(BaseObjectThinkDelay);

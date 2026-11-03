@@ -265,6 +265,25 @@ public interface IServerModule
     /// </summary>
     void GetEndCommand(int playerIndex) { }
 
+    /// <summary>
+    /// The walk's xy trim to the max after Accelerating (false, stock HL2MP:
+    /// keep everything Accelerate gave). Runs on both sides; see
+    /// <c>IMovementRules.ClampXY</c>.
+    /// </summary>
+    bool GetClampXY(int playerIndex) => false;
+
+    /// <summary>
+    /// The ground hold on a fully clear walk step (true, stock HL2MP: hold it).
+    /// Runs on both sides; see <c>IMovementRules.KeepGround</c>.
+    /// </summary>
+    bool GetKeepGround(int playerIndex) => true;
+
+    /// <summary>
+    /// The seconds a duck or unduck eases across (unchanged, stock HL2MP).
+    /// Runs on both sides; see <c>IMovementRules.DuckSeconds</c>.
+    /// </summary>
+    float GetDuckSeconds(int playerIndex, float seconds) => seconds;
+
     //-------------------------------------------------------------------------
     // The game DLL, in the five subjects it splits into.
     //

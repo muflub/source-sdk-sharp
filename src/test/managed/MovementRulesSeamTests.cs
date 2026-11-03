@@ -284,6 +284,9 @@ public class MovementRulesSeamTests
                 "GetMovementStun" => Stun(rules, method, (int)a![0]!, (float)a[1]!, (int)a[2]!,
                                                 (float)a[3]!, (float)a[4]!, (float)a[5]!),
                 "GetMovementTaunt" => Taunt(rules, method, (int)a![0]!, (float)a[1]!, (float)a[2]!),
+                "GetClampXY" => rules.ClampXY((int)a![0]!),
+                "GetKeepGround" => rules.KeepGround((int)a![0]!),
+                "GetDuckSeconds" => rules.DuckSeconds((int)a![0]!, (float)a[1]!),
                 _ => throw new NotSupportedException(method.Name + " is not a movement getter"),
             };
         }
@@ -747,6 +750,9 @@ public class MovementRulesSeamTests
             Assert.Contains("_movementRules.Rules.BunnyJump(playerIndex, maxSpeed)", code, StringComparison.Ordinal);
             Assert.Contains("_movementRules.Rules.Backpedal(playerIndex, maxSpeed)", code, StringComparison.Ordinal);
             Assert.Contains("_movementRules.Rules.Stun(playerIndex, curTime, buttons, forwardMove, sideMove, upMove)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.ClampXY(playerIndex)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.KeepGround(playerIndex)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.DuckSeconds(playerIndex, seconds)", code, StringComparison.Ordinal);
             Assert.DoesNotContain("Movement.JumpScale", code, StringComparison.Ordinal);
             Assert.DoesNotContain("Movement.FrictionScale", code, StringComparison.Ordinal);
             Assert.DoesNotContain("Movement.MaxSpeedScale", code, StringComparison.Ordinal);
@@ -781,6 +787,9 @@ public class MovementRulesSeamTests
             Assert.Contains("game.GetNoHl2Arms()", code, StringComparison.Ordinal);
             Assert.Contains("game.GetBackpedalLimit(i, ms)", code, StringComparison.Ordinal);
             Assert.Contains("game.GetMovementStun(i, t, b, f, s, u)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetClampXY(i)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetKeepGround(i)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetDuckSeconds(i, s)", code, StringComparison.Ordinal);
         }
     }
 

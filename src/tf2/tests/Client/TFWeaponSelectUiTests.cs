@@ -47,7 +47,7 @@ public sealed class TFWeaponSelectUiTests
 {
     private const int LocalPlayer = 3;
 
-    private static (SelectUi Ui, Catalog Weapons) Make(int localPlayer, TFClass cls)
+    private static (SelectUi Ui, Catalog Weapons, HudSlots Slots, SelectionHud Hud) Make(int localPlayer, TFClass cls)
     {
         var log = new ClientLog();
         var bytes = FixtureBytes();
@@ -88,7 +88,7 @@ public sealed class TFWeaponSelectUiTests
 
         var hud = new SelectionHud(new HeldPlayer(carried), new SilentActions(), slots, new FixedClock(), () => 0);
         var types = new WeaponTypes(scripts, classes, schema);
-        return (new SelectUi(hud, weapons, scripts, NewLocalise(), new BareLocal(cls), types), weapons);
+        return (new SelectUi(hud, weapons, scripts, NewLocalise(), new BareLocal(cls), types), weapons, slots, hud);
     }
 
     private static Localise NewLocalise() => new RawNames();
@@ -96,7 +96,7 @@ public sealed class TFWeaponSelectUiTests
     [Fact]
     public void The_engineers_pda_cards_name_the_items()
     {
-        var (ui, weapons) = Make(LocalPlayer, TFClass.Engineer);
+        var (ui, weapons, _, _) = Make(LocalPlayer, TFClass.Engineer);
 
         // The build and destroy rows' items: #TF_Weapon_PDA_Engineer_Builder
         // and ..._Destroyer, where the scripts say ..._Build/..._Destroy.
@@ -107,7 +107,7 @@ public sealed class TFWeaponSelectUiTests
     [Fact]
     public void The_shotgun_card_keeps_the_guns_name()
     {
-        var (ui, _) = Make(LocalPlayer, TFClass.Engineer);
+        var (ui, _, _, _) = Make(LocalPlayer, TFClass.Engineer);
 
         // The item and the script agree on the guns; the item's word wins
         // either way.
@@ -117,12 +117,69 @@ public sealed class TFWeaponSelectUiTests
     [Fact]
     public void The_spys_sapper_card_names_the_sappers_item()
     {
-        var (ui, _) = Make(LocalPlayer, TFClass.Spy);
+        var (ui, _, _, _) = Make(LocalPlayer, TFClass.Spy);
 
         // The builder family's retyped shell (SetSubType) wears the sapper
         // item, whose name is the panel's — not the builder script's plain
         // #TF_Weapon_Builder.
         Assert.Equal("#TF_Weapon_Spy_Sapper", ui.WeaponInSlot(1).Name);
+    }
+
+    [Fact]
+    public void The_engineers_builder_is_hidden_and_the_sixth_key_with_it()
+    {
+        // C_TFWeaponBuilder::VisibleInWeaponSelection
+        // (c_tf_weapon_builder.cpp:338): the engineer's builder rows carry a
+        // valid object whose shipped row says VisibleInWeaponSelection 0, so
+        // no card and the sixth key nothing — while the first still names the
+        // shotgun.
+        var (ui, weapons, slots, hud) = Make(LocalPlayer, TFClass.Engineer);
+
+        int builder = weapons.IndexOf("tf_weapon_builder");
+        Assert.True(builder >= 0, "the catalogue carries the builder row");
+        Assert.False(slots.VisibleInSelection(builder));
+        Assert.True(slots.VisibleInSelection(weapons.IndexOf("tf_weapon_pda_engineer_build")),
+                    "the PDA rows show as ever");
+
+        Assert.False(hud.SlotHasWeapon(5));
+        Assert.Null(ui.WeaponInSlot(5).Name);
+
+        hud.SlotCommand(6);
+        Assert.False(hud.Open);
+        Assert.Equal(-1, hud.Selected);
+
+        var fresh = Make(LocalPlayer, TFClass.Engineer).Hud;
+        fresh.SlotCommand(1);
+        Assert.Equal(weapons.IndexOf("tf_weapon_shotgun_primary"), fresh.Selected);
+    }
+
+    [Fact]
+    public void The_spys_sapper_card_stands_in_the_second_slot()
+    {
+        // The sapper's shipped row says VisibleInWeaponSelection 1: the
+        // retyped builder shell is the second key's card, as the spy's hud
+        // has it.
+        var (_, weapons, slots, hud) = Make(LocalPlayer, TFClass.Spy);
+
+        Assert.True(slots.VisibleInSelection(weapons.IndexOf("tf_weapon_sapper")));
+        Assert.True(hud.SlotHasWeapon(1));
+    }
+
+    [Fact]
+    public void The_spys_watch_has_no_card_and_no_key()
+    {
+        // CTFWeaponInvis::VisibleInWeaponSelection answers false
+        // (tf_weapon_invis.h:57): the watch is +attack2's, not a slot's.
+        var (ui, weapons, slots, hud) = Make(LocalPlayer, TFClass.Spy);
+
+        int watch = weapons.IndexOf("tf_weapon_invis");
+        Assert.True(watch >= 0, "the catalogue carries the watch row");
+        Assert.False(slots.VisibleInSelection(watch));
+        Assert.False(hud.SlotHasWeapon(4));
+        Assert.Null(ui.WeaponInSlot(4).Name);
+
+        hud.SlotCommand(5);
+        Assert.Equal(-1, hud.Selected);
     }
 
     /// <summary>The loadout carried: the mask the hud's slot reads walk.</summary>
@@ -193,7 +250,7 @@ public sealed class TFWeaponSelectUiTests
 
     // --- the forecast rig's doubles, verbatim ---
 
-    private static Dictionary<string, byte[]> FixtureBytes()
+    internal static Dictionary<string, byte[]> FixtureBytes()
     {
         string[] weapons = Directory.GetFiles(RepoLayout.Repo("src", "tf2", "tests", "TestData", "weapons"), "tf_weapon_*.txt")
             .Select(p => Path.GetFileNameWithoutExtension(p))
@@ -245,7 +302,7 @@ public sealed class TFWeaponSelectUiTests
         public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
     }
 
-    private sealed class FilesShim(Dictionary<string, byte[]> bytes) : ClientFiles
+    internal sealed class FilesShim(Dictionary<string, byte[]> bytes) : ClientFiles
     {
         public int GameFileSize(string path) => bytes.TryGetValue(path, out var b) ? b.Length : -1;
 

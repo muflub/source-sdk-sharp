@@ -1,4 +1,5 @@
 using SourceSharp.Abi;
+using SourceSharp.Client.Ui;
 
 using TF2.Shared;
 using TF2.Shared.Econ;
@@ -16,7 +17,7 @@ namespace TF2.Client.Ui;
 /// </summary>
 [SideService(Side.Client, As = [typeof(ITFLoadoutSource), typeof(ITFLoadoutActions)])]
 public sealed class TFLoadoutUi(IFwdEngineClient console, IEngineNetworking network, ItemSchema schema,
-                                ITFMenuNavigation nav)
+                                ITFMenuNavigation nav, IUiLocalisation localiser)
     : ITFLoadoutSource, ITFLoadoutActions, ITFLoadoutReplyHook
 {
     private LoadoutReply _reply;
@@ -97,7 +98,21 @@ public sealed class TFLoadoutUi(IFwdEngineClient console, IEngineNetworking netw
         if (defindex == LoadoutReply.NoItem || schema.Item((int)defindex) is not { } def)
             return ("", "");
 
-        return (def.ItemName, def.Keys.GetString("image_inventory", "") ?? "");
+        // The quality prefix and the Australium word stock folds into an
+        // item's displayed name (econ_item_description.cpp:748-789 and
+        // :822-832): the quality word first, the Australium word next, the
+        // name last — one finished string, so every panel that reads the
+        // source sees the same one. The name itself rides the mod's token
+        // chain (the screen's Find ?? raw arm), resolved before the words
+        // are joined; without anything to prefix it stays the token.
+        string qualityWord = TFItemStrings.QualityWord(schema.QualityName(def.Quality));
+        bool australium = TFItemStrings.HasAttribute(def, "is australium item");
+        string itemName = def.ItemName;
+        if (qualityWord.Length > 0 || australium)
+            itemName = localiser.Find(itemName) ?? itemName;
+
+        return (TFItemStrings.PrefixedName(itemName, qualityWord, australium),
+                def.Keys.GetString("image_inventory", "") ?? "");
     }
 
     /// <summary>Stock's own display strings (tf_item_schema.cpp:1543-1569):

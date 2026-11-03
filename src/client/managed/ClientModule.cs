@@ -1886,6 +1886,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         effectHandlers.Add(_services.Create<Effects.CrossbowBoltEffect>());
         // PhyscannonImpact (weapon_physcannon.cpp's client effect): the gravity gun's blast.
         effectHandlers.Add(_services.Create<Effects.PhysCannonImpactEffect>());
+        // cball_bounce and cball_explode (c_prop_combine_ball.cpp): the AR2's ball.
+        effectHandlers.Add(_services.Create<Effects.CombineBallBounceEffect>());
+        effectHandlers.Add(_services.Create<Effects.CombineBallExplodeEffect>());
         // The mods' effects (stage 0.9): every [SideService(Side.Client)]
         // IClientEffectHandler, after the core's, now the services they may
         // ask for exist.
@@ -3338,6 +3341,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public void GetEnemyBlasted(int playerIndex) => _movementRules.Rules.EnemyBlasted(playerIndex);
 
     public void GetEndCommand(int playerIndex) => _movementRules.Rules.EndCommand(playerIndex);
+
+    public bool GetClampXY(int playerIndex) => _movementRules.Rules.ClampXY(playerIndex);
+
+    public bool GetKeepGround(int playerIndex) => _movementRules.Rules.KeepGround(playerIndex);
+
+    public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

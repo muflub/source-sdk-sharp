@@ -504,7 +504,10 @@ public readonly record struct FootingAnswer(
 /// stock Half-Life, rewrites nothing), the taunt's rewrite of the same
 /// command (null, stock Half-Life, rewrites nothing), the ground-categorizing
 /// overrides (null, the base's <c>CategorizePosition</c> body) and the
-/// footing answer behind it (null, no condition arm).
+/// footing answer behind it (null, no condition arm), the walk's xy trim to
+/// the max after Accelerating (false: keep everything Accelerate gave), the
+/// ground hold on a fully clear walk step (true: hold it), and the seconds a
+/// duck or unduck eases across (the passed constant back).
 /// <see cref="Stock"/> is the identity, so
 /// a loop nobody hands rules to moves exactly like Half-Life: no jump is ever
 /// taken in the air, no walk is clamped for backing away, nobody is ever
@@ -525,7 +528,10 @@ public readonly record struct MovementRules(
     Func<int, Vector, Vector, FootingAnswer?> Footing,
     Func<bool> NoHl2Arms,
     Action<int> EnemyBlasted,
-    Action<int> EndCommand)
+    Action<int> EndCommand,
+    Func<int, bool> ClampXY,
+    Func<int, bool> KeepGround,
+    Func<int, float, float> DuckSeconds)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
@@ -543,7 +549,10 @@ public readonly record struct MovementRules(
         static (_, _, _) => null,
         static () => false,
         static _ => { },
-        static _ => { });
+        static _ => { },
+        static _ => false,
+        static _ => true,
+        static (_, seconds) => seconds);
 }
 
 /// <summary>
@@ -1659,6 +1668,22 @@ public sealed partial class GameMovement
         Accelerate(wishdir, wishspeed, _c.Accelerate);
         _s.Velocity.Z = 0;
 
+        // CTFGameMovement::WalkMove trims the walked xy back to the max every
+        // command, right after Accelerating and before the back clamp
+        // (tf_gamemovement.cpp:1808-1815): flAdjustedMaxSpeed is the command's
+        // MaxSpeed untouched (:1804-1806), and the z is already zero so the
+        // length is the xy length. HL2 leaves the excess.
+        if (Rules.ClampXY(_s.EntIndex))
+        {
+            float xySpeed = MoveVec.Length(_s.Velocity);
+            if (xySpeed > _s.MaxSpeed)
+            {
+                float xyScale = _s.MaxSpeed / xySpeed;
+                _s.Velocity.X *= xyScale;
+                _s.Velocity.Y *= xyScale;
+            }
+        }
+
         // CTFGameMovement::WalkMove's closing block (tf_gamemovement.cpp:1830-1863),
         // the rule being the tf_clamp_back_speed pair: under a fraction of 1 and
         // above the pair's minimum, a player TRAVELLING backwards (the dot,
@@ -1719,7 +1744,11 @@ public sealed partial class GameMovement
         {
             _s.Origin = pm.EndPos;
             _s.Velocity -= _s.BaseVelocity;
-            StayOnGround();
+
+            // Stock TF comments both StayOnGround calls out — its own
+            // CategorizePosition covers the test (tf_gamemovement.cpp:1906).
+            if (Rules.KeepGround(_s.EntIndex))
+                StayOnGround();
             return;
         }
 
@@ -3792,13 +3821,15 @@ public sealed partial class GameMovement
                     float duckMilliseconds = MathF.Max(0.0f, GameMovementDuckTime - _s.DuckTime);
                     float duckSeconds = duckMilliseconds * 0.001f;
 
-                    if (duckSeconds > TimeToDuck || inDuck || inAir)
+                    float duckTime = Rules.DuckSeconds(_s.EntIndex, TimeToDuck);
+
+                    if (duckSeconds > duckTime || inDuck || inAir)
                     {
                         FinishDuck();
                     }
                     else
                     {
-                        float duckFraction = MoveVec.SimpleSpline(duckSeconds / TimeToDuck);
+                        float duckFraction = MoveVec.SimpleSpline(duckSeconds / duckTime);
                         SetDuckedEyeOffset(duckFraction);
                     }
                 }
@@ -3867,8 +3898,8 @@ public sealed partial class GameMovement
                         else if (_s.Ducking && !_s.Ducked)
                         {
                             // Invert the time if released before fully ducked.
-                            float unduckMilliseconds = 1000.0f * TimeToUnduck;
-                            float duckMilliseconds = 1000.0f * TimeToDuck;
+                            float unduckMilliseconds = 1000.0f * Rules.DuckSeconds(_s.EntIndex, TimeToUnduck);
+                            float duckMilliseconds = 1000.0f * Rules.DuckSeconds(_s.EntIndex, TimeToDuck);
                             float elapsedMilliseconds = GameMovementDuckTime - _s.DuckTime;
 
                             float fracDucked = elapsedMilliseconds / duckMilliseconds;
@@ -3886,13 +3917,15 @@ public sealed partial class GameMovement
                             float duckMilliseconds = MathF.Max(0.0f, GameMovementDuckTime - _s.DuckTime);
                             float duckSeconds = duckMilliseconds * 0.001f;
 
-                            if (duckSeconds > TimeToUnduck || (inAir && !duckJump))
+                            float duckTime = Rules.DuckSeconds(_s.EntIndex, TimeToUnduck);
+
+                            if (duckSeconds > duckTime || (inAir && !duckJump))
                             {
                                 FinishUnDuck();
                             }
                             else
                             {
-                                float duckFraction = MoveVec.SimpleSpline(1.0f - duckSeconds / TimeToUnduck);
+                                float duckFraction = MoveVec.SimpleSpline(1.0f - duckSeconds / duckTime);
                                 SetDuckedEyeOffset(duckFraction);
                                 _s.Ducking = true;
                             }

@@ -133,11 +133,29 @@ public sealed class TFClientConditionCarrierTests
         Assert.Equal([$"+{Cond.Burning} @3", $"-{Cond.Burning} @3"], calls.Calls);
     }
 
+    [Fact]
+    public void A_decode_before_the_players_shell_holds_the_words_for_the_first_that_has_one()
+    {
+        var shell = new LateShell();
+        var (data, calls) = Rig(shell);
+
+        // The join's first decode: the carrier's words are set, the player's
+        // own entity has not arrived — the arms would name a default handle.
+        data.OnDataChanged(default, DataUpdateType.Created);
+        Assert.Empty(calls.Calls);
+
+        // The shell lands; the next decode -- even an unchanged one -- reports
+        // the held adds once, against the real handle.
+        shell.Arrive();
+        data.OnDataChanged(default, DataUpdateType.DataTableChanged);
+        Assert.Equal([$"+{Cond.Burning} @3"], calls.Calls);
+    }
+
     /// <summary>A carrier over one shell at index 3, its words opening on the burning bit.</summary>
-    private static (ClientTFPlayerData data, RecordingHook calls) Rig()
+    private static (ClientTFPlayerData data, RecordingHook calls) Rig(client::SourceSharp.Client.IClientStandalones? shell = null)
     {
         var engine = new client::SourceSharp.Abi.RecordingEngine();
-        var standalones = new OneShell();
+        var standalones = shell ?? new OneShell();
         var resources = new client::TF2.Client.Player.TFClientPlayerResources();
         var log = new client::SourceSharp.Abi.RecordingLog();
         var classes = new client::TF2.Shared.TFClassTable(log, new ClientFiles(TFClassTableTests.Files.Shipped()));
@@ -167,6 +185,25 @@ public sealed class TFClientConditionCarrierTests
 
         public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex)
             => _player.Index == entityIndex ? _player : null;
+    }
+
+    /// <summary>A directory whose player shell has not arrived; <see cref="Arrive"/> lands it.</summary>
+    private sealed class LateShell : client::SourceSharp.Client.IClientStandalones
+    {
+        private client::SourceSharp.Client.Standalone.ClientSsPlayer? _player;
+
+        public void Arrive()
+        {
+            _player = new(new client::SourceSharp.Abi.RecordingEngine());
+            _player.BindIndex(3);
+            _player.Handle = new EntityHandle(0x0002_0003u);
+        }
+
+        public IReadOnlyList<client::SourceSharp.Client.Standalone.ClientStandaloneEntity> Live()
+            => _player is { } player ? [player] : [];
+
+        public client::SourceSharp.Client.Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex)
+            => _player is { } player && player.Index == entityIndex ? player : null;
     }
 
     /// <summary>The shipped class scripts, as the client's file seam sees them.</summary>

@@ -57,6 +57,14 @@ public interface IWeaponSlots
     int Slot(int weaponType);
 
     int Position(int weaponType);
+
+    /// <summary>
+    /// CBaseCombatWeapon::VisibleInWeaponSelection: whether the selection's
+    /// hud shows the type at all — its cards, the slot keys and the wheel.
+    /// The base weapon answers yes; a game's rows override it (the TF
+    /// builder's objects.txt arm, c_tf_weapon_builder.cpp:338).
+    /// </summary>
+    bool VisibleInSelection(int weaponType);
 }
 
 /// <summary>
@@ -269,14 +277,17 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     /// <summary>Whether the player carries a weapon in this bucket (GetFirstPos).</summary>
     public bool SlotHasWeapon(int slot) => FirstInSlot(slot) >= 0;
 
-    /// <summary>GetLastPosInSlot: the furthest position carried in a bucket, -1 for none.</summary>
+    /// <summary>GetLastPosInSlot: the furthest shown position carried in a
+    /// bucket, -1 for none — the panel's walk, whose last visible weapon is
+    /// the item the card carries (tf_hud_weaponselection.cpp:551-576).</summary>
     public int LastPositionInSlot(int slot)
     {
         int last = -1;
         ulong carried = _player.Carried;
         for (int t = 0; t < TypeCount; t++)
         {
-            if ((carried & (1ul << t)) != 0 && _slots.Slot(t) == slot && _slots.Position(t) > last)
+            if ((carried & (1ul << t)) != 0 && _slots.VisibleInSelection(t) && _slots.Slot(t) == slot
+                && _slots.Position(t) > last)
                 last = _slots.Position(t);
         }
 
@@ -592,17 +603,21 @@ public sealed class WeaponSelectionHud : Input.IHudProcessInput, IClientLevelHoo
     private bool FastSwitchShowing
         => Mode != 0 && _clock.Now - _selectionTime < FastSwitchTimeout + FastSwitchFadeoutTime;
 
-    private bool CanBeSelectedInHud(int weaponType) => CanBeSelected(weaponType);
+    // CanBeSelectedInHUD (weapon_selection.cpp:233-254): a weapon the
+    // selection shows and that can fire.
+    private bool CanBeSelectedInHud(int weaponType)
+        => _slots.VisibleInSelection(weaponType) && CanBeSelected(weaponType);
 
     private bool Carries(int weaponType) => (_player.Carried & (1ul << weaponType)) != 0;
 
-    /// <summary>GetFirstPos: the lowest position carried in a bucket.</summary>
+    /// <summary>GetFirstPos: the lowest shown position carried in a bucket
+    /// (weapon_selection.cpp:622-649, the visibility arm only).</summary>
     private int FirstInSlot(int slot)
     {
         int lowest = MaxPositions, first = -1;
         for (int t = 0; t < TypeCount; t++)
         {
-            if (Carries(t) && _slots.Slot(t) == slot && _slots.Position(t) <= lowest)
+            if (Carries(t) && _slots.VisibleInSelection(t) && _slots.Slot(t) == slot && _slots.Position(t) <= lowest)
             {
                 lowest = _slots.Position(t);
                 first = t;

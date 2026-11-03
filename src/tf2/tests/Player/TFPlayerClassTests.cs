@@ -129,6 +129,7 @@ public sealed class TFPlayerClassTests
             c => Assert.IsType<TFPlayerClass>(c),
             c => Assert.IsType<TFPlayerConditionTicker>(c),
             c => Assert.IsType<TFBlastJumpState>(c),
+            c => Assert.IsType<TFTauntThink>(c),
             c => Assert.IsType<TFStunStack>(c),
             c => Assert.IsType<TFRespawnOverride>(c),
             c => Assert.IsType<TFPlayerAttributes>(c),

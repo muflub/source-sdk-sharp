@@ -99,6 +99,24 @@ public sealed class ItemSchema(IEngineFiles files, ILog log)
     public int? Quality(string name) =>
         EnsureLoaded() && _contents!.Qualities.TryGetValue(name, out int value) ? value : null;
 
+    /// <summary>The other way of <see cref="Quality(string)"/>: the qualities
+    /// table's name whose value is <paramref name="value"/>, null when none
+    /// matches or the schema is unloaded — an unset quality (<see
+    /// cref="ItemDefinition.QualityAny"/>) finds nothing and prefixes nothing.
+    /// The display prefix reads the item's stored quality through it.</summary>
+    public string? QualityName(int value)
+    {
+        if (!EnsureLoaded())
+            return null;
+
+        foreach (var entry in _contents!.Qualities)
+        {
+            if (entry.Value == value)
+                return entry.Key;
+        }
+        return null;
+    }
+
     /// <summary>Every item definition, in no particular order; empty when unloaded.</summary>
     public IEnumerable<ItemDefinition> Items =>
         EnsureLoaded() ? _contents!.Items.Values : [];

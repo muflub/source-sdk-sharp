@@ -71,8 +71,7 @@ public class TFSapperTests
 
         EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
         var sapper = rig.Spawn<TFSapper>(TFSapper.MapClass);
-        sapper.StartPlacement(spy);
-        sapper.SetObjectMode(0);
+        sapper.StartPlacement(spy);   // no SetObjectMode: the ghost's flow never calls one
 
         // The ghost's body, Spawn's (tf_obj_sapper.cpp:88).
         Assert.Equal("models/buildables/sapper_placement.mdl", LastModelWorn(rig, sapper));

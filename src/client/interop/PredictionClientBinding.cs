@@ -46,7 +46,10 @@ public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideMod
                    (i, v, n) => game.GetFooting(i, v, n),
                    () => game.GetNoHl2Arms(),
                    i => game.GetEnemyBlasted(i),
-                   i => game.GetEndCommand(i)));
+                   i => game.GetEndCommand(i),
+                   i => game.GetClampXY(i),
+                   i => game.GetKeepGround(i),
+                   (i, s) => game.GetDuckSeconds(i, s)));
 
     /// <summary>
     /// The WHOLE of ProcessMovement, in C#, for the client's native forwarder.

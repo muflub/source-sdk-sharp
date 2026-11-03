@@ -165,4 +165,41 @@ public static class TFItemStrings
         "item_placement" => AttributeValueType.ItemPlacement,
         _ => null,
     };
+
+    /// <summary>
+    /// The quality's display word in front of an item name: the schema qualities
+    /// table's own name capitalised, the way the game writes it ("Strange",
+    /// "Unusual"); empty for the qualities stock's format skips — the none and
+    /// normal gate (econ_item_description.cpp:748-759), unique's article-or-empty
+    /// arm (:761-778) and the paintkit weapon (excluded by the same gate).
+    /// </summary>
+    public static string QualityWord(string? name) => name?.ToLowerInvariant() switch
+    {
+        null or { Length: 0 } => "",
+        "normal" => "",
+        "unique" => "",
+        "paintkitweapon" => "",
+        { } word => char.ToUpperInvariant(word[0]) + word[1..],
+    };
+
+    /// <summary>True when the item carries the attribute <paramref name="name"/>:
+    /// stock's <c>FindAttribute</c> over the def-name handles
+    /// (econ_item_description.cpp:822-832 reads Australium through it).</summary>
+    public static bool HasAttribute(ItemDefinition item, string name)
+    {
+        foreach (var attribute in item.Attributes)
+        {
+            if (string.Equals(attribute.Definition.Name, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>The item name shown to players with its prefix words ahead of
+    /// it — stock's assembly order (econ_item_description.cpp:748-789 and
+    /// :822-832): the quality word first, Australium after it, the name last;
+    /// reads like "Strange Australium Rocket Launcher".</summary>
+    public static string PrefixedName(string itemName, string qualityWord, bool australium) =>
+        (qualityWord.Length > 0 ? qualityWord + " " : "") +
+        (australium ? "Australium " : "") + itemName;
 }

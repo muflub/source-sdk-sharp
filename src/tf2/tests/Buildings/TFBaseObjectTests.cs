@@ -316,17 +316,6 @@ public class TFBaseObjectTests
         Assert.Equal(1f, played.ArgAs<float>(2), 3);
     }
 
-    [Fact]
-    public void TheSapperWearsNoModelAndIsNotDrawn()
-    {
-        var rig = new BuildingsRig();
-        var sapper = rig.Spawn<TFSapper>(TFSapper.MapClass);
-
-        Assert.DoesNotContain(rig.Engine.AllOf("EntityRender.SetModel"),
-                               c => c.ArgAs<EntityHandle>(0) == sapper.Handle);
-        Assert.False(rig.Engine.Last("EntityRender.SetVisible")!.Value.ArgAs<bool>(1));
-    }
-
     private static string LastModelWorn(BuildingsRig rig, ScriptedEntity building)
         => rig.Engine.AllOf("EntityRender.SetModel")
                      .Where(c => c.ArgAs<EntityHandle>(0) == building.Handle)

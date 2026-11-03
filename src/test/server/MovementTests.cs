@@ -1532,6 +1532,164 @@ public class MovementTests
     }
 
     //=========================================================================
+    // The walk's TF arms (CTFGameMovement::WalkMove): the xy trim to the max
+    // right after Accelerating (tf_gamemovement.cpp:1808-1815), the StayOnGround
+    // probes stock comments out on both walk exits (:1906, :1944-1945 — "our
+    // version of CategorizePosition encompasses this test"), and the duck
+    // easing's seconds (shareddefs.h:105-113: TIME_TO_DUCK is 0.2 under TF_DLL,
+    // TIME_TO_UNDUCK is 0.2 everywhere; HL2's duck easing is 0.4).
+    //=========================================================================
+
+    /// <summary>
+    /// One grounded command walking forward at <paramref name="vx"/> under the
+    /// xy trim and the ground hold. Surface friction is zeroed so what arrives
+    /// at the trim is what the command started with (Accelerate adds nothing
+    /// against a zero wish), and the back clamp stays at its Stock answer.
+    /// </summary>
+    private static MoveState WalkArmsCommand(float vx, bool clampXY, bool keepGround)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with
+        {
+            ClampXY = _ => clampXY,
+            KeepGround = _ => keepGround,
+        };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.SurfaceFriction = 0f;
+        s.Velocity = new Vector(vx, 0f, 0f);
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// The trim: a forward walk arriving at 400 under a 320 max comes back to
+    /// the max — stock's <c>flNewSpeed > flAdjustedMaxSpeed</c> scaling
+    /// (tf_gamemovement.cpp:1810-1815), <c>flAdjustedMaxSpeed</c> being the
+    /// command's max untouched (:1804-1806) — so the xy lands bit-exact on
+    /// 320 and 0.
+    /// </summary>
+    [Fact]
+    public void ATrimmedWalkLandsOnTheMaxXYBitExact()
+    {
+        MoveState s = WalkArmsCommand(400f, clampXY: true, keepGround: true);
+
+        AssertBits(320f, s.Velocity.X, "xy trim to the max");
+        AssertBits(0f, s.Velocity.Y, "xy trim keeps the zero sideways");
+    }
+
+    /// <summary>
+    /// Half-Life MP has no such trim: HL2's WalkMove clamps the wish speed,
+    /// never the walked xy, so the excess over the max survives whole.
+    /// </summary>
+    [Fact]
+    public void WithoutTheTrimTheWalkKeepsItsExcessOverTheMax()
+    {
+        MoveState s = WalkArmsCommand(400f, clampXY: false, keepGround: true);
+
+        AssertBits(400f, s.Velocity.X, "no trim, the excess survives");
+    }
+
+    /// <summary>
+    /// The ground hold: HL2's clear walk (fraction 1) ends in StayOnGround's
+    /// two probes, and TF drops both once its own CategorizePosition covers the
+    /// test (tf_gamemovement.cpp:1906). The walk's own trace and everything
+    /// outside StayOnGround run in both arms, so the difference is exactly the
+    /// two probes, and at least one other trace proves the walk reached them.
+    /// </summary>
+    [Fact]
+    public void TheClearWalkHoldsItsGroundWithTwoMoreProbesThanTFs()
+    {
+        int held = WalkArmsTraceCount(keepGround: true);
+        int skipped = WalkArmsTraceCount(keepGround: false);
+
+        Assert.True(skipped >= 1, "the clear walk traced at least its own step");
+        Assert.Equal(skipped + 2, held);
+    }
+
+    /// <summary>The traces of one clear command, in one arm of the hold.</summary>
+    private static int WalkArmsTraceCount(bool keepGround)
+    {
+        var traces = 0;
+        var world = new ScriptedWorld
+        {
+            OnTrace = (st, en, _, _, _, _) =>
+            {
+                traces++;
+                return ScriptedWorld.Floor(st, en);
+            },
+        };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with { KeepGround = _ => keepGround };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.SurfaceFriction = 0f;
+        s.Velocity = new Vector(400f, 0f, 0f);
+        movement.ProcessMovement(s);
+        return traces;
+    }
+
+    /// <summary>
+    /// One grounded command holding the duck button mid-blend — DuckTime at
+    /// <paramref name="duckTime"/> after this command's tick — under one answer
+    /// for the easing seconds. The velocity is zero, so WalkMove returns at its
+    /// speed floor and the eye offset is the only thing the command writes.
+    /// </summary>
+    private static MoveState HeldDuckCommand(float duckTime, float? duckSeconds)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        movement.Rules = MovementRules.Stock with
+        {
+            DuckSeconds = duckSeconds is { } seconds
+                ? (_, _) => seconds
+                : static (_, secondsIn) => secondsIn,
+        };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InDuck;
+        s.OldButtons = GameMovement.InDuck;
+        s.Ducking = true;
+        s.DuckTime = duckTime;
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// Two tenths of easing: at 0.3 s elapsed the duck is finished —
+    /// <c>FinishDuck</c> sets the full ducked eye bit-exact and the ducking
+    /// flag — where HL2's 0.4 is still mid-blend at the same elapsed time.
+    /// </summary>
+    [Fact]
+    public void TheRulesShortenTheDuckEasingToFinishAtTwoTenths()
+    {
+        MoveState s = HeldDuckCommand(duckTime: 715f, duckSeconds: 0.2f);
+
+        AssertBits(28f, s.ViewOffset.Z, "two tenths already finished the duck");
+        Assert.False(s.Ducking);
+        Assert.True(s.Ducked);
+        Assert.True((s.Flags & GameMovement.FlDucking) != 0, "the finished duck carries its flag");
+        AssertBits(700f, s.DuckTime, "the timer counts down by the tick alone");
+    }
+
+    /// <summary>
+    /// HL2's 0.4 at the same instant: the eye is still on its spline — 0.75 of
+    /// it, which the spline puts at 0.84375 — between the standing 64 and the
+    /// ducked 28, so 33.625, and the duck is still easing.
+    /// </summary>
+    [Fact]
+    public void WithoutRulesTheDuckStillEasesAcrossFourTenths()
+    {
+        MoveState s = HeldDuckCommand(duckTime: 715f, duckSeconds: null);
+
+        AssertBits(33.625f, s.ViewOffset.Z, "mid-blend eye at 0.75 of the easing");
+        Assert.True(s.Ducking);
+        Assert.True((s.Flags & GameMovement.FlDucking) == 0, "still easing, not ducked yet");
+        AssertBits(700f, s.DuckTime, "the timer counts down by the tick alone");
+    }
+
+    //=========================================================================
     // The stun's command rewrite (CTFGameMovement::StunMove,
     // tf_gamemovement.cpp:537-627): stock's ProcessMovement asks it between
     // the state setup and PlayerMove (:317, the return value ignored — the

@@ -4414,6 +4414,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public void GetEndCommand(int playerIndex) => _movementRules.Rules.EndCommand(playerIndex);
 
+    public bool GetClampXY(int playerIndex) => _movementRules.Rules.ClampXY(playerIndex);
+
+    public bool GetKeepGround(int playerIndex) => _movementRules.Rules.KeepGround(playerIndex);
+
+    public float GetDuckSeconds(int playerIndex, float seconds) => _movementRules.Rules.DuckSeconds(playerIndex, seconds);
+
     // The engine's InfoPanel table, through its own string-table interfaces. A
     // server whose container cannot be acquired still loads (the message of the
     // day is not worth a failed load), and says so when it would have written.

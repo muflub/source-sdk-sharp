@@ -47,8 +47,8 @@ public sealed class TFSpyComponent(
     IEngineEntities entities, IEngineWorldQuery world, IEngineDamage damage, DamageHitGroups hitGroups,
     TFDamageScopes scopes, IUniformRandom random, TFClassTable classes, TFSpy source,
     TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
-    ITFWeaponOwners owners, IEngineSound sound, ICtfRules? ctf = null,
-    ILagCompensation? lagCompensation = null) : IPlayerComponent
+    ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
+    ICtfRules? ctf = null, ILagCompensation? lagCompensation = null) : IPlayerComponent
 {
     /// <summary><c>TF_TIME_TO_DISGUISE</c> (tf_shareddefs.h:674).</summary>
     public const float TimeToDisguise = 2.0f;
@@ -115,6 +115,10 @@ public sealed class TFSpyComponent(
 
         if (state.Conditions().Has(TFCond.Disguising) && now >= _disguiseCompleteTime)
             CompleteDisguise(state);
+
+        // The disguise weapon (DetermineDisguiseWeapon's dress): the tick's
+        // tail keeps the carried entity wearing the disguise while it stands.
+        disguiseWeapons.Tick(_index, state);
     }
 
     public void Detach()
@@ -312,9 +316,9 @@ public sealed class TFSpyComponent(
     /// fields go on the carrier, <c>TF_COND_DISGUISED</c> replaces
     /// <c>TF_COND_DISGUISING</c>, the target is drawn and the fake health
     /// written from it. The disguise weapon (<c>DetermineDisguiseWeapon</c>,
-    /// :8394) and wearables (<c>DetermineDisguiseWearables</c>) are narrowed
-    /// in docs/plans/tf2/deferred.tsv: the core merges one weapon entity per
-    /// player and networks no cosmetics.</summary>
+    /// :8394) is the think's tail (<see cref="TFDisguiseWeapons"/>); only the
+    /// wearables (<c>DetermineDisguiseWearables</c>) are still narrowed in
+    /// docs/plans/tf2/deferred.tsv: the core networks no cosmetics.</summary>
     private void CompleteDisguise(TFPlayerNetState state)
     {
         conditions.Add(_player, TFCond.Disguised, TFConditions.Permanent, _player);
@@ -579,8 +583,8 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
                           TFSpyInvisUnstealthTimeConVar unstealthTime,
                           TFSpyCloakNoAttackTimeConVar noAttackTime,
                           TFRoundWinners winners, ITFRespawnRooms rooms, AttributeHooks hooks,
-                          ITFWeaponOwners owners, IEngineSound sound, ICtfRules? ctf = null,
-                          ILagCompensation? lagCompensation = null)
+                          ITFWeaponOwners owners, IEngineSound sound, TFDisguiseWeapons disguiseWeapons,
+                          ICtfRules? ctf = null, ILagCompensation? lagCompensation = null)
     : IPlayerComponentSource, IOrderedHook, ITFSpyState, ITFConditionHook
 {
     private readonly Dictionary<int, TFSpyComponent> _byIndex = new();
@@ -598,7 +602,7 @@ public sealed class TFSpy(ITFPlayerData players, ITFPlayerConditions conditions,
     {
         yield return new TFSpyComponent(players, conditions, enginePlayers, entities, world, damage,
                                         hitGroups, scopes, random, classes, this, winners,
-                                        rooms, hooks, owners, sound, ctf, lagCompensation);
+                                        rooms, hooks, owners, sound, disguiseWeapons, ctf, lagCompensation);
     }
 
     internal TFSpyCloakConsumeRateConVar ConsumeRate => consumeRate;

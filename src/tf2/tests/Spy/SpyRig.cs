@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 
 using SourceSharp.Abi;
 using SourceSharp.Server;
+using SourceSharp.Shared;
 using SourceSharp.Tests;
 
 using TF2.Server.Combat;
@@ -108,6 +109,9 @@ internal sealed class SpyRig
     /// <summary>The third player's handle (<see cref="AddPlayer"/>'s index 5).</summary>
     public static readonly EntityHandle Other = new(0x0001_0005u);
 
+    /// <summary>The spy's carried weapon entity.</summary>
+    public static readonly EntityHandle WeaponEntity = new(0x0003_0001u);
+
     private readonly TFMovementFixtures.Players _states = new();
 
     public RecordingEngine Engine { get; } = TestServices.Fake();
@@ -118,7 +122,17 @@ internal sealed class SpyRig
     public SpyDamage Damage { get; }
     public ArmedConditions Conditions { get; }
     public ConVarRegistry ConVars { get; }
+    public RecordingLog Log { get; } = new();
+    public ItemSchema Schema { get; } = EconTestFiles.TrimmedSchema();
     public TFClassTable Classes { get; }
+    public WeaponCatalog Catalog { get; }
+
+    /// <summary>The entity world the disguise's dress reads: the spy's carried weapon in it.</summary>
+    public RigArmory Armory { get; }
+
+    /// <summary>The disguise's dress, the service the spy's think tails.</summary>
+    public TFDisguiseWeapons DisguiseWeapons { get; }
+
     public TFSpy Spies { get; }
 
     /// <summary>The attached spy slice.</summary>
@@ -180,7 +194,15 @@ internal sealed class SpyRig
     /// <summary>The item owners whose per-player managers the hook reads.</summary>
     public FakeOwners Owners { get; } = new();
 
-    public SpyRig(TFClass playerClass = TFClass.Spy, ICtfRules? ctf = null, ILagCompensation? lag = null)
+    /// <summary>The engine's active-weapon answer, for the dress's restore.</summary>
+    public string ActiveWeapon { set => Engine.Returns("Players.GetActiveWeapon", value); }
+
+    /// <summary>The carried weapon's deploy, as <c>Arsenal.Deploy</c> is: the stamp, its own dress aside —
+    /// the dress under test is the disguise's.</summary>
+    public void Deploy() => Armory.Deploy();
+
+    public SpyRig(TFClass playerClass = TFClass.Spy, ICtfRules? ctf = null, ILagCompensation? lag = null,
+                  bool withWeapon = true)
     {
         Damage = new SpyDamage(Scopes, HitGroups);
         _states.Add(Spy.EntryIndex, playerClass);
@@ -210,17 +232,24 @@ internal sealed class SpyRig
         Engine.Returns("Environment.Globals", new Globals(globals));
 
         Classes = new TFClassTable(new RecordingLog(), WeaponFixtures.ShippedWithClasses());
+        Catalog = new WeaponCatalog(() => [new TFWeaponTypes(
+            new TFWeaponScripts(Log, WeaponFixtures.ShippedWithClasses()), Classes, Schema)], Log);
+
+        Armory = new RigArmory();
+        if (withWeapon)
+            Armory.Give(WeaponEntity, Spy.EntryIndex);
+        DisguiseWeapons = new TFDisguiseWeapons(Engine, Armory, Engine, Schema, Classes, Catalog);
 
         Spies = new TFSpy(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random, Classes,
                           Clock, Engine,
                           ConVars.Get<TFSpyCloakConsumeRateConVar>()!, ConVars.Get<TFSpyCloakRegenRateConVar>()!,
                           ConVars.Get<TFSpyInvisTimeConVar>()!, ConVars.Get<TFSpyInvisUnstealthTimeConVar>()!,
                           ConVars.Get<TFSpyCloakNoAttackTimeConVar>()!,
-                          Winners, Rooms, Hooks, Owners, Engine, ctf, lag);
+                          Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag);
         Conditions.Spies = Spies;   // the rig's chain: removals run the disguise arms
         var component = new TFSpyComponent(_states, Conditions, Engine, Engine, Engine, Damage, HitGroups, Scopes, Random,
                                            Classes, Spies,
-                                           Winners, Rooms, Hooks, Owners, Engine, ctf, lag);
+                                           Winners, Rooms, Hooks, Owners, Engine, DisguiseWeapons, ctf, lag);
         component.Attach(Spy);
         Slice = component;
     }
@@ -303,4 +332,48 @@ internal sealed class ArmedConditions(TFMovementFixtures.Players players) : ITFP
 
     private void Removed(EntityHandle player, TFCond cond)
         => Spies?.OnRemoved(player, cond);
+}
+
+/// <summary>
+/// The entity directory the dress reads: the one <c>ss_weapon</c> the core
+/// gives each player, found by owner as production's walk is. The handle is
+/// set through the friend grant, as the compositor's registration does.
+/// </summary>
+internal sealed class RigArmory : IEntityDirectory
+{
+    private readonly Dictionary<EntityHandle, SsWeapon> _byHandle = new();
+
+    /// <summary>The spy's carried weapon, when the rig gave one.</summary>
+    public SsWeapon? Held { get; private set; }
+
+    public SsWeapon Give(EntityHandle handle, int ownerIndex)
+    {
+        var weapon = new SsWeapon();
+        weapon.Handle = handle;
+        weapon.State.BindLocal();
+        weapon.State.OwnerIndex = ownerIndex;
+        _byHandle[handle] = weapon;
+        Held = weapon;
+        return weapon;
+    }
+
+    /// <summary>A deploy's stamp (<c>Arsenal.Deploy</c>'s epoch write; the
+    /// arsenal's own dress of the carried weapon it accompanies, not this
+    /// dress's business).</summary>
+    public void Deploy()
+    {
+        if (Held is { } held)
+            held.State.DeployEpoch++;
+    }
+
+    ScriptedEntity? IEntityDirectory.Get(EntityHandle h) => _byHandle.GetValueOrDefault(h);
+
+    public ScriptedEntity? FindByName(string name) => null;
+
+    public IEnumerable<ScriptedEntity> OfClass(string className)
+        => className == EntityNames.SsWeapon ? _byHandle.Values : [];
+
+    public bool IsRegistered(string className) => className == EntityNames.SsWeapon;
+
+    public IReadOnlyList<ScriptedClassInfo> DescribeClasses() => [];
 }

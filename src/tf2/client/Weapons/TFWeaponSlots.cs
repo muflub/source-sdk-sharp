@@ -30,7 +30,10 @@ namespace TF2.Client.Weapons;
 /// class's objects as it walks them (tf_player.cpp:4309-4316), and the
 /// <c>SelectionSlot</c> that decides is the per-class buildables' answer; the
 /// spy's single sapper is the case the slot keys meet, and the engineer's
-/// first buildable is the sentry, whose row is his script bucket.
+/// first buildable is the sentry, whose row is his script bucket. The same
+/// override is the family's answer to <c>VisibleInWeaponSelection</c>
+/// (c_tf_weapon_builder.cpp:338-345): the shipped rows show none of the
+/// engineer's three, the sapper alone.
 /// </para>
 /// </summary>
 [SideService(Side.Client, As = [typeof(IWeaponSlots)])]
@@ -40,6 +43,7 @@ public sealed class TFWeaponSlots(WeaponCatalog weapons, WeaponScriptDatabase sc
 {
     private int[] _slot = [];
     private int[] _position = [];
+    private bool[] _visible = [];
 
     // The class the table was filled for: the builder's override is the local
     // class's, so a class change re-reads every row.
@@ -50,6 +54,8 @@ public sealed class TFWeaponSlots(WeaponCatalog weapons, WeaponScriptDatabase sc
     public int Slot(int weaponType) => Row(weaponType) ? _slot[weaponType] : -1;
 
     public int Position(int weaponType) => Row(weaponType) ? _position[weaponType] : -1;
+
+    public bool VisibleInSelection(int weaponType) => !Row(weaponType) || _visible[weaponType];
 
     private bool Row(int weaponType)
     {
@@ -68,6 +74,7 @@ public sealed class TFWeaponSlots(WeaponCatalog weapons, WeaponScriptDatabase sc
         _class = local ?? TFClass.Undefined;
         _slot = new int[weapons.Count];
         _position = new int[weapons.Count];
+        _visible = new bool[weapons.Count];
 
         // The class's first buildable, where the builder's override reads its
         // objects.txt row; none for a class that builds nothing.
@@ -87,12 +94,27 @@ public sealed class TFWeaponSlots(WeaponCatalog weapons, WeaponScriptDatabase sc
         {
             WeaponScript? script = weapons.ByIndex(t) is { } type ? scripts.ReadScript(type.Name) : null;
             (int slot, int position) = script is null ? (-1, -1) : (script.Slot, script.Position);
+            // CTFWeaponInvis's answer (tf_weapon_invis.h:57): the watch is worn,
+            // never selected; +attack2 cloaks with it.
+            bool visible = weapons.ByIndex(t)?.Name != InvisWatch;
 
-            if (built is { } objectBuilt && IsBuilder(weapons.ByIndex(t)?.Name))
-                (slot, position) = Selection(objectBuilt);
+            if (IsBuilder(weapons.ByIndex(t)?.Name))
+            {
+                // C_TFWeaponBuilder::VisibleInWeaponSelection
+                // (c_tf_weapon_builder.cpp:338-345): a builder without an
+                // object never shows; one with it shows as the objects.txt
+                // row's VisibleInWeaponSelection names.
+                visible = false;
+                if (built is { } objectBuilt)
+                {
+                    (slot, position) = Selection(objectBuilt);
+                    visible = Shown(objectBuilt);
+                }
+            }
 
             _slot[t] = slot;
             _position[t] = position;
+            _visible[t] = visible;
         }
     }
 
@@ -114,6 +136,9 @@ public sealed class TFWeaponSlots(WeaponCatalog weapons, WeaponScriptDatabase sc
     /// <summary>The builder family: the classes <c>CTFWeaponBuilder</c> covers, the builder and the sapper derived from it.</summary>
     private static bool IsBuilder(string? weapon) => weapon is Builder or TFWeaponTypes.Sapper;
 
+    /// <summary><c>TF_WEAPON_INVIS</c> as the rows spell it.</summary>
+    private const string InvisWatch = "tf_weapon_invis";
+
     /// <summary><c>TF_WEAPON_BUILDER</c> as the rows spell it.</summary>
     private const string Builder = "tf_weapon_builder";
 
@@ -130,4 +155,9 @@ public sealed class TFWeaponSlots(WeaponCatalog weapons, WeaponScriptDatabase sc
         TFObjectType.AttachmentSapper => (1, 0),
         _ => (0, 0),
     };
+
+    /// <summary>The shipped <c>objects.txt</c>'s <c>VisibleInWeaponSelection</c>
+    /// per buildable: the engineer's three build in the hud's shadow, the
+    /// sapper alone shows (c_tf_weapon_builder.cpp:343).</summary>
+    private static bool Shown(TFObjectType type) => type == TFObjectType.AttachmentSapper;
 }

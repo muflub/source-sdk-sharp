@@ -44,6 +44,7 @@ public class WeaponSelectionTests
         public int Count => 3;
         public int Slot(int t) => t;
         public int Position(int t) => 0;
+        public bool VisibleInSelection(int weaponType) => true;
 
         public void SendSelection(string line) { }
         public void Escape() => Escapes++;

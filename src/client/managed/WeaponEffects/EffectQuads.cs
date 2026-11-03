@@ -58,6 +58,20 @@ public static class EffectQuads
     }
 
     /// <summary>
+    /// <c>DrawHaloOriented( source, scale, color, roll )</c>: <see cref="Halo"/> on the
+    /// view's axes turned by <paramref name="roll"/>, in radians.
+    /// </summary>
+    public static void HaloOriented(Span<FxVertex> quad, Vector source, float scale, Vector color, float roll, in CurrentViewState view)
+    {
+        float sin = MathF.Sin(roll), cos = MathF.Cos(roll);
+        Vector right = (view.Right * cos + view.Up * sin) * scale, up = (view.Right * -sin + view.Up * cos) * scale, n = Vector.Zero;
+        quad[0] = new FxVertex(source - up - right, 0f, 1f, color.X, color.Y, color.Z, 1f, n);
+        quad[1] = new FxVertex(source + up - right, 0f, 0f, color.X, color.Y, color.Z, 1f, n);
+        quad[2] = new FxVertex(source + up + right, 1f, 0f, color.X, color.Y, color.Z, 1f, n);
+        quad[3] = new FxVertex(source - up + right, 1f, 1f, color.X, color.Y, color.Z, 1f, n);
+    }
+
+    /// <summary>
     /// <c>DrawHalo( material, source, scale, color )</c>: a quad
     /// <paramref name="scale"/> out from <paramref name="source"/> along the
     /// view's up and right. The colour is floats (<c>Color3fv</c>, which writes

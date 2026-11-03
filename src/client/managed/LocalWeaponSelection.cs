@@ -60,6 +60,10 @@ public sealed class ScriptWeaponSlots(WeaponCatalog weapons, WeaponScriptDatabas
 
     public int Position(int weaponType) => Row(weaponType) ? _position[weaponType] : -1;
 
+    // The base weapon's answer (basecombatweapon_shared.cpp:635): every
+    // script row shows.
+    public bool VisibleInSelection(int weaponType) => Row(weaponType);
+
     private bool Row(int weaponType)
     {
         if (weaponType < 0 || weaponType >= weapons.Count)
