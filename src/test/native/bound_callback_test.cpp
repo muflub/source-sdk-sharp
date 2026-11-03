@@ -322,10 +322,69 @@ namespace
 class CStackWalker
 {
 public:
-	void Walk(void*, const char*, const char*, int) { m_nFrames = CaptureStackBackTrace(0, 62, m_Frames, NULL); }
+	void Walk(void*, const char*, const char*, int)
+	{
+		m_nFrames = CaptureStackBackTrace(0, 62, m_Frames, NULL);
+		m_nUnwound = UnwindFromHere();
+	}
+
+	// The frames a walk with RtlLookupFunctionEntry and RtlVirtualUnwind finds from its caller,
+	// the routines exception dispatch unwinds with; a frame with no entry is a leaf.
+	static __declspec(noinline) USHORT UnwindFromHere()
+	{
+		ULONG_PTR uLow = 0, uHigh = 0;
+		GetCurrentThreadStackLimits(&uLow, &uHigh);
+
+		CONTEXT context = {};
+		RtlCaptureContext(&context);
+		USHORT nFrames = 0;
+		while (context.Rip != 0 && nFrames < 62)
+		{
+			// A frame unwound from a wrong return address can leave the stack: stop there.
+			if (context.Rsp < uLow || context.Rsp + 8 > uHigh)
+				break;
+
+			DWORD64 uImageBase = 0;
+			PRUNTIME_FUNCTION pEntry = RtlLookupFunctionEntry(context.Rip, &uImageBase, NULL);
+			if (pEntry)
+			{
+				PVOID pHandler = NULL;
+				DWORD64 uFrame = 0;
+				RtlVirtualUnwind(UNW_FLAG_NHANDLER, uImageBase, context.Rip, pEntry, &context, &pHandler, &uFrame,
+								 NULL);
+			}
+			else
+			{
+				context.Rip = *(DWORD64*)context.Rsp;
+				context.Rsp += 8;
+			}
+			nFrames++;
+		}
+		return nFrames;
+	}
+
+	// Each frame the walk captured: its address, its offset in the thunk's page when it is in
+	// it, and whether the system finds unwind data for it.
+	std::string Describe(const void* pPage) const
+	{
+		std::string out;
+		char line[128];
+		for (USHORT k = 0; k < m_nFrames; k++)
+		{
+			const uintptr_t uAt = (uintptr_t)m_Frames[k];
+			DWORD64 uImageBase = 0;
+			const bool bEntry = RtlLookupFunctionEntry((DWORD64)uAt, &uImageBase, NULL) != NULL;
+			const bool bInPage = uAt >= (uintptr_t)pPage && uAt < (uintptr_t)pPage + 4096;
+			snprintf(line, sizeof(line), "  #%u %p%s%s\n", (unsigned)k, m_Frames[k], bInPage ? " (thunk page)" : "",
+					 bEntry ? " entry" : " no entry");
+			out += line;
+		}
+		return out;
+	}
 
 	void* m_Frames[62] = {};
 	USHORT m_nFrames = 0;
+	USHORT m_nUnwound = 0;
 };
 
 __declspec(noinline) USHORT CallThrough(AddSearchPathCallback::Fn fn)
@@ -346,7 +405,9 @@ TEST(BoundCallback, AStackWalkThroughAFrameThunkReachesItsCaller)
 	const USHORT nCaller = CallThrough(callback.Get());
 
 	// Without the page's unwind data the walk stops inside the thunk's frame.
-	EXPECT_GT(walker.m_nFrames, nCaller);
+	EXPECT_GT(walker.m_nFrames, nCaller) << "CaptureStackBackTrace's frames:\n"
+										 << walker.Describe(callback.Get()) << "RtlVirtualUnwind found "
+										 << walker.m_nUnwound << " frames";
 }
 #endif
 
