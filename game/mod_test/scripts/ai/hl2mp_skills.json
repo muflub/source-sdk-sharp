@@ -1,0 +1,348 @@
+{
+ "format": 1,
+ "note": "The skill curves (plan_hl2mp_ai \u00a710): each parameter the brain reads is a value per level 0..10 of one skill. Read by the server through the game's file seam and handed to the AI core as data.",
+ "parameters": {
+  "aimErrorDeg": {
+   "skill": "accuracy",
+   "direction": "down",
+   "note": "the aim's error cone about the target point, degrees",
+   "levels": [
+    9.0,
+    8.2,
+    7.4,
+    6.6,
+    5.8,
+    5.0,
+    4.2,
+    3.4,
+    2.6,
+    1.8,
+    1.0
+   ]
+  },
+  "leadQuality": {
+   "skill": "accuracy",
+   "direction": "up",
+   "note": "the share of the projectile lead the bot aims with (\u00a75.3.3)",
+   "levels": [
+    0.2,
+    0.28,
+    0.36,
+    0.44,
+    0.52,
+    0.6,
+    0.68,
+    0.76,
+    0.84,
+    0.92,
+    1.0
+   ]
+  },
+  "glanceRate": {
+   "skill": "alertness",
+   "direction": "up",
+   "note": "glances off the path per second while moving and unengaged",
+   "levels": [
+    0.05,
+    0.085,
+    0.12,
+    0.155,
+    0.19,
+    0.225,
+    0.26,
+    0.295,
+    0.33,
+    0.365,
+    0.4
+   ]
+  },
+  "preferredRangeScale": {
+   "skill": "aggression",
+   "direction": "down",
+   "note": "the weapon family's preferred engagement range is scaled by this",
+   "levels": [
+    1.4,
+    1.32,
+    1.24,
+    1.16,
+    1.08,
+    1.0,
+    0.92,
+    0.84,
+    0.76,
+    0.68,
+    0.6
+   ]
+  },
+  "chaseSeconds": {
+   "skill": "aggression",
+   "direction": "up",
+   "note": "how long the bot chases an opponent it lost sight of before it searches",
+   "levels": [
+    1.0,
+    1.7,
+    2.4,
+    3.1,
+    3.8,
+    4.5,
+    5.2,
+    5.9,
+    6.6,
+    7.3,
+    8.0
+   ]
+  },
+  "coverWeight": {
+   "skill": "cover",
+   "direction": "up",
+   "note": "how much a fighting bot prefers a spot the opponent cannot see",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "reloadBelowPct": {
+   "skill": "cover",
+   "direction": "up",
+   "note": "the clip share under which the bot reloads when nobody is sighted",
+   "levels": [
+    0.0,
+    0.06,
+    0.12,
+    0.18,
+    0.24,
+    0.3,
+    0.36,
+    0.42,
+    0.48,
+    0.54,
+    0.6
+   ]
+  },
+  "searchSeconds": {
+   "skill": "tenacity",
+   "direction": "up",
+   "note": "how long the bot searches the belief's cells before it gives up",
+   "levels": [
+    3.0,
+    5.2,
+    7.4,
+    9.6,
+    11.8,
+    14.0,
+    16.2,
+    18.4,
+    20.6,
+    22.8,
+    25.0
+   ]
+  },
+  "ambushWeight": {
+   "skill": "cunning",
+   "direction": "up",
+   "note": "Ambush's utility when an opponent's route is known",
+   "levels": [
+    0.0,
+    0.08,
+    0.16,
+    0.24,
+    0.32,
+    0.4,
+    0.48,
+    0.56,
+    0.64,
+    0.72,
+    0.8
+   ]
+  },
+  "routeAltWeight": {
+   "skill": "cunning",
+   "direction": "up",
+   "note": "the cost added to the shortest approach's cells, so a cunning bot comes another way",
+   "levels": [
+    0.0,
+    0.06,
+    0.12,
+    0.18,
+    0.24,
+    0.3,
+    0.36,
+    0.42,
+    0.48,
+    0.54,
+    0.6
+   ]
+  },
+  "fireRangeGate": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "the bot fires up to this many times the weapon's effective range",
+   "levels": [
+    2.0,
+    1.9,
+    1.8,
+    1.7,
+    1.6,
+    1.5,
+    1.4,
+    1.3,
+    1.2,
+    1.1,
+    1.0
+   ]
+  },
+  "pushTrust": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "P(empty) + P(reloading) the push needs (\u00a75.4): 0.6 at 10, 99 (never) at 0",
+   "levels": [
+    99.0,
+    1.5,
+    1.4,
+    1.3,
+    1.2,
+    1.1,
+    1.0,
+    0.9,
+    0.8,
+    0.7,
+    0.6
+   ]
+  },
+  "pushMarginSeconds": {
+   "skill": "discipline",
+   "direction": "down",
+   "note": "the push's margin: it must arrive this long before the reload ends",
+   "levels": [
+    1.0,
+    0.92,
+    0.84,
+    0.76,
+    0.68,
+    0.6,
+    0.52,
+    0.44,
+    0.36,
+    0.28,
+    0.2
+   ]
+  },
+  "strafeWeight": {
+   "skill": "agility",
+   "direction": "up",
+   "note": "the share of a fight's ticks spent strafing",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "strafeMeanSeconds": {
+   "skill": "agility",
+   "direction": "down",
+   "note": "the mean time between strafe turns (drawn, never periodic)",
+   "levels": [
+    1.2,
+    1.115,
+    1.03,
+    0.945,
+    0.86,
+    0.775,
+    0.69,
+    0.605,
+    0.52,
+    0.435,
+    0.35
+   ]
+  },
+  "retreatHealthPct": {
+   "skill": "nerve",
+   "direction": "down",
+   "note": "the health share under which the bot retreats from an approaching opponent",
+   "levels": [
+    0.6,
+    0.55,
+    0.5,
+    0.45,
+    0.4,
+    0.35,
+    0.3,
+    0.25,
+    0.2,
+    0.15,
+    0.1
+   ]
+  },
+  "rankBonus": {
+   "skill": "headhunter",
+   "direction": "up",
+   "note": "the target-priority weight of the opponent's scoreboard rank (\u00a75.4)",
+   "levels": [
+    0.0,
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+    1.0
+   ]
+  },
+  "pathCapMultiplier": {
+   "skill": "headhunter",
+   "direction": "up",
+   "note": "how much farther than the nearest opponent the bot will walk to its target",
+   "levels": [
+    1.0,
+    1.2,
+    1.4,
+    1.6,
+    1.8,
+    2.0,
+    2.2,
+    2.4,
+    2.6,
+    2.8,
+    3.0
+   ]
+  },
+  "easyTargetDiscount": {
+   "skill": "headhunter",
+   "direction": "down",
+   "note": "the priority a nearer, easier target keeps against the leader",
+   "levels": [
+    1.0,
+    0.93,
+    0.86,
+    0.79,
+    0.72,
+    0.65,
+    0.58,
+    0.51,
+    0.44,
+    0.37,
+    0.3
+   ]
+  }
+ }
+}

@@ -44,9 +44,10 @@ public sealed class PredictorTests
     [Fact]
     public void FullDisciplinePushesOnPointSixWithAFifthOfASecondToSpare()
     {
-        (float trust, float margin) = AmmoWindow.ForDiscipline(10);
+        SkillCurves curves = SourceSharp.Ai.Tests.Skills.Curves.Game();
+        (float trust, float margin) = (curves["pushTrust"].At(10), curves["pushMarginSeconds"].At(10));
         Assert.Equal((0.6f, 0.2f), (MathF.Round(trust, 3), MathF.Round(margin, 3)));
-        Assert.True(float.IsPositiveInfinity(AmmoWindow.ForDiscipline(0).Trust), "at 0 the estimate is ignored");
+        Assert.True(curves["pushTrust"].At(0) > 2f, "at 0 the estimate is ignored: no P(empty) + P(reloading) reaches it");
     }
 
     [Fact]

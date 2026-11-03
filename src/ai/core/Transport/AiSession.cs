@@ -14,6 +14,23 @@ public sealed class AiCounters
 
     /// <summary>Steps whose snapshot had left the ring, or that had no view for their bot (§2.5).</summary>
     public long StepsSkipped { get; internal set; }
+
+    /// <summary>The wall time of every brain step run, in microseconds (§9 budgets: <c>ai.brain.us</c> per decide); a counter, never an input.</summary>
+    public double BrainMicros { get; internal set; }
+
+    /// <summary>The longest brain step so far, in microseconds.</summary>
+    public double BrainMicrosMax { get; internal set; }
+
+    /// <summary>The mean brain step, in microseconds.</summary>
+    public double BrainMicrosMean => StepsRun == 0 ? 0 : BrainMicros / StepsRun;
+
+    /// <summary>Forgets the brain-step times (a fresh window for a measurement).</summary>
+    public void ResetBrainTimes()
+    {
+        BrainMicros = 0;
+        BrainMicrosMax = 0;
+        StepsRun = 0;
+    }
 }
 
 /// <summary>
@@ -51,6 +68,12 @@ public sealed class AiSession : IBrainStepRunner
     /// <summary>The map the bots' memories work over (§5.0); set by the binding when a level starts, before its bots.</summary>
     public MemoryWorld? World { get; set; }
 
+    /// <summary>The game's skill curves (§10), read by the binding; null gives a bot no decision parameters.</summary>
+    public SkillCurves? Curves { get; set; }
+
+    /// <summary>The game's decision layer per bot (its trees), or null: brains hold.</summary>
+    public Func<BrainSetup, IDecider?>? Deciders { get; set; }
+
     /// <summary>
     /// Adds a bot with its own seed and skill levels; with a <see cref="World"/>,
     /// its brain remembers, its opponents' habits in <paramref name="habits"/>
@@ -74,7 +97,13 @@ public sealed class AiSession : IBrainStepRunner
             memory = new BotMemory(id, _bots.Length, p, world, habits ?? new HabitStore());
         }
 
-        _bots[id.Slot] = new Bot(new Brain(id, seed, memory));
+        DecisionParams? decisions = Curves is { } curves && skillLevels.Length == StandardSkills.Ten.Length
+            ? curves.For(new SkillProfile("session", StandardSkills.Ten, [.. skillLevels.ToArray().Select(b => (int)b)]))
+            : null;
+        IDecider? decider = memory is not null && decisions is { } dp && Deciders is { } make
+            ? make(new BrainSetup(id, seed, memory, dp, World!.TickSeconds))
+            : null;
+        _bots[id.Slot] = new Bot(new Brain(id, seed, memory, decisions, decider));
         BotCount++;
         _sink.BotAdded(id, seed, skillLevels);
     }
@@ -152,7 +181,12 @@ public sealed class AiSession : IBrainStepRunner
             return;
         }
 
+        long started = System.Diagnostics.Stopwatch.GetTimestamp();
         IntentCommand intent = bot.Brain.Step(job.Tick, view, job.Events);
+        double us = System.Diagnostics.Stopwatch.GetElapsedTime(started).TotalMicroseconds;
+        Counters.BrainMicros += us;
+        if (us > Counters.BrainMicrosMax)
+            Counters.BrainMicrosMax = us;
         Counters.EventsProcessed += job.EventCount;
         Counters.StepsRun++;
         bot.Latest = intent;

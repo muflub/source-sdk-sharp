@@ -287,6 +287,9 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
             case MoveKind.Retreat:
                 if (corner is { } c)
                     wish = new AiVector(c.X - facts.Origin.X, c.Y - facts.Origin.Y, 0f).Normalised();
+                // The brain's separation from the players it sees bends the way (§9 Phase 5 step 4).
+                if (wish.LengthSquared > 0f)
+                    wish = Steering.Bend(wish, move.Direction);
                 buttons |= move.Speed switch
                 {
                     MoveSpeed.Sprint => (int)InputButtons.Speed,

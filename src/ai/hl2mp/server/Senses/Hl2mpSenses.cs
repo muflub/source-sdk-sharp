@@ -13,7 +13,7 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapons, ModelDescriptors models, IEnginePlayers players,
-                                   ILog log, ConVarRegistry? convars = null) : IGameLifecycle
+                                   ILog log, ConVarRegistry? convars = null, Skills.ISkillCurveSource? curves = null) : IGameLifecycle
 {
     /// <summary>How many actors one view can hold sighted: every other player.</summary>
     public const int SightedCapacity = VisionPass.Slots - 1;
@@ -58,6 +58,10 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
                                                   convars?.Get<ItemRespawnTimeConVar>()?.Value ?? 30f)
             : new MapKnowledge(mapName, [], [], facts);
         Session.World = new MemoryWorld(map, nav.Current?.Nav.Graph, TickSeconds, IdentityOf);
+        Session.Curves = curves?.Curves;
+        Session.Deciders = setup => new Trees.Hl2mpDecider(setup);
+        if (curves is not null && Session.Curves is null)
+            log.Warning($"[SourceSharp/Ai] {curves.Refusal}: the bots decide nothing\n");
         log.Msg($"[SourceSharp/Ai] {mapName}: the bots know {map.Items.Length} item spawns, {map.Spawns.Length} spawns, "
                 + $"{facts.All.Count(f => f.HasClip)} clip weapons ({string.Join(", ", facts.All.Where(f => f.HasClip).Select(f => $"{f.Name} {f.ClipSize}/{f.ReloadSeconds:F2}s"))})\n");
     }
@@ -81,8 +85,10 @@ public sealed class Hl2mpAiSession(Nav.IHl2mpNavigation nav, WeaponCatalog weapo
 /// </summary>
 [SideService(Side.Server)]
 public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vision, SnapshotBuilder builder, ActorDirectory directory,
-                                IEngineFrame frame, ILog log) : IFrameLifecycle
+                                IEngineFrame frame, ILog log, IBotInventory? inventory = null, WeaponCatalog? weapons = null) : IFrameLifecycle
 {
+    private readonly int[] _held = new int[VisionPass.Slots];
+
     /// <summary>The window the sense cost is averaged over (§9: a 300-tick mean).</summary>
     public const int Window = 300;
 
@@ -180,6 +186,7 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
                     $"[SourceSharp/Ai] {e.Bot} {(e.Kind == AiEventKind.SightGained ? "sees" : "lost sight of")} {e.Other} at ({e.Position.X:F0} {e.Position.Y:F0} {e.Position.Z:F0}), {e.Tick}\n"));
         }
 
+        Holdings(tick, sensed);
         AiSnapshot snapshot = ai.Session.Snapshots.BeginWrite(tick);
         builder.Build(snapshot, sensed, vision, ActivityOf);
         _senseUs = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
@@ -190,6 +197,32 @@ public sealed class Hl2mpSenses(Hl2mpBots bots, Hl2mpAiSession ai, VisionPass vi
         // A shot's flash lasts the tick it was seen in.
         for (int i = 0; i < _activity.Length; i++)
             _activity[i] &= ~ActorActivity.Firing;
+    }
+
+    /// <summary>
+    /// Each bot's weapons as its HUD's weapon selection shows them, told when
+    /// they change (an <see cref="AiEventKind.Holdings"/> mask of catalog kinds).
+    /// </summary>
+    private void Holdings(Tick tick, ReadOnlySpan<SensedBot> sensed)
+    {
+        if (inventory is null || weapons is null)
+            return;
+        foreach (SensedBot b in sensed)
+        {
+            int mask = 0;
+            foreach (string held in inventory.Held(b.Player))
+            {
+                int kind = weapons.IndexOf(held);
+                if (kind is >= 0 and < 31)
+                    mask |= 1 << kind;
+            }
+
+            if ((uint)b.Id.Slot < (uint)_held.Length && _held[b.Id.Slot] != mask)
+            {
+                _held[b.Id.Slot] = mask;
+                ai.Session.Push(AiEvent.Holdings(b.Id, tick, mask));
+            }
+        }
     }
 
     private ActorId BotIn(int slot)
@@ -266,7 +299,8 @@ public sealed class AiSenseCostCommand(Hl2mpSenses senses, VisionPass vision, Hl
     public void Execute(string args)
         => log.Msg(string.Create(CultureInfo.InvariantCulture,
             $"[SourceSharp/Ai] ai.sense.us mean {senses.SenseMeanUs:F1} max {senses.SenseMaxUs:F1} over {Math.Min(senses.SenseTicks, Hl2mpSenses.Window)} ticks; ai.publish.us mean {senses.PublishMeanUs:F1}; "
-            + $"{bots.Bots.Count} bots; ai.sense.traces {vision.TracesLastTick} last tick, {vision.Traces} in all\n"));
+            + $"{bots.Bots.Count} bots; ai.sense.traces {vision.TracesLastTick} last tick, {vision.Traces} in all; "
+            + $"ai.brain.us {senses.Session.Counters.BrainMicrosMean:F1} per decide, worst {senses.Session.Counters.BrainMicrosMax:F1}, over {senses.Session.Counters.StepsRun} decides\n"));
 }
 
 /// <summary><c>ai_vision_traces_per_tick N</c>: the vision pass's trace budget (§4.1; default 32).</summary>

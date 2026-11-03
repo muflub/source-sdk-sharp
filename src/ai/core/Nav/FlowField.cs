@@ -21,19 +21,25 @@ public sealed class FlowField
 
     public CellId Objective { get; private set; }
 
+    /// <summary>What a partial build settles beyond half as far again as the bot's cell, in cost.</summary>
+    public const float PartialMargin = 512f;
+
+    /// <summary>Whether the last build stopped short of the whole graph (it was given the bot's cell).</summary>
+    public bool IsPartial { get; private set; }
+
     public ClearanceClass Class { get; private set; }
 
     /// <summary>How many cells can reach the objective.</summary>
     public int Reachable { get; private set; }
 
     /// <summary>The cost to the objective, or +∞ when it cannot be reached.</summary>
-    public float CostAt(int cell) => _cost[cell];
+    public float CostAt(int cell) => (uint)cell < (uint)_cost.Length ? _cost[cell] : float.PositiveInfinity;
 
     /// <summary>The cell to go to next from <paramref name="cell"/>, or None at the objective or when unreachable.</summary>
-    public CellId NextFrom(int cell) => _next[cell] >= 0 ? new CellId(_next[cell]) : CellId.None;
+    public CellId NextFrom(int cell) => (uint)cell < (uint)_next.Length && _next[cell] >= 0 ? new CellId(_next[cell]) : CellId.None;
 
     /// <summary>How the next step from <paramref name="cell"/> is crossed.</summary>
-    public NavEdgeType ViaFrom(int cell) => _via[cell];
+    public NavEdgeType ViaFrom(int cell) => (uint)cell < (uint)_via.Length ? _via[cell] : NavEdgeType.Walk;
 
     /// <summary>Whether <paramref name="a"/> beats <paramref name="b"/> as a next cell at equal cost.</summary>
     private static bool Nearer(NavGraph graph, int a, int b, AiVector target)
@@ -49,7 +55,15 @@ public sealed class FlowField
     /// through a cell of <paramref name="avoided"/> (a follower's stuck spot,
     /// for a while), though the objective itself is never avoided.
     /// </summary>
-    public void Build(NavGraph graph, CellId objective, ClearanceClass cls, NavObstacleState obstacles, IReadOnlySet<int>? avoided = null)
+    /// <para>
+    /// With <paramref name="from"/> (the cell the bot stands in) the search
+    /// stops once it has settled every cell up to half as far again as the
+    /// bot plus <see cref="PartialMargin"/>: every cell of the bot's route has
+    /// its cost by then, and a bot that strays off the settled cells finds no
+    /// cost there and asks again (<see cref="IsPartial"/>).
+    /// </para>
+    public void Build(NavGraph graph, CellId objective, ClearanceClass cls, NavObstacleState obstacles, IReadOnlySet<int>? avoided = null,
+                      CellId from = default)
     {
         ArgumentNullException.ThrowIfNull(graph);
         ArgumentNullException.ThrowIfNull(obstacles);
@@ -78,10 +92,20 @@ public sealed class FlowField
         AiVector target = graph.Cell(objective).Centre;
         _cost[objective.Index] = 0f;
         _open.Enqueue(objective.Index, (0f, objective.Index));
+        float stop = float.PositiveInfinity;
+        IsPartial = false;
         while (_open.TryDequeue(out int cell, out (float Cost, int) key))
         {
             if (key.Cost > _cost[cell])
                 continue;
+            if (key.Cost > stop)
+            {
+                IsPartial = true;
+                break;
+            }
+
+            if (from.IsValid && cell == from.Index)
+                stop = key.Cost * 1.5f + PartialMargin;
             Reachable++;
             if (avoided is not null && cell != objective.Index && avoided.Contains(cell))
                 continue;

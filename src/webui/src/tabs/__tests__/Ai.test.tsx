@@ -22,7 +22,13 @@ const skills = {
 
 const full: AiBot = {
   record: {
-    slot: 2, serial: 1, tick: 900, doing: 'the behaviour tree is Phase 5\'s', skills,
+    slot: 2, serial: 1, tick: 900, skills,
+    doing: {
+      branch: 'Fight', leaf: 'push', goal: [150, 0, 0], targetSlot: 3, verdict: 'push', pEmpty: 0.95, pReloading: 0, windowSeconds: 1.5,
+      arriveSeconds: 0.99, scoreboardTerm: 0.25, ammoTerm: 0.95, expires: 916,
+      decides: [{ tick: 900, chosen: 'push', utility: 0.8, scoreboardTerm: 0.25, ammoTerm: 0.95,
+        nodes: [{ id: 0, name: 'root', status: 'success', value: 0.8 }, { id: 9, name: 'push test', status: 'success', value: 1 }] }],
+    },
     memory: {
       actors: [{
         slot: 1, serial: 1073741829, inSight: false, confidence: 0.5, lastSeen: [100, 200, 0], lastSeenTick: 800, lastHeard: [120, 210, 0],
@@ -67,4 +73,22 @@ it('shows the skill allocation with a meter per skill', async () => {
   const accuracy = await screen.findByTestId('skill-accuracy');
   expect((accuracy.querySelector('meter') as HTMLMeterElement).value).toBe(7);
   expect(screen.getByText('hard: 50 of 60 points (10 left)')).toBeTruthy();
+});
+
+it('shows what the bot is doing: the verdict, its window arithmetic and the reason terms, and the trace', async () => {
+  api.getAiBot.mockResolvedValue(full);
+  render(<AiTab visible />);
+  const now = await screen.findByTestId('doing-now');
+  expect(now.textContent).toContain('Fight/push');
+  expect(now.textContent).toContain('verdict push');
+  expect(screen.getByTestId('doing-window').textContent).toContain('window 1.50 s vs arrive 0.99 s');
+  expect(screen.getByTestId('doing-window').textContent).toContain('ammoTerm 0.95');
+  expect(screen.getByTestId('doing-window').textContent).toContain('scoreboardTerm 0.25');
+  expect(screen.getByTestId('decides').textContent).toContain('push test=1.00');
+});
+
+it('says a bot with no decision layer has none', async () => {
+  api.getAiBot.mockResolvedValue({ ...full, record: { ...full.record, doing: null } });
+  render(<AiTab visible />);
+  expect(await screen.findByText('no decision layer')).toBeTruthy();
 });

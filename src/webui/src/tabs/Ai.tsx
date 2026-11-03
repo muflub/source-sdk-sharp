@@ -4,13 +4,15 @@
  * last seen and heard, how sure it is, its health and ammo estimates as
  * uncertainty, its belief, its predicted intent and its learned habits; the
  * investigations; the items) and its skill allocation with what each drives.
- * The "doing and planning" part is the behaviour tree's (Phase 5).
+ * The "doing and planning" part is the behaviour tree's: the chosen branch,
+ * the push / hold / retreat verdict with its window arithmetic, the reason
+ * terms, and the last decides' traces (the BT trace panel).
  */
 
 import { useEffect, useState, type ReactNode } from 'react';
 
 import { getAiBot, getAiBots } from '../api';
-import { ammoBar, type AiActor, type AiBot, type AiBotListing } from '../ai/aiInspect';
+import { ammoBar, type AiActor, type AiBot, type AiBotListing, type AiDoing } from '../ai/aiInspect';
 
 function AmmoBar({ actor }: { actor: AiActor }): ReactNode {
   const a = actor.ammo;
@@ -125,9 +127,41 @@ export function AiTab({ visible }: { visible: boolean }): ReactNode {
           <h3>Skill allocation</h3>
           <SkillsPart bot={bot} />
           <h3>Doing and planning</h3>
-          <p className="muted">{bot.record.doing}</p>
+          <DoingPart doing={bot.record.doing} />
         </>
       )}
+    </div>
+  );
+}
+
+const f2 = (n: number) => (Number.isFinite(n) ? n.toFixed(2) : String(n));
+
+/** The tree's doing and planning, and the BT trace panel: each recent decide's visited nodes with their answers. */
+function DoingPart({ doing }: { doing: AiDoing | null }): ReactNode {
+  if (!doing) return <p className="muted">no decision layer</p>;
+  return (
+    <div className="ai-doing">
+      <p data-testid="doing-now">
+        {doing.branch}/{doing.leaf || '-'} · verdict <b>{doing.verdict || '-'}</b>
+        {doing.targetSlot >= 0 && <> · target slot {doing.targetSlot}</>}
+        {doing.goal && <> · goal ({doing.goal.map(v => v.toFixed(0)).join(' ')})</>}
+      </p>
+      <p data-testid="doing-window" className="muted">
+        P(empty) {f2(doing.pEmpty)} + P(reloading) {f2(doing.pReloading)} · window {f2(doing.windowSeconds)} s vs arrive {f2(doing.arriveSeconds)} s
+        {' '}· ammoTerm {f2(doing.ammoTerm)} · scoreboardTerm {f2(doing.scoreboardTerm)} · expires tick {doing.expires}
+      </p>
+      <ol className="ai-decides" data-testid="decides">
+        {doing.decides.map(d => (
+          <li key={d.tick}>
+            tick {d.tick}: {d.chosen || '-'} (utility {f2(d.utility)}, ammoTerm {f2(d.ammoTerm)}, scoreboardTerm {f2(d.scoreboardTerm)})
+            <span className="ai-trace">
+              {d.nodes.map((n, i) => (
+                <span key={i} className={`bt-${n.status}`}> {n.name}{n.value !== null ? `=${f2(n.value)}` : ''}</span>
+              ))}
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }

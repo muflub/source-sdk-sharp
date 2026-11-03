@@ -42,6 +42,9 @@ public enum AiEventKind : byte
 
     /// <summary>The bot looked at a static item spawn: Code the spawn's index, Code2 1 if the item was there.</summary>
     ItemSeen = 43,
+
+    /// <summary>The weapons the bot holds, as its HUD's weapon selection shows them: a mask of catalog kinds in Code.</summary>
+    Holdings = 44,
 }
 
 /// <summary>What a heard sound was. The binding classifies by sound name.</summary>
@@ -135,6 +138,9 @@ public readonly record struct AiEvent(
 
     /// <summary>The killer of a <see cref="AiEventKind.KillFeed"/> event.</summary>
     public ActorId Killer => Kind == AiEventKind.KillFeed ? new ActorId(Code, Code2) : ActorId.None;
+
+    public static AiEvent Holdings(ActorId bot, Tick tick, int heldKinds)
+        => new(AiEventKind.Holdings, bot, tick, ActorId.None, default, default, 0f, heldKinds, 0);
 
     public static AiEvent ItemSeen(ActorId bot, Tick tick, int item, bool present)
         => new(AiEventKind.ItemSeen, bot, tick, ActorId.None, default, default, 0f, item, present ? 1 : 0);

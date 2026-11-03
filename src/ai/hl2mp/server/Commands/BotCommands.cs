@@ -167,3 +167,27 @@ public sealed class AiBotGotoCommand(Hl2mpBots bots, Nav.IHl2mpNavigation nav, I
             log.Warning($"[SourceSharp/Ai] ai_bot_goto refused: {refusal}\n");
     }
 }
+
+/// <summary><c>ai_think 0|1</c>: whether the bots' brains drive them (on by default; off, they stand still unless scripted).</summary>
+[ConCommand("ai_think", Help = "ai_think 0|1: whether the bots' brains drive them", Flags = ConVarFlags.Cheat)]
+public sealed class AiThinkCommand(Hl2mpBots bots, ILog log) : IConCommand
+{
+    public void Execute(string args)
+    {
+        string a = args.Trim();
+        if (a.Length > 0)
+            bots.Thinking = a != "0";
+        log.Msg($"[SourceSharp/Ai] ai_think {(bots.Thinking ? 1 : 0)}\n");
+    }
+}
+
+/// <summary><c>ai_think_log 0|1</c>: write each change of a bot's branch, leaf or verdict to the console.</summary>
+[ConCommand("ai_think_log", Help = "ai_think_log 0|1: print each bot's decision changes", Flags = ConVarFlags.Cheat)]
+public sealed class AiThinkLogCommand(Hl2mpBots bots, ILog log) : IConCommand
+{
+    public void Execute(string args)
+    {
+        bots.LogThink = args.Trim() != "0";
+        log.Msg($"[SourceSharp/Ai] ai_think_log {(bots.LogThink ? 1 : 0)}\n");
+    }
+}

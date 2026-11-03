@@ -803,6 +803,12 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<IViewmodelSkinRule>>(locator => new Hooks<IViewmodelSkinRule>(locator, log));
         // The mods' team names (ITeamNameRule): a folded chain over HL2MP's. The client registers the same.
         _services.AddFactory<IHooks<ITeamNameRule>>(locator => new Hooks<ITeamNameRule>(locator, log));
+        // The mods' taps on a player's shots and reloads (the arsenal), its
+        // hits (the player's player_hurt) and the classes a cleanup keeps
+        // (MapCleanup): unregistered, each of these was built with no chain.
+        _services.AddFactory<IHooks<IPlayerWeaponEventHook>>(locator => new Hooks<IPlayerWeaponEventHook>(locator, log));
+        _services.AddFactory<IHooks<IPlayerHurtHook>>(locator => new Hooks<IPlayerHurtHook>(locator, log));
+        _services.AddFactory<IHooks<IMapCleanupPreserve>>(locator => new Hooks<IMapCleanupPreserve>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
         _services.AddInstance<IModInfo>(new ModInfo());

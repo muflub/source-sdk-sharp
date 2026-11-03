@@ -57,6 +57,14 @@ public sealed class NavObstaclesTests
         int from = nav.Graph.FindCell(new AiVector(40, 40, 16)).Index, beyond = nav.Graph.FindCell(new AiVector(700, 256, 16)).Index;
         var field = new FlowField();
         field.Build(nav.Graph, new CellId(beyond), ClearanceClass.Stand, obstacles.State);
+        // A shut door is a door to open (Phase 5): the route goes through it at its wait, the bot opening it as a player does...
+        Assert.True(obstacles.State.OpenDoors);
+        Assert.True(float.IsFinite(field.CostAt(from)));
+        float shut = field.CostAt(from);
+        // ...and to a planner that may not open doors it is a wall.
+        var wall = new NavObstacleState(nav.Graph.ObstacleCount);
+        wall.Set(0, true);
+        field.Build(nav.Graph, new CellId(beyond), ClearanceClass.Stand, wall);
         Assert.False(float.IsFinite(field.CostAt(from)));
 
         eyes.DoorAt += new AiVector(0, 0, 100);
@@ -64,5 +72,6 @@ public sealed class NavObstaclesTests
         field.Build(nav.Graph, new CellId(beyond), ClearanceClass.Stand, obstacles.State);
         Assert.Equal((false, 0), (obstacles.State.Blocking(0), obstacles.Blocking));
         Assert.True(float.IsFinite(field.CostAt(from)));
+        Assert.True(field.CostAt(from) <= shut, $"open {field.CostAt(from)} against shut {shut}");
     }
 }

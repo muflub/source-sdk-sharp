@@ -49,7 +49,7 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
     public IReadOnlyList<DebugRoute> Routes =>
     [
         new("GET", "/ai/bots", "the bots: slot, serial, name, skill label"),
-        new("GET", "/ai/bot/", "one bot's inspector: /ai/bot/<slot>[/memory|skills|perception]"),
+        new("GET", "/ai/bot/", "one bot's inspector: /ai/bot/<slot>[/memory|skills|perception|trace]"),
         new("GET", "/ai/counters", "the AI's main-thread counters: ai.sense.us (300-tick mean and worst), ai.sense.traces"),
     ];
 
@@ -65,7 +65,7 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
             }), _json));
         if (path == "/ai/counters")
             return new DebugRouteReply(200, string.Create(CultureInfo.InvariantCulture,
-                $"{{\"tick\":{frame.TickCount()},\"ai.sense.us\":{senses.SenseMeanUs:F1},\"ai.sense.us.max\":{senses.SenseMaxUs:F1},\"ai.publish.us\":{senses.PublishMeanUs:F1},\"ai.sense.ticks\":{Math.Min(senses.SenseTicks, Hl2mpSenses.Window)},\"ai.sense.traces\":{vision.TracesLastTick},\"ai.sense.traces.total\":{vision.Traces},\"bots\":{bots.Bots.Count}}}"));
+                $"{{\"tick\":{frame.TickCount()},\"ai.sense.us\":{senses.SenseMeanUs:F1},\"ai.sense.us.max\":{senses.SenseMaxUs:F1},\"ai.publish.us\":{senses.PublishMeanUs:F1},\"ai.sense.ticks\":{Math.Min(senses.SenseTicks, Hl2mpSenses.Window)},\"ai.sense.traces\":{vision.TracesLastTick},\"ai.sense.traces.total\":{vision.Traces},\"ai.brain.us\":{senses.Session.Counters.BrainMicrosMean:F1},\"ai.brain.us.max\":{senses.Session.Counters.BrainMicrosMax:F1},\"ai.brain.steps\":{senses.Session.Counters.StepsRun},\"ai.follow.builds\":{bots.Driver.Builds},\"bots\":{bots.Bots.Count}}}"));
 
         string[] parts = path["/ai/bot/".Length..].Split('/', StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0 || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int slot)
@@ -82,8 +82,9 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpSenses senses, VisionPass v
             "memory" => new DebugRouteReply(200, JsonSerializer.Serialize(record.Memory, _json)),
             "skills" => new DebugRouteReply(200, JsonSerializer.Serialize(record.Skills, _json)),
             "perception" => new DebugRouteReply(200, Perception(bot)),
+            "trace" or "doing" => new DebugRouteReply(200, JsonSerializer.Serialize(record.Doing, _json)),
             "all" => new DebugRouteReply(200, $"{{\"record\":{JsonSerializer.Serialize(record, _json)},\"perception\":{Perception(bot)}}}"),
-            _ => new DebugRouteReply(404, "{\"error\":\"parts: memory, skills, perception\"}"),
+            _ => new DebugRouteReply(404, "{\"error\":\"parts: memory, skills, perception, trace\"}"),
         };
     }
 

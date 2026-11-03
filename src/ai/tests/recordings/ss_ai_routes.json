@@ -1,0 +1,331 @@
+{
+ "map": "ss_ai_routes",
+ "source_sha256": "ccb01e9722845c04e8fee9d0c0599cd133a668fcc877c2ed3e550ffe3e71b581",
+ "scenes": [
+  {
+   "name": "see both",
+   "from": 611,
+   "to": 829
+  },
+  {
+   "name": "hide",
+   "from": 830,
+   "to": 972
+  },
+  {
+   "name": "hunt",
+   "from": 973,
+   "to": 1270
+  }
+ ],
+ "hunter": 2,
+ "plain": 3,
+ "leader": 4,
+ "low": 5,
+ "thinks": [
+  {
+   "tick": 990,
+   "bot": "Hunter",
+   "branch": "Hunt",
+   "leaf": "hunt",
+   "verdict": "",
+   "target": 4,
+   "at": [
+    576,
+    240,
+    17
+   ],
+   "goal": [
+    1496,
+    216,
+    16
+   ]
+  },
+  {
+   "tick": 990,
+   "bot": "Plain",
+   "branch": "Fight",
+   "leaf": "chase",
+   "verdict": "chase",
+   "target": 4,
+   "at": [
+    576,
+    300,
+    17
+   ],
+   "goal": [
+    1444,
+    100,
+    17
+   ]
+  },
+  {
+   "tick": 990,
+   "bot": "Leader",
+   "branch": "Fight",
+   "leaf": "chase",
+   "verdict": "chase",
+   "target": 2,
+   "at": [
+    1444,
+    100,
+    17
+   ],
+   "goal": [
+    576,
+    240,
+    17
+   ]
+  },
+  {
+   "tick": 990,
+   "bot": "Low",
+   "branch": "Fight",
+   "leaf": "hold range",
+   "verdict": "hold",
+   "target": 2,
+   "at": [
+    64,
+    96,
+    17
+   ],
+   "goal": null
+  },
+  {
+   "tick": 1000,
+   "bot": "Plain",
+   "branch": "Hunt",
+   "leaf": "hunt",
+   "verdict": "",
+   "target": 2,
+   "at": [
+    594,
+    298,
+    16
+   ],
+   "goal": [
+    552,
+    232,
+    16
+   ]
+  },
+  {
+   "tick": 1049,
+   "bot": "Hunter",
+   "branch": "Fight",
+   "leaf": "hold range",
+   "verdict": "hold",
+   "target": 4,
+   "at": [
+    734,
+    234,
+    16
+   ],
+   "goal": [
+    1325,
+    206,
+    16
+   ]
+  },
+  {
+   "tick": 1064,
+   "bot": "Low",
+   "branch": "Fight",
+   "leaf": "chase",
+   "verdict": "chase",
+   "target": 2,
+   "at": [
+    138,
+    60,
+    16
+   ],
+   "goal": [
+    737,
+    234,
+    16
+   ]
+  },
+  {
+   "tick": 1076,
+   "bot": "Low",
+   "branch": "Hunt",
+   "leaf": "hunt",
+   "verdict": "",
+   "target": 4,
+   "at": [
+    168,
+    58,
+    16
+   ],
+   "goal": [
+    1384,
+    248,
+    16
+   ]
+  },
+  {
+   "tick": 1077,
+   "bot": "Leader",
+   "branch": "Hunt",
+   "leaf": "hunt",
+   "verdict": "",
+   "target": 2,
+   "at": [
+    1245,
+    218,
+    16
+   ],
+   "goal": [
+    824,
+    216,
+    16
+   ]
+  },
+  {
+   "tick": 1079,
+   "bot": "Hunter",
+   "branch": "Fight",
+   "leaf": "retreat",
+   "verdict": "retreat",
+   "target": 4,
+   "at": [
+    786,
+    256,
+    16
+   ],
+   "goal": [
+    672,
+    256,
+    24
+   ]
+  },
+  {
+   "tick": 1082,
+   "bot": "Low",
+   "branch": "Fight",
+   "leaf": "chase",
+   "verdict": "chase",
+   "target": 2,
+   "at": [
+    186,
+    62,
+    16
+   ],
+   "goal": [
+    737,
+    234,
+    16
+   ]
+  },
+  {
+   "tick": 1120,
+   "bot": "Plain",
+   "branch": "Fight",
+   "leaf": "retreat",
+   "verdict": "retreat",
+   "target": 4,
+   "at": [
+    738,
+    238,
+    16
+   ],
+   "goal": [
+    672,
+    256,
+    24
+   ]
+  },
+  {
+   "tick": 1133,
+   "bot": "Hunter",
+   "branch": "Hunt",
+   "leaf": "hunt",
+   "verdict": "",
+   "target": 4,
+   "at": [
+    655,
+    256,
+    16
+   ],
+   "goal": [
+    1384,
+    40,
+    16
+   ]
+  },
+  {
+   "tick": 1179,
+   "bot": "Leader",
+   "branch": "Fight",
+   "leaf": "hold range",
+   "verdict": "hold",
+   "target": 3,
+   "at": [
+    954,
+    230,
+    16
+   ],
+   "goal": null
+  },
+  {
+   "tick": 1184,
+   "bot": "Low",
+   "branch": "Hunt",
+   "leaf": "hunt",
+   "verdict": "",
+   "target": 4,
+   "at": [
+    424,
+    227,
+    16
+   ],
+   "goal": [
+    936,
+    264,
+    16
+   ]
+  },
+  {
+   "tick": 1196,
+   "bot": "Low",
+   "branch": "Fight",
+   "leaf": "hold range",
+   "verdict": "hold",
+   "target": 2,
+   "at": [
+    458,
+    230,
+    16
+   ],
+   "goal": null
+  },
+  {
+   "tick": 1262,
+   "bot": "Low",
+   "branch": "Fight",
+   "leaf": "chase",
+   "verdict": "chase",
+   "target": 2,
+   "at": [
+    372,
+    147,
+    16
+   ],
+   "goal": [
+    676,
+    243,
+    16
+   ]
+  }
+ ],
+ "counters": {
+  "tick": 1271,
+  "ai.sense.us": 116.2,
+  "ai.sense.us.max": 192.1,
+  "ai.publish.us": 631.7,
+  "ai.sense.ticks": 300,
+  "ai.sense.traces": 30,
+  "ai.sense.traces.total": 34661,
+  "bots": 4
+ }
+}

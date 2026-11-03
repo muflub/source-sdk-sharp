@@ -60,7 +60,12 @@ public sealed class SnapshotBuilder(IEnginePlayers players, WeaponCatalog weapon
     {
         foreach (SensedBot b in bots)
         {
-            PerceivedView view = snapshot.Add(b.Id, hud.Read(b.Player));
+            SelfState self = hud.Read(b.Player);
+            // The bot's own reload, as its own client shows it (its view model
+            // and HUD): the weapon tap's reload state of its own slot.
+            if ((activityOf(b.Id.Slot) & ActorActivity.Reloading) != 0)
+                self = self with { Flags = self.Flags | SelfFlags.Reloading };
+            PerceivedView view = snapshot.Add(b.Id, self);
             if (vision.SightOf(b.Id.Slot) is not { } sight)
                 continue;
             for (int t = 1; t < VisionPass.Slots; t++)

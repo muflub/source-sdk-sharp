@@ -197,7 +197,8 @@ public sealed class NavGraph
     /// it, and no shut obstacle blocks it.
     /// </summary>
     public bool Passable(in NavEdge e, ClearanceClass cls, NavObstacleState obstacles)
-        => _cells[e.From].Admits(cls) && _cells[e.To].Admits(cls) && (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle));
+        => _cells[e.From].Admits(cls) && _cells[e.To].Admits(cls)
+           && (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle) || (obstacles.OpenDoors && e.Type == NavEdgeType.Door));
 
     private static bool Holds(in NavCell c, float x, float y) => x >= c.MinX && x < c.MaxX && y >= c.MinY && y < c.MaxY;
 
@@ -289,6 +290,13 @@ public sealed class NavObstacleState
     public int Count => _blocking.Length;
 
     public bool Blocking(int obstacle) => _blocking[obstacle];
+
+    /// <summary>
+    /// Whether a shut door's edges are a way through (a player opens a door
+    /// by walking into it or with +use; the door edge's wait is its cost): the
+    /// game's binding says so; off, a shut door is a wall.
+    /// </summary>
+    public bool OpenDoors { get; set; }
 
     public void Set(int obstacle, bool blocking) => _blocking[obstacle] = blocking;
 }

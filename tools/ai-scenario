@@ -3,6 +3,7 @@
 
   tools/ai-scenario sight   [--config debug] [--keep]
   tools/ai-scenario hearing [--config debug] [--keep]
+  tools/ai-scenario duel|routes|nav [--config debug] [--keep]
 
 Starts a headless game on the map (`make headless`, its own instance, temp
 dir, dev-API directory and port), records the AI session (`ai_record`), adds
@@ -138,6 +139,7 @@ def bots_by_name(game):
 
 def sight(game):
     """The watcher holds a post; the target stands past each occluder (§6.6)."""
+    game.cmd("ai_think 0")
     game.cmd("ai_sense_log 1")
     game.cmd("ai_bot_add Watcher expert")
     game.cmd("ai_bot_add Target easy")
@@ -172,6 +174,7 @@ def sight(game):
 
 def hearing(game):
     """A listener holds still; the target fires, reloads and walks at scripted distances (§6.6)."""
+    game.cmd("ai_think 0")
     game.cmd("ai_sense_log 1")
     game.cmd("ai_bot_add Listener expert")
     game.cmd("ai_bot_add Target easy")
@@ -216,8 +219,114 @@ def hearing(game):
     return scenes, truth, {"listener": l, "target": t}
 
 
+THINK = re.compile(r"\[SourceSharp/Ai\] think (\d+) (\S+): (\w+)/([^v]*?) verdict '([^']*)' target (-?\d+) at \((-?\d+) (-?\d+) (-?\d+)\) goal (?:\((-?\d+) (-?\d+) (-?\d+)\)|-)")
+
+
+def thinks(game):
+    """The brains' decisions as ai_think_log printed them: tick, bot, branch, leaf, verdict, target slot, where, goal."""
+    out = []
+    for line in game.lines():
+        m = THINK.search(line)
+        if m:
+            out.append({"tick": int(m.group(1)), "bot": m.group(2), "branch": m.group(3), "leaf": m.group(4).strip(), "verdict": m.group(5),
+                        "target": int(m.group(6)), "at": [int(m.group(7)), int(m.group(8)), int(m.group(9))],
+                        "goal": [int(m.group(10)), int(m.group(11)), int(m.group(12))] if m.group(10) else None})
+    return out
+
+
+def scenes_of(game, teleports):
+    scenes = []
+
+    def scene(name, steps, seconds):
+        start = game.tick()
+        for s in steps:
+            if isinstance(s, tuple):
+                slot, x, y, z, yaw = s
+                game.teleport(teleports[slot], x, y, z, yaw=yaw)
+            else:
+                game.cmd(s)
+                time.sleep(0.2)
+        time.sleep(seconds)
+        scenes.append({"name": name, "from": start, "to": game.tick()})
+        print("ai-scenario: %-16s ticks %d..%d" % (name, start, scenes[-1]["to"]))
+
+    return scenes, scene
+
+
+def duel(game):
+    """A Discipline 10 bot (brains deciding, nobody acting) watches a target empty its SMG1's clip facing away; its decisions push in the reload window (§5.4)."""
+    game.cmd("ai_think 0")
+    game.cmd("ai_sense_log 1")
+    game.cmd("ai_think_log 1")
+    game.cmd("ai_bot_add Pusher skills=8,7,6,6,6,6,10,5,4,2")
+    game.cmd("ai_bot_add Target easy")
+    time.sleep(2)
+    slots = bots_by_name(game)
+    p, t = slots["Pusher"], slots["Target"]
+    scenes, scene = scenes_of(game, {"p": p, "t": t})
+    scene("sight", [("t", 300, 256, 16, 0), ("p", 150, 256, 16, 0), "ai_bot_act Target select 2"], 2.0)
+    # 45 rounds at 0.075 s run dry in 3.4 s; holding fire past it, the SMG1 reloads itself (1.5 s).
+    scene("target fires", ["ai_bot_act Target fire 4"], 6.0)
+    reloads = []
+    for line in game.lines():
+        m = re.search(r"\[SourceSharp/Ai\] sound (\d+) to (\d+): \S+ owner (\d+) in [01] .* kind Reload weapon", line)
+        if m and int(m.group(2)) == p and int(m.group(3)) == t:
+            reloads.append(int(m.group(1)))
+    return scenes, {"pusher": p, "target": t, "reloads": sorted(set(reloads)), "thinks": thinks(game)}
+
+
+def routes(game):
+    """A Headhunter (10) and a plain bot (0) see the scoreboard's leader and a low scorer, lose both, and hunt: the Headhunter the leader (§5.4)."""
+    game.cmd("ai_think 0")
+    game.cmd("ai_sense_log 1")
+    game.cmd("ai_think_log 1")
+    game.cmd("ai_bot_add Hunter skills=4,4,4,3,3,3,4,3,4,10")
+    game.cmd("ai_bot_add Plain skills=4,4,4,3,3,3,4,3,4,0")
+    game.cmd("ai_bot_add Leader easy")
+    game.cmd("ai_bot_add Low easy")
+    time.sleep(2)
+    slots = bots_by_name(game)
+    h, pl, le, lo = slots["Hunter"], slots["Plain"], slots["Leader"], slots["Low"]
+    mid, east = 512.0, 1024.0
+    # The leader takes two frags off the low scorer: the scoreboard ranks it first.
+    for _ in range(2):
+        game.api("hurt", "#%d" % lo, "500", "", "", "#%d" % le)
+        time.sleep(2.5)
+    scenes, scene = scenes_of(game, {"h": h, "p": pl, "le": le, "lo": lo})
+    scene("see both", [("le", mid + 420, 256, 16, 180), ("lo", mid + 200, 330, 16, 180),
+                       ("h", mid + 64, 240, 16, 0), ("p", mid + 64, 300, 16, 0)], 3.0)
+    scene("hide", [("le", east + 420, 100, 16, 0), ("lo", 64, 96, 16, 0)], 2.0)
+    scene("hunt", ["ai_bot_act Leader fire 0", "ai_think 1"], 4.0)
+    return scenes, {"hunter": h, "plain": pl, "leader": le, "low": lo, "thinks": thinks(game)}
+
+
+def nav(game):
+    """One bot sent to every pickup of ss_ai_nav in turn, by ai_bot_goto: every edge type, the ladder and the door (§6.6)."""
+    game.cmd("ai_think 0")
+    game.cmd("ai_bot_add Walker hard")
+    time.sleep(2)
+    slots = bots_by_name(game)
+    w = slots["Walker"]
+    game.teleport(w, 720, 420, 16)
+    pickups = ["weapon_shotgun", "weapon_smg1", "weapon_357", "item_battery", "weapon_crossbow"]
+    out = []
+    for item in pickups:
+        start = game.tick()
+        n = len(game.lines())
+        game.cmd("ai_bot_goto Walker %s" % item)
+        deadline = time.time() + 30
+        arrived = False
+        while time.time() < deadline and not arrived:
+            time.sleep(0.5)
+            arrived = any(re.search(r"\[SourceSharp/Ai\] bot \d+ arrived cell", l) for l in game.lines()[n:])
+        out.append({"name": item, "from": start, "to": game.tick(), "arrived": arrived})
+        print("ai-scenario: %-16s ticks %d..%d %s" % (item, start, out[-1]["to"], "arrived" if arrived else "NOT ARRIVED"))
+    ladder = [l for l in game.lines() if re.search(r"\[SourceSharp/Ai\] bot \d+ \(Walker\) (is on a ladder|got off the ladder)", l)]
+    return out, {"walker": w, "ladder": ladder}
+
+
 def main(argv):
-    if not argv or argv[0] not in ("sight", "hearing"):
+    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav"):
         print(__doc__)
         return 2
     which = argv[0]
@@ -240,9 +349,12 @@ def main(argv):
         summary = {"map": map_name, "source_sha256": source}
         if which == "sight":
             summary["scenes"] = sight(game)
-        else:
+        elif which == "hearing":
             scenes, truth, who = hearing(game)
             summary.update(scenes=scenes, truth=truth, **who)
+        else:
+            scenes, more = {"duel": duel, "routes": routes, "nav": nav}[which](game)
+            summary.update(scenes=scenes, **more)
         counters = game.json("/ai/counters")
         summary["counters"] = counters
         game.cmd("ai_record stop")

@@ -39,7 +39,22 @@ public sealed record InspectSkills(string Profile, InspectSkill[] Skills, int Sp
 /// is the behaviour tree's, Phase 5's. Built from the brain on the main
 /// thread when a dev-API route asks; nothing is networked to a client.
 /// </summary>
-public sealed record BotInspectRecord(int Slot, int Serial, int Tick, InspectMemory? Memory, InspectSkills Skills, string Doing);
+public sealed record BotInspectRecord(int Slot, int Serial, int Tick, InspectMemory? Memory, InspectSkills Skills, InspectDoing? Doing);
+
+/// <summary>
+/// The doing-and-planning part (§7.2): the chosen branch and leaf, the goal,
+/// the opponent, the push / hold / retreat verdict with its window
+/// arithmetic, the reason terms, the intent's expiry, and the last decides'
+/// tree traces (newest first).
+/// </summary>
+public sealed record InspectDoing(string Branch, string Leaf, AiVector? Goal, int TargetSlot, string Verdict, float PEmpty, float PReloading,
+                                  float WindowSeconds, float ArriveSeconds, float ScoreboardTerm, float AmmoTerm, int Expires,
+                                  IReadOnlyList<InspectDecide> Decides);
+
+/// <summary>One decide's trace: its tick, the reason, and each node visited with its answer and value.</summary>
+public sealed record InspectDecide(int Tick, string Chosen, float Utility, float ScoreboardTerm, float AmmoTerm, IReadOnlyList<InspectNode> Nodes);
+
+public sealed record InspectNode(int Id, string Name, string Status, float? Value);
 
 /// <summary>Builds a <see cref="BotInspectRecord"/> from a brain and its skills.</summary>
 public static class BotInspect
@@ -52,16 +67,39 @@ public static class BotInspect
         ArgumentNullException.ThrowIfNull(brain);
         ArgumentNullException.ThrowIfNull(skills);
         return new BotInspectRecord(brain.Bot.Slot, brain.Bot.Serial, now.Value, brain.Memory is { } m ? Memory(m, now) : null,
-                                    Skills(skills, pool, cap), "the behaviour tree is Phase 5's");
+                                    Skills(skills, pool, cap, brain.Decisions), brain.Decider is { } d ? Doing(d) : null);
     }
 
-    public static InspectSkills Skills(SkillProfile p, int pool, int cap)
+    /// <summary>The last decides shown (the trace ring holds 64).</summary>
+    public const int DecidesShown = 16;
+
+    public static InspectDoing Doing(IDecider decider, int decides = DecidesShown)
+    {
+        ArgumentNullException.ThrowIfNull(decider);
+        DoingRecord d = decider.Doing;
+        BtTrace trace = decider.Trace;
+        IReadOnlyList<string> names = decider.NodeNames;
+        var list = new List<InspectDecide>();
+        for (int back = 0; back < Math.Min(decides, trace.Count); back++)
+        {
+            DecisionReason r = trace.ReasonAt(back);
+            var nodes = new List<InspectNode>();
+            foreach (BtTraceEntry e in trace.EntriesAt(back))
+                nodes.Add(new InspectNode(e.NodeId, (uint)e.NodeId < (uint)names.Count ? names[e.NodeId] : "?", e.Status.ToString().ToLowerInvariant(),
+                                          float.IsNaN(e.Value) ? null : e.Value));
+            string chosen = (uint)r.NodeId < (uint)names.Count ? names[r.NodeId] : "";
+            list.Add(new InspectDecide(trace.TickAt(back).Value, chosen, r.Utility, r.ScoreboardTerm, r.AmmoTerm, nodes));
+        }
+
+        return new InspectDoing(d.Branch, d.Leaf, d.HasGoal ? d.Goal : null, d.Target.IsValid ? d.Target.Slot : -1, d.Verdict, d.PEmpty, d.PReloading,
+                                d.WindowSeconds, d.ArriveSeconds, d.ScoreboardTerm, d.AmmoTerm, d.Expires.Value, list);
+    }
+
+    public static InspectSkills Skills(SkillProfile p, int pool, int cap, DecisionParams? decisions = null)
     {
         VisionParams v = VisionCurves.For(p);
         MemoryParams m = MemoryParams.For(p);
         MotionParams motion = MotionCurves.For(p);
-        int discipline = Level(p, "discipline");
-        (float trust, float margin) = AmmoWindow.ForDiscipline(discipline);
         var derived = new Dictionary<string, float>
         {
             ["recognize_s"] = v.RecognizeSeconds,
@@ -71,9 +109,14 @@ public static class BotInspect
             ["habit_half_life_s"] = m.HabitHalfLifeSeconds,
             ["reaction_ms"] = motion.ReactionMs,
             ["turn_peak_deg_s"] = motion.TurnPeakDegPerSec,
-            ["push_trust"] = float.IsInfinity(trust) ? -1f : trust,
-            ["push_margin_s"] = margin,
         };
+        if (decisions is { } d)
+        {
+            // Every curve's value (§10), by the parameter's own name.
+            foreach (System.Reflection.PropertyInfo prop in typeof(DecisionParams).GetProperties())
+                derived[prop.Name] = (float)prop.GetValue(d)!;
+        }
+
         InspectSkill[] list = [.. p.Skills.Select((s, i) => new InspectSkill(s.Key, s.Name, p.Levels[i]))];
         return new InspectSkills(p.Name, list, p.Spent, pool, cap, derived);
     }

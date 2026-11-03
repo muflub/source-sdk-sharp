@@ -115,4 +115,26 @@ public class FlowFieldTests
         f.Build(g, Grids.At(ids, 4, 0), ClearanceClass.Stand, new NavObstacleState(0));
         Assert.Equal((0f, Grids.Size * 4), (f.CostAt(ids[4, 0]), f.CostAt(ids[0, 0])));
     }
+
+    /// <summary>
+    /// A partial field (built with the bot's cell) gives the bot's route the
+    /// same costs and steps as the whole field, and stops short of the far end
+    /// of a long corridor.
+    /// </summary>
+    [Fact]
+    public void APartialFieldKeepsTheBotsRouteAndStopsShort()
+    {
+        string row = new('.', 120);
+        var (g, ids) = Grids.Parse([row, row]);
+        CellId goal = Grids.At(ids, 0, 0), bot = Grids.At(ids, 10, 0);
+        var obstacles = new NavObstacleState(g.ObstacleCount);
+        FlowField whole = Field(g, goal, ClearanceClass.Stand);
+        var part = new FlowField();
+        part.Build(g, goal, ClearanceClass.Stand, obstacles, null, bot);
+
+        Assert.True(part.IsPartial);
+        Assert.True(part.Reachable < whole.Reachable / 2, $"settled {part.Reachable} of {whole.Reachable}");
+        Assert.Equal(Grids.Walk(whole, bot.Index), Grids.Walk(part, bot.Index));
+        Assert.Equal(whole.CostAt(bot.Index), part.CostAt(bot.Index));
+    }
 }

@@ -206,6 +206,16 @@ if (args.Length > 0 && args[0] == "aimaps")
     File.WriteAllText(Path.Combine(args[1], "ss_ai_hearing.vmf"), hearing.Write());
     File.WriteAllText(Path.Combine(args[1], "ss_ai_hearing.yaml"), AiTestMaps.Level("ss_ai_hearing.vmf", ["near", "middle", "far"]));
     Console.WriteLine($"{Path.Combine(args[1], "ss_ai_hearing.vmf")}: {hearing.Entities.Count} entities, {hearing.WorldSolids.Count} world brushes");
+
+    var duel = AiTestMaps.Duel();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_duel.vmf"), duel.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_duel.yaml"), AiTestMaps.Level("ss_ai_duel.vmf", ["arena"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_duel.vmf")}: {duel.Entities.Count} entities, {duel.WorldSolids.Count} world brushes");
+
+    var routes = AiTestMaps.Routes();
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.vmf"), routes.Write());
+    File.WriteAllText(Path.Combine(args[1], "ss_ai_routes.yaml"), AiTestMaps.Level("ss_ai_routes.vmf", ["west", "middle", "east"]));
+    Console.WriteLine($"{Path.Combine(args[1], "ss_ai_routes.vmf")}: {routes.Entities.Count} entities, {routes.WorldSolids.Count} world brushes");
     return 0;
 }
 

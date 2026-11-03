@@ -1,0 +1,32 @@
+{
+ "map": "ss_ai_duel",
+ "source_sha256": "287305188b4c1989c6318e226394f7dbcc7b2e5c6f233caf22e77c4b49234816",
+ "scenes": [
+  {
+   "name": "sight",
+   "from": 256,
+   "to": 413
+  },
+  {
+   "name": "target fires",
+   "from": 414,
+   "to": 830
+  }
+ ],
+ "pusher": 2,
+ "target": 3,
+ "reloads": [
+  685
+ ],
+ "thinks": [],
+ "counters": {
+  "tick": 831,
+  "ai.sense.us": 66.6,
+  "ai.sense.us.max": 350.9,
+  "ai.publish.us": 383.2,
+  "ai.sense.ticks": 300,
+  "ai.sense.traces": 5,
+  "ai.sense.traces.total": 4830,
+  "bots": 2
+ }
+}

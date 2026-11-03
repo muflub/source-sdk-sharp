@@ -1080,3 +1080,4 @@ src/shared/managed/TempEnts/TePlayerAnimEvent.cs	ports CTEPlayerAnimEvent's DT_T
 src/shared/managed/Anim/PlayerAnimGestures.cs	ports the HL2MP weapons' m_acttable gesture rows and their SetAnimation( PLAYER_ATTACK1 / PLAYER_RELOAD ) callers (game/shared/hl2mp/weapon_*.cpp, basecombatweapon_shared.cpp)
 src/client/managed/TempEnts/ClientTePlayerAnimEvent.cs	ports C_TEPlayerAnimEvent::PostDataUpdate (c_sdk_player.cpp)
 src/server/interop/PlayerStepSounds.cs	ports CBasePlayer::UpdateStepSound's timer and CHL2MP_Player::PlayStepSound's server arm (baseplayer_shared.cpp, hl2mp_player_shared.cpp)
+src/ai/hl2mp/server/Trees/Hl2mpDecider.cs	the HL2MP bot behaviours of hl2mp/bot/behavior/ (retreat_to_cover, get_health, attack, melee_attack, seek_and_destroy, move_to_vantage_point, get_ammo) as tree shapes over ours, not their code

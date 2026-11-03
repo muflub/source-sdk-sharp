@@ -44,8 +44,10 @@ public sealed class Hl2mpBots : IFrameLifecycle
 
     public Hl2mpBots(IBotPlayers players, IPlayerCommandRunner runner, IEnginePlayers enginePlayers, IEngineEntities entities,
                      WeaponCatalog weapons, IEngineFrame frame, IHl2mpNavigation nav, IBotInventory inventory,
-                     IBotNameSource names, IScoreboardTags tags, ILog log)
+                     IBotNameSource names, IScoreboardTags tags, ILog log, Senses.Hl2mpAiSession? ai = null,
+                     IEngineNetworking? networking = null)
     {
+        _ai = ai;
         _nav = nav;
         _names = names;
         _tags = tags;
@@ -53,7 +55,7 @@ public sealed class Hl2mpBots : IFrameLifecycle
         _players = players;
         _frame = frame;
         _log = log;
-        _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory);
+        _self = new EngineBotSelf(enginePlayers, entities, weapons, inventory, networking);
         _inventory = inventory;
         _applier = new BotCommandApplier(runner, _self);
     }
@@ -253,7 +255,71 @@ public sealed class Hl2mpBots : IFrameLifecycle
         Steer(tick);
         Walk(tick);
         Acting(tick);
+        Think(tick);
         _applier.ApplyTick(tick, frameTime > 0f ? frameTime : 0.015f);
+    }
+
+    private readonly Senses.Hl2mpAiSession? _ai;
+    private readonly BrainDriver _driver = new();
+
+    /// <summary>Whether the brains drive the bots (<c>ai_think</c>); a scripted act, drive or walk overrides a bot's brain while it lasts.</summary>
+    public bool Thinking { get; set; } = true;
+
+    public BrainDriver Driver => _driver;
+
+    /// <summary>Each bot's brain's latest intent, carried out for this tick (§2.3).</summary>
+    private void Think(Tick tick)
+    {
+        if (_ai is null || !Thinking)
+            return;
+        foreach (Hl2mpBot bot in _bots)
+        {
+            if (Scripted(bot.Id) || !_ai.Session.TryLatestIntent(bot.Id.Slot, out IntentCommand brain) || brain.Bot != bot.Id)
+                continue;
+            EntityHandle player = _applier.PlayerOf(bot.Id);
+            if (player == EntityHandle.None)
+                continue;
+            BotSelfFacts self = _self.Read(player);
+            IntentCommand now = _driver.Drive(in brain, self.Origin, tick, ++_seq, _nav.Current?.Nav.Graph, _nav.Obstacles, self.OnLadder);
+            _applier.Submit(in now);
+            SayLadder(bot.Id, bot.Name, self, tick);
+            if (LogThink && _ai.Session.BrainIn(bot.Id.Slot)?.Decider is { } decider)
+                SayDoing(bot, decider.Doing, self.Origin, tick);
+        }
+    }
+
+    /// <summary>Whether each change of a bot's branch, leaf or verdict is written to the console (<c>ai_think_log</c>).</summary>
+    public bool LogThink { get; set; }
+
+    private readonly Dictionary<int, (string, string, string)> _said = new();
+
+    private void SayDoing(Hl2mpBot bot, in DoingRecord d, AiVector at, Tick tick)
+    {
+        SelfFlags flags = _ai is not null && _ai.Session.Snapshots.TryGet(new Tick(tick.Value - 1), out AiSnapshot snap) && snap.ViewFor(bot.Id.Slot) is { } v
+            ? v.Self.Flags : SelfFlags.None;
+        (string, string, string) key = (d.Branch, d.Leaf, d.Verdict + ((flags & SelfFlags.Reloading) != 0 ? "+r" : ""));
+        if (_said.TryGetValue(bot.Id.Slot, out (string, string, string) last) && last == key)
+            return;
+        _said[bot.Id.Slot] = key;
+        _log.Msg(string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"[SourceSharp/Ai] think {tick.Value} {bot.Name}: {d.Branch}/{d.Leaf} verdict '{d.Verdict}' target {(d.Target.IsValid ? d.Target.Slot : -1)} "
+            + $"at ({at.X:F0} {at.Y:F0} {at.Z:F0}) goal {(d.HasGoal ? $"({d.Goal.X:F0} {d.Goal.Y:F0} {d.Goal.Z:F0})" : "-")} "
+            + $"P(empty) {d.PEmpty:F2} P(reloading) {d.PReloading:F2} window {d.WindowSeconds:F2}s arrive {d.ArriveSeconds:F2}s "
+            + $"scoreboard {d.ScoreboardTerm:F2} ammo {d.AmmoTerm:F2} self {flags}\n"));
+    }
+
+    private bool Scripted(ActorId bot)
+    {
+        foreach (Goto g in _gotos)
+            if (g.Bot == bot)
+                return true;
+        foreach (Drive d in _drives)
+            if (d.Bot == bot)
+                return true;
+        foreach (ScriptedAct a in _acts)
+            if (a.Bot == bot)
+                return true;
+        return false;
     }
 
     /// <summary>The core's bots are the truth: one kicked or gone leaves, one a level change moved is rebound.</summary>
@@ -365,9 +431,29 @@ public sealed class Hl2mpBots : IFrameLifecycle
             }
 
             var look = new LookIntent(LookKind.Path, default, ActorId.None, AimPoint.Body, 0f, 0);
-            var intent = new IntentCommand(g.Bot, tick, ++_seq, tick + IntentCommand.LifetimeTicks, move, look, ActionIntent.None, default);
+            ActionIntent action = ActionIntent.None;
+            if (_nav.Current?.Nav.Graph is { } graph)
+                _driver.LadderFor(g.Bot.Slot, g.Follower, self.Origin, tick, self.OnLadder, graph, ref move, ref look, ref action);
+            SayLadder(g.Bot, g.Name, self, tick);
+            var intent = new IntentCommand(g.Bot, tick, ++_seq, tick + IntentCommand.LifetimeTicks, move, look, action, default);
             _applier.Submit(in intent);
         }
+    }
+
+    private readonly Dictionary<int, (bool On, AiVector From)> _ladder = new();
+
+    /// <summary>A bot getting on and off a ladder, said once each way, with how far it climbed.</summary>
+    private void SayLadder(ActorId bot, string name, in BotSelfFacts self, Tick tick)
+    {
+        (bool on, AiVector from) = _ladder.GetValueOrDefault(bot.Slot);
+        if (self.OnLadder == on)
+            return;
+        _ladder[bot.Slot] = (self.OnLadder, self.Origin);
+        AiVector at = self.Origin;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        _log.Msg(self.OnLadder
+            ? string.Create(inv, $"[SourceSharp/Ai] bot {bot.Serial} ({name}) is on a ladder at ({at.X:F0} {at.Y:F0} {at.Z:F0}), tick {tick.Value}\n")
+            : string.Create(inv, $"[SourceSharp/Ai] bot {bot.Serial} ({name}) got off the ladder at ({at.X:F0} {at.Y:F0} {at.Z:F0}), {at.Z - from.Z:F0} u from where it got on, tick {tick.Value}\n"));
     }
 
     /// <summary>The corners a move carries and what the applier made of them, for a stuck line.</summary>

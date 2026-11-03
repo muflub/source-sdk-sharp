@@ -19,7 +19,7 @@ public sealed class SnapshotBuilderTests
 
     private static readonly VisionParams Eyes = new(6000f, 90f, 0.3f, 0.5f);
 
-    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build()
+    private static (PerceivedView View, ActorId Seen, ActorId Hidden) Build(bool selfReloading = false)
     {
         var w = new SenseWorld();
         SenseWorld.Player bot = w.Add(1, new AiVector(0, 0, 0));
@@ -38,7 +38,7 @@ public sealed class SnapshotBuilderTests
         var builder = new SnapshotBuilder(w.Engine(), WeaponCatalog.Stock(), new Hud(77));
         var ring = new SnapshotRing(2, VisionPass.Slots, 8);
         AiSnapshot snap = ring.BeginWrite(new Tick(60));
-        builder.Build(snap, [sensed], pass, slot => slot == 2 ? ActorActivity.Reloading : ActorActivity.None);
+        builder.Build(snap, [sensed], pass, slot => slot == 2 || (selfReloading && slot == 1) ? ActorActivity.Reloading : ActorActivity.None);
         return (snap.ViewFor(1)!, ActorDirectory.HumanActor(2, seen.Handle), ActorDirectory.HumanActor(3, hidden.Handle));
     }
 
@@ -67,5 +67,13 @@ public sealed class SnapshotBuilderTests
         (PerceivedView view, _, _) = Build();
         Assert.Equal(77, view.Self.Health);
         Assert.Equal(17, view.Self.Clip);
+    }
+
+    /// <summary>The bot's own reload, as its own view model shows it, is in its HUD's flags (live, the own-reload branch never fired without it).</summary>
+    [Fact]
+    public void TheBotsOwnReloadIsInItsHud()
+    {
+        Assert.True((Build(selfReloading: true).View.Self.Flags & SelfFlags.Reloading) != 0);
+        Assert.True((Build().View.Self.Flags & SelfFlags.Reloading) == 0);
     }
 }

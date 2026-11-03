@@ -6,17 +6,19 @@ namespace SourceSharp.Ai;
 /// last step (plan_hl2mp_ai §2.6): nothing else reaches it, so the intent for
 /// a (bot, tick) is the same whichever thread runs it and whenever.
 ///
-/// <para>Phase 1: every step answers <see cref="IntentCommand.Hold"/>. The
-/// memory, predictors and trees of later phases live behind this one method.</para>
+/// <para>A brain with a <see cref="Decider"/> (a game's trees, Phase 5)
+/// answers its decide; one without answers <see cref="IntentCommand.Hold"/>.</para>
 /// </summary>
 public sealed class Brain
 {
     private readonly AiRandom _random;
     private int _seq;
 
-    public Brain(ActorId bot, ulong seed, BotMemory? memory = null)
+    public Brain(ActorId bot, ulong seed, BotMemory? memory = null, DecisionParams? decisions = null, IDecider? decider = null)
     {
+        Decider = decider;
         Memory = memory;
+        Decisions = decisions;
         if (!bot.IsValid)
             throw new ArgumentException("a brain needs a valid actor", nameof(bot));
         Bot = bot;
@@ -30,6 +32,12 @@ public sealed class Brain
 
     /// <summary>What the bot remembers (§5.1), or null for a brain with no map to remember (a fact's).</summary>
     public BotMemory? Memory { get; }
+
+    /// <summary>What the bot's skills make of its decisions (§10), or null for a brain with no curves (a fact's).</summary>
+    public DecisionParams? Decisions { get; }
+
+    /// <summary>The game's decision layer, or null for a brain that holds (a fact's, or one with no curves).</summary>
+    public IDecider? Decider { get; }
 
     /// <summary>The last tick this brain stepped at, or null before its first step.</summary>
     public Tick? LastStep { get; private set; }
@@ -48,6 +56,6 @@ public sealed class Brain
         LastStep = tick;
         Memory?.Step(tick, view, events);
         _ = _random;
-        return IntentCommand.Hold(Bot, tick, ++_seq);
+        return Decider is { } d ? d.Decide(tick, view, ++_seq) : IntentCommand.Hold(Bot, tick, ++_seq);
     }
 }

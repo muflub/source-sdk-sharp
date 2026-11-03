@@ -1,0 +1,51 @@
+{
+ "map": "ss_ai_nav",
+ "source_sha256": "0e313bdc4a1b48ae3c1acb0791eed54964a72df939f25cf6a489859ef87f3be4",
+ "scenes": [
+  {
+   "name": "weapon_shotgun",
+   "from": 267,
+   "to": 436,
+   "arrived": true
+  },
+  {
+   "name": "weapon_smg1",
+   "from": 437,
+   "to": 606,
+   "arrived": true
+  },
+  {
+   "name": "weapon_357",
+   "from": 607,
+   "to": 776,
+   "arrived": true
+  },
+  {
+   "name": "item_battery",
+   "from": 776,
+   "to": 1045,
+   "arrived": true
+  },
+  {
+   "name": "weapon_crossbow",
+   "from": 1046,
+   "to": 1714,
+   "arrived": true
+  }
+ ],
+ "walker": 2,
+ "ladder": [
+  "[SourceSharp/Ai] bot 1 (Walker) is on a ladder at (256 270 19), tick 1591",
+  "[SourceSharp/Ai] bot 1 (Walker) got off the ladder at (256 270 175), 156 u from where it got on, tick 1643"
+ ],
+ "counters": {
+  "tick": 1715,
+  "ai.sense.us": 27.9,
+  "ai.sense.us.max": 77.6,
+  "ai.publish.us": 428.1,
+  "ai.sense.ticks": 300,
+  "ai.sense.traces": 0,
+  "ai.sense.traces.total": 4189,
+  "bots": 1
+ }
+}

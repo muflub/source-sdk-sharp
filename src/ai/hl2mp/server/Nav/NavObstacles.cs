@@ -44,7 +44,8 @@ public static class ObstacleRule
 /// </summary>
 public sealed class NavObstacles(DerivedNav nav, IObstacleEyes eyes)
 {
-    private readonly NavObstacleState _state = new(nav.Graph.ObstacleCount);
+    // A shut door is a way through for the planner: a player opens it (Phase 5; the bot holds +use at it).
+    private readonly NavObstacleState _state = new(nav.Graph.ObstacleCount) { OpenDoors = true };
     private readonly EntityHandle[] _entity = new EntityHandle[nav.Obstacles.Length];
     private readonly AiVector[] _spawnOrigin = new AiVector[nav.Obstacles.Length];
     private readonly AiVector[] _spawnAngles = new AiVector[nav.Obstacles.Length];

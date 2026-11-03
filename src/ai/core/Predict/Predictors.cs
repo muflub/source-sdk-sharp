@@ -134,7 +134,4 @@ public static class AmmoWindow
         return new Verdict(pEmpty, pReload, end, left, arrive, push);
     }
 
-    /// <summary>Discipline's trust and margin (§5.4): at 10 a push on 0.6 with a 0.2 s margin; at 0 never (trust above any probability).</summary>
-    public static (float Trust, float Margin) ForDiscipline(int discipline)
-        => discipline <= 0 ? (float.PositiveInfinity, 0f) : (1.6f - 0.1f * discipline, 0.2f + 0.08f * (10 - discipline));
 }

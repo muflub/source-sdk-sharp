@@ -41,7 +41,17 @@ export interface AiSkills {
   derived: Record<string, number>;
 }
 
-export interface AiRecord { slot: number; serial: number; tick: number; memory: AiMemory | null; skills: AiSkills; doing: string }
+export interface AiTraceNode { id: number; name: string; status: string; value: number | null }
+
+export interface AiDecide { tick: number; chosen: string; utility: number; scoreboardTerm: number; ammoTerm: number; nodes: AiTraceNode[] }
+
+/** The doing-and-planning part (§7.2): the branch, the verdict and its window arithmetic, the reason terms, the last decides' traces. */
+export interface AiDoing {
+  branch: string; leaf: string; goal: Vec | null; targetSlot: number; verdict: string; pEmpty: number; pReloading: number;
+  windowSeconds: number; arriveSeconds: number; scoreboardTerm: number; ammoTerm: number; expires: number; decides: AiDecide[];
+}
+
+export interface AiRecord { slot: number; serial: number; tick: number; memory: AiMemory | null; skills: AiSkills; doing: AiDoing | null }
 
 export interface AiCandidate { slot: number; at: Vec; stage: string; fraction: number; sees: boolean }
 

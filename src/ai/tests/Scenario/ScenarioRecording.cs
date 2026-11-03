@@ -21,6 +21,9 @@ internal sealed class ScenarioRecording
 
     public required List<AiEvent> Events { get; init; }
 
+    /// <summary>Every intent a brain made, in order (§2.4).</summary>
+    public List<IntentCommand> Intents { get; init; } = [];
+
     public static string Path(string file) => RepoLayout.Repo("src", "ai", "tests", "recordings", file);
 
     public static ScenarioRecording Load(string map)
@@ -37,6 +40,7 @@ internal sealed class ScenarioRecording
         AiRecordingHeader header = default;
         var views = new Dictionary<(int, int), ActorFacts[]>();
         var events = new List<AiEvent>();
+        var intents = new List<IntentCommand>();
         SnapshotRing? ring = null;
         while (AiRecordFormat.TryReadRecord(f, out AiRecordType type, out byte[] payload))
         {
@@ -49,6 +53,9 @@ internal sealed class ScenarioRecording
                     break;
                 case AiRecordType.Event:
                     events.Add(AiRecordFormat.ReadEvent(r));
+                    break;
+                case AiRecordType.Intent:
+                    intents.Add(AiRecordFormat.ReadIntent(r));
                     break;
                 case AiRecordType.Snapshot:
                     AiSnapshot s = AiRecordFormat.ReadSnapshot(r, ring!);
@@ -65,6 +72,6 @@ internal sealed class ScenarioRecording
 
         if (!header.Map.StartsWith(map + "@" + sha[..12], StringComparison.Ordinal))
             throw new InvalidDataException($"{map}'s recording names {header.Map}, not {map}@{sha[..12]}");
-        return new ScenarioRecording { Header = header, Summary = summary, Views = views, Events = events };
+        return new ScenarioRecording { Header = header, Summary = summary, Views = views, Events = events, Intents = intents };
     }
 }

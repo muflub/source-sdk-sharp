@@ -29,6 +29,8 @@ public class ApplierAllowListTests
         "IEngineEntities::GetClassName", "IEngineEntities::GetEyeAngles", "IEngineEntities::GetEyePosition",
         "IEngineEntities::GetOrigin", "IEnginePlayers::GetObserverMode", "Arsenal::Holdings",
         "IEnginePlayers::IsAlive", "WeaponCatalog::IndexOf",
+        // EngineBotSelf: whether the bot is on a ladder, its own move type as its client predicts it (Phase 5's ladders).
+        "IEngineNetworking::EntityGetState",
         // The tick a bot's command runs on.
         "IEngineFrame::TickCount",
         "ILog::Msg", "ILog::Warning",

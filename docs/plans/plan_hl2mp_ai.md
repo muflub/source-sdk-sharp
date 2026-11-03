@@ -1790,7 +1790,9 @@ that code when M1 starts, and changes nothing here.
 | vision pass 4 bots (`ai.sense.us`) | live, dm_lockdown, 4 bots and one human (4 × 4 others): 71.9 µs mean, 155.7 worst over 300 ticks, before the belief cap; after it 81.1 / 494.8 and, bots walking, 114.8 / 1,504.1; within the 400 µs ceiling (mean). Offline, `SenseCostTests` (4 bots × 3 others, fake engine, inline session) holds ≤ 400 µs. Scenarios (recording on): ss_ai_sight 3 bots 79.8 / 189.4, ss_ai_hearing 2 bots 137.2 / 3,259.8 | `/ai/counters` (`ai.sense.us`: the vision pass, the item pass and the views, 300-tick mean and worst), `tools/ai-scenario` | `hl2mp-ai` Phase 4 gate tree, debug, `make headless` dm_lockdown, 2026-11-02 |
 | inline brains' publish (`ai.publish.us`) | dm_lockdown 4 bots: 13,114 µs mean before the belief cap (16 beliefs spreading over the map), 1,615 after it, 1,128 with the bots walking; ss_ai_sight 2,894 and ss_ai_hearing 4,514 with the recording on | `/ai/counters` | as above |
 
-| brain decide per bot | — | | |
+| brain decide per bot (`ai.brain.us`) | live, dm_lockdown, 4 bots (hard, normal, easy, a Headhunter 10 / Discipline 10 custom) and one idle human, 2 minutes: **2,251 µs mean** per decide over 5,330 decides, worst 36,865 µs (wall time, main thread, inline). Offline `BrainCostTests` (64 × 64 graph, one opponent in sight, three lost and spreading): within 2,000 µs (thread CPU, least of five 300-decide means). **Red live against §9's 2,000 µs ceiling, in debug**; the publish (below) barely moved since Phase 4 (1,128–1,615 µs then, memory only), so the memory's belief spreading, not the trees, is the cost to cut (Phase 6 moves it off the main thread) | `/ai/counters` `ai.brain.us`, `ai_sense_cost` | `hl2mp-ai` at `314b5d6f7`, debug, `make headless`, 2026-11-02 |
+| inline publish with the trees (`ai.publish.us`) | dm_lockdown 4 bots + human: 1,198 µs mean (300 ticks; 1,247 in the console's read); `ai.sense.us` 245 µs mean, 3,408 worst; follower field builds 591 in 2 min. Scenarios (recording on): ss_ai_duel 2 bots 383, ss_ai_routes 4 bots 632, ss_ai_nav 1 bot 428 | `/ai/counters`, `tools/ai-scenario` | as above |
+| follower's field, dm_lockdown, offline | whole graph 16–19 ms a build; from the bot's cell with the 1.5× + 512 stop 3.5 ms (10 goals, 4,856 cells settled); A* 4–6 ms | a scratch fact over the per-tree nav (removed) | `hl2mp-ai` Phase 5 step 3 tree, debug |
 | pool CPU, 8 bots, 4 threads | — | | |
 | human reference: flicks / engagements recorded | — | | |
 | KS threshold per §3.4.4 metric (9 rows) | — | | |
@@ -2485,6 +2487,84 @@ that code when M1 starts, and changes nothing here.
   defect, in `tools/ai-scenario`: the console log is shared by every game
   of a tree and the truth read all of it; it now reads from the log's size
   when its own game's socket appeared. The hearing fact runs from tick 0.
+
+- **Phase 5, deciding** (2026-11-02, `hl2mp-ai` `3dcac97a8`..`314b5d6f7`).
+  (1) **BT runtime** (core `Bt/`): sequence, selector, utility selector
+  (best first, a failure falls to the next, ties by a permutation drawn
+  once from the brain's seed), condition, action, cooldown/once/timeout; a
+  node runs once per decide; `BtTrace` keeps 64 decides in fixed arrays.
+  (2) **Skill curves**: `game/mod_test/scripts/ai/hl2mp_skills.json`, 19
+  decision parameters, each a value per level of one skill with a declared
+  direction; refused by name when wrong. Vision, memory and motion keep
+  their Phase 4/3 curves in code (motion is Phase 5b's); Discipline's push
+  trust and margin moved from `AmmoWindow.ForDiscipline` into the file at
+  the same values. `coverWeight` and `routeAltWeight` are in the file but
+  drive nothing yet (no cover table, no route alternatives in the
+  follower); Cover's observable is the lull reload threshold and Cunning's
+  the ambush. (3) **The decider is the binding's** (`Trees/Hl2mpDecider`),
+  behind a core `IDecider`, and reads only the core (an IL fact). Its
+  output is a goal, a look and the hands; `BrainDriver` turns a goal into a
+  follower's corners each tick, rebuilding at most every 0.5 s, the field
+  stopping a margin past the bot's cell (`FlowField.Build` with `from`).
+  The push test takes the nav distance as the straight one × 1.25 (an A*
+  per decide costs 4–6 ms on dm_lockdown). A weapon is asked for by catalog
+  kind (`EngineBotSelf.ByKind`), as off the HUD's list; the holdings reach
+  the brain as a `Holdings` event. (4) **Doors are a way through**:
+  `NavObstacleState.OpenDoors` (the binding's), a shut door's Door edges
+  passable at their wait and the bot holding +use at one; Phase 2 left a
+  shut door a wall, which kept ss_ai_nav's climb room out of reach.
+  (5) **Ladders**: +use at the foot, forward looking past the far end on
+  it, +use again when stalled at the top. Live on ss_ai_nav a clean climb
+  (156 u); on dm_lockdown the bot gets on and off twice on the way up
+  before the top (the stall rule's +use fires on slow stretches) and
+  arrives. (6) **Two follower defects found by the nav scenario** and
+  fixed: a corner the bot stands by was steered back to at a drop's edge;
+  a plain jump's 32 u ledge was never made (apex ~19 u), so Jump edges are
+  taken ducked. (7) **Premise false, open: the bot's own reload never
+  reaches its view live.** `SnapshotBuilder` now sets `SelfFlags.Reloading`
+  from the weapon tap's activity of the bot's own slot (fact
+  `TheBotsOwnReloadIsInItsHud`), yet over 63 live decides the think log's
+  `self` was only `Alive` and no 'retreat (own reload)' was logged in two
+  2-minute runs (53 'reload empty' in one); the cause is not found in this
+  phase and the branch is held by `ABotReloadingInSightBacksAwayAndHoldsFire`
+  offline only. (8) **Live, dm_lockdown, 4 bots and an idle human**:
+  'think 5549 Alyx: Fight/push verdict 'push' target 5 ... P(reloading)
+  1.00 window 1.41s arrive 0.57s', 'think 1682 Hunter: Hunt/hunt ...
+  target 3 ... scoreboard 1.00', 'Barney killed Alyx with pistol', the
+  ladder lines above. (9) **Brain cost is red live in debug** (§12.3:
+  2,251 µs mean per decide), the memory's belief spreading being most of
+  it; publish 1,198 µs. The gate's other items are green: the ten
+  observables with their flat-curve mutants, the ammo and Headhunter
+  facts, the scenario facts (duel, routes, nav), 1,000 steady steps
+  allocating nothing, the web inspector's tests. **The gate's runs**: `make
+  test` at `314b5d6f7` rc=0, all 9 legs passed (ai 485, managed 2,261,
+  server 9,098, client 4,264, tf2 3,616, tf2_descent 172, native 1,771
+  gtests in 152 binaries, ui 505, checks 35); `make test-full` at
+  `314b5d6f7` rc=0, all 14 legs (+ runner 130, checks-full 4, oracle 237 +
+  158 in 37 binaries, census 35 in 3); the Valve clone clean;
+  `tools/ai-mutations`: "135 arm(s), every one red, every one green again
+  after restore" (two old arms' needles followed this phase's edits:
+  crouch-cells, follow-jump).
+
+- **Phase 6's first leftover: the bot's own reload, and every weapon and
+  hurt tap, were dead live** (2026-11-02). Phase 5 (7) left the cause
+  open. It was not the snapshot builder: `ServerModule.Initialize` never
+  registered `IHooks<IPlayerWeaponEventHook>`, `IHooks<IPlayerHurtHook>`
+  nor `IHooks<IMapCleanupPreserve>`, and the arsenal, the player and the
+  map cleanup take those chains as optional constructor parameters, so
+  the container built each with null and nothing threw. Every fact handed
+  the chain in, so the taps were green offline only: live, no bot ever had
+  `SeenFire`, `SeenReload`, its own reload or a `Damaged` event (Phase 4's
+  "P(reloading) 1.00" came from hearing), and TF2's
+  `TFMapCleanupPreserve` was never asked. The three are registered; the
+  systemic fact `ServerHookRegistrationTests` reads every `IHooks<T>`
+  constructor parameter in the server assembly and requires its
+  registration (red with the three missing; `tools/ai-mutations
+  weapon-hook-unregistered`). Live (dm_lockdown, 4 bots): 20 'retreat (own
+  reload)' in 179 think lines, e.g. "think 1406 Kleiner: Fight/back off
+  reloading verdict 'retreat (own reload)' target 2 ... self Alive,
+  Reloading"; Alyx's `/ai/bot/2/trace` at tick 7306: `own reload` success,
+  `reloading in sight` success, `back off reloading` success.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

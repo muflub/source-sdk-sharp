@@ -9,7 +9,7 @@ namespace SourceSharp.Ai.Hl2mp;
 /// (plan_hl2mp_ai §2.4): whether it is alive or watching, where its eye is,
 /// which way it looks, and what a weapon slot holds.
 /// </summary>
-public readonly record struct BotSelfFacts(bool Alive, bool Observer, AiVector Origin, AiVector Eye, AiAngles View);
+public readonly record struct BotSelfFacts(bool Alive, bool Observer, AiVector Origin, AiVector Eye, AiAngles View, bool OnLadder = false);
 
 /// <summary>The applier's reads of its own bot (§2.4): the bot's own state, never another actor's.</summary>
 public interface IBotSelf
@@ -43,7 +43,8 @@ public sealed class ArsenalBotInventory(Arsenal arsenal) : IBotInventory
 }
 
 /// <summary><see cref="IBotSelf"/> over the engine's player and entity reads.</summary>
-public sealed class EngineBotSelf(IEnginePlayers players, IEngineEntities entities, WeaponCatalog weapons, IBotInventory inventory) : IBotSelf
+public sealed class EngineBotSelf(IEnginePlayers players, IEngineEntities entities, WeaponCatalog weapons, IBotInventory inventory,
+                                  IEngineNetworking? networking = null) : IBotSelf
 {
     public BotSelfFacts Read(EntityHandle player)
     {
@@ -55,12 +56,40 @@ public sealed class EngineBotSelf(IEnginePlayers players, IEngineEntities entiti
             players.GetObserverMode(player) != ObserverMode.None,
             new AiVector(origin.X, origin.Y, origin.Z),
             new AiVector(eye.X, eye.Y, eye.Z),
-            new AiAngles(view.X, view.Y, view.Z));
+            new AiAngles(view.X, view.Y, view.Z),
+            OnLadder(player));
+    }
+
+    /// <summary>A slot from this up asks for a weapon by catalog kind (the slot less this), as a player picks one off the HUD's list.</summary>
+    public const int ByKind = 1000;
+
+    /// <summary>MOVETYPE_LADDER (const.h), which the ABI's MoveType does not name.</summary>
+    public const int MoveTypeLadder = 9;
+
+    /// <summary>Whether the bot is on a ladder: its own move type, as its client predicts it.</summary>
+    private bool OnLadder(EntityHandle player)
+    {
+        if (networking is null)
+            return false;
+        networking.EntityGetState(player, out MoveType moveType);
+        return (int)moveType == MoveTypeLadder;
     }
 
     public int WeaponSelectFor(EntityHandle player, int slot)
     {
         IReadOnlyList<string> held = inventory.Held(player);
+        if (slot >= ByKind)
+        {
+            int kind = slot - ByKind;
+            foreach (string h in held)
+            {
+                if (weapons.IndexOf(h) == kind)
+                    return kind + 1;
+            }
+
+            return 0;
+        }
+
         if ((uint)slot >= (uint)held.Count)
             return 0;
 

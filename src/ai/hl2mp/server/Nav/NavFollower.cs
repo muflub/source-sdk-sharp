@@ -63,6 +63,12 @@ public sealed class NavFollower
     /// <summary>The field's cost from <see cref="At"/>, +∞ off the graph or with no route.</summary>
     public float CostLeft => At.IsValid ? _field.CostAt(At.Index) : float.PositiveInfinity;
 
+    /// <summary>The edge the route takes out of the bot's cell (a Ladder means the bot mounts here), Walk off the field.</summary>
+    public NavEdgeType NextVia => At.IsValid ? _field.ViaFrom(At.Index) : NavEdgeType.Walk;
+
+    /// <summary>The cell the route steps into from the bot's cell, or None.</summary>
+    public CellId NextCell => At.IsValid ? _field.NextFrom(At.Index) : CellId.None;
+
     /// <summary>The next step from where the bot was last found, for a stuck line: the cell, its floor point, and the edge.</summary>
     public string NextStep()
     {
@@ -74,7 +80,16 @@ public sealed class NavFollower
     }
 
     /// <summary>(Re)builds the field: at the start, and when the obstacles change.</summary>
-    public void Rebuild() => _field.Build(_graph, Objective, Class, _obstacles, _avoided.Count > 0 ? _avoided : null);
+    public void Rebuild()
+    {
+        _builds++;
+        _field.Build(_graph, Objective, Class, _obstacles, _avoided.Count > 0 ? _avoided : null, At);
+    }
+
+    /// <summary>Field builds so far, for the cost counters.</summary>
+    public int Builds => _builds;
+
+    private int _builds;
 
     /// <summary>
     /// The bot made no progress (something the nav does not know is in the
@@ -127,8 +142,11 @@ public sealed class NavFollower
     /// <summary>The move for a bot at <paramref name="origin"/>, and where it stands.</summary>
     public MoveIntent Next(AiVector origin, out FollowState state)
     {
-        if (_field.Objective != Objective)
+        if (_field.Objective != Objective || _builds == 0)
+        {
+            At = Locate(origin);
             Rebuild();
+        }
         if (_avoidLeft > 0 && --_avoidLeft == 0)
         {
             _avoided.Clear();
@@ -155,6 +173,9 @@ public sealed class NavFollower
             return new MoveIntent(MoveKind.Follow, MoveSpeed.Walk, 1, Target, default, default, default, default, _graph.Cell(At).CrouchOnly, 0);
         }
 
+        // Off the cells a partial field settled: ask again from here.
+        if (!float.IsFinite(_field.CostAt(At.Index)) && _field.IsPartial)
+            Rebuild();
         if (!float.IsFinite(_field.CostAt(At.Index)))
         {
             state = FollowState.NoRoute;
@@ -179,13 +200,24 @@ public sealed class NavFollower
         if (_avoided.Count == 0)
             PathSmoother.Shortcut(_graph, Class, _obstacles, _corners);
 
-        int count = Math.Min(MoveIntent.MaxCorners, _corners.Count - 1);
-        AiVector Corner(int i) => i < count ? _corners[i + 1].Point : default;
+        // A corner the bot already stands by (its own cell's, behind it at a
+        // drop's edge) is passed: steering back to it holds the bot at the
+        // edge (live, ss_ai_nav's step top: "next Drop ... steering to" a
+        // corner 18 u behind it, for ever).
+        int skip = 0;
+        while (skip < _corners.Count - 2 && Flat(_corners[skip + 1].Point, origin) < PassedRadius)
+            skip++;
+        int count = Math.Min(MoveIntent.MaxCorners, _corners.Count - 1 - skip);
+        AiVector Corner(int i) => i < count ? _corners[i + 1 + skip].Point : default;
         NavEdgeType via = _field.ViaFrom(At.Index);
         MoveKind kind = via switch
         {
-            NavEdgeType.Jump => MoveKind.Jump,
-            NavEdgeType.CrouchJump => MoveKind.CrouchJump,
+            // A ledge the derivation counts a plain jump's (rise to 39 u, a
+            // jump's 21 plus a step's 18) is taken ducked: the plain jump
+            // tops out near 20 u and the step does not come in the air (live,
+            // ss_ai_nav's 32 u ledge: the bot rose to 35 and fell back, for
+            // ever), and the duck tucks the feet up as a player's does.
+            NavEdgeType.Jump or NavEdgeType.CrouchJump => MoveKind.CrouchJump,
             _ => MoveKind.Follow,
         };
         if (_jumpLeft > 0 && kind == MoveKind.Follow)
@@ -196,6 +228,11 @@ public sealed class NavFollower
         state = FollowState.Moving;
         return new MoveIntent(kind, MoveSpeed.Run, (byte)Math.Max(count, 0), Corner(0), Corner(1), Corner(2), Corner(3), default, crouch, 0);
     }
+
+    /// <summary>A corner nearer the bot than this, flat, is one it has passed.</summary>
+    public const float PassedRadius = 24f;
+
+    private static float Flat(AiVector a, AiVector b) => new AiVector(a.X - b.X, a.Y - b.Y, 0f).Length;
 
     private CellId Locate(AiVector origin)
     {

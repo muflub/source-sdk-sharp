@@ -176,6 +176,55 @@ public static class AiTestMaps
         return map;
     }
 
+    /// <summary>
+    /// ss_ai_duel (plan_hl2mp_ai §6.6, Phase 5 step 6): one open room for a
+    /// close duel over reload windows, push, hold and retreat; a crate at its
+    /// middle's side for cover, a health kit at each end, SMG1 ammo.
+    /// </summary>
+    public static VmfMap Duel()
+    {
+        var map = new VmfMap();
+        map.World.Add(new("skyname", "sky_day01_01"));
+        Room(map, 0, "arena", east: false, west: false);
+        Point o = Origin(0);
+        foreach (float y in (float[])[128, 384])
+        {
+            Spawn(map, o + new Point(64, y, 16));
+            Spawn(map, o + new Point(448, y, 16));
+        }
+
+        map.WorldSolids.Add(VmfMap.Box(o + new Point(224, 400, 16), o + new Point(288, 464, 80), Ledge));
+        Item(map, "item_healthkit", o + new Point(40, 256, 24));
+        Item(map, "item_healthkit", o + new Point(472, 256, 24));
+        Item(map, "item_ammo_smg1", o + new Point(256, 64, 24));
+        return map;
+    }
+
+    /// <summary>
+    /// ss_ai_routes (§6.6, Phase 5 step 6): three rooms in a row, each split
+    /// by a partition open only at its doorway's line, for memory, prediction
+    /// and Headhunter: who is where cannot be seen from the next room.
+    /// </summary>
+    public static VmfMap Routes()
+    {
+        var map = new VmfMap();
+        map.World.Add(new("skyname", "sky_day01_01"));
+        string[] names = ["west", "middle", "east"];
+        for (int i = 0; i < names.Length; i++)
+        {
+            Room(map, i, names[i], east: i < names.Length - 1, west: i > 0);
+            Point o = Origin(i);
+            map.WorldSolids.Add(VmfMap.Box(o + new Point(320, 16, 16), o + new Point(336, 160, 496), Shell));
+            map.WorldSolids.Add(VmfMap.Box(o + new Point(320, 352, 16), o + new Point(336, 496, 496), Shell));
+            foreach (float y in (float[])[96, 416])
+                Spawn(map, o + new Point(64, y, 16));
+        }
+
+        Item(map, "item_healthkit", Origin(1) + new Point(160, 256, 24));
+        Item(map, "weapon_ar2", Origin(2) + new Point(400, 256, 24));
+        return map;
+    }
+
     /// <summary>The cell's low corner of the room at index <paramref name="i"/>.</summary>
     public static Point Origin(int i) => new(i * (Cell + Gap), 0, 0);
 

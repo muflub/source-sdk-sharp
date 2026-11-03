@@ -67,12 +67,42 @@ public sealed class BotMemory
 
     public bool Alive { get; private set; }
 
+    /// <summary>The weapons the bot holds (its HUD), a mask of catalog kinds; 0 before the first <see cref="AiEventKind.Holdings"/>.</summary>
+    public int HeldKinds { get; private set; }
+
     /// <summary>The habits of <paramref name="opponent"/> on this map.</summary>
     public OpponentHabits HabitsOf(ActorId opponent)
-        => _habits.For(World.Map.Map, World.IdentityOf(opponent), World.Graph?.CellCount ?? 0);
+    {
+        if (Cached(opponent) is { } h)
+            return h;
+        h = _habits.For(World.Map.Map, World.IdentityOf(opponent), World.Graph?.CellCount ?? 0);
+        Cache(opponent, h);
+        return h;
+    }
 
     public bool TryHabits(ActorId opponent, out OpponentHabits? habits)
-        => _habits.TryGet(World.Map.Map, World.IdentityOf(opponent), out habits);
+    {
+        habits = Cached(opponent);
+        if (habits is not null)
+            return true;
+        if (!_habits.TryGet(World.Map.Map, World.IdentityOf(opponent), out habits) || habits is null)
+            return false;
+        Cache(opponent, habits);
+        return true;
+    }
+
+    // An opponent's habits by slot, so a steady step asks no identity (a string) of the world.
+    private (ActorId Id, OpponentHabits? Habits)[]? _habitCache;
+
+    private OpponentHabits? Cached(ActorId id)
+        => _habitCache is { } c && (uint)id.Slot < (uint)c.Length && c[id.Slot].Id == id ? c[id.Slot].Habits : null;
+
+    private void Cache(ActorId id, OpponentHabits h)
+    {
+        _habitCache ??= new (ActorId, OpponentHabits?)[Board.Slots];
+        if ((uint)id.Slot < (uint)_habitCache.Length)
+            _habitCache[id.Slot] = (id, h);
+    }
 
     private float Dt => World.TickSeconds;
 
@@ -98,6 +128,9 @@ public sealed class BotMemory
 
         switch (e.Kind)
         {
+            case AiEventKind.Holdings:
+                HeldKinds = e.Code;
+                break;
             case AiEventKind.SightGained:
                 Gained(e);
                 break;
