@@ -279,6 +279,7 @@ public class MovementRulesSeamTests
                 "OnPlayerGrounded" => Grounded(rules, (int)a![0]!),
                 "GetEyeHeight" => rules.EyeHeight((int)a![0]!, (float)a[1]!),
                 "GetBunnyJumpCap" => rules.BunnyJump((int)a![0]!, (float)a[1]!),
+                "GetNoHl2Arms" => rules.NoHl2Arms(),
                 "GetBackpedalLimit" => Backpedal(rules, method, (int)a![0]!, (float)a[1]!),
                 "GetMovementStun" => Stun(rules, method, (int)a![0]!, (float)a[1]!, (int)a[2]!,
                                                 (float)a[3]!, (float)a[4]!, (float)a[5]!),
@@ -777,6 +778,7 @@ public class MovementRulesSeamTests
             Assert.Contains("game.OnPlayerGrounded(i)", code, StringComparison.Ordinal);
             Assert.Contains("game.GetEyeHeight(i, z)", code, StringComparison.Ordinal);
             Assert.Contains("game.GetBunnyJumpCap(i, ms)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetNoHl2Arms()", code, StringComparison.Ordinal);
             Assert.Contains("game.GetBackpedalLimit(i, ms)", code, StringComparison.Ordinal);
             Assert.Contains("game.GetMovementStun(i, t, b, f, s, u)", code, StringComparison.Ordinal);
         }

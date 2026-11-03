@@ -108,6 +108,14 @@ public sealed class TFMovementRules : IMovementRules
 
     public MovementParams? Constants => TFViewVectors.Params;
 
+    /// <summary>
+    /// Stock TF2 is built without <c>HL2_DLL</c>: its jump is the literal 289
+    /// (tf_gamemovement.cpp:1315), which the constants' height answers only
+    /// through the core's sqrt( 2 g h ), and its fall thresholds are
+    /// shareddefs.h's non-HL2 ones.
+    /// </summary>
+    public bool NoHl2Arms => true;
+
     /// <summary>The ground jump is the constants' (289 at gravity 800); no scale.</summary>
     public float JumpScale(in JumpRequest request) => 1f;
 

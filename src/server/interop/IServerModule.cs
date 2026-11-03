@@ -216,6 +216,12 @@ public interface IServerModule
     float GetBunnyJumpCap(int playerIndex, float maxSpeed);
 
     /// <summary>
+    /// The loop runs the non-HL2 arms (false, stock HL2MP). Runs on both
+    /// sides; see <c>IMovementRules.NoHl2Arms</c>.
+    /// </summary>
+    bool GetNoHl2Arms();
+
+    /// <summary>
     /// The backpedal clamp for a walk (null, stock, crops nothing). Runs on
     /// both sides; see <c>IMovementRules.BackpedalLimit</c>.
     /// </summary>

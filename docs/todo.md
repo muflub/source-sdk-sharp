@@ -638,6 +638,27 @@ second, so `winlimit_changed` (read by the HUD only) is a deferred row
 (`docs/plans/tf2/deferred.tsv`, Stage 3.1), and `tf_flag_caps_per_round`'s
 zeroing belongs to CTF (2.5), which owns the captures.
 
+## default_fov's client half is managed now; TF's 75 no longer warns
+
+Added 2026-11-02 (branch tf2-minigun). Stock TF declares `default_fov` "75"
+(clientmode_tf.cpp:113); the core declared "90", which moved TF's viewmodel
+FOV to 54 - (90 - 75) = 39 (view.cpp:724-729) and dropped the heavy's firing
+and spinning minigun below the screen. TF2.Server's `TFDefaultFovDefault` row
+redefaults the server half, which replicates. The client half was the native
+`ConVar` in `src/shared/native/shell_shared.cpp` ("90"), so a listen server
+logged `Parent and child ConVars with different default values! default_fov
+child: 90 parent: 75 (parent wins)`.
+
+Landed 2026-11-02 (branch tf2-fovclient, at 271c2c586): the client half moved
+to `SourceSharp.Client`/ConVars.cs with the core's 90, TF2.Client's
+TFClientModeConVars carries TF's `ConVarDefault` 75 row beside `fov_desired`,
+and the native declaration in shell_shared.cpp is deleted — its last stock
+importer (game/client/view.cpp's `extern`) no longer compiles, measured zero
+importers by `nm -u` over the objects the client link line names. The
+convar-ledger, client globals ledger and native-symbols rows moved with it;
+PolicyKnobDeclarationTests pins both halves against the old C++ shape.
+**Owner:** core convars.
+
 ## The vtable trap's report can recurse before it fails the process: open
 
 `ManagedVtables.FailFast` (src/abi/ManagedVtable.cs) writes its message

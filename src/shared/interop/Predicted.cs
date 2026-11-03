@@ -63,3 +63,24 @@ public sealed class PredictedAttribute : Attribute
 public sealed class NoErrorCheckAttribute : Attribute
 {
 }
+
+/// <summary>
+/// Stock's <c>FTYPEDESC_ONLY_ERROR_IF_ABOVE_ZERO_TO_ZERO_OR_BELOW_ETC</c>
+/// (datamap.h:236): the misprediction check errors the field only on the
+/// crossing from above zero to zero or below, and reads every same-side value
+/// as within tolerance (the arm of <c>CompareInt</c>, predictioncopy.cpp:667,
+/// and <c>CompareFloat</c>, :743).
+///
+/// <para>
+/// Stock declares it on exactly one field, the player's <c>m_iHealth</c>
+/// (c_baseplayer.cpp:372). The server's damage lands in commands the client's
+/// replay does not run, so the replay's health is the truth of an earlier
+/// command by one damage event, always; a drop that did not kill is the
+/// arrival's word and not a mistake, and the crossing — the death — is the
+/// only health change an error is worth.
+/// </para>
+/// </summary>
+[AttributeUsage(AttributeTargets.Property)]
+public sealed class OnlyErrorAboveZeroAttribute : Attribute
+{
+}

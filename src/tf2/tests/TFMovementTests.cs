@@ -543,6 +543,15 @@ public sealed class TFMovementRulesTests
         Assert.Equal(289f, MathF.Sqrt(2.0f * p.Gravity * p.JumpHeight));
     }
 
+    /// <summary>
+    /// That sqrt is the non-HL2 arm's: left in the core's HL2 arm, this height
+    /// leaves at 252 (live, before this fact: 234 after the command's gravity,
+    /// where stock TF2 reads 271).
+    /// </summary>
+    [Fact]
+    public void The_loop_runs_the_arms_stock_tf2_was_built_with()
+        => Assert.True(((IMovementRules)Make().Rules).NoHl2Arms);
+
     [Fact]
     public void Max_speed_is_the_carriers_class_speed_whatever_the_engine_arrived_at()
     {

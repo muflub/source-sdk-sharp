@@ -1071,3 +1071,5 @@ src/client/native/shell_managed_particles.h	native code built against SDK header
 src/tf2/server/Entities/ObjectiveResourceEntity.cs	ports CTeamplayRoundBasedRules::SetTeamGoalString's arms and the m_pszTeamGoalStringRed/Blue pair into ITeamResource.SetGoal/Goal (shared/tf/tf_gamerules.cpp:4558-4588, tf_gamerules.h:1151-1152, :18395)
 src/tf2/client/Ui/TFHudTeamGoal.cs	ports CHudTeamGoal::ShouldDraw/SetupGoalPanel reads (game/client/tf/tf_hud_teamgoal.cpp:102-246)
 src/tf2/ui/screens/TFHudTeamGoal.cs	ports the HudTeamGoal panel layout (resource/ui/hudteamgoal.res; hudlayout.res) as the screens box tree
+src/tf2/client/Weapons/TFClientMedigunPrediction.cs	ports the client half of CWeaponMedigun::ItemPostFrame's target search (game/shared/tf/tf_weapon_medigun.cpp:563-768, :1214) as the prediction's replay
+src/tf2/client/Projectiles/TFSyringeProjectileEffect.cs	ports ClientsideProjectileSyringeCallback and the ClientsideProjectileCallback gravity arm (game/shared/tf/tf_projectile_nail.cpp:121-143, tf_projectile_base.cpp:304-370) as the ClientProjectile_Syringe client effect

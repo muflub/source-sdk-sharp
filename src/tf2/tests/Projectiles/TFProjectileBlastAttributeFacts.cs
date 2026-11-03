@@ -40,10 +40,12 @@ public class TFProjectileBlastAttributeFacts
     /// <summary>
     /// The attacker, 100 out and the only one there — stock's own pass runs
     /// while the attacker is still at the blast, which is the one fact here
-    /// that can jump.
+    /// that can jump. He stands on the floor, so the arms under test read the
+    /// radius's damage without the jump's own scale.
     /// </summary>
     private static void SelfPassArmed(ProjectileRig rig)
     {
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
         rig.Engine.FillsSphere();
         rig.Engine.Returns("Entities.IsPlayer", true);
         rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(100f, 0f, 0f));
@@ -94,8 +96,17 @@ public class TFProjectileBlastAttributeFacts
     public void TheNoSelfBlastDamageAttributeZeroesTheOwnPassEntirely()
     {
         // ApplyAndScaleDamage (:7476-7483): iNoSelfBlastDamage == 2 (all)
-        // zeroes the damage before blast_dmg_to_self can scale it — and the
-        // push rides the damage, so nothing moves either.
+        // zeroes the damage before blast_dmg_to_self can scale it, and that
+        // answer is OnTakeDamage_Alive's realDamage (tf_player.cpp:10535):
+        // no health goes, and the push there still throws him at the force
+        // damage (:10647-10656). The Rocket Jumper hurts nothing and jumps.
+        Vector Impulse(ProjectileRig r) => r.Engine.Last("Entities.ApplyVelocityImpulse")!.ArgAs<Vector>(1);
+
+        var bare = new ProjectileRig();
+        SelfPassArmed(bare);
+        ApplyRocket(bare, selfRadius: TFProjectileDefs.RocketRadiusForRocketJumps, selfBaseDamage: 90f);
+        Assert.Equal(1, bare.Engine.CountOf("Damage.TakeDamageAnswered"));
+
         var rig = new ProjectileRig();
         SelfPassArmed(rig);
         rig.Owners.Item = rig.AttributeItem("no_self_blast_dmg", AttributeDescriptionFormat.Additive, 2f);
@@ -103,7 +114,31 @@ public class TFProjectileBlastAttributeFacts
         ApplyRocket(rig, selfRadius: TFProjectileDefs.RocketRadiusForRocketJumps, selfBaseDamage: 90f);
 
         Assert.Equal(0, rig.Engine.CountOf("Damage.TakeDamageAnswered"));
-        Assert.Equal(0, rig.Engine.CountOf("Entities.ApplyVelocityImpulse"));
+        Assert.Equal(Impulse(bare).X, Impulse(rig).X, 3f);
+        Assert.NotEqual(0f, Impulse(rig).X);
+    }
+
+    /// <summary>
+    /// The force reads the damage entering ApplyOnDamageModifyRules
+    /// (tf_gamerules.cpp:5916); rocket_jump_dmg_reduction is
+    /// ApplyOnDamageAliveModifyRules's, later: the health shrinks, not the jump.
+    /// </summary>
+    [Fact]
+    public void TheJumpReductionLeavesThePushAlone()
+    {
+        Vector Impulse(ProjectileRig r) => r.Engine.Last("Entities.ApplyVelocityImpulse")!.ArgAs<Vector>(1);
+
+        var bare = new ProjectileRig();
+        SelfPassArmed(bare);
+        ApplyRocket(bare, selfRadius: TFProjectileDefs.RocketRadiusForRocketJumps, selfBaseDamage: 90f);
+
+        var rig = new ProjectileRig();
+        SelfPassArmed(rig);
+        rig.Owners.Manager = rig.AttributeItem("rocket_jump_dmg_reduction", AttributeDescriptionFormat.Percentage, 0.5f);
+        ApplyRocket(rig, selfRadius: TFProjectileDefs.RocketRadiusForRocketJumps, selfBaseDamage: 90f);
+
+        Assert.Equal(SeenDamage(bare) * 0.5f, SeenDamage(rig), 1f);
+        Assert.Equal(Impulse(bare).X, Impulse(rig).X, 3f);
     }
 
     [Fact]
@@ -174,6 +209,7 @@ public class TFProjectileBlastAttributeFacts
         // here hurts an enemy player first, so the armed manager's 0.5 must
         // NOT reach the 52.8 own pass that follows it.
         var rig = new ProjectileRig();
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
         rig.Engine.FillsSphere(ProjectileRig.Victim, ProjectileRig.Player);
         rig.Engine.Returns("Entities.IsPlayer", true);
         rig.Engine.ReturnsEachCall("Players.GetTeam", () =>

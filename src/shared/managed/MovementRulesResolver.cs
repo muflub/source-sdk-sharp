@@ -102,6 +102,14 @@ public interface IMovementRules
     float BunnyJumpCap(int playerIndex, float maxSpeed) => 0f;
 
     /// <summary>
+    /// The mod's stock game was built without <c>HL2_DLL</c>: the loop runs
+    /// the non-HL2 arms of shareddefs.h and gamemovement.cpp, so the fall
+    /// thresholds are 580 and 1024, and a jump is sqrt( 2 g h ) rather than
+    /// scaled from HL2's literal 160. False is the default and stock HL2MP.
+    /// </summary>
+    bool NoHl2Arms => false;
+
+    /// <summary>
     /// The backpedal clamp the walk's closing block obeys: the fraction of the
     /// max speed a player travelling backwards may keep, and the speed under
     /// which nobody is penalised — stock TF2's <c>tf_clamp_back_speed</c> pair
@@ -246,7 +254,8 @@ public sealed class MovementRulesResolver
                 (i, ms) => _rules.BunnyJumpCap(i, ms),
                 (i, ms) => _rules.BackpedalLimit(i, ms),
                 (i, t, b, f, s, u) => _rules.MovementStun(i, t, b, f, s, u),
-                (i, t, f) => _rules.MovementTaunt(i, t, f));
+                (i, t, f) => _rules.MovementTaunt(i, t, f),
+                () => _rules.NoHl2Arms);
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

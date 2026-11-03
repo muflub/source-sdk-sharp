@@ -11,6 +11,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 
 using TF2.Shared;
+using TF2.Shared.Combat;
 using TF2.Shared.Econ;
 using TF2.Server.Combat;
 using TF2.Server.Weapons;
@@ -52,7 +53,8 @@ namespace TF2.Server.Projectiles;
 public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirectory directory,
                                         IEnginePlayers players, TFStickyTray tray, ILog log,
                                         ITFWeaponOwners owners, IUniformRandom random,
-                                        AttributeHooks attributes)
+                                        AttributeHooks attributes, ITempEnts temps,
+                                        IEnginePrecache precache, IEngineEntityRender render)
     : ITFProjectileEffects, IOrderedHook
 {
     /// <summary>Stage 2.8's band (+800..+899 of TF2's thousand).</summary>
@@ -60,6 +62,12 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
 
     /// <summary>The rocket specialist's launch-speed cap (<c>tf_weaponbase_rocket.cpp:296</c>).</summary>
     public const float SpecialistSpeedCap = 3000f;
+
+    /// <summary>The needle's client lifetime, in seconds (<c>tf_projectile_base.cpp:220</c>'s <c>// Lifetime</c>).</summary>
+    private const int SyringeLifetimeSeconds = 6;
+
+    /// <summary>Stock's named syringe effect (<c>tf_projectile_nail.cpp:29</c>).</summary>
+    private const string SyringeDispatchEffect = "ClientProjectile_Syringe";
 
     public int HookOrder => Order;
 
@@ -163,7 +171,37 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                         eyes.X + random.RandomFloat(-TFProjectileDefs.SyringeSpread, TFProjectileDefs.SyringeSpread),
                         eyes.Y + random.RandomFloat(-TFProjectileDefs.SyringeSpread, TFProjectileDefs.SyringeSpread),
                         eyes.Z);
-                    syringe.FiredBy(owner, Angles.Forward(cone) * Speed(scriptSpeed, TFProjectileDefs.SyringeSpeed));
+                    Vector launch = Angles.Forward(cone) * Speed(scriptSpeed, TFProjectileDefs.SyringeSpeed);
+                    syringe.FiredBy(owner, launch);
+
+                    // Stock hides the server entity (tf_projectile_base.cpp:172-173's GAME_DLL arm,
+                    // AddEffects(EF_NODRAW)) and hands the needle to the named client effect
+                    // (:217-235): the CLIENT tempent is what flies under gravity and sticks where
+                    // it hits for its lifetime (ClientsideProjectileCallback :304-370, the
+                    // ATTACHTOTARGET stop arm of the legacy tempents' collision block).
+                    // render.SetVisible writes EF_NODRAW into the effects word, the observer's own door.
+                    render.SetVisible(syringe.Handle, false);
+                    Vector at = entities.GetOrigin(syringe.Handle);
+                    var needle = new TeEffectData
+                    {
+                        Origin = at,
+                        Start = launch,
+                        Flags = SyringeLifetimeSeconds,   // stock's :220 "// Lifetime"
+                        // :229 reads the born entity's model index; this seam's ask of the
+                        // precached syringe model answers the same number.
+                        Material = precache.PrecacheModel(TFProjectileDefs.SyringeModel),
+                        EntIndex = entities.GetIndex(owner), // :230 m_nEntIndex = pOwner->entindex()
+                    };
+                    if (shot.Critical)
+                        needle.DamageType = (int)TFDamageBits.Critical; // :222-225, the crit trail's bit
+                    // Stock's filter is PAS of the origin and the trace's endpos, broadcast across a water crossing
+                    // (:183-215); the seam answers the PVS of the spawn point — the stun's shockwave's door.
+                    // The cull bit stays off this dispatch: stock shows the shooter its own needle through the
+                    // predicted local dispatch (tf_projectile_base.cpp:231-233, the client arm), and this client
+                    // has only the networked one, so the shooter must survive SuppressTE to see the needle at all
+                    // (EffectsServer.cpp:62-65 keeps the host in a filter that ignores the prediction cull).
+                    temps.DispatchEffect(TeFilters.Pvs(at) with { IgnorePredictionCull = true },
+                                         0f, SyringeDispatchEffect, in needle);
                     log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Syringe} created by {owner}\n");
                     break;
                 }

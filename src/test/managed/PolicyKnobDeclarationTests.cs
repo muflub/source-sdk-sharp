@@ -142,43 +142,48 @@ public class PolicyKnobDeclarationTests
     };
 
     /// <summary>
-    /// The two that still cannot come, and stay in C++. Each has its C++
-    /// declaration still standing, so declaring one here as well would leave
-    /// the game with two convars of one name — which is neither a compile error
-    /// nor a link error, and nothing says which one the game read.
+    /// The names that stayed in C++ because a stock TU held an
+    /// <c>extern ConVar</c> for them and the link needed the native object
+    /// behind it. Each has its C++ declaration still standing, so declaring
+    /// one here as well would leave the game with two convars of one name —
+    /// which is neither a compile error nor a link error, and nothing says
+    /// which one the game read.
     ///
     /// <para>
     /// This list held FOUR. <c>ai_LOS_mode</c> and
-    /// <c>sv_vehicle_autoaim_scale</c> left it in Phase 1b, and the reason is a
-    /// measurement rather than a re-reading: both were blocked by an
-    /// <c>extern ConVar</c> in <c>game/server/baseentity.cpp</c>, and that
-    /// translation unit is not compiled into <c>server_sourcesharp</c> — there is no
-    /// <c>baseentity.o</c> on the server link line for the extern to live in.
-    /// Both are now declared in <see cref="SourceSharp.Server"/> and their C++
-    /// declarations are deleted; the two facts below pin each half.
-    /// </para>
-    ///
-    /// <para>
-    /// ONE REMAINS, AND IT WAS TWO. <c>default_fov</c> is still imported by
-    /// <c>view.o</c> (<c>game/client/view.cpp</c>, one importer on the client
-    /// link line), so the link really does need the native object.
+    /// <c>sv_vehicle_autoaim_scale</c> left it in Phase 1b: both were blocked
+    /// by an <c>extern ConVar</c> in <c>game/server/baseentity.cpp</c>, and
+    /// that translation unit is not compiled into <c>server_sourcesharp</c> —
+    /// there is no <c>baseentity.o</c> on the server link line for the extern
+    /// to live in. Both are now declared in <see cref="SourceSharp.Server"/>
+    /// and their C++ declarations are deleted; the two facts below pin each
+    /// half.
     /// </para>
     ///
     /// <para>
     /// <c>hud_fastswitch</c> LEFT THIS LIST in lane 4c-render and is in
-    /// <see cref="Moved"/> now. It was never blocked by the link the way
-    /// <c>default_fov</c> is: its stock reader <c>weapon_parse.cpp</c> had
+    /// <see cref="Moved"/> now. Its stock reader <c>weapon_parse.cpp</c> had
     /// already dropped off both link lines, leaving one definer
     /// (<c>shell_hud.o</c>) and zero importers, so it was blocked by file
     /// ownership — the client shim file it lived in belonged to another lane.
-    /// This list is for the LINK-blocked ones, which is why the distinction is
-    /// worth keeping: an ownership block expires when a lane reaches the file,
-    /// and a link block does not expire until the importer goes.
+    /// This list is for the LINK-blocked ones, which is why the distinction
+    /// is worth keeping: an ownership block expires when a lane reaches the
+    /// file, and a link block does not expire until the importer goes.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>default_fov</c> LEFT THIS LIST 2026-11-02 by that measurement: its
+    /// last importer was <c>view.o</c> (<c>game/client/view.cpp</c>), and
+    /// view.cpp is no longer compiled into <c>client.so</c>, so
+    /// <c>nm -u</c> over the objects the client link line names answers zero
+    /// importers. The client half is managed now beside the server's; the
+    /// pair's facts are the ones below. An empty list is the honest shape:
+    /// every former member's current declaration is pinned by its own fact,
+    /// not by looping a list that can silently shrink.
     /// </para>
     /// </summary>
     private static readonly string[] StayedNativeBlockedByAStockExtern =
     {
-        "default_fov",
     };
 
     //-------------------------------------------------------------------------
@@ -341,17 +346,46 @@ public class PolicyKnobDeclarationTests
     }
 
     [Fact]
-    public void TheBlockedOneIsNativeOnTheClientOnly()
+    public void DefaultFovIsNowDeclaredByBothSidesManagedCode()
     {
-        // plan_server_novalve.md P2.3b: default_fov's server half is C#'s and the
-        // native declaration is the client's, for stock view.cpp's extern.
+        // plan_server_novalve.md P2.3b took the server half; the client half
+        // followed 2026-11-02 once its last stock importer (view.cpp's extern)
+        // left the client link line. Both halves are managed now, each on its
+        // side, so the engine pairs them without its parent/child warning.
         Assert.True(DeclarationsIn(ServerAssembly).ContainsKey("default_fov"),
                     "default_fov's server half is not declared in SourceSharp.Server");
+        Assert.True(DeclarationsIn(ClientAssembly).ContainsKey("default_fov"),
+                    "default_fov's client half is not declared in SourceSharp.Client");
+    }
 
+    [Fact]
+    public void DefaultFovKeepsItsCppShapeInBothManagedHalves()
+    {
+        // The C++ line shell_shared.cpp held: FCVAR_REPLICATED | FCVAR_CHEAT,
+        // default "90", help "Default field of view." Both halves must carry
+        // it identically, or the pair refuses to link and the engine warns.
+        ConVarAttribute server = DeclarationsIn(ServerAssembly)["default_fov"];
+        ConVarAttribute client = DeclarationsIn(ClientAssembly)["default_fov"];
+
+        Assert.Equal("90", server.DefaultValue);
+        Assert.Equal("90", client.DefaultValue);
+        Assert.Equal(ConVarFlags.Replicated | ConVarFlags.Cheat, server.Flags);
+        Assert.Equal(server.Flags, client.Flags);
+        Assert.Equal("Default field of view.", server.Help);
+        Assert.Equal(server.Help, client.Help);
+    }
+
+    [Fact]
+    public void TheNativeDefaultFovDeclarationIsGoneFromTheSharedShell()
+    {
+        // The managed halves replaced the native one; if the C++ ever comes
+        // back beside them the game registers the name twice, which is
+        // neither a compile error nor a link error. Assert the whole
+        // declaration, not a substring, so text added around it is seen.
         string shared = File.ReadAllText(Path.Combine(RepoLayout.SdkTree, "src", "sourcesharp", "game",
                                                       "shared", "shell_shared.cpp"));
-        Assert.Contains("#ifdef CLIENT_DLL\nConVar default_fov(\"default_fov\", \"90\", FCVAR_REPLICATED | FCVAR_CHEAT,",
-                        shared.Replace("\r\n", "\n"), StringComparison.Ordinal);
+        Assert.DoesNotContain("ConVar default_fov( \"default_fov\"",
+                              shared.Replace("\r\n", "\n"), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -369,10 +403,10 @@ public class PolicyKnobDeclarationTests
     {
         foreach (var name in StayedNativeBlockedByAStockExtern)
         {
-            // THE CLIENT'S HALF ONLY, since plan_server_novalve.md P2.3b: the
-            // stock extern is view.cpp's, which is a client TU, so the server's
-            // half moved to C# and the native one is behind #ifdef CLIENT_DLL
-            // (TheBlockedOneIsNativeOnTheClientOnly below).
+            // Each name here is one the link still needs a native object
+            // for. default_fov left the list with its client half 2026-11-02
+            // (its two facts above pin what replaced it), so the list is
+            // empty; a future name joins beside the half that stays native.
             Assert.False(DeclarationsIn(ClientAssembly).ContainsKey(name),
                 name + " is declared in client managed code, but its C++ declaration is still "
                      + "there — a stock TU holds an `extern ConVar` for it and the link "

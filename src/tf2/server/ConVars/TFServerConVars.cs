@@ -228,3 +228,13 @@ public sealed class TFGravetalkConVar : BoolConVar { }
 /// <summary>The PC number; this build has no X360 arm to read 15.</summary>
 [ConVarDefault("mp_waitingforplayers_time", "30")]
 public sealed class TFWaitingForPlayersTimeDefault { }
+
+// ---- client/tf/clientmode_tf.cpp:113 ----------------------------------------
+// Stock TF declares default_fov 75 where the core declares 90. SetUpViews
+// moves the viewmodel's FOV by default_fov - fov (view.cpp:724-729), so under
+// TF's fov_desired 75 the core's number drew the viewmodel at 39, not 54. The
+// core's is the server half of a replicated pair, so the client reads this one.
+
+/// <summary>TF's default field of view.</summary>
+[ConVarDefault("default_fov", "75")]
+public sealed class TFDefaultFovDefault { }

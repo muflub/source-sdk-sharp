@@ -39,7 +39,8 @@ public sealed class TFWeaponParts(
     WeaponMedigunChargeRateConVar? medigunChargeRate = null,
     TFUseFixedWeaponspreadsConVar? fixedSpread = null,
     ITFAutoReload? autoReload = null,
-    TFFlameThrowerBurstammoConVar? flamethrowerBurstammo = null)
+    TFFlameThrowerBurstammoConVar? flamethrowerBurstammo = null,
+    ITFMedigunPrediction? medigunPrediction = null)
 {
     public TFWeaponScripts Scripts { get; } = scripts ?? throw new ArgumentNullException(nameof(scripts));
 
@@ -93,6 +94,11 @@ public sealed class TFWeaponParts(
     /// predicted replay pays the same convar. A rig that composes parts by
     /// hand and names no convar reads stock's default.</summary>
     public int FlamethrowerBurstammo => flamethrowerBurstammo?.Value ?? 20;
+
+    /// <summary>The medigun's replayed half — the target pick the client's
+    /// prediction runs beside the server's effects. Null on the server: its
+    /// own arm owns the whole frame.</summary>
+    public ITFMedigunPrediction? MedigunPrediction { get; } = medigunPrediction;
 
     /// <summary>The side's crit roll (a scratch stream reseeded on every draw).</summary>
     public TFCritRoll Crits { get; } = new();

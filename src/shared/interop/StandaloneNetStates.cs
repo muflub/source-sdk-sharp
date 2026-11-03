@@ -664,6 +664,7 @@ public sealed class NetStateCatalog
     private Dictionary<string, StandaloneNetState>? _byClassNameFilled;
     private Dictionary<uint, StandaloneNetState>? _byTypeIdFilled;
     private readonly Dictionary<Type, Dictionary<string, float>> _tolerances = new();
+    private readonly Dictionary<Type, Dictionary<string, bool>> _aboveZero = new();
 
     /// <summary>A catalog of the states <paramref name="declarations"/> declares.</summary>
     public static NetStateCatalog Of(Assembly declarations, ILog log)
@@ -953,6 +954,44 @@ public sealed class NetStateCatalog
         }
 
         return map.TryGetValue(fieldName, out float declared) ? declared : 0f;
+    }
+
+    /// <summary>
+    /// Whether a state declared <see cref="OnlyErrorAboveZeroAttribute"/> on a
+    /// field: stock's <c>FTYPEDESC_ONLY_ERROR_IF_ABOVE_ZERO_TO_ZERO_OR_BELOW_
+    /// ETC</c>, the compare errors the field only on the death crossing. Cached
+    /// per type, the same reflection <see cref="ToleranceOf"/> runs; the ask is
+    /// the judge's, once per differing field, never a hot path.
+    /// </summary>
+    public bool OnlyErrorsAboveZero(uint typeId, string fieldName)
+    {
+        StandaloneNetState? state;
+
+        lock (_lock)
+        {
+            if (!_byTypeId.TryGetValue(typeId, out state))
+                return false;
+        }
+
+        Dictionary<string, bool>? map;
+
+        lock (_lock)
+        {
+            if (!_aboveZero.TryGetValue(state.Type, out map))
+            {
+                map = new Dictionary<string, bool>(StringComparer.Ordinal);
+
+                foreach (var property in state.Type.GetProperties())
+                {
+                    if (property.GetCustomAttribute<OnlyErrorAboveZeroAttribute>() is not null)
+                        map[property.Name] = true;
+                }
+
+                _aboveZero[state.Type] = map;
+            }
+        }
+
+        return map.ContainsKey(fieldName);
     }
 
 }

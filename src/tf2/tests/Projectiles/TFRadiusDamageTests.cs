@@ -137,6 +137,15 @@ public sealed class TFRadiusDamageTests
     public void StandingSelfPushKeepsItsHull()
         => Assert.Equal(82f, TFRadiusDamage.SelfPushSize(Standing, Crouched).Z);
 
+    [Theory]
+    [InlineData(true, true, false, false, 0.6f)]
+    [InlineData(true, true, true, false, 1f)]
+    [InlineData(true, true, false, true, 1f)]
+    [InlineData(true, false, false, false, 1f)]
+    [InlineData(false, true, false, false, 1f)]
+    public void TheSelfDamageScaleIsTheSoldiersJumpAlone(bool soldier, bool blast, bool onGround, bool inWater, float scale)
+        => Assert.Equal(scale, TFRadiusDamage.SelfDamageScale(soldier, blast, onGround, inWater));
+
     [Fact]
     public void RocketAtTheFeetThrowsAnAirborneSoldierStraightUp()
     {

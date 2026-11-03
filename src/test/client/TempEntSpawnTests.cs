@@ -565,6 +565,59 @@ public class TempEntSpawnTests
             "while the handle beside it carries nothing, and stock does not keep the two in step");
     }
 
+    /// <summary>
+    /// The syringe gun's needle: TF's named effect hands the pair to the same
+    /// helper, with one change — the acceleration is the syringe gravity times
+    /// 800 downward (<c>tf_projectile_base.cpp:366-370</c>), not the DT
+    /// callers' zero, so the needle arcs and sticks where it hits
+    /// (<c>tf_projectile_nail.cpp:121-143</c>,
+    /// <c>TF2.Client.Projectiles.TFSyringeProjectileEffect</c>).
+    /// </summary>
+    [Fact]
+    public void TheSyringeEffectSpawnsItsNeedleUnderTheSyringeGravity()
+    {
+        var rig = Rig(frames: 1);
+
+        var effect = new TF2.Client.Projectiles.TFSyringeProjectileEffect(rig.Spawns);
+
+        Assert.True(effect.EffectName == "ClientProjectile_Syringe",
+            $"the name the server dispatches under ({effect.EffectName})");
+
+        // The fields as the server's dispatch writes them: spawn point, launch
+        // velocity, lifetime 6, the precached model, the shooter's index.
+        effect.Dispatch(new EffectData
+        {
+            Origin = new Vector(1f, 2f, 3f),
+            Start = new Vector(0f, 100f, 0f),
+            Flags = 6,
+            Material = 12,
+            EntIndex = 4,
+        });
+
+        Assert.True(rig.Native.Created.Count == 1, "one needle in the pool");
+
+        var made = rig.Native.Created[0];
+
+        Assert.True(made.Origin.X == 1f && made.Origin.Y == 2f && made.Origin.Z == 3f,
+            "born at the point the dispatch carried");
+        Assert.True(made.Model == 12, "of the model the dispatch precached");
+
+        TempEntSpawn spawn = rig.Native.Spawned[0];
+
+        Assert.True(spawn.Velocity.X == 0f && spawn.Velocity.Y == 100f && spawn.Velocity.Z == 0f,
+            "the wire's launch velocity is the velocity");
+
+        // SYRINGE_GRAVITY * 800 downward -- the DT path's zero is HL2's, TF's
+        // is this one, and it is why the needle arcs into the wall.
+        Assert.True(spawn.Acceleration.X == 0f && spawn.Acceleration.Y == 0f
+                 && spawn.Acceleration.Z == -(0.3f * 800f),
+            $"acceleration is the syringe gravity x 800 down ({spawn.Acceleration.Z})");
+
+        Assert.True(spawn.Die == 106f, "and the needle lives the six seconds Flags carried");
+        Assert.True(spawn.OwnerEntityIndex == 4,
+            "with the shooter's index, which the collision arm ignores while tracing");
+    }
+
     [Fact]
     public void BreakModelRandomisesTheBodyOfAStudioGibAndTheFrameOfASprite()
     {

@@ -329,12 +329,16 @@ public sealed class OldRadiusDamageConVar : FloatConVar { }
 // (shell_ai_absent.cpp, shell_subsystems_absent.cpp) is deleted in the same
 // phase. PolicyKnobDeclarationTests has a fact for each.
 //
-// ONE IS STILL BLOCKED, AND IT WAS TWO -- each by a DIFFERENT object, so the two
-// facts are independent:
+// NONE IS BLOCKED NOW, AND IT WAS TWO -- each once by a DIFFERENT object, so
+// the two moves are independent:
 //
-//     default_fov     view.o (game/client/view.cpp) still imports it --
-//                     measured 1 importer on the CLIENT link line (271 objects,
-//                     no ghosts). view.cpp is Phase 7's file.
+//     default_fov     MOVED too, 2026-11-02: view.o (game/client/view.cpp)
+//                     was the last importer, measured 1 on the CLIENT link
+//                     line (271 objects, no ghosts) at 4c808928c-era counts,
+//                     and view.cpp is no longer compiled into client.so --
+//                     `nm -u` over the objects the link line names answers
+//                     zero importers now. The client half is SourceSharp.
+//                     Client's DefaultFovConVar, beside this declaration.
 //     hud_fastswitch  MOVED, by lane 4c-render (plan_shim.md §6), to
 //                     SourceSharp.Client/ConVars.cs. The ownership block this
 //                     note recorded expired when that lane reached shell_hud.cpp;
@@ -405,8 +409,9 @@ public sealed class GLanguageConVar : IntConVar { }
 public sealed class MovementManagedConVar : BoolConVar { }
 
 /// <summary>
-/// The server's half of a replicated pair; the client's is still native
-/// because stock view.cpp holds an <c>extern ConVar default_fov</c>.
+/// The server's half of a replicated pair; the client's half is
+/// SourceSharp.Client's own DefaultFovConVar. Both carry this default, so a
+/// listen server links the pair without the engine's parent/child warning.
 /// </summary>
 [ConVar("default_fov", "90", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat,
         Help = "Default field of view.")]

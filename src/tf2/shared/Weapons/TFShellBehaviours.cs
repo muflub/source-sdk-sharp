@@ -265,10 +265,22 @@ public class TFMedigunBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
-        if (attack.EffectsLive && ScriptOf(attack.Type) is { } script)
-            Parts.Effects.Heal(in attack, script, (attack.Weapon.LastButtons & (int)InputButtons.Attack) != 0);
-        else if (!attack.EffectsLive && Parts.PlayerData is { } data)
-            PredictCharge(in attack, data);
+        if (ScriptOf(attack.Type) is { } script)
+        {
+            bool held = (attack.Weapon.LastButtons & (int)InputButtons.Attack) != 0;
+
+            // The replayed half — the target pick stock runs on both sides
+            // (tf_weapon_medigun.cpp:1214) — every pass, before the charge:
+            // a pass that wrote no beam would stand judged against the
+            // server's word. The server's arm answers null and runs the whole
+            // frame in its own.
+            Parts.MedigunPrediction?.Frame(in attack, script, held);
+
+            if (attack.EffectsLive)
+                Parts.Effects.Heal(in attack, script, held);
+            else if (Parts.PlayerData is { } data)
+                PredictCharge(in attack, data);
+        }
 
         // The tail's stamp, every command the gun answers: the server's arm
         // closes with the release clock at this command (the dt the drain and

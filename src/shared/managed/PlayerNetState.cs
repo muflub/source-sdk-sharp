@@ -45,7 +45,19 @@ public partial class PlayerNetState
 {
     // ---- whole words, in declaration order --------------------------------
 
-    /// <summary>What the HUD shows, after the managed damage rules.</summary>
+    /// <summary>
+    /// What the HUD shows, after the managed damage rules.
+    ///
+    /// <para>
+    /// Stock predicts it under <c>FTYPEDESC_ONLY_ERROR_IF_ABOVE_ZERO_TO_ZERO_
+    /// OR_BELOW_ETC</c> (c_baseplayer.cpp:372) — see
+    /// <see cref="OnlyErrorAboveZeroAttribute"/>: the damage the server's rules
+    /// deal inside commands the replay does not run (the demoman's own sticky
+    /// blast) stands one event away every time, and only the death crossing is
+    /// the mistake the compare is for.
+    /// </para>
+    /// </summary>
+    [OnlyErrorAboveZero]
     public partial int Health { get; set; }
 
     /// <summary>

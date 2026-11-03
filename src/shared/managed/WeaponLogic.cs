@@ -113,6 +113,19 @@ public interface IWeaponArms
     /// nothing, so it is never asked.
     /// </summary>
     bool EyesUnderwater() => false;
+
+    /// <summary>
+    /// Where this command's aims look from and along — the eye the prediction
+    /// ran the movement to and the command's own angles, the pair a trace
+    /// needs to see what the server's run of the command saw (the medigun's
+    /// beam retarget). False with nothing set: no eye to aim from.
+    /// </summary>
+    bool Aim(out Vector eye, out Vector forward)
+    {
+        eye = default;
+        forward = default;
+        return false;
+    }
     /// One melee swing at <paramref name="shot"/>'s damage, its crit flag
     /// carried to the victim as <see cref="FireBullets(in WeaponType, int, float, ShotDamage)"/>
     /// carries a bullet's. The default fires the stock swing, for the same

@@ -148,6 +148,7 @@ public unsafe class ClientSchemaGateTests
         public void OnPlayerGrounded(int playerIndex) => throw new NotSupportedException();
         public float GetEyeHeight(int playerIndex, float standing) => throw new NotSupportedException();
         public float GetBunnyJumpCap(int playerIndex, float maxSpeed) => throw new NotSupportedException();
+        public bool GetNoHl2Arms() => throw new NotSupportedException();
         public BackpedalLimit? GetBackpedalLimit(int playerIndex, float maxSpeed) => throw new NotSupportedException();
 
         public MovementStun? GetMovementStun(int playerIndex, float curTime, int buttons, float forwardMove, float sideMove, float upMove) => throw new NotSupportedException();

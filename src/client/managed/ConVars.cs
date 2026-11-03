@@ -98,20 +98,24 @@ public sealed class PredictWeaponsConVar : BoolConVar
 // engine's registry by name through CManagedConVarRef, so no read crosses the
 // managed boundary.
 //
-// default_fov is NOT here: it failed the link when moved, because a stock TU
-// this build compiles holds an `extern ConVar` for it. The server file's
-// ConVars.cs carries the object-by-object evidence.
-//
-// hud_fastswitch WAS in that sentence and IS here now, by lane 4c-render. The
-// TU that held its `extern ConVar` was game/shared/weapon_parse.cpp, and that
-// file is no longer compiled at all:
+// hud_fastswitch left the same sentence first, by lane 4c-render: the TU that
+// held its `extern ConVar` was game/shared/weapon_parse.cpp, and that file is
+// no longer compiled at all:
 //
 //     grep -c weapon_parse src/_vpc_/ninja/sdk_csharp_debug.ninja   -> 0
 //
 // with the symbol reading one definer (shell_hud.o) and ZERO importers on both
 // link lines afterwards. So the link failure that kept it native no longer has
-// a cause. Re-measure before moving default_fov the same way: the same thing
-// may have happened to its holder.
+// a cause.
+//
+// default_fov IS here now by the same measurement, as this file's own note
+// asked for (2026-11-02, at 271c2c586): nothing on the client link line
+// imports the symbol any more — `nm -u` over the objects the link line names
+// answers zero importers — because game/client/view.cpp, c_baseplayer.cpp and
+// the rest of the stock extern holders are not compiled. The client half of
+// this replicated pair sits beside the server's half in
+// SourceSharp.Server/ConVars.cs; TF overrides its default to its own 75 with
+// the row in TF2.Client's TFClientModeConVars.cs.
 //
 // THE FIRST FIVE ARE DECLARED ON BOTH SIDES ON PURPOSE. They came out of files
 // in game/shared that compile into BOTH DLLs, so a single `static ConVar` line
@@ -164,6 +168,25 @@ public sealed class ShowParticleCountsConVar : BoolConVar { }
 /// </summary>
 [ConVar("hud_fastswitch", "0", Flags = ConVarFlags.Archive)]
 public sealed class HudFastSwitchConVar : IntConVar { }
+
+/// <summary>
+/// The client half of the replicated pair whose server half is
+/// <c>SourceSharp.Server</c>'s <c>DefaultFovConVar</c>; the two carry the same
+/// default, flags and help so the engine pairs them without its parent/child
+/// warning. Stock's client declares it beside the view it belongs to
+/// (<c>hl2_clientmode.cpp:17</c> for HL2 and HL2MP; the stock default the shim
+/// carried, 90 with CHEAT | REPLICATED and the help, is kept here). TF's own
+/// default is 75, a <c>ConVarDefault</c> row away in TF2.Client.
+/// </summary>
+/// <remarks>
+/// The native readers (<c>shell_precipitation_client.cpp</c>'s
+/// <c>ConVarRef</c>, <c>shell_view_executor_client.cpp</c>'s
+/// <c>CvarFloat</c>) resolve it by name out of the engine's registry, as every
+/// other moved knob's do.
+/// </remarks>
+[ConVar("default_fov", "90", Flags = ConVarFlags.Replicated | ConVarFlags.Cheat,
+        Help = "Default field of view.")]
+public sealed class DefaultFovConVar : IntConVar { }
 
 /// <summary>
 /// The once-per-install marker behind the bicubic lightmap default.

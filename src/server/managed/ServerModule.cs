@@ -4221,6 +4221,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public float GetBunnyJumpCap(int playerIndex, float maxSpeed) => _movementRules.Rules.BunnyJump(playerIndex, maxSpeed);
 
+    public bool GetNoHl2Arms() => _movementRules.Rules.NoHl2Arms();
+
     public BackpedalLimit? GetBackpedalLimit(int playerIndex, float maxSpeed) => _movementRules.Rules.Backpedal(playerIndex, maxSpeed);
 
     public MovementStun? GetMovementStun(int playerIndex, float curTime, int buttons, float forwardMove, float sideMove, float upMove) => _movementRules.Rules.Stun(playerIndex, curTime, buttons, forwardMove, sideMove, upMove);

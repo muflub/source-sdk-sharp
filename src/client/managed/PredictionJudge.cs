@@ -145,8 +145,15 @@ public static class PredictionJudge
 
             if (answer == 1 && start >= 0 && start + size <= bytes)
             {
-                tolerated = Tolerated(kind, tolerance,
-                    predicted.Slice(start, size), arrived.Slice(start, size));
+                // STOCK'S ABOVE-ZERO ARM, before the tolerance and exactly as
+                // ordered there (predictioncopy.cpp:667): a same-side value is
+                // within tolerance outright, a crossing falls through to the
+                // declared tolerance below.
+                tolerated = (catalog.OnlyErrorsAboveZero(typeId, name)
+                             && AboveZeroUnchanged(kind,
+                                 predicted.Slice(start, size), arrived.Slice(start, size)))
+                            || Tolerated(kind, tolerance,
+                                 predicted.Slice(start, size), arrived.Slice(start, size));
 
                 // The whole field is judged at once; skip to its end so a
                 // vector that moved is one entry, not twelve.
@@ -177,6 +184,36 @@ public static class PredictionJudge
 
         fields = labels is null ? "" : string.Join(", ", labels);
         return standing;
+    }
+
+    /// <summary>
+    /// Stock's <c>FTYPEDESC_ONLY_ERROR_IF_ABOVE_ZERO_TO_ZERO_OR_BELOW_ETC</c>
+    /// arm, element for element over the field's words: every one still on the
+    /// side of zero it stood on is within tolerance, never an error
+    /// (predictioncopy.cpp:667 for the int, :743 for the float). A crossing,
+    /// or a kind the arm does not name, is left to the caller's remaining
+    /// rules — the tolerance, then the exact compare.
+    /// </summary>
+    public static bool AboveZeroUnchanged(int kind, ReadOnlySpan<byte> predicted, ReadOnlySpan<byte> arrived)
+    {
+        if (kind is not (0 or 1))  // an int or a float: the two arms stock has
+            return false;
+
+        int words = Math.Min(predicted.Length, arrived.Length) / sizeof(int);
+
+        for (int w = 0; w < words; w++)
+        {
+            int was = BinaryPrimitives.ReadInt32LittleEndian(predicted.Slice(w * sizeof(int), sizeof(int)));
+            int now = BinaryPrimitives.ReadInt32LittleEndian(arrived.Slice(w * sizeof(int), sizeof(int)));
+
+            bool wasAbove = kind == 0 ? was > 0 : BitConverter.Int32BitsToSingle(was) > 0f;
+            bool nowAbove = kind == 0 ? now > 0 : BitConverter.Int32BitsToSingle(now) > 0f;
+
+            if (wasAbove != nowAbove)
+                return false;
+        }
+
+        return words > 0;
     }
 
     /// <summary>

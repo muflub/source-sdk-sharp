@@ -47,7 +47,8 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
             (i, ms) => game.GetBunnyJumpCap(i, ms),
             (i, ms) => game.GetBackpedalLimit(i, ms),
             (i, t, b, f, s, u) => game.GetMovementStun(i, t, b, f, s, u),
-            (i, t, f) => game.GetMovementTaunt(i, t, f));
+            (i, t, f) => game.GetMovementTaunt(i, t, f),
+            () => game.GetNoHl2Arms());
 
         if (serverCommands is not null)
             serverCommands.Rules = rules;

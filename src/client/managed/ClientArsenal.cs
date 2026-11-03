@@ -1011,6 +1011,20 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         public WallProbe ProbeWall(float reach) => _owner.ProbeWall(reach);
         public bool MeleeConnects(in WeaponType type) => _owner.MeleeConnects(type.MeleeRange);
 
+        // The predicted aims: the same eye and angles the wall probe and the
+        // swing trace from (the replay's EyeOfThisCommand, the command's own).
+        public bool Aim(out Vector eye, out Vector forward)
+        {
+            if (!_owner.EyeOfThisCommand(out eye))
+            {
+                forward = default;
+                return false;
+            }
+
+            forward = Angles.Forward(_owner._commandAngles);
+            return true;
+        }
+
         public float AnimDuration(WeaponAnim anim)
         {
             int sequence = LookupSequence(anim);

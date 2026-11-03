@@ -457,9 +457,10 @@ public readonly record struct MovementRules(
     Func<int, float, float> BunnyJump,
     Func<int, float, BackpedalLimit?> Backpedal,
     Func<int, float, int, float, float, float, MovementStun?> Stun,
-    Func<int, float, float, MovementTaunt?> Taunt)
+    Func<int, float, float, MovementTaunt?> Taunt,
+    Func<bool> NoHl2Arms)
 {
-    /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide.</summary>
+    /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
         static _ => 1f,
         static (_, friction, _, _, _) => friction,
@@ -470,7 +471,8 @@ public readonly record struct MovementRules(
         static (_, _) => 0f,
         static (_, _) => null,
         static (_, _, _, _, _, _) => null,
-        static (_, _, _) => null);
+        static (_, _, _) => null,
+        static () => false);
 }
 
 /// <summary>
@@ -552,10 +554,12 @@ public sealed partial class GameMovement
     public const float NoHl2MinBounceSpeed = 200f;
     public const float NoHl2FallPunchThreshold = 350f;
 
-    // The arm this loop runs (MoveConstants.NoHl2Arms).
-    private float MaxSafeFallSpeed => _c.NoHl2Arms ? NoHl2MaxSafeFallSpeed : PlayerMaxSafeFallSpeed;
-    private float MinBounceSpeed => _c.NoHl2Arms ? NoHl2MinBounceSpeed : PlayerMinBounceSpeed;
-    private float FallPunchThreshold => _c.NoHl2Arms ? NoHl2FallPunchThreshold : PlayerFallPunchThreshold;
+    // The arm this loop runs: the recording's (MoveConstants.NoHl2Arms) or the
+    // mod's (IMovementRules.NoHl2Arms).
+    private bool NoHl2Arms => _c.NoHl2Arms || Rules.NoHl2Arms();
+    private float MaxSafeFallSpeed => NoHl2Arms ? NoHl2MaxSafeFallSpeed : PlayerMaxSafeFallSpeed;
+    private float MinBounceSpeed => NoHl2Arms ? NoHl2MinBounceSpeed : PlayerMinBounceSpeed;
+    private float FallPunchThreshold => NoHl2Arms ? NoHl2FallPunchThreshold : PlayerFallPunchThreshold;
 
     /// <summary>
     /// CheckJumpButton's optimised jump speed, the HL2 arm's literal: "approx.
@@ -914,17 +918,10 @@ public sealed partial class GameMovement
         }
         else
         {
-            // The shortcut's own version of CategorizePosition's rising test
-            // (gamemovement.cpp:3830-3856): stock clears the ground once the
-            // rise beats NON_JUMP_VELOCITY, relative to the ground's own
-            // rise. A hardcoded threshold above 140 glues away every lift
-            // between the two — jump pads, airblast pushes, explosions near
-            // other players — until a full categorize finally runs.
-            float zvel = _s.Velocity.Z;
-            bool risingFast = zvel > NonJumpVelocity;
-            if (risingFast && _s.HasGround)
-                risingFast = (zvel - _s.GroundVelocity.Z) > NonJumpVelocity;
-            if (risingFast)
+            // Stock's shortcut (gamemovement.cpp:4612), a literal of its own and
+            // not CategorizePosition's NON_JUMP_VELOCITY: the rise at or under
+            // it keeps the ground, and FullWalkMove zeroes it.
+            if (_s.Velocity.Z > 250.0f)
                 SetGroundEntity(null);
         }
 
@@ -1430,7 +1427,7 @@ public sealed partial class GameMovement
     /// movement optimisations (the server's and the client's, always) the HL2
     /// arm's literal <see cref="Hl2JumpSpeed"/>, whatever the gravity; without
     /// them, or in the non-HL2 arms the movement recording holds
-    /// (<see cref="MoveConstants.NoHl2Arms"/>), sqrt( 2 g h ).
+    /// (<see cref="NoHl2Arms"/>), sqrt( 2 g h ).
     ///
     /// <para>
     /// The literal stands for <see cref="StockJumpHeight"/>, so a
@@ -1445,7 +1442,7 @@ public sealed partial class GameMovement
     {
         if (jumpHeight <= 0.0f)
             return 0.0f;
-        if (_c.Optimizations && !_c.NoHl2Arms)
+        if (_c.Optimizations && !NoHl2Arms)
             return jumpHeight == StockJumpHeight ? Hl2JumpSpeed : Hl2JumpSpeed * MathF.Sqrt(jumpHeight / StockJumpHeight);
         return gravity > 0.0f ? MathF.Sqrt(2.0f * gravity * jumpHeight) : 0.0f;
     }
@@ -2931,7 +2928,7 @@ public sealed partial class GameMovement
         // over the max speed. CHLMoveData's m_bIsSprinting is IsSprinting(),
         // whose m_fIsSprinting nothing sets in this SDK, so the share is the
         // not-sprinting one: half, or a tenth when ducked.
-        if (_c.MaxClients == 1 && !_c.NoHl2Arms)
+        if (_c.MaxClients == 1 && !NoHl2Arms)
             AddJumpForwardBonus();
 
         FinishGravity();

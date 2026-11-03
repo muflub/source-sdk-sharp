@@ -1104,6 +1104,57 @@ public class BonesExtractTests
         Assert.Equal(new Vector(7f, 8f, 9f), pos[0]); // group anim walk, folded
     }
 
+    [Fact]
+    public void CalcAnimation_OverriddenSequence_DecodesTheIncludesAnimNotTheBases()
+    {
+        // The shape of TF's c_heavy_arms.mdl over c_heavy_animations.mdl: the
+        // base holds one anim of its own and forward-declares the sequence
+        // (STUDIO_OVERRIDE); the include's same-label sequence replaces it
+        // (AppendSequences), and its local anim 1 is global 2 behind the
+        // base's anim 0 (iRelativeAnim through masterAnim). The animdesc and
+        // its data are the include's, so the walk reads (7,8,9); reading the
+        // base's image would answer the base's (1,2,3).
+        StudioHdrBuilder g = new();
+        g.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "b0", Parent = -1, Flags = StudioConstants.BONE_USED_BY_HITBOX });
+        g.Anims.Add(RawPosAnim("@pad", new Vector(4f, 5f, 6f)));
+        g.Anims.Add(RawPosAnim("@spin", new Vector(7f, 8f, 9f)));
+        g.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = "s", NumBlends = 1, AnimTable = [1], Weights = [1f] });
+
+        StudioHdrBuilder b = new();
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "b0", Parent = -1, Flags = StudioConstants.BONE_USED_BY_HITBOX });
+        b.Anims.Add(RawPosAnim("@base", new Vector(1f, 2f, 3f)));
+        b.Sequences.Add(new StudioHdrBuilder.SeqDef
+        {
+            Label = "s", Flags = StudioConstants.STUDIO_OVERRIDE, NumBlends = 1, AnimTable = [0], Weights = [1f],
+        });
+        b.Includes.Add(new StudioHdrBuilder.IncludeDef { Label = "g", Name = "grp" });
+        b.AddIncludeImage("grp", g.Build());
+        StudioHdr hdr = Build(b);
+
+        MstudioSeqDesc seqdesc = hdr.SeqDesc(0);
+        Assert.Equal(1, hdr.SeqGroup(0));                     // the include's sequence won
+        Assert.Equal(2, hdr.IRelativeAnim(0, seqdesc.Anim(0, 0))); // local 1 -> global 2
+        Assert.Equal("@spin", hdr.AnimDesc(2).Name);
+
+        Vector[] pos = [Vector.Zero];
+        Quaternion[] q = [Quaternion.Identity];
+        BoneSetupExtract.CalcAnimation(
+            hdr, pos, q, seqdesc, 0, seqdesc.Anim(0, 0), 0f, AllBones, 0f,
+            new BoneMatrix3x4[hdr.NumBones], new BoneSetupExtract.BoneBitList());
+
+        Assert.Equal(new Vector(7f, 8f, 9f), pos[0]);
+    }
+
+    private static StudioHdrBuilder.AnimDef RawPosAnim(string name, Vector at) => new()
+    {
+        Name = name,
+        NumFrames = 2,
+        Bones =
+        {
+            new StudioHdrBuilder.BoneAnimDef { Bone = 0, Flags = StudioConstants.STUDIO_ANIM_RAWPOS, RawPosition = at },
+        },
+    };
+
     // ---- virtualmodel fold: pose-parameter widening (studio_virtualmodel
     // .cpp:472-486) — the fold's ONLY mutation of a record's contents ------
 

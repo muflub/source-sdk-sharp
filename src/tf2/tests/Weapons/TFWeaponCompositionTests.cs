@@ -197,10 +197,13 @@ public sealed class TFWeaponCompositionTests
             h => Assert.IsType<TFWrenchHook>(h));
     }
 
-    [Fact]
-    public void The_client_composes_the_same_rows_and_behaviours()
+    /// <summary>The client's weapon container: the scan over the client
+    /// assembly — which carries the shared weapons and the client's own arms
+    /// together — over the engine doubles the predictions read.</summary>
+    private static CAbi.ServiceContainer Client()
     {
         var c = new CAbi.ServiceContainer();
+        var engine = PredictionDeps.Engine();
         c.AddInstance<ILog>(new RecordingLog());
         c.AddInstance<CAbi.IEngineFiles>(new ClientFiles(WeaponFixtures.ShippedWithClasses()));
         c.AddInstance(new CTF.TFWeaponCriticalsConVar());
@@ -213,13 +216,24 @@ public sealed class TFWeaponCompositionTests
         // The underwater refusal (2.11) reads the standalones; the composition answers none.
         c.AddInstance<CClient.IClientStandalones>(new ClientStandalones());
         // The prediction's clock and cloak convars, as the client's composition holds them.
-        c.AddInstance<CAbi.IEngineEnvironment>(PredictionDeps.Engine());
+        c.AddInstance<CAbi.IEngineEnvironment>(engine);
+        // The medigun's replayed pick asks the world and the effects; the same
+        // engine double answers, as the client's areas do.
+        c.AddInstance<CAbi.IEngineWorldQuery>(engine);
+        c.AddInstance<CAbi.IEngineEffects>(engine);
         var cloakVars = PredictionDeps.SpyConVars();
         c.AddInstance(cloakVars.Get<CTF.TFSpyCloakConsumeRateConVar>()!);
         c.AddInstance(cloakVars.Get<CTF.TFSpyCloakRegenRateConVar>()!);
         c.AddInstance(cloakVars.Get<CTF.TFSpyInvisTimeConVar>()!);
         c.AddInstance(cloakVars.Get<CTF.TFSpyInvisUnstealthTimeConVar>()!);
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());
+        return c;
+    }
+
+    [Fact]
+    public void The_client_composes_the_same_rows_and_behaviours()
+    {
+        var c = Client();
 
         var types = Assert.Single(c.ResolveAll<CShared.IWeaponTypeSource>().OfType<CTF.TFWeaponTypes>());
         Assert.Equal(Server().ResolveAll<IWeaponTypeSource>().OfType<TFWeaponTypes>().Single().Names(), types.Names());
@@ -230,6 +244,21 @@ public sealed class TFWeaponCompositionTests
         Assert.IsType<CTF.TFKnifeHook>(chain.All[3]);
         Assert.IsType<CTF.TFWrenchHook>(chain.All[4]);
         Assert.IsType<client::TF2.Client.Player.TFClientWeaponOwners>(((CTF.TFWeaponParts)c.Resolve(typeof(CTF.TFWeaponParts))!).Owners);
+    }
+
+    /// <summary>
+    /// The medigun's replayed pick rides an optional constructor parameter of
+    /// the parts: without the contract registration a <c>[SideService]</c>
+    /// without an <c>As</c> answers null and the client's replay never runs
+    /// the pick — seen live as <c>HealTargetIndex</c> mispredictions at the
+    /// beam's first lock.
+    /// </summary>
+    [Fact]
+    public void The_client_replays_the_mediguns_pick_under_its_contract()
+    {
+        var parts = (CTF.TFWeaponParts)Client().Resolve(typeof(CTF.TFWeaponParts))!;
+
+        Assert.IsType<client::TF2.Client.Weapons.TFClientMedigunPrediction>(parts.MedigunPrediction);
     }
 
     /// <summary>

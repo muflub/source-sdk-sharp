@@ -180,6 +180,10 @@ public sealed class TFMedigunWeapon : ITFHealEffects, ITFMedigunWeapons, IGameLi
         attack.Weapon.BehaviourMeter = state.Charge;
         attack.Weapon.BehaviourTimeA = state.LastHealCall;
         attack.Weapon.BehaviourTimeB = now;
+        // The replay's own words: the check clock the pick gates on, and the
+        // press edge its image of m_bCanChangeTarget reads back (:1555).
+        attack.Weapon.BehaviourTimeC = state.NextTargetCheckTime;
+        attack.Weapon.BehaviourMode = state.Attack1Down ? ITFMedigunPrediction.Attack1Down : 0;
 
         Publish(owner, state);
     }

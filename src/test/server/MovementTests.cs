@@ -1021,59 +1021,80 @@ public class MovementTests
     }
 
     //=========================================================================
-    // THE BLAST LIFT (gamemovement.cpp:3830-3856): stock's CategorizePosition
-    // clears FL_ONGROUND while the player rises faster than NON_JUMP_VELOCITY
-    // (140), relative to the ground's own rise, so a player given vertical
-    // speed by game code — a rocket blast, a jump pad, an airblast, an
-    // explosion — leaves the floor on the NEXT command and FullWalkMove's
-    // zeroing never sees them. The walking shortcut must make the same call,
-    // threshold and ground-relative arm included. Measured on a live boot:
-    // the hardcoded threshold above kept a soldier's rocket lift below it
-    // glued at about 36 units over the floor.
+    // A LIFT FROM GAME CODE (gamemovement.cpp:4605-4617). Between commands game
+    // code can add to a grounded player's velocity. A walking player the game
+    // did not move takes the shortcut, whose test is a literal 250 of its own;
+    // a player the game moved takes CategorizePosition, whose test is
+    // NON_JUMP_VELOCITY (140) over the ground's own rise.
     //=========================================================================
 
     /// <summary>
-    /// Above stock's threshold and above the old hardcoded one: the rise
-    /// survives either way, and the ground goes with it.
+    /// A mod built without HL2_DLL answers the jump with sqrt( 2 g h ) under
+    /// the movement optimisations too, not HL2's literal scaled by the height.
     /// </summary>
-    [Fact]
-    public void APlayerGivenVerticalSpeedLeavesTheGroundNextMove()
+    [Theory]
+    [InlineData(false, 252.25f)]
+    [InlineData(true, 289f)]
+    public void TheRulesChooseTheJumpsArm(bool noHl2Arms, float speed)
     {
-        var movement = new GameMovement(new ScriptedWorld
-        {
-            OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
-        }, MoveConstantDefaults.Stock);
+        const float height = 289f * 289f / (2f * 800f);
+        GameMovement movement = OnAFloor();
+        movement.JumpHeight = height;
+        movement.Rules = MovementRules.Stock with { NoHl2Arms = () => noHl2Arms };
 
         MoveState s = BaselineState();
+        s.CurrentGravity = 800f;
         s.HasGround = true;
-        s.Velocity = new Vector(0f, 0f, 300f);
+        s.Buttons = GameMovement.InJump;
         Assert.True(movement.ProcessMovement(s));
 
-        Assert.False(s.HasGround, "the rising player left the ground");
-        Assert.True(s.Velocity.Z > 150f, "the rise survived the command");
+        // One command: half a tick's gravity before the jump and after it,
+        // then the walk's half on the way out (gamemovement.cpp's three calls).
+        Assert.Equal(speed - 800f * 0.015f * 1.5f, s.Velocity.Z, 0.05f);
     }
 
-    /// <summary>
-    /// The stock threshold is NON_JUMP_VELOCITY (140), not the hardcoded
-    /// 250: a lift between the two — jump pads, airblast, explosions on
-    /// other players — must still leave the floor. This one is red until
-    /// the shortcut makes stock's relative test.
-    /// </summary>
-    [Fact]
-    public void ALiftBetweenTheStockThresholdAndTheOldHardcodedOneStillLeavesTheGround()
+    private static MoveState LiftedOnTheFloor(GameMovement movement, float rise, bool gameMoved)
     {
-        var movement = new GameMovement(new ScriptedWorld
-        {
-            OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
-        }, MoveConstantDefaults.Stock);
-
         MoveState s = BaselineState();
         s.HasGround = true;
-        s.Velocity = new Vector(0f, 0f, 200f);
+        s.GameCodeMovedPlayer = gameMoved;
+        s.Velocity = new Vector(0f, 0f, rise);
         Assert.True(movement.ProcessMovement(s));
+        return s;
+    }
 
-        Assert.False(s.HasGround, "stock's NON_JUMP_VELOCITY arm takes the player off the floor");
-        Assert.True(s.Velocity.Z > 100f, "the rise survived the command");
+    private static GameMovement OnAFloor() => new(new ScriptedWorld
+    {
+        OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
+    }, MoveConstantDefaults.Stock);
+
+    [Fact]
+    public void ALiftOverTheShortcutsLiteralLeavesTheGround()
+    {
+        MoveState s = LiftedOnTheFloor(OnAFloor(), 300f, gameMoved: false);
+
+        Assert.False(s.HasGround, "the rising player left the ground");
+        Assert.True(s.Velocity.Z > 250f, $"the rise survived the command: {s.Velocity.Z}");
+    }
+
+    /// <summary>The shortcut's 250 is not CategorizePosition's 140: stock zeroes this rise.</summary>
+    [Fact]
+    public void ALiftUnderTheShortcutsLiteralKeepsTheGroundAndLosesTheRise()
+    {
+        MoveState s = LiftedOnTheFloor(OnAFloor(), 200f, gameMoved: false);
+
+        Assert.True(s.HasGround, "stock's shortcut leaves the player on the floor");
+        Assert.Equal(0f, s.Velocity.Z);
+    }
+
+    /// <summary>A player game code moved takes CategorizePosition, where 200 is over NON_JUMP_VELOCITY.</summary>
+    [Fact]
+    public void AGameMovedPlayerAnswersToCategorizePositionsThreshold()
+    {
+        MoveState s = LiftedOnTheFloor(OnAFloor(), 200f, gameMoved: true);
+
+        Assert.False(s.HasGround, "CategorizePosition's rising arm took the player off the floor");
+        Assert.True(s.Velocity.Z > 140f, $"the rise survived the command: {s.Velocity.Z}");
     }
 
     /// <summary>

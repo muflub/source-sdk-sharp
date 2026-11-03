@@ -108,11 +108,15 @@ internal sealed class ProjectileRig
             new PhysicsPushedEntities(new EnginePushWorld(Engine, Engine, Engine, motionDirectory), motionLog));
 
         Blast = new(Engine, Engine, Engine, Scopes, HitGroups, Inflictors, Classes, Log,
-                    Engine, Owners, Hooks, Health, Engine, preroundPush);
-        Effects = new(Engine, Directory, Engine, Tray, Log, Owners, Random, Hooks);
+                    Engine, Owners, Hooks, Health, Engine, Engine, Directory, preroundPush);
+        Effects = new(Engine, Directory, Engine, Tray, Log, Owners, Random, Hooks, Temps, Engine, Engine);
 
         Engine.Returns("Entities.Create", ProjectileHandle);
         Engine.Returns("Players.GetHandle", Player);
+        // Off the ground unless a fact stands them on it: the jump a self
+        // blast's scales are written for.
+        Engine.Returns("Networking.EntityGetState", EntityState.None);
+        Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
         // The trail writes ask the owner's team; a fact's Returns turns it.
         Engine.Returns("Players.GetTeam", 2);
         // The deflection takes the deflector's active weapon (the airblast's
@@ -135,6 +139,9 @@ internal sealed class ProjectileRig
         Engine.Returns("Entities.GetBounds", (default(Vector), default(Vector)));
         Engine.Returns("Entities.IsValid", true);
         Engine.Returns("Entities.GetIndex", 1);
+        // The needle's precached model index, asked when the syringe hands its
+        // client effect out (tf_projectile_base.cpp:229); a fact's Returns turns it.
+        Engine.Returns("Precache.PrecacheModel", 44);
         Engine.Returns("EntityPhysics.GetSolidFlags", SolidFlags.None);
         // The sphere query always answers its count; a fact's FillsSphere
         // decides what is IN it.
@@ -548,13 +555,84 @@ public class TFBlastApplierFacts
         Assert.NotNull(push);
     }
 
+    //=========================================================================
+    // THE ROCKET JUMP. Stock measured live (ctf_2fort, soldier at 89 down, a
+    // rocket at the feet in the jump): 83.03 out of RadiusDamage, 49.82 at the
+    // push, force (-12.4, -87.6, 490.3). tf_player.cpp:8921 and :9155-9158.
+    //=========================================================================
+
+    private static (ProjectileRig Rig, float Damage, Vector Impulse) SelfBlast(
+        EntityState state, TFClass cls = TFClass.Soldier, byte waterLevel = 0)
+    {
+        var rig = new ProjectileRig();
+        rig.Classes.Class = cls;
+        rig.Engine.Returns("Networking.EntityGetState", state);
+        rig.Engine.FillsSphere();
+        rig.Engine.Returns("Entities.IsPlayer", true);
+        rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(0f, 0f, 41f));
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(0f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetBounds", (new Vector(-24f, -24f, 0f), new Vector(24f, 24f, 82f)));
+
+        var player = new SsPlayer(rig.Engine, rig.Engine, TestServices.Impacts(rig.Engine), TestServices.Fluid())
+            { Handle = ProjectileRig.Player };
+        player.State.BindLocal();
+        player.State.WaterLevel = waterLevel;
+        rig.Directory.Holds(ProjectileRig.Player, player);
+
+        rig.Blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), ProjectileRig.Player,
+                        ProjectileRig.ProjectileHandle, ignored: ProjectileRig.ProjectileHandle,
+                        TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false,
+                        selfRadius: TFProjectileDefs.RocketRadiusForRocketJumps, selfBaseDamage: 90f);
+
+        return (rig,
+                rig.Engine.Last("Damage.TakeDamageAnswered")!.ArgAs<float>(2),
+                rig.Engine.Last("Entities.ApplyVelocityImpulse")!.ArgAs<Vector>(1));
+    }
+
+    [Fact]
+    public void ASoldierInTheAirTakesSixTenthsAndIsThrownAtTheSixTenths()
+    {
+        (_, float grounded, _) = SelfBlast(EntityState.OnGround);
+        (_, float damage, Vector impulse) = SelfBlast(EntityState.None);
+
+        Assert.Equal(grounded * 0.6f, damage, 0.01f);
+        Assert.Equal(damage * 10f, impulse.Z, 0.5f);
+    }
+
+    [Fact]
+    public void ASoldierOnTheFloorTakesItAllAndIsThrownAtHalfTheScale()
+    {
+        (_, float damage, Vector impulse) = SelfBlast(EntityState.OnGround);
+
+        Assert.Equal(90f, damage, 0.5f);
+        Assert.Equal(damage * 5f, impulse.Z, 0.5f);
+    }
+
+    /// <summary>The scale's FL_INWATER test; the push's own arm reads only the ground (:10265).</summary>
+    [Fact]
+    public void ASoldierInTheWaterTakesItAllAndIsThrownAtTheJumpsScale()
+    {
+        (_, float damage, Vector impulse) = SelfBlast(EntityState.None, waterLevel: 1);
+
+        Assert.Equal(90f, damage, 0.5f);
+        Assert.Equal(damage * 10f, impulse.Z, 0.5f);
+    }
+
+    [Fact]
+    public void AnotherClassInTheAirTakesItAll()
+    {
+        (_, float damage, _) = SelfBlast(EntityState.None, TFClass.Demoman);
+
+        Assert.Equal(90f, damage, 0.5f);
+    }
+
     [Fact]
     public void TheSelfPassAddsOnlyTheImpulseAndLeavesTheGroundToMovement()
     {
         // Stock's ApplyPushFromDamage adds the impulse and nothing else
-        // (:10470); the rise leaves the floor through CategorizePosition's
-        // rising arm (gamemovement.cpp:3830-3856, held by the movement facts
-        // in src/test/server/MovementTests.cs), so both passes hand over the
+        // (:10470); the rise leaves the floor through PlayerMove's own test
+        // (gamemovement.cpp:4612, held by the movement facts in
+        // src/test/server/MovementTests.cs), so both passes hand over the
         // impulse with the ground untouched.
         var rig = new ProjectileRig();
         rig.Engine.FillsSphere(); // nobody else in range
@@ -599,8 +677,9 @@ public class TFBlastApplierFacts
         // CalcNearestPoint — the nearest point of the attacker's collision
         // box, not its centre. At an origin 130 out with a 24-half-wide hull
         // the nearest point is 106, inside the rocket-jump 121: 90 halved at
-        // the clamped distance is 45.
+        // the clamped distance is 45, for a soldier standing on the floor.
         var rig = new ProjectileRig();
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
         rig.Engine.FillsSphere();
         rig.Engine.Returns("Entities.IsPlayer", true);
         rig.Engine.Returns("Entities.GetWorldSpaceCenter", new Vector(130f, 0f, 0f));
@@ -1893,6 +1972,51 @@ public class TFProjectileEffectsFacts
         Assert.Equal(TFProjectileDefs.SyringeMuzzleForward, muzzle.X, 0.5f);
         Assert.Equal(-TFProjectileDefs.SyringeMuzzleRight, muzzle.Y, 0.5f); // right is -Y at yaw 0
         Assert.Equal(64f + TFProjectileDefs.SyringeMuzzleUp, muzzle.Z, 0.5f);
+    }
+
+    [Fact]
+    public void TheSyringeDispatchesItsNeedleToTheClientAsStockDoes()
+    {
+        // tf_projectile_base.cpp's GAME_DLL arm (:172-235): the server entity
+        // hides itself (EF_NODRAW at :172-173) and the needle goes out as the
+        // named client effect — Flags the lifetime (:220), Start the launch
+        // velocity, Material the born model (:229), EntIndex the shooter
+        // (:230). Before the dispatch existed ours carried only the server
+        // entity: on the world touch it removed itself at once and nothing
+        // stayed on the wall; stock's stuck needle is the client tempent.
+        var rig = new ProjectileRig();
+        // Born's managed half must answer, or the launch returns before the
+        // dispatch arm — unlike the facts that stop at Create/SetOrigin/SetVelocity.
+        rig.Directory.Instance = rig.Syringe();
+        Vector spawnPoint = new(1_888f, 1_368f, 260f); // the live pose's setpos
+        rig.Engine.Returns("Entities.GetOrigin", spawnPoint); // Born's placement, read back
+        rig.Engine.Returns("Entities.GetIndex", 9);
+        var script = Script("tf_weapon_syringegun_medic");
+
+        rig.Effects.Projectile(Attack(3), script, default, 0f);
+
+        var sent = Assert.Single(rig.Temps.Effects); // red before the fix: nothing dispatched
+        Assert.Equal("ClientProjectile_Syringe", sent.Name);
+        Assert.Equal(0f, sent.Delay);
+        Assert.Equal(TeFilterKind.Pvs, sent.Filter.Kind);
+        Assert.Equal(spawnPoint, sent.Filter.Origin);
+        Assert.True(sent.Filter.IgnorePredictionCull,
+            "the shooter survives the prediction cull: stock shows the owner its own needle through the predicted "
+          + "local dispatch (tf_projectile_base.cpp:231-233, the client arm), and this client has only the networked "
+          + "one — a filter the cull empties leaves the shooter with no needle at all (EffectsServer.cpp:58-76, "
+          + "whose IgnorePredictionCull arm keeps the host)");
+        Assert.Equal(spawnPoint, sent.Data.Origin);
+        // Eyes at yaw 0: the launch rides +X at the syringe speed (the same
+        // ask the arming fact above answers for Entities.SetVelocity).
+        Assert.Equal(TFProjectileDefs.Speed(script.Primary.ProjectileSpeed, TFProjectileDefs.SyringeSpeed),
+                     sent.Data.Start.X, 0.5f);
+        Assert.Equal(6, sent.Data.Flags);
+        Assert.Equal(44, sent.Data.Material);
+        Assert.Equal(9, sent.Data.EntIndex);
+        Assert.Equal(0, sent.Data.DamageType); // non-crit shot: stock's bit stays off
+        var hidden = rig.Engine.Last("EntityRender.SetVisible"); // the hide arm
+        Assert.NotNull(hidden);
+        Assert.False(hidden!.ArgAs<bool>(1));
     }
 
     [Fact]

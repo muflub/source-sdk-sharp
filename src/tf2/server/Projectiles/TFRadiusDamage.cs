@@ -257,6 +257,9 @@ public static class TFRadiusDamage
     /// <summary><c>tf_damageforcescale_self_soldier_badrj</c>'s default (<c>tf_player.cpp:192</c>): a soldier on the ground.</summary>
     public const float ForceScaleSelfSoldierGrounded = 5.0f;
 
+    /// <summary><c>tf_damagescale_self_soldier</c> (<c>tf_player.cpp:194</c>).</summary>
+    public const float DamageScaleSelfSoldier = 0.6f;
+
     /// <summary><c>tf_damageforcescale_pyro_jump</c>'s default (<c>tf_player.cpp:193</c>): the detonator's flare jump.</summary>
     public const float ForceScalePyroJump = 8.5f;
 
@@ -371,6 +374,16 @@ public static class TFRadiusDamage
         float force = damage * (48f * 48f * 82f / (size.X * size.Y * size.Z)) * scale;
         return force > MaxForce ? MaxForce : force;
     }
+
+    /// <summary>
+    /// <c>OnTakeDamage</c>'s scale on a blast the soldier takes from himself
+    /// off the ground and out of the water (<c>bIsSoldierRocketJumping</c>,
+    /// <c>tf_player.cpp:8921</c>, <c>:9155-9158</c>): it comes before
+    /// <c>ApplyOnDamageModifyRules</c> fixes the damage for force, so the
+    /// jump's push takes it as well as its health.
+    /// </summary>
+    public static float SelfDamageScale(bool soldier, bool blast, bool onGround, bool inWater)
+        => soldier && blast && !onGround && !inWater ? DamageScaleSelfSoldier : 1f;
 
     /// <summary>
     /// The push's scale for a blast on its own owner (<c>ApplyPushFromDamage</c>,

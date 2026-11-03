@@ -141,6 +141,44 @@ public class PredictionRingTests
         Assert.Contains("Clip", fields);
     }
 
+    [Fact]
+    public void TheJudgeErrorsHealthOnlyOnTheAboveZeroCrossing()
+    {
+        // Stock predicts m_iHealth under
+        // FTYPEDESC_ONLY_ERROR_IF_ABOVE_ZERO_TO_ZERO_OR_BELOW_ETC
+        // (c_baseplayer.cpp:372): CompareInt reads a value that stays above
+        // zero as WITHINTOLERANCE (predictioncopy.cpp:667-674), so the damage
+        // the server deals inside commands the replay does not run — the
+        // demoman's own sticky blast, one health event late every time — is
+        // the arrival's word, and only the death is the compare's news.
+        var state = StandaloneNetStates.Of(typeof(PlayerNetState));
+        uint typeId = NetSchema.TypeIdOf(EntityNames.Player);
+
+        byte[] predicted = new byte[state.Size];
+        byte[] arrived = new byte[state.Size];
+
+        int at = state["Health"].Offset;
+        BitConverter.GetBytes(100).CopyTo(predicted, at);
+        BitConverter.GetBytes(82).CopyTo(arrived, at);
+
+        // The sticky blast's drop, above zero to above zero: not an error.
+        int standing = PredictionJudge.Judge(_catalog, typeId, predicted, arrived,
+            out string fields, out int tolerated);
+
+        Assert.Equal(0, standing);
+        Assert.Equal(1, tolerated);
+        Assert.Equal("Health (tolerated)", fields);
+
+        // The crossing itself — the death — stands, by name: the flag is not
+        // a blanket pardon.
+        BitConverter.GetBytes(0).CopyTo(arrived, at);
+        standing = PredictionJudge.Judge(_catalog, typeId, predicted, arrived, out fields, out _);
+
+        Assert.True(standing > 0);
+        Assert.Contains("Health", fields);
+        Assert.DoesNotContain("(tolerated)", fields);
+    }
+
     //=========================================================================
     // The rules, ported from prediction_ring_test.cpp.
     //=========================================================================

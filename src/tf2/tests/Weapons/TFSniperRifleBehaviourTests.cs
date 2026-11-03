@@ -90,6 +90,22 @@ public sealed class TFSniperRifleBehaviourTests
     }
 
     [Fact]
+    public void A_release_before_the_zoom_time_leaves_the_scope_up()
+    {
+        // HandleZooms gates the next toggle by m_flNextSecondaryAttack
+        // (tf_weapon_sniperrifle.cpp:310): the zoom time of a press is 0.3,
+        // and a release before that gate leaves the single toggle standing —
+        // the scope clears with the next held frame past the gate, not with
+        // the release itself.
+        var (world, w, vm) = Sniper();
+
+        world.Run(w, vm, Attack2, 10f);
+        world.Run(w, vm, 0, 10.1f);
+
+        Assert.True(world.Owners.Of(TFWeaponWorld.Owner).Has(TFCond.Zoomed));
+    }
+
+    [Fact]
     public void Zoomed_shots_at_none_half_and_full_charge_hit_for_50_75_and_150()
     {
         foreach (var (wait, damage) in new[] { (0f, 50f), (1.5f, 75f), (3f, 150f) })
