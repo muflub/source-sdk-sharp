@@ -24,7 +24,3 @@ public:
 // called when the server does DispatchEffect( "MyEffect", data )
 #define DECLARE_CLIENT_EFFECT(effectName, callbackFunction) \
 	static CClientEffectRegistration ClientEffectReg_##callbackFunction(effectName, callbackFunction);
-
-void DispatchEffectToCallback(const char* pEffectName, const CEffectData& m_EffectData);
-void DispatchEffect(const char* pName, const CEffectData& data);
-void DispatchEffect(const char* pName, const CEffectData& data, C_RecipientFilter& filter);

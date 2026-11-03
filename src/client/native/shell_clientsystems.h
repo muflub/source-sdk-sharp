@@ -18,6 +18,9 @@ class CEffectsListClient;
 class CManagedParticlesClient;
 class CParticleSystemsClient;
 class CShellDetailProps;
+class CWorldTextClient;
+class CSpritesClient;
+class CShadowsClient;
 
 // The client's game systems as one named table, in the order they run, a member of the
 // client DLL object. Stage passes walk the rows forwards; the shutdown stages walk them
@@ -30,7 +33,8 @@ public:
 	CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
 				   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
 				   CManagedParticlesClient& particles, CParticleSystemsClient& particleSystems,
-				   CShellDetailProps& detailProps);
+				   CShellDetailProps& detailProps, CWorldTextClient& worldText, CSpritesClient& sprites,
+				   CShadowsClient& shadows);
 	~CClientSystems();
 
 	CClientSystems(const CClientSystems&) = delete;
@@ -71,6 +75,9 @@ private:
 	CManagedParticlesClient& m_Particles;
 	CParticleSystemsClient& m_ParticleSystems;
 	CShellDetailProps& m_DetailProps;
+	CWorldTextClient& m_WorldText;
+	CSpritesClient& m_Sprites;
+	CShadowsClient& m_Shadows;
 
 	// Stock's accessors answer a more specific type; these rows keep the table's column uniform.
 	CGameSystemRow<IDetailObjectSystem> m_DetailObjectRow{nullptr};

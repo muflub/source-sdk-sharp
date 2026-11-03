@@ -15,6 +15,8 @@
 #include "shell_shim_areas.h"
 #include "interface.h"
 
+class CShadowsClient;
+
 class CShimRootClient final : public IShimRoot
 {
 public:
@@ -34,5 +36,8 @@ public:
 	// The engine's factories, from Init to Shutdown. The client has no filesystem factory;
 	// its app-system factory serves the filesystem.
 	CreateInterfaceFn m_pAppSystemFactory = nullptr;
+
+	// The shadow forwarder table's environment comes from here.
+	CShadowsClient* m_pShadows = nullptr;
 	CreateInterfaceFn m_pPhysicsFactory = nullptr;
 };

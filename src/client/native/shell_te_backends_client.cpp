@@ -38,6 +38,7 @@
 #include "shell_cliententitylist.h"
 
 #include "shell_te_backend_args.h"
+#include "shell_te_system_client.h"
 
 using namespace TeBackendArgs;
 
@@ -431,7 +432,7 @@ CON_COMMAND_F(cs_cl_te_backend, "TEMPORARY (C-Phase 2): fire one temp entity bac
 		CEffectData effect;
 		effect.m_vOrigin.Init(pAt[0], pAt[1], pAt[2]);
 		effect.m_vNormal.Init(pDir[0], pDir[1], pDir[2]);
-		DispatchEffectToCallback(pName, effect);
+		ShellClientDll_TempEntsSystem().DispatchEffectToCallback(pName, effect);
 	}
 	else
 	{

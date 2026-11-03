@@ -552,7 +552,7 @@ public:
 		const char* pName = g_pParticleSystemMgr->GetParticleSystemNameFromIndex(m_nNext++);
 		Q_strncpy(m_szName, pName ? pName : "", sizeof(m_szName));
 		memcpy(m_Before, g_PqCounts, sizeof(m_Before));
-		m_pEffect = CShellNewParticleEffect::Create(m_szName);
+		m_pEffect = ShellClientDll_NewParticles().Create(m_szName);
 		if (m_pEffect.IsValid() && m_pEffect->IsValid())
 		{
 			Vector fwd;

@@ -96,7 +96,6 @@ bool VGui_Startup(CreateInterfaceFn appSystemFactory)
 
 void VGui_CreateGlobalPanels()
 {
-	internalCenterPrint->Create(enginevgui->GetPanel(PANEL_CLIENTDLL_TOOLS));
 	CreateModePanels();
 }
 
@@ -104,7 +103,6 @@ void VGui_Shutdown()
 {
 	VGUI_DestroyClientDLLRootPanel();
 	DestroyGlobalPanels();
-	internalCenterPrint->Destroy();
 
 	if (g_pClientMode)
 		g_pClientMode->VGui_Shutdown();

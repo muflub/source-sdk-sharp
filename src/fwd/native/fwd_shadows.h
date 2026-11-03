@@ -52,6 +52,18 @@ class CGlobalVarsBase;
 // a function of client.so's. shell_shadows_client.cpp builds it; managed
 // asks client.so's own factory for it (SS_SHADOW_ENV_VERSION) and hands it to
 // every Run.
+// A render target's description: more arguments than a bound callback can carry.
+struct SSShadowRenderTarget
+{
+	const char* pszName;
+	int32_t nWidth;
+	int32_t nHeight;
+	int32_t nSizeMode;
+	int32_t nFormat;
+	int32_t nDepth;
+	int32_t bHdr;
+};
+
 struct SSShadowEnv
 {
 	IShadowMgr* const* ppShadowMgr;
@@ -70,8 +82,7 @@ struct SSShadowEnv
 	int32_t (*pfnInitMaterial)(const char* pszName, const char* pszGroup);
 	void (*pfnShutdownMaterial)(int32_t nMaterial);
 	IMaterial* (*pfnMaterial)(int32_t nMaterial);
-	int32_t (*pfnInitRenderTarget)(const char* pszName, int32_t nWidth, int32_t nHeight, int32_t nSizeMode,
-								   int32_t nFormat, int32_t nDepth, int32_t bHdr);
+	int32_t (*pfnInitRenderTarget)(const SSShadowRenderTarget* pTarget);
 	void (*pfnShutdownTexture)(int32_t nTexture);
 	ITexture* (*pfnTexture)(int32_t nTexture);
 	// The flashlight's spotlight textures, by the index FlashlightTexture answered.

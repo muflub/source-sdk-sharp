@@ -20,6 +20,7 @@
 #include "particles/particles.h"
 #include "imanaged_areas_client.h"
 #include "ss_bitblock.h"
+#include "shell_particle_manifest_client.h"
 
 #include <string>
 #include <vector>
@@ -44,22 +45,15 @@ enum
 	kManifestBlockBytes = 16 * 1024
 };
 
-// CParticleMgr::Init asks for the first read before the managed runtime is up;
-// it is held and run from SourceSharp_ParticleManifestRuntimeUp, still in Init.
-static bool s_bReadPending;
-static bool s_bPendingLoadSheets;
-static bool s_bPendingPrecache;
-
-void ParseParticleEffects(bool bLoadSheets, bool bPrecache);
-
-static int ManifestFiles(bool bMap, const char* pszMapName, std::vector<std::string>& list)
+int CParticleManifestClient::ManifestFiles(bool bMap, const char* pszMapName, std::vector<std::string>& list)
 {
-	IManagedParticlesClient* p = ManagedParticlesClient();
+	IManagedParticlesClient* p = m_Areas.m_pParticlesClient;
 	if (!p)
 		return 0;
 
-	static uint8_t s_Block[ss::kBitBlockHeaderBytes + kManifestBlockBytes];
-	const int nFiles = p->ManifestFiles(bMap ? 1 : 0, pszMapName ? pszMapName : "", s_Block, sizeof(s_Block));
+	std::vector<uint8_t> block(ss::kBitBlockHeaderBytes + kManifestBlockBytes);
+	uint8_t* pBlock = block.data();
+	const int nFiles = p->ManifestFiles(bMap ? 1 : 0, pszMapName ? pszMapName : "", pBlock, (int32_t)block.size());
 	if (nFiles == -2)
 	{
 		Warning("[SourceSharp] a particle manifest's file list is over %d bytes; not loaded\n",
@@ -69,8 +63,8 @@ static int ManifestFiles(bool bMap, const char* pszMapName, std::vector<std::str
 	if (nFiles <= 0)
 		return nFiles;
 
-	const char* pszAt = (const char*)s_Block + ss::kBitBlockHeaderBytes;
-	const char* pszEnd = pszAt + ss::BitBlockBits(s_Block) / 8;
+	const char* pszAt = (const char*)pBlock + ss::kBitBlockHeaderBytes;
+	const char* pszEnd = pszAt + ss::BitBlockBits(pBlock) / 8;
 	for (int i = 0; i < nFiles && pszAt < pszEnd; i++)
 	{
 		list.emplace_back(pszAt);
@@ -79,46 +73,32 @@ static int ManifestFiles(bool bMap, const char* pszMapName, std::vector<std::str
 	return nFiles;
 }
 
-// The game manifest's files.
-static void GameManifestFiles(std::vector<std::string>& list)
+void CParticleManifestClient::RuntimeUp()
 {
-	ManifestFiles(false, NULL, list);
-}
-
-void SourceSharp_ParticleManifestRuntimeUp()
-{
-	if (!s_bReadPending || !ManagedParticlesClient())
+	if (!m_bReadPending || !m_Areas.m_pParticlesClient)
 		return;
-	s_bReadPending = false;
-	ParseParticleEffects(s_bPendingLoadSheets, s_bPendingPrecache);
+	m_bReadPending = false;
+	Parse(m_bPendingLoadSheets, m_bPendingPrecache);
 }
 
-// Full reads of the manifest's definitions, for the dev API.
-static int s_nParticleDefinitionReads;
-
-int32_t SourceSharp_ParticleDefinitionReads()
-{
-	return s_nParticleDefinitionReads;
-}
-
-void ParseParticleEffects(bool bLoadSheets, bool bPrecache)
+void CParticleManifestClient::Parse(bool bLoadSheets, bool bPrecache)
 {
 	MEM_ALLOC_CREDIT();
 
-	if (!ManagedParticlesClient())
+	if (!m_Areas.m_pParticlesClient)
 	{
-		s_bReadPending = true;
-		s_bPendingLoadSheets = bLoadSheets;
-		s_bPendingPrecache = bPrecache;
+		m_bReadPending = true;
+		m_bPendingLoadSheets = bLoadSheets;
+		m_bPendingPrecache = bPrecache;
 		return;
 	}
 
-	s_nParticleDefinitionReads++;
+	m_nDefinitionReads++;
 
 	g_pParticleSystemMgr->ShouldLoadSheets(bLoadSheets);
 
 	std::vector<std::string> files;
-	GameManifestFiles(files);
+	ManifestFiles(false, NULL, files);
 
 	int nCount = (int)files.size();
 	for (int i = 0; i < nCount; ++i)
@@ -129,26 +109,26 @@ void ParseParticleEffects(bool bLoadSheets, bool bPrecache)
 	g_pParticleSystemMgr->DecommitTempMemory();
 }
 
-void ReloadParticleEffects()
+void CParticleManifestClient::Reload()
 {
 	MEM_ALLOC_CREDIT();
 
 	std::vector<std::string> files;
-	GameManifestFiles(files);
+	ManifestFiles(false, NULL, files);
 
 	// CAB 2/17/11 Reload all the particles regardless (Fixes filename change exploits).
 	bool bReloadAll = true;
 
 	if (bReloadAll)
 	{
-		ParseParticleEffects(true, true);
+		Parse(true, true);
 	}
 
 	g_pParticleSystemMgr->DecommitTempMemory();
 }
 
 // Loads the per-map manifest.
-int ParseParticleEffectsMapFiles(const char* pMapName, bool bLoadSheets)
+int CParticleManifestClient::ParseMapFiles(const char* pMapName, bool bLoadSheets)
 {
 	MEM_ALLOC_CREDIT();
 
@@ -173,15 +153,9 @@ int ParseParticleEffectsMapFiles(const char* pMapName, bool bLoadSheets)
 	return nCount;
 }
 
-// The fork's particle_parse.h declares it void.
-void ParseParticleEffectsMap(const char* pMapName, bool bLoadSheets)
-{
-	ParseParticleEffectsMapFiles(pMapName, bLoadSheets);
-}
-
 // Re-precaches the always-precache definitions that LevelShutdown uncached,
 // without re-reading the DMX files. Returns how many it precached.
-int PrecacheDefinedParticleSystems()
+int CParticleManifestClient::PrecacheDefined()
 {
 	int nPrecached = 0;
 	const int nCount = g_pParticleSystemMgr->GetParticleSystemCount();
@@ -199,30 +173,3 @@ int PrecacheDefinedParticleSystems()
 }
 
 #endif // CLIENT_DLL
-
-void DispatchParticleEffect(int iEffectIndex, Vector vecOrigin, Vector vecStart, QAngle vecAngles, IGameEntity* pEntity)
-{
-	CEffectData data;
-
-	data.m_nHitBox = iEffectIndex;
-	data.m_vOrigin = vecOrigin;
-	data.m_vStart = vecStart;
-	data.m_vAngles = vecAngles;
-
-	// pEntity is ignored: the effect has no owner.
-	{
-#ifdef CLIENT_DLL
-		data.m_hEntity = NULL;
-#else
-		data.m_nEntIndex = 0;
-#endif
-	}
-
-	DispatchEffect("ParticleEffect", data);
-}
-
-void DispatchParticleEffect(const char* pszParticleName, Vector vecOrigin, QAngle vecAngles, IGameEntity* pEntity)
-{
-	int iIndex = GetParticleSystemIndex(pszParticleName);
-	DispatchParticleEffect(iIndex, vecOrigin, vecOrigin, vecAngles, pEntity);
-}

@@ -28,13 +28,7 @@
 #include "model_types.h"
 
 #include "imanaged_areas_client.h"
-
-// Forward-declared for Clear's sweep; defined with the ABI slots below.
-void SourceSharp_TempEntPoolDestroy(int32_t nSlot);
-
-// The slot table: one row per slot, NULL when empty, sized to the pool's own
-// capacity.
-static C_LocalTempEntity* g_pTempEntSlots[CTempEnts::MAX_TEMP_ENTITIES];
+#include "shell_managed_areas_client.h"
 
 // The pool instance. CTempEnts is the only ITempEnts implementation linked into
 // this build, so the downcast is safe.
@@ -60,36 +54,36 @@ int CTempEnts::PoolAddVisible(C_LocalTempEntity* pTemp)
 	return AddVisibleTempEntity(pTemp);
 }
 
-void SourceSharpTePool_Update(float flFrameTime)
+void CTempEnts::PoolUpdate(float flFrameTime)
 {
-	if (IManagedTempEntsClient* pTempEnts = ManagedTempEntsClient())
+	if (IManagedTempEntsClient* pTempEnts = m_Areas.m_pTempEntsClient)
 		pTempEnts->OnTempEntPoolUpdate(flFrameTime);
 }
 
 // Frees every live tempent (CTempEnts::Clear). The sweep afterwards covers the
 // managed side being down (a reload, or after ClientShutdown): a slot left bound
 // would hold a tempent the memory pool believes is live across a level change.
-void SourceSharpTePool_Clear()
+void CTempEnts::PoolClear()
 {
-	if (IManagedTempEntsClient* pTempEnts = ManagedTempEntsClient())
+	if (IManagedTempEntsClient* pTempEnts = m_Areas.m_pTempEntsClient)
 		pTempEnts->OnTempEntPoolClear();
 
 	for (int i = 0; i < CTempEnts::MAX_TEMP_ENTITIES; i++)
 	{
-		if (g_pTempEntSlots[i] != NULL)
-			SourceSharp_TempEntPoolDestroy(i);
+		if (m_pSlots[i] != NULL)
+			TempEntPoolDestroy(i);
 	}
 }
 
 // CTempEnts::FindTempEntByID over the slot table, which holds exactly what the
 // managed active list holds.
-C_LocalTempEntity* SourceSharpTePool_Find(int nID, int nSubID)
+C_LocalTempEntity* CTempEnts::PoolFind(int nID, int nSubID)
 {
 	// HACK HACK: We're using skin and hitsounds as a hacky way to store an ID
 	// and sub-ID for later identification (stock).
 	for (int i = 0; i < CTempEnts::MAX_TEMP_ENTITIES; i++)
 	{
-		C_LocalTempEntity* p = g_pTempEntSlots[i];
+		C_LocalTempEntity* p = m_pSlots[i];
 
 		if (p && p->m_nSkin == nID && p->hitSound == nSubID)
 			return p;
@@ -98,39 +92,39 @@ C_LocalTempEntity* SourceSharpTePool_Find(int nID, int nSubID)
 	return NULL;
 }
 
-int32_t SourceSharp_TempEntPoolCapacity()
+int32_t CTempEnts::TempEntPoolCapacity()
 {
 	return (int32_t)CTempEnts::MAX_TEMP_ENTITIES;
 }
 
 // Gives one back: stock's TempEntFree in its order, minus the list removal,
 // which is managed's.
-void SourceSharp_TempEntPoolDestroy(int32_t nSlot)
+void CTempEnts::TempEntPoolDestroy(int32_t nSlot)
 {
 	if (!ValidSlot(nSlot))
 		return;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return;
 
 	// Emptied first: the teardown below could reach something that asks this
 	// table what is live.
-	g_pTempEntSlots[nSlot] = NULL;
+	m_pSlots[nSlot] = NULL;
 
 	pTemp->RemoveFromLeafSystem();
 	pTemp->OnRemoveTempEntity();
 
-	ThePool()->PoolFreeObject(pTemp);
+	PoolFreeObject(pTemp);
 }
 
-int32_t SourceSharp_TempEntPoolReadLife(int32_t nSlot, SourceSharpTempEntLife_t* pOutLife)
+int32_t CTempEnts::TempEntPoolReadLife(int32_t nSlot, SourceSharpTempEntLife_t* pOutLife)
 {
 	if (!ValidSlot(nSlot) || !pOutLife)
 		return 0;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return 0;
@@ -147,12 +141,12 @@ int32_t SourceSharp_TempEntPoolReadLife(int32_t nSlot, SourceSharpTempEntLife_t*
 	return 1;
 }
 
-int32_t SourceSharp_TempEntPoolWriteLife(int32_t nSlot, const SourceSharpTempEntLife_t* pLife)
+int32_t CTempEnts::TempEntPoolWriteLife(int32_t nSlot, const SourceSharpTempEntLife_t* pLife)
 {
 	if (!ValidSlot(nSlot) || !pLife)
 		return 0;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return 0;
@@ -187,12 +181,12 @@ static void AngOut(float* pOut, const QAngle& a)
 	pOut[2] = a.z;
 }
 
-int32_t SourceSharp_TempEntPoolReadTransform(int32_t nSlot, SourceSharpTempEntTransform_t* pOut)
+int32_t CTempEnts::TempEntPoolReadTransform(int32_t nSlot, SourceSharpTempEntTransform_t* pOut)
 {
 	if (!ValidSlot(nSlot) || !pOut)
 		return 0;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return 0;
@@ -211,12 +205,12 @@ int32_t SourceSharp_TempEntPoolReadTransform(int32_t nSlot, SourceSharpTempEntTr
 	return 1;
 }
 
-int32_t SourceSharp_TempEntPoolWriteTransform(int32_t nSlot, const SourceSharpTempEntTransform_t* pIn)
+int32_t CTempEnts::TempEntPoolWriteTransform(int32_t nSlot, const SourceSharpTempEntTransform_t* pIn)
 {
 	if (!ValidSlot(nSlot) || !pIn)
 		return 0;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return 0;
@@ -240,12 +234,12 @@ int32_t SourceSharp_TempEntPoolWriteTransform(int32_t nSlot, const SourceSharpTe
 // The write-once state managed reads once when it takes a tempent over. Asked
 // of the object because native spawn routes still exist that write no managed
 // record.
-int32_t SourceSharp_TempEntPoolReadStatics(int32_t nSlot, SourceSharpTempEntStatics_t* pOut)
+int32_t CTempEnts::TempEntPoolReadStatics(int32_t nSlot, SourceSharpTempEntStatics_t* pOut)
 {
 	if (!ValidSlot(nSlot) || !pOut)
 		return 0;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return 0;
@@ -357,17 +351,17 @@ int32_t SourceSharp_ClientEntityModelBounds(int32_t nEntityIndex, float* pOutMin
 	return 1;
 }
 
-int32_t SourceSharp_TempEntPoolAddVisible(int32_t nSlot)
+int32_t CTempEnts::TempEntPoolAddVisible(int32_t nSlot)
 {
 	if (!ValidSlot(nSlot))
 		return 0;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return 0;
 
-	return ThePool()->PoolAddVisible(pTemp) ? 1 : 0;
+	return PoolAddVisible(pTemp) ? 1 : 0;
 }
 
 // cs_cl_te_pool_shell: ejects shell casings through CTempEnts::EjectBrass in front of
@@ -466,13 +460,13 @@ static bool MatrixIsUnwritten(const matrix3x4_t& m)
 
 static void TempEntPoolBones()
 {
-	static matrix3x4_t s_Bones[MAXSTUDIOBONES];
+	matrix3x4_t bones[MAXSTUDIOBONES];
 
 	int nTempEnts = 0, nModelBones = 0, nUnwrittenModel = 0, nUnwrittenAny = 0;
 
 	for (int nSlot = 0; nSlot < CTempEnts::MAX_TEMP_ENTITIES; nSlot++)
 	{
-		C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+		C_LocalTempEntity* pTemp = ThePool()->PoolAtSlot(nSlot);
 		const model_t* pModel = pTemp ? pTemp->GetModel() : NULL;
 
 		if (!pModel || modelinfo->GetModelType(pModel) != mod_studio)
@@ -487,9 +481,9 @@ static void TempEntPoolBones()
 		for (int i = 0; i < MAXSTUDIOBONES; i++)
 			for (int r = 0; r < 3; r++)
 				for (int c = 0; c < 4; c++)
-					s_Bones[i][r][c] = flNaN;
+					bones[i][r][c] = flNaN;
 
-		if (!pTemp->SetupBones(s_Bones, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, gpGlobals->curtime))
+		if (!pTemp->SetupBones(bones, MAXSTUDIOBONES, BONE_USED_BY_ANYTHING, gpGlobals->curtime))
 			continue;
 
 		nTempEnts++;
@@ -497,7 +491,7 @@ static void TempEntPoolBones()
 
 		for (int i = 0; i < MAXSTUDIOBONES; i++)
 		{
-			if (!MatrixIsUnwritten(s_Bones[i]))
+			if (!MatrixIsUnwritten(bones[i]))
 				continue;
 			nUnwrittenAny++;
 			if (i < pHdr->numbones)
@@ -525,7 +519,7 @@ static void TempEntPoolLive_f(const CCommand& args)
 
 	for (int i = 0; i < CTempEnts::MAX_TEMP_ENTITIES; i++)
 	{
-		C_LocalTempEntity* pTemp = g_pTempEntSlots[i];
+		C_LocalTempEntity* pTemp = ThePool()->PoolAtSlot(i);
 
 		if (!pTemp)
 			continue;
@@ -578,7 +572,10 @@ C_LocalTempEntity* CTempEnts::PoolCreateObject()
 {
 	C_LocalTempEntity* pTemp = TempEntAlloc();
 	if (pTemp)
+	{
 		pTemp->SetManagedAreas(m_Areas);
+		pTemp->SetPool(*this);
+	}
 	return pTemp;
 }
 
@@ -586,24 +583,20 @@ C_LocalTempEntity* CTempEnts::PoolCreateObject()
 // TempEntAlloc( org, model ) from the memory-pool allocation down, minus the
 // list add. Prepare() runs before the origin is set (it zeroes it) and before
 // AddToLeafSystem, as stock orders them.
-int32_t SourceSharpTePool_CreateWithModel(int32_t nSlot, const float* pOriginXYZ, const model_t* pModel,
-										  int32_t nPriority);
-
-int32_t SourceSharp_TempEntPoolCreate(int32_t nSlot, const float* pOriginXYZ, int32_t nModelIndex, int32_t nPriority)
+int32_t CTempEnts::TempEntPoolCreate(int32_t nSlot, const float* pOriginXYZ, int32_t nModelIndex, int32_t nPriority)
 {
 	const model_t* pModel = (nModelIndex != 0) ? modelinfo->GetModel(nModelIndex) : NULL;
-	return SourceSharpTePool_CreateWithModel(nSlot, pOriginXYZ, pModel, nPriority);
+	return PoolCreateWithModel(nSlot, pOriginXYZ, pModel, nPriority);
 }
 
-int32_t SourceSharpTePool_CreateWithModel(int32_t nSlot, const float* pOriginXYZ, const model_t* pModel,
-										  int32_t nPriority)
+int32_t CTempEnts::PoolCreateWithModel(int32_t nSlot, const float* pOriginXYZ, const model_t* pModel, int32_t nPriority)
 {
 	if (!ValidSlot(nSlot) || !pOriginXYZ)
 		return 0;
 
 	// An occupied slot means the managed free list handed out one it had not
 	// taken back. Refused: a second object on the row would leak the first.
-	if (g_pTempEntSlots[nSlot] != NULL)
+	if (m_pSlots[nSlot] != NULL)
 	{
 		Warning("[SourceSharp] TempEntPoolCreate: slot %d is already occupied; "
 				"the managed pool handed out a slot it had not freed\n",
@@ -619,7 +612,7 @@ int32_t SourceSharpTePool_CreateWithModel(int32_t nSlot, const float* pOriginXYZ
 		return 0;
 	}
 
-	C_LocalTempEntity* pTemp = ThePool()->PoolCreateObject();
+	C_LocalTempEntity* pTemp = PoolCreateObject();
 
 	if (!pTemp)
 	{
@@ -629,7 +622,7 @@ int32_t SourceSharpTePool_CreateWithModel(int32_t nSlot, const float* pOriginXYZ
 		return 0;
 	}
 
-	g_pTempEntSlots[nSlot] = pTemp;
+	m_pSlots[nSlot] = pTemp;
 
 	pTemp->Prepare(pModel, gpGlobals->curtime);
 
@@ -644,12 +637,12 @@ int32_t SourceSharpTePool_CreateWithModel(int32_t nSlot, const float* pOriginXYZ
 
 // A whole spawn record into the object, every field unconditionally, so a
 // recycled slot inherits nothing. Through the setters where tempent.h has them.
-int32_t SourceSharp_TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEntSpawn_t* pSpawn)
+int32_t CTempEnts::TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEntSpawn_t* pSpawn)
 {
 	if (!ValidSlot(nSlot) || !pSpawn)
 		return 0;
 
-	C_LocalTempEntity* pTemp = g_pTempEntSlots[nSlot];
+	C_LocalTempEntity* pTemp = m_pSlots[nSlot];
 
 	if (!pTemp)
 		return 0;
@@ -769,12 +762,12 @@ int32_t SourceSharp_FxMaterialsCached()
 
 // A tempent of a model the engine loads by name (the shell casings), made in a
 // slot the managed pool reserved.
-int32_t SourceSharp_FxTempEntCreateNamed(int32_t nSlot, const float* pOriginXYZ, const char* pModel, int32_t nPriority)
+int32_t CTempEnts::FxTempEntCreateNamed(int32_t nSlot, const float* pOriginXYZ, const char* pModel, int32_t nPriority)
 {
 	const model_t* pLoaded = pModel ? engine->LoadModel(pModel) : NULL;
 	if (!pLoaded)
 		return 0;
-	return SourceSharpTePool_CreateWithModel(nSlot, pOriginXYZ, pLoaded, nPriority);
+	return PoolCreateWithModel(nSlot, pOriginXYZ, pLoaded, nPriority);
 }
 
 void SourceSharp_FxLoadModel(const char* pModel)
@@ -791,17 +784,17 @@ int32_t SourceSharp_FxModelFrameCount(const char* pModel)
 	return pLoaded ? modelinfo->GetModelFrameCount(pLoaded) : -1;
 }
 
-int SourceSharpTePool_SlotOf(const C_LocalTempEntity* pTemp)
+int CTempEnts::PoolSlotOf(const C_LocalTempEntity* pTemp)
 {
 	for (int i = 0; i < CTempEnts::MAX_TEMP_ENTITIES; i++)
 	{
-		if (pTemp && g_pTempEntSlots[i] == pTemp)
+		if (pTemp && m_pSlots[i] == pTemp)
 			return i;
 	}
 	return -1;
 }
 
-C_LocalTempEntity* SourceSharpTePool_AtSlot(int nSlot)
+C_LocalTempEntity* CTempEnts::PoolAtSlot(int nSlot)
 {
-	return ValidSlot(nSlot) ? g_pTempEntSlots[nSlot] : NULL;
+	return ValidSlot(nSlot) ? m_pSlots[nSlot] : NULL;
 }

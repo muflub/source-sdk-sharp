@@ -56,6 +56,8 @@
 #include "shell_effects_list_client.h"
 #include "shell_managed_particles.h"
 #include "shell_detail_props.h"
+#include "shell_shadows_client.h"
+#include "shell_precipitation_draw_client.h"
 #include "shell_managed_areas_client.h"
 #include "view_facts.h"
 #include "vtable_slot_patch.h"
@@ -449,9 +451,10 @@ struct WorldListEntry_t
 class CPlanView : public CRefCounted<>, protected CViewSetup
 {
 public:
-	CPlanView(CShellViewRender& viewRender, CShellDetailProps& detailProps)
+	CPlanView(CShellViewRender& viewRender, CShellDetailProps& detailProps, CShadowsClient& shadows)
 		: m_ViewRender(viewRender)
 		, m_DetailProps(detailProps)
+		, m_Shadows(shadows)
 	{
 	}
 
@@ -516,7 +519,7 @@ public:
 	{
 		if (!m_pWorldListInfo)
 			return;
-		ShellShadows_ComputeShadowTextures(m_pWorldListInfo->m_LeafCount, m_pWorldListInfo->m_pLeafList);
+		m_Shadows.ComputeShadowTextures(m_pWorldListInfo->m_LeafCount, m_pWorldListInfo->m_pLeafList);
 	}
 
 	void ReleaseLists()
@@ -535,6 +538,7 @@ private:
 
 	CShellViewRender& m_ViewRender;
 	CShellDetailProps& m_DetailProps;
+	CShadowsClient& m_Shadows;
 };
 
 void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
@@ -736,7 +740,8 @@ public:
 	CViewExecutorImpl(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
 					  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
 					  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps,
-					  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis)
+					  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis, CPrecipitationClient& precipitation,
+					  CShadowsClient& shadows)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -748,6 +753,8 @@ public:
 		, m_DetailProps(detailProps)
 		, m_Glow(glow)
 		, m_PixelVis(pixelVis)
+		, m_Precipitation(precipitation)
+		, m_Shadows(shadows)
 	{
 	}
 
@@ -823,6 +830,8 @@ private:
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
 	CShellDetailProps& m_DetailProps;
+	CShadowsClient& m_Shadows;
+	CPrecipitationClient& m_Precipitation;
 	CGlowOverlaysClient& m_Glow;
 	CPixelVisClient& m_PixelVis;
 	ExecutorState_t m_State;
@@ -1576,7 +1585,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			}
 			case RENDER_OP_ShadowAdvanceFrame:
-				ShellShadows_AdvanceFrame();
+				m_Shadows.AdvanceFrame();
 				break;
 			case RENDER_OP_Push3DView:
 				if (op.I[3])
@@ -1600,13 +1609,13 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				m_ViewRender.AllowCurrentViewAccess(op.I[0] != 0);
 				break;
 			case RENDER_OP_ShadowPreRender:
-				ShellShadows_PreRender();
+				m_Shadows.PreRender();
 				break;
 			case RENDER_OP_ShadowComputeDepthTextures:
-				ShellShadows_ComputeShadowDepthTextures(setup);
+				m_Shadows.ComputeShadowDepthTextures(setup);
 				break;
 			case RENDER_OP_ShadowUnlockDepthTextures:
-				ShellShadows_UnlockAllShadowDepthTextures();
+				m_Shadows.UnlockAllShadowDepthTextures();
 				break;
 			case RENDER_OP_ClientSystemsPreRender:
 				m_Systems.PreRender();
@@ -1646,7 +1655,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_WorldViewBegin:
 			{
-				CPlanView* pNew = new CPlanView(m_ViewRender, m_DetailProps);
+				CPlanView* pNew = new CPlanView(m_ViewRender, m_DetailProps, m_Shadows);
 				pNew->Begin(setup, op.I[0], op.I[1]);
 				state.m_Views.AddToTail(pNew);
 				break;
@@ -1919,7 +1928,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_DebugLightmapPage:
 			{
-				CPlanView* pDebug = new CPlanView(m_ViewRender, m_DetailProps);
+				CPlanView* pDebug = new CPlanView(m_ViewRender, m_DetailProps, m_Shadows);
 				pDebug->Begin(setup, 0, 0);
 				Frustum frustum;
 				AllowCurrentViewAccess(true);
@@ -1933,7 +1942,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			}
 			case RENDER_OP_DebugShadowTexture:
-				ShellShadows_RenderShadowTexture(op.I[0], op.I[0]);
+				m_Shadows.RenderShadowTexture(op.I[0], op.I[0]);
 				break;
 			case RENDER_OP_DebugShowTexture:
 				DebugShowTexture(op.F[0]);
@@ -2031,7 +2040,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				m_Glow.UpdateSkyOverlays(op.F[0], op.I[0] != 0);
 				break;
 			case RENDER_OP_DrawPrecipitation:
-				DrawPrecipitation();
+				m_Precipitation.Draw();
 				break;
 			case RENDER_OP_ClientEffectsDraw:
 				m_Effects.DrawEffects(gpGlobals->frametime);
@@ -2045,9 +2054,9 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			case RENDER_OP_DrawLights:
 				render->DrawLights();
 				break;
-			// CViewRender::RenderPlayerSprites: the voice icons over players' heads.
+			// CViewRender::RenderPlayerSprites: stock's body drew nothing for any entity this
+			// build has.
 			case RENDER_OP_RenderPlayerSprites:
-				GetClientVoiceMgr()->DrawHeadLabels();
 				break;
 			case RENDER_OP_MotionBlur:
 				RunPostProgram(1, setup, setup.x, setup.y, setup.width, setup.height, false, false);
@@ -3059,7 +3068,8 @@ CViewExecutorImpl& CViewExecutor::Impl()
 	if (!m_pImpl)
 	{
 		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender,
-										m_Effects, m_Particles, m_DetailProps, m_Glow, m_PixelVis);
+										m_Effects, m_Particles, m_DetailProps, m_Glow, m_PixelVis, m_Precipitation,
+										m_Shadows);
 	}
 	return *m_pImpl;
 }

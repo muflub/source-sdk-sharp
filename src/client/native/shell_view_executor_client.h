@@ -30,6 +30,8 @@ class CShellViewRender;
 class CEffectsListClient;
 class CManagedParticlesClient;
 class CShellDetailProps;
+class CShadowsClient;
+class CPrecipitationClient;
 class CPixelVisClient;
 class CGlowOverlaysClient;
 
@@ -46,7 +48,8 @@ public:
 	CViewExecutor(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
 				  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
 				  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps,
-				  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis)
+				  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis, CPrecipitationClient& precipitation,
+				  CShadowsClient& shadows)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -56,6 +59,8 @@ public:
 		, m_Effects(effects)
 		, m_Particles(particles)
 		, m_DetailProps(detailProps)
+		, m_Shadows(shadows)
+		, m_Precipitation(precipitation)
 		, m_Glow(glow)
 		, m_PixelVis(pixelVis)
 	{
@@ -104,6 +109,8 @@ private:
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
 	CShellDetailProps& m_DetailProps;
+	CShadowsClient& m_Shadows;
+	CPrecipitationClient& m_Precipitation;
 	CGlowOverlaysClient& m_Glow;
 	CPixelVisClient& m_PixelVis;
 	ShellViewExecutor::CViewExecutorImpl* m_pImpl = nullptr;

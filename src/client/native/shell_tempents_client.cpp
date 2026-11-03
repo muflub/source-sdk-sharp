@@ -15,12 +15,10 @@
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
-#include <set>
-#include <string>
-
 #include "shell_tempents_store_client.h"
 
 #include "imanaged_areas_client.h"
+#include "shell_te_tables_client.h"
 
 // One singleton per registered class, as stock's IMPLEMENT_CLIENTCLASS_EVENT. The engine
 // deltas consecutive events of a class against each other, so the blob must keep the
@@ -28,8 +26,9 @@
 class CSourceSharpTempEnt : public IClientUnknown, public IClientNetworkable
 {
 public:
-	CSourceSharpTempEnt(const char* pClassName, int hClass, int nBlobBytes)
-		: m_pClassName(pClassName)
+	CSourceSharpTempEnt(const CManagedAreasClient& areas, const char* pClassName, int hClass, int nBlobBytes)
+		: m_Areas(areas)
+		, m_pClassName(pClassName)
 		, m_hClass(hClass)
 		, m_nBlobBytes(nBlobBytes)
 	{
@@ -41,12 +40,8 @@ public:
 	// IClientUnknown: the husk from c_basetempentity.h.
 	virtual void SetRefEHandle(const CBaseHandle&) { Assert(false); }
 
-	// A static rather than stock's null dereference; nothing calls it.
-	virtual const CBaseHandle& GetRefEHandle() const
-	{
-		static CBaseHandle s_Invalid;
-		return s_Invalid;
-	}
+	// An invalid handle rather than stock's null dereference; nothing calls it.
+	virtual const CBaseHandle& GetRefEHandle() const { return m_hInvalid; }
 
 	virtual IClientUnknown* GetIClientUnknown() { return this; }
 
@@ -105,7 +100,7 @@ public:
 
 	virtual void PostDataUpdate(DataUpdateType_t)
 	{
-		IManagedTempEntsClient* pTempEnts = ManagedTempEntsClient();
+		IManagedTempEntsClient* pTempEnts = m_Areas.m_pTempEntsClient;
 
 		if (!pTempEnts)
 		{
@@ -129,6 +124,8 @@ public:
 	int BlobBytes() const { return m_nBlobBytes; }
 
 private:
+	const CManagedAreasClient& m_Areas;
+	CBaseHandle m_hInvalid;
 	const char* m_pClassName;
 	int m_hClass;
 	int m_nBlobBytes;
@@ -137,78 +134,15 @@ private:
 	bool m_bComplained = false;
 };
 
-// One create function per handle, since CreateEventFn carries no context. The managed
-// registry refuses past the same bound (TePropPlanner.MaxClasses).
-enum
+IClientNetworkable* CTempEntTablesClient::Built_t::CreateEvent()
 {
-	SOURCESHARP_TE_CLIENT_MAX_TABLES = 64
-};
-
-struct SourceSharpTeBuiltClient_t
-{
-	RecvProp* pProps;
-	int nProps;
-	RecvTable* pTable;
-	ClientClass* pClass; // NULL for a table registered without one
-	CSourceSharpTempEnt* pShell; // NULL likewise: no class, nothing to create
-	const char* pClassName; // interned: what a managed reload asks for again
-	uint32_t nShapeHash; // managed's fingerprint, handed back on a re-registration
-};
-
-static SourceSharpTeBuiltClient_t g_TeBuilt[SOURCESHARP_TE_CLIENT_MAX_TABLES];
-
-template <int N>
-static IClientNetworkable* TeCreateEvent()
-{
-	return g_TeBuilt[N].pShell;
-}
-
-template <int N>
-struct CTeCreateEventTable
-{
-	static void Fill(CreateEventFn* pOut)
-	{
-		CTeCreateEventTable<N - 1>::Fill(pOut);
-		pOut[N - 1] = &TeCreateEvent<N - 1>;
-	}
-};
-
-template <>
-struct CTeCreateEventTable<0>
-{
-	static void Fill(CreateEventFn*) {}
-};
-
-static CreateEventFn TeCreateEventFor(int iHandle)
-{
-	static CreateEventFn s_Fns[SOURCESHARP_TE_CLIENT_MAX_TABLES];
-	static bool s_bFilled = false;
-
-	if (!s_bFilled)
-	{
-		s_bFilled = true;
-		CTeCreateEventTable<SOURCESHARP_TE_CLIENT_MAX_TABLES>::Fill(s_Fns);
-	}
-
-	return (iHandle >= 0 && iHandle < SOURCESHARP_TE_CLIENT_MAX_TABLES) ? s_Fns[iHandle] : NULL;
+	return pShell;
 }
 
 // Stores each managed-planned table block into RecvProps, a RecvTable and, when asked,
-// a ClientClass and its shell. Built parts are never freed: the engine reads them for the
-// life of the process.
-static int g_nTeBuilt = 0;
-static bool g_bTeClosed = false;
-
-// Names the engine keeps by pointer. A std::set node never moves, so c_str() stays valid.
-static std::set<std::string> g_TeNames;
-
-static const char* InternName(const char* pName)
-{
-	return g_TeNames.emplace(pName).first->c_str();
-}
-
-int32_t SourceSharp_TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, int32_t nBlobBytes,
-									   SourceSharpTeRecvBuilt_t* pOut)
+// a ClientClass and its shell.
+int32_t CTempEntTablesClient::TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, int32_t nBlobBytes,
+												 SourceSharpTeRecvBuilt_t* pOut)
 {
 	SourceSharpTeTableBlock_t block;
 
@@ -217,19 +151,19 @@ int32_t SourceSharp_TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, 
 
 	// A class built by an earlier load answers its handle: the engine walks the class list
 	// once, at DLL init, so a managed reload cannot build new tables.
-	for (int i = 0; i < g_nTeBuilt; i++)
+	for (int i = 0; i < m_nBuilt; i++)
 	{
-		if (strcmp(g_TeBuilt[i].pClassName, block.pClassName))
+		if (strcmp(m_pBuilt[i]->pClassName, block.pClassName))
 			continue;
 
 		pOut->bExisted = 1;
-		pOut->nShapeHash = g_TeBuilt[i].nShapeHash;
+		pOut->nShapeHash = m_pBuilt[i]->nShapeHash;
 		return i;
 	}
 
 	// A ClientClass built after the engine's one walk of g_pClientClassHead would never
 	// resolve, so registration closes then.
-	if (g_bTeClosed || g_nTeBuilt >= SOURCESHARP_TE_CLIENT_MAX_TABLES)
+	if (m_bClosed || m_nBuilt >= kMaxTables)
 		return -1;
 
 	const int nProps = block.header.nProps;
@@ -242,7 +176,7 @@ int32_t SourceSharp_TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, 
 
 		// A nested table is one built before this one, by handle.
 		RecvTable* pNested =
-			(row.hDataTable >= 0 && row.hDataTable < g_nTeBuilt) ? g_TeBuilt[row.hDataTable].pTable : NULL;
+			(row.hDataTable >= 0 && row.hDataTable < m_nBuilt) ? m_pBuilt[row.hDataTable]->pTable : NULL;
 
 		if (!pName || !SourceSharpTe_StoreRecvProp(row, InternName(pName), pNested, &pProps[i]))
 		{
@@ -251,28 +185,27 @@ int32_t SourceSharp_TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, 
 		}
 	}
 
-	const int iHandle = g_nTeBuilt;
-	SourceSharpTeBuiltClient_t& built = g_TeBuilt[iHandle];
+	const int iHandle = m_nBuilt;
+	Built_t& built = *new Built_t;
+	m_pBuilt[iHandle] = &built;
 
 	built.pProps = pProps;
 	built.nProps = nProps;
 	built.pTable = new RecvTable(pProps, nProps, InternName(block.pTableName));
 	built.pClassName = InternName(block.pClassName);
 	built.nShapeHash = block.header.nShapeHash;
-	built.pClass = NULL;
-	built.pShell = NULL;
 
 	if (block.header.bRegisterClass)
 	{
-		built.pShell = new CSourceSharpTempEnt(built.pClassName, iHandle, nBlobBytes);
+		built.pShell = new CSourceSharpTempEnt(m_Areas, built.pClassName, iHandle, nBlobBytes);
 
 		// A CreateEventFn, not CreateClientClassFn: the engine treats the class as a one-shot with
 		// no entity index that is never released.
-		built.pClass = new ClientClass(built.pClassName, NULL, TeCreateEventFor(iHandle), built.pTable);
+		built.pClass = new ClientClass(built.pClassName, NULL, built.Create.Get(), built.pTable);
 		built.pShell->SetClientClass(built.pClass);
 	}
 
-	g_nTeBuilt = iHandle + 1;
+	m_nBuilt = iHandle + 1;
 
 	pOut->bExisted = 0;
 	pOut->nShapeHash = built.nShapeHash;
@@ -281,24 +214,24 @@ int32_t SourceSharp_TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, 
 
 // Closes registration and reports what got a ClientClass. Called once, after managed has
 // pushed its tables.
-void SourceSharp_TempEntClientCloseRegistration()
+void CTempEntTablesClient::TempEntClientCloseRegistration()
 {
-	if (g_bTeClosed)
+	if (m_bClosed)
 		return;
 
-	g_bTeClosed = true;
+	m_bClosed = true;
 
 	int nClasses = 0;
 
-	for (int i = 0; i < g_nTeBuilt; i++)
+	for (int i = 0; i < m_nBuilt; i++)
 	{
-		if (g_TeBuilt[i].pClass)
+		if (m_pBuilt[i]->pClass)
 			nClasses++;
 	}
 
 	Msg("[SourceSharp] temp entities: %d table(s), %d ClientClass(es); "
 		"registration closed\n",
-		g_nTeBuilt, nClasses);
+		m_nBuilt, nClasses);
 }
 
 // Prints every prop of every built table the engine holds; `TE|` lines are machine-read.
@@ -342,24 +275,22 @@ static int CountTablesNamed(const char* pName)
 	return nFound;
 }
 
-CON_COMMAND(cs_cl_te_dump, "Every registered temp entity: its props as the ENGINE holds them")
+void CTempEntTablesClient::Dump(const char* pWanted) const
 {
-	const char* pWanted = (args.ArgC() > 1) ? args[1] : NULL;
-
-	Msg("[SourceSharp] --- temp entities (client): %d table(s), registration %s ---\n", g_nTeBuilt,
-		g_bTeClosed ? "closed" : "OPEN");
+	Msg("[SourceSharp] --- temp entities (client): %d table(s), registration %s ---\n", m_nBuilt,
+		m_bClosed ? "closed" : "OPEN");
 
 	int nProps = 0;
 
-	for (int i = 0; i < g_nTeBuilt; i++)
+	for (int i = 0; i < m_nBuilt; i++)
 	{
-		RecvTable* pTable = g_TeBuilt[i].pTable;
+		RecvTable* pTable = m_pBuilt[i]->pTable;
 
-		if (pWanted && Q_stricmp(g_TeBuilt[i].pClassName, pWanted) && Q_stricmp(pTable->GetName(), pWanted))
+		if (pWanted && Q_stricmp(m_pBuilt[i]->pClassName, pWanted) && Q_stricmp(pTable->GetName(), pWanted))
 			continue;
 
-		Msg("%2d %-28s %-28s %s, %d prop(s)\n", i, g_TeBuilt[i].pClassName, pTable->GetName(),
-			g_TeBuilt[i].pClass ? "ClientClass" : "table only", pTable->GetNumProps());
+		Msg("%2d %-28s %-28s %s, %d prop(s)\n", i, m_pBuilt[i]->pClassName, pTable->GetName(),
+			m_pBuilt[i]->pClass ? "ClientClass" : "table only", pTable->GetNumProps());
 
 		// Two ClientClasses publishing one table name: which the engine picks is link order.
 		const int nSameName = CountTablesNamed(pTable->GetName());
@@ -396,6 +327,11 @@ CON_COMMAND(cs_cl_te_dump, "Every registered temp entity: its props as the ENGIN
 
 	Msg("[SourceSharp] --- %d prop(s) ---\n", nProps);
 
-	if (!g_bTeClosed)
+	if (!m_bClosed)
 		Warning("     registration is still OPEN, which it should not be after DLL init\n");
+}
+
+CON_COMMAND(cs_cl_te_dump, "Every registered temp entity: its props as the ENGINE holds them")
+{
+	ShellClientDll_TempEntTables().Dump((args.ArgC() > 1) ? args[1] : NULL);
 }

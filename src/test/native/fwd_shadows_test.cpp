@@ -1029,12 +1029,12 @@ IMaterial* Env_Material(int32_t id)
 	return MaterialOf(id);
 }
 
-int32_t Env_InitRenderTarget(const char* pszName, int32_t w, int32_t h, int32_t sizeMode, int32_t format, int32_t depth,
-							 int32_t hdr)
+int32_t Env_InitRenderTarget(const SSShadowRenderTarget* pTarget)
 {
-	Call(std::string("env.InitRenderTarget ") + (pszName ? pszName : "(null)") + " " + std::to_string(w) + " " +
-		 std::to_string(h) + " " + std::to_string(sizeMode) + " " + std::to_string(format) + " " +
-		 std::to_string(depth) + " " + std::to_string(hdr));
+	Call(std::string("env.InitRenderTarget ") + (pTarget->pszName ? pTarget->pszName : "(null)") + " " +
+		 std::to_string(pTarget->nWidth) + " " + std::to_string(pTarget->nHeight) + " " +
+		 std::to_string(pTarget->nSizeMode) + " " + std::to_string(pTarget->nFormat) + " " +
+		 std::to_string(pTarget->nDepth) + " " + std::to_string(pTarget->bHdr));
 	return 23;
 }
 

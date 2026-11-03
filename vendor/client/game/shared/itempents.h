@@ -103,5 +103,3 @@ public:
 	virtual void ClientProjectile(IRecipientFilter & filter, float delay, const Vector* vecOrigin,
 								  const Vector* vecVelocity, int modelindex, int lifetime, CBaseEntity* pOwner) = 0;
 };
-
-extern ITempEntsSystem* te;

@@ -101,8 +101,11 @@ enum
 	INPUT_PUBLISHED_THIRD_PERSON = 1 << 3,
 };
 
-CSourceSharpInput::CSourceSharpInput(const CManagedAreasClient& areas, CViewerFacts& viewerFacts)
+CSourceSharpInput::CSourceSharpInput(const CManagedAreasClient& areas, CViewerFacts& viewerFacts,
+									 CPrediction& prediction, CVoiceStatus& voiceStatus)
 	: m_Areas(areas)
+	, m_Prediction(prediction)
+	, m_VoiceStatus(voiceStatus)
 	, m_ViewerFacts(viewerFacts)
 	, m_pCommands(NULL)
 	, m_pVerifiedCommands(NULL)
@@ -679,10 +682,10 @@ void CSourceSharpInput::InputStopPitchDrift()
 
 void CSourceSharpInput::InputSetLocalViewAngles(const float* pAngles)
 {
-	if (!prediction || !pAngles)
+	if (!pAngles)
 		return;
 	QAngle angles(pAngles[0], pAngles[1], pAngles[2]);
-	prediction->SetLocalViewAngles(angles);
+	m_Prediction.SetLocalViewAngles(angles);
 }
 
 void CSourceSharpInput::InputViewerCameraModeChanged()
@@ -708,5 +711,5 @@ void CSourceSharpInput::InputShowScoreboard(int32_t bShow)
 
 	gViewPortInterface->ShowPanel(PANEL_SCOREBOARD, bShow != 0);
 	if (!bShow)
-		GetClientVoiceMgr()->StopSquelchMode();
+		m_VoiceStatus.StopSquelchMode();
 }

@@ -29,17 +29,16 @@
 #include "view.h"
 #include "vphysics_interface.h"
 
+#include "shell_managed_areas_client.h"
+
 class C_StandaloneEntity;
+class CNewParticlesClient;
 
 class CShellNewParticleEffect : public CDefaultClientRenderable
 {
 	DECLARE_REFERENCED_CLASS(CShellNewParticleEffect);
 
 public:
-	// The named system, allocated; the manager removes it when it finishes. A
-	// name no .pcf defines gives an effect that is not IsValid, as stock's did.
-	static CSmartPtr<CShellNewParticleEffect> Create(const char* pszName, const char* pszDebugName = NULL);
-
 	bool IsValid() const { return m_pCollection && m_pCollection->IsValid(); }
 
 	const char* GetEffectName() const { return m_pCollection ? m_pCollection->GetName() : ""; }
@@ -99,10 +98,14 @@ public:
 	void Remove();
 
 private:
-	CShellNewParticleEffect(CParticleCollection* pCollection, const char* pszDebugName);
+	friend class CNewParticlesClient;
+
+	CShellNewParticleEffect(CNewParticlesClient& owner, CParticleCollection* pCollection, const char* pszDebugName,
+							uint32_t nId);
 	virtual ~CShellNewParticleEffect();
 	CShellNewParticleEffect(const CShellNewParticleEffect&); // not defined
 
+	CNewParticlesClient& m_Owner;
 	CParticleCollection* m_pCollection;
 	const char* m_pDebugName;
 	uint32_t m_nId;
@@ -119,13 +122,42 @@ private:
 	CBaseHandle m_hControlPointOwners[MAX_PARTICLE_CONTROL_POINTS];
 };
 
-// The live effects, newest first (stock's AddToHead order).
-int ShellNewParticles_Count();
-CShellNewParticleEffect* ShellNewParticles_At(int nIndex);
+// The live effects as one object, a member of the client DLL object: their list, newest
+// first (stock's AddToHead order), and the new-effect half of the frame.
+class CNewParticlesClient
+{
+public:
+	explicit CNewParticlesClient(const CManagedAreasClient& areas)
+		: m_Areas(areas)
+	{
+	}
 
-// The new-effect half of the frame: managed decides, this carries it out.
-// Called where CParticleMgr::Simulate runs.
-void ShellNewParticles_Frame(float flFrameTime);
+	CNewParticlesClient(const CNewParticlesClient&) = delete;
+	CNewParticlesClient& operator=(const CNewParticlesClient&) = delete;
 
-// CParticleMgr::RemoveAllNewEffects: level shutdown and the particle reload.
-void ShellNewParticles_RemoveAll();
+	// NULL outside a managed load.
+	IManagedParticlesClient* Managed() const { return m_Areas.m_pParticlesClient; }
+
+	// The named system, allocated; the manager removes it when it finishes. A name no .pcf
+	// defines gives an effect that is not IsValid, as stock's did.
+	CSmartPtr<CShellNewParticleEffect> Create(const char* pszName, const char* pszDebugName = NULL);
+
+	// Managed decides, this carries it out. Called where CParticleMgr::Simulate runs.
+	void Frame(float flFrameTime);
+
+	// CParticleMgr::RemoveAllNewEffects: level shutdown and the particle reload.
+	void RemoveAll();
+
+private:
+	friend class CShellNewParticleEffect;
+
+	const CManagedAreasClient& m_Areas;
+
+	// Ids rise with creation, so falling id order.
+	CUtlVector<CShellNewParticleEffect*> m_Effects;
+	uint32_t m_nNextId = 0;
+};
+
+// The probe build's particle sweep, started from a console command, asks for this.
+// Defined in shell_clientdll.cpp.
+CNewParticlesClient& ShellClientDll_NewParticles();

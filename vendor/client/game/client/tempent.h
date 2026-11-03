@@ -57,6 +57,7 @@
 
 class C_LocalTempEntity;
 struct CManagedAreasClient;
+class CTempEnts;
 class IManagedFxClient;
 
 typedef int (*pfnDrawHelper)(C_LocalTempEntity* entity, int flags);
@@ -162,6 +163,10 @@ public:
 	// SourceSharp -- the managed areas the tempent's draw asks, handed by its owner:
 	// CTempEnts::PoolCreateObject makes every tempent, and sets them before it answers.
 	void SetManagedAreas(const CManagedAreasClient& areas) { m_pAreas = &areas; }
+
+	void SetPool(CTempEnts& pool) { m_pPool = &pool; }
+
+	CTempEnts& Pool() const { return *m_pPool; }
 
 	IManagedFxClient* ManagedFx() const;
 
@@ -376,4 +381,5 @@ private:
 
 private:
 	const CManagedAreasClient* m_pAreas;
+	CTempEnts* m_pPool;
 };

@@ -26,7 +26,7 @@
 #include "Sprite.h"
 
 #include "shell_effect_ledger.h"
-#include "shell_beam_render.h"
+#include "shell_sprites_client.h"
 
 #include "imanaged_areas_client.h"
 #include "shell_standalone_client.h"
@@ -110,37 +110,18 @@ static pixelvis_handle_t HandleOf(float f)
 
 COMPILE_TIME_ASSERT(sizeof(pixelvis_handle_t) == sizeof(float));
 
-// Where the direct path's plan stores the query handle back. Sprites draw one at a time on
-// the render thread, so one slot is enough; NULL outside a plan.
-static pixelvis_handle_t* s_pPlanQuery = NULL;
-
-// The blend the last request was gathered under.
-static float s_flDirectBlend = 0.0f;
-
-static void PutSpriteVector(float* p, const Vector& v)
+static void PutVector(float* p, const Vector& v)
 {
 	p[0] = v.x;
 	p[1] = v.y;
 	p[2] = v.z;
 }
 
-static unsigned int s_nHDRColorScaleCache = 0;
-
-// What the draw needs that the plan does not carry.
-struct SpritePending_t
-{
-	CEngineSprite* pSprite;
-	const model_t* pModel;
-	IClientEntity* pEntity;
-	float flFrame;
-	int nRenderMode;
-};
-
 // False when there is nothing to plan (no sprite model, no managed half).
-static bool GatherSprite(IClientEntity* entity, const model_t* model, const Vector& origin, const QAngle& angles,
-						 float frame, IClientEntity* attachedto, int attachmentindex, int rendermode, int renderfx,
-						 int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale, float flHDRColorScale,
-						 float flGlowProxySize, float* in, SpritePending_t& pending)
+bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const Vector& origin, const QAngle& angles,
+							float frame, IClientEntity* attachedto, int attachmentindex, int rendermode, int renderfx,
+							int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale, float flHDRColorScale,
+							float flGlowProxySize, float* in, Pending_t& pending)
 {
 	if (!model || modelinfo->GetModelType(model) != mod_sprite)
 		return false;
@@ -184,10 +165,10 @@ static bool GatherSprite(IClientEntity* entity, const model_t* model, const Vect
 	// The render's blend, or while managed prepares a view's draw batch, the one that
 	// entity's DrawModel will find.
 	in[SS_SPRITE_IN_BLEND] = SourceSharp_StandaloneDrawBatchBlend(entity, render->GetBlend());
-	s_flDirectBlend = in[SS_SPRITE_IN_BLEND];
-	PutSpriteVector(in + SS_SPRITE_IN_VIEW_FORWARD, CurrentViewForward());
-	PutSpriteVector(in + SS_SPRITE_IN_VIEW_RIGHT, CurrentViewRight());
-	PutSpriteVector(in + SS_SPRITE_IN_VIEW_UP, CurrentViewUp());
+	m_flDirectBlend = in[SS_SPRITE_IN_BLEND];
+	PutVector(in + SS_SPRITE_IN_VIEW_FORWARD, CurrentViewForward());
+	PutVector(in + SS_SPRITE_IN_VIEW_RIGHT, CurrentViewRight());
+	PutVector(in + SS_SPRITE_IN_VIEW_UP, CurrentViewUp());
 	in[SS_SPRITE_IN_GLOW_PROXY_SIZE] = flGlowProxySize;
 
 	pending.pSprite = psprite;
@@ -199,7 +180,7 @@ static bool GatherSprite(IClientEntity* entity, const model_t* model, const Vect
 }
 
 // Carry out a plan: the blend, then the quad.
-static int ExecuteSprite(const SpritePending_t& pending, const float* out)
+int CSpritesClient::Execute(const Pending_t& pending, const float* out)
 {
 	if (out[SS_SPRITE_OUT_SET_BLEND] != 0.0f)
 		render->SetBlend(out[SS_SPRITE_OUT_BLEND]);
@@ -220,7 +201,7 @@ static int ExecuteSprite(const SpritePending_t& pending, const float* out)
 				pRenderContext->Bind(material, (IClientRenderable*)pending.pEntity);
 			}
 
-			IMaterialVar* pHDRColorScaleVar = material->FindVarFast("$HDRCOLORSCALE", &s_nHDRColorScaleCache);
+			IMaterialVar* pHDRColorScaleVar = material->FindVarFast("$HDRCOLORSCALE", &m_nHDRColorScaleCache);
 			if (pHDRColorScaleVar)
 			{
 				const float flHDR = out[SS_SPRITE_OUT_HDR_COLOR_SCALE];
@@ -256,19 +237,19 @@ static int ExecuteSprite(const SpritePending_t& pending, const float* out)
 }
 
 // A draw native starts: asks the managed planner once.
-int SourceSharp_PlanSprite(pixelvis_handle_t* pQuery, IClientEntity* entity, const model_t* model, const Vector& origin,
-						   const QAngle& angles, float frame, IClientEntity* attachedto, int attachmentindex,
-						   int rendermode, int renderfx, int alpha, int r, int g, int b, float scale,
-						   bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize)
+int CSpritesClient::PlanSprite(pixelvis_handle_t* pQuery, IClientEntity* entity, const model_t* model,
+							   const Vector& origin, const QAngle& angles, float frame, IClientEntity* attachedto,
+							   int attachmentindex, int rendermode, int renderfx, int alpha, int r, int g, int b,
+							   float scale, bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize)
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = m_Areas.m_pFxClient;
 	if (!pFx)
 		return 0;
 
 	float in[SS_SPRITE_IN_FLOATS];
-	SpritePending_t pending;
-	if (!GatherSprite(entity, model, origin, angles, frame, attachedto, attachmentindex, rendermode, renderfx, alpha, r,
-					  g, b, scale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, in, pending))
+	Pending_t pending;
+	if (!Gather(entity, model, origin, angles, frame, attachedto, attachmentindex, rendermode, renderfx, alpha, r, g, b,
+				scale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, in, pending))
 		return 0;
 	in[SS_SPRITE_IN_QUERY_HANDLE] = HandleBits(pQuery ? *pQuery : 0);
 
@@ -280,109 +261,85 @@ int SourceSharp_PlanSprite(pixelvis_handle_t* pQuery, IClientEntity* entity, con
 	if (pQuery)
 		*pQuery = HandleOf(out[SS_SPRITE_OUT_QUERY_HANDLE]);
 
-	return ExecuteSprite(pending, out);
+	return Execute(pending, out);
 }
 
 // A draw managed starts plans between these two calls. Begin reads the request and keeps
 // the query handle; End carries the plan out, or drops the draw when handed NULL.
-static SpritePending_t s_DirectPending;
-static bool s_bDirectPending = false;
-
-int SourceSharp_SpriteDrawBegin(pixelvis_handle_t* pQuery, IClientEntity* entity, const model_t* model,
-								const Vector& origin, const QAngle& angles, float frame, int rendermode, int renderfx,
-								int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale,
-								float flHDRColorScale, float flGlowProxySize, float* pIn)
+int CSpritesClient::DrawBegin(pixelvis_handle_t* pQuery, IClientEntity* entity, const model_t* model,
+							  const Vector& origin, const QAngle& angles, float frame, int rendermode, int renderfx,
+							  int alpha, int r, int g, int b, float scale, bool bWorldSpaceScale, float flHDRColorScale,
+							  float flGlowProxySize, float* pIn)
 {
-	s_bDirectPending = false;
-	s_pPlanQuery = NULL;
+	m_bDirectPending = false;
+	m_pPlanQuery = NULL;
 
 	if (!pIn ||
-		!GatherSprite(entity, model, origin, angles, frame, NULL, 0, rendermode, renderfx, alpha, r, g, b, scale,
-					  bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn, s_DirectPending))
+		!Gather(entity, model, origin, angles, frame, NULL, 0, rendermode, renderfx, alpha, r, g, b, scale,
+				bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn, m_DirectPending))
 		return 0;
 	pIn[SS_SPRITE_IN_QUERY_HANDLE] = HandleBits(pQuery ? *pQuery : 0);
 
-	s_bDirectPending = true;
-	s_pPlanQuery = pQuery;
+	m_bDirectPending = true;
+	m_pPlanQuery = pQuery;
 	return SS_SPRITE_IN_FLOATS;
 }
 
 // The direct path's handle, as the plan left it, back on the renderer.
-static void StorePlanQuery(const float* pOut)
+void CSpritesClient::StorePlanQuery(const float* pOut)
 {
-	if (s_pPlanQuery && pOut)
-		*s_pPlanQuery = HandleOf(pOut[SS_SPRITE_OUT_QUERY_HANDLE]);
+	if (m_pPlanQuery && pOut)
+		*m_pPlanQuery = HandleOf(pOut[SS_SPRITE_OUT_QUERY_HANDLE]);
 }
 
-int32_t SourceSharp_FxSpriteDrawEnd(const float* pOut)
+int32_t CSpritesClient::FxSpriteDrawEnd(const float* pOut)
 {
-	const bool bPending = s_bDirectPending;
+	const bool bPending = m_bDirectPending;
 	StorePlanQuery(pOut);
-	s_bDirectPending = false;
-	s_pPlanQuery = NULL;
+	m_bDirectPending = false;
+	m_pPlanQuery = NULL;
 
 	if (!bPending || !pOut)
 		return 0;
 
-	return ExecuteSprite(s_DirectPending, pOut);
+	return Execute(m_DirectPending, pOut);
 }
 
-// The batched path: a plan kept against its entity with its blend, carried out when the
-// entity's DrawModel comes round.
-struct SpriteStored_t
+// The batched path.
+int32_t CSpritesClient::FxSpriteDrawStore(const float* pOut)
 {
-	SpritePending_t pending;
-	float out[SS_SPRITE_OUT_FLOATS];
-	float flBlend;
-};
-
-static CUtlMap<IClientEntity*, SpriteStored_t> s_StoredSprites(DefLessFunc(IClientEntity*));
-
-int32_t SourceSharp_FxSpriteDrawStore(const float* pOut)
-{
-	const bool bPending = s_bDirectPending;
+	const bool bPending = m_bDirectPending;
 	StorePlanQuery(pOut);
-	s_bDirectPending = false;
-	s_pPlanQuery = NULL;
+	m_bDirectPending = false;
+	m_pPlanQuery = NULL;
 
 	if (!bPending || !pOut)
 		return 0;
 
-	SpriteStored_t stored;
-	stored.pending = s_DirectPending;
+	Stored_t stored;
+	stored.pending = m_DirectPending;
 	memcpy(stored.out, pOut, sizeof(stored.out));
-	stored.flBlend = s_flDirectBlend;
-	s_StoredSprites.InsertOrReplace(s_DirectPending.pEntity, stored);
+	stored.flBlend = m_flDirectBlend;
+	m_Stored.InsertOrReplace(m_DirectPending.pEntity, stored);
 	return 1;
 }
 
-int SourceSharp_SpriteExecuteStored(IClientEntity* pEntity, float flBlendNow)
+int CSpritesClient::ExecuteStored(IClientEntity* pEntity, float flBlendNow)
 {
-	const unsigned short i = s_StoredSprites.Find(pEntity);
-	if (i == s_StoredSprites.InvalidIndex())
+	const unsigned short i = m_Stored.Find(pEntity);
+	if (i == m_Stored.InvalidIndex())
 		return -2;
-	const SpriteStored_t stored = s_StoredSprites[i];
-	s_StoredSprites.RemoveAt(i);
+	const Stored_t stored = m_Stored[i];
+	m_Stored.RemoveAt(i);
 	if (stored.flBlend != flBlendNow)
 		return -1;
 
-	return ExecuteSprite(stored.pending, stored.out);
+	return Execute(stored.pending, stored.out);
 }
 
-void SourceSharp_SpriteStoredClear()
+void CSpritesClient::StoredClear()
 {
-	s_StoredSprites.RemoveAll();
-}
-
-// The stock proxy size, and a scale already in multiples of the sprite's size.
-int C_SpriteRenderer::DrawSprite(IClientEntity* entity, const model_t* model, const Vector& origin,
-								 const QAngle& angles, float frame, IClientEntity* attachedto, int attachmentindex,
-								 int rendermode, int renderfx, int alpha, int r, int g, int b, float scale,
-								 float flHDRColorScale)
-{
-	return SourceSharp_PlanSprite(&m_queryHandle, entity, model, origin, angles, frame, attachedto, attachmentindex,
-								  rendermode, renderfx, alpha, r, g, b, scale, /*bWorldSpaceScale=*/false,
-								  flHDRColorScale, PIXELVIS_DEFAULT_PROXY_SIZE);
+	m_Stored.RemoveAll();
 }
 
 // Virtual in Sprite.h, so C_LocalTempEntity's vtable names it. The glow blend is decided
@@ -509,14 +466,13 @@ KeyValues* ReadSpriteKey(SpriteBlockReader& r, int nDepth)
 }
 } // namespace
 
-bool CEngineSprite::Init(const char* pName)
+bool CEngineSprite::Init(const char* pName, IManagedMaterialFilesClient* pFiles)
 {
 	m_VideoMaterial = NULL;
 	m_width = m_height = m_numFrames = 1;
 	for (int nMode = 0; nMode < kRenderModeCount; nMode++)
 		m_material[nMode] = NULL;
 
-	IManagedMaterialFilesClient* pFiles = ManagedMaterialFilesClient();
 	if (!pFiles)
 	{
 		Warning("[SourceSharp] sprite %s: no managed load to read its material\n", pName);

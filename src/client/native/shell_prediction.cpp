@@ -21,7 +21,7 @@
 #include "util_shared.h"
 
 #include "entity_prediction_seed.h"
-#include "prediction.h"
+#include "shell_prediction_client.h"
 #include "ipredictionsystem.h"
 
 #include "shell_standalone_client.h"
@@ -134,48 +134,29 @@ void CPrediction::GetLocalViewAngles(QAngle& ang)
 
 void CPrediction::SetLocalViewAngles(QAngle& /*ang*/) {}
 
-// The singleton the engine asks for by name. It overrides the two methods that carry the
-// numbers the managed replay needs and calls up for the rest.
-
-// Set by PostNetworkDataReceived, spent by the next Update: compares run only after a
-// world update, since between packets the state cannot have moved.
-static bool g_bWorldUpdateArrived = false;
-
-class CSourceSharpPrediction : public CPrediction
+void CSourceSharpPrediction::Update(int startframe, bool validframe, int incoming_acknowledged, int outgoing_command)
 {
-	DECLARE_CLASS(CSourceSharpPrediction, CPrediction);
+	// The base first: with no C_BasePlayer it only keeps stock's two clocks.
+	BaseClass::Update(startframe, validframe, incoming_acknowledged, outgoing_command);
 
-public:
-	virtual void Update(int startframe, bool validframe, int incoming_acknowledged, int outgoing_command) OVERRIDE
+	if (IManagedPredictionClient* pPrediction = m_Areas.m_pPredictionClient)
 	{
-		// The base first: with no C_BasePlayer it only keeps stock's two clocks.
-		BaseClass::Update(startframe, validframe, incoming_acknowledged, outgoing_command);
-
-		if (IManagedPredictionClient* pPrediction = ManagedPredictionClient())
-		{
-			pPrediction->ClientPredictionUpdate(startframe, validframe ? 1 : 0, incoming_acknowledged, outgoing_command,
-												g_bWorldUpdateArrived ? 1 : 0);
-		}
-
-		// Spent even without managed, or the first frame after the runtime came up would compare
-		// against a stale packet.
-		g_bWorldUpdateArrived = false;
+		pPrediction->ClientPredictionUpdate(startframe, validframe ? 1 : 0, incoming_acknowledged, outgoing_command,
+											m_bWorldUpdateArrived ? 1 : 0);
 	}
 
-	virtual void PostNetworkDataReceived(int commands_acknowledged) OVERRIDE
-	{
-		// A delta, not a command number: only record the arrival.
-		g_bWorldUpdateArrived = true;
+	// Spent even without managed, or the first frame after the runtime came up would compare
+	// against a stale packet.
+	m_bWorldUpdateArrived = false;
+}
 
-		BaseClass::PostNetworkDataReceived(commands_acknowledged);
-	}
-};
+void CSourceSharpPrediction::PostNetworkDataReceived(int commands_acknowledged)
+{
+	// A delta, not a command number: only record the arrival.
+	m_bWorldUpdateArrived = true;
 
-static CSourceSharpPrediction g_Prediction;
-CPrediction* prediction = &g_Prediction;
-
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CSourceSharpPrediction, IPrediction, VCLIENT_PREDICTION_INTERFACE_VERSION,
-								  g_Prediction);
+	BaseClass::PostNetworkDataReceived(commands_acknowledged);
+}
 
 // One command out of the engine's input ring, by absolute command number. 0 when the ring
 // does not hold it, which ends the frame's replay as stock's loop does.

@@ -2,7 +2,6 @@
 #pragma once
 
 #include "hud.h"
-#include "hud_element_helper.h"
 
 #include "GameEventListener.h"
 

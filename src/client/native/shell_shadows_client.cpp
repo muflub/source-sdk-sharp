@@ -55,161 +55,116 @@
 namespace
 {
 
-// The references, by id (0 is none). A freed slot is reused; a live slot's id is never
-// handed out.
-template <typename T>
-class CReferenceTable
-{
-public:
-	int32_t Add(T* p)
-	{
-		for (int i = 0; i < m_Slots.Count(); ++i)
-		{
-			if (!m_Slots[i])
-			{
-				m_Slots[i] = p;
-				return i + 1;
-			}
-		}
-		m_Slots.AddToTail(p);
-		return m_Slots.Count();
-	}
+} // namespace
 
-	T* Find(int32_t id) const { return (id >= 1 && id <= m_Slots.Count()) ? m_Slots[id - 1] : NULL; }
-
-	T* Remove(int32_t id)
-	{
-		T* p = Find(id);
-		if (p)
-			m_Slots[id - 1] = NULL;
-		return p;
-	}
-
-private:
-	CUtlVector<T*> m_Slots;
-};
-
-CReferenceTable<CMaterialReference> s_Materials;
-CReferenceTable<CTextureReference> s_Textures;
-
-// Held for the DLL's life so the pointer the engine keeps in a FlashlightState_t stays
-// referenced.
-const int kMaxFlashlightTextures = 4;
-CTextureReference* s_FlashlightTextures[kMaxFlashlightTextures];
-char s_szFlashlightTextureNames[kMaxFlashlightTextures][MAX_PATH];
-int s_nFlashlightTextures = 0;
-
-int32_t InitMaterial(const char* pszName, const char* pszGroup)
+int32_t CShadowsClient::InitMaterial(const char* pszName, const char* pszGroup)
 {
 	if (!pszName || !pszGroup)
 		return 0;
 	CMaterialReference* p = new CMaterialReference;
 	p->Init(pszName, pszGroup);
-	return s_Materials.Add(p);
+	return m_Materials.Add(p);
 }
 
-void ShutdownMaterial(int32_t id)
+void CShadowsClient::ShutdownMaterial(int32_t id)
 {
-	if (CMaterialReference* p = s_Materials.Remove(id))
+	if (CMaterialReference* p = m_Materials.Remove(id))
 	{
 		p->Shutdown();
 		delete p;
 	}
 }
 
-IMaterial* Material(int32_t id)
+IMaterial* CShadowsClient::Material(int32_t id)
 {
-	CMaterialReference* p = s_Materials.Find(id);
+	CMaterialReference* p = m_Materials.Find(id);
 	return p ? (IMaterial*)*p : NULL;
 }
 
-int32_t InitRenderTarget(const char* pszName, int32_t w, int32_t h, int32_t nSizeMode, int32_t nFormat, int32_t nDepth,
-						 int32_t bHdr)
+int32_t CShadowsClient::InitRenderTarget(const SSShadowRenderTarget* pTarget)
 {
-	if (!pszName)
+	if (!pTarget || !pTarget->pszName)
 		return 0;
 	char szName[MAX_PATH];
-	V_strncpy(szName, pszName, sizeof(szName));
+	V_strncpy(szName, pTarget->pszName, sizeof(szName));
 	CTextureReference* p = new CTextureReference;
-	p->InitRenderTarget(w, h, (RenderTargetSizeMode_t)nSizeMode, (ImageFormat)nFormat,
-						(MaterialRenderTargetDepth_t)nDepth, bHdr != 0, szName);
-	return s_Textures.Add(p);
+	p->InitRenderTarget(pTarget->nWidth, pTarget->nHeight, (RenderTargetSizeMode_t)pTarget->nSizeMode,
+						(ImageFormat)pTarget->nFormat, (MaterialRenderTargetDepth_t)pTarget->nDepth, pTarget->bHdr != 0,
+						szName);
+	return m_Textures.Add(p);
 }
 
-void ShutdownTexture(int32_t id)
+void CShadowsClient::ShutdownTexture(int32_t id)
 {
-	if (CTextureReference* p = s_Textures.Remove(id))
+	if (CTextureReference* p = m_Textures.Remove(id))
 	{
 		p->Shutdown();
 		delete p;
 	}
 }
 
-ITexture* Texture(int32_t id)
+ITexture* CShadowsClient::Texture(int32_t id)
 {
-	CTextureReference* p = s_Textures.Find(id);
+	CTextureReference* p = m_Textures.Find(id);
 	return p ? (ITexture*)*p : NULL;
 }
 
-ITexture* FlashlightTexture(int32_t nIndex)
+ITexture* CShadowsClient::FlashlightTextureAt(int32_t nIndex)
 {
-	return (nIndex >= 0 && nIndex < s_nFlashlightTextures) ? (ITexture*)*s_FlashlightTextures[nIndex] : NULL;
+	return (nIndex >= 0 && nIndex < m_nFlashlightTextures) ? (ITexture*)*m_FlashlightTextures[nIndex] : NULL;
 }
 
-// The queue rides in PreRender's arguments; any other call hands it over first, so its
-// entries reach the manager in order before the call's own work.
-CShadowPendingQueue s_Queue;
-
-void HandOverToManaged(const int32_t* pEntries, int32_t nCount, void*)
+// The queue's sink takes a context.
+void CShadowsClient::HandOverToManaged(const int32_t* pEntries, int32_t nCount, void* pContext)
 {
-	if (IManagedShadowsClient* pManaged = ManagedShadowsClient())
+	if (IManagedShadowsClient* pManaged = static_cast<CShadowsClient*>(pContext)->Managed())
 		pManaged->Pending(pEntries, nCount);
 }
 
-IManagedShadowsClient* Target()
+IManagedShadowsClient* CShadowsClient::Target()
 {
-	IManagedShadowsClient* pManaged = ManagedShadowsClient();
+	IManagedShadowsClient* pManaged = Managed();
 	if (!pManaged)
 	{
-		s_Queue.Clear();
+		m_Queue.Clear();
 		return NULL;
 	}
-	if (s_Queue.Count() > 0)
-		s_Queue.HandOver();
+	if (m_Queue.Count() > 0)
+		m_Queue.HandOver();
 	return pManaged;
 }
 
 // The manager for a call that carries the queue; with none, the queue is dropped.
-IManagedShadowsClient* Carrier()
+IManagedShadowsClient* CShadowsClient::Carrier()
 {
-	IManagedShadowsClient* pManaged = ManagedShadowsClient();
+	IManagedShadowsClient* pManaged = Managed();
 	if (!pManaged)
-		s_Queue.Clear();
+		m_Queue.Clear();
 	return pManaged;
 }
 
-void ShadowRestoreFunc(int)
+void CShadowsClient::RestoreRenderState(int)
 {
 	if (IManagedShadowsClient* pManaged = Target())
 		pManaged->RestoreRenderState();
 }
 
-void AddRestoreFunc()
+void CShadowsClient::AddRestoreFunc()
 {
-	materials->AddRestoreFunc(ShadowRestoreFunc);
+	materials->AddRestoreFunc(m_RestoreFunc.Get());
 }
 
-void RemoveRestoreFunc()
+void CShadowsClient::RemoveRestoreFunc()
 {
-	materials->RemoveRestoreFunc(ShadowRestoreFunc);
+	materials->RemoveRestoreFunc(m_RestoreFunc.Get());
 }
 
-int32_t ToolsMode()
+static int32_t ToolsMode()
 {
 	return CommandLine()->CheckParm("-tools") ? 1 : 0;
 }
 
-IClientRenderable* RenderableOf(uint32_t hEntity)
+static IClientRenderable* RenderableOf(uint32_t hEntity)
 {
 	const CBaseHandle h((int)(hEntity & ENT_ENTRY_MASK), (int)(hEntity >> NUM_SERIAL_NUM_SHIFT_BITS));
 	IClientUnknown* pUnknown = NULL;
@@ -220,13 +175,13 @@ IClientRenderable* RenderableOf(uint32_t hEntity)
 	return pUnknown ? pUnknown->GetClientRenderable() : NULL;
 }
 
-void UpdateShadowDepthTexture(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView)
+static void UpdateShadowDepthTexture(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView)
 {
 	view->UpdateShadowDepthTexture(pRenderTarget, pDepthTexture, shadowView);
 }
 
 // cl_drawshadowtexture's quad: one w by h quad, counter-clockwise from the origin.
-void DrawTextureQuad(IMaterial* pMaterial, float w, float h)
+static void DrawTextureQuad(IMaterial* pMaterial, float w, float h)
 {
 	CMatRenderContextPtr pRenderContext(materials);
 	pRenderContext->Bind(pMaterial);
@@ -246,141 +201,122 @@ void DrawTextureQuad(IMaterial* pMaterial, float w, float h)
 	pMesh->Draw();
 }
 
-SSShadowEnv s_ShadowEnv;
-
-void BuildEnv()
+void CShadowsClient::BuildEnv()
 {
-	s_ShadowEnv.ppShadowMgr = &shadowmgr;
-	s_ShadowEnv.ppStaticPropMgr = &staticpropmgr;
-	s_ShadowEnv.ppMaterials = &materials;
-	s_ShadowEnv.ppHardwareConfig = &g_pMaterialSystemHardwareConfig;
-	s_ShadowEnv.ppModelRender = &modelrender;
-	s_ShadowEnv.ppRender = &render;
-	s_ShadowEnv.ppEngine = &engine;
-	s_ShadowEnv.ppModelInfo = &modelinfo;
-	s_ShadowEnv.ppDebugOverlay = &debugoverlay;
-	s_ShadowEnv.ppGlobals = reinterpret_cast<CGlobalVarsBase* const*>(&gpGlobals);
-	s_ShadowEnv.pfnInitMaterial = InitMaterial;
-	s_ShadowEnv.pfnShutdownMaterial = ShutdownMaterial;
-	s_ShadowEnv.pfnMaterial = Material;
-	s_ShadowEnv.pfnInitRenderTarget = InitRenderTarget;
-	s_ShadowEnv.pfnShutdownTexture = ShutdownTexture;
-	s_ShadowEnv.pfnTexture = Texture;
-	s_ShadowEnv.pfnFlashlightTexture = FlashlightTexture;
-	s_ShadowEnv.pfnAddRestoreFunc = AddRestoreFunc;
-	s_ShadowEnv.pfnRemoveRestoreFunc = RemoveRestoreFunc;
-	s_ShadowEnv.pfnToolsMode = ToolsMode;
-	s_ShadowEnv.pfnRenderableOf = RenderableOf;
-	s_ShadowEnv.pfnUpdateShadowDepthTexture = UpdateShadowDepthTexture;
-	s_ShadowEnv.pfnDrawTextureQuad = DrawTextureQuad;
+	m_Env.ppShadowMgr = &shadowmgr;
+	m_Env.ppStaticPropMgr = &staticpropmgr;
+	m_Env.ppMaterials = &materials;
+	m_Env.ppHardwareConfig = &g_pMaterialSystemHardwareConfig;
+	m_Env.ppModelRender = &modelrender;
+	m_Env.ppRender = &render;
+	m_Env.ppEngine = &engine;
+	m_Env.ppModelInfo = &modelinfo;
+	m_Env.ppDebugOverlay = &debugoverlay;
+	m_Env.ppGlobals = reinterpret_cast<CGlobalVarsBase* const*>(&gpGlobals);
+	m_Env.pfnInitMaterial = m_InitMaterial.Get();
+	m_Env.pfnShutdownMaterial = m_ShutdownMaterial.Get();
+	m_Env.pfnMaterial = m_Material.Get();
+	m_Env.pfnInitRenderTarget = m_InitRenderTarget.Get();
+	m_Env.pfnShutdownTexture = m_ShutdownTexture.Get();
+	m_Env.pfnTexture = m_Texture.Get();
+	m_Env.pfnFlashlightTexture = m_FlashlightTexture.Get();
+	m_Env.pfnAddRestoreFunc = m_AddRestoreFunc.Get();
+	m_Env.pfnRemoveRestoreFunc = m_RemoveRestoreFunc.Get();
+	m_Env.pfnToolsMode = ToolsMode;
+	m_Env.pfnRenderableOf = RenderableOf;
+	m_Env.pfnUpdateShadowDepthTexture = UpdateShadowDepthTexture;
+	m_Env.pfnDrawTextureQuad = DrawTextureQuad;
 }
 
 // The five stages stock's CClientShadowMgr had bodies for, each one managed call. With
 // no managed load Init does not refuse.
-class CShadowMgrGameSystem final : public CClientSystemPerFrame
+char const* CShadowsClient::CSystemRow::Name()
 {
-public:
-	CShadowMgrGameSystem()
-		: CClientSystemPerFrame("CClientShadowMgr")
-	{
-	}
+	return "CClientShadowMgr";
+}
 
-	char const* Name() override { return "CClientShadowMgr"; }
+bool CShadowsClient::CSystemRow::Init()
+{
+	IManagedShadowsClient* pManaged = m_Shadows.Target();
+	return !pManaged || pManaged->Init() != 0;
+}
 
-	bool Init() override
-	{
-		IManagedShadowsClient* pManaged = Target();
-		return !pManaged || pManaged->Init() != 0;
-	}
+void CShadowsClient::CSystemRow::Shutdown()
+{
+	if (IManagedShadowsClient* pManaged = m_Shadows.Target())
+		pManaged->Shutdown();
+}
 
-	void Shutdown() override
-	{
-		if (IManagedShadowsClient* pManaged = Target())
-			pManaged->Shutdown();
-	}
+void CShadowsClient::CSystemRow::LevelInitPreEntity()
+{
+	if (IManagedShadowsClient* pManaged = m_Shadows.Target())
+		pManaged->LevelInitPreEntity();
+}
 
-	void LevelInitPreEntity() override
-	{
-		if (IManagedShadowsClient* pManaged = Target())
-			pManaged->LevelInitPreEntity();
-	}
+void CShadowsClient::CSystemRow::LevelShutdownPostEntity()
+{
+	if (IManagedShadowsClient* pManaged = m_Shadows.Target())
+		pManaged->LevelShutdownPostEntity();
+}
 
-	void LevelShutdownPostEntity() override
-	{
-		if (IManagedShadowsClient* pManaged = Target())
-			pManaged->LevelShutdownPostEntity();
-	}
-
-	void PreRender() override { ShellShadows_PreRender(); }
-};
-
-CShadowMgrGameSystem s_ShadowGameSystem;
-
-} // namespace
+void CShadowsClient::CSystemRow::PreRender()
+{
+	m_Shadows.PreRender();
+}
 
 // Built on the first ask: the engine interfaces it points at are set after load.
-void* ShadowEnv_Acquire()
+void* CShadowsClient::AcquireEnv()
 {
-	if (!s_ShadowEnv.pfnRenderableOf)
+	if (!m_Env.pfnRenderableOf)
 		BuildEnv();
-	s_Queue.SetSink(HandOverToManaged, NULL);
-	return &s_ShadowEnv;
+	m_Queue.SetSink(HandOverToManaged, this);
+	return &m_Env;
 }
 
-void ShellShadows_MarkDirty(const CBaseHandle& hEntity, bool bTextureDirty)
+void CShadowsClient::MarkDirty(const CBaseHandle& hEntity, bool bTextureDirty)
 {
-	s_Queue.SetSink(HandOverToManaged, NULL);
-	s_Queue.Dirty((uint32_t)hEntity.ToInt(), bTextureDirty ? 1 : 0);
+	m_Queue.SetSink(HandOverToManaged, this);
+	m_Queue.Dirty((uint32_t)hEntity.ToInt(), bTextureDirty ? 1 : 0);
 }
 
-void ShellShadows_Refresh(const CBaseHandle& hEntity, int nShadowType, int nShadowFlags)
+void CShadowsClient::Refresh(const CBaseHandle& hEntity, int nShadowType, int nShadowFlags)
 {
-	s_Queue.SetSink(HandOverToManaged, NULL);
-	s_Queue.Refresh((uint32_t)hEntity.ToInt(), (nShadowType & 0xFF) | ((nShadowFlags & 0xFFFF) << 8));
+	m_Queue.SetSink(HandOverToManaged, this);
+	m_Queue.Refresh((uint32_t)hEntity.ToInt(), (nShadowType & 0xFF) | ((nShadowFlags & 0xFFFF) << 8));
 }
 
-void ShellShadows_Destroy(const CBaseHandle& hEntity)
+void CShadowsClient::Destroy(const CBaseHandle& hEntity)
 {
-	s_Queue.SetSink(HandOverToManaged, NULL);
-	s_Queue.Destroy((uint32_t)hEntity.ToInt());
-}
-
-int ShellShadows_PendingCount()
-{
-	return s_Queue.Count();
-}
-
-const int32_t* ShellShadows_PendingEntries()
-{
-	return s_Queue.Entries();
+	m_Queue.SetSink(HandOverToManaged, this);
+	m_Queue.Destroy((uint32_t)hEntity.ToInt());
 }
 
 // Each op is one managed call inside the render trace's shadow mark.
-void ShellShadows_AdvanceFrame()
+void CShadowsClient::AdvanceFrame()
 {
 	RenderTrace::ShadowEnter("shadow.AdvanceFrame");
 	if (IManagedShadowsClient* pManaged = Carrier())
 	{
 		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
-		const int32_t nPending = s_Queue.Take(pPending);
+		const int32_t nPending = m_Queue.Take(pPending);
 		pManaged->AdvanceFrame(pPending, nPending);
 	}
 	RenderTrace::ShadowLeave();
 }
 
-void ShellShadows_PreRender()
+void CShadowsClient::PreRender()
 {
 	RenderTrace::ShadowEnter("shadow.PreRender");
 	if (IManagedShadowsClient* pManaged = Carrier())
 	{
 		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
-		const int32_t nPending = s_Queue.Take(pPending);
+		const int32_t nPending = m_Queue.Take(pPending);
 		pManaged->PreRender(pPending, nPending);
 	}
 	RenderTrace::ShadowLeave();
 }
 
-void ShellShadows_ComputeShadowTextures(int nLeafCount, const LeafIndex_t* pLeafList)
+void CShadowsClient::ComputeShadowTextures(int nLeafCount, const LeafIndex_t* pLeafList)
 {
 	char szLine[64];
 	V_snprintf(szLine, sizeof(szLine), "shadow.ComputeShadowTextures\tleaves=%d", nLeafCount);
@@ -388,13 +324,13 @@ void ShellShadows_ComputeShadowTextures(int nLeafCount, const LeafIndex_t* pLeaf
 	if (IManagedShadowsClient* pManaged = Carrier())
 	{
 		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
-		const int32_t nPending = s_Queue.Take(pPending);
+		const int32_t nPending = m_Queue.Take(pPending);
 		pManaged->ComputeShadowTextures(pLeafList, nLeafCount, pPending, nPending);
 	}
 	RenderTrace::ShadowLeave();
 }
 
-void ShellShadows_ComputeShadowDepthTextures(const CViewSetup& view)
+void CShadowsClient::ComputeShadowDepthTextures(const CViewSetup& view)
 {
 	RenderTrace::ShadowEnter("shadow.ComputeShadowDepthTextures");
 	if (IManagedShadowsClient* pManaged = Carrier())
@@ -402,54 +338,49 @@ void ShellShadows_ComputeShadowDepthTextures(const CViewSetup& view)
 		const float flView[10] = {view.origin.x, view.origin.y, view.origin.z, view.angles.x, view.angles.y,
 								  view.angles.z, view.zNear,    view.zFar,     view.fov,      view.m_flAspectRatio};
 		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
-		const int32_t nPending = s_Queue.Take(pPending);
+		const int32_t nPending = m_Queue.Take(pPending);
 		pManaged->ComputeShadowDepthTextures(flView, 10, pPending, nPending);
 	}
 	RenderTrace::ShadowLeave();
 }
 
-void ShellShadows_UnlockAllShadowDepthTextures()
+void CShadowsClient::UnlockAllShadowDepthTextures()
 {
 	RenderTrace::ShadowNote("shadow.UnlockAllShadowDepthTextures");
 	if (IManagedShadowsClient* pManaged = Carrier())
 	{
 		int32_t pPending[CShadowPendingQueue::WORDS * CShadowPendingQueue::MAX];
-		const int32_t nPending = s_Queue.Take(pPending);
+		const int32_t nPending = m_Queue.Take(pPending);
 		pManaged->UnlockAllShadowDepthTextures(pPending, nPending);
 	}
 }
 
-void ShellShadows_RenderShadowTexture(int w, int h)
+void CShadowsClient::RenderShadowTexture(int w, int h)
 {
 	if (IManagedShadowsClient* pManaged = Target())
 		pManaged->RenderShadowTexture(w, h);
 }
 
-CClientSystem* ClientShadowMgrGameSystem()
-{
-	return &s_ShadowGameSystem;
-}
-
 // The texture table is the environment's, so a FlashlightState_t the manager hands the
 // engine names the same reference.
-int32_t SourceSharp_FlashlightTexture(const char* pszName)
+int32_t CShadowsClient::FlashlightTexture(const char* pszName)
 {
 	if (!pszName || !pszName[0])
 		return -1;
 
-	for (int i = 0; i < s_nFlashlightTextures; i++)
+	for (int i = 0; i < m_nFlashlightTextures; i++)
 	{
-		if (!V_strcmp(s_szFlashlightTextureNames[i], pszName))
+		if (!V_strcmp(m_szFlashlightTextureNames[i], pszName))
 			return i;
 	}
 
-	if (s_nFlashlightTextures >= kMaxFlashlightTextures)
+	if (m_nFlashlightTextures >= kMaxFlashlightTextures)
 		return -1;
 
-	const int i = s_nFlashlightTextures++;
-	V_strncpy(s_szFlashlightTextureNames[i], pszName, sizeof(s_szFlashlightTextureNames[i]));
-	s_FlashlightTextures[i] = new CTextureReference;
-	s_FlashlightTextures[i]->Init(pszName, TEXTURE_GROUP_OTHER, true);
+	const int i = m_nFlashlightTextures++;
+	V_strncpy(m_szFlashlightTextureNames[i], pszName, sizeof(m_szFlashlightTextureNames[i]));
+	m_FlashlightTextures[i] = new CTextureReference;
+	m_FlashlightTextures[i]->Init(pszName, TEXTURE_GROUP_OTHER, true);
 	return i;
 }
 

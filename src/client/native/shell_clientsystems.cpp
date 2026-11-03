@@ -23,6 +23,9 @@
 #include "shell_managed_particles.h"
 #include "shell_particle_systems_client.h"
 #include "shell_detail_props.h"
+#include "shell_worldtext_client.h"
+#include "shell_sprites_client.h"
+#include "shell_shadows_client.h"
 
 // Stock's IGameSystem keys its vtable on this destructor. client.so keeps no
 // system list of its own, so the body is empty.
@@ -32,8 +35,6 @@ IGameSystem::~IGameSystem() {}
 CClientSystem* GameStringSystem();
 
 CClientSystem* ClientSystem_DirtySpatialPartition();
-CClientSystem* ClientSystem_Sprite();
-CClientSystem* ClientSystem_WorldText();
 CClientSystem* ClientSystem_Rope();
 
 // Stock's accessors answer a more specific type; the table's adapters keep its
@@ -45,9 +46,6 @@ IClientLeafSystem* ClientLeafSystem();
 // The leaf system is libss_fwd_client's object, built without RTTI, so its row
 // is an adapter the per-frame walks can dynamic_cast.
 CClientSystem* ClientLeafSystemGameSystem();
-
-// The shadow manager's row is shell_shadows_client.cpp's adapter over the managed manager.
-CClientSystem* ClientShadowMgrGameSystem();
 
 // The map's base name, or "" when no level is loaded.
 const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
@@ -68,7 +66,8 @@ const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
 CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
 							   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
 							   CManagedParticlesClient& particles, CParticleSystemsClient& particleSystems,
-							   CShellDetailProps& detailProps)
+							   CShellDetailProps& detailProps, CWorldTextClient& worldText, CSpritesClient& sprites,
+							   CShadowsClient& shadows)
 	: m_ManagedFrame(managedFrame)
 	, m_Physics(physics)
 	, m_Decals(decals)
@@ -77,6 +76,9 @@ CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& 
 	, m_Particles(particles)
 	, m_ParticleSystems(particleSystems)
 	, m_DetailProps(detailProps)
+	, m_WorldText(worldText)
+	, m_Sprites(sprites)
+	, m_Shadows(shadows)
 	, m_ViewportRow(areas, "CViewportClientSystem")
 	, m_GlowOverlayRow(areas, "CGlowOverlaySystem")
 	, m_PixelVisibilityRow(areas, "CPixelVisibilitySystem")
@@ -103,7 +105,7 @@ bool CClientSystems::Init()
 
 		{"CViewportClientSystem", &m_ViewportRow},
 		{"CClientEffectPrecacheSystem", &m_Effects.PrecacheRow()},
-		{"CClientShadowMgr", ClientShadowMgrGameSystem()},
+		{"CClientShadowMgr", &m_Shadows.SystemRow()},
 
 		{"C_SoundscapeSystem", &m_SoundscapeRow},
 
@@ -114,9 +116,9 @@ bool CClientSystems::Init()
 		{"CDirtySpatialPartitionEntityList", ClientSystem_DirtySpatialPartition()},
 		{"CBulletWhizTimer", &m_Effects.BulletWhizRow()},
 		{"CPixelVisibilitySystem", &m_PixelVisibilityRow},
-		{"CSourceSharpSpriteSystem", ClientSystem_Sprite()},
+		{"CSourceSharpSpriteSystem", &m_Sprites.SystemRow()},
 		{"CSourceSharpParticleSystemsSystem", &m_ParticleSystems.SystemRow()},
-		{"CSourceSharpWorldTextSystem", ClientSystem_WorldText()},
+		{"CSourceSharpWorldTextSystem", &m_WorldText.SystemRow()},
 		{"CSourceSharpRopeSystem", ClientSystem_Rope()},
 		{"CSourceSharpManagedParticlesSystem", &m_Particles.SystemRow()},
 		{"CSourceSharpStandaloneInterpSystem", &m_Standalone.InterpSystem()},

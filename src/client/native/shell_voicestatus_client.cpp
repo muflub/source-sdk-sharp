@@ -17,35 +17,16 @@
 #include "voice_status.h"
 
 #include "imanaged_areas_client.h"
+#include "shell_managed_areas_client.h"
 
 // The ban list is managed; this member of CVoiceStatus is never used.
 CVoiceBanMgr::CVoiceBanMgr() {}
 
 CVoiceBanMgr::~CVoiceBanMgr() {}
 
-static CVoiceStatus* s_pVoiceStatus = NULL;
-
-CVoiceStatus* GetClientVoiceMgr()
-{
-	if (!s_pVoiceStatus)
-		ClientVoiceMgr_Init();
-	return s_pVoiceStatus;
-}
-
-void ClientVoiceMgr_Init()
-{
-	if (!s_pVoiceStatus)
-		s_pVoiceStatus = new CVoiceStatus();
-}
-
-void ClientVoiceMgr_Shutdown()
-{
-	delete s_pVoiceStatus;
-	s_pVoiceStatus = NULL;
-}
-
-CVoiceStatus::CVoiceStatus()
-	: m_pParentPanel(0)
+CVoiceStatus::CVoiceStatus(const CManagedAreasClient& areas)
+	: m_Areas(areas)
+	, m_pParentPanel(0)
 	, m_pHelper(NULL)
 	, m_bInSquelchMode(false)
 	, m_pHeadLabelMaterial(NULL)
@@ -69,19 +50,16 @@ void CVoiceStatus::Frame(double frametime) {}
 
 void CVoiceStatus::UpdateSpeakerStatus(int entindex, bool bTalking) {}
 
-// Stock's body drew nothing for any entity this build has.
-void CVoiceStatus::DrawHeadLabels() {}
-
 bool CVoiceStatus::IsPlayerBlocked(int iPlayerIndex)
 {
-	IManagedUiClient* pUi = ManagedUiClient();
+	IManagedUiClient* pUi = m_Areas.m_pUiClient;
 	return pUi && pUi->VoiceIsBlocked(iPlayerIndex) != 0;
 }
 
 // Toggles the mute whatever state is asked for, as stock does.
 void CVoiceStatus::SetPlayerBlockedState(int iPlayerIndex, bool blocked)
 {
-	if (IManagedUiClient* pUi = ManagedUiClient())
+	if (IManagedUiClient* pUi = m_Areas.m_pUiClient)
 		pUi->VoiceToggleBlocked(iPlayerIndex);
 }
 

@@ -80,16 +80,24 @@ void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName);
 // client-only areas, forwarding to the body each row of the slot table names.
 // A base its own class implements is held by pointer, set by the client's owner.
 
+class CTempEnts;
+class CTempEntTablesClient;
+class CSpritesClient;
 class CParticleSystemsClient;
 class CBeamsClient;
 class CViewerFacts;
 class CSourceSharpClientMode;
 class CPixelVisClient;
 class CGlowOverlaysClient;
+class CHudUiClient;
 class CManagedParticlesClient;
+class CWorldTextClient;
+class CParticleManifestClient;
 class CParticleSystemQueryClient;
 class CEffectsClient;
 class CEffectsListClient;
+class CTempEntsSystemClient;
+class CShadowsClient;
 
 class CShimEngineClient final : public IShimEngine
 {
@@ -172,6 +180,9 @@ public:
 	int32_t TempEntPoolWriteLife(int32_t nSlot, const SourceSharpTempEntLife_t* pLife) override;
 	int32_t TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEntSpawn_t* pSpawn) override;
 	int32_t TempEntPoolWriteTransform(int32_t nSlot, const SourceSharpTempEntTransform_t* pTransform) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CTempEnts* m_pTempEnts = nullptr;
 };
 
 class CShimTempEntBackendsClient final : public IShimTempEntBackendsClient
@@ -206,6 +217,9 @@ public:
 	void ClientImpactLedger(int32_t nFlecks, int32_t nDust) override;
 	void ClientPlayerLogoDecal(const float* pPositionXYZ, int32_t nPlayer, int32_t nEntity, const char* pszMaterial,
 							   const char* pszTexture) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CTempEntTablesClient* m_pTempEntTablesClient = nullptr;
 };
 
 class CShimEffectsRenderClient final : public IShimEffectsRenderClient
@@ -259,6 +273,7 @@ public:
 	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
+	CSpritesClient* m_pSpritesClient = nullptr;
 	CParticleSystemsClient* m_pParticleSystemsClient = nullptr;
 	CBeamsClient* m_pBeamsClient = nullptr;
 };
@@ -378,6 +393,9 @@ public:
 	void UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
 							int32_t bAdditive) override;
 	int32_t UiMaterialTexture(const char* pName) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CHudUiClient* m_pHudUiClient = nullptr;
 };
 
 class CShimParticlesClient final : public IShimParticlesClient
@@ -415,7 +433,9 @@ public:
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CManagedParticlesClient* m_pManagedParticlesClient = nullptr;
+	CWorldTextClient* m_pWorldTextClient = nullptr;
 	CParticleSystemsClient* m_pParticleSystemsClient = nullptr;
+	CParticleManifestClient* m_pParticleManifestClient = nullptr;
 	CParticleSystemQueryClient* m_pParticleSystemQueryClient = nullptr;
 };
 
@@ -467,6 +487,9 @@ public:
 	// What the delegated slots call, set by the tier that owns each object.
 	CEffectsClient* m_pEffectsClient = nullptr;
 	CEffectsListClient* m_pEffectsListClient = nullptr;
+	CTempEntsSystemClient* m_pTempEntsSystemClient = nullptr;
+	CSpritesClient* m_pSpritesClient = nullptr;
+	CTempEnts* m_pTempEnts = nullptr;
 };
 
 class CShimSoundscapeClient final : public IShimSoundscapeClient
@@ -504,6 +527,9 @@ class CShimFlashlightClient final : public IShimFlashlightClient
 public:
 	int32_t FlashlightTexture(const char* pszName) override;
 	int32_t FlashlightSupportsBorderColor() override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CShadowsClient* m_pShadowsClient = nullptr;
 };
 
 struct CShimAreasClient

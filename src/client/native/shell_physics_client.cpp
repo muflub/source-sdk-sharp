@@ -141,7 +141,8 @@ void CPhysicsClient::PhysicsClientSplashLighting(const float* pPoint, float* pOu
 	Vector color = vec3_origin;
 	float flLuminosity = 1.0f;
 	if (pPoint)
-		FX_GetSplashLighting(Vector(pPoint[0], pPoint[1], pPoint[2]), &color, &flLuminosity);
+		FX_GetSplashLighting(m_Areas.m_pParticlesClient, Vector(pPoint[0], pPoint[1], pPoint[2]), &color,
+							 &flLuminosity);
 
 	pOut4[0] = color.x;
 	pOut4[1] = color.y;
@@ -158,22 +159,18 @@ void CPhysicsClient::PhysicsClientSplashEffect(int32_t nKind, const float* pOrig
 	const Vector origin(pOrigin[0], pOrigin[1], pOrigin[2]);
 	const Vector normal(pNormal[0], pNormal[1], pNormal[2]);
 
-	// ClientSplashKind's order.
-	switch (nKind)
+	IManagedParticlesClient* pArea = m_Areas.m_pParticlesClient;
+	if (!pArea)
+		return;
+
+	// ClientSplashKind's order, as the managed splash's: the gunshot's, the slime's, a ripple.
+	if (nKind == 0 || nKind == 1)
 	{
-		case 0:
-			FX_GunshotSplash(origin, normal, flScale);
-			break;
-		case 1:
-			FX_GunshotSlimeSplash(origin, normal, flScale);
-			break;
-		case 2:
-		{
-			Vector color = pColor ? Vector(pColor[0], pColor[1], pColor[2]) : vec3_origin;
-			FX_WaterRipple(origin, flScale, &color, flLifetime, flAlpha);
-			break;
-		}
-		default:
-			break;
+		pArea->WaterSplash(nKind, origin.Base(), normal.Base(), flScale, NULL, 0.0f, 0.0f);
+	}
+	else if (nKind == 2)
+	{
+		const Vector color = pColor ? Vector(pColor[0], pColor[1], pColor[2]) : vec3_origin;
+		pArea->WaterSplash(2, origin.Base(), NULL, flScale, color.Base(), flLifetime, flAlpha);
 	}
 }

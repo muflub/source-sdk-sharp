@@ -22,6 +22,7 @@
 #include "shell_cliententitylist.h"
 
 #include "imanaged_areas_client.h"
+#include "shell_te_system_client.h"
 
 // Zero-initialised, so ready before any DECLARE_CLIENT_EFFECT constructor runs.
 CClientEffectRegistration* CClientEffectRegistration::s_pHead = NULL;
@@ -178,10 +179,9 @@ void SourceSharp_EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectDa
 	pReg->m_pFunction(data);
 }
 
-// Managed decides which registration runs; outside a managed load nothing runs.
-void DispatchEffectToCallback(const char* pEffectName, const CEffectData& data)
+void CTempEntsSystemClient::DispatchEffectToCallback(const char* pEffectName, const CEffectData& data)
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = m_Areas.m_pFxClient;
 	if (!pFx || !pEffectName)
 		return;
 
@@ -190,21 +190,18 @@ void DispatchEffectToCallback(const char* pEffectName, const CEffectData& data)
 	pFx->DispatchEffect(pEffectName, &d);
 }
 
-// TE_DispatchEffect is the client's ITempEntsSystem::DispatchEffect body; DispatchEffect
-// is a client dispatching for itself through that same te.
-void TE_DispatchEffect(IRecipientFilter& filter, float delay, const Vector& pos, const char* pName,
-					   const CEffectData& data)
+// The effect's entity is cleared on this side whatever it is handed: it has no owner.
+void CTempEntsSystemClient::FxDispatchParticleEffect(int32_t nSystem, const float* pStartXYZ, const float* pEndXYZ,
+													 const float* pAnglesPYR, int32_t nEntIndex)
 {
-	DispatchEffectToCallback(pName, data);
-}
+	CEffectData data;
 
-void DispatchEffect(const char* pName, const CEffectData& data)
-{
+	data.m_nHitBox = nSystem;
+	data.m_vOrigin.Init(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]);
+	data.m_vStart.Init(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]);
+	data.m_vAngles.Init(pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2]);
+	data.m_hEntity = NULL;
+
 	CPASFilter filter(data.m_vOrigin);
-	DispatchEffect(pName, data, filter);
-}
-
-void DispatchEffect(const char* pName, const CEffectData& data, C_RecipientFilter& filter)
-{
-	te->DispatchEffect(filter, 0.0, data.m_vOrigin, pName, data);
+	DispatchEffect(filter, 0.0, data.m_vOrigin, "ParticleEffect", data);
 }

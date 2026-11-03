@@ -33,7 +33,6 @@
 #include "shell_standalone_client.h"
 #include "collideable_center.h"
 #include "imanaged_areas_client.h"
-#include "shell_beam_render.h"
 #include "shell_beams_client.h"
 #include "ss_command_line.h"
 

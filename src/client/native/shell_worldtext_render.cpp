@@ -24,14 +24,17 @@
 #include "shell_renderable.h"
 #include "shell_effect_registry.h"
 #include "imanaged_areas_client.h"
+#include "shell_standalone_clients.h"
+#include "shell_worldtext_client.h"
 
 class CManagedWorldText : public CShellRenderable
 {
 public:
 	DECLARE_CLASS_GAMEROOT(CManagedWorldText, CShellRenderable);
 
-	explicit CManagedWorldText(uint32_t hOwner)
-		: m_hOwner(hOwner)
+	CManagedWorldText(const CManagedAreasClient& areas, uint32_t hOwner)
+		: m_Areas(areas)
+		, m_hOwner(hOwner)
 	{
 		m_vecMins.Init();
 		m_vecMaxs.Init();
@@ -61,7 +64,7 @@ public:
 		if (flags & STUDIO_SHADOWDEPTHTEXTURE)
 			return 0;
 
-		IManagedWorldTextClient* pArea = ManagedWorldTextClient();
+		IManagedWorldTextClient* pArea = m_Areas.m_pWorldTextClient;
 		IMaterial* pMaterial = m_Material;
 		if (!pArea || !pMaterial)
 			return 0;
@@ -108,6 +111,7 @@ public:
 	}
 
 private:
+	const CManagedAreasClient& m_Areas;
 	uint32_t m_hOwner;
 	CMaterialReference m_Material;
 	Vector m_vecMins;
@@ -115,65 +119,63 @@ private:
 	CUtlVector<SourceSharpWorldTextVertex_t> m_Verts;
 };
 
-// hOwner and pEffect are the members shell_effect_registry.h requires of a row.
-struct SourceSharpWorldText_t
+CWorldTextClient::~CWorldTextClient()
 {
-	uint32_t hOwner;
-	CManagedWorldText* pEffect;
-};
-
-static CUtlVector<SourceSharpWorldText_t> g_ManagedWorldText;
+	for (int i = 0; i < m_Rows.Count(); i++)
+		m_Rows[i].pEffect->SetGoneCallback(NULL);
+}
 
 // A text renderable is being destroyed: drop its row. Nothing may Remove() a row it has
 // just released.
-static void ManagedWorldText_Forget(CShellRenderable* pText)
+void CWorldTextClient::Forget(CShellRenderable* pText)
 {
-	ShellEffects_Forget(g_ManagedWorldText, pText);
+	ShellEffects_Forget(m_Rows, pText);
 }
 
 // The font page and local bounds managed measured; the renderable is made on the first,
 // at the owner's place. 1 when the owner has a renderable after the call.
-int32_t SourceSharp_WorldTextMeshUpdate(uint32_t hOwner, const char* pszMaterial, const float* pBounds, int32_t nFloats)
+int32_t CWorldTextClient::WorldTextMeshUpdate(uint32_t hOwner, const char* pszMaterial, const float* pBounds,
+											  int32_t nFloats)
 {
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
 	if (!pOwner || !pszMaterial || !pBounds || nFloats < 6)
 		return 0;
 
-	int iEntry = ShellEffects_Find(g_ManagedWorldText, hOwner);
+	int iEntry = ShellEffects_Find(m_Rows, hOwner);
 	if (iEntry < 0)
 	{
-		CManagedWorldText* pText = new CManagedWorldText(hOwner);
+		CManagedWorldText* pText = new CManagedWorldText(m_Areas, hOwner);
 		pText->AddToLeafSystem(RENDER_GROUP_TRANSLUCENT_ENTITY);
-		pText->SetGoneCallback(ManagedWorldText_Forget);
+		pText->SetGoneCallback(m_ForgetHook.Get());
 		pText->SetAbsOrigin(pOwner->GetAbsOrigin());
 		pText->SetAbsAngles(pOwner->GetAbsAngles());
 
-		SourceSharpWorldText_t entry;
+		Row_t entry;
 		entry.hOwner = hOwner;
 		entry.pEffect = pText;
-		iEntry = g_ManagedWorldText.AddToTail(entry);
+		iEntry = m_Rows.AddToTail(entry);
 	}
 
-	g_ManagedWorldText[iEntry].pEffect->Configure(pszMaterial, pBounds);
+	m_Rows[iEntry].pEffect->Configure(pszMaterial, pBounds);
 	return 1;
 }
 
-void SourceSharp_WorldTextMeshDestroy(uint32_t hOwner)
+void CWorldTextClient::WorldTextMeshDestroy(uint32_t hOwner)
 {
-	const int iEntry = ShellEffects_Find(g_ManagedWorldText, hOwner);
+	const int iEntry = ShellEffects_Find(m_Rows, hOwner);
 	if (iEntry < 0)
 		return;
 
-	g_ManagedWorldText[iEntry].pEffect->Release();
+	m_Rows[iEntry].pEffect->Release();
 }
 
 // Each text at its owner's place, once a frame; an ownerless one is released.
-static void ManagedWorldText_Follow()
+void CWorldTextClient::Follow()
 {
-	for (int i = g_ManagedWorldText.Count() - 1; i >= 0; i--)
+	for (int i = m_Rows.Count() - 1; i >= 0; i--)
 	{
-		CManagedWorldText* pText = g_ManagedWorldText[i].pEffect;
-		C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(g_ManagedWorldText[i].hOwner);
+		CManagedWorldText* pText = m_Rows[i].pEffect;
+		C_StandaloneEntity* pOwner = m_Standalone.FromHandle(m_Rows[i].hOwner);
 
 		if (!pOwner)
 		{
@@ -186,26 +188,14 @@ static void ManagedWorldText_Follow()
 	}
 }
 
-#include "shell_clientsystem.h"
-
-class CSourceSharpWorldTextSystem : public CClientSystemPerFrame
+void CWorldTextClient::CSystemRow::PreRender()
 {
-public:
-	CSourceSharpWorldTextSystem()
-		: CClientSystemPerFrame("CSourceSharpWorldTextSystem")
-	{
-	}
+	m_Text.Follow();
+}
 
-	virtual void PreRender() OVERRIDE { ManagedWorldText_Follow(); }
-
-	// A level change takes every owner with it; release first so the order against any
-	// later sweep does not matter.
-	virtual void LevelShutdownPostEntity() OVERRIDE { ShellEffects_ReleaseAll(g_ManagedWorldText); }
-};
-
-static CSourceSharpWorldTextSystem g_WorldTextSystem;
-
-CClientSystem* ClientSystem_WorldText()
+// A level change takes every owner with it; release first so the order against any later
+// sweep does not matter.
+void CWorldTextClient::CSystemRow::LevelShutdownPostEntity()
 {
-	return &g_WorldTextSystem;
+	ShellEffects_ReleaseAll(m_Text.m_Rows);
 }

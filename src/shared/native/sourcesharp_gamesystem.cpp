@@ -86,11 +86,6 @@ struct SourceSharpSkyboxParams;
 #endif
 
 #ifdef CLIENT_DLL
-// Closes the build window, which ends before gHUD.Init().
-void SourceSharp_TempEntClientCloseRegistration();
-#endif
-
-#ifdef CLIENT_DLL
 #include "cdll_client_int.h"
 #define SOURCESHARP_SIDE_TAG "client"
 #define SourceSharp_LoadMySide_Host SourceSharp_LoadClient
@@ -703,12 +698,6 @@ bool CManagedSide::Load(const char* pszGameDir)
 	}
 
 	m_bLoaded = true;
-
-#ifdef CLIENT_DLL
-	// A ClientClass linked after GetAllClasses is not in the handshake. The server's root
-	// closes its own registration once this returns.
-	SourceSharp_TempEntClientCloseRegistration();
-#endif
 
 	m_InitGate.MarkSucceeded();
 

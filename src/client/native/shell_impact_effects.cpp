@@ -202,7 +202,7 @@ int32_t CParticleSystemsClient::ParticleSystemImpact(const char* pszName, const 
 	if (!pszName || !pPoints)
 		return 0;
 
-	CSmartPtr<CShellNewParticleEffect> pEffect = CShellNewParticleEffect::Create(pszName);
+	CSmartPtr<CShellNewParticleEffect> pEffect = m_NewParticles.Create(pszName);
 	if (!pEffect->IsValid())
 		return 0;
 

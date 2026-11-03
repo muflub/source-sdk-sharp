@@ -26,7 +26,6 @@ enum
 void FX_TracerSound(const Vector& start, const Vector& end, int iTracerType);
 
 // Lighting information utility
-void UTIL_GetNormalizedColorTintAndLuminosity(const Vector& color, Vector* tint = NULL, float* luminosity = NULL);
 
 extern void FX_CacheMaterialHandles();
 

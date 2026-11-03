@@ -187,7 +187,7 @@ protected:
 		InstallGeneration(1);
 	}
 
-	CManagedRuntimeClient m_Adapter;
+	CManagedRuntimeClient m_Adapter{g_pInstalled};
 };
 
 } // namespace
@@ -197,11 +197,6 @@ protected:
 // managed_runtime_client.h forward-declares. There is no table to install:
 // the adapter reaches none since CE1, and the client has none since CE-last.
 //-----------------------------------------------------------------------------
-IManagedRuntimeClient* ManagedRuntimeClient()
-{
-	return g_pInstalled;
-}
-
 void SourceSharp_UnloadManagedSide(void)
 {
 	g_Tally.nUnloadManagedSide++;
@@ -316,11 +311,11 @@ TEST_F(ManagedRuntimeClientTest, ItSurvivesTwoReloadsInARow)
 	EXPECT_EQ(1, g_nLastGeneration);
 }
 
-TEST_F(ManagedRuntimeClientTest, TheAdapterIsOnePointerWide)
+TEST_F(ManagedRuntimeClientTest, TheAdapterHoldsOnlyTheSlot)
 {
-	// The structural half of "no cached table": a member would show up here.
-	// One pointer is the vtable and nothing else.
-	EXPECT_EQ(sizeof(void*), sizeof(CManagedRuntimeClient));
+	// The structural half of "no cached table": a member beyond the vtable and the
+	// reference to the holders' slot would show up here.
+	EXPECT_EQ(2 * sizeof(void*), sizeof(CManagedRuntimeClient));
 }
 
 //=============================================================================//

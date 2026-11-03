@@ -14,39 +14,34 @@
 
 #include "cdll_int.h"
 #include "shell_gameui.h"
+#include "shell_clientdll_exports.h"
 
-class CClientDLLSharedAppSystems : public IClientDLLSharedAppSystems
+CClientDLLSharedAppSystems::CClientDLLSharedAppSystems()
 {
-public:
-	CClientDLLSharedAppSystems()
-	{
-		AddAppSystem("soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION);
-		AddAppSystem("scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION);
-	}
+	AddAppSystem("soundemittersystem" DLL_EXT_STRING, SOUNDEMITTERSYSTEM_INTERFACE_VERSION);
+	AddAppSystem("scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION);
+}
 
-	// The engine's first call into the client, in CModAppSystemGroup::Create,
-	// before Host_Init loads the GameUI module: the GameUI factory swap goes in
-	// here (plan_gameui_managed.md G4).
-	virtual int Count()
-	{
-		ShellGameUi_InstallFactorySwap();
-		return m_Systems.Count();
-	}
+int CClientDLLSharedAppSystems::Count()
+{
+	ShellGameUi_InstallFactorySwap();
+	return m_Systems.Count();
+}
 
-	virtual char const* GetDllName(int idx) { return m_Systems[idx].m_pModuleName; }
+char const* CClientDLLSharedAppSystems::GetDllName(int idx)
+{
+	return m_Systems[idx].m_pModuleName;
+}
 
-	virtual char const* GetInterfaceName(int idx) { return m_Systems[idx].m_pInterfaceName; }
+char const* CClientDLLSharedAppSystems::GetInterfaceName(int idx)
+{
+	return m_Systems[idx].m_pInterfaceName;
+}
 
-private:
-	void AddAppSystem(char const* moduleName, char const* interfaceName)
-	{
-		AppSystemInfo_t sys;
-		sys.m_pModuleName = moduleName;
-		sys.m_pInterfaceName = interfaceName;
-		m_Systems.AddToTail(sys);
-	}
-
-	CUtlVector<AppSystemInfo_t> m_Systems;
-};
-
-EXPOSE_SINGLE_INTERFACE(CClientDLLSharedAppSystems, IClientDLLSharedAppSystems, CLIENT_DLL_SHARED_APPSYSTEMS);
+void CClientDLLSharedAppSystems::AddAppSystem(char const* moduleName, char const* interfaceName)
+{
+	AppSystemInfo_t sys;
+	sys.m_pModuleName = moduleName;
+	sys.m_pInterfaceName = interfaceName;
+	m_Systems.AddToTail(sys);
+}

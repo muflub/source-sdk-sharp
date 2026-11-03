@@ -47,7 +47,8 @@
 #include "cdll_int.h"
 #include "cdll_util.h"
 #include "eiface.h"
-#include "hud_element_helper.h"
+#include "shell_hud_ui_client.h"
+#include "shell_client_mode.h"
 #include "shareddefs.h"
 #include "shell_standalone_client.h"
 #include "shell_rawpanel_client.h"
@@ -66,19 +67,6 @@
 
 namespace
 {
-// Open only while a root panel's Paint calls IManagedUiClient::Paint; holds the
-// clip that panel's traversal set, restored when managed code turns its clip
-// off and when the window closes.
-struct UiPaintWindow
-{
-	bool bOpen;
-	bool bPanelClipDisabled;
-	int nPanelClip[4];
-	CSourceSharpRawPanel* pMenuRoot; // the menu layer's root panel, once made
-};
-
-UiPaintWindow g_UiPaint;
-
 // One draw's text, widened; longer runs are cut.
 const int kMaxText = 512;
 
@@ -103,51 +91,51 @@ int Widen(const uint16_t* pText, int32_t nLength, wchar_t* pOut, int nOut)
 }
 }
 
-static void ShellUi_BeginPaint()
+void CHudUiClient::BeginPaint()
 {
-	g_UiPaint.bOpen = true;
+	m_bPaintOpen = true;
 	if (g_pMatSystemSurface)
-		g_pMatSystemSurface->GetClippingRect(g_UiPaint.nPanelClip[0], g_UiPaint.nPanelClip[1], g_UiPaint.nPanelClip[2],
-											 g_UiPaint.nPanelClip[3], g_UiPaint.bPanelClipDisabled);
+		g_pMatSystemSurface->GetClippingRect(m_nPanelClip[0], m_nPanelClip[1], m_nPanelClip[2], m_nPanelClip[3],
+											 m_bPanelClipDisabled);
 }
 
-static void ShellUi_EndPaint()
+void CHudUiClient::EndPaint()
 {
-	SourceSharp_UiSetClip(0, 0, 0, 0, 0);
-	g_UiPaint.bOpen = false;
+	UiSetClip(0, 0, 0, 0, 0);
+	m_bPaintOpen = false;
 }
 
-void SourceSharp_UiDrawFilledRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
+void CHudUiClient::UiDrawFilledRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen || x1 <= x0 || y1 <= y0)
+	if (!m_bPaintOpen || x1 <= x0 || y1 <= y0)
 		return;
 
 	SetColor(nRgba);
 	vgui::surface()->DrawFilledRect(x0, y0, x1, y1);
 }
 
-void SourceSharp_UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba, int32_t nAlpha0,
-									  int32_t nAlpha1, int32_t bHorizontal)
+void CHudUiClient::UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba, int32_t nAlpha0,
+										int32_t nAlpha1, int32_t bHorizontal)
 {
-	if (!g_UiPaint.bOpen || x1 <= x0 || y1 <= y0)
+	if (!m_bPaintOpen || x1 <= x0 || y1 <= y0)
 		return;
 
 	SetColor(nRgba);
 	vgui::surface()->DrawFilledRectFade(x0, y0, x1, y1, (unsigned int)nAlpha0, (unsigned int)nAlpha1, bHorizontal != 0);
 }
 
-void SourceSharp_UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
+void CHudUiClient::UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen || x1 <= x0 || y1 <= y0)
+	if (!m_bPaintOpen || x1 <= x0 || y1 <= y0)
 		return;
 
 	SetColor(nRgba);
 	vgui::surface()->DrawOutlinedRect(x0, y0, x1, y1);
 }
 
-void SourceSharp_UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
+void CHudUiClient::UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen)
+	if (!m_bPaintOpen)
 		return;
 
 	SetColor(nRgba);
@@ -159,14 +147,11 @@ void SourceSharp_UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint
 // buffer copy fresh — stock refreshes it at the top of CHudScope::Paint
 // (tf_hud_scope.cpp:398) before its quadrant draws. The refresh is guarded by
 // the frame count (view_scene.h), so the four quadrants of one frame pay once.
-static int s_MaterialTextures[64];
-static int s_nMaterialTextures;
-
-static void RefreshRefractFor(int32_t nTexture)
+void CHudUiClient::RefreshRefractFor(int32_t nTexture)
 {
-	for (int i = 0; i < s_nMaterialTextures; i++)
+	for (int i = 0; i < m_nMaterialTextures; i++)
 	{
-		if (s_MaterialTextures[i] == nTexture)
+		if (m_MaterialTextures[i] == nTexture)
 		{
 			UpdateRefractTexture();
 			return;
@@ -174,10 +159,10 @@ static void RefreshRefractFor(int32_t nTexture)
 	}
 }
 
-void SourceSharp_UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
-									float t0, float s1, float t1, uint32_t nRgba)
+void CHudUiClient::UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
+									  float t0, float s1, float t1, uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen || x1 <= x0 || y1 <= y0 || !vgui::surface()->IsTextureIDValid(nTexture))
+	if (!m_bPaintOpen || x1 <= x0 || y1 <= y0 || !surface()->IsTextureIDValid(nTexture))
 		return;
 
 	RefreshRefractFor(nTexture);
@@ -186,10 +171,9 @@ void SourceSharp_UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, in
 	vgui::surface()->DrawTexturedSubRect(x0, y0, x1, y1, s0, t0, s1, t1);
 }
 
-void SourceSharp_UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba)
+void CHudUiClient::UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices ||
-		!vgui::surface()->IsTextureIDValid(nTexture))
+	if (!m_bPaintOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices || !surface()->IsTextureIDValid(nTexture))
 		return;
 
 	RefreshRefractFor(nTexture);
@@ -208,11 +192,10 @@ void SourceSharp_UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVe
 // gets one UnlitGeneric of its own (__vgui_texture_N), so the flag touches
 // only that handle. The turn is one-way and remembered: a refresh is paid
 // once, on the draw that first asks, and a handle is drawn one way at a time.
-void SourceSharp_UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
-									int32_t bAdditive)
+void CHudUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
+									  int32_t bAdditive)
 {
-	if (!g_UiPaint.bOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices ||
-		!surface()->IsTextureIDValid(nTexture))
+	if (!m_bPaintOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices || !surface()->IsTextureIDValid(nTexture))
 		return;
 
 	RefreshRefractFor(nTexture);
@@ -222,24 +205,22 @@ void SourceSharp_UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_
 
 	if (bAdditive && g_pMatSystemSurface)
 	{
-		static int s_Additive[64];
-		static int s_nAdditive;
 		bool first = true;
-		for (int i = 0; i < s_nAdditive; i++)
+		for (int i = 0; i < m_nAdditive; i++)
 		{
-			if (s_Additive[i] == nTexture)
+			if (m_Additive[i] == nTexture)
 			{
 				first = false;
 				break;
 			}
 		}
-		if (first && s_nAdditive < (int)(sizeof(s_Additive) / sizeof(s_Additive[0])))
+		if (first && m_nAdditive < kMaxTextures)
 		{
 			if (IMaterial* pMaterial = g_pMatSystemSurface->DrawGetTextureMaterial(nTexture))
 			{
 				pMaterial->SetMaterialVarFlag(MATERIAL_VAR_ADDITIVE, true);
 				pMaterial->Refresh();
-				s_Additive[s_nAdditive++] = nTexture;
+				m_Additive[m_nAdditive++] = nTexture;
 			}
 		}
 	}
@@ -255,7 +236,7 @@ void SourceSharp_UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_
 // a Refract quadrants' pixels are the refracted frame buffer, not a picture to
 // upload. A name that loads nothing (an error material) answers 0, and the
 // screen draws its fallback.
-int32_t SourceSharp_UiMaterialTexture(const char* pName)
+int32_t CHudUiClient::UiMaterialTexture(const char* pName)
 {
 	if (!pName || !pName[0])
 		return 0;
@@ -265,14 +246,15 @@ int32_t SourceSharp_UiMaterialTexture(const char* pName)
 	if (g_pMatSystemSurface && IsErrorMaterial(g_pMatSystemSurface->DrawGetTextureMaterial(id)))
 		return 0;
 
-	if (s_nMaterialTextures < (int)(sizeof(s_MaterialTextures) / sizeof(s_MaterialTextures[0])))
-		s_MaterialTextures[s_nMaterialTextures++] = id;
+	if (m_nMaterialTextures < (int)(sizeof(m_MaterialTextures) / sizeof(m_MaterialTextures[0])))
+		m_MaterialTextures[m_nMaterialTextures++] = id;
 	return id;
 }
 
-void SourceSharp_UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength, uint32_t nRgba)
+void CHudUiClient::UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength,
+							  uint32_t nRgba)
 {
-	if (!g_UiPaint.bOpen || nFont == vgui::INVALID_FONT)
+	if (!m_bPaintOpen || nFont == INVALID_FONT)
 		return;
 
 	wchar_t wszText[kMaxText];
@@ -286,8 +268,8 @@ void SourceSharp_UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t*
 	vgui::surface()->DrawPrintText(wszText, n);
 }
 
-void SourceSharp_UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLength, int32_t* pOutWidth,
-							   int32_t* pOutHeight)
+void CHudUiClient::UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLength, int32_t* pOutWidth,
+								 int32_t* pOutHeight)
 {
 	if (pOutWidth)
 		*pOutWidth = 0;
@@ -308,9 +290,9 @@ void SourceSharp_UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLe
 		*pOutHeight = nTall;
 }
 
-void SourceSharp_UiSetClip(int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1)
+void CHudUiClient::UiSetClip(int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
-	if (!g_UiPaint.bOpen || !g_pMatSystemSurface)
+	if (!m_bPaintOpen || !g_pMatSystemSurface)
 		return;
 
 	if (bEnabled)
@@ -320,17 +302,16 @@ void SourceSharp_UiSetClip(int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1,
 		return;
 	}
 
-	g_pMatSystemSurface->SetClippingRect(g_UiPaint.nPanelClip[0], g_UiPaint.nPanelClip[1], g_UiPaint.nPanelClip[2],
-										 g_UiPaint.nPanelClip[3]);
-	g_pMatSystemSurface->DisableClipping(g_UiPaint.bPanelClipDisabled);
+	g_pMatSystemSurface->SetClippingRect(m_nPanelClip[0], m_nPanelClip[1], m_nPanelClip[2], m_nPanelClip[3]);
+	g_pMatSystemSurface->DisableClipping(m_bPanelClipDisabled);
 }
 
-int32_t SourceSharp_UiTextureCreate()
+int32_t CHudUiClient::UiTextureCreate()
 {
 	return vgui::surface()->CreateNewTextureID(true);
 }
 
-void SourceSharp_UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t nWide, int32_t nTall)
+void CHudUiClient::UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t nWide, int32_t nTall)
 {
 	if (!pRgba || nWide <= 0 || nTall <= 0)
 		return;
@@ -338,7 +319,7 @@ void SourceSharp_UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t
 	vgui::surface()->DrawSetTextureRGBA(nTexture, pRgba, nWide, nTall, 1, true);
 }
 
-int32_t SourceSharp_UiFontAddFile(const char* pPath)
+int32_t CHudUiClient::UiFontAddFile(const char* pPath)
 {
 	if (!pPath || !pPath[0])
 		return 0;
@@ -346,7 +327,7 @@ int32_t SourceSharp_UiFontAddFile(const char* pPath)
 	return vgui::surface()->AddCustomFontFile(NULL, pPath) ? 1 : 0;
 }
 
-int32_t SourceSharp_UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags)
+int32_t CHudUiClient::UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags)
 {
 	if (!pFamily || !pFamily[0] || nTall <= 0)
 		return vgui::INVALID_FONT;
@@ -361,7 +342,7 @@ int32_t SourceSharp_UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWe
 	return (int32_t)hFont;
 }
 
-void SourceSharp_UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOutAscent)
+void CHudUiClient::UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOutAscent)
 {
 	if (pOutTall)
 		*pOutTall = 0;
@@ -376,7 +357,7 @@ void SourceSharp_UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOutAs
 		*pOutAscent = vgui::surface()->GetFontAscent((vgui::HFont)nFont, L'M');
 }
 
-int32_t SourceSharp_UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances)
+int32_t CHudUiClient::UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances)
 {
 	if (nFont == vgui::INVALID_FONT || !pOutAdvances || nCount <= 0)
 		return 0;
@@ -390,7 +371,7 @@ int32_t SourceSharp_UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount
 	return nCount;
 }
 
-void SourceSharp_UiPlaySound(const char* pPath)
+void CHudUiClient::UiPlaySound(const char* pPath)
 {
 	if (pPath && pPath[0])
 		vgui::surface()->PlaySound(pPath);
@@ -424,7 +405,6 @@ COMPILE_TIME_ASSERT(offsetof(player_info_t, fakeplayer) == 108);
 // mouse and keyboard only when managed code asks; otherwise it is transparent
 // to input. The GameUI is managed (shell_gameui.cpp) and draws in this layer,
 // so no other module's dialogs share the screen with it.
-vgui::VPANEL SourceSharp_ClientViewportPanel();
 
 class CSourceSharpMenuRoot : public CSourceSharpRawPanel
 {
@@ -441,8 +421,9 @@ public:
 		FocusLost
 	};
 
-	explicit CSourceSharpMenuRoot(vgui::VPANEL parent)
+	CSourceSharpMenuRoot(CHudUiClient& ui, vgui::VPANEL parent)
 		: CSourceSharpRawPanel("SourceSharpMenuRoot")
+		, m_Ui(ui)
 	{
 		SetParent(parent);
 		// A popup: the surface counts a popup's input towards whether the cursor
@@ -452,27 +433,27 @@ public:
 		SetKeyBoardInputEnabled(false);
 		SetVisible(true);
 		FillScreen();
-		g_UiPaint.pMenuRoot = this;
+		m_Ui.SetMenuRoot(this);
 	}
 
 	virtual ~CSourceSharpMenuRoot()
 	{
-		if (g_UiPaint.pMenuRoot == this)
-			g_UiPaint.pMenuRoot = NULL;
+		if (m_Ui.MenuRoot() == this)
+			m_Ui.SetMenuRoot(NULL);
 	}
 
 	virtual void Paint() OVERRIDE
 	{
-		IManagedUiClient* pUi = ManagedUiClient();
+		IManagedUiClient* pUi = m_Ui.Managed();
 		if (!pUi)
 			return;
 
 		int nWide, nTall;
 		GetSize(nWide, nTall);
 
-		ShellUi_BeginPaint();
+		m_Ui.BeginPaint();
 		pUi->Paint(1, nWide, nTall);
-		ShellUi_EndPaint();
+		m_Ui.EndPaint();
 	}
 
 	virtual void OnCursorMoved(int x, int y) OVERRIDE { Forward(MouseMove, x, y, 0, 0, 0.0f); }
@@ -500,16 +481,18 @@ private:
 		Forward(nKind, x, y, nCode, nChar, flDelta);
 	}
 
-	static void Forward(int nKind, int x, int y, int nCode, int32_t nChar, float flDelta)
+	void Forward(int nKind, int x, int y, int nCode, int32_t nChar, float flDelta)
 	{
-		if (IManagedUiClient* pUi = ManagedUiClient())
+		if (IManagedUiClient* pUi = m_Ui.Managed())
 			pUi->Input(nKind, x, y, nCode, nChar, flDelta);
 	}
+
+	CHudUiClient& m_Ui;
 };
 
-void SourceSharp_UiSetMenuInput(int32_t bMouse, int32_t bKeyboard)
+void CHudUiClient::UiSetMenuInput(int32_t bMouse, int32_t bKeyboard)
 {
-	if (CSourceSharpRawPanel* pRoot = g_UiPaint.pMenuRoot)
+	if (CSourceSharpRawPanel* pRoot = m_pMenuRoot)
 	{
 		pRoot->SetMouseInputEnabled(bMouse != 0);
 		pRoot->SetKeyBoardInputEnabled(bKeyboard != 0);
@@ -519,7 +502,7 @@ void SourceSharp_UiSetMenuInput(int32_t bMouse, int32_t bKeyboard)
 	}
 }
 
-void SourceSharp_UiSetCursor(int32_t nShape)
+void CHudUiClient::UiSetCursor(int32_t nShape)
 {
 	// Managed code's UiCursor values, in its order, as vgui cursors.
 	static const vgui::CursorCode s_Cursors[] = {
@@ -528,22 +511,22 @@ void SourceSharp_UiSetCursor(int32_t nShape)
 
 	if (nShape < 0 || nShape >= (int32_t)ARRAYSIZE(s_Cursors))
 		return;
-	if (g_UiPaint.pMenuRoot)
-		g_UiPaint.pMenuRoot->SetCursor((vgui::HCursor)s_Cursors[nShape]);
+	if (m_pMenuRoot)
+		m_pMenuRoot->SetCursor((vgui::HCursor)s_Cursors[nShape]);
 }
 
 // While the engine's GameUI is up it hides the client root, so the menu root
 // follows the GameUI root and returns under the client viewport when the
 // GameUI hides. Once a frame (CShellClientDLL::HudUpdate); a no-op unless the
 // home changed.
-void ShellHud_MenuRootFollowGameUI()
+void CHudUiClient::MenuRootFollowGameUI()
 {
-	CSourceSharpRawPanel* pRoot = g_UiPaint.pMenuRoot;
+	CSourceSharpRawPanel* pRoot = m_pMenuRoot;
 	if (!pRoot || !enginevgui)
 		return;
 
 	const vgui::VPANEL home =
-		enginevgui->IsGameUIVisible() ? enginevgui->GetPanel(PANEL_GAMEUIDLL) : SourceSharp_ClientViewportPanel();
+		enginevgui->IsGameUIVisible() ? enginevgui->GetPanel(PANEL_GAMEUIDLL) : m_ClientMode.GetViewportVPanel();
 	if (!home || ipanel()->GetParent(pRoot->GetVPanel()) == home)
 		return;
 
@@ -555,14 +538,14 @@ void ShellHud_MenuRootFollowGameUI()
 class CSourceSharpHud : public CHudElement, public CSourceSharpRawPanel
 {
 public:
-	CSourceSharpHud(const char* pElementName)
+	CSourceSharpHud(CHudUiClient& ui, const char* pElementName, vgui::VPANEL parent)
 		: CHudElement(pElementName)
 		, CSourceSharpRawPanel("SourceSharpHud")
+		, m_Ui(ui)
 	{
 		SOURCESHARP_TRACE();
 
 		// The viewport is a raw vgui2 panel (shell_viewport_client.h): parented by VPANEL.
-		const vgui::VPANEL parent = SourceSharp_ClientViewportPanel();
 		SetParent(parent);
 
 		// Hidden only when the player is dead; HIDEHUD_MISCSTATUS would hide it for
@@ -574,24 +557,24 @@ public:
 		FillScreen();
 
 		// The menu layer's panel, made once with the HUD, under the viewport.
-		if (!g_UiPaint.pMenuRoot)
-			new CSourceSharpMenuRoot(parent);
+		if (!m_Ui.MenuRoot())
+			new CSourceSharpMenuRoot(m_Ui, parent);
 	}
 
 	virtual void Paint() OVERRIDE
 	{
 		// Layer 0 is the HUD. The UI area is NULL before the first load and after the
 		// last unload.
-		IManagedUiClient* pUi = ManagedUiClient();
+		IManagedUiClient* pUi = m_Ui.Managed();
 		if (!pUi)
 			return;
 
 		int nWide, nTall;
 		GetSize(nWide, nTall);
 
-		ShellUi_BeginPaint();
+		m_Ui.BeginPaint();
 		pUi->Paint(0, nWide, nTall);
-		ShellUi_EndPaint();
+		m_Ui.EndPaint();
 	}
 
 	// Forwarded so the UI drops what it sized for the old screen (fonts are
@@ -599,15 +582,22 @@ public:
 	virtual void OnScreenSizeChanged(int nOldWide, int nOldTall) OVERRIDE
 	{
 		int nWide, nTall;
-		vgui::surface()->GetScreenSize(nWide, nTall);
-		if (IManagedUiClient* pUi = ManagedUiClient())
+		surface()->GetScreenSize(nWide, nTall);
+		if (IManagedUiClient* pUi = m_Ui.Managed())
 			pUi->ScreenSizeChanged(nOldWide, nOldTall, nWide, nTall);
 	}
 
 	virtual const char* GetName() OVERRIDE { return CHudElement::GetName(); }
+
+private:
+	CHudUiClient& m_Ui;
 };
 
-DECLARE_HUDELEMENT(CSourceSharpHud);
+// The one HUD element, which creates the managed HUD host; gHUD.Init initialises it.
+void CHudUiClient::CreateHud()
+{
+	new CSourceSharpHud(*this, "CSourceSharpHud", m_ClientMode.GetViewportVPanel());
+}
 
 // A titles.txt entry by name (what env_message and HudText name), as the engine
 // parsed it. Copied out: the engine reallocates that buffer on a level change.

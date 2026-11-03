@@ -24,6 +24,8 @@ public:
 
 // The client's adapter. OnSystemStop runs the managed Shutdown slot, then
 // UnloadSide and Release (the client's share of the refcounted CLR).
+struct CManagedHoldersClient;
+
 class IClientRuntimeAdapter
 {
 protected:
@@ -38,7 +40,7 @@ public:
 	virtual void OnFrame(float flFrameTime) = 0;
 };
 
-IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env);
+IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env, const CManagedHoldersClient& holders);
 
 // Null-safe, so a Shutdown after a failed Init needs no guard. The destructor is
 // protected because the caller does not own the object.

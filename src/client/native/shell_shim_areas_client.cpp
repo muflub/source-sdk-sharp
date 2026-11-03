@@ -15,16 +15,24 @@
 #include "sourcesharp_entrypoints.h"
 #include "ss_string.h"
 
+#include "c_te_legacytempents.h"
+#include "shell_te_tables_client.h"
+#include "shell_sprites_client.h"
 #include "shell_particle_systems_client.h"
 #include "shell_beams_client.h"
 #include "shell_viewer_facts.h"
 #include "shell_client_mode.h"
 #include "shell_pixelvis_client.h"
 #include "shell_glow_client.h"
+#include "shell_hud_ui_client.h"
 #include "shell_managed_particles.h"
+#include "shell_worldtext_client.h"
+#include "shell_particle_manifest_client.h"
 #include "shell_particle_query_client.h"
 #include "shell_effects_client.h"
 #include "shell_effects_list_client.h"
+#include "shell_te_system_client.h"
+#include "shell_shadows_client.h"
 
 void* CShimEngineClient::GetGlobalVarsPtr()
 {
@@ -174,54 +182,54 @@ void CShimTempEntPoolClient::ClientWindSpeed(float flTime, float* pOutXYZ)
 
 int32_t CShimTempEntPoolClient::TempEntPoolAddVisible(int32_t nSlot)
 {
-	return ::SourceSharp_TempEntPoolAddVisible(nSlot);
+	return m_pTempEnts->TempEntPoolAddVisible(nSlot);
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolCapacity()
 {
-	return ::SourceSharp_TempEntPoolCapacity();
+	return m_pTempEnts->TempEntPoolCapacity();
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolCreate(int32_t nSlot, const float* pOriginXYZ, int32_t nModelIndex,
 												  int32_t nPriority)
 {
-	return ::SourceSharp_TempEntPoolCreate(nSlot, pOriginXYZ, nModelIndex, nPriority);
+	return m_pTempEnts->TempEntPoolCreate(nSlot, pOriginXYZ, nModelIndex, nPriority);
 }
 
 void CShimTempEntPoolClient::TempEntPoolDestroy(int32_t nSlot)
 {
-	return ::SourceSharp_TempEntPoolDestroy(nSlot);
+	return m_pTempEnts->TempEntPoolDestroy(nSlot);
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolReadLife(int32_t nSlot, SourceSharpTempEntLife_t* pOutLife)
 {
-	return ::SourceSharp_TempEntPoolReadLife(nSlot, pOutLife);
+	return m_pTempEnts->TempEntPoolReadLife(nSlot, pOutLife);
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolReadStatics(int32_t nSlot, SourceSharpTempEntStatics_t* pOut)
 {
-	return ::SourceSharp_TempEntPoolReadStatics(nSlot, pOut);
+	return m_pTempEnts->TempEntPoolReadStatics(nSlot, pOut);
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolReadTransform(int32_t nSlot, SourceSharpTempEntTransform_t* pOutTransform)
 {
-	return ::SourceSharp_TempEntPoolReadTransform(nSlot, pOutTransform);
+	return m_pTempEnts->TempEntPoolReadTransform(nSlot, pOutTransform);
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolWriteLife(int32_t nSlot, const SourceSharpTempEntLife_t* pLife)
 {
-	return ::SourceSharp_TempEntPoolWriteLife(nSlot, pLife);
+	return m_pTempEnts->TempEntPoolWriteLife(nSlot, pLife);
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEntSpawn_t* pSpawn)
 {
-	return ::SourceSharp_TempEntPoolWriteSpawn(nSlot, pSpawn);
+	return m_pTempEnts->TempEntPoolWriteSpawn(nSlot, pSpawn);
 }
 
 int32_t CShimTempEntPoolClient::TempEntPoolWriteTransform(int32_t nSlot,
 														  const SourceSharpTempEntTransform_t* pTransform)
 {
-	return ::SourceSharp_TempEntPoolWriteTransform(nSlot, pTransform);
+	return m_pTempEnts->TempEntPoolWriteTransform(nSlot, pTransform);
 }
 
 void CShimTempEntBackendsClient::ClientDecalBrushModel(int32_t nEntity, const float* pDecalCenterXYZ,
@@ -309,7 +317,7 @@ void CShimTempEntBackendsClient::EffectDispatchName(int32_t nIndex, char* pOut, 
 int32_t CShimTempEntBackendsClient::TempEntBuildClient(const void* pBlock, int32_t nBlockBytes, int32_t nBlobBytes,
 													   SourceSharpTeRecvBuilt_t* pOut)
 {
-	return ::SourceSharp_TempEntBuildClient(pBlock, nBlockBytes, nBlobBytes, pOut);
+	return m_pTempEntTablesClient->TempEntBuildClient(pBlock, nBlockBytes, nBlobBytes, pOut);
 }
 
 int32_t CShimTempEntBackendsClient::ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ, int32_t nEntity,
@@ -346,8 +354,8 @@ int32_t CShimEffectsRenderClient::DrawSprite(uint32_t hOwner, int32_t nModelInde
 											 float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
 											 float flGlowProxySize)
 {
-	return ::SourceSharp_DrawSprite(hOwner, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale,
-									bWorldSpaceScale, flHDRColorScale, flGlowProxySize);
+	return m_pSpritesClient->DrawSprite(hOwner, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale,
+										bWorldSpaceScale, flHDRColorScale, flGlowProxySize);
 }
 
 int32_t CShimEffectsRenderClient::DrawSpriteOffset(uint32_t hOwner, const float* pOffsetXYZ, int32_t nModelIndex,
@@ -356,8 +364,8 @@ int32_t CShimEffectsRenderClient::DrawSpriteOffset(uint32_t hOwner, const float*
 												   int32_t bWorldSpaceScale, float flHDRColorScale,
 												   float flGlowProxySize)
 {
-	return ::SourceSharp_DrawSpriteOffset(hOwner, pOffsetXYZ, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
-										  flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize);
+	return m_pSpritesClient->DrawSpriteOffset(hOwner, pOffsetXYZ, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b,
+											  a, flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize);
 }
 
 int32_t CShimEffectsRenderClient::ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMask)
@@ -377,12 +385,12 @@ void CShimEffectsRenderClient::ParticleSystemStop(uint32_t hOwner)
 
 void CShimEffectsRenderClient::SpriteTrailDestroy(uint32_t hOwner)
 {
-	return ::SourceSharp_SpriteTrailDestroy(hOwner);
+	return m_pSpritesClient->SpriteTrailDestroy(hOwner);
 }
 
 void CShimEffectsRenderClient::SpriteTrailUpdate(uint32_t hOwner, int32_t nRenderMode, int32_t bVisible)
 {
-	return ::SourceSharp_SpriteTrailUpdate(hOwner, nRenderMode, bVisible);
+	return m_pSpritesClient->SpriteTrailUpdate(hOwner, nRenderMode, bVisible);
 }
 
 void CShimEffectsRenderClient::WindPublish(const float* pWind, const float* pSway, int32_t nWinds)
@@ -754,96 +762,96 @@ int32_t CShimDiagnosticsClient::ClientRefusal(int32_t iIndex, char* pOutMethod, 
 
 void CShimUiClient::UiDrawFilledRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
 {
-	return ::SourceSharp_UiDrawFilledRect(x0, y0, x1, y1, nRgba);
+	return m_pHudUiClient->UiDrawFilledRect(x0, y0, x1, y1, nRgba);
 }
 
 void CShimUiClient::UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba,
 										 int32_t nAlpha0, int32_t nAlpha1, int32_t bHorizontal)
 {
-	return ::SourceSharp_UiDrawFilledRectFade(x0, y0, x1, y1, nRgba, nAlpha0, nAlpha1, bHorizontal);
+	return m_pHudUiClient->UiDrawFilledRectFade(x0, y0, x1, y1, nRgba, nAlpha0, nAlpha1, bHorizontal);
 }
 
 void CShimUiClient::UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
 {
-	return ::SourceSharp_UiDrawOutlinedRect(x0, y0, x1, y1, nRgba);
+	return m_pHudUiClient->UiDrawOutlinedRect(x0, y0, x1, y1, nRgba);
 }
 
 void CShimUiClient::UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
 {
-	return ::SourceSharp_UiDrawLine(x0, y0, x1, y1, nRgba);
+	return m_pHudUiClient->UiDrawLine(x0, y0, x1, y1, nRgba);
 }
 
 void CShimUiClient::UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
 									   float t0, float s1, float t1, uint32_t nRgba)
 {
-	return ::SourceSharp_UiDrawTexturedRect(nTexture, x0, y0, x1, y1, s0, t0, s1, t1, nRgba);
+	return m_pHudUiClient->UiDrawTexturedRect(nTexture, x0, y0, x1, y1, s0, t0, s1, t1, nRgba);
 }
 
 void CShimUiClient::UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba)
 {
-	return ::SourceSharp_UiDrawPolygon(nTexture, pXyuv, nVertices, nRgba);
+	return m_pHudUiClient->UiDrawPolygon(nTexture, pXyuv, nVertices, nRgba);
 }
 
 void CShimUiClient::UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength,
 							   uint32_t nRgba)
 {
-	return ::SourceSharp_UiDrawText(nFont, x, y, pText, nLength, nRgba);
+	return m_pHudUiClient->UiDrawText(nFont, x, y, pText, nLength, nRgba);
 }
 
 void CShimUiClient::UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLength, int32_t* pOutWidth,
 								  int32_t* pOutHeight)
 {
-	return ::SourceSharp_UiMeasureText(nFont, pText, nLength, pOutWidth, pOutHeight);
+	return m_pHudUiClient->UiMeasureText(nFont, pText, nLength, pOutWidth, pOutHeight);
 }
 
 void CShimUiClient::UiSetClip(int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
-	return ::SourceSharp_UiSetClip(bEnabled, x0, y0, x1, y1);
+	return m_pHudUiClient->UiSetClip(bEnabled, x0, y0, x1, y1);
 }
 
 int32_t CShimUiClient::UiTextureCreate()
 {
-	return ::SourceSharp_UiTextureCreate();
+	return m_pHudUiClient->UiTextureCreate();
 }
 
 void CShimUiClient::UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t nWide, int32_t nTall)
 {
-	return ::SourceSharp_UiTextureUpload(nTexture, pRgba, nWide, nTall);
+	return m_pHudUiClient->UiTextureUpload(nTexture, pRgba, nWide, nTall);
 }
 
 int32_t CShimUiClient::UiFontAddFile(const char* pPath)
 {
-	return ::SourceSharp_UiFontAddFile(pPath);
+	return m_pHudUiClient->UiFontAddFile(pPath);
 }
 
 int32_t CShimUiClient::UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags)
 {
-	return ::SourceSharp_UiFontCreate(pFamily, nTall, nWeight, nFlags);
+	return m_pHudUiClient->UiFontCreate(pFamily, nTall, nWeight, nFlags);
 }
 
 void CShimUiClient::UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOutAscent)
 {
-	return ::SourceSharp_UiFontMetrics(nFont, pOutTall, pOutAscent);
+	return m_pHudUiClient->UiFontMetrics(nFont, pOutTall, pOutAscent);
 }
 
 int32_t CShimUiClient::UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances)
 {
-	return ::SourceSharp_UiFontAdvances(nFont, nFirst, nCount, pOutAdvances);
+	return m_pHudUiClient->UiFontAdvances(nFont, nFirst, nCount, pOutAdvances);
 }
 
 void CShimUiClient::UiPlaySound(const char* pPath)
 {
-	return ::SourceSharp_UiPlaySound(pPath);
+	return m_pHudUiClient->UiPlaySound(pPath);
 }
 
 void CShimUiClient::UiSetMenuInput(int32_t bMouse, int32_t bKeyboard)
 {
-	return ::SourceSharp_UiSetMenuInput(bMouse, bKeyboard);
+	return m_pHudUiClient->UiSetMenuInput(bMouse, bKeyboard);
 }
 
 void CShimUiClient::UiSetCursor(int32_t nShape)
 {
-	return ::SourceSharp_UiSetCursor(nShape);
+	return m_pHudUiClient->UiSetCursor(nShape);
 }
 
 int32_t CShimUiClient::UiDebugOverlayText(int32_t nIndex, float* pOutX, float* pOutY, int32_t* pOutLine,
@@ -865,12 +873,12 @@ void CShimUiClient::ClientModeLayout()
 void CShimUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
 									   int32_t bAdditive)
 {
-	return ::SourceSharp_UiDrawTexturedQuad(nTexture, pXyuv, nVertices, nRgba, bAdditive);
+	return m_pHudUiClient->UiDrawTexturedQuad(nTexture, pXyuv, nVertices, nRgba, bAdditive);
 }
 
 int32_t CShimUiClient::UiMaterialTexture(const char* pName)
 {
-	return ::SourceSharp_UiMaterialTexture(pName);
+	return m_pHudUiClient->UiMaterialTexture(pName);
 }
 
 int32_t CShimParticlesClient::ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial,
@@ -903,12 +911,12 @@ int32_t CShimParticlesClient::ParticlesTraceLine(const float* pStartXYZ, const f
 int32_t CShimParticlesClient::WorldTextMeshUpdate(uint32_t hOwner, const char* pszMaterial, const float* pBounds,
 												  int32_t nFloats)
 {
-	return ::SourceSharp_WorldTextMeshUpdate(hOwner, pszMaterial, pBounds, nFloats);
+	return m_pWorldTextClient->WorldTextMeshUpdate(hOwner, pszMaterial, pBounds, nFloats);
 }
 
 void CShimParticlesClient::WorldTextMeshDestroy(uint32_t hOwner)
 {
-	return ::SourceSharp_WorldTextMeshDestroy(hOwner);
+	return m_pWorldTextClient->WorldTextMeshDestroy(hOwner);
 }
 
 int32_t CShimParticlesClient::ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut, char* pszName,
@@ -919,7 +927,7 @@ int32_t CShimParticlesClient::ParticleSystemsRead(int32_t nIndex, SourceSharpPar
 
 int32_t CShimParticlesClient::ParticleDefinitionReads()
 {
-	return ::SourceSharp_ParticleDefinitionReads();
+	return m_pParticleManifestClient->ParticleDefinitionReads();
 }
 
 int32_t CShimParticlesClient::ParticleQueryUnanswered(int32_t* pOut, int32_t nMax)
@@ -1064,7 +1072,7 @@ int32_t CShimFxClient::FxEntityAttachment(int32_t nEntIndex, int32_t nAttachment
 void CShimFxClient::FxDispatchParticleEffect(int32_t nSystem, const float* pStartXYZ, const float* pEndXYZ,
 											 const float* pAnglesPYR, int32_t nEntIndex)
 {
-	return ::SourceSharp_FxDispatchParticleEffect(nSystem, pStartXYZ, pEndXYZ, pAnglesPYR, nEntIndex);
+	return m_pTempEntsSystemClient->FxDispatchParticleEffect(nSystem, pStartXYZ, pEndXYZ, pAnglesPYR, nEntIndex);
 }
 
 int32_t CShimFxClient::FxEntityRenderAngles(int32_t nEntIndex, float* pOutPYR)
@@ -1083,18 +1091,18 @@ int32_t CShimFxClient::FxSpriteDrawBegin(uint32_t hOwner, const float* pOffsetXY
 										 int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
 										 float flGlowProxySize, float* pIn)
 {
-	return ::SourceSharp_FxSpriteDrawBegin(hOwner, pOffsetXYZ, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
-										   flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn);
+	return m_pSpritesClient->FxSpriteDrawBegin(hOwner, pOffsetXYZ, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g,
+											   b, a, flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn);
 }
 
 int32_t CShimFxClient::FxSpriteDrawEnd(const float* pOut)
 {
-	return ::SourceSharp_FxSpriteDrawEnd(pOut);
+	return m_pSpritesClient->FxSpriteDrawEnd(pOut);
 }
 
 int32_t CShimFxClient::FxSpriteDrawStore(const float* pOut)
 {
-	return ::SourceSharp_FxSpriteDrawStore(pOut);
+	return m_pSpritesClient->FxSpriteDrawStore(pOut);
 }
 
 int32_t CShimFxClient::FxPrecacheCount()
@@ -1146,7 +1154,7 @@ int32_t CShimFxClient::FxMaterialsCached()
 int32_t CShimFxClient::FxTempEntCreateNamed(int32_t nSlot, const float* pOriginXYZ, const char* pModel,
 											int32_t nPriority)
 {
-	return ::SourceSharp_FxTempEntCreateNamed(nSlot, pOriginXYZ, pModel, nPriority);
+	return m_pTempEnts->FxTempEntCreateNamed(nSlot, pOriginXYZ, pModel, nPriority);
 }
 
 void CShimFxClient::FxLoadModel(const char* pModel)
@@ -1251,7 +1259,7 @@ int32_t CShimPrecipitationClient::PrecipitationScreenWidth()
 
 int32_t CShimFlashlightClient::FlashlightTexture(const char* pszName)
 {
-	return ::SourceSharp_FlashlightTexture(pszName);
+	return m_pShadowsClient->FlashlightTexture(pszName);
 }
 
 int32_t CShimFlashlightClient::FlashlightSupportsBorderColor()

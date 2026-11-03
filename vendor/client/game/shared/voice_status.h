@@ -10,6 +10,7 @@
 #include "hudelement.h"
 
 class CVoiceStatus;
+struct CManagedAreasClient;
 class IMaterial;
 
 // This is provided by each mod to access data that may not be the same across mods.
@@ -32,7 +33,7 @@ public:
 class CVoiceStatus /*: public vgui::CDefaultInputSignal*/
 {
 public:
-	CVoiceStatus();
+	explicit CVoiceStatus(const CManagedAreasClient& areas);
 	virtual ~CVoiceStatus();
 
 	// CHudBase overrides.
@@ -54,7 +55,6 @@ public:
 	void UpdateSpeakerStatus(int entindex, bool bTalking);
 
 	// Call from the HUD_CreateEntities function so it can add sprites above player heads.
-	void DrawHeadLabels();
 
 	// Squelch mode functions.
 public:
@@ -71,6 +71,7 @@ private:
 private:
 	alignas(8) unsigned char unused_m_LastUpdateServerState[8];
 
+	const CManagedAreasClient& m_Areas;
 	vgui::VPANEL m_pParentPanel;
 	CPlayerBitVec m_VoicePlayers; // Who is currently talking. Indexed by client index.
 
@@ -107,6 +108,3 @@ private:
 };
 
 // Get the (global) voice manager.
-CVoiceStatus* GetClientVoiceMgr();
-void ClientVoiceMgr_Init();
-void ClientVoiceMgr_Shutdown();

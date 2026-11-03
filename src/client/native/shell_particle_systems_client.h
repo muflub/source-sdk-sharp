@@ -30,6 +30,7 @@
 #include "shell_particle_systems.h"
 
 class CShellNewParticleEffect;
+class CNewParticlesClient;
 class CStandaloneClients;
 
 class CParticleSystemsClient
@@ -37,7 +38,7 @@ class CParticleSystemsClient
 public:
 	// Out of line, as the destructor is: the slots' entries hold an effect type this header
 	// only declares.
-	explicit CParticleSystemsClient(CStandaloneClients& standalone);
+	CParticleSystemsClient(CStandaloneClients& standalone, CNewParticlesClient& newParticles);
 	~CParticleSystemsClient();
 
 	CParticleSystemsClient(const CParticleSystemsClient&) = delete;
@@ -130,6 +131,7 @@ private:
 	void LevelShutdown();
 
 	CStandaloneClients& m_Standalone;
+	CNewParticlesClient& m_NewParticles;
 
 	// Slot 0 holds one system per owner; the crit glow runs beside the trail in slot 1, and
 	// the condition drips (jarate's and the milk's) beside the burn, the glow and each other

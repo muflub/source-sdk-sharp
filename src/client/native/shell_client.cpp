@@ -517,15 +517,8 @@ void CSourceSharpClientMode::OverrideView(CViewSetup* pSetup)
 	}
 }
 
-vgui::VPANEL SourceSharp_ClientViewportPanel();
-
 // The client DLL object's member; set from its Init.
 IClientMode* g_pClientMode = NULL;
-
-vgui::VPANEL SourceSharp_ClientViewportPanel()
-{
-	return ShellClientDll_ClientMode().GetViewportVPanel();
-}
 
 // The client mode's Layout, when managed asks.
 void SourceSharp_ClientModeLayout()

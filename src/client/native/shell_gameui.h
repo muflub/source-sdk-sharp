@@ -15,4 +15,3 @@ bool ShellGameUi_IsStockModule(void* pAddress);
 
 // The menu layer's root under the GameUI root while the engine's GameUI is up,
 // and under the client viewport otherwise (shell_hud.cpp); once a frame.
-void ShellHud_MenuRootFollowGameUI();

@@ -792,9 +792,8 @@ bool Execute(const SSShadowEnv& env, int32_t kind, Payload& in, Answers& out, Co
 			const int32_t format = in.I();
 			const int32_t depth = in.I();
 			const int32_t hdr = in.I();
-			out.I((!in.bShort && env.pfnInitRenderTarget)
-					  ? env.pfnInitRenderTarget(pszName, w, h, sizeMode, format, depth, hdr)
-					  : 0);
+			const SSShadowRenderTarget target = {pszName, w, h, sizeMode, format, depth, hdr};
+			out.I((!in.bShort && env.pfnInitRenderTarget) ? env.pfnInitRenderTarget(&target) : 0);
 			break;
 		}
 		case SS_SHADOW_TextureSize:

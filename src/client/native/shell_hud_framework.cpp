@@ -6,8 +6,7 @@
 //=============================================================================//
 
 // SS_REASON a  a vtable the engine calls through
-// The HUD framework the engine and client code call into (CHud, CHudElement and the
-// DECLARE_HUDELEMENT list). The HUD itself is drawn by managed code.
+// The HUD framework the engine and client code call into (CHud and CHudElement). The HUD itself is drawn by managed code.
 
 #include "predictable_entity.h"
 #include "cdll_util.h"
@@ -19,37 +18,6 @@
 #include "client_entity.h"
 
 CHud gHUD;
-
-// The DECLARE_HUDELEMENT registration list, built at load and walked by CHud::Init.
-CHudElementHelper* CHudElementHelper::m_sHelpers = NULL;
-
-CHudElementHelper::CHudElementHelper(CHudElement* (*pfnCreate)(), int depth)
-{
-	m_pfnCreate = pfnCreate;
-	m_iDepth = depth;
-
-	// Ordered by depth, highest first: creation order decides VGUI z-order among siblings.
-	CHudElementHelper** ppList = &m_sHelpers;
-	while (*ppList && (*ppList)->m_iDepth > depth)
-		ppList = &(*ppList)->m_pNext;
-
-	m_pNext = *ppList;
-	*ppList = this;
-}
-
-CHudElementHelper* CHudElementHelper::GetNext()
-{
-	return m_pNext;
-}
-
-void CHudElementHelper::CreateAllElements()
-{
-	for (CHudElementHelper* p = m_sHelpers; p; p = p->GetNext())
-	{
-		if (p->m_pfnCreate)
-			p->m_pfnCreate();
-	}
-}
 
 // Registers itself with gHUD on construction and removes itself on destruction.
 CHudElement::CHudElement(const char* pElementName)
@@ -108,9 +76,6 @@ CHud::~CHud() {}
 
 void CHud::Init()
 {
-	// Builds every declared element, which creates the managed HUD host.
-	CHudElementHelper::CreateAllElements();
-
 	for (int i = 0; i < m_HudList.Count(); i++)
 		m_HudList[i]->Init();
 }

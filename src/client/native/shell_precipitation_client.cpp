@@ -7,7 +7,7 @@
 // SS_REASON a  a vtable the engine calls through
 // The client weather's native half; the weather itself is managed's
 // PrecipitationSystem.
-//   DrawPrecipitation  viewrender.cpp calls it in its two render passes. It
+//   CPrecipitationClient::Draw  viewrender.cpp calls it in its two render passes. It
 //                      hands managed the view and carries out the plan that
 //                      comes back: each water ripple, then each tracer, in view
 //                      space.
@@ -33,6 +33,7 @@
 
 #include "shell_standalone_client.h"
 #include "imanaged_areas_client.h"
+#include "shell_precipitation_draw_client.h"
 
 namespace
 {
@@ -44,16 +45,6 @@ const int kSplashFloats = 6; // origin 3, scale, lifetime, alpha
 const int kMaxTracers = 16384;
 const int kMaxSplashes = 64;
 
-float s_Tracers[kMaxTracers * kTracerFloats];
-float s_Splashes[kMaxSplashes * kSplashFloats];
-
-// The render's tracers in IManagedParticlesClient::TracerQuads' layout (start
-// 3, delta 3, width), and the corners and verdicts it answers, asked once a
-// render for the whole plan.
-float s_TracerIn[kMaxTracers * 7];
-Vector s_TracerVerts[kMaxTracers * 4];
-uint8_t s_TracerValid[kMaxTracers];
-
 IMaterial* TracerMaterial(int nMaterial)
 {
 	return materials->FindMaterial(nMaterial == 1 ? "particle/snow" : "particle/rain", TEXTURE_GROUP_CLIENT_EFFECTS);
@@ -61,10 +52,32 @@ IMaterial* TracerMaterial(int nMaterial)
 
 } // namespace
 
-// viewrender.cpp calls this in each pass that draws the weather.
-void DrawPrecipitation()
+struct CPrecipitationClient::Plan_t
 {
-	IManagedPrecipitationClient* pApi = ManagedPrecipitationClient();
+	float Tracers[kMaxTracers * kTracerFloats];
+	float Splashes[kMaxSplashes * kSplashFloats];
+
+	// The render's tracers in IManagedParticlesClient::TracerQuads' layout (start 3, delta 3,
+	// width), and the corners and verdicts it answers, asked once a render for the whole plan.
+	float TracerIn[kMaxTracers * 7];
+	Vector TracerVerts[kMaxTracers * 4];
+	uint8_t TracerValid[kMaxTracers];
+};
+
+CPrecipitationClient::~CPrecipitationClient()
+{
+	delete m_pPlan;
+}
+
+// viewrender.cpp calls this in each pass that draws the weather.
+void CPrecipitationClient::Draw()
+{
+	if (!m_pPlan)
+		m_pPlan = new Plan_t;
+	Plan_t* const pPlan = m_pPlan;
+	IManagedParticlesClient* const pParticles = m_Areas.m_pParticlesClient;
+
+	IManagedPrecipitationClient* pApi = m_Areas.m_pPrecipitationClient;
 	if (!pApi)
 		return;
 
@@ -86,13 +99,14 @@ void DrawPrecipitation()
 
 	int32_t nSplashes = 0;
 	const int32_t nTracers =
-		pApi->PrecipitationRender(flView, s_Tracers, kMaxTracers, s_Splashes, kMaxSplashes, &nSplashes);
+		pApi->PrecipitationRender(flView, pPlan->Tracers, kMaxTracers, pPlan->Splashes, kMaxSplashes, &nSplashes);
 
 	for (int i = 0; i < nSplashes && i < kMaxSplashes; ++i)
 	{
-		const float* s = &s_Splashes[i * kSplashFloats];
+		const float* s = &pPlan->Splashes[i * kSplashFloats];
 		Vector vColor(0.5f, 0.5f, 0.5f);
-		FX_WaterRipple(Vector(s[0], s[1], s[2]), s[3], &vColor, s[4], s[5]);
+		if (pParticles)
+			pParticles->WaterSplash(2, s, NULL, s[3], vColor.Base(), s[4], s[5]);
 	}
 
 	if (nTracers <= 0)
@@ -103,10 +117,10 @@ void DrawPrecipitation()
 	for (int i = 0; i < nCount; ++i)
 	{
 		for (int k = 0; k < 7; ++k)
-			s_TracerIn[i * 7 + k] = s_Tracers[i * kTracerFloats + k];
+			pPlan->TracerIn[i * 7 + k] = pPlan->Tracers[i * kTracerFloats + k];
 	}
-	IManagedParticlesClient* pParticles = ManagedParticlesClient();
-	if (!pParticles || pParticles->TracerQuads(nCount, s_TracerIn, s_TracerVerts[0].Base(), s_TracerValid) != nCount)
+	if (!pParticles ||
+		pParticles->TracerQuads(nCount, pPlan->TracerIn, pPlan->TracerVerts[0].Base(), pPlan->TracerValid) != nCount)
 		return;
 
 	CMatRenderContextPtr pRenderContext(materials);
@@ -124,12 +138,12 @@ void DrawPrecipitation()
 	int iStart = 0;
 	while (iStart < nCount)
 	{
-		const float flVolume = s_Tracers[iStart * kTracerFloats + 9];
+		const float flVolume = pPlan->Tracers[iStart * kTracerFloats + 9];
 		int iEnd = iStart;
-		while (iEnd < nCount && s_Tracers[iEnd * kTracerFloats + 9] == flVolume)
+		while (iEnd < nCount && pPlan->Tracers[iEnd * kTracerFloats + 9] == flVolume)
 			++iEnd;
 
-		pRenderContext->Bind(TracerMaterial((int)s_Tracers[iStart * kTracerFloats + 8]));
+		pRenderContext->Bind(TracerMaterial((int)pPlan->Tracers[iStart * kTracerFloats + 8]));
 		IMesh* pMesh = pRenderContext->GetDynamicMesh();
 		if (pMesh)
 		{
@@ -141,12 +155,12 @@ void DrawPrecipitation()
 			static const float s_flU[4] = {0.0f, 1.0f, 1.0f, 0.0f};
 			for (int i = iStart; i < iEnd; ++i)
 			{
-				if (!s_TracerValid[i])
+				if (!pPlan->TracerValid[i])
 					continue;
-				const float flColor[4] = {1, 1, 1, s_Tracers[i * kTracerFloats + 7]};
+				const float flColor[4] = {1, 1, 1, pPlan->Tracers[i * kTracerFloats + 7]};
 				for (int k = 0; k < 4; ++k)
 				{
-					const Vector& v = s_TracerVerts[i * 4 + s_nCorner[k]];
+					const Vector& v = pPlan->TracerVerts[i * 4 + s_nCorner[k]];
 					mb.Position3f(v.x, v.y, v.z);
 					mb.TexCoord2f(0, s_flU[k], 1.0f);
 					mb.Color4fv(flColor);

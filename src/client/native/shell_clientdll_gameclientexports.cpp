@@ -17,6 +17,7 @@
 #include "voice_status.h"
 
 #include "game/client/IGameClientExports.h"
+#include "shell_clientdll_exports.h"
 
 // shell_clientdll.cpp's, set in its Init.
 
@@ -32,33 +33,42 @@ static void FireClientGameEvent(const char* pName)
 }
 
 // Interface for gameui to modify voice bans.
-class CGameClientExports : public IGameClientExports
+bool CGameClientExports::IsPlayerGameVoiceMuted(int playerIndex)
 {
-public:
-	// ingame voice manipulation
-	bool IsPlayerGameVoiceMuted(int playerIndex) { return GetClientVoiceMgr()->IsPlayerBlocked(playerIndex); }
+	return m_Voice.IsPlayerBlocked(playerIndex);
+}
 
-	void MutePlayerGameVoice(int playerIndex) { GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, true); }
+void CGameClientExports::MutePlayerGameVoice(int playerIndex)
+{
+	m_Voice.SetPlayerBlockedState(playerIndex, true);
+}
 
-	void UnmutePlayerGameVoice(int playerIndex) { GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, false); }
+void CGameClientExports::UnmutePlayerGameVoice(int playerIndex)
+{
+	m_Voice.SetPlayerBlockedState(playerIndex, false);
+}
 
-	void OnGameUIActivated() { FireClientGameEvent("gameui_activated"); }
+void CGameClientExports::OnGameUIActivated()
+{
+	FireClientGameEvent("gameui_activated");
+}
 
-	void OnGameUIHidden() { FireClientGameEvent("gameui_hidden"); }
+void CGameClientExports::OnGameUIHidden()
+{
+	FireClientGameEvent("gameui_hidden");
+}
 
-	// Stock's achievements interface is never set here and the econ strings are NULL
-	// without econ items, so these answer nothing.
-	void CreateAchievementsPanel(vgui::Panel* pParent) {}
+int CGameClientExports::GetAchievementsPanelMinWidth() const
+{
+	return 0;
+}
 
-	void DisplayAchievementPanel() {}
+const char* CGameClientExports::GetHolidayString()
+{
+	return NULL;
+}
 
-	void ShutdownAchievementPanel() {}
-
-	int GetAchievementsPanelMinWidth() const { return 0; }
-
-	const char* GetHolidayString() { return NULL; }
-
-	const char* GetOperationString() { return NULL; }
-};
-
-EXPOSE_SINGLE_INTERFACE(CGameClientExports, IGameClientExports, GAMECLIENTEXPORTS_INTERFACE_VERSION);
+const char* CGameClientExports::GetOperationString()
+{
+	return NULL;
+}

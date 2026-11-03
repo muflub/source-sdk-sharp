@@ -24,13 +24,9 @@
 
 #include "imanaged_areas_client.h"
 #include "shell_managed_areas_client.h"
+#include "shell_sprites_client.h"
 
 // The pool's seam (shell_te_pool_client.cpp).
-void SourceSharpTePool_Update(float flFrameTime);
-void SourceSharpTePool_Clear();
-C_LocalTempEntity* SourceSharpTePool_Find(int nID, int nSubID);
-int SourceSharpTePool_SlotOf(const C_LocalTempEntity* pTemp);
-C_LocalTempEntity* SourceSharpTePool_AtSlot(int nSlot);
 
 ITempEnts* tempents = NULL;
 
@@ -221,9 +217,11 @@ int C_LocalTempEntity::DrawModel(int modelFlags)
 		case mod_sprite:
 			// NULL entity: a tempent has no IClientEntity for the material proxies, and
 			// they treat NULL as "not an entity".
-			return DrawSprite(NULL, GetModel(), GetAbsOrigin(), GetAbsAngles(), m_flFrame, NULL, m_nSkin,
-							  GetRenderMode(), m_nRenderFX, m_clrRender.a, m_clrRender.r, m_clrRender.g, m_clrRender.b,
-							  m_flSpriteScale);
+			return m_pPool->Sprites().PlanSprite(&m_queryHandle, NULL, GetModel(), GetAbsOrigin(), GetAbsAngles(),
+												 m_flFrame, NULL, m_nSkin, GetRenderMode(), m_nRenderFX, m_clrRender.a,
+												 m_clrRender.r, m_clrRender.g, m_clrRender.b, m_flSpriteScale,
+												 /*bWorldSpaceScale=*/false,
+												 /*flHDRColorScale=*/1.0f, PIXELVIS_DEFAULT_PROXY_SIZE);
 		case mod_studio:
 			return DrawStudioModel(modelFlags);
 		default:
@@ -291,8 +289,8 @@ static int BreakModelDrawHelper(C_LocalTempEntity* entity, int flags)
 
 	if (IManagedFxClient* pFx = entity->ManagedFx())
 	{
-		const int nHead = pFx->TempEntLightingOrigin(SourceSharpTePool_SlotOf(entity));
-		if (C_LocalTempEntity* pHead = SourceSharpTePool_AtSlot(nHead))
+		const int nHead = pFx->TempEntLightingOrigin(entity->Pool().PoolSlotOf(entity));
+		if (C_LocalTempEntity* pHead = entity->Pool().PoolAtSlot(nHead))
 			sInfo.pLightingOrigin = &pHead->GetAbsOrigin();
 	}
 
@@ -305,9 +303,10 @@ void SourceSharpTePool_JoinBreakGroup(C_LocalTempEntity* pTemp, bool bSlave)
 		pTemp->SetDrawHelper(BreakModelDrawHelper);
 }
 
-CTempEnts::CTempEnts(const CManagedAreasClient& areas)
+CTempEnts::CTempEnts(const CManagedAreasClient& areas, CSpritesClient& sprites)
 	: m_TempEntsPool((MAX_TEMP_ENTITIES / 20), CUtlMemoryPool::GROW_SLOW)
 	, m_Areas(areas)
+	, m_Sprites(sprites)
 {
 }
 
@@ -343,17 +342,17 @@ void CTempEnts::Update()
 	if (!engine->IsInGame())
 		return;
 
-	SourceSharpTePool_Update(gpGlobals->frametime);
+	PoolUpdate(gpGlobals->frametime);
 }
 
 void CTempEnts::Clear()
 {
-	SourceSharpTePool_Clear();
+	PoolClear();
 }
 
 C_LocalTempEntity* CTempEnts::FindTempEntByID(int nID, int nSubID)
 {
-	return SourceSharpTePool_Find(nID, nSubID);
+	return PoolFind(nID, nSubID);
 }
 
 C_LocalTempEntity* CTempEnts::TempEntAlloc()

@@ -913,8 +913,9 @@ void CManagedParticlesClient::ReleaseAll()
 
 // CParticleSystemsClient (shell_particle_systems_client.h).
 
-CParticleSystemsClient::CParticleSystemsClient(CStandaloneClients& standalone)
+CParticleSystemsClient::CParticleSystemsClient(CStandaloneClients& standalone, CNewParticlesClient& newParticles)
 	: m_Standalone(standalone)
+	, m_NewParticles(newParticles)
 {
 }
 
@@ -952,7 +953,7 @@ void CParticleSystemsClient::Watch(CShellNewParticleEffect* pEffect, uint32_t hO
 // A refused name is not watched: Start refuses it to managed.
 CSmartPtr<CShellNewParticleEffect> CParticleSystemsClient::CreateWatched(uint32_t hOwner, const char* pszName)
 {
-	CSmartPtr<CShellNewParticleEffect> pEffect = CShellNewParticleEffect::Create(pszName, "SourceSharpFlame");
+	CSmartPtr<CShellNewParticleEffect> pEffect = m_NewParticles.Create(pszName, "SourceSharpFlame");
 	if (pEffect.IsValid() && pEffect->IsValid())
 		Watch(pEffect.GetObject(), hOwner, SOURCESHARP_PARTICLE_SYSTEM_OWNED);
 	return pEffect;
@@ -1419,7 +1420,7 @@ int32_t CParticleSystemsClient::ParticleSystemOneShot(const char* pszName, const
 {
 	if (!pszName || !pSortOriginXYZ || (nPoints > 0 && !pPoints) || !pOrientation0)
 		return 0;
-	CSmartPtr<CShellNewParticleEffect> pEffect = CShellNewParticleEffect::Create(pszName);
+	CSmartPtr<CShellNewParticleEffect> pEffect = m_NewParticles.Create(pszName);
 	if (!pEffect.IsValid() || !pEffect->IsValid())
 		return 0;
 	pEffect->SetSortOrigin(Vector(pSortOriginXYZ[0], pSortOriginXYZ[1], pSortOriginXYZ[2]));
@@ -1503,41 +1504,4 @@ int32_t SourceSharp_ParticlesTraceMask(const float* pStartXYZ, const float* pEnd
 	pOut[7] = tr.startsolid ? 1.0f : 0.0f;
 	pOut[8] = tr.fractionleftsolid;
 	return 9;
-}
-
-// fx_water.cpp's entry points native code still calls; managed decides each splash or tint.
-static void ManagedWaterSplash(int nKind, const Vector& origin, const Vector* pNormal, float flScale,
-							   const Vector* pColor, float flLifetime, float flAlpha)
-{
-	if (IManagedParticlesClient* pArea = ManagedParticlesClient())
-		pArea->WaterSplash(nKind, origin.Base(), pNormal ? pNormal->Base() : NULL, flScale,
-						   pColor ? pColor->Base() : NULL, flLifetime, flAlpha);
-}
-
-void FX_GunshotSplash(const Vector& origin, const Vector& normal, float scale)
-{
-	ManagedWaterSplash(0, origin, &normal, scale, NULL, 0.0f, 0.0f);
-}
-
-void FX_GunshotSlimeSplash(const Vector& origin, const Vector& normal, float scale)
-{
-	ManagedWaterSplash(1, origin, &normal, scale, NULL, 0.0f, 0.0f);
-}
-
-void FX_WaterRipple(const Vector& origin, float scale, Vector* pColor, float flLifetime, float flAlpha)
-{
-	ManagedWaterSplash(2, origin, NULL, scale, pColor, flLifetime, flAlpha);
-}
-
-// With no managed side, the tint is black and the luminosity 0, as for a black light.
-void UTIL_GetNormalizedColorTintAndLuminosity(const Vector& color, Vector* tint, float* luminosity)
-{
-	Vector vTint(0, 0, 0);
-	float flLuminosity = 0.0f;
-	if (IManagedParticlesClient* pArea = ManagedParticlesClient())
-		pArea->SplashTint(color.Base(), vTint.Base(), &flLuminosity);
-	if (tint)
-		*tint = vTint;
-	if (luminosity)
-		*luminosity = flLuminosity;
 }

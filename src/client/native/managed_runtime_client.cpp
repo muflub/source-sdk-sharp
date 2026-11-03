@@ -12,6 +12,7 @@
 
 #include "managed_init_failure.h"
 #include "managed_runtime_client.h"
+#include "shell_managed_areas_client.h"
 
 // Defined in sourcesharp_gamesystem.cpp, which publishes no header for it.
 bool SourceSharp_LoadManagedSide();
@@ -32,7 +33,7 @@ static void SourceSharp_FatalClientInitFailure(const char* pDetail)
 
 // Seeds engine and gpGlobals before the shared sequence, which reads both. gpGlobals is
 // the engine's pointer, not a copy: the engine writes through it every frame.
-IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env)
+IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env, const CManagedHoldersClient& holders)
 {
 	if (env == NULL)
 		return NULL;
@@ -58,7 +59,7 @@ IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env)
 	}
 
 	// Released by UnloadManagedRuntime from CShellClientDLL::Shutdown.
-	return new CManagedRuntimeClient();
+	return new CManagedRuntimeClient(holders.m_pRuntimeClient);
 }
 
 // IClientRuntimeAdapter's destructor is protected, so deletion happens here on the concrete

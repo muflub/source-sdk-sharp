@@ -72,10 +72,6 @@ struct ShellCollection : public CParticleCollection
 	int HighestCP() const { return m_nHighestCP; }
 };
 
-// The live effects, newest first; ids rise with creation, so falling id order.
-CUtlVector<CShellNewParticleEffect*> s_Effects;
-uint32_t s_nNextId = 0;
-
 void CopyVector(const Vector& v, float* pOut)
 {
 	pOut[0] = v.x;
@@ -86,17 +82,19 @@ void CopyVector(const Vector& v, float* pOut)
 } // namespace
 
 // The render group a view-model effect takes is managed's, at its first frame.
-CSmartPtr<CShellNewParticleEffect> CShellNewParticleEffect::Create(const char* pszName, const char* pszDebugName)
+CSmartPtr<CShellNewParticleEffect> CNewParticlesClient::Create(const char* pszName, const char* pszDebugName)
 {
-	CShellNewParticleEffect* pEffect =
-		new CShellNewParticleEffect(ShellCollection::Make(pszName), pszDebugName ? pszDebugName : pszName);
+	CShellNewParticleEffect* pEffect = new CShellNewParticleEffect(*this, ShellCollection::Make(pszName),
+																   pszDebugName ? pszDebugName : pszName, ++m_nNextId);
 	return pEffect;
 }
 
-CShellNewParticleEffect::CShellNewParticleEffect(CParticleCollection* pCollection, const char* pszDebugName)
-	: m_pCollection(pCollection)
+CShellNewParticleEffect::CShellNewParticleEffect(CNewParticlesClient& owner, CParticleCollection* pCollection,
+												 const char* pszDebugName, uint32_t nId)
+	: m_Owner(owner)
+	, m_pCollection(pCollection)
 	, m_pDebugName(pszDebugName)
-	, m_nId(++s_nNextId)
+	, m_nId(nId)
 	, m_nRefCount(0)
 	, m_bRemoved(false)
 	, m_bReleasedSinceFrame(false)
@@ -109,7 +107,7 @@ CShellNewParticleEffect::CShellNewParticleEffect(CParticleCollection* pCollectio
 	ShellCollection::Of(m_pCollection)->MinBounds().Init(1.0e6, 1.0e6, 1.0e6);
 	ShellCollection::Of(m_pCollection)->MaxBounds().Init(-1.0e6, -1.0e6, -1.0e6);
 
-	s_Effects.AddToHead(this);
+	m_Owner.m_Effects.AddToHead(this);
 	ClientLeafSystem()->CreateRenderableHandle(this);
 }
 
@@ -119,7 +117,7 @@ CShellNewParticleEffect::~CShellNewParticleEffect()
 	{
 		if (m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE)
 			ClientLeafSystem()->RemoveRenderable(m_hRenderHandle);
-		s_Effects.FindAndRemove(this);
+		m_Owner.m_Effects.FindAndRemove(this);
 	}
 	ShellCollection::Free(m_pCollection);
 	m_pCollection = NULL;
@@ -136,7 +134,7 @@ void CShellNewParticleEffect::Remove()
 		ClientLeafSystem()->RemoveRenderable(m_hRenderHandle);
 		m_hRenderHandle = INVALID_CLIENT_RENDER_HANDLE;
 	}
-	s_Effects.FindAndRemove(this);
+	m_Owner.m_Effects.FindAndRemove(this);
 	m_bRemoved = true;
 	if (m_nRefCount == 0)
 		delete this;
@@ -204,7 +202,7 @@ CShellNewParticleEffect* CShellNewParticleEffect::ReplaceWith(const char* pszNam
 	if (!pszName || !pszName[0])
 		return NULL;
 
-	CSmartPtr<CShellNewParticleEffect> pNew = Create(pszName, pszName);
+	CSmartPtr<CShellNewParticleEffect> pNew = m_Owner.Create(pszName, pszName);
 	if (!pNew->IsValid())
 		return pNew.GetObject();
 
@@ -260,7 +258,7 @@ bool CShellNewParticleEffect::UsesFullFrameBufferTexture()
 // The entities passed to managed are identity tokens: managed only compares them.
 int CShellNewParticleEffect::DrawModel(int flags)
 {
-	IManagedParticlesClient* pArea = ManagedParticlesClient();
+	IManagedParticlesClient* pArea = m_Owner.Managed();
 	if (!pArea || !IsValid())
 		return 0;
 
@@ -338,16 +336,6 @@ int CShellNewParticleEffect::DrawModel(int flags)
 	return out.Action != 0 ? 1 : 0;
 }
 
-int ShellNewParticles_Count()
-{
-	return s_Effects.Count();
-}
-
-CShellNewParticleEffect* ShellNewParticles_At(int nIndex)
-{
-	return (nIndex >= 0 && nIndex < s_Effects.Count()) ? s_Effects[nIndex] : NULL;
-}
-
 namespace
 {
 
@@ -410,9 +398,9 @@ int FindById(const uint32_t* ids, int nCount, uint32_t nId)
 
 // One crossing: managed decides, the library steps during it, and managed's answers are
 // carried out here in order.
-void ShellNewParticles_Frame(float flFrameTime)
+void CNewParticlesClient::Frame(float flFrameTime)
 {
-	IManagedParticlesClient* pArea = ManagedParticlesClient();
+	IManagedParticlesClient* pArea = Managed();
 	if (!pArea)
 		return;
 
@@ -421,10 +409,10 @@ void ShellNewParticles_Frame(float flFrameTime)
 		flFrameTime = 0.1f;
 
 	// The partition's read-lock pair before any collection steps.
-	if (s_Effects.Count() > 0)
+	if (m_Effects.Count() > 0)
 		UpdateDirtySpatialPartitionEntities();
 
-	const int nEffects = s_Effects.Count();
+	const int nEffects = m_Effects.Count();
 	CUtlVectorFixedGrowable<uint8_t, 16384> in;
 	CUtlVectorFixedGrowable<uint8_t, 4096> out;
 	const int nIn =
@@ -463,10 +451,10 @@ void ShellNewParticles_Frame(float flFrameTime)
 	SourceSharpNewParticleIn_t* pIn = (SourceSharpNewParticleIn_t*)(pHeader + 1);
 	for (int i = 0; i < nEffects; i++)
 	{
-		snapshot[i] = s_Effects[i];
-		ids[i] = s_Effects[i]->Id();
-		FillEffectIn(s_Effects[i], pIn[i]);
-		s_Effects[i]->ClearFrameFlags();
+		snapshot[i] = m_Effects[i];
+		ids[i] = m_Effects[i]->Id();
+		FillEffectIn(m_Effects[i], pIn[i]);
+		m_Effects[i]->ClearFrameFlags();
 	}
 
 	// At most four commits per effect: the view group, a replacement, a change and the removal.
@@ -501,8 +489,8 @@ void ShellNewParticles_Frame(float flFrameTime)
 	}
 }
 
-void ShellNewParticles_RemoveAll()
+void CNewParticlesClient::RemoveAll()
 {
-	while (s_Effects.Count() > 0)
-		s_Effects[0]->Remove();
+	while (m_Effects.Count() > 0)
+		m_Effects[0]->Remove();
 }

@@ -97,10 +97,21 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_particle_systems_client.h"
 #include "shell_particle_query_client.h"
 #include "shell_detail_props.h"
+#include "shell_shadows_client.h"
+#include "shell_te_tables_client.h"
+#include "shell_te_system_client.h"
+#include "shell_precipitation_draw_client.h"
+#include "shell_particle_manifest_client.h"
+#include "shell_hud_ui_client.h"
+#include "shell_clientdll_exports.h"
+#include "shell_interface_member.h"
+#include "shell_prediction_client.h"
+#include "shell_worldtext_client.h"
 #include "shell_glow_client.h"
 #include "shell_pixelvis_client.h"
 #include "shell_material_proxies_client.h"
 #include "shell_beams_client.h"
+#include "shell_sprites_client.h"
 #include "shell_new_particles.h"
 #include "shell_shim_console.h"
 #include "managed_side.h"
@@ -440,6 +451,12 @@ public:
 
 	CShellDetailProps& DetailProps() { return m_DetailProps; }
 
+	CNewParticlesClient& NewParticles() { return m_NewParticles; }
+
+	CTempEntsSystemClient& TempEntsSystem() { return m_TempEntsSystem; }
+
+	CTempEntTablesClient& TempEntTables() { return m_TempEntTables; }
+
 	CShellViewRender& ViewRender() { return m_ViewRender; }
 
 	virtual ~CShellClientDLL()
@@ -460,16 +477,32 @@ private:
 	CCVarRegistry m_CVars;
 
 	// The engine's VClientEntityList003 and the slot table behind it; the engine fetches
-	// it by name when it loads the DLL. CreateInterface's create functions take no context,
-	// so the registration's is a thunk bound to this object (bound_callback.h).
+	// it by name when it loads the DLL.
 	CClientEntityList m_EntityList;
 
-	void* CreateEntityList() { return static_cast<IClientEntityList*>(&m_EntityList); }
+	CInterfaceMember m_EntityListReg{static_cast<IClientEntityList*>(&m_EntityList),
+									 VCLIENTENTITYLIST_INTERFACE_VERSION};
 
-	typedef CBoundCallback<void*()> CreateInterface_t;
-	CreateInterface_t m_CreateEntityList{
-		this, &CreateInterface_t::Trampoline<CShellClientDLL, &CShellClientDLL::CreateEntityList>};
-	InterfaceReg m_EntityListReg{m_CreateEntityList.Get(), VCLIENTENTITYLIST_INTERFACE_VERSION};
+	// The engine's VClientPrediction001, fetched by name the same way.
+	CSourceSharpPrediction m_Prediction{m_Managed.m_Areas};
+
+	CInterfaceMember m_PredictionReg{static_cast<IPrediction*>(&m_Prediction), VCLIENT_PREDICTION_INTERFACE_VERSION};
+
+	// The voice ban and speaker state, over the managed UI area.
+	CVoiceStatus m_VoiceStatus{m_Managed.m_Areas};
+
+	// VClientDllSharedAppSystems001, the engine's first call into the client, and the
+	// GameUI's GameClientExports001.
+	CClientDLLSharedAppSystems m_AppSystems;
+	CInterfaceMember m_AppSystemsReg{static_cast<IClientDLLSharedAppSystems*>(&m_AppSystems),
+									 CLIENT_DLL_SHARED_APPSYSTEMS};
+	CGameClientExports m_GameClientExports{m_VoiceStatus};
+	CInterfaceMember m_GameClientExportsReg{static_cast<IGameClientExports*>(&m_GameClientExports),
+											GAMECLIENTEXPORTS_INTERFACE_VERSION};
+
+	// The engine's center print, over the managed UI area.
+	CCenterPrint m_CenterPrint{m_Managed.m_Areas};
+	CInterfaceMember m_CenterPrintReg{static_cast<ICenterPrint*>(&m_CenterPrint), VCENTERPRINT_INTERFACE_VERSION};
 
 	// What managed acquires from native, handed to it at load.
 	CShimRootClient m_ShimRoot;
@@ -487,7 +520,13 @@ private:
 	// IViewRenderBeams, its renderables and its sprite bind.
 	CBeamsClient m_Beams{m_Managed.m_Areas};
 
-	CStandaloneClients m_Standalone{m_Managed.m_Areas, m_EntityList, m_Beams};
+	// The managed sprites and trails, their plans and their client systems row.
+	CSpritesClient m_Sprites{m_Managed.m_Areas, m_Standalone};
+
+	// The shadow manager's client half.
+	CShadowsClient m_Shadows{m_Managed.m_Areas};
+
+	CStandaloneClients m_Standalone{m_Managed.m_Areas, m_EntityList, m_Beams, m_Sprites, m_Shadows};
 
 	// The local viewer's facts and the fog and sky managed pushes.
 	CViewerFacts m_ViewerFacts{m_Standalone, m_EntityList};
@@ -498,11 +537,20 @@ private:
 	// The material proxy trampoline: the registrations, the live proxies, the area.
 	CMaterialProxiesClient m_MaterialProxies{m_Managed.m_Areas};
 
+	// The managed point_worldtext renderables.
+	CWorldTextClient m_WorldText{m_Managed.m_Areas, m_Standalone};
+
+	// The particle manifests' reads.
+	CParticleManifestClient m_ParticleManifest{m_Managed.m_Areas};
+
 	// The detail props' executor.
 	CShellDetailProps m_DetailProps{m_Managed.m_Areas};
 
+	// The new-style particle effects' list and frame.
+	CNewParticlesClient m_NewParticles{m_Managed.m_Areas};
+
 	// The new-style particle systems managed starts, and their client systems row.
-	CParticleSystemsClient m_ParticleSystems{m_Standalone};
+	CParticleSystemsClient m_ParticleSystems{m_Standalone, m_NewParticles};
 
 public:
 	// The query particles.a is handed at the particle manager's Init (g_pParticleSystemQuery).
@@ -510,7 +558,10 @@ public:
 
 private:
 	// IInput and the shim input area, over the managed input area.
-	CSourceSharpInput m_Input{m_Managed.m_Areas, m_ViewerFacts};
+	CSourceSharpInput m_Input{m_Managed.m_Areas, m_ViewerFacts, m_Prediction, m_VoiceStatus};
+
+	// The UI's native half: the paint window, the HUD element and the menu root.
+	CHudUiClient m_HudUi{m_Managed.m_Areas, m_ClientMode};
 
 	// IClientMode (g_pClientMode points at it from Init).
 	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas, m_Standalone, m_ManagedParticles};
@@ -522,21 +573,31 @@ private:
 	CGlowOverlaysClient m_Glow{m_Managed.m_Areas, m_EffectsList};
 	CPixelVisClient m_PixelVis{m_Managed.m_Areas, m_EffectsList};
 
+	// The weather's draw.
+	CPrecipitationClient m_Precipitation{m_Managed.m_Areas};
+
+	// The temp entity tables managed registers.
+	CTempEntTablesClient m_TempEntTables{m_Managed.m_Areas};
+
+	// The client's ITempEntsSystem, on SuppressHostEvents' list.
+	CTempEntsSystemClient m_TempEntsSystem{m_Managed.m_Areas};
+
 	// IEffects (g_pEffects points at it from Init), over the managed FX area.
 	CEffectsClient m_Effects{m_Managed.m_Areas};
 
 	// ITempEnts (tempents points at it from Init): the legacy temp entities' object.
-	CTempEnts m_TempEnts{m_Managed.m_Areas};
+	CTempEnts m_TempEnts{m_Managed.m_Areas, m_Sprites};
 
 	// IViewRender (`view` points at it from Init).
 	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_ViewerFacts, m_ClientMode, m_ViewExecutor, m_Beams};
-	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame,     m_Physics,         m_Decals,     m_Standalone,
-							 m_EffectsList,     m_ManagedParticles, m_ParticleSystems, m_DetailProps};
+	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics,          m_Decals,
+							 m_Standalone,      m_EffectsList,  m_ManagedParticles, m_ParticleSystems,
+							 m_DetailProps,     m_WorldText,    m_Sprites,          m_Shadows};
 
 	// The render plan's executor; the view render calls it, and it calls the systems' PreRender.
-	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,    m_ViewerFacts, m_Standalone,
-								 m_ClientMode,      m_ViewRender, m_EffectsList, m_ManagedParticles,
-								 m_DetailProps,     m_Glow,       m_PixelVis};
+	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,       m_ViewerFacts,      m_Standalone,  m_ClientMode,
+								 m_ViewRender,      m_EffectsList,   m_ManagedParticles, m_DetailProps, m_Glow,
+								 m_PixelVis,        m_Precipitation, m_Shadows};
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
@@ -582,6 +643,21 @@ CEffectsListClient& ShellClientDll_EffectsList()
 CManagedParticlesClient& ShellClientDll_ManagedParticles()
 {
 	return g_ShellClientDLL.ManagedParticles();
+}
+
+CNewParticlesClient& ShellClientDll_NewParticles()
+{
+	return g_ShellClientDLL.NewParticles();
+}
+
+CTempEntsSystemClient& ShellClientDll_TempEntsSystem()
+{
+	return g_ShellClientDLL.TempEntsSystem();
+}
+
+CTempEntTablesClient& ShellClientDll_TempEntTables()
+{
+	return g_ShellClientDLL.TempEntTables();
 }
 
 // Stock's accessor, for the leaf system: it is built at static init, before it could be
@@ -800,6 +876,9 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	if (!ShellParticleMgr_Init(materials))
 		return false;
 
+	// Send true to load the sheets.
+	m_ParticleManifest.Parse(true, false);
+
 	// A listen server's spawn reloads only what the map paks can have changed. Failing to
 	// install falls back to the stock full reload.
 	m_MapMaterials.Install(filesystem, materials);
@@ -829,29 +908,43 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_pInputClient = &m_Input;
 	m_ShimRoot.m_Areas.m_pPhysicsClient = &m_Physics;
 	m_ShimRoot.m_Areas.m_pStandaloneClient = &m_Standalone;
+	m_ShimRoot.m_pShadows = &m_Shadows;
+	m_ShimRoot.m_Areas.m_TempEntPoolClient.m_pTempEnts = &m_TempEnts;
+	m_ShimRoot.m_Areas.m_FxClient.m_pTempEnts = &m_TempEnts;
+	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pTempEntTablesClient = &m_TempEntTables;
+	m_ShimRoot.m_Areas.m_FxClient.m_pTempEntsSystemClient = &m_TempEntsSystem;
 	m_ShimRoot.m_Areas.m_pMaterialProxyClient = &m_MaterialProxies;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = &m_ClientMode;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = &m_ViewerFacts;
+	m_ShimRoot.m_Areas.m_UiClient.m_pHudUiClient = &m_HudUi;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pGlowOverlaysClient = &m_Glow;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pPixelVisClient = &m_PixelVis;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsListClient = &m_EffectsList;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsClient = &m_Effects;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pManagedParticlesClient = &m_ManagedParticles;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleManifestClient = &m_ParticleManifest;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pWorldTextClient = &m_WorldText;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemsClient = &m_ParticleSystems;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pBeamsClient = &m_Beams;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pSpritesClient = &m_Sprites;
+	m_ShimRoot.m_Areas.m_FxClient.m_pSpritesClient = &m_Sprites;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemQueryClient = &m_ParticleQuery;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pParticleSystemsClient = &m_ParticleSystems;
-	m_pManagedRuntime = LoadManagedRuntime(this);
+	m_pManagedRuntime = LoadManagedRuntime(this, m_Managed);
 
 	if (m_pManagedRuntime == NULL)
 		return false;
 
+	// A ClientClass linked after GetAllClasses is not in the handshake, and the build window
+	// ends before gHUD.Init().
+	m_TempEntTables.TempEntClientCloseRegistration();
+
 	m_ManagedFrame.SetRuntime(m_pManagedRuntime);
 
-	// The particle manifest read CParticleMgr::Init deferred until managed was up.
-	void SourceSharp_ParticleManifestRuntimeUp();
-	SourceSharp_ParticleManifestRuntimeUp();
+	// The particle manifest read Init deferred until managed was up.
+	m_ParticleManifest.RuntimeUp();
 
+	m_HudUi.CreateHud();
 	gHUD.Init();
 
 	m_ClientMode.Init();
@@ -874,11 +967,9 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	m_EffectsList.InitSmokeFog();
 
-	ClientVoiceMgr_Init();
-
 	{
 		vgui::VPANEL parent = enginevgui->GetPanel(PANEL_CLIENTDLL);
-		GetClientVoiceMgr()->Init(&m_VoiceStatusHelper, parent);
+		m_VoiceStatus.Init(&m_VoiceStatusHelper, parent);
 	}
 
 	if (!m_Physics.DLLInit(physicsFactory))
@@ -934,8 +1025,6 @@ void CShellClientDLL::Shutdown()
 
 	ClientWorldFactoryShutdown();
 
-	ClientVoiceMgr_Shutdown();
-
 	m_ClientMode.Disable();
 	m_ClientMode.Shutdown();
 
@@ -982,18 +1071,27 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_pInputClient = NULL;
 	m_ShimRoot.m_Areas.m_pPhysicsClient = NULL;
 	m_ShimRoot.m_Areas.m_pStandaloneClient = NULL;
+	m_ShimRoot.m_Areas.m_TempEntPoolClient.m_pTempEnts = NULL;
+	m_ShimRoot.m_Areas.m_FxClient.m_pTempEnts = NULL;
+	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pTempEntTablesClient = NULL;
+	m_ShimRoot.m_Areas.m_FxClient.m_pTempEntsSystemClient = NULL;
 	m_ShimRoot.m_Areas.m_pMaterialProxyClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = NULL;
+	m_ShimRoot.m_Areas.m_UiClient.m_pHudUiClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pGlowOverlaysClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pPixelVisClient = NULL;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsListClient = NULL;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsClient = NULL;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pManagedParticlesClient = NULL;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleManifestClient = NULL;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pWorldTextClient = NULL;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemsClient = NULL;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemQueryClient = NULL;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pParticleSystemsClient = NULL;
 	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pBeamsClient = NULL;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pSpritesClient = NULL;
+	m_ShimRoot.m_Areas.m_FxClient.m_pSpritesClient = NULL;
 	m_ShimRoot.m_pAppSystemFactory = nullptr;
 	m_ShimRoot.m_pPhysicsFactory = nullptr;
 	gameeventmanager = NULL;
@@ -1008,7 +1106,7 @@ int CShellClientDLL::HudVidInit()
 {
 	gHUD.VidInit();
 
-	GetClientVoiceMgr()->VidInit();
+	m_VoiceStatus.VidInit();
 
 	return 1;
 }
@@ -1023,10 +1121,10 @@ void CShellClientDLL::HudUpdate(bool bActive)
 {
 	float frametime = gpGlobals->frametime;
 
-	GetClientVoiceMgr()->Frame(frametime);
+	m_VoiceStatus.Frame(frametime);
 
 	// The menu layer's home: the GameUI root while the engine's GameUI is up.
-	ShellHud_MenuRootFollowGameUI();
+	m_HudUi.MenuRootFollowGameUI();
 
 	gHUD.UpdateHud(bActive);
 
@@ -1224,12 +1322,11 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	// Managed decides whether this level re-reads every particle definition file or only
 	// re-precaches; with no runtime, the stock re-read.
 	PumpWindowDuringLoad();
-	int PrecacheDefinedParticleSystems();
 	IManagedRuntimeClient* pRuntime = m_Managed.m_pRuntimeClient;
 	if (!pRuntime || pRuntime->ParticlesNeedFullReload(m_nPreviousMapParticleFiles))
-		ReloadParticleEffects();
+		m_ParticleManifest.Reload();
 	else
-		PrecacheDefinedParticleSystems();
+		m_ParticleManifest.PrecacheDefined();
 	PumpWindowDuringLoad();
 
 	if (g_bLevelInitialized)
@@ -1241,8 +1338,7 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	ResetManagedViewEffects();
 
 	// How many files this read is what the next level's reload decision needs.
-	int ParseParticleEffectsMapFiles(const char* pMapName, bool bLoadSheets);
-	m_nPreviousMapParticleFiles = ParseParticleEffectsMapFiles(pMapName, true);
+	m_nPreviousMapParticleFiles = m_ParticleManifest.ParseMapFiles(pMapName, true);
 
 	modemanager->LevelInit(pMapName);
 	ShellParticleMgr_LevelInit();
@@ -1267,7 +1363,7 @@ void CShellClientDLL::LevelInitPostEntity()
 {
 	PumpWindowDuringLoad();
 	m_Systems.LevelInitPostEntity();
-	internalCenterPrint->Clear();
+	m_CenterPrint.Clear();
 }
 
 void CShellClientDLL::ResetStringTablePointers()
@@ -1319,14 +1415,14 @@ void CShellClientDLL::LevelShutdown()
 	view->LevelShutdown();
 	m_Beams.ClearBeams();
 	// The new-style effects removed, then the particle materials released.
-	ShellNewParticles_RemoveAll();
+	m_NewParticles.RemoveAll();
 	ShellParticleMgr_LevelShutdown();
 
 	m_Input.StopAllRumble();
 
 	gHUD.LevelShutdown();
 
-	internalCenterPrint->Clear();
+	m_CenterPrint.Clear();
 
 	messagechars->Clear();
 
@@ -1345,7 +1441,7 @@ void CShellClientDLL::InitSprite(CEngineSprite* pSprite, const char* loadname)
 {
 	if (pSprite)
 	{
-		pSprite->Init(loadname);
+		pSprite->Init(loadname, m_Managed.m_Areas.m_pMaterialFilesClient);
 	}
 }
 
@@ -1365,7 +1461,7 @@ int CShellClientDLL::GetSpriteSize() const
 
 void CShellClientDLL::VoiceStatus(int entindex, qboolean bTalking)
 {
-	GetClientVoiceMgr()->UpdateSpeakerStatus(entindex, !!bTalking);
+	m_VoiceStatus.UpdateSpeakerStatus(entindex, !!bTalking);
 
 	// The managed UI's voice panel shows who is speaking.
 	if (IManagedUiClient* pUi = m_Managed.m_Areas.m_pUiClient)
@@ -1545,7 +1641,7 @@ void CShellClientDLL::OnRenderStart()
 		FPExceptionEnabler enableExceptions;
 		// The old-style effects, then the new-style ones, as UpdateAllEffects ordered them.
 		m_ManagedParticles.Frame(gpGlobals->frametime);
-		ShellNewParticles_Frame(gpGlobals->frametime);
+		m_NewParticles.Frame(gpGlobals->frametime);
 	}
 }
 
@@ -1629,7 +1725,7 @@ void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 			break;
 		case FRAME_NET_UPDATE_POSTDATAUPDATE_END:
 		{
-			prediction->PostEntityPacketReceived();
+			m_Prediction.PostEntityPacketReceived();
 		}
 		break;
 		case FRAME_START:

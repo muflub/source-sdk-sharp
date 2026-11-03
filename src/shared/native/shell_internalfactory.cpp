@@ -28,7 +28,7 @@
 #include "shell_shim_root_client.h"
 #include "particles_lib_client.h"
 #include "fwd_shadows.h"
-void* ShadowEnv_Acquire();
+#include "shell_shadows_client.h"
 #include "ss_particles/iparticlelib.h"
 #endif
 
@@ -58,7 +58,7 @@ void* CShimRootClient::Acquire(const char* pszName)
 
 	// The environment the shadow forwarder table calls out over.
 	if (!ss::StrICmp(pszName, SS_SHADOW_ENV_VERSION))
-		return ShadowEnv_Acquire();
+		return m_pShadows ? m_pShadows->AcquireEnv() : NULL;
 
 	// The generated areas.
 	if (void* pArea = ShimAreasClient_Acquire(m_Areas, pszName))

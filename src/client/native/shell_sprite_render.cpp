@@ -23,7 +23,8 @@
 
 #include "shell_standalone_client.h"
 #include "shell_renderable.h"
-#include "shell_beam_render.h"
+#include "shell_sprites_client.h"
+#include "shell_standalone_clients.h"
 
 #include "shell_effect_registry.h"
 #include "imanaged_areas_client.h"
@@ -49,67 +50,44 @@ static bool SpriteRenderModeRefused(int32_t nRenderMode, const char* pszCaller, 
 }
 
 // One managed sprite's renderer, kept for its pixel-visibility query handle.
-class CSourceSharpSpriteRenderer : public C_SpriteRenderer
+CSpritesClient::CSpritesClient(const CManagedAreasClient& areas, CStandaloneClients& standalone)
+	: m_Areas(areas)
+	, m_Standalone(standalone)
+	, m_Stored(DefLessFunc(IClientEntity*))
 {
-public:
-	int Draw(IClientEntity* pEntity, const model_t* pModel, const Vector& vecOrigin, const QAngle& angAngles,
-			 float flFrame, int nRenderMode, int nRenderFx, int a, int r, int g, int b, float flScale,
-			 bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize)
+}
+
+// The query handle an owner keeps, keyed by handle because the shell entity is shared by
+// every managed class.
+pixelvis_handle_t* CSpritesClient::QueryFor(uint32_t hOwner)
+{
+	for (int i = 0; i < m_Sprites.Count(); i++)
 	{
-		return SourceSharp_PlanSprite(&m_queryHandle, pEntity, pModel, vecOrigin, angAngles, flFrame,
-									  /*attachedto=*/NULL, /*attachmentindex=*/0, nRenderMode, nRenderFx, a, r, g, b,
-									  flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize);
+		if (m_Sprites[i]->hOwner == hOwner)
+			return &m_Sprites[i]->hQuery;
 	}
 
-	// The direct path's first half: the request for a plan made in managed.
-	int Begin(IClientEntity* pEntity, const model_t* pModel, const Vector& vecOrigin, const QAngle& angAngles,
-			  float flFrame, int nRenderMode, int nRenderFx, int a, int r, int g, int b, float flScale,
-			  bool bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize, float* pIn)
-	{
-		return SourceSharp_SpriteDrawBegin(&m_queryHandle, pEntity, pModel, vecOrigin, angAngles, flFrame, nRenderMode,
-										   nRenderFx, a, r, g, b, flScale, bWorldSpaceScale, flHDRColorScale,
-										   flGlowProxySize, pIn);
-	}
-};
-
-// Which renderer belongs to which managed entity, keyed by handle because the shell
-// entity is shared by every managed class.
-struct SourceSharpSprite_t
-{
-	uint32_t hOwner;
-	CSourceSharpSpriteRenderer renderer;
-};
-
-static CUtlVector<SourceSharpSprite_t*> g_ManagedSprites;
-
-static CSourceSharpSpriteRenderer* RendererFor(uint32_t hOwner)
-{
-	for (int i = 0; i < g_ManagedSprites.Count(); i++)
-	{
-		if (g_ManagedSprites[i]->hOwner == hOwner)
-			return &g_ManagedSprites[i]->renderer;
-	}
-
-	SourceSharpSprite_t* pEntry = new SourceSharpSprite_t;
+	Sprite_t* pEntry = new Sprite_t;
 	pEntry->hOwner = hOwner;
+	pEntry->hQuery = 0;
 
-	g_ManagedSprites.AddToTail(pEntry);
+	m_Sprites.AddToTail(pEntry);
 
-	return &pEntry->renderer;
+	return &pEntry->hQuery;
 }
 
 // One sprite this frame: stock CSprite::DrawModel with its members as arguments. A model
 // that is not a sprite is declined quietly. The attachment is always NULL and 0: only C++
 // callers outside this build set one.
-static int32_t SourceSharpDrawSpriteCore(uint32_t hOwner, const Vector& vecOffset, int32_t nModelIndex, float flFrame,
-										 int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
-										 int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
-										 float flGlowProxySize, float* pBeginIn = NULL)
+int32_t CSpritesClient::DrawCore(uint32_t hOwner, const Vector& vecOffset, int32_t nModelIndex, float flFrame,
+								 int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a,
+								 float flScale, int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize,
+								 float* pBeginIn)
 {
 	if (nModelIndex <= 0)
 		return 0;
 
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
 
 	if (!pOwner)
 		return 0;
@@ -119,8 +97,7 @@ static int32_t SourceSharpDrawSpriteCore(uint32_t hOwner, const Vector& vecOffse
 	if (!pModel || modelinfo->GetModelType(pModel) != mod_sprite)
 		return 0;
 
-	static bool s_bWarnedDrawSprite = false;
-	if (SpriteRenderModeRefused(nRenderMode, "DrawSprite", s_bWarnedDrawSprite))
+	if (SpriteRenderModeRefused(nRenderMode, "DrawSprite", m_bWarnedDrawSprite))
 		return 0;
 
 	// The entity's origin is the interpolated one for this frame. The offset is added in world
@@ -129,51 +106,52 @@ static int32_t SourceSharpDrawSpriteCore(uint32_t hOwner, const Vector& vecOffse
 	const QAngle angAngles = pOwner->GetAbsAngles();
 
 	// The world-space scale division is the planner's.
-	CSourceSharpSpriteRenderer* pRenderer = RendererFor(hOwner);
+	pixelvis_handle_t* pQuery = QueryFor(hOwner);
 
 	if (pBeginIn)
-		return pRenderer->Begin(pOwner, pModel, vecOrigin, angAngles, flFrame, nRenderMode, nRenderFx, a, r, g, b,
-								flScale, bWorldSpaceScale != 0, flHDRColorScale, flGlowProxySize, pBeginIn);
+		return DrawBegin(pQuery, pOwner, pModel, vecOrigin, angAngles, flFrame, nRenderMode, nRenderFx, a, r, g, b,
+						 flScale, bWorldSpaceScale != 0, flHDRColorScale, flGlowProxySize, pBeginIn);
 
-	return pRenderer->Draw(pOwner, pModel, vecOrigin, angAngles, flFrame, nRenderMode, nRenderFx, a, r, g, b, flScale,
-						   bWorldSpaceScale != 0, flHDRColorScale, flGlowProxySize);
+	return PlanSprite(pQuery, pOwner, pModel, vecOrigin, angAngles, flFrame, /*attachedto=*/NULL,
+					  /*attachmentindex=*/0, nRenderMode, nRenderFx, a, r, g, b, flScale, bWorldSpaceScale != 0,
+					  flHDRColorScale, flGlowProxySize);
 }
 
 // One sprite at its owner's origin.
-int32_t SourceSharp_DrawSprite(uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode,
-							   int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale,
-							   int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize)
+int32_t CSpritesClient::DrawSprite(uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode,
+								   int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale,
+								   int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize)
 {
-	return SourceSharpDrawSpriteCore(hOwner, vec3_origin, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
-									 flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize);
+	return DrawCore(hOwner, vec3_origin, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale,
+					bWorldSpaceScale, flHDRColorScale, flGlowProxySize, NULL);
 }
 
 // One sprite offset from its owner: how one plasma entity draws its seven flame sprites.
-int32_t SourceSharp_DrawSpriteOffset(uint32_t hOwner, const float* pOffsetXYZ, int32_t nModelIndex, float flFrame,
-									 int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a,
-									 float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
-									 float flGlowProxySize)
+int32_t CSpritesClient::DrawSpriteOffset(uint32_t hOwner, const float* pOffsetXYZ, int32_t nModelIndex, float flFrame,
+										 int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
+										 int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
+										 float flGlowProxySize)
 {
 	const Vector vecOffset = pOffsetXYZ ? Vector(pOffsetXYZ[0], pOffsetXYZ[1], pOffsetXYZ[2]) : vec3_origin;
 
-	return SourceSharpDrawSpriteCore(hOwner, vecOffset, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
-									 flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize);
+	return DrawCore(hOwner, vecOffset, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale,
+					bWorldSpaceScale, flHDRColorScale, flGlowProxySize, NULL);
 }
 
 // Fills the request for the sprite at its owner's place plus the offset; FxSpriteDrawEnd
 // (shell_sprite_leaf.cpp) draws the plan. Called from inside the owner's draw.
-int32_t SourceSharp_FxSpriteDrawBegin(uint32_t hOwner, const float* pOffsetXYZ, int32_t nModelIndex, float flFrame,
-									  int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
-									  int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
-									  float flGlowProxySize, float* pIn)
+int32_t CSpritesClient::FxSpriteDrawBegin(uint32_t hOwner, const float* pOffsetXYZ, int32_t nModelIndex, float flFrame,
+										  int32_t nRenderMode, int32_t nRenderFx, int32_t r, int32_t g, int32_t b,
+										  int32_t a, float flScale, int32_t bWorldSpaceScale, float flHDRColorScale,
+										  float flGlowProxySize, float* pIn)
 {
 	if (!pIn)
 		return 0;
 
 	const Vector vecOffset = pOffsetXYZ ? Vector(pOffsetXYZ[0], pOffsetXYZ[1], pOffsetXYZ[2]) : vec3_origin;
 
-	return SourceSharpDrawSpriteCore(hOwner, vecOffset, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a,
-									 flScale, bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn);
+	return DrawCore(hOwner, vecOffset, nModelIndex, flFrame, nRenderMode, nRenderFx, r, g, b, a, flScale,
+					bWorldSpaceScale, flHDRColorScale, flGlowProxySize, pIn);
 }
 
 // A managed env_spritetrail's ribbon as a renderable. The ring, ribbon and bounds are
@@ -184,7 +162,11 @@ public:
 	DECLARE_CLASS_GAMEROOT(CSourceSharpSpriteTrail, CShellRenderable);
 
 	// The block arrives zeroed, so only what a zero is wrong for is set.
-	CSourceSharpSpriteTrail() { m_bVisible = true; }
+	explicit CSourceSharpSpriteTrail(const CManagedAreasClient& areas)
+		: m_Areas(areas)
+	{
+		m_bVisible = true;
+	}
 
 	// CDefaultClientRenderable leaves ShouldDraw and IsTransparent pure.
 	virtual bool ShouldDraw() OVERRIDE { return m_bVisible; }
@@ -193,7 +175,7 @@ public:
 
 	virtual int DrawModel(int flags) OVERRIDE
 	{
-		IManagedFxClient* pFx = ManagedFxClient();
+		IManagedFxClient* pFx = m_Areas.m_pFxClient;
 		if (!pFx)
 			return 0;
 
@@ -211,7 +193,7 @@ public:
 	// The managed ring lays a point and re-measures.
 	void Tick()
 	{
-		IManagedFxClient* pFx = ManagedFxClient();
+		IManagedFxClient* pFx = m_Areas.m_pFxClient;
 		if (!pFx)
 			return;
 
@@ -239,52 +221,47 @@ private:
 		p[2] = o.z;
 	}
 
+	const CManagedAreasClient& m_Areas;
 	uint32_t m_hOwner;
 	Vector m_vecRenderMins;
 	Vector m_vecRenderMaxs;
 	bool m_bVisible;
 };
 
-struct SourceSharpSpriteTrail_t
-{
-	uint32_t hOwner;
-	CSourceSharpSpriteTrail* pTrail;
-};
-
-// Not ShellEffects_Find's rows: RendererFor's list holds pointers because renderers are
-// handed out by address. This list is rows.
-static CUtlVector<SourceSharpSpriteTrail_t> g_ManagedTrails;
-
 // Called from the renderable's destructor: a raw pointer cannot tell it is stale.
-static void ManagedSpriteTrail_Forget(CShellRenderable* pGone)
+void CSpritesClient::ForgetTrail(CShellRenderable* pGone)
 {
-	for (int i = g_ManagedTrails.Count() - 1; i >= 0; i--)
+	for (int i = m_Trails.Count() - 1; i >= 0; i--)
 	{
-		if (g_ManagedTrails[i].pTrail == pGone)
+		if (m_Trails[i].pTrail == pGone)
 		{
-			g_ManagedTrails.Remove(i);
+			m_Trails.Remove(i);
 			return;
 		}
 	}
 }
 
-void SourceSharp_SpriteTrailUpdate(uint32_t hOwner, int32_t nRenderMode, int32_t bVisible)
+CSpritesClient::~CSpritesClient()
 {
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	for (int i = 0; i < m_Trails.Count(); i++)
+		m_Trails[i].pTrail->SetGoneCallback(NULL);
+}
+
+void CSpritesClient::SpriteTrailUpdate(uint32_t hOwner, int32_t nRenderMode, int32_t bVisible)
+{
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
 
 	if (!pOwner)
 		return;
 
-	// Its own warn-once flag: the mode comes from a different managed enum than DrawSprite's.
-	static bool s_bWarnedTrail = false;
-	if (SpriteRenderModeRefused(nRenderMode, "SpriteTrailUpdate", s_bWarnedTrail))
+	if (SpriteRenderModeRefused(nRenderMode, "SpriteTrailUpdate", m_bWarnedTrail))
 		return;
 
-	int iEntry = ShellEffects_Find(g_ManagedTrails, hOwner);
+	int iEntry = ShellEffects_Find(m_Trails, hOwner);
 
 	if (iEntry < 0)
 	{
-		CSourceSharpSpriteTrail* pNew = new CSourceSharpSpriteTrail;
+		CSourceSharpSpriteTrail* pNew = new CSourceSharpSpriteTrail(m_Areas);
 
 		if (!pNew)
 			return;
@@ -294,38 +271,38 @@ void SourceSharp_SpriteTrailUpdate(uint32_t hOwner, int32_t nRenderMode, int32_t
 
 		// Into the leaf system, so DrawModel gets called.
 		pNew->AddToLeafSystem(RENDER_GROUP_TRANSLUCENT_ENTITY);
-		pNew->SetGoneCallback(ManagedSpriteTrail_Forget);
+		pNew->SetGoneCallback(m_ForgetHook.Get());
 
-		SourceSharpSpriteTrail_t entry;
+		Trail_t entry;
 		entry.hOwner = hOwner;
 		entry.pTrail = pNew;
 
-		iEntry = g_ManagedTrails.AddToTail(entry);
+		iEntry = m_Trails.AddToTail(entry);
 	}
 
-	g_ManagedTrails[iEntry].pTrail->SourceSharpUpdate(hOwner, bVisible != 0);
+	m_Trails[iEntry].pTrail->SourceSharpUpdate(hOwner, bVisible != 0);
 }
 
-void SourceSharp_SpriteTrailDestroy(uint32_t hOwner)
+void CSpritesClient::SpriteTrailDestroy(uint32_t hOwner)
 {
-	const int iEntry = ShellEffects_Find(g_ManagedTrails, hOwner);
+	const int iEntry = ShellEffects_Find(m_Trails, hOwner);
 
 	if (iEntry < 0)
 		return;
 
-	g_ManagedTrails[iEntry].pTrail->Release();
+	m_Trails[iEntry].pTrail->Release();
 }
 
 // Every trail ticked and moved to its entity's place. A trail is a separate renderable,
 // and a move alone raises no data change, so its place is read every frame. Backwards,
 // since Release() shortens the list.
-static void ManagedSpriteTrails_Follow()
+void CSpritesClient::FollowTrails()
 {
-	for (int i = g_ManagedTrails.Count() - 1; i >= 0; i--)
+	for (int i = m_Trails.Count() - 1; i >= 0; i--)
 	{
-		CSourceSharpSpriteTrail* pTrail = g_ManagedTrails[i].pTrail;
+		CSourceSharpSpriteTrail* pTrail = m_Trails[i].pTrail;
 
-		C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(g_ManagedTrails[i].hOwner);
+		C_StandaloneEntity* pOwner = m_Standalone.FromHandle(m_Trails[i].hOwner);
 
 		if (!pOwner)
 		{
@@ -339,45 +316,34 @@ static void ManagedSpriteTrails_Follow()
 	}
 }
 
-// PreRender, so a trail lays its point where its entity is interpolated this frame. The
-// renderer table is dropped on a level change; a renderer otherwise lives on.
-#include "shell_clientsystem.h"
-
-class CSourceSharpSpriteSystem : public CClientSystemPerFrame
+// The query table is dropped on a level change; a query otherwise lives on.
+void CSpritesClient::LevelShutdown()
 {
-public:
-	CSourceSharpSpriteSystem()
-		: CClientSystemPerFrame("CSourceSharpSpriteSystem")
+	m_Sprites.PurgeAndDeleteElements();
+
+	// Trails are ours to delete; Release() removes the row through ForgetTrail.
+	while (m_Trails.Count() > 0)
 	{
-	}
+		const int nBefore = m_Trails.Count();
 
-	virtual void PreRender() OVERRIDE { ManagedSpriteTrails_Follow(); }
+		m_Trails[0].pTrail->Release();
 
-	virtual void LevelShutdownPostEntity() OVERRIDE
-	{
-		g_ManagedSprites.PurgeAndDeleteElements();
-
-		// Trails are ours to delete; Release() removes the row through ManagedSpriteTrail_Forget.
-		while (g_ManagedTrails.Count() > 0)
+		// Guards against an infinite loop if the gone callback is ever dropped.
+		if (m_Trails.Count() >= nBefore)
 		{
-			const int nBefore = g_ManagedTrails.Count();
-
-			g_ManagedTrails[0].pTrail->Release();
-
-			// Guards against an infinite loop if the gone callback is ever dropped.
-			if (g_ManagedTrails.Count() >= nBefore)
-			{
-				AssertMsg(false, "CShellRenderable::Release did not remove its row");
-				g_ManagedTrails.RemoveAll();
-				break;
-			}
+			AssertMsg(false, "CShellRenderable::Release did not remove its row");
+			m_Trails.RemoveAll();
+			break;
 		}
 	}
-};
+}
 
-static CSourceSharpSpriteSystem g_SpriteSystem;
-
-CClientSystem* ClientSystem_Sprite()
+void CSpritesClient::CSystemRow::PreRender()
 {
-	return &g_SpriteSystem;
+	m_Sprites.FollowTrails();
+}
+
+void CSpritesClient::CSystemRow::LevelShutdownPostEntity()
+{
+	m_Sprites.LevelShutdown();
 }

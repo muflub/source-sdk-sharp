@@ -11,13 +11,16 @@ class Panel;
 
 class CCenterStringLabel;
 
+struct CManagedAreasClient;
+
 class CCenterPrint : public ICenterPrint
 {
 private:
 	CCenterStringLabel* vguiCenterString;
+	const CManagedAreasClient& m_Areas;
 
 public:
-	CCenterPrint();
+	explicit CCenterPrint(const CManagedAreasClient& areas);
 
 	virtual void Create(vgui::VPANEL parent);
 	virtual void Destroy();
@@ -29,5 +32,3 @@ public:
 	virtual void ColorPrint(int r, int g, int b, int a, wchar_t* text);
 	virtual void Clear();
 };
-
-extern CCenterPrint* internalCenterPrint;

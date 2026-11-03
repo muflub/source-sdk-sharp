@@ -33,7 +33,7 @@
 
 #include "imanaged_areas_client.h"
 
-#include "shell_beam_render.h"
+#include "shell_sprites_client.h"
 #include "shell_beams_client.h"
 #include "world_aligned_bounds.h"
 
@@ -354,7 +354,7 @@ void C_StandaloneEntity::OnPositionChanged()
 
 	// The re-projection is unconditional (the manager compares origins itself, and
 	// a ragdoll moves without bPoseMoved); the texture mark only when the pose moved.
-	ShellShadows_MarkDirty(BlockHandle(), bPoseMoved);
+	m_Clients.Shadows().MarkDirty(BlockHandle(), bPoseMoved);
 }
 
 void C_StandaloneEntity::AddToLeafSystem()
@@ -548,13 +548,13 @@ ShadowType_t C_StandaloneEntity::ShadowCastType()
 
 void C_StandaloneEntity::RefreshShadow()
 {
-	ShellShadows_Refresh(BlockHandle(), (int)ShadowCastType(), Block().Client.ShadowFlags);
+	m_Clients.Shadows().Refresh(BlockHandle(), (int)ShadowCastType(), Block().Client.ShadowFlags);
 }
 
 void C_StandaloneEntity::DestroyShadow()
 {
 	// Earlier queued entries go too: the renderable may be freed before the hand-over.
-	ShellShadows_Destroy(BlockHandle());
+	m_Clients.Shadows().Destroy(BlockHandle());
 }
 
 // Whether a projected texture lands on this entity. The render policy writes a
@@ -784,7 +784,7 @@ void CStandaloneClients::DrawBatchCapture(const CClientRenderablesList& list)
 {
 	m_DrawBatch.RemoveAll();
 	m_bDrawBatchAsked = false;
-	SourceSharp_SpriteStoredClear();
+	m_Sprites.StoredClear();
 
 	for (int g = 0; g < RENDER_GROUP_COUNT; ++g)
 	{
@@ -872,7 +872,7 @@ int C_StandaloneEntity::DrawModel(int flags)
 			if (nBatchResult >= 0)
 			{
 				const int nStored =
-					SourceSharp_SpriteExecuteStored(static_cast<IClientEntity*>(this), render->GetBlend());
+					m_Clients.Sprites().ExecuteStored(static_cast<IClientEntity*>(this), render->GetBlend());
 				if (nStored >= 0)
 				{
 					g_SourceSharpEffects.nDrawBatchedSprites++;
@@ -1683,10 +1683,12 @@ int32_t CStandaloneClients::StandaloneIsDormant(uint32_t hEntity)
 }
 
 CStandaloneClients::CStandaloneClients(const CManagedAreasClient& areas, CClientEntityList& entityList,
-									   CBeamsClient& beams)
+									   CBeamsClient& beams, CSpritesClient& sprites, CShadowsClient& shadows)
 	: m_Areas(areas)
 	, m_EntityList(entityList)
 	, m_Beams(beams)
+	, m_Sprites(sprites)
+	, m_Shadows(shadows)
 {
 }
 

@@ -3,23 +3,27 @@
 #pragma once
 
 #include "fx.h"
-
-extern void FX_WaterRipple(const Vector& origin, float scale, Vector* pColor, float flLifetime = 1.5,
-						   float flAlpha = 1);
-extern void FX_GunshotSplash(const Vector& origin, const Vector& normal, float scale);
-extern void FX_GunshotSlimeSplash(const Vector& origin, const Vector& normal, float scale);
+#include "imanaged_areas_client.h"
 
 // Purpose: Retrieve and alter lighting for splashes
 // Input  : position - point to check
 //			*color - tint of the lighting at this point
 //			*luminosity - adjusted luminosity at this point
-inline void FX_GetSplashLighting(Vector position, Vector* color, float* luminosity)
+inline void FX_GetSplashLighting(IManagedParticlesClient* pArea, Vector position, Vector* color, float* luminosity)
 {
 	// Compute our lighting at our position
 	Vector totalColor = engine->GetLightForPoint(position, true);
 
-	// Get our lighting information
-	UTIL_GetNormalizedColorTintAndLuminosity(totalColor, color, luminosity);
+	// Get our lighting information. With no managed side, the tint is black and the
+	// luminosity 0, as for a black light.
+	Vector vTint(0, 0, 0);
+	float flLuminosity = 0.0f;
+	if (pArea)
+		pArea->SplashTint(totalColor.Base(), vTint.Base(), &flLuminosity);
+	if (color != NULL)
+		*color = vTint;
+	if (luminosity != NULL)
+		*luminosity = flLuminosity;
 
 	// Fake a specular highlight (too dim otherwise)
 	if (luminosity != NULL)

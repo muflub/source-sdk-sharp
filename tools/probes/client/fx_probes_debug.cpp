@@ -46,6 +46,7 @@
 #include "clientsideeffects.h"
 #include "imanaged_areas_client.h"
 #include "shell_effects_list_client.h"
+#include "shell_te_system_client.h"
 #include "ipredictionsystem.h"
 #include "sharedInterface.h"
 #include "shell_cliententitylist.h"
@@ -176,7 +177,7 @@ CON_COMMAND(cs_cl_probe_fxlookup,
 		CEffectData data;
 		g_bDry = true;
 		g_nHit = -1;
-		DispatchEffectToCallback(pName, data);
+		ShellClientDll_TempEntsSystem().DispatchEffectToCallback(pName, data);
 		g_bDry = false;
 		FxProbeLog("fxlookup %d %s", g_nHit, pName);
 	}
@@ -418,7 +419,7 @@ CON_COMMAND(cs_cl_probe_fxtracercb,
 			data.m_nAttachmentIndex = 1;
 			data.m_nHitBox = 0;
 			data.m_hEntity = INVALID_EHANDLE;
-			DispatchEffectToCallback(names[n], data);
+			ShellClientDll_TempEntsSystem().DispatchEffectToCallback(names[n], data);
 		}
 	}
 }
@@ -440,7 +441,7 @@ CON_COMMAND(cs_cl_probe_fxshells,
 			data.m_vOrigin = Ahead(40.0f, 10.0f * n, -5.0f * o);
 			data.m_vAngles = QAngle(10.0f * o, 90.0f + 20.0f * n, 5.0f);
 			data.m_hEntity = owners[o] >= 0 ? SourceSharp_ClientHandleFromIndex(owners[o]) : INVALID_EHANDLE;
-			DispatchEffectToCallback(names[n], data);
+			ShellClientDll_TempEntsSystem().DispatchEffectToCallback(names[n], data);
 		}
 	}
 }

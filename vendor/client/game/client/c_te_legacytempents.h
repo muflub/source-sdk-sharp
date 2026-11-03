@@ -7,6 +7,15 @@
 // on unmodified Valve headers, user 2026-10-25).
 #pragma once
 
+#include "shared_classnames.h"
+#include "igameentity_fwd.h"
+#include "mathlib/vector.h"
+#include "basehandle.h"
+#include "mempool.h"
+#include "utllinkedlist.h"
+#include "utlvector.h"
+#include "ishim_areas_client.h"
+
 // FizzEffect TAKES AN IClientRenderable, NOT AN IGameEntity. It reads exactly
 // two things off the entity a fizz was fired at -- the model, for its bounds,
 // and the render angles, for which way the current drags -- and both are pure
@@ -18,7 +27,10 @@ class IClientRenderable;
 
 class C_LocalTempEntity;
 struct CManagedAreasClient;
+class CSpritesClient;
 class C_PhysPropClientside;
+class C_BasePlayer;
+typedef CBaseHandle ClientEntityHandle_t;
 struct model_t;
 
 // particlemgr.h's handle to a particle material.
@@ -92,8 +104,29 @@ class CTempEnts : public ITempEnts
 public:
 	// SourceSharp -- a member of the client DLL object, handed the managed areas its
 	// slots carry their arguments to.
-	explicit CTempEnts(const CManagedAreasClient& areas);
+	CTempEnts(const CManagedAreasClient& areas, CSpritesClient& sprites);
 	virtual ~CTempEnts();
+
+	CSpritesClient& Sprites() const { return m_Sprites; }
+
+	// IShimTempEntPoolClient.
+	int32_t TempEntPoolCapacity();
+	void TempEntPoolDestroy(int32_t nSlot);
+	int32_t TempEntPoolReadLife(int32_t nSlot, SourceSharpTempEntLife_t* pOutLife);
+	int32_t TempEntPoolWriteLife(int32_t nSlot, const SourceSharpTempEntLife_t* pLife);
+	int32_t TempEntPoolReadTransform(int32_t nSlot, SourceSharpTempEntTransform_t* pOut);
+	int32_t TempEntPoolWriteTransform(int32_t nSlot, const SourceSharpTempEntTransform_t* pIn);
+	int32_t TempEntPoolReadStatics(int32_t nSlot, SourceSharpTempEntStatics_t* pOut);
+	int32_t TempEntPoolAddVisible(int32_t nSlot);
+	int32_t TempEntPoolCreate(int32_t nSlot, const float* pOriginXYZ, int32_t nModelIndex, int32_t nPriority);
+	int32_t TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEntSpawn_t* pSpawn);
+
+	// The slot a temp entity is in, and the temp entity in a slot; -1 and NULL for neither.
+	int PoolSlotOf(const C_LocalTempEntity* pTemp);
+	C_LocalTempEntity* PoolAtSlot(int nSlot);
+
+	// IShimFxClient.
+	int32_t FxTempEntCreateNamed(int32_t nSlot, const float* pOriginXYZ, const char* pModel, int32_t nPriority);
 	// Exposed interface
 public:
 	virtual void Init();
@@ -214,8 +247,16 @@ private:
 	int AddVisibleTempEntity(C_LocalTempEntity* pEntity);
 
 	void SayNoCaller(const char* pszName);
+	void PoolUpdate(float flFrameTime);
+	void PoolClear();
+	C_LocalTempEntity* PoolFind(int nID, int nSubID);
+	int32_t PoolCreateWithModel(int32_t nSlot, const float* pOriginXYZ, const model_t* pModel, int32_t nPriority);
 
 	const CManagedAreasClient& m_Areas;
+	CSpritesClient& m_Sprites;
+
+	// One row per slot the managed pool reserved, NULL when empty.
+	C_LocalTempEntity* m_pSlots[MAX_TEMP_ENTITIES] = {};
 
 	// The not-called entry points that have warned, by their literal names.
 	CUtlVector<const char*> m_NoCallersSaid;

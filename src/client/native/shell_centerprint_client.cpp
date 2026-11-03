@@ -10,8 +10,10 @@
 #include "vguicenterprint.h"
 
 #include "imanaged_areas_client.h"
+#include "shell_managed_areas_client.h"
 
-CCenterPrint::CCenterPrint()
+CCenterPrint::CCenterPrint(const CManagedAreasClient& areas)
+	: m_Areas(areas)
 {
 	vguiCenterString = NULL;
 }
@@ -34,7 +36,7 @@ void CCenterPrint::Print(wchar_t* text)
 
 void CCenterPrint::ColorPrint(int r, int g, int b, int a, char* text)
 {
-	if (IManagedUiClient* pUi = ManagedUiClient())
+	if (IManagedUiClient* pUi = m_Areas.m_pUiClient)
 		pUi->CenterPrint(text ? text : "", r, g, b, a);
 }
 
@@ -76,11 +78,6 @@ void CCenterPrint::ColorPrint(int r, int g, int b, int a, wchar_t* text)
 
 void CCenterPrint::Clear()
 {
-	if (IManagedUiClient* pUi = ManagedUiClient())
+	if (IManagedUiClient* pUi = m_Areas.m_pUiClient)
 		pUi->CenterClear();
 }
-
-static CCenterPrint g_CenterString;
-CCenterPrint* internalCenterPrint = &g_CenterString;
-
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CCenterPrint, ICenterPrint, VCENTERPRINT_INTERFACE_VERSION, g_CenterString);

@@ -10,6 +10,8 @@ class IMaterialVar;
 typedef struct wrect_s wrect_t;
 
 // Purpose: Sprite Models
+class IManagedMaterialFilesClient;
+
 class CEngineSprite
 {
 	// NOTE: don't define a constructor or destructor so that this can be allocated
@@ -19,7 +21,7 @@ public:
 
 	IMaterial* GetMaterial(RenderMode_t nRenderMode, int nFrame);
 	void SetFrame(RenderMode_t nRenderMode, int nFrame);
-	bool Init(const char* name);
+	bool Init(const char* name, IManagedMaterialFilesClient* pFiles);
 	void Shutdown();
 	void UnloadMaterial();
 	void SetColor(float r, float g, float b);

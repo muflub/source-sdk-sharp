@@ -181,8 +181,6 @@ bool ShellParticleMgr_Init(IMaterialSystem* pMaterials)
 	g_pParticleSystemMgr->AddBuiltinSimulationOperators();
 	g_pParticleSystemMgr->AddBuiltinRenderingOperators();
 
-	// Send true to load the sheets.
-	ParseParticleEffects(true, false);
 	return true;
 }
 

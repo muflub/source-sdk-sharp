@@ -91,5 +91,3 @@ private:
 	CUtlVector<CHandle<IGameEntity>> m_EntsWithPredictionErrorsInLastAck;
 	int m_nIncomingPacketNumber;
 };
-
-extern CPrediction* prediction;

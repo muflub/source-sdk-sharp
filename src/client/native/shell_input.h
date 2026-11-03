@@ -19,6 +19,8 @@
 #include "shell_managed_areas_client.h"
 
 class CViewerFacts;
+class CPrediction;
+class CVoiceStatus;
 
 // The input mailbox: one block both halves read without a crossing.
 //   - native writes the two sample times with a sequence number, and
@@ -51,7 +53,8 @@ COMPILE_TIME_ASSERT(offsetof(SourceSharpInputMailbox, nShakeBits) == 28);
 class CSourceSharpInput final : public ::IInput, public IShimInputClient
 {
 public:
-	CSourceSharpInput(const CManagedAreasClient& areas, CViewerFacts& viewerFacts);
+	CSourceSharpInput(const CManagedAreasClient& areas, CViewerFacts& viewerFacts, CPrediction& prediction,
+					  CVoiceStatus& voiceStatus);
 
 	SourceSharpInputMailbox* Mailbox();
 
@@ -233,6 +236,9 @@ private:
 	IManagedInputClient* Managed() const;
 
 	const CManagedAreasClient& m_Areas;
+
+	CPrediction& m_Prediction;
+	CVoiceStatus& m_VoiceStatus;
 	CViewerFacts& m_ViewerFacts;
 	CUserCmd* m_pCommands;
 	CVerifiedUserCmd* m_pVerifiedCommands;

@@ -1099,3 +1099,13 @@ src/tf2/client/TFKeyActions.cs	ports TF2's scripts/kb_act.lst and cfg/config_def
 src/tf2/client/Ui/TFVoiceMenus.cs	ports the voice menus of client/voice_menu.cpp and CMultiplayRules::GetVoiceMenuLabels (multiplay_gamerules.cpp), as radial popups
 src/server/managed/Votes.cs	declares vote_controller.cpp's sv_vote_* convars, and calls and casts over the ported VoteController
 src/server/managed/HitGroupDamage.cs	ports the hit group switch of CBasePlayer::TraceAttack (player.cpp) and sk_player_* from mod_hl2mp cfg/skill.cfg
+src/client/native/shell_worldtext_client.h	native code built against SDK headers (the point_worldtext renderable the leaf system draws); the renderables as a class, from shell_worldtext_render.cpp
+src/client/native/shell_sprites_client.h	native code built against SDK headers (pixelvis handles, CEngineSprite, the trail renderable); the managed sprites and trails as a class, from shell_sprite_render.cpp and shell_sprite_leaf.cpp
+src/client/native/shell_prediction_client.h	native code built against SDK headers (prediction.h's CPrediction); the class declaration split from shell_prediction.cpp
+src/client/native/shell_interface_member.h	native code built against SDK headers (interface.h's InterfaceReg): an EXPOSE registration as a member
+src/client/native/shell_clientdll_exports.h	ports the shared app systems and GameClientExports classes' declarations (cdll_client_int.cpp, clientmode_shared.cpp's neighbours); split from shell_clientdll_appsystems.cpp and shell_clientdll_gameclientexports.cpp
+src/client/native/shell_hud_ui_client.h	native code built against SDK headers (the vgui surface draws, the HUD element); the UI's native half as a class, from shell_hud.cpp
+src/client/native/shell_particle_manifest_client.h	ports the manifest reads' declarations (particle_parse.cpp); the class, from particle_manifest.cpp
+src/client/native/shell_precipitation_draw_client.h	ports C_Precipitation's draw entry's declaration (c_effects.cpp) as a class; split from shell_precipitation_client.cpp
+src/client/native/shell_te_system_client.h	ports C_TempEntsSystem's interface (c_te.cpp) as a thunk onto managed decisions; split from shell_te_forwards_client.cpp
+src/client/native/shell_te_tables_client.h	native code built against SDK headers (dt_recv.h, client_class.h): the temp entity tables as a class, from shell_tempents_client.cpp

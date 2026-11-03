@@ -67,6 +67,7 @@
 #include <time.h>
 
 #include "tier0/memdbgon.h"
+#include "shell_te_system_client.h"
 
 //-----------------------------------------------------------------------------
 // c5p_dispatch NAME x y z nx ny nz scale color flags [magnitude]: a client effect run
@@ -90,7 +91,7 @@ CON_COMMAND(c5p_dispatch,
 	data.m_fFlags = atoi(args[10]);
 	if (args.ArgC() > 11)
 		data.m_flMagnitude = atof(args[11]);
-	DispatchEffectToCallback(args[1], data);
+	ShellClientDll_TempEntsSystem().DispatchEffectToCallback(args[1], data);
 }
 
 // c5p_muzzle_attached (FX_MuzzleEffectAttached on the local player) left with
@@ -376,7 +377,6 @@ struct CInstaller
 // SetupBones writes the slot the studio draw places the mesh with (a sentinel
 // buffer, read back). "UNWRITTEN" was the invisible shell casing.
 //-----------------------------------------------------------------------------
-C_LocalTempEntity* SourceSharpTePool_AtSlot(int nSlot);
 
 CON_COMMAND(c5p_te_bones, "c5p_te_bones -- each live studio tempent's blend, pass and bone setup (probe builds)")
 {
@@ -384,7 +384,7 @@ CON_COMMAND(c5p_te_bones, "c5p_te_bones -- each live studio tempent's blend, pas
 
 	for (int i = 0; i < CTempEnts::MAX_TEMP_ENTITIES; i++)
 	{
-		C_LocalTempEntity* pTemp = SourceSharpTePool_AtSlot(i);
+		C_LocalTempEntity* pTemp = static_cast<CTempEnts*>(tempents)->PoolAtSlot(i);
 		if (!pTemp || !pTemp->GetModel() || modelinfo->GetModelType(pTemp->GetModel()) != mod_studio)
 			continue;
 

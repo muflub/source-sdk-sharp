@@ -154,16 +154,16 @@ MoveEndClientCommand	EngineApi	IShimPredictionClient	client		client	-	SourceShar
 ClientEntityModelBounds	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_ClientEntityModelBounds	int, float*, float*, float*, int	
 ClientEntityOrigin	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_ClientEntityOrigin	int, float*, int	
 ClientWindSpeed	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_ClientWindSpeed	float, float*, void	
-TempEntPoolAddVisible	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolAddVisible	int, int	
-TempEntPoolCapacity	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolCapacity	int	
-TempEntPoolCreate	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolCreate	int, float*, int, int, int	
-TempEntPoolDestroy	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolDestroy	int, void	
-TempEntPoolReadLife	EngineApi	IShimTempEntPoolClient	client		client	S	SourceSharp_TempEntPoolReadLife	int, TempEntLife*, int	
-TempEntPoolReadStatics	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolReadStatics	int, TempEntStatics*, int	
-TempEntPoolReadTransform	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolReadTransform	int, TempEntTransform*, int	
-TempEntPoolWriteLife	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteLife	int, TempEntLife*, int	
-TempEntPoolWriteSpawn	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteSpawn	int, TempEntSpawn*, int	
-TempEntPoolWriteTransform	EngineApi	IShimTempEntPoolClient	client		client	-	SourceSharp_TempEntPoolWriteTransform	int, TempEntTransform*, int	
+TempEntPoolAddVisible	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolAddVisible	int, int	
+TempEntPoolCapacity	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolCapacity	int	
+TempEntPoolCreate	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolCreate	int, float*, int, int, int	
+TempEntPoolDestroy	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolDestroy	int, void	
+TempEntPoolReadLife	EngineApi	IShimTempEntPoolClient	client		client	S	CTempEnts::TempEntPoolReadLife	int, TempEntLife*, int	
+TempEntPoolReadStatics	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolReadStatics	int, TempEntStatics*, int	
+TempEntPoolReadTransform	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolReadTransform	int, TempEntTransform*, int	
+TempEntPoolWriteLife	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolWriteLife	int, TempEntLife*, int	
+TempEntPoolWriteSpawn	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolWriteSpawn	int, TempEntSpawn*, int	
+TempEntPoolWriteTransform	EngineApi	IShimTempEntPoolClient	client		client	-	CTempEnts::TempEntPoolWriteTransform	int, TempEntTransform*, int	
 ClientDecalBrushModel	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalBrushModel	int, float*, int, void	
 ClientDecalIndexFromName	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalIndexFromName	byte*, int	
 ClientDecalNameFromIndex	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientDecalNameFromIndex	int, byte*, int, int	
@@ -179,19 +179,19 @@ ClientRicochet	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp
 ClientSmoke	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSmoke	float*, int, float, float, void	
 ClientSparks	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientSparks	float*, int, int, float*, void	
 EffectDispatchName	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_EffectDispatchName	int, byte*, int, void	
-TempEntBuildClient	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_TempEntBuildClient	void*, int, int, TeRecvBuilt*, int	
+TempEntBuildClient	EngineApi	IShimTempEntBackendsClient	client		client	-	CTempEntTablesClient::TempEntBuildClient	void*, int, int, TeRecvBuilt*, int	
 ClientShotTrace	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientShotTrace	float*, float*, int, float*, int, int*, int, int	
 ClientWorldLighting	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientWorldLighting	float*, float*, float*, void	
 ClientStaticPropLighting	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientStaticPropLighting	float*, float*, float*, int, float*, void	
 ClientImpactLedger	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientImpactLedger	int, int, void	
 ClientPlayerLogoDecal	EngineApi	IShimTempEntBackendsClient	client		client	-	SourceSharp_ClientPlayerLogoDecal	float*, int, int, byte*, byte*, void	
-DrawSprite	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSprite	uint, int, float, int, int, int, int, int, int, float, int, float, float, int	
-DrawSpriteOffset	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_DrawSpriteOffset	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, int	
+DrawSprite	EngineApi	IShimEffectsRenderClient	client		client	-	CSpritesClient::DrawSprite	uint, int, float, int, int, int, int, int, int, float, int, float, float, int	
+DrawSpriteOffset	EngineApi	IShimEffectsRenderClient	client		client	-	CSpritesClient::DrawSpriteOffset	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, int	
 ParticleSystemFollowPoints	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemFollowPoints	uint, int, int	
 ParticleSystemStart	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemStart	uint, byte*, int	
 ParticleSystemStop	EngineApi	IShimEffectsRenderClient	client		client	-	CParticleSystemsClient::ParticleSystemStop	uint, void	
-SpriteTrailDestroy	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_SpriteTrailDestroy	uint, void	
-SpriteTrailUpdate	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_SpriteTrailUpdate	uint, int, int, void	
+SpriteTrailDestroy	EngineApi	IShimEffectsRenderClient	client		client	-	CSpritesClient::SpriteTrailDestroy	uint, void	
+SpriteTrailUpdate	EngineApi	IShimEffectsRenderClient	client		client	-	CSpritesClient::SpriteTrailUpdate	uint, int, int, void	
 WindPublish	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_WindPublish	float*, float*, int, void	
 RopeMaterial	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_RopeMaterial	byte*, int*, int*, int	
 RopeDraw	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_RopeDraw	int, float*, int, float*, int, int, void	
@@ -288,31 +288,31 @@ ClientNetChannel	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNet
 ClientNetPacket	EngineApi	IShimNetClient	client		client	-	SourceSharp_ClientNetPacket	int, int, float*, int, int	
 ClientNotShipped	EngineApi	IShimDiagnosticsClient	client		client	-	SourceSharp_ClientNotShipped	int, byte*, int, byte*, int, int*, int*, int	
 ClientRefusal	EngineApi	IShimDiagnosticsClient	client		client	-	SourceSharp_ClientRefusal	int, byte*, int, int*, int*, int	
-UiDrawFilledRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawFilledRect	int, int, int, int, uint, void	
-UiDrawFilledRectFade	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawFilledRectFade	int, int, int, int, uint, int, int, int, void	
-UiDrawOutlinedRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawOutlinedRect	int, int, int, int, uint, void	
-UiDrawLine	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawLine	int, int, int, int, uint, void	
-UiDrawTexturedRect	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawTexturedRect	int, int, int, int, int, float, float, float, float, uint, void	
-UiDrawPolygon	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawPolygon	int, float*, int, uint, void	
-UiDrawText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawText	int, int, int, ushort*, int, uint, void	
-UiMeasureText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiMeasureText	int, ushort*, int, int*, int*, void	
-UiSetClip	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiSetClip	int, int, int, int, int, void	
-UiTextureCreate	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiTextureCreate	int	
-UiTextureUpload	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiTextureUpload	int, byte*, int, int, void	
-UiFontAddFile	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontAddFile	byte*, int	
-UiFontCreate	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontCreate	byte*, int, int, int, int	
-UiFontMetrics	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontMetrics	int, int*, int*, void	
-UiFontAdvances	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontAdvances	int, int, int, int*, int	
-UiPlaySound	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiPlaySound	byte*, void	
+UiDrawFilledRect	EngineApi	IShimUiClient	client		client	S	CHudUiClient::UiDrawFilledRect	int, int, int, int, uint, void	
+UiDrawFilledRectFade	EngineApi	IShimUiClient	client		client	S	CHudUiClient::UiDrawFilledRectFade	int, int, int, int, uint, int, int, int, void	
+UiDrawOutlinedRect	EngineApi	IShimUiClient	client		client	S	CHudUiClient::UiDrawOutlinedRect	int, int, int, int, uint, void	
+UiDrawLine	EngineApi	IShimUiClient	client		client	S	CHudUiClient::UiDrawLine	int, int, int, int, uint, void	
+UiDrawTexturedRect	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawTexturedRect	int, int, int, int, int, float, float, float, float, uint, void	
+UiDrawPolygon	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawPolygon	int, float*, int, uint, void	
+UiDrawText	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawText	int, int, int, ushort*, int, uint, void	
+UiMeasureText	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiMeasureText	int, ushort*, int, int*, int*, void	
+UiSetClip	EngineApi	IShimUiClient	client		client	S	CHudUiClient::UiSetClip	int, int, int, int, int, void	
+UiTextureCreate	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiTextureCreate	int	
+UiTextureUpload	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiTextureUpload	int, byte*, int, int, void	
+UiFontAddFile	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiFontAddFile	byte*, int	
+UiFontCreate	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiFontCreate	byte*, int, int, int, int	
+UiFontMetrics	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiFontMetrics	int, int*, int*, void	
+UiFontAdvances	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiFontAdvances	int, int, int, int*, int	
+UiPlaySound	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiPlaySound	byte*, void	
 ParticlesCreate	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesCreate	uint, int, byte*, float, int, int	
 ParticlesConfigure	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesConfigure	uint, int, float, void	
 ParticlesDestroy	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesDestroy	uint, int, void	
 ParticlesSetLights	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesSetLights	uint, int, float*, int, void	
 ParticlesTraceLine	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesTraceLine	float*, float*, int, float*, int, int	
-WorldTextMeshUpdate	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_WorldTextMeshUpdate	uint, byte*, float*, int, int	
-WorldTextMeshDestroy	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_WorldTextMeshDestroy	uint, void	
+WorldTextMeshUpdate	EngineApi	IShimParticlesClient	client		client	-	CWorldTextClient::WorldTextMeshUpdate	uint, byte*, float*, int, int	
+WorldTextMeshDestroy	EngineApi	IShimParticlesClient	client		client	-	CWorldTextClient::WorldTextMeshDestroy	uint, void	
 ParticleSystemsRead	EngineApi	IShimParticlesClient	client		client	-	CParticleSystemsClient::ParticleSystemsRead	int, ParticleSystemInfo*, byte*, int, int	
-ParticleDefinitionReads	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleDefinitionReads	int	
+ParticleDefinitionReads	EngineApi	IShimParticlesClient	client		client	-	CParticleManifestClient::ParticleDefinitionReads	int	
 ParticleQueryUnanswered	EngineApi	IShimParticlesClient	client		client	-	CParticleSystemQueryClient::ParticleQueryUnanswered	int*, int, int	
 ParticlesMaterialVarInt	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesMaterialVarInt	uint, int, byte*, int*, int	
 ParticlesCreateAt	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesCreateAt	int, byte*, float*, float, int, int	
@@ -339,12 +339,12 @@ FxMainViewOrigin	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMainView
 FxLocalPlayer	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLocalPlayer	int	
 FxViewAngles	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxViewAngles	float*, void	
 FxEntityAttachment	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEntityAttachment	int, int, float*, byte*, int, int	
-FxDispatchParticleEffect	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxDispatchParticleEffect	int, float*, float*, float*, int, void	
+FxDispatchParticleEffect	EngineApi	IShimFxClient	client		client	-	CTempEntsSystemClient::FxDispatchParticleEffect	int, float*, float*, float*, int, void	
 FxEntityRenderAngles	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEntityRenderAngles	int, float*, int	
 FxEjectBrass	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxEjectBrass	float*, float*, float*, int, void	
-FxSpriteDrawBegin	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawBegin	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, float*, int	
-FxSpriteDrawEnd	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawEnd	float*, int	
-FxSpriteDrawStore	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxSpriteDrawStore	float*, int	
+FxSpriteDrawBegin	EngineApi	IShimFxClient	client		client	-	CSpritesClient::FxSpriteDrawBegin	uint, float*, int, float, int, int, int, int, int, int, float, int, float, float, float*, int	
+FxSpriteDrawEnd	EngineApi	IShimFxClient	client		client	-	CSpritesClient::FxSpriteDrawEnd	float*, int	
+FxSpriteDrawStore	EngineApi	IShimFxClient	client		client	-	CSpritesClient::FxSpriteDrawStore	float*, int	
 FxPrecacheCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxPrecacheCount	int	
 FxPrecacheCache	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxPrecacheCache	int, int, void	
 FxCacheUsedMaterials	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxCacheUsedMaterials	void	
@@ -354,16 +354,16 @@ FxHandleEntityIndex	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxHandl
 FxElight	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxElight	int, float*, int, int, int, int, float, float, float, void	
 FxVectorRandom	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxVectorRandom	float, float, float*, void	
 FxMaterialsCached	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialsCached	int	
-FxTempEntCreateNamed	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxTempEntCreateNamed	int, float*, byte*, int, int	
+FxTempEntCreateNamed	EngineApi	IShimFxClient	client		client	-	CTempEnts::FxTempEntCreateNamed	int, float*, byte*, int, int	
 FxLoadModel	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLoadModel	byte*, void	
 FxModelFrameCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxModelFrameCount	byte*, int	
-UiSetMenuInput	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetMenuInput	int, int, void	
-UiSetCursor	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetCursor	int, void	
+UiSetMenuInput	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiSetMenuInput	int, int, void	
+UiSetCursor	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiSetCursor	int, void	
 UiDebugOverlayText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayText	int, float*, float*, int*, uint*, byte*, int, int	
 UiDebugOverlayClearDead	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayClearDead	void	
 ClientModeLayout	EngineApi	IShimUiClient	client		client	-	SourceSharp_ClientModeLayout	void	
-UiDrawTexturedQuad	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawTexturedQuad	int, float*, int, uint, int, void	
-UiMaterialTexture	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiMaterialTexture	byte*, int	
+UiDrawTexturedQuad	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawTexturedQuad	int, float*, int, uint, int, void	
+UiMaterialTexture	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiMaterialTexture	byte*, int	
 SoundscapeSetRoomType	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetRoomType	int, void	
 SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetPlayerDsp	int, void	
 SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMainView	float*, void	
@@ -407,5 +407,5 @@ PhysicsClientSplashLighting	EngineApi	IShimPhysicsClient	client		client	-	CPhysi
 PhysicsClientSplashEffect	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSplashEffect	int, float*, float*, float, float*, float, float, void	
 ConVarsClientWatch	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientWatch	byte*, int	
 ConVarsClientSetValue	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientSetValue	byte*, float, int	
-FlashlightTexture	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightTexture	byte*, int	
+FlashlightTexture	EngineApi	IShimFlashlightClient	client		client	-	CShadowsClient::FlashlightTexture	byte*, int	
 FlashlightSupportsBorderColor	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightSupportsBorderColor	int	

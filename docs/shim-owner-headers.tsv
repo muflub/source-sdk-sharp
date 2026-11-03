@@ -11,3 +11,11 @@ CParticleSystemQueryClient	shell_particle_query_client.h
 CBeamsClient	shell_beams_client.h
 CPixelVisClient	shell_pixelvis_client.h
 CGlowOverlaysClient	shell_glow_client.h
+CWorldTextClient	shell_worldtext_client.h
+CSpritesClient	shell_sprites_client.h
+CTempEnts	c_te_legacytempents.h
+CHudUiClient	shell_hud_ui_client.h
+CParticleManifestClient	shell_particle_manifest_client.h
+CTempEntsSystemClient	shell_te_system_client.h
+CTempEntTablesClient	shell_te_tables_client.h
+CShadowsClient	shell_shadows_client.h

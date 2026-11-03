@@ -26,6 +26,8 @@
 class C_StandaloneEntity;
 class CClientEntityList;
 class CBeamsClient;
+class CSpritesClient;
+class CShadowsClient;
 class CClientRenderablesList;
 class IClientEntity;
 class IClientNetworkable;
@@ -37,7 +39,8 @@ struct SourceSharpBoneBatch_t;
 class CStandaloneClients final : public IShimStandaloneClient
 {
 public:
-	CStandaloneClients(const CManagedAreasClient& areas, CClientEntityList& entityList, CBeamsClient& beams);
+	CStandaloneClients(const CManagedAreasClient& areas, CClientEntityList& entityList, CBeamsClient& beams,
+					   CSpritesClient& sprites, CShadowsClient& shadows);
 
 	CStandaloneClients(const CStandaloneClients&) = delete;
 	CStandaloneClients& operator=(const CStandaloneClients&) = delete;
@@ -52,6 +55,10 @@ public:
 
 	// The beams a removed entity's are killed through.
 	CBeamsClient& Beams() const { return m_Beams; }
+
+	CSpritesClient& Sprites() const { return m_Sprites; }
+
+	CShadowsClient& Shadows() const { return m_Shadows; }
 
 	// The live shells, in creation order but for removals.
 	void Add(C_StandaloneEntity* pShell) { m_Shells.AddToTail(pShell); }
@@ -218,6 +225,8 @@ private:
 	const CManagedAreasClient& m_Areas;
 	CClientEntityList& m_EntityList;
 	CBeamsClient& m_Beams;
+	CSpritesClient& m_Sprites;
+	CShadowsClient& m_Shadows;
 
 	CUtlVector<C_StandaloneEntity*> m_Shells;
 	CUtlVector<C_StandaloneEntity*> m_ViewModels;
