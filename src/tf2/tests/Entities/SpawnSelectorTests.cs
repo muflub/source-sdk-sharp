@@ -178,4 +178,18 @@ public sealed class SpawnSelectorTests
         Assert.True(atA.Disabled);
         Assert.False(atB.Disabled);
     }
+
+    /// <summary>
+    /// The core's walk kills for a taken spot on stock HL2MP's rule, and a TF2 spectator
+    /// reaches that walk (the selector answers nothing): CTFPlayer has no such kill. The
+    /// mark is what registers the rule on the server side; its answer is what the walk asks.
+    /// </summary>
+    [Fact]
+    public void TF2RefusesTheCoresSpawnKillOnTheServerSide()
+    {
+        SideServiceAttribute mark = Assert.Single(typeof(TFSpawnNoFrag).GetCustomAttributes(typeof(SideServiceAttribute), false).Cast<SideServiceAttribute>());
+        Assert.Equal(Side.Server, mark.Side);
+        Assert.Contains(typeof(ISpawnFragRule), mark.As);
+        Assert.False(new TFSpawnNoFrag().Frags(new EntityHandle(0x010001)));
+    }
 }

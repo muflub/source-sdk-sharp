@@ -134,6 +134,7 @@ public class WeaponSwitchTests
         public int GetSpawnFlags(EntityHandle entity) => _engine.GetSpawnFlags(entity);
         public Vector GetSpawnOrigin(EntityHandle entity) => _engine.GetSpawnOrigin(entity);
         public Vector GetVelocity(EntityHandle h) => _engine.GetVelocity(h);
+        public Vector GetSmoothedVelocity(EntityHandle h) => default;
         public Vector GetWorldSpaceCenter(EntityHandle h) => _engine.GetWorldSpaceCenter(h);
         public bool IsPlayer(EntityHandle h) => _engine.IsPlayer(h);
         public bool IsValid(EntityHandle h) => _engine.IsValid(h);

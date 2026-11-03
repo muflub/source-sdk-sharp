@@ -247,7 +247,7 @@ public class FuncBreakableTests
     public void A_player_running_into_plate_glass_crashes_through()
     {
         var rig = Spawned(2, ("health", "5"));
-        rig.Engine.Returns("Entities.GetVelocity", new Vector(500f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetSmoothedVelocity", new Vector(500f, 0f, 0f));
         Assert.True(rig.Entity.TouchEveryTick);
 
         rig.Entity.OnTouch(Player);
@@ -256,11 +256,27 @@ public class FuncBreakableTests
         Assert.Equal(new[] { (Brush, 5f, DamageType.Crush), (Player, 1.25f, DamageType.Slash) }, hits);
     }
 
+    /// <summary>
+    /// Stock asks GetSmoothedVelocity (CBreakable::BreakTouch): by the touch the wall has
+    /// already clipped the velocity, so the velocity itself says the player was still.
+    /// </summary>
+    [Fact]
+    public void How_hard_a_player_came_is_the_smoothed_velocity_not_what_the_wall_left()
+    {
+        var rig = Spawned(2, ("health", "5"));
+        rig.Engine.Returns("Entities.GetVelocity", Vector.Zero);
+        rig.Engine.Returns("Entities.GetSmoothedVelocity", new Vector(500f, 0f, 0f));
+
+        rig.Entity.OnTouch(Player);
+
+        Assert.True(rig.Engine.Called("Damage.TakeDamage"));
+    }
+
     [Fact]
     public void A_player_walking_into_it_does_not()
     {
         var rig = Spawned(2, ("health", "5"));
-        rig.Engine.Returns("Entities.GetVelocity", new Vector(200f, 0f, 0f));
+        rig.Engine.Returns("Entities.GetSmoothedVelocity", new Vector(200f, 0f, 0f));
 
         rig.Entity.OnTouch(Player);
 

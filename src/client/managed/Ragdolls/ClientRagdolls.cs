@@ -131,6 +131,12 @@ public interface IClientRagdolls
     /// <summary><c>C_ClientRagdoll::ImpactTrace</c>'s blast arm: element zero pushed, the sleep timer reset.</summary>
     bool ApplyForceCenter(EntityHandle owner, Vector force);
 
+    /// <summary>
+    /// The travel half of <c>RagdollApplyAnimationAsVelocity</c>: every element sped
+    /// up by what the body was moving at when it collapsed.
+    /// </summary>
+    bool AddVelocity(EntityHandle owner, Vector velocity);
+
     /// <summary>The owners of every body that stands.</summary>
     IReadOnlyCollection<EntityHandle> Owners { get; }
 
@@ -352,6 +358,17 @@ public sealed class ClientRagdolls(
         // apply force at object mass center (VPhysicsGetObject: element zero)
         vphysics.ApplyForceCenter(body.List[0].Object, force);
         RagdollSolver.ResetSleepAfterTime(body, clock.CurTime);
+        return true;
+    }
+
+    public bool AddVelocity(EntityHandle owner, Vector velocity)
+    {
+        if (!_bodies.TryGetValue(owner, out RagdollBody? body))
+            return false;
+
+        for (int i = 0; i < body.ListCount; i++)
+            vphysics.AddVelocity(body.List[i].Object, velocity, Vector.Zero);
+
         return true;
     }
 
@@ -723,6 +740,8 @@ public sealed class NoClientRagdolls : IClientRagdolls
     }
 
     public bool ApplyForceCenter(EntityHandle owner, Vector force) => false;
+
+    public bool AddVelocity(EntityHandle owner, Vector velocity) => false;
 
     public IReadOnlyCollection<EntityHandle> Owners => [];
 

@@ -201,6 +201,9 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         // models and would be a bug in what got spawned rather than here.
         IsRagdoll = _ragdolls.Become(Handle, State.Force, State.ForceBone, out _);
 
+        if (IsRagdoll && !State.Velocity.Equals(Vector.Zero))
+            _ragdolls.AddVelocity(Handle, State.Velocity);
+
         // SAID OUT LOUD, because "a body arrived" and "a body collapsed" look
         // identical from everywhere else — the entity exists, is drawn, and is
         // removed on time either way. A corpse standing rigidly to attention
@@ -212,7 +215,7 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
                     $"attempt(s) from sequence {PosedAs} " +
                     $"({(PosedFromThePlayer ? $"the player's own pose, handle 0x{PosedFrom.Value:X8}" : "an idle")}) " +
                     $"at {State.Origin}, " +
-                    $"thrown {State.Force}\n");
+                    $"thrown {State.Force}, moving {State.Velocity}\n");
         }
         else if (Attempts == 1)
         {

@@ -167,6 +167,8 @@ public unsafe class ClientSkeletonsTests
 
         public bool IsRagdoll(EntityHandle owner) => owner == Owner;
 
+        public bool AddVelocity(EntityHandle owner, Vector velocity) => false;
+
         public uint Serial(EntityHandle owner) => owner == Owner ? 1u : 0u;
 
         public RagdollState State(EntityHandle owner, out Vector origin)

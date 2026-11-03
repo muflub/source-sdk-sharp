@@ -965,6 +965,13 @@ public static class Sandbox
             new(-48f, -128f, 40f), new(48f, -32f, 72f), Site.Wall,
             "maxspeed", "90", "spawnflags", "0");
 
+        // One that hurts (SF_BRUSH_HURT, started): CFuncRotating::HurtTouch's throw, a
+        // tenth of its turn rate straight out from its middle, is a write to a player's
+        // velocity, and this is what shows one reaching the player.
+        site.Brush(EntityNames.FuncRotating, "hurter",
+            new(-176f, -128f, 8f), new(-96f, -64f, 72f), Site.Accent,
+            "maxspeed", "300", "spawnflags", "33");
+
         // A tank, because water that rises has to rise INTO something.
         //
         // func_water_analog is the same class as the slider at the other end of

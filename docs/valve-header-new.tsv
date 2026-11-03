@@ -1123,3 +1123,5 @@ src/client/native/shell_wind_client.h	ports GetWindspeedAtTime and ResetWindspee
 src/client/native/shell_gamemovement_client.h	native code built against SDK headers (igamemovement.h): the client's IGameMovement as a class, from shell_movement.cpp
 src/client/native/shell_client_engine_interfaces.h	native code built against SDK headers: the client's engine interfaces as an object, from cdll_client_int.cpp's globals
 src/client/native/shell_net_channel_client.h	native code built against SDK headers (inetchannel.h): the client's net channel slots as a class
+src/tf2/server/Entities/TFSpawnNoFrag.cs	ports the absence of a spawn kill in CTFPlayer::EntSelectSpawnPoint (tf_player.cpp)
+src/tf2/server/Combat/TFNoCoreDamagePush.cs	ports the absence of CBasePlayer::OnTakeDamage_Alive's push in CTFPlayer::OnTakeDamage_Alive (tf_player.cpp)

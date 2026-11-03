@@ -220,6 +220,12 @@ public sealed class PhysicsDamageQueue : IPhysicsCrushes
         if (blend <= 0f)
             return;
 
+        // Stock restores pInflictorPhysics, never SetAbsVelocity. A player's object is
+        // its shadow, whose velocity the next move overwrites, and the velocity it saved
+        // is the shadow's: written to the player it would throw them (live, 49 19 -200).
+        if (_entities.IsPlayer(state.Handle))
+            return;
+
         Vector velocity = _entities.GetVelocity(state.Handle);
         _entities.SetVelocity(state.Handle, state.SavedVelocity * blend + velocity * (1f - blend));
 

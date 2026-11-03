@@ -626,6 +626,8 @@ internal sealed unsafe partial class EngineEntities
     }
 
     public Vector GetVelocity(EntityHandle h) => E.EntityGetVelocity(h);
+    public Vector GetSmoothedVelocity(EntityHandle h)
+        => _playerMoves.Target?.SmoothedVelocity(h, out Vector velocity) == true ? velocity : GetVelocity(h);
     /// <summary>
     /// The middle of something's bounding box. A brush entity's origin is
     /// usually at the map's world origin rather than anywhere near the brush.
@@ -781,6 +783,10 @@ internal sealed unsafe partial class EngineEntities
         // The solver half, after the entity has moved (it reads the facing
         // the entity now has when no angles were given).
         _motion.TeleportObject(h, origin, angles, zeroVelocity);
+
+        // Stock's Teleport writes the velocity it is given; a player's is its record's.
+        if (zeroVelocity)
+            _playerMoves.Target?.SetVelocity(h, Vector.Zero);
 
         _teleported.Target?.Invoke(h, origin, zeroVelocity);
     }

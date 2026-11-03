@@ -1,3 +1,4 @@
+using System.Reflection;
 using SourceSharp.Abi;
 using SourceSharp.Server.Interop;
 using Xunit;
@@ -62,6 +63,45 @@ public class SideRoutesTests
         Assert.Same(registered, route.Target);
         route.Fill(null);
         Assert.Same(own, route.Target);
+    }
+
+    /// <summary>The player route as a zeroing teleport reaches it: what it was told.</summary>
+    private class VelocityWrites : DispatchProxy
+    {
+        public List<(EntityHandle Entity, Vector Velocity)> Writes = [];
+
+        protected override object? Invoke(MethodInfo? method, object?[]? args)
+        {
+            if (method!.Name == nameof(IServerPlayerMovementRoute.SetVelocity))
+            {
+                Writes.Add(((EntityHandle)args![0]!, (Vector)args[1]!));
+                return true;
+            }
+
+            return method.ReturnType.IsValueType && method.ReturnType != typeof(void) ? Activator.CreateInstance(method.ReturnType) : null;
+        }
+    }
+
+    /// <summary>
+    /// Stock's Teleport writes the velocity it is given through SetAbsVelocity, and a
+    /// player's velocity is its record's. Told to keep it (a trigger_teleport's NULL),
+    /// it writes nothing.
+    /// </summary>
+    [Fact]
+    public void AZeroingTeleportReachesThePlayersRecordAndAKeepingOneDoesNot()
+    {
+        var (side, services) = Composed();
+        var route = DispatchProxy.Create<IServerPlayerMovementRoute, VelocityWrites>();
+        side.PlayerMoves.Fill(route);
+        var writes = ((VelocityWrites)(object)route).Writes;
+        var entities = SideBindings.Of<IEngineEntities>(side);
+        var player = new EntityHandle(0x0004_0001u);
+
+        entities.Teleport(player, new Vector(1f, 2f, 3f), null, zeroVelocity: false);
+        Assert.Empty(writes);
+
+        entities.Teleport(player, new Vector(1f, 2f, 3f), null, zeroVelocity: true);
+        Assert.Equal([(player, Vector.Zero)], writes);
     }
 
     /// <summary>

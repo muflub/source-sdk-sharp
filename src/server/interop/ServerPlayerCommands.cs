@@ -433,6 +433,8 @@ public sealed class ServerPlayerCommands
         if (g.IsAvailable)
             m.SimulationTime = g.CurTime;
 
+        m.SmoothVelocity();
+
         if (g.IsAvailable && g.FrameTime > 0)
             m.TickBase++;
 

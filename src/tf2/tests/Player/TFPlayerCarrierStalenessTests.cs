@@ -121,6 +121,7 @@ public sealed class TFPlayerCarrierStalenessTests
         public Vector GetSpawnAngles(EntityHandle entity) => _inner.GetSpawnAngles(entity);
         public Vector GetSpawnOrigin(EntityHandle entity) => _inner.GetSpawnOrigin(entity);
         public Vector GetVelocity(EntityHandle h) => _inner.GetVelocity(h);
+        public Vector GetSmoothedVelocity(EntityHandle h) => default;
         public Vector GetWorldSpaceCenter(EntityHandle h) => _inner.GetWorldSpaceCenter(h);
         public bool IsPlayer(EntityHandle h) => _inner.IsPlayer(h);
         public bool IsValid(EntityHandle h) => _inner.IsValid(h);

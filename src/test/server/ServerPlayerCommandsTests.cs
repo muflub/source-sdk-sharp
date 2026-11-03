@@ -478,6 +478,79 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         return m;
     }
 
+    /// <summary>
+    /// Stock's SetAbsVelocity: a plain write of what the next command moves by, the
+    /// ground held. It wrote only the shell's member, which func_rotating's and
+    /// func_tracktrain's shoves and a zeroing teleport did to nobody.
+    /// </summary>
+    [Fact]
+    public void ASetVelocityReplacesAPlayersRecordedVelocityAndKeepsTheGround()
+    {
+        ServerPlayerMove m = Standing(new Vector(10f, 0f, 0f));
+
+        bool taken = PlayerRoute().SetVelocity(Player, new Vector(0f, 5f, 200f));
+
+        Assert.True(taken && m.Move.Velocity.Equals(new Vector(0f, 5f, 200f)), $"taken {taken}, velocity {m.Move.Velocity}");
+        Assert.True(m.Ground == Lift && (m.Move.Flags & GameMovement.FlOnGround) != 0, $"ground {m.Ground}, flags {m.Move.Flags}");
+    }
+
+    [Fact]
+    public void ASetVelocityAtANonPlayerIsNotTheRoutes()
+        => Assert.False(PlayerRoute().SetVelocity(Crate, new Vector(0f, 0f, 200f)));
+
+    [Fact]
+    public void ThePlayersVelocityReadIsItsRecordsAtOnce()
+    {
+        Standing(new Vector(10f, 0f, 0f));
+        ServerPlayerMovement route = PlayerRoute();
+
+        route.ApplyVelocityImpulse(Player, new Vector(0f, 0f, 200f), clearGround: false);
+
+        Assert.True(route.Velocity(Player, out Vector velocity));
+        Assert.Equal(new Vector(10f, 0f, 200f), velocity);
+    }
+
+    [Fact]
+    public void AThingWithNoRecordHasNoVelocityOfTheRoutes()
+        => Assert.False(PlayerRoute().Velocity(Crate, out _));
+
+    /// <summary>PostThink's average, once a command, from the velocity the command left (player.cpp:4647).</summary>
+    [Fact]
+    public void AMoveFoldsTheVelocityIntoTheSmoothedOne()
+    {
+        ServerPlayerMove m = _moves.For(Player);
+        m.Move.Velocity = new Vector(0f, 0f, 200f);
+        var cmd = new UserCmd { CommandNumber = 1 };
+
+        Assert.Equal(1, _commands.Stage(Player, 0, 2, in cmd));
+
+        Assert.InRange(m.SmoothedVelocity.Z, 19.99f, 20.01f);
+    }
+
+    [Fact]
+    public void TheSmoothedVelocityOutlivesTheVelocityAWallTookAway()
+    {
+        ServerPlayerMove m = _moves.For(Player);
+        m.SmoothedVelocity = new Vector(500f, 0f, 0f);
+        m.Move.Velocity = Vector.Zero;
+
+        m.SmoothVelocity();
+
+        Assert.Equal(new Vector(450f, 0f, 0f), m.SmoothedVelocity);
+    }
+
+    /// <summary>CBasePlayer::Spawn's m_vecSmoothedVelocity = vec3_origin (player.cpp:5161).</summary>
+    [Fact]
+    public void ASpawnStartsTheSmoothedVelocityAgain()
+    {
+        ServerPlayerMove m = _moves.For(Player);
+        m.SmoothedVelocity = new Vector(500f, 0f, 0f);
+
+        m.Spawn(new Vector(0f, 0f, 64f));
+
+        Assert.Equal(Vector.Zero, m.SmoothedVelocity);
+    }
+
     [Fact]
     public void AnImpulseAddsToAPlayersRecordedVelocity()
     {

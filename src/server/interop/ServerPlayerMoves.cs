@@ -42,6 +42,23 @@ public sealed class ServerPlayerMove
     /// </summary>
     public float SimulationTime { get; set; }
 
+    /// <summary>
+    /// m_vecSmoothedVelocity: <see cref="SmoothVelocity"/>'s running average, which
+    /// CBasePlayer::GetSmoothedVelocity answers (a player's run into a wall has
+    /// already clipped its velocity when the wall's touch asks how hard it came).
+    /// </summary>
+    public Vector SmoothedVelocity { get; set; }
+
+    /// <summary>
+    /// CBasePlayer::PostThink's <c>m_vecSmoothedVelocity * SMOOTHING_FACTOR +
+    /// GetAbsVelocity() * ( 1 - SMOOTHING_FACTOR )</c> (player.cpp:4647), once a command.
+    /// </summary>
+    public void SmoothVelocity()
+        => SmoothedVelocity = SmoothedVelocity * SmoothingFactor + Move.Velocity * (1f - SmoothingFactor);
+
+    /// <summary>SMOOTHING_FACTOR (player.cpp:4598).</summary>
+    private const float SmoothingFactor = 0.9f;
+
     /// <summary>What the player stands on (m_hGround), or <see cref="EntityHandle.None"/>.</summary>
     public EntityHandle Ground { get; set; }
 
@@ -125,6 +142,9 @@ public sealed class ServerPlayerMove
         Move.Flags |= ServerCommandRules.FlClient;
         Move.MoveType = GameMovement.MoveTypeWalk;
         Move.ViewOffset = viewOffset;
+
+        // CBasePlayer::Spawn's m_vecSmoothedVelocity = vec3_origin (player.cpp:5161).
+        SmoothedVelocity = Vector.Zero;
     }
 
     /// <summary>The native constructor's values (shell_standalone_player.cpp, CPlayerLocalData's).</summary>

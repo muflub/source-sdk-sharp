@@ -78,8 +78,84 @@ public class Hl2mpFragThrowTests
         return new Throw(engine, launch.Flying, launch.Velocity, launch.Fuse);
     }
 
+    private sealed record Death(List<(EntityHandle Flying, Vector Velocity, float Fuse)> Launches, bool LeftAPickup);
+
+    /// <summary>The same player, dying on the command after <paramref name="held"/> went down.</summary>
+    private static Death Died(int held)
+    {
+        float now = 10f;
+        Vector swept = default;
+        var engine = TestServices.Mock().Returns("Entities.IsValid", true).Returns("Entities.GetIndex", 1)
+            .Returns("Entities.GetClassName", EntityNames.Player)
+            .Returns("Entities.GetOrigin", new Vector(0, 0, 0))
+            .Returns("Entities.GetEyeAngles", new Vector(0, 0, 0))
+            .Returns("Entities.GetAngles", new Vector(0, 0, 0))
+            .Returns("Entities.GetVelocity", Running)
+            .Returns("Entities.GetWorldSpaceCenter", new Vector(0, 0, 36))
+            .Returns("Players.GetShootOrigin", Eye)
+            .Returns("Players.IsAlive", true)
+            .Returns("WorldQuery.TraceLine", new TraceResult(true, 0.25f, new Vector(0, 0, 0), new Vector(0, 0, 1), EntityHandle.None))
+            .WhenCalled("WorldQuery.EntityTraceHull", call => swept = (Vector)call.Args[2]!)
+            .ReturnsEachCall("WorldQuery.EntityTraceHull", () => new EntityHullTrace(swept, false, false))
+            .ReturnsEachCall("Clock.Now", () => now)
+            .Returns("EntityRender.SequenceDuration", 0f)
+            .Ignores("EntityRender.LookupSequenceByActivity");
+
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(SsWeapon).Assembly);
+        registry.Services = TestServices.Services(out var spawned);
+        spawned.Strict = false;
+        registry.KeyValue(Player, EntityNames.Player, "targetname", "fixture_player");
+
+        var arsenal = new Arsenal(new RecordingLog(), new WeaponSwitchTests.SpawningEntities(engine, registry),
+                                  engine, engine, engine, engine, engine, engine, engine, registry, engine, new DamageHitGroups());
+        var launches = new List<(EntityHandle Flying, Vector Velocity, float Fuse)>();
+        arsenal.Launched = (flying, _, velocity, fuse) => launches.Add((flying, velocity, fuse));
+
+        Assert.True(arsenal.GiveWeapon(Player, EntityNames.WeaponFrag), "the frag can be given");
+        arsenal.GiveAmmo(Player, 3, "Grenade");
+
+        now = 11f;
+        var cmd = new UserCmd { CommandNumber = 1, Buttons = held };
+        arsenal.OnPlayerCommand(Player, in cmd, firstTime: true);
+
+        engine.Clear();
+        arsenal.DropActive(Player, Vector.Zero);
+
+        bool pickup = engine.Calls.Any(c => c.Member == "Entities.SetSpawnFlags" && (int)c.Args[1]! == WeaponPickup.NoRespawnFlag);
+        return new Death(launches, pickup);
+    }
+
     private static Vector Arg(RecordingEngine engine, string member, EntityHandle of)
         => (Vector)engine.Calls.Last(c => c.Member == member && (EntityHandle)c.Args[0]! == of).Args[1]!;
+
+    /// <summary>
+    /// DropPrimedFragGrenade (weapon_frag.cpp:408, hl2mp_player.cpp:1254-1265): dying with
+    /// the grenade held back, it goes off where the player fell at the player's own
+    /// velocity, and the weapon stays: no pickup. It was dropped unprimed.
+    /// </summary>
+    [Theory]
+    [InlineData((int)InputButtons.Attack)]
+    [InlineData((int)InputButtons.Attack2)]
+    public void DyingWithAGrenadeHeldBackLetsItGoAtTheDyingPlayersVelocity(int held)
+    {
+        var dropped = Died(held);
+
+        var launch = Assert.Single(dropped.Launches);
+        Assert.Equal(Running, launch.Velocity);
+        Assert.Equal(2.5f, launch.Fuse);
+        Assert.False(dropped.LeftAPickup);
+    }
+
+    /// <summary>Holding nothing down the same grenade is dropped as a pickup, and nothing is thrown.</summary>
+    [Fact]
+    public void DyingWithNoTriggerHeldDropsTheGrenadeAsAPickup()
+    {
+        var dropped = Died(0);
+
+        Assert.Empty(dropped.Launches);
+        Assert.True(dropped.LeftAPickup);
+    }
 
     [Fact]
     public void AnOverhandThrowStartsAheadAndRightOfTheEye()

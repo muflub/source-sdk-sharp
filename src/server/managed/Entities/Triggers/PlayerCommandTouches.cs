@@ -33,7 +33,7 @@ public interface IPlayerCommandTouch
 /// handle and resolved per command, so a removed trigger or a new level leaves
 /// nothing behind to call.
 /// </summary>
-public sealed class PlayerCommandTouches(Func<EntityHandle, ScriptedEntity?> resolve) : IPlayerCommandImpacts
+public sealed class PlayerCommandTouches(Func<EntityHandle, ScriptedEntity?> resolve, ServerPlayerMoves? moves = null) : IPlayerCommandImpacts
 {
     private readonly Dictionary<EntityHandle, List<EntityHandle>> _byPlayer = new();
 
@@ -55,6 +55,32 @@ public sealed class PlayerCommandTouches(Func<EntityHandle, ScriptedEntity?> res
         => _byPlayer.TryGetValue(player, out List<EntityHandle>? triggers) && triggers.Contains(trigger);
 
     public void ProcessImpacts(EntityHandle player)
+    {
+        TouchTriggers(player);
+        TouchWhatTheMoveRanInto(player);
+    }
+
+    /// <summary>
+    /// The rest of ProcessImpacts: each entity the move's traces ran into has its touch
+    /// (<c>PhysicsImpact</c>), which is how a player walking into a func_rotating is
+    /// thrown by it and one running into plate glass breaks it: nothing else reports a
+    /// solid brush's contact. To the classes that hear every touch (SF_BRUSH_HURT,
+    /// SF_BREAK_TOUCH).
+    /// </summary>
+    private void TouchWhatTheMoveRanInto(EntityHandle player)
+    {
+        if (moves?.Find(player) is not { } record)
+            return;
+
+        int count = Math.Min(record.Touched, record.TouchedEntities.Length);
+        for (int i = 0; i < count; i++)
+        {
+            if (resolve(new EntityHandle(record.TouchedEntities[i])) is { TouchEveryTick: true } touched)
+                touched.OnTouch(player);
+        }
+    }
+
+    private void TouchTriggers(EntityHandle player)
     {
         if (!_byPlayer.TryGetValue(player, out List<EntityHandle>? triggers))
             return;

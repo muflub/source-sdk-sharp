@@ -219,7 +219,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         // Stock's ProcessImpacts: the triggers a player is in touch them once
         // per command (trigger_push's base velocity, renewed per command).
-        var commandTouches = new PlayerCommandTouches(h => _entities?.Get(h));
+        var commandTouches = new PlayerCommandTouches(h => _entities?.Get(h), _playerMoves);
         _serverCommands.Impacts = commandTouches;
         _services.AddInstance(commandTouches);
         ServerPlayerMovementRouting.Route(_services, ServerPlayerMovement.For(_engine, _playerMoves, _serverCommands));
@@ -757,6 +757,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The core places at the spot's origin for every mod that registers
         // nothing; a chain because each mod's override sat on its own gamerules.
         _services.AddFactory<IHooks<ISpawnPlacement>>(locator => new Hooks<ISpawnPlacement>(locator, log));
+        _services.AddFactory<IHooks<ISpawnFragRule>>(locator => new Hooks<ISpawnFragRule>(locator, log));
+        _services.AddFactory<IHooks<IPlayerDamagePushRule>>(locator => new Hooks<IPlayerDamagePushRule>(locator, log));
         // The team-change watchers (tf2 smallfix): every watcher runs after a
         // join that actually moved the player — TF2's live-switch kill
         // (CTFPlayer::ChangeTeam's active-player arm, tf_player.cpp:6687-6696)
@@ -1482,8 +1484,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _visibility = _services.Require<IEngineVisibility>();
         // Its own Random rather than a shared one, so the spawn choice is independent of
         // anything else drawing random numbers this frame.
-        _spawnPoints = new SpawnPoints(_entityApi, _playerApi, _services.Require<IEngineWorldQuery>(), new Random(),
-                                       _services.Resolve<IHooks<ISpawnPlacement>>(), Log);
+        _spawnPoints = new SpawnPoints(_entityApi, _playerApi, _services.Require<IEngineWorldQuery>(),
+                                       _services.Require<IEngineDamage>(), _convars, new Random(),
+                                       _services.Resolve<IHooks<ISpawnPlacement>>(),
+                                       _services.Resolve<IHooks<ISpawnFragRule>>(), Log);
         _clock = _services.Require<IGameClock>();
 
         _chapterTitle = new ChapterTitle(Log, _send);

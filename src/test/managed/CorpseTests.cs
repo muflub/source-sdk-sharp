@@ -275,9 +275,13 @@ public class CorpseTests
 
         corpses.Make(Player);
 
-        Assert.True(body.State.Force.Equals(velocity),
-            $"the body is thrown with the velocity the player died carrying, and got "
-          + $"{body.State.Force}");
+        Assert.True(body.State.Velocity.Equals(velocity),
+            $"the body moves at the velocity the player died carrying, and got "
+          + $"{body.State.Velocity}");
+
+        Assert.True(body.State.Force.Equals(Vector.Zero),
+            $"and it is no force (m_vecForce is the bullets'), which on the centre of mass "
+          + $"RagdollCreate drops anyway: {body.State.Force}");
 
         Assert.True(body.State.PlayerIndex == PlayerIndex,
             $"and it records WHOSE body it is ({body.State.PlayerIndex}), which is what lets the "
@@ -575,6 +579,30 @@ public class CorpseTests
             $"at the bone the server named ({call.ArgAs<int>(2)})");
 
         Assert.True(body.IsRagdoll, "and it knows it is now a ragdoll");
+    }
+
+    /// <summary>
+    /// A body moves on as the player did (m_vecRagdollVelocity): it lands as an added
+    /// velocity on the body it became, the force staying what the server said. It was
+    /// sent as the force on the centre of mass, which RagdollCreate drops, so a running
+    /// player's corpse stopped dead.
+    /// </summary>
+    [Fact]
+    public void TheViewerGivesTheBodyTheVelocityThePlayerDiedWith()
+    {
+        var velocity = new Vector(300f, -50f, 120f);
+
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.RagdollAddVelocity", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Velocity = velocity;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.True(engine.Last("EntityRender.RagdollAddVelocity")!.Value.ArgAs<Vector>(1).Equals(velocity));
     }
 
     /// <summary>

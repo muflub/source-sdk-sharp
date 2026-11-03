@@ -166,6 +166,23 @@ public class PhysicsDamageQueueTests
         Assert.Equal(new Vector(350f, 0f, 0f), set.Args[1]);
     }
 
+    /// <summary>
+    /// Stock restores the inflictor's physics object, never SetAbsVelocity. A player's is
+    /// its shadow: live, a player that killed a prop was thrown by the shadow's 49 19 -200.
+    /// </summary>
+    [Fact]
+    public void A_player_inflictors_velocity_is_not_put_back()
+    {
+        var (queue, engine) = Queue();
+        engine.Returns("Entities.IsPlayer", true).Returns("Players.IsAlive", true);
+        Hurt(queue, Impact());
+
+        queue.Deliver();
+
+        Assert.True(engine.Called("Damage.TakeDamage"));
+        Assert.DoesNotContain(engine.Calls, c => c.Member == "Entities.SetVelocity");
+    }
+
     [Fact]
     public void A_hit_that_changes_nothing_leaves_the_inflictor_alone()
     {

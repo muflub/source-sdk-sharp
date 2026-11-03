@@ -185,6 +185,13 @@ public interface IWeaponBehaviour
     bool LeavesPickup => true;
 
     /// <summary>
+    /// CHL2MP_Player::Weapon_Drop's grenade arm (hl2mp_player.cpp:1254-1265): the fuse
+    /// of what this weapon lets go instead of being dropped, with
+    /// <paramref name="buttons"/> held as the player died; null to drop it as usual.
+    /// </summary>
+    float? PrimedDropFuse(int buttons) => null;
+
+    /// <summary>
     /// The damage and the crit flag of a primary attack's bullets or swing,
     /// asked once per attack after the round is spent and before the arms fire
     /// (a projectile weapon is not asked: it launches, it does not hit).

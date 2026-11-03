@@ -43,16 +43,6 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
-## Stock's spawn frag is not ported (2026-11-02)
-
-With every spawn point taken, `CHL2MP_Player::EntSelectSpawnPoint`
-(hl2mp_player.cpp:1447-1457) kills any other player within
-`hl2mp_spawn_frag_fallback_radius` (48) of the spot it settles for.
-`SpawnPoints.Walk` settles for a random one and kills nobody, so two players
-can stand in each other, a human as well as a bot. Stock's `CheckStuck` is
-ported. Not what the 2026-11-02 "stuck next to each other" report was (the user
-saw head on and same goal); nine spawns on dm_lockdown make it rare.
-
 ## dm_lockdown: the ladder at (-4148 4188) is not on the graph's way, and a gate is walked into (2026-11-02)
 
 The nav file's climb there stops at z 96 and starts again at z 128 (the leaves

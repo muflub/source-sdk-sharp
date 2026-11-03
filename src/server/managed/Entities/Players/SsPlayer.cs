@@ -72,6 +72,9 @@ public sealed class SsPlayer : AnimatingEntity
     private readonly IEngineEntities? _entities;
     private readonly DamageHitGroups? _hitGroups;
 
+    /// <summary>A mod's say over <see cref="PushFromDamage"/>.</summary>
+    private readonly IHooks<IPlayerDamagePushRule>? _pushRules;
+
     // The table HeldWeapon indexes, for the anim target. Null for a hand-built player.
     private readonly WeaponCatalog? _weapons;
 
@@ -92,8 +95,9 @@ public sealed class SsPlayer : AnimatingEntity
                     IEngineDamage? damage = null, IEngineGameEvents? events = null,
                     IEngineEntities? entities = null, DamageHitGroups? hitGroups = null,
                     IHooks<IPlayerHurtHook>? hurtHooks = null, PlayerModels? wardrobe = null,
-                    WeaponCatalog? weapons = null)
+                    WeaponCatalog? weapons = null, IHooks<IPlayerDamagePushRule>? pushRules = null)
     {
+        _pushRules = pushRules;
         _weapons = weapons;
         _wardrobe = wardrobe;
         _hurtHooks = hurtHooks;
@@ -515,11 +519,63 @@ public sealed class SsPlayer : AnimatingEntity
 
         int taken = DamageTaken(Health, (int)toHealth, GodMode, BuddhaMode);
 
+        PushFromDamage(attacker, damage);
+
         // Into the frame's report, sent by UpdateClientData: not a message per hit.
         DamageReport.Took(taken, damageType, DamageOrigin(attacker), GameTime);
         Hurt(attacker, taken, Health - taken);
         return taken;
     }
+
+    /// <summary>
+    /// m_takedamage: DAMAGE_YES until Event_Killed or StartObserverMode take it away. The
+    /// kind's default answered no, so a hurting brush, a door with dmg and a func_movelinear
+    /// passed a player by as a thing they could not hurt.
+    /// </summary>
+    public override bool TakesDamage => !_killed && State.ObserverMode == 0;
+
+    /// <summary>
+    /// CBasePlayer::OnTakeDamage_Alive's shove (player.cpp:1622-1638): a walking player
+    /// is pushed away from the inflictor by the hit's <c>DamageForce</c>, lifted by no
+    /// more than 250 u/s, unless the attacker is a trigger. The inflictor is the open
+    /// scope's (a grenade), else the attacker: stock's bullets and melee are their own.
+    /// </summary>
+    private void PushFromDamage(EntityHandle attacker, float damage)
+    {
+        if (attacker == EntityHandle.None || _moves?.Find(Handle) is not { } record
+            || record.Move.MoveType != GameMovement.MoveTypeWalk)
+            return;
+
+        if (_pushRules is { } rules && !rules.All.All(r => r.PushesFromDamage(Handle)))
+            return;
+
+        if (Entities.GetSolidFlags(attacker).HasFlag(SolidFlags.Trigger))
+            return;
+
+        var (mins, maxs) = Entities.GetBounds(Handle);
+        Vector size = maxs - mins;
+
+        // A hull with no volume has no answer: stock's divides by it.
+        float volume = size.X * size.Y * size.Z;
+        if (volume <= 0f)
+            return;
+
+        EntityHandle inflictor = _inflictors is not null && _inflictors.TryCurrent(out EntityHandle open, out _) ? open : attacker;
+        Vector towards = Entities.GetWorldSpaceCenter(inflictor) - new Vector(0f, 0f, 10f) - Entities.GetWorldSpaceCenter(Handle);
+
+        float force = MathF.Min(damage * (32f * 32f * 72f / volume) * 5f, MaxDamageForce);
+        Vector push = towards.Normalized * -force;
+        if (push.Z > MaxDamageLift)
+            push.Z = MaxDamageLift;
+
+        Entities.ApplyVelocityImpulse(Handle, push, clearGround: false);
+    }
+
+    /// <summary>DamageForce's ceiling (player.cpp:1594).</summary>
+    private const float MaxDamageForce = 1000f;
+
+    /// <summary>OnTakeDamage_Alive's ceiling on the rise (player.cpp:1633).</summary>
+    private const float MaxDamageLift = 250f;
 
     /// <summary>
     /// The <c>player_hurt</c> event, stock's fire from

@@ -286,6 +286,9 @@ public static class Hl2mpWeaponBehaviours
         /// <summary>The script's SPECIAL1; its single and double shots are common/null.wav.</summary>
         private const string RollSound = "WeaponFrag.Roll";
 
+        public float? PrimedDropFuse(int buttons)
+            => ((InputButtons)buttons & (InputButtons.Attack | InputButtons.Attack2)) != 0 ? GrenadeTimer : null;
+
         public bool RunCommand(in WeaponAttackContext attack, int buttons, int pressed)
         {
             var w = attack.Weapon;

@@ -30,6 +30,7 @@ public class RagdollBoltPinTests
         public readonly Dictionary<EntityHandle, Vector> Origins = [];
 
         public int Count => Elements.Count;
+        public bool AddVelocity(EntityHandle owner, Vector velocity) => false;
         public IReadOnlyCollection<EntityHandle> Owners => Elements.Keys;
 
         public nint ElementObject(EntityHandle owner, int physicsBone) =>

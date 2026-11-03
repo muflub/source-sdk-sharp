@@ -1015,6 +1015,7 @@ internal sealed unsafe partial class EngineEntities
     public int GetSpawnFlags(EntityHandle entity) => 0;
     public Vector GetSpawnOrigin(EntityHandle entity) => default;
     public Vector GetVelocity(EntityHandle h) => default;
+    public Vector GetSmoothedVelocity(EntityHandle h) => default;
     public Vector GetWorldSpaceCenter(EntityHandle h) => default;
     public bool IsPlayer(EntityHandle h) => false;
     public void SetAngles(EntityHandle entity, Vector angles) { }

@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Server.Interop;
 using SourceSharp.Shared;
 
 namespace SourceSharp.Server;
@@ -45,10 +46,14 @@ public sealed class FuncTrackTrain : TrainBrush
     protected override SolidType BrushSolidType => SolidType.VPhysics;
 
     public FuncTrackTrain(IGameClock clock, IEngineDamage damage,
-                          IEnginePrecache precache, IEngineSound sound)
+                          IEnginePrecache precache, IEngineSound sound, ServerPlayerMoves? moves = null)
         : base(clock, damage, precache, sound)
     {
+        _moves = moves;
     }
+
+    /// <summary>Who stands on what: a player's ground is its movement record's.</summary>
+    private readonly ServerPlayerMoves? _moves;
 
     /// <summary>This entity's own spawnflags, as their own type.</summary>
     private SpawnFlag Flags => SpawnFlagsAs<SpawnFlag>();
@@ -928,26 +933,36 @@ public sealed class FuncTrackTrain : TrainBrush
     // Something in the way.
     //
     // A track train shoves before it crushes, and the shove is different
-    // depending on where the blocker is: something riding on the train is lifted,
-    // which is how stock un-wedges a player who has sunk into the roof, and
-    // anything else is pushed away from the middle. Both are stock's, and so is
-    // the absence of the base's half-second throttle — a blocked track train
-    // damages on every frame it is blocked.
+    // depending on where the blocker is: something riding on the train is lifted
+    // and takes no damage, which is how stock un-wedges a player who has sunk into
+    // the roof, and anything else is pushed away from the middle. Both are stock's
+    // (CFuncTrackTrain::Blocked), and so is the absence of the base's half-second
+    // throttle: a blocked track train damages on every frame it is blocked.
     //-------------------------------------------------------------------------
     public override void OnBlocked(EntityHandle other)
     {
-        Vector away = Entities.GetOrigin(other) - Origin;
+        if (_moves?.Find(other) is { } rider && rider.Ground == Handle
+            && (rider.Move.Flags & GameMovement.FlOnGround) != 0)
+        {
+            if (Entities.GetVelocity(other).Z == 0f)
+                Entities.ApplyVelocityImpulse(other, new Vector(0f, 0f, MathF.Min(MathF.Abs(_speed), RiderLift)), clearGround: false);
+            return;
+        }
 
-        if (away.X == 0f && away.Y == 0f && away.Z == 0f)
-            away = new Vector(0f, 0f, 1f);
+        Entities.SetVelocity(other, (Entities.GetOrigin(other) - Origin).Normalized * Vars.BlockDamage);
 
-        Entities.SetVelocity(other, away.Normalized * Vars.BlockDamage);
+        // An unblockable train does not hurt the player it goes through.
+        if (UnblockableByPlayer && Entities.IsPlayer(other))
+            return;
 
         if (Vars.BlockDamage <= 0f)
             return;
 
         Damage.TakeDamage(other, Handle, Vars.BlockDamage, DamageType.Crush);
     }
+
+    /// <summary>The most a blocked train lifts its rider, u/s.</summary>
+    private const float RiderLift = 50f;
 }
 
 /// <summary>How a train gets from one node's facing to the next.</summary>

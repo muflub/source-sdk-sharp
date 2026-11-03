@@ -182,6 +182,41 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
         return true;
     }
 
+    public bool Velocity(EntityHandle entity, out Vector velocity)
+    {
+        // By the record alone, with no crossing: the entity API's read is on the
+        // bots' sense path, and a thing with no record has nothing to answer.
+        if (moves.Find(entity) is { } m)
+        {
+            velocity = m.Move.Velocity;
+            return true;
+        }
+
+        velocity = default;
+        return false;
+    }
+
+    public bool SmoothedVelocity(EntityHandle entity, out Vector velocity)
+    {
+        if (moves.Find(entity) is { } m)
+        {
+            velocity = m.SmoothedVelocity;
+            return true;
+        }
+
+        velocity = default;
+        return false;
+    }
+
+    public bool SetVelocity(EntityHandle entity, Vector velocity)
+    {
+        if (Player(entity) is not { } m)
+            return false;
+
+        m.Move.Velocity = velocity;
+        return true;
+    }
+
     /// <summary>Whether this is the first push refused for <paramref name="entity"/>.</summary>
     internal bool FirstRefusal(EntityHandle entity) => _refused.Add(entity);
 

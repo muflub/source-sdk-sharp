@@ -635,6 +635,7 @@ public sealed class RecordingEngine :
     int IEngineEntities.GetSpawnFlags(EntityHandle entity) => Record<int>("Entities.GetSpawnFlags", entity);
     Vector IEngineEntities.GetSpawnOrigin(EntityHandle entity) => Record<Vector>("Entities.GetSpawnOrigin", entity);
     Vector IEngineEntities.GetVelocity(EntityHandle h) => Record<Vector>("Entities.GetVelocity", h);
+    Vector IEngineEntities.GetSmoothedVelocity(EntityHandle h) => Record<Vector>("Entities.GetSmoothedVelocity", h);
     Vector IEngineEntities.GetWorldSpaceCenter(EntityHandle h) => Record<Vector>("Entities.GetWorldSpaceCenter", h);
     bool IEngineEntities.IsPlayer(EntityHandle h) => Record<bool>("Entities.IsPlayer", h);
     bool IEngineEntities.IsValid(EntityHandle h) => Record<bool>("Entities.IsValid", h);

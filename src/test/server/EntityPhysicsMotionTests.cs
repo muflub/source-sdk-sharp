@@ -120,6 +120,64 @@ public class EntityPhysicsMotionTests
         public void SetDefaultFov(EntityHandle player, int fov) => throw new InvalidOperationException("not asked");
         public bool AddBaseVelocity(EntityHandle entity, Vector velocity) => throw new InvalidOperationException("not asked");
         public void ViewPunch(Vector center, Vector punch, float radius, bool inAir) => throw new InvalidOperationException("not asked");
+
+        public Vector Held = new(1f, 2f, 3f);
+
+        public bool Velocity(EntityHandle entity, out Vector velocity)
+        {
+            velocity = entity == Walker ? Held : default;
+            return entity == Walker;
+        }
+
+        public bool SmoothedVelocity(EntityHandle entity, out Vector velocity)
+            => throw new InvalidOperationException("not asked");
+
+        public bool SetVelocity(EntityHandle entity, Vector velocity)
+        {
+            if (entity != Walker)
+                return false;
+
+            Held = velocity;
+            return true;
+        }
+    }
+
+    [Fact]
+    public void APlayersVelocityWriteReachesItsMovementRecord()
+    {
+        var (m, _, host) = Make();
+        host.Held = 0;
+        var moves = new WalkerMoves();
+
+        EngineSide.SetVelocity(moves, m, Walker, new Vector(50f, 0f, 200f));
+
+        Assert.Equal(new Vector(50f, 0f, 200f), moves.Held);
+        // And the shell's member, which is what a rider standing on the player reads.
+        Assert.Equal(new Vector(50f, 0f, 200f), host.Velocity);
+    }
+
+    [Fact]
+    public void APlayersVelocityReadIsItsMovementRecord()
+    {
+        var (m, _, host) = Make();
+        host.Held = 0;
+        var moves = new WalkerMoves();
+
+        Assert.Equal(moves.Held, EngineSide.Velocity(moves, m, Walker));
+    }
+
+    [Fact]
+    public void AnythingElsesVelocityWriteGoesOnlyToItsOwnHome()
+    {
+        var (m, v, host) = Make();
+        var moves = new WalkerMoves();
+        Vector before = moves.Held;
+
+        EngineSide.SetVelocity(moves, m, new EntityHandle(0x0005_0002u), new Vector(9f, 9f, 9f));
+
+        Assert.Equal(before, moves.Held);
+        Assert.Equal(new Vector(9f, 9f, 9f), host.Velocity);
+        Assert.Contains(v.Log, l => l.StartsWith("SetVelocity", StringComparison.Ordinal));
     }
 
     [Fact]

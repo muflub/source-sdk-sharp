@@ -29,11 +29,10 @@ namespace SourceSharp.Shared;
 /// <c>m_vecTotalBulletForce</c>, an accumulation of every hit's direction and
 /// magnitude over the life of the player. This mod's damage pipeline
 /// (<c>ScriptedEntity.OnDamaged</c>) carries a magnitude and a type and no
-/// direction, so there is no such vector to send. <see cref="Force"/> carries
-/// the player's velocity at the moment of death instead — a body that was
-/// running when it died keeps going, which is the visible half of what stock's
-/// force does, and a body shot standing still drops where it stood rather than
-/// being flung. Giving the damage path a direction is what would close it.
+/// direction, so a corpse's <see cref="Force"/> stays zero: a body shot standing
+/// still drops where it stood rather than being flung. Giving the damage path a
+/// direction is what would close it. <see cref="Velocity"/> is stock's own, so a
+/// body that was running when it died keeps going.
 /// </para>
 /// </summary>
 [StandaloneNetState(EntityNames.Hl2mpRagdoll)]
@@ -83,16 +82,20 @@ public partial class RagdollNetState
     public partial short PlayerIndex { get; set; }
 
     /// <summary>
-    /// The impulse the body starts with, in units per second.
-    ///
-    /// <para>
-    /// See the divergence note on the class: this is the death VELOCITY, not
-    /// stock's accumulated bullet force. Zero is an ordinary value — most
-    /// deaths happen standing still — and means "collapse where you stand"
-    /// rather than "no ragdoll".
-    /// </para>
+    /// The force the body starts with (<c>BecomeRagdollOnClient( vecForce )</c>,
+    /// m_vecForce). See the divergence note on the class. It lands by
+    /// <see cref="ForceBone"/>: on the centre, -1, it lands on nothing, as
+    /// <c>RagdollCreate</c>'s does with no force position.
     /// </summary>
     public partial Vector Force { get; set; }
+
+    /// <summary>
+    /// m_vecRagdollVelocity: what the player was moving at when it died, in units
+    /// per second. Stock slams it on the body and takes the body's first motion
+    /// from the difference between two poses (RagdollApplyAnimationAsVelocity);
+    /// this hierarchy keeps no bone history, so the client adds it to every element.
+    /// </summary>
+    public partial Vector Velocity { get; set; }
 
     /// <summary>
     /// Where the body collapses, in world space.

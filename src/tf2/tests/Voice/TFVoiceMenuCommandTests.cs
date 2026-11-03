@@ -529,6 +529,7 @@ public sealed class TFVoiceMenuCommandTests
         public int GetSpawnFlags(EntityHandle entity) => inner.GetSpawnFlags(entity);
         public Vector GetSpawnOrigin(EntityHandle entity) => inner.GetSpawnOrigin(entity);
         public Vector GetVelocity(EntityHandle h) => inner.GetVelocity(h);
+        public Vector GetSmoothedVelocity(EntityHandle h) => default;
         public Vector GetWorldSpaceCenter(EntityHandle h) => inner.GetWorldSpaceCenter(h);
         public bool IsPlayer(EntityHandle h) => inner.IsPlayer(h);
         public bool IsValid(EntityHandle h) => inner.IsValid(h);

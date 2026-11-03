@@ -98,7 +98,146 @@ public class SpawnPointsTests
               .Ignores("Players.PlaceAtSpawn");
 
         var log = new RecordingLog();
-        return (new SpawnPoints(engine, engine, engine, new Random(1), placement, log), engine, log);
+        return (new SpawnPoints(engine, engine, engine, engine, Convars(), new Random(1), placement, log: log), engine, log);
+    }
+
+    /// <summary>A convar backend that keeps what it is told.</summary>
+    private sealed class Backend : IConVarBackend
+    {
+        private readonly Dictionary<int, string> _held = new();
+        private int _next;
+
+        public int Register(string name, string defaultValue, string help, int flags, float? min, float? max)
+        {
+            _held[_next] = defaultValue;
+            return _next++;
+        }
+
+        public void Set(int id, string value) => _held[id] = value;
+        public string Get(int id) => _held.TryGetValue(id, out string? v) ? v : "";
+        public string? ValueOf(string name) => null;
+    }
+
+    /// <summary>The registry with the frag's radius declared, at its default unless told.</summary>
+    private static ConVarRegistry Convars(float? radius = null)
+    {
+        var convars = new ConVarRegistry(new Backend());
+        convars.RegisterTypes([typeof(Hl2mpSpawnFragFallbackRadiusConVar)]);
+        if (radius is { } r)
+            convars.Get<Hl2mpSpawnFragFallbackRadiusConVar>()!.SetValue(r);
+        return convars;
+    }
+
+    private static readonly EntityHandle Near = new(0x010002);
+    private static readonly EntityHandle Far = new(0x010003);
+    private static readonly EntityHandle NotAPlayer = new(0x030000);
+
+    /// <summary>A rule of a mod's.</summary>
+    private sealed class FragRule(bool frags) : ISpawnFragRule
+    {
+        public bool Frags(EntityHandle spawning) => frags;
+    }
+
+    /// <summary>
+    /// Every spot of <paramref name="spawnClass"/> taken: <see cref="Far"/> stands 100 u
+    /// from each (the 128 u check sees them), <see cref="Near"/> 30 u from each, and the
+    /// sphere asked of the world answers by its radius, the spawning player included.
+    /// </summary>
+    private static (SpawnPoints Points, RecordingEngine Engine) EveryPointTaken(
+        string spawnClass, float? radius = null, IHooks<ISpawnFragRule>? rules = null, bool taken = true)
+    {
+        var engine = new RecordingEngine();
+        engine.ReturnsEachCall("Entities.GetOrigin", () => WalkSpotAt)
+              .ReturnsEachCall("Entities.GetAngles", () => WalkSpotFacing)
+              .ReturnsEachCall("Entities.FindAllByClassname",
+                               () => (string)engine.Last("Entities.FindAllByClassname")!.Value.Args[0]! == spawnClass
+                                   ? new[] { WalkSpot, TeamSpot }
+                                   : Array.Empty<EntityHandle>())
+              .ReturnsEachCall("WorldQuery.EntitiesInSphere.into", () =>
+              {
+                  float asked = (float)engine.Last("WorldQuery.EntitiesInSphere")!.Value.Args[1]!;
+                  if (!taken)
+                      return new[] { NotAPlayer, Player };
+                  return asked >= 100f ? new[] { NotAPlayer, Player, Near, Far }
+                       : asked >= 30f ? new[] { NotAPlayer, Player, Near }
+                       : new[] { NotAPlayer, Player };
+              })
+              .ReturnsEachCall("Entities.IsPlayer", () => (EntityHandle)engine.Last("Entities.IsPlayer")!.Value.Args[0]! != NotAPlayer)
+              .Ignores("Players.PlaceAtSpawn")
+              .Ignores("Damage.TakeDamage");
+        return (new SpawnPoints(engine, engine, engine, engine, Convars(radius), new Random(1), fragRules: rules), engine);
+    }
+
+    /// <summary>
+    /// CHL2MP_Player::EntSelectSpawnPoint's fallback (hl2mp_player.cpp:1447-1457): every
+    /// spot taken, a player within 48 u of the settled one takes 300 generic from the
+    /// world, and the spawning player, a thing that is no player and one 100 u away
+    /// (which the 128 u check counted) do not.
+    /// </summary>
+    [Fact]
+    public void EveryPointTakenKillsThePlayerWithinTheRadiusOfTheSettledSpot()
+    {
+        var (points, engine) = EveryPointTaken(EntityNames.InfoPlayerDeathmatch);
+
+        EntityHandle settled = points.SelectAndPlace(Player, teams: null);
+
+        Assert.True(settled == WalkSpot || settled == TeamSpot);
+        var hit = Assert.Single(engine.AllOf("Damage.TakeDamage"));
+        Assert.Equal(Near, hit.Args[0]);
+        Assert.Equal(new EntityHandle(0u), hit.Args[1]);
+        Assert.Equal(300f, hit.Args[2]);
+        Assert.Equal(DamageType.Generic, hit.Args[3]);
+        Assert.Single(engine.AllOf("Players.PlaceAtSpawn"));
+    }
+
+    [Fact]
+    public void TheKillsRadiusIsTheConvars()
+    {
+        var (narrow, narrowEngine) = EveryPointTaken(EntityNames.InfoPlayerDeathmatch, radius: 10f);
+        narrow.SelectAndPlace(Player, teams: null);
+        Assert.False(narrowEngine.Called("Damage.TakeDamage"), narrowEngine.Describe());
+
+        var (wide, wideEngine) = EveryPointTaken(EntityNames.InfoPlayerDeathmatch, radius: 120f);
+        wide.SelectAndPlace(Player, teams: null);
+        Assert.Equal([Near, Far], wideEngine.AllOf("Damage.TakeDamage").Select(c => c.ArgAs<EntityHandle>(0)));
+    }
+
+    [Fact]
+    public void AFreePointKillsNobody()
+    {
+        var (points, engine) = EveryPointTaken(EntityNames.InfoPlayerDeathmatch, taken: false);
+
+        points.SelectAndPlace(Player, teams: null);
+
+        Assert.True(engine.Called("Players.PlaceAtSpawn"));
+        Assert.False(engine.Called("Damage.TakeDamage"), engine.Describe());
+    }
+
+    /// <summary>Stock places on an info_player_start without asking who is on it (hl2mp_player.cpp:1460-1466).</summary>
+    [Fact]
+    public void AnInfoPlayerStartIsNotFoughtOver()
+    {
+        var (points, engine) = EveryPointTaken(EntityNames.InfoPlayerStart);
+
+        Assert.NotEqual(EntityHandle.None, points.SelectAndPlace(Player, teams: null));
+
+        Assert.False(engine.Called("Damage.TakeDamage"), engine.Describe());
+    }
+
+    /// <summary>A mod's rule refuses the kill, and the positive arm is that a rule allowing it changes nothing.</summary>
+    [Fact]
+    public void AModsRuleCanRefuseTheKill()
+    {
+        var (refused, refusedEngine) = EveryPointTaken(EntityNames.InfoPlayerDeathmatch,
+                                                       rules: new ListHooks<ISpawnFragRule>(new FragRule(true), new FragRule(false)));
+        refused.SelectAndPlace(Player, teams: null);
+        Assert.True(refusedEngine.Called("Players.PlaceAtSpawn"));
+        Assert.False(refusedEngine.Called("Damage.TakeDamage"), refusedEngine.Describe());
+
+        var (allowed, allowedEngine) = EveryPointTaken(EntityNames.InfoPlayerDeathmatch,
+                                                       rules: new ListHooks<ISpawnFragRule>(new FragRule(true)));
+        allowed.SelectAndPlace(Player, teams: null);
+        Assert.True(allowedEngine.Called("Damage.TakeDamage"));
     }
 
     [Fact]
@@ -139,6 +278,23 @@ public class SpawnPointsTests
         Assert.Equal(Player, call.Args[0]);
         Assert.Equal(WalkSpotAt with { Z = WalkSpotAt.Z + 1f }, call.Args[1]);
         Assert.Equal(WalkSpotFacing, call.Args[2]);
+    }
+
+    /// <summary>
+    /// pPlayer->SetAbsVelocity( vec3_origin ) (gamerules.cpp:195): what a player moved
+    /// at when it died does not come back with it.
+    /// </summary>
+    [Fact]
+    public void APlacementStopsThePlayer()
+    {
+        var (points, engine, _) = Rig();
+        engine.Ignores("Entities.SetVelocity");
+
+        points.SelectAndPlace(Player, new SelectingTeams(EntityHandle.None));
+
+        var call = Assert.Single(engine.AllOf("Entities.SetVelocity"));
+        Assert.Equal(Player, call.Args[0]);
+        Assert.Equal(Vector.Zero, call.Args[1]);
     }
 
     [Fact]
@@ -207,7 +363,7 @@ public class SpawnPointsTests
                   .ReturnsEachCall("Entities.FindAllByClassname", () => (string)engine.Last("Entities.FindAllByClassname")!.Value.Args[0]! == EntityNames.InfoPlayerDeathmatch ? new[] { WalkSpot, TeamSpot } : Array.Empty<EntityHandle>())
                   .ReturnsEachCall("WorldQuery.EntitiesInSphere.into", () => ((Vector)engine.Last("WorldQuery.EntitiesInSphere")!.Value.Args[0]!).X == WalkSpotAt.X ? atWalkSpot : Array.Empty<EntityHandle>())
                   .ReturnsEachCall("Entities.IsPlayer", () => (EntityHandle)engine.Last("Entities.IsPlayer")!.Value.Args[0]! == standing);
-            return new SpawnPoints(engine, engine, engine, new Random(seed)).Choose(Player, null);
+            return new SpawnPoints(engine, engine, engine, engine, Convars(), new Random(seed)).Choose(Player, null);
         }
 
         foreach (int seed in Enumerable.Range(1, 8))

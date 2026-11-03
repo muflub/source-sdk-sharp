@@ -277,7 +277,7 @@ public abstract class BreakableBrush : ScriptedEntity
         if (_broken || !Flags.HasFlag(SpawnFlag.Touch) || !IsBreakable || !Entities.IsPlayer(toucher))
             return;
 
-        float damage = Entities.GetVelocity(toucher).Length * 0.01f;
+        float damage = Entities.GetSmoothedVelocity(toucher).Length * 0.01f;
         if (damage < Health)
             return;
 

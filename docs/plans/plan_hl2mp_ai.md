@@ -2222,11 +2222,23 @@ that code when M1 starts, and changes nothing here.
   preset (`SkillSpread`), so the range measures a preset's mean levels as a custom
   vector, and a real game's draws differ from it. "A person's reaction of 30 ms" was
   the metric's, not the person's.
-- `IEngineEntities.GetVelocity` of a player answers the movement's velocity since the
-  aim work; `SetVelocity` on one still writes only the base field: letting it reach the
-  movement froze three of four bots at a dm_lockdown spawn (-4116 4600), cause not
-  found. So func_rotating's and func_tracktrain's shoves of a blocked player and
-  setpos's zeroing still do nothing to a player, as before.
+- `IEngineEntities.GetVelocity` and `SetVelocity` of a player are its movement record's
+  (2026-11-02; the native read of the aim work is gone). The freeze that held the write
+  back, three of four bots at (-4116 4600), was not the write: bots stacked on a spawn
+  stand there for minutes with or without it. Live, 3 min, 4 bots, dm_lockdown: every
+  spawn forced to that spot, write on 4 of 4 frozen and write off 4 of 4; the old 16-entity
+  spawn check with no forcing, write on 0 of 4 and write off 0 of 4; the check as it is now,
+  write on, 0 of 4. So it was d5003108e's bug seen once on each side of the change. The
+  aim lane's patch is gone, so that it did nothing else is inferred, not read.
+  What changed with it: func_rotating's throw and func_tracktrain's shove and rider's lift
+  reach a player; a zeroing teleport and a spawn stop them (gamerules.cpp:195); setpos's
+  zeroing takes effect, a rule of this family's where stock's setpos keeps the velocity
+  (`SetPosCommand`'s note). `PhysicsDamageQueue`'s restore is the physics object's in stock, so
+  it now leaves a player alone: live it threw one at (49 19 -200). A player's move now
+  touches what it ran into, for the classes that hear every touch (ProcessImpacts'
+  PhysicsImpact): nothing reported a solid brush's contact, so no hurting brush had ever
+  thrown anyone, and `SsPlayer.TakesDamage` answers m_takedamage, which the kind's default
+  had as no for every brush that asks.
 - A bot whose back is turned does not see someone walking up on it (its field is the
   client's 90°): the close-range ruling starts at sight.
 - Hearing = recipient-filter membership + soundlevel, not room-graph path

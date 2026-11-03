@@ -412,8 +412,15 @@ internal sealed unsafe partial class EngineSide
         if (ShellLess.Claims(h))
             return default;
 
-        return Motion.Velocity(h);
+        return Velocity(PlayerMoves.Target, Motion, h);
     }
+
+    /// <summary>
+    /// The velocity's two homes, as an impulse's (<see cref="ApplyVelocityImpulse"/>): a
+    /// player's is its movement record's, anything else's the solver's or the shell's.
+    /// </summary>
+    internal static Vector Velocity(IServerPlayerMovementRoute? players, EntityPhysicsMotion motion, EntityHandle h)
+        => players?.Velocity(h, out Vector velocity) == true ? velocity : motion.Velocity(h);
 
     /// <summary>Where something looks from. A player's origin is at their feet.</summary>
     public Vector EntityGetEyePosition(EntityHandle h)
@@ -424,8 +431,16 @@ internal sealed unsafe partial class EngineSide
     }
 
     public void EntitySetVelocity(EntityHandle h, Vector velocity)
+        => SetVelocity(PlayerMoves.Target, Motion, h, velocity);
+
+    /// <summary>
+    /// Stock's <c>SetAbsVelocity</c>. A player's next command moves by what its record
+    /// holds; the shell's members are written too, being what a rider standing on it reads.
+    /// </summary>
+    internal static void SetVelocity(IServerPlayerMovementRoute? players, EntityPhysicsMotion motion, EntityHandle h, Vector velocity)
     {
-        Motion.SetVelocity(h, velocity);
+        players?.SetVelocity(h, velocity);
+        motion.SetVelocity(h, velocity);
     }
 
     /// <summary>

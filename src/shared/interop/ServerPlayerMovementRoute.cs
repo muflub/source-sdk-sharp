@@ -49,6 +49,26 @@ public interface IServerPlayerMovementRoute
     /// </summary>
     bool ApplyVelocityImpulse(EntityHandle entity, Vector impulse, bool clearGround);
 
+    /// <summary>
+    /// Stock's <c>GetAbsVelocity</c> of a player: its record's velocity, the value
+    /// the last command left and every write since. False for anything without a
+    /// record, which is not a player or has not spawned.
+    /// </summary>
+    bool Velocity(EntityHandle entity, out Vector velocity);
+
+    /// <summary>
+    /// Stock's <c>SetAbsVelocity</c> on a player: the record's velocity, which its
+    /// next command moves by. A plain write: no clamp, and the ground stays held.
+    /// False when <paramref name="entity"/> is not a player.
+    /// </summary>
+    bool SetVelocity(EntityHandle entity, Vector velocity);
+
+    /// <summary>
+    /// <c>CBasePlayer::GetSmoothedVelocity</c>: the record's velocity as PostThink
+    /// averages it, which a collision has not yet taken away. False as <see cref="Velocity"/>.
+    /// </summary>
+    bool SmoothedVelocity(EntityHandle entity, out Vector velocity);
+
     /// <summary>UTIL_ViewPunch: every player in reach shoved.</summary>
     void ViewPunch(Vector center, Vector punch, float radius, bool inAir);
 

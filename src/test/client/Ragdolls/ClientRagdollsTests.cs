@@ -122,6 +122,19 @@ public class ClientRagdollsTests
         Assert.Equal(3, rig.Ragdolls.Bodies.Single().ListCount);
     }
 
+    /// <summary>The travel half of RagdollApplyAnimationAsVelocity: every element, none of it spin.</summary>
+    [Fact]
+    public void AnAddedVelocityReachesEveryElement()
+    {
+        Rig rig = Fallen();
+        var velocity = new Vector(300f, -50f, 120f);
+        Assert.All(rig.Fake.Objects.Values, o => Assert.Equal(Vector.Zero, o.AddedVelocity));
+
+        Assert.True(rig.Ragdolls.AddVelocity(Owner, velocity));
+
+        Assert.Equal(3, rig.Fake.Objects.Values.Count(o => o.AddedVelocity.Equals(velocity) && o.AddedAngular.Equals(Vector.Zero)));
+    }
+
     [Fact]
     public void ItsObjectsCarryTheOwnersGameData()
         => Assert.All(Fallen().Fake.Objects.Values,

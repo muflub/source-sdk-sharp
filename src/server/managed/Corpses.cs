@@ -244,7 +244,9 @@ public sealed class Corpses : IGameLifecycle
         // of the frame, not at the moment of spawn.
         if (_directory.Get(body) is SsRagdoll ragdoll)
         {
-            ragdoll.State.Force = velocity;
+            // m_vecRagdollVelocity = GetAbsVelocity() (hl2mp_player.cpp:1207), which the
+            // client slams on before the bones it takes the body's motion from.
+            ragdoll.State.Velocity = velocity;
 
             // CENTRE OF MASS, because this mod has no per-hit bone. Stock
             // fills m_nForceBone from the trace that killed you; the managed

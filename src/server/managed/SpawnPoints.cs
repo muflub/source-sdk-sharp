@@ -31,6 +31,28 @@ public interface ISpawnPlacement
 }
 
 /// <summary>
+/// Whether the core's walk kills for the spot it settles on, as a hook of
+/// <see cref="SpawnPoints"/>. Killing is <c>CHL2MP_Player::EntSelectSpawnPoint</c>'s
+/// rule (and CBasePlayer's before it), and a mod whose players have a walk of their
+/// own has no such rule: <c>CTFPlayer::EntSelectSpawnPoint</c> never kills, so a
+/// player its selector places nowhere (a spectator) must not kill by reaching the
+/// core's walk. Every hook has to agree for the kill to happen.
+/// </summary>
+public interface ISpawnFragRule
+{
+    /// <summary>Whether <paramref name="spawning"/>, with every spot taken, kills those at the one it settles on.</summary>
+    bool Frags(EntityHandle spawning);
+}
+
+/// <summary>
+/// <c>hl2mp_spawn_frag_fallback_radius</c> (hl2mp_player.cpp:38): how far from the
+/// spot a player settles on, with every spawn taken, the others are killed.
+/// </summary>
+[ConVar("hl2mp_spawn_frag_fallback_radius", "48",
+        Help = "If no spawns are available, kill players with this radius to allow new players to spawn.")]
+public sealed class Hl2mpSpawnFragFallbackRadiusConVar : FloatConVar { }
+
+/// <summary>
 /// Which spawn point a player enters the map on, and putting them there:
 /// CBasePlayer::EntSelectSpawnPoint (the choice) and
 /// CGameRules::GetPlayerSpawnSpot (the placement), asked from
@@ -63,16 +85,30 @@ public interface ISpawnPlacement
 /// </para>
 ///
 /// <para>
-/// One difference from stock, on purpose: when every point of the core's walk
-/// is occupied, stock kills whoever is standing on the first one. This picks a
-/// random occupied point instead. A mod that kills a player for standing still
-/// is a decision, and this one does not make it.
+/// With every point of the core's walk taken, stock settles on the one the walk
+/// began at and kills the other players within
+/// <see cref="Hl2mpSpawnFragFallbackRadiusConVar"/> of it
+/// (CHL2MP_Player::EntSelectSpawnPoint, hl2mp_player.cpp:1447-1457), and so does
+/// this. An info_player_start is never fought over: stock places on it without
+/// asking who is there.
 /// </para>
 /// </summary>
 public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players, IEngineWorldQuery world,
-                                Random random, IHooks<ISpawnPlacement>? placement = null, ILog? log = null)
+                                IEngineDamage damage, ConVarRegistry convars, Random random,
+                                IHooks<ISpawnPlacement>? placement = null, IHooks<ISpawnFragRule>? fragRules = null,
+                                ILog? log = null)
 {
+    /// <summary>The convar's default, for a composition that did not register it.</summary>
+    private const float DefaultFragRadius = 48f;
+
+    /// <summary>CTakeDamageInfo( world, world, 300, DMG_GENERIC ): more than any player has.</summary>
+    private const float FragDamage = 300f;
+
+    /// <summary>The world, entry 0, as stock's GetContainingEntity( INDEXENT( 0 ) ): nobody's kill.</summary>
+    private static EntityHandle World => new(0u);
+
     private readonly IHooks<ISpawnPlacement>? _placement = placement;
+    private readonly IHooks<ISpawnFragRule>? _fragRules = fragRules;
     private readonly ILog? _log = log;
 
     /// <summary>
@@ -119,9 +155,12 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
     private EntityHandle Walk(EntityHandle player)
     {
         var candidates = new List<EntityHandle>();
+        string? walked = null;
 
         foreach (string className in Pickups.SpawnPointClasses)
         {
+            walked = className;
+
             foreach (var spot in entities.FindAllByClassname(className))
             {
                 // A spawn point left at the world origin is a mapping mistake
@@ -139,23 +178,57 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
         if (candidates.Count == 0)
             return EntityHandle.None;
 
-        // Preferring one nobody is standing in, and settling for a random one
-        // when every point is taken.
+        // Preferring one nobody is standing in, and settling for the one the
+        // walk began at when every point is taken.
         int first = random.Next(candidates.Count);
-        EntityHandle chosen = candidates[first];
 
         for (int i = 0; i < candidates.Count; i++)
         {
             var spot = candidates[(first + i) % candidates.Count];
 
             if (!IsOccupied(spot, player))
-            {
-                chosen = spot;
-                break;
-            }
+                return spot;
         }
 
-        return chosen;
+        EntityHandle settled = candidates[first];
+
+        if (walked == EntityNames.InfoPlayerDeathmatch && Frags(player))
+            KillAround(settled, player);
+
+        return settled;
+    }
+
+    /// <summary>Whether every <see cref="ISpawnFragRule"/> lets <paramref name="player"/> kill; a mod with none does.</summary>
+    private bool Frags(EntityHandle player)
+    {
+        if (_fragRules is null)
+            return true;
+
+        foreach (ISpawnFragRule rule in _fragRules.All)
+        {
+            if (!rule.Frags(player))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Stock's loop: every player in the convar's sphere but the one spawning takes
+    /// 300 generic from the world, through the same damage as any other hit.
+    /// </summary>
+    private void KillAround(EntityHandle spot, EntityHandle spawning)
+    {
+        float radius = convars.Get<Hl2mpSpawnFragFallbackRadiusConVar>()?.Value ?? DefaultFragRadius;
+
+        Span<EntityHandle> nearby = stackalloc EntityHandle[MaxNearASpot];
+        int found = world.EntitiesInSphere(entities.GetOrigin(spot), radius, nearby);
+
+        for (int i = 0; i < found; i++)
+        {
+            if (nearby[i] != spawning && entities.IsPlayer(nearby[i]))
+                damage.TakeDamage(nearby[i], World, FragDamage, DamageType.Generic);
+        }
     }
 
     /// <summary>
@@ -189,6 +262,10 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
         origin.Z += 1f;
 
         players.PlaceAtSpawn(player, origin, entities.GetAngles(spot));
+
+        // pPlayer->SetAbsVelocity( vec3_origin ) (gamerules.cpp:195): what a player
+        // moved at when it died does not come back with it.
+        entities.SetVelocity(player, Vector.Zero);
     }
 
     /// <summary>

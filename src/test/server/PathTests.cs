@@ -509,6 +509,88 @@ public class PathTests
         Assert.False(train.UnblockableByPlayer);
     }
 
+    /// <summary>CFuncTrackTrain::Blocked (trains.cpp:1677-1742) over a blocker 100 u along +x.</summary>
+    private static (FuncTrackTrain Train, RecordingEngine Engine, SourceSharp.Server.Interop.ServerPlayerMove Rider) Blocked(int spawnFlags = 0, string speed = "30", string dmg = "20")
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(KeyframeTrack).Assembly);
+        var services = (ServiceContainer)Services(out RecordingEngine engine);
+        var moves = new SourceSharp.Server.Interop.ServerPlayerMoves();
+        services.AddInstance(moves);
+        registry.Services = services;
+        engine.Strict = false;
+        var blocker = new EntityHandle(0x0001_0001u);
+        engine.Returns("Entities.GetSpawnFlags", spawnFlags)
+              .ReturnsEachCall("Entities.GetOrigin", () => (EntityHandle)engine.Last("Entities.GetOrigin")!.Value.Args[0]! == blocker
+                                   ? new Vector(100f, 0f, 0f) : Vector.Zero)
+              .Returns("Entities.GetVelocity", Vector.Zero)
+              .Returns("Entities.IsPlayer", true);
+
+        var h = new EntityHandle(0x0071_0001u);
+        registry.KeyValue(h, EntityNames.FuncTracktrain, "speed", speed);
+        registry.KeyValue(h, EntityNames.FuncTracktrain, "startspeed", speed);
+        registry.KeyValue(h, EntityNames.FuncTracktrain, "dmg", dmg);
+        registry.Spawn(h, EntityNames.FuncTracktrain);
+        var train = (FuncTrackTrain)registry.Get(h)!;
+        Assert.Equal(float.Parse(speed), train.CurrentSpeed);
+        engine.Clear();
+
+        return (train, engine, moves.For(blocker));
+    }
+
+    private static readonly EntityHandle TrainBlocker = new(0x0001_0001u);
+
+    [Fact]
+    public void ABlockedTrainShovesWhoIsInTheWayFromItsMiddleByItsDamageAndHurtsThem()
+    {
+        var (train, engine, _) = Blocked();
+
+        train.OnBlocked(TrainBlocker);
+
+        var shove = Assert.Single(engine.AllOf("Entities.SetVelocity"));
+        Assert.Equal(new Vector(20f, 0f, 0f), shove.Args[1]);
+        Assert.Equal(20f, Assert.Single(engine.AllOf("Damage.TakeDamage")).Args[2]);
+    }
+
+    /// <summary>On the train it is lifted by the train's speed and nothing else: no shove, no damage.</summary>
+    [Fact]
+    public void ABlockedTrainLiftsItsRiderAndDoesNotHurtThem()
+    {
+        var (train, engine, rider) = Blocked();
+        rider.Ground = train.Handle;
+        rider.Move.Flags |= GameMovement.FlOnGround;
+
+        train.OnBlocked(TrainBlocker);
+
+        Assert.Equal(new Vector(0f, 0f, 30f), Assert.Single(engine.AllOf("Entities.ApplyVelocityImpulse")).Args[1]);
+        Assert.False(engine.Called("Entities.SetVelocity"), engine.Describe());
+        Assert.False(engine.Called("Damage.TakeDamage"), engine.Describe());
+    }
+
+    [Fact]
+    public void ARidersLiftStopsAtFifty()
+    {
+        var (train, engine, rider) = Blocked(speed: "200");
+        rider.Ground = train.Handle;
+        rider.Move.Flags |= GameMovement.FlOnGround;
+
+        train.OnBlocked(TrainBlocker);
+
+        Assert.Equal(new Vector(0f, 0f, 50f), Assert.Single(engine.AllOf("Entities.ApplyVelocityImpulse")).Args[1]);
+    }
+
+    /// <summary>"unblockable shouldn't damage the player in this case": still shoved, not hurt.</summary>
+    [Fact]
+    public void AnUnblockableTrainShovesAPlayerAndDoesNotHurtThem()
+    {
+        var (train, engine, _) = Blocked(spawnFlags: 0x200);
+
+        train.OnBlocked(TrainBlocker);
+
+        Assert.True(engine.Called("Entities.SetVelocity"));
+        Assert.False(engine.Called("Damage.TakeDamage"), engine.Describe());
+    }
+
     [Fact]
     public void TrackChainLinking()
     {

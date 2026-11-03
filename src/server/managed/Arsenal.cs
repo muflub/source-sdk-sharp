@@ -1428,6 +1428,16 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (_directory.Get(carry.Weapon) is not SsWeapon weapon)
             return;
 
+        // DropPrimedFragGrenade: a grenade held back goes off where the player fell,
+        // and the weapon stays theirs: no pickup.
+        if (ActiveBehaviour(carry, out _)?.PrimedDropFuse(weapon.State.LastButtons) is { } fuse
+            && _weapons.ByIndex(carry.Weapons[carry.ActiveSlot].TypeIndex) is WeaponType primed)
+        {
+            ThrowGrenade(_log, carry, primed, GrenadeThrow.Throw, fuse, Random.Shared, dropped: true);
+            weapon.State.Reserve -= 1;
+            return;
+        }
+
         // Whatever the weapon was doing ends here (the physcannon lets go),
         // and a weapon whose stock Drop removes it leaves nothing behind.
         bool leavesPickup = ActiveBehaviour(carry, out _) is not { LeavesPickup: false };
@@ -1879,7 +1889,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// spin, which stock gives about the grenade's own axes. The timer goes to
     /// the grenade with the launch report.
     /// </summary>
-    private void ThrowGrenade(ILog log, Carry carry, in WeaponType type, GrenadeThrow kind, float timer, Random random)
+    private void ThrowGrenade(ILog log, Carry carry, in WeaponType type, GrenadeThrow kind, float timer, Random random, bool dropped = false)
     {
         EntityHandle player = carry.Player;
         Vector eye = _players.GetShootOrigin(player);
@@ -1926,6 +1936,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 break;
             }
         }
+
+        // CWeaponFrag::ThrowGrenade's dead arm: it leaves as its thrower was moving.
+        if (dropped)
+            velocity = thrower;
 
         EntityHandle grenade = _entities.Create(type.Projectile);
 

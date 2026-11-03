@@ -172,6 +172,13 @@ public interface IEngineEntities
     Vector GetVelocity(EntityHandle h);
 
     /// <summary>
+    /// Stock's <c>GetSmoothedVelocity</c>: a player's PostThink average of its velocity,
+    /// which a collision has not yet taken away, and for anything else its velocity
+    /// (CBaseEntity::GetSmoothedVelocity).
+    /// </summary>
+    Vector GetSmoothedVelocity(EntityHandle h);
+
+    /// <summary>
     /// The middle of the entity's collision box in world space (stock's
     /// WorldSpaceCenter); a brush entity's origin is usually nowhere near it.
     /// </summary>

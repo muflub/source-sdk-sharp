@@ -10,6 +10,18 @@ using SourceSharp.Abi;
 namespace SourceSharp.Server;
 
 /// <summary>
+/// Whether a hit shoves a player as CBasePlayer::OnTakeDamage_Alive does, as a hook of
+/// <c>SsPlayer</c>. A mod whose player has its own answer turns it off:
+/// <c>CTFPlayer::OnTakeDamage_Alive</c> never reaches the base's, and pushes through
+/// <c>ApplyPushFromDamage</c>. Every hook has to agree for the push to happen.
+/// </summary>
+public interface IPlayerDamagePushRule
+{
+    /// <summary>Whether a hit on <paramref name="player"/> pushes it.</summary>
+    bool PushesFromDamage(EntityHandle player);
+}
+
+/// <summary>
 /// Which kinds of damage behave which way — five bitmasks that used to be
 /// <c>CMultiplayRules</c>'s and are policy, not mechanism.
 ///
