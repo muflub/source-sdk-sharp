@@ -300,6 +300,208 @@ public class BotCommandApplierTests
         Assert.InRange(_self.Facts.View.Pitch, -6f, -2.5f);
     }
 
+    // ---------------------------------------------------------------- recoil (2026-11-02)
+
+    private static readonly MotionParams Hands = Normal with { RecoilControl = 0.5f, BurstSeconds = 0.3f, RecoilSettleDeg = 2f };
+
+    private static readonly ActionIntent Burst = new(ActionKind.Fire, FireStyle.Burst, 0, 0);
+
+    private static readonly ActionIntent Tap = new(ActionKind.Fire, FireStyle.Tap, 0, 0);
+
+    /// <summary>Each tick's trigger over <paramref name="ticks"/> firing at a point, past the first flick.</summary>
+    private bool[] Trigger(AiVector point, ActionIntent action, int ticks = 800, Action<int>? each = null)
+    {
+        for (int i = 0; i < 150; i++)
+        {
+            if (i % 6 == 0)
+                SubmitAim(point, action);
+            TickFollowingTheView();
+        }
+
+        var pressed = new bool[ticks];
+        for (int i = 0; i < ticks; i++)
+        {
+            each?.Invoke(i);
+            if (i % 6 == 0)
+                SubmitAim(point, action);
+            pressed[i] = TickFollowingTheView().IsPressed(InputButtons.Attack);
+        }
+
+        return pressed;
+    }
+
+    /// <summary>The whole runs of the trigger down (or up) in seconds, leaving out the first and the last, which were cut.</summary>
+    private static List<float> Runs(bool[] pressed, bool down)
+    {
+        var runs = new List<float>();
+        int at = 0;
+        while (at < pressed.Length && pressed[at] == pressed[0])
+            at++;
+        while (at < pressed.Length)
+        {
+            int from = at;
+            while (at < pressed.Length && pressed[at] == pressed[from])
+                at++;
+            if (at < pressed.Length && pressed[from] == down)
+                runs.Add((at - from) * Dt);
+        }
+
+        return runs;
+    }
+
+    private static readonly AiVector AtRange = new(600f, 0f, 64f), AtClose = new(300f, 0f, 64f);
+
+    /// <summary>A machine gun at range: down for a burst around its length, off between, and not all the same: not a hose.</summary>
+    [Fact]
+    public void AMachineGunFiresInBursts()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        bool[] pressed = Trigger(AtRange, Burst);
+        List<float> bursts = Runs(pressed, down: true), gaps = Runs(pressed, down: false);
+        Assert.True(bursts.Count >= 5, $"{bursts.Count} bursts");
+        Assert.All(bursts, b => Assert.InRange(b, Hands.BurstSeconds * (1f - BotCommandApplier.BurstVaries) - Dt, Hands.BurstSeconds * (1f + BotCommandApplier.BurstVaries) + Dt));
+        Assert.All(gaps, g => Assert.True(g >= BotCommandApplier.BurstGapMinSeconds - Dt, $"a gap of {g:F3} s"));
+        Assert.True(bursts.Distinct().Count() > 1, "every burst the same");
+    }
+
+    /// <summary>Close, a body is wide, and a burst runs on.</summary>
+    [Fact]
+    public void CloseABurstRunsLonger()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        List<float> bursts = Runs(Trigger(AtClose, Burst), down: true);
+        Assert.True(bursts.Count >= 3, $"{bursts.Count} bursts");
+        Assert.All(bursts, b => Assert.True(b >= Hands.BurstSeconds * (1f - BotCommandApplier.BurstVaries) * BotCommandApplier.BurstCloseScale - Dt, $"a burst of {b:F3} s"));
+    }
+
+    /// <summary>The gap waits for the crosshair to come back, up to a limit.</summary>
+    [Fact]
+    public void ABurstsGapWaitsForTheKick()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        float settled = Runs(Trigger(AtRange, Burst), down: false).Max();
+        _applier.Add(Bot, Player, Hands, 42);
+        _self.Facts = _self.Facts with { Punch = new AiAngles(-6f, 0f, 0f) };
+        List<float> kicked = Runs(Trigger(AtRange, Burst), down: false);
+        Assert.True(settled < BotCommandApplier.BurstGapMaxSeconds / 2f, $"settled {settled:F3}");
+        Assert.True(kicked.Count >= 3, $"{kicked.Count} gaps: it stopped firing");
+        Assert.All(kicked, g => Assert.InRange(g, BotCommandApplier.BurstGapMaxSeconds - Dt - 0.001f, BotCommandApplier.BurstGapMaxSeconds + Dt));
+    }
+
+    /// <summary>A bot with no burst of its own holds the key, as a scripted one does: the burst is the hands', not the weapon's.</summary>
+    [Fact]
+    public void WithNoBurstLengthTheTriggerIsHeld()
+    {
+        Assert.All(Trigger(AtRange, Burst), Assert.True);
+    }
+
+    /// <summary>A semi-automatic's next press waits while the kick is up, then fires again: no shot over the top of a .357's climb.</summary>
+    [Fact]
+    public void ASemiAutomaticWaitsForTheKick()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        // Up at 10 degrees for 100 ticks, then down at a quarter of a degree a tick: under the settle at tick 132.
+        bool[] kicked = Trigger(AtRange, Tap, 260, i => _self.Facts = _self.Facts with { Punch = new AiAngles(-MathF.Max(0f, 10f - MathF.Max(0, i - 100) * 0.25f), 0f, 0f) });
+        const int Settled = 132;
+        Assert.DoesNotContain(true, kicked[..Settled]);
+        // Then (10 - 2) x 0.05: about 0.4 s past it, by the peak, not by where it is now.
+        int pause = (int)((10f - Hands.RecoilSettleDeg) * BotCommandApplier.TapPausePerDeg / Dt);
+        Assert.DoesNotContain(true, kicked[Settled..(Settled + pause - 1)]);
+        Assert.Contains(true, kicked[(Settled + pause)..]);
+    }
+
+    /// <summary>The kick at the end of the last fight is no reason to wait in this one: the pause runs on the clock, firing or not.</summary>
+    [Fact]
+    public void AnOldKickDoesNotHoldTheNextFight()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        // A shot's kick seen while firing; then the fight ends, the kick falls, and time passes.
+        Trigger(AtRange, Tap, 20, _ => _self.Facts = _self.Facts with { Punch = new AiAngles(-10f, 0f, 0f) });
+        for (int i = 0; i < 200; i++)
+        {
+            _self.Facts = _self.Facts with { Punch = new AiAngles(-MathF.Max(0f, 10f - i * 0.25f), 0f, 0f) };
+            if (i % 6 == 0)
+                SubmitAim(AtRange, ActionIntent.None);
+            TickFollowingTheView();
+        }
+
+        SubmitAim(AtRange, Tap);
+        Assert.True(TickFollowingTheView().IsPressed(InputButtons.Attack), "it waited for a kick long gone");
+    }
+
+    /// <summary>A single shot's kick is waited for, not pulled against: it comes back by itself.</summary>
+    [Fact]
+    public void ASemiAutomaticsKickIsNotPulledAgainst()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        Trigger(AtRange, Tap, 300, _ => _self.Facts = _self.Facts with { Punch = new AiAngles(-6f, 0f, 0f) });
+        Assert.InRange(_self.Facts.View.Pitch, -0.5f, 0.5f);
+    }
+
+    /// <summary>A small kick asks no pause: the pistol's half a degree fires as it did.</summary>
+    [Fact]
+    public void ASmallKickDoesNotHoldASemiAutomatic()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        bool[] small = Trigger(AtRange, Tap, 40, i => _self.Facts = _self.Facts with { Punch = new AiAngles(-0.5f, 0f, 0f) });
+        Assert.Equal(20, small.Count(p => p));
+    }
+
+    /// <summary>The view pulls down against a climb by its share while it fires, and the rest of the climb stays: no perfect hand.</summary>
+    [Fact]
+    public void TheViewPullsDownAgainstAClimbByItsShare()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        Trigger(AtRange, Burst, 300, _ => _self.Facts = _self.Facts with { Punch = new AiAngles(-6f, 2f, 0f) });
+        // Pitch runs positive down: half of -6 undone is 3 down; half of +2 of yaw is 1 the other way.
+        Assert.InRange(_self.Facts.View.Pitch, 2.5f, 3.5f);
+        Assert.InRange(HumanMotion.AngleDelta(0f, _self.Facts.View.Yaw), -1.5f, -0.5f);
+    }
+
+    /// <summary>With nothing to fire at there is nothing to pull against: the kick does not move a bot's view.</summary>
+    [Fact]
+    public void WithoutFiringTheViewDoesNotPull()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        Trigger(AtRange, ActionIntent.None, 300, _ => _self.Facts = _self.Facts with { Punch = new AiAngles(-6f, 0f, 0f) });
+        Assert.InRange(_self.Facts.View.Pitch, -0.5f, 0.5f);
+    }
+
+    /// <summary>However big the climb, the pull is one more thing the view does at human speed.</summary>
+    [Fact]
+    public void ThePullStaysInsideTheTurnLimit()
+    {
+        _applier.Add(Bot, Player, Hands, 42);
+        for (int i = 0; i < 150; i++)
+        {
+            if (i % 6 == 0)
+                SubmitAim(AtRange, Burst);
+            TickFollowingTheView();
+        }
+
+        _self.Facts = _self.Facts with { Punch = new AiAngles(-60f, 0f, 0f) };
+        float largest = 0f;
+        for (int i = 0; i < 60; i++)
+        {
+            float was = _self.Facts.View.Pitch;
+            TickFollowingTheView();
+            largest = MathF.Max(largest, MathF.Abs(_self.Facts.View.Pitch - was));
+        }
+
+        Assert.True(largest > 0f, "it did not pull at all");
+        Assert.True(largest <= Normal.TurnPeakDegPerSec * Dt + 0.01f, $"{largest} a tick");
+    }
+
+    /// <summary>The peak a bot's crosshair showed is told: the live read that a bot's shots kick at all.</summary>
+    [Fact]
+    public void ThePeakOfAKickIsNoted()
+    {
+        Assert.Equal(0f, _applier.PunchPeakDeg);
+        _self.Facts = _self.Facts with { Punch = new AiAngles(-3f, 4f, 0f) };
+        Tick();
+        Assert.Equal(5f, _applier.PunchPeakDeg, 3);
+    }
+
     [Fact]
     public void ASprayHoldsFireAndATapLetsGoBetweenPresses()
     {

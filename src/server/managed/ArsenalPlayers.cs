@@ -33,6 +33,8 @@ public sealed class ArsenalPlayers : IEnginePlayers
 
     public void SetPunch(EntityHandle player, Vector punch, Vector velocity) => _inner.SetPunch(player, punch, velocity);
 
+    public Vector GetPunch(EntityHandle player) => _inner.GetPunch(player);
+
     /// <summary>
     /// Whether a handle is a hierarchy player.
     ///

@@ -100,7 +100,7 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
         if (!id.IsValid)
             throw new ArgumentException("a bot needs a valid actor", nameof(id));
         Remove(id.Slot);
-        var bot = new BotState(id, player, new HumanMotion(motion, new AiRandom(seed)));
+        var bot = new BotState(id, player, new HumanMotion(motion, new AiRandom(seed)), new AiRandom(seed ^ 0x4841_4E44UL));
         int at = _bots.FindIndex(b => b.Id.Slot > id.Slot);
         _bots.Insert(at < 0 ? _bots.Count : at, bot);
     }
@@ -233,14 +233,15 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
 
         AiVector? corner = NextCorner(intent.Move, in facts);
         (AiAngles look, int stimulus) = LookTarget(in intent, in facts, corner);
-        AiAngles view = bot.Motion.Step(look, stimulus, dt);
+        NotePunch(in facts);
+        AiAngles view = bot.Motion.Step(AgainstTheClimb(bot, in intent, in facts, look), stimulus, dt);
         SetView(ref cmd, view);
 
         int buttons = MoveInto(ref cmd, intent.Move, in facts, view, corner);
         buttons = JumpLetGo(bot, intent.Move.Kind, buttons);
         bot.LastCorner = corner;
         bot.LastMove = (cmd.ForwardMove, cmd.SideMove);
-        buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), tick);
+        buttons |= HeldAction(bot, HandsWaitForTheEye(bot, in intent, in facts, view), in intent, in facts, dt);
 
         if (bot.OneShots.TryDequeue(out ActionIntent once))
         {
@@ -457,17 +458,34 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     }
 
     /// <summary>The held action's buttons this tick: a spray or burst holds, a tap presses every other tick.</summary>
-    private static int HeldAction(BotState bot, in ActionIntent action, Tick tick)
+    private static int HeldAction(BotState bot, in ActionIntent action, in IntentCommand intent, in BotSelfFacts facts, float dt)
     {
         if (action.OneShotSeq != 0)
             return 0;
+
+        FollowTheKick(bot, in facts, dt);
+        bool burst = action.Kind == ActionKind.Fire && action.Style == FireStyle.Burst && bot.Motion.Parameters.BurstSeconds > 0f;
+        if (!burst)
+        {
+            bot.BurstLeft = 0f;
+            bot.GapSeconds += dt;
+        }
 
         switch (action.Kind)
         {
             case ActionKind.Fire when action.Style == FireStyle.Tap:
                 // Released between presses, so a semi-automatic weapon fires again.
+                if (WaitsForTheKick(bot, in facts))
+                {
+                    bot.TapDown = false;
+                    return 0;
+                }
+
                 bot.TapDown = !bot.TapDown;
                 return bot.TapDown ? (int)InputButtons.Attack : 0;
+            case ActionKind.Fire when burst:
+                bot.TapDown = false;
+                return Burst(bot, in intent, in facts, dt);
             case ActionKind.Fire:
             case ActionKind.AltFire:
             case ActionKind.Reload:
@@ -479,6 +497,89 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
                 return 0;
         }
     }
+
+    /// <summary>The shortest a trigger stays off between bursts, and the longest it waits for the crosshair to come back.</summary>
+    public const float BurstGapMinSeconds = 0.1f, BurstGapMaxSeconds = 0.6f;
+
+    /// <summary>How much a burst's length varies, either way; the same seeded stream for a bot, so no two run alike.</summary>
+    public const float BurstVaries = 0.3f;
+
+    /// <summary>How much longer a burst runs at a close target, where a body is wide.</summary>
+    public const float BurstCloseScale = 2f;
+
+    /// <summary>The seconds of pause a kick asks for after it has come back to the settle, per degree it went past it: a .357's 10° at a careful 1.5° is about 0.4 s.</summary>
+    public const float TapPausePerDeg = 0.05f;
+
+    /// <summary>
+    /// The trigger on a machine gun (recoil, 2026-11-02): down for a burst, off until the
+    /// crosshair has come back or it has waited long enough. Spraying climbs; a person lets go.
+    /// </summary>
+    private static int Burst(BotState bot, in IntentCommand intent, in BotSelfFacts facts, float dt)
+    {
+        if (bot.BurstLeft > 0f)
+        {
+            bot.BurstLeft -= dt;
+            bot.GapSeconds = 0f;
+            return (int)InputButtons.Attack;
+        }
+
+        MotionParams p = bot.Motion.Parameters;
+        bot.GapSeconds += dt;
+        if (bot.GapSeconds < BurstGapMinSeconds || (PunchSize(in facts) > p.RecoilSettleDeg && bot.GapSeconds < BurstGapMaxSeconds))
+            return 0;
+        float length = p.BurstSeconds * (1f - BurstVaries + 2f * BurstVaries * bot.Hands.NextFloat());
+        if ((intent.Look.Point - facts.Eye).Length <= AimStats.CloseRange)
+            length *= BurstCloseScale;
+        bot.BurstLeft = length - dt;
+        return (int)InputButtons.Attack;
+    }
+
+    /// <summary>
+    /// A semi-automatic's next press waits for the kick to come back, and a little past it for
+    /// one that went well past: the pause after a .357 shot. A pistol's small kick never asks.
+    /// </summary>
+    private static bool WaitsForTheKick(BotState bot, in BotSelfFacts facts)
+    {
+        float settle = bot.Motion.Parameters.RecoilSettleDeg;
+        return settle > 0f && (PunchSize(in facts) > settle || bot.TapPause > 0f);
+    }
+
+    /// <summary>The kick's peak and the pause after it, every tick, firing or not: the last shot of a fight is no reason to wait in the next.</summary>
+    private static void FollowTheKick(BotState bot, in BotSelfFacts facts, float dt)
+    {
+        float settle = bot.Motion.Parameters.RecoilSettleDeg, size = PunchSize(in facts);
+        if (settle <= 0f)
+            return;
+        bot.TapPeak = MathF.Max(bot.TapPeak, size);
+        if (size > settle)
+            return;
+        if (bot.TapPeak > settle)
+            bot.TapPause = (bot.TapPeak - settle) * TapPausePerDeg;
+        bot.TapPeak = 0f;
+        bot.TapPause = MathF.Max(0f, bot.TapPause - dt);
+    }
+
+    private static float PunchSize(in BotSelfFacts facts)
+        => MathF.Sqrt(facts.Punch.Pitch * facts.Punch.Pitch + facts.Punch.Yaw * facts.Punch.Yaw);
+
+    /// <summary>
+    /// Pulling down against the climb (recoil, 2026-11-02): a bullet goes where the punched view
+    /// points, so through a burst the view goes the other way, by the share its skill allows. Only
+    /// the target of the view moves: its reaction, lag and turn limits are the motion's as ever.
+    /// A single shot's kick comes back by itself and is waited for.
+    /// </summary>
+    private static AiAngles AgainstTheClimb(BotState bot, in IntentCommand intent, in BotSelfFacts facts, AiAngles look)
+    {
+        float control = bot.Motion.Parameters.RecoilControl;
+        if (control <= 0f || intent.Action.Kind != ActionKind.Fire || intent.Action.Style == FireStyle.Tap || intent.Look.Kind is not (LookKind.Actor or LookKind.CornerCheck))
+            return look;
+        return new AiAngles(Math.Clamp(look.Pitch - facts.Punch.Pitch * control, -89f, 89f), look.Yaw - facts.Punch.Yaw * control, look.Roll);
+    }
+
+    /// <summary>The largest kick any bot's crosshair has shown, degrees: the inspector's proof a bot's shots kick at all.</summary>
+    public float PunchPeakDeg { get; private set; }
+
+    private void NotePunch(in BotSelfFacts facts) => PunchPeakDeg = MathF.Max(PunchPeakDeg, PunchSize(in facts));
 
     private static int Press(ActionKind kind) => kind switch
     {
@@ -504,8 +605,20 @@ public sealed class BotCommandApplier(IPlayerCommandRunner runner, IBotSelf self
     internal BotState? StateOf(int slot) => Find(slot);
 
     /// <summary>One bot's channels and view.</summary>
-    internal sealed class BotState(ActorId id, EntityHandle player, HumanMotion motion)
+    internal sealed class BotState(ActorId id, EntityHandle player, HumanMotion motion, AiRandom hands)
     {
+        /// <summary>The hands' own stream: a burst's length.</summary>
+        public AiRandom Hands { get; } = hands;
+
+        /// <summary>What is left of this burst, how long the trigger has been off, and a semi-automatic's wait for its kick.</summary>
+        public float BurstLeft { get; set; }
+
+        public float GapSeconds { get; set; } = BurstGapMaxSeconds;
+
+        public float TapPeak { get; set; }
+
+        public float TapPause { get; set; }
+
         public ActorId Id { get; } = id;
         public EntityHandle Player { get; set; } = player;
         public HumanMotion Motion { get; } = motion;

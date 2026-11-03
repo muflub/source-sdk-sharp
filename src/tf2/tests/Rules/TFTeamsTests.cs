@@ -74,8 +74,9 @@ public sealed class TFTeamsTests
         public IReadOnlyList<BotPlayer> Bots => [];
     }
 
-    private static TFTeams Policy(RoundRig rig, RoundState state = RoundState.RoundRunning)
-        => new(rig.Balance, rig.Roster, rig.Slot, new FixedState(state), new RandomSeeds(7), rig.Settings);
+    private static TFTeams Policy(RoundRig rig, RoundState state = RoundState.RoundRunning, ITFTeamRoles? roles = null)
+        => new(rig.Balance, rig.Roster, rig.Slot, new FixedState(state), new RandomSeeds(7), rig.Settings,
+               roles ?? new TFTeamRoles());
 
     private static void Fill(RoundRig rig, int red, int blue)
     {
@@ -159,6 +160,20 @@ public sealed class TFTeamsTests
         rig.Mode.EvenTeamsJoinAttackers = true;
 
         Assert.Equal(TFTeam.Blue, Policy(rig).AutoTeam(preferred: TFTeam.Red));
+    }
+
+    /// <summary>Stock's other A/D arm (tf_player.cpp:6129, :6173): the map named RED
+    /// the defenders, so an even game sends the new player to the attackers.</summary>
+    [Fact]
+    public void EvenTeamsJoinBlueWhenRedDefends()
+    {
+        var rig = new RoundRig();
+        Fill(rig, red: 1, blue: 1);
+        var roles = new TFTeamRoles();
+        roles.SetRole(TFTeam.Red, TFTeamRole.Defenders);   // the map's SetRedTeamRole 1
+        rig.Mode.EvenTeamsJoinAttackers = false;
+
+        Assert.Equal(TFTeam.Blue, Policy(rig, roles: roles).AutoTeam(preferred: TFTeam.Red));
     }
 
     [Fact]

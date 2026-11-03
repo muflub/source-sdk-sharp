@@ -22,7 +22,7 @@ public sealed class SkillCurves
         "searchSeconds", "ambushWeight", "routeAltWeight", "fireRangeGate", "pushTrust", "pushMarginSeconds", "strafeWeight",
         "strafeMeanSeconds", "retreatHealthPct", "rankBonus", "pathCapMultiplier", "easyTargetDiscount",
         "reactionMs", "trackingLagMs", "flickOvershootPct", "grudgeWeight",
-        "prefireChance", "prefireThrift", "prefireBurstSeconds", "giveUpHealth", "crouchShare",
+        "prefireChance", "prefireThrift", "prefireBurstSeconds", "giveUpHealth", "crouchShare", "recoilControl", "burstSeconds", "recoilSettleDeg",
     ];
 
     /// <summary>
@@ -248,7 +248,7 @@ public sealed class SkillCurves
                                   V("fireRangeGate"), V("pushTrust"), V("pushMarginSeconds"), V("strafeWeight"), V("strafeMeanSeconds"),
                                   V("retreatHealthPct"), V("rankBonus"), V("pathCapMultiplier"), V("easyTargetDiscount"),
                                   V("reactionMs"), V("trackingLagMs"), V("flickOvershootPct"), V("grudgeWeight"),
-                                  V("prefireChance"), V("prefireThrift"), V("prefireBurstSeconds"), V("giveUpHealth"), V("crouchShare"),
+                                  V("prefireChance"), V("prefireThrift"), V("prefireBurstSeconds"), V("giveUpHealth"), V("crouchShare"), V("recoilControl"), V("burstSeconds"), V("recoilSettleDeg"),
                                   Streak(profile, HotLevel), Streak(profile, ColdLevel));
     }
 }
@@ -283,6 +283,9 @@ public readonly record struct DecisionParams(
     float PrefireBurstSeconds = 0f,
     float GiveUpHealth = 0f,
     float CrouchShare = 0f,
+    float RecoilControl = 0f,
+    float BurstSeconds = 0f,
+    float RecoilSettleDeg = 0f,
     StreakParams Hot = default,
     StreakParams Cold = default);
 

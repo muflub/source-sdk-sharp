@@ -75,6 +75,9 @@ public interface IServerPlayerMovementRoute
     /// </summary>
     bool SetPunch(EntityHandle entity, Vector punch, Vector velocity);
 
+    /// <summary>A player's view punch as it stands; zero when <paramref name="entity"/> is not a player.</summary>
+    Vector Punch(EntityHandle entity);
+
     /// <summary>UTIL_ViewPunch: every player in reach shoved.</summary>
     void ViewPunch(Vector center, Vector punch, float radius, bool inAir);
 

@@ -40,6 +40,8 @@ public class ApplierAllowListTests
         "ILog::Msg", "ILog::Warning",
         // The applier: the human path (§3.2) and the command's angles.
         "IPlayerCommandRunner::Queue", "IPlayerCommandRunner::RunQueued",
+        // EngineBotSelf: where recoil has its own crosshair.
+        "IEnginePlayers::GetPunch",
         "UserCmd::set_Pitch", "UserCmd::set_Roll", "UserCmd::set_Yaw",
         // CommandTap: every player's command's view angles, read into the recording (§3.4.4).
         "UserCmd::get_Pitch", "UserCmd::get_Roll", "UserCmd::get_Yaw",

@@ -739,7 +739,7 @@ public sealed class Hl2mpDecider : IDecider
             float u = _streakRng.NextFloat();
             if (_streak > 0)
                 EndStreak();
-            if (u < ColdChance && deathBefore.Value != 0 && (lastDeath - deathBefore) * _tick <= ColdDeathSeconds && Rested && _p.Cold.AimErrorDeg != _p.AimErrorDeg)
+            if (u < ColdChance && deathBefore.Value != 0 && (lastDeath - deathBefore) * _tick <= ColdDeathSeconds && Rested && CanRunCold)
                 BeginStreak(-1);
         }
 
@@ -775,6 +775,11 @@ public sealed class Hl2mpDecider : IDecider
     private bool Rested => _streak == 0 && _now >= _streakNext;
 
     private bool CanRunHot => _p.Hot.AimErrorDeg != _p.AimErrorDeg;
+
+    /// <summary>A cold spell is a good bot's: under this much worse, a weak bot has none to show.</summary>
+    public const float ColdWorthShowing = 1.1f;
+
+    private bool CanRunCold => _p.Cold.AimErrorDeg > _p.AimErrorDeg * ColdWorthShowing;
 
     private void BeginStreak(int kind)
     {

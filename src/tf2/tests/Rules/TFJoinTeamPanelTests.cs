@@ -74,7 +74,7 @@ public sealed class TFJoinTeamPanelTests
     }
 
     private static TFTeams Policy(RoundRig rig, RoundState state = RoundState.RoundRunning)
-        => new(rig.Balance, rig.Roster, rig.Slot, new FixedState(state), new RandomSeeds(7), rig.Settings);
+        => new(rig.Balance, rig.Roster, rig.Slot, new FixedState(state), new RandomSeeds(7), rig.Settings, new TFTeamRoles());
 
     private static void Fill(RoundRig rig, int red, int blue)
     {

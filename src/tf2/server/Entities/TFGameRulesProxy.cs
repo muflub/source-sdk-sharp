@@ -41,7 +41,9 @@ public partial class TFGameRulesProxyVars
 /// data table to the clients (<c>DT_TFGameRulesProxy</c>, L1557-1582) and
 /// keeps the rest of its datadesc (VO, the remaining keyfields)
 /// for later ports — see the deferred table; the goal-string inputs are here
-/// (<see cref="OnSetRedTeamGoalString"/>, through <see cref="ITeamResource"/>). The <c>ctf_overtime</c>
+/// (<see cref="OnSetRedTeamGoalString"/>, through <see cref="ITeamResource"/>),
+/// and so the role pair (<see cref="OnSetRedTeamRole"/>, through
+/// <see cref="ITFTeamRoles"/>). The <c>ctf_overtime</c>
 /// keyfield is read: Activate pushes it to the rules
 /// (<see cref="ICtfRules.SetOvertimeAllowedForCtf"/>, L1904), as stock's
 /// does.
@@ -49,7 +51,7 @@ public partial class TFGameRulesProxyVars
 [ScriptedEntity(TFGameRulesProxy.MapClass)]
 public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves waves, IEngineEntityRender render,
                                      ICtfRules ctf, ITeamRoundControl rounds, IFlagCarrierEffects effects,
-                                     ITeamResource teamsTable)
+                                     ITeamResource teamsTable, ITFTeamRoles? roles = null)
     : ScriptedEntity
 {
     public const string MapClass = "tf_gamerules";
@@ -117,6 +119,15 @@ public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves wav
     /// <summary>Stock <c>InputSetBlueTeamGoalString</c> (L1775-1780).</summary>
     [ScriptedEvent] private void OnSetBlueTeamGoalString(string goal)
         => teamsTable.SetGoal((int)TFTeam.Blue, goal);
+
+    /// <summary>Stock <c>InputSetRedTeamRole</c> (L1605, handler L1785-1792): the map's
+    /// integer names RED's role (<c>TEAM_ROLE_*</c>, tf_shareddefs.h:74-76).</summary>
+    [ScriptedEvent] private void OnSetRedTeamRole(float role)
+        => roles?.SetRole(TFTeam.Red, (TFTeamRole)(int)role);
+
+    /// <summary>Stock <c>InputSetBlueTeamRole</c> (L1606, handler L1797-1804): the blue mirror.</summary>
+    [ScriptedEvent] private void OnSetBlueTeamRole(float role)
+        => roles?.SetRole(TFTeam.Blue, (TFTeamRole)(int)role);
 }
 
 /// <summary>

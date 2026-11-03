@@ -510,6 +510,16 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         Assert.Equal(new Vector(-160f, 8f, 0f), m.Move.PunchAngleVel);
     }
 
+    /// <summary>What a bot's hands read of their own crosshair: the record's punch as it stands.</summary>
+    [Fact]
+    public void APunchReadsTheRecordAndZeroForANonPlayer()
+    {
+        Standing(new Vector(10f, 0f, 0f));
+        PlayerRoute().SetPunch(Player, new Vector(-3f, 1f, 0f), Vector.Zero);
+        Assert.Equal(new Vector(-3f, 1f, 0f), PlayerRoute().Punch(Player));
+        Assert.Equal(Vector.Zero, PlayerRoute().Punch(Crate));
+    }
+
     [Fact]
     public void ASetPunchAtANonPlayerIsNotTheRoutes()
         => Assert.False(PlayerRoute().SetPunch(Crate, Vector.Zero, Vector.Zero));

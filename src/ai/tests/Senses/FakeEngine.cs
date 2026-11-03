@@ -41,6 +41,7 @@ public sealed class SenseWorld
         public AiVector Angles;
         public AiVector Velocity;
         public float EyeHeight = 64f;
+        public AiVector Punch;
         public bool Alive = true;
         public string Weapon = "weapon_smg1";
         public int Team;
@@ -87,6 +88,7 @@ public sealed class SenseWorld
 
     public IEnginePlayers Engine() => FakeEngine.Of<IEnginePlayers>((m, a) => m.Name switch
     {
+        "GetPunch" => V(By((EntityHandle)a[0]!).Punch),
         "BoxInPvs" => Pvs((EntityHandle)a[0]!, (Vector)a[1]!, (Vector)a[2]!),
         "GetActiveWeapon" => By((EntityHandle)a[0]!).Weapon,
         "GetTeam" => Players.FirstOrDefault(p => p.Handle == (EntityHandle)a[0]!)?.Team ?? 0,

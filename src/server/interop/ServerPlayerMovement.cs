@@ -271,6 +271,8 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
     /// <summary>StandaloneBaseVelocity_ReleasesGround: an upward push on a grounded player.</summary>
     public static bool ReleasesGround(float pushZ, bool onGround) => pushZ > 0.0f && onGround;
 
+    public Vector Punch(EntityHandle entity) => Player(entity) is { } m ? m.Move.PunchAngle : Vector.Zero;
+
     public bool SetPunch(EntityHandle entity, Vector punch, Vector velocity)
     {
         if (Player(entity) is not { } m)

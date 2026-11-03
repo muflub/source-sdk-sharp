@@ -9,11 +9,17 @@ namespace SourceSharp.Ai;
 /// <param name="TurnPeakDegPerSec">The fastest the view turns in one tick, per second.</param>
 /// <param name="FlickOvershootPct">How far past (or short of) the target a flick lands, at most, in percent of its length.</param>
 /// <param name="TrackingLagMs">How far behind a moving target the pursuit runs.</param>
+/// <param name="RecoilControl">The share of a climb the view pulls down against, never all of it; 0 none.</param>
+/// <param name="BurstSeconds">How long the trigger stays down on a burst weapon; 0 held for as long as it fires.</param>
+/// <param name="RecoilSettleDeg">How far the crosshair has to come back before the next shot or burst; 0 it does not wait.</param>
 public readonly record struct MotionParams(
     float ReactionMs,
     float TurnPeakDegPerSec,
     float FlickOvershootPct,
-    float TrackingLagMs);
+    float TrackingLagMs,
+    float RecoilControl = 0f,
+    float BurstSeconds = 0f,
+    float RecoilSettleDeg = 0f);
 
 /// <summary>
 /// The human envelope (ruling 2026-11-01: "as fast as a human would, ± by
@@ -24,6 +30,9 @@ public static class MotionEnvelope
 {
     public const float MinPeakDegPerSec = 300f;
     public const float MaxPeakDegPerSec = 900f;
+    /// <summary>No hand takes out all of a climb.</summary>
+    public const float MaxRecoilControl = 0.9f;
+
     public const float MinReactionMs = 100f;
     public const float MaxReactionMs = 1500f;
     public const float MaxOvershootPct = 40f;
@@ -35,7 +44,10 @@ public static class MotionEnvelope
         Math.Clamp(p.ReactionMs, MinReactionMs, MaxReactionMs),
         Math.Clamp(p.TurnPeakDegPerSec, MinPeakDegPerSec, MaxPeakDegPerSec),
         Math.Clamp(p.FlickOvershootPct, 0f, MaxOvershootPct),
-        Math.Clamp(p.TrackingLagMs, MinTrackingLagMs, MaxTrackingLagMs));
+        Math.Clamp(p.TrackingLagMs, MinTrackingLagMs, MaxTrackingLagMs),
+        Math.Clamp(p.RecoilControl, 0f, MaxRecoilControl),
+        MathF.Max(p.BurstSeconds, 0f),
+        MathF.Max(p.RecoilSettleDeg, 0f));
 }
 
 /// <summary>What the view is doing (§3.4.1).</summary>
@@ -279,6 +291,9 @@ public static class MotionCurves
             skills.ReactionMs,
             MotionEnvelope.MinPeakDegPerSec + overall * (MotionEnvelope.MaxPeakDegPerSec - MotionEnvelope.MinPeakDegPerSec),
             skills.FlickOvershootPct,
-            skills.TrackingLagMs);
+            skills.TrackingLagMs,
+            skills.RecoilControl,
+            skills.BurstSeconds,
+            skills.RecoilSettleDeg);
     }
 }

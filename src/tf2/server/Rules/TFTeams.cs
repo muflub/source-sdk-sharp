@@ -30,7 +30,8 @@ namespace TF2.Server.Rules;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFTeams(TeamBalance balance, ITeamRoundRoster roster, IActiveTeamRoundMode mode,
-                            ITeamRoundState round, IRandomSeeds seeds, ITeamRoundSettings settings) : IJoinTeamPolicy
+                            ITeamRoundState round, IRandomSeeds seeds, ITeamRoundSettings settings,
+                            ITFTeamRoles roles) : IJoinTeamPolicy
 {
     /// <summary>What the joiner is told when the team they asked for is full.</summary>
     public const string UnbalancedReason = "That team is full: joining it would unbalance the teams.";
@@ -103,8 +104,9 @@ public sealed class TFTeams(TeamBalance balance, ITeamRoundRoster roster, IActiv
         if (red < blue)
             return TFTeam.Red;
 
-        // AutoTeam gives new players to the attackers on A/D maps if the teams are even.
-        if (mode.Current is { EvenTeamsJoinAttackers: true })
+        // AutoTeam gives new players to the attackers on A/D maps if the teams are even:
+        // stock's escort game-type arm, or RED standing as the defenders (tf_player.cpp:6129).
+        if (mode.Current is { EvenTeamsJoinAttackers: true } || roles.RoleOf(TFTeam.Red) == TFTeamRole.Defenders)
             return TFTeam.Blue;
 
         if (preferred is TFTeam.Red or TFTeam.Blue)

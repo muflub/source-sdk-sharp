@@ -22,8 +22,8 @@ namespace TF2.Server.Modes;
 /// The even-teams arm of stock's <c>CTFPlayer::GetAutoTeam</c> (tf_player.cpp:6129)
 /// sends new players to the attackers for the escort game type or when RED's
 /// team role is defenders; control-point maps carry the decision through the
-/// team role, and team roles are not ported (deferred), so this mode joins no
-/// side by default.
+/// team role: the map fires <c>SetRedTeamRole</c> at the rules proxy and the
+/// arm answers from RED's role (<see cref="Rules.TFTeamRoles"/>).
 /// </para>
 /// </summary>
 [SideService(Side.Server)]

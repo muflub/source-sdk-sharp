@@ -287,6 +287,21 @@ public sealed class StreakTests
         Assert.True(easy.Cold.AimErrorDeg < easy.AimErrorDeg * 1.1f, $"cold {easy.Cold.AimErrorDeg}, own {easy.AimErrorDeg}");
     }
 
+    /// <summary>A weak bot dying often is no cold spell: it has nothing to lose, and none is shown.</summary>
+    [Fact]
+    public void AWeakBotDoesNotGoCold()
+    {
+        for (ulong s = 1; s <= 200; s++)
+        {
+            Duel d = Seeded("easy", s);
+            SelfState self = d.Self();
+            d.Step(self, [], On(d));
+            d.Step(self, [], Death(d));
+            d.Step(self, [], Death(d));
+            Assert.NotEqual("cold", d.Decider.Doing.Streak);
+        }
+    }
+
     /// <summary>The same seed runs the same streaks at the same decides: it comes out of its own stream (§7).</summary>
     [Fact]
     public void TheSameSeedRunsTheSameStreaks()

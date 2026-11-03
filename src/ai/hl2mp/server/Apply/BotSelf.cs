@@ -7,9 +7,9 @@ namespace SourceSharp.Ai.Hl2mp;
 /// <summary>
 /// What a bot knows about itself, as a client does from its own HUD and view
 /// (plan_hl2mp_ai §2.4): whether it is alive or watching, where its eye is,
-/// which way it looks, and what a weapon slot holds.
+/// which way it looks, where recoil has its crosshair, and what a weapon slot holds.
 /// </summary>
-public readonly record struct BotSelfFacts(bool Alive, bool Observer, AiVector Origin, AiVector Eye, AiAngles View, bool OnLadder = false);
+public readonly record struct BotSelfFacts(bool Alive, bool Observer, AiVector Origin, AiVector Eye, AiAngles View, bool OnLadder = false, AiAngles Punch = default);
 
 /// <summary>The applier's reads of its own bot (§2.4): the bot's own state, never another actor's.</summary>
 public interface IBotSelf
@@ -51,13 +51,15 @@ public sealed class EngineBotSelf(IEnginePlayers players, IEngineEntities entiti
         Vector origin = entities.GetOrigin(player);
         Vector eye = entities.GetEyePosition(player);
         Vector view = entities.GetEyeAngles(player);
+        Vector punch = players.GetPunch(player);
         return new BotSelfFacts(
             players.IsAlive(player),
             players.GetObserverMode(player) != ObserverMode.None,
             new AiVector(origin.X, origin.Y, origin.Z),
             new AiVector(eye.X, eye.Y, eye.Z),
             new AiAngles(view.X, view.Y, view.Z),
-            OnLadder(player));
+            OnLadder(player),
+            new AiAngles(punch.X, punch.Y, punch.Z));
     }
 
     /// <summary>A slot from this up asks for a weapon by catalog kind (the slot less this), as a player picks one off the HUD's list.</summary>

@@ -85,7 +85,7 @@ public sealed class TFWelcomeMenuTests
 
         var board = new JoinBoard { CurrentTeam = boardTeam };
         var panels = new Panels();
-        var policy = new TFTeams(rig.Balance, rig.Roster, rig.Slot, new FixedState(RoundState.RoundRunning), new RandomSeeds(7), rig.Settings);
+        var policy = new TFTeams(rig.Balance, rig.Roster, rig.Slot, new FixedState(RoundState.RoundRunning), new RandomSeeds(7), rig.Settings, new TFTeamRoles());
         return (new TFWelcomeMenuCommands(board, policy, rig.Settings, carriers ?? new TFPlayerCarriers(), panels), board, panels);
     }
 

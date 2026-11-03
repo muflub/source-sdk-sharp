@@ -1314,3 +1314,4 @@ and where its record lives now.
   (weapon_357.cpp, `CLIENT_DLL`) is not ported; its `ViewPunch` is.
 - **Held objects turn while pulled.** On the same gravity-gun pull of dm_lockdown's plug, stock's stays at
   angles `-0.0 -35.8 -28.0` and ours reaches `19.3 -40.4 0.2`: read `GrabController`'s angle hold against stock's.
+- **A bot wedged at (-3893 1414 9) on dm_lockdown.** One of six jank runs (`ai-replay jank` worst places, at `e2e0b243e`, streaks off): Easy Kleiner stood 66 s, 9 u over its cell 174, Moving, every next cell a Walk it could not make, "routes round" 12 cells, then "no way round". No crate given up, so what it stands on is not a breakable the field knows: find what it is.

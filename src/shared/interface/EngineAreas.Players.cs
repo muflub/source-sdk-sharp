@@ -17,6 +17,9 @@ public interface IEnginePlayers
     /// <summary>A player's view punch and its velocity, on what the next command decays.</summary>
     void SetPunch(EntityHandle player, Vector punch, Vector velocity);
 
+    /// <summary>A player's view punch as it stands, zero for what is no player: where its own crosshair has gone.</summary>
+    Vector GetPunch(EntityHandle player);
+
     /// <summary>Adds to a player's score. Negative points are refused unless allowed.</summary>
     void AddScore(EntityHandle player, int points, bool allowNegative);
 

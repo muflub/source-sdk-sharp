@@ -272,6 +272,7 @@ def run(a):
                         cell = r.cell(preset, weapon, rng, pattern, skills)
                         cells.append(cell)
                         print(line_of(cell), flush=True)
+                        print("  largest kick any bot has shown so far: %.2f deg" % (game.json("/ai/counters").get("ai.punch.peak_cdeg", 0) / 100.0), flush=True)
                         if a.out:
                             write(a, cells)
     finally:

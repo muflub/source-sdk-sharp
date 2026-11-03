@@ -1134,3 +1134,4 @@ src/shared/managed/WeaponKick.cs	ports CHL2MPMachineGun::DoMachineGunKick (weapo
 src/tf2/client/Weapons/TFWeaponSlots.cs	ports CTFWeaponBuilder::GetSlot/GetPosition (tf_weapon_builder.cpp:1154-1165): the builder family's hud slot is the objects.txt row of the object built
 src/tf2/server/Player/TFSpawnWeaponWalk.cs	ports CTFPlayer::Spawn's post-kit weapon walk and its arms (tf_player.cpp:4700-4726), the second arm's unnegated CanBeSelected included
 src/tf2/client/Weapons/TFRocketBackblast.cs	ports CTFRocketLauncher::CreateMuzzleFlashEffects's backblast tail (tf_weapon_rocketlauncher.cpp:378-390)
+src/tf2/server/Rules/TFTeamRoles.cs	ports CTFTeam::SetRole/GetRole and the tf_gamerules role inputs (tf_team.h, tf_gamerules.cpp)

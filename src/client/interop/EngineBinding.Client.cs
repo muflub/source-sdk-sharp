@@ -1596,6 +1596,8 @@ internal sealed unsafe partial class EnginePlayers
     // The client's punch is its prediction's, which the weapon's kick already wrote.
     public void SetPunch(EntityHandle player, Vector punch, Vector velocity) { }
 
+    public Vector GetPunch(EntityHandle player) => Vector.Zero;
+
     // The server's members, as a client engine answers them: what each one's
     // attach guard answered here, where the server's areas are never attached.
     public void PlaceAtSpawn(EntityHandle player, Vector origin, Vector angles) { }

@@ -1989,6 +1989,8 @@ internal sealed unsafe partial class EnginePlayers
 
     private readonly PlayerTeams _teams = new();
 
+    public Vector GetPunch(EntityHandle player) => _playerMoves.Target?.Punch(player) ?? Vector.Zero;
+
     public void SetPunch(EntityHandle player, Vector punch, Vector velocity)
         => _playerMoves.Target?.SetPunch(player, punch, velocity);
 
