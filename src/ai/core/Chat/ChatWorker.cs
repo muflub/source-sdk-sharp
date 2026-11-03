@@ -86,6 +86,9 @@ public sealed class ChatCounters
 
     public long MainTicks => _mainTicks;
 
+    /// <summary>The main thread's whole bookkeeping so far, in microseconds, for a mean over a window.</summary>
+    public double MainTotalUs => _mainTotalNs / 1000.0;
+
     public long RefusedBy(ChatRefusal why) => Interlocked.Read(ref _refusedBy[(int)why]);
 
     public void Request() => Interlocked.Increment(ref _requests);

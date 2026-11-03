@@ -76,6 +76,10 @@ public class ApplierAllowListTests
         "IEnginePlayers::GetUserId",
         // The aim range's cheats, measuring only (§12.3): ai_bot_kit's one weapon and reserve, ai_aim_tough's health.
         "Arsenal::GiveAmmo", "Arsenal::GiveWeapon", "Arsenal::Strip", "Arsenal::Switch", "IEngineEntities::SetHealth",
+        // Hl2mpBotChat (§3.6): the kill feed's facts, a line said, who would hear it and its say path; a player's name as every client shows it.
+        "DeathNoticeFacts::get_Scorer", "DeathNoticeFacts::get_Victim", "DeathNoticeFacts::get_Weapon",
+        "PlayerChat::get_Speaker", "PlayerChat::get_TeamOnly", "PlayerChat::get_Text",
+        "HostSay::CanHear", "HostSay::Say", "IClientInfo::ClientConVar",
         // The binding's own convars (ai_threads, ai_sync, §2.7): their base constructors.
         "IntConVar::.ctor", "BoolConVar::.ctor",
         // EngineServerSlots: the people on the server, for the roster's free slots (§3.5).

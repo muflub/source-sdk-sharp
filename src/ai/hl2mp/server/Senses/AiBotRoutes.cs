@@ -18,7 +18,7 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses senses, VisionPass vision, IEngineFrame frame, IEngineEntities entities,
-                                Hl2mpAiSession ai, Nav.IHl2mpNavigation nav, AimMeter aim)
+                                Hl2mpAiSession ai, Nav.IHl2mpNavigation nav, AimMeter aim, Chat.Hl2mpBotChat? chat = null)
 {
     private AiWorkerPool Pool => ai.Pool;
 
@@ -82,13 +82,14 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
     public IReadOnlyList<DebugRoute> Routes =>
     [
         new("GET", "/ai/bots", "the roster: each wanted bot's slot (-1 benched), serial, name, skills, drawn levels, state and reason"),
+        new("GET", "/ai/chat", "bot chat (ai_chat): the endpoint and model, each bot's last lines, the filter's refusals by reason"),
         new("GET", "/ai/bot/", "one bot's inspector: /ai/bot/<slot>[/memory|skills|perception|trace]"),
         new("GET", "/ai/aim", "the aim meter: each bot's account of each player it saw, shot at or hit (in-sight ticks, firing, crosshair error, first shot, shots, hits by weapon and band, leaves); ?reset=1 starts afresh"),
         new("GET", "/ai/counters", "the AI's counters: ai.sense.us, ai.publish.us, ai.apply.us, ai.main.us (300-tick means), ai.brain.us per decide, ai.pool.* (threads, busy µs a second), ai.steps.* (skipped, faulted, in flight), process.threads"),
     ];
 
     /// <summary>Whether <paramref name="path"/> is one of these routes'.</summary>
-    public static bool Serves(string path) => path is "/ai/bots" or "/ai/counters" or "/ai/aim" || path.StartsWith("/ai/bot/", StringComparison.Ordinal);
+    public static bool Serves(string path) => path is "/ai/bots" or "/ai/counters" or "/ai/aim" or "/ai/chat" || path.StartsWith("/ai/bot/", StringComparison.Ordinal);
 
     public DebugRouteReply Handle(string path, IReadOnlyDictionary<string, string> query)
     {
@@ -102,6 +103,8 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
             return new DebugRouteReply(200, json);
         }
 
+        if (path == "/ai/chat")
+            return new DebugRouteReply(200, chat?.Json() ?? "{}");
         if (path == "/ai/counters")
             return new DebugRouteReply(200, string.Create(CultureInfo.InvariantCulture,
                 $"{{\"tick\":{frame.TickCount()},\"ai.sense.us\":{senses.SenseMeanUs:F1},\"ai.sense.us.max\":{senses.SenseMaxUs:F1},\"ai.publish.us\":{senses.PublishMeanUs:F1},\"ai.sense.ticks\":{Math.Min(senses.SenseTicks, Hl2mpSenses.Window)},\"ai.sense.traces\":{vision.TracesLastTick},\"ai.sense.traces.total\":{vision.Traces},\"ai.brain.us\":{senses.Session.Counters.BrainMicrosMean:F1},\"ai.brain.us.max\":{senses.Session.Counters.BrainMicrosMax:F1},\"ai.brain.cpu.us\":{senses.Session.Counters.BrainCpuMicrosMean:F1},\"ai.brain.steps\":{senses.Session.Counters.StepsRun},\"ai.follow.builds\":{bots.Driver.Builds},\"ai.follow.pooled\":{bots.Driver.PooledBuilds},\"bots\":{bots.Bots.Count},"
@@ -111,6 +114,7 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
                 + $"\"ai.sync\":{(senses.Session.Transport.Inline ? 1 : 0)},\"ai.pool.threads\":{Pool.Threads},\"ai.pool.alive\":{Pool.Alive},\"ai.pool.os_threads\":{WorkerThreads()},\"ai.pool.us\":{senses.PoolUsPerSecond:F1},"
                 + $"\"ai.pool.ran\":{Pool.Ran},\"ai.pool.faults\":{Pool.Faults},\"ai.steps.skipped\":{senses.Session.Counters.StepsSkipped},\"ai.steps.faulted\":{senses.Session.Counters.StepsFaulted},\"ai.steps.held\":{senses.Session.Counters.StepsHeld},"
                 + $"\"ai.steps.inflight\":{senses.Session.Counters.InFlight},\"ai.steps.inflight.max\":{senses.Session.Counters.InFlightMax},\"process.threads\":{ProcessThreads()},"
+                + $"{ChatCounters()}"
                 + $"\"nav.map\":{AiJson.Quote(nav.Current?.Map ?? "")},\"nav.cells\":{nav.Current?.Nav.Graph.CellCount ?? 0},\"nav.refusal\":{AiJson.Quote(nav.Refusal)}}}"));
 
         string[] parts = path["/ai/bot/".Length..].Split('/', StringSplitOptions.RemoveEmptyEntries);
@@ -134,6 +138,16 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
             "all" => new DebugRouteReply(200, $"{{\"record\":{AiJson.Write(record)},\"perception\":{Perception(bot)}}}"),
             _ => new DebugRouteReply(404, "{\"error\":\"parts: memory, skills, perception, trace\"}"),
         };
+    }
+
+    /// <summary>Bot chat's part of <c>/ai/counters</c> (§3.6), with its comma; nothing without chat in the composition.</summary>
+    private string ChatCounters()
+    {
+        if (chat?.Counters is not { } c)
+            return "";
+        return string.Create(CultureInfo.InvariantCulture,
+            $"\"ai.chat.requests\":{c.Requests},\"ai.chat.answered\":{c.Answered},\"ai.chat.said\":{c.Said},\"ai.chat.replies\":{c.Replies},\"ai.chat.latency.ms\":{c.LatencyMeanMs:F1},\"ai.chat.latency.ms.max\":{c.LatencyMaxMs:F1},"
+            + $"\"ai.chat.timeouts\":{c.TimedOut},\"ai.chat.server_down\":{c.ServerDown},\"ai.chat.refused\":{c.Refused},\"ai.chat.rate_limited\":{c.RateLimited},\"ai.chat.stale\":{c.Stale},\"ai.chat.main.us\":{c.MainMeanUs:F2},\"ai.chat.main.us.max\":{c.MainMaxUs:F1},");
     }
 
     /// <summary>

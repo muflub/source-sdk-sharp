@@ -75,6 +75,9 @@ public readonly record struct ChatScore(int Frags, int Deaths, int Rank, int Pla
 /// <summary>A line a bot said, for the inspector.</summary>
 public sealed record ChatLine(float Time, string Trigger, string Text);
 
+/// <summary>What the filter refused and why, as the model wrote it: for the dev route, never for a player.</summary>
+public sealed record ChatRefused(float Time, int Slot, string Reason, string Raw);
+
 /// <summary>
 /// Decides who says what and when (plan_hl2mp_ai §3.6): the game's events go
 /// in as they happen, on the main thread, and the only things that come out
@@ -94,6 +97,7 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     public const int MaxAddressed = 2;
 
     private readonly Dictionary<int, BotState> _bots = new();
+    private readonly List<ChatRefused> _refused = new();
     private readonly List<Wish> _wishes = new();
     private readonly Dictionary<long, Pending> _pending = new();
     private readonly List<Ready> _ready = new();
@@ -114,6 +118,16 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
 
     /// <summary>The slots of the bots chat knows, for the binding to follow the roster.</summary>
     public IEnumerable<int> Slots => _bots.Keys;
+
+    /// <summary>Follows the console's endpoint: a new one is asked at once, whatever the old one's outage.</summary>
+    public void Aim(ChatTarget target)
+    {
+        if (target == Target)
+            return;
+        Target = target;
+        PausedUntil = 0f;
+        LastFailure = ChatFailure.None;
+    }
 
     /// <summary>The bot in <paramref name="slot"/> joins, saying nothing yet.</summary>
     public void Join(int slot, ChatPersona persona) => _bots[slot] = new BotState(persona);
@@ -139,6 +153,9 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
         _nextReply = 0f;
         PausedUntil = 0f;
     }
+
+    /// <summary>The filter's last refusals, newest last (the route shows them).</summary>
+    public IReadOnlyList<ChatRefused> Refused => _refused;
 
     /// <summary>The last lines the bot in <paramref name="slot"/> said.</summary>
     public IReadOnlyList<ChatLine> LinesOf(int slot) => _bots.TryGetValue(slot, out BotState? b) ? b.Lines : [];
@@ -282,6 +299,13 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
             LastFailureDetail = r.Detail;
         }
 
+        if (r.Refusal != ChatRefusal.None)
+        {
+            _refused.Add(new ChatRefused(now, r.Slot, r.Refusal.ToString(), r.Detail));
+            if (_refused.Count > Settings.LinesKept)
+                _refused.RemoveAt(0);
+        }
+
         if (!_pending.Remove(r.Id, out Pending p) || r.Line is null || !_bots.ContainsKey(p.Slot))
             return;
         float reaction = Settings.ReactionMinSeconds + _random.NextFloat() * (Settings.ReactionMaxSeconds - Settings.ReactionMinSeconds);
@@ -314,13 +338,17 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
         Ask(wish, bot, now);
     }
 
-    /// <summary>The limits: a player's reply has its own short interval, everything else the server's and the bot's.</summary>
+    /// <summary>
+    /// The limits: a reply has its own short interval (the line it answers
+    /// has just used the server's), a reply to a bot the bot's cooldown too;
+    /// everything else the server's and the bot's.
+    /// </summary>
     private bool Allowed(Wish w, float now)
     {
         if (!_bots.TryGetValue(w.Slot, out BotState? b))
             return false;
-        if (w.IsReply && !w.FromBot)
-            return now >= _nextReply;
+        if (w.IsReply)
+            return now >= _nextReply && (!w.FromBot || now >= b.CooldownUntil);
         if (now < _nextLine || now < b.CooldownUntil)
             return false;
         return w.Trigger.Short || !b.InFight(now, Settings);
@@ -340,11 +368,13 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
 
         counters.Request();
         _pending[id] = new Pending(wish.Slot, wish.At, wish.Trigger.Kind, wish.SpeakerKey, wish.FromBot);
-        if (wish.IsReply && !wish.FromBot)
+        if (wish.IsReply)
         {
             _nextReply = now + Settings.ReplyIntervalSeconds;
             // A conversation holds the bots' other chatter back a while.
             _nextLine = MathF.Max(_nextLine, now + Settings.IntervalSeconds * 0.5f);
+            if (wish.FromBot)
+                bot.CooldownUntil = now + Settings.BotCooldownSeconds;
         }
         else
         {

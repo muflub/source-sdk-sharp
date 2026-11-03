@@ -44,10 +44,14 @@ public sealed class ChatWorkerTests
         r.Writer.Hangs = true;
         r.Director.TimeoutSeconds = 30f;
         r.Director.Death(1, "lodle", ChatRig.Room.A, "Pia", "shotgun", r.Now);
+        var clock = Stopwatch.StartNew();
         r.Director.Tick(r.Now);
+        Assert.True(clock.ElapsedMilliseconds < 3000, $"the tick that asked took {clock.ElapsedMilliseconds} ms");
         Assert.True(Until(() => r.Writer.InFlight == 1), "the request is out");
+        clock.Restart();
         for (int i = 0; i < 1000; i++)
             r.Director.Tick(r.Now + i * 0.015f);
+        Assert.True(clock.ElapsedMilliseconds < 3000, $"1000 ticks took {clock.ElapsedMilliseconds} ms");
         Assert.Equal(1, r.Writer.InFlight);
         Assert.Empty(r.World.Said);
     }

@@ -52,6 +52,9 @@ internal static class IlCallCensus
         return all;
     }
 
+    /// <summary>What one method's IL calls.</summary>
+    public static IEnumerable<MethodBase> CalleesOf(MethodBase method) => Callees(method);
+
     private static IEnumerable<MethodBase> Callees(MethodBase method)
     {
         byte[]? il = method.GetMethodBody()?.GetILAsByteArray();

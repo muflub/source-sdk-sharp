@@ -761,6 +761,104 @@ unnamed custom), its shape and current allocation, and its seed.
   benched); the web inspector's list disables a benched bot and titles each with
   its tag, style and levels.
 
+### 3.6 Bot chat from a local model (user request 2026-11-02, off by default)
+
+An optional local model writes short chat lines from what a bot knows and its
+traits, and answers players. It runs outside the game process and the game
+never waits for it. `ai_chat 0` is the default; while it is off no thread, no
+connection and no work exists. Managed only, in the AI's assemblies; hand-written
+native stays zero.
+
+**Where the model runs.** A private ollama (`tools/ai-chat-model`: port 11435,
+its own model directory) on the second GPU, the AMD, through Vulkan, with CUDA
+hidden and Vulkan pinned to that device, so it cannot take frames from the game
+on the NVIDIA card (ruling 2026-11-02, §12.1). With no AMD device it runs on the
+CPU, never on the NVIDIA. Default model `llama3.2:3b`, chosen by reading 200
+lines of each of 14 models (§12.3). `ai_chat_url` accepts loopback only: a
+player's text goes in the prompt, and the prompt leaves this machine for nowhere.
+
+**The shape.**
+
+```
+main thread                                    ai-chat thread (one, joined at level end)
+ IDeathNoticeHook ┐                             IBotChatWriter.Write (HTTP, under a timeout)
+ IPlayerChatHook  ├─> ChatDirector ──TryPost──>        │
+ scoreboard, HUD  ┘     limits, memory                 ChatOutputFilter (every line)
+                        │  <──────TryTake─────  result queue
+                        └─ typing delay ─> HostSay.Say (the bot's own entity)
+```
+
+- `src/ai/core/Chat/` (BCL only, like the rest of the core): `ChatDirector`,
+  `ChatPromptBuilder`, `ChatOutputFilter`, `ChatWorker`, the `IBotChatWriter`
+  and `IChatWorld` seams, `ChatWords` (the data file).
+- `src/ai/hl2mp/server/Chat/`: `Hl2mpBotChat` (the hooks and the world),
+  `OllamaChatWriter` (a blocking `HttpClient.Send` on the worker, JSON through
+  `Utf8JsonWriter`/`JsonDocument`, never the serializer), the convars.
+- `game/mod_test/scripts/ai/hl2mp_chat.json`: the prompts' wording, each trait's
+  tone, weapons' spoken names, and the filter's lists.
+
+**What a bot writes from.** `ChatFacts`: its name and the tone of its most
+distinctive trait (the skill its name comes from, §3.5.1), its row of the
+scoreboard and who leads, and its own last few events as words. The type has no
+position, no health and no other player's state: it cannot carry what the bot
+does not know. The binding reads the kill feed (`IDeathNoticeHook`, which also
+names the weapon), the scoreboard, the bot's own holdings and when it last gave
+or took a hit (`IBotFightClock`, from `CombatTap`). `ChatCensusTests` holds
+that as an allow-list over IL, and `PerceptionCensusTests` goes red if chat ever
+reads an actor's state.
+
+**Triggers.** A kill, a death, a suicide, revenge (killing whoever last killed
+it), a streak (every third kill in a life), taking the lead (at 3 kills or more,
+once each time), a pickup worth having (`braggable`). Each has a chance; a
+wish that the limits do not let through within 3 s is forgotten: the moment has
+passed.
+
+**Limits.** One unprompted line per `ai_chat_interval` (30 s) over the server;
+`ai_chat_cooldown` (60 s) per bot; in a fight (a hit within 4 s) only a short
+reaction goes, and a kill or a death is one, asked for in 5 words. A line waits
+for its typing, reaction plus characters at 8 a second, counted from the moment
+it is about; past 15 s it makes no sense and is dropped. A reply to a player has
+its own limit, one per 3 s over the server, and holds the other chatter back for
+half an interval; a reply to a bot also needs the bot's cooldown to have run.
+
+**Replying.** A bot hears only what a player in its place would be sent:
+`HostSay.CanHear`, the relay's own rule, now its one copy. A line names a bot by
+its first name or any word of its trait name, whole words, any case, less the
+file's `notNames` ("Never", "Open"...). A line naming bots is answered by those
+bots, two at most. A line naming nobody is answered with `ai_chat_reply_chance`
+(10 %) by one bot. A bot's reply to a bot ends the exchange: nobody answers it.
+What a bot and a player said is kept per pair, 6 lines, in memory, gone with the
+bot and at a map change.
+
+**Untrusted input, and the real protection.** Player text and player names go
+through `ChatPromptBuilder.Untrusted`: control and format characters out, `<`,
+`>`, `{` and `}` out, capped (100 and 24), and player text only between
+`<chat>` tags the system text calls data. A tiny model may follow it anyway, so
+`ChatOutputFilter` stands on every line, reply or not: one line under 100
+characters (the say path's limit is 127); refused if it opens with `/ ! @ # \
+~ + -`, or holds a slash word, a `;`, a cvar name or a console word, or a
+leading "name:" or `[Server]`, or a URL, or a colour or format code (a hashtag
+with them), or non-Latin letters, or a word on the list (leetspeak, stretched and
+spaced out included), or model chatter, or five words in a row from its own
+prompt. A refused line is dropped and counted by reason, never retried.
+
+**No effect on play.** Nothing the model returns reaches a brain, a decision or
+a command: `ChatCensusTests` holds that chat calls none of them, and that
+nothing outside chat calls chat but the route that shows it. The director has
+its own random stream. Chat is not in `.airec`. At a level's end the request in
+flight is cancelled and the thread joined, so the server's load context
+unloads (`ChatUnloadTests`, with a request left in flight).
+
+**A server that is missing or refuses** prints one console line, and the bots
+stay quiet (no canned pool: a canned line reads canned, and quiet is what a
+player does); they ask again every 30 s, and an answer ends the outage.
+
+**Visible.** `/ai/counters` carries `ai.chat.*` (requests, answered, said,
+replies, latency, timeouts, server down, refused, rate limited, stale, the main
+thread's µs a tick). `/ai/chat` carries the endpoint and model, each bot's last
+lines, the refusals by reason and the last refused lines as the model wrote them. The web inspector has no panel for it yet: an
+agent is on that page, and the route is what it would read.
+
 ## 4. The perception boundary: a bot is a client
 
 ### 4.1 Sight (main-thread vision pass, in `OnPostThink`)
@@ -2009,6 +2107,18 @@ rows of §3.1 (ruled). Hand-written native code: none.
   less janky and make people want to play with the bots, then "Yes do those two
   things and personality": a repeatable jank score (§3.4.5), decision commitment
   and personality you can notice (§5.5).
+- **Bots chat from a small local model, and answer players** (2026-11-02,
+  through the coordinator): "Try the chat idea, would like it to respond to
+  players as well". An optional local model writes short lines from what a bot
+  knows and its traits, outside the game process, and the game never waits on
+  it; a player who names a bot gets an answer. Off by default (§3.6).
+- **The chat model runs on the second GPU** (2026-11-02, through the
+  coordinator): "Use the second gpu for this". The AMD RX 9070 XT, through
+  Vulkan, in a private ollama instance (`tools/ai-chat-model`), so the model
+  takes no frames from the game on the NVIDIA card; this replaces the brief's
+  CPU rule (`num_gpu: 0`, `num_thread: 4`). If Vulkan on the AMD does not work,
+  it falls back to the CPU, never to the NVIDIA, and says so. Under about 4 GB
+  of VRAM; the service on 11434 and its models are not touched.
 
 ### 12.2 Open questions
 
@@ -3308,6 +3418,42 @@ that code when M1 starts, and changes nothing here.
   134.7/86.9/64.4/84.0 -> 62.7/102.7/38.3/41.8. Open: `docs/todo.md`'s ladder at
   (-4148 4188), off the graph by a gap in the file's climb, and the barred gate
   at (-3644 4664), which the file calls floor and the detector walks round.
+- **Bot chat: the brief's premises against the tree** (2026-11-02, §3.6).
+  `IPlayerChatHook` was already there, chained and registered: the missing
+  generic piece was the listener's rule, so `HostSay.CanHear` is the relay's own
+  condition moved out, with its own facts. HL2MP has no dead-chat rule (stock's
+  `CHL2MP_Player::CanHearAndReadChatFrom` only refuses a console line); "dead"
+  is whatever an `IChatAudience` says, TF2's, and a fact holds a vetoed line
+  unheard. A kill's weapon comes from `IDeathNoticeHook` (`DeathNoticeFacts.Weapon`),
+  so `PlayerDeath` did not change. A mod registers a contract once (the side
+  registry's "registered twice"), and `CombatTap` holds `IPlayerHurtHook`, so chat
+  reads "in a fight" through a small `IBotFightClock` it answers, polled twice a
+  second. `qwen3:1.5b` is not in the registry; `qwen3:0.6b` and
+  `gemma3:270m` are.
+- **Bot chat: no canned pool** (§3.6). With no server the bots stay quiet: a
+  canned line reads canned, and saying nothing is what a player does.
+- **Bot chat: loopback only.** `ai_chat_url` off this machine is refused by the
+  writer, one console line: players' text is in the prompt.
+- **Bot chat: the model** (2026-11-02, `tools/ai-replay chat-eval`, 200 lines
+  each, the game's prompts and filter, the private instance on the AMD, a busy
+  box, load 50-180): `llama3.2:3b`, 2,204 MiB all in VRAM, first token 68 ms
+  mean / 127 p95, whole line 132 / 229 ms, 96 % through the filter. Read side
+  by side it writes the most believable lines (real gamer register, on topic) and
+  it rarely obeys a hostile message. It was often wrong about who is who: "nice
+  one lodle" straight after killing lodle, or a third player named out of the
+  scoreboard. The prompt now says plainly who won a fight and who is talking to
+  the bot, which helped by reading (`ai-chat-v3`'s sample against the eval's,
+  numbers and live lines below); it is better, not cured.
+  `qwen2.5:3b` is close (92 %) and slower, and it wrote slurs and "fuck" ten times
+  for the filter to catch; `gemma3:1b` passes 96 % but says "Seriously?" to
+  everything; `qwen3:0.6b` recites the scoreboard; `qwen3:4b` passes 0 %, writing
+  its reasoning as its content despite `think: false`; `tinyllama` 25 %. The
+  table and 30 unedited lines per model are the eval's report, not committed:
+  it holds what the models wrote unfiltered, slurs among it, and this repo is
+  public. The numbers are one run, with other jobs on the box; the NVIDIA card's
+  memory moved by hundreds of MiB with others' games, so placement is proved by
+  the runner's absence from `nvidia-smi pmon` and the AMD's VRAM rise, not by
+  that memory figure.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

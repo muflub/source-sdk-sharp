@@ -293,6 +293,30 @@ public sealed class ChatDirectorTests
         Assert.Equal(B, Assert.Single(r.World.Said).Slot);
     }
 
+    /// <summary>A bot's line uses the server's interval; the answer it draws must not have to wait that out, or no bot would ever answer one.</summary>
+    [Fact]
+    public void ABotsAnswerToABotIsNotHeldBackByTheLineItAnswers()
+    {
+        using var r = new ChatRig.Room(Certain(interval: 30f, cooldown: 60f));
+        r.Writer.Answer = p => p.User.Contains("You just killed", StringComparison.Ordinal) ? "tommy watch this" : "ok then";
+        r.World.OnSay = (slot, line) => r.Director.Heard(slot, slot.ToString(System.Globalization.CultureInfo.InvariantCulture), slot == A ? "Pia" : "Tommy", line, r.AllBots, r.Now);
+        KillBy(r, A);
+        r.Settle(0.5f, 12);
+        Assert.Equal(new[] { (A, "tommy watch this"), (B, "ok then") }, r.World.Said);
+    }
+
+    /// <summary>A bot still cooling down lets a line from another bot go by.</summary>
+    [Fact]
+    public void ABotOnItsCooldownDoesNotAnswerABot()
+    {
+        using var r = new ChatRig.Room(Certain(interval: 1f, cooldown: 60f));
+        KillBy(r, B);
+        r.Settle(0.5f, 6);
+        r.Director.Heard(A, "2", "Pia", "tommy you there", r.AllBots, r.Now);
+        r.Settle(0.5f, 20);
+        Assert.Equal(B, Assert.Single(r.World.Said).Slot);
+    }
+
     [Fact]
     public void ABotDoesNotAnswerItself()
     {
@@ -336,7 +360,6 @@ public sealed class ChatDirectorTests
         r.Settle();
         Assert.Equal(1, r.Director.ConversationsOf(A));
         r.Director.Reset();
-        r.Director.Join(A, ChatRig.Pia());
         Assert.Equal(0, r.Director.ConversationsOf(A));
     }
 
@@ -364,6 +387,18 @@ public sealed class ChatDirectorTests
         Assert.Empty(r.World.Said);
         Assert.Equal(1, r.Writer.Calls);
         Assert.Equal((1L, 1L), (r.Counters.Refused, r.Counters.RefusedBy(ChatRefusal.Command)));
+    }
+
+    /// <summary>What was refused stays visible to the developer's route, with its reason, and only the last few of it.</summary>
+    [Fact]
+    public void ARefusalIsKeptForTheRouteWithItsReason()
+    {
+        using var r = new ChatRig.Room(Certain());
+        r.Writer.Answer = _ => "/quit";
+        KillBy(r, A);
+        r.Settle(0.1f, 20);
+        ChatRefused refused = Assert.Single(r.Director.Refused);
+        Assert.Equal((A, "Command", "/quit"), (refused.Slot, refused.Reason, refused.Raw));
     }
 
     [Fact]

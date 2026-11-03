@@ -96,6 +96,9 @@ if (args.Length >= 2 && args[0] == "jank")
 
     return empty == 0 ? 0 : 1;
 }
+//   chat-eval <url> <console.log> <chat.json> <out.md> <lines> <model>...
+if (args.Length >= 1 && args[0] == "chat-eval")
+    return ChatEval.Run(args[1..]);
 
 if (args.Length >= 4 && args[0] == "verify")
 {

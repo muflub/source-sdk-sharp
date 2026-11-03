@@ -7,6 +7,12 @@ namespace SourceSharp.Ai.Hl2mp.Senses;
 /// <summary>One scoreboard row as every client's HUD has it (the player resource's kills and deaths).</summary>
 public readonly record struct ScoreRow(ActorId Actor, int Frags, int Deaths);
 
+/// <summary>When a bot last gave or took a hit, as its own HUD showed it (§3.6's "in a fight"); -1 for never.</summary>
+public interface IBotFightClock
+{
+    int LastHitTick(int slot);
+}
+
 /// <summary>
 /// The damage, death and scoreboard taps (plan_hl2mp_ai §4.3, Phase 4 step
 /// 4), each what the bot's own HUD shows: the hits it takes (with the damage
@@ -15,9 +21,9 @@ public readonly record struct ScoreRow(ActorId Actor, int Frags, int Deaths);
 /// with their ranks, pushed when they change (Headhunter reads the leader,
 /// §5.4).
 /// </summary>
-[SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook)])]
+[SideService(Side.Server, As = [typeof(IPlayerHurtHook), typeof(IPlayerDeathHook), typeof(IBotFightClock)])]
 public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots bots, IEnginePlayers players, IEngineEntities entities,
-                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle
+                              IPlayerDirectory directory, IEngineFrame frame, ShotTap shots, AimMeter aim) : IPlayerHurtHook, IPlayerDeathHook, IGameLifecycle, IFrameLifecycle, IBotFightClock
 {
     /// <summary>How often the scoreboard is read: twice a second.</summary>
     public const int ScoreTicks = 33;
@@ -26,6 +32,9 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
     private readonly List<ScoreRow> _rows = new();
     private readonly Dictionary<ActorId, (int Frags, int Deaths, int Rank)> _shown = new();
     private readonly Dictionary<int, bool> _alive = new();
+    private readonly Dictionary<int, int> _lastHit = new();
+
+    public int LastHitTick(int slot) => _lastHit.GetValueOrDefault(slot, -1);
 
     public int LifecycleOrder => ModStages.First + 610;
 
@@ -35,6 +44,7 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
     {
         _shown.Clear();
         _alive.Clear();
+        _lastHit.Clear();
     }
 
     private ActorId ActorOf(EntityHandle p, out int slot)
@@ -68,6 +78,7 @@ public sealed class CombatTap(Hl2mpSenses senses, VisionPass vision, Hl2mpBots b
         aim.Hurt(in hurt);
         ActorId victim = ActorOf(hurt.Player, out int victimSlot);
         ActorId attacker = ActorOf(hurt.Attacker, out int attackerSlot);
+        _lastHit[victimSlot] = _lastHit[attackerSlot] = frame.TickCount();
         _events.Clear();
         Hurt(victim, attacker, hurt.Taken, hurt.HealthLeft, vision.DirectionFrom(victimSlot, attackerSlot), BotIds(), Tick, _events);
         Push();

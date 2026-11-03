@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# The model server bot chat talks to (docs/plans/plan_hl2mp_ai.md §3.6): a
+# private ollama on 127.0.0.1:11435, on the second GPU (the AMD, by Vulkan), so
+# the model never takes frames from the game on the NVIDIA card. User ruling
+# 2026-11-02: "Use the second gpu for this".
+#
+#   tools/ai-chat-model [start] [model]   start it if it is not up, pull the
+#                                         model (llama3.2:3b, the measured
+#                                         default), load it, show where it is
+#   tools/ai-chat-model status            what runs, and the proof of where
+#   tools/ai-chat-model stop              stop this instance (only this one)
+#
+# It is separate from any ollama service on 11434: its own port, its own models
+# ($AI_CHAT_MODELS, by default ~/.local/share/sourcesharp/ai-chat/models), and
+# the service's configuration and models are not touched. CUDA is hidden and
+# Vulkan is pinned to the AMD device, so nothing can land on the NVIDIA card; with
+# no AMD Vulkan device it says so and runs on the CPU.
+#
+# Then, in the game's console:  ai_chat 1
+set -euo pipefail
+port="${AI_CHAT_PORT:-11435}"
+url="http://127.0.0.1:$port"
+models="${AI_CHAT_MODELS:-$HOME/.local/share/sourcesharp/ai-chat/models}"
+state="${AI_CHAT_STATE:-$HOME/.local/state/sourcesharp/ai-chat}"
+log="$state/ollama-$port.log"
+pidfile="$state/ollama-$port.pid"
+ollama="${OLLAMA:-$(command -v ollama || echo /usr/local/bin/ollama)}"
+verb="${1:-start}"
+default_model="llama3.2:3b"
+
+up() { curl -s --max-time 2 "$url/api/version" >/dev/null 2>&1; }
+
+# The Vulkan index of the first AMD device, as `vulkaninfo --summary` numbers them.
+amd_index() {
+  command -v vulkaninfo >/dev/null 2>&1 || return 1
+  vulkaninfo --summary 2>/dev/null | awk '
+    /^GPU[0-9]+:/ { gsub(/[^0-9]/, "", $1); gpu = $1 }
+    /deviceName/ && /AMD|Radeon/ { print gpu; found = 1; exit }
+    END { if (!found) exit 1 }'
+}
+
+amd_card() {
+  for c in /sys/class/drm/card?; do
+    [[ -f "$c/device/vendor" && "$(cat "$c/device/vendor")" == 0x1002 && -f "$c/device/mem_info_vram_used" ]] && { echo "$c/device"; return 0; }
+  done
+  return 1
+}
+
+start_server() {
+  mkdir -p "$models" "$state"
+  local index="" gpu=(OLLAMA_VULKAN=0)
+  if index="$(amd_index)"; then
+    gpu=(OLLAMA_VULKAN=1 "GGML_VK_VISIBLE_DEVICES=$index")
+  else
+    echo "ai-chat-model: no AMD Vulkan device: the model runs on the CPU, never on the NVIDIA card"
+  fi
+  env "${gpu[@]}" CUDA_VISIBLE_DEVICES=-1 OLLAMA_HOST="127.0.0.1:$port" OLLAMA_MODELS="$models" OLLAMA_NO_CLOUD=1 \
+      OLLAMA_KEEP_ALIVE=30m OLLAMA_MAX_LOADED_MODELS=1 OLLAMA_NUM_PARALLEL=1 \
+      setsid nohup "$ollama" serve >"$log" 2>&1 </dev/null &
+  echo $! >"$pidfile"
+  for _ in $(seq 1 60); do
+    up && return 0
+    sleep 0.5
+  done
+  echo "ai-chat-model: the server did not come up: see $log" >&2
+  return 1
+}
+
+where() {
+  grep -a 'inference compute' "$log" 2>/dev/null | sed -E 's/.*library=([^ ]+).*description="([^"]*)".*total="([^"]*)".*/  device: \1 \2 (\3)/' | head -3 || true
+  curl -s --max-time 5 "$url/api/ps" | python3 -c '
+import json, sys
+models = json.load(sys.stdin)["models"]
+print("  loaded: " + (", ".join("%s, %d MiB, %d MiB in VRAM" % (m["name"], m["size"] // 1048576, m["size_vram"] // 1048576) for m in models) or "nothing"))'
+  local card; if card="$(amd_card)"; then echo "  AMD VRAM used: $(( $(cat "$card/mem_info_vram_used") / 1048576 )) MiB"; fi
+  local runners; runners="$(pgrep -x llama-server | tr '\n' ' ' || true)"
+  if command -v nvidia-smi >/dev/null 2>&1; then
+    local on=no
+    for r in $runners; do
+      nvidia-smi pmon -c 1 2>/dev/null | awk '{print $2}' | grep -qx "$r" && on="YES (pid $r)"
+    done
+    echo "  on the NVIDIA card: $on"
+  fi
+}
+
+case "$verb" in
+  stop)
+    if [[ -f "$pidfile" ]] && pid="$(cat "$pidfile")" && [[ "$(ps -o args= -p "$pid" 2>/dev/null)" == *"ollama serve"* ]]; then
+      kill "$pid"
+      rm -f "$pidfile"
+      echo "ai-chat-model: stopped $pid"
+    else
+      echo "ai-chat-model: not running from here (no live $pidfile)"
+    fi
+    ;;
+  status)
+    if up; then
+      echo "ai-chat-model: up at $url"
+      where
+    else
+      echo "ai-chat-model: nothing at $url"
+      exit 1
+    fi
+    ;;
+  start|*)
+    model="$default_model"
+    [[ "$verb" == start ]] && model="${2:-$default_model}" || model="$verb"
+    up || start_server
+    if ! curl -s --max-time 2 "$url/api/tags" | grep -q "\"name\":\"$model\""; then
+      echo "ai-chat-model: pulling $model"
+      curl -s --max-time 3600 "$url/api/pull" -d "{\"model\":\"$model\",\"stream\":false}" | grep -q success \
+        || { echo "ai-chat-model: could not pull $model" >&2; exit 1; }
+    fi
+    curl -s --max-time 120 "$url/api/chat" -d "{\"model\":\"$model\",\"keep_alive\":\"30m\",\"options\":{\"num_ctx\":2048},\"messages\":[]}" >/dev/null
+    echo "ai-chat-model: $model ready at $url"
+    where
+    echo "ai-chat-model: in the game's console: ai_chat 1"
+    ;;
+esac
