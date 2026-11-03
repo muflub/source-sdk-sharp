@@ -45,8 +45,11 @@ public sealed class JankTests
             R.UserCmd(new AiUserCmd(a, new Tick(t), t, t, new AiAngles(0, yaw, 0), forward, side, 0, buttons, 0, 0, 0, 0, 0, 0));
         }
 
-        public void Decide(int t, int node)
-            => R.Intent(new IntentCommand(Bot, new Tick(t), t, new Tick(t + IntentCommand.LifetimeTicks), default, default, default, new DecisionReason(node, 0, 0, 0)));
+        public void Decide(int t, int node, AiVector? goal = null)
+        {
+            MoveIntent move = goal is { } g ? new MoveIntent(MoveKind.Follow, MoveSpeed.Run, 1, g, default, default, default, default, false, 0) : default;
+            R.Intent(new IntentCommand(Bot, new Tick(t), t, new Tick(t + IntentCommand.LifetimeTicks), move, default, default, new DecisionReason(node, 0, 0, 0)));
+        }
 
         public void Holding(int t, ActorId bot, int weapon)
         {
@@ -109,6 +112,18 @@ public sealed class JankTests
         Assert.Equal(0, r.Of(Bot).StuckSeconds);
     }
 
+    /// <summary>Out at a run and straight back: no net over a second, and no one would call it stuck.</summary>
+    [Fact]
+    public void TurningRoundAtARunIsATurnBackAndNotStuck()
+    {
+        var r = new Rec(Bot);
+        for (int t = 0; t < 400; t++)
+            r.At(Bot, t, (t < 200 ? t : 400 - t) * 2.85f, forward: 450);
+        JankActor a = r.Of(Bot);
+        Assert.Equal(0, a.StuckSeconds);
+        Assert.InRange(a.TurnBackSeconds, 1.0, 1.4);
+    }
+
     /// <summary>Under 32 units a second is stuck though the body creeps, which a wall bump's speed cannot see.</summary>
     [Fact]
     public void ACreepIsStuckAndNoWallBump()
@@ -163,6 +178,7 @@ public sealed class JankTests
     {
         Assert.Equal(1.0, Seconds(AiJank.StuckWindowTicks), 1);
         Assert.Equal(32f, AiJank.StuckProgress);
+        Assert.Equal(96f, AiJank.TurnBackPath);
         Assert.True(Seconds(AiJank.WallMinTicks) > 0.5 && Seconds(AiJank.WallMinTicks - 1) <= 0.5);
         Assert.Equal(20f, AiJank.WallSpeed);
         Assert.Equal(1.0, Seconds(AiJank.FlipTicks), 1);
@@ -269,6 +285,22 @@ public sealed class JankTests
         Assert.Equal((0, 0), (a.BranchFlips, a.LeafFlips));
     }
 
+    /// <summary>A goal that jumps counts each jump; one that creeps, or a decide with no goal between, does not count.</summary>
+    [Fact]
+    public void AGoalThatJumpsCountsAndOneThatCreepsDoesNot()
+    {
+        var r = new Rec(Bot);
+        for (int t = 0; t < 100; t++)
+            r.At(Bot, t, t * 2.85f, forward: 450);
+        r.Decide(0, Roam, new AiVector(0, 0, 0));
+        r.Decide(10, Roam, new AiVector(255, 0, 0));
+        r.Decide(20, Roam, new AiVector(255, 256, 0));
+        r.Decide(30, Roam);
+        r.Decide(40, Roam, new AiVector(255, 256, 0));
+        r.Decide(50, Roam, new AiVector(0, 0, 0));
+        Assert.Equal(2, r.Of(Bot).GoalJumps);
+    }
+
     // ---- in sight, not firing ----------------------------------------------
 
     private static Rec Duel(float range, int weapon, Action<Rec, int>? each = null, int node = Hold)
@@ -306,6 +338,33 @@ public sealed class JankTests
         JankActor far = Duel(399, Pistol).Of(Bot);
         Assert.Equal((100, 0), (near.Close.Ticks, near.Far.Ticks));
         Assert.Equal((0, 100), (far.Close.Ticks, far.Far.Ticks));
+    }
+
+    /// <summary>Where the seconds went: a stuck, a wall bump and an idle under the leaf deciding then, with sight or without.</summary>
+    [Fact]
+    public void SecondsCountUnderTheLeafDecidingThen()
+    {
+        var r = new Rec(Bot);
+        r.Decide(0, Hold);
+        r.Decide(200, Roam);
+        r.Decide(400, Chase);
+        r.Sees(Bot, 100, Other);
+        r.R.Event(AiEvent.SightLost(Bot, new Tick(200), Other, default, default));
+        for (int t = 0; t < 600; t++)
+        {
+            r.At(Bot, t, 100, forward: t < 400 ? 450 : 0);
+            r.At(Other, t, 9000);
+        }
+
+        JankReport report = r.Report();
+        JankLeaf hold = report.Leaves.Single(l => l.Leaf == "hold"), roam = report.Leaves.Single(l => l.Leaf == "roam"), chase = report.Leaves.Single(l => l.Leaf == "chase");
+        // Tick 65 is the first window's end and takes in all of 0..65; hold runs to 199.
+        Assert.Equal(Seconds(200), hold.StuckSeconds, 6);
+        Assert.Equal(Seconds(100), hold.StuckSeenSeconds, 6);
+        Assert.Equal(Seconds(200), roam.StuckSeconds, 6);
+        Assert.Equal(0, roam.StuckSeenSeconds);
+        Assert.Equal(Seconds(200), roam.WallBumpSeconds, 6);
+        Assert.Equal(Seconds(200), chase.IdleSeconds, 6);
     }
 
     /// <summary>A shotgun does not reach 700 units and a pistol does: out of reach is no fault of the bot's.</summary>

@@ -155,13 +155,21 @@ public sealed class ChatWorker(IBotChatWriter writer, ChatOutputFilter filter, C
     /// <summary>How long a model may take to load before the warm-up gives up.</summary>
     public const float WarmSeconds = 60f;
 
-    private readonly ConcurrentQueue<ChatJob> _jobs = new();
-    private readonly ConcurrentQueue<ChatResult> _results = new();
-    private readonly SemaphoreSlim _ready = new(0);
+    /// <summary>
+    /// What one start's thread works from. A thread a stop gave up on still holds its own, so it can never take a job
+    /// posted after the next start, nor answer into it.
+    /// </summary>
+    private sealed class Lane
+    {
+        public readonly ConcurrentQueue<ChatJob> Jobs = new();
+        public readonly ConcurrentQueue<ChatResult> Results = new();
+        public readonly SemaphoreSlim Ready = new(0);
+        public int Queued;
+    }
+
+    private Lane? _lane;
     private CancellationTokenSource? _stop;
     private Thread? _thread;
-    private ChatTarget? _warm;
-    private int _queued;
 
     public bool Running => _thread is not null;
 
@@ -170,80 +178,87 @@ public sealed class ChatWorker(IBotChatWriter writer, ChatOutputFilter filter, C
     {
         if (_thread is not null)
             return;
-        _warm = warm;
         _stop = new CancellationTokenSource();
-        _thread = new Thread(Run) { Name = "ai-chat", IsBackground = true };
+        CancellationToken stop = _stop.Token;
+        Lane lane = _lane = new Lane();
+        _thread = new Thread(() => Run(lane, stop, warm)) { Name = "ai-chat", IsBackground = true };
         _thread.Start();
     }
 
     /// <summary>Hands <paramref name="job"/> over without waiting; false when the worker is not running or is full (the line is dropped).</summary>
     public bool TryPost(ChatJob job)
     {
-        if (_thread is null || Volatile.Read(ref _queued) >= capacity)
+        if (_lane is not { } lane || Volatile.Read(ref lane.Queued) >= capacity)
             return false;
-        Interlocked.Increment(ref _queued);
-        _jobs.Enqueue(job);
-        _ready.Release();
+        Interlocked.Increment(ref lane.Queued);
+        lane.Jobs.Enqueue(job);
+        lane.Ready.Release();
         return true;
     }
 
-    public bool TryTake(out ChatResult result) => _results.TryDequeue(out result);
+    public bool TryTake(out ChatResult result)
+    {
+        if (_lane is { } lane)
+            return lane.Results.TryDequeue(out result);
+        result = default;
+        return false;
+    }
 
     /// <summary>Cancels what is in flight, joins the thread and forgets every job and result. Answers whether the thread ended.</summary>
-    public bool Stop()
+    public bool Stop(int joinMilliseconds = JoinMilliseconds)
     {
         if (_thread is not { } thread)
             return true;
         _stop!.Cancel();
-        bool ended = thread.Join(JoinMilliseconds);
-        if (!ended)
-            counters.Leak();
-        _thread = null;
-        _stop.Dispose();
-        _stop = null;
-        _jobs.Clear();
-        _results.Clear();
-        Volatile.Write(ref _queued, 0);
-        while (_ready.Wait(0))
+        bool ended = thread.Join(joinMilliseconds);
+        // A thread still to end holds these: they are disposed only once none does.
+        if (ended)
         {
+            _stop.Dispose();
+            _lane!.Ready.Dispose();
+        }
+        else
+        {
+            counters.Leak();
         }
 
+        _thread = null;
+        _stop = null;
+        _lane = null;
         return ended;
     }
 
     public void Dispose()
     {
         Stop();
-        _ready.Dispose();
     }
 
-    private void Run()
+    private void Run(Lane lane, CancellationToken stop, ChatTarget? warm)
     {
-        CancellationToken stop = _stop!.Token;
-        if (_warm is { } warm)
-            Warm(warm, stop);
+        if (warm is { } target)
+            Warm(lane, target, stop);
         while (!stop.IsCancellationRequested)
         {
             try
             {
-                _ready.Wait(stop);
+                lane.Ready.Wait(stop);
             }
             catch (OperationCanceledException)
             {
                 return;
             }
 
-            if (!_jobs.TryDequeue(out ChatJob? job))
+            if (!lane.Jobs.TryDequeue(out ChatJob? job))
                 continue;
             ChatResult result = Ask(job, stop);
             if (!stop.IsCancellationRequested)
-                _results.Enqueue(result);
-            Interlocked.Decrement(ref _queued);
+                lane.Results.Enqueue(result);
+            Interlocked.Decrement(ref lane.Queued);
             counters.Finish();
         }
     }
 
-    private void Warm(ChatTarget target, CancellationToken stop)
+    private void Warm(Lane lane, ChatTarget target, CancellationToken stop)
     {
         using var timed = CancellationTokenSource.CreateLinkedTokenSource(stop);
         timed.CancelAfter(TimeSpan.FromSeconds(WarmSeconds));
@@ -258,7 +273,7 @@ public sealed class ChatWorker(IBotChatWriter writer, ChatOutputFilter filter, C
         }
 
         if (!stop.IsCancellationRequested)
-            _results.Enqueue(new ChatResult(0, 0, null, ChatRefusal.None, reply.Failure, reply.Detail, false, 0f));
+            lane.Results.Enqueue(new ChatResult(0, 0, null, ChatRefusal.None, reply.Failure, reply.Detail, false, 0f));
     }
 
     private ChatResult Ask(ChatJob job, CancellationToken stop)

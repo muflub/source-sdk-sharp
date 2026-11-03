@@ -594,7 +594,8 @@ apply (a person has no leaves, so no flips):
 
 | part | definition |
 |---|---|
-| stuck | s per alive minute: a 1 s window (66 ticks) whose every tick holds a move key, under 32 u net between its ends. Not a window in which `SideMove` changed sign with an opponent in sight (a fight's dodge) |
+| stuck | s per alive minute: a 1 s window (66 ticks) whose every tick holds a move key, under 32 u net between its ends and under 96 u walked. Not a window in which `SideMove` changed sign with an opponent in sight (a fight's dodge) |
+| turn backs | the same window with 96 u or more walked: the body went somewhere and came back. A U-turn at a run nets nothing over a second, and read as stuck until 2026-11-02; the two have different cures |
 | wall bump | s per alive minute: a move key held at under 20 u/s for over 0.5 s (34 ticks), the whole run. Any move key, not only forward: a bot's wish is in its view's frame, so one backing into a wall holds no forward |
 | decision flips | per alive minute, branch and leaf apart: A to B and back to A with B lasting at most 1 s, each return one flip; a death ends the sequence |
 | in-sight not firing | ticks of no shot over ticks with an opponent seen in the held weapon's reach (`Hl2mpWeaponRanges`), by leaf, split at 400 u (the ruling: close-range firing comes first). A shot is a `ShotFired` or a press of attack and lasts the weapon's cadence. A person's weapon is the one they last fired |
@@ -609,7 +610,10 @@ The headline is `sum(weight x part / full)`, `full` being what reads as plainly
 wrong, not clamped: stuck 25/6 s/min, wall bump 10/6 s/min, branch flips 10/10
 per min, leaf flips 10/20 per min, no shot under 400 u 20/0.5, no shot from
 400 u 5/0.8, idle 10/12 s/min, yaw reversals over 120 per min 5/120, a median
-strafe interval short of 300 ms 5/1 as a share of it. The parts are what matter.
+strafe interval short of 300 ms 5/1 as a share of it, turn backs 10/6 s/min. The
+parts are what matter. Goal jumps (the brain's walking goal moving 256 u or more
+between decides) are reported and carry no weight. The per-leaf table adds the
+stuck, turn-back, wall and idle seconds that fell under each leaf.
 
 A recording names its leaves by the tree it carries (format 4's `DecisionTree`
 record: an intent holds only a node's id, and ids move when a tree changes); one
@@ -1165,6 +1169,40 @@ aim and ladder lanes have landed, because they change the same decider.
   (distance travelled, time in cover, kills from ambush, engagement range).
   Grudge and habit moments are a small generic event a chat lane can use. The
   web AI tab shows them.
+
+**The commitment numbers (stage 2, 2026-11-02).** `BtCommit` on a root branch:
+for its minimum nothing replaces it, and after that a rival must beat its score
+by the margin.
+
+| branch | minimum | margin |
+|---|---|---|
+| Survive | 3 s | 0.1 |
+| Fight | 1.5 s | 0.1 |
+| Hunt | 2.5 s | 0.1 |
+| Search | 2 s | 0.1 |
+| Ambush | 4 s | 0.1 |
+| Deny | 2 s | 0.1 |
+| Arm | 3 s | 0.1 |
+| Roam | 1 s | 0.05 |
+
+What ends it at once (`Hl2mpDecider.NoteInterrupts`, named in `LastInterrupt`):
+an opponent seen within 400 u (the ruling), an opponent newly seen at any range,
+damage since the last decide, an empty clip with rounds to load, a goal gone (the
+pickup known taken, the opponent read dead), and no progress (under 32 u for 1.5 s
+with a goal not reached). A branch's own score falling to 0, or its failing, ends
+it too. Newly seen at any range is beyond the brief's list: a bot walking to a kit
+did not shoot someone in plain sight for its minimum. Leaves inside a branch are not
+held, so a reload window that closes ends a push the same decide.
+
+A leaf's walking goal holds for 3 s against a new one; one within 32 u is the same
+place, and one on an opponent in sight follows them. The opponent the bot is about
+holds with priority x1.25. Losing sight, a fight goes on as it was for 0.75 s, fire
+held and the view on where they were, before it becomes a chase.
+
+The driver answers what the tree cannot see (§2.3): a body under 8 u in 0.6 s on a
+plain floor reports stuck at once (a door, ladder or jump on the way keeps its own
+wait); stopped again within 48 u it is wedged, and tries a different way each half
+second, turning 135 deg a try, with a jump every other try.
 
 ## 6. Navigation from the map tools' `.nav3d` (ruling 2026-11-01)
 
@@ -2173,6 +2211,8 @@ that code when M1 starts, and changes nothing here.
 | jank score, the user's session (older bots, the "before") | **bots 139.6** over 41.9 bot-minutes (stuck 21.83 s/min, wall bump 12.57 s/min, flips 4.7 branch / 6.9 leaf per min, no shot 27 % under 400 u / 33 % from 400 u, strafe 75 ms, yaw reversals 66/min, idle 3.53 s/min); **the person 28.5** over 10.7 min (stuck 0.66, wall bump 0.08, no shot 46 % / 72 %, strafe 1,230 ms, reversals 58/min, idle 3.30). Worst stuck: (-2779 3165 128) 104.8 s, (-3160 4096 128) 87.5 s, (-3097 4442 128) 76.8 s. Wall-bump seconds per bot agree to two decimals with a second reader written in Python over the raw records | `tools/ai-replay jank 20261102T144141Z.airec` (read only, not committed); leaves by this build's tree (`Build()` unchanged since before the session: no tree line in `git show a6eb342c5 31d7fc8b1`) | tool at `b92167c08`, debug |
 | jank score, the gate's `ai-jank` step, two minutes, the gate's bots | **98.6 and 64.7** in two passes, 6.6 and 6.8 bot-minutes: a two-minute score moves by half between passes, so a budget must allow for it or take more passes | `tools/live-gate --steps ai-jank --passes 2 --record --budget <scratch copy>` | `b92167c08`, debug |
 | jank score, the standard run (the baseline stages 2 and 3 are compared with) | **bots 230.5** over 20.2 bot-minutes (stuck 36.79 s/min, wall bump 26.87 s/min, flips 2.3 branch / 6.9 leaf per min, no shot 44 % under 400 u / 38 % from 400 u, strafe 45 ms, yaw reversals 48/min, idle 2.91 s/min). Per bot 97.6, 308.0, 294.2, 185.5. Worst stuck: (-2865 3418 135) 251.9 s one bot, (-3180 4437 128) 226.6 s one bot, (-2865 3418 61) 131.5 s one bot: three bots held in place for most of the run, so this is one run's luck on the map as much as a rate, and it wants a re-run before a budget is read from it. Biggest no-shot leaves: hold range 3,066/8,661 under 400 u, chase 1,352/1,704, back off reloading 1,163/1,590 | `make ai-jank` (`bin/debug/ai-jank/20261102T172637Z-b92167c08.airec`) | `hl2mp-ai-feel` `b92167c08`, debug, box shared (load over 100) |
+| jank score, before and after commitment, three standard runs each, one tool (`ffe36e3fd`'s definitions) | **before 52.5, 45.6, 51.0 (mean 49.0)**: stuck 6.57, 4.73, 5.37; turn backs 3.80, 2.25, 2.53; wall 3.71, 2.20, 3.43; flips branch 1.4, 2.3, 3.0 and leaf 4.0, 5.3, 4.6; goal jumps 49.7, 31.0, 29.3. **Commitment alone** (`9fa61c831`) 58.6, 46.5, 46.0: goal jumps halved, stuck unmoved. **After 38.0: 39.1, 37.6, 37.3**: stuck 3.82, 3.83, 4.12; turn backs 1.98, 2.14, 1.83; wall 1.84, 1.58, 1.37; flips branch 1.9, 1.3, 1.2 and leaf 2.5, 3.0, 3.3; goal jumps 16.2, 19.7, 17.6. No shot unchanged (under 400 u 25, 19, 19 %; from 400 u 41, 43, 43 %). The user's session by the same tool: bots 130.6, the person 28.0 (stuck 0.43, turn backs 0.32) | `make ai-jank`, `tools/ai-replay jank` | before `82cc931c6`; after `692fbba6e`; debug, box shared |
+| what a stuck second was, at `9fa61c831` | 47 % a body blocked by something the nav does not know, 30 % a U-turn on a change of leaf, 8 % on a change of goal, 7-12 % at a door, 3-6 % a player. Of leaf flips, 70-85 % were hold range and chase. The top blocked spots stand beside physics props (`prison_heater001a` at (-3812 5335) and (-2656 4050), `controlroom_filecabinet` at (-3232 4440), `wood_crate` at (-3140 2040) and (-3415 3619)) | a scratch reader over three recordings' frames and intents; the entity lump | the classes are of episodes by path and net, a door within 128 u, a player within 64 u |
 
 ### 12.4 Choices made in this plan (small, stated)
 
@@ -3442,8 +3482,12 @@ that code when M1 starts, and changes nothing here.
   it rarely obeys a hostile message. It was often wrong about who is who: "nice
   one lodle" straight after killing lodle, or a third player named out of the
   scoreboard. The prompt now says plainly who won a fight and who is talking to
-  the bot, which helped by reading (`ai-chat-v3`'s sample against the eval's,
-  numbers and live lines below); it is better, not cured.
+  the bot, which helped by reading: of the 10 kill, death and revenge lines in the same
+  30-line sample, about 7 praised or confused the victim before and about 1
+  after, the tic "nice one" becoming "nice try". Better, not cured. The table
+  in the report is the prompt before that change; `llama3.2:3b` alone was
+  measured again after it: 98 % through the filter, 110 / 211 ms first token,
+  207 / 374 ms whole line.
   `qwen2.5:3b` is close (92 %) and slower, and it wrote slurs and "fuck" ten times
   for the filter to catch; `gemma3:1b` passes 96 % but says "Seriously?" to
   everything; `qwen3:0.6b` recites the scoreboard; `qwen3:4b` passes 0 %, writing
@@ -3454,6 +3498,48 @@ that code when M1 starts, and changes nothing here.
   memory moved by hundreds of MiB with others' games, so placement is proved by
   the runner's absence from `nvidia-smi pmon` and the AMD's VRAM rise, not by
   that memory figure.
+
+- **Bot chat, live** (2026-11-02, `make headless` on dm_lockdown, 3 bots of
+  easy, normal and hard, a listen-server client, `llama3.2:3b` on the AMD, a
+  busy box, `ai_chat_interval 8` and `ai_chat_cooldown 12` so a short run says
+  enough). Kills and deaths were said as the bots' chat, and a client naming a
+  bot was answered through the say path (screenshot opened). Model latency 244-253 ms
+  mean, 458 ms worst, no timeouts. **Cost:** `ai.chat.main.us` 9.5-14.7 µs a
+  tick mean; the main thread's CPU per tick (`/proc`, wall windows of 45-90 s),
+  off 6.86 and 6.20 ms, on 6.30 and 5.89 ms: no difference above the noise; tick
+  rate 66.2-66.7 either way. `ai.chat.main.us.max` reached 13 ms, then 110 ms
+  once in about 36,000 ticks, in the URL-at-nothing window; wall clock on a loaded box,
+  nothing there waits on the worker, and the cause was not looked for further.
+  **Nothing at the URL:** one console line, the bots quiet, kills going on, and
+  the next line after the URL came back was answered. **Determinism:** a
+  recording started before the bots joined, with chat off then on, replayed
+  `identical` inline and at 1, 2 and 4 threads (18,703 intents). A first
+  recording started after the bots joined replayed `DIFFERENT`: its start
+  misses their warm brains, and that was the script's order, not chat. **Unload:**
+  a map change and a quit with chat on printed `UnloadSide(server)` and no
+  "did NOT unload"; that request was not caught in flight live, so
+  `ChatUnloadTests` is what proves an in-flight one. **The console:** an unquoted
+  `http://...` is cut at its `//` to `http:` (the first run's failure), so
+  `ai_chat_url` takes `127.0.0.1:11435`, and the refusal says so.
+  `tools/ai-mutations`: 61 chat arms, every one red, over several runs (six stopped
+  at a mutant that did not compile or was the same as the arm before it, fixed
+  in the harness), and the last run of each green again after restore. One fact was found unable to
+  fail (`AConversationIsForgottenOnAMapChange` read after a join that hid it)
+  and fixed.
+
+- **Decision commitment (§5.4), what the measuring showed.** The brief's premise was
+  that bots change their minds too often. They do (goal jumps 29-50 per bot-minute),
+  but commitment alone did not move stuck: goal jumps halved and stuck stayed. The
+  link between a moving goal and stuck seconds was correlation, and it was reported
+  to the coordinator as the cause before it was tested, then corrected. What moved
+  the score was the classes of §12.3: the turn-back definition, the sight grace, and
+  acting sooner on a stopped body. The share of the fall due to each fix was not
+  measured apart. Commitment also exposed a bug it did not cause: an ambusher jiggled
+  on an ambush spot that was a point in the air, unseen while ambushes lasted a decide.
+  Stuck is still about 9 times a person's and spreads thinly (no spot over about 18 s
+  in a run); wriggling is a person's last resort, and the props should really be on the
+  nav (`docs/todo.md`'s gate at (-3644 4664) is the same kind of thing). Budgets for
+  `ai-jank` wait for stage 3.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

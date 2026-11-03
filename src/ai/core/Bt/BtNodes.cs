@@ -119,9 +119,12 @@ public sealed class BtSelector<T>(string name, params BtNode<T>[] children) : Bt
 }
 
 /// <summary>A child with the utility a <see cref="BtUtilitySelector{T}"/> ranks it by.</summary>
-public sealed class BtScored<T>(string name, Func<T, float> utility, BtNode<T> child) : BtNode<T>(name) where T : class
+public sealed class BtScored<T>(string name, Func<T, float> utility, BtNode<T> child, BtCommit commit = default) : BtNode<T>(name) where T : class
 {
     private readonly BtNode<T>[] _child = [child];
+
+    /// <summary>How the selector holds to this child once chosen (none by default).</summary>
+    public BtCommit Commit { get; } = commit;
 
     public override ReadOnlySpan<BtNode<T>> Children => _child;
 
@@ -141,11 +144,21 @@ public sealed class BtScored<T>(string name, Func<T, float> utility, BtNode<T> c
 }
 
 /// <summary>
+/// How a <see cref="BtUtilitySelector{T}"/> holds to a child once chosen
+/// (plan_hl2mp_ai §5.4): for <see cref="MinSeconds"/> nothing replaces it, and
+/// after that a rival must beat its score by more than <see cref="Margin"/>.
+/// </summary>
+public readonly record struct BtCommit(float MinSeconds, float Margin);
+
+/// <summary>
 /// Scores its children and runs the best first, falling to the next on a
 /// failure. Equal utilities are ordered by the brain's seed (a permutation
 /// drawn once from the run's random stream at the first decide), so a tie
 /// goes the same way every decide for one seed (§8.2: "ties are seed-stable").
 /// A child scored 0 or less is not run.
+/// <para>The child last chosen is held by its <see cref="BtCommit"/>. What ends
+/// that at once: <see cref="Interrupt"/> saying so, its own score falling to 0
+/// or less (what it was for is gone), or its failing.</para>
 /// </summary>
 public sealed class BtUtilitySelector<T> : BtNode<T> where T : class
 {
@@ -153,12 +166,16 @@ public sealed class BtUtilitySelector<T> : BtNode<T> where T : class
     private readonly float[] _scores;
     private readonly int[] _order;
     private readonly int[] _tie;
+    private readonly float[] _ranks;
     private bool _tieDrawn;
+    private int _held = -1;
+    private Tick _heldSince;
 
     public BtUtilitySelector(string name, params BtScored<T>[] children) : base(name)
     {
         _children = children;
         _scores = new float[children.Length];
+        _ranks = new float[children.Length];
         _order = new int[children.Length];
         _tie = new int[children.Length];
     }
@@ -167,6 +184,16 @@ public sealed class BtUtilitySelector<T> : BtNode<T> where T : class
 
     /// <summary>The child that ran last and did not fail, or null: the chosen branch.</summary>
     public BtScored<T>? Chosen { get; private set; }
+
+    /// <summary>What breaks a commitment at once this decide, whatever its timer says. Null: nothing does.</summary>
+    public Func<T, bool>? Interrupt { get; init; }
+
+    /// <summary>A new life: nothing is held.</summary>
+    public override void Reset()
+    {
+        _held = -1;
+        base.Reset();
+    }
 
     protected override BtStatus Execute(T state, BtRun run)
     {
@@ -186,7 +213,14 @@ public sealed class BtUtilitySelector<T> : BtNode<T> where T : class
         for (int i = 0; i < _children.Length; i++)
         {
             _scores[i] = _children[i].Score(state);
+            _ranks[i] = _scores[i];
             _order[i] = i;
+        }
+
+        if (_held >= 0 && _scores[_held] > 0f && Interrupt?.Invoke(state) != true)
+        {
+            BtCommit commit = _children[_held].Commit;
+            _ranks[_held] = (run.Now - _heldSince) * run.TickSeconds < commit.MinSeconds ? float.MaxValue : _scores[_held] + commit.Margin;
         }
 
         // Insertion sort, best first, ties by the seeded rank: no allocation.
@@ -213,15 +247,22 @@ public sealed class BtUtilitySelector<T> : BtNode<T> where T : class
             {
                 Chosen = _children[i];
                 Value = _scores[i];
+                if (_held != i)
+                {
+                    _held = i;
+                    _heldSince = run.Now;
+                }
+
                 return s;
             }
         }
 
+        _held = -1;
         return BtStatus.Failure;
     }
 
     private bool Before(int a, int b)
-        => _scores[a] > _scores[b] || (_scores[a] == _scores[b] && _tie[a] < _tie[b]);
+        => _ranks[a] > _ranks[b] || (_ranks[a] == _ranks[b] && _tie[a] < _tie[b]);
 }
 
 /// <summary>A test of the state: success when it holds.</summary>

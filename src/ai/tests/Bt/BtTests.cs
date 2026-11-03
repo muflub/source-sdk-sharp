@@ -14,6 +14,109 @@ public sealed class BtTests
         public readonly List<string> Ran = new();
         public float A = 1f, B = 1f;
         public BtStatus Answer = BtStatus.Success;
+        public bool Stop;
+    }
+
+    /// <summary>A over B, each held for a second (67 ticks) and by a margin of 0.1.</summary>
+    private static (BehaviorTree<State> Tree, BtUtilitySelector<State> Root, State S, BtRun Run) Committed(BtStatus a = BtStatus.Success)
+    {
+        var commit = new BtCommit(1f, 0.1f);
+        var root = new BtUtilitySelector<State>("root",
+            new BtScored<State>("A", x => x.A, new BtAction<State>("a", (x, _) => x.Answer), commit),
+            new BtScored<State>("B", x => x.B, Leaf("b"), commit))
+        {
+            Interrupt = x => x.Stop,
+        };
+        var s = new State { A = 0.5f, B = 0.4f, Answer = a };
+        BtRun run = Run();
+        var tree = new BehaviorTree<State>(root);
+        tree.Decide(s, run, new Tick(1));
+        Assert.Equal("A", root.Chosen?.Name);
+        return (tree, root, s, run);
+    }
+
+    [Fact]
+    public void ACommittedChildHoldsAgainstAnyScoreForItsMinimum()
+    {
+        var (tree, root, s, run) = Committed();
+        s.B = 0.99f;
+        tree.Decide(s, run, new Tick(2));
+        Assert.Equal("A", root.Chosen?.Name);
+        tree.Decide(s, run, new Tick(1 + 66));     // 0.99 s
+        Assert.Equal("A", root.Chosen?.Name);
+        tree.Decide(s, run, new Tick(1 + 67));     // 1.005 s
+        Assert.Equal("B", root.Chosen?.Name);
+    }
+
+    [Fact]
+    public void AfterItsMinimumARivalMustBeatTheMargin()
+    {
+        var (tree, root, s, run) = Committed();
+        s.B = 0.59f;                                // within A's 0.5 + 0.1
+        tree.Decide(s, run, new Tick(200));
+        Assert.Equal("A", root.Chosen?.Name);
+        tree.Decide(s, run, new Tick(300));         // held on, and past the minimum all the same
+        Assert.Equal("A", root.Chosen?.Name);
+        s.B = 0.61f;
+        tree.Decide(s, run, new Tick(301));
+        Assert.Equal("B", root.Chosen?.Name);
+    }
+
+    [Fact]
+    public void AnInterruptBreaksACommitmentAtOnce()
+    {
+        var (tree, root, s, run) = Committed();
+        s.B = 0.6f;
+        tree.Decide(s, run, new Tick(2));
+        Assert.Equal("A", root.Chosen?.Name);
+        s.Stop = true;
+        tree.Decide(s, run, new Tick(3));
+        Assert.Equal("B", root.Chosen?.Name);
+    }
+
+    /// <summary>What it was for is gone: its score at 0 ends it inside the minimum.</summary>
+    [Fact]
+    public void AScoreOfZeroEndsACommitmentAtOnce()
+    {
+        var (tree, root, s, run) = Committed();
+        s.A = 0f;
+        tree.Decide(s, run, new Tick(2));
+        Assert.Equal("B", root.Chosen?.Name);
+    }
+
+    [Fact]
+    public void AFailureEndsACommitmentAtOnce()
+    {
+        var (tree, root, s, run) = Committed();
+        s.Answer = BtStatus.Failure;
+        tree.Decide(s, run, new Tick(2));
+        Assert.Equal("B", root.Chosen?.Name);
+    }
+
+    [Fact]
+    public void AResetReleasesTheCommitment()
+    {
+        var (tree, root, s, run) = Committed();
+        s.B = 0.99f;
+        tree.Reset();
+        tree.Decide(s, run, new Tick(2));
+        Assert.Equal("B", root.Chosen?.Name);
+    }
+
+    /// <summary>The control: a child with no commitment is replaced by any better score at once, as before there were any.</summary>
+    [Fact]
+    public void AChildWithNoCommitmentIsReplacedAtOnce()
+    {
+        var root = new BtUtilitySelector<State>("root",
+            new BtScored<State>("A", x => x.A, Leaf("a")),
+            new BtScored<State>("B", x => x.B, Leaf("b")));
+        var s = new State { A = 0.5f, B = 0.4f };
+        BtRun run = Run();
+        var tree = new BehaviorTree<State>(root);
+        tree.Decide(s, run, new Tick(1));
+        s.B = 0.51f;
+        tree.Decide(s, run, new Tick(2));
+        Assert.Equal("B", root.Chosen?.Name);
     }
 
     private static BtNode<State> Leaf(string name, BtStatus status = BtStatus.Success)

@@ -176,7 +176,9 @@ public sealed class SkillObservableTests
         {
             d.Step(d.Self(), [(Duel.Opponent, at)], d.SeeAt(Duel.Opponent, at));
             d.Step(d.Self(), [], AiEvent.SightLost(Duel.Bot, new Tick(d.Tick + 6), Duel.Opponent, at, AiVector.Zero));
-            d.Step(d.Self(), []);
+            // Past the moment a corner's flicker is allowed (§5.4), the fight becomes a chase.
+            for (int k = 0; k < 10; k++)
+                d.Step(d.Self(), []);
         }
 
         Assert.True(d.Decider.Approaches >= 250, $"the approaches were begun: {d.Decider.Approaches}");

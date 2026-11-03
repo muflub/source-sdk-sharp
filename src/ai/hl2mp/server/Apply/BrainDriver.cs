@@ -42,6 +42,8 @@ public sealed class BrainDriver
         _scripted.Remove(slot);
         _climbs.Remove(slot);
         _progress.Remove(slot);
+        _body.Remove(slot);
+        _wedged.Remove(slot);
         _stuckSaid.Remove(slot);
         _giveWay.Forget(slot);
         _unreachable.Remove(slot);
@@ -77,12 +79,22 @@ public sealed class BrainDriver
         {
             _giveWay.Step(slot, d.Follower, origin, tick, Players, ref move);
             if (_giveWay.Waiting)
+            {
                 _progress.Remove(slot);
+                _body.Remove(slot);
+            }
             else
+            {
                 Watch(slot, d, origin, tick);
+                WatchBody(slot, d, origin, tick);
+                Wriggle(slot, origin, tick, ref move);
+            }
         }
         else
+        {
             _progress.Remove(slot);
+            _body.Remove(slot);
+        }
 
         return new IntentCommand(brain.Bot, tick, seq, tick + IntentCommand.LifetimeTicks, move, look, action, brain.Reason);
     }
@@ -350,6 +362,31 @@ public sealed class BrainDriver
     /// <summary>How long a bot may make no progress toward its goal before it acts (3 s).</summary>
     public const int StuckTicks = 200;
 
+    /// <summary>How long a body may stand against something it is walking into before it acts (0.6 s).</summary>
+    public const int BodyBlockTicks = 40;
+
+    /// <summary>A body that has moved less than this has stopped.</summary>
+    public const float BodyBlockUnits = 8f;
+
+    private readonly Dictionary<int, (AiVector At, int Tick)> _body = new();
+    private readonly Dictionary<int, Wedge> _wedged = new();
+
+    /// <summary>Stopped again within this of the place it stopped, a bot is wedged there.</summary>
+    public const float WedgeUnits = 48f;
+
+    /// <summary>How long one try at getting out lasts (0.5 s).</summary>
+    public const int WriggleTicks = 33;
+
+    /// <summary>Each try goes this much round from the last: every way within eight tries.</summary>
+    public const float WriggleTurn = 135f;
+
+    private sealed class Wedge(AiVector at)
+    {
+        public AiVector At { get; } = at;
+        public int Tries { get; set; }
+        public int Until { get; set; } = int.MinValue;
+    }
+
     /// <summary>How many times a bot of the brains has acted on being stuck, for the counters.</summary>
     public long Stucks { get; private set; }
 
@@ -406,6 +443,89 @@ public sealed class BrainDriver
 
         if (tick.Value - p.Tick <= StuckTicks)
             return;
+        ReportStuck(slot, d, origin);
+        p.Best = float.PositiveInfinity;
+        p.Anchor = origin;
+        p.Tick = tick.Value;
+    }
+
+    /// <summary>
+    /// A body walking a plain floor that has stopped dead (under
+    /// <see cref="BodyBlockUnits"/> in <see cref="BodyBlockTicks"/>) is against
+    /// something the nav does not know: on dm_lockdown a heater, a cabinet or a
+    /// crate someone shoved. A person sees that at once; the cost-based patience
+    /// above is for a bot that moves and gets no nearer. A door, a ladder or a
+    /// jump on the way is waited for as its own code says.
+    /// </summary>
+    private void WatchBody(int slot, Driven d, AiVector origin, Tick tick)
+    {
+        if (d.State != FollowState.Moving || d.Follower.NextVia != NavEdgeType.Walk)
+        {
+            _body.Remove(slot);
+            return;
+        }
+
+        if (!_body.TryGetValue(slot, out (AiVector At, int Tick) b) || origin.DistanceTo(b.At) >= BodyBlockUnits)
+        {
+            _body[slot] = (origin, tick.Value);
+            return;
+        }
+
+        if (tick.Value - b.Tick < BodyBlockTicks)
+            return;
+        ReportStuck(slot, d, origin);
+        Blocked(slot, origin, tick);
+        if (_progress.TryGetValue(slot, out Progress? p))
+        {
+            p.Best = float.PositiveInfinity;
+            p.Anchor = origin;
+            p.Tick = tick.Value;
+        }
+
+        _body[slot] = (origin, tick.Value);
+    }
+
+    /// <summary>
+    /// The same place stopping the body again: a route round has not freed it,
+    /// so it is wedged (live, dm_lockdown: 77 s on top of two file cabinets, with
+    /// the field's way into the wall behind them). As a person would, it tries
+    /// each way in turn for a moment, whatever the route says, with a jump on
+    /// every other try.
+    /// </summary>
+    private void Blocked(int slot, AiVector origin, Tick tick)
+    {
+        if (!_wedged.TryGetValue(slot, out Wedge? w) || origin.DistanceTo(w.At) > WedgeUnits)
+        {
+            _wedged[slot] = new Wedge(origin);
+            return;
+        }
+
+        w.Tries++;
+        w.Until = tick.Value + WriggleTicks;
+    }
+
+    private void Wriggle(int slot, AiVector origin, Tick tick, ref MoveIntent move)
+    {
+        if (!_wedged.TryGetValue(slot, out Wedge? w))
+            return;
+        if (origin.DistanceTo(w.At) > WedgeUnits)
+        {
+            _wedged.Remove(slot);
+            return;
+        }
+
+        if (tick.Value >= w.Until)
+            return;
+        float angle = w.Tries * WriggleTurn * (MathF.PI / 180f);
+        var way = new AiVector(MathF.Cos(angle), MathF.Sin(angle), 0f);
+        move = w.Tries % 2 == 0
+            ? new MoveIntent(MoveKind.Jump, MoveSpeed.Run, 1, origin + way * 64f, default, default, default, default, false, 0)
+            : new MoveIntent(MoveKind.Strafe, MoveSpeed.Run, 0, default, default, default, default, way, false, 0);
+        _body.Remove(slot);
+    }
+
+    private void ReportStuck(int slot, Driven d, AiVector origin)
+    {
         string where = System.FormattableString.Invariant($"({origin.X:F0} {origin.Y:F0} {origin.Z:F0})");
         string next = d.Follower.NextStep();
         int at = d.Follower.At.Index;
@@ -416,9 +536,6 @@ public sealed class BrainDriver
         Stucks++;
         _stuckSaid[slot] = $"is stuck at {where}, cell {at}, {d.State}, next {next}; "
                            + (round ? $"routes round {d.Follower.Avoided.Count} cells" : "no way round: jumps at it");
-        p.Best = float.PositiveInfinity;
-        p.Anchor = origin;
-        p.Tick = tick.Value;
     }
 
     /// <summary>How far a bot off the field must move from where it was to count as moving.</summary>

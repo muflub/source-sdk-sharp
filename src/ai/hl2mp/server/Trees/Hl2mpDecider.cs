@@ -119,6 +119,39 @@ public sealed class Hl2mpDecider : IDecider
     private bool _flanking;
     private AiVector _flank;
 
+    // What a commitment remembers between decides (§5.4).
+    private bool _interrupted, _wasSighted, _goalHeld, _walkingToGoal;
+    private Tick _damageSeen, _goalHeldSince, _progressTick;
+    private AiVector _heldGoal, _progressAt;
+    private KnownActor? _heldFor, _lastTarget;
+    private string _heldLeaf = "";
+
+    /// <summary>How long a leaf's goal holds against a new one (§5.4).</summary>
+    public const float GoalHoldSeconds = 3f;
+
+    /// <summary>A new goal this near the held one is the same place: it is taken with no change of mind.</summary>
+    public const float GoalNearUnits = 32f;
+
+    /// <summary>Inside this the held goal is reached, as a search's and a roam's are.</summary>
+    public const float GoalArriveUnits = 96f;
+
+    /// <summary>A bot with a goal moving less than this for <see cref="NoProgressSeconds"/> is getting nowhere (§5.4).</summary>
+    public const float NoProgressUnits = 32f;
+
+    public const float NoProgressSeconds = 1.5f;
+
+    /// <summary>The priority the opponent the bot is already about has over a rival (§5.4).</summary>
+    public const float TargetStick = 1.25f;
+
+    /// <summary>How long after losing sight a fight goes on as it was, before it becomes a chase (§5.4).</summary>
+    public const float SightGraceSeconds = 0.75f;
+
+    /// <summary>An ambusher this near its spot has arrived: it stands.</summary>
+    public const float AmbushStandUnits = 48f;
+
+    /// <summary>What broke the commitment this decide ("" nothing), for the facts and the inspector.</summary>
+    public string LastInterrupt { get; private set; } = "";
+
     /// <summary>Approaches begun, and those that took a flank (§10 Cunning's observable), for the facts and the inspector.</summary>
     public int Approaches { get; private set; }
 
@@ -179,6 +212,8 @@ public sealed class Hl2mpDecider : IDecider
             _roaming = false;
             _ambushUntil = default;
             _approachOf = ActorId.None;
+            _goalHeld = _walkingToGoal = _wasSighted = false;
+            _heldFor = _lastTarget = null;
             Trace.Begin(tick);
             Trace.End(default);
             Doing = new DoingRecord("dead", "", false, default, ActorId.None, "", 0f, 0f, 0f, 0f, 0f, 0f, tick);
@@ -194,7 +229,9 @@ public sealed class Hl2mpDecider : IDecider
         if (!_targetSighted)
             _aimSighted = false;          // back in sight, the aim starts over
 
+        _interrupted = NoteInterrupts();
         _tree.Decide(this, _run, tick);
+        HoldGoal();
         if (!_targetSighted && _hasGoal && _look.Kind == LookKind.Path)
             Glance();
         Overlays();
@@ -241,18 +278,125 @@ public sealed class Hl2mpDecider : IDecider
             new BtSequence<Hl2mpDecider>("empty", If("clip empty", d => d.ClipEmpty), Act("reload empty", d => d.ReloadEmpty())),
             new BtSequence<Hl2mpDecider>("push", If("push test", d => d.PushTest()), Act("push", d => d.Push())),
             new BtSequence<Hl2mpDecider>("retreat", If("outgunned", d => d.Outgunned()), Act("retreat", d => d.Retreat())),
-            new BtSequence<Hl2mpDecider>("hold", If("in sight", d => d._targetSighted), Act("hold range", d => d.HoldRange())),
+            new BtSequence<Hl2mpDecider>("hold", If("in sight", d => d._targetSighted || d.SightJustLost), Act("hold range", d => d.HoldRange())),
             Act("chase", d => d.Chase()));
 
         return new BtUtilitySelector<Hl2mpDecider>("root",
-            new BtScored<Hl2mpDecider>("Survive", d => d.SurviveUtility(), Act("go heal", d => d.GoHeal())),
-            new BtScored<Hl2mpDecider>("Fight", d => d.FightUtility(), fight),
-            new BtScored<Hl2mpDecider>("Hunt", d => d.HuntUtility(), Act("hunt", d => d.Hunt())),
-            new BtScored<Hl2mpDecider>("Search", d => d.SearchUtility(), Act("search", d => d.Search())),
-            new BtScored<Hl2mpDecider>("Ambush", d => d.AmbushUtility(), Act("ambush", d => d.Ambush())),
-            new BtScored<Hl2mpDecider>("Deny", d => d.DenyUtility(), Act("deny", d => d.Deny())),
-            new BtScored<Hl2mpDecider>("Arm", d => d.ArmUtility(), Act("arm", d => d.Arm())),
-            new BtScored<Hl2mpDecider>("Roam", _ => 0.1f, Act("roam", d => d.Roam())));
+            new BtScored<Hl2mpDecider>("Survive", d => d.SurviveUtility(), Act("go heal", d => d.GoHeal()), new BtCommit(3f, 0.1f)),
+            new BtScored<Hl2mpDecider>("Fight", d => d.FightUtility(), fight, new BtCommit(1.5f, 0.1f)),
+            new BtScored<Hl2mpDecider>("Hunt", d => d.HuntUtility(), Act("hunt", d => d.Hunt()), new BtCommit(2.5f, 0.1f)),
+            new BtScored<Hl2mpDecider>("Search", d => d.SearchUtility(), Act("search", d => d.Search()), new BtCommit(2f, 0.1f)),
+            new BtScored<Hl2mpDecider>("Ambush", d => d.AmbushUtility(), Act("ambush", d => d.Ambush()), new BtCommit(4f, 0.1f)),
+            new BtScored<Hl2mpDecider>("Deny", d => d.DenyUtility(), Act("deny", d => d.Deny()), new BtCommit(2f, 0.1f)),
+            new BtScored<Hl2mpDecider>("Arm", d => d.ArmUtility(), Act("arm", d => d.Arm()), new BtCommit(3f, 0.1f)),
+            new BtScored<Hl2mpDecider>("Roam", _ => 0.1f, Act("roam", d => d.Roam()), new BtCommit(1f, 0.05f)))
+        {
+            Interrupt = d => d._interrupted,
+        };
+    }
+
+    // ------------------------------------------------------------------ commitment (§5.4)
+
+    /// <summary>
+    /// What ends a commitment at once (§5.4): someone seen close (the ruling
+    /// "close, firing comes first"), someone newly seen at any range, damage
+    /// taken since the last decide, an empty clip, a goal gone, and getting
+    /// nowhere. Reads the bot's own view and memory, and notes what it has seen
+    /// for the next decide, so it runs once a decide, before the tree.
+    /// </summary>
+    private bool NoteInterrupts()
+    {
+        Tick damaged = _memory.Board.LastDamageTick;
+        bool hit = damaged != _damageSeen;
+        _damageSeen = damaged;
+        bool gained = _targetSighted && !_wasSighted;
+        _wasSighted = _targetSighted;
+        bool close = _targetSighted && _targetDist <= CloseRange;
+        bool stuck = NoProgress();
+        bool gone = HeldGoalGone();
+        LastInterrupt = close ? "close" : gained ? "seen" : hit ? "hurt" : ClipEmpty ? "empty" : gone ? "goal gone" : stuck ? "stuck" : "";
+        return LastInterrupt.Length > 0;
+    }
+
+    /// <summary>
+    /// A bot with a goal it has not reached that has moved less than
+    /// <see cref="NoProgressUnits"/> for <see cref="NoProgressSeconds"/>; said
+    /// once, then the time starts over. It is what the bot knows of itself: the
+    /// driver's own detector, which routes round, is later and lives on the main
+    /// thread.
+    /// </summary>
+    private bool NoProgress()
+    {
+        if (!_walkingToGoal || _self.Origin.DistanceTo(_progressAt) >= NoProgressUnits)
+        {
+            _progressAt = _self.Origin;
+            _progressTick = _now;
+            return false;
+        }
+
+        if ((_now - _progressTick) * _tick < NoProgressSeconds)
+            return false;
+        _progressAt = _self.Origin;
+        _progressTick = _now;
+        return true;
+    }
+
+    /// <summary>The goal held is gone: the pickup there is known taken, or the opponent it was about is dead.</summary>
+    private bool HeldGoalGone()
+    {
+        if (!_goalHeld)
+            return false;
+        if (_heldFor is { Dead: true })
+            return true;
+        ReadOnlySpan<ItemBelief> beliefs = _memory.Board.Items;
+        for (int i = 0; i < _map.Items.Length && i < beliefs.Length; i++)
+        {
+            if (beliefs[i].Present == false && _map.Items[i].Position.DistanceTo(_heldGoal) < 1f)
+                return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// A leaf's goal holds for <see cref="GoalHoldSeconds"/> (§5.4): a belief's
+    /// arg-max, the nearest pickup and the best investigation all move as the
+    /// bot does, and a bot that turned for each of them walked away and back.
+    /// A new goal is taken at once if it is near the held one, if the leaf
+    /// changed, if something interrupted, or once the held one is reached. A
+    /// goal on an opponent in sight is not held: it is where they are.
+    /// </summary>
+    private void HoldGoal()
+    {
+        bool leafChanged = _leaf != _heldLeaf;
+        _heldLeaf = _leaf;
+        if (!_hasGoal || (_targetSighted && _goal == _targetPos))
+        {
+            _goalHeld = false;
+            _heldFor = null;
+            _walkingToGoal = _hasGoal;
+            return;
+        }
+
+        bool keep = _goalHeld && !leafChanged && !_interrupted
+                    && (_now - _goalHeldSince) * _tick < GoalHoldSeconds
+                    && _self.Origin.DistanceTo(_heldGoal) >= GoalArriveUnits
+                    && _goal.DistanceTo(_heldGoal) >= GoalNearUnits;
+        if (keep)
+        {
+            _goal = _heldGoal;
+            _move = _move with { Corner0 = _heldGoal };
+        }
+        else
+        {
+            if (!_goalHeld || leafChanged || _interrupted || _goal.DistanceTo(_heldGoal) >= GoalNearUnits)
+                _goalHeldSince = _now;
+            _goalHeld = true;
+            _heldGoal = _goal;
+            _heldFor = _target;
+        }
+
+        _walkingToGoal = _self.Origin.DistanceTo(_goal) >= GoalArriveUnits;
     }
 
     // ------------------------------------------------------------------ targets
@@ -296,6 +440,8 @@ public sealed class Hl2mpDecider : IDecider
             float rankTerm = _p.RankBonus * RankBonus(a.Rank, rows);
             float proximity = 1f / (1f + dist / 768f);
             float priority = (sighted ? 1f : 0.5f * a.Confidence) * (proximity * _p.EasyTargetDiscount + rankTerm);
+            if (ReferenceEquals(a, _lastTarget))
+                priority *= TargetStick;
             // Someone close in plain sight outranks everyone else, the nearest first.
             bool closer = sighted && dist <= closest;
             if (closer)
@@ -315,6 +461,8 @@ public sealed class Hl2mpDecider : IDecider
                 _scoreboardTerm = rankTerm;
             }
         }
+
+        _lastTarget = _target;
     }
 
     /// <summary>§5.4's rankBonus: rank 1 is 1, falling linearly to 0 at the bottom of the rows; no rank, nothing.</summary>
@@ -332,6 +480,13 @@ public sealed class Hl2mpDecider : IDecider
             return _graph.Cell(w.ArgMax).Centre;
         return a.LastHeardTick > a.LastSeenTick ? a.LastHeardPos : a.LastSeenPos;
     }
+
+    /// <summary>
+    /// The opponent went out of sight a moment ago (§5.4): a corner flickers
+    /// sight on and off, and a bot that stopped its fight for a chase each time
+    /// flipped between the two leaves (70-85 % of all leaf flips, 9fa61c831).
+    /// </summary>
+    private bool SightJustLost => _target is not null && !_targetSighted && _target.EverSeen && (_now - _target.LastSeenTick) * _tick < SightGraceSeconds;
 
     private bool SelfReloading => (_self.Flags & SelfFlags.Reloading) != 0;
 
@@ -492,6 +647,9 @@ public sealed class Hl2mpDecider : IDecider
         else
             Strafe(0f);
         LookAtTargetAndFire();
+        // Just out of sight the view stays on where they were, as a chase's does.
+        if (!_targetSighted && _target is not null)
+            _look = new LookIntent(LookKind.Point, ChaseLook(_target.LastSeenPos), _target.Id, AimPoint.Body, 0f, 0);
         return true;
     }
 
@@ -659,9 +817,24 @@ public sealed class Hl2mpDecider : IDecider
 
         if (best <= 0f)
             return false;
-        // A spot a few hundred units back along the line from the watched cell to the bot.
+        // A spot a few hundred units back along the line from the watched cell to
+        // the bot, on the graph (a point on that line is often in the air or a wall),
+        // else where the bot is.
         AiVector toBot = (_self.Origin - _ambushWatch).Normalised();
-        _ambushSpot = _ambushWatch + toBot * 384f;
+        CellId spot = default;
+        for (float back = 384f; back > 0f && !spot.IsValid; back -= 128f)
+        {
+            AiVector at = _ambushWatch + toBot * back;
+            spot = _graph.FindCell(new AiVector(at.X, at.Y, _ambushWatch.Z + 1f));
+            if (!spot.IsValid)
+                spot = _graph.FindCell(new AiVector(at.X, at.Y, _self.Origin.Z + 1f));
+        }
+
+        if (!spot.IsValid)
+            spot = _graph.FindCell(_self.Origin + new AiVector(0f, 0f, 1f));
+        if (!spot.IsValid)
+            return false;
+        _ambushSpot = _graph.Cell(spot).Centre;
         return true;
     }
 
@@ -669,7 +842,9 @@ public sealed class Hl2mpDecider : IDecider
     {
         if (_now >= _ambushUntil)
             _ambushUntil = _now + (int)(8f / _tick);
-        GoTo(_ambushSpot, MoveSpeed.Walk, MoveKind.Follow);
+        // At the spot it stands and watches: a move to where it already is only jiggles.
+        if (_self.Origin.DistanceTo(_ambushSpot) >= AmbushStandUnits)
+            GoTo(_ambushSpot, MoveSpeed.Walk, MoveKind.Follow);
         _look = new LookIntent(LookKind.Point, _ambushWatch + new AiVector(0f, 0f, 48f), ActorId.None, AimPoint.Body, 0f, 0);
         return true;
     }

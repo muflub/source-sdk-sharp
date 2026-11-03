@@ -5,6 +5,7 @@
   tools/ai-scenario hearing [--config debug] [--keep]
   tools/ai-scenario duel|routes|nav [--config debug] [--keep]
   tools/ai-scenario jank [--minutes 5] [--config debug] [--keep]   (`make ai-jank`)
+  tools/ai-scenario live [--config debug] [--keep]
 
 Starts a headless game on the map (`make headless`, its own instance, temp
 dir, dev-API directory and port), records the AI session (`ai_record`), adds
@@ -26,6 +27,10 @@ scenario: dm_lockdown (`make ai-nav`), four bots of mixed presets and a scripted
 client, recorded for the minutes asked, scored with `tools/ai-replay jank`. It
 writes bin/<config>/ai-jank/<utc>-<sha>.airec and its report beside it, never
 into the tree's recordings.
+
+`live` makes the committed live session again, after a change to what the brains
+decide: dm_lockdown, the four bots of LiveRecordingTests, 2,400 ticks on the pool
+beside an idle human, to src/ai/tests/recordings/live/dm_lockdown-4bots.airec.
 """
 import hashlib
 import json
@@ -411,8 +416,36 @@ def jank(config, keep, minutes):
     return 0
 
 
+# LiveRecordingTests' four: hard, normal, easy and a Headhunter 10 / Discipline 10 custom.
+LIVE_BOTS = [("Alyx", "hard"), ("Barney", "normal"), ("Gordon", "easy"), ("Hunter", "skills=4,4,4,3,3,3,10,3,4,10")]
+LIVE_TICKS = 2400
+
+
+def live(config, keep):
+    rec = os.path.join(ROOT, "src", "ai", "tests", "recordings", "live", "dm_lockdown-4bots.airec")
+    game = Game("dm_lockdown", config)
+    try:
+        game.start()
+        game.cmd("ai_record start %s dm_lockdown" % rec)
+        for name, preset in LIVE_BOTS:
+            game.cmd("ai_bot_add %s %s" % (name, preset))
+        time.sleep(2)
+        bots = bots_by_name(game)
+        if len(bots) != len(LIVE_BOTS):
+            raise SystemExit("ai-scenario: %d of the %d bots came in: %s" % (len(bots), len(LIVE_BOTS), sorted(bots)))
+        end = game.tick() + LIVE_TICKS
+        while game.tick() < end:
+            time.sleep(1)
+        game.cmd("ai_record stop")
+        time.sleep(1)
+    finally:
+        game.stop(keep)
+    print("ai-scenario: wrote %s (%d bytes)" % (rec, os.path.getsize(rec)))
+    return 0
+
+
 def main(argv):
-    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav", "jank"):
+    if not argv or argv[0] not in ("sight", "hearing", "duel", "routes", "nav", "jank", "live"):
         print(__doc__)
         return 2
     which = argv[0]
@@ -420,6 +453,8 @@ def main(argv):
     keep = "--keep" in argv
     if which == "jank":
         return jank(config, keep, float(argv[argv.index("--minutes") + 1]) if "--minutes" in argv else 5.0)
+    if which == "live":
+        return live(config, keep)
     map_name = "ss_ai_" + which
     bsp = os.path.join(ROOT, "bin", config, "mods", "test", "maps", map_name + ".bsp")
     vmf = os.path.join(ROOT, "game", "mod_test", "maps", "src", "ai", map_name + ".vmf")

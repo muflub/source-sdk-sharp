@@ -407,16 +407,100 @@ public sealed class BrainDriverTests
         var (g, ground, _) = Course();
         var d = new BrainDriver();
         AiVector goal = g.Cell(ground[4]).Centre, at = g.Cell(ground[0]).Centre;
+        // Moving about (so its body has not stopped) and getting no nearer.
+        AiVector About(int t) => at + new AiVector(0f, t % 2 * (BrainDriver.BodyBlockUnits + 1f), 0f);
         int t = 2;
         for (; t < 2 + BrainDriver.StuckTicks; t++)
-            d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0));
+            d.Drive(Brain(goal), About(t), new Tick(t), t, g, new NavObstacleState(0));
         Assert.Equal(0, d.Stucks);
         Assert.Null(d.TakeStuckLine(Bot.Slot));
         for (; t < 2 + BrainDriver.StuckTicks + 4; t++)
-            d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0));
+            d.Drive(Brain(goal), About(t), new Tick(t), t, g, new NavObstacleState(0));
         Assert.Equal(1, d.Stucks);
         Assert.Contains("is stuck at", d.TakeStuckLine(Bot.Slot), StringComparison.Ordinal);
         Assert.Null(d.TakeStuckLine(Bot.Slot));
+    }
+
+    /// <summary>A body stopped dead on a plain floor acts inside a second: a heater in the way looks the same as no way at all for three.</summary>
+    [Fact]
+    public void ABodyStoppedDeadActsInsideASecond()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver();
+        AiVector goal = g.Cell(ground[4]).Centre, at = g.Cell(ground[0]).Centre;
+        int t = 2;
+        for (; t < 2 + BrainDriver.BodyBlockTicks; t++)
+            d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0));
+        Assert.Equal(0, d.Stucks);
+        for (; t < 2 + BrainDriver.BodyBlockTicks + 2; t++)
+            d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0));
+        Assert.Equal(1, d.Stucks);
+        Assert.Equal(40, BrainDriver.BodyBlockTicks);
+    }
+
+    /// <summary>Stopped at one place again and again, whatever the route says, it tries a different way each time, and a jump every other; moved away, that is over.</summary>
+    [Fact]
+    public void ABodyWedgedTriesEachWayInTurnAndMovingFreesIt()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver();
+        AiVector goal = g.Cell(ground[4]).Centre, at = g.Cell(ground[0]).Centre;
+        var ways = new List<(MoveKind Kind, AiVector Way)>();
+        MoveKind last = MoveKind.Hold;
+        int t = 2;
+        for (; t < 2 + 6 * (BrainDriver.BodyBlockTicks + BrainDriver.WriggleTicks); t++)
+        {
+            IntentCommand c = d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0));
+            bool wriggling = c.Move.Kind == MoveKind.Strafe || (c.Move.Kind == MoveKind.Jump && c.Move.CornerCount == 1 && c.Move.Corner0.DistanceTo(at) < 65f);
+            if (wriggling && last != c.Move.Kind)
+                ways.Add((c.Move.Kind, c.Move.Kind == MoveKind.Strafe ? c.Move.Direction : (c.Move.Corner0 - at).Normalised()));
+            last = wriggling ? c.Move.Kind : MoveKind.Hold;
+        }
+
+        Assert.True(ways.Count >= 2, $"tries: {ways.Count}");
+        Assert.Contains(ways, w => w.Kind == MoveKind.Strafe);
+        Assert.Contains(ways, w => w.Kind == MoveKind.Jump);
+        for (int i = 1; i < ways.Count; i++)
+            Assert.True(ways[i].Way.DistanceTo(ways[i - 1].Way) > 1f, "the same way again");
+
+        // Free, in the middle of a try: it goes back to following at once.
+        for (int k = 0; k < 2 * (BrainDriver.BodyBlockTicks + BrainDriver.WriggleTicks); k++, t++)
+        {
+            if (d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0)).Move.Kind is MoveKind.Strafe or MoveKind.Jump)
+                break;
+        }
+
+        AiVector away = at + new AiVector(0f, BrainDriver.WedgeUnits + 16f, 0f);
+        MoveKind next = d.Drive(Brain(goal), away, new Tick(t + 1), t + 1, g, new NavObstacleState(0)).Move.Kind;
+        Assert.False(next is MoveKind.Strafe or MoveKind.Jump, $"still wriggling: {next}");
+    }
+
+    /// <summary>The first stop is a route round only: no one wriggles at a crate before trying to walk round it.</summary>
+    [Fact]
+    public void AFirstStopDoesNotWriggle()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver();
+        AiVector goal = g.Cell(ground[4]).Centre, at = g.Cell(ground[0]).Centre;
+        for (int t = 2; t < 2 + BrainDriver.BodyBlockTicks + 2; t++)
+            Assert.NotEqual(MoveKind.Strafe, d.Drive(Brain(goal), at, new Tick(t), t, g, new NavObstacleState(0)).Move.Kind);
+        Assert.Equal(1, d.Stucks);
+    }
+
+    /// <summary>The body creeping on (a shove of a crate) has not stopped, and arrival is no blockage.</summary>
+    [Fact]
+    public void ABodyStillMovingOrArrivedHasNotStopped()
+    {
+        var (g, ground, _) = Course();
+        var d = new BrainDriver();
+        AiVector goal = g.Cell(ground[4]).Centre, at = g.Cell(ground[0]).Centre;
+        for (int t = 2; t < 2 + BrainDriver.BodyBlockTicks * 2; t++)
+            d.Drive(Brain(goal), at + (goal - at).Normalised() * ((t - 2) * 0.4f), new Tick(t), t, g, new NavObstacleState(0));
+        Assert.Equal(0, d.Stucks);
+        var there = new BrainDriver();
+        for (int t = 2; t < 2 + BrainDriver.BodyBlockTicks * 3; t++)
+            there.Drive(Brain(goal), goal, new Tick(t), t, g, new NavObstacleState(0));
+        Assert.Equal(0, there.Stucks);
     }
 
     /// <summary>A goal re-chosen every half second is no progress: a hunt stood at the walkway's wall for good, its patience started over each time.</summary>
@@ -427,7 +511,7 @@ public sealed class BrainDriverTests
         var d = new BrainDriver();
         AiVector at = g.Cell(ground[0]).Centre;
         for (int t = 2; t < 2 + BrainDriver.StuckTicks + BrainDriver.RegoalTicks * 2; t++)
-            d.Drive(Brain(g.Cell(ground[1 + (t / BrainDriver.RegoalTicks) % 2 + 2]).Centre), at, new Tick(t), t, g, new NavObstacleState(0));
+            d.Drive(Brain(g.Cell(ground[1 + (t / BrainDriver.RegoalTicks) % 2 + 2]).Centre), at + new AiVector(0f, t % 2 * (BrainDriver.BodyBlockUnits + 1f), 0f), new Tick(t), t, g, new NavObstacleState(0));
         Assert.True(d.Stucks >= 1, "no stuck report");
     }
 

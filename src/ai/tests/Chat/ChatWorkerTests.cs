@@ -13,6 +13,9 @@ public sealed class ChatWorkerTests
     private static ChatJob Job(int id = 1, float timeout = 30f)
         => new(id, 2, new ChatPrompt("s", "u", 8), new ChatTarget("http://127.0.0.1:1", "fake"), timeout, "Pia");
 
+    /// <summary>A stop's wait in a fact: the shipped bound is for a level's end, and a loaded box can miss it.</summary>
+    private const int AStarvedBox = 30_000;
+
     private static bool Until(Func<bool> condition, int ms = 5000)
     {
         long stop = Environment.TickCount64 + ms;
@@ -117,7 +120,7 @@ public sealed class ChatWorkerTests
             Assert.True(worker.TryPost(Job()));
             Assert.True(Until(() => writer.InFlight == 1));
             var clock = Stopwatch.StartNew();
-            Assert.True(worker.Stop(), "the thread ended");
+            Assert.True(worker.Stop(AStarvedBox), "the thread ended");
             Assert.True(clock.ElapsedMilliseconds < ChatWorker.JoinMilliseconds, $"{clock.ElapsedMilliseconds} ms");
             Assert.Equal((0, 0L, 0L), (writer.InFlight, counters.TimedOut, counters.Leaked));
             Assert.False(worker.Running);
@@ -155,10 +158,33 @@ public sealed class ChatWorkerTests
         (ChatWorker worker, ChatRig.Writer _, ChatCounters _) = Rig();
         using (worker)
         {
-            Assert.True(worker.Stop());
+            Assert.True(worker.Stop(AStarvedBox));
             worker.Start();
             Assert.True(worker.TryPost(Job()));
             Assert.True(Until(() => worker.TryTake(out _)));
+        }
+    }
+
+    /// <summary>
+    /// A stop that gives up before the thread has run (a busy box, a level ending as chat starts): the thread still
+    /// to run ends on the token it was started with, and never reads the fields a stop or the next start has changed.
+    /// </summary>
+    [Fact]
+    public void AStopBeforeItsThreadHasRunLeavesAThreadThatEndsQuietly()
+    {
+        (ChatWorker worker, ChatRig.Writer _, ChatCounters _) = Rig(start: false);
+        using (worker)
+        {
+            for (int i = 0; i < 200; i++)
+            {
+                worker.Start();
+                worker.Stop(0);
+            }
+
+            worker.Start();
+            Assert.True(worker.TryPost(Job()));
+            Assert.True(Until(() => worker.TryTake(out _)));
+            Assert.True(worker.Stop(AStarvedBox));
         }
     }
 

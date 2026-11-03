@@ -88,7 +88,7 @@ public sealed class ChatUnloadTests
         while (accepted() == 0 && Environment.TickCount64 < stop)
             Thread.Sleep(1);
         Assert.True(accepted() > 0, "the second request is in flight");
-        Assert.True((bool)worker.GetType().GetMethod(nameof(ChatWorker.Stop))!.Invoke(worker, null)!, "the stop joined");
+        Assert.True((bool)worker.GetType().GetMethod(nameof(ChatWorker.Stop))!.Invoke(worker, [ChatWorker.JoinMilliseconds])!, "the stop joined");
         ((IDisposable)worker).Dispose();
         ((IDisposable)writer).Dispose();
         return line;

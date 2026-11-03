@@ -26,7 +26,9 @@ public sealed record JankActor(
     JankShare Far,
     double[] StrafeIntervalMs,
     double ReversalsPerMinute,
-    double CommandMinutes)
+    double CommandMinutes,
+    int GoalJumps = 0,
+    double TurnBackSeconds = 0)
 {
     public double AliveMinutes => AliveSeconds / 60.0;
 
@@ -41,10 +43,14 @@ public sealed record JankActor(
     public double BranchFlipsPerMinute => PerMinute(BranchFlips);
 
     public double LeafFlipsPerMinute => PerMinute(LeafFlips);
+
+    public double GoalJumpsPerMinute => PerMinute(GoalJumps);
+
+    public double TurnBackPerMinute => PerMinute(TurnBackSeconds);
 }
 
-/// <summary>The in-sight, not-firing ticks under one leaf.</summary>
-public sealed record JankLeaf(string Leaf, JankShare Close, JankShare Far);
+/// <summary>What happened under one leaf: its in-sight, not-firing ticks, and its seconds of stuck (those with an opponent in sight apart), wall bump and idle.</summary>
+public sealed record JankLeaf(string Leaf, JankShare Close, JankShare Far, double StuckSeconds, double StuckSeenSeconds, double WallBumpSeconds, double IdleSeconds, double TurnBackSeconds = 0);
 
 /// <summary>A place a part of the score happened: where, how long, how many times, who.</summary>
 public sealed record JankSpot(AiVector Position, double Seconds, int Count, IReadOnlyList<ActorId> Actors);
@@ -78,6 +84,7 @@ public static class JankScore
     public static readonly IReadOnlyList<Part> Parts =
     [
         new("stuck", "s/min", 6, 25, a => a.StuckPerMinute),
+        new("turn backs", "s/min", 6, 10, a => a.TurnBackPerMinute),
         new("wall bump", "s/min", 6, 10, a => a.WallBumpPerMinute),
         new("branch flips", "/min", 10, 10, a => a.BranchFlipsPerMinute),
         new("leaf flips", "/min", 20, 10, a => a.LeafFlipsPerMinute),
@@ -116,9 +123,13 @@ public static class JankScore
 /// <list type="bullet">
 /// <item><b>stuck</b>: a window of <see cref="StuckWindowTicks"/> whose every
 /// tick holds a move key, with under <see cref="StuckProgress"/> units net
-/// between its ends. Every tick of such a window is stuck. A fight's dodge is
-/// not: a window in which <c>SideMove</c> changed sign with an opponent in
-/// sight.</item>
+/// between its ends and under <see cref="TurnBackPath"/> walked. Every tick of
+/// such a window is stuck. A fight's dodge is not: a window in which
+/// <c>SideMove</c> changed sign with an opponent in sight.</item>
+/// <item><b>turn backs</b>: the same window with <see cref="TurnBackPath"/> or
+/// more walked: the body went somewhere and came back. Not stuck: a body that
+/// turns round at a run nets nothing over a second. It is a change of mind, or a
+/// dance, and it is told apart because the two have different cures.</item>
 /// <item><b>wall bump</b>: a move key held (any: a bot's wish is in its view's
 /// frame, so one backing into a wall holds no forward) at under
 /// <see cref="WallSpeed"/> u/s for over <see cref="WallMinTicks"/>; the whole
@@ -132,6 +143,10 @@ public static class JankScore
 /// <see cref="CloseRange"/> of the nearest. A shot is a <c>ShotFired</c> or a
 /// press of attack, and lasts the weapon's cadence: a tap-firing pistol is
 /// firing between its taps. A person's weapon is the one they last fired.</item>
+/// <item><b>goal jumps</b> (no weight in the score): the brain's goal to walk to
+/// moving at least <see cref="GoalJumpUnits"/> between decides of one life. A bot
+/// turning back for a new goal is stuck by the first definition, with a long path
+/// and no net: this says why.</item>
 /// <item><b>strafe interval, yaw reversals</b>: <see cref="AiMetrics"/>'s.</item>
 /// <item><b>idle</b>: at least <see cref="IdleTicks"/> with no move key, no shot
 /// and the view within <see cref="IdleLookDeg"/> of where the run began (a
@@ -142,12 +157,14 @@ public static class AiJank
 {
     public const int StuckWindowTicks = 66;       // 1 s
     public const float StuckProgress = 32f;
+    public const float TurnBackPath = 96f;
     public const float WallSpeed = 20f;
     public const int WallMinTicks = 34;           // over 0.5 s
     public const int FlipTicks = 66;              // 1 s
     public const float CloseRange = 400f;
     public const int IdleTicks = 66;              // 1 s
     public const double IdleLookDeg = 2;
+    public const float GoalJumpUnits = 256f;
 
     /// <summary>The cadence of a shot of a weapon the recording's world does not name.</summary>
     public const float DefaultCadenceSeconds = 0.25f;
@@ -157,7 +174,7 @@ public static class AiJank
 
     public const int TopSpots = 10;
 
-    public const string Stuck = "stuck", WallBump = "wall bump", BranchFlip = "branch flips", LeafFlip = "leaf flips",
+    public const string Stuck = "stuck", TurnBack = "turn backs", WallBump = "wall bump", BranchFlip = "branch flips", LeafFlip = "leaf flips",
                         NoShotClose = "no shot <400", NoShotFar = "no shot >=400", Idle = "idle";
 
     private const int Attack = 1;     // IN_ATTACK
@@ -181,13 +198,13 @@ public static class AiJank
         string source = data.Tree is not null ? "the recording's" : fallbackTree is not null ? "this build's (the recording carries none)" : "none";
         AiDecisionTree? tree = data.Tree ?? fallbackTree;
         var places = new Places();
-        var leaves = new SortedDictionary<string, (JankShare Close, JankShare Far)>(StringComparer.Ordinal);
+        var leaves = new SortedDictionary<string, LeafTotals>(StringComparer.Ordinal);
         var actors = new List<JankActor>();
         foreach (ActorId actor in data.Frames.Keys.OrderBy(a => a.Slot).ThenBy(a => a.Serial))
             actors.Add(new Sweep(actor, data, tree, weaponRange, places, leaves).Run());
 
         return new JankReport(actors, Total(actors, true), Total(actors, false),
-                              [.. leaves.Select(kv => new JankLeaf(kv.Key, kv.Value.Close, kv.Value.Far))],
+                              [.. leaves.Select(kv => new JankLeaf(kv.Key, kv.Value.Close, kv.Value.Far, kv.Value.Stuck, kv.Value.StuckSeen, kv.Value.Wall, kv.Value.Idle, kv.Value.TurnBack))],
                               places.Top(TopSpots), source);
     }
 
@@ -201,7 +218,14 @@ public static class AiJank
                              new JankShare(of.Sum(a => a.Close.NotFiring), of.Sum(a => a.Close.Ticks)),
                              new JankShare(of.Sum(a => a.Far.NotFiring), of.Sum(a => a.Far.Ticks)),
                              [.. of.SelectMany(a => a.StrafeIntervalMs)],
-                             minutes > 0 ? of.Sum(a => a.ReversalsPerMinute * a.CommandMinutes) / minutes : 0, minutes);
+                             minutes > 0 ? of.Sum(a => a.ReversalsPerMinute * a.CommandMinutes) / minutes : 0, minutes, of.Sum(a => a.GoalJumps), of.Sum(a => a.TurnBackSeconds));
+    }
+
+    /// <summary>One leaf's totals while the sweep runs.</summary>
+    private sealed class LeafTotals
+    {
+        public JankShare Close, Far;
+        public double Stuck, StuckSeen, Wall, Idle, TurnBack;
     }
 
     /// <summary>The records the sweep reads, by actor.</summary>
@@ -215,7 +239,7 @@ public static class AiJank
         public readonly Dictionary<int, WeaponFacts> Weapons = [];
         public readonly Dictionary<int, string> WeaponNames = [];
         public readonly Dictionary<ActorId, List<(int Tick, int Weapon)>> Held = [];
-        public readonly Dictionary<ActorId, List<(int Tick, int Node)>> Decisions = [];
+        public readonly Dictionary<ActorId, List<(int Tick, int Node, AiVector? Goal)>> Decisions = [];
         public AiDecisionTree? Tree;
 
         public void Take(AiRecordType type, byte[] payload)
@@ -241,7 +265,7 @@ public static class AiJank
                     break;
                 case AiRecordType.Intent:
                     IntentCommand i = AiRecordFormat.ReadIntent(r);
-                    Of(Decisions, i.Bot).Add((i.FromTick.Value, i.Reason.NodeId));
+                    Of(Decisions, i.Bot).Add((i.FromTick.Value, i.Reason.NodeId, i.Move.Kind is MoveKind.Follow or MoveKind.Retreat && i.Move.CornerCount > 0 ? i.Move.Corner0 : null));
                     break;
                 case AiRecordType.Snapshot:
                     TakeSnapshot(r);
@@ -335,16 +359,16 @@ public static class AiJank
 
     /// <summary>One actor's walk along its frames.</summary>
     private sealed class Sweep(ActorId actor, Data data, AiDecisionTree? tree, Func<string, float> weaponRange, Places places,
-                               SortedDictionary<string, (JankShare Close, JankShare Far)> leaves)
+                               SortedDictionary<string, LeafTotals> leaves)
     {
         private readonly bool _bot = data.Bots.Contains(actor);
         private readonly SortedList<int, AiActorFrame> _at = data.Frames[actor];
         private readonly List<AiUserCmd> _commands = data.Commands.GetValueOrDefault(actor) ?? [];
-        private readonly List<(int Tick, int Node)> _decisions = data.Decisions.GetValueOrDefault(actor) ?? [];
+        private readonly List<(int Tick, int Node, AiVector? Goal)> _decisions = data.Decisions.GetValueOrDefault(actor) ?? [];
 
-        private double _stuck, _wall, _idle;
+        private double _stuck, _wall, _idle, _turnBack;
         private JankShare _close, _far;
-        private int _branchFlips, _leafFlips;
+        private int _branchFlips, _leafFlips, _goalJumps;
 
         public JankActor Run()
         {
@@ -357,7 +381,8 @@ public static class AiJank
 
             int nextCommand = 0, nextSight = 0, nextShot = 0, nextHeld = 0, nextDecision = 0, windowFrom = 0;
             int weapon = -1, node = -1, lastShot = int.MinValue, lastSideFlip = int.MinValue, sideSign = 0;
-            int moveFrom = -1, stuckTo = int.MinValue, wallFrom = -1, idleFrom = -1;
+            int moveFrom = -1, stuckTo = int.MinValue, turnTo = int.MinValue, wallFrom = -1, idleFrom = -1;
+            double[] walked = new double[ticks.Count];
             AiAngles idleAnchor = default, view = default;
             bool hasCommand = false;
             AiUserCmd last = default;
@@ -371,6 +396,7 @@ public static class AiJank
                 bool joined = i > 0 && dt <= CommandStale && frames[i - 1].Origin.DistanceTo(f.Origin) <= AiMetrics.TeleportUnitsPerTick * dt;
                 aliveTicks += joined ? dt : 1;
                 int span = joined ? dt : 1;
+                walked[i] = i == 0 ? 0 : walked[i - 1] + (joined ? frames[i - 1].Origin.DistanceTo(f.Origin) : 0);
 
                 // What happened up to this tick.
                 while (nextCommand < _commands.Count && _commands[nextCommand].Tick.Value <= t)
@@ -443,14 +469,30 @@ public static class AiJank
                     int start = t - StuckWindowTicks + 1;
                     while (windowFrom + 1 < ticks.Count && ticks[windowFrom + 1] <= start)
                         windowFrom++;
-                    bool dodge = anySeen && t - lastSideFlip < StuckWindowTicks;
-                    if (!dodge && frames[windowFrom].Origin.DistanceTo(f.Origin) < StuckProgress)
+                    bool dodge = anySeen && lastSideFlip != int.MinValue && t - lastSideFlip < StuckWindowTicks;
+                    if (!dodge && frames[windowFrom].Origin.DistanceTo(f.Origin) < StuckProgress && walked[i] - walked[windowFrom] >= TurnBackPath)
+                    {
+                        int from = Math.Max(turnTo + 1, start);
+                        double seconds = (t - from + 1) * AiMetrics.TickSeconds;
+                        _turnBack += seconds;
+                        turnTo = t;
+                        places.Add(TurnBack, f.Origin, seconds, 1, actor);
+                        if (LeafOf(node) is { } under)
+                            under.TurnBack += seconds;
+                    }
+                    else if (!dodge && frames[windowFrom].Origin.DistanceTo(f.Origin) < StuckProgress)
                     {
                         int from = Math.Max(stuckTo + 1, start);
                         double seconds = (t - from + 1) * AiMetrics.TickSeconds;
                         _stuck += seconds;
                         stuckTo = t;
                         places.Add(Stuck, f.Origin, seconds, 1, actor);
+                        if (LeafOf(node) is { } under)
+                        {
+                            under.Stuck += seconds;
+                            if (anySeen)
+                                under.StuckSeen += seconds;
+                        }
                     }
                 }
 
@@ -461,7 +503,7 @@ public static class AiJank
                 else if (wallFrom < 0)
                     wallFrom = t;
                 if (bumping)
-                    CountRun(ref _wall, WallBump, wallFrom, t, WallMinTicks, span, f.Origin);
+                    CountRun(ref _wall, WallBump, wallFrom, t, WallMinTicks, span, f.Origin, node);
 
                 // Idle: no key, no shot, the same look, long enough.
                 bool still = fresh && !moving && !firing && joined;
@@ -476,17 +518,17 @@ public static class AiJank
                 }
 
                 if (still)
-                    CountRun(ref _idle, Idle, idleFrom, t, IdleTicks, span, f.Origin);
+                    CountRun(ref _idle, Idle, idleFrom, t, IdleTicks, span, f.Origin, node);
             }
 
             Flips();
             ActorMetrics metrics = AiMetrics.For(actor, _bot, _commands, data.Frames, data.Sights, data.Shots, data.WeaponNames);
             return new JankActor(actor, _bot, aliveTicks * AiMetrics.TickSeconds, _stuck, _wall, _idle, _branchFlips, _leafFlips, _close, _far,
-                                 metrics.StrafeIntervalMs, metrics.ReversalsPerMinute, metrics.Minutes);
+                                 metrics.StrafeIntervalMs, metrics.ReversalsPerMinute, metrics.Minutes, _goalJumps, _turnBack);
         }
 
         /// <summary>A run counts whole once it is long enough: all of it on the tick it gets there, each tick after.</summary>
-        private void CountRun(ref double total, string metric, int from, int t, int minimum, int span, AiVector at)
+        private void CountRun(ref double total, string metric, int from, int t, int minimum, int span, AiVector at, int node)
         {
             int length = t - from + 1;
             if (length < minimum)
@@ -494,6 +536,24 @@ public static class AiJank
             double seconds = (length - span < minimum ? length : span) * AiMetrics.TickSeconds;
             total += seconds;
             places.Add(metric, at, seconds, 1, actor);
+            if (LeafOf(node) is { } under)
+            {
+                if (metric == WallBump)
+                    under.Wall += seconds;
+                else
+                    under.Idle += seconds;
+            }
+        }
+
+        /// <summary>A bot's totals under this node; a person has no leaves.</summary>
+        private LeafTotals? LeafOf(int node)
+        {
+            if (!_bot)
+                return null;
+            string leaf = tree?.Name(node) ?? $"node {node}";
+            if (!leaves.TryGetValue(leaf, out LeafTotals? l))
+                leaves[leaf] = l = new LeafTotals();
+            return l;
         }
 
         private void InSight(float nearest, bool firing, int node, int ticks, AiVector at)
@@ -506,11 +566,12 @@ public static class AiJank
                 _far += part;
             if (!firing)
                 places.Add(close ? NoShotClose : NoShotFar, at, ticks * AiMetrics.TickSeconds, 1, actor);
-            if (!_bot)
+            if (LeafOf(node) is not { } under)
                 return;
-            string leaf = tree?.Name(node) ?? $"node {node}";
-            leaves.TryGetValue(leaf, out (JankShare Close, JankShare Far) l);
-            leaves[leaf] = close ? (l.Close + part, l.Far) : (l.Close, l.Far + part);
+            if (close)
+                under.Close += part;
+            else
+                under.Far += part;
         }
 
         /// <summary>The decisions as runs of one value; each return to the value before last, its excursion short, is a flip.</summary>
@@ -518,13 +579,22 @@ public static class AiJank
         {
             var leaf = new FlipRuns();
             var branch = new FlipRuns();
-            foreach ((int tick, int node) in _decisions)
+            AiVector? lastGoal = null;
+            foreach ((int tick, int node, AiVector? goal) in _decisions)
             {
                 if (FrameOf(actor, tick) is not { } f)
                 {
                     leaf.Break();
                     branch.Break();
+                    lastGoal = null;
                     continue;
+                }
+
+                if (goal is { } g)
+                {
+                    if (lastGoal is { } was && was.DistanceTo(g) >= GoalJumpUnits)
+                        _goalJumps++;
+                    lastGoal = g;
                 }
 
                 if (leaf.Add(node, tick) is int leafAway)
@@ -591,18 +661,21 @@ public static class AiJank
         ArgumentNullException.ThrowIfNull(report);
         var sb = new StringBuilder();
         sb.AppendLine(JankScore.Formula());
-        sb.AppendLine("actor                 kind   alive min  score | stuck s/min | wall s/min | flips/min branch leaf | no shot <400 >=400 | strafe ms | yaw rev/min | idle s/min");
+        sb.AppendLine("actor                 kind   alive min  score | stuck s/min | wall s/min | flips/min branch leaf | no shot <400 >=400 | strafe ms | yaw rev/min | idle s/min | goal jumps/min | turn backs s/min");
         foreach (JankActor a in report.Actors)
             Row(sb, $"{a.Actor.Slot}#{a.Actor.Serial}", a);
         Row(sb, "total", report.Bots);
         Row(sb, "total", report.People);
 
-        sb.AppendLine("in-sight not firing, bots, by leaf: ticks of no shot over ticks with an opponent seen in weapon range");
-        foreach (JankLeaf l in report.Leaves.OrderByDescending(l => l.Close.NotFiring + l.Far.NotFiring))
-            sb.AppendLine(string.Create(CultureInfo.InvariantCulture, $"  {l.Leaf,-22} <400 {Share(l.Close),-20} >=400 {Share(l.Far)}"));
+        sb.AppendLine("bots, by leaf: no shot is ticks of no shot over ticks with an opponent seen in weapon range; stuck's second figure is the seconds with an opponent in sight");
+        foreach (JankLeaf l in report.Leaves.OrderByDescending(l => l.StuckSeconds))
+        {
+            sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
+                $"  {l.Leaf,-22} stuck {l.StuckSeconds,6:F1} s ({l.StuckSeenSeconds,5:F1}) | turn {l.TurnBackSeconds,6:F1} s | wall {l.WallBumpSeconds,6:F1} s | idle {l.IdleSeconds,6:F1} s | no shot <400 {Share(l.Close),-18} >=400 {Share(l.Far)}"));
+        }
 
         sb.AppendLine("worst places:");
-        foreach (string metric in new[] { Stuck, WallBump, BranchFlip, LeafFlip, NoShotClose, NoShotFar, Idle })
+        foreach (string metric in new[] { Stuck, TurnBack, WallBump, BranchFlip, LeafFlip, NoShotClose, NoShotFar, Idle })
         {
             if (!report.Places.TryGetValue(metric, out IReadOnlyList<JankSpot>? spots))
             {
@@ -627,7 +700,7 @@ public static class AiJank
 
     private static void Row(StringBuilder sb, string name, JankActor a)
         => sb.AppendLine(string.Create(CultureInfo.InvariantCulture,
-            $"{name,-21} {(a.Bot ? "bot" : "human"),-5} {a.AliveMinutes,10:F2} {JankScore.Of(a),6:F1} | {a.StuckPerMinute,11:F2} | {a.WallBumpPerMinute,10:F2} | {(a.Bot ? a.BranchFlipsPerMinute.ToString("F1", CultureInfo.InvariantCulture) : "-"),16} {(a.Bot ? a.LeafFlipsPerMinute.ToString("F1", CultureInfo.InvariantCulture) : "-"),4} | {Pct(a.Close.Share),12} {Pct(a.Far.Share),5} | {F0(AiMetrics.Quantile(a.StrafeIntervalMs, 0.5)),9} | {a.ReversalsPerMinute,11:F0} | {a.IdlePerMinute,10:F2}"));
+            $"{name,-21} {(a.Bot ? "bot" : "human"),-5} {a.AliveMinutes,10:F2} {JankScore.Of(a),6:F1} | {a.StuckPerMinute,11:F2} | {a.WallBumpPerMinute,10:F2} | {(a.Bot ? a.BranchFlipsPerMinute.ToString("F1", CultureInfo.InvariantCulture) : "-"),16} {(a.Bot ? a.LeafFlipsPerMinute.ToString("F1", CultureInfo.InvariantCulture) : "-"),4} | {Pct(a.Close.Share),12} {Pct(a.Far.Share),5} | {F0(AiMetrics.Quantile(a.StrafeIntervalMs, 0.5)),9} | {a.ReversalsPerMinute,11:F0} | {a.IdlePerMinute,10:F2} | {(a.Bot ? a.GoalJumpsPerMinute.ToString("F1", CultureInfo.InvariantCulture) : "-"),14} | {a.TurnBackPerMinute,16:F2}"));
 
     private static string Share(JankShare s) => string.Create(CultureInfo.InvariantCulture, $"{s.NotFiring}/{s.Ticks} {Pct(s.Share)}");
 
