@@ -225,7 +225,9 @@ public class ChatFeedTests
 
         public void SpectatorCommand(SpectatorKeyCommand command) => sent.Add(command.ToString());
         public void SpectatorServerCommand(string line) => sent.Add("server: " + line);
-        public bool IsInGame() => true;
+        public bool InGame { get; set; } = true;
+
+        public bool IsInGame() => InGame;
         public void VoiceServerCommand(string line, bool reliable) => sent.Add("voice: " + line);
         public int SentenceIndexFromName(string name) => -1;
         public int LocalPlayerSlot() => 0;

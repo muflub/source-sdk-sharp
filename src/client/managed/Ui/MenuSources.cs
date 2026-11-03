@@ -289,6 +289,10 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
     private readonly List<ConsoleLine> _lines = [new("SourceSharp console. Lines typed here run as the engine console's do.", ConsoleSeverity.Developer)];
     private readonly List<string> _history = [];
     private string _input = string.Empty;
+    private readonly IConsoleCommands? _commands;
+    private readonly List<ConsoleCompletion> _completions = [];
+    private int _nextCompletion;
+    private bool _completing;
 
     // The engine echoes a submitted line back through the feed; Submit
     // already drew it, so the copy matching this arrives-consumed. Thread and
@@ -301,8 +305,9 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
     /// prints freely; an unbounded list would grow all session.</summary>
     public const int MaxLines = 1024;
 
-    public ConsoleUi(IFwdEngineClient engine, ConsoleLines? lines = null)
+    public ConsoleUi(IFwdEngineClient engine, ConsoleLines? lines = null, IConsoleCommands? commands = null)
     {
+        _commands = commands;
         _engine = engine;
         _engineLines = lines;
         if (lines is { } src)
@@ -332,11 +337,52 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
 
     public int HistoryIndex { get; private set; } = -1;
 
-    public int CompletionCount => 0;
+    public int CompletionCount => _completions.Count;
 
-    public ConsoleCompletion Completion(int i) => throw new ArgumentOutOfRangeException(nameof(i));
+    public ConsoleCompletion Completion(int i) => _completions[i];
 
-    public int SelectedCompletion => -1;
+    public int SelectedCompletion => _completions.Count == 0 ? -1 : _nextCompletion < _completions.Count ? Math.Max(0, _nextCompletion) : 0;
+
+    /// <summary>
+    /// Stock's RebuildCompletionList: what the engine has by the typed prefix, by
+    /// name, hiding its development-only and hidden entries. Past a space stock asks
+    /// the command to suggest its arguments, which it cannot be asked here: no list.
+    /// </summary>
+    private void RebuildCompletions()
+    {
+        _completing = false;
+        _completions.Clear();
+        if (_commands is null || _input.Length == 0 || _input.Contains(' ', StringComparison.Ordinal))
+            return;
+        foreach (var c in _commands.All())
+            if (c.Name.StartsWith(_input, StringComparison.OrdinalIgnoreCase))
+                _completions.Add(c);
+        _completions.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Stock's OnAutoComplete: the next suggestion into the line, a space after it, looping.</summary>
+    private void Complete(bool reverse)
+    {
+        if (!_completing)
+        {
+            _nextCompletion = 0;
+            _completing = true;
+        }
+        if (reverse)
+        {
+            _nextCompletion -= 2;
+            if (_nextCompletion < 0)
+                _nextCompletion = _completions.Count - 1;
+        }
+        if (_nextCompletion >= _completions.Count || _nextCompletion < 0)
+            _nextCompletion = 0;
+        if (_completions.Count == 0)
+            return;
+        _input = _completions[_nextCompletion].Name + " ";
+        Caret = _input.Length;
+        HistoryIndex = -1;
+        _nextCompletion++;
+    }
 
     /// <summary>A key the console's window received; true when the console used it.</summary>
     public bool Key(UiKey key)
@@ -344,17 +390,22 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
         switch (key)
         {
             case UiKey.Enter: Submit(); return true;
+            case UiKey.Tab: Complete(false); return true;
             case UiKey.Backspace:
                 if (Caret > 0)
                 {
                     _input = _input.Remove(Caret - 1, 1);
                     Caret--;
+                    RebuildCompletions();
                 }
                 return true;
             case UiKey.Left: Caret = Math.Max(0, Caret - 1); return true;
             case UiKey.Right: Caret = Math.Min(_input.Length, Caret + 1); return true;
             case UiKey.Home: Caret = 0; return true;
             case UiKey.End: Caret = _input.Length; return true;
+            // With suggestions up, the arrows walk them, as stock's do; else the history.
+            case UiKey.Up when _completions.Count > 0: Complete(true); return true;
+            case UiKey.Down when _completions.Count > 0: Complete(false); return true;
             case UiKey.Up: Recall(HistoryIndex < 0 ? _history.Count - 1 : Math.Max(0, HistoryIndex - 1)); return true;
             case UiKey.Down: Recall(HistoryIndex < 0 ? -1 : HistoryIndex + 1); return true;
             default: return false;
@@ -369,6 +420,7 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
         _input = _input.Insert(Caret, c.ToString());
         Caret++;
         HistoryIndex = -1;
+        RebuildCompletions();
     }
 
     public void Submit()
@@ -377,6 +429,8 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
         _input = string.Empty;
         Caret = 0;
         HistoryIndex = -1;
+        _completions.Clear();
+        _completing = false;
         if (line.Length == 0)
             return;
         lock (_gate)
@@ -449,6 +503,24 @@ public sealed class EngineConVarStore(IEngineConsole console) : IUiConVarStore
     public string? Get(string name) => console.FindConVarValue(name);
 
     public void Set(string name, string value) => console.SetConVarValueByName(name, value);
+}
+
+/// <summary>What the console can complete: every command and convar there is to type.</summary>
+public interface IConsoleCommands
+{
+    IReadOnlyList<ConsoleCompletion> All();
+}
+
+/// <summary>The engine's registry as completions, without what stock's console hides.</summary>
+public sealed class EngineConsoleCommands(IEngineConsole console) : IConsoleCommands
+{
+    public IReadOnlyList<ConsoleCompletion> All()
+        => [.. NativeConsole.Snapshot(console).Where(Shown)
+                .Select(e => new ConsoleCompletion(e.Name, e.IsCommand ? "" : e.Value, e.Help, e.IsCommand))];
+
+    /// <summary>Stock's filter (FCVAR_DEVELOPMENTONLY, FCVAR_HIDDEN).</summary>
+    public static bool Shown(NativeConsoleEntry entry)
+        => (entry.Flags & (int)(ConVarFlags.DevelopmentOnly | ConVarFlags.Hidden)) == 0;
 }
 
 /// <summary>

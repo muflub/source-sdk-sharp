@@ -28,7 +28,7 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
 
     // The core HUD's vitals, ammo and chat: this screen's cross, ammo row
     // and chat corner replace them.
-    private readonly string[] _takes = ["hud.vitals", "hud.ammo", "chat"];
+    private readonly string[] _takes = ["hud.vitals", "hud.ammo", "chat", "hud.minimap"];
     public override IReadOnlyList<string> Takes => _takes;
 
     public override void Describe(ref UiFrame ui)

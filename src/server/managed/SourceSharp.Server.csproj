@@ -10,6 +10,7 @@
          areas and bindings live there, so this assembly compiles without /unsafe
          (GameAssembliesAreSafeTests). -->
     <ProjectReference Include="..\interop\SourceSharp.Server.Interop.csproj" />
+    <ProjectReference Include="..\..\mods\SourceSharp.Mods.csproj" />
 
     <!-- The generator writes the other half of every [ScriptedVars] class: the
          storage behind each declared map key and the dispatch that turns a key

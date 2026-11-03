@@ -107,6 +107,25 @@ public class UiLintTests
         Assert.Empty(Of(good, "offscreen"));
     }
 
+    /// <summary>A radial menu's words sit on its wedges, polygons the rule used to look through.</summary>
+    [Fact]
+    public void Contrast_counts_a_sector_under_the_words_as_their_surface()
+    {
+        var on = Lint((ref UiFrame ui) =>
+        {
+            ui.Sector(Tone.Window, 400f, 0f, MathF.Tau, 0f).At(UiAnchor.Centre).Layered();
+            ui.Data("On a sector", Text.Caption, Tone.TextMuted).At(UiAnchor.Centre).Layered().Name("words");
+        }, UiLayerKind.Hud);
+        Assert.Empty(Of(on, "contrast"));
+
+        var off = Lint((ref UiFrame ui) =>
+        {
+            ui.Sector(Tone.Window, 40f, 0f, MathF.Tau, 0f).At(UiAnchor.TopLeft).Layered();
+            ui.Data("Off a sector", Text.Caption, Tone.TextMuted).At(UiAnchor.Centre).Layered().Name("words");
+        }, UiLayerKind.Hud);
+        Assert.Contains(Of(off, "contrast"), f => f.Element.Contains("words"));
+    }
+
     [Fact]
     public void Contrast_reports_text_the_world_shows_through_and_not_text_on_a_panel()
     {

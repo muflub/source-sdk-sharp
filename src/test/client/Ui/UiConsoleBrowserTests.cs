@@ -54,13 +54,14 @@ public class UiConsoleBrowserTests
     }
 
     [Fact]
-    public void Autocomplete_opens_under_the_input_with_the_selected_suggestion_raised()
+    public void Autocomplete_opens_above_the_input_with_the_selected_suggestion_raised()
     {
         var ctx = Render(Sample("console", "autocomplete-open"));
         var els = UiTestKit.Elements(ctx);
         var field = UiTestKit.Named(ctx, "field").Rect;
         var first = els[Find(ctx, "\"cl_interp\"")].Rect;
-        Assert.True(first.Y > field.Y + field.H, $"suggestions {first} under the field {field}");
+        // Above: the field is the window's foot, and below it a short screen pushed the list back over it.
+        Assert.True(first.Y + first.H < field.Y, $"suggestions {first} above the field {field}");
         int sel = Find(ctx, "\"cl_interp_ratio\"");
         Assert.Equal(Tone.Accent, ctx.Report.TextToneOf(sel));
         Assert.Equal(Tone.Text, ctx.Report.TextToneOf(Find(ctx, "\"cl_interp\"")));

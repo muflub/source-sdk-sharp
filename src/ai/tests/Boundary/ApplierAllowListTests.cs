@@ -21,6 +21,8 @@ public class ApplierAllowListTests
     /// </summary>
     private static readonly string[] Allowed =
     [
+        // AiAdminMenu: the bots' place in the admin menu, data whose actions are the roster's own.
+        "AdminNode::.ctor", "AdminNode::Folder",
         // Hl2mpBots and the commands: the core's bots, and the log.
         "BotPlayer::get_EntIndex", "BotPlayer::get_Name", "BotPlayer::get_Player",
         "EntityHandle::get_None", "EntityHandle::op_Equality", "EntityHandle::op_Inequality",

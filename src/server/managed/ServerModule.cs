@@ -190,6 +190,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // dispatcher (the 0.6 facts) never reach Initialize.
         _services.AddFactory<IHooks<IClientCommandHook>>(
             locator => new Hooks<IClientCommandHook>(locator, locator.Require<ILog>()));
+        _services.AddFactory<IHooks<IVoteStateHook>>(
+            locator => new Hooks<IVoteStateHook>(locator, locator.Require<ILog>()));
+        _services.AddFactory<IHooks<IAdminHook>>(
+            locator => new Hooks<IAdminHook>(locator, locator.Require<ILog>()));
 
         // This side's movement runner, over this module's engine
         // (plan_abi_hotreload D8): the player-command binding runs the
@@ -925,6 +929,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The vote-index sequence every vote_controller draws from: it was a
         // static counter on the class.
         _services.AddInstance<IVoteIndices>(new VoteIndices());
+        _services.AddInstance(new VoteOffice());
 
         // What this side's publish path could not put on the wire, read by the
         // dev API's schema panel. The module's own ledger.
@@ -1929,6 +1934,16 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // BEFORE the driver below, which collects its participants once.
         _netTraffic = _services.Create<NetTrafficProfiler>();
         _services.AddInstance<INetTrafficProfiler>(_netTraffic);
+
+        // Voting and its console verbs: a core service, the mods' words before it.
+        _services.Add(typeof(ServerVotes), typeof(ServerVotes));
+
+        // Who is an admin, and the menu they get.
+        _services.Add<IAdminMenu, AdminMenuBuilder>();
+        _services.AddFactory(locator => ServerAdmins.For(locator.Require<IEngineHost>(), locator.Require<IEngineFiles>(), locator.Require<IEngineConsole>(),
+                                                         locator.Require<IBoundPort>(), locator.Require<IUserMessageSender>(), locator.Require<IAdminMenu>(),
+                                                         locator.Require<IGameClock>(), locator.Require<ILog>()));
+        _services.AddFactory<IAdminStatus>(locator => locator.Require<ServerAdmins>());
 
         // The mod's services: every [SideService(Side.Server)] class and server
         // registrar in the loaded assemblies (mods.yaml lists them), registered

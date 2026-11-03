@@ -102,9 +102,11 @@ public sealed class VoteIndices : IVoteIndices
 public sealed class VoteController : ScriptedEntity
 {
     public VoteController(IGameClock clock, IEngineConsole console, IEngineHost host, IEnginePlayers players,
-                          IVoteIndices indices)
+                          IVoteIndices indices, VoteOffice? office = null, IBotPlayers? bots = null)
     {
         _indices = indices;
+        _office = office;
+        _bots = bots;
         Clock = clock;
         Console = console;
         Host = host;
@@ -141,6 +143,8 @@ public sealed class VoteController : ScriptedEntity
     /// The module's sequence: it was a static counter.
     /// </summary>
     private readonly IVoteIndices _indices;
+    private readonly VoteOffice? _office;
+    private readonly IBotPlayers? _bots;
 
     private VoteIssue? _issue;
     private IReadOnlyList<string> _options = YesNo;
@@ -164,7 +168,16 @@ public sealed class VoteController : ScriptedEntity
     public override void OnSpawn()
     {
         Reset();
+        if (_office is not null)
+            _office.Current = this;
         SetNextThink(ThinkInterval);
+    }
+
+    public override void OnRemoved()
+    {
+        // The level ending takes it: the next level makes its own.
+        if (_office?.Current == this)
+            _office.Current = null;
     }
 
     public override void OnThink()
@@ -197,6 +210,11 @@ public sealed class VoteController : ScriptedEntity
 
     /// <summary>How many people could have voted when the ballot opened.</summary>
     public int PotentialVoters => _potentialVoters;
+
+    /// <summary>Seconds until the ballot closes; 0 once it has.</summary>
+    public float SecondsLeft(float now) => _ballotClosesAt < 0f ? 0f : MathF.Max(0f, _ballotClosesAt - now);
+
+    private void Report() => _office?.Changed?.Invoke(this);
 
     /// <summary>Votes for one choice, numbered from 1 as a client sends them.</summary>
     public int VotesFor(int option)
@@ -287,6 +305,7 @@ public sealed class VoteController : ScriptedEntity
         if (IsYesNoVote && !Flag("sv_vote_holder_may_vote_no", false))
             Cast(caller, 1, now);
 
+        Report();
         return true;
     }
 
@@ -336,6 +355,7 @@ public sealed class VoteController : ScriptedEntity
             _ballotClosesAt = now + 1f;
         }
 
+        Report();
         return VoteCast.Ok;
     }
 
@@ -388,6 +408,7 @@ public sealed class VoteController : ScriptedEntity
         }
 
         _resetAt = now + ResetDelay;
+        Report();
     }
 
     private void Reset()
@@ -405,6 +426,7 @@ public sealed class VoteController : ScriptedEntity
         _ballotClosesAt = Never;
         _executeAt = Never;
         _resetAt = Never;
+        Report();
     }
 
     //-------------------------------------------------------------------------
@@ -479,20 +501,34 @@ public sealed class VoteController : ScriptedEntity
     /// </summary>
     private int CountPotentialVoters()
     {
-        bool allowSpectators = Flag("sv_vote_allow_spectators", false);
-        int voters = 0;
-
+        var players = new List<(int Team, bool Bot)>();
         for (int slot = 1; slot <= MaxPlayerSlots; slot++)
         {
             var player = Players.GetHandle(slot);
-            if (!Entities.IsValid(player))
-                continue;
+            if (Entities.IsValid(player))
+                players.Add((Players.GetTeam(player), _bots?.IsBot(player) ?? false));
+        }
+        return CountVoters(players, Flag("sv_vote_allow_spectators", false), Flag("sv_vote_bots_allowed", false), _onlyTeam);
+    }
 
-            int team = Players.GetTeam(player);
-            if (IsVoterTeam(team, allowSpectators) && CanTeamCastVote(team))
+    /// <summary>
+    /// Who can vote. A bot cannot answer a ballot, so counting one would make every
+    /// quorum harder by a vote nobody can cast (stock's sv_vote_bots_allowed). Stock's
+    /// games have teams and take an unassigned player for one yet to join; a deathmatch
+    /// has no teams, everyone is unassigned, and with no one on a team they all count.
+    /// </summary>
+    internal static int CountVoters(IReadOnlyList<(int Team, bool Bot)> players, bool allowSpectators, bool botsCount, int onlyTeam)
+    {
+        bool teamGame = players.Any(p => p.Team > TeamSpectator);
+        int voters = 0;
+        foreach (var (team, bot) in players)
+        {
+            if (bot && !botsCount)
+                continue;
+            bool mayVote = team == TeamUnassigned ? !teamGame : IsVoterTeam(team, allowSpectators);
+            if (mayVote && (onlyTeam == TeamUnassigned || team == onlyTeam))
                 voters++;
         }
-
         return voters;
     }
 
@@ -504,12 +540,10 @@ public sealed class VoteController : ScriptedEntity
     //-------------------------------------------------------------------------
     // The sv_vote_* convars, read where they are used.
     //
-    // Read from the engine rather than declared here, because vote_controller.cpp
-    // registers all of them and stays in the build -- player.cpp needs its
-    // symbols. Declaring them again in C# would be the same name twice.
+    // Read by name from the engine's registry; declared in Votes.cs.
     //-------------------------------------------------------------------------
 
-    private bool VotesAllowed => Flag("sv_allow_votes", true);
+    public bool VotesAllowed => Flag("sv_allow_votes", true);
 
     private bool Flag(string name, bool fallback)
         => ParseInt(Console.FindConVarValue(name) ?? string.Empty, fallback ? 1 : 0) != 0;

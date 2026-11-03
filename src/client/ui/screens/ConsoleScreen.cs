@@ -166,8 +166,10 @@ public sealed class ConsoleCompletionsPanel : UiPanel<ConsoleCompletionsProps>
         bool narrow = props.Narrow;
         float width = MathF.Min(narrow ? 560 : 860, props.WindowWidthDu - 2 * UiWindowWidget.Ring - 2 * (float)Space.L);
         int shown = Math.Min(Shown, c.CompletionCount);
-        using (ui.Overlay("suggest").AnchorTo(props.Field, UiAnchor.BottomLeft, UiAnchor.TopLeft).Inset(Space.None, Space.XS))
-        using (ui.Column(Space.None).Width(Size.Du(width)).Fill(Tone.Surface).Round(Radius.M)
+        // Up over the log: the field is the window's foot, and a list opened below it was
+        // pushed back over the field on a short screen, hiding what is being typed.
+        using (ui.Overlay("suggest").AnchorTo(props.Field, UiAnchor.TopLeft, UiAnchor.BottomLeft).Inset(Space.None, Space.XS))
+        using (ui.Column(Space.None).Width(Size.Du(width)).Fill(Tone.Window).Round(Radius.M)
                  .Border(Tone.Line, 1).Raise(Elevation.Overlay).Pad(Space.XS))
         {
             for (int i = 0; i < shown; i++)

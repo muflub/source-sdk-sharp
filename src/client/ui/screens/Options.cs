@@ -89,8 +89,11 @@ public sealed class Options : UiScreen, IUiWindowed
     {
         if (!IsValid)
             return false;
+        // Only the changed pages: the video page's Apply is a material system
+        // reconfiguration, nothing to run for a tick on another page.
         foreach (var page in _pages)
-            page.Apply();
+            if (page.AnyDirty)
+                page.Apply();
         return true;
     }
 

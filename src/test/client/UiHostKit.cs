@@ -15,6 +15,8 @@ namespace SourceSharp.Tests;
 /// <summary>A UiHost over fakes: a recording surface, a recording engine, no standalones and no engine client.</summary>
 internal static class UiHostKit
 {
+    private static readonly SourceSharp.Client.Ui.Screens.FakeRadialMenu NoRadialMenu = new("") { Showing = false };
+
     internal sealed class NoArsenal : ILocalArsenal
     {
         public bool TryGetActive(out string name, out int clip, out int reserve)
@@ -71,11 +73,16 @@ internal static class UiHostKit
             .AddInstance<IEngineHud>(engine).AddInstance<IEngineConsole>(engine).AddInstance<IGameClock>(engine)
             .AddInstance<IModInfo>(new ModInfo(k => k == ModInfo.Keys.ManagedDir || k == ModInfo.Keys.GameDir ? dir : modData?.Invoke(k)))
             .AddInstance<IUiSurface>(surface)
+            .AddInstance<IUiKeyActions>(new SourceSharp.Client.Ui.Screens.Samples.FakeKeyActions())
+            .AddInstance<IRadialMenuSource>(NoRadialMenu).AddInstance<IRadialMenuActions>(NoRadialMenu)
+            .AddInstance<IVoteSource>(new SourceSharp.Client.Ui.Screens.FakeVote { Showing = false })
+            .AddInstance<IAdminKeySource>(new SourceSharp.Client.Ui.Screens.Samples.FakeAdminKey(false))
             .AddInstance<IClientStandalones>(new NoStandalones())
             .AddInstance<IPlayerNames>(new EnginePlayerNames(new DefaultForwarders.NoEngineClient(), new IdentityNameFilter()))
             .AddInstance<IEngineEnvironment>(engine)
             .AddInstance<IKillFeedSource>(new NoKills())
             .AddInstance<IDamageDealtSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeDamageDealt())
+            .AddInstance<IMinimapSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeMinimap { Outline = [] })
             .AddInstance<ICentrePrintSource>(new CentrePrint(engine))
             .AddInstance<IChatSource>(new ChatFeed(engine, new RecordingLog(), engine, new NoChatPlayers()))
             .AddInstance<IChatInputSource>(new ChatInputUi(new DefaultForwarders.NoEngineClient()))

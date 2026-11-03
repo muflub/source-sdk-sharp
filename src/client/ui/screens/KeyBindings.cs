@@ -5,8 +5,8 @@ namespace SourceSharp.Client.Ui.Screens;
 
 /// <summary>
 /// The key bindings (stock: GameUI's COptionsSubKeyboard): each row a command
-/// from the mod's action list (<see cref="IUiKeyActions"/>, stock's
-/// scripts/kb_act.lst), so each game lists its own, under its own headings; its
+/// from the mod's key actions (<see cref="IUiKeyActions"/>), so each game
+/// lists its own, under its own headings; its
 /// field the key bound to it. Clicked, a field takes the next key or mouse
 /// button; Esc gives up, Delete clears. The form that proves the key capture
 /// kind (plan_client_ui §6).

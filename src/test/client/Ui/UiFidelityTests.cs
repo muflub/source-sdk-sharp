@@ -138,6 +138,23 @@ public class UiFidelityTests
         return (new VguiBackend(surface, metrics, new UiFontFiles([])), surface);
     }
 
+    /// <summary>A font made before a device reset draws nothing after it (live, every
+    /// label blank after mat_antialias 1; mat_savechanges): the next use makes it again.</summary>
+    [Fact]
+    public void A_font_is_made_again_after_the_materials_are_restored_and_only_then()
+    {
+        var (backend, surface) = Vgui(new UiFontLibrary());
+        var spec = new UiFontSpec(UiFontLibrary.Mono, 15, 400, UiFontFlags.Antialias);
+        int first = backend.FontHandle(spec);
+        int made = surface.Created.Count;
+        Assert.Equal(first, backend.FontHandle(spec));
+        Assert.Equal(made, surface.Created.Count);
+
+        backend.MaterialsRestored();
+        Assert.NotEqual(first, backend.FontHandle(spec));
+        Assert.True(surface.Created.Count > made);
+    }
+
     private static IEnumerable<Entry> Ledger(VguiBackend backend)
     {
         var l = backend.Ledger;

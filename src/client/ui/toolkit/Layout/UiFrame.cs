@@ -375,6 +375,31 @@ public ref struct UiFrame
         return new UiBox(Context, i);
     }
 
+    /// <summary>
+    /// A slice of a ring, <paramref name="diameterDu"/> across: from
+    /// <paramref name="startRadians"/> clockwise from the top, <paramref name="spanRadians"/>
+    /// round, inside cut at <paramref name="inner"/> of the radius (0 for a pie or a disc).
+    /// </summary>
+    public UiBox Sector(UiPaint paint, float diameterDu, float startRadians, float spanRadians, float inner)
+    {
+        var box = Shape(UiShape.Sector, paint, diameterDu, startRadians);
+        ref var n = ref Context.Node(box.Index);
+        n.ShapeSpan = spanRadians;
+        n.ShapeInner = inner;
+        return box;
+    }
+
+    /// <summary>
+    /// Line segments in a square <paramref name="sizeDu"/> across: <paramref name="segments"/>
+    /// holds x0, y0, x1, y1 for each, 0..1 of the square. A map's outline, say.
+    /// </summary>
+    public UiBox Lines(float[] segments, UiPaint paint, float sizeDu, float thicknessDu)
+    {
+        var box = Shape(UiShape.Lines, paint, sizeDu, thicknessDu);
+        Context.Node(box.Index).Lines = segments;
+        return box;
+    }
+
     /// <summary>A filled rectangle with no children: a bar, a stripe, a divider.</summary>
     public UiBox Rect(UiPaint fill, UiSize width, UiSize height)
     {
@@ -464,6 +489,16 @@ public ref struct UiFrame
 
     /// <summary>The mouse, in pixels.</summary>
     public float MouseX => Context.MouseX;
+
+    /// <summary>The pointer in design units from the screen's top-left, as this frame's layout places things.</summary>
+    public (float X, float Y) MouseDu
+    {
+        get
+        {
+            float scale = MathF.Max(Context.Screen.Scale, 0.0001f);
+            return (Context.MouseX / scale, Context.MouseY / scale);
+        }
+    }
 
     /// <summary>Where <paramref name="box"/> was laid out last frame, in pixels: what a press now was aimed at.</summary>
     public bool TryLastRect(UiBox box, out UiRect rect) => Context.TryLastRect(Context.Node(box.Index).Id, out rect);

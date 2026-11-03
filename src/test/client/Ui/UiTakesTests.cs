@@ -79,11 +79,11 @@ public class UiTakesTests
     }
 
     [Fact]
-    public void The_tf2_hud_takes_the_core_vitals_ammo_and_chat()
+    public void The_tf2_hud_takes_the_core_vitals_ammo_chat_and_minimap()
     {
         var tfhud = PreviewRun.AllSamples().First(s => s.Group == "tfhud").Create();
 
-        Assert.Equal(["hud.vitals", "hud.ammo", "chat"], tfhud.Takes);
+        Assert.Equal(["hud.vitals", "hud.ammo", "chat", "hud.minimap"], tfhud.Takes);
     }
 
     [Fact]

@@ -49,6 +49,9 @@ public sealed class UiFrameCost
 /// </summary>
 public interface IUiRuntime : IUiClientEvents, IDisposable
 {
+    /// <summary>The engine's materials came back from a device reset.</summary>
+    void MaterialsRestored();
+
     /// <summary>The server's VGUIMenu, before the native viewport: true when the UI took it.</summary>
     bool TakePanel(string name, bool show, IReadOnlyList<KeyValuePair<string, string>> data);
 

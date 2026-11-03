@@ -151,10 +151,14 @@ public sealed class ClientShadowSystem : IClientShadowsHost, IShadowProxySource,
         _manager.UnlockAllShadowDepthTextures();
     }
 
+    /// <summary>What else a device reset concerns: the one restore func the client registers is the shadows'.</summary>
+    public Action? Restored { get; set; }
+
     public void RestoreRenderState()
     {
-        using var _ = Enter(ShadowSystemStats.Kind.Other);
-        _manager.RestoreRenderState();
+        using (Enter(ShadowSystemStats.Kind.Other))
+            _manager.RestoreRenderState();
+        Restored?.Invoke();
     }
 
     public void RenderShadowTexture(int width, int height)

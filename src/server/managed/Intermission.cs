@@ -161,9 +161,12 @@ public sealed class Intermission(ILog log, ConVarRegistry convars, IEntityDirect
         return map;
     }
 
-    private List<string> Cycle()
+    private List<string> Cycle() => ReadCycle(files, _mapCycle?.Value);
+
+    /// <summary>The maps <paramref name="name"/> lists, the map cycle file's own fallback included.</summary>
+    public static List<string> ReadCycle(IEngineFiles files, string? name)
     {
-        string name = _mapCycle?.Value ?? string.Empty;
+        name ??= string.Empty;
         if (name.Length == 0 || name.Contains("..", StringComparison.Ordinal))
             return [];
 

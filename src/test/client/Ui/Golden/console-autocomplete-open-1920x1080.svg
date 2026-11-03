@@ -54,40 +54,40 @@
 <rect x="1394" y="802" width="120" height="40" rx="4" fill="#2c3038" fill-opacity="0.7" data-e="100"/>
 <text x="1416" y="830.55" font-family="IBM Plex Sans Condensed" font-size="22" font-weight="600" fill="#f2eee6" xml:space="preserve" data-e="101">SUBMIT</text>
 </g>
-<rect x="394" y="840" width="884" height="251" rx="16" fill="#000000" fill-opacity="0.17" data-e="103"/>
-<rect x="400" y="846" width="872" height="239" rx="10" fill="#000000" fill-opacity="0.43" data-e="103"/>
-<rect x="406" y="846" width="860" height="227" rx="4" fill="#0d0f13" fill-opacity="0.84" data-e="103"/>
-<rect x="406.5" y="846.5" width="859" height="226" rx="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="103"/>
-<rect x="418" y="856" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="105"/>
-<text x="422" y="870.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="106">CVAR</text>
-<text x="470" y="871.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="107">cl_interp</text>
-<text x="762" y="871.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="108">0.1</text>
-<text x="862" y="870.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="109">Sets the interpolation amount (bounded on low side by serv…</text>
-<rect x="410" y="882" width="852" height="32" rx="2" fill="#ffb52e" fill-opacity="0.18" data-e="110"/>
-<rect x="418" y="888" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="111"/>
-<text x="422" y="902.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="112">CVAR</text>
-<text x="470" y="903.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="113">cl_interp_ratio</text>
-<text x="762" y="903.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="114">2</text>
-<text x="862" y="902.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="115">Sets the interpolation amount (final amount is cl_interp_rati…</text>
-<rect x="418" y="920" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="117"/>
-<text x="422" y="934.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="118">CVAR</text>
-<text x="470" y="935.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="119">cl_interp_all</text>
-<text x="762" y="935.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="120">0</text>
-<text x="862" y="934.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="121">Disable interpolation list optimizations.</text>
-<rect x="418" y="952" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="123"/>
-<text x="422" y="966.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="124">CVAR</text>
-<text x="470" y="967.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="125">cl_interp_npcs</text>
-<text x="762" y="967.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="126">0.0</text>
-<text x="862" y="966.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="127">Interpolate NPC positions starting this many seconds in past…</text>
-<rect x="418" y="984" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="129"/>
-<text x="422" y="998.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="130">CVAR</text>
-<text x="470" y="999.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="131">cl_interpolate</text>
-<text x="762" y="999.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="132">1</text>
-<text x="862" y="998.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="133">Interpolate entities on the client.</text>
-<rect x="418" y="1016" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="135"/>
-<text x="424" y="1030.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="136">CMD</text>
-<text x="470" y="1031.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="137">cl_interp_watch</text>
-<text x="862" y="1030.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="139">Prints the interpolation history of the entity under the crossh…</text>
-<text x="418" y="1060.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="141">6</text>
-<text x="430" y="1060.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="142">MATCHES</text>
+<rect x="394" y="573" width="884" height="251" rx="16" fill="#000000" fill-opacity="0.17" data-e="103"/>
+<rect x="400" y="579" width="872" height="239" rx="10" fill="#000000" fill-opacity="0.43" data-e="103"/>
+<rect x="406" y="579" width="860" height="227" rx="4" fill="#111317" data-e="103"/>
+<rect x="406.5" y="579.5" width="859" height="226" rx="3.5" fill="none" stroke="#ffffff" stroke-opacity="0.1" stroke-width="1" data-e="103"/>
+<rect x="418" y="589" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="105"/>
+<text x="422" y="604.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="106">CVAR</text>
+<text x="470" y="604.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="107">cl_interp</text>
+<text x="762" y="604.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="108">0.1</text>
+<text x="862" y="604.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="109">Sets the interpolation amount (bounded on low side by serv…</text>
+<rect x="410" y="615" width="852" height="32" rx="2" fill="#ffb52e" fill-opacity="0.18" data-e="110"/>
+<rect x="418" y="621" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="111"/>
+<text x="422" y="636.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="112">CVAR</text>
+<text x="470" y="636.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#ffb52e" xml:space="preserve" data-e="113">cl_interp_ratio</text>
+<text x="762" y="636.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="114">2</text>
+<text x="862" y="636.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="115">Sets the interpolation amount (final amount is cl_interp_rati…</text>
+<rect x="418" y="653" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="117"/>
+<text x="422" y="668.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="118">CVAR</text>
+<text x="470" y="668.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="119">cl_interp_all</text>
+<text x="762" y="668.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="120">0</text>
+<text x="862" y="668.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="121">Disable interpolation list optimizations.</text>
+<rect x="418" y="685" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="123"/>
+<text x="422" y="700.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="124">CVAR</text>
+<text x="470" y="700.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="125">cl_interp_npcs</text>
+<text x="762" y="700.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="126">0.0</text>
+<text x="862" y="700.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="127">Interpolate NPC positions starting this many seconds in past…</text>
+<rect x="418" y="717" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="129"/>
+<text x="422" y="732.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="130">CVAR</text>
+<text x="470" y="732.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="131">cl_interpolate</text>
+<text x="762" y="732.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="132">1</text>
+<text x="862" y="732.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="133">Interpolate entities on the client.</text>
+<rect x="418" y="749" width="40" height="20" rx="2" fill="#2c3038" fill-opacity="0.82" data-e="135"/>
+<text x="424" y="764.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="136">CMD</text>
+<text x="470" y="764.38" font-family="IBM Plex Mono" font-size="15" font-weight="400" fill="#f2eee6" xml:space="preserve" data-e="137">cl_interp_watch</text>
+<text x="862" y="764.35" font-family="IBM Plex Sans" font-size="14" font-weight="400" fill="#b2aea4" xml:space="preserve" data-e="139">Prints the interpolation history of the entity under the crossh…</text>
+<text x="418" y="793.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="141">6</text>
+<text x="430" y="793.35" font-family="IBM Plex Sans Condensed" font-size="14" font-weight="500" fill="#b2aea4" xml:space="preserve" data-e="142">MATCHES</text>
 </svg>

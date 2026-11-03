@@ -251,6 +251,15 @@ gets `[UiGallery("Part", "state")]` entries through `UiPanelPreview` /
   from one panel object (the scoreboard uses one `TeamTable` for both teams).
   In a `Box` a sub-panel fills its parent (so it anchors to corners); in a
   stack it takes its size. **The HUD is one sub-panel per element.**
+- **A radial menu** is not a screen you write: the `RadialMenu` screen draws
+  whatever `RadialMenus` (client managed, by constructor) holds up. Build a
+  `RadialPage` of `RadialEntry`s and call `Toggle(owner, page, stillWanted)`: the
+  same owner's key closes it, the pointer goes to the centre, and `stillWanted`
+  closes it when its reason has gone. An entry either takes `Choose` or `Open`s
+  another page, so menus nest (Back goes up), and a list longer than the ring's
+  nine places is paged by a last "More". `TFVoiceMenus` and `ClientVotes` are the
+  examples. The screen is registered before the UI loads, or the UI fails to
+  compose.
 - `ui.Window(windows, id, titleToken, spec)` is a movable, resizable window
   (the console and the server browser): drag the title bar, resize from any
   edge or corner, raise on click, Esc closes the top one, the pointer shape
@@ -267,6 +276,11 @@ gets `[UiGallery("Part", "state")]` entries through `UiPanelPreview` /
   title bar, a snapped window takes back the size it had before the snap;
   resized first, it keeps the new size. The window's title is the token its
   bar draws.
+- **Keys**: a key action is a class, as a convar is: `[KeyAction("impulse 100",
+  "#Valve_Flashlight", Section = "#Valve_Combat_Title", Order = 110, Keys = ["f"])]`.
+  With a label it is a row of the keyboard page; its keys are a fresh player's
+  defaults (no `config.cfg`). A mod that declares any replaces the core's list
+  (`KeyActions`), so it declares its own whole list and its mods add by `Order`.
 - **The taskbar** (`screens/Taskbar.cs`, every mod) is the menu layer's
   chrome: a screen with `Chrome` set is shown by the layer exactly while the
   main or pause menu is up (`UiLayer.ChromeWith`, the host's resolved main

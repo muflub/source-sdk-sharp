@@ -356,6 +356,8 @@ public sealed class UiLoader : IUiClientEvents, IUiTextureSource, IDisposable
     public void ScreenSizeChanged(int oldWidth, int oldHeight, int newWidth, int newHeight)
         => Current?.ScreenSizeChanged(oldWidth, oldHeight, newWidth, newHeight);
 
+    public void MaterialsRestored() => Current?.MaterialsRestored();
+
     public void Input(int kind, int x, int y, int code, int character, float delta)
         => Current?.Input(kind, x, y, code, character, delta);
 

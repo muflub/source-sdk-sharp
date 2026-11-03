@@ -79,6 +79,28 @@ public unsafe class ClientShadowSystemTests
     // The entities' half and the queue.
     //-------------------------------------------------------------------------
 
+    private sealed class NoQueue : IShadowNativeQueue
+    {
+        public void Flush()
+        {
+        }
+    }
+
+    /// <summary>The fonts' way back: the shadows' restore func is the one the client registers.</summary>
+    [Fact]
+    public void ADeviceResetTellsWhatElseItConcerns()
+    {
+        var (replay, entities) = World0();
+        var system = new ClientShadowSystem(replay.Manager, new NoQueue(), entities, new ShadowSystemStats());
+        int told = 0;
+        system.RestoreRenderState();
+        Assert.Equal(0, told);
+
+        system.Restored = () => told++;
+        system.RestoreRenderState();
+        Assert.Equal(1, told);
+    }
+
     [Fact]
     public void ARefreshCreatesTheEntitysShadowOnceAndASecondKeepsIt()
     {

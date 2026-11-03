@@ -33,14 +33,16 @@ public sealed class Hud : UiScreen
     private readonly WeaponCarouselPanel _carousel;
     private readonly PickupHistoryPanel _history;
     private readonly DamageDealtPanel _dealt;
+    private readonly MinimapPanel _minimap;
 
     /// <summary>The HUD reads only whether there is a player; each element reads its own sources.</summary>
     public Hud(IPlayerLife life, VitalsPanel vitals, AmmoPanel ammo, CrosshairPanel crosshair, DamagePanel damage,
                MapTextPanel mapText, HintsPanel hints, BuildStampPanel build, KillFeedPanel kills, VoicePanel voice,
                WeaponSelectionPanel selection, WeaponPlusPanel plus, WeaponCarouselPanel carousel, PickupHistoryPanel history,
-               DamageDealtPanel dealt)
+               DamageDealtPanel dealt, MinimapPanel minimap)
     {
         _dealt = dealt;
+        _minimap = minimap;
         _selection = selection;
         _plus = plus;
         _carousel = carousel;
@@ -83,6 +85,8 @@ public sealed class Hud : UiScreen
             ui.Sub("crosshair", _crosshair, 5f);
         if (!ui.Taken("hud.dealt"))
             ui.Sub("dealt", _dealt);
+        if (!ui.Taken("hud.minimap"))
+            ui.Sub("minimap", _minimap);
 
         // The bottom line: vitals left, hints centre, ammo right. On a narrow
         // screen (ui.Narrow) the panels are compact and the hints move above the
@@ -453,6 +457,51 @@ public sealed class DamageDealtPanel(IDamageDealtSource dealt) : UiPanel
                     ui.Text($"{d.Amount}", ui.Narrow ? Text.Title : Text.Number, Tone.Text);
             }
     }
+}
+
+/// <summary>
+/// The map from above, top left: its outline, the local player with the way they face, and
+/// a dot for each other player on their screen. Nobody out of sight shows.
+/// </summary>
+public sealed class MinimapPanel(IMinimapSource map) : UiPanel
+{
+    /// <summary>The square's side.</summary>
+    public const float WideDu = 240f, NarrowDu = 160f;
+
+    private const float LineDu = 2f, DotDu = 10f, SelfDu = 8f, FacingDu = 36f, FacingSpan = 1.4f;
+
+    public override void Describe(ref UiFrame ui)
+    {
+        float[] outline = map.Outline;
+        if (outline.Length == 0)
+            return;
+
+        float size = ui.Narrow ? NarrowDu : WideDu;
+
+        using (ui.Box("minimap").At(UiAnchor.TopLeft).Inset(Space.S).Fill(Tone.Surface).Round(Radius.M).Pad(Space.S))
+        using (ui.Box().Size(Size.Du(size), Size.Du(size)))
+        {
+            ui.Lines(outline, Tone.TextMuted, size, LineDu).At(UiAnchor.TopLeft).Layered();
+
+            MinimapDot self = map.Self;
+            ui.Sector(((UiPaint)Tone.Accent).WithOpacity(0.35f), FacingDu, map.SelfFacing - FacingSpan / 2f, FacingSpan, 0f)
+              .At(UiAnchor.TopLeft).Inset(At(self.U, size, FacingDu), At(self.V, size, FacingDu)).Layered();
+            ui.Shape(UiShape.Dot, Tone.Accent, SelfDu)
+              .At(UiAnchor.TopLeft).Inset(At(self.U, size, SelfDu), At(self.V, size, SelfDu)).Layered();
+
+            int n = map.DotCount;
+            for (int i = 0; i < n; i++)
+            {
+                MinimapDot dot = map.Dot(i);
+                ui.Shape(UiShape.Dot, Tone.Danger, DotDu).Key(i)
+                  .At(UiAnchor.TopLeft).Inset(At(dot.U, size, DotDu), At(dot.V, size, DotDu)).Layered();
+            }
+        }
+    }
+
+    /// <summary>Where a mark's edge goes so its middle falls at <paramref name="fraction"/> of the square, kept on it.</summary>
+    private static UiLength At(float fraction, float size, float mark)
+        => new(Math.Clamp(fraction, 0f, 1f) * size - mark / 2f, false);
 }
 
 /// <summary>Which build this is, on a small pill at the bottom; the debug line (when and where) at the top right.</summary>

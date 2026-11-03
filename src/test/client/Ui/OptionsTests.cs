@@ -189,15 +189,43 @@ public class OptionsTests
         Assert.Equal([new UiVideoMode(640, 480), new UiVideoMode(800, 600), new UiVideoMode(1024, 768)], video.ListedModes);
     }
 
+    /// <summary>Written back, the settings Load read are not all what it read: no
+    /// antialiasing read 0 and went out as 1 sample, and the material system answers
+    /// that with a device reset, which left every font blank.</summary>
     [Fact]
-    public void An_unchanged_mode_applies_without_mat_setvideomode_and_saves()
+    public void A_video_page_nobody_changed_applies_nothing()
+    {
+        var r = new Rig(tab: 3);
+        r.Frame();
+        int convars = r.Convars.Writes.Count;
+        Assert.True(r.Page<VideoOptions>().Apply());
+        Assert.Empty(r.Lines.Lines);
+        Assert.Equal(convars, r.Convars.Writes.Count);
+    }
+
+    [Fact]
+    public void A_video_setting_changed_writes_that_setting_and_saves()
     {
         var r = new Rig(tab: 3);
         r.Frame();
         var video = r.Page<VideoOptions>();
-        video.Apply();
-        Assert.DoesNotContain(r.Lines.Lines, l => l.StartsWith("mat_setvideomode", StringComparison.Ordinal));
-        Assert.Equal("mat_savechanges", r.Lines.Lines[^1]);
+        video.Working = video.Working with { VSync = video.Working.VSync == 0 ? 1 : 0 };
+        Assert.True(video.Apply());
+        Assert.Equal([$"mat_vsync {video.Working.VSync}", "mat_savechanges"], r.Lines.Lines);
+    }
+
+    /// <summary>The trigger: ticking the developer console and pressing OK re-sent every video setting.</summary>
+    [Fact]
+    public void Applying_a_change_on_one_page_runs_no_other_page_s_apply()
+    {
+        var r = new Rig(tab: 6);
+        r.Frame();
+        var advanced = r.Page<AdvancedOptions>();
+        advanced.Working.DeveloperConsole = !advanced.Working.DeveloperConsole;
+        r.Convars.Writes.Clear();
+        Assert.True(r.Window.Apply());
+        Assert.Equal(["con_enable"], r.Convars.Writes.Select(w => w.Name));
+        Assert.Empty(r.Lines.Lines);
     }
 
     [Fact]
@@ -244,6 +272,12 @@ public class OptionsTests
         r.Frame();
         var video = r.Page<VideoOptions>();
         Assert.Equal(choice, video.Working.Filtering);
+
+        // From another setting, that choice writes what the store held.
+        r = new Rig(s => s.Add<IUiConVarStore>(OptionsSamples.Convars().With("mat_forceaniso", "16").With("mat_trilinear", "0")), tab: 3);
+        r.Frame();
+        video = r.Page<VideoOptions>();
+        video.Working = video.Working with { Filtering = choice };
         video.Apply();
         Assert.Contains(anisoLine, r.Lines.Lines);
         Assert.Contains(triLine, r.Lines.Lines);

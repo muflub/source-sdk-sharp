@@ -244,6 +244,13 @@ public sealed class UiLint
                     for (int q = 0; q < o; q++)
                     {
                         var qop = list.Ops[q];
+                        if (qop.Kind == UiPrimitiveKind.Polygon)
+                        {
+                            var polygon = list.Polygons[qop.Index];
+                            if (qop.Element >= 0 && f.Ctx.Report.IsSurfaceShape(qop.Element) && polygon.Color.A > 0 && InsideConvex(list.Vertices.Slice(polygon.VertexStart, polygon.VertexCount), cx, cy))
+                                bg = UiContrast.Over(polygon.Color, bg);
+                            continue;
+                        }
                         if (qop.Kind != UiPrimitiveKind.Quad)
                             continue;
                         var quad = list.Quads[qop.Index];
@@ -271,6 +278,25 @@ public sealed class UiLint
         foreach (var (element, w) in worst.OrderBy(k => k.Key))
             f.Add("contrast", element, string.Create(CultureInfo.InvariantCulture,
                 $"is {w.Ratio:0.0}:1 over the {w.Backdrop} still (needs {w.Need:0.#}:1); put it on a Surface, or use Tone.Text"));
+    }
+
+    // Whether a point is inside a convex polygon: on the same side of every edge.
+    private static bool InsideConvex(ReadOnlySpan<UiVertex> vertices, float x, float y)
+    {
+        bool any = false, sign = false;
+        for (int i = 0; i < vertices.Length; i++)
+        {
+            var a = vertices[i];
+            var b = vertices[(i + 1) % vertices.Length];
+            float cross = (b.X - a.X) * (y - a.Y) - (b.Y - a.Y) * (x - a.X);
+            if (cross == 0f)
+                continue;
+            if (any && cross > 0f != sign)
+                return false;
+            any = true;
+            sign = cross > 0f;
+        }
+        return any;
     }
 
     /// <summary>

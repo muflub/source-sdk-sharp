@@ -365,6 +365,9 @@ public enum LifecycleStage
     /// is the next free hundred.
     /// </summary>
     BotPlayers = 2500,
+
+    /// <summary>The admin challenge: a slot's rights end with its connection.</summary>
+    Admins = 2510,
 }
 
 /// <summary>

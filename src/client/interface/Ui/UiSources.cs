@@ -253,6 +253,26 @@ public interface IDamageDealtSource
     DamageNumber Number(int i);
 }
 
+/// <summary>One thing on the minimap: where it falls on the square, 0..1, east and south.</summary>
+public readonly record struct MinimapDot(float U, float V);
+
+/// <summary>The map as seen from above: its outline, the local player, and the others they can see.</summary>
+public interface IMinimapSource
+{
+    /// <summary>x0, y0, x1, y1 for each line, 0..1 across the square; empty when the map has no outline.</summary>
+    float[] Outline { get; }
+
+    MinimapDot Self { get; }
+
+    /// <summary>Which way the local player faces, radians clockwise from north.</summary>
+    float SelfFacing { get; }
+
+    /// <summary>The other players on the local player's screen right now.</summary>
+    int DotCount { get; }
+
+    MinimapDot Dot(int i);
+}
+
 /// <summary>The last damage the local player took.</summary>
 public interface IPlayerDamage
 {
@@ -795,7 +815,88 @@ public interface IUiKeyBindingStore
 /// </summary>
 public readonly record struct UiKeyAction(string Command, string Label, string? Section);
 
-/// <summary>The keyboard page's rows, the running mod's: stock reads them from its scripts/kb_act.lst.</summary>
+/// <summary>This player's admin key, for the advanced options: what it is, and making or setting one.</summary>
+public interface IAdminKeySource
+{
+    bool HasKey { get; }
+
+    /// <summary>The public half, base64, to put in a server's cfg/admins.yaml; empty with no usable key.</summary>
+    string PublicKey { get; }
+
+    /// <summary>The file holding the public half.</summary>
+    string PublicKeyFile { get; }
+
+    /// <summary>What went wrong with the last request, a token; null when nothing did.</summary>
+    string? Problem { get; }
+
+    /// <summary>Makes a key when there is none; never replaces one.</summary>
+    void Generate();
+
+    /// <summary>Takes a private key from a file's path, or as base64; one that does not read leaves the key there alone.</summary>
+    void Set(string pathOrKey);
+}
+
+/// <summary>The vote on now, as the panel shows it: live from the server.</summary>
+public interface IVoteSource
+{
+    /// <summary>Whether there is anything to show: a ballot open, or its result still up.</summary>
+    bool Showing { get; }
+
+    /// <summary>The ballot closed one way or the other.</summary>
+    bool Decided { get; }
+
+    bool Passed { get; }
+
+    /// <summary>Whom it would kick, and who called it, by name.</summary>
+    string Target { get; }
+
+    string Caller { get; }
+
+    int Yes { get; }
+
+    int No { get; }
+
+    /// <summary>How many can vote on it.</summary>
+    int Voters { get; }
+
+    int SecondsLeft { get; }
+
+    /// <summary>This player has voted: the panel stops asking.</summary>
+    bool Voted { get; }
+
+    /// <summary>The key that opens the ballot, by the engine's name; empty when unbound.</summary>
+    string Key { get; }
+
+    /// <summary>Why this player's last call was refused, a #Token; null for none now.</summary>
+    string? Refusal { get; }
+}
+
+/// <summary>One choice of a radial menu: what it says (a #Token or data), a second line, and whether it can be taken.</summary>
+public readonly record struct UiRadialItem(string Label, string? Detail, bool Enabled);
+
+/// <summary>The radial menu up now, if any: voice commands, a vote to call, the admin's choices.</summary>
+public interface IRadialMenuSource
+{
+    bool Showing { get; }
+
+    /// <summary>What the hub says (a #Token or data).</summary>
+    string Title { get; }
+
+    int ItemCount { get; }
+
+    UiRadialItem Item(int i);
+}
+
+/// <summary>What the radial menu's input does.</summary>
+public interface IRadialMenuActions
+{
+    void Choose(int i);
+
+    /// <summary>A step back up the menus, closing the first; Escape and the hub.</summary>
+    void Back();
+}
+
+/// <summary>The keyboard page's rows, the running mod's.</summary>
 public interface IUiKeyActions
 {
     IReadOnlyList<UiKeyAction> Actions();

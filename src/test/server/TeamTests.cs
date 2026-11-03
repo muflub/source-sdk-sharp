@@ -176,6 +176,18 @@ public class TeamTests
         return (VoteController)registry.Get(handle)!;
     }
 
+    /// <summary>The counts are numbered from 1: read from 0, the caller's yes went out as a no.</summary>
+    [Fact]
+    public void TheStateSentToPlayersCountsTheCallersYesAsAYes()
+    {
+        var vote = Make(Ctrl);
+        Assert.True(vote.StartVote(Caller, new VoteIssue("kick", "2", ""), 100f));
+        var state = ServerVotes.State(vote, 1, 2, 100f);
+        Assert.Equal(((byte)VotePhase.Voting, (byte)1, (byte)0, (byte)1, (byte)2), (state.Phase, state.Yes, state.No, state.Caller, state.Target));
+        Assert.True(vote.Cast(Voter2, 2, 100.5f) == VoteCast.Ok);
+        Assert.Equal(1, ServerVotes.State(vote, 1, 2, 100.5f).No);
+    }
+
     [Fact]
     public void AVoteThatFails()
     {

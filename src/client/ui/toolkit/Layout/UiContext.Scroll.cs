@@ -26,6 +26,7 @@ public sealed partial class UiContext
     internal void UpdateScroll(ref UiNode n)
     {
         ref var st = ref State<ScrollState>(n.Id);
+        float was = st.Target;
         float wheel = WheelFor(n.Id) * Theme.ScrollStepDu;
         if (n.ScrollAxes == ScrollAxes.Horizontal)
             st.TargetX -= wheel;
@@ -52,6 +53,9 @@ public sealed partial class UiContext
             st.Target += dy * (st.ContentPx - st.ViewPx) / st.ThumbTravelPx / MathF.Max(Screen.Scale, 0.0001f);
         }
 
+        // Scrolled up, by whatever means, a followed region stops following.
+        if (st.Target < was)
+            st.AtEnd = false;
         st.Target = MathF.Max(0f, st.Target);
         st.TargetX = MathF.Max(0f, st.TargetX);
 
@@ -81,7 +85,9 @@ public sealed partial class UiContext
             st.Target = maxY;
             if (!st.Seen) st.Shown = maxY;
         }
+        st.Seen = true;
         st.Target = Math.Clamp(st.Target, 0f, maxY);
+        st.AtEnd = st.Target >= maxY;
         st.Shown = Math.Clamp(st.Shown, 0f, maxY);
         st.TargetX = Math.Clamp(st.TargetX, 0f, maxX);
         st.ShownX = Math.Clamp(st.ShownX, 0f, maxX);

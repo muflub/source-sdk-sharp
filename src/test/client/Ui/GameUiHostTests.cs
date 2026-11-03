@@ -228,6 +228,45 @@ public class GameUiHostTests
         }
     }
 
+    /// <summary>Stock's console is a child of the GameUI's panel: Escape to play takes
+    /// it away, and it is back, as it was, with the GameUI. Over the game it took the
+    /// window and the keys.</summary>
+    [Fact]
+    public void The_console_hides_with_the_GameUI_and_comes_back_with_it()
+    {
+        string dir = Directory.CreateTempSubdirectory("ss-gameuihost-").FullName;
+        try
+        {
+            var engine = Fake().Returns("Hud.LocalPlayerHealth", 80).Returns("Clock.Now", 3f)
+                .Returns("Hud.LocalPlayerIndex", 1).Returns("Console.FindConVarValue", "test server")
+                .Returns("Environment.Globals", default(SourceSharp.Abi.Globals));
+            var services = UiHostKit.RuntimeServices(engine, new UiFidelityTests.RecordingSurface(), dir);
+            var hud = new Hud(new RecordingLog(), engine, engine, new DamageMessage(), new HudMsgMessage(),
+                              new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
+            var ui = ClientUi.Build(services, new RecordingLog(), hud, hud.Messages, hud.Hints, hud.Build, new UiHostKit.NoArsenal(),
+                                    null, new DefaultForwarders.NoEngineClient(), new DefaultForwarders.NoInputSystem());
+            var host = services.Require<GameUiHost>();
+            var line = (ConsoleUi)services.Require<IConsoleLogSource>();
+            host.OnGameUIActivated();
+            host.ConsoleActivate();
+            Assert.False(ui.Menu.IsHeld("console"));
+
+            host.OnGameUIHidden();
+            Assert.True(ui.Menu.IsHeld("console"));
+            Assert.True(ui.Menu.IsOpen("console"));
+            ui.Input((int)UiInputKind.Char, 0, 0, 0, 'x', 0f);
+            Assert.Equal("", line.Input);
+
+            host.OnGameUIActivated();
+            Assert.False(ui.Menu.IsHeld("console"));
+            Assert.True(ui.Menu.IsOpen("console"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     /// <summary>A load's paint count (plan_gameui_managed.md §4): the dialog
     /// asked for, the updates, the ones that asked the engine to repaint, and
     /// the menu frames drawn between the start and the end.</summary>

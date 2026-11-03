@@ -10,7 +10,7 @@ public static class HudSamples
     public static UiScreen Build(UiSampleServices s, FakeLocalPlayer player, FakeHudText? text = null, FakeBuildStamp? stamp = null,
                                  FakeKillFeed? kills = null, FakeVoice? voice = null, FakeWeaponSelection? selection = null,
                                  FakePickupHistory? history = null, FakeWeaponPlus? plus = null, FakeWeaponCarousel? carousel = null,
-                                 FakeDamageDealt? dealt = null)
+                                 FakeDamageDealt? dealt = null, FakeMinimap? minimap = null)
     {
         s.Add<IWeaponSelectionSource>(selection ?? new FakeWeaponSelection { Showing = false });
         s.Add<IWeaponPlusSource>(plus ?? new FakeWeaponPlus { Showing = false });
@@ -21,6 +21,7 @@ public static class HudSamples
         s.Add<IBuildStampSource>(stamp ?? new FakeBuildStamp());
         s.Add<IKillFeedSource>(kills ?? new FakeKillFeed());
         s.Add<IDamageDealtSource>(dealt ?? new FakeDamageDealt());
+        s.Add<IMinimapSource>(minimap ?? new FakeMinimap { Outline = [] });
         s.Add<IVoiceSource>(voice ?? new FakeVoice());
         return s.Create<Hud>();
     }
@@ -133,6 +134,10 @@ public static class HudSamples
     [UiSample("damage dealt, a fresh hit and an older one")]
     private static UiScreen DamageDealt(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
         dealt: new FakeDamageDealt { Numbers = [new DamageNumber(44, 0.6f), new DamageNumber(12, 0f)] });
+
+    [UiSample("minimap, two players in sight")]
+    private static UiScreen Minimap(UiSampleServices s) => Build(s, new FakeLocalPlayer(),
+        minimap: new FakeMinimap { Dots = [new MinimapDot(0.33f, 0.3f), new MinimapDot(0.75f, 0.6f)] });
 
     [UiSample("aux power draining")]
     private static UiScreen AuxPower(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 62f, SuitDevices = 1 });

@@ -1,5 +1,6 @@
 using System.Globalization;
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Ai.Hl2mp;
 
@@ -183,4 +184,26 @@ public sealed class AiThinkLogCommand(Hl2mpBots bots, ILog log) : IConCommand
         bots.LogThink = args.Trim() != "0";
         log.Msg($"[SourceSharp/Ai] ai_think_log {(bots.LogThink ? 1 : 0)}\n");
     }
+}
+
+/// <summary>The bots' place in the admin menu.</summary>
+[SideService(Side.Server, As = [typeof(IAdminMenuProvider)])]
+public sealed class AiAdminMenu(Hl2mpRoster roster) : IAdminMenuProvider
+{
+    public IEnumerable<AdminNode> AdminItems(int slot)
+    {
+        yield return AdminNode.Folder("#SS_UI_Admin_Bots",
+        [
+            AdminNode.Folder("#SS_UI_Admin_BotAdd",
+            [
+                Add("#SS_UI_Admin_BotEasy", "easy"),
+                Add("#SS_UI_Admin_BotNormal", "normal"),
+                Add("#SS_UI_Admin_BotHard", "hard"),
+                Add("#SS_UI_Admin_BotExpert", "expert"),
+            ]),
+            new AdminNode("#SS_UI_Admin_BotRemoveAll", "bots:remove", () => roster.Remove("all")),
+        ]);
+    }
+
+    private AdminNode Add(string label, string skill) => new(label, "bots:add:" + skill, () => roster.Add(null, skill));
 }

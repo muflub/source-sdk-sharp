@@ -21,7 +21,7 @@ public sealed class UiFrameReport
     private float[] _fade = new float[256];
     private readonly List<UiIdCollision> _collisions = new();
 
-    private const byte Large = 1, Blocker = 2, Hidden = 4, ScrollBit = 8, ThumbBit = 16, MovableBit = 32;
+    private const byte Large = 1, Blocker = 2, Hidden = 4, ScrollBit = 8, ThumbBit = 16, MovableBit = 32, SurfaceBit = 64;
 
     /// <summary>How many screens this frame described.</summary>
     public int Screens { get; internal set; }
@@ -99,6 +99,15 @@ public sealed class UiFrameReport
 
     /// <summary>A window's frame: placed by the player (kept reachable by the window's clamp, not by the lint).</summary>
     public bool IsMovable(int element) => (_bits[element] & MovableBit) != 0;
+
+    /// <summary>A shape drawn as a surface for words to sit on (a radial menu's wedge): the contrast rule composites it as it does a panel, where a shape that is art it does not.</summary>
+    public bool IsSurfaceShape(int element) => (_bits[element] & SurfaceBit) != 0;
+
+    internal void MarkSurfaceShape(int element)
+    {
+        Ensure(element);
+        _bits[element] |= SurfaceBit;
+    }
 
     internal void MarkMovable(int element)
     {

@@ -250,7 +250,10 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     {
         Inputs++;
         var e = new UiInputEvent((UiInputKind)kind, x, y, code, (char)character, delta);
-        _menu.Input(e);
+        // The console's Tab completes: it does not walk the window's focus to a button.
+        if (!(e.Kind == UiInputKind.Key && (UiKey)code == UiKey.Tab && Windows.Top == ConsoleScreen
+              && _menu.IsOpen(ConsoleScreen) && !_menu.IsHeld(ConsoleScreen)))
+            _menu.Input(e);
 
         // The chat's input line has the keyboard while it is open (stock messagemode).
         if (_menus.Chat is { } chat && _menu.IsOpen("chatinput"))
@@ -262,7 +265,7 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
             return;
         }
 
-        bool console = _menu.IsOpen("console") && Windows.Top == "console";
+        bool console = _menu.IsOpen(ConsoleScreen) && !_menu.IsHeld(ConsoleScreen) && Windows.Top == ConsoleScreen;
         if (e.Kind == UiInputKind.Key)
         {
             if ((UiKey)code == UiKey.Escape)
@@ -335,6 +338,8 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         Close(MainMenuScreen);
     }
 
+    private const string ConsoleScreen = "console";
+
     /// <summary>Whether the engine's GameUI is up, by its two edges.</summary>
     private bool _gameUiUp;
 
@@ -354,6 +359,9 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
                 _menu.Hold(screen, up);
         foreach (var screen in Panels.Values)
             _menu.Hold(screen, up);
+        // The other way about: stock's console is a child of the GameUI's panel, so
+        // it goes when the GameUI hides, stays open, and is back with it.
+        _menu.Hold(ConsoleScreen, !up);
     }
 
     private bool IsViewportScreen(string screen)
@@ -450,6 +458,12 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     {
         _log.Msg($"[SourceSharp/Ui] screen {oldWidth}x{oldHeight} -> {newWidth}x{newHeight}\n");
         _backend.ScreenSizeChanged();
+    }
+
+    public void MaterialsRestored()
+    {
+        _log.Msg("[SourceSharp/Ui] materials restored: making the fonts again\n");
+        _backend.MaterialsRestored();
     }
 
     /// <summary>

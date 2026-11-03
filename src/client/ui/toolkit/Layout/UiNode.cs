@@ -61,6 +61,13 @@ public enum UiShape : byte
     /// <summary>A clock sweep: the pie of ShapeValue (0..1) of the circle, from
     /// 12 o'clock clockwise — a radial progress's fill.</summary>
     Sweep,
+    /// <summary>A slice of a ring in a square rect, its outer edge the rect's: from
+    /// ShapeValue radians clockwise from the top, ShapeSpan round, inside cut at
+    /// ShapeInner of the radius. A full span and no inside is a disc.</summary>
+    Sector,
+    /// <summary>Line segments across the rect: Lines holds x0, y0, x1, y1 for each,
+    /// 0..1 of its width and height, ShapeValue their thickness in du.</summary>
+    Lines,
 }
 
 /// <summary>
@@ -121,6 +128,8 @@ internal struct UiNode
     public float WrapDu;
     public int Caret, SelStart, SelLength;   // an edited line: caret index (-1: none), selection                // > 0: break lines at this width
     public UiShape Shape;
+    public float ShapeSpan, ShapeInner; // a sector's angle and inner radius, as fractions of a turn's radians and the radius
+    public float[]? Lines;              // a Lines shape's segments, held by whoever described them
     public float ShapeValue;            // a shape's parameter: signal bars lit, crosshair gap
     public int Texture;                 // a Texture node's backend texture id
     public UiRect TextureUv;            // and the part of it the leaf samples

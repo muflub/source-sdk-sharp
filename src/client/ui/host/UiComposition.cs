@@ -247,7 +247,8 @@ public static class ClientUi
                                                && services.Resolve<LocalPickupHistory>() is { } feed
                                                ? new PickupHistoryUi(history, feed)
                                                : new NoPickupHistory()),
-                                           new DamageDealtPanel(services.Require<IDamageDealtSource>()));
+                                           new DamageDealtPanel(services.Require<IDamageDealtSource>()),
+                                           new MinimapPanel(services.Require<IMinimapSource>()));
         var centre = new Ui.Screens.CentrePrint(services.Require<ICentrePrintSource>());
         var chat = new Chat(services.Require<IChatSource>());
         var overlayText = new Ui.Screens.DebugOverlayText(services.Require<IDebugOverlaySource>());
@@ -267,7 +268,7 @@ public static class ClientUi
         // console-window follow-up). Optional: the UI loader's test host
         // composes without the side's container, and a window with no feed
         // just mirrors the typed lines, the pre-capture behaviour.
-        var console = new ConsoleUi(engine, services.Resolve<ConsoleLines>());
+        var console = new ConsoleUi(engine, services.Resolve<ConsoleLines>(), new EngineConsoleCommands(services.Require<IEngineConsole>()));
         // The console's history, as condump writes it (plan_gameui_managed.md G4).
         services.AddInstance<IConsoleLogSource>(console);
         // THE TASKBAR: the menu layer's open windows, the settings quick-open
@@ -296,7 +297,7 @@ public static class ClientUi
         services.AddInstance<IServerHistory>(browser);
         var options = new Options(windows,
         [
-            new KeyBindings(windows, services.Require<IUiKeyBindingStore>(), new ModKeyActions(optionsFiles)),
+            new KeyBindings(windows, services.Require<IUiKeyBindingStore>(), services.Require<IUiKeyActions>()),
             new MouseOptions(windows, convarStore),
             new AudioOptions(windows, convarStore, commandLine),
             new VideoOptions(new EngineVideoModes(services.Require<IFwdGameUIFuncs>(), services.Require<IFwdMaterialSystem>()),
@@ -304,7 +305,7 @@ public static class ClientUi
             new VoiceOptions(windows, convarStore, new EngineMicrophone(services.Require<IVoiceTweakControls>())),
             new MultiplayerOptions(convarStore, commandLine, new EngineFileList(services.Require<IFwdFileFinder>()),
                                    new OptionsScriptSource(optionsFiles, convarStore, commandLine)),
-            new AdvancedOptions(windows, convarStore),
+            new AdvancedOptions(windows, convarStore, services.Require<IAdminKeySource>()),
         ]);
         UiScreen[] menuScreens =
         [
@@ -327,6 +328,8 @@ public static class ClientUi
             new LoadingProgress(loading),
             new DisconnectMessage(loading),
             new ConfirmQuit(confirmQuit),
+            new RadialMenu(services.Require<IRadialMenuSource>(), services.Require<IRadialMenuActions>()),
+            new VotePanel(services.Require<IVoteSource>()),
             new Ui.Screens.LoadingDisc(services.Require<ILoadingDiscSource>()),
         ];
         var (hudPlaced, menuPlaced) = UiModScreens.Place(hudScreens, menuScreens, modScreens);
@@ -346,7 +349,7 @@ public static class ClientUi
         services.AddInstance(menuCommands);
         mainMenu.MenuCommand = menuCommands.Run;
         services.AddInstance(new GameUiHost(host, loading, confirmQuit, menuCommands, browser,
-                                            services.Resolve<GameUiLoadMeter>() ?? new GameUiLoadMeter()));
+                                            services.Resolve<GameUiLoadMeter>() ?? new GameUiLoadMeter(), services.Resolve<ConnectedServer>()));
         taskbar.Bind(menuLayer, host.Open);
         return host;
     }

@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+extern alias client;
 
 using SourceSharp.Tests;
 
@@ -7,14 +7,12 @@ using Xunit;
 namespace TF2.Tests;
 
 /// <summary>
-/// The default key binds the engine seeds a fresh mod cfg with. The engine
-/// execs <c>cfg/config_default.cfg</c> when a player's <c>config.cfg</c> is
-/// missing and has no built-in binds of its own, and the TF2 menus and HUD
-/// name commands by token — the build menu's cancel hint is
+/// TF2's key actions and the keys a fresh player gets (TFKeyActions). The engine
+/// has no built-in binds of its own, and the TF2 menus and HUD name commands by
+/// token: the build menu's cancel hint is
 /// <c>TF2_BuildMenu_Cancel "Hit '%lastinv%' to Cancel"</c>, which read
-/// "&lt; NOT BOUND &gt;" live (ctf_2fort) because the mod seeded no default
-/// config. The keys are stock's
-/// <c>tf/cfg/config_default.cfg</c>, for the eight commands the UI names.
+/// "&lt; NOT BOUND &gt;" live (ctf_2fort) when the mod gave no defaults. The keys
+/// are stock's <c>tf/cfg/config_default.cfg</c>.
 /// </summary>
 public sealed class TFDefaultBindsTests
 {
@@ -32,23 +30,41 @@ public sealed class TFDefaultBindsTests
         ["attack2"] = "mouse2",
         ["reload"] = "r",
         ["disguiseteam"] = "-",
+        ["voice_menu_1"] = "z",
+        ["voice_menu_2"] = "x",
+        ["voice_menu_3"] = "c",
+        ["voicemenu 0 0"] = "e",
+        ["taunt"] = "g",
+        ["dropitem"] = "l",
     };
+
+    private static client::SourceSharp.Client.Input.KeyActions Actions()
+        => client::SourceSharp.Client.Input.KeyActions.Of(typeof(client::TF2.Client.MoveForwardKey).Assembly.GetTypes(),
+                                                          typeof(client::SourceSharp.Client.Input.KeyActions).Assembly);
 
     private static IReadOnlyDictionary<string, string> Binds()
     {
-        string text = File.ReadAllText(RepoLayout.Repo("game", "mod_tf2", "cfg-seed", "config_default.cfg"));
         var binds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (Match m in Regex.Matches(text, @"bind\s+""([^""]+)""\s+""([^""]+)"""))
-        {
-            binds[m.Groups[2].Value.TrimStart('+')] = m.Groups[1].Value;
-        }
-
+        foreach (var (key, command) in Actions().DefaultBinds)
+            binds[command.TrimStart('+')] = key;
         return binds;
     }
 
+    /// <summary>TF2's page is TF2's list: no HL2 row, TF2's own, and each class skill its row of +attack2.</summary>
+    [Fact]
+    public void The_keyboard_page_lists_tf2_s_actions_not_the_core_s()
+    {
+        var rows = Actions().Actions();
+        Assert.DoesNotContain(rows, r => r.Command == "phys_swap");
+        Assert.Contains(rows, r => r.Command == "+taunt" && r.Label == "#TF_Taunt");
+        Assert.Equal(6, rows.Count(r => r.Command == "+attack2"));
+        Assert.Contains(rows, r => r.Command == "adminmenu");
+        Assert.Equal(71, rows.Count);
+    }
+
     /// <summary>What a fresh player needs to play at all, at stock's keys
-    /// (tf/cfg/config_default.cfg): the engine binds nothing itself, so a
-    /// config that named only the UI's commands left no way to move.</summary>
+    /// (tf/cfg/config_default.cfg): the engine binds nothing itself, so defaults
+    /// naming only the UI's commands left no way to move.</summary>
     private static readonly IReadOnlyDictionary<string, string> Play = new Dictionary<string, string>
     {
         ["forward"] = "w",

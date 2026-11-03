@@ -124,39 +124,71 @@ public sealed class VideoOptions(IVideoModeSource modes, IUiConVarStore convars,
         Working = Saved;
     }
 
+    /// <summary>
+    /// The changed settings only: what Load read need not be what writing it back
+    /// would say (no antialiasing reads 0 and is written 1 sample, a change the
+    /// material system answers by resetting the device), so a setting nobody
+    /// touched is not written. Nothing changed, nothing is sent.
+    /// </summary>
     public bool Apply()
     {
         var w = Working;
-        Command("r_rootlod", 2 - w.Model);
-        Command("mat_picmip", 2 - w.Texture);
-        Command("mat_trilinear", w.Filtering == 1 ? 1 : 0);
-        Command("mat_forceaniso", w.Filtering switch { 2 => 2, 3 => 4, 4 => 8, 5 => 16, _ => 1 });
-        var (samples, quality) = _aaModes[Math.Clamp(w.Antialias, 0, _aaModes.Count - 1)];
-        Command("mat_antialias", samples);
-        Command("mat_aaquality", quality);
-        convars.Set("mat_hdr_level", w.Hdr.ToString(CultureInfo.InvariantCulture));
-        Command("r_shadowrendertotexture", w.Shadow > 0 ? 1 : 0);
-        Command("r_flashlightdepthtexture", w.Shadow > 1 ? 1 : 0);
-        Command("mat_reducefillrate", w.Shader > 0 ? 0 : 1);
-        Command("r_waterforceexpensive", w.Water > 0 ? 1 : 0);
-        Command("r_waterforcereflectentities", w.Water > 1 ? 1 : 0);
-        Command("mat_vsync", w.VSync);
-        Command("mat_queue_mode", w.Multicore == 0 ? 0 : -1);
-        Command("mat_colorcorrection", w.ColorCorrection);
-        Command("mat_motion_blur_enabled", w.MotionBlur);
-        convars.Set("mat_monitorgamma", w.Gamma.ToString("0.##", CultureInfo.InvariantCulture));
+        var s = Saved;
+        if (w.Model != s.Model)
+            Command("r_rootlod", 2 - w.Model);
+        if (w.Texture != s.Texture)
+            Command("mat_picmip", 2 - w.Texture);
+        if (w.Filtering != s.Filtering)
+        {
+            Command("mat_trilinear", w.Filtering == 1 ? 1 : 0);
+            Command("mat_forceaniso", w.Filtering switch { 2 => 2, 3 => 4, 4 => 8, 5 => 16, _ => 1 });
+        }
+        if (w.Antialias != s.Antialias)
+        {
+            var (samples, quality) = _aaModes[Math.Clamp(w.Antialias, 0, _aaModes.Count - 1)];
+            Command("mat_antialias", samples);
+            Command("mat_aaquality", quality);
+        }
+        if (w.Hdr != s.Hdr)
+            convars.Set("mat_hdr_level", w.Hdr.ToString(CultureInfo.InvariantCulture));
+        if (w.Shadow != s.Shadow)
+        {
+            Command("r_shadowrendertotexture", w.Shadow > 0 ? 1 : 0);
+            Command("r_flashlightdepthtexture", w.Shadow > 1 ? 1 : 0);
+        }
+        if (w.Shader != s.Shader)
+            Command("mat_reducefillrate", w.Shader > 0 ? 0 : 1);
+        if (w.Water != s.Water)
+        {
+            Command("r_waterforceexpensive", w.Water > 0 ? 1 : 0);
+            Command("r_waterforcereflectentities", w.Water > 1 ? 1 : 0);
+        }
+        if (w.VSync != s.VSync)
+            Command("mat_vsync", w.VSync);
+        if (w.Multicore != s.Multicore)
+            Command("mat_queue_mode", w.Multicore == 0 ? 0 : -1);
+        if (w.ColorCorrection != s.ColorCorrection)
+            Command("mat_colorcorrection", w.ColorCorrection);
+        if (w.MotionBlur != s.MotionBlur)
+            Command("mat_motion_blur_enabled", w.MotionBlur);
+        if (w.Gamma != s.Gamma)
+            convars.Set("mat_monitorgamma", w.Gamma.ToString("0.##", CultureInfo.InvariantCulture));
 
-        ListModes(w.Aspect, w.Display);
-        bool windowed = w.Display == 1;
-        var current = modes.Current;
-        var chosen = (uint)w.Mode < (uint)_listed.Count ? _listed[w.Mode] : current;
-        int width = chosen.Width, height = chosen.Height;
-        // SDL's fullscreen is the desktop scaled: the height keeps its aspect.
-        if (!windowed && _desktop.Width > 0 && (width != _desktop.Width || height != _desktop.Height))
-            height = width * _desktop.Height / _desktop.Width;
-        if (width != current.Width || height != current.Height || windowed != modes.Windowed)
-            commands.Submit(string.Create(CultureInfo.InvariantCulture, $"mat_setvideomode {width} {height} {(windowed ? 1 : 0)}"));
-        commands.Submit("mat_savechanges");
+        if (w.Aspect != s.Aspect || w.Mode != s.Mode || w.Display != s.Display)
+        {
+            ListModes(w.Aspect, w.Display);
+            bool windowed = w.Display == 1;
+            var current = modes.Current;
+            var chosen = (uint)w.Mode < (uint)_listed.Count ? _listed[w.Mode] : current;
+            int width = chosen.Width, height = chosen.Height;
+            // SDL's fullscreen is the desktop scaled: the height keeps its aspect.
+            if (!windowed && _desktop.Width > 0 && (width != _desktop.Width || height != _desktop.Height))
+                height = width * _desktop.Height / _desktop.Width;
+            if (width != current.Width || height != current.Height || windowed != modes.Windowed)
+                commands.Submit(string.Create(CultureInfo.InvariantCulture, $"mat_setvideomode {width} {height} {(windowed ? 1 : 0)}"));
+        }
+        if (w != s)
+            commands.Submit("mat_savechanges");
         Saved = Working;
         return true;
     }

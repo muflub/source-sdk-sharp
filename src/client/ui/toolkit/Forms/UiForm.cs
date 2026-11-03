@@ -190,6 +190,19 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed, IUiOptionsPage
     {
         var m = Working;
         using (ui.Scroll("fields", Space.M).Size(Size.Fill, Size.Fill))
+        {
+            DescribeFields(ref ui, m);
+            DescribeMore(ref ui);
+        }
+    }
+
+    /// <summary>What a page has under its fields that is no field: it takes effect at once, not on Apply.</summary>
+    protected virtual void DescribeMore(ref UiFrame ui)
+    {
+    }
+
+    private void DescribeFields(ref UiFrame ui, TModel m)
+    {
         using (ui.FormGrid(LabelColumnDu).Width(Size.Fill))
         {
             string? section = null;

@@ -41,7 +41,7 @@ public interface IGameUiNavigation
 /// <c>gamemenucommand</c> does.
 /// </summary>
 public sealed class GameUiHost(IGameUiNavigation screens, GameUiLoading loading, ConfirmQuitUi quit, GameMenuCommands menu,
-                               IServerHistory history, GameUiLoadMeter meter)
+                               IServerHistory history, GameUiLoadMeter meter, ConnectedServer? connected = null)
     : SourceSharp.Client.Interop.IGameUiCalls
 {
     /// <summary>The console window's screen name.</summary>
@@ -137,7 +137,10 @@ public sealed class GameUiHost(IGameUiNavigation screens, GameUiLoading loading,
     /// kept it. The engine passes the address in network byte order
     /// (GetIPNetworkByteOrder) and the ports in host order.</summary>
     public void OnConnectToServer2(string? game, int ip, int connectionPort, int queryPort)
-        => history.Record(HostOrder(ip), (ushort)connectionPort, (ushort)queryPort);
+    {
+        history.Record(HostOrder(ip), (ushort)connectionPort, (ushort)queryPort);
+        connected?.Joined(HostOrder(ip), (ushort)connectionPort);
+    }
 
     private static uint HostOrder(int networkOrder)
         => BitConverter.IsLittleEndian ? System.Buffers.Binary.BinaryPrimitives.ReverseEndianness((uint)networkOrder) : (uint)networkOrder;

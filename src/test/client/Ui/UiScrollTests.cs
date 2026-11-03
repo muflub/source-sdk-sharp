@@ -280,4 +280,47 @@ public class UiScrollTests
         Assert.True(ctx.List.OpCount > 20, $"{ctx.List.OpCount} ops");
         Assert.Equal(0, bytes);
     }
+
+    /// <summary>A log: it follows its end as it grows, a notch up leaves it where
+    /// the reader put it, and back at the end it follows again. The state these
+    /// read was never written, so a log was pinned and the wheel did nothing.</summary>
+    [Fact]
+    public void A_followed_region_follows_until_scrolled_up_and_again_once_back_at_the_end()
+    {
+        var ctx = Context();
+        double now = 1;
+        int rows = 150;
+        TestScreen.Describer log = (ref UiFrame ui) =>
+        {
+            using (ui.Scroll("log", followEnd: true).Size(Size.Du(300), Size.Du(100)))
+                for (int i = 0; i < rows; i++)
+                    ui.Rect(Tone.Accent, Size.Fill, Size.Du(1)).Name($"row{i}");
+        };
+        Frame(ctx, Screen(1920, 1080), log, now);
+        Settle(ctx, log, ref now);
+        float atEnd = Named(ctx, "row0").Rect.Y;
+        Assert.Equal(-50f, atEnd, 1);
+
+        rows = 160;
+        Settle(ctx, log, ref now);
+        Assert.Equal(-60f, Named(ctx, "row0").Rect.Y, 1);      // grew: still at the end
+
+        Wheel(ctx, 1);
+        Settle(ctx, log, ref now);
+        float scrolled = Named(ctx, "row0").Rect.Y;
+        Assert.True(scrolled > -60f, $"a notch up left the first row at {scrolled}");
+
+        rows = 170;
+        Settle(ctx, log, ref now);
+        Assert.Equal(scrolled, Named(ctx, "row0").Rect.Y, 1);  // grew: the reader's place holds
+
+        for (int i = 0; i < 5; i++)
+        {
+            Wheel(ctx, -1);
+            Settle(ctx, log, ref now);
+        }
+        rows = 180;
+        Settle(ctx, log, ref now);
+        Assert.Equal(-80f, Named(ctx, "row0").Rect.Y, 1);      // back at the end: following
+    }
 }

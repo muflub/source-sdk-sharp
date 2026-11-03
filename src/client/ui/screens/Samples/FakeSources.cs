@@ -315,6 +315,22 @@ public sealed class FakeChat : IChatSource
     public ChatLine Line(int i) => Lines[i];
 }
 
+/// <summary>The minimap as a sample: two rooms and the corridor between them.</summary>
+public sealed class FakeMinimap : IMinimapSource
+{
+    public float[] Outline { get; init; } =
+    [
+        0.05f, 0.1f, 0.4f, 0.1f, 0.4f, 0.1f, 0.4f, 0.45f, 0.4f, 0.45f, 0.6f, 0.45f, 0.6f, 0.45f, 0.6f, 0.3f,
+        0.6f, 0.3f, 0.95f, 0.3f, 0.95f, 0.3f, 0.95f, 0.9f, 0.95f, 0.9f, 0.6f, 0.9f, 0.6f, 0.9f, 0.6f, 0.55f,
+        0.6f, 0.55f, 0.4f, 0.55f, 0.4f, 0.55f, 0.4f, 0.7f, 0.4f, 0.7f, 0.05f, 0.7f, 0.05f, 0.7f, 0.05f, 0.1f,
+    ];
+    public MinimapDot Self { get; init; } = new(0.25f, 0.4f);
+    public float SelfFacing { get; init; } = 1.2f;
+    public MinimapDot[] Dots { get; init; } = [];
+    public int DotCount => Dots.Length;
+    public MinimapDot Dot(int i) => Dots[i];
+}
+
 /// <summary>The damage dealt as a sample.</summary>
 public sealed class FakeDamageDealt : IDamageDealtSource
 {
@@ -559,4 +575,24 @@ public sealed class FakeKeyActions : IUiKeyActions
     ];
 
     public IReadOnlyList<UiKeyAction> Actions() => _rows;
+}
+
+/// <summary>An admin key, or none, for the advanced options.</summary>
+public sealed class FakeAdminKey(bool hasKey, string? problem = null) : IAdminKeySource
+{
+    public bool HasKey => hasKey;
+
+    public string PublicKey => hasKey ? "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEq3mL0sV7c2nXb8uJ9pHf4tGz1yKe6wR5dQ0aTnBmUoXi8LvC2sPjY7hF3gWkN1rZt4xE9uMbA6qDf0lS5oHc2w==" : "";
+
+    public string PublicKeyFile => hasKey ? "/home/you/.local/share/SourceSharp/admin_key.pem.pub" : "";
+
+    public string? Problem => problem;
+
+    public void Generate()
+    {
+    }
+
+    public void Set(string pathOrKey)
+    {
+    }
 }

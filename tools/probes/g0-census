@@ -18,6 +18,12 @@
 #          in order, then shot as shot-open.tga, e.g. "console options"
 #   G0_MOCKUP a segment id: asks the game's /preview/live for the list and
 #          that segment's render, saved as live-list.json and live-render.json
+#   G0_CAPTURE a console line run at the menu, what it prints saved as capture.txt
+#   G0_LEVEL_UI clicks ("x,y x,y"), after G0_LEVEL_CMD, through /client/1/ui/event: the
+#          menu's draws saved as ui-before.json and ui-after.json, shot as shot-levelui.tga
+#   G0_LEVEL_STEPS in the level, |-separated: "e:kind,x,y,code,char,delta" a UI event,
+#          "c:line" a console line, "s:name" a shot as shot-name.tga, "w:secs" a wait, "u:name" the menu's draws as ui-name.json
+#   G0_MAP_WAIT seconds to give the level, for a mod whose HUD logs no first paint
 #   G0_CMD  a console line run at the menu, shot G0_CMD_WAIT s (default 4)
 #          later as shot-cmd.tga, e.g. "gamemenucommand OpenServerBrowser"
 #   G0_LEVEL_CMD a console line run in the level after its shot, shot 4 s
@@ -104,6 +110,9 @@ if [[ -n "${G0_MOCKUP:-}" ]]; then
   api mockups "{\"op\":\"render\",\"segment\":\"$G0_MOCKUP\",\"w\":1280,\"h\":720}" > "$OUT/live-render.json" 2>&1
   result "live-list bytes=$(wc -c < "$OUT/live-list.json") live-render bytes=$(wc -c < "$OUT/live-render.json")"
 fi
+if [[ -n "${G0_CAPTURE:-}" ]]; then
+  api capture "$G0_CAPTURE" > "$OUT/capture.txt" 2>&1
+fi
 if [[ -n "${G0_OPEN:-}" ]]; then
   for screen in $G0_OPEN; do api cmd "cs_ui_open $screen" > /dev/null 2>&1; sleep 1; done
   sleep 2; shot open
@@ -115,9 +124,30 @@ api commands native > "$OUT/commands.json" 2>&1 && result "commands $(grep -o '"
 api convars native > "$OUT/convars.json" 2>&1 && result "convars $(grep -o '"name"' "$OUT/convars.json" | wc -l)"
 if [[ -n "$MAP" ]]; then
   api cmd "map $MAP" > /dev/null 2>&1
-  for _ in $(seq 240); do kill -0 "$pid" 2>/dev/null || break; api log 0 20000 2>/dev/null | grep -q "first paint" && break; sleep 1; done
+  # A mod whose HUD logs no first paint (TF2) says how long its level takes instead.
+  [[ -n "${G0_MAP_WAIT:-}" ]] && sleep "$G0_MAP_WAIT"
+  [[ -z "${G0_MAP_WAIT:-}" ]] && for _ in $(seq 240); do kill -0 "$pid" 2>/dev/null || break; api log 0 20000 2>/dev/null | grep -q "first paint" && break; sleep 1; done
   if kill -0 "$pid" 2>/dev/null; then result "map $MAP up"; sleep 6; shot level
     if [[ -n "${G0_LEVEL_CMD:-}" ]]; then api cmd "$G0_LEVEL_CMD" > /dev/null 2>&1; sleep 4; shot levelcmd; fi
+    if [[ -n "${G0_LEVEL_STEPS:-}" ]]; then
+      IFS='|' read -ra steps <<< "$G0_LEVEL_STEPS"
+      for step in "${steps[@]}"; do
+        case "$step" in
+          e:*) api client 1 "ui/event?e=${step#e:}" >> "$OUT/ui-events.txt" 2>&1; sleep 0.2 ;;
+          c:*) api cmd "${step#c:}" > /dev/null 2>&1; sleep 2 ;;
+          s:*) sleep 1; shot "${step#s:}" ;;
+          w:*) sleep "${step#w:}" ;;
+          u:*) api client 1 ui/menu > "$OUT/ui-${step#u:}.json" 2>&1 ;;
+        esac
+      done
+    fi
+    if [[ -n "${G0_LEVEL_UI:-}" ]]; then
+      api client 1 ui/menu > "$OUT/ui-before.json" 2>&1
+      for at in $G0_LEVEL_UI; do
+        for kind in 0 1 2; do api client 1 "ui/event?e=$kind,$at,107" >> "$OUT/ui-events.txt" 2>&1; sleep 0.3; done
+      done
+      sleep 4; api client 1 ui/menu > "$OUT/ui-after.json" 2>&1; shot levelui
+    fi
     # The engine's GameUI calls as managed took them (the listen server's own client is slot 1).
     api client 1 gameui > "$OUT/gameui.json" 2>&1 && result "gameui $(grep -o '"unruled":[0-9]*' "$OUT/gameui.json")"
   else result "map $MAP: GAME EXITED"; fi

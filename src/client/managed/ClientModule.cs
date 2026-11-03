@@ -833,6 +833,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // with the areas); this composition's plumbing prints through it too.
         var log = _services.Require<ILog>();
         _services.AddFactory<IHooks<IClientLevelHook>>(locator => new Hooks<IClientLevelHook>(locator, log));
+        // Before the first handler pass, which builds VoteStateMessage over this chain.
+        _services.AddFactory<IHooks<IVoteStateHook>>(locator => new Hooks<IVoteStateHook>(locator, log));
+        _services.AddFactory<IHooks<IAdminHook>>(locator => new Hooks<IAdminHook>(locator, log));
         // The mods' per-player carry limits, the server's twin (IAmmoCarryRule).
         _services.AddFactory<IHooks<IAmmoCarryRule>>(locator => new Hooks<IAmmoCarryRule>(locator, log));
         // The mods' viewmodel activity translations, the server's twin
@@ -1121,6 +1124,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                                locator.Require<Render.Shadows.ShadowSystemStats>());
             // The registry's receivers are the manager's, in the same process.
             locator.Require<Render.LeafSystem.LeafRegistry>().Receivers = system;
+            // A device reset leaves the UI's fonts drawing nothing: it makes them again.
+            system.Restored = () => _uiLoader?.MaterialsRestored();
             return system;
         });
         _services.AddFactory<IClientShadowsHost>(locator => locator.Require<Render.Shadows.ClientShadowSystem>());
@@ -1418,6 +1423,27 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // Then the handler pass again: the first one (above) skips a handler
         // whose constructor wants a mod service that did not exist yet, and
         // RegisterAll below hooks only handlers the container holds.
+        // THE KEYS: each action a class (KeyActionAttribute), the mod's list where it has
+        // one. A player with no config.cfg gets the defaults here, before the engine
+        // reads its configuration, as a stock game gets them from its kb_def.lst.
+        var keyActions = Input.KeyActions.Of(LoadedAssemblies.Types(typeof(ClientModule).Assembly, Log), typeof(ClientModule).Assembly);
+        _services.AddInstance<Ui.IUiKeyActions>(keyActions);
+        keyActions.BindDefaults(_services.Require<IFwdBaseFileSystem>().FileExists("cfg/config.cfg", "MOD"), _engineClient.SubmitConsoleLine);
+
+        // Voting: what the panel reads, and what hears the server's messages.
+        _services.Add(typeof(Vgui.ClientVotes), typeof(Vgui.ClientVotes));
+        _services.AddFactory<Ui.IVoteSource>(locator => locator.Require<Vgui.ClientVotes>());
+        _services.AddFactory<IVoteStateHook>(locator => locator.Require<Vgui.ClientVotes>());
+
+        // The admin menu.
+        _services.AddFactory(locator =>
+        {
+            var network = locator.Require<IEngineNetworking>();
+            return new Vgui.ClientAdmin(locator.Require<Vgui.RadialMenus>(), payload => network.SendServerMessage(AdminWire.Key, payload),
+                                        locator.Require<Vgui.AdminKeys>(), locator.Require<Vgui.ConnectedServer>(), locator.Require<IFwdEngineClient>(),
+                                        locator.Require<IGameClock>(), locator.Require<ILog>());
+        });
+
         _modServices = SideServices.Register(_services, Side.Client, LoadedAssemblies.Types(typeof(ClientModule).Assembly, Log));
         if (_modServices.Count > 0)
         {
@@ -2124,6 +2150,19 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         dealt.Subscribe(_services.Require<PlayerHurtEvent>());
         _services.AddInstance<SourceSharp.Client.Ui.IDamageDealtSource>(dealt);
 
+        // The minimap's map and who is in sight. A factory: the view it reads is composed later.
+        _services.AddFactory<Vgui.IMinimapWorld>(_ => _services.Create<Vgui.EngineMinimapWorld>());
+        var minimap = new Vgui.Minimap(_services.Require<IEngineFiles>(), _clock, new Vgui.LazyMinimapWorld(_services));
+        _services.AddInstance(minimap);
+        _services.AddInstance<SourceSharp.Client.Ui.IMinimapSource>(minimap);
+
+        // Before the UI composes, which takes them; the input layer below shares the host.
+        var inputHost = _engine.Create<Input.ClientInputHost>(_services);
+        var radial = new Vgui.RadialMenus(new Vgui.InputRadialPointer(inputHost));
+        var adminKeys = new Vgui.AdminKeys(Vgui.AdminKeys.DefaultPath());
+        _services.AddInstance(adminKeys).AddInstance<Ui.IAdminKeySource>(adminKeys).AddInstance(new Vgui.ConnectedServer());
+        _services.AddInstance(radial).AddInstance<Ui.IRadialMenuSource>(radial).AddInstance<Ui.IRadialMenuActions>(radial);
+
         // Since U5 the toolkit, the screens and their composition load in the
         // UI's own collectible context (Vgui.UiLoader), which a UI-only deploy
         // swaps without this module; this module names none of their types.
@@ -2248,7 +2287,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // closes the gate.
         var inputCvars = new Input.InputCvars();
         int inputConVars = inputCvars.Bind(_convars.All);
-        var inputHost = _engine.Create<Input.ClientInputHost>(_services);
         var inputDevices = Input.ClientInputDevices.For(_engine, Log);
         // The input mailbox: the sample times native stores and the no-op
         // answers native carries out, without a crossing either way.

@@ -147,6 +147,8 @@ public sealed partial class UiContext
                    n.Kind is NodeKind.Text or NodeKind.Shape ? n.TextPaint.Tone : Tone.None,
                    n.Fill.IsRaw ? Tone.None : n.Fill.Tone, large, blocker: false,
                    clip: visible ? clip : default, hidden: !visible, scroll: n.Scroll, fade: opacity);
+        if (n.Kind == NodeKind.Shape && n.Shape is UiShape.Sector or UiShape.Lines)
+            Report.MarkSurfaceShape(element);
         if (n.Handle)
             Report.MarkThumb(element);
         if (n.Movable)

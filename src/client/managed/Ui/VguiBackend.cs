@@ -49,6 +49,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
     private int _clipDepth;
     private int _white;
     private bool _filesAdded;
+    private volatile bool _restored;
 
     /// <summary>What the last <see cref="Draw"/> drew.</summary>
     public UiDrawLedger Ledger { get; set; } = new();
@@ -69,6 +70,25 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
             f.Measured = false;
         // The C0 probe: a texture uploaded by DrawSetTextureRGBA does not survive
         // mat_setvideomode, so the icon atlas goes up again on its next use.
+        _atlasUploaded = false;
+    }
+
+    /// <summary>
+    /// The engine restored its materials (a device reset: mat_savechanges after
+    /// an antialiasing change, say). A font made before one draws nothing from
+    /// then on and one made after it draws, so the fonts are made again, and
+    /// what was uploaded goes up again, at the next use. From whichever thread
+    /// restored them, so the work waits for the paint.
+    /// </summary>
+    public void MaterialsRestored() => _restored = true;
+
+    private void TakeRestore()
+    {
+        if (!_restored)
+            return;
+        _restored = false;
+        _fonts.Clear();
+        _white = 0;
         _atlasUploaded = false;
     }
 
@@ -120,6 +140,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
 
     public void Draw(scoped in UiDrawList list)
     {
+        TakeRestore();
         Ledger.Clear();
         _clipDepth = 0;
 
@@ -425,6 +446,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
 
     private Font Resolve(in UiFontSpec spec)
     {
+        TakeRestore();
         if (_fonts.TryGetValue(spec, out var f))
             return f;
 

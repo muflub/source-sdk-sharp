@@ -7,7 +7,9 @@ namespace SourceSharp.Client.Ui.Toolkit;
 // a white texture). Each shape fills the node's rect in its colour.
 public sealed partial class UiContext
 {
-    private readonly UiVertex[] _poly = new UiVertex[8];
+    private readonly UiVertex[] _poly = new UiVertex[DiscSides];
+
+    private const int DiscSides = 72;
 
     /// <summary>
     /// A convex polygon from points in hundredths of the rect (0..100). Bytes, not
@@ -20,6 +22,62 @@ public sealed partial class UiContext
         for (int i = 0; i < count; i++)
             _poly[i] = new UiVertex(MathF.Round(r.X + unit[2 * i] / 100f * r.W, 1), MathF.Round(r.Y + unit[2 * i + 1] / 100f * r.H, 1));
         List.Polygon(_poly.AsSpan(0, count), c, element);
+    }
+
+    // A slice of a ring as quads, each convex as every backend needs, a step
+    // short enough that the curve reads as one at any size a menu draws it.
+    private void Sector(in UiRect r, UiColor c, int element, float start, float span, float inner)
+    {
+        const float StepRadians = MathF.PI / 36f;
+        float rx = r.W / 2f, ry = r.H / 2f, cx = r.X + rx, cy = r.Y + ry;
+
+        // A whole disc is one polygon: a fan of quads shows its seams on anything behind it.
+        if (inner <= 0f && span >= MathF.Tau)
+        {
+            for (int i = 0; i < DiscSides; i++)
+            {
+                float a = MathF.Tau * i / DiscSides;
+                _poly[i] = new UiVertex(cx + MathF.Sin(a) * rx, cy - MathF.Cos(a) * ry);
+            }
+            List.Polygon(_poly.AsSpan(0, DiscSides), c, element);
+            return;
+        }
+
+        int steps = Math.Max(1, (int)MathF.Ceiling(span / StepRadians));
+        for (int i = 0; i < steps; i++)
+        {
+            float a0 = start + span * i / steps, a1 = start + span * (i + 1) / steps;
+            float s0 = MathF.Sin(a0), c0 = MathF.Cos(a0), s1 = MathF.Sin(a1), c1 = MathF.Cos(a1);
+            _poly[0] = new UiVertex(cx + s0 * rx * inner, cy - c0 * ry * inner);
+            _poly[1] = new UiVertex(cx + s0 * rx, cy - c0 * ry);
+            _poly[2] = new UiVertex(cx + s1 * rx, cy - c1 * ry);
+            _poly[3] = new UiVertex(cx + s1 * rx * inner, cy - c1 * ry * inner);
+            List.Polygon(_poly.AsSpan(0, 4), c, element);
+        }
+    }
+
+    private void Lines(in UiRect r, UiColor c, int element, float[]? segments, float thickness)
+    {
+        if (segments is null)
+            return;
+
+        float half = thickness / 2f;
+        for (int i = 0; i + 3 < segments.Length; i += 4)
+        {
+            float x0 = r.X + segments[i] * r.W, y0 = r.Y + segments[i + 1] * r.H;
+            float x1 = r.X + segments[i + 2] * r.W, y1 = r.Y + segments[i + 3] * r.H;
+            float dx = x1 - x0, dy = y1 - y0, length = MathF.Sqrt(dx * dx + dy * dy);
+            if (length <= 0f)
+                continue;
+
+            // Along by half too, so two segments that meet leave no notch at the corner.
+            float ux = dx / length * half, uy = dy / length * half;
+            _poly[0] = new UiVertex(x0 - ux + uy, y0 - uy - ux);
+            _poly[1] = new UiVertex(x1 + ux + uy, y1 + uy - ux);
+            _poly[2] = new UiVertex(x1 + ux - uy, y1 + uy + ux);
+            _poly[3] = new UiVertex(x0 - ux - uy, y0 - uy + ux);
+            List.Polygon(_poly.AsSpan(0, 4), c, element);
+        }
     }
 
     private void Box(float x, float y, float w, float h, UiColor c, int element)
@@ -75,6 +133,12 @@ public sealed partial class UiContext
                 }
                 break;
             }
+            case UiShape.Sector:
+                Sector(r, c, element, n.ShapeValue, n.ShapeSpan, n.ShapeInner);
+                break;
+            case UiShape.Lines:
+                Lines(r, c, element, n.Lines, n.ShapeValue * Screen.Scale);
+                break;
             case UiShape.Dot:
                 Poly(r, c, element, [30, 0, 70, 0, 100, 30, 100, 70, 70, 100, 30, 100, 0, 70, 0, 30]);
                 break;

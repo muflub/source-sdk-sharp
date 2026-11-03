@@ -150,6 +150,8 @@ public static class OptionsSamples
             s.Add<IUiFileList>(Files());
         if (!s.Has<IOptionsScriptSource>())
             s.Add<IOptionsScriptSource>(Script());
+        if (!s.Has<IAdminKeySource>())
+            s.Add<IAdminKeySource>(new Samples.FakeAdminKey(false));
         var windows = s.Create<UiWindows>();
         return new Options(windows,
         [
