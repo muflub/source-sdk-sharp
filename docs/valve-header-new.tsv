@@ -1064,3 +1064,7 @@ src/tf2/ui/screens/TFHudAccount.cs	ports CHudAccountPanel's metal account panel 
 src/tf2/client/Ui/TFHudDemomanPipes.cs	ports CHudDemomanPipes and its ShouldDraw/OnTick count read (tf_hud_demomanpipes.cpp)
 src/tf2/ui/screens/TFHudDemomanPipes.cs	ports the HudDemomanPipes panel layout (resource/ui/huddemomanpipes.res; hudlayout.res) as the screens box tree
 src/tf2/client/Ui/TFUberSpend.cs	ports CTFWeaponBase::UberChargeAmmoPerShot (shared/tf/tf_weaponbase.h), the uberspend the ammo panel and the charge meter gate on
+src/client/native/shell_map_material_reload.h	native code built against SDK headers (filesystem.h, imaterialsystem.h); the map material reload hooks as a class, from shell_map_material_reload.cpp
+src/client/native/shell_effects_list_client.h	native code built against SDK headers (clientsideeffects.h); the client effect list, material table and smoke fog overlay as a class, from shell_effects_list_client.cpp
+src/client/native/shell_effects_client.h	ports CEffectsClient's vtable shape (EffectsClient.cpp) as a thunk onto managed decisions; the class declaration split from shell_effects_client.cpp
+src/client/native/shell_managed_particles.h	native code built against SDK headers (the particle binding the leaf system draws); the managed particle executors as a class, from shell_managed_particles.cpp

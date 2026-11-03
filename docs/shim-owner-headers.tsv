@@ -3,3 +3,6 @@
 # class	header
 CSourceSharpClientMode	shell_client_mode.h
 CViewerFacts	shell_viewer_facts.h
+CEffectsListClient	shell_effects_list_client.h
+CEffectsClient	shell_effects_client.h
+CManagedParticlesClient	shell_managed_particles.h

@@ -53,7 +53,7 @@ void SourceSharp_RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPoli
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 226 slots.
+// CLIENT ONLY -- 213 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -183,10 +183,8 @@ int32_t SourceSharp_FlashlightSupportsBorderColor();
 int32_t SourceSharp_FlashlightTexture(const char* pszName);
 void SourceSharp_FxCacheMaterialHandles();
 void SourceSharp_FxCacheUsedMaterials();
-int32_t SourceSharp_FxCanPredict();
 void SourceSharp_FxDispatchParticleEffect(int32_t nSystem, const float* pStartXYZ, const float* pEndXYZ,
 										  const float* pAnglesPYR, int32_t nEntIndex);
-void SourceSharp_FxDrawQuads(int32_t nMaterial, int32_t nVertices, const float* pVertices, int32_t bByteColor);
 void SourceSharp_FxEjectBrass(const float* pOriginXYZ, const float* pAnglesPYR, const float* pGunAnglesPYR,
 							  int32_t nType);
 void SourceSharp_FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
@@ -198,10 +196,6 @@ int32_t SourceSharp_FxHandleEntityIndex(uint32_t hEntity);
 void SourceSharp_FxLoadModel(const char* pModel);
 int32_t SourceSharp_FxLocalPlayer();
 void SourceSharp_FxMainViewOrigin(float* pOutXYZ);
-void SourceSharp_FxMaterialAddRef(int32_t nMaterial);
-int32_t SourceSharp_FxMaterialFind(const char* pName);
-int32_t SourceSharp_FxMaterialName(int32_t nMaterial, char* pOut, int32_t nOutSize);
-void SourceSharp_FxMaterialRelease(int32_t nMaterial);
 int32_t SourceSharp_FxMaterialsCached();
 int32_t SourceSharp_FxModelFrameCount(const char* pModel);
 void SourceSharp_FxPrecacheCache(int32_t nIndex, int32_t bPrecache);
@@ -251,16 +245,6 @@ void SourceSharp_ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot);
 int32_t SourceSharp_ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut, char* pszName,
 										int32_t nNameMax);
 int32_t SourceSharp_ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ);
-void SourceSharp_ParticlesConfigure(uint32_t hOwner, int32_t nChannel, float flCullRadius);
-int32_t SourceSharp_ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial, float flCullRadius,
-									int32_t bAlwaysSimulate);
-int32_t SourceSharp_ParticlesCreateAt(int32_t nId, const char* pszMaterial, const float* pOriginXYZ, float flCullRadius,
-									  int32_t bAlwaysSimulate);
-void SourceSharp_ParticlesDestroy(uint32_t hOwner, int32_t nChannel);
-int32_t SourceSharp_ParticlesMaterialVarInt(uint32_t hOwner, int32_t nChannel, const char* pszVar, int32_t* pValue);
-void SourceSharp_ParticlesSetLights(uint32_t hOwner, int32_t nChannel, const float* pLights, int32_t nFloats);
-int32_t SourceSharp_ParticlesSetSpace(uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment,
-									  int32_t nFlags, SourceSharpParticleFollow_t* pFollow);
 int32_t SourceSharp_ParticlesTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask, float* pOut,
 									   int32_t nOut);
 int32_t SourceSharp_ParticlesTraceMask(const float* pStartXYZ, const float* pEndXYZ, uint32_t nMask, float* pOut,

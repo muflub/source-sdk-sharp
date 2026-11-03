@@ -35,6 +35,8 @@
 #include "particle_follow_mask.h"
 #include "shell_effect_registry.h"
 #include "shell_particle_systems.h"
+#include "shell_managed_particles.h"
+#include "shell_standalone_clients.h"
 #include "shell_clientdll_refusals.h"
 #include "shell_cliententitylist.h"
 #include "ss_bitblock.h"
@@ -178,8 +180,9 @@ int32_t ParticlesViewKey()
 class CManagedParticleEffect : public CShellParticleEffect
 {
 public:
-	CManagedParticleEffect(uint32_t hOwner, int32_t nChannel)
-		: m_hOwner(hOwner)
+	CManagedParticleEffect(const CManagedAreasClient& areas, uint32_t hOwner, int32_t nChannel)
+		: m_Areas(areas)
+		, m_hOwner(hOwner)
 		, m_nChannel(nChannel)
 		, m_hMaterial(INVALID_MATERIAL_HANDLE)
 		, m_bLit(false)
@@ -390,6 +393,8 @@ public:
 	virtual int DrawModel(int flags) OVERRIDE;
 
 private:
+	const CManagedAreasClient& m_Areas;
+
 	IMaterial* PageMaterial()
 	{
 		if (!m_hMaterial)
@@ -545,7 +550,7 @@ void CManagedParticleEffect::DrawQuads(IMaterial* pMaterial, float flFrameTime, 
 // passes, and lists the quads; this draws them and hands back each sort key.
 int CManagedParticleEffect::DrawModel(int flags)
 {
-	IManagedParticlesClient* pArea = ManagedParticlesClient();
+	IManagedParticlesClient* pArea = m_Areas.m_pParticlesClient;
 	if (!pArea)
 		return 0;
 
@@ -638,37 +643,39 @@ int CManagedParticleEffect::DrawModel(int flags)
 	return 1;
 }
 
-// The live executors, one per (owner, channel).
-static CUtlVector<CManagedParticleEffect*> g_ManagedParticles;
-
-static int ManagedParticles_Find(uint32_t hOwner, int32_t nChannel)
+CManagedParticlesClient::~CManagedParticlesClient()
 {
-	for (int i = 0; i < g_ManagedParticles.Count(); i++)
+	for (int i = 0; i < m_Effects.Count(); i++)
+		m_Effects[i]->SetGoneCallback(NULL);
+}
+
+int CManagedParticlesClient::Find(uint32_t hOwner, int32_t nChannel) const
+{
+	for (int i = 0; i < m_Effects.Count(); i++)
 	{
-		if (g_ManagedParticles[i]->Owner() == hOwner && g_ManagedParticles[i]->Channel() == nChannel)
+		if (m_Effects[i]->Owner() == hOwner && m_Effects[i]->Channel() == nChannel)
 			return i;
 	}
 	return -1;
 }
 
-// An executor released by any route is forgotten through this callback.
-static void ManagedParticles_Forget(CShellParticleEffect* pEffect)
+void CManagedParticlesClient::Forget(CShellParticleEffect* pEffect)
 {
-	for (int i = g_ManagedParticles.Count() - 1; i >= 0; i--)
+	for (int i = m_Effects.Count() - 1; i >= 0; i--)
 	{
-		if (g_ManagedParticles[i] == pEffect)
-			g_ManagedParticles.Remove(i);
+		if (m_Effects[i] == pEffect)
+			m_Effects.Remove(i);
 	}
 }
 
-int32_t SourceSharp_ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial, float flCullRadius,
-									int32_t bAlwaysSimulate)
+int32_t CManagedParticlesClient::ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial,
+												 float flCullRadius, int32_t bAlwaysSimulate)
 {
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
-	if (!pOwner || !pszMaterial || ManagedParticles_Find(hOwner, nChannel) >= 0)
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
+	if (!pOwner || !pszMaterial || Find(hOwner, nChannel) >= 0 || !m_ForgetHook.Get())
 		return 0;
 
-	CManagedParticleEffect* pEffect = new CManagedParticleEffect(hOwner, nChannel);
+	CManagedParticleEffect* pEffect = new CManagedParticleEffect(m_Areas, hOwner, nChannel);
 	pEffect->SetAbsOrigin(pOwner->GetAbsOrigin());
 	pEffect->SetAbsAngles(pOwner->GetAbsAngles());
 	if (!pEffect->Start(pszMaterial, flCullRadius))
@@ -677,20 +684,20 @@ int32_t SourceSharp_ParticlesCreate(uint32_t hOwner, int32_t nChannel, const cha
 		return 0;
 	}
 
-	pEffect->SetGoneCallback(ManagedParticles_Forget);
-	g_ManagedParticles.AddToTail(pEffect);
+	pEffect->SetGoneCallback(m_ForgetHook.Get());
+	m_Effects.AddToTail(pEffect);
 	return 1;
 }
 
 // An executor for an ownerless effect, placed once at a world point and keyed by the
 // no-owner handle and the managed id. Managed releases it when the effect finishes.
-int32_t SourceSharp_ParticlesCreateAt(int32_t nId, const char* pszMaterial, const float* pOriginXYZ, float flCullRadius,
-									  int32_t bAlwaysSimulate)
+int32_t CManagedParticlesClient::ParticlesCreateAt(int32_t nId, const char* pszMaterial, const float* pOriginXYZ,
+												   float flCullRadius, int32_t bAlwaysSimulate)
 {
-	if (!pszMaterial || !pOriginXYZ || ManagedParticles_Find(SOURCESHARP_PARTICLE_NO_OWNER, nId) >= 0)
+	if (!pszMaterial || !pOriginXYZ || Find(SOURCESHARP_PARTICLE_NO_OWNER, nId) >= 0 || !m_ForgetHook.Get())
 		return 0;
 
-	CManagedParticleEffect* pEffect = new CManagedParticleEffect(SOURCESHARP_PARTICLE_NO_OWNER, nId);
+	CManagedParticleEffect* pEffect = new CManagedParticleEffect(m_Areas, SOURCESHARP_PARTICLE_NO_OWNER, nId);
 	pEffect->SetAbsOrigin(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]));
 	if (!pEffect->Start(pszMaterial, flCullRadius))
 	{
@@ -698,49 +705,48 @@ int32_t SourceSharp_ParticlesCreateAt(int32_t nId, const char* pszMaterial, cons
 		return 0;
 	}
 
-	pEffect->SetGoneCallback(ManagedParticles_Forget);
-	g_ManagedParticles.AddToTail(pEffect);
+	pEffect->SetGoneCallback(m_ForgetHook.Get());
+	m_Effects.AddToTail(pEffect);
 	return 1;
 }
 
-// Called at its place in the translucent passes; draws the executors managed put in the
-// singleton space.
-void DrawParticleSingletons(bool bInSkybox)
+void CManagedParticlesClient::DrawSingletons(bool bInSkybox)
 {
 	const int nPass = bInSkybox ? 1 : 0;
-	for (int i = 0; i < g_ManagedParticles.Count(); i++)
+	for (int i = 0; i < m_Effects.Count(); i++)
 	{
-		if (g_ManagedParticles[i]->SingletonPass() != nPass)
+		if (m_Effects[i]->SingletonPass() != nPass)
 			continue;
-		g_ManagedParticles[i]->DrawAsSingleton();
+		m_Effects[i]->DrawAsSingleton();
 		g_SourceSharpEffects.nSingletonDraws++;
 	}
 }
 
 // 1 when the executor was found.
-int32_t SourceSharp_ParticlesSetSpace(uint32_t hOwner, int32_t nChannel, uint32_t hEntity, int32_t nAttachment,
-									  int32_t nFlags, SourceSharpParticleFollow_t* pFollow)
+int32_t CManagedParticlesClient::ParticlesSetSpace(uint32_t hOwner, int32_t nChannel, uint32_t hEntity,
+												   int32_t nAttachment, int32_t nFlags,
+												   SourceSharpParticleFollow_t* pFollow)
 {
-	const int i = ManagedParticles_Find(hOwner, nChannel);
+	const int i = Find(hOwner, nChannel);
 	if (i < 0)
 		return 0;
-	g_ManagedParticles[i]->SetSpace(hEntity, nAttachment, nFlags, pFollow);
+	m_Effects[i]->SetSpace(hEntity, nAttachment, nFlags, pFollow);
 	return 1;
 }
 
 // Each live executor's frame read goes to managed in one length-prefixed buffer, and each
 // binding's state comes back in another.
 
-void ShellParticles_Frame(float flFrameTime)
+void CManagedParticlesClient::Frame(float flFrameTime)
 {
-	IManagedParticlesClient* pArea = ManagedParticlesClient();
+	IManagedParticlesClient* pArea = Managed();
 	if (!pArea)
 		return;
 
 	// On the stack for the usual executor counts; the heap past it.
 	CUtlVectorFixedGrowable<uint8_t, 16384> in;
 	CUtlVectorFixedGrowable<uint8_t, 4096> out;
-	const int nExecutors = g_ManagedParticles.Count();
+	const int nExecutors = m_Effects.Count();
 	const int nIn =
 		(int)sizeof(SourceSharpParticleFrameHeader_t) + nExecutors * (int)sizeof(SourceSharpParticleFrameIn_t);
 	in.SetCount(kBitBlockHeaderBytes + nIn);
@@ -753,7 +759,7 @@ void ShellParticles_Frame(float flFrameTime)
 	VectorCopy(MainViewOrigin().Base(), pHeader->ViewOriginXYZ);
 	SourceSharpParticleFrameIn_t* pIn = (SourceSharpParticleFrameIn_t*)(pHeader + 1);
 	for (int i = 0; i < nExecutors; i++)
-		g_ManagedParticles[i]->FillFrameIn(pIn[i]);
+		m_Effects[i]->FillFrameIn(pIn[i]);
 
 	const int nOut = nExecutors * (int)sizeof(SourceSharpParticleCommit_t);
 	out.SetCount(kBitBlockHeaderBytes + MAX(nOut, 4));
@@ -766,43 +772,45 @@ void ShellParticles_Frame(float flFrameTime)
 		(const SourceSharpParticleCommit_t*)(out.Base() + kBitBlockHeaderBytes);
 	for (int c = 0; c < nBytes / (int)sizeof(SourceSharpParticleCommit_t); c++)
 	{
-		const int i = ManagedParticles_Find(pCommits[c].Owner, pCommits[c].Channel);
+		const int i = Find(pCommits[c].Owner, pCommits[c].Channel);
 		if (i >= 0)
-			g_ManagedParticles[i]->Commit(pCommits[c]);
+			m_Effects[i]->Commit(pCommits[c]);
 	}
 }
 
-void ShellParticles_FrameCode()
+void CManagedParticlesClient::FrameCode()
 {
-	if (IManagedParticlesClient* pArea = ManagedParticlesClient())
+	if (IManagedParticlesClient* pArea = Managed())
 		pArea->FrameCode();
 }
 
-void ShellParticles_PostRender()
+void CManagedParticlesClient::PostRender()
 {
-	if (IManagedParticlesClient* pArea = ManagedParticlesClient())
+	if (IManagedParticlesClient* pArea = Managed())
 		pArea->PostRender();
 }
 
-void SourceSharp_ParticlesConfigure(uint32_t hOwner, int32_t nChannel, float flCullRadius)
+void CManagedParticlesClient::ParticlesConfigure(uint32_t hOwner, int32_t nChannel, float flCullRadius)
 {
-	const int i = ManagedParticles_Find(hOwner, nChannel);
+	const int i = Find(hOwner, nChannel);
 	if (i >= 0)
-		g_ManagedParticles[i]->Configure(flCullRadius);
+		m_Effects[i]->Configure(flCullRadius);
 }
 
-void SourceSharp_ParticlesSetLights(uint32_t hOwner, int32_t nChannel, const float* pLights, int32_t nFloats)
+void CManagedParticlesClient::ParticlesSetLights(uint32_t hOwner, int32_t nChannel, const float* pLights,
+												 int32_t nFloats)
 {
-	const int i = ManagedParticles_Find(hOwner, nChannel);
+	const int i = Find(hOwner, nChannel);
 	if (i >= 0 && pLights && nFloats >= 17)
-		g_ManagedParticles[i]->SetLights(pLights);
+		m_Effects[i]->SetLights(pLights);
 }
 
 // 1 and the value when the var exists, else 0.
-int32_t SourceSharp_ParticlesMaterialVarInt(uint32_t hOwner, int32_t nChannel, const char* pszVar, int32_t* pValue)
+int32_t CManagedParticlesClient::ParticlesMaterialVarInt(uint32_t hOwner, int32_t nChannel, const char* pszVar,
+														 int32_t* pValue)
 {
-	const int i = ManagedParticles_Find(hOwner, nChannel);
-	IMaterial* pMaterial = i >= 0 ? g_ManagedParticles[i]->Material() : NULL;
+	const int i = Find(hOwner, nChannel);
+	IMaterial* pMaterial = i >= 0 ? m_Effects[i]->Material() : NULL;
 	if (!pMaterial || !pszVar || !pValue)
 		return 0;
 	bool bFound = false;
@@ -831,24 +839,24 @@ int32_t SourceSharp_ParticlesTraceLine(const float* pStartXYZ, const float* pEnd
 	return 5;
 }
 
-void SourceSharp_ParticlesDestroy(uint32_t hOwner, int32_t nChannel)
+void CManagedParticlesClient::ParticlesDestroy(uint32_t hOwner, int32_t nChannel)
 {
-	const int i = ManagedParticles_Find(hOwner, nChannel);
+	const int i = Find(hOwner, nChannel);
 	if (i >= 0)
-		g_ManagedParticles[i]->Release();
+		m_Effects[i]->Release();
 }
 
 // Each effect sits at its owner every frame: a physics_cannister drags its steam jet.
-static void ManagedParticles_Follow()
+void CManagedParticlesClient::Follow()
 {
-	for (int i = g_ManagedParticles.Count() - 1; i >= 0; i--)
+	for (int i = m_Effects.Count() - 1; i >= 0; i--)
 	{
-		CManagedParticleEffect* pEffect = g_ManagedParticles[i];
+		CManagedParticleEffect* pEffect = m_Effects[i];
 
 		if (pEffect->Owner() == SOURCESHARP_PARTICLE_NO_OWNER)
 			continue;
 
-		C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(pEffect->Owner());
+		C_StandaloneEntity* pOwner = m_Standalone.FromHandle(pEffect->Owner());
 		if (!pOwner)
 		{
 			pEffect->Release();
@@ -860,49 +868,46 @@ static void ManagedParticles_Follow()
 }
 
 // Every live executor, where it draws this frame and how many particles it simulates.
-CON_COMMAND(cs_cl_effect_kinds,
-			"every live managed particle executor (trails, steam jets, smoke stacks, smoke volumes): "
-			"where it is drawn this frame and how many particles its binding is simulating")
+void CManagedParticlesClient::PrintKinds() const
 {
-	for (int i = 0; i < g_ManagedParticles.Count(); i++)
+	for (int i = 0; i < m_Effects.Count(); i++)
 	{
-		CManagedParticleEffect* pEffect = g_ManagedParticles[i];
+		CManagedParticleEffect* pEffect = m_Effects[i];
 		const Vector vOrigin = pEffect->GetAbsOrigin();
 		Msg("[SourceSharp] effect kind: managed-%d at (%.1f %.1f %.1f) particles %d owner %u space %d\n",
 			pEffect->Channel(), vOrigin.x, vOrigin.y, vOrigin.z, pEffect->ActiveParticles(), pEffect->Owner(),
 			pEffect->SpaceFlags());
 	}
 
-	Msg("[SourceSharp] effect kinds: %d executor(s)\n", g_ManagedParticles.Count());
+	Msg("[SourceSharp] effect kinds: %d executor(s)\n", m_Effects.Count());
 }
 
-class CSourceSharpManagedParticlesSystem : public CClientSystemPerFrame
+CON_COMMAND(cs_cl_effect_kinds,
+			"every live managed particle executor (trails, steam jets, smoke stacks, smoke volumes): "
+			"where it is drawn this frame and how many particles its binding is simulating")
 {
-public:
-	CSourceSharpManagedParticlesSystem()
-		: CClientSystemPerFrame("CSourceSharpManagedParticlesSystem")
-	{
-	}
+	ShellClientDll_ManagedParticles().PrintKinds();
+}
 
-	virtual void PreRender() OVERRIDE { ManagedParticles_Follow(); }
-
-	virtual void LevelShutdownPostEntity() OVERRIDE
-	{
-		while (g_ManagedParticles.Count())
-		{
-			const int nBefore = g_ManagedParticles.Count();
-			g_ManagedParticles[0]->Release();
-			if (g_ManagedParticles.Count() >= nBefore)
-				g_ManagedParticles.Remove(0);
-		}
-	}
-};
-
-static CSourceSharpManagedParticlesSystem g_ManagedParticlesSystem;
-
-CClientSystem* ClientSystem_ManagedParticles()
+void CManagedParticlesClient::CSystemRow::PreRender()
 {
-	return &g_ManagedParticlesSystem;
+	m_Particles.Follow();
+}
+
+void CManagedParticlesClient::CSystemRow::LevelShutdownPostEntity()
+{
+	m_Particles.ReleaseAll();
+}
+
+void CManagedParticlesClient::ReleaseAll()
+{
+	while (m_Effects.Count())
+	{
+		const int nBefore = m_Effects.Count();
+		m_Effects[0]->Release();
+		if (m_Effects.Count() >= nBefore)
+			m_Effects.Remove(0);
+	}
 }
 
 // The new-style particle systems the client starts, owned by the library. An owned system

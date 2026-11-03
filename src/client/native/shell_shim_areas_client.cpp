@@ -17,6 +17,9 @@
 
 #include "shell_viewer_facts.h"
 #include "shell_client_mode.h"
+#include "shell_managed_particles.h"
+#include "shell_effects_client.h"
+#include "shell_effects_list_client.h"
 
 void* CShimEngineClient::GetGlobalVarsPtr()
 {
@@ -868,22 +871,22 @@ int32_t CShimUiClient::UiMaterialTexture(const char* pName)
 int32_t CShimParticlesClient::ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial,
 											  float flCullRadius, int32_t bAlwaysSimulate)
 {
-	return ::SourceSharp_ParticlesCreate(hOwner, nChannel, pszMaterial, flCullRadius, bAlwaysSimulate);
+	return m_pManagedParticlesClient->ParticlesCreate(hOwner, nChannel, pszMaterial, flCullRadius, bAlwaysSimulate);
 }
 
 void CShimParticlesClient::ParticlesConfigure(uint32_t hOwner, int32_t nChannel, float flCullRadius)
 {
-	return ::SourceSharp_ParticlesConfigure(hOwner, nChannel, flCullRadius);
+	return m_pManagedParticlesClient->ParticlesConfigure(hOwner, nChannel, flCullRadius);
 }
 
 void CShimParticlesClient::ParticlesDestroy(uint32_t hOwner, int32_t nChannel)
 {
-	return ::SourceSharp_ParticlesDestroy(hOwner, nChannel);
+	return m_pManagedParticlesClient->ParticlesDestroy(hOwner, nChannel);
 }
 
 void CShimParticlesClient::ParticlesSetLights(uint32_t hOwner, int32_t nChannel, const float* pLights, int32_t nFloats)
 {
-	return ::SourceSharp_ParticlesSetLights(hOwner, nChannel, pLights, nFloats);
+	return m_pManagedParticlesClient->ParticlesSetLights(hOwner, nChannel, pLights, nFloats);
 }
 
 int32_t CShimParticlesClient::ParticlesTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask,
@@ -922,13 +925,13 @@ int32_t CShimParticlesClient::ParticleQueryUnanswered(int32_t* pOut, int32_t nMa
 int32_t CShimParticlesClient::ParticlesMaterialVarInt(uint32_t hOwner, int32_t nChannel, const char* pszVar,
 													  int32_t* pValue)
 {
-	return ::SourceSharp_ParticlesMaterialVarInt(hOwner, nChannel, pszVar, pValue);
+	return m_pManagedParticlesClient->ParticlesMaterialVarInt(hOwner, nChannel, pszVar, pValue);
 }
 
 int32_t CShimParticlesClient::ParticlesCreateAt(int32_t nId, const char* pszMaterial, const float* pOriginXYZ,
 												float flCullRadius, int32_t bAlwaysSimulate)
 {
-	return ::SourceSharp_ParticlesCreateAt(nId, pszMaterial, pOriginXYZ, flCullRadius, bAlwaysSimulate);
+	return m_pManagedParticlesClient->ParticlesCreateAt(nId, pszMaterial, pOriginXYZ, flCullRadius, bAlwaysSimulate);
 }
 
 int32_t CShimParticlesClient::ParticleSystemNameFromIndex(int32_t nIndex, char* pszOut, int32_t nOutMax)
@@ -963,7 +966,7 @@ int32_t CShimParticlesClient::ParticlesSetSpace(uint32_t hOwner, int32_t nChanne
 												int32_t nAttachment, int32_t nFlags,
 												SourceSharpParticleFollow_t* pFollow)
 {
-	return ::SourceSharp_ParticlesSetSpace(hOwner, nChannel, hEntity, nAttachment, nFlags, pFollow);
+	return m_pManagedParticlesClient->ParticlesSetSpace(hOwner, nChannel, hEntity, nAttachment, nFlags, pFollow);
 }
 
 int32_t CShimParticlesClient::ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ)
@@ -994,7 +997,7 @@ void CShimFxClient::EffectRegistrationRun(int32_t iIndex, const SourceSharpEffec
 
 int32_t CShimFxClient::FxCanPredict()
 {
-	return ::SourceSharp_FxCanPredict();
+	return m_pEffectsClient->FxCanPredict();
 }
 
 int32_t CShimFxClient::FxRecipientCount(const float* pOriginXYZ)
@@ -1004,27 +1007,27 @@ int32_t CShimFxClient::FxRecipientCount(const float* pOriginXYZ)
 
 int32_t CShimFxClient::FxMaterialFind(const char* pName)
 {
-	return ::SourceSharp_FxMaterialFind(pName);
+	return m_pEffectsListClient->FxMaterialFind(pName);
 }
 
 void CShimFxClient::FxMaterialAddRef(int32_t nMaterial)
 {
-	return ::SourceSharp_FxMaterialAddRef(nMaterial);
+	return m_pEffectsListClient->FxMaterialAddRef(nMaterial);
 }
 
 void CShimFxClient::FxMaterialRelease(int32_t nMaterial)
 {
-	return ::SourceSharp_FxMaterialRelease(nMaterial);
+	return m_pEffectsListClient->FxMaterialRelease(nMaterial);
 }
 
 int32_t CShimFxClient::FxMaterialName(int32_t nMaterial, char* pOut, int32_t nOutSize)
 {
-	return ::SourceSharp_FxMaterialName(nMaterial, pOut, nOutSize);
+	return m_pEffectsListClient->FxMaterialName(nMaterial, pOut, nOutSize);
 }
 
 void CShimFxClient::FxDrawQuads(int32_t nMaterial, int32_t nVertices, const float* pVertices, int32_t bByteColor)
 {
-	return ::SourceSharp_FxDrawQuads(nMaterial, nVertices, pVertices, bByteColor);
+	return m_pEffectsListClient->FxDrawQuads(nMaterial, nVertices, pVertices, bByteColor);
 }
 
 void CShimFxClient::FxView(float* pOut)

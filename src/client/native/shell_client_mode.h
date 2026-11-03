@@ -20,12 +20,14 @@
 
 class CSourceSharpViewport;
 class CStandaloneClients;
+class CManagedParticlesClient;
 class C_StandaloneEntity;
 
 class CSourceSharpClientMode final : public IClientMode, public CGameEventListener
 {
 public:
-	CSourceSharpClientMode(const CManagedAreasClient& areas, CStandaloneClients& standalone);
+	CSourceSharpClientMode(const CManagedAreasClient& areas, CStandaloneClients& standalone,
+						   CManagedParticlesClient& particles);
 
 	virtual ~CSourceSharpClientMode();
 
@@ -171,6 +173,7 @@ private:
 
 	const CManagedAreasClient& m_Areas;
 	CStandaloneClients& m_Standalone;
+	CManagedParticlesClient& m_Particles;
 	CSourceSharpViewport* m_pViewport;
 	ViewOverride_t m_ViewOverride;
 };

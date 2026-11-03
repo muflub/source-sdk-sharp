@@ -53,6 +53,8 @@
 #include "shell_standalone_clients.h"
 #include "shell_client_mode.h"
 #include "shell_view_render.h"
+#include "shell_effects_list_client.h"
+#include "shell_managed_particles.h"
 #include "shell_managed_areas_client.h"
 #include "view_facts.h"
 #include "vtable_slot_patch.h"
@@ -66,7 +68,6 @@
 bool SourceSharp_ColorCorrectionActive();
 
 // shell_effects_list_client.cpp's material ids (IFxRender), as materials.
-IMaterial* SourceSharp_FxMaterialOf(int32_t nMaterial);
 #include "shell_view_executor_client.h"
 #include "ss_clock.h"
 #include "shell_particle_systems.h"
@@ -731,13 +732,16 @@ class CViewExecutorImpl
 {
 public:
 	CViewExecutorImpl(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
-					  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender)
+					  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
+					  CEffectsListClient& effects, CManagedParticlesClient& particles)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
 		, m_Standalone(standalone)
 		, m_ClientMode(clientMode)
 		, m_ViewRender(viewRender)
+		, m_Effects(effects)
+		, m_Particles(particles)
 	{
 	}
 
@@ -810,6 +814,8 @@ private:
 	CStandaloneClients& m_Standalone;
 	CSourceSharpClientMode& m_ClientMode;
 	CShellViewRender& m_ViewRender;
+	CEffectsListClient& m_Effects;
+	CManagedParticlesClient& m_Particles;
 	ExecutorState_t m_State;
 
 	// The leaf system's BuildRenderablesList slot, patched: the leaf system calls it with its
@@ -1627,7 +1633,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				modelrender->ForcedMaterialOverride(NULL, (OverrideType_t)op.I[0]);
 				break;
 			case RENDER_OP_ParticleIncrementFrameCode:
-				ShellParticles_FrameCode(); // the old-style effects' frame code
+				m_Particles.FrameCode(); // the old-style effects' frame code
 				break;
 			case RENDER_OP_WorldViewBegin:
 			{
@@ -1825,7 +1831,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				g_pParticleSystemMgr->DrawRenderCache(op.I[0] != 0);
 				break;
 			case RENDER_OP_ParticleSingletons:
-				DrawParticleSingletons(op.I[0] != 0);
+				m_Particles.DrawSingletons(op.I[0] != 0);
 				break;
 			case RENDER_OP_UpdateFullScreenDepthTexture:
 				UpdateFullScreenDepthTexture();
@@ -1896,7 +1902,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				DebugQuad(op);
 				break;
 			case RENDER_OP_DebugScreenMaterial:
-				if (IMaterial* pMaterial = SourceSharp_FxMaterialOf(op.I[0]))
+				if (IMaterial* pMaterial = m_Effects.MaterialOf(op.I[0]))
 				{
 					if (!IsErrorMaterial(pMaterial))
 						DrawScreenEffectMaterial(pMaterial, setup.x, setup.y, setup.width, setup.height);
@@ -1933,7 +1939,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				render->DrawLineFile();
 				break;
 			case RENDER_OP_SmokeFogOverlayAlpha:
-				g_SmokeFogOverlayAlpha = op.F[0];
+				m_Effects.SetSmokeFogAlpha(op.F[0]);
 				break;
 			case RENDER_OP_PushDefaultTarget:
 			{
@@ -2019,10 +2025,10 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				DrawPrecipitation();
 				break;
 			case RENDER_OP_ClientEffectsDraw:
-				clienteffects->DrawEffects(gpGlobals->frametime);
+				m_Effects.DrawEffects(gpGlobals->frametime);
 				break;
 			case RENDER_OP_SetFXCreationAllowed:
-				SetFXCreationAllowed(op.I[0] != 0);
+				m_Effects.SetCreationAllowed(op.I[0] != 0);
 				break;
 			case RENDER_OP_DrawPortals:
 				engine->DrawPortals();
@@ -2047,7 +2053,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				UnderwaterOverlay();
 				break;
 			case RENDER_OP_SmokeFogOverlay:
-				DrawSmokeFogOverlay();
+				m_Effects.DrawSmokeFog();
 				break;
 			case RENDER_OP_ViewDrawFade:
 			{
@@ -2248,7 +2254,7 @@ void CViewExecutorImpl::FrameBufferForEntity(const SourceSharpRenderOp_t& op)
 // asked. An error material draws nothing, as in stock.
 void CViewExecutorImpl::DebugQuad(const SourceSharpRenderOp_t& op)
 {
-	IMaterial* pMaterial = SourceSharp_FxMaterialOf(op.I[0]);
+	IMaterial* pMaterial = m_Effects.MaterialOf(op.I[0]);
 	if (!pMaterial || IsErrorMaterial(pMaterial))
 		return;
 	const float x = op.F[0], y = op.F[1];
@@ -2456,7 +2462,7 @@ void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 			break;
 		case RENDER_OP_PostDrawRect:
 		{
-			IMaterial* pMaterial = SourceSharp_FxMaterialOf(op.I[0]);
+			IMaterial* pMaterial = m_Effects.MaterialOf(op.I[0]);
 			if (pMaterial)
 				ctx->DrawScreenSpaceRectangle(
 					pMaterial, op.I[1], op.I[2], op.I[3], op.I[4], op.F[0], op.F[1], op.F[2], op.F[3], op.I[5], op.I[6],
@@ -2465,7 +2471,7 @@ void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 		}
 		case RENDER_OP_PostMaterialVarFloat:
 		{
-			IMaterial* pMaterial = SourceSharp_FxMaterialOf(op.I[0]);
+			IMaterial* pMaterial = m_Effects.MaterialOf(op.I[0]);
 			if (pMaterial && op.I[1] > 0 && op.I[1] < (int)ARRAYSIZE(kPostVarNames))
 			{
 				bool bFound = false;
@@ -2594,7 +2600,7 @@ void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 		{
 			state.m_pPostMesh = NULL;
 			state.m_bPostMeshIdentity = false;
-			IMaterial* pMaterial = SourceSharp_FxMaterialOf(op.I[0]);
+			IMaterial* pMaterial = m_Effects.MaterialOf(op.I[0]);
 			if (!pMaterial)
 				break;
 			if (op.I[3] & 4)
@@ -3043,7 +3049,8 @@ CViewExecutorImpl& CViewExecutor::Impl()
 {
 	if (!m_pImpl)
 	{
-		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender);
+		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender,
+										m_Effects, m_Particles);
 	}
 	return *m_pImpl;
 }

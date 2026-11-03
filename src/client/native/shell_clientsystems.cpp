@@ -19,6 +19,8 @@
 
 #include "shell_clientsystems.h"
 #include "shell_standalone_clients.h"
+#include "shell_effects_list_client.h"
+#include "shell_managed_particles.h"
 
 // Stock's IGameSystem keys its vtable on this destructor. client.so keeps no
 // system list of its own, so the body is empty.
@@ -28,11 +30,9 @@ IGameSystem::~IGameSystem() {}
 CClientSystem* GameStringSystem();
 
 CClientSystem* ClientSystem_DirtySpatialPartition();
-CClientSystem* ClientSystem_BulletWhizTimer();
 CClientSystem* ClientSystem_Sprite();
 CClientSystem* ClientSystem_WorldText();
 CClientSystem* ClientSystem_Rope();
-CClientSystem* ClientSystem_ManagedParticles();
 
 // Stock's accessors answer a more specific type; the table's adapters keep its
 // column uniform.
@@ -40,7 +40,6 @@ class IClientLeafSystem;
 
 IClientLeafSystem* ClientLeafSystem();
 IDetailObjectSystem* DetailObjectSystem();
-CClientEffectPrecacheSystem* ClientEffectPrecacheSystem();
 
 // The leaf system is libss_fwd_client's object, built without RTTI, so its row
 // is an adapter the per-frame walks can dynamic_cast.
@@ -66,11 +65,14 @@ const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
 }
 
 CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
-							   CClientSystem& decals, CStandaloneClients& standalone)
+							   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
+							   CManagedParticlesClient& particles)
 	: m_ManagedFrame(managedFrame)
 	, m_Physics(physics)
 	, m_Decals(decals)
 	, m_Standalone(standalone)
+	, m_Effects(effects)
+	, m_Particles(particles)
 	, m_ViewportRow(areas, "CViewportClientSystem")
 	, m_GlowOverlayRow(areas, "CGlowOverlaySystem")
 	, m_PixelVisibilityRow(areas, "CPixelVisibilitySystem")
@@ -84,7 +86,6 @@ CClientSystems::~CClientSystems() {}
 bool CClientSystems::Init()
 {
 	m_DetailObjectRow = CGameSystemRow<IDetailObjectSystem>(DetailObjectSystem());
-	m_EffectPrecacheRow = CGameSystemRow<CClientEffectPrecacheSystem>(ClientEffectPrecacheSystem());
 
 	const Row_t rows[] = {
 		// Stock's hand-added systems, in CHLClient::Init's order.
@@ -97,7 +98,7 @@ bool CClientSystems::Init()
 		{"CDetailObjectSystem", &m_DetailObjectRow},
 
 		{"CViewportClientSystem", &m_ViewportRow},
-		{"CClientEffectPrecacheSystem", &m_EffectPrecacheRow},
+		{"CClientEffectPrecacheSystem", &m_Effects.PrecacheRow()},
 		{"CClientShadowMgr", ClientShadowMgrGameSystem()},
 
 		{"C_SoundscapeSystem", &m_SoundscapeRow},
@@ -107,12 +108,12 @@ bool CClientSystems::Init()
 		{"CGlowOverlaySystem", &m_GlowOverlayRow},
 		{"CDecalEmitterSystem", &m_Decals},
 		{"CDirtySpatialPartitionEntityList", ClientSystem_DirtySpatialPartition()},
-		{"CBulletWhizTimer", ClientSystem_BulletWhizTimer()},
+		{"CBulletWhizTimer", &m_Effects.BulletWhizRow()},
 		{"CPixelVisibilitySystem", &m_PixelVisibilityRow},
 		{"CSourceSharpSpriteSystem", ClientSystem_Sprite()},
 		{"CSourceSharpWorldTextSystem", ClientSystem_WorldText()},
 		{"CSourceSharpRopeSystem", ClientSystem_Rope()},
-		{"CSourceSharpManagedParticlesSystem", ClientSystem_ManagedParticles()},
+		{"CSourceSharpManagedParticlesSystem", &m_Particles.SystemRow()},
 		{"CSourceSharpStandaloneInterpSystem", &m_Standalone.InterpSystem()},
 
 		// The managed frame. The CLR is already up from CHLClient::Init.

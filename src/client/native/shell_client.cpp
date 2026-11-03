@@ -45,6 +45,7 @@
 #include "shell_view_targets.h"
 #include "shell_particle_systems.h"
 #include "shell_client_mode.h"
+#include "shell_managed_particles.h"
 #include "shell_standalone_clients.h"
 
 // The free answers for the code not yet handed the client mode.
@@ -234,9 +235,11 @@ void CSourceSharpClientMode::ViewOverrideSet(int32_t nActive, const float* pOrig
 	m_ViewOverride.bSetViewAngles = nSetViewAngles != 0;
 }
 
-CSourceSharpClientMode::CSourceSharpClientMode(const CManagedAreasClient& areas, CStandaloneClients& standalone)
+CSourceSharpClientMode::CSourceSharpClientMode(const CManagedAreasClient& areas, CStandaloneClients& standalone,
+											   CManagedParticlesClient& particles)
 	: m_Areas(areas)
 	, m_Standalone(standalone)
+	, m_Particles(particles)
 	, m_pViewport(NULL)
 {
 	SOURCESHARP_TRACE();
@@ -386,7 +389,7 @@ void CSourceSharpClientMode::PreRender(CViewSetup* pSetup)
 
 void CSourceSharpClientMode::PostRender()
 {
-	ShellParticles_PostRender(); // the old-style effects, managed's
+	m_Particles.PostRender(); // the old-style effects, managed's
 }
 
 float CSourceSharpClientMode::GetViewModelFOV()

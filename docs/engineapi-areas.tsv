@@ -304,36 +304,36 @@ UiFontCreate	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontCreate	b
 UiFontMetrics	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontMetrics	int, int*, int*, void	
 UiFontAdvances	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiFontAdvances	int, int, int, int*, int	
 UiPlaySound	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiPlaySound	byte*, void	
-ParticlesCreate	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesCreate	uint, int, byte*, float, int, int	
-ParticlesConfigure	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesConfigure	uint, int, float, void	
-ParticlesDestroy	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesDestroy	uint, int, void	
-ParticlesSetLights	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesSetLights	uint, int, float*, int, void	
+ParticlesCreate	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesCreate	uint, int, byte*, float, int, int	
+ParticlesConfigure	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesConfigure	uint, int, float, void	
+ParticlesDestroy	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesDestroy	uint, int, void	
+ParticlesSetLights	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesSetLights	uint, int, float*, int, void	
 ParticlesTraceLine	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesTraceLine	float*, float*, int, float*, int, int	
 WorldTextMeshUpdate	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_WorldTextMeshUpdate	uint, byte*, float*, int, int	
 WorldTextMeshDestroy	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_WorldTextMeshDestroy	uint, void	
 ParticleSystemsRead	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemsRead	int, ParticleSystemInfo*, byte*, int, int	
 ParticleDefinitionReads	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleDefinitionReads	int	
 ParticleQueryUnanswered	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleQueryUnanswered	int*, int, int	
-ParticlesMaterialVarInt	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesMaterialVarInt	uint, int, byte*, int*, int	
-ParticlesCreateAt	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesCreateAt	int, byte*, float*, float, int, int	
+ParticlesMaterialVarInt	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesMaterialVarInt	uint, int, byte*, int*, int	
+ParticlesCreateAt	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesCreateAt	int, byte*, float*, float, int, int	
 ParticleSystemNameFromIndex	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemNameFromIndex	int, byte*, int, int	
 ParticleSystemOneShot	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemOneShot	byte*, float*, float*, int, float*, int	
 ParticlesWorldTrace	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesWorldTrace	float*, float*, float*, int, int	
 ParticlesView	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesView	float*, int*, float*, void	
 ParticlesTraceMask	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesTraceMask	float*, float*, uint, float*, int, int	
-ParticlesSetSpace	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesSetSpace	uint, int, uint, int, int, ParticleFollow*, int	
+ParticlesSetSpace	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesSetSpace	uint, int, uint, int, int, ParticleFollow*, int	
 ParticlesBrushPointContents	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticlesBrushPointContents	uint, float*, int	
 ParticleSystemImpact	EngineApi	IShimParticlesClient	client		client	-	SourceSharp_ParticleSystemImpact	byte*, float*, int, float, float*, int	
 EffectRegistrationCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationCount	int	
 EffectRegistrationName	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationName	int, byte*, int, int	
 EffectRegistrationRun	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationRun	int, EffectData*, void	
-FxCanPredict	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxCanPredict	int	
+FxCanPredict	EngineApi	IShimFxClient	client		client	-	CEffectsClient::FxCanPredict	int	
 FxRecipientCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxRecipientCount	float*, int	
-FxMaterialFind	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialFind	byte*, int	
-FxMaterialAddRef	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialAddRef	int, void	
-FxMaterialRelease	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialRelease	int, void	
-FxMaterialName	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMaterialName	int, byte*, int, int	
-FxDrawQuads	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxDrawQuads	int, int, float*, int, void	
+FxMaterialFind	EngineApi	IShimFxClient	client		client	-	CEffectsListClient::FxMaterialFind	byte*, int	
+FxMaterialAddRef	EngineApi	IShimFxClient	client		client	-	CEffectsListClient::FxMaterialAddRef	int, void	
+FxMaterialRelease	EngineApi	IShimFxClient	client		client	-	CEffectsListClient::FxMaterialRelease	int, void	
+FxMaterialName	EngineApi	IShimFxClient	client		client	-	CEffectsListClient::FxMaterialName	int, byte*, int, int	
+FxDrawQuads	EngineApi	IShimFxClient	client		client	-	CEffectsListClient::FxDrawQuads	int, int, float*, int, void	
 FxView	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxView	float*, void	
 FxMainViewOrigin	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxMainViewOrigin	float*, void	
 FxLocalPlayer	EngineApi	IShimFxClient	client		client	-	SourceSharp_FxLocalPlayer	int	

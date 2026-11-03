@@ -17,6 +17,7 @@
 class IClientRenderable;
 
 class C_LocalTempEntity;
+struct CManagedAreasClient;
 class C_PhysPropClientside;
 struct model_t;
 
@@ -89,7 +90,9 @@ class CTempEnts : public ITempEnts
 {
 	// Construction
 public:
-	CTempEnts();
+	// SourceSharp -- a member of the client DLL object, handed the managed areas its
+	// slots carry their arguments to.
+	explicit CTempEnts(const CManagedAreasClient& areas);
 	virtual ~CTempEnts();
 	// Exposed interface
 public:
@@ -209,6 +212,8 @@ private:
 	C_LocalTempEntity* TempEntAlloc();
 
 	int AddVisibleTempEntity(C_LocalTempEntity* pEntity);
+
+	const CManagedAreasClient& m_Areas;
 };
 
 extern ITempEnts* tempents;

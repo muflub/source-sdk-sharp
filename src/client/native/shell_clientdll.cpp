@@ -71,6 +71,11 @@
 #include "sourcesharp_gamesystem.h"
 #include "shell_managed_areas_client.h"
 #include "shell_view_executor_client.h"
+#include "shell_map_material_reload.h"
+#include "shell_effects_list_client.h"
+#include "shell_effects_client.h"
+#include "shell_managed_particles.h"
+#include "bound_callback.h"
 #include "shell_clientdll_refusals.h"
 
 #include "shell_clientsystem.h"
@@ -423,6 +428,10 @@ public:
 
 	CViewerFacts& ViewerFacts() { return m_ViewerFacts; }
 
+	CEffectsListClient& EffectsList() { return m_EffectsList; }
+
+	CManagedParticlesClient& ManagedParticles() { return m_ManagedParticles; }
+
 	CShellViewRender& ViewRender() { return m_ViewRender; }
 
 	virtual ~CShellClientDLL()
@@ -443,8 +452,16 @@ private:
 	CCVarRegistry m_CVars;
 
 	// The engine's VClientEntityList003 and the slot table behind it; the engine fetches
-	// it by name when it loads the DLL.
+	// it by name when it loads the DLL. CreateInterface's create functions take no context,
+	// so the registration's is a thunk bound to this object (bound_callback.h).
 	CClientEntityList m_EntityList;
+
+	void* CreateEntityList() { return static_cast<IClientEntityList*>(&m_EntityList); }
+
+	typedef CBoundCallback<void*()> CreateInterface_t;
+	CreateInterface_t m_CreateEntityList{
+		this, &CreateInterface_t::Trampoline<CShellClientDLL, &CShellClientDLL::CreateEntityList>};
+	InterfaceReg m_EntityListReg{m_CreateEntityList.Get(), VCLIENTENTITYLIST_INTERFACE_VERSION};
 
 	// What managed acquires from native, handed to it at load.
 	CShimRootClient m_ShimRoot;
@@ -464,21 +481,36 @@ private:
 	// The local viewer's facts and the fog and sky managed pushes.
 	CViewerFacts m_ViewerFacts{m_Standalone, m_EntityList};
 
+	// The managed particle executors, their frame and their client systems row.
+	CManagedParticlesClient m_ManagedParticles{m_Managed.m_Areas, m_Standalone};
+
 	// IInput and the shim input area, over the managed input area.
 	CSourceSharpInput m_Input{m_Managed.m_Areas, m_ViewerFacts};
 
 	// IClientMode (g_pClientMode points at it from Init).
-	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas, m_Standalone};
+	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas, m_Standalone, m_ManagedParticles};
+
+	// The client-side effect list the view draws, its material table and smoke fog overlay.
+	CEffectsListClient m_EffectsList{m_Managed.m_Areas};
+
+	// IEffects (g_pEffects points at it from Init), over the managed FX area.
+	CEffectsClient m_Effects{m_Managed.m_Areas};
+
+	// ITempEnts (tempents points at it from Init): the legacy temp entities' object.
+	CTempEnts m_TempEnts{m_Managed.m_Areas};
 
 	// IViewRender (`view` points at it from Init).
 	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_ViewerFacts, m_ClientMode, m_ViewExecutor};
-	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics, m_Decals, m_Standalone};
+	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics,         m_Decals,
+							 m_Standalone,      m_EffectsList,  m_ManagedParticles};
 
 	// The render plan's executor; the view render calls it, and it calls the systems' PreRender.
-	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender};
+	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,    m_ViewerFacts, m_Standalone,
+								 m_ClientMode,      m_ViewRender, m_EffectsList, m_ManagedParticles};
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
+	CMapMaterialReload m_MapMaterials{m_Managed};
 };
 
 // Records a refusal in the boundary probe table and the refusal tally. A macro so
@@ -508,6 +540,16 @@ CViewerFacts& ShellClientDll_ViewerFacts()
 	return g_ShellClientDLL.ViewerFacts();
 }
 
+CEffectsListClient& ShellClientDll_EffectsList()
+{
+	return g_ShellClientDLL.EffectsList();
+}
+
+CManagedParticlesClient& ShellClientDll_ManagedParticles()
+{
+	return g_ShellClientDLL.ManagedParticles();
+}
+
 CStandaloneClients& ShellClientDll_Standalone()
 {
 	return g_ShellClientDLL.Standalone();
@@ -522,14 +564,6 @@ CClientEntityList& ShellClientDll_EntityList()
 {
 	return g_ShellClientDLL.EntityList();
 }
-
-// VClientEntityList003: the engine's CreateInterface hands out the member.
-static void* CreateClientEntityList()
-{
-	return static_cast<IClientEntityList*>(&g_ShellClientDLL.EntityList());
-}
-
-static InterfaceReg g_CreateClientEntityList(CreateClientEntityList, VCLIENTENTITYLIST_INTERFACE_VERSION);
 
 CManagedSide& ShellClientDll_ManagedSide()
 {
@@ -641,6 +675,8 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	input = &m_Input;
 	g_pClientMode = &m_ClientMode;
 	decalsystem = &m_Decals;
+	g_pEffects = &m_Effects;
+	tempents = &m_TempEnts;
 
 	// The same two as members, served through IManagedRuntimeEnvironment.
 	m_pEngineFactory = appSystemFactory;
@@ -725,8 +761,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	// A listen server's spawn reloads only what the map paks can have changed. Failing to
 	// install falls back to the stock full reload.
-	bool SourceSharp_InstallMapMaterialReload(IFileSystem * pFileSystem, IMaterialSystem * pMaterials);
-	SourceSharp_InstallMapMaterialReload(filesystem, materials);
+	m_MapMaterials.Install(filesystem, materials);
 
 	// RTLD_NOLOAD: the launcher's SDL or nothing. Windows has no SDL to find.
 #ifndef _WIN32
@@ -755,6 +790,9 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_pStandaloneClient = &m_Standalone;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = &m_ClientMode;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = &m_ViewerFacts;
+	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsListClient = &m_EffectsList;
+	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsClient = &m_Effects;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pManagedParticlesClient = &m_ManagedParticles;
 	m_pManagedRuntime = LoadManagedRuntime(this);
 
 	if (m_pManagedRuntime == NULL)
@@ -786,7 +824,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	VGui_CreateGlobalPanels();
 
-	InitSmokeFogOverlay();
+	m_EffectsList.InitSmokeFog();
 
 	ClientVoiceMgr_Init();
 
@@ -841,8 +879,7 @@ void CShellClientDLL::PostInit()
 void CShellClientDLL::Shutdown()
 {
 	// First: the hooked slots name functions in this module.
-	void SourceSharp_UninstallMapMaterialReload();
-	SourceSharp_UninstallMapMaterialReload();
+	m_MapMaterials.Uninstall();
 
 	// Printed on the way out so refusals from an unwatched session reach the log.
 	ShellClientDll_PrintRefusals(m_Refusals);
@@ -855,7 +892,7 @@ void CShellClientDLL::Shutdown()
 	m_ClientMode.Shutdown();
 
 	m_Input.Shutdown_All();
-	TermSmokeFogOverlay();
+	m_EffectsList.TermSmokeFog();
 	view->Shutdown();
 	g_pParticleSystemMgr->UncacheAllParticleSystems();
 	UncacheAllMaterials();
@@ -899,6 +936,9 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_pStandaloneClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = NULL;
+	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsListClient = NULL;
+	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsClient = NULL;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pManagedParticlesClient = NULL;
 	m_ShimRoot.m_pAppSystemFactory = nullptr;
 	m_ShimRoot.m_pPhysicsFactory = nullptr;
 	gameeventmanager = NULL;
@@ -1152,7 +1192,7 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	modemanager->LevelInit(pMapName);
 	ShellParticleMgr_LevelInit();
 
-	clienteffects->Flush();
+	m_EffectsList.Flush();
 	view->LevelInit();
 	tempents->LevelInit();
 	ResetToneMappingScale();
@@ -1434,7 +1474,7 @@ void CShellClientDLL::OnRenderStart()
 	}
 
 	// Entities can change the overlay alpha in their thinks.
-	g_SmokeFogOverlayAlpha = 0;
+	m_EffectsList.SetSmokeFogAlpha(0);
 
 	m_Physics.Simulate();
 
@@ -1449,7 +1489,7 @@ void CShellClientDLL::OnRenderStart()
 	{
 		FPExceptionEnabler enableExceptions;
 		// The old-style effects, then the new-style ones, as UpdateAllEffects ordered them.
-		ShellParticles_Frame(gpGlobals->frametime);
+		m_ManagedParticles.Frame(gpGlobals->frametime);
 		ShellNewParticles_Frame(gpGlobals->frametime);
 	}
 }
@@ -1539,7 +1579,7 @@ void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 		break;
 		case FRAME_START:
 		{
-			SetFXCreationAllowed(true);
+			m_EffectsList.SetCreationAllowed(true);
 		}
 		break;
 	}

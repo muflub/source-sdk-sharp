@@ -8,12 +8,12 @@
 // SS_REASON a  a vtable the engine calls through
 // The client-side effect list's native half; the list and its effect kinds are
 // managed.
-//   clienteffects            the IEffectsList the view draws and the client DLL
-//                            flushes, both carried to managed.
-//   FX_Add*, FX_TracerSound  entries the fork's effect TUs call, carried to
-//                            managed with their arguments; an IMaterial* crosses
+//   CEffectsListClient       the IEffectsList the view draws and the client DLL
+//                            flushes, the material table, the smoke fog overlay and
+//                            two client systems rows (shell_effects_list_client.h).
+//   FX_Add*, FX_TracerSound  entries the probe build's effect probes call, carried
+//                            to managed with their arguments; an IMaterial* crosses
 //                            as an id.
-//   CBulletWhizTimer         resets the near-miss clock at level start.
 //   IShimFxClient::Fx*       materials by id, one quad-mesh draw, the view reads,
 //                            the near-miss sound, and the tracer effects' asks.
 
@@ -59,6 +59,7 @@
 #include "shell_clientsystem.h"
 
 #include "shell_cliententitylist.h"
+#include "shell_effects_list_client.h"
 
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
@@ -69,108 +70,62 @@ CLIENTEFFECT_MATERIAL("effects/gunshiptracer")
 CLIENTEFFECT_MATERIAL("effects/bluespark")
 CLIENTEFFECT_REGISTER_END()
 
-// The material table: an id per IMaterial* handed out, stable for the process
-// so a managed reload keeps its ids. Never shrinks; materials are
-// reference-counted by the calls below.
-static const int kMaxMaterials = 1024;
-static IMaterial* s_pMaterials[kMaxMaterials];
-static int s_nMaterials = 0;
-
-static int32_t MaterialId(IMaterial* pMaterial)
+int32_t CEffectsListClient::MaterialId(IMaterial* pMaterial)
 {
 	if (!pMaterial)
 		return 0;
-	for (int i = 0; i < s_nMaterials; ++i)
+	for (int i = 0; i < m_nMaterials; ++i)
 	{
-		if (s_pMaterials[i] == pMaterial)
+		if (m_pMaterials[i] == pMaterial)
 			return i + 1;
 	}
-	if (s_nMaterials >= kMaxMaterials)
+	if (m_nMaterials >= kMaxMaterials)
 		return 0;
-	s_pMaterials[s_nMaterials++] = pMaterial;
-	return s_nMaterials;
+	m_pMaterials[m_nMaterials++] = pMaterial;
+	return m_nMaterials;
 }
 
-static IMaterial* MaterialOf(int32_t nMaterial)
+IMaterial* CEffectsListClient::MaterialOf(int32_t nMaterial) const
 {
-	return (nMaterial >= 1 && nMaterial <= s_nMaterials) ? s_pMaterials[nMaterial - 1] : NULL;
+	return (nMaterial >= 1 && nMaterial <= m_nMaterials) ? m_pMaterials[nMaterial - 1] : NULL;
 }
 
-// A material id as the material, for the render plan's executor.
+// A material id as the material, for the pixel-visibility command stream.
 IMaterial* SourceSharp_FxMaterialOf(int32_t nMaterial)
 {
-	return MaterialOf(nMaterial);
+	return ShellClientDll_EffectsList().MaterialOf(nMaterial);
 }
 
 // A material as its id, no reference taken, for the glow overlays.
 int32_t SourceSharp_FxMaterialIdOf(IMaterial* pMaterial)
 {
-	return MaterialId(pMaterial);
+	return ShellClientDll_EffectsList().MaterialId(pMaterial);
 }
 
-class CEffectsListThunk final : public IEffectsList
+void CEffectsListClient::DrawEffects(double frametime)
 {
-public:
-	void AddEffect(CClientSideEffect* effect) override {}
-
-	void RemoveEffect(CClientSideEffect* effect) override {}
-
-	void DrawEffects(double frametime) override
-	{
-		// The view passes gpGlobals->frametime, a float: crossing as one is exact.
-		if (IManagedFxClient* pFx = ManagedFxClient())
-			pFx->DrawEffects((float)frametime);
-	}
-
-	void Flush() override
-	{
-		if (IManagedFxClient* pFx = ManagedFxClient())
-			pFx->FlushEffects();
-	}
-};
-
-static CEffectsListThunk s_EffectsListThunk;
-
-class CBulletWhizTimer : public CClientSystem
-{
-public:
-	CBulletWhizTimer(char const* name)
-		: CClientSystem(name)
-	{
-	}
-
-	void LevelInitPreEntity() override
-	{
-		if (IManagedFxClient* pFx = ManagedFxClient())
-			pFx->EffectsLevelInit();
-	}
-};
-
-static CBulletWhizTimer g_BulletWhiz("CBulletWhizTimer");
-
-static bool g_FXCreationAllowed = false;
-
-IEffectsList* clienteffects = &s_EffectsListThunk;
-
-CClientSystem* ClientSystem_BulletWhizTimer()
-{
-	return &g_BulletWhiz;
+	// The view passes gpGlobals->frametime, a float: crossing as one is exact.
+	if (IManagedFxClient* pFx = Managed())
+		pFx->DrawEffects((float)frametime);
 }
 
-void SetFXCreationAllowed(bool state)
+void CEffectsListClient::Flush()
 {
-	g_FXCreationAllowed = state;
+	if (IManagedFxClient* pFx = Managed())
+		pFx->FlushEffects();
 }
 
-bool FXCreationAllowed()
+void CEffectsListClient::CBulletWhizRow::LevelInitPreEntity()
 {
-	return g_FXCreationAllowed;
+	if (IManagedFxClient* pFx = m_Effects.Managed())
+		pFx->EffectsLevelInit();
 }
 
-// The FX_* entries the fork's effect TUs call, carried to managed as they came.
+// The FX_* entries the probe build's effect probes call, carried to managed as they came.
 void FX_AddLine(const FXLineData_t& data)
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	CEffectsListClient& effects = ShellClientDll_EffectsList();
+	IManagedFxClient* pFx = effects.Managed();
 	if (!pFx)
 		return;
 	const float f[] = {
@@ -180,26 +135,27 @@ void FX_AddLine(const FXLineData_t& data)
 		data.m_flStartAlpha,       data.m_flEndAlpha,       data.m_flStartScale,       data.m_flEndScale,
 		data.m_flDieTime,
 	};
-	pFx->AddLine(f, MaterialId(data.m_pMaterial));
+	pFx->AddLine(f, effects.MaterialId(data.m_pMaterial));
 }
 
 void FX_AddStaticLine(const Vector& start, const Vector& end, float scale, float life, const char* materialName,
 					  unsigned char flags)
 {
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
 		pFx->AddStaticLine(start.Base(), end.Base(), scale, life, materialName, flags);
 }
 
 void FX_AddDiscreetLine(const Vector& start, const Vector& direction, float velocity, float length, float clipLength,
 						float scale, float life, const char* shader)
 {
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
 		pFx->AddDiscreetLine(start.Base(), direction.Base(), velocity, length, clipLength, scale, life, shader);
 }
 
 void FX_AddQuad(const FXQuadData_t& data)
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	CEffectsListClient& effects = ShellClientDll_EffectsList();
+	IManagedFxClient* pFx = effects.Managed();
 	if (!pFx)
 		return;
 	const float f[] = {
@@ -209,14 +165,14 @@ void FX_AddQuad(const FXQuadData_t& data)
 		data.m_flYaw,        data.m_flDeltaYaw,   data.m_flScaleBias, data.m_flAlphaBias,
 	};
 	// The caller's SetMaterial took the reference the quad gives back.
-	pFx->AddQuad(f, data.m_uiFlags, MaterialId(data.m_pMaterial));
+	pFx->AddQuad(f, data.m_uiFlags, effects.MaterialId(data.m_pMaterial));
 }
 
 void FX_AddQuad(const Vector& origin, const Vector& normal, float startSize, float endSize, float sizeBias,
 				float startAlpha, float endAlpha, float alphaBias, float yaw, float deltaYaw, const Vector& color,
 				float lifeTime, const char* shader, unsigned int flags)
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed();
 	if (!pFx)
 		return;
 	const float f[] = {
@@ -228,12 +184,12 @@ void FX_AddQuad(const Vector& origin, const Vector& normal, float startSize, flo
 
 void FX_TracerSound(const Vector& start, const Vector& end, int iTracerType)
 {
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
 		pFx->TracerSound(start.Base(), end.Base(), iTracerType);
 }
 
 // IShimFxClient: the effect list's carry-out.
-int32_t SourceSharp_FxMaterialFind(const char* pName)
+int32_t CEffectsListClient::FxMaterialFind(const char* pName)
 {
 	if (!pName || !materials)
 		return 0;
@@ -244,19 +200,19 @@ int32_t SourceSharp_FxMaterialFind(const char* pName)
 	return MaterialId(pMaterial);
 }
 
-void SourceSharp_FxMaterialAddRef(int32_t nMaterial)
+void CEffectsListClient::FxMaterialAddRef(int32_t nMaterial)
 {
 	if (IMaterial* pMaterial = MaterialOf(nMaterial))
 		pMaterial->IncrementReferenceCount();
 }
 
-void SourceSharp_FxMaterialRelease(int32_t nMaterial)
+void CEffectsListClient::FxMaterialRelease(int32_t nMaterial)
 {
 	if (IMaterial* pMaterial = MaterialOf(nMaterial))
 		pMaterial->DecrementReferenceCount();
 }
 
-int32_t SourceSharp_FxMaterialName(int32_t nMaterial, char* pOut, int32_t nOutSize)
+int32_t CEffectsListClient::FxMaterialName(int32_t nMaterial, char* pOut, int32_t nOutSize)
 {
 	IMaterial* pMaterial = MaterialOf(nMaterial);
 	const char* pName = pMaterial ? pMaterial->GetName() : NULL;
@@ -267,7 +223,7 @@ int32_t SourceSharp_FxMaterialName(int32_t nMaterial, char* pOut, int32_t nOutSi
 	return Q_strlen(pName);
 }
 
-void SourceSharp_FxDrawQuads(int32_t nMaterial, int32_t nVertices, const float* pVertices, int32_t bByteColor)
+void CEffectsListClient::FxDrawQuads(int32_t nMaterial, int32_t nVertices, const float* pVertices, int32_t bByteColor)
 {
 	// Twelve floats a vertex (FxVertex): position, s t, r g b a, normal.
 	const int kStride = 12;
@@ -417,24 +373,35 @@ CClientEffectPrecacheSystem* ClientEffectPrecacheSystem()
 	return EffectPrecache();
 }
 
-void CClientEffectPrecacheSystem::LevelInitPreEntity()
-{
-	if (IManagedFxClient* pFx = ManagedFxClient())
-		pFx->EffectsPrecache(0);
-}
+// The registry is no client systems row: CEffectsListClient's precache row is, and calls
+// managed through the areas it holds.
+void CClientEffectPrecacheSystem::LevelInitPreEntity() {}
 
 void CClientEffectPrecacheSystem::LevelShutdownPreEntity() {}
 
-void CClientEffectPrecacheSystem::LevelShutdownPostEntity()
-{
-	if (IManagedFxClient* pFx = ManagedFxClient())
-		pFx->EffectsPrecache(1);
-}
+void CClientEffectPrecacheSystem::LevelShutdownPostEntity() {}
 
 // The registry's own memory, at the DLL's shutdown.
 void CClientEffectPrecacheSystem::Shutdown()
 {
 	m_Effects.Purge();
+}
+
+void CEffectsListClient::CPrecacheRow::LevelInitPreEntity()
+{
+	if (IManagedFxClient* pFx = m_Effects.Managed())
+		pFx->EffectsPrecache(0);
+}
+
+void CEffectsListClient::CPrecacheRow::LevelShutdownPostEntity()
+{
+	if (IManagedFxClient* pFx = m_Effects.Managed())
+		pFx->EffectsPrecache(1);
+}
+
+void CEffectsListClient::CPrecacheRow::Shutdown()
+{
+	ClientEffectPrecacheSystem()->Shutdown();
 }
 
 void CClientEffectPrecacheSystem::Register(IClientEffect* effect)
@@ -462,57 +429,45 @@ void SourceSharp_FxCacheMaterialHandles()
 	FX_CacheMaterialHandles();
 }
 
-// The smoke fog overlay: the two globals the smoke volume and debug view write,
-// the material, and the quad. Whether and how it draws is managed's
-// (IManagedFxClient::SmokeFogPlan).
-static IMaterial* g_pSmokeFogMaterial = NULL;
-
-float g_SmokeFogOverlayAlpha;
-Vector g_SmokeFogOverlayColor;
-
 CLIENTEFFECT_REGISTER_BEGIN(PrecacheSmokeFogOverlay)
 CLIENTEFFECT_MATERIAL("particle/screenspace_fog")
 CLIENTEFFECT_REGISTER_END()
 
-void InitSmokeFogOverlay()
+void CEffectsListClient::InitSmokeFog()
 {
-	TermSmokeFogOverlay();
+	TermSmokeFog();
 
-	g_SmokeFogOverlayAlpha = 0;
+	m_flSmokeFogAlpha = 0;
 
 	if (materials)
 	{
-		g_pSmokeFogMaterial = materials->FindMaterial("particle/screenspace_fog", TEXTURE_GROUP_CLIENT_EFFECTS);
-		if (g_pSmokeFogMaterial)
-			g_pSmokeFogMaterial->IncrementReferenceCount();
+		m_pSmokeFogMaterial = materials->FindMaterial("particle/screenspace_fog", TEXTURE_GROUP_CLIENT_EFFECTS);
+		if (m_pSmokeFogMaterial)
+			m_pSmokeFogMaterial->IncrementReferenceCount();
 	}
 }
 
-void TermSmokeFogOverlay()
+void CEffectsListClient::TermSmokeFog()
 {
-	if (g_pSmokeFogMaterial)
+	if (m_pSmokeFogMaterial)
 	{
-		g_pSmokeFogMaterial->DecrementReferenceCount();
-		g_pSmokeFogMaterial = NULL;
+		m_pSmokeFogMaterial->DecrementReferenceCount();
+		m_pSmokeFogMaterial = NULL;
 	}
 }
 
-void DrawSmokeFogOverlay()
+void CEffectsListClient::DrawSmokeFog()
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = Managed();
 	if (!pFx)
 		return;
 
-	float color[3] = {g_SmokeFogOverlayColor.x, g_SmokeFogOverlayColor.y, g_SmokeFogOverlayColor.z};
 	float rgba[4];
-	if (!pFx->SmokeFogPlan(g_SmokeFogOverlayAlpha, (g_pSmokeFogMaterial && materials) ? 1 : 0, color, rgba))
+	if (!pFx->SmokeFogPlan(m_flSmokeFogAlpha, (m_pSmokeFogMaterial && materials) ? 1 : 0, m_SmokeFogColor, rgba))
 		return;
 
 	// The plan overwrites the overlay colour, as stock's draw did.
-	g_SmokeFogOverlayColor.Init(color[0], color[1], color[2]);
-
 	CMatRenderContextPtr pRenderContext(materials);
-
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
 	pRenderContext->LoadIdentity();
 	pRenderContext->Ortho(0, 0, 1, 1, -99999, 99999);
@@ -523,7 +478,7 @@ void DrawSmokeFogOverlay()
 	pRenderContext->MatrixMode(MATERIAL_MODEL);
 	pRenderContext->LoadIdentity();
 
-	IMesh* pMesh = pRenderContext->GetDynamicMesh(false, NULL, NULL, g_pSmokeFogMaterial);
+	IMesh* pMesh = pRenderContext->GetDynamicMesh(false, NULL, NULL, m_pSmokeFogMaterial);
 	CMeshBuilder meshBuilder;
 
 	// A full-screen quad in the unit ortho view, at stock's depth.

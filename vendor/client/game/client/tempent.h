@@ -56,6 +56,8 @@
 // Collide with the world and props
 
 class C_LocalTempEntity;
+struct CManagedAreasClient;
+class IManagedFxClient;
 
 typedef int (*pfnDrawHelper)(C_LocalTempEntity* entity, int flags);
 
@@ -156,6 +158,16 @@ public:
 	void SetDrawHelper(pfnDrawHelper helper) { m_pfnDrawHelper = helper; }
 
 	void OnRemoveTempEntity();
+
+	// SourceSharp -- the managed areas the tempent's draw asks, handed by its owner:
+	// CTempEnts::PoolCreateObject makes every tempent, and sets them before it answers.
+	void SetManagedAreas(const CManagedAreasClient& areas) { m_pAreas = &areas; }
+
+	IManagedFxClient* ManagedFx() const;
+
+	// The engine's studio draw asks this before it skins the model: stock's tempent pose,
+	// built by managed code.
+	virtual bool SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime) OVERRIDE;
 
 	// THE PLACE, in the local form the simulation is written in.
 	// Frame() opened with Assert( !GetMoveParent() ) for as long as this was an
@@ -361,4 +373,7 @@ private:
 
 	// Draw tempent as a studio model
 	int DrawStudioModel(int flags);
+
+private:
+	const CManagedAreasClient* m_pAreas;
 };

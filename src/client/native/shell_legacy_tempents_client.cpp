@@ -5,7 +5,8 @@
 //
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
-// The `tempents` object the engine and leaf system hold a pointer to, and
+// CTempEnts, the `tempents` object (a member of the client DLL object, which points
+// tempents at it from Init), and
 // C_LocalTempEntity's renderable members; managed code decides everything they
 // carry out. ITempEnts slots nothing in this mod calls warn once if called.
 
@@ -22,6 +23,7 @@
 #include "particlemgr.h"
 
 #include "imanaged_areas_client.h"
+#include "shell_managed_areas_client.h"
 
 // The pool's seam (shell_te_pool_client.cpp).
 void SourceSharpTePool_Update(float flFrameTime);
@@ -47,8 +49,7 @@ CLIENTEFFECT_MATERIAL("effects/combinemuzzle2_noz")
 CLIENTEFFECT_MATERIAL("effects/strider_muzzle")
 CLIENTEFFECT_REGISTER_END()
 
-static CTempEnts g_TempEnts;
-ITempEnts* tempents = (ITempEnts*)&g_TempEnts;
+ITempEnts* tempents = NULL;
 
 static void PutVector(float* p, const Vector& v)
 {
@@ -99,6 +100,11 @@ void C_LocalTempEntity::SetAcceleration(const Vector& vecVelocity)
 	m_vecTempEntAcceleration = vecVelocity;
 }
 
+IManagedFxClient* C_LocalTempEntity::ManagedFx() const
+{
+	return m_pAreas->m_pFxClient;
+}
+
 // Kept for the vtable; the managed pool owns lifetime and frame.
 bool C_LocalTempEntity::IsActive()
 {
@@ -115,7 +121,7 @@ void C_LocalTempEntity::OnRemoveTempEntity() {}
 
 bool C_LocalTempEntity::IsTransparent()
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = ManagedFx();
 	const int bTranslucent = modelinfo->IsTranslucent(GetModel()) ? 1 : 0;
 	return pFx ? pFx->TempEntIsTransparent(bTranslucent, m_nRenderMode) != 0 : bTranslucent != 0;
 }
@@ -141,7 +147,7 @@ void C_LocalTempEntity::GetColorModulation(float* color)
 
 RenderGroup_t C_LocalTempEntity::GetRenderGroup()
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = ManagedFx();
 	if (!pFx)
 		return RENDER_GROUP_OPAQUE_ENTITY;
 
@@ -167,7 +173,7 @@ void C_LocalTempEntity::ComputeFxBlend()
 	if (m_nFXComputeFrame == gpGlobals->framecount)
 		return;
 
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = ManagedFx();
 	if (!pFx)
 		return;
 
@@ -217,7 +223,7 @@ int C_LocalTempEntity::DrawModel(int modelFlags)
 	// The occlusion fade (FTENT_BEOCCLUDED): managed code answers the alpha.
 	if (this->flags & FTENT_BEOCCLUDED)
 	{
-		if (IManagedFxClient* pFx = ManagedFxClient())
+		if (IManagedFxClient* pFx = ManagedFx())
 		{
 			float in[9];
 			PutVector(in, m_vecNormal);
@@ -242,18 +248,31 @@ int C_LocalTempEntity::DrawModel(int modelFlags)
 	}
 }
 
-// The engine's studio draw asks this before it skins the model. Managed code
-// builds stock's tempent pose (sequence 0, cycle 0, zero pose parameters) and
-// writes the render transform into every slot the build did not; with no
-// managed side, or a non-studio model, every slot is the render transform.
+// Every slot is the render transform: no other shell renderable has a studio model to
+// pose (only C_LocalTempEntity answers GetModel), so none asks managed code.
 bool CShellRenderable::SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime)
 {
 	if (!pBoneToWorldOut || nMaxBones <= 0)
 		return true;
 
 	const matrix3x4_t& matRender = RenderableToWorldTransform();
+	for (int i = 0; i < nMaxBones; i++)
+		MatrixCopy(matRender, pBoneToWorldOut[i]);
+
+	return true;
+}
+
+// Managed code builds stock's tempent pose (sequence 0, cycle 0, zero pose parameters)
+// and writes the render transform into every slot the build did not; with no managed
+// side, or a non-studio model, every slot is the render transform.
+bool C_LocalTempEntity::SetupBones(matrix3x4_t* pBoneToWorldOut, int nMaxBones, int boneMask, float currentTime)
+{
+	if (!pBoneToWorldOut || nMaxBones <= 0)
+		return true;
+
+	const matrix3x4_t& matRender = RenderableToWorldTransform();
 	const model_t* pModel = GetModel();
-	IManagedBonesClient* pBones = ManagedBonesClient();
+	IManagedBonesClient* pBones = m_pAreas->m_pBonesClient;
 
 	if (pBones && pModel && modelinfo->GetModelType(pModel) == mod_studio)
 	{
@@ -287,7 +306,7 @@ static int BreakModelDrawHelper(C_LocalTempEntity* entity, int flags)
 	sInfo.body = entity->m_nBody;
 	sInfo.hitboxset = entity->m_nHitboxSet;
 
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = entity->ManagedFx())
 	{
 		const int nHead = pFx->TempEntLightingOrigin(SourceSharpTePool_SlotOf(entity));
 		if (C_LocalTempEntity* pHead = SourceSharpTePool_AtSlot(nHead))
@@ -303,8 +322,9 @@ void SourceSharpTePool_JoinBreakGroup(C_LocalTempEntity* pTemp, bool bSlave)
 		pTemp->SetDrawHelper(BreakModelDrawHelper);
 }
 
-CTempEnts::CTempEnts()
+CTempEnts::CTempEnts(const CManagedAreasClient& areas)
 	: m_TempEntsPool((MAX_TEMP_ENTITIES / 20), CUtlMemoryPool::GROW_SLOW)
+	, m_Areas(areas)
 {
 }
 
@@ -326,7 +346,7 @@ void CTempEnts::Shutdown()
 
 void CTempEnts::LevelInit()
 {
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = m_Areas.m_pFxClient)
 		pFx->TempEntsLevelInit();
 }
 
@@ -373,20 +393,20 @@ int CTempEnts::AddVisibleTempEntity(C_LocalTempEntity* pEntity)
 
 void CTempEnts::MuzzleFlash(int type, ClientEntityHandle_t hEntity, int attachmentIndex, bool firstPerson)
 {
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = m_Areas.m_pFxClient)
 		pFx->TempEntMuzzleFlash(type, (uint32_t)hEntity.ToInt(), attachmentIndex, firstPerson ? 1 : 0, 0);
 }
 
 void CTempEnts::MuzzleFlash(const Vector& pos1, const QAngle& angles, int type, ClientEntityHandle_t hEntity,
 							bool firstPerson)
 {
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = m_Areas.m_pFxClient)
 		pFx->TempEntMuzzleFlash(type, (uint32_t)hEntity.ToInt(), 1, firstPerson ? 1 : 0, 1);
 }
 
 void CTempEnts::EjectBrass(const Vector& pos1, const QAngle& angles, const QAngle& gunAngles, int type)
 {
-	IManagedFxClient* pFx = ManagedFxClient();
+	IManagedFxClient* pFx = m_Areas.m_pFxClient;
 	if (!pFx)
 		return;
 	float in[9];
@@ -402,7 +422,7 @@ void CTempEnts::EjectBrass(const Vector& pos1, const QAngle& angles, const QAngl
 
 void CTempEnts::AttachTentToPlayer(int client, int modelIndex, float zoffset, float life)
 {
-	if (IManagedFxClient* pFx = ManagedFxClient())
+	if (IManagedFxClient* pFx = m_Areas.m_pFxClient)
 		pFx->TempEntAttach(client, modelIndex, zoffset, life, gpGlobals->maxClients);
 }
 

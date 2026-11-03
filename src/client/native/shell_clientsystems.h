@@ -14,7 +14,8 @@
 
 class IDetailObjectSystem;
 class CStandaloneClients;
-class CClientEffectPrecacheSystem;
+class CEffectsListClient;
+class CManagedParticlesClient;
 
 // The client's game systems as one named table, in the order they run, a member of the
 // client DLL object. Stage passes walk the rows forwards; the shutdown stages walk them
@@ -25,7 +26,8 @@ public:
 	// The systems the client DLL object owns, and the managed areas the managed rows call;
 	// the other rows are their files' objects.
 	CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
-				   CClientSystem& decals, CStandaloneClients& standalone);
+				   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
+				   CManagedParticlesClient& particles);
 	~CClientSystems();
 
 	CClientSystems(const CClientSystems&) = delete;
@@ -62,10 +64,11 @@ private:
 	CClientSystem& m_Physics;
 	CClientSystem& m_Decals;
 	CStandaloneClients& m_Standalone;
+	CEffectsListClient& m_Effects;
+	CManagedParticlesClient& m_Particles;
 
 	// Stock's accessors answer a more specific type; these rows keep the table's column uniform.
 	CGameSystemRow<IDetailObjectSystem> m_DetailObjectRow{nullptr};
-	CGameSystemRow<CClientEffectPrecacheSystem> m_EffectPrecacheRow{nullptr};
 
 	// The rows whose system is managed.
 	CManagedClientSystemRow m_ViewportRow;

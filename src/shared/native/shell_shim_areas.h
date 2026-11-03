@@ -82,6 +82,9 @@ void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName);
 
 class CViewerFacts;
 class CSourceSharpClientMode;
+class CManagedParticlesClient;
+class CEffectsClient;
+class CEffectsListClient;
 
 class CShimEngineClient final : public IShimEngine
 {
@@ -398,6 +401,9 @@ public:
 	int32_t ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ) override;
 	int32_t ParticleSystemImpact(const char* pszName, const float* pPoints, int32_t nEntity, float flScale,
 								 const float* pColorXYZ) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CManagedParticlesClient* m_pManagedParticlesClient = nullptr;
 };
 
 class CShimFxClient final : public IShimFxClient
@@ -444,6 +450,10 @@ public:
 								 int32_t nPriority) override;
 	void FxLoadModel(const char* pModel) override;
 	int32_t FxModelFrameCount(const char* pModel) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CEffectsClient* m_pEffectsClient = nullptr;
+	CEffectsListClient* m_pEffectsListClient = nullptr;
 };
 
 class CShimSoundscapeClient final : public IShimSoundscapeClient

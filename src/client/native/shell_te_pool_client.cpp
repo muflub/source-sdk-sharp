@@ -576,7 +576,10 @@ void SourceSharpTePool_JoinBreakGroup(C_LocalTempEntity* pTemp, bool bSlave);
 
 C_LocalTempEntity* CTempEnts::PoolCreateObject()
 {
-	return TempEntAlloc();
+	C_LocalTempEntity* pTemp = TempEntAlloc();
+	if (pTemp)
+		pTemp->SetManagedAreas(m_Areas);
+	return pTemp;
 }
 
 // Constructs into a slot the managed pool has already reserved: stock's

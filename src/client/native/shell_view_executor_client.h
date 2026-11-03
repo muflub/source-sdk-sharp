@@ -27,6 +27,8 @@ class CViewerFacts;
 class CStandaloneClients;
 class CSourceSharpClientMode;
 class CShellViewRender;
+class CEffectsListClient;
+class CManagedParticlesClient;
 
 namespace ShellViewExecutor
 {
@@ -39,13 +41,16 @@ class CViewExecutor final
 {
 public:
 	CViewExecutor(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
-				  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender)
+				  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
+				  CEffectsListClient& effects, CManagedParticlesClient& particles)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
 		, m_Standalone(standalone)
 		, m_ClientMode(clientMode)
 		, m_ViewRender(viewRender)
+		, m_Effects(effects)
+		, m_Particles(particles)
 	{
 	}
 
@@ -89,5 +94,7 @@ private:
 	CStandaloneClients& m_Standalone;
 	CSourceSharpClientMode& m_ClientMode;
 	CShellViewRender& m_ViewRender;
+	CEffectsListClient& m_Effects;
+	CManagedParticlesClient& m_Particles;
 	ShellViewExecutor::CViewExecutorImpl* m_pImpl = nullptr;
 };
