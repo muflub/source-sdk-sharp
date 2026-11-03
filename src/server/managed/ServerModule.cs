@@ -1638,6 +1638,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         var physCannon = _services.Create<PhysCannonWorld>();
         _services.AddInstance(physCannon);
         _services.AddInstance<IHeldObjects>(physCannon);
+        _services.AddInstance(_postSimulation);
         _services.AddInstance(new PhysCannonBehaviourSource(physCannon));
 
         // plan_entity.md §3.8: the physics event ring's consumer. AFTER the
@@ -2053,7 +2054,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                 _services.Require<PlayerShadowBodies>(),
                 new PlayerShadowStress(frameCalls, _services.Require<IPhysicsSolverWorld>()),
                 () => directory.All.Select(p => p.Player), ev => _physicsRouter?.Post(ev),
-                () => timescale.Value, () => speeds.Value, text => Log.Msg(text), callbacks.EnsureInstalled);
+                () => timescale.Value, () => speeds.Value, text => Log.Msg(text), callbacks.EnsureInstalled, _postSimulation);
             var watchSetting = _convars.Get<PhysicsWatchConVar>()
                 ?? throw new InvalidOperationException("cs_sv_physics_watch is not registered");
             var watch = new PhysicsWatch(_services.Require<IVPhysicsInspect>(), _services.Require<IVPhysicsSolverObjects>(),
@@ -4339,6 +4340,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     /// <summary>The physics frame CPhysicsHook forwards to (plan_physics_bones_native_zero 2.3).</summary>
     private PhysicsFrame? _physicsFrame;
+
+    /// <summary>What a trigger holds until the frame's physics step has run.</summary>
+    private readonly PostSimulationQueue _postSimulation = new();
 
     /// <summary>The same events, to the entities they name (physics stock parity, step 3).</summary>
     private PhysicsEventRouter? _physicsRouter;

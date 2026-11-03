@@ -304,6 +304,13 @@ public abstract class TriggerVolume : ScriptedEntity
                || ((kinds & TriggerSpawnflags.PhysicsObjects) != 0 && moveType == MoveType.VPhysics);
     }
 
+    /// <summary>Whether the solver moves <paramref name="toucher"/>.</summary>
+    protected bool MovedByPhysics(EntityHandle toucher)
+    {
+        _networking!.EntityGetState(toucher, out MoveType moveType);
+        return moveType == MoveType.VPhysics;
+    }
+
     /// <summary>The map's spawnflags read as the kinds they name.</summary>
     protected TriggerSpawnflags Kinds => SpawnFlagsAs<TriggerSpawnflags>();
 

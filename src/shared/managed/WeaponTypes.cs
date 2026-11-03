@@ -75,6 +75,9 @@ public readonly record struct WeaponType(
     /// </summary>
     public SecondaryFire? Secondary { get; init; }
 
+    /// <summary>What each shot does to the view; none for a weapon stock's does not kick.</summary>
+    public WeaponKick? Kick { get; init; }
+
     //-------------------------------------------------------------------------
     // What used to come from scripts/weapon_<name>.txt (Phase 10).
     //
@@ -245,6 +248,9 @@ public enum WeaponKind
 /// </param>
 public readonly record struct SecondaryFire(float Interval, int AmmoCost = 1)
 {
+    /// <summary>What the alt-fire does to the view; none for one stock's does not kick.</summary>
+    public WeaponKick? Kick { get; init; }
+
     /// <summary>
     /// Bullets per press, for an alt-fire that shoots rather than launches.
     /// </summary>
@@ -310,6 +316,7 @@ public static class WeaponTypes
         // refire after PISTOL_FASTEST_REFIRE_TIME (weapon_pistol.cpp, hl2mp).
         new(EntityNames.WeaponPistol,   Interval: 0.5f, Spread: 0.5f)
         {
+            Kick = new WeaponKick(0.25f, 0.5f, -0.6f, 0.6f, ResetFirst: true),
             Behaviour   = Hl2mpWeaponBehaviours.Pistol,
             ClipSize    = 18,
             AmmoName    = "Pistol",
@@ -322,6 +329,7 @@ public static class WeaponTypes
 
         new(EntityNames.Weapon357,      Interval: 0.75f)
         {
+            Kick = new WeaponKick(-8f, -8f, -2f, 2f, Disorients: true),
             ClipSize    = 6,
             AmmoName    = "357",
             ViewModel   = "models/weapons/v_357.mdl",
@@ -336,6 +344,7 @@ public static class WeaponTypes
         // along the eyes at 1000, by CWeaponSMG1::SecondaryAttack's rules.
         new(EntityNames.WeaponSmg1,     Interval: 0.075f, Spread: 2.5f)
         {
+            Kick = new WeaponKick(MaxVertical: 1f, SlideLimit: 2f),
             Behaviour = Hl2mpWeaponBehaviours.Smg1,
             Secondary = new SecondaryFire(Interval: 1.0f)
             {
@@ -359,9 +368,11 @@ public static class WeaponTypes
         // interesting — a rocket that hits a wall is over.
         new(EntityNames.WeaponAr2,      Interval: 0.10f, Spread: 1.5f)
         {
+            Kick = new WeaponKick(MaxVertical: 8f, SlideLimit: 5f),
             DefaultClip = 60,   // weapon_ar2.txt's default_clip
             Secondary = new SecondaryFire(Interval: 1.5f)
             {
+                Kick = new WeaponKick(-8f, -8f, 1f, 2f),
                 Projectile = EntityNames.PropCombineBall,
 
                 // Slower than the round it replaces, and it has to be: the
@@ -386,6 +397,7 @@ public static class WeaponTypes
         // is the behaviour a shotgun is FOR.
         new(EntityNames.WeaponShotgun, Interval: 0.90f, Pellets: 7, Spread: 5f)
         {
+            Kick = new WeaponKick(-2f, -1f, -2f, 2f),
             // CWeaponShotgun's own ItemPostFrame: pump, shell-by-shell reload,
             // both barrels on the primary's clock (Hl2mpWeaponBehaviours).
             Behaviour = Hl2mpWeaponBehaviours.Shotgun,
@@ -396,6 +408,7 @@ public static class WeaponTypes
             // simply be the better button.
             Secondary = new SecondaryFire(Interval: 1.5f, AmmoCost: 2)
             {
+                Kick = new WeaponKick(-5f, 5f),
                 Pellets = 12,
                 // GetBulletSpread is VECTOR_CONE_10DEGREES for both barrels.
                 Spread = 5f,
@@ -415,6 +428,7 @@ public static class WeaponTypes
         // arcing, which is what separates them from the grenade below.
         new(EntityNames.WeaponCrossbow, Interval: 0.75f)
         {
+            Kick = new WeaponKick(-2f, -2f),
             DefaultClip = 5,   // weapon_crossbow.txt's default_clip
             // CWeaponCrossbow's fire, reload, scope and charge (the behaviour).
             Behaviour = Hl2mpWeaponBehaviours.Crossbow,

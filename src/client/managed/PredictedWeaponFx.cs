@@ -46,6 +46,11 @@ public interface IPredictedWeaponFx
     /// <summary>A swing's trace and, when it lands, its impact.</summary>
     void MeleeSwing(in PredictedShot shot, in WeaponType type);
 
+    /// <summary>The .357's "disorient the player": the view angles knocked up to a degree each way.</summary>
+    void DisorientView()
+    {
+    }
+
     /// <summary>
     /// The muzzle flash of a predicted shot: the script's muzzle-flash
     /// particle, on <paramref name="bearer"/> — the entity whose model carries
@@ -102,10 +107,14 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     private readonly IEngineEntities _entities;
     private readonly AmmoCatalog _ammo;
     private readonly PredictWeaponsConVar _predictWeapons;
+    private readonly Client.Input.IClientInputEngine _view;
     private readonly SeededUniformStream _spread = new();
 
     // A splash's size, as stock's random->RandomFloat picks it: unseeded.
     private readonly Random _splashSize = new();
+
+    // The .357's jolt, as stock's random->RandomInt picks it: unseeded.
+    private readonly Random _jolt = new();
 
     // The entities a shot may stop on, by index: every networkable index but
     // the shooter's, built for the shooter it was last built for.
@@ -114,8 +123,9 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     public PredictedWeaponFx(IClientEntitySounds sounds, IClientEffectDispatch effects, IEngineEffects particles,
                              IEngineWorldQuery world,
                              IEngineEntityRender render, IEngineEntities entities,
-                             AmmoCatalog ammo, PredictWeaponsConVar predictWeapons)
+                             AmmoCatalog ammo, PredictWeaponsConVar predictWeapons, Client.Input.IClientInputEngine view)
     {
+        _view = view;
         _sounds = sounds;
         _effects = effects;
         _particles = particles;
@@ -124,6 +134,16 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
         _entities = entities;
         _ammo = ammo;
         _predictWeapons = predictWeapons;
+    }
+
+    /// <inheritdoc/>
+    public void DisorientView()
+    {
+        // random->RandomInt( -1, 1 ), unseeded: the view is this client's alone.
+        Client.Input.InputAngles angles = _view.GetViewAngles();
+        angles.Pitch += _jolt.Next(-1, 2);
+        angles.Yaw += _jolt.Next(-1, 2);
+        _view.SetViewAngles(angles);
     }
 
     /// <summary>Stock's MAX_TRACE_LENGTH, as the server's arms trace.</summary>

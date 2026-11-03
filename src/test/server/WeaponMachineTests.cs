@@ -45,8 +45,9 @@ public class WeaponMachineTests
         // six the deploy clears, and the kept clock the TF revolver's aim
         // rides, whose stock member the constructor alone zeroes), and the
         // deploy stamp that lets the client tell a server's (re)hand-out from
-        // a mispredicted switch (WeaponNetState.DeployEpoch).
-        Assert.Equal(47, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        // a mispredicted switch (WeaponNetState.DeployEpoch), and when the trigger
+        // went down, what a machine gun's kick grows on (WeaponNetState.FireStartedAt).
+        Assert.Equal(48, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.PredictedViewModel)));
     }
 

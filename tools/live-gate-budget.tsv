@@ -346,6 +346,8 @@ ai-nav	total	30.7	429	13.8	69	5	5	69	153
 # ai-reload: hand-added from six of its passes (debug, hl2mp-ai-gate: two bots through a reload, up to their first shot:
 # 15,367..73,375 total, 26.404..36.596 per frame), with the file's own ceilings (per frame x1.5 + 10, total x1.5 + 200).
 ai-reload	rate	64.894	110262	36.596	73375	2005	6	15367	73375
+# gib-ragdoll: hand-added from three passes (debug, hl2mp-ai-gate: 937..1,286 total, 11.529..12.485 per frame), with the file's own ceilings.
+gib-ragdoll	rate	28.728	2129	12.485	1286	103	3	937	1286
 bots	rate	92.09	1437027	54.727	957885	17503	6	226285	957885
 ss-ai-nav	rate	69.921	38060	39.948	22890	573	3	22890	25240
 ss-ai-sight	rate	113.037	41205	68.691	25828	376	3	25828	27337

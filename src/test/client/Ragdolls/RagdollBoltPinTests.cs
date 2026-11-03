@@ -46,6 +46,12 @@ public class RagdollBoltPinTests
 
         public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal) =>
             throw new NotSupportedException();
+        public bool TryRoot(EntityHandle owner, out Vector position)
+        {
+            position = default;
+            return false;
+        }
+
         public bool IsRagdoll(EntityHandle owner) => Elements.ContainsKey(owner);
         public uint Serial(EntityHandle owner) => 0;
         public bool ApplyForceCenter(EntityHandle owner, Vector force) => false;

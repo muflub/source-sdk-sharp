@@ -165,6 +165,12 @@ public unsafe class ClientSkeletonsTests
             return false;
         }
 
+        public bool TryRoot(EntityHandle owner, out Vector position)
+        {
+            position = default;
+            return false;
+        }
+
         public bool IsRagdoll(EntityHandle owner) => owner == Owner;
 
         public bool AddVelocity(EntityHandle owner, Vector velocity) => false;

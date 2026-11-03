@@ -1289,3 +1289,10 @@ and where its record lives now.
 - **`run-test-legs --self-test` "truncated: reports SHORT RUN" is intermittent.** One failure in `make
   check`'s runner leg at a5cd507c1, then 6 of 6 alone at load 9. Not read closely; likely a timing
   race under load in the fixture.
+
+- **Client effects the AR2's ball still lacks.** `EnergyBall` sends stock's sound, shake and rings, but the
+  client has no `cball_explode` or `cball_bounce` effect, and the ball does not `DeflectTowardEnemy` at a bounce.
+- **The .357's view jolt.** Stock's first-predicted `SetViewAngles` of up to a degree each way
+  (weapon_357.cpp, `CLIENT_DLL`) is not ported; its `ViewPunch` is.
+- **Held objects turn while pulled.** On the same gravity-gun pull of dm_lockdown's plug, stock's stays at
+  angles `-0.0 -35.8 -28.0` and ours reaches `19.3 -40.4 0.2`: read `GrabController`'s angle hold against stock's.

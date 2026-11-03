@@ -69,6 +69,12 @@ public interface IServerPlayerMovementRoute
     /// </summary>
     bool SmoothedVelocity(EntityHandle entity, out Vector velocity);
 
+    /// <summary>
+    /// A player's view punch and its velocity, on the record the next command decays:
+    /// what a shot's kick lands on. False when <paramref name="entity"/> is not a player.
+    /// </summary>
+    bool SetPunch(EntityHandle entity, Vector punch, Vector velocity);
+
     /// <summary>UTIL_ViewPunch: every player in reach shoved.</summary>
     void ViewPunch(Vector center, Vector punch, float radius, bool inAir);
 

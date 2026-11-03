@@ -44,6 +44,38 @@ public class TriggerKindsTests
     private const EntityState Player = EntityState.Player;
     private const EntityState Prop = 0;
 
+    /// <summary>
+    /// Stock hears what the solver moves after the step, so its teleport lands after it, and
+    /// a player's at once: the frame's step must not act on the plug it just seated.
+    /// </summary>
+    [Theory]
+    [InlineData(Physics, Prop, MoveType.VPhysics, false)]
+    [InlineData(Clients, Player, MoveType.Walk, true)]
+    public void What_the_solver_moves_is_sent_after_the_step(int spawnflags, EntityState state, MoveType moveType, bool atOnce)
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(TriggerTeleport).Assembly);
+        var services = Services(out var engine);
+        var after = new PostSimulationQueue();
+        services.AddInstance(after);
+        services.AddInstance<IEntityDirectory>(registry);
+        registry.Services = services;
+        engine.Strict = false;
+        engine.Returns("Entities.IsValid", true)
+              .Returns("Entities.FindByName", Destination)
+              .Returns("Entities.GetSpawnFlags", spawnflags)
+              .Returns("Networking.EntityGetState", state)
+              .Returns("Networking.EntityGetState.moveType", moveType);
+
+        registry.KeyValue(Volume, EntityNames.TriggerTeleport, "target", "plug_destination");
+        registry.Spawn(Volume, EntityNames.TriggerTeleport);
+        registry.Touch(Volume, Toucher);
+        Assert.Equal(atOnce, engine.Called("Entities.Teleport"));
+
+        after.Run();
+        Assert.True(engine.Called("Entities.Teleport"));
+    }
+
     [Theory]
     [InlineData(Physics, Prop, MoveType.VPhysics, true)]    // the plug into its socket
     [InlineData(Physics, Player, MoveType.Walk, false)]

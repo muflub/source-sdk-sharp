@@ -630,8 +630,14 @@ public sealed class ClientPlayerPrediction
             // the participant keeps under this command's number.
             if (ran)
             {
+                // The weapon's kick is on the working copy's punch and the movement's
+                // decay on _move's, which Finish writes back: one word, both ways.
+                _working.PunchAngle = QAngle.FromVector(_move.PunchAngle);
+                _working.PunchAngleVel = QAngle.FromVector(_move.PunchAngleVel);
                 _arsenal?.OnPlayerCommand(player.Handle, in cmd, 1, firstTime, _move.CurTime,
                                           eye: _move.Origin + _move.ViewOffset);
+                _move.PunchAngle = _working.PunchAngle.AsVector();
+                _move.PunchAngleVel = _working.PunchAngleVel.AsVector();
                 PredictedStatesRan(player.Handle, cmd.CommandNumber, firstTime);
             }
         }

@@ -527,15 +527,30 @@ public class PhysCannonTests
     }
 
     [Fact]
-    public void ThePickupSeesThePitchedViewAndTheHoldItsYawAlone()
+    public void TheCarriersFrameIsTheWholeViewAtPickupAndHoldAlike()
     {
-        // Looking 40 degrees down along +y: ItemPostFrame's frame (the pickup)
-        // still carries the pitch, ItemPreFrame's (the hold) does not.
+        // Looking 40 degrees down along +y: the frame carries the pitch, or what
+        // was picked up there turns by it as it comes up (CHL2MP_Player::PreThink).
         var eyes = new Vector(40f, 90f, 0f);
 
-        Assert.Equal(-MathF.Sin(40f * MathF.PI / 180f), PhysCannonWorld.CarrierTransform(eyes, inPostFrame: true).X.Z, precision: 4);
-        Assert.Equal(0f, PhysCannonWorld.CarrierTransform(eyes, inPostFrame: false).X.Z, precision: 4);
-        Assert.Equal(1f, PhysCannonWorld.CarrierTransform(eyes, inPostFrame: false).X.Y, precision: 4);
+        Assert.Equal(-MathF.Sin(40f * MathF.PI / 180f), PhysCannonWorld.CarrierTransform(eyes).X.Z, precision: 4);
+    }
+
+    /// <summary>
+    /// What is picked up comes out of that frame with the facing it went in with, as
+    /// stock's plug, pulled at pitch 40, keeps -0.0 -35.8 -28.0.
+    /// </summary>
+    [Fact]
+    public void AnObjectPickedUpLookingDownKeepsItsFacing()
+    {
+        GrabMatrix frame = PhysCannonWorld.CarrierTransform(new Vector(40f, 80f, 0f));
+        var facing = new QAngle(0f, -35.8f, -28f);
+
+        QAngle held = GrabMath.TransformAnglesToWorldSpace(GrabMath.TransformAnglesToLocalSpace(facing, frame), frame);
+
+        Assert.Equal(facing.Pitch, held.Pitch, precision: 2);
+        Assert.Equal(facing.Yaw, held.Yaw, precision: 2);
+        Assert.Equal(facing.Roll, held.Roll, precision: 2);
     }
 
     private sealed class FloatTripleComparer(float tolerance) : IEqualityComparer<(float, float, float)>

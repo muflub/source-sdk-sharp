@@ -12,6 +12,26 @@ using SourceSharp.Server.Interop;
 
 namespace SourceSharp.Server;
 
+/// <summary>
+/// Stock's g_PostSimulationQueue, for what stock does after the solver's step and
+/// this frame hears before it.
+/// </summary>
+public sealed class PostSimulationQueue
+{
+    private readonly List<Action> _work = [];
+
+    /// <summary>Holds <paramref name="work"/> until the frame's physics step has run.</summary>
+    public void Add(Action work) => _work.Add(work);
+
+    /// <summary>The frame's step ran: everything held, oldest first; what that adds runs too.</summary>
+    public void Run()
+    {
+        for (int i = 0; i < _work.Count; i++)
+            _work[i]();
+        _work.Clear();
+    }
+}
+
 /// <summary>The engine's clock as the frame reads it.</summary>
 public interface IPhysicsFrameClock
 {
@@ -64,6 +84,7 @@ public sealed class PhysicsFrame : IGameLifecycle
     private readonly IVPhysicsFrameCalls _v;
     private readonly IPhysicsFrameNative _native;
     private readonly IPhysicsFrameClock _clock;
+    private readonly PostSimulationQueue? _postSimulation;
     private readonly PlayerShadowBodies? _bodies;
     private readonly PlayerShadowStress? _stress;
     private readonly Func<IEnumerable<EntityHandle>> _players;
@@ -88,12 +109,15 @@ public sealed class PhysicsFrame : IGameLifecycle
     /// <param name="timescale"><c>phys_timescale</c>.</param>
     /// <param name="speeds"><c>phys_speeds</c>.</param>
     /// <param name="msg">The console.</param>
+    /// <param name="postSimulation">What waits for the frame's step, run after it.</param>
     /// <param name="ensureCallbacks">PhysicsCallbacks.EnsureInstalled: managed's tables on the environment before it steps.</param>
     public PhysicsFrame(IVPhysicsFrameCalls v, IPhysicsFrameNative native, IPhysicsFrameClock clock,
                         PlayerShadowBodies? bodies, PlayerShadowStress? stress,
                         Func<IEnumerable<EntityHandle>> players, Action<PhysicsEvent> post,
-                        Func<float> timescale, Func<bool> speeds, Action<string> msg, Action ensureCallbacks)
+                        Func<float> timescale, Func<bool> speeds, Action<string> msg, Action ensureCallbacks,
+                        PostSimulationQueue? postSimulation = null)
     {
+        _postSimulation = postSimulation;
         _v = v;
         _native = native;
         _clock = clock;
@@ -161,6 +185,8 @@ public sealed class PhysicsFrame : IGameLifecycle
             Step(interval);
 
         Step(interval);
+
+        _postSimulation?.Run();
 
         if (Steps != steps)
         {

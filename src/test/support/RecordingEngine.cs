@@ -930,6 +930,7 @@ public sealed class RecordingEngine :
     void IEngineBrushMovement.Spin(EntityHandle entity, Vector degreesPerSecond) => RecordVoid("BrushMovement.Spin", entity, degreesPerSecond);
 
     // Players
+    void IEnginePlayers.SetPunch(EntityHandle player, Vector punch, Vector velocity) => RecordVoid("Players.SetPunch", player, punch, velocity);
     void IEnginePlayers.AddScore(EntityHandle player, int points, bool allowNegative) => RecordVoid("Players.AddScore", player, points, allowNegative);
     void IEnginePlayers.PlaceAtSpawn(EntityHandle player, Vector origin, Vector angles) => RecordVoid("Players.PlaceAtSpawn", player, origin, angles);
     bool IEnginePlayers.DeployLastWeapon(EntityHandle player) => Record<bool>("Players.DeployLastWeapon", player);

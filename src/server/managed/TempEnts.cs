@@ -474,6 +474,16 @@ public sealed class TempEnts : ITempEnts
     }
 
     /// <inheritdoc/>
+    public void BeamRingPoint(TeFilter filter, float delay, Vector center, float startRadius, float endRadius,
+                              in TeBeamLook look, int flags = 0)
+    {
+        var state = new TeBeamRingPoint { Center = center, StartRadius = startRadius, EndRadius = endRadius };
+        Look(state, look with { EndWidth = look.Width, FadeLength = 0 });
+        state.Flags = flags;
+        Send(state, filter, delay);
+    }
+
+    /// <inheritdoc/>
     public void GaussExplosion(TeFilter filter, float delay, Vector position, Vector direction,
                                int type)
     {

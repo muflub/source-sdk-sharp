@@ -29,6 +29,25 @@ public interface IWeaponArms
     void Sound(string soundScript);
 
     /// <summary>
+    /// The carrier's state, whose punch a shot kicks: the server's player, the
+    /// predicting client's working copy. Null where there is no carrier to kick.
+    /// </summary>
+    PlayerNetState? Carrier => null;
+
+    /// <summary>
+    /// The .357's jolt to the aim itself (<c>SetViewAngles</c> under <c>CLIENT_DLL</c>, first
+    /// prediction only). The server's arms do nothing: the view is the client's.
+    /// </summary>
+    void DisorientView()
+    {
+    }
+
+    /// <summary>A shot changed <see cref="Carrier"/>'s punch: the side keeps it where its next command reads it.</summary>
+    void PunchChanged(PlayerNetState carrier)
+    {
+    }
+
+    /// <summary>
     /// A sound only the predicting client plays: stock's WeaponSound under
     /// <c>#ifdef CLIENT_DLL</c> (DefaultReload's). The server's arms play nothing.
     /// </summary>
@@ -493,6 +512,9 @@ public static class WeaponAnimNames
 /// </summary>
 public sealed class WeaponLogic
 {
+    /// <summary>The kicks' stream, re-seeded per shot from the command, so both sides draw alike.</summary>
+    private readonly SeededUniformStream _kickRandom = new();
+
     private readonly IWeaponArms _arms;
     private readonly WeaponCatalog _catalog;
     private readonly WeaponBehaviours _behaviours;
@@ -627,6 +649,16 @@ public sealed class WeaponLogic
     {
         int pressed = buttons & ~w.LastButtons;
         w.LastButtons = buttons;
+
+        if (((InputButtons)buttons).HasFlag(InputButtons.Attack))
+        {
+            if (w.FireStartedAt <= 0f)
+                w.FireStartedAt = now;
+        }
+        else
+        {
+            w.FireStartedAt = 0f;
+        }
 
         int clipSize = ClipSize(behaviour, in type, command.OwnerIndex);
         var held = (InputButtons)buttons;
@@ -792,6 +824,9 @@ public sealed class WeaponLogic
         if (shots <= 0)
             return;
 
+        if (type.Kick is { } kick && _arms.Carrier is { } carrier)
+            kick.BeforeShot(carrier);
+
         // A swing that meets nothing plays its miss (Swing's ACT_VM_MISSCENTER).
         bool connects = !type.IsMelee || _arms.MeleeConnects(in type);
         SendAnim(vm, connects ? WeaponAnim.Primary : WeaponAnim.Miss, 0f, behaviour, Context(in type, w, vm, now, effectsLive, command));
@@ -839,6 +874,10 @@ public sealed class WeaponLogic
                               shot,
                               behaviour?.FixedPellets(Context(in type, w, vm, now, effectsLive, command)));
         }
+
+        // After the shot, which read the punch as it stood; on a replay too: the
+        // punch is predicted state, not an effect.
+        Kick(type.Kick, w, now, effectsLive, command);
 
         // The tail, after the stock shot has been spent and the arms have fired.
         behaviour?.PrimaryAttack(Context(in type, w, vm, now, effectsLive, command));
@@ -897,8 +936,26 @@ public sealed class WeaponLogic
                 _arms.FireBullets(in type, Math.Max(1, secondary.Pellets), secondary.Spread);
         }
 
+        Kick(secondary.Kick, w, now, effectsLive, command);
+
         // The tail, once the alt-fire has been paid for and the arms have fired.
         behaviour?.SecondaryAttack(Context(in type, w, vm, now, effectsLive, command));
+    }
+
+    /// <summary>What a shot does to its carrier's view, if the row says.</summary>
+    private void Kick(WeaponKick? kick, WeaponNetState w, float now, bool effectsLive, WeaponCommand command)
+    {
+        if (kick is not { } k)
+            return;
+
+        if (k.Disorients && effectsLive)
+            _arms.DisorientView();
+
+        if (_arms.Carrier is not { } carrier)
+            return;
+
+        k.Apply(carrier, _kickRandom, command.Seed, w.FireStartedAt > 0f ? now - w.FireStartedAt : 0f);
+        _arms.PunchChanged(carrier);
     }
 
     /// <summary>

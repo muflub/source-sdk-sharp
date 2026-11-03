@@ -95,7 +95,6 @@ public class PhysboxTests
     {
         public readonly List<EntityHandle> Dropped = [];
         public void ForceDrop(EntityHandle held) => Dropped.Add(held);
-        public void Teleported(EntityHandle held) { }
     }
 
     /// <summary>

@@ -94,6 +94,9 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// </summary>
     protected virtual Vector HullExtent => Vector.Zero;
 
+    /// <summary>The flight struck a surface with this normal, just before <see cref="OnTouch"/>.</summary>
+    protected internal virtual void OnStruckSurface(Vector normal) { }
+
     /// <summary>What it does to whatever it ran into. <paramref name="hit"/> may be the world.</summary>
     protected abstract void Impact(EntityHandle hit);
 
@@ -270,7 +273,7 @@ public abstract class FlyingProjectile : AnimatingEntity
     /// managed trigger in the mod and would swallow the rule whole. There are
     /// no NPCs in this build for it to be right about.
     /// </summary>
-    private bool PassesThrough(EntityHandle toucher)
+    protected bool PassesThrough(EntityHandle toucher)
     {
         // No special case for the world, and none is needed either way: the
         // world arrives as worldspawn, which is solid and not a trigger, and a

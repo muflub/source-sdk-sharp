@@ -26,6 +26,12 @@ public sealed class RecordingRagdolls(client::SourceSharp.Abi.RecordingEngine en
         return became;
     }
 
+    public bool TryRoot(EntityHandle owner, out Vector position)
+    {
+        position = default;
+        return false;
+    }
+
     public bool IsRagdoll(EntityHandle owner)
         => (engine.Answer<RagdollState>("EntityRender.RagdollState") & RagdollState.Present) != 0;
 

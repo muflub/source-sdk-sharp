@@ -2001,6 +2001,12 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             _carry = carry;
         }
 
+        public PlayerNetState? Carrier => (_arsenal._directory.Get(_carry.Player) as SsPlayer)?.State;
+
+        // The state only mirrors the movement record, which the next command would write back.
+        public void PunchChanged(PlayerNetState carrier)
+            => _arsenal._players.SetPunch(_carry.Player, carrier.PunchAngle.AsVector(), carrier.PunchAngleVel.AsVector());
+
         /// <summary>
         /// The command's random seed (<c>CUserCmd::random_seed</c>), set by
         /// the arsenal before each run; the pellets spread from it.
@@ -2160,7 +2166,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                   DamageType damageType, bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
         {
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
-            var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
+            var aim = Angles.Vectors(WeaponKick.Aim(_arsenal._entities.GetEyeAngles(_carry.Player), Carrier));
 
             float spread = ShotSpread.SpreadOf(spreadDegrees);
             int seed = ShotSpread.FirstSeed(CommandRandomSeed);

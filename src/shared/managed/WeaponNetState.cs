@@ -137,6 +137,13 @@ public partial class WeaponNetState
     [Predicted(0.001f)]
     public partial float AccuracyPenaltyAt { get; set; }
 
+    /// <summary>
+    /// When the primary trigger went down, 0 while it is up: stock's m_fFireDuration
+    /// (basecombatweapon_shared.cpp) as a start time, what a machine gun's kick grows on.
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float FireStartedAt { get; set; }
+
     /// <summary>A shot was fired and the pump is owed: stock's CWeaponShotgun::m_bNeedPump.</summary>
     [Predicted]
     public partial bool NeedPump { get; set; }

@@ -16,13 +16,13 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.TriggerTeleport, ScriptedEntityKind.Brush)]
 public sealed class TriggerTeleport : TriggerVolume
 {
-    public TriggerTeleport(IGameClock clock, IHeldObjects? held = null)
+    public TriggerTeleport(IGameClock clock, PostSimulationQueue? postSimulation = null)
         : base(clock)
     {
-        _held = held;
+        _postSimulation = postSimulation;
     }
 
-    private readonly IHeldObjects? _held;
+    private readonly PostSimulationQueue? _postSimulation;
 
     /// <summary>
     /// trigger_teleport's own spawnflag. It used to sit in
@@ -46,9 +46,23 @@ public sealed class TriggerTeleport : TriggerVolume
     /// <summary>What a map may set on this entity. See <see cref="TriggerTeleportVars"/>.</summary>
     [ScriptVars] public TriggerTeleportVars TriggerTeleportVars = new();
 
+    /// <summary>
+    /// Stock hears what the solver moves after the physics step (VPhysicsUpdate touching
+    /// triggers), and this frame heard it before: such a toucher moves after the step, or the
+    /// frame's step and the next both act on it before a DisableMotion its outputs send lands
+    /// (dm_lockdown's plug twisted out of its socket).
+    /// </summary>
     protected override void Fire(EntityHandle toucher)
     {
-        if (TriggerTeleportVars.Target.Length == 0)
+        if (_postSimulation is { } after && MovedByPhysics(toucher))
+            after.Add(() => Send(toucher));
+        else
+            Send(toucher);
+    }
+
+    private void Send(EntityHandle toucher)
+    {
+        if (!Entities.IsValid(toucher) || TriggerTeleportVars.Target.Length == 0)
             return;
 
         var destination = Entities.FindByName(TriggerTeleportVars.Target);
@@ -82,7 +96,6 @@ public sealed class TriggerTeleport : TriggerVolume
             ? Entities.GetAngles(destination)
             : null;
         Entities.Teleport(toucher, Entities.GetOrigin(destination) + offset, angles, zeroVelocity: false);
-        _held?.Teleported(toucher);
 
         OnTrigger.Fire();
     }

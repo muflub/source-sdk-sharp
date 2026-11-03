@@ -98,8 +98,6 @@ public sealed class GrabController : IMotionSimulate
     /// <summary>What is held, or <see cref="EntityHandle.None"/>.</summary>
     public EntityHandle Attached => _attached;
 
-    private bool _teleported;
-
     /// <summary>The held object's own mass, summed (m_flLoadWeight).</summary>
     public float LoadWeight => _loadWeight;
 
@@ -162,14 +160,6 @@ public sealed class GrabController : IMotionSimulate
         AttachedPositionObjectSpace = GrabMath.ITransform(entityCenter, entityToWorld, entityOrigin);
         return true;
     }
-
-    /// <summary>
-    /// The held object was teleported: leave it where it landed for the step ahead. A trigger
-    /// hears a physics touch here before the frame's physics step and its outputs run after it,
-    /// where stock runs both after, so without this the grab would drag the object back before
-    /// a ForceDrop those outputs send could land. Still held after that, it comes back, as in stock.
-    /// </summary>
-    public void NoteTeleported() => _teleported = true;
 
     /// <summary>
     /// DetachEntity: let go, giving the object back its mass, damping and
@@ -383,12 +373,6 @@ public sealed class GrabController : IMotionSimulate
     {
         linear = Vector.Zero;
         angular = Vector.Zero;
-
-        if (_teleported)
-        {
-            _teleported = false;
-            return MotionSimResult.Nothing;
-        }
 
         ShadowControlParams shadowParams = _shadow;
 

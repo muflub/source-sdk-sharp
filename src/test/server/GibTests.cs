@@ -65,6 +65,38 @@ public class GibTests
         return ((SsGib)registry.Get(handle)!, engine);
     }
 
+    /// <summary>
+    /// Stock's CreateRagGib ends in BecomeRagdollOnClient( vecForce ) with
+    /// m_nForceBone 0. On bone -1, with no force position, the client's
+    /// RagdollCreate drops the force (RagdollCreateTests), and the body falls.
+    /// </summary>
+    [Fact]
+    public void ARagdollGibsForceLandsOnBoneZero()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(SsGib).Assembly);
+        var services = TestServices.Services(out var engine);
+        services.AddInstance<IEntityDirectory>(registry);
+        registry.Services = services;
+        var handle = new EntityHandle(78u);
+        registry.Spawn(handle, EntityNames.Hl2mpRagdoll);
+        var body = (SsRagdoll)registry.Get(handle)!;
+        engine.Strict = false;
+        engine.Returns("Precache.PrecacheModel", 1);
+        engine.Returns("Precache.ModelTypeOf", ModelType.Studio);
+        engine.Returns("Entities.Create", handle);
+        body.State.ForceBone = -2;
+
+        GibShot shot = Shot(GibSimulation.Ragdoll);
+        shot.Origin = new Vector(100f, 200f, 300f);
+        bool shotOk = services.Create<Gibs>().Shoot("models/body.mdl", shot);
+
+        Assert.True(shotOk);
+        Assert.Equal(0, body.State.ForceBone);
+        Assert.Equal(shot.Origin, body.State.Origin);
+        Assert.Equal(new Vector(1f, 0f, 0f) * 200f * SsGib.AssumedGibMass, body.State.Force);
+    }
+
     private static GibShot Shot(GibSimulation simulation = GibSimulation.Point,
                                 BloodColor blood = BloodColor.Red,
                                 SurfaceMaterial material = SurfaceMaterial.Silent,

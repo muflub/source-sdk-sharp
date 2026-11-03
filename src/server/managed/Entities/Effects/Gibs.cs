@@ -190,11 +190,15 @@ public sealed class Gibs
             // because a map's velocity numbers were tuned against it.
             ragdoll.State.Force = shot.Direction * shot.Speed * SsGib.AssumedGibMass;
 
-            // CENTRE OF MASS, because a thrown gib has no struck bone: the shot
-            // carries a direction and nothing that names a part of the body.
-            // Naming one here would be inventing it -- the same reason
-            // Corpses.Make gives.
-            ragdoll.State.ForceBone = -1;
+            // Element zero: a thrown gib has no struck bone, and stock's
+            // m_nForceBone is 0 (baseanimating.cpp:315). The client's
+            // RagdollCreate drops a force on bone -1 with no force position.
+            ragdoll.State.ForceBone = 0;
+
+            // Where it collapses (RagdollNetState.Origin): the entity's origin is
+            // not applied when the client's first update lands, and without this
+            // the body is built at the map's origin.
+            ragdoll.State.Origin = shot.Origin;
         }
 
         return true;

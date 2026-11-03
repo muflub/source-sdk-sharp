@@ -92,6 +92,21 @@ public class BulletTraceAttackTests
         Assert.True(engine.Called("Sound.EntityEmitSound"), "the pistol fired");
     }
 
+    /// <summary>GetAutoaimVector: a bullet goes where the punched view points, not where the eyes do.</summary>
+    [Fact]
+    public void A_round_goes_where_the_punched_view_points()
+    {
+        var (arsenal, engine, registry) = Armed(new EntityRoster<ITraceAttacked>(), "weapon_smg1");
+        var player = Assert.IsType<SsPlayer>(registry.Get(Player));
+        player.State.PunchAngle = new QAngle(-30f, 0f, 0f);
+
+        Fire(arsenal, engine);
+
+        var shot = engine.Calls.First(c => c.Member == "WorldQuery.TraceLineSurface");
+        Vector along = (shot.ArgAs<Vector>(1) - shot.ArgAs<Vector>(0)).Normalized;
+        Assert.InRange(along.Z, 0.4f, 0.6f);
+    }
+
     [Fact]
     public void A_round_hands_the_traced_hit_to_what_answers_it_instead_of_damaging_it()
     {

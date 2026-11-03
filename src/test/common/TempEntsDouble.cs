@@ -79,6 +79,9 @@ internal abstract class TempEntsDouble : ITempEnts
     public virtual void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look,
                                  int flags = 0) { }
 
+    public virtual void BeamRingPoint(TeFilter filter, float delay, Vector center, float startRadius, float endRadius,
+                                      in TeBeamLook look, int flags = 0) { }
+
     public virtual void GaussExplosion(TeFilter filter, float delay, Vector position,
                                        Vector direction, int type) { }
 

@@ -163,7 +163,6 @@ public class ExplosionSelfIgnoreTests
     /// </summary>
     [Theory]
     [InlineData(EntityNames.RpgMissile)]
-    [InlineData(EntityNames.PropCombineBall)]
     public void A_projectile_is_its_blasts_inflictor(string className)
     {
         var (entity, engine, services) = Spawned(className, "Damage.Apply");
@@ -194,17 +193,6 @@ public class ExplosionSelfIgnoreTests
 
         Assert.True(bang.Radius == 300f,
                     "DoExplosion's ExplosionCreate radius is GetDamage() * 2");
-    }
-
-    [Fact]
-    public void AnEnergyBallNamesItself()
-    {
-        var (entity, engine, services) = Spawned(EntityNames.PropCombineBall, "Damage.Apply");
-
-        entity.OnTouch(AWall(engine));
-
-        Assert.True(TheOnlyExplosion(services).Ignored == entity.Handle,
-                    "an energy ball's blast is not stopped by the ball");
     }
 
     [Fact]

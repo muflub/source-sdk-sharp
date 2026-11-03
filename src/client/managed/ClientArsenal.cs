@@ -958,6 +958,10 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         public void ClientSound(string soundScript) => Sound(soundScript);
 
+        public PlayerNetState? Carrier => _owner.WorkingPlayer;
+
+        public void DisorientView() => _owner._fx?.DisorientView();
+
         // A server-only path's sound (an animation event's): not predicted.
         public void ServerSound(string soundScript)
         {
@@ -999,8 +1003,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         public void FireBullets(in WeaponType type, int pellets, float spreadDegrees, ShotDamage shot,
                                 PelletPattern? fixedPellets)
         {
-            if (_owner._hasEye)
-                _owner._fx?.FireBullets(in _owner._shot, in type, pellets, spreadDegrees, fixedPellets);
+            if (!_owner._hasEye)
+                return;
+
+            var aimed = _owner._shot with { ViewAngles = WeaponKick.Aim(_owner._shot.ViewAngles, Carrier) };
+            _owner._fx?.FireBullets(in aimed, in type, pellets, spreadDegrees, fixedPellets);
         }
 
         public void MeleeSwing(in WeaponType type)

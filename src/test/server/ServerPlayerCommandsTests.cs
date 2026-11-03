@@ -494,6 +494,26 @@ public sealed unsafe class ServerPlayerCommandsTests : IDisposable
         Assert.True(m.Ground == Lift && (m.Move.Flags & GameMovement.FlOnGround) != 0, $"ground {m.Ground}, flags {m.Move.Flags}");
     }
 
+    /// <summary>
+    /// A shot's kick lands on the record the next command decays: on the state, which only
+    /// mirrors it, the next command took it back and the view kicked for one frame.
+    /// </summary>
+    [Fact]
+    public void ASetPunchLandsOnTheRecordTheNextCommandReads()
+    {
+        ServerPlayerMove m = Standing(new Vector(10f, 0f, 0f));
+
+        bool taken = PlayerRoute().SetPunch(Player, new Vector(-1f, 0f, 0f), new Vector(-160f, 8f, 0f));
+
+        Assert.True(taken, "a player is the route's");
+        Assert.Equal(new Vector(-1f, 0f, 0f), m.Move.PunchAngle);
+        Assert.Equal(new Vector(-160f, 8f, 0f), m.Move.PunchAngleVel);
+    }
+
+    [Fact]
+    public void ASetPunchAtANonPlayerIsNotTheRoutes()
+        => Assert.False(PlayerRoute().SetPunch(Crate, Vector.Zero, Vector.Zero));
+
     [Fact]
     public void ASetVelocityAtANonPlayerIsNotTheRoutes()
         => Assert.False(PlayerRoute().SetVelocity(Crate, new Vector(0f, 0f, 200f)));

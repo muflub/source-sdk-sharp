@@ -73,9 +73,6 @@ public interface IHeldObjects
 {
     /// <summary>Whoever holds <paramref name="held"/> lets go; nobody holding it does nothing.</summary>
     void ForceDrop(EntityHandle held);
-
-    /// <summary><paramref name="held"/> was teleported: whoever holds it leaves it there for a step.</summary>
-    void Teleported(EntityHandle held);
 }
 
 /// <summary>
@@ -246,23 +243,19 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IHeldObjects, IGameLifec
         float frameTime = globals.IsAvailable ? globals.FrameTime : 0f;
 
         EntityHandle player = c.Player;
-        return c.Grab.UpdateObject(in view, PlayerToWorld(eyes), PhysCannonTuning.HoldError, frame, frameTime,
+        return c.Grab.UpdateObject(in view, CarrierTransform(eyes), PhysCannonTuning.HoldError, frame, frameTime,
                                    (from, to, mask) => _traces.Line(from, to, mask, player).Fraction);
     }
 
     /// <summary>
-    /// The carrier's EntityToWorldTransform as the gun reads it. Stock's
-    /// FinishMove sets the player's angles to the view, pitch and all, and
-    /// CHL2MP_Player::PostThink zeroes the pitch only after the base
-    /// PostThink's ItemPostFrame: so the frame ItemPostFrame sees (the
-    /// pickup's) is the whole view, and the one ItemPreFrame sees (every
-    /// hold update) is its yaw alone. An object picked up looking down is
-    /// therefore turned by that pitch as it comes up, as it is in stock.
+    /// The carrier's EntityToWorldTransform as the gun reads it: the whole view, pitch
+    /// and all, at the pickup and at every hold update alike. FinishMove sets the player's
+    /// angles to the view for ItemPostFrame, and CHL2MP_Player::PreThink puts the eye
+    /// angles back for ItemPreFrame after PostThink zeroed the pitch, so an object
+    /// picked up looking down keeps its facing as it comes up. Measured on stock: the
+    /// plug pulled at pitch 40 stays at -0.0 -35.8 -28.0.
     /// </summary>
-    public static GrabMatrix CarrierTransform(Vector eyes, bool inPostFrame)
-        => GrabMath.AngleMatrix(inPostFrame ? new QAngle(eyes.X, eyes.Y, eyes.Z) : new QAngle(0f, eyes.Y, 0f));
-
-    private static GrabMatrix PlayerToWorld(Vector eyes) => CarrierTransform(eyes, inPostFrame: false);
+    public static GrabMatrix CarrierTransform(Vector eyes) => GrabMath.AngleMatrix(new QAngle(eyes.X, eyes.Y, eyes.Z));
 
     public void DetachHeld(int owner, bool launched)
     {
@@ -301,16 +294,6 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IHeldObjects, IGameLifec
                 DetachHeld(owner, launched: false);
                 return;
             }
-    }
-
-    public void Teleported(EntityHandle held)
-    {
-        if (held == EntityHandle.None)
-            return;
-
-        foreach (var c in _carriers.Values)
-            if (c.Grab.Attached == held)
-                c.Grab.NoteTeleported();
     }
 
     public float HeldDistance(int owner, int held)
@@ -502,7 +485,7 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IHeldObjects, IGameLifec
         Vector eyes = _entities.GetEyeAngles(c.Player);
 
         // NOTE: This must happen after OnPhysGunPickup because that can change the mass
-        if (!c.Grab.AttachEntity(entity, CarrierTransform(eyes, inPostFrame: true),
+        if (!c.Grab.AttachEntity(entity, CarrierTransform(eyes),
                                  GrabMath.AngleMatrix(QAngle.FromVector(_entities.GetAngles(entity))),
                                  _entities.GetOrigin(entity), _entities.GetWorldSpaceCenter(entity),
                                  globals.IsAvailable ? globals.FrameTime : 0f))
@@ -725,8 +708,10 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IHeldObjects, IGameLifec
     public void ViewPunch(int owner, QAngle punch)
     {
         // CBasePlayer::ViewPunch: the punch's velocity, twenty times the kick.
+        // On the movement record: the state only mirrors it, and the next command would write it back.
         if (_directory.Get(_players.GetHandle(owner)) is SsPlayer player)
-            player.State.PunchAngleVel = QAngle.FromVector(player.State.PunchAngleVel.AsVector() + punch.AsVector() * 20f);
+            _players.SetPunch(player.Handle, player.State.PunchAngle.AsVector(),
+                              player.State.PunchAngleVel.AsVector() + punch.AsVector() * 20f);
     }
 
     public void FireFlash(int owner)

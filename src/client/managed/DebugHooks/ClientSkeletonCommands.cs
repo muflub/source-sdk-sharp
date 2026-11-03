@@ -209,6 +209,22 @@ public sealed class ClientSkeletonDumpCommand(ClientSkeletons skeletons, IClient
     }
 }
 
+/// <summary><c>cs_cl_ragdoll_roots</c>: where each body's first element is, for the gate's check that a body was thrown.</summary>
+[ConCommand("cs_cl_ragdoll_roots", Help = "SourceSharp: each client ragdoll's first element, as the physics has it")]
+public sealed class ClientRagdollRootsCommand(Ragdolls.IClientRagdolls ragdolls, IClientStandalones standalones, IEngineConsole console) : IConCommand
+{
+    public void Execute(string args)
+    {
+        foreach (Standalone.ClientStandaloneEntity entity in standalones.Live())
+        {
+            if (ragdolls.TryRoot(entity.Handle, out Vector at))
+                console.Msg(string.Create(CultureInfo.InvariantCulture, $"SSRAGDOLLROOT\t{entity.Handle.Value}\t{at.X:F1}\t{at.Y:F1}\t{at.Z:F1}\n"));
+        }
+
+        console.Msg("SSRAGDOLLROOT\tend\n");
+    }
+}
+
 /// <summary><c>cs_cl_transitions [filter]</c>: each skeleton's transition queue, for the live blend check.</summary>
 [ConCommand("cs_cl_transitions",
     Help = "SourceSharp: each client skeleton's sequence transition queue as its last build left it -- `[studio-name filter]`")]

@@ -386,6 +386,13 @@ public interface ITempEnts
     void BeamRing(TeFilter filter, float delay, int startEntity, int endEntity, in TeBeamLook look, int flags = 0);
 
     /// <summary>
+    /// <c>te_beamringpoint.cpp</c>'s <c>TE_BeamRingPoint</c>: a ring growing about a point.
+    /// Its end width is its width and it has no fade, as stock's.
+    /// </summary>
+    void BeamRingPoint(TeFilter filter, float delay, Vector center, float startRadius, float endRadius,
+                       in TeBeamLook look, int flags = 0);
+
+    /// <summary>
     /// sdk_player.cpp's <c>TE_PlayerAnimEvent</c>: a player's animation event
     /// (a <see cref="Anim.PlayerAnimEvent"/>) with its data, to the clients the
     /// filter names. The player is its handle as <c>SendProxy_EHandleToInt</c>

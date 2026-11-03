@@ -4052,6 +4052,67 @@ def _trigger_in_still_air(g, trigger):
 DOOR_ANGLE_SLOP = 2.0  # degrees
 
 
+def step_gib_ragdoll(g):
+    """A ragdoll gib is thrown (not in §5; stock CreateRagGib).
+
+    An env_shooter with `Simulation` 2 fired level along where the player looks:
+    the body's first element, as the client's physics has it, has to leave the
+    shooter's column. A force the client drops leaves it falling straight down,
+    which nothing else on this step can tell from being thrown.
+    """
+    g.cheats()
+    # The shooter stands where the player looks: the room's west wall, so the
+    # throw, along +X, has the room to fly across.
+    g.teleport(g.scen["openFloor"], [0.0, 180.0, 0.0], settle=1.2)
+    at = list(g.scen["openFloor"])
+    cls = g.scen["ragdollClass"]
+    g.api.remove(**{"class": cls})      # one body on the client, so the readout is this one's
+    before = {e["handle"] for e in g.api.ents(cls)}
+    name = "gate_gib_shooter"
+    made = g.api.place([{"classname": "env_shooter", "targetname": name, "origin": at, "angles": [0.0, 0.0, 0.0],
+                         "keyvalues": {"simulation": "2", "shootmodel": "models/" + GIB_RAGDOLL_MODEL, "m_iGibs": "1",
+                                       "m_flVelocity": "400", "m_flVariance": "0", "m_flGibLife": "10",
+                                       "delay": "0", "spawnflags": "1"}}])
+    made = [e for e in made if e.get("created")]
+    g.check(bool(made), "the env_shooter was made (%s)" % (made,))
+    if not made:
+        return
+    column = made[0].get("origin") or at
+    time.sleep(0.4)
+    g.api.fire(name, "Shoot")
+    body = g.api.wait_for(lambda: [e for e in g.api.ents(cls) if e["handle"] not in before] or None, 10.0)
+    g.check(bool(body), "it threw a %s" % cls)
+    if not body:
+        g.api.remove(name=name)
+        return
+    def root_now():
+        ends = g.count_console("SSRAGDOLLROOT\tend")
+        g.api.cmd("cs_cl_ragdoll_roots")
+        g.api.wait_for(lambda: g.count_console("SSRAGDOLLROOT\tend") > ends or None, 5.0, 0.1)
+        rows = g.console_lines("SSRAGDOLLROOT\t")
+        last = rows[-2].split("\t") if len(rows) >= 2 and not rows[-2].endswith("end") else None
+        return [float(v) for v in last[2:5]] if last else None
+
+    first = g.api.wait_for(root_now, 15.0, 0.5)
+    g.check(bool(first), "the client made a body (%s)" % (first,))
+    if first:
+        g.check(math.dist(first, column) < 256.0, "and it is where it was shot from, not the world's origin (%s, shot from %s)" % (first, column))
+        moved = 0.0
+        for _ in range(12):
+            root = root_now() or first
+            moved = max(moved, root[0] - column[0])
+            if moved >= GIB_THROWN:
+                break
+            time.sleep(0.25)
+        g.check(moved >= GIB_THROWN, "and it was thrown: %.0f units along the shot from %s (want %d)" % (moved, column, GIB_THROWN))
+    g.api.remove(name=name)
+    g.api.remove(**{"class": cls})
+
+
+GIB_RAGDOLL_MODEL = "humans/group03/female_02.mdl"
+GIB_THROWN = 128.0  # units: the body flies 248..322 (three probes, 2026-11-02); dropped, it lies at the wall
+
+
 def step_door(g):
     """8. open a door -- both kinds this map has."""
     g.cheats()
@@ -10032,6 +10093,7 @@ EXTRA_STEPS = [
     ("input-usercmd", "an injected mouse delta turns the next command by the "
                       "sensitivity-scaled amount and nothing else turns it "
                       "(plan_client_novalve 5.3)", step_input_usercmd),
+    ("gib-ragdoll", "an env_shooter's ragdoll gib is thrown, not dropped (not in §5; stock CreateRagGib)", step_gib_ragdoll),
     ("ai-nav", "the AI's nav for the map is this tree's, not refused (not in §5; "
                "plan_hl2mp_ai Phase 6 step 4)", step_ai_nav),
     ("bots", "four bots play a minute on the worker pool: kills and deaths, no handle "
@@ -10056,7 +10118,7 @@ ALL_STEPS = STEPS + EXTRA_STEPS
 # those counts.
 RUN_ORDER = ["join", "render", "rope-settle", "beam-ring", "proxy-animated", "view-camera", "render-plan", "draw-batch", "ui-scoreboard", "ui-teammenu", "ui-resize", "ui-form", "ui-keys", "kill-feed", "ui-motd", "text-msg", "chat-notices", "changename", "voice-state", "ui-newmap", "loading-disc", "debug-overlay", "input-usercmd", "move", "jump", "damage", "damage-message", "pickup", "shoot", "projectile",
              "push", "contact-touch", "start-asleep", "trigger", "penetration", "prop-hurts-player", "knock-loose", "impact-damage", "stress", "door", "lift", "die", "respawn",
-             "skinned-model", "viewmodel-merge",
+             "skinned-model", "viewmodel-merge", "gib-ragdoll",
              "engine-vectors", "second-client", "frag-credit", "chat", "spectate", "round-end", "save-load", "hot-reload", "map-reload",
              "phys-convert", "render-plan-sandbox", "ai-nav", "ai-reload", "bots", "ai-jank", "ss-ai-nav", "ss-ai-sight", "ss-ai-hearing",
              "map-change", "sigterm-shutdown", "shutdown"]

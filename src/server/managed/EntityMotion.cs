@@ -528,7 +528,9 @@ public sealed class EntityMotion
         // named nothing hands over the invalid handle, which is what "no
         // entity" looks like everywhere else in this API and is what the world
         // reports as when a trace stopped on brushwork.
-        _directory.Resolve(handle)?.OnTouch(trace.Entity);
+        var struck = _directory.Resolve(handle);
+        (struck as FlyingProjectile)?.OnStruckSurface(trace.Normal);
+        struck?.OnTouch(trace.Entity);
     }
 
     private Mover Track(EntityHandle entity)

@@ -63,7 +63,48 @@ public class PredictedWeaponFxTests
     // muzzle flash and the brass ask for; the facts that do not start anything
     // never set them.
     private PredictedWeaponFx Fx() => new(_sounds, _dispatch, _world, _world, _world, _world,
-                                          AmmoCatalog.Stock(), _predict);
+                                          AmmoCatalog.Stock(), _predict, _view);
+
+    private sealed class FakeView : SourceSharp.Client.Input.IClientInputEngine
+    {
+        public SourceSharp.Client.Input.InputAngles Angles = new(10f, 90f, 0f);
+        public int Sets;
+
+        public SourceSharp.Client.Input.InputAngles GetViewAngles() => Angles;
+
+        public void SetViewAngles(SourceSharp.Client.Input.InputAngles angles)
+        {
+            Angles = angles;
+            Sets++;
+        }
+
+        public void GetScreenSize(out int width, out int height) => (width, height) = (0, 0);
+        public bool IsPaused => false;
+        public void GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => (x, y) = (0, 0);
+        public void ClientCmdUnrestricted(string command) { }
+        public void ConsolePrintAt(int position, string text) { }
+    }
+
+    private readonly FakeView _view = new();
+
+    /// <summary>weapon_357.cpp's "disorient the player": up to a degree each way, whole degrees, no roll.</summary>
+    [Fact]
+    public void Disorienting_knocks_the_view_up_to_a_degree_each_way()
+    {
+        var fx = Fx();
+        var seen = new HashSet<float>();
+        for (int i = 0; i < 200; i++)
+        {
+            _view.Angles = new SourceSharp.Client.Input.InputAngles(10f, 90f, 0f);
+            fx.DisorientView();
+            Assert.InRange(_view.Angles.Pitch, 9f, 11f);
+            Assert.InRange(_view.Angles.Yaw, 89f, 91f);
+            Assert.Equal(0f, _view.Angles.Roll);
+            seen.Add(_view.Angles.Pitch);
+        }
+        Assert.Equal(200, _view.Sets);
+        Assert.Equal(3, seen.Count);
+    }
 
     private static PredictedShot Shot(int seed = 1234) => new(Player, LocalPlayer, Eye, Vector.Zero, seed);
 
@@ -333,8 +374,13 @@ public class PredictedWeaponFxTests
 
         public void Sound(in PredictedShot shot, string soundScript) => Played.Add("sound " + soundScript);
 
+        public Vector LastAim;
+
         public void FireBullets(in PredictedShot shot, in WeaponType type, int pellets, float spreadDegrees)
-            => Played.Add($"bullets {pellets} from {shot.Eye} seed {shot.CommandRandomSeed}");
+        {
+            LastAim = shot.ViewAngles;
+            Played.Add($"bullets {pellets} from {shot.Eye} seed {shot.CommandRandomSeed}");
+        }
 
         public void MeleeSwing(in PredictedShot shot, in WeaponType type) => Played.Add("swing");
     }
@@ -402,6 +448,23 @@ public class PredictedWeaponFxTests
         arsenal.OnPlayerCommand(Player, in aim, 1, true, 10f, eye ?? Eye);
         _world.Clear();
         return arsenal;
+    }
+
+    /// <summary>GetAutoaimVector on the predicting client, as the server's round: eyes plus punch.</summary>
+    [Fact]
+    public void A_predicted_round_goes_where_the_punched_view_points()
+    {
+        var (arsenal, fx) = ArmedReplay(EntityNames.WeaponSmg1);
+        var working = new PlayerNetState();
+        working.BindLocal();
+        working.PunchAngle = new QAngle(-3f, 1f, 0f);
+        arsenal.WorkingPlayer = working;
+
+        var shot = new UserCmd { CommandNumber = 11, Pitch = 10f, Yaw = 90f, Buttons = (int)InputButtons.Attack };
+        arsenal.OnPlayerCommand(Player, in shot, 1, true, 10f, Eye);
+
+        Assert.Contains(fx.Played, p => p.StartsWith("bullets", StringComparison.Ordinal));
+        Assert.Equal(new Vector(7f, 91f, 0f), fx.LastAim);
     }
 
     private void HullStops(int entityIndex, Vector origin)

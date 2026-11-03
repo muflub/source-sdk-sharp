@@ -120,6 +120,9 @@ public interface IClientRagdolls
     /// </summary>
     bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal);
 
+    /// <summary>Where <paramref name="owner"/>'s body's first element is, as the physics has it; false with no body.</summary>
+    bool TryRoot(EntityHandle owner, out Vector position);
+
     bool IsRagdoll(EntityHandle owner);
 
     /// <summary>The body's serial (the skeleton's cache key for it), or 0 for none.</summary>
@@ -199,6 +202,15 @@ public sealed class ClientRagdolls(
     public int LastUpdated { get; private set; }
 
     public IEnumerable<RagdollBody> Bodies => _bodies.Values;
+
+    public bool TryRoot(EntityHandle owner, out Vector position)
+    {
+        position = default;
+        if (!_bodies.TryGetValue(owner, out RagdollBody? body) || body.ListCount == 0)
+            return false;
+        position = vphysics.Position(body.List[0].Object);
+        return true;
+    }
 
     /// <summary>Whether every element of <paramref name="body"/> sleeps now, asked of vphysics (the report's).</summary>
     public bool AsleepNow(RagdollBody body) => solver.IsAsleep(body);
@@ -722,6 +734,12 @@ public sealed class ClientRagdolls(
 public sealed class NoClientRagdolls : IClientRagdolls
 {
     public int Count => 0;
+
+    public bool TryRoot(EntityHandle owner, out Vector position)
+    {
+        position = default;
+        return false;
+    }
 
     public bool Become(EntityHandle owner, Vector force, int forceBone, out RagdollRefusal refusal)
     {

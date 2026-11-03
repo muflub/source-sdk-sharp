@@ -116,6 +116,25 @@ public class PhysicsFrameTests
     private bool _speeds;
     private int _ensured;
 
+    [Fact]
+    public void What_waits_for_the_step_runs_after_it_once()
+    {
+        var after = new PostSimulationQueue();
+        var bodies = new PlayerShadowBodies(_shadowNative, _shadowCalls, () => true, _ => { });
+        var stress = new PlayerShadowStress(_v, new OpenSolverWorld());
+        var frame = new PhysicsFrame(_v, _native, _clock, bodies, stress, () => _players, _posted.Add,
+                                     () => _timescale, () => _speeds, _msg.Add, () => { }, after);
+        long stepsSeen = -1;
+        int runs = 0;
+        after.Add(() => { stepsSeen = frame.Steps; runs++; });
+        Assert.Equal(0, runs);
+
+        frame.Frame();
+        Assert.Equal(1, stepsSeen);
+        frame.Frame();
+        Assert.Equal(1, runs);
+    }
+
     private PhysicsFrame Frame()
     {
         var bodies = new PlayerShadowBodies(_shadowNative, _shadowCalls, () => true, _ => { });

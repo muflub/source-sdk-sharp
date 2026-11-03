@@ -240,31 +240,4 @@ public class PropCannonInputsTests
         Assert.Equal(thisObject, cannon.Attached(1) == 0);
     }
 
-    /// <summary>
-    /// The step between a trigger's touch and its outputs: a teleported object is left where it
-    /// landed for one, or the grab drags dm_lockdown's plug out of its socket before ForceDrop lands.
-    /// </summary>
-    [Fact]
-    public void A_teleported_held_object_is_not_steered_for_one_step()
-    {
-        var rig = Spawned();
-        rig.Engine.Returns("Players.GetHandle", Player)
-                  .Returns("Entities.GetIndex", 71)
-                  .Returns("Entities.GetEngineBlock", new byte[EngineBlock.SizeBytes])
-                  .Returns("EntityPhysics.PhysicsObject", (nint)0x1234);
-        EngineBlockMoveType.Write(rig.Engine, Prop, MoveType.VPhysics);
-        var cannon = new PhysCannonWorld(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine, RestingBodies, new InReach(Prop),
-                                         rig.Engine, rig.Engine, rig.Registry.Services!.Require<IScreenEffects>(), new NoTempEnts(),
-                                         rig.Registry, rig.Engine, new OneController(), rig.Engine);
-        cannon.FindObject(1, out _);
-        GrabController grab = cannon.GrabOf(1)!;
-        Assert.Equal(MotionSimResult.LocalAcceleration, grab.Simulate(0x1234, 0.015f, out _, out _));
-
-        cannon.Teleported(new EntityHandle(0x0005_0009u));
-        Assert.Equal(MotionSimResult.LocalAcceleration, grab.Simulate(0x1234, 0.015f, out _, out _));
-
-        cannon.Teleported(Prop);
-        Assert.Equal(MotionSimResult.Nothing, grab.Simulate(0x1234, 0.015f, out _, out _));
-        Assert.Equal(MotionSimResult.LocalAcceleration, grab.Simulate(0x1234, 0.015f, out _, out _));
-    }
 }
