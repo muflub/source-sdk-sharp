@@ -55,12 +55,31 @@ mods:
   # Stock TF2 logic ported to SourceSharp, on TF2's content.
   tf2:
     title: TF2
+    # Stock's TF2 English, read through the engine's GAME paths (they ride in
+    # a VPK, where no disk path reaches): the notice and class tokens the
+    # server names in chat lines (#game_respawn_as and its #TF_Class_Name_*)
+    # live here, and no table this client loads into the engine holds them —
+    # the chat, TextMsg and the panels read them from this one chain.
+    localisation: [resource/tf_english.txt, resource/tf_items_english.txt]
+    # TF2 ships its weapon scripts sealed: ReadEncryptedKVFile
+    # (weapon_parse.cpp:202-267) reads scripts/<name>.txt first and, with the
+    # key g_pGameRules->GetEncryptionKey() hands it — TF2's literal
+    # "E2NcUkG2" (tf_gamerules.h GetTFEncryptionKey) — the ICE-decrypted
+    # scripts/<name>.ctx. Shipped content carries only the .ctx form, so the
+    # core's weapon-script readers get the key from this row (the client's
+    # print-name lookups and the server's precache reach the GAME paths; the
+    # TF side reaches the same content through TFEncryption.Key).
+    encryption_key: E2NcUkG2
     assemblies:
       server: [SourceSharp.Server, TF2.Server]
       client: [SourceSharp.Client, TF2.Client]
+      client_ui: [TF2.Client.Ui]
   # TF2Descent builds on the TF2 mod: its assemblies load after TF2's.
   tf2_descent:
     title: TF2Descent
+    # TF2's sealed weapon scripts, as the tf2 row: a mod inherits only the
+    # defaults, and this one runs TF2's assemblies over TF2's content.
+    encryption_key: E2NcUkG2
     assemblies:
       server: [SourceSharp.Server, TF2.Server, TF2.Descent.Server]
       client: [SourceSharp.Client, TF2.Client, TF2.Descent.Client]

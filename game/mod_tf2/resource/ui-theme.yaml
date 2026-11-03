@@ -1,0 +1,71 @@
+# The TF2 theme (user ruling 2026-10-26: the TF2 UI gets the full TF2 look
+# and layout; this lane is the theme and the fonts, a later lane restyles the
+# screens). Colours are TF2's own, cited to the installed game's
+# resource/clientscheme.res — the numbers only, never the file. The fonts are
+# the scheme's CustomFontFiles: "TF2 Build" is resource/TF2Build.ttf
+# (clientscheme.res 5770) and "TF2 Secondary" resource/TF2Secondary.ttf
+# (5744), loose files on a GAME path, loaded at runtime and never copied.
+
+font.file: "TF2 Build" resource/TF2Build.ttf
+font.file: "TF2 Secondary" resource/TF2Secondary.ttf
+
+# Tones, from clientscheme.res's Colors block. TanDarker (101) is the scheme's
+# Black (58, "a NTSC safe color") — the HUD's dark panels; TanLight (100) its
+# text; TanDark (99) its dull colour, here lightened a step because TanDark on
+# TanDarker is under 3:1. Team 2 is RED and 3 BLU, so TeamA is the red and
+# TeamB the blue.
+tone.surface: "#2e2b2ac8"
+tone.surfaceraised: "#756b5ee6"
+tone.line: "#ebe2ca1a"
+tone.text: "#ebe2ca"
+tone.textmuted: "#9d9078"
+tone.accent: "#d47f19"
+tone.positive: "#5e9631"
+tone.warning: "#f0cf4e"
+tone.danger: "#ff0000"
+tone.teama: "#b45c4d"
+tone.teamb: "#687c9b"
+tone.scrim: "#000000c4"
+tone.onaccent: "#2e2b2a"
+tone.window: "#343037"
+
+# The fonts, per the scheme's own faces: TF2 Build for the display, number,
+# title and heading roles (HudFontGiantBold 44, HudFontBiggerBold 35,
+# HudFontMediumBigBold 30, HudFontMediumBold 24 — all "TF2 Build", weight 500),
+# TF2 Secondary for body, label and caption (HudFontMediumSecondary 24 —
+# "TF2 Secondary", weight 500). The console's Code role keeps the repo's mono.
+#
+# Sizes stay the toolkit's defaults here: the hud's own ladder (the scheme's
+# faces, tall x2.25 into du — user ruling 2026-10-30, the HUD matches stock)
+# lives on the hud screens' leaves, TFHudType.HudSize, so every screen stock's
+# HUD files do not cover — the menus, the scoreboard, the dev overlay and the
+# build stamp — keeps the theme's sizes.
+type.display.family: TF2 Build
+type.display.weight: 500
+type.display.shadow: false
+type.number.family: TF2 Build
+type.number.weight: 500
+type.number.shadow: false
+type.title.family: TF2 Build
+type.title.weight: 500
+type.title.shadow: false
+type.heading.family: TF2 Build
+type.heading.weight: 500
+type.heading.shadow: false
+type.body.family: TF2 Secondary
+type.body.weight: 500
+type.body.shadow: false
+type.label.family: TF2 Secondary
+type.label.weight: 500
+type.label.shadow: false
+type.caption.family: TF2 Secondary
+type.caption.weight: 500
+type.caption.shadow: false
+
+# Stock's strings carry their own case — the class name, the slot labels and
+# the group headers come out of the tokens as written (tf_english.txt:38-46,
+# classloadoutpanel.res:111-127) — and TF2's scheme has no case forcing, so
+# the toolkit's small-upper-label default is off.
+type.title.upper: false
+type.heading.upper: false
+type.label.upper: false

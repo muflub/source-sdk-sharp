@@ -1,0 +1,3562 @@
+#!/usr/bin/env python3
+# tools/tf2-gate -- the Stage 4.2 headless scripted round gate.
+#
+# A python driver over tools/debug-api, built on tools/live-gate's own
+# launch and read helpers (loaded by path from this file's own location):
+# server_launch / client_launch / launch_with_free_port / Api and Game.kill.
+#
+# It boots a `-mod tf2` listen server (player 1, its own local client) plus a
+# second headless client (player 2) that joins it -- the shape
+# pair-boot.py boots -- and runs the plan's steps
+# (docs/plans/tf2/stage4_milestone.md "Phase 4.2"):
+#
+#   1  join        both players present; the join asserted before any read
+#   2  teams        mp_teams_unbalance_limit's default; jointeam auto on each
+#                  puts them on different teams (2 and 3)
+#   3  classes      joinclass scout / heavyweapons; max health 125 / 300;
+#                  a +forward for 2 s measured from positions within 5 % of
+#                  400 / 230
+#   4  combat       the heavy fires at the scout at 200 u; the scout's
+#                  Health drops (the stimulus must be non-zero)
+#   5  heal         the joiner becomes a medic, the listen host becomes the
+#                  heavy, is hurt first with the cheat command hurtme, and
+#                  the medic heals him: Health rises, overheal to 450
+#   6  ctf          scout carries the enemy flag home (score 1, flag home);
+#                  forced tf2_dev_win yields TEAM_WIN -> RESTART -> PREROUND
+#   7  changelevel  pl_badwater: the second map load; both games re-paint
+#                  (the [SourceSharp/Hud] stamp is per level); the TF2 class
+#                  census equals the counts recorded from the bsp's entity lump
+#   8  payload      the BLU host pushes the func_tracktrain toward checkpoint
+#                  1 (the cart moves only while he stands in the capper
+#                  volume parented to it), the cart recedes once he is 500 u
+#                  away, and riding it past the checkpoint node hands the
+#                  team_control_point to BLU (path_track OnPass -> SetOwner;
+#                  the owner outputs are read on the entity event ring)
+#   9  mode switch  sv_mode null warms up (the [SourceSharp/Modes] needles,
+#                  the 5 s sv_mode_switch_warmup), the round reaches PREROUND
+#                  under it, sv_mode pl starts the round again, and the bare
+#                  command answers active: 'pl'
+#   10 teardown    both games exit; the server's /proc/<pid>/task count is
+#                  recorded after the join and before the exit
+#
+# A listen server plus one joining client is used instead of a dedicated
+# server plus two clients: tools/live-gate has no dedicated-server launch
+# helper (server_launch IS the listen server -- maxplayers 4, a local
+# client, +map), and the listen server's own local client is player 1, so
+# listen server + joiner is the two-player game the steps need.
+#
+# Each step records its numbers to tools/.tf2-gate/<run>/report.tsv with
+# TIP=$(git rev-parse HEAD) and its exit code, written as the step ends (a
+# later crash cannot rewrite an earlier verdict). A step that cannot measure
+# is a FAILURE, never a skip: a missing input (socket, paint line, field,
+# /proc row) fails the gate.
+#
+# `--self-test` exercises the report writing and the pass/fail arithmetic
+# without a game; tools/checks.tsv runs it as a routine check.
+#
+# NOT part of `make test`: it is a live gate. `make tf2-gate` runs it.
+import argparse
+import math
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from importlib.machinery import SourceFileLoader
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+ROOT = os.path.dirname(HERE)
+
+# A private dev-API socket dir per run (concurrent lanes must not share one,
+# and the socket path must stay under the 108-char sun_path limit). Set
+# BEFORE live-gate is loaded: its SOCKET_DIR is computed at import.
+os.environ.setdefault("DEBUG_API_DIR", "/tmp/tf2g-%d-dapi" % os.getpid())
+
+lg = SourceFileLoader("tf2gate_live_gate", os.path.join(HERE, "live-gate")).load_module()
+
+MOD = "tf2"
+MAP = "ctf_2fort"
+PLAYER_CLASS = "player"
+
+# The HUD's own line (UiRuntime.cs), the proof a client-side game painted.
+PAINT_NEEDLE = "[SourceSharp/Hud] first paint"
+GAME_DIR = os.path.join(ROOT, "bin", "debug")
+CONSOLE = os.path.join(GAME_DIR, "mods", MOD, "console.log")
+
+REPORT_ROOT = os.path.join(HERE, ".tf2-gate")
+
+# The class scripts' own numbers (scripts/playerclasses/<class>.txt's
+# health_max and speed_max), so a step that cannot read them has nothing to
+# say about the class.
+# health_max per class from the mod's own class table ("[TF2/Classes] ...
+# health_max N" at class-table load, verified at tip 87747de04: scout 125,
+# medic 150, heavyweapons 300). The step-3 expected values (125/300) are the
+# brief's and match the table.
+CLASS_HEALTH = {"scout": 125, "medic": 150, "heavyweapons": 300}
+CLASS_SPEED = {"scout": 400.0, "heavyweapons": 230.0}
+SPEED_TOLERANCE = 0.05
+SPEED_MEASURE_SECONDS = 1.0
+SPEED_PREROLL_SECONDS = 0.3
+# The integrator's open stretch on ctf_2fort at tf2 40fe7a653: 630 u clear
+# along +X from this spot (measured with server origin/tick samples).
+TRACK_SPOT = [-1200.0, 600.0, 40.0]
+TRACK_YAW = 0.0
+
+HEAL_BASE_MAX = 300
+HEAL_CAP = 450
+HEAL_HURT_TO = 150
+
+TEAM_RED, TEAM_BLU = 2, 3
+
+# Steps a future phase may add BEFORE their code lands: selected while
+# listed here they FAIL with "not written yet" -- never a pass, never a
+# skip. Every step the gate has is written now, so the list is empty; the
+# machinery stays (a step that cannot measure must say so in its row).
+NOT_WRITTEN = ()
+
+STEP_ORDER = ("join", "teams", "classes", "combat", "heal", "respawn",
+              "ctf", "changelevel", "payload", "mode", "teardown")
+# Every step the gate now holds (the Makefile's word on `make tf2-gate`):
+# the lane wrote the last four (ctf, changelevel, payload, mode) at 4.2.
+DEFAULT_STEPS = STEP_ORDER
+
+
+# ---------------------------------------------------------------------------
+# Pure arithmetic, so --self-test can reach it without a game.
+# ---------------------------------------------------------------------------
+def within(value, expected, tolerance):
+    """Is `value` within `tolerance` of `expected` (relative)? A zero
+    expected only matches a zero value: there is no ratio to compare to."""
+    if expected == 0:
+        return value == 0
+    return abs(value - expected) <= abs(expected) * tolerance
+
+
+def speed_within(distance_moved, seconds, expected, tolerance=SPEED_TOLERANCE):
+    """Did `distance_moved` over `seconds` come within `tolerance` of
+    `expected` u/s? A missing measurement or a zero window is NOT within:
+    an unmeasured speed is a failure, never a pass."""
+    if not seconds or distance_moved is None:
+        return False
+    return within(distance_moved / float(seconds), expected, tolerance)
+
+
+def teams_distinct(t1, t2):
+    """Are the two team numbers the red/blu pair, one each?"""
+    return {t1, t2} == {TEAM_RED, TEAM_BLU}
+
+
+# The core's own record of a team join, logged by Teams.ChangeTeam in
+# src/server/managed/Teams.cs as "[SourceSharp/Teams] #<index> joined team
+# <n> (was <old>)" -- #{EntryIndex}, so group 1 is the player's entity index.
+# This is the product's logging, not a diagnostic built for the gate: the
+# dev-api has no team endpoint (docs/api.md) and its entity detail and event
+# rings carry no team, so the join line IS the machine-readable team read.
+# The gate keeps the raw line in the report as the evidence it parsed.
+TEAM_JOIN_RX = re.compile(r"#(\d+) joined team (\d+) \(was (\d+)\)")
+
+
+def team_joins(lines):
+    """{index: (team, raw_line)} for the managed team-join lines, last line
+    per player winning (a player who reteams shows twice). Lines that merely
+    mention joining parse as nothing. PURE, so --self-test drives it."""
+    found = {}
+    for line in lines or ():
+        m = TEAM_JOIN_RX.search(line)
+        if m:
+            # Tabs flattened: the line rides into a TSV report column.
+            found[int(m.group(1))] = (int(m.group(2)), line.strip().replace("\t", " "))
+    return found
+
+
+# The core's joinclass announcements (TFJoinClassCommand.cs 176/181):
+# "[TF2/Player] player <index> joins as <class> now" when it spawns the
+# player on the spot, "... will be <class> at the next spawn" when the class
+# is queued behind the current life. Which arm fired decides whether the
+# gate must kill the player to see the class, so the gate reads it.
+# The <class> is TFClassNames.NonLocalized -- the enum name (Scout, Heavy,
+# Medic), NOT the joinclass argument (scout, heavyweapons, medic): run 6's
+# real lines read "joins as Scout now" / "joins as Heavy now". Canonicalizing
+# through this table is what makes "Heavy" (the line) and "heavyweapons"
+# (the expected) comparable without a lowercase match that cannot tell the
+# two apart.
+CLASS_JOIN_RX = re.compile(r"player (\d+) (joins as|will be) ([A-Za-z]+) (now|at the next spawn)")
+CLASS_LINE_CANON = {"scout": "scout", "heavy": "heavyweapons",
+                    "heavyweapons": "heavyweapons", "medic": "medic"}
+
+
+def class_joins(lines):
+    """{index: (kind, canonical_class, raw_line)} for the managed joinclass
+    lines, kind "now" or "queued", last line per player winning. The class
+    name is canonicalized (CLASS_LINE_CANON), so heavyweapons compares equal
+    to the line's Heavy. An unlisted class name is NOT canonicalized: it
+    compares unequal and the step records the raw line. PURE."""
+    found = {}
+    for line in lines or ():
+        m = CLASS_JOIN_RX.search(line)
+        if m:
+            kind = "now" if m.group(4) == "now" else "queued"
+            raw = m.group(3)
+            canon = CLASS_LINE_CANON.get(raw.lower(), raw)
+            found[int(m.group(1))] = (kind, canon, line.strip().replace("\t", " "))
+    return found
+
+
+def health_is(fields, want):
+    """Is the entity's networked Health exactly `want`? A missing field or an
+    unparseable value is False (it cannot be confirmed), not a silent pass."""
+    got = (fields or {}).get("Health")
+    try:
+        return int(float(got)) == want
+    except (TypeError, ValueError):
+        return False
+
+
+def row_passed(row):
+    return row.get("status") == "PASS"
+
+
+def gate_rc(rows):
+    """0 only when every row passed and there was at least one row; a gate
+    that measured nothing has not passed."""
+    return 0 if rows and all(row_passed(r) for r in rows) else 1
+
+
+def format_row(row):
+    """step<TAB>status<TAB>seconds<TAB>rc<TAB>tip<TAB>numbers(one k=v per TAB)."""
+    numbers = "\t".join("%s=%s" % (k, v) for k, v in sorted(row.get("numbers", {}).items()))
+    return "\t".join([str(row["step"]), str(row["status"]), "%.2f" % row["seconds"],
+                      str(row["rc"]), str(row["tip"]), numbers])
+
+
+def parse_row(line):
+    """Inverse of format_row (self-test: a report the next run cannot re-read
+    is a report that cannot be checked)."""
+    parts = line.rstrip("\n").split("\t")
+    step, status, seconds, rc, tip = parts[:5]
+    numbers = {}
+    for cell in parts[5:]:
+        if not cell:
+            continue
+        key, _, value = cell.partition("=")
+        numbers[key] = value
+    return {"step": step, "status": status, "seconds": float(seconds),
+            "rc": int(rc), "tip": tip, "numbers": numbers}
+
+
+def read_report(path):
+    """The rows of a report.tsv (comment lines dropped), or None when the
+    file is not there -- a missing report is a FAILURE for its reader, never
+    an empty pass."""
+    if not os.path.exists(path):
+        return None
+    rows = []
+    with open(path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            if line.startswith("#") or not line.strip():
+                continue
+            rows.append(parse_row(line))
+    return rows
+
+
+class Report:
+    """One run's report.tsv, one row per step, written as each step ends."""
+
+    def __init__(self, directory, tip):
+        self.tip = tip
+        os.makedirs(directory, exist_ok=True)
+        self.path = os.path.join(directory, "report.tsv")
+        self.rows = []
+        with open(self.path, "w", encoding="utf-8") as handle:
+            handle.write("# tools/tf2-gate report\n")
+            handle.write("# tip=%s mod=%s map=%s\n" % (tip, MOD, MAP))
+            handle.write("# started=%s\n" % time.strftime("%Y-%m-%dT%H:%M:%S"))
+
+    def record(self, step, status, seconds, numbers):
+        row = {"step": step, "status": status, "seconds": round(seconds, 2),
+               "rc": 0 if status == "PASS" else 1, "tip": self.tip,
+               "numbers": dict(numbers)}
+        self.rows.append(row)
+        with open(self.path, "a", encoding="utf-8") as handle:
+            handle.write(format_row(row) + "\n")
+        return row
+
+    def finish(self, rc):
+        with open(self.path, "a", encoding="utf-8") as handle:
+            handle.write("# rc=%d\n" % rc)
+
+
+# ---------------------------------------------------------------------------
+# The live run.
+# ---------------------------------------------------------------------------
+def thread_count(pid):
+    """The server's /proc/<pid>/task count, or None when /proc cannot say
+    (None makes its step unmeasurable, which is a failure)."""
+    try:
+        return len(os.listdir("/proc/%s/task" % pid))
+    except OSError:
+        return None
+
+
+def tip_sha():
+    """TIP=$(git rev-parse HEAD), run as its own command so its status is its
+    own exit code (never behind a pipe)."""
+    out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                         text=True)
+    return out.stdout.strip() or "unknown"
+
+
+def fmt_pos(origin):
+    return ",".join("%.0f" % v for v in origin) if origin else "?"
+
+
+def forward_of(yaw):
+    """The unit (x, y) a player's +forward drives them at view yaw `yaw`."""
+    return (math.cos(math.radians(yaw)), math.sin(math.radians(yaw)))
+
+
+def entity_origin(api, index):
+    ent = api.entity(index=index)
+    return ent.get("origin") if ent else None
+
+
+class Run:
+    """The two games and the reads every step needs."""
+
+    def __init__(self, verbose=True):
+        self.games = []
+        self.scratch = tempfile.mkdtemp(prefix="tf2g-", dir="/tmp")
+        self.verbose = verbose
+
+    def say(self, msg):
+        if self.verbose:
+            print(msg, flush=True)
+
+    def launch(self):
+        modarg = ["-mod", MOD]  # '-mod tf2' FIRST on each launch line
+        self.console_start = os.path.getsize(CONSOLE) if os.path.exists(CONSOLE) else 0
+        self.server, self.port = lg.launch_with_free_port(
+            lambda p: modarg + lg.server_launch(p, MAP),
+            os.path.join(self.scratch, "server.log"),
+            os.path.join(self.scratch, "server"))
+        if self.server is None:
+            self.say("== the server never opened a dev API socket (log %s)"
+                     % os.path.join(self.scratch, "server.log"))
+            return False
+        self.games.append(self.server)
+        self.srv = lg.Api(self.server.pid, root=ROOT)
+        self.say("== server pid %s port %d" % (self.server.pid, self.port))
+
+        if not wait_pump(self, "server: its own player in the entity list",
+                         lambda: len(self.srv.ents(PLAYER_CLASS)) >= 1, 240.0):
+            self.say("== the server's own player never appeared")
+            return False
+        # The listen server's local player exists first: its index is player
+        # 1's, and player 2 is the one that arrives with the join.
+        self.p1 = min(e["index"] for e in self.srv.ents(PLAYER_CLASS))
+
+        # The gate's placements (the joiner's setpos_exact) and the heal's
+        # hurtme are sv_cheats commands; the integrator's measurement
+        # procedure opens with the same line. Set once here so every step
+        # can place and hurt without each carrying the cheat flag itself.
+        self.srv.cmd("sv_cheats 1")
+
+        self.client, _ = lg.launch_with_free_port(
+            lambda p: modarg + lg.client_launch(p),
+            os.path.join(self.scratch, "client.log"),
+            os.path.join(self.scratch, "client"))
+        if self.client is None:
+            self.say("== the second client never opened a dev API socket (log %s)"
+                     % os.path.join(self.scratch, "client.log"))
+            return False
+        self.games.append(self.client)
+        for api in (self.srv, self.client.api):
+            api.convar("net_usesocketsforloopback", 1)
+        time.sleep(1.0)
+        self.client.api.cmd("connect 127.0.0.1:%d" % self.port)
+        self.say("== client pid %s connecting to 127.0.0.1:%d" % (self.client.pid, self.port))
+        # A stock test round ends the waiting-for-players window up front
+        # (mp_waitingforplayers_time is TF's stock 30 s): the cart and caps idle
+        # and the round restarts when it closes. The mode step still reads the
+        # waiting time itself. Cleared once read, so each map load re-arms it.
+        self.srv.cmd("mp_waitingforplayers_cancel 1")
+        return True
+
+    def relaunch_joiner(self):
+        """Bring the joiner back after the heal step's known crash (the joiner
+        SIGSEGVs in the heal -- the peer lane tf2-heal owns that bug and this
+        gate does not touch it): the same launch as launch()'s client, over a
+        fresh instance dir and log, so the steps behind heal still measure a
+        live two-player game. The joiner comes back a RED scout, the
+        bystander role payload and mode give him anyway (changelevel needs
+        him SPAWNED, and an unassigned player never spawns). False, with the
+        reason said, when the new game cannot come up: then the later steps
+        fail on their own, which is the honest outcome -- a revival that
+        hides its own failure would be the silent pass CLAUDE.md forbids."""
+        self.client, _ = lg.launch_with_free_port(
+            lambda p: ["-mod", MOD] + lg.client_launch(p),
+            os.path.join(self.scratch, "client-relaunch.log"),
+            os.path.join(self.scratch, "client-relaunch"))
+        if self.client is None:
+            self.say("== the relaunched joiner never opened a dev API socket "
+                     "(log %s)" % os.path.join(self.scratch, "client-relaunch.log"))
+            return False
+        self.games.append(self.client)
+        self.client.api.convar("net_usesocketsforloopback", 1)
+        time.sleep(1.0)
+        self.client.api.cmd("connect 127.0.0.1:%d" % self.port)
+        self.say("== joiner relaunched: pid %s connecting to 127.0.0.1:%d"
+                 % (self.client.pid, self.port))
+        # The dead joiner's entity can linger a while (run 2 at this tip:
+        # the counts waited >=2 off the dead #2's corpse while the new
+        # connection landed as #3), so no index is trusted from the count:
+        # the revived joiner is found as the LIVE player who is not the
+        # host. jointeam/joinclass ride the new client's own console and
+        # the wait judges whoever the server really called into play.
+        self.client.api.cmd("cmd jointeam red")
+        self.client.api.cmd("cmd joinclass scout")
+
+        def fresh():
+            for idx in self.player_indices():
+                if idx != self.p1 and self.is_alive(idx):
+                    return idx
+            return None
+
+        new_p2 = wait_pump(self, "relaunch: a second live player beside the host",
+                           fresh, 120.0)
+        if new_p2 is None:
+            self.say("== the relaunched joiner never became a live player (the entity "
+                     "list held %s)" % (self.player_indices(),))
+            return False
+        self.p2 = new_p2
+        return True
+
+    def player_indices(self):
+        return sorted(e["index"] for e in self.srv.ents(PLAYER_CLASS))
+
+    def buttons_p1(self, text):
+        # A plain +/- button on the listen server's console presses player 1's
+        # keys; on the joining client it presses player 2's (the pattern
+        # tools/live-gate's own second-client step uses).
+        self.srv.cmd(text)
+
+    def buttons_p2(self, text):
+        self.client.api.cmd(text)
+
+    def health(self, index):
+        try:
+            return int(float(self.srv.fields(index).get("Health")))
+        except (TypeError, ValueError, lg.ApiError):
+            return None
+
+    def team(self, index):
+        try:
+            return int(float(self.srv.fields(index).get("TeamNum")))
+        except (TypeError, ValueError, lg.ApiError):
+            return None
+
+    def team_lines(self):
+        """The server game's console.log since launch -- where the managed
+        log lines actually land. (Verified against the dev-api /log ring and
+        found missing there: the ring is fed only by the debug api's own
+        hooks.Log channel -- src/debug_api/DebugApiServer.cs Start(), and
+        grep finds no game publisher on it -- while the game's ILog is
+        ConsoleLog over the engine console, CoreServices.cs, which -condebug
+        writes to console.log. The server game is the one launched with
+        -condebug, which is the file this reads.)"""
+        return self.read_console_since_launch().splitlines()
+
+    def team_console_tail(self, limit=12):
+        """The console lines mentioning a team join, newest first, capped --
+        for the failure record, so an absent command and an unread team tell
+        them apart."""
+        hits = [l.strip().replace("\t", " ") for l in self.team_lines()
+                if "joined team" in l or "jointeam" in l.lower()]
+        return " || ".join(hits[-limit:]) or "(none)"
+
+    def is_alive(self, index):
+        """fields Alive == \"true\" -- the flag live-gate's second-client step
+        waits on before driving a player (a player entity exists on the
+        server seconds before that player takes input)."""
+        try:
+            return self.srv.fields(index).get("Alive") == "true"
+        except lg.ApiError:
+            return False
+
+    def team_now(self, index):
+        """Player `index`'s last joined team number, from the core's own join
+        lines (console.log). The /payload fields endpoint serves HL2MP
+        CBasePlayer nettable state -- it has no TeamNum (verified against the
+        field dump) -- so these lines are the team read."""
+        return team_joins(self.team_lines()).get(index, (None, None))[0]
+
+    def class_evidence(self, index):
+        """The latest (kind, class, line) TFJoinClassCommand logged for
+        player `index`, or None."""
+        return class_joins(self.team_lines()).get(index)
+
+    def field_dump(self, index):
+        """The /payload field names of an entity, for a failure record: when a
+        field read answers nothing, the report must SHOW whether the field is
+        absent or the endpoint failed, not leave both as a bare None."""
+        try:
+            return ",".join(sorted(self.srv.fields(index))) or "(none)"
+        except lg.ApiError as why:
+            return "unavailable(%s)" % why
+
+    def read_console_since_launch(self):
+        try:
+            with open(CONSOLE, errors="replace") as handle:
+                handle.seek(self.console_start)
+                return handle.read()
+        except OSError:
+            return ""
+
+    def mark(self):
+        """The console offset at a step's start. Needles that must be NEW
+        (this step's game lines -- a capture, a forced win) are searched
+        only past this mark: the console since launch still holds earlier
+        steps' lines, and an earlier round win's "round won by" would
+        otherwise satisfy a later step's wait before it ever happened."""
+        try:
+            self._mark = os.path.getsize(CONSOLE)
+        except OSError:
+            self._mark = self.console_start
+
+    def read_console_since_mark(self):
+        start = getattr(self, "_mark", self.console_start)
+        try:
+            with open(CONSOLE, errors="replace") as handle:
+                handle.seek(start)
+                return handle.read()
+        except OSError:
+            return ""
+
+    def read_client_log(self):
+        try:
+            with open(os.path.join(self.scratch, "client.log"), errors="replace") as handle:
+                return handle.read()
+        except OSError:
+            return ""
+
+    def kill_all(self):
+        for game in self.games:
+            try:
+                game.kill()
+            except Exception as exc:
+                self.say("== kill failed: %s" % exc)
+
+
+# ---------------------------------------------------------------------------
+# The steps. Each returns (status, numbers); a missing measurement is FAIL.
+# ---------------------------------------------------------------------------
+def step_join(run, state):
+    numbers = {}
+    joined = wait_pump(run, "join: a second player in the entity list",
+                       lambda: len(run.srv.ents(PLAYER_CLASS)) >= 2, 120.0)
+    players = run.player_indices()
+    numbers["players"] = len(players)
+    if not joined or len(players) != 2:
+        return "FAIL", numbers
+    run.p2 = players[1]
+    numbers["p1_index"], numbers["p2_index"] = run.p1, run.p2
+
+    # The join is asserted BEFORE any client reading (the plan's rule), and
+    # both games' paint must be seen: a client that never painted is not a
+    # joined client. The listen game's line comes from its own -condebug
+    # console.log (one console.log, one game: client_launch carries no
+    # -condebug on purpose, so only the server game writes it).
+    server_painted = wait_pump(
+        run, "server game: first paint line in console.log",
+        lambda: run.read_console_since_launch().count(PAINT_NEEDLE) >= 1, 90.0)
+    # The joiner's own paint, read the way live-gate's second-client step
+    # reads it: the game pushes its UI draws to the server's debug channel,
+    # and server.get("client", <player index>, "ui") answers them. A joiner
+    # that never painted answers empty draws; its stdout (no -condebug) and
+    # its own log ring proved too slow/lossy for this (run 1 of 2026-10-26:
+    # the join held while the paint line sat in an unflushed buffer).
+    client_painted = wait_pump(
+        run, "client game: first HUD text on its ui channel",
+        lambda: (lambda draws: next((d for d in draws if d.get("kind") == "Text"), None))(
+            (run.srv.get("client", str(run.p2), "ui") or {}).get("draws", [])) or None,
+        90.0)
+    numbers["server_first_paint"] = bool(server_painted)
+    numbers["client_first_paint"] = bool(client_painted)
+    if not client_painted:
+        # Make the failure readable: what the joiner's stdout did say.
+        tail = [l for l in run.read_client_log().splitlines() if l.strip()][-8:]
+        numbers["client_log_tail"] = " || ".join(l.replace("\t", " ") for l in tail)
+    numbers["both_alive"] = run.srv.alive() and run.client.api.alive()
+
+    state["threads_after_join"] = thread_count(run.server.pid)
+    numbers["server_threads_after_join"] = state["threads_after_join"]
+
+    ok = (bool(server_painted) and bool(client_painted)
+          and numbers["both_alive"] and state["threads_after_join"] is not None)
+    return ("PASS" if ok else "FAIL"), numbers
+
+
+def step_teams(run, state):
+    numbers = {}
+    try:
+        numbers["mp_teams_unbalance_limit_default"] = \
+            run.srv.convar("mp_teams_unbalance_limit").get("value")
+    except lg.ApiError as why:
+        numbers["mp_teams_unbalance_limit_default"] = "unavailable(%s)" % why
+        return "FAIL", numbers
+
+    run.srv.cmd("cmd jointeam auto")
+    run.client.api.cmd("cmd jointeam auto")
+
+    # The team numbers are read from the core's own join lines in the server's
+    # managed log (see TEAM_JOIN_RX): the dev-api entity detail and event ring
+    # carry no team, and TeamNum is not a proven /payload field -- the fields
+    # read rides along as a cross-check, and a failure records the field names.
+    def both_joined():
+        found = team_joins(run.team_lines())
+        return found if run.p1 in found and run.p2 in found else None
+
+    got = wait_pump(run, "teams: both players' join lines", both_joined, 60.0)
+    last = got or team_joins(run.team_lines())
+    t1 = last.get(run.p1, (None, None))[0]
+    t2 = last.get(run.p2, (None, None))[0]
+    numbers["team_p1"], numbers["team_p2"] = t1, t2
+    numbers["team_p1_line"] = last.get(run.p1, (None, None))[1]
+    numbers["team_p2_line"] = last.get(run.p2, (None, None))[1]
+    numbers["fields_team_p1"], numbers["fields_team_p2"] = \
+        run.team(run.p1), run.team(run.p2)
+    ok = t1 is not None and t2 is not None and teams_distinct(t1, t2)
+    if not ok:
+        numbers["field_dump_p1"] = run.field_dump(run.p1)
+        numbers["console_team_lines"] = run.team_console_tail()
+    if ok:
+        state["team_p1"], state["team_p2"] = t1, t2
+    return ("PASS" if ok else "FAIL"), numbers
+
+
+# ---------------------------------------------------------------------------
+# The speed run, on an OPEN TRACK. +forward is held on the stretch the
+# integrator measured clear at tf2 40fe7a653 (their server-origin/tick
+# samples through `debug-api ent index=1`): from -1200 600 40 facing +X,
+# clear for ~630 u, the scout at 6.00 u/tick = 400 u/s and the heavy at
+# 3.45 = 230. A 0.3 s run-up takes acceleration out of the 1.0 s window.
+# The ctf_2fort team spawns are NOT that track: they sit inside the spawn
+# rooms, and a run from one hits a wall inside the window on every heading
+# (a scout from RED spawn stops 72-200 u later). A run whose speed falls
+# between the window's halves stopped at something: that is WALL-BOUND, a
+# FAILURE that says so -- never a speed.
+# ---------------------------------------------------------------------------
+CLASS_NUM = {"scout": 1, "medic": 5, "heavyweapons": 6}   # TFClass, TFSharedDefs.cs
+
+
+def player_class(run, index):
+    """The tf_player_data carrier's PlayerClass for player `index`, read
+    through the nettable payload endpoint: the carrier is one-per-player with
+    OwnerIndex = the player's entity index (TFPlayerNetState), and the plan's
+    step 3 names this exact read ("tf_player_data class 1 / 6"). Health
+    cannot tell scout from medic (both 125); this can.
+    Returns (class_number_or_None, why_not)."""
+    try:
+        carriers = run.srv.ents("tf_player_data")
+    except lg.ApiError as why:
+        return None, "tf_player_data census unavailable(%s)" % why
+    for e in carriers:
+        try:
+            f = run.srv.fields(e["index"])
+        except lg.ApiError:
+            continue
+        if str(f.get("OwnerIndex")) == str(index):
+            try:
+                return int(float(f.get("PlayerClass"))), None
+            except (TypeError, ValueError):
+                return None, "carrier %s has PlayerClass=%r" % (e["index"], f.get("PlayerClass"))
+    return None, "no tf_player_data carrier with OwnerIndex=%d (%d carriers)" % (
+        index, len(carriers))
+
+
+def _class_is(run, index, want):
+    """wait_for predicate: the carrier's class number, truthy only when it
+    equals `want`."""
+    got, _ = player_class(run, index)
+    return got if got == want else None
+
+
+def team_spawn_spots(run):
+    return [e["origin"] for e in run.srv.ents("info_player_teamspawn")
+            if e.get("origin") and any(e["origin"])]
+
+
+def placement_holds(run, index, pos, seconds=0.6, off_target=64.0, drift=4.0,
+                    two_d=False):
+    """settle_on's own evidence: two SERVER-side origin samples `seconds`
+    apart, each within `off_target` of `pos` and agreeing within `drift`.
+    The settle response only ever says the server's reads agreed with
+    themselves (run 13: settle=True answered while the player sat ~2000 u
+    at his parking spot); whether the player is WHERE he was asked is
+    decided here, for every route and every player. The predicted joiner's
+    only landing evidence the server can see is this placement holding
+    (DebugApiTeleportSettleTests: his ground word never speaks).
+
+    `two_d` measures the target distance on the HORIZONTAL axes only: used
+    for the declared-unsimulated player, whose placement at a mid-air
+    target is followed by the server's per-command gravity walking him
+    down to the ground under it (settle_on waits for that rest first). The
+    drift check stays 3-D: a drop still moves him, and drift is what says
+    he stopped. Returns (True, "") or (False, why)."""
+    try:
+        now0 = entity_origin(run.srv, index)
+    except Exception:
+        now0 = None
+    time.sleep(seconds)
+    try:
+        now1 = entity_origin(run.srv, index)
+    except Exception:
+        now1 = None
+    if now0 is None or now1 is None:
+        return False, ("origin unreadable after the teleport (%s, then %s)"
+                       % (fmt_pos(now0) if now0 else "unreadable",
+                          fmt_pos(now1) if now1 else "unreadable"))
+    def _off(a):
+        a = list(a)
+        if two_d:
+            a[2] = pos[2]
+        return lg.distance(a, list(pos))
+
+    d0 = _off(now0)
+    d1 = _off(now1)
+    if d0 > off_target or d1 > off_target:
+        return False, ("rests %.0f u off the target (at %s, then %s)"
+                      % (max(d0, d1), fmt_pos(now0), fmt_pos(now1)))
+    moved = lg.distance(list(now0), list(now1))
+    if moved > drift:
+        return False, ("still moving at the target: %.0f u between the samples (%s -> %s)"
+                       % (moved, fmt_pos(now0), fmt_pos(now1)))
+    return True, ""
+
+
+# A teleport's drop is at most a few tenths of a second (the corridor targets
+# sit ~36 u over the floor; 0.3 s of fall), so this is how long the rest wait
+# before the hold samples needs. A player who never rests inside it -- riding
+# a moving cart, or dropped into a pit -- fails the verdict rather than
+# waiting out a window sized for a pit (the pit itself is placement_holds's
+# off-target check to catch).
+REST_SECONDS = 2.0
+
+
+def rests_then_holds(run, index, pos, two_d, rest_seconds=REST_SECONDS):
+    """The verdict one answered route must earn, whichever player he is:
+    he comes to rest FIRST, then the placement holds.
+
+    The route's met can answer while the player is still MID-AIR: the
+    teleport zeroes his velocity, so his speed reads 0 before gravity has
+    moved him, and the ground word the condition checked is the one he
+    stood on before the move (LandedCondition's own doc names the teleport
+    tick's stale ground; run 10 at tip f8145cb91: met for "on the ground"
+    at z=40 with ground=0 -- the track corridor's floor stands at z=4 --
+    then the gate's own samples read 37 -> 4 and the hold failed "still
+    moving, 33 u between them", on every route). That drop is not the
+    predicted joiner's alone; the host rides it too, and samples that
+    straddle it are the run-13 lie in miniature. So the rest wait runs
+    for BOTH players before the samples. The joiner's placement stays
+    judged on the horizontal axes (his ground word never speaks); the
+    host's stays 3-D, so a drop into a pit under the target still fails
+    the off-target check."""
+    rested, where = wait_until_still(run, index, seconds=rest_seconds)
+    if not rested:
+        return False, ("never came to rest after the route answered met (last read %s)"
+                       % (fmt_pos(where) if where else "unreadable"))
+    return placement_holds(run, index, pos, two_d=two_d)
+
+
+def settle_on(run, index, pos, ang, tries=3, prove=True):
+    """Teleport player `index` to `pos` facing `ang` and PROVE it landed:
+    grounded is not enough -- run 13's combat step got settle=True while
+    one player sat ~2000 u away at his parking spot -- so the verdict is
+    rests_then_holds's (he comes to rest, then two server-side samples
+    each within 64 u of the target and within 4 u of each other), and the
+    route's answer rides along as the context on the failure line. A
+    caller that discards the verdict passes prove=False and pays for no
+    proof; a discarding caller that later needs one is a bug in the caller.
+
+    The slot-based server route runs FIRST for both players: its settle
+    arm now answers met for the predicted joiner once the caller declares
+    him simulated=0 (his ground word reads -1 wherever he stands -- the
+    server-side move publishes no landing for him -- so the old ground
+    wait could only ever time out on him: the fact
+    DebugApiTeleportSettleTests writes against the route). His move does
+    run when a usercmd arrives, and its gravity walks him off a mid-air
+    target (runs 21-22), which is what the drop wait below answers. The
+    issuer's own console stays as the later attempt: it cannot name the
+    wrong player (runs 13-15 showed the slot route ok:true yet never
+    moving the joiner), but its answer says only that the command was
+    sent, so the same double-sample placement proof decides for it too.
+    Every attempt that fails prints which route ran, what it answered,
+    both handles, and where the player actually is."""
+    try:
+        ent_handle = (run.srv.entity(index=index) or {}).get("handle", "?")
+    except Exception:
+        ent_handle = "?"
+    routes = [teleport_player, teleport_by_command, teleport_player][:tries]
+    last = None
+    for route in routes:
+        try:
+            if route is teleport_player:
+                # Only the server route can name the slot; only the JOINER
+                # (not the listen host's local client, whose commands the
+                # server does run) is the one it declares unsimulated.
+                resp = route(run, index, pos, ang, simulated=(index == run.p1))
+            else:
+                resp = route(run, index, pos, ang)
+        except Exception as exc:
+            last = "route %s threw %s: %s" % (route.__name__, type(exc).__name__, exc)
+            run.say("    settle p%d at %s: %s" % (index, fmt_pos(pos), last))
+            continue
+        if not (isinstance(resp, dict) and resp.get("ok")):
+            last = ("route %s refused (%s; entity handle=%s)"
+                    % (route.__name__, resp, ent_handle))
+            # Printed as it happens, not only in the final failure line:
+            # which answer sent the joiner to the console route is the
+            # evidence step 0's fix lives or dies by.
+            run.say("    settle p%d at %s: %s" % (index, fmt_pos(pos), last))
+            continue
+        if not prove:
+            # A caller that discards the verdict (the payload steps re-place
+            # the capper every pump and judge the cart's own movement) pays
+            # for no proof: the route's ok IS the placement attempt.
+            return True
+        two_d = index != run.p1
+        held, why = rests_then_holds(run, index, pos, two_d)
+        tel_handle = resp.get("handle") or resp.get("route") or "no-handle"
+        if held:
+            # Printed even on success: which route landed the player is the
+            # evidence step 0's fix is supposed to be (the joiner must ride
+            # the slot route, status met, and never need the console).
+            run.say("    settle p%d at %s held (route %s, status=%s, handle=%s)"
+                    % (index, fmt_pos(pos), route.__name__, resp.get("status", "ok"),
+                       tel_handle))
+            return True
+        last = ("%s (route %s answered status=%s handle=%s vs entity handle=%s, answered %s)"
+                % (why, route.__name__, resp.get("status", "ok"), tel_handle, ent_handle, resp))
+        run.say("    settle p%d at %s: %s" % (index, fmt_pos(pos), last))
+    run.say("    settle p%d at %s failed: %s" % (index, fmt_pos(pos), last))
+    return False
+
+
+def player_state(run, index):
+    """The field values that say WHY a player under +forward answers 0 u:
+    Alive (the respawn-mode flag the second-client step at live-gate's 4551
+    waits on), ObserverMode, Ducked. For the probe lines, not a verdict."""
+    try:
+        f = run.srv.fields(index)
+        e = run.srv.entity(index=index) or {}
+    except lg.ApiError as why:
+        return "fields unavailable(%s)" % why
+    # MaxSpeed/MoveType from the nettable: MaxSpeed=0 while +forward is held
+    # is the movement rules zeroing the class speed; MaxSpeed=400 with speed
+    # 0 is the input never arriving. GroundEntity/asleep separate "stuck in
+    # geometry / flying" from "simulated but not walking".
+    # OldForwardMove separates the two halves of the input path: OldButtons=8
+    # (IN_FORWARD) with OldForwardMove=0 is the button arriving and the analog
+    # wish amount never being folded from it; both non-zero and speed 0 is the
+    # movement rules zeroing the walk. TickBase says whether commands are
+    # arriving at all right now.
+    parts = ["%s=%s" % (k, f.get(k)) for k in
+             ("Alive", "ObserverMode", "Ducked", "MaxSpeed", "MoveType",
+              "GroundEntity", "OldButtons", "OldForwardMove", "TickBase")]
+    parts.append("asleep=%s" % e.get("asleep"))
+    parts.append("conds[" + carrier_conds(run, index) + "]")
+    parts.append("client[" + client_input_dump(run, index) + "]")
+    return ",".join(parts)
+
+
+def client_input_dump(run, index):
+    """What the CLIENT of this player index (its debug-channel slot, the same
+    addressing as live-gate's client_crossings) says about the held key, read
+    through the server's proxy at /client/{slot}/input. It splits the
+    OldButtons=8/OldForwardMove=0 signature three ways, which the server-side
+    reading cannot:
+      held[]          -- the managed KeyButton states with state!=0. Empty
+                         while +forward is held on that client's console means
+                         the press never reached the managed button at all.
+      mouseActive=    -- the flag the engine hands CreateMove beside the
+                         sequence number (shell_clientdll.cpp). ClientInput.
+                         CreateMove computes the wish amounts only when it is
+                         true, while GetButtonBits reports buttons either
+                         way -- so False with buttons arriving is exactly
+                         "button seen, wish never folded".
+      lastcmd[fwd=]   -- the analog forward of the newest usercmd as the
+                         client recorded sending it. 0 with held[forward=1]
+                         locates the loss in the client's CreateMove; 400
+                         with OldForwardMove=0 server-side locates it on the
+                         wire or in the command loop.
+    '-' arms when the route cannot be reached: an unavailable reading is
+    printed, never dropped, so a stuck probe always says what it asked."""
+    try:
+        dump = run.srv.get("client", str(index), "input")
+    except lg.ApiError as why:
+        return "unavailable(%s)" % str(why)[:60]
+    if not isinstance(dump, dict):
+        return "unavailable(not a dict)"
+    parts = []
+    held = ",".join("%s=%s" % (b.get("name"), b.get("state"))
+                    for b in (dump.get("buttons") or []) if b.get("state"))
+    parts.append("held[%s]" % (held or "-"))
+    parts.append("mouseActive=%s" % (dump.get("mouse") or {}).get("active"))
+    cmds = dump.get("commands") or []
+    if cmds:
+        c = cmds[-1]
+        parts.append("lastcmd[fwd=%s,side=%s,btn=%s]" % (
+            c.get("forward"), c.get("side"), c.get("buttons")))
+    else:
+        parts.append("lastcmd=-")
+    return "|".join(parts)
+
+
+def wait_pump(run, label, pred, seconds, step=1.0, beat=15.0):
+    """wait_for with a printed heartbeat. An ApiError from the predicate is
+    NOT swallowed (a game whose socket stops answering must FAIL the step,
+    naming the error, not be mistaken for a slow wait); what this adds over
+    live-gate's wait_for is the line every `beat` seconds. Run 10 of this
+    gate died that way, not as a failure of its own: the join's 120+90+90 s
+    waits said nothing for 164 s, the tool call watching the run was reaped
+    as hung, the reaper signalled the whole process group, and the games and
+    the gate went down with it mid-wait -- silent, exit 2, no report row. A
+    gate that waits must say it is waiting.
+
+    Like wait_for it hands back the predicate's truthy VALUE, not a bare
+    True -- teams and heal read that value (run 11 learned this the hard
+    way, when the teams step got a bool and crashed on .get)."""
+    t0 = time.time()
+    last_beat = t0
+    while True:
+        got = pred()
+        if got:
+            return got
+        now = time.time()
+        if now - t0 >= seconds:
+            return None
+        if now - last_beat >= beat:
+            run.say("    .. still waiting for %s (%.0f s of %.0f)" % (
+                label, now - t0, seconds))
+            last_beat = now
+        time.sleep(step)
+
+
+def carrier_conds(run, index):
+    """The carrier's condition words for the stuck-state probe: the
+    TFMaxSpeed arms that answer 0 (DisguisedAsDispenser and not stealthed)
+    or clamp hard (Aiming) decide from these words, and a condition stuck on
+    in the nettable would zero the walk while every other reading stays
+    clean. Answer '-' when the carrier itself cannot be found."""
+    try:
+        for e in run.srv.ents("tf_player_data"):
+            try:
+                f = run.srv.fields(e["index"])
+            except lg.ApiError:
+                continue
+            if str(f.get("OwnerIndex")) == str(index):
+                return ",".join("%s=%s" % (k, f.get(k)) for k in
+                                ("PlayerCond", "PlayerCondEx", "PlayerCondEx2",
+                                 "PlayerCondEx3", "PlayerCondEx4"))
+    except lg.ApiError:
+        pass
+    return "-"
+
+
+def carrier_beam(run, index):
+    """The medic's beam state on his tf_player_data carrier: what
+    TFMedigunWeapon.Publish() writes as HealTargetIndex/ChargeLevel. A
+    target index says the beam found its patient (and points the bug at
+    the accumulation); -1/None every time says target acquisition never
+    hit. Answer (None, None) when the carrier cannot be found."""
+    try:
+        for e in run.srv.ents("tf_player_data"):
+            try:
+                f = run.srv.fields(e["index"])
+            except lg.ApiError:
+                continue
+            if str(f.get("OwnerIndex")) == str(index):
+                return f.get("HealTargetIndex"), f.get("ChargeLevel")
+    except lg.ApiError:
+        pass
+    return None, None
+
+
+def services_probe(api, names):
+    """Which of the named service contracts the side's container holds:
+    the debug-api services view (DebugStatus's rows spell the contract in
+    LookedUpBy). '?' when the side cannot be asked."""
+    try:
+        text = api.raw("services", "type")
+    except lg.ApiError:
+        return "?"
+    return ",".join("%s=%s" % (n, "yes" if n in text else "no") for n in names)
+
+
+def teleport_player(run, index, pos, ang, settle=True, ticks=330, simulated=True):
+    """The server's /player/teleport for player entity `index` (the route
+    resolves player=N through PlayerHandle; the CLIENT game's World.Teleport
+    is a no-op -- EngineBinding.Client.cs:990 -- so the server is the only
+    one that can place the listen game's own player). The settle response
+    means only "stood still 3 ticks on the server" (or, for a player
+    declared simulated=0, that the placement held on the target: an idle
+    predicted joiner's ground word reads -1 wherever he stands, so that is
+    the only landing evidence the server has -- DebugApiTeleportSettleTests);
+    whether the player is WHERE it was asked to is settle_on's own
+    double-sample re-read."""
+    params = {"pos": ",".join("%g" % v for v in pos), "player": index}
+    if ang is not None:
+        params["ang"] = ",".join("%g" % v for v in ang)
+    if settle:
+        params.update({"settle": 1, "timeout": int(ticks)})
+    if not simulated:
+        params["simulated"] = 0
+    return run.srv.get("teleport", *lg.query(params), timeout=max(30.0, ticks * 0.15) + 20)
+
+
+def wait_until_still(run, index, seconds=4.0, poll=0.2, still=1.0):
+    """Poll the SERVER's origin read of player `index` until two samples
+    `poll` s apart agree within `still` u, or the window runs out. The
+    joiner's drop after a placement needs it: the route answers met the
+    moment the placement holds (stableTicks, speed 0), and only THEN does
+    the server's per-command gravity start walking him down to the ground
+    under the target. Returns (True, origin) once consecutive samples
+    agree, (False, last read) if he never stops within the window."""
+    deadline = time.time() + seconds
+    try:
+        prev = entity_origin(run.srv, index)
+    except Exception:
+        prev = None
+    while time.time() < deadline:
+        time.sleep(poll)
+        try:
+            now = entity_origin(run.srv, index)
+        except Exception:
+            return False, prev
+        if now is None:
+            return False, prev
+        if prev is not None and lg.distance(list(now), list(prev)) <= still:
+            return True, now
+        prev = now
+    return False, prev
+
+
+def teleport_by_command(run, index, pos, ang):
+    """setpos_exact (+ setang_exact) through the player's OWN console: the
+    server dispatches registered names from a client's command with the
+    SENDING player as issuer (PlayerCheatCommands.cs's header: registration
+    is the only path engine->ServerCommand reaches -- exactly how the
+    classes step's client-side joinclass lands as #2), and these two move
+    THEIR ISSUER, not a slot number the caller may have mistranslated. The
+    server route above resolves player=N through PlayerHandle; runs 13-15
+    showed it ok:true every time yet never moved the predicted joiner (all
+    four p2 track/park/combat placements read back at his spawn room),
+    while the listen game's own player was verified placed repeatedly --
+    so for p2 the issuer route is the one that cannot name the wrong
+    player. Needs sv_cheats (launch sets it once).
+
+    The slot route is nevertheless FIRST for both players now (runs 21-22
+    read what a placement does for the joiner): the route moves the
+    server's player to the target, zero velocities him and answers met on
+    the placement holding (stableTicks=3, speed 0 -- the simulated=0 arm
+    step 0 wrote); and only THEN does the server's per-command gravity
+    start walking him down from a mid-air target (met at z=35, sampled at
+    z=4 a later instant), dropping him onto the ground under it. Issuing
+    setpos_exact from his console in between only re-places him for another
+    falling second -- it does not re-anchor his client (run 22: the samples
+    sank z=33 -> z=4 right through the re-anchor). So settle_on waits for
+    that drop to come to rest and judges the placement horizontally; this
+    console route stays as the later whole-attempt fallback, the one that
+    cannot name the wrong player, judged the same way."""
+    # Each player's commands come from the console he himself owns: the
+    # listen host's are the SERVER console (the heal's srv-console hurtme
+    # killed exactly that player, run 18), the joiner's are his own client
+    # console (the classes joinclass landed as #2). Issuer-based: no slot
+    # number, so a stale slot table cannot move the wrong player or nobody.
+    api = run.srv if index == run.p1 else run.client.api
+    api.cmd("cmd setpos_exact %g %g %g" % tuple(pos))
+    if ang is not None:
+        api.cmd("cmd setang_exact %g %g 0" % (ang[0], ang[1]))
+    return {"ok": True, "route": "issuer-console", "issuer": "#%d" % index}
+
+
+def report_park(run, index, speed):
+    """Where the finished runner stands after his run, as a report number --
+    NOT a gate. The two runs share one corridor, so three attempts parked the
+    finished runner ahead of the other one:
+
+    <para>
+    Run 13 parked p2 on spots[0], the ENEMY team's spawn room: every combat
+    teleport ended at his own spawn 1942 u away (func_respawnroom claims a
+    player a TELEPORT takes out of its brush). Run 14 parked him on his OWN
+    team's spawn, where the game itself had spawned him and the hold verified
+    at park time -- STILL claimed, at 3226 u. The room accepts him standing;
+    it is the teleport OUT of its volume that meets the return. Runs 14 and 15
+    then parked on each runner's own captured spawn point: verified true at
+    park time, and combat still found the heavy 3226 u off at a spawn.
+    </para>
+
+    <para>
+    So the park moved onto the track itself, 550 u along it -- and run 16
+    measured why that is wrong ground too: the scout, teleported there with
+    the heavy's run still to come, "never stood on ground after the
+    teleport", and the settle that did land put him at z=18 for a 40 target,
+    70 u down the corridor from where it put him. The corridor floor falls
+    away before 550 u; the only ground with a verified settle is the track
+    START itself, and a park there would stand the scout in the heavy's lane.
+    </para>
+
+    <para>
+    What the park was for, though, does not need it. Each runner is teleported
+    to the track start and held there by the wait, so the only way the first
+    can block the second is by still standing near it when the second arrives
+    -- and the runs that this step accepts are full-speed runs that carry him
+    hundreds of u away. So the park is REPORTED, not gated, and what gates the
+    lane is the next step's own settle_on, which verifies the placement it is
+    about to measure against. A gate on the park would be a second, weaker
+    claim about the same ground -- and the two parks that verified true are
+    exactly what misled runs 14 and 15 into thinking combat's 3226 u was
+    something other than a spawn claim.
+    </para>
+    """
+    origin = entity_origin(run.srv, index)
+    if not origin:
+        return "unreadable"
+    fx, fy = forward_of(TRACK_YAW)
+    along = ((origin[0] - TRACK_SPOT[0]) * fx + (origin[1] - TRACK_SPOT[1]) * fy)
+    return "%d u along the corridor (%s), speed %s" % (
+        int(round(along)), fmt_pos(origin),
+        "unmeasurable" if speed is None else "%.1f u/s" % speed)
+
+
+def speed_run_once(run, index, buttons):
+    """One +forward run along the open track, as
+    (moved_u, elapsed_s, wall_bound_u_or_None, state_when_stuck). Three
+    origin samples bracket the 1.0 s window; each read costs its own API
+    latency, so elapsed is the SAMPLE timestamps' span, not the sleeps'
+    sum, and the speed division uses it. The player is teleported to the
+    track facing +X; +forward is held for the 0.3 s run-up before the first
+    sample so acceleration is out of the window.
+
+    wall_bound is the distance from the track spot when the run stopped:
+    the second half's speed is less than half the first half's after a real
+    start -- it moved, then something (a wall, a prop, the other player)
+    stopped it. Such a run measures no speed; the caller fails it. A run
+    that never moved at all is NOT wall-bound: its state (alive, observer,
+    the client's held/lastcmd input dump) rides back instead, read WHILE
+    THE BUTTON IS HELD."""
+    if not settle_on(run, index, TRACK_SPOT, (0.0, TRACK_YAW, 0.0)):
+        return None, None, None, "never settled on the track at %s" % fmt_pos(TRACK_SPOT)
+    buttons("+forward")
+    time.sleep(SPEED_PREROLL_SECONDS)
+    ta = time.time()
+    a = entity_origin(run.srv, index)
+    time.sleep(SPEED_MEASURE_SECONDS / 2.0)
+    tm = time.time()
+    m = entity_origin(run.srv, index)
+    time.sleep(SPEED_MEASURE_SECONDS / 2.0)
+    tb = time.time()
+    b = entity_origin(run.srv, index)
+    moved = lg.distance(a[:2], b[:2]) if (a and b) else None
+    # Read everything that can explain a stuck player WHILE THE BUTTON IS
+    # STILL HELD; after -forward the readings rot.
+    state = player_state(run, index) if (moved is not None and moved < 1.0) else None
+    buttons("-forward")
+    if not a or not m or not b:
+        return None, None, None, "origin unreadable during the window"
+    d1 = lg.distance(a[:2], m[:2])
+    d2 = lg.distance(m[:2], b[:2])
+    v1 = d1 / max(tm - ta, 1e-3)
+    v2 = d2 / max(tb - tm, 1e-3)
+    if moved >= 16.0 and v2 < 0.5 * v1:
+        return None, None, lg.distance(TRACK_SPOT[:2], b[:2]), None
+    return moved, tb - ta, None, state
+
+
+def measure_speed(run, index, buttons, expected, tag):
+    """(u_per_s, detail, home) for the track run, or (None, refusal, None).
+    The run-up covers acceleration; one retry covers a window that caught a
+    stumble. A wall-bound run is a FAILURE naming the distance it stopped
+    at -- the integrator's ruling (run 12's scout "no probe moved" was the
+    spawn-room walls, not the game: a scout from RED spawn stops 72-200 u
+    later, at a wall). `home` is always the track: combat and heal reuse
+    it as the corridor they fight and beam along."""
+    if not wait_pump(run, "%s: Alive=true after spawn" % tag,
+                     lambda: run.is_alive(index) or None, 30.0):
+        return None, "never became Alive=true within 30 s (respawn mode?)", None
+    home = (list(TRACK_SPOT), TRACK_YAW)
+    best = None
+    last_state = None
+    for attempt in (1, 2):
+        moved, elapsed, wall_u, state = speed_run_once(run, index, buttons)
+        if wall_u is not None:
+            run.say("    %s track %d: WALL-BOUND after %.0f u (clear stretch ends ~630 u)"
+                    % (tag, attempt, wall_u))
+            return None, ("wall-bound run: stopped %.0f u along the open track"
+                          " -- the window measured a wall, not a speed" % wall_u), None
+        if moved is None:
+            last_state = state
+            run.say("    %s track %d: %s" % (tag, attempt, state))
+            continue
+        speed = moved / max(elapsed, 1e-3)
+        if moved < 1.0:
+            last_state = state
+        if best is None or moved > best[0]:
+            best = (moved, elapsed)
+        run.say("    %s track %d: %.0f u over %.2f s = %.1f u/s (want %.0f +- %d%%)%s" % (
+            tag, attempt, moved, elapsed, speed, expected, int(SPEED_TOLERANCE * 100),
+            (" state[" + state + "]") if state else ""))
+        if speed_within(moved, elapsed, expected):
+            return speed, "moved %.0f u over %.2f s on the open track" % (
+                moved, elapsed), home
+    if best is None:
+        return None, ("both track runs read no origin (last state: %s)" % last_state), None
+    best_moved, best_elapsed = best
+    if best_moved < 1.0:
+        return best_moved / max(best_elapsed, 1e-3), (
+            "the track run never moved (last state: %s)" % last_state), None
+    return best_moved / max(best_elapsed, 1e-3), "moved %.0f u over %.2f s (best of 2)" % (
+        best_moved, best_elapsed), home
+
+
+def step_classes(run, state):
+    numbers = {}
+    run.srv.cmd("cmd joinclass scout")
+    run.client.api.cmd("cmd joinclass heavyweapons")
+
+    # The core's own announcement first: a classless player picking a class
+    # takes the instant-spawn arm ("joins as <class> now"). The line is the
+    # evidence that the RIGHT class took effect -- the health numbers alone
+    # cannot tell scout from medic (both 125), and a class queued behind the
+    # current life ("will be ... at the next spawn") means the walk and the
+    # fight below would run against the wrong player.
+    def joined_now(index, want):
+        ev = run.class_evidence(index)
+        return ev if ev and ev[0] == "now" and ev[1] == want else None
+
+    scout_now = wait_pump(run, "classes: scout join line",
+                         lambda: joined_now(run.p1, "scout"), 30.0)
+    heavy_now = wait_pump(run, "classes: heavyweapons join line",
+                          lambda: joined_now(run.p2, "heavyweapons"), 30.0)
+    numbers["scout_join_line"] = (run.class_evidence(run.p1) or ("-", "-", "(no joinclass line)"))[2]
+    numbers["heavy_join_line"] = (run.class_evidence(run.p2) or ("-", "-", "(no joinclass line)"))[2]
+    if not (scout_now and heavy_now):
+        return "FAIL", numbers
+
+    # "max health right after spawn": Api.fields Health, waited for because
+    # the joinclass respawns; the value, the expected and the time are all
+    # recorded either way.
+    t0 = time.time()
+    scout_up = wait_pump(
+        run, "classes: scout Health up to %d" % CLASS_HEALTH["scout"],
+        lambda: health_is(run.srv.fields(run.p1), CLASS_HEALTH["scout"]), 90.0)
+    numbers["scout_health"] = run.health(run.p1)
+    heavy_up = wait_pump(
+        run, "classes: heavyweapons Health up to %d" % CLASS_HEALTH["heavyweapons"],
+        lambda: health_is(run.srv.fields(run.p2), CLASS_HEALTH["heavyweapons"]), 90.0)
+    numbers["heavy_health"] = run.health(run.p2)
+    numbers["scout_health_expected"] = CLASS_HEALTH["scout"]
+    numbers["heavy_health_expected"] = CLASS_HEALTH["heavyweapons"]
+    numbers["spawn_wait_seconds"] = "%.1f" % (time.time() - t0)
+    if not (scout_up and heavy_up):
+        # Show which of "the field is absent from /payload" and "the value is
+        # wrong" this is, instead of two None's.
+        numbers["field_dump_p1"] = run.field_dump(run.p1)
+        numbers["field_dump_p2"] = run.field_dump(run.p2)
+        return "FAIL", numbers
+
+    # The plan's own class read (step 3: "tf_player_data class 1 / 6"). This
+    # is the check that cannot confuse the classes behind the health numbers.
+    scout_cls = wait_pump(run, "classes: scout carrier PlayerClass",
+                         lambda: _class_is(run, run.p1, CLASS_NUM["scout"]), 30.0)
+    heavy_cls = wait_pump(run, "classes: heavyweapons carrier PlayerClass",
+                          lambda: _class_is(run, run.p2, CLASS_NUM["heavyweapons"]), 30.0)
+    numbers["scout_class_field"] = "%s %s" % (player_class(run, run.p1)[0:2])
+    numbers["heavy_class_field"] = "%s %s" % (player_class(run, run.p2)[0:2])
+    if not (scout_cls and heavy_cls):
+        return "FAIL", numbers
+
+    # Where the game itself put each of them (their own team's spawn room).
+    # Not the park spot -- runs 13-15 showed any teleport OUT of a room
+    # meets a return (park_off_track's comment) -- but recorded so a later
+    # placement that lands at a spawn reads as the claim it is.
+    numbers["home_p1"] = (lambda o: fmt_pos(o) if o else "unreadable")(
+        entity_origin(run.srv, run.p1))
+    numbers["home_p2"] = (lambda o: fmt_pos(o) if o else "unreadable")(
+        entity_origin(run.srv, run.p2))
+
+    scout_speed, scout_detail, scout_home = measure_speed(
+        run, run.p1, run.buttons_p1, CLASS_SPEED["scout"], "scout")
+    # The corridor each runner uses starts with a teleport to the track spot
+    # and the settle's 64 u hold there, so a runner standing anywhere but the
+    # start cannot block the other: the scout's own 400 u/s run carries him
+    # past the heavy's reach. Where the finished runner stands is reported
+    # (report_park: runs 13-16 of parks, and why the gate is the next step's
+    # settle, not a park here), not gated.
+    park_p1 = report_park(run, run.p1, scout_speed)
+    heavy_speed, heavy_detail, heavy_home = measure_speed(
+        run, run.p2, run.buttons_p2, CLASS_SPEED["heavyweapons"], "heavy")
+    park_p2 = report_park(run, run.p2, heavy_speed)
+    if heavy_home:
+        state["heavy_home"] = heavy_home
+    numbers["scout_speed"] = "%.1f" % scout_speed if scout_speed is not None else "unmeasurable"
+    numbers["scout_speed_expected"] = CLASS_SPEED["scout"]
+    numbers["heavy_speed"] = "%.1f" % heavy_speed if heavy_speed is not None else "unmeasurable"
+    numbers["heavy_speed_expected"] = CLASS_SPEED["heavyweapons"]
+    numbers["speed_tolerance"] = SPEED_TOLERANCE
+    numbers["scout_run"] = scout_detail
+    numbers["heavy_run"] = heavy_detail
+    numbers["park_p1"] = park_p1
+    numbers["park_p2"] = park_p2
+
+    def speed_ok(speed, want):
+        return (speed is not None
+                and abs(speed - want) <= want * SPEED_TOLERANCE)
+
+    ok = (speed_ok(scout_speed, CLASS_SPEED["scout"])
+          and speed_ok(heavy_speed, CLASS_SPEED["heavyweapons"]))
+    return ("PASS" if ok else "FAIL"), numbers
+
+
+def step_combat(run, state):
+    numbers = {}
+    run.srv.cmd("sv_cheats 1")
+
+    # The heavy (player 2) shoots the scout (player 1) at 200 u, along the
+    # corridor the heavy's own speed run proved flat and open: BOTH stand on
+    # that corridor -- the heavy at its proven start spot, the scout 200 u
+    # ahead down the run's heading (the run itself covered more than 200 u
+    # that way) -- and the heavy's view is snapped at the scout's eye
+    # (lg.angles_to -- and THE EYE IS NOT THE ORIGIN, so the +64 is added by
+    # the caller, as live-gate's own comment demands).
+    heavy_home = state.get("heavy_home")
+    heavy = entity_origin(run.srv, run.p2)
+    if heavy_home:
+        spot, yaw = heavy_home
+    elif heavy:
+        spot, yaw = list(heavy), 0.0
+    else:
+        return "FAIL", {"detail": "the heavy's origin could not be read"}
+    fx, fy = forward_of(yaw)
+    scout_at = [spot[0] + fx * 200.0, spot[1] + fy * 200.0, spot[2]]
+    if not settle_on(run, run.p1, scout_at, (0.0, yaw, 0.0)):
+        return "FAIL", {"detail": "the scout would not settle 200 u down the heavy's corridor at %s@%d" % (fmt_pos(spot), yaw)}
+    angle = lg.angles_to([spot[0], spot[1], spot[2] + 64.0],
+                         [scout_at[0], scout_at[1], scout_at[2] + 64.0])
+    if not settle_on(run, run.p2, spot, angle):
+        return "FAIL", {"detail": "the heavy would not settle on its corridor facing the scout"}
+    now_a = entity_origin(run.srv, run.p1)
+    now_b = entity_origin(run.srv, run.p2)
+    if not now_a or not now_b:
+        return "FAIL", {"detail": "origins vanished during placement"}
+    rng = lg.distance(now_a, now_b)
+    numbers["range_actual"] = "%.0f" % rng
+    scout_before = run.health(run.p1)
+    numbers["scout_health_before"] = scout_before
+    if not (190.0 <= rng <= 210.0) or scout_before is None:
+        # Run 13 failed here with range 2019 -- the heavy was still where the
+        # classes step had parked it while the scout's teleport took. Say
+        # where each one ACTUALLY is against where it was put.
+        numbers["want_heavy_at"] = fmt_pos(spot)
+        numbers["want_scout_at"] = fmt_pos(scout_at)
+        numbers["heavy_now"] = fmt_pos(now_b)
+        numbers["scout_now"] = fmt_pos(now_a)
+        numbers["team_spawns"] = ";".join(fmt_pos(s) for s in team_spawn_spots(run))
+        numbers.setdefault("detail", "the two did not end up 200 u apart, or the scout's Health is unreadable")
+        return "FAIL", numbers
+
+    # The minigun spins while +attack is held; the spin-up is what buys the
+    # accuracy at 200 u, so the attack is held through the whole wait.
+    run.buttons_p2("+attack")
+    hurt = wait_pump(
+        run, "combat: scout Health dropping under fire",
+        lambda: (lambda h: h is not None and h < scout_before)(run.health(run.p1)),
+        60.0, 0.5)
+    run.buttons_p2("-attack")
+    scout_after = run.health(run.p1)
+    numbers["scout_health_after"] = scout_after
+    ok = bool(hurt) and scout_after is not None and scout_after < scout_before
+    if not ok:
+        numbers["detail"] = ("the heavy's minigun did not move the scout's Health "
+                             "(non-zero stimulus required)")
+    return ("PASS" if ok else "FAIL"), numbers
+
+
+def step_heal(run, state):
+    numbers = {}
+    # Roles here are INVERTED from the classes step: player 1 (the listen
+    # host) becomes the heavy and is the patient, player 2 (the joiner)
+    # becomes the medic and holds the beam. The reason is the button
+    # history: every verb the beam side needs (joinclass, jointeam,
+    # hurtme, use, +attack) is PROVEN on the joiner's own console -- the
+    # classes step classes him, the join step jointeams him, and combat
+    # fires his minigun with buttons_p2 -- while p1's IN_ATTACK has never
+    # yet made anything happen (runs 20 and 21 held +attack from the
+    # server console with the Arsenal's own deploy line saying the medigun
+    # was in hand, and the heavy never healed).
+    # The medic heals the heavy from the forced 150 past 300 to the 450
+    # overheal cap (the medigun beam only lives across the medic's own
+    # team: TFMedigunWeapon's AllowedToHealTarget). The pair stand on the
+    # heavy's proven flat corridor.
+    run.srv.cmd("sv_cheats 1")  # hurtme is a cheat; standalone-step insurance
+
+    # -- p1: scout -> heavy, the patient --------------------------------------
+    # Both players are ALIVE with a class, so TFJoinClassCommand takes the
+    # queued arm ("will be X at the next spawn") and the class lands on a
+    # respawn. hurtme damages its ISSUER, so each self-kills from the
+    # console that issues for him: the server console's issuer is the host
+    # (run 18's srv-console hurtme killed #1), the joiner's own console
+    # issues for #2 (run 20's client-console hurtme brought him to 150).
+    run.srv.cmd("cmd joinclass heavyweapons")
+    ev = wait_pump(run, "heal: joinclass heavyweapons line for the scout",
+                   lambda: (lambda e: e if e and e[1] == "heavyweapons" else None)(
+                       run.class_evidence(run.p1)), 30.0)
+    numbers["patient_join_line"] = (ev or ("-", "-", "(no joinclass heavyweapons line)"))[2]
+    if ev is None:
+        numbers["detail"] = "joinclass heavyweapons logged nothing: the patient change is unconfirmed"
+        return "FAIL", numbers
+    if ev[0] == "queued":
+        run.srv.cmd("cmd hurtme 9999")
+
+    # -- p2: heavy -> medic, the one holding the beam --------------------------
+    run.client.api.cmd("cmd joinclass medic")
+    ev = wait_pump(run, "heal: joinclass medic line for the joiner",
+                   lambda: (lambda e: e if e and e[1] == "medic" else None)(
+                       run.class_evidence(run.p2)), 30.0)
+    numbers["medic_join_line"] = (ev or ("-", "-", "(no joinclass medic line)"))[2]
+    if ev is None:
+        numbers["detail"] = "joinclass medic logged nothing: the class change is unconfirmed"
+        return "FAIL", numbers
+    if ev[0] == "queued":
+        run.client.api.cmd("cmd hurtme 9999")
+        # Let the kill land BEFORE the pick: the dead-player arm applies
+        # the queued class on the spot, but only while the issuer is dead.
+        # A pick that arrives first short-circuits as alive-unchanged and
+        # the medic stays on the death until the wave (runs heal4/full1:
+        # medic_health=-9850 through the whole alive wait; heal3/heal6/
+        # hr5 where the pick landed after the kill passed in seconds).
+        wait_pump(run, "heal: the queued medic's kill landed",
+                  lambda: not run.is_alive(run.p2), 30.0, 0.3)
+        run.client.api.cmd("cmd joinclass medic")
+
+    # The medic must land on the heavy's team (TFMedigunWeapon's
+    # AllowedToHealTarget). mp_teams_unbalance_limit is 1 (the teams step
+    # read that default and gated on it), and the medic's move makes the
+    # pair 2-v-0 -- TFTeams refuses it ("That team is full: joining it
+    # would unbalance the teams"). The gate does not test that refusal (no
+    # such step in the brief); it needs the pair on one team, so it sets
+    # the rule to 0 (run 19 proved the move lands with it off). The move
+    # rides the joiner's own console, as every other p2 verb does.
+    heavy_team = run.team_now(run.p1)
+    if heavy_team not in (TEAM_RED, TEAM_BLU):
+        numbers["heavy_team"] = heavy_team
+        numbers["detail"] = "the heavy's team could not be read: nowhere to move the medic"
+        return "FAIL", numbers
+    team_name = "red" if heavy_team == TEAM_RED else "blue"
+    run.srv.cmd("mp_teams_unbalance_limit 0")
+    run.client.api.cmd("cmd jointeam %s" % team_name)
+    # The team join shows the joiner's class panel again (the join opens it,
+    # the welcome menu's arms re-show it), and a headless joiner has no UI
+    # click to close it: the wave loop holds MenuOpen players back every tick
+    # until the panel closes. A stock client closes it by picking its class;
+    # the same pick, from the joiner's own console, is this resend -- it also
+    # takes the queued Medic on the spot through the dead-player arm, so the
+    # alive-at-full-Health wait below lands on a respawning medic.
+    run.client.api.cmd("cmd joinclass medic")
+    same = wait_pump(
+        run, "heal: medic alive on the heavy's team at full Health",
+        lambda: run.is_alive(run.p2) and run.team_now(run.p2) == heavy_team
+        and health_is(run.srv.fields(run.p2), CLASS_HEALTH["medic"]), 90.0)
+    numbers["medic_team"] = run.team_now(run.p2)
+    numbers["heavy_team"] = heavy_team
+    if not same:
+        numbers["medic_health"] = run.health(run.p2)
+        numbers["detail"] = "the medic never came to rest on the heavy's team, alive"
+        return "FAIL", numbers
+    # Health is class-shaped; the carrier is the authority.
+    medic_cls = wait_pump(run, "heal: carrier PlayerClass=medic",
+                          lambda: _class_is(run, run.p2, CLASS_NUM["medic"]), 30.0)
+    numbers["medic_class_field"] = "%s %s" % player_class(run, run.p2)[0:2]
+    if not medic_cls:
+        numbers["detail"] = "the carrier does not report PlayerClass=medic (5)"
+        return "FAIL", numbers
+    heavy_cls = wait_pump(run, "heal: carrier PlayerClass=heavyweapons",
+                          lambda: _class_is(run, run.p1, CLASS_NUM["heavyweapons"]), 30.0)
+    numbers["patient_class_field"] = "%s %s" % player_class(run, run.p1)[0:2]
+    if not heavy_cls:
+        numbers["detail"] = "the carrier does not report PlayerClass=heavyweapons (6)"
+        return "FAIL", numbers
+
+    run.srv.cmd("cmd hurtme %d" % (HEAL_BASE_MAX - HEAL_HURT_TO))
+    hurt = wait_pump(
+        run, "heal: heavy hurt down to %d" % HEAL_HURT_TO,
+        lambda: (lambda h: h is not None and h <= HEAL_HURT_TO + 5)(run.health(run.p1)), 30.0)
+    numbers["heavy_health_hurt"] = run.health(run.p1)
+    numbers["heavy_health_hurt_target"] = HEAL_HURT_TO
+    if not hurt:
+        numbers["detail"] = "hurtme did not bring the heavy down (non-zero stimulus required)"
+        return "FAIL", numbers
+
+    heavy_home = state.get("heavy_home")
+    heavy_now = entity_origin(run.srv, run.p1)
+    if heavy_home:
+        home, yaw = heavy_home
+    elif heavy_now:
+        home, yaw = list(heavy_now), 0.0
+    else:
+        numbers["detail"] = "the heavy's origin could not be read"
+        return "FAIL", numbers
+    fx, fy = forward_of(yaw)
+    # 100 u DOWN the track, not behind the heavy: the clear stretch runs
+    # +X from the start spot; the -X side of it is unverified. The medic's
+    # own angle is computed below, aimed back at the heavy, so the beam
+    # points the right way.
+    medic = [home[0] + fx * 100.0, home[1] + fy * 100.0, home[2]]
+    if not settle_on(run, run.p1, home, (0.0, yaw, 0.0)):
+        numbers["detail"] = "the heavy would not settle on his flat corridor"
+        return "FAIL", numbers
+    angle = lg.angles_to([medic[0], medic[1], medic[2] + 64.0],
+                         [home[0], home[1], home[2] + 64.0])
+    if not settle_on(run, run.p2, medic, angle):
+        numbers["detail"] = "the medic would not settle behind the heavy"
+        return "FAIL", numbers
+
+    # The aim is recomputed from where the two ACTUALLY settled, at the
+    # heavy's torso: the two settles were two ground requests 100 u apart,
+    # and each answered at its own floor height -- run 22's probe read the
+    # medic's eye 7.5 u over the heavy's and the requested pitch-0 aim
+    # passed over the heavy's crown (both FindNewTargetInSlot traces hit
+    # nothing). A player aims at his patient, not at the spot he was asked
+    # to stand on.
+    heavy_act = entity_origin(run.srv, run.p1)
+    medic_act = entity_origin(run.srv, run.p2)
+    if not heavy_act or not medic_act:
+        numbers["detail"] = "an origin could not be read after the settle"
+        return "FAIL", numbers
+    numbers["heal_heavy_origin"] = "%s" % (heavy_act,)
+    numbers["heal_medic_origin"] = "%s" % (medic_act,)
+    angle = lg.angles_to([medic_act[0], medic_act[1], medic_act[2] + 64.0],
+                         [heavy_act[0], heavy_act[1], heavy_act[2] + 48.0])
+    if not settle_on(run, run.p2, medic_act, angle):
+        numbers["detail"] = "the medic would not settle aimed at the heavy"
+        return "FAIL", numbers
+    # Read the medic's angles back: settle_on only holds the player to the
+    # target and grounded, not his facing -- and an unnoticed yaw is one of
+    # the ways a medigun beam silently misses (run 21 never measured it).
+    # The /entity answer carries "angles" as [pitch, yaw, roll].
+    med_ent = run.srv.entity(index=run.p2) or {}
+    numbers["medic_aim_want"] = "%.0f,%.0f" % angle
+    numbers["medic_aim_read"] = ",".join(
+        "%.0f" % a for a in (med_ent.get("angles") or [999, 999, 999]))
+
+    # The spawn deploys the medic's PRIMARY (the syringe gun), so holding
+    # +attack here fired syringes at a teammate: no damage, no heal, and
+    # nothing logged (run 20: peak 150 through 120 s). The medigun's
+    # behaviour runs only while its entity is the player's active weapon
+    # (TFMedigunBehaviour: ScriptOf(attack.Type) gates the Heal dispatch).
+    # `use <classname>` is the arsenal switch the tools were given for
+    # exactly this (shell_standalone_player.cpp's registered ConCommand,
+    # routed to OnClientCommand with the issuing player): from the joiner's
+    # own console the issuer is this medic, and a refused switch logs
+    # itself as "[SourceSharp/Arsenal] ... changed nothing: <reason>".
+    run.client.api.cmd("cmd use tf_weapon_medigun")
+    numbers["medigun_switch"] = "cmd use tf_weapon_medigun"
+    # Hold the attack ONLY after the switch's own deploy line: a hold that
+    # starts while the old primary still answers fired one syringe burst and
+    # the held button never re-triggered for the medigun (run heal4: peak
+    # 150 and carrier target -1 across the whole hold). The Arsenal logs
+    # "#<index> deployed tf_weapon_medigun" when the switch takes, so the
+    # line is the ready signal.
+    deployed = wait_pump(run, "heal: medic's medigun deployed",
+                         lambda: ("%d deployed tf_weapon_medigun" % run.p2
+                                  in "".join(run.team_lines())) or None,
+                         10.0, 0.3)
+    numbers["medigun_deploy_seen"] = bool(deployed)
+
+    # The carrier's beam state, sampled on every health poll while the
+    # button is held: HealTargetIndex >= 0 says the medigun FOUND its
+    # patient (the bug is then the accumulation); -1/None across the whole
+    # hold says target acquisition never hit. "peak 150" alone cannot tell
+    # these apart -- that discrimination is what runs 20 and 21 lacked.
+    peak = {"health": run.health(run.p1) or 0, "target": None, "charge": None}
+
+    def rising(cap):
+        h = run.health(run.p1)
+        if h is None:
+            return None
+        peak["health"] = max(peak["health"], h)
+        # Re-arm the held button and the settle aim on every poll: under
+        # load a single +attack or a single settle can drop before the
+        # beam's first tick -- runs heal4/heal5/heal6b read carrier target
+        # -1 across the whole hold with the pitch read back 0 (the flat
+        # beam passes over the heavy's crown). The re-issue is cheap and
+        # idempotent; the finally-arm release still ends the hold.
+        run.buttons_p2("+attack")
+        settle_on(run, run.p2, medic_act, angle)
+        t, c = carrier_beam(run, run.p2)
+        if t is not None:
+            try:
+                peak["target"] = int(t) if peak["target"] is None else max(peak["target"], int(t))
+            except ValueError:
+                pass
+        if c is not None:
+            try:
+                f = float(c)
+                peak["charge"] = f if peak["charge"] is None else max(peak["charge"], f)
+            except ValueError:
+                pass
+        return peak["health"] if peak["health"] >= cap else None
+
+    run.buttons_p2("+attack")
+    try:
+        # Positive arm first (CLAUDE.md: require a non-zero in the positive
+        # arm): the first point above the hurt-to value says a beam reached
+        # the heavy at all. Without it, "peak 150" cannot tell a refused
+        # switch from a slow heal.
+        # 60 s, not 30: under the load several games put on one GPU the
+        # joiner's client ticks slow enough that settle + aim + the beam's
+        # first tick can pass 30 s (runs hr4/hr5: heavy stuck at the hurt
+        # value to the window cap while the same box passed the step in
+        # 18 s when quiet). The cap wait below already gets 120 s.
+        first = wait_pump(run, "heal: heavy Health first rising above %d" % HEAL_HURT_TO,
+                          lambda: rising(HEAL_HURT_TO + 1), 60.0, 0.5)
+        over = (wait_pump(run, "heal: heavy Health rising to the %d cap" % HEAL_CAP,
+                          lambda: rising(HEAL_CAP), 120.0, 0.5)
+                if first else None)
+    finally:
+        run.buttons_p2("-attack")
+
+    numbers["heavy_health_peak"] = peak["health"]
+    numbers["heal_base_max"] = HEAL_BASE_MAX
+    numbers["heal_cap"] = HEAL_CAP
+    numbers["medic_heal_target_seen"] = peak["target"]
+    numbers["medic_charge_peak"] = peak["charge"]
+    ok = bool(over) and peak["health"] >= HEAL_CAP
+    if not ok:
+        if not first:
+            arsenal = [l for l in run.team_lines() if "Arsenal" in l][-3:]
+            # A silent heal dispatch has two candidate causes: the effect
+            # seam was never composed (NoTFWeaponEffects answers nothing),
+            # or it is composed and its target trace never hits. The
+            # carrier's target split those; this splits the first half by
+            # asking the server's own container.
+            numbers["heal_services"] = services_probe(
+                run.srv, ["ITFWeaponEffects", "TFWeaponEffects",
+                          "ITFHealEffects", "TFMedigunWeapon"])
+            numbers["detail"] = ("no heal at all from the medigun (peak %d, aim want %s read %s, "
+                                 "carrier target %s charge %s, services %s); last Arsenal lines %s"
+                                 % (peak["health"], numbers["medic_aim_want"],
+                                    numbers["medic_aim_read"], peak["target"], peak["charge"],
+                                    numbers["heal_services"], arsenal or "(none)"))
+        else:
+            numbers["detail"] = ("the medic could not heal the heavy to the "
+                                 "overheal cap (peak %d)" % peak["health"])
+    return ("PASS" if ok else "FAIL"), numbers
+
+
+def step_respawn(run, state):
+    """A wave respawn (team wipe): the active weapon deploys once per
+    spawn and the viewmodel attachment is reused, not created anew -- two
+    waves counted against the console log. The round gate's "duplicate
+    deploys after each respawn" did not reproduce at this tip: two back-
+    to-back respawns (a queued-class death, then a jointeam respawn) each
+    deploying once is what the console showed twice for one player."""
+    numbers = {}
+
+    def counts():
+        lines = run.team_lines()
+        return (len([l for l in lines if "[SourceSharp/C#] player spawned" in l]),
+                len([l for l in lines if "deployed" in l]),
+                len([l for l in lines if "creating 'ss_viewmodel_attachment'" in l]))
+
+    rounds = []
+    for rnd in (1, 2):
+        s0, d0, a0 = counts()
+        run.client.api.cmd("cmd hurtme 9999")
+        run.srv.cmd("cmd hurtme 9999")
+        # Same reason heal resends the pick after its jointeam: the team
+        # join shows the joiner its class panel again, and the wave loop
+        # holds a MenuOpen player back every tick. A stock client closes
+        # the panel by picking its class, so the same pick from the
+        # joiner's own console both closes it and takes the dead-instant
+        # respawn arm; the heavy (the server's own player, whose panel
+        # never reopens under load) does not need the resend. Runs hr3/
+        # hr4 without it read p1=300 p2=-9849 through the whole window.
+        run.client.api.cmd("cmd joinclass medic")
+        dead = wait_pump(run, "respawn %d: the team wiped" % rnd,
+                         lambda: not run.is_alive(run.p1) and not run.is_alive(run.p2), 30.0, 0.3)
+        if not dead:
+            numbers["detail"] = "round %d: the team never died" % rnd
+            numbers["respawn_rounds"] = str(rounds)
+            return "FAIL", numbers
+        back = wait_pump(run, "respawn %d: both at full Health" % rnd,
+                         lambda: (lambda h1, h2:
+                                  h1 == CLASS_HEALTH["heavyweapons"]
+                                  and h2 == CLASS_HEALTH["medic"])(run.health(run.p1),
+                                                                   run.health(run.p2)),
+                         90.0, 1.0)
+        s1, d1, a1 = counts()
+        deploys = [l.strip() for l in run.team_lines() if "deployed" in l][d0:d1]
+        rounds.append({"spawns": s1 - s0, "deploys": d1 - d0, "attachments": a1 - a0,
+                       "deploy_lines": deploys})
+        if not back:
+            # Name the missing side on fail: which player the wait never
+            # saw at full Health, and what Health it did read (a dead
+            # negative value vs a wrong-but-positive one split a held
+            # respawn from a miscounted class).
+            numbers["detail"] = ("round %d: the team never came back, p1=%r p2=%r"
+                                 % (rnd, run.health(run.p1), run.health(run.p2)))
+            numbers["respawn_rounds"] = str(rounds)
+            return "FAIL", numbers
+
+    numbers["respawn_rounds"] = " || ".join(str(r) for r in rounds)
+    ok = all(r["spawns"] == 2 and r["deploys"] == 2 and r["attachments"] == 0 for r in rounds)
+    if not ok:
+        numbers["detail"] = ("the wave respawn did not deploy once per spawn and reuse "
+                             "the attachment: %s" % numbers["respawn_rounds"])
+    return ("PASS" if ok else "FAIL"), numbers
+
+
+ROUND_STATE_PREFIX = "[TF2/Rounds] state "
+CTF_PICKED_UP = "picked up by player "
+CTF_CAPTURED = "captured by player "
+
+
+def parse_round_state(line):
+    """The state word of a tf2_dev_win bare echo ("[TF2/Rounds] state
+    RoundRunning, winner Unassigned, waiting False"), or None. Pure, so
+    --self-test holds it without a game."""
+    if not line or ROUND_STATE_PREFIX not in line:
+        return None
+    rest = line.split(ROUND_STATE_PREFIX, 1)[1]
+    word = rest.split(",", 1)[0].strip()
+    return word or None
+
+
+def round_state(run):
+    """The round machine's state word, read the way the existing steps read
+    state: the server's console.log. tf2_dev_win with no argument only logs
+    (TFDevWinCommand: state, winner, waiting) -- this asks for a fresh echo
+    and hands back the newest one's state."""
+    run.srv.cmd("tf2_dev_win")
+    lines = [l for l in run.team_lines() if ROUND_STATE_PREFIX in l]
+    return parse_round_state(lines[-1]) if lines else None
+
+
+def round_lines_since(run, needle):
+    """Console lines containing `needle`, written after the step's run.mark().
+    Tabs folded to spaces so a line quoted into a report number cannot
+    break the row's columns."""
+    return [l.strip().replace("\t", " ") for l in run.read_console_since_mark().splitlines()
+            if needle in l]
+
+
+def _entity_probe(run, index):
+    """Everything the reads can say about one entity index, for a FAIL
+    record: the /entity answer and the /payload field dump."""
+    try:
+        ent = run.srv.entity(index=index) or {}
+    except lg.ApiError as why:
+        ent = {"error": str(why)}
+    try:
+        fields = run.srv.fields(index)
+    except lg.ApiError as why:
+        fields = {}
+        ent.setdefault("fields_error", str(why))
+    ent["fields"] = fields
+    return ent
+
+
+def step_ctf(run, state):
+    """Stage 4.2 step 6 (docs/plans/tf2/stage4_milestone.md): the host's own
+    player is teleported to the ENEMY intel, takes the flag, is teleported
+    to his own capture zone -- the game logs the capture, the team's flag
+    captures reach 1, the flag is home again, the round keeps running
+    (tf_flag_caps_per_round defaults to 3, so one cap is not a win). Then
+    tf2_dev_win forces the round: TEAM_WIN holds the bonus time and yields
+    through RESTART into PREROUND.
+
+    Every placement here is the HOST's player (run.p1): the joiner's
+    teleport flow belongs to another lane and nothing here may drive it.
+    The teleports ride settle_on; the pickups and captures ride a short
+    +forward, because the server's trigger touches fire in the player's
+    move (stock Touch reaches a player once per command, ProcessImpacts)
+    and a placement alone never runs one."""
+    numbers = {}
+    run.mark()  # the game's own needles below must be NEW lines
+    run.srv.cmd("sv_cheats 1")  # tf2_dev_win is a cheat; standalone insurance
+
+    # -- the round must be mid-round before any of this -----------------------
+    # ItemTeamFlag's pickup, FuncCaptureZone's capture (FlagsMayBeCapped)
+    # and the win all refuse outside ROUND_RUNNING.
+    running = wait_pump(run, "ctf: ROUND_RUNNING (tf2_dev_win echo)",
+                        lambda: round_state(run) == "RoundRunning", 120.0)
+    numbers["round_state_before"] = "RoundRunning" if running else (round_state(run) or "unreadable")
+    if not running:
+        numbers["detail"] = ("the round never reached ROUND_RUNNING; last echo %r"
+                             % (round_lines_since(run, ROUND_STATE_PREFIX)[-1:] or None,))
+        return "FAIL", numbers
+
+    # A dead carrier is touched by nothing: earlier steps hurt and killed
+    # players, and a placement never wakes a body. tf2's mp_forcerespawn
+    # cycle brings him back by itself; the step only waits for it.
+    alive = wait_pump(run, "ctf: the carrier alive", lambda: run.is_alive(run.p1), 30.0)
+    if not alive:
+        numbers["carrier_alive"] = False
+        numbers["carrier_health"] = run.health(run.p1)
+        numbers["detail"] = "the host player never came back alive to carry the flag"
+        return "FAIL", numbers
+
+    team = run.team_now(run.p1)
+    numbers["carrier_team"] = team
+    if team not in (TEAM_RED, TEAM_BLU):
+        numbers["detail"] = "the host player's team could not be read"
+        return "FAIL", numbers
+
+    # -- the flags: two item_teamflags, one per intel -------------------------
+    try:
+        flags = run.srv.ents("item_teamflag")
+    except lg.ApiError as why:
+        numbers["detail"] = "/entities?class=item_teamflag failed: %s" % why
+        return "FAIL", numbers
+    numbers["flags_found"] = len(flags)
+    if len(flags) != 2:
+        numbers["detail"] = ("ctf_2fort expects two item_teamflags, the entity "
+                             "list answered %r" % ([f.get("index") for f in flags],))
+        return "FAIL", numbers
+
+    # Which flag is the enemy's. Run of 2026-10-27 (.scratch/ctf-red.log):
+    # the /payload fields of an item_teamflag answer {} (no TeamNum), but
+    # /entity names them -- ctf_2fort bakes flag_red / flag_blue -- so the
+    # NAME carries the owning team. If names ever stop answering, the
+    # fall-back is to settle on each intel and let the game's own pickup
+    # line name the enemy flag (a same-team player never picks up his own).
+    team_word = "red" if team == TEAM_RED else "blue"
+
+    def _named_team(ent):
+        name = (ent.get("name") or "").lower()
+        if "flag_red" in name or name.endswith("_red"):
+            return "red"
+        if "flag_blue" in name or name.endswith("_blue"):
+            return "blue"
+        return None
+
+    def _flag_reads():
+        """Fresh /entity answers for the two flags (origins and names)."""
+        out = {}
+        for f in flags:
+            try:
+                out[f["index"]] = run.srv.entity(index=f["index"]) or {}
+            except lg.ApiError:
+                out[f["index"]] = {}
+        return out
+
+    flag_ents = _flag_reads()
+    names_read = {idx: (e.get("name") or "-") for idx, e in flag_ents.items()}
+    numbers["flag_names"] = ",".join("%s=%s" % kv for kv in sorted(names_read.items(),
+                                                                    key=lambda kv: str(kv[0])))
+    named = [f for f in flags if _named_team(flag_ents[f["index"]]) in ("red", "blue")]
+    if len(named) == 2:
+        enemy = [f for f in named if _named_team(flag_ents[f["index"]]) != team_word]
+        own_flags = [f for f in named if _named_team(flag_ents[f["index"]]) == team_word]
+        numbers["flag_teams"] = numbers["flag_names"]
+        if len(enemy) != 1 or len(own_flags) != 1:
+            numbers["detail"] = ("the two flags do not split one-per-team by name: %s"
+                                 % numbers["flag_names"])
+            return "FAIL", numbers
+    else:
+        # Names unreadable: try BOTH intel origins and let the pickup line
+        # decide (the game refuses a same-team pickup, run of 2026-10-27:
+        # settling on flag_red logged nothing, on flag_blue logged the pick).
+        enemy = list(flags)
+        own_flags = list(flags)
+        numbers["flag_field_dump"] = {str(f["index"]): _entity_probe(run, f["index"])
+                                       for f in flags}
+
+    # The chosen flag's home position, recorded BEFORE the pickup: "the flag
+    # is home" is re-asserted against this, not against a re-read of the
+    # flag after it moved (Capture's Reset sends it back; the proof is that
+    # it comes back HERE).
+    carrier = enemy[0]
+    carrier_index = carrier["index"]
+    flag_home = carrier.get("origin") or entity_origin(run.srv, carrier_index)
+    if not flag_home:
+        numbers["detail"] = "the enemy flag's origin could not be read (index %s)" % carrier_index
+        return "FAIL", numbers
+    numbers["flag_index"] = carrier_index
+    numbers["flag_home"] = fmt_pos(flag_home)
+
+    pickup_needle = "%s%d" % (CTF_PICKED_UP, run.p1)
+
+    def carried():
+        return round_lines_since(run, pickup_needle)
+
+    # -- intel run: settle on the enemy flag, step, and be holding it --------
+    if not settle_on(run, run.p1, list(flag_home), (0.0, 0.0, 0.0)):
+        numbers["detail"] = "the carrier would not settle on the enemy intel at %s" % fmt_pos(flag_home)
+        return "FAIL", numbers
+    # The touch that takes the flag fires in the player's own move: a held
+    # +forward of a third of a second starts him inside the flag's box and
+    # gives the server one ProcessImpacts pass with him moving through it.
+    run.buttons_p1("+forward")
+    time.sleep(0.3)
+    run.buttons_p1("-forward")
+    picked = wait_pump(run, "ctf: the enemy flag picked up by player %d" % run.p1,
+                       carried, 15.0, 0.5)
+    if picked is None and len(enemy) > 1:
+        # The first intel answered nothing: try the other flag (the
+        # TeamNum-blind path only; with a named enemy flag there is no
+        # second candidate).
+        other = [f for f in enemy if f["index"] != carrier_index]
+        if other:
+            carrier = other[0]
+            carrier_index = carrier["index"]
+            flag_home = carrier.get("origin") or entity_origin(run.srv, carrier_index)
+            numbers["flag_index"] = carrier_index
+            numbers["flag_home"] = fmt_pos(flag_home) if flag_home else "unreadable"
+            if flag_home and settle_on(run, run.p1, list(flag_home), (0.0, 0.0, 0.0)):
+                run.buttons_p1("+forward")
+                time.sleep(0.3)
+                run.buttons_p1("-forward")
+                picked = wait_pump(run, "ctf: the other intel's flag picked up", carried, 15.0, 0.5)
+    numbers["pickup_line"] = (picked or ["(no pickup line)"])[-1]
+    if not picked:
+        numbers["round_state_after_touch"] = round_state(run) or "unreadable"
+        numbers["flag_field_dump"] = {str(carrier_index): _entity_probe(run, carrier_index)}
+        numbers["detail"] = ("no '%s' line after settling on the flag at %s: "
+                             "the intel touch never reached the game"
+                             % (pickup_needle, numbers["flag_home"]))
+        return "FAIL", numbers
+
+    # -- return run: settle inside his own team's capture zone ---------------
+    try:
+        zones = run.srv.ents("func_capturezone")
+    except lg.ApiError as why:
+        numbers["detail"] = "/entities?class=func_capturezone failed: %s" % why
+        return "FAIL", numbers
+    numbers["zones_found"] = len(zones)
+    if not zones:
+        numbers["zone_probes"] = {c: "(none)" for c in ["func_capturezone"]}
+        numbers["detail"] = "the map answers no func_capturezone entities"
+        return "FAIL", numbers
+
+    # Which zone is his own. Run of 2026-10-27 (.scratch/ctf-red.log): a
+    # func_capturezone's /entity origin is its ORIGIN BRUSH's -- (0,0,0) for
+    # both zones on ctf_2fort, so position decides nothing -- but the names
+    # are baked (capturezone_red / capturezone_blue), and the zone's brush
+    # sits at its team's intel, where that team's own flag stands. So the
+    # zone is chosen by NAME and the placement target is the flag the
+    # carrier did NOT pick up: his own flag still stands on his own intel,
+    # inside this zone's brush. (Teleporting to the zone's (0,0,0) "origin"
+    # is exactly what the red-first run did: settle held him in mid-map
+    # where no brush of his zone reaches, and no capture line came.)
+    zone_ents = {}
+    for z in zones:
+        try:
+            zone_ents[z["index"]] = run.srv.entity(index=z["index"]) or {}
+        except lg.ApiError:
+            zone_ents[z["index"]] = {}
+    numbers["zone_names"] = ",".join(
+        "%s=%s" % (z["index"], (zone_ents[z["index"]].get("name") or "-"))
+        for z in sorted(zones, key=lambda z: str(z["index"])))
+    mine = [z for z in zones if team_word in (zone_ents[z["index"]].get("name") or "").lower()]
+    if len(mine) != 1:
+        numbers["zone_probes"] = {str(z["index"]): _entity_probe(run, z["index"]) for z in zones}
+        numbers["detail"] = ("no single func_capturezone names the carrier's team %r: %s"
+                             % (team_word, numbers["zone_names"]))
+        return "FAIL", numbers
+    zone = mine[0]
+    numbers["zone_index"] = zone["index"]
+    numbers["zone_name"] = zone_ents[zone["index"]].get("name")
+    numbers["zone_brush_origin"] = fmt_pos(zone_ents[zone["index"]].get("origin")
+                                           or [0, 0, 0])
+    own = [f for f in flags if f["index"] != carrier_index]
+    zone_origin = None
+    if own:
+        zone_origin = own[0].get("origin")
+        if not zone_origin:
+            try:
+                zone_origin = (run.srv.entity(index=own[0]["index"]) or {}).get("origin")
+            except lg.ApiError:
+                zone_origin = None
+    numbers["zone_origin"] = fmt_pos(zone_origin) if zone_origin else "unreadable"
+    if not zone_origin:
+        numbers["detail"] = ("the carrier's own flag (the one inside %s's brush, "
+                             "index %s) has no readable position"
+                             % (numbers["zone_name"], zone["index"]))
+        return "FAIL", numbers
+    if not settle_on(run, run.p1, list(zone_origin), (0.0, 0.0, 0.0)):
+        numbers["detail"] = "the carrier would not settle in the capture zone at %s" % numbers["zone_origin"]
+        return "FAIL", numbers
+
+    capture_needle = "%s%d" % (CTF_CAPTURED, run.p1)
+    run.buttons_p1("+forward")
+    time.sleep(0.3)
+    run.buttons_p1("-forward")
+    capped = wait_pump(run, "ctf: flag captured by player %d" % run.p1,
+                       lambda: round_lines_since(run, capture_needle), 15.0, 0.5)
+    if capped is None:
+        # TouchEveryTick should catch an overlap the move missed; a second
+        # step from the other way covers a carrier stopped flush against a
+        # wall.
+        run.buttons_p1("+back")
+        time.sleep(0.3)
+        run.buttons_p1("-back")
+        capped = wait_pump(run, "ctf: flag captured (second step)",
+                           lambda: round_lines_since(run, capture_needle), 15.0, 0.5)
+    numbers["capture_line"] = (capped or ["(no capture line)"])[-1]
+    if not capped:
+        numbers["round_state_after_zone"] = round_state(run) or "unreadable"
+        numbers["zone_probe"] = _entity_probe(run, zone["index"])
+        numbers["flag_probe"] = _entity_probe(run, carrier_index)
+        numbers["detail"] = "no '%s' line inside the zone at %s" % (capture_needle,
+                                                                    numbers["zone_origin"])
+        return "FAIL", numbers
+    cap_line = capped[-1]
+    # "team score 1": with tf_flag_caps_per_round 3 (the stock default) the
+    # capture lands as the team's first flag capture -- the game's own
+    # capture line counts it, and the tf_team_resource read backs it when
+    # the nettable answers (field names recorded red-first, not guessed).
+    if "flag captures 1" not in cap_line:
+        numbers["detail"] = "the capture line does not count the team's first capture: %r" % cap_line
+        return "FAIL", numbers
+
+    # -- the flag is home again, and the round keeps running ------------------
+    def flag_home_again():
+        now = entity_origin(run.srv, carrier_index)
+        if not now:
+            return None
+        return now if lg.distance(list(now), list(flag_home)) <= 16.0 else None
+    rested_home = wait_pump(run, "ctf: the flag back at its intel",
+                            flag_home_again, 20.0, 0.5)
+    numbers["flag_now"] = fmt_pos(entity_origin(run.srv, carrier_index) or []) if not rested_home \
+        else fmt_pos(rested_home)
+    if not rested_home:
+        numbers["detail"] = ("the captured flag never came home (at %s, home was %s)"
+                             % (numbers["flag_now"], numbers["flag_home"]))
+        return "FAIL", numbers
+    still_running = wait_pump(run, "ctf: the round still running after the cap",
+                              lambda: round_state(run) == "RoundRunning", 10.0, 0.5)
+    numbers["round_state_after_capture"] = "RoundRunning" if still_running \
+        else (round_state(run) or "unreadable")
+    if not still_running:
+        numbers["detail"] = ("the round left ROUND_RUNNING after one capture (caps_per_round 3): %s"
+                             % numbers["round_state_after_capture"])
+        return "FAIL", numbers
+
+    # -- the forced win: TEAM_WIN, through RESTART, into PREROUND -------------
+    win_needles = ("tf2_dev_win %d (in RoundRunning)" % team,
+                   "round won by",
+                   "RoundRunning -> TeamWin")
+    run.srv.cmd("tf2_dev_win %d" % team)
+    for needle in win_needles:
+        got = wait_pump(run, "ctf: win line %r" % needle,
+                        lambda n=needle: round_lines_since(run, n), 20.0, 0.5)
+        numbers["win_%s" % needle.split(" ")[0]] = (got or ["(absent)"])[-1]
+        if got is None:
+            numbers["round_state_at_win"] = round_state(run) or "unreadable"
+            numbers["detail"] = "the forced win never logged %r" % needle
+            return "FAIL", numbers
+    numbers["won_line"] = (round_lines_since(run, "round won by") or ["(absent)"])[-1]
+
+    # TEAM_WIN holds mp_bonusroundtime (15 s), then yields through RESTART
+    # (EnterRestart: the round-restart announce, and -- a round's end is not
+    # a game restart -- no score or map-time clear) into PREROUND. 40 s of
+    # patience covers the bonus plus the transition thinks.
+    for edge in ("TeamWin -> Restart", "Restart -> Preround"):
+        got = wait_pump(run, "ctf: the win yields %r" % edge,
+                        lambda e=edge: round_lines_since(run, e), 40.0, 0.5)
+        numbers["yield_%s" % edge.split(" ")[0]] = (got or ["(absent)"])[-1]
+        if got is None:
+            numbers["detail"] = "TEAM_WIN never reached PREROUND through RESTART (%r absent)" % edge
+            return "FAIL", numbers
+
+    return "PASS", numbers
+
+
+BADWATER = "pl_badwater"
+
+# Step 7's census: the managed TF2 classes pl_badwater puts instances of,
+# against the counts recorded ONCE from the map file itself -- the dev
+# API's baked-entity read (tools/debug-api mapents pl_badwater /
+# /map/entities?map=pl_badwater, DebugApiServer.MapEntities: the bsp's
+# entity lump, read from the file, not from a running game). -1 means
+# "not yet recorded": the run that still carries it FAILs, and its detail
+# prints what the game and the map file each answer, so the numbers can
+# only ever be recorded, never guessed.
+#
+# Recorded at run tools/.tf2-gate/20261027-232646-p449242 (tip ae4cdda88):
+# the live world and the baked entity lump (the LZMA-compressed one shipped
+# in bin/debug/content/tf/maps/pl_badwater.bsp) answered the SAME counts
+# three ways; the census then holds the live world to the map file. The
+# capture-area count is the map's own: pl_badwater pushes with ONE capper
+# volume (see step 8's checkpoint comment), so 1 is correct here, not a
+# dropped entity -- a live-vs-baked disagreement would say otherwise.
+BADWATER_COUNTS = {"team_train_watcher": 1, "team_control_point": 4,
+                   "trigger_capture_area": 1, "info_player_teamspawn": 76}
+
+# The map the SERVER game is on, read from its console: every level load logs
+# "[SourceSharp/Server] level init: <map>", so the LAST such line names the
+# current map (a rotation logs a newer one). host_map is NOT this question:
+# the engine sets it only in Host_NewGame (the engine's `map`/new-game path),
+# never in Host_Changelevel (which goes sv.SpawnServer) -- a listen server
+# that changed level keeps naming the map it booted with. Run B at ae4cdda88
+# showed it: three changelevels to pl_badwater, and host_map never left
+# ctf_2fort while the console named the truth every load.
+LEVEL_INIT_RE = re.compile(r"\[SourceSharp/Server\] level init: (\S+)")
+
+
+def current_server_map(text):
+    """The map name of the LAST level-init line in the console's text (the
+    shape read_console_since_launch answers -- a whole string, not a list),
+    None if the text holds none (never a zero or a guess: no line is no
+    answer). Pure: the self-test holds it."""
+    found = None
+    for m in LEVEL_INIT_RE.finditer(text or ""):
+        found = m.group(1)
+    return found
+
+
+VBSP_IDENT = 0x50534256          # "VBSP" as the header's little-endian int32
+ENTITY_LUMP = 0                  # the lump table's first entry
+LUMP_DESCRIPTOR_BASE = 8         # version, then 64 descriptors of 16 bytes
+# public/tier1/lzmaDecoder.h's lzma_header_t, packed: id, actualSize,
+# lzmaSize (3 uint32) and properties[5]. CLZMA::Uncompress hands LzmaDecode
+# the stream at pInput + sizeof(lzma_header_t) with LZMA_PROPS_SIZE 5.
+LZMA_HEADER_SIZE = 3 * 4 + 5
+LZMA_ID = 0x414D5A4C              # ('A'<<24)|('M'<<16)|('Z'<<8)|('L')
+
+try:
+    import lzma as _lzma
+except ImportError:                            # ancient python: no raw-LZMA decode
+    _lzma = None
+
+
+def lzma_module():
+    """The stdlib lzma module or None: a compressed lump needs it, and a
+    census that cannot decode the file fails naming that, never passes."""
+    return _lzma
+
+
+def lzma_codec_props(props):
+    """(lc, lp, pb) from the 5 LZMA property bytes. The SDK packs the first
+    byte as d = (pb*5 + lp)*9 + lc (LzmaDec.h's LzmaDec_SetToDefaults /
+    LzmaEnc's props byte), so pb = d // 45, lp = (d % 45) // 9, lc = d % 9.
+    Pure: the self-test holds it against Valve's default 0x5D -> (3, 0, 2)."""
+    d = props[0]
+    pb = d // 45
+    d %= 45
+    lp = d // 9
+    lc = d % 9
+    if lc + lp > 4:                              # LzmaDec's own bound (LzmaDec.c)
+        raise ValueError("bad LZMA properties byte 0x%02x (lc %d lp %d)" % (props[0], lc, lp))
+    return lc, lp, pb
+
+
+def lzma_decode_entity_stream(props, actual, stream):
+    """Decompress one CLZMA entity lump: the 5 LZMA property bytes, the
+    uncompressed size and the raw stream. Two container paths, tried in
+    order, both grounded in how the bytes are laid out:
+
+      alone  -- props(5) + dict_size(4) + size(8 LE) is exactly the .lzma
+                ALONE header (LzmaEnc's own), so the raw stream becomes a
+                self-describing ALONE container and needs no filter spec;
+      raw    -- FORMAT_RAW with the one LZMA1 filter the header names
+                (the CLZMA::Uncompress spelling, LzmaDecode at raw+17).
+
+    The interpreter names its decoder LZMADecoder or LZMADecompressor
+    (this box's 3.14 the latter -- its lzma.py's decompress() says so) and
+    an old bindings object may want the ALONE arm as an alone=True flag:
+    every accepted spelling is tried, and if none decodes the exact size
+    the file recorded, it raises -- never a silent zero. Pure enough for
+    the self-test, which feeds it a stream the xz CLI really encoded."""
+    dec_cls = getattr(_lzma, "LZMADecoder", None) or getattr(_lzma, "LZMADecompressor", None)
+    if dec_cls is None:
+        raise ValueError("the lzma module answers no decoder class")
+    dict_size = int.from_bytes(props[1:5], "little")
+    alone = (bytes(props) + dict_size.to_bytes(4, "little")
+             + actual.to_bytes(8, "little") + bytes(stream))
+    def feed(dec, blob):
+        # Two decoder shapes exist in the wild: the streaming one with
+        # write/flush, and this box's 3.14 one with decompress/eof (the
+        # bz2-style surface its dir() shows). Take whichever it answers.
+        if hasattr(dec, "decompress"):
+            out = dec.decompress(blob)
+            if hasattr(dec, "flush") and not getattr(dec, "eof", False):
+                try:
+                    out += dec.flush()
+                except (EOFError, _lzma.LZMAError):
+                    pass                      # an unterminated raw stream:
+            return out                          # len is checked by the caller
+        out = dec.write(blob)
+        if hasattr(dec, "flush"):
+            out += dec.flush()
+        return out
+
+    last = "no path ran"
+    reasons = []
+    for attempt in ("auto", "alone", "raw", "raw-marker"):
+        try:
+            if attempt == "auto":
+                dec = dec_cls()                     # FORMAT_AUTO reads the
+                blob = alone                        # alone magic itself
+            elif attempt == "alone":
+                try:
+                    dec = dec_cls(format=_lzma.FORMAT_ALONE)
+                except (TypeError, ValueError):
+                    dec = dec_cls(alone=True)       # the old bindings' flag
+                blob = alone
+            else:
+                lc, lp, pb = lzma_codec_props(props)
+                filt = {"id": _lzma.FILTER_LZMA1,
+                        "lc": lc, "lp": lp, "pb": pb, "dict_size": dict_size}
+                if attempt == "raw":
+                    dec = dec_cls(format=_lzma.FORMAT_RAW,
+                                  filters=[dict(filt, size=actual)])
+                else:                               # decoder hunts the end
+                    dec = dec_cls(format=_lzma.FORMAT_RAW, filters=[filt])
+                blob = bytes(stream)
+            out = feed(dec, blob)
+            if len(out) == actual:
+                return out
+            last = "%s path decoded %d bytes, the file says %d" % (attempt, len(out), actual)
+        except (ValueError, TypeError, AttributeError, EOFError,
+                _lzma.LZMAError) as why:
+            last = "%s path: %s" % (attempt, why)
+        reasons.append(last)
+    raise ValueError("neither LZMA container path decoded the lump (%s)"
+                     % "; ".join(reasons))
+
+
+def baked_lump_entities(path):
+    """The map's baked entities, read inside the gate from the .bsp bytes.
+
+    The dev API's mapents reads only the MOD's own maps directory (where
+    dm_lockdown.bsp lives); the TF2 content maps -- pl_badwater among them
+    -- live in the content mount gameinfo.txt names, which is where the
+    engine reads them and where no route looks (run C at ae4cdda88: mapents
+    refused the instance's empty maps dir). So the gate reads the same
+    bytes itself. The header check mirrors src/mapgen/BspEntities.cs: the
+    VBSP ident, lump 0's descriptor (offset, length, fourCC), and a refusal
+    of a compressed lump -- reading a compressed lump as text answers no
+    entities at all, the silent pass CLAUDE.md forbids. A file that will
+    not open, is not a BSP, or carries no classname RAISES: a census that
+    cannot read the map fails, never passes.
+    """
+    size = os.path.getsize(path)
+    with open(path, "rb") as fh:
+        head = fh.read(LUMP_DESCRIPTOR_BASE + 16)
+    if len(head) < LUMP_DESCRIPTOR_BASE + 16:
+        raise ValueError("%s is too short for a BSP header" % path)
+    if int.from_bytes(head[0:4], "little") != VBSP_IDENT:
+        raise ValueError("%s does not start with VBSP" % path)
+    at = LUMP_DESCRIPTOR_BASE + ENTITY_LUMP * 16
+    offset = int.from_bytes(head[at:at + 4], "little")
+    length = int.from_bytes(head[at + 4:at + 8], "little")
+    four_cc = int.from_bytes(head[at + 12:at + 16], "little")
+    if length <= 0 or offset + length > size:
+        raise ValueError("%s's entity lump is out of bounds (offset %d len %d size %d)"
+                         % (path, offset, length, size))
+    with open(path, "rb") as fh:
+        fh.seek(offset)
+        raw = fh.read(length)
+    if four_cc != 0:
+        # A compressed lump: the engine reads these through CLZMA (its
+        # header is 'LZMA' + the uncompressed size + the compressed size +
+        # the 5 codec property bytes, then a raw LZMA stream --
+        # public/tier1/lzmaDecoder.h's lzma_header_t, decoded in
+        # tier1/lzmaDecoder.cpp's Uncompress). The fourCC field carries
+        # the UNCOMPRESSED size (the engine's model loader asserts the LZMA header's
+        # actualSize equals it, "Lump header disagrees with lzma header"),
+        # so the decode is checked against the file's own recording, and
+        # the descriptor's length is the compressed span -- as the engine's
+        # lump->fileSize/Version pair reads it (bspfile.h).
+        if len(raw) < LZMA_HEADER_SIZE or int.from_bytes(raw[0:4], "little") != LZMA_ID:
+            raise ValueError("%s's entity lump says compressed (fourCC %d) but holds "
+                             "no LZMA header (id %r)" % (path, four_cc, raw[0:4]))
+        actual = int.from_bytes(raw[4:8], "little")
+        lzma_size = int.from_bytes(raw[8:12], "little")
+        if actual != four_cc:
+            raise ValueError("%s: LZMA header actualSize %d disagrees with the lump "
+                             "fourCC's %d" % (path, actual, four_cc))
+        # The stream's own length lives in the LZMA header; feed exactly it
+        # (tier1/lzmaDecoder.cpp's Uncompress does the same), so trailing
+        # padding inside the descriptor's span cannot upset the decode.
+        if LZMA_HEADER_SIZE + lzma_size > size - offset:
+            raise ValueError("%s: LZMA header claims %d compressed bytes, only %d exist"
+                             % (path, lzma_size, size - offset - LZMA_HEADER_SIZE))
+        props = bytes(raw[12:LZMA_HEADER_SIZE])
+        if _lzma is None:
+            raise ValueError("%s's entity lump is compressed and this python has no lzma"
+                             % path)
+        out = lzma_decode_entity_stream(props, actual,
+                                        raw[LZMA_HEADER_SIZE:LZMA_HEADER_SIZE + lzma_size])
+        text = out.decode("latin-1")
+    else:
+        text = raw.decode("latin-1")                # BSP bytes are Latin-1
+    entities = []
+    for body in re.findall(r"\{([^{}]*)\}", text, re.DOTALL):
+        kv = dict(re.findall(r'"([^"]*)"\s+"([^"]*)"', body))
+        if not kv:
+            continue
+        kv.setdefault("classname", "worldspawn")   # as BspEntities.Parse: no name is the world
+        entities.append(kv)
+    if len(entities) < 2:
+        raise ValueError("%s answered %d entities: not a usable entity lump"
+                         % (path, len(entities)))
+    return entities
+
+
+def _content_maps(mapname):
+    """Every place a named map's .bsp can live, in the order to try: the
+    content mount the game itself reads (bin/debug/content, the tree make
+    setup links), the Steam install spelled out, then this repo's own mod
+    maps dir (where the committed dm_lockdown.bsp lives and the self-test
+    measures the reader against)."""
+    return [os.path.join(GAME_DIR, "content", "tf", "maps", mapname + ".bsp"),
+            os.path.join(os.path.expanduser("~"), ".steam", "debian-installation",
+                         "steamapps", "common", "Team Fortress 2", "tf", "maps",
+                         mapname + ".bsp"),
+            os.path.join(ROOT, "game", "mod_test", "maps", mapname + ".bsp")]
+
+
+def baked_entity_counts(run, mapname):
+    """(per-classname counts, source) of a map's BAKED entity lump -- the
+    record-of-the-map the census compares against. /map/entities reads the
+    file the game runs from the mod maps dir, so it answers first for
+    dm_lockdown; a map it cannot see (the TF2 content mounts) is read from
+    its bytes by baked_lump_counts. The census then holds live world,
+    recording and file, and three-way agreement is what it asserts."""
+    try:
+        data = run.srv.get("mapents", mapname, timeout=60)
+    except lg.ApiError:
+        data = None
+    if isinstance(data, dict) and "entities" in data:
+        return count_by_classname(data["entities"]), "mapents"
+    tried = []
+    for path in _content_maps(mapname):
+        if os.path.isfile(path):
+            return count_by_classname(baked_lump_entities(path)), path
+        tried.append(path)
+    raise lg.ApiError("mapents %s answered %r and no content map was readable (%s)"
+                      % (mapname, str(data)[:120], ", ".join(tried)))
+
+
+def count_by_classname(entities):
+    """classname -> count for a list of entity dicts (the baked-lump answer
+    and, one day, any other listing): the census arithmetic, kept away from
+    the dev API call so the self-test can hold it."""
+    counts = {}
+    for ent in entities:
+        counts[ent.get("classname")] = counts.get(ent.get("classname"), 0) + 1
+    return counts
+
+
+def _ui_draws(run, index):
+    try:
+        return (run.srv.get("client", str(index), "ui") or {}).get("draws", [])
+    except lg.ApiError:
+        return None
+
+
+def _ui_text_draw(run, index):
+    draws = _ui_draws(run, index)
+    if draws is None:
+        return None
+    return next((d for d in draws if d.get("kind") == "Text"), None)
+
+
+def _fmt_ui(draws):
+    if draws is None:
+        return "unreachable"
+    return "%d draws, %d Text" % (
+        len(draws), sum(1 for d in draws if d.get("kind") == "Text"))
+
+
+def step_changelevel(run, state):
+    """Stage 4.2 step 7: changelevel to pl_badwater -- THE SECOND MAP LOAD,
+    which is the point (live-gate's rule: keep a second load in every gate,
+    reload bugs are invisible to single-load gates). Asserted: the server
+    game's [SourceSharp/Hud] first-paint line appears again for the new
+    map, both players are back in the entity list and alive (the joiner's
+    client survived and rejoined), the joiner's HUD answers Text draws
+    again through the server's proxy, and a census of the managed TF2
+    classes equals the counts recorded once from the map file (cite: the
+    dev API's baked-entity read, which this step also prints next to the
+    live counts, so a row always shows map-against-game)."""
+    numbers = {}
+
+    paints_before = run.read_console_since_launch().count(PAINT_NEEDLE)
+    draws_before = _ui_draws(run, run.p2)
+    numbers["ui_before"] = _fmt_ui(draws_before)
+
+    run.srv.cmd("changelevel %s" % BADWATER)
+
+    # The server game's own first paint again, on the new map. The line
+    # repeats per level load (UiRuntime paints once per build, and the
+    # build is rebuilt across the level change), so the COUNT rising past
+    # its pre-change value is the observation, not another copy of a line
+    # that is already in the file.
+    repainted = wait_pump(
+        run, "changelevel: the server game's first paint on %s" % BADWATER,
+        lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints_before,
+        180.0, 1.0)
+    numbers["server_repaint"] = bool(repainted)
+    if not repainted:
+        numbers["paint_lines_before"] = paints_before
+        numbers["paint_lines_now"] = run.read_console_since_launch().count(PAINT_NEEDLE)
+        numbers["detail"] = ("the server game never painted again after changelevel %s"
+                             % BADWATER)
+        return "FAIL", numbers
+
+    # The joiner is back and alive: the entity list shows both players and
+    # the server says both are alive. (The engine reconnects its client
+    # across a listen server's changelevel; live-gate's map-change step
+    # calls this the rejoin, and asserts nothing about the client until it
+    # holds -- the plan's rule: assert the join before any client reading.)
+    both = wait_pump(
+        run, "changelevel: both players back and alive on %s" % BADWATER,
+        lambda: (lambda ix: len(ix) == 2 and all(run.is_alive(i) for i in ix) or None)(
+            run.player_indices()), 180.0, 1.0)
+    numbers["players_after"] = run.player_indices()
+    if not both:
+        numbers["detail"] = ("both players never came back alive through the changelevel"
+                             " (entity list %r)" % (run.player_indices(),))
+        return "FAIL", numbers
+
+    # The players are NEW entities across the level change: the indices the
+    # earlier steps recorded are the old entity list's. The host's own
+    # player exists first after the reload (it is in-process), so -- same
+    # reasoning as at launch -- the lowest index is player 1's again.
+    players = sorted(run.player_indices())
+    run.p1, run.p2 = players[0], players[1]
+    numbers["p1_index_after"], numbers["p2_index_after"] = run.p1, run.p2
+
+    # The joiner's HUD: after the rejoin, its ui channel answers Text draws
+    # again. The question is asked live through the server's proxy (same
+    # read the join step uses); during the load it answers nothing or
+    # ApiError, and a draw seen now can only come from a HUD that painted
+    # on the new level.
+    client_painted = wait_pump(run, "changelevel: the joiner's HUD on %s" % BADWATER,
+                               lambda: _ui_text_draw(run, run.p2), 120.0)
+    numbers["ui_after"] = _fmt_ui(_ui_draws(run, run.p2))
+    if not client_painted:
+        numbers["detail"] = ("the joiner's HUD never painted on %s (before: %s, now: %s)"
+                             % (BADWATER, numbers["ui_before"], numbers["ui_after"]))
+        return "FAIL", numbers
+
+    # -- the census ------------------------------------------------------------
+    # The server console's last level-init line names the map the server game
+    # is really on: the cheapest positive arm that this is a SECOND LOAD and
+    # not a step that measured the old map again (the census classes
+    # pl_badwater has and ctf_2fort not would say the same; the pair is the
+    # proof). host_map is read beside it but GATES nothing: the engine sets
+    # that convar only in Host_NewGame, so after a changelevel it keeps
+    # naming the boot map (see LEVEL_INIT_RE's note).
+    server_map = current_server_map(run.read_console_since_launch())
+    numbers["server_map_after"] = server_map
+    try:
+        numbers["host_map_read"] = run.srv.convar("host_map").get("value")
+    except lg.ApiError as why:
+        numbers["host_map_read"] = "unreadable(%s)" % why
+    if not (isinstance(server_map, str) and BADWATER in server_map.lower()):
+        numbers["detail"] = ("the server's last level-init line does not name %s "
+                             "after the changelevel: %r (host_map convar reads %r, "
+                             "stale by design)" % (BADWATER, server_map, numbers["host_map_read"]))
+        return "FAIL", numbers
+
+    # The new map's own waiting-for-players window ends up front too.
+    run.srv.cmd("mp_waitingforplayers_cancel 1")
+
+    # The map file beside the live world: the dev API's mapents answers for
+    # the mod's own maps dir; a TF2 content map (pl_badwater is one) is read
+    # from its bytes by the gate (see baked_entity_counts). The file is an
+    # input: unreadable fails the step, it is never a skipped arm.
+    try:
+        baked, baked_src = baked_entity_counts(run, BADWATER)
+        numbers["baked_source"] = baked_src
+    except (lg.ApiError, ValueError, OSError) as why:
+        numbers["detail"] = "the baked-entity read of %s failed: %s" % (BADWATER, why)
+        return "FAIL", numbers
+    numbers["baked_counts"] = ",".join("%s=%s" % (c, baked.get(c, 0))
+                                       for c in sorted(BADWATER_COUNTS))
+
+    def census():
+        out = {}
+        for cls in BADWATER_COUNTS:
+            try:
+                out[cls] = len(run.srv.ents(cls))
+            except lg.ApiError:
+                out[cls] = None
+        return out
+
+    def settled():
+        # Three ways, one number: the live world, the recorded counts and
+        # the map file must all answer the same for every class. live-vs-
+        # file catches an entity the managed world dropped; file-vs-
+        # recording catches the map drifting from what was recorded -- the
+        # ratchet the plan's "recorded once from the map file" needs.
+        got = census()
+        numbers["_last_census"] = got
+        if got != {c: BADWATER_COUNTS[c] for c in BADWATER_COUNTS}:
+            return None
+        if {c: baked.get(c, 0) for c in BADWATER_COUNTS} != {c: BADWATER_COUNTS[c]
+                                                             for c in BADWATER_COUNTS}:
+            return None
+        return got or True
+
+    got = wait_pump(run, "changelevel: the TF2 class census of %s" % BADWATER,
+                    settled, 90.0, 2.0)
+    final = numbers.pop("_last_census", None) or census()
+    numbers["census"] = ",".join("%s=%s" % (c, final.get(c)) for c in sorted(BADWATER_COUNTS))
+    numbers["recorded_counts"] = ",".join("%s=%s" % (c, BADWATER_COUNTS[c])
+                                           for c in sorted(BADWATER_COUNTS))
+    if got is None:
+        numbers["detail"] = ("the census of %s disagrees three ways after the changelevel: "
+                             "live %s / recorded %s / baked %s from %s"
+                             % (BADWATER, numbers["census"], numbers["recorded_counts"],
+                                numbers["baked_counts"], numbers.get("baked_source", "-")))
+        return "FAIL", numbers
+
+    # Read-only context for the row: which mode the rules picked for the
+    # new map (pl_badwater is a payload map; step 9 drives sv_mode itself).
+    try:
+        numbers["sv_mode_after"] = run.srv.convar("sv_mode").get("value")
+    except lg.ApiError:
+        numbers["sv_mode_after"] = "unreadable"
+    return "PASS", numbers
+
+
+TRACKTRAIN = "func_tracktrain"
+
+# The step-8 thresholds. A pushed cart on pl_badwater covers hundreds of
+# units in ten seconds (the stock cart runs around 100 u/s with a pushing
+# attacker); requiring 100 u of progress is far past sampling noise and
+# far short of what a stalled watcher could fake. The recede arm needs
+# only that the cart came BACK -- 32 u of return over a minute of nobody
+# near it, recorded alongside the raw positions either way.
+CART_PUSH_U, CART_RECEDE_U = 100.0, 32.0
+
+# The outputs a checkpoint capture owes (TeamControlPoint.InternalSetOwner):
+# the true player capture fires OnOwnerChangedToTeam2 for a BLU take; the
+# area's plain ownership set fires OnCapTeam2. Either, seen in the entity
+# event ring since this step's head, is the owner change.
+CP_OWNER_NEEDLES = ("OwnerChangedToTeam2", "OnCapTeam2")
+
+
+def _d2(a, b):
+    """2-D distance between two origins (lists of three floats), or None
+    when either read is missing -- an unmeasured distance NEVER passes."""
+    if not a or not b:
+        return None
+    return math.hypot(float(a[0]) - float(b[0]), float(a[1]) - float(b[1]))
+
+
+def _unit(a, b):
+    dx, dy = float(b[0]) - float(a[0]), float(b[1]) - float(a[1])
+    n = math.hypot(dx, dy) or 1.0
+    return dx / n, dy / n
+
+
+def _ahead(cart, target, dist):
+    """A point `dist` units from the cart on the line toward the target
+    (PURE): the pusher's standing spot -- stock counts a capper only while
+    he is AHEAD of the train (IsAheadOfTrain)."""
+    ux, uy = _unit(cart, target)
+    return [float(cart[0]) + ux * dist, float(cart[1]) + uy * dist, float(cart[2])]
+
+
+def _behind(cart, target, dist):
+    """The recede arm's standing spot: `dist` units from the cart AWAY from
+    the target -- behind the train is not ahead of it, so the lone BLU must
+    not count as a capper and the cart is owed its return."""
+    return _ahead(cart, target, -dist)
+
+
+def _yaw_to(a, b):
+    """The yaw (degrees) that faces from origin a toward origin b."""
+    return math.degrees(math.atan2(float(b[1]) - float(a[1]),
+                                   float(b[0]) - float(a[0])))
+
+
+def match_outputs(events, needles):
+    """Events whose record names one of the CP-owner needles. PURE."""
+    return [e for e in events or ()
+            if any(n in str(e) for n in needles)]
+
+
+def parse_warmup_seconds(line):
+    """The seconds from "[SourceSharp/Modes] warmup for 5.0s before ...",
+    or None. PURE, so --self-test holds it (GameModes.cs SwitchTo's line)."""
+    if not line:
+        return None
+    m = re.search(r"warmup for ([0-9.]+)s", line)
+    return float(m.group(1)) if m else None
+
+
+def events_snapshot(run, needles):
+    """(head, owner-hits, raw-probe) from the entity event ring: the last
+    500 events filtered to this classname, the owner-changed matches, and a
+    printable tail of the raw answer for a FAIL line to be readable by."""
+    data = run.srv.get("events", "0", "500", "kind=output",
+                       "classname=team_control_point", timeout=60)
+    evs = data.get("events") if isinstance(data, dict) else data
+    if not isinstance(evs, list):
+        evs = []
+    head = max([e.get("seq") or e.get("id") or 0 for e in evs] or [0])
+    return head, match_outputs(evs, needles), str(evs[-3:])[:400]
+
+
+def _ents_with_origins(run, classname):
+    """[(index, name, origin)] for a class, straight from the entity list."""
+    return [(e["index"], e.get("name"), e.get("origin"))
+            for e in run.srv.ents(classname)]
+
+
+def _fmt_ents(items):
+    return ",".join("#%s(%s)@%s" % (i, n, o) for i, n, o in items) or "(none)"
+
+
+def ensure_badwater(run, numbers):
+    """The payload map under the games, changing to it if the server's last
+    level-init line is not pl_badwater (a step may be selected alone; and
+    host_map is NOT this question -- the engine sets it only in
+    Host_NewGame, so it names the boot map forever after a changelevel).
+    Positive arms, all three: the command, the server's repaint, both
+    players back."""
+    hm = current_server_map(run.read_console_since_launch())
+    if isinstance(hm, str) and BADWATER in hm.lower():
+        return True
+    numbers["map_before"] = hm
+    paints_before = run.read_console_since_launch().count(PAINT_NEEDLE)
+    run.srv.cmd("changelevel %s" % BADWATER)
+    if not wait_pump(run, "payload: server repaint on %s" % BADWATER,
+                     lambda: run.read_console_since_launch().count(PAINT_NEEDLE) > paints_before,
+                     180.0, 1.0):
+        numbers["detail"] = "the server never repainted after changelevel %s" % BADWATER
+        return False
+    if not wait_pump(run, "payload: both players back",
+                     lambda: len(run.player_indices()) == 2 or None, 180.0, 1.0):
+        numbers["detail"] = "both players never came back after changelevel %s" % BADWATER
+        return False
+    players = sorted(run.player_indices())
+    run.p1, run.p2 = players[0], players[1]
+    after = current_server_map(run.read_console_since_launch())
+    numbers["map_after"] = after
+    if not (isinstance(after, str) and BADWATER in after.lower()):
+        numbers["detail"] = ("after changelevel %s the server's last level-init line names %r "
+                             "(a rotation took the map away, or the load lied)" % (BADWATER, after))
+        return False
+    return True
+
+
+def step_payload(run, state):
+    """Stage 4.2 step 8, on pl_badwater with the HOST's player as the pusher
+    (a BLU player on the cart): the cart's position advances toward the
+    first checkpoint while he stands ahead of it; it recedes once he has
+    been away for the recede window; and pushing it past checkpoint 1 hands
+    that team_control_point to BLU -- the owner change read from the entity
+    event ring (the OnOwnerChangedToTeam2 / OnCapTeam2 outputs our
+    InternalSetOwner fires). Every read is the SERVER's (the cart is a
+    server entity); on every failure the row prints the train and control
+    point probes, so a divergence shows as numbers, never as a guess."""
+    numbers = {}
+    run.mark()
+    run.srv.cmd("sv_cheats 1")
+    if not ensure_badwater(run, numbers):
+        return "FAIL", numbers
+
+    # The BLU pusher and a RED bystander (defenders near the cart would
+    # freeze the recede), with classes so both really spawn. Spectate first:
+    # arriving here with both still on their teams (the step run alone on a
+    # loaded map), a repeat jointeam would print no join line and this wait
+    # would time out on players who are already where they should be.
+    run.srv.cmd("cmd jointeam spectate")
+    run.client.api.cmd("cmd jointeam spectate")
+    run.srv.cmd("cmd jointeam blue")
+    run.client.api.cmd("cmd jointeam red")
+    run.srv.cmd("cmd joinclass scout")
+    run.client.api.cmd("cmd joinclass scout")
+    joined = wait_pump(
+        run, "payload: p1 blue / p2 red join lines",
+        lambda: (lambda j: (j.get(run.p1, (None,))[0] == TEAM_BLU
+                            and j.get(run.p2, (None,))[0] == TEAM_RED) or None)(
+            team_joins(round_lines_since(run, "joined team"))), 60.0)
+    if not joined:
+        numbers["detail"] = "p1 never became BLU / p2 RED (console: %s)" % run.team_console_tail()
+        return "FAIL", numbers
+    if not wait_pump(run, "payload: the pusher is alive", lambda: run.is_alive(run.p1), 60.0):
+        numbers["detail"] = "p1 never spawned on %s" % BADWATER
+        return "FAIL", numbers
+    if not wait_pump(run, "payload: the round is running",
+                     lambda: (round_state(run) or "") == "RoundRunning", 120.0):
+        numbers["detail"] = ("the round never ran on %s (state %r); the watcher only "
+                             "moves the cart once the round runs" % (BADWATER, round_state(run)))
+        return "FAIL", numbers
+
+    trains = [t for t in _ents_with_origins(run, TRACKTRAIN) if t[2]]
+    numbers["trains"] = _fmt_ents(_ents_with_origins(run, TRACKTRAIN))
+    if len(trains) != 1:
+        numbers["detail"] = ("pl_badwater should answer exactly one func_tracktrain (the "
+                             "cart); got %s -- re-encode the pick from this row" % (numbers["trains"],))
+        return "FAIL", numbers
+    cart_index, cart_name, cart0 = trains[0]
+    numbers["cart"] = "#%s(%s)@%s" % (cart_index, cart_name, cart0)
+
+    cps = _ents_with_origins(run, "team_control_point")
+    cps = [c for c in cps if c[2]]
+    numbers["control_points"] = _fmt_ents(cps)
+    if not cps:
+        numbers["detail"] = "no team_control_point on the map (probes: %s)" % numbers["control_points"]
+        return "FAIL", numbers
+
+    def cart_now():
+        return (run.srv.entity(index=cart_index) or {}).get("origin")
+
+    # checkpoint 1 = the one nearest the cart at the start (the first the
+    # attackers' push reaches); the goal = the farthest (the push direction,
+    # so the cart crosses cp1 on its way).
+    cps_by_near = sorted(cps, key=lambda c: _d2(cart0, c[2]) if _d2(cart0, c[2]) is not None else 1e12)
+    cp1_index, cp1_name, cp1_origin = cps_by_near[0]
+    goal_origin = cps_by_near[-1][2]
+    numbers["cp1"] = "#%s(%s)@%s" % (cp1_index, cp1_name, cp1_origin)
+
+    ev_head, _, ev_probe = events_snapshot(run, CP_OWNER_NEEDLES)
+    numbers["events_head_at_start"] = ev_head
+
+    # -- the push: ahead of the cart, held there, the position advances ----
+    dist0 = _d2(cart0, cp1_origin)
+    numbers["cart_to_cp1_start"] = round(dist0, 1) if dist0 is not None else None
+    if dist0 is None:
+        numbers["detail"] = "the cart or checkpoint 1 has no origin to measure"
+        return "FAIL", numbers
+    best = {"d": dist0}
+
+    def pushing():
+        cur = cart_now()
+        if not cur:
+            return None
+        d = _d2(cur, cp1_origin)
+        if d is not None:
+            best["d"] = min(best["d"], d)
+            if dist0 - d >= CART_PUSH_U:
+                best["cart"] = cur
+                return True
+        settle_on(run, run.p1, _ahead(cur, goal_origin, 96.0),
+                  (0.0, _yaw_to(cur, goal_origin), 0.0), tries=2, prove=False)
+        return None
+
+    pushed = wait_pump(run, "payload: the cart advances %g u toward checkpoint 1" % CART_PUSH_U,
+                       pushing, 90.0, 2.5)
+    best_d = round(best["d"], 1)
+    numbers["cart_to_cp1_best"] = best_d
+    numbers["cart_after_push"] = cart_now()
+    if not pushed:
+        numbers["detail"] = ("the cart never advanced %g u toward checkpoint 1 (from %s, best "
+                             "distance %s of start %s; trains %s cps %s)"
+                             % (CART_PUSH_U, cart0, best_d, round(dist0, 1),
+                                numbers["trains"], numbers["control_points"]))
+        return "FAIL", numbers
+
+    # -- the recede: the pusher off the cart, the cart comes back ------------
+    pushed_at = cart_now()
+    def away():
+        cur = cart_now()
+        if not cur:
+            return None
+        settle_on(run, run.p1, _behind(cur, goal_origin, 500.0),
+                  (0.0, _yaw_to(cur, goal_origin), 0.0), tries=2, prove=False)
+        d = _d2(cur, pushed_at)
+        return cur if (d is not None and d >= CART_RECEDE_U) else None
+
+    receded = wait_pump(run, "payload: the cart recedes without a pusher", away, 60.0, 3.0)
+    numbers["cart_after_recede"] = cart_now()
+    if not receded:
+        numbers["detail"] = ("the cart did not recede %g u after the pusher left it "
+                             "(%s -> %s)" % (CART_RECEDE_U, pushed_at, numbers["cart_after_recede"]))
+        return "FAIL", numbers
+
+    # -- checkpoint 1: the cappers RIDE the cart to its checkpoint node ----
+    # The baked lump (the reader below decodes it from the shipped BSP) says
+    # how pl_badwater captures its checkpoints. The map holds exactly ONE
+    # trigger_capture_area ("cap_area", area_time_to_cap 99999, PARENTED to
+    # the cart): it is the capper volume, not a capturable zone -- its
+    # OnNumCappersChanged fires watcher,SetNumTrainCappers, and the watcher's
+    # HandleTrainMovement drives the cart from that count. The checkpoint
+    # itself is handed over by the track: path_track "minecart_path_33" sits
+    # at cap_1's origin and its OnPass fires "cap_1,SetOwner,3" -- and the
+    # CP's OnSetOwner needs only PointsMayBeCaptured (no lock, no
+    # tf_caplinear). So this arm keeps a BLU capper INSIDE the moving volume
+    # -- the push phase proved 96 u ahead of the cart counts -- and waits for
+    # the owner output. A cart that stops advancing with the capper held is
+    # the real failure the row must show, so on stall it takes the numbers
+    # first: who the volume touches, whether the capper is alive, and where
+    # the cart stands. (Run C/E at ae4cdda88 deadlocked by teleporting the
+    # capper to the CP's origin -- metres from the only volume on the map --
+    # and hand-firing SetLocked/caplinear against a capture model the map
+    # does not use.)
+    probe_box = [ev_probe]
+    STALL_U, STALL_PUMPS = 2.0, 3   # held capper, cart unmoving, three pumps
+
+    areas = [a for a in _ents_with_origins(run, "trigger_capture_area") if a[2]]
+    numbers["capture_areas"] = _fmt_ents(areas)
+
+    def capper_diag():
+        """The numbers a stall or a timeout is judged by."""
+        cur = cart_now()
+        d_cart = _d2(cur, cp1_origin) if cur else None
+        try:
+            touched = ((run.srv.get("touching", areas[0][0]) or {}).get("touching", [])
+                       if areas else "no area")
+        except lg.ApiError as why:
+            touched = "read_error:%s" % str(why)[:40]
+        return {"cart": cur,
+                "to_cp1": round(d_cart, 1) if d_cart is not None else None,
+                "area_index": areas[0][0] if areas else None,
+                "area_touch": str(touched)[:160].replace("\t", " "),
+                "capper_alive": run.is_alive(run.p1),
+                "events_tail": probe_box[0]}
+
+    state = {"last_cart": None, "still": 0, "stalled": None}
+
+    def capped():
+        _, hits, probe = events_snapshot(run, CP_OWNER_NEEDLES)
+        probe_box[0] = probe
+        fresh = [e for e in hits if (e.get("seq") or e.get("id") or 0) > ev_head]
+        if fresh:
+            numbers["owner_event"] = str(fresh[-1])[:300].replace("\t", " ")
+            return True
+        cur = cart_now()
+        if not cur:
+            return None
+        if not run.is_alive(run.p1):
+            # The cart advances only while the watcher counts a capper; a
+            # dead one parks it (run F at this tip stalled at the track's
+            # corner with capper_alive False). The same-class joinclass IS
+            # the respawn, and the settle below puts him back on the cart.
+            run.srv.cmd("cmd joinclass scout")
+            state["still"] = 0            # a death costs movement; do not
+            state["last_cart"] = None     # count the respawn pumps as a stall
+            return None
+        moved = (0.0 if state["last_cart"] is None
+                 else (_d2(cur, state["last_cart"]) or 0.0))
+        state["still"] = state["still"] + 1 if moved <= STALL_U else 0
+        state["last_cart"] = cur
+        # Hold the capper inside the volume, ON the cart -- the volume is
+        # parented to it, so the cart's own position is in it (the cart
+        # itself shows in its touch directory). The 96-u-ahead placement of
+        # the straight-track push kills the capper at the corner into cp1,
+        # where the projection off the track has no floor.
+        settle_on(run, run.p1, list(cur),
+                  (0.0, _yaw_to(cur, goal_origin), 0.0), tries=2, prove=False)
+        if state["still"] >= STALL_PUMPS:
+            state["stalled"] = capper_diag()
+            numbers["cart_at_stop"] = "%s (%s of cp1, stalled with a held capper)" % (
+                cur, round(_d2(cur, cp1_origin), 1)
+                if _d2(cur, cp1_origin) is not None else "?")
+            return "STALL"
+        return None
+
+    capped = wait_pump(run, "payload: checkpoint 1 changes owner", capped, 150.0, 2.5)
+    numbers["cart_after_cp1"] = cart_now()
+    if not capped or capped == "STALL":
+        why = state["stalled"] or capper_diag()
+        numbers["stall_diag"] = str(why)[:700].replace("\t", " ")
+        numbers["detail"] = (
+            "no checkpoint-owner output since the step's head %s (watcher chain: "
+            "capper volume #%s touches %s, capper alive %s, cart %s at %s u of "
+            "cp1; ring tail %s; areas %s%s)"
+            % (ev_head, why.get("area_index"), why.get("area_touch"),
+               why.get("capper_alive"), why.get("cart"), why.get("to_cp1"),
+               why.get("events_tail"), numbers.get("capture_areas"),
+               " -- CART STALLED with the capper held" if state["stalled"]
+               else " -- no stall seen before the 150 s window closed"))
+        return "FAIL", numbers
+    return "PASS", numbers
+
+
+MODE_SWITCH_WARMUP = 5.0
+
+
+def step_mode(run, state):
+    """Stage 4.2 step 9, on pl_badwater: `sv_mode null` switches with a
+    warmup -- the request line, the switch, the open warmup window and its
+    close are all logged by the core's mode proxy (SvModeCommand.cs /
+    GameModes.cs), and the round machine re-enters PREROUND once the warmup
+    ends; `sv_mode pl` switches back and the round runs again; the bare
+    `sv_mode` reports which is active. The round read is the same state
+    echo step 6 reads (tf2_dev_win's bare echo)."""
+    numbers = {}
+    run.mark()
+    if not ensure_badwater(run, numbers):
+        return "FAIL", numbers
+
+    # Teams first: SwitchTo KEEPS the players (the roster is untouched by the
+    # flush) but a fresh changelevel leaves them unassigned, and an
+    # unassigned Pregame never starts -- that is what pinned the null arm to
+    # Pregame in the first run. Same join as the payload step: the pusher
+    # BLU, the bystander RED, scouts so both really spawn, and the round
+    # running before the switch, so what the switch resets is a RUNNING
+    # machine and the states after it are the switch's, not the join's.
+    # Spectate first: the payload step may have left both players already on
+    # their teams, and a repeat jointeam prints no join line -- spectate then
+    # join forces the line team_joins' last-line-wins parse needs, and reads
+    # the same however the step arrived here.
+    run.srv.cmd("cmd jointeam spectate")
+    run.client.api.cmd("cmd jointeam spectate")
+    run.srv.cmd("cmd jointeam blue")
+    run.client.api.cmd("cmd jointeam red")
+    run.srv.cmd("cmd joinclass scout")
+    run.client.api.cmd("cmd joinclass scout")
+    joined = wait_pump(
+        run, "mode: p1 blue / p2 red join lines",
+        lambda: (lambda j: (j.get(run.p1, (None,))[0] == TEAM_BLU
+                            and j.get(run.p2, (None,))[0] == TEAM_RED) or None)(
+            team_joins(round_lines_since(run, "joined team"))), 60.0)
+    if not joined:
+        numbers["detail"] = "p1 never became BLU / p2 RED before the switch (console: %s)" % run.team_console_tail()
+        return "FAIL", numbers
+    if not wait_pump(run, "mode: the round runs before the switch",
+                     lambda: (round_state(run) or "") == "RoundRunning", 120.0):
+        numbers["detail"] = ("the round never ran before sv_mode null (state %r): the switch "
+                             "must reset a running machine, not an unstarted one"
+                             % (round_state(run),))
+        return "FAIL", numbers
+
+    def needle_line(needle):
+        return next((l for l in round_lines_since(run, needle) if needle in l), None)
+
+    try:
+        numbers["mp_waitingforplayers_time"] = run.srv.convar("mp_waitingforplayers_time").get("value")
+    except lg.ApiError as why:
+        numbers["mp_waitingforplayers_time"] = "unavailable(%s)" % why
+
+    state_before_null = round_state(run)
+    run.srv.convar("sv_mode_switch_warmup", MODE_SWITCH_WARMUP)
+    run.srv.cmd("sv_mode null")
+
+    if not wait_pump(run, "mode: the sv_mode null request line",
+                     lambda: needle_line("sv_mode null"), 20.0):
+        numbers["detail"] = "no '[SourceSharp/Modes] sv_mode null' request line (SvModeCommand)"
+        return "FAIL", numbers
+    if not wait_pump(run, "mode: switched to 'null'",
+                     lambda: needle_line("switched to 'null'"), 20.0):
+        numbers["detail"] = "the switch never announced itself (GameModes.SwitchTo)"
+        return "FAIL", numbers
+    warm_line = wait_pump(run, "mode: the warmup window opens",
+                          lambda: needle_line("warmup for"), 20.0)
+    warm = parse_warmup_seconds(warm_line)
+    numbers["warmup_seconds"] = warm
+    if warm is None:
+        numbers["detail"] = ("no 'warmup for {s}s before null starts' line -- the switch ran "
+                             "with no warmup window (sv_mode_switch_warmup %s / "
+                             "mp_waitingforplayers_time %s)"
+                             % (MODE_SWITCH_WARMUP, numbers["mp_waitingforplayers_time"]))
+        return "FAIL", numbers
+    if not wait_pump(run, "mode: the warmup closes",
+                     lambda: needle_line("warmup over; 'null' round started"),
+                     warm + 30.0, beat=10):
+        numbers["detail"] = "the warmup never ended in %.0f s" % (warm + 30.0)
+        return "FAIL", numbers
+
+    # -- under null the machine stays RESET, and that IS the correct
+    # semantics (run C at ae4cdda88 proved the reading, and the source
+    # grounds it): GameRules.Think hands the frame to the ACTIVE MODE's own
+    # machine -- while a real mode owns the round its TeamRoundFlow is
+    # thought; NullMode's rounds are the core's deathmatch check, so
+    # TF2's machine is never thought under null at all (src/server/managed/
+    # GameRules.cs, Think: the `Mode is { } mode` arm). The plan's "null ->
+    # warmup -> PREROUND" wording does not fit that architecture; what the
+    # switch can and must show is its own RESET: RoundRunning before (the
+    # wait above, so the switch resets a RUNNING machine), Pregame after,
+    # and nothing but Pregame through a round's worth of polls. A machine
+    # that advanced under null would be the divergence to flag -- the old
+    # arm waited for a transition the architecture cannot produce and
+    # called the right game a FAIL.
+    numbers["state_before_null"] = state_before_null
+    seen = []
+
+    def frozen():
+        s = round_state(run)
+        if s:
+            seen.append(s)
+        return True if len(seen) >= 3 and all(x == "Pregame" for x in seen) else None
+
+    if not wait_pump(run, "mode: the null machine stays reset (Pregame)", frozen,
+                     40.0, 2.0):
+        numbers["states_after_null"] = ",".join(dict.fromkeys(seen)) or "(none)"
+        numbers["detail"] = ("the round machine did not stay reset under sv_mode null "
+                             "(states after the warmup: %s; the switch's reset leaves it "
+                             "Pregame and NullMode never thinks TeamRoundFlow)"
+                             % numbers["states_after_null"])
+        return "FAIL", numbers
+    numbers["states_after_null"] = ",".join(dict.fromkeys(seen)) or "(none)"
+
+    # -- and back: sv_mode pl, the round runs, the bare report names it -------
+    # The pl arm is the null arm's mirror: TeamRoundFlow IS thought now, so
+    # its own transition lines are the proof -- TeamRoundFlow.Enter logs
+    # "[TF2/Rounds] {from} -> {next}" and the console file loses nothing.
+    # "-> Preround" (Pregame -> Preround once the warmup gate lifts) and
+    # "-> RoundRunning" (the preround timer expiring) are each Enter's own
+    # line, not a state word caught mid-poll; the bare state read beside
+    # them is the second witness.
+    # The match must carry TeamRoundFlow's own prefix: run D at ae4cdda88
+    # caught a swallowed PlayerRunCommands exception whose stack dump lost
+    # its newline and glued "[TF2/Rounds] StartGame -> Preround" onto it --
+    # the transition is real, but a bare "-> Preround" search would also
+    # match any other line that merely quotes the state word's transition.
+    def rounds_line(transition):
+        return next((l for l in round_lines_since(run, "[TF2/Rounds]")
+                     if transition in l), None)
+
+    run.srv.cmd("sv_mode pl")
+    if not wait_pump(run, "mode: switched back to 'pl'",
+                     lambda: needle_line("switched to 'pl'"), 20.0):
+        numbers["detail"] = "sv_mode pl never announced the switch (states: %s)" % numbers["states_after_null"]
+        return "FAIL", numbers
+    prerun = wait_pump(run, "mode: the pl machine enters Preround",
+                       lambda: rounds_line("-> Preround"), MODE_SWITCH_WARMUP + 60.0, beat=10)
+    numbers["preround_transition"] = (prerun or "(never)")[:120].replace("\t", " ")
+    if not prerun:
+        numbers["detail"] = ("no '[TF2/Rounds] ... -> Preround' transition after sv_mode pl "
+                             "(the machine did not start; states under null were: %s)"
+                             % numbers["states_after_null"])
+        return "FAIL", numbers
+    runline = wait_pump(run, "mode: the pl machine enters RoundRunning",
+                        lambda: rounds_line("-> RoundRunning"), 60.0, beat=10)
+    numbers["roundrunning_transition"] = (runline or "(never)")[:120].replace("\t", " ")
+    if not runline:
+        numbers["detail"] = ("no '[TF2/Rounds] ... -> RoundRunning' transition after sv_mode pl "
+                             "(preround line: %s)" % numbers["preround_transition"])
+        return "FAIL", numbers
+    running = wait_pump(run, "mode: the 'pl' round runs again (state read)",
+                        lambda: (round_state(run) or "") == "RoundRunning", 60.0)
+    if not running:
+        numbers["detail"] = ("the round never ran again after sv_mode pl (state %r, transitions %s / %s)"
+                             % (round_state(run), numbers["preround_transition"],
+                                numbers["roundrunning_transition"]))
+        return "FAIL", numbers
+
+    run.srv.cmd("sv_mode")
+    report = wait_pump(run, "mode: the bare sv_mode report names pl",
+                       lambda: needle_line("active: 'pl'"), 20.0)
+    if not report:
+        numbers["detail"] = "the bare sv_mode report does not name 'pl' active"
+        return "FAIL", numbers
+    try:
+        numbers["sv_mode_switch_warmup_after"] = run.srv.convar("sv_mode_switch_warmup").get("value")
+    except lg.ApiError:
+        pass
+    run.srv.convar("sv_mode_switch_warmup", 0)
+    return "PASS", numbers
+
+
+def step_teardown(run, state):
+    numbers = {}
+    numbers["server_threads_after_join"] = state.get("threads_after_join")
+    numbers["server_threads_before_exit"] = thread_count(run.server.pid)
+    if (numbers["server_threads_after_join"] is None
+            or numbers["server_threads_before_exit"] is None):
+        # Kill BEFORE the early return: run_gate marks the teardown step as
+        # the one that owns the kill (killed=True), so a return that skips
+        # kill_all leaks both games onto the box -- run 11 at the settle fix
+        # left a server and a client standing on exactly this path.
+        run.kill_all()
+        numbers["detail"] = "the server's /proc/<pid>/task count could not be read"
+        return "FAIL", numbers
+    alive_before = (run.client.api.alive(), run.srv.alive())
+    run.kill_all()
+    # Poll liveness DIRECTLY: Api.wait_for answers None the moment its own
+    # process is dead, which is exactly the state being waited for here.
+    deadline = time.time() + 30.0
+    while time.time() < deadline and (run.client.api.alive() or run.srv.alive()):
+        time.sleep(0.5)
+    gone_client = not run.client.api.alive()
+    gone_server = not run.srv.alive()
+    numbers["client_exited"] = bool(gone_client)
+    numbers["server_exited"] = bool(gone_server)
+    ok = bool(gone_client) and bool(gone_server) and all(alive_before)
+    if not ok:
+        numbers["detail"] = "both games did not exit from being alive (%r)" % (alive_before,)
+    return ("PASS" if ok else "FAIL"), numbers
+
+
+LIVE_STEPS = {"join": step_join, "teams": step_teams, "classes": step_classes,
+              "combat": step_combat, "heal": step_heal, "respawn": step_respawn, "ctf": step_ctf,
+              "changelevel": step_changelevel, "payload": step_payload,
+              "mode": step_mode, "teardown": step_teardown}
+
+
+def joiner_died_during_heal(step, alive_before, alive_after):
+    """WHEN the runner may revive the joiner: only the heal step is allowed
+    to eat its client (the joiner SIGSEGV is the peer lane tf2-heal's known
+    bug); the same death in any other step is a NEW bug and must surface as
+    dead games, not be papered over. Pure: the self-test holds all four
+    arms."""
+    return step == "heal" and bool(alive_before) and not alive_after
+
+
+def run_gate(selected):
+    """Boot, run the selected steps in order, report, and return the exit
+    code. Teardown always kills the games, even when a step failed."""
+    tip = tip_sha()
+    run = Run()
+    run_id = "%s-p%d" % (time.strftime("%Y%m%d-%H%M%S"), os.getpid())
+    report = Report(os.path.join(REPORT_ROOT, run_id), tip)
+    print("== tools/tf2-gate: tip %s, %d step(s), logs in %s"
+          % (tip, len(selected), run.scratch), flush=True)
+    print("== report: %s" % report.path, flush=True)
+
+    selected = [s for s in STEP_ORDER if s in selected]
+    state = {}
+
+    if not run.launch():
+        report.record("launch", "FAIL", 0.0, {"detail": "the two games never came up"})
+        report.finish(1)
+        run.kill_all()
+        return 1
+
+    killed = False
+    try:
+        for step in selected:
+            t0 = time.time()
+            client_alive_before = run.client is not None and run.client.api.alive()
+            if step in NOT_WRITTEN:
+                status, numbers = "FAIL", {"detail": "not written yet (a later lane writes step %s)" % step}
+            else:
+                try:
+                    status, numbers = LIVE_STEPS[step](run, state)
+                except Exception as exc:
+                    status, numbers = "FAIL", {"exception": "%s: %s" % (type(exc).__name__, exc)}
+            # The heal step is the one place the JOINER dying is expected:
+            # its bug (the joiner SIGSEGVs once it holds the medigun) is
+            # owned by the peer lane tf2-heal, and the row must SAY that
+            # rather than silently cascade -- and the run must not lose the
+            # steps behind it. Revive the joiner ONLY after a death inside
+            # heal: the same death in any other step is a NEW bug and must
+            # surface as dead games, not be papered over.
+            if joiner_died_during_heal(step, client_alive_before, run.client.api.alive()):
+                numbers["joiner"] = (
+                    "the joiner's game EXITED inside the heal step -- the known heal "
+                    "SIGSEGV the peer lane tf2-heal owns (this lane does not touch that "
+                    "bug); the joiner is relaunched so the steps behind heal still measure")
+                if run.relaunch_joiner():
+                    numbers["joiner_relaunched_pid"] = run.client.pid
+                else:
+                    numbers["joiner_relaunched_pid"] = False
+                    numbers["detail"] = ("%s; and the relaunched joiner never came back, "
+                                         "so every step behind heal dies with it"
+                                         % numbers.get("detail", "(no step detail)"))
+            if step == "teardown":
+                killed = True
+            report.record(step, status, time.time() - t0, numbers)
+            print("-- %s: %s %s" % (step, status,
+                                    " ".join("%s=%s" % kv for kv in sorted(numbers.items()))),
+                  flush=True)
+            # A FAIL does not end the run (except the launch, which has no
+            # games left to measure with): the heal step is a known open
+            # crash owned by another lane, and breaking at its row would
+            # hide the measurements of every step behind it. Each step says
+            # its own reason; gate_rc decides the exit code over all rows.
+    finally:
+        if not killed:
+            run.kill_all()
+
+    rc = gate_rc(report.rows)
+    report.finish(rc)
+    print("== tools/tf2-gate rc=%d (report %s)" % (rc, report.path), flush=True)
+    return rc
+
+
+def select_steps(spec):
+    if not spec:
+        return list(DEFAULT_STEPS)
+    wanted = []
+    for token in spec.replace(" ", "").split(","):
+        if not token:
+            continue
+        if token in STEP_ORDER:
+            wanted.append(token)
+        else:
+            print("== unknown step %r (known: %s)" % (token, ",".join(STEP_ORDER)))
+            return None
+    return wanted
+
+
+# ---------------------------------------------------------------------------
+# The self-test: the report writing and the pass/fail arithmetic, no game.
+# ---------------------------------------------------------------------------
+def self_test():
+    """Returns (checked, failures) so the caller prints both."""
+    checks = []
+
+    def check(cond, why):
+        checks.append((bool(cond), why))
+
+    check(within(400.0, 400.0, 0.05), "exact speed is within")
+    check(within(420.0, 400.0, 0.05), "5 % above is within")
+    check(not within(421.0, 400.0, 0.05), "past 5 % is NOT within")
+    check(not within(379.0, 400.0, 0.05), "below 5 % is NOT within")
+    check(within(0.0, 0.0, 0.05), "zero against zero is within")
+    check(not within(1.0, 0.0, 0.05), "anything against zero is NOT within")
+
+    check(speed_within(800.0, 2.0, 400.0), "800 u over 2 s is 400 u/s")
+    check(not speed_within(600.0, 2.0, 400.0), "300 u/s is NOT within 5 % of 400")
+    check(not speed_within(None, 2.0, 400.0), "an unmeasured speed NEVER passes")
+    check(not speed_within(800.0, 0.0, 400.0), "a zero-length window never passes")
+
+    check(teams_distinct(2, 3), "2 and 3 are the red/blu pair")
+    check(not teams_distinct(2, 2), "two players on one team is NOT a pair")
+    check(not teams_distinct(0, 3), "unassigned is not a team")
+
+    check(health_is({"Health": "125"}, 125), "the networked Health reads")
+    check(not health_is({"Health": "124"}, 125), "a wrong Health is not confirmed")
+    check(not health_is({}, 125), "a missing Health field is NOT a pass")
+
+    # Joiner revival (run_gate): the heal crash (peer lane tf2-heal's
+    # SIGSEGV) is the ONLY death the runner may revive. All four arms must
+    # answer, or a papered-over new bug or a missed revival is invisible.
+    check(joiner_died_during_heal("heal", True, False),
+          "a joiner dying inside heal asks for the revival")
+    check(not joiner_died_during_heal("payload", True, False),
+          "the same death in another step revives NOTHING (it must surface)")
+    check(not joiner_died_during_heal("heal", True, True),
+          "no death across heal, no revival")
+    check(not joiner_died_during_heal("heal", False, False),
+          "a joiner already dead entering heal is not heal's to blame")
+
+    tj = team_joins(["[SourceSharp/Teams] #1 joined team 2 (was 0)",
+                     "[SourceSharp] a line that only mentions joining a team",
+                     "[SourceSharp/Teams] #2 joined team 3 (was 0)",
+                     "[SourceSharp/Teams] #1 joined team 3 (was 2)"])
+    check(tj.get(1, (None,))[0] == 3, "the last join line per player wins")
+    check(tj.get(2, (None,))[0] == 3, "the other player parses too")
+    check(len(tj) == 2, "only the two real join lines parse")
+    check(tj[2][1].startswith("[SourceSharp/Teams]"), "the raw line rides along as evidence")
+    check(not team_joins([]), "no lines, no joins (cannot-measure stays a failure)")
+    check(not team_joins(["[SourceSharp/Teams] #1 joined team x (was 0)"]),
+          "an unparseable team number is NOT a join")
+
+    cj = class_joins(["[TF2/Player] player 1 joins as Scout now",
+                      "[TF2/Player] player 2 will be Heavy at the next spawn",
+                      "player 9 joins as nothing (not the game's line)"])
+    check(cj.get(1, ("-", "-", ""))[0] == "now" and cj[1][1] == "scout",
+          "the game's 'Scout' line canonicalizes to now/scout")
+    check(cj.get(2, ("-", "-", ""))[0] == "queued" and cj[2][1] == "heavyweapons",
+          "the game's 'Heavy' line canonicalizes to queued/heavyweapons")
+    check(len(cj) == 2, "an unanchored lookalike line is NOT a class join")
+    check(class_joins(["[TF2/Player] player 1 joins as HeavyWeapons now"])[1][1] == "heavyweapons",
+          "an enum-style HeavyWeapons also canonicalizes")
+    check(class_joins(["[TF2/Player] player 1 joins as Pyro now"])[1][1] == "Pyro",
+          "an unlisted class stays raw (compares unequal, records the line)")
+
+    check(parse_round_state("[TF2/Rounds] state RoundRunning, winner Unassigned, waiting False")
+          == "RoundRunning", "the tf2_dev_win echo parses to its state word")
+    check(parse_round_state("[TF2/Rounds] state TeamWin, winner Red, waiting False")
+          == "TeamWin", "a win echo parses too")
+    check(parse_round_state("[TF2/Rounds] RoundRunning -> TeamWin") is None,
+          "a transition line is NOT a state echo")
+    check(parse_round_state(None) is None and parse_round_state("") is None,
+          "no line answers no state, never a guess")
+
+    # current_server_map: the gate's only answer to "which map is loaded",
+    # because the engine's host_map names the boot map forever after a
+    # changelevel. Empty text is no answer; the LAST load wins, so a rotation
+    # cannot be masked by the boot map's line; and the client's own level-init
+    # line must not answer the SERVER's question.
+    check(current_server_map("") is None and current_server_map(None) is None,
+          "no console text answers no map")
+    check(current_server_map("[SourceSharp/Server] level init: ctf_2fort\n"
+                             "[SourceSharp/Server] level init: pl_badwater\n")
+          == "pl_badwater", "the last level-init line wins over the boot map's")
+    check(current_server_map("[SourceSharp/Client] level init: pl_badwater\n") is None,
+          "the client's level-init line does NOT answer the server's map")
+    check(current_server_map("[SourceSharp] server level init pre-entity -> C#: ctf_2fort\n")
+          is None, "the pre-entity banner is NOT the level-init line")
+
+    baked = count_by_classname([{"classname": "team_control_point"},
+                                {"classname": "team_control_point"},
+                                {"classname": "info_player_teamspawn"},
+                                {"classname": None},
+                                {"not_a_class": 1}])
+    check(baked.get("team_control_point") == 2 and baked.get("info_player_teamspawn") == 1,
+          "the census counts one map entity lump by classname")
+    check(baked.get("team_control_point") != 3 and baked.get(None) == 2
+          and "not_a_class" not in baked,
+          "a dict with no classname counts once under the missing key, never under a real class")
+
+    # The baked lump reader -- step 7's census and the checkpoint arm's
+    # targetname aiming both read real BSP bytes with it. The input is the
+    # repo's own committed dm_lockdown.bsp (the one loose bsp this repo
+    # keeps), so the self-test parses a real map, not a fixture; a file
+    # that is not a usable BSP must RAISE, so a census can never read a
+    # silent zero (CLAUDE.md: a missing input is a failure).
+    dm = os.path.join(ROOT, "game", "mod_test", "maps", "dm_lockdown.bsp")
+    if os.path.isfile(dm):
+        dm_ents = baked_lump_entities(dm)
+        dm_counts = count_by_classname(dm_ents)
+        check(dm_counts.get("worldspawn", 0) == 1,
+              "dm_lockdown's lump holds the world once")
+        check(sum(dm_counts.values()) > 50,
+              "the lump parse finds dm_lockdown's entities (%d)" % sum(dm_counts.values()))
+        check(dm_counts.get("info_player_deathmatch", 0) > 0,
+              "the deathmatch spawns come out of the lump by name")
+        # Two independent ways to count one class over the same parse: the
+        # census's helper and a plain walk. They must agree, or the census
+        # number is an artefact of the helper.
+        check(sum(1 for e in dm_ents if e.get("classname") == "info_player_deathmatch")
+              == dm_counts.get("info_player_deathmatch", -3),
+              "count_by_classname agrees with an entity walk on the spawns")
+    else:
+        check(False, "dm_lockdown.bsp missing: the baked lump reader cannot be measured")
+
+    junk = os.path.join(tempfile.gettempdir(), "tf2gate-junk-%d.bsp" % os.getpid())
+    try:
+        with open(junk, "wb") as fh:
+            fh.write(b"not a bsp at all, just bytes")
+        try:
+            baked_lump_entities(junk)
+            check(False, "a non-BSP file must RAISE, never count nothing")
+        except ValueError:
+            check(True, "a non-BSP file raises; the census reads no silent zero from it")
+        with open(junk, "wb") as fh:
+            fh.write(b"VBSP" + bytes(4) + bytes(16) + bytes(8))   # header, empty lump 0
+        try:
+            baked_lump_entities(junk)
+            check(False, "a BSP-shaped file whose entity lump is empty must RAISE")
+        except ValueError:
+            check(True, "a BSP-shaped file with no entity lump raises too")
+    finally:
+        if os.path.isfile(junk):
+            os.unlink(junk)
+
+    # The compressed-lump arm (TF2's shipped maps carry their entities
+    # LZMA'd). The round-trip below proves the reader decodes the very
+    # container CLZMA writes -- lzma_header_t (id 'LZMA', uncompressed size,
+    # compressed size, 5 property bytes) over a raw LZMA1 stream -- and the
+    # negative control proves the fourCC/actualSize cross-check can fail.
+    check(lzma_codec_props(b"\x5D" + bytes(4)) == (3, 0, 2),
+          "the SDK's default property byte splits to lc 3 lp 0 pb 2")
+    # LZMADecoder is the common name; this interpreter's lzma calls it
+    # LZMADecompressor (see the reader's comment). Either answers.
+    _lzma_ready = (_lzma is not None and hasattr(_lzma, "FILTER_LZMA1")
+                   and (hasattr(_lzma, "LZMADecoder")
+                        or hasattr(_lzma, "LZMADecompressor")))
+    if not _lzma_ready:
+        check(False, "the lzma module cannot decode (file %r, attrs %s)"
+              % (getattr(_lzma, "__file__", None),
+                 sorted(a for a in dir(_lzma) if "LZMA" in a or "FILTER" in a)[:40]
+                 if _lzma is not None else "None"))
+    if _lzma is not None and _lzma_ready:
+        zcmp = os.path.join(tempfile.gettempdir(), "tf2gate-zlump-%d.bsp" % os.getpid())
+        try:
+            ztext = ('{\n"id" "0"\n}\n'
+                     '{\n"id" "1"\n"classname" "team_control_point"\n}\n'
+                     '{\n"id" "2"\n"classname" "trigger_capture_area"\n}\n')
+            zraw = ztext.encode("latin-1")
+            # The stream comes from the xz CLI's raw LZMA1, the same bytes
+            # Valve's LzmaEnc writes into a map (python's raw-LZMA1 encoder
+            # refuses to run here; the DECODER is what the reader uses and
+            # is the thing under test). The header declares the lc3/lp0/pb2
+            # the SDK uses (props 0x5D) and the dict the encoder was given.
+            try:
+                zproc = subprocess.run(
+                    ["xz", "--format=raw",
+                     "--lzma1=preset=9,lc=3,lp=0,pb=2,dict=1MiB", "-c", "-"],
+                    input=zraw, stdout=subprocess.PIPE)
+            except OSError as why:
+                zproc = None
+                check(False, "no xz to synthesize the compressed lump: %s" % why)
+            if zproc is not None:
+                if zproc.returncode != 0:
+                    check(False, "xz raw LZMA1 compression failed (rc %d)" % zproc.returncode)
+                else:
+                    zstream = zproc.stdout
+                    zhdr = (LZMA_ID.to_bytes(4, "little")
+                            + len(zraw).to_bytes(4, "little")
+                            + len(zstream).to_bytes(4, "little")
+                            + b"\x5D" + (1 << 20).to_bytes(4, "little"))
+                    zlump = zhdr + zstream
+
+                    def zbsp(lump_len, four_cc):
+                        desc = (1032).to_bytes(4, "little") \
+                            + lump_len.to_bytes(4, "little") \
+                            + bytes(4) + four_cc.to_bytes(4, "little")
+                        return b"VBSP" + bytes(4) + desc + bytes(1024 - 16) + zlump
+
+                    with open(zcmp, "wb") as fh:
+                        fh.write(zbsp(len(zlump), len(zraw)))
+                    try:
+                        zc = count_by_classname(baked_lump_entities(zcmp))
+                        check(zc == {"worldspawn": 1, "team_control_point": 1,
+                                     "trigger_capture_area": 1},
+                              "the compressed-lump arm decodes what CLZMA's header says "
+                              "it holds (counts %s, stream %d bytes)"
+                              % (sorted(zc.items()), len(zstream)))
+                    except ValueError as why:
+                        check(False, "compressed-lump round-trip raised: %s" % why)
+                    with open(zcmp, "wb") as fh:
+                        fh.write(zbsp(len(zlump), len(zraw) + 7))   # header vs fourCC lie
+                    try:
+                        baked_lump_entities(zcmp)
+                        check(False, "a fourCC that disagrees with the LZMA header must RAISE")
+                    except ValueError:
+                        check(True, "a fourCC disagreeing with the LZMA header raises (control)")
+            # Real Valve-encoded bytes, when this tree has TF2 content (it
+            # is per-tree mounted content, like the sandbox map: absent it
+            # says so by name; the changelevel run still reads the file).
+            real = None
+            for cand in _content_maps("pl_badwater"):
+                if os.path.isfile(cand):
+                    real = cand
+                    break
+            if real is not None:
+                try:
+                    rcounts = count_by_classname(baked_lump_entities(real))
+                    check(rcounts.get("team_control_point", 0) >= 1
+                          and rcounts.get("trigger_capture_area", 0) >= 1
+                          and rcounts.get("info_player_teamspawn", 0) >= 1,
+                          "the arm reads real TF2 bytes: pl_badwater's lump counts %d CPs, "
+                          "%d capture areas, %d teamspawns"
+                          % (rcounts.get("team_control_point", 0),
+                             rcounts.get("trigger_capture_area", 0),
+                             rcounts.get("info_player_teamspawn", 0)))
+                except ValueError as why:
+                    check(False, "the real pl_badwater lump did not decode: %s" % why)
+            else:
+                check(True, "no TF2 content on this tree: the real-lump read rides "
+                            "on the changelevel run")
+        finally:
+            if os.path.isfile(zcmp):
+                os.unlink(zcmp)
+    else:
+        check(False, "this python has no lzma: the compressed-lump arm is unmeasured")
+
+    check(_fmt_ui([{"kind": "Text"}, {"kind": "Rect"}, {"kind": "Text"}]) == "3 draws, 2 Text",
+          "the ui snapshot counts draws and Text draws apart")
+    check(_fmt_ui(None) == "unreachable", "an unreachable ui channel reads as such")
+
+    check(_d2([0, 0, 0], [3, 4, 99]) == 5.0, "the cart distance is the 2-D one")
+    check(_d2([0, 0, 0], None) is None, "an unmeasured cart position is None, never a zero")
+    ahead = _ahead([0, 0, 0], [100, 0, 0], 96.0)
+    check(abs(ahead[0] - 96.0) < 1e-6 and abs(ahead[1]) < 1e-6,
+          "the pusher stands ahead of the cart, on the line to the goal")
+    check(_behind([0, 0, 0], [100, 0, 0], 96.0)[0] < -95.9,
+          "the recede spot is BEHIND the cart -- behind is not ahead")
+    check(abs(_yaw_to([0, 0, 0], [0, 100, 0]) - 90.0) < 1e-6, "due +Y faces 90 degrees")
+    check(parse_warmup_seconds("[SourceSharp/Modes] warmup for 5.0s before 'null' starts")
+          == 5.0, "the warmup line gives its seconds (GameModes.SwitchTo)")
+    check(parse_warmup_seconds("switched to 'null'") is None,
+          "a line without a warmup window gives no seconds, never a guess")
+    check(len(match_outputs([{"name": "OnOwnerChangedToTeam2", "seq": 3},
+                             {"name": "OnCapTeam1", "seq": 4}], CP_OWNER_NEEDLES)) == 1,
+          "the owner-match keeps the owner output and drops an unrelated one")
+
+    check(gate_rc([]) == 1, "no rows is not a pass")
+    check(gate_rc([{"status": "PASS"}]) == 0, "all PASS gives rc 0")
+    check(gate_rc([{"status": "PASS"}, {"status": "FAIL"}]) == 1, "one FAIL gives rc 1")
+
+    row = {"step": "classes", "status": "FAIL", "seconds": 3.5, "rc": 1, "tip": "abc123",
+           "numbers": {"scout_health": "125", "scout_speed": "380.0"}}
+    line = format_row(row)
+    back = parse_row(line + "\n")
+    check(back["step"] == "classes" and back["status"] == "FAIL",
+          "a report row survives its round-trip (step and status)")
+    check(back["numbers"]["scout_speed"] == "380.0", "a report row keeps its numbers")
+    check(len(line.split("\t")) >= 6 and line.split("\t")[4] == "abc123",
+          "the tip rides on every row")
+
+    row2 = {"step": "join", "status": "PASS", "seconds": 0.0, "rc": 0, "tip": "abc123",
+            "numbers": {"players": 2}}
+    check(parse_row(format_row(row2) + "\n")["numbers"]["players"] == "2",
+          "an int number round-trips")
+
+    scratch = tempfile.mkdtemp(prefix="tf2g-self-test-")
+    report = Report(os.path.join(scratch, "run-1"), "deadbeef")
+    report.record("join", "PASS", 1.0, {"players": 2})
+    report.record("classes", "FAIL", 2.0, {"scout_speed": "300.0"})
+    report.finish(1)
+    rows = read_report(report.path)
+    check(rows is not None and len(rows) == 2, "the report reads back its two rows")
+    check(rows and rows[1]["status"] == "FAIL", "the second row kept its FAIL")
+    check(gate_rc(rows) == 1, "the read-back rows compute the failing rc")
+    check(read_report(os.path.join(scratch, "nope.tsv")) is None,
+          "a missing report reads None (a failure for its reader, never empty PASS)")
+    unwritten = Report(os.path.join(scratch, "run-2"), "deadbeef")
+    unwritten.record("ctf", "FAIL", 0.0, {"detail": "not written yet (a later lane writes step ctf)"})
+    check(gate_rc(unwritten.rows) == 1, "an unwritten step FAILs, never passes")
+
+    # The settle verdict (run 10, tip f8145cb91): the route answered met for
+    # a player still 36 u over the corridor floor -- the teleport zeroes his
+    # velocity and the ground word it checked was the one he stood on before
+    # the move -- and the gate's own hold samples then read 37 -> 4, "still
+    # moving, 33 u between them", on every route. Rest must come before the
+    # hold samples, for the host exactly as the joiner arm already waited.
+    class ScriptedApi:
+        """Serves entity(index=...) origins from a script; once the script
+        runs dry the last origin repeats (a player resting on it)."""
+
+        def __init__(self, origins):
+            self.origins = [list(o) for o in origins]
+
+        def entity(self, index=None):
+            if self.origins:
+                pos = self.origins.pop(0)
+                self._last = pos
+            return {"origin": list(self._last)} if getattr(self, "_last", None) else {}
+
+    class SunkApi:
+        """A player who never rests: each read sinks 20 u further (a drop
+        into an endless shaft), so no two consecutive samples agree."""
+
+        def __init__(self):
+            self.n = 0
+
+        def entity(self, index=None):
+            self.n += 1
+            return {"origin": [-1200.0, 600.0, 40.0 - 20.0 * self.n]}
+
+    class StubRun:
+        def __init__(self, api):
+            self.srv = api
+
+    held, _ = rests_then_holds(StubRun(ScriptedApi([
+        [-1200, 600, 37], [-1200, 600, 4], [-1200, 600, 4], [-1200, 600, 4]])),
+        1, TRACK_SPOT, False, rest_seconds=1.0)
+    check(held, "the run-10 drop (37 -> 4 between reads) rests before it holds")
+
+    sunk, why = rests_then_holds(StubRun(SunkApi()), 1, TRACK_SPOT, False,
+                                 rest_seconds=0.6)
+    check(not sunk and "rest" in why,
+          "a player who never rests fails the settle, naming the rest")
+
+    checked = sum(1 for ok, _ in checks)
+    failed = [why for ok, why in checks if not ok]
+    return checked, failed
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog="tools/tf2-gate")
+    ap.add_argument("--steps", default="",
+                    help="comma list of step names (default: %s)" % ",".join(DEFAULT_STEPS))
+    ap.add_argument("--self-test", action="store_true",
+                    help="exercise the report and the arithmetic, no game")
+    args = ap.parse_args(argv)
+
+    if args.self_test:
+        checked, failed = self_test()
+        for why in failed:
+            print("SELF-TEST FAILED: %s" % why)
+        print("SELF-TEST %d checks, %d failed" % (checked, len(failed)))
+        return 1 if failed else 0
+
+    selected = select_steps(args.steps)
+    if selected is None:
+        return 2
+    return run_gate(selected)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

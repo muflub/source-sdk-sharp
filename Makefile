@@ -47,6 +47,8 @@ export DOTNET_CLI_USE_MSBUILD_SERVER ?= true
 export DOTNET_CLI_TELEMETRY_OPTOUT   ?= 1
 export DOTNET_NOLOGO                 ?= 1
 export MSBUILDTERMINALLOGGER         ?= auto
+# `make golden UI_GOLDEN_WRITE=1` regenerates the exemplar goldens on purpose.
+export UI_GOLDEN_WRITE               ?=
 
 # The configuration the running, testing and instrument targets use. `debug`
 # and `release` always build their own; `run-release` runs release.
@@ -270,6 +272,8 @@ help:
 	@echo "  make ui-icons                       rasterise src/client/ui/icons into its atlas (commit the result)"
 	@echo "  make ui-lint    the UI design lint over every screen sample"
 	@echo "  make live-gate  build debug, then load a map TWICE and gate both"
+	@echo "  make tf2-gate   Stage 4.2's scripted TF2 round: join, teams, classes, combat, heal"
+	@echo "                  (TF2_GATE_ARGS='--steps join,teams' for a subset; --self-test for the report half)"
 	@echo "  make movemath-gate  E1's movement port, A/B'd inside one process:"
 	@echo "                  stock C++ arm then managed arm, same map, same connect"
 	@echo "                  live at two very different N"
@@ -1147,6 +1151,21 @@ check-public: debug test-public
 LIVE_ARGS ?=
 live-gate: $(CONFIG)
 	@SOURCESHARP_CONFIG=$(CONFIG) tools/live-gate $(LIVE_ARGS)
+
+# Stage 4.2's scripted TF2 round (docs/plans/tf2/stage4_milestone.md): a listen
+# server and one joining client on ctf_2fort, asserting join, teams, class
+# health and speed, a heavy's shot on a scout, and a medic's overheal. Each
+# step records its numbers to tools/.tf2-gate/<run>/report.tsv at the tip sha.
+# Steps 6-9 are a later lane's: selected, they FAIL "not written yet".
+#
+#   make tf2-gate                                    every written step
+#   make tf2-gate TF2_GATE_ARGS='--steps join,teams' a subset
+#   make tf2-gate TF2_GATE_ARGS='--self-test'        the report-writing half
+#
+# Not part of `make test`: it needs a game and a GPU, like every live gate.
+TF2_GATE_ARGS ?=
+tf2-gate: $(CONFIG)
+	@SOURCESHARP_CONFIG=$(CONFIG) tools/tf2-gate $(TF2_GATE_ARGS)
 
 # THE SHAPE `live-gate` CANNOT SEE -- client.so with no server.so in the process.
 #

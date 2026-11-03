@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Read a Valve VPK (version 1 or 2) and extract named files. Stage 0.2.
 
-    tools/vpk-extract <dir.vpk> <path> [...] [-o OUTDIR]
+    tools/vpk-extract <dir.vpk> <path> [...] [-o OUTDIR] [--ice-key KEY]
     tools/vpk-extract <dir.vpk> --list ['scripts/items/*']
     tools/vpk-extract --self-test
+
+--ice-key decrypts each extracted .ctx (TF2 seals its class and weapon
+scripts so; stock opens them with ReadEncryptedKVFile/UTIL_DecodeICE) with
+ICE level 0 and the given 8-byte key, whole 8-byte blocks only, the tail
+left as read, and writes it as <name>.txt. The tool holds no key.
 
 The install ships no vpk binary and python has no vpk module, and later
 stages' fixtures (class scripts, items_game.txt, weapon scripts) live inside
@@ -228,7 +233,7 @@ def _matching(vpk, patterns):
                   if any(fnmatch.fnmatch(n, p) for p in patterns))
 
 
-def extract(dir_path, patterns, out_dir):
+def extract(dir_path, patterns, out_dir, ice_key=None):
     vpk = Vpk(dir_path)
     try:
         names = _matching(vpk, patterns)
@@ -238,6 +243,11 @@ def extract(dir_path, patterns, out_dir):
         written = []
         for name in names:
             data = vpk.read(vpk.entries[name])
+            if ice_key is not None:
+                if not name.endswith(".ctx"):
+                    raise VpkError(f"--ice-key decrypts .ctx files only; {name} is not one")
+                data = ice_decode(data, ice_key)
+                name = name[:-len(".ctx")] + ".txt"
             dest = os.path.join(out_dir, name)
             os.makedirs(os.path.dirname(dest) or out_dir, exist_ok=True)
             with open(dest, "wb") as f:
@@ -246,6 +256,143 @@ def extract(dir_path, patterns, out_dir):
         return written
     finally:
         vpk.close()
+
+
+# ---------------------------------------------------------------------------
+# ICE (Matthew Kwan's public-domain cipher, as Valve's src/mathlib/IceKey.cpp
+# carries it) and UTIL_DecodeICE's use of it: level 0, 8-byte blocks, and a
+# tail shorter than a block left exactly as read. The key is the caller's;
+# this tool knows none.
+# ---------------------------------------------------------------------------
+
+_ICE_SMOD = ((333, 313, 505, 369), (379, 375, 319, 391),
+             (361, 445, 451, 397), (397, 425, 395, 505))
+_ICE_SXOR = ((0x83, 0x85, 0x9b, 0xcd), (0xcc, 0xa7, 0xad, 0x41),
+             (0x4b, 0x2e, 0xd4, 0x33), (0xea, 0xcb, 0x2e, 0x04))
+_ICE_PBOX = (0x00000001, 0x00000080, 0x00000400, 0x00002000,
+             0x00080000, 0x00200000, 0x01000000, 0x40000000,
+             0x00000008, 0x00000020, 0x00000100, 0x00004000,
+             0x00010000, 0x00800000, 0x04000000, 0x20000000,
+             0x00000004, 0x00000010, 0x00000200, 0x00008000,
+             0x00020000, 0x00400000, 0x08000000, 0x10000000,
+             0x00000002, 0x00000040, 0x00000800, 0x00001000,
+             0x00040000, 0x00100000, 0x02000000, 0x80000000)
+_ICE_KEYROT = (0, 1, 2, 3, 2, 1, 3, 0, 1, 3, 2, 0, 3, 1, 0, 2)
+
+
+def _gf_mult(a, b, m):
+    res = 0
+    while b:
+        if b & 1:
+            res ^= a
+        a <<= 1
+        b >>= 1
+        if a >= 256:
+            a ^= m
+    return res
+
+
+def _gf_exp7(b, m):
+    if b == 0:
+        return 0
+    x = _gf_mult(b, b, m)
+    x = _gf_mult(b, x, m)
+    x = _gf_mult(x, x, m)
+    return _gf_mult(b, x, m)
+
+
+def _ice_perm32(x):
+    res, i = 0, 0
+    while x:
+        if x & 1:
+            res |= _ICE_PBOX[i]
+        i += 1
+        x >>= 1
+    return res
+
+
+def _ice_sboxes():
+    sbox = [[0] * 1024 for _ in range(4)]
+    for i in range(1024):
+        col = (i >> 1) & 0xFF
+        row = (i & 1) | ((i & 0x200) >> 8)
+        for s, shift in enumerate((24, 16, 8, 0)):
+            sbox[s][i] = _ice_perm32(_gf_exp7(col ^ _ICE_SXOR[s][row], _ICE_SMOD[s][row]) << shift)
+    return sbox
+
+
+class IceKey:
+    """IceKey.cpp's class: level n (0 is the 64-bit 'thin' ICE stock uses)."""
+
+    def __init__(self, level, key):
+        self.size, self.rounds = (1, 8) if level < 1 else (level, level * 16)
+        if len(key) != self.size * 8:
+            raise ValueError(f"an ICE level {level} key is {self.size * 8} bytes, not {len(key)}")
+        self.sbox = _ice_sboxes()
+        self.sched = [[0, 0, 0] for _ in range(self.rounds)]
+        if self.rounds == 8:
+            kb = [0] * 4
+            for i in range(4):
+                kb[3 - i] = (key[i * 2] << 8) | key[i * 2 + 1]
+            self._schedule(kb, 0, _ICE_KEYROT[:8])
+            return
+        for i in range(self.size):
+            kb = [0] * 4
+            for j in range(4):
+                kb[3 - j] = (key[i * 8 + j * 2] << 8) | key[i * 8 + j * 2 + 1]
+            self._schedule(kb, i * 8, _ICE_KEYROT[:8])
+            self._schedule(kb, self.rounds - 8 - i * 8, _ICE_KEYROT[8:])
+
+    def _schedule(self, kb, n, keyrot):
+        for i in range(8):
+            kr = keyrot[i]
+            sk = self.sched[n + i]
+            sk[0] = sk[1] = sk[2] = 0
+            for j in range(15):
+                for k in range(4):
+                    idx = (kr + k) & 3
+                    bit = kb[idx] & 1
+                    sk[j % 3] = ((sk[j % 3] << 1) | bit) & 0xFFFFFFFF
+                    kb[idx] = (kb[idx] >> 1) | ((bit ^ 1) << 15)
+
+    def _f(self, p, sk):
+        tl = ((p >> 16) & 0x3FF) | (((p >> 14) | (p << 18)) & 0xFFC00)
+        tr = (p & 0x3FF) | ((p << 2) & 0xFFC00)
+        al = sk[2] & (tl ^ tr)
+        ar = al ^ tr
+        al ^= tl
+        al ^= sk[0]
+        ar ^= sk[1]
+        s = self.sbox
+        return s[0][al >> 10] | s[1][al & 0x3FF] | s[2][ar >> 10] | s[3][ar & 0x3FF]
+
+    def _crypt(self, block, order):
+        l, r = struct.unpack(">II", block)
+        for a, b in order:
+            l ^= self._f(r, self.sched[a])
+            r ^= self._f(l, self.sched[b])
+        return struct.pack(">II", r, l)
+
+    def encrypt(self, block):
+        return self._crypt(block, [(i, i + 1) for i in range(0, self.rounds, 2)])
+
+    def decrypt(self, block):
+        return self._crypt(block, [(i, i - 1) for i in range(self.rounds - 1, 0, -2)])
+
+
+def ice_decode(data, key):
+    """UTIL_DecodeICE: decrypt whole 8-byte blocks; the tail stays as read."""
+    ice = IceKey(0, key)
+    whole = len(data) - len(data) % 8
+    out = b"".join(ice.decrypt(data[i:i + 8]) for i in range(0, whole, 8))
+    return out + data[whole:]
+
+
+def ice_encode(data, key):
+    """The inverse, for the self-test's round trip only."""
+    ice = IceKey(0, key)
+    whole = len(data) - len(data) % 8
+    return b"".join(ice.encrypt(data[i:i + 8]) for i in range(0, whole, 8)) + data[whole:]
 
 
 def list_entries(dir_path, patterns):
@@ -268,7 +415,7 @@ def _cstr(s):
     return s.encode("utf-8") + b"\0"
 
 
-def _tiny_vpk(tmp, base, layout):
+def _tiny_vpk(tmp, base, layout, ext="txt", body=None):
     """Writes <base>_dir.vpk + <base>_000.vpk into tmp holding two entries
     under scripts/ (one spanning the archive, one fully preloaded), in the
     named layout. The wire bytes are written here explicitly, in the
@@ -277,7 +424,7 @@ def _tiny_vpk(tmp, base, layout):
     file's own misreadings: a parser bug and a writer bug from one shared
     builder could cancel out. The "wrong-order" arm writes the preload
     before the terminator and exists to be refused."""
-    body = b"hello vpk\n"
+    body = body if body is not None else b"hello vpk\n"
     preload_only = b"preloaded"
     if layout == "16B@28":
         version, tree_at, efmt, inline = 2, 28, "<IHHII", 0x7FFF
@@ -301,7 +448,7 @@ def _tiny_vpk(tmp, base, layout):
             return _cstr(name) + rec + data + marker      # preload first
         return _cstr(name) + rec + marker + data          # published order
 
-    tree_body = (_cstr("txt") + _cstr("scripts")
+    tree_body = (_cstr(ext) + _cstr("scripts")
                  + entry("a", body, in_archive=True)
                  + entry("b", preload_only, in_archive=False)
                  + b"\0\0")
@@ -390,6 +537,44 @@ def self_test():
         except VpkError as e:
             check("an empty list is refused", "no entry" in str(e), str(e))
 
+    # ICE against Kwan's published vectors (darkside.com.au/ice/overview.html:
+    # plaintext fedcba9876543210), all three levels IceKey.cpp builds.
+    for level, key, want in ((0, "deadbeef01234567", "de240d83a00a9cc0"),
+                             (1, "deadbeef01234567", "7d6ef1ef30d47a96"),
+                             (2, "00112233445566778899aabbccddeeff", "f94840d86972f21c")):
+        ice = IceKey(level, bytes.fromhex(key))
+        got = ice.encrypt(bytes.fromhex("fedcba9876543210"))
+        check(f"ICE level {level} encrypts the published vector", got.hex() == want, got.hex())
+        check(f"ICE level {level} decrypts it back",
+              ice.decrypt(got).hex() == "fedcba9876543210")
+
+    # UTIL_DecodeICE's tail: 19 bytes are two whole blocks and 3 left as read
+    key = b"testkey!"
+    plain = b"\"x\" { \"a\" \"1\" }\nXYZ"
+    sealed = ice_encode(plain, key)
+    check("the encoded blocks differ from the plaintext", sealed[:16] != plain[:16])
+    check("the tail shorter than a block is left as read", sealed[16:] == b"XYZ")
+    check("decode inverts encode", ice_decode(sealed, key) == plain)
+    check("a wrong key does not decode", ice_decode(sealed, b"wrongkey") != plain)
+
+    # --ice-key on extract: a .ctx in a pack comes out decrypted as .txt; a
+    # non-.ctx is refused rather than run through the cipher
+    with tempfile.TemporaryDirectory() as tmp:
+        _tiny_vpk(tmp, "tiny", "16B@28", ext="ctx", body=sealed)
+        out = os.path.join(tmp, "out")
+        written = extract(os.path.join(tmp, "tiny_dir.vpk"), ["scripts/a.ctx"], out, ice_key=key)
+        check("--ice-key writes the .ctx as .txt",
+              written == [os.path.join(out, "scripts/a.txt")], str(written))
+        with open(written[0], "rb") as f:
+            check("--ice-key decrypts the entry", f.read() == plain)
+    with tempfile.TemporaryDirectory() as tmp:
+        _tiny_vpk(tmp, "tiny", "16B@28")
+        try:
+            extract(os.path.join(tmp, "tiny_dir.vpk"), ["scripts/a.txt"], tmp, ice_key=key)
+            check("--ice-key refuses a non-.ctx entry", False)
+        except VpkError as e:
+            check("--ice-key refuses a non-.ctx entry", ".ctx files only" in str(e), str(e))
+
     print(f"self-test: {fails} failed")
     return 1 if fails else 0
 
@@ -402,6 +587,9 @@ def main(argv):
     ap.add_argument("-o", "--out", default=".")
     ap.add_argument("--list", metavar="PATTERN", default=None)
     ap.add_argument("--self-test", action="store_true")
+    ap.add_argument("--ice-key", metavar="KEY", default=None,
+                    help="decrypt each extracted .ctx with ICE level 0 and this 8-byte key "
+                         "(UTIL_DecodeICE), writing it as .txt")
     args = ap.parse_args(argv)
 
     if args.self_test:
@@ -415,7 +603,10 @@ def main(argv):
         for n in list_entries(args.vpk, patterns):
             print(n)
         return 0
-    for dest in extract(args.vpk, patterns, args.out):
+    if args.ice_key is not None and len(args.ice_key.encode("latin-1")) != 8:
+        ap.error("--ice-key is an 8-byte ICE level 0 key")
+    key = args.ice_key.encode("latin-1") if args.ice_key is not None else None
+    for dest in extract(args.vpk, patterns, args.out, ice_key=key):
         print(dest)
     return 0
 

@@ -1,0 +1,5 @@
+// The main menu's Play (plan_client_novalve's create-server row): the first
+// entry is the map a new server loads; one per line, // and # comments.
+ctf_2fort
+koth_badlands
+cp_badlands
