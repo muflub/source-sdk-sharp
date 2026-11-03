@@ -15,7 +15,7 @@
     <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
   </ItemGroup>
   <ItemGroup>
-    <!-- map-tools' .nav3d reader (§6.1), from MAPTOOLS_DIR/bin/nupkg (src/ai/Directory.Build.props). -->
+    <!-- map-tools' .nav3d reader (§6.1), from MAPTOOLS_DIR/bin/nupkg (Directory.Build.props). -->
     <PackageReference Include="SourceSharp.MapFormats" Version="$(MapFormatsVersion)" />
     <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
     <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />

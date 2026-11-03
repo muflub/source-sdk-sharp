@@ -47,6 +47,32 @@
   </PropertyGroup>
 
   <!--
+    map-tools' local feed, MAPTOOLS_DIR/bin/nupkg, where SourceSharp.MapFormats
+    (the AI's .nav3d reader, plan_hl2mp_ai §6.1) restores from. It is declared
+    here, for every project, and not in src/ai: a project outside src/ai that
+    references an AI project (SourceSharp.Shared.Tests, SourceSharp.Client.Tests,
+    SourceSharp.UiPreview) restores the package too, as a transitive dependency,
+    and it searches only its own sources. Declared in src/ai alone, those
+    projects searched nuget.org only and failed with NU1101 on a runner's empty
+    NuGet cache. A machine whose cache already held the package passed.
+    The checkout is the one `make setup` verified against maptools.lock and
+    recorded in maptools.lock.local; a MAPTOOLS_DIR in the environment names
+    another. The version and the check that names the fix stay in
+    src/ai/Directory.Build.props. The feed is added only when the directory
+    exists, because a missing local source fails every restore that has
+    anything to download, not only the AI's; the AI projects' check still fails
+    a tree without it, naming `make mapformats-pack`.
+  -->
+  <PropertyGroup>
+    <MapToolsRoot Condition="'$(MapToolsRoot)' == '' and '$(MAPTOOLS_DIR)' != ''">$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(RepoRoot)', '$(MAPTOOLS_DIR)'))))</MapToolsRoot>
+    <MapToolsRoot Condition="'$(MapToolsRoot)' == '' and Exists('$(RepoRoot)maptools.lock.local')">$([System.IO.File]::ReadAllText('$(RepoRoot)maptools.lock.local').Trim())</MapToolsRoot>
+    <MapToolsRoot Condition="'$(MapToolsRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RepoRoot)../source-sdk-map-tools'))</MapToolsRoot>
+    <MapToolsRoot>$([MSBuild]::EnsureTrailingSlash('$(MapToolsRoot)'))</MapToolsRoot>
+    <MapFormatsPackageDir>$(MapToolsRoot)bin/nupkg</MapFormatsPackageDir>
+    <RestoreAdditionalProjectSources Condition="Exists('$(MapFormatsPackageDir)')">$(RestoreAdditionalProjectSources);$(MapFormatsPackageDir)</RestoreAdditionalProjectSources>
+  </PropertyGroup>
+
+  <!--
     THIS REPO'S ANALYZERS (src/analyzers): rules the build enforces, each over
     the projects named in its list. One analyzer assembly; the roles a project
     is under reach it as SourceSharpAnalyzerRoles (CompilerVisibleProperty).

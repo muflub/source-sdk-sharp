@@ -7,19 +7,14 @@
     (docs/plans/plan_hl2mp_ai.md §6.1), comes from map-tools' local feed,
     MAPTOOLS_DIR/bin/nupkg, never from nuget.org and never as a project
     reference across repositories: the package version is the contract, and
-    the derived graph's cache names it. The checkout is the one `make setup`
-    verified against maptools.lock and recorded in maptools.lock.local; a
-    MAPTOOLS_DIR in the environment names another. Each drop is a new version
-    (memory host-sdk-rev-every-drop); bump MapFormatsVersion with the lock.
+    the derived graph's cache names it. The feed itself (MapToolsRoot,
+    MapFormatsPackageDir) is declared in the repo's Directory.Build.props, for
+    the projects outside src/ai that restore the package through a reference
+    to an AI project. Each drop is a new version (memory
+    host-sdk-rev-every-drop); bump MapFormatsVersion with the lock.
   -->
   <PropertyGroup>
-    <MapToolsRoot Condition="'$(MapToolsRoot)' == '' and '$(MAPTOOLS_DIR)' != ''">$([System.IO.Path]::GetFullPath($([System.IO.Path]::Combine('$(RepoRoot)', '$(MAPTOOLS_DIR)'))))</MapToolsRoot>
-    <MapToolsRoot Condition="'$(MapToolsRoot)' == '' and Exists('$(RepoRoot)maptools.lock.local')">$([System.IO.File]::ReadAllText('$(RepoRoot)maptools.lock.local').Trim())</MapToolsRoot>
-    <MapToolsRoot Condition="'$(MapToolsRoot)' == ''">$([System.IO.Path]::GetFullPath('$(RepoRoot)../source-sdk-map-tools'))</MapToolsRoot>
-    <MapToolsRoot>$([MSBuild]::EnsureTrailingSlash('$(MapToolsRoot)'))</MapToolsRoot>
-    <MapFormatsPackageDir>$(MapToolsRoot)bin/nupkg</MapFormatsPackageDir>
     <MapFormatsVersion>1.0.2</MapFormatsVersion>
-    <RestoreAdditionalProjectSources>$(RestoreAdditionalProjectSources);$(MapFormatsPackageDir)</RestoreAdditionalProjectSources>
   </PropertyGroup>
 
   <!--

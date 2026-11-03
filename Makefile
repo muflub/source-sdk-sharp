@@ -306,7 +306,7 @@ SETUP_ARGS ?=
 # version keeps the same package identity, so the machine-wide NuGet cache is
 # cleared of them first, or restore keeps a stale copy.
 # SourceSharp.MapFormats, the .nav3d reader the AI restores from map-tools'
-# local feed (src/ai/Directory.Build.props, plan_hl2mp_ai §6.1): packed in the
+# local feed (Directory.Build.props, plan_hl2mp_ai §6.1): packed in the
 # map-tools checkout at maptools.lock, the NuGet cache cleared of it first for
 # the reason host-pack gives.
 mapformats-pack:
