@@ -95,6 +95,21 @@ public class EnergyBallTests
         Assert.Empty(effects.Dispatched);
     }
 
+    /// <summary>What a death names as its killer's weapon: the ball, not the gun in hand.</summary>
+    [Fact]
+    public void The_ball_is_the_inflictor_of_its_hit()
+    {
+        var (ball, engine, services, _) = Spawned();
+        engine.Returns("Entities.GetIndex", 7);
+        var inflictors = (DamageInflictors)services.Resolve(typeof(DamageInflictors))!;
+        EntityHandle open = EntityHandle.None;
+        engine.WhenCalled("Damage.Apply", _ => inflictors.TryCurrent(out open, out Vector _));
+
+        ball.OnTouch(new EntityHandle(7));
+
+        Assert.Equal(ball.Handle, open);
+    }
+
     /// <summary>m_bEmit: drawn until its end, then kept half a second only to be heard.</summary>
     [Fact]
     public void Its_client_half_draws_it_until_its_end()

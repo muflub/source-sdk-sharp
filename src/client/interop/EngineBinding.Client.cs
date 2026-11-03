@@ -1596,6 +1596,9 @@ internal sealed unsafe partial class EnginePlayers
     // The client's punch is its prediction's, which the weapon's kick already wrote.
     public void SetPunch(EntityHandle player, Vector punch, Vector velocity) { }
 
+    // The discontinuity is the server's to announce; the client reads it.
+    public void BreakInterpolation(EntityHandle player) { }
+
     public Vector GetPunch(EntityHandle player) => Vector.Zero;
 
     // The server's members, as a client engine answers them: what each one's

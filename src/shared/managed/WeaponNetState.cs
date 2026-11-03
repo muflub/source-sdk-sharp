@@ -144,6 +144,13 @@ public partial class WeaponNetState
     [Predicted(0.001f)]
     public partial float FireStartedAt { get; set; }
 
+    /// <summary>
+    /// When a charging alt-fire goes off, 0 for none: stock's m_bShotDelayed and
+    /// m_flDelayedFire (weapon_ar2.cpp).
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float ChargeFiresAt { get; set; }
+
     /// <summary>A shot was fired and the pump is owed: stock's CWeaponShotgun::m_bNeedPump.</summary>
     [Predicted]
     public partial bool NeedPump { get; set; }

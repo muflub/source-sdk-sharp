@@ -259,6 +259,18 @@ public enum WeaponKind
 /// </param>
 public readonly record struct SecondaryFire(float Interval, int AmmoCost = 1)
 {
+    /// <summary>
+    /// Seconds it charges from the press before it fires, in which the weapon can do
+    /// nothing else (CWeaponAR2::SecondaryAttack's m_flDelayedFire); 0 fires at once.
+    /// </summary>
+    public float Charge { get; init; }
+
+    /// <summary>The sound of the charge: the script's <c>special1</c>.</summary>
+    public string ChargeSound { get; init; } = "";
+
+    /// <summary>Seconds after a charged shot before the primary fires (DelayedAttack's 0.5).</summary>
+    public float PrimaryWait { get; init; }
+
     /// <summary>What the alt-fire does to the view; none for one stock's does not kick.</summary>
     public WeaponKick? Kick { get; init; }
 
@@ -381,8 +393,12 @@ public static class WeaponTypes
         {
             Kick = new WeaponKick(MaxVertical: 8f, SlideLimit: 5f),
             DefaultClip = 60,   // weapon_ar2.txt's default_clip
-            Secondary = new SecondaryFire(Interval: 1.5f)
+            Behaviour = Hl2mpWeaponBehaviours.Ar2,
+            Secondary = new SecondaryFire(Interval: 1.0f)
             {
+                Charge = 0.5f,
+                ChargeSound = "Weapon_CombineGuard.Special1",
+                PrimaryWait = 0.5f,
                 Kick = new WeaponKick(-8f, -8f, 1f, 2f),
                 Projectile = EntityNames.PropCombineBall,
 

@@ -1140,3 +1140,5 @@ src/client/managed/Effects/CombineBallEffects.cs	ports CombineBallImpactCallback
 src/shared/managed/CombineBallNetState.cs	ports DT_PropCombineBall (prop_combine_ball.cpp)
 src/client/managed/Standalone/ClientCombineBall.cs	ports C_PropCombineBall::DrawModel (c_prop_combine_ball.cpp)
 src/tf2/server/Player/TFDisguiseWeapon.cs	ports CTFPlayerShared::DetermineDisguiseWeapon's disguise weapon dress over the one carried entity (tf_player_shared.cpp:8394-8460); the second fake weapon entity is collapsed into it
+src/shared/managed/RagdollDissolve.cs	ports DISSOLVE_FADE_* and C_EntityDissolve fades (EntityDissolve.cpp, c_entitydissolve.cpp)
+src/client/managed/Ragdolls/RagdollDissolves.cs	ports C_EntityDissolve::ClientThink and DrawModel (c_entitydissolve.cpp)

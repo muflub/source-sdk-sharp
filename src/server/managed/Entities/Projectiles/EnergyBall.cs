@@ -20,7 +20,7 @@ namespace SourceSharp.Server;
 ///
 /// <para>
 /// Stock's two endings: the clock, and the sky. Neither hurts anybody: what kills
-/// is being hit, stock's physics impact of 150 kg at 1000 u/s. The end is DoExplosion's
+/// is being hit, stock's dissolving impact, always lethal. The end is DoExplosion's
 /// sound, shake and two rings; the entity stays half a second for them.
 /// </para>
 /// </summary>
@@ -63,8 +63,8 @@ public sealed class EnergyBall : FlyingProjectile
     /// <summary>VPhysicsCollision's "only do the bounce so often".</summary>
     internal const float BounceInterval = 0.25f;
 
-    /// <summary>playerLinearTable's last row, which 1000 u/s reaches.</summary>
-    internal const float ImpactDamage = 500f;
+    /// <summary>physics_impact_damage.cpp: "Dissolving impact damage results in death always."</summary>
+    internal const float ImpactDamage = 1000f;
 
     /// <summary>DoExplosion's SUB_Remove.</summary>
     internal const float RemoveDelay = 0.5f;
@@ -78,9 +78,10 @@ public sealed class EnergyBall : FlyingProjectile
     public EnergyBall(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
                       IEngineWorldQuery world, IEnginePrecache precache, IEngineSound sound,
                       ITempEnts temps, IScreenEffects screen, IEnginePlayers players,
-                      IPlayerDirectory roster, IEngineNetworking networking)
+                      IPlayerDirectory roster, IEngineNetworking networking, DamageInflictors inflictors)
         : base(physics, motion)
     {
+        Inflictors = inflictors;
         Players = players;
         Roster = roster;
         Networking = networking;
@@ -118,6 +119,9 @@ public sealed class EnergyBall : FlyingProjectile
 
     /// <summary>hurting things.</summary>
     private readonly IEngineDamage Damage;
+
+    /// <summary>who a death names as what did it.</summary>
+    private readonly DamageInflictors Inflictors;
 
     /// <summary>What its client half draws by.</summary>
     [NetState] public CombineBallNetState State = new();
@@ -295,7 +299,9 @@ public sealed class EnergyBall : FlyingProjectile
             _struckPlayer = true;
             Sound.EntityEmitSound(Handle, KillImpactSound);
         }
-        Damage.Apply(toucher, Attribution, Vars.Damage, DamageType.Crush | DamageType.Dissolve);
+        // The ball is the inflictor, or the kill reads as the shooter's active weapon.
+        using (Inflictors.Push(Handle, Origin))
+            Damage.Apply(toucher, Attribution, Vars.Damage, DamageType.Crush | DamageType.Dissolve);
     }
 
     /// <summary>The clock: the end, then half a second on for it to be heard.</summary>

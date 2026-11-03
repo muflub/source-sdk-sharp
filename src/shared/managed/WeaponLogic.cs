@@ -35,6 +35,14 @@ public interface IWeaponArms
     PlayerNetState? Carrier => null;
 
     /// <summary>
+    /// A charged shot's flash on the carrier's screen (DelayedAttack's UTIL_ScreenFade,
+    /// under <c>#ifndef CLIENT_DLL</c>). The predicting client's arms do nothing.
+    /// </summary>
+    void ChargedFlash()
+    {
+    }
+
+    /// <summary>
     /// The .357's jolt to the aim itself (<c>SetViewAngles</c> under <c>CLIENT_DLL</c>, first
     /// prediction only). The server's arms do nothing: the view is the client's.
     /// </summary>
@@ -675,6 +683,15 @@ public sealed class WeaponLogic
         int clipSize = ClipSize(behaviour, in type, command.OwnerIndex);
         var held = (InputButtons)buttons;
 
+        // A charging alt-fire has the weapon: nothing else until it goes
+        // (ItemPostFrame's DelayedAttack; CWeaponAR2::Reload refuses meanwhile).
+        if (w.ChargeFiresAt > 0f)
+        {
+            if (now > w.ChargeFiresAt && type.Secondary is { } charged)
+                ReleaseCharge(w, vm, in type, in charged, now, effectsLive, behaviour, command);
+            return;
+        }
+
         // Reloading is checked before firing, because a reload in progress is
         // what decides whether firing is possible at all.
         if (clipSize > 0 && w.InReload)
@@ -923,6 +940,12 @@ public sealed class WeaponLogic
         if (type.Secondary is not { } secondary)
             return;
 
+        if (secondary.Charge > 0f)
+        {
+            BeginCharge(w, vm, in type, in secondary, now, effectsLive, behaviour, command);
+            return;
+        }
+
         // Charged before anything happens, so a press that cannot be paid for
         // still costs the interval. Otherwise an empty alt-fire is checked
         // every single frame the button is held.
@@ -951,6 +974,51 @@ public sealed class WeaponLogic
         Kick(secondary.Kick, w, now, effectsLive, command);
 
         // The tail, once the alt-fire has been paid for and the arms have fired.
+        behaviour?.SecondaryAttack(Context(in type, w, vm, now, effectsLive, command));
+    }
+
+    /// <summary>
+    /// CWeaponAR2::SecondaryAttack: the charge begins, if it can be paid for and the
+    /// carrier is not under water (level 3), and nothing is spent until it goes.
+    /// </summary>
+    private void BeginCharge(WeaponNetState w, ViewModelNetState vm, in WeaponType type, in SecondaryFire secondary,
+                             float now, bool effectsLive, IWeaponBehaviour? behaviour, WeaponCommand command)
+    {
+        if (w.SecondaryReserve < secondary.AmmoCost || _arms.Carrier is { WaterLevel: 3 })
+        {
+            w.NextSecondaryAttack = now + 0.5f;
+            if (effectsLive)
+                _arms.Sound(type.EmptySound);
+            return;
+        }
+
+        w.ChargeFiresAt = now + secondary.Charge;
+        w.NextPrimaryAttack = w.NextSecondaryAttack = w.ChargeFiresAt;
+        SendAnim(vm, WeaponAnim.Fidget, 0f, behaviour, Context(in type, w, vm, now, effectsLive, command));
+        if (effectsLive)
+            _arms.Sound(secondary.ChargeSound);
+    }
+
+    /// <summary>CWeaponAR2::DelayedAttack: the ball goes, the round is spent, and the waits begin.</summary>
+    private void ReleaseCharge(WeaponNetState w, ViewModelNetState vm, in WeaponType type, in SecondaryFire secondary,
+                               float now, bool effectsLive, IWeaponBehaviour? behaviour, WeaponCommand command)
+    {
+        w.ChargeFiresAt = 0f;
+        SpendSecondary(w, in secondary);
+        w.NextPrimaryAttack = now + secondary.PrimaryWait;
+        w.NextSecondaryAttack = now + secondary.Interval;
+        w.TimeWeaponIdle = now + IdleSettle;
+
+        SendAnim(vm, WeaponAnim.Primary, 0f, behaviour, Context(in type, w, vm, now, effectsLive, command));
+
+        if (effectsLive)
+        {
+            _arms.Sound(secondary.Sound.Length > 0 ? secondary.Sound : type.FireSound);
+            _arms.Launch(in type, secondary.Projectile, secondary.LaunchSpeed, secondary.Thrown);
+            _arms.ChargedFlash();
+        }
+
+        Kick(secondary.Kick, w, now, effectsLive, command);
         behaviour?.SecondaryAttack(Context(in type, w, vm, now, effectsLive, command));
     }
 

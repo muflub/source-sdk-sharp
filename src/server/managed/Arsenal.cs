@@ -113,6 +113,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private readonly IEngineEntities _entities;
     private readonly IEnginePrecache _precache;
     private readonly IEnginePlayers _players;
+    private readonly IScreenEffects? _screen;
     private readonly IEngineWorldQuery _world;
     private readonly IEngineSound _sound;
     private readonly IEngineEffects _effects;
@@ -184,8 +185,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    ViewmodelModel? viewmodelModel = null,
                    ViewmodelSkin? viewmodelSkin = null,
                    IServerSkins? skins = null,
-                   IHooks<IPlayerWeaponEventHook>? weaponEvents = null)
+                   IHooks<IPlayerWeaponEventHook>? weaponEvents = null,
+                   IScreenEffects? screen = null)
     {
+        _screen = screen;
         _weaponEvents = weaponEvents;
         _traceAttacked = traceAttacked;
         _scripts = scripts;
@@ -2035,6 +2038,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         public PlayerNetState? Carrier => (_arsenal._directory.Get(_carry.Player) as SsPlayer)?.State;
+
+        public void ChargedFlash() => _arsenal._screen?.Fade(_carry.Player, 255, 255, 255, 64, 0.1f, 0f, FadeFlags.In);
 
         // The state only mirrors the movement record, which the next command would write back.
         public void PunchChanged(PlayerNetState carrier)

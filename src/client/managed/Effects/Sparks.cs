@@ -511,7 +511,7 @@ public sealed class SparkBurst
 /// </summary>
 public sealed class SparkEffects(ClientParticleEffects effects, IParticleWorldTrace world, ParticleViews views,
                                  IParticlePixelVisibility visibility, IFxQuadSink quads, ISparkEnvironment environment,
-                                 IRandomSeeds seeds) : IClientSparks, IClientImpactSparks
+                                 IRandomSeeds seeds) : IClientSparks, IClientImpactSparks, Ragdolls.IDissolveParticles
 {
     public const string SparkMaterial = "effects/spark";
 
@@ -538,6 +538,15 @@ public sealed class SparkEffects(ClientParticleEffects effects, IParticleWorldTr
         var sheet = new SimpleSheet(material, random, views, visibility, () => environment.CurTime, gate);
         burst.Emitters.Add(sheet);
         return sheet;
+    }
+
+    /// <inheritdoc/>
+    public void Emit(string material, List<SimpleParticle> particles, Vector sortOrigin)
+    {
+        var sheet = new SimpleSheet(material, _random, views, visibility, () => environment.CurTime);
+        foreach (SimpleParticle particle in particles)
+            sheet.Add(particle);
+        Start(sheet, sortOrigin);
     }
 
     private void Start(TrailEmitter emitter, Vector sortOrigin)

@@ -202,6 +202,23 @@ public class SpawnPointsTests
         Assert.Equal([Near, Far], wideEngine.AllOf("Damage.TakeDamage").Select(c => c.ArgAs<EntityHandle>(0)));
     }
 
+    /// <summary>
+    /// A respawn is a jump, and clients are told, after the move: without it each
+    /// drew the body flying from where it died to its spawn, and past it.
+    /// </summary>
+    [Fact]
+    public void A_placement_breaks_the_players_interpolation_after_moving_it()
+    {
+        var (points, engine) = EveryPointTaken(EntityNames.InfoPlayerDeathmatch, taken: false);
+
+        points.SelectAndPlace(Player, teams: null);
+
+        var calls = engine.Calls.Select(c => c.Member).ToList();
+        int placed = calls.IndexOf("Players.PlaceAtSpawn");
+        Assert.True(placed >= 0, engine.Describe());
+        Assert.True(calls.IndexOf("Players.BreakInterpolation") > placed, engine.Describe());
+    }
+
     [Fact]
     public void AFreePointKillsNobody()
     {

@@ -177,4 +177,11 @@ public partial class RagdollNetState
     /// </summary>
     public partial byte Team { get; set; }
 
+    /// <summary>
+    /// When this body began to dissolve, 0 for a body that does not: stock's
+    /// CEntityDissolve::m_flStartTime, as a word on the body rather than an entity
+    /// parented to it, since the body is the one thing it ever dissolves here.
+    /// </summary>
+    public partial float DissolveStart { get; set; }
+
 }

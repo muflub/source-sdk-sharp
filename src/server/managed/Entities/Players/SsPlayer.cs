@@ -460,8 +460,12 @@ public sealed class SsPlayer : AnimatingEntity
                                     Vector position, Vector force, HitGroup hitGroup = HitGroup.Generic)
         => TakeHit(attacker, damage, damageType, hitGroup);
 
+    /// <summary>The type of the last hit taken: what the killing blow was, when one kills.</summary>
+    internal DamageType LastHitType { get; private set; }
+
     private int TakeHit(EntityHandle attacker, float damage, DamageType damageType, HitGroup hitGroup)
     {
+        LastHitType = damageType;
         // THE ANSWER IS THE WHOLE OF IT. The shell subtracts what this returns
         // from m_iHealth and calls OnKilled if that reaches zero
         // (CStandaloneEntity::TakeDamage), so a class that also wrote health
@@ -1109,6 +1113,7 @@ public sealed class SsPlayer : AnimatingEntity
     public override void OnKilled(EntityHandle attacker)
     {
         _killed = true;
+        LastHitType = default;
         State.Alive = false;
         Observer.DeathTime = GameTime;   // m_flDeathTime
 

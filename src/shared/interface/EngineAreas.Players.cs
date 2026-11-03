@@ -14,6 +14,12 @@ namespace SourceSharp.Abi;
 /// </summary>
 public interface IEnginePlayers
 {
+    /// <summary>
+    /// The player's next position is a jump, not a move: clients draw it there at once
+    /// instead of interpolating across the map (stock's IncrementInterpolationFrame).
+    /// </summary>
+    void BreakInterpolation(EntityHandle player);
+
     /// <summary>A player's view punch and its velocity, on what the next command decays.</summary>
     void SetPunch(EntityHandle player, Vector punch, Vector velocity);
 

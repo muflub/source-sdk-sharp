@@ -147,4 +147,20 @@ public sealed class SsRagdoll : AnimatingEntity
     /// body that forgot it was kept would remove itself.
     /// </summary>
     [SaveField] internal bool Kept;
+
+    /// <summary>Whether this body is dissolving: stock's GetEffectEntity, for what sweeps bodies.</summary>
+    internal bool Dissolving => State.DissolveStart > 0f;
+
+    /// <summary>
+    /// CBaseAnimating::Dissolve( ENTITY_DISSOLVE_NORMAL ): from now it fades on every
+    /// client, and it is gone when that is done rather than when its lifetime is.
+    /// </summary>
+    internal void Dissolve()
+    {
+        if (Dissolving)
+            return;
+
+        State.DissolveStart = GameTime;
+        SetNextThink(RagdollDissolve.Seconds);
+    }
 }

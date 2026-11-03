@@ -61,9 +61,11 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     // The marked and custom tiers are the base's walk (plan_client_novalve
     // §3.8), which re-checks restored handles against the side's own host.
     public ClientSsRagdoll(IEngineEntityRender render, IEngineEffects effects, IGameClock clock,
-                           IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls)
+                           IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls,
+                           Ragdolls.IRagdollDissolves? dissolves = null)
         : base(render)
     {
+        _dissolves = dissolves;
         _effects = effects;
         _clock = clock;
         _standalones = standalones;
@@ -71,6 +73,8 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     }
 
     private readonly IEngineEffects _effects;
+
+    private readonly Ragdolls.IRagdollDissolves? _dissolves;
 
     private readonly IGameClock _clock;
 
@@ -164,6 +168,8 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
 
     public override void OnRemoved()
     {
+        _dissolves?.End(Handle);
+
         if (BurnStartTime > 0f)
             _effects.ParticleSystemStop(Handle);
 
@@ -188,7 +194,11 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
         DressSkin();
 
         if (IsRagdoll)
+        {
+            if (State.DissolveStart > 0f)
+                _dissolves?.Begin(Handle, State.DissolveStart);
             return;
+        }
 
         Attempts++;
 
@@ -203,6 +213,9 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
 
         if (IsRagdoll && !State.Velocity.Equals(Vector.Zero))
             _ragdolls.AddVelocity(Handle, State.Velocity);
+
+        if (IsRagdoll && State.DissolveStart > 0f)
+            _dissolves?.Begin(Handle, State.DissolveStart);
 
         // SAID OUT LOUD, because "a body arrived" and "a body collapsed" look
         // identical from everywhere else — the entity exists, is drawn, and is

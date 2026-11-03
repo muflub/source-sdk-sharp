@@ -23,6 +23,7 @@ public static class Hl2mpWeaponBehaviours
     public const string Shotgun = "hl2mp_shotgun";
     public const string Frag = "hl2mp_frag";
     public const string Smg1 = "hl2mp_smg1";
+    public const string Ar2 = "hl2mp_ar2";
     public const string Crossbow = "hl2mp_crossbow";
     public const string Rpg = "hl2mp_rpg";
 
@@ -33,6 +34,7 @@ public static class Hl2mpWeaponBehaviours
         yield return new(Shotgun, new ShotgunBehaviour());
         yield return new(Frag, new FragBehaviour());
         yield return new(Smg1, new Smg1Behaviour());
+        yield return new(Ar2, new Ar2Behaviour());
         yield return new(Crossbow, new CrossbowBehaviour());
         yield return new(Rpg, new RpgBehaviour());
     }
@@ -446,6 +448,12 @@ public static class Hl2mpWeaponBehaviours
     /// the next grenade for a second. Everything else is the shared machine's.
     /// Not ported: the underwater refusal, which needs the owner.
     /// </summary>
+    /// <summary>CWeaponAR2::CanHolster: not while the ball is charging.</summary>
+    private sealed class Ar2Behaviour : IWeaponBehaviour
+    {
+        public bool CanHolster(in WeaponAttackContext attack) => attack.Weapon.ChargeFiresAt <= 0f;
+    }
+
     private sealed class Smg1Behaviour : IWeaponBehaviour
     {
         private const float EmptyRefire = 0.5f, PrimaryAfterGrenade = 0.5f, GrenadeRefire = 1.0f;

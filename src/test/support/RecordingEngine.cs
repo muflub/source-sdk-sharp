@@ -931,6 +931,7 @@ public sealed class RecordingEngine :
 
     // Players
     void IEnginePlayers.SetPunch(EntityHandle player, Vector punch, Vector velocity) => RecordVoid("Players.SetPunch", player, punch, velocity);
+    void IEnginePlayers.BreakInterpolation(EntityHandle player) => RecordVoid("Players.BreakInterpolation", player);
     Vector IEnginePlayers.GetPunch(EntityHandle player) => Vector.Zero;
     void IEnginePlayers.AddScore(EntityHandle player, int points, bool allowNegative) => RecordVoid("Players.AddScore", player, points, allowNegative);
     void IEnginePlayers.PlaceAtSpawn(EntityHandle player, Vector origin, Vector angles) => RecordVoid("Players.PlaceAtSpawn", player, origin, angles);

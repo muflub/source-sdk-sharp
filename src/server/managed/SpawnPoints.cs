@@ -263,6 +263,11 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
 
         players.PlaceAtSpawn(player, origin, entities.GetAngles(spot));
 
+        // A respawn is a jump across the map: without this every other client draws
+        // the body flying from where it died to here (PlayerDeathThink's
+        // IncrementInterpolationFrame).
+        players.BreakInterpolation(player);
+
         // pPlayer->SetAbsVelocity( vec3_origin ) (gamerules.cpp:195): what a player
         // moved at when it died does not come back with it.
         entities.SetVelocity(player, Vector.Zero);

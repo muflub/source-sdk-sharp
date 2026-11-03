@@ -33,6 +33,8 @@ public sealed class ArsenalPlayers : IEnginePlayers
 
     public void SetPunch(EntityHandle player, Vector punch, Vector velocity) => _inner.SetPunch(player, punch, velocity);
 
+    public void BreakInterpolation(EntityHandle player) => _inner.BreakInterpolation(player);
+
     public Vector GetPunch(EntityHandle player) => _inner.GetPunch(player);
 
     /// <summary>

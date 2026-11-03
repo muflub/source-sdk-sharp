@@ -267,6 +267,11 @@ public sealed class Corpses : IGameLifecycle
             // between there and here.
             ragdoll.State.Origin = origin;
 
+            // CHL2MP_Player::Event_Killed: `if ( info.GetDamageType() & DMG_DISSOLVE )`,
+            // what the AR2's ball kills with: the body goes in a burst of sparks.
+            if (_directory.Get(player) is SsPlayer { LastHitType: var hit } && (hit & DamageType.Dissolve) != 0)
+                ragdoll.Dissolve();
+
             // THE TEAM THE BODY WEARS, read off the dying player as stock's
             // CreateRagdollEntity does (tf_player.cpp:15625): the client maps
             // it to the skin at creation (c_tf_player.cpp:712-719), so a BLU
@@ -373,21 +378,10 @@ public sealed class Corpses : IGameLifecycle
     }
 
     /// <summary>
-    /// Stock's <c>pRagdoll-&gt;GetEffectEntity()</c>: is a body still burning
-    /// or dissolving, and therefore not to be swept.
-    ///
-    /// <para>
-    /// ALWAYS FALSE ON THIS SIDE TODAY, and that is a measurement rather than a
-    /// stub. An effect entity is a <c>CEntityFlame</c> or a
-    /// <c>CEntityDissolve</c> parented to the body, and neither reaches a
-    /// managed corpse: <c>SourceSharp_EntityDissolve</c> is a declared refusal
-    /// (step 4a, <c>ContractBaseline.Refusals</c>) and nothing in
-    /// <c>SourceSharp.Server</c> ignites an <c>hl2mp_ragdoll</c>. The moment
-    /// either lands, this is the one line that has to answer, and it is named
-    /// so the next lane finds it instead of rediscovering the rule.
-    /// </para>
+    /// Stock's <c>pRagdoll-&gt;GetEffectEntity()</c>: is a body still dissolving,
+    /// and therefore not to be swept. Nothing here ignites an <c>hl2mp_ragdoll</c>.
     /// </summary>
-    private bool StillEffected(EntityHandle body) => false;
+    private bool StillEffected(EntityHandle body) => _directory.Get(body) is SsRagdoll { Dissolving: true };
 
     /// <summary>
     /// Forgets every body, at level change.

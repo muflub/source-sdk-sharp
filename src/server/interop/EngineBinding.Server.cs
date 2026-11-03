@@ -1985,6 +1985,7 @@ internal sealed unsafe partial class EnginePlayers
     private readonly ICollisionServerArea _collisionServerArea;
     private readonly ITransformArea _transformArea;
     private readonly IEntityLifecycleArea _entityLifecycleArea;
+    private readonly INetworkServerArea _networkServerArea;
     private readonly SideRoute<IServerPlayerMovementRoute> _playerMoves;
 
     private readonly PlayerTeams _teams = new();
@@ -1994,6 +1995,14 @@ internal sealed unsafe partial class EnginePlayers
     public void SetPunch(EntityHandle player, Vector punch, Vector velocity)
         => _playerMoves.Target?.SetPunch(player, punch, velocity);
 
+    public void BreakInterpolation(EntityHandle player)
+    {
+        int size;
+        void* block = _networkServerArea.EntityGetEngineBlock(player.Value, &size);
+        if (block != null && size > 0 && TeleportDiscontinuity.Bump(new Span<byte>(block, size), out _))
+            _networkServerArea.EntityMarkBlockChanged(player.Value, TeleportDiscontinuity.FrameOffset);
+    }
+
     public EnginePlayers(EngineSide side, IFwdEngineServer server,
                          IConsoleServerArea consoleServerArea,
                          IEntitiesServerArea entitiesServerArea,
@@ -2001,8 +2010,10 @@ internal sealed unsafe partial class EnginePlayers
                          ICollisionServerArea collisionServerArea,
                          ITransformArea transformArea,
                          IEntityLifecycleArea entityLifecycleArea,
-                         SideRoute<IServerPlayerMovementRoute> playerMoves)
+                         SideRoute<IServerPlayerMovementRoute> playerMoves,
+                         INetworkServerArea networkServerArea)
     {
+        _networkServerArea = networkServerArea ?? throw new ArgumentNullException(nameof(networkServerArea));
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _server = server ?? throw new ArgumentNullException(nameof(server));
         _consoleServerArea = consoleServerArea ?? throw new ArgumentNullException(nameof(consoleServerArea));

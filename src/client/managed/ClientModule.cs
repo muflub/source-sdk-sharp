@@ -274,6 +274,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private Effects.ClientParticleEffects _particleEffects = null!;
     private Effects.FleckSystems _flecks = null!;
     private Effects.SparkEffects _sparks = null!;
+    private IStandaloneBlocks? _ragdollBlocks;
     private ClientSoundController _sounds = null!;
 
     // The client's sounds (sound_emitter.cpp's client emit path, moved): every
@@ -1641,6 +1642,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                 new Ragdolls.ClientRagdollClock(_services.Require<IEngineEnvironment>()), ragdollWorld,
                 new Ragdolls.ClientRagdollNames(), Log);
             _services.AddInstance<Ragdolls.IClientRagdolls>(_ragdolls);
+            _ragdollBlocks = ragdollBlocks;
         }
 
         // An entity's skeleton and body go with it.
@@ -1683,6 +1685,17 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _sparks = _services.Create<Effects.SparkEffects>();
         _services.AddInstance(_sparks);
         _services.AddInstance<Effects.IClientSparks>(_sparks);
+
+        // CEntityDissolve on the client's bodies: what the AR2's ball kills with.
+        if (_ragdollBlocks is { } dissolveBlocks && _ragdolls is { } dissolving && _skeletons is { } dissolveSkeletons)
+        {
+            var dissolves = new Ragdolls.RagdollDissolves(dissolving, dissolveBlocks, dissolveSkeletons,
+                _services.Require<IEngineEntityRender>(), _services.Require<IPixelVisSlots>(), _services.Require<IUniformRandom>(), _sparks,
+                _services.Require<IGameClock>(),
+                () => float.TryParse(_services.Require<IEngineConsole>().FindConVarValue("sv_gravity"), System.Globalization.CultureInfo.InvariantCulture, out float g) ? g : 600f);
+            _services.AddInstance<Ragdolls.IRagdollDissolves>(dissolves);
+            _services.AddInstance<IClientFrameThink>(dissolves);
+        }
         _services.AddInstance<IClientImpactSparks>(_sparks);
         // fx_water.cpp's routines (lane c5-particles): the splashes and the
         // ripple, behind the watersplash / gunshotsplash / waterripple effects.
