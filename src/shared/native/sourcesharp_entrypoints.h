@@ -53,13 +53,12 @@ void SourceSharp_RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPoli
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 213 slots.
+// CLIENT ONLY -- 196 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
 //---------------------------------------------------------------------------
 #ifdef CLIENT_DLL
-int32_t SourceSharp_BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode, int32_t bWireframe);
 int32_t SourceSharp_BeamBoxVisibility(const float* pMinsXYZ, const float* pMaxsXYZ);
 void SourceSharp_BeamDrawMesh(int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float* pVerts,
 							  int32_t nVerts);
@@ -70,11 +69,7 @@ int32_t SourceSharp_BeamEntityHasModel(uint32_t hEntity);
 int32_t SourceSharp_BeamGlow(int32_t nModelIndex, int32_t bBind);
 int32_t SourceSharp_BeamModelIndex(const char* pszName);
 int32_t SourceSharp_BeamModelInfo(int32_t nModelIndex, int32_t* pOutFrameCount);
-int32_t SourceSharp_BeamRenderableAdd(const float* pOriginMinsMaxs9);
-void SourceSharp_BeamRenderableChanged(int32_t nRenderable, const float* pOriginMinsMaxs9);
-void SourceSharp_BeamRenderableRemove(int32_t nRenderable);
 int32_t SourceSharp_BeamScreenPosition(const float* pPointXYZ, float* pOutScreenXYZ);
-void SourceSharp_BeamSetHdrColorScale(int32_t nModelIndex, int32_t nRenderMode, float flScale);
 void SourceSharp_BeamView(int32_t bCurrentView, float* pOut42);
 int32_t SourceSharp_ClientBeginMoveCommand(uint32_t hPlayer, int32_t nCommandNumber,
 										   SourceSharpMoveState* pOutConstants);
@@ -227,23 +222,7 @@ int32_t SourceSharp_NetPublishType(const char* pClassName, int32_t nShell, uint3
 int32_t SourceSharp_NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOutTable, int32_t* pOutBytes,
 								int32_t* pOutWords, int32_t* pOutProps, int32_t* pOutLive);
 int32_t SourceSharp_ParticleDefinitionReads();
-int32_t SourceSharp_ParticleQueryUnanswered(int32_t* pOut, int32_t nMax);
-int32_t SourceSharp_ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
-											   const float* pOffsetXYZ);
-int32_t SourceSharp_ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMask);
-int32_t SourceSharp_ParticleSystemImpact(const char* pszName, const float* pPoints, int32_t nEntity, float flScale,
-										 const float* pColorXYZ);
 int32_t SourceSharp_ParticleSystemNameFromIndex(int32_t nIndex, char* pszOut, int32_t nOutMax);
-int32_t SourceSharp_ParticleSystemOneShot(const char* pszName, const float* pSortOriginXYZ, const float* pPoints,
-										  int32_t nPoints, const float* pOrientation0);
-int32_t SourceSharp_ParticleSystemStart(uint32_t hOwner, const char* pszName);
-int32_t SourceSharp_ParticleSystemStartExtra(uint32_t hOwner, const char* pszName);
-int32_t SourceSharp_ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot);
-void SourceSharp_ParticleSystemStop(uint32_t hOwner);
-void SourceSharp_ParticleSystemStopExtra(uint32_t hOwner);
-void SourceSharp_ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot);
-int32_t SourceSharp_ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut, char* pszName,
-										int32_t nNameMax);
 int32_t SourceSharp_ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ);
 int32_t SourceSharp_ParticlesTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask, float* pOut,
 									   int32_t nOut);

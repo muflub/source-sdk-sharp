@@ -1,8 +1,6 @@
-// The particle shell's entry points; the slots managed code calls are in sourcesharp_entrypoints.h.
+// The kinds the dev API reads a watched particle system as (shell_particle_systems_client.h).
 
 #pragma once
-
-class CShellNewParticleEffect;
 
 // SourceSharpParticleSystemInfo_t's Kind.
 enum
@@ -13,11 +11,3 @@ enum
 
 // The invalid entity handle is 0xFFFFFFFF, never 0.
 #define SOURCESHARP_PARTICLE_NO_OWNER 0xFFFFFFFFu
-
-// An impact's one-shot, watched (not held) so the dev API lists it.
-void ShellParticles_WatchOneShot(CShellNewParticleEffect* pEffect);
-
-// Called from the sprite system's PreRender and LevelShutdownPostEntity.
-void ShellParticles_PreRender();
-
-void ShellParticles_LevelShutdown();

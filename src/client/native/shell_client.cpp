@@ -43,7 +43,6 @@
 #include "shell_standalone_client.h"
 
 #include "shell_view_targets.h"
-#include "shell_particle_systems.h"
 #include "shell_client_mode.h"
 #include "shell_managed_particles.h"
 #include "shell_standalone_clients.h"

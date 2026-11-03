@@ -21,6 +21,8 @@
 #include "shell_standalone_clients.h"
 #include "shell_effects_list_client.h"
 #include "shell_managed_particles.h"
+#include "shell_particle_systems_client.h"
+#include "shell_detail_props.h"
 
 // Stock's IGameSystem keys its vtable on this destructor. client.so keeps no
 // system list of its own, so the body is empty.
@@ -39,7 +41,6 @@ CClientSystem* ClientSystem_Rope();
 class IClientLeafSystem;
 
 IClientLeafSystem* ClientLeafSystem();
-IDetailObjectSystem* DetailObjectSystem();
 
 // The leaf system is libss_fwd_client's object, built without RTTI, so its row
 // is an adapter the per-frame walks can dynamic_cast.
@@ -66,13 +67,16 @@ const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
 
 CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
 							   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
-							   CManagedParticlesClient& particles)
+							   CManagedParticlesClient& particles, CParticleSystemsClient& particleSystems,
+							   CShellDetailProps& detailProps)
 	: m_ManagedFrame(managedFrame)
 	, m_Physics(physics)
 	, m_Decals(decals)
 	, m_Standalone(standalone)
 	, m_Effects(effects)
 	, m_Particles(particles)
+	, m_ParticleSystems(particleSystems)
+	, m_DetailProps(detailProps)
 	, m_ViewportRow(areas, "CViewportClientSystem")
 	, m_GlowOverlayRow(areas, "CGlowOverlaySystem")
 	, m_PixelVisibilityRow(areas, "CPixelVisibilitySystem")
@@ -85,7 +89,7 @@ CClientSystems::~CClientSystems() {}
 
 bool CClientSystems::Init()
 {
-	m_DetailObjectRow = CGameSystemRow<IDetailObjectSystem>(DetailObjectSystem());
+	m_DetailObjectRow = CGameSystemRow<IDetailObjectSystem>(&m_DetailProps);
 
 	const Row_t rows[] = {
 		// Stock's hand-added systems, in CHLClient::Init's order.
@@ -111,6 +115,7 @@ bool CClientSystems::Init()
 		{"CBulletWhizTimer", &m_Effects.BulletWhizRow()},
 		{"CPixelVisibilitySystem", &m_PixelVisibilityRow},
 		{"CSourceSharpSpriteSystem", ClientSystem_Sprite()},
+		{"CSourceSharpParticleSystemsSystem", &m_ParticleSystems.SystemRow()},
 		{"CSourceSharpWorldTextSystem", ClientSystem_WorldText()},
 		{"CSourceSharpRopeSystem", ClientSystem_Rope()},
 		{"CSourceSharpManagedParticlesSystem", &m_Particles.SystemRow()},

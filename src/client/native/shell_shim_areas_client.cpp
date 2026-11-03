@@ -15,9 +15,12 @@
 #include "sourcesharp_entrypoints.h"
 #include "ss_string.h"
 
+#include "shell_particle_systems_client.h"
+#include "shell_beams_client.h"
 #include "shell_viewer_facts.h"
 #include "shell_client_mode.h"
 #include "shell_managed_particles.h"
+#include "shell_particle_query_client.h"
 #include "shell_effects_client.h"
 #include "shell_effects_list_client.h"
 
@@ -357,17 +360,17 @@ int32_t CShimEffectsRenderClient::DrawSpriteOffset(uint32_t hOwner, const float*
 
 int32_t CShimEffectsRenderClient::ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMask)
 {
-	return ::SourceSharp_ParticleSystemFollowPoints(hOwner, nPointMask);
+	return m_pParticleSystemsClient->ParticleSystemFollowPoints(hOwner, nPointMask);
 }
 
 int32_t CShimEffectsRenderClient::ParticleSystemStart(uint32_t hOwner, const char* pszName)
 {
-	return ::SourceSharp_ParticleSystemStart(hOwner, pszName);
+	return m_pParticleSystemsClient->ParticleSystemStart(hOwner, pszName);
 }
 
 void CShimEffectsRenderClient::ParticleSystemStop(uint32_t hOwner)
 {
-	return ::SourceSharp_ParticleSystemStop(hOwner);
+	return m_pParticleSystemsClient->ParticleSystemStop(hOwner);
 }
 
 void CShimEffectsRenderClient::SpriteTrailDestroy(uint32_t hOwner)
@@ -460,28 +463,28 @@ int32_t CShimEffectsRenderClient::BeamScreenPosition(const float* pPointXYZ, flo
 
 int32_t CShimEffectsRenderClient::BeamRenderableAdd(const float* pOriginMinsMaxs9)
 {
-	return ::SourceSharp_BeamRenderableAdd(pOriginMinsMaxs9);
+	return m_pBeamsClient->BeamRenderableAdd(pOriginMinsMaxs9);
 }
 
 void CShimEffectsRenderClient::BeamRenderableChanged(int32_t nRenderable, const float* pOriginMinsMaxs9)
 {
-	return ::SourceSharp_BeamRenderableChanged(nRenderable, pOriginMinsMaxs9);
+	return m_pBeamsClient->BeamRenderableChanged(nRenderable, pOriginMinsMaxs9);
 }
 
 void CShimEffectsRenderClient::BeamRenderableRemove(int32_t nRenderable)
 {
-	return ::SourceSharp_BeamRenderableRemove(nRenderable);
+	return m_pBeamsClient->BeamRenderableRemove(nRenderable);
 }
 
 int32_t CShimEffectsRenderClient::BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode,
 												 int32_t bWireframe)
 {
-	return ::SourceSharp_BeamBindSprite(nModelIndex, nFrame, nRenderMode, bWireframe);
+	return m_pBeamsClient->BeamBindSprite(nModelIndex, nFrame, nRenderMode, bWireframe);
 }
 
 void CShimEffectsRenderClient::BeamSetHdrColorScale(int32_t nModelIndex, int32_t nRenderMode, float flScale)
 {
-	return ::SourceSharp_BeamSetHdrColorScale(nModelIndex, nRenderMode, flScale);
+	return m_pBeamsClient->BeamSetHdrColorScale(nModelIndex, nRenderMode, flScale);
 }
 
 int32_t CShimEffectsRenderClient::BeamGlow(int32_t nModelIndex, int32_t bBind)
@@ -502,28 +505,28 @@ void CShimEffectsRenderClient::BeamDrawMesh(int32_t nPrimitive, int32_t nPrimiti
 
 int32_t CShimEffectsRenderClient::ParticleSystemStartExtra(uint32_t hOwner, const char* pszName)
 {
-	return ::SourceSharp_ParticleSystemStartExtra(hOwner, pszName);
+	return m_pParticleSystemsClient->ParticleSystemStartExtra(hOwner, pszName);
 }
 
 void CShimEffectsRenderClient::ParticleSystemStopExtra(uint32_t hOwner)
 {
-	return ::SourceSharp_ParticleSystemStopExtra(hOwner);
+	return m_pParticleSystemsClient->ParticleSystemStopExtra(hOwner);
 }
 
 int32_t CShimEffectsRenderClient::ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
 															 int32_t nAttachment, const float* pOffsetXYZ)
 {
-	return ::SourceSharp_ParticleSystemFollowEntity(hOwner, nPoint, hEntity, nAttachment, pOffsetXYZ);
+	return m_pParticleSystemsClient->ParticleSystemFollowEntity(hOwner, nPoint, hEntity, nAttachment, pOffsetXYZ);
 }
 
 int32_t CShimEffectsRenderClient::ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot)
 {
-	return ::SourceSharp_ParticleSystemStartSlot(hOwner, pszName, nSlot);
+	return m_pParticleSystemsClient->ParticleSystemStartSlot(hOwner, pszName, nSlot);
 }
 
 void CShimEffectsRenderClient::ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot)
 {
-	return ::SourceSharp_ParticleSystemStopSlot(hOwner, nSlot);
+	return m_pParticleSystemsClient->ParticleSystemStopSlot(hOwner, nSlot);
 }
 
 void CShimViewClient::ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText)
@@ -909,7 +912,7 @@ void CShimParticlesClient::WorldTextMeshDestroy(uint32_t hOwner)
 int32_t CShimParticlesClient::ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut, char* pszName,
 												  int32_t nNameMax)
 {
-	return ::SourceSharp_ParticleSystemsRead(nIndex, pOut, pszName, nNameMax);
+	return m_pParticleSystemsClient->ParticleSystemsRead(nIndex, pOut, pszName, nNameMax);
 }
 
 int32_t CShimParticlesClient::ParticleDefinitionReads()
@@ -919,7 +922,7 @@ int32_t CShimParticlesClient::ParticleDefinitionReads()
 
 int32_t CShimParticlesClient::ParticleQueryUnanswered(int32_t* pOut, int32_t nMax)
 {
-	return ::SourceSharp_ParticleQueryUnanswered(pOut, nMax);
+	return m_pParticleSystemQueryClient->ParticleQueryUnanswered(pOut, nMax);
 }
 
 int32_t CShimParticlesClient::ParticlesMaterialVarInt(uint32_t hOwner, int32_t nChannel, const char* pszVar,
@@ -942,7 +945,7 @@ int32_t CShimParticlesClient::ParticleSystemNameFromIndex(int32_t nIndex, char* 
 int32_t CShimParticlesClient::ParticleSystemOneShot(const char* pszName, const float* pSortOriginXYZ,
 													const float* pPoints, int32_t nPoints, const float* pOrientation0)
 {
-	return ::SourceSharp_ParticleSystemOneShot(pszName, pSortOriginXYZ, pPoints, nPoints, pOrientation0);
+	return m_pParticleSystemsClient->ParticleSystemOneShot(pszName, pSortOriginXYZ, pPoints, nPoints, pOrientation0);
 }
 
 int32_t CShimParticlesClient::ParticlesWorldTrace(const float* pStartXYZ, const float* pEndXYZ, float* pOut,
@@ -977,7 +980,7 @@ int32_t CShimParticlesClient::ParticlesBrushPointContents(uint32_t hOwner, const
 int32_t CShimParticlesClient::ParticleSystemImpact(const char* pszName, const float* pPoints, int32_t nEntity,
 												   float flScale, const float* pColorXYZ)
 {
-	return ::SourceSharp_ParticleSystemImpact(pszName, pPoints, nEntity, flScale, pColorXYZ);
+	return m_pParticleSystemsClient->ParticleSystemImpact(pszName, pPoints, nEntity, flScale, pColorXYZ);
 }
 
 int32_t CShimFxClient::EffectRegistrationCount()

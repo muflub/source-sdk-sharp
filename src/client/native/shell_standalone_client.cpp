@@ -34,6 +34,7 @@
 #include "imanaged_areas_client.h"
 
 #include "shell_beam_render.h"
+#include "shell_beams_client.h"
 #include "world_aligned_bounds.h"
 
 #include "shell_standalone_clients.h"
@@ -142,12 +143,8 @@ C_StandaloneEntity::~C_StandaloneEntity()
 
 	RemoveFromLeafSystem();
 
-	// As C_BaseEntity::Term does. `beams` is NULL between ShutdownBeams and the
-	// next InitBeams.
-	if (beams)
-	{
-		SourceSharp_KillDeadBeams(GetRefEHandle());
-	}
+	// As C_BaseEntity::Term does.
+	m_Clients.Beams().KillDeadBeams(GetRefEHandle());
 
 	m_ModelInstance.Destroy(modelrender);
 
@@ -1685,9 +1682,11 @@ int32_t CStandaloneClients::StandaloneIsDormant(uint32_t hEntity)
 	return (pEntity && pEntity->IsDormant()) ? 1 : 0;
 }
 
-CStandaloneClients::CStandaloneClients(const CManagedAreasClient& areas, CClientEntityList& entityList)
+CStandaloneClients::CStandaloneClients(const CManagedAreasClient& areas, CClientEntityList& entityList,
+									   CBeamsClient& beams)
 	: m_Areas(areas)
 	, m_EntityList(entityList)
+	, m_Beams(beams)
 {
 }
 

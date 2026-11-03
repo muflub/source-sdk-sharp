@@ -7,8 +7,7 @@
 
 // SS_REASON g  leaf math over mdl/bsp data
 // The beam executor; managed code decides everything about a beam. This holds
-// `beams` (forwarding to IManagedBeamsClient), the pool of leaf-system
-// renderables managed code moves by index, the material system draw calls, and
+// CBeamsClient's bodies (shell_beams_client.h), the material system draw calls, and
 // the reads managed code needs: the view, model frames, endpoint facts, box
 // tests, the halo's sight test and the overlay's screen position.
 
@@ -35,6 +34,7 @@
 #include "collideable_center.h"
 #include "imanaged_areas_client.h"
 #include "shell_beam_render.h"
+#include "shell_beams_client.h"
 #include "ss_command_line.h"
 
 namespace
@@ -53,13 +53,16 @@ uint32_t RawFromEntity(IClientEntity* pEnt)
 	return pEnt ? (uint32_t)pEnt->GetRefEHandle().ToInt() : 0xFFFFFFFFu;
 }
 
+} // namespace
+
 // One leaf-system renderable per drawn managed beam. Bounds and origin are
 // managed code's; the rest is stock Beam_t's: translucent, always drawn, full blend.
 class CBeamRenderable : public CDefaultClientRenderable
 {
 public:
-	CBeamRenderable()
-		: m_nIndex(-1)
+	explicit CBeamRenderable(const CManagedAreasClient& areas)
+		: m_Areas(areas)
+		, m_nIndex(-1)
 		, m_bLive(false)
 	{
 		m_vecOrigin.Init();
@@ -101,11 +104,12 @@ public:
 
 	int DrawModel(int) override
 	{
-		if (IManagedBeamsClient* pBeams = ManagedBeamsClient())
+		if (IManagedBeamsClient* pBeams = m_Areas.m_pBeamsClient)
 			pBeams->BeamsDraw(m_nIndex);
 		return 0;
 	}
 
+	const CManagedAreasClient& m_Areas;
 	int m_nIndex;
 	bool m_bLive;
 
@@ -116,17 +120,6 @@ private:
 	matrix3x4_t m_Transform;
 };
 
-CUtlVector<CBeamRenderable*> g_BeamRenderables;
-CUtlVector<int> g_FreeBeamRenderables;
-
-CBeamRenderable* RenderableAt(int nIndex)
-{
-	if (nIndex < 0 || nIndex >= g_BeamRenderables.Count())
-		return NULL;
-	CBeamRenderable* p = g_BeamRenderables[nIndex];
-	return p->m_bLive ? p : NULL;
-}
-
 enum BeamLifecycle_t
 {
 	BEAM_LIFECYCLE_INIT = 0,
@@ -134,114 +127,50 @@ enum BeamLifecycle_t
 	BEAM_LIFECYCLE_CLEAR,
 };
 
-// The interface engine-facing code names, forwarding to managed code. Nothing
-// creates a beam through it, so the creators answer no Beam_t.
-class CSourceSharpBeams : public IViewRenderBeams
+// CBeamsClient (shell_beams_client.h).
+
+void CBeamsClient::InitBeams()
 {
-public:
-	void InitBeams() override
+	if (IManagedBeamsClient* pBeams = Managed())
 	{
-		if (IManagedBeamsClient* pBeams = ManagedBeamsClient())
-		{
-			char szParticles[32];
-			pBeams->BeamsLifecycle(
-				BEAM_LIFECYCLE_INIT,
-				ss::CommandLineValue("-particles", "", szParticles, sizeof(szParticles)) ? atoi(szParticles) : -1);
-		}
+		char szParticles[32];
+		pBeams->BeamsLifecycle(
+			BEAM_LIFECYCLE_INIT,
+			ss::CommandLineValue("-particles", "", szParticles, sizeof(szParticles)) ? atoi(szParticles) : -1);
 	}
-
-	void ShutdownBeams() override
-	{
-		if (IManagedBeamsClient* pBeams = ManagedBeamsClient())
-			pBeams->BeamsLifecycle(BEAM_LIFECYCLE_SHUTDOWN, 0);
-	}
-
-	void ClearBeams() override
-	{
-		if (IManagedBeamsClient* pBeams = ManagedBeamsClient())
-			pBeams->BeamsLifecycle(BEAM_LIFECYCLE_CLEAR, 0);
-	}
-
-	void UpdateTempEntBeams() override
-	{
-		if (IManagedBeamsClient* pBeams = ManagedBeamsClient())
-			pBeams->BeamsUpdate(gpGlobals->curtime, gpGlobals->frametime);
-	}
-
-	void DrawBeam(Beam_t*) override {}
-
-	void DrawBeam(C_Beam*, ITraceFilter*) override {}
-
-	void KillDeadBeams(IGameEntity* pDead) override {}
-
-	// Not IViewRenderBeams': stock's takes the entity, and a shell is not one.
-	void KillDeadBeams(const CBaseHandle& hDeadEntity)
-	{
-		if (IManagedBeamsClient* pBeams = ManagedBeamsClient())
-			pBeams->BeamsKillDead((uint32_t)hDeadEntity.ToInt(), gpGlobals->curtime);
-	}
-
-	Beam_t* CreateBeamEnts(BeamInfo_t&) override { return NULL; }
-
-	Beam_t* CreateBeamEntPoint(BeamInfo_t&) override { return NULL; }
-
-	Beam_t* CreateBeamPoints(BeamInfo_t&) override { return NULL; }
-
-	Beam_t* CreateBeamRing(BeamInfo_t&) override { return NULL; }
-
-	Beam_t* CreateBeamRingPoint(BeamInfo_t&) override { return NULL; }
-
-	Beam_t* CreateBeamCirclePoints(BeamInfo_t&) override { return NULL; }
-
-	Beam_t* CreateBeamFollow(BeamInfo_t&) override { return NULL; }
-
-	void FreeBeam(Beam_t*) override {}
-
-	void UpdateBeamInfo(Beam_t*, BeamInfo_t&) override {}
-
-	void CreateBeamEnts(int, int, int, int, float, float, float, float, float, float, float, float, int, float, float,
-						float, float, int) override
-	{
-	}
-
-	void CreateBeamEntPoint(int, const Vector*, int, const Vector*, int, int, float, float, float, float, float, float,
-							float, float, int, float, float, float, float) override
-	{
-	}
-
-	void CreateBeamPoints(Vector&, Vector&, int, int, float, float, float, float, float, float, float, float, int,
-						  float, float, float, float) override
-	{
-	}
-
-	void CreateBeamRing(int, int, int, int, float, float, float, float, float, float, float, float, int, float, float,
-						float, float, int) override
-	{
-	}
-
-	void CreateBeamRingPoint(const Vector&, float, float, int, int, float, float, float, float, float, float, float,
-							 float, int, float, float, float, float, int) override
-	{
-	}
-
-	void CreateBeamCirclePoints(int, Vector&, Vector&, int, int, float, float, float, float, float, float, float, float,
-								int, float, float, float, float) override
-	{
-	}
-
-	void CreateBeamFollow(int, int, int, float, float, float, float, float, float, float, float, float) override {}
-};
-
-CSourceSharpBeams g_SourceSharpBeams;
-
-} // namespace
-
-void SourceSharp_KillDeadBeams(const CBaseHandle& hDeadEntity)
-{
-	g_SourceSharpBeams.KillDeadBeams(hDeadEntity);
 }
 
-IViewRenderBeams* beams = &g_SourceSharpBeams;
+void CBeamsClient::ShutdownBeams()
+{
+	if (IManagedBeamsClient* pBeams = Managed())
+		pBeams->BeamsLifecycle(BEAM_LIFECYCLE_SHUTDOWN, 0);
+}
+
+void CBeamsClient::ClearBeams()
+{
+	if (IManagedBeamsClient* pBeams = Managed())
+		pBeams->BeamsLifecycle(BEAM_LIFECYCLE_CLEAR, 0);
+}
+
+void CBeamsClient::UpdateTempEntBeams()
+{
+	if (IManagedBeamsClient* pBeams = Managed())
+		pBeams->BeamsUpdate(gpGlobals->curtime, gpGlobals->frametime);
+}
+
+void CBeamsClient::KillDeadBeams(const CBaseHandle& hDeadEntity)
+{
+	if (IManagedBeamsClient* pBeams = Managed())
+		pBeams->BeamsKillDead((uint32_t)hDeadEntity.ToInt(), gpGlobals->curtime);
+}
+
+CBeamRenderable* CBeamsClient::RenderableAt(int nIndex)
+{
+	if (nIndex < 0 || nIndex >= m_Renderables.Count())
+		return NULL;
+	CBeamRenderable* p = m_Renderables[nIndex];
+	return p->m_bLive ? p : NULL;
+}
 
 void SourceSharp_BeamView(int32_t bCurrentView, float* pOut42)
 {
@@ -363,28 +292,28 @@ int32_t SourceSharp_BeamScreenPosition(const float* pPointXYZ, float* pOutScreen
 	return behind;
 }
 
-int32_t SourceSharp_BeamRenderableAdd(const float* pOriginMinsMaxs9)
+int32_t CBeamsClient::BeamRenderableAdd(const float* pOriginMinsMaxs9)
 {
 	int nIndex;
-	if (g_FreeBeamRenderables.Count())
+	if (m_FreeRenderables.Count())
 	{
-		nIndex = g_FreeBeamRenderables.Tail();
-		g_FreeBeamRenderables.RemoveMultipleFromTail(1);
+		nIndex = m_FreeRenderables.Tail();
+		m_FreeRenderables.RemoveMultipleFromTail(1);
 	}
 	else
 	{
-		nIndex = g_BeamRenderables.AddToTail(new CBeamRenderable);
-		g_BeamRenderables[nIndex]->m_nIndex = nIndex;
+		nIndex = m_Renderables.AddToTail(new CBeamRenderable(m_Areas));
+		m_Renderables[nIndex]->m_nIndex = nIndex;
 	}
 
-	CBeamRenderable* p = g_BeamRenderables[nIndex];
+	CBeamRenderable* p = m_Renderables[nIndex];
 	p->m_bLive = true;
 	p->Set(pOriginMinsMaxs9);
 	ClientLeafSystem()->AddRenderable(p, RENDER_GROUP_TRANSLUCENT_ENTITY);
 	return nIndex;
 }
 
-void SourceSharp_BeamRenderableChanged(int32_t nRenderable, const float* pOriginMinsMaxs9)
+void CBeamsClient::BeamRenderableChanged(int32_t nRenderable, const float* pOriginMinsMaxs9)
 {
 	CBeamRenderable* p = RenderableAt(nRenderable);
 	if (!p)
@@ -393,7 +322,7 @@ void SourceSharp_BeamRenderableChanged(int32_t nRenderable, const float* pOrigin
 	ClientLeafSystem()->RenderableChanged(p->RenderHandle());
 }
 
-void SourceSharp_BeamRenderableRemove(int32_t nRenderable)
+void CBeamsClient::BeamRenderableRemove(int32_t nRenderable)
 {
 	CBeamRenderable* p = RenderableAt(nRenderable);
 	if (!p)
@@ -403,10 +332,8 @@ void SourceSharp_BeamRenderableRemove(int32_t nRenderable)
 	// shutdown), and a pooled beam must not keep it.
 	p->RenderHandle() = INVALID_CLIENT_RENDER_HANDLE;
 	p->m_bLive = false;
-	g_FreeBeamRenderables.AddToTail(nRenderable);
+	m_FreeRenderables.AddToTail(nRenderable);
 }
-
-static IMaterial* g_pBeamWireframeMaterial;
 
 static CEngineSprite* SpriteFor(int32_t nModelIndex)
 {
@@ -416,44 +343,37 @@ static CEngineSprite* SpriteFor(int32_t nModelIndex)
 
 // Binds a sprite model's material for a frame and render mode
 // (Draw_SetSpriteTexture, with the wireframe choice made by the caller).
-CEngineSprite* SourceSharp_BindSpriteModel(const model_t* pModel, int nFrame, int nRenderMode, bool bWireframe)
+int32_t CBeamsClient::BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode, int32_t bWireframe)
 {
-	CEngineSprite* pSprite = pModel ? (CEngineSprite*)modelinfo->GetModelExtraData(pModel) : NULL;
+	CEngineSprite* pSprite = SpriteFor(nModelIndex);
 	if (!pSprite)
-		return NULL;
+		return 0;
 
 	IMaterial* pMaterial = pSprite->GetMaterial((RenderMode_t)nRenderMode, nFrame);
 	if (!pMaterial)
-		return NULL;
+		return 0;
 
 	CMatRenderContextPtr pRenderContext(materials);
 	if (bWireframe)
 	{
-		if (!g_pBeamWireframeMaterial)
-			g_pBeamWireframeMaterial = materials->FindMaterial("shadertest/wireframevertexcolor", TEXTURE_GROUP_OTHER);
-		pRenderContext->Bind(g_pBeamWireframeMaterial, NULL);
-		return pSprite;
+		if (!m_pWireframeMaterial)
+			m_pWireframeMaterial = materials->FindMaterial("shadertest/wireframevertexcolor", TEXTURE_GROUP_OTHER);
+		pRenderContext->Bind(m_pWireframeMaterial, NULL);
+		return 1;
 	}
 
 	pRenderContext->Bind(pMaterial);
-	return pSprite;
+	return 1;
 }
 
-int32_t SourceSharp_BeamBindSprite(int32_t nModelIndex, int32_t nFrame, int32_t nRenderMode, int32_t bWireframe)
+void CBeamsClient::BeamSetHdrColorScale(int32_t nModelIndex, int32_t nRenderMode, float flScale)
 {
-	return SourceSharp_BindSpriteModel(modelinfo->GetModel(nModelIndex), nFrame, nRenderMode, bWireframe != 0) ? 1 : 0;
-}
-
-void SourceSharp_BeamSetHdrColorScale(int32_t nModelIndex, int32_t nRenderMode, float flScale)
-{
-	static unsigned int s_nHdrColorScaleCache = 0;
-
 	CEngineSprite* pSprite = SpriteFor(nModelIndex);
 	IMaterial* pMaterial = pSprite ? pSprite->GetMaterial((RenderMode_t)nRenderMode) : NULL;
 	if (!pMaterial)
 		return;
 
-	if (IMaterialVar* pVar = pMaterial->FindVarFast("$hdrcolorscale", &s_nHdrColorScaleCache))
+	if (IMaterialVar* pVar = pMaterial->FindVarFast("$hdrcolorscale", &m_nHdrColorScaleCache))
 		pVar->SetFloatValue(flScale);
 }
 

@@ -34,7 +34,8 @@
 #include "shell_new_particles.h"
 #include "particle_follow_mask.h"
 #include "shell_effect_registry.h"
-#include "shell_particle_systems.h"
+#include "shell_particle_systems_client.h"
+#include "shell_particle_query_client.h"
 #include "shell_managed_particles.h"
 #include "shell_standalone_clients.h"
 #include "shell_clientdll_refusals.h"
@@ -910,117 +911,55 @@ void CManagedParticlesClient::ReleaseAll()
 	}
 }
 
-// The new-style particle systems the client starts, owned by the library. An owned system
-// (started by a managed entity) is held and kept at its owner by the sweep below; a
-// one-shot (an impact) is only watched and the manager removes it. Both are watched by a
-// weak reference so a stopped system stays listed until deleted.
-//
-// A managed entity has no ParticleProp(), so its systems are created ownerless and their
-// control points are driven from the owner's origin.
+// CParticleSystemsClient (shell_particle_systems_client.h).
 
-struct SourceSharpParticleSystem_t
+CParticleSystemsClient::CParticleSystemsClient(CStandaloneClients& standalone)
+	: m_Standalone(standalone)
 {
-	uint32_t hOwner;
-	CSmartPtr<CShellNewParticleEffect> pEffect;
-
-	// Which control points the sweep keeps at the owner, as a bitmask. An unfed control point
-	// is the world origin.
-	int32_t nFollowMask;
-
-	// Points handed to an entity's attachment instead (ParticleSystemFollowEntity): the
-	// medigun beam's far end rides its patient.
-	uint32_t hFollowEntity[kSourceSharpParticleMaxFollowPoint + 1];
-	int32_t nFollowAttachment[kSourceSharpParticleMaxFollowPoint + 1];
-	Vector vecFollowOffset[kSourceSharpParticleMaxFollowPoint + 1];
-};
-
-static CUtlVector<SourceSharpParticleSystem_t> g_ParticleSystems;
-
-// A second attached system per owner: stock's crit glow runs beside the trail, and the
-// one-system-per-owner rule above would replace it.
-static CUtlVector<SourceSharpParticleSystem_t> g_ExtraParticleSystems;
-
-// A third and fourth: the condition drips (jarate's and the milk's) run beside the
-// burn and the glow, and beside each other -- stock holds one member per effect on
-// the player.
-static CUtlVector<SourceSharpParticleSystem_t> g_UrineParticleSystems;
-static CUtlVector<SourceSharpParticleSystem_t> g_MilkParticleSystems;
-
-// The slots the sweep and the shutdown walk, and the count the slot-addressed
-// rows validate against.
-enum
-{
-	kSourceSharpParticleSlots = 4
-};
-
-// The slots by index, for the slot-addressed rows below: 0 the first, 1 the crit
-// glow's extra, 2 the urine's drips, 3 the milk's. NULL is a slot outside the
-// table: its start refuses, its stop has nothing to free.
-static CUtlVector<SourceSharpParticleSystem_t>* ParticleSlotSystems(int nSlot)
-{
-	switch (nSlot)
-	{
-		case 0:
-			return &g_ParticleSystems;
-		case 1:
-			return &g_ExtraParticleSystems;
-		case 2:
-			return &g_UrineParticleSystems;
-		case 3:
-			return &g_MilkParticleSystems;
-		default:
-			return NULL;
-	}
 }
 
-// Heap entries: a CUtlReference links itself into its object's list and must not move.
-struct WatchedParticleSystem_t
+CParticleSystemsClient::~CParticleSystemsClient()
 {
-	CUtlReference<CShellNewParticleEffect> ref;
-	uint32_t hOwner;
-	int32_t nKind;
-	float flStarted;
-};
-
-static CUtlVector<WatchedParticleSystem_t*> g_WatchedParticles;
+	m_Watched.PurgeAndDeleteElements();
+}
 
 // The entries whose effect the manager has deleted.
-static void ReapWatchedParticleSystems()
+void CParticleSystemsClient::Reap()
 {
-	for (int i = g_WatchedParticles.Count() - 1; i >= 0; i--)
+	for (int i = m_Watched.Count() - 1; i >= 0; i--)
 	{
-		if (g_WatchedParticles[i]->ref() == NULL)
+		if (m_Watched[i]->ref() == NULL)
 		{
-			delete g_WatchedParticles[i];
-			g_WatchedParticles.Remove(i);
+			delete m_Watched[i];
+			m_Watched.Remove(i);
 		}
 	}
 }
 
 // Reaps first, so the table is bounded by the live effects.
-static void WatchParticleSystem(CShellNewParticleEffect* pEffect, uint32_t hOwner, int32_t nKind)
+void CParticleSystemsClient::Watch(CShellNewParticleEffect* pEffect, uint32_t hOwner, int32_t nKind)
 {
-	ReapWatchedParticleSystems();
+	Reap();
 
-	WatchedParticleSystem_t* pWatch = new WatchedParticleSystem_t;
+	Watched_t* pWatch = new Watched_t;
 	pWatch->ref.Set(pEffect);
 	pWatch->hOwner = hOwner;
 	pWatch->nKind = nKind;
 	pWatch->flStarted = gpGlobals->curtime;
-	g_WatchedParticles.AddToTail(pWatch);
+	m_Watched.AddToTail(pWatch);
 }
 
 // A refused name is not watched: Start refuses it to managed.
-static CSmartPtr<CShellNewParticleEffect> CreateWatched(uint32_t hOwner, const char* pszName)
+CSmartPtr<CShellNewParticleEffect> CParticleSystemsClient::CreateWatched(uint32_t hOwner, const char* pszName)
 {
 	CSmartPtr<CShellNewParticleEffect> pEffect = CShellNewParticleEffect::Create(pszName, "SourceSharpFlame");
 	if (pEffect.IsValid() && pEffect->IsValid())
-		WatchParticleSystem(pEffect.GetObject(), hOwner, SOURCESHARP_PARTICLE_SYSTEM_OWNED);
+		Watch(pEffect.GetObject(), hOwner, SOURCESHARP_PARTICLE_SYSTEM_OWNED);
 	return pEffect;
 }
 
 // StopEmission rather than a release, so particles already in the air burn out.
-static void ReleaseParticleSystemAt(CUtlVector<SourceSharpParticleSystem_t>& systems, int nIndex)
+void CParticleSystemsClient::ReleaseAt(Systems_t& systems, int nIndex)
 {
 	CShellNewParticleEffect* pEffect = systems[nIndex].pEffect.GetObject();
 
@@ -1031,12 +970,12 @@ static void ReleaseParticleSystemAt(CUtlVector<SourceSharpParticleSystem_t>& sys
 }
 
 // One system per entity in a slot: starting again replaces the running one.
-static int32_t StartAttached(CUtlVector<SourceSharpParticleSystem_t>& systems, uint32_t hOwner, const char* pszName)
+int32_t CParticleSystemsClient::StartAttached(Systems_t& systems, uint32_t hOwner, const char* pszName)
 {
 	if (!pszName || !pszName[0])
 		return 0;
 
-	C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(hOwner);
+	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
 
 	if (!pOwner)
 		return 0;
@@ -1044,7 +983,7 @@ static int32_t StartAttached(CUtlVector<SourceSharpParticleSystem_t>& systems, u
 	int nExisting = ShellEffects_Find(systems, hOwner);
 
 	if (nExisting >= 0)
-		ReleaseParticleSystemAt(systems, nExisting);
+		ReleaseAt(systems, nExisting);
 
 	CSmartPtr<CShellNewParticleEffect> pEffect = CreateWatched(hOwner, pszName);
 
@@ -1056,7 +995,7 @@ static int32_t StartAttached(CUtlVector<SourceSharpParticleSystem_t>& systems, u
 	pEffect->SetControlPointOrientation(0, Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1));
 	pEffect->SetSortOrigin(pOwner->GetAbsOrigin());
 
-	SourceSharpParticleSystem_t entry;
+	System_t entry;
 	entry.hOwner = hOwner;
 	entry.pEffect = pEffect;
 	entry.nFollowMask = kSourceSharpParticleFollowDefault;
@@ -1068,24 +1007,32 @@ static int32_t StartAttached(CUtlVector<SourceSharpParticleSystem_t>& systems, u
 	return 1;
 }
 
-int32_t SourceSharp_ParticleSystemStart(uint32_t hOwner, const char* pszName)
+void CParticleSystemsClient::StopAttached(Systems_t& systems, uint32_t hOwner)
 {
-	return StartAttached(g_ParticleSystems, hOwner, pszName);
+	int nIndex = ShellEffects_Find(systems, hOwner);
+
+	if (nIndex >= 0)
+		ReleaseAt(systems, nIndex);
+}
+
+int32_t CParticleSystemsClient::ParticleSystemStart(uint32_t hOwner, const char* pszName)
+{
+	return StartAttached(m_Slots[0], hOwner, pszName);
 }
 
 // Which control points of a running system stay at the owner. A separate call so Start's
 // ABI row is unchanged. Operators read an unwritten control point as the origin, and
 // burning_character's initializer reads control point 1. Returns 0 if the entity has no
 // system, which is a caller bug.
-int32_t SourceSharp_ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMask)
+int32_t CParticleSystemsClient::ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMask)
 {
-	int nIndex = ShellEffects_Find(g_ParticleSystems, hOwner);
+	int nIndex = ShellEffects_Find(m_Slots[0], hOwner);
 
 	if (nIndex < 0)
 		return 0;
 
 	// Point 0 is always fed: it is where the system is placed.
-	g_ParticleSystems[nIndex].nFollowMask = SourceSharpParticleFollow_Normalise(nPointMask);
+	m_Slots[0][nIndex].nFollowMask = SourceSharpParticleFollow_Normalise(nPointMask);
 
 	return 1;
 }
@@ -1094,10 +1041,10 @@ int32_t SourceSharp_ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMa
 // muzzle end rides its weapon, the far end its patient. A zero entity handle hands the
 // point back to the owner feed. Returns 0 if the entity has no system, which is a caller
 // bug.
-int32_t SourceSharp_ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
-											   const float* pOffsetXYZ)
+int32_t CParticleSystemsClient::ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
+														   int32_t nAttachment, const float* pOffsetXYZ)
 {
-	int nIndex = ShellEffects_Find(g_ParticleSystems, hOwner);
+	int nIndex = ShellEffects_Find(m_Slots[0], hOwner);
 
 	if (nIndex < 0)
 		return 0;
@@ -1105,7 +1052,7 @@ int32_t SourceSharp_ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, 
 	if (nPoint < 0 || nPoint > kSourceSharpParticleMaxFollowPoint)
 		return 0;
 
-	SourceSharpParticleSystem_t& entry = g_ParticleSystems[nIndex];
+	System_t& entry = m_Slots[0][nIndex];
 
 	if (hEntity == 0)
 	{
@@ -1128,62 +1075,49 @@ int32_t SourceSharp_ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, 
 	return 1;
 }
 
-void SourceSharp_ParticleSystemStop(uint32_t hOwner)
+void CParticleSystemsClient::ParticleSystemStop(uint32_t hOwner)
 {
-	int nIndex = ShellEffects_Find(g_ParticleSystems, hOwner);
-
-	if (nIndex >= 0)
-		ReleaseParticleSystemAt(g_ParticleSystems, nIndex);
+	StopAttached(m_Slots[0], hOwner);
 }
 
 // A second slot beside the first: stock's crit glow runs beside the trail.
-int32_t SourceSharp_ParticleSystemStartExtra(uint32_t hOwner, const char* pszName)
+int32_t CParticleSystemsClient::ParticleSystemStartExtra(uint32_t hOwner, const char* pszName)
 {
-	return StartAttached(g_ExtraParticleSystems, hOwner, pszName);
+	return StartAttached(m_Slots[1], hOwner, pszName);
 }
 
-void SourceSharp_ParticleSystemStopExtra(uint32_t hOwner)
+void CParticleSystemsClient::ParticleSystemStopExtra(uint32_t hOwner)
 {
-	int nIndex = ShellEffects_Find(g_ExtraParticleSystems, hOwner);
-
-	if (nIndex >= 0)
-		ReleaseParticleSystemAt(g_ExtraParticleSystems, nIndex);
+	StopAttached(m_Slots[1], hOwner);
 }
 
 // A slot-addressed start, for a caller that counts its own systems: the drips
 // wear slots 2 and 3, beside the burn's and the glow's. Starting again in a
 // slot replaces that slot's system, as the named rows do; the other slots are
 // untouched. An unknown slot refuses.
-int32_t SourceSharp_ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot)
+int32_t CParticleSystemsClient::ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot)
 {
-	CUtlVector<SourceSharpParticleSystem_t>* pSystems = ParticleSlotSystems(nSlot);
+	Systems_t* pSystems = Slot(nSlot);
 
 	return pSystems ? StartAttached(*pSystems, hOwner, pszName) : 0;
 }
 
-void SourceSharp_ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot)
+void CParticleSystemsClient::ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot)
 {
-	CUtlVector<SourceSharpParticleSystem_t>* pSystems = ParticleSlotSystems(nSlot);
-
-	if (!pSystems)
-		return;
-
-	int nIndex = ShellEffects_Find(*pSystems, hOwner);
-
-	if (nIndex >= 0)
-		ReleaseParticleSystemAt(*pSystems, nIndex);
+	if (Systems_t* pSystems = Slot(nSlot))
+		StopAttached(*pSystems, hOwner);
 }
 
 // A one-shot an impact started: watched, not held.
-void ShellParticles_WatchOneShot(CShellNewParticleEffect* pEffect)
+void CParticleSystemsClient::WatchOneShot(CShellNewParticleEffect* pEffect)
 {
 	if (pEffect)
-		WatchParticleSystem(pEffect, SOURCESHARP_PARTICLE_NO_OWNER, SOURCESHARP_PARTICLE_SYSTEM_ONE_SHOT);
+		Watch(pEffect, SOURCESHARP_PARTICLE_NO_OWNER, SOURCESHARP_PARTICLE_SYSTEM_ONE_SHOT);
 }
 
 // Every managed particle system moved to its entity: a move alone raises no data change.
 // Backwards, since entries are removed mid-walk.
-static void SweepParticleSystems(CUtlVector<SourceSharpParticleSystem_t>& systems)
+void CParticleSystemsClient::Sweep(Systems_t& systems)
 {
 	for (int i = systems.Count() - 1; i >= 0; i--)
 	{
@@ -1195,12 +1129,12 @@ static void SweepParticleSystems(CUtlVector<SourceSharpParticleSystem_t>& system
 			continue;
 		}
 
-		C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(systems[i].hOwner);
+		C_StandaloneEntity* pOwner = m_Standalone.FromHandle(systems[i].hOwner);
 
 		// The entity is gone; let the system finish rather than emit at its last position.
 		if (!pOwner)
 		{
-			ReleaseParticleSystemAt(systems, i);
+			ReleaseAt(systems, i);
 			continue;
 		}
 
@@ -1248,25 +1182,35 @@ static void SweepParticleSystems(CUtlVector<SourceSharpParticleSystem_t>& system
 	}
 }
 
-void ShellParticles_PreRender()
+void CParticleSystemsClient::PreRender()
 {
-	for (int nSlot = 0; nSlot < kSourceSharpParticleSlots; nSlot++)
-		SweepParticleSystems(*ParticleSlotSystems(nSlot));
+	for (int nSlot = 0; nSlot < kSlots; nSlot++)
+		Sweep(m_Slots[nSlot]);
 }
 
 // Stopped rather than forgotten: the particle manager holds a reference to each.
-void ShellParticles_LevelShutdown()
+void CParticleSystemsClient::LevelShutdown()
 {
-	for (int nSlot = 0; nSlot < kSourceSharpParticleSlots; nSlot++)
+	for (int nSlot = 0; nSlot < kSlots; nSlot++)
 	{
-		CUtlVector<SourceSharpParticleSystem_t>* pSystems = ParticleSlotSystems(nSlot);
+		Systems_t& systems = m_Slots[nSlot];
 
-		for (int i = pSystems->Count() - 1; i >= 0; i--)
-			if (CShellNewParticleEffect* pEffect = (*pSystems)[i].pEffect.GetObject())
+		for (int i = systems.Count() - 1; i >= 0; i--)
+			if (CShellNewParticleEffect* pEffect = systems[i].pEffect.GetObject())
 				pEffect->StopEmission(false, true, true);
 
-		pSystems->RemoveAll();
+		systems.RemoveAll();
 	}
+}
+
+void CParticleSystemsClient::CSystemRow::PreRender()
+{
+	m_Systems.PreRender();
+}
+
+void CParticleSystemsClient::CSystemRow::LevelShutdownPostEntity()
+{
+	m_Systems.LevelShutdown();
 }
 
 // The dev API's read: one watched instance by index; returns the total.
@@ -1281,16 +1225,16 @@ static int CountParticles(CParticleCollection* pCollection)
 	return nTotal;
 }
 
-int32_t SourceSharp_ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut, char* pszName,
-										int32_t nNameMax)
+int32_t CParticleSystemsClient::ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut,
+													char* pszName, int32_t nNameMax)
 {
-	ReapWatchedParticleSystems();
+	Reap();
 
-	const int32_t nCount = g_WatchedParticles.Count();
+	const int32_t nCount = m_Watched.Count();
 	if (nIndex < 0 || nIndex >= nCount || !pOut)
 		return nCount;
 
-	const WatchedParticleSystem_t* pWatch = g_WatchedParticles[nIndex];
+	const Watched_t* pWatch = m_Watched[nIndex];
 	CShellNewParticleEffect* pEffect = pWatch->ref();
 
 	memset(pOut, 0, sizeof(*pOut));
@@ -1298,10 +1242,10 @@ int32_t SourceSharp_ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSyste
 	pOut->Owner = pWatch->hOwner;
 	pOut->Age = gpGlobals->curtime - pWatch->flStarted;
 
-	const int nOwned = ShellEffects_Find(g_ParticleSystems, pWatch->hOwner);
-	const bool bHeld = nOwned >= 0 && g_ParticleSystems[nOwned].pEffect.GetObject() == pEffect;
+	const int nOwned = ShellEffects_Find(m_Slots[0], pWatch->hOwner);
+	const bool bHeld = nOwned >= 0 && m_Slots[0][nOwned].pEffect.GetObject() == pEffect;
 	pOut->Stopped = (pWatch->nKind == SOURCESHARP_PARTICLE_SYSTEM_OWNED && !bHeld) ? 1 : 0;
-	pOut->FollowMask = bHeld ? g_ParticleSystems[nOwned].nFollowMask : 0;
+	pOut->FollowMask = bHeld ? m_Slots[0][nOwned].nFollowMask : 0;
 
 	if (pEffect)
 	{
@@ -1326,169 +1270,132 @@ int32_t SourceSharp_ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSyste
 	return nCount;
 }
 
-// The IParticleSystemQuery particles.a calls back into, with each answer from managed.
-// The six methods no definition calls warn and count as refusals. Calls with no managed
-// side (the collision-group reads during Init, before the runtime exists) answer the
-// interface's default and are counted.
+// CParticleSystemQueryClient (shell_particle_query_client.h).
 
-class CShellParticleSystemQuery : public CBaseAppSystem<IParticleSystemQuery>
+void CParticleSystemQueryClient::GetLightingAtPoint(const Vector& vecOrigin, Color& tint)
 {
-public:
-	enum
-	{
-		kCollisionGroup,
-		kLighting,
-		kTrace,
-		kHitBoxPoints,
-		kHitBoxInfo,
-		kMethods
-	};
+	IManagedParticlesClient* pArea = Managed();
+	uint8_t rgba[4];
+	// The library simulates on several threads, and the engine's light lookup is not reentrant.
+	AUTO_LOCK(m_LightMutex);
+	if (pArea && pArea->QueryLighting(vecOrigin.Base(), rgba) == 1)
+		tint.SetColor(rgba[0], rgba[1], rgba[2], rgba[3]);
+	else
+		Unanswered_Add(kLighting);
+}
 
-	virtual void GetLightingAtPoint(const Vector& vecOrigin, Color& tint) OVERRIDE
+void CParticleSystemQueryClient::TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask,
+										   const IHandleEntity* ignore, int collisionGroup, CBaseTrace* ptr)
+{
+	IManagedParticlesClient* pArea = Managed();
+	const int32_t nAnswer =
+		pArea ? pArea->QueryTrace(vecAbsStart.Base(), vecAbsEnd.Base(), mask, collisionGroup, ignore ? 1 : 0) : -1;
+	if (nAnswer == 1)
 	{
-		IManagedParticlesClient* pArea = ManagedParticlesClient();
-		uint8_t rgba[4];
-		// The library simulates on several threads, and the engine's light lookup is not reentrant.
-		AUTO_LOCK(m_LightMutex);
-		if (pArea && pArea->QueryLighting(vecOrigin.Base(), rgba) == 1)
-			tint.SetColor(rgba[0], rgba[1], rgba[2], rgba[3]);
-		else
-			Unanswered_Add(kLighting);
+		trace_t tempTrace;
+		UTIL_TraceLine(vecAbsStart, vecAbsEnd, mask, ignore, collisionGroup, &tempTrace);
+		memcpy(ptr, &tempTrace, sizeof(CBaseTrace));
+		return;
 	}
+	if (nAnswer < 0)
+		Unanswered_Add(kTrace);
+	ptr->startsolid = 0;
+	ptr->fraction = 1.0;
+}
 
-	virtual void TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask,
-						   const IHandleEntity* ignore, int collisionGroup, CBaseTrace* ptr) OVERRIDE
+int CParticleSystemQueryClient::GetCollisionGroupFromName(const char* pszCollisionGroupName)
+{
+	IManagedParticlesClient* pArea = Managed();
+	const int32_t nGroup = (pArea && pszCollisionGroupName) ? pArea->QueryCollisionGroup(pszCollisionGroupName) : -1;
+	if (nGroup >= 0)
+		return nGroup;
+	Unanswered_Add(kCollisionGroup);
+	return COLLISION_GROUP_NONE;
+}
+
+void CParticleSystemQueryClient::GetRandomPointsOnControllingObjectHitBox(
+	CParticleCollection* pParticles, int nControlPointNumber, int nNumPtsOut, float flBBoxScale,
+	int nNumTrysToGetAPointInsideTheModel, Vector* pPntsOut, Vector vecDirectionalBias, Vector* pHitBoxRelativeCoordOut,
+	int* pHitBoxIndexOut)
+{
+	const CParticleControlPoint& point = pParticles->m_ControlPoints[nControlPointNumber];
+	IManagedParticlesClient* pArea = Managed();
+	const int32_t nAnswer = pArea
+		? pArea->QueryHitBoxPoints(nControlPointNumber, point.m_Position.Base(), point.m_pObject ? 1 : 0, nNumPtsOut,
+								   pPntsOut ? pPntsOut->Base() : NULL, pHitBoxIndexOut,
+								   pHitBoxRelativeCoordOut ? pHitBoxRelativeCoordOut->Base() : NULL)
+		: -1;
+	if (nAnswer == nNumPtsOut)
+		return;
+
+	// Stock's fallback: every point at the control point.
+	Unanswered_Add(kHitBoxPoints);
+	for (int i = 0; i < nNumPtsOut; i++)
 	{
-		IManagedParticlesClient* pArea = ManagedParticlesClient();
-		const int32_t nAnswer =
-			pArea ? pArea->QueryTrace(vecAbsStart.Base(), vecAbsEnd.Base(), mask, collisionGroup, ignore ? 1 : 0) : -1;
-		if (nAnswer == 1)
-		{
-			trace_t tempTrace;
-			UTIL_TraceLine(vecAbsStart, vecAbsEnd, mask, ignore, collisionGroup, &tempTrace);
-			memcpy(ptr, &tempTrace, sizeof(CBaseTrace));
-			return;
-		}
-		if (nAnswer < 0)
-			Unanswered_Add(kTrace);
-		ptr->startsolid = 0;
-		ptr->fraction = 1.0;
+		pPntsOut[i] = point.m_Position;
+		if (pHitBoxIndexOut)
+			pHitBoxIndexOut[i] = 0;
+		if (pHitBoxRelativeCoordOut)
+			pHitBoxRelativeCoordOut[i].Init();
 	}
+}
 
-	virtual int GetCollisionGroupFromName(const char* pszCollisionGroupName) OVERRIDE
-	{
-		IManagedParticlesClient* pArea = ManagedParticlesClient();
-		const int32_t nGroup =
-			(pArea && pszCollisionGroupName) ? pArea->QueryCollisionGroup(pszCollisionGroupName) : -1;
-		if (nGroup >= 0)
-			return nGroup;
-		Unanswered_Add(kCollisionGroup);
-		return COLLISION_GROUP_NONE;
-	}
+int CParticleSystemQueryClient::GetControllingObjectHitBoxInfo(CParticleCollection* pParticles, int nControlPointNumber,
+															   int nBufSize, ModelHitBoxInfo_t* pHitBoxOutputBuffer)
+{
+	IManagedParticlesClient* pArea = Managed();
+	const int32_t nAnswer = pArea
+		? pArea->QueryHitBoxInfo(nControlPointNumber,
+								 pParticles->m_ControlPoints[nControlPointNumber].m_pObject ? 1 : 0, nBufSize)
+		: -1;
+	if (nAnswer >= 0 && nAnswer <= nBufSize)
+		return nAnswer;
+	Unanswered_Add(kHitBoxInfo);
+	return 0;
+}
 
-	virtual void GetRandomPointsOnControllingObjectHitBox(CParticleCollection* pParticles, int nControlPointNumber,
-														  int nNumPtsOut, float flBBoxScale,
-														  int nNumTrysToGetAPointInsideTheModel, Vector* pPntsOut,
-														  Vector vecDirectionalBias, Vector* pHitBoxRelativeCoordOut,
-														  int* pHitBoxIndexOut) OVERRIDE
-	{
-		const CParticleControlPoint& point = pParticles->m_ControlPoints[nControlPointNumber];
-		IManagedParticlesClient* pArea = ManagedParticlesClient();
-		const int32_t nAnswer = pArea
-			? pArea->QueryHitBoxPoints(nControlPointNumber, point.m_Position.Base(), point.m_pObject ? 1 : 0,
-									   nNumPtsOut, pPntsOut ? pPntsOut->Base() : NULL, pHitBoxIndexOut,
-									   pHitBoxRelativeCoordOut ? pHitBoxRelativeCoordOut->Base() : NULL)
-			: -1;
-		if (nAnswer == nNumPtsOut)
-			return;
+bool CParticleSystemQueryClient::MovePointInsideControllingObject(CParticleCollection*, void*, Vector*)
+{
+	ShellClientDll_RefuseExternal("IParticleSystemQuery::MovePointInsideControllingObject");
+	return true;
+}
 
-		// Stock's fallback: every point at the control point.
-		Unanswered_Add(kHitBoxPoints);
-		for (int i = 0; i < nNumPtsOut; i++)
-		{
-			pPntsOut[i] = point.m_Position;
-			if (pHitBoxIndexOut)
-				pHitBoxIndexOut[i] = 0;
-			if (pHitBoxRelativeCoordOut)
-				pHitBoxRelativeCoordOut[i].Init();
-		}
-	}
+bool CParticleSystemQueryClient::IsPointInControllingObjectHitBox(CParticleCollection*, int, Vector, bool)
+{
+	ShellClientDll_RefuseExternal("IParticleSystemQuery::IsPointInControllingObjectHitBox");
+	return true;
+}
 
-	virtual int GetControllingObjectHitBoxInfo(CParticleCollection* pParticles, int nControlPointNumber, int nBufSize,
-											   ModelHitBoxInfo_t* pHitBoxOutputBuffer) OVERRIDE
-	{
-		IManagedParticlesClient* pArea = ManagedParticlesClient();
-		const int32_t nAnswer = pArea
-			? pArea->QueryHitBoxInfo(nControlPointNumber,
-									 pParticles->m_ControlPoints[nControlPointNumber].m_pObject ? 1 : 0, nBufSize)
-			: -1;
-		if (nAnswer >= 0 && nAnswer <= nBufSize)
-			return nAnswer;
-		Unanswered_Add(kHitBoxInfo);
-		return 0;
-	}
+Vector CParticleSystemQueryClient::GetLocalPlayerPos()
+{
+	ShellClientDll_RefuseExternal("IParticleSystemQuery::GetLocalPlayerPos");
+	return vec3_origin;
+}
 
-	// Never called by any definition: each warns and counts as a refusal.
-	virtual bool MovePointInsideControllingObject(CParticleCollection*, void*, Vector*) OVERRIDE
-	{
-		ShellClientDll_RefuseExternal("IParticleSystemQuery::MovePointInsideControllingObject");
-		return true;
-	}
+void CParticleSystemQueryClient::GetLocalPlayerEyeVectors(Vector* pForward, Vector* pRight, Vector* pUp)
+{
+	ShellClientDll_RefuseExternal("IParticleSystemQuery::GetLocalPlayerEyeVectors");
+	*pForward = vec3_origin;
+	*pRight = vec3_origin;
+	*pUp = vec3_origin;
+}
 
-	virtual bool IsPointInControllingObjectHitBox(CParticleCollection*, int, Vector, bool) OVERRIDE
-	{
-		ShellClientDll_RefuseExternal("IParticleSystemQuery::IsPointInControllingObjectHitBox");
-		return true;
-	}
+float CParticleSystemQueryClient::GetPixelVisibility(int*, const Vector&, float)
+{
+	ShellClientDll_RefuseExternal("IParticleSystemQuery::GetPixelVisibility");
+	return 0.0f;
+}
 
-	virtual Vector GetLocalPlayerPos() OVERRIDE
-	{
-		ShellClientDll_RefuseExternal("IParticleSystemQuery::GetLocalPlayerPos");
-		return vec3_origin;
-	}
+void CParticleSystemQueryClient::SetUpLightingEnvironment(const Vector&)
+{
+	ShellClientDll_RefuseExternal("IParticleSystemQuery::SetUpLightingEnvironment");
+}
 
-	virtual void GetLocalPlayerEyeVectors(Vector* pForward, Vector* pRight, Vector* pUp) OVERRIDE
-	{
-		ShellClientDll_RefuseExternal("IParticleSystemQuery::GetLocalPlayerEyeVectors");
-		*pForward = vec3_origin;
-		*pRight = vec3_origin;
-		*pUp = vec3_origin;
-	}
-
-	virtual float GetPixelVisibility(int*, const Vector&, float) OVERRIDE
-	{
-		ShellClientDll_RefuseExternal("IParticleSystemQuery::GetPixelVisibility");
-		return 0.0f;
-	}
-
-	virtual void SetUpLightingEnvironment(const Vector&) OVERRIDE
-	{
-		ShellClientDll_RefuseExternal("IParticleSystemQuery::SetUpLightingEnvironment");
-	}
-
-	int32_t Unanswered(int nMethod) const { return (nMethod >= 0 && nMethod < kMethods) ? m_nUnanswered[nMethod] : 0; }
-
-private:
-	// The library's worker threads call these concurrently.
-	void Unanswered_Add(int nMethod) { ThreadInterlockedIncrement(&m_nUnanswered[nMethod]); }
-
-	CThreadFastMutex m_LightMutex;
-	volatile int32 m_nUnanswered[kMethods];
-};
-
-static CShellParticleSystemQuery s_ShellParticleQuery;
-
-// The global CParticleMgr::Init hands particles.a, also registered by name.
-IParticleSystemQuery* g_pParticleSystemQuery = &s_ShellParticleQuery;
-EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CShellParticleSystemQuery, IParticleSystemQuery,
-								  PARTICLE_SYSTEM_QUERY_INTERFACE_VERSION, s_ShellParticleQuery);
-
-// The unanswered calls per method, in CShellParticleSystemQuery's order. Returns the count.
-int32_t SourceSharp_ParticleQueryUnanswered(int32_t* pOut, int32_t nMax)
+int32_t CParticleSystemQueryClient::ParticleQueryUnanswered(int32_t* pOut, int32_t nMax)
 {
 	int32_t n = 0;
-	for (; pOut && n < nMax && n < CShellParticleSystemQuery::kMethods; n++)
-		pOut[n] = s_ShellParticleQuery.Unanswered(n);
+	for (; pOut && n < nMax && n < kMethods; n++)
+		pOut[n] = m_nUnanswered[n];
 	return n;
 }
 
@@ -1507,8 +1414,8 @@ int32_t SourceSharp_ParticleSystemNameFromIndex(int32_t nIndex, char* pszOut, in
 
 // pPoints: nPoints of (point, x, y, z). pOrientation0: control point 0's forward, right
 // and up. 1 when a definition answered the name.
-int32_t SourceSharp_ParticleSystemOneShot(const char* pszName, const float* pSortOriginXYZ, const float* pPoints,
-										  int32_t nPoints, const float* pOrientation0)
+int32_t CParticleSystemsClient::ParticleSystemOneShot(const char* pszName, const float* pSortOriginXYZ,
+													  const float* pPoints, int32_t nPoints, const float* pOrientation0)
 {
 	if (!pszName || !pSortOriginXYZ || (nPoints > 0 && !pPoints) || !pOrientation0)
 		return 0;
@@ -1525,7 +1432,7 @@ int32_t SourceSharp_ParticleSystemOneShot(const char* pszName, const float* pSor
 	for (int i = 2; i < nPoints; i++)
 		pEffect->SetControlPoint((int)pPoints[i * 4],
 								 Vector(pPoints[i * 4 + 1], pPoints[i * 4 + 2], pPoints[i * 4 + 3]));
-	ShellParticles_WatchOneShot(pEffect.GetObject());
+	WatchOneShot(pEffect.GetObject());
 	return 1;
 }
 

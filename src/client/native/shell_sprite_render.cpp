@@ -24,7 +24,6 @@
 #include "shell_standalone_client.h"
 #include "shell_renderable.h"
 #include "shell_beam_render.h"
-#include "shell_particle_systems.h"
 
 #include "shell_effect_registry.h"
 #include "imanaged_areas_client.h"
@@ -352,11 +351,7 @@ public:
 	{
 	}
 
-	virtual void PreRender() OVERRIDE
-	{
-		ManagedSpriteTrails_Follow();
-		ShellParticles_PreRender();
-	}
+	virtual void PreRender() OVERRIDE { ManagedSpriteTrails_Follow(); }
 
 	virtual void LevelShutdownPostEntity() OVERRIDE
 	{
@@ -377,8 +372,6 @@ public:
 				break;
 			}
 		}
-
-		ShellParticles_LevelShutdown();
 	}
 };
 

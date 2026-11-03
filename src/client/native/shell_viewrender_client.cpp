@@ -40,6 +40,7 @@
 
 #include "shell_view_executor_client.h"
 #include "shell_view_render.h"
+#include "shell_beams_client.h"
 #include "shell_viewer_facts.h"
 #include "shell_client_mode.h"
 
@@ -48,23 +49,24 @@
 #include "ss_image_encode.h"
 
 CShellViewRender::CShellViewRender(const CManagedAreasClient& areas, CViewerFacts& viewerFacts,
-								   CSourceSharpClientMode& clientMode, CViewExecutor& executor)
+								   CSourceSharpClientMode& clientMode, CViewExecutor& executor, CBeamsClient& beams)
 	: m_Areas(areas)
 	, m_ViewerFacts(viewerFacts)
 	, m_ClientMode(clientMode)
 	, m_Executor(executor)
+	, m_Beams(beams)
 {
 }
 
 void CShellViewRender::Init()
 {
-	beams->InitBeams();
+	m_Beams.InitBeams();
 	tempents->Init();
 }
 
 void CShellViewRender::LevelInit()
 {
-	beams->ClearBeams();
+	m_Beams.ClearBeams();
 	tempents->Clear();
 	m_nBuildWorldListsNumber = 0;
 	m_nBuildRenderablesListsNumber = 0;
@@ -85,7 +87,7 @@ void CShellViewRender::LevelShutdown()
 void CShellViewRender::Shutdown()
 {
 	ReleaseScreenOverlay();
-	beams->ShutdownBeams();
+	m_Beams.ShutdownBeams();
 	tempents->Shutdown();
 }
 

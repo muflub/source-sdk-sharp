@@ -16,6 +16,8 @@ class IDetailObjectSystem;
 class CStandaloneClients;
 class CEffectsListClient;
 class CManagedParticlesClient;
+class CParticleSystemsClient;
+class CShellDetailProps;
 
 // The client's game systems as one named table, in the order they run, a member of the
 // client DLL object. Stage passes walk the rows forwards; the shutdown stages walk them
@@ -27,7 +29,8 @@ public:
 	// the other rows are their files' objects.
 	CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
 				   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
-				   CManagedParticlesClient& particles);
+				   CManagedParticlesClient& particles, CParticleSystemsClient& particleSystems,
+				   CShellDetailProps& detailProps);
 	~CClientSystems();
 
 	CClientSystems(const CClientSystems&) = delete;
@@ -66,6 +69,8 @@ private:
 	CStandaloneClients& m_Standalone;
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
+	CParticleSystemsClient& m_ParticleSystems;
+	CShellDetailProps& m_DetailProps;
 
 	// Stock's accessors answer a more specific type; these rows keep the table's column uniform.
 	CGameSystemRow<IDetailObjectSystem> m_DetailObjectRow{nullptr};
@@ -79,7 +84,7 @@ private:
 	CSoundEmitterSystemRow m_SoundEmitterRow;
 	C_SoundscapeSystem m_SoundscapeRow;
 
-	static const int kRowCount = 21;
+	static const int kRowCount = 22;
 	Row_t m_Rows[kRowCount] = {};
 	int m_nRows = 0;
 };

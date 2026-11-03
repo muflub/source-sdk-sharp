@@ -30,11 +30,9 @@
 #include "imanaged_areas_client.h"
 #include "shell_world_nettable_client.h"
 #include "detail_props_wire.h"
+#include "shell_detail_props.h"
 
 extern ConVar r_DrawDetailProps;
-
-namespace
-{
 
 const char* const kSpriteMaterial = "detail/detailsprites";
 const char* const kWireframeMaterial = "debug/debugspritewireframe";
@@ -260,285 +258,250 @@ class CShellDetailLeafMarker : public CClientLeafSubSystemData
 {
 };
 
-// Reached as DetailObjectSystem() by the leaf system, the view executor and kClientSystems[].
-class CShellDetailProps : public IDetailObjectSystem, public ISpatialLeafEnumerator
+// CShellDetailProps (shell_detail_props.h).
+
+char const* CShellDetailProps::Name()
 {
-public:
-	virtual char const* Name() OVERRIDE { return "DetailObjectSystem"; }
+	return "DetailObjectSystem";
+}
 
-	virtual void PostInit() OVERRIDE {}
-
-	virtual void Shutdown() OVERRIDE {}
-
-	virtual void OnSave() OVERRIDE {}
-
-	virtual void OnRestore() OVERRIDE {}
-
-	virtual void SafeRemoveIfDesired() OVERRIDE {}
-
-	virtual bool IsPerFrame() OVERRIDE { return false; }
-
-	virtual bool Init() OVERRIDE
-	{
-		m_matFullbright.Init("mat_fullbright", true);
-		if (IManagedDetailPropsClient* pArea = ManagedDetailPropsClient())
-			pArea->DetailInit();
-		return true;
-	}
-
-	virtual void LevelInitPreEntity() OVERRIDE
-	{
-		m_SpriteMaterial.Init(kSpriteMaterial, TEXTURE_GROUP_OTHER);
-		m_WireframeMaterial.Init(kWireframeMaterial, TEXTURE_GROUP_OTHER);
-
-		IManagedDetailPropsClient* pArea = ManagedDetailPropsClient();
-		if (!pArea)
-			return;
-
-		IMaterial* pMaterial = m_SpriteMaterial;
-		const int nWidth = pMaterial ? pMaterial->GetMappingWidth() : 1;
-		const int nHeight = pMaterial ? pMaterial->GetMappingHeight() : 1;
-		const bool bHdr = g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_NONE;
-		const void* pLevel = pArea->DetailLevelInitPreEntity(nWidth, nHeight, bHdr ? 1 : 0);
-		if (!ss_detail::ReadLevel(pLevel, *this))
-			Warning("[SourceSharp/Detail] the level's detail props answer was malformed; the rest is dropped\n");
-		if (m_bPrecache)
-			PrecacheMaterial(kSpriteMaterial);
-	}
-
-	virtual void LevelInitPostEntity() OVERRIDE
-	{
-		char szMaterial[MAX_PATH];
-		IManagedDetailPropsClient* pArea = ManagedDetailPropsClient();
-		if (!pArea ||
-			pArea->DetailLevelInitPostEntity(SourceSharp_WorldDetailSpriteMaterial(), szMaterial, sizeof(szMaterial)) <=
-				0)
-			V_strncpy(szMaterial, kSpriteMaterial, sizeof(szMaterial));
-		m_SpriteMaterial.Init(szMaterial, TEXTURE_GROUP_OTHER);
-	}
-
-	virtual void LevelShutdownPreEntity() OVERRIDE
-	{
-		if (IManagedDetailPropsClient* pArea = ManagedDetailPropsClient())
-			pArea->DetailLevelShutdownPreEntity();
-		m_Objects.PurgeAndDeleteElements();
-		m_Models.Purge();
-		m_bPrecache = false;
-		m_SpriteMaterial.Shutdown();
-	}
-
-	virtual void LevelShutdownPostEntity() OVERRIDE { m_WireframeMaterial.Shutdown(); }
-
-	virtual IClientRenderable* GetDetailModel(int idx) OVERRIDE
-	{
-		return m_Objects.IsValidIndex(idx) ? m_Objects[idx] : NULL;
-	}
-
-	virtual void BuildDetailObjectRenderLists(const Vector& vViewOrigin) OVERRIDE
-	{
-		IManagedDetailPropsClient* pArea = ManagedDetailPropsClient();
-		if (!pArea)
-			return;
-		const Vector vecCurrent = CurrentViewOrigin();
-		const void* pView = pArea->DetailBuildLists(vViewOrigin.Base(), vecCurrent.Base(),
-													g_pClientMode->ShouldDrawDetailObjects() ? 1 : 0,
-													r_DrawDetailProps.GetInt(), m_matFullbright.GetInt());
-		m_States.RemoveAll();
-		float flRadius = 0.0f;
-		if (!ss_detail::ReadView(pView, *this, &flRadius))
-			return;
-
-		m_nBuildWorldListNumber = view->BuildWorldListsNumber();
-		engine->GetBSPTreeQuery()->EnumerateLeavesInSphere(vecCurrent, flRadius, this, 0);
-	}
-
-	virtual void RenderOpaqueDetailObjects(int nLeafCount, LeafIndex_t* pLeafList) OVERRIDE
-	{
-		// Stock's is empty: the model props draw through the renderables list.
-	}
-
-	virtual void BeginTranslucentDetailRendering() OVERRIDE
-	{
-		if (IManagedDetailPropsClient* pArea = ManagedDetailPropsClient())
-			pArea->DetailBeginTranslucent();
-	}
-
-	virtual void RenderTranslucentDetailObjects(const Vector& viewOrigin, const Vector& viewForward,
-												const Vector& viewRight, const Vector& viewUp, int nLeafCount,
-												LeafIndex_t* pLeafList) OVERRIDE
-	{
-		CUtlVector<int32_t> leaves;
-		leaves.EnsureCount(MAX(nLeafCount, 0));
-		for (int i = 0; i < nLeafCount; ++i)
-			leaves[i] = pLeafList[i];
-		// The fast sprites (stock's RenderFastSprites), then the sorted ones.
-		Draw(kFastList, viewOrigin, viewForward, viewRight, viewUp, leaves.Base(), leaves.Count(), NULL);
-		Draw(kOldList, viewOrigin, viewForward, viewRight, viewUp, leaves.Base(), leaves.Count(), NULL);
-	}
-
-	virtual void RenderTranslucentDetailObjectsInLeaf(const Vector& viewOrigin, const Vector& viewForward,
-													  const Vector& viewRight, const Vector& viewUp, int nLeaf,
-													  const Vector* pVecClosestPoint) OVERRIDE
-	{
-		int32_t leaf = nLeaf;
-		Draw(kFastInLeaf, viewOrigin, viewForward, viewRight, viewUp, &leaf, 1, pVecClosestPoint);
-		Draw(kOldInLeaf, viewOrigin, viewForward, viewRight, viewUp, &leaf, 1, pVecClosestPoint);
-	}
-
-	// A leaf in the view's sphere: marked, and its model props' managed states applied.
-	virtual bool EnumerateLeaf(int leaf, intp context) OVERRIDE
-	{
-		int nFirst, nCount;
-		ClientLeafSystem()->DrawDetailObjectsInLeaf(leaf, m_nBuildWorldListNumber, nFirst, nCount);
-		for (int i = 0; i < nCount; ++i)
-		{
-			const int idx = nFirst + i;
-			if (!m_Objects.IsValidIndex(idx) || !m_Objects[idx])
-				continue;
-			const int nOrdinal = m_Objects[idx]->Ordinal();
-			if (m_States.IsValidIndex(nOrdinal))
-			{
-				const State_t& s = m_States[nOrdinal];
-				m_Objects[idx]->SetState(s.alpha, s.bSetAngles, s.angles);
-			}
-		}
-		return true;
-	}
-
-	void Precache(bool b) { m_bPrecache = b; }
-
-	void Object(int i, void* pModel, const float* pOrigin, const float* pAngles)
-	{
-		CShellDetailModel* pObject = NULL;
-		if (pModel)
-		{
-			pObject = new CShellDetailModel((const model_t*)pModel, Vector(pOrigin[0], pOrigin[1], pOrigin[2]),
-											QAngle(pAngles[0], pAngles[1], pAngles[2]), m_Models.Count());
-			m_Models.AddToTail(pObject);
-		}
-		m_Objects.AddToTail(pObject);
-	}
-
-	void Run(int leaf, int first, int count, bool bFast)
-	{
-		if (bFast)
-			ClientLeafSystem()->SetSubSystemDataInLeaf(leaf, CLSUBSYSTEM_DETAILOBJECTS, new CShellDetailLeafMarker);
-		ClientLeafSystem()->SetDetailObjectsInLeaf(leaf, first, count);
-	}
-
-	void Proxy(void* pModel) { modelinfo->RecomputeTranslucency((const model_t*)pModel, 0, 0, NULL); }
-
-	void Model(int i, unsigned char alpha, bool bSetAngles, const float* pAngles, const float* pColor)
-	{
-		State_t s;
-		s.alpha = alpha;
-		s.bSetAngles = bSetAngles;
-		V_memcpy(s.angles, pAngles, sizeof(s.angles));
-		m_States.AddToTail(s);
-		// The colour is no view's: every model prop takes it now.
-		if (m_Models.IsValidIndex(i))
-			m_Models[i]->SetColor(pColor);
-	}
-
-	void ModelAlpha(int object, unsigned char alpha)
-	{
-		if (m_Objects.IsValidIndex(object) && m_Objects[object])
-			m_Objects[object]->SetAlpha(alpha);
-	}
-
-	void Begin(int quads) { m_MeshBuilder.Begin(m_pMesh, MATERIAL_QUADS, quads); }
-
-	void Vertex(const float* pXYZ, const unsigned char* pRGBA, const float* pST)
-	{
-		m_MeshBuilder.Position3fv(pXYZ);
-		m_MeshBuilder.Color4ubv(pRGBA);
-		m_MeshBuilder.TexCoord2fv(0, pST);
-		m_MeshBuilder.AdvanceVertex();
-	}
-
-	void EndDraw()
-	{
-		m_MeshBuilder.End();
-		m_pMesh->Draw();
-	}
-
-private:
-	enum
-	{
-		kFastList = 0,
-		kOldList = 1,
-		kFastInLeaf = 2,
-		kOldInLeaf = 3
-	};
-
-	// One of stock's four translucent draws. A mesh with no room ends the draw with the
-	// matrix still pushed, as stock's return did.
-	void Draw(int nKind, const Vector& viewOrigin, const Vector& viewForward, const Vector& viewRight,
-			  const Vector& viewUp, const int32_t* pLeaves, int nLeaves, const Vector* pClosest)
-	{
-		IManagedDetailPropsClient* pArea = ManagedDetailPropsClient();
-		if (!pArea)
-			return;
-
-		const Vector& current = CurrentViewOrigin();
-		const float view[15] = {viewOrigin.x,  viewOrigin.y, viewOrigin.z, viewForward.x, viewForward.y,
-								viewForward.z, viewRight.x,  viewRight.y,  viewRight.z,   viewUp.x,
-								viewUp.y,      viewUp.z,     current.x,    current.y,     current.z};
-		const void* pPrepared = pArea->DetailPrepare(nKind, view, pLeaves, nLeaves, pClosest ? pClosest->Base() : NULL,
-													 r_DrawDetailProps.GetInt(), ShouldDrawInWireFrameMode() ? 1 : 0,
-													 m_matFullbright.GetInt());
-		const int nMaterial = ss_detail::ReadPrepare(pPrepared, *this);
-		if (nMaterial == ss_detail::kMaterialNone)
-			return;
-
-		CMatRenderContextPtr pRenderContext(materials);
-		pRenderContext->MatrixMode(MATERIAL_MODEL);
-		pRenderContext->PushMatrix();
-		pRenderContext->LoadIdentity();
-
-		IMaterial* pMaterial =
-			nMaterial == ss_detail::kMaterialWireframe ? (IMaterial*)m_WireframeMaterial : (IMaterial*)m_SpriteMaterial;
-		m_pMesh = pRenderContext->GetDynamicMesh(true, NULL, NULL, pMaterial);
-
-		int nMaxVerts, nMaxIndices;
-		pRenderContext->GetMaxToRender(m_pMesh, false, &nMaxVerts, &nMaxIndices);
-		int nMaxQuads = nMaxIndices / 6;
-		if (nMaxQuads > nMaxVerts / 4)
-			nMaxQuads = nMaxVerts / 4;
-		if (nMaxQuads == 0)
-			return;
-
-		if (!ss_detail::RunEmit(pArea->DetailEmit(nMaxQuads), *this))
-			Warning("[SourceSharp/Detail] a draw's answer was malformed; the rest is dropped\n");
-
-		pRenderContext->PopMatrix();
-		m_pMesh = NULL;
-	}
-
-	struct State_t
-	{
-		unsigned char alpha;
-		bool bSetAngles;
-		float angles[3];
-	};
-
-	CUtlVector<CShellDetailModel*> m_Objects; // by object index; NULL for a sprite
-	CUtlVector<CShellDetailModel*> m_Models; // the model props, by ordinal
-	CUtlVector<State_t> m_States; // this view's, by ordinal
-	CMaterialReference m_SpriteMaterial;
-	CMaterialReference m_WireframeMaterial;
-	ConVarRef m_matFullbright{"mat_fullbright", true};
-	CMeshBuilder m_MeshBuilder;
-	IMesh* m_pMesh = NULL;
-	int m_nBuildWorldListNumber = 0;
-	bool m_bPrecache = false;
-};
-
-CShellDetailProps g_ShellDetailProps;
-
-} // namespace
-
-IDetailObjectSystem* DetailObjectSystem()
+bool CShellDetailProps::IsPerFrame()
 {
-	return &g_ShellDetailProps;
+	return false;
+}
+
+bool CShellDetailProps::Init()
+{
+	m_matFullbright.Init("mat_fullbright", true);
+	if (IManagedDetailPropsClient* pArea = Managed())
+		pArea->DetailInit();
+	return true;
+}
+
+void CShellDetailProps::LevelInitPreEntity()
+{
+	m_SpriteMaterial.Init(kSpriteMaterial, TEXTURE_GROUP_OTHER);
+	m_WireframeMaterial.Init(kWireframeMaterial, TEXTURE_GROUP_OTHER);
+
+	IManagedDetailPropsClient* pArea = Managed();
+	if (!pArea)
+		return;
+
+	IMaterial* pMaterial = m_SpriteMaterial;
+	const int nWidth = pMaterial ? pMaterial->GetMappingWidth() : 1;
+	const int nHeight = pMaterial ? pMaterial->GetMappingHeight() : 1;
+	const bool bHdr = g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_NONE;
+	const void* pLevel = pArea->DetailLevelInitPreEntity(nWidth, nHeight, bHdr ? 1 : 0);
+	if (!ss_detail::ReadLevel(pLevel, *this))
+		Warning("[SourceSharp/Detail] the level's detail props answer was malformed; the rest is dropped\n");
+	if (m_bPrecache)
+		PrecacheMaterial(kSpriteMaterial);
+}
+
+void CShellDetailProps::LevelInitPostEntity()
+{
+	char szMaterial[MAX_PATH];
+	IManagedDetailPropsClient* pArea = Managed();
+	if (!pArea ||
+		pArea->DetailLevelInitPostEntity(SourceSharp_WorldDetailSpriteMaterial(), szMaterial, sizeof(szMaterial)) <= 0)
+		V_strncpy(szMaterial, kSpriteMaterial, sizeof(szMaterial));
+	m_SpriteMaterial.Init(szMaterial, TEXTURE_GROUP_OTHER);
+}
+
+void CShellDetailProps::LevelShutdownPreEntity()
+{
+	if (IManagedDetailPropsClient* pArea = Managed())
+		pArea->DetailLevelShutdownPreEntity();
+	m_Objects.PurgeAndDeleteElements();
+	m_Models.Purge();
+	m_bPrecache = false;
+	m_SpriteMaterial.Shutdown();
+}
+
+void CShellDetailProps::LevelShutdownPostEntity()
+{
+	m_WireframeMaterial.Shutdown();
+}
+
+IClientRenderable* CShellDetailProps::GetDetailModel(int idx)
+{
+	return m_Objects.IsValidIndex(idx) ? m_Objects[idx] : NULL;
+}
+
+void CShellDetailProps::BuildDetailObjectRenderLists(const Vector& vViewOrigin)
+{
+	IManagedDetailPropsClient* pArea = Managed();
+	if (!pArea)
+		return;
+	const Vector vecCurrent = CurrentViewOrigin();
+	const void* pView =
+		pArea->DetailBuildLists(vViewOrigin.Base(), vecCurrent.Base(), g_pClientMode->ShouldDrawDetailObjects() ? 1 : 0,
+								r_DrawDetailProps.GetInt(), m_matFullbright.GetInt());
+	m_States.RemoveAll();
+	float flRadius = 0.0f;
+	if (!ss_detail::ReadView(pView, *this, &flRadius))
+		return;
+
+	m_nBuildWorldListNumber = view->BuildWorldListsNumber();
+	engine->GetBSPTreeQuery()->EnumerateLeavesInSphere(vecCurrent, flRadius, this, 0);
+}
+
+void CShellDetailProps::RenderOpaqueDetailObjects(int nLeafCount, LeafIndex_t* pLeafList)
+{
+	// Stock's is empty: the model props draw through the renderables list.
+}
+
+void CShellDetailProps::BeginTranslucentDetailRendering()
+{
+	if (IManagedDetailPropsClient* pArea = Managed())
+		pArea->DetailBeginTranslucent();
+}
+
+void CShellDetailProps::RenderTranslucentDetailObjects(const Vector& viewOrigin, const Vector& viewForward,
+													   const Vector& viewRight, const Vector& viewUp, int nLeafCount,
+													   LeafIndex_t* pLeafList)
+{
+	CUtlVector<int32_t> leaves;
+	leaves.EnsureCount(MAX(nLeafCount, 0));
+	for (int i = 0; i < nLeafCount; ++i)
+		leaves[i] = pLeafList[i];
+	// The fast sprites (stock's RenderFastSprites), then the sorted ones.
+	Draw(kFastList, viewOrigin, viewForward, viewRight, viewUp, leaves.Base(), leaves.Count(), NULL);
+	Draw(kOldList, viewOrigin, viewForward, viewRight, viewUp, leaves.Base(), leaves.Count(), NULL);
+}
+
+void CShellDetailProps::RenderTranslucentDetailObjectsInLeaf(const Vector& viewOrigin, const Vector& viewForward,
+															 const Vector& viewRight, const Vector& viewUp, int nLeaf,
+															 const Vector* pVecClosestPoint)
+{
+	int32_t leaf = nLeaf;
+	Draw(kFastInLeaf, viewOrigin, viewForward, viewRight, viewUp, &leaf, 1, pVecClosestPoint);
+	Draw(kOldInLeaf, viewOrigin, viewForward, viewRight, viewUp, &leaf, 1, pVecClosestPoint);
+}
+
+bool CShellDetailProps::EnumerateLeaf(int leaf, intp context)
+{
+	int nFirst, nCount;
+	ClientLeafSystem()->DrawDetailObjectsInLeaf(leaf, m_nBuildWorldListNumber, nFirst, nCount);
+	for (int i = 0; i < nCount; ++i)
+	{
+		const int idx = nFirst + i;
+		if (!m_Objects.IsValidIndex(idx) || !m_Objects[idx])
+			continue;
+		const int nOrdinal = m_Objects[idx]->Ordinal();
+		if (m_States.IsValidIndex(nOrdinal))
+		{
+			const State_t& s = m_States[nOrdinal];
+			m_Objects[idx]->SetState(s.alpha, s.bSetAngles, s.angles);
+		}
+	}
+	return true;
+}
+
+void CShellDetailProps::Precache(bool b)
+{
+	m_bPrecache = b;
+}
+
+void CShellDetailProps::Object(int i, void* pModel, const float* pOrigin, const float* pAngles)
+{
+	CShellDetailModel* pObject = NULL;
+	if (pModel)
+	{
+		pObject = new CShellDetailModel((const model_t*)pModel, Vector(pOrigin[0], pOrigin[1], pOrigin[2]),
+										QAngle(pAngles[0], pAngles[1], pAngles[2]), m_Models.Count());
+		m_Models.AddToTail(pObject);
+	}
+	m_Objects.AddToTail(pObject);
+}
+
+void CShellDetailProps::Run(int leaf, int first, int count, bool bFast)
+{
+	if (bFast)
+		ClientLeafSystem()->SetSubSystemDataInLeaf(leaf, CLSUBSYSTEM_DETAILOBJECTS, new CShellDetailLeafMarker);
+	ClientLeafSystem()->SetDetailObjectsInLeaf(leaf, first, count);
+}
+
+void CShellDetailProps::Proxy(void* pModel)
+{
+	modelinfo->RecomputeTranslucency((const model_t*)pModel, 0, 0, NULL);
+}
+
+void CShellDetailProps::Model(int i, unsigned char alpha, bool bSetAngles, const float* pAngles, const float* pColor)
+{
+	State_t s;
+	s.alpha = alpha;
+	s.bSetAngles = bSetAngles;
+	V_memcpy(s.angles, pAngles, sizeof(s.angles));
+	m_States.AddToTail(s);
+	// The colour is no view's: every model prop takes it now.
+	if (m_Models.IsValidIndex(i))
+		m_Models[i]->SetColor(pColor);
+}
+
+void CShellDetailProps::ModelAlpha(int object, unsigned char alpha)
+{
+	if (m_Objects.IsValidIndex(object) && m_Objects[object])
+		m_Objects[object]->SetAlpha(alpha);
+}
+
+void CShellDetailProps::Begin(int quads)
+{
+	m_MeshBuilder.Begin(m_pMesh, MATERIAL_QUADS, quads);
+}
+
+void CShellDetailProps::Vertex(const float* pXYZ, const unsigned char* pRGBA, const float* pST)
+{
+	m_MeshBuilder.Position3fv(pXYZ);
+	m_MeshBuilder.Color4ubv(pRGBA);
+	m_MeshBuilder.TexCoord2fv(0, pST);
+	m_MeshBuilder.AdvanceVertex();
+}
+
+void CShellDetailProps::EndDraw()
+{
+	m_MeshBuilder.End();
+	m_pMesh->Draw();
+}
+
+void CShellDetailProps::Draw(int nKind, const Vector& viewOrigin, const Vector& viewForward, const Vector& viewRight,
+							 const Vector& viewUp, const int32_t* pLeaves, int nLeaves, const Vector* pClosest)
+{
+	IManagedDetailPropsClient* pArea = Managed();
+	if (!pArea)
+		return;
+
+	const Vector& current = CurrentViewOrigin();
+	const float view[15] = {viewOrigin.x,  viewOrigin.y, viewOrigin.z, viewForward.x, viewForward.y,
+							viewForward.z, viewRight.x,  viewRight.y,  viewRight.z,   viewUp.x,
+							viewUp.y,      viewUp.z,     current.x,    current.y,     current.z};
+	const void* pPrepared =
+		pArea->DetailPrepare(nKind, view, pLeaves, nLeaves, pClosest ? pClosest->Base() : NULL,
+							 r_DrawDetailProps.GetInt(), ShouldDrawInWireFrameMode() ? 1 : 0, m_matFullbright.GetInt());
+	const int nMaterial = ss_detail::ReadPrepare(pPrepared, *this);
+	if (nMaterial == ss_detail::kMaterialNone)
+		return;
+
+	CMatRenderContextPtr pRenderContext(materials);
+	pRenderContext->MatrixMode(MATERIAL_MODEL);
+	pRenderContext->PushMatrix();
+	pRenderContext->LoadIdentity();
+
+	IMaterial* pMaterial =
+		nMaterial == ss_detail::kMaterialWireframe ? (IMaterial*)m_WireframeMaterial : (IMaterial*)m_SpriteMaterial;
+	m_pMesh = pRenderContext->GetDynamicMesh(true, NULL, NULL, pMaterial);
+
+	int nMaxVerts, nMaxIndices;
+	pRenderContext->GetMaxToRender(m_pMesh, false, &nMaxVerts, &nMaxIndices);
+	int nMaxQuads = nMaxIndices / 6;
+	if (nMaxQuads > nMaxVerts / 4)
+		nMaxQuads = nMaxVerts / 4;
+	if (nMaxQuads == 0)
+		return;
+
+	if (!ss_detail::RunEmit(pArea->DetailEmit(nMaxQuads), *this))
+		Warning("[SourceSharp/Detail] a draw's answer was malformed; the rest is dropped\n");
+
+	pRenderContext->PopMatrix();
+	m_pMesh = NULL;
 }

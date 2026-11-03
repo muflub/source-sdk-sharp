@@ -1,12 +1,8 @@
-// Binds a sprite model's material for a frame and render mode (stock's
-// Draw_SetSpriteTexture, with the wireframe choice passed in).
+// The sprite draws' entry points.
 
 #pragma once
 
-class CEngineSprite;
 struct model_t;
-
-CEngineSprite* SourceSharp_BindSpriteModel(const model_t* pModel, int nFrame, int nRenderMode, bool bWireframe);
 
 // Plans and draws one sprite as C_SpriteRenderer::DrawSprite does.
 class IClientEntity;

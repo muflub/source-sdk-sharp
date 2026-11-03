@@ -21,12 +21,13 @@
 
 class CViewerFacts;
 class CSourceSharpClientMode;
+class CBeamsClient;
 
 class CShellViewRender final : public IViewRender, public IReplayScreenshotSystem
 {
 public:
 	CShellViewRender(const CManagedAreasClient& areas, CViewerFacts& viewerFacts, CSourceSharpClientMode& clientMode,
-					 CViewExecutor& executor);
+					 CViewExecutor& executor, CBeamsClient& beams);
 
 	void Init() override;
 
@@ -101,6 +102,7 @@ private:
 	CViewerFacts& m_ViewerFacts;
 	CSourceSharpClientMode& m_ClientMode;
 	CViewExecutor& m_Executor;
+	CBeamsClient& m_Beams;
 	bool m_bForceNoVis = false;
 	bool m_bSaidNoDecision = false;
 	bool m_bSaidUnplanned = false;

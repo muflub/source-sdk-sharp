@@ -55,6 +55,7 @@
 #include "shell_view_render.h"
 #include "shell_effects_list_client.h"
 #include "shell_managed_particles.h"
+#include "shell_detail_props.h"
 #include "shell_managed_areas_client.h"
 #include "view_facts.h"
 #include "vtable_slot_patch.h"
@@ -70,7 +71,6 @@ bool SourceSharp_ColorCorrectionActive();
 // shell_effects_list_client.cpp's material ids (IFxRender), as materials.
 #include "shell_view_executor_client.h"
 #include "ss_clock.h"
-#include "shell_particle_systems.h"
 
 extern void UpdateClientRenderableInPVSStatus();
 // viewrender.cpp's current-view setters, which stock declares at each use.
@@ -449,8 +449,9 @@ struct WorldListEntry_t
 class CPlanView : public CRefCounted<>, protected CViewSetup
 {
 public:
-	explicit CPlanView(CShellViewRender& viewRender)
+	CPlanView(CShellViewRender& viewRender, CShellDetailProps& detailProps)
 		: m_ViewRender(viewRender)
+		, m_DetailProps(detailProps)
 	{
 	}
 
@@ -533,6 +534,7 @@ private:
 	int m_ClearFlags = 0;
 
 	CShellViewRender& m_ViewRender;
+	CShellDetailProps& m_DetailProps;
 };
 
 void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
@@ -578,7 +580,7 @@ void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntiti
 	if (bDrawEntities)
 	{
 		staticpropmgr->ComputePropOpacity(origin, flOpacityFactor);
-		DetailObjectSystem()->BuildDetailObjectRenderLists(origin);
+		m_DetailProps.BuildDetailObjectRenderLists(origin);
 	}
 }
 
@@ -733,7 +735,7 @@ class CViewExecutorImpl
 public:
 	CViewExecutorImpl(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
 					  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
-					  CEffectsListClient& effects, CManagedParticlesClient& particles)
+					  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -742,6 +744,7 @@ public:
 		, m_ViewRender(viewRender)
 		, m_Effects(effects)
 		, m_Particles(particles)
+		, m_DetailProps(detailProps)
 	{
 	}
 
@@ -816,6 +819,7 @@ private:
 	CShellViewRender& m_ViewRender;
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
+	CShellDetailProps& m_DetailProps;
 	ExecutorState_t m_State;
 
 	// The leaf system's BuildRenderablesList slot, patched: the leaf system calls it with its
@@ -1637,7 +1641,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_WorldViewBegin:
 			{
-				CPlanView* pNew = new CPlanView(m_ViewRender);
+				CPlanView* pNew = new CPlanView(m_ViewRender, m_DetailProps);
 				pNew->Begin(setup, op.I[0], op.I[1]);
 				state.m_Views.AddToTail(pNew);
 				break;
@@ -1843,7 +1847,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			}
 			case RENDER_OP_DetailBeginTranslucent:
-				DetailObjectSystem()->BeginTranslucentDetailRendering();
+				m_DetailProps.BeginTranslucentDetailRendering();
 				break;
 			case RENDER_OP_DetailLeaf:
 				if (pView)
@@ -1852,7 +1856,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			case RENDER_OP_DetailRenderTranslucent:
 				if (pView)
 				{
-					DetailObjectSystem()->RenderTranslucentDetailObjects(
+					m_DetailProps.RenderTranslucentDetailObjects(
 						m_ViewRender.m_Current.origin, m_ViewRender.m_Current.forward, m_ViewRender.m_Current.right,
 						m_ViewRender.m_Current.up, pView->m_DetailLeaves.Count(), pView->m_DetailLeaves.Base());
 					pView->m_DetailLeaves.RemoveAll();
@@ -1862,7 +1866,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 			{
 				IClientRenderable* pEnt = pView ? pView->Entry(op.I[1]) : NULL;
 				Vector vecOrigin = pEnt ? pEnt->GetRenderOrigin() : vec3_origin;
-				DetailObjectSystem()->RenderTranslucentDetailObjectsInLeaf(
+				m_DetailProps.RenderTranslucentDetailObjectsInLeaf(
 					m_ViewRender.m_Current.origin, m_ViewRender.m_Current.forward, m_ViewRender.m_Current.right,
 					m_ViewRender.m_Current.up, op.I[0], pEnt ? &vecOrigin : NULL);
 				break;
@@ -1910,7 +1914,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_DebugLightmapPage:
 			{
-				CPlanView* pDebug = new CPlanView(m_ViewRender);
+				CPlanView* pDebug = new CPlanView(m_ViewRender, m_DetailProps);
 				pDebug->Begin(setup, 0, 0);
 				Frustum frustum;
 				AllowCurrentViewAccess(true);
@@ -3050,7 +3054,7 @@ CViewExecutorImpl& CViewExecutor::Impl()
 	if (!m_pImpl)
 	{
 		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender,
-										m_Effects, m_Particles);
+										m_Effects, m_Particles, m_DetailProps);
 	}
 	return *m_pImpl;
 }

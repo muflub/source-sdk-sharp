@@ -66,8 +66,6 @@ class CJiggleBones;
 class CIKContext;
 class CBoneBitList;
 
-void SourceSharp_KillDeadBeams(const CBaseHandle& hDeadEntity);
-
 class CStandaloneClients;
 
 class C_StandaloneEntity : public IClientEntity, public ICollideable

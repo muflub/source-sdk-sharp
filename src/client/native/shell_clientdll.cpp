@@ -94,7 +94,10 @@ enum
 extern vgui::IInputInternal* g_InputInternal;
 
 #include "ss_command_line.h"
-#include "shell_particle_systems.h"
+#include "shell_particle_systems_client.h"
+#include "shell_particle_query_client.h"
+#include "shell_detail_props.h"
+#include "shell_beams_client.h"
 #include "shell_new_particles.h"
 #include "shell_shim_console.h"
 #include "managed_side.h"
@@ -432,6 +435,8 @@ public:
 
 	CManagedParticlesClient& ManagedParticles() { return m_ManagedParticles; }
 
+	CShellDetailProps& DetailProps() { return m_DetailProps; }
+
 	CShellViewRender& ViewRender() { return m_ViewRender; }
 
 	virtual ~CShellClientDLL()
@@ -476,7 +481,10 @@ private:
 	CSourceSharpSystem m_ManagedFrame{m_ManagedSide};
 	CPhysicsClient m_Physics{m_Managed.m_Areas};
 	CShellDecalSystemClient m_Decals{m_Managed.m_Areas};
-	CStandaloneClients m_Standalone{m_Managed.m_Areas, m_EntityList};
+	// IViewRenderBeams, its renderables and its sprite bind.
+	CBeamsClient m_Beams{m_Managed.m_Areas};
+
+	CStandaloneClients m_Standalone{m_Managed.m_Areas, m_EntityList, m_Beams};
 
 	// The local viewer's facts and the fog and sky managed pushes.
 	CViewerFacts m_ViewerFacts{m_Standalone, m_EntityList};
@@ -484,6 +492,17 @@ private:
 	// The managed particle executors, their frame and their client systems row.
 	CManagedParticlesClient m_ManagedParticles{m_Managed.m_Areas, m_Standalone};
 
+	// The detail props' executor.
+	CShellDetailProps m_DetailProps{m_Managed.m_Areas};
+
+	// The new-style particle systems managed starts, and their client systems row.
+	CParticleSystemsClient m_ParticleSystems{m_Standalone};
+
+public:
+	// The query particles.a is handed at the particle manager's Init (g_pParticleSystemQuery).
+	CParticleSystemQueryClient m_ParticleQuery{m_Managed.m_Areas};
+
+private:
 	// IInput and the shim input area, over the managed input area.
 	CSourceSharpInput m_Input{m_Managed.m_Areas, m_ViewerFacts};
 
@@ -500,13 +519,13 @@ private:
 	CTempEnts m_TempEnts{m_Managed.m_Areas};
 
 	// IViewRender (`view` points at it from Init).
-	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_ViewerFacts, m_ClientMode, m_ViewExecutor};
-	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics,         m_Decals,
-							 m_Standalone,      m_EffectsList,  m_ManagedParticles};
+	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_ViewerFacts, m_ClientMode, m_ViewExecutor, m_Beams};
+	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame,     m_Physics,         m_Decals,     m_Standalone,
+							 m_EffectsList,     m_ManagedParticles, m_ParticleSystems, m_DetailProps};
 
 	// The render plan's executor; the view render calls it, and it calls the systems' PreRender.
-	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,    m_ViewerFacts, m_Standalone,
-								 m_ClientMode,      m_ViewRender, m_EffectsList, m_ManagedParticles};
+	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,     m_ViewerFacts,      m_Standalone, m_ClientMode,
+								 m_ViewRender,      m_EffectsList, m_ManagedParticles, m_DetailProps};
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
@@ -519,6 +538,10 @@ private:
 
 CShellClientDLL g_ShellClientDLL;
 IBaseClientDLL* clientdll = &g_ShellClientDLL;
+
+// The query the particle manager's Init hands particles.a: the client DLL object's. A
+// pointer, constant-initialised, so the probe build can wrap it at static init.
+IParticleSystemQuery* g_pParticleSystemQuery = &g_ShellClientDLL.m_ParticleQuery;
 
 void ShellClientDll_RefuseExternal(const char* pMethod)
 {
@@ -548,6 +571,13 @@ CEffectsListClient& ShellClientDll_EffectsList()
 CManagedParticlesClient& ShellClientDll_ManagedParticles()
 {
 	return g_ShellClientDLL.ManagedParticles();
+}
+
+// Stock's accessor, for the leaf system: it is built at static init, before it could be
+// handed the client DLL object's detail props.
+IDetailObjectSystem* DetailObjectSystem()
+{
+	return &g_ShellClientDLL.DetailProps();
 }
 
 CStandaloneClients& ShellClientDll_Standalone()
@@ -793,6 +823,10 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsListClient = &m_EffectsList;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsClient = &m_Effects;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pManagedParticlesClient = &m_ManagedParticles;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemsClient = &m_ParticleSystems;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pBeamsClient = &m_Beams;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemQueryClient = &m_ParticleQuery;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pParticleSystemsClient = &m_ParticleSystems;
 	m_pManagedRuntime = LoadManagedRuntime(this);
 
 	if (m_pManagedRuntime == NULL)
@@ -1262,7 +1296,7 @@ void CShellClientDLL::LevelShutdown()
 	m_Systems.LevelShutdownPostEntity();
 
 	view->LevelShutdown();
-	beams->ClearBeams();
+	m_Beams.ClearBeams();
 	// The new-style effects removed, then the particle materials released.
 	ShellNewParticles_RemoveAll();
 	ShellParticleMgr_LevelShutdown();
@@ -1483,7 +1517,7 @@ void CShellClientDLL::OnRenderStart()
 
 		tempents->Update();
 
-		beams->UpdateTempEntBeams();
+		m_Beams.UpdateTempEntBeams();
 	}
 
 	{

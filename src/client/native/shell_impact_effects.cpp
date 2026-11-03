@@ -29,7 +29,7 @@
 #include "world_subject.h"
 #include "slot_table.h"
 
-#include "shell_particle_systems.h"
+#include "shell_particle_systems_client.h"
 
 CLIENTEFFECT_REGISTER_BEGIN(PrecacheEffectImpacts)
 CLIENTEFFECT_MATERIAL("effects/fleck_cement1")
@@ -209,8 +209,8 @@ void SourceSharp_ClientImpactLedger(int32_t nFlecks, int32_t nDust)
 // up), each bound to the entity hit, control point 3 the scale, and control
 // point 4 the surface colour when the definition reads it. Answers 1 when a
 // definition answered the name.
-int32_t SourceSharp_ParticleSystemImpact(const char* pszName, const float* pPoints, int32_t nEntity, float flScale,
-										 const float* pColorXYZ)
+int32_t CParticleSystemsClient::ParticleSystemImpact(const char* pszName, const float* pPoints, int32_t nEntity,
+													 float flScale, const float* pColorXYZ)
 {
 	if (!pszName || !pPoints)
 		return 0;
@@ -220,7 +220,7 @@ int32_t SourceSharp_ParticleSystemImpact(const char* pszName, const float* pPoin
 		return 0;
 
 	// Watched as a one-shot; the manager still owns its life.
-	ShellParticles_WatchOneShot(pEffect.GetObject());
+	WatchOneShot(pEffect.GetObject());
 
 	// The shell the trace hit: GetGameEntity() answers nothing on the client.
 	IClientUnknown* pHit = (nEntity >= 0) ? SourceSharp_ClientUnknownFromIndex(nEntity) : NULL;

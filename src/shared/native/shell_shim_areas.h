@@ -80,9 +80,12 @@ void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName);
 // client-only areas, forwarding to the body each row of the slot table names.
 // A base its own class implements is held by pointer, set by the client's owner.
 
+class CParticleSystemsClient;
+class CBeamsClient;
 class CViewerFacts;
 class CSourceSharpClientMode;
 class CManagedParticlesClient;
+class CParticleSystemQueryClient;
 class CEffectsClient;
 class CEffectsListClient;
 
@@ -252,6 +255,10 @@ public:
 									   const float* pOffsetXYZ) override;
 	int32_t ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot) override;
 	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CParticleSystemsClient* m_pParticleSystemsClient = nullptr;
+	CBeamsClient* m_pBeamsClient = nullptr;
 };
 
 class CShimViewClient final : public IShimViewClient
@@ -404,6 +411,8 @@ public:
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CManagedParticlesClient* m_pManagedParticlesClient = nullptr;
+	CParticleSystemsClient* m_pParticleSystemsClient = nullptr;
+	CParticleSystemQueryClient* m_pParticleSystemQueryClient = nullptr;
 };
 
 class CShimFxClient final : public IShimFxClient
