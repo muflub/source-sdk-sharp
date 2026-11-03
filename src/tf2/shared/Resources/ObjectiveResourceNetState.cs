@@ -285,6 +285,9 @@ public partial class ObjectiveResourceNetState
 [StandaloneNetState(ObjectiveClassNames.TeamResource)]
 public partial class TeamResourceNetState
 {
+    /// <summary>The goal strings' wire room: the 2048-byte tier minus the table's other 1580, over two.</summary>
+    public const int GoalStringSize = 232;
+
     /// <summary>m_iScore.</summary>
     [NetArray(ObjectiveLimits.Teams)] public partial NetArray<short> Score { get; }
 
@@ -310,4 +313,18 @@ public partial class TeamResourceNetState
 
     /// <summary>The team's leader (m_hLeader, tf_team.cpp:56), as an entity index; 0 for none.</summary>
     [NetArray(ObjectiveLimits.Teams)] public partial NetArray<short> Leader { get; }
+
+    /// <summary>
+    /// Stock's <c>m_pszTeamGoalStringRed</c> (tf_gamerules.h:1151,
+    /// MAX_TEAMGOAL_STRING 256): the map's goal line for the red team's
+    /// goal HUD (<c>InputSetRedTeamGoalString</c>, tf_gamerules.cpp:1769) —
+    /// a gamerules word on the per-team mirror, as the round words ride the
+    /// player resource (TFPlayerResourceNetState's tier leaves no room). The
+    /// wire holds 232 of stock's 256: the table's 2048-byte tier minus its
+    /// other 1580, over two strings (the set truncates at the same bound).
+    /// </summary>
+    [NetString(232)] public partial string GoalStringRed { get; set; }
+
+    /// <summary>Stock's <c>m_pszTeamGoalStringBlue</c> (tf_gamerules.h:1152): the blue arm, the same 232.</summary>
+    [NetString(232)] public partial string GoalStringBlue { get; set; }
 }

@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Standalone;
 
+using TF2.Shared;
 using TF2.Shared.Resources;
 
 namespace TF2.Client.Entities;
@@ -94,4 +95,15 @@ public sealed class TFClientTeamResources : ITFTeamSource
     public int Role(int team) => Known(team) && Live is { } row ? row.State.Role[team] : 0;
 
     public int PlayerCount(int team) => Known(team) && Live is { } row ? row.State.PlayerCount[team] : 0;
+
+    /// <summary>The team's goal line (the goal HUD's): stock's
+    /// <c>GetTeamGoalString</c> read (tf_gamerules.cpp:18395), the mirror's
+    /// GoalString words; empty for a non-game team, as the server's table
+    /// stores none there.</summary>
+    public string GoalString(int team) => team switch
+    {
+        (int)TFTeam.Red => Live is { } row ? row.State.GoalStringRed : "",
+        (int)TFTeam.Blue => Live is { } row ? row.State.GoalStringBlue : "",
+        _ => "",
+    };
 }

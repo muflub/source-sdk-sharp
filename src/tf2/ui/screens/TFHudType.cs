@@ -17,6 +17,12 @@ public static class TFHudType
     /// <summary>Sizes the text by its role on the hud ladder.</summary>
     public static UiBox HudSize(this UiBox box) => box.TextSize(Size(box.Role));
 
+    /// <summary>HudFontSmallestBold, the time panel's band labels' face over
+    /// the hud's bold display family. Stock's condensed bold, scaled with a
+    /// 720-line screen (~10 tall), is <see cref="BandLabel"/> at our face:
+    /// the band width lands on stock's WAITING FOR PLAYERS at ~157 px.</summary>
+    public static UiBox BandSize(this UiBox box) => box.TextSize(BandLabel);
+
     internal static float Size(Text role) => role switch
     {
         Text.Display => GiantBold,          // HudFontGiantBold 44
@@ -55,4 +61,11 @@ public static class TFHudType
     /// <summary>The item-effect meters' label face, the res's TFFontSmall 8
     /// (huditemeffectmeter.res:62; clientscheme.res:2012-2021, hidef 10).</summary>
     public const float ItemEffectMeterLabel = 18f;    // 8 tall
+
+    /// <summary>The round clock's digits (hudmatchstatus.res TimePanelValue,
+    /// HudFontSmall): stock's 14 tall at its base screen, and the hud scales
+    /// the face down with the screen — on a 720-line screen it reads
+    /// ~13 tall, the step between Smallest and Small.</summary>
+    public const float ClockDigits = 29.25f;      // ~13 tall at 720 lines
+    public const float BandLabel = 21.5f;         // ~9.5 tall at 720 lines
 }

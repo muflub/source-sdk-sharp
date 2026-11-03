@@ -73,6 +73,45 @@ public class TFScoreboardTests
         Assert.False(HasText("empty-teams", "Gordon"));   // nobody to list
     }
 
+    [Fact]
+    public void The_band_is_the_teams_colour_with_the_score_huge_at_the_inner_edge()
+    {
+        // Stock's band: the BlueScoreBG/RedScoreBG art is the team colour
+        // itself, the score the largest ink on it at the inner edge
+        // (BlueTeamScore east-aligned, RedTeamScore west, scoreboard.res
+        // 212, 299, y12 h55 of the 71 band) and the name the smaller role.
+        var ctx = Render("two-teams-and-the-clock");
+        var blue = UiTestKit.Named(ctx, "tf band blue");
+        var red = UiTestKit.Named(ctx, "tf band red");
+        var blueScore = UiTestKit.Named(ctx, "tf score blue");
+        var redScore = UiTestKit.Named(ctx, "tf score red");
+        var blueName = UiTestKit.Named(ctx, "tf name blue");
+
+        Assert.True(blueScore.Rect.X > blue.Rect.X + blue.Rect.W / 2,
+                    "the blue score is not at the band's inner (right) edge");
+        Assert.True(redScore.Rect.X + redScore.Rect.W < red.Rect.X + red.Rect.W / 2,
+                    "the red score is not at the band's inner (left) edge");
+        Assert.True(blueScore.Rect.H > blueName.Rect.H,
+                    "the score does not stand taller than the name");
+        foreach (var (score, band) in new[] { (blueScore, blue), (redScore, red) })
+        {
+            float centre = score.Rect.Y + score.Rect.H / 2f;
+            Assert.True(centre > band.Rect.Y && centre < band.Rect.Y + band.Rect.H,
+                        "the score is not inside its band's height");
+        }
+    }
+
+    /// <summary>The rendered sample's context (the idiom of
+    /// <see cref="TFScoreboardArtTests.Render"/> without the recording library).</summary>
+    private static UiContext Render(string slug)
+    {
+        var sample = Assert.Single(PreviewRun.AllSamples(),
+                                   s => !s.Gallery && s.Group == "scoreboard" && s.Slug == slug);
+        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
+        UiSamples.Render(ctx, sample.Create(), UiSamples.Screen(1920, 1080), sample.Now);
+        return ctx;
+    }
+
     /// <summary>Whether any element on the sample drew <paramref name="text"/>
     /// (the idiom of <see cref="TFHudTests.HasElement"/>).</summary>
     private static bool HasText(string slug, string text)

@@ -13,9 +13,11 @@ namespace TF2.Client.Ui;
 /// <summary>
 /// The medic's charge meter, stock's <c>CHudMedicChargeMeter</c>
 /// (tf_hud_mediccharge.cpp) at hudmediccharge.res: the team plate
-/// (<c>Background</c>, 130x65 at the panel's origin), the #TF_Ubercharge
-/// label — "ÜBERCHARGE: %charge%%%" (tf_english.txt:8396), the level as its
-/// dialog variable — and the ContinuousProgressBar under it (86x8 at 30,38),
+/// (<c>Background</c>, 130x65 at the panel's origin), the health-cluster
+/// cross (<c>HealthClusterIcon</c>, 36x36 at 2,17) left of the
+/// #TF_Ubercharge label — "ÜBERCHARGE: %charge%%%" (tf_english.txt:8396), the
+/// level as its dialog variable — and the ContinuousProgressBar under it
+/// (86x8 at 30,38),
 /// ProgressOffWhite over ProgressBackground (clientscheme.res:108-109,
 /// :326-327). The beam's patient under it (m_hHealTarget through g_PR). The
 /// ready pulse is the label and meter FgColor stepping TanLight/TanDarker on
@@ -30,10 +32,14 @@ public sealed class MedicChargePanel(ITFMedicCharge medic, ITFLocalPlayer player
 
     public bool Present => medic.Present;
 
-    // The label and the meter, as hudmediccharge.res writes them, against
-    // the visible Background (whose origin is the panel's).
+    // The icon, the label and the meter, as hudmediccharge.res writes them,
+    // against the visible Background (whose origin is the panel's).
     private static class Stock
     {
+        // HealthClusterIcon: 2,17, 36x36, scaleImage, visible in normal mode
+        // (:174-187). The label starts at its right edge.
+        public static readonly StockBox Icon = new("2", "17", 36, 36);
+
         // ChargeLabel: 30,24, 90x15, HudFontSmallest (:20-42).
         public static readonly StockBox Label = new("30", "24", 90, 15);
 
@@ -41,9 +47,11 @@ public sealed class MedicChargePanel(ITFMedicCharge medic, ITFLocalPlayer player
         public static readonly StockBox Meter = new("30", "38", 86, 8);
     }
 
-    // The res's image names, the .. dropped; teambg_2 red, teambg_3 blue.
+    // The res's image names, the .. dropped; teambg_2 red, teambg_3 blue;
+    // the cluster icon is HealthClusterIcon's image.
     private const string RedBg = "hud/medic_charge_red_bg";
     private const string BlueBg = "hud/medic_charge_blue_bg";
+    private const string ClusterArt = "hud/ico_health_cluster";
 
     /// <summary>TF_TEAM_RED: what the teambg pair keys on (the local player's).</summary>
     private const int Red = 2;
@@ -71,6 +79,7 @@ public sealed class MedicChargePanel(ITFMedicCharge medic, ITFLocalPlayer player
         var panel = HealthPanel.MedicPanel.Rect(StockRes.Screen(ui.Screen));
         var bg = HealthPanel.MedicBg.Rect(panel);
         var bgSpot = StockRes.Spot(HealthPanel.MedicBg, HealthPanel.MedicPanel, ui.Screen);
+        var icon = Stock.Icon.In(bg);
         var label = Stock.Label.In(bg);
         var meter = Stock.Meter.In(bg);
 
@@ -80,6 +89,11 @@ public sealed class MedicChargePanel(ITFMedicCharge medic, ITFLocalPlayer player
                 .AtRes(UiAnchor.BottomLeft, 0f, 0f).Layered().Key("medic plate");
         StockArt.Draw(ref ui, textures, "medic bg", player.Team == Red ? RedBg : BlueBg,
             0f, 0f, bgSpot.Wide, bgSpot.Tall);
+
+        // The health-cluster cross left of the label (HealthClusterIcon,
+        // hud/ico_health_cluster in its box, visible outside min mode).
+        StockArt.Draw(ref ui, textures, "medic cluster", ClusterArt,
+            icon.Left, icon.Bottom, icon.Wide, icon.Tall);
 
         // The level, and the charged pulse: the fill steps TanLight/TanDarker
         // and the label fades with it, the 0.6 s HudMedicCharged loop

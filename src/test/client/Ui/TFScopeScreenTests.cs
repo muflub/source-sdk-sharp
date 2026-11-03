@@ -52,6 +52,32 @@ public class TFScopeScreenTests
             .Where(i => UiTestKit.NameOf(ctx, elements[i]) == name)
             .ToArray();
 
+    /// <summary>Every glyph run the frame drew, joined per element.</summary>
+    private static List<string> DrawnText(UiContext ctx)
+    {
+        var list = ctx.List.AsDrawList();
+        var byElement = new Dictionary<int, System.Text.StringBuilder>();
+        foreach (var op in list.Ops)
+        {
+            if (op.Kind != UiPrimitiveKind.GlyphRun)
+                continue;
+            var r = list.GlyphRuns[op.Index];
+            if (!byElement.TryGetValue(op.Element, out var sb))
+                byElement[op.Element] = sb = new System.Text.StringBuilder();
+            sb.Append(list.Text.Slice(r.TextStart, r.TextLength));
+        }
+        return byElement.Values.Select(b => b.ToString()).ToList();
+    }
+
+    private static UiContext Charged(float charge)
+    {
+        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
+        UiSamples.Render(ctx,
+            new TF2.Client.Ui.TFScope(new TF2.Client.Ui.FakeScope { MeterPresent = true, Charge = charge }),
+            UiSamples.Screen(1280, 720), 1.0);
+        return ctx;
+    }
+
     [Fact]
     public void Each_quadrant_sits_in_its_named_corner_about_the_centre()
     {
@@ -168,5 +194,30 @@ public class TFScopeScreenTests
         int iHud = System.Array.IndexOf(layer, hudScreen);
         Assert.True(iScope >= 0 && iHud >= 0 && iScope < iHud,
                     $"the scope ({iScope}) must draw before the hud panels ({iHud})");
+    }
+
+    [Fact]
+    public void The_charge_row_shows_the_percent_digits_and_nothing_else()
+    {
+        // CHudScopeCharge::Paint draws only the numbers texture (:221-223):
+        // the digits of the charge, no caption word beside them.
+        var texts = DrawnText(Charged(0.61f));
+
+        Assert.Contains("61", texts);
+        Assert.DoesNotContain(texts, t => t.Contains("Charge", System.StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_charge_row_stands_while_the_meters_rifle_is_in_hand_only()
+    {
+        // The assert_cast arm of Paint (:178-180): the row is there with the
+        // rifle and gone without it.
+        var withRifle = DrawnText(Charged(0.5f));
+        Assert.Contains("50", withRifle);
+
+        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
+        UiSamples.Render(ctx, new TF2.Client.Ui.TFScope(new TF2.Client.Ui.FakeScope()),
+                         UiSamples.Screen(1280, 720), 1.0);
+        Assert.DoesNotContain("50", DrawnText(ctx));
     }
 }

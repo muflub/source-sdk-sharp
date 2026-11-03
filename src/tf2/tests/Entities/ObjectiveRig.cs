@@ -287,6 +287,7 @@ internal sealed class ObjectiveRig
         Services.AddInstance<ITeamRespawnWaves>(Waves);
         Services.AddInstance<ICtfRules>(Ctf);
         Services.AddInstance<IFlagCarrierEffects>(Effects);
+        Services.AddInstance<TF2.Server.Entities.ITeamResource>(TeamTable);
         // The koth clocks are real TeamRoundTimers (ArmKothTimerSpawns): since
         // the overtime nag the timer's constructor asks for the convars and a
         // seed source, and the registry builds nothing without them. The nag

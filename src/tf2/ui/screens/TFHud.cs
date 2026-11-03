@@ -21,7 +21,7 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
                           ITFRoundTimer timer, RoundTimerPanel clock, ControlPointIconsPanel icons,
                           EscortPanel escort, FlagStatusPanel flags, MedicChargePanel medic,
                           TeamStatusPanel teams, CloakPanel cloak, DisguisePanel disguise, ChatPanel chat,
-                          MetalPanel metal, DemomanPipesPanel pipes) : UiScreen
+                          MetalPanel metal, DemomanPipesPanel pipes, TeamGoalPanel goal) : UiScreen
 {
     public override string Name => "tfhud";
     public override UiLayerKind Layer => UiLayerKind.Hud;
@@ -129,6 +129,18 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
         // (TimePanelValue z3) keeps the art under it.
         if (teams.Visible)
             ui.Sub("team status", teams).Size(Size.Percent(100), Size.Percent(100)).Layered();
+
+        // Top-centre under the team status, stock's CHudTeamGoal
+        // (hudlayout.res HudTeamGoal c-160 y65, 320x100): the map's goal
+        // line for the show HideAt grants, its background art under the
+        // clock's (the res zpos -1, the clock's value z3).
+        if (goal.Present)
+        {
+            var goalAt = StockRes.Spot(TeamGoalPanel.Panel, ui.Screen);
+            using (ui.Box().AtRes(UiAnchor.Top, goalAt.CentreX, goalAt.Top)
+                               .Size(Size.Du(goalAt.Wide), Size.Du(goalAt.Tall)).Layered().Key("goal corner"))
+                ui.Sub("team goal", goal);
+        }
 
         // Top-centre, stock's CTFHudTimeStatus: HudMatchStatus is full-screen
         // (hudlayout.res:1491-1501) and its ObjectiveStatusTimePanel child is

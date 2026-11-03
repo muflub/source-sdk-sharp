@@ -53,6 +53,37 @@ public class TFHudMedicChargeTests
         Assert.True(HasElement("medic-uber-ready", "medic plate"));
     }
 
+    [Fact]
+    public void The_cluster_cross_draws_left_of_the_label()
+    {
+        // HealthClusterIcon (hudmediccharge.res :174-187): the cross art at
+        // 2,17 in the plate, asked and drawn with the meter; a soldier's HUD
+        // asks nothing.
+        var (ctx, lib) = RenderedArt("medic-builds-the-ubercharge");
+        Assert.Contains("hud/ico_health_cluster", lib.Asked);
+        Assert.True(HasElementOf(ctx, "medic cluster"));
+        Assert.True(HasElementOf(ctx, "uber label"));
+
+        var (_, plain) = RenderedArt("healthy-soldier");
+        Assert.DoesNotContain("hud/ico_health_cluster", plain.Asked);    // a soldier, no medic
+    }
+
+    /// <summary>The sample's frame over a recording art library: the context
+    /// and the names the panel asked (the seedless preview's none would keep
+    /// the textured leaves undrawn).</summary>
+    private static (UiContext Ctx, TFHudArtTests.RecordingLibrary Lib) RenderedArt(string slug)
+    {
+        var sample = Assert.Single(PreviewRun.AllSamples(),
+                                   s => !s.Gallery && s.Group == "tfhud" && s.Slug == slug);
+        var lib = new TFHudArtTests.RecordingLibrary();
+        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
+        UiSamples.Render(ctx, sample.Create(lib), UiSamples.Screen(1920, 1080), sample.Now);
+        return (ctx, lib);
+    }
+
+    private static bool HasElementOf(UiContext ctx, string name)
+        => UiTestKit.Elements(ctx).Any(e => UiTestKit.NameOf(ctx, e) == name);
+
     /// <summary>The sample's frame: the context and the elements it drew.</summary>
     private static (UiContext, UiElementInfo[]) Rendered(string slug)
     {

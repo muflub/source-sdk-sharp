@@ -60,6 +60,23 @@ public class TFHudTeamStatusTests
         Assert.False(DrawsOp(artless, "match bg", UiPrimitiveKind.TexturedQuad));
     }
 
+    [Fact]
+    public void The_band_stands_the_BGFrames_visible_height()
+    {
+        // hudmatchstatus.res BGFrame (:210-228): ypos -5, tall 28 — the top
+        // hangs 5 above the screen's top edge and clips there, so the band
+        // is the slice below it: 28 - 5 = 23 res units, stock's bottom near
+        // y 32 on a 720-line screen.
+        var ctx = Render(TwoSides(), new FakeTextureLibrary(Names().ToArray()));
+        var band = Find(ctx, "match bg")!.Value;
+        Assert.True(Abs(band.Rect.H - 23f * StockRes.Scale) < 1f,
+            $"{band.Rect.H}: not BGFrame's visible slice");
+        // The slice hangs at the screen's top edge: its top is y 0, and the
+        // hang above is what the screen clips.
+        Assert.True(Abs(band.Rect.Y) < 1f,
+            $"{band.Rect.Y}: the band does not stand at the screen's top edge");
+    }
+
     /// <summary>Whether the named element emitted an op of the kind: the
     /// band's texture and the fallback's fill live in the one element.</summary>
     private static bool DrawsOp(UiContext ctx, string name, UiPrimitiveKind kind)

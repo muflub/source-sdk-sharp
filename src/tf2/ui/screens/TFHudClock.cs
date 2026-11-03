@@ -59,7 +59,7 @@ public sealed class RoundTimerPanel(ITFRoundTimer timer) : UiPanel
     /// <summary>The band box's slack each side of the panel: the longest
     /// label (WAITING FOR PLAYERS, HudFontSmallestBold) runs a few du past
     /// the 110-wide panel at the preview sizes.</summary>
-    private const float BandSlack = 4f;
+    private const float BandSlack = 6f;
 
     // The pulse's two scheme colours (clientscheme.res:100 TanLight, :49 RedSolid).
     private static readonly UiColor TanLight = new(235, 226, 202, 255);
@@ -122,7 +122,9 @@ public sealed class RoundTimerPanel(ITFRoundTimer timer) : UiPanel
         int shown = System.Math.Max(0, timer.ShowTimeRemaining
             ? timer.SecondsLeft
             : timer.TotalSeconds - timer.SecondsLeft);
-        ui.Text($"{shown / 60}:{shown % 60:00}", Text.Label, Tone.Text).TextSize(TFHudType.Smallest)
+        // HudFontSmall (hudmatchstatus.res:352): stock's 14 tall scaled with
+        // the screen — ~13 tall at 720 lines, the ClockDigits step.
+        ui.Text($"{shown / 60}:{shown % 60:00}", Text.Label, Tone.Text).TextSize(TFHudType.ClockDigits)
             .Width(Size.Du(value.Wide)).Height(Size.Du(value.Tall)).TextAlign(Align.Centre)
             .AtRes(UiAnchor.BottomLeft, value.Left, value.Bottom).Layered().Key("clock");
     }
@@ -133,18 +135,23 @@ public sealed class RoundTimerPanel(ITFRoundTimer timer) : UiPanel
     private void BandTime(ref UiFrame ui, int hours, int minutes, int seconds)
     {
         var text = hours == 0
-            ? ui.Text($"{minutes}:{seconds:00}", Text.Label, Tone.Text).TextSize(TFHudType.Smallest)
-            : ui.Text($"{hours}:{minutes:00}:{seconds:00}", Text.Label, Tone.Text).TextSize(TFHudType.Smallest);
+            ? ui.Text($"{minutes}:{seconds:00}", Text.Heading, Tone.Text).BandSize()
+            : ui.Text($"{hours}:{minutes:00}:{seconds:00}", Text.Heading, Tone.Text).BandSize();
         Place(ref ui, text, "server limit");
     }
 
     /// <summary>A band's label over the backdrop, full-width at y21 in the
-    /// res's HudFontSmallestBold (hudobjectivetimepanel.res if_match). The
-    /// pulsing labels (Overtime and SuddenDeath, hudanimations_tf.txt
-    /// :551-565) see-saw red over the dark backdrop.</summary>
+    /// res's HudFontSmallestBold (hudobjectivetimepanel.res if_match) —
+    /// TF2 Build 11, 24.75 du, so the band takes the hud's bold display face
+    /// (<see cref="TFHudType"/>'s BandSize), not the body face; the Title
+    /// role's drop shadow is what keeps it legible where it hangs below the
+    /// BGFrame's edge, over the world (clientscheme.res's hud faces carry
+    /// the same shadow their labels read by). The pulsing labels (Overtime
+    /// and SuddenDeath, hudanimations_tf.txt :551-565) see-saw red over the
+    /// dark backdrop.</summary>
     private void Band(ref UiFrame ui, string label, bool pulse, string key)
     {
-        var text = ui.Text(label, Text.Label, Tone.Text).TextSize(TFHudType.Smallest);
+        var text = ui.Text(label, Text.Title, Tone.Text).BandSize();
         if (pulse)
             text = text.Color(UiPaint.FromGame(OvertimePulse(ui.Now)));
         Place(ref ui, text, key);

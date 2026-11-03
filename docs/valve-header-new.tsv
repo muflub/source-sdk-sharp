@@ -1068,3 +1068,6 @@ src/client/native/shell_map_material_reload.h	native code built against SDK head
 src/client/native/shell_effects_list_client.h	native code built against SDK headers (clientsideeffects.h); the client effect list, material table and smoke fog overlay as a class, from shell_effects_list_client.cpp
 src/client/native/shell_effects_client.h	ports CEffectsClient's vtable shape (EffectsClient.cpp) as a thunk onto managed decisions; the class declaration split from shell_effects_client.cpp
 src/client/native/shell_managed_particles.h	native code built against SDK headers (the particle binding the leaf system draws); the managed particle executors as a class, from shell_managed_particles.cpp
+src/tf2/server/Entities/ObjectiveResourceEntity.cs	ports CTeamplayRoundBasedRules::SetTeamGoalString's arms and the m_pszTeamGoalStringRed/Blue pair into ITeamResource.SetGoal/Goal (shared/tf/tf_gamerules.cpp:4558-4588, tf_gamerules.h:1151-1152, :18395)
+src/tf2/client/Ui/TFHudTeamGoal.cs	ports CHudTeamGoal::ShouldDraw/SetupGoalPanel reads (game/client/tf/tf_hud_teamgoal.cpp:102-246)
+src/tf2/ui/screens/TFHudTeamGoal.cs	ports the HudTeamGoal panel layout (resource/ui/hudteamgoal.res; hudlayout.res) as the screens box tree

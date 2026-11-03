@@ -165,4 +165,57 @@ public sealed class TeamResourceTests
         // the wire carries empties
         Assert.Equal(0, entity.State.Objects[(int)TFTeam.Red * ObjectiveLimits.TeamObjects]);
     }
+
+    /// <summary>SetTeamGoalString's arms (tf_gamerules.cpp:4558-4588): the
+    /// game teams carry a string, an empty one clears, a case-unchanged
+    /// keep is no-op, and the copy bounds at MAX_TEAMGOAL_STRING.</summary>
+    [Fact]
+    public void A_goal_string_stores_as_set_team_goal_string_does()
+    {
+        var table = new TeamResource();
+        int red = (int)TFTeam.Red, blue = (int)TFTeam.Blue;
+
+        table.SetGoal(red, "Grab their flag.");
+        Assert.Equal("Grab their flag.", table.Goal(red));
+        Assert.Equal("", table.Goal(blue));
+
+        // a case-unchanged keep: the earlier copy stands
+        table.SetGoal(red, "GRAB THEIR FLAG.");
+        Assert.Equal("Grab their flag.", table.Goal(red));
+
+        // an empty goal clears
+        table.SetGoal(red, "");
+        Assert.Equal("", table.Goal(red));
+
+        // the copy bounds at the wire's 232, 231 kept of 300
+        table.SetGoal(blue, new string('x', 300));
+        Assert.Equal(TeamResource.MaxGoalString - 1, table.Goal(blue).Length);
+
+        // a spectator team carries nothing
+        table.SetGoal((int)TFTeam.Spectator, "no such line");
+        Assert.Equal("", table.Goal((int)TFTeam.Spectator));
+    }
+
+    /// <summary>A write reaches the wire with the entity absent, as every
+    /// row does: the attach publishes it.</summary>
+    [Fact]
+    public void A_goal_written_before_the_entity_is_published_on_attach()
+    {
+        var table = new TeamResource();
+        table.SetGoal((int)TFTeam.Red, "Cap the yard.");
+
+        var state = new TeamResourceNetState();
+        state.BindLocal();
+        table.Attach(state);
+
+        Assert.Equal("Cap the yard.", state.GoalStringRed);
+    }
+
+    [Fact]
+    public void The_team_table_fits_the_two_kilobyte_tier()
+    {
+        int blob = TeamResourceNetState.NetLayout.Size;
+
+        Assert.True(blob <= 2048, $"the blob is {blob} bytes and no tier carries it");
+    }
 }

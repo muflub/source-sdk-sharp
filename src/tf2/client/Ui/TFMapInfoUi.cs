@@ -10,6 +10,7 @@ using SourceSharp.Client;
 using SourceSharp.Client.Standalone;
 using SourceSharp.Client.Ui;
 using SourceSharp.Shared;
+using TF2.Shared.Rules;
 
 namespace TF2.Client.Ui;
 
@@ -19,10 +20,11 @@ namespace TF2.Client.Ui;
 /// <c>engine-&gt;GetLevelName()</c> the way <c>ApplySchemeSettings</c>
 /// takes it (<c>Q_FileBase</c>, :99-105), the display name and game type
 /// stock's <c>GetMapDisplayName</c>/<c>GetMapType</c> derive from it
-/// (tf_gamerules.cpp:18974-19206 — the cleanup arms; the Valve/community
-/// name tables are the maps' own content, and the fall-through
-/// <c>GetGameTypeName</c> the rules' own, which this port's blank page
-/// stands in for), the briefing stock's <c>LoadMapPage</c> looks up —
+/// (tf_gamerules.cpp:18974-19206 — the display name the name tables
+/// <see cref="TFValveMaps"/> hold, then the cleanup arms; the game-type
+/// tables and the fall-through <c>GetGameTypeName</c> the rules' own,
+/// which this port's blank page stands in for), the briefing stock's
+/// <c>LoadMapPage</c> looks up —
 /// through the mod's own token file (<see cref="IUiLocalisation"/>: the
 /// engine's tables hold none of the mod's, as the live game showed) —
 /// the <c>#&lt;map&gt;_description</c> localisation arm (:379-387; the
@@ -145,11 +147,16 @@ public sealed class TFMapInfoUi(IClientStandalones standalones, IEngineHud scree
     }
 
     /// <summary>Stock's <c>GetMapDisplayName</c> (tf_gamerules.cpp:18974):
-    /// the <c>_final</c> suffix and the mode prefix stripped, underscores
-    /// for spaces, and TF2's LOUD name. The Valve/community name tables
-    /// (:18990-19005) are the maps' own content and are not carried; the
-    /// cleanup path names every map.</summary>
+    /// the Valve and community name tables first (<c>:18990-19005</c>, the
+    /// rows <see cref="TFValveMaps"/> holds), then the cleanup arms — the
+    /// <c>_final</c> suffix and the mode prefix stripped, underscores for
+    /// spaces, TF2's LOUD name — which name every map the tables miss.</summary>
     internal static string DisplayName(string map)
+        => TFValveMaps.Row(map)?.DisplayName ?? CleanedName(map);
+
+    /// <summary>GetMapDisplayName's fall-through (<c>:19006-19014</c>):
+    /// the name the tables miss, cleaned.</summary>
+    internal static string CleanedName(string map)
     {
         string name = map;
         int final = name.IndexOf("_final", StringComparison.Ordinal);

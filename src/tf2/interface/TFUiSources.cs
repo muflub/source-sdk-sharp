@@ -994,10 +994,19 @@ public interface ITFBuildMenuActions
 /// death so the screen asks the library by name and never builds one. The
 /// empty killer means a suicide; the empty icon means stock's skull
 /// fallback.
+///
+/// <para>
+/// <paramref name="Info"/> is the additional text drawn after the victim
+/// (stock's <c>wzInfoText</c>, hud_basedeathnotice.cpp:303-314): on a
+/// self-inflicted death the phrase the localiser answers for the fall
+/// (:527-531) or the suicide custom kind (tf_hud_deathnotice.cpp:1041-1051),
+/// as a <c>#Token</c> the frame resolves. Empty means stock's no text.
+/// </para>
 /// </summary>
 public readonly record struct TFKillFeedLine(
     string Killer, int KillerTeam, string Victim, int VictimTeam,
-    string Icon, string LocalIcon, bool Crit, bool Suicide, bool LocalInvolved);
+    string Icon, string LocalIcon, bool Crit, bool Suicide, bool LocalInvolved,
+    string Info = "");
 
 /// <summary>
 /// The death notices the kill feed screen draws (stock's
@@ -1531,4 +1540,32 @@ public interface ITFDemomanPipes
     /// <summary>The sticky bombs out — the launcher's
     /// <c>m_iPipebombCount</c> through <c>GetNumActivePipebombs</c>.</summary>
     int Count { get; }
+}
+
+/// <summary>
+/// The map-goal hint panel's reads, stock's <c>CHudTeamGoal</c>
+/// (tf_hud_teamgoal.cpp): the panel the map's goal string shows shortly
+/// after spawn. <see cref="Visible"/> is <c>ShouldDraw</c>'s rule
+/// (:102-158) — the round visible, the local player alive on a game team
+/// and a goal string up, for the 15 seconds after it first shows; the
+/// other arms (tournament, the team-switch alert) have no port to gate on.
+/// <see cref="Text"/> is the localised goal line, <see cref="Image"/> the
+/// role icon the panel's corner carries, <see cref="Team"/> the local
+/// player's team for the background art.
+/// </summary>
+public interface ITFTeamGoal
+{
+    /// <summary>Stock's <c>ShouldDraw</c> where it returns true.</summary>
+    bool Visible { get; }
+
+    /// <summary>The goal line, localised (<c>SetupGoalPanel</c>'s
+    /// <c>g_pVGuiLocalize->Find</c> with the raw string as fallback).</summary>
+    string Text { get; }
+
+    /// <summary>The role icon material (hud_icon_capture/defend/attack), as
+    /// <c>SetupGoalPanel</c>'s table picks it; empty is the res default.</summary>
+    string Image { get; }
+
+    /// <summary>The local player's team (the res's teambg_2/3 key).</summary>
+    int Team { get; }
 }

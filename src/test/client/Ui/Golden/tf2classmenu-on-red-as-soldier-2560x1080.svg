@@ -1,55 +1,73 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
 <rect x="0" y="0" width="2560" height="1080" fill="#343037" data-e="1"/>
-<text x="68" y="1048.75" font-family="TF2 Build" font-size="30" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="2">Select a Class</text>
-<rect x="605" y="0" width="113" height="214" fill="#b45c4d" data-e="4"/>
-<text x="637" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="5">Scout</text>
-<rect x="605" y="12" width="113" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="6"/>
-<text x="656" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="6">2</text>
+<rect x="605" y="0" width="113" height="214" fill="#b45c4d" data-e="3"/>
+<text x="637" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="4">Scout</text>
+<rect x="656" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="5"/>
+<text x="656" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="5">2</text>
+<rect x="613" y="182" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="6"/>
+<text x="613" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="6">1</text>
 <rect x="1568" y="0" width="112" height="214" fill="#b45c4d" data-e="8"/>
 <text x="1597" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="9">Sniper</text>
-<rect x="1568" y="12" width="112" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="10"/>
+<rect x="1619" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="10"/>
 <text x="1619" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="10">1</text>
-<rect x="718" y="0" width="112" height="214" fill="#b45c4d" data-e="12"/>
-<text x="744" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="13">Soldier</text>
-<rect x="718" y="12" width="112" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="14"/>
-<text x="769" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="14">3</text>
-<rect x="718" y="187" width="112" height="19" fill="#2e2b2a" fill-opacity="0.78" data-e="16"/>
-<text x="743" y="201.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">CURRENT</text>
-<rect x="1032" y="0" width="113" height="214" fill="#b45c4d" data-e="18"/>
-<text x="1046" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="19">Demoman</text>
-<rect x="1032" y="12" width="113" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="20"/>
-<text x="1083" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="20">1</text>
-<rect x="1456" y="0" width="112" height="214" fill="#b45c4d" data-e="22"/>
-<text x="1487" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="23">Medic</text>
-<rect x="1456" y="12" width="112" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="24"/>
-<text x="1507" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="24">1</text>
-<rect x="1456" y="187" width="112" height="19" fill="#2e2b2a" fill-opacity="0.78" data-e="26"/>
-<text x="1496" y="201.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#f0cf4e" xml:space="preserve" data-e="26">FULL</text>
-<rect x="1145" y="0" width="113" height="214" fill="#b45c4d" data-e="28"/>
-<text x="1175" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="29">Heavy</text>
-<rect x="1145" y="12" width="113" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="30"/>
-<text x="1196" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="30">2</text>
-<rect x="830" y="0" width="112" height="214" fill="#b45c4d" data-e="32"/>
-<text x="867" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="33">Pyro</text>
-<rect x="830" y="12" width="112" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="34"/>
-<text x="881" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="34">1</text>
-<rect x="1680" y="0" width="113" height="214" fill="#b45c4d" data-e="36"/>
-<text x="1721" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="37">Spy</text>
-<rect x="1680" y="12" width="113" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="38"/>
-<text x="1731" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="38">0</text>
-<rect x="1258" y="0" width="112" height="214" fill="#b45c4d" data-e="40"/>
-<text x="1277" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="41">Engineer</text>
-<rect x="1258" y="12" width="112" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="42"/>
-<text x="1309" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="42">2</text>
-<rect x="1842" y="0" width="113" height="214" fill="#b45c4d" data-e="44"/>
-<text x="1860" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="45">RANDOM</text>
-<text x="605" y="238.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="46">OFFENSE</text>
-<text x="1032" y="238.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="47">DEFENSE</text>
-<text x="1451" y="238.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="48">SUPPORT</text>
-<rect x="616" y="994" width="225" height="57" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="49"/>
-<text x="700" y="1029.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="50">Cancel</text>
-<rect x="1595" y="994" width="337" height="57" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="51"/>
-<text x="1700" y="1029.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="52">EDIT LOADOUT</text>
-<rect x="942" y="994" width="248" height="57" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="53"/>
-<text x="1039" y="1029.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="54">RESET</text>
+<rect x="1576" y="182" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="11"/>
+<text x="1576" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="11">8</text>
+<rect x="718" y="0" width="112" height="214" fill="#b45c4d" data-e="13"/>
+<text x="744" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="14">Soldier</text>
+<rect x="768" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="15"/>
+<text x="768" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">3</text>
+<rect x="726" y="182" width="10" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="16"/>
+<text x="726" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">2</text>
+<rect x="718" y="187" width="112" height="19" fill="#2e2b2a" fill-opacity="0.78" data-e="18"/>
+<text x="743" y="201.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="18">CURRENT</text>
+<rect x="1032" y="0" width="113" height="214" fill="#b45c4d" data-e="20"/>
+<text x="1046" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="21">Demoman</text>
+<rect x="1083" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="22"/>
+<text x="1083" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="22">1</text>
+<rect x="1040" y="182" width="12" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="23"/>
+<text x="1040" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="23">4</text>
+<rect x="1456" y="0" width="112" height="214" fill="#b45c4d" data-e="25"/>
+<text x="1487" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="26">Medic</text>
+<rect x="1506" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="27"/>
+<text x="1506" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="27">1</text>
+<rect x="1464" y="182" width="10" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="28"/>
+<text x="1464" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="28">7</text>
+<rect x="1456" y="187" width="112" height="19" fill="#2e2b2a" fill-opacity="0.78" data-e="30"/>
+<text x="1496" y="201.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#f0cf4e" xml:space="preserve" data-e="30">FULL</text>
+<rect x="1145" y="0" width="113" height="214" fill="#b45c4d" data-e="32"/>
+<text x="1175" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="33">Heavy</text>
+<rect x="1196" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="34"/>
+<text x="1196" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="34">2</text>
+<rect x="1153" y="182" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="35"/>
+<text x="1153" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="35">5</text>
+<rect x="830" y="0" width="112" height="214" fill="#b45c4d" data-e="37"/>
+<text x="867" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="38">Pyro</text>
+<rect x="881" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="39"/>
+<text x="881" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="39">1</text>
+<rect x="838" y="182" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="40"/>
+<text x="838" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="40">3</text>
+<rect x="1680" y="0" width="113" height="214" fill="#b45c4d" data-e="42"/>
+<text x="1721" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="43">Spy</text>
+<rect x="1688" y="182" width="12" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="44"/>
+<text x="1688" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="44">9</text>
+<rect x="1258" y="0" width="112" height="214" fill="#b45c4d" data-e="46"/>
+<text x="1277" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="47">Engineer</text>
+<rect x="1308" y="12" width="11" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="48"/>
+<text x="1308" y="30.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="48">2</text>
+<rect x="1266" y="182" width="10" height="24" fill="#2e2b2a" fill-opacity="0.78" data-e="49"/>
+<text x="1266" y="200.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="49">6</text>
+<rect x="1842" y="0" width="113" height="214" fill="#b45c4d" data-e="51"/>
+<text x="1860" y="113.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="52">RANDOM</text>
+<rect x="605.5" y="0.5" width="336" height="213" rx="1.5" fill="none" stroke="#756b5e" stroke-width="1" data-e="53"/>
+<rect x="1032.5" y="0.5" width="337" height="213" rx="1.5" fill="none" stroke="#756b5e" stroke-width="1" data-e="54"/>
+<rect x="1456.5" y="0.5" width="336" height="213" rx="1.5" fill="none" stroke="#756b5e" stroke-width="1" data-e="55"/>
+<text x="605" y="238.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="56">OFFENSE</text>
+<text x="1032" y="238.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="57">DEFENSE</text>
+<text x="1451" y="238.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="58">SUPPORT</text>
+<rect x="616" y="994" width="225" height="57" rx="2" fill="#756b5e" data-e="59"/>
+<text x="683" y="1033.72" font-family="TF2 Build" font-size="29" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="60">Cancel</text>
+<rect x="2155" y="994" width="337" height="57" rx="2" fill="#756b5e" data-e="61"/>
+<text x="2221" y="1033.72" font-family="TF2 Build" font-size="29" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="62">EDIT LOADOUT</text>
+<rect x="1502" y="994" width="248" height="57" rx="2" fill="#756b5e" data-e="63"/>
+<text x="1582" y="1033.72" font-family="TF2 Build" font-size="29" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="64">RESET</text>
 </svg>

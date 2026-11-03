@@ -120,6 +120,22 @@ public sealed class TFGameRulesProxyTests
         Assert.Empty(rig.Waves.Set);
     }
 
+    // ---- the goal strings (InputSetRed/BlueTeamGoalString, tf_gamerules.cpp:1769-1780) ----
+
+    [Fact]
+    public void The_goal_string_inputs_write_the_teams_table()
+    {
+        var rig = new ObjectiveRig();
+        var proxy = rig.Spawn<TFGameRulesProxy>(TFGameRulesProxy.MapClass,
+                                                ("targetname", TFGameRulesProxy.MapClass));
+
+        rig.Registry.Input(proxy.Handle, "SetRedTeamGoalString", "#2fort_red_setup_goal", 0f, EntityHandle.None);
+        rig.Registry.Input(proxy.Handle, "SetBlueTeamGoalString", "#2fort_blue_setup_goal", 0f, EntityHandle.None);
+
+        Assert.Equal("#2fort_red_setup_goal", rig.TeamTable.Goal((int)TFTeam.Red));
+        Assert.Equal("#2fort_blue_setup_goal", rig.TeamTable.Goal((int)TFTeam.Blue));
+    }
+
     // ---- the ctf_overtime key (CTFGameRulesProxy::Activate, tf_gamerules.cpp:1904) ----
 
     [Fact]

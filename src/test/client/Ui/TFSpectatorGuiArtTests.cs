@@ -25,7 +25,9 @@ public class TFSpectatorGuiArtTests
     {
         var (ctx, _, _) = Render("spectating-a-map");
         Assert.True(Has(ctx, "map"));
-        Assert.Equal("map: ctf_2fort", RunText(ctx, Index(ctx, "map")));
+        // The label's %s1 is the display name, stock's GetMapDisplayName
+        // (tf_gamerules.cpp:18974) — the map-info source's answer.
+        Assert.Equal("map: 2Fort", RunText(ctx, Index(ctx, "map")));
         Assert.True(Has(ctx, "top plate"));
         Assert.True(Has(ctx, "bottom plate"));
     }

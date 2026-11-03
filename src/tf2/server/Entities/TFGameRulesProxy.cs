@@ -39,15 +39,17 @@ public partial class TFGameRulesProxyVars
 /// teamplayroundbased_gamerules.cpp:175-185, into <see cref="ITeamRoundControl"/>).
 /// Stock's proxy also sends the rules'
 /// data table to the clients (<c>DT_TFGameRulesProxy</c>, L1557-1582) and
-/// keeps the rest of its datadesc (goal strings, VO, the remaining keyfields)
-/// for later ports — see the deferred table. The <c>ctf_overtime</c>
+/// keeps the rest of its datadesc (VO, the remaining keyfields)
+/// for later ports — see the deferred table; the goal-string inputs are here
+/// (<see cref="OnSetRedTeamGoalString"/>, through <see cref="ITeamResource"/>). The <c>ctf_overtime</c>
 /// keyfield is read: Activate pushes it to the rules
 /// (<see cref="ICtfRules.SetOvertimeAllowedForCtf"/>, L1904), as stock's
 /// does.
 /// </summary>
 [ScriptedEntity(TFGameRulesProxy.MapClass)]
 public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves waves, IEngineEntityRender render,
-                                     ICtfRules ctf, ITeamRoundControl rounds, IFlagCarrierEffects effects)
+                                     ICtfRules ctf, ITeamRoundControl rounds, IFlagCarrierEffects effects,
+                                     ITeamResource teamsTable)
     : ScriptedEntity
 {
     public const string MapClass = "tf_gamerules";
@@ -106,6 +108,15 @@ public sealed class TFGameRulesProxy(IKothRoundState koth, ITeamRespawnWaves wav
     /// <summary>Stock <c>InputAddBlueTeamRespawnWaveTime</c> (L1761-1764).</summary>
     [ScriptedEvent] private void OnAddBlueTeamRespawnWaveTime(float seconds)
         => waves.AddTeamRespawnWaveTime(TFTeam.Blue, seconds);
+
+    /// <summary>Stock <c>InputSetRedTeamGoalString</c> (L1769-1774): the map's
+    /// goal line for the red HUD panel; an empty parameter clears it.</summary>
+    [ScriptedEvent] private void OnSetRedTeamGoalString(string goal)
+        => teamsTable.SetGoal((int)TFTeam.Red, goal);
+
+    /// <summary>Stock <c>InputSetBlueTeamGoalString</c> (L1775-1780).</summary>
+    [ScriptedEvent] private void OnSetBlueTeamGoalString(string goal)
+        => teamsTable.SetGoal((int)TFTeam.Blue, goal);
 }
 
 /// <summary>

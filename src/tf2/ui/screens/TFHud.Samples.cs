@@ -15,7 +15,7 @@ public static class TFHudSamples
                                  FakeFlags? flags = null, FakeMedicCharge? medic = null, FakeSpy? spy = null,
                                  FakeCapProgress? progress = null, FakeTextureLibrary? textures = null,
                                  FakeChat? chat = null, FakeTeamStatus? teams = null,
-                                 FakeDemomanPipes? pipes = null)
+                                 FakeDemomanPipes? pipes = null, FakeTeamGoal? goal = null)
     {
         s.Add<ITFLocalPlayer>(player ?? new FakeLocalPlayer());
         s.Add<ITFRoundTimer>(timer ?? new FakeRoundTimer());   // no clock by default
@@ -29,6 +29,7 @@ public static class TFHudSamples
         s.Add<ITFTeamStatus>(teams ?? new FakeTeamStatus());   // nobody on a team by default
         s.Add<ITFDemomanPipes>(pipes ?? new FakeDemomanPipes());   // no demoman by default
         s.Add<IUiLocalisation>(new SampleLocalise());
+        s.Add<ITFTeamGoal>(goal ?? new FakeTeamGoal());        // no goal line by default
         // The art: a fact's recording fake answers its names; without one the
         // preview run's --content seed stands, and a seedless build draws the
         // fallbacks (the container answers a stateless none).
@@ -521,6 +522,30 @@ public static class TFHudSamples
         new FakeLocalPlayer { ClassName = "Demoman", Team = Blue, Health = 160, MaxHealth = 160 },
         pipes: new FakeDemomanPipes { Present = true, Count = 0 });
 
+    // The map-goal hint (tf_hud_teamgoal.cpp): 2fort's setup line on the red
+    // panel, and the blue arm of the same sentence.
+    [UiSample("the goal hint, red")]
+    private static UiScreen GoalRed(UiSampleServices s) => Build(s,
+        Soldier(120),
+        goal: new FakeTeamGoal
+        {
+            Visible = true,
+            Team = Red,
+            Text = "Grab the Intelligence Briefcase from the enemy basement. Return to your basement to win!",
+            Image = "hud/hud_icon_defend",
+        });
+
+    [UiSample("the goal hint, blu")]
+    private static UiScreen GoalBlue(UiSampleServices s) => Build(s,
+        new FakeLocalPlayer { ClassName = "Soldier", Team = Blue, Health = 200, MaxHealth = 200, MaxBuffedHealth = 300 },
+        goal: new FakeTeamGoal
+        {
+            Visible = true,
+            Team = Blue,
+            Text = "Grab the Intelligence Briefcase from the enemy basement. Return to your basement to win!",
+            Image = "hud/hud_icon_attack",
+        });
+
     // The raw TF team numbers (tf_shareddefs.h): TF_TEAM_BLUE 3, TF_TEAM_RED 2.
     private const int Blue = 3;
     private const int Red = 2;
@@ -782,6 +807,16 @@ public sealed class FakeSpy : ITFSpy
     public bool Disguised { get; init; }
     public string DisguiseClassName { get; init; } = "";
     public int DisguiseTeam { get; init; }
+}
+
+/// <summary>The map's goal line as the panel reads it; at rest no goal
+/// stands, so the hint draws nothing.</summary>
+public sealed class FakeTeamGoal : ITFTeamGoal
+{
+    public bool Visible { get; init; }
+    public string Text { get; init; } = "";
+    public string Image { get; init; } = "";
+    public int Team { get; init; }
 }
 
 /// <summary>The chat feed; empty unless the sample says lines.</summary>

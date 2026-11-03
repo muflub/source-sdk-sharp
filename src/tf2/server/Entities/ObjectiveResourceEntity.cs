@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Server;
 using TF2.Server.Buildings;
+using TF2.Shared;
 using TF2.Shared.Resources;
 
 namespace TF2.Server.Entities;
@@ -76,6 +77,15 @@ public interface ITeamResource
     /// <summary>The team's leader (m_hLeader), as an entity index; 0 for none.</summary>
     void SetLeader(int team, int index);
 
+    /// <summary>The team's goal line (the goal HUD's), stock's
+    /// m_pszTeamGoalStringRed/Blue through GetTeamGoalString
+    /// (tf_gamerules.cpp:18395).</summary>
+    string Goal(int team);
+
+    /// <summary>Stock <c>CTFGameRules::SetTeamGoalString</c>
+    /// (tf_gamerules.cpp:4558) for one team.</summary>
+    void SetGoal(int team, string goal);
+
     /// <summary>A new level's table: every row zero.</summary>
     void Clear();
 
@@ -96,6 +106,13 @@ public sealed class TeamResource : ITeamResource
     private readonly int[] _playerCount = new int[Teams];
     private readonly List<int>[] _objects = Enumerable.Range(0, Teams).Select(_ => new List<int>()).ToArray();
     private readonly int[] _leader = new int[Teams];
+
+    /// <summary>MAX_TEAMGOAL_STRING (tf_gamerules.h:302) narrowed to the
+    /// netstate's 232-byte string: the copy's bound, as stock's Q_strncpy
+    /// truncates to it.</summary>
+    public const int MaxGoalString = TeamResourceNetState.GoalStringSize;
+
+    private readonly string[] _goal = new string[Teams];
     private TeamResourceNetState? _state;
 
     private static int Team(int team)
@@ -170,6 +187,43 @@ public sealed class TeamResource : ITeamResource
             s.Leader[team] = (short)index;
     }
 
+    public string Goal(int team)
+    {
+        int at = Team(team);
+        return team == (int)TFTeam.Red || team == (int)TFTeam.Blue ? _goal[at] ?? "" : "";
+    }
+
+    public void SetGoal(int team, string goal)
+    {
+        int at = Team(team);
+
+        // Stock's arms (tf_gamerules.cpp:4560-4587): only the game teams
+        // carry a string; an empty goal clears, a case-unchanged keep is
+        // no-op, and the copy bounds at MAX_TEAMGOAL_STRING.
+        if (team != (int)TFTeam.Red && team != (int)TFTeam.Blue)
+            return;
+
+        if (string.IsNullOrEmpty(goal))
+            goal = "";
+        else if (string.Compare(_goal[at], goal, StringComparison.OrdinalIgnoreCase) == 0)
+            return;
+        else if (goal.Length >= MaxGoalString)
+            goal = goal[..(MaxGoalString - 1)];
+
+        _goal[at] = goal;
+        if (_state is { } s)
+            PublishGoal(s, team);
+    }
+
+    private void PublishGoal(TeamResourceNetState s, int team)
+    {
+        string goal = _goal[team] ?? "";
+        if (team == (int)TFTeam.Red)
+            s.GoalStringRed = goal;
+        else
+            s.GoalStringBlue = goal;
+    }
+
     public void Clear()
     {
         Array.Clear(_score);
@@ -178,6 +232,7 @@ public sealed class TeamResource : ITeamResource
         Array.Clear(_role);
         Array.Clear(_playerCount);
         Array.Clear(_leader);
+        Array.Clear(_goal);
         foreach (List<int> run in _objects)
             run.Clear();
         if (_state is { } s)
@@ -206,6 +261,7 @@ public sealed class TeamResource : ITeamResource
             s.Role[team] = (byte)_role[team];
             s.PlayerCount[team] = (byte)Math.Clamp(_playerCount[team], 0, byte.MaxValue);
             s.Leader[team] = (short)_leader[team];
+            PublishGoal(s, team);
             PublishObjects(s, team, _objects[team]);
         }
     }

@@ -286,9 +286,13 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         _spectators = string.Join(", ", names);
     }
 
-    /// <summary>A team band: the team's colour stripe, its name and head count,
-    /// its score at the far edge — stock's ScoreboardTeamScoreNew labels over
-    /// the BlueScoreBG/RedScoreBG art (290x71 px, 160 du tall).</summary>
+    /// <summary>A team band: the solid team-colour bar stock paints with the
+    /// BlueScoreBG/RedScoreBG art (290x71 px, 160 du tall), the name and head
+    /// count at its top left (ScoreboardTeamNameNew 20 px, ScoreboardTeam-
+    /// CountNew 14 px — scoreboard.res BlueTeamLabel 80,21, BlueTeamPlayer-
+    /// Count 80,42) and the score huge at the inner edge, vertically centred
+    /// (ScoreboardTeamScoreNew 36/48 px, BlueTeamScore east-aligned at the
+    /// band's right, RedTeamScore west-aligned at its left, y12 h55 of 71).</summary>
     private void TeamBand(ref UiFrame ui, IScoreboardSource src, int teamIndex, UiSize width)
     {
         var team = src.Team(teamIndex);
@@ -298,27 +302,37 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
             if (src.Player(i).Team == team.Number)
                 count++;
 
-        var band = ui.Column(Space.None, Align.Start).Width(width).Height(Size.Du(160))
-                     .Fill(((UiPaint)tone).WithOpacity(0.14f)).Round(Radius.M).Pad(Space.M, Space.S);
-        using (band)
+        // Stock mirrors the whole band (BlueTeamImage at the outer edge,
+        // RedTeamImage x571): the name and count at the outer top corner, the
+        // score at the inner edge (BlueTeamScore east, RedTeamScore west,
+        // scoreboard.res 212, 299).
+        bool blue = team.Number == Blue;
+        using (ui.Box().Width(width).Height(Size.Du(160)).Fill((UiPaint)tone).Name(blue ? "tf band blue" : "tf band red"))
         {
-            ui.Rect(tone, Size.Du(4), Size.Fill).Round(Radius.S);
-            using (ui.Column(Space.None, Align.Start))
+            using (blue ? ui.Column(Space.M, Align.Start).At(UiAnchor.TopLeft).Inset(Space.XL, Space.Huge)
+                        : ui.Column(Space.M, Align.End).At(UiAnchor.TopRight).Inset(Space.XL, Space.Huge))
             {
-                ui.Data(team.Name, Text.Title, tone);
+                ui.Data(team.Name, Text.Title, Tone.OnAccent).Name(blue ? "tf name blue" : "tf name red");
                 // The count is a token pair in stock (TF_ScoreBoard_Player
                 // "%s1 player" / TF_ScoreBoard_Players "%s1 players",
                 // tf_english.txt:59-60), so one player is not "1 players";
-                // the count rides beside the token as its own leaf.
-                using (ui.Row(Space.XS, Align.Start))
+                // the count rides beside the token as its own leaf. The ink
+                // is OnAccent, the team menu card's (TFTeamMenu.cs:296): the
+                // light Text token does not clear the lint's floor on the
+                // pale core-theme team colours, and only the 24-du-and-up
+                // roles clear 3:1 against the fill. Titles, not Labels, for
+                // the same reason.
+                using (blue ? ui.Row(Space.XS, Align.Start) : ui.Row(Space.XS, Align.End))
                 {
-                    ui.Number(count, Text.Label, Tone.TextMuted);
+                    ui.Number(count, Text.Title, Tone.OnAccent);
                     ui.Text(count == 1 ? "#TF2_ScoreBoard_Player" : "#TF2_ScoreBoard_Players",
-                            Text.Label, Tone.TextMuted);
+                            Text.Title, Tone.OnAccent);
                 }
             }
-            ui.Flex();
-            ui.Number(team.Score, Text.Title, tone);
+            ui.Number(team.Score, Text.Display, Tone.OnAccent)
+              .Name(blue ? "tf score blue" : "tf score red")
+              .At(blue ? UiAnchor.Right : UiAnchor.Left)
+              .Inset(Space.XL, Space.None);
         }
     }
 

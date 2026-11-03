@@ -41,7 +41,9 @@ namespace TF2.Server.Combat;
 /// <para>
 /// — <c>damagebits</c>, <c>customkill</c> and <c>crit_type</c>: the killing
 ///   hit's, after the modify rules (a crit's <c>DMG_CRITICAL</c>, a headshot's
-///   custom kind); <c>victim_entindex</c>, <c>inflictor_entindex</c>,
+///   custom kind); a self-inflicted death with none recorded is the suicide
+///   custom kind, stock's CommitSuicide flag; <c>victim_entindex</c>,
+///   <c>inflictor_entindex</c>,
 ///   <c>weapon_logclassname</c> (the same name: no item log names yet),
 ///   <c>silent_kill</c> false, <c>stun_flags</c> 0 and <c>death_flags</c>:
 ///   stock's domination and revenge (<see cref="TFDominations"/>, computed
@@ -98,7 +100,18 @@ public sealed class TFDeathNotice(IEnginePlayers players, IEngineEntities entiti
         fields.SetString("weapon_logclassname", weapon);
         fields.SetInt("weaponid", (int)weaponId);
         fields.SetInt("damagebits", (int)(hit?.Bits ?? DamageType.Generic));
-        fields.SetInt("customkill", (int)(hit?.Custom ?? TFDamageCustom.None));
+        // The self-kill command's death carries no recorded kind of its own:
+        // stock's CommitSuicide flags the damage info
+        // TF_DMG_CUSTOM_SUICIDE (tf_player.cpp:10218-10224, passed on at
+        // player.cpp:5448-5458), and the event's customkill is what the
+        // client's info text reads. A fall keeps its own phrase by the
+        // client's precedence.
+        var custom = hit?.Custom ?? TFDamageCustom.None;
+        if (custom == TFDamageCustom.None
+            && (death.Attacker == EntityHandle.None || death.Attacker == death.Victim)
+            && (death.Inflictor == EntityHandle.None || death.Inflictor == death.Victim))
+            custom = TFDamageCustom.Suicide;
+        fields.SetInt("customkill", (int)custom);
         fields.SetInt("inflictor_entindex", death.Inflictor != EntityHandle.None ? entities.GetIndex(death.Inflictor) : -1);
         fields.SetBool("silent_kill", false);
         fields.SetInt("death_flags", dominations?.DeathFlags(victimIndex,

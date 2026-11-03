@@ -9,6 +9,7 @@ using Feed = client::TF2.Client.Ui.TFKillFeedSource;
 using Time = client::SourceSharp.Client.Vgui.HudDeathNoticeTimeConVar;
 using Custom = client::TF2.Shared.Combat.TFDamageCustom;
 using Crit = client::TF2.Shared.Combat.TFDamageBits;
+using Dam = client::SourceSharp.Abi.DamageType;
 
 // The contract assembly is unaliased: the interface and line record are
 // global, as the team menu's choices are. PlayerDeathArgs names the client's
@@ -143,6 +144,23 @@ public sealed class TFKillFeedSourceTests
         var (f, _) = Rig();
         f.Add(new Death(3, 2, "sniperrifle", false, Bits: (int)Crit.Critical));
         Assert.True(f.Line(0).Crit);
+    }
+
+    [Fact]
+    public void A_suicide_carries_the_info_phrase_and_a_kill_none()
+    {
+        // The info text hud_basedeathnotice.cpp:303-314 draws after the
+        // victim: the suicide custom kind's phrase (:1041-1051); the fall's
+        // (hud_basedeathnotice.cpp:527-531) wins on the bits.
+        var (fall, _) = Rig();
+        fall.Add(new Death(3, 3, "", false, Bits: (int)Dam.Fall));
+        var (suicide, _) = Rig();
+        suicide.Add(new Death(3, 3, "", false, Custom: (int)Custom.Suicide));
+        var (kill, _) = Rig();
+        kill.Add(new Death(3, 2, "scattergun", false));
+        Assert.Equal("#DeathMsg_Fall", fall.Line(0).Info);
+        Assert.Equal("#DeathMsg_Suicide", suicide.Line(0).Info);
+        Assert.Equal("", kill.Line(0).Info);
     }
 
     [Fact]

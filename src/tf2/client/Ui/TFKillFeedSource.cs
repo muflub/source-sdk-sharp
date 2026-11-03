@@ -90,12 +90,25 @@ public sealed class TFKillFeedSource : ITFKillFeed, IKillFeedListener
 
         string icon = Icon(death.Weapon ?? "", death.Custom, selfKill);
 
+        // The info text after the victim (hud_basedeathnotice.cpp:303-314):
+        // a self-inflicted death names the fall's phrase (:527-531) or, on
+        // the suicide custom kind, that phrase (tf_hud_deathnotice.cpp
+        // :1041-1051). The token resolves in the frame's localiser.
+        string info = "";
+        if (suicide)
+        {
+            if ((death.Bits & (int)DamageType.Fall) != 0)
+                info = "#DeathMsg_Fall";
+            else if (death.Custom == (int)TFDamageCustom.Suicide)
+                info = "#DeathMsg_Suicide";
+        }
+
         if (_count >= MaxLines)
             RemoveAt(CullFirst());
         _lines[_count] = new TFKillFeedLine(suicide ? "" : killer, killerTeam, victim, victimTeam,
                                             icon, Inverted(icon, local),
                                             (death.Bits & (int)TFDamageBits.Critical) != 0,
-                                            suicide, local);
+                                            suicide, local, info);
         // GetExpiryTime: the local player's lines last twice as long (:923-931).
         _expires[_count] = _clock.Now + (local ? display * 2f : display);
         _seen = MathF.Max(_seen, _clock.Now);

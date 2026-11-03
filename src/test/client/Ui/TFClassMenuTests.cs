@@ -140,6 +140,147 @@ public class TFClassMenuTests
         Assert.True(Count(off, "count-1") < 0);              // after: a spectator's are blank
     }
 
+    /// <summary>Stock blanks a zero count (:1487-1489): an empty class's
+    /// tile carries no number.</summary>
+    [Fact]
+    public void A_zero_count_is_blank()
+    {
+        var none = Drawn(Screen(new FakeTFClassMenuSource { Team = 2, Players = [0, 1, 0, 1, 2, 3, 1, 0, 2] }));
+        Assert.True(Count(none, "count-1") < 0);             // before: scout has nobody
+
+        var some = Drawn(Screen(new FakeTFClassMenuSource { Team = 2, Players = [2, 1, 0, 1, 2, 3, 1, 0, 2] }));
+        Assert.True(Count(some, "count-1") >= 0);            // and the stimulus: one scout, one count
+    }
+
+    /// <summary>The tiles label their hotkeys (the buttons' labelText 1..9,
+    /// south-west, classselection.res :140, :204, ...): the scout's tile
+    /// carries 1 in its foot; the random's label is empty (:51).</summary>
+    [Fact]
+    public void A_tile_labels_its_hotkey_and_the_random_has_none()
+    {
+        var ctx = Drawn(Screen(new FakeTFClassMenuSource { Team = 2 }));
+
+        var scout = Named(ctx, "TFClassTile[scout]").Rect;
+        Assert.Contains(Elements(ctx), e => NameOf(ctx, e) == "hotkey"
+                                        && e.Rect.X >= scout.X && e.Rect.X + e.Rect.W <= scout.X + scout.W
+                                        && e.Rect.Y >= scout.Y && e.Rect.Y + e.Rect.H <= scout.Y + scout.H);
+        Assert.Equal("1", RunText(ctx, Elements(ctx)
+            .ToList()
+            .FindIndex(e => NameOf(ctx, e) == "hotkey"
+                         && e.Rect.X >= scout.X && e.Rect.X + e.Rect.W <= scout.X + scout.W)));
+
+        var random = Named(ctx, "TFClassTile[random]").Rect;
+        Assert.DoesNotContain(Elements(ctx), e => NameOf(ctx, e) == "hotkey"
+                                                && e.Rect.X >= random.X && e.Rect.X + e.Rect.W <= random.X + random.W);
+    }
+
+    /// <summary>The hotkeys run in screen order, the .res's labelText per
+    /// button — the soldier's tile reads 2 and the pyro's 3
+    /// (classselection.res :204,:268) though their class numbers are 3
+    /// and 7, and the sniper's 8 (:633) though its number is 2.</summary>
+    [Fact]
+    public void The_hotkeys_follow_the_screen_order()
+    {
+        var ctx = Drawn(Screen(new FakeTFClassMenuSource { Team = 2 }));
+
+        Assert.Equal("2", HotkeyOn(ctx, "soldier"));
+        Assert.Equal("3", HotkeyOn(ctx, "pyro"));
+        Assert.Equal("8", HotkeyOn(ctx, "sniper"));
+    }
+
+    /// <summary>The hotkey the named tile's foot carries.</summary>
+    private static string HotkeyOn(UiContext ctx, string tile)
+    {
+        var r = Named(ctx, $"TFClassTile[{tile}]").Rect;
+        int i = Elements(ctx).ToList().FindIndex(e => NameOf(ctx, e) == "hotkey"
+                                                   && e.Rect.X >= r.X && e.Rect.X + e.Rect.W <= r.X + r.W
+                                                   && e.Rect.Y >= r.Y && e.Rect.Y + e.Rect.H <= r.Y + r.H);
+        Assert.True(i >= 0, $"{tile}: no hotkey");
+        return RunText(ctx, i);
+    }
+
+    /// <summary>Stock's rounded frame stands behind each class group: the
+    /// outline spans its three portraits' union (the frame the stock
+    /// screen shows; no .res element draws it).</summary>
+    [Fact]
+    public void Each_class_group_wears_a_frame_spanning_the_tiles()
+    {
+        var ctx = Drawn(Screen(new FakeTFClassMenuSource { Team = 2 }));
+
+        var offense = Named(ctx, "offense frame").Rect;
+        var scout = Named(ctx, "TFClassTile[scout]").Rect;
+        var pyro = Named(ctx, "TFClassTile[pyro]").Rect;
+        var medic = Named(ctx, "TFClassTile[medic]").Rect;
+        var spy = Named(ctx, "TFClassTile[spy]").Rect;
+        var support = Named(ctx, "support frame").Rect;
+        Assert.Equal(scout.X, offense.X, 0.5f);              // the union's left ...
+        Assert.Equal(pyro.X + pyro.W - offense.X, offense.W, 0.5f); // ... and its right
+        Assert.Equal(medic.X, support.X, 0.5f);              // the next group's own union
+        Assert.Equal(spy.X + spy.W - support.X, support.W, 0.5f);
+        Assert.Equal(offense.W, support.W, 0.5f);            // three tiles apiece
+    }
+
+    /// <summary>The bottom band wears stock's button pair: the scheme's
+    /// Button.BgColor TanDark face under the Button.TextColor TanLight
+    /// label (clientscheme.res :252,:251 — the constants :99,:100 name),
+    /// the dark plate and cream text the stock screen shows.</summary>
+    [Fact]
+    public void The_bottom_buttons_wear_the_scheme_colours()
+    {
+        var ctx = Drawn(Screen(new FakeTFClassMenuSource { Team = 2, Current = 3 }));
+
+        Assert.Equal(new UiColor(117, 107, 94, 255), FillOf(ctx, "edit loadout"));
+        Assert.Equal(new UiColor(235, 226, 202, 255), InkOf(ctx, "#EditLoadout"));
+        Assert.Equal(new UiColor(235, 226, 202, 255), InkOf(ctx, "#SS_UI_Cancel"));
+        Assert.Equal(new UiColor(117, 107, 94, 255), FillOf(ctx, "cancel"));
+    }
+
+    /// <summary>The fill the named box drew.</summary>
+    private static UiColor FillOf(UiContext ctx, string name)
+    {
+        int i = Count(ctx, name);
+        Assert.True(i >= 0, $"no element named {name}");
+        var list = ctx.List.AsDrawList();
+        foreach (var op in list.Ops)
+            if (op.Kind == UiPrimitiveKind.Quad && op.Element == i)
+                return list.Quads[op.Index].Color;
+        throw new InvalidOperationException($"{name}: no quad drew");
+    }
+
+    /// <summary>The ink the named text drew.</summary>
+    private static UiColor InkOf(UiContext ctx, string token)
+    {
+        int i = TextIndex(ctx, token);
+        Assert.True(i >= 0, $"no text {token}");
+        var list = ctx.List.AsDrawList();
+        foreach (var op in list.Ops)
+            if (op.Kind == UiPrimitiveKind.GlyphRun && op.Element == i)
+                return list.GlyphRuns[op.Index].Color;
+        throw new InvalidOperationException($"{token}: no glyph run drew");
+    }
+
+    /// <summary>The boxes resolve on the frame's own aspect
+    /// (<see cref="StockRes.Screen"/>), not the 640-wide authoring canvas:
+    /// Edit Loadout's r180 xpos is 180 units from the true right edge — at
+    /// 1920x1080 its left lands at 1515, where the fixed canvas put 1444
+    /// (classselection.res:767, Panel.cpp ComputePos).</summary>
+    [Fact]
+    public void The_canvas_is_the_frames_aspect()
+    {
+        var ctx = Drawn(Screen(new FakeTFClassMenuSource { Team = 2, Current = 3 }));
+        Assert.Equal(1515f, Named(ctx, "edit loadout").Rect.X, 0.5f);
+    }
+
+    /// <summary>Stock's SetCancelButtonVisible shows the Select-a-Class
+    /// label exactly while the Cancel is not (tf_classmenu.cpp:1035-1038):
+    /// the first pick asks, a chosen class answers.</summary>
+    [Fact]
+    public void The_select_title_shows_only_while_the_cancel_does_not()
+    {
+        Assert.True(DrewToken("#TF2_ClassMenu_Select", new FakeTFClassMenuSource { Team = 2 }));
+        Assert.False(DrewToken("#TF2_ClassMenu_Select", new FakeTFClassMenuSource { Team = 2, Current = 3 }));
+    }
+
     /// <summary>Stock shows Cancel only once a class is chosen
     /// (:1044-1081): the forced first pick cannot be cancelled, and
     /// cancelling a chosen class records the Cancel without a choice.</summary>

@@ -26,10 +26,13 @@ namespace TF2.Tests.Client;
 public sealed class TFMapInfoUiTests
 {
     [Fact]
-    public void The_display_name_comes_from_the_level_name_through_stock_cleanup()
+    public void The_display_name_is_the_name_tables_row_then_stock_cleanup()
     {
-        Assert.Equal("2FORT", Info.DisplayName("ctf_2fort"));
-        Assert.Equal("TURBINE", Info.DisplayName("ctf_turbine_final"));   // _final stripped
+        // GetMapDisplayName (tf_gamerules.cpp:18974): Valve's and the
+        // community's rows first, the LOUD cleanup for maps they miss.
+        Assert.Equal("2Fort", Info.DisplayName("ctf_2fort"));
+        Assert.Equal("Viaduct", Info.DisplayName("koth_viaduct"));
+        Assert.Equal("TURBINE", Info.DisplayName("ctf_turbine_final"));   // no row: _final stripped
         Assert.Equal("BADLANDS", Info.DisplayName("koth_badlands_final1")); // ...and its _1
         Assert.Equal("WELL", Info.DisplayName("arena_well"));
         Assert.Equal("UPSTREAM", Info.DisplayName("pl_upstream"));
@@ -55,7 +58,7 @@ public sealed class TFMapInfoUiTests
                                                   ["#TF2_MapInfo_Default"] = "Capture the enemy intelligence.",
                                               });
 
-        Assert.Equal("2FORT", info.MapName);
+        Assert.Equal("2Fort", info.MapName);
         Assert.Equal("Capture the Flag", info.GameMode);
         Assert.Equal("The two bases face each other.", info.Briefing);
         Assert.Equal("vgui/maps/menu_photos_ctf_2fort", info.Photo);
@@ -63,13 +66,13 @@ public sealed class TFMapInfoUiTests
         // The reads are per level: asking again re-answers, it does not
         // re-look (the per-level cache).
         var asked = mod.Finds;
-        Assert.Equal("2FORT", info.MapName);
+        Assert.Equal("2Fort", info.MapName);
         Assert.Equal("Capture the Flag", info.GameMode);
         Assert.Equal(asked, mod.Finds);
 
         // A new level re-reads: the cache is keyed on the level name.
         client.Level = "maps/koth_viaduct.bsp";
-        Assert.Equal("VIADUCT", info.MapName);
+        Assert.Equal("Viaduct", info.MapName);
     }
 
     /// <summary>A map with no <c>#&lt;map&gt;_description</c> falls to the

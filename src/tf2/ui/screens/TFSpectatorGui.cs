@@ -34,7 +34,8 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFSpectatorGui(IObserverSource observer, ITFLocalPlayer local,
-                                   IUiLocalisation localise, IUiKeyBindingStore keys) : UiScreen
+                                   IUiLocalisation localise, IUiKeyBindingStore keys,
+                                   ITFMapInfoSource maps) : UiScreen
 {
     public override string Name => "tf2spectatorgui";
 
@@ -56,9 +57,10 @@ public sealed class TFSpectatorGui(IObserverSource observer, ITFLocalPlayer loca
             ui.Rect(Tone.Surface, Size.Fill, Size.Du(topAt.Tall)).Layered().Key("top plate");
 
             // "map: <name>" (UpdateKeyLabels :678-703) — the token's %s1
-            // takes the map's display name.
+            // takes the map's display name, stock's GetMapDisplayName
+            // (tf_gamerules.cpp:18974) as the map-info source serves it.
             var map = StockRes.Spot(Stock.Map.Rect(top), top);
-            ui.Data((localise.Find("#TF2_Spec_Map") ?? "").Replace("%s1", observer.MapName),
+            ui.Data((localise.Find("#TF2_Spec_Map") ?? "").Replace("%s1", maps.MapName),
                     Text.Body, Tone.Text)
                 .Width(Size.Du(map.Wide)).TextAlign(Align.End)
                 .AtRes(UiAnchor.TopRight, map.Right, map.Top).Layered().Key("map");

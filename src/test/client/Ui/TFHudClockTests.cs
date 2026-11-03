@@ -66,6 +66,40 @@ public class TFHudClockTests
     }
 
     [Fact]
+    public void The_digits_draw_HudFontSmall_and_the_bands_HudFontSmallestBold()
+    {
+        // hudmatchstatus.res:352 sizes the value HudFontSmall: stock's 14
+        // tall at its base screen, ~13 tall (29.25 du) once the hud scales
+        // the face down with a 720-line screen — the step between Smallest
+        // and Small. hudobjectivetimepanel.res's if_match bands take
+        // HudFontSmallestBold (the ClockSubText step, 20.25 du, for the
+        // condensed bold's width at stock's sizes) on the hud's bold display
+        // family, not the body face the label role carries.
+        var theme = SourceSharpTheme.Create();
+        var ctx = Render(new FakeRoundTimer { Present = true, WaitingForPlayers = true,
+                                              ShowTimeRemaining = true, SecondsLeft = 30, TotalSeconds = 600 }, theme: theme);
+        var list = ctx.List.AsDrawList();
+        var digits = GlyphFont(ctx, list, "clock");
+        var band = GlyphFont(ctx, list, "waiting");
+        Assert.Equal(29, digits.PxHeight);             // 29.25 du: HudFontSmall ~13 x 2.25 at 720 lines
+        Assert.Equal(22, band.PxHeight);               // 21.5 du: the band's condensed bold at ~9.5 tall at 720 lines
+        Assert.Equal(theme.Type(Text.Heading).Family, band.Family);
+        Assert.Equal(theme.Type(Text.Label).Family, digits.Family);
+    }
+
+    /// <summary>The font of the first glyph run on the named element.</summary>
+    private static UiFontSpec GlyphFont(UiContext ctx, UiDrawList list, string key)
+    {
+        var elements = UiTestKit.Elements(ctx);
+        for (int i = 0; i < elements.Length; i++)
+            if (UiTestKit.NameOf(ctx, elements[i]) == key)
+                foreach (var op in list.Ops)
+                    if (op.Kind == UiPrimitiveKind.GlyphRun && op.Element == i)
+                        return list.Fonts[list.GlyphRuns[op.Index].Font];
+        throw new InvalidOperationException($"no {key} glyph run drew");
+    }
+
+    [Fact]
     public void The_match_panel_draws_no_art_of_its_own()
     {
         // The if_match blocks hide the TimePanelBG box and the progress ring
@@ -95,9 +129,9 @@ public class TFHudClockTests
         Assert.Equal(909.375f, digits.X, 0.5f);   // 836.25 + (110 - 45)/2 x 2.25
         Assert.Equal(27f, digits.Y, 0.5f);        // 12 x 2.25
         var band = UiTestKit.Named(ctx, "setup").Rect;
-        Assert.Equal(831.75f, band.X, 0.5f);      // the panel's left less the 2-unit band slack
+        Assert.Equal(830f, band.X, 0.5f);         // centred on the panel, the 6-du slack half each side
         Assert.Equal(47.25f, band.Y, 0.5f);       // 21 x 2.25
-        Assert.Equal(256.5f, band.W, 0.5f);       // the panel's 110 + the 4-unit slack, x 2.25
+        Assert.Equal(260f, band.W, 0.5f);         // the panel's width plus the slack, as laid out
     }
 
     [Fact]
@@ -163,11 +197,11 @@ public class TFHudClockTests
 
     /// <summary>One frame of the tfhud screen over the given timer and art
     /// fake, built the way the samples are.</summary>
-    private static UiContext Render(FakeRoundTimer timer, FakeTextureLibrary? art = null)
+    private static UiContext Render(FakeRoundTimer timer, FakeTextureLibrary? art = null, UiTheme? theme = null)
     {
         var s = new UiSampleServices();
         var screen = TFHudSamples.Build(s, timer: timer, textures: art);
-        var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
+        var ctx = UiSamples.PreviewContext(theme ?? SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
         UiSamples.Render(ctx, screen, UiSamples.Screen(1920, 1080), 100.0);
         return ctx;
     }

@@ -67,6 +67,14 @@ public sealed class TFClassMenu : UiScreen
     /// (tf_shareddefs.h:163,:162 beside the plain <see cref="Panel"/>).</summary>
     private static readonly IReadOnlyList<string> PanelNames = ["class", "class_red", "class_blue"];
 
+    // The bottom band's colours (clientscheme.res): the CExButtons default
+    // to the scheme's Button.BgColor TanDark face and Button.TextColor
+    // TanLight label (:252,:251 — the constants :99,:100 name). The
+    // Cancel's own fgcolor_override (:760) is darker than the lint's
+    // large-text floor over that face, so the band wears the pair.
+    private static readonly UiColor ButtonFace = new(117, 107, 94, 255);
+    private static readonly UiColor ButtonInk = new(235, 226, 202, 255);
+
     private readonly ITFClassMenuSource _source;
     private readonly TFClassTile _tile;
     private readonly IUiTextureLibrary _textures;
@@ -254,23 +262,34 @@ public sealed class TFClassMenu : UiScreen
 
     private void DescribeStock(ref UiFrame ui, int menuTeam, bool showCounts)
     {
+        // The canvas is the frame's own aspect (StockRes.Screen): vgui
+        // computes every .res position against the real screen, so an "r"
+        // xpos and an f0 wide stretch on a widescreen where the 640x480
+        // authoring box would pinch them.
+        StockRect screen = StockRes.Screen(ui.Screen);
+
         // The visible band of a stock box: the tiles hang 5 units past the
         // canvas top (ypos -5, 100 tall), and the screen clips what hangs
         // past it — the band is the box to draw.
-        static StockSpot Visible(StockBox box)
+        static StockSpot Visible(StockBox box, StockRect canvas)
         {
-            var r = box.Rect(Stock.Canvas);
-            float over = r.Bottom + r.Tall - (Stock.Canvas.Bottom + Stock.Canvas.Tall);
+            var r = box.Rect(canvas);
+            float over = r.Bottom + r.Tall - (canvas.Bottom + canvas.Tall);
             if (over > 0f)
                 r = new StockRect(r.Left, r.Bottom, r.Wide, r.Tall - over);
-            return StockRes.Spot(r, Stock.Canvas);
+            return StockRes.Spot(r, canvas);
         }
 
-        // The title (ClassMenuSelect, :803-825).
-        var select = Stock.Select.In(Stock.Canvas);
-        ui.Text("#TF2_ClassMenu_Select", Text.Title, Tone.Text)
-            .Width(Size.Du(select.Wide)).TextAlign(Align.Start)
-            .AtRes(UiAnchor.BottomLeft, select.Left, select.Bottom).Layered().Key("select");
+        // The title (ClassMenuSelect, :803-825). Stock's
+        // SetCancelButtonVisible shows it exactly while the Cancel is not
+        // (:1035-1038): the first pick asks, a chosen class answers.
+        if (!_source.HasClass)
+        {
+            var select = Stock.Select.In(screen);
+            ui.Text("#TF2_ClassMenu_Select", Text.Title, Tone.Text)
+                .Width(Size.Du(select.Wide)).TextAlign(Align.Start)
+                .AtRes(UiAnchor.BottomLeft, select.Left, select.Bottom).Layered().Key("select");
+        }
 
         // The ten tiles in TF_CLASS order (stock's button array, :484-493),
         // the art's hung 5% cropped by the same clip the band is.
@@ -278,13 +297,22 @@ public sealed class TFClassMenu : UiScreen
         {
             if (n is 10 or 11)
                 continue;
-            var s = Visible(Stock.Tile(n));
+            var s = Visible(Stock.Tile(n), screen);
             ui.Sub(SubOf(n), _tile, Props(n, menuTeam, showCounts, ClassUv))
                 .Size(Size.Du(s.Wide), Size.Du(s.Tall))
                 .AtRes(UiAnchor.Bottom, s.CentreX, s.Bottom).Layered();
             if (_tile.Clicked)
                 Choose(n);
         }
+
+        // The groups' frames, under the tiles: offense, defense, support
+        // (the screen order classselection.res's rows run in).
+        GroupFrame(ref ui, Visible(Stock.Scout, screen), Visible(Stock.Soldier, screen),
+            Visible(Stock.Pyro, screen), "offense frame");
+        GroupFrame(ref ui, Visible(Stock.Demoman, screen), Visible(Stock.Heavy, screen),
+            Visible(Stock.Engineer, screen), "defense frame");
+        GroupFrame(ref ui, Visible(Stock.Medic, screen), Visible(Stock.Sniper, screen),
+            Visible(Stock.Spy, screen), "support frame");
 
         Bucket(ref ui, "#TF2_ClassMenu_Offense", Stock.Offense, "offense");
         Bucket(ref ui, "#TF2_ClassMenu_Defense", Stock.Defense, "defense");
@@ -304,24 +332,47 @@ public sealed class TFClassMenu : UiScreen
             _actions?.ResetLoadout();
     }
 
-    /// <summary>One of the bottom band's buttons: the .res box's spot, the
-    /// Cancel's own raised style; true when the click asked.</summary>
+    /// <summary>One of the bottom band's buttons: the .res box's spot on the
+    /// frame's own canvas, stock's TanDark CExButton face and TanLight
+    /// label; true when the click asked.</summary>
     private static bool AskButton(ref UiFrame ui, StockBox box, string token, string key)
     {
-        var spot = box.In(Stock.Canvas);
+        var spot = box.In(StockRes.Screen(ui.Screen));
         var b = ui.Box().Size(Size.Du(spot.Wide), Size.Du(spot.Tall))
-                       .Fill(Tone.SurfaceRaised).Round(Radius.S)
+                       .Fill(UiPaint.FromGame(ButtonFace)).Round(Radius.S)
                        .AtRes(UiAnchor.Bottom, spot.CentreX, spot.Bottom).Layered().Key(key);
         var hit = ui.Interact(b);
         using (b)
-            ui.Text(token, Text.Body, Tone.Text)
+            // HudFontSmallBold's em, the main menu's label (TFMainMenu.LabelEm):
+            // 29.4 du at 1080, over the lint's large-text 24.
+            ui.Text(token, Text.Heading).Color(UiPaint.FromGame(ButtonInk)).TextSize(TFMainMenu.LabelEm(StockRes.Scale))
                 .At(UiAnchor.Centre).TextAlign(Align.Centre).Layered();
         return hit.Clicked;
     }
 
+    /// <summary>Stock's thin rounded frame around one class group: the
+    /// outline hugging the three portraits' union — the frame the stock
+    /// screen shows; no .res element draws it (the nearest scheme border is
+    /// TFThinLineBorder's scalable outline, clientscheme.res:3345), so it
+    /// is drawn in the TanDark the tiles' own ink names.</summary>
+    private static void GroupFrame(ref UiFrame ui, StockSpot a, StockSpot b, StockSpot c, string key)
+    {
+        // Absolute edges from the spots: x about the parent's centre
+        // (CentreX ± Wide/2), y up from its bottom (Bottom .. Bottom+Tall).
+        float left = MathF.Min(a.CentreX - a.Wide / 2f, MathF.Min(b.CentreX - b.Wide / 2f, c.CentreX - c.Wide / 2f));
+        float right = MathF.Max(a.CentreX + a.Wide / 2f, MathF.Max(b.CentreX + b.Wide / 2f, c.CentreX + c.Wide / 2f));
+        float bottom = MathF.Min(a.Bottom, MathF.Min(b.Bottom, c.Bottom));
+        float top = MathF.Max(a.Bottom + a.Tall, MathF.Max(b.Bottom + b.Tall, c.Bottom + c.Tall));
+        using (ui.Box().Size(Size.Du(right - left), Size.Du(top - bottom))
+                   .Border(UiPaint.FromGame(ButtonFace)).Round(Radius.S)
+                   .AtRes(UiAnchor.Bottom, (left + right) / 2f, bottom).Layered().Key(key))
+        {
+        }
+    }
+
     private static void Bucket(ref UiFrame ui, string token, StockBox box, string key)
     {
-        var s = box.In(Stock.Canvas);
+        var s = box.In(StockRes.Screen(ui.Screen));
         ui.Text(token, Text.Label, Tone.TextMuted)
             .Width(Size.Du(s.Wide)).TextAlign(Align.Start)
             .AtRes(UiAnchor.Bottom, s.CentreX, s.Bottom).Layered().Key(key);
@@ -376,7 +427,8 @@ public sealed class TFClassMenu : UiScreen
                 if (_source.HasClass && ui.Button("reset", "#TF_ClassMenu_Reset").Clicked)
                     _actions?.ResetLoadout();
                 ui.Flex();
-                ui.Text("#TF2_ClassMenu_Select", Text.Title, Tone.Text);
+                if (!_source.HasClass)      // stock's title yields to the Cancel (:1035-1038)
+                    ui.Text("#TF2_ClassMenu_Select", Text.Title, Tone.Text);
             }
         }
     }
@@ -491,18 +543,29 @@ public sealed class TFClassTile(IUiTextureLibrary textures) : UiPanel<TFClassTil
                     ui.Data(p.Name, Text.Body, Tone.OnAccent)
                         .At(UiAnchor.Centre).TextAlign(Align.Centre).Layered();
             }
-            if (p.ShowCount)
+            if (p.ShowCount && (p.Players > 0 || p.LimitHit))
             {
-                // A full class counts in the muted tone: stock
-                // relabels its count with the TF_ClassLimitHit
-                // string (:1499-1560); ours says FULL below. The
-                // Surface chip is the count's backdrop (stock's label
-                // shadow), here and over the art.
-                ui.Number(p.Players, Text.Body, p.LimitHit ? Tone.TextMuted : Tone.Text)
+                // The count is small text over the tile's top (the num
+                // labels, classselection.res ypos 10) — stock blanks it at
+                // zero (:1489) and relabels a full class with the
+                // TF_ClassLimitHit string (:1499-1560); ours says FULL
+                // below. The Surface chip hugs the count (stock's label
+                // shadow) — the art under it is too busy for bare text.
+                ui.Number(p.Players, Text.Body, Tone.Text)
                     .Fill(Tone.Surface).Name(CountName(p.Number)).At(UiAnchor.Top)
                     .Inset(Space.None, Space.M)
-                    .Width(Size.Fill).TextAlign(Align.Centre).Layered();
+                    .Layered();
             }
+            // The tile's hotkey (the buttons' labelText, south-west
+            // aligned, classselection.res :140, :204, ...): bottom left in
+            // the art, on its own chip. The label counts the screen
+            // positions 1..9, not the class numbers — scout 1, soldier 2,
+            // pyro 3, demoman 4, heavyweapons 5, engineer 6, medic 7,
+            // sniper 8, spy 9 — and the random tile's is empty (:51).
+            int hotkey = Hotkey(p.Number);
+            if (hotkey > 0)
+                ui.Number(hotkey, Text.Body, Tone.Text)
+                    .Fill(Tone.Surface).Name("hotkey").At(UiAnchor.BottomLeft).Inset(Space.S, Space.S).Layered();
             if (p.LimitHit || p.Current)
             {
                 using (ui.Column(Space.XS).At(UiAnchor.Bottom).Inset(Space.None, Space.S)
@@ -518,6 +581,17 @@ public sealed class TFClassTile(IUiTextureLibrary textures) : UiPanel<TFClassTil
             }
         }
     }
+
+    /// <summary>The tile's hotkey label: classselection.res's labelText per
+    /// button — the screen position 1..9, not the class number (scout :140,
+    /// soldier :204, pyro :268, demoman :357, heavyweapons :419,
+    /// engineer :480, medic :570, sniper :633, spy :696); 0 is the random's
+    /// empty label (:51).</summary>
+    internal static int Hotkey(int number) => number switch
+    {
+        1 => 1, 3 => 2, 7 => 3, 4 => 4, 6 => 5, 9 => 6, 5 => 7, 2 => 8, 8 => 9,
+        _ => 0,
+    };
 
     /// <summary>The at-rest portrait (classselection.res's image_default,
     /// g_aRawPlayerClassNamesShort spelling the class).</summary>

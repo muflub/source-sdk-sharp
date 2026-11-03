@@ -86,15 +86,17 @@ public sealed class TeamStatusPanel(ITFTeamStatus status, ITFRoundTimer timer, I
     private const int SliceKeyBase = 600;
 
     // The match backdrop and the counter's centre art, in res units:
-    // hudmatchstatus.res BGFrame cs-0.5 y-5 365x28 — its 5-unit hang above
-    // the screen clipped, the border the visible frame — and
-    // hudroundcounter.res Background cs-0.5 y0, tall 35, wide o3.833 of the
-    // tall (Panel.cpp:8712), z1 under these chips' z2. The backdrop stands
-    // the art's full 35: the band label's row hangs below the BGFrame's 23
-    // (hudobjectivetimepanel.res if_match ypos 21), on the strip as the
-    // value is.
+    // hudmatchstatus.res BGFrame cs-0.5 y-5 wide 365 tall 28 (:210-228) —
+    // the top hangs 5 units above the screen's top edge and clips there, so
+    // the visible band is the tall less the hang: 28 - 5 = 23, stock's
+    // bottom near y 32 on a 720-line screen. The clock's digits stand
+    // within it; the band label's row hangs below its bottom edge over the
+    // world, with its own legibility (hudobjectivetimepanel.res if_match
+    // ypos 21). The counter's centre art, hudroundcounter.res Background
+    // cs-0.5 y0 tall 35 wide o3.833 of the tall (Panel.cpp:8712), keeps its
+    // own height at z1 under these chips' z2.
     private const float FrameWide = 365f;
-    private const float FrameTall = 35f;
+    private const float FrameTall = 23f;      // BGFrame tall 28 less its 5-unit hang
     private const float ArtTall = 35f;
     private const float ArtWide = 35f * 3.833f;
 
@@ -129,20 +131,23 @@ public sealed class TeamStatusPanel(ITFTeamStatus status, ITFRoundTimer timer, I
         }
         float frameWide = MathF.Min(FrameWide, screen.Wide);
         var frame = StockRes.Spot(new StockRect(Clamp(centre - frameWide / 2f, frameWide), top - FrameTall, frameWide, FrameTall), screen);
+        var art = StockRes.Spot(new StockRect(centre - ArtWide / 2f, top - ArtTall, ArtWide, ArtTall), screen);
         // Stock's BGFrame is its TFFatLineBorder: the hud/color_panel_brown
         // scalable image across the whole panel — 23-px source corners at 5
         // units, edges and centre stretched (clientscheme.res:3368-3378,
         // hudmatchstatus.res:210-228) — the framed band the clock's digits
-        // and these chips read over. The Surface fill and the frame line are
-        // the artless fallback alone.
+        // and these chips read over, the label row hanging below its edge.
+        // The Surface fill and the frame line are the artless fallback
+        // alone: it keeps the backdrop's full extent, so what hangs below
+        // the BGFrame's edge still reads over a Surface for the contrast
+        // rule where the art shows the world.
         if (!StockArt.Scalable(ref ui, textures, "match bg", BrownPanel,
                 frame.Left, frame.Bottom, frame.Wide, frame.Tall, SrcCorner, DrawCorner, SliceKeyBase))
         {
-            ui.Rect(Tone.Surface, Size.Du(frame.Wide), Size.Du(frame.Tall))
-                .AtRes(UiAnchor.BottomLeft, frame.Left, frame.Bottom)
+            ui.Rect(Tone.Surface, Size.Du(frame.Wide), Size.Du(art.Tall))
+                .AtRes(UiAnchor.BottomLeft, frame.Left, art.Bottom)
                 .Border(Tone.Line, 1).Layered().Key("match bg");
         }
-        var art = StockRes.Spot(new StockRect(centre - ArtWide / 2f, top - ArtTall, ArtWide, ArtTall), screen);
         StockArt.Draw(ref ui, textures, "round counter", "hud/comp_round_timer",
             art.Left, art.Bottom, art.Wide, art.Tall);
 

@@ -53,12 +53,13 @@ public static class TFKillFeedSamples
         });
 
     // A suicide: no killer, and no weapon named — the skull fallback
-    // (hud_basedeathnotice.cpp:802-807).
+    // (hud_basedeathnotice.cpp:802-807) — and the info phrase after the
+    // victim (:303-314).
     [UiSample("suicide falls to the skull")]
     private static UiScreen Suicide(UiSampleServices s) => Build(s,
         feed: new FakeKillFeed
         {
-            Lines = [new("", 0, "Pyro", Red, "", "", false, true, false)],
+            Lines = [new("", 0, "Pyro", Red, "", "", false, true, false, "#DeathMsg_Suicide")],
         });
 
     // Stock's cap: four lines, the newest last (RetireExpiredDeathNotices

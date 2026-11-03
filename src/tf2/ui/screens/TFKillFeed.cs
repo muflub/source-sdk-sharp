@@ -24,16 +24,19 @@ namespace TF2.Client.Ui;
 /// death icon (<see cref="IconFor"/>: a line the local player is in asks the
 /// inverted <c>dneg_</c> art first, hud_basedeathnotice.cpp:891-918, and a
 /// miss falls to the skull, :802-807), and the victim's name in theirs
-/// (<c>GetTeamColor</c>); a line the local player is in takes the light bar
-/// and the dark name colour (LocalBackgroundColor 245 229 196 is the scheme's
-/// TanLight — the theme's Text tone; LocalPlayerColor HUDBlack is
+/// (<c>GetTeamColor</c>); a line the local player is in takes the cream bar
+/// and the dark name colour (the bars are hudlayout.res:524-525's
+/// BaseBackgroundColor 46 43 42 and LocalBackgroundColor 245 229 196, opaque
+/// here — see below; LocalPlayerColor HUDBlack is
 /// GetInfoTextColor's local arm, tf_hud_deathnotice.cpp:1617-1625). Stock's
 /// team tones ride the translucent bars (alpha 220/200); here the bars are
 /// the opaque tones, as the core feed ruled (the theme's contrast rule), and
 /// on the light bar both names take the dark ink where stock kept the team
 /// tones at under 2:1. A crit's <c>d_crit</c> glyph rides behind the icon at
 /// its own box (hud_basedeathnotice.cpp:290-294). A suicide draws no killer
-/// — stock clears the name and keeps the weapon's icon (:513-520).
+/// — stock clears the name and keeps the weapon's icon (:513-520) — and the
+/// line's info text, the self-inflicted phrase, follows the victim
+/// (:303-314).
 /// </summary>
 public sealed class TFKillFeed(ITFKillFeed feed, IUiTextureLibrary textures) : UiScreen
 {
@@ -57,6 +60,13 @@ public sealed class TFKillFeed(ITFKillFeed feed, IUiTextureLibrary textures) : U
         public const float IconInset = 2;      // iconTallDesired = iLineTall − YRES(2) (:183)
     }
 
+    // The bars' fills, hudlayout.res:524-525 — BaseBackgroundColor 46 43 42 for
+    // a line the local player is out of, LocalBackgroundColor 245 229 196 (the
+    // cream) for one it is in; stock rides them translucent (alpha 220/200),
+    // here opaque per the core feed's contrast ruling.
+    private static readonly UiPaint BaseBar = UiPaint.FromGame(new(46, 43, 42, 255));
+    private static readonly UiPaint LocalBar = UiPaint.FromGame(new(245, 229, 196, 255));
+
     public override void Describe(ref UiFrame ui)
     {
         var f = feed;
@@ -79,7 +89,7 @@ public sealed class TFKillFeed(ITFKillFeed feed, IUiTextureLibrary textures) : U
                 var l = f.Line(i);
                 using (ui.Row(Space.XS, Align.Centre)
                            .Height(Size.Du(barTall))
-                           .Fill(l.LocalInvolved ? Tone.Text : Tone.Window)
+                           .Fill(l.LocalInvolved ? LocalBar : BaseBar)
                            .Round(Radius.L)
                            .Pad(Space.XL, Space.None)
                            .Key(i))
@@ -106,15 +116,23 @@ public sealed class TFKillFeed(ITFKillFeed feed, IUiTextureLibrary textures) : U
 
                     ui.Data(l.Victim, Text.Body, NameColour(l.VictimTeam, ink))
                         .Elide().MaxWidth(280).Name("victim");
+
+                    // The additional info text after the victim
+                    // (hud_basedeathnotice.cpp:303-314), in the info colour —
+                    // the self-inflicted death's phrase, already a token.
+                    if (l.Info.Length > 0)
+                        ui.Text(l.Info, Text.Body, ink).Name("info");
                 }
             }
         }
     }
 
-    /// <summary>GetTeamColor (hud_basedeathnotice.cpp): a red or blue name in
-    /// its team's tone, anything else in stock's white — or the dark local
-    /// ink on the line that is the local player's (the LocalPlayerColor
-    /// arm).</summary>
+    /// <summary>GetTeamColor (hud_basedeathnotice.cpp) with the contrast
+    /// ruling: a red or blue name in its team's tone off the bar, and on
+    /// the light local bar both names take the dark ink — stock keeps the
+    /// team tones there at under 2:1 against LocalBackgroundColor; the
+    /// LocalPlayerColor arm (tf_hud_deathnotice.cpp:1617-1625) is the
+    /// info text's.</summary>
     private static Tone NameColour(int team, Tone ink) =>
         team is 2 or 3 && ink == Tone.Text ? TFHudTeams.ToneOf(team) : ink;
 

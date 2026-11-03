@@ -123,6 +123,29 @@ public sealed class TFDeathNoticeTests
         Assert.Equal((100 + CombatRig.Attacker.EntryIndex, "player"), ((int)credited["attacker"], (string)credited["weapon"]));
     }
 
+    [Fact]
+    public void A_self_kill_is_stamped_the_suicide_custom_kind()
+    {
+        // CommitSuicide flags its own damage info TF_DMG_CUSTOM_SUICIDE
+        // (tf_player.cpp:10218-10224, player.cpp:5448-5458): the event
+        // carries it though no hit recorded a kind.
+        var rig = new CombatRig();
+        rig.Engine.Returns("Entities.GetClassName", "player");
+        var alone = Fill(rig, CombatRig.Victim);
+        Assert.Equal((int)TFDamageCustom.Suicide, alone["customkill"]);
+    }
+
+    [Fact]
+    public void A_world_death_keeps_whatever_its_hit_recorded()
+    {
+        // Only a self-inflicted death is the suicide kind: the world's
+        // inflictor is not the victim.
+        var rig = new CombatRig();
+        rig.Engine.Returns("Entities.GetClassName", "trigger_hurt");
+        var f = Fill(rig, EntityHandle.None, CombatRig.Third);
+        Assert.Equal((int)TFDamageCustom.None, f["customkill"]);
+    }
+
     [Theory]
     [InlineData("tf_weapon_scattergun", "scattergun")]
     [InlineData("tf_weapon_grenade_pipebomb", "pipebomb")]

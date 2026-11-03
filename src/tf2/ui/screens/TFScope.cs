@@ -96,11 +96,10 @@ public sealed class TFScope(ITFScope scope, IUiTextureLibrary? textures = null) 
         {
             using (ui.Column(Space.XS, Align.Centre).At(UiAnchor.Bottom).Inset(Space.None, Space.XXL).Key("scope charge"))
             {
-                using (ui.Row(Space.S, Align.Centre))
-                {
-                    ui.Text("#TF2_Hud_Charge", Text.Caption, Tone.Text);
-                    ui.Number((int)(scope.Charge * 100f), Text.Number, Tone.Accent).Key("percent");
-                }
+                // Stock draws only the digits and the line over the scope's
+                // bottom (:221-223), no word before them: the percent and the
+                // meter stand alone in the column.
+                ui.Number((int)(scope.Charge * 100f), Text.Number, Tone.Accent).Key("percent");
 
                 ui.Meter(ui.Animate("scope charge", scope.Charge, Motion.Standard), Tone.Accent, Size.Du(280f), 4)
                     .Key("charge meter");

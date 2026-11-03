@@ -41,6 +41,15 @@ public class TFKillFeedTests
     }
 
     [Fact]
+    public void A_suicides_info_phrase_follows_the_victim()
+    {
+        // The info text after the victim (hud_basedeathnotice.cpp:303-314);
+        // a line with none carries no info element.
+        Assert.True(HasElement("suicide-falls-to-the-skull", "info"));
+        Assert.False(HasElement("scout-rockets-a-soldier", "info"));
+    }
+
+    [Fact]
     public void The_local_players_line_asks_the_inverted_art_first()
     {
         var lib = new TFHudArtTests.RecordingLibrary { IconAnswer = Square };
@@ -121,6 +130,67 @@ public class TFKillFeedTests
         // draws no icon box.
         var ctx = Render("scout-rockets-a-soldier", new TFHudArtTests.RecordingLibrary());
         Assert.DoesNotContain(UiTestKit.Elements(ctx), e => UiTestKit.NameOf(ctx, e) == "icon box");
+    }
+
+    [Fact]
+    public void The_local_lines_names_take_the_dark_ink()
+    {
+        // The light bar's contrast ruling: both names in LocalPlayerColor's
+        // dark (tf_hud_deathnotice.cpp:1617-1625) where stock's team tones
+        // ride at under 2:1 against the cream.
+        var onAccent = SourceSharpTheme.Create().Color(Tone.OnAccent);
+        Assert.Equal(onAccent, GlyphColour("the-local-player-kills-a-spy", "killer"));
+        Assert.Equal(onAccent, GlyphColour("the-local-player-kills-a-spy", "victim"));
+    }
+
+    [Fact]
+    public void The_local_line_fills_stock_LocalBackgroundColor()
+    {
+        // hudlayout.res:525 — the cream 245 229 196 (opaque here; stock rides
+        // it at alpha 200, the core feed's contrast ruling).
+        Assert.Equal(new UiColor(245, 229, 196, 255),
+                     BarColour("the-local-player-kills-a-spy", "killer"));
+    }
+
+    [Fact]
+    public void The_plain_line_fills_stock_BaseBackgroundColor()
+    {
+        // hudlayout.res:524 — 46 43 42 (opaque here; stock rides it at 220).
+        Assert.Equal(new UiColor(46, 43, 42, 255),
+                     BarColour("backstab", "victim"));
+    }
+
+    /// <summary>The fill of the bar the named element sits on: the first
+    /// ancestor (the row, then nothing until the screen) emitting a quad.</summary>
+    private static UiColor BarColour(string slug, string name)
+    {
+        var ctx = Render(slug, new TFHudArtTests.RecordingLibrary { IconAnswer = Square });
+        var list = ctx.List.AsDrawList();
+        var elements = UiTestKit.Elements(ctx);
+        for (int i = 0; i < elements.Length; i++)
+        {
+            if (UiTestKit.NameOf(ctx, elements[i]) != name)
+                continue;
+            for (int e = i; e >= 0; e = elements[e].Parent)
+                foreach (var op in list.Ops)
+                    if (op.Kind == UiPrimitiveKind.Quad && op.Element == e)
+                        return list.Quads[op.Index].Color;
+        }
+        throw new InvalidOperationException($"no quad above {name} in {slug}");
+    }
+
+    /// <summary>The first glyph run's colour on the named element.</summary>
+    private static UiColor GlyphColour(string slug, string name)
+    {
+        var ctx = Render(slug, new TFHudArtTests.RecordingLibrary { IconAnswer = Square });
+        var list = ctx.List.AsDrawList();
+        var elements = UiTestKit.Elements(ctx);
+        for (int i = 0; i < elements.Length; i++)
+            if (UiTestKit.NameOf(ctx, elements[i]) == name)
+                foreach (var op in list.Ops)
+                    if (op.Kind == UiPrimitiveKind.GlyphRun && op.Element == i)
+                        return list.GlyphRuns[op.Index].Color;
+        throw new InvalidOperationException($"no glyph run on {name} in {slug}");
     }
 
     /// <summary>The named element's rect on a single-line sample.</summary>

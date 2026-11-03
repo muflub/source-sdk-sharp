@@ -17,6 +17,9 @@ public static class TFSpectatorGuiSamples
     {
         s.Add<IObserverSource>(observer ?? new FakeObserver());
         s.Add<ITFLocalPlayer>(local ?? new FakeLocalPlayer());
+        // The label's %s1 is the display name (stock's GetMapDisplayName);
+        // the fakes fix it to 2Fort the way the map-info source answers.
+        s.Add<ITFMapInfoSource>(new FakeTFMapInfoSource { MapName = "2Fort" });
         s.Add<IUiLocalisation>(localise ?? new RespawnLocalise());
         s.Add<IUiKeyBindingStore>(keys ?? new SampleKeys()
             .With("F1", "changeclass").With("F2", "changeteam")
