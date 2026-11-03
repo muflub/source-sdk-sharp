@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The HL2MP server binding of the AI core (docs/plans/plan_hl2mp_ai.md §1.3):
+    a mod assembly, listed in mods.yaml's test mod, under the mod analyzers
+    (SS0010-SS0013: the core reached only by injection) and the static-state
+    one (Directory.Build.props).
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="SourceSharp.Ai.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\..\server\managed\SourceSharp.Server.csproj" />
+  </ItemGroup>
+</Project>

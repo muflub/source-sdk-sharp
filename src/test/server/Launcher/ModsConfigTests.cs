@@ -243,7 +243,8 @@ public class ModsConfigTests
         var config = ModsConfig.Load(RepoLayout.Repo("game", "mods.yaml"));
         var mod = config.Select(null);
         Assert.Equal("test", mod.Id);
-        Assert.Equal(["SourceSharp.Server"], mod.ServerAssemblies);
+        // HL2MP's AI binding is a mod assembly beside the core (plan_hl2mp_ai §1.3).
+        Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Hl2mp"], mod.ServerAssemblies);
         Assert.Equal(["SourceSharp.Client"], mod.ClientAssemblies);
     }
 
@@ -385,7 +386,8 @@ public class ModsConfigTests
         // launch skips the intro video (EveryRepositoryModsClientSkipsTheIntroVideo).
         Assert.Equal(["-novid"], test.Client.Args);
         Assert.Empty(test.Client.Env);
-        Assert.Equal(["SourceSharp.Server"], test.ServerAssemblies);
+        // The second deliberate change: the HL2MP AI binding (plan_hl2mp_ai §1.3).
+        Assert.Equal(["SourceSharp.Server", "SourceSharp.Ai.Hl2mp"], test.ServerAssemblies);
         Assert.Equal(["SourceSharp.Client"], test.ClientAssemblies);
         Assert.Equal(Full(System.IO.Path.Combine(dir, "mods/test/bin/managed")), test.ManagedDir);
     }

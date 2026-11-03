@@ -77,6 +77,7 @@ MANAGED = collections.OrderedDict([
     ('managed-client', 'tests-client/SourceSharp.Client.Tests.dll'),
     ('tf2_descent', 'tf2_descent-tests/TF2.Descent.Tests.dll'),
     ('tf2', 'tf2-tests/TF2.Tests.dll'),
+    ('ai', 'ai-tests/SourceSharp.Ai.Tests.dll'),
 ])
 NATIVE = 'native'
 LEGS = list(MANAGED) + [NATIVE]

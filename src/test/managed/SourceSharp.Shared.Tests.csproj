@@ -42,6 +42,8 @@
     <ProjectReference Include="..\..\debug_api_shared\Debug.Api.Shared.csproj" />
     <ProjectReference Include="..\..\mapgen\SourceSharp.MapGen.csproj" />
     <ProjectReference Include="..\..\mods\SourceSharp.Mods.csproj" />
+    <!-- The static-state census covers the AI's assemblies (plan_hl2mp_ai §1.3). -->
+    <ProjectReference Include="..\..\ai\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
     <ProjectReference Include="..\..\launcher\SourceSharp.Launcher.csproj" />
     <ProjectReference Include="..\..\host\managed\SourceSharp.Bootstrap.csproj" />
 

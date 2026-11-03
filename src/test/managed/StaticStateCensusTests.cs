@@ -74,6 +74,10 @@ public class StaticStateCensusTests
         // leak the old context; they hold none.
         Assembly.Load("SourceSharp.Client.Ui.Toolkit"),
         Assembly.Load("SourceSharp.Client.Ui"),
+        // plan_hl2mp_ai §1.3: the AI core (worker threads read it, so a static
+        // would be shared between brains) and its HL2MP server binding.
+        Assembly.Load("SourceSharp.Ai"),
+        Assembly.Load("SourceSharp.Ai.Hl2mp"),
     };
 
     private static bool IsConstantType(Type t)

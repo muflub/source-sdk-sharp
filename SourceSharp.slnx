@@ -37,4 +37,7 @@
   <Project Path="src/tools/StockAb/SourceSharp.StockAb.csproj" />
   <Project Path="src/debug_api/interfaces/Debug.Api.Server.Interfaces.csproj" />
   <Project Path="src/debug_api_client/interfaces/Debug.Api.Client.Interfaces.csproj" />
+  <Project Path="src/ai/core/SourceSharp.Ai.csproj" />
+  <Project Path="src/ai/hl2mp/server/SourceSharp.Ai.Hl2mp.csproj" />
+  <Project Path="src/ai/tests/SourceSharp.Ai.Tests.csproj" />
 </Solution>

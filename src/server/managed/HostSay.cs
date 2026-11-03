@@ -89,14 +89,7 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
                 if (entity is not SsPlayer listener || listener.Handle == speaker)
                     continue;
 
-                // say_team: GR_TEAMMATE only, and HL2MP without teamplay has no teammates.
-                if (teamOnly && !Teammates(listener.Handle, speaker))
-                    continue;
-
-                // Stock's per-listener stage (client.cpp:387): the listener's
-                // CanHearAndReadChatFrom. Nobody registered vetoes nobody, the
-                // base player's plain true (player.h:699).
-                if (_audience is { } audience && audience.All.Any(a => !a.CanHear(listener.Handle, speaker)))
+                if (!CanHear(listener.Handle, speaker, teamOnly))
                     continue;
 
                 sent += Send(entities.GetIndex(listener.Handle), speakerIndex, format!, name, text) ? 1 : 0;
@@ -125,6 +118,23 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
             events.EventSetInt(e, "priority", 1);
             events.EventFire(e);
         }
+    }
+
+    /// <summary>
+    /// Whether <paramref name="listener"/> would be sent a line
+    /// <paramref name="speaker"/> says: the relay's own rule, for whoever acts
+    /// on a line in a player's place and must hear only what that player would.
+    /// </summary>
+    public bool CanHear(EntityHandle listener, EntityHandle speaker, bool teamOnly)
+    {
+        // say_team: GR_TEAMMATE only, and HL2MP without teamplay has no teammates.
+        if (teamOnly && !Teammates(listener, speaker))
+            return false;
+
+        // Stock's per-listener stage (client.cpp:387): the listener's
+        // CanHearAndReadChatFrom. Nobody registered vetoes nobody, the
+        // base player's plain true (player.h:699).
+        return _audience is not { } audience || audience.All.All(a => a.CanHear(listener, speaker));
     }
 
     private bool Send(int to, int from, string format, string name, string text)

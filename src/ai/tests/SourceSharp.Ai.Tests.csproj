@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The AI's facts (docs/plans/plan_hl2mp_ai.md §8.1): their own project and
+       their own leg, `ai`, as the TF2 mod's are. -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <OutputPath>$(RepoRoot)bin/$(SourceSharpConfig)/ai-tests/</OutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\core\SourceSharp.Ai.csproj" />
+    <ProjectReference Include="..\hl2mp\server\SourceSharp.Ai.Hl2mp.csproj" />
+    <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
+    <ProjectReference Include="..\..\server\managed\SourceSharp.Server.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- So facts can find the repository the way the core tests do. -->
+    <Compile Include="..\..\test\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
+  </ItemGroup>
+</Project>

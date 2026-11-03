@@ -1765,6 +1765,39 @@ that code when M1 starts, and changes nothing here.
 - The decide tick, not the thread, fixes a step's inputs (§2.6).
 - `.airec`/`.navgraph` are our own binary formats, versioned, length-prefixed;
   profiles are JSON with `format: 1`.
+- **The zero-native fact reads per AI commit, not `base..HEAD`** (found in
+  Phase 1, 2026-11-01): §3.3's `git diff --stat <plan base>..HEAD` over the
+  native dirs holds only while the lane is alone; once it lands, main's other
+  lanes change native code after the base and the fact would go red for work
+  that is not the AI's. `ZeroNativeTests` (src/ai/tests/Boundary) takes an
+  AI commit to be one in `1ca008249..HEAD` that touches `src/ai/` (and the
+  uncommitted tree, when it does), and holds both rules over those: no native
+  path, and no `docs/native-symbols.tsv` row beyond the three §3.1 slots.
+  `tools/ai-mutations` arms `native-line` and `native-symbol` turn it red.
+- **The derivation reads the file through `INavSource`** (Phase 2,
+  2026-11-01): `NavGraphFromNav3d` (src/ai/hl2mp/server/Nav) is pure over a
+  small interface shaped on §1.1's description of `Nav3dReader` (leaves with
+  floor, walkable, water, ladder, cost; `Standable`; `Neighbours`; `StepUp`;
+  `Jumps`; obstacles and their leaves), so it and its facts landed before the
+  `SourceSharp.MapFormats` package; the adapter over the real reader, and the
+  facts over a `Nav3dWriter` fixture, land with the package (step 2, M0).
+  The thresholds come from the movement code (`Hl2mpNavNumbers.Stock`:
+  step 18, jump rise 21 + 18 = 39, the file's 56, safe drop
+  526.5² / (2 × 600) ≈ 231 u).
+- **The funnel alone does not straighten a grid path** (Phase 2,
+  2026-11-01; §2.3, §3.4.3 assumed funnel + Catmull-Rom was enough): on a
+  4-connected grid many cell paths tie for cheapest, and A* or a flow field
+  returns one that runs along a side, so the funnel through it bends (11° on
+  a 3 × 12 corridor). `PathSmoother.Shortcut` cuts walked corners where
+  `NavGraph.WalkableLine` says a straight line is walkable (each crossed cell
+  admits the class and is reached by a passable Walk/Door edge); forced
+  corners (jump, drop, ladder) are kept. The heading fact holds after it.
+- **Two §1.1 citations are off at this base** (the movement row): `sv_stepsize`
+  is `src/server/managed/MoveVars.cs:250` (not under `src/shared/interop/`),
+  and `StockJumpHeight` is `GameMovement.StockJumpHeight`,
+  `src/shared/interop/Movement.cs:567` (not :504). The derivation reads the
+  numbers from `SourceSharp.Shared.Movement.Current` and
+  `MoveMath.PlayerMaxSafeFallSpeed` instead of restating them.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

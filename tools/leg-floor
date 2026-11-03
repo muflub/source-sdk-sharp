@@ -503,6 +503,12 @@ def floor_tf2():
     return _floor_dotnet('src/tf2/tests')
 
 
+def floor_ai():
+    """The AI's facts (src/ai/tests, plan_hl2mp_ai §8.1): the same counting
+    rule as the managed leg, over that project alone."""
+    return _floor_dotnet('src/ai/tests')
+
+
 def floor_oracle_native():
     """The oracle leg's native half alone; see floor_oracle_managed."""
     return [f for f in floor_oracle() if f[0] == 'gtest-binaries']
@@ -558,6 +564,7 @@ LEGS = {
     'managed-client': floor_managed_client,
     'tf2_descent': floor_descent,
     'tf2': floor_tf2,
+    'ai': floor_ai,
     'native': floor_native,
     'census': floor_census,
     'oracle': floor_oracle,
@@ -633,7 +640,7 @@ def _register_tiers():
     """-fast for every tiered leg; -slow for those the list names something
     in. A list that does not parse registers the -fast legs anyway, which then
     refuse with the reason."""
-    managed = ('managed', 'managed-server', 'managed-client', 'tf2_descent', 'tf2')
+    managed = ('managed', 'managed-server', 'managed-client', 'tf2_descent', 'tf2', 'ai')
     try:
         tiers = _test_tiers()
         rows = tiers.load()

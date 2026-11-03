@@ -48,6 +48,10 @@ defaults:
 mods:
   test:
     title: SourceSharp test mod
+    # HL2MP is the core itself; its AI binding is a mod assembly beside it
+    # (docs/plans/plan_hl2mp_ai.md §1.3). A mod restates the whole list.
+    assemblies:
+      server: [SourceSharp.Server, SourceSharp.Ai.Hl2mp]
   # Stock TF2 logic ported to SourceSharp, on TF2's content.
   tf2:
     title: TF2

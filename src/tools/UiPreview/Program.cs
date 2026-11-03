@@ -16,9 +16,12 @@ using SourceSharp.UiPreview;
 //                 HUD art from what its gameinfo.txt mounts (VPKs too), to
 //                 ui-preview/ID
 //   --quiet       no summary line
+//   --live        answer live mock-up requests (UiLive), one JSON line in and
+//                 one out on stdin/stdout, until stdin closes: tools/ui-preview
+//                 --watch serves them to the web UI's Mockups tab
 
 string? root = null, outDir = null, only = null, content = null, mod = null;
-bool png = false, quiet = false, lint = false, docs = false, icons = false;
+bool png = false, quiet = false, lint = false, docs = false, icons = false, live = false;
 for (int i = 0; i < args.Length; i++)
 {
     switch (args[i])
@@ -33,6 +36,7 @@ for (int i = 0; i < args.Length; i++)
         case "--lint": lint = true; break;
         case "--docs": docs = true; break;
         case "--icons": icons = true; break;
+        case "--live": live = true; break;
         default:
             Console.Error.WriteLine($"ui-preview: unknown argument {args[i]}");
             return 2;
@@ -55,7 +59,9 @@ if (modDir is not null && !File.Exists(Path.Combine(modDir, "gameinfo.txt")))
     return 2;
 }
 var options = new PreviewOptions(root, outDir, png, quiet, only, content, modDir);
-if (modDir is not null && !quiet && options.Files() is { } files)
+if (modDir is not null && !quiet && !live && options.Files() is { } files)
     foreach (string mount in files.Mounted)
         Console.WriteLine($"ui-preview: --mod {mod} mounts {mount}");
+if (live)
+    return LiveRun.Serve(options, Console.In, Console.Out);
 return docs ? DocExamples.Write(options) : lint ? LintRun.Run(options) : new PreviewRun(options).Run();

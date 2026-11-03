@@ -82,6 +82,28 @@ public class HostSayTests
         Assert.Equal(new[] { "alice", "hello there", "", "" }, m.Params);
     }
 
+    /// <summary>The relay's rule as whoever acts in a player's place asks it: general chat is heard, and say_team without teamplay is not.</summary>
+    [Fact]
+    public void CanHear_answers_the_relays_own_rule()
+    {
+        var (chat, _, _) = Rig();
+        Assert.True(chat.CanHear(Bob, Alice, teamOnly: false));
+        Assert.False(chat.CanHear(Bob, Alice, teamOnly: true));
+    }
+
+    /// <summary>A listener the audience vetoes (TF2's dead talk) does not hear general chat either.</summary>
+    [Fact]
+    public void CanHear_follows_the_audiences_veto()
+    {
+        var (chat, _, _) = Rig(new DeafAudience());
+        Assert.False(chat.CanHear(Bob, Alice, teamOnly: false));
+    }
+
+    private sealed class DeafAudience : IChatAudience
+    {
+        public bool CanHear(EntityHandle listener, EntityHandle speaker) => false;
+    }
+
     [Fact]
     public void Say_team_without_teamplay_reaches_only_the_sender()
     {

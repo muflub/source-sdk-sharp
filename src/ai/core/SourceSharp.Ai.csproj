@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The generic AI core (docs/plans/plan_hl2mp_ai.md §1.3): BCL only. It never
+    references SourceSharp.Abi, SourceSharp.Server, an *.Interop assembly or
+    Debug.Api.*: a bot perceives only what its binding hands it, so the core
+    cannot name the engine at all. NoEngineReferenceTests holds that over the
+    built assembly, and tools/ai-mutations shows that fact go red.
+  -->
+</Project>

@@ -101,6 +101,12 @@ public sealed class PreviewRun
 
     private readonly IUiFontMetrics _metrics;
 
+    /// <summary>The faces the run draws with: the toolkit's and the mod's.</summary>
+    public UiFontLibrary Fonts => _fonts;
+
+    /// <summary>The metrics the run lays out with: the game's recorded ones, the faces for the rest.</summary>
+    public IUiFontMetrics Metrics => _metrics;
+
     /// <summary>The HUD art a run with game files decodes, handed to every backend it draws with.</summary>
     private readonly PreviewTextures? _hudArt;
     private readonly PreviewUiTextureLibrary? _hudLibrary;
@@ -322,20 +328,7 @@ public sealed class PreviewRun
     }
 
     /// <summary>Every element of the last frame: what the inspector shows on hover.</summary>
-    public static string ElementsJson(UiContext ctx)
-    {
-        var list = ctx.List.AsDrawList();
-        var sb = new StringBuilder("[\n");
-        for (int i = 0; i < list.Elements.Length; i++)
-        {
-            var e = list.Elements[i];
-            string name = new(list.Text.Slice(e.NameStart, e.NameLength));
-            sb.Append(CultureInfo.InvariantCulture,
-                $"{{\"i\":{i},\"id\":{e.Id},\"parent\":{e.Parent},\"kind\":\"{e.Kind}\",\"name\":{JsonSerializer.Serialize(name)},\"x\":{e.Rect.X},\"y\":{e.Rect.Y},\"w\":{e.Rect.W},\"h\":{e.Rect.H},\"flags\":\"{e.Flags}\"}}");
-            sb.Append(i + 1 < list.Elements.Length ? ",\n" : "\n");
-        }
-        return sb.Append(']').ToString();
-    }
+    public static string ElementsJson(UiContext ctx) => UiLive.ElementsJson(ctx);
 
     /// <summary>The union of everything a part drew (not its full-screen root or overlay layers), padded.</summary>
     private static SKRect PartBounds(UiContext ctx, int w, int h, float pad)

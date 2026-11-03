@@ -1,0 +1,239 @@
+#!/usr/bin/env python3
+"""Mutation-verify the AI's facts (docs/plans/plan_hl2mp_ai.md §8.2).
+
+Each arm breaks one subject -- the core's references, the core's names, the
+lane's native diff, a rule of the core -- rebuilds the AI's test project,
+runs the facts that hold that subject, and requires them to go RED. Then the
+arm is restored and, after every arm, the same facts must be GREEN again.
+
+  tools/ai-mutations                 every arm
+  tools/ai-mutations no-abi decide   the arms named
+  tools/ai-mutations --list          the arms
+
+Snapshot with a copy, restore from it with a FRESH mtime (never
+`git checkout --`, never a copy that keeps the old mtime: MSBuild would skip
+the rebuild and the next run would re-execute the mutant). Each arm proves
+the mutation landed (the file's hash changed) and that the rebuild happened
+(the test assembly's hash changed), and restores in a `finally`.
+"""
+import hashlib
+import re
+import os
+import subprocess
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DOTNET = os.environ.get("DOTNET", os.path.expanduser("~/.dotnet/dotnet"))
+PROJECT = os.path.join(ROOT, "src", "ai", "tests", "SourceSharp.Ai.Tests.csproj")
+DLL = os.path.join(ROOT, "bin", "debug", "ai-tests", "SourceSharp.Ai.Tests.dll")
+# The AI's assemblies as the test run loads them: a mutant must change one.
+BUILT = [os.path.join(ROOT, "bin", "debug", "ai-tests", n) for n in ("SourceSharp.Ai.dll", "SourceSharp.Ai.Hl2mp.dll")]
+
+
+def built_digest():
+    return [digest(p) for p in BUILT]
+
+
+def path(rel):
+    return os.path.join(ROOT, rel)
+
+
+def digest(p):
+    with open(p, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def build():
+    p = subprocess.run([DOTNET, "build", PROJECT, "-v", "q", "--nologo", "-c", "Debug"],
+                       cwd=ROOT, capture_output=True, text=True)
+    if p.returncode != 0:
+        tail = "\n".join(l for l in p.stdout.splitlines() if "error" in l)[:2000]
+        raise SystemExit("ai-mutations: the build failed:\n" + tail)
+
+
+def run(filt):
+    """(failed, passed) of the facts the filter names; a run that ran none is an error."""
+    p = subprocess.run([DOTNET, "test", DLL, "--nologo", "--filter", filt],
+                       cwd=ROOT, capture_output=True, text=True)
+    m = re.search(r"Failed:\s*(\d+), Passed:\s*(\d+)", p.stdout)
+    failed, passed = (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+    if failed + passed == 0:
+        raise SystemExit("ai-mutations: filter %r ran no fact:\n%s" % (filt, p.stdout[-1500:]))
+    return failed, passed
+
+
+class Edit:
+    """Replace `old` with `new` in a file (old must occur once), or append, or create."""
+
+    def __init__(self, rel, old=None, new="", create=False):
+        self.rel, self.old, self.new, self.create = rel, old, new, create
+
+    def apply(self):
+        p = path(self.rel)
+        if self.create:
+            assert not os.path.exists(p), "%s already exists" % self.rel
+            with open(p, "w") as f:
+                f.write(self.new)
+            self.original = None
+            return
+        with open(p) as f:
+            self.original = f.read()
+        self.mode = os.stat(p).st_mode
+        before = digest(p)
+        if self.old is None:
+            text = self.original + self.new
+        else:
+            assert self.original.count(self.old) == 1, "%s: the needle occurs %d times" % (self.rel, self.original.count(self.old))
+            text = self.original.replace(self.old, self.new)
+        with open(p, "w") as f:
+            f.write(text)
+        os.utime(p, None)
+        assert digest(p) != before, "the mutation changed nothing in %s" % self.rel
+
+    def restore(self):
+        p = path(self.rel)
+        if self.create:
+            if os.path.exists(p):
+                os.remove(p)
+            return
+        if getattr(self, "original", None) is None:
+            return
+        with open(p, "w") as f:
+            f.write(self.original)
+        os.utime(p, None)
+        os.chmod(p, self.mode)
+
+
+TOUCH_AI = Edit("src/ai/core/Brain/Brain.cs", None, "// ai-mutations: an AI edit beside the mutant\n")
+
+ARMS = {
+    "no-abi": ("the core references SourceSharp.Abi",
+               [Edit("src/ai/core/SourceSharp.Ai.csproj", "</Project>",
+                     '  <ItemGroup><ProjectReference Include="..\\..\\abi\\SourceSharp.Abi.csproj" /></ItemGroup>\n</Project>'),
+                Edit("src/ai/core/AiMutantAbi.cs", new="namespace SourceSharp.Ai;\n\ninternal static class AiMutantAbi\n{\n"
+                     "    internal static Type Handle => typeof(SourceSharp.Abi.EntityHandle);\n}\n", create=True)],
+               "FullyQualifiedName~CoreReferenceTests.TheCoreReferencesNothingButTheFramework", True),
+    "mod-name": ("the core carries an HL2MP string",
+                 [Edit("src/ai/core/AiMutantName.cs", new="namespace SourceSharp.Ai;\n\ninternal static class AiMutantName\n{\n"
+                       "    internal static string Name() => \"hl2mp_bot\";\n}\n", create=True)],
+                 "FullyQualifiedName~CoreReferenceTests.TheCoreNamesNoMod", True),
+    "native-line": ("an AI change adds a line to a server .cpp",
+                    [Edit("src/server/native/shell_frame.cpp", None, "// ai-mutations: a hand-written native line\n"), TOUCH_AI],
+                    "FullyQualifiedName~ZeroNativeTests.NoAiChangeTouchesNativeCode", False),
+    "native-symbol": ("an AI change adds a fourth native symbol",
+                      [Edit("docs/native-symbols.tsv", None, "server_sourcesharp\tsrc/server/native/shell_frame.cpp\tAiMutantFunction()\n"), TOUCH_AI],
+                      "FullyQualifiedName~ZeroNativeTests.NoAiChangeAddsANativeSymbolBeyondTheRuledRows", False),
+    "unsighted": ("PerceivedView answers for any actor",
+                  [Edit("src/ai/core/Snapshot/PerceivedView.cs", "if (f.Id == id)", "if (f.Id.IsValid)")],
+                  "FullyQualifiedName~PerceivedViewTests.AnUnsightedActorIsNotReadable", True),
+    "actor-clip": ("ActorFacts gains a clip",
+                   [Edit("src/ai/core/Snapshot/PerceivedView.cs", "    float VisibleFraction);",
+                         "    float VisibleFraction)\n{\n    public int Clip => 0;\n}")],
+                   "FullyQualifiedName~PerceivedViewTests.ActorFactsCarryNoHealthClipOrReserve", True),
+    "decide": ("the decide rule is off by one",
+               [Edit("src/ai/core/Brain/DecideSchedule.cs", "return ((long)tick.Value + slot) % period == 0;", "return ((long)tick.Value + slot) % period == 1;")],
+               "FullyQualifiedName~DecideScheduleTests", True),
+    "ring": ("the ring answers whatever tick holds the slot",
+             [Edit("src/ai/core/Snapshot/AiSnapshot.cs", "return snapshot.Published && snapshot.Tick == tick;", "return snapshot.Published;")],
+             "FullyQualifiedName~SnapshotRingTests.ATickEightTicksOldHasLeftTheRing", True),
+    "replay-compare": ("the replay calls any stream identical",
+                       [Edit("src/ai/core/Record/AiReplayer.cs", "public bool Identical => RecordedIntents.AsSpan().SequenceEqual(ReplayedIntents);",
+                             "public bool Identical => true;")],
+                       "FullyQualifiedName~ReplayTests.AChangedRecordedIntentIsNotIdentical", True),
+    "carry-events": ("a skipped step loses its events",
+                     [Edit("src/ai/core/Transport/AiSession.cs", "            bot.Pending.InsertRange(0, job.Events);\n", "")],
+                     "FullyQualifiedName~AiSessionTests.ASkippedStepsEventsWaitForTheNextStep", True),
+    "pool-sum": ("the pool lets a profile overspend",
+                 [Edit("src/ai/core/Skills/SkillPool.cs", "        if (spent > Points)\n", "        if (spent > Points * 2)\n")],
+                 "FullyQualifiedName~SkillPoolTests.AnOverspendIsRefusedWithTheSum", True),
+    "skill-cap": ("the pool lets a skill past the cap",
+                  [Edit("src/ai/core/Skills/SkillPool.cs", "            if (level > Cap)\n", "            if (level > Cap + 1)\n")],
+                  "FullyQualifiedName~SkillPoolTests.ALevelAboveTheCapIsRefusedNamingTheSkill", True),
+    "redo-clear": ("a new edit keeps the redo list",
+                   [Edit("src/ai/core/Skills/EditHistory.cs", "        _redo.Clear();\n", "")],
+                   "FullyQualifiedName~EditHistoryTests.ANewEditClearsRedo", True),
+    "undo-depth": ("the undo ring forgets nothing",
+                   [Edit("src/ai/core/Skills/EditHistory.cs", "        if (_undo.Count > UndoDepth)\n            _undo.RemoveFirst();\n", "")],
+                   "FullyQualifiedName~EditHistoryTests.UndoReachesBackSixtyFourEdits", True),
+    "nav-mesh-name": ("the core gains a NavMesh-named type",
+                      [Edit("src/ai/core/AiMutantNavMesh.cs", new="namespace SourceSharp.Ai;\n\ninternal sealed class StockNavMeshMutant;\n", create=True)],
+                      "FullyQualifiedName~NoStockNavTests.TheCoreNamesNoStockNavType", True),
+    "funnel": ("the funnel is skipped: a path is its cell centres",
+               [Edit("src/ai/core/Nav/PathSmoother.cs", "                portals.Add(Orient(a.Centre, b.Centre, p, q));", "                portals.Add((b.Centre, b.Centre));")],
+               "FullyQualifiedName~PathSmootherTests.AnLCorridorBendsOnceAtItsInnerCorner", True),
+    "shortcut": ("corners are never cut",
+                 [Edit("src/ai/core/Nav/PathSmoother.cs", "        if (corners.Count < 3)\n            return;\n        var kept", "        if (corners.Count > 0)\n            return;\n        var kept")],
+                 "FullyQualifiedName~PathSmootherTests.AStraightCorridorTurnsNoMoreThanFiveDegrees", True),
+    "shortcut-wall": ("a straight line is walkable through walls",
+                      [Edit("src/ai/core/Nav/NavGraph.cs", "            if (next < 0)\n                return false;\n            at = next;", "            if (next < 0)\n                return true;\n            at = next;")],
+                      "FullyQualifiedName~PathSmootherTests.AShortcutStopsAtAWall", True),
+    "crouch-cells": ("a stand path may cross a crouch-only cell",
+                     [Edit("src/ai/core/Nav/NavGraph.cs", "        => _cells[e.From].Admits(cls) && _cells[e.To].Admits(cls) && (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle));",
+                           "        => (e.Obstacle < 0 || !obstacles.Blocking(e.Obstacle));")],
+                     "FullyQualifiedName~FlowFieldTests.AStandFieldNeverRoutesThroughACrouchOnlyCell", True),
+    "door-cost": ("a door's wait is not added",
+                  [Edit("src/ai/core/Nav/NavGraph.cs", "* (a.CostMultiplier + b.CostMultiplier) * 0.5f + extraCost;", "* (a.CostMultiplier + b.CostMultiplier) * 0.5f;")],
+                  "FullyQualifiedName~FlowFieldTests.ADoorCosts", True),
+    "jump-split": ("the derivation calls a crouch jump a jump",
+                   [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "                else if (rise <= n.MaxJumpRise)", "                else if (rise <= n.MaxCrouchJumpRise)")],
+                   "FullyQualifiedName~NavGraphFromNav3dTests.AFiftyUnitLedgeIsACrouchJumpUp", True),
+    "door-edge": ("the derivation walks through doors",
+                  [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "door >= 0 ? NavEdgeType.Door : NavEdgeType.Walk", "NavEdgeType.Walk")],
+                  "FullyQualifiedName~NavGraphFromNav3dTests.ADoorsLeafIsReachedByADoorEdgeOfItsObstacle", True),
+    "crouch-class": ("the derivation lets a standing body under a low ceiling",
+                     [Edit("src/ai/hl2mp/server/Nav/NavGraphFromNav3d.cs", "n.HullWidth, n.StandHeight, shut: false)", "n.HullWidth, n.CrouchHeight, shut: false)")],
+                     "FullyQualifiedName~NavGraphFromNav3dTests.AFortyUnitCeilingIsACrouchOnlyCell", True),
+}
+
+
+def main(argv):
+    if "--list" in argv:
+        for name, (what, _e, _f, _b) in ARMS.items():
+            print("%-16s %s" % (name, what))
+        return 0
+    names = [a for a in argv if not a.startswith("-")] or list(ARMS)
+    unknown = [n for n in names if n not in ARMS]
+    if unknown:
+        raise SystemExit("ai-mutations: no arm %s (--list)" % ", ".join(unknown))
+
+    build()
+    for name in names:
+        failed, passed = run(ARMS[name][2])
+        if failed:
+            raise SystemExit("ai-mutations: %s's facts are red before the mutation (%d failed)" % (name, failed))
+
+    bad = []
+    for name in names:
+        what, edits, filt, rebuild = ARMS[name]
+        built_before = built_digest()
+        try:
+            for e in edits:
+                e.apply()
+            if rebuild:
+                build()
+                if built_digest() == built_before:
+                    raise SystemExit("ai-mutations: %s: no AI assembly changed, so no rebuild took effect" % name)
+            failed, passed = run(filt)
+        finally:
+            for e in reversed(edits):
+                e.restore()
+        verdict = "RED" if failed else "green"
+        print("%-16s %-5s %d failed, %d passed  (%s)" % (name, verdict, failed, passed, what))
+        if not failed:
+            bad.append(name)
+
+    build()
+    for name in names:
+        failed, _ = run(ARMS[name][2])
+        if failed:
+            bad.append(name + " (still red after restore)")
+
+    if bad:
+        print("ai-mutations: NOT red: %s" % ", ".join(bad))
+        return 1
+    print("ai-mutations: %d arm(s), every one red, every one green again after restore" % len(names))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

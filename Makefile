@@ -240,7 +240,7 @@ HOST_PACKAGES := $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Contracts.1.0.0.nupkg \
                  $(HOST_ROOT)/bin/nupkg/SourceSharp.Host.Sdk.2.6.0.nupkg
 
 PHONY_LOADPROF := loadprof loadprof-probe
-PHONY_TESTS := managed-test managed-legs descent-test tf2-test
+PHONY_TESTS := managed-test managed-legs descent-test tf2-test ai-test
 .PHONY: $(PHONY_LOADPROF) $(PHONY_TESTS) host-pack windows-cross dedicated join town mod-image local-hosted help setup debug release ci-build run run-snapshot run-debug headless run-release test test-fast test-slow managed-legs-fast managed-legs-slow cpp-test-slow test-full test-public cpp-test census-test oracle-test check check-public clean clean-sockets \        ui ui-watch ui-test ui-preview ui-icons ui-lint node map sandbox live-gate client-only-gate movemath-gate \
         sdk-census
 
@@ -732,6 +732,8 @@ ORACLE_MANAGED_TEST = $(DOTNET) test src/test/oracle/managed --nologo
 DESCENT_TEST  = $(DOTNET) test src/tf2_descent/tests --nologo
 # The TF2 mod's facts (src/tf2/tests, stage0_core_seams 0.1): their own project.
 TF2_TEST      = $(DOTNET) test src/tf2/tests --nologo
+# The AI's facts (src/ai/tests, plan_hl2mp_ai §8.1): their own project.
+AI_TEST       = $(DOTNET) test src/ai/tests --nologo
 ORACLE_NATIVE_TEST  = $(FARM)/src/buildcpptests --oracle
 # THE MANAGED LEGS RUN THE BUILT ASSEMBLIES. `dotnet test <project>` walks
 # MSBuild's whole up-to-date graph first: 5.5 s for the client project's 999
@@ -749,6 +751,7 @@ SERVER_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-server/SourceSharp.Server.Test
 CLIENT_LEG    = $(DOTNET) test $(TEST_DLLS)/tests-client/SourceSharp.Client.Tests.dll --nologo
 DESCENT_LEG   = $(DOTNET) test $(TEST_DLLS)/tf2_descent-tests/TF2.Descent.Tests.dll --nologo
 TF2_LEG       = $(DOTNET) test $(TEST_DLLS)/tf2-tests/TF2.Tests.dll --nologo
+AI_LEG        = $(DOTNET) test $(TEST_DLLS)/ai-tests/SourceSharp.Ai.Tests.dll --nologo
 ORACLE_MANAGED_LEG = $(DOTNET) test $(TEST_DLLS)/oracle-tests/SourceSharp.OracleTests.dll --nologo
 # The census tier (ss_census() in src/test/native/CMakeLists.txt): make test-full only.
 CENSUS_TEST   = $(FARM)/src/buildcpptests --census
@@ -869,7 +872,8 @@ MANAGED_TEST_LEGS = \
     'managed-server:tools/leg-floor managed-server && $(SERVER_LEG)' \
     'managed-client:tools/leg-floor managed-client && $(CLIENT_LEG)' \
     'tf2_descent:tools/leg-floor tf2_descent && $(DESCENT_LEG)' \
-    'tf2:tools/leg-floor tf2 && $(TF2_LEG)'
+    'tf2:tools/leg-floor tf2 && $(TF2_LEG)' \
+    'ai:tools/leg-floor ai && $(AI_LEG)'
 CHECK_MANAGED ?= 1
 # NATIVE_TIER=fast runs the native leg's fast tier in place of the whole leg
 # (tools/test-tiers); CI's linux-check does, and linux-native-slow runs the
@@ -891,7 +895,7 @@ test: ui
 	@$(TEST_BUILD)
 	@tools/run-test-legs $(TEST_LEGS)
 
-# Only the managed legs (managed, managed-server, managed-client, tf2_descent, tf2):
+# Only the managed legs (managed, managed-server, managed-client, tf2_descent, tf2, ai):
 # the test assemblies built and run, no native build. Their CMake-graph facts
 # read farm/debug/build, so that tree must be configured (not built) first;
 # the launcher and mod-image facts run bin/debug/source#, so the launcher is
@@ -1021,6 +1025,10 @@ descent-test:
 # The TF2 facts alone (the tf2 leg of `make test`), FILTER as above.
 tf2-test:
 	@$(TF2_TEST) $(if $(FILTER),--filter '$(FILTER)' -- RunConfiguration.TreatNoTestsAsError=true)
+
+# The AI facts alone (the ai leg of `make test`), FILTER as above.
+ai-test:
+	@$(AI_TEST) $(if $(FILTER),--filter '$(FILTER)' -- RunConfiguration.TreatNoTestsAsError=true)
 
 # The oracle leg alone.
 oracle-test:

@@ -356,6 +356,36 @@ public class UiMenuHostTests
         public void Quit() { }
     }
 
+    /// <summary>A screen with a name and the other names it opens under.</summary>
+    private sealed class Named(string name, params string[] aliases) : UiScreen
+    {
+        public override string Name => name;
+
+        public override IReadOnlyList<string> Aliases => aliases;
+
+        public override void Describe(ref UiFrame ui) { }
+    }
+
+    /// <summary>
+    /// A mod's create-server screen takes the core's place (the HL2MP AI's bot
+    /// setup, plan_hl2mp_ai §3.5): one that answers the name <c>createserver</c>
+    /// (<see cref="UiScreen.Aliases"/>) is what the main menu's Create server,
+    /// stock's OpenCreateMultiplayerGameDialog, opens, and the core's own stays
+    /// shut; a mod without one gets the core's.
+    /// </summary>
+    [Fact]
+    public void A_mods_screen_answering_createserver_opens_in_place_of_the_cores()
+    {
+        string name = SourceSharp.Client.Vgui.GameMenuCommands.ScreenFor("OpenCreateMultiplayerGameDialog")!;
+        var (core, _) = EscMenuHost(new Named("createserver"));
+        core.Open(name);
+        Assert.True(core.Menu.IsOpen("createserver"));
+
+        var (modded, _) = EscMenuHost(new Named("createserver"), new Named("modcreateserver", "createserver"));
+        modded.Open(name);
+        Assert.Equal((true, false), (modded.Menu.IsOpen("modcreateserver"), modded.Menu.IsOpen("createserver")));
+    }
+
     /// <summary>
     /// The Escape toggle (stock ClientModeSingle::OnKeyDown): idle, the press
     /// opens the pause menu; the next press hides it. Before the fix the idle
