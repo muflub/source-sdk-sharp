@@ -138,6 +138,47 @@ public sealed class OllamaChatWriterTests
         Assert.Equal(ChatFailure.ServerDown, reply.Failure);
     }
 
+    /// <summary>
+    /// A writer whose connections never complete: the connect waits until the
+    /// handler gives it up, through its ConnectTimeout or the caller's token.
+    /// </summary>
+    private static OllamaChatWriter NeverConnecting(TimeSpan connectTimeout) => new(new SocketsHttpHandler
+    {
+        UseProxy = false,
+        ConnectTimeout = connectTimeout,
+        ConnectCallback = async (_, token) =>
+        {
+            await Task.Delay(Timeout.Infinite, token);
+            throw new InvalidOperationException("the connect wait ended without its token");
+        },
+    });
+
+    /// <summary>
+    /// A connect that outlasts the handler's ConnectTimeout is a server that is
+    /// not there, not a cancel: nobody cancelled. On Windows a refused loopback
+    /// connect is retried for about two seconds, the writer's own ConnectTimeout,
+    /// so a port with nothing listening ends here there (run 220 on main,
+    /// win-x64: NothingListeningIsServerDown answered Cancelled).
+    /// </summary>
+    [Fact]
+    public void AConnectThatTimesOutIsServerDown()
+    {
+        using OllamaChatWriter writer = NeverConnecting(TimeSpan.FromMilliseconds(200));
+        ChatWriterReply reply = writer.Write(Prompt, new ChatTarget("http://127.0.0.1:11434", "m"), CancellationToken.None);
+        Assert.Equal(ChatFailure.ServerDown, reply.Failure);
+        Assert.Contains("nothing answers at http://127.0.0.1:11434", reply.Detail, StringComparison.Ordinal);
+    }
+
+    /// <summary>The caller's cancel while the connect still waits is a cancel.</summary>
+    [Fact]
+    public void ACancelWhileConnectingIsCancelled()
+    {
+        using OllamaChatWriter writer = NeverConnecting(Timeout.InfiniteTimeSpan);
+        using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        ChatWriterReply reply = writer.Write(Prompt, new ChatTarget("http://127.0.0.1:11434", "m"), cancel.Token);
+        Assert.Equal(ChatFailure.Cancelled, reply.Failure);
+    }
+
     [Fact]
     public void AnAddressOffThisMachineIsRefusedWithoutAsking()
     {

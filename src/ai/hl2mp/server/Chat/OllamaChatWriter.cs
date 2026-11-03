@@ -65,6 +65,17 @@ public sealed class OllamaChatWriter(HttpMessageHandler handler) : IBotChatWrite
             using Stream stream = response.Content.ReadAsStream(cancel);
             return new ChatWriterReply(ReplyText(stream));
         }
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+        {
+            return new ChatWriterReply(null, ChatFailure.Cancelled);
+        }
+        catch (OperationCanceledException e) when (e.InnerException is TimeoutException)
+        {
+            // The handler's ConnectTimeout, which it reports as a cancel: nothing took the
+            // connection in time. On Windows a refused loopback connect is retried for about
+            // that long, so a port with nothing listening usually ends here, not in a refusal.
+            return new ChatWriterReply(null, ChatFailure.ServerDown, $"nothing answers at {target.Url}");
+        }
         catch (OperationCanceledException)
         {
             return new ChatWriterReply(null, ChatFailure.Cancelled);
