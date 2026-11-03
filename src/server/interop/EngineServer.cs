@@ -15,7 +15,8 @@ namespace SourceSharp.Abi;
 /// <see cref="IFwdEngineServer"/> over the engine's own object, called
 /// through its vtable.
 /// </summary>
-public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine
+public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine,
+                                          SourceSharp.Server.Interop.IEdictSlots
 {
     /// <summary><see cref="IFwdEngineServer.InterfaceVersion"/>.</summary>
     public const string InterfaceVersion = IFwdEngineServer.InterfaceVersion;
@@ -70,6 +71,13 @@ public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceS
     public int EntityCount() => _fwd->GetEntityCount(_self);
 
     public float Time() => _fwd->Time(_self);
+
+    /// <summary>IVEngineServer::PEntityOfEntIndex, as a yes or no (the round cleanup's slot check).</summary>
+    bool SourceSharp.Server.Interop.IEdictSlots.InUse(int index)
+        => index >= 0 && _fwd->PEntityOfEntIndex(_self, index) != null;
+
+    /// <summary>IVEngineServer::AllowImmediateEdictReuse.</summary>
+    void SourceSharp.Server.Interop.IEdictSlots.AllowImmediateReuse() => _fwd->AllowImmediateEdictReuse(_self);
 
     /// <inheritdoc/>
     public int PlayerUserId(int entIndex)

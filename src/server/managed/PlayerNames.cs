@@ -24,9 +24,12 @@ namespace SourceSharp.Server;
 /// (cl_playermodel changes and their cooldown) and the haptics key.
 /// </para>
 /// </summary>
-public sealed class PlayerNames(IEngineGameEvents events, IConnectedClients? clients = null)
+public sealed class PlayerNames(IEngineGameEvents events, IConnectedClients? clients = null,
+                                IHooks<INameChangeGate>? nameGates = null)
 {
     public const string EventName = "player_changename";
+
+    private readonly IHooks<INameChangeGate>? _nameGates = nameGates;
 
     private readonly Dictionary<int, string> _names = new();
 
@@ -60,6 +63,11 @@ public sealed class PlayerNames(IEngineGameEvents events, IConnectedClients? cli
         if (old.Length == 0 || string.Equals(old, name, StringComparison.Ordinal))
             return false;
 
+        // The game's veto (TF2's ChangePlayerName gate, tf_gamerules.cpp:10217,
+        // on tf_allow_player_name_change): any refusal, none registered renames.
+        if (_nameGates is { } gates && gates.All.Any(g => !g.MayChange(entIndex, old, name)))
+            return false;
+
         IntPtr e = events.EventCreate(EventName);
         if (e != IntPtr.Zero)
         {
@@ -73,4 +81,17 @@ public sealed class PlayerNames(IEngineGameEvents events, IConnectedClients? cli
         _names[entIndex] = name;
         return true;
     }
+}
+
+/// <summary>
+/// The rename's gate, stock's <c>CTFGameRules::ChangePlayerName</c> first line
+/// (tf_gamerules.cpp:10217) as a registered veto: the game refuses a rename
+/// (TF2's <c>tf_allow_player_name_change</c>). Every registered gate must
+/// allow for the rename to happen; none registered, it does. Asked after the
+/// differ-check, so a no-op rename wakes nobody.
+/// </summary>
+public interface INameChangeGate
+{
+    /// <summary>Whether <paramref name="entIndex"/> may rename from <paramref name="oldName"/> to <paramref name="newName"/>.</summary>
+    bool MayChange(int entIndex, string oldName, string newName);
 }

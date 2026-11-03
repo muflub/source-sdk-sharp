@@ -54,6 +54,13 @@ public enum UiShape : byte
     Star,
     /// <summary>A resize grip: three steps of dots, bottom right.</summary>
     Grip,
+    /// <summary>A leftward chevron: going back.</summary>
+    ChevronLeft,
+    /// <summary>A compass: a dim ring and an arrow at ShapeValue degrees, 0 = up.</summary>
+    Compass,
+    /// <summary>A clock sweep: the pie of ShapeValue (0..1) of the circle, from
+    /// 12 o'clock clockwise — a radial progress's fill.</summary>
+    Sweep,
 }
 
 /// <summary>
@@ -107,6 +114,7 @@ internal struct UiNode
     // Content.
     public int TextStart, TextLength;   // into the context's describe-time text arena
     public Text Role;
+    public float TextSizeDu;           // 0: the role's theme size
     public UiPaint TextPaint;
     public Align TextAlign;
     public bool Elide, IsData, Interpolated, KeepCase;
@@ -116,6 +124,9 @@ internal struct UiNode
     public float ShapeValue;            // a shape's parameter: signal bars lit, crosshair gap
     public int Texture;                 // a Texture node's backend texture id
     public UiRect TextureUv;            // and the part of it the leaf samples
+    public UiPaint TextureTint;         // default: the texture at full colour
+    public float TextureRotation;       // radians about the leaf's centre, clockwise on screen
+    public UiBlend TextureBlend;        // additive: the pixels add to what is behind
 
     // Facts for the report.
     public UiElementFlags Flags;

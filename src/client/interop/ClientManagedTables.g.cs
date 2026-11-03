@@ -939,6 +939,10 @@ public unsafe struct ManagedRenderClientTable
     // 16: void ScreenSpaceEffectsStage( int32_t nStage )
     [SlotHash(0xc83e311d)]
     public delegate* unmanaged<void*, int, void> ScreenSpaceEffectsStage;
+
+    // 17: void ViewEffectsViewModelBob( float flCurTime, float flFrameTime, const float *pEyeOrigin, const float *pEyeAngles, float *pOutOrigin, float *pOutAngles )
+    [SlotHash(0x848aebc0)]
+    public delegate* unmanaged<void*, float, float, void*, void*, void*, void*, void> ViewEffectsViewModelBob;
 }
 
 /// <summary>The table managed writes for <c>IManagedInputClient</c> (<c>SSManagedInputClientTable</c> native-side).</summary>

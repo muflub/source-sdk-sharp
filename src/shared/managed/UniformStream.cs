@@ -5,7 +5,9 @@
 //
 //=============================================================================//
 
-namespace SourceSharp.Client.Effects;
+using SourceSharp.Abi;
+
+namespace SourceSharp.Shared;
 
 /// <summary>
 /// vstdlib's <c>CUniformRandomStream</c>, as server.so's own port of it is
@@ -13,11 +15,29 @@ namespace SourceSharp.Client.Effects;
 /// libvstdlib.so by vstdlib_random_oracle_test): Park-Miller's minimal standard
 /// (multiplier 16807, modulus 2^31 - 1, Schrage's method) behind a 32-entry
 /// Bays-Durham shuffle. Seeding stores the seed negated, so the next draw
-/// refills the table. A stream a sim owns and seeds (the wind's two), not the
-/// process's. Every client generator of this kind is this type: the wind's
-/// two and the beam system's noise stream (view_beams.cpp's <c>beamRandom</c>).
+/// refills the table. A stream its owner seeds, not the process's. Every client
+/// generator of this kind is this type: the wind's two and the beam system's
+/// noise stream (view_beams.cpp's <c>beamRandom</c>).
+///
+/// <para>
+/// <b>SHARED, FOR PREDICTION.</b> Stock's predicted weapon code reseeds the
+/// global stream from the command's seed and draws
+/// (<c>RandomSeed(iSeed); RandomInt(0, WEAPON_RANDOM_RANGE - 1)</c>, TF's
+/// <c>CalcIsAttackCriticalHelper</c>), so the server's run and the client's
+/// replay of a command draw the same numbers. Managed code may not seed the
+/// engine's stream (<see cref="IUniformRandom"/> has no SetSeed, by design),
+/// so a behaviour seeds one of these from
+/// <see cref="WeaponAttackContext.Command"/> instead: the same algorithm, so
+/// the same draws, on both sides. <c>UniformStreamOracleTests</c> holds it to
+/// the game's libvstdlib.so.
+/// </para>
+///
+/// <para>
+/// The client's half of the class (<c>UniformStream.Reload.cs</c>) adds the
+/// particle sims' <c>IParticleRandom</c> and the managed-reload save.
+/// </para>
 /// </summary>
-public sealed class UniformStream : IParticleRandom
+public sealed partial class UniformStream : IUniformRandom
 {
     private const int Multiplier = 16807;
     private const int Modulus = 2147483647;
@@ -35,6 +55,7 @@ public sealed class UniformStream : IParticleRandom
 
     public UniformStream(int seed = 0) => SetSeed(seed);
 
+    /// <summary><c>SetSeed</c> (stock's <c>RandomSeed</c>): the next draw starts the sequence this seed names.</summary>
     public void SetSeed(int seed)
     {
         _state = seed < 0 ? seed : -seed;
@@ -103,23 +124,6 @@ public sealed class UniformStream : IParticleRandom
             w.Write(v);
         w.Write(_state);
         w.Write(_last);
-    }
-
-    /// <summary>The same state through a managed reload's writer (the beam system's stream).</summary>
-    public void Save(ReloadWriter writer)
-    {
-        foreach (int v in _table)
-            writer.Write(v);
-        writer.Write(_state);
-        writer.Write(_last);
-    }
-
-    public void Restore(ReloadReader reader)
-    {
-        for (int i = 0; i < TableSize; i++)
-            _table[i] = reader.ReadInt();
-        _state = reader.ReadInt();
-        _last = reader.ReadInt();
     }
 
     public void Restore(BinaryReader r)

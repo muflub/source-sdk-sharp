@@ -195,6 +195,33 @@ public enum TraceMask
     /// crossbow bolt traces behind its victim. Mapped on both arms.
     /// </summary>
     Opaque = 11,
+
+    /// <summary>
+    /// <c>MASK_DISPENSER</c> — <c>MASK_BLOCKLOS | CONTENTS_WINDOW</c> ("basically
+    /// everything except grating", tf_obj_dispenser.cpp:895-896): the sight
+    /// line a dispenser heals through. Not <see cref="Brushes"/>: that has the
+    /// grate bit and lacks BLOCKLOS, so it would refuse a heal across a
+    /// blocklos volume and grant one through a grating — both backwards.
+    /// Mapped on both arms.
+    /// </summary>
+    Dispenser = 12,
+
+    /// <summary>
+    /// <c>MASK_SHOT | CONTENTS_GRATE</c>: what a sentry gun sees its targets through
+    /// (<c>ValidTargetPlayer</c>'s <c>FVisible</c>, tf_obj_sentrygun.cpp:1084) — a
+    /// shot's line that a grating stops too, and a player in the way blocks.
+    /// Mapped on both arms.
+    /// </summary>
+    SentrySight = 13,
+
+    /// <summary>
+    /// <c>MASK_SOLID | CONTENTS_DEBRIS</c>: the dropped-weapon pickup's sight
+    /// line (<c>GetDroppedWeaponInRange</c>, tf_player_shared.cpp:14780) —
+    /// <see cref="Solid"/>'s five contents and the debris bit they lack, the
+    /// bit a floor's scrap carries. Mapped on both arms, for <see cref="All"/>'s
+    /// reason.
+    /// </summary>
+    SolidDebris = 14,
 }
 
 /// <summary>

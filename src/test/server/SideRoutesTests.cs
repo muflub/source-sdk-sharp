@@ -16,6 +16,7 @@ public class SideRoutesTests
     {
         public void EntityEmitSound(EntityHandle entity, string soundName) { }
         public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) { }
+        public void EntityEmitSoundToTeam(int team, EntityHandle entity, string soundName) { }
         public void EntityStopSound(EntityHandle entity, string soundName) { }
         public void EmitSoundAtPosition(string soundName, Vector origin) { }
         public bool EmitWorldSoundScript(string soundName, Vector origin, int channel, float volume) => false;

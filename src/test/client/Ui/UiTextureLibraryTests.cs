@@ -34,31 +34,56 @@ public sealed class UiTextureLibraryTests
         "\"UnlitGeneric\"\n{\n\"$basetexture\" \"" + baseTexture + "\"\n}\n";
 
     [Fact]
-    public void A_material_loads_its_texture_once()
+    public void A_refract_material_is_bound_whole_not_decoded()
     {
+        // The scope quadrants are Refract shaders: their pixels are the
+        // refracted frame buffer, not a picture to upload. The surface binds
+        // the .vmt whole (stock's DrawSetTextureFile, tf_hud_scope.cpp:317-320)
+        // and the library passes its handle through, asking the surface once.
+        var library = Library();
+
+        Assert.Equal(0x77, library.Material("HUD/scope_sniper_ul"));
+        Assert.Equal(0x77, library.Material("HUD/scope_sniper_ul"));
+        Assert.Single(_surface.Materials);
+        Assert.Equal("HUD/scope_sniper_ul", _surface.Materials[0]);
+    }
+
+    [Fact]
+    public void A_material_the_surface_refuses_is_zero_said_once()
+    {
+        var library = Library();
+
+        Assert.Equal(0, library.Material("HUD/scope_missing"));
+        Assert.Equal(0, library.Material("HUD/scope_missing"));
+        Assert.Single(Warned(_log), w => w.Contains("scope_missing"));
+    }
+
+    [Fact]
+    public void A_material_name_binds_the_material_not_an_upload()
+    {
+        // The HUD art draws through the material's own shader (integrator
+        // ruling 2026-10-31, stock's DrawSetTextureFile): Find binds the
+        // .vmt by name, it does not decode the .vtf to RGBA and upload it.
         _files.Text["materials/hud/test_thing.vmt"] = Vmt;
         _files.Bytes["materials/hud/test_thing.vtf"] = SmallVtf();
         var library = Library();
 
         int handle = library.Find("hud/test_thing");
-        Assert.NotEqual(0, handle);
-        Assert.Equal(1, _surface.Created);
-        Assert.Single(_surface.Uploaded);
-        Assert.Equal(handle, _surface.Uploaded[0].Handle);
-        Assert.Equal((2, 2), (_surface.Uploaded[0].Wide, _surface.Uploaded[0].Tall));
-        // BGRA8888 swizzles to RGBA: the first texel.
-        Assert.Equal([0x30, 0x20, 0x10, 0x40], _surface.Uploaded[0].Rgba[0..4]);
 
-        // The screen asks every frame: the answers are cached, the surface sees one texture.
+        Assert.Equal(0x77, handle);
+        Assert.Single(_surface.Materials);
+        Assert.Equal("hud/test_thing", _surface.Materials[0]);
+        Assert.Empty(_surface.Uploaded);
+
+        // Asked again every frame: still one bind.
         Assert.Equal(handle, library.Find("hud/test_thing"));
-        Assert.Equal(handle, library.Find("hud/test_thing"));
-        Assert.Equal(1, _surface.Created);
-        Assert.Single(_surface.Uploaded);
+        Assert.Single(_surface.Materials);
     }
 
     [Fact]
     public void About_names_what_loaded()
     {
+        // The size comes from the $baseTexture VTF header, not a decode.
         _files.Text["materials/hud/test_thing.vmt"] = Vmt;
         _files.Bytes["materials/hud/test_thing.vtf"] = SmallVtf();
         var library = Library();
@@ -68,66 +93,84 @@ public sealed class UiTextureLibraryTests
         Assert.Equal(2, info!.Value.Wide);
         Assert.Equal(2, info.Value.Tall);
         Assert.Equal("Bgra8888", info.Value.Format);
-        Assert.Null(library.About("hud/other"));
+        Assert.Equal(0, _surface.Created);
     }
 
     [Fact]
-    public void Two_materials_on_one_image_upload_it_once()
+    public void A_name_the_surface_bound_is_never_asked_again()
     {
         ServeMaterial("hud/one", "hud/shared");
         ServeMaterial("hud/two", "hud/shared");
-        _files.Bytes["materials/hud/shared.vtf"] = SmallVtf();
         var library = Library();
 
-        int first = library.Find("hud/one");
-        int second = library.Find("hud/two");
-        Assert.Equal(first, second);
-        Assert.NotEqual(0, first);
-        Assert.Equal(1, _surface.Created);
+        _ = library.Find("hud/one");
+        _ = library.Find("hud/two");
+        Assert.Equal(2, _surface.Materials.Count);
+        _ = library.Find("hud/one");
+        _ = library.Find("hud/two");
+        Assert.Equal(2, _surface.Materials.Count);
     }
 
     [Fact]
-    public void A_missing_material_is_zero_said_once()
+    public void A_material_the_surface_refuses_by_find_is_zero_said_once()
     {
         var library = Library();
 
-        Assert.Equal(0, library.Find("hud/absent"));
-        Assert.Equal(0, library.Find("hud/absent"));
+        Assert.Equal(0, library.Find("hud/missing"));
+        Assert.Equal(0, library.Find("hud/missing"));
         Assert.Single(Warned(_log));
-        Assert.Contains("hud/absent", Warned(_log)[0]);
+        Assert.Contains("hud/missing", Warned(_log)[0]);
+        Assert.Contains("bound nothing", Warned(_log)[0]);
     }
 
     [Fact]
-    public void A_material_without_a_base_texture_is_zero_said_once()
+    public void A_vmt_without_a_base_texture_still_binds_the_size_unknown()
     {
         _files.Text["materials/hud/bare.vmt"] = "\"UnlitGeneric\"\n{\n\"$noclip\" 1\n}\n";
         var library = Library();
 
-        Assert.Equal(0, library.Find("hud/bare"));
-        Assert.Single(Warned(_log));
-        Assert.Contains("$baseTexture", Warned(_log)[0]);
+        Assert.NotEqual(0, library.Find("hud/bare"));
+        var info = library.About("hud/bare");
+        Assert.NotNull(info);
+        Assert.Equal((0, 0, ""), (info!.Value.Wide, info.Value.Tall, info.Value.Format));
     }
 
     [Fact]
-    public void A_refused_vtf_is_zero_said_once_with_the_readers_reason()
+    public void A_shader_without_a_decodable_base_texture_still_binds()
+    {
+        // A Refract shader's pixels are the refracted frame buffer — its
+        // $refracttinttexture is a tint to multiply by, not a picture to
+        // upload (the rejected scope overlay drew it opaque). Find binds the
+        // shader whole, as Material always did.
+        _files.Text["materials/hud/scope.vmt"] =
+            "\"Refract\"\n{\n\"$refracttinttexture\" \"hud/scope_tint\"\n}\n";
+        var library = Library();
+
+        Assert.Equal(0x77, library.Find("hud/scope"));
+        Assert.Empty(_surface.Uploaded);
+    }
+
+    [Fact]
+    public void An_unreadable_vtf_leaves_the_size_zero_not_the_art()
     {
         ServeMaterial("hud/bad", "hud/bad");
         _files.Bytes["materials/hud/bad.vtf"] = [0x00, 0x01, 0x02];
         var library = Library();
 
-        Assert.Equal(0, library.Find("hud/bad"));
-        Assert.Single(Warned(_log));
-        Assert.Contains("bad.vtf", Warned(_log)[0]);
-        Assert.Contains("short", Warned(_log)[0]);
+        Assert.NotEqual(0, library.Find("hud/bad"));
+        var info = library.About("hud/bad");
+        Assert.NotNull(info);
+        Assert.Equal((0, 0, ""), (info!.Value.Wide, info.Value.Tall, info.Value.Format));
     }
 
     [Fact]
-    public void A_client_with_no_engine_file_reads_is_zero_said_once()
+    public void A_client_with_no_engine_file_reads_still_binds()
     {
         var library = new UiTextureLibrary(null, _surface, _log);
 
-        Assert.Equal(0, library.Find("hud/anything"));
-        Assert.Single(Warned(_log));
+        Assert.Equal(0x77, library.Find("hud/anything"));
+        var info = library.About("hud/anything");
+        Assert.Equal((0, 0), (info!.Value.Wide, info.Value.Tall));
     }
 
     internal static System.Collections.Generic.IReadOnlyList<string> Warned(RecordingLog log)
@@ -154,6 +197,7 @@ public sealed class UiTextureLibraryTests
     internal sealed class CapturingSurface : IUiSurface
     {
         public int Created;
+        public List<string> Materials { get; } = [];
         public List<(int Handle, int Wide, int Tall, byte[] Rgba)> Uploaded { get; } = [];
 
         public void FilledRect(int x0, int y0, int x1, int y1, uint rgba)
@@ -180,6 +224,10 @@ public sealed class UiTextureLibraryTests
         {
         }
 
+        public void TexturedQuad(int texture, ReadOnlySpan<float> xyuv, uint rgba, bool additive)
+        {
+        }
+
         public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba)
         {
         }
@@ -191,6 +239,12 @@ public sealed class UiTextureLibraryTests
         }
 
         public int TextureCreate() => ++Created;
+
+        public int MaterialTexture(string name)
+        {
+            Materials.Add(name);
+            return name.Contains("missing") ? 0 : 0x77;
+        }
 
         public void TextureUpload(int texture, ReadOnlySpan<byte> rgba, int wide, int tall)
             => Uploaded.Add((texture, wide, tall, rgba.ToArray()));
@@ -358,7 +412,7 @@ public sealed class UiTextureCommandTests
         command.Execute("hud/test_thing");
 
         string text = log.Text;
-        Assert.Contains("handle 1", text);
+        Assert.Contains("handle 119", text);
         Assert.Contains("2x2", text);
         Assert.Contains("Bgra8888", text);
     }
@@ -369,7 +423,7 @@ public sealed class UiTextureCommandTests
         var log = new RecordingLog();
         var command = new UiTextureCommand(new CurrentTextures(new UiTextureLibrary(new UiTextureLibraryTests.Files(), new UiTextureLibraryTests.CapturingSurface(), log)), log);
 
-        command.Execute("hud/absent");
+        command.Execute("hud/missing");
 
         Assert.Contains("no texture (0)", log.Text);
         Assert.Single(UiTextureLibraryTests.Warned(log));   // the library's one warning, above the report

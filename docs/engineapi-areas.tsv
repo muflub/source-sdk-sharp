@@ -91,6 +91,7 @@ EntityFactoryRefusalCount	EngineApi	IShimEntityLifecycle	server		server	-	CServe
 EntityFactoryRefusalNameAt	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityFactoryRefusalNameAt	int, byte*	
 EntityFactoryRefusalTimesAt	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::EntityFactoryRefusalTimesAt	int, int	
 TemplateSpawnKeyed	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::TemplateSpawnKeyed	byte*, byte*, int*, float*, float*, int, uint*, int, int	
+MapSpawnCreateAt	EngineApi	IShimEntityLifecycle	server		server	-	CServerEntityLifecycle::MapSpawnCreateAt	byte*, byte*, int, int, uint	
 EntitySetOrigin	EngineApi	IShimTransform	server		server	-	CServerTransform::EntitySetOrigin	uint, float*, void	
 EntitySetAngles	EngineApi	IShimTransform	server		server	-	CServerTransform::EntitySetAngles	uint, float*, void	
 EntityTeleport	EngineApi	IShimTransform	server		server	-	CServerTransform::EntityTeleport	uint, float*, float*, int, void	
@@ -127,6 +128,7 @@ EntitySwapPhysicsObject	EngineApi	IShimPhysics	server		server	-	CServerPhysics::
 ApplyDamage	EngineApi	IShimDamage	server		server	-	CServerDamage::ApplyDamage	uint, uint, float, int, void	
 EntityTakeDamage	EngineApi	IShimDamage	server		server	-	CServerDamage::EntityTakeDamage	uint, uint, float, int, float*, float*, int, void	
 ApplyDamageForce	EngineApi	IShimDamage	server		server	-	CServerDamage::ApplyDamageForce	uint, uint, float, int, float*, float*, void	
+EntityTakeDamageAnswered	EngineApi	IShimDamage	server		server	-	CServerDamage::EntityTakeDamageAnswered	uint, uint, float, int, float*, float*, int, int	
 RegisterGameRulesPolicy	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterGameRulesPolicy	GameRulesPolicyBlob*, void	
 RegisterDamageRules	EngineApi	IShimGameRules	server		server	-	SourceSharp_RegisterDamageRules	DamageRuleMasks*, void	
 GetPlayerHandle	EngineApi	IShimPlayers	server		server	S	CServerPlayerQueries::GetPlayerHandle	int, uint	
@@ -212,6 +214,11 @@ BeamSetHdrColorScale	EngineApi	IShimEffectsRenderClient	client		client	-	SourceS
 BeamGlow	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamGlow	int, int, int	
 BeamDrawStrip	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamDrawStrip	float*, int, void	
 BeamDrawMesh	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_BeamDrawMesh	int, int, int, float*, int, void	
+ParticleSystemStartExtra	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStartExtra	uint, byte*, int	
+ParticleSystemStopExtra	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStopExtra	uint, void	
+ParticleSystemFollowEntity	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemFollowEntity	uint, int, uint, int, float*, int	
+ParticleSystemStartSlot	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStartSlot	uint, byte*, int, int	
+ParticleSystemStopSlot	EngineApi	IShimEffectsRenderClient	client		client	-	SourceSharp_ParticleSystemStopSlot	uint, int, void	
 ActivateOccluder	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ActivateOccluder	int, int, void	
 ClientInterpBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientInterpBlocks	int*, float*, void**	
 ClientPolicyBlocks	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientPolicyBlocks	int*, void**	
@@ -236,6 +243,7 @@ SurfaceMaterialFacts	EngineApi	IShimStandaloneClient	client		client	-	SourceShar
 SurfaceSetMaterials	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetMaterials	uint, byte*, int, int, void	
 SurfaceSetPlan	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_SurfaceSetPlan	uint, int*, int, void	
 ClientInterpAdmitted	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_ClientInterpAdmitted	uint*, int, void	
+EntitySetModelOverride	EngineApi	IShimStandaloneClient	client		client	-	SourceSharp_EntitySetModelOverride	uint, byte*, void	
 ConNPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNPrintf	void*, int, byte*, void	
 ConNXPrintf	EngineApi	IShimViewClient	client		client	-	SourceSharp_ConNXPrintf	void*, int, float, float*, int, byte*, void	
 GetLightForPoint	EngineApi	IShimViewClient	client		client	-	SourceSharp_GetLightForPoint	void*, float*, int, float*, void	
@@ -265,6 +273,8 @@ ColorLookupRemove	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLo
 ColorLookupResetWeights	EngineApi	IShimViewClient	client		client	-	SourceSharp_ColorLookupResetWeights	void	
 ClientClipRayToEntities	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientClipRayToEntities	float*, float*, int, int*, int, float*, float*, float*, int*, int*, int*, int*, int	
 ClientTraceHullEntities	EngineApi	IShimViewClient	client		client	-	SourceSharp_ClientTraceHullEntities	float*, float*, float*, float*, int, int, int*, int, float*, float*, int*, float*, int	
+ScreenOverlaySet	EngineApi	IShimViewClient	client		client	-	SourceSharp_ScreenOverlaySet	byte*, int	
+ScreenOverlayGet	EngineApi	IShimViewClient	client		client	-	SourceSharp_ScreenOverlayGet	byte*, int, int	
 UserMessageSend	EngineApi	IShimUserMessages	server		server	-	CServerUserMessages::UserMessageSend	int, byte*, int, int, int, int	
 ClientViewportQuery	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportQuery	byte*, int	
 ClientViewportShow	EngineApi	IShimUserMessagesClient	client		client	-	SourceSharp_ClientViewportShow	byte*, int, byte*, int, int, void	
@@ -282,8 +292,8 @@ UiDrawFilledRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawFill
 UiDrawFilledRectFade	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawFilledRectFade	int, int, int, int, uint, int, int, int, void	
 UiDrawOutlinedRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawOutlinedRect	int, int, int, int, uint, void	
 UiDrawLine	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawLine	int, int, int, int, uint, void	
-UiDrawTexturedRect	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawTexturedRect	int, int, int, int, int, float, float, float, float, uint, void	
-UiDrawPolygon	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiDrawPolygon	int, float*, int, uint, void	
+UiDrawTexturedRect	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawTexturedRect	int, int, int, int, int, float, float, float, float, uint, void	
+UiDrawPolygon	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawPolygon	int, float*, int, uint, void	
 UiDrawText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawText	int, int, int, ushort*, int, uint, void	
 UiMeasureText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiMeasureText	int, ushort*, int, int*, int*, void	
 UiSetClip	EngineApi	IShimUiClient	client		client	S	SourceSharp_UiSetClip	int, int, int, int, int, void	
@@ -352,6 +362,8 @@ UiSetCursor	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiSetCursor	int
 UiDebugOverlayText	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayText	int, float*, float*, int*, uint*, byte*, int, int	
 UiDebugOverlayClearDead	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDebugOverlayClearDead	void	
 ClientModeLayout	EngineApi	IShimUiClient	client		client	-	SourceSharp_ClientModeLayout	void	
+UiDrawTexturedQuad	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiDrawTexturedQuad	int, float*, int, uint, int, void	
+UiMaterialTexture	EngineApi	IShimUiClient	client		client	-	SourceSharp_UiMaterialTexture	byte*, int	
 SoundscapeSetRoomType	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetRoomType	int, void	
 SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeSetPlayerDsp	int, void	
 SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	SourceSharp_SoundscapeMainView	float*, void	

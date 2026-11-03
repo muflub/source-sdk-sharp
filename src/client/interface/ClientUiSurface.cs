@@ -25,6 +25,12 @@ public interface IUiSurface
     /// <summary>A polygon of (x, y, u, v) vertices, four floats each.</summary>
     void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba);
 
+    /// <summary>A textured quad from (x, y, u, v) vertices — a rotated or
+    /// additive leaf: rotation is the corners about the centre, and additive
+    /// adds the pixels to what is behind (the damage ring's glow) instead of
+    /// painting over them.</summary>
+    void TexturedQuad(int texture, ReadOnlySpan<float> xyuv, uint rgba, bool additive);
+
     void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba);
 
     void MeasureText(int font, ReadOnlySpan<char> text, out int width, out int height);
@@ -32,6 +38,12 @@ public interface IUiSurface
     void SetClip(bool enabled, int x0, int y0, int x1, int y1);
 
     int TextureCreate();
+
+    /// <summary>
+    /// A texture handle bound to the named engine material: the vgui surface
+    /// resolves the .vmt and the draws of the handle run the material's own
+    /// shader. 0 when the name loads nothing.</summary>
+    int MaterialTexture(string name);
 
     void TextureUpload(int texture, ReadOnlySpan<byte> rgba, int wide, int tall);
 

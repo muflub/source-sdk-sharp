@@ -78,7 +78,7 @@ public class TempEntSchemaOracleTests
     }
 
     [Fact]
-    public void TheParticleSystemMatchesTheNonTfBranchOfItsStockTable()
+    public void TheParticleSystemMatchesTheNonTFBranchOfItsStockTable()
     {
         var stock = StockTable("te_particlesystem.cpp", "CTEParticleSystem", "DT_TEParticleSystem");
 

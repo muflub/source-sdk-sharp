@@ -269,6 +269,30 @@ public class FrictionSoundsTests
     }
 
     [Fact]
+    public void A_missing_scrape_script_is_asked_once_not_once_per_frame()
+    {
+        // The corpse's scrape: a ragdoll that keeps moving reports Friction
+        // every frame, and with no script the scrape never enters the table,
+        // so the 500 ms throttle (which lives on the table entry) never
+        // engages and the same missing script is asked again every event.
+        // Stock asks the sound system once and caches the miss; the repeat
+        // is what turned one missing wav into thousands of engine load
+        // attempts.
+        var engine = Fake();
+        engine.Returns("Sound.SurfaceScrapeSound", "Crate.ScrapeRough")
+              .Returns("Sound.SoundScriptParameters", (SoundScriptParams?)null);
+        // The missing script: SoundScriptParameters answers null.
+        var sounds = new FrictionSounds(engine, new Controller(), new Surfaces(),
+                                        new TempEntFrictionEffects(engine, Temps));
+
+        for (int i = 0; i < 5; i++)
+            sounds.Friction(Box, Hard, Crate, RoughFloor, now: i * 0.6f);
+
+        Assert.Equal(1, engine.Calls.Count(c => c.Member == "Sound.SoundScriptParameters"));
+        Assert.Equal(0, sounds.Active);
+    }
+
+    [Fact]
     public void Four_scrapes_at_once_is_the_limit()
     {
         var (sounds, _, engine) = World();

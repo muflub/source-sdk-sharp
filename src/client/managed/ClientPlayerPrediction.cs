@@ -99,6 +99,13 @@ public sealed class ClientPlayerPrediction
     private readonly IEngineHud _screen;
     private readonly ClientArsenal? _arsenal;
 
+    /// <summary>
+    /// The mods' predicted states (<see cref="IClientPredictedState"/>), reset
+    /// beside the player's basis and saved after each replayed command, in
+    /// their <see cref="IOrderedHook.HookOrder"/>.
+    /// </summary>
+    private readonly IHooks<IClientPredictedState> _predicted;
+
     /// <summary>Where the HUD's debug line reads the view from; null in tests.</summary>
     private readonly ViewReadout? _view;
 
@@ -171,8 +178,18 @@ public sealed class ClientPlayerPrediction
     /// </summary>
     private int _highestCommandRun = -1;
 
-    // The meter.
-    private int _saves, _holds, _tolerated, _mispredicts, _noBasis, _compares;
+    // The meter. _rebuilt counts the compares the spawn stamp dismissed: an
+    // out-of-band (re)spawn adopted from the arrival instead of judged against
+    // the acked slot (see Compare), ClientArsenal's deploy stamp taken for
+    // the player.
+    private int _saves, _holds, _tolerated, _mispredicts, _noBasis, _compares, _rebuilt, _seeded;
+
+    // Whether this level's first arrival has had its seeding look yet (see
+    // Compare). Reset with the ring by LevelInit, which is why it is a flag and
+    // not the _seeded count: the counters are kept across maps deliberately,
+    // and the handshake happens once per map.
+    private bool _seedSeen;
+
     private int _lastMissCommand = -1;
     private string _lastMissFields = "";
     private int _pokeOffset = -1;
@@ -223,6 +240,9 @@ public sealed class ClientPlayerPrediction
     /// </summary>
     private int _declaredStart = -1;
 
+    /// <summary>The declared fields the compare leaves unjudged (<see cref="NoErrorCheckAttribute"/>).</summary>
+    private (int Offset, int Bytes, int BitShift, int Bits, bool Packed)[]? _unchecked;
+
     // This composition's prediction ring and declared states (statics to zero):
     // the ring was the process-wide PredictionErrors.Ring.
     private readonly PredictionErrorRing _errors;
@@ -231,7 +251,8 @@ public sealed class ClientPlayerPrediction
     public ClientPlayerPrediction(ILog log, IClientStandalones standalones, IEngineHud screen,
                                   IClientReplayEngine engine, MovementRunner movement,
                                   ClientArsenal? arsenal, PredictionErrorRing errors,
-                                  NetStateCatalog catalog, ViewReadout? view = null,
+                                  NetStateCatalog catalog, IHooks<IClientPredictedState> predicted,
+                                  ViewReadout? view = null,
                                   ILadderWorld? ladders = null, IHl2PlayerMove? hl2Player = null)
     {
 
@@ -243,6 +264,7 @@ public sealed class ClientPlayerPrediction
         _engine = engine;
         _movement = movement;
         _arsenal = arsenal;
+        _predicted = predicted ?? throw new ArgumentNullException(nameof(predicted));
         _view = view;
         _ladders = ladders;
         _hl2Player = hl2Player;
@@ -267,6 +289,12 @@ public sealed class ClientPlayerPrediction
 
     /// <summary>Compares actually made — the number a silent meter fails to raise.</summary>
     public int Compares => _compares;
+
+    /// <summary>Compares the spawn stamp dismissed without judging.</summary>
+    public int Rebuilt => _rebuilt;
+
+    /// <summary>Compares the first arrival's clock re-base seeded without judging.</summary>
+    public int Seeded => _seeded;
 
     /// <summary>The fields of the last standing misprediction, or empty.</summary>
     public string LastMissFields => _lastMissFields;
@@ -354,6 +382,7 @@ public sealed class ClientPlayerPrediction
         // makes the replay stateless: a frame with no new packet re-predicts the
         // same commands from the same start and lands on the same answer.
         ApplyBasis(player.State);
+        ResetPredictedStates(player.Handle, incomingAcknowledged);
 
         bool predicting = Enabled && validFrame;
         bool ran = predicting && Replay(player, incomingAcknowledged, outgoingCommand);
@@ -422,6 +451,39 @@ public sealed class ClientPlayerPrediction
 
         LastReplayed = ran;
         return ran > 0;
+    }
+
+    // The mods' predicted states. A loop rather than IHooks.Each: Each takes a
+    // closure, and these run every frame and every replayed command. The
+    // isolation is Each's: a throw is named and the next participant still runs.
+    private void ResetPredictedStates(EntityHandle player, int acknowledged)
+    {
+        foreach (var state in _predicted.All)
+        {
+            try
+            {
+                state.ResetBasis(player, acknowledged);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp] {nameof(IClientPredictedState)}.{nameof(IClientPredictedState.ResetBasis)} on {state.GetType().FullName} threw: {e}\n");
+            }
+        }
+    }
+
+    private void PredictedStatesRan(EntityHandle player, int commandNumber, bool firstTime)
+    {
+        foreach (var state in _predicted.All)
+        {
+            try
+            {
+                state.CommandRan(player, commandNumber, firstTime);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp] {nameof(IClientPredictedState)}.{nameof(IClientPredictedState.CommandRan)} on {state.GetType().FullName} threw: {e}\n");
+            }
+        }
     }
 
     /// <summary>
@@ -520,9 +582,17 @@ public sealed class ClientPlayerPrediction
             // weapon machine is a SharedRandom* caller. Run after the bracket
             // closed it would run at seed -1 and disagree with the server about
             // every random decision — silently, and only under prediction.
+            //
+            // The mods' predicted states save after the weapons, still inside
+            // the bracket: what a movement rule or a weapon behaviour wrote
+            // into a participant's working copy during this command is what
+            // the participant keeps under this command's number.
             if (ran)
+            {
                 _arsenal?.OnPlayerCommand(player.Handle, in cmd, 1, firstTime, _move.CurTime,
                                           eye: _move.Origin + _move.ViewOffset);
+                PredictedStatesRan(player.Handle, cmd.CommandNumber, firstTime);
+            }
         }
         finally
         {
@@ -741,6 +811,53 @@ public sealed class ClientPlayerPrediction
             return;
         }
 
+        // THE FIRST ARRIVAL SEEDS AND DOES NOT JUDGE — the connect-time tick-base
+        // handshake. The server rebases the player's clock outside the command
+        // stream when it first runs the queued commands (CBasePlayer::
+        // AdjustPlayerTimeBase, player.cpp:3152-3172), and the clock is
+        // received-and-predicted: it arrives as a networked word
+        // (RecvPropInt m_nTickBase, c_baseplayer.cpp:236) and the replay counts
+        // from it (DEFINE_PRED_FIELD m_nTickBase, c_baseplayer.cpp:403), which
+        // is exactly how stock takes it — it restores the decoded snapshot as
+        // the basis before every replay (prediction.cpp:1781-1784), so the
+        // arrival IS the basis and nothing judges it. The first ack's slot was
+        // predicted before the seed existed, so its clock stands away by the
+        // re-base, and the same full state carries the spawn's initial words —
+        // SuitPower, WaterType, Velocity ride along, which is the one line every
+        // clean boot showed. The first arrival whose clock moved without a
+        // command behind it seeds the basis; judged from there on.
+        if (!_seedSeen)
+        {
+            _seedSeen = true;
+
+            if (ClockRebasedWithoutACommand(ringed, player.State))
+            {
+                _seeded++;
+                return;
+            }
+        }
+
+        // An out-of-band (re)spawn, adopted rather than judged: the acked slot
+        // was predicted under a different spawn stamp than the arrival
+        // carries, so between the command and its acknowledgement the server
+        // spawned or respawned with no command to mirror — the connect spawn,
+        // the jointeam placement, the joinclass respawn (each writes health,
+        // observer mode, ground and origin outside the command stream). Stock
+        // reports nothing for that moment because the player is re-seeded
+        // whole at spawn: InitPredictable copies every predicted field from
+        // the fresh arrival, "so we don't get an error saying we mispredicted
+        // any values which are still at their initial values"
+        // (c_baseentity.cpp:4578-4583). The stamp is our persistent pair's
+        // equivalent of that recreation, the same shape the arsenal takes for
+        // its deploys (ClientArsenal.DeployedOutOfBand), and the basis reset
+        // adopts the arrival anyway — the stamp buys only the verdict. And a
+        // clock that moved WITHOUT one still stands judged.
+        if (SpawnedOutOfBand(player, ringed))
+        {
+            _rebuilt++;
+            return;
+        }
+
         ClearWitnessedPoke(acknowledged);
 
         uint typeId = NetSchema.TypeIdOf(EntityNames.Player);
@@ -751,6 +868,11 @@ public sealed class ClientPlayerPrediction
         // compare. The offsets stay ABSOLUTE, which is what lets the judge name
         // a field: a slice would renumber every one of them.
         byte[] predicted = PredictionJudge.OverlayDeclared(ringed, arrived, _declaredStart);
+
+        // Stock's FTYPEDESC_NOERRORCHECK fields (HL2MP's m_iAmmo): the arrival
+        // is their word, never this side's mistake.
+        _unchecked ??= PredictionJudge.UncheckedFields(typeof(PlayerNetState));
+        PredictionJudge.OverlayUnchecked(predicted, arrived, _unchecked);
 
         if (predicted.AsSpan().SequenceEqual(arrived))
         {
@@ -795,6 +917,35 @@ public sealed class ClientPlayerPrediction
 
     /// <summary>How many mispredictions are reported before the log goes quiet.</summary>
     public const int QuietAfter = 3;
+
+    /// <summary>
+    /// Whether the acked command's saved slot was predicted under a different
+    /// spawn stamp than the decoded arrival now carries: the signature of a
+    /// (re)spawn that ran between the two client commands.
+    /// </summary>
+    private static bool SpawnedOutOfBand(ClientSsPlayer player, ReadOnlySpan<byte> slot)
+    {
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(slot);
+
+        return saved.SpawnEpoch != player.State.SpawnEpoch;
+    }
+
+    /// <summary>
+    /// Whether the acked slot's clock stands away from the arrival's: the
+    /// signature of the server rebasing the player's tick base between the
+    /// command and its acknowledgement, with no command to carry it (see the
+    /// seeding arm of Compare).
+    /// </summary>
+    private static bool ClockRebasedWithoutACommand(ReadOnlySpan<byte> slot, PlayerNetState arrived)
+    {
+        var saved = new PlayerNetState();
+        saved.BindLocal();
+        saved.Decode(slot);
+
+        return saved.TickBase != arrived.TickBase;
+    }
 
     private void ClearWitnessedPoke(int acknowledged)
     {
@@ -865,6 +1016,7 @@ public sealed class ClientPlayerPrediction
         _highestCommandRun = -1;
         _lastComparedDecode = 0;
         _previouslyPredictedOrigin = default;
+        _seedSeen = false;   // the handshake happens once per map
 
         LastReplayed = 0;
         Driving = false;
@@ -877,7 +1029,9 @@ public sealed class ClientPlayerPrediction
             $"[SourceSharp] player prediction: {(FindLocalPlayer() is not null ? "local player present" : "no local player")}, " +
             $"{_ring.BlobBytes} byte(s) ringed — {_saves} save(s), {_holds} hold(s) " +
             $"({_tolerated} tolerated), {_mispredicts} misprediction(s), {_noBasis} no-basis, " +
-            $"{_compares} compare(s), {LastReplayed} replayed last frame, " +
+            $"{_rebuilt} out-of-band spawn(s) adopted, {_seeded} seeding arrival(s), " +
+            $"{_compares} compare(s), " +
+            $"{LastReplayed} replayed last frame, " +
             $"driving {(Driving ? "yes" : "no")}";
 
         if (_lastMissCommand >= 0)

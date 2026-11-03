@@ -600,7 +600,11 @@ public static class NetSchema
     /// </summary>
     private static void Unpack(in NetSchemaField field, ReadOnlySpan<byte> word, Span<byte> into)
     {
-        uint bits = MemoryMarshal.Read<uint>(word);
+        // A word narrower than four bytes (a bool packed into a byte of its
+        // own) is read zero-extended: its bits sit at the bottom either way.
+        Span<byte> padded = stackalloc byte[4];
+        word[..Math.Min(word.Length, 4)].CopyTo(padded);
+        uint bits = MemoryMarshal.Read<uint>(padded);
 
         int value = field.Kind == NetFieldKind.Int
             ? (int)(bits << (32 - field.BitShift - field.Bits)) >> (32 - field.Bits)

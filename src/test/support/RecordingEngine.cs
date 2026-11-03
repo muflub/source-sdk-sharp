@@ -496,6 +496,7 @@ public sealed class RecordingEngine :
     int IEnginePrecache.PrecacheDecal(string name) => Record<int>("Precache.PrecacheDecal", name);
     void IEnginePrecache.PrecacheMaterial(string material) => RecordVoid("Precache.PrecacheMaterial", material);
     void IEnginePrecache.PrecacheParticleSystem(string name) => RecordVoid("Precache.PrecacheParticleSystem", name);
+    int IEnginePrecache.ParticleSystemIndex(string name) => Record<int>("Precache.ParticleSystemIndex", name);
     int IEnginePrecache.PrecacheModel(string model) => Record<int>("Precache.PrecacheModel", model);
     int IEnginePrecache.ModelFrameCount(int modelIndex) => Record<int>("Precache.ModelFrameCount", modelIndex);
 
@@ -565,7 +566,7 @@ public sealed class RecordingEngine :
     void IEngineGameEvents.EventSetInt(IntPtr handle, string key, int value) => RecordVoid("GameEvents.EventSetInt", handle, key, value);
     void IEngineGameEvents.EventSetBool(IntPtr handle, string key, bool value) => RecordVoid("GameEvents.EventSetBool", handle, key, value);
     void IEngineGameEvents.EventSetString(IntPtr handle, string key, string value) => RecordVoid("GameEvents.EventSetString", handle, key, value);
-    bool IEngineGameEvents.EventFire(IntPtr handle) => Record<bool>("GameEvents.EventFire", handle);
+    bool IEngineGameEvents.EventFire(IntPtr handle, bool dontBroadcast) => Record<bool>("GameEvents.EventFire", handle, dontBroadcast);
 
     // Networking
     PayloadAgreement IEngineNetworking.CheckPayloadAgreement(EntityHandle h) => Record<PayloadAgreement>("Networking.CheckPayloadAgreement", h);
@@ -606,6 +607,7 @@ public sealed class RecordingEngine :
     void IEngineEntities.ApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround) => RecordVoid("Entities.ApplyVelocityImpulse", h, impulse, clearGround);
     EntityHandle IEngineEntities.Create(string className) => Record<EntityHandle>("Entities.Create", className);
     EntityHandle IEngineEntities.CreateFromMap(string className, byte[] packedKeys) => Record<EntityHandle>("Entities.CreateFromMap", className, packedKeys);
+    EntityHandle IEngineEntities.CreateFromMapAt(string className, byte[] packedKeys, int edictIndex) => Record<EntityHandle>("Entities.CreateFromMapAt", className, packedKeys, edictIndex);
     int IEngineEntities.Count() => Record<int>("Entities.Count");
     void IEngineEntities.PurgeMapRefs() => RecordVoid("Entities.PurgeMapRefs");
     void IEngineEntities.CleanupDeleteList() => RecordVoid("Entities.CleanupDeleteList");
@@ -901,6 +903,7 @@ public sealed class RecordingEngine :
     void IEngineEntityRender.PlaySequenceAt(EntityHandle entity, int sequence, float playbackRate, float cycle) => RecordVoid("EntityRender.PlaySequenceAt", entity, sequence, playbackRate, cycle);
     void IEngineEntityRender.SetCycle(EntityHandle entity, float cycle) => RecordVoid("EntityRender.SetCycle", entity, cycle);
     void IEngineEntityRender.SetSkin(EntityHandle entity, int skin) => RecordVoid("EntityRender.SetSkin", entity, skin);
+    void IEngineEntityRender.SetModelOverride(EntityHandle entity, string model) => RecordVoid("EntityRender.SetModelOverride", entity, model);
     void IEngineEntityRender.SetTextureFrame(EntityHandle entity, int frame) => RecordVoid("EntityRender.SetTextureFrame", entity, frame);
     void IEngineEntityRender.SetTransmitAlways(EntityHandle entity, bool always) => RecordVoid("EntityRender.SetTransmitAlways", entity, always);
     bool IEngineEntityRender.DetectInSkybox(EntityHandle entity) => Record<bool>("EntityRender.DetectInSkybox", entity);
@@ -917,6 +920,7 @@ public sealed class RecordingEngine :
     void IEngineGameRulesPolicy.RegisterPolicy(GameRulesPolicyBlob policy) => RecordVoid("GameRulesPolicy.RegisterPolicy", policy);
 
     void IEngineDamage.TakeDamage(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction, Vector forceOrigin, bool physicsOnly) => RecordVoid("Damage.TakeDamage", entity, attacker, damage, damageType, direction, forceOrigin, physicsOnly);
+    int IEngineDamage.TakeDamageAnswered(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction, Vector forceOrigin, bool physicsOnly) => Record<int>("Damage.TakeDamageAnswered", entity, attacker, damage, damageType, direction, forceOrigin, physicsOnly);
 
     // BrushMovement
     void IEngineBrushMovement.MoveToAngles(EntityHandle entity, Vector destination, float speed) => RecordVoid("BrushMovement.MoveToAngles", entity, destination, speed);
@@ -950,7 +954,8 @@ public sealed class RecordingEngine :
     void IEnginePlayers.MakePickup(EntityHandle entity, float sizeX, float sizeY, float sizeZ) => RecordVoid("Players.MakePickup", entity, sizeX, sizeY, sizeZ);
     void IEnginePlayers.RemoveAllItems(EntityHandle player, bool stripSuit) => RecordVoid("Players.RemoveAllItems", player, stripSuit);
     void IEnginePlayers.Respawn(EntityHandle player) => RecordVoid("Players.Respawn", player);
-    void IEnginePlayers.SetFov(EntityHandle player, EntityHandle requester, int fov, float rate) => RecordVoid("Players.SetFov", player, requester, fov, rate);
+    void IEnginePlayers.SetFov(EntityHandle player, EntityHandle requester, int fov, float rate, int start) => RecordVoid("Players.SetFov", player, requester, fov, rate, start);
+    void IEnginePlayers.SetDefaultFov(EntityHandle player, int fov) => RecordVoid("Players.SetDefaultFov", player, fov);
     void IEnginePlayers.SetObserverMode(EntityHandle player, ObserverMode mode) => RecordVoid("Players.SetObserverMode", player, mode);
     void IEnginePlayers.SetTeam(EntityHandle player, int team) => RecordVoid("Players.SetTeam", player, team);
     void IEnginePlayers.SetPickupEnabled(EntityHandle entity, bool enabled) => RecordVoid("Players.SetPickupEnabled", entity, enabled);
@@ -1014,6 +1019,8 @@ public sealed class RecordingEngine :
     void IEngineHud.ViewPunch(Vector origin, Vector punch, float radius, bool inAir) => RecordVoid("Hud.ViewPunch", origin, punch, radius, inAir);
     ViewportFacts IEngineHud.ViewportQuery(string panel) => Record<ViewportFacts>("Hud.ViewportQuery", panel);
     void IEngineHud.ViewportShow(string panel, bool show, IReadOnlyList<KeyValuePair<string, string>> data, ViewportActions actions) => RecordVoid("Hud.ViewportShow", panel, show, data.ToList(), actions);
+    bool IEngineHud.ScreenOverlaySet(string name) => Record<bool>("Hud.ScreenOverlaySet", name);
+    string IEngineHud.ScreenOverlayGet() => Record<string>("Hud.ScreenOverlayGet");
 
     // WorldQuery
     int IEngineWorldQuery.EntitiesInSphere(Vector center, float radius, Span<EntityHandle> into) => EntitiesInSphere(center, radius, into);
@@ -1069,6 +1076,7 @@ public sealed class RecordingEngine :
     void IEngineSound.EmitSoundAtPosition(string soundName, Vector origin) => RecordVoid("Sound.EmitSoundAtPosition", soundName, origin);
     void IEngineSound.EntityEmitSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityEmitSound", entity, soundName);
     void IEngineSound.EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) => RecordVoid("Sound.EntityEmitSoundAs", entity, soundName, volume, pitch);
+    void IEngineSound.EmitSoundToTeam(int team, EntityHandle entity, string soundName) => RecordVoid("Sound.EmitSoundToTeam", team, entity, soundName);
     void IEngineSound.EntityStopSound(EntityHandle entity, string soundName) => RecordVoid("Sound.EntityStopSound", entity, soundName);
     void IEngineSound.SoundPatchEmit(int patch, float volume01, float pitch, int flags, float startTime, bool emitCaption) => RecordVoid("Sound.SoundPatchEmit", patch, volume01, pitch, flags, startTime, emitCaption);
     void IEngineSound.SoundPatchStop(int patch) => RecordVoid("Sound.SoundPatchStop", patch);
@@ -1243,7 +1251,12 @@ public sealed class RecordingEngine :
     int IEngineEffects.DrawSpriteOffset(EntityHandle owner, Vector offset, int modelIndex, float frame, int renderMode, int renderFx, int r, int g, int b, int a, float scale, bool worldSpaceScale, float hdrColorScale, float glowProxySize) => Record<int>("Effects.DrawSpriteOffset", owner, offset, modelIndex, frame, renderMode, renderFx, r, g, b, a, scale, worldSpaceScale, hdrColorScale, glowProxySize);
     bool IEngineEffects.ParticleSystemStart(EntityHandle owner, string name) => Record<bool>("Effects.ParticleSystemStart", owner, name);
     void IEngineEffects.ParticleSystemStop(EntityHandle owner) => RecordVoid("Effects.ParticleSystemStop", owner);
+    bool IEngineEffects.ParticleSystemStartExtra(EntityHandle owner, string name) => Record<bool>("Effects.ParticleSystemStartExtra", owner, name);
+    void IEngineEffects.ParticleSystemStopExtra(EntityHandle owner) => RecordVoid("Effects.ParticleSystemStopExtra", owner);
     bool IEngineEffects.ParticleSystemFollowPoints(EntityHandle owner, int pointMask) => Record<bool>("Effects.ParticleSystemFollowPoints", owner, pointMask);
+    bool IEngineEffects.ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntity", owner, point, entity, attachment, offset);
+    bool IEngineEffects.ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => Record<bool>("Effects.ParticleSystemStartSlot", owner, name, slot);
+    void IEngineEffects.ParticleSystemStopSlot(EntityHandle owner, int slot) => RecordVoid("Effects.ParticleSystemStopSlot", owner, slot);
     void IEngineEffects.SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => RecordVoid("Effects.SpriteTrailUpdate", owner, renderMode, visible);
     void IEngineEffects.SpriteTrailDestroy(EntityHandle owner) => RecordVoid("Effects.SpriteTrailDestroy", owner);
     void IEngineEffects.DustEffect(Vector origin, Vector direction, float size, float speed) => RecordVoid("Effects.DustEffect", origin, direction, size, speed);

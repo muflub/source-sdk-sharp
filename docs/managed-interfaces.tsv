@@ -244,6 +244,10 @@ IManagedRenderClient	ViewDemoCamera	int32_t	int32_t nStage, const float *pIn, fl
 # ScreenSpaceEffectsStage (C7 screen-space effects): the view's level start (0) and end (1), where stock's
 # CViewRender ran InitScreenSpaceEffects and ShutdownScreenSpaceEffects, run the managed manager's.
 IManagedRenderClient	ScreenSpaceEffectsStage	void	int32_t nStage
+# ViewEffectsViewModelBob (cl_bobcycle/cl_bobup): stock's AddViewModelBobHelper whole. The eye
+# origin and angles in; the bobbed viewmodel origin and angles out. The bob state and the factors
+# are managed's (TFViewmodelBob's Tick, RenderPlanHost's geometry); native only marshals.
+IManagedRenderClient	ViewEffectsViewModelBob	void	float flCurTime, float flFrameTime, const float *pEyeOrigin, const float *pEyeAngles, float *pOutOrigin, float *pOutAngles
 IManagedInputClient	InputInit	void	int32_t bNoMouse
 IManagedInputClient	InputShutdown	void	void
 IManagedInputClient	InputLevelInit	void	void

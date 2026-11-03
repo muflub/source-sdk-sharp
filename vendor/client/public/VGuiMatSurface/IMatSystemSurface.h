@@ -76,8 +76,9 @@ public:
 	virtual void unused_Set3DPaintTempRenderTarget() = 0;
 	virtual void unused_Reset3DPaintTempRenderTarget() = 0;
 
-	// Gets a material bound to a surface texture ID
-	virtual void unused_DrawGetTextureMaterial() = 0;
+	// Gets a material bound to a surface texture ID (stock signature: the slot
+	// exists in the engine's MatSystemSurface008 either way)
+	virtual IMaterial* DrawGetTextureMaterial(int id) = 0;
 
 	virtual void unused_GetFullscreenViewportAndRenderTarget() = 0;
 	virtual void unused_SetFullscreenViewportAndRenderTarget() = 0;

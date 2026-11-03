@@ -126,6 +126,27 @@ public abstract class MapDecal : ScriptedEntity
 
     public override void OnRemoved() => _pending.Remove(this);
 
+    // Painted (or left to go) by the load's pass, so the activate below does
+    // not paint a decal the level init already stamped.
+    private bool _placed;
+
+    /// <summary>
+    /// <c>CDecal</c>'s unnamed arm for a decal made AFTER the load's pass: a
+    /// round cleanup's re-create (stock's <c>CleanUpMap</c> parses the map with
+    /// activation on, and stock's decal stamps itself and goes). A named
+    /// decal still waits for its <c>Activate</c> input; one the load's
+    /// <see cref="PaintPlaced"/> already painted is left alone.
+    /// </summary>
+    public override void OnServerActivate()
+    {
+        if (_placed || Name.Length != 0)
+            return;
+
+        _placed = true;
+        Paint(permanent: true);
+        Remove();
+    }
+
     /// <summary>
     /// Paints everything the map placed, once the map has finished loading.
     ///
@@ -161,6 +182,7 @@ public abstract class MapDecal : ScriptedEntity
                 continue;
             }
 
+            decal._placed = true;
             if (decal.Paint(permanent: true))
                 painted++;
 

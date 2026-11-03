@@ -52,7 +52,7 @@ public sealed class TF2DescentTownTests
 
         Assert.Equal("mod", world["ssmap_entities"]);
         Assert.Equal("1", world["ssmap_entities_version"]);
-        Assert.Equal(TownPalette.Tf2Mining.Sky, world["skyname"]);
+        Assert.Equal(TownPalette.TF2Mining.Sky, world["skyname"]);
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class TF2DescentTownTests
             files.UnionWith(VpkFiles(Path.Combine(tf, vpk)));
 
         Assert.True(files.Count > 10_000, $"the VPKs listed {files.Count} files: the reader saw nothing");
-        var palette = TownPalette.Tf2Mining;
+        var palette = TownPalette.TF2Mining;
         var missing = palette.Materials.Select(m => $"materials/{m}.vmt")
             .Concat(palette.Models)
             .Concat(new[] { "bk", "dn", "ft", "lf", "rt", "up" }.Select(f => $"materials/skybox/{palette.Sky}{f}.vmt"))
@@ -129,6 +129,6 @@ public sealed class TF2DescentTownTests
         var files = VpkFiles(Path.Combine(tf, "tf2_misc_dir.vpk"));
 
         Assert.DoesNotContain("models/props_mining/no_such_model.mdl", files);
-        Assert.Contains(TownPalette.Tf2Mining.WaterTower, files);
+        Assert.Contains(TownPalette.TF2Mining.WaterTower, files);
     }
 }

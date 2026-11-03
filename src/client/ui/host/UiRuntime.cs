@@ -9,7 +9,8 @@ using SourceSharp.Client.Ui.Toolkit;
 namespace SourceSharp.Client.Vgui;
 
 /// <summary>The menu layer's sources the host refreshes and the panels it maps.</summary>
-public sealed record UiMenus(ScoreboardUi Scores, TeamMenuUi Teams, MotdUi Motd, ConsoleUi Console, ChatInputUi? Chat = null);
+public sealed record UiMenus(ScoreboardUi Scores, TeamMenuUi Teams, MotdUi Motd, ConsoleUi Console, ChatInputUi? Chat = null,
+                             MainMenuUi? Main = null);
 
 /// <summary>
 /// THE UI IN GAME (plan_client_ui §8 U2, U3): what IManagedUiClient forwards to.
@@ -21,7 +22,12 @@ public sealed record UiMenus(ScoreboardUi Scores, TeamMenuUi Teams, MotdUi Motd,
 /// </summary>
 public sealed class UiHost : IUiRuntime
 {
-    /// <summary>Stock viewport panel names and the UI screens that answer them.</summary>
+    /// <summary>Stock viewport panel names and the UI screens that answer them.
+    /// A screen on the menu layer may claim panels with
+    /// <see cref="Toolkit.UiScreen.Panel"/> and <see cref="Toolkit.UiScreen.Panels"/>,
+    /// and the claim answers those panels for that host instead: this map is
+    /// the host's starting point, and a claim never edits it
+    /// (<see cref="PanelsFor(string)"/> is the routing).</summary>
     public static readonly IReadOnlyDictionary<string, string> Panels = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["scores"] = "scoreboard",
@@ -55,6 +61,9 @@ public sealed class UiHost : IUiRuntime
     private readonly HudBuildStamp _build;
     private readonly UiScaleConVar? _scale;
     private readonly UiMenus _menus;
+    /// <summary>Panel claims of the menu layer's screens: panel name to screen
+    /// name, first claimer in layer order. These override <see cref="Panels"/>.</summary>
+    private readonly Dictionary<string, string> _claims;
     private bool _loggedFirstPaint;
     private bool _menuInput;
     private UiCursor _cursor;
@@ -65,10 +74,33 @@ public sealed class UiHost : IUiRuntime
     {
         (_log, _clock, _hud, _menu, _backend, _surface) = (log, clock, hud, menu, backend, surface);
         (_player, _messages, _build, _scale, _menus) = (player, messages, build, scale, menus);
+        _claims = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var screen in menu.Screens)
+        {
+            if (screen.Panel is { } claimed)
+                _claims.TryAdd(claimed, screen.Name);   // the first claimer in layer order answers
+            foreach (var name in screen.Panels)         // a screen may speak for several panels
+                _claims.TryAdd(name, screen.Name);
+        }
         menus.Teams.Close = () => Close("teammenu");
         menus.Motd.Closed = () => Close("motd");
         if (menus.Chat is { } chat)
             chat.Closed = () => Close("chatinput");
+        if (menus.Main is { } main)
+        {
+            main.Closed = () => Close("mainmenu");
+            main.OptionsShown = () => Open("mouseoptions");
+        }
+
+        // A closed screen is told, whichever way the close came — the Esc on
+        // the top window, a named close, the window's own button: the screen
+        // that answers the name learns its hide as the close lands.
+        menu.Closed += name =>
+        {
+            foreach (var screen in menu.Screens)
+                if (screen.Name == name)
+                    screen.Closed();
+        };
     }
 
     /// <summary>The HUD layer.</summary>
@@ -205,10 +237,7 @@ public sealed class UiHost : IUiRuntime
         {
             if ((UiKey)code == UiKey.Escape)
             {
-                // Esc closes the top thing that wants the keyboard.
-                if (_menu.IsOpen("teammenu")) Close("teammenu");
-                else if (_menu.IsOpen("motd")) Close("motd");
-                else if (Windows.Top is { } top && _menu.IsOpen(top)) Close(top);
+                ToggleMenu();
                 return;
             }
             if (console)
@@ -218,6 +247,60 @@ public sealed class UiHost : IUiRuntime
         {
             _menus.Console.Char(e.Char);
         }
+    }
+
+    private double _escapeHandledAt = double.NegativeInfinity;
+
+    /// <summary>One Escape decision per frame: the press can reach the host twice
+    /// (the menu root's panel arm and the engine's gameui events), so two calls in
+    /// the same frame count once.</summary>
+    private bool ClaimEscape()
+    {
+        double now = _clock.Now;
+        if (now == _escapeHandledAt)
+            return false;
+        _escapeHandledAt = now;
+        return true;
+    }
+
+    /// <summary>
+    /// The Escape decision while the menu holds the keyboard (stock ClientModeSingle::
+    /// OnKeyDown): close the top thing that wants it — the team panel's screen, claimed
+    /// or core's, then the info panel's the same way (TF2's own text window), then the
+    /// top window — and with nothing open, toggle the pause menu. While the menu has no
+    /// keyboard the engine's own arm answers Escape instead, and its gameui_activated/
+    /// gameui_hidden events come to <see cref="ShowPauseMenu"/> and <see cref="HidePauseMenu"/>.
+    /// </summary>
+    public void ToggleMenu()
+    {
+        if (!ClaimEscape())
+            return;
+
+        var teamScreen = _claims.TryGetValue("team", out var team) ? team : "teammenu";
+        var infoScreen = _claims.TryGetValue("info", out var info) ? info : "motd";
+        if (_menu.IsOpen(teamScreen)) Close(teamScreen);
+        else if (_menu.IsOpen(infoScreen)) Close(infoScreen);
+        else if (Windows.Top is { } top && _menu.IsOpen(top)) Close(top);
+        else if (_menu.IsOpen("mainmenu")) Close("mainmenu");
+        else if (_menu.Has("mainmenu")) Open("mainmenu");   // like Restore's skip: no screen, no decision
+    }
+
+    /// <summary>The engine activated its GameUI (gameui_activated): the pause menu shows
+    /// with it, so what the engine considers visible and what the menu draws agree.</summary>
+    public void ShowPauseMenu()
+    {
+        if (!ClaimEscape())
+            return;
+        if (_menu.Has("mainmenu")) Open("mainmenu");        // like Restore's skip: no screen, no decision
+    }
+
+    /// <summary>The engine hid its GameUI again (gameui_hidden, whatever hid it — its own
+    /// Escape arm or the menu's Resume running gameui_hide): the pause menu goes with it.</summary>
+    public void HidePauseMenu()
+    {
+        if (!ClaimEscape())
+            return;
+        Close("mainmenu");
     }
 
     /// <summary>A stock viewport panel: the UI takes the ones it has a screen for.</summary>
@@ -230,11 +313,29 @@ public sealed class UiHost : IUiRuntime
             return !show;
         if (Absorbed.Contains(name))
             return true;
-        if (!Panels.TryGetValue(name, out var screen))
+        if (PanelsFor(name) is not { } screen)
             return false;
-        if (show) Open(screen); else Close(screen);
+        if (show)
+        {
+            // Which name the show came in under, for a screen that speaks
+            // for several (TF2's class menu, opened as class_red or blue).
+            foreach (var claimer in _menu.Screens)
+                if (claimer.Name == screen)
+                {
+                    claimer.PanelOpened(name);
+                    break;
+                }
+            Open(screen);
+        }
+        else Close(screen);
         return true;
     }
+
+    /// <summary>The screen that answers a panel name for this host: its
+    /// claiming menu screen, or the stock map's. Null answers no one.</summary>
+    private string? PanelsFor(string panel)
+        => _claims.TryGetValue(panel, out var claimed) ? claimed
+         : Panels.TryGetValue(panel, out var screen) ? screen : null;
 
     /// <summary>The server's VGUIMenu, before the native viewport: a panel the UI answers takes its data here.</summary>
     public bool TakePanel(string name, bool show, IReadOnlyList<KeyValuePair<string, string>> data)
@@ -273,17 +374,25 @@ public sealed class UiHost : IUiRuntime
     /// A new map (stock CBaseViewport::FireGameEvent on game_newmap, which hid
     /// every viewport panel): the screens that answer the stock panels close,
     /// and the chat's input line (stock's chat stopped its message mode at the
-    /// level's end). GameUI's windows and the HUD are not the viewport's.
+    /// level's end). GameUI's windows and the HUD are not the viewport's. The
+    /// first-paint stamp is per level like the level-init stamps in
+    /// ClientModule.LevelInit, so the arm re-arms: the runtime is carried
+    /// across levels (UiCarryReload), and the tf2-gate's changelevel step
+    /// measures the second map's load by the line appearing again.
     /// </summary>
     public void NewMap()
     {
-        foreach (var screen in Panels.Values)
-            Close(screen);
+        foreach (var (panel, screen) in Panels)
+            if (!_claims.ContainsKey(panel))
+                Close(screen);          // the stock screen, while it still answers
+        foreach (var screen in _claims.Values)
+            Close(screen);              // and every claiming screen, panel-first-winner
         if (Has("chatinput"))
             Close("chatinput");
+        _loggedFirstPaint = false;
     }
 
-    public bool Answers(string panel) => Panels.ContainsKey(panel) || Absorbed.Contains(panel);
+    public bool Answers(string panel) => PanelsFor(panel) is not null || Absorbed.Contains(panel);
 
     public bool Has(string screen) => _menu.Has(screen);
 

@@ -14,7 +14,7 @@ public readonly record struct RecentCommand(int CommandNumber, int TickCount, fl
 /// last 16 commands, and an injected mouse delta for the next one
 /// (<c>input/inject</c>, cheats only).
 /// </summary>
-public sealed class ClientInputService : IClientInputService, IReloadParticipant
+public sealed class ClientInputService : IClientInputService, IReloadParticipant, IWeaponSelectionLatch
 {
     public const int RecentCount = 16;
 
@@ -119,6 +119,15 @@ public sealed class ClientInputService : IClientInputService, IReloadParticipant
     public int GetButtonBits(bool reset) => _input.GetButtonBits(reset);
 
     public void MakeWeaponSelection(int weaponEntIndex) => _input.MakeWeaponSelection(weaponEntIndex);
+
+    /// <inheritdoc/>
+    /// <summary>
+    /// Stock's CreateMove latch (in_main.cpp:1207-1214): the pending selection
+    /// rides the next command's <c>weaponselect</c>. The wire index is the
+    /// catalog type + 1 — 0 means none — the same namespace the server's
+    /// RunCommand answers.
+    /// </summary>
+    public void Latch(int catalogType) => _input.MakeWeaponSelection(catalogType + 1);
 
     public float KeyState(int button)
     {

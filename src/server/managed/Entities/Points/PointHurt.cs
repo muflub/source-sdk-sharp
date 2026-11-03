@@ -148,11 +148,16 @@ public sealed class PointHurt : ScriptedEntity
             // parameter -- nothing in this mod has a faction, and a point_hurt
             // is not an entity a blast has to pass through.
             //
-            // The ACTIVATOR is both attacker and inflictor, which is what
-            // CTakeDamageInfo( pAttacker, pAttacker, ... ) did inside
-            // SourceSharp_RadiusDamage.
+            // THE POINT HURT IS BOTH ATTACKER AND INFLICTOR, which is what
+            // CPointHurt::HurtThink's RadiusDamage( CTakeDamageInfo( this,
+            // this, ... ), ... ) passes (pointhurt.cpp:102): a dose kills in
+            // the entity's own name unless a map named a target, where
+            // CTakeDamageInfo( this, m_pActivator, ... ) credits the activator
+            // (:93). The über passthrough reads the inflictor back
+            // (tf_player.cpp:9204), so an attacker that was not the point
+            // hurt would also hide it from the damage rules.
             Blast.Apply(Origin, Vars.Damage, Vars.Radius, Vars.DamageType,
-                        attacker: _activator, inflictor: _activator,
+                        attacker: Handle, inflictor: Handle,
                         ignored: EntityHandle.None);
             return;
         }

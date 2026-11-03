@@ -185,6 +185,50 @@ public sealed class ServerPlayerMovement : IServerPlayerMovementRoute
     /// <summary>Whether this is the first push refused for <paramref name="entity"/>.</summary>
     internal bool FirstRefusal(EntityHandle entity) => _refused.Add(entity);
 
+    /// <summary>
+    /// CBasePlayer::SetFOV (baseplayer_shared.cpp:1946), on the record: a
+    /// requester holding another's zoom is refused (the owner rule — stock's
+    /// CanOverrideEnvZoomOwner arm is env_zoom's override, which the default
+    /// CBaseEntity answer refuses); otherwise a FOV of 0 clears the owner and
+    /// any other sets it to the requester. The new ramp starts at the value
+    /// the player sees now — <c>m_iFOVStart = GetFOV()</c> — or at the
+    /// caller's <c>iZoomStart</c> when one is given — with the clock
+    /// and the rate recorded (<see cref="PlayerFov.Current"/>).
+    /// </summary>
+    public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate, int start = 0)
+    {
+        // NOTENOTE (stock's): you MUST specify who is requesting the zoom change.
+        if (requester == EntityHandle.None)
+            return;
+
+        ServerPlayerMove m = moves.For(player);
+
+        if (m.ZoomOwner != EntityHandle.None && m.ZoomOwner != requester)
+            return;
+
+        var now = commands.Now;
+
+        m.ZoomOwner = fov == 0 ? EntityHandle.None : requester;
+        m.FovStart = start > 0
+            ? start                                                        // the caller's iZoomStart
+            : PlayerFov.Current(m.Fov, m.FovStart, m.FovTime, m.FovRate, m.FovDefault, now);
+        m.FovTime = now;
+        m.Fov = fov;
+        m.FovRate = rate;
+        commands.Publish(player, m);
+    }
+
+    /// <summary>
+    /// CBasePlayer::SetDefaultFOV (player.cpp:8741): the bare assignment —
+    /// the word an unzoomed view answers, no ramp and no owner.
+    /// </summary>
+    public void SetDefaultFov(EntityHandle player, int fov)
+    {
+        ServerPlayerMove m = moves.For(player);
+        m.FovDefault = fov;
+        commands.Publish(player, m);
+    }
+
     /// <summary>StandaloneBaseVelocity_Accumulate: added to an unconsumed base, else replacing it.</summary>
     public static Vector BaseVelocityPush(int flags, Vector current, Vector push)
         => (flags & ServerCommandRules.FlBaseVelocity) != 0 ? current + push : push;

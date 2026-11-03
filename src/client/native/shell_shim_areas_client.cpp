@@ -494,6 +494,32 @@ void CShimEffectsRenderClient::BeamDrawMesh(int32_t nPrimitive, int32_t nPrimiti
 	return ::SourceSharp_BeamDrawMesh(nPrimitive, nPrimitives, nColorKind, pVerts, nVerts);
 }
 
+int32_t CShimEffectsRenderClient::ParticleSystemStartExtra(uint32_t hOwner, const char* pszName)
+{
+	return ::SourceSharp_ParticleSystemStartExtra(hOwner, pszName);
+}
+
+void CShimEffectsRenderClient::ParticleSystemStopExtra(uint32_t hOwner)
+{
+	return ::SourceSharp_ParticleSystemStopExtra(hOwner);
+}
+
+int32_t CShimEffectsRenderClient::ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
+															 int32_t nAttachment, const float* pOffsetXYZ)
+{
+	return ::SourceSharp_ParticleSystemFollowEntity(hOwner, nPoint, hEntity, nAttachment, pOffsetXYZ);
+}
+
+int32_t CShimEffectsRenderClient::ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot)
+{
+	return ::SourceSharp_ParticleSystemStartSlot(hOwner, pszName, nSlot);
+}
+
+void CShimEffectsRenderClient::ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot)
+{
+	return ::SourceSharp_ParticleSystemStopSlot(hOwner, nSlot);
+}
+
 void CShimStandaloneClient::ActivateOccluder(int32_t nOccluderIndex, int32_t bActive)
 {
 	return ::SourceSharp_ActivateOccluder(nOccluderIndex, bActive);
@@ -626,6 +652,11 @@ void CShimStandaloneClient::SurfaceSetPlan(uint32_t hEntity, const int32_t* pWor
 void CShimStandaloneClient::ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount)
 {
 	return ::SourceSharp_ClientInterpAdmitted(pHandles, nCount);
+}
+
+void CShimStandaloneClient::EntitySetModelOverride(uint32_t hEntity, const char* pModel)
+{
+	return ::SourceSharp_EntitySetModelOverride(hEntity, pModel);
 }
 
 void CShimViewClient::ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText)
@@ -796,6 +827,16 @@ int32_t CShimViewClient::ClientTraceHullEntities(const float* pStartXYZ, const f
 												 pOutEntityOriginXYZ);
 }
 
+int32_t CShimViewClient::ScreenOverlaySet(const char* pszName)
+{
+	return ::SourceSharp_ScreenOverlaySet(pszName);
+}
+
+int32_t CShimViewClient::ScreenOverlayGet(char* pOutName, int32_t nNameBytes)
+{
+	return ::SourceSharp_ScreenOverlayGet(pOutName, nNameBytes);
+}
+
 int32_t CShimUserMessagesClient::ClientViewportQuery(const char* pPanel)
 {
 	return ::SourceSharp_ClientViewportQuery(pPanel);
@@ -947,6 +988,17 @@ void CShimUiClient::UiDebugOverlayClearDead()
 void CShimUiClient::ClientModeLayout()
 {
 	return ::SourceSharp_ClientModeLayout();
+}
+
+void CShimUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
+									   int32_t bAdditive)
+{
+	return ::SourceSharp_UiDrawTexturedQuad(nTexture, pXyuv, nVertices, nRgba, bAdditive);
+}
+
+int32_t CShimUiClient::UiMaterialTexture(const char* pName)
+{
+	return ::SourceSharp_UiMaterialTexture(pName);
 }
 
 int32_t CShimParticlesClient::ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial,

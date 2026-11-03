@@ -486,6 +486,31 @@ public unsafe class ClientSkeletonsTests
         Assert.Equal((new NVector(0f, 300f, 0f), new NVector(5f, 300f, 10f)), (At(output, 0), At(output, 2)));
     }
 
+    [Fact]
+    public void AnEntitysSkeletonIsBuiltFromTheBlocksModelTheOverrideReasserts()
+    {
+        using Rig rig = new();
+        float[] output = new float[3 * Floats];
+        rig.Setup(Entity, output);
+
+        // The wire's word replaced by the viewer-local choice -- what the
+        // shell's re-assert of an override lands as in the block. The next
+        // build is the new model's skeleton: the cache key carries the index.
+        StudioHdrBuilder b = new() { ModelName = "test/rootonly.mdl" };
+        b.Bones.Add(new StudioHdrBuilder.BoneDef { Name = "root", Parent = -1, Flags = UsedByAnything });
+        b.Sequences.Add(new StudioHdrBuilder.SeqDef { Label = "idle", AnimTable = [0], Flags = 0, Weights = [1f] });
+        b.Anims.Add(new StudioHdrBuilder.AnimDef { Name = "idle", NumFrames = 1, Fps = 30f });
+        rig.Memory.Models[8] = b.Build();
+        rig.Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f), model: 8, worldX: 100f);
+        Assert.True(rig.Setup(Entity, output));
+
+        // One real bone at the origin; the chain's arm and hand slots are
+        // world-transform padding now, where the chain posed a hand at
+        // (105, 0, 10).
+        Assert.Equal(new NVector(100f, 0f, 0f), At(output, 0));
+        Assert.Equal(new NVector(100f, 0f, 0f), At(output, 2));
+    }
+
     // ---- the frame's batch (plan_physics_bones_perf A2) -------------------------------
 
     private static bool Batched(Rig rig, EntityHandle entity, out ClientBoneBatch.Entry entry) =>

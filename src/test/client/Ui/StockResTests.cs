@@ -86,4 +86,30 @@ public class StockResTests
 
         Assert.Equal(70f * 2.25f, spot.Left); // 170 - 100: from the parent's left
     }
+
+    [Fact]
+    public void A_root_box_resolves_against_the_frames_own_screen()
+    {
+        // vgui's ComputePos measures every position against the actual
+        // screen (Panel.cpp): at 1920x1080 the du space is 1920 wide, so
+        // the stock screen is 853.33 units and a "c" canvas centres on the
+        // screen's true centre — not the 640x480 authoring canvas's 720 du.
+        var wide = UiScale.Screen(1920, 1080);
+
+        // The build menu's canvas: c-225 wide 450.
+        var at = StockRes.Spot(new StockBox("c-225", "0", 450, 100), wide);
+        Assert.Equal(960f, at.CentreX + wide.W / 2f, 2f); // centred on the screen
+        Assert.Equal(453.75f, at.Left, 2f);               // 960 - 225 * 2.25
+
+        // The ammo panel: r95 wide 94 puts its right edge 95 - 94 = 1 unit
+        // (2.25 du) in from the screen's right, not the 4:3 face's.
+        var ammo = StockRes.Spot(new StockBox("r95", "r55", 94, 45), wide);
+        Assert.Equal(2.25f, ammo.Right);
+
+        // At 4:3 the stock screen is the authoring canvas itself.
+        var plain = UiScale.Screen(1024, 768);
+        var canvas = StockRes.Screen(plain);
+        Assert.Equal(640f, canvas.Wide);
+        Assert.Equal(480f, canvas.Tall);
+    }
 }

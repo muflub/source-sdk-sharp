@@ -45,6 +45,41 @@ public interface IWeaponArms
     /// <summary>Hitscan fire: trace, damage, impact — the ammo row says how hard.</summary>
     void FireBullets(in WeaponType type, int pellets, float spreadDegrees);
 
+    /// <summary>
+    /// Hitscan fire at a damage the CALLER decided: <paramref name="shot"/>'s
+    /// damage per bullet in place of the ammo row's, and its crit flag carried
+    /// to the victim beside the damage call (the server's
+    /// <c>DamageHitGroups</c> scope, read into the rules' <c>DamageContext</c>).
+    /// The ammo row still names the damage type and the force.
+    ///
+    /// <para>
+    /// What a crit is worth is the caller's rule, not the arms': stock TF
+    /// triples the damage and sets <c>DMG_CRITICAL</c> in its own weapon code,
+    /// and the core carries the number and the flag it is handed, unchanged.
+    /// </para>
+    ///
+    /// <para>
+    /// The default ignores the shot and fires the stock arm, so the client's
+    /// replay arms and a test's recording arms keep the behaviour they had: on
+    /// the replay side a bullet is a no-op whichever door it comes through.
+    /// </para>
+    /// </summary>
+    void FireBullets(in WeaponType type, int pellets, float spreadDegrees, ShotDamage shot)
+        => FireBullets(in type, pellets, spreadDegrees);
+
+    /// <summary>
+    /// Hitscan fire whose pellets leave in <paramref name="fixedPellets"/>'s
+    /// pattern instead of the random sample — the behaviour's fixed spread,
+    /// <c>tf_use_fixed_weaponspreads</c> (stock's <c>bFixedSpread</c>,
+    /// tf_fx_shared.cpp:302). Null is the random sample; the pattern is asked
+    /// once per attack and its index is the pellet's in the volley.
+    /// The default drops the pattern, so the arms that never heard of one keep
+    /// the behaviour they had.
+    /// </summary>
+    void FireBullets(in WeaponType type, int pellets, float spreadDegrees, ShotDamage shot,
+                     PelletPattern? fixedPellets)
+        => FireBullets(in type, pellets, spreadDegrees, shot);
+
     /// <summary>One melee swing: a short trace, the row's own damage.</summary>
     void MeleeSwing(in WeaponType type);
 
@@ -78,6 +113,12 @@ public interface IWeaponArms
     /// nothing, so it is never asked.
     /// </summary>
     bool EyesUnderwater() => false;
+    /// One melee swing at <paramref name="shot"/>'s damage, its crit flag
+    /// carried to the victim as <see cref="FireBullets(in WeaponType, int, float, ShotDamage)"/>
+    /// carries a bullet's. The default fires the stock swing, for the same
+    /// reason.
+    /// </summary>
+    void MeleeSwing(in WeaponType type, ShotDamage shot) => MeleeSwing(in type);
 
     /// <summary>Sends what the weapon launches instead of a bullet.</summary>
     void Launch(in WeaponType type, string projectile, float speed, bool thrown);
@@ -198,6 +239,31 @@ public interface IWeaponArms
     {
     }
 
+    //-------------------------------------------------------------------------
+    // THE GUN'S FLASH AND BRASS (the firing effects of a predicted shot. Stock
+    // TF arms these client-side — CreateMuzzleFlashEffects and OnFireEvent's
+    // brass — under its first-prediction rules, and the server has nothing to
+    // present, so both default to nothing, as the RPG's hands above do: what
+    // a client presents is none of the machine's or the server's business.)
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// The muzzle flash of a shot: the script's muzzle-flash particle effect,
+    /// to be attached at the hands' muzzle. Only the name travels — where it
+    /// attaches is the presentation's, as stock's <c>DispatchParticleEffect</c>
+    /// leaves it to the entity and its attachment name.
+    /// </summary>
+    void MuzzleFlash(in WeaponType type, string particleEffect) { }
+
+    /// <summary>
+    /// The shell a fired gun ejects, from the viewmodel's ejector. The stock
+    /// effect's data carries the item and the gun with it (stock's
+    /// <c>OnFireEvent</c> for <c>"TF_EjectBrass"</c>):
+    /// <paramref name="itemDefIndex"/> the carried item's definition index, 0
+    /// for none, and <paramref name="weaponId"/> the weapon's own id.
+    /// </summary>
+    void ShellEject(in WeaponType type, int itemDefIndex, int weaponId) { }
+
     /// <summary>
     /// The named animation's sequence index IN THE CURRENT VIEWMODEL, or -1.
     /// Both sides answer from the same model, which is what lets the sequence
@@ -237,6 +303,30 @@ public enum WallProbe
     /// </summary>
     Character = 2,
 }
+
+/// <summary>
+/// One shot's damage as the weapon decided it: the damage each bullet (or the
+/// swing) deals, and whether the shot is a critical hit.
+///
+/// <para>
+/// The machine's stock answer is the row's own numbers — the ammo row's
+/// <see cref="AmmoType.Damage"/> for a bullet, <see cref="WeaponType.MeleeDamage"/>
+/// for a swing — and not critical; a behaviour changes it in
+/// <see cref="IWeaponBehaviour.ModifyShot"/>. The flag is only carried: the
+/// core never multiplies by it, so a mod's crit rule is the whole of what a crit
+/// does (stock TF: <c>DMG_CRITICAL</c> and three times the damage, decided in
+/// <c>CTFWeaponBase</c>, not in the base weapon).
+/// </para>
+/// </summary>
+/// <param name="Damage">Damage per bullet, or the swing's.</param>
+/// <param name="Critical">Whether this shot is a critical hit.</param>
+/// <param name="WeaponScriptDamage">
+/// Whether the bullets deal the weapon script's damage instead, with the gib
+/// rule: HL2MP's FireBullets (CHL2MP_Player::FireBullets' m_iPlayerDamage),
+/// which the machine's stock shot asks for. A shot a behaviour decides leaves
+/// it false and is dealt as it says.
+/// </param>
+public readonly record struct ShotDamage(float Damage, bool Critical = false, bool WeaponScriptDamage = false);
 
 /// <summary>
 /// How an animation KIND becomes a sequence index on the model in hand.
@@ -328,12 +418,23 @@ public static class WeaponAnimNames
     /// first-match lookup, then names, then -1. One method so the server's
     /// arms, the client's replay arms and the report cannot drift — they all
     /// answer through this.
+    ///
+    /// <para>
+    /// Each activity name passes through <paramref name="viewmodel"/>'s chain
+    /// first, so a mod can rename the ask before the model sees it (TF2's
+    /// per-role arms; stock's TranslateViewmodelHandActivity). The NAME
+    /// fallback below is not translated: it is the crutch for a model with
+    /// untagged sequences, and a rule speaks activities. Null (a mod-less
+    /// game, a test) asks the machine's own names, which is the HL2 answer.
+    /// </para>
     /// </summary>
-    public static int Resolve(IEngineEntityRender render, EntityHandle viewModel, WeaponAnim anim)
+    public static int Resolve(IEngineEntityRender render, EntityHandle viewModel, WeaponAnim anim,
+                              ViewmodelActivity? viewmodel = null, int playerIndex = 0)
     {
         foreach (string activity in ActivitiesFor(anim))
         {
-            int sequence = render.LookupSequenceByActivity(viewModel, activity);
+            int sequence = render.LookupSequenceByActivity(viewModel,
+                viewmodel?.Translate(playerIndex, anim, activity) ?? activity);
 
             if (sequence >= 0)
                 return sequence;
@@ -375,6 +476,7 @@ public sealed class WeaponLogic
     private readonly IWeaponArms _arms;
     private readonly WeaponCatalog _catalog;
     private readonly WeaponBehaviours _behaviours;
+    private readonly AmmoCatalog _ammo;
 
     /// <summary>
     /// The machine for one player, on one side.
@@ -393,8 +495,13 @@ public sealed class WeaponLogic
     /// resolve one key to one behaviour or prediction diverges, which is why
     /// this is asked once per command and passed down to the attack points.
     /// </param>
+    /// <param name="ammo">
+    /// The side's ammo table, which answers a bullet's stock damage (the
+    /// ammo row's) for <see cref="ShotDamage"/> before a behaviour is asked.
+    /// </param>
     public WeaponLogic(IWeaponArms arms,
-                       WeaponCatalog? catalog = null, WeaponBehaviours? behaviours = null)
+                       WeaponCatalog? catalog = null, WeaponBehaviours? behaviours = null,
+                       AmmoCatalog? ammo = null)
     {
         _arms = arms;
         // Null takes the stock tables: the core rows and no behaviours, which
@@ -403,6 +510,7 @@ public sealed class WeaponLogic
         _catalog = catalog ?? WeaponCatalog.Stock();
         _behaviours = behaviours ?? WeaponBehaviours.Stock();
         _slam = new SlamMachine(arms);
+        _ammo = ammo ?? AmmoCatalog.Stock();
     }
 
     private readonly SlamMachine _slam;
@@ -444,22 +552,29 @@ public sealed class WeaponLogic
     /// (the overwhelmingly common case: a row that names no behaviour) leaves
     /// every decision below with its stock answer.
     /// </param>
+    /// <param name="command">
+    /// The command's seed and the weapon's and owner's indices, handed to
+    /// every behaviour point in <see cref="WeaponAttackContext.Command"/>. The
+    /// stock machine reads none of it; both sides derive it from the command
+    /// (<see cref="WeaponCommand.For"/>), so a behaviour's roll agrees.
+    /// </param>
     public void RunCommand(WeaponNetState w, ViewModelNetState vm,
-                           int buttons, float now, bool effectsLive)
+                           int buttons, float now, bool effectsLive,
+                           WeaponCommand command = default)
     {
         if (_catalog.ByIndex(w.WeaponTypeId) is not WeaponType type)
             return;
 
         var behaviour = _behaviours.For(type.Behaviour);
 
-        behaviour?.ItemPreFrame(Context(in type, w, vm, now, effectsLive), buttons);
+        behaviour?.ItemPreFrame(Context(in type, w, vm, now, effectsLive, command), buttons);
 
         // A weapon whose stock class replaces CBaseCombatWeapon::ItemPostFrame
         // outright (the shotgun) runs its own command.
         if (behaviour is not null)
         {
             int pressed = buttons & ~w.LastButtons;
-            if (behaviour.RunCommand(Context(in type, w, vm, now, effectsLive), buttons, pressed))
+            if (behaviour.RunCommand(Context(in type, w, vm, now, effectsLive, command), buttons, pressed))
             {
                 w.LastButtons = buttons;
                 return;
@@ -471,13 +586,13 @@ public sealed class WeaponLogic
         if (type.Kind == WeaponKind.Slam)
             _slam.RunCommand(w, vm, buttons, now, effectsLive, in type);
         else
-            Step(w, vm, buttons, now, effectsLive, in type, behaviour);
+            Step(w, vm, buttons, now, effectsLive, in type, behaviour, command);
 
         // The tail, run for EVERY command whatever the weapon did in it —
         // firing, reloading or standing idle — as stock's ItemPostFrame was.
         // Not inside the arms below, because a mod's per-frame bookkeeping that
         // lived in the fire path would quietly stop during a reload.
-        behaviour?.ItemPostFrame(Context(in type, w, vm, now, effectsLive));
+        behaviour?.ItemPostFrame(Context(in type, w, vm, now, effectsLive, command));
     }
 
     /// <summary>
@@ -488,12 +603,12 @@ public sealed class WeaponLogic
     /// </summary>
     private void Step(WeaponNetState w, ViewModelNetState vm,
                       int buttons, float now, bool effectsLive,
-                      in WeaponType type, IWeaponBehaviour? behaviour)
+                      in WeaponType type, IWeaponBehaviour? behaviour, WeaponCommand command)
     {
         int pressed = buttons & ~w.LastButtons;
         w.LastButtons = buttons;
 
-        int clipSize = ClipSize(behaviour, in type);
+        int clipSize = ClipSize(behaviour, in type, command.OwnerIndex);
         var held = (InputButtons)buttons;
 
         // Reloading is checked before firing, because a reload in progress is
@@ -508,11 +623,24 @@ public sealed class WeaponLogic
         // both are held: a player who alt-fires while holding the trigger down
         // means the alt-fire, and checking primary first would swallow it every
         // frame.
-        if (held.HasFlag(InputButtons.Attack2)
-            && type.Secondary is not null
-            && w.NextSecondaryAttack <= now)
+        if (held.HasFlag(InputButtons.Attack2) && w.NextSecondaryAttack <= now)
         {
-            SecondaryAttack(w, vm, in type, now, effectsLive, behaviour);
+            if (type.Secondary is not null)
+            {
+                SecondaryAttack(w, vm, in type, now, effectsLive, behaviour, command);
+            }
+            else
+            {
+                // A row with no ammunition secondary still reaches its
+                // behaviour's secondary on the held trigger — stock's
+                // ItemPostFrame calls SecondaryAttack() for every weapon the
+                // same way, and the TF arms whose secondary is the class's
+                // special skill (CTFWeaponBaseGun::SecondaryAttack,
+                // tf_weaponbase_gun.cpp:234-251) live there. Nothing is spent
+                // here; the behaviour arms its own refire.
+                behaviour?.SecondaryAttack(Context(in type, w, vm, now, effectsLive, command));
+            }
+
             return;
         }
 
@@ -520,7 +648,7 @@ public sealed class WeaponLogic
         {
             if (IsEmpty(w, in type, clipSize))
             {
-                HandleFireOnEmpty(w, in type, now, effectsLive, clipSize);
+                HandleFireOnEmpty(w, in type, now, effectsLive, clipSize, behaviour, command);
                 return;
             }
 
@@ -531,7 +659,7 @@ public sealed class WeaponLogic
             if (((InputButtons)pressed).HasFlag(InputButtons.Attack))
                 w.NextPrimaryAttack = now;
 
-            PrimaryAttack(w, vm, in type, now, effectsLive, behaviour);
+            PrimaryAttack(w, vm, in type, now, effectsLive, behaviour, command);
             return;
         }
 
@@ -541,13 +669,16 @@ public sealed class WeaponLogic
             && SwitchIfExhausted(_arms, w, now, effectsLive, HasAnyAmmo(w, in type, clipSize)))
             return;
 
-        // Reload on request, or because the clip ran dry and nothing is held.
+        // Reload on request, or because the clip ran dry and nothing is held,
+        // or because the owner's wish tops the clip up while idle
+        // (cl_autoreload; tf_weaponbase.cpp:2454's pressed reload).
         bool wantsReload = held.HasFlag(InputButtons.Reload)
-                        || (buttons == 0 && clipSize > 0 && w.Clip <= 0);
+                        || (buttons == 0 && clipSize > 0 && w.Clip <= 0)
+                        || (behaviour?.AutoReload(Context(in type, w, vm, now, effectsLive, command), buttons) ?? false);
 
         if (wantsReload && clipSize > 0 && w.NextPrimaryAttack <= now)
         {
-            Reload(w, vm, in type, now, effectsLive, behaviour);
+            Reload(w, vm, in type, now, effectsLive, behaviour, command);
             return;
         }
 
@@ -556,30 +687,32 @@ public sealed class WeaponLogic
         // finishes, which reads as the gun freezing in the player's hands.
         if (buttons == 0 && now >= w.TimeWeaponIdle)
         {
-            SendAnim(vm, WeaponAnim.Idle, 0f);
+            SendAnim(vm, WeaponAnim.Idle, 0f, behaviour, Context(in type, w, vm, now, effectsLive, command));
             w.TimeWeaponIdle = now + IdleRepeat;
         }
     }
 
     /// <summary>The context one decision point is asked about.</summary>
     private WeaponAttackContext Context(in WeaponType type, WeaponNetState w, ViewModelNetState vm,
-                                        float now, bool effectsLive)
-        => new(type, w, vm, now, effectsLive, _arms);
+                                        float now, bool effectsLive, WeaponCommand command)
+        => new(type, w, vm, now, effectsLive, _arms, command);
 
     /// <summary>
     /// The fire rate this machine uses for a row: the row's own, unless a
     /// behaviour has an opinion. Deterministic by rule — both sides ask one key
     /// and must get the same number, or the catch-up loop mispredicts.
     /// </summary>
-    private float Interval(IWeaponBehaviour? behaviour, in WeaponType type)
-        => behaviour is null ? type.Interval : behaviour.ModifyFireInterval(in type, type.Interval);
+    private float Interval(IWeaponBehaviour? behaviour, in WeaponType type, int ownerIndex)
+        => behaviour is null ? type.Interval : behaviour.ModifyFireInterval(in type, type.Interval, ownerIndex);
 
     /// <summary>
     /// The clip this machine uses for a row: the row's own, unless a behaviour
-    /// has an opinion. Zero or less is the row's own "no clip".
+    /// has an opinion. Zero or less is the row's own "no clip". Asked about the
+    /// player whose hands the weapon is in, so a per-player clip scales the
+    /// same on the server's run and the client's replay.
     /// </summary>
-    private int ClipSize(IWeaponBehaviour? behaviour, in WeaponType type)
-        => behaviour is null ? type.ClipSize : behaviour.ModifyClipSize(in type, type.ClipSize);
+    private int ClipSize(IWeaponBehaviour? behaviour, in WeaponType type, int ownerIndex)
+        => behaviour is null ? type.ClipSize : behaviour.ModifyClipSize(in type, type.ClipSize, ownerIndex);
 
     /// <summary>
     /// One pull of the trigger.
@@ -590,26 +723,27 @@ public sealed class WeaponLogic
     /// make every automatic weapon slower on a busy server.
     /// </summary>
     /// <param name="behaviour">The row's resolved behaviour, or null for stock.</param>
+    /// <param name="command">The command being run, for the behaviour's context.</param>
     public void PrimaryAttack(WeaponNetState w, ViewModelNetState vm,
                               in WeaponType type, float now, bool effectsLive,
-                              IWeaponBehaviour? behaviour = null)
+                              IWeaponBehaviour? behaviour = null, WeaponCommand command = default)
     {
         // The veto, asked BEFORE anything is spent or moved: a behaviour that
         // says no pays for nothing, spends no round and leaves no animation.
-        if (behaviour is not null && !behaviour.BeforePrimaryAttack(Context(in type, w, vm, now, effectsLive)))
+        if (behaviour is not null && !behaviour.BeforePrimaryAttack(Context(in type, w, vm, now, effectsLive, command)))
             return;
 
         // An empty clip reloads instead of firing, which is what makes a reload
         // happen at all without anyone pressing a key for it.
-        int clipSize = ClipSize(behaviour, in type);
+        int clipSize = ClipSize(behaviour, in type, command.OwnerIndex);
 
         if (clipSize > 0 && w.Clip <= 0)
         {
-            Reload(w, vm, in type, now, effectsLive, behaviour);
+            Reload(w, vm, in type, now, effectsLive, behaviour, command);
             return;
         }
 
-        float interval = Interval(behaviour, in type);
+        float interval = Interval(behaviour, in type, command.OwnerIndex);
 
         int shots = ShotsOwed(w.NextPrimaryAttack, now, interval);
 
@@ -640,19 +774,34 @@ public sealed class WeaponLogic
 
         // A swing that meets nothing plays its miss (Swing's ACT_VM_MISSCENTER).
         bool connects = !type.IsMelee || _arms.MeleeConnects(in type);
-        SendAnim(vm, connects ? WeaponAnim.Primary : WeaponAnim.Miss, 0f);
+        SendAnim(vm, connects ? WeaponAnim.Primary : WeaponAnim.Miss, 0f, behaviour, Context(in type, w, vm, now, effectsLive, command));
 
-        // The sound is per shot, stock's order — before the round leaves.
+        // The shot's damage and crit flag: the row's, unless the behaviour
+        // decides. Asked on the replay as well as the live run, because a
+        // behaviour's roll may write predicted state (a crit bucket, a seed it
+        // has drawn from) and both sides must have rolled it.
+        bool hitscan = type.IsMelee || type.Projectile.Length == 0;
+        ShotDamage shot = hitscan ? StockShot(in type) : default;
+
+        if (hitscan && behaviour is not null)
+            shot = behaviour.ModifyShot(Context(in type, w, vm, now, effectsLive, command), shot);
+
+        // The sound is per shot, stock's order — before the round leaves. The
+        // behaviour may answer the shot's sound (stock TF picks BURST or SINGLE
+        // by the crit it rolled); null leaves the row's own, which is what every
+        // stock HL2 weapon and every replay's arms hear.
         if (effectsLive)
         {
+            string fireSound = behaviour?.FireSound(Context(in type, w, vm, now, effectsLive, command), shot)
+                               ?? type.FireSound;
             for (int i = 0; i < shots; i++)
-                _arms.Sound(type.FireSound);
+                _arms.Sound(fireSound);
         }
 
         if (type.IsMelee)
         {
             if (effectsLive && connects)
-                _arms.MeleeSwing(in type);
+                _arms.MeleeSwing(in type, shot);
             else if (effectsLive)
                 _arms.MeleeMiss(in type);
         }
@@ -666,12 +815,24 @@ public sealed class WeaponLogic
         else if (effectsLive)
         {
             _arms.FireBullets(in type, shots * Math.Max(1, type.Pellets),
-                              behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive)) ?? type.Spread);
+                              behaviour?.BulletSpread(Context(in type, w, vm, now, effectsLive, command)) ?? type.Spread,
+                              shot,
+                              behaviour?.FixedPellets(Context(in type, w, vm, now, effectsLive, command)));
         }
 
         // The tail, after the stock shot has been spent and the arms have fired.
-        behaviour?.PrimaryAttack(Context(in type, w, vm, now, effectsLive));
+        behaviour?.PrimaryAttack(Context(in type, w, vm, now, effectsLive, command));
     }
+
+    /// <summary>
+    /// The row's own shot: a swing's <see cref="WeaponType.MeleeDamage"/>, a
+    /// bullet's ammo-row damage (stock's FireBullets reads the ammo definition
+    /// unless the shot overrides it), never critical.
+    /// </summary>
+    private ShotDamage StockShot(in WeaponType type)
+        => type.IsMelee
+            ? new ShotDamage(type.MeleeDamage)
+            : new ShotDamage(_ammo.For(type.AmmoName) is AmmoType ammo ? ammo.Damage : 0f, WeaponScriptDamage: true);
 
     /// <summary>
     /// The other trigger.
@@ -683,9 +844,10 @@ public sealed class WeaponLogic
     /// rate honest.
     /// </summary>
     /// <param name="behaviour">The row's resolved behaviour, or null for stock.</param>
+    /// <param name="command">The command being run, for the behaviour's context.</param>
     public void SecondaryAttack(WeaponNetState w, ViewModelNetState vm,
                                 in WeaponType type, float now, bool effectsLive,
-                                IWeaponBehaviour? behaviour = null)
+                                IWeaponBehaviour? behaviour = null, WeaponCommand command = default)
     {
         if (type.Secondary is not { } secondary)
             return;
@@ -703,7 +865,7 @@ public sealed class WeaponLogic
             return;
         }
 
-        SendAnim(vm, WeaponAnim.Primary, 0f);
+        SendAnim(vm, WeaponAnim.Primary, 0f, behaviour, Context(in type, w, vm, now, effectsLive, command));
 
         if (effectsLive)
         {
@@ -716,7 +878,7 @@ public sealed class WeaponLogic
         }
 
         // The tail, once the alt-fire has been paid for and the arms have fired.
-        behaviour?.SecondaryAttack(Context(in type, w, vm, now, effectsLive));
+        behaviour?.SecondaryAttack(Context(in type, w, vm, now, effectsLive, command));
     }
 
     /// <summary>
@@ -748,11 +910,12 @@ public sealed class WeaponLogic
     /// which is what gives it a duration rather than making it instantaneous.
     /// </summary>
     /// <param name="behaviour">The row's resolved behaviour, or null for stock.</param>
+    /// <param name="command">The command being run, for the behaviour's context.</param>
     public void Reload(WeaponNetState w, ViewModelNetState vm,
                        in WeaponType type, float now, bool effectsLive,
-                       IWeaponBehaviour? behaviour = null)
+                       IWeaponBehaviour? behaviour = null, WeaponCommand command = default)
     {
-        int clipSize = ClipSize(behaviour, in type);
+        int clipSize = ClipSize(behaviour, in type, command.OwnerIndex);
 
         if (clipSize <= 0 || w.InReload)
             return;
@@ -761,7 +924,18 @@ public sealed class WeaponLogic
         if (w.Reserve <= 0 || w.Clip >= clipSize)
             return;
 
-        SendAnim(vm, WeaponAnim.Reload, 0f);
+        // The duration is the animation's, read from the model rather than
+        // declared, so it cannot drift from the view model the table names. A
+        // model with no reload animation still reloads, just immediately.
+        float baseDuration = _arms.AnimDuration(WeaponAnim.Reload);
+
+        // Stock's SetReloadTimer's arms (tf_weaponbase.cpp:2266-2331): the
+        // behaviour scales the reload's time, and the viewmodel plays its
+        // animation at the base over the scaled so the animation ends with the
+        // clock, as stock sets the playback rate (:2322).
+        float duration = behaviour?.ModifyReloadTime(in type, baseDuration, command.OwnerIndex) ?? baseDuration;
+
+        SendAnim(vm, WeaponAnim.Reload, baseDuration > 0f && duration > 0f ? baseDuration / duration : 0f, behaviour, Context(in type, w, vm, now, effectsLive, command));
 
         // DefaultReload's WeaponSound( RELOAD ), which is the client's alone.
         if (effectsLive)
@@ -769,15 +943,10 @@ public sealed class WeaponLogic
 
         w.InReload = true;
 
-        // The duration is the animation's, read from the model rather than
-        // declared, so it cannot drift from the view model the table names. A
-        // model with no reload animation still reloads, just immediately.
-        float duration = _arms.AnimDuration(WeaponAnim.Reload);
-
         w.NextPrimaryAttack = now + duration;
         w.TimeWeaponIdle    = now + duration;
 
-        behaviour?.Reload(Context(in type, w, vm, now, effectsLive));
+        behaviour?.Reload(Context(in type, w, vm, now, effectsLive, command));
     }
 
     /// <summary>
@@ -816,10 +985,23 @@ public sealed class WeaponLogic
     /// CBaseCombatWeapon::HasAnyAmmo for a row the machine runs: a weapon that
     /// uses no ammo always has some; else rounds in the clip or the pool, or
     /// in the secondary pool.
+    ///
+    /// <para>
+    /// Whether a name is USED is stock's registered check, not the name's
+    /// length: the script's ammo string becomes an ammo-system index
+    /// (<c>GetAmmoDef()->Index</c>, basecombatweapon_shared.cpp:263) and an
+    /// unregistered name leaves it -1, so <c>UsesPrimaryAmmo</c> (:1306-1321)
+    /// says false and HasAnyAmmo (:1239-1247) early-trues. A fists row whose
+    /// script says lowercase <c>none</c> (kept as a literal by ParseAmmo's
+    /// strcmp parity) therefore uses no ammo and keeps itself when fired, as
+    /// stock's fists do. Managed: the ammo catalog answers the index — a name
+    /// with no row is an unused ammo slot.
+    /// </para>
     /// </summary>
-    public static bool HasAnyAmmo(WeaponNetState w, in WeaponType type, int clipSize)
+    public bool HasAnyAmmo(WeaponNetState w, in WeaponType type, int clipSize)
     {
-        bool usesPrimary = type.AmmoName.Length > 0, usesSecondary = type.SecondaryAmmoName.Length > 0;
+        bool usesPrimary = _ammo.For(type.AmmoName) is not null,
+             usesSecondary = _ammo.For(type.SecondaryAmmoName) is not null;
         if (!usesPrimary && !usesSecondary)
             return true;
 
@@ -854,7 +1036,8 @@ public sealed class WeaponLogic
     /// rather than every tick.
     /// </summary>
     private void HandleFireOnEmpty(WeaponNetState w, in WeaponType type,
-                                   float now, bool effectsLive, int clipSize)
+                                   float now, bool effectsLive, int clipSize,
+                                   IWeaponBehaviour? behaviour, WeaponCommand command)
     {
         if (effectsLive)
             _arms.Sound(type.EmptySound);
@@ -863,11 +1046,14 @@ public sealed class WeaponLogic
 
         // An empty gun reloads itself, which is what stock does through
         // ReloadOrSwitchWeapons and is the difference between a gun that has
-        // run out and a gun that is broken.
+        // run out and a gun that is broken. Stock's weapon reload runs through
+        // SetReloadTimer, so the behaviour scales this clock too — the click's
+        // floor still floors a heavily scaled one.
         if (clipSize > 0 && w.Reserve > 0)
         {
             w.InReload = true;
             float duration = _arms.AnimDuration(WeaponAnim.Reload);
+            duration = behaviour?.ModifyReloadTime(in type, duration, command.OwnerIndex) ?? duration;
             w.NextPrimaryAttack = now + Math.Max(duration, EmptyClickInterval);
         }
     }
@@ -877,19 +1063,33 @@ public sealed class WeaponLogic
     /// animation the model is already in — stock's m_nAnimationParity, kept for
     /// stock's reason: without it the second shot of a pair is invisible.
     /// </summary>
-    private void SendAnim(ViewModelNetState vm, WeaponAnim anim, float rate) => Play(_arms, vm, anim, rate);
+    private void SendAnim(ViewModelNetState vm, WeaponAnim anim, float rate,
+                          IWeaponBehaviour? behaviour = null, WeaponAttackContext context = default)
+        => Play(_arms, vm, anim, rate, behaviour, context);
 
     /// <summary>
     /// Stock's SendWeaponAnim for a behaviour: the sequence, the parity bump
     /// and the rate, exactly as the machine sends its own. False when the
     /// model has no such animation.
     /// </summary>
-    public static bool Play(IWeaponArms arms, ViewModelNetState vm, WeaponAnim anim, float rate = 0f)
+    public static bool Play(IWeaponArms arms, ViewModelNetState vm, WeaponAnim anim, float rate = 0f,
+                            IWeaponBehaviour? behaviour = null, WeaponAttackContext context = default)
     {
         int sequence = arms.LookupSequence(anim);
 
         if (sequence < 0)
             return false;
+
+        // Stock's SendWeaponAnim is per weapon: the base restarts every send
+        // (CBaseCombatWeapon::SendWeaponAnim) and each weapon answers for its
+        // own looping anims through this seam — CTFMinigun::SendWeaponAnim's
+        // hold-down arm (tf_weapon_minigun.cpp:961-967): "If we're already
+        // playing the fire anim, let it continue. It loops." The answer
+        // compares the ACTIVITIES as stock does; the base answer restarts, so
+        // every other gun (the pistol, the SMG, the shotgun) still restarts
+        // its fire anim on every shot of a held burst.
+        if (behaviour is not null && behaviour.AnimContinuesOnResend(in context, anim))
+            return true;
 
         vm.Sequence        = sequence;
         vm.AnimationParity = SourceSharp.Shared.AnimationParity.Next(vm.AnimationParity);

@@ -70,6 +70,15 @@ public interface IUiRuntime : IUiClientEvents, IDisposable
 
     void Close(string screen);
 
+    /// <summary>The Escape decision while the menu holds the keyboard: close the top thing that wants it, or toggle the pause menu.</summary>
+    void ToggleMenu();
+
+    /// <summary>gameui_activated: the engine's GameUI became visible; the pause menu shows with it.</summary>
+    void ShowPauseMenu();
+
+    /// <summary>gameui_hidden: the engine hid its GameUI; the pause menu goes with it.</summary>
+    void HidePauseMenu();
+
     /// <summary>The /client/{slot}/ui routes over this runtime.</summary>
     IDebugClientUi Debug { get; }
 

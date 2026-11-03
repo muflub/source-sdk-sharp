@@ -549,6 +549,107 @@ public class WeaponScriptDatabaseTests
         return new WeaponScriptDatabase(new RecordingLog(), path => map.TryGetValue(path, out string? t) ? t : null);
     }
 
+    // The .ctx arm (weapon_parse.cpp:219-254): the bytes are ICE level 0
+    // sealed whole blocks; the tail (there is none in these fixtures) is
+    // shipped as read, exactly as DecodeIce leaves it.
+    private static byte[] Seal(string text, string key)
+    {
+        var ice = new IceKey(0);
+        ice.Set(System.Text.Encoding.ASCII.GetBytes(key));
+        byte[] plain = System.Text.Encoding.UTF8.GetBytes(text);
+        var sealedBytes = new byte[plain.Length];
+        int block = ice.BlockSize;
+        for (int at = 0; at + block <= plain.Length; at += block)
+            ice.Encrypt(plain.AsSpan(at, block), sealedBytes.AsSpan(at, block));
+        plain.AsSpan(plain.Length / block * block).CopyTo(sealedBytes.AsSpan(plain.Length / block * block));
+        return sealedBytes;
+    }
+
+    private const string Key = "E2NcUkG2"; // TF2's key, as the tf2 mod's mods.yaml row carries it
+
+    [Fact]
+    public void TheSealedCtxIsReadAndDecodedWhenNoTxtExistsAndTheDatabaseHasTheKey()
+    {
+        // ReadEncryptedKVFile (:222-253): with a key, the missing .txt falls
+        // to the .ctx — read whole, UTIL_DecodeICE'd, parsed from the buffer.
+        var db = new WeaponScriptDatabase(new RecordingLog(),
+            _ => null,
+            path => path == "scripts/weapon_pistol.ctx" ? Seal(Pistol, Key) : null,
+            Key);
+
+        var script = db.ReadScript("weapon_pistol");
+
+        Assert.NotNull(script);
+        Assert.Equal(18, script.MaxClip1);
+        Assert.Equal(0, db.LookupSlot("weapon_pistol"));
+    }
+
+    [Fact]
+    public void AKeylessDatabaseNeverAsksForTheCtx()
+    {
+        // :209-222: the .ctx is opened only when there is a key to open it
+        // with. A keyless database that asked would be reading a script it
+        // cannot decode and claiming a parse it cannot do.
+        var asked = new List<string>();
+        var db = new WeaponScriptDatabase(new RecordingLog(),
+            _ => null,
+            path => { asked.Add(path); return Seal(Pistol, Key); });
+
+        Assert.Null(db.ReadScript("weapon_pistol"));
+        Assert.Empty(asked);
+    }
+
+    [Fact]
+    public void TheTxtWinsWhenBothFilesAreOnThePath()
+    {
+        // :219: "try to load the normal .txt file first". The sealed clip-30
+        // .ctx must not shadow the loose clip-18 .txt.
+        var db = new WeaponScriptDatabase(new RecordingLog(),
+            path => path == "scripts/weapon_pistol.txt" ? Pistol : null,
+            path => path == "scripts/weapon_pistol.ctx" ? Seal(Ar2, Key) : null,
+            Key);
+
+        Assert.Equal(18, db.ReadScript("weapon_pistol")!.MaxClip1);
+    }
+
+    [Fact]
+    public void TheDecodedScriptEndsAtItsNul()
+    {
+        // :240: the buffer is NUL-terminated before the parse, so what a
+        // sealed file carries past that NUL is not script. Here the sealed
+        // file carries an unterminated quote past the NUL: a port that
+        // parsed the whole buffer hands the parser that garbage and loses
+        // the script with it.
+        byte[] sealedBytes = Seal(Pistol + "\0\"unbalanced", Key);
+
+        var db = new WeaponScriptDatabase(new RecordingLog(),
+            _ => null,
+            path => path == "scripts/weapon_pistol.ctx" ? sealedBytes : null,
+            Key);
+
+        var script = db.ReadScript("weapon_pistol");
+
+        Assert.NotNull(script);
+        Assert.Equal(18, script.MaxClip1);
+    }
+
+    [Fact]
+    public void WhenTheKeyIsGivenTheWarningNamesBothFilesItTried()
+    {
+        // The log line a boot is checked by: with a key the miss covers both
+        // spellings; without one only the .txt was ever a candidate.
+        var keyedLog = new RecordingLog();
+        var keyed = new WeaponScriptDatabase(keyedLog, _ => null, _ => null, Key);
+        Assert.Null(keyed.ReadScript("weapon_pistol"));
+        Assert.Contains("'scripts/weapon_pistol.txt' or 'scripts/weapon_pistol.ctx'", keyedLog.Text);
+
+        var keylessLog = new RecordingLog();
+        var keyless = new WeaponScriptDatabase(keylessLog, _ => null, _ => null);
+        Assert.Null(keyless.ReadScript("weapon_ar2"));
+        Assert.DoesNotContain(".ctx", keylessLog.Text);
+        Assert.Contains("'scripts/weapon_ar2.txt'", keylessLog.Text);
+    }
+
     [Fact]
     public void ADatabaseWithNoReaderIsEmptyRatherThanBroken()
     {

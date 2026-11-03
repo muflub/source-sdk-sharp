@@ -753,10 +753,17 @@ public class EntityIoTests
     }
 
     [Fact]
-    public void AnEventForAnEntityThatWentIsCancelledWithIt()
+    public void QueuedEventsReachTheirTargetPastTheirCallersRemoval()
     {
-        // stock's CBaseEntity::UpdateOnRemove calls g_EventQueue.CancelEvents(
-        // this ): an entity that is going takes the events it posted with it.
+        // Stock keeps a queued event past the death of the entity that posted
+        // it: CEventQueue::CancelEvents has three callers — the
+        // ent_cancelpendingentfires command (baseentity.cpp:6181), logic_relay
+        // (logicrelay.cpp:113) and the commentary system — and none of them is
+        // entity removal. CBaseEntity::UpdateOnRemove (baseentity.cpp:2512)
+        // stops looping sounds and notifies listeners; it does not cancel.
+        // This is what a logic_auto firing OnMapSpawn and removing itself in
+        // the same think depends on, and what ctf_2fort's tonemap controller
+        // reaches its .8 / 1.1 / .5 through.
         var registry = Fresh();
         var source = Relay(registry, A, "src");
         var target = Relay(registry, B, "dst");
@@ -768,10 +775,8 @@ public class EntityIoTests
 
         registry.Directory.Unbind(A);
 
-        Assert.Equal(0, registry.Directory.Io.Count);
-
         registry.Directory.ServiceIo(registry.Now + 10f);
-        Assert.Empty(target.Inputs);
+        Assert.Equal(new[] { "Land" }, target.Inputs);
     }
 
     //=========================================================================

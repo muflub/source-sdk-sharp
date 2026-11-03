@@ -131,6 +131,40 @@ public class UserMessagePayloadGeneratorTests
     }
 
     [Fact]
+    public void SixtyFourBitMembersRoundTrip()
+    {
+        // Item ids ride the wire: long and ulong are 8 bytes, an array of them
+        // a count byte then its elements.
+        var probe = Compiled("""
+            public partial struct Wide
+            {
+                public partial long  Big { get; set; }
+                public partial ulong Id  { get; set; }
+                [UserMessageArray(MaxCount = 2)]
+                public partial ulong[] Ids { get; set; }
+            }
+
+            [UserMessage("Wide")]
+            public sealed class WideMessage : IUserMessage<Wide>
+            {
+                public void OnReceived(Wide message) { }
+            }
+            """, "Wide");
+
+        object sent = With(With(With(Activator.CreateInstance(probe)!,
+            "Big", -5000000000L), "Id", 0xDEADBEEFCAFEF00DUL), "Ids", new ulong[] { 1, 2 });
+
+        byte[] payload = Write(sent);
+        Assert.Equal(8 + 8 + 1 + 16, payload.Length);
+
+        var (got, overran) = Read(probe, payload);
+        Assert.False(overran, "a payload the same build wrote reads whole");
+        Assert.Equal(-5000000000L, Get(got, "Big"));
+        Assert.Equal(0xDEADBEEFCAFEF00DUL, Get(got, "Id"));
+        Assert.Equal(new ulong[] { 1, 2 }, (ulong[])Get(got, "Ids"));
+    }
+
+    [Fact]
     public void AClassPayloadRoundTripsAndStartsEmpty()
     {
         var probe = Compiled("""
@@ -303,7 +337,7 @@ public class UserMessagePayloadGeneratorTests
     public void AnUnsupportedMemberTypeIsRefused()
     {
         Assert.Contains("SSMSG001", Diagnostics(WithHandler("public partial System.Collections.Generic.List<int> Contacts { get; set; }")));
-        Assert.Contains("SSMSG001", Diagnostics(WithHandler("public partial long Big { get; set; }")));
+        Assert.Empty(Diagnostics(WithHandler("public partial long Big { get; set; }")));
         Assert.Empty(Diagnostics(WithHandler("public partial int Contacts { get; set; }")));
     }
 

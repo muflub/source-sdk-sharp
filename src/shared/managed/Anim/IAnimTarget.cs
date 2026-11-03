@@ -51,6 +51,16 @@ namespace SourceSharp.Shared.Anim;
 public interface IAnimTarget
 {
     /// <summary>
+    /// The player's entity index — the key every per-player mod service is
+    /// reached by (the TF2 layer's player data, its active-weapon seam).
+    /// <c>EngineAnimTarget</c> answers the engine's <c>GetIndex</c> of the
+    /// handle it was built with; a fake target names its own (-1 = the
+    /// machine has no player behind it, which the mod layers read as "ask
+    /// nothing, fall back").
+    /// </summary>
+    int EntityIndex { get; }
+
+    /// <summary>
     /// How the player is moving right now: stock's
     /// <c>GetOuterAbsVelocity</c> (multiplayer_animstate.cpp:1837) — the
     /// absolute velocity on the server, the ESTIMATED one on the client

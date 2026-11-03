@@ -68,4 +68,31 @@ public class ShotSpreadTests
     [Fact]
     public void The_spread_is_the_cones_sine()
         => Assert.Equal(MathF.Sin(MathF.PI / 120f), ShotSpread.SpreadOf(1.5f), 6);
+
+    [Fact]
+    public void A_named_pattern_shapes_the_pellet_and_the_stream_still_gets_the_seed()
+    {
+        var draws = new SeededUniformStream();
+        Vector got = ShotSpread.Direction(Aim, 0.08716f, 200, draws, (_, stream) =>
+        {
+            // The pattern's own draw, so the seed must already be in: 200's
+            // first draw, read against a fresh stream's same seed.
+            float first = stream.RandomFloat(0f, 1f);
+            Assert.Equal(new SeededUniformStream(200).RandomFloat(0f, 1f), first, 6);
+            return (0.5f, -0.25f);
+        }, 3);
+
+        Assert.Equal(1f, got.X, 6);
+        Assert.Equal(-0.5f * 0.08716f, got.Y, 6);
+        Assert.Equal(-0.25f * 0.08716f, got.Z, 6);
+    }
+
+    [Fact]
+    public void No_pattern_is_the_random_sample()
+    {
+        Vector directed = ShotSpread.Direction(Aim, 0.1f, 17, new SeededUniformStream(), null, 0);
+        Vector applied = ShotSpread.Apply(Aim, 0.1f, 17, new SeededUniformStream());
+
+        Assert.Equal(applied, directed);
+    }
 }

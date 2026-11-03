@@ -126,8 +126,10 @@ public:
 	CServerPlayersDll(const CServerPlayersDll&) = delete;
 	CServerPlayersDll& operator=(const CServerPlayersDll&) = delete;
 
-	// The player's edict, in transit from ClientPutInServer to PostConstruct.
+	// The edict in transit to PostConstruct (a player's from ClientPutInServer, or a round
+	// cleanup's chosen slot), and whether the entity owns it.
 	edict_t* m_pPendingEdict = nullptr;
+	bool m_bPendingEdictOwned = false;
 
 	// Where the engine-side player words sit in the net state, resolved per generation.
 	SourceSharpPlayerFields_t m_Fields;

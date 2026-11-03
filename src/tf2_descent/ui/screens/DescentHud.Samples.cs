@@ -7,7 +7,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 // The HUD and its parts from fakes (the ui-screen loop's sample step): every
 // state the in-game HUD is ever in, built through the same container the game
 // uses. Item names are ui.Data (game copy, case kept); every #Descent_* token
-// lives in game/mod_tf2_descent/resource/descent_english.txt.
+// lives in game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class DescentHudSamples
 {

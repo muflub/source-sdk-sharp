@@ -105,6 +105,10 @@ public static class ContractBaseline
         "ss_barrel",
         "ss_pickup",
         "ss_te_tester",
+        // The weapon's own model riding a pair of hands (a TF2 c_ model): stock's
+        // C_ViewmodelAttachmentModel is created by the client alone
+        // (C_EconEntity::UpdateAttachmentModels) and has no server classname.
+        "ss_viewmodel_attachment",
         "ss_weapon",
         "test_bad_input",
         "test_binding",

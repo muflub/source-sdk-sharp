@@ -28,7 +28,7 @@ internal static class NullableEngineInterfaceCensus
     // them (EngineServer, EngineClient, PhysicsSurfaceProps, the random stream).
     private static readonly string[] Slices =
     [
-        "IUniformRandom", "ISaveMemory", "IAreaPortalEngine", "IVPhysicsSurfaceSounds",
+        "IUniformRandom", "ISaveMemory", "IAreaPortalEngine", "IEdictSlots", "IVPhysicsSurfaceSounds",
         "IClientInputEngine", "ISteamLaunchCommands", "IPlaybackState",
     ];
 

@@ -42,6 +42,25 @@ public class UserMessageWriteTests
     }
 
     [Fact]
+    public void SixtyFourBitRoundTrip()
+    {
+        // Item ids are ulong: the wire carries 64-bit members as 8 LE bytes.
+        Span<byte> buffer = stackalloc byte[64];
+        var w = new UserMessageWriter(buffer);
+
+        w.WriteLong(-5000000000L);
+        w.WriteULong(0xDEADBEEFCAFEF00DUL);
+
+        Assert.True(!w.Overran && w.Length == 16, "each 64-bit write takes eight bytes");
+
+        var r = new UserMessageReader(buffer[..w.Length]);
+
+        Assert.True(r.ReadLong() == -5000000000L, "a long reads back, sign and all");
+        Assert.True(r.ReadULong() == 0xDEADBEEFCAFEF00DUL, "a ulong reads back past the long range");
+        Assert.True(r.Remaining == 0 && !r.Overran, "and nothing is left over");
+    }
+
+    [Fact]
     public void Overrun()
     {
         Span<byte> tiny = stackalloc byte[4];

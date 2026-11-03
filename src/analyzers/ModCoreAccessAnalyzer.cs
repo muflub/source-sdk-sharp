@@ -15,12 +15,14 @@ namespace SourceSharp.Analyzers;
 /// <list type="bullet">
 /// <item>SS0010: no static field other than a constant (an auto-property's
 /// backing field is the compiler's, as it was to the IL scan), except the two
-/// tables ScriptedVarsGenerator writes into a [ScriptVars] class;</item>
+/// tables ScriptedVarsGenerator writes into a [ScriptVars] class and the
+/// layout table NetStateGenerator writes into a [StandaloneNetState] class;</item>
 /// <item>SS0011: no event declared;</item>
 /// <item>SS0012: no use of SourceSharp.Abi.Engine or EngineServices, nor of
 /// the process's environment, Exit or FailFast;</item>
-/// <item>SS0013: no event subscribed to, except in the one class that adapts
-/// the SDK's events (TF2.Descent.Server.HostLink).</item>
+/// <item>SS0013: no event subscribed to, except in the classes that adapt
+/// the SDK's events (one per mod: TF2.Descent.Server.HostLink,
+/// TF2.Client.EventLink).</item>
 /// </list>
 /// Operations, not syntax, so a use inside a lambda or a local function is
 /// charged to the class that wrote it.
@@ -33,8 +35,13 @@ public sealed class ModCoreAccessAnalyzer : DiagnosticAnalyzer
     public const string ForbiddenMemberId = "SS0012";
     public const string SubscribesId = "SS0013";
 
-    /// <summary>The one class that may subscribe to C# events: it adapts the SDK's.</summary>
-    public const string EventAdapter = "TF2.Descent.Server.HostLink";
+    /// <summary>The classes that may subscribe to C# events: each is its
+    /// mod's one adapter of the SDK's (the shape HostLink is for Descent).</summary>
+    public static readonly string[] EventAdapters =
+    {
+        "TF2.Descent.Server.HostLink",
+        "TF2.Client.EventLink",
+    };
 
     private const string Rule = "a mod reaches the core only by constructor injection and hook interfaces";
 
@@ -55,7 +62,7 @@ public sealed class ModCoreAccessAnalyzer : DiagnosticAnalyzer
 
     public static readonly DiagnosticDescriptor Subscribes = new(
         SubscribesId, "A mod subscribes to an event",
-        "'{0}' subscribes to {1}: " + Rule + "; only " + EventAdapter + " adapts events",
+        "'{0}' subscribes to {1}: " + Rule + "; only " + string.Join(" and ", EventAdapters) + " adapt events",
         "SourceSharp", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics { get; } =
@@ -105,7 +112,8 @@ public sealed class ModCoreAccessAnalyzer : DiagnosticAnalyzer
             {
                 case IFieldSymbol field when field.IsStatic && !field.IsConst && !field.IsImplicitlyDeclared
                                              && !Symbols.HasAttribute(field, "System.Runtime.CompilerServices.CompilerGeneratedAttribute")
-                                             && !IsGeneratedVarsTable(type, field):
+                                             && !IsGeneratedVarsTable(type, field)
+                                             && !IsGeneratedNetStateLayout(type, field):
                     ctx.ReportDiagnostic(Diagnostic.Create(StaticField, Symbols.LocationOf(field), owner + "." + field.Name));
                     break;
 
@@ -125,6 +133,20 @@ public sealed class ModCoreAccessAnalyzer : DiagnosticAnalyzer
         field.IsReadOnly
         && field.Name is "s_Descriptors" or "s_Defaults"
         && type.GetAttributes().Any(a => a.AttributeClass?.Name == "ScriptVarsAttribute");
+
+    /// <summary>
+    /// The read-only layout NetStateGenerator writes into every
+    /// [StandaloneNetState] class: one NetFieldLayout per field and the
+    /// NetLayout table over them (the same table StaticStateAnalyzer exempts
+    /// as a generator constant). Generated metadata, not state: a mod that
+    /// networks an entity (tf2 stage 2.4's tf_objective_resource) declares
+    /// its state the way the core does. Anything else in such a class is
+    /// still reported.
+    /// </summary>
+    private static bool IsGeneratedNetStateLayout(INamedTypeSymbol type, IFieldSymbol field) =>
+        field.IsReadOnly
+        && (field.Type.Name == "NetFieldLayout" || (field.Name == "NetLayout" && field.Type.Name == "StandaloneNetState"))
+        && type.GetAttributes().Any(a => a.AttributeClass?.Name == "StandaloneNetStateAttribute");
 
     private static void AnalyzeUse(OperationAnalysisContext ctx)
     {
@@ -171,7 +193,7 @@ public sealed class ModCoreAccessAnalyzer : DiagnosticAnalyzer
 
         string owner = Owner(ctx);
 
-        if (owner == EventAdapter)
+        if (EventAdapters.Contains(owner))
             return;
 
         ctx.ReportDiagnostic(Diagnostic.Create(Subscribes, assignment.Syntax.GetLocation(),

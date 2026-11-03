@@ -194,6 +194,8 @@ public sealed class PostOpsWriter(RenderPlanBuilder b, Func<string, int> materia
 
     internal void Stencil(int mode) => b.Add(RenderOpKind.PostStencil, [mode]);
 
+    internal void OverrideDepth(bool enable, bool depthEnable) => b.Add(RenderOpKind.PostOverrideDepth, [enable ? 1 : 0, depthEnable ? 1 : 0]);
+
     internal void GoalToneScale(float value) => b.Add(RenderOpKind.PostGoalToneScale, default, [value]);
 
     internal void ResetToneScale(float value) => b.Add(RenderOpKind.PostResetToneScale, default, [value]);

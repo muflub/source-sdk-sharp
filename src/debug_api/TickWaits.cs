@@ -321,22 +321,36 @@ public sealed class SettledCondition(EntitySelector selector, double eps, int fo
 /// first check can share a tick, and the ground the player had before the move
 /// is still the one it reports then.
 /// </summary>
-public sealed class LandedCondition(uint entity, double eps, int forTicks) : WaitCondition
+public sealed class LandedCondition(uint entity, double eps, int forTicks,
+                                    DebugVec3? target = null, bool serverSimulated = true) : WaitCondition
 {
     /// <summary>
-    /// Off the ground and not moving for this many ticks is STUCK: a player in
-    /// free air falls (gravity is 12 u/s a tick at the 15 ms tick), so one that
-    /// neither falls nor stands is held -- by solid it was teleported into
-    /// (stock's CheckStuck only nudges 2 units and PlayerMove returns early
-    /// while stuck), or by no usercmds arriving to move it. Reported as its
-    /// own status instead of a timeout that reads like "it is still falling".
+    /// Off the ground and not moving for this many ticks, and (when the
+    /// caller says the server simulates the player) not sitting at the target
+    /// it was teleported to, is STUCK: a player in free air falls (gravity is
+    /// 12 u/s a tick at the 15 ms tick), so one that neither falls nor stands
+    /// is held -- by solid it was teleported into (stock's CheckStuck only
+    /// nudges 2 units and PlayerMove returns early while stuck), or by no
+    /// usercmds arriving to move it. Reported as its own status instead of a
+    /// timeout that reads like "it is still falling".
     /// </summary>
     public const int StuckTicks = 20;
 
+    /// <summary>
+    /// How far from the target still counts as sitting on it. Covers the
+    /// placement rounding of an idle predicted joiner (whose server origin is
+    /// the written target to the bit); tighter than any walk could get off it
+    /// between two checks, so it cannot met a player the caller wants elsewhere.
+    /// </summary>
+    public const double TargetRadius = 8.0;
+
     private int _still;
     private int _hung;
+    private int _stable;
 
-    public override string Describe() => $"handle {entity} on the ground under {Num(eps)} u/s for {forTicks} tick(s)";
+    public override string Describe() =>
+        $"handle {entity} on the ground under {Num(eps)} u/s for {forTicks} tick(s)" +
+        (target is null || serverSimulated ? "" : ", or stable at the target");
 
     public override WaitCheck Check(WaitContext c)
     {
@@ -348,17 +362,34 @@ public sealed class LandedCondition(uint entity, double eps, int forTicks) : Wai
         int? ground = c.World.GroundIndex(entity);
 
         bool resting = speed <= eps && ground is not -1;
+        // A player the caller declares the server does not simulate (an idle
+        // client-predicted joiner: no usercmds run his move path, so his
+        // ground word stays -1 wherever he stands and his velocity reads 0
+        // however he feels) cannot prove a landing through the physics reads.
+        // For that player the only evidence the server can see is that the
+        // placement it wrote HOLDS: still, on the target, for the settle
+        // window. The stuck arm keeps its whole meaning for every other
+        // player -- without the declaration, rest off the ground is stuck
+        // wherever it is, exactly as before the arm existed.
+        bool placed = !serverSimulated && target is { } t && DistanceTo(origin, t) <= TargetRadius;
         _still = c.Waited > 0 && resting ? _still + 1 : 0;
-        _hung = c.Waited > 0 && ground == -1 && speed <= eps ? _hung + 1 : 0;
+        _stable = c.Waited > 0 && placed && speed <= eps ? _stable + 1 : 0;
+        _hung = c.Waited > 0 && ground == -1 && speed <= eps && !placed ? _hung + 1 : 0;
 
         string value = $"{{\"origin\":[{Num(origin.X)},{Num(origin.Y)},{Num(origin.Z)}],\"speed\":{Num(speed)}," +
                        $"\"ground\":{(ground is { } g ? g.ToString(CultureInfo.InvariantCulture) : "null")},\"stillTicks\":{_still}," +
-                       $"\"hungTicks\":{_hung}}}";
+                       $"\"stableTicks\":{_stable},\"hungTicks\":{_hung}}}";
 
         if (_hung >= StuckTicks)
             return WaitCheck.FailedAs("stuck", value);
 
-        return _still >= forTicks ? WaitCheck.Met(value) : WaitCheck.NotYet(value);
+        return _still >= forTicks || _stable >= forTicks ? WaitCheck.Met(value) : WaitCheck.NotYet(value);
+    }
+
+    private static double DistanceTo(DebugVec3 a, DebugVec3 b)
+    {
+        double dx = a.X - b.X, dy = a.Y - b.Y, dz = a.Z - b.Z;
+        return Math.Sqrt(dx * dx + dy * dy + dz * dz);
     }
 }
 

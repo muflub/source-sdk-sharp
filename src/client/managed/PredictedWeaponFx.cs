@@ -33,8 +33,41 @@ public interface IPredictedWeaponFx
     /// <summary>The bullets' traces and their impacts (decal, particles, the surface's sound).</summary>
     void FireBullets(in PredictedShot shot, in WeaponType type, int pellets, float spreadDegrees);
 
+    /// <summary>
+    /// The bullets' traces when the behaviour named a fixed pattern
+    /// (<see cref="PelletPattern"/>): the same pellets the server's damage rode,
+    /// so the predicted impacts land where it did. The default keeps the
+    /// random-sample arm above, for a recording fx that never saw a pattern.
+    /// </summary>
+    void FireBullets(in PredictedShot shot, in WeaponType type, int pellets, float spreadDegrees,
+                     PelletPattern? fixedPellets)
+        => FireBullets(in shot, in type, pellets, spreadDegrees);
+
     /// <summary>A swing's trace and, when it lands, its impact.</summary>
     void MeleeSwing(in PredictedShot shot, in WeaponType type);
+
+    /// <summary>
+    /// The muzzle flash of a predicted shot: the script's muzzle-flash
+    /// particle, attached at the hands' muzzle — stock's
+    /// <c>CTFWeaponBase::CreateMuzzleFlashEffects</c> particle branch, which
+    /// hands the effect to the entity and its attachment name and lets the
+    /// registry present it. Nothing by default: a test's recording fx and any
+    /// composition without the registry keep the behaviour they had.
+    /// </summary>
+    void MuzzleFlash(EntityHandle viewModel, string particleEffect)
+    {
+    }
+
+    /// <summary>
+    /// The shell a predicted shot ejects, from the viewmodel's ejector —
+    /// stock's <c>OnFireEvent</c> for <c>"TF_EjectBrass"</c>: the effect's
+    /// data carries the carried item's definition index and the weapon's own
+    /// id beside the ejector's place. Nothing by default, as
+    /// <see cref="MuzzleFlash"/>.
+    /// </summary>
+    void ShellEject(EntityHandle viewModel, int itemDefIndex, int weaponId)
+    {
+    }
 }
 
 /// <summary>
@@ -64,6 +97,8 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     private readonly IClientEntitySounds _sounds;
     private readonly IClientEffectDispatch _effects;
     private readonly IEngineWorldQuery _world;
+    private readonly IEngineEntityRender _render;
+    private readonly IEngineEntities _entities;
     private readonly AmmoCatalog _ammo;
     private readonly PredictWeaponsConVar _predictWeapons;
     private readonly SeededUniformStream _spread = new();
@@ -76,11 +111,14 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     private readonly EntityCandidates _candidates = new();
 
     public PredictedWeaponFx(IClientEntitySounds sounds, IClientEffectDispatch effects, IEngineWorldQuery world,
+                             IEngineEntityRender render, IEngineEntities entities,
                              AmmoCatalog ammo, PredictWeaponsConVar predictWeapons)
     {
         _sounds = sounds;
         _effects = effects;
         _world = world;
+        _render = render;
+        _entities = entities;
         _ammo = ammo;
         _predictWeapons = predictWeapons;
     }
@@ -103,6 +141,10 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
     }
 
     public void FireBullets(in PredictedShot shot, in WeaponType type, int pellets, float spreadDegrees)
+        => FireBullets(in shot, in type, pellets, spreadDegrees, null);
+
+    public void FireBullets(in PredictedShot shot, in WeaponType type, int pellets, float spreadDegrees,
+                            PelletPattern? fixedPellets)
     {
         if (!_predictWeapons.Value || _ammo.For(type.AmmoName) is not AmmoType ammo)
             return;
@@ -113,7 +155,7 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
 
         for (int i = 0; i < pellets; i++)
         {
-            Vector dir = ShotSpread.Apply(aim, spread, seed + i, _spread).Normalized;
+            Vector dir = ShotSpread.Direction(aim, spread, seed + i, _spread, fixedPellets, i).Normalized;
             ImpactAlong(shot, dir, MaxTrace, ammo.DamageType, ammo);
         }
     }
@@ -124,6 +166,64 @@ public sealed class PredictedWeaponFx : IPredictedWeaponFx
             return;
 
         ImpactAlong(shot, Angles.Vectors(shot.ViewAngles).Forward, type.MeleeRange, DamageType.Club);
+    }
+
+    /// <summary>
+    /// <c>CTFWeaponBase::CreateMuzzleFlashEffects</c> (<c>tf_weaponbase.cpp:3113-3193</c>),
+    /// particle branch: with a "muzzle" attachment on the hands,
+    /// <c>DispatchMuzzleFlash</c> dispatches the script's particle at the
+    /// entity and its attachment name (<c>DispatchParticleEffect</c>'s
+    /// <c>PATTACH_POINT_FOLLOW</c>) — so the data names the entity and the
+    /// attachment and the effect's own registry places it. Stock's dynamic
+    /// light for this branch is commented out (:3150-3153), so there is
+    /// none here either; the flash-model branch is a client entity this
+    /// port has not grown (the model, its lifetime, its muzzle attachment).
+    /// </summary>
+    public void MuzzleFlash(EntityHandle viewModel, string particleEffect)
+    {
+        if (!_predictWeapons.Value || particleEffect.Length == 0)
+            return;
+
+        int muzzle = _render.LookupAttachment(viewModel, "muzzle");
+        if (muzzle <= 0)
+            return;
+
+        var data = new EffectData
+        {
+            EntIndex = _entities.GetIndex(viewModel),
+            AttachmentIndex = muzzle,
+            Scale = 1f,
+        };
+        _effects.Dispatch(particleEffect, in data);
+    }
+
+    /// <summary>
+    /// <c>CTFWeaponBase::OnFireEvent</c>'s brass (<c>tf_weaponbase.cpp:4950-4977</c>):
+    /// the "eject_brass" attachment's place and angles, and the effect's data
+    /// carries the item's definition index and the weapon's id — the effect
+    /// picks the shell model by both. Stock's fallback to the event's
+    /// <c>atoi(options)</c> attachment has no equivalent: the predicted ask
+    /// carries no event options, so no ejector means no brass.
+    /// </summary>
+    public void ShellEject(EntityHandle viewModel, int itemDefIndex, int weaponId)
+    {
+        if (!_predictWeapons.Value)
+            return;
+
+        int eject = _render.LookupAttachment(viewModel, "eject_brass");
+        if (eject <= 0 ||
+            !_render.GetAttachment(viewModel, eject, out Vector origin, out Vector angles))
+            return;
+
+        var data = new EffectData
+        {
+            Origin = origin,
+            Angles = angles,
+            Scale = 1f,
+            DamageType = itemDefIndex,
+            HitBox = weaponId,
+        };
+        _effects.Dispatch("TF_EjectBrass", in data);
     }
 
     /// <summary>

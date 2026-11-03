@@ -70,4 +70,46 @@ public class MapDecalRosterTests
 
         Assert.Empty(pending);
     }
+
+    private static ScriptedEntityRegistry SpawnUnnamedDecal(IEntityRoster<MapDecal> pending, out RecordingEngine engine)
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(InfoDecal).Assembly);
+
+        var services = Services(out engine);
+        engine.Returns("Precache.PrecacheDecal", 3).Ignores("Effects.PaintDecal", "Entities.GetOrigin");
+        services.AddInstance(pending);
+        registry.Services = services;
+
+        registry.KeyValue(Decal, EntityNames.Infodecal, "texture", "decals/lambda");
+        registry.Spawn(Decal, EntityNames.Infodecal);
+        return registry;
+    }
+
+    [Fact]
+    public void AnUnnamedDecalMadeAfterTheLoadPaintsItselfWhenActivated()
+    {
+        // A round cleanup's re-create (tf2 ruling N2): the load's pass has
+        // run, and the cleanup's parse activates what it made, as stock's
+        // CleanUpMap does. The decal stamps itself and goes.
+        var pending = new EntityRoster<MapDecal>();
+        var registry = SpawnUnnamedDecal(pending, out var engine);
+
+        Assert.True(registry.Activate(Decal));
+
+        Assert.Single(engine.Calls, c => c.Member == "Effects.PaintDecal");
+        Assert.True(registry.Directory.IsRemoved(Decal));
+    }
+
+    [Fact]
+    public void ADecalTheLoadsPassPaintedIsNotPaintedAgainWhenActivated()
+    {
+        var pending = new EntityRoster<MapDecal>();
+        var registry = SpawnUnnamedDecal(pending, out var engine);
+
+        MapDecal.PaintPlaced(pending, new RecordingLog());
+        registry.Activate(Decal);
+
+        Assert.Single(engine.Calls, c => c.Member == "Effects.PaintDecal");
+    }
 }

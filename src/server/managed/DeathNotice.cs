@@ -27,9 +27,19 @@ namespace SourceSharp.Server;
 /// scope (a blast's grenade), else the attacker (this build's damage path
 /// builds <c>CTakeDamageInfo( attacker, attacker )</c>). Nobody is "world".
 /// </para>
+///
+/// <para>
+/// <b>A MOD'S FIELDS</b> (tf2 stage 2.7): after the core's keys, every
+/// <see cref="IDeathNoticeHook"/> is handed the death as the core read it and
+/// the event's setters, in hook order, before the event fires. TF's event
+/// carries far more than HL2MP's (<c>CTFGameRules::DeathNotice</c>: assister,
+/// damagebits, customkill, crit_type, ...) and names the weapon its own way; a
+/// hook may set new keys and overwrite the core's. A hook that throws is named
+/// and the event still fires.
+/// </para>
 /// </summary>
 public sealed class DeathNotice(IEngineGameEvents events, IEnginePlayers players, IEngineEntities entities,
-                                DamageInflictors inflictors)
+                                DamageInflictors inflictors, IHooks<IDeathNoticeHook>? hooks = null)
 {
     /// <summary>The event's name in the game's event files (modevents.res).</summary>
     public const string EventName = "player_death";
@@ -85,8 +95,22 @@ public sealed class DeathNotice(IEngineGameEvents events, IEnginePlayers players
         events.EventSetString(e, "weapon", weapon);
         events.EventSetInt(e, "priority", Priority);
 
+        if (hooks is { } fill)
+        {
+            var death = new DeathNoticeFacts(victim, attacker, scorer, inflictor, weapon);
+            var fields = new EventFields(events, e);
+            fill.Each(nameof(IDeathNoticeHook.Fill), h => h.Fill(in death, fields));
+        }
+
         if (events.EventFire(e))
             Fired++;
+    }
+
+    private sealed class EventFields(IEngineGameEvents events, IntPtr handle) : IDeathNoticeFields
+    {
+        public void SetInt(string key, int value) => events.EventSetInt(handle, key, value);
+        public void SetBool(string key, bool value) => events.EventSetBool(handle, key, value);
+        public void SetString(string key, string value) => events.EventSetString(handle, key, value);
     }
 
     /// <summary>
@@ -125,4 +149,33 @@ public sealed class DeathNotice(IEngineGameEvents events, IEnginePlayers players
             _ => name,
         };
     }
+}
+
+/// <summary>
+/// A death as <see cref="DeathNotice"/> read it, for a <see cref="IDeathNoticeHook"/>.
+/// </summary>
+/// <param name="Victim">The dead player.</param>
+/// <param name="Attacker">The damage's attacker, or <see cref="EntityHandle.None"/>.</param>
+/// <param name="Scorer">The attacker when it is a player, else <see cref="EntityHandle.None"/>.</param>
+/// <param name="Inflictor">The open inflictor scope's entity, else the attacker, else none.</param>
+/// <param name="Weapon">The weapon name the core wrote.</param>
+public readonly record struct DeathNoticeFacts(EntityHandle Victim, EntityHandle Attacker, EntityHandle Scorer,
+                                               EntityHandle Inflictor, string Weapon);
+
+/// <summary>The setters of the <c>player_death</c> event about to fire.</summary>
+public interface IDeathNoticeFields
+{
+    void SetInt(string key, int value);
+    void SetBool(string key, bool value);
+    void SetString(string key, string value);
+}
+
+/// <summary>
+/// A mod's keys on the <c>player_death</c> event (tf2 stage 2.7): called by
+/// <see cref="DeathNotice"/> after the core's keys and before the event fires.
+/// Order among several is <see cref="IOrderedHook"/>'s.
+/// </summary>
+public interface IDeathNoticeHook
+{
+    void Fill(in DeathNoticeFacts death, IDeathNoticeFields fields);
 }

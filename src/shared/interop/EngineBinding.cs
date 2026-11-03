@@ -426,7 +426,7 @@ internal sealed unsafe partial class EngineGameEvents : IEngineGameEvents
     // No engine answer since plan_server_native_v2 T2: the server creates events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
     public IntPtr EventCreate(string name) => IntPtr.Zero;
     // No engine answer since plan_server_native_v2 T2: the server fires events through IGameEventManager2's forwarders (ServerGameEvents); the client fires none.
-    public bool EventFire(IntPtr handle) => false;
+    public bool EventFire(IntPtr handle, bool dontBroadcast = false) => false;
 }
 
 /// <summary>The real engine, for <see cref="IEngineNetworking"/>. Every member is one call.</summary>
@@ -1239,8 +1239,6 @@ internal sealed unsafe partial class EnginePlayers : IEnginePlayers
     public bool HolsterActiveWeapon(EntityHandle player) => false;
     // No engine answer since plan_server_native_v2 T2: only the Arsenal's players carry items, and ArsenalPlayers strips theirs.
     public void RemoveAllItems(EntityHandle player, bool stripSuit) { }
-    // No engine answer since plan_server_native_v2 T2: CBasePlayer::SetFOV left with CBasePlayer; env_zoom asks.
-    public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f) { }
 
     // No engine answer since plan_server_native_v2 T2: there is no SDK player
     // on the server, so there are no SDK ears; the standalone arm above answers.

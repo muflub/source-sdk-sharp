@@ -53,6 +53,12 @@ public class MovementRulesSeamTests
         public float? JumpTo { get; init; }
         public float? FrictionTo { get; init; }
         public float? MaxSpeedTo { get; init; }
+        public float? AirJumpTo { get; init; }
+        public float? EyeTo { get; init; }
+        public float? BunnyTo { get; init; }
+        public BackpedalLimit? BackpedalTo { get; init; }
+        public MovementStun? StunTo { get; init; }
+        public MovementTaunt? TauntTo { get; init; }
 
         public float JumpScale(in JumpRequest request)
         {
@@ -71,6 +77,45 @@ public class MovementRulesSeamTests
         {
             Seen.Add($"maxspeed:{playerIndex},{maxSpeed},{ducking},{groundMaterial}");
             return MaxSpeedTo ?? maxSpeed;
+        }
+
+        public float AirJump(in JumpRequest request)
+        {
+            Seen.Add($"airjump:{request.PlayerIndex},{request.VerticalSpeed}");
+            return AirJumpTo ?? 0f;
+        }
+
+        public void Grounded(int playerIndex) => Seen.Add($"grounded:{playerIndex}");
+
+        public float EyeHeight(int playerIndex, float standing)
+        {
+            Seen.Add($"eye:{playerIndex},{standing}");
+            return EyeTo ?? standing;
+        }
+
+        public float BunnyJumpCap(int playerIndex, float maxSpeed)
+        {
+            Seen.Add($"bunnyjump:{playerIndex},{maxSpeed}");
+            return BunnyTo ?? 0f;
+        }
+
+        public BackpedalLimit? BackpedalLimit(int playerIndex, float maxSpeed)
+        {
+            Seen.Add($"backpedal:{playerIndex},{maxSpeed}");
+            return BackpedalTo;
+        }
+
+        public MovementStun? MovementStun(int playerIndex, float curTime, int buttons,
+                                          float forwardMove, float sideMove, float upMove)
+        {
+            Seen.Add($"stun:{playerIndex},{curTime},{buttons},{forwardMove},{sideMove},{upMove}");
+            return StunTo;
+        }
+
+        public MovementTaunt? MovementTaunt(int playerIndex, float frameTime, float forwardMove)
+        {
+            Seen.Add($"taunt:{playerIndex},{frameTime},{forwardMove}");
+            return TauntTo;
         }
     }
 
@@ -230,8 +275,66 @@ public class MovementRulesSeamTests
                 "GetJumpScale" => rules.Jump((JumpRequest)a![0]!),
                 "GetFrictionScale" => rules.Friction((int)a![0]!, (float)a[1]!, (float)a[2]!, (bool)a[3]!, (int)a[4]!),
                 "GetMaxSpeedScale" => rules.MaxSpeed((int)a![0]!, (float)a[1]!, (bool)a[2]!, (int)a[3]!),
+                "GetAirJump" => rules.AirJump((JumpRequest)a![0]!),
+                "OnPlayerGrounded" => Grounded(rules, (int)a![0]!),
+                "GetEyeHeight" => rules.EyeHeight((int)a![0]!, (float)a[1]!),
+                "GetBunnyJumpCap" => rules.BunnyJump((int)a![0]!, (float)a[1]!),
+                "GetBackpedalLimit" => Backpedal(rules, method, (int)a![0]!, (float)a[1]!),
+                "GetMovementStun" => Stun(rules, method, (int)a![0]!, (float)a[1]!, (int)a[2]!,
+                                                (float)a[3]!, (float)a[4]!, (float)a[5]!),
+                "GetMovementTaunt" => Taunt(rules, method, (int)a![0]!, (float)a[1]!, (float)a[2]!),
                 _ => throw new NotSupportedException(method.Name + " is not a movement getter"),
             };
+        }
+
+        /// <summary>
+        /// The limit as the proxied side spells it: each side compiles its own
+        /// copy of the shared record, so the client module's getter must be
+        /// handed the client assembly's, not the boxed server-side one.
+        /// </summary>
+        private static object? Backpedal(MovementRules rules, MethodInfo method, int playerIndex, float maxSpeed)
+        {
+            var limit = rules.Backpedal(playerIndex, maxSpeed);
+            if (limit is null)
+                return null;
+            return method.ReturnType == typeof(client::SourceSharp.Abi.BackpedalLimit?)
+                ? new client::SourceSharp.Abi.BackpedalLimit(limit.Value.Fraction, limit.Value.MinSpeed)
+                : limit;
+        }
+
+        /// <summary>
+        /// The rewrite as the proxied side spells it, for the same reason the
+        /// limit is re-created above.
+        /// </summary>
+        private static object? Stun(MovementRules rules, MethodInfo method, int playerIndex, float curTime,
+                                    int buttons, float forwardMove, float sideMove, float upMove)
+        {
+            var rewrite = rules.Stun(playerIndex, curTime, buttons, forwardMove, sideMove, upMove);
+            if (rewrite is null)
+                return null;
+            return method.ReturnType == typeof(client::SourceSharp.Abi.MovementStun?)
+                ? new client::SourceSharp.Abi.MovementStun(rewrite.Value.Buttons, rewrite.Value.ForwardMove,
+                                                            rewrite.Value.SideMove, rewrite.Value.UpMove)
+                : rewrite;
+        }
+
+        /// <summary>The taunt rewrite as the proxied side spells it, like the limit and the stun above.</summary>
+        private static object? Taunt(MovementRules rules, MethodInfo method, int playerIndex, float frameTime,
+                                     float forwardMove)
+        {
+            var rewrite = rules.Taunt(playerIndex, frameTime, forwardMove);
+            if (rewrite is null)
+                return null;
+            return method.ReturnType == typeof(client::SourceSharp.Abi.MovementTaunt?)
+                ? new client::SourceSharp.Abi.MovementTaunt(rewrite.Value.MaxSpeed, rewrite.Value.ForwardMove,
+                                                             rewrite.Value.ClientMaxSpeed)
+                : rewrite;
+        }
+
+        private static object? Grounded(MovementRules rules, int playerIndex)
+        {
+            rules.Grounded(playerIndex);
+            return null;
         }
     }
 
@@ -306,6 +409,289 @@ public class MovementRulesSeamTests
         Assert.Equal(serverHook.Seen, clientHook.Seen);
     }
 
+    /// <summary>
+    /// A rule that grants one dash per flight in its OWN per-player state and
+    /// resets it on ground, which is the shape of stock TF2's scout
+    /// (<c>CanAirDash</c> against <c>m_iAirDash</c>, reset in
+    /// <c>SetGroundEntity</c>).
+    /// </summary>
+    private sealed class OneDashRules : IMovementRules
+    {
+        private readonly Dictionary<int, int> _dashes = [];
+        public MovementParams? Constants => null;
+        public float JumpScale(in JumpRequest request) => 1f;
+        public float FrictionScale(int i, float f, float s, bool d, int m) => f;
+        public float MaxSpeedScale(int i, float ms, bool d, int m) => ms;
+
+        public float AirJump(in JumpRequest request)
+        {
+            _dashes.TryGetValue(request.PlayerIndex, out int used);
+            if (used >= 1)
+                return 0f;
+            _dashes[request.PlayerIndex] = used + 1;
+            return 268.3281573f;
+        }
+
+        public void Grounded(int playerIndex) => _dashes[playerIndex] = 0;
+    }
+
+    private static MovementRulesResolver ResolvedOver(IMovementRules hook)
+    {
+        var c = Container();
+        c.AddFactory(hook.GetType(), _ => hook);
+        return c.Create<MovementRulesResolver>();
+    }
+
+    [Fact]
+    public void No_hook_keeps_the_tables_eye_height()
+    {
+        Assert.Equal(64f, Resolve().Rules.EyeHeight(1, 64f));
+    }
+
+    [Fact]
+    public void One_hook_owns_the_eye_height()
+    {
+        var hook = new FakeRules { EyeTo = 75f };
+
+        Assert.Equal(75f, Resolve(hook).Rules.EyeHeight(5, 72f));
+        Assert.Equal(["eye:5,72"], hook.Seen);
+    }
+
+    /// <summary>The server's and the client's bindings hand their loops the same eye, from their own hook.</summary>
+    [Fact]
+    public void The_server_and_client_bindings_answer_the_same_eye_height()
+    {
+        var serverHook = new FakeRules { EyeTo = 65f };
+        var clientHook = new FakeRules { EyeTo = 65f };
+        var serverBinding = PlayerCommandsBinding.For(
+            new Crossings(), new RecordingLog(), null!, Module<IServerModule>(ResolvedOver(serverHook)),
+            new PlayerCommandQueue(new RecordingLog()), () => false);
+        var clientBinding = PredictionClientBinding.For(
+            new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(ResolvedOver(clientHook)),
+            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ClientModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
+
+        float server = PackOf<MovementRules>(serverBinding).EyeHeight(2, 72f);
+        float client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding).EyeHeight(2, 72f);
+
+        Assert.Equal(65f, server);
+        Assert.Equal(server, client);
+        Assert.Equal(["eye:2,72"], serverHook.Seen);
+        Assert.Equal(serverHook.Seen, clientHook.Seen);
+    }
+
+    [Fact]
+    public void No_hook_leaves_the_jump_uncapped()
+    {
+        Assert.Equal(0f, Resolve().Rules.BunnyJump(1, 320f));
+    }
+
+    [Fact]
+    public void One_hook_owns_the_bunny_jump_cap()
+    {
+        var hook = new FakeRules { BunnyTo = 384f };
+
+        Assert.Equal(384f, Resolve(hook).Rules.BunnyJump(5, 320f));
+        Assert.Equal(["bunnyjump:5,320"], hook.Seen);
+    }
+
+    /// <summary>The crop a jump obeys on the server is the one its client's replay obeys.</summary>
+    [Fact]
+    public void The_server_and_client_bindings_answer_the_same_bunny_jump_cap()
+    {
+        var serverHook = new FakeRules { BunnyTo = 384f };
+        var clientHook = new FakeRules { BunnyTo = 384f };
+        var serverBinding = PlayerCommandsBinding.For(
+            new Crossings(), new RecordingLog(), null!, Module<IServerModule>(ResolvedOver(serverHook)),
+            new PlayerCommandQueue(new RecordingLog()), () => false);
+        var clientBinding = PredictionClientBinding.For(
+            new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(ResolvedOver(clientHook)),
+            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ClientModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
+
+        float server = PackOf<MovementRules>(serverBinding).BunnyJump(2, 320f);
+        float client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding).BunnyJump(2, 320f);
+
+        Assert.Equal(384f, server);
+        Assert.Equal(server, client);
+        Assert.Equal(["bunnyjump:2,320"], serverHook.Seen);
+        Assert.Equal(serverHook.Seen, clientHook.Seen);
+    }
+
+    [Fact]
+    public void No_hook_leaves_backpedal_unclamped()
+    {
+        Assert.Null(Resolve().Rules.Backpedal(1, 320f));
+    }
+
+    [Fact]
+    public void One_hook_owns_the_backpedal_limit()
+    {
+        var hook = new FakeRules { BackpedalTo = new BackpedalLimit(0.9f, 100f) };
+
+        Assert.Equal(new BackpedalLimit(0.9f, 100f), Resolve(hook).Rules.Backpedal(5, 320f));
+        Assert.Equal(["backpedal:5,320"], hook.Seen);
+    }
+
+    /// <summary>The crop a backpedaller obeys on the server is the one its client's replay obeys.</summary>
+    [Fact]
+    public void The_server_and_client_bindings_answer_the_same_backpedal_limit()
+    {
+        var serverHook = new FakeRules { BackpedalTo = new BackpedalLimit(0.9f, 100f) };
+        var clientHook = new FakeRules { BackpedalTo = new BackpedalLimit(0.9f, 100f) };
+        var serverBinding = PlayerCommandsBinding.For(
+            new Crossings(), new RecordingLog(), null!, Module<IServerModule>(ResolvedOver(serverHook)),
+            new PlayerCommandQueue(new RecordingLog()), () => false);
+        var clientBinding = PredictionClientBinding.For(
+            new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(ResolvedOver(clientHook)),
+            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ClientModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
+
+        var server = PackOf<MovementRules>(serverBinding).Backpedal(2, 320f);
+        var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding).Backpedal(2, 320f);
+
+        Assert.Equal(new BackpedalLimit(0.9f, 100f), server);
+        Assert.Equal(server?.Fraction, client?.Fraction);
+        Assert.Equal(server?.MinSpeed, client?.MinSpeed);
+        Assert.Equal(["backpedal:2,320"], serverHook.Seen);
+        Assert.Equal(serverHook.Seen, clientHook.Seen);
+    }
+
+    [Fact]
+    public void No_hook_leaves_the_command_unstunned()
+    {
+        Assert.Null(Resolve().Rules.Stun(1, 10f, 3, 300f, 100f, 50f));
+    }
+
+    [Fact]
+    public void One_hook_owns_the_movement_stun()
+    {
+        var hook = new FakeRules { StunTo = new MovementStun(0, 0f, 0f, 0f) };
+
+        Assert.Equal(new MovementStun(0, 0f, 0f, 0f), Resolve(hook).Rules.Stun(5, 10f, 3, 300f, 100f, 50f));
+        Assert.Equal(["stun:5,10,3,300,100,50"], hook.Seen);
+    }
+
+    /// <summary>
+    /// The rewrite a stunned player's command gets on the server is the one its
+    /// client's replay gets — the seizure cannot land for the server alone.
+    /// </summary>
+    [Fact]
+    public void The_server_and_client_bindings_answer_the_same_movement_stun()
+    {
+        var serverHook = new FakeRules { StunTo = new MovementStun(0, 0f, 0f, 0f) };
+        var clientHook = new FakeRules { StunTo = new MovementStun(0, 0f, 0f, 0f) };
+        var serverBinding = PlayerCommandsBinding.For(
+            new Crossings(), new RecordingLog(), null!, Module<IServerModule>(ResolvedOver(serverHook)),
+            new PlayerCommandQueue(new RecordingLog()), () => false);
+        var clientBinding = PredictionClientBinding.For(
+            new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(ResolvedOver(clientHook)),
+            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ClientModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
+
+        var server = PackOf<MovementRules>(serverBinding).Stun(2, 10f, 3, 300f, 100f, 50f);
+        var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding).Stun(2, 10f, 3, 300f, 100f, 50f);
+
+        Assert.Equal(new MovementStun(0, 0f, 0f, 0f), server);
+        Assert.Equal(server?.Buttons, client?.Buttons);
+        Assert.Equal(server?.ForwardMove, client?.ForwardMove);
+        Assert.Equal(server?.SideMove, client?.SideMove);
+        Assert.Equal(server?.UpMove, client?.UpMove);
+        Assert.Equal(["stun:2,10,3,300,100,50"], serverHook.Seen);
+        Assert.Equal(serverHook.Seen, clientHook.Seen);
+    }
+
+    [Fact]
+    public void No_hook_leaves_the_command_unslid()
+    {
+        Assert.Null(Resolve().Rules.Taunt(1, 0.5f, 300f));
+    }
+
+    [Fact]
+    public void One_hook_owns_the_movement_taunt()
+    {
+        var hook = new FakeRules { TauntTo = new MovementTaunt(300f, 300f, 300f) };
+
+        Assert.Equal(new MovementTaunt(300f, 300f, 300f), Resolve(hook).Rules.Taunt(5, 0.5f, 300f));
+        Assert.Equal(["taunt:5,0.5,300"], hook.Seen);
+    }
+
+    /// <summary>
+    /// The slide a taunting player's command gets on the server is the one its
+    /// client's replay gets — the smoothed speed cannot land for one side only.
+    /// </summary>
+    [Fact]
+    public void The_server_and_client_bindings_answer_the_same_movement_taunt()
+    {
+        var serverHook = new FakeRules { TauntTo = new MovementTaunt(300f, 150f, 300f) };
+        var clientHook = new FakeRules { TauntTo = new MovementTaunt(300f, 150f, 300f) };
+        var serverBinding = PlayerCommandsBinding.For(
+            new Crossings(), new RecordingLog(), null!, Module<IServerModule>(ResolvedOver(serverHook)),
+            new PlayerCommandQueue(new RecordingLog()), () => false);
+        var clientBinding = PredictionClientBinding.For(
+            new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(ResolvedOver(clientHook)),
+            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ClientModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
+
+        var server = PackOf<MovementRules>(serverBinding).Taunt(2, 0.5f, 300f);
+        var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding).Taunt(2, 0.5f, 300f);
+
+        Assert.Equal(new MovementTaunt(300f, 150f, 300f), server);
+        Assert.Equal(server?.MaxSpeed, client?.MaxSpeed);
+        Assert.Equal(server?.ForwardMove, client?.ForwardMove);
+        Assert.Equal(server?.ClientMaxSpeed, client?.ClientMaxSpeed);
+        Assert.Equal(["taunt:2,0.5,300"], serverHook.Seen);
+        Assert.Equal(serverHook.Seen, clientHook.Seen);
+    }
+
+    [Fact]
+    public void No_hook_refuses_every_jump_in_the_air()
+    {
+        var r = Resolve();
+
+        Assert.Equal(0f, r.Rules.AirJump(new JumpRequest { PlayerIndex = 1, VerticalSpeed = -50f }));
+        r.Rules.Grounded(1);   // stock hears the ground and does nothing: no throw
+    }
+
+    [Fact]
+    public void One_hook_owns_the_air_jump_and_hears_the_ground()
+    {
+        var hook = new FakeRules { AirJumpTo = 250f };
+        var r = Resolve(hook);
+
+        Assert.Equal(250f, r.Rules.AirJump(new JumpRequest { PlayerIndex = 2, VerticalSpeed = -50f }));
+        r.Rules.Grounded(2);
+
+        Assert.Equal(["airjump:2,-50", "grounded:2"], hook.Seen);
+    }
+
+    /// <summary>
+    /// The prediction promise for the airborne decision: a rule counting its
+    /// own dashes, one instance per side, driven through the REAL server and
+    /// client bindings by the same command stream (dash, dash again, land,
+    /// dash), answers the same on both: one dash granted, the second refused,
+    /// and the ground giving it back.
+    /// </summary>
+    [Fact]
+    public void The_server_and_client_bindings_grant_the_same_air_jumps()
+    {
+        var serverBinding = PlayerCommandsBinding.For(
+            new Crossings(), new RecordingLog(), null!, Module<IServerModule>(ResolvedOver(new OneDashRules())),
+            new PlayerCommandQueue(new RecordingLog()), () => false);
+        var clientBinding = PredictionClientBinding.For(
+            new Crossings(), null!, Module<client::SourceSharp.Abi.IClientModule>(ResolvedOver(new OneDashRules())),
+            client::SourceSharp.Abi.TestSides.Movement(new client::SourceSharp.Abi.ClientModuleEngine(client::SourceSharp.Abi.TestSides.Create(Side.Client))));
+        var server = PackOf<MovementRules>(serverBinding);
+        var client = PackOf<client::SourceSharp.Abi.MovementRules>(clientBinding);
+        var request = new JumpRequest { PlayerIndex = 4, VerticalSpeed = -20f };
+
+        var serverAnswers = new List<float> { server.AirJump(request), server.AirJump(request) };
+        server.Grounded(4);
+        serverAnswers.Add(server.AirJump(request));
+
+        var clientAnswers = new List<float> { client.AirJump(request), client.AirJump(request) };
+        client.Grounded(4);
+        clientAnswers.Add(client.AirJump(request));
+
+        Assert.Equal([268.3281573f, 0f, 268.3281573f], serverAnswers);
+        Assert.Equal(serverAnswers, clientAnswers);
+    }
+
     //=========================================================================
     // Source parity, in the style of MoveTypePredictionParityTests: the
     // bindings and both modules call the resolved pack — and no stray scale
@@ -354,11 +740,26 @@ public class MovementRulesSeamTests
             Assert.Contains("_movementRules.Rules.Jump(request)", code, StringComparison.Ordinal);
             Assert.Contains("_movementRules.Rules.Friction(", code, StringComparison.Ordinal);
             Assert.Contains("_movementRules.Rules.MaxSpeed(", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.AirJump(request)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.Grounded(playerIndex)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.EyeHeight(playerIndex, standing)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.BunnyJump(playerIndex, maxSpeed)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.Backpedal(playerIndex, maxSpeed)", code, StringComparison.Ordinal);
+            Assert.Contains("_movementRules.Rules.Stun(playerIndex, curTime, buttons, forwardMove, sideMove, upMove)", code, StringComparison.Ordinal);
             Assert.DoesNotContain("Movement.JumpScale", code, StringComparison.Ordinal);
             Assert.DoesNotContain("Movement.FrictionScale", code, StringComparison.Ordinal);
             Assert.DoesNotContain("Movement.MaxSpeedScale", code, StringComparison.Ordinal);
             Assert.Contains("MovementRulesResolver", code, StringComparison.Ordinal);
         }
+    }
+
+    /// <summary>The server spawns a player with the rules' eye (stock TF2's CTFPlayer::Spawn sets the class eye).</summary>
+    [Fact]
+    public void The_server_spawns_a_player_at_the_rules_eye_height()
+    {
+        var code = Read(ServerModuleSource);
+        Assert.Contains("view.Z = _movementRules.Rules.EyeHeight(_entityApi.GetIndex(player), view.Z);", code, StringComparison.Ordinal);
+        Assert.Contains("_playerMoves.For(player).Spawn(view);", code, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -372,6 +773,12 @@ public class MovementRulesSeamTests
             Assert.Contains("game.GetJumpScale(in r)", code, StringComparison.Ordinal);
             Assert.Contains("game.GetFrictionScale(i, f, sp, d, m)", code, StringComparison.Ordinal);
             Assert.Contains("game.GetMaxSpeedScale(i, ms, d, m)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetAirJump(in r)", code, StringComparison.Ordinal);
+            Assert.Contains("game.OnPlayerGrounded(i)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetEyeHeight(i, z)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetBunnyJumpCap(i, ms)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetBackpedalLimit(i, ms)", code, StringComparison.Ordinal);
+            Assert.Contains("game.GetMovementStun(i, t, b, f, s, u)", code, StringComparison.Ordinal);
         }
     }
 

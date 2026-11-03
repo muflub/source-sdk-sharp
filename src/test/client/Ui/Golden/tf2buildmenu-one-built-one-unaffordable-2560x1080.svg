@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="774" y="439" width="1012" height="382" fill="#2e2b2a" fill-opacity="0.78" data-e="1"/>
+<rect x="792" y="522" width="981" height="4" fill="#ffded0" data-e="2"/>
+<text x="927" y="481.8" font-family="TF2 Build" font-size="72" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="3">Build</text>
+<text x="1585" y="518.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="4">Hit 'q' to Cancel</text>
+<rect x="830" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
+<text x="882" y="584.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="8">125</text>
+<text x="890" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="9">Already Built</text>
+<text x="844" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="10">Sentry Gun</text>
+<text x="929" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="11">1</text>
+<rect x="1055" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="14"/>
+<text x="1107" y="584.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#f0cf4e" xml:space="preserve" data-e="15">100</text>
+<text x="1120" y="640.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">Not Enough</text>
+<text x="1145" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">Metal</text>
+<text x="1068" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="17">Dispenser</text>
+<text x="1154" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="18">2</text>
+<rect x="1280" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="21"/>
+<text x="1332" y="584.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#f0cf4e" xml:space="preserve" data-e="22">50</text>
+<text x="1344" y="640.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="23">Not Enough</text>
+<text x="1369" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="23">Metal</text>
+<text x="1294" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="24">Entrance</text>
+<text x="1379" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="25">3</text>
+<rect x="1505" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="28"/>
+<text x="1557" y="584.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#f0cf4e" xml:space="preserve" data-e="29">50</text>
+<text x="1570" y="640.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="30">Not Enough</text>
+<text x="1595" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="30">Metal</text>
+<text x="1518" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="31">Exit</text>
+<text x="1604" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="32">4</text>
+</svg>

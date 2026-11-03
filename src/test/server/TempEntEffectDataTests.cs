@@ -36,7 +36,7 @@ namespace SourceSharp.Tests;
 /// <c>#ifdef HL2_DLL</c> around its six origin floats and an
 /// <c>#if defined( TF_DLL )</c> around its normal. The parser drops the taken-if
 /// arm of each and keeps the <c>#else</c> — and
-/// <see cref="NeitherHl2NorTfIsDefinedInThisBuild"/> READS EVERY COMPILE
+/// <see cref="NeitherHl2NorTFIsDefinedInThisBuild"/> READS EVERY COMPILE
 /// COMMAND of server.so and client.so to prove that is the branch this build
 /// compiles, rather than trusting plan 2G.
 /// </description></item>
@@ -228,7 +228,7 @@ public class TempEntEffectDataTests
     /// the build, per target or per source, decides these two props.
     /// </summary>
     [LinuxOnlyFact("reads the Linux build's CMake graph (farm/<config>/build: its compile database and ninja file), which a Windows checkout never configures")]
-    public void NeitherHl2NorTfIsDefinedInThisBuild()
+    public void NeitherHl2NorTFIsDefinedInThisBuild()
     {
         // THE BUILD'S OWN COMMANDS AND NOT EVERY BUILD SCRIPT IN THE TREE. The
         // VPC form of this fact followed server_csharp.vpc / client_csharp.vpc

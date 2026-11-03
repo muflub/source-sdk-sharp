@@ -51,4 +51,23 @@ public interface IServerPlayerMovementRoute
 
     /// <summary>UTIL_ViewPunch: every player in reach shoved.</summary>
     void ViewPunch(Vector center, Vector punch, float radius, bool inAir);
+
+    /// <summary>
+    /// CBasePlayer::SetFOV (baseplayer_shared.cpp:1946): the player's field of
+    /// view set by <paramref name="requester"/>, 0 releasing the zoom, ramped
+    /// over <paramref name="rate"/> seconds. A requester while another's zoom
+    /// is held is refused (the owner rule); a null requester is stock's
+    /// assertion. A positive <paramref name="start"/> is stock's
+    /// <c>iZoomStart</c>, the foot of the new ramp; 0 takes the view's
+    /// <c>GetFOV()</c> as stock's default arm does.
+    /// </summary>
+    void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate, int start = 0);
+
+    /// <summary>
+    /// The player's own field of view (<c>CBasePlayer::SetDefaultFOV</c>,
+    /// player.cpp:8741): the word an unzoomed view answers, written plain —
+    /// no ramp, no owner. Stock's <c>ClientSettingsChanged</c> feeds it the
+    /// clamped <c>fov_desired</c> (tf_gamerules.cpp:10275-10279).
+    /// </summary>
+    void SetDefaultFov(EntityHandle player, int fov);
 }

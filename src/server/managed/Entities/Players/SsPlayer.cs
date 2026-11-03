@@ -44,6 +44,9 @@ public sealed class SsPlayer : AnimatingEntity
     /// <summary>What a fresh spawn stands up with.</summary>
     public const int SpawnHealth = 100;
 
+    /// <summary>The event a hurt fires (modevents.res's player_hurt).</summary>
+    private const string EventName = "player_hurt";
+
     /// <summary>
     /// Being drawn is not <c>Entities</c>' area, so it arrives by constructor —
     /// the base class's rule for every area whose subject is not always this
@@ -62,6 +65,13 @@ public sealed class SsPlayer : AnimatingEntity
     // whose record for this player goes when it does.
     private readonly SourceSharp.Server.Interop.ServerPlayerMoves? _moves;
 
+    // The game events, the entity questions the fire asks, and the open hit
+    // scope. Null for a hand-built player that fires nothing (the same
+    // optionality as the rest of this constructor).
+    private readonly IEngineGameEvents? _events;
+    private readonly IEngineEntities? _entities;
+    private readonly DamageHitGroups? _hitGroups;
+
     public SsPlayer(IEngineEntityRender render, IEnginePlayers players, PhysicsDamageQueue impacts,
                     FluidTouches fluid, IPlayerRemovals? removals = null,
                     PlayerCommandQueue? commands = null, IUserMessageSender? messages = null,
@@ -70,9 +80,13 @@ public sealed class SsPlayer : AnimatingEntity
                     ModelDescriptors? models = null, IGameClock? clock = null,
                     SourceSharp.Shared.Anim.AnimStateLayers? animLayers = null,
                     SourceSharp.Server.Interop.ServerPlayerMoves? moves = null, IEngineSound? sound = null,
-                    IEngineDamage? damage = null)
+                    IEngineDamage? damage = null, IEngineGameEvents? events = null,
+                    IEngineEntities? entities = null, DamageHitGroups? hitGroups = null)
     {
         _damage = damage;
+        _events = events;
+        _entities = entities;
+        _hitGroups = hitGroups;
         _sound = sound;
         _infiniteAux = convars?.Get<SvInfiniteAuxPowerConVar>();
         _moves = moves;
@@ -450,6 +464,17 @@ public sealed class SsPlayer : AnimatingEntity
         if (_rules?.CanTakeDamage(Handle, attacker, damage, (int)damageType, GameTime, hitGroup) == Decision.No)
             return 0;
 
+        // The mods' modify rules on the allowed hit (IDamageModifier, tf2
+        // stage 2.7): stock's CTFPlayer::OnTakeDamage calls
+        // ApplyOnDamageModifyRules here, before the armour. What they answer
+        // is the hit from now on; nothing left is nothing taken.
+        if (_rules is { } rules)
+        {
+            damage = rules.ModifyDamage(Handle, attacker, damage, (int)damageType, hitGroup);
+            if (!(damage > 0f))
+                return 0;
+        }
+
         // Stock's player_debug_print_damage line, at stock's place (after the
         // rules, before the armour), and the hitgroup the rules were told.
         if (_printDamage?.Value == true)
@@ -467,7 +492,35 @@ public sealed class SsPlayer : AnimatingEntity
 
         // Into the frame's report, sent by UpdateClientData: not a message per hit.
         DamageReport.Took(taken, damageType, DamageOrigin(attacker), GameTime);
+        Hurt(attacker, taken, Health - taken);
         return taken;
+    }
+
+    /// <summary>
+    /// The <c>player_hurt</c> event, stock's fire from
+    /// <c>CBasePlayer::OnTakeDamage</c> (tf_player.cpp): health floored at
+    /// zero, the post-armour <c>damageamount</c> — what the combat text keys
+    /// off — and the attacker's userid when the attacker is a player. The
+    /// crit bit rides the open hit scope. TF's own keys (custom, weaponid,
+    /// bonuseffect, the disguise-crit ladder) stay unset here: this class
+    /// cannot name them, and the mode that can fills them where it knows
+    /// them.
+    /// </summary>
+    private void Hurt(EntityHandle attacker, int taken, int healthLeft)
+    {
+        if (_events is null)
+            return;
+
+        IntPtr e = _events.EventCreate(EventName);
+        if (e == IntPtr.Zero)
+            return;
+
+        _events.EventSetInt(e, "userid", _players.GetUserId(Handle));
+        _events.EventSetInt(e, "health", Math.Max(0, healthLeft));
+        _events.EventSetInt(e, "attacker", _entities?.IsPlayer(attacker) == true ? _players.GetUserId(attacker) : 0);
+        _events.EventSetInt(e, "damageamount", taken);
+        _events.EventSetBool(e, "crit", _hitGroups?.Critical ?? false);
+        _events.EventFire(e);
     }
 
     /// <summary>What the suit takes of a hit: stock's armour arithmetic (<see cref="Armour"/>).</summary>

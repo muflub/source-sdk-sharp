@@ -357,9 +357,23 @@ public class UiFidelityTests
 
         public void Line(int x0, int y0, int x1, int y1, uint rgba) => Draws++;
 
-        public void TexturedRect(int texture, int x0, int y0, int x1, int y1, float s0, float t0, float s1, float t1, uint rgba) => Draws++;
+        public int TexturedRects;
+
+        public void TexturedRect(int texture, int x0, int y0, int x1, int y1, float s0, float t0, float s1, float t1, uint rgba)
+        {
+            Draws++;
+            TexturedRects++;
+        }
 
         public void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba) => Draws++;
+
+        public List<(int Texture, float[] Xyuv, uint Rgba, bool Additive)> Quads { get; } = [];
+
+        public void TexturedQuad(int texture, ReadOnlySpan<float> xyuv, uint rgba, bool additive)
+        {
+            Draws++;
+            Quads.Add((texture, xyuv.ToArray(), rgba, additive));
+        }
 
         public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba)
         {
@@ -373,6 +387,8 @@ public class UiFidelityTests
         public void SetClip(bool enabled, int x0, int y0, int x1, int y1) => Draws++;
 
         public int TextureCreate() => ++_textures;
+
+        public int MaterialTexture(string name) => 0;
 
         public void TextureUpload(int texture, ReadOnlySpan<byte> rgba, int wide, int tall)
         {

@@ -217,6 +217,15 @@ public interface IModInfo
     /// a loose one. First file wins a shared token; empty when it lists none.
     /// </summary>
     IReadOnlyList<string> Localisation => [];
+
+    /// <summary>
+    /// The mod's ICE key (mods.yaml <c>encryption_key</c>): the string stock
+    /// hands as <c>g_pGameRules-&gt;GetEncryptionKey()</c> to open its sealed
+    /// <c>.ctx</c> scripts, e.g. TF2's <c>"E2NcUkG2"</c>
+    /// (<c>tf_gamerules.h GetTFEncryptionKey</c>). Null when the mod
+    /// encrypts nothing, and then its scripts are the plain <c>.txt</c> only.
+    /// </summary>
+    string? EncryptionKey => null;
 }
 
 /// <summary>
@@ -275,6 +284,7 @@ public sealed class ModInfo : IModInfo
         public const string Browser = "SourceSharp.Mod.Browser";
         public const string ClientUiAssemblies = "SourceSharp.Mod.Assemblies.ClientUi";
         public const string Localisation = "SourceSharp.Mod.Localisation";
+        public const string EncryptionKey = "SourceSharp.Mod.EncryptionKey";
     }
 
     private readonly Func<string, object?> _data;
@@ -308,16 +318,22 @@ public sealed class ModInfo : IModInfo
 
     public IReadOnlyList<string> Localisation => List(Keys.Localisation);
 
+    // Published always, empty for none (Publish's rule); the empty string
+    // means "this mod encrypts nothing" and reads back null.
+    public string? EncryptionKey => _data(Keys.EncryptionKey) as string is { Length: > 0 } key ? key : null;
+
     /// <summary>What Bootstrap calls once it has resolved the mod.</summary>
     public static void Publish(string id, string gameDir, string managedDir,
                                IEnumerable<string> server, IEnumerable<string> client, string? browserJson = null,
-                               IEnumerable<string>? clientUi = null, IEnumerable<string>? localisation = null)
+                               IEnumerable<string>? clientUi = null, IEnumerable<string>? localisation = null,
+                               string? encryptionKey = null)
     {
         // Always set, empty for none: AppContext data is process-wide, and a
         // reload of another mod must not inherit this one's entry.
         AppContext.SetData(Keys.Browser, browserJson ?? "");
         AppContext.SetData(Keys.ClientUiAssemblies, string.Join(';', clientUi ?? []));
         AppContext.SetData(Keys.Localisation, string.Join(';', localisation ?? []));
+        AppContext.SetData(Keys.EncryptionKey, encryptionKey ?? "");
         AppContext.SetData(Keys.Id, id);
         AppContext.SetData(Keys.GameDir, gameDir);
         AppContext.SetData(Keys.ManagedDir, managedDir);

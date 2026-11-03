@@ -78,7 +78,8 @@ public interface IUserMessage
 /// <para>
 /// One wire convention for every message: declaration order, no header;
 /// fixed-width little-endian (bool and byte 1, short and ushort 2, int, uint
-/// and float 4, <see cref="Color32"/> 4 as r g b a, <see cref="Vector"/> 12);
+/// and float 4, long and ulong 8, <see cref="Color32"/> 4 as r g b a,
+/// <see cref="Vector"/> 12);
 /// a string NUL-terminated; an array a count byte, then its elements.
 /// </para>
 /// </summary>
@@ -308,6 +309,22 @@ public ref struct UserMessageReader
         if (_pos + 4 > _data.Length) { Overran = true; return 0; }
         int v = BitConverter.ToInt32(_data.Slice(_pos, 4));
         _pos += 4;
+        return v;
+    }
+
+    public long ReadLong()
+    {
+        if (_pos + 8 > _data.Length) { Overran = true; return 0; }
+        long v = BitConverter.ToInt64(_data.Slice(_pos, 8));
+        _pos += 8;
+        return v;
+    }
+
+    public ulong ReadULong()
+    {
+        if (_pos + 8 > _data.Length) { Overran = true; return 0; }
+        ulong v = BitConverter.ToUInt64(_data.Slice(_pos, 8));
+        _pos += 8;
         return v;
     }
 
@@ -779,6 +796,20 @@ public ref struct UserMessageWriter
         if (_pos + 4 > _data.Length) { Overran = true; return; }
         BitConverter.TryWriteBytes(_data.Slice(_pos, 4), value);
         _pos += 4;
+    }
+
+    public void WriteLong(long value)
+    {
+        if (_pos + 8 > _data.Length) { Overran = true; return; }
+        BitConverter.TryWriteBytes(_data.Slice(_pos, 8), value);
+        _pos += 8;
+    }
+
+    public void WriteULong(ulong value)
+    {
+        if (_pos + 8 > _data.Length) { Overran = true; return; }
+        BitConverter.TryWriteBytes(_data.Slice(_pos, 8), value);
+        _pos += 8;
     }
 
     public void WriteFloat(float value)

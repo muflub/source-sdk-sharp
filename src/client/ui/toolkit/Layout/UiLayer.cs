@@ -37,6 +37,11 @@ public sealed class UiLayer : IUiLayer
 
     public UiContext Context => _context;
 
+    /// <summary>The layer's screens in draw order — read once by the host to
+    /// collect each screen's <see cref="UiScreen.Panel"/> claim (TF2 stage
+    /// 3.2's team menu). Not a per-frame path.</summary>
+    public IReadOnlyList<UiScreen> Screens => _screens;
+
     public void Frame(UiLayerKind layer, in ScreenInfo screen, double now)
     {
         _context.BeginFrame(screen, now);
@@ -53,6 +58,17 @@ public sealed class UiLayer : IUiLayer
                 b--;
             }
             _order[b + 1] = v;
+        }
+
+        // What the open screens replace, before any of them describes (UiScreen.Takes).
+        for (int i = 0; i < _screens.Length; i++)
+        {
+            var s = _screens[i];
+            if (s.Layer != layer || !_open[i] || !s.Visible)
+                continue;
+            var takes = s.Takes;
+            for (int t = 0; t < takes.Count; t++)
+                _context.Take(takes[t]);
         }
 
         for (int k = 0; k < _order.Length; k++)
@@ -75,7 +91,7 @@ public sealed class UiLayer : IUiLayer
             for (int c = 0; c < n; c++)
                 for (int i = 0; i < _screens.Length; i++)
                     if (_screens[i] is IUiWindowed w && w.WindowId == _closing[c])
-                        _open[i] = false;
+                        SetOpen(_screens[i].Name, false);
         }
     }
 
@@ -162,12 +178,21 @@ public sealed class UiLayer : IUiLayer
         }
     }
 
+    /// <summary>A screen of this layer was closed, by name — whichever way
+    /// the close came: a named <see cref="Close"/>, the window's Escape or
+    /// close button. The host subscribes to tell the screen, the way a
+    /// stock panel learns its hide from the same call that hides it.</summary>
+    public event Action<string>? Closed;
+
     private void SetOpen(string name, bool open)
     {
         int i = IndexOf(name);
         if (i < 0)
             throw new ArgumentException($"no UI screen named '{name}'", nameof(name));
+        bool was = _open[i];
         _open[i] = open;
+        if (was && !open)
+            Closed?.Invoke(name);
     }
 
     private int IndexOf(string name)

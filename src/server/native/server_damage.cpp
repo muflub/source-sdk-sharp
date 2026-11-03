@@ -30,8 +30,8 @@ void CServerDamage::ApplyDamage(uint32_t hVictim, uint32_t hAttacker, float flDa
 	}
 }
 
-void CServerDamage::EntityTakeDamage(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
-									 const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly)
+int32_t CServerDamage::EntityTakeDamageLanded(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+											  const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly)
 {
 	SOURCESHARP_TRACE();
 
@@ -40,7 +40,7 @@ void CServerDamage::EntityTakeDamage(uint32_t hEntity, uint32_t hAttacker, float
 	CStandaloneEntity* pStandalone = ent.pStandalone;
 
 	if (!pEntity && !pStandalone)
-		return;
+		return 0;
 
 	IGameEntity* pAttacker = m_Entities.Resolve(hAttacker).GameEntity();
 
@@ -59,10 +59,23 @@ void CServerDamage::EntityTakeDamage(uint32_t hEntity, uint32_t hAttacker, float
 	{
 		// Physics-only means no damage; the shove is managed's.
 		if (!bPhysicsOnly)
-			pStandalone->TakeDamage(info);
-
-		return;
+			return pStandalone->TakeDamage(info);
 	}
+
+	return 0;
+}
+
+void CServerDamage::EntityTakeDamage(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+									 const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly)
+{
+	(void)EntityTakeDamageLanded(hEntity, hAttacker, flDamage, nDamageType, pDirXYZ, pForceOriginXYZ, bPhysicsOnly);
+}
+
+int32_t CServerDamage::EntityTakeDamageAnswered(uint32_t hEntity, uint32_t hAttacker, float flDamage,
+												int32_t nDamageType, const float* pDirXYZ, const float* pForceOriginXYZ,
+												int32_t bPhysicsOnly)
+{
+	return EntityTakeDamageLanded(hEntity, hAttacker, flDamage, nDamageType, pDirXYZ, pForceOriginXYZ, bPhysicsOnly);
 }
 
 void CServerDamage::ApplyDamageForce(uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,

@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using SourceSharp.Abi;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Effects;
 

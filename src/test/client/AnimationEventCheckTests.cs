@@ -145,6 +145,7 @@ public class AnimationEventCheckTests
         public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart) => throw Refuse(nameof(PlaySequence));
         public void SetCycle(EntityHandle entity, float cycle) => throw Refuse(nameof(SetCycle));
         public void SetSkin(EntityHandle entity, int skin) => throw Refuse(nameof(SetSkin));
+        public void SetModelOverride(EntityHandle entity, string model) => throw Refuse(nameof(SetModelOverride));
         public void SetTextureFrame(EntityHandle entity, int frame) => throw Refuse(nameof(SetTextureFrame));
         public void SetTransmitAlways(EntityHandle entity, bool always) => throw Refuse(nameof(SetTransmitAlways));
         public bool DetectInSkybox(EntityHandle entity) => throw Refuse(nameof(DetectInSkybox));

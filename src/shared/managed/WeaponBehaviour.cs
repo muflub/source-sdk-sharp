@@ -87,6 +87,23 @@ public interface IWeaponBehaviour
     float? BulletSpread(in WeaponAttackContext attack) => null;
 
     /// <summary>
+    /// The pattern this attack's pellets leave in, instead of the random
+    /// sample: stock's fixed multi-pellet spread (<c>bFixedSpread</c>,
+    /// <c>tf_fx_shared.cpp:302</c>) — <c>tf_use_fixed_weaponspreads</c>, a
+    /// buckshot load of more than one. Null for the random sample, every
+    /// weapon's answer by default.
+    /// </summary>
+    PelletPattern? FixedPellets(in WeaponAttackContext attack) => null;
+
+    /// <summary>
+    /// Whether this owner's wish tops the clip up while idle, pressed as a
+    /// reload (<c>cl_autoreload</c> at the post frame,
+    /// <c>tf_weaponbase.cpp:2454</c>): the machine asks beside the held
+    /// reload key. The held attack buttons are the answer's to check.
+    /// </summary>
+    bool AutoReload(in WeaponAttackContext attack, int buttons) => false;
+
+    /// <summary>
     /// The end of one command, whatever the weapon did in it — firing,
     /// reloading, or standing idle. Stock's <c>ItemPostFrame</c> tail, and the
     /// only behaviour point that runs every command.
@@ -108,17 +125,43 @@ public interface IWeaponBehaviour
     /// — see <see cref="WeaponLogic.ShotsOwed"/>: a zero interval owes exactly
     /// one shot, and a negative is read as a weapon that never comes off
     /// cooldown. Return <paramref name="interval"/> for the row's own rate.
+    /// <paramref name="ownerIndex"/> is the entity index of the player whose
+    /// hands the weapon is in — <see cref="WeaponCommand.OwnerIndex"/> on a
+    /// command's run, and the carrier's index when the arsenal fills a clip
+    /// (0 when nobody was named). A per-player question must be answered from
+    /// this index alone: the server's run and the client's replay of one
+    /// command hand the same number, and any other owner source mispredicts
+    /// the clocks.
     /// </summary>
-    float ModifyFireInterval(in WeaponType type, float interval) => interval;
+    float ModifyFireInterval(in WeaponType type, float interval, int ownerIndex) => interval;
 
     /// <summary>
     /// The size of a full clip, which decides what the clip spends down to,
     /// what a fresh give fills to, and when a reload is full. Zero or less is
     /// the row's own "no clip" (a pool-fed or melee weapon), so tuning a clip
     /// away is the same statement the row makes with <c>-1</c>. Return
-    /// <paramref name="clipSize"/> for the row's own.
+    /// <paramref name="clipSize"/> for the row's own. <paramref name="ownerIndex"/>
+    /// is the player the clip is filled for, as in
+    /// <see cref="ModifyFireInterval"/>.
     /// </summary>
-    int ModifyClipSize(in WeaponType type, int clipSize) => clipSize;
+    int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex) => clipSize;
+
+    /// <summary>
+    /// The seconds a reload takes, before a behaviour has an opinion on it:
+    /// the machine's reload animation's duration, asked at the moments the
+    /// machine sets a reload's clock. Stock's TF weapons run every such clock
+    /// through <c>CTFWeaponBase::SetReloadTimer</c>
+    /// (<c>shared/tf/tf_weaponbase.cpp:2266-2331</c>), whose arms scale it by
+    /// the item's and the player's attributes — the answer here is what they
+    /// scale. The machine sends the viewmodel's reload animation at the
+    /// base-to-answer rate, as stock sets the playback rate to the base over
+    /// the scaled (<c>:2322</c>). Return <paramref name="duration"/> for the
+    /// row's own. <paramref name="ownerIndex"/> is the player whose reload it
+    /// is, as in <see cref="ModifyFireInterval"/>: the reload's clock is
+    /// predicted state, and a per-player question must be answered from this
+    /// index alone or the replay mispredicts the clocks.
+    /// </summary>
+    float ModifyReloadTime(in WeaponType type, float duration, int ownerIndex) => duration;
 
     /// <summary>
     /// Asked when the weapon comes into the hands, after the side has set the
@@ -140,6 +183,49 @@ public interface IWeaponBehaviour
     /// Drop removes it instead (the physcannon).
     /// </summary>
     bool LeavesPickup => true;
+
+    /// <summary>
+    /// The damage and the crit flag of a primary attack's bullets or swing,
+    /// asked once per attack after the round is spent and before the arms fire
+    /// (a projectile weapon is not asked: it launches, it does not hit).
+    /// <paramref name="shot"/> is the row's own — the ammo row's damage per
+    /// bullet, or the swing's — and not critical; return it for stock.
+    ///
+    /// <para>
+    /// Asked on the replay as well as on the live run, so a seeded roll here
+    /// (<see cref="WeaponAttackContext.Command"/>) runs on both sides and may
+    /// write the weapon's predicted state. What a crit does is the answer's
+    /// damage: the core carries the flag to the victim and multiplies nothing.
+    /// </para>
+    /// </summary>
+    ShotDamage ModifyShot(in WeaponAttackContext attack, ShotDamage shot) => shot;
+
+    /// <summary>
+    /// What one shot sounds like, asked once per attack while effects are
+    /// live, just before the machine plays it: null for the row's own
+    /// <see cref="WeaponType.FireSound"/>. Stock TF decides this per attack in
+    /// <c>CTFWeaponBaseGun::PlayWeaponShootSound</c>
+    /// (<c>tf_weaponbase_gun.cpp:829-839</c>) — the script's BURST when the
+    /// attack is a crit and SINGLE otherwise — and <paramref name="shot"/> is
+    /// this side's answer of <see cref="ModifyShot"/>. The sound is the only
+    /// thing this decides: the damage stays the server's, settled by the
+    /// server's own roll of the same seed.
+    /// </summary>
+    string? FireSound(in WeaponAttackContext attack, ShotDamage shot) => null;
+
+    /// <summary>
+    /// Whether a re-send of the animation already playing continues it where
+    /// it stands instead of restarting it. Stock's base answer restarts every
+    /// send (<c>CBaseCombatWeapon::SendWeaponAnim</c>) — return <c>false</c>
+    /// for that. The answer is true for a looping anim only, as
+    /// <c>CTFMinigun::SendWeaponAnim</c> answers it for its hold-down fire
+    /// anim (<c>tf_weapon_minigun.cpp:961-967</c>: "If we're already playing
+    /// the fire anim, let it continue. It loops."), comparing the ACTIVITIES
+    /// as stock compares them (<c>GetActivity() == ACT_VM_PRIMARYATTACK</c>):
+    /// the anim being sent and the one already playing. Asked at the
+    /// machine's own send (<see cref="WeaponLogic.Play"/>).
+    /// </summary>
+    bool AnimContinuesOnResend(in WeaponAttackContext attack, WeaponAnim anim) => false;
 }
 
 /// <summary>
@@ -169,13 +255,62 @@ public interface IWeaponBehaviour
 /// This side's hands: sound, bullets, the launch, the sequence lookups. The
 /// state writes never go through them; the effects always do.
 /// </param>
+/// <param name="Command">
+/// Which command this is and whose weapon runs it: the command's prediction
+/// seed and the weapon's and owner's entity indices, the same numbers on the
+/// server's run and on the client's replay of the command (see
+/// <see cref="WeaponCommand"/>). A roll seeded from them comes out the same on
+/// both sides.
+/// </param>
 public readonly record struct WeaponAttackContext(
     WeaponType Type,
     WeaponNetState Weapon,
     ViewModelNetState ViewModel,
     float Now,
     bool EffectsLive,
-    IWeaponArms Arms);
+    IWeaponArms Arms,
+    WeaponCommand Command = default);
+
+/// <summary>
+/// The command a weapon machine is running, as a predicted roll needs it: the
+/// command's random seed and the entity indices of the weapon and its owner.
+///
+/// <para>
+/// <b>THE SEED IS STOCK'S <c>CBaseEntity::GetPredictionRandomSeed</c></b>: the
+/// user command's <c>random_seed</c>, which <c>CBasePlayer::PlayerRunCommand</c>
+/// installs before the weapon's frame runs. Both ends derive it from the command
+/// number alone (<see cref="UserCmdCodec.RandomSeedFor"/>, ReadUsercmd's
+/// <c>MD5_PseudoRandom(command_number) &amp; 0x7fffffff</c>), so the server's
+/// run of command N and the client's replay of command N read one seed.
+/// </para>
+///
+/// <para>
+/// <b>THE INDICES ARE ENTITY INDICES</b> (<c>entindex()</c>), which a networked
+/// entity has the same on both sides: the low bits of either side's handle.
+/// TF's crit roll seeds with <c>seed ^ (weapon entindex &lt;&lt; 8 | player
+/// entindex)</c> (<c>CTFWeaponBase::CalcIsAttackCriticalHelper</c>,
+/// <c>src/game/shared/tf/tf_weaponbase.cpp</c>), which is why the weapon's own
+/// index rides here and not only the owner's. The mask is the mod's to apply:
+/// the core hands over the three numbers and draws nothing from them.
+/// </para>
+///
+/// <para>
+/// <c>default</c> (all zero) outside a command — a test driving the machine
+/// directly, or a caller that has no command to name.
+/// </para>
+/// </summary>
+/// <param name="Seed">The command's prediction random seed (never negative).</param>
+/// <param name="WeaponIndex">The weapon's entity index.</param>
+/// <param name="OwnerIndex">The owning player's entity index.</param>
+public readonly record struct WeaponCommand(int Seed, int WeaponIndex, int OwnerIndex)
+{
+    /// <summary>
+    /// The command <paramref name="cmd"/> as run by <paramref name="weapon"/> in
+    /// <paramref name="owner"/>'s hands: the one derivation both sides use.
+    /// </summary>
+    public static WeaponCommand For(in UserCmd cmd, EntityHandle weapon, EntityHandle owner)
+        => new(UserCmdCodec.RandomSeedFor(cmd.CommandNumber), weapon.EntryIndex, owner.EntryIndex);
+}
 
 /// <summary>
 /// The behaviours a mod registers, keyed by the name a
@@ -186,7 +321,7 @@ public readonly record struct WeaponAttackContext(
 /// <c>[SideService]</c> and collected from the side's container when the side
 /// first asks its machine a question. Both sides run the same sources — the
 /// client predicts the shot, so it must resolve the same behaviour the server
-/// resolved — and the collection is ordered by assembly name so the first owner
+/// resolved — and the collection is ordered by assembly layer (HookOrder) so the first owner
 /// of a key is the same object on both sides (see
 /// <see cref="WeaponCatalog"/>'s note on the same rule).
 /// </para>

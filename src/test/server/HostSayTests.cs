@@ -35,7 +35,8 @@ public class HostSayTests
         public void Reconnect(int entIndex) { }
     }
 
-    private static (HostSay Chat, RecordingEngine Engine, RecordingLog Log) Rig()
+    private static (HostSay Chat, RecordingEngine Engine, RecordingLog Log) Rig(IChatAudience? audience = null,
+                                                                               params IPlayerChatHook[] hooks)
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsPlayer).Assembly);
@@ -49,7 +50,14 @@ public class HostSayTests
         registry.KeyValue(Alice, EntityNames.Player, "targetname", "a");
         registry.KeyValue(Bob, EntityNames.Player, "targetname", "b");
         var log = new RecordingLog();
-        return (new HostSay(log, engine, engine, registry, engine, new Clients(), engine, engine), engine, log);
+        foreach (var hook in hooks)
+            services.AddInstance<IPlayerChatHook>(hook);
+        var chain = hooks.Length > 0 ? new Hooks<IPlayerChatHook>(services, log) : null;
+        if (audience is not null)
+            services.AddInstance(audience);
+        var listeners = audience is not null ? new Hooks<IChatAudience>(services, log) : null;
+        return (new HostSay(log, engine, engine, registry, engine, new Clients(), engine, engine,
+                            chatHooks: chain, audience: listeners), engine, log);
     }
 
     private static List<(int Slot, SayText2 Msg)> Sent(RecordingEngine engine)
@@ -121,6 +129,107 @@ public class HostSayTests
         Assert.Contains(log.Lines, l => l.Text.Contains("\"alice<11><STEAM_ID_LAN><Unassigned>\" say \"hello\"", StringComparison.Ordinal));
         Assert.Equal("player_say", (string)Assert.Single(engine.AllOf("GameEvents.EventCreate")).Args[0]!);
         Assert.Contains(engine.AllOf("GameEvents.EventSetString"), c => (string)c.Args[1]! == "text" && (string)c.Args[2]! == "hello");
+    }
+
+    /// <summary>The say path's hook, stock's CBasePlayer::CheckChatText override (client.cpp:313).</summary>
+    private sealed class Remembering : IPlayerChatHook
+    {
+        public RecordingEngine? Engine;
+
+        public readonly List<PlayerChat> Seen = new();
+
+        // How many engine calls had happened when each hook ran: before the
+        // relay, no SayText2 send is among them.
+        public readonly List<int> CallsAtHook = new();
+
+        public void OnPlayerChat(PlayerChat chat)
+        {
+            Seen.Add(chat);
+            if (Engine is not null)
+                CallsAtHook.Add(Engine.Calls.Count);
+        }
+    }
+
+    [Fact]
+    public void The_say_path_tells_the_chat_hooks_the_checked_line_before_the_relay()
+    {
+        var seen = new Remembering();
+        var (chat, engine, _) = Rig(hooks: seen);
+        seen.Engine = engine;
+
+        chat.Say(Alice, "\"quoted line\"", teamOnly: false);
+        chat.Say(Alice, "to the team", teamOnly: true);
+
+        // The checked text (quotes gone), both flavours.
+        Assert.Equal(new[] { (Alice, "quoted line", false), (Alice, "to the team", true) },
+                     seen.Seen.Select(c => (c.Speaker, c.Text, c.TeamOnly)).ToArray());
+
+        // The first hook ran before the relay's first send: the calls behind it
+        // do not yet include that send.
+        int firstSend = -1;
+        for (int i = 0; i < engine.Calls.Count; i++)
+        {
+            if (engine.Calls[i].Member == "UserMessages.Send")
+            {
+                firstSend = i;
+                break;
+            }
+        }
+        Assert.True(firstSend > 0, "the line was relayed at all");
+        Assert.True(seen.CallsAtHook.Count > 0 && seen.CallsAtHook[0] <= firstSend,
+                    $"the hook ran at call {seen.CallsAtHook.FirstOrDefault()}, the first send is call {firstSend}");
+    }
+
+    [Fact]
+    public void A_line_with_no_speaker_reaches_no_chat_hook()
+    {
+        var seen = new Remembering();
+        var (chat, engine, _) = Rig(hooks: seen);
+        seen.Engine = engine;
+
+        chat.Say(EntityHandle.None, "from the console", teamOnly: false);
+
+        Assert.Empty(seen.Seen);
+        Assert.Empty(seen.CallsAtHook);
+    }
+
+    /// <summary>An audience that refuses one listener, the gate a game vets with.</summary>
+    private sealed class RefusingListener : IChatAudience, IOrderedHook
+    {
+        public int HookOrder => 1;
+
+        public bool CanHear(EntityHandle listener, EntityHandle speaker) => listener != Bob;
+    }
+
+    [Fact]
+    public void A_refusing_audience_takes_its_listener_out_of_the_relay()
+    {
+        var (chat, engine, _) = Rig(audience: new RefusingListener());
+
+        chat.Say(Alice, "hello", teamOnly: false);
+
+        // Bob (slot 2) is refused; the sender still hears herself.
+        Assert.Equal(new[] { 1 }, Sent(engine).Select(s => s.Slot).ToArray());
+    }
+
+    [Fact]
+    public void Every_registered_audience_is_asked_in_its_order()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(SsPlayer).Assembly);
+        var services = Services(out var engine);
+        var log = new RecordingLog();
+        services.AddInstance<RefusingListener>(new RefusingListener());
+        services.AddInstance<PassingAudience>(new PassingAudience());
+        var listeners = new Hooks<IChatAudience>(services, log);
+        Assert.Equal([false, true], listeners.All.Select(a => a.CanHear(Bob, Alice)).ToArray());
+    }
+
+    private sealed class PassingAudience : IChatAudience, IOrderedHook
+    {
+        public int HookOrder => 2;
+
+        public bool CanHear(EntityHandle listener, EntityHandle speaker) => true;
     }
 }
 

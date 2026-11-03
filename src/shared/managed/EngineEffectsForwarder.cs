@@ -62,7 +62,12 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     public virtual int DrawSpriteOffset(EntityHandle owner, Vector offset, int modelIndex, float frame, int renderMode, int renderFx, int r, int g, int b, int a, float scale, bool worldSpaceScale, float hdrColorScale, float glowProxySize) => Inner.DrawSpriteOffset(owner, offset, modelIndex, frame, renderMode, renderFx, r, g, b, a, scale, worldSpaceScale, hdrColorScale, glowProxySize);
     public virtual bool ParticleSystemStart(EntityHandle owner, string name) => Inner.ParticleSystemStart(owner, name);
     public virtual void ParticleSystemStop(EntityHandle owner) => Inner.ParticleSystemStop(owner);
+    public virtual bool ParticleSystemStartExtra(EntityHandle owner, string name) => Inner.ParticleSystemStartExtra(owner, name);
+    public virtual void ParticleSystemStopExtra(EntityHandle owner) => Inner.ParticleSystemStopExtra(owner);
     public virtual bool ParticleSystemFollowPoints(EntityHandle owner, int pointMask) => Inner.ParticleSystemFollowPoints(owner, pointMask);
+    public virtual bool ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset = null) => Inner.ParticleSystemFollowEntity(owner, point, entity, attachment, offset);
+    public virtual bool ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => Inner.ParticleSystemStartSlot(owner, name, slot);
+    public virtual void ParticleSystemStopSlot(EntityHandle owner, int slot) => Inner.ParticleSystemStopSlot(owner, slot);
     public virtual void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => Inner.SpriteTrailUpdate(owner, renderMode, visible);
     public virtual void SpriteTrailDestroy(EntityHandle owner) => Inner.SpriteTrailDestroy(owner);
     public virtual void DustEffect(Vector origin, Vector direction, float size, float speed) => Inner.DustEffect(origin, direction, size, speed);

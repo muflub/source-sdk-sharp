@@ -40,6 +40,7 @@ public static class SourceSharpTheme
             .Set(Tone.Scrim, new UiColor(4, 5, 7, 150))
             .Set(Tone.OnAccent, new UiColor(26, 18, 4, 255))
             .Set(Tone.Window, new UiColor(17, 19, 23, 255))
+            .Set(Tone.Black, new UiColor(0, 0, 0, 255))
 
             .Set(Text.Display, new UiTypeStyle(c, 72, 700, shadow, false))
             .Set(Text.Title, new UiTypeStyle(c, 30, 600, shadow, true))

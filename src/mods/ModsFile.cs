@@ -35,12 +35,23 @@ public sealed class ModEntry
 
     /// <summary>
     /// Extra language files the UI's localiser asks after the mod's own
-    /// on-disk <c>resource/mod_sharp_english.txt</c> and before the engine's
+    /// on-disk file — named for the mod's game directory, as the engine names
+    /// it (<c>resource/&lt;gamedir&gt;_english.txt</c>) — and before the engine's
     /// tables, in first-wins order. The paths are engine <c>GAME</c> search
     /// paths (<c>resource/tf_english.txt</c>), so a file mounted in a VPK is
     /// as reachable as a loose one.
     /// </summary>
     public List<string>? Localisation { get; set; }
+
+    /// <summary>
+    /// The ICE string this mod's sealed <c>.ctx</c> scripts open with — stock's
+    /// <c>g_pGameRules-&gt;GetEncryptionKey()</c> (TF2's is
+    /// <c>"E2NcUkG2"</c>, <c>tf_gamerules.h</c>). Scripts then read as
+    /// <c>&lt;name&gt;.txt</c> first and <c>&lt;name&gt;.ctx</c> second
+    /// (<c>weapon_parse.cpp</c> <c>ReadEncryptedKVFile</c>); a mod without the
+    /// key reads only the plain <c>.txt</c>.
+    /// </summary>
+    public string? EncryptionKey { get; set; }
 
     public string? ManagedDir { get; set; }
 

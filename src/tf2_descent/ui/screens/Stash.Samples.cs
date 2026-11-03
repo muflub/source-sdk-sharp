@@ -7,7 +7,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 
 // The stash from fakes (the ui-screen loop's sample step). Item names are
 // ui.Data (game copy, case kept); every #Descent_Stash_* token lives in
-// game/mod_tf2_descent/resource/descent_english.txt.
+// game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class StashSamples
 {

@@ -195,6 +195,10 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
         Stop(player);
         if (was)
             players.Respawn(player.Handle);
+        // The join's placement and observer words land outside any command;
+        // the stamp lets the client adopt the compare that straddles them
+        // (PlayerNetState.SpawnEpoch).
+        player.State.SpawnEpoch++;
         return JoinTeamResult.Playing;
     }
 
@@ -286,6 +290,35 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
 
         SetMode(player, mode, now);
         log.Msg($"[SourceSharp/Observer] {player.Handle} watching as {ModeOf(player)}\n");
+        return true;
+    }
+
+    /// <summary>
+    /// The death cam, as stock TF2's <c>State_Think_DYING</c> starts it once
+    /// the ragdoll exists (tf_player.cpp:13923-13935):
+    /// <c>StartObserverMode( OBS_MODE_DEATHCAM )</c> — and "still draw player
+    /// body", so no <c>EF_NODRAW</c>. Unlike <see cref="Start"/> this is not a
+    /// spectator seat: it is asked by no one, so the
+    /// <see cref="ObserverState.EnterObserver"/> gate does not apply, and
+    /// CTFPlayer's <c>SetObserverMode</c> override (tf_player.cpp:13719)
+    /// carries no <c>mp_forcecamera</c> remap, so the death cam is the death
+    /// cam. <see cref="ObserverState.EnterObserver"/> stays false, so a death
+    /// timeout (<see cref="DeathThink"/>) never replaces it with
+    /// <c>m_iObserverLastMode</c>; the camera lasts until the respawn's
+    /// <see cref="Stop"/>. The client pulls the eye back from the ragdoll
+    /// over <see cref="DeathAnimationTime"/>.
+    /// </summary>
+    public bool StartDeathCam(SsPlayer player)
+    {
+        if (IsObserver(player))
+            return false;
+
+        players.HolsterActiveWeapon(player.Handle);
+        damage.SetTakeDamageMode(player.Handle, TakeDamageMode.No);
+        player.State.ObserverMode = (int)ObserverMode.DeathCam;
+        players.SetObserverMode(player.Handle, ObserverMode.DeathCam);
+        movement.SetMoveType(player.Handle, MoveType.None);
+        log.Msg($"[SourceSharp/Observer] {player.Handle} death cam\n");
         return true;
     }
 

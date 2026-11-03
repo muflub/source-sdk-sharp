@@ -120,14 +120,25 @@ public class TeamJoinTests
         /// </summary>
         public Teams BuildTeams(IJoinTeamPolicy[]? policies = null,
                                 IHooks<ISpawnSelector>? selectors = null,
-                                IPlayerDirectory? roster = null)
+                                IPlayerDirectory? roster = null,
+                                IHooks<ITeamChangeWatcher>? watchers = null)
         {
             var services = new ServiceContainer();
             foreach (var policy in policies ?? [])
                 services.AddInstance(policy.GetType(), policy);
 
             return new(Log, Engine, Engine, Registry, roster ?? new NoRecords(),
-                       Observers, Engine, Engine, null, services, selectors);
+                       Observers, Engine, Engine, null, services, selectors, null, null, watchers);
+        }
+
+        /// <summary>The container the throw-isolating <see cref="Hooks{T}"/> reads.</summary>
+        public IHooks<ITeamChangeWatcher> Watchers(params ITeamChangeWatcher[] watchers)
+        {
+            var container = new ServiceContainer();
+            foreach (var watcher in watchers)
+                container.AddInstance(watcher.GetType(), watcher);
+
+            return new Hooks<ITeamChangeWatcher>(container, Log);
         }
     }
 
@@ -666,5 +677,94 @@ public class TeamJoinTests
         Assert.Equal(1, throws.Asks);
         Assert.Equal(1, brokenChain.Asks);
         Assert.Contains("spawn selector", string.Concat(broken.Log.Lines));
+    }
+
+    //-- the team-change watchers (the mods' arms on a join that moved) --
+
+    /// <summary>
+    /// A watcher that records each change it is told about, and — when asked
+    /// to say — how many team stores had happened at that moment. The count
+    /// is what pins the AFTER: stock's kill arm reads life after
+    /// <c>BaseClass::ChangeTeam</c> (tf_player.cpp:6657 before :6687), so a
+    /// mod's death must belong to the new team.
+    /// </summary>
+    private sealed class Watcher : ITeamChangeWatcher
+    {
+        public List<(EntityHandle Player, int Old, int New, int StoresBefore)> Seen { get; } = [];
+        public Func<int>? StoresSoFar { get; init; }
+        public bool Throws { get; init; }
+
+        public void TeamChanged(EntityHandle player, int oldTeam, int newTeam)
+        {
+            if (Throws)
+                throw new InvalidOperationException("the mod is broken");
+
+            Seen.Add((player, oldTeam, newTeam, StoresSoFar?.Invoke() ?? 0));
+        }
+    }
+
+    [Fact]
+    public void TheWatcherSeesTheAcceptedJoinAfterTheStore()
+    {
+        var rig = new Rig();
+        var watch = new Watcher { StoresSoFar = () => rig.Engine.CountOf("Players.SetTeam") };
+        var teams = rig.BuildTeams(watchers: new ListHooks<ITeamChangeWatcher>(watch));
+
+        Assert.Equal(JoinTeamResult.Playing, teams.Join(Handles[0], 2));
+
+        var seen = Assert.Single(watch.Seen);
+        Assert.Equal(Handles[0], seen.Player);
+        Assert.Equal(0, seen.Old);                       // the rig's GetTeam answer
+        Assert.Equal(2, seen.New);
+        Assert.Equal(1, seen.StoresBefore);              // called AFTER the one store
+    }
+
+    [Fact]
+    public void TheSameTeamAbortNeverReachesAWatcher()
+    {
+        // CBasePlayer::ChangeTeam's "if this is our current team, just abort"
+        // means no arm on the change — the watcher sees a change that happened,
+        // not an attempted one.
+        var rig = new Rig();
+        rig.Engine.Returns("Players.GetTeam", 2);
+        var watch = new Watcher();
+        var teams = rig.BuildTeams(watchers: new ListHooks<ITeamChangeWatcher>(watch));
+
+        Assert.Equal(JoinTeamResult.Playing, teams.Join(Handles[0], 2));
+        Assert.Empty(watch.Seen);
+
+        // The control: the same rig, a team that is not the current one, and
+        // the watcher does see it.
+        Assert.Equal(JoinTeamResult.Playing, teams.Join(Handles[0], 3));
+        Assert.Single(watch.Seen);
+    }
+
+    [Fact]
+    public void ARefusedJoinNeverReachesAWatcher()
+    {
+        var rig = new Rig();
+        var watch = new Watcher();
+        var teams = rig.BuildTeams(policies: [new Policy(accepts: false)],
+                                   watchers: new ListHooks<ITeamChangeWatcher>(watch));
+
+        Assert.Equal(JoinTeamResult.Refused, teams.Join(Handles[0], 2));
+        Assert.Empty(watch.Seen);
+    }
+
+    [Fact]
+    public void AThrowingWatcherLeavesTheJoinDoneAndIsNamed()
+    {
+        // The real Hooks machinery (throw isolation is its contract, and it is
+        // what production injects): a broken mod must not fail a join that has
+        // already happened, and the break must be said out loud by name.
+        var rig = new Rig();
+        var teams = rig.BuildTeams(watchers: rig.Watchers(new Watcher { Throws = true }));
+
+        Assert.Equal(JoinTeamResult.Playing, teams.Join(Handles[0], 2));
+        Assert.Equal(1, rig.Engine.CountOf("Players.SetTeam"));
+
+        var lines = string.Concat(rig.Log.Lines);
+        Assert.Contains("ITeamChangeWatcher.TeamChanged", lines);
+        Assert.Contains(nameof(Watcher), lines);
     }
 }

@@ -86,6 +86,9 @@ public enum Tone : byte
     /// it (a translucent Surface let the one below show through).
     /// </summary>
     Window,
+    /// <summary>Stock's HUD black: the sniper scope's side and fallback fill
+    /// (CHudScope::Paint's DrawSetColor(0,0,0,255), tf_hud_scope.cpp:504-523).</summary>
+    Black,
 }
 
 /// <summary>How far a surface stands off what is under it.</summary>

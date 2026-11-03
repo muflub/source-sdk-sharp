@@ -4,7 +4,7 @@ using SourceSharp.Client.Ui;
 
 namespace SourceSharp.Client.Ui.Toolkit;
 
-/// <summary>Turns #Tokens into text. The game's is HudLocalise; previews parse mod_sharp_english.txt.</summary>
+/// <summary>Turns #Tokens into text. The game's is HudLocalise; previews parse test_english.txt.</summary>
 public interface IUiLocaliser
 {
     /// <summary>The text for <paramref name="token"/> (with its leading #), or null when there is none.</summary>
@@ -112,6 +112,7 @@ public sealed partial class UiContext
 
     public void BeginFrame(in ScreenInfo screen, double now)
     {
+        _taken.Clear();
         Dt = _hadFrame ? (float)Math.Clamp(now - Now, 0, 0.25) : 0f;
         _hadFrame = true;
         Now = now;
@@ -543,6 +544,13 @@ public sealed partial class UiContext
     }
 
     // ---- slots ----
+
+    private readonly HashSet<string> _taken = new(StringComparer.Ordinal);
+
+    /// <summary>Marks an element as replaced by an open screen for this frame (<see cref="UiScreen.Takes"/>).</summary>
+    public void Take(string element) => _taken.Add(element);
+
+    internal bool IsTaken(string element) => _taken.Contains(element);
 
     internal void FillSlot(ref UiFrame ui, string slot)
     {

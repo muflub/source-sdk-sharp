@@ -52,25 +52,30 @@ public sealed class MaterialProxyHost : IClientMaterialProxies, IMaterialProxyRe
     private int _frame = int.MinValue;
 
     public MaterialProxyHost(IClientMaterialProxyExecutor exec, IEngineHost engine, IEngineConsole console, ILog log,
-                             MatStubConVar matStub, IPostProxyValues post, Render.Shadows.IShadowProxySource shadows)
+                             MatStubConVar matStub, IPostProxyValues post, Render.Shadows.IShadowProxySource shadows,
+                             Func<IReadOnlyList<IMaterialProxyProvider>>? providers = null,
+                             IPlayerProxyEyes? eyes = null)
         : this(exec, new EngineUniform(engine),
                () => int.TryParse(console.FindConVarValue("developer"), out int level) && level >= 1, log,
-               () => matStub.Value, post, shadows)
+               () => matStub.Value, post, shadows, providers, eyes)
     {
     }
 
     /// <param name="uniform">The engine's uniform stream (<c>random</c>), which randomgaussian draws from too.</param>
     /// <param name="developer">Whether <c>developer</c> is 1 or more.</param>
     /// <param name="matStub">Whether <c>mat_stub</c> is on.</param>
+    /// <param name="providers">The mods' named proxies, asked after the core's table; resolved when the first material asks.</param>
     internal MaterialProxyHost(IClientMaterialProxyExecutor exec, IProxyUniform uniform, Func<bool> developer, ILog log,
                                Func<bool>? matStub = null, IPostProxyValues? post = null,
-                               Render.Shadows.IShadowProxySource? shadows = null)
+                               Render.Shadows.IShadowProxySource? shadows = null,
+                               Func<IReadOnlyList<IMaterialProxyProvider>>? providers = null,
+                               IPlayerProxyEyes? eyes = null)
     {
         _matStub = matStub ?? (() => false);
         _exec = exec;
         _uniform = uniform;
         IProxyMath math = new StockProxyMath();
-        _factory = new MaterialProxyFactory(log, math, developer, post, shadows);
+        _factory = new MaterialProxyFactory(log, math, developer, post, shadows, providers, eyes);
         _gaussian = new GaussianRandom(math);
         _bind = new BindContext(this);
     }

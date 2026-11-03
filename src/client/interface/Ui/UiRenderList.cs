@@ -61,8 +61,25 @@ public readonly record struct UiQuad(
     UiRect Rect, UiColor Color, float Radius, UiColor Border, float BorderWidth,
     UiFade Fade, byte AlphaEnd);
 
-/// <summary>A texture (by backend id) drawn into a rectangle, tinted.</summary>
-public readonly record struct UiTexturedQuad(UiRect Rect, int Texture, UiRect Uv, UiColor Tint);
+/// <summary>How a texture's pixels combine with what is behind them.</summary>
+public enum UiBlend : byte
+{
+    /// <summary>Painted over what is behind (the default).</summary>
+    Normal,
+    /// <summary>Added to what is behind: vgui's additive materials, the
+    /// damage ring's glow (tf_hud_damageindicator.cpp).</summary>
+    Additive,
+}
+
+/// <summary>
+/// A texture (by backend id) drawn into a rectangle, tinted. A
+/// <see cref="Rotation"/> above zero turns the quad about its centre,
+/// clockwise on screen (stock's arrow and damage ring: CTFArrowPanel::Paint,
+/// DrawDamageIndicator), and an <see cref="UiBlend.Additive"/>
+/// <see cref="Blend"/> adds the pixels to what is behind.
+/// </summary>
+public readonly record struct UiTexturedQuad(UiRect Rect, int Texture, UiRect Uv, UiColor Tint,
+    float Rotation = 0f, UiBlend Blend = UiBlend.Normal);
 
 /// <summary>
 /// One line of text. (<see cref="X"/>, <see cref="Y"/>) is the top left of the

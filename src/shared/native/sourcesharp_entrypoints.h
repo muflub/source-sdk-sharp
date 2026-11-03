@@ -53,7 +53,7 @@ void SourceSharp_RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPoli
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 244 slots.
+// CLIENT ONLY -- 254 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -191,6 +191,7 @@ void SourceSharp_EffectDispatchName(int32_t nIndex, char* pOut, int32_t nOutByte
 int32_t SourceSharp_EffectRegistrationCount();
 int32_t SourceSharp_EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize);
 void SourceSharp_EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData);
+void SourceSharp_EntitySetModelOverride(uint32_t hEntity, const char* pModel);
 void SourceSharp_EntitySetSkin(uint32_t hEntity, int32_t nSkin);
 int32_t SourceSharp_FlashlightSupportsBorderColor();
 int32_t SourceSharp_FlashlightTexture(const char* pszName);
@@ -247,6 +248,8 @@ int32_t SourceSharp_NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOu
 								int32_t* pOutWords, int32_t* pOutProps, int32_t* pOutLive);
 int32_t SourceSharp_ParticleDefinitionReads();
 int32_t SourceSharp_ParticleQueryUnanswered(int32_t* pOut, int32_t nMax);
+int32_t SourceSharp_ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
+											   const float* pOffsetXYZ);
 int32_t SourceSharp_ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMask);
 int32_t SourceSharp_ParticleSystemImpact(const char* pszName, const float* pPoints, int32_t nEntity, float flScale,
 										 const float* pColorXYZ);
@@ -254,7 +257,11 @@ int32_t SourceSharp_ParticleSystemNameFromIndex(int32_t nIndex, char* pszOut, in
 int32_t SourceSharp_ParticleSystemOneShot(const char* pszName, const float* pSortOriginXYZ, const float* pPoints,
 										  int32_t nPoints, const float* pOrientation0);
 int32_t SourceSharp_ParticleSystemStart(uint32_t hOwner, const char* pszName);
+int32_t SourceSharp_ParticleSystemStartExtra(uint32_t hOwner, const char* pszName);
+int32_t SourceSharp_ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot);
 void SourceSharp_ParticleSystemStop(uint32_t hOwner);
+void SourceSharp_ParticleSystemStopExtra(uint32_t hOwner);
+void SourceSharp_ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot);
 int32_t SourceSharp_ParticleSystemsRead(int32_t nIndex, SourceSharpParticleSystemInfo_t* pOut, char* pszName,
 										int32_t nNameMax);
 int32_t SourceSharp_ParticlesBrushPointContents(uint32_t hOwner, const float* pPointXYZ);
@@ -305,6 +312,8 @@ int32_t SourceSharp_RenderViewToTarget(int32_t nTarget, const SourceSharpViewTar
 void SourceSharp_RopeDraw(int32_t nMaterial, const float* pSegs, int32_t nSegs, const float* pSolid, int32_t nSolid,
 						  int32_t nFlags);
 int32_t SourceSharp_RopeMaterial(const char* pszName, int32_t* pOutTextureHeight, int32_t* pOutHasBack);
+int32_t SourceSharp_ScreenOverlayGet(char* pOutName, int32_t nNameBytes);
+int32_t SourceSharp_ScreenOverlaySet(const char* pszName);
 int32_t SourceSharp_SendServerMessage(const char* pKey, const uint8_t* pData, int32_t nLen);
 void SourceSharp_SetViewerFogParams(const SourceSharpFogParams* pParams);
 void SourceSharp_SetViewerSkyboxParams(const SourceSharpSkyboxParams* pParams);
@@ -356,12 +365,15 @@ void SourceSharp_UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t 
 void SourceSharp_UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba);
 void SourceSharp_UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength,
 							uint32_t nRgba);
+void SourceSharp_UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
+									int32_t bAdditive);
 void SourceSharp_UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
 									float t0, float s1, float t1, uint32_t nRgba);
 int32_t SourceSharp_UiFontAddFile(const char* pPath);
 int32_t SourceSharp_UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances);
 int32_t SourceSharp_UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags);
 void SourceSharp_UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOutAscent);
+int32_t SourceSharp_UiMaterialTexture(const char* pName);
 void SourceSharp_UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLength, int32_t* pOutWidth,
 							   int32_t* pOutHeight);
 void SourceSharp_UiPlaySound(const char* pPath);

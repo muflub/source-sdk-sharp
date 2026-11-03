@@ -58,6 +58,13 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         state.LadderNormal = s.LadderNormal;
         state.WaterJumpVel = s.WaterJumpVel;
 
+        state.Fov = move.Fov;
+        state.FovStart = move.FovStart;
+        state.FovTime = move.FovTime;
+        state.FovRate = move.FovRate;
+        state.FovDefault = move.FovDefault;
+        state.ZoomOwner = move.ZoomOwner.Value;
+
         state.Ladder = s.Ladder;
         state.LadderForceMove = s.LadderForceMove;
         state.LadderForceMount = s.LadderForceMount;
@@ -125,6 +132,13 @@ public sealed class PlayerMovePublisher(Func<EntityHandle, SsPlayer?> players) :
         s.PunchAngleVel = state.PunchAngleVel.AsVector();
         s.LadderNormal = state.LadderNormal;
         s.WaterJumpVel = state.WaterJumpVel;
+        move.Fov = state.Fov;
+        move.FovStart = state.FovStart;
+        move.FovTime = state.FovTime;
+        move.FovRate = state.FovRate;
+        move.FovDefault = state.FovDefault;
+        move.ZoomOwner = new EntityHandle(state.ZoomOwner);
+
         s.Ladder = state.Ladder;
         s.LadderForceMove = state.LadderForceMove;
         s.LadderForceMount = state.LadderForceMount;

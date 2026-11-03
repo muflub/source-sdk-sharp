@@ -1,5 +1,7 @@
 using System.Reflection;
 
+using SourceSharp.Client.Ui;
+
 namespace SourceSharp.Client.Ui.Toolkit;
 
 /// <summary>
@@ -14,6 +16,16 @@ namespace SourceSharp.Client.Ui.Toolkit;
 public sealed class UiSampleServices
 {
     private readonly Dictionary<Type, object> _instances = new();
+
+    /// <summary>
+    /// The HUD-art library this build seeds: the preview run's --content
+    /// library, so a sample's art layers draw the decoded pixels. Without one
+    /// the stateless <see cref="None"/> below answers and the panels draw
+    /// their fallbacks. The seed wins over any registration — a sample's own
+    /// fake would hide the --content art the run was asked for — so a build
+    /// that wants its own art (a fact's recording fake) sets this over it.
+    /// </summary>
+    public IUiTextureLibrary? HudArt { get; set; }
 
     /// <summary>Registers <paramref name="instance"/> as <typeparamref name="T"/>. One registration per interface.</summary>
     public UiSampleServices Add<T>(T instance) where T : class
@@ -30,6 +42,8 @@ public sealed class UiSampleServices
 
     public object Create(Type type)
     {
+        if (type == typeof(IUiTextureLibrary))
+            return HudArt ?? (object)new None();
         if (_instances.TryGetValue(type, out var known))
             return known;
         if (type.IsInterface || type.IsAbstract)
@@ -47,5 +61,15 @@ public sealed class UiSampleServices
         var built = ctor.Invoke(args);
         _instances[type] = built;
         return built;
+    }
+
+    /// <summary>The seedless stand-in: every name misses, so screens draw their fallbacks. Made per resolution, holding nothing.</summary>
+    private sealed class None : IUiTextureLibrary
+    {
+        public int Find(string name) => 0;
+        public int Material(string name) => 0;
+
+        public UiTextureInfo? About(string name) => null;
+        public UiTextureIcon? Icon(string name) => null;
     }
 }

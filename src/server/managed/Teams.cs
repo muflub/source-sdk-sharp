@@ -28,7 +28,10 @@ namespace SourceSharp.Server;
 /// <c>CHL2MP_Player::ChangeTeam</c> behaviours around a <c>CBasePlayer</c> this
 /// build has no equivalent of. The observer half of a join stays
 /// <see cref="Observers.JoinTeam"/>'s; the absence of the suicide is a
-/// divergence row, not a silent gap.
+/// divergence row, not a silent gap. A mod that owes its game a team-change
+/// behaviour (TF2's live switch dies, tf_player.cpp:6687-6696) hangs it on
+/// <see cref="ITeamChangeWatcher"/>; the service itself still does none of
+/// this.
 /// </para>
 /// </summary>
 public interface ITeams
@@ -116,6 +119,36 @@ public interface ISpawnSelector
 }
 
 /// <summary>
+/// The mods' arms hanging off a team change that actually happened: called
+/// after the <c>player_team</c> event and the store, with the old team and
+/// the new one.
+///
+/// <para>
+/// TF2 is why: stock's <c>CTFPlayer::ChangeTeam</c> kills a live player who
+/// switches between the two playing teams ("Kill player if switching teams
+/// while alive", tf_player.cpp:6687-6696), so the next deploy re-dresses the
+/// viewmodel for the new team — the switch that does not die keeps wearing
+/// the old team's sleeves. That decision is the mod's: the core, whose game
+/// is HL2MP, kills nobody, and its own absence of a suicide stays the
+/// divergence row it is. A CHAIN, not a single owner: every watcher runs in
+/// <see cref="IOrderedHook.HookOrder"/> with throws isolated and named
+/// (<see cref="IHooks{T}.Each"/>); zero watchers, the core's own state,
+/// changes nothing. A watcher reads life and death for itself
+/// (<see cref="IEnginePlayers.IsAlive"/>), at the moment stock's arm read
+/// it — after the change is stored, so the death belongs to the new team.
+/// </para>
+/// </summary>
+public interface ITeamChangeWatcher
+{
+    /// <summary>
+    /// <paramref name="player"/> has just moved from <paramref name="oldTeam"/>
+    /// to <paramref name="newTeam"/>. The same-team abort never reaches a
+    /// watcher, and neither does a refused join.
+    /// </summary>
+    void TeamChanged(EntityHandle player, int oldTeam, int newTeam);
+}
+
+/// <summary>
 /// The team roster, the join, and the spawn ask, server side (tf2 stage 0.5).
 ///
 /// <para>
@@ -144,6 +177,7 @@ public sealed class Teams : ITeams
     private readonly IHooks<ISpawnSelector>? _selectors;
     private readonly GameModes? _modes;
     private readonly IChat? _chat;
+    private readonly IHooks<ITeamChangeWatcher>? _watchers;
 
     // The join policy, resolved ONCE and not before it is asked (see Policy).
     private bool _policyResolved;
@@ -152,7 +186,8 @@ public sealed class Teams : ITeams
     public Teams(ILog log, IEnginePlayers players, IEngineEntities entities, IEntityDirectory directory,
                  IPlayerDirectory roster, Observers observers, IGameClock clock, IEngineGameEvents events,
                  PlayerNames? names = null, IServiceLocator? services = null,
-                 IHooks<ISpawnSelector>? selectors = null, GameModes? modes = null, IChat? chat = null)
+                 IHooks<ISpawnSelector>? selectors = null, GameModes? modes = null, IChat? chat = null,
+                 IHooks<ITeamChangeWatcher>? watchers = null)
     {
         _log = log;
         _players = players;
@@ -167,6 +202,7 @@ public sealed class Teams : ITeams
         _selectors = selectors;
         _modes = modes;
         _chat = chat;
+        _watchers = watchers;
 
         // NOTHING IS RESOLVED HERE. The module builds this service before the
         // mods' scan registers anything (mods inject ITeams, so it must exist
@@ -317,6 +353,14 @@ public sealed class Teams : ITeams
         _players.SetTeam(player, team);
 
         _log.Msg($"[SourceSharp/Teams] {player} joined team {team} (was {oldTeam})\n");
+
+        // The mods' arms on the change that has happened — stock's live
+        // team-change kill (CTFPlayer::ChangeTeam's active-player arm,
+        // tf_player.cpp:6687-6696) hangs on this seam — after the store so
+        // the death belongs to the new team, and isolated per watcher so a
+        // broken mod cannot fail a join that already happened.
+        _watchers?.Each(nameof(ITeamChangeWatcher.TeamChanged),
+                        watcher => watcher.TeamChanged(player, oldTeam, team));
     }
 
     /// <summary>

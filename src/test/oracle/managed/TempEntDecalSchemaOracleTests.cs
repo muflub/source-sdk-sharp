@@ -58,7 +58,7 @@ public class TempEntDecalSchemaOracleTests
                            ["Origin", "Start", "Entity", "Hitbox", "Index"]);
 
     [Fact]
-    public void WorldDecalMatchesTheNonTfBranchOfItsStockTable()
+    public void WorldDecalMatchesTheNonTFBranchOfItsStockTable()
         => AgreesWithStock("te_worlddecal.cpp", "CTEWorldDecal", "DT_TEWorldDecal", typeof(TeWorldDecal),
                            ["Origin", "Index"]);
 

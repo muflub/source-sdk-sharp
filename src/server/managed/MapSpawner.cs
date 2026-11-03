@@ -185,6 +185,35 @@ public sealed class MapSpawner
     private readonly List<string> _residueClasses = new();
 
     /// <summary>
+    /// One block of the map, in map order, and the edict it was given when the
+    /// map loaded: stock's <c>CMapEntityRef</c>, which
+    /// <c>CMapLoadEntityFilter::CreateNextEntity</c> wrote for every entity the
+    /// load created (<c>g_MapEntityRefs</c>), and which a round cleanup reads
+    /// to put each entity back where it was.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Slot"/> is -1 for a block that made no entity, for a residue
+    /// block (the world and what the native parse owns), and for an entity
+    /// with no edict (a shell-less class takes an engine-invisible entry);
+    /// stock's -1 is the same "create it in any slot".
+    /// </remarks>
+    private sealed record MapBlock(MapEntityBlock.Block Block, string ClassName, bool Mine)
+    {
+        public int Slot { get; set; } = -1;
+    }
+
+    // The whole map, as the load split it: what a round cleanup parses again
+    // (stock's engine->GetMapEntitiesString(), which is the text the load was
+    // handed; this side copied it once at the load and keeps the split).
+    private readonly List<MapBlock> _map = new();
+
+    /// <summary>The map's blocks with a classname, in map order (the cleanup's parse).</summary>
+    public int MapBlockCount => _map.Count;
+
+    /// <summary>The edict a map block's entity had at load, or -1 (<see cref="MapBlock.Slot"/>).</summary>
+    public int SlotOf(int block) => (uint)block < (uint)_map.Count ? _map[block].Slot : -1;
+
+    /// <summary>
     /// <b>The order, and it is the whole of this class's contribution to a map
     /// load.</b> Stock's, with each position argued:
     ///
@@ -257,7 +286,10 @@ public sealed class MapSpawner
                 continue;
             }
 
-            if (_registry.IsRegistered(className))
+            bool owned = _registry.IsRegistered(className);
+            _map.Add(new MapBlock(block, className, owned));
+
+            if (owned)
                 mine.Add((block, className));
             else
                 residue.Add(block);
@@ -312,9 +344,104 @@ public sealed class MapSpawner
             _log.Warning(declaration);
 
         // ---- 2. CREATE AND KEY, IN MAP ORDER -------------------------------
-        foreach (var (block, className) in mine)
-            Create(block, className);
+        //
+        // And record where each one went: stock's CMapLoadEntityFilter wrote a
+        // CMapEntityRef per created entity, and the round cleanup's re-create
+        // reads it (an entity with an edict has it as its handle's entry).
+        foreach (var each in _map)
+        {
+            if (!each.Mine)
+                continue;
 
+            var handle = Create(each.Block, each.ClassName, -1);
+            each.Slot = SlotOfHandle(handle);
+        }
+
+        BuildCreated();
+    }
+
+    /// <summary>
+    /// The edict a handle stands for, or -1: an entry below
+    /// <see cref="EntityHandle.FirstInvisibleEntry"/> IS the edict index (the
+    /// shell binds its slot-table entry at <c>IndexOfEdict</c>), and an
+    /// invisible entry has no edict.
+    /// </summary>
+    internal static int SlotOfHandle(EntityHandle handle)
+        => handle == EntityHandle.None || handle.IsInvisibleRange ? -1 : handle.EntryIndex;
+
+    /// <summary>
+    /// <b>The round cleanup's parse</b> — stock's
+    /// <c>MapEntity_ParseAllEntities( engine-&gt;GetMapEntitiesString(), &amp;filter, true )</c>
+    /// at the end of <c>CleanUpMap</c>, over the map this side kept from the
+    /// load. Every block the filter wants is created again — into the edict it
+    /// had at load when <paramref name="slotTaken"/> says that edict is free,
+    /// and into any edict when it is not or it had none (stock's
+    /// <c>CTeamplayMapEntityFilter::CreateNextEntity</c>) — keyed, spawned in
+    /// the load's order (templates in their window, then stock's spawn
+    /// priority, then parents) and activated, which is the <c>true</c>.
+    ///
+    /// <para>
+    /// The residue is not parsed again: it is the world, which every preserve
+    /// list keeps, and classes nothing in this build creates. A residue class
+    /// the filter would have re-created is said, by name.
+    /// </para>
+    /// </summary>
+    public MapRespawn Respawn(Func<string, bool> shouldCreate, Func<int, bool> slotTaken)
+    {
+        _templates.MapWindow = null;
+        _windowOpen = false;
+        _spawned.Clear();
+
+        int skipped = 0, atOldSlot = 0, elsewhere = 0, unslotted = 0, failed = 0;
+        var notRecreated = new List<string>();
+
+        foreach (var each in _map)
+        {
+            if (!shouldCreate(each.ClassName))
+            {
+                skipped++;
+                continue;
+            }
+
+            if (!each.Mine)
+            {
+                notRecreated.Add(each.ClassName);
+                continue;
+            }
+
+            int slot = each.Slot >= 0 && !slotTaken(each.Slot) ? each.Slot : -1;
+            var handle = Create(each.Block, each.ClassName, slot);
+
+            if (handle == EntityHandle.None)
+                failed++;
+            else if (each.Slot < 0)
+                unslotted++;
+            else if (SlotOfHandle(handle) == each.Slot)
+                atOldSlot++;
+            else
+                elsewhere++;
+        }
+
+        if (notRecreated.Count > 0)
+        {
+            _log.Warning($"[SourceSharp] map cleanup: {notRecreated.Count} residue block(s) are not "
+                       + $"re-created ({string.Join(", ", notRecreated.Distinct(StringComparer.OrdinalIgnoreCase))}): "
+                       + "only the native parse could make them\n");
+        }
+
+        BuildCreated();
+        int activated = ActivateAll();
+
+        return new MapRespawn(atOldSlot + elsewhere + unslotted, atOldSlot, elsewhere, unslotted, skipped,
+                              failed, notRecreated.Count, activated);
+    }
+
+    /// <summary>
+    /// The load's steps 3 to 5 over what <see cref="_spawned"/> holds: the
+    /// template window, the spawn pass in stock's priority, the parents.
+    /// </summary>
+    private void BuildCreated()
+    {
         // ---- 3. THE TEMPLATE WINDOW ----------------------------------------
         //
         // OPENED AND SHUT AROUND THE TEMPLATES AND NOTHING ELSE, which is the
@@ -435,11 +562,13 @@ public sealed class MapSpawner
     /// known to depend on it.
     /// </para>
     /// </summary>
-    private void Create(MapEntityBlock.Block block, string className)
+    private EntityHandle Create(MapEntityBlock.Block block, string className, int slot)
     {
         var keys = ReadKeys(block.Bytes, _log);
 
-        var handle = _entities.CreateFromMap(className, Pack(keys));
+        var handle = slot >= 0
+            ? _entities.CreateFromMapAt(className, Pack(keys), slot)
+            : _entities.CreateFromMap(className, Pack(keys));
         LastCreateCrossings++;
 
         // COMPARED AGAINST None RATHER THAN ASKED IsValid, and the difference is
@@ -454,7 +583,7 @@ public sealed class MapSpawner
         if (handle == EntityHandle.None)
         {
             _log.Warning($"[SourceSharp] map spawn: '{className}' could not be created\n");
-            return;
+            return handle;
         }
 
         string targetName = string.Empty;
@@ -483,6 +612,8 @@ public sealed class MapSpawner
             Origin = origin,
             Angles = angles,
         });
+
+        return handle;
     }
 
     private void Spawn(Spawned entity)
@@ -607,6 +738,7 @@ public sealed class MapSpawner
     {
         _templates.MapWindow = null;
         _spawned.Clear();
+        _map.Clear();
         _residueClasses.Clear();
         LastUnansweredClasses = Array.Empty<string>();
         _windowOpen = false;
@@ -744,3 +876,15 @@ public sealed class MapSpawner
             ? f
             : 0f;
 }
+
+/// <summary>
+/// What one <see cref="MapSpawner.Respawn"/> did: the entities it created
+/// (<see cref="AtOldSlot"/> in the edict they had at load,
+/// <see cref="Elsewhere"/> in another because that one was taken,
+/// <see cref="Unslotted"/> from a block whose entity had no edict at load),
+/// the blocks the filter kept
+/// (<see cref="Skipped"/>: preserved classes), the creates that failed, the
+/// residue blocks only the native parse could make, and how many it activated.
+/// </summary>
+public readonly record struct MapRespawn(int Created, int AtOldSlot, int Elsewhere, int Unslotted,
+                                         int Skipped, int Failed, int NotRecreated, int Activated);

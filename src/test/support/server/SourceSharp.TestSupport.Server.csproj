@@ -36,5 +36,6 @@
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
     <InternalsVisibleTo Include="SourceSharp.OracleTests" />
     <InternalsVisibleTo Include="TF2.Descent.Tests" />
+    <InternalsVisibleTo Include="TF2.Tests" />
   </ItemGroup>
 </Project>

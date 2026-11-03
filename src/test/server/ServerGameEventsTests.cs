@@ -14,9 +14,9 @@ namespace SourceSharp.Tests;
 /// </summary>
 public sealed unsafe class ServerGameEventsTests
 {
-    private static nint s_Self, s_Event, s_Answer;
+    private static nint s_Self, s_Event, s_Answer, s_ForcedAnswer, s_Freed;
     private static string? s_Name;
-    private static int s_Flag, s_Creates, s_Fires;
+    private static int s_Flag, s_Creates, s_Fires, s_Frees;
     private static byte s_FireAnswer;
 
     [UnmanagedCallersOnly]
@@ -26,7 +26,14 @@ public sealed unsafe class ServerGameEventsTests
         s_Self = (nint)self;
         s_Name = Marshal.PtrToStringUTF8((nint)name);
         s_Flag = force;
-        return (void*)s_Answer;
+        return (void*)(force != 0 ? s_ForcedAnswer : s_Answer);
+    }
+
+    [UnmanagedCallersOnly]
+    private static void Free(void* self, void* e)
+    {
+        s_Frees++;
+        s_Freed = (nint)e;
     }
 
     [UnmanagedCallersOnly]
@@ -60,11 +67,12 @@ public sealed unsafe class ServerGameEventsTests
             Root.Interface(ServerGameEvents.InterfaceVersion, Self).Forwarders(out GameEventManagerFwd* fwd);
             fwd->CreateEvent = &Create;
             fwd->FireEvent = &Fire;
+            fwd->FreeEvent = &Free;
             Events = ServerGameEvents.Acquire(ServerOver(Root), Inner, Log, out string why)
                 ?? throw new System.InvalidOperationException(why);
-            s_Creates = s_Fires = 0;
+            s_Creates = s_Fires = s_Frees = 0;
             s_Flag = -1;
-            s_Answer = 0;
+            s_Answer = s_ForcedAnswer = s_Freed = 0;
             s_FireAnswer = 0;
         }
 
@@ -98,6 +106,25 @@ public sealed unsafe class ServerGameEventsTests
         var line = Assert.Single(rig.Log.Lines);
         Assert.True(line.Warning);
         Assert.Contains("'no_such_event'", line.Text);
+        Assert.Contains("not declared", line.Text);
+        Assert.Equal(2, s_Creates);   // asked unforced, then forced: no descriptor either way
+        Assert.Equal(0, s_Frees);
+    }
+
+    [Fact]
+    public void ADeclaredEventNobodyListensForIsZeroAndQuiet()
+    {
+        // The manager answers null to an unforced create when no listener is
+        // registered (stock's callers then fire nothing, and say nothing);
+        // forced, it answers the event, which is freed unfired.
+        using var rig = new Rig();
+        s_ForcedAnswer = 0x7070;
+
+        Assert.Equal(nint.Zero, rig.Events.EventCreate("teamplay_round_win"));
+        Assert.Empty(rig.Log.Lines);
+        Assert.Equal(2, s_Creates);
+        Assert.Equal(1, s_Flag);
+        Assert.Equal((1, (nint)0x7070, 0), (s_Frees, s_Freed, s_Fires));
     }
 
     [Fact]
@@ -121,6 +148,18 @@ public sealed unsafe class ServerGameEventsTests
         s_FireAnswer = 0;
         Assert.False(rig.Events.EventFire((nint)0x77));
         Assert.Equal(2, s_Fires);
+    }
+
+    /// <summary>Stock's server-only fires — payload_pushed among them — ask
+    /// FireEvent(pEvent, true); the flag reaches the manager as its byte.</summary>
+    [Fact]
+    public void AServerOnlyFireAsksTheManagerNotToBroadcast()
+    {
+        using var rig = new Rig();
+        s_FireAnswer = 1;
+
+        Assert.True(rig.Events.EventFire((nint)0x77, dontBroadcast: true));
+        Assert.Equal(((nint)rig.Self, (nint)0x77, 1), (s_Self, s_Event, s_Flag));
     }
 
     [Fact]

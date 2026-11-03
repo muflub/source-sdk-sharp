@@ -128,6 +128,15 @@ static unsigned int ClientTraceMaskOf(int32_t nMask)
 	// What a crossbow bolt's line behind its victim stops on.
 	else if (nMask == SOURCESHARP_TRACE_OPAQUE)
 		nTraceMask = MASK_OPAQUE;
+	// A dispenser's heal sight: everything but grating.
+	else if (nMask == SOURCESHARP_TRACE_DISPENSER)
+		nTraceMask = MASK_BLOCKLOS | CONTENTS_WINDOW;
+	// A sentry gun's sight of its target.
+	else if (nMask == SOURCESHARP_TRACE_SENTRY_SIGHT)
+		nTraceMask = MASK_SHOT | CONTENTS_GRATE;
+	// The dropped-weapon pickup's sight line: solids and the debris bit.
+	else if (nMask == SOURCESHARP_TRACE_SOLID_DEBRIS)
+		nTraceMask = MASK_SOLID | CONTENTS_DEBRIS;
 
 	return nTraceMask;
 }

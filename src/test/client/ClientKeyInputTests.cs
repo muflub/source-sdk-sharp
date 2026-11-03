@@ -1,3 +1,4 @@
+using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Vgui;
@@ -9,7 +10,9 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// The client mode's key decision as stock's ClientModeShared::KeyInput and
 /// HandleSpectatorKeyInput made it (clientmode_shared.cpp): the console first,
-/// the chat keys, an observer's keys, and no decision for the rest.
+/// the chat keys, an observer's keys, and no decision for the rest — Escape among
+/// them, left to the engine so its GameUI activation (gameui_activated/gameui_hidden)
+/// drives the pause menu.
 /// </summary>
 public class ClientKeyInputTests
 {
@@ -72,6 +75,22 @@ public class ClientKeyInputTests
         Assert.Equal(0, k.KeyInput(true, ClientKeyBinding.MessageMode3, false, 8));
         Assert.Equal(0, k.KeyInput(true, ClientKeyBinding.SayParty, false, 8));
         Assert.Empty(chat.Opened);
+    }
+
+    /// <summary>
+    /// Escape is left to the engine (stock: Escape activates the engine's GameUI, and
+    /// the client learns through the gameui_activated/gameui_hidden events): the
+    /// client-mode decision hands the press back unused, press and release alike, so
+    /// the engine's own arm runs and its events drive the pause menu. Before this the
+    /// press was intercepted and answered here, and the engine's GameUI never
+    /// activated in step with our menu.
+    /// </summary>
+    [Fact]
+    public void Escape_is_a_plain_no_decision_for_the_engine_s_gameui_arm()
+    {
+        var k = new ClientKeyInput(new Chat(), new Observer(), new ChatFeedTests.RecordingEngineClient([]));
+        Assert.Equal(-1, k.KeyInput(true, ClientKeyBinding.None, false, 8));      // the press: the engine runs its GameUI arm
+        Assert.Equal(-1, k.KeyInput(false, ClientKeyBinding.None, false, 8));     // the release decides nothing either
     }
 
     [Fact]

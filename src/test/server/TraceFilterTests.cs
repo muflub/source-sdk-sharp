@@ -167,6 +167,9 @@ public class TraceFilterTests
             ("CONTENTS_SOLID", TraceMask.ContentsSolid),
             ("SHOT_NO_WINDOWS", TraceMask.ShotNoWindows),
             ("OPAQUE", TraceMask.Opaque),
+            ("DISPENSER", TraceMask.Dispenser),
+            ("SENTRY_SIGHT", TraceMask.SentrySight),
+            ("SOLID_DEBRIS", TraceMask.SolidDebris),
         ];
         Assert.Equal(pairs.Length, native.Count);
         Assert.Equal(pairs.Length, Enum.GetValues<TraceMask>().Length);

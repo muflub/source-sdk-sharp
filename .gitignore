@@ -46,6 +46,7 @@ steam_appid.txt
 # Logs the run and gate targets leave in tools/.
 /tools/.*.log
 /tools/.live-gate-*.json
+/tools/.tf2-gate/
 
 # A stray CMake configure (an editor, or cmake run without a preset);
 # preset build trees live in farm/<config>/build.
@@ -56,6 +57,8 @@ steam_appid.txt
 
 # Local editor/agent settings, logs, crash dumps and merge droppings.
 /.claude/settings.local.json
+# Per-session agent scratch (the valve-text-audit's ls-files reads it too).
+/.scratch/
 *.log
 /core
 core.[0-9]*

@@ -209,10 +209,10 @@ public sealed class GiveWeaponCommand : IConCommand
         // And the ammunition to use it, filled to the carry limits — a dev
         // command that hands over a weapon you cannot fire is not worth having.
         if (type.AmmoName.Length > 0 && _ammo.For(type.AmmoName) is AmmoType ammo)
-            _arsenal.GiveAmmo(player, ammo.MaxCarry, ammo.Name);
+            _arsenal.GiveAmmo(player, _arsenal.MaxCarryOf(player, in ammo), ammo.Name);
 
         if (type.SecondaryAmmoName.Length > 0 && _ammo.For(type.SecondaryAmmoName) is AmmoType pool)
-            _arsenal.GiveAmmo(player, pool.MaxCarry, pool.Name);
+            _arsenal.GiveAmmo(player, _arsenal.MaxCarryOf(player, in pool), pool.Name);
 
         _arsenal.Switch(player, type.Name);
 

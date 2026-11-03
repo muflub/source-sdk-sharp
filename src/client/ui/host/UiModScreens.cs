@@ -42,14 +42,47 @@ public static class UiModScreens
     /// The core's screens, then the mod's: HUD-layer screens to
     /// <paramref name="hud"/>, every other to <paramref name="menu"/>. The
     /// core's order is kept; the mod's follow it by <see cref="UiScreen.Order"/>
-    /// (stable: discovery order breaks a tie).
+    /// (stable: discovery order breaks a tie). A mod screen that names a core
+    /// screen's <see cref="UiScreen.Name"/> takes that screen's place — screens
+    /// are opened by name, so two of one name would collide — in the core
+    /// screen's slot when the layers agree, otherwise on its own layer's tail
+    /// with the core screen dropped either way. Two mod screens of one name
+    /// collide too: discovery order wins, as <c>UiScreens.Discover</c>'s does.
     /// </summary>
     public static (UiScreen[] Hud, UiScreen[] Menu) Place(IEnumerable<UiScreen> hud, IEnumerable<UiScreen> menu,
                                                           IReadOnlyList<UiScreen> mod)
     {
-        var byOrder = mod.OrderBy(s => s.Order).ToArray();
-        return ([.. hud, .. byOrder.Where(s => s.Layer == UiLayerKind.Hud)],
-                [.. menu, .. byOrder.Where(s => s.Layer != UiLayerKind.Hud)]);
+        var chosen = new Dictionary<string, UiScreen>();
+        foreach (var s in mod)
+            chosen[s.Name] = s;
+        // Discovery order, then by Order: the tail is the mod's additions.
+        var byOrder = mod.Where(s => ReferenceEquals(chosen[s.Name], s)).OrderBy(s => s.Order).ToArray();
+        var placed = new HashSet<UiScreen>();
+
+        UiScreen[] Layer(IEnumerable<UiScreen> core, UiLayerKind kind)
+        {
+            var list = new List<UiScreen>();
+            foreach (var s in core)
+            {
+                if (!chosen.TryGetValue(s.Name, out var m))
+                {
+                    list.Add(s);
+                    continue;
+                }
+                if (m.Layer == kind)
+                {
+                    placed.Add(m);
+                    list.Add(m);              // the mod screen takes the core screen's slot
+                }
+                // else: the mod screen lands on its own layer's tail, below.
+            }
+            foreach (var m in byOrder)
+                if (m.Layer == kind && !placed.Contains(m))
+                    list.Add(m);
+            return [.. list];
+        }
+
+        return (Layer(hud, UiLayerKind.Hud), Layer(menu, UiLayerKind.Menu));
     }
 
     /// <summary>

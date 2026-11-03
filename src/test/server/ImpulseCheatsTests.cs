@@ -41,6 +41,11 @@ public class ImpulseCheatsTests
             Sequence.Add("ammo:" + ammoName);
             return count;
         }
+
+        /// <summary>A per-player carry limit (IAmmoCarryRule's answer), or the row's.</summary>
+        public Func<AmmoType, int>? Limit;
+
+        public int MaxCarryOf(EntityHandle player, in AmmoType ammo) => Limit?.Invoke(ammo) ?? ammo.MaxCarry;
     }
 
     private static readonly EntityHandle Player = new(3u);
@@ -133,6 +138,18 @@ public class ImpulseCheatsTests
         Assert.True(cheats.Run(Player, 101), "impulse 101 is handled with cheats on");
         Assert.True(giver.Weapons.SequenceEqual(WeaponTypes.All.Select(w => w.Name)),
             "101 gives exactly the weapon registry, in registry order — a weapon added to WeaponTypes.All is in 101 for free");
+    }
+
+    [Fact]
+    public void Impulse101FillsEveryAmmoPoolToThePlayersOwnCarryLimit()
+    {
+        var (cheats, giver, engine) = Rig();
+        engine.Returns("Entities.GetHealth", 100);
+        giver.Limit = ammo => ammo.MaxCarry * 2;
+
+        cheats.Run(Player, 101);
+
+        Assert.Equal(AmmoTypes.All.Select(a => (a.Name, a.MaxCarry * 2)), giver.Ammo);
     }
 
     [Fact]

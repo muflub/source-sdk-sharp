@@ -44,6 +44,7 @@
 
 #include "physics.h"
 #include "saverestore.h"
+#include "gameui_edge.h"
 
 #include "gamerules_register.h"
 #include "client_world.h"
@@ -860,6 +861,10 @@ void CShellClientDLL::HudUpdate(bool bActive)
 	float frametime = gpGlobals->frametime;
 
 	GetClientVoiceMgr()->Frame(frametime);
+
+	// The GameUI's visibility edge, before anything reads it this frame
+	// (gameui_edge.h): the engine's own activation call is gated to -game tf.
+	SourceSharp_GameUIEdge();
 
 	gHUD.UpdateHud(bActive);
 

@@ -139,12 +139,15 @@ public sealed class SoundEmitterTests
         public int MaxClients { get; set; } = 8;
         public readonly Dictionary<int, Vector> Ears = [];
         public readonly Dictionary<int, string?> Captions = [];
+        public readonly Dictionary<int, int> Teams = [];
 
         public bool IsConnected(int playerIndex) => Ears.ContainsKey(playerIndex);
 
         public bool TryEars(int playerIndex, out Vector ears) => Ears.TryGetValue(playerIndex, out ears);
 
         public string? CloseCaptionSetting(int playerIndex) => Captions.GetValueOrDefault(playerIndex);
+
+        public int Team(int playerIndex) => Teams.GetValueOrDefault(playerIndex, 0);
     }
 
     internal sealed class Captions : ICloseCaptions

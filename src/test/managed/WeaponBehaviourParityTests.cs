@@ -43,11 +43,25 @@ public class WeaponBehaviourParityTests
 
         public sealed class DoublesTheInterval : IWeaponBehaviour
         {
-            public float ModifyFireInterval(in WeaponType type, float interval) => interval * 2f;
+            // The command each point was handed, for the seed facts.
+            public WeaponCommand Seen;
+
+            // The owner each clip and interval point was asked about, for the owner fact.
+            public int ClipOwner = -1, IntervalOwner = -1;
+
+            public float ModifyFireInterval(in WeaponType type, float interval, int ownerIndex)
+            { IntervalOwner = ownerIndex; return interval * 2f; }
+
+            public int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex)
+            { ClipOwner = ownerIndex; return clipSize; }
+
+            public void PrimaryAttack(in WeaponAttackContext attack) => Seen = attack.Command;
         }
 
         public sealed class Mod : IWeaponTypeSource, IWeaponBehaviourSource
         {
+            public readonly DoublesTheInterval Behaviour = new();
+
             public IEnumerable<WeaponType> Rows() => new[]
             {
                 new WeaponType("wep_parity_gun", Interval: 0.2f)
@@ -57,7 +71,7 @@ public class WeaponBehaviourParityTests
             };
 
             public IEnumerable<KeyValuePair<string, IWeaponBehaviour>> Behaviours()
-                => new[] { KeyValuePair.Create<string, IWeaponBehaviour>("wep.parity", new DoublesTheInterval()) };
+                => new[] { KeyValuePair.Create<string, IWeaponBehaviour>("wep.parity", Behaviour) };
         }
         """;
 
@@ -102,7 +116,7 @@ public class WeaponBehaviourParityTests
     /// Not first-time, so the arms (traces, sounds) stay out of it: the timer
     /// is state, and effects never write state.
     /// </summary>
-    private static WeaponNetState ServerShot(ServiceContainer container)
+    private static WeaponNetState ServerShot(ServiceContainer container, int commandNumber = 1)
     {
         // Entries 0x500 and 0x501, clear of the player's entry 1.
         var weapon = new EntityHandle(0x0500u);
@@ -132,21 +146,23 @@ public class WeaponBehaviourParityTests
         Assert.True(arsenal.GiveWeapon(Player, Gun), "the server gives the mod's gun");
         Assert.Equal(weapon, arsenal.CarriedPair(Player).Weapon);
 
-        var cmd = new UserCmd { CommandNumber = 1, Buttons = (int)InputButtons.Attack };
+        var cmd = new UserCmd { CommandNumber = commandNumber, Buttons = (int)InputButtons.Attack };
         arsenal.OnPlayerCommand(Player, in cmd, firstTime: false);
 
         return Assert.IsType<SsWeapon>(registry.Get(weapon)).State;
     }
 
     /// <summary>The client's prediction of the same pull, over the networked index.</summary>
-    private static C.WeaponNetState ClientShot(ServiceContainer container, int networkedIndex)
+    private static C.WeaponNetState ClientShot(ServiceContainer container, int networkedIndex, int commandNumber = 1)
     {
         var engine = ClientDoubles.Fake();
         engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
         engine.Returns("Clock.Now", Now);
         engine.Returns("EntityRender.LookupSequenceByActivity", 0);
 
-        var weapon = new ClientSsWeapon(engine) { Handle = new EntityHandle(0x0100_0041u) };
+        // Entry 0x500: a networked entity holds one entity index on both sides,
+        // and the server's weapon is entry 0x500.
+        var weapon = new ClientSsWeapon(engine) { Handle = new EntityHandle(0x0100_0500u) };
         weapon.State.BindLocal();
         weapon.State.OwnerIndex = LocalPlayer;
         weapon.State.WeaponTypeId = networkedIndex;
@@ -168,7 +184,7 @@ public class WeaponBehaviourParityTests
         var basis = new UserCmd { CommandNumber = 0 };
         arsenal.OnPlayerCommand(Player, in basis, 2, false);
 
-        var cmd = new UserCmd { CommandNumber = 1, Buttons = (int)InputButtons.Attack };
+        var cmd = new UserCmd { CommandNumber = commandNumber, Buttons = (int)InputButtons.Attack };
         arsenal.OnPlayerCommand(Player, in cmd, 1, false, Now);
 
         var state = arsenal.WorkingWeapon;
@@ -192,5 +208,88 @@ public class WeaponBehaviourParityTests
         // not stock's one (10.2).
         Assert.Equal((17, Now + 2 * RowInterval), (server.Clip, server.NextPrimaryAttack));
         Assert.Equal((server.Clip, server.NextPrimaryAttack), (client.Clip, client.NextPrimaryAttack));
+    }
+
+    /// <summary>The command the server's (or the client's) copy of the mod's behaviour last saw.</summary>
+    private static (int Seed, int Weapon, int Owner) SeenBy(object mod)
+    {
+        object behaviour = mod.GetType().GetField("Behaviour")!.GetValue(mod)!;
+        object seen = behaviour.GetType().GetField("Seen")!.GetValue(behaviour)!;
+        var t = seen.GetType();
+        return ((int)t.GetProperty("Seed")!.GetValue(seen)!,
+                (int)t.GetProperty("WeaponIndex")!.GetValue(seen)!,
+                (int)t.GetProperty("OwnerIndex")!.GetValue(seen)!);
+    }
+
+    /// <summary>
+    /// TF's crit roll seeds with the command's seed and the weapon's and the
+    /// player's entity indices (<c>CTFWeaponBase::CalcIsAttackCriticalHelper</c>,
+    /// tf_weaponbase.cpp); the server's run and the client's replay of one
+    /// command must hand a behaviour the same three, or every crit mispredicts.
+    /// </summary>
+    [Fact]
+    public void BothArsenalsHandTheBehaviourOneSeedAndTheWeaponAndOwnerIndices()
+    {
+        var container = Composition();
+
+        var server = ServerShot(container, commandNumber: 7);
+        ClientShot(container, server.WeaponTypeId, commandNumber: 7);
+
+        var seen = container.ResolveAll<IWeaponTypeSource>().Select(SeenBy).Single();
+        var predicted = container.ResolveAll<C.IWeaponTypeSource>().Select(SeenBy).Single();
+
+        // The stock seed of command 7 (ReadUsercmd's MD5_PseudoRandom & 0x7fffffff),
+        // the weapon's entry and the player's: non-zero, so the stimulus reached.
+        Assert.Equal((UserCmdCodec.RandomSeedFor(7), 0x500, LocalPlayer), seen);
+        Assert.NotEqual(0, seen.Seed);
+        Assert.Equal(seen, predicted);
+    }
+
+    /// <summary>The owner each of the mod's clip and interval points was last asked about.</summary>
+    private static (int Clip, int Interval) OwnersAsked(object mod)
+    {
+        object behaviour = mod.GetType().GetField("Behaviour")!.GetValue(mod)!;
+        return ((int)behaviour.GetType().GetField("ClipOwner")!.GetValue(behaviour)!,
+                (int)behaviour.GetType().GetField("IntervalOwner")!.GetValue(behaviour)!);
+    }
+
+    /// <summary>
+    /// A TF item scales the clip and the fire interval through the behaviour's
+    /// two points (<c>CTFWeaponBase::GetMaxClip1</c>/<c>ApplyFireDelay</c>): a
+    /// per-player question the server answers from the item it gave the player.
+    /// If the client's prediction did not ask about the same owner it would
+    /// scale from a different answer and mispredict the clip and the clocks.
+    /// </summary>
+    [Fact]
+    public void BothArsenalsAskTheClipAndIntervalPointsAboutTheSameOwner()
+    {
+        var container = Composition();
+
+        var server = ServerShot(container);
+        ClientShot(container, server.WeaponTypeId);
+
+        var asked = container.ResolveAll<IWeaponTypeSource>().Select(OwnersAsked).Single();
+        var predicted = container.ResolveAll<C.IWeaponTypeSource>().Select(OwnersAsked).Single();
+
+        // Both sides asked, and about the player holding the weapon — the same
+        // index the command carries, non-zero, so the stimulus reached the point.
+        Assert.Equal((LocalPlayer, LocalPlayer), asked);
+        Assert.Equal(asked, predicted);
+    }
+
+    [Fact]
+    public void AnotherCommandHandsTheBehaviourAnotherSeedOnBothSides()
+    {
+        var container = Composition();
+
+        var server = ServerShot(container, commandNumber: 8);
+        ClientShot(container, server.WeaponTypeId, commandNumber: 8);
+
+        var seen = container.ResolveAll<IWeaponTypeSource>().Select(SeenBy).Single();
+        var predicted = container.ResolveAll<C.IWeaponTypeSource>().Select(SeenBy).Single();
+
+        Assert.NotEqual(UserCmdCodec.RandomSeedFor(7), seen.Seed);
+        Assert.Equal(UserCmdCodec.RandomSeedFor(8), seen.Seed);
+        Assert.Equal(seen, predicted);
     }
 }

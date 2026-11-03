@@ -190,6 +190,263 @@ public class UiMenuHostTests
         Assert.Equal(0, engine.CountOf("Hud.ViewportShow"));       // the stock viewport never saw it
     }
 
+    /// <summary>A mod screen claiming a stock panel (TF2 stage 3.2's team menu
+    /// claiming "team"): the host opens it wherever the map named the core's.</summary>
+    private sealed class ClaimingTeamMenu : UiScreen
+    {
+        public override string Name => "tf2teammenu";
+
+        public override string? Panel => "team";
+
+        public override void Describe(ref UiFrame ui) { }
+    }
+
+    private static (UiHost Host, UiFidelityTests.RecordingSurface Surface) ClaimedHost()
+    {
+        var surface = new UiFidelityTests.RecordingSurface();
+        var host0 = UiHostKit.Build(surface, []);
+        var m = host0.Menus;
+        UiScreen[] menus = [new TeamMenu(m.Teams, new TeamCard(), m.Teams), new ClaimingTeamMenu()];
+        return (UiHostKit.Build(surface, [], menus, m), surface);
+    }
+
+    /// <summary>
+    /// A screen claiming the "team" panel answers it: the viewport's and the
+    /// server's show opens the claimer and never the core's teammenu, which
+    /// the same call opened in the fact above (before ≠ after).
+    /// </summary>
+    [Fact]
+    public void A_claiming_screen_is_the_team_panel_s()
+    {
+        var (host, _) = ClaimedHost();
+        Assert.True(host.ViewportPanel("team", true));
+        Assert.True(host.Menu.IsOpen("tf2teammenu"));
+        Assert.False(host.Menu.IsOpen("teammenu"));         // the core's stayed shut
+        Assert.True(host.TakePanel("team", true, []));
+        Assert.True(host.Menu.IsOpen("tf2teammenu"));
+    }
+
+    [Fact]
+    public void A_claiming_screen_answers_its_panel_s_close_and_its_new_map()
+    {
+        var (host, _) = ClaimedHost();
+        host.ViewportPanel("team", true);
+        host.NewMap();                                      // before: the claimer is open
+        Assert.False(host.Menu.IsOpen("tf2teammenu"));
+        host.ViewportPanel("team", true);
+        Assert.True(host.Menu.IsOpen("tf2teammenu"));       // the stimulus reaches it again
+        host.ViewportPanel("team", false);
+        Assert.False(host.Menu.IsOpen("tf2teammenu"));
+    }
+
+    [Fact]
+    public void Escape_closes_the_claiming_team_screen_as_it_closes_the_core_s()
+    {
+        var (host, _) = ClaimedHost();
+        host.ViewportPanel("team", true);
+        Assert.True(host.Menu.IsOpen("tf2teammenu"));      // before: the claim is the open one
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.False(host.Menu.IsOpen("tf2teammenu"));
+    }
+
+    /// <summary>A screen claiming panel names (TF2 stage 3.2's class menu, which
+    /// speaks for "class", "class_red" and "class_blue" at once), recording the
+    /// name each show came in under.</summary>
+    private sealed class ClaimingPanelMenu : UiScreen
+    {
+        public string[] ClaimNames { get; init; } = [];
+
+        public readonly List<string> OpenedUnder = [];
+
+        public override string Name => "panel-claimer";
+
+        public override IReadOnlyList<string> Panels => ClaimNames;
+
+        public override void PanelOpened(string panel) => OpenedUnder.Add(panel);
+
+        public override void Describe(ref UiFrame ui) { }
+    }
+
+    private static (UiHost Host, ClaimingPanelMenu Screen, UiMenus Menus) ClaimingNamesHost(string[] names)
+    {
+        var surface = new UiFidelityTests.RecordingSurface();
+        var host0 = UiHostKit.Build(surface, []);
+        var m = host0.Menus;
+        var screen = new ClaimingPanelMenu { ClaimNames = names };
+        UiScreen[] menus =
+        [
+            new TeamMenu(m.Teams, new TeamCard(), m.Teams),
+            new Motd(m.Motd, m.Motd),
+            screen,
+        ];
+        return (UiHostKit.Build(surface, [], menus, m), screen, m);
+    }
+
+    /// <summary>
+    /// A claim can carry more than one name (TF2's class menu): the viewport's
+    /// show of any of them opens the claimer, and a name nobody claimed answers
+    /// no one.
+    /// </summary>
+    [Fact]
+    public void A_screen_claiming_several_names_answers_every_one_of_them()
+    {
+        var (host, _, _) = ClaimingNamesHost(["class", "class_red", "class_blue"]);
+        Assert.True(host.ViewportPanel("class_red", true));
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        Assert.True(host.Answers("class_blue"));
+        Assert.False(host.Answers("mapinfo"));             // nobody claimed or maps it
+    }
+
+    /// <summary>The show tells the claimer which of its names opened it — how
+    /// TF2's one class menu knows a class_red show from a class_blue one; the
+    /// plain open path (a chain, a command) says nothing.</summary>
+    [Fact]
+    public void A_show_of_a_claimed_panel_names_the_screen_the_name_it_came_under()
+    {
+        var (host, screen, _) = ClaimingNamesHost(["class", "class_red"]);
+        host.ViewportPanel("class_red", true);
+        Assert.Equal(["class_red"], screen.OpenedUnder);   // before: the show named it
+        host.Open("panel-claimer");                        // the direct path: no name
+        Assert.Equal(["class_red"], screen.OpenedUnder);
+    }
+
+    /// <summary>An info claim (TF2's own text window): Esc closes the claimer
+    /// as it closes the core's MOTD, and the claimed show's title and text
+    /// still come through the MOTD's source — the data arm of the panel does
+    /// not follow the claim.</summary>
+    [Fact]
+    public void Escape_closes_the_claiming_info_screen_and_its_data_still_reaches_the_motd()
+    {
+        var (host, _, menus) = ClaimingNamesHost(["info"]);
+        Assert.True(host.TakePanel("info", true, [new("title", "Welcome"), new("type", "0"), new("msg", "Be nice.")]));
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        Assert.False(host.Menu.IsOpen("motd"));            // the core's stayed shut
+        Assert.Equal(("Welcome", "Be nice."), (menus.Motd.Title, menus.Motd.Text));
+
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.False(host.Menu.IsOpen("panel-claimer"));
+    }
+
+    /// <summary>A host whose menu layer carries the pause menu (plus any screen the
+    /// fact adds) and whose clock moves a frame between reads (so two presses are
+    /// two decisions).</summary>
+    private static (UiHost Host, UiFidelityTests.RecordingSurface Surface) EscMenuHost(params UiScreen[] extra)
+    {
+        var surface = new UiFidelityTests.RecordingSurface();
+        var host0 = UiHostKit.Build(surface, []);
+        var m = host0.Menus;
+        UiScreen[] menus = [new MainMenu(new FakeMainMenu()), .. extra];
+        float seconds = 3;   // IGameClock.Now is a float: a boxed double answers default.
+        var engine = TestServices.Fake().ReturnsEachCall("Clock.Now", () => seconds += 1);
+        return (UiHostKit.Build(surface, [], menus, m, engine), surface);
+    }
+
+    private sealed class FakeMainMenu : IMainMenuSource
+    {
+        public bool InLevel => true;
+
+        public bool CanPlay => false;
+
+        public void Play() { }
+
+        public void Resume() { }
+
+        public void OpenOptions() { }
+
+        public void Quit() { }
+    }
+
+    /// <summary>
+    /// The Escape toggle (stock ClientModeSingle::OnKeyDown): idle, the press
+    /// opens the pause menu; the next press hides it. Before the fix the idle
+    /// press closed nothing and opened nothing, so the first assert is the red one.
+    /// </summary>
+    [Fact]
+    public void Escape_opens_the_pause_menu_and_the_next_press_returns_to_the_game()
+    {
+        var (host, _) = EscMenuHost();
+        Assert.False(host.Menu.IsOpen("mainmenu"));             // before: nothing is up
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.True(host.Menu.IsOpen("mainmenu"));              // the press opened it
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.False(host.Menu.IsOpen("mainmenu"));             // and the next hid it
+    }
+
+    /// <summary>With a screen up, Escape closes that first; the pause menu opens
+    /// only once nothing else wants the keyboard (two presses, one behaviour each).</summary>
+    [Fact]
+    public void Escape_closes_the_open_screen_before_it_opens_the_pause_menu()
+    {
+        var claimer = new ClaimingPanelMenu { ClaimNames = ["info"] };
+        var (host, _) = EscMenuHost(claimer);                    // the pause menu and the claimer together
+        Assert.True(host.ViewportPanel("info", true));
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.False(host.Menu.IsOpen("panel-claimer"));         // the press closed the screen
+        Assert.False(host.Menu.IsOpen("mainmenu"));              // and opened nothing yet
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.True(host.Menu.IsOpen("mainmenu"));               // the next press opened the menu
+    }
+
+    /// <summary>One press can reach the host twice (the menu root's panel arm and
+    /// the client mode's decision): two calls in one frame are one toggle.</summary>
+    [Fact]
+    public void Two_calls_in_the_same_frame_toggle_the_pause_menu_once()
+    {
+        var surface = new UiFidelityTests.RecordingSurface();
+        var host0 = UiHostKit.Build(surface, []);
+        var m = host0.Menus;
+        UiScreen[] menus = [new MainMenu(new FakeMainMenu())];
+        var engine = TestServices.Fake().Returns("Clock.Now", 5f);   // one frozen frame
+        var host = UiHostKit.Build(surface, [], menus, m, engine);
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.True(host.Menu.IsOpen("mainmenu"));
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.True(host.Menu.IsOpen("mainmenu"));              // the second call counts once
+    }
+
+    /// <summary>
+    /// The engine-side GameUI arm drives the pause menu through the client-side
+    /// events: gameui_activated shows it, gameui_hidden hides it, so what the engine
+    /// considers visible and what the menu draws agree without a managed key handler
+    /// deciding first.
+    /// </summary>
+    [Fact]
+    public void The_gameui_events_show_and_hide_the_pause_menu()
+    {
+        var (host, _) = EscMenuHost();
+        Assert.False(host.Menu.IsOpen("mainmenu"));             // before: nothing is up
+        host.ShowPauseMenu();
+        Assert.True(host.Menu.IsOpen("mainmenu"));              // gameui_activated showed it
+        host.HidePauseMenu();
+        Assert.False(host.Menu.IsOpen("mainmenu"));             // gameui_hidden hid it
+    }
+
+    /// <summary>The pause menu draws above the screens it covers (stock's GameUI main
+    /// panel above every viewport panel): the claimed info screen (TF2's text window)
+    /// stays below it in draw order, so its dialog never covers the menu.</summary>
+    [Fact]
+    public void The_pause_menu_draws_above_the_claimed_info_screen()
+    {
+        var claimer = new ClaimingPanelMenu { ClaimNames = ["info"] };
+        var (host, _) = EscMenuHost(claimer);
+        host.Open("panel-claimer");
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        host.ShowPauseMenu();
+        Assert.Equal(["panel-claimer", "mainmenu"], host.Menu.OpenScreens());   // the menu last drawn: its dialog on top
+    }
+
+    /// <summary>Resume runs the engine's own hide command (stock's GameUI "ResumeGame"),
+    /// so engine and menu agree: the engine's OnGameUIHidden fires gameui_hidden and the
+    /// screen closes with it.</summary>
+    [Fact]
+    public void Resume_runs_the_engine_s_own_hide_command()
+    {
+        var sent = new List<string>();
+        new MainMenuUi(new ChatFeedTests.RecordingEngineClient(sent)).Resume();
+        Assert.Equal(["gameui_hide"], sent);
+    }
+
     /// <summary>
     /// A viewport rebuild (video-mode change) hides "all": the UI takes the
     /// sweep and its screens stay. Live, three mat_setvideomodes shut the

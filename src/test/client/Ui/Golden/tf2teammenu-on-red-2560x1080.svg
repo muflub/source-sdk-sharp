@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="0" y="0" width="2560" height="1080" fill="#343037" data-e="1"/>
+<rect x="628" y="227" width="278" height="698" fill="#9d9078" data-e="3"/>
+<rect x="629" y="228" width="276" height="696" fill="none" stroke="#9d9078" stroke-opacity="0.35" stroke-width="2" data-e="3"/>
+<rect x="1215" y="227" width="279" height="698" fill="#687c9b" data-e="5"/>
+<rect x="1216" y="228" width="277" height="696" fill="none" stroke="#687c9b" stroke-opacity="0.35" stroke-width="2" data-e="5"/>
+<text x="1337" y="582.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="6">BLU</text>
+<rect x="1638" y="227" width="279" height="698" fill="#b45c4d" data-e="8"/>
+<rect x="1639" y="228" width="277" height="696" fill="none" stroke="#b45c4d" stroke-opacity="0.35" stroke-width="2" data-e="8"/>
+<text x="1760" y="582.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="9">RED</text>
+<rect x="1638" y="898" width="279" height="19" fill="#2e2b2a" fill-opacity="0.78" data-e="10"/>
+<text x="1744" y="912.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="10">Your team</text>
+<text x="1386" y="180.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="11">1</text>
+<text x="1809" y="180.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="12">5</text>
+<text x="719" y="173.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="13">AUTO ASSIGN</text>
+<rect x="965" y="522" width="185" height="128" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="14"/>
+<text x="1013" y="592.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">SPECTATE</text>
+<text x="68" y="1048.75" font-family="TF2 Build" font-size="30" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">Choose Team</text>
+<rect x="1572" y="990" width="338" height="68" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="17"/>
+<text x="1713" y="1030.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="18">Cancel</text>
+</svg>

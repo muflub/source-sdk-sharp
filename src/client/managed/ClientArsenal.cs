@@ -52,8 +52,10 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     private ClientSsWeapon? _localWeapon;
     private ClientSsViewModel? _localViewModel;
 
-    // The meter.
-    private int _saves, _holds, _tolerated, _mispredicts, _noBasis;
+    // The meter. _rebuilt counts the compares the deploy stamp dismissed: an
+    // out-of-band (re)deploy adopted from the arrival instead of judged
+    // against the acked slot (see Compare).
+    private int _saves, _holds, _tolerated, _mispredicts, _noBasis, _rebuilt;
     private int _lastMissCommand = -1;
     private string _lastMissFields = "";
     private int _pokeOffset = -1;
@@ -68,6 +70,9 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     // index was made against.
     private readonly WeaponCatalog _weapons;
     private readonly AmmoCatalog _ammo;
+    private readonly AmmoCarry _carryLimits;
+    private readonly WeaponBehaviours _behaviours;
+    private readonly ViewmodelActivity _viewmodelActivity;
 
     // The client's view of the world, for the one replayed decision that asks
     // what is in front of the player (the SLAM's wall probe). Null in a test's
@@ -89,12 +94,41 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     private PredictedShot _shot;
     private bool _hasEye;
 
+    // What watches the local player's weapon pair change (a mod's crit-bucket
+    // refill, stock's weapon constructor). Null in a composition without one.
+    private readonly ILocalWeaponWatcher? _localWeapons;
+
+    // The local player's pools, as a side published them (stock's per-player
+    // m_iAmmo). Null in a composition without a publisher: the spawn give's
+    // arithmetic stands in.
+    private readonly ILocalAmmoPools? _localAmmoPools;
+
+    // The local player's carried clips, as a side published them (stock's
+    // per-weapon m_iClip1). Null in a composition without a publisher: the
+    // spawn give's arithmetic stands in.
+    private readonly ILocalWeaponClips? _localWeaponClips;
+
+    // The viewmodel's skin chain, the server's twin: the mirror dresses the
+    // same skin the server's deploy wrote, so the compare judges the switch
+    // instead of mispredicting the byte for a round trip. Null in a
+    // composition without a chain: no opinion, nothing written.
+    private readonly ViewmodelSkin? _viewmodelSkin;
+
     public ClientArsenal(ILog log, IClientStandalones standalones, IEngineEntityRender render,
                          IGameClock clock, IEngineHud screen, NetStateCatalog catalog,
                          WeaponCatalog? weapons = null, AmmoCatalog? ammo = null,
                          WeaponBehaviours? behaviours = null, IEngineWorldQuery? world = null,
-                         IPredictedWeaponFx? fx = null)
+                         IPredictedWeaponFx? fx = null, AmmoCarry? carryLimits = null,
+                         ViewmodelActivity? viewmodelActivity = null,
+                         ILocalWeaponWatcher? localWeapons = null,
+                         ILocalAmmoPools? localAmmoPools = null,
+                         ILocalWeaponClips? localWeaponClips = null,
+                         ViewmodelSkin? viewmodelSkin = null)
     {
+        _localWeapons = localWeapons;
+        _localAmmoPools = localAmmoPools;
+        _localWeaponClips = localWeaponClips;
+        _viewmodelSkin = viewmodelSkin;
         _fx = fx;
         _log = log;
         _world = world;
@@ -113,8 +147,15 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // defaults are the stock tables, which is what a mod-less game has.
         _weapons = weapons ?? WeaponCatalog.Stock();
         _ammo = ammo ?? AmmoCatalog.Stock();
+        // The same per-player carry limits the server clamps to, so the HUD
+        // shows the limit the reserve can reach.
+        _carryLimits = carryLimits ?? AmmoCarry.Stock();
+        _behaviours = behaviours ?? WeaponBehaviours.Stock();
+        // The same activity translation the server's machine resolved through,
+        // so the predicted sequence number comes out the same on both sides.
+        _viewmodelActivity = viewmodelActivity ?? ViewmodelActivity.Stock();
         _machine = new WeaponLogic(new ClientWeaponArms(this), _weapons,
-                                   behaviours ?? WeaponBehaviours.Stock());
+                                   _behaviours, _ammo);
 
         _weapon.BindLocal();
         _viewModel.BindLocal();
@@ -155,6 +196,13 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         if (phase != 1 || _localWeapon is null || _localViewModel is null)
             return;
 
+        // The command's weaponselect is answered BEFORE the weapon frame, as
+        // the server's phase 0 answers it: the replayed run of this command
+        // has to land on the bytes the server's run wrote (the deploy clocks
+        // were the ss_weapon misprediction).
+        if (cmd.WeaponSelect != 0)
+            MirrorDeploy(cmd.WeaponSelect - 1, commandTime);
+
         if (_weapon.WeaponTypeId < 0)
             return;
 
@@ -175,10 +223,15 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // IsFirstTimePredicted: a replay of a command already predicted plays
         // nothing again.
         _hasEye = eye.HasValue;
+        // The seed and indices the server's run of this command derives
+        // (WeaponCommand.For): a networked entity's entry is its entindex on
+        // both sides, so a behaviour's seeded roll predicts.
         _machine.RunCommand(_weapon, _viewModel, cmd.Buttons,
-                            commandTime, effectsLive: firstTime);
+                            commandTime, effectsLive: firstTime,
+                            WeaponCommand.For(in cmd, _localWeapon.Handle, player));
 
         SaveCommand(cmd.CommandNumber);
+        RememberCarry();
 
         // The PREDICTED sequence reaches the renderer here — this is what
         // makes the fire animation start the frame the trigger is pressed
@@ -197,6 +250,9 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
     /// <summary>The working weapon state the replay runs, for tests.</summary>
     internal WeaponNetState WorkingWeapon => _weapon;
+
+    /// <summary>The working viewmodel state the replay runs, for tests.</summary>
+    internal ViewModelNetState WorkingViewModel => _viewModel;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -238,12 +294,204 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         ResizeRings();
         CopyState(_localWeapon.State, _weapon);
         CopyState(_localViewModel.State, _viewModel);
+        RememberCarry();
+    }
+
+    //-------------------------------------------------------------------------
+    // The predicted deploy (stock's RunCommand → SelectItem, the client's own
+    // half): a command carrying weaponselect re-dresses the working copies
+    // exactly as Arsenal.Deploy dresses the entities, from the SAME memories
+    // the server keeps in its carry — the special, and the clip and pool the
+    // published per-player words name — because the replayed run
+    // must write the bytes the server's run of the command wrote.
+    //-------------------------------------------------------------------------
+
+    // The carry's bookkeeping, as the client can hold it: the stored special
+    // per catalog type. The pools and the carried clips are not here — the
+    // published per player's words, or the spawn give's arithmetic for a
+    // weapon nothing has named yet.
+    private readonly Dictionary<int, (int Special, float SpecialTime)> _specialByType = new();
+
+    private void MirrorDeploy(int typeIndex, float now)
+    {
+        // AlreadyHeld: the server's Take answers it without a write.
+        if (typeIndex == _weapon.WeaponTypeId)
+            return;
+
+        if (_weapons.ByIndex(typeIndex) is not { } type)
+            return;
+
+        // The server refuses a dead player's switch (Arsenal.Refusal); the
+        // mirror refuses with it, from the decoded word.
+        if (_standalones.GetByIndex(_localIndex) is ClientSsPlayer { State.Alive: false })
+            return;
+
+        // The outgoing weapon keeps its special with it (StoreActiveClip); its
+        // clip is the carrier's published word, read below.
+        if (_weapon.WeaponTypeId >= 0)
+            _specialByType[_weapon.WeaponTypeId] = (_weapon.Special, _weapon.SpecialTime);
+
+        _weapon.OwnerIndex = _localIndex;
+        _weapon.WeaponTypeId = typeIndex;
+        _weapon.Clip = type.ClipSize > 0
+            ? ClipOf(typeIndex, FreshClip(type))
+            : -1;
+        _weapon.InReload = false;
+        _weapon.NextPrimaryAttack = now + type.DeployTime;
+        _weapon.NextSecondaryAttack = now + type.DeployTime;
+        _weapon.TimeWeaponIdle = now + type.DeployTime;
+        // The stamp the server's Deploy bumped for this same command: the
+        // acked slot's and the arrival's then agree and the switch stands
+        // fully judged, not adopted (see DeployedOutOfBand). Past the
+        // AlreadyHeld, unknown-type and dead refusals above, which are the
+        // server's Take refusing the Deploy — and refusing its stamp — too.
+        _weapon.DeployEpoch++;
+        _weapon.LastButtons = 0;
+        (_weapon.Special, _weapon.SpecialTime) = _specialByType.GetValueOrDefault(typeIndex);
+        _weapon.Redraw = false;
+        _weapon.DrawbackFinished = false;
+        _weapon.AnimEvent = 0;
+        _weapon.ResetBehaviourState();
+
+        _viewModel.OwnerIndex = _localIndex;
+        _weapon.Reserve = PoolOf(type.AmmoName, FreshReserve(in type));
+        _weapon.SecondaryReserve = PoolOf(type.SecondaryAmmoName, FreshSecondaryReserve(in type));
+
+        // The skin the server's deploy wrote for this same command, the
+        // chain's answer for the local player (Arsenal.Deploy's
+        // CTFViewModel::GetSkin arm): dressed here too, else the compare
+        // mispredicts the byte for a round trip on every skin-changing
+        // switch. No opinion and nothing is written — what stands, stands —
+        // and the machine's Deploy below keeps the last word, as on the
+        // server.
+        if (_viewmodelSkin?.Skin(_localIndex, type) is int dressed)
+            _viewModel.Skin = dressed;
+
+        // The draw, through the same path the server's deploy takes: the row's
+        // machine's own draw where it picks one (the SLAM's), else the generic
+        // one. The sequence resolves on the model the viewmodel still wears —
+        // the model change is the renderer's, not the blob's — which is the
+        // mirror's one known approximation.
+        if (!_machine.Deploy(_weapon, _viewModel, now))
+            WeaponLogic.Play(new ClientWeaponArms(this), _viewModel, WeaponAnim.Draw);
+    }
+
+    /// <summary>GiveWeapon's fresh clip: the row's default, else the full one.</summary>
+    private static int FreshClip(WeaponType type)
+        => type.DefaultClip > 0 ? Math.Min(type.DefaultClip, type.ClipSize)
+                                : type.ClipSize;
+
+    // The switch's clip: the published carried clip (the server's own word, the
+    // resupply's rewrite included) where the side names one; the fresh give
+    // behind it where it does not, as before.
+    private int ClipOf(int typeIndex, int remembered)
+        => _localWeaponClips is not null && _localWeaponClips.ClipOf(typeIndex, out int clip) && clip >= 0
+            ? clip
+            : remembered;
+
+    private int PoolOf(string ammoName, int fresh)
+        => ammoName.Length == 0 ? 0
+           : _localAmmoPools is not null && _localAmmoPools.PoolOf(ammoName, out int published) ? published
+           : fresh;
+
+    // The pool a weapon the mirror has never seen carried carries on its
+    // first switch: only the ACTIVE weapon's pools ride the mirror's memory,
+    // so an unheld row's balance is the spawn give's own arithmetic, read
+    // from the same row the server gave from. A row that declares a default
+    // clip brings it the core's way — the clip, and the overflow past it into
+    // the pool (Weapon_Equip), clamped to the carry by GiveAmmo. A row that
+    // declares none brings nothing itself: the game's spawn kit fills the
+    // pool to the carry limit (tf_player.cpp:4246-4250,
+    // GiveAmmo(GetMaxAmmo(iAmmo), iAmmo) for every ammo).
+    private int FreshReserve(in WeaponType type)
+    {
+        if (type.AmmoName.Length == 0 || _ammo.For(type.AmmoName) is not { } ammo)
+            return 0;
+
+        int max = _carryLimits.MaxFor(_localIndex, in ammo);
+
+        if (type.DefaultClip <= 0)
+            return max;
+
+        int clipSize = ClipSizeOf(in type);
+        int overflow = clipSize > 0 ? Math.Max(0, type.DefaultClip - clipSize) : type.DefaultClip;
+
+        return Math.Min(overflow, max);
+    }
+
+    private int FreshSecondaryReserve(in WeaponType type)
+        => type.DefaultSecondaryAmmo > 0 && _ammo.For(type.SecondaryAmmoName) is { } ammo
+            ? Math.Min(type.DefaultSecondaryAmmo, _carryLimits.MaxFor(_localIndex, in ammo))
+            : 0;
+
+    // The server's ClipSizeOf, against the local player: the behaviour chain
+    // may size the clip per class.
+    private int ClipSizeOf(in WeaponType type)
+        => _behaviours.For(type.Behaviour) is { } behaviour
+            ? behaviour.ModifyClipSize(in type, type.ClipSize, _localIndex)
+            : type.ClipSize;
+
+    /// <summary>
+    /// Carries the working copies' words back into the memories: after each
+    /// replayed command, and once per frame from the server's word (which
+    /// names the active weapon's stored special; the clip is the carrier's
+    /// published word).
+    /// </summary>
+    private void RememberCarry()
+    {
+        if (_weapon.WeaponTypeId < 0 || _weapons.ByIndex(_weapon.WeaponTypeId) is not { } type)
+            return;
+
+        _specialByType[_weapon.WeaponTypeId] = (_weapon.Special, _weapon.SpecialTime);
     }
 
     private void Compare(int acknowledged)
     {
+        // An out-of-band (re)deploy, adopted rather than judged: the acked
+        // slot was predicted under a different deploy stamp than the arrival
+        // carries, so between the command and its acknowledgement the server
+        // deployed with no command to mirror — the spawn kit's Deploy and the
+        // round-start respawn's (each class join deploys twice and the second
+        // lands between two client commands, where MirrorDeploy never sees
+        // it). Stock reports nothing for that moment because the weapon
+        // entity is recreated at respawn and the client's InitPredictable
+        // seeds EVERY predicted slot from the fresh arrival, "so we don't get
+        // an error saying we mispredicted any values which are still at their
+        // initial values" (c_baseentity.cpp:4578-4583). The stamp is our
+        // persistent pair's equivalent of that recreation: the arrival is the
+        // server's word and the basis reset adopts it anyway — the stamp
+        // buys only the verdict, the one stock never renders. And only for
+        // the deploys: the stamp moves on a Deploy alone, so a clock that
+        // moved WITHOUT one — the misprediction this meter exists for —
+        // still stands judged.
+        if (DeployedOutOfBand(acknowledged))
+        {
+            _rebuilt++;
+            return;
+        }
+
         CompareOne(_weaponRing, _localWeapon!.State, EntityNames.SsWeapon, acknowledged);
         CompareOne(_viewModelRing, _localViewModel!.State, EntityNames.PredictedViewModel, acknowledged);
+    }
+
+    /// <summary>
+    /// Whether the acked command's saved weapon slot was predicted under a
+    /// different deploy stamp than the decoded arrival now carries: the
+    /// signature of a (re)deploy that ran between the two client commands,
+    /// which no weaponselect could have been mirrored against.
+    /// </summary>
+    private bool DeployedOutOfBand(int acknowledged)
+    {
+        ReadOnlySpan<byte> slot = _weaponRing.CommandBytes(acknowledged);
+
+        if (slot.IsEmpty || slot.Length != _weaponScratch.Length)
+            return false;
+
+        var saved = new WeaponNetState();
+        saved.BindLocal();
+        saved.Decode(slot);
+
+        return saved.DeployEpoch != _localWeapon!.State.DeployEpoch;
     }
 
     private void CompareOne(PredictionRing ring, NetState arrivedState, string className, int acknowledged)
@@ -359,6 +607,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // find-by-class, lane entlist-client. The pair being looked for is two
         // named classes; walking every live entity to find them asked the
         // directory nothing and cost the population once per frame.
+        ClientSsWeapon? previous = _localWeapon;
         _localWeapon = null;
         _localViewModel = null;
 
@@ -372,6 +621,21 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         {
             if (entity is ClientSsViewModel viewModel && viewModel.State.OwnerIndex == localIndex)
                 _localViewModel = viewModel;
+        }
+
+        // The respawn kit's fresh weapon, or the first one at a join: the
+        // client's half of stock's constructor filling a fresh weapon's crit
+        // bucket (basecombatweapon_shared.cpp:103-106). The edge is the new
+        // REFERENCE, not the re-resolve, so a watcher hears once per adoption
+        // however many callers (the frame, the basis reset, the HUD's asks)
+        // re-find the pair.
+        if (!ReferenceEquals(previous, _localWeapon) && _localWeapon is { } fresh)
+        {
+            // A fresh weapon is a fresh carry: the stored specials the mirror
+            // remembered belong to the old one.
+            _specialByType.Clear();
+
+            _localWeapons?.LocalWeaponSpawned(fresh.Handle.EntryIndex);
         }
     }
 
@@ -419,7 +683,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         if (_weapons.ByIndex(_localWeapon.State.WeaponTypeId) is not { } type
             || type.SecondaryAmmoName.Length == 0 || _ammo.For(type.SecondaryAmmoName) is not { } ammo)
             return false;
-        (current, max) = (_localWeapon.State.SecondaryReserve, ammo.MaxCarry);
+        (current, max) = (_localWeapon.State.SecondaryReserve, _carryLimits.MaxFor(_localWeapon.State.OwnerIndex, in ammo));
         return true;
     }
 
@@ -442,7 +706,16 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         if (_localWeapon is null)
             return false;
 
-        var state = _localWeapon.State;
+        // The working copy, not the entity's last decode: during a replayed
+        // switch the mirror has already re-dressed the pair, and this is the
+        // ask the activity rules resolve the draw through — the same point of
+        // its own deploy where the server's arms read the weapon it had JUST
+        // dressed. Only once a basis reset has run, though (_localIndex, the
+        // replay's first act): before it the working copy is untouched zeros,
+        // and the entity's word is the whole truth.
+        var state = _localIndex > 0 && _weapon.WeaponTypeId >= 0
+            ? _weapon
+            : _localWeapon.State;
 
         if (state.WeaponTypeId < 0)
             return false;
@@ -465,13 +738,23 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         string line =
             $"[SourceSharp] weapon prediction: pair {(_localWeapon is not null && _localViewModel is not null ? "present" : "absent")}, " +
             $"{_weaponRing.BlobBytes}+{_viewModelRing.BlobBytes} byte(s) ringed — {_saves} save(s), " +
-            $"{_holds} hold(s) ({_tolerated} tolerated), {_mispredicts} misprediction(s), {_noBasis} no-basis";
+            $"{_holds} hold(s) ({_tolerated} tolerated), {_mispredicts} misprediction(s), " +
+            $"{_noBasis} no-basis, {_rebuilt} out-of-band deploy(s) adopted";
 
         if (_lastMissCommand >= 0)
             line += $"\n  last mismatch: command {_lastMissCommand}: {_lastMissFields}";
 
         return line;
     }
+
+    /// <summary>
+    /// The meter's counts, for facts. <c>Rebuilt</c> is the compares the
+    /// deploy stamp dismissed — an out-of-band (re)deploy adopted from the
+    /// arrival, our persistent pair's version of stock's fresh-entity
+    /// reseed (<see cref="Compare"/>).
+    /// </summary>
+    public (int Saves, int Holds, int Tolerated, int Mispredicts, int NoBasis, int Rebuilt) Counts
+        => (_saves, _holds, _tolerated, _mispredicts, _noBasis, _rebuilt);
 
     /// <summary>
     /// The sequence an animation kind resolves to on the local viewmodel's
@@ -514,7 +797,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     internal int ResolveSequence(WeaponAnim anim)
         => _localViewModel is null
             ? -1
-            : WeaponAnimNames.Resolve(_render, _localViewModel.Handle, anim);
+            : WeaponAnimNames.Resolve(_render, _localViewModel.Handle, anim, _viewmodelActivity, _localIndex);
 
     internal int ResolveActivity(string activity)
         => _localViewModel is null ? -1 : _render.LookupSequenceByActivity(_localViewModel.Handle, activity);
@@ -643,15 +926,34 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         // No shot without an eye to fire it from (a replay told none).
         public void FireBullets(in WeaponType type, int pellets, float spreadDegrees)
+            => FireBullets(in type, pellets, spreadDegrees, default, null);
+
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees, ShotDamage shot,
+                                PelletPattern? fixedPellets)
         {
             if (_owner._hasEye)
-                _owner._fx?.FireBullets(in _owner._shot, in type, pellets, spreadDegrees);
+                _owner._fx?.FireBullets(in _owner._shot, in type, pellets, spreadDegrees, fixedPellets);
         }
 
         public void MeleeSwing(in WeaponType type)
         {
             if (_owner._hasEye)
                 _owner._fx?.MeleeSwing(in _owner._shot, in type);
+        }
+
+        // A shot's muzzle flash and brass: the viewmodel they ride is this
+        // replay's own hands, and the predicted-fx is the same door the sound
+        // and the bullets go through.
+        public void MuzzleFlash(in WeaponType type, string particleEffect)
+        {
+            if (_owner._localViewModel is { } vm)
+                _owner._fx?.MuzzleFlash(vm.Handle, particleEffect);
+        }
+
+        public void ShellEject(in WeaponType type, int itemDefIndex, int weaponId)
+        {
+            if (_owner._localViewModel is { } vm)
+                _owner._fx?.ShellEject(vm.Handle, itemDefIndex, weaponId);
         }
 
         // A projectile is the server's entity; its launch sound is Sound's.

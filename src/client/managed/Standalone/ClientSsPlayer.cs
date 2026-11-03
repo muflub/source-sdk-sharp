@@ -107,6 +107,15 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     private readonly ViewReadout? _view;
     private readonly IEngineHud? _screen;
     private readonly AnimStateLayers? _layers;
+    private readonly IClientStandalones? _entities;
+
+    // The viewer's (alive, observer-mode) pair as last seen, so the
+    // viewmodel re-check below is edge-triggered. Unseen until the first
+    // decode, which always fires one check — idempotent, and it catches a
+    // viewmodel that arrived while the player's own state was already dead.
+    private bool _sawGate;
+    private bool _lastAlive;
+    private int _lastObserverMode;
 
     // The machine, built on the first drive — by which time the registry has
     // bound Entities, so the target can take it. One machine per player, held
@@ -119,7 +128,8 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     public ClientSsPlayer(IEngineEntityRender render,
                           IGameClock? clock = null, ModelDescriptors? models = null,
                           ViewReadout? view = null, IEngineHud? screen = null,
-                          AnimStateLayers? layers = null)
+                          AnimStateLayers? layers = null,
+                          IClientStandalones? entities = null)
         : base(render)
     {
         _clock = clock;
@@ -127,6 +137,7 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
         _view = view;
         _screen = screen;
         _layers = layers;
+        _entities = entities;
     }
 
     public override string ClassName => EntityNames.Player;
@@ -188,6 +199,7 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
         // this player.
         Decodes++;
 
+        NotifyViewerMoved();
         Animate();
     }
 
@@ -306,6 +318,50 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
 
         _target.SetHandle(Handle);
         return _target;
+    }
+
+    /// <summary>
+    /// Tells this player's OWN viewmodel and attachment to re-decide whose
+    /// eyes they belong at, when the pair (alive, observer mode) moved since
+    /// the last look and this player is the viewer.
+    ///
+    /// <para>
+    /// The viewmodel's pass decision reads the viewer's state
+    /// (<see cref="ClientSsViewModel.ViewerMayDrawViewModel"/>), but the
+    /// viewmodel only re-decides when IT updates — and a kill updates the
+    /// player, not the viewmodel. Without this edge the arms that left the
+    /// pass on death would stay out of it after the respawn too. Stock has no
+    /// such notification because its ShouldDraw re-runs every frame; the
+    /// decode rhythm this port drives asks for the one call site that notices
+    /// the move, and the (alive, mode) edge is what makes the sweep per
+    /// KILL/RESPAWN rather than per packet.
+    /// </para>
+    /// </summary>
+    private void NotifyViewerMoved()
+    {
+        if (_entities is null || _screen is null)
+            return;
+
+        if (Index != _screen.LocalPlayerIndex)
+            return;
+
+        bool alive = State.Alive;
+        int mode = State.ObserverMode;
+
+        if (_sawGate && alive == _lastAlive && mode == _lastObserverMode)
+            return;
+
+        _sawGate = true;
+        _lastAlive = alive;
+        _lastObserverMode = mode;
+
+        foreach (var entity in _entities.OfClass(EntityNames.PredictedViewModel))
+            if (entity is ClientSsViewModel viewmodel && viewmodel.State.OwnerIndex == Index)
+                viewmodel.Reconsider();
+
+        foreach (var entity in _entities.OfClass(EntityNames.SsViewmodelAttachment))
+            if (entity is ClientSsViewmodelAttachment attachment && attachment.State.OwnerIndex == Index)
+                attachment.Reconsider();
     }
 
     /// <summary>

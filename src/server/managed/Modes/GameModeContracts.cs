@@ -51,6 +51,13 @@ public interface IGameMode
 
     /// <summary>What a round needs prepared; null prepares nothing.</summary>
     IModeSetup? Setup => null;
+
+    /// <summary>
+    /// What this mode's round reset keeps across stock's <c>CleanUpMap</c>
+    /// (<see cref="IMapCleanup"/>): its rules' preserve list. Null is the
+    /// core's, <see cref="HL2MPMapCleanupFilter"/>.
+    /// </summary>
+    IMapCleanupFilter? Cleanup => null;
 }
 
 /// <summary>
@@ -73,9 +80,8 @@ public interface IRoundFlow
 
     /// <summary>
     /// Back to a running round, players kept. The flush a mode switch runs
-    /// first, and the reset a level init runs; the entity walk
-    /// <see cref="GameModes.ResetRoundEntities"/> does beside it is the
-    /// in-place answer to stock's <c>CleanUpMap</c> (a divergence row).
+    /// first, and the reset a level init runs; the map itself comes back
+    /// beside it through stock's <c>CleanUpMap</c> (<see cref="IMapCleanup"/>).
     /// </summary>
     void ResetRound();
 

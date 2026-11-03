@@ -28,6 +28,7 @@ public class UiKeyCodeTests
             [UiKey.Home] = "KEY_HOME", [UiKey.End] = "KEY_END", [UiKey.PageUp] = "KEY_PAGEUP",
             [UiKey.PageDown] = "KEY_PAGEDOWN", [UiKey.Up] = "KEY_UP", [UiKey.Left] = "KEY_LEFT",
             [UiKey.Down] = "KEY_DOWN", [UiKey.Right] = "KEY_RIGHT",
+            [UiKey.Key0] = "KEY_0", [UiKey.KeyPad0] = "KEY_PAD_0",
             [UiKey.MouseLeft] = "MOUSE_LEFT", [UiKey.MouseRight] = "MOUSE_RIGHT",
         };
         foreach (var key in Enum.GetValues<UiKey>().Where(k => k != UiKey.None))

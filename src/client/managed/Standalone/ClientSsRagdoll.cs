@@ -60,12 +60,19 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
 {
     // The marked and custom tiers are the base's walk (plan_client_novalve
     // §3.8), which re-checks restored handles against the side's own host.
-    public ClientSsRagdoll(IEngineEntityRender render, IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls)
+    public ClientSsRagdoll(IEngineEntityRender render, IEngineEffects effects, IGameClock clock,
+                           IClientStandalones standalones, Ragdolls.IClientRagdolls ragdolls)
         : base(render)
     {
+        _effects = effects;
+        _clock = clock;
         _standalones = standalones;
         _ragdolls = ragdolls;
     }
+
+    private readonly IEngineEffects _effects;
+
+    private readonly IGameClock _clock;
 
     private readonly IClientStandalones _standalones;
 
@@ -134,11 +141,34 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     /// </summary>
     [SaveField] public EntityHandle PosedFrom { get; private set; } = EntityHandle.None;
 
+    /// <summary>
+    /// When this body's burn began, on THIS side's clock, or 0 for none.
+    ///
+    /// <para>
+    /// Stock's <c>m_flBurnEffectStartTime</c>, stamped by the CLIENT at
+    /// creation — <c>m_flBurnEffectStartTime = gpGlobals-&gt;curtime</c> in
+    /// <c>CreateTFRagdoll</c> (c_tf_player.cpp:928-932) — for a body that
+    /// arrived with its networked <c>m_bBurning</c> set
+    /// (<see cref="RagdollNetState.Burning"/>). The clock crosses no wire: the
+    /// server never knew it, and BurnLevel's ragdoll arm
+    /// (c_tf_player.cpp:1860-1864) reads the one the ragdoll stamped for
+    /// itself. Marked because it is a fact about this instance a hot reload
+    /// would otherwise lose — a restored corpse that forgot its burn would
+    /// ramp from never.
+    /// </para>
+    /// </summary>
+    [SaveField] public float BurnStartTime { get; private set; }
+
     public override void OnSpawn()
         => Log.Msg($"[SourceSharp/C# client] {ClassName} arrived\n");
 
     public override void OnRemoved()
-        => Log.Msg($"[SourceSharp/C# client] {ClassName} gone\n");
+    {
+        if (BurnStartTime > 0f)
+            _effects.ParticleSystemStop(Handle);
+
+        Log.Msg($"[SourceSharp/C# client] {ClassName} gone\n");
+    }
 
     /// <summary>
     /// Collapses the body, once.
@@ -154,6 +184,9 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
     /// </summary>
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
+        ArrivedBurning();
+        DressSkin();
+
         if (IsRagdoll)
             return;
 
@@ -189,6 +222,51 @@ public sealed class ClientSsRagdoll : ClientStandaloneEntity, ISaveCustom
             Log.Msg($"[SourceSharp/C# client] {ClassName} has no jointed body yet; " +
                     "retrying on each update\n");
         }
+    }
+
+    /// <summary>Stock's TF_TEAM_RED (ETFSharedTeam, tf_shareddefs.h).</summary>
+    private const byte TeamRed = 2;
+
+    /// <summary>The skin last handed to the renderer, so a decode that
+    /// decided the same body writes nothing (ClientSsViewModel.ShowSkin's
+    /// edge).</summary>
+    private int _shownSkin = -1;
+
+    /// <summary>
+    /// Stock's <c>C_TFRagdoll::CreateTFRagdoll</c> skin arm
+    /// (c_tf_player.cpp:712-719): the body wears the dead player's team skin —
+    /// skin 0 for red, skin 1 otherwise — from the team the server stamped on
+    /// it (<see cref="RagdollNetState.Team"/>). Without it every corpse draws
+    /// in the model's skin 0 and a BLU death leaves a RED body.
+    /// </summary>
+    private void DressSkin()
+    {
+        int skin = State.Team == TeamRed ? 0 : 1;
+
+        if (skin == _shownSkin)
+            return;
+
+        _shownSkin = skin;
+        Render.SetSkin(Handle, skin);
+    }
+
+    /// <summary>
+    /// Stock's burn arrival (c_tf_player.cpp:928-932): a body that came
+    /// burning stamps its own clock with the client's now and starts the
+    /// corpse's particle. ONCE, wherever the update that carried the flag
+    /// lands — the arrival may lose the model race and come back with the
+    /// retries, and stock reaches this only from the created update.
+    /// </summary>
+    private void ArrivedBurning()
+    {
+        if (!State.Burning || BurnStartTime > 0f)
+            return;
+
+        BurnStartTime = _clock.Now;
+
+        if (!_effects.ParticleSystemStart(Handle, FlameRules.BurningCorpseParticle))
+            Log.Warning($"[SourceSharp] {ClassName}: no particle system named " +
+                        $"'{FlameRules.BurningCorpseParticle}'\n");
     }
 
     /// <summary>

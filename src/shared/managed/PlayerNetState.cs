@@ -167,6 +167,29 @@ public partial class PlayerNetState
     [Predicted]
     public partial int TickBase { get; set; }
 
+    /// <summary>
+    /// The spawn stamp: bumped whenever game code (re)spawns the player — the
+    /// connect spawn, a jointeam, a joinclass, a round restart — so a compare
+    /// that straddles one adopts the arrival instead of judging it.
+    ///
+    /// <para>
+    /// Stock reports nothing for that moment because the player is re-seeded
+    /// whole at spawn: <c>InitPredictable</c> copies every predicted field from
+    /// the fresh arrival, "so we don't get an error saying we mispredicted any
+    /// values which are still at their initial values"
+    /// (c_baseentity.cpp:4578-4583). Our pair persists where stock's entity is
+    /// recreated, and the stamp is the event that recreation would have been —
+    /// the same shape <c>WeaponNetState.DeployEpoch</c> takes for the deploy.
+    /// A spawn is also where the clock re-bases with no client command
+    /// (<c>CBasePlayer::AdjustPlayerTimeBase</c>, player.cpp:3157, and the
+    /// view, health and ground words <see cref="TickBase"/>'s note names), so
+    /// every field in the three boot-time mispredictions rides one bump.
+    /// Compared exact, like the stamp beside it in the weapon.
+    /// </para>
+    /// </summary>
+    [Predicted]
+    public partial int SpawnEpoch { get; set; }
+
     // ---- the packed word ---------------------------------------------------
 
     /// <summary>Playing rather than watching.</summary>
@@ -305,6 +328,42 @@ public partial class PlayerNetState
     /// <summary><c>m_bNewSprinting</c>.</summary>
     [Predicted]
     public partial bool NewSprinting { get; set; }
+
+    // ---- the player's field of view (CBasePlayer's m_iFOV words) -----------
+    //
+    // WHAT STOCK NETWORKS, no more and no less: m_iFOV, m_iFOVStart,
+    // m_flFOVTime, m_iDefaultFOV and m_hZoomOwner are DT_BasePlayer send props
+    // (player.cpp:8247-8251) and m_Local.m_flFOVRate rides the local data.
+    // They reach the client so its view can run GetFOV's ramp
+    // (c_baseplayer.cpp:2437) between packets -- FovStart, FovTime and FovRate
+    // are the ramp's inputs, FovDefault the answer an unzoomed player gives.
+    //
+    // NOT [Predicted], for the same reason the fog and skybox fields are not:
+    // the movement loop neither reads nor writes any of them, so a tolerance
+    // here would put the scope on the misprediction ring for values that can
+    // only agree. SetFov runs on the server (the sniper's attack2) and the
+    // words are read by the view, outside the command loop.
+    //
+    // ZoomOwner is the raw networked ehandle word: the owner's handle, and
+    // 0xFFFFFFFF (EntityHandle.None) for nobody -- never 0, which is the world.
+
+    /// <summary>The FOV a zoom owns; 0 is the player's own (m_iFOV).</summary>
+    public partial int Fov { get; set; }
+
+    /// <summary>The value the running ramp starts from (m_iFOVStart).</summary>
+    public partial int FovStart { get; set; }
+
+    /// <summary>When the last change began (m_flFOVTime).</summary>
+    public partial float FovTime { get; set; }
+
+    /// <summary>The seconds the change takes; 0 is immediate (m_Local.m_flFOVRate).</summary>
+    public partial float FovRate { get; set; }
+
+    /// <summary>The player's own FOV (m_iDefaultFOV).</summary>
+    public partial int FovDefault { get; set; }
+
+    /// <summary>The requester whose zoom is running, raw; 0xFFFFFFFF for nobody (m_hZoomOwner).</summary>
+    public partial uint ZoomOwner { get; set; }
 
     // ---- the world fog this viewer is standing in (step 8e-render) ---------
     //
@@ -464,6 +523,11 @@ public partial class PlayerNetState
     /// <summary>
     /// m_iAmmo: each pool's count, by the ammo type's wire index (from one, as
     /// AmmoCatalog.WireIndex numbers it). The pickup history adds what rises.
+    /// Not error-checked, as HL2MP's prediction override declares m_iAmmo
+    /// (FTYPEDESC_NOERRORCHECK, c_hl2mp_player.cpp): the server's pools move
+    /// inside commands (a TF reload draws its pool) that the client's replay
+    /// does not run, so the arrival is the word.
     /// </summary>
+    [NoErrorCheck]
     [NetArray(MaxAmmoSlots)] public partial NetArray<short> Ammo { get; }
 }

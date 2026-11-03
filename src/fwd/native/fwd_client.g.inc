@@ -1628,7 +1628,7 @@ static void *const s_ShimEntitiesServerSlots[] = {
 static const SSForwarderTable s_ShimEntitiesServerTable = { s_ShimEntitiesServerSlots, 21 };
 
 //-----------------------------------------------------------------------------
-// ShimEntityLifecycle: 14 forwarder(s) over IShimEntityLifecycle.
+// ShimEntityLifecycle: 15 forwarder(s) over IShimEntityLifecycle.
 //-----------------------------------------------------------------------------
 // uint32_t IShimEntityLifecycle::CreateEntity( const char * )
 static uint32_t SSFwd_ShimEntityLifecycle_CreateEntity( IShimEntityLifecycle *self, const char * a0 ) { return self->CreateEntity( a0 ); }
@@ -1658,6 +1658,8 @@ static const char * SSFwd_ShimEntityLifecycle_EntityFactoryRefusalNameAt( IShimE
 static int32_t SSFwd_ShimEntityLifecycle_EntityFactoryRefusalTimesAt( IShimEntityLifecycle *self, int32_t a0 ) { return self->EntityFactoryRefusalTimesAt( a0 ); }
 // int32_t IShimEntityLifecycle::TemplateSpawnKeyed( const char *, const char *, const int32_t *, const float *, const float *, int32_t, uint32_t *, int32_t )
 static int32_t SSFwd_ShimEntityLifecycle_TemplateSpawnKeyed( IShimEntityLifecycle *self, const char * a0, const char * a1, const int32_t * a2, const float * a3, const float * a4, int32_t a5, uint32_t * a6, int32_t a7 ) { return self->TemplateSpawnKeyed( a0, a1, a2, a3, a4, a5, a6, a7 ); }
+// uint32_t IShimEntityLifecycle::MapSpawnCreateAt( const char *, const char *, int32_t, int32_t )
+static uint32_t SSFwd_ShimEntityLifecycle_MapSpawnCreateAt( IShimEntityLifecycle *self, const char * a0, const char * a1, int32_t a2, int32_t a3 ) { return self->MapSpawnCreateAt( a0, a1, a2, a3 ); }
 
 static void *const s_ShimEntityLifecycleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_CreateEntity ),
@@ -1674,9 +1676,10 @@ static void *const s_ShimEntityLifecycleSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryRefusalNameAt ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_EntityFactoryRefusalTimesAt ),
 	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_TemplateSpawnKeyed ),
+	reinterpret_cast< void * >( &SSFwd_ShimEntityLifecycle_MapSpawnCreateAt ),
 };
 
-static const SSForwarderTable s_ShimEntityLifecycleTable = { s_ShimEntityLifecycleSlots, 14 };
+static const SSForwarderTable s_ShimEntityLifecycleTable = { s_ShimEntityLifecycleSlots, 15 };
 
 //-----------------------------------------------------------------------------
 // ShimTransform: 12 forwarder(s) over IShimTransform.
@@ -1814,7 +1817,7 @@ static void *const s_ShimPhysicsSlots[] = {
 static const SSForwarderTable s_ShimPhysicsTable = { s_ShimPhysicsSlots, 6 };
 
 //-----------------------------------------------------------------------------
-// ShimDamage: 3 forwarder(s) over IShimDamage.
+// ShimDamage: 4 forwarder(s) over IShimDamage.
 //-----------------------------------------------------------------------------
 // void IShimDamage::ApplyDamage( uint32_t, uint32_t, float, int32_t )
 static void SSFwd_ShimDamage_ApplyDamage( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3 ) { self->ApplyDamage( a0, a1, a2, a3 ); }
@@ -1822,14 +1825,17 @@ static void SSFwd_ShimDamage_ApplyDamage( IShimDamage *self, uint32_t a0, uint32
 static void SSFwd_ShimDamage_EntityTakeDamage( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3, const float * a4, const float * a5, int32_t a6 ) { self->EntityTakeDamage( a0, a1, a2, a3, a4, a5, a6 ); }
 // void IShimDamage::ApplyDamageForce( uint32_t, uint32_t, float, int32_t, const float *, const float * )
 static void SSFwd_ShimDamage_ApplyDamageForce( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3, const float * a4, const float * a5 ) { self->ApplyDamageForce( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimDamage::EntityTakeDamageAnswered( uint32_t, uint32_t, float, int32_t, const float *, const float *, int32_t )
+static int32_t SSFwd_ShimDamage_EntityTakeDamageAnswered( IShimDamage *self, uint32_t a0, uint32_t a1, float a2, int32_t a3, const float * a4, const float * a5, int32_t a6 ) { return self->EntityTakeDamageAnswered( a0, a1, a2, a3, a4, a5, a6 ); }
 
 static void *const s_ShimDamageSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimDamage_ApplyDamage ),
 	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityTakeDamage ),
 	reinterpret_cast< void * >( &SSFwd_ShimDamage_ApplyDamageForce ),
+	reinterpret_cast< void * >( &SSFwd_ShimDamage_EntityTakeDamageAnswered ),
 };
 
-static const SSForwarderTable s_ShimDamageTable = { s_ShimDamageSlots, 3 };
+static const SSForwarderTable s_ShimDamageTable = { s_ShimDamageSlots, 4 };
 
 //-----------------------------------------------------------------------------
 // ShimGameRules: 2 forwarder(s) over IShimGameRules.
@@ -2210,7 +2216,7 @@ static void *const s_ShimTempEntBackendsClientSlots[] = {
 static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
-// ShimEffectsRenderClient: 29 forwarder(s) over IShimEffectsRenderClient.
+// ShimEffectsRenderClient: 34 forwarder(s) over IShimEffectsRenderClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimEffectsRenderClient::DrawSprite( uint32_t, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float )
 static int32_t SSFwd_ShimEffectsRenderClient_DrawSprite( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, float a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8, float a9, int32_t a10, float a11, float a12 ) { return self->DrawSprite( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 ); }
@@ -2270,6 +2276,16 @@ static int32_t SSFwd_ShimEffectsRenderClient_BeamGlow( IShimEffectsRenderClient 
 static void SSFwd_ShimEffectsRenderClient_BeamDrawStrip( IShimEffectsRenderClient *self, const float * a0, int32_t a1 ) { self->BeamDrawStrip( a0, a1 ); }
 // void IShimEffectsRenderClient::BeamDrawMesh( int32_t, int32_t, int32_t, const float *, int32_t )
 static void SSFwd_ShimEffectsRenderClient_BeamDrawMesh( IShimEffectsRenderClient *self, int32_t a0, int32_t a1, int32_t a2, const float * a3, int32_t a4 ) { self->BeamDrawMesh( a0, a1, a2, a3, a4 ); }
+// int32_t IShimEffectsRenderClient::ParticleSystemStartExtra( uint32_t, const char * )
+static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemStartExtra( IShimEffectsRenderClient *self, uint32_t a0, const char * a1 ) { return self->ParticleSystemStartExtra( a0, a1 ); }
+// void IShimEffectsRenderClient::ParticleSystemStopExtra( uint32_t )
+static void SSFwd_ShimEffectsRenderClient_ParticleSystemStopExtra( IShimEffectsRenderClient *self, uint32_t a0 ) { self->ParticleSystemStopExtra( a0 ); }
+// int32_t IShimEffectsRenderClient::ParticleSystemFollowEntity( uint32_t, int32_t, uint32_t, int32_t, const float * )
+static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemFollowEntity( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, uint32_t a2, int32_t a3, const float * a4 ) { return self->ParticleSystemFollowEntity( a0, a1, a2, a3, a4 ); }
+// int32_t IShimEffectsRenderClient::ParticleSystemStartSlot( uint32_t, const char *, int32_t )
+static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemStartSlot( IShimEffectsRenderClient *self, uint32_t a0, const char * a1, int32_t a2 ) { return self->ParticleSystemStartSlot( a0, a1, a2 ); }
+// void IShimEffectsRenderClient::ParticleSystemStopSlot( uint32_t, int32_t )
+static void SSFwd_ShimEffectsRenderClient_ParticleSystemStopSlot( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1 ) { self->ParticleSystemStopSlot( a0, a1 ); }
 
 static void *const s_ShimEffectsRenderClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_DrawSprite ),
@@ -2301,12 +2317,17 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamGlow ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamDrawStrip ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_BeamDrawMesh ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStartExtra ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStopExtra ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemFollowEntity ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStartSlot ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStopSlot ),
 };
 
-static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 29 };
+static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 34 };
 
 //-----------------------------------------------------------------------------
-// ShimStandaloneClient: 24 forwarder(s) over IShimStandaloneClient.
+// ShimStandaloneClient: 25 forwarder(s) over IShimStandaloneClient.
 //-----------------------------------------------------------------------------
 // void IShimStandaloneClient::ActivateOccluder( int32_t, int32_t )
 static void SSFwd_ShimStandaloneClient_ActivateOccluder( IShimStandaloneClient *self, int32_t a0, int32_t a1 ) { self->ActivateOccluder( a0, a1 ); }
@@ -2356,6 +2377,8 @@ static void SSFwd_ShimStandaloneClient_SurfaceSetMaterials( IShimStandaloneClien
 static void SSFwd_ShimStandaloneClient_SurfaceSetPlan( IShimStandaloneClient *self, uint32_t a0, const int32_t * a1, int32_t a2 ) { self->SurfaceSetPlan( a0, a1, a2 ); }
 // void IShimStandaloneClient::ClientInterpAdmitted( const uint32_t *, int32_t )
 static void SSFwd_ShimStandaloneClient_ClientInterpAdmitted( IShimStandaloneClient *self, const uint32_t * a0, int32_t a1 ) { self->ClientInterpAdmitted( a0, a1 ); }
+// void IShimStandaloneClient::EntitySetModelOverride( uint32_t, const char * )
+static void SSFwd_ShimStandaloneClient_EntitySetModelOverride( IShimStandaloneClient *self, uint32_t a0, const char * a1 ) { self->EntitySetModelOverride( a0, a1 ); }
 
 static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ActivateOccluder ),
@@ -2382,12 +2405,13 @@ static void *const s_ShimStandaloneClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceSetMaterials ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_SurfaceSetPlan ),
 	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_ClientInterpAdmitted ),
+	reinterpret_cast< void * >( &SSFwd_ShimStandaloneClient_EntitySetModelOverride ),
 };
 
-static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 24 };
+static const SSForwarderTable s_ShimStandaloneClientTable = { s_ShimStandaloneClientSlots, 25 };
 
 //-----------------------------------------------------------------------------
-// ShimViewClient: 29 forwarder(s) over IShimViewClient.
+// ShimViewClient: 31 forwarder(s) over IShimViewClient.
 //-----------------------------------------------------------------------------
 // void IShimViewClient::ConNPrintf( void *, int32_t, const char * )
 static void SSFwd_ShimViewClient_ConNPrintf( IShimViewClient *self, void * a0, int32_t a1, const char * a2 ) { self->ConNPrintf( a0, a1, a2 ); }
@@ -2447,6 +2471,10 @@ static void SSFwd_ShimViewClient_ColorLookupResetWeights( IShimViewClient *self 
 static int32_t SSFwd_ShimViewClient_ClientClipRayToEntities( IShimViewClient *self, const float * a0, const float * a1, int32_t a2, const int32_t * a3, int32_t a4, float * a5, float * a6, float * a7, int32_t * a8, int32_t * a9, int32_t * a10, int32_t * a11 ) { return self->ClientClipRayToEntities( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 ); }
 // int32_t IShimViewClient::ClientTraceHullEntities( const float *, const float *, const float *, const float *, int32_t, int32_t, const int32_t *, int32_t, float *, float *, int32_t *, float * )
 static int32_t SSFwd_ShimViewClient_ClientTraceHullEntities( IShimViewClient *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, const int32_t * a6, int32_t a7, float * a8, float * a9, int32_t * a10, float * a11 ) { return self->ClientTraceHullEntities( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11 ); }
+// int32_t IShimViewClient::ScreenOverlaySet( const char * )
+static int32_t SSFwd_ShimViewClient_ScreenOverlaySet( IShimViewClient *self, const char * a0 ) { return self->ScreenOverlaySet( a0 ); }
+// int32_t IShimViewClient::ScreenOverlayGet( char *, int32_t )
+static int32_t SSFwd_ShimViewClient_ScreenOverlayGet( IShimViewClient *self, char * a0, int32_t a1 ) { return self->ScreenOverlayGet( a0, a1 ); }
 
 static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ConNPrintf ),
@@ -2478,9 +2506,11 @@ static void *const s_ShimViewClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ColorLookupResetWeights ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientClipRayToEntities ),
 	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ClientTraceHullEntities ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ScreenOverlaySet ),
+	reinterpret_cast< void * >( &SSFwd_ShimViewClient_ScreenOverlayGet ),
 };
 
-static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 29 };
+static const SSForwarderTable s_ShimViewClientTable = { s_ShimViewClientSlots, 31 };
 
 //-----------------------------------------------------------------------------
 // ShimUserMessagesClient: 2 forwarder(s) over IShimUserMessagesClient.
@@ -2534,7 +2564,7 @@ static void *const s_ShimDiagnosticsClientSlots[] = {
 static const SSForwarderTable s_ShimDiagnosticsClientTable = { s_ShimDiagnosticsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimUiClient: 21 forwarder(s) over IShimUiClient.
+// ShimUiClient: 23 forwarder(s) over IShimUiClient.
 //-----------------------------------------------------------------------------
 // void IShimUiClient::UiDrawFilledRect( int32_t, int32_t, int32_t, int32_t, uint32_t )
 static void SSFwd_ShimUiClient_UiDrawFilledRect( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->UiDrawFilledRect( a0, a1, a2, a3, a4 ); }
@@ -2578,6 +2608,10 @@ static int32_t SSFwd_ShimUiClient_UiDebugOverlayText( IShimUiClient *self, int32
 static void SSFwd_ShimUiClient_UiDebugOverlayClearDead( IShimUiClient *self ) { self->UiDebugOverlayClearDead(); }
 // void IShimUiClient::ClientModeLayout( void )
 static void SSFwd_ShimUiClient_ClientModeLayout( IShimUiClient *self ) { self->ClientModeLayout(); }
+// void IShimUiClient::UiDrawTexturedQuad( int32_t, const float *, int32_t, uint32_t, int32_t )
+static void SSFwd_ShimUiClient_UiDrawTexturedQuad( IShimUiClient *self, int32_t a0, const float * a1, int32_t a2, uint32_t a3, int32_t a4 ) { self->UiDrawTexturedQuad( a0, a1, a2, a3, a4 ); }
+// int32_t IShimUiClient::UiMaterialTexture( const char * )
+static int32_t SSFwd_ShimUiClient_UiMaterialTexture( IShimUiClient *self, const char * a0 ) { return self->UiMaterialTexture( a0 ); }
 
 static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawFilledRect ),
@@ -2601,9 +2635,11 @@ static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDebugOverlayText ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDebugOverlayClearDead ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_ClientModeLayout ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawTexturedQuad ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiMaterialTexture ),
 };
 
-static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 21 };
+static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 23 };
 
 //-----------------------------------------------------------------------------
 // ShimParticlesClient: 20 forwarder(s) over IShimParticlesClient.

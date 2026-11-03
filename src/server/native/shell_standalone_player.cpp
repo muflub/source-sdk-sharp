@@ -705,12 +705,12 @@ CStandalonePlayer* CServerEntityLifecycle::CreatePlayer(edict_t* pEdict, const c
 		return NULL;
 	}
 
-	SourceSharp_SetPendingPlayerEdict(context.m_Players, pEdict);
+	SourceSharp_SetPendingEdict(context.m_Players, pEdict, false);
 
 	IServerNetworkable* pNet = pFactory->Create("player", context);
 
 	// Normally claimed by PostConstruct; a failed creation must not leak it to the next entity.
-	SourceSharp_ClaimPendingPlayerEdict(context.m_Players);
+	SourceSharp_ClaimPendingEdict(context.m_Players, NULL);
 
 	if (!pNet)
 		return NULL;

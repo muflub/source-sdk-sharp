@@ -27,7 +27,7 @@ public class PlayerNamesTests
         public void EventSetInt(IntPtr h, string key, int value) => _live[h].Fields[key] = value;
         public void EventSetBool(IntPtr h, string key, bool value) => _live[h].Fields[key] = value;
         public void EventSetString(IntPtr h, string key, string value) => _live[h].Fields[key] = value;
-        public bool EventFire(IntPtr h)
+        public bool EventFire(IntPtr h, bool dontBroadcast = false)
         {
             Fired.Add(_live[h]);
             _live.Remove(h);
@@ -122,5 +122,75 @@ public class PlayerNamesTests
         names.Changed(2);
 
         Assert.Equal(("bob", "carol"), ((string)events.Fired[1].Fields["oldname"], (string)events.Fired[1].Fields["newname"]));
+    }
+
+    /// <summary>A gate whose verdict is the test's.</summary>
+    private sealed class VerdictGate(bool allows) : INameChangeGate
+    {
+        public readonly List<(int Ent, string Old, string New)> Asked = new();
+
+        public bool MayChange(int entIndex, string oldName, string newName)
+        {
+            Asked.Add((entIndex, oldName, newName));
+            return allows;
+        }
+    }
+
+    /// <summary>The one-gate chain.</summary>
+    private sealed class OneHook(INameChangeGate hook) : IHooks<INameChangeGate>
+    {
+        public IReadOnlyList<INameChangeGate> All => [hook];
+
+        public void Each(string what, Action<INameChangeGate> call) => call(hook);
+    }
+
+    private static (PlayerNames Names, Events Events, Clients Clients) RigWith(INameChangeGate gate)
+    {
+        var events = new Events();
+        var clients = new Clients();
+        return (new PlayerNames(events, clients, new OneHook(gate)), events, clients);
+    }
+
+    [Fact]
+    public void A_refusing_gate_leaves_the_name_and_fires_nothing()
+    {
+        var gate = new VerdictGate(false);
+        var (names, events, clients) = RigWith(gate);
+        names.PutInServer(2, "alice");
+        clients.Name = "bob";
+
+        Assert.False(names.Changed(2));
+
+        Assert.Empty(events.Fired);
+        Assert.Equal("alice", names.NameOf(2));
+        Assert.Equal((2, "alice", "bob"), Assert.Single(gate.Asked));
+    }
+
+    [Fact]
+    public void An_allowing_gate_asks_and_the_rename_stands()
+    {
+        var gate = new VerdictGate(true);
+        var (names, events, clients) = RigWith(gate);
+        names.PutInServer(2, "alice");
+        clients.Name = "bob";
+
+        Assert.True(names.Changed(2));
+
+        Assert.Single(events.Fired);
+        Assert.Equal("bob", names.NameOf(2));
+        Assert.Equal((2, "alice", "bob"), Assert.Single(gate.Asked));
+    }
+
+    [Fact]
+    public void A_noop_rename_wakes_no_gate()
+    {
+        var gate = new VerdictGate(true);
+        var (names, events, clients) = RigWith(gate);
+        names.PutInServer(2, "alice");
+        clients.Name = "alice";
+
+        Assert.False(names.Changed(2));
+
+        Assert.Empty(gate.Asked);
     }
 }

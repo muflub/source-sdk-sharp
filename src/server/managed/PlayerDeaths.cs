@@ -42,7 +42,7 @@ public interface IRespawnGate
 /// </summary>
 public sealed class PlayerDeaths(ILog log, IEngineEntities entities, Corpses corpses, Players players,
                                  IGameClock clock, IHooks<IPlayerDeathHook> hooks, DeathNotice deathNotice,
-                                 IPlayerFlashlight? flashlight = null)
+                                 IEnginePlayers enginePlayers, IPlayerFlashlight? flashlight = null)
 {
     public void OnKilled(EntityHandle player, EntityHandle attacker)
     {
@@ -73,6 +73,15 @@ public sealed class PlayerDeaths(ILog log, IEngineEntities entities, Corpses cor
 
         var death = new PlayerDeath(player, entities.GetIndex(player), attacker, origin, body);
         hooks.Each(nameof(IPlayerDeathHook.OnPlayerDied), h => h.OnPlayerDied(death));
+
+        // The inventory dies with them, AFTER the hooks: stock's Event_Killed
+        // lets the death's own drops read the live ammo (CTFPlayer::Event_Killed
+        // drops its ammo pack at tf_player.cpp:12161, five hundred lines before
+        // the RemoveAllItems(true) at :12658), so a drop hook must see the
+        // ammo and weapons while they are still there. What used to be
+        // Players.OnKilled's own last act; the record is the record, and the
+        // wipe belongs where the stock order puts it.
+        enginePlayers.RemoveAllItems(player, stripSuit: false);
 
         log.Msg($"[SourceSharp/Server] {player} killed by " +
                 $"{(entities.IsValid(attacker) ? attacker.ToString() : "world")} " +

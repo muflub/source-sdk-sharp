@@ -69,6 +69,14 @@ public sealed class FrictionSounds
     private readonly IPhysicsSurfaceTable _surfaces;
     private readonly List<Scrape> _scrapes = new(MaxScrapes);
 
+    // A scrape script that failed to load, by name. Stock's game sound system
+    // caches the miss with the script, so a missing script is asked of the
+    // engine once; without this, an entity whose script is missing (a ragdoll
+    // that never sleeps reports Friction every frame) re-asks every event,
+    // since the 500 ms throttle lives on the table entry the script was
+    // needed to create.
+    private readonly HashSet<string> _missingScripts = new();
+
     /// <summary>
     /// Either side's: the two effects a scrape throws off, as that side's
     /// g_pEffects makes them. <paramref name="soundSource"/> names the entity
@@ -166,8 +174,13 @@ public sealed class FrictionSounds
         if (index < 0 && _scrapes.Count >= MaxScrapes)
             return;
 
-        if (_sound.SoundScriptParameters(name) is not { } script)
+        if (_missingScripts.Contains(name))
             return;
+        if (_sound.SoundScriptParameters(name) is not { } script)
+        {
+            _missingScripts.Add(name);
+            return;
+        }
 
         if (index < 0)
         {

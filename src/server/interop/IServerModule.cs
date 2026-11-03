@@ -191,6 +191,49 @@ public interface IServerModule
     /// </summary>
     float GetMaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial);
 
+    /// <summary>
+    /// The upward speed of a jump pressed in the air, 0 to refuse it (stock).
+    /// Runs on both sides; see <c>IMovementRules.AirJump</c>.
+    /// </summary>
+    float GetAirJump(in JumpRequest request);
+
+    /// <summary>
+    /// The player stands on ground this movement step. Runs on both sides;
+    /// see <c>IMovementRules.Grounded</c>.
+    /// </summary>
+    void OnPlayerGrounded(int playerIndex);
+
+    /// <summary>
+    /// A standing player's eye height, before the model scale. Runs on both
+    /// sides; see <c>IMovementRules.EyeHeight</c>.
+    /// </summary>
+    float GetEyeHeight(int playerIndex, float standing);
+
+    /// <summary>
+    /// The fastest a jump may leave (0, stock, crops nothing). Runs on both
+    /// sides; see <c>IMovementRules.BunnyJumpCap</c>.
+    /// </summary>
+    float GetBunnyJumpCap(int playerIndex, float maxSpeed);
+
+    /// <summary>
+    /// The backpedal clamp for a walk (null, stock, crops nothing). Runs on
+    /// both sides; see <c>IMovementRules.BackpedalLimit</c>.
+    /// </summary>
+    BackpedalLimit? GetBackpedalLimit(int playerIndex, float maxSpeed);
+
+    /// <summary>
+    /// The stun's rewrite of a walk's command (null, stock, rewrites nothing).
+    /// Runs on both sides; see <c>IMovementRules.MovementStun</c>.
+    /// </summary>
+    MovementStun? GetMovementStun(int playerIndex, float curTime, int buttons,
+                                  float forwardMove, float sideMove, float upMove);
+
+    /// <summary>
+    /// The taunt's rewrite of a walk's command (null, stock, rewrites nothing).
+    /// Runs on both sides; see <c>IMovementRules.MovementTaunt</c>.
+    /// </summary>
+    MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => null;
+
     //-------------------------------------------------------------------------
     // The game DLL, in the five subjects it splits into.
     //

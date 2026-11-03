@@ -367,6 +367,8 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
             case SpecialType.System_UInt16:  return "UShort";
             case SpecialType.System_Int32:   return "Int";
             case SpecialType.System_UInt32:  return "UInt";
+            case SpecialType.System_Int64:   return "Long";
+            case SpecialType.System_UInt64:  return "ULong";
             case SpecialType.System_Single:  return "Float";
             case SpecialType.System_String:  return "String";
         }
@@ -385,6 +387,7 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
         "Bool" or "Byte" or "String"    => 1,
         "Short" or "UShort"             => 2,
         "Int" or "UInt" or "Float"      => 4,
+        "Long" or "ULong"               => 8,
         "Color"                         => 4,
         "Vector"                        => 12,
         _ => throw new InvalidOperationException($"no width for kind {kind}"),
@@ -521,6 +524,8 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
         "UShort" => $"writer.WriteShort(unchecked((short){v}));",
         "Int"    => $"writer.WriteInt({v});",
         "UInt"   => $"writer.WriteInt(unchecked((int){v}));",
+        "Long"   => $"writer.WriteLong({v});",
+        "ULong"  => $"writer.WriteULong({v});",
         "Float"  => $"writer.WriteFloat({v});",
         "Vector" => $"writer.WriteFloat({v}.X); writer.WriteFloat({v}.Y); writer.WriteFloat({v}.Z);",
         "Color"  => $"writer.WriteColor(unchecked((byte){v}.R), unchecked((byte){v}.G), unchecked((byte){v}.B), unchecked((byte){v}.A));",
@@ -570,6 +575,8 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
         "UShort" => "unchecked((ushort)reader.ReadShort())",
         "Int"    => "reader.ReadInt()",
         "UInt"   => "unchecked((uint)reader.ReadInt())",
+        "Long"   => "reader.ReadLong()",
+        "ULong"  => "reader.ReadULong()",
         "Float"  => "reader.ReadFloat()",
         "String" => "reader.ReadString()",
         "Vector" => "new global::SourceSharp.Abi.Vector(reader.ReadFloat(), reader.ReadFloat(), reader.ReadFloat())",
@@ -584,7 +591,7 @@ public sealed class UserMessagePayloadGenerator : IIncrementalGenerator
 
     private static readonly DiagnosticDescriptor UnsupportedType = new(
         "SSMSG001", "Unsupported user message member type",
-        "'{0}' is a {1}, which a user message payload cannot carry; use bool, byte, short, ushort, int, uint, float, string, Vector, Color32, or a one-dimensional array of one of those",
+        "'{0}' is a {1}, which a user message payload cannot carry; use bool, byte, short, ushort, int, uint, long, ulong, float, string, Vector, Color32, or a one-dimensional array of one of those",
         "SourceSharp", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     private static readonly DiagnosticDescriptor NeedsGetAndSet = new(

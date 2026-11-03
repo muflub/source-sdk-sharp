@@ -315,14 +315,12 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
         else
             record.Kills--;
 
+        // The victim's own weapon goes where they fell, before the wipe that
+        // PlayerDeaths runs after the death hooks: stock drops from the live
+        // inventory (CTFPlayer::Event_Killed drops its ammo pack at
+        // tf_player.cpp:12161, before the RemoveAllItems(true) at :12658).
         if (DropWeaponOnDeath)
             Drop(player);
-
-        // The rest of the inventory dies with them — stock's RemoveAllItems on
-        // death, which is what makes the respawn loadout a fresh start rather
-        // than a top-up. Routed through the engine interface so the hierarchy
-        // decorator (Phase 10) answers for hierarchy players.
-        _players.RemoveAllItems(player, stripSuit: false);
     }
 
     /// <summary>
@@ -417,6 +415,12 @@ public sealed class Players : IPlayerDirectory, IGameLifecycle, IFrameLifecycle
                 _observers.Stop(watcher);
 
             _players.Respawn(player);
+
+            // The respawn's words land outside any command; the stamp lets the
+            // client adopt the compare that straddles them (PlayerNetState.
+            // SpawnEpoch).
+            if (watcher is not null)
+                watcher.State.SpawnEpoch++;
 
             record.DiedAt = -1f;
             record.Watching = false;

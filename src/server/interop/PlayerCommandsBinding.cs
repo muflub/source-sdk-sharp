@@ -19,7 +19,7 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
                                                   Func<bool> shadowEnabled, ServerPlayerCommands? serverCommands,
                                                   ModuleEngine? engine) : IManagedPlayerCommands
 {
-    // The module's three movement decisions, built once by For (statics to
+    // The module's movement decisions, built once by For (statics to
     // zero) and handed to the server's command stages, the pack its loop runs.
     private readonly MovementRules _rules = rules;
 
@@ -40,7 +40,14 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
         var rules = new MovementRules(
             r => game.GetJumpScale(in r),
             (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
-            (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m));
+            (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m),
+            r => game.GetAirJump(in r),
+            i => game.OnPlayerGrounded(i),
+            (i, z) => game.GetEyeHeight(i, z),
+            (i, ms) => game.GetBunnyJumpCap(i, ms),
+            (i, ms) => game.GetBackpedalLimit(i, ms),
+            (i, t, b, f, s, u) => game.GetMovementStun(i, t, b, f, s, u),
+            (i, t, f) => game.GetMovementTaunt(i, t, f));
 
         if (serverCommands is not null)
             serverCommands.Rules = rules;

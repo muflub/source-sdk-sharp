@@ -181,6 +181,40 @@ public class PlayerAnimStateDriveTests
             $"so the HL2 layer's run is the server's gait ({string.Join(",", writes)})");
     }
 
+    /// <summary>A layer that asks nothing and claims nothing, only reading the target it is offered.</summary>
+    private sealed class IndexProbe : IAnimStateLayer
+    {
+        public int SawEntityIndex = int.MinValue;
+
+        public int LayerOrder => Hl2PostureLayer.LayerOrderDefault - 400;
+
+        public bool TryOverrideMainSequence(AnimStateContext context, AnimMainSequence main)
+        {
+            SawEntityIndex = context.Target.EntityIndex;
+            return false;
+        }
+
+        public bool TryOverrideGesture(AnimStateContext context, AnimGesture gesture) => false;
+        public bool TryHandleAnimEvent(AnimStateContext context, PlayerAnimEvent animEvent, int data) => false;
+    }
+
+    [Fact]
+    public void TheTargetsEntityIndexIsTheEnginesAnswerForItsHandle()
+    {
+        // The TF2 layer reaches the mod's per-player data through the target
+        // it is offered (ITFPlayerData.Networked(int), the active-weapon seam's
+        // ActiveWeapon(int)), so the target has to name its index: the engine's
+        // GetIndex of the handle the target was built with.
+        var probe = new IndexProbe();
+        var (player, engine) = Running(Composition(probe));
+        engine.Returns("Entities.GetIndex", 7);
+
+        player.UpdateAnimState(10f);
+        player.UpdateAnimState(10.015f);
+
+        Assert.Equal(7, probe.SawEntityIndex);
+    }
+
     [Fact]
     public void WithNoLayerRegisteredTheServersChainIsTheHl2LayerAlone()
     {

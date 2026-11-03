@@ -28,6 +28,7 @@
 #include "hudelement.h"
 #include "vgui_controls/Controls.h"
 #include "vgui/ISurface.h"
+#include "ienginevgui.h"
 #include "vgui/ILocalize.h"
 #include "vgui/Cursor.h"
 #include "VGuiMatSurface/IMatSystemSurface.h"
@@ -42,6 +43,7 @@
 #include "vgui/KeyCode.h"
 #include "vgui/MouseCode.h"
 #include "vgui/VGUI.h"
+#include "materialsystem/imaterial.h"
 #include "cdll_client_int.h"
 #include "cdll_int.h"
 #include "cdll_util.h"
@@ -53,6 +55,7 @@
 #include "sourcesharp_entrypoints.h"
 #include "shell_diagnostics.h"
 #include "sourcesharp.h"
+#include "view_scene.h"
 #include "imanaged_areas_client.h"
 
 // IShimUiClient's draw primitives, one vgui::ISurface call each. Colours arrive
@@ -150,12 +153,33 @@ void SourceSharp_UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint
 	vgui::surface()->DrawLine(x0, y0, x1, y1);
 }
 
+// Texture ids bound to an engine material (UiMaterialTexture below): a draw of
+// one runs the material's own shader, and a Refract shader needs the frame
+// buffer copy fresh — stock refreshes it at the top of CHudScope::Paint
+// (tf_hud_scope.cpp:398) before its quadrant draws. The refresh is guarded by
+// the frame count (view_scene.h), so the four quadrants of one frame pay once.
+static int s_MaterialTextures[64];
+static int s_nMaterialTextures;
+
+static void RefreshRefractFor(int32_t nTexture)
+{
+	for (int i = 0; i < s_nMaterialTextures; i++)
+	{
+		if (s_MaterialTextures[i] == nTexture)
+		{
+			UpdateRefractTexture();
+			return;
+		}
+	}
+}
+
 void SourceSharp_UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
 									float t0, float s1, float t1, uint32_t nRgba)
 {
 	if (!g_UiPaint.bOpen || x1 <= x0 || y1 <= y0 || !vgui::surface()->IsTextureIDValid(nTexture))
 		return;
 
+	RefreshRefractFor(nTexture);
 	SetColor(nRgba);
 	vgui::surface()->DrawSetTexture(nTexture);
 	vgui::surface()->DrawTexturedSubRect(x0, y0, x1, y1, s0, t0, s1, t1);
@@ -167,13 +191,82 @@ void SourceSharp_UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVe
 		!vgui::surface()->IsTextureIDValid(nTexture))
 		return;
 
-	vgui::Vertex_t verts[kMaxVertices];
+	RefreshRefractFor(nTexture);
+	Vertex_t verts[kMaxVertices];
 	for (int i = 0; i < nVertices; i++)
 		verts[i].Init(Vector2D(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1]), Vector2D(pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]));
 
 	SetColor(nRgba);
 	vgui::surface()->DrawSetTexture(nTexture);
 	vgui::surface()->DrawTexturedPolygon(nVertices, verts);
+}
+
+// One textured quad from (x, y, u, v) vertices: a rotated or additive leaf.
+// bAdditive adds the pixels to what is behind (the damage ring's glow) by the
+// material flag of the texture id's own backing material — every RGBA upload
+// gets one UnlitGeneric of its own (__vgui_texture_N), so the flag touches
+// only that handle. The turn is one-way and remembered: a refresh is paid
+// once, on the draw that first asks, and a handle is drawn one way at a time.
+void SourceSharp_UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
+									int32_t bAdditive)
+{
+	if (!g_UiPaint.bOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices ||
+		!surface()->IsTextureIDValid(nTexture))
+		return;
+
+	RefreshRefractFor(nTexture);
+	Vertex_t verts[kMaxVertices];
+	for (int i = 0; i < nVertices; i++)
+		verts[i].Init(Vector2D(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1]), Vector2D(pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]));
+
+	if (bAdditive && g_pMatSystemSurface)
+	{
+		static int s_Additive[64];
+		static int s_nAdditive;
+		bool first = true;
+		for (int i = 0; i < s_nAdditive; i++)
+		{
+			if (s_Additive[i] == nTexture)
+			{
+				first = false;
+				break;
+			}
+		}
+		if (first && s_nAdditive < (int)(sizeof(s_Additive) / sizeof(s_Additive[0])))
+		{
+			if (IMaterial* pMaterial = g_pMatSystemSurface->DrawGetTextureMaterial(nTexture))
+			{
+				pMaterial->SetMaterialVarFlag(MATERIAL_VAR_ADDITIVE, true);
+				pMaterial->Refresh();
+				s_Additive[s_nAdditive++] = nTexture;
+			}
+		}
+	}
+
+	SetColor(nRgba);
+	surface()->DrawSetTexture(nTexture);
+	surface()->DrawTexturedPolygon(nVertices, verts);
+}
+
+// A texture handle bound to the named engine material: stock's
+// DrawSetTextureFile (CHudScope::Init, tf_hud_scope.cpp:317-320). The vgui
+// surface resolves the .vmt and the draw slots run the material's own shader —
+// a Refract quadrants' pixels are the refracted frame buffer, not a picture to
+// upload. A name that loads nothing (an error material) answers 0, and the
+// screen draws its fallback.
+int32_t SourceSharp_UiMaterialTexture(const char* pName)
+{
+	if (!pName || !pName[0])
+		return 0;
+
+	int id = surface()->CreateNewTextureID(true);
+	surface()->DrawSetTextureFile(id, pName, true, false);
+	if (g_pMatSystemSurface && IsErrorMaterial(g_pMatSystemSurface->DrawGetTextureMaterial(id)))
+		return 0;
+
+	if (s_nMaterialTextures < (int)(sizeof(s_MaterialTextures) / sizeof(s_MaterialTextures[0])))
+		s_MaterialTextures[s_nMaterialTextures++] = id;
+	return id;
 }
 
 void SourceSharp_UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength, uint32_t nRgba)
@@ -433,6 +526,25 @@ void SourceSharp_UiSetCursor(int32_t nShape)
 
 	if (g_UiPaint.pMenuRoot && nShape >= 0 && nShape < (int32_t)ARRAYSIZE(s_Cursors))
 		g_UiPaint.pMenuRoot->SetCursor((vgui::HCursor)s_Cursors[nShape]);
+}
+
+// While the engine's GameUI is up it hides the client root, so the menu root
+// follows the GameUI root (as stock's main-menu override does) and returns
+// under the client viewport when the GameUI hides.
+void SourceSharp_MenuRootFollowGameUI(bool bGameUiVisible)
+{
+	CSourceSharpRawPanel* pRoot = g_UiPaint.pMenuRoot;
+	if (!pRoot || !enginevgui)
+		return;
+
+	const vgui::VPANEL home =
+		bGameUiVisible ? enginevgui->GetPanel(PANEL_GAMEUIDLL) : SourceSharp_ClientViewportPanel();
+	if (!home || ipanel()->GetParent(pRoot->GetVPanel()) == home)
+		return;
+
+	ipanel()->SetParent(pRoot->GetVPanel(), home);
+	ipanel()->SetVisible(pRoot->GetVPanel(), true);
+	surface()->MovePopupToFront(pRoot->GetVPanel());
 }
 
 class CSourceSharpHud : public CHudElement, public CSourceSharpRawPanel

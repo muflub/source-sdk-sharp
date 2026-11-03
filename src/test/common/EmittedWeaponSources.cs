@@ -9,7 +9,7 @@ namespace SourceSharp.Tests;
 /// A MOD ASSEMBLY, BUILT BY THE FACT (Phase 0.4).
 ///
 /// <para>
-/// The catalogues order their sources by simple assembly name, ties kept in
+/// The catalogues order their sources by assembly layer (HookOrder.Layer), ties kept in
 /// registration order. A fact that declares its sources in the test assembly
 /// tests only the tie-break: every source there has the same assembly name, so
 /// the sort can neither take effect nor be seen to fail. This compiles a

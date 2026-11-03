@@ -42,13 +42,53 @@ public sealed class PreviewUiTextureLibrary(SourceSharp.Abi.IEngineFiles? files,
     private readonly Dictionary<string, UiTextureInfo?> _byMaterial = new(StringComparer.Ordinal);
     private readonly Dictionary<string, UiTextureInfo> _byTexture = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>The icon tables, read once over both files (hud_textures
+    /// then mod_textures, hud.cpp:464-465); null until the first ask.</summary>
+    private HudIconTable? _icons;
+
+    /// <summary>Per icon name, what resolved — null cached, as a material miss is.</summary>
+    private readonly Dictionary<string, UiTextureIcon?> _byIcon = new(StringComparer.Ordinal);
+
     public int Find(string name) => Load(name)?.Handle ?? 0;
+    public int Material(string name) => 0;
 
     public UiTextureInfo? About(string name) => Load(name);
 
     // One load at a time: the preview's parallel samples share this library,
     // and a material is read and decoded once.
     private readonly object _lock = new();
+
+    public UiTextureIcon? Icon(string name)
+    {
+        lock (_lock)
+        {
+            if (_byIcon.TryGetValue(name, out UiTextureIcon? cached))
+                return cached;
+            UiTextureIcon? icon = ReadIcon(name);
+            _byIcon[name] = icon;
+            return icon;
+        }
+    }
+
+    /// <summary>The icon's entry loads its file like a material does, and
+    /// the rect normalizes over that texture's size. A miss is silent:
+    /// stock's GetIcon is a plain find answering NULL (hud.cpp:792-799).</summary>
+    private UiTextureIcon? ReadIcon(string name)
+    {
+        _icons ??= HudIconTable.Chain(ReadTable("scripts/hud_textures.txt"), ReadTable("scripts/mod_textures.txt"));
+        if (_icons.Entry(name) is not { } entry)
+            return null;
+        if (Load(entry.File) is not { } info)
+            return null;
+        return entry.Width < 0
+            ? new UiTextureIcon(info.Handle, new UiRect(0f, 0f, 1f, 1f), info.Wide, info.Tall)
+            : new UiTextureIcon(info.Handle, new UiRect(
+                entry.X / (float)info.Wide, entry.Y / (float)info.Tall,
+                entry.Width / (float)info.Wide, entry.Height / (float)info.Tall), entry.Width, entry.Height);
+    }
+
+    private HudIconTable ReadTable(string path)
+        => files?.ReadGameFileBytes(path) is { } bytes ? HudIconTable.Parse(bytes) : new HudIconTable();
 
     private UiTextureInfo? Load(string name)
     {

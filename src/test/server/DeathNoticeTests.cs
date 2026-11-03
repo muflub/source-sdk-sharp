@@ -46,7 +46,7 @@ public class DeathNoticeTests
         public void EventSetInt(IntPtr h, string key, int value) => _live[h].Fields[key] = value;
         public void EventSetBool(IntPtr h, string key, bool value) => _live[h].Fields[key] = value;
         public void EventSetString(IntPtr h, string key, string value) => _live[h].Fields[key] = value;
-        public bool EventFire(IntPtr h)
+        public bool EventFire(IntPtr h, bool dontBroadcast = false)
         {
             var e = _live[h];
             Fired.Add(e);
@@ -177,4 +177,84 @@ public class DeathNoticeWeaponNameTests
     [InlineData("func_door", "door")]
     public void Stocks_own_names_are_unchanged(string name, string expected)
         => Assert.Equal(expected, DeathNotice.WeaponName(name));
+}
+
+/// <summary>
+/// A mod's <c>player_death</c> keys (tf2 stage 2.7): <see cref="IDeathNoticeHook"/>
+/// is handed the death as the core read it and fills the event before it fires.
+/// </summary>
+public class DeathNoticeHookTests
+{
+    private static readonly EntityHandle Victim = new(0x010001);
+    private static readonly EntityHandle Killer = new(0x010002);
+
+    private sealed class ListHooks<T>(params T[] hooks) : IHooks<T> where T : class
+    {
+        public IReadOnlyList<T> All => hooks;
+        public void Each(string what, Action<T> call) { foreach (var h in hooks) call(h); }
+    }
+
+    private sealed class Events : IEngineGameEvents
+    {
+        private readonly Dictionary<string, object> _fields = new();
+        public readonly List<Dictionary<string, object>> Fired = new();
+        public IntPtr EventCreate(string name) => new(1);
+        public void EventSetInt(IntPtr h, string key, int value) => _fields[key] = value;
+        public void EventSetBool(IntPtr h, string key, bool value) => _fields[key] = value;
+        public void EventSetString(IntPtr h, string key, string value) => _fields[key] = value;
+        public bool EventFire(IntPtr h, bool dontBroadcast = false) { Fired.Add(new(_fields)); _fields.Clear(); return true; }
+        public int EventGetInt(IntPtr h, string key) => 0;
+        public float EventGetFloat(IntPtr h, string key) => 0f;
+        public bool EventGetBool(IntPtr h, string key) => false;
+        public string EventGetString(IntPtr h, string key) => "";
+        public void ListenForGameEvent(string name) { }
+    }
+
+    private sealed class Fills : IDeathNoticeHook
+    {
+        public DeathNoticeFacts Seen { get; private set; }
+        public void Fill(in DeathNoticeFacts death, IDeathNoticeFields fields)
+        {
+            Seen = death;
+            fields.SetString("weapon", "scattergun");
+            fields.SetInt("customkill", 1);
+            fields.SetBool("silent_kill", true);
+        }
+    }
+
+    private static (DeathNotice Notice, Events Events) Rig(IDeathNoticeHook? hook)
+    {
+        var engine = Fake();
+        engine.ReturnsEachCall("Players.GetUserId", () => engine.Calls[^1].Args[0] is EntityHandle h ? (h == Victim ? 7 : h == Killer ? 9 : 0) : 0);
+        engine.ReturnsEachCall("Entities.IsPlayer", () => engine.Calls[^1].Args[0] is EntityHandle h && (h == Victim || h == Killer));
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_scattergun").Returns("Entities.IsValid", true);
+        var events = new Events();
+        return (new DeathNotice(events, engine, engine, new DamageInflictors(),
+                                hook is null ? null : new ListHooks<IDeathNoticeHook>(hook)), events);
+    }
+
+    [Fact]
+    public void A_hook_adds_keys_and_overwrites_the_cores_weapon()
+    {
+        var (bare, bareEvents) = Rig(null);
+        bare.Fire(Victim, Killer);
+        var (notice, events) = Rig(new Fills());
+        notice.Fire(Victim, Killer);
+
+        var before = Assert.Single(bareEvents.Fired);
+        var after = Assert.Single(events.Fired);
+        Assert.Equal("tf_weapon_scattergun", (string)before["weapon"]);
+        Assert.False(before.ContainsKey("customkill"));
+        Assert.Equal(("scattergun", 1, true, 9), ((string)after["weapon"], (int)after["customkill"], (bool)after["silent_kill"], (int)after["attacker"]));
+    }
+
+    [Fact]
+    public void The_hook_is_handed_the_death_as_the_core_read_it()
+    {
+        var hook = new Fills();
+        var (notice, _) = Rig(hook);
+        notice.Fire(Victim, Killer);
+
+        Assert.Equal(new DeathNoticeFacts(Victim, Killer, Killer, Killer, "tf_weapon_scattergun"), hook.Seen);
+    }
 }

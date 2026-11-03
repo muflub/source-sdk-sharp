@@ -29,13 +29,17 @@ public sealed record SideFacts(
     IReadOnlyList<string> ClientAssemblies,
     string? BrowserJson = null,
     IReadOnlyList<string>? ClientUiAssemblies = null,
-    IReadOnlyList<string>? Localisation = null)
+    IReadOnlyList<string>? Localisation = null,
+    string? EncryptionKey = null)
 {
     /// <summary>The mod's UI assemblies (mods.yaml `assemblies.client_ui`); empty when it named none.</summary>
     public IReadOnlyList<string> ModClientUiAssemblies => ClientUiAssemblies ?? [];
 
     /// <summary>The mod's extra language files (mods.yaml `localisation`); empty when it named none.</summary>
     public IReadOnlyList<string> ModLocalisation => Localisation ?? [];
+
+    /// <summary>The mod's ICE key (mods.yaml `encryption_key`); null when it encrypts nothing — the empty row is none, not the empty key.</summary>
+    public string? ModEncryptionKey => string.IsNullOrEmpty(EncryptionKey) ? null : EncryptionKey;
 
     /// <summary>The side's own list of assemblies.</summary>
     public IReadOnlyList<string> AssembliesFor(bool server) => server ? ServerAssemblies : ClientAssemblies;
@@ -49,7 +53,7 @@ public sealed record SideFacts(
     /// <summary>Load's block, without its NUL.</summary>
     public static SideFacts ParseLoad(ReadOnlySpan<byte> utf8)
     {
-        string? managedDir = null, modId = null, gameDir = null, browser = null;
+        string? managedDir = null, modId = null, gameDir = null, browser = null, encryptionKey = null;
         IReadOnlyList<string>? server = null, client = null, clientUi = null, localisation = null;
 
         foreach (string[] f in Lines(utf8))
@@ -64,6 +68,7 @@ public sealed record SideFacts(
                 case "browser": browser = One(f); SourceSharp.Abi.ModBrowser.Parse(browser); break;    // refused here, not when read
                 case "client_ui_assemblies": clientUi = Names(One(f)); break;
                 case "localisation": localisation = Names(One(f)); break;
+                case "encryption_key": encryptionKey = One(f); break;
                 default:
                     throw new FormatException($"Load's facts do not carry {f[0]}: {string.Join('\t', f)}");
             }
@@ -75,7 +80,7 @@ public sealed record SideFacts(
             gameDir ?? throw Missing("game_dir"),
             server ?? throw Missing("server_assemblies"),
             client ?? throw Missing("client_assemblies"),
-            browser, clientUi, localisation);
+            browser, clientUi, localisation, encryptionKey);
     }
 
     /// <summary>Stamped's block, without its NUL.</summary>

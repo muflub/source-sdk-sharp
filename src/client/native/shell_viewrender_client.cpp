@@ -833,3 +833,44 @@ public:
 
 CPostProcessingPrecache g_PostProcessingPrecache;
 } // namespace
+
+// The screen overlay by name, the condition arms' half of r_screenoverlay: the
+// material out of the client-effects group as stock's condition code asks it
+// (tf_player_shared.cpp:3602), an empty name or one that does not load
+// (IsErrorMaterial) leaving the standing overlay, stock's guard. The read
+// copies the standing overlay's name, empty when there is none.
+int32_t SourceSharp_ScreenOverlaySet(const char* pszName)
+{
+	if (!pszName)
+		return 0;
+
+	IMaterial* pMaterial = NULL;
+	if (pszName[0] != '\0')
+	{
+		if (!materials)
+			return 0;
+
+		pMaterial = materials->FindMaterial(pszName, TEXTURE_GROUP_CLIENT_EFFECTS, false);
+		if (IsErrorMaterial(pMaterial))
+			return 0;
+	}
+
+	view->SetScreenOverlayMaterial(pMaterial);
+	return 1;
+}
+
+int32_t SourceSharp_ScreenOverlayGet(char* pOutName, int32_t nNameBytes)
+{
+	if (!pOutName || nNameBytes <= 0)
+		return 0;
+
+	IMaterial* pMaterial = view ? view->GetScreenOverlayMaterial() : NULL;
+	if (!pMaterial)
+	{
+		pOutName[0] = '\0';
+		return 1;
+	}
+
+	Q_strncpy(pOutName, pMaterial->GetName(), nNameBytes);
+	return 1;
+}

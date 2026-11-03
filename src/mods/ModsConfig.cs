@@ -49,7 +49,8 @@ public sealed record Mod(
     string ManagedDir,
     BrowserSettings? Browser = null,
     IReadOnlyList<string> ClientUiAssemblies = default!,
-    IReadOnlyList<string> Localisation = default!)
+    IReadOnlyList<string> Localisation = default!,
+    string? EncryptionKey = null)
 {
     /// <summary>
     /// The variable source# sets when the game runs on a game directory other
@@ -204,6 +205,7 @@ public sealed class ModsConfig
                 ClientUi = mod.Assemblies?.ClientUi ?? defaults.Assemblies?.ClientUi,
             },
             Localisation = mod.Localisation ?? defaults.Localisation,
+            EncryptionKey = mod.EncryptionKey ?? defaults.EncryptionKey,
             Browser = Merge(defaults.Browser, mod.Browser),
         };
     }
@@ -271,6 +273,13 @@ public sealed class ModsConfig
         var client = Role(where, "engine.client", e.Engine?.Client, new EngineRoleEntry())!;
         var dedicated = e.Engine?.Dedicated is null ? null : Role(where, "engine.dedicated", e.Engine.Dedicated, null);
 
+        // An ICE level 0 key is exactly 8 bytes (IceKey::set refuses any other
+        // length): said here, at the line that wrote it, rather than as a
+        // construction exception when the first script is read.
+        if (e.EncryptionKey is { Length: > 0 } && e.EncryptionKey.Length != 8)
+            throw new ModsConfigException(
+                $"{where}: encryption_key is {e.EncryptionKey.Length} characters; an ICE key is 8");
+
         return new Mod(
             id,
             WithId(e.Title, id) ?? id,
@@ -284,7 +293,8 @@ public sealed class ModsConfig
             managedDir,
             e.Browser is null ? null : Browser(where, e.Browser),
             e.Assemblies?.ClientUi ?? [],
-            e.Localisation ?? []);
+            e.Localisation ?? [],
+            string.IsNullOrEmpty(e.EncryptionKey) ? null : e.EncryptionKey);
     }
 
     private static BrowserSettings Browser(string where, BrowserEntry b)

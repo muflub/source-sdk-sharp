@@ -273,6 +273,30 @@ public interface IWeaponSelectionCommand
     void Escape();
 }
 
+/// <summary>
+/// What a slot bind asks before it acts: the catalog type the loadout row
+/// names, on the same index <c>CUserCmd::weaponselect</c> carries (+1, 0 =
+/// none). Stock's slots walked the player's weapons client-side
+/// (cf_hud weapon selection); ours asks the mod that knows the loadout.
+/// </summary>
+public interface IWeaponSlotForecast
+{
+    /// <summary>The catalog type the player's 0-based <paramref name="slot"/>th row names, or -1 for an empty one.</summary>
+    int TypeAt(int slot);
+}
+
+/// <summary>
+/// Stock's CreateMove latch (in_main.cpp:1207-1214): a bind arms a pending
+/// selection, the next usercmd carries it in <c>weaponselect</c>, and the
+/// server's RunCommand answers it — so the client predicts the deploy the
+/// same way it predicts everything else in the command.
+/// </summary>
+public interface IWeaponSelectionLatch
+{
+    /// <summary>Arms <paramref name="catalogType"/> for the next command; at most 0 disarms.</summary>
+    void Latch(int catalogType);
+}
+
 /// <summary>What the scoreboard needs of <c>player_info_t</c>.</summary>
 /// <param name="Guid">player_info_t's guid (the hashed id voice bans key on); empty when the engine has none.</param>
 /// <param name="LogoFile"><c>customFiles[0]</c>: the CRC of the player's spray logo, 0 for none.</param>

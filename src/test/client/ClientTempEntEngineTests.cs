@@ -152,10 +152,13 @@ public sealed class ClientTempEntEngineTests
         var log = new RecordingLog();
         var registry = new TempEntRegistry(log);
 
-        // What the game loads: every mod assembly's declarations, and not the
-        // probes this test assembly declares for its own facts.
+        // What the core game loads: its assemblies' declarations, not the
+        // probes this test assembly declares for its own facts, and not a mod's
+        // (TF2's blood) that another fact in this process happened to load —
+        // the native recording is the core's.
         Type[] types = LoadedAssemblies.Types(TestServices.ClientGame, log)
             .Where(t => t.Assembly != typeof(ClientTempEntEngineTests).Assembly
+                        && t.Assembly.GetName().Name!.StartsWith("SourceSharp.", StringComparison.Ordinal)
                         && t.GetCustomAttributes(typeof(TempEntityAttribute), false).Length > 0)
             .ToArray();
 

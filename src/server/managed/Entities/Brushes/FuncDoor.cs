@@ -46,6 +46,13 @@ public sealed class FuncDoor : MovingBrush
 
     [SaveField] internal Vector OpenPosition { get; private set; }
 
+    /// <summary>
+    /// How far a move carries it, closed position to open: stock's
+    /// <c>m_vecPosition2 - m_vecPosition1</c>, the distance a timer door divides
+    /// by the cap time to pace the gate with the capture (tf_triggers.cpp:298).
+    /// </summary>
+    public float TravelDistance => (OpenPosition - ClosedPosition).Length;
+
     protected override bool IsRotatingDoor => false;
 
     protected override (string Move, string Arrive, string Locked) DefaultSounds

@@ -174,12 +174,18 @@ internal static class DefaultForwarders
 
 #if TEST_SUPPORT_SERVER
     /// <summary>An engine server with no level answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
-    internal sealed unsafe class NoEngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine
+    internal sealed unsafe class NoEngineServer : IFwdEngineServer, ISaveMemory, SourceSharp.Server.Interop.IAreaPortalEngine,
+                                                 SourceSharp.Server.Interop.IEdictSlots
     {
         // No allocator: a save is refused, said by the save session.
         public void* SaveAlloc(nuint count, nuint size) => null;
 
         public void SaveFree(void* block) { }
+
+        // No edicts: every slot free, and nothing held to release.
+        public bool InUse(int index) => false;
+
+        public void AllowImmediateReuse() { }
 
         // No portals: every one left open, as with no plane.
         public void SetAreaPortalState(int portalNumber, bool open) { }

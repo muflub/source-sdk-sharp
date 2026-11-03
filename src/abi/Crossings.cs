@@ -954,6 +954,8 @@ public enum CrossingOp
     ClientMapMaterialReloadPlan = 382,
     /// <summary>IManagedRuntimeClient::WorldDataChanged: worldspawn's update, once per change; what its arrival does (WorldArrival). CLIENT ONLY.</summary>
     ClientWorldDataChanged = 383,
+    /// <summary>The viewmodel bob's two magnitudes, once a frame (cl_bobcycle/cl_bobup; stock's AddViewModelBobHelper). CLIENT ONLY.</summary>
+    ClientViewEffectsViewModelBob = 384,
 }
 
 /// <summary>

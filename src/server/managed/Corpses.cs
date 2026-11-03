@@ -48,12 +48,14 @@ public sealed class Corpses : IGameLifecycle
     private readonly IEngineEntityRender _render;
     private readonly IEntityDirectory _directory;
     private readonly IEngineConsole? _console;
+    private readonly IEnginePlayers? _players;
 
     /// <summary>The bodies currently standing, oldest first. See <see cref="Limit"/>.</summary>
     private readonly List<EntityHandle> _live = new();
 
     public Corpses(ILog log, IEngineEntities entities, IEngineEntityRender render,
-                   IEntityDirectory directory, IEngineConsole? console = null)
+                   IEntityDirectory directory, IEngineConsole? console = null,
+                   IEnginePlayers? players = null)
     {
 
         _log = log;
@@ -61,6 +63,7 @@ public sealed class Corpses : IGameLifecycle
         _render = render;
         _directory = directory;
         _console = console;
+        _players = players;
     }
 
     /// <summary>
@@ -261,6 +264,15 @@ public sealed class Corpses : IGameLifecycle
             // these two the body is built at the map origin and drawn stretched
             // between there and here.
             ragdoll.State.Origin = origin;
+
+            // THE TEAM THE BODY WEARS, read off the dying player as stock's
+            // CreateRagdollEntity does (tf_player.cpp:15625): the client maps
+            // it to the skin at creation (c_tf_player.cpp:712-719), so a BLU
+            // corpse reads BLU rather than falling to the model's skin 0 --
+            // see RagdollNetState.Team. With no players seam (the test-only
+            // construction) nothing is stamped and the model default stands.
+            if (_players is { } seam)
+                ragdoll.State.Team = (byte)seam.GetTeam(player);
         }
         else
         {

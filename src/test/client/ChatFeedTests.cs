@@ -32,13 +32,32 @@ public class ChatFeedTests
         }
     }
 
-    private static (ChatFeed Feed, Clock Clock, RecordingLog Log) Make()
+    /// <summary>The mod's copy (IUiLocalisation): what the UI's chain answers, and how often it was asked.</summary>
+    private sealed class Copy : IUiLocalisation
+    {
+        private readonly Dictionary<string, string> _tokens;
+
+        public Copy(Dictionary<string, string> tokens) => _tokens = tokens;
+
+        public int Asks { get; private set; }
+
+        public string? Find(string token)
+        {
+            Asks++;
+            return _tokens.TryGetValue(token, out var t) ? t : null;
+        }
+    }
+
+    private static (ChatFeed Feed, Clock Clock, RecordingLog Log) Make(IServiceLocator? services = null,
+                                                                        Dictionary<string, string>? engineTable = null)
     {
         var clock = new Clock();
         var log = new RecordingLog();
         var engine = Fake();
-        engine.ReturnsEachCall("Hud.Localise", () => (string)engine.Calls[^1].Arg(0)!);
-        return (new ChatFeed(clock, log, engine, new Players()), clock, log);
+        engine.ReturnsEachCall("Hud.Localise", () =>
+            engineTable is not null && engineTable.TryGetValue((string)engine.Calls[^1].Arg(0)!, out var v)
+                ? v : (string)engine.Calls[^1].Arg(0)!);
+        return (new ChatFeed(clock, log, engine, new Players(), services: services), clock, log);
     }
 
     private static SayText2 Say(int client, string format, params string[] p) => new() { Client = (byte)client, Chat = true, Name = format, Params = p };
@@ -77,6 +96,64 @@ public class ChatFeedTests
         var (f, _, _) = Make();
         f.OnSayText2(new SayText2 { Client = 1, Chat = false, Name = "#HL2MP_Name_Change", Params = ["Gordon", "Freeman"] });
         Assert.Equal(("", "* Gordon changed name to Freeman"), (f.Line(0).Speaker, f.Line(0).Text));
+    }
+
+    [Fact]
+    public void A_notice_format_the_engine_lacks_comes_from_the_mods_chain()
+    {
+        // A server notice in the game's own words: the engine's tables load
+        // none of the game's file (that is why StockFormats exists), so the
+        // format answers from the chain the panels read — stock's one table.
+        var copy = new Copy(new() { ["#game_respawn_prompt"] = "Press 1 to respawn as %s1." });
+        var services = new ServiceContainer().AddInstance<IUiLocalisation>(copy);
+        var (f, _, _) = Make(services: services);
+        f.OnSayText2(new SayText2 { Client = 0, Chat = false, Name = "#game_respawn_prompt", Params = ["the Scout"] });
+        Assert.Equal("Press 1 to respawn as the Scout.", f.Line(0).Text);
+        Assert.Equal(1, copy.Asks);                   // the stimulus reached the chain
+    }
+
+    [Fact]
+    public void A_format_named_without_its_hash_answers_from_the_chain_too()
+    {
+        // The server naming a format exactly as TF2's class files name a
+        // localize_name, without the '#': stock's one table adds the '#'
+        // itself when the caller omits it, so the chain — keyed like the
+        // file — is asked with it, not with the bare name.
+        var copy = new Copy(new() { ["#tf_respawn_notice"] = "You will respawn as %s1." });
+        var services = new ServiceContainer().AddInstance<IUiLocalisation>(copy);
+        var (f, _, _) = Make(services: services);
+        f.OnSayText2(new SayText2 { Client = 0, Chat = false, Name = "tf_respawn_notice", Params = ["the Soldier"] });
+        Assert.Equal("You will respawn as the Soldier.", f.Line(0).Text);
+        Assert.Equal(1, copy.Asks);                   // the stimulus reached the chain
+    }
+
+    [Fact]
+    public void The_engine_table_wins_and_the_chain_is_never_asked()
+    {
+        // Stock's one-table client cannot hold two answers for one token;
+        // where the engine has the word, the chain never hears the ask.
+        var copy = new Copy(new() { ["#game_respawn_prompt"] = "the mod's words" });
+        var services = new ServiceContainer().AddInstance<IUiLocalisation>(copy);
+        var (f, _, _) = Make(services: services,
+                             engineTable: new() { ["#game_respawn_prompt"] = "the engine's words" });
+        f.OnSayText2(new SayText2 { Client = 0, Chat = false, Name = "#game_respawn_prompt", Params = [] });
+        Assert.Equal("the engine's words", f.Line(0).Text);
+        Assert.Equal(0, copy.Asks);
+    }
+
+    [Fact]
+    public void A_miss_in_the_chain_falls_to_the_stocks_formats_which_were_asked()
+    {
+        // The order is engine, chain, stock's English: #HL2MP_Name_Change is
+        // in none of the first two (Make's engine misses every token), so it
+        // is asked of the chain — and the chain's miss is what lets stock's
+        // format answer, not a skipped ask.
+        var copy = new Copy(new());
+        var services = new ServiceContainer().AddInstance<IUiLocalisation>(copy);
+        var (f, _, _) = Make(services: services);
+        f.OnSayText2(new SayText2 { Client = 1, Chat = false, Name = "#HL2MP_Name_Change", Params = ["Gordon", "Freeman"] });
+        Assert.Equal("* Gordon changed name to Freeman", f.Line(0).Text);
+        Assert.Equal(1, copy.Asks);
     }
 
     [Fact]
@@ -152,7 +229,9 @@ public class ChatFeedTests
         public void VoiceServerCommand(string line, bool reliable) => sent.Add("voice: " + line);
         public int SentenceIndexFromName(string name) => -1;
         public int LocalPlayerSlot() => 0;
-        public string? LevelName() => null;
+        public string Level = string.Empty;
+
+        public string? LevelName() => Level.Length > 0 ? Level : null;
         public string? GameDirectory() => null;
         public uint ProtocolVersion() => 0;
         public bool CopyLocalFile(string source, string destination) => false;

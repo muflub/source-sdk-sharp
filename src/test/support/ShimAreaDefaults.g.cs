@@ -181,6 +181,7 @@ internal sealed unsafe class DefaultEntityLifecycleArea : IEntityLifecycleArea
     public byte* EntityFactoryRefusalNameAt(int a0) => default;
     public int EntityFactoryRefusalTimesAt(int a0) => default;
     public int TemplateSpawnKeyed(byte* a0, byte* a1, int* a2, float* a3, float* a4, int a5, uint* a6, int a7) => default;
+    public uint MapSpawnCreateAt(byte* a0, byte* a1, int a2, int a3) => default;
 }
 
 /// <summary><see cref="ITransformArea"/> for a test with no engine: every call answers its default.</summary>
@@ -242,6 +243,7 @@ internal sealed unsafe class DefaultDamageArea : IDamageArea
     public void ApplyDamage(uint a0, uint a1, float a2, int a3) { }
     public void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6) { }
     public void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5) { }
+    public int EntityTakeDamageAnswered(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6) => default;
 }
 
 /// <summary><see cref="IGameRulesArea"/> for a test with no engine: every call answers its default.</summary>
@@ -387,6 +389,11 @@ internal sealed unsafe class DefaultEffectsRenderClientArea : IEffectsRenderClie
     public int BeamGlow(int a0, int a1) => default;
     public void BeamDrawStrip(float* a0, int a1) { }
     public void BeamDrawMesh(int a0, int a1, int a2, float* a3, int a4) { }
+    public int ParticleSystemStartExtra(uint a0, byte* a1) => default;
+    public void ParticleSystemStopExtra(uint a0) { }
+    public int ParticleSystemFollowEntity(uint a0, int a1, uint a2, int a3, float* a4) => default;
+    public int ParticleSystemStartSlot(uint a0, byte* a1, int a2) => default;
+    public void ParticleSystemStopSlot(uint a0, int a1) { }
 }
 
 /// <summary><see cref="IStandaloneClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -416,6 +423,7 @@ internal sealed unsafe class DefaultStandaloneClientArea : IStandaloneClientArea
     public void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3) { }
     public void SurfaceSetPlan(uint a0, int* a1, int a2) { }
     public void ClientInterpAdmitted(uint* a0, int a1) { }
+    public void EntitySetModelOverride(uint a0, byte* a1) { }
 }
 
 /// <summary><see cref="IViewClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -450,6 +458,8 @@ internal sealed unsafe class DefaultViewClientArea : IViewClientArea
     public void ColorLookupResetWeights() { }
     public int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) => default;
     public int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11) => default;
+    public int ScreenOverlaySet(byte* a0) => default;
+    public int ScreenOverlayGet(byte* a0, int a1) => default;
 }
 
 /// <summary><see cref="IUserMessagesClientArea"/> for a test with no engine: every call answers its default.</summary>
@@ -499,6 +509,8 @@ internal sealed unsafe class DefaultUiClientArea : IUiClientArea
     public int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6) => default;
     public void UiDebugOverlayClearDead() { }
     public void ClientModeLayout() { }
+    public void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4) { }
+    public int UiMaterialTexture(byte* a0) => default;
 }
 
 /// <summary><see cref="IParticlesClientArea"/> for a test with no engine: every call answers its default.</summary>

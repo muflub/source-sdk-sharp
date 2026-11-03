@@ -28,6 +28,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     private static readonly List<Table> s_Tables = new();
     private static bool s_RefuseCreate;
     private static readonly List<byte> s_AddServerFlags = new();
+    private static int s_AddCalls, s_FindCalls;
 
     private static string Text(byte* p) => Marshal.PtrToStringUTF8((nint)p)!;
     private static void* Ptr(Table t) => (void*)(t.Id + 1);
@@ -59,6 +60,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     [UnmanagedCallersOnly] private static int AddString(void* t, byte isServer, byte* value, int length, void* userData)
     {
         s_AddServerFlags.Add(isServer);
+        s_AddCalls++;
         Table table = Of(t)!;
         string v = Text(value);
         int at = table.Strings.FindIndex(s => Marshal.PtrToStringUTF8(s) == v);
@@ -74,6 +76,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
 
     [UnmanagedCallersOnly] private static int FindStringIndex(void* t, byte* value)
     {
+        s_FindCalls++;
         string v = Text(value);
         int at = Of(t)!.Strings.FindIndex(s => Marshal.PtrToStringUTF8(s) == v);
         return at < 0 ? Full : at;
@@ -89,6 +92,7 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     {
         s_Tables.Clear();
         s_AddServerFlags.Clear();
+        s_AddCalls = s_FindCalls = 0;
         s_RefuseCreate = false;
     }
 
@@ -205,6 +209,24 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
         var abi = Server();
         int id = abi.Create("T", 4);
         Assert.Equal(abi.AddString(id, "a"), abi.AddString(id, "a"));
+        Assert.Equal(1, abi.GetNumStrings(id));
+    }
+
+    /// <summary>
+    /// A repeated name is answered by the lookup, not by a second engine add:
+    /// stock's AddString answers the entry the table already holds
+    /// (networkstringtabledefs.h:37), so re-precaching a seen name stays one
+    /// entry and a whole manifest of distinct names fits the stock cap of
+    /// MAX_PARTICLESYSTEMS_STRING_BITS (networkstringtable_gamedll.h:31).
+    /// </summary>
+    [Fact]
+    public void ARepeatedNameIsAnsweredByTheLookupWithOneEngineAdd()
+    {
+        var abi = Server();
+        int id = abi.Create("Small", 4);
+        Assert.Equal(0, abi.AddString(id, "a"));
+        Assert.Equal(0, abi.AddString(id, "a"));      // same index, answered by the lookup
+        Assert.Equal(1, s_AddCalls);                   // the second name never crossed an AddString
         Assert.Equal(1, abi.GetNumStrings(id));
     }
 
@@ -340,6 +362,20 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
     }
 
     [Fact]
+    public void AParticleSystemIndexIsItsTableIndexAndAMissIsTheErrorSystem()
+    {
+        var precache = Precache(Side.Server);
+        Server(serve: false).Create("ParticleEffectNames", 8192);
+        precache.PrecacheParticleSystem("error");
+        precache.PrecacheParticleSystem("explosion");
+
+        Assert.Equal(1, precache.ParticleSystemIndex("explosion"));
+        // A name the table does not hold is 0: the error system stock plants
+        // first in the table (gameinterface.cpp:2369-2382).
+        Assert.Equal(0, precache.ParticleSystemIndex("unprecached"));
+    }
+
+    [Fact]
     public void TheClientPrecachesNothing()
     {
         Server().Create("Materials", 1024);
@@ -348,5 +384,6 @@ public sealed unsafe class ForwardedStringTablesTests : System.IDisposable
         precache.PrecacheMaterial("debug/debugempty");
 
         Assert.Empty(Strings("Materials"));
+        Assert.Equal(0, precache.ParticleSystemIndex("explosion"));
     }
 }

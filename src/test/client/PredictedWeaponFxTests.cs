@@ -59,7 +59,10 @@ public class PredictedWeaponFxTests
         _world.Returns("WorldQuery.PointContents", Contents.Empty);
     }
 
-    private PredictedWeaponFx Fx() => new(_sounds, _dispatch, _world, AmmoCatalog.Stock(), _predict);
+    // The same fake answers the render and the entities the muzzle flash and
+    // the brass ask for; the facts that do not dispatch them never set them.
+    private PredictedWeaponFx Fx() => new(_sounds, _dispatch, _world, _world, _world,
+                                          AmmoCatalog.Stock(), _predict);
 
     private static PredictedShot Shot(int seed = 1234) => new(Player, LocalPlayer, Eye, Vector.Zero, seed);
 
@@ -219,6 +222,91 @@ public class PredictedWeaponFxTests
         Assert.True(_world.Called("WorldQuery.ClientClipRayToEntities"), "the entities were asked (the positive arm)");
         var (_, data) = Assert.Single(_dispatch.Ran);
         Assert.Equal((Wall, 0, Tile), (data.Origin, data.EntIndex, data.SurfaceProp));
+    }
+
+    //-------------------------------------------------------------------------
+    // The gun's flash and brass: stock's weapon-side predicted arms, handed
+    // to this client's effect registry.
+    //-------------------------------------------------------------------------
+
+    private static readonly EntityHandle ViewModel = new(0x0100_0042u);
+
+    [Fact]
+    public void The_muzzle_flash_dispatches_the_script_particle_attached_to_the_hands()
+    {
+        // CreateMuzzleFlashEffects' particle branch: the named effect at the
+        // entity and its "muzzle" attachment, placement left to the registry.
+        _world.Returns("Entities.GetIndex", 66).Returns("EntityRender.LookupAttachment", 3);
+
+        Fx().MuzzleFlash(ViewModel, "muzzle_flash_scattergun");
+
+        var (name, data) = Assert.Single(_dispatch.Ran);
+        Assert.Equal(("muzzle_flash_scattergun", 66, 3), (name, data.EntIndex, data.AttachmentIndex));
+        var lookup = _world.Calls.Single(c => c.Member == "EntityRender.LookupAttachment");
+        Assert.Equal(ViewModel, lookup.ArgAs<EntityHandle>(0));
+        Assert.Equal("muzzle", lookup.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void A_script_with_no_flash_particle_or_hands_with_no_muzzle_dispatches_nothing()
+    {
+        _world.Returns("Entities.GetIndex", 66);
+        Fx().MuzzleFlash(ViewModel, "");
+
+        _world.Returns("EntityRender.LookupAttachment", 0);
+        Fx().MuzzleFlash(ViewModel, "muzzle_flash_scattergun");
+
+        Assert.Empty(_dispatch.Ran);
+        // The empty name asks nothing of the model at all.
+        Assert.Equal(1, _world.Calls.Count(c => c.Member == "EntityRender.LookupAttachment"));
+    }
+
+    [Fact]
+    public void The_brass_dispatches_TF_EjectBrass_carrying_the_item_and_the_gun()
+    {
+        // OnFireEvent's brass: the "eject_brass" attachment's place, and the
+        // effect's data carries the item's defindex and the weapon's id.
+        var origin = new Vector(1f, 2f, 64f);
+        var angles = new Vector(2f, 180f, 0f);
+        _world.Returns("EntityRender.LookupAttachment", 5)
+              .Returns("EntityRender.GetAttachment", true)
+              .Returns("EntityRender.GetAttachment.origin", origin)
+              .Returns("EntityRender.GetAttachment.angles", angles);
+
+        Fx().ShellEject(ViewModel, 149, 3);
+
+        var (name, data) = Assert.Single(_dispatch.Ran);
+        Assert.Equal(("TF_EjectBrass", 149, 3), (name, data.DamageType, data.HitBox));
+        Assert.Equal((origin, angles), (data.Origin, data.Angles));
+        var lookup = _world.Calls.Single(c => c.Member == "EntityRender.LookupAttachment");
+        Assert.Equal("eject_brass", lookup.ArgAs<string>(1));
+    }
+
+    [Fact]
+    public void Hands_with_no_ejector_eject_nothing()
+    {
+        _world.Returns("EntityRender.LookupAttachment", 0)
+              .Returns("EntityRender.GetAttachment", true);
+
+        Fx().ShellEject(ViewModel, 149, 3);
+
+        Assert.Empty(_dispatch.Ran);
+    }
+
+    [Fact]
+    public void Flash_and_brass_are_quiet_when_prediction_is_off()
+    {
+        _predict.NotifyChanged("0", "1");
+        _world.Returns("Entities.GetIndex", 66)
+              .Returns("EntityRender.LookupAttachment", 3)
+              .Returns("EntityRender.GetAttachment", true);
+
+        Fx().MuzzleFlash(ViewModel, "muzzle_flash");
+        Fx().ShellEject(ViewModel, 149, 3);
+
+        Assert.Empty(_dispatch.Ran);
+        Assert.False(_world.Called("EntityRender.LookupAttachment"),
+                     "the arms asked nothing of the hands either");
     }
 
     //-------------------------------------------------------------------------

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="20" y="945" width="225" height="113" fill="#2e2b2a" fill-opacity="0.78" data-e="2"/>
+<rect x="164" y="884" width="124" height="124" fill="#2e2b2a" fill-opacity="0.78" data-e="3"/>
+<rect x="171" y="855" width="113" height="41" fill="#343037" data-e="4"/>
+<text x="191" y="962" font-family="TF2 Secondary" font-size="40" font-weight="500" fill="#756b5e" xml:space="preserve" data-e="5">120</text>
+<text x="198" y="887.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#756b5e" xml:space="preserve" data-e="6">200</text>
+<rect x="1138" y="990" width="74" height="74" fill="#756b5e" fill-opacity="0.9" data-e="12"/>
+<rect x="1139" y="991" width="72" height="72" fill="none" stroke="#ebe2ca" stroke-opacity="0.1" stroke-width="2" data-e="12"/>
+<rect x="1138" y="990" width="149" height="74" fill="#2e2b2a" fill-opacity="0.78" data-e="13"/>
+<text x="1213" y="1036.62" font-family="TF2 Secondary" font-size="25" font-weight="500" fill="#ff0000" xml:space="preserve" data-e="14">8</text>
+<rect x="1233" y="990" width="74" height="74" fill="#756b5e" fill-opacity="0.9" data-e="17"/>
+<rect x="1234" y="991" width="72" height="72" fill="none" stroke="#ebe2ca" stroke-opacity="0.1" stroke-width="2" data-e="17"/>
+<text x="1254" y="1046.35" font-family="TF2 Build" font-size="54" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="18">4</text>
+<rect x="1327" y="990" width="75" height="74" fill="#756b5e" fill-opacity="0.9" data-e="21"/>
+<rect x="1328" y="991" width="73" height="72" fill="none" stroke="#ebe2ca" stroke-opacity="0.1" stroke-width="2" data-e="21"/>
+</svg>

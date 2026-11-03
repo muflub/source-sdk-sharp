@@ -70,4 +70,36 @@ public class HudSubscriptionTests
         ((IUserMessage)damage).OnReceived(new UserMessageReader(armourOnly));
         Assert.True(hud.DamageFraction(5f) > 0f, "armour taken lights it");
     }
+
+    [Fact]
+    public void The_mods_listener_hears_every_message_even_one_the_gates_drop()
+    {
+        var damage = new DamageMessage();
+        var heard = new List<DamageArgs>();
+        var hooks = new RecordingHooks(heard);
+        var hud = new Hud(new RecordingLog(), Fake().Returns("Clock.Now", 5f), Fake(), damage, new HudMsgMessage(),
+                          new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo(), listeners: hooks);
+        hud.Subscribe();
+
+        // The empty report the gates drop; the listener still decided.
+        ((IUserMessage)damage).OnReceived(new UserMessageReader(new byte[18]));
+
+        _ = Assert.Single(heard);
+    }
+
+    private sealed class RecordingHooks(List<DamageArgs> heard) : IHooks<IDamageListener>
+    {
+        public IReadOnlyList<IDamageListener> All { get; } = [new Tap(heard)];
+
+        public void Each(string what, Action<IDamageListener> call)
+        {
+            foreach (var l in All)
+                call(l);
+        }
+
+        private sealed class Tap(List<DamageArgs> heard) : IDamageListener
+        {
+            public void OnDamage(DamageArgs hit) => heard.Add(hit);
+        }
+    }
 }

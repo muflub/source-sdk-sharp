@@ -139,13 +139,26 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     private readonly Intermission? _intermission;
     private readonly MpFragLimitConVar? _mpFragLimit;
     private readonly MpTimeLimitConVar? _mpTimeLimit;
+    private readonly MpRestartGameConVar? _mpRestartGame;
     private float _levelStartedAt;
     private readonly GameModes? _modes;
     private readonly IHooks<IDamageRule>? _damageRules;
+    private readonly IHooks<IDamageModifier>? _damageModifiers;
+    private readonly DamageHitGroups? _hits;
     private readonly IHooks<ILoadoutProvider>? _loadoutProviders;
+    private readonly IHooks<IPlayerSpawnHook>? _spawnHooks;
+    private readonly IHooks<IKitGate>? _kitGates;
 
     /// <summary>What a spawning player ends up holding; null leaves the grant's own choice.</summary>
     private readonly ISpawnWeapon? _spawnWeapon;
+    // The restart (stock's m_flRestartGameTime / m_tmNextPeriodicThink). When
+    // the armed restart fires; zero is none. The periodic clock is stock's
+    // once-a-second pass over mp_restartgame.
+    private float _restartGameTime;
+    private float _nextPeriodicThink;
+    private readonly IPlayerDirectory? _roster;
+    private readonly IUserMessageSender? _messages;
+    private readonly IEngineGameEvents? _events;
 
     /// <summary>
     /// The mode the proxy is answering for, or null — before any proxy,
@@ -162,9 +175,24 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
                      ConVarRegistry? mpConVars = null, GameModes? modes = null,
                      IHooks<IDamageRule>? damageRules = null,
                      IHooks<ILoadoutProvider>? loadout = null,
-                     ISpawnWeapon? spawnWeapon = null)
+                     ISpawnWeapon? spawnWeapon = null,
+                     DamageHitGroups? hits = null,
+                     IHooks<IDamageModifier>? damageModifiers = null,
+                     IHooks<IPlayerSpawnHook>? spawnHooks = null,
+                     IHooks<IKitGate>? kitGates = null,
+                     IPlayerDirectory? roster = null, IUserMessageSender? messages = null,
+                     IEngineGameEvents? events = null)
     {
         _spawnWeapon = spawnWeapon;
+        // The mods' arms around the kit (tf2 stage 2.3). Null is the game
+        // before them: the kit alone.
+        _spawnHooks = spawnHooks;
+        // The mods' veto on that kit (tf2 spawnfix). Null is the game before
+        // it: the kit always goes out.
+        _kitGates = kitGates;
+        // The open shot's crit flag (DamageHitGroups), read into the chain's
+        // DamageContext. Null is a game with no weapon arms: nothing is critical.
+        _hits = hits;
         // The mode proxy (tf2 stage 0.7). OPTIONAL and null means the game
         // before it: every question below answers with this class's own
         // machine, which is what every no-owner fact measures. The module
@@ -172,16 +200,21 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         // testing a lesser game, it is testing the no-owner arm.
         _modes = modes;
         _damageRules = damageRules;
+        _damageModifiers = damageModifiers;
         _loadoutProviders = loadout;
         _intermission = intermission;
         _mpFragLimit = (mpConVars ?? convars).Get<MpFragLimitConVar>();
         _mpTimeLimit = (mpConVars ?? convars).Get<MpTimeLimitConVar>();
+        _mpRestartGame = (mpConVars ?? convars).Get<MpRestartGameConVar>();
 
         _log = log;
         _host = host;
         _players = players;
         _entities = entities;
         _scoreboard = scoreboard;
+        _roster = roster;
+        _messages = messages;
+        _events = events;
 
         _respawnDelay = convars.Get<RespawnDelayConVar>();
         _friendlyFire = convars.Get<FriendlyFireConVar>();
@@ -373,7 +406,8 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         if (_damageRules is not { } rules)
             return Decision.UseStockRule;
 
-        var hit = new DamageContext(victim, attacker, damage, damageType, hitGroup);
+        var hit = new DamageContext(victim, attacker, damage, damageType, hitGroup,
+                                    Critical: _hits?.Critical ?? false);
 
         foreach (var rule in rules.All)
         {
@@ -391,6 +425,36 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         return Decision.UseStockRule;
     }
 
+    /// <summary>
+    /// The mods' <see cref="IDamageModifier"/> fold over an allowed hit (tf2
+    /// stage 2.7): the running damage through each in order, a throwing
+    /// modifier named and skipped. No modifiers is the hit as dealt.
+    /// </summary>
+    public float ModifyDamage(EntityHandle player, EntityHandle attacker, float damage, int damageType,
+                              HitGroup hitGroup = HitGroup.Generic)
+    {
+        if (_damageModifiers is not { } modifiers)
+            return damage;
+
+        var hit = new DamageContext(player, attacker, damage, damageType, hitGroup,
+                                    Critical: _hits?.Critical ?? false);
+
+        float running = damage;
+        foreach (var modifier in modifiers.All)
+        {
+            try
+            {
+                running = modifier.Modify(in hit, running);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] damage modifier {modifier.GetType().FullName} threw: {e.Message}\n");
+            }
+        }
+
+        return running;
+    }
+
     /// <summary>Whether a dead player may come back. Deferred for now.</summary>
     public Decision CanRespawn(EntityHandle player) => Decision.UseStockRule;
 
@@ -405,23 +469,42 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
     {
         _spawnedAt[player.Value] = now;
 
-        var (weapons, ammo) = Kit(player);
+        // Before the kit: a mod that sets the player's class here is asked
+        // about it by its own loadout provider below — and by the gates under
+        // it, which judge the class the hooks just took.
+        EachSpawnHook(nameof(IPlayerSpawnHook.OnSpawning), h => h.OnSpawning(player, now));
 
+        // The kit gates' veto (tf2 spawnfix): a class game's unassigned player
+        // watches with nothing, as stock's does — GiveDefaultItems is simply
+        // not called, so the providers are not asked and the default-weapon
+        // choice is not made either. The hooks around it run either way.
+        bool giveKit = GateAllowsKit(player);
+        IReadOnlyList<string> weapons = [];
         int given = 0;
-        foreach (string weapon in weapons)
+        int ammoGiven = 0;
+
+        if (giveKit)
         {
-            if (_players.GiveItem(player, weapon))
-                given++;
+            var (w, ammo) = Kit(player);
+            weapons = w;
+
+            foreach (string weapon in weapons)
+            {
+                if (_players.GiveItem(player, weapon))
+                    given++;
+            }
+
+            // Ammo before weapons would be equally valid; after is chosen so a
+            // weapon that sets its own default clip does not overwrite the grant.
+            foreach (var (name, count) in ammo)
+                ammoGiven += _players.GiveAmmo(player, count, name);
+
+            // GiveDefaultItems' last word: the weapon the player asked to spawn with.
+            _spawnWeapon?.Choose(player);
         }
 
-        // Ammo before weapons would be equally valid; after is chosen so a
-        // weapon that sets its own default clip does not overwrite the grant.
-        int ammoGiven = 0;
-        foreach (var (name, count) in ammo)
-            ammoGiven += _players.GiveAmmo(player, count, name);
-
-        // GiveDefaultItems' last word: the weapon the player asked to spawn with.
-        _spawnWeapon?.Choose(player);
+        // After the kit: the health, the model, whatever the weapons decide.
+        EachSpawnHook(nameof(IPlayerSpawnHook.OnSpawned), h => h.OnSpawned(player, now));
 
         // The mode's spawn arm, after the core's own bookkeeping: today's
         // deathmatch adds nothing here (NullMode's machine IS this class and
@@ -441,9 +524,61 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
             }
         }
 
-        _log.Msg($"[SourceSharp/Rules] {player} spawned: gave {given}/{weapons.Count} item(s), " +
-                   $"{ammoGiven} ammo" +
-                   $"{((_spawnProtect?.Value ?? 0f) > 0f ? $", protected for {_spawnProtect!.Value:F1}s" : "")}\n");
+        if (giveKit)
+            _log.Msg($"[SourceSharp/Rules] {player} spawned: gave {given}/{weapons.Count} item(s), " +
+                       $"{ammoGiven} ammo" +
+                       $"{((_spawnProtect?.Value ?? 0f) > 0f ? $", protected for {_spawnProtect!.Value:F1}s" : "")}\n");
+        else
+            _log.Msg($"[SourceSharp/Rules] {player} spawned: no kit, a gate refused it\n");
+    }
+
+    /// <summary>
+    /// The kit gates' answer: any gate's <c>false</c> refuses the grant, and a
+    /// gate that throws is named and does not veto — a broken mod leaves the
+    /// kit standing, as it leaves the spawn (<see cref="IKitGate"/>).
+    /// </summary>
+    private bool GateAllowsKit(EntityHandle player)
+    {
+        if (_kitGates is null)
+            return true;
+
+        foreach (var gate in _kitGates.All)
+        {
+            try
+            {
+                if (!gate.ShouldGiveKit(player))
+                    return false;
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] kit gate {gate.GetType().FullName}.ShouldGiveKit threw: {e}\n");
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// One spawn arm of every hook. A hook that throws is named and the next
+    /// one is still asked: the spawn the core made stands either way, as a
+    /// thrown mode spawn arm leaves it.
+    /// </summary>
+    private void EachSpawnHook(string what, Action<IPlayerSpawnHook> call)
+    {
+        if (_spawnHooks is null)
+            return;
+
+        foreach (var hook in _spawnHooks.All)
+        {
+            try
+            {
+                call(hook);
+            }
+            catch (Exception e)
+            {
+                _log.Warning($"[SourceSharp/Rules] spawn hook {hook.GetType().FullName}.{what} threw: {e}\n");
+            }
+        }
     }
 
     /// <summary>Forgets a player's spawn time. Called when they leave.</summary>
@@ -635,6 +770,14 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         }
 
         ThinkStock();
+
+        // Stock's Think returns the frame the round ended (its GoToIntermission
+        // arms return), and its restart walk sits behind that return: a round
+        // being ended is not the frame a restart arms or fires on.
+        if (_roundOver)
+            return;
+
+        RestartThink();
     }
     // IRoundFlow, and the one member that needs spelling out. Asked AS the
     // machine — which is what NullMode.Rounds being this object means — the
@@ -699,6 +842,174 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
         EndRound();
     }
 
+    //-------------------------------------------------------------------------
+    // The restart (mp_restartgame). Stock's CheckRestartGame and RestartGame,
+    // reached only on the core's own arm: the mode dispatch in Think returns
+    // before here when a mode owns the round, and a mode reads
+    // mp_restartgame through its own machine (TF2's does).
+    //-------------------------------------------------------------------------
+
+    /// <summary>
+    /// Stock's CHL2MPRules::Think frame pass over the restart (the periodic
+    /// 1 s think and the fire check, hl2mp_gamerules.cpp:350-360): the convar
+    /// is read a pass at a time, not per frame; an armed restart fires the
+    /// frame its time arrives.
+    ///
+    /// <para>
+    /// Stock reads curtime for both halves of the pass, every frame. Here the
+    /// clock is read only when there is something to consult — the convar
+    /// set, or a restart armed — so a game with neither pays no engine read
+    /// per frame (the convar's value is cached; the crossing is the costly
+    /// read).
+    /// </para>
+    /// </summary>
+    private void RestartThink()
+    {
+        bool armed = _restartGameTime > 0f;
+        if (!armed && (_mpRestartGame is not { } restart || restart.Value <= 0))
+            return;
+
+        float now = _host.CurrentTime;
+
+        if (!armed && now > _nextPeriodicThink)
+        {
+            CheckRestartGame(now);
+            _nextPeriodicThink = now + 1f;
+        }
+
+        if (_restartGameTime > 0f && _restartGameTime <= now)
+            RestartGame();
+    }
+
+    /// <summary>
+    /// Stock's CheckRestartGame (hl2mp_gamerules.cpp:1179): mp_restartgame N
+    /// arms a restart N seconds out — capped at stock's 60 — tells the
+    /// players, and puts the convar back to 0 so the next pass does not
+    /// re-arm. Stock's mp_readyrestart half is not ported (the divergence
+    /// row). Stock also sets m_bCompleteReset here; it is written only and
+    /// never read in stock HL2MP, so it is not carried.
+    /// </summary>
+    private void CheckRestartGame(float now)
+    {
+        if (_mpRestartGame is not { } restart)
+            return;
+
+        int delay = restart.Value;
+
+        if (delay <= 0)
+            return;
+
+        if (delay > 60)
+            delay = 60;
+
+        AnnounceRestart(delay);
+
+        _restartGameTime = now + delay;
+        restart.SetValue(0);
+    }
+
+    /// <summary>
+    /// Stock's two UTIL_ClientPrintAll lines: one to the centre print, one to
+    /// the console, the count and its unit into the text's %s1/%s2.
+    /// </summary>
+    private void AnnounceRestart(int seconds)
+    {
+        if (_messages is null)
+            return;
+
+        // Stock's HUD_PRINTCENTER / HUD_PRINTCONSOLE (shareddefs.h:127-130).
+        const byte printCenter = 4;
+        const byte printConsole = 2;
+        const string text = "Game will restart in %s1 %s2";
+
+        string count = seconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string unit = seconds == 1 ? "SECOND" : "SECONDS";
+
+        _messages.Send(new TextMsg { Destination = printCenter, Text = text, Params = [count, unit] },
+                       player: 0, reliable: true);
+        _messages.Send(new TextMsg { Destination = printConsole, Text = text, Params = [count, unit] },
+                       player: 0, reliable: true);
+    }
+
+    /// <summary>
+    /// Stock's CHL2MPRules::RestartGame (hl2mp_gamerules.cpp:1000): the map
+    /// comes back as it loaded, every player is holstered, stripped and
+    /// respawned, the counts go back to zero, and round_start fires.
+    /// </summary>
+    public void RestartGame()
+    {
+        float now = _host.CurrentTime;
+
+        // Stock bounds-checks mp_timelimit before anything else.
+        if (_mpTimeLimit is { } timeLimit && timeLimit.Value < 0f)
+            timeLimit.SetValue(0f);
+
+        // m_flGameStartTime: the round's clock restarts with the restart.
+        _levelStartedAt = now;
+
+        // The map: the mode proxy's CleanUpMap walk with the null mode, which
+        // is the core's own HL2MPMapCleanupFilter — exactly what GameModes
+        // cleans with. Without a proxy there is nothing to ask, and said, not
+        // silent.
+        if (_modes is { } modes)
+        {
+            modes.CleanUpMap(null);
+        }
+        else
+        {
+            _log.Warning("[SourceSharp/Rules] restart with no mode proxy: the map is not reset\n");
+        }
+
+        // Now respawn all the players, stock's order per player (its
+        // CBasePlayer walk): the weapon in their hands away, everything else
+        // stripped, and back into the world.
+        if (_roster is { } roster)
+        {
+            foreach (var (player, _) in roster.All)
+            {
+                _players.HolsterActiveWeapon(player);
+                _players.RemoveAllItems(player, true);
+                _players.Respawn(player);
+            }
+        }
+        else
+        {
+            _log.Warning("[SourceSharp/Rules] restart with no player directory: nobody is respawned\n");
+        }
+
+        // The counts. Stock zeroes each player's frags and deaths
+        // (CHL2MP_Player::Reset) and both teams' CTeam scores; the core's
+        // tally is the scoreboard alone (NullMode has no IScoring, so the
+        // teams' totals are the players'), and ResetRound is what zeroes it —
+        // clearing the round flag and the spawn-protection stamps with it,
+        // which is the fresh round the respawn begins.
+        ResetRound();
+
+        _restartGameTime = 0f;
+
+        // Stock also clears m_flIntermissionEndTime here. There is nothing to
+        // clear: this only runs from Think's walk, which returns before it
+        // once the round is over, so no intermission can be running here.
+
+        FireRoundStart();
+    }
+
+    /// <summary>Stock's round_start: fraglimit 0, HLTV priority 6, objective DEATHMATCH.</summary>
+    private void FireRoundStart()
+    {
+        if (_events is null)
+            return;
+
+        IntPtr e = _events.EventCreate("round_start");
+        if (e == IntPtr.Zero)
+            return;
+
+        _events.EventSetInt(e, "fraglimit", 0);
+        _events.EventSetInt(e, "priority", 6); // stock's HLTV event priority, not transmitted
+        _events.EventSetString(e, "objective", "DEATHMATCH");
+        _events.EventFire(e);
+    }
+
     /// <summary>
     /// EndMultiplayerGame: the intermission (stock's GoToIntermission). Rules
     /// built without one only mark the round over: the native rules'
@@ -725,4 +1036,7 @@ public sealed class GameRules : IGameRules, IGameLifecycle, IFrameLifecycle, IRo
 
     /// <summary>Test seam: whether the round has been ended.</summary>
     public bool RoundOver => _roundOver;
+
+    /// <summary>Test seam: whether an mp_restartgame restart is armed.</summary>
+    public bool RestartPending => _restartGameTime > 0f;
 }

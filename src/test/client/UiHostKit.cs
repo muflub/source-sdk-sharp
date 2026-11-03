@@ -32,7 +32,7 @@ internal static class UiHostKit
     }
 
     public static UiHost Build(UiFidelityTests.RecordingSurface surface, UiScreen[] hudScreens, UiScreen[]? menuScreens = null,
-                               UiMenus? menus = null, RecordingEngine? engine = null)
+                               UiMenus? menus = null, RecordingEngine? engine = null, ILog? log = null)
     {
         var fonts = new UiFontLibrary();
         var backend = new VguiBackend(surface, fonts, new UiFontFiles([]));
@@ -49,7 +49,7 @@ internal static class UiHostKit
         menus ??= new UiMenus(scores, new TeamMenuUi(scores, engine, new DefaultForwarders.NoEngineClient(), new RecordingLog()), new MotdUi(), new ConsoleUi(new DefaultForwarders.NoEngineClient()));
         var windows = new UiWindows(new MemoryWindowStore());
         var theme = SourceSharpTheme.Create();
-        return new UiHost(new RecordingLog(), engine,
+        return new UiHost(log ?? new RecordingLog(), engine,
                           new UiLayer(hudScreens, new UiContext(theme, backend, localiser, []), backend),
                           new UiLayer(menuScreens ?? [], new UiContext(theme, backend, localiser, []), backend, windows),
                           backend, surface, player, hud.Messages, hud.Build, null, menus)

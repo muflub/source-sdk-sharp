@@ -350,17 +350,18 @@ public class EntityDirectoryCoreTests
     /// An evicted handle's QUEUED I/O goes with it, which nothing said before.
     ///
     /// <para>
-    /// Found by mutation while folding: deleting <c>ForgetIo</c> from the
-    /// eviction arm reddened nothing in the whole directory suite. It was
-    /// equally uncovered before the fold — <c>Bind</c>'s eviction arm called it
-    /// there too — so this is a gap being closed rather than one being
-    /// introduced, and it is a real one: a delayed output posted by an entity
-    /// whose entry has been taken would be delivered from a handle that now
-    /// names somebody else.
+    /// Stock keeps a queued event past the death of its caller: entity removal
+    /// reaches <c>CancelEvents</c> nowhere (only the
+    /// <c>ent_cancelpendingentfires</c> command, logic_relay and the commentary
+    /// system call it), so the eviction arm drops an evicted entity's own
+    /// connections and name but NOT its queued outputs — the event is still
+    /// due, and resolution happens at delivery against the target, not the
+    /// caller's handle. This is what ctf_2fort's logic_auto depends on: it
+    /// self-removes in the same think that posts the OnMapSpawn outputs.
     /// </para>
     /// </summary>
     [Fact]
-    public void AnEvictedHandlesQueuedOutputIsCancelledWithIt()
+    public void AnEvictedHandlesQueuedOutputSurvivesItsCaller()
     {
         var directory = new EntityDirectory(new RecordingLog());
 
@@ -368,9 +369,15 @@ public class EntityDirectoryCoreTests
         directory.FireInputAt(H(99, 1), "Trigger", null, 0f, 2f, H(17, 1), H(17, 1));
         Assert.Equal(1, directory.Io.Count);
 
-        // The engine reused entry 17 and nobody unbound the first.
+        // The engine reused entry 17 and nobody unbound the first. Stock
+        // still delivers the event the first entity posted: the queue is not
+        // cancelled with it.
         Assert.True(directory.Bind(H(17, 2), new ServerProbe { ClassName = "ss_relay" }));
 
+        Assert.Equal(1, directory.Io.Count);
+
+        // And it is still due: servicing drains it. Before ≠ after.
+        directory.ServiceIo(3f);
         Assert.Equal(0, directory.Io.Count);
     }
 }

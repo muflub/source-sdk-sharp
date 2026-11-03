@@ -66,22 +66,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// The names are stock's EXPOSE_INTERFACE strings verbatim (some are lower case
+// with underscores: "spy_invis"), so each row carries the literal.
 // clang-format off
 #define SS_PROXY_NAMES( X ) \
-	X( 0, Abs ) X( 1, Add ) X( 2, Alpha ) X( 3, AnimateSpecificTexture ) X( 4, AnimatedEntityTexture ) \
-	X( 5, AnimatedOffsetTexture ) X( 6, AnimatedTexture ) X( 7, Camo ) X( 8, Clamp ) X( 9, CurrentTime ) \
-	X( 10, Divide ) X( 11, Dummy ) X( 12, Empty ) X( 13, EntityOrigin ) X( 14, EntityOriginAlyx ) \
-	X( 15, Ep1IntroVortRefract ) X( 16, Equals ) X( 17, Exponential ) X( 18, Frac ) X( 19, GaussianNoise ) \
-	X( 20, Health ) X( 21, HeliBlade ) X( 22, Int ) X( 23, IsNPC ) X( 24, LessOrEqual ) \
-	X( 25, LinearRamp ) X( 26, MatrixRotate ) X( 27, Multiply ) X( 28, PlayerLogo ) X( 29, Pupil ) \
-	X( 30, SelectFirstIfNonZero ) X( 31, Shield ) X( 32, Sine ) X( 33, Subtract ) X( 34, TextureScroll ) \
-	X( 35, TextureTransform ) X( 36, ToggleTexture ) X( 37, UniformNoise ) X( 38, VortEmissive ) X( 39, WaterLOD ) \
-	X( 40, WorldDims ) X( 41, WrapMinMax ) X( 42, lampbeam ) X( 43, lamphalo ) \
-	X( 44, MotionBlur ) X( 45, engine_post ) X( 46, ParticleSphereProxy ) \
-	X( 47, Shadow ) X( 48, ShadowModel )
+	X( 0, "Abs" ) X( 1, "Add" ) X( 2, "Alpha" ) X( 3, "AnimateSpecificTexture" ) \
+	X( 4, "AnimatedEntityTexture" ) X( 5, "AnimatedOffsetTexture" ) X( 6, "AnimatedTexture" ) X( 7, "Camo" ) \
+	X( 8, "Clamp" ) X( 9, "CurrentTime" ) X( 10, "Divide" ) X( 11, "Dummy" ) X( 12, "Empty" ) \
+	X( 13, "EntityOrigin" ) X( 14, "EntityOriginAlyx" ) X( 15, "Ep1IntroVortRefract" ) X( 16, "Equals" ) \
+	X( 17, "Exponential" ) X( 18, "Frac" ) X( 19, "GaussianNoise" ) X( 20, "Health" ) X( 21, "HeliBlade" ) \
+	X( 22, "Int" ) X( 23, "IsNPC" ) X( 24, "LessOrEqual" ) X( 25, "LinearRamp" ) X( 26, "MatrixRotate" ) \
+	X( 27, "Multiply" ) X( 28, "PlayerLogo" ) X( 29, "Pupil" ) X( 30, "SelectFirstIfNonZero" ) \
+	X( 31, "Shield" ) X( 32, "Sine" ) X( 33, "Subtract" ) X( 34, "TextureScroll" ) X( 35, "TextureTransform" ) \
+	X( 36, "ToggleTexture" ) X( 37, "UniformNoise" ) X( 38, "VortEmissive" ) X( 39, "WaterLOD" ) \
+	X( 40, "WorldDims" ) X( 41, "WrapMinMax" ) X( 42, "lampbeam" ) X( 43, "lamphalo" ) X( 44, "MotionBlur" ) \
+	X( 45, "engine_post" ) X( 46, "ParticleSphereProxy" ) X( 47, "Shadow" ) X( 48, "ShadowModel" ) \
+	X( 49, "ModelGlowColor" ) X( 50, "spy_invis" ) X( 51, "weapon_invis" ) X( 52, "vm_invis" ) \
+	X( 53, "invis" ) X( 54, "InvulnLevel" ) X( 55, "BurnLevel" ) X( 56, "YellowLevel" ) \
+	X( 57, "HeartbeatScale" ) X( 58, "ShieldFalloff" ) X( 59, "WheatlyEyeGlow" ) X( 60, "CommunityWeapon" ) \
+	X( 61, "BenefactorLevel" ) X( 62, "ItemTintColor" ) X( 63, "WeaponSkin" ) X( 64, "ObjectPower" ) \
+	X( 65, "StatTrakIllum" ) X( 66, "StatTrakDigit" ) X( 67, "StatTrakIcon" ) X( 68, "AnimatedWeaponSheen" ) \
+	X( 69, "TeamTexture" ) X( 70, "building_invis" ) X( 71, "BuildingRescueLevel" ) \
+	X( 72, "SniperRifleCharge" ) X( 73, "StickybombGlowColor" ) X( 74, "PlayerProximity" ) \
+	X( 75, "PlayerTeamMatch" ) X( 76, "PlayerView" ) X( 77, "PlayerSpeed" ) X( 78, "PlayerPosition" ) \
+	X( 79, "EntitySpeed" ) X( 80, "EntityRandom" )
 // clang-format on
 
-#define SS_PROXY_NAME(i, name) #name,
+#define SS_PROXY_NAME(i, name) name,
 static const char* const s_ProxyNames[] = {SS_PROXY_NAMES(SS_PROXY_NAME)};
 #undef SS_PROXY_NAME
 
@@ -385,7 +396,7 @@ static void* CreateManagedMaterialProxy()
 }
 
 #define SS_PROXY_REG(i, name) \
-	static InterfaceReg s_ManagedProxyReg##i(&CreateManagedMaterialProxy<i>, #name IMATERIAL_PROXY_INTERFACE_VERSION);
+	static InterfaceReg s_ManagedProxyReg##i(&CreateManagedMaterialProxy<i>, name IMATERIAL_PROXY_INTERFACE_VERSION);
 SS_PROXY_NAMES(SS_PROXY_REG)
 #undef SS_PROXY_REG
 

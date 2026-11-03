@@ -134,17 +134,24 @@ internal sealed unsafe class ForwardedStringTables
             return -1;
         }
 
-        int index;
         fixed (byte* p = Vtable.Utf8(value))
-            index = _table->AddString(table, 1, p, -1, null);
-
-        if (index == InvalidIndex)
         {
-            _log.Warning($"[SourceSharp] string table '{NameOf(table)}' is full; the string was not added\n");
-            return -1;
-        }
+            // Stock's AddString answers the entry a name already has rather than
+            // adding a second one (networkstringtabledefs.h:37); engine.so here does
+            // not check, so the lookup is ours: find first, add only what is missing.
+            int existing = _table->FindStringIndex(table, p);
+            if (existing != InvalidIndex)
+                return existing;
 
-        return index;
+            int index = _table->AddString(table, 1, p, -1, null);
+            if (index == InvalidIndex)
+            {
+                _log.Warning($"[SourceSharp] string table '{NameOf(table)}' is full ({_table->GetNumStrings(table)} stored); the string was not added\n");
+                return -1;
+            }
+
+            return index;
+        }
     }
 
     public int FindStringIndex(int tableId, string value)

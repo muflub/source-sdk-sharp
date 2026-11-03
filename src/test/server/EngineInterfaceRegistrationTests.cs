@@ -65,6 +65,7 @@ public class EngineInterfaceRegistrationTests
 
         Assert.Same(server, services.Require<ISaveMemory>());
         Assert.Same(server, services.Require<SourceSharp.Server.Interop.IAreaPortalEngine>());
+        Assert.Same(server, services.Require<SourceSharp.Server.Interop.IEdictSlots>());
         Assert.Same(services.Require<IFwdPhysicsSurfaceProps>(), services.Require<IVPhysicsSurfaceSounds>());
     }
 

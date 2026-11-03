@@ -116,7 +116,8 @@ public sealed class ArsenalPlayers : IEnginePlayers
     public bool BoxInPvs(EntityHandle player, Vector mins, Vector maxs) => _inner.BoxInPvs(player, mins, maxs);
     public void MakePickup(EntityHandle entity, float sizeX, float sizeY, float sizeZ) => _inner.MakePickup(entity, sizeX, sizeY, sizeZ);
     public void Respawn(EntityHandle player) => _inner.Respawn(player);
-    public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f) => _inner.SetFov(player, requester, fov, rate);
+    public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f, int start = 0) => _inner.SetFov(player, requester, fov, rate, start);
+    public void SetDefaultFov(EntityHandle player, int fov) => _inner.SetDefaultFov(player, fov);
     public void SetObserverMode(EntityHandle player, ObserverMode mode) => _inner.SetObserverMode(player, mode);
     public void SetTeam(EntityHandle player, int team) => _inner.SetTeam(player, team);
     public void SetPickupEnabled(EntityHandle entity, bool enabled) => _inner.SetPickupEnabled(entity, enabled);

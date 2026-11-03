@@ -101,6 +101,9 @@ public sealed partial class UiContext
                 Poly(r, c, element, [6, 74, 50, 22, 50, 42, 22, 74]);
                 Poly(r, c, element, [50, 22, 94, 74, 78, 74, 50, 42]);
                 break;
+            case UiShape.ChevronLeft:
+                Poly(r, c, element, [85, 0, 5, 50, 85, 100]);
+                break;
             case UiShape.Lock:
                 // Convex pieces only (vgui fills convex polygons): body, two posts, the arch's top.
                 Box(r.X + w * 0.16f, r.Y + h * 0.44f, w * 0.68f, h * 0.52f, c, element);
@@ -125,6 +128,26 @@ public sealed partial class UiContext
                         Box(r.X + w - (3 - col) * d * 1.6f, r.Y + h - (3 - row) * d * 1.6f, d, d, c, element);
                 break;
             }
+            case UiShape.Compass:
+            {
+                // A dim ring, and the arrow rotated to ShapeValue degrees about
+                // the centre (0 = up): stock's CTFArrowPanel spins an arrow
+                // material to the flag's bearing (tf_hud_flagstatus.cpp).
+                Poly(r, c with { A = (byte)(c.A * 0.22f) }, element,
+                     [30, 0, 70, 0, 100, 30, 100, 70, 70, 100, 30, 100, 0, 70, 0, 30]);
+                Span<byte> arrow = stackalloc byte[6];
+                float deg = n.ShapeValue * MathF.PI / 180f;
+                float dirX = MathF.Sin(deg), dirY = -MathF.Cos(deg);
+                float perpX = MathF.Cos(deg), perpY = MathF.Sin(deg);
+                arrow[0] = (byte)Math.Clamp(MathF.Round(50f + dirX * 46f), 0, 100);
+                arrow[1] = (byte)Math.Clamp(MathF.Round(50f + dirY * 46f), 0, 100);
+                arrow[2] = (byte)Math.Clamp(MathF.Round(50f - dirX * 16f + perpX * 18f), 0, 100);
+                arrow[3] = (byte)Math.Clamp(MathF.Round(50f - dirY * 16f + perpY * 18f), 0, 100);
+                arrow[4] = (byte)Math.Clamp(MathF.Round(50f - dirX * 16f - perpX * 18f), 0, 100);
+                arrow[5] = (byte)Math.Clamp(MathF.Round(50f - dirY * 16f - perpY * 18f), 0, 100);
+                Poly(r, c, element, arrow);
+                break;
+            }
             case UiShape.Crosshair:
             {
                 float gap = n.ShapeValue * S;
@@ -141,6 +164,40 @@ public sealed partial class UiContext
                 Box(cx + gap, cy - t / 2f, len, t, c, element);
                 Box(cx - t / 2f, cy - gap - len, t, len, c, element);
                 Box(cx - t / 2f, cy + gap, t, len, c, element);
+                break;
+            }
+            case UiShape.Sweep:
+            {
+                // The pie as convex triangles from the centre — stock's
+                // CircularProgressBar fans the arc the same way (a twelfth of
+                // the circle a triangle is enough for icon sizes). 0 the empty
+                // sweep draws nothing; 1 is the disc.
+                float frac = Math.Clamp(n.ShapeValue, 0f, 1f);
+                if (frac >= 1f)
+                {
+                    Poly(r, c, element, [30, 0, 70, 0, 100, 30, 100, 70, 70, 100, 30, 100, 0, 70, 0, 30]);
+                    break;
+                }
+
+                int segments = (int)MathF.Ceiling(frac * 12f);
+                Span<byte> tri = stackalloc byte[6];
+                for (int i = 0; i < segments; i++)
+                {
+                    float a0 = 2f * MathF.PI * frac * i / segments;
+                    float a1 = 2f * MathF.PI * frac * (i + 1) / segments;
+                    tri[0] = 50;
+                    tri[1] = 50;
+                    Point(tri, 2, a0);
+                    Point(tri, 4, a1);
+                    Poly(r, c, element, tri);
+                }
+
+                static void Point(Span<byte> into, int at, float angle)
+                {
+                    into[at] = (byte)Math.Clamp(MathF.Round(50f + 50f * MathF.Sin(angle)), 0, 100);
+                    into[at + 1] = (byte)Math.Clamp(MathF.Round(50f - 50f * MathF.Cos(angle)), 0, 100);
+                }
+
                 break;
             }
         }

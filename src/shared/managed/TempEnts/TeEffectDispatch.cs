@@ -64,7 +64,7 @@ namespace SourceSharp.Shared;
 /// anywhere in THIS build's own <c>$Include</c> chain (the tree still carries
 /// five <c>.vpc</c> files that do define them, and every one of them builds a
 /// different mod), which is what
-/// <c>TempEntEffectDataTests.NeitherHl2NorTfIsDefinedInThisBuild</c> reads off
+/// <c>TempEntEffectDataTests.NeitherHl2NorTFIsDefinedInThisBuild</c> reads off
 /// disk. Taking the HL2 arm would have produced coordinates a few inches out
 /// with nothing anywhere saying so.
 /// </para>

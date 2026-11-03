@@ -43,6 +43,7 @@ public class AnimStateMachineTests
         public bool RootFollowsFeetValue = true;    // stock's arm unless a fact says otherwise
         public LegAnimType Leg = LegAnimType.EightWay;
         public PlayerPosture? Posture { get; set; }
+        public int EntityIndex { get; set; } = -1;
 
         /// <summary>Every (index, value) pose write of the drives since cleared.</summary>
         public readonly List<(int Index, float Value)> Pose = new();
@@ -698,6 +699,23 @@ public class AnimStateMachineTests
         s.Update(0f, 0f, 1.4f, Step);
         Assert.True(t.Played[^1].Sequence == 3 && !t.Played[^1].Restart,
             "and then it simply runs");
+    }
+
+    [Fact]
+    public void TheJumpEventStampsTheTimeJumpingBegan()
+    {
+        // Stock's DoAnimationEvent(ACT_MP_JUMP) bookkeeping arm stamps
+        // m_flJumpStartTime = gpGlobals->curtime (multiplayer_animstate.cpp:293).
+        // The TF2 anim state reads it for JUMP_START / JUMP_FLOAT timing
+        // (tf_playeranimstate.cpp:1498,1517), so the machine has to hand it out.
+        var t = ModelledTarget(("ACT_HL2MP_RUN_MELEE", 3), ("ACT_HL2MP_JUMP_MELEE", 9));
+        var s = DrivenBy(t, new Hl2PostureLayer(t));
+        t.Velocity = new Vector(300f, 0f, 0f);
+
+        s.Update(0f, 0f, 1.0f, Step);
+        s.DoAnimationEvent(PlayerAnimEvent.Jump);
+
+        Assert.Equal(1.0f, s.JumpStartTime);
     }
 
     [Fact]

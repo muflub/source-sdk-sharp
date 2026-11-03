@@ -297,6 +297,12 @@ public static class EntityNames
     /// effects, told apart by the <c>te</c> keyvalue.
     /// </summary>
     public const string SsTeTester = "ss_te_tester";
+    /// <summary>
+    /// The viewmodel attachment: the hands a deploy names, bone-merged onto the
+    /// viewmodel (TF2's C_ViewmodelAttachmentModel, which stock keeps client-side;
+    /// the port networks it, so it has a classname of its own).
+    /// </summary>
+    public const string SsViewmodelAttachment = "ss_viewmodel_attachment";
     public const string SsWeapon  = "ss_weapon";
 
     /// <summary>HL2MP's CPredictedViewModel (CHL2MP_Player::CreateViewModel).</summary>

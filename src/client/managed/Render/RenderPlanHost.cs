@@ -26,7 +26,8 @@ public sealed class RenderPlanHost : IClientRenderPlan
     /// <summary>The game's: the debug overlays' materials are found through <paramref name="fx"/> by the names <paramref name="console"/> holds.</summary>
     public RenderPlanHost(IFxRender fx, IEngineConsole console, PostProcessHost post, ViewEffectsHost viewEffects,
                           IUniformRandom random, DemoViewCamera demoCamera, ScreenSpaceEffectManager screenEffects,
-                          PlayerViewRecord playerView)
+                          PlayerViewRecord playerView, LocalPlayerFov? fov = null, IViewModelBob? bob = null,
+                          IViewModelOffset? offsets = null, GlowObjectManager? glow = null)
     {
         _playerView = playerView;
         _screenEffects = screenEffects;
@@ -35,6 +36,10 @@ public sealed class RenderPlanHost : IClientRenderPlan
         _console = console;
         _post = post;
         _viewEffects = viewEffects;
+        _fov = fov;
+        _bob = bob;
+        _offsets = offsets;
+        _glow = glow;
         _randomByte = () => random.RandomInt(0, 255);
     }
 
@@ -47,8 +52,20 @@ public sealed class RenderPlanHost : IClientRenderPlan
     public long ViewDecisions { get; private set; }
 
 
-    /// <summary>CViewRender::SetUpViews' planes and FOV (ViewFrame.SetUpView).</summary>
-    public void ViewSetUp(in ViewSetUpIn input, out ViewSetUpOut output) => output = ViewFrame.SetUpView(input);
+    /// <summary>
+    /// CViewRender::SetUpViews' planes and FOV (ViewFrame.SetUpView), then the
+    /// local player's own — stock's CalcPlayerView ending
+    /// <c>fov = GetFOV()</c> (baseplayer_shared.cpp:1639) on the view the
+    /// override left, whose viewmodel offset is the same algebra as stock's
+    /// post-CalcView <c>GetViewModelFOV() - ( default_fov - fov )</c>.
+    /// </summary>
+    public void ViewSetUp(in ViewSetUpIn input, out ViewSetUpOut output)
+    {
+        output = ViewFrame.SetUpView(input);
+        int fov = _fov?.Current() ?? 0;
+        if (fov != 0)
+            output.Fov = fov;
+    }
 
     /// <summary>The save-game screenshot's view (ViewFrame.Screenshot).</summary>
     public ViewSetup ViewScreenshot(in ViewSetup eye, int width, int height) => ViewFrame.Screenshot(eye, width, height);
@@ -77,9 +94,24 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     private readonly ViewEffectsHost? _viewEffects;
 
+    // The viewmodel bob's state (cl_bobcycle/cl_bobup); none in a test's host.
+    private readonly IViewModelBob? _bob;
+
+    // The viewmodels' min-mode offset (stock's tf_viewmodel.cpp term); none in
+    // a test's host, where the origin stands.
+    private readonly IViewModelOffset? _offsets;
+
+    // The local player's field of view (C_BasePlayer::GetFOV); none in a
+    // test's host, where the default stands.
+    private readonly LocalPlayerFov? _fov;
+
     // Where the frame's player view is kept (IPlayerView's writer); none in a
     // test's host.
     private readonly PlayerViewRecord? _playerView;
+
+    // The glow objects the main view's last section draws over (the manager is
+    // registered before this host); none in a test's host.
+    private readonly GlowObjectManager? _glow;
 
     public void ViewEffectsFade(int duration, int holdTime, int flags, byte r, byte g, byte b, byte a, float curTime)
         => _viewEffects?.Fade(duration, holdTime, (FadeFlags)flags, r, g, b, a, curTime);
@@ -116,6 +148,61 @@ public sealed class RenderPlanHost : IClientRenderPlan
             case 1: fx?.ClearAllFades(); break;
             case 2: fx?.ClearPermanentFades(); break;
         }
+    }
+
+    public void ViewEffectsViewModelBob(float curTime, float frameTime, ReadOnlySpan<float> eyeOrigin, ReadOnlySpan<float> eyeAngles, Span<float> outOrigin, Span<float> outAngles)
+    {
+        eyeOrigin.CopyTo(outOrigin);
+        eyeAngles.CopyTo(outAngles);
+        if (_offsets is not null)
+            AddViewModelOffset(_offsets, eyeAngles, outOrigin);
+        if (_bob is null)
+            return;
+        Span<float> bob = stackalloc float[2];
+        _bob.Tick(curTime, frameTime, bob);
+        AddViewModelBob(bob, eyeAngles, outOrigin, outAngles);
+    }
+
+    /// <summary>
+    /// Stock's min-mode term (<c>tf_viewmodel.cpp:203-221</c>): the seam's x y z
+    /// along the eye's forward, right and up, added to the viewmodel's origin.
+    /// The angles are the eye's, before any mutation — as stock's
+    /// <c>AngleVectors</c> call is.
+    /// </summary>
+    internal static void AddViewModelOffset(IViewModelOffset offsets, ReadOnlySpan<float> angles, Span<float> origin)
+    {
+        Span<float> term = stackalloc float[3];
+        if (!offsets.Offset(term))
+            return;
+
+        MoveVec.AngleVectors(new Vector(angles[0], angles[1], angles[2]), out Vector forward, out Vector right, out Vector up);
+        origin[0] += term[0] * forward.X + term[1] * right.X + term[2] * up.X;
+        origin[1] += term[0] * forward.Y + term[1] * right.Y + term[2] * up.Y;
+        origin[2] += term[0] * forward.Z + term[1] * right.Z + term[2] * up.Z;
+    }
+
+    /// <summary>
+    /// Stock's <c>AddViewModelBobHelper</c> (tf_weaponbase.cpp:4801-4822) term
+    /// for term, on spans: the forward and right of the eye's angles (stock's
+    /// <c>AngleVectors</c>, before any mutation), then the vertical bob at 0.4
+    /// along forward and 0.1 of z, the roll +0.5, pitch -0.4 and yaw -0.3, and
+    /// the lateral bob 0.2 along right.
+    /// </summary>
+    internal static void AddViewModelBob(ReadOnlySpan<float> bob, ReadOnlySpan<float> angles, Span<float> origin, Span<float> outAngles)
+    {
+        MoveVec.AngleVectors(new Vector(angles[0], angles[1], angles[2]), out Vector forward, out Vector right, out _);
+        float vertical = bob[0], lateral = bob[1];
+
+        float x = origin[0] + forward.X * vertical * 0.4f + right.X * lateral * 0.2f;
+        float y = origin[1] + forward.Y * vertical * 0.4f + right.Y * lateral * 0.2f;
+        float z = origin[2] + forward.Z * vertical * 0.4f + right.Z * lateral * 0.2f + vertical * 0.1f;
+        origin[0] = x;
+        origin[1] = y;
+        origin[2] = z;
+
+        outAngles[0] = angles[0] - vertical * 0.4f;  // PITCH
+        outAngles[1] = angles[1] - lateral * 0.3f;   // YAW
+        outAngles[2] = angles[2] + vertical * 0.5f;  // ROLL
     }
 
     private readonly PostProcessHost? _post;
@@ -155,6 +242,12 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     internal RenderPlanHost()
     {
+    }
+
+    /// <summary>A test's: no engine, only the local player's FOV.</summary>
+    internal RenderPlanHost(LocalPlayerFov fov)
+    {
+        _fov = fov;
     }
 
     /// <summary>A test's: no engine, the frame's player view kept in <paramref name="playerView"/>.</summary>
@@ -373,7 +466,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
         }
 
         _viewProgram.Clear();
-        ViewDrawProgram.Build(scene, context, _viewProgram);
+        ViewDrawProgram.Build(scene, context, _viewProgram, _glow);
         ReadOnlySpan<RenderOp> program = _viewProgram.Span;
         if (program.Length > ops.Length)
         {

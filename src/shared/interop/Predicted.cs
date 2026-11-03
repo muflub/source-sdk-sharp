@@ -51,3 +51,15 @@ public sealed class PredictedAttribute : Attribute
     /// </summary>
     public float Tolerance { get; }
 }
+
+/// <summary>
+/// Stock's <c>FTYPEDESC_NOERRORCHECK</c>: a networked field the replay takes
+/// from the arrival as its basis, but the misprediction check does not judge.
+/// HL2MP declares the player's <c>m_iAmmo</c> so (c_hl2mp_player.cpp's
+/// prediction override): the pools move inside commands the client does not
+/// model, and the arrival is the word.
+/// </summary>
+[AttributeUsage(AttributeTargets.Property)]
+public sealed class NoErrorCheckAttribute : Attribute
+{
+}

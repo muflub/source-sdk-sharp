@@ -28,8 +28,10 @@ public interface IChatPlayers
 /// SayText2 become lines. A SayText2 a player said (bWantsToChat) is stock's
 /// "#HL2MP_Chat_*" format with the name and the text: the speaker, the text,
 /// and the format's (TEAM) and *DEAD* tags; any other SayText2 is its format
-/// localised (the engine's tables, then stock's English for the HL2MP formats
-/// this mod's client does not load) with the parameters in place. A SayText is
+/// localised (the engine's tables, then the mod's language chain
+/// (<see cref="IUiLocalisation"/>, what the panels read — stock had one table
+/// for both), then stock's English for the HL2MP formats this mod's client
+/// does not load) with the parameters in place. A SayText is
 /// its raw line (a '#' token looked up when it is not chat). Each line lasts
 /// hud_saytext_time (12) and fades over its last second (CHATLINE_FADE_TIME
 /// 1.0, PerformFadeout); a player's line is also printed to the console.
@@ -37,7 +39,8 @@ public interface IChatPlayers
 /// 5-second bright flash on a new line and its HudChat.Message sound.
 /// </summary>
 public sealed class ChatFeed(IGameClock clock, ILog log, IEngineHud hud, IChatPlayers players,
-                             HudSayTextTimeConVar? time = null) : IChatSource, ITextMessageChat
+                             HudSayTextTimeConVar? time = null, IServiceLocator? services = null)
+    : IChatSource, ITextMessageChat
 {
     /// <summary>Lines kept; the chat screen shows the newest of them.</summary>
     public const int MaxLines = 16;
@@ -116,8 +119,19 @@ public sealed class ChatFeed(IGameClock clock, ILog log, IEngineHud hud, IChatPl
         string found = token.Length > 0 ? hud.Localise(token) : "";
         if (found.Length > 0 && found != token)
             return found;
-        // The server may name the format with or without stock's '#'.
+        // The engine's tables load none of the game's own file, so a notice
+        // token the server named (TF2's joinclass sends #game_respawn_as with
+        // a TF_Class_Name_* parameter — its class files name their
+        // localize_name without the '#') answers from the mod's copy: the
+        // chain the panels read. Asked through the locator because the chat
+        // is composed before the UI loads and registers it; with no chain
+        // (no UI context) the answer is what it was before — the formats
+        // below, or the token. Stock's table takes the token with or without
+        // stock's '#' and adds it when the caller omits it; the chain and the
+        // formats below are keyed like the file, so both are asked with it.
         string key = token.StartsWith('#') ? token : "#" + token;
+        if (token.Length > 0 && services?.Resolve<IUiLocalisation>()?.Find(key) is { Length: > 0 } text)
+            return text;
         return StockFormats.TryGetValue(key, out var stock) ? stock : token;
     }
 

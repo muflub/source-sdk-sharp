@@ -21,8 +21,44 @@ public abstract class UiScreen : IUiScreen
 
     public virtual bool WantsMouse => Layer == UiLayerKind.Menu;
 
+    /// <summary>The stock viewport panel this screen speaks for (the "team"
+    /// of the host's panel map): the server's VGUIMenu and the viewport's
+    /// show of that panel open this screen instead of the core's, so a mod
+    /// replaces a stock menu (TF2 stage 3.2's team menu). Null — the default
+    /// — is a screen that is no panel's.</summary>
+    public virtual string? Panel => null;
+
+    /// <summary>The panel names this screen speaks for when it speaks for
+    /// more than one (TF2 stage 3.2's class menu, one screen for
+    /// <c>class</c>, <c>class_red</c> and <c>class_blue</c>): claimed
+    /// alongside <see cref="Panel"/>, first claimer in layer order either
+    /// way. Answer a field, not a new list per call.</summary>
+    public virtual IReadOnlyList<string> Panels => [];
+
+    /// <summary>Said just before a show of a claimed panel opens this screen,
+    /// with the claimed name it came in under: how one screen told a
+    /// <c>class_red</c> show from a <c>class_blue</c> one. The plain
+    /// <see cref="UiLayer.Open"/> path — a chain, a command — says nothing.</summary>
+    public virtual void PanelOpened(string panel) { }
+
+    /// <summary>Said once after the host closes this screen, whichever way
+    /// the close came — a named close, the top window's Escape, the
+    /// window's own close button: the mirror of the show, so a screen can
+    /// tell the game its visible state ended (a stock panel learns its
+    /// hide from the same call that hides it). Never said for a screen
+    /// that was not open.</summary>
+    public virtual void Closed() { }
+
     /// <summary>Whether the layer opens it on its own: HUD screens are, menus wait to be asked.</summary>
     public virtual bool OpenByDefault => Layer == UiLayerKind.Hud;
+
+    /// <summary>
+    /// The named elements of other screens this one replaces while it is open and
+    /// visible (a mod HUD's <c>hud.vitals</c>, <c>hud.ammo</c>): a screen that asks
+    /// <see cref="UiFrame.Taken"/> for one leaves its own element out. Answer a
+    /// field, not a new list per call.
+    /// </summary>
+    public virtual IReadOnlyList<string> Takes => [];
 
     public abstract void Describe(ref UiFrame ui);
 }

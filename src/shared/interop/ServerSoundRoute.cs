@@ -19,6 +19,13 @@ public interface IServerSoundRoute
     /// </summary>
     void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch);
 
+    /// <summary>
+    /// A sound from an entity heard reliably by a whole team wherever its
+    /// players stand (stock's <c>CTeamRecipientFilter</c> arms; the
+    /// announcer's). Nothing when the team fields no connected player.
+    /// </summary>
+    void EntityEmitSoundToTeam(int team, EntityHandle entity, string soundName);
+
     /// <summary>Every wave of the sound stopped on the index it played from.</summary>
     void EntityStopSound(EntityHandle entity, string soundName);
 

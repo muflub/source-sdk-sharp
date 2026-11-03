@@ -1361,6 +1361,9 @@ struct SSManagedRenderClientTable
 	void (*ViewFreezeFrame)(IManagedRenderClient* self, float flFreezeTime, float flCurTime);
 	int32_t (*ViewDemoCamera)(IManagedRenderClient* self, int32_t nStage, const float* pIn, float* pOut);
 	void (*ScreenSpaceEffectsStage)(IManagedRenderClient* self, int32_t nStage);
+	void (*ViewEffectsViewModelBob)(IManagedRenderClient* self, float flCurTime, float flFrameTime,
+									const float* pEyeOrigin, const float* pEyeAngles, float* pOutOrigin,
+									float* pOutAngles);
 };
 
 class IManagedRenderClient : public IManagedObject
@@ -1444,16 +1447,22 @@ public:
 
 	void ScreenSpaceEffectsStage(int32_t nStage) { Table()->ScreenSpaceEffectsStage(this, nStage); }
 
+	void ViewEffectsViewModelBob(float flCurTime, float flFrameTime, const float* pEyeOrigin, const float* pEyeAngles,
+								 float* pOutOrigin, float* pOutAngles)
+	{
+		Table()->ViewEffectsViewModelBob(this, flCurTime, flFrameTime, pEyeOrigin, pEyeAngles, pOutOrigin, pOutAngles);
+	}
+
 private:
 	const SSManagedRenderClientTable* Table() const { return static_cast<const SSManagedRenderClientTable*>(m_pTable); }
 };
 
 static const uint32_t kIManagedRenderClientSlotHashes[] = {
 	0x07e0f4c4, 0x0d54c15e, 0x8ba8bb2d, 0xdec81a24, 0x6fc25d72, 0xfa64b18d, 0x6fc25d72, 0xf95861ef, 0xa853d22c,
-	0x62a4de56, 0xc83e311d, 0x123c2a4a, 0xd70db9bc, 0x6d136a90, 0xbdc8b950, 0xd6707e4a, 0xc83e311d,
+	0x62a4de56, 0xc83e311d, 0x123c2a4a, 0xd70db9bc, 0x6d136a90, 0xbdc8b950, 0xd6707e4a, 0xc83e311d, 0x848aebc0,
 };
-static const int32_t kIManagedRenderClientSlotCount = 17;
-static_assert(sizeof(SSManagedRenderClientTable) == 17 * sizeof(void*),
+static const int32_t kIManagedRenderClientSlotCount = 18;
+static_assert(sizeof(SSManagedRenderClientTable) == 18 * sizeof(void*),
 			  "SSManagedRenderClientTable is one pointer per slot");
 
 class IManagedInputClient;

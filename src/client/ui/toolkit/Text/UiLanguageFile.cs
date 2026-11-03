@@ -3,7 +3,8 @@ using System.Text;
 namespace SourceSharp.Client.Ui.Toolkit;
 
 /// <summary>
-/// A Source language file (<c>resource/mod_sharp_english.txt</c>: UTF-16
+/// A Source language file (each mod's own, named for its game directory —
+/// <c>resource/&lt;gamedir&gt;_english.txt</c>: UTF-16
 /// KeyValues, "lang" { "Tokens" { "Key" "Text" } }) as a localiser: the same
 /// file the game's localiser reads, so previews say what the game will.
 /// Keys match without case, as the engine's do.

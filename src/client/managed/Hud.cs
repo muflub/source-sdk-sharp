@@ -4,6 +4,20 @@ using SourceSharp.Shared;
 namespace SourceSharp.Client;
 
 /// <summary>
+/// A hit the local player took, handed to a mod's own decode before the
+/// core's indicator state takes it (the kill feed's
+/// <see cref="SourceSharp.Client.Vgui.IKillFeedListener"/> shape). Called for
+/// every Damage message, even one the core's own gates drop; the listener
+/// decides for itself. Implemented by a <c>[SideService]</c> mod class; the
+/// Hud's <see cref="IHooks{IDamageListener}"/> collects them.
+/// </summary>
+public interface IDamageListener
+{
+    /// <summary>One Damage message, as the core read it.</summary>
+    void OnDamage(DamageArgs hit);
+}
+
+/// <summary>
 /// The HUD's state: the damage the local player last took, what a map has
 /// asked to say (<see cref="HudMessages"/>) and to instruct
 /// (<see cref="HudHints"/>), and the build stamp. It draws nothing: the HUD is
@@ -19,13 +33,15 @@ public sealed class Hud : IHud
                IUserMessageEvent<string> hudTitles,
                IUserMessageEvent<IReadOnlyList<string>> keyHints,
                BuildInfo build,
-               ViewReadout? view = null)
+               ViewReadout? view = null,
+               IHooks<IDamageListener>? listeners = null)
     {
         Clock = clock;
         _damage = damage;
         _hudMessages = hudMessages;
         _hudTitles = hudTitles;
         _keyHints = keyHints;
+        _listeners = listeners;
 
         // The two the HUD owns, handed the same engine it was. Constructed here
         // rather than in a field initialiser, which runs before the parameters
@@ -50,6 +66,10 @@ public sealed class Hud : IHud
     private readonly IUserMessageEvent<HudMessageArgs> _hudMessages;
     private readonly IUserMessageEvent<string> _hudTitles;
     private readonly IUserMessageEvent<IReadOnlyList<string>> _keyHints;
+
+    /// <summary>The mods' damage decodes (the kill feed's IKillFeedListener
+    /// shape); the empty chain when none listen costs nothing.</summary>
+    private readonly IHooks<IDamageListener>? _listeners;
 
 
     /// <summary>Seconds a damage indicator takes to fade out.</summary>
@@ -100,6 +120,10 @@ public sealed class Hud : IHud
     // health nor armour starts no animation.
     private void OnDamage(DamageArgs damage)
     {
+        // Every message, even one the gates below drop: the listener decides
+        // for itself, as the kill feed's decode does.
+        _listeners?.Each(nameof(IDamageListener.OnDamage), l => l.OnDamage(damage));
+
         bool noOrigin = damage.Origin.X == 0f && damage.Origin.Y == 0f && damage.Origin.Z == 0f;
         if (noOrigin && (damage.DamageBits & (int)DamageType.Drown) == 0)
             return;

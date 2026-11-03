@@ -178,6 +178,9 @@ public interface IClientRenderPlan
 
     /// <summary>0 LevelInit, 1 ClearAllFades, 2 ClearPermanentFades.</summary>
     void ViewEffectsReset(int which);
+
+    /// <summary>Stock's AddViewModelBobHelper whole: the eye in, the bobbed viewmodel origin and angles out.</summary>
+    void ViewEffectsViewModelBob(float curTime, float frameTime, ReadOnlySpan<float> eyeOrigin, ReadOnlySpan<float> eyeAngles, Span<float> outOrigin, Span<float> outAngles);
 }
 
 /// <summary>A <c>CViewSetup</c> field for field (<c>SourceSharpViewSetup_t</c>).</summary>
@@ -745,7 +748,7 @@ public enum RenderOpKind
     PostQueryBegin = 128,
     /// <summary>EndOcclusionQueryDrawing on bucket I0's query.</summary>
     PostQueryEnd = 129,
-    /// <summary>The histogram's stencil states (I0: 0 off, 1 mark where the compare passes, 2 count the marked).</summary>
+    /// <summary>The histogram's and glow's stencil states (I0: 0 off, 1 mark where the compare passes, 2 count the marked, 3 test every bit against zero).</summary>
     PostStencil = 130,
     /// <summary>SetGoalToneMappingScale( F0 ).</summary>
     PostGoalToneScale = 131,
@@ -798,6 +801,8 @@ public enum RenderOpKind
     ClearColor3ub = 148,
     /// <summary>modelrender->ForcedMaterialOverride( NULL, I0 as OverrideType_t ).</summary>
     ForcedMaterialOverride = 149,
+    /// <summary>OverrideDepthEnable( I0 != 0, I1 != 0 ): the mark pass's depth test on and write off.</summary>
+    PostOverrideDepth = 150,
 }
 
 /// <summary>A post mesh's primitive (MaterialPrimitiveType_t).</summary>

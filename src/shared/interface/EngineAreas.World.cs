@@ -182,6 +182,15 @@ public interface IEngineSound
     /// <summary>A script sound from an entity at a volume and pitch of the caller's. See IServerSoundRoute.EntityEmitSoundAs.</summary>
     void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch);
 
+    /// <summary>
+    /// A sound from an entity heard reliably by a whole team wherever its
+    /// players stand — stock's <c>CTeamRecipientFilter( team, true )</c> arms
+    /// around <c>CCaptureFlag::PlaySound</c> (entity_capture_flag.cpp), the
+    /// flag's per-team announcer. Nothing when the team fields no connected
+    /// player. Server side only.
+    /// </summary>
+    void EmitSoundToTeam(int team, EntityHandle entity, string soundName);
+
     /// <inheritdoc cref="EngineSide.EntityStopSound"/>
     void EntityStopSound(EntityHandle entity, string soundName);
 
@@ -414,8 +423,38 @@ public interface IEngineEffects
     /// <inheritdoc cref="EngineSide.ParticleSystemStop"/>
     void ParticleSystemStop(EntityHandle owner);
 
+    /// <summary>A second system beside the owner's first: stock's crit glow runs there.</summary>
+    bool ParticleSystemStartExtra(EntityHandle owner, string name);
+
+    /// <inheritdoc cref="ParticleSystemStartExtra"/>
+    void ParticleSystemStopExtra(EntityHandle owner);
+
     /// <inheritdoc cref="EngineSide.ParticleSystemFollowPoints"/>
     bool ParticleSystemFollowPoints(EntityHandle owner, int pointMask);
+
+    /// <summary>
+    /// Points one of a running system's control points at an entity's attachment
+    /// instead of its owner: the medigun beam's muzzle end rides its weapon, its
+    /// far end the patient. Point 0 may follow too. When the entity has no such
+    /// attachment the point falls back to the entity's origin. A zero
+    /// <paramref name="entity"/> hands the point back to the owner feed.
+    /// </summary>
+    /// <param name="offset">Added to the attachment's origin.</param>
+    /// <returns>true if the entity had a running system to configure.</returns>
+    bool ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset = null);
+
+    /// <summary>
+    /// Starts the owner's system in a numbered slot, for a caller that counts
+    /// its own effects: the condition drips wear slots beside the burn's and
+    /// the glow's, as stock hangs one member per effect on the player. Starting
+    /// again in a slot replaces that slot's system; the other slots are
+    /// untouched. An unknown slot refuses.
+    /// </summary>
+    /// <returns>true if a particle system by that name was found and started.</returns>
+    bool ParticleSystemStartSlot(EntityHandle owner, string name, int slot);
+
+    /// <inheritdoc cref="ParticleSystemStartSlot"/>
+    void ParticleSystemStopSlot(EntityHandle owner, int slot);
 
     /// <inheritdoc cref="EngineSide.SpriteTrailUpdate"/>
     void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible);

@@ -60,16 +60,19 @@ public sealed class ClientDebugUi(UiHost host) : IDebugClientUi
         var b = host.Backend;
         if (sweep)
         {
-            var theme = host.Layer.Context.Theme;
-            foreach (var size in UiSamples.Sizes())
-            {
-                float scale = size.Screen.Scale;
-                foreach (var role in Enum.GetValues<Text>())
+            // The host's theme and the plain one: a game-side overlay
+            // (resource/ui-theme.yaml) replaces roles, and the previews'
+            // fixture is built over SourceSharpTheme as it is.
+            foreach (var theme in new[] { host.Layer.Context.Theme, SourceSharpTheme.Create() })
+                foreach (var size in UiSamples.Sizes())
                 {
-                    var t = theme.Type(role);
-                    b.FontHandle(new UiFontSpec(t.Family, Math.Max(1, (int)MathF.Round(t.SizeDu * scale)), t.Weight, t.Flags));
+                    float scale = size.Screen.Scale;
+                    foreach (var role in Enum.GetValues<Text>())
+                    {
+                        var t = theme.Type(role);
+                        b.FontHandle(new UiFontSpec(t.Family, Math.Max(1, (int)MathF.Round(t.SizeDu * scale)), t.Weight, t.Flags));
+                    }
                 }
-            }
         }
 
         return b.Fonts.OrderBy(f => f.Family, StringComparer.Ordinal).ThenBy(f => f.PxHeight).ThenBy(f => f.Weight).Select(f =>

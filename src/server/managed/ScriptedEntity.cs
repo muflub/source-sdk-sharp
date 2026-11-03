@@ -1297,19 +1297,6 @@ public abstract class ScriptedEntity
     public virtual bool OnInput(string name, string value, float number, EntityHandle activator) => false;
 
     /// <summary>
-    /// Back to a fresh round, WITHOUT being rebuilt from the map string. The
-    /// round reset (tf2 stage 0.7) walks the live entities and calls this
-    /// instead of stock's <c>CleanUpMap</c>, which respawns the map from its
-    /// entity string: managed state no map string ever held — a logic_case's
-    /// own counters, a mode's own bookkeeping — survives a rebuild only by
-    /// accident and must be cleared on purpose. The no-op default is the
-    /// answer for an entity with no per-round state, which is most of them;
-    /// opting in is per class, and the walk's own divergence row is in
-    /// docs/divergences.md.
-    /// </summary>
-    public virtual void RoundReset() { }
-
-    /// <summary>
     /// A player walked into this entity. Only item entities are triggers, so
     /// only they ever see this — and they see it every tick the player stands
     /// inside, which a pickup must account for rather than assume one call.
@@ -4019,15 +4006,18 @@ public sealed class ScriptedEntityRegistry : IEntityDirectory, IShellLessSide, I
     /// the entities this registry is driving and nothing else. Unordered, which
     /// is what a dictionary walk is; a caller that needs an order has to say so.
     /// </para>
+    ///
+    /// <para>
+    /// ROUTED THROUGH THE DIRECTORY'S OWN WALK, not the dense list directly:
+    /// the directory takes its handles first, so a walk that runs game code —
+    /// a <see cref="PlayerClientData"/> frame whose <c>PreThink</c> spawns or
+    /// frees an entity — does not enumerate a list that the game code is
+    /// editing. The direct dense-list walk threw
+    /// <see cref="InvalidOperationException"/> on exactly that frame.
+    /// </para>
     /// </summary>
     public IEnumerable<ScriptedEntity> OfClass(string className)
-    {
-        foreach (var instance in _directory.Entities)
-        {
-            if (string.Equals(instance.ClassName, className, StringComparison.OrdinalIgnoreCase))
-                yield return instance;
-        }
-    }
+        => _directory.OfClass(className);
 
     /// <summary>Drops instances whose entity is gone, called when a level ends.</summary>
     //-------------------------------------------------------------------------

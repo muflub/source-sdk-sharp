@@ -156,6 +156,12 @@ public ref struct UiFrame
     public UiBox Overlay(string key, bool modal = false) => new(Context, Context.OpenOverlay(key, modal));
 
     /// <summary>
+    /// Whether an open screen replaces <paramref name="element"/> this frame
+    /// (<see cref="UiScreen.Takes"/>): the screen that draws it by default leaves it out.
+    /// </summary>
+    public bool Taken(string element) => Context.IsTaken(element);
+
+    /// <summary>
     /// A named extension point: every <see cref="IUiSlotContributor"/> that
     /// answers for <paramref name="name"/> describes into it here, in listing
     /// order. A vertical stack; place it like any element. Already closed.

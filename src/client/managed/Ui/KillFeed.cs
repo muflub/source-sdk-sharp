@@ -27,6 +27,21 @@ public interface IKillFeedPlayers
 }
 
 /// <summary>
+/// A death the feed stores, handed to a mod's own decode before the core's
+/// queue takes it (stock's <c>CTFHudDeathNotice::OnGameEvent</c>: the subclass
+/// reads its custom-kill keys, then <c>AddDeathNotice</c> stores). Called for
+/// every <c>player_death</c>, even one the core's <c>hud_deathnotice_time</c>
+/// would not show; the listener decides for itself. Implemented by a
+/// <c>[SideService]</c> mod class; the feed's <see cref="IHooks{IKillFeedListener}"/>
+/// collects them.
+/// </summary>
+public interface IKillFeedListener
+{
+    /// <summary>One <c>player_death</c>, as the core read it.</summary>
+    void OnDeath(PlayerDeathArgs death);
+}
+
+/// <summary>
 /// THE KILL FEED'S QUEUE (stock CHudDeathNotice, hl2mp/hud_deathnotice.cpp):
 /// each player_death becomes a line, the oldest dropped past
 /// <see cref="MaxLines"/> (stock MaxDeathNotices 4), each kept
@@ -44,12 +59,14 @@ public sealed class KillFeed : IKillFeedSource
     private readonly ILog _log;
     private readonly IKillFeedPlayers _players;
     private readonly HudDeathNoticeTimeConVar? _time;
+    private readonly IHooks<IKillFeedListener>? _listeners;
     private readonly KillFeedLine[] _lines = new KillFeedLine[MaxLines];
     private readonly float[] _expires = new float[MaxLines];
     private int _count;
 
-    public KillFeed(IGameClock clock, ILog log, IKillFeedPlayers players, HudDeathNoticeTimeConVar? time = null)
-        => (_clock, _log, _players, _time) = (clock, log, players, time);
+    public KillFeed(IGameClock clock, ILog log, IKillFeedPlayers players, HudDeathNoticeTimeConVar? time = null,
+                    IHooks<IKillFeedListener>? listeners = null)
+        => (_clock, _log, _players, _time, _listeners) = (clock, log, players, time, listeners);
 
     /// <summary>The lines as of now: reading the count retires the expired ones first.</summary>
     public int LineCount
@@ -65,9 +82,12 @@ public sealed class KillFeed : IKillFeedSource
 
     public void Subscribe(PlayerDeathEvent deaths) => deaths.Fired += Add;
 
-    /// <summary>One player_death (stock FireGameEvent).</summary>
+    /// <summary>One player_death (stock FireGameEvent). A mod's listeners
+    /// decode first (stock's subclass does, before AddDeathNotice).</summary>
     public void Add(PlayerDeathArgs death)
     {
+        _listeners?.Each(nameof(IKillFeedListener.OnDeath), h => h.OnDeath(death));
+
         float time = _time?.Value ?? 6f;
         if (time == 0f)
             return;
@@ -197,7 +217,7 @@ public static class KillIcons
 /// A cheat: it puts a death on the screen that did not happen.
 /// </summary>
 [ConCommand("cs_cl_death", Flags = ConVarFlags.Cheat,
-            Help = "cs_cl_death <victim userid|me> <attacker userid|me> [weapon] [headshot 1|0]: raise player_death on this client")]
+            Help = "cs_cl_death <victim userid|me> <attacker userid|me> [weapon] [headshot 1|0] [death_flags]: raise player_death on this client")]
 public sealed class ClientDeathCommand(PlayerDeathEvent deaths, ILog log, IClientStandalones standalones, IEngineHud screen)
     : IConCommand
 {
@@ -218,11 +238,13 @@ public sealed class ClientDeathCommand(PlayerDeathEvent deaths, ILog log, IClien
     public void Execute(string args)
     {
         var p = args.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (p.Length < 2 || !TryUser(p[0], out int victim) || !TryUser(p[1], out int attacker))
+        if (p.Length < 2 || !TryUser(p[0], out int victim) || !TryUser(p[1], out int attacker)
+            || p.Length > 4 && !int.TryParse(p[4], out _))
         {
-            log.Msg("usage: cs_cl_death <victim userid> <attacker userid> [weapon] [headshot 1|0]\n");
+            log.Msg("usage: cs_cl_death <victim userid> <attacker userid> [weapon] [headshot 1|0] [death_flags]\n");
             return;
         }
-        deaths.Raise(new PlayerDeathArgs(victim, attacker, p.Length > 2 ? p[2] : "", p.Length > 3 && p[3] == "1"));
+        deaths.Raise(new PlayerDeathArgs(victim, attacker, p.Length > 2 ? p[2] : "", p.Length > 3 && p[3] == "1",
+                                         p.Length > 4 ? int.Parse(p[4]) : 0));
     }
 }

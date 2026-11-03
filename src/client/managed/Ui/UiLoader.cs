@@ -108,6 +108,15 @@ public sealed class UiLoader : IUiClientEvents, IUiTextureSource, IDisposable
     public bool Load()
     {
         _seen = Stamp();
+        // The composition builds every screen's source through the container it
+        // is handed, and a source can ask for this loader (the TF2 menus'
+        // navigation does, to reach Current across a reload): the loader is
+        // itself a service of that composition, so it joins the container
+        // before the screens are built, not after the load as ClientModule
+        // used to do — which made the live game's UI refuse to load whole.
+        var ui = _services();
+        if (!ui.Services.IsRegistered(typeof(UiLoader)))
+            ui.Services.AddInstance(this);
         var runtime = Start(out string? why);
         if (runtime is null)
         {
@@ -240,6 +249,10 @@ public sealed class UiLoader : IUiClientEvents, IUiTextureSource, IDisposable
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
+            // A reflection-built composition's TargetInvocationException says
+            // nothing on its own; the inner exception is the part to name.
+            while (e is TargetInvocationException { InnerException: { } inner })
+                e = inner;
             why = $"{e.GetType().Name}: {e.Message}";
             context.Unload();
             return null;

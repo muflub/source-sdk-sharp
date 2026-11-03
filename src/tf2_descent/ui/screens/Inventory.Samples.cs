@@ -7,7 +7,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 // The inventory window from fakes (the ui-screen loop's sample step): the
 // states plan §2.4 names, built through the same container the game uses.
 // Item names are ui.Data (game copy, case kept); every #Descent_* token lives
-// in game/mod_tf2_descent/resource/descent_english.txt.
+// in game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class InventorySamples
 {

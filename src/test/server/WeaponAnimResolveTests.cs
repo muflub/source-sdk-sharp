@@ -85,6 +85,7 @@ public class WeaponAnimResolveTests
         public void PlaySequence(EntityHandle entity, int sequence, float playbackRate, bool restart) => throw Refuse(nameof(PlaySequence));
         public void SetCycle(EntityHandle entity, float cycle) => throw Refuse(nameof(SetCycle));
         public void SetSkin(EntityHandle entity, int skin) => throw Refuse(nameof(SetSkin));
+        public void SetModelOverride(EntityHandle entity, string model) => throw Refuse(nameof(SetModelOverride));
         public void SetTextureFrame(EntityHandle entity, int frame) => throw Refuse(nameof(SetTextureFrame));
         public void SetTransmitAlways(EntityHandle entity, bool always) => throw Refuse(nameof(SetTransmitAlways));
         public bool DetectInSkybox(EntityHandle entity) => throw Refuse(nameof(DetectInSkybox));
@@ -198,5 +199,110 @@ public class WeaponAnimResolveTests
             Assert.True(WeaponAnimNames.ActivitiesFor(anim).Length > 0,
                 $"{anim} resolves through at least one activity");
         }
+    }
+
+    //-------------------------------------------------------------------------
+    // The translation chain: a rule renames the ask before the model sees it
+    // (TF2's per-role arms, stock's TranslateViewmodelHandActivity).
+    //-------------------------------------------------------------------------
+
+    private sealed class RenameRule : IViewmodelActivityRule
+    {
+        public string From = "ACT_VM_IDLE";
+        public string To = "ACT_PRIMARY_VM_IDLE";
+
+        public string Translate(int playerIndex, WeaponAnim anim, string activity)
+            => activity == From ? To : activity;
+    }
+
+    private sealed class ThrowingRule : IViewmodelActivityRule
+    {
+        public const string Message = "the rule is broken";
+
+        public string Translate(int playerIndex, WeaponAnim anim, string activity)
+            => throw new InvalidOperationException(Message);
+    }
+
+    private sealed class ListHooks<T>(params T[] all) : IHooks<T> where T : class
+    {
+        public IReadOnlyList<T> All => all;
+        public void Each(string what, Action<T> call)
+        {
+            foreach (var hook in all)
+                call(hook);
+        }
+    }
+
+    [Fact]
+    public void ARuleNamesWhatTheModelIsAsked()
+    {
+        // The TF2 arms model in person: the machine asks ACT_VM_IDLE, the rule
+        // rewrites it to the role's own, and the model answers that.
+        var model = new SequenceTable();
+        model.Activities["ACT_PRIMARY_VM_IDLE"] = 9;
+
+        var translated = new ViewmodelActivity(new ListHooks<IViewmodelActivityRule>(new RenameRule()));
+
+        Assert.True(WeaponAnimNames.Resolve(model, ViewModel, WeaponAnim.Idle, translated, 1) == 9,
+            "the rule's name is what reaches the model's activity lookup");
+        Assert.Contains("ACT_PRIMARY_VM_IDLE", model.ActivityAsks);
+    }
+
+    [Fact]
+    public void NoRuleLeavesTheMachinesOwnNames()
+    {
+        // The HL2 answer, unchanged: without a rule (or with the stock owner)
+        // the base activity is asked as the machine sent it.
+        var model = new SequenceTable();
+        model.Activities["ACT_VM_IDLE"] = 2;
+
+        Assert.True(WeaponAnimNames.Resolve(model, ViewModel, WeaponAnim.Idle) == 2,
+            "no chain means the machine's own activity name");
+        Assert.True(WeaponAnimNames.Resolve(model, ViewModel, WeaponAnim.Idle, ViewmodelActivity.Stock()) == 2,
+            "a chain with no rules leaves the machine's own activity name");
+        Assert.DoesNotContain("ACT_PRIMARY_VM_IDLE", model.ActivityAsks);
+    }
+
+    [Fact]
+    public void ANameFallbackIsNeverTranslated()
+    {
+        // The name list is the crutch for a model with untagged sequences; a
+        // rule speaks activities and must not rewrite it.
+        var model = new SequenceTable();
+        model.Names["idle"] = 0;
+
+        var translated = new ViewmodelActivity(new ListHooks<IViewmodelActivityRule>(new RenameRule()));
+
+        Assert.True(WeaponAnimNames.Resolve(model, ViewModel, WeaponAnim.Idle, translated, 1) == 0,
+            "an untagged model still resolves by its own sequence name");
+        Assert.Equal(["idle01", "idle"], model.NameAsks);
+    }
+
+    [Fact]
+    public void AThrowingRuleIsSkippedAndTheNameBeforeItStands()
+    {
+        var model = new SequenceTable();
+        model.Activities["ACT_VM_IDLE"] = 2;
+
+        var owner = new ViewmodelActivity(new ListHooks<IViewmodelActivityRule>(new ThrowingRule()),
+                                          new RecordingLog());
+
+        Assert.True(WeaponAnimNames.Resolve(model, ViewModel, WeaponAnim.Idle, owner, 1) == 2,
+            "a rule that threw leaves the name it was handed");
+    }
+
+    [Fact]
+    public void RulesFoldInTheRegisteredOrder()
+    {
+        // First rule rewrites the base, second rule rewrites the first's
+        // answer: the name handed to the model is the last word.
+        var model = new SequenceTable();
+        model.Activities["ACT_SECONDARY_VM_IDLE"] = 5;
+
+        var owner = new ViewmodelActivity(new ListHooks<IViewmodelActivityRule>(
+            new RenameRule(), new RenameRule { From = "ACT_PRIMARY_VM_IDLE", To = "ACT_SECONDARY_VM_IDLE" }));
+
+        Assert.True(WeaponAnimNames.Resolve(model, ViewModel, WeaponAnim.Idle, owner, 1) == 5,
+            "each rule is handed the name the one before it answered");
     }
 }

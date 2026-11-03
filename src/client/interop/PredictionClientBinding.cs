@@ -19,7 +19,7 @@ namespace SourceSharp.Client.Interop;
 public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideModule module,
                                                     MovementRunner movement, MovementRules rules) : IManagedPredictionClient
 {
-    // The module's three movement decisions, built once (statics to zero):
+    // The module's movement decisions, built once (statics to zero):
     // handed to the loop for each run and taken back after, so no closure
     // over this module is left in a loop that outlives it.
     private readonly MovementRules _rules = rules;
@@ -34,7 +34,14 @@ public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideMod
                new MovementRules(
                    r => game.GetJumpScale(in r),
                    (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
-                   (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m)));
+                   (i, ms, d, m) => game.GetMaxSpeedScale(i, ms, d, m),
+                   r => game.GetAirJump(in r),
+                   i => game.OnPlayerGrounded(i),
+                   (i, z) => game.GetEyeHeight(i, z),
+                   (i, ms) => game.GetBunnyJumpCap(i, ms),
+                   (i, ms) => game.GetBackpedalLimit(i, ms),
+                   (i, t, b, f, s, u) => game.GetMovementStun(i, t, b, f, s, u),
+                   (i, t, f) => game.GetMovementTaunt(i, t, f)));
 
     /// <summary>
     /// The WHOLE of ProcessMovement, in C#, for the client's native forwarder.

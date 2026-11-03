@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="751" y="457" width="1058" height="382" fill="#2e2b2a" fill-opacity="0.78" data-e="1"/>
+<rect x="769" y="569" width="1026" height="5" fill="#ffded0" data-e="2"/>
+<text x="875" y="499.8" font-family="TF2 Build" font-size="72" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="3">Disguise</text>
+<rect x="796" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="6"/>
+<text x="833" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="7">1</text>
+<rect x="886" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="10"/>
+<text x="923" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="11">2</text>
+<rect x="976" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="14"/>
+<text x="1013" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">3</text>
+<rect x="1138" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="18"/>
+<text x="1175" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="19">4</text>
+<rect x="1228" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="22"/>
+<text x="1265" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="23">5</text>
+<rect x="1318" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="26"/>
+<text x="1355" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="27">6</text>
+<rect x="1480" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="30"/>
+<text x="1517" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="31">7</text>
+<rect x="1570" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="34"/>
+<text x="1607" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="35">8</text>
+<rect x="1660" y="536" width="102" height="270" fill="#2e2b2a" fill-opacity="0.78" data-e="38"/>
+<text x="1697" y="759.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="39">9</text>
+<text x="796" y="556.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="40">Hit 'x' or 'r' to Toggle Team</text>
+<text x="1635" y="556.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="41">Hit 'q' to Cancel</text>
+</svg>

@@ -4,6 +4,7 @@ using System.Reflection.Emit;
 using SourceSharp.Client.Ui;
 using SourceSharp.Client.Ui.Screens;
 using SourceSharp.Client.Ui.Toolkit;
+using SourceSharp.UiPreview;
 
 using Xunit;
 
@@ -21,16 +22,19 @@ public class UiSourceUseTests
 {
     private static readonly Assembly Contract = typeof(IScoreboardSource).Assembly;
 
-    /// <summary>The data interfaces screens read (not the layer/backend contracts, nor
-    /// IUiIconAtlas / IUiTextureLibrary: the icon atlas and the HUD-art library are
-    /// consumed through the surface and the composition, not a panel's frames).</summary>
+    /// <summary>The data interfaces screens read (not the layer/backend
+    /// contracts, nor IUiIconAtlas / IUiTextureLibrary: the icon atlas and
+    /// the HUD-art library are consumed through the surface and the
+    /// composition — the art library's use is <see cref="TFHudArtTests"/>'s
+    /// subject, not the census's — nor IUiLocalisation: the side adapters
+    /// hold it through the composition, not a screen or panel).</summary>
     internal static bool IsSource(Type t)
         => t.IsInterface && t.Assembly == Contract && t.Namespace == "SourceSharp.Client.Ui"
            && t != typeof(IUiScreen) && t != typeof(IUiLayer) && t != typeof(IUiBackend) && t != typeof(IUiFontMetrics)
-           && t != typeof(IUiIconAtlas) && t != typeof(IUiTextureLibrary);
+           && t != typeof(IUiIconAtlas) && t != typeof(IUiTextureLibrary) && t != typeof(IUiLocalisation);
 
     private static IEnumerable<Type> UiTypes()
-        => typeof(UiScreen).Assembly.GetTypes().Concat(typeof(ScreensAssembly).Assembly.GetTypes())
+        => PreviewRun.ScreenAssemblies().SelectMany(a => a.GetTypes())
             .Where(t => !t.IsAbstract && (typeof(UiScreen).IsAssignableFrom(t) || IsPanel(t)));
 
     private static bool IsPanel(Type t)

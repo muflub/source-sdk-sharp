@@ -145,7 +145,7 @@ public class PlayerCompositesTests
     }
 
     //---------------------------------------------------------------------
-    // The order: assembly name first, Order inside the assembly, HookOrder
+    // The order: assembly layer first, Order inside the assembly, HookOrder
     // deliberately contradicting both (the plant only bites if the sort is
     // real — HookOrder is the order the chain hands the components over).
     //---------------------------------------------------------------------
@@ -175,6 +175,21 @@ public class PlayerCompositesTests
         Sink.Clear();
         rig.Frame();
         Assert.True(a1.Ticks == 2, "two frames, every component asked both times");
+    }
+
+    [Fact]
+    public void ALayeredModsComponentsAttachAfterTheModItExtends()
+    {
+        // The raw name sorts LyrComp.Descent.Server before LyrComp.Server; the
+        // layer (HookOrder.Layer) is LyrComp before LyrComp.Descent, the order
+        // the client's copy of the same mods sorts in.
+        var descent = (TracedComponent)Activator.CreateInstance(Emitted("LyrComp.Descent.Server", "D1", "D1", 0))!;
+        var base_ = (TracedComponent)Activator.CreateInstance(Emitted("LyrComp.Server", "B1", "B1", 0))!;
+        var rig = new Rig(new Source(_ => [descent]), new Source(_ => [base_]));
+
+        rig.Active();
+
+        Assert.True(Sink.SequenceEqual(new[] { "B1:attach", "D1:attach" }), string.Join(", ", Sink));
     }
 
     [Fact]
@@ -263,6 +278,47 @@ public class PlayerCompositesTests
     }
 
     private interface ITracingWish : IPlayerComponent { }
+
+    private interface IPerPlayerSlice : IPlayerComponent { }
+
+    private sealed class Slice : IPerPlayerSlice
+    {
+        public int Order => 0;
+        public void Attach(EntityHandle player) { }
+        public void Tick(float now) { }
+        public void Detach() { }
+    }
+
+    /// <summary>
+    /// By ENTITY INDEX, the key a movement rule is handed: each attached
+    /// player answers its own component, an index nobody holds and a slice
+    /// nobody registered answer null, and a player who left answers null
+    /// while the other still answers.
+    /// </summary>
+    [Fact]
+    public void GetByPlayerIndexAnswersEachPlayersOwnComponent()
+    {
+        var made = new List<Slice>();
+        var rig = new Rig(new Source(_ =>
+        {
+            var slice = new Slice();
+            made.Add(slice);
+            return [slice];
+        }));
+        rig.Active(1);
+        rig.Active(2);
+
+        Assert.Equal(2, made.Count);
+        Assert.Same(made[0], rig.Composites.Get<IPerPlayerSlice>(1));
+        Assert.Same(made[1], rig.Composites.Get<IPerPlayerSlice>(2));
+        Assert.Null(rig.Composites.Get<IPerPlayerSlice>(3));    // no such player
+        Assert.Null(rig.Composites.Get<ITracingWish>(1));       // no such slice
+
+        rig.Left(1);
+
+        Assert.Null(rig.Composites.Get<IPerPlayerSlice>(1));
+        Assert.Same(made[1], rig.Composites.Get<IPerPlayerSlice>(2));
+    }
 
     //---------------------------------------------------------------------
     // The no-owner arm and the chain's failures.

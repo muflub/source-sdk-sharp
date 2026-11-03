@@ -123,4 +123,55 @@ public partial class RagdollNetState
     /// </summary>
     public partial Vector Origin { get; set; }
 
+    /// <summary>
+    /// Whether the body arrived on fire.
+    ///
+    /// <para>
+    /// Stock networks <c>m_bBurning</c> on <c>DT_TFRagdoll</c>
+    /// (c_tf_player.cpp:518-542), and the CLIENT ragdoll acts on it at
+    /// creation — it stamps its own burn clock and starts the
+    /// <c>burningplayer_corpse</c> particle (<see cref="FlameRules.BurningCorpseParticle"/>,
+    /// c_tf_player.cpp:928-932). The clock itself crosses no wire: stock's
+    /// <c>m_flBurnEffectStartTime</c> is a client member the dying player's
+    /// state never reaches, and BurnLevel's ragdoll arm
+    /// (c_tf_player.cpp:1860-1864) reads the one the ragdoll stamped for
+    /// itself. Sent, not predicted — a death is news to the client, not a
+    /// misprediction (CritMult's rule).
+    /// </para>
+    /// </summary>
+    public partial bool Burning { get; set; }
+
+    /// <summary>
+    /// Whether the body arrived in pieces.
+    ///
+    /// <para>
+    /// Stock networks <c>m_bGib</c> on <c>DT_TFRagdoll</c> exactly as it does
+    /// <see cref="Burning"/> (tf_player.cpp:421, :449; c_tf_player.cpp:524), and
+    /// the client ragdoll draws a gibbing from it instead of a posed corpse. The
+    /// ragdoll ENTITY is created either way — <c>CreateRagdollEntity</c> runs for
+    /// both arms of the death (tf_player.cpp:12748) — so this is a flag on the
+    /// same body and not a second entity, set by the death walk from the killing
+    /// blow (<see cref="TFPlayerGib"/>).
+    /// </para>
+    /// </summary>
+    public partial bool Gib { get; set; }
+
+    /// <summary>
+    /// The dead player's team, stamped by the server when the body is made.
+    ///
+    /// <para>
+    /// Stock's ragdoll <c>m_iTeam</c>: <c>CTFPlayer::CreateRagdollEntity</c>
+    /// copies the dying player's team onto the ragdoll entity
+    /// (<c>pRagdoll-&gt;m_iTeam = GetTeamNumber()</c>, tf_player.cpp:15625) and
+    /// the field is networked with the entity
+    /// (<c>SendPropInt(SENDINFO(m_iTeam))</c>, tf_player.cpp:458). The client
+    /// reads it when it builds the body and picks the team skin off it — skin
+    /// 0 for red, skin 1 otherwise (c_tf_player.cpp:712-719) — so this is the
+    /// number that makes a BLU corpse read BLU instead of falling to the
+    /// model's skin 0. The values are stock's <c>ETFSharedTeam</c>: red is 2,
+    /// blue is 3.
+    /// </para>
+    /// </summary>
+    public partial byte Team { get; set; }
+
 }

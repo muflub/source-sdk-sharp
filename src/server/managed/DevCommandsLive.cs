@@ -945,7 +945,7 @@ public sealed class GiveCommand : DevCommand
 
         if (Context.Ammo.For(wanted) is { } ammo)
         {
-            int count = argv.Length >= 2 && int.TryParse(argv[1], out int written) ? written : ammo.MaxCarry;
+            int count = argv.Length >= 2 && int.TryParse(argv[1], out int written) ? written : Context.Arsenal.MaxCarryOf(issuer, in ammo);
             int given = Context.Arsenal.GiveAmmo(issuer, count, ammo.Name);
 
             Log.Msg(given > 0

@@ -56,10 +56,10 @@ public sealed class WorldTextLayout
 
     private static ReadOnlySpan<short> Table(int table) => table switch
     {
-        0 => Tf2Build,
-        1 => Tf2,
+        0 => TF2Build,
+        1 => TF2,
         2 => Liberationsans,
-        3 => Tf2Professor,
+        3 => TF2Professor,
         _ => RobotoMono,
     };
 
@@ -317,7 +317,7 @@ public sealed class WorldTextLayout
     }
 
     /// <summary><c>characters_TF2_Build</c>: x, y, width, height, originX, originY, advance per glyph, from <c>' '</c> to <c>'~'</c>.</summary>
-    private static ReadOnlySpan<short> Tf2Build =>
+    private static ReadOnlySpan<short> TF2Build =>
     [
         146,238,12,12,6,6,25, 67,182,24,56,6,50,16, 0,238,24,24,6,54,15, 609,182,51,50,6,47,42,
         477,182,34,54,6,49,25, 564,182,45,51,6,47,36, 636,0,49,58,6,50,39, 1000,182,19,25,6,54,10,
@@ -346,7 +346,7 @@ public sealed class WorldTextLayout
     ];
 
     /// <summary><c>characters_TF2</c>: x, y, width, height, originX, originY, advance per glyph, from <c>' '</c> to <c>'~'</c>.</summary>
-    private static ReadOnlySpan<short> Tf2 =>
+    private static ReadOnlySpan<short> TF2 =>
     [
         423,175,12,12,6,6,22, 478,118,20,55,4,51,11, 313,175,18,19,6,53,8, 104,175,29,29,6,38,20,
         0,0,61,61,6,54,49, 913,118,33,47,6,46,24, 946,118,36,44,4,44,30, 268,175,17,20,6,53,8,
@@ -404,7 +404,7 @@ public sealed class WorldTextLayout
     ];
 
     /// <summary><c>characters_TF2_Professor</c>: x, y, width, height, originX, originY, advance per glyph, from <c>' '</c> to <c>'~'</c>.</summary>
-    private static ReadOnlySpan<short> Tf2Professor =>
+    private static ReadOnlySpan<short> TF2Professor =>
     [
         1011,251,12,12,6,6,27, 886,104,18,71,2,71,14, 734,251,26,32,2,90,24, 550,182,61,53,2,67,58,
         171,0,43,94,2,88,40, 206,182,70,66,2,80,66, 49,104,51,77,3,82,46, 805,251,24,30,2,84,20,

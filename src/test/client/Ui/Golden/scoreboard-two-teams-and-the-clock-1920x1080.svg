@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-scale="1">
+<rect x="221" y="15" width="1478" height="1054" rx="11" fill="#000000" fill-opacity="0.09" data-e="2"/>
+<rect x="222.5" y="16.5" width="1475" height="1051" rx="9.5" fill="#000000" fill-opacity="0.24" data-e="2"/>
+<rect x="224" y="16" width="1472" height="1048" rx="8" fill="#2e2b2a" fill-opacity="0.78" data-e="2"/>
+<rect x="240" y="107" width="644" height="160" rx="4" fill="#687c9b" fill-opacity="0.14" data-e="4"/>
+<rect x="252" y="115" width="4" height="24" rx="2" fill="#687c9b" data-e="5"/>
+<text x="252" y="169.75" font-family="TF2 Build" font-size="30" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="7">BLU</text>
+<text x="252" y="192.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="9">6</text>
+<text x="265" y="192.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="10">players</text>
+<text x="252" y="250.75" font-family="TF2 Build" font-size="30" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="12">48</text>
+<text x="981" y="51.62" font-family="TF2 Secondary" font-size="25" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">6:11</text>
+<rect x="1036" y="107" width="644" height="160" rx="4" fill="#b45c4d" fill-opacity="0.14" data-e="16"/>
+<rect x="1048" y="115" width="4" height="24" rx="2" fill="#b45c4d" data-e="17"/>
+<text x="1048" y="169.75" font-family="TF2 Build" font-size="30" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="19">RED</text>
+<text x="1048" y="192.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="21">6</text>
+<text x="1061" y="192.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="22">players</text>
+<text x="1048" y="250.75" font-family="TF2 Build" font-size="30" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="24">36</text>
+<clipPath id="c0"><rect x="240" y="362" width="644" height="518"/></clipPath><g clip-path="url(#c0)" data-e="26">
+<rect x="240" y="362" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="27"/>
+<text x="372" y="389.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="33">xXx_Headcrab_Slayer_From_Ravenholm_xXx</text>
+<text x="795" y="388.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="38">21</text>
+<rect x="240" y="407" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="41"/>
+<text x="372" y="433.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="47">Gordon</text>
+<text x="795" y="433.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="52">18</text>
+<rect x="240" y="452" width="644" height="40" fill="#000000" fill-opacity="0.31" data-e="55"/>
+<text x="372" y="478.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="61">Alyx</text>
+<text x="795" y="478.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="66">15</text>
+<rect x="240" y="496" width="644" height="40" fill="#000000" fill-opacity="0.31" data-e="69"/>
+<text x="372" y="522.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="75">barney.calhoun</text>
+<text x="795" y="522.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="80">12</text>
+<rect x="240" y="540" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="83"/>
+<text x="372" y="567.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="89">BOT Dr. Kleiner</text>
+<text x="504" y="565.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="90">BOT</text>
+<text x="805" y="566.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="95">9</text>
+<rect x="240" y="585" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="98"/>
+<text x="372" y="611.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="104">Odessa Cubbage</text>
+<text x="805" y="611.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#687c9b" xml:space="preserve" data-e="109">6</text>
+</g>
+<clipPath id="c1"><rect x="1036" y="362" width="644" height="518"/></clipPath><g clip-path="url(#c1)" data-e="113">
+<rect x="1036" y="362" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="114"/>
+<text x="1168" y="389.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="120">Vortigaunt</text>
+<text x="1601" y="388.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="125">3</text>
+<text x="1610" y="387.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="127">Medic</text>
+<rect x="1036" y="407" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="129"/>
+<text x="1168" y="433.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="135">Colonel Cubbage</text>
+<text x="1601" y="433.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="140">0</text>
+<text x="1614" y="432.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="142">Pyro</text>
+<rect x="1036" y="452" width="644" height="40" fill="#000000" fill-opacity="0.31" data-e="144"/>
+<text x="1168" y="478.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="150">BOT Eli</text>
+<text x="1232" y="476.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="151">BOT</text>
+<text x="1601" y="478.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="156">0</text>
+<text x="1611" y="476.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="158">Scout</text>
+<rect x="1036" y="496" width="644" height="40" fill="#000000" fill-opacity="0.31" data-e="160"/>
+<text x="1168" y="522.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="166">Father Grigori</text>
+<text x="1601" y="522.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="171">0</text>
+<text x="1608" y="521.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="173">Sniper</text>
+<rect x="1036" y="540" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="175"/>
+<text x="1168" y="567.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="181">Lamarr</text>
+<text x="1601" y="566.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="186">0</text>
+<text x="1606" y="565.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="188">Soldier</text>
+<rect x="1036" y="585" width="644" height="41" fill="#000000" fill-opacity="0.31" data-e="190"/>
+<text x="1168" y="611.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="196">Mossman</text>
+<text x="1601" y="611.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#b45c4d" xml:space="preserve" data-e="201">0</text>
+<text x="1617" y="610.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="203">Spy</text>
+</g>
+<rect x="240" y="888" width="1440" height="160" rx="4" fill="#000000" fill-opacity="0.77" data-e="205"/>
+<text x="506" y="974.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="209">Vortigaunt</text>
+<text x="1400" y="961.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="213">Server:</text>
+<text x="1451" y="961.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="214">SourceSharp TF2 | ctf_2fort 24/7</text>
+<text x="1608" y="984.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="215">ctf_2fort</text>
+</svg>

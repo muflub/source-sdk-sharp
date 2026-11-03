@@ -34,7 +34,7 @@ WATCHED = [
     ('src/client/ui', ('.cs', '.csproj', '.ttf', '.jpg', '_english.txt')),
     ('src/client/interface/Ui', ('.cs',)),
     ('src/tools/UiPreview', ('.cs', '.csproj')),
-    ('game/mod_test/resource', ('mod_sharp_english.txt', 'ui-theme.yaml')),
+    ('game/mod_test/resource', ('test_english.txt', 'ui-theme.yaml')),
 ]
 
 

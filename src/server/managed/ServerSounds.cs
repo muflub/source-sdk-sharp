@@ -129,6 +129,37 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     }
 
     /// <summary>
+    /// <c>CCaptureFlag::PlaySound</c>'s team-filtered arms (a
+    /// <c>CTeamRecipientFilter( team, true )</c> around an
+    /// <c>EmitSound( filter, entindex(), pszString )</c>): the whole team hears
+    /// the entity's sound from its index, wherever they stand — the PAS does
+    /// not narrow it.
+    /// </summary>
+    public void EntityEmitSoundToTeam(int team, EntityHandle entity, string soundName)
+    {
+        if (string.IsNullOrEmpty(soundName))
+            return;
+
+        if (!_entities.IsValid(entity))
+        {
+            SayUnresolved(entity, soundName);
+            return;
+        }
+
+        int index = SoundSourceIndex(entity);
+        RecipientFilter filter = _emitter.Recipients.Team(team);
+        if (filter.Count == 0)
+            return;
+
+        _emitter.Emit(filter, index, new EmitSoundParams
+        {
+            SoundName = soundName,
+            Origin = index == SoundEmitter.SoundFromWorld ? _entities.GetOrigin(entity) : null,
+            WarnOnDirectWaveReference = true,
+        });
+    }
+
+    /// <summary>
     /// <c>CBaseCombatWeapon::WeaponSound</c>'s server arm for a weapon in an
     /// owner's hands: the PAS of the owner, narrowed by the script's level,
     /// under the prediction rules (<c>filter.UsePredictionRules()</c>) -- the
@@ -452,6 +483,12 @@ public sealed class ServerSoundListeners(IEngineEnvironment environment, IEngine
     public bool IsConnected(int playerIndex) => players.GetHandle(playerIndex) != EntityHandle.None;
 
     public bool TryEars(int playerIndex, out Vector ears) => players.TryStandalonePlayerEarPosition(playerIndex, out ears);
+
+    public int Team(int playerIndex)
+    {
+        EntityHandle player = players.GetHandle(playerIndex);
+        return player != EntityHandle.None ? players.GetTeam(player) : 0;
+    }
 
     public string? CloseCaptionSetting(int playerIndex) => server.ClientConVarValue(playerIndex, "closecaption");
 }

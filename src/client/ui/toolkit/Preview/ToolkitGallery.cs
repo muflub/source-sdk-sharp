@@ -109,6 +109,7 @@ internal static class ToolkitGallery
             ui.Icon(UiShape.ChevronDown, Tone.Text, 32);
             ui.Icon(UiShape.Lock, Tone.TextMuted, 32);
             ui.Icon(UiShape.Star, Tone.Accent, 32);
+            ui.Shape(UiShape.Sweep, Tone.Accent, 32, 0.62f);
         }
     }, UiLayerKind.Hud);
 

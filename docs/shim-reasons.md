@@ -67,20 +67,41 @@ marker is the answer to "why is this native at all", not a full account.
 
 | | reason | srv | shd | cli | pub | com | host | files | lines |
 |---|---|--:|--:|--:|--:|--:|--:|--:|--:|
-| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 24,290 |
-| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 9,900 |
-| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 2,527 |
+| a | a vtable the engine or VPhysics calls through | 20 | 5 | 31 |  |  |  | 63 | 24,702 |
+| b | an interface resolved by name at load | 12 | 3 | 15 |  |  |  | 40 | 9,963 |
+| c | static-init registration | 16 | 6 | 3 |  |  |  | 27 | 2,537 |
 | d | a layout the engine reads at fixed offsets | 6 | 6 | 7 | 1 |  |  | 23 | 6,231 |
-| e | a synchronous mid-step answer | 4 | 3 | 1 |  |  |  | 7 | 1,537 |
+| e | a synchronous mid-step answer | 4 | 3 | 1 |  |  |  | 7 | 1,570 |
 | f | a bit-level wire codec | 5 | 4 | 2 | 1 |  |  | 12 | 1,814 |
 | g | leaf math over mdl/bsp data consumed by renderer or physics | 4 | 1 | 8 |  |  |  | 15 | 3,829 |
 | h | the CoreCLR host and bootstrap dispatch | 1 | 4 | 3 |  |  | 1 | 9 | 3,134 |
-| x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 3,563 |
-|  | **total** | **75** | **33** | **72** | **2** | **2** | **1** | **214** | **56,825** |
+| x | NO LETTER FITS | 7 | 1 | 2 |  | 2 |  | 18 | 3,604 |
+|  | **total** | **75** | **33** | **72** | **2** | **2** | **1** | **214** | **57,384** |
 
 The line counts were re-taken when SourceSharp moved to its own repository: the
 7-line Valve attribution header added to each file accounts for the whole rise
 (124,588 → 125,276), and no file changed otherwise.
+Re-taken 2026-10-30 by the tf2 decals lane: letter (a) walks 24,639 against a
+cell of 24,621 — 18 lines the integration of the landed lanes left unsummed —
+and the total row with it (57,240 → 57,258); no file changed letter.
+Raised 2026-10-30 by the viewmodel bob (cl_bobcycle, cl_bobup): shell_client.cpp's
+ApplyManagedViewModelBob hands managed the eye and takes back the bobbed origin
+and angles (b), and OverrideView pins the viewmodel to that copy: (b) 9,900 →
+9,920, the total 57,258 → 57,278.
+Raised 2026-10-31 by the pause menu under the GameUI: shell_clientdll_gameclientexports.cpp's
+GameUI visibility edge and shell_hud.cpp's SourceSharp_MenuRootFollowGameUI, which moves the
+managed menu root under the GameUI's root while it is up, as stock's main-menu override draws:
+(a) 24,639 → 24,659, (b) 9,920 → 9,959, the total 57,278 → 57,337.
+Raised 2026-10-31 by the glow outline: shell_view_executor_client.cpp's stencil mark arms
+(stock glow_outline_effect.cpp's three render-flag arms and the composite) and the depth override
+op, carried out for managed's glow plan (a): (a) 24,659 → 24,702, the total → 57,380.
+Raised 2026-10-31 by the launch menu: the GameUI watch's first reading counts as the activation
+(the engine raises the GameUI before the client's first frame) and the menu root follows the GameUI
+panel every frame: (b) 9,959 → 9,963, the total → 57,384.
+Raised 2026-10-29 by the material-bound texture handle: shell_hud.cpp's
+SourceSharp_UiMaterialTexture over the new IShimUiClient slot (a), with its
+refract refresh helper — the sniper scope's Refract quadrants drawn whole
+(stock's DrawSetTextureFile, tf_hud_scope.cpp:317-320).
 Re-taken 2026-09-29 when server.so's tier1 string calls were rewritten onto
 ss_string.h and the C library: the rise is the `#include` lines that brought
 the helpers in; every call changed on its own line (125,061 → 125,100).
@@ -255,6 +276,20 @@ Then lane M1-C moved a player's spray to C# (2026-10-25, measured by the walk): 
 Then lane M1-C moved the client's schema gate to C# (2026-10-25, measured by the walk): generic_payload_client.cpp (f) lost SourceSharpSchema_Accept's hash compare, the refusal table, its three readers and cs_cl_schema_status (ClientSchemaGate and ClientSchemaStatusCommand's now), keeping the carry-out to IManagedStandaloneClient::SchemaAccept; shell_recvtable.cpp (f) lost SourceSharp_ClientSchemaRefusal's copy-out, left an empty slot until the ABI pass retires it (-118).
 
 Then lane M1-C landed after the other three (2026-10-25, measured by the walk at the landing): (a) 33,302 -> 33,108, (b) 15,375 -> 15,380, (e) 2,449 -> 2,407, (f) 3,160 -> 3,042, (g) 5,889 -> 5,021; the client's (e) file count 2 -> 1 with md5_pseudorandom.cpp; 80,956 lines in the table.
+
+Then tf2 3.6's item proxies appended five names to shell_material_proxy_client.cpp's quoted-literal proxy-name list (2026-10-27, the walk with the change): (c) 2,531 -> 2,532 is one continuation line binding CommunityWeapon, BenefactorLevel, ItemTintColor, WeaponSkin and ObjectPower — data only, managed answers each (tf2 3.6); 56,897 lines in the table.
+
+Then tf2 3.6's StatTrak proxies appended three more names to the same list (2026-10-27, the walk with the change): (c) 2,532 -> 2,533 is one continuation line binding StatTrakIllum, StatTrakDigit and StatTrakIcon — data only, managed answers each; 56,898 lines in the table.
+
+Then tf2 3.6's AnimatedWeaponSheen joined the same list (2026-10-27, the walk with the change): (c) 2,533 -> 2,534 is one continuation line — data only, managed answers it over the animated-texture base; 56,899 lines in the table.
+
+Then tf2 3.6's last five proxies — TeamTexture, building_invis, BuildingRescueLevel, SniperRifleCharge and StickybombGlowColor — closed the list (2026-10-27, the walk with the change): (c) 2,534 -> 2,535 is one continuation line — data only, managed answers each; 56,900 lines in the table.
+
+Then proxyplayer.cpp's seven joined the same list (2026-10-27, the walk with the change): (c) 2,535 -> 2,537 is two continuation lines binding PlayerProximity, PlayerTeamMatch, PlayerView, PlayerSpeed, PlayerPosition, EntitySpeed and EntityRandom — data only, managed answers each from the core table (PlayerProxies.cs; the console had asked for PlayerTeamMatch and PlayerProximity by name on ctf_2fort); 56,902 lines in the table.
+
+Then the cloak render row asked the shell its frame-buffer-sampler answer (2026-10-28, the walk with the change): (a) 24,348 -> 24,353 is shell_standalone_client.cpp's UsesPowerOfTwoFrameBufferTexture, now C_BaseAnimating's modelinfo ask (standalone_fb_texture.h) instead of the constant false, so the translucent passes refresh the refraction source before a cloaked body draws; 56,928 lines in the table.
+
+Then the disguise's viewer-local model override (tf2 disguise fix, 2026-10-28, the walk with the change): (a) 24,478 -> 24,493 is shell_standalone_client.{h,cpp} and ishim_areas_client.h's EntitySetModelOverride — the hand-kept virtual, C_StandaloneEntity's m_nModelOverride and GetModel arm, and the entry point resolving a model NAME to an index through modelinfo (stock's ValidateModelIndex mechanism: a per-viewer body the client draws, the server keeping the spy's own); 57,068 lines in the table.
 
 #### (a) a vtable the engine or VPhysics calls through — 55 files, 49,282 lines
 
@@ -525,3 +560,7 @@ Against §8's predictions, re-measured rather than carried forward:
 `vpklib` have zero direct demand on both sides **and no `$Lib` row on either
 script** — they are in `lib/public/linux64/` because the tree builds them, not
 because this mod links them.
+
+Then the medigun beam's follow (tf2 3.x, re-measured by the walk on 273ec239e): (a) 24,353 -> 24,430 is shell_managed_particles.cpp (+77) — SourceSharp_ParticleSystemFollowEntity, the point riding another entity (the beam's muzzle and patient), and SweepParticleSystems' attachment walk; 57,005 in the table.
+
+Then the dropped weapon's pickup sight (tf2 2.10, the walk with the change): (e) 1,567 -> 1,570 is shell_worldquery_client.cpp's SOURCESHARP_TRACE_SOLID_DEBRIS arm, MASK_SOLID | CONTENTS_DEBRIS (tf_player_shared.cpp's pickup trace); 57,106 lines in the table.

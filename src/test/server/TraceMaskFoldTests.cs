@@ -15,6 +15,7 @@ namespace SourceSharp.Tests;
 /// MASK_SOLID_BRUSHONLY 0x400b      MASK_SHOT 0x46004003     MASK_WATER|BRUSHONLY 0x403b
 /// MASK_ALL 0xffffffff              MASK_SHOT_HULL 0x600400b MASK_SOLID 0x200400b
 /// MASK_BLOCKLOS 0x4041             MASK_OPAQUE_AND_NPCS|CONTENTS_WINDOW 0x2004083
+/// MASK_DISPENSER 0x4043
 /// </code>
 ///
 /// Recorded through a recording trace route (plan_server_native_v2 T4f: the
@@ -87,6 +88,9 @@ public sealed class TraceMaskFoldTests : System.IDisposable
     [InlineData(TraceMask.ContentsSolid, 0x1)]
     [InlineData(TraceMask.ShotNoWindows, 0x46004001)]
     [InlineData(TraceMask.Opaque, 0x4081)]
+    [InlineData(TraceMask.Dispenser, 0x4043)]
+    [InlineData(TraceMask.SentrySight, 0x4600400b)]
+    [InlineData(TraceMask.SolidDebris, 0x600400b)]
     [InlineData((TraceMask)99, 0x400b)]
     public void ALineTraceCarriesTheEnginesOwnMask(TraceMask mask, int engine)
     {

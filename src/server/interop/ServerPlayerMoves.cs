@@ -43,6 +43,30 @@ public sealed class ServerPlayerMove
     public float MaxSpeed { get; set; } = 320f;
 
     /// <summary>
+    /// m_iFOV: the FOV a zoom owns, 0 for the player's own
+    /// (CBasePlayer::SetFOV). Set through <see cref="IServerPlayerMovementRoute.SetFov"/>.
+    /// </summary>
+    public int Fov { get; set; }
+
+    /// <summary>m_iFOVStart: the value the running ramp starts from.</summary>
+    public int FovStart { get; set; }
+
+    /// <summary>m_flFOVTime: when the last change began.</summary>
+    public float FovTime { get; set; }
+
+    /// <summary>m_Local.m_flFOVRate: the seconds the change takes, 0 for an immediate one.</summary>
+    public float FovRate { get; set; }
+
+    /// <summary>
+    /// m_iDefaultFOV: the game rules' answer, the constructor's 90
+    /// (player.cpp:602, g_pGameRules-&gt;DefaultFOV()).
+    /// </summary>
+    public int FovDefault { get; set; } = 90;
+
+    /// <summary>m_hZoomOwner: the requester whose zoom is running, or None.</summary>
+    public EntityHandle ZoomOwner { get; set; }
+
+    /// <summary>
     /// m_Local.m_flOldForwardMove: SetupMove's input, which stock's FinishMove
     /// never stores, so it is the constructor's 0 for the player's life.
     /// </summary>

@@ -191,6 +191,36 @@ public class ServerModuleWiringOrderTests
         }
     }
 
+    /// <summary>
+    /// A <c>Require&lt;IHooks&lt;T&gt;&gt;</c> with no
+    /// <c>AddFactory&lt;IHooks&lt;T&gt;&gt;</c> above it composes green in the
+    /// tests — which build their own chains — and dies at the first live
+    /// deploy: the 2026-10-27 viewmodel skin rule did exactly that
+    /// (<c>ServiceResolutionException: no service is registered for
+    /// IHooks`1</c> on ctf_2fort). Both modules are held, since either side's
+    /// composition root can grow a require without its factory.
+    /// </summary>
+    [Fact]
+    public void Every_hooks_chain_a_module_requires_is_registered()
+    {
+        // The farm's links to the two composition roots — the paths the file
+        // census resolves (RepoSourceFacts name the farm, not the repo).
+        foreach (string module in new[]
+                 {
+                     "src/sourcesharp/managed/SourceSharp.Server/ServerModule.cs",
+                     "src/sourcesharp/managed/SourceSharp.Client/ClientModule.cs",
+                 })
+        {
+            string source = File.ReadAllText(RepoLayout.Sdk(module));
+            var factories = Regex.Matches(source, @"AddFactory<IHooks<([\w.]+)>>")
+                .Select(m => m.Groups[1].Value).ToHashSet(StringComparer.Ordinal);
+            var wanted = Regex.Matches(source, @"Require<IHooks<([\w.]+)>>")                .Select(m => m.Groups[1].Value).Distinct().ToArray();
+
+            Assert.True(wanted.Length > 0, $"{module} requires no hooks chain: the check is blind");
+            Assert.Equal([], wanted.Except(factories).ToArray());
+        }
+    }
+
     [Fact]
     public void A_creation_moved_above_a_replacement_is_caught()
     {

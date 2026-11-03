@@ -37,6 +37,7 @@
 #include "igameentity.h"
 #include "engine_block.h"
 #include "shell_leaf_link.h"
+#include "standalone_fb_texture.h"
 
 // Must match managed ShadowCastChoice.
 enum StandaloneShadowChoice_t
@@ -220,7 +221,7 @@ public:
 
 	virtual void OnThreadedDrawSetup() OVERRIDE {}
 
-	virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE { return false; }
+	virtual bool UsesPowerOfTwoFrameBufferTexture() OVERRIDE;
 
 	virtual bool UsesFullFrameBufferTexture() OVERRIDE { return false; }
 
@@ -408,6 +409,13 @@ public:
 	// Not range-checked: modelrender treats an out-of-range skin as skin 0.
 	void SetSkin(int nSkin) { Block().Client.Skin = nSkin; }
 
+	// A viewer-local model (stock's ValidateModelIndex); -1 is none, empty clears.
+	// The choice is re-asserted into Head.ModelIndex, so the studio header, the
+	// bones, the sequences and the hitboxes all follow it, as stock's swap of
+	// m_nModelIndex carries them.
+	void SetModelOverride(int nModelIndex);
+	void ReassertModel();
+
 	// Refused at zero and below: it scales the bones' 3x3 block.
 	void SetModelScale(float flScale);
 
@@ -423,7 +431,16 @@ public:
 
 	float SequenceCycle(float flNow) const;
 
-	int NetworkedModelIndex() const { return Block().Head.ModelIndex; }
+	// The wire's word; Head.ModelIndex is the effective one (the override
+	// re-asserted). Latched by the model index's recv proxy, the only place the
+	// wire writes it, so a cleared override restores it. -1 before the first
+	// decode.
+	int NetworkedModelIndex() const { return m_nNetworkedModelIndex; }
+
+	// Only the recv proxy calls this: a delta leaves unchanged fields in place,
+	// so a latch at PostDataUpdate would record the override re-asserted over
+	// the field.
+	void LatchNetworkedModelIndex(int nModelIndex) { m_nNetworkedModelIndex = nModelIndex; }
 
 	// No leaf-system notification: a viewmodel-pass renderable is collated from its
 	// own list.
@@ -471,6 +488,11 @@ private:
 	bool m_bRagdollPose = false;
 
 	int m_nOverlayModelIndex;
+	int m_nModelOverride;
+
+	// The wire's word, latched by the model index's recv proxy so a cleared
+	// override restores it.
+	int m_nNetworkedModelIndex;
 
 	bool m_bIgnoreZ;
 

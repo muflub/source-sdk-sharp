@@ -4,6 +4,8 @@ LICENSE-VALVE-SDK	Valve's Source 1 SDK License, copied byte for byte from the Va
 thirdpartylegalnotices.txt	Valve's third-party legal notices, copied byte for byte from the Valve SDK at valve-sdk.lock; the Source 1 SDK License requires distributions to include it
 game/mod_test/	the test mod, copied whole from game/mod_sharp (39 of its files are verbatim mod_hl2mp copies) so it can be tested standalone; decided 2026-09-27
 src/shared/managed/WeaponScript.cs	the weapon script format's sound-key table (15 lines matching weapon_parse.cpp) is data the format requires; ruling in docs/move/overrides.tsv
+src/server/managed/Modes/HL2MPMapCleanupFilter.cs	the round reset's preserve list (hl2mp_gamerules.cpp's s_PreserveEnts, 38 classnames, one a line) is data stock's CleanUpMap requires, held row for row to the pristine file by MapCleanupOracleTests; no logic (tf2 ruling N2)	text
+src/tf2/server/Rules/TFMapCleanupFilter.cs	the round reset's preserve lists (tf_gamerules.cpp's and teamplayroundbased_gamerules.cpp's s_PreserveEnts, classnames one a line) are data stock's CleanUpMap requires, held row for row to the pristine files by TFMapCleanupOracleTests; no logic (tf2 ruling N2)	text
 src/abi/EngineBlock.cs	generates engine_block_generated.h, which carries the attribution header, so the header lines are string literals here	header
 tools/valve-header.txt	the attribution header itself	header
 tools/valve-header	applies and checks the header, so it names the copyright line	header

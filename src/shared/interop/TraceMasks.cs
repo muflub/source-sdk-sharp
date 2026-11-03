@@ -40,6 +40,22 @@ internal static class TraceMasks
     /// <summary><c>MASK_BLOCKLOS</c>.</summary>
     public const int BlockLos = ContentsSolid | ContentsMoveable | ContentsBlockLos;
 
+    /// <summary>
+    /// <c>MASK_DISPENSER</c> (tf_obj_dispenser.cpp:896): the heal sight — a
+    /// blocklos volume stops it, a window and a grating do not.
+    /// </summary>
+    public const int Dispenser = BlockLos | ContentsWindow;
+
+    /// <summary><c>MASK_SHOT | CONTENTS_GRATE</c> (tf_obj_sentrygun.cpp:1084): a sentry's sight.</summary>
+    public const int SentrySight = Shot | ContentsGrate;
+
+    /// <summary>
+    /// <c>MASK_SOLID | CONTENTS_DEBRIS</c>: the dropped-weapon pickup's sight
+    /// line (tf_player_shared.cpp:14780) — the debris contents the solid mask's
+    /// five lack.
+    /// </summary>
+    public const int SolidDebris = Solid | ContentsDebris;
+
     /// <summary><c>MASK_OPAQUE_AND_NPCS | CONTENTS_WINDOW</c>.</summary>
     public const int OpaqueAndNpcsWindow = ContentsSolid | ContentsMoveable | ContentsOpaque | ContentsMonster | ContentsWindow;
 
@@ -77,6 +93,9 @@ internal static class TraceMasks
         TraceMask.ContentsSolid => SolidOnly,
         TraceMask.ShotNoWindows => Shot & ~ContentsWindow,
         TraceMask.Opaque => Opaque,
+        TraceMask.Dispenser => Dispenser,
+        TraceMask.SentrySight => SentrySight,
+        TraceMask.SolidDebris => SolidDebris,
         _ => SolidBrushOnly,
     };
 

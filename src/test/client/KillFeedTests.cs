@@ -161,4 +161,47 @@ public class KillFeedTests
         f.Refresh();
         Assert.Equal(0, f.LineCount);
     }
+
+    /// <summary>A mod's decode (TF2's <c>CTFHudDeathNotice</c> arm): hears the
+    /// raw death the queue stores.</summary>
+    private sealed class Listener : IKillFeedListener
+    {
+        public readonly List<PlayerDeathArgs> Heard = [];
+
+        public void OnDeath(PlayerDeathArgs death) => Heard.Add(death);
+    }
+
+    private sealed class ListHooks(params IKillFeedListener[] hooks) : IHooks<IKillFeedListener>
+    {
+        public IReadOnlyList<IKillFeedListener> All => hooks;
+
+        public void Each(string what, Action<IKillFeedListener> call)
+        {
+            foreach (var h in hooks)
+                call(h);
+        }
+    }
+
+    [Fact]
+    public void A_listener_hears_every_death_first()
+    {
+        var listener = new Listener();
+        var f = new KillFeed(new Clock(), new RecordingLog(), new Players(), null, new ListHooks(listener));
+        f.Add(new PlayerDeathArgs(3, 2, "smg1", false, Custom: 5, Bits: 7));
+        Assert.Equal([new PlayerDeathArgs(3, 2, "smg1", false, Custom: 5, Bits: 7)], listener.Heard);
+    }
+
+    [Fact]
+    public void A_listener_hears_deaths_the_display_time_hides()
+    {
+        // Stock's subclass decodes before AddDeathNotice's time check, and the
+        // listener decides for itself (TF2's queue has its own convar read).
+        var time = new HudDeathNoticeTimeConVar();
+        time.NotifyChanged("0", "6");
+        var listener = new Listener();
+        var f = new KillFeed(new Clock(), new RecordingLog(), new Players(), time, new ListHooks(listener));
+        f.Add(new PlayerDeathArgs(3, 2, "smg1", false));
+        Assert.Single(listener.Heard);
+        Assert.Equal(0, f.LineCount);
+    }
 }

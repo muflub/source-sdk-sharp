@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-scale="1">
+<rect x="454" y="439" width="1012" height="382" fill="#2e2b2a" fill-opacity="0.78" data-e="1"/>
+<rect x="472" y="522" width="981" height="4" fill="#ffded0" data-e="2"/>
+<text x="524" y="481.8" font-family="TF2 Build" font-size="72" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="3">Demolish</text>
+<text x="1265" y="518.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="4">Hit 'q' to Cancel</text>
+<rect x="510" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
+<text x="524" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="8">Sentry Gun</text>
+<text x="609" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="9">1</text>
+<rect x="735" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="12"/>
+<text x="812" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="13">Not Built</text>
+<text x="748" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="14">Dispenser</text>
+<text x="834" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">2</text>
+<rect x="960" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="18"/>
+<text x="1036" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="19">Not Built</text>
+<text x="974" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="20">Entrance</text>
+<text x="1059" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="21">3</text>
+<rect x="1185" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="24"/>
+<text x="1261" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="25">Not Built</text>
+<text x="1198" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="26">Exit</text>
+<text x="1284" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="27">4</text>
+</svg>

@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using SourceSharp.Client.Ui;
 using System.Text;
 
 using SourceSharp.Abi;
@@ -24,6 +25,7 @@ public interface ITextMessageChat
     void Print(string line);
 }
 
+
 /// <summary>
 /// TEXTMSG, AS STOCK PRINTS IT (CBaseHudChat::MsgFunc_TextMsg, hud_basechat.cpp,
 /// with CHudTextMessage::LookupString, text_message.cpp). Each of the five
@@ -36,7 +38,7 @@ public interface ITextMessageChat
 /// CONSOLE the console, TALK the chat and the console, each ending in a newline.
 /// </summary>
 public sealed class TextMessages(IEngineHud hud, ILog log, CentrePrint centre, ClShowTextMsgConVar? show = null,
-                                 ITextMessageChat? chat = null)
+                                 ITextMessageChat? chat = null, IServiceLocator? services = null)
 {
     /// <summary>shareddefs.h's HUD_PRINT* destinations.</summary>
     public const int PrintNotify = 1, PrintConsole = 2, PrintTalk = 3, PrintCenter = 4;
@@ -87,6 +89,17 @@ public sealed class TextMessages(IEngineHud hud, ILog log, CentrePrint centre, C
         string found = s.Length > 0 ? hud.Localise(s) : "";
         if (found.Length > 0 && found != s)
             return found;
+        // The engine's tables hold only what it loads at startup — none of
+        // the game's own file: the mod's copy is the chain the UI reads
+        // (stock had ONE table, and both the chat and the panels read it).
+        // Resolved at ask time because the chat is composed before the UI
+        // loads; no chain (no UI context), the behaviour is stock's minus
+        // that file, as before. Stock's table takes the token with or
+        // without stock's '#' (TF2's class files name their localize_name
+        // without it), and adds the '#' when the caller omits it; the chain
+        // is keyed like the file, so ask it with the '#'.
+        if (s.Length > 0 && services?.Resolve<IUiLocalisation>()?.Find(s.StartsWith('#') ? s : "#" + s) is { Length: > 0 } text)
+            return text;
         if (index > 0 && s.Length > 0 && (s[^1] == '\n' || s[^1] == '\r'))
             s = s[..^1];
         return s;

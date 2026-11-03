@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-scale="1">
+<rect x="0" y="0" width="1920" height="1080" fill="#343037" data-e="1"/>
+<text x="285" y="74.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#d47f19" xml:space="preserve" data-e="2">&gt;&gt;</text>
+<text x="330" y="83.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="3">Scout</text>
+<rect x="262.5" y="135.5" width="315" height="156" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="4"/>
+<text x="384" y="280.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="5">Scattergun</text>
+<rect x="262.5" y="304.5" width="315" height="156" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="6"/>
+<text x="341" y="388.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="7">Secondary weapon</text>
+<rect x="262.5" y="472.5" width="315" height="157" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="8"/>
+<text x="408" y="617.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="9">Bat</text>
+<rect x="262.5" y="641.5" width="315" height="157" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="10"/>
+<text x="376" y="786.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="11">Bonk! Helmet</text>
+<rect x="1331.5" y="135.5" width="314" height="156" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="12"/>
+<text x="1455" y="280.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="13">Dogfighter</text>
+<rect x="1331.5" y="304.5" width="314" height="156" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="14"/>
+<text x="1450" y="388.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="15">Cosmetic</text>
+<rect x="1331.5" y="472.5" width="314" height="157" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="16"/>
+<text x="1455" y="617.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="17">Lunch Box</text>
+<text x="365" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="19">Scout</text>
+<text x="507" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="21">Sniper</text>
+<text x="649" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="23">Soldier</text>
+<text x="783" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="25">Demoman</text>
+<text x="940" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="27">Medic</text>
+<text x="1084" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="29">Heavy</text>
+<text x="1233" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="31">Pyro</text>
+<text x="1380" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="33">Spy</text>
+<text x="1507" y="1045.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="35">Engineer</text>
+<rect x="510" y="900" width="450" height="56" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="36"/>
+<text x="706" y="934.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="37">Cancel</text>
+</svg>

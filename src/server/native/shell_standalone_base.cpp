@@ -425,24 +425,30 @@ CStandaloneEntity::~CStandaloneEntity()
 	}
 }
 
-// The player's edict, in transit from ClientPutInServer to PostConstruct (the DLL tier's).
-void SourceSharp_SetPendingPlayerEdict(CServerPlayersDll& players, edict_t* pEdict)
+// The edict in transit to PostConstruct, and whether the entity owns it (the DLL tier's).
+void SourceSharp_SetPendingEdict(CServerPlayersDll& players, edict_t* pEdict, bool bEntityOwnsIt)
 {
 	edict_t*& pPending = players.m_pPendingEdict;
 
 	if (pPending && pEdict)
 	{
-		Warning("[SourceSharp] standalone player: pending edict overwritten before it was claimed\n");
+		Warning("[SourceSharp] standalone: pending edict overwritten before it was claimed\n");
 	}
 
 	pPending = pEdict;
+	players.m_bPendingEdictOwned = bEntityOwnsIt;
 }
 
-edict_t* SourceSharp_ClaimPendingPlayerEdict(CServerPlayersDll& players)
+edict_t* SourceSharp_ClaimPendingEdict(CServerPlayersDll& players, bool* pbEntityOwnsIt)
 {
 	edict_t*& pPending = players.m_pPendingEdict;
 	edict_t* pEdict = pPending;
+
+	if (pbEntityOwnsIt)
+		*pbEntityOwnsIt = players.m_bPendingEdictOwned;
+
 	pPending = NULL;
+	players.m_bPendingEdictOwned = false;
 	return pEdict;
 }
 
@@ -965,10 +971,9 @@ void CStandaloneEntity::PostConstruct(const StandaloneClassDesc_t* pClass)
 		return;
 	}
 
-	// A player binds to the edict the engine allocated for the client; everything
-	// else creates its own. Claimed unconditionally so a pending edict never leaks.
-	m_pEdict = SourceSharp_ClaimPendingPlayerEdict(m_pContext->m_Players);
-	m_bOwnsEdict = (m_pEdict == NULL);
+	bool bPendingOwned = false;
+	m_pEdict = SourceSharp_ClaimPendingEdict(m_pContext->m_Players, &bPendingOwned);
+	m_bOwnsEdict = (m_pEdict == NULL) || bPendingOwned;
 
 	if (!m_pEdict)
 		m_pEdict = m_pContext->m_pEngine->CreateEdict();

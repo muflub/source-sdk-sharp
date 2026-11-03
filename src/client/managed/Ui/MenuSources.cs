@@ -12,8 +12,11 @@ namespace SourceSharp.Client.Vgui;
 /// frame while the scoreboard is open; names are asked once per user id.
 /// </summary>
 public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud screen, IFwdEngineClient engine,
-                                 IPlayerNames names, IEngineConsole console, IEngineEnvironment environment) : IScoreboardSource
+                                 IPlayerNames names, IEngineConsole console, IEngineEnvironment environment,
+                                 TeamNames? teamNames = null) : IScoreboardSource
 {
+    private readonly TeamNames _teamNames = teamNames ?? TeamNames.Stock();
+
     private const int Slots = PlayerResourceNetState.Slots;
 
     private readonly ScoreboardPlayer[] _players = new ScoreboardPlayer[Slots];
@@ -54,6 +57,9 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
     public ScoreboardPlayer Player(int i) => _players[i];
 
     /// <summary>Team 2 and 3's names, as HL2MP's teams are called.</summary>
+    /// <summary>A team's name as the player reads it: the table below through the mods' <see cref="ITeamNameRule"/>s.</summary>
+    public string NameOf(int team) => _teamNames.Of(team, TeamName(team));
+
     public static string TeamName(int team) => team switch
     {
         2 => "Combine",
@@ -117,13 +123,13 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
         if (teams)
         {
             _teamCount = 2;
-            _teams[0] = new ScoreboardTeam(2, TeamName(2), Sum(2));
-            _teams[1] = new ScoreboardTeam(3, TeamName(3), Sum(3));
+            _teams[0] = new ScoreboardTeam(2, NameOf(2), Sum(2));
+            _teams[1] = new ScoreboardTeam(3, NameOf(3), Sum(3));
         }
         else
         {
             _teamCount = 1;
-            _teams[0] = new ScoreboardTeam(_count > 0 ? _players[0].Team : 0, TeamName(0), Sum(_count > 0 ? _players[0].Team : 0));
+            _teams[0] = new ScoreboardTeam(_count > 0 ? _players[0].Team : 0, NameOf(0), Sum(_count > 0 ? _players[0].Team : 0));
         }
     }
 
@@ -138,7 +144,7 @@ public sealed class ScoreboardUi(IClientStandalones standalones, IEngineHud scre
 }
 
 /// <summary>
-/// The team menu in game: Combine and Rebels with their player counts and
+/// The team menu in game: the two teams, by their names, with their player counts and
 /// frags from the scoreboard's rows; a choice is sent to the server as
 /// <c>jointeam N</c> (0 auto-assign, 1 spectate) and closes the menu.
 /// </summary>
@@ -175,8 +181,8 @@ public sealed class TeamMenuUi(ScoreboardUi scores, IEngineHud screen, IFwdEngin
                 frags[p.Team - 2] += p.Frags;
             }
         }
-        _choices[0] = new TeamChoice(2, ScoreboardUi.TeamName(2), players[0], frags[0], false);
-        _choices[1] = new TeamChoice(3, ScoreboardUi.TeamName(3), players[1], frags[1], false);
+        _choices[0] = new TeamChoice(2, scores.NameOf(2), players[0], frags[0], false);
+        _choices[1] = new TeamChoice(3, scores.NameOf(3), players[1], frags[1], false);
     }
 
     public void Choose(int team)

@@ -119,20 +119,46 @@ public sealed class WeaponScriptDatabase
 
     /// <param name="readGameFile">
     /// Reads a path off the engine's <c>GAME</c> search paths, answering null
-    /// when it is on none of them. Null means "this side has no reader", which
-    /// is the CLIENT's situation today — see <see cref="_read"/>.
+    /// when it is on none of them. Null means "this side has no text reader" —
+    /// see <see cref="_read"/>.
+    /// </param>
+    /// <param name="readGameFileBytes">
+    /// The same search over <c>GAME</c>, answering the raw bytes: the sealed
+    /// <c>.ctx</c> arm's reader, the only one a client needs (its
+    /// <c>ReadGameFileBytes</c> slot is filled on both sides, where the text
+    /// one is the server's). Null means no byte reader.
+    /// </param>
+    /// <param name="iceKey">
+    /// The mod's <c>.ctx</c> key — stock's <c>g_pGameRules-&gt;GetEncryptionKey()</c>
+    /// (the callers at <c>c_world.cpp:414</c>, <c>basecombatweapon.cpp:98</c>,
+    /// <c>basecombatweapon_shared.cpp:258</c>), which arrives through
+    /// <see cref="IModInfo.EncryptionKey"/> from mods.yaml: TF2 ships the
+    /// literal <c>"E2NcUkG2"</c> (<c>tf_gamerules</c>). Null means keyless:
+    /// the <c>.ctx</c> is never asked for, as in stock's <c>pICEKey == NULL</c>
+    /// arm (<c>weapon_parse.cpp:222</c>).
     /// </param>
     /// <param name="log">Where a script that cannot be read is said (statics to zero).</param>
-    public WeaponScriptDatabase(ILog log, Func<string, string?>? readGameFile = null)
+    public WeaponScriptDatabase(ILog log, Func<string, string?>? readGameFile = null,
+                                Func<string, byte[]?>? readGameFileBytes = null, string? iceKey = null)
     {
         _log = log ?? throw new ArgumentNullException(nameof(log));
         _read = readGameFile;
+        _readBytes = readGameFileBytes;
+        if (!string.IsNullOrEmpty(iceKey))
+        {
+            // The key is an 8-byte ASCII string; stock hands its bytes to
+            // UTIL_DecodeICE, which wants them raw (IceKey::Set's level 0).
+            _ice = new IceKey(0);
+            _ice.Set(System.Text.Encoding.ASCII.GetBytes(iceKey));
+        }
     }
 
     private readonly ILog _log;
+    private readonly Func<string, byte[]?>? _readBytes;
+    private readonly IceKey? _ice;
 
-    /// <summary>Whether this database can read anything at all.</summary>
-    public bool HasReader => _read is not null;
+    /// <summary>Whether this database can read anything at all (either spelling).</summary>
+    public bool HasReader => _read is not null || _readBytes is not null;
 
     /// <summary>How many scripts have been read.</summary>
     public int Count => _scripts.Count;
@@ -293,19 +319,43 @@ public sealed class WeaponScriptDatabase
         if (_byName.TryGetValue(weaponName, out int existing))
             return _scripts[existing];
 
-        if (_read is null)
+        // Stock's caller hands ReadEncryptedKVFile the path without its
+        // extension ("scripts/%s", weapon_parse.cpp:292); the two spellings
+        // below are the two arms at :217/:224.
+        string txtPath = $"scripts/{weaponName}.txt";
+        string ctxPath = $"scripts/{weaponName}.ctx";
+
+        if (_read is null && _readBytes is null)
             return null;
 
-        string path = $"scripts/{weaponName}.txt";
-        string? text = _read(path);
+        // :219: the loose .txt first, keyless or not.
+        if (_read?.Invoke(txtPath) is { } text)
+            return AddFromText(weaponName, text, txtPath);
 
-        if (text is null)
+        // :222-253: with a key the sealed .ctx is the fallback — read whole,
+        // NUL-terminated (:240), UTIL_DecodeICE'd, parsed from the buffer.
+        // Stock searches MOD when keyed; ours searches GAME (the reader is
+        // the caller's): the ruling EncryptedKeyValues already carries
+        // (docs/divergences.md), kept here for the same reason — a key is
+        // never the secret that decides where our own content lives.
+        if (_ice is not null && _readBytes?.Invoke(ctxPath) is { } sealedBytes)
         {
-            _log.Warning($"[SourceSharp/WeaponScripts] could not read '{path}'\n");
-            return null;
+            byte[] opened = sealedBytes.AsSpan().ToArray(); // decode in place, not in the reader's array
+            EncryptedKeyValues.DecodeIce(_ice, opened);
+            return AddFromText(weaponName, TextToNul(opened), ctxPath);
         }
 
-        return AddFromText(weaponName, text, path);
+        _log.Warning($"[SourceSharp/WeaponScripts] could not read '{txtPath}'" +
+                     (_ice is not null ? $" or '{ctxPath}'" : "") + "\n");
+        return null;
+    }
+
+    // Stock's NUL-terminated buffer handed to LoadFromBuffer (:240-245): the
+    // text ends at the first NUL byte.
+    private static string TextToNul(byte[] bytes)
+    {
+        int end = Array.IndexOf(bytes, (byte)0);
+        return System.Text.Encoding.UTF8.GetString(bytes, 0, end < 0 ? bytes.Length : end);
     }
 
     /// <summary>

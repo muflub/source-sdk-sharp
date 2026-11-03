@@ -76,4 +76,57 @@ public class ClientArsenalClockTests
             $"the next idle is scheduled from the command's clock {commandClock}, " +
             $"not the frame's {frameClock}: {idle}");
     }
+
+    /// <summary>
+    /// A switch command predicted on the client leaves the deploy clocks equal
+    /// to the server's: the replay answers the command's weaponselect (stock's
+    /// RunCommand → SelectItem) by re-dressing the working copies exactly as
+    /// Arsenal.Deploy dresses the entities, at the command's own clock.
+    /// </summary>
+    [Fact]
+    public void ASwitchCommandInTheReplayArmsTheDeployClocksTheServersRunWrote()
+    {
+        const float commandClock = 10f;
+
+        var engine = Fake();
+        engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
+        engine.Returns("Clock.Now", 5000f);
+        engine.Returns("EntityRender.LookupSequenceByActivity", 0);   // the draw resolves
+
+        var catalog = WeaponCatalog.Stock();
+        int crowbar = catalog.IndexOf(EntityNames.WeaponCrowbar);
+        float deploy = catalog.For(EntityNames.WeaponCrowbar).GetValueOrDefault().DeployTime;
+
+        var weapon = new ClientSsWeapon(engine) { Handle = new EntityHandle(0x0100_0041u) };
+        weapon.State.BindLocal();
+        weapon.State.OwnerIndex = LocalPlayer;
+        weapon.State.WeaponTypeId = catalog.IndexOf(EntityNames.WeaponPistol);
+        weapon.State.Clip = 12;
+
+        var viewModel = new ClientSsViewModel(engine, engine) { Handle = new EntityHandle(0x0100_0042u) };
+        viewModel.State.BindLocal();
+        viewModel.State.OwnerIndex = LocalPlayer;
+
+        var pair = new Pair();
+        pair.Directory.Bind(weapon.Handle, -1, weapon);
+        pair.Directory.Bind(viewModel.Handle, -1, viewModel);
+
+        var arsenal = new ClientArsenal(new RecordingLog(), pair, engine, engine, engine,
+                                        NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()));
+        var player = new EntityHandle(0x0001_0000u | LocalPlayer);
+
+        var basis = new UserCmd { CommandNumber = 10 };
+        arsenal.OnPlayerCommand(player, in basis, 2, false);
+
+        var cmd = new UserCmd { CommandNumber = 11, WeaponSelect = crowbar + 1 };
+        arsenal.OnPlayerCommand(player, in cmd, 1, true, commandClock);
+
+        var switched = arsenal.WorkingWeapon;
+
+        Assert.Equal(crowbar, switched.WeaponTypeId);
+        Assert.Equal(commandClock + deploy, switched.NextPrimaryAttack, 4);
+        Assert.Equal(commandClock + deploy, switched.NextSecondaryAttack, 4);
+        Assert.Equal(commandClock + deploy, switched.TimeWeaponIdle, 4);
+        Assert.True(switched.Clip == -1, $"the crowbar spends no ammunition, not {switched.Clip}");
+    }
 }

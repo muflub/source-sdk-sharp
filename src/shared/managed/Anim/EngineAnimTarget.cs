@@ -133,6 +133,14 @@ public sealed class EngineAnimTarget : IAnimTarget
 
     public void SetHandle(EntityHandle handle) => Handle = handle;
 
+    /// <summary>
+    /// The engine's <c>GetIndex</c> of <see cref="Handle"/> — the key the
+    /// mod's per-player services are reached by (see <see cref="IAnimTarget.EntityIndex"/>).
+    /// <see cref="EntityHandle.None"/> answers the engine's no-answer (-1),
+    /// which is how an unbound host reads as "no player behind this target".
+    /// </summary>
+    public int EntityIndex => _entities.GetIndex(_handle);
+
     //-------------------------------------------------------------------------
     // Movement and state — all of it from the net state the side already
     // has, because that is what both sides' copies of the machine must agree

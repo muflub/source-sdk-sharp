@@ -9,6 +9,13 @@
     <InternalsVisibleTo Include="TF2.Descent.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <!-- The TF2 trails' facts hand a mirror its index (BindIndex) to check the
+         underwater arm asks the rocket's own origin. -->
+    <!-- The TF2 stage 3.4 facts run the arsenal's replay over a handled pair:
+         the same reason the first row here got the grant — only the registry
+         sets a handle in production, and a replay cannot be tested without
+         handing it one. -->
+    <InternalsVisibleTo Include="TF2.Tests" />
     <!-- The oracle's no-caller-arm tests step a spawn helper's second half
          (RocketFlareInto, SpawnTempModelInto) without its create, which means
          they reserve a slot themselves: the oracle reads stock code, but it

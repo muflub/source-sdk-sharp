@@ -76,6 +76,17 @@ public interface IEngineEntities
     EntityHandle CreateFromMap(string className, byte[] packedKeys);
 
     /// <summary>
+    /// <see cref="CreateFromMap"/> into edict <paramref name="edictIndex"/>:
+    /// stock's <c>CreateEntityByName( className, iForceEdictIndex )</c>, the
+    /// round cleanup's re-create of a map entity into the slot it had at load
+    /// (tf2 ruling N2). A slot the engine refuses, a negative index, and a
+    /// class with no edict (a shell-less one) all create as
+    /// <see cref="CreateFromMap"/> does, in any slot — stock's answer when
+    /// its forced edict came back NULL.
+    /// </summary>
+    EntityHandle CreateFromMapAt(string className, byte[] packedKeys, int edictIndex);
+
+    /// <summary>
     /// How many entities the engine is holding, against its hard limit of
     /// <see cref="EngineLimits.MaxEdicts"/>.
     ///
@@ -638,6 +649,14 @@ public interface IEngineEntityRender
     /// <inheritdoc cref="EngineSide.EntitySetSkin"/>
     void SetSkin(EntityHandle entity, int skin);
 
+    /// <summary>
+    /// A viewer-local model (stock's <c>ValidateModelIndex</c> re-applies the
+    /// choice every frame): the named model is drawn for this entity on this
+    /// client until cleared, and an empty name clears it. Client only — the
+    /// server's answer is empty, the real model staying <see cref="SetModel"/>'s.
+    /// </summary>
+    void SetModelOverride(EntityHandle entity, string model);
+
     /// <summary>m_nTextureFrameIndex left with CBaseEntity; env_texturetoggle asks.</summary>
     void SetTextureFrame(EntityHandle entity, int frame);
 
@@ -719,6 +738,19 @@ public interface IEngineDamage
 
     /// <inheritdoc cref="EngineSide.EntityTakeDamage"/>
     void TakeDamage(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction = null, Vector forceOrigin = default, bool physicsOnly = false);
+
+    /// <summary>
+    /// The same damage, answered: how much the victim took, 0 when it took
+    /// nothing — a physics-only ask, a refusal (no <c>DMG_TAKE_DAMAGE</c>, or
+    /// zero health), or no entity there at all.
+    ///
+    /// Stock runs the push a blast gives the victim inside
+    /// <c>OnTakeDamage_Alive</c> (tf_player.cpp:10232), so a hit the victim
+    /// refuses never reaches the push; a caller that pushes on a hit gates on
+    /// this answer rather than on <see cref="TakeDamage"/>, which says nothing.
+    /// The client, which takes no damage, answers 0.
+    /// </summary>
+    int TakeDamageAnswered(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction = null, Vector forceOrigin = default, bool physicsOnly = false);
 }
 
 /// <summary>

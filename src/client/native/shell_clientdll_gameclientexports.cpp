@@ -17,6 +17,52 @@
 #include "voice_status.h"
 
 #include "game/client/IGameClientExports.h"
+#include "ienginevgui.h"
+#include "gameui_edge.h"
+
+// shell_clientdll.cpp's, set in its Init.
+extern IEngineVGui* enginevgui;
+
+// One fire of a client-side game event, the whole of both exports' bodies and
+// of the visibility edge below.
+static void FireClientGameEvent(const char* pName)
+{
+	IGameEvent* event = gameeventmanager->CreateEvent(pName);
+	if (event)
+	{
+		gameeventmanager->FireEventClientSide(event);
+	}
+}
+
+// The client frame's watch (CShellClientDLL::HudUpdate). The engine hands its
+// GameUI activation to the exports above only when -game names tf exactly
+// (gameui_edge.h), so the client answers the engine's own visibility itself
+// and fires the same two events on the edge.
+static GameUIVisibility s_GameUIVisibility;
+
+void SourceSharp_GameUIEdge()
+{
+	if (!gameeventmanager || !enginevgui)
+		return;
+
+	const bool bVisible = enginevgui->IsGameUIVisible();
+
+	switch (s_GameUIVisibility.Update(bVisible))
+	{
+		case GameUIEdge::Activated:
+			FireClientGameEvent("gameui_activated");
+			break;
+		case GameUIEdge::Hidden:
+			FireClientGameEvent("gameui_hidden");
+			break;
+		default:
+			break;
+	}
+
+	// Every frame, not only on the edge: the root and the gameui's own root can
+	// move after the edge named them (the launch). The follow early-outs.
+	SourceSharp_MenuRootFollowGameUI(bVisible);
+}
 
 // Interface for gameui to modify voice bans.
 class CGameClientExports : public IGameClientExports
@@ -29,23 +75,9 @@ public:
 
 	void UnmutePlayerGameVoice(int playerIndex) { GetClientVoiceMgr()->SetPlayerBlockedState(playerIndex, false); }
 
-	void OnGameUIActivated()
-	{
-		IGameEvent* event = gameeventmanager->CreateEvent("gameui_activated");
-		if (event)
-		{
-			gameeventmanager->FireEventClientSide(event);
-		}
-	}
+	void OnGameUIActivated() { FireClientGameEvent("gameui_activated"); }
 
-	void OnGameUIHidden()
-	{
-		IGameEvent* event = gameeventmanager->CreateEvent("gameui_hidden");
-		if (event)
-		{
-			gameeventmanager->FireEventClientSide(event);
-		}
-	}
+	void OnGameUIHidden() { FireClientGameEvent("gameui_hidden"); }
 
 	// Stock's achievements interface is never set here and the econ strings are NULL
 	// without econ items, so these answer nothing.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """tools/descent-tokens -- append #Descent_* copy to the UTF-16 language file.
 
-The descent mod's token file (game/mod_tf2_descent/resource/descent_english.txt)
+The descent mod's token file (game/mod_tf2_descent/resource/tf2_descent_english.txt)
 is UTF-16 KeyValues, which git cannot merge as text (docs/plans/descent_ui.md
 §1). Lanes therefore never hand-edit it: each keeps a plain UTF-8 TSV of its
 own additions (Token<TAB>Text per line) and runs
@@ -24,7 +24,7 @@ import sys
 import os
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LANG = os.path.join(ROOT, "game", "mod_tf2_descent", "resource", "descent_english.txt")
+LANG = os.path.join(ROOT, "game", "mod_tf2_descent", "resource", "tf2_descent_english.txt")
 
 LINE = re.compile(r'^"((?:[^"\\]|\\.)*)"\s+"((?:[^"\\]|\\.)*)"\s*$')
 

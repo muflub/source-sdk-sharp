@@ -147,6 +147,12 @@ public interface ISoundListeners
 
     /// <summary>The client's <c>closecaption</c> convar as it reported it, or null.</summary>
     string? CloseCaptionSetting(int playerIndex);
+
+    /// <summary>
+    /// The engine team number of the slot's player (<c>GetTeamNumber</c>), 0
+    /// for a slot with no player — what a <c>CTeamRecipientFilter</c> matches.
+    /// </summary>
+    int Team(int playerIndex);
 }
 
 /// <summary>
@@ -198,6 +204,24 @@ public sealed class SoundRecipients(IServerSoundEmitterEngine engine, ISoundList
     /// PVS (plan_server_native_v2 T4b: the temp entities' PVS sends).
     /// </summary>
     public RecipientFilter Pvs(Vector origin) => Multicast(false, origin);
+
+    /// <summary>
+    /// <c>CTeamRecipientFilter( team, true )</c> (recipientfilter.h): the
+    /// team's connected slots, reliably, wherever they stand — the announcer's
+    /// filter (entity_capture_flag.cpp's <c>PlaySound</c> calls). A slot whose
+    /// player has no team matches none.
+    /// </summary>
+    public RecipientFilter Team(int team)
+    {
+        var filter = Empty();
+        for (int i = 1; i <= listeners.MaxClients; i++)
+        {
+            if (listeners.IsConnected(i) && listeners.Team(i) == team)
+                filter.Add(i);
+        }
+
+        return filter.MakeReliable();
+    }
 
     private RecipientFilter Multicast(bool usePas, Vector origin)
     {

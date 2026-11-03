@@ -107,7 +107,7 @@ public sealed class BulletImpactEffect(IClientImpactEngine engine, IEngineWorldQ
 
         int decal = DecalIndex(choice.DecalName, material);
         if (decal != -1)
-            Decal(decal, entity, hitbox, start, traceExt, tr);
+            Decal(decal, entity, hitbox, start, traceExt, origin, tr);
 
         if (tr.Hit)
             Perform(choice, origin, start, tr, shotDir, material);
@@ -132,19 +132,22 @@ public sealed class BulletImpactEffect(IClientImpactEngine engine, IEngineWorldQ
     /// <summary>
     /// <c>C_BaseEntity::AddDecal</c>'s switch, asked of this hierarchy: a
     /// non-zero hitbox on entity 0 is static prop hitbox − 1; a studio model
-    /// takes the ray; the world, a brush model and the rest take the point the
-    /// trace found. The last arm is <c>r_decals</c>'s, as every DecalShoot this
-    /// client makes is; the studio arm is <c>r_drawmodeldecals</c>'s
+    /// takes the ray; the world, a brush model and the rest take stock's
+    /// <c>decalCenter</c>, the effect's origin (<c>AddDecal</c>'s third
+    /// argument; the trace only guards the brush arm's early-out). The last arm
+    /// is <c>r_decals</c>'s, as every DecalShoot this client makes is; the
+    /// studio arm is <c>r_drawmodeldecals</c>'s
     /// (<see cref="ClientEntityDecal.AddStudioDecal"/>).
     /// </summary>
-    private void Decal(int decal, int entity, int hitbox, Vector start, Vector traceExt, in ShotTrace tr)
+    private void Decal(int decal, int entity, int hitbox, Vector start, Vector traceExt, Vector origin,
+                       in ShotTrace tr)
     {
         if (entity == 0 && hitbox != 0)
             effects.ClientDecalStaticProp(start, traceExt, hitbox - 1, decal);
         else if (world.ClientEntityModelType(entity) == ModelType.Studio)
             ClientEntityDecal.AddStudioDecal(effects, decalSettings, entity, start, traceExt, decal);
         else if (decalSettings.Decals)
-            effects.ClientDecalShoot(decal, entity, tr.EndPos, null, 0);
+            effects.ClientDecalShoot(decal, entity, origin, null, 0);
     }
 
     /// <summary>

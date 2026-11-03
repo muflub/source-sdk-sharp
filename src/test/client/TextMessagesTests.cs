@@ -1,3 +1,4 @@
+using SourceSharp.Client.Ui;
 using SourceSharp.Abi;
 using SourceSharp.Client.Vgui;
 using SourceSharp.Shared;
@@ -34,7 +35,27 @@ public class TextMessagesTests
         ["#Cstrike_Name"] = "Gordon",
     };
 
-    private static (TextMessages Text, CentrePrint Centre, RecordingLog Log, Chat Chat) Make(RecordingEngine? engine = null)
+    /// <summary>The mod's copy (IUiLocalisation): what the UI's chain answers, and how often it was asked.</summary>
+    private sealed class Copy : IUiLocalisation
+    {
+        private readonly Dictionary<string, string> _tokens;
+
+        public Copy(Dictionary<string, string> tokens) => _tokens = tokens;
+
+        public int Asks { get; private set; }
+
+        public readonly List<string> Asked = [];
+
+        public string? Find(string token)
+        {
+            Asks++;
+            Asked.Add(token);
+            return _tokens.TryGetValue(token, out var t) ? t : null;
+        }
+    }
+
+    private static (TextMessages Text, CentrePrint Centre, RecordingLog Log, Chat Chat) Make(RecordingEngine? engine = null,
+                                                                                              IServiceLocator? services = null)
     {
         engine ??= Fake();
         var e = engine;
@@ -43,7 +64,7 @@ public class TextMessagesTests
         var centre = new CentrePrint(new Clock());
         var log = new RecordingLog();
         var chat = new Chat();
-        return (new TextMessages(e, log, centre, chat: chat), centre, log, chat);
+        return (new TextMessages(e, log, centre, chat: chat, services: services), centre, log, chat);
     }
 
     private static TextMsg Msg(int dest, string text, params string[] p)
@@ -110,6 +131,46 @@ public class TextMessagesTests
         show.NotifyChanged("0", "1");
         new TextMessages(engine, new RecordingLog(), centre, show).Print(Msg(TextMessages.PrintCenter, "x"));
         Assert.Equal("", centre.CenterPrint);
+    }
+
+    [Fact]
+    public void The_mods_language_chain_answers_what_the_engine_tables_lack()
+    {
+        // TF2's join-class notice (TFJoinClassCommand): the server sends
+        // #game_respawn_as with the class file's localize_name as its
+        // parameter — which the class files carry WITHOUT stock's '#'
+        // (TFClassDataTests), as joinclass sent it live. Both tokens live in
+        // the game's own English file, which no table of this client loads
+        // into the engine; stock's one table takes the token with or without
+        // the '#', so before the chain existed the player read the tokens and
+        // now the chain is asked with the '#' the file keys them by.
+        var copy = new Copy(new()
+        {
+            ["#game_respawn_as"] = "%s1 has respawned.",
+            ["#TF_Class_Name_Scout"] = "Scout",
+        });
+        var services = new ServiceContainer().AddInstance<IUiLocalisation>(copy);
+        var (t, _, log, chat) = Make(services: services);
+        t.Print(Msg(TextMessages.PrintTalk, "#game_respawn_as", "TF_Class_Name_Scout"));
+        Assert.Equal(["Scout has respawned.\n"], chat.Lines);
+        Assert.Equal(["Scout has respawned.\n"], log.Lines.Select(l => l.Text));
+        Assert.Contains("#TF_Class_Name_Scout", copy.Asked);   // the ask carried the file's key
+        Assert.True(copy.Asks >= 2);               // the stimulus reached the chain
+    }
+
+    [Fact]
+    public void The_engine_table_wins_and_the_chain_is_never_asked_for_its_token()
+    {
+        // #Game_connected is in the engine's tables (Make's) and in the copy:
+        // stock's one-table precedence means the engine's words print, and
+        // the chain is never asked for that token (its ask here is the plain
+        // parameter, which no table holds).
+        var copy = new Copy(new() { ["#Game_connected"] = "%s1 joined the server" });
+        var services = new ServiceContainer().AddInstance<IUiLocalisation>(copy);
+        var (t, _, _, chat) = Make(services: services);
+        t.Print(Msg(TextMessages.PrintTalk, "#Game_connected", "Barney"));
+        Assert.Equal(["Barney connected\n"], chat.Lines);
+        Assert.DoesNotContain("#Game_connected", copy.Asked);
     }
 
     [Fact]

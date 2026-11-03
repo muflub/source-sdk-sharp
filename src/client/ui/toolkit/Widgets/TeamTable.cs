@@ -85,7 +85,11 @@ public sealed class TeamTable : UiPanel<TeamTableProps>
                 using (ui.Column(Space.None, Align.Start))
                 {
                     ui.Data(team.Name, Text.Heading, props.Tone);
-                    ui.Text($"{count} {Localised(ref ui, "#SS_UI_Players")}", Text.Label, Tone.TextMuted);
+                    // The count is a token pair in stock (TF_ScoreBoard_Player
+                    // "%s1 player" / TF_ScoreBoard_Players "%s1 players",
+                    // tf_english.txt:59-60), so one player is not "1 players".
+                    ui.Text($"{count} {Localised(ref ui, count == 1 ? "#SS_UI_Player" : "#SS_UI_Players")}",
+                            Text.Label, Tone.TextMuted).Key("count");
                 }
                 ui.Flex();
                 ui.Number(team.Score, Text.Title, props.Tone);

@@ -26,7 +26,7 @@ internal unsafe struct FileSystemFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 30 slot(s).
+/// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 31 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineServerFwd : IForwarderTable
@@ -123,6 +123,9 @@ internal unsafe struct EngineServerFwd : IForwarderTable
 
     // float IVEngineServer::Time( void )
     public delegate* unmanaged<void*, float> Time;
+
+    // void IVEngineServer::AllowImmediateEdictReuse( void )
+    public delegate* unmanaged<void*, void> AllowImmediateEdictReuse;
 }
 
 /// <summary>
@@ -155,7 +158,7 @@ internal unsafe struct StaticPropMgrServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IGameEventManager2</c> through its forwarders (SSFwd_GameEventManager): 2 slot(s).
+/// <c>IGameEventManager2</c> through its forwarders (SSFwd_GameEventManager): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct GameEventManagerFwd : IForwarderTable
@@ -168,6 +171,9 @@ internal unsafe struct GameEventManagerFwd : IForwarderTable
 
     // bool IGameEventManager2::FireEvent( IGameEvent *, bool )
     public delegate* unmanaged<void*, void*, byte, byte> FireEvent;
+
+    // void IGameEventManager2::FreeEvent( IGameEvent * )
+    public delegate* unmanaged<void*, void*, void> FreeEvent;
 }
 
 /// <summary>

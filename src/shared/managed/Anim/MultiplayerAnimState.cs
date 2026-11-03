@@ -265,6 +265,15 @@ public sealed class MultiplayerAnimState
     /// <summary>Stock's <c>m_bJumping</c>.</summary>
     public bool Jumping => _jumping;
 
+    /// <summary>
+    /// Stock's <c>m_flJumpStartTime</c>: the machine time stamped by the
+    /// <c>DoAnimationEvent</c> jump arm (multiplayer_animstate.cpp:293).
+    /// Stock's own landing grace reads it (:358 here); the TF2 layer reads
+    /// it for its JUMP_START / JUMP_FLOAT timing
+    /// (tf_playeranimstate.cpp:1498,1517).
+    /// </summary>
+    public float JumpStartTime => _jumpStartTime;
+
     /// <summary>Stock's <c>m_bInSwim</c>.</summary>
     public bool InSwim => _inSwim;
 

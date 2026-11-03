@@ -400,6 +400,30 @@ public class ObserverTests
         Assert.Empty(r.Engine.AllOf("Players.Respawn"));
     }
 
+    /// <summary>
+    /// The join stamp: a join that stops observing and respawns bumps the
+    /// record's spawn epoch, so the client adopts the compare that straddles
+    /// the placement outside the command stream instead of judging it
+    /// (PlayerNetState.SpawnEpoch) — our persistent pair's stand-in for
+    /// stock's whole-entity re-seed at spawn (InitPredictable,
+    /// c_baseentity.cpp:4578-4583). A refused join leaves the stamp alone.
+    /// </summary>
+    [Fact]
+    public void Jointeam_bumps_the_spawn_stamp_only_when_the_join_runs()
+    {
+        var r = new Rig();
+        var me = r.Players[0];
+        r.Clients.SpecMode = "7";
+        r.Observers.Spectate(me, 1f);
+        int stamp = me.State.SpawnEpoch;
+
+        Assert.Equal(JoinTeamResult.Invalid, r.Observers.JoinTeam(me, "4", 2f));
+        Assert.Equal(stamp, me.State.SpawnEpoch);
+
+        Assert.Equal(JoinTeamResult.Playing, r.Observers.JoinTeam(me, "2", 3f));
+        Assert.Equal(stamp + 1, me.State.SpawnEpoch);
+    }
+
     [Fact]
     public void Jointeam_one_is_spectate_and_a_playing_team_while_alive_respawns_nobody()
     {
@@ -423,5 +447,77 @@ public class ObserverTests
         r.Clients.SpecMode = "7";
         r.Observers.Spectate(r.Players[0], 2f);
         Assert.False(Observers.MayRespawn(r.Players[0]), "CHL2MP_Player::PlayerDeathThink skips an observer");
+    }
+
+    //-- TF2: the death cam (State_Think_DYING) -----------------------------------
+
+    /// <summary>
+    /// Stock TF2's State_Think_DYING (tf_player.cpp:13923-13935): once the
+    /// ragdoll exists, StartObserverMode( OBS_MODE_DEATHCAM ) and still draw
+    /// the body. CTFPlayer::SetObserverMode (tf_player.cpp:13719) carries no
+    /// mp_forcecamera remap, so the death cam is the death cam — and it is
+    /// asked by no one, so HL2MP's m_bEnterObserver gate does not apply.
+    /// </summary>
+    [Fact]
+    public void A_death_cam_starts_without_the_ask_gate_and_leaves_the_body_drawn()
+    {
+        var r = new Rig();
+        var me = r.Players[0];
+        r.Die(0, 1f);
+
+        Assert.True(r.Observers.StartDeathCam(me));
+
+        Assert.Equal((int)ObserverMode.DeathCam, me.State.ObserverMode);
+        Assert.False(me.Observer.EnterObserver, "the death cam is not a spectator seat");
+        Assert.Equal(MoveType.None, (MoveType)r.Engine.AllOf("PlayerMovement.SetMoveType").Last().Args[1]!);
+        Assert.Contains(r.Engine.AllOf("Damage.SetTakeDamageMode"),
+                        c => (TakeDamageMode)c.Args[1]! == TakeDamageMode.No);
+        Assert.DoesNotContain(r.Engine.AllOf("EntityRender.SetVisible"),
+                               c => (bool)c.Args[1]! == false);
+    }
+
+    [Fact]
+    public void The_death_cam_is_not_remapped_by_mp_forcecamera()
+    {
+        var r = new Rig();
+        var me = r.Players[0];
+        r.Engine.Returns("Players.GetTeam", 2);   // a playing team; mp_forcecamera at its default
+        r.Die(0, 1f);
+
+        r.Observers.StartDeathCam(me);
+
+        Assert.Equal((int)ObserverMode.DeathCam, me.State.ObserverMode);
+    }
+
+    [Fact]
+    public void The_death_cam_lasts_past_the_death_animation_and_ends_at_the_respawn()
+    {
+        var r = new Rig();
+        var me = r.Players[0];
+        r.Die(0, 1f);
+        r.Observers.StartDeathCam(me);
+        r.Engine.Clear();
+
+        r.Observers.DeathThink(me, 1f + Observers.DeathAnimationTime + 2f);
+
+        Assert.Equal((int)ObserverMode.DeathCam, me.State.ObserverMode);   // no timeout into m_iObserverLastMode
+        Assert.Empty(r.Engine.AllOf("Players.SetObserverMode"));
+
+        r.Observers.Stop(me);
+        Assert.Equal(0, me.State.ObserverMode);
+        Assert.Contains(r.Engine.AllOf("Damage.SetTakeDamageMode"),
+                        c => (TakeDamageMode)c.Args[1]! == TakeDamageMode.Yes);
+    }
+
+    [Fact]
+    public void A_death_cam_is_refused_for_one_already_watching()
+    {
+        var r = new Rig();
+        var me = r.Players[0];
+        r.Die(0, 1f);
+        r.Watch(me, ObserverMode.Roaming, 1f);
+
+        Assert.False(r.Observers.StartDeathCam(me));
+        Assert.Equal((int)ObserverMode.Roaming, me.State.ObserverMode);
     }
 }

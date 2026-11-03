@@ -61,6 +61,7 @@ internal sealed unsafe partial class EngineDamage
     public void ApplyAt(EntityHandle victim, EntityHandle attacker, float damage, DamageType damageType, Vector force, Vector position) { }
     public void RegisterRules(DamageRuleMasks masks) { }
     public void TakeDamage(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction = null, Vector forceOrigin = default, bool physicsOnly = false) { }
+    public int TakeDamageAnswered(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction = null, Vector forceOrigin = default, bool physicsOnly = false) => 0;
 }
 
 internal sealed unsafe partial class EngineDiagnostics
@@ -784,6 +785,36 @@ internal sealed unsafe partial class EngineEffects
     }
 
     /// <summary>
+    /// Starts a second particle system beside the one an entity already holds —
+    /// stock's crit glow runs there, and the one-per-owner rule would replace it.
+    /// </summary>
+    public bool ParticleSystemStartExtra(EntityHandle owner, string name)
+    {
+        var bytes = Encoding.UTF8.GetBytes(name + "\0");
+        fixed (byte* p = bytes) { return _effectsRenderClientArea.ParticleSystemStartExtra(owner.Value, p) != 0; }
+    }
+
+    public void ParticleSystemStopExtra(EntityHandle owner)
+    {
+        _effectsRenderClientArea.ParticleSystemStopExtra(owner.Value);
+    }
+
+    /// <inheritdoc cref="IEngineEffects.ParticleSystemStartSlot"/>
+    public bool ParticleSystemStartSlot(EntityHandle owner, string name, int slot)
+    {
+        if (name.Length == 0) return false;
+
+        var bytes = Encoding.UTF8.GetBytes(name + "\0");
+        fixed (byte* p = bytes) { return _effectsRenderClientArea.ParticleSystemStartSlot(owner.Value, p, slot) != 0; }
+    }
+
+    /// <inheritdoc cref="IEngineEffects.ParticleSystemStopSlot"/>
+    public void ParticleSystemStopSlot(EntityHandle owner, int slot)
+    {
+        _effectsRenderClientArea.ParticleSystemStopSlot(owner.Value, slot);
+    }
+
+    /// <summary>
     /// Which of a running particle system's control points are kept at the
     /// entity that owns it, as a bitmask — bit 0 is control point 0.
     ///
@@ -802,6 +833,19 @@ internal sealed unsafe partial class EngineEffects
     public bool ParticleSystemFollowPoints(EntityHandle owner, int pointMask)
     {
         return _effectsRenderClientArea.ParticleSystemFollowPoints(owner.Value, pointMask) != 0;
+    }
+
+    /// <inheritdoc cref="IEngineEffects.ParticleSystemFollowEntity"/>
+    public unsafe bool ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset = null)
+    {
+        if (offset is not { } o)
+            return _effectsRenderClientArea.ParticleSystemFollowEntity(owner.Value, point, entity.Value, attachment, null) != 0;
+
+        float* pOffset = stackalloc float[3];
+        pOffset[0] = o.X;
+        pOffset[1] = o.Y;
+        pOffset[2] = o.Z;
+        return _effectsRenderClientArea.ParticleSystemFollowEntity(owner.Value, point, entity.Value, attachment, pOffset) != 0;
     }
 
     /// <summary>
@@ -945,6 +989,7 @@ internal sealed unsafe partial class EngineEntities
     public void ApplyVelocityImpulse(EntityHandle h, Vector impulse, bool clearGround) { }
     public EntityHandle Create(string className) => EntityHandle.None;
     public EntityHandle CreateFromMap(string className, byte[] packedKeys) => EntityHandle.None;
+    public EntityHandle CreateFromMapAt(string className, byte[] packedKeys, int edictIndex) => EntityHandle.None;
     public Vector GetAngularVelocity(EntityHandle entity) => default;
     public (Vector Mins, Vector Maxs) GetBounds(EntityHandle entity) => (Vector.Zero, Vector.Zero);
     public Vector GetBoundsSize(EntityHandle entity) => default;
@@ -1203,6 +1248,18 @@ internal sealed unsafe partial class EngineEntityRender
         _standaloneClientArea.EntitySetSkin(entity.Value, skin);
     }
 
+    /// <summary>
+    /// A viewer-local model (stock's ValidateModelIndex, c_tf_player.cpp:8999-9003):
+    /// the named model is drawn for this entity until cleared; an empty name
+    /// clears. Survives the server's model updates because GetModel consults
+    /// the override on every draw, and the caller re-applies it per decode.
+    /// </summary>
+    public void SetModelOverride(EntityHandle entity, string model)
+    {
+        var bytes = Encoding.UTF8.GetBytes(model + "\0");
+        fixed (byte* p = bytes) { _standaloneClientArea.EntitySetModelOverride(entity.Value, p); }
+    }
+
     private partial bool EngineIsDormant(EntityHandle entity) => E.StandaloneIsDormant(_standaloneClientArea, entity);
 
     // The server's members, as a client engine answers them: what each one's
@@ -1424,6 +1481,22 @@ internal sealed unsafe partial class EngineHud
     public void AddLineOverlay(Vector start, Vector end, int r, int g, int b, bool noDepthTest = true, float duration = 0f) { }
     public void ViewPunch(Vector origin, Vector punch, float radius, bool inAir = false) { }
 
+    public bool ScreenOverlaySet(string name)
+    {
+        var bytes = Encoding.UTF8.GetBytes(name + "\0");
+
+        fixed (byte* p = bytes)
+            return _viewClientArea.ScreenOverlaySet(p) != 0;
+    }
+
+    public string ScreenOverlayGet()
+    {
+        byte* buffer = stackalloc byte[512];
+        _viewClientArea.ScreenOverlayGet(buffer, 512);
+
+        return EngineSide.FromUtf8(buffer);
+    }
+
 }
 
 internal sealed unsafe partial class EngineNetworking
@@ -1519,6 +1592,7 @@ internal sealed unsafe partial class EnginePlayers
     public void Respawn(EntityHandle player) { }
     public void SetObserverMode(EntityHandle player, ObserverMode mode) { }
     public void SetTeam(EntityHandle player, int team) { }
+    public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f, int start = 0) { }
     public void SetPickupEnabled(EntityHandle entity, bool enabled) { }
     public bool TryStandalonePlayerEarPosition(int edictIndex, out Vector ears)
     {
@@ -1533,6 +1607,7 @@ internal sealed unsafe partial class EnginePlayers
     public bool BoxInPvs(EntityHandle player, Vector mins, Vector maxs) => false;
 
     public void SetViewEntity(EntityHandle player, EntityHandle view) { }
+    public void SetDefaultFov(EntityHandle player, int fov) { }
 }
 
 internal sealed unsafe partial class EnginePrecache
@@ -1549,6 +1624,7 @@ internal sealed unsafe partial class EnginePrecache
     public int PrecacheDecal(string name) => -1;
     public void PrecacheMaterial(string material) { }
     public void PrecacheParticleSystem(string name) { }
+    public int ParticleSystemIndex(string name) => 0;
     public int PrecacheModel(string model) => -1;
     public void PrecacheSound(string soundName) { }
 }
@@ -1616,6 +1692,8 @@ internal sealed unsafe partial class EngineSound
     public void EntityEmitSound(EntityHandle entity, string soundName) { }
 
     public void EntityEmitSoundAs(EntityHandle entity, string soundName, float volume, int pitch) { }
+
+    public void EmitSoundToTeam(int team, EntityHandle entity, string soundName) { }
 }
 
 internal sealed unsafe partial class EngineVisibility

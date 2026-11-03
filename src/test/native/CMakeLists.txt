@@ -1500,6 +1500,14 @@ ss_cpptest(shadow_pending_queue_test
     INCLUDES sourcesharp/game/client
     SOURCES sourcesharp/test/shadow_pending_queue_test.cpp)
 
+# THE GAMEUI VISIBILITY EDGE (the pause menu's drive): the engine hands its
+# GameUI activation to the client only when -game names tf exactly, so the
+# client watches IEngineVGui itself and fires the two game events on the edge.
+# gameui_edge.h is engine-free, so the shipped machine is the thing under test.
+ss_cpptest(gameui_edge_test
+    INCLUDES sourcesharp/game/client
+    SOURCES sourcesharp/test/gameui_edge_test.cpp)
+
 # THE NOT-SHIPPED LEDGER -- plan_entity.md step 7g.
 #
 # The same shape one level up: the refusals counter above is per IBaseClientDLL
@@ -2524,6 +2532,17 @@ ss_cpptest(server_state_test
     INCLUDES ${PROJECT_SOURCE_DIR}/src/server/native ${PROJECT_SOURCE_DIR}/src/shared/native sourcesharp/host
              ${PROJECT_SOURCE_DIR}/src/test/native/entitylist_stub public public/tier0 public/tier1 common
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/server_state_test.cpp)
+
+# The shell's frame-buffer-sampler answer (standalone_fb_texture.h), asked
+# through a fake modelinfo whose recorder sits at the compiler's slot: a model
+# whose material samples the framebuffer answers true, one that does not — and
+# a shell with no model, or modelinfo not yet connected — answers false without
+# asking.
+ss_cpptest(standalone_fb_texture_test
+    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC CLIENT_DLL
+    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
+    INCLUDES public public/tier0 public/tier1
+    SOURCES sourcesharp/test/standalone_fb_texture_test.cpp)
 
 # What this platform does not build (LINUX_ONLY, and must-not-compile under
 # MSVC), listed at configure time with each reason.

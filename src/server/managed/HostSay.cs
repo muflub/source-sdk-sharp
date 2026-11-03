@@ -29,13 +29,29 @@ namespace SourceSharp.Server;
 /// </para>
 ///
 /// <para>
+/// The game's own look at the line, stock's per-player
+/// <c>CheckChatText</c> override (client.cpp:313), runs here as the
+/// <see cref="IPlayerChatHook"/> chain, before anything is relayed: HL2MP's
+/// player spent that override on the ready signal
+/// (hl2mp_player.cpp:1547-1571). The hooks hear the checked text, and a
+/// console line -- no speaker -- reaches none of them, stock's
+/// <c>if ( pEdict )</c> gate.
+/// </para>
+///
+/// <para>
 /// Not ported: the voice manager's ignore list (no player can ignore another
 /// in this build), and team membership itself (team changes are a TODO).
 /// </para>
 /// </summary>
 public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities entities, IEntityDirectory directory,
-                            IUserMessageSender messages, IConnectedClients clients, IEngineGameEvents events, IEngineHost host)
+                            IUserMessageSender messages, IConnectedClients clients, IEngineGameEvents events, IEngineHost host,
+                            IHooks<IPlayerChatHook>? chatHooks = null, TeamNames? teamNames = null,
+                            IHooks<IChatAudience>? audience = null)
 {
+    private readonly TeamNames _teamNames = teamNames ?? TeamNames.Stock();
+    private readonly IHooks<IPlayerChatHook>? _chatHooks = chatHooks;
+    private readonly IHooks<IChatAudience>? _audience = audience;
+
     /// <summary>The longest line (CheckChatText's cut).</summary>
     public const int MaxText = 127;
 
@@ -52,6 +68,12 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
             return;
 
         bool hasSpeaker = speaker != EntityHandle.None;
+
+        // The game's hook, before the relay (client.cpp:313): the checked text,
+        // and never for the console's own line.
+        if (hasSpeaker)
+            _chatHooks?.Each(nameof(IPlayerChatHook.OnPlayerChat),
+                             h => h.OnPlayerChat(new PlayerChat(speaker, text, teamOnly)));
         int speakerIndex = hasSpeaker ? entities.GetIndex(speaker) : 0;
         string name = hasSpeaker ? clients.ClientConVar(speakerIndex, "name") ?? "unconnected" : "Console";
 
@@ -71,6 +93,12 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
                 if (teamOnly && !Teammates(listener.Handle, speaker))
                     continue;
 
+                // Stock's per-listener stage (client.cpp:387): the listener's
+                // CanHearAndReadChatFrom. Nobody registered vetoes nobody, the
+                // base player's plain true (player.h:699).
+                if (_audience is { } audience && audience.All.Any(a => !a.CanHear(listener.Handle, speaker)))
+                    continue;
+
                 sent += Send(entities.GetIndex(listener.Handle), speakerIndex, format!, name, text) ? 1 : 0;
             }
 
@@ -86,7 +114,7 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
 
         int userId = hasSpeaker ? clients.UserId(speakerIndex) : 0;
         string networkId = hasSpeaker ? NetworkId(clients.SteamId64(speakerIndex)) : "Console";
-        string team = hasSpeaker ? TeamName(players.GetTeam(speaker)) : "Console";
+        string team = hasSpeaker ? TeamNameOf(players.GetTeam(speaker)) : "Console";
         log.Msg($"\"{name}<{userId}><{networkId}><{team}>\" {(teamOnly ? "say_team" : "say")} \"{text}\"\n");
 
         IntPtr e = events.EventCreate("player_say");
@@ -110,6 +138,8 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
     public static string Format(bool teamOnly, int team)
         => teamOnly ? (team == TeamSpectator ? "HL2MP_Chat_Spec" : "HL2MP_Chat_Team")
                     : (team == TeamSpectator ? "HL2MP_Chat_AllSpec" : "HL2MP_Chat_All");
+
+    private string TeamNameOf(int team) => _teamNames.Of(team, TeamName(team));
 
     /// <summary>HL2MP's team names (g_Teams): Unassigned, Spectator, Combine, Rebels.</summary>
     public static string TeamName(int team) => team switch
@@ -143,4 +173,39 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
 
         return p.Length > MaxText ? p[..MaxText] : p;
     }
+}
+
+/// <summary>One said line, as <see cref="IPlayerChatHook"/> hears it.</summary>
+/// <param name="Speaker">The player who said it; never <see cref="EntityHandle.None"/> (the console reaches no hook).</param>
+/// <param name="Text">The line after <see cref="HostSay.CheckChatText"/>: quotes gone, cut at a CR, LF or ESC, 127 at most.</param>
+/// <param name="TeamOnly">A <c>say_team</c> line.</param>
+public readonly record struct PlayerChat(EntityHandle Speaker, string Text, bool TeamOnly);
+
+/// <summary>
+/// The say path's per-player hook (stock's <c>CBasePlayer::CheckChatText</c>
+/// override, client.cpp:313): <see cref="HostSay"/> calls every one with each
+/// line a player says, after the text is checked and before anything is
+/// relayed. Implement it on a server <c>[SideService]</c> and register
+/// nothing else; order among several is <see cref="IOrderedHook"/>'s. The
+/// hooks observe; the line they hear is the line that is sent.
+/// </summary>
+public interface IPlayerChatHook
+{
+    /// <summary>Called once per said line, in the say path, before the relay.</summary>
+    void OnPlayerChat(PlayerChat chat);
+}
+
+/// <summary>
+/// The say relay's per-listener stage, stock's
+/// <c>CBasePlayer::CanHearAndReadChatFrom</c> (player.h:699, plain true) as a
+/// registered veto: the game's override — TF2's dead-talk gate,
+/// <c>CTFPlayer::CanHearAndReadChatFrom</c> (tf_player.cpp:19775) — refuses
+/// listeners from a line. Every registered audience must hear the pair for
+/// the line to reach <paramref name="listener"/>; none registered, everyone
+/// does. Resolved lazily with the other hooks, after the container is whole.
+/// </summary>
+public interface IChatAudience
+{
+    /// <summary>Whether <paramref name="listener"/> hears <paramref name="speaker"/>'s line.</summary>
+    bool CanHear(EntityHandle listener, EntityHandle speaker);
 }

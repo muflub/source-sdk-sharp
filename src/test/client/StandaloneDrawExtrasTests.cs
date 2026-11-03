@@ -40,6 +40,13 @@ public unsafe class StandaloneDrawExtrasTests
         public float GetJumpScale(in JumpRequest request) => throw new NotSupportedException();
         public float GetFrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial) => throw new NotSupportedException();
         public float GetMaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial) => throw new NotSupportedException();
+        public float GetAirJump(in JumpRequest request) => throw new NotSupportedException();
+        public void OnPlayerGrounded(int playerIndex) => throw new NotSupportedException();
+        public float GetEyeHeight(int playerIndex, float standing) => throw new NotSupportedException();
+        public float GetBunnyJumpCap(int playerIndex, float maxSpeed) => throw new NotSupportedException();
+        public BackpedalLimit? GetBackpedalLimit(int playerIndex, float maxSpeed) => throw new NotSupportedException();
+
+        public MovementStun? GetMovementStun(int playerIndex, float curTime, int buttons, float forwardMove, float sideMove, float upMove) => throw new NotSupportedException();
         public bool StandaloneCreate(EntityHandle entity, string className) => throw new NotSupportedException();
         public void StandaloneSpawn(EntityHandle entity) => throw new NotSupportedException();
         public int StandaloneDraw(EntityHandle entity) => throw new NotSupportedException();

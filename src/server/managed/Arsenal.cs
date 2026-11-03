@@ -142,7 +142,18 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     // injected service at least makes testable.
     private readonly WeaponCatalog _weapons;
     private readonly AmmoCatalog _ammo;
+    private readonly AmmoCarry _carryLimits;
+    private readonly ViewmodelActivity _viewmodelActivity;
+    private readonly ViewmodelModel _viewmodelModel;
+    private readonly ViewmodelSkin _viewmodelSkin;
     private readonly WeaponBehaviours _behaviours;
+
+    /// <summary>
+    /// The skin a server entity is drawn with (the attachment's m_nSkin). Null
+    /// in a composition or a test without one: the attachment then wears
+    /// whatever skin it already had.
+    /// </summary>
+    private readonly IServerSkins? _skins;
 
     /// <param name="weapons">
     /// This side's weapon table — the core rows plus the mods'. Null takes the
@@ -167,7 +178,12 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    PredictionSuppression? prediction = null,
                    IWeaponSounds? weaponSounds = null,
                    WeaponScriptDatabase? scripts = null,
-                   IEntityRoster<ITraceAttacked>? traceAttacked = null)
+                   IEntityRoster<ITraceAttacked>? traceAttacked = null,
+                   AmmoCarry? carryLimits = null,
+                   ViewmodelActivity? viewmodelActivity = null,
+                   ViewmodelModel? viewmodelModel = null,
+                   ViewmodelSkin? viewmodelSkin = null,
+                   IServerSkins? skins = null)
     {
         _traceAttacked = traceAttacked;
         _scripts = scripts;
@@ -190,6 +206,19 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         _ammo = ammo ?? AmmoCatalog.Stock();
         _behaviours = behaviours ?? WeaponBehaviours.Stock();
         _hitGroups = hitGroups;
+        // The per-player carry limits (IAmmoCarryRule); stock is the row's own.
+        _carryLimits = carryLimits ?? AmmoCarry.Stock();
+        // The viewmodel's activity translation chain (IViewmodelActivityRule);
+        // stock is the machine's own names.
+        _viewmodelActivity = viewmodelActivity ?? ViewmodelActivity.Stock();
+        // The viewmodel's model chain (IViewmodelModelRule); stock is the row's
+        // own.
+        _viewmodelModel = viewmodelModel ?? ViewmodelModel.Stock();
+        // The viewmodel's skin chain (IViewmodelSkinRule); stock touches
+        // nothing, which is what a weapon with neither an item skin nor
+        // HasTeamSkins_Viewmodel wears.
+        _viewmodelSkin = viewmodelSkin ?? ViewmodelSkin.Stock();
+        _skins = skins;
     }
 
     /// <summary>
@@ -256,6 +285,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         public EntityHandle Player;
         public EntityHandle Weapon;     // ss_weapon, or None until first give
         public EntityHandle ViewModel;  // predicted_viewmodel, beside it
+        public EntityHandle Attachment; // ss_viewmodel_attachment, the row's own model riding the hands (None while there are none)
         public readonly List<Owned> Weapons = new();
         public readonly Dictionary<string, int> Ammo = new(StringComparer.OrdinalIgnoreCase);
         public int ActiveSlot = -1;
@@ -315,7 +345,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         carry = new Carry { Player = player };
         carry.Arms = new ServerWeaponArms(_log, this, carry);
-        carry.Machine = new WeaponLogic(carry.Arms, _weapons, _behaviours);
+        carry.Machine = new WeaponLogic(carry.Arms, _weapons, _behaviours, _ammo);
         _carries[player.Value] = carry;
         return carry;
     }
@@ -360,7 +390,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
             // Already owned: the duplicate is worth what a fresh one carries
             // (Weapon_EquipAmmoOnly), its default clip, in ammunition.
-            bool tookPrimary = type.AmmoName.Length > 0 && GiveAmmo(player, DefaultClipOf(in type), type.AmmoName) > 0;
+            bool tookPrimary = type.AmmoName.Length > 0 && GiveAmmo(player, DefaultClipOf(in type, player), type.AmmoName) > 0;
 
             // And its secondary charge, where the row brings one: the SLAM's
             // three, Weapon_EquipAmmoOnly's GetSecondaryAmmoCount.
@@ -373,8 +403,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // Weapon_Equip: the default clip into the clip, what it holds past the
         // clip's size into the pool, and all of it into the pool for a weapon
         // with no clip.
-        int clipSize = ClipSizeOf(in type);
-        int defaultClip = DefaultClipOf(in type);
+        int clipSize = ClipSizeOf(in type, player);
+        int defaultClip = DefaultClipOf(in type, player);
         carry.Weapons.Add(new Owned
         {
             TypeIndex = typeIndex,
@@ -406,9 +436,54 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     }
 
     /// <summary>
-    /// Adds to a pool, honouring the ammo row's carry limit. Answers how much
-    /// was actually taken, zero for a full pool — which is what leaves the box
-    /// on the floor.
+    /// The most of <paramref name="ammo"/> this player may carry: the row's
+    /// limit through the mods' <see cref="IAmmoCarryRule"/>s. What
+    /// <see cref="GiveAmmo"/> clamps to, and what a fill-to-the-limit command fills to.
+    /// </summary>
+    public int MaxCarryOf(EntityHandle player, in AmmoType ammo)
+        => _carryLimits.MaxFor(player.EntryIndex, in ammo);
+
+    /// <inheritdoc cref="IWeaponGiver.PoolOf"/>
+    public bool PoolOf(EntityHandle player, string ammoName, out int count)
+    {
+        count = 0;
+        return _carries.TryGetValue(player.Value, out var carry)
+            && carry.Ammo.TryGetValue(ammoName, out count);
+    }
+
+    /// <inheritdoc cref="IWeaponGiver.CarriedClipOf"/>
+    public int CarriedClipOf(EntityHandle player, int typeIndex)
+    {
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return -1;
+
+        foreach (var owned in carry.Weapons)
+        {
+            if (owned.TypeIndex != typeIndex)
+                continue;
+
+            // The live blob is the hands' word while the weapon is held (the
+            // stored copy lags a shot behind); the stored copy is the
+            // holster's. The shape is the deploy's: a clipless row reads -1.
+            if (_weapons.ByIndex(typeIndex) is not WeaponType type
+                || ClipSizeOf(in type, carry.Player) <= 0)
+                return -1;
+
+            if (carry.ActiveSlot >= 0 && carry.ActiveSlot < carry.Weapons.Count
+                && carry.Weapons[carry.ActiveSlot].TypeIndex == typeIndex
+                && _directory.Get(carry.Weapon) is SsWeapon live)
+                return Math.Max(0, live.State.Clip);
+
+            return Math.Max(0, owned.Clip);
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// Adds to a pool, honouring the player's carry limit for it
+    /// (<see cref="MaxCarryOf"/>). Answers how much was actually taken, zero
+    /// for a full pool — which is what leaves the box on the floor.
     /// </summary>
     public int GiveAmmo(EntityHandle player, int count, string ammoName)
     {
@@ -429,7 +504,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         carry.Ammo.TryGetValue(ammo.Name, out int have);
 
-        int taken = Math.Min(count, Math.Max(0, ammo.MaxCarry - have));
+        int taken = Math.Min(count, Math.Max(0, MaxCarryOf(player, in ammo) - have));
 
         if (taken <= 0)
         {
@@ -445,6 +520,81 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         return taken;
     }
 
+    /// <summary>
+    /// Subtracts from a pool, capped at what it holds — the shape of stock
+    /// <c>CBaseCombatCharacter::RemoveAmmo</c> (basecombatcharacter_shared.cpp):
+    /// <c>m_iAmmo.Set( iAmmoIndex, MAX( m_iAmmo[iAmmoIndex] - iCount, 0 ) )</c>.
+    /// A request past the balance spends the whole pool and leaves it empty.
+    /// Answers how much was actually spent, zero for an empty pool or an
+    /// unknown row. Stock spends from the dead as readily as from the living
+    /// (no aliveness arm on <c>RemoveAmmo</c>), so this spends too;
+    /// <see cref="GiveAmmo"/> is the one that refuses a corpse.
+    /// </summary>
+    public int TakeAmmo(EntityHandle player, int count, string ammoName)
+    {
+        if (!IsStandalonePlayer(player) || count <= 0)
+            return 0;
+
+        if (_ammo.For(ammoName) is not AmmoType ammo)
+        {
+            _log.Warning($"[SourceSharp/Arsenal] no ammo row for '{ammoName}'\n");
+            return 0;
+        }
+
+        var carry = CarryFor(player);
+
+        if (!carry.Ammo.TryGetValue(ammo.Name, out int have) || have <= 0)
+            return 0;
+
+        int spent = Math.Min(count, have);
+
+        carry.Ammo[ammo.Name] = have - spent;
+        RefreshReserves(carry);
+        return spent;
+    }
+
+    /// <summary>
+    /// The row's taker: the held weapon leaves the inventory, which is the
+    /// half of a weapon swap the give does not cover — the dropped-weapon
+    /// pickup trades the row in the same slot for the one on the floor. The
+    /// hands' pair are put away first when it was the active one, and left
+    /// empty (<see cref="EmptyHands"/>, the tail <see cref="DropActive"/>
+    /// ends its drop with); a holstered row goes without touching the hands.
+    /// Answers whether a row went.
+    /// </summary>
+    public bool TakeWeapon(EntityHandle player, string className)
+    {
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return false;
+
+        int typeIndex = _weapons.IndexOf(className);
+
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            if (carry.Weapons[slot].TypeIndex != typeIndex)
+                continue;
+
+            bool wasActive = slot == carry.ActiveSlot;
+            carry.Weapons.RemoveAt(slot);
+
+            if (wasActive)
+            {
+                Holster(carry);
+                EmptyHands(carry);
+            }
+            else if (slot < carry.ActiveSlot)
+            {
+                // The rows behind the hands' own slid down one: the active
+                // index follows them, or it would name the neighbour.
+                carry.ActiveSlot--;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
     //-------------------------------------------------------------------------
     // Switching.
     //-------------------------------------------------------------------------
@@ -456,6 +606,26 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return refused;
 
         int typeIndex = _weapons.IndexOf(className);
+
+        for (int slot = 0; slot < carry!.Weapons.Count; slot++)
+        {
+            if (carry.Weapons[slot].TypeIndex == typeIndex)
+                return Take(carry, slot);
+        }
+
+        return SwitchOutcome.NotOwned;
+    }
+
+    /// <summary>
+    /// Switches to an owned weapon by its catalog type — the wire index a
+    /// <c>CUserCmd::weaponselect</c> names (stock's RunCommand → SelectItem,
+    /// player_command.cpp:376-385). The same scan as the classname switch,
+    /// minus the lookup: the command already speaks the shared namespace.
+    /// </summary>
+    public SwitchOutcome SwitchType(EntityHandle player, int typeIndex)
+    {
+        if (Refusal(player, out var carry) is SwitchOutcome refused)
+            return refused;
 
         for (int slot = 0; slot < carry!.Weapons.Count; slot++)
         {
@@ -616,11 +786,19 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         weapon.State.OwnerIndex = _entities.GetIndex(carry.Player);
         weapon.State.WeaponTypeId = owned.TypeIndex;
-        weapon.State.Clip = ClipSizeOf(in type) > 0 ? owned.Clip : -1;
+        weapon.State.Clip = ClipSizeOf(in type, carry.Player) > 0 ? owned.Clip : -1;
         weapon.State.InReload = false;
         weapon.State.NextPrimaryAttack = now + type.DeployTime;
         weapon.State.NextSecondaryAttack = now + type.DeployTime;
         weapon.State.TimeWeaponIdle = now + type.DeployTime;
+
+        // The deploy's own stamp, beside the clocks it writes together: the
+        // spawn kit's Deploy and the round-start respawn's reach the client
+        // between two commands, on no command at all, and the client's meter
+        // adopts an arrival stamped away from its acked slot rather than
+        // judging the OTHER deploy's clocks against it. Deploy is the stamp's
+        // only writer: the machine's field-by-field writes stay judgable.
+        weapon.State.DeployEpoch++;
         weapon.State.LastButtons = 0;
         weapon.State.Special = owned.Special;
         weapon.State.SpecialTime = owned.SpecialTime;
@@ -631,6 +809,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         weapon.State.DrawbackFinished = false;
         weapon.State.AnimEvent = 0;
 
+        // A behaviour's own state (WeaponNetState.Behaviour*) starts from nothing.
+        weapon.State.ResetBehaviourState();
+
         viewModel.State.OwnerIndex = _entities.GetIndex(carry.Player);
 
         // Through the injected interface rather than the entities' own
@@ -638,7 +819,28 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // a switch dresses is observable: the live bug this guards against was
         // precisely a viewmodel still wearing the OLD weapon's v_ model.
         _render.SetModel(carry.Weapon, type.WorldModel);
-        _render.SetModel(carry.ViewModel, type.ViewModel);
+
+        // Stock's GetViewModel + UpdateAttachmentModels in one: the chain names
+        // what the viewmodel wears (the class's hands, for a TF item that
+        // attaches); when it named something OTHER than the row's own model,
+        // that own model rides the hands as the attachment (stock's
+        // C_ViewmodelAttachmentModel), created then and hidden again when the
+        // hands go away. When the chain named nothing, the viewmodel IS the
+        // row's own model and there is nothing to attach.
+        string? chosen = _viewmodelModel.Model(_entities.GetIndex(carry.Player), type);
+        _render.SetModel(carry.ViewModel, chosen ?? type.ViewModel);
+
+        // Stock's CTFViewModel::GetSkin: the item's skin for the owner's team,
+        // else HasTeamSkins_Viewmodel's RED 0 / BLU 1 — the chain's answer,
+        // and the attachment rides the SAME skin (econ_entity.cpp:1196). No
+        // opinion and nothing is written: what an attack's own skin write put
+        // there (the crossbow's glowing bolt) keeps standing, and the
+        // behaviour's Deploy below still gets the last word of the deploy.
+        int? skin = _viewmodelSkin.Skin(_entities.GetIndex(carry.Player), type);
+        if (skin is int dressed)
+            viewModel.State.Skin = dressed;
+        DressAttachment(carry, chosen, type.ViewModel, skin);
+
         _render.SetVisible(carry.Weapon, true);
         _render.SetVisible(carry.ViewModel, true);
 
@@ -661,7 +863,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         if (ActiveBehaviour(carry, out var deployed) is { } behaviour)
             behaviour.Deploy(in deployed);
 
-        _log.Msg($"[SourceSharp/Arsenal] {carry.Player} deployed {type.Name}\n");
+        _log.Msg(skin is int worn
+            ? $"[SourceSharp/Arsenal] {carry.Player} deployed {type.Name}, skin {worn}\n"
+            : $"[SourceSharp/Arsenal] {carry.Player} deployed {type.Name}\n");
     }
 
     /// <summary>
@@ -702,7 +906,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         var owned = carry.Weapons[carry.ActiveSlot];
 
-        if (_weapons.ByIndex(owned.TypeIndex) is WeaponType type && ClipSizeOf(in type) > 0)
+        if (_weapons.ByIndex(owned.TypeIndex) is WeaponType type && ClipSizeOf(in type, carry.Player) > 0)
             owned.Clip = Math.Max(0, weapon.State.Clip);
 
         owned.Special = weapon.State.Special;
@@ -713,21 +917,69 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// The clip a row holds here: the row's own, unless its behaviour answers
     /// <see cref="IWeaponBehaviour.ModifyClipSize"/> — the same answer the
     /// machine spends down from and reloads up to, so a fresh give fills the
-    /// clip a reload fills.
+    /// clip a reload fills. Asked about the player whose hands the weapon is
+    /// filled for, so a per-player clip (a TF item's) scales for them; the
+    /// machine asks through the same index the command carries.
     /// </summary>
     /// <summary>The script's default_clip, or the clip's size, or one round for a weapon with no clip.</summary>
-    private int DefaultClipOf(in WeaponType type)
+    private int DefaultClipOf(in WeaponType type, EntityHandle owner)
     {
         if (type.DefaultClip > 0)
             return type.DefaultClip;
-        int clipSize = ClipSizeOf(in type);
+        int clipSize = ClipSizeOf(in type, owner);
         return clipSize > 0 ? clipSize : 1;
     }
 
-    private int ClipSizeOf(in WeaponType type)
+    private int ClipSizeOf(in WeaponType type, EntityHandle owner)
         => _behaviours.For(type.Behaviour) is { } behaviour
-            ? behaviour.ModifyClipSize(in type, type.ClipSize)
+            ? behaviour.ModifyClipSize(in type, type.ClipSize, _entities.GetIndex(owner))
             : type.ClipSize;
+
+    /// <summary>
+    /// The attachment half of a deploy: the row's own model rides the hands
+    /// when the chain named something else for the viewmodel, and is hidden
+    /// again when the viewmodel is the row's own. Created the first deploy
+    /// that wants it — stock's <c>UpdateAttachmentModels</c> creates and
+    /// destroys on the same condition, and a mod whose chain never answers
+    /// never pays for the entity.
+    /// </summary>
+    private void DressAttachment(Carry carry, string? chosen, string rowViewModel, int? skin = null)
+    {
+        // An EMPTY row model is stock's display-model-of-"": the attachment
+        // entity is created (the item attaches to hands) but names no model, so
+        // nothing of it draws — the previous weapon's model must not keep
+        // standing under the hands (econ_entity.cpp:1167, the fists' row).
+        if (chosen is null || chosen == rowViewModel || rowViewModel.Length == 0)
+        {
+            if (_entities.IsValid(carry.Attachment))
+                _render.SetVisible(carry.Attachment, false);
+            return;
+        }
+
+        if (carry.Attachment == EntityHandle.None || !_entities.IsValid(carry.Attachment))
+        {
+            carry.Attachment = _entities.Create(EntityNames.SsViewmodelAttachment);
+            _entities.SetOrigin(carry.Attachment, _entities.GetOrigin(carry.Player));
+            _entities.Spawn(carry.Attachment);
+
+            // Sent to everyone, like the viewmodel: its box is the c_model's,
+            // authored for the viewmodel pass, and the dormancy trap that took
+            // the transmit-always mark on the viewmodel waits here too.
+            _render.SetTransmitAlways(carry.Attachment, true);
+        }
+
+        if (_directory.Get(carry.Attachment) is SsViewmodelAttachment attachment)
+        {
+            attachment.State.OwnerIndex = _entities.GetIndex(carry.Player);
+            attachment.State.ViewModelIndex = _entities.GetIndex(carry.ViewModel);
+            _render.SetModel(carry.Attachment, rowViewModel);
+            // Stock's UpdateAttachmentModels: m_nSkin = vm->GetSkin() — the
+            // hands' skin is the attachment's.
+            if (skin is int attachmentSkin)
+                _skins?.SetSkin(carry.Attachment, attachmentSkin);
+            _render.SetVisible(carry.Attachment, true);
+        }
+    }
 
     /// <summary>
     /// Creates the two carried entities the first time a player needs them.
@@ -827,8 +1079,11 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                    ? _prediction.Suppress(index)
                    : default)
         {
+            // The command's seed and the pair's indices, as the client's replay
+            // of this command derives them (WeaponCommand.For), for a behaviour's roll.
             carry.Machine.RunCommand(weapon.State, viewModel.State,
-                                     cmd.Buttons, _clock.Now, effectsLive: firstTime);
+                                     cmd.Buttons, _clock.Now, effectsLive: firstTime,
+                                     WeaponCommand.For(in cmd, carry.Weapon, player));
         }
 
         // What the machine spent comes out of the pools by name.
@@ -948,7 +1203,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             return true;
 
         bool primary = usesPrimary &&
-                       ((ClipSizeOf(in type) > 0 && clip > 0) || carry.Ammo.GetValueOrDefault(type.AmmoName) > 0);
+                       ((ClipSizeOf(in type, carry.Player) > 0 && clip > 0) || carry.Ammo.GetValueOrDefault(type.AmmoName) > 0);
         return primary || (usesSecondary && carry.Ammo.GetValueOrDefault(type.SecondaryAmmoName) > 0);
     }
 
@@ -1204,6 +1459,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // decision.
         _render.SetVisible(carry.Weapon, false);
         _render.SetVisible(carry.ViewModel, false);
+        _render.SetVisible(carry.Attachment, false);
 
     }
 
@@ -1220,6 +1476,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             _entities.Remove(carry.Weapon);
         if (_entities.IsValid(carry.ViewModel))
             _entities.Remove(carry.ViewModel);
+        if (_entities.IsValid(carry.Attachment))
+            _entities.Remove(carry.Attachment);
 
         _carries.Remove(player.Value);
     }
@@ -1416,6 +1674,35 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         return lines;
+    }
+
+    /// <summary>
+    /// The writer beside <see cref="Holdings"/>' read: the clip a named weapon
+    /// carries, into the holstered row's store or the hands' live blob as the
+    /// slot says — the pickup that restores the clip a dropped weapon died
+    /// with, and nothing else. The floor is <c>StoreActiveClip</c>'s own
+    /// (<c>Math.Max(0, ·)</c>), and the blob keeps the deploy's shape (a
+    /// clipless row reads −1, not 0).
+    /// </summary>
+    public void SetClip(EntityHandle player, string className, int clip)
+    {
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return;
+
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            var owned = carry.Weapons[slot];
+            if (_weapons.ByIndex(owned.TypeIndex) is not WeaponType type
+                || !string.Equals(type.Name, className, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            owned.Clip = Math.Max(0, clip);
+
+            if (slot == carry.ActiveSlot && _directory.Get(carry.Weapon) is SsWeapon live)
+                live.State.Clip = ClipSizeOf(in type, carry.Player) > 0 ? owned.Clip : -1;
+
+            return;
+        }
     }
 
     /// <summary>Test seam and readout: the carried ss_weapon and predicted_viewmodel, None each when there is none.</summary>
@@ -1657,33 +1944,79 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// the muzzle so the re-trace is short: the ray only has to reach the
         /// face that stopped this pellet.
         /// </para>
+        ///
+        /// <para>
+        /// AT <paramref name="shot"/>'S DAMAGE per bullet, its crit flag open
+        /// beside each damage call with the trace's hitgroup
+        /// (<see cref="DamageHitGroups"/>). The ammo row still names the damage
+        /// type and the push; the blood is sized by the damage dealt. A shot
+        /// that asks for the weapon script's damage (the machine's stock shot)
+        /// is the stock overload's fire instead.
+        /// </para>
         /// </summary>
-        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees)
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees, ShotDamage shot)
+            => FireBullets(in type, pellets, spreadDegrees, shot, null);
+
+        /// <summary>The shot above, its pellets in <paramref name="fixedPellets"/>'s pattern when one is named.</summary>
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees, ShotDamage shot,
+                                PelletPattern? fixedPellets)
         {
             if (_arsenal._ammo.For(type.AmmoName) is not AmmoType ammo)
                 return;
 
+            // The shot says whether HL2MP's fire applies (the machine's stock
+            // shot does): the weapon script's damage and the gib rule. A shot a
+            // behaviour decided is dealt as it says.
+            if (shot.WeaponScriptDamage)
+            {
+                FireBullets(in type, pellets, spreadDegrees, fixedPellets, in ammo);
+                return;
+            }
+
+            Shoot(in type, pellets, spreadDegrees, shot.Damage, ammo.DamageType, shot.Critical, fixedPellets, in ammo);
+        }
+
+        /// <summary>
+        /// The stock fire, HL2MP's: every round deals the weapon script's damage
+        /// (CHL2MP_Player::FireBullets' m_iPlayerDamage; HL2MP's ammo types carry
+        /// none) and FireBullets marks one over 16 as always gibbing, the rest
+        /// never; never critical.
+        /// </summary>
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees)
+        {
+            if (_arsenal._ammo.For(type.AmmoName) is AmmoType ammo)
+                FireBullets(in type, pellets, spreadDegrees, null, in ammo);
+        }
+
+        private void FireBullets(in WeaponType type, int pellets, float spreadDegrees, PelletPattern? fixedPellets,
+                                 in AmmoType ammo)
+        {
+            float damage = _arsenal._scripts?.ReadScript(type.Name) is { PlayerDamage: > 0 } script
+                ? script.PlayerDamage
+                : ammo.Damage;
+            DamageType damageType = ammo.DamageType | (damage > 16f ? DamageType.AlwaysGib : DamageType.NeverGib);
+
+            Shoot(in type, pellets, spreadDegrees, damage, damageType, false, fixedPellets, in ammo);
+        }
+
+        private void Shoot(in WeaponType type, int pellets, float spreadDegrees, float damage, DamageType damageType,
+                           bool critical, PelletPattern? fixedPellets, in AmmoType ammo)
+        {
             Vector from = _arsenal._players.GetShootOrigin(_carry.Player);
             var aim = Angles.Vectors(_arsenal._entities.GetEyeAngles(_carry.Player));
 
             float spread = ShotSpread.SpreadOf(spreadDegrees);
             int seed = ShotSpread.FirstSeed(CommandRandomSeed);
 
-            // CHL2MP_Player::FireBullets: every round deals the weapon script's
-            // damage (m_iPlayerDamage; HL2MP's ammo types carry none), and
-            // FireBullets marks one over 16 as always gibbing, the rest never.
-            float damage = _arsenal._scripts?.ReadScript(type.Name) is { PlayerDamage: > 0 } script
-                ? script.PlayerDamage
-                : ammo.Damage;
-            DamageType damageType = ammo.DamageType | (damage > 16f ? DamageType.AlwaysGib : DamageType.NeverGib);
-
             for (int i = 0; i < pellets; i++)
             {
-                // Stock's spread, seeded per pellet from the command, so the
-                // predicting client's pellet goes where this one does.
-                Vector dir = ShotSpread.Apply(aim, spread, seed + i, _spread).Normalized;
+                // The pellet's spread, seeded per pellet from the command, so the
+                // predicting client's pellet goes where this one does: the
+                // behaviour's fixed pattern when it named one, the random sample
+                // otherwise.
+                Vector dir = ShotSpread.Direction(aim, spread, seed + i, _spread, fixedPellets, i).Normalized;
 
-                Round(from, dir, MaxTrace, damage, damageType, in ammo);
+                Round(from, dir, MaxTrace, damage, damageType, critical, in ammo);
             }
         }
 
@@ -1692,7 +2025,8 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// crosses told, its mark, and its damage or traced hit; then on through
         /// a glass func_breakable (HandleShotImpactingGlass).
         /// </summary>
-        private void Round(Vector from, Vector dir, float distance, float damage, DamageType damageType, in AmmoType ammo)
+        private void Round(Vector from, Vector dir, float distance, float damage, DamageType damageType, bool critical,
+                           in AmmoType ammo)
         {
             var trace = _arsenal._world.TraceLineSurface(from, from + dir * distance,
                                                          TraceMask.Shot, _carry.Player);
@@ -1729,7 +2063,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 // OnTakeDamage can push its physics object (A30). The
                 // trace's hitgroup rides beside the call (stock hands the
                 // trace itself to TraceAttack): see DamageHitGroups.
-                using (_arsenal._hitGroups.Push(trace.HitGroup))
+                using (_arsenal._hitGroups.Push(trace.HitGroup, critical))
                     _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
                                              damage, damageType,
                                              DamageForceRules.BulletForce(dir, ammo.DamageForce),
@@ -1744,7 +2078,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (_arsenal._directory.Get(trace.Entity) is FuncBreakable breakable
                 && BulletGlass.PassesThrough(_arsenal._world.SurfacePropGameMaterial(trace.SurfaceProps) == SurfaceMaterial.Glass,
                                              breakable.ClassName, breakable.SpawnFlags))
-                ThroughGlass(trace, dir, distance, damage, damageType, in ammo);
+                ThroughGlass(trace, dir, distance, damage, damageType, critical, in ammo);
         }
 
         /// <summary>MAX_GLASS_PENETRATION_DEPTH: how far beyond the glass the way back in starts.</summary>
@@ -1758,7 +2092,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// solid (here, at no distance), or finds nothing, stops it.
         /// </summary>
         private void ThroughGlass(in SurfaceTraceResult trace, Vector dir, float distance, float damage,
-                                  DamageType damageType, in AmmoType ammo)
+                                  DamageType damageType, bool critical, in AmmoType ammo)
         {
             GlassImpact(trace.End, trace.Normal);
 
@@ -1771,7 +2105,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                                            ammo.DamageType, back.Entity);
             GlassImpact(back.End, back.Normal);
 
-            Round(back.End, dir, distance * (1f - trace.Fraction), damage, damageType, in ammo);
+            Round(back.End, dir, distance * (1f - trace.Fraction), damage, damageType, critical, in ammo);
         }
 
         /// <summary>DispatchEffect( "GlassImpact" ): the shards, to the PAS of where they fly.</summary>
@@ -1971,7 +2305,15 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         /// <c>UTIL_ImpactTrace( DMG_CLUB )</c>, which every bludgeon's
         /// <c>ImpactEffect</c> ends in.
         /// </summary>
-        public void MeleeSwing(in WeaponType type)
+        public void MeleeSwing(in WeaponType type) => MeleeSwing(in type, new ShotDamage(type.MeleeDamage));
+
+        /// <summary>
+        /// A swing at <paramref name="shot"/>'s damage. The push is the damage
+        /// dealt (CalculateMeleeDamageForce reads the info's damage), and the
+        /// crit flag is open beside the damage call; the swing's trace names no
+        /// hitbox, so the hitgroup is Generic.
+        /// </summary>
+        public void MeleeSwing(in WeaponType type, ShotDamage shot)
         {
             if (!MeleeAim(in type, out SurfaceTraceResult trace, out Vector forward, out Vector lineEnd))
                 return;
@@ -1986,12 +2328,17 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             // Hit: DispatchTraceAttack (a pane of glass takes the traced hit
             // in place of the damage), then the triggers along the ray again.
             if (_arsenal._directory.Get(trace.Entity) is ITraceAttacked attacked)
-                attacked.TraceAttack(_carry.Player, type.MeleeDamage, DamageType.Club, from, trace.End);
+            {
+                attacked.TraceAttack(_carry.Player, shot.Damage, DamageType.Club, from, trace.End);
+            }
             else if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
-                _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
-                                         type.MeleeDamage, DamageType.Club,
-                                         DamageForceRules.MeleeForce(forward, type.MeleeDamage),
-                                         trace.End);
+            {
+                using (_arsenal._hitGroups.Push(HitGroup.Generic, shot.Critical))
+                    _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
+                                             shot.Damage, DamageType.Club,
+                                             DamageForceRules.MeleeForce(forward, shot.Damage),
+                                             trace.End);
+            }
 
             MeleeTriggers(in type, from, trace.End);
 
@@ -2170,7 +2517,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (!_arsenal._entities.IsValid(_carry.ViewModel))
                 return -1;
 
-            return WeaponAnimNames.Resolve(_arsenal._render, _carry.ViewModel, anim);
+            return WeaponAnimNames.Resolve(_arsenal._render, _carry.ViewModel, anim,
+                                           _arsenal._viewmodelActivity,
+                                           _arsenal._entities.GetIndex(_carry.Player));
         }
 
         public float AnimDuration(WeaponAnim anim)

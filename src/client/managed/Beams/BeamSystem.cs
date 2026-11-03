@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Client.Effects;
 using SourceSharp.Client.Ropes;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Beams;
 

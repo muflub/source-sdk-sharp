@@ -87,6 +87,25 @@ public struct ClientRenderFacts
     /// <summary>What <see cref="FadeStyle"/> this entity fades by.</summary>
     public FadeStyle Fade;
 
+    /// <summary>
+    /// A managed class asked for the translucent group outright
+    /// (<see cref="IRenderPolicyWishes.WantTransparent"/>): stock's
+    /// <c>C_TFPlayer::IsTransparent</c>, whose cloaked body
+    /// <c>C_BaseEntity::GetRenderGroup</c> re-leafs into the translucent pass
+    /// while <c>GetPercentInvisible() &gt; 0</c> — where the pass refreshes the
+    /// frame buffer the cloak shader refracts.
+    /// </summary>
+    public bool WantsTransparent;
+
+    /// <summary>
+    /// A managed class asked for the owner-seen gate outright
+    /// (<see cref="IRenderPolicyWishes.WantOwnerSeen"/>): stock hides the
+    /// local player's carried weapon from the first-person frame — the
+    /// viewmodel will do that (c_basecombatweapon.cpp:421) — and gives it
+    /// back only once a third-person camera sees its owner.
+    /// </summary>
+    public bool OwnerSeenWish;
+
     /// <summary>What a managed class asked for about its shadow.</summary>
     public ShadowCastChoice ShadowChoice;
 
@@ -161,12 +180,34 @@ public interface IRenderPolicyWishes
     /// one. Decided on the next pass.
     /// </summary>
     void WantTwoPass(EntityHandle entity, bool twoPass);
+
+    /// <summary>
+    /// Draw <paramref name="entity"/> in the translucent pass, or stop: the
+    /// class says the entity is see-through for now — stock's
+    /// <c>C_TFPlayer::IsTransparent</c> for the cloaked body, which the
+    /// translucent pass draws with the frame buffer the cloak shader refracts.
+    /// Decided on the next pass.
+    /// </summary>
+    void WantTransparent(EntityHandle entity, bool transparent);
+
+    /// <summary>
+    /// Gate <paramref name="entity"/>'s draw on the camera seeing its owner, or
+    /// stop: the class carries the entity for a holder whose first-person frame
+    /// is served by something else — stock's carried weapon under the local
+    /// player's viewmodel (c_basecombatweapon.cpp:421). Decided on the next
+    /// pass.
+    /// </summary>
+    void WantOwnerSeen(EntityHandle entity, bool ownerSeen);
 }
 
 /// <summary>No render policy to ask: a class built on its own (a test's).</summary>
 public sealed class NoRenderPolicyWishes : IRenderPolicyWishes
 {
     public void WantTwoPass(EntityHandle entity, bool twoPass) { }
+
+    public void WantTransparent(EntityHandle entity, bool transparent) { }
+
+    public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) { }
 }
 
 /// <summary>
@@ -315,6 +356,13 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
     {
         if (facts.ViewModel)
             return ClientOwnerSeenRule.HiddenWhileSeen;
+
+        // A CARRIER'S OWN ASK outranks the locality of the entity: stock's
+        // carried weapon is the local player's most often, but the wish is the
+        // class's word about its own draw, not the engine's about the viewer.
+        if (facts.OwnerSeenWish)
+            return ClientOwnerSeenRule.DrawnOnlyWhileSeen;
+
         if (facts.LocalPlayer)
             return ClientOwnerSeenRule.DrawnOnlyWhileSeen;
         return ClientOwnerSeenRule.Always;
@@ -334,7 +382,7 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
     /// </para>
     /// </summary>
     public static bool Transparent(in ClientRenderFacts facts)
-        => facts.Fade != FadeStyle.None || facts.Translucent;
+        => facts.Fade != FadeStyle.None || facts.Translucent || facts.WantsTransparent;
 
     /// <summary>
     /// Which list the renderer walks this in.
@@ -661,10 +709,44 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
     /// <summary>The handles whose classes asked for the two-pass group.</summary>
     private readonly HashSet<uint> _twoPass = [];
 
+    /// <summary>The handles whose classes asked to draw translucent.</summary>
+    private readonly HashSet<uint> _transparent = [];
+
+    /// <summary>The handles whose classes asked for the owner-seen gate.</summary>
+    private readonly HashSet<uint> _ownerSeen = [];
+
     /// <inheritdoc/>
     public void WantTwoPass(EntityHandle entity, bool twoPass)
     {
         bool changed = twoPass ? _twoPass.Add(entity.Value) : _twoPass.Remove(entity.Value);
+        if (!changed)
+            return;
+
+        // Decided again on the next pass: the wish is an input the block's
+        // serial cannot see, so the entry's "already decided" mark goes.
+        int index = (int)(entity.Value & EntryMask);
+        if ((uint)index < MaxEntities)
+            _handles[index] = NoHandle;
+    }
+
+    /// <inheritdoc/>
+    public void WantTransparent(EntityHandle entity, bool transparent)
+    {
+        bool changed = transparent ? _transparent.Add(entity.Value) : _transparent.Remove(entity.Value);
+        if (!changed)
+            return;
+
+        // Decided again on the next pass: the wish is an input the block's
+        // serial cannot see, so the entry's "already decided" mark goes.
+        int index = (int)(entity.Value & EntryMask);
+        if ((uint)index < MaxEntities)
+            _handles[index] = NoHandle;
+    }
+
+    /// <inheritdoc/>
+    public void WantOwnerSeen(EntityHandle entity, bool ownerSeen)
+    {
+        bool changed = ownerSeen ? _ownerSeen.Add(entity.Value) : _ownerSeen.Remove(entity.Value);
         if (!changed)
             return;
 
@@ -751,6 +833,8 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
             localPlayer ??= _localPlayer();
             ClientRenderFacts facts = ReadFacts(block, _models(), localPlayer.Value);
             facts.TwoPass = _twoPass.Contains(handle);
+            facts.WantsTransparent = _transparent.Contains(handle);
+            facts.OwnerSeenWish = _ownerSeen.Contains(handle);
             ClientRenderChoices choices = Decide(facts);
             WriteChoices(block, choices);
 
@@ -775,6 +859,8 @@ public sealed class ClientRenderPolicy : IRenderPolicyWishes
     {
         Forget();
         _twoPass.Clear();
+        _transparent.Clear();
+        _ownerSeen.Clear();
         LastSeen = 0;
         LastDecided = 0;
     }

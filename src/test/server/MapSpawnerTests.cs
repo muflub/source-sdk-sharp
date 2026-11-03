@@ -94,6 +94,15 @@ public sealed class MapSpawnerTests
 
         public EntityHandle Create(string className) => CreateFromMap(className, Array.Empty<byte>());
 
+        /// <summary>The cleanup's slots asked for, in order (-1 never reaches here).</summary>
+        internal readonly List<int> SlotsAsked = new();
+
+        public EntityHandle CreateFromMapAt(string className, byte[] packedKeys, int edictIndex)
+        {
+            SlotsAsked.Add(edictIndex);
+            return CreateFromMap(className, packedKeys);
+        }
+
         public void Spawn(EntityHandle entity)
         {
             Spawned.Add(entity);

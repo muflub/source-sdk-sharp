@@ -454,11 +454,12 @@ int SourceSharp_StandaloneBlobOffset();
 int SourceSharp_StandaloneMinTier();
 int SourceSharp_StandaloneMinBlobBytes();
 
-// The player's edict, handed from the engine to PostConstruct beside the argument-less
-// factory call. Cleared unconditionally by PostConstruct.
+// The edict chosen before the entity exists, handed to PostConstruct beside the argument-less
+// factory call: a player's (the engine's) or a round cleanup's chosen slot (the entity's own).
+// Cleared unconditionally by PostConstruct.
 class CServerPlayersDll;
-void SourceSharp_SetPendingPlayerEdict(CServerPlayersDll& players, edict_t* pEdict);
-edict_t* SourceSharp_ClaimPendingPlayerEdict(CServerPlayersDll& players);
+void SourceSharp_SetPendingEdict(CServerPlayersDll& players, edict_t* pEdict, bool bEntityOwnsIt);
+edict_t* SourceSharp_ClaimPendingEdict(CServerPlayersDll& players, bool* pbEntityOwnsIt);
 
 // Parenting, relayed to the managed hierarchy (shell_standalone_hierarchy.cpp).
 

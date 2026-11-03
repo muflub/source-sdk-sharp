@@ -65,6 +65,95 @@ public interface IMovementRules
     /// with its inputs. The loop clamps the answer at zero.
     /// </summary>
     float MaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial);
+
+    /// <summary>
+    /// A jump pressed while the player is in the air, after the engine's own
+    /// refusals (dead, swimming, the unduck transition, the button not
+    /// released): the upward speed of the dash it grants, or 0 to refuse,
+    /// which is the default and stock Half-Life. A positive answer replaces
+    /// the player's velocity with the flat wish direction plus that speed
+    /// straight up (stock's <c>CTFGameMovement::AirDash</c>).
+    ///
+    /// <para>
+    /// A rule that allows only so many air jumps counts them in its OWN
+    /// predicted per-player state: the answer must come out the same on the
+    /// server's run and on every client replay, so the count must be state the
+    /// client's prediction restores before a replay, and it is reset in
+    /// <see cref="Grounded"/>.
+    /// </para>
+    /// </summary>
+    float AirJump(in JumpRequest request) => 0f;
+
+    /// <summary>
+    /// The player stands on ground: told on every movement step that sets a
+    /// ground entity, on both sides, which is where stock TF2 resets its
+    /// air-dash count (<c>CTFGameMovement::SetGroundEntity</c>). Nothing by
+    /// default.
+    /// </summary>
+    void Grounded(int playerIndex) { }
+
+    /// <summary>
+    /// The fastest a jump may leave: when the player's whole velocity at the
+    /// jump is above this cap the loop crops it to it — stock TF2's
+    /// <c>CTFGameMovement::PreventBunnyJumping</c>, which caps the jump at
+    /// 1.2 * the max speed (tf_gamemovement.cpp:1086-1112). 0 or below means
+    /// no cap, which is the default and stock Half-Life.
+    /// </summary>
+    float BunnyJumpCap(int playerIndex, float maxSpeed) => 0f;
+
+    /// <summary>
+    /// The backpedal clamp the walk's closing block obeys: the fraction of the
+    /// max speed a player travelling backwards may keep, and the speed under
+    /// which nobody is penalised — stock TF2's <c>tf_clamp_back_speed</c> pair
+    /// (0.9 / 100, tf_gamemovement.cpp:47-48, applied by WalkMove's closing
+    /// block at :1830-1863). Null — no clamp — is the default and stock
+    /// Half-Life.
+    /// </summary>
+    BackpedalLimit? BackpedalLimit(int playerIndex, float maxSpeed) => null;
+
+    /// <summary>
+    /// The stun's rewrite of the command about to be walked: the buttons and
+    /// the three moves the mod's stun logic leaves behind — stock TF2's
+    /// <c>CTFGameMovement::StunMove</c>, which seizes the controls of a
+    /// control-stunned player and scales the moves of a movement-stunned one
+    /// (tf_gamemovement.cpp:537-627, called by ProcessMovement at :317). Null
+    /// — nobody is stunned, the command walks as sent — is the default and
+    /// stock Half-Life. A rule that fades its answer over time keeps that fade
+    /// state per side and restores nothing across replays — stock's fade trio
+    /// (:569-574, :588-609) is an entity local that every replayed StunMove
+    /// mutates alike. <c>curTime</c> is this side's clock for this command:
+    /// the tick base on a client replay, the level time on the server's run.
+    /// </summary>
+    MovementStun? MovementStun(int playerIndex, float curTime, int buttons,
+                               float forwardMove, float sideMove, float upMove) => null;
+
+    /// <summary>
+    /// The taunt's rewrite of the command about to be walked: the max speed,
+    /// its client copy and the smoothed forward move the sliding taunt leaves
+    /// behind — stock TF2's <c>CTFGameMovement::TauntMove</c>, which hands a
+    /// sliding taunt its own speed and along-track forward move
+    /// (tf_gamemovement.cpp:633-716, called by ProcessMovement at :320, its
+    /// return ignored). Null — no rewrite — is the default and stock
+    /// Half-Life: nobody slides, the command walks as sent — exactly stock's
+    /// own answer when nobody is taunting or the taunt does not allow moving
+    /// (:710-715, which also zeroes the player's current taunt speed). The
+    /// per-player current speed of the ramp (:685, :689) is this hook's own,
+    /// like the stun's fade trio above: every replayed TauntMove mutates it
+    /// alike. <c>frameTime</c> is the scaled tick the loop runs this command
+    /// at (the lag-compensated <c>gpGlobals->frametime</c> stock reads).
+    /// </summary>
+    MovementTaunt? MovementTaunt(int playerIndex, float frameTime, float forwardMove) => null;
+
+    /// <summary>
+    /// How high a standing player's eye sits, before the model scale: the
+    /// height the loop was about to use (<see cref="Constants"/>' view, or the
+    /// stock table's), or the mod's own for this player. Asked wherever the
+    /// standing view offset is set: the spawn and every unduck. Stock TF2 asks
+    /// the class (<c>CTFGameMovement::GetPlayerViewOffset</c> returns
+    /// <c>GetClassEyeHeight()</c>, src/game/shared/tf/tf_gamemovement.cpp).
+    /// Unchanged by default.
+    /// </summary>
+    float EyeHeight(int playerIndex, float standing) => standing;
 }
 
 /// <summary>
@@ -150,7 +239,14 @@ public sealed class MovementRulesResolver
             : new MovementRules(
                 r => _rules.JumpScale(in r),
                 (i, f, sp, d, m) => _rules.FrictionScale(i, f, sp, d, m),
-                (i, ms, d, m) => _rules.MaxSpeedScale(i, ms, d, m));
+                (i, ms, d, m) => _rules.MaxSpeedScale(i, ms, d, m),
+                r => _rules.AirJump(in r),
+                i => _rules.Grounded(i),
+                (i, z) => _rules.EyeHeight(i, z),
+                (i, ms) => _rules.BunnyJumpCap(i, ms),
+                (i, ms) => _rules.BackpedalLimit(i, ms),
+                (i, t, b, f, s, u) => _rules.MovementStun(i, t, b, f, s, u),
+                (i, t, f) => _rules.MovementTaunt(i, t, f));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

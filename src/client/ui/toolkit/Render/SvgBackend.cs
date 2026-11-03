@@ -55,20 +55,44 @@ public sealed class SvgBackend : IUiBackend
                 case UiPrimitiveKind.TexturedQuad:
                 {
                     var t = list.TexturedQuads[op.Index];
+                    string blend = t.Blend == UiBlend.Additive ? " style=\"mix-blend-mode:screen\"" : string.Empty;
                     if (UiIconSet.RectOf(t.Texture) is int a and >= 0)
                     {
                         // An icon: its art, as the vector it was drawn from, scaled into the quad.
                         _icons ??= UiIconSet.Embedded();
                         var art = _icons.Icon(_icons.Rects[a].Icon);
-                        s.Append("<path transform=\"translate(").Append(N(t.Rect.X)).Append(' ').Append(N(t.Rect.Y))
+                        s.Append("<path transform=\"");
+                        if (t.Rotation != 0f)
+                        {
+                            float cx = t.Rect.X + t.Rect.W / 2f, cy = t.Rect.Y + t.Rect.H / 2f;
+                            s.Append("translate(").Append(N(cx)).Append(' ').Append(N(cy))
+                             .Append(") rotate(").Append(N(t.Rotation * 180f / MathF.PI))
+                             .Append(") translate(").Append(N(-cx)).Append(' ').Append(N(-cy)).Append(") ");
+                        }
+                        s.Append("translate(").Append(N(t.Rect.X)).Append(' ').Append(N(t.Rect.Y))
                          .Append(") scale(").Append(N(t.Rect.W / art.Width)).Append(' ').Append(N(t.Rect.H / UiIconSet.GridHeight))
-                         .Append(")\" fill-rule=\"evenodd\"").Append(Fill(t.Tint)).Append(" d=\"").Append(art.PathData)
+                         .Append(")\" fill-rule=\"evenodd\"").Append(Fill(t.Tint)).Append(blend).Append(" d=\"").Append(art.PathData)
                          .Append("\" data-icon=\"").Append(art.Name).Append('"')
                          .Append(" data-rect=\"").Append(N(t.Rect.X)).Append(' ').Append(N(t.Rect.Y)).Append(' ')
                          .Append(N(t.Rect.W)).Append(' ').Append(N(t.Rect.H)).Append('"').Append(E(op.Element)).Append("/>\n");
                         break;
                     }
-                    s.Append("<rect").Append(Rect(t.Rect)).Append(Fill(t.Tint))
+                    if (t.Rotation != 0f)
+                    {
+                        // The quad's corners turned about its centre (stock spins
+                        // the flag arrow and the damage ring this way), as one polygon.
+                        s.Append("<polygon points=\"");
+                        for (int i = 0; i < 4; i++)
+                        {
+                            var (x, y) = Corner(t, i);
+                            if (i > 0) s.Append(' ');
+                            s.Append(N(x)).Append(',').Append(N(y));
+                        }
+                        s.Append('"').Append(Fill(t.Tint)).Append(blend)
+                         .Append(" data-texture=\"").Append(t.Texture).Append('"').Append(E(op.Element)).Append("/>\n");
+                        break;
+                    }
+                    s.Append("<rect").Append(Rect(t.Rect)).Append(Fill(t.Tint)).Append(blend)
                      .Append(" data-texture=\"").Append(t.Texture).Append('"').Append(E(op.Element)).Append("/>\n");
                     break;
                 }
@@ -180,6 +204,23 @@ public sealed class SvgBackend : IUiBackend
 
     private static string E(int element) => element >= 0 ? $" data-e=\"{element}\"" : string.Empty;
 
+    /// <summary>Corner <paramref name="i"/> of a textured quad (0 TL, 1 TR,
+    /// 2 BR, 3 BL) turned about its centre by its rotation, clockwise on
+    /// screen — the order stock's DrawDamageIndicator lays its corners out in.</summary>
+    private static (float X, float Y) Corner(in UiTexturedQuad t, int i)
+    {
+        float cx = t.Rect.X + t.Rect.W / 2f, cy = t.Rect.Y + t.Rect.H / 2f;
+        (float dx, float dy) = i switch
+        {
+            0 => (-t.Rect.W / 2f, -t.Rect.H / 2f),
+            1 => (t.Rect.W / 2f, -t.Rect.H / 2f),
+            2 => (t.Rect.W / 2f, t.Rect.H / 2f),
+            _ => (-t.Rect.W / 2f, t.Rect.H / 2f),
+        };
+        float c = MathF.Cos(t.Rotation), s = MathF.Sin(t.Rotation);
+        return (cx + dx * c - dy * s, cy + dx * s + dy * c);
+    }
+
     private static string Rect(in UiRect r)
         => $" x=\"{N(r.X)}\" y=\"{N(r.Y)}\" width=\"{N(r.W)}\" height=\"{N(r.H)}\"";
 
@@ -193,5 +234,9 @@ public sealed class SvgBackend : IUiBackend
     internal static string Hex(UiColor c) => $"#{c.R:x2}{c.G:x2}{c.B:x2}";
 
     /// <summary>A number as SVG wants it: invariant, at most two decimals, no trailing zeros.</summary>
-    internal static string N(float v) => MathF.Round(v, 2).ToString("0.##", CultureInfo.InvariantCulture);
+    internal static string N(float v)
+    {
+        var r = MathF.Round(v, 2);
+        return (r == 0f ? 0f : r).ToString("0.##", CultureInfo.InvariantCulture);   // -0 reads as 0
+    }
 }

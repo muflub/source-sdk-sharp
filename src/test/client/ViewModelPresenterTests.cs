@@ -10,6 +10,7 @@
  */
 
 using SourceSharp.Abi;
+using SourceSharp.Client;
 using SourceSharp.Client.Standalone;
 using SourceSharp.Shared;
 using Xunit;
@@ -313,6 +314,165 @@ public class ViewModelPresenterTests
         Decode(viewModel);
 
         Assert.False(engine.Called("EntityRender.SetSkin"), "a viewmodel nobody here looks through was skinned");
+    }
+
+    //-------------------------------------------------------------------------
+    // The viewer's OWN state (the bug that was live on tf2: the spy's hand kept
+    // drawing through the respawn wait, the heavy's arm through the death cam).
+    // Stock re-asks the first-person question every frame inside ShouldDraw —
+    // see ClientSsViewModel.ViewerMayDrawViewModel for the citations — so a
+    // kill drops the arms without anything ever telling the viewmodel. Here the
+    // decode rhythm needs two things: the pass decision reads the viewer's
+    // (alive, observer mode), and ClientSsPlayer's edge notification re-runs
+    // that decision when the pair moves.
+    //-------------------------------------------------------------------------
+
+    /// <summary>A directory holding the viewer and his viewmodel: GetByIndex answers by bound index.</summary>
+    private sealed class ViewerDirectory : IClientStandalones
+    {
+        public readonly List<ClientStandaloneEntity> Entities = [];
+        public IReadOnlyList<ClientStandaloneEntity> Live() => Entities;
+        public ClientStandaloneEntity? GetByIndex(int entityIndex)
+            => Entities.FirstOrDefault(e => e.Index == entityIndex);
+    }
+
+    private static ClientSsPlayer Viewer(RecordingEngine engine, ViewerDirectory directory,
+                                         bool alive, ObserverMode mode)
+    {
+        var player = new ClientSsPlayer(engine, screen: engine, entities: directory)
+        {
+            Handle = new EntityHandle(0x0001_0000u | LocalPlayer),
+        };
+        player.BindIndex(LocalPlayer);
+        player.State.BindLocal();
+        player.State.Alive = alive;
+        player.State.ObserverMode = (int)mode;
+        directory.Entities.Add(player);
+        return player;
+    }
+
+    private static (ClientSsViewModel ViewModel, ClientSsPlayer Viewer, RecordingEngine Engine)
+        ViewerRig(bool alive, ObserverMode mode = ObserverMode.None)
+    {
+        var engine = Fake();
+        engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
+
+        var directory = new ViewerDirectory();
+        var viewer = Viewer(engine, directory, alive, mode);
+
+        var viewModel = new ClientSsViewModel(engine, engine, directory)
+        {
+            Handle = new EntityHandle(0x0100_0040u),
+        };
+        viewModel.State.BindLocal();
+        viewModel.State.OwnerIndex = LocalPlayer;
+        viewModel.State.Sequence = 5;
+        viewModel.State.AnimationParity = 0;
+        viewModel.State.PlaybackRate = 1f;
+
+        directory.Entities.Add(viewModel);
+        return (viewModel, viewer, engine);
+    }
+
+    private static void Kill(ClientSsPlayer viewer)
+    {
+        viewer.State.Alive = false;
+        viewer.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.DataTableChanged);
+    }
+
+    private static void Respawn(ClientSsPlayer viewer)
+    {
+        viewer.State.Alive = true;
+        viewer.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.DataTableChanged);
+    }
+
+    [Fact]
+    public void TheDeadViewersArmsNeverEnterThePass()
+    {
+        // The respawn wait, client-side: the decode that makes the player dead
+        // arrives, the viewmodel's own state has not moved — the old code still
+        // handed the arms to the viewmodel pass off the owner match alone.
+        var (viewModel, _, engine) = ViewerRig(alive: false);
+        Decode(viewModel);
+
+        Assert.True(engine.CountOf("EntityRender.SetViewModel") == 0,
+            "a dead viewer is looking through a death cam, not through the arms — no pass ask");
+        Assert.True(engine.CountOf("EntityRender.PlaySequence") == 0,
+            "and the fire animation plays to nobody");
+    }
+
+    [Fact]
+    public void TheViewersThirdPersonCameraTakesTheArmsDown()
+    {
+        // Alive but riding a chase camera (stock's IsThirdPerson arm — the
+        // same one that hides the viewmodel behind the thirdperson key): the
+        // eyes are outside the body, and the arms belong to the body.
+        var (viewModel, _, engine) = ViewerRig(alive: true, mode: ObserverMode.Chase);
+        Decode(viewModel);
+
+        Assert.True(engine.CountOf("EntityRender.SetViewModel") == 0,
+            "the arms leave the pass when the viewer is not looking through them");
+    }
+
+    [Fact]
+    public void TheAliveViewersArmsStillEnterThePassWithADirectory()
+    {
+        // The positive arm: the gate above is not the pass itself. Same rig,
+        // alive and in eye mode — the arms go up exactly as before.
+        var (viewModel, _, engine) = ViewerRig(alive: true);
+        Decode(viewModel);
+
+        var call = engine.Last("EntityRender.SetViewModel");
+        Assert.True(call is not null && call.Value.ArgAs<bool>(1),
+            "alive, first person: the directory changes nothing about the normal case");
+        Assert.True(engine.CountOf("EntityRender.PlaySequence") == 1, "and the sequence presents once");
+    }
+
+    [Fact]
+    public void AKilledViewerTakesHisOwnArmsDownTheMomentTheDeathDecodes()
+    {
+        // The regression itself: the pass ask is edge-triggered, so nothing
+        // re-runs the decision when the PLAYER moves — the player's own
+        // decode has to carry it.
+        var (viewModel, viewer, engine) = ViewerRig(alive: true);
+        Decode(viewModel);
+
+        Assert.True(engine.CountOf("EntityRender.SetViewModel") == 1, "in the pass while alive");
+
+        Kill(viewer);
+
+        var last = engine.Last("EntityRender.SetViewModel");
+        Assert.True(engine.CountOf("EntityRender.SetViewModel") == 2,
+            "the player's death decode re-ran the decision without a viewmodel update");
+        Assert.True(last is not null && !last.Value.ArgAs<bool>(1),
+            "and the answer was: out of the pass");
+
+        // Edge-triggered: two more packets of the same death must not spam the
+        // renderer with repeat asks.
+        viewer.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.DataTableChanged);
+        Assert.True(engine.CountOf("EntityRender.SetViewModel") == 2,
+            "an unchanged (alive, mode) pair is not an edge and re-decides nothing");
+    }
+
+    [Fact]
+    public void ARespawnedViewerTakesTheArmsBackUpWithTheFireAnimation()
+    {
+        var (viewModel, viewer, engine) = ViewerRig(alive: true);
+        Decode(viewModel);
+
+        Kill(viewer);
+        Assert.True(!engine.Last("EntityRender.SetViewModel")!.Value.ArgAs<bool>(1), "the rig reached the death");
+
+        Respawn(viewer);
+
+        var last = engine.Last("EntityRender.SetViewModel");
+        Assert.True(last is not null && last.Value.ArgAs<bool>(1),
+            "the respawn decode brings the arms back into the pass — the bug's other half: a gate with no re-entry is a vanished viewmodel");
+        Assert.True(engine.CountOf("EntityRender.PlaySequence") == 2,
+            "and the pose replays — leaving the pass reset the shown pair, so the return presents fresh");
+        Assert.True(last!.Value.ArgAs<EntityHandle>(0) == viewModel.Handle
+                    && engine.Last("EntityRender.PlaySequence")!.Value.ArgAs<int>(1) == 5,
+            "the asks name this viewmodel and its sequence");
     }
 }
 

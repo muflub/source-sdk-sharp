@@ -156,6 +156,20 @@ public:
 	virtual void BeamDrawStrip(const float* pSegs, int32_t nSegs) = 0;
 	virtual void BeamDrawMesh(int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float* pVerts,
 							  int32_t nVerts) = 0;
+	// A second attached system per owner: stock's crit glow runs beside the trail.
+	virtual int32_t ParticleSystemStartExtra(uint32_t hOwner, const char* pszName) = 0;
+	virtual void ParticleSystemStopExtra(uint32_t hOwner) = 0;
+	// One control point of a running system follows an entity's attachment instead of the
+	// owner: the medigun beam's ends. Point 0 may follow too; a followed entity with no
+	// such attachment falls back to its origin. An unbound entity handle hands the point
+	// back.
+	virtual int32_t ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
+											   const float* pOffsetXYZ) = 0;
+	// A slot-addressed start and stop, for a caller that counts its own systems: the
+	// condition drips wear slots beside the burn's and the glow's. Starting again in
+	// a slot replaces that slot's system only; an unknown slot refuses.
+	virtual int32_t ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot) = 0;
+	virtual void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot) = 0;
 };
 
 abstract_class IShimStandaloneClient
@@ -196,6 +210,8 @@ public:
 	virtual void SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords) = 0;
 	// The entities interpolation admitted, which PreRender re-transforms.
 	virtual void ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount) = 0;
+	// A viewer-local model for the entity (stock's ValidateModelIndex); empty clears.
+	virtual void EntitySetModelOverride(uint32_t hEntity, const char* pModel) = 0;
 };
 
 abstract_class IShimViewClient
@@ -252,6 +268,11 @@ public:
 		const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ, int32_t nMask,
 		int32_t nPassEntityIndex, const int32_t* pEntityIndices, int32_t nEntities, float* pOutFraction,
 		float* pOutEndXYZ, int32_t* pOutEntityIndex, float* pOutEntityOriginXYZ) = 0;
+	// The full-screen overlay material, by name: the condition overlays set it
+	// (an empty name or one that does not load leaves it as it was) and read
+	// the standing one's name back.
+	virtual int32_t ScreenOverlaySet(const char* pszName) = 0;
+	virtual int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes) = 0;
 };
 
 // User messages: managed reads the payload and decides; the rest carry out stock hooks.
@@ -314,6 +335,12 @@ public:
 									   uint32_t* pOutRgba, uint8_t* pText, int32_t nTextBytes) = 0;
 	virtual void UiDebugOverlayClearDead() = 0;
 	virtual void ClientModeLayout() = 0;
+	virtual void UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
+									int32_t bAdditive) = 0;
+	// A texture handle bound to the named engine material: the vgui surface
+	// resolves the .vmt (any shader, Refract included) and the draw slots run
+	// the material's own shader, as stock's DrawSetTextureFile. 0 when the name loads nothing.
+	virtual int32_t UiMaterialTexture(const char* pName) = 0;
 };
 
 // The executor for managed particle sims, one per (owner, channel), registered with

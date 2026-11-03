@@ -247,6 +247,14 @@ public interface IEnginePrecache
     /// </summary>
     void PrecacheParticleSystem(string name);
 
+    /// <summary>
+    /// A particle system's index in the ParticleEffectNames string table —
+    /// <c>GetParticleSystemIndex</c> (gameinterface.cpp:2369-2382):
+    /// FindStringIndex on the table, and 0 — the error system,
+    /// <c>PrecacheParticleSystem("error")</c> — for a name it does not hold.
+    /// </summary>
+    int ParticleSystemIndex(string name);
+
     /// <inheritdoc cref="EngineSide.PrecacheSound"/>
     void PrecacheSound(string soundName);
 
@@ -325,8 +333,13 @@ public interface IEngineGameEvents
     /// <inheritdoc cref="EngineSide.EventSetString"/>
     void EventSetString(IntPtr handle, string key, string value);
 
-    /// <summary>Fires an event (the engine's FireEvent, which frees it); whether the engine took it.</summary>
-    bool EventFire(IntPtr handle);
+    /// <summary>
+    /// Fires an event (the engine's FireEvent, which frees it); whether the
+    /// engine took it. <paramref name="dontBroadcast"/> is stock's second
+    /// argument: a server-only fire — payload_pushed among them — passes true
+    /// so the event reaches listeners but never the clients.
+    /// </summary>
+    bool EventFire(IntPtr handle, bool dontBroadcast = false);
 
 }
 

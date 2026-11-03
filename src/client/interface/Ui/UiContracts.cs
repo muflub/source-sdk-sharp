@@ -143,6 +143,8 @@ public readonly record struct UiInputEvent(
 public enum UiKey
 {
     None = 0,
+    Key0 = 1,
+    KeyPad0 = 37,
     Enter = 64,
     Space = 65,
     Backspace = 66,

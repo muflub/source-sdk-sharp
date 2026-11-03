@@ -108,6 +108,9 @@ public sealed class ClientLifecycleDriver : IPlayerRemovals
 
     public void Active(int entIndex) => Each("OnClientActive", p => p.OnClientActive(entIndex));
 
+    /// <summary>The client's userinfo changed; every participant reads its own convars.</summary>
+    public void SettingsChanged(int entIndex) => Each("OnClientSettingsChanged", p => p.OnClientSettingsChanged(entIndex));
+
     /// <summary>Whether a participant claimed the client's net message; a throwing participant does not claim it.</summary>
     public bool Message(int entIndex, string key, ReadOnlySpan<byte> payload)
     {

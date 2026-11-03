@@ -75,8 +75,7 @@ public sealed class EnvSpark : ScriptedEntity
         if (!Flags.HasFlag(SpawnFlag.StartOn))
             return;
 
-        _on = true;
-        SetNextThink(NextInterval());
+        StartSpark();
     }
 
     public override void OnThink()
@@ -112,24 +111,42 @@ public sealed class EnvSpark : ScriptedEntity
         OnSpark.Fire();
     }
 
-    [ScriptedEvent("StartSpark")]
-    private void OnStart()
+    /// <summary>
+    /// <c>CEnvSpark::StartSpark</c> (EnvSpark.cpp:149): arm the timer and run.
+    /// Public because the cart's watcher arms and stops the sparks it was
+    /// named, exactly as its map inputs do — stock's
+    /// <c>CTeamTrainWatcher::HandleSparks</c> calls these same two.
+    /// </summary>
+    public void StartSpark()
     {
         _on = true;
         SetNextThink(NextInterval());
     }
 
-    [ScriptedEvent("StopSpark")]
-    private void OnStop()
+    /// <summary><c>CEnvSpark::StopSpark</c> (EnvSpark.cpp:175): disarm the timer.</summary>
+    public void StopSpark()
     {
         _on = false;
         StopThinking();
     }
 
+    /// <summary>
+    /// <c>CEnvSpark::IsSparking</c> (envspark.h:34): whether the timer is
+    /// armed. Stock asks its think slot; here the flag and the think are set
+    /// together and only together, by these two methods.
+    /// </summary>
+    public bool IsSparking() => _on;
+
+    [ScriptedEvent("StartSpark")]
+    private void OnStart() => StartSpark();
+
+    [ScriptedEvent("StopSpark")]
+    private void OnStop() => StopSpark();
+
     [ScriptedEvent("ToggleSpark")]
     private void OnToggle()
     {
-        if (_on) OnStop(); else OnStart();
+        if (_on) StopSpark(); else StartSpark();
     }
 
     /// <summary>

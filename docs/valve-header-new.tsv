@@ -139,7 +139,7 @@ src/client/managed/Effects/FireTrailSim.cs	ports C_FireTrail Start/Update (c_smo
 src/client/managed/Effects/SporeSims.cs	ports C_SporeTrail Start/Update/AddParticles/SimulateParticles/RenderParticles, C_SporeExplosion Update/AddParticles and SporeEffect (c_smoke_trail.cpp, via shell_trail_sim.cpp)
 src/client/managed/Effects/WorldTextLayout.cs	ports C_PointWorldText CalcTextTotalSize/UpdateRenderBounds/DrawModel layout, hsv2rgb and the baked glyph tables (c_point_worldtext.cpp, via shell_worldtext_sim.cpp)
 src/client/managed/Effects/WindSim.cs	ports CEnvWindShared Init/ComputeWindVariation/UpdateTreeSway/WindThink and anglemod (env_wind_shared.cpp via shell_effects_sim.cpp, mathlib.h)
-src/client/managed/Effects/UniformStream.cs	ports vstdlib CUniformRandomStream as server.so's vstdlib_random_port.cpp does (SetSeed/RandomFloat/RandomInt)
+src/shared/managed/UniformStream.cs	ports vstdlib CUniformRandomStream as server.so's vstdlib_random_port.cpp does (SetSeed/RandomFloat/RandomInt)
 src/client/managed/Effects/EmbersSim.cs	ports C_Embers Start/Simulate/SpawnEmber and CEmberEmitter (c_embers.cpp via shell_effects_sim.cpp)
 tools/probes/client/fx_probes_debug.cpp	native code built against SDK headers: lane c2-fx oracle probes (the CClientEffectRegistration walk, c_te_effect_dispatch.h; the fx decisions)
 src/client/managed/Effects/EffectDispatchTable.cs	ports DispatchEffectToCallback's registration walk (c_te_effect_dispatch.cpp) and Q_stricmp's ASCII fold (tier1/strtools.cpp)
@@ -362,6 +362,7 @@ src/client/managed/Render/ViewFrame.cs	ports CViewRender::SetUpViews' planes and
 src/shared/native/ss_bitblock.h	native code built against SDK headers: the length-prefixed bit buffer's native half, copying a block into or out of an engine bf_write/bf_read (tier1/bitbuf.h) (plan_client_novalve C9)
 src/client/native/shell_viewrender_client.cpp	the client's IViewRender (CShellViewRender), built against SDK headers: installed as `view`, forwarding each IViewRender method not yet ported to stock's CViewRender (plan_client_novalve C7 step 3)
 src/shared/managed/ParticleManifestFiles.cs	ports particle_parse.cpp's GetParticleManifest and the map half of ParseParticleEffectsMap (the manifests' file lists), moved out of the server's ParticleManifest.cs for both sides (plan_client_novalve C9)
+src/client/managed/Render/GlowObjects.cs	ports CGlowObjectManager's registry, ShouldDraw gate and ApplyEntityGlowEffects/RenderGlowModels/RenderCompositeEffect (game/client/glow_outline_effect.h/.cpp)
 src/client/managed/Render/FreezeFrame.cs	ports CViewRender::FreezeFrame's state and rule (viewrender.cpp: m_flFreezeFrameUntil, m_rbTakeFreezeFrame, g_flFreezeFlash)
 src/test/oracle/native/keyvalues_load_oracle_test.cpp	native code built against SDK headers: runs pristine tier1/KeyValues.cpp LoadFromBuffer over a corpus and pins the golden the managed KeyValues loader replays (plan_client_novalve C9 K4)
 src/client/managed/KeyValuesLoad.cs	ports tier1 KeyValues.cpp text load (LoadFromFile, LoadFromBuffer, RecursiveLoadFromBuffer, ReadToken, EvaluateConditional, ParseIncludedKeys, RecursiveMergeKeyValues) and the CUtlBuffer text reads they use, for the client (plan_client_novalve C9 K4)
@@ -693,3 +694,18 @@ src/client/native/shell_managed_clientsystems_client.h	native code built against
 src/client/native/shell_decals_client.h	ports the client IDecalEmitterSystem surface (decals.h) as forwards to managed decals; the class declaration split from shell_decals_client.cpp
 src/client/native/shell_soundemitter_client.h	native code built against SDK headers (the client game-system base); the sound emitter system row over managed, declared from shell_soundemitter_client.cpp
 src/client/native/shell_soundscape_audio_client.h	native code built against SDK headers (the client game-system base); C_SoundscapeSystem's client systems slot over managed soundscapes, declared from shell_soundscape_audio_client.cpp
+src/shared/managed/IceKey.cs	ports IceKey (src/mathlib/IceKey.cpp, Matthew Kwan's public-domain ICE as carried in Valve's tree)
+src/shared/managed/EncryptedKeyValues.cs	ports ReadEncryptedKVFile (shared/weapon_parse.cpp) and UTIL_DecodeICE (shared/util_shared.cpp)
+src/server/managed/SpawnPoints.cs	ports CBasePlayer::EntSelectSpawnPoint's choice and CGameRules::GetPlayerSpawnSpot's placement (player.cpp, gamerules.cpp), moved out of ServerModule.SelectSpawnPoint
+src/server/managed/MapCleanup.cs	ports CTeamplayRoundBasedRules::CleanUpMap (teamplayroundbased_gamerules.cpp) and CHL2MPRules::CleanUpMap (hl2mp_gamerules.cpp): the remove walk, the event queue clear, the real delete, AllowImmediateEdictReuse and the filtered re-parse
+src/server/managed/Modes/HL2MPMapCleanupFilter.cs	ports CHL2MPRules::CleanUpMap's s_PreserveEnts, its owned-weapon rule and CHL2MPMapEntityFilter::ShouldCreateEntity (hl2mp_gamerules.cpp)
+src/client/managed/Standalone/ClientSsViewmodelAttachment.cs	translates C_ViewmodelAttachmentModel's three decisions — first person only, viewmodel pass, bonemerged onto the viewmodel (econ_entity.cpp:1135-1201)
+src/shared/managed/ViewmodelAttachmentNetState.cs	holds the viewmodel attachment's networked state, the owner reference stock's C_ViewmodelAttachmentModel needs (econ_entity.cpp:1135-1201)
+src/client/managed/MaterialProxies/PlayerProxies.cs	ports proxyplayer.cpp's CPlayerProximityProxy, CPlayerTeamMatchProxy, CPlayerViewProxy, CPlayerSpeedProxy, CPlayerPositionProxy, CEntitySpeedProxy, CEntityRandomProxy
+src/client/ui/toolkit/Textures/HudIconTable.cs	ports CHud::LoadHudTextures' icon-table read — the TextureData/TextureFileRefs blocks and the font skip (game/client/hud.cpp:58-141) — and CHud::Init's hud_textures-then-mod_textures order with AddSearchableHudIconToList's first-name-wins rule (:464-465, :772-787)
+src/client/native/standalone_fb_texture.h	ports C_BaseAnimating::UsesPowerOfTwoFrameBufferTexture (c_baseanimating.cpp:829-832)
+src/shared/interop/PlayerFov.cs	ports CBasePlayer::GetFOV (game/server/player.cpp:8653-8687, client mirror c_baseplayer.cpp:2437) and mathlib's SimpleSplineRemapValClamped (public/mathlib/mathlib.h:1166-1173)
+src/server/interop/ResponseRules.cs	ports the response-rule ABI surface: AI_Response kinds, AI_ResponseParams flags and the criteria set (AI_ResponseSystem.cpp, ai_constants.h)
+src/server/managed/ResponseRules/ResponseRuleSet.cs	ports CResponseSystem script parse, criterion match and response selection (AI_ResponseSystem.cpp, AI_Criteria.h/.cpp)
+src/server/managed/ResponseRules/ResponseRules.cs	the IResponseRules service shell over CResponseSystem load/reset (AI_ResponseSystem.cpp:LoadResponseRules, ResetResponseGroups)
+src/client/managed/Input/TauntCamera.cs	ports the camera pair the taunt cam calls: CAM_IsThirdPerson, CAM_ToThirdPerson and CAM_ToFirstPerson (c_tf_player.cpp:5571-5575, :5597-5615) over ClientInput

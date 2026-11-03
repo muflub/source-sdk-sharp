@@ -454,7 +454,7 @@ public sealed partial class SourceFileNamesExistTests
     /// </para>
     ///
     /// <para>
-    /// 91 TO 90 IN PHASE 6b. <c>TempEntEffectDataTests.NeitherHl2NorTfIsDefinedInThisBuild</c>
+    /// 91 TO 90 IN PHASE 6b. <c>TempEntEffectDataTests.NeitherHl2NorTFIsDefinedInThisBuild</c>
     /// had a "source tree is not beside the binary (SKIPPED)" arm over its vpc
     /// walk. It reads the CMake build's compile commands now, through
     /// <c>CMakeGraph</c>, which throws on a missing build, so the arm went. A

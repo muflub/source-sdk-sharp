@@ -48,10 +48,39 @@ public sealed record VtfImage(int Width, int Height, int MipCount, int FrameCoun
 {
     private const int TextureFlagEnvmap = 0x4000;
 
-    /// <summary>Decodes <paramref name="data"/>; false with a reason when it is not a decodable VTF.</summary>
-    public static bool TryDecode(ReadOnlySpan<byte> data, out VtfImage? image, out string why)
+    /// <summary>The header's plain fields, read before any pixel data is touched.</summary>
+    private readonly record struct VtfFileHeader(int Minor, int HeaderSize, int Wide, int Tall, int Flags,
+        int Frames, int Format, int Mips, int LowResFormat, int LowResWide, int LowResTall, int Depth);
+
+    /// <summary>Reads a VTF's pixel extents and format from the header alone, no
+    /// image decoded — what the in-game library asks of a material-bound
+    /// texture, whose pixels the engine holds; the decode itself stays
+    /// <see cref="TryDecode"/>'s, the preview tool's.</summary>
+    public static bool TryReadExtents(ReadOnlySpan<byte> data, out int wide, out int tall, out string format, out string why)
     {
-        image = null;
+        wide = 0;
+        tall = 0;
+        format = "";
+        if (!TryReadHeader(data, out VtfFileHeader h, out why))
+            return false;
+        if (h.Wide < 1 || h.Tall < 1)
+            return Refuse(out why, $"the image is {h.Wide}x{h.Tall}");
+        if (h.Depth != 1)
+            return Refuse(out why, $"the image has depth {h.Depth}; this reader decodes flat textures only");
+        if (h.Mips < 1)
+            return Refuse(out why, $"the image names {h.Mips} mips");
+        if (FormatOf(h.Format) is not VtfPixelFormat fmt)
+            return Refuse(out why, $"the image format {h.Format} is not one this reader decodes");
+        wide = h.Wide;
+        tall = h.Tall;
+        format = fmt.ToString();
+        why = "";
+        return true;
+    }
+
+    private static bool TryReadHeader(ReadOnlySpan<byte> data, out VtfFileHeader header, out string why)
+    {
+        header = default;
 
         if (data.Length < 16)
             return Refuse(out why, $"the file is {data.Length} bytes, too short for a VTF header");
@@ -65,16 +94,41 @@ public sealed record VtfImage(int Width, int Height, int MipCount, int FrameCoun
         if (headerSize < 16 || headerSize > data.Length)
             return Refuse(out why, $"the header claims {headerSize} bytes, outside the file");
 
-        int wide = BinaryPrimitives.ReadUInt16LittleEndian(data[16..]);
-        int tall = BinaryPrimitives.ReadUInt16LittleEndian(data[18..]);
-        int flags = BinaryPrimitives.ReadInt32LittleEndian(data[20..]);
-        int frames = BinaryPrimitives.ReadUInt16LittleEndian(data[24..]);
-        int format = BinaryPrimitives.ReadInt32LittleEndian(data[52..]);
-        int mips = data[56];
-        int lowResFormat = BinaryPrimitives.ReadInt32LittleEndian(data[57..]);
-        int lowResWide = data[61];
-        int lowResTall = data[62];
-        int depth = minor >= 2 ? BinaryPrimitives.ReadUInt16LittleEndian(data[63..]) : 1;
+        header = new VtfFileHeader(
+            minor, headerSize,
+            BinaryPrimitives.ReadUInt16LittleEndian(data[16..]),
+            BinaryPrimitives.ReadUInt16LittleEndian(data[18..]),
+            BinaryPrimitives.ReadInt32LittleEndian(data[20..]),
+            BinaryPrimitives.ReadUInt16LittleEndian(data[24..]),
+            BinaryPrimitives.ReadInt32LittleEndian(data[52..]),
+            data[56],
+            BinaryPrimitives.ReadInt32LittleEndian(data[57..]),
+            data[61], data[62],
+            minor >= 2 ? BinaryPrimitives.ReadUInt16LittleEndian(data[63..]) : 1);
+        why = "";
+        return true;
+    }
+
+    /// <summary>Decodes <paramref name="data"/>; false with a reason when it is not a decodable VTF.</summary>
+    public static bool TryDecode(ReadOnlySpan<byte> data, out VtfImage? image, out string why)
+    {
+        image = null;
+
+        if (!TryReadHeader(data, out VtfFileHeader h, out why))
+            return false;
+
+        int wide = h.Wide;
+        int tall = h.Tall;
+        int flags = h.Flags;
+        int frames = h.Frames;
+        int format = h.Format;
+        int mips = h.Mips;
+        int lowResFormat = h.LowResFormat;
+        int lowResWide = h.LowResWide;
+        int lowResTall = h.LowResTall;
+        int depth = h.Depth;
+        int minor = h.Minor;
+        int headerSize = h.HeaderSize;
         if (wide < 1 || tall < 1)
             return Refuse(out why, $"the image is {wide}x{tall}");
         if (depth != 1)

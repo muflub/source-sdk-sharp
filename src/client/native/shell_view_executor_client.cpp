@@ -232,6 +232,7 @@ enum RenderOpKind_t
 	RENDER_OP_FreezeFrameCapture = 147,
 	RENDER_OP_ClearColor3ub = 148,
 	RENDER_OP_ForcedMaterialOverride = 149,
+	RENDER_OP_PostOverrideDepth = 150,
 };
 
 // Must match RenderTarget in C#.
@@ -1876,6 +1877,7 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 			case RENDER_OP_PostMeshFrame:
 			case RENDER_OP_PostMeshEnd:
 			case RENDER_OP_PostClearColor4ub:
+			case RENDER_OP_PostOverrideDepth:
 				PostOp(op);
 				break;
 			case RENDER_OP_PixelVisEndCurrentView:
@@ -2401,19 +2403,62 @@ void PostOp(const SourceSharpRenderOp_t& op)
 			ctx->SetStencilEnable(true);
 			ctx->SetStencilFailOperation(STENCILOPERATION_KEEP);
 			ctx->SetStencilZFailOperation(STENCILOPERATION_KEEP);
+			ctx->SetStencilPassOperation(STENCILOPERATION_KEEP);
 			ctx->SetStencilReferenceValue(1);
+			ctx->SetStencilTestMask(0xFF);
+			ctx->SetStencilWriteMask(0xFF);
 			if (op.I[0] == 1)
 			{
 				ctx->SetStencilWriteMask(1);
 				ctx->SetStencilPassOperation(STENCILOPERATION_REPLACE);
 				ctx->SetStencilCompareFunction(STENCILCOMPARISONFUNCTION_ALWAYS);
 			}
-			else
+			else if (op.I[0] == 3)
 			{
-				ctx->SetStencilTestMask(1);
+				// Stock's glow composite (glow_outline_effect.cpp RenderCompositeEffect):
+				// pass where nothing was marked, test mask 0xFF against reference 0.
+				ctx->SetStencilReferenceValue(0);
+				ctx->SetStencilWriteMask(0);
 				ctx->SetStencilPassOperation(STENCILOPERATION_KEEP);
 				ctx->SetStencilCompareFunction(STENCILCOMPARISONFUNCTION_EQUAL);
 			}
+			else if (op.I[0] == 4)
+			{
+				// Stock's both-flags mark arm (glow_outline_effect.cpp:183-191).
+			}
+			else if (op.I[0] == 5)
+			{
+				// Stock's occluded-only mark arm (:196-204): the silhouette lands in
+				// the stencil where the depth test fails, the through-wall half.
+				ctx->SetStencilZFailOperation(STENCILOPERATION_REPLACE);
+				ctx->SetStencilPassOperation(STENCILOPERATION_KEEP);
+			}
+			else if (op.I[0] == 6)
+			{
+				// Stock's unoccluded-only arm (:209-223).
+				ctx->SetStencilReferenceValue(2);
+				ctx->SetStencilTestMask(0x1);
+				ctx->SetStencilWriteMask(0x3);
+				ctx->SetStencilPassOperation(STENCILOPERATION_INCRSAT);
+				ctx->SetStencilZFailOperation(STENCILOPERATION_REPLACE);
+				ctx->SetStencilCompareFunction(STENCILCOMPARISONFUNCTION_EQUAL);
+			}
+			else if (op.I[0] == 7)
+			{
+				// Stock's second-pass warm for the occluded-only (:238-244).
+				ctx->SetStencilReferenceValue(2);
+				ctx->SetStencilPassOperation(STENCILOPERATION_REPLACE);
+			}
+			else
+			{
+				// The post planners' marked-pixels test (mode 2).
+				ctx->SetStencilTestMask(0x1);
+				ctx->SetStencilPassOperation(STENCILOPERATION_KEEP);
+				ctx->SetStencilCompareFunction(STENCILCOMPARISONFUNCTION_EQUAL);
+			}
+			break;
+		case RENDER_OP_PostOverrideDepth:
+			ctx->OverrideDepthEnable(op.I[0] != 0, op.I[1] != 0);
 			break;
 		case RENDER_OP_PostGoalToneScale:
 			ctx->SetGoalToneMappingScale(op.F[0]);

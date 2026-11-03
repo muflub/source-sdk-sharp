@@ -299,6 +299,23 @@ uint32_t CServerEntityLifecycle::MapSpawnCreate(const char* pClassName, const ch
 	return hEntity;
 }
 
+// A map entity created into the edict it had at load (a round cleanup's re-create; stock's
+// CreateEntityByName( name, iForceEdictIndex )); a slot that is taken or -1 lets the engine pick.
+uint32_t CServerEntityLifecycle::MapSpawnCreateAt(const char* pClassName, const char* pPackedKeys, int32_t nBytes,
+												  int32_t nEdict)
+{
+	IVEngineServer* pEngine = m_Entities.m_pEngine;
+	edict_t* pForced = nEdict >= 0 ? pEngine->CreateEdict(nEdict) : NULL;
+	SourceSharp_SetPendingEdict(m_Entities.m_Players, pForced, true);
+
+	const uint32_t hEntity = MapSpawnCreate(pClassName, pPackedKeys, nBytes);
+
+	if (edict_t* pUnclaimed = SourceSharp_ClaimPendingEdict(m_Entities.m_Players, NULL))
+		pEngine->RemoveEdict(pUnclaimed);
+
+	return hEntity;
+}
+
 void CServerEntityLifecycle::EntitySpawn(uint32_t hEntity)
 {
 	// The shell's own Spawn is the whole precache, spawn and activate sequence.

@@ -7,7 +7,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 // The parts' gallery (ui-screen loop step 2): each shared part drawn in the
 // states it must look right in, over the busy backdrop like the HUD's life.
 // Data names are ui.Data (game copy); every #Descent_* token lives in
-// game/mod_tf2_descent/resource/descent_english.txt.
+// game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 internal static class DescentPartGallery
 {

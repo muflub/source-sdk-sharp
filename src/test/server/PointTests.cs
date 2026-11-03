@@ -47,6 +47,46 @@ public class PointTests
         Assert.True(negative.Damage == 2, "negative damage is replaced, not kept");
         Assert.True(negative.Delay == 0.1f, "a negative delay is replaced, not kept");
     }
+
+    /// <summary>
+    /// A point_hurt spawned through the registry, whose Hurt input has run.
+    /// No target is named, so the dose goes out as a blast request — which the
+    /// recorder holds with its every argument.
+    /// </summary>
+    private static (PointHurt Hurt, EntityHandle Handle, RecordingBlastSweep Blast) HurtWithoutTarget()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(PointHurt).Assembly);
+
+        var services = TestServices.Services(out var engine);
+        engine.Returns("Entities.GetOrigin", Vector.Zero);
+        var blast = new RecordingBlastSweep();
+        services.AddInstance<IBlastSweep>(blast);
+        registry.Services = services;
+
+        var handle = new EntityHandle(77u);
+        registry.Spawn(handle, EntityNames.PointHurt);
+        registry.Input(handle, "Hurt", "", 0f, EntityHandle.None);
+
+        return ((PointHurt)registry.Get(handle)!, handle, blast);
+    }
+
+    [Fact]
+    public void TheRadiusDoseIsThePointHurtItsOwnAttack()
+    {
+        // CPointHurt::HurtThink's untargeted arm: RadiusDamage(
+        // CTakeDamageInfo( this, this, ... ), ... ) (pointhurt.cpp:102). The
+        // attacker is the entity, activator or no activator — the activator is
+        // only the TARGET path's attacker (:93) — and the inflictor reading
+        // back is what the TF damage rules' über passthrough asks
+        // (tf_player.cpp:9204).
+        var (hurt, handle, blast) = HurtWithoutTarget();
+
+        var request = Assert.Single(blast.Requests);
+        Assert.Equal(handle, request.Attacker);
+        Assert.Equal(handle, request.Inflictor);
+        Assert.Equal(handle, hurt.Handle);
+    }
 }
 
 /// <summary>

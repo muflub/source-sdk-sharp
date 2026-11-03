@@ -13,9 +13,13 @@ namespace SourceSharp.Server;
 
 /// <summary>
 /// One hull sweep, as <see cref="PhysicsPushedEntities"/> reads it:
-/// <c>trace_t</c>'s fraction, end position and the two solid bits.
+/// <c>trace_t</c>'s fraction, end position and the two solid bits, plus the
+/// hit's face (<c>plane.normal</c>) and the hit entity (<c>m_pEnt</c>), which
+/// the game's push hook slides along and breaks on. A sweep of nothing carries
+/// a zero normal.
 /// </summary>
-public readonly record struct PushTrace(float Fraction, Vector EndPos, bool StartSolid, bool AllSolid);
+public readonly record struct PushTrace(float Fraction, Vector EndPos, bool StartSolid, bool AllSolid,
+                                        Vector Normal = default, EntityHandle Entity = default);
 
 /// <summary>
 /// The world as the pusher asks about it — every question
@@ -234,8 +238,48 @@ public sealed class EnginePushWorld : IPushWorld
         EntityHullTrace trace = _world.EntityTraceHull(entity, start, end, mins, maxs, mask,
                                                        CollisionGroup(entity));
 
-        return new PushTrace(FractionOf(start, end, trace.EndPos, trace.AllSolid),
-                             trace.EndPos, trace.StartSolid, trace.AllSolid);
+        float fraction = FractionOf(start, end, trace.EndPos, trace.AllSolid);
+
+        Vector normal = Vector.Zero;
+        if (fraction < 1f && !trace.StartSolid && !trace.AllSolid && trace.Entity != EntityHandle.None)
+            normal = FaceNormal(entity, trace.EndPos, trace.Entity);
+
+        return new PushTrace(fraction, trace.EndPos, trace.StartSolid, trace.AllSolid, normal, trace.Entity);
+    }
+
+    /// <summary>
+    /// The face the hull came to rest on, as <c>trace_t</c>'s
+    /// <c>plane.normal</c>: of the three axes the two boxes overlap on, the one
+    /// where the overlap is smallest is the face's axis, and the normal points
+    /// from the hit box toward the hull that stopped against it. Exact for the
+    /// upright boxes of the game's movers and players.
+    /// </summary>
+    private Vector FaceNormal(EntityHandle mover, Vector at, EntityHandle hit)
+    {
+        var (aMins, aMaxs) = _entities.GetBounds(mover);
+        Vector aLo = at + aMins;
+        Vector aHi = at + aMaxs;
+
+        Vector hitOrigin = _entities.GetOrigin(hit);
+        var (bMins, bMaxs) = _entities.GetBounds(hit);
+        Vector bLo = hitOrigin + bMins;
+        Vector bHi = hitOrigin + bMaxs;
+
+        float ox = Math.Min(aHi.X, bHi.X) - Math.Max(aLo.X, bLo.X);
+        float oy = Math.Min(aHi.Y, bHi.Y) - Math.Max(aLo.Y, bLo.Y);
+        float oz = Math.Min(aHi.Z, bHi.Z) - Math.Max(aLo.Z, bLo.Z);
+
+        // The hull's centre side of the face: the outward-facing side of the
+        // hit box, which is where the hull sits.
+        static float Side(float aCentre, float bCentre) => aCentre >= bCentre ? 1f : -1f;
+
+        if (ox <= oy && ox <= oz)
+            return new Vector(Side((aLo.X + aHi.X) * 0.5f, (bLo.X + bHi.X) * 0.5f), 0f, 0f);
+
+        if (oy <= ox && oy <= oz)
+            return new Vector(0f, Side((aLo.Y + aHi.Y) * 0.5f, (bLo.Y + bHi.Y) * 0.5f), 0f);
+
+        return new Vector(0f, 0f, Side((aLo.Z + aHi.Z) * 0.5f, (bLo.Z + bHi.Z) * 0.5f));
     }
 
     /// <summary>

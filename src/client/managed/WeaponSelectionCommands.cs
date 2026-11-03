@@ -34,40 +34,73 @@ public sealed class CancelSelectCommand(WeaponSelectionHud selection, IWeaponSel
     }
 }
 
-[ConCommand("slot1", Help = "Select slot 1")]
-public sealed class Slot1Command(WeaponSelectionHud selection) : IConCommand
+/// <summary>
+/// A slot bind. With a forecast and a latch present (a mod that knows the
+/// loadout registers the forecast) it takes the PREDICTED path instead of the
+/// selection: stock's CreateMove latch, the row's type armed for the next
+/// usercmd's <c>weaponselect</c>; an empty row does nothing, as stock's
+/// choosing an empty slot did. Without them the selection answers, as stock's
+/// HUD does.
+/// </summary>
+public static class WeaponSlotBind
 {
-    public void Execute(string args) => selection.SlotCommand(1);
+    public static void Run(WeaponSelectionHud selection, int number,
+                           IWeaponSlotForecast? forecast, IWeaponSelectionLatch? latch)
+    {
+        if (forecast is not null && latch is not null)
+        {
+            int type = forecast.TypeAt(number - 1);
+
+            if (type >= 0)
+                latch.Latch(type);
+
+            return;
+        }
+
+        selection.SlotCommand(number);
+    }
+}
+
+[ConCommand("slot1", Help = "Select slot 1")]
+public sealed class Slot1Command(WeaponSelectionHud selection,
+                                  IWeaponSlotForecast? forecast = null, IWeaponSelectionLatch? latch = null) : IConCommand
+{
+    public void Execute(string args) => WeaponSlotBind.Run(selection, 1, forecast, latch);
 }
 
 [ConCommand("slot2", Help = "Select slot 2")]
-public sealed class Slot2Command(WeaponSelectionHud selection) : IConCommand
+public sealed class Slot2Command(WeaponSelectionHud selection,
+                                  IWeaponSlotForecast? forecast = null, IWeaponSelectionLatch? latch = null) : IConCommand
 {
-    public void Execute(string args) => selection.SlotCommand(2);
+    public void Execute(string args) => WeaponSlotBind.Run(selection, 2, forecast, latch);
 }
 
 [ConCommand("slot3", Help = "Select slot 3")]
-public sealed class Slot3Command(WeaponSelectionHud selection) : IConCommand
+public sealed class Slot3Command(WeaponSelectionHud selection,
+                                  IWeaponSlotForecast? forecast = null, IWeaponSelectionLatch? latch = null) : IConCommand
 {
-    public void Execute(string args) => selection.SlotCommand(3);
+    public void Execute(string args) => WeaponSlotBind.Run(selection, 3, forecast, latch);
 }
 
 [ConCommand("slot4", Help = "Select slot 4")]
-public sealed class Slot4Command(WeaponSelectionHud selection) : IConCommand
+public sealed class Slot4Command(WeaponSelectionHud selection,
+                                  IWeaponSlotForecast? forecast = null, IWeaponSelectionLatch? latch = null) : IConCommand
 {
-    public void Execute(string args) => selection.SlotCommand(4);
+    public void Execute(string args) => WeaponSlotBind.Run(selection, 4, forecast, latch);
 }
 
 [ConCommand("slot5", Help = "Select slot 5")]
-public sealed class Slot5Command(WeaponSelectionHud selection) : IConCommand
+public sealed class Slot5Command(WeaponSelectionHud selection,
+                                  IWeaponSlotForecast? forecast = null, IWeaponSelectionLatch? latch = null) : IConCommand
 {
-    public void Execute(string args) => selection.SlotCommand(5);
+    public void Execute(string args) => WeaponSlotBind.Run(selection, 5, forecast, latch);
 }
 
 [ConCommand("slot6", Help = "Select slot 6")]
-public sealed class Slot6Command(WeaponSelectionHud selection) : IConCommand
+public sealed class Slot6Command(WeaponSelectionHud selection,
+                                  IWeaponSlotForecast? forecast = null, IWeaponSelectionLatch? latch = null) : IConCommand
 {
-    public void Execute(string args) => selection.SlotCommand(6);
+    public void Execute(string args) => WeaponSlotBind.Run(selection, 6, forecast, latch);
 }
 
 [ConCommand("slot7", Help = "Select slot 7")]

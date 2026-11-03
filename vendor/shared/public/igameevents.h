@@ -123,7 +123,7 @@ public:
 	virtual void unused_DuplicateEvent() = 0;
 
 	// if an event was created but not fired for some reason, it has to bee freed, same UnserializeEvent
-	virtual void unused_FreeEvent() = 0;
+	virtual void FreeEvent(IGameEvent * event) = 0;
 
 	// write/read event to/from bitbuffer
 	virtual void unused_SerializeEvent() = 0;

@@ -96,6 +96,9 @@ public sealed class PhysicsPushedEntities
         public float Fraction;
         public bool PusherIsGround;
         public bool Unblockable;
+
+        /// <summary>True when the game hook answered for this entity, which is stock's player arm.</summary>
+        public bool Handled;
     }
 
     private readonly List<Pushed> _moved = new();
@@ -108,6 +111,16 @@ public sealed class PhysicsPushedEntities
     private Transform _startLocalToWorld;
     private Transform _endLocalToWorld;
     private QAngle _amove;
+    private EntityHandle _pusherRoot;
+
+    /// <summary>
+    /// The game's answer at the two speculative-check points, where stock's
+    /// <c>CTFPhysicsPushEntities</c> (tf_pushentity.cpp) overrides the generic
+    /// per-entity check. Set once after the mods are registered, as the
+    /// movement rules are; nobody answering keeps the generic
+    /// <c>CPhysicsPushedEntities</c> behaviour.
+    /// </summary>
+    public IPushEntitiesHook? Hook { get; set; }
 
     /// <summary>
     /// Say what every push found and decided — the candidates the walk
@@ -150,9 +163,20 @@ public sealed class PhysicsPushedEntities
         Vector push = toOrigin - fromOrigin;
         GenerateBlockingEntityList(parenting, push);
 
-        // SpeculativelyCheckLinearPush's sweeps, in its order.
+        // SpeculativelyCheckLinearPush's sweeps, in its order. Stock's TF arm
+        // (tf_pushentity.cpp:111-145) gives a player its own push and lets only
+        // the others keep the generic check, so the hook is asked for each
+        // entity first and its answer skips the generic sweep.
         for (int i = _moved.Count - 1; i >= 0; i--)
+        {
+            if (Hook?.SpeculativelyCheckLinearPush(_pusherRoot, _moved[i].Entity, push) == true)
+            {
+                MarkHandled(i);
+                continue;
+            }
+
             SweepBlocker(i, push);
+        }
 
         return _moved.Count;
     }
@@ -181,6 +205,14 @@ public sealed class PhysicsPushedEntities
 
         for (int i = _moved.Count - 1; i >= 0; i--)
         {
+            // Stock's TF arm (tf_pushentity.cpp:70-106) asks its own player
+            // push before the rotational direction is computed at all.
+            if (Hook?.SpeculativelyCheckRotPush(_pusherRoot, _moved[i].Entity, _amove) == true)
+            {
+                MarkHandled(i);
+                continue;
+            }
+
             push = ComputeRotationalPushDirection(_moved[i].Entity, push);
             SweepBlocker(i, push);
         }
@@ -242,6 +274,7 @@ public sealed class PhysicsPushedEntities
                          "entities in its way; some were not considered\n");
 
         EntityHandle pusherRoot = RootMoveParent(parenting, _pusher);
+        _pusherRoot = pusherRoot;
         EngineCollisionGroup pusherGroup = (EngineCollisionGroup)_world.CollisionGroup(_pusher);
 
         for (int i = 0; i < count; i++)
@@ -336,6 +369,14 @@ public sealed class PhysicsPushedEntities
         return ((state & EntityState.OnGround) != 0 || ground >= 0) && ground == _pusherIndex;
     }
 
+    /// <summary>Record that the game hook answered for this entity.</summary>
+    private void MarkHandled(int index)
+    {
+        Pushed info = _moved[index];
+        info.Handled = true;
+        _moved[index] = info;
+    }
+
     /// <summary>
     /// <c>SpeculativelyCheckPush</c>'s first half: sweep, and move the blocker
     /// to where the sweep ended.
@@ -418,6 +459,12 @@ public sealed class PhysicsPushedEntities
 
         for (int i = _moved.Count - 1; i >= 0; i--)
         {
+            // Stock's TF arm clears the player's blocked bit itself
+            // (tf_pushentity.cpp:267, :358): a push is never refused because of
+            // somebody the hook moved, so their place is not re-checked here.
+            if (_moved[i].Handled)
+                continue;
+
             if (!CheckPushedPosition(i))
             {
                 blockerIndex = i;
@@ -665,4 +712,33 @@ public sealed class PhysicsPushedEntities
             return MathF.Abs(Between.Dot(axis)) >= rObb + rBox - TouchTolerance * axis.Length;
         }
     }
+}
+
+/// <summary>
+/// The game hook <see cref="PhysicsPushedEntities"/> asks at the two points its
+/// stock counterparts are virtual (<c>SpeculativelyCheckRotPush</c> at
+/// tf_pushentity.cpp:70-106, <c>SpeculativelyCheckLinearPush</c> at :111-145):
+/// one answer per entity the mover is about to sweep, in the order the push
+/// list holds them. True means the hook has moved the entity itself and the
+/// generic sweep and its blockage rule must not run for it — stock's player
+/// arm, whose blocked bit stock clears itself (:267, :358). False leaves the
+/// generic <c>CPhysicsPushedEntities</c> behaviour. With no hook registered the
+/// core answers itself: every entity takes the generic sweep.
+/// </summary>
+public interface IPushEntitiesHook
+{
+    /// <summary>
+    /// The linear arm's ask (<c>CTFPhysicsPushEntities::SpeculativelyCheckLinearPush</c>,
+    /// tf_pushentity.cpp:111-145): <paramref name="absPush"/> is the mover's own
+    /// step, <paramref name="pusherRoot"/> the root move parent of the pusher.
+    /// </summary>
+    bool SpeculativelyCheckLinearPush(EntityHandle pusherRoot, EntityHandle blocker, Vector absPush);
+
+    /// <summary>
+    /// The rotating arm's ask (<c>CTFPhysicsPushEntities::SpeculativelyCheckRotPush</c>,
+    /// tf_pushentity.cpp:70-106): <paramref name="amove"/> is the pusher's angle
+    /// delta for this push, the same one
+    /// <see cref="PhysicsPushedEntities.ComputeRotationalPushDirection"/> turns.
+    /// </summary>
+    bool SpeculativelyCheckRotPush(EntityHandle pusherRoot, EntityHandle blocker, QAngle amove);
 }

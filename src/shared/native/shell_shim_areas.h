@@ -240,6 +240,12 @@ public:
 	void BeamDrawStrip(const float* pSegs, int32_t nSegs) override;
 	void BeamDrawMesh(int32_t nPrimitive, int32_t nPrimitives, int32_t nColorKind, const float* pVerts,
 					  int32_t nVerts) override;
+	int32_t ParticleSystemStartExtra(uint32_t hOwner, const char* pszName) override;
+	void ParticleSystemStopExtra(uint32_t hOwner) override;
+	int32_t ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
+									   const float* pOffsetXYZ) override;
+	int32_t ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot) override;
+	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot) override;
 };
 
 class CShimStandaloneClient final : public IShimStandaloneClient
@@ -277,6 +283,7 @@ public:
 	void SurfaceSetMaterials(uint32_t hEntity, const char* pNames, int32_t nBytes, int32_t nFlags) override;
 	void SurfaceSetPlan(uint32_t hEntity, const int32_t* pWords, int32_t nWords) override;
 	void ClientInterpAdmitted(const uint32_t* pHandles, int32_t nCount) override;
+	void EntitySetModelOverride(uint32_t hEntity, const char* pModel) override;
 };
 
 class CShimViewClient final : public IShimViewClient
@@ -326,6 +333,8 @@ public:
 									const float* pMaxsXYZ, int32_t nMask, int32_t nPassEntityIndex,
 									const int32_t* pEntityIndices, int32_t nEntities, float* pOutFraction,
 									float* pOutEndXYZ, int32_t* pOutEntityIndex, float* pOutEntityOriginXYZ) override;
+	int32_t ScreenOverlaySet(const char* pszName) override;
+	int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes) override;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient
@@ -383,6 +392,9 @@ public:
 							   uint8_t* pText, int32_t nTextBytes) override;
 	void UiDebugOverlayClearDead() override;
 	void ClientModeLayout() override;
+	void UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
+							int32_t bAdditive) override;
+	int32_t UiMaterialTexture(const char* pName) override;
 };
 
 class CShimParticlesClient final : public IShimParticlesClient

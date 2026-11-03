@@ -5,7 +5,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 
 // The party window from fakes (the ui-screen loop's sample step). Member
 // names are ui.Data (game copy); classes are #Tokens in
-// game/mod_tf2_descent/resource/descent_english.txt.
+// game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class PartySamples
 {

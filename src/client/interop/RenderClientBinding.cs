@@ -180,6 +180,21 @@ public sealed unsafe class RenderClientBinding(Crossings crossings, ILog log, IC
         catch (Exception e) { ManagedVtable.Fail(log, "IManagedRenderClient.ViewEffectsReset", e); }
     }
 
+    public void ViewEffectsViewModelBob(float a0, float a1, void* a2, void* a3, void* a4, void* a5)
+    {
+        crossings.Count(CrossingOp.ClientViewEffectsViewModelBob);
+        if (a2 == null || a3 == null || a4 == null || a5 == null)
+            return;
+        var origin = new ReadOnlySpan<float>(a2, 3);
+        var angles = new ReadOnlySpan<float>(a3, 3);
+        var outOrigin = new Span<float>(a4, 3);
+        var outAngles = new Span<float>(a5, 3);
+        outOrigin.Clear();
+        outAngles.Clear();
+        try { plan.ViewEffectsViewModelBob(a0, a1, origin, angles, outOrigin, outAngles); }
+        catch (Exception e) { ManagedVtable.Fail(log, "IManagedRenderClient.ViewEffectsViewModelBob", e); }
+    }
+
     public void RenderTraceDone(int a0, byte* a1, int a2)
     {
         crossings.Count(CrossingOp.ClientRenderTraceDone);

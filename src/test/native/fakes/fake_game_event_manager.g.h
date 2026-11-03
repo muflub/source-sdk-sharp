@@ -37,7 +37,7 @@ public:
 
 	void unused_DuplicateEvent() override {}
 
-	void unused_FreeEvent() override {}
+	void FreeEvent(IGameEvent* event) override {}
 
 	void unused_SerializeEvent() override {}
 

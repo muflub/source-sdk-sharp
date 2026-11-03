@@ -67,7 +67,10 @@ public class WeaponDrawEffectsTests
     private sealed class Wishes : IRenderPolicyWishes
     {
         public readonly List<(uint Entity, bool TwoPass)> Asked = [];
+        public readonly List<(uint Entity, bool OwnerSeen)> Seen = [];
         public void WantTwoPass(EntityHandle entity, bool twoPass) => Asked.Add((entity.Value, twoPass));
+        public void WantTransparent(EntityHandle entity, bool transparent) { }
+        public void WantOwnerSeen(EntityHandle entity, bool ownerSeen) => Seen.Add((entity.Value, ownerSeen));
     }
 
     private readonly RecordingEngine _engine = Fake();
@@ -282,6 +285,40 @@ public class WeaponDrawEffectsTests
         weapon.OnRemoved();
 
         Assert.Equal([(0x41u, false)], wishes.Asked);
+    }
+
+    [Fact]
+    public void TheLocalPlayersCarriedWeaponIsLeftToTheThirdPersonCamera()
+    {
+        // Stock's carried weapon refuses its own draw while the first-person
+        // frame has the viewmodel instead (c_basecombatweapon.cpp:421); the
+        // entity wishes the owner-seen rule for its holder, re-asked per
+        // decode because both the owner and the local index move.
+        var wishes = new Wishes();
+        var weapon = new ClientSsWeapon(_engine, _effects, wishes, _engine) { Handle = new EntityHandle(0x41) };
+        weapon.State.BindLocal();
+        weapon.State.OwnerIndex = Local;
+        weapon.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal([(0x41u, true)], wishes.Seen);
+
+        weapon.State.OwnerIndex = Other;
+        weapon.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal([(0x41u, true), (0x41u, false)], wishes.Seen);
+    }
+
+    [Fact]
+    public void ACarriedWeaponOfAnotherPlayerDrawsWhateverTheCameraSees()
+    {
+        var wishes = new Wishes();
+        var weapon = new ClientSsWeapon(_engine, _effects, wishes, _engine) { Handle = new EntityHandle(0x41) };
+        weapon.State.BindLocal();
+        weapon.State.OwnerIndex = Other;
+        weapon.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        // Another player's weapon asks to draw as the camera sees it — no gate.
+        Assert.Equal([(0x41u, false)], wishes.Seen);
     }
 
     [Fact]

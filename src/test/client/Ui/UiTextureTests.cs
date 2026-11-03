@@ -105,4 +105,84 @@ public class UiTextureTests
         Assert.Equal((9, uv), (quad.Texture, quad.Uv));
         Assert.Equal(320, Named(ctx, "picture").Rect.W, 1);
     }
+
+    [Fact]
+    public void A_untinted_texture_leaf_draws_at_full_colour()
+    {
+        var (_, _, ctx) = DrawTextured();
+        var quad = Assert.Single(ctx.List.AsDrawList().TexturedQuads.ToArray());
+        Assert.Equal(new UiColor(255, 255, 255, 255), quad.Tint);
+    }
+
+    [Fact]
+    public void A_tinted_texture_leaf_multiplies_its_pixels_by_the_tint()
+    {
+        // Stock's health cross fades to the death-warning red when the player
+        // is dying: the leaf's pixels carry that colour.
+        var tint = UiPaint.FromGame(new UiColor(255, 40, 30, 255));
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) =>
+            ui.Texture(5, Size.Du(100), Size.Du(100)).Tint(tint).Name("cross"));
+        var quad = Assert.Single(ctx.List.AsDrawList().TexturedQuads.ToArray());
+        Assert.Equal(new UiColor(255, 40, 30, 255), quad.Tint);
+    }
+
+    [Fact]
+    public void A_rotated_texture_leaf_emits_its_rotation()
+    {
+        // Stock's flag arrow spins to the flag's bearing about the panel's
+        // centre (CTFArrowPanel::Paint): the leaf carries the rotation and
+        // keeps its rect for layout and hit-testing.
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) =>
+            ui.Texture(5, Size.Du(100), Size.Du(40)).Rotate(MathF.PI / 4f).Name("needle"));
+        var quad = Assert.Single(ctx.List.AsDrawList().TexturedQuads.ToArray());
+        Assert.Equal(MathF.PI / 4f, quad.Rotation, 4);
+        Assert.Equal(UiBlend.Normal, quad.Blend);
+        Assert.Equal(100, Named(ctx, "needle").Rect.W, 1);
+    }
+
+    [Fact]
+    public void An_additive_texture_leaf_blends_additively()
+    {
+        // The damage ring's glow adds to what is behind it
+        // (tf_hud_damageindicator.cpp's additive material).
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) =>
+            ui.Texture(5, Size.Du(100), Size.Du(40)).Blend(UiBlend.Additive).Name("glow"));
+        var quad = Assert.Single(ctx.List.AsDrawList().TexturedQuads.ToArray());
+        Assert.Equal(UiBlend.Additive, quad.Blend);
+        Assert.Equal(0f, quad.Rotation, 4);
+    }
+
+    [Fact]
+    public void A_rotated_texture_draws_as_its_four_rotated_corners()
+    {
+        // Half a turn about the centre swaps opposite corners: the SVG names
+        // them as one polygon (N rounds to two decimals, as every SVG number).
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) =>
+            ui.Texture(5, Size.Du(100), Size.Du(40)).Rotate(MathF.PI).Name("spin"));
+        var svg = Svg(ctx);
+        var rect = Named(ctx, "spin").Rect;
+        float cx = rect.X + rect.W / 2f, cy = rect.Y + rect.H / 2f, hw = rect.W / 2f, hh = rect.H / 2f;
+        string points = $"{N(cx + hw)},{N(cy + hh)} {N(cx - hw)},{N(cy + hh)} {N(cx - hw)},{N(cy - hh)} {N(cx + hw)},{N(cy - hh)}";
+        Assert.Contains($"<polygon points=\"{points}\"", svg);
+        Assert.Contains("data-texture=\"5\"", svg);
+    }
+
+    [Fact]
+    public void An_additive_texture_says_so_in_the_svg()
+    {
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) =>
+            ui.Texture(5, Size.Du(100), Size.Du(40)).Blend(UiBlend.Additive).Name("glow"));
+        Assert.Contains("mix-blend-mode:screen", Svg(ctx));
+    }
+
+    private static string N(float v)
+    {
+        var r = MathF.Round(v, 2);
+        return (r == 0f ? 0f : r).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    }
 }

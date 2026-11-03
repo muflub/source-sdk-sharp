@@ -137,6 +137,36 @@ public sealed class ServerSoundsTests
     }
 
     //-------------------------------------------------------------------------
+    // To a team
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void ATeamEmitIsReliableToExactlyThatTeamsSlots()
+    {
+        // CTeamRecipientFilter( team, true ): the team's connected slots hear
+        // it from the entity's index, wherever the PAS would reach. Slot 2 is
+        // blue, slot 3 red.
+        _listeners.Teams[2] = 3;
+        _listeners.Teams[3] = 2;
+
+        Sounds().EntityEmitSoundToTeam(2, Door, "Doors.Move1");
+
+        var emit = Assert.Single(_engine.Emits);
+        Assert.Equal(("3", true, 64, "doors/move1.wav"),
+                     (emit.Recipients, emit.Reliable, emit.EntIndex, emit.Sample));
+    }
+
+    [Fact]
+    public void ATeamEmitForAnEmptyTeamPlaysNothing()
+    {
+        _listeners.Teams[2] = 3;
+
+        Sounds().EntityEmitSoundToTeam(2, Door, "Doors.Move1");
+
+        Assert.Empty(_engine.Emits);
+    }
+
+    //-------------------------------------------------------------------------
     // From a point
     //-------------------------------------------------------------------------
 

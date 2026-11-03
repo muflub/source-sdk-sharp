@@ -30,6 +30,14 @@ internal sealed unsafe class ClientUiSurface(IUiClientArea uiClient) : IUiSurfac
             uiClient.UiDrawPolygon(texture, p, xyuv.Length / 4, rgba);
     }
 
+    public void TexturedQuad(int texture, ReadOnlySpan<float> xyuv, uint rgba, bool additive)
+    {
+        if (xyuv.Length < 16)
+            return;
+        fixed (float* p = xyuv)
+            uiClient.UiDrawTexturedQuad(texture, p, xyuv.Length / 4, rgba, additive ? 1 : 0);
+    }
+
     public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba)
     {
         if (text.IsEmpty)
@@ -54,6 +62,12 @@ internal sealed unsafe class ClientUiSurface(IUiClientArea uiClient) : IUiSurfac
         => uiClient.UiSetClip(enabled ? 1 : 0, x0, y0, x1, y1);
 
     public int TextureCreate() => uiClient.UiTextureCreate();
+
+    public int MaterialTexture(string name)
+    {
+        fixed (byte* p = Utf8(name))
+            return uiClient.UiMaterialTexture(p);
+    }
 
     public void TextureUpload(int texture, ReadOnlySpan<byte> rgba, int wide, int tall)
     {

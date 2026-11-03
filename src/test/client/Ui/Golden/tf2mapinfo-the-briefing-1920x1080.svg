@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" data-scale="1">
+<rect x="0" y="0" width="1920" height="1080" fill="#343037" data-e="1"/>
+<text x="306" y="259.75" font-family="TF2 Build" font-size="30" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="2">2FORT</text>
+<text x="306" y="330.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#9d9078" xml:space="preserve" data-e="3">Capture the Flag</text>
+<text x="306" y="732.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="4">The two bases face each other across a covered</text>
+<text x="306" y="756.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="4">bridge.</text>
+<text x="306" y="780.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="4">Take the enemy intelligence back to your base's</text>
+<text x="306" y="804.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="4">capture</text>
+<text x="306" y="828.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="4">point while defending your own.</text>
+<rect x="330" y="990" width="338" height="68" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="5"/>
+<text x="475" y="1030.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="6">BACK</text>
+<rect x="1252" y="990" width="338" height="68" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="7"/>
+<text x="1376" y="1030.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="8">CONTINUE</text>
+</svg>

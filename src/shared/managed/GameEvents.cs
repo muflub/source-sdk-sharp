@@ -70,9 +70,16 @@ public sealed class PlayerDisconnectEvent : IGameEvent<PlayerDisconnectArgs>
     }
 }
 
-/// <summary>A death. The event a real mod hangs scoring off.</summary>
+/// <summary>
+/// A death. The event a real mod hangs scoring off. The last three fields are
+/// the mod-specific keys of stock's player_death (customkill, damagebits,
+/// crit_type), which the stock TF death notices read for their icons
+/// (tf_hud_deathnotice.cpp AddDeathNotice); a game that sends none of them
+/// decodes zeros.
+/// </summary>
 public readonly record struct PlayerDeathArgs(
-    int UserId, int AttackerUserId, string Weapon, bool Headshot)
+    int UserId, int AttackerUserId, string Weapon, bool Headshot, int DeathFlags = 0,
+    int Custom = 0, int Bits = 0, int CritType = 0)
 {
     /// <summary>
     /// True when the kill should credit the attacker. The engine reports a
@@ -97,8 +104,83 @@ public sealed class PlayerDeathEvent : IGameEvent<PlayerDeathArgs>
             reader.GetInt("userid"),
             reader.GetInt("attacker"),
             reader.GetString("weapon"),
-            reader.GetBool("headshot")));
+            reader.GetBool("headshot"),
+            reader.GetInt("death_flags"),
+            reader.GetInt("customkill"),
+            reader.GetInt("damagebits"),
+            reader.GetInt("crit_type")));
     }
+}
+
+/// <summary>
+/// A player was hurt. Stock fires it from <c>CBasePlayer::OnTakeDamage</c>
+/// with the post-armour answer (<c>tf_player.cpp</c>: damageamount is
+/// <c>iPrevHealth - m_iHealth</c>), which is what the combat text keys off —
+/// the attacker's HUD reads the hits they dealt, the victim's the hits they
+/// took. The TF-specific keys (custom, weaponid, bonuseffect and the crit
+/// ladders) are stock's fields; a game that sends none of them decodes zeros.
+/// </summary>
+public readonly record struct PlayerHurtArgs(
+    int UserId, int Health, int AttackerUserId, int DamageAmount = 0,
+    bool Crit = false, int Custom = 0, int WeaponId = 0, int BonusEffect = 0,
+    bool MiniCrit = false, bool AllSeeCrit = false, bool ShowDisguisedCrit = false);
+
+[GameEvent("player_hurt")]
+public sealed class PlayerHurtEvent : IGameEvent<PlayerHurtArgs>
+{
+    public event Action<PlayerHurtArgs>? Fired;
+
+    /// <inheritdoc/>
+    public void Raise(PlayerHurtArgs args) => Fired?.Invoke(args);
+
+    public void Dispatch(GameEventReader reader)
+    {
+        Raise(new PlayerHurtArgs(
+            reader.GetInt("userid"),
+            reader.GetInt("health"),
+            reader.GetInt("attacker"),
+            reader.GetInt("damageamount"),
+            reader.GetBool("crit"),
+            reader.GetInt("custom"),
+            reader.GetInt("weaponid"),
+            reader.GetInt("bonuseffect"),
+            reader.GetBool("minicrit"),
+            reader.GetBool("allseecrit"),
+            reader.GetBool("showdisguisedcrit")));
+    }
+}
+
+/// <summary>
+/// A player walked into (or out of) a control point's capture area. Stock
+/// fires them with the player's entindex and the cap index
+/// (resource/modevents.res); the HUD's teardrop progress bar attaches to
+/// the icon of the point the local player's events name
+/// (hud_controlpointicons.cpp, CHudControlPointIcons::FireGameEvent).
+/// </summary>
+public readonly record struct ControlPointTouchArgs(int Player, int Area);
+
+[GameEvent("controlpoint_starttouch")]
+public sealed class ControlPointStartTouchEvent : IGameEvent<ControlPointTouchArgs>
+{
+    public event Action<ControlPointTouchArgs>? Fired;
+
+    /// <inheritdoc/>
+    public void Raise(ControlPointTouchArgs args) => Fired?.Invoke(args);
+
+    public void Dispatch(GameEventReader reader)
+        => Raise(new ControlPointTouchArgs(reader.GetInt("player"), reader.GetInt("area")));
+}
+
+[GameEvent("controlpoint_endtouch")]
+public sealed class ControlPointEndTouchEvent : IGameEvent<ControlPointTouchArgs>
+{
+    public event Action<ControlPointTouchArgs>? Fired;
+
+    /// <inheritdoc/>
+    public void Raise(ControlPointTouchArgs args) => Fired?.Invoke(args);
+
+    public void Dispatch(GameEventReader reader)
+        => Raise(new ControlPointTouchArgs(reader.GetInt("player"), reader.GetInt("area")));
 }
 
 /// <summary>A player finished spawning in and is playable.</summary>
@@ -202,4 +284,91 @@ public sealed class GameNewMapEvent : IGameEvent<GameNewMapArgs>
     public void Raise(GameNewMapArgs args) => Fired?.Invoke(args);
 
     public void Dispatch(GameEventReader reader) => Raise(new GameNewMapArgs(reader.GetString("mapname")));
+}
+
+/// <summary>The engine's GameUI became visible: stock's engine fires this client-side event
+/// (<c>OnGameUIActivated</c>, shell_clientdll_gameclientexports.cpp) when Escape activates the
+/// GameUI, and only through it does the client learn of the show.</summary>
+public readonly record struct GameUiActivatedArgs;
+
+[GameEvent("gameui_activated")]
+public sealed class GameUiActivatedEvent : IGameEvent<GameUiActivatedArgs>
+{
+    public event Action<GameUiActivatedArgs>? Fired;
+
+    /// <inheritdoc/>
+    public void Raise(GameUiActivatedArgs args) => Fired?.Invoke(args);
+
+    /// <inheritdoc/>
+    public void Dispatch(GameEventReader reader) => Raise(new GameUiActivatedArgs());   // the engine sends no fields
+}
+
+/// <summary>The engine's GameUI hid again (<c>OnGameUIHidden</c>): whatever hid it — the
+/// menu's Resume running <c>gameui_hide</c>, the engine's own arm — the menu agrees through it.</summary>
+public readonly record struct GameUiHiddenArgs;
+
+[GameEvent("gameui_hidden")]
+public sealed class GameUiHiddenEvent : IGameEvent<GameUiHiddenArgs>
+{
+    public event Action<GameUiHiddenArgs>? Fired;
+
+    /// <inheritdoc/>
+    public void Raise(GameUiHiddenArgs args) => Fired?.Invoke(args);
+
+    /// <inheritdoc/>
+    public void Dispatch(GameEventReader reader) => Raise(new GameUiHiddenArgs());      // the engine sends no fields
+}
+
+/// <summary>The win panel's event (modevents.res), stock's
+/// <c>CTFWinPanel</c> shows on (tf_hud_winpanel.cpp:127-665) and the
+/// server's <c>SendWinPanelInfo</c> fills. The defaults are the engine's
+/// own: a field the sender never set reads zero.</summary>
+public readonly record struct TeamplayWinPanelArgs(
+    int PanelStyle = 0, int WinningTeam = 0, int WinReason = 0, string Cappers = "", int FlagCapLimit = 0,
+    int BlueScore = 0, int RedScore = 0, int BlueScorePrev = 0, int RedScorePrev = 0,
+    bool RoundComplete = false, int RoundsRemaining = 0,
+    int Player1 = 0, int Player1Points = 0, int Player2 = 0, int Player2Points = 0,
+    int Player3 = 0, int Player3Points = 0,
+    int KillstreakPlayer = 0, int KillstreakCount = 0, bool GameOver = false);
+
+[GameEvent("teamplay_win_panel")]
+public sealed class TeamplayWinPanelEvent : IGameEvent<TeamplayWinPanelArgs>
+{
+    public event Action<TeamplayWinPanelArgs>? Fired;
+
+    public void Raise(TeamplayWinPanelArgs args) => Fired?.Invoke(args);
+
+    public void Dispatch(GameEventReader reader)
+        => Raise(new TeamplayWinPanelArgs(
+            reader.GetInt("panel_style"),
+            reader.GetInt("winning_team"),
+            reader.GetInt("winreason"),
+            reader.GetString("cappers"),
+            reader.GetInt("flagcaplimit"),
+            reader.GetInt("blue_score"),
+            reader.GetInt("red_score"),
+            reader.GetInt("blue_score_prev"),
+            reader.GetInt("red_score_prev"),
+            reader.GetBool("round_complete"),
+            reader.GetInt("rounds_remaining"),
+            reader.GetInt("player_1"), reader.GetInt("player_1_points"),
+            reader.GetInt("player_2"), reader.GetInt("player_2_points"),
+            reader.GetInt("player_3"), reader.GetInt("player_3_points"),
+            reader.GetInt("killstreak_player_1"), reader.GetInt("killstreak_player_1_count"),
+            reader.GetBool("game_over")));
+}
+
+/// <summary>A round's start (modevents.res): the hide arm of the win panel
+/// (tf_hud_winpanel.cpp:119-126).</summary>
+public readonly record struct TeamplayRoundStartArgs(bool FullReset);
+
+[GameEvent("teamplay_round_start")]
+public sealed class TeamplayRoundStartEvent : IGameEvent<TeamplayRoundStartArgs>
+{
+    public event Action<TeamplayRoundStartArgs>? Fired;
+
+    public void Raise(TeamplayRoundStartArgs args) => Fired?.Invoke(args);
+
+    public void Dispatch(GameEventReader reader)
+        => Raise(new TeamplayRoundStartArgs(reader.GetBool("full_reset")));
 }

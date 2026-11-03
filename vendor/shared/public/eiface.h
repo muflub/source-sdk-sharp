@@ -317,7 +317,7 @@ public:
 
 	// Tells the engine we can immdiately re-use all edict indices
 	// even though we may not have waited enough time
-	virtual void unused_AllowImmediateEdictReuse() = 0;
+	virtual void AllowImmediateEdictReuse() = 0;
 
 	// Returns true if the engine is an internal build. i.e. is using the internal bugreporter.
 	virtual void unused_IsInternalBuild() = 0;

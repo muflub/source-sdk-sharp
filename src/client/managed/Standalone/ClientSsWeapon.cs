@@ -25,15 +25,18 @@ public sealed class ClientSsWeapon : ClientStandaloneEntity
     }
 
     [Inject]
-    public ClientSsWeapon(IEngineEntityRender render, IWeaponDrawEffects effects, IRenderPolicyWishes policy)
+    public ClientSsWeapon(IEngineEntityRender render, IWeaponDrawEffects effects, IRenderPolicyWishes policy,
+                          IEngineHud? screen = null)
         : base(render)
     {
         _effects = effects;
         _policy = policy;
+        _screen = screen;
     }
 
     private readonly IWeaponDrawEffects _effects;
     private readonly IRenderPolicyWishes _policy;
+    private readonly IEngineHud? _screen;
 
     // The type the two-pass wish was last made for, so it is asked once per change.
     private int _wishedFor = int.MinValue;
@@ -84,12 +87,23 @@ public sealed class ClientSsWeapon : ClientStandaloneEntity
             Render.SetBoneMergeSource(Handle, -1);
             _mergedOnto = -1;
         }
+
+        // Stock leaves the holder's carried weapon to the third-person camera:
+        // the first-person frame has the viewmodel instead
+        // (c_basecombatweapon.cpp:421). Asked per decode, because both the
+        // owner above and the local index move without a data-table change.
+        if (_screen is not null)
+        {
+            int local = _screen.LocalPlayerIndex;
+            _policy.WantOwnerSeen(Handle, local > 0 && owner == local);
+        }
     }
 
     public override void OnRemoved()
     {
         _mergedOnto = -1;
         _policy.WantTwoPass(Handle, false);
+        _policy.WantOwnerSeen(Handle, false);
         _wishedFor = int.MinValue;
     }
 

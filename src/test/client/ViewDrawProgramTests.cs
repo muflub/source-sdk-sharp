@@ -89,6 +89,28 @@ public class ViewDrawProgramTests
     }
 
     [Fact]
+    public void AnOpaqueEntityThatSamplesTheFrameBufferRefreshesItBeforeItsDraw()
+    {
+        // Our viewmodel-family renderables reach the opaque pass, so stock's
+        // refresh before a frame-buffer sampler (DrawViewModels') follows them
+        // there.
+        var scene = new SceneBuilder().Leaf(1).Entry(ViewDrawProgram.GroupOpaqueEntityHuge, ViewSceneEntryFlags.PowerOfTwoFrameBuffer).Build();
+        var main = Build(scene, Context(draws: Opaque));
+        Assert.Equal(1, Count(main, RenderOpKind.FrameBufferForEntity));
+        Assert.True(main.FindIndex(o => o.Kind == (int)RenderOpKind.FrameBufferForEntity)
+                  < main.FindIndex(o => o.Kind == (int)RenderOpKind.DrawEntity));
+
+        // A depth pass refreshes nothing; a water target's view still draws
+        // the opaque entity (only the translucent pass skips it).
+        var shadow = Build(scene, Context(draws: new ViewDrawProgram.Draw(RenderOpKind.DrawOpaque, ViewDrawProgram.DepthModeShadow, 0, RenderConst.ViewMain)));
+        Assert.Equal(0, Count(shadow, RenderOpKind.FrameBufferForEntity));
+        Assert.Equal(1, Count(shadow, RenderOpKind.DrawEntity));
+        var inWater = Build(scene, Context(RenderConst.DfDrawEntities | RenderConst.DfRenderReflection, Opaque));
+        Assert.Equal(0, Count(inWater, RenderOpKind.FrameBufferForEntity));
+        Assert.Equal(1, Count(inWater, RenderOpKind.DrawEntity));
+    }
+
+    [Fact]
     public void AFrameBufferSamplerIsSkippedInAWaterTargetsView()
     {
         // DrawTranslucentRenderables: `if( bRenderingWaterRenderTargets ) continue;`

@@ -73,3 +73,27 @@ public sealed class SsViewModel : AnimatingEntity
     // Dressed by Arsenal through IEngineEntityRender.SetModel on every switch;
     // see SsWeapon above for why the dressing lives on the switcher's side.
 }
+
+/// <summary>
+/// The viewmodel attachment — the weapon's own model, riding the hands.
+///
+/// <para>
+/// Stock's <c>C_ViewmodelAttachmentModel</c> (econ_entity.cpp:1135): when the
+/// viewmodel wears the CLASS's hand model, the item's display model is drawn
+/// bonemerged onto it in the viewmodel pass, the c_model's bones doing the
+/// rest. Here the server creates one beside the pair when a deploy's chain
+/// named something other than the row's own model for the viewmodel, and
+/// dresses it in the row's own; the client's half merges it onto the local
+/// player's viewmodel and draws nothing for anyone else.
+/// </para>
+/// </summary>
+[ScriptedEntity(EntityNames.SsViewmodelAttachment, ScriptedEntityKind.Effect)]
+public sealed class SsViewmodelAttachment : ScriptedEntity
+{
+    /// <summary>The attachment's replicated state.</summary>
+    [NetState] public ViewmodelAttachmentNetState State = new();
+
+    // Dressed by Arsenal through IEngineEntityRender.SetModel beside the
+    // viewmodel; see SsWeapon above for why the dressing lives on the
+    // switcher's side.
+}

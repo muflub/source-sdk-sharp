@@ -787,6 +787,85 @@ public class ClientRenderPolicyTests
     }
 
     [Fact]
+    public void AWishForTransparencyIsDecidedOnTheNextPassThoughTheBlockDidNotMove()
+    {
+        // Stock's cloaked spy: C_TFPlayer::IsTransparent answers
+        // GetPercentInvisible() > 0 (c_tf_player.h:208), and
+        // C_BaseEntity::GetRenderGroup re-leafs the body into the translucent
+        // group while it is — where the translucent pass refreshes the frame
+        // buffer the cloak shader refracts (viewrender.cpp:4263-4278).
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.Pass(blocks);
+
+        policy.WantTransparent(new EntityHandle(0x00010007u), true);
+        int decided = policy.Pass(blocks);
+
+        Assert.Equal(1, decided);
+        Assert.Equal((int)ClientRenderGroup.TranslucentEntity,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
+        Assert.Equal(1, Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.Transparent))));
+    }
+
+    [Fact]
+    public void WithdrawingTheTransparencyWishPutsTheEntityBackInTheOpaqueGroup()
+    {
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.WantTransparent(new EntityHandle(0x00010007u), true);
+        policy.Pass(blocks);
+
+        policy.WantTransparent(new EntityHandle(0x00010007u), false);
+        policy.Pass(blocks);
+
+        Assert.Equal((int)ClientRenderGroup.OpaqueEntity,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
+    }
+
+    [Fact]
+    public void ATransparencyWishForAnotherHandleInTheSameSlotIsNotThisEntitysWish()
+    {
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.WantTransparent(new EntityHandle(0x00020007u), true);
+        policy.Pass(blocks);
+
+        Assert.Equal((int)ClientRenderGroup.OpaqueEntity,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.RenderGroup))));
+    }
+
+    [Fact]
+    public void AnOwnerSeenWishLeavesTheDrawToTheThirdPersonCamera()
+    {
+        // Stock hides the local player's carried weapon from the first-person
+        // frame — the viewmodel will do that (c_basecombatweapon.cpp:421) —
+        // and gives it back only once a third-person camera sees its owner:
+        // the DrawnOnlyWhileSeen half of the owner-seen rule.
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.WantOwnerSeen(new EntityHandle(0x00010007u), true);
+        policy.Pass(blocks);
+
+        Assert.Equal((int)ClientOwnerSeenRule.DrawnOnlyWhileSeen,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.OwnerSeenRule))));
+    }
+
+    [Fact]
+    public void WithdrawingTheOwnerSeenWishHandsTheDrawBack()
+    {
+        var blocks = OneProp(0x00010007u);
+        var policy = Policy();
+        policy.WantOwnerSeen(new EntityHandle(0x00010007u), true);
+        policy.Pass(blocks);
+
+        policy.WantOwnerSeen(new EntityHandle(0x00010007u), false);
+        policy.Pass(blocks);
+
+        Assert.Equal((int)ClientOwnerSeenRule.Always,
+                     Read(blocks.Raw(0), Tail(nameof(EngineBlockClientTail.OwnerSeenRule))));
+    }
+
+    [Fact]
     public void TheFadeChoiceIsWrittenIntoTheBlockAsTheGroupAndTheTransparency()
     {
         // THE FADE'S TWO OUTPUTS, which is what "fade choices asserted as block

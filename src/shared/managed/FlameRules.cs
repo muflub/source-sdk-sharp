@@ -93,6 +93,16 @@ public static class FlameRules
     /// </summary>
     public const string ParticleSystem = "burning_character";
 
+    /// <summary>
+    /// What a burning CORPSE draws with — stock's
+    /// <c>ParticleProp()-&gt;Create( "burningplayer_corpse", PATTACH_ABSORIGIN_FOLLOW )</c>
+    /// in <c>C_TFRagdoll::CreateTFRagdoll</c> (c_tf_player.cpp:931), started by
+    /// the client ragdoll whose networked burn arrived
+    /// (<see cref="RagdollNetState.Burning"/>). Out of the same .pcf as
+    /// <see cref="ParticleSystem"/>.
+    /// </summary>
+    public const string BurningCorpseParticle = "burningplayer_corpse";
+
     /// <summary>Burning flesh: stock's sound for something alive.</summary>
     public const string BurningFleshSound = "General.BurningFlesh";
 

@@ -229,7 +229,11 @@ public partial class EngineApiCensusTests
     // IShimEntitiesServer.EntitySetClassName joined: stock's SetClassname at
     // spawn, the reported name apart from the class (stock-ab, 2026-10-27;
     // 111 + 1 = 112).
-    private const int ServerOnly = 112;
+    // tf2 ruling N2: MapSpawnCreateAt, the round cleanup's create into a map
+    // entity's old edict (112 + 1 = 113). tf2 projectile parity:
+    // IShimDamage.EntityTakeDamageAnswered, the damage asked so a blast's push
+    // can gate on landing (113 + 1 = 114).
+    private const int ServerOnly = 114;
     // User-message payload model (2026-10-04): IShimUserMessagesClient gains the
     // seven slots the ported stock hooks carry their effects out through
     // (139 -> 146). Measured.
@@ -417,7 +421,23 @@ public partial class EngineApiCensusTests
     // shot's clip against the shells no client trace can see (251 + 1 = 252, landed after M1-C).
     // The predicted swing's hull (stock-ab): ClientTraceHullEntities (252 + 1).
     // ClientIsLowViolence retired: the rule is C# over the engine client (253 - 1).
-    private const int ClientOnly = 252;
+    // The crit glow (tf2 3.6): ParticleSystemStartExtra and ParticleSystemStopExtra,
+    // stock's second attached system per owner (253 + 2).
+    // The medigun beam (tf2 3.x): ParticleSystemFollowEntity, one of a managed
+    // entity's system's control points riding another entity — the beam's near
+    // end its muzzle, its far end its patient (255 + 1);
+    // The rotated/additive texture leaf (tf2 hud rows): UiDrawTexturedQuad (256 + 1).
+    // The viewer-local model (tf2 disguise): EntitySetModelOverride, a per-viewer
+    // body the client draws and the server never changes (257 + 1).
+    // A texture handle bound to an engine material (the scope's Refract
+    // quadrants): UiMaterialTexture (257 + 2, after the model override).
+    // The condition drips (tf2 2.3): ParticleSystemStartSlot and ParticleSystem-
+    // StopSlot, a caller that counts its own systems starting one in a numbered
+    // slot beside the burn's and the glow's (259 + 2, after the scope's material texture).
+    // The condition overlays (tf2 2.3): ScreenOverlaySet and ScreenOverlayGet,
+    // the full-screen material by name, the client's view alone (261 + 2).
+    // (253 + 10 = 263; less ClientIsLowViolence: 262.)
+    private const int ClientOnly = 262;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

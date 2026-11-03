@@ -102,44 +102,8 @@ public sealed class SkiaBackend : IUiBackend, IDisposable
                     Quad(canvas, paint, list.Quads[op.Index]);
                     break;
                 case UiPrimitiveKind.TexturedQuad:
-                {
-                    var t = list.TexturedQuads[op.Index];
-                    if (HudArt?.Find(t.Texture) is { } hud)
-                    {
-                        // Decoded HUD art (PreviewTextures): the file's own colours.
-                        paint.Style = SKPaintStyle.Fill;
-                        paint.Shader = null;
-                        var hudImage = Image(t.Texture, hud);
-                        canvas.DrawImage(hudImage, new SKRect(0, 0, hud.Wide, hud.Tall), R(t.Rect),
-                                         new SKSamplingOptions(SKFilterMode.Linear));
-                        break;
-                    }
-                    if (UiIconSet.RectOf(t.Texture) is int a and >= 0)
-                    {
-                        // An icon: the atlas copy, as the game draws it, tinted.
-                        var atlas = Atlas();
-                        var src = _icons!.Rects[a];
-                        paint.Shader = null;
-                        paint.Style = SKPaintStyle.Fill;
-                        paint.Color = C(t.Tint);
-                        using var image = SKImage.FromBitmap(atlas);
-                        canvas.DrawImage(image, new SKRect(src.X, src.Y, src.X + src.W, src.Y + src.H), R(t.Rect),
-                                         new SKSamplingOptions(SKFilterMode.Linear), paint);
-                        break;
-                    }
-                    // Other textures are not in previews yet: a tinted checker marks the
-                    // place, and the handle is stamped muted in the corner so a PNG
-                    // review sees which surface the element asks for.
-                    paint.Shader = null;
-                    paint.Style = SKPaintStyle.Fill;
-                    paint.Color = C(t.Tint).WithAlpha((byte)(t.Tint.A / 3));
-                    canvas.DrawRect(R(t.Rect), paint);
-                    paint.Color = new SKColor(170, 170, 170, 235);
-                    var stamp = new SKFont(Typeface(new UiFontSpec("stamped", 12, 400, UiFontFlags.None)), 12);
-                    canvas.DrawText(t.Texture.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                                    t.Rect.X + 3, t.Rect.Y + 13, SKTextAlign.Left, stamp, paint);
+                    Textured(canvas, paint, list.TexturedQuads[op.Index]);
                     break;
-                }
                 case UiPrimitiveKind.GlyphRun:
                     Run(canvas, list, list.GlyphRuns[op.Index]);
                     break;
@@ -180,6 +144,88 @@ public sealed class SkiaBackend : IUiBackend, IDisposable
     }
 
     private readonly Dictionary<SKBitmap, SKImage> _images = new();
+
+    /// <summary>
+    /// One textured quad: HUD art, an icon, or the checker for a surface a
+    /// preview has no pixels for. A rotated leaf turns the whole draw about
+    /// its centre (stock spins the flag arrow and the damage ring that way);
+    /// an additive one adds its pixels to what is behind, the damage ring's
+    /// glow, instead of painting over them.
+    /// </summary>
+    private void Textured(SKCanvas canvas, SKPaint paint, in UiTexturedQuad t)
+    {
+        bool rotated = t.Rotation != 0f;
+        if (rotated)
+        {
+            canvas.Save();
+            canvas.Translate(t.Rect.X + t.Rect.W / 2, t.Rect.Y + t.Rect.H / 2);
+            canvas.RotateRadians(t.Rotation);
+            canvas.Translate(-(t.Rect.X + t.Rect.W / 2), -(t.Rect.Y + t.Rect.H / 2));
+        }
+
+        if (t.Blend == UiBlend.Additive)
+            paint.BlendMode = SKBlendMode.Plus;
+
+        if (HudArt?.Find(t.Texture) is { } hud)
+        {
+            // Decoded HUD art (PreviewTextures): the file's own
+            // colours, the quad's UV window stretched over it —
+            // the live TexturedRect's sub-surface. The window may
+            // reach past the art's edges (the cap swipe slides
+            // off): that part samples nothing, so only the
+            // on-surface fraction of the quad draws.
+            float wx0 = t.Uv.X, wx1 = t.Uv.X + t.Uv.W;
+            float wy0 = t.Uv.Y, wy1 = t.Uv.Y + t.Uv.H;
+            float u0 = Math.Clamp(Math.Min(wx0, wx1), 0f, 1f);
+            float u1 = Math.Clamp(Math.Max(wx0, wx1), 0f, 1f);
+            float v0 = Math.Clamp(Math.Min(wy0, wy1), 0f, 1f);
+            float v1 = Math.Clamp(Math.Max(wy0, wy1), 0f, 1f);
+            if (u1 > u0 && v1 > v0)
+            {
+                var rect = t.Rect;
+                float fx0 = (u0 - wx0) / t.Uv.W, fx1 = (u1 - wx0) / t.Uv.W;
+                float fy0 = (v0 - wy0) / t.Uv.H, fy1 = (v1 - wy0) / t.Uv.H;
+                var dest = new SKRect(rect.X + rect.W * Math.Min(fx0, fx1), rect.Y + rect.H * Math.Min(fy0, fy1),
+                                      rect.X + rect.W * Math.Max(fx0, fx1), rect.Y + rect.H * Math.Max(fy0, fy1));
+                var src = new SKRect(u0 * hud.Wide, v0 * hud.Tall, u1 * hud.Wide, v1 * hud.Tall);
+                paint.Style = SKPaintStyle.Fill;
+                paint.Shader = null;
+                paint.Color = SKColors.White;
+                var hudImage = Image(t.Texture, hud);
+                canvas.DrawImage(hudImage, src, dest, new SKSamplingOptions(SKFilterMode.Linear), paint);
+            }
+        }
+        else if (UiIconSet.RectOf(t.Texture) is int a and >= 0)
+        {
+            // An icon: the atlas copy, as the game draws it, tinted.
+            var atlas = Atlas();
+            var src = _icons!.Rects[a];
+            paint.Shader = null;
+            paint.Style = SKPaintStyle.Fill;
+            paint.Color = C(t.Tint);
+            using var image = SKImage.FromBitmap(atlas);
+            canvas.DrawImage(image, new SKRect(src.X, src.Y, src.X + src.W, src.Y + src.H), R(t.Rect),
+                             new SKSamplingOptions(SKFilterMode.Linear), paint);
+        }
+        else
+        {
+            // Other textures are not in previews yet: a tinted checker marks the
+            // place, and the handle is stamped muted in the corner so a PNG
+            // review sees which surface the element asks for.
+            paint.Shader = null;
+            paint.Style = SKPaintStyle.Fill;
+            paint.Color = C(t.Tint).WithAlpha((byte)(t.Tint.A / 3));
+            canvas.DrawRect(R(t.Rect), paint);
+            paint.Color = new SKColor(170, 170, 170, 235);
+            var stamp = new SKFont(Typeface(new UiFontSpec("stamped", 12, 400, UiFontFlags.None)), 12);
+            canvas.DrawText(t.Texture.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                            t.Rect.X + 3, t.Rect.Y + 13, SKTextAlign.Left, stamp, paint);
+        }
+
+        paint.BlendMode = SKBlendMode.SrcOver;
+        if (rotated)
+            canvas.Restore();
+    }
 
     private void DrawCover(SKCanvas canvas, SKBitmap image, int w, int h)
     {

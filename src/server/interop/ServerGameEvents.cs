@@ -9,8 +9,9 @@ namespace SourceSharp.Abi;
 ///
 /// <para>
 /// Those three were IShimEventsServer slots whose native bodies made one
-/// engine call each. The forwarder makes the same call, with stock's default
-/// arguments written out (<c>bForce</c> false, <c>bDontBroadcast</c> false),
+/// engine call each. The forwarder makes the same call, with the create's
+/// <c>bForce</c> written out as the false stock's callers pass it; the fire's
+/// <c>bDontBroadcast</c> is the caller's argument, which the seam carries,
 /// and the warning for an undeclared event is this class's. Every other
 /// member is the inner area's, unchanged: reading an event, setting its
 /// fields and listening are still slots.
@@ -48,9 +49,17 @@ public sealed unsafe class ServerGameEvents : IEngineGameEvents
             : null;
 
     /// <summary>
-    /// A new event of the declared kind <paramref name="name"/>, or zero (with
-    /// a warning) when no such event is declared. Fire it (<see cref="EventFire"/>,
-    /// which frees it) or free it.
+    /// A new event of the declared kind <paramref name="name"/>, or zero. Fire
+    /// it (<see cref="EventFire"/>, which frees it) or free it.
+    ///
+    /// <para>
+    /// The manager answers null to an unforced create for two reasons: no
+    /// such event is declared, or it is declared and nothing listens for it
+    /// (stock's callers create unforced, and fire nothing then). Only the
+    /// first is a fault, so a null is asked again forced: an event that comes
+    /// back is declared, and is freed unfired, quietly; one that does not is
+    /// warned of.
+    /// </para>
     /// </summary>
     public IntPtr EventCreate(string name)
     {
@@ -58,18 +67,30 @@ public sealed unsafe class ServerGameEvents : IEngineGameEvents
             return IntPtr.Zero;
 
         void* created;
+        void* forced = null;
         fixed (byte* p = Vtable.Utf8(name))
+        {
             created = _fwd->CreateEvent(_self, p, 0);
+            if (created == null)
+                forced = _fwd->CreateEvent(_self, p, 1);
+        }
 
-        if (created == null)
-            _log.Warning($"[SourceSharp] could not create game event '{name}': no such event is declared\n");
+        if (forced != null)
+            _fwd->FreeEvent(_self, forced);
+        else if (created == null)
+            _log.Warning($"[SourceSharp] could not create game event '{name}': it is not declared in any loaded event file\n");
 
         return (IntPtr)created;
     }
 
-    /// <summary>Fires an event made by <see cref="EventCreate"/>; the engine frees it.</summary>
-    public bool EventFire(IntPtr handle)
-        => handle != IntPtr.Zero && _fwd->FireEvent(_self, (void*)handle, 0) != 0;
+    /// <summary>
+    /// Fires an event made by <see cref="EventCreate"/>; the engine frees it.
+    /// The broadcast flag is the caller's, as in stock's
+    /// <c>FireEvent(pEvent, bDontBroadcast)</c>: the ones that carry it
+    /// (payload_pushed, in team_train_watcher.cpp:1275) are server-only.
+    /// </summary>
+    public bool EventFire(IntPtr handle, bool dontBroadcast = false)
+        => handle != IntPtr.Zero && _fwd->FireEvent(_self, (void*)handle, (byte)(dontBroadcast ? 1 : 0)) != 0;
 
     /// <inheritdoc/>
     public bool EventGetBool(IntPtr handle, string key) => _inner.EventGetBool(handle, key);

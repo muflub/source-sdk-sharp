@@ -53,23 +53,46 @@ public interface IAmmoTypeSource
 /// Sources arrive in container registration order, which depends on the order
 /// the assemblies were scanned and registered; two mods loaded in the other
 /// order would otherwise append their rows in the other order and hand each
-/// other's indices to the wire. Sorting by simple assembly name (ordinal) and
-/// keeping registration order within one assembly (a stable sort) makes the
+/// other's indices to the wire. Sorting by the assembly's LAYER (ordinal) and
+/// keeping registration order within one layer (a stable sort) makes the
 /// resulting table depend on the ASSEMBLY SET alone — which is what both sides
 /// agree on, since they load the same <c>mods.yaml</c>.
 /// </para>
+///
+/// <para>
+/// THE LAYER, NOT THE NAME. Each side loads its own copy of a mod
+/// (<c>TF2.Server</c> and <c>TF2.Client</c>), so the raw name sorted the two
+/// sides differently once a second mod was layered on the first:
+/// <c>TF2.Descent.Server</c> sorts before <c>TF2.Server</c>, but
+/// <c>TF2.Client</c> before <c>TF2.Descent.Client</c>, and the layered mod's
+/// rows took different wire indices per side. The layer is the name with its
+/// <c>.Server</c>/<c>.Client</c> segments dropped, the same on both sides, and
+/// it orders core, then TF2, then TF2.Descent: a layered mod is named after
+/// the one it extends, and a prefix sorts first.
+/// </para>
 /// </summary>
-internal static class HookOrder
+public static class HookOrder
 {
     /// <summary>
-    /// <paramref name="sources"/> ordered by simple assembly name, ties broken
-    /// by the order they were registered in.
+    /// <paramref name="sources"/> ordered by their assemblies' <see cref="Layer"/>,
+    /// ties broken by the order they were registered in.
     /// </summary>
     public static IReadOnlyList<T> Sorted<T>(IEnumerable<T> sources)
         where T : class
         => sources
-            .OrderBy(s => s.GetType().Assembly.GetName().Name ?? string.Empty, StringComparer.Ordinal)
+            .OrderBy(s => Layer(s.GetType().Assembly), StringComparer.Ordinal)
             .ToArray();
+
+    /// <summary>An assembly's layer: <see cref="Layer(string)"/> of its simple name.</summary>
+    public static string Layer(System.Reflection.Assembly assembly) => Layer(assembly.GetName().Name ?? string.Empty);
+
+    /// <summary>
+    /// A simple assembly name without its side segments: <c>TF2.Server</c>
+    /// and <c>TF2.Client</c> are both <c>TF2</c>, <c>SourceSharp.Server.Interop</c>
+    /// is <c>SourceSharp.Interop</c>, and a side-less name is itself.
+    /// </summary>
+    public static string Layer(string assemblyName)
+        => string.Join('.', assemblyName.Split('.').Where(part => part is not ("Server" or "Client")));
 }
 
 /// <summary>

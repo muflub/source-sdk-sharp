@@ -66,6 +66,30 @@ public class UiLayoutTests
     }
 
     [Fact]
+    public void A_text_size_override_wins_over_the_role()
+    {
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) =>
+        {
+            ui.Number(7).TextSize(20);
+            ui.Number(8);
+        });
+
+        float s = UiScale.For(1920, 1080);
+        int overridePx = (int)MathF.Round(20 * s);
+        int rolePx = (int)MathF.Round(ctx.Theme.Type(Text.Number).SizeDu * s);
+        var fonts = ctx.List.AsDrawList().Fonts;
+        bool overrideSeen = false, roleSeen = false;
+        for (int i = 0; i < fonts.Length; i++)
+        {
+            overrideSeen |= fonts[i].PxHeight == overridePx;
+            roleSeen |= fonts[i].PxHeight == rolePx;
+        }
+        Assert.True(overrideSeen, $"the {overridePx}px override among {fonts.Length} font(s)");
+        Assert.True(roleSeen, $"the role's {rolePx}px among {fonts.Length} font(s)");
+    }
+
+    [Fact]
     public void A_vertical_stack_places_children_in_order_and_fill_takes_the_rest()
     {
         var ctx = Context();

@@ -23,6 +23,35 @@ public interface IWeaponGiver
 
     /// <inheritdoc cref="Arsenal.GiveAmmo"/>
     int GiveAmmo(EntityHandle player, int count, string ammoName);
+
+    /// <summary>
+    /// <inheritdoc cref="Arsenal.MaxCarryOf"/> A giver with no per-player
+    /// limits answers the row's own.
+    /// </summary>
+    int MaxCarryOf(EntityHandle player, in AmmoType ammo) => ammo.MaxCarry;
+
+    /// <summary>
+    /// The player's pool for an ammo row — the inventory's own word, what
+    /// stock's client reads on any switch (m_iAmmo, the
+    /// DT_LocalPlayerExclusive array of player.cpp:7929). False: no record
+    /// held for this player or row, which the reader takes as an empty pool.
+    /// A giver with no pools answers false for everything.
+    /// </summary>
+    bool PoolOf(EntityHandle player, string ammoName, out int count)
+    {
+        count = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// The clip of the player's carried weapon of catalog row
+    /// <paramref name="typeIndex"/> — the stored copy the next switch deploys
+    /// (stock's <c>m_iClip1</c>, networked on the weapon entity,
+    /// <c>basecombatweapon_shared.cpp</c>'s send table). Minus one: the player
+    /// carries no such weapon, or it has no clip. A giver with no carry
+    /// answers minus one for everything.
+    /// </summary>
+    int CarriedClipOf(EntityHandle player, int typeIndex) => -1;
 }
 
 /// <summary>
@@ -156,7 +185,7 @@ public sealed class ImpulseCheats
     private void GiveEverything(EntityHandle player)
     {
         foreach (var ammo in _ammo.All)
-            _arsenal.GiveAmmo(player, ammo.MaxCarry, ammo.Name);
+            _arsenal.GiveAmmo(player, _arsenal.MaxCarryOf(player, in ammo), ammo.Name);
 
         int given = 0;
 

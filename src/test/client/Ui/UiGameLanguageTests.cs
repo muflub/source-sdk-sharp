@@ -36,7 +36,7 @@ public sealed class UiGameLanguageTests : IDisposable
     {
         // The shipped file (UTF-16 LE with its mark), and the same text in the
         // other encodings Load's mark detection accepts.
-        byte[] shipped = File.ReadAllBytes(RepoLayout.Repo("game", "mod_test", "resource", "mod_sharp_english.txt"));
+        byte[] shipped = File.ReadAllBytes(RepoLayout.Repo("game", "mod_test", "resource", "test_english.txt"));
         string text = Encoding.Unicode.GetString(shipped.AsSpan(2));
         var encodings = new (string Name, byte[] Bytes)[]
         {
@@ -104,7 +104,7 @@ public sealed class UiGameLanguageTests : IDisposable
     public void The_mods_disk_file_wins_over_its_game_files_and_they_over_the_core()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "resource"));
-        File.WriteAllText(Path.Combine(_dir, ClientUi.LanguageFile), LanguageText("\"Shared\" \"From disk\""), Encoding.Unicode);
+        File.WriteAllText(Path.Combine(_dir, ClientUi.LanguageFileName(_dir)), LanguageText("\"Shared\" \"From disk\""), Encoding.Unicode);
         var engine = Fake().Returns("Files.ReadGameFileBytes", Utf16("\"Shared\" \"From the VPK\"\n\"SS_UI_Ok\" \"VPK OK\""));
         var lang = ClientUi.Language(_dir, new RecordingLog(), engine, [VpkPath]);
         Assert.Equal("From disk", lang.Find("#Shared"));
@@ -120,5 +120,32 @@ public sealed class UiGameLanguageTests : IDisposable
         var lang = ClientUi.Language(_dir, log, engine, [VpkPath]);
         Assert.Contains($"{VpkPath} (mods.yaml localisation) is on no GAME path", log.Text);
         Assert.Equal("OK", lang.Find("#SS_UI_Ok"));
+    }
+
+    /// <summary>
+    /// Both readers land on ONE file per shipped mod. The engine asks
+    /// <c>resource/&lt;gamedir&gt;_english.txt</c> by the game directory's name
+    /// (observed live: mods/tf2 asks
+    /// tf2_english.txt, mods/test test_english.txt, mods/tf2_descent
+    /// tf2_descent_english.txt). The managed chain takes the same name from
+    /// <see cref="ClientUi.LanguageFileName"/>, so the disk file under that
+    /// name is the one file both read -- and it exists for every shipped mod.
+    /// </summary>
+    [Fact]
+    public void Each_shipped_mod_holds_one_language_file_under_the_name_the_engine_asks()
+    {
+        foreach ((string shippedDir, string gameDirName) in new[]
+                 {
+                     ("mod_test", "test"), ("mod_tf2", "tf2"), ("mod_tf2_descent", "tf2_descent"),
+                 })
+        {
+            // The engine's asked name for this mod's game directory.
+            string asked = ClientUi.LanguageFileName(Path.Combine("bin", "debug", "mods", gameDirName));
+            Assert.Equal(Path.Combine("resource", gameDirName + "_english.txt"), asked);
+
+            string[] files = Directory.GetFiles(RepoLayout.Repo("game", shippedDir, "resource"), "*_english.txt");
+            Assert.Single(files);                                     // one file, no drifting duplicate
+            Assert.Equal(Path.GetFileName(asked), Path.GetFileName(files[0]));
+        }
     }
 }

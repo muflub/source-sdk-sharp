@@ -253,4 +253,112 @@ public partial class WeaponNetState
     /// <summary>The crossbow's scope is up: m_bInZoom.</summary>
     [Predicted]
     public partial bool InZoom { get; set; }
+
+    /// <summary>
+    /// The owner's long-term random-crit rate, their weapon's: stock's
+    /// <c>CTFWeaponBase::m_flObservedCritChance</c>
+    /// (<c>shared/tf/tf_weaponbase.h:761</c>), which the server's
+    /// <c>CanFireRandomCriticalShot</c> measures from the owner's round's
+    /// ranged and random-crit damage and both sides' crit rolls compare
+    /// against (<c>tf_weaponbase.cpp:4630-4664</c>). Stock nets it as a
+    /// 16-bit <c>SendPropFloat</c>, NOSCALE, 0 to 100
+    /// (<c>tf_weaponbase.cpp:181</c>) and zeroes it at the weapon's Init
+    /// (:309), never at a deploy — a fresh state is already 0, so this
+    /// field belongs beside the stock members, not the behaviour's four.
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float ObservedCritChance { get; set; }
+
+    //-------------------------------------------------------------------------
+    // A BEHAVIOUR'S OWN STATE. The machine never reads these and writes them
+    // only to zero them when a weapon is deployed: they are an
+    // IWeaponBehaviour's, for the per-weapon state a mod's weapon keeps between
+    // commands and must predict (a spin-up state, a charge meter, a crit
+    // window, a reload's next shell). A behaviour object serves every player
+    // on its side, so what it remembers about one weapon belongs here, where
+    // the client's replay restores it with the rest of the weapon.
+    //
+    // Their meaning is the behaviour's: a mod documents its own use of them.
+    // Seven: the minigun's state, its rapid-fire crit window and check, its
+    // wind-up start, the spun drain's clock and accumulator
+    // (TFMinigunBehaviour), and the kept clock below.
+    //
+    // Six of them are the deploy's to clear (see ResetBehaviourState); the
+    // seventh, BehaviourKeptTime, a behaviour opts out of that clear for a
+    // clock that must survive a deploy the way the stock member it mirrors
+    // does.
+    //-------------------------------------------------------------------------
+
+    /// <summary>A behaviour's mode word (a state machine's state, flags).</summary>
+    [Predicted]
+    public partial int BehaviourMode { get; set; }
+
+    /// <summary>A behaviour's first clock, on the machine's clock.</summary>
+    [Predicted(0.001f)]
+    public partial float BehaviourTimeA { get; set; }
+
+    /// <summary>A behaviour's second clock, on the machine's clock.</summary>
+    [Predicted(0.001f)]
+    public partial float BehaviourTimeB { get; set; }
+
+    /// <summary>A behaviour's third clock, on the machine's clock.</summary>
+    [Predicted(0.001f)]
+    public partial float BehaviourTimeC { get; set; }
+
+    /// <summary>A behaviour's meter (a charge, an amount).</summary>
+    [Predicted(0.001f)]
+    public partial float BehaviourMeter { get; set; }
+
+    /// <summary>A behaviour's second meter (an amount accrued across commands).</summary>
+    [Predicted(0.001f)]
+    public partial float BehaviourMeterB { get; set; }
+
+    /// <summary>
+    /// A behaviour's clock that survives a deploy: zero unless a behaviour
+    /// writes it, and left standing by <see cref="ResetBehaviourState"/>, so
+    /// it ages from the weapon's birth. The other six belong to the deploy;
+    /// this one is for a behaviour whose stock member the constructor alone
+    /// zeroes — holsters and redeploy must not erase it — predicted exact
+    /// like the stock clock behind it (an unflagged
+    /// <c>DEFINE_PRED_FIELD</c>, not a tolerance one). The tf2 assembly's
+    /// TFRevolverBehaviour is the first user, riding it as the revolver's
+    /// accuracy clock.
+    /// </summary>
+    [Predicted]
+    public partial float BehaviourKeptTime { get; set; }
+
+    /// <summary>
+    /// The server's deploy stamp: bumped by <c>Arsenal.Deploy</c>, and by the
+    /// client's <c>MirrorDeploy</c> when a command's weaponselect answers for
+    /// the same deploy, so a switch the client predicted carries the same
+    /// stamp on both sides and stands fully judged. An arrival whose stamp
+    /// stands away from the acked slot's is a (re)hand-out the client never
+    /// predicted — the spawn kit's Deploy and the round-start respawn's run
+    /// between two client commands, on no command at all — and the acked slot
+    /// then has nothing to judge, exactly as a stock weapon recreated at
+    /// respawn has nothing to judge: stock's <c>InitPredictable</c> seeds
+    /// every predicted slot from the fresh entity's own arrival
+    /// (<c>c_baseentity.cpp:4578-4583</c>, "so we don't get an error saying we
+    /// mispredicted any values which are still at their initial values").
+    /// Ours, not stock's: the ss pair persists where stock's entities are
+    /// recreated each spawn, and the stamp is the event the recreation would
+    /// have been. Compared exact, like the parity it stands beside.
+    /// </summary>
+    [Predicted]
+    public partial int DeployEpoch { get; set; }
+
+    /// <summary>
+    /// Zeroes the behaviour's own state, as a deploy does: the weapon now in
+    /// the hands starts from nothing, the way stock's weapons reset their own
+    /// on holster and deploy.
+    /// </summary>
+    public void ResetBehaviourState()
+    {
+        BehaviourMode = 0;
+        BehaviourTimeA = 0f;
+        BehaviourTimeB = 0f;
+        BehaviourTimeC = 0f;
+        BehaviourMeter = 0f;
+        BehaviourMeterB = 0f;
+    }
 }

@@ -273,6 +273,35 @@ public class TriggerTests
     }
 
     /// <summary>
+    /// OnStartTouchAll, stock's pair to OnEndTouchAll (triggers.cpp StartTouch):
+    /// it fires when the FIRST toucher enters, not for every entrant. TF2 maps
+    /// wire their spawn doors to this one — ctf_2fort's door_red3 among them —
+    /// and without it the Open connection never reaches the door.
+    /// </summary>
+    [Fact]
+    public void StartTouchAllWithTheFirstEntrant()
+    {
+        var (registry, trigger) = Spawn<TriggerMultiple>(EntityNames.TriggerMultiple);
+
+        registry.Touch(Ent, Player);
+        Assert.True(trigger.OnStartTouch.FireCount == 1, "the first entrant is reported");
+        Assert.True(trigger.OnStartTouchAll.FireCount == 1, "and emptiness ending fires OnStartTouchAll");
+
+        // Still one person inside when the second walks in: stock counts
+        // emptiness ending, not arrivals.
+        registry.Touch(Ent, Other);
+        Assert.True(trigger.OnStartTouch.FireCount == 2, "every entrant reports in");
+        Assert.True(trigger.OnStartTouchAll.FireCount == 1, "a second entrant does not refill an occupied volume");
+
+        // The last one out (both here leave) empties it, so the next entrant is
+        // first again.
+        registry.EndTouch(Ent, Player);
+        registry.EndTouch(Ent, Other);
+        registry.Touch(Ent, Player);
+        Assert.True(trigger.OnStartTouchAll.FireCount == 2, "the first entrant after emptying fires it again");
+    }
+
+    /// <summary>
     /// The bare "trigger" is a base class with a map name and no behaviour, and
     /// the managed one has to be just as inert: what it guards against is the
     /// brush shell's default, a solid visible wall where a mapper drew a volume.

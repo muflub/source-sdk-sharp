@@ -117,7 +117,7 @@ public class UiTextTests
 
     // The game's chain: mods/test's file, then the core's #SS_UI_ strings.
     private static UiLanguageFile Language()
-        => UiLanguageFile.Chain([RepoLayout.Repo("game", "mod_test", "resource", "mod_sharp_english.txt"),
+        => UiLanguageFile.Chain([RepoLayout.Repo("game", "mod_test", "resource", "test_english.txt"),
                                  RepoLayout.Repo(UiLanguageFile.CoreRepoPath.Split('/'))]);
 
     [Fact]

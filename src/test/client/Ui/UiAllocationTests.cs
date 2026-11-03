@@ -40,6 +40,15 @@ public class UiAllocationTests(ITestOutputHelper output)
         // orbs, belt, party frames, boss bar and cast bar all describe live.
         { "descenthud", "healthy-party-of-two-map-revealed" },
         { "descenthud", "low-life-broken-belt-boss-engaged-casting-gear-broken" },
+        // The TF2 cross per frame (stage3_client.md): caption, number row,
+        // life meter and the meters' corner all describe live; the ammo arm
+        // beside it, clip and pool counting every frame; and the clock,
+        // its m:ss formatted into the text arena every frame. The dying
+        // arm (critical-soldier) draws ten ops — under this rig's floor —
+        // so the row carries the disguise state, the widest cross.
+        { "tfhud", "spy-disguised-as-a-red-soldier" },
+        { "tfhud", "rocket-launcher-clip-and-reserve" },
+        { "tfhud", "round-clock-counting-down" },
         { "hud", "kill-feed-busy" },
         { "hud", "kill-feed-long-names-no-teams" },
         { "spectarget", "rebels-full-health-smg" },
@@ -108,7 +117,9 @@ public class UiAllocationTests(ITestOutputHelper output)
 
         int ops = ctx.List.OpCount;
         output.WriteLine($"{group}/{slug}: {bytes} bytes over {Frames} frames ({bytes / (double)Frames:0.##} per frame), {ops} draw ops a frame");
-        Assert.True(ops > 10, $"{ops} draw ops: the screen drew (almost) nothing, so zero bytes would prove nothing");
+        // Ten, not eleven: the backdrop plates ride the artless arm now, so
+        // the artful frame carries the art's ops alone.
+        Assert.True(ops >= 10, $"{ops} draw ops: the screen drew (almost) nothing, so zero bytes would prove nothing");
         Assert.Equal(0, bytes);
     }
 
@@ -168,10 +179,12 @@ public class UiAllocationTests(ITestOutputHelper output)
         public void Line(int x0, int y0, int x1, int y1, uint rgba) => Draws++;
         public void TexturedRect(int texture, int x0, int y0, int x1, int y1, float s0, float t0, float s1, float t1, uint rgba) => Draws++;
         public void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba) => Draws++;
+        public void TexturedQuad(int texture, ReadOnlySpan<float> xyuv, uint rgba, bool additive) => Draws++;
         public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba) => Draws++;
         public void MeasureText(int font, ReadOnlySpan<char> text, out int width, out int height) => (width, height) = (0, 0);
         public void SetClip(bool enabled, int x0, int y0, int x1, int y1) => Draws++;
         public int TextureCreate() => ++_handles;
+        public int MaterialTexture(string name) => 0;
         public void TextureUpload(int texture, ReadOnlySpan<byte> rgba, int wide, int tall) { }
         public bool FontAddFile(string path) => true;
         public int FontCreate(string family, int tall, int weight, int vguiFlags) => ++_handles;

@@ -726,6 +726,12 @@ public sealed class ServerPlayerMovementRulesTests
         s.SuitDevices = GameMovement.SuitDeviceSprint;
         s.SuitDevicesOffTime = 7.25f;
         s.NewSprinting = true;
+        m.Fov = 20;
+        m.FovStart = 90;
+        m.FovTime = 6f;
+        m.FovRate = 0.1f;
+        m.FovDefault = 75;
+        m.ZoomOwner = new EntityHandle(0x0005_0100u);
         return m;
     }
 
@@ -765,6 +771,24 @@ public sealed class ServerPlayerMovementRulesTests
 
         Assert.Equal((62.5f, 25f, GameMovement.SuitDeviceSprint, 7.25f, true),
                      (state.SuitPower, state.SuitPowerLoad, state.SuitDevices, state.SuitDevicesOffTime, state.NewSprinting));
+    }
+
+    /// <summary>
+    /// The FOV words are networked, as stock sends them (player.cpp:8247-8251,
+    /// plus m_Local.m_flFOVRate), so the client's view runs GetFOV's ramp.
+    /// </summary>
+    [Fact]
+    public void ThePublishWritesTheFovWords()
+    {
+        var state = new PlayerNetState();
+        state.BindLocal();
+
+        PlayerMovePublisher.Write(state, Moved());
+
+        Assert.True(state.Fov == 20 && state.FovStart == 90 && state.FovTime == 6f
+                    && state.FovRate == 0.1f && state.FovDefault == 75
+                    && state.ZoomOwner == new EntityHandle(0x0005_0100u).Value,
+                    $"the fov words; got {state.Fov}, {state.FovStart}, {state.FovTime}, {state.FovRate}, {state.FovDefault}, {state.ZoomOwner}");
     }
 
     [Fact]

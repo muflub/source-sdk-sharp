@@ -270,6 +270,10 @@ FORWARD = [
             # reads, for the server's movement constants managed builds itself
             # (shell_movement.cpp's FillConstants read engine->Time()).
             'Time',
+            # tf2 N2: the round cleanup's AllowImmediateEdictReuse, between the
+            # real delete and the re-create into the old slots (stock's
+            # CTeamplayRoundBasedRules::CleanUpMap).
+            'AllowImmediateEdictReuse',
         ],
     ),
     dict(
@@ -578,7 +582,7 @@ FORWARD = [
         # creates, fires and frees an event through the manager, where the
         # EventCreate / EventFire / EventFree slots used to make each call.
         methods=[
-            'CreateEvent', 'FireEvent',
+            'CreateEvent', 'FireEvent', 'FreeEvent',
         ],
     ),
 ]

@@ -58,7 +58,9 @@ public sealed class Chat : UiScreen
 
     public override void Describe(ref UiFrame ui)
     {
-        if (_chat.Count == 0)
+        // A screen that takes the chat (a mod HUD's own feed) stands this down
+        // entirely: one feed, not two.
+        if (ui.Taken("chat") || _chat.Count == 0)
             return;
 
         // Narrow: chat moves to the top, across the screen, so the bottom stays

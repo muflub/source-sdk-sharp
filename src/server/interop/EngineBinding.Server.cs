@@ -149,6 +149,26 @@ internal sealed unsafe partial class EngineDamage
         _damageArea.EntityTakeDamage(entity.Value, attacker.Value, damage, (int)damageType,
                              d, o, physicsOnly ? 1 : 0);
     }
+
+    /// <summary>
+    /// The same damage, answered: what the victim took, 0 for a refusal, so a
+    /// blast's push (stock's ApplyPushFromDamage, inside OnTakeDamage_Alive)
+    /// runs only on damage that landed. The marshalling is TakeDamage's.
+    /// </summary>
+    public int TakeDamageAnswered(EntityHandle entity, EntityHandle attacker, float damage, DamageType damageType, Vector? direction = null, Vector forceOrigin = default, bool physicsOnly = false)
+    {
+        if (direction is not Vector dir)
+        {
+            return _damageArea.EntityTakeDamageAnswered(entity.Value, attacker.Value, damage, (int)damageType,
+                                 null, null, physicsOnly ? 1 : 0);
+        }
+
+        float* d = stackalloc float[3] { dir.X, dir.Y, dir.Z };
+        float* o = stackalloc float[3] { forceOrigin.X, forceOrigin.Y, forceOrigin.Z };
+
+        return _damageArea.EntityTakeDamageAnswered(entity.Value, attacker.Value, damage, (int)damageType,
+                             d, o, physicsOnly ? 1 : 0);
+    }
 }
 
 internal sealed unsafe partial class EngineDiagnostics
@@ -334,7 +354,12 @@ internal sealed unsafe partial class EngineEffects
     public int DrawSpriteOffset(EntityHandle owner, Vector offset, int modelIndex, float frame, int renderMode, int renderFx, int r, int g, int b, int a, float scale, bool worldSpaceScale, float hdrColorScale, float glowProxySize) => 0;
     public bool ParticleSystemStart(EntityHandle owner, string name) => false;
     public void ParticleSystemStop(EntityHandle owner) { }
+    public bool ParticleSystemStartExtra(EntityHandle owner, string name) => false;
+    public void ParticleSystemStopExtra(EntityHandle owner) { }
     public bool ParticleSystemFollowPoints(EntityHandle owner, int pointMask) => false;
+    public bool ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset = null) => false;
+    public bool ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => false;
+    public void ParticleSystemStopSlot(EntityHandle owner, int slot) { }
     public void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) { }
     public void SpriteTrailDestroy(EntityHandle owner) { }
 }
@@ -484,6 +509,21 @@ internal sealed unsafe partial class EngineEntities
 
     public EntityHandle CreateFromMap(string className, byte[] packedKeys)
         => MapSpawnCreate(className, packedKeys);
+
+    public EntityHandle CreateFromMapAt(string className, byte[] packedKeys, int edictIndex)
+    {
+        // A shell-less class has no edict to place: the map's route, as above.
+        if (edictIndex < 0 || _shellLess.ClassIsShellLess(className))
+            return MapSpawnCreate(className, packedKeys);
+
+        var name = Encoding.UTF8.GetBytes(className + "\0");
+
+        fixed (byte* pName = name)
+        fixed (byte* pKeys = packedKeys)
+        {
+            return new EntityHandle(_entityLifecycleArea.MapSpawnCreateAt(pName, pKeys, packedKeys.Length, edictIndex));
+        }
+    }
 
     public Vector GetAngularVelocity(EntityHandle entity) => E.EntityGetAngularVelocity(entity);
     /// <summary>
@@ -1463,6 +1503,7 @@ internal sealed unsafe partial class EngineEntityRender
     public void SetOverlayModel(EntityHandle entity, int modelIndex) { }
     public void SetViewModel(EntityHandle entity, bool enable) { }
     public void SetSkin(EntityHandle entity, int skin) { }
+    public void SetModelOverride(EntityHandle entity, string model) { }
     private partial bool EngineIsDormant(EntityHandle entity) => false;
 }
 
@@ -1692,6 +1733,8 @@ OverlayReadout()
     public void ViewportShow(string panel, bool show, IReadOnlyList<KeyValuePair<string, string>> data, ViewportActions actions) { }
     public int LocalPlayerHealth => -1;
     public Vector? LocalPlayerOrigin => null;
+    public bool ScreenOverlaySet(string name) => false;
+    public string ScreenOverlayGet() => string.Empty;
 }
 
 internal sealed unsafe partial class EngineNetworking
@@ -1941,6 +1984,7 @@ internal sealed unsafe partial class EnginePlayers
     private readonly ICollisionServerArea _collisionServerArea;
     private readonly ITransformArea _transformArea;
     private readonly IEntityLifecycleArea _entityLifecycleArea;
+    private readonly SideRoute<IServerPlayerMovementRoute> _playerMoves;
 
     private readonly PlayerTeams _teams = new();
 
@@ -1950,7 +1994,8 @@ internal sealed unsafe partial class EnginePlayers
                          IPlayersArea playersArea,
                          ICollisionServerArea collisionServerArea,
                          ITransformArea transformArea,
-                         IEntityLifecycleArea entityLifecycleArea)
+                         IEntityLifecycleArea entityLifecycleArea,
+                         SideRoute<IServerPlayerMovementRoute> playerMoves)
     {
         _side = side ?? throw new ArgumentNullException(nameof(side));
         _server = server ?? throw new ArgumentNullException(nameof(server));
@@ -1960,7 +2005,23 @@ internal sealed unsafe partial class EnginePlayers
         _collisionServerArea = collisionServerArea ?? throw new ArgumentNullException(nameof(collisionServerArea));
         _transformArea = transformArea ?? throw new ArgumentNullException(nameof(transformArea));
         _entityLifecycleArea = entityLifecycleArea ?? throw new ArgumentNullException(nameof(entityLifecycleArea));
+        _playerMoves = playerMoves ?? throw new ArgumentNullException(nameof(playerMoves));
     }
+
+    /// <summary>
+    /// CBasePlayer::SetFOV, on the player's record: the sniper's zoom (and
+    /// env_zoom's, and the <c>fov</c> console command's), through the managed
+    /// command loop's words.
+    /// </summary>
+    public void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f, int start = 0)
+        => _playerMoves.Target?.SetFov(player, requester, fov, rate, start);
+
+    /// <summary>
+    /// CBasePlayer::SetDefaultFOV (player.cpp:8741): the bare assignment —
+    /// the word an unzoomed view answers, no ramp and no owner.
+    /// </summary>
+    public void SetDefaultFov(EntityHandle player, int fov)
+        => _playerMoves.Target?.SetDefaultFov(player, fov);
 
     /// <summary>
     /// A handle for a "skip this entity" parameter, with a shell-less one
@@ -2219,6 +2280,14 @@ internal sealed unsafe partial class EnginePrecache
     public void PrecacheMaterial(string material) => Precache("Materials", material);
 
     public void PrecacheParticleSystem(string name) => Precache("ParticleEffectNames", name);
+
+    /// <summary>GetParticleSystemIndex (gameinterface.cpp:2369-2382): find in the table; 0 — the error system — on a miss.</summary>
+    public int ParticleSystemIndex(string name)
+    {
+        int table = Tables.Find("ParticleEffectNames");
+        int index = table >= 0 ? Tables.FindStringIndex(table, name) : -1;
+        return index >= 0 ? index : 0;
+    }
 
     public int PrecacheModel(string model) => E.PrecacheModel(model);
 
@@ -2621,6 +2690,14 @@ internal sealed unsafe partial class EngineSound
         if (soundName.Length == 0) return;
 
         _sounds.Target?.EntityEmitSoundAs(entity, soundName, volume, pitch);
+    }
+
+    /// <summary>The announcer's team-filtered arm: the route's <see cref="IServerSoundRoute.EntityEmitSoundToTeam"/>.</summary>
+    public void EmitSoundToTeam(int team, EntityHandle entity, string soundName)
+    {
+        if (soundName.Length == 0) return;
+
+        _sounds.Target?.EntityEmitSoundToTeam(team, entity, soundName);
     }
 
     /// <summary>A noise with no entity to come from.</summary>

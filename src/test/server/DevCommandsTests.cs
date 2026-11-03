@@ -59,6 +59,11 @@ public class DevCommandsTests
             Ammo.Add((ammoName, count));
             return AmmoTaken;
         }
+
+        /// <summary>A per-player carry limit (IAmmoCarryRule's answer), or the row's.</summary>
+        public int? Limit;
+
+        public int MaxCarryOf(EntityHandle player, in AmmoType ammo) => Limit ?? ammo.MaxCarry;
     }
 
     /// <summary>An entity directory that answers from a set of registered names.</summary>
@@ -1243,6 +1248,18 @@ public class DevCommandsTests
 
         Assert.True(giver.Weapons.SequenceEqual(new[] { WeaponTypes.All[1].Name }),
                     "give hands a registered weapon straight to the arsenal");
+    }
+
+    [Fact]
+    public void GiveFillsAnAmmoPoolToThePlayersOwnCarryLimit()
+    {
+        var (context, _, giver, _) = Rig();
+        var ammo = AmmoTypes.All[0];
+        giver.Limit = ammo.MaxCarry + 50;
+
+        Run<GiveCommand>(context, ammo.Name);
+
+        Assert.Equal([(ammo.Name, ammo.MaxCarry + 50)], giver.Ammo);
     }
 
     [Fact]

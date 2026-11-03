@@ -392,22 +392,85 @@ public sealed class MoveState
 }
 
 /// <summary>
-/// The three managed DECISIONS over how movement feels, as one immutable value
-/// a run hands its loop (statics to zero): how much of a jump the player gets
-/// (1 is the ordinary jump), the friction the loop computed, scaled, and the
-/// speed it arrived at, scaled. <see cref="Stock"/> is the identity, so a loop
-/// nobody hands rules to moves exactly like Half-Life.
+/// A backpedal clamp: the fraction of the max speed a player travelling
+/// backwards may keep, and the speed under which nobody is penalised —
+/// TF2's <c>tf_clamp_back_speed</c> pair (0.9 / 100,
+/// <c>tf_gamemovement.cpp:47-48</c>), read by its WalkMove's closing block
+/// (:1830-1863). The loop applies it only under a fraction of 1 and above the
+/// minimum, exactly as stock gates its block; stock's minimum exists "to not
+/// penalize deployed snipers or heavies" (:1832).
+/// </summary>
+public readonly record struct BackpedalLimit(float Fraction, float MinSpeed);
+
+/// <summary>
+/// A stun's rewrite of the command about to be walked: the buttons and the
+/// three moves <c>CTFGameMovement::StunMove</c> leaves behind
+/// (<c>tf_gamemovement.cpp:537-627</c>) — the movement stun scaling the moves
+/// by its amount (:565-584), the control stun zeroing them and the buttons
+/// with them (:546, :554-559). Null — no rewrite — is the ordinary answer:
+/// nobody is stunned, so the command walks as the client sent it. A non-null
+/// answer is installed on the state before <c>PlayerMove</c>, exactly where
+/// stock calls <c>StunMove()</c> (:317, its return ignored), so the walk, the
+/// button diff and the old-values copies all see the rewritten command.
+/// </summary>
+public readonly record struct MovementStun(
+    int Buttons, float ForwardMove, float SideMove, float UpMove);
+
+/// <summary>
+/// The taunt's rewrite of the command about to be walked: the three writes
+/// <c>CTFGameMovement::TauntMove</c> leaves behind
+/// (<c>tf_gamemovement.cpp:704-706</c>) — the max speed, the client's copy of
+/// it and the scaled forward move along the smoothed taunt speed. Null — no
+/// rewrite — is stock's <c>return false</c> (:715): nobody is taunting, or the
+/// taunt does not allow moving, so the command walks as the client sent it.
+/// Like the stun's, the answer is installed on the state before
+/// <c>PlayerMove</c> exactly where stock calls <c>TauntMove()</c> (:320, its
+/// return ignored).
+/// </summary>
+public readonly record struct MovementTaunt(
+    float MaxSpeed, float ForwardMove, float ClientMaxSpeed);
+
+/// <summary>
+/// The managed DECISIONS over how movement feels, as one immutable value a run
+/// hands its loop (statics to zero): how much of a jump the player gets (1 is
+/// the ordinary jump), the friction the loop computed, scaled, the speed it
+/// arrived at, scaled, the upward speed of a jump pressed in the air (0
+/// refuses it), the notice that the player stands on ground this command, the
+/// height of a standing player's eye (the constants' view height, or the
+/// mod's per-player one), the fastest a jump may leave (0, stock
+/// Half-Life, crops nothing), the backpedal clamp (null, stock
+/// Half-Life, crops nothing), the stun's rewrite of the command (null,
+/// stock Half-Life, rewrites nothing) and the taunt's rewrite of the same
+/// command (null, stock Half-Life, rewrites nothing).
+/// <see cref="Stock"/> is the identity, so
+/// a loop nobody hands rules to moves exactly like Half-Life: no jump is ever
+/// taken in the air, no walk is clamped for backing away, nobody is ever
+/// stunned and nobody ever slides through a taunt.
 /// </summary>
 public readonly record struct MovementRules(
     Func<JumpRequest, float> Jump,
     Func<int, float, float, bool, int, float> Friction,
-    Func<int, float, bool, int, float> MaxSpeed)
+    Func<int, float, bool, int, float> MaxSpeed,
+    Func<JumpRequest, float> AirJump,
+    Action<int> Grounded,
+    Func<int, float, float> EyeHeight,
+    Func<int, float, float> BunnyJump,
+    Func<int, float, BackpedalLimit?> Backpedal,
+    Func<int, float, int, float, float, float, MovementStun?> Stun,
+    Func<int, float, float, MovementTaunt?> Taunt)
 {
-    /// <summary>Stock: no scale on anything.</summary>
+    /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide.</summary>
     public static readonly MovementRules Stock = new(
         static _ => 1f,
         static (_, friction, _, _, _) => friction,
-        static (_, maxSpeed, _, _) => maxSpeed);
+        static (_, maxSpeed, _, _) => maxSpeed,
+        static _ => 0f,
+        static _ => { },
+        static (_, standing) => standing,
+        static (_, _) => 0f,
+        static (_, _) => null,
+        static (_, _, _, _, _, _) => null,
+        static (_, _, _) => null);
 }
 
 /// <summary>
@@ -774,6 +837,36 @@ public sealed partial class GameMovement
 
         _surfaceData = _s.SurfaceDataValid ? _w.Surface(_s.SurfaceProps) : default;
 
+        // The stun's rewrite of the command, asked where stock calls it:
+        // CTFGameMovement::ProcessMovement runs StunMove() after the point-
+        // contents reset and the crop flag and before PlayerMove()
+        // (tf_gamemovement.cpp:317, :329), and IGNORES its return — the walk
+        // runs on whatever the rewrite left, so the answer is installed on the
+        // state and the walk proceeds either way. The rewritten moves then
+        // drive everything that reads the command: the button diff, the wish
+        // direction, and FinishMove's OldButtons/OldForwardMove copies, which
+        // is exactly stock's consequence — its StunMove zeroes mv->m_nButtons
+        // before PlayerMove and FinishMove records the zeroed pair (:546,
+        // gamemovement.cpp:1305).
+        if (Rules.Stun(_s.EntIndex, _s.CurTime, _s.Buttons, _s.ForwardMove, _s.SideMove, _s.UpMove) is { } stun)
+        {
+            _s.Buttons = stun.Buttons;
+            _s.ForwardMove = stun.ForwardMove;
+            _s.SideMove = stun.SideMove;
+            _s.UpMove = stun.UpMove;
+        }
+
+        // The taunt's rewrite, asked right after the stun's where stock
+        // orders them (tf_gamemovement.cpp:320, between StunMove and
+        // PlayerMove, return ignored): the smoothed taunt speed replaces
+        // the max speed, its client copy and the forward move (:704-706).
+        if (Rules.Taunt(_s.EntIndex, _s.FrameTime, _s.ForwardMove) is { } taunt)
+        {
+            _s.MaxSpeed = taunt.MaxSpeed;
+            _s.ForwardMove = taunt.ForwardMove;
+            _s.ClientMaxSpeed = taunt.ClientMaxSpeed;
+        }
+
         PlayerMove();
         FinishMove();
 
@@ -821,7 +914,17 @@ public sealed partial class GameMovement
         }
         else
         {
-            if (_s.Velocity.Z > 250.0f)
+            // The shortcut's own version of CategorizePosition's rising test
+            // (gamemovement.cpp:3830-3856): stock clears the ground once the
+            // rise beats NON_JUMP_VELOCITY, relative to the ground's own
+            // rise. A hardcoded threshold above 140 glues away every lift
+            // between the two — jump pads, airblast pushes, explosions near
+            // other players — until a full categorize finally runs.
+            float zvel = _s.Velocity.Z;
+            bool risingFast = zvel > NonJumpVelocity;
+            if (risingFast && _s.HasGround)
+                risingFast = (zvel - _s.GroundVelocity.Z) > NonJumpVelocity;
+            if (risingFast)
                 SetGroundEntity(null);
         }
 
@@ -1091,9 +1194,15 @@ public sealed partial class GameMovement
         => IsObserver() ? _c.ObsHullMax * _s.ModelScale
                         : (_s.Ducked ? _c.DuckHullMax : _c.HullMax) * _s.ModelScale;
 
-    /// <summary><c>GetPlayerViewOffset(bool)</c>.</summary>
+    /// <summary>
+    /// <c>GetPlayerViewOffset(bool)</c>. Standing, the eye's height is the
+    /// rules' (<see cref="MovementRules.EyeHeight"/>, the constants' by
+    /// default): stock TF2's override answers the class's eye
+    /// (<c>CTFGameMovement::GetPlayerViewOffset</c>).
+    /// </summary>
     private Vector GetPlayerViewOffset(bool ducked)
-        => (ducked ? _c.DuckView : _c.View) * _s.ModelScale;
+        => (ducked ? _c.DuckView : new Vector(_c.View.X, _c.View.Y, Rules.EyeHeight(_s.EntIndex, _c.View.Z)))
+           * _s.ModelScale;
 
     private bool IsObserver() => _s.ObserverMode != 0;
 
@@ -1305,6 +1414,18 @@ public sealed partial class GameMovement
     }
 
     /// <summary>
+    /// The fastest a jump may leave, as the rules answer it:
+    /// <c>CTFGameMovement::PreventBunnyJumping</c>'s
+    /// <c>maxscaledspeed</c> (tf_gamemovement.cpp:1099), which stock guards at
+    /// zero — a negative answer is no cap, the same as none.
+    /// </summary>
+    private float BunnyJumpCap(int playerIndex, float maxSpeed)
+    {
+        float cap = Rules.BunnyJump(playerIndex, maxSpeed);
+        return cap < 0.0f ? 0.0f : cap;
+    }
+
+    /// <summary>
     /// CheckJumpButton's jump speed, both of stock's branches: under
     /// movement optimisations (the server's and the client's, always) the HL2
     /// arm's literal <see cref="Hl2JumpSpeed"/>, whatever the gravity; without
@@ -1463,6 +1584,42 @@ public sealed partial class GameMovement
         _s.Velocity.Z = 0;
         Accelerate(wishdir, wishspeed, _c.Accelerate);
         _s.Velocity.Z = 0;
+
+        // CTFGameMovement::WalkMove's closing block (tf_gamemovement.cpp:1830-1863),
+        // the rule being the tf_clamp_back_speed pair: under a fraction of 1 and
+        // above the pair's minimum, a player TRAVELLING backwards (the dot,
+        // :1834-37) has their velocity split into the back move and the untouched
+        // right move (:1839-40), the back move cropped to fraction * max
+        // (:1844-49), the two reassembled (:1852) and the xy re-clamped to the
+        // max — stock re-runs the clamp there "because the client can induce this
+        // by hacking usercmd's viewangles" (:1854-61). Stock adds BaseVelocity
+        // only after this block (:1866), so the clamp sees the walked speed alone.
+        if (Rules.Backpedal(_s.EntIndex, _s.MaxSpeed) is { } backpedal && backpedal.Fraction < 1.0f
+            && MoveVec.Length(_s.Velocity) > backpedal.MinSpeed)
+        {
+            float dot = forward.Dot(_s.Velocity);
+
+            if (dot < 0.0f)
+            {
+                Vector back = forward * dot;
+                Vector side = right * right.Dot(_s.Velocity);
+
+                float backSpeed = MoveVec.Length(back);
+                float maxBackSpeed = _s.MaxSpeed * backpedal.Fraction;
+                if (backSpeed > maxBackSpeed)
+                    back *= maxBackSpeed / backSpeed;
+
+                _s.Velocity = back + side;
+
+                float newSpeed = MoveVec.Length(_s.Velocity);
+                if (newSpeed > _s.MaxSpeed)
+                {
+                    float xyScale = _s.MaxSpeed / newSpeed;
+                    _s.Velocity.X *= xyScale;
+                    _s.Velocity.Y *= xyScale;
+                }
+            }
+        }
 
         _s.Velocity += _s.BaseVelocity;
 
@@ -2362,6 +2519,12 @@ public sealed partial class GameMovement
                 _w.AddToTouched(hit, _s.Velocity);
 
             _s.Velocity.Z = 0.0f;
+
+            // The rules hear it after the base class's work, where
+            // CTFGameMovement::SetGroundEntity resets its air-dash count
+            // (src/game/shared/tf/tf_gamemovement.cpp): on every call that sets
+            // ground, not only on a landing.
+            Rules.Grounded(_s.EntIndex);
         }
     }
 
@@ -2685,8 +2848,14 @@ public sealed partial class GameMovement
 
         if (!_s.HasGround)
         {
+            // In the air: no effect, unless the rules grant a jump here
+            // (stock HL2 never does; CTFGameMovement::CheckJumpButton asks
+            // CanAirDash at this point).
+            if (AirJump())
+                return true;
+
             _s.OldButtons |= InJump;
-            return false;      // in air, so no effect
+            return false;
         }
 
         // A stasis field. `#ifndef HL2_EPISODIC`, which this build is — checked
@@ -2734,6 +2903,19 @@ public sealed partial class GameMovement
             // again every tick — which is what "don't pogo stick" does above.
             _s.OldButtons |= InJump;
             return false;
+        }
+
+        // CTFGameMovement::PreventBunnyJumping (tf_gamemovement.cpp:1092-1112),
+        // asked at stock's CheckJumpButton position (:1262, before the jump
+        // velocity): the WHOLE 3D velocity at the jump, not just the horizontal,
+        // cropped to the rules' cap; stock Half-Life has no cap and no such
+        // call, so the default leaves the velocity alone.
+        float bunnyCap = BunnyJumpCap(_s.EntIndex, _s.MaxSpeed);
+        if (bunnyCap > 0.0f)
+        {
+            float spd = MoveVec.Length(_s.Velocity);
+            if (spd > bunnyCap)
+                _s.Velocity *= bunnyCap / spd;
         }
 
         float mul = JumpVelocity(_s.CurrentGravity, JumpHeight) * jumpScale;
@@ -2788,6 +2970,59 @@ public sealed partial class GameMovement
             addition *= -1.0f;
 
         _s.Velocity += forward * addition;
+    }
+
+    /// <summary>
+    /// A jump pressed in the air, which the rules may grant
+    /// (<see cref="MovementRules.AirJump"/>). The engine's refusals come first,
+    /// in <c>CTFGameMovement::CheckJumpButton</c>'s order
+    /// (src/game/shared/tf/tf_gamemovement.cpp): not while in the unduck
+    /// transition or still moving the eyes, and not again until the button is
+    /// released. Then the rule answers from the request and its own predicted
+    /// state; a positive answer is the dash's upward speed, applied with
+    /// <c>CTFGameMovement::AirDash</c>'s arithmetic: the velocity becomes the
+    /// flat wish direction (view forward and right, z dropped, normalised,
+    /// times forward and side move) plus that speed straight up. As stock's
+    /// dash, no gravity half-step and no jump report follow it.
+    /// </summary>
+    private bool AirJump()
+    {
+        if ((_s.Ducking && (_s.Flags & FlDucking) != 0) || _s.DuckJumpTime > 0.0f)
+            return false;
+
+        if ((_s.OldButtons & InJump) != 0)
+            return false;
+
+        var groundVelocity = new Vector(_s.Velocity.X, _s.Velocity.Y, 0.0f);
+        float dashZ = Rules.AirJump(new JumpRequest
+        {
+            PlayerIndex = _s.EntIndex,
+            HorizontalSpeed = MoveVec.Length(groundVelocity),
+            VerticalSpeed = _s.Velocity.Z,
+            Ducking = (_s.Ducking || (_s.Flags & FlDucking) != 0) ? 1 : 0,
+            GroundMaterial = 0,
+            CurrentTime = _s.CurTime,
+        });
+
+        // Only a positive answer is a dash: 0 is stock's refusal, and a
+        // negative or NaN answer is a refusal too, never a dash into the floor.
+        if (!(dashZ > 0.0f))
+            return false;
+
+        MoveVec.AngleVectors(_s.ViewAngles, out Vector forward, out Vector right, out _);
+        forward.Z = 0.0f;
+        right.Z = 0.0f;
+        MoveVec.Normalize(ref forward);
+        MoveVec.Normalize(ref right);
+
+        float fmove = _s.ForwardMove;
+        float smove = _s.SideMove;
+
+        _s.Velocity = new Vector(forward.X * fmove + right.X * smove,
+                                 forward.Y * fmove + right.Y * smove,
+                                 0.0f);
+        _s.Velocity.Z += dashZ;
+        return true;
     }
 
     //=========================================================================

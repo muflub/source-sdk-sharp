@@ -6,6 +6,7 @@
 //=============================================================================//
 
 using System.Buffers.Binary;
+using System.Reflection;
 
 namespace SourceSharp.Abi;
 
@@ -58,6 +59,56 @@ public static class PredictionJudge
         byte[] image = arrived.ToArray();
         predicted[declaredStart..].CopyTo(image.AsSpan(declaredStart));
         return image;
+    }
+
+    /// <summary>
+    /// The declared fields of <paramref name="stateType"/> marked
+    /// <see cref="NoErrorCheckAttribute"/> (an array's rows answer through the
+    /// array's property): offset, bytes, and the bit run of a packed one.
+    /// </summary>
+    public static (int Offset, int Bytes, int BitShift, int Bits, bool Packed)[] UncheckedFields(Type stateType)
+    {
+        var list = new List<(int, int, int, int, bool)>();
+        if (StandaloneNetStates.Of(stateType) is not { } schema)
+            return [];
+
+        foreach (var field in schema.Fields)
+        {
+            var property = stateType.GetProperty(field.Name);
+            if (property is null && field.Name.IndexOf('.') is int dot and > 0)
+                property = stateType.GetProperty(field.Name[..dot]);
+
+            if (property?.GetCustomAttribute<NoErrorCheckAttribute>() is null)
+                continue;
+
+            list.Add((field.Offset, field.Bytes, field.BitShift, field.Bits, field.IsPacked));
+        }
+
+        return list.ToArray();
+    }
+
+    /// <summary>The arrival's bits over the judged image for each unchecked field.</summary>
+    public static void OverlayUnchecked(Span<byte> judged, ReadOnlySpan<byte> arrived,
+                                        (int Offset, int Bytes, int BitShift, int Bits, bool Packed)[] fields)
+    {
+        foreach (var (offset, bytes, shift, bits, packed) in fields)
+        {
+            if (offset < 0 || offset + bytes > judged.Length || offset + bytes > arrived.Length)
+                continue;
+
+            if (!packed)
+            {
+                arrived.Slice(offset, bytes).CopyTo(judged.Slice(offset, bytes));
+                continue;
+            }
+
+            for (int bit = shift; bit < shift + bits; bit++)
+            {
+                int at = offset + bit / 8;
+                byte mask = (byte)(1 << (bit % 8));
+                judged[at] = (byte)((judged[at] & ~mask) | (arrived[at] & mask));
+            }
+        }
     }
 
     /// <summary>

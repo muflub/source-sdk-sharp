@@ -57,6 +57,38 @@ public sealed class ConVarAttribute : Attribute
 }
 
 /// <summary>
+/// A game's default for a convar another assembly declares. Stock's own shape:
+/// the core guards its declaration with <c>#ifndef TF_DLL — "TF overrides the
+/// default value of this convar"</c> (multiplay_gamerules.cpp:131) and the
+/// game DLL declares the same name with its own number (tf_gamerules.cpp:1089).
+///
+/// <para>
+/// One name, one declaration — this never adds a second convar. It replaces
+/// the DEFAULT of the declaration the same walk carries, so the bound instance,
+/// the engine registration and the command-line policy all take the game's
+/// number, and the flags and help stay the declaring side's. The name must be
+/// one the walk declares; a row for a name nothing declares is refused at the
+/// foot of the walk, beside the duplicate declarations, and two rows naming
+/// one name with different numbers with them.
+/// </para>
+/// </summary>
+[AttributeUsage(AttributeTargets.Class)]
+public sealed class ConVarDefaultAttribute : Attribute
+{
+    public ConVarDefaultAttribute(string name, string defaultValue)
+    {
+        Name = name;
+        DefaultValue = defaultValue;
+    }
+
+    /// <summary>The console name of the declaration being redefaulted.</summary>
+    public string Name { get; }
+
+    /// <summary>What the game declares instead of the carried default.</summary>
+    public string DefaultValue { get; }
+}
+
+/// <summary>
 /// How the registry registers a convar and a bound convar sets and reads it:
 /// the engine in the game, a fake in a test (the Engine table is process-wide).
 /// </summary>
@@ -307,6 +339,8 @@ public abstract class ConVar<T> : ConVarBase
 {
     private T _value = default!;
 
+    private readonly List<Action<T, T>> _subscribers = new();
+
     /// <summary>Current value, already parsed.</summary>
     public T Value => _value;
 
@@ -322,14 +356,48 @@ public abstract class ConVar<T> : ConVarBase
     /// <summary>Called after the value changes, from any source.</summary>
     protected virtual void OnChanged(T oldValue, T newValue) { }
 
+    /// <summary>
+    /// Registers a change callback on this instance: it runs after the owner's
+    /// <see cref="OnChanged"/>, with the (old, new) values, from every source
+    /// <see cref="OnChanged"/> is told from — a <see cref="SetValue"/> and a raw
+    /// engine change alike. The returned <see cref="IDisposable"/> unsubscribes.
+    ///
+    /// <para>
+    /// This is stock's <c>FnChangeCallback_t</c>, which a holder of a convar the
+    /// core declares could not reach: the declarations are sealed classes and
+    /// <see cref="OnChanged"/> is protected, so a mod could read the value but
+    /// not hear it move. Nothing here is static, and a callback runs inline on
+    /// the thread that made the change, exactly as <see cref="OnChanged"/> does.
+    /// A subscriber may unsubscribe (or subscribe) a peer from inside its own
+    /// callback; the walk snapshots, so neither disturbs the pass.
+    /// </para>
+    /// </summary>
+    public IDisposable Subscribe(Action<T, T> onChange)
+    {
+        ArgumentNullException.ThrowIfNull(onChange);
+        _subscribers.Add(onChange);
+        return new Subscription(this, onChange);
+    }
+
     private protected sealed override void OnRawChanged(string newValue, string oldValue)
     {
         T parsedOld = _value;
         _value = Parse(newValue);
         OnChanged(parsedOld, _value);
+
+        if (_subscribers.Count == 0)
+            return;
+
+        foreach (var subscriber in _subscribers.ToArray())
+            subscriber(parsedOld, _value);
     }
 
     public override string ToString() => $"{Name} = {Format(_value)}";
+
+    private sealed class Subscription(ConVar<T> owner, Action<T, T> callback) : IDisposable
+    {
+        public void Dispose() => owner._subscribers.Remove(callback);
+    }
 }
 
 /// <summary>String-valued ConVar.</summary>
@@ -555,6 +623,23 @@ public sealed class ConVarRegistry
         var engineOwned = new List<string>();
         var duplicates = new List<string>();
 
+        // A game's defaults for convars other assemblies declare, gathered
+        // BEFORE the walk that binds them: the walk reads the assemblies in
+        // name order, so the core's ConVar binds first and a row looked up at
+        // bind time would sit behind it in a later assembly. Two rows for one
+        // name resolve by the walk's own order — assembly name, then
+        // declaration token — which is fixed, so the winner is too. A name
+        // nothing declares is refused at the foot of the walk.
+        var overridden = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var type in types)
+        {
+            if (type.GetCustomAttribute<ConVarDefaultAttribute>() is not { } default_)
+                continue;
+
+            overridden[default_.Name] = default_.DefaultValue;
+        }
+
         foreach (var type in types)
         {
             var attr = type.GetCustomAttribute<ConVarAttribute>();
@@ -591,6 +676,14 @@ public sealed class ConVarRegistry
             }
             _owners.TryAdd(attr.Name, type);
 
+            // The walk's default, not the attribute's: a ConVarDefault above
+            // replaces it, for the engine registration, the bound instance and
+            // the command-line policy alike. The flags and help stay the
+            // declaring side's, as stock's redeclaration's do.
+            string defaultValue = overridden.TryGetValue(attr.Name, out string? gameDefault)
+                ? gameDefault
+                : attr.DefaultValue;
+
             if (Activator.CreateInstance(type) is not ConVarBase instance)
             {
                 _log.Warning($"[SourceSharp] could not instantiate convar class {type.Name}; skipped\n");
@@ -617,7 +710,7 @@ public sealed class ConVarRegistry
             // declaration would take the unknown-name path -- which is the one
             // path that looks like working code.
             _policies[attr.Name] = new ConVarCommandLinePolicy(
-                attr.Name, attr.DefaultValue, attr.Flags);
+                attr.Name, defaultValue, attr.Flags);
 
             // A NAME THE ENGINE OWNS IS REFUSED, NOT ALIASED (the user's rule,
             // 2026-09-29), decided here since plan_server_native_v2 T4e: native
@@ -633,7 +726,7 @@ public sealed class ConVarRegistry
                 continue;
             }
 
-            int id = _backend.Register(attr.Name, attr.DefaultValue, attr.Help,
+            int id = _backend.Register(attr.Name, defaultValue, attr.Help,
                                        unchecked((int)attr.Flags), min, max);
 
             // A refused ConVar is still bound, to its declared default and an id
@@ -646,7 +739,7 @@ public sealed class ConVarRegistry
             // This is also what makes the rules testable without an engine.
             if (id < 0)
                 _log.Warning($"[SourceSharp] engine refused ConVar '{attr.Name}'; " +
-                               $"using the declared default '{attr.DefaultValue}'\n");
+                               $"using the declared default '{defaultValue}'\n");
             else
                 _byId[id] = instance;
 
@@ -660,11 +753,26 @@ public sealed class ConVarRegistry
             // One FindVar per declaration at startup, and only for the ones the
             // engine accepted. A refused convar (id < 0) has nothing to read.
             instance.Backend = _backend;
-            instance.Bind(id, attr.Name, attr.DefaultValue, attr.Help, attr.Flags, min, max,
+            instance.Bind(id, attr.Name, defaultValue, attr.Help, attr.Flags, min, max,
                           id >= 0 ? _backend.ValueOf(attr.Name) : null, attr.Tag);
             Adopt(instance);
             count++;
         }
+
+        // A row for a name the walk never declared would redefault nothing and
+        // say so nowhere: the game would run on the core's number believing it
+        // had overridden it. Refused beside the duplicates, for the same reason
+        // they are.
+        List<string> unknownDefaults = overridden.Keys
+            .Where(name => !_owners.ContainsKey(name))
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (unknownDefaults.Count > 0)
+            throw new InvalidOperationException(
+                "convar defaults overridden for names nothing declares: " +
+                string.Join(", ", unknownDefaults) +
+                ". A ConVarDefault names a declaration the same walk carries; rename it or move it beside the declaration.");
 
         if (duplicates.Count > 0)
             throw new InvalidOperationException(

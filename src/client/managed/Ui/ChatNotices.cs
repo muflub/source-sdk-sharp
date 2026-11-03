@@ -24,8 +24,10 @@ namespace SourceSharp.Client.Vgui;
 /// The native arms printed to a CHudChat this client no longer builds, so they
 /// were silent; these are the lines again.
 /// </summary>
-public sealed class ChatNotices(IEngineHud hud, ILog log, ITextMessageChat chat)
+public sealed class ChatNotices(IEngineHud hud, ILog log, ITextMessageChat chat, TeamNames? teamNames = null)
 {
+    private readonly TeamNames _teamNames = teamNames ?? TeamNames.Stock();
+
     public static readonly IReadOnlyDictionary<string, string> StockFormats = new Dictionary<string, string>(StringComparer.Ordinal)
     {
         ["#game_player_joined_game"] = "Player %s1 has joined the game",
@@ -66,7 +68,7 @@ public sealed class ChatNotices(IEngineHud hud, ILog log, ITextMessageChat chat)
     {
         if (e.Disconnect || NotSetYet(e.Name) || e.Silent)
             return;
-        Print(e.AutoTeam ? "#game_player_joined_autoteam" : "#game_player_joined_team", e.Name, TeamName(e.Team));
+        Print(e.AutoTeam ? "#game_player_joined_autoteam" : "#game_player_joined_team", e.Name, _teamNames.Of(e.Team, TeamName(e.Team)));
     }
 
     public void OnChangeName(PlayerChangeNameArgs e)

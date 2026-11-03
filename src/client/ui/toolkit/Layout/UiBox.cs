@@ -215,6 +215,35 @@ public readonly struct UiBox : IDisposable
         return this;
     }
 
+    /// <summary>Multiplies a texture leaf's pixels by a colour (a team tint, a warning red).</summary>
+    public UiBox Tint(UiPaint tint)
+    {
+        N.TextureTint = tint;
+        return this;
+    }
+
+    /// <summary>
+    /// Turns a texture leaf about its centre: stock's flag arrow spins to the
+    /// flag's bearing (CTFArrowPanel::Paint) and the damage ring to the hit's
+    /// (DrawDamageIndicator). <paramref name="radians"/> is clockwise on
+    /// screen; the leaf's rect is unchanged for layout and hit-testing.
+    /// </summary>
+    public UiBox Rotate(float radians)
+    {
+        N.TextureRotation = radians;
+        return this;
+    }
+
+    /// <summary>
+    /// Adds a texture leaf's pixels to what is behind instead of painting over
+    /// it: the damage ring's glow (tf_hud_damageindicator.cpp).
+    /// </summary>
+    public UiBox Blend(UiBlend blend)
+    {
+        N.TextureBlend = blend;
+        return this;
+    }
+
     // ---- text and shapes ----
 
     /// <summary>The text's or shape's colour.</summary>
@@ -230,6 +259,19 @@ public readonly struct UiBox : IDisposable
         N.Role = role;
         if (_ctx.Theme.Type(role).Upper)
             ApplyUpper();
+        return this;
+    }
+
+    /// <summary>The role this text was styled with.</summary>
+    public Text Role => N.Role;
+
+    /// <summary>
+    /// Sizes the text itself, in du, instead of its role's theme size: a screen
+    /// whose stock face the theme's ladder does not carry.
+    /// </summary>
+    public UiBox TextSize(float du)
+    {
+        N.TextSizeDu = du;
         return this;
     }
 

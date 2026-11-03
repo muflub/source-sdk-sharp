@@ -29,11 +29,38 @@
 {
 	"player_death"				// a game event, name may be 32 charaters long
 	{
-		"userid"	"short"   	// user ID who died				
+		"userid"	"short"   	// user ID who died
 		"attacker"	"short"	 	// user ID who killed
-		"weapon"	"string" 	// weapon name killed used 
+		"weapon"	"string" 	// weapon name killed used
 	}
-	
+
+	"player_hurt"				// stock TF2's player_hurt (tf2_misc_dir.vpk resource/modevents.res)
+	{
+		"userid"	"short"   	// user ID who was hurt
+		"health"	"short"		// the victim's health after the hit
+		"attacker"	"short"		// user ID who hurt them
+		"damageamount"	"short"	// the post-armour damage taken
+		"custom"	"short"		// TF's kill custom
+		"showdisguisedcrit"	"bool"	// if our attribute specifically crits disguised enemies we need to show it on the client
+		"crit"	"bool"			// was the hit a critical
+		"minicrit"	"bool"		// was the hit a mini-crit
+		"allseecrit"	"bool"	// should everyone see the crit
+		"weaponid"	"short"		// TF's weapon id
+		"bonuseffect"	"byte"	// TF's bonus effect
+	}
+
+	"controlpoint_starttouch"		// stock TF2's controlpoint_starttouch (tf2_misc_dir.vpk resource/modevents.res)
+	{
+		"player"	"short"		// entindex of the player
+		"area"		"short"		// index of the control point area
+	}
+
+	"controlpoint_endtouch"			// stock TF2's controlpoint_endtouch (tf2_misc_dir.vpk resource/modevents.res)
+	{
+		"player"	"short"		// entindex of the player
+		"area"		"short"		// index of the control point area
+	}
+
 	"teamplay_round_start"			// round restart
 	{
 		"full_reset"	"bool"		// is this a full reset of the map

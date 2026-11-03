@@ -140,6 +140,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     private LocalPickupHistory? _pickupHistory;
     private WeaponEffects.WeaponDrawEffects? _weaponEffects;
     private UnderwaterAmbience? _underwater;
+    private IHooks<IClientFrameThink>? _frameThinks;
     private ClientPlayerPrediction _prediction = null!;
 
     /// <summary>The viewer's world fog — plan_entity.md step 8e-render.</summary>
@@ -810,6 +811,27 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // with the areas); this composition's plumbing prints through it too.
         var log = _services.Require<ILog>();
         _services.AddFactory<IHooks<IClientLevelHook>>(locator => new Hooks<IClientLevelHook>(locator, log));
+        // The mods' per-player carry limits, the server's twin (IAmmoCarryRule).
+        _services.AddFactory<IHooks<IAmmoCarryRule>>(locator => new Hooks<IAmmoCarryRule>(locator, log));
+        // The mods' viewmodel activity translations, the server's twin
+        // (IViewmodelActivityRule): both sides' arms ask the chain, because the
+        // sequence number is predicted state.
+        _services.AddFactory<IHooks<IViewmodelActivityRule>>(locator => new Hooks<IViewmodelActivityRule>(locator, log));
+        // The mods' viewmodel skins, the server's twin (IViewmodelSkinRule):
+        // the mirror's predicted deploy dresses the skin the server's deploy
+        // wrote, so the compare judges the switch instead of mispredicting
+        // the byte for a round trip.
+        _services.AddFactory<IHooks<IViewmodelSkinRule>>(locator => new Hooks<IViewmodelSkinRule>(locator, log));
+        // The mods' team names as a player reads them, the server's twin (ITeamNameRule).
+        _services.AddFactory<IHooks<ITeamNameRule>>(locator => new Hooks<ITeamNameRule>(locator, log));
+        // The mods' damage decodes (stage 3.1's TF damage indicator): the
+        // hooks resolve lazily, so the empty chain when no mod listens costs
+        // nothing.
+        _services.AddFactory<IHooks<IDamageListener>>(locator => new Hooks<IDamageListener>(locator, log));
+        // The mods' per-frame client thinks (stock's entity ClientThink): the
+        // hooks resolve lazily, so the empty chain when no mod joins costs
+        // nothing.
+        _services.AddFactory<IHooks<IClientFrameThink>>(locator => new Hooks<IClientFrameThink>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
         _services.AddInstance<IModInfo>(new ModInfo());
@@ -834,8 +856,18 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // parse and indices cross cs_cl_reload.
         _services.Add<IClientDecals, ClientDecals>();
         // The material proxies (lane c5-proxies); an IReloadParticipant, so every
-        // bound proxy's Init answers and bind state cross cs_cl_reload.
-        _services.Add<IClientMaterialProxies, MaterialProxies.MaterialProxyHost>();
+        // bound proxy's Init answers and bind state cross cs_cl_reload. The
+        // mods' providers are asked after the core's table, resolved when the
+        // first material asks (the mods register after this, and a material
+        // loads after both).
+        _services.AddFactory<IClientMaterialProxies>(locator => new MaterialProxies.MaterialProxyHost(
+            locator.Require<IClientMaterialProxyExecutor>(), locator.Require<IEngineHost>(),
+            locator.Require<IEngineConsole>(), Log, locator.Require<MaterialProxies.MatStubConVar>(),
+            locator.Require<MaterialProxies.IPostProxyValues>(),
+            locator.Require<Render.Shadows.IShadowProxySource>(),
+            () => _services.ResolveAll<MaterialProxies.IMaterialProxyProvider>(),
+            new MaterialProxies.PlayerProxyEyes(_standalones, locator.Require<IEngineHud>(),
+                                                 locator.Require<ViewReadout>())));
         // The render plan (C7): View_Render's per-frame path and its recorder.
         // (The engine's uniform random stream, for a service or a mod that draws
         // from it as stock's free RandomFloat does, is AddTo's: IUniformRandom.)
@@ -871,6 +903,18 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var playerView = new Render.PlayerViewRecord();
         _services.AddInstance(playerView);
         _services.AddInstance<Render.IPlayerView>(playerView);
+        // The local player's field of view (C_BasePlayer::GetFOV), which the
+        // render plan's view setup asks each frame.
+        _services.Add<Render.LocalPlayerFov, Render.LocalPlayerFov>();
+        // The glow-object registry the main view's last section draws over
+        // (glow_outline_effect.cpp): stock's manager, answered over the seams.
+        _services.AddFactory<Render.GlowObjectManager>(locator =>
+        {
+            IEngineEntityRender render = locator.Require<IEngineEntityRender>();
+            IEngineConsole console = locator.Require<IEngineConsole>();
+            IFxRender fx = locator.Require<IFxRender>();
+            return new Render.GlowObjectManager(render.IsDormant, console.FindConVarValue, fx.MaterialFind);
+        });
         _services.Add<Render.RenderPlanHost, Render.RenderPlanHost>();
         // The kClientSystems[] rows whose system is managed's (C7): the
         // viewport system (vgui_game_viewport.cpp's CViewportClientSystem).
@@ -961,6 +1005,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<Render.PixelVisibility.ClientPixelVisEngine>(locator => new Render.PixelVisibility.ClientPixelVisEngine(
             locator.Require<IPixelVisSlots>(), locator.Require<IFxRender>(), locator.Require<IEngineWorldQuery>(),
             locator.Require<IFlashlightSlots>().DXSupportLevel, Log, locator.Require<IEngineConsole>().FindConVarValue));
+        // The frame's view, for a mod's HUD that reads it (TF2's damage
+        // indicator): the same engine object the passes read.
+        _services.AddFactory<ICurrentView>(locator => locator.Require<Render.PixelVisibility.ClientPixelVisEngine>());
         _services.AddFactory<Render.PixelVisibility.PixelVisibilitySystem>(locator =>
         {
             var engine = locator.Require<Render.PixelVisibility.ClientPixelVisEngine>();
@@ -1361,6 +1408,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(new WeaponCatalog(() => _services.ResolveAll<IWeaponTypeSource>(), Log));
         _services.AddInstance(new AmmoCatalog(() => _services.ResolveAll<IAmmoTypeSource>(), Log));
         _services.AddInstance(new WeaponBehaviours(() => _services.ResolveAll<IWeaponBehaviourSource>(), Log));
+        _services.AddInstance(new AmmoCarry(_services.Require<IHooks<IAmmoCarryRule>>(), Log));
+        _services.AddInstance(new ViewmodelActivity(_services.Require<IHooks<IViewmodelActivityRule>>(), Log));
+        _services.AddInstance(new ViewmodelSkin(_services.Require<IHooks<IViewmodelSkinRule>>(), Log));
+        _services.AddInstance(new TeamNames(_services.Require<IHooks<ITeamNameRule>>(), Log));
 
         // The physcannon's behaviour, which the server resolves under the same
         // key: the replay predicts it over a world that holds nothing.
@@ -1425,22 +1476,24 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // fire-rate table went in plan_server_native_v2 T2: nothing read it).
         _ = _services.Require<WeaponCatalog>().Count;
 
-        // THE MOVEMENT CONSTANTS, resolved once now the mods are in (phase
-        // 0.3), the same way the server asks: zero registrations answer the
-        // core's stock table, one is that mod's, two is a startup failure
-        // naming both. Prediction is the reason this is not merely tidy —
-        // both sides must register the SAME parameters and answer the three
-        // scales with the SAME rules, or the replay diverges from the server
-        // with nothing but rubber-banding to show for it.
-        _movementRules = _services.Create<MovementRulesResolver>();
-        _services.AddInstance(_movementRules);
-        Movement.Register("Client", _movementRules.Constants,
-                          _services.Require<IEnginePlayerMovement>(), Log);
-
-        // The replay's loop takes its decisions from the runner (see
-        // MovementRunner.ClientLoop), so the client's own hook answers its
-        // predicted commands too — frozen here, before any command runs.
-        _movement.ReplayRules = _movementRules.Rules;
+        // THE STANDALONE REGISTRY, IN BEFORE ANYTHING RESOLVES THROUGH IT.
+        // The movement composition below the weapon services is the first
+        // resolver of the graph: its walk constructs the mods' IMovementRules,
+        // whose owners walk ends at the client's TFClientWeaponOwners -- whose
+        // `standalones` is this. A registration below that composition is one
+        // the walk cannot see, and the load died on it (the client never
+        // starting; the arsenal, registered late too, silently baked null).
+        // The same registration fronts the pool's collision arm, which asks
+        // it what a trace HIT by entity index -- behaviour ledger row C4's
+        // two dynamic_casts -- and the temp-ent players' effects (row C1's
+        // blast push): a player whose constructor cannot be satisfied is
+        // SKIPPED with a warning and never plays.
+        //
+        // Nothing is built out of the registry here -- an instance is not
+        // made until a networked entity arrives, which is long after this --
+        // so registering it early costs nothing.
+        _standalones.Services = _services;
+        _services.AddInstance<IClientStandalones>(_standalones);
 
         int standalone = _standalones.RegisterAll(typeof(ClientModule).Assembly);
         Log.Msg($"[SourceSharp/Client] registered {standalone} standalone entity class(es)\n");
@@ -1480,19 +1533,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var tempEntEngine = new TempEnts.ClientTempEntEngine(ClientTempEntTables.For(_engine), Log);
         int tempEnts = _tempEnts.RegisterAll("Client", Game, tempEntEngine);
         _services.AddInstance(_tempEnts);
-
-        // THE STANDALONE REGISTRY BEFORE THE POOL, and this is why it moved up
-        // from where the other services are registered: the pool's collision
-        // arm asks it what a trace HIT, by entity index, which is behaviour
-        // ledger row C4's two dynamic_casts asked on this side. A pool built
-        // before the registry was in the container would have got a null and
-        // answered "unknown" for every entity in the map.
-        //
-        // Nothing is built out of the registry here -- an instance is not made
-        // until a networked entity arrives, which is long after this -- so
-        // moving it earlier costs nothing.
-        _standalones.Services = _services;
-        _services.AddInstance<IClientStandalones>(_standalones);
 
         // THE CLIENT'S SKELETONS (plan physics_bones_native_zero 1.2, client
         // half): posed in managed code from the engine's model cache, copied
@@ -1794,23 +1834,14 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         if (modEffects > 0)
             Log.Msg($"[SourceSharp/Client] {modEffects} mod client effect(s)\n");
 
-        // THE STANDALONE REGISTRY GOES IN BEFORE THE PLAYERS ARE BUILT, and the
+        // THE STANDALONE REGISTRY IS IN BEFORE THE PLAYERS ARE BUILT, and the
         // ORDER is the whole of this comment. ClientTeExplosion asks for
         // IClientStandalones — behaviour ledger row C1's blast push walks the
         // live client entities looking for jointed bodies — and a player whose
         // constructor cannot be satisfied is SKIPPED with a warning and never
-        // plays. Registering the registry thirty lines below RegisterAll, where
-        // it used to be, would have taken the explosion off the client
-        // altogether: the effect would simply stop drawing, and the only clue
-        // would be one line at load among a hundred.
-        //
-        // Nothing is built here that was not already built: this moves the
-        // AddInstance, and the registry's own Services and its entity creation
-        // are untouched — an instance is not made until a networked entity
-        // arrives, which is long after all of this.
-        _standalones.Services = _services;
-        _services.AddInstance<IClientStandalones>(_standalones);
-
+        // plays. Registered far above, before even the movement composition
+        // whose resolver walks into it; re-registered here it would only
+        // shadow itself.
         _tempEntPlayers = _services.Create<TempEnts.ClientTempEnts>();
         _services.AddInstance(_tempEntPlayers);
 
@@ -1941,17 +1972,40 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _clientArsenal = _services.Create<ClientArsenal>();
         _services.AddInstance(_clientArsenal);
         _services.AddInstance<ILocalArsenal>(_clientArsenal);
+        _services.AddInstance<WeaponEffects.IWeaponDrawStates>(_clientArsenal);
+
+        // THE MOVEMENT CONSTANTS, resolved once now everything the graph names
+        // is registered (phase 0.3): the walk is transitive, and the mods'
+        // IMovementRules end at this side's TFClientWeaponOwners, whose owners
+        // read the weapon services above — an earlier resolver once baked their
+        // absence into the singleton (the min-viewmodel offset lived on a null
+        // arsenal). Zero registrations answer the core's stock table, one is
+        // that mod's, two is a startup failure naming both. Prediction is the
+        // reason this is not merely tidy — both sides must register the SAME
+        // parameters and answer the three scales with the SAME rules, or the
+        // replay diverges from the server with nothing but rubber-banding to
+        // show for it.
+        _movementRules = _services.Create<MovementRulesResolver>();
+        _services.AddInstance(_movementRules);
+        Movement.Register("Client", _movementRules.Constants,
+                          _services.Require<IEnginePlayerMovement>(), Log);
+
+        // The replay's loop takes its decisions from the runner (see
+        // MovementRunner.ClientLoop), so the client's own hook answers its
+        // predicted commands too — frozen here, before any command runs.
+        _movement.ReplayRules = _movementRules.Rules;
 
         // THE WEAPON SELECTION (stock CBaseHudWeaponSelection / HL2's
         // CHudWeaponSelection): the binds, the cancel key and the attack
-        // buttons drive it, the HUD draws it. Over the weapons' scripts on disk
-        // (the client has no engine file read: those slots are the server's).
-        var gameDir = _services.Require<IModInfo>().GameDir;
-        var weaponScripts = new WeaponScriptDatabase(Log, path =>
-        {
-            string full = Path.Combine(gameDir, path);
-            return File.Exists(full) ? File.ReadAllText(full) : null;
-        });
+        // buttons drive it, the HUD draws it. Over the weapons' scripts on the
+        // engine's GAME paths (a shipped mod's scripts ride only in a VPK), the
+        // plain <name>.txt first and then the ICE-sealed <name>.ctx with the
+        // mod's encryption key, as stock's ReadEncryptedKVFile.
+        var weaponFiles = _services.Resolve<IEngineFiles>();
+        var weaponScripts = new WeaponScriptDatabase(Log,
+            path => weaponFiles?.ReadGameFileBytes(path) is { } bytes ? System.Text.Encoding.UTF8.GetString(bytes) : null,
+            path => weaponFiles?.ReadGameFileBytes(path),
+            _services.Require<IModInfo>().EncryptionKey);
         _services.AddInstance(weaponScripts);
         var localSelection = _services.Create<LocalWeaponSelection>();
         var fastSwitch = _convars.Get<HudFastSwitchConVar>();
@@ -2003,7 +2057,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // THE CHAT (stock CBaseHudChat): its feed and its input line, the core's.
         var chatFeed = new Vgui.ChatFeed(_clock, Log, _services.Require<IEngineHud>(),
                                          new Vgui.ChatPlayers(_services.Require<IClientStandalones>(), _services.Require<Vgui.IPlayerNames>()),
-                                         _convars.Get<Vgui.HudSayTextTimeConVar>());
+                                         _convars.Get<Vgui.HudSayTextTimeConVar>(), _services);
         chatFeed.Subscribe(_services.Require<SayTextMessage>(), _services.Require<SayText2Message>());
         _services.AddInstance<SourceSharp.Client.Ui.IChatSource>(chatFeed);
         var chatInput = new Vgui.ChatInputUi(_engineClient);
@@ -2011,21 +2065,27 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<SourceSharp.Client.Ui.IChatInputSource>(chatInput);
 
         // TextMsg, as stock's chat handler printed it (hud_basechat.cpp): the centre, the console, the chat.
-        var texts = new Vgui.TextMessages(_services.Require<IEngineHud>(), Log, _centre, _convars.Get<Vgui.ClShowTextMsgConVar>(), chatFeed);
+        var texts = new Vgui.TextMessages(_services.Require<IEngineHud>(), Log, _centre, _convars.Get<Vgui.ClShowTextMsgConVar>(), chatFeed, _services);
         texts.Subscribe(_services.Require<TextMsgMessage>());
 
         // The game's notices (stock ClientModeShared::FireGameEvent): joins, leaves, teams, names, notify convars.
-        new Vgui.ChatNotices(_services.Require<IEngineHud>(), Log, chatFeed).Subscribe(
+        new Vgui.ChatNotices(_services.Require<IEngineHud>(), Log, chatFeed, _services.Require<TeamNames>()).Subscribe(
             _services.Require<PlayerConnectClientEvent>(), _services.Require<PlayerDisconnectEvent>(),
             _services.Require<PlayerTeamEvent>(), _services.Require<PlayerChangeNameEvent>(),
             _services.Require<ServerCvarEvent>());
 
         // THE KILL FEED's queue (stock CHudDeathNotice): the core's, so a UI-only
         // reload keeps its lines and its event subscription pins nothing of the UI.
-        var kills = new Vgui.KillFeed(_clock, Log,
-            new Vgui.KillFeedPlayers(_services.Require<IClientStandalones>(), _services.Require<IEngineHud>(),
-                                     _services.Require<Vgui.IPlayerNames>()),
-            _convars.Get<Vgui.HudDeathNoticeTimeConVar>());
+        // The players resolver is registered too, so a mod HUD's own death
+        // notices read the same user ids → names/teams the core feed does.
+        var killPlayers = new Vgui.KillFeedPlayers(_services.Require<IClientStandalones>(), _services.Require<IEngineHud>(),
+                                                   _services.Require<Vgui.IPlayerNames>());
+        _services.AddInstance<Vgui.IKillFeedPlayers>(killPlayers);
+        // A mod's death-notice decode (stage 3.1's TF kill feed): the hooks
+        // resolve lazily, so the empty chain when no mod listens costs nothing.
+        _services.AddFactory<IHooks<Vgui.IKillFeedListener>>(locator => new Hooks<Vgui.IKillFeedListener>(locator, Log));
+        var kills = new Vgui.KillFeed(_clock, Log, killPlayers, _convars.Get<Vgui.HudDeathNoticeTimeConVar>(),
+                                      _services.Require<IHooks<Vgui.IKillFeedListener>>());
         kills.Subscribe(_services.Require<PlayerDeathEvent>());
         _services.AddInstance(kills);
         _services.AddInstance<SourceSharp.Client.Ui.IKillFeedSource>(kills);
@@ -2049,12 +2109,22 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
             DrawHud = _convars.Get<Vgui.ClDrawHudConVar>(),
         };
         _uiLoader.Load();
-        _services.AddInstance(_uiLoader);
+        // The loader is in the container already: Load registers itself before
+        // it composes, because its own composition resolves it (a mod screen's
+        // source asks for the loader, stage 3.2).
         _services.AddInstance<Vgui.IUiTextureSource>(_uiLoader);
         _services.AddInstance(new Vgui.UiCarryReload(_uiLoader));
         // A new map hides the viewport's screens, as stock's viewport hid its panels on game_newmap.
         var newMapUi = _uiLoader;
         _services.Require<GameNewMapEvent>().Fired += _ => newMapUi.Current?.NewMap();
+        // THE PAUSE MENU (plan_client_novalve.md §3.2a's menu row): Escape runs engine-side —
+        // the engine activates its GameUI and fires gameui_activated client-side through
+        // OnGameUIActivated (shell_clientdll_gameclientexports.cpp), and gameui_hidden when it
+        // hides again (the menu's Resume runs gameui_hide, stock's GameUI ResumeGame). The
+        // client only learns of the show and hide through these, so the engine's own view
+        // (IsMainMenuVisible) and our menu agree without a managed key handler deciding first.
+        _services.Require<GameUiActivatedEvent>().Fired += _ => newMapUi.Current?.ShowPauseMenu();
+        _services.Require<GameUiHiddenEvent>().Fired += _ => newMapUi.Current?.HidePauseMenu();
         _ui = _uiLoader;
 
         // THE CLIENT MODE'S KEY DECISION (stock ClientModeShared::KeyInput): the
@@ -2073,6 +2143,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance<ILadderWorld>(new ClientUseableLadders(_standalones, _convars));
         // And HL2MP's player speeds and suit power, which it runs as the server does.
         _services.AddInstance<IHl2PlayerMove>(new ClientHl2PlayerMove(_convars));
+        // The mods' own predicted states ride the same frame (IClientPredictedState).
+        _services.AddFactory<IHooks<IClientPredictedState>>(locator => new Hooks<IClientPredictedState>(locator, log));
         _prediction = _services.Create<ClientPlayerPrediction>();
 
         // THE OBSERVER'S CAMERA (C7 item 5), after the standalones and the HUD
@@ -2158,23 +2230,33 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                                      curTime: () => _clock.Now,
                                                      paused: () => inputHost.IsPaused);
         _services.AddInstance(_inputService);
+        // The slot binds' predicted path: the latch rides the input service,
+        // whose next CreateMove carries the selection in the command.
+        _services.AddInstance<IWeaponSelectionLatch>(_inputService);
 
         // THE WEAPONS' DRAW EFFECTS (stock's ViewModelDrawn, the two-pass
         // DrawModel arm and ClientThink): after the input, whose camera says
         // whether a weapon is drawn through the viewmodel. The carried weapon
         // and the viewmodel ask for them when the registry makes them.
+        var thirdPerson = new WeaponEffects.InputThirdPersonCamera(input);
+        _services.AddInstance<WeaponEffects.IThirdPersonCamera>(thirdPerson);
+        // The taunt camera's forced toggle (stock's TurnOnTauntCam / TurnOffTauntCam),
+        // the same input's CAM_To* pair for the tf2 condition hooks.
+        _services.AddInstance<Input.ITauntCamera>(new Input.InputTauntCamera(input));
         _weaponEffects = new WeaponEffects.WeaponDrawEffects(
-            _standalones, hudArea, new WeaponEffects.InputThirdPersonCamera(input), _clock,
+            _standalones, hudArea, thirdPerson, _clock,
             _services.Require<WeaponCatalog>(),
             [
                 _services.Create<WeaponEffects.RpgDrawEffect>(),
                 _services.Create<WeaponEffects.StunStickDrawEffect>(),
                 _services.Create<WeaponEffects.PhysCannonDrawEffect>(),
                 _services.Create<WeaponEffects.CrossbowDrawEffect>(),
+                .. _services.ResolveAll<WeaponEffects.IWeaponDrawEffect>(),
             ],
             _clientArsenal);
         _services.AddInstance<WeaponEffects.IWeaponDrawEffects>(_weaponEffects);
         _underwater = _services.Create<UnderwaterAmbience>();
+        _frameThinks = _services.Require<IHooks<IClientFrameThink>>();
 
         IEngineConsole inputConsole = _services.Require<IEngineConsole>();
         _services.AddInstance<IDebugClientInput>(new ClientDebugInput(_inputService, inputCvars, inputHost,
@@ -2384,6 +2466,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // The local player's underwater ambience (its PreThink's UpdateUnderwaterState).
         _underwater?.Frame();
+
+        // Game logic's per-frame thinks (stock's entity ClientThink), stepped
+        // once a frame after the core's own work this frame. An empty chain
+        // when nobody joined costs nothing.
+        _frameThinks?.Each(nameof(IClientFrameThink.ClientThink), t => t.ClientThink(frameTime));
     }
 
     /// <summary>
@@ -3135,6 +3222,20 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
     public float GetMaxSpeedScale(int playerIndex, float maxSpeed, bool ducking, int groundMaterial)
         => _movementRules.Rules.MaxSpeed(playerIndex, maxSpeed, ducking, groundMaterial);
+
+    public float GetAirJump(in JumpRequest request) => _movementRules.Rules.AirJump(request);
+
+    public void OnPlayerGrounded(int playerIndex) => _movementRules.Rules.Grounded(playerIndex);
+
+    public float GetEyeHeight(int playerIndex, float standing) => _movementRules.Rules.EyeHeight(playerIndex, standing);
+
+    public float GetBunnyJumpCap(int playerIndex, float maxSpeed) => _movementRules.Rules.BunnyJump(playerIndex, maxSpeed);
+
+    public BackpedalLimit? GetBackpedalLimit(int playerIndex, float maxSpeed) => _movementRules.Rules.Backpedal(playerIndex, maxSpeed);
+
+    public MovementStun? GetMovementStun(int playerIndex, float curTime, int buttons, float forwardMove, float sideMove, float upMove) => _movementRules.Rules.Stun(playerIndex, curTime, buttons, forwardMove, sideMove, upMove);
+
+    public MovementTaunt? GetMovementTaunt(int playerIndex, float frameTime, float forwardMove) => _movementRules.Rules.Taunt(playerIndex, frameTime, forwardMove);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

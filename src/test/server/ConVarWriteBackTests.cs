@@ -133,6 +133,64 @@ public class ConVarWriteBackTests
     }
 
     [Fact]
+    public void ASubscriberSeesAChangeMadeThroughSetValue()
+    {
+        var (v, _) = Bound("800");
+        var seen = new List<(float Old, float New)>();
+        v.Subscribe((oldValue, newValue) => seen.Add((oldValue, newValue)));
+
+        v.SetValue(600f);
+
+        // The (old, new) pair the owner's OnChanged got, not the requested text
+        // against the cached old: a clamp the engine applied is what a reader sees.
+        var pair = Assert.Single(seen);
+        Assert.Equal((800f, 600f), pair);
+    }
+
+    [Fact]
+    public void ASubscriberSeesARawEngineChange()
+    {
+        var (v, _) = Bound("800");
+        var seen = new List<(float Old, float New)>();
+        v.Subscribe((oldValue, newValue) => seen.Add((oldValue, newValue)));
+
+        v.NotifyChanged("300", "800");
+
+        var pair = Assert.Single(seen);
+        Assert.Equal((800f, 300f), pair);
+        Assert.Equal(300f, v.Value);
+    }
+
+    [Fact]
+    public void AnUnsubscribedSubscriberSeesNothing()
+    {
+        var (v, _) = Bound("800");
+        var seen = new List<(float Old, float New)>();
+        using var _ = v.Subscribe((oldValue, newValue) => seen.Add((oldValue, newValue)));
+
+        _.Dispose();
+        v.NotifyChanged("300", "800");
+
+        Assert.Empty(seen);
+    }
+
+    [Fact]
+    public void TheOwnersOnChangedRunsBeforeTheSubscribers()
+    {
+        var (v, _) = Bound("800");
+        bool ownerHadRun = false;
+
+        // The subscriber looks at whether the owner's own record is in: true
+        // only if OnChanged ran first.
+        v.Subscribe((_, _) => ownerHadRun = v.Changes.Count == 1);
+
+        v.NotifyChanged("300", "800");
+
+        Assert.Single(v.Changes);
+        Assert.True(ownerHadRun, "the owner's OnChanged had already run when the subscriber was called");
+    }
+
+    [Fact]
     public void AnUnboundConVarWritesNowhere()
     {
         var v = new RecordingFloat();

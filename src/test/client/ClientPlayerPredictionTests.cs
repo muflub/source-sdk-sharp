@@ -156,17 +156,25 @@ public class ClientPlayerPredictionTests
         public ClientSsPlayer Player = null!;
         public ClientPlayerPrediction Prediction = null!;
         public MovementRunner Runner = null!;
+        public RecordingLog Log = null!;
 
         /// <summary>Marks a packet as having decoded into the player's state.</summary>
         public void Packet() => Player.OnDataChanged(default, DataUpdateType.DataTableChanged);
     }
 
-    private static Bench Build(params int[] ringCommands) => Build(null, ringCommands);
+    private static Bench Build(params int[] ringCommands) => Build(null, null, new ListHooks(), ringCommands);
 
     private static Bench Build(ILadderWorld? ladders, params int[] ringCommands)
-        => Build(ladders, null, ringCommands);
+        => Build(ladders, null, new ListHooks(), ringCommands);
 
     private static Bench Build(ILadderWorld? ladders, IHl2PlayerMove? hl2Player, params int[] ringCommands)
+        => Build(ladders, hl2Player, new ListHooks(), ringCommands);
+
+    private static Bench Build(IHooks<IClientPredictedState> predicted, params int[] ringCommands)
+        => Build(null, null, predicted, ringCommands);
+
+    private static Bench Build(ILadderWorld? ladders, IHl2PlayerMove? hl2Player,
+                               IHooks<IClientPredictedState> predicted, params int[] ringCommands)
     {
         var engine = Fake();
         engine.Returns("Hud.LocalPlayerIndex", LocalPlayer);
@@ -198,18 +206,21 @@ public class ClientPlayerPredictionTests
         foreach (int command in ringCommands)
             replay.Ring.Add(command);
 
+        var log = new RecordingLog();
+
         return new Bench
         {
+            Log = log,
             Engine = engine,
             Standalones = standalones,
             Replay = replay,
             Player = player,
             Runner = runner,
-            Prediction = new ClientPlayerPrediction(new RecordingLog(), standalones, engine, replay,
+            Prediction = new ClientPlayerPrediction(log, standalones, engine, replay,
                                                     runner,
                                                     null, new PredictionErrorRing(),
                                                     NetStateCatalog.Of(TestServices.ClientGame, new RecordingLog()),
-                                                    ladders: ladders, hl2Player: hl2Player),
+                                                    predicted, ladders: ladders, hl2Player: hl2Player),
         };
     }
 
@@ -429,6 +440,145 @@ public class ClientPlayerPredictionTests
         Assert.True(bench.Prediction.Mispredicts == 0,
                     $"no misprediction, not {bench.Prediction.Mispredicts} on {bench.Prediction.LastMissFields}");
         Assert.Equal(1, bench.Prediction.Holds);
+    }
+
+    /// <summary>
+    /// The spawn stamp's adoption: the acked slot was predicted under the old
+    /// stamp, the arrival carries the bumped one and a new origin — the server
+    /// spawned or respawned between the command and its acknowledgement, with
+    /// no command to mirror. The compare adopts rather than judges, and the
+    /// meter counts the adoption apart (stock re-seeds the whole predicted
+    /// state at spawn — InitPredictable, c_baseentity.cpp:4578-4583).
+    /// </summary>
+    [Fact]
+    public void ACompareStraddlingASpawnAdoptsTheArrivalInsteadOfJudgingIt()
+    {
+        var bench = Build(11);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        // The server's word: the join's placement under the bumped stamp.
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Player.State.SpawnEpoch = bench.Player.State.SpawnEpoch + 1;
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"the straddling compare is adopted, not judged ({bench.Prediction.Mispredicts} " +
+                    $"on {bench.Prediction.LastMissFields})");
+        Assert.Equal(1, bench.Prediction.Rebuilt);
+        Assert.Equal(0, bench.Prediction.Holds);
+    }
+
+    /// <summary>
+    /// m_iAmmo is not error-checked (HL2MP's FTYPEDESC_NOERRORCHECK): a pool
+    /// the server drew inside the command — a TF reload's — arrives as the
+    /// word and is no misprediction. The control is the next fact's: an
+    /// unexempted field that moved still stands judged.
+    /// </summary>
+    [Fact]
+    public void AnAmmoPoolTheServerMovedIsNoMisprediction()
+    {
+        var bench = Build(11);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Ammo[12] = (short)(bench.Player.State.Ammo[12] - 4);
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"the pool is the arrival's word ({bench.Prediction.Mispredicts} on {bench.Prediction.LastMissFields})");
+    }
+
+    /// <summary>
+    /// The arm the adoption must not swallow: the same origin difference with
+    /// an unchanged stamp — a move the client really did predict wrong — still
+    /// stands judged red. Without this arm the first fact cannot fail.
+    /// </summary>
+    [Fact]
+    public void AnEqualStampedOriginDifferenceStillStandsJudged()
+    {
+        var bench = Build(11);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.Equal(1, bench.Prediction.Mispredicts);
+        Assert.Equal(0, bench.Prediction.Rebuilt);
+    }
+
+    /// <summary>
+    /// The connect-time tick-base handshake: the server rebases the player's clock
+    /// once when it first runs the queued commands, with no command to carry it
+    /// (CBasePlayer::AdjustPlayerTimeBase, player.cpp:3152-3172), and the client's
+    /// clock is received-and-predicted (RecvPropInt m_nTickBase, c_baseplayer.cpp:236;
+    /// DEFINE_PRED_FIELD, :403). The acked slot was predicted before the seed, so
+    /// its clock stands away by the re-base, and the first full state carries the
+    /// spawn's initial words with it (SuitPower, WaterType, Velocity — the one line
+    /// every clean boot logged right after connect). Stock absorbs this silently
+    /// because the replay's basis IS the decoded snapshot — RestoreOriginalEntityState
+    /// before every replay (prediction.cpp:1781-1784) — so the first arrival seeds,
+    /// not judges. The stamp plays no part: the clock moved with no spawn behind it.
+    /// </summary>
+    [Fact]
+    public void TheFirstAckAfterConnectSeedsInsteadOfBeingJudged()
+    {
+        var bench = Build(11);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+        Assert.True(bench.Prediction.LastReplayed == 1, "the command was replayed");
+
+        // The server's first ack: its clock rebased onto its own tick count, the
+        // predicted slot's standing at the pre-seed count, epoch untouched.
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.TickBase = 99;   // srv after the re-base; pred stands at 1
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+
+        Assert.True(bench.Prediction.Mispredicts == 0,
+                    $"the seeding arrival is adopted, not judged ({bench.Prediction.Mispredicts} " +
+                    $"on {bench.Prediction.LastMissFields})");
+        Assert.Equal(1, bench.Prediction.Seeded);
+        Assert.Equal(0, bench.Prediction.Rebuilt);
+        Assert.DoesNotContain("MISPREDICTION", bench.Log.Text);
+    }
+
+    /// <summary>
+    /// The arm the seeding must not swallow: once the first arrival has seeded the
+    /// basis, a later acknowledgement that really disagrees still stands judged
+    /// red — without this arm the seeding fact cannot fail.
+    /// </summary>
+    [Fact]
+    public void ACompareAfterTheSeedStillJudgesTheNextAck()
+    {
+        var bench = Build(11, 12);
+        bench.Prediction.Update(0, true, 10, 11, worldUpdateArrived: false);
+
+        bench.Player.State.Decode(bench.Prediction.LastSavedBytes.ToArray());
+        bench.Player.State.TickBase = 99;
+        bench.Packet();
+        bench.Prediction.Update(0, true, 11, 11, worldUpdateArrived: true);
+        Assert.Equal(1, bench.Prediction.Seeded);
+        Assert.Equal(0, bench.Prediction.Mispredicts);
+
+        // Mid-game drift, after the seed: an origin the replay did not move to.
+        bench.Player.State.Origin = new Vector(96f, 128f, 16f);
+        bench.Packet();
+
+        bench.Prediction.Update(0, true, 11, 12, worldUpdateArrived: true);
+
+        Assert.Equal(1, bench.Prediction.Mispredicts);
+        Assert.Contains("MISPREDICTION", bench.Log.Text);
     }
 
     [Fact]
@@ -1054,5 +1204,220 @@ public class ClientPlayerPredictionTests
         byte[] reRun = bench.Prediction.LastSavedBytes.ToArray();
 
         Assert.NotEqual(firstRun, reRun);
+    }
+
+    //=========================================================================
+    // A mod's own predicted state (IClientPredictedState).
+    //=========================================================================
+
+    /// <summary>A participant that writes what it was asked into a call log.</summary>
+    private class Participant(List<string> calls, string name, bool throws = false)
+        : IClientPredictedState
+    {
+        /// <summary>Where the calls go; swapped for the replay's own log to read the order.</summary>
+        public List<string> Calls { get; set; } = calls;
+
+        public void ResetBasis(EntityHandle player, int acknowledged)
+        {
+            Calls.Add($"{name}.reset:{acknowledged}:{player.Value:x}");
+            if (throws)
+                throw new InvalidOperationException("the participant fails");
+        }
+
+        public void CommandRan(EntityHandle player, int commandNumber, bool firstTime)
+        {
+            Calls.Add($"{name}.ran:{commandNumber}:{(firstTime ? 1 : 0)}");
+            if (throws)
+                throw new InvalidOperationException("the participant fails");
+        }
+    }
+
+    private sealed class ListHooks(params IClientPredictedState[] all) : IHooks<IClientPredictedState>
+    {
+        public IReadOnlyList<IClientPredictedState> All => all;
+        public void Each(string what, Action<IClientPredictedState> call) => throw new NotSupportedException();
+    }
+
+    /// <summary>
+    /// The no-owner arm: with no participant registered the frame is the
+    /// core replay alone (the bracket, the ring save, the publish), which the
+    /// participant facts below each extend by exactly its own calls.
+    /// </summary>
+    [Fact]
+    public void WithNoPredictedStatesTheFrameIsTheCoreReplayAlone()
+    {
+        var bench = Build(new ListHooks(), 11);
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        Assert.Equal(new[] { "begin:11", "end:1", "publish:1" }, bench.Replay.Calls);
+        Assert.Equal(1, bench.Prediction.Saves);
+        Assert.DoesNotContain(bench.Log.Lines, l => l.Warning);
+    }
+
+    [Fact]
+    public void AModsPredictedStateIsResetOnceBeforeTheReplayAndSavedInsideEachCommandsBracket()
+    {
+        var participant = new Participant(new List<string>(), "tf");
+        var bench = Build(new ListHooks(participant), 11, 12);
+
+        // The participant and the bracket share one log, so the order is the reading.
+        participant.Calls = bench.Replay.Calls;
+
+        bench.Prediction.Update(0, true, 10, 12, false);
+
+        Assert.Equal(new[]
+        {
+            "tf.reset:10:1000001",
+            "begin:11", "tf.ran:11:1", "end:1",
+            "begin:12", "tf.ran:12:1", "end:1",
+            "publish:1",
+        }, bench.Replay.Calls);
+    }
+
+    [Fact]
+    public void AReRunCommandReachesTheParticipantAsNotItsFirstRun()
+    {
+        var calls = new List<string>();
+        var bench = Build(new ListHooks(new Participant(calls, "tf")), 11);
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        Assert.Equal(new[] { "tf.reset:10:1000001", "tf.ran:11:1", "tf.reset:10:1000001", "tf.ran:11:0" }, calls);
+    }
+
+    [Fact]
+    public void WithPredictionOffTheBasisIsStillResetAndNoCommandIsSaved()
+    {
+        // The working copy must be the server's word on a frame that does not
+        // replay, or a reader of it (a movement rule) sees a stale prediction.
+        var calls = new List<string>();
+        var bench = Build(new ListHooks(new Participant(calls, "tf")), 11);
+        bench.Prediction.Enabled = false;
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        Assert.Equal(new[] { "tf.reset:10:1000001" }, calls);
+    }
+
+    [Fact]
+    public void AThrowingParticipantIsLoggedAndTheNextOneAndTheReplayStillRun()
+    {
+        var calls = new List<string>();
+        var bench = Build(new ListHooks(new Participant(calls, "bad", throws: true),
+                                        new Participant(calls, "good")), 11);
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        Assert.Equal(new[] { "bad.reset:10:1000001", "good.reset:10:1000001", "bad.ran:11:1", "good.ran:11:1" }, calls);
+        Assert.Equal(1, bench.Prediction.LastReplayed);
+
+        // Each throw is named, once per call that threw, as a warning.
+        var warnings = bench.Log.Lines.Where(l => l.Warning).Select(l => l.Text).ToArray();
+        Assert.Equal(2, warnings.Length);
+        Assert.Contains("IClientPredictedState.ResetBasis on ", warnings[0], StringComparison.Ordinal);
+        Assert.Contains("IClientPredictedState.CommandRan on ", warnings[1], StringComparison.Ordinal);
+        Assert.All(warnings, w => Assert.Contains("the participant fails", w, StringComparison.Ordinal));
+    }
+
+    private sealed class LateParticipant(List<string> calls) : Participant(calls, "late"), IOrderedHook
+    {
+        public int HookOrder => 20;
+    }
+
+    private sealed class EarlyParticipant(List<string> calls) : Participant(calls, "early"), IOrderedHook
+    {
+        public int HookOrder => 10;
+    }
+
+    /// <summary>
+    /// The chain as the game builds it: the core's Hooks over the side's
+    /// container, which orders the participants by HookOrder and not by the
+    /// order they were registered in (late is registered first).
+    /// </summary>
+    [Fact]
+    public void ParticipantsAreAskedInTheirHookOrder()
+    {
+        var calls = new List<string>();
+        var container = new ServiceContainer();
+        container.AddInstance<ILog>(new RecordingLog());
+        container.AddFactory(typeof(LateParticipant), _ => new LateParticipant(calls));
+        container.AddFactory(typeof(EarlyParticipant), _ => new EarlyParticipant(calls));
+        var bench = Build(new Hooks<IClientPredictedState>(container, new RecordingLog()), 11);
+
+        bench.Prediction.Update(0, true, 10, 11, false);
+
+        Assert.Equal(new[] { "early.reset:10:1000001", "late.reset:10:1000001", "early.ran:11:1", "late.ran:11:1" },
+                     calls);
+    }
+
+    /// <summary>
+    /// The shape a mod's carrier lives on: a movement rule, asked during a
+    /// replayed command, writes the participant's working copy, the
+    /// participant saves it at CommandRan, and the next frame's reset puts it
+    /// back so the same commands save the same values again (stateless
+    /// replay). The rule writes through the replay's own rules
+    /// (MovementRunner.ReplayRules, which the client module sets from its
+    /// resolved IMovementRules).
+    /// </summary>
+    [Fact]
+    public void AMovementRulesWriteDuringACommandIsWhatTheParticipantSavesForIt()
+    {
+        var carrier = new CountingCarrier();
+        var bench = Build(new ListHooks(carrier), 11, 12);
+        bench.Runner.ReplayRules = MovementRules.Stock with
+        {
+            MaxSpeed = (playerIndex, maxSpeed, _, _) =>
+            {
+                carrier.RuleWrote(playerIndex);
+                return maxSpeed;
+            },
+        };
+
+        bench.Prediction.Update(0, true, 10, 12, false);
+        bench.Prediction.Update(0, true, 10, 12, false);
+
+        Assert.Equal(new[] { "11=1", "12=2", "11=1", "12=2" }, carrier.Saved);
+        Assert.Equal(new[] { LocalPlayer }, carrier.Writers.Distinct());
+    }
+
+    /// <summary>
+    /// The game's composition registers the chain, over the side's container,
+    /// before it builds the replay that takes it. Held on the source, as
+    /// ClientLevelHookTests holds the level hooks: ClientModule.Initialize
+    /// cannot run without an engine.
+    /// </summary>
+    [Fact]
+    public void TheClientRegistersThePredictedStateChainBeforeItBuildsTheReplay()
+    {
+        string module = File.ReadAllText(RepoLayout.Sdk("src/sourcesharp/managed/SourceSharp.Client/ClientModule.cs"));
+        int registered = module.IndexOf(
+            "_services.AddFactory<IHooks<IClientPredictedState>>(locator => new Hooks<IClientPredictedState>(locator, log));",
+            StringComparison.Ordinal);
+        int built = module.IndexOf("_prediction = _services.Create<ClientPlayerPrediction>();", StringComparison.Ordinal);
+
+        Assert.True(built >= 0, "the client builds its replay through the container");
+        Assert.True(registered >= 0, "the client registers the predicted-state chain");
+        Assert.True(registered < built, "the chain is registered before the replay that takes it is built");
+    }
+
+    /// <summary>A participant whose working copy is one counter the rule bumps.</summary>
+    private sealed class CountingCarrier : IClientPredictedState
+    {
+        private int _working;
+        public readonly List<string> Saved = new();
+        public readonly List<int> Writers = new();
+
+        public void RuleWrote(int playerIndex)
+        {
+            Writers.Add(playerIndex);
+            _working++;
+        }
+
+        public void ResetBasis(EntityHandle player, int acknowledged) => _working = 0;
+
+        public void CommandRan(EntityHandle player, int commandNumber, bool firstTime)
+            => Saved.Add($"{commandNumber}={_working}");
     }
 }

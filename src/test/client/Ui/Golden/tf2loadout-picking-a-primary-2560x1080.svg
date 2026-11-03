@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="0" y="0" width="2560" height="1080" fill="#343037" data-e="1"/>
+<text x="605" y="74.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#d47f19" xml:space="preserve" data-e="2">&gt;&gt;</text>
+<text x="1156" y="83.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="3">Primary weapon</text>
+<rect x="632.5" y="135.5" width="211" height="156" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="4"/>
+<text x="703" y="280.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="5">Scattergun</text>
+<rect x="853.5" y="135.5" width="210" height="156" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="6"/>
+<text x="908" y="280.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="7">Force-A-Nature</text>
+<rect x="1073.5" y="135.5" width="210" height="156" fill="none" stroke="#756b5e" stroke-opacity="0.9" stroke-width="1" data-e="8"/>
+<text x="1147" y="280.35" font-family="TF2 Secondary" font-size="14" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="9">Shortstop</text>
+<rect x="830" y="900" width="450" height="56" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="10"/>
+<text x="1026" y="934.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="11">Cancel</text>
+</svg>

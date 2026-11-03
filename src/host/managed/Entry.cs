@@ -105,7 +105,8 @@ public static unsafe class Entry
 
             byte[] facts = LoadFacts.WriteLoad(s_ManagedDir, mod.Id, mod.GameDir,
                                                mod.AssembliesFor(server: true), mod.AssembliesFor(server: false),
-                                               mod.Browser, mod.ClientUiAssemblies, mod.Localisation);
+                                               mod.Browser, mod.ClientUiAssemblies, mod.Localisation,
+                                               mod.EncryptionKey);
 
             nint vtables = side.Vtables;
             int rc = LoadAndStamp(entry, context, root.AbiFile, facts,

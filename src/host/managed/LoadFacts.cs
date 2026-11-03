@@ -27,6 +27,7 @@ internal static class LoadFacts
     public const string Browser = "browser";
     public const string ClientUiAssemblies = "client_ui_assemblies";
     public const string Localisation = "localisation";
+    public const string EncryptionKey = "encryption_key";
     public const string Loaded = "loaded";
 
     /// <summary>
@@ -38,13 +39,17 @@ internal static class LoadFacts
     /// (stage 0.9): the client's UiLoader loads the first into the UI's
     /// collectible context, and its localiser asks the second of the engine
     /// after the mod's own disk file. A mod without either writes an empty
-    /// row, exactly like the side lists.
+    /// row, exactly like the side lists. <paramref name="encryptionKey"/> is
+    /// the mod's <c>encryption_key</c> — the ICE string its sealed <c>.ctx</c>
+    /// scripts open with, stock's <c>GetEncryptionKey()</c>; a mod without one
+    /// writes an empty row and reads back none.
     /// </summary>
     public static byte[] WriteLoad(string managedDir, string modId, string gameDir,
                                    IEnumerable<string> serverAssemblies, IEnumerable<string> clientAssemblies,
                                    SourceSharp.Mods.BrowserSettings? browser = null,
                                    IEnumerable<string>? clientUiAssemblies = null,
-                                   IEnumerable<string>? localisation = null)
+                                   IEnumerable<string>? localisation = null,
+                                   string? encryptionKey = null)
     {
         var text = new StringBuilder();
         Line(text, ManagedDir, managedDir);
@@ -56,6 +61,7 @@ internal static class LoadFacts
             Line(text, Browser, BrowserJson(browser));
         Line(text, ClientUiAssemblies, List(clientUiAssemblies ?? []));
         Line(text, Localisation, List(localisation ?? []));
+        Line(text, EncryptionKey, encryptionKey ?? "");
         return Block(text);
     }
 

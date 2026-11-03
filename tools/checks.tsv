@@ -21,6 +21,7 @@ vendor	routine	tools/vendor --self-test && tools/vendor --strict --config $SOURC
 abi-parity	routine	tools/abi-parity --self-test && tools/abi-parity --config $SOURCESHARP_CONFIG
 loadprof	routine	tools/loadprof/lp --self-test
 live-gate	full	tools/live-gate --self-test
+tf2-gate	full	tools/tf2-gate --self-test
 run-checks	full	tools/run-checks --self-test
 debug-api-proxy	full	tools/debug-api-proxy --self-test
 daily-gate	routine	tools/daily-gate --self-test

@@ -200,6 +200,22 @@ static void ApplyManagedShake(Vector& origin, QAngle& angles)
 	angles.z += out[3] * 1.0f;
 }
 
+// The viewmodel bob is managed's whole (stock's CalcViewModelBobHelper and
+// AddViewModelBobHelper): the eye in, the bobbed viewmodel origin and angles
+// out -- the camera's are left as the frame set them. Native only marshals.
+static void ApplyManagedViewModelBob(Vector& origin, QAngle& angles)
+{
+	float inOrigin[3] = {origin.x, origin.y, origin.z};
+	float inAngles[3] = {angles.x, angles.y, angles.z};
+	float outOrigin[3], outAngles[3];
+	if (IManagedRenderClient* p = ManagedRenderClient())
+		p->ViewEffectsViewModelBob(gpGlobals->curtime, gpGlobals->frametime, inOrigin, inAngles, outOrigin, outAngles);
+	else
+		return;
+	origin.Init(outOrigin[0], outOrigin[1], outOrigin[2]);
+	angles.Init(outAngles[0], outAngles[1], outAngles[2]);
+}
+
 // Stock's CalcObserverView, decided by managed and carried out here: the view, the engine's
 // view angles when in-eye asks, and the shake. False when there is no override this frame.
 static bool ApplyViewOverride(CViewSetup* pSetup)
@@ -456,8 +472,12 @@ public:
 
 			ApplyManagedShake(pSetup->origin, pSetup->angles);
 
-			// The viewmodel is pinned to these eyes with the frame's actual view values.
-			SourceSharp_StandaloneViewModelToEye(pSetup->origin, pSetup->angles);
+			// The viewmodel is pinned to these eyes with the frame's actual view values,
+			// bobbed: stock's AddViewModelBob runs on the viewmodel's copy, not the camera's.
+			Vector vecBobbed = pSetup->origin;
+			QAngle angBobbed = pSetup->angles;
+			ApplyManagedViewModelBob(vecBobbed, angBobbed);
+			SourceSharp_StandaloneViewModelToEye(vecBobbed, angBobbed);
 
 			// Then the camera may leave the eye: the viewmodel stays at the eye, and only the camera
 			// moves to third person.

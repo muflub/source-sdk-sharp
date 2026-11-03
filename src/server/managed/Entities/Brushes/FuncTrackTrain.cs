@@ -809,12 +809,27 @@ public sealed class FuncTrackTrain : TrainBrush
     /// to accelerate over here, so it jumps. See docs/divergences.md.
     /// </summary>
     [ScriptedEvent("SetSpeedDirAccel")]
-    private void OnSetSpeedDirAccel(float value) => OnSetSpeedDir(value);
+    private void OnSetSpeedDirAccel(float value) => SetSpeedDirAccel(value);
+
+    /// <summary>
+    /// Stock's public <c>SetSpeedDirAccel</c>, for code that drives a train
+    /// without going through a map input (a payload watcher with
+    /// <c>handle_train_movement</c>): a fraction of the maximum from -1 to 1,
+    /// the sign the direction. The same as the input of that name.
+    /// </summary>
+    public void SetSpeedDirAccel(float fraction) => OnSetSpeedDir(fraction);
 
     [ScriptedEvent("SetSpeedForwardModifier")]
-    private void OnSetSpeedForwardModifier(float value)
+    private void OnSetSpeedForwardModifier(float value) => SetSpeedForwardModifier(value);
+
+    /// <summary>
+    /// Stock's public <c>SetSpeedForwardModifier</c>: the share of its speed
+    /// the train keeps going forward, 0 to 1 (a payload cart pushed uphill).
+    /// The same as the input of that name.
+    /// </summary>
+    public void SetSpeedForwardModifier(float modifier)
     {
-        _forwardModifier = Math.Clamp(MathF.Abs(value), 0f, 1f);
+        _forwardModifier = Math.Clamp(MathF.Abs(modifier), 0f, 1f);
         SetSpeed(MathF.Abs(_speed));
     }
 

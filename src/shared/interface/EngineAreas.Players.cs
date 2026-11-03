@@ -161,7 +161,20 @@ public interface IEnginePlayers
     /// requester says it has finished and the player returns to their own
     /// setting.
     /// </param>
-    void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f);
+    /// <param name="start">
+    /// A positive foot for the new ramp — stock's <c>iZoomStart</c>, the
+    /// teleporter's arrival (<c>tf_obj_teleporter.cpp:1022</c>); 0 takes the
+    /// view's <c>GetFOV()</c> as stock's default arm does.
+    /// </param>
+    void SetFov(EntityHandle player, EntityHandle requester, int fov, float rate = 0f, int start = 0);
+
+    /// <summary>
+    /// The player's own field of view (<c>CBasePlayer::SetDefaultFOV</c>,
+    /// player.cpp:8741): the word an unzoomed view answers, written plain.
+    /// Stock's <c>ClientSettingsChanged</c> feeds it the clamped
+    /// <c>fov_desired</c> (tf_gamerules.cpp:10275-10279).
+    /// </summary>
+    void SetDefaultFov(EntityHandle player, int fov);
 
     /// <inheritdoc cref="EngineSide.PlayerSetObserverMode"/>
     void SetObserverMode(EntityHandle player, ObserverMode mode);
@@ -403,6 +416,18 @@ public interface IEngineHud
 
     /// <inheritdoc cref="EngineSide.ClientViewportShow"/>
     void ViewportShow(string panel, bool show, IReadOnlyList<KeyValuePair<string, string>> data, ViewportActions actions);
+
+    /// <summary>
+    /// The full-screen overlay material, by name — stock's
+    /// <c>view-&gt;SetScreenOverlayMaterial</c> as the condition arms call it
+    /// (<c>tf_player_shared.cpp:3600-3607</c>). An empty name clears the
+    /// overlay; a name that does not load leaves the standing one and answers
+    /// false.
+    /// </summary>
+    bool ScreenOverlaySet(string name);
+
+    /// <summary>The standing overlay's material name, empty when there is none.</summary>
+    string ScreenOverlayGet();
 }
 
 /// <summary>What the client's native state says about a viewport panel (ClientViewportQuery).</summary>

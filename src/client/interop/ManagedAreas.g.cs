@@ -252,6 +252,7 @@ public unsafe interface IManagedRenderClient
     void ViewFreezeFrame(float a0, float a1);
     int ViewDemoCamera(int a0, void* a1, void* a2);
     void ScreenSpaceEffectsStage(int a0);
+    void ViewEffectsViewModelBob(float a0, float a1, void* a2, void* a3, void* a4, void* a5);
 }
 
 [ManagedVtable(typeof(ManagedInputClientTable))]

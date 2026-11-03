@@ -198,4 +198,41 @@ public class WeaponSelectionTests
 
         Assert.Equal(0, hud.Asked);
     }
+
+    private sealed class Forecast(params int[] rows) : IWeaponSlotForecast
+    {
+        public int TypeAt(int slot) => slot >= 0 && slot < rows.Length ? rows[slot] : -1;
+    }
+
+    private sealed class RecordingLatch : IWeaponSelectionLatch
+    {
+        public List<int> Latched { get; } = [];
+        public void Latch(int catalogType) => Latched.Add(catalogType);
+    }
+
+    [Fact]
+    public void A_slot_bind_with_a_forecast_and_a_latch_arms_the_rows_type_and_leaves_the_selection_shut()
+    {
+        var world = new World();
+        var hud = world.Hud();
+        var latch = new RecordingLatch();
+
+        new Slot2Command(hud, new Forecast(4, 7), latch).Execute("");
+
+        Assert.Equal([7], latch.Latched);
+        Assert.False(hud.Open);
+    }
+
+    [Fact]
+    public void A_slot_bind_on_an_empty_forecast_row_arms_nothing()
+    {
+        var world = new World();
+        var hud = world.Hud();
+        var latch = new RecordingLatch();
+
+        new Slot3Command(hud, new Forecast(4, 7), latch).Execute("");
+
+        Assert.Empty(latch.Latched);
+        Assert.False(hud.Open);
+    }
 }

@@ -341,6 +341,14 @@ public enum LifecycleStage
     /// two inits, so its order against the others does not matter.
     /// </summary>
     PhysicsFrame = 2300,
+
+    /// <summary>
+    /// ResponseRules (tf2-responses step 1): the response script loads once
+    /// and its groups reset per level, before anything speaks through it.
+    /// Nothing else in the enum reads the tables, so its order against the
+    /// others does not matter; the value is the next free hundred.
+    /// </summary>
+    ResponseRules = 2400,
 }
 
 /// <summary>

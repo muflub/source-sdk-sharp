@@ -563,6 +563,7 @@ internal unsafe interface IEntityLifecycleArea
     byte* EntityFactoryRefusalNameAt(int a0);
     int EntityFactoryRefusalTimesAt(int a0);
     int TemplateSpawnKeyed(byte* a0, byte* a1, int* a2, float* a3, float* a4, int a5, uint* a6, int a7);
+    uint MapSpawnCreateAt(byte* a0, byte* a1, int a2, int a3);
 }
 
 /// <summary>
@@ -588,6 +589,7 @@ internal sealed unsafe class EntityLifecycleArea : IEntityLifecycleArea
     public byte* EntityFactoryRefusalNameAt(int a0) { return (byte*)_shim.Table->EntityFactoryRefusalNameAt(_shim.Self, a0); }
     public int EntityFactoryRefusalTimesAt(int a0) { return _shim.Table->EntityFactoryRefusalTimesAt(_shim.Self, a0); }
     public int TemplateSpawnKeyed(byte* a0, byte* a1, int* a2, float* a3, float* a4, int a5, uint* a6, int a7) { return _shim.Table->TemplateSpawnKeyed(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
+    public uint MapSpawnCreateAt(byte* a0, byte* a1, int a2, int a3) { return _shim.Table->MapSpawnCreateAt(_shim.Self, a0, a1, a2, a3); }
 }
 
 /// <summary>
@@ -741,6 +743,7 @@ internal unsafe interface IDamageArea
     void ApplyDamage(uint a0, uint a1, float a2, int a3);
     void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6);
     void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5);
+    int EntityTakeDamageAnswered(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6);
 }
 
 /// <summary>
@@ -755,6 +758,7 @@ internal sealed unsafe class DamageArea : IDamageArea
     public void ApplyDamage(uint a0, uint a1, float a2, int a3) { _shim.Table->ApplyDamage(_shim.Self, a0, a1, a2, a3); }
     public void EntityTakeDamage(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6) { _shim.Table->EntityTakeDamage(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void ApplyDamageForce(uint a0, uint a1, float a2, int a3, float* a4, float* a5) { _shim.Table->ApplyDamageForce(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int EntityTakeDamageAnswered(uint a0, uint a1, float a2, int a3, float* a4, float* a5, int a6) { return _shim.Table->EntityTakeDamageAnswered(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
 }
 
 /// <summary>
@@ -1104,6 +1108,11 @@ internal unsafe interface IEffectsRenderClientArea
     int BeamGlow(int a0, int a1);
     void BeamDrawStrip(float* a0, int a1);
     void BeamDrawMesh(int a0, int a1, int a2, float* a3, int a4);
+    int ParticleSystemStartExtra(uint a0, byte* a1);
+    void ParticleSystemStopExtra(uint a0);
+    int ParticleSystemFollowEntity(uint a0, int a1, uint a2, int a3, float* a4);
+    int ParticleSystemStartSlot(uint a0, byte* a1, int a2);
+    void ParticleSystemStopSlot(uint a0, int a1);
 }
 
 /// <summary>
@@ -1144,6 +1153,11 @@ internal sealed unsafe class EffectsRenderClientArea : IEffectsRenderClientArea
     public int BeamGlow(int a0, int a1) { return _shim.Table->BeamGlow(_shim.Self, a0, a1); }
     public void BeamDrawStrip(float* a0, int a1) { _shim.Table->BeamDrawStrip(_shim.Self, a0, a1); }
     public void BeamDrawMesh(int a0, int a1, int a2, float* a3, int a4) { _shim.Table->BeamDrawMesh(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ParticleSystemStartExtra(uint a0, byte* a1) { return _shim.Table->ParticleSystemStartExtra(_shim.Self, a0, a1); }
+    public void ParticleSystemStopExtra(uint a0) { _shim.Table->ParticleSystemStopExtra(_shim.Self, a0); }
+    public int ParticleSystemFollowEntity(uint a0, int a1, uint a2, int a3, float* a4) { return _shim.Table->ParticleSystemFollowEntity(_shim.Self, a0, a1, a2, a3, a4); }
+    public int ParticleSystemStartSlot(uint a0, byte* a1, int a2) { return _shim.Table->ParticleSystemStartSlot(_shim.Self, a0, a1, a2); }
+    public void ParticleSystemStopSlot(uint a0, int a1) { _shim.Table->ParticleSystemStopSlot(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -1176,6 +1190,7 @@ internal unsafe interface IStandaloneClientArea
     void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3);
     void SurfaceSetPlan(uint a0, int* a1, int a2);
     void ClientInterpAdmitted(uint* a0, int a1);
+    void EntitySetModelOverride(uint a0, byte* a1);
 }
 
 /// <summary>
@@ -1211,6 +1226,7 @@ internal sealed unsafe class StandaloneClientArea : IStandaloneClientArea
     public void SurfaceSetMaterials(uint a0, byte* a1, int a2, int a3) { _shim.Table->SurfaceSetMaterials(_shim.Self, a0, a1, a2, a3); }
     public void SurfaceSetPlan(uint a0, int* a1, int a2) { _shim.Table->SurfaceSetPlan(_shim.Self, a0, a1, a2); }
     public void ClientInterpAdmitted(uint* a0, int a1) { _shim.Table->ClientInterpAdmitted(_shim.Self, a0, a1); }
+    public void EntitySetModelOverride(uint a0, byte* a1) { _shim.Table->EntitySetModelOverride(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -1248,6 +1264,8 @@ internal unsafe interface IViewClientArea
     void ColorLookupResetWeights();
     int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11);
     int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11);
+    int ScreenOverlaySet(byte* a0);
+    int ScreenOverlayGet(byte* a0, int a1);
 }
 
 /// <summary>
@@ -1288,6 +1306,8 @@ internal sealed unsafe class ViewClientArea : IViewClientArea
     public void ColorLookupResetWeights() { _shim.Table->ColorLookupResetWeights(_shim.Self); }
     public int ClientClipRayToEntities(float* a0, float* a1, int a2, int* a3, int a4, float* a5, float* a6, float* a7, int* a8, int* a9, int* a10, int* a11) { return _shim.Table->ClientClipRayToEntities(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
     public int ClientTraceHullEntities(float* a0, float* a1, float* a2, float* a3, int a4, int a5, int* a6, int a7, float* a8, float* a9, int* a10, float* a11) { return _shim.Table->ClientTraceHullEntities(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11); }
+    public int ScreenOverlaySet(byte* a0) { return _shim.Table->ScreenOverlaySet(_shim.Self, a0); }
+    public int ScreenOverlayGet(byte* a0, int a1) { return _shim.Table->ScreenOverlayGet(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -1390,6 +1410,8 @@ internal unsafe interface IUiClientArea
     int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6);
     void UiDebugOverlayClearDead();
     void ClientModeLayout();
+    void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4);
+    int UiMaterialTexture(byte* a0);
 }
 
 /// <summary>
@@ -1422,6 +1444,8 @@ internal sealed unsafe class UiClientArea : IUiClientArea
     public int UiDebugOverlayText(int a0, float* a1, float* a2, int* a3, uint* a4, byte* a5, int a6) { return _shim.Table->UiDebugOverlayText(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public void UiDebugOverlayClearDead() { _shim.Table->UiDebugOverlayClearDead(_shim.Self); }
     public void ClientModeLayout() { _shim.Table->ClientModeLayout(_shim.Self); }
+    public void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4) { _shim.Table->UiDrawTexturedQuad(_shim.Self, a0, a1, a2, a3, a4); }
+    public int UiMaterialTexture(byte* a0) { return _shim.Table->UiMaterialTexture(_shim.Self, a0); }
 }
 
 /// <summary>

@@ -23,7 +23,7 @@ public sealed record TownPalette(
     string Truss)
 {
     /// <summary>The TF2 mining set (plan_host_sdk §2.10, P0(9): each one listed in the TF2 VPKs).</summary>
-    public static TownPalette Tf2Mining { get; } = new(
+    public static TownPalette TF2Mining { get; } = new(
         Ground: "nature/ground_03",
         Street: "nature/gravelground001",
         Cliff: "nature/rockwall011",
@@ -81,7 +81,7 @@ public sealed class TF2DescentTown(TownPalette palette)
     // The shaft: an opening in the ground at the east end, and how deep it goes.
     private const float ShaftX = 1300f, ShaftHalf = 96f, ShaftDepth = 384f;
 
-    public TF2DescentTown() : this(TownPalette.Tf2Mining) { }
+    public TF2DescentTown() : this(TownPalette.TF2Mining) { }
 
     public TownPalette Palette => palette;
 

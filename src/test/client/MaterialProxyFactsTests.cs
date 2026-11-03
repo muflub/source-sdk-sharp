@@ -2,8 +2,11 @@ using SourceSharp.Abi;
 using SourceSharp.Client;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.MaterialProxies;
+using SourceSharp.Client.Standalone;
 
 using Xunit;
+
+using static SourceSharp.Tests.TestServices;
 
 namespace SourceSharp.Tests;
 
@@ -389,5 +392,272 @@ public class MaterialProxyFactsTests
         Assert.Equal(["0 texture 11"], after.Ops);
         Assert.Empty(after.Textures);
         Assert.Equal([0, 2, 0], restored.Outcomes);
+    }
+
+    //-------------------------------------------------------------------------
+    // proxyplayer.cpp's seven, held against the stock file as written. The
+    // console asked for two of them by name on ctf_2fort (proxy "PlayerTeamMatch"
+    // not found / proxy "PlayerProximity" not found); the rest of the file's
+    // exposed names landed with them. The eyes are a fake here — the service's
+    // own arms over the real directory and resource are PlayerProxyEyesTests.
+    //-------------------------------------------------------------------------
+
+    private sealed class FakeEyes : IPlayerProxyEyes
+    {
+        public ClientSsPlayer? Player;
+        public Vector? Angles;
+        public readonly Dictionary<int, int> Teams = [];
+        public readonly Dictionary<int, float> Speeds = [];
+
+        public ClientSsPlayer? LocalPlayer() => Player;
+        public Vector? LocalAngles() => Angles;
+        public int TeamNumber(int entityIndex) => Teams.GetValueOrDefault(entityIndex);
+        public float? EntitySpeed(int entityIndex) => Speeds.TryGetValue(entityIndex, out float speed) ? speed : null;
+    }
+
+    /// <summary>The local player the eyes answer, positioned and moving as named.</summary>
+    private static ClientSsPlayer Local(Vector origin, Vector velocity = default)
+    {
+        var engine = Fake();
+        var player = new ClientSsPlayer(engine) { Handle = new EntityHandle(0x0001_0000u | 1) };
+        player.BindIndex(1);
+        player.State.BindLocal();
+        player.State.Origin = origin;
+        player.State.Velocity = velocity;
+        return player;
+    }
+
+    [Fact]
+    public void TheProximityScalesTheDistanceToTheBoundEntity()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero) };
+        var proxy = new PlayerProximityProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity with { Origin = new Vector(100, 0, 0) } };
+        proxy.Bind(bind);
+
+        // :56-60: delta.Length() * 0.002 = 100 * 0.002.
+        Assert.Equal(["0 float 0.2"], bind.Ops);
+    }
+
+    [Fact]
+    public void TheProximityScaleComesFromTheBlock()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero) };
+        var proxy = new PlayerProximityProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"), Str("scale", "0.01", 0, 0, 0.01f))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity with { Origin = new Vector(100, 0, 0) } };
+        proxy.Bind(bind);
+
+        Assert.Equal(["0 float 1"], bind.Ops);
+    }
+
+    [Fact]
+    public void TheProximityWritesNothingWithoutALocalPlayerAndNothingUnbound()
+    {
+        var proxy = new PlayerProximityProxy(new FakeEyes());
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bound = new FakeBind { Arg = 1, Ent = AnEntity };
+        proxy.Bind(bound);
+        var unbound = new FakeBind { Arg = 0, Ent = AnEntity };
+        proxy.Bind(unbound);
+
+        Assert.Empty(bound.Ops);
+        Assert.Empty(unbound.Ops);
+    }
+
+    [Fact]
+    public void TheProximitySkipsAnArgumentThatResolvesToNoEntity()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero) };
+        var proxy = new PlayerProximityProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var notEntity = new FakeBind { Arg = 1, Ent = AnEntity with { EntIndex = -1 } };
+        proxy.Bind(notEntity);
+
+        Assert.Empty(notEntity.Ops);
+    }
+
+    [Fact]
+    public void TheTeamMatchIsOneWhenTheTeamsAgreeAndZeroWhenTheyDoNot()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero) };
+        var proxy = new PlayerTeamMatchProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity };
+        eyes.Teams[5] = 2;
+        eyes.Teams[1] = 2;
+        proxy.Bind(bind);
+        eyes.Teams[1] = 3;
+        proxy.Bind(bind);
+
+        // :104: (pEntity->GetTeamNumber() == pPlayer->GetTeamNumber()) ? 1.0 : 0.0.
+        Assert.Equal(["0 float 1", "0 float 0"], bind.Ops);
+    }
+
+    [Fact]
+    public void TheTeamMatchTreatsAnEntityThatIsNotAPlayerAsUnassigned()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero) };
+        var proxy = new PlayerTeamMatchProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        eyes.Teams[1] = 3;   // the local player is BLU; the bound entity answers no row
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity };
+        proxy.Bind(bind);
+
+        Assert.Equal(["0 float 0"], bind.Ops);
+    }
+
+    [Fact]
+    public void TheViewSquareslyAheadIsTheScaleAndDirectlyBehindItsNegation()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero), Angles = new Vector(0, 0, 0) };
+        var proxy = new PlayerViewProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var ahead = new FakeBind { Arg = 1, Ent = AnEntity with { Origin = new Vector(100, 0, 0) } };
+        proxy.Bind(ahead);
+        var behind = new FakeBind { Arg = 1, Ent = AnEntity with { Origin = new Vector(-100, 0, 0) } };
+        proxy.Bind(behind);
+
+        // :156: DotProduct(forward, delta) * 2 — default scale.
+        Assert.Equal(["0 float 2"], ahead.Ops);
+        Assert.Equal(["0 float -2"], behind.Ops);
+    }
+
+    [Fact]
+    public void TheViewCountsThePitchIntoTheForward()
+    {
+        // AngleVectors(90, 0, 0): forward = (0, 0, -1) — looking straight down.
+        var eyes = new FakeEyes { Player = Local(Vector.Zero), Angles = new Vector(90, 0, 0) };
+        var proxy = new PlayerViewProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var below = new FakeBind { Arg = 1, Ent = AnEntity with { Origin = new Vector(0, 0, -100) } };
+        proxy.Bind(below);
+
+        Assert.Equal(["0 float 2"], below.Ops);
+    }
+
+    [Fact]
+    public void TheViewWritesNothingBeforeTheViewHasPublishedAngles()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero), Angles = null };
+        var proxy = new PlayerViewProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity };
+        proxy.Bind(bind);
+
+        Assert.Empty(bind.Ops);
+    }
+
+    [Fact]
+    public void TheSpeedScalesTheLocalVelocity()
+    {
+        var eyes = new FakeEyes { Player = Local(Vector.Zero, new Vector(300, 400, 0)) };
+        var proxy = new PlayerSpeedProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind();
+        proxy.Bind(bind);
+
+        // :197: GetLocalVelocity().Length() * 0.005 = 500 * 0.005. Stock touches
+        // no bind argument here (:189-203) — the bind can be nothing at all.
+        Assert.Equal(["0 float 2.5"], bind.Ops);
+    }
+
+    [Fact]
+    public void TheSpeedWritesNothingWithoutALocalPlayer()
+    {
+        var proxy = new PlayerSpeedProxy(new FakeEyes());
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity };
+        proxy.Bind(bind);
+
+        Assert.Empty(bind.Ops);
+    }
+
+    [Fact]
+    public void ThePositionWritesTheLocalOriginScaledAsThreeFloats()
+    {
+        var eyes = new FakeEyes { Player = Local(new Vector(200, 100, 50)) };
+        var proxy = new PlayerPositionProxy(eyes);
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind();
+        proxy.Bind(bind);
+
+        // :240-241: VectorMultiply(WorldSpaceCenter, 0.005); SetVecValue(res, 3)
+        // — the array setter. (Center: see the port's divergence remark.)
+        Assert.Equal(["0 vecn 3"], bind.Ops);
+        Assert.Equal(0, bind.VecSets[0].Slot);
+        Assert.Equal([1f, 0.5f, 0.25f], bind.VecSets[0].Values);
+    }
+
+    [Fact]
+    public void TheEntitySpeedWritesTheBoundPlayersVelocityAsAPlainFloat()
+    {
+        var proxy = new EntitySpeedProxy(new FakeEyes { Speeds = { [5] = 50f } });
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bind = new FakeBind { Arg = 1, Ent = AnEntity };
+        proxy.Bind(bind);
+
+        // :271 is m_pResult->SetFloatValue — not SetFloatResult's vector arm.
+        Assert.Equal(["0 float 50"], bind.Ops);
+    }
+
+    [Fact]
+    public void TheEntitySpeedRefusesAnEntityWithNothingToReadAndStaysSilentUnbound()
+    {
+        var proxy = new EntitySpeedProxy(new FakeEyes());
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"))));
+
+        var bound = new FakeBind { Arg = 1, Ent = AnEntity };
+        proxy.Bind(bound);
+        var unbound = new FakeBind { Arg = 0, Ent = AnEntity };
+        proxy.Bind(unbound);
+
+        Assert.Equal(1, bound.NotShippedCount);
+        Assert.Empty(bound.Ops);
+        Assert.Equal(0, unbound.NotShippedCount);
+    }
+
+    [Fact]
+    public void TheEntityRandomIsADeclaredRefusalForAnythingBoundAndSilentUnbound()
+    {
+        var proxy = new EntityRandomProxy();
+        Assert.True(proxy.Init(new FakeInit(Str("resultVar", "$r"), Str("scale", "2", 1, 2, 2, 0))));
+
+        var entity = new FakeBind { Arg = 1, Ent = AnEntity };
+        proxy.Bind(entity);
+        var unbound = new FakeBind { Arg = 0, Ent = AnEntity };
+        proxy.Bind(unbound);
+
+        Assert.Equal(1, entity.NotShippedCount);
+        Assert.Empty(entity.Ops);
+        Assert.Equal(0, unbound.NotShippedCount);
+    }
+
+    [Fact]
+    public void TheEntityRandomRefusesWhenItsScaleNamesAMissingVar()
+    {
+        // :300: CFloatInput::Init fails the proxy — a scale spelled as a var
+        // name the material does not have. (An absent scale key is the plain
+        // default, which answers true: AFloatInputThatWasReadAsText... holds
+        // that arm already.)
+        var init = new FakeInit(Str("resultVar", "$r"), Str("scale", "$noise"));
+        init.Missing.Add("$noise");
+
+        var proxy = new EntityRandomProxy();
+        Assert.False(proxy.Init(init));
     }
 }

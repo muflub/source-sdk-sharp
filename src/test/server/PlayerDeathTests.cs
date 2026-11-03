@@ -89,7 +89,8 @@ public class PlayerDeathTests
         var hook = new Heard { ReadDeaths = () => players[Player].Deaths };
         var hooks = withHook ? new ListHooks<IPlayerDeathHook>(hook) : new ListHooks<IPlayerDeathHook>();
         return (new PlayerDeaths(new RecordingLog(), engine, corpses, players, engine, hooks,
-                                 new DeathNotice(engine, engine, engine, new DamageInflictors()), flashlight), players, hook);
+                                 new DeathNotice(engine, engine, engine, new DamageInflictors()),
+                                 engine, flashlight), players, hook);
     }
 
     // ---- the flashlight ------------------------------------------------------
@@ -187,6 +188,32 @@ public class PlayerDeathTests
         int create = members.IndexOf("Entities.Create");
         Assert.True(create > 0, "no body was created: the stimulus did not reach Make");
         Assert.Equal(2, members.Take(create).Count(m => m == "Entities.GetOrigin"));
+    }
+
+    [Fact]
+    public void The_wipe_of_the_inventory_runs_after_the_hooks_have_read_it()
+    {
+        var engine = Dying();
+        var corpses = new Corpses(new RecordingLog(), engine, engine, new Bodies(Ragdoll(engine, Body)), engine);
+        var players = new Players(new RecordingLog(), engine, engine, engine, NoButtons) { DropWeaponOnDeath = false };
+        var hook = new StripReader(() => engine.CountOf("Players.RemoveAllItems"));
+        var deaths = new PlayerDeaths(new RecordingLog(), engine, corpses, players, engine,
+                                      new ListHooks<IPlayerDeathHook>(hook),
+                                      new DeathNotice(engine, engine, engine, new DamageInflictors()), engine);
+
+        deaths.OnKilled(Player, Attacker);
+
+        // The death's drops (stock's ammo pack, tf_player.cpp:12161) read the
+        // weapons and the ammo while they are still the player's; the stock
+        // wipe (RemoveAllItems(true), :12658) then takes them.
+        Assert.Equal(0, hook.StripsAtHook);
+        Assert.Equal(1, engine.CountOf("Players.RemoveAllItems"));
+    }
+
+    private sealed class StripReader(Func<int> read) : IPlayerDeathHook
+    {
+        public int StripsAtHook = -1;
+        public void OnPlayerDied(PlayerDeath death) => StripsAtHook = read();
     }
 
     // ---- IRespawnGate -------------------------------------------------------

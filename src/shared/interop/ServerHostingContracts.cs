@@ -44,6 +44,14 @@ public interface IClientLifecycle
     /// client's: parse them as untrusted input, and copy what outlives the call.
     /// </summary>
     bool OnClientMessage(int entIndex, string key, ReadOnlySpan<byte> payload) => false;
+
+    /// <summary>
+    /// The client's userinfo changed
+    /// (<c>CTeamplayRules::ClientSettingsChanged</c>): read the convars whose
+    /// values the game caches per player. The name is the core's
+    /// <c>PlayerNames</c> half and is not a participant's to take.
+    /// </summary>
+    void OnClientSettingsChanged(int entIndex) { }
 }
 
 /// <summary>

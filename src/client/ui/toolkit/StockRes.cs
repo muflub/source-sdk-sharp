@@ -1,5 +1,7 @@
 using System.Globalization;
 
+using SourceSharp.Client.Ui;
+
 namespace SourceSharp.Client.Ui.Toolkit;
 
 /// <summary>
@@ -11,12 +13,6 @@ namespace SourceSharp.Client.Ui.Toolkit;
 /// about the parent's centre. The toolkit's <c>AtRes</c> offsets point inward
 /// from an anchor, in du, so a resolved spot answers both shapes.
 /// </summary>
-public static class StockRes
-{
-    /// <summary>The du per stock unit: the 480-tall canvas into 1080.</summary>
-    public const float Scale = 2.25f;
-}
-
 /// <summary>A resolved rect of the stock space, in units, measured up from
 /// the screen's bottom-left — a parent panel's own box for nesting.</summary>
 /// <param name="Left">The left edge, units from the screen's left.</param>
@@ -27,6 +23,63 @@ public readonly record struct StockRect(float Left, float Bottom, float Wide, fl
 {
     /// <summary>The canvas the root .res panels fill.</summary>
     public static readonly StockRect Screen = new(0f, 0f, 640f, 480f);
+}
+
+/// <summary>Converter internals shared by the box and the resolved rects.</summary>
+public static class StockRes
+{
+    /// <summary>The du per stock unit: the 480-tall canvas into 1080.</summary>
+    public const float Scale = 2.25f;
+
+    /// <summary>The spot of an already-resolved rect: its edges in du from
+    /// <paramref name="parent"/>'s (left, right, bottom, top), its centre's
+    /// offset from the parent's centre, and its size.</summary>
+    public static StockSpot Spot(StockRect rect, StockRect parent)
+    {
+        float s = Scale;
+        return new StockSpot(
+            (rect.Left - parent.Left) * s,
+            (parent.Left + parent.Wide - (rect.Left + rect.Wide)) * s,
+            (rect.Bottom - parent.Bottom) * s,
+            (parent.Bottom + parent.Tall - (rect.Bottom + rect.Tall)) * s,
+            (rect.Left + rect.Wide / 2f - (parent.Left + parent.Wide / 2f)) * s,
+            rect.Wide * s,
+            rect.Tall * s);
+    }
+
+    /// <summary>The screen the root .res panels fill, at the frame's own
+    /// proportions: the du space in stock units. At 4:3 this is the 640x480
+    /// the .res files are written in (<see cref="StockRect.Screen"/>); a
+    /// wider screen widens it, so a "c" xpos resolves about the screen's
+    /// true centre and an "r" one from its true right edge — vgui computes
+    /// every position against the actual screen (Panel.cpp ComputePos),
+    /// not against the authoring canvas.</summary>
+    public static StockRect Screen(in ScreenInfo s)
+        => new(0f, 0f, s.W / s.Scale / Scale, s.H / s.Scale / Scale);
+
+    /// <summary>The spot of a root box against the frame's screen.</summary>
+    public static StockSpot Spot(StockBox box, in ScreenInfo s)
+    {
+        var screen = Screen(s);
+        return Spot(box.Rect(screen), screen);
+    }
+
+    /// <summary>The spot of a box nested in a parent root box, both against
+    /// the frame's screen.</summary>
+    public static StockSpot Spot(StockBox box, StockBox parent, in ScreenInfo s)
+    {
+        var screen = Screen(s);
+        return Spot(box.Rect(parent.Rect(screen)), screen);
+    }
+
+    /// <summary>Clips a resolved rect to its parent's bottom edge. Stock
+    /// hangs boxes past the screen on purpose (the flag backdrop's "r75"
+    /// puts its bottom 5 units below it); the screen clips what hangs
+    /// below, and the toolkit's lint does not allow a rect off it — so the
+    /// visible area is the box to draw.</summary>
+    public static StockRect ClippedToScreen(StockRect rect) => rect.Bottom >= 0f
+        ? rect
+        : new StockRect(rect.Left, 0f, rect.Wide, rect.Tall + rect.Bottom);
 }
 
 /// <summary>Where an element landed: its edges in du from its parent's
@@ -89,19 +142,7 @@ public readonly record struct StockBox
     }
 
     /// <summary>The spot in du, relative to the parent's edges and centre.</summary>
-    public StockSpot In(StockRect parent)
-    {
-        StockRect r = Rect(parent);
-        float s = StockRes.Scale;
-        return new StockSpot(
-            (r.Left - parent.Left) * s,
-            (parent.Left + parent.Wide - (r.Left + _wide)) * s,
-            (r.Bottom - parent.Bottom) * s,
-            (parent.Bottom + parent.Tall - (r.Bottom + _tall)) * s,
-            (r.Left + _wide / 2f - (parent.Left + parent.Wide / 2f)) * s,
-            _wide * s,
-            _tall * s);
-    }
+    public StockSpot In(StockRect parent) => StockRes.Spot(Rect(parent), parent);
 
     // Allocation-free: the screens resolve their boxes every frame, and a
     // substring per prefix would show up as bytes a frame (UiAllocationTests).

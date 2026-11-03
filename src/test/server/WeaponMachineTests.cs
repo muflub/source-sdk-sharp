@@ -38,8 +38,15 @@ public class WeaponMachineTests
         // is predicted — the 9c5 gate answers yes for it, which is what makes
         // the client replay it at all. The machine's and the HL2MP behaviours',
         // the SLAM's two, eleven of the physcannon's (PhysCannonBehaviour), and
-        // the pistol's accuracy penalty with its clock.
-        Assert.Equal(38, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        // the pistol's accuracy penalty with its clock, the TF owner's long-term
+        // random-crit rate (stock's m_flObservedCritChance,
+        // tf_weaponbase.h:761), and a behaviour's own seven
+        // (WeaponNetState.Behaviour*: a mod's weapon state, the TF weapons' —
+        // six the deploy clears, and the kept clock the TF revolver's aim
+        // rides, whose stock member the constructor alone zeroes), and the
+        // deploy stamp that lets the client tell a server's (re)hand-out from
+        // a mispredicted switch (WeaponNetState.DeployEpoch).
+        Assert.Equal(47, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.PredictedViewModel)));
     }
 
@@ -50,7 +57,7 @@ public class WeaponMachineTests
         // than a millisecond is two runs of the same arithmetic, not an error.
         var state = StandaloneNetStates.Of(typeof(WeaponNetState));
 
-        foreach (string timer in new[] { "NextPrimaryAttack", "NextSecondaryAttack", "TimeWeaponIdle" })
+        foreach (string timer in new[] { "NextPrimaryAttack", "NextSecondaryAttack", "TimeWeaponIdle", "BehaviourTimeA", "BehaviourTimeB", "BehaviourTimeC" })
         {
             int offset = state[timer].Offset;
             Assert.Equal(1, _catalog.DescribeOffset(
@@ -177,6 +184,27 @@ public class WeaponMachineTests
     private const int Attack2 = (int)InputButtons.Attack2;
     private const int ReloadKey = (int)InputButtons.Reload;
 
+    /// <summary>
+    /// A row's behaviour answering the looping-anim seam as stock's minigun
+    /// does (<c>CTFMinigun::SendWeaponAnim</c>, the activity comparison): the
+    /// anim being sent and the one already playing are both the fire anim.
+    /// </summary>
+    private sealed class LoopingBehaviour : IWeaponBehaviour
+    {
+        public bool AnimContinuesOnResend(in WeaponAttackContext attack, WeaponAnim anim) =>
+            anim == WeaponAnim.Primary &&
+            attack.ViewModel.Sequence == attack.Arms.LookupSequence(anim);
+    }
+
+    /// <summary>The looping answer claimed for the SMG's key, over the core's.</summary>
+    private sealed class LoopSource : IWeaponBehaviourSource
+    {
+        public IEnumerable<KeyValuePair<string, IWeaponBehaviour>> Behaviours()
+        {
+            yield return new(Hl2mpWeaponBehaviours.Smg1, new LoopingBehaviour());
+        }
+    }
+
     [Fact]
     public void OneTriggerPullSpendsOneRoundAndAdvancesTheClock()
     {
@@ -216,6 +244,58 @@ public class WeaponMachineTests
         Assert.Equal(1, live.BulletsFired);
         Assert.Equal(0, silent.BulletsFired);
         Assert.Empty(silent.Sounds);
+    }
+
+    /// <summary>
+    /// The looping-anim seam, a per-word <see cref="IWeaponBehaviour"/>
+    /// answer at the machine's own send: where the row's behaviour answers
+    /// as <c>CTFMinigun::SendWeaponAnim</c> does
+    /// (<c>tf_weapon_minigun.cpp:961-967</c> — comparing the ACTIVITIES, the
+    /// fire anim being sent and the one playing: "If we're already playing
+    /// the fire anim, let it continue. It loops."), a re-send of that anim
+    /// keeps it running. The restart frame is the pose that hangs the merged
+    /// attachment out of view for the whole burst; the hands alone until the
+    /// trigger comes off.
+    /// </summary>
+    [Fact]
+    public void AHeldTriggerLetsTheFireAnimLoopRatherThanRestartItEveryShot()
+    {
+        var arms = new RecordingArms();
+        var machine = new WeaponLogic(arms, behaviours: new WeaponBehaviours(() => new[] { new LoopSource() }));
+        var (w, vm) = States("weapon_smg1", clip: 45, reserve: 100);
+
+        machine.RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+        Assert.True(vm.Sequence > 0, "the first shot sends the fire anim");
+        int firstShotParity = vm.AnimationParity;
+
+        machine.RunCommand(w, vm, Attack, now: 10.2f, effectsLive: true);
+
+        Assert.True(arms.BulletsFired >= 2, "the burst reaches the subject");
+        Assert.Equal(firstShotParity, vm.AnimationParity);   // the loop keeps running
+    }
+
+    /// <summary>
+    /// Stock's base, the other half of the seam: every weapon without a loop
+    /// answer — the pistol among them — goes through
+    /// <c>CBaseCombatWeapon::SendWeaponAnim</c>, which restarts the anim on
+    /// every send. The second shot of a held burst re-sends the fire anim
+    /// with a fresh parity bump, not a continued loop.
+    /// </summary>
+    [Fact]
+    public void APistolStillRestartsItsFireAnimOnEveryShotOfAHeldBurst()
+    {
+        var arms = new RecordingArms();
+        var machine = new WeaponLogic(arms);   // stock behaviours: the base answer restarts
+        var (w, vm) = States("weapon_pistol", clip: 18, reserve: 30);
+
+        machine.RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+        Assert.True(vm.Sequence > 0, "the first shot sends the fire anim");
+        int firstShotParity = vm.AnimationParity;
+
+        machine.RunCommand(w, vm, Attack, now: 10.5f, effectsLive: true);   // the pistol's whole interval
+
+        Assert.Equal(2, arms.BulletsFired);
+        Assert.NotEqual(firstShotParity, vm.AnimationParity);   // stock's base restart
     }
 
     [Fact]
@@ -336,5 +416,83 @@ public class WeaponMachineTests
         machine.RunCommand(w, vm, Attack2, now: 10f, effectsLive: true);
         Assert.Single(arms.Launches);
         Assert.Contains(arms.Sounds, s => s.Contains("Empty"));
+    }
+
+    /// <summary>
+    /// A melee weapon with an unregistered ammo-name literal in its script row
+    /// is a weapon that USES NO AMMO at all — stock compares the name through
+    /// <c>GetAmmoDef()->Index</c> (basecombatweapon_shared.cpp:263): a name the
+    /// ammo system does not know leaves the index at -1, and UsesPrimaryAmmo is
+    /// index &gt;= 0 (:1306-1321), so HasAnyAmmo early-trues (:1239-1247) and
+    /// ReloadOrSwitchWeapons never swaps a fist out. The fists' script says
+    /// lowercase <c>none</c>, which ParseAmmo keeps as a literal (stock's strcmp
+    /// parity), so the machine must read it as "no ammo needed", not as "an ammo
+    /// type named none". Before the fix the managed gate was the name's LENGTH,
+    /// the fists reported empty, and firing them dropped the player back to the
+    /// shotgun after the swing's clock ran out.
+    /// </summary>
+    [Fact]
+    public void AFistWithAnUnregisteredAmmoLiteralKeepsItselfAfterFiring()
+    {
+        var arms = new SwitchCountingArms();
+        var row = new WeaponType("tf_weapon_fists", Interval: 0.8f)
+        {
+            AmmoName = "none", // lowercase literal: not an AmmoTypes row
+            MeleeRange = 48f,
+            MeleeDamage = 65f,
+        };
+        var machine = new WeaponLogic(arms, new WeaponCatalog(() => [new Source(row)]));
+
+        var (w, vm) = States("weapon_crowbar", clip: -1, reserve: 0);
+        w.WeaponTypeId = new WeaponCatalog(() => [new Source(row)]).IndexOf("tf_weapon_fists");
+
+        // Fire once, let the click's interval pass, then an empty command: the
+        // idle tail runs ReloadOrSwitchWeapons. The fists still hold.
+        machine.RunCommand(w, vm, Attack, now: 1f, effectsLive: true);
+        machine.RunCommand(w, vm, 0, now: 3f, effectsLive: true);
+
+        Assert.Equal(0, arms.SwitchCount);
+    }
+
+    /// <summary>
+    /// The other arm, so the first cannot pass by always answering yes: a row
+    /// whose ammo name IS registered and whose pools are empty still takes the
+    /// switch — stock's empty weapon hands itself to the next best one.
+    /// </summary>
+    [Fact]
+    public void ARegisteredEmptyPoolStillHandsToTheNextBestWeapon()
+    {
+        var arms = new SwitchCountingArms();
+        var row = new WeaponType("wep.poolfed", Interval: 0.5f)
+        {
+            AmmoName = "Buckshot", // a stock AmmoTypes row
+        };
+        var machine = new WeaponLogic(arms, new WeaponCatalog(() => [new Source(row)]));
+
+        var (w, vm) = States("weapon_crowbar", clip: -1, reserve: 0);
+        w.WeaponTypeId = new WeaponCatalog(() => [new Source(row)]).IndexOf("wep.poolfed");
+
+        machine.RunCommand(w, vm, Attack, now: 1f, effectsLive: true);
+        machine.RunCommand(w, vm, 0, now: 3f, effectsLive: true);
+
+        Assert.Equal(1, arms.SwitchCount);
+    }
+
+    /// <summary>The recording arms, plus a count of the exhausted-switch.</summary>
+    private sealed class SwitchCountingArms : IWeaponArms
+    {
+        public int SwitchCount;
+
+        public void Sound(string soundScript) { }
+        public void FireBullets(in WeaponType type, int pellets, float spreadDegrees) { }
+        public void MeleeSwing(in WeaponType type) { }
+        public void Launch(in WeaponType type, string projectile, float speed, bool thrown) { }
+        public int LookupSequence(WeaponAnim anim) => (int)anim + 1;
+        public float AnimDuration(WeaponAnim anim) => 1.5f;
+        public bool SwitchToNextBest()
+        {
+            SwitchCount++;
+            return true;
+        }
     }
 }

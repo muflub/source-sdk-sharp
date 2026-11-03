@@ -60,6 +60,10 @@ public class CorpseTests
         // cannot pass by confusing an index with a handle.
         engine.Returns("Entities.GetIndex", PlayerIndex);
 
+        // The team the body is stamped with (Corpses.Make, red's number by
+        // default so a fact that does not care about teams keeps working).
+        engine.Returns("Players.GetTeam", 2);
+
         return engine;
     }
 
@@ -94,7 +98,7 @@ public class CorpseTests
         // report what was written.
         body.State.BindLocal();
 
-        return new Corpses(new RecordingLog(), engine, engine, new OneBody(body), engine);
+        return new Corpses(new RecordingLog(), engine, engine, new OneBody(body), engine, engine);
     }
 
     /// <summary>
@@ -120,7 +124,7 @@ public class CorpseTests
         // At the origin, matching the state's default -- see the note below.
         // Set on the engine rather than in each test, because every viewer test
         // reaches the placement check before anything it is actually about.
-        var body = new ClientSsRagdoll(engine, others ?? new Viewers(), new RecordingRagdolls(engine));
+        var body = new ClientSsRagdoll(engine, engine, engine, others ?? new Viewers(), new RecordingRagdolls(engine));
 
         // The registry does both of these in a game (ClientStandaloneRegistry
         // binds the engine at create, and the decode gives the state its
@@ -200,6 +204,28 @@ public class CorpseTests
 
         Assert.True(faced.ArgAs<Vector>(1).Equals(angles),
             $"facing the way they faced ({faced.ArgAs<Vector>(1)}, wanted {angles})");
+    }
+
+    /// <summary>
+    /// THE DEAD PLAYER'S TEAM IS STAMPED ONTO THE BODY — stock's
+    /// <c>pRagdoll->m_iTeam = GetTeamNumber()</c> (tf_player.cpp:15625). It is
+    /// the number the client picks the body's skin from at creation
+    /// (c_tf_player.cpp:712-719), so losing it leaves every corpse in the
+    /// model's skin 0: a BLU player dies and leaves a RED body.
+    /// </summary>
+    [Fact]
+    public void TheBodyCarriesTheDeadPlayersTeam()
+    {
+        var engine = Dying(Vector.Zero, Vector.Zero, Vector.Zero);
+        engine.Returns("Players.GetTeam", 3); // stock's TF_TEAM_BLUE
+
+        var corpses = Service(engine, out var body);
+
+        corpses.Make(Player);
+
+        Assert.True(body.State.Team == 3,
+            $"the body carries the dead player's blue team ({body.State.Team}) — the stamp is "
+          + "what lets the client paint a BLU corpse BLU instead of skin-default red");
     }
 
     /// <summary>
@@ -552,6 +578,99 @@ public class CorpseTests
     }
 
     /// <summary>
+    /// Stock's burn arrival (c_tf_player.cpp:928-932): a body whose update
+    /// carries the networked burning stamps ITS OWN clock with the client's
+    /// now and starts the corpse's particle. The clock crosses no wire — the
+    /// server never knew it — which is what BurnLevel's ragdoll arm
+    /// (c_tf_player.cpp:1860-1864) reads.
+    /// </summary>
+    [Fact]
+    public void ABodyThatArrivesBurningStampsItsOwnBurnClockAndStartsTheCorpseParticle()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+        engine.Returns("Effects.ParticleSystemStart", true);
+        engine.Returns("Clock.Now", 100f);
+
+        var body = Viewer(engine);
+        body.State.Burning = true;
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(100f, body.BurnStartTime);
+
+        var start = engine.Last("Effects.ParticleSystemStart")!.Value;
+
+        Assert.True(start.ArgAs<string>(1) == FlameRules.BurningCorpseParticle,
+            $"the corpse particle is stock's '{FlameRules.BurningCorpseParticle}', "
+          + $"not '{start.ArgAs<string>(1)}'");
+    }
+
+    /// <summary>
+    /// A BLUE player's corpse wears the blue skin — stock's
+    /// <c>C_TFRagdoll::CreateTFRagdoll</c> maps the stamped team to the model
+    /// skin at creation (c_tf_player.cpp:712-719): skin 0 for red, skin 1
+    /// otherwise. Without the mapping every corpse draws in skin 0 and the
+    /// BLU death leaves a RED body — the visible bug.
+    /// </summary>
+    [Fact]
+    public void ABluesBodyWearsTheBlueSkin()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Team = 3; // stock's TF_TEAM_BLUE
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var skin = engine.Last("EntityRender.SetSkin")!.Value;
+
+        Assert.True(skin.ArgAs<int>(1) == 1,
+            $"a BLU corpse is the model's skin 1, the blue skin "
+          + $"(got {skin.ArgAs<int>(1)})");
+    }
+
+    /// <summary>The other arm: RED stays skin 0, so the mapping is the
+    /// team index rather than a constant.</summary>
+    [Fact]
+    public void ARedsBodyWearsTheRedSkin()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+        body.State.Team = 2; // stock's TF_TEAM_RED
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        var skin = engine.Last("EntityRender.SetSkin")!.Value;
+
+        Assert.True(skin.ArgAs<int>(1) == 0,
+            $"a RED corpse is the model's skin 0, the red skin "
+          + $"(got {skin.ArgAs<int>(1)})");
+    }
+
+    /// <summary>A body that arrived cold carries no clock and starts nothing.</summary>
+    [Fact]
+    public void ABodyThatArrivesColdCarriesNoBurnClockAndStartsNoParticle()
+    {
+        var engine = ClientDoubles.Fake();
+        engine.Returns("EntityRender.BecomeRagdoll", true);
+        engine.Returns("EntityRender.LookupSequenceByActivity", IdleSequence);
+
+        var body = Viewer(engine);
+
+        body.OnDataChanged(ReadOnlySpan<byte>.Empty, DataUpdateType.Created);
+
+        Assert.Equal(0f, body.BurnStartTime);
+        Assert.Null(engine.Last("Effects.ParticleSystemStart"));
+    }
+
+    /// <summary>
     /// THE BODY IS POSED BEFORE IT COLLAPSES, and this is the assertion for a
     /// bug that was SEEN before it was understood: the corpse appeared as a
     /// long stretched smear across the floor.
@@ -723,7 +842,7 @@ public class CorpseTests
         engine.Returns("Host.IsInitialized", true);
         engine.Returns("Entities.IsValid", true);
 
-        var rebuilt = new ClientSsRagdoll(engine, others, new RecordingRagdolls(engine));
+        var rebuilt = new ClientSsRagdoll(engine, engine, engine, others, new RecordingRagdolls(engine));
         rebuilt.BindEngine(engine, engine);
         rebuilt.State.BindLocal();
         rebuilt.LoadState(record);

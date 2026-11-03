@@ -5,7 +5,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 
 // The crate stall from fakes (the ui-screen loop's sample step): the states a
 // crate is ever in. Item and base names are ui.Data (game copy, case kept);
-// every #Descent_* token lives in game/mod_tf2_descent/resource/descent_english.txt.
+// every #Descent_* token lives in game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class CrateSamples
 {

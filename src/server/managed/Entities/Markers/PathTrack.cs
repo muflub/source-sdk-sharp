@@ -24,7 +24,20 @@ public enum TrackOrientation
 }
 
 /// <summary>
-/// One place on a track, the place after it, and the place before it.
+/// A listener for a node being passed, the seam form of the
+/// <c>path_track_passed</c> announcement. Implemented by a mod's payload
+/// watcher and handed to each node with <see cref="PathTrack.AddPassListener"/>;
+/// the mod never touches the C# event.
+/// </summary>
+public interface IPathTrackPassListener
+{
+    /// <summary>The node was passed. Called beside <see cref="PathTrack.Passed"/>.</summary>
+    void OnPathTrackPassed(PathTrack node);
+}
+
+/// <summary>
+/// One place on a track, the place after it, and the place before it. (Also
+/// see <see cref="IPathTrackPassListener"/>.)
 ///
 /// The third and richest of the node types, and the differences from
 /// <see cref="PathCorner"/> are all consequences of one: this chain is walked in
@@ -184,6 +197,19 @@ public class PathTrack : ScriptedEntity
     /// </summary>
     public override void OnThink() => LinkChain();
 
+    /// <summary>
+    /// Stock links a path_track in its Activate (CPathTrack::Activate), which
+    /// runs over every entity after the whole map has spawned — so a round
+    /// restart that re-creates the map joins the chain before the round's
+    /// RoundActivate reaches a watcher that walks it. The think above stays
+    /// for nodes nothing activated (created mid-game).
+    /// </summary>
+    public override void OnServerActivate()
+    {
+        base.OnServerActivate();
+        LinkChain();
+    }
+
     //-------------------------------------------------------------------------
     // Walking the chain.
     //
@@ -271,7 +297,12 @@ public class PathTrack : ScriptedEntity
     /// Stock's internal input, not in the FGD: a follower announcing that it got
     /// here. Declared because a map that fires it by hand is entitled to.
     /// </summary>
-    [ScriptedEvent("InPass")] private void OnInPass() => OnPass.Fire();
+    [ScriptedEvent("InPass")]
+    private void OnInPass()
+    {
+        OnPass.Fire();
+        Passed?.Invoke(this);
+    }
 
     [ScriptedEvent("InTeleport")] private void OnInTeleport() => OnTeleport.Fire();
 
@@ -295,7 +326,35 @@ public class PathTrack : ScriptedEntity
     /// the node, and the changer took its "somebody pressed a button" branch on
     /// every single node the train passed.
     /// </summary>
-    internal void Pass(EntityHandle follower) => OnPass.Fire(follower);
+    internal void Pass(EntityHandle follower)
+    {
+        OnPass.Fire(follower);
+        Passed?.Invoke(this);
+        foreach (IPathTrackPassListener listener in _passListeners)
+            listener.OnPathTrackPassed(this);
+    }
+
+    /// <summary>
+    /// Raised whenever this node is passed, by a follower or by the
+    /// <c>InPass</c> input: TF's <c>path_track_passed</c> game event, which
+    /// stock's <c>CPathTrack::InputPass</c> fires beside <c>OnPass</c> and a
+    /// payload watcher listens for to follow the cart over its hills. A C#
+    /// event rather than a game event because both ends are managed.
+    /// </summary>
+    public event Action<PathTrack>? Passed;
+
+    private readonly List<IPathTrackPassListener> _passListeners = new();
+
+    /// <summary>
+    /// The listener form of <see cref="Passed"/>, for a mod, which reaches the
+    /// core only by constructor injection and hook interfaces and so may not
+    /// subscribe to the event (SS0013) — stock's watcher is a game-event
+    /// listener, and this is the same announcement with a mod's seam shape.
+    /// </summary>
+    public void AddPassListener(IPathTrackPassListener listener) => _passListeners.Add(listener);
+
+    /// <summary>Undoes <see cref="AddPassListener"/>; the watcher does this on removal.</summary>
+    public void RemovePassListener(IPathTrackPassListener listener) => _passListeners.Remove(listener);
 
     internal void Teleported(EntityHandle follower) => OnTeleport.Fire(follower);
 

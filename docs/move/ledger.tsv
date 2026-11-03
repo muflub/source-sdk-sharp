@@ -105,7 +105,7 @@ game/mod_sharp/gameinfo.txt	MOD-COPY	game/mod_test/gameinfo.txt			0		0	628b5df52
 game/mod_sharp/maps/dm_lockdown.bsp	MOD-COPY	game/mod_test/maps/dm_lockdown.bsp			0		0	93e4c7367b99cf35bae30467acc10c31c8bea48ac5199e80f5e73cc490da3523
 game/mod_sharp/resource/ObjectControlPanelScheme.res	MOD-COPY	game/mod_test/resource/ObjectControlPanelScheme.res			0		0	b704a7e326602bb6228c0bccd923821474f69cd81e09a4002944771b559ce73c
 game/mod_sharp/resource/PDAControlPanelScheme.res	MOD-COPY	game/mod_test/resource/PDAControlPanelScheme.res			0		0	b704a7e326602bb6228c0bccd923821474f69cd81e09a4002944771b559ce73c
-game/mod_sharp/resource/mod_sharp_english.txt	MOD-COPY	game/mod_test/resource/mod_sharp_english.txt			0		0	f8d96fd1f58299a4a28e0e378f9b9a939a150b9ce99f02a59c3763bf69b05c51
+game/mod_sharp/resource/test_english.txt	MOD-COPY	game/mod_test/resource/test_english.txt			0		0	f8d96fd1f58299a4a28e0e378f9b9a939a150b9ce99f02a59c3763bf69b05c51
 game/mod_sharp/resource/modevents.res	MOD-COPY	game/mod_test/resource/modevents.res			0		0	333935d40861df43f5486479943b9fd322454fd0643d87e978308e03f5a197d5
 game/mod_sharp/scripts/ChapterBackgrounds.txt	MOD-COPY	game/mod_test/scripts/ChapterBackgrounds.txt			0		0	e065eb9c38f0b1c948a9ed03b618b273ec10ab121ae5626b38089d969be5b3be
 game/mod_sharp/scripts/HudAnimations.txt	MOD-COPY	game/mod_test/scripts/HudAnimations.txt			0		0	d5f09d8ad39dd247dc0008e1d2c9c47d2a35c4ed47b1c61d2bb1be96ca286125

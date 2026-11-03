@@ -190,4 +190,27 @@ public class KeyValuesTextTests
         Assert.True(kv.Children[0].Children.Count == 2, "the translation block has both lines");
         Assert.True(kv.Children[1].Children.Count == 2, "and the group has both decals");
     }
+
+    [Fact]
+    public void ABlockNeverClosedIsReportedAtTheLineItOpened()
+    {
+        // items_game.txt is 277,702 lines: "never closed" with no position
+        // names nothing a person can go and fix. The open brace is on line 3.
+        const string text = "\"a\" { \"x\" \"1\" }\n\"b\"\n{\n\"y\" \"2\"\n";
+
+        var e = Assert.Throws<KeyValuesTextException>(() => KeyValuesText.Parse(text));
+
+        Assert.Equal(text.IndexOf('{', 17), e.Offset);
+        Assert.Equal(3, e.LineAt(text));
+    }
+
+    [Fact]
+    public void AnUnmatchedCloseIsReportedAtItsOwnLine()
+    {
+        const string text = "\"a\" \"1\"\n\n}\n";
+
+        var e = Assert.Throws<KeyValuesTextException>(() => KeyValuesText.Parse(text));
+
+        Assert.Equal(3, e.LineAt(text));
+    }
 }

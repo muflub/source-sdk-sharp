@@ -6,7 +6,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 // The skill window from fakes (the ui-screen loop's sample step): the four
 // tabs, the tier ladder with its prerequisite links, the Mercenary groups.
 // Every #Descent_* copy lives in docs/plans/tokens-skills.tsv and lands in
-// game/mod_tf2_descent/resource/descent_english.txt; synergy hints are
+// game/mod_tf2_descent/resource/tf2_descent_english.txt; synergy hints are
 // ui.Data (server copy, case kept).
 
 public static class SkillTreeSamples

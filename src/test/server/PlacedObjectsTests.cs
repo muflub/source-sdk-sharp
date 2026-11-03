@@ -190,6 +190,7 @@ public class PlacedObjectsTests
     {
         var registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(PickupItem).Assembly);
+        registry.RegisterAll(typeof(PlacedObjectsTests).Assembly);
         var services = Services(out var engine);
         services.AddInstance(new Arsenal(new RecordingLog(), engine, engine, engine, engine, engine, engine,
                                          engine, engine, registry, engine, new DamageHitGroups()));
@@ -243,6 +244,37 @@ public class PlacedObjectsTests
         Assert.Equal((new Vector(5f, 6f, 7f), new Vector(0f, 45f, 0f)),
                      (((IPlacedObject)p.Entity).HomeOrigin, ((IPlacedObject)p.Entity).HomeAngles));
         Assert.False(p.Thinks.IsScheduled(Thing, PickupItem.RestContext));
+    }
+
+    /// <summary>An item of a mod whose items are not HL2MP's placed objects (TF2's CTFPowerup).</summary>
+    [ScriptedEntity(UnplacedItem.MapClass, ScriptedEntityKind.Item)]
+    public sealed class UnplacedItem(IEngineWorldQuery world, PlacedObjects placed) : PickupItem(world, placed)
+    {
+        public const string MapClass = "test_unplaced_item";
+
+        protected override string Model => "models/test.mdl";
+
+        protected override float RespawnDelay => 10f;
+
+        protected override bool JoinsPlacedObjects => false;
+
+        protected override bool TryGive(EntityHandle player) => true;
+    }
+
+    [Fact]
+    public void An_item_that_is_no_placed_object_rests_without_joining_the_rules_and_comes_back_uncharged()
+    {
+        var p = Spawned(UnplacedItem.MapClass);
+        p.Rest.Answer = true;
+
+        p.Run(10.1f);
+        Assert.Equal(0, p.Objects.Count);
+        Assert.Equal(new Vector(5f, 6f, 7f), ((IPlacedObject)p.Entity).HomeOrigin);
+
+        p.Entity.OnTouch(Player);
+        p.Run(20.1f);
+
+        Assert.False(p.Engine.Called("Sound.EntityEmitSound"), "HL2MP's charge is not this item's");
     }
 
     [Fact]

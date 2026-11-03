@@ -56,7 +56,7 @@ public class WeaponBehaviourTests
 
     private sealed class DoublesTheInterval : IWeaponBehaviour
     {
-        public float ModifyFireInterval(in WeaponType type, float interval) => interval * 2f;
+        public float ModifyFireInterval(in WeaponType type, float interval, int ownerIndex) => interval * 2f;
     }
 
     private sealed class Vetoes : IWeaponBehaviour
@@ -67,7 +67,7 @@ public class WeaponBehaviourTests
 
     private sealed class ThirtyRoundClip : IWeaponBehaviour
     {
-        public int ModifyClipSize(in WeaponType type, int clipSize) => 30;
+        public int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex) => 30;
     }
 
     private sealed class Records : IWeaponBehaviour
@@ -382,5 +382,176 @@ public class WeaponBehaviourTests
 
         Assert.Equal(leavesPickup, spawned.CreatedClasses.Contains(Gun));
         Assert.Equal((1, 0), (hooks.Holsters, arsenal.Holdings(Player).Count));
+    }
+
+    private sealed class SeesTheCommand : IWeaponBehaviour
+    {
+        public readonly List<(string Point, WeaponCommand Command)> Seen = new();
+
+        public bool BeforePrimaryAttack(in WeaponAttackContext attack) { Seen.Add(("before", attack.Command)); return true; }
+        public void PrimaryAttack(in WeaponAttackContext attack) => Seen.Add(("primary", attack.Command));
+        public void Reload(in WeaponAttackContext attack) => Seen.Add(("reload", attack.Command));
+        public void ItemPostFrame(in WeaponAttackContext attack) => Seen.Add(("post", attack.Command));
+    }
+
+    [Fact]
+    public void EveryBehaviourPointIsHandedTheCommandTheMachineRuns()
+    {
+        var command = new WeaponCommand(Seed: 0x1234567, WeaponIndex: 0x500, OwnerIndex: 3);
+        var seen = new SeesTheCommand();
+        var machine = Machine(new Arms(), With(seen));
+
+        var (w, vm) = Armed(clip: 1, reserve: 30);
+        machine.RunCommand(w, vm, Attack, now: 10f, effectsLive: true, command);      // the last round
+        machine.RunCommand(w, vm, ReloadKey, now: 11f, effectsLive: false, command);  // a replay's reload
+
+        Assert.Equal(["before", "primary", "post", "reload", "post"], seen.Seen.Select(s => s.Point));
+        Assert.All(seen.Seen, s => Assert.Equal(command, s.Command));
+    }
+
+    /// <summary>Records the owner each clip and interval point was asked about.</summary>
+    private sealed class SeesTheOwner : IWeaponBehaviour
+    {
+        public readonly List<(string Point, int Owner)> Seen = new();
+
+        public float ModifyFireInterval(in WeaponType type, float interval, int ownerIndex)
+        { Seen.Add(("interval", ownerIndex)); return interval; }
+
+        public int ModifyClipSize(in WeaponType type, int clipSize, int ownerIndex)
+        { Seen.Add(("clip", ownerIndex)); return clipSize; }
+    }
+
+    [Fact]
+    public void TheClipAndIntervalPointsAreAskedAboutTheCommandsOwner()
+    {
+        var command = new WeaponCommand(Seed: 0x1234567, WeaponIndex: 0x500, OwnerIndex: 3);
+        var seen = new SeesTheOwner();
+        var (w, vm) = Armed(clip: 18, reserve: 30);
+
+        Machine(new Arms(), With(seen)).RunCommand(w, vm, Attack, now: 10f, effectsLive: true, command);
+
+        // The step's clip, the attack's clip, and the interval the clocks are
+        // counted in — every one about the player holding the weapon.
+        Assert.Equal(["clip", "clip", "interval"], seen.Seen.Select(s => s.Point));
+        Assert.All(seen.Seen, s => Assert.Equal(3, s.Owner));
+    }
+
+    [Fact]
+    public void WithoutACommandTheClipAndIntervalPointsSeeNoOwner()
+    {
+        var seen = new SeesTheOwner();
+        var (w, vm) = Armed(clip: 18, reserve: 30);
+
+        Machine(new Arms(), With(seen)).RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+
+        Assert.NotEmpty(seen.Seen);
+        Assert.All(seen.Seen, s => Assert.Equal(0, s.Owner));
+    }
+
+    [Fact]
+    public void TheArsenalAsksTheClipSizeAboutTheOwningPlayer()
+    {
+        var seen = new SeesTheOwner();
+
+        ArmedArsenal(With(seen), () => 10f);   // the construction gives the gun
+
+        // The equip fills the clip and the deploy loads it — both about the
+        // player whose hands they fill (the fixture player's entity index).
+        Assert.NotEmpty(seen.Seen);
+        Assert.All(seen.Seen, s => Assert.Equal(1, s.Owner));
+    }
+
+    [Fact]
+    public void TheCommandIsTheStockSeedOfItsNumberAndThePairsEntityIndices()
+    {
+        var cmd = new UserCmd { CommandNumber = 42 };
+
+        var command = WeaponCommand.For(in cmd, weapon: new EntityHandle(0x0003_0500u), owner: new EntityHandle(0x0002_0004u));
+
+        // ReadUsercmd's MD5_PseudoRandom(command_number) & 0x7fffffff, and the
+        // entries of the two handles (the serial bits are not the index).
+        Assert.Equal(new WeaponCommand((int)(UserCmdCodec.Md5PseudoRandom(42) & 0x7fffffffu), 0x500, 4), command);
+        Assert.NotEqual(WeaponCommand.For(new UserCmd { CommandNumber = 43 }, default, default).Seed, command.Seed);
+    }
+
+    /// <summary>Scales the reload's duration and records the owner it was asked about.</summary>
+    private sealed class ScalesTheReloadTime(float scale) : IWeaponBehaviour
+    {
+        public readonly List<(string Point, int Owner)> Seen = new();
+
+        public float ModifyReloadTime(in WeaponType type, float duration, int ownerIndex)
+        { Seen.Add(("reloadtime", ownerIndex)); return duration * scale; }
+    }
+
+    /// <summary>
+    /// The reload's duration, as a point of the behaviour — stock's
+    /// <c>CTFWeaponBase::SetReloadTimer</c> arms (<c>tf_weaponbase.cpp:2266-2331</c>):
+    /// the machine times the reload by the viewmodel's animation, the behaviour
+    /// scales that time, and the viewmodel plays its animation at the base over
+    /// the scaled so the animation ends with the clock (stock's
+    /// <c>SetPlaybackRate( flBaseReloadTime / flReloadTime )</c>, :2322).
+    /// </summary>
+    [Fact]
+    public void ABehaviourScalingTheReloadTimeMovesTheClockAndTheViewmodelRate()
+    {
+        var (stockW, stockVm) = Armed(clip: 9, reserve: 30);
+        Machine(new Arms(), WeaponBehaviours.Stock()).RunCommand(stockW, stockVm, ReloadKey, now: 10f, effectsLive: true);
+
+        var (w, vm) = Armed(clip: 9, reserve: 30);
+        Machine(new Arms(), With(new ScalesTheReloadTime(0.5f))).RunCommand(w, vm, ReloadKey, now: 10f, effectsLive: true);
+
+        // The arms' animation is 1.5 s. Stock: the clock is the animation and
+        // the rate is 1. Halved: the clock is 0.75 and the rate 2.
+        Assert.Equal(11.5f, stockW.NextPrimaryAttack, precision: 4);
+        Assert.Equal(1f, stockVm.PlaybackRate, precision: 4);
+        Assert.True(w.InReload);
+        Assert.Equal(10.75f, w.NextPrimaryAttack, precision: 4);
+        Assert.Equal(10.75f, w.TimeWeaponIdle, precision: 4);
+        Assert.Equal(2f, vm.PlaybackRate, precision: 4);
+    }
+
+    /// <summary>
+    /// The reload's clock is predicted state, so the point that scales it is
+    /// asked about the command's owner alone — the answer the client's replay
+    /// can derive from the same inputs the server read.
+    /// </summary>
+    [Fact]
+    public void TheReloadTimePointIsAskedAboutTheCommandsOwner()
+    {
+        var command = new WeaponCommand(Seed: 0x1234567, WeaponIndex: 0x500, OwnerIndex: 3);
+        var scales = new ScalesTheReloadTime(1f);
+        var (w, vm) = Armed(clip: 9, reserve: 30);
+
+        Machine(new Arms(), With(scales)).RunCommand(w, vm, ReloadKey, now: 10f, effectsLive: true, command);
+
+        Assert.Equal([("reloadtime", 3)], scales.Seen);
+    }
+
+    /// <summary>
+    /// The empty gun that reloads itself (<c>ReloadOrSwitchWeapons</c>'s reload,
+    /// which stock runs through the weapon's <c>Reload</c> and so through
+    /// <c>SetReloadTimer</c>) waits the scaled duration too — and the click's
+    /// own floor still floors what a heavy scale takes below it.
+    /// </summary>
+    [Fact]
+    public void TheEmptyGunThatReloadsItselfWaitsTheScaledDuration()
+    {
+        var (stockW, stockVm) = Armed(clip: 0, reserve: 30);
+        Machine(new Arms(), WeaponBehaviours.Stock()).RunCommand(stockW, stockVm, Attack, now: 10f, effectsLive: true);
+
+        var (w, vm) = Armed(clip: 0, reserve: 30);
+        Machine(new Arms(), With(new ScalesTheReloadTime(0.5f))).RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+
+        var (flooredW, flooredVm) = Armed(clip: 0, reserve: 30);
+        Machine(new Arms(), With(new ScalesTheReloadTime(0.25f))).RunCommand(flooredW, flooredVm, Attack, now: 10f, effectsLive: true);
+
+        // The animation is 1.5 s; stock waits it whole, the behaviour's half
+        // waits 0.75, and the quarter waits the click's 0.5 s floor.
+        Assert.Equal(11.5f, stockW.NextPrimaryAttack, precision: 4);
+        Assert.True(w.InReload);
+        Assert.Equal(10.75f, w.NextPrimaryAttack, precision: 4);
+        Assert.Equal(stockW.Clip, w.Clip);
+        Assert.True(flooredW.InReload);
+        Assert.Equal(10.5f, flooredW.NextPrimaryAttack, precision: 4);
     }
 }

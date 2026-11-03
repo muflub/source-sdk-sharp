@@ -54,7 +54,8 @@ public static class ViewDrawProgram
     /// <summary>What the view's draws are decided with, besides its scene.</summary>
     public sealed record Context(int DrawFlags, IReadOnlyList<Draw> Draws, bool DrawEntities, bool DrawOpaqueRenderables,
                                  bool DrawTranslucentRenderables, bool DrawTranslucentWorld, bool EntityClips, bool VcollideWireframe,
-                                 int TranslucentFlags0, int TranslucentFlags1);
+                                 int TranslucentFlags0, int TranslucentFlags1,
+                                 int DxLevel = 80, int ViewWidth = 0, int ViewHeight = 0);
 
     private static bool IsListDraw(RenderOpKind kind)
         => kind is RenderOpKind.DrawOpaque or RenderOpKind.DrawTranslucent or RenderOpKind.DrawNoZTranslucent
@@ -125,15 +126,23 @@ public static class ViewDrawProgram
                            input.Cvar(RenderCvar.r_drawtranslucentworld) != 0f,
                            input.Cvar(RenderCvar.r_entityclips) != 0f,
                            input.Cvar(RenderCvar.vcollide_wireframe) != 0f,
-                           plan[sceneOp].GetI(0), plan[sceneOp].GetI(1));
+                           plan[sceneOp].GetI(0), plan[sceneOp].GetI(1),
+                           input.DxLevel, input.View.Width, input.View.Height);
     }
 
-    /// <summary>The view's program: one section per draw of <paramref name="context"/>.</summary>
-    public static void Build(ViewSceneData scene, Context context, RenderPlanBuilder b)
+    /// <summary>
+    /// The view's program: one section per draw of <paramref name="context"/>.
+    /// The glow of <paramref name="glow"/>, when given, runs in the main view's
+    /// last section after that section's draws — the executor runs the ops up to
+    /// each list draw's <see cref="RenderOpKind.SectionEnd"/> when the op runs,
+    /// and only those, so an outline after the last end would never run.
+    /// </summary>
+    public static void Build(ViewSceneData scene, Context context, RenderPlanBuilder b, GlowObjectManager? glow = null)
     {
         var program = new Program(scene, context, b);
-        foreach (Draw draw in context.Draws)
+        for (int i = 0; i < context.Draws.Count; i++)
         {
+            Draw draw = context.Draws[i];
             switch (draw.Kind)
             {
                 case RenderOpKind.DrawOpaque: program.Opaque(draw.I0, draw.ViewId); break;
@@ -141,6 +150,8 @@ public static class ViewDrawProgram
                 case RenderOpKind.DrawNoZTranslucent: program.NoZTranslucent(); break;
                 case RenderOpKind.DrawTranslucentWorldInLeaves: program.TranslucentWorldInLeaves(draw.I0 != 0); break;
             }
+            if (glow != null && i == context.Draws.Count - 1 && draw.ViewId == RenderConst.ViewMain)
+                glow.RenderGlowEffects(scene, context.ViewWidth, context.ViewHeight, context.DxLevel, 0, b);
             b.Op(RenderOpKind.SectionEnd);
         }
     }
@@ -191,13 +202,22 @@ public static class ViewDrawProgram
                 if (Entry(e).Has(ViewSceneEntryFlags.Renderable))
                     Opaque(e, false, depthMode);
 
-            // Entities then static props, the biggest bucket first.
+            // Entities then static props, the biggest bucket first. Stock
+            // refreshed the frame-buffer copy before a sampler only in the
+            // translucent paths and DrawViewModels; our viewmodel-family
+            // renderables reach this pass instead, so the question is asked
+            // here too. The return only means skip in the translucent pass —
+            // an opaque renderable draws in a water target's view regardless.
+            bool waterTargets = (c.DrawFlags & (RenderConst.DfRenderRefraction | RenderConst.DfRenderReflection)) != 0;
             for (int bucket = 0; bucket < OpaqueBuckets; bucket++)
             {
                 int ents = GroupOpaqueEntityHuge + 2 * bucket;
                 for (int e = Start(ents), end = e + Count(ents); e < end; e++)
                     if (Entry(e).Has(ViewSceneEntryFlags.Renderable))
+                    {
+                        FrameBuffer(e, depthMode != 0, waterTargets, 0);
                         Opaque(e, Entry(e).Has(ViewSceneEntryFlags.TwoPass), depthMode);
+                    }
 
                 StaticProps(GroupOpaqueStaticHuge + 2 * bucket, depthMode, viewId);
             }

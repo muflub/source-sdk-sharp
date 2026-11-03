@@ -315,7 +315,7 @@ public sealed class KeyValuesText
             if (i >= text.Length) break;
 
             if (text[i] == '}')
-                throw new KeyValuesTextException($"unmatched '}}' at offset {i}");
+                throw new KeyValuesTextException($"unmatched '}}' at offset {i}", i);
 
             root._children.Add(ParseKey(text, ref i));
         }
@@ -325,16 +325,17 @@ public sealed class KeyValuesText
 
     private static KeyValuesText ParseKey(string text, ref int i)
     {
+        int keyStart = i;
         string name = ReadToken(text, ref i);
 
         SkipTrivia(text, ref i);
 
         if (i >= text.Length)
-            throw new KeyValuesTextException($"key '{name}' has neither a value nor a block");
+            throw new KeyValuesTextException($"key '{name}' has neither a value nor a block", keyStart);
 
         if (text[i] == '{')
         {
-            i++;
+            int open = i++;
             var block = new KeyValuesText(name, string.Empty) { IsBlock = true };
 
             while (true)
@@ -342,7 +343,7 @@ public sealed class KeyValuesText
                 SkipTrivia(text, ref i);
 
                 if (i >= text.Length)
-                    throw new KeyValuesTextException($"block '{name}' is never closed");
+                    throw new KeyValuesTextException($"block '{name}' is never closed", open);
 
                 if (text[i] == '}')
                 {
@@ -355,7 +356,7 @@ public sealed class KeyValuesText
         }
 
         if (text[i] == '}')
-            throw new KeyValuesTextException($"key '{name}' has no value");
+            throw new KeyValuesTextException($"key '{name}' has no value", i);
 
         return new KeyValuesText(name, ReadToken(text, ref i));
     }
@@ -373,13 +374,13 @@ public sealed class KeyValuesText
                 // into a token that swallows the rest of the file and a table
                 // that is quietly two entries long. Refusing says so instead.
                 if (text[i] == '\n')
-                    throw new KeyValuesTextException($"unterminated quoted token at offset {start}");
+                    throw new KeyValuesTextException($"unterminated quoted token at offset {start}", start);
 
                 i++;
             }
 
             if (i >= text.Length)
-                throw new KeyValuesTextException($"unterminated quoted token at offset {start}");
+                throw new KeyValuesTextException($"unterminated quoted token at offset {start}", start);
 
             string s = text[start..i];
             i++;
@@ -395,7 +396,7 @@ public sealed class KeyValuesText
         }
 
         if (i == begin)
-            throw new KeyValuesTextException($"expected a token at offset {i}");
+            throw new KeyValuesTextException($"expected a token at offset {i}", i);
 
         return text[begin..i];
     }
@@ -429,5 +430,30 @@ public sealed class KeyValuesText
 /// is an error rather than a short table.</summary>
 public sealed class KeyValuesTextException : System.Exception
 {
-    public KeyValuesTextException(string message) : base(message) { }
+    public KeyValuesTextException(string message, int offset) : base(message)
+    {
+        Offset = offset;
+    }
+
+    /// <summary>
+    /// The character offset in the document where the refused construct
+    /// starts (the open brace of a block never closed, the key that has no
+    /// value). A caller with the text turns it into a line number
+    /// (<see cref="LineAt"/>), which is what a person fixing a 270,000-line
+    /// file needs.
+    /// </summary>
+    public int Offset { get; }
+
+    /// <summary>The 1-based line of <see cref="Offset"/> in <paramref name="text"/>.</summary>
+    public int LineAt(string text)
+    {
+        int line = 1;
+        int end = System.Math.Min(Offset, text.Length);
+        for (int k = 0; k < end; k++)
+        {
+            if (text[k] == '\n')
+                line++;
+        }
+        return line;
+    }
 }

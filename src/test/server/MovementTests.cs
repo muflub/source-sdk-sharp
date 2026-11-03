@@ -888,9 +888,12 @@ public class MovementTests
     {
         var mine = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
         var other = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
-        var doubled = new MovementRules(static _ => 2f,
-                                        static (_, friction, _, _, _) => friction * 2f,
-                                        static (_, maxSpeed, _, _) => maxSpeed * 2f);
+        var doubled = MovementRules.Stock with
+        {
+            Jump = static _ => 2f,
+            Friction = static (_, friction, _, _, _) => friction * 2f,
+            MaxSpeed = static (_, maxSpeed, _, _) => maxSpeed * 2f,
+        };
 
         Assert.Equal(MovementRules.Stock, mine.Rules);
         mine.Rules = doubled;
@@ -899,6 +902,580 @@ public class MovementTests
         Assert.Equal(MovementRules.Stock, other.Rules);
         Assert.Equal(1f, MovementRules.Stock.Jump(default));
         Assert.Equal(2f, mine.Rules.Jump(default));
+    }
+
+    //=========================================================================
+    // The airborne jump decision (tf2 stage 1 core): a jump pressed in the air
+    // is the rules' to grant, applied with CTFGameMovement::AirDash's
+    // arithmetic. FrameTime 1/16 and gravity 600 make the half-step 18.75, so
+    // every number below is exact in float.
+    //=========================================================================
+
+    /// <summary>A player in the air, rising, with forward move held and nothing under them.</summary>
+    private static MoveState Airborne(int buttons)
+    {
+        MoveState s = BaselineState();
+        s.FrameTime = 0.0625f;
+        s.ForwardMove = 200f;
+        s.Velocity = new Vector(0f, 0f, 200f);
+        s.Buttons = buttons;
+        return s;
+    }
+
+    /// <summary>
+    /// No owner: stock rules refuse every jump in the air, so pressing jump
+    /// there moves the player exactly as not pressing it does. The control
+    /// arm is the rule being ASKED (it counts, answers stock's 0): the press
+    /// reached the decision and the decision changed nothing.
+    /// </summary>
+    [Fact]
+    public void WithStockRulesAJumpPressedInTheAirChangesNothing()
+    {
+        int asked = 0;
+        var pressed = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with { AirJump = r => { asked++; return MovementRules.Stock.AirJump(r); } },
+        };
+        var held = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
+        MoveState jumping = Airborne(GameMovement.InJump);
+        MoveState still = Airborne(0);
+
+        Assert.True(pressed.ProcessMovement(jumping));
+        Assert.True(held.ProcessMovement(still));
+
+        Assert.Equal(1, asked);
+        AssertBits(still.Velocity, jumping.Velocity, "stock air jump velocity");
+        AssertBits(still.Origin, jumping.Origin, "stock air jump origin");
+    }
+
+    /// <summary>
+    /// One owner granting 256 up: the velocity becomes the flat wish (200
+    /// forward at yaw 0) plus 256 straight up, and the rest of the command
+    /// runs on that. The control is a player who did not jump but carried
+    /// that very velocity into the move (256 + the 18.75 half-step the dash
+    /// overwrote): the two end bit-identical, and the rule saw who asked.
+    /// </summary>
+    [Fact]
+    public void AGrantedAirJumpIsTheFlatWishPlusTheRulesSpeedUp()
+    {
+        var seen = new List<int>();
+        var dashing = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with { AirJump = r => { seen.Add(r.PlayerIndex); return 256f; } },
+        };
+        var carried = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
+        MoveState dash = Airborne(GameMovement.InJump);
+        MoveState control = Airborne(0);
+        control.Velocity = new Vector(200f, 0f, 274.75f);
+
+        Assert.True(dashing.ProcessMovement(dash));
+        Assert.True(carried.ProcessMovement(control));
+
+        Assert.Equal([1], seen);
+        AssertBits(control.Velocity, dash.Velocity, "air dash velocity");
+        AssertBits(control.Origin, dash.Origin, "air dash origin");
+        Assert.True(dash.Velocity.Z > 200f, "the dash lifted the player above the rise they had");
+    }
+
+    /// <summary>
+    /// A negative answer is a refusal, never a dash into the floor: the
+    /// player moves as if the rule had answered stock's 0.
+    /// </summary>
+    [Fact]
+    public void ANegativeAirJumpAnswerIsARefusal()
+    {
+        var refusing = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with { AirJump = _ => -256f },
+        };
+        var stock = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
+        MoveState refused = Airborne(GameMovement.InJump);
+        MoveState control = Airborne(GameMovement.InJump);
+
+        Assert.True(refusing.ProcessMovement(refused));
+        Assert.True(stock.ProcessMovement(control));
+
+        AssertBits(control.Velocity, refused.Velocity, "refused air jump velocity");
+        Assert.True(refused.Velocity.Z < 200f, "no dash: the player only fell");
+    }
+
+    /// <summary>
+    /// The engine refuses before the rule is asked: a jump still held from
+    /// the last command is not a new press, in the air as on the ground.
+    /// </summary>
+    [Fact]
+    public void AJumpStillHeldInTheAirIsNotPutToTheRules()
+    {
+        int asked = 0;
+        var movement = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with { AirJump = _ => { asked++; return 256f; } },
+        };
+        MoveState s = Airborne(GameMovement.InJump);
+        s.OldButtons = GameMovement.InJump;
+
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.Equal(0, asked);
+        Assert.True(s.Velocity.Z < 200f, "no dash: the player only fell");
+    }
+
+    //=========================================================================
+    // THE BLAST LIFT (gamemovement.cpp:3830-3856): stock's CategorizePosition
+    // clears FL_ONGROUND while the player rises faster than NON_JUMP_VELOCITY
+    // (140), relative to the ground's own rise, so a player given vertical
+    // speed by game code — a rocket blast, a jump pad, an airblast, an
+    // explosion — leaves the floor on the NEXT command and FullWalkMove's
+    // zeroing never sees them. The walking shortcut must make the same call,
+    // threshold and ground-relative arm included. Measured on a live boot:
+    // the hardcoded threshold above kept a soldier's rocket lift below it
+    // glued at about 36 units over the floor.
+    //=========================================================================
+
+    /// <summary>
+    /// Above stock's threshold and above the old hardcoded one: the rise
+    /// survives either way, and the ground goes with it.
+    /// </summary>
+    [Fact]
+    public void APlayerGivenVerticalSpeedLeavesTheGroundNextMove()
+    {
+        var movement = new GameMovement(new ScriptedWorld
+        {
+            OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
+        }, MoveConstantDefaults.Stock);
+
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Velocity = new Vector(0f, 0f, 300f);
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.False(s.HasGround, "the rising player left the ground");
+        Assert.True(s.Velocity.Z > 150f, "the rise survived the command");
+    }
+
+    /// <summary>
+    /// The stock threshold is NON_JUMP_VELOCITY (140), not the hardcoded
+    /// 250: a lift between the two — jump pads, airblast, explosions on
+    /// other players — must still leave the floor. This one is red until
+    /// the shortcut makes stock's relative test.
+    /// </summary>
+    [Fact]
+    public void ALiftBetweenTheStockThresholdAndTheOldHardcodedOneStillLeavesTheGround()
+    {
+        var movement = new GameMovement(new ScriptedWorld
+        {
+            OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
+        }, MoveConstantDefaults.Stock);
+
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Velocity = new Vector(0f, 0f, 200f);
+        Assert.True(movement.ProcessMovement(s));
+
+        Assert.False(s.HasGround, "stock's NON_JUMP_VELOCITY arm takes the player off the floor");
+        Assert.True(s.Velocity.Z > 100f, "the rise survived the command");
+    }
+
+    /// <summary>
+    /// The rules hear that the player stands on ground, with the player's
+    /// index, on a command over a floor — and not on one in the open air.
+    /// </summary>
+    [Fact]
+    public void TheRulesAreToldWhenThePlayerStandsOnGround()
+    {
+        var grounded = new List<int>();
+        var rules = MovementRules.Stock with { Grounded = grounded.Add };
+
+        var floor = new GameMovement(new ScriptedWorld
+        {
+            OnTrace = (start, end, _, _, _, _) => ScriptedWorld.Floor(start, end),
+        }, MoveConstantDefaults.Stock) { Rules = rules };
+        MoveState standing = BaselineState();
+        standing.EntIndex = 7;
+        Assert.True(floor.ProcessMovement(standing));
+        Assert.True(standing.HasGround, "the floor took the player");
+        Assert.NotEmpty(grounded);
+        Assert.All(grounded, i => Assert.Equal(7, i));
+
+        grounded.Clear();
+        var air = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock) { Rules = rules };
+        Assert.True(air.ProcessMovement(Airborne(0)));
+        Assert.Empty(grounded);
+    }
+
+    /// <summary>
+    /// A ducked player who lets go of duck in the open air unducks at once,
+    /// and the standing eye comes from the rules: the table's 64 under stock
+    /// rules, the rule's own height when one answers (stock TF2's class eye,
+    /// <c>CTFGameMovement::GetPlayerViewOffset</c>), asked for this player.
+    /// </summary>
+    [Fact]
+    public void TheStandingEyeAfterAnUnduckIsTheRules()
+    {
+        static MoveState DuckedInAir()
+        {
+            MoveState s = Airborne(0);
+            s.Ducked = true;
+            s.Flags |= GameMovement.FlDucking;
+            s.EntIndex = 4;
+            return s;
+        }
+
+        var asked = new List<(int, float)>();
+        var stock = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock);
+        var tall = new GameMovement(new ScriptedWorld(), MoveConstantDefaults.Stock)
+        {
+            Rules = MovementRules.Stock with { EyeHeight = (i, z) => { asked.Add((i, z)); return 75f; } },
+        };
+        MoveState control = DuckedInAir();
+        MoveState ruled = DuckedInAir();
+
+        Assert.True(stock.ProcessMovement(control));
+        Assert.True(tall.ProcessMovement(ruled));
+
+        Assert.False(control.Ducked, "the stimulus reached the unduck");
+        AssertBits(64f, control.ViewOffset.Z, "stock standing eye");
+        AssertBits(75f, ruled.ViewOffset.Z, "the rules' standing eye");
+        Assert.Contains((4, 64f), asked);
+    }
+
+    //=========================================================================
+    // The bunny-jump cap (CTFGameMovement::PreventBunnyJumping,
+    // tf_gamemovement.cpp:1092-1112, asked at CheckJumpButton's :1262): the
+    // whole velocity at the jump, cropped to the rules' cap. Stock Half-Life
+    // has no such thing, so the core asks and the default never crops.
+    //=========================================================================
+
+    /// <summary>One command by a grounded player sprinting sideways and pressing jump.</summary>
+    private static MoveState BunnyJumpCommand(float vx, Func<int, float, float>? cap, List<(int, float)>? asked = null)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        if (cap is not null)
+            movement.Rules = MovementRules.Stock with { BunnyJump = (i, ms) => { asked?.Add((i, ms)); return cap(i, ms); } };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.Buttons = GameMovement.InJump;
+        s.Velocity = new Vector(vx, 0f, 0f);
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// The crop: a jump taken above the cap leaves at it. 400 u/s at a 320
+    /// max speed under the stock TF2 cap (1.2x) is stock's
+    /// <c>m_vecVelocity *= maxscaledspeed/spd</c> at the jump — the jump still
+    /// happens (the Z is the ordinary one).
+    /// </summary>
+    [Fact]
+    public void AJumpTakenAboveTheBunnyJumpCapIsCroppedToIt()
+    {
+        MoveState s = BunnyJumpCommand(400f, (_, ms) => 1.2f * ms);
+
+        Assert.True(s.Velocity.Z > 100f, "the stimulus reached the jump");
+        Assert.Equal(384f, s.Velocity.X, 1);          // 320 * 1.2
+        Assert.Equal(0f, s.Velocity.Y, 3);
+    }
+
+    /// <summary>
+    /// At or below the cap nothing is touched: stock compares and returns
+    /// before scaling, so the velocity at the jump is the velocity it arrived
+    /// with (and the fast one above proves the comparison is live).
+    /// </summary>
+    [Fact]
+    public void AJumpAtOrBelowTheBunnyJumpCapIsUntouched()
+    {
+        MoveState slow = BunnyJumpCommand(300f, (_, ms) => 1.2f * ms);
+        MoveState atCap = BunnyJumpCommand(384f, (_, ms) => 1.2f * ms);
+
+        Assert.True(slow.Velocity.Z > 100f, "the stimulus reached the jump");
+        Assert.Equal(300f, slow.Velocity.X, 1);
+        Assert.Equal(384f, atCap.Velocity.X, 1);
+    }
+
+    /// <summary>
+    /// Half-Life MP crops nothing: with no rules owner the default cap is no
+    /// cap, and the fast jump keeps the speed it arrived with.
+    /// </summary>
+    [Fact]
+    public void WithoutRulesTheBunnyJumpCapIsNoCap()
+    {
+        MoveState s = BunnyJumpCommand(400f, null);
+
+        Assert.True(s.Velocity.Z > 100f, "the stimulus reached the jump");
+        Assert.Equal(400f, s.Velocity.X, 1);
+    }
+
+    /// <summary>
+    /// The cap is asked of this player and the engine's max speed — the
+    /// arguments stock takes its <c>1.2 * m_flMaxspeed</c> from.
+    /// </summary>
+    [Fact]
+    public void TheBunnyJumpCapIsAskedOfThePlayerAndTheMaxSpeed()
+    {
+        var asked = new List<(int, float)>();
+        MoveState s = BunnyJumpCommand(400f, (_, ms) => 1.2f * ms, asked);
+
+        Assert.True(s.Velocity.Z > 100f, "the jump happened, so the cap was asked");
+        Assert.Contains((1, 320f), asked);
+    }
+
+    //=========================================================================
+    // The backpedal clamp (CTFGameMovement::WalkMove's closing block,
+    // tf_gamemovement.cpp:1830-1863 — the tf_clamp_back_speed pair): the
+    // backwards component of a walk, cropped to a fraction of the max. The
+    // view yaw is 0, so forward is +x and right +y.
+    //=========================================================================
+
+    /// <summary>
+    /// One grounded command walking/standing at <paramref name="vx"/>
+    /// (<paramref name="vy"/> sideways) under one backpedal limit. Surface
+    /// friction is zeroed so what arrives at the clamp is what the command
+    /// started with (Accelerate adds nothing against a zero wish).
+    /// </summary>
+    private static MoveState BackpedalCommand(float vx, float vy, BackpedalLimit? limit,
+                                              List<(int, float)>? asked = null)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        if (limit is not null || asked is not null)
+            movement.Rules = MovementRules.Stock with
+            {
+                Backpedal = (i, ms) => { asked?.Add((i, ms)); return limit; },
+            };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.SurfaceFriction = 0f;
+        s.Velocity = new Vector(vx, vy, 0f);
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// The crop: backing away at 400 under a 320 max and the stock 0.9 limit
+    /// leaves at 288 — stock's <c>vecBackMove *= flMaxBackSpeed/flBackSpeed</c>
+    /// (:1848) — and the ask carries the player and the max speed it is a
+    /// fraction of.
+    /// </summary>
+    [Fact]
+    public void ABackedAwayPlayerIsClampedToTheFractionOfTheMax()
+    {
+        var asked = new List<(int, float)>();
+        MoveState s = BackpedalCommand(-400f, 0f, new BackpedalLimit(0.9f, 100f), asked);
+
+        Assert.Equal(-288f, s.Velocity.X, 1);
+        Assert.Equal(0f, s.Velocity.Y, 3);
+        Assert.Equal(0f, s.Velocity.Z, 3);
+        Assert.Contains((1, 320f), asked);
+    }
+
+    /// <summary>
+    /// At the cap exactly, stock's <c>flBackSpeed > flMaxBackSpeed</c>
+    /// comparison returns without scaling: 288 is untouched, bit for bit.
+    /// </summary>
+    [Fact]
+    public void ABackedAwayPlayerAtTheBackCapIsUntouched()
+    {
+        MoveState s = BackpedalCommand(-288f, 0f, new BackpedalLimit(0.9f, 100f));
+
+        AssertBits(-288f, s.Velocity.X, "at-cap back speed untouched");
+    }
+
+    /// <summary>
+    /// Below the minimum nobody is penalised — stock's gate "to not penalize
+    /// deployed snipers or heavies" (:1832): 90 under a 100 min is untouched.
+    /// </summary>
+    [Fact]
+    public void ASlowBackpedalUnderTheMinimumIsUntouched()
+    {
+        MoveState s = BackpedalCommand(-90f, 0f, new BackpedalLimit(0.9f, 100f));
+
+        AssertBits(-90f, s.Velocity.X, "under-minimum back speed untouched");
+    }
+
+    /// <summary>
+    /// Forward movement is untouched whatever its speed: the clamp asks the
+    /// dot product and returns unless the player is actually travelling
+    /// backwards (:1834-1837).
+    /// </summary>
+    [Fact]
+    public void AForwardMoveIsUntouchedEvenAboveTheMinimum()
+    {
+        MoveState s = BackpedalCommand(300f, 0f, new BackpedalLimit(0.9f, 100f));
+
+        AssertBits(300f, s.Velocity.X, "forward speed untouched");
+    }
+
+    /// <summary>
+    /// A fraction of 1 (stock's <c>tf_clamp_back_speed</c> at or above 1) is
+    /// no clamp at all — stock's own <c>GetFloat() &lt; 1.0</c> gate.
+    /// </summary>
+    [Fact]
+    public void ABackpedalFractionOfOneClampsNothing()
+    {
+        MoveState s = BackpedalCommand(-400f, 0f, new BackpedalLimit(1f, 100f));
+
+        AssertBits(-400f, s.Velocity.X, "fraction 1 untouched");
+    }
+
+    /// <summary>
+    /// Half-Life MP has no backpedal clamp: with no rules owner there is no
+    /// limit, and the fast back-away keeps its speed.
+    /// </summary>
+    [Fact]
+    public void WithoutRulesNothingBackpedalIsClamped()
+    {
+        MoveState s = BackpedalCommand(-400f, 0f, null);
+
+        AssertBits(-400f, s.Velocity.X, "no rules, no clamp");
+    }
+
+    /// <summary>
+    /// The sideways component survives the reassembly: stock rebuilds the
+    /// velocity from the cropped back move PLUS the untouched right move
+    /// (:1840, :1852) — 400 back with 100 of strafe becomes 288 back with
+    /// 100 strafe, and stays under the max so nothing else touches it.
+    /// </summary>
+    [Fact]
+    public void TheSidewaysComponentSurvivesTheBackpedalCrop()
+    {
+        MoveState s = BackpedalCommand(-400f, 100f, new BackpedalLimit(0.9f, 100f));
+
+        Assert.Equal(-288f, s.Velocity.X, 1);
+        AssertBits(100f, s.Velocity.Y, "strafe survives");
+    }
+
+    /// <summary>
+    /// And the closing re-clamp: a back move plus a wide enough strafe that
+    /// the reassembled velocity runs past the max gets its xy scaled back to
+    /// it — stock's anti-viewangle-hack re-run (:1854-1861). 288 back with
+    /// 150 strafe is 324.72 > 320, so both components come down by 320/324.72.
+    /// </summary>
+    [Fact]
+    public void AReassembledBackpedalOverTheMaxIsReclampedToIt()
+    {
+        MoveState s = BackpedalCommand(-400f, 150f, new BackpedalLimit(0.9f, 100f));
+
+        Assert.Equal(-283.81f, s.Velocity.X, 1);
+        Assert.Equal(147.82f, s.Velocity.Y, 1);
+    }
+
+    //=========================================================================
+    // The stun's command rewrite (CTFGameMovement::StunMove,
+    // tf_gamemovement.cpp:537-627): stock's ProcessMovement asks it between
+    // the state setup and PlayerMove (:317, the return value ignored — the
+    // walk at :329 runs on the rewritten mv). The loop owns only the rewrite;
+    // what is rewritten is the rules' answer.
+    //=========================================================================
+
+    /// <summary>
+    /// One grounded command (buttons, three moves) through one stun answer,
+    /// from rest on the stock friction (ground acceleration is multiplied by
+    /// it, so a rewritten move shows in the velocity as the acceleration it
+    /// is worth), the clock at 10.5 for the ask to carry.
+    /// </summary>
+    private static MoveState StunnedCommand(int buttons, float fmove, float smove, float upmove,
+                                            MovementStun? rewrite,
+                                            List<(int, float, int, float, float, float)>? asked = null)
+    {
+        var world = new ScriptedWorld { OnTrace = (st, en, _, _, _, _) => ScriptedWorld.Floor(st, en) };
+        var movement = new GameMovement(world, MoveConstantDefaults.Stock);
+        if (rewrite is not null || asked is not null)
+            movement.Rules = MovementRules.Stock with
+            {
+                Stun = (i, t, b, f, s, u) => { asked?.Add((i, t, b, f, s, u)); return rewrite; },
+            };
+        MoveState s = BaselineState();
+        s.HasGround = true;
+        s.CurTime = 10.5f;
+        s.Buttons = buttons;
+        s.ForwardMove = fmove;
+        s.SideMove = smove;
+        s.UpMove = upmove;
+        movement.ProcessMovement(s);
+        return s;
+    }
+
+    /// <summary>
+    /// The ask: once per command, with the command's own state — the player,
+    /// the clock, the buttons and the three moves the command carried. A null
+    /// answer rewrites nothing: the buttons and the moves stand as the
+    /// command left them (the moves here under the max, so nothing else
+    /// touches them either — CheckParameters would otherwise crop them, its
+    /// own stock act).
+    /// </summary>
+    [Fact]
+    public void TheStunAskCarriesTheCommandsOwnStateOnce()
+    {
+        var asked = new List<(int, float, int, float, float, float)>();
+        MoveState s = StunnedCommand(GameMovement.InJump, 150f, 100f, 50f, null, asked);
+
+        Assert.Equal([(1, 10.5f, GameMovement.InJump, 150f, 100f, 50f)], asked);
+        Assert.Equal(GameMovement.InJump, s.Buttons);
+        Assert.Equal(150f, s.OldForwardMove, 3);
+    }
+
+    /// <summary>
+    /// The seizure: a rewrite to zero leaves no jump (the walk reads the
+    /// rewritten buttons, and the upmove is zeroed) and no acceleration (the
+    /// rewritten moves), and FinishMove's copies — OldButtons, OldForwardMove
+    /// — carry the rewritten values as stock's mv does. The same command
+    /// without the rule jumps (upmove 300, the jump frame taking no
+    /// acceleration as stock's WalkMove returns early from the jump), and a
+    /// no-button command with the same forward runs, so the stimulus is the
+    /// rewrite, not the command.
+    /// </summary>
+    [Fact]
+    public void AStunRewriteFreezesTheWalkingPlayer()
+    {
+        MoveState s = StunnedCommand(GameMovement.InJump, 400f, 0f, 300f, new MovementStun(0, 0f, 0f, 0f));
+
+        AssertBits(Vector.Zero, s.Velocity, "seized command");
+        Assert.Equal(0, s.Buttons);
+        Assert.Equal(0, s.OldButtons);
+        Assert.Equal(0f, s.OldForwardMove, 3);
+
+        MoveState jump = StunnedCommand(GameMovement.InJump, 400f, 0f, 300f, null);
+        Assert.True(jump.Velocity.Z > 0f, "no rules, no rewrite: the same command jumps");
+
+        MoveState run = StunnedCommand(0, 400f, 0f, 0f, null);
+        Assert.True(run.Velocity.X > 0f, "and the same command without the jump button runs");
+    }
+
+    /// <summary>
+    /// The walk runs on the rewritten moves bit for bit: a command rewritten
+    /// to 150/100 walks exactly like a command carried at 150/100, and the
+    /// rewritten buttons ride into OldButtons whatever they are (the attack
+    /// bit here — a bit the walk itself reads nowhere).
+    /// </summary>
+    [Fact]
+    public void TheRewrittenMovesDriveTheWalkBitIdentically()
+    {
+        MoveState rewritten = StunnedCommand(0, 400f, 400f, 0f, new MovementStun(1, 150f, 100f, 0f));
+        MoveState carried = StunnedCommand(0, 150f, 100f, 0f, null);
+
+        AssertBits(carried.Velocity, rewritten.Velocity, "rewritten walk == carried walk");
+        Assert.Equal(1, rewritten.Buttons);
+        Assert.Equal(1, rewritten.OldButtons);
+        Assert.Equal(150f, rewritten.OldForwardMove, 3);
+    }
+
+    /// <summary>
+    /// Stock Half-Life has no stun: the identity pack answers no rewrite and
+    /// the command stands entire through the loop — buttons, moves and their
+    /// FinishMove copies all the command's own (the moves under the max, so
+    /// CheckParameters' own crop leaves them alone too).
+    /// </summary>
+    [Fact]
+    public void WithoutRulesNobodyIsStunned()
+    {
+        MoveState s = StunnedCommand(GameMovement.InJump, 150f, 100f, 50f, null);
+
+        Assert.Equal(GameMovement.InJump, s.Buttons);
+        Assert.Equal(GameMovement.InJump, s.OldButtons);
+        Assert.Equal(150f, s.ForwardMove, 3);
+        Assert.Equal(100f, s.SideMove, 3);
+        Assert.Equal(50f, s.UpMove, 3);
     }
 
     [Fact]

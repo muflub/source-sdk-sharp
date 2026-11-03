@@ -32,7 +32,19 @@ public static class ClientUi
     /// directory, read from disk. The mod's other language files
     /// (<see cref="GameLanguage"/>) come through the engine's filesystem.
     /// </summary>
-    public const string LanguageFile = "resource/mod_sharp_english.txt", ThemeFile = "resource/ui-theme.yaml";
+    public const string ThemeFile = "resource/ui-theme.yaml";
+
+    /// <summary>
+    /// The disk name of the running mod's own language file: the name the
+    /// engine's <c>CLocalizedStringTable::AddFile</c> asks for in the same
+    /// launch: <c>resource/&lt;game directory&gt;_&lt;language&gt;.txt</c>, the
+    /// game directory's name with the language <c>english</c>. So the game dir
+    /// <c>mods/tf2</c> asks <c>resource/tf2_english.txt</c>, <c>mods/test</c>
+    /// asks <c>resource/test_english.txt</c>. Both readers read that one file:
+    /// the engine from its GAME paths, this chain from disk beside it.
+    /// </summary>
+    public static string LanguageFileName(string gameDir) =>
+        Path.Combine("resource", Path.GetFileName(Path.TrimEndingDirectorySeparator(gameDir)) + "_english.txt");
 
     /// <summary>
     /// The engine's GameUI strings (#GameUI_*: disconnect reasons, options
@@ -54,7 +66,7 @@ public static class ClientUi
     public static UiLanguageFile Language(string gameDir, ILog log, IEngineFiles? files, IReadOnlyList<string> gameFiles)
     {
         var chain = new List<UiLanguageFile>();
-        string languagePath = Path.Combine(gameDir, LanguageFile);
+        string languagePath = Path.Combine(gameDir, LanguageFileName(gameDir));
         if (File.Exists(languagePath))
             chain.Add(UiLanguageFile.Load(languagePath));
         else
@@ -119,17 +131,62 @@ public static class ClientUi
         var language = Language(mod.GameDir, log, services.Resolve<IEngineFiles>(), mod.Localisation);
 
         var localiser = new GameUiLocaliser(language, screen);
+        // THE SIDE ADAPTERS' LOCALISER (IUiLocalisation in the interface
+        // assembly, stable across a UI reload): a mod adapter that localises
+        // its tokens asks this, not the engine's tables, which hold none of
+        // the mod's. AddInstance so a UI reload replaces it, as the textures'.
+        // The chat and TextMsg read it too (stock's client had ONE
+        // g_pVGuiLocalize): they are composed before this context loads and
+        // ask the container when a message arrives; a UI reload replaces it.
+        services.AddInstance<IUiLocalisation>(localiser);
 
-        // The weapons' print names, from their scripts on disk (the client has
-        // no engine file read: those slots are the server's).
-        var scripts = services.Resolve<WeaponScriptDatabase>() ?? new WeaponScriptDatabase(log, path =>
-        {
-            string full = Path.Combine(mod.GameDir, path);
-            return File.Exists(full) ? File.ReadAllText(full) : null;
-        });
+        // THE BINDS (the HUD's slot, stock Key_LookupBinding): the mod's
+        // screens ask the container for the bound keys, so the store is an
+        // instance before they are built — the same one the binds form reads.
+        services.AddInstance<IUiKeyBindingStore>(new EngineKeyBindingStore(screen, engine, input));
+
+        // The weapons' print names, from their scripts on the engine's GAME
+        // paths (the IEngineFiles slot the fonts, textures and language files
+        // already read): the old disk reader could not reach a VPK, and
+        // shipped TF2 scripts ride only in one. Stock's ReadEncryptedKVFile
+        // (weapon_parse.cpp:202-267) reads <name>.txt first and then the
+        // ICE-decrypted <name>.ctx with the key stock's callers hand as
+        // g_pGameRules->GetEncryptionKey(); here that key is the mod's
+        // mods.yaml encryption_key row, and both spellings come over the
+        // same bytes reader (the client's ReadGameFile slot is the server's).
+        var files = services.Resolve<IEngineFiles>();
+        var scripts = services.Resolve<WeaponScriptDatabase>() ?? new WeaponScriptDatabase(log,
+            path => files?.ReadGameFileBytes(path) is { } bytes ? System.Text.Encoding.UTF8.GetString(bytes) : null,
+            path => files?.ReadGameFileBytes(path),
+            mod.EncryptionKey);
         var names = new WeaponNames(c => scripts.ReadScript(c)?.PrintName, localiser.Find);
         var standalones = services.Require<IClientStandalones>();
         var player = new LocalPlayerUi(screen, arsenal, hud, standalones, names, services.Resolve<ViewReadout>());
+
+        // THE SCOREBOARD'S DATA, before the mod screens: a mod screen that
+        // replaces the core's takes it over by constructor, and the mod's UI
+        // assemblies cannot name ScoreboardUi (they hold no core screen), so it
+        // reaches them as the IScoreboardSource the container now answers for.
+        var scores = new ScoreboardUi(standalones, screen, engine, services.Require<IPlayerNames>(),
+                                      services.Require<IEngineConsole>(),
+                                      services.Require<IEngineEnvironment>(), services.Resolve<TeamNames>());
+        services.AddInstance<IScoreboardSource>(scores);
+
+        // THE TEXT WINDOW'S DATA, before the mod screens, as the scoreboard's:
+        // a mod window that replaces the core's motd (TF2's text window, stage
+        // 3.2) reads it through the constructor, so the server's VGUIMenu
+        // "info" reaches the claiming window as the IMotdSource the container
+        // now answers for.
+        IClientStringTables? tables = null;
+        var motd = new MotdUi(entry => (tables ??= stringTables?.Invoke())?.UserDataText(MotdUi.InfoPanelTable, entry));
+        services.AddInstance<IMotdSource>(motd);
+
+        // The pause menu's buttons: the host wires them to its layer's opens
+        // and closes (UiHost's ctor), and Resume runs the engine's gameui_hide
+        // so engine and menu agree (the hide comes back as gameui_hidden).
+        // Play's map is the mod's own (plan_client_novalve §3.2a's create-server
+        // row): maplist.txt on the game's paths, the launch menu's start.
+        var mainMenu = new MainMenuUi(engine, MenuMapList.First(services.Resolve<IEngineFiles>(), log));
 
         // THE MOD'S SCREENS (stage 0.9): every UiScreen in its UI assemblies,
         // built through the container, after the core's on the layer each names.
@@ -170,12 +227,7 @@ public static class ClientUi
 
         // THE MENU LAYER (plan_client_ui U3): the screens the server, the binds
         // and cs_ui_open show, and the windows they live in, which a reload carries.
-        var scores = new ScoreboardUi(standalones, screen, engine, services.Require<IPlayerNames>(),
-                                      services.Require<IEngineConsole>(),
-                                      services.Require<IEngineEnvironment>());
         var teams = new TeamMenuUi(scores, screen, engine, log);
-        IClientStringTables? tables = null;
-        var motd = new MotdUi(entry => (tables ??= stringTables?.Invoke())?.UserDataText(MotdUi.InfoPanelTable, entry));
         // The engine's prints join the typed lines the window shows: the side's
         // ConsoleLines, whose feed the display func lands on (docs/todo.md's
         // console-window follow-up). Optional: the UI loader's test host
@@ -193,8 +245,9 @@ public static class ClientUi
             new ServerBrowser(windows, browser, new ServerFilterBar(browser), new ServerTable(browser, browser, browser, browser),
                               new ServerDetailsPanel(browser, browser)),
             new MouseOptions(windows, new EngineConVarStore(services.Require<IEngineConsole>())),
-            new KeyBindings(windows, new EngineKeyBindingStore(screen, engine, input)),
+            new KeyBindings(windows, services.Require<IUiKeyBindingStore>()),
             new ChatInput(services.Require<IChatInputSource>()),
+            new MainMenu(mainMenu),
             new Ui.Screens.LoadingDisc(services.Require<ILoadingDiscSource>()),
         ];
         var (hudPlaced, menuPlaced) = UiModScreens.Place(hudScreens, menuScreens, modScreens);
@@ -202,7 +255,8 @@ public static class ClientUi
         var menuLayer = new UiLayer(menuPlaced, new UiContext(theme, backend, localiser, []), backend, windows);
 
         return new UiHost(log, services.Require<IGameClock>(), hudLayer, menuLayer, backend, services.Require<IUiSurface>(),
-                          player, messages, build, scale, new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>()))
+                          player, messages, build, scale,
+                          new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>(), mainMenu))
         {
             Windows = windows,
             Textures = textures,

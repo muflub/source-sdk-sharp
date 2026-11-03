@@ -10,7 +10,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 // service with an unidentified row picked, the Scout's crate stall — plus the
 // service stance at the window's minimum. Ware names are
 // ui.Data (game copy, case kept); every #Descent_* token lives in
-// game/mod_tf2_descent/resource/descent_english.txt.
+// game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class VendorSamples
 {

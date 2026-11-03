@@ -198,6 +198,10 @@ public static class SandboxPass
                 "the viewmodel, created with the carried weapon; a map-placed one is arms in "
                 + "front of nobody's eyes",
 
+            [EntityNames.SsViewmodelAttachment] =
+                "the viewmodel attachment, created beside the viewmodel when a deploy names "
+                + "hands for it; a map-placed one is a c_model merged onto nothing",
+
             [EntityNames.CrossbowBolt] =
                 "fired by weapon_crossbow; it spawns stationary and is told where to go by the "
                 + "shot that made it, so a map-placed one hangs in the air",

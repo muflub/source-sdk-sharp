@@ -921,9 +921,52 @@ struct SourceSharpParticleSystem_t
 	// Which control points the sweep keeps at the owner, as a bitmask. An unfed control point
 	// is the world origin.
 	int32_t nFollowMask;
+
+	// Points handed to an entity's attachment instead (ParticleSystemFollowEntity): the
+	// medigun beam's far end rides its patient.
+	uint32_t hFollowEntity[kSourceSharpParticleMaxFollowPoint + 1];
+	int32_t nFollowAttachment[kSourceSharpParticleMaxFollowPoint + 1];
+	Vector vecFollowOffset[kSourceSharpParticleMaxFollowPoint + 1];
 };
 
 static CUtlVector<SourceSharpParticleSystem_t> g_ParticleSystems;
+
+// A second attached system per owner: stock's crit glow runs beside the trail, and the
+// one-system-per-owner rule above would replace it.
+static CUtlVector<SourceSharpParticleSystem_t> g_ExtraParticleSystems;
+
+// A third and fourth: the condition drips (jarate's and the milk's) run beside the
+// burn and the glow, and beside each other -- stock holds one member per effect on
+// the player.
+static CUtlVector<SourceSharpParticleSystem_t> g_UrineParticleSystems;
+static CUtlVector<SourceSharpParticleSystem_t> g_MilkParticleSystems;
+
+// The slots the sweep and the shutdown walk, and the count the slot-addressed
+// rows validate against.
+enum
+{
+	kSourceSharpParticleSlots = 4
+};
+
+// The slots by index, for the slot-addressed rows below: 0 the first, 1 the crit
+// glow's extra, 2 the urine's drips, 3 the milk's. NULL is a slot outside the
+// table: its start refuses, its stop has nothing to free.
+static CUtlVector<SourceSharpParticleSystem_t>* ParticleSlotSystems(int nSlot)
+{
+	switch (nSlot)
+	{
+		case 0:
+			return &g_ParticleSystems;
+		case 1:
+			return &g_ExtraParticleSystems;
+		case 2:
+			return &g_UrineParticleSystems;
+		case 3:
+			return &g_MilkParticleSystems;
+		default:
+			return NULL;
+	}
+}
 
 // Heap entries: a CUtlReference links itself into its object's list and must not move.
 struct WatchedParticleSystem_t
@@ -972,18 +1015,18 @@ static CSmartPtr<CShellNewParticleEffect> CreateWatched(uint32_t hOwner, const c
 }
 
 // StopEmission rather than a release, so particles already in the air burn out.
-static void ReleaseParticleSystemAt(int nIndex)
+static void ReleaseParticleSystemAt(CUtlVector<SourceSharpParticleSystem_t>& systems, int nIndex)
 {
-	CShellNewParticleEffect* pEffect = g_ParticleSystems[nIndex].pEffect.GetObject();
+	CShellNewParticleEffect* pEffect = systems[nIndex].pEffect.GetObject();
 
 	if (pEffect)
 		pEffect->StopEmission(false, false, true);
 
-	g_ParticleSystems.Remove(nIndex);
+	systems.Remove(nIndex);
 }
 
-// One system per entity: starting again replaces the running one.
-int32_t SourceSharp_ParticleSystemStart(uint32_t hOwner, const char* pszName)
+// One system per entity in a slot: starting again replaces the running one.
+static int32_t StartAttached(CUtlVector<SourceSharpParticleSystem_t>& systems, uint32_t hOwner, const char* pszName)
 {
 	if (!pszName || !pszName[0])
 		return 0;
@@ -993,10 +1036,10 @@ int32_t SourceSharp_ParticleSystemStart(uint32_t hOwner, const char* pszName)
 	if (!pOwner)
 		return 0;
 
-	int nExisting = ShellEffects_Find(g_ParticleSystems, hOwner);
+	int nExisting = ShellEffects_Find(systems, hOwner);
 
 	if (nExisting >= 0)
-		ReleaseParticleSystemAt(nExisting);
+		ReleaseParticleSystemAt(systems, nExisting);
 
 	CSmartPtr<CShellNewParticleEffect> pEffect = CreateWatched(hOwner, pszName);
 
@@ -1012,9 +1055,17 @@ int32_t SourceSharp_ParticleSystemStart(uint32_t hOwner, const char* pszName)
 	entry.hOwner = hOwner;
 	entry.pEffect = pEffect;
 	entry.nFollowMask = kSourceSharpParticleFollowDefault;
-	g_ParticleSystems.AddToTail(entry);
+	memset(entry.hFollowEntity, 0, sizeof(entry.hFollowEntity));
+	memset(entry.nFollowAttachment, 0, sizeof(entry.nFollowAttachment));
+	memset(&entry.vecFollowOffset, 0, sizeof(entry.vecFollowOffset));
+	systems.AddToTail(entry);
 
 	return 1;
+}
+
+int32_t SourceSharp_ParticleSystemStart(uint32_t hOwner, const char* pszName)
+{
+	return StartAttached(g_ParticleSystems, hOwner, pszName);
 }
 
 // Which control points of a running system stay at the owner. A separate call so Start's
@@ -1034,12 +1085,88 @@ int32_t SourceSharp_ParticleSystemFollowPoints(uint32_t hOwner, int32_t nPointMa
 	return 1;
 }
 
+// One control point of a running system follows an entity's attachment: the medigun beam's
+// muzzle end rides its weapon, the far end its patient. A zero entity handle hands the
+// point back to the owner feed. Returns 0 if the entity has no system, which is a caller
+// bug.
+int32_t SourceSharp_ParticleSystemFollowEntity(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
+											   const float* pOffsetXYZ)
+{
+	int nIndex = ShellEffects_Find(g_ParticleSystems, hOwner);
+
+	if (nIndex < 0)
+		return 0;
+
+	if (nPoint < 0 || nPoint > kSourceSharpParticleMaxFollowPoint)
+		return 0;
+
+	SourceSharpParticleSystem_t& entry = g_ParticleSystems[nIndex];
+
+	if (hEntity == 0)
+	{
+		entry.hFollowEntity[nPoint] = 0;
+		entry.nFollowMask |= (1 << nPoint);
+		return 1;
+	}
+
+	entry.hFollowEntity[nPoint] = hEntity;
+	entry.nFollowAttachment[nPoint] = nAttachment;
+
+	if (pOffsetXYZ)
+		entry.vecFollowOffset[nPoint] = Vector(pOffsetXYZ[0], pOffsetXYZ[1], pOffsetXYZ[2]);
+	else
+		entry.vecFollowOffset[nPoint] = Vector(0, 0, 0);
+
+	// A followed point is not fed the owner's origin.
+	entry.nFollowMask &= ~(1 << nPoint);
+
+	return 1;
+}
+
 void SourceSharp_ParticleSystemStop(uint32_t hOwner)
 {
 	int nIndex = ShellEffects_Find(g_ParticleSystems, hOwner);
 
 	if (nIndex >= 0)
-		ReleaseParticleSystemAt(nIndex);
+		ReleaseParticleSystemAt(g_ParticleSystems, nIndex);
+}
+
+// A second slot beside the first: stock's crit glow runs beside the trail.
+int32_t SourceSharp_ParticleSystemStartExtra(uint32_t hOwner, const char* pszName)
+{
+	return StartAttached(g_ExtraParticleSystems, hOwner, pszName);
+}
+
+void SourceSharp_ParticleSystemStopExtra(uint32_t hOwner)
+{
+	int nIndex = ShellEffects_Find(g_ExtraParticleSystems, hOwner);
+
+	if (nIndex >= 0)
+		ReleaseParticleSystemAt(g_ExtraParticleSystems, nIndex);
+}
+
+// A slot-addressed start, for a caller that counts its own systems: the drips
+// wear slots 2 and 3, beside the burn's and the glow's. Starting again in a
+// slot replaces that slot's system, as the named rows do; the other slots are
+// untouched. An unknown slot refuses.
+int32_t SourceSharp_ParticleSystemStartSlot(uint32_t hOwner, const char* pszName, int32_t nSlot)
+{
+	CUtlVector<SourceSharpParticleSystem_t>* pSystems = ParticleSlotSystems(nSlot);
+
+	return pSystems ? StartAttached(*pSystems, hOwner, pszName) : 0;
+}
+
+void SourceSharp_ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot)
+{
+	CUtlVector<SourceSharpParticleSystem_t>* pSystems = ParticleSlotSystems(nSlot);
+
+	if (!pSystems)
+		return;
+
+	int nIndex = ShellEffects_Find(*pSystems, hOwner);
+
+	if (nIndex >= 0)
+		ReleaseParticleSystemAt(*pSystems, nIndex);
 }
 
 // A one-shot an impact started: watched, not held.
@@ -1051,48 +1178,90 @@ void ShellParticles_WatchOneShot(CShellNewParticleEffect* pEffect)
 
 // Every managed particle system moved to its entity: a move alone raises no data change.
 // Backwards, since entries are removed mid-walk.
-void ShellParticles_PreRender()
+static void SweepParticleSystems(CUtlVector<SourceSharpParticleSystem_t>& systems)
 {
-	for (int i = g_ParticleSystems.Count() - 1; i >= 0; i--)
+	for (int i = systems.Count() - 1; i >= 0; i--)
 	{
-		CShellNewParticleEffect* pEffect = g_ParticleSystems[i].pEffect.GetObject();
+		CShellNewParticleEffect* pEffect = systems[i].pEffect.GetObject();
 
 		if (!pEffect)
 		{
-			g_ParticleSystems.Remove(i);
+			systems.Remove(i);
 			continue;
 		}
 
-		C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(g_ParticleSystems[i].hOwner);
+		C_StandaloneEntity* pOwner = SourceSharp_StandaloneFromHandle(systems[i].hOwner);
 
 		// The entity is gone; let the system finish rather than emit at its last position.
 		if (!pOwner)
 		{
-			ReleaseParticleSystemAt(i);
+			ReleaseParticleSystemAt(systems, i);
 			continue;
 		}
 
 		// Every requested point gets the owner's position, as stock's C_EntityFlame binds both.
 		const Vector vecOrigin = pOwner->GetAbsOrigin();
-		const int32_t nMask = g_ParticleSystems[i].nFollowMask;
+		const int32_t nMask = systems[i].nFollowMask;
 
 		for (int nPoint = 0; nPoint <= kSourceSharpParticleMaxFollowPoint; nPoint++)
 		{
 			if (SourceSharpParticleFollow_Wants(nMask, nPoint))
 				pEffect->SetControlPoint(nPoint, vecOrigin);
 		}
+
+		// A point an entity's attachment owns overrides the owner feed. A followed entity
+		// that has gone leaves its last point; the system's owner stops the emission.
+		for (int nPoint = 0; nPoint <= kSourceSharpParticleMaxFollowPoint; nPoint++)
+		{
+			if (!systems[i].hFollowEntity[nPoint])
+				continue;
+
+			IClientRenderable* pRenderable = SourceSharp_ClientRenderableFromHandle(
+				CBaseHandle((int)(systems[i].hFollowEntity[nPoint] & ENT_ENTRY_MASK),
+							(int)(systems[i].hFollowEntity[nPoint] >> NUM_SERIAL_NUM_SHIFT_BITS)));
+
+			if (!pRenderable)
+				continue;
+
+			Vector vecAt;
+			matrix3x4_t mat;
+			if (pRenderable->GetAttachment(systems[i].nFollowAttachment[nPoint], mat))
+			{
+				MatrixGetColumn(mat, 3, vecAt);
+			}
+			else
+			{
+				// The entity has no such attachment (it is 0, or it has no model yet):
+				// stock's C_BaseAnimating::GetAttachment leaves the caller's matrix
+				// alone rather than failing, so fall back to the entity's origin.
+				vecAt = pRenderable->GetRenderOrigin();
+			}
+			vecAt += systems[i].vecFollowOffset[nPoint];
+			pEffect->SetControlPoint(nPoint, vecAt);
+		}
 		pEffect->SetSortOrigin(vecOrigin); // the leaf system culls by it
 	}
+}
+
+void ShellParticles_PreRender()
+{
+	for (int nSlot = 0; nSlot < kSourceSharpParticleSlots; nSlot++)
+		SweepParticleSystems(*ParticleSlotSystems(nSlot));
 }
 
 // Stopped rather than forgotten: the particle manager holds a reference to each.
 void ShellParticles_LevelShutdown()
 {
-	for (int i = g_ParticleSystems.Count() - 1; i >= 0; i--)
-		if (CShellNewParticleEffect* pEffect = g_ParticleSystems[i].pEffect.GetObject())
-			pEffect->StopEmission(false, true, true);
+	for (int nSlot = 0; nSlot < kSourceSharpParticleSlots; nSlot++)
+	{
+		CUtlVector<SourceSharpParticleSystem_t>* pSystems = ParticleSlotSystems(nSlot);
 
-	g_ParticleSystems.RemoveAll();
+		for (int i = pSystems->Count() - 1; i >= 0; i--)
+			if (CShellNewParticleEffect* pEffect = (*pSystems)[i].pEffect.GetObject())
+				pEffect->StopEmission(false, true, true);
+
+		pSystems->RemoveAll();
+	}
 }
 
 // The dev API's read: one watched instance by index; returns the total.

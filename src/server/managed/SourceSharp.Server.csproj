@@ -33,6 +33,7 @@
     <!-- plan_side_isolation P7: the shared source's grant (UserMessageRegistry.Register,
          which MessageOrderTests reaches) comes with it. -->
     <InternalsVisibleTo Include="TF2.Descent.Tests" />
+    <InternalsVisibleTo Include="TF2.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Server.Tests" />
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
     <!-- Phase 1 run 3: the oracle tests build an entity registry the way the

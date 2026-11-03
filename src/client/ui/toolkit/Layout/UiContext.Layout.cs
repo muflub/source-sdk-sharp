@@ -23,12 +23,16 @@ public sealed partial class UiContext
         _ => (1f, 1f),
     };
 
-    internal UiFontSpec FontFor(Text role)
+    internal UiFontSpec FontFor(in UiNode n)
     {
-        var t = Theme.Type(role);
-        int px = Math.Max(1, (int)MathF.Round(t.SizeDu * S));
+        var t = Theme.Type(n.Role);
+        int px = Math.Max(1, (int)MathF.Round(TextSizeDu(n) * S));
         return new UiFontSpec(t.Family, px, t.Weight, t.Flags);
     }
+
+    /// <summary>The size the node's text renders at: its own override, else its role's.</summary>
+    private float TextSizeDu(in UiNode n)
+        => n.TextSizeDu > 0f ? n.TextSizeDu : Theme.Type(n.Role).SizeDu;
 
     private float PadX(in UiNode n) => (n.PadL + n.PadR) * S;
 
@@ -37,7 +41,7 @@ public sealed partial class UiContext
     /// <summary>A text node's natural size: its widest line and its line count.</summary>
     private (float W, float H) MeasureText(in UiNode n)
     {
-        var font = FontFor(n.Role);
+        var font = FontFor(in n);
         var m = FontMetrics.Metrics(font);
         var text = TextOf(n);
         float wrap = n.WrapDu > 0f ? n.WrapDu * S : float.PositiveInfinity;

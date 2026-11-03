@@ -26,10 +26,20 @@ namespace SourceSharp.Server;
 /// force still need a caller that has them; when a field gets a real source it
 /// is added here, one at a time, never all at once on spec.
 /// </para>
+///
+/// <para>
+/// <b><see cref="Critical"/></b> arrived with tf2 stage 1: a weapon behaviour's
+/// <see cref="SourceSharp.Shared.ShotDamage"/> decides it, the arms open it
+/// beside the damage call with the hitgroup (<see cref="DamageHitGroups.Critical"/>),
+/// and the rules read it here. False for every hit no weapon called critical.
+/// <see cref="Damage"/> is already the weapon's: a crit's multiplier is applied
+/// by the mod that rolled it, not by the core.
+/// </para>
 /// </summary>
 public readonly record struct DamageContext(EntityHandle Victim, EntityHandle Attacker,
                                             float Damage, int DamageType,
-                                            HitGroup HitGroup = HitGroup.Generic);
+                                            HitGroup HitGroup = HitGroup.Generic,
+                                            bool Critical = false);
 
 /// <summary>
 /// Whether one hit may hurt a player, asked of every registered rule after the
@@ -60,12 +70,10 @@ public readonly record struct DamageContext(EntityHandle Victim, EntityHandle At
 /// <para>
 /// <b>The answer is the only output.</b> The plan's name for this method was
 /// <c>Modify(ref DamageContext)</c>, which promises a rule can rewrite the
-/// damage. It cannot, in this build: the ABI that reaches the game DLL returns
-/// a <see cref="Decision"/> and nothing else, so a rewritten damage number
-/// would be read by nobody — a rule that edits it would believe it had halved
-/// the damage while the players took it whole. The contract is therefore a
-/// read-only context and a decision; the scaling channel is an ABI change with
-/// a caller that needs it, not a field on a struct.
+/// damage. It cannot: the ABI that reaches the game DLL returns a
+/// <see cref="Decision"/> and nothing else, so a rewritten damage number would
+/// be read by nobody. Scaling a hit is <see cref="IDamageModifier"/>'s, which
+/// the player's own damage path asks once the hit has been allowed.
 /// </para>
 /// </summary>
 public interface IDamageRule
@@ -77,4 +85,35 @@ public interface IDamageRule
     /// was guarding nor let every other rule off the hook.
     /// </summary>
     Decision Decide(in DamageContext hit);
+}
+
+/// <summary>
+/// What a hit the rules allowed does to a player, folded over every registered
+/// modifier (tf2 stage 2.7): stock's <c>ApplyOnDamageModifyRules</c> seat, where
+/// TF scales a hit for its crit, its range and the victim's conditions.
+///
+/// <para>
+/// <b>WHO ASKS, AND WHEN.</b> The player's own damage path
+/// (<c>SsPlayer.OnDamagedAt</c>), through <see cref="IGameRules.ModifyDamage"/>,
+/// after <see cref="IGameRules.CanTakeDamage"/> allowed the hit and before the
+/// suit takes its share: stock's <c>CTFPlayer::OnTakeDamage</c> calls the
+/// modify rules before <c>CBasePlayer</c>'s armour block. Both ends are managed
+/// and the answer is what the player takes, so this needs no ABI: the number
+/// a modifier returns is the number the health rule is handed.
+/// </para>
+///
+/// <para>
+/// A <b>FOLD</b> in <see cref="IOrderedHook.HookOrder"/>'s order: each modifier
+/// is handed the running damage (the first gets <see cref="DamageContext.Damage"/>,
+/// the hit as dealt) and returns the next. The context is the hit as dealt, the
+/// same for every modifier. A modifier that throws is named and skipped, the
+/// running damage unchanged: a broken modifier must not turn a hit into a kill
+/// or a miss. With no modifier the hit lands as dealt, which is the core's game.
+/// Zero or less is no damage.
+/// </para>
+/// </summary>
+public interface IDamageModifier
+{
+    /// <summary>The damage the hit does after this modifier, from the running <paramref name="damage"/>.</summary>
+    float Modify(in DamageContext hit, float damage);
 }

@@ -116,6 +116,10 @@ public class SideAuditTests
         // The skin, client-only since plan_server_native_v2 T2: the server's
         // arm was an empty body (see DualWired's note where it was listed).
         "EntitySetSkin",
+        // The viewer-local model (stock's ValidateModelIndex), client-only from
+        // birth: a disguise is drawn per viewer on the client, and the server
+        // never changes the spy's model — its hitboxes stay the spy's.
+        "EntitySetModelOverride",
         // The ammo table, client-only since the same plan: only the client
         // registers (ClientModule), and server.so keeps no table.
         "RegisterAmmoType",
@@ -262,7 +266,8 @@ public class SideAuditTests
         // the same thing said about control points -- which point of a running
         // system is fed is a fact about the renderer's copy of it, and the
         // server has no copy.
-        "ParticleSystemStart", "ParticleSystemStop", "ParticleSystemFollowPoints",
+        "ParticleSystemStart", "ParticleSystemStop", "ParticleSystemFollowPoints", "ParticleSystemStartExtra", "ParticleSystemStopExtra", "ParticleSystemFollowEntity", "ParticleSystemStartSlot", "ParticleSystemStopSlot",
+        "ScreenOverlaySet", "ScreenOverlayGet",
         "DynamicLightRelease", "DynamicLightUpdate",
         // The five local-weapon slots -- GetLocalWeaponCount, GetLocalWeaponName,
         // GetLocalActiveWeapon, GetLocalWeaponClip and GetLocalWeaponReserve --
@@ -312,6 +317,12 @@ public class SideAuditTests
         // The client mode's layout (C7, the viewport system's Init): the
         // client mode exists only in client.so.
         "ClientModeLayout",
+        // The rotated/additive texture leaf (tf2 hud rows): drawn by client.so's
+        // HUD shell.
+        "UiDrawTexturedQuad",
+        // A texture handle bound to an engine material (the scope's Refract
+        // quadrants): client.so's vgui surface resolves the .vmt.
+        "UiMaterialTexture",
         // The pixel visibility's slots (C7, c_pixel_visibility.cpp): the
         // render context's occlusion queries and the current view are
         // client.so's.

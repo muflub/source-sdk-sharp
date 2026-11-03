@@ -302,67 +302,72 @@ public class GameModesTests
         Assert.True(flow.Resets == afterFirst + 1, "each switch flushes the shared machine once, not twice");
     }
 
-    /// <summary>A live entity that counts the in-place reset it is owed.</summary>
-    private sealed class ResetProbe : ScriptedEntity
+    /// <summary>The map cleanup, recorded on the rig's one timeline with the filter it was handed.</summary>
+    private sealed class RecordingCleanup(List<string> order) : IMapCleanup
     {
-        public int Resets { get; private set; }
-        public override void RoundReset() => Resets++;
+        public List<IMapCleanupFilter> Filters { get; } = [];
+
+        public MapCleanupReport CleanUpMap(IMapCleanupFilter filter)
+        {
+            Filters.Add(filter);
+            order.Add("cleanup");
+            return default;
+        }
+    }
+
+    private sealed class FilteredMode(string id, IRoundFlow rounds, IMapCleanupFilter cleanup,
+                                      IModeSetup? setup = null) : IGameMode
+    {
+        public string Id { get; } = id;
+        public IRoundFlow Rounds { get; } = rounds;
+        public IModeSetup? Setup { get; } = setup;
+        public IMapCleanupFilter? Cleanup { get; } = cleanup;
+    }
+
+    private sealed class KeepNothing : IMapCleanupFilter
+    {
+        public bool RoundCleanupShouldIgnore(ScriptedEntity entity) => false;
+        public bool ShouldCreateEntity(string className) => true;
     }
 
     [Fact]
-    public void ASwitchResetsEveryLiveEntityExactlyOnce()
+    public void ASwitchCleansTheMapOnceAfterTheMachinesAndBeforeTheSetup()
     {
-        // The in-place half of stock's CleanUpMap (the divergence row): the
-        // registry the module resolves (its concrete EntityDirectory) walked
-        // once per switch, each live entity's RoundReset called once — not
-        // zero (the walk dropped), not twice (a walk per machine reset).
+        // Stock's CleanUpMap (tf2 ruling N2), once per switch: after the
+        // machines' reset (a machine may re-arm what a re-created entity's
+        // spawn reads), before the next mode arranges its world. A second
+        // switch cleans again: two sv_mode null are two restarts.
         var rig = new Rig();
-        var live = new EntityDirectory(new RecordingLog());
-        var probes = new[] { new ResetProbe(), new ResetProbe(), new ResetProbe() };
-        for (int i = 0; i < probes.Length; i++)
-            Assert.True(live.Bind(new EntityHandle(0x0003_0001u + (uint)i), probes[i]));
-        rig.Services.AddInstance(live);
-        rig.Register(new Mode("arena", new FakeFlow(rig.Order, "arena")));
+        var cleanup = new RecordingCleanup(rig.Order);
+        rig.Services.AddInstance<IMapCleanup>(cleanup);
+        rig.Register(new Mode("arena", new FakeFlow(rig.Order, "arena"), setup: new FakeSetup(rig.Order, "arena")));
         rig.SetTime(1f);
 
         Assert.True(rig.Modes.SwitchTo("arena"));
-        Assert.All(probes, p => Assert.Equal(1, p.Resets));
+        Assert.Equal(new[] { "reset:arena", "cleanup", "setup:arena" }, rig.Order);
 
-        Assert.True(rig.Modes.SwitchTo("null"));          // a second switch walks again, once
-        Assert.All(probes, p => Assert.Equal(2, p.Resets));
-        Assert.Contains(rig.Log.Lines, l => l.Text.Contains("round reset: 3 entities"));
-    }
-
-    /// <summary>A live entity with per-round-looking state and NO RoundReset override: the no-op default is its answer.</summary>
-    private sealed class PlainEntity : ScriptedEntity
-    {
-        public int Counter = 5;
+        Assert.True(rig.Modes.SwitchTo("null"));
+        Assert.Equal(2, cleanup.Filters.Count);
     }
 
     [Fact]
-    public void AnEntityThatDoesNotOverrideRoundResetIsUntouchedByTheWalk()
+    public void AModeWithNoFilterOfItsOwnCleansWithTheCoresAndOneWithAFilterWithIts()
     {
-        // The no-owner arm of the reset walk: an entity that never opted in
-        // keeps its state and its binding, while the one beside it that did
-        // opt in is reset (the stimulus reached the walk).
+        // The no-owner arm (IGameMode.Cleanup null) is HL2MP's list, the
+        // core's; a mode that answers one (TF2's teamplay list) is handed its.
         var rig = new Rig();
-        var live = new EntityDirectory(new RecordingLog());
-        var plainHandle = new EntityHandle(0x0003_0001u);
-        var plain = new PlainEntity { Counter = 42, Handle = plainHandle };    // the handle the registry gives it in game
-        var probe = new ResetProbe { Handle = new EntityHandle(0x0003_0002u) };
-        Assert.True(live.Bind(plainHandle, plain));
-        Assert.True(live.Bind(probe.Handle, probe));
-        rig.Services.AddInstance(live);
+        var cleanup = new RecordingCleanup(rig.Order);
+        rig.Services.AddInstance<IMapCleanup>(cleanup);
+        var own = new KeepNothing();
         rig.Register(new Mode("arena", new FakeFlow(rig.Order, "arena")));
+        rig.Register(new FilteredMode("koth", new FakeFlow(rig.Order, "koth"), own));
         rig.SetTime(1f);
 
         Assert.True(rig.Modes.SwitchTo("arena"));
+        Assert.True(rig.Modes.SwitchTo("koth"));
 
-        Assert.Equal(1, probe.Resets);                                       // the opted-in one reset
-        Assert.Contains(rig.Log.Lines, l => l.Text.Contains("round reset: 2 entities"));   // both were walked
-        Assert.Equal(42, plain.Counter);                                     // the plain one kept its state
-        Assert.Contains(plain, live.Snapshot());                             // and its binding
-        Assert.DoesNotContain(rig.Log.Lines, l => l.Warning);                // and nothing was said about it
+        Assert.IsType<HL2MPMapCleanupFilter>(cleanup.Filters[0]);
+        Assert.Same(own, cleanup.Filters[1]);
     }
 
     [Fact]

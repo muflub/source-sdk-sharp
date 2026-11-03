@@ -71,6 +71,8 @@ C_StandaloneEntity::C_StandaloneEntity(int nEntNum, int nSerialNum, ClientClass*
 	, m_pSurface(NULL)
 	, m_flModelScale(1.0f)
 	, m_nOverlayModelIndex(-1)
+	, m_nModelOverride(-1)
+	, m_nNetworkedModelIndex(-1)
 	, m_bIgnoreZ(false)
 	, m_nPublishedModelIndex(-1)
 	, m_nPublishedEffects(-1)
@@ -253,9 +255,13 @@ void C_StandaloneEntity::PostDataUpdate(DataUpdateType_t updateType)
 											 (int32_t)updateType);
 	}
 
-	// The model index is networked straight into the block, so this is where a new
-	// model is noticed: publish its facts and bump the policy serial. Guarded by the
-	// index so an entity networked every tick does not re-decide every tick.
+	// The viewer-local override rides each decode: re-assert it, so the
+	// effective index is what the edge below sees and every reader follows.
+	ReassertModel();
+
+	// This is where a new model is noticed: publish its facts and bump the
+	// policy serial. Guarded by the index so an entity networked every tick
+	// does not re-decide every tick.
 	if (Block().Head.ModelIndex != m_nPublishedModelIndex)
 		PublishModelFacts();
 
@@ -411,7 +417,32 @@ void C_StandaloneEntity::RemoveFromLeafSystem()
 
 const model_t* C_StandaloneEntity::GetModel() const
 {
+	// Head.ModelIndex is the effective model: the override is re-asserted into
+	// it (ReassertModel), so every reader -- the draw, the bones, the hitboxes
+	// -- follows the same index, as stock's swap of m_nModelIndex carries them.
 	return Block().Head.ModelIndex > 0 ? modelinfo->GetModel(Block().Head.ModelIndex) : NULL;
+}
+
+void C_StandaloneEntity::SetModelOverride(int nModelIndex)
+{
+	m_nModelOverride = nModelIndex;
+	ReassertModel();
+}
+
+void C_StandaloneEntity::ReassertModel()
+{
+	int nWanted = m_nModelOverride > 0 ? m_nModelOverride : m_nNetworkedModelIndex;
+
+	if (nWanted > 0 && Block().Head.ModelIndex != nWanted)
+	{
+		Block().Head.ModelIndex = nWanted;
+		PublishModelFacts();
+	}
+}
+
+bool C_StandaloneEntity::UsesPowerOfTwoFrameBufferTexture()
+{
+	return SourceSharp_ShellUsesFBTexture(GetModel(), GetSkin(), GetBody(), GetClientRenderable());
 }
 
 static_assert(!std::is_base_of<IGameEntity, C_StandaloneEntity>::value,
@@ -977,13 +1008,13 @@ int C_StandaloneEntity::DrawModel(int flags)
 	info.angles = GetRenderAngles();
 	info.pRenderable = this;
 	info.pModel = pModel;
-	// The viewmodel is drawn and lit at its render pose; without the explicit
-	// lighting origin the engine lit it at the owner's feet and it drew black.
+	// The viewmodel draws and lights at its render pose: the model-to-world
+	// matrix IS the render transform, so the engine's lighting lookup follows it.
+	// An explicit pLightingOrigin here blacked the draw: the engine then queried
+	// the lightcache at the bare eye point instead of the model's lit position.
 	const bool bViewModel = Block().Client.ViewModel != 0;
 	info.pModelToWorld = bViewModel ? &Block().Client.RenderTransform : &Block().Head.WorldTransform;
 	info.instance = GetModelInstance();
-	if (bViewModel)
-		info.pLightingOrigin = &Block().Client.RenderOrigin;
 	info.entity_index = entindex();
 	info.skin = GetSkin();
 	info.body = GetBody();
@@ -1046,6 +1077,17 @@ static void RecvProxy_StandaloneTypeId(const CRecvProxyData* pData, void* pStruc
 	SourceSharp_ClientShellFromRecvStruct(pStruct)->EnsureManagedHalf();
 }
 
+// The wire's word, latched here and nowhere else: a delta writes only changed
+// words, so a latch at PostDataUpdate would record the override the dress
+// re-asserted over the field, and a cleared disguise would restore the
+// disguise's model instead of the player's.
+static void RecvProxy_StandaloneModelIndex(const CRecvProxyData* pData, void* pStruct, void* pOut)
+{
+	*((int*)pOut) = pData->m_Value.m_Int;
+
+	SourceSharp_ClientShellFromRecvStruct(pStruct)->LatchNetworkedModelIndex(pData->m_Value.m_Int);
+}
+
 static void BuildStandaloneRecvProps(RecvProp* pOut, int& nOut)
 {
 	C_StandaloneEntity* pNull = NULL;
@@ -1085,6 +1127,8 @@ static void BuildStandaloneRecvProps(RecvProp* pOut, int& nOut)
 			case STANDALONE_NET_INT:
 				pOut[nOut++] = (i == STANDALONE_NET_FIELD_TYPEID)
 					? RecvPropInt(pFields[i].pName, nOffsets[i], 4, 0, RecvProxy_StandaloneTypeId)
+					: (i == STANDALONE_NET_FIELD_MODELINDEX)
+					? RecvPropInt(pFields[i].pName, nOffsets[i], 4, 0, RecvProxy_StandaloneModelIndex)
 					: RecvPropInt(pFields[i].pName, nOffsets[i], 4);
 				break;
 
@@ -1680,6 +1724,15 @@ void SourceSharp_EntitySetSkin(uint32_t hEntity, int32_t nSkin)
 {
 	if (C_StandaloneEntity* pEntity = ResolveStandaloneClient(hEntity))
 		pEntity->SetSkin((int)nSkin);
+}
+
+void SourceSharp_EntitySetModelOverride(uint32_t hEntity, const char* pModel)
+{
+	if (!pModel)
+		return;
+
+	if (C_StandaloneEntity* pEntity = ResolveStandaloneClient(hEntity))
+		pEntity->SetModelOverride(pModel[0] ? modelinfo->GetModelIndex(pModel) : -1);
 }
 
 void SourceSharp_StandaloneSetModelScale(uint32_t hEntity, float flScale)

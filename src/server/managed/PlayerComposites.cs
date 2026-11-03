@@ -21,7 +21,7 @@ public interface IPlayerComponent
 {
     /// <summary>
     /// Position within its own source's block: sources first order by
-    /// registering assembly name (ordinal), and this orders inside a source,
+    /// registering assembly layer (HookOrder.Layer, ordinal), and this orders inside a source,
     /// so the tick sequence is fixed and readable — see
     /// <see cref="PlayerComposites"/>.
     /// </summary>
@@ -80,7 +80,7 @@ public interface IPlayerComponentSource
 ///
 /// <para>
 /// <see cref="Get{T}(EntityHandle)"/> answers across sources by INTERFACE
-/// (Descent's component reads TF2's <c>ITfClassComponent</c> without either
+/// (Descent's component reads TF2's <c>ITFClassComponent</c> without either
 /// mod referencing the other): the composite is the one object that has seen
 /// both, and it answers in the tick order, so "the first component that
 /// answers to T" is deterministic.
@@ -135,11 +135,12 @@ public sealed class PlayerComposites(ILog log,
             }
         }
 
-        // Sources first by registering assembly name, then Order inside a
-        // source: the sequence is what the class summary says, not what the
-        // container happened to resolve first.
+        // Sources first by registering assembly layer (HookOrder.Layer: core,
+        // then a mod, then the mod layered on it), then Order inside a source:
+        // the sequence is what the class summary says, not what the container
+        // happened to resolve first.
         return all
-            .OrderBy(c => c.GetType().Assembly.GetName().Name, StringComparer.Ordinal)
+            .OrderBy(c => SourceSharp.Shared.HookOrder.Layer(c.GetType().Assembly), StringComparer.Ordinal)
             .ThenBy(c => c.Order)
             .ToList();
     }
@@ -283,15 +284,29 @@ public sealed class PlayerComposites(ILog log,
     {
         foreach (var slot in _byPlayer.Values)
         {
-            if (slot.Player != player)
-                continue;
-
-            foreach (var c in slot.Components)
-                if (c is T match)
-                    return match;
-
-            return null;
+            if (slot.Player == player)
+                return FirstOf<T>(slot);
         }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The same answer by the player's ENTITY INDEX, which is what movement
+    /// hands a rule (<c>IMovementRules</c>' <c>playerIndex</c>,
+    /// <c>JumpRequest.PlayerIndex</c>): how a rule finds the per-player state
+    /// it reads and writes during a command, such as a mod's predicted carrier
+    /// entity held by its component. One lookup, no walk, since a rule asks
+    /// per command. Null is "no such player, or no such slice", as above.
+    /// </summary>
+    public T? Get<T>(int playerIndex) where T : class, IPlayerComponent
+        => _byPlayer.TryGetValue(playerIndex, out var slot) ? FirstOf<T>(slot) : null;
+
+    private static T? FirstOf<T>(Slot slot) where T : class, IPlayerComponent
+    {
+        foreach (var c in slot.Components)
+            if (c is T match)
+                return match;
 
         return null;
     }

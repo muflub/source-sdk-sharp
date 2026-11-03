@@ -9,7 +9,7 @@ namespace SourceSharp.Tests.Ui;
 
 /// <summary>
 /// The UI's own copy (#SS_UI_*) is the core's, not a mod folder's: a game
-/// mod with no resource/mod_sharp_english.txt (tf2_descent on the k3s host,
+/// mod with no resource/test_english.txt (tf2_descent on the k3s host,
 /// 2026-10-11) drew raw #SS_UI_ tokens. The core strings ship inside the
 /// toolkit; a mod's language file is asked first and may override them.
 /// </summary>
@@ -22,7 +22,7 @@ public sealed class UiCoreLanguageTests : IDisposable
     private void ModFile(string tokens)
     {
         Directory.CreateDirectory(Path.Combine(_dir, "resource"));
-        File.WriteAllText(Path.Combine(_dir, ClientUi.LanguageFile),
+        File.WriteAllText(Path.Combine(_dir, ClientUi.LanguageFileName(_dir)),
                           "\"lang\"\n{\n\"Language\" \"English\"\n\"Tokens\"\n{\n" + tokens + "\n}\n}\n", Encoding.Unicode);
     }
 
@@ -51,7 +51,7 @@ public sealed class UiCoreLanguageTests : IDisposable
     {
         // One home for each string: the core's #SS_UI_ copy left mods/test's
         // file, which keeps the game's own (weapon names, chat formats).
-        var mod = Client.Ui.Toolkit.UiLanguageFile.Load(RepoLayout.Repo("game", "mod_test", "resource", "mod_sharp_english.txt"));
+        var mod = Client.Ui.Toolkit.UiLanguageFile.Load(RepoLayout.Repo("game", "mod_test", "resource", "test_english.txt"));
         Assert.Null(mod.Find("#SS_UI_Ok"));
         Assert.Equal("OVERWATCH STANDARD ISSUE\n(PULSE-RIFLE)", mod.Find("#HL2_Pulse_Rifle"));
     }

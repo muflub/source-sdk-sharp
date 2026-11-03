@@ -45,8 +45,9 @@ public sealed record UiSample(string Group, string Title, bool Gallery, double N
     /// <summary>A file-name form of the title: "12 players, two teams" → "12-players-two-teams".</summary>
     public string Slug => UiSamples.Slug(Title);
 
-    /// <summary>A new screen from fresh services: nothing is shared between two calls.</summary>
-    public UiScreen Create() => (UiScreen)Method.Invoke(null, [new UiSampleServices()])!;
+    /// <summary>A new screen from fresh services: nothing is shared between two calls. <paramref name="hudArt"/> is the seeded HUD-art library (a sample never registers its own — the seed wins).</summary>
+    public UiScreen Create(IUiTextureLibrary? hudArt = null)
+        => (UiScreen)Method.Invoke(null, [new UiSampleServices { HudArt = hudArt }])!;
 }
 
 /// <summary>A preview size: pixels, and the ui_scale it is drawn at. <see cref="Name"/> is "1920x1080", or "1080x1920@1.75".</summary>
@@ -72,6 +73,7 @@ public static class UiSamples
     public static IEnumerable<UiPreviewSize> Sizes()
     {
         yield return new(1024, 768, 1f);
+        yield return new(1280, 720, 1f);
         yield return new(1280, 1024, 1f);
         yield return new(1920, 1080, 1f);
         yield return new(2560, 1080, 1f);

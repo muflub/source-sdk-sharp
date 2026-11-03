@@ -916,6 +916,105 @@ public class PathTests
         Assert.True(Near(governed.CurrentSpeed, 100f), "clamped to the maximum");
     }
 
+    /// <summary>A named track train that names its first node, as a map spawns one.</summary>
+    private static FuncTrackTrain NamedTrackTrain(ScriptedEntityRegistry registry, uint handle, string first,
+                                                  string speed, string maxSpeed = "100")
+    {
+        var h = new EntityHandle(handle);
+
+        registry.KeyValue(h, EntityNames.FuncTracktrain, "target", first);
+        registry.KeyValue(h, EntityNames.FuncTracktrain, "speed", speed);
+        registry.KeyValue(h, EntityNames.FuncTracktrain, "startspeed", maxSpeed);
+        registry.Spawn(h, EntityNames.FuncTracktrain);
+
+        return (FuncTrackTrain)registry.Get(h)!;
+    }
+
+    [Fact]
+    public void SetSpeedDirAccelIsTheInputOfThatName()
+    {
+        var registry = NewRegistry();
+
+        var first = Node(registry, 0x006B_0001u, Vector.Zero);
+        var second = Node(registry, 0x006B_0002u, new Vector(200f, 0f, 0f));
+        first.LinkTo(second);
+
+        var byCall = TrackTrain(registry, 0x006B_0010u, speed: "0");
+        var byInput = TrackTrain(registry, 0x006B_0020u, speed: "0");
+        byCall.StartOn(first);
+        byInput.StartOn(first);
+        registry.Input(new EntityHandle(0x006B_0010u), "StartForward", "", 0f, default);
+        registry.Input(new EntityHandle(0x006B_0020u), "StartForward", "", 0f, default);
+
+        byCall.SetSpeedDirAccel(0.55f);
+        registry.Input(new EntityHandle(0x006B_0020u), "SetSpeedDirAccel", "0.55", 0.55f, default);
+
+        Assert.True(Near(byCall.CurrentSpeed, byInput.CurrentSpeed), "the call and the input agree");
+        Assert.True(Near(byCall.CurrentSpeed, 0.55f * byCall.MaxSpeed), "at a fraction of the maximum");
+
+        byCall.SetSpeedForwardModifier(0.5f);
+        registry.Input(new EntityHandle(0x006B_0020u), "SetSpeedForwardModifier", "0.5", 0.5f, default);
+
+        Assert.True(Near(byCall.CurrentSpeed, byInput.CurrentSpeed), "and so do the forward modifier's");
+    }
+
+    [Fact]
+    public void PassingANodeRaisesPassed()
+    {
+        var registry = NewRegistry();
+        var first = Node(registry, 0x006D_0001u, Vector.Zero);
+        var second = Node(registry, 0x006D_0002u, new Vector(200f, 0f, 0f));
+        first.LinkTo(second);
+
+        var passed = new List<PathTrack>();
+        first.Passed += passed.Add;
+        second.Passed += passed.Add;
+
+        var train = TrackTrain(registry, 0x006D_0010u, speed: "100");
+        train.StartOn(first);
+        train.FinishStep();
+
+        Assert.True(passed.Count >= 2 && ReferenceEquals(passed[0], first) && ReferenceEquals(passed[1], second),
+                    "each node a train reaches says so, in order");
+
+        int before = passed.Count;
+        registry.Input(new EntityHandle(0x006D_0001u), "InPass", "", 0f, default);
+        Assert.True(passed.Count == before + 1 && ReferenceEquals(passed[^1], first), "and so does the InPass input");
+    }
+
+    /// <summary>A mod's pass listener, which reaches the node without the event (SS0013).</summary>
+    private sealed class RecordingListener : IPathTrackPassListener
+    {
+        public List<PathTrack> Passed { get; } = new();
+
+        public void OnPathTrackPassed(PathTrack node) => Passed.Add(node);
+    }
+
+    [Fact]
+    public void PassListenersHearTheSameAnnouncements()
+    {
+        var registry = NewRegistry();
+        var first = Node(registry, 0x0071_0001u, Vector.Zero);
+        var second = Node(registry, 0x0071_0002u, new Vector(200f, 0f, 0f));
+        first.LinkTo(second);
+
+        var listener = new RecordingListener();
+        first.AddPassListener(listener);
+        second.AddPassListener(listener);
+
+        var train = TrackTrain(registry, 0x0071_0010u, speed: "100");
+        train.StartOn(first);
+        train.FinishStep();
+
+        Assert.True(listener.Passed.Count >= 2 && ReferenceEquals(listener.Passed[0], first),
+                    "a listener hears each node the train reaches, beside the event");
+
+        first.RemovePassListener(listener);
+        int before = listener.Passed.Count;
+        registry.Input(new EntityHandle(0x0071_0001u), "InPass", "", 0f, default);
+        Assert.True(listener.Passed.Count == before, "and a removed listener hears no more");
+    }
+
     [Fact]
     public void TrackChangerSwitchesBranches()
     {

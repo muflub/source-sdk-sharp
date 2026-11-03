@@ -50,6 +50,7 @@ public:
 	// KeyValueShellOnly, which keeps the ones the shell needs. pPackedKeys is
 	// key\0value\0..., nBytes long (map text holds no NUL).
 	uint32_t MapSpawnCreate(const char* pClassName, const char* pPackedKeys, int32_t nBytes) override;
+	uint32_t MapSpawnCreateAt(const char* pClassName, const char* pPackedKeys, int32_t nBytes, int32_t nEdict) override;
 
 	// Declares an entity class; called once per [ScriptedEntity] at managed startup.
 	void RegisterScriptedEntity(const char* pClassName, const char** ppOutputNames, int32_t nOutputCount,

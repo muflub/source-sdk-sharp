@@ -3175,7 +3175,9 @@ public sealed class DebugApiServer : IDebugApi
     /// setpos_exact's teleport (the player's physics shadow goes with it) and
     /// setang's view snap, on the game thread, without needing sv_cheats; with
     /// settle, answered once the player stands on something and has stopped,
-    /// counted in server ticks, instead of after a guessed sleep.
+    /// counted in server ticks, instead of after a guessed sleep; with
+    /// <c>simulated=0</c> (a player the server does not move) instead once the
+    /// placement itself holds on the target.
     /// </summary>
     private HttpReply Teleport(HttpRequest request)
     {
@@ -3193,6 +3195,13 @@ public sealed class DebugApiServer : IDebugApi
         }
 
         bool settle = Get(request, "settle") is { Length: > 0 } st && st != "0";
+        // simulated=0 declares the player one the server does not move (an
+        // idle client-predicted joiner: no usercmds, so the move path never
+        // runs and his ground word reads -1 wherever he stands). The settle
+        // for that player accepts the placement holding instead of a physics
+        // landing it cannot see; the default keeps the physics arms alone in
+        // charge, exactly as before the arm existed.
+        bool serverSimulated = Get(request, "simulated") is not { Length: > 0 } sim || sim != "0";
         double eps = double.TryParse(Get(request, "eps"), NumberStyles.Float, CultureInfo.InvariantCulture, out double e) && e >= 0 ? e : 1.0;
         int forTicks = int.TryParse(Get(request, "for"), out int f) && f > 0 ? f : 3;
         int timeout = int.TryParse(Get(request, "timeout"), out int t) && t > 0 ? Math.Min(t, MaxWaitTicks) : DefaultWaitTicks;
@@ -3223,8 +3232,10 @@ public sealed class DebugApiServer : IDebugApi
         if (!settle)
             return Ok(Stamped("{\"ok\":true" + teleported + "}", before));
 
-        var reply = AwaitCondition(new LandedCondition(player, eps, forTicks), timeout, DefaultWall(timeout),
-                                   _ => teleported);
+        // The target rides along: with simulated=0 the only landing evidence
+        // for a player the server does not move is the placement holding on it.
+        var reply = AwaitCondition(new LandedCondition(player, eps, forTicks, pos, serverSimulated), timeout,
+                                   DefaultWall(timeout), _ => teleported);
         return reply with { Body = Stamped(reply.Body, before) };
     }
 

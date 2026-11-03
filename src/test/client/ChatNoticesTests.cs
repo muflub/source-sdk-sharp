@@ -70,6 +70,29 @@ public class ChatNoticesTests
         Assert.Equal(["Player alyx joined team Rebels", "Player barney was automatically assigned to team Combine"], chat.Lines);
     }
 
+    private sealed class RedBlue : ITeamNameRule, IOrderedHook
+    {
+        public int HookOrder => 1;
+        public string Name(int team, string name) => team == 2 ? "RED" : team == 3 ? "BLU" : name;
+    }
+
+    [Fact]
+    public void A_team_change_names_the_team_as_the_mods_rules_do()
+    {
+        var e = Fake();
+        e.ReturnsEachCall("Hud.Localise", () => (string)e.Calls[^1].Arg(0)!);
+        var chat = new Chat();
+        var log = new RecordingLog();
+        var container = new ServiceContainer();
+        container.AddInstance(typeof(RedBlue), new RedBlue());
+        var n = new ChatNotices(e, log, chat, new TeamNames(new Hooks<ITeamNameRule>(container, log), log));
+
+        n.OnTeam(new PlayerTeamArgs(7, 3, 0, false, AutoTeam: false, Name: "alyx"));
+        n.OnTeam(new PlayerTeamArgs(8, 2, 0, false, AutoTeam: true, Name: "barney"));
+
+        Assert.Equal(["Player alyx joined team BLU", "Player barney was automatically assigned to team RED"], chat.Lines);
+    }
+
     [Fact]
     public void A_silent_or_disconnecting_team_change_says_nothing()
     {

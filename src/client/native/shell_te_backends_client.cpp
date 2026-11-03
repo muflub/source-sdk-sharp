@@ -31,6 +31,7 @@
 #include "clienteffectprecachesystem.h"
 #include "view.h"
 #include "networkstringtable_clientdll.h"
+#include "engine/ICollideable.h"
 
 #include "vphysics_interface.h"
 
@@ -125,6 +126,23 @@ void SourceSharp_ClientMuzzleFlash(const float* pOriginXYZ, const float* pAngles
 							QAngle(req.vecAngles.x, req.vecAngles.y, req.vecAngles.z), req.flScale, req.nType);
 }
 
+// The model a decal is shot onto: the entity's own, or — for the world, whose
+// adapter's GetModel is NULL by ruling (client_world.h; envmap and
+// cl_takesnapshot test it for NULL) — the collideable's collision model, the
+// level brush CWorldClientCollideable holds. R_DecalShoot_ refuses a NULL or
+// non-brush model, so without this every world decal dies silently.
+static const model_t* DecalEntityModel(IClientEntity* pEntity)
+{
+	const model_t* pModel = pEntity->GetModel();
+
+	if (pModel)
+		return pModel;
+
+	ICollideable* pCollideable = pEntity->GetCollideable();
+
+	return pCollideable ? pCollideable->GetCollisionModel() : NULL;
+}
+
 // A decal on the world, a brush model or a static prop. The entity is resolved
 // here because DecalShoot wants a model_t*, which does not cross; it answers for
 // either hierarchy, and entity 0 is the world. Callers test r_decals first.
@@ -148,7 +166,7 @@ void SourceSharp_ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const fl
 	const Vector vecPosition(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z);
 	const Vector vecSAxis(req.vecSAxis.x, req.vecSAxis.y, req.vecSAxis.z);
 
-	effects->DecalShoot(req.nDecalIndex, req.nEntity, pEntity->GetModel(), pEntity->GetAbsOrigin(),
+	effects->DecalShoot(req.nDecalIndex, req.nEntity, DecalEntityModel(pEntity), pEntity->GetAbsOrigin(),
 						pEntity->GetAbsAngles(), vecPosition, req.bHasSAxis ? &vecSAxis : NULL, req.nFlags);
 }
 
@@ -386,7 +404,7 @@ void SourceSharp_ClientDecalBrushModel(int32_t nEntity, const float* pDecalCente
 
 	const Vector vecCenter(req.vecCenter.x, req.vecCenter.y, req.vecCenter.z);
 
-	effects->DecalShoot(req.nDecalIndex, req.nEntity, pEntity->GetModel(), pEntity->GetAbsOrigin(),
+	effects->DecalShoot(req.nDecalIndex, req.nEntity, DecalEntityModel(pEntity), pEntity->GetAbsOrigin(),
 						pEntity->GetAbsAngles(), vecCenter, 0, 0);
 }
 

@@ -109,7 +109,7 @@ public class TempEntDecalSchemaTests
     }
 
     [Fact]
-    public void TheWorldDecalTableTakesTheNonTfBranch()
+    public void TheWorldDecalTableTakesTheNonTFBranch()
     {
         TeClass te = Declared(typeof(TeWorldDecal));
 

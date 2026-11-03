@@ -138,6 +138,8 @@ public:
 	virtual int32_t TemplateSpawnKeyed(const char* pClassNames, const char* pPackedKeys, const int32_t* pPackBytes,
 									   const float* pOriginsXYZ, const float* pAnglesPYR, int32_t nCount,
 									   uint32_t* pOutHandles, int32_t nMax) = 0;
+	virtual uint32_t MapSpawnCreateAt(const char* pClassName, const char* pPackedKeys, int32_t nBytes,
+									  int32_t nEdict) = 0;
 };
 
 abstract_class IShimTransform
@@ -191,6 +193,9 @@ public:
 								  const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly) = 0;
 	virtual void ApplyDamageForce(uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
 								  const float* pForceXYZ, const float* pPositionXYZ) = 0;
+	virtual int32_t EntityTakeDamageAnswered(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+											 const float* pDirXYZ, const float* pForceOriginXYZ,
+											 int32_t bPhysicsOnly) = 0;
 };
 
 abstract_class IShimGameRules

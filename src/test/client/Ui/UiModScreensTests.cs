@@ -35,10 +35,12 @@ public sealed class UiModScreensTests : IDisposable
     private static Assembly FixtureAssembly => typeof(ModProbe).Assembly;
 
     /// <summary>The game's composition, with mods.yaml's client_ui list as <paramref name="uiAssemblies"/>.</summary>
-    private UiHost Compose(params string[] uiAssemblies)
+    private UiHost Compose(params string[] uiAssemblies) => Compose(out _, uiAssemblies);
+
+    private UiHost Compose(out ServiceContainer services, params string[] uiAssemblies)
     {
-        var services = UiHostKit.RuntimeServices(_engine, _surface, _dir,
-                                                 k => k == ModInfo.Keys.ClientUiAssemblies ? string.Join(';', uiAssemblies) : null);
+        services = UiHostKit.RuntimeServices(_engine, _surface, _dir,
+                                             k => k == ModInfo.Keys.ClientUiAssemblies ? string.Join(';', uiAssemblies) : null);
         var hud = new Hud(new RecordingLog(), _engine, _engine, new DamageMessage(), new HudMsgMessage(),
                           new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
         return ClientUi.Build(services, new RecordingLog(), hud, hud.Messages, hud.Hints, hud.Build, new UiHostKit.NoArsenal(),
@@ -86,6 +88,50 @@ public sealed class UiModScreensTests : IDisposable
              new Screen("early", UiLayerKind.Hud, 10), new Screen("tie", UiLayerKind.Hud, 10)]);
         Assert.Equal(["core-b", "core-a", "early", "tie", "late"], Names(hud));
         Assert.Equal(["core-menu", "menu-mod"], Names(menu));
+    }
+
+    [Fact]
+    public void A_mod_screen_of_a_core_screens_name_takes_its_place()
+    {
+        var core = new Screen("scoreboard", UiLayerKind.Menu, 0);
+        var mod = new Screen("scoreboard", UiLayerKind.Menu, 0);
+        var (hud, menu) = UiModScreens.Place([], [core], [mod]);
+        Assert.Empty(hud);
+        var screen = Assert.Single(menu);
+        Assert.Same(mod, screen);                       // the mod's, not the core's, under the name
+    }
+
+    [Fact]
+    public void A_replacement_on_another_layer_drops_the_core_and_lands_on_its_own()
+    {
+        var mod = new Screen("scoreboard", UiLayerKind.Hud, 0);
+        var (hud, menu) = UiModScreens.Place([], [new Screen("scoreboard", UiLayerKind.Menu, 0)], [mod]);
+        Assert.Same(mod, Assert.Single(hud));           // the mod screen's layer decides
+        Assert.Empty(menu);                             // the core screen is gone either way
+    }
+
+    [Fact]
+    public void Two_mod_screens_of_one_name_leave_one_screen()
+    {
+        var (_, menu) = UiModScreens.Place([], [], [new Screen("dup", UiLayerKind.Menu, 5), new Screen("dup", UiLayerKind.Menu, 0)]);
+        Assert.Equal(["dup"], Names(menu));
+    }
+
+    [Fact]
+    public void The_scoreboards_data_is_registered_for_the_mod_screens()
+    {
+        Compose(out var services);
+        Assert.True(services.IsRegistered(typeof(IScoreboardSource)));
+    }
+
+    [Fact]
+    public void The_mod_localisation_is_registered_for_the_side_adapters()
+    {
+        // A side adapter that localises a mod token asks the seam
+        // (IUiLocalisation), not the engine's tables, which hold none of the
+        // mod's: the live map info drew its game type raw without it.
+        Compose(out var services);
+        Assert.True(services.IsRegistered(typeof(IUiLocalisation)));
     }
 
     [Fact]

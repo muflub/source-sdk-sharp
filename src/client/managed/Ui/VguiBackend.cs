@@ -134,8 +134,35 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
                 {
                     var t = list.TexturedQuads[op.Index];
                     Edges(t.Rect, out int x0, out int y0, out int x1, out int y1);
-                    surface.TexturedRect(t.Texture < 0 ? IconAtlas() : t.Texture, x0, y0, x1, y1, t.Uv.X, t.Uv.Y, t.Uv.X + t.Uv.W, t.Uv.Y + t.Uv.H, Pack(t.Tint));
-                    Ledger.Add(UiLedgerKind.Texture, x0, y0, x1, y1, t.Tint, op.Element, texture: t.Texture);
+                    if (t.Rotation != 0f || t.Blend != UiBlend.Normal)
+                    {
+                        // The leaf's four corners about its centre (a rotation
+                        // turns the rect; additive goes through the quad slot),
+                        // the ledger keeping the corners' bounds.
+                        float cx = t.Rect.X + t.Rect.W / 2f, cy = t.Rect.Y + t.Rect.H / 2f;
+                        float hw = t.Rect.W / 2f, hh = t.Rect.H / 2f;
+                        float c = MathF.Cos(t.Rotation), s = MathF.Sin(t.Rotation);
+                        Span<float> xyuv =
+                        [
+                            cx - hw * c + hh * s, cy - hw * s - hh * c, t.Uv.X, t.Uv.Y,
+                            cx + hw * c + hh * s, cy + hw * s - hh * c, t.Uv.X + t.Uv.W, t.Uv.Y,
+                            cx + hw * c - hh * s, cy + hw * s + hh * c, t.Uv.X + t.Uv.W, t.Uv.Y + t.Uv.H,
+                            cx - hw * c - hh * s, cy - hw * s + hh * c, t.Uv.X, t.Uv.Y + t.Uv.H,
+                        ];
+                        surface.TexturedQuad(t.Texture < 0 ? IconAtlas() : t.Texture, xyuv, Pack(t.Tint),
+                            t.Blend == UiBlend.Additive);
+                        Ledger.Add(UiLedgerKind.Texture,
+                            (int)MathF.Round(Math.Min(xyuv[0], Math.Min(xyuv[4], Math.Min(xyuv[8], xyuv[12])))),
+                            (int)MathF.Round(Math.Min(xyuv[1], Math.Min(xyuv[5], Math.Min(xyuv[9], xyuv[13])))),
+                            (int)MathF.Round(Math.Max(xyuv[0], Math.Max(xyuv[4], Math.Max(xyuv[8], xyuv[12])))),
+                            (int)MathF.Round(Math.Max(xyuv[1], Math.Max(xyuv[5], Math.Max(xyuv[9], xyuv[13])))),
+                            t.Tint, op.Element, texture: t.Texture);
+                    }
+                    else
+                    {
+                        surface.TexturedRect(t.Texture < 0 ? IconAtlas() : t.Texture, x0, y0, x1, y1, t.Uv.X, t.Uv.Y, t.Uv.X + t.Uv.W, t.Uv.Y + t.Uv.H, Pack(t.Tint));
+                        Ledger.Add(UiLedgerKind.Texture, x0, y0, x1, y1, t.Tint, op.Element, texture: t.Texture);
+                    }
                     break;
                 }
                 case UiPrimitiveKind.GlyphRun:

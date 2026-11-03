@@ -219,7 +219,7 @@ public:
 
 	CSharedEdictChangeInfo* GetSharedEdictChangeInfo() override { return {}; }
 
-	void unused_AllowImmediateEdictReuse() override {}
+	void AllowImmediateEdictReuse() override {}
 
 	void unused_IsInternalBuild() override {}
 

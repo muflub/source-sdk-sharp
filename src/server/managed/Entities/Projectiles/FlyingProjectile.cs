@@ -287,4 +287,15 @@ public abstract class FlyingProjectile : AnimatingEntity
 
     /// <summary>Who to credit: the shooter if they are still around, else the projectile.</summary>
     protected EntityHandle Attribution => Entities.IsValid(Shooter) ? Shooter : Handle;
+
+    /// <summary>
+    /// A new shooter in flight: stock's <c>SetOwnerEntity</c> on a deflected
+    /// projectile (<c>tf_projectile_rocket.cpp:165</c>). Told to the shell as
+    /// well, so the touch's "never the shooter" now spares the new one.
+    /// </summary>
+    protected void Retarget(EntityHandle shooter)
+    {
+        Shooter = shooter;
+        Entities.SetOwner(Handle, shooter);
+    }
 }

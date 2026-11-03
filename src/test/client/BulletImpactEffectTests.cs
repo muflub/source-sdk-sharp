@@ -373,7 +373,7 @@ public class BulletImpactEffectTests
     }
 
     [Fact]
-    public void TheWorldTakesTheDecalAtThePointTheTraceFound()
+    public void TheWorldTakesTheDecalAtTheEffectsOrigin()
     {
         var h = new Harness();
         h.Shoot(entity: 0);
@@ -381,7 +381,10 @@ public class BulletImpactEffectTests
         var call = h.Fake.Last("Effects.ClientDecalShoot")!.Value;
         Assert.Equal(Decal, call.ArgAs<int>(0));
         Assert.Equal(0, call.ArgAs<int>(1));
-        Assert.True(Same(call.ArgAs<Vector>(2), HitPoint), "the trace's end, not the server's origin");
+        // AddDecal's decalCenter is the effect's origin (fx_impact.cpp:156);
+        // AddBrushModelDecal shoots at it (c_baseentity.cpp:3712). The trace
+        // only guards the early-out.
+        Assert.True(Same(call.ArgAs<Vector>(2), Origin), "the effect's origin, stock's decalCenter, not the trace's end");
     }
 
     [Fact]

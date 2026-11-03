@@ -10,7 +10,11 @@ namespace SourceSharp.Client.Ui.Screens;
 /// damage vignette, a map's text, key hints, the weapon selection (top
 /// centre) and the build stamp.
 /// Slots: <c>hud.top-left</c>, <c>hud.top-right</c>, <c>hud.bottom-left</c>
-/// (above the vitals), <c>hud.bottom-right</c> (above the ammo).
+/// (above the vitals), <c>hud.bottom-right</c> (above the ammo). A mod HUD that
+/// takes <c>hud.vitals</c> or <c>hud.ammo</c> (<see cref="UiScreen.Takes"/>)
+/// replaces that element, and its slot with it; so for <c>hud.kills</c>,
+/// <c>hud.damage</c> and <c>hud.crosshair</c>, the kill feed, the damage
+/// vignette and the crosshair.
 /// </summary>
 public sealed class Hud : UiScreen
 {
@@ -61,7 +65,8 @@ public sealed class Hud : UiScreen
         ui.Sub("build", _build);
 
         // The kill feed too: stock's shows while dead and between rounds.
-        ui.Sub("kills", _kills);
+        if (!ui.Taken("hud.kills"))
+            ui.Sub("kills", _kills);
         ui.Sub("voice", _voice);
 
         // No local player (the menu, between levels): nothing else, rather than
@@ -69,8 +74,10 @@ public sealed class Hud : UiScreen
         if (!_life.Alive)
             return;
 
-        ui.Sub("damage", _damage);
-        ui.Sub("crosshair", _crosshair, 5f);
+        if (!ui.Taken("hud.damage"))
+            ui.Sub("damage", _damage);
+        if (!ui.Taken("hud.crosshair"))
+            ui.Sub("crosshair", _crosshair, 5f);
 
         // The bottom line: vitals left, hints centre, ammo right. On a narrow
         // screen (ui.Narrow) the panels are compact and the hints move above the
@@ -82,11 +89,13 @@ public sealed class Hud : UiScreen
                 // Huge from the bottom: the build stamp is under the line's middle (the hints).
                 using (ui.Row(Space.L, Align.End).At(UiAnchor.Bottom).Inset(Space.None, Space.Huge).Width(Size.Fill).Pad(Space.XXL, Space.None))
                 {
-                    ui.Sub("vitals", _vitals);
+                    if (!ui.Taken("hud.vitals"))
+                        ui.Sub("vitals", _vitals);
                     ui.Flex();
                     ui.Sub("hints", _hints);
                     ui.Flex();
-                    ui.Sub("ammo", _ammo);
+                    if (!ui.Taken("hud.ammo"))
+                        ui.Sub("ammo", _ammo);
                 }
             }
             else
@@ -98,9 +107,11 @@ public sealed class Hud : UiScreen
                     ui.Sub("hints", _hints);
                     using (ui.Row(Space.M, Align.End).Width(Size.Fill))
                     {
-                        ui.Sub("vitals", _vitals);
+                        if (!ui.Taken("hud.vitals"))
+                            ui.Sub("vitals", _vitals);
                         ui.Flex();
-                        ui.Sub("ammo", _ammo);
+                        if (!ui.Taken("hud.ammo"))
+                            ui.Sub("ammo", _ammo);
                     }
                 }
             }

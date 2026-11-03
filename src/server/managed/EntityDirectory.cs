@@ -216,12 +216,14 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
 
         Think.CancelAll(handle);
 
-        // THE I/O HALF'S LINE, beside the think one and for the same reason.
-        // stock's CBaseEntity::UpdateOnRemove calls g_EventQueue.CancelEvents(
-        // this ), so an entity that is going takes the events it posted with
-        // it; without this a relay removed one frame delivers its two-second
-        // output anyway, from an entity that no longer exists. The entity's
-        // CONNECTIONS and its NAME go too -- see the I/O region below.
+        // THE I/O HALF'S LINE, beside the think one. Stock keeps a queued
+        // event past its caller: CBaseEntity::UpdateOnRemove
+        // (baseentity.cpp:2512) stops sounds and notifies listeners, and only
+        // explicit callers reach g_EventQueue.CancelEvents -- the
+        // ent_cancelpendingentfires command (baseentity.cpp:6181), logic_relay,
+        // the commentary system. So a relay removed one frame DOES deliver its
+        // two-second output, and what goes here is only the entity's own
+        // CONNECTIONS and NAME -- see the I/O region below.
         ForgetIo(handle);
 
         // AND THE REMOVAL MARK -- step 2c's line outside its region. An entry
@@ -1008,6 +1010,7 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
     {
         var action = EventAction.Parse(actionData, _stamps);
         ConnectionsOf(handle).Add(outputName, action);
+
         return action;
     }
 
@@ -1079,7 +1082,10 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
     /// Runs the queue for this frame. Split out of <see cref="RunFrame"/> so a
     /// test can drive it without a think heap.
     /// </summary>
-    public int ServiceIo(float curTime) => Io.Service(curTime, Deliver);
+    public int ServiceIo(float curTime)
+    {
+        return Io.Service(curTime, Deliver);
+    }
 
     /// <summary>
     /// Delivers one due event, resolving its target the way
@@ -1207,12 +1213,15 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
     }
 
     /// <summary>
-    /// Drops everything the I/O half holds for one entity: its queued events,
-    /// its connections and its name.
+    /// Drops what the I/O half holds for one entity: its connections and its
+    /// name. Queued events are NOT cancelled here -- stock cancels them only
+    /// when asked (CancelEvents has three callers, none of them removal), so
+    /// the events a self-removing logic_auto posted in its last think still
+    /// reach their targets. Resolution happens at delivery, against the name
+    /// index, so a gone caller cannot pin anything.
     /// </summary>
     private void ForgetIo(EntityHandle handle)
     {
-        Io.CancelFrom(handle);
         _connections.Remove(handle);
 
         // The name index is the core's now -- DropName is DropNameIndex and the

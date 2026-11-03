@@ -11,6 +11,9 @@
          the client's facts bind them over tables they build, as the shared
          interop's facts do. -->
     <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
+    <!-- TF2.Tests' facts drive a convar the HUD adapters read (tf_flag_caps_per_round)
+         through the registry's backend, the way SourceSharp.Client.Tests does. -->
+    <InternalsVisibleTo Include="TF2.Tests" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\abi\SourceSharp.Abi.csproj" />
@@ -38,5 +41,8 @@
     <InternalsVisibleTo Include="SourceSharp.OracleTests" />
     <InternalsVisibleTo Include="SourceSharp.TestSupport.Client" />
     <InternalsVisibleTo Include="SourceSharp.Client" />
+    <!-- The TF2 client facts drive convars through the internal NotifyChanged,
+         as the server's do through SourceSharp.Server.Interop's grant. -->
+    <InternalsVisibleTo Include="TF2.Tests" />
   </ItemGroup>
 </Project>

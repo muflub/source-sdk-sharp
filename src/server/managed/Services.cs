@@ -26,6 +26,14 @@ public interface IGameRules
                            float damage, int damageType, float now,
                            HitGroup hitGroup = HitGroup.Generic);
 
+    /// <summary>
+    /// What an allowed hit does: the damage after the mods'
+    /// <see cref="IDamageModifier"/> fold (the hit as dealt when there is none).
+    /// Asked after <see cref="CanTakeDamage"/> said the hit lands.
+    /// </summary>
+    float ModifyDamage(EntityHandle player, EntityHandle attacker,
+                       float damage, int damageType, HitGroup hitGroup = HitGroup.Generic);
+
     /// <summary>Whether a dead player may come back yet.</summary>
     Decision CanRespawn(EntityHandle player);
 

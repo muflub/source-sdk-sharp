@@ -162,6 +162,16 @@ public sealed class ServerPlayerCommands
     /// <summary>How many commands the loop ran.</summary>
     public long Ran { get; private set; }
 
+    /// <summary>The clock the stage runs on (the environment's globals' curtime).</summary>
+    public float Now
+    {
+        get
+        {
+            Globals g = _environment.Globals;
+            return g.IsAvailable ? g.CurTime : 0f;
+        }
+    }
+
     /// <summary>
     /// AdjustPlayerTimeBase for a batch of <paramref name="commands"/>, as
     /// RunQueuedCommands placed it before the batch ran: a base never placed

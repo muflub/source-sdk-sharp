@@ -10,6 +10,15 @@ using SourceSharp.Abi;
 namespace SourceSharp.Shared;
 
 /// <summary>
+/// One pellet's offsets in a FIXED pattern, as stock's multi-pellet spread
+/// arm shapes them (<c>tf_fx_shared.cpp</c>'s <c>g_vecFixedWpnSpreadPellets</c>
+/// loops): the pellet's index, and the shot's stream already seeded for it —
+/// a pattern's own draws (the wide table's jitter) take it, the plain ones
+/// leave it untouched. The offsets are unit-disc, scaled by the caller.
+/// </summary>
+public delegate (float Right, float Up) PelletPattern(int pellet, SeededUniformStream stream);
+
+/// <summary>
 /// Where each pellet of a shot goes, the same on the server and on the
 /// predicting client.
 ///
@@ -42,10 +51,32 @@ public static class ShotSpread
     /// </summary>
     public static Vector Apply(Angles.Basis aim, float spread, int seed, SeededUniformStream stream)
     {
+        var (right, up) = Sample(seed, stream);
+        return Offset(aim, spread, right, up);
+    }
+
+    /// <summary>
+    /// The pellet's direction: <paramref name="pattern"/>'s offsets when one is
+    /// named, else the seeded random sample. Either way the stream is seeded
+    /// for <paramref name="seed"/> first, so a pattern's own draws are the
+    /// pellet's, and the result is unnormalized, as stock's is.
+    /// </summary>
+    public static Vector Direction(Angles.Basis aim, float spread, int seed, SeededUniformStream stream,
+                                   PelletPattern? pattern, int pellet)
+    {
+        stream.SetSeed(seed);
+
+        (float right, float up) = pattern is { } fixedSpread
+            ? fixedSpread(pellet, stream)
+            : Sample(stream);
+        return Offset(aim, spread, right, up);
+    }
+
+    /// <summary>The bias-shaped sample of the unit disc, from the seeded stream.</summary>
+    private static (float Right, float Up) Sample(SeededUniformStream stream)
+    {
         const float shotBias = 1f;
         const float flatness = shotBias * 0.5f;
-
-        stream.SetSeed(seed);
 
         float x, y, z;
         do
@@ -56,8 +87,19 @@ public static class ShotSpread
         }
         while (z > 1f);
 
-        return aim.Forward + aim.Right * (x * spread) + aim.Up * (y * spread);
+        return (x, y);
     }
+
+    /// <summary><see cref="Sample"/>'s draw of the seed: the common path's whole sample.</summary>
+    private static (float Right, float Up) Sample(int seed, SeededUniformStream stream)
+    {
+        stream.SetSeed(seed);
+        return Sample(stream);
+    }
+
+    /// <summary>The aim pushed along right and up by <paramref name="spread"/> (the cone's sine) times the offsets.</summary>
+    private static Vector Offset(Angles.Basis aim, float spread, float right, float up)
+        => aim.Forward + aim.Right * (right * spread) + aim.Up * (up * spread);
 
     /// <summary>The cone's half-angle in degrees as the spread vector's component, its sine.</summary>
     public static float SpreadOf(float spreadDegrees) => MathF.Sin(spreadDegrees * MathF.PI / 180f);

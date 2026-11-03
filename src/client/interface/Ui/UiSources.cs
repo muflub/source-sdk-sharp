@@ -595,6 +595,27 @@ public interface IConsoleActions
     void Submit();
 }
 
+/// <summary>The main menu's buttons (the launch menu and the pause menu, stock's ESC
+/// menu): Play loads the map the mod's maplist names, Resume hides the menu, Options
+/// shows the options window, Quit ends the game. Resume means something only with a
+/// level up, Play only when the mod named a map.</summary>
+public interface IMainMenuSource
+{
+    /// <summary>A level is up and named: the engine's level, Resume's premise.</summary>
+    bool InLevel { get; }
+
+    /// <summary>The mod's maplist named a map: Play's premise.</summary>
+    bool CanPlay { get; }
+
+    void Play();
+
+    void Resume();
+
+    void OpenOptions();
+
+    void Quit();
+}
+
 // ---- forms (plan_client_ui §6) ----
 
 /// <summary>Key bindings, as a form's key fields read and write them: the engine's binds in game, a dictionary in a sample.</summary>

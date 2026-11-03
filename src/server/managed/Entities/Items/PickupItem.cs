@@ -118,6 +118,13 @@ public abstract class PickupItem : AnimatingEntity, IPhysGunTarget, IPlacedObjec
     Vector IPlacedObject.HomeAngles => _homeAngles;
     float IPlacedObject.NextResetCheck { get; set; }
 
+    /// <summary>
+    /// Whether it is one of HL2MP's level-designer placed objects: joined to
+    /// the rules once at rest, and charged in when it materializes (CItem's
+    /// HL2MP arms). A mod whose items are not HL2MP's answers false.
+    /// </summary>
+    protected virtual bool JoinsPlacedObjects => true;
+
     /// <summary>A weapon is checked on the weapons' respawn time (IsManagedObjectAWeapon).</summary>
     protected virtual bool IsPlacedWeapon => false;
     bool IPlacedObject.IsPlacedWeapon => IsPlacedWeapon;
@@ -202,7 +209,8 @@ public abstract class PickupItem : AnimatingEntity, IPhysGunTarget, IPlacedObjec
         }
 
         SetHome();
-        Placed.Add(this);
+        if (JoinsPlacedObjects)
+            Placed.Add(this);
     }
 
     /// <summary>
@@ -343,7 +351,8 @@ public abstract class PickupItem : AnimatingEntity, IPhysGunTarget, IPlacedObjec
         _taken = false;
         SetPickupEnabled(true);
         BecomePhysical();
-        Placed.Charge(Handle);
+        if (JoinsPlacedObjects)
+            Placed.Charge(Handle);
     }
 
     public override void OnRemoved() => Placed.Remove(this);

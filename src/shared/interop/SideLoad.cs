@@ -234,7 +234,7 @@ public static unsafe class SideLoad
             // AppContext data is process-wide, so it crosses the context boundary.
             ModInfo.Publish(facts.ModId, facts.GameDir, facts.ManagedDir,
                             facts.ServerAssemblies, facts.ClientAssemblies, facts.BrowserJson,
-                            facts.ModClientUiAssemblies, facts.ModLocalisation);
+                            facts.ModClientUiAssemblies, facts.ModLocalisation, facts.ModEncryptionKey);
 
             if (CreateModule(session) is not { } module)
                 return -3;

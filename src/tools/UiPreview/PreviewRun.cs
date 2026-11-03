@@ -26,7 +26,7 @@ public sealed record PreviewOptions(string Root, string Out, bool Png, bool Quie
 
     public string Backdrops => Path.Combine(Root, "src", "client", "ui", "backdrops");
 
-    public string LanguageFile => Path.Combine(Root, "game", "mod_test", "resource", "mod_sharp_english.txt");
+    public string LanguageFile => Path.Combine(Root, "game", "mod_test", "resource", "test_english.txt");
 
     /// <summary>
     /// Every language file the preview answers copy from, first-wins: the
@@ -219,7 +219,7 @@ public sealed class PreviewRun
             foreach (var size in sizes)
             {
                 int w = size.W, h = size.H;
-                var screen = sample.Create();
+                var screen = sample.Create(HudLibrary());
                 layer = screen.Layer;
                 var ctx = UiSamples.PreviewContext(theme, _metrics, lang);
                 UiSamples.Render(ctx, screen, size.Screen, sample.Now);

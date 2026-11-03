@@ -594,6 +594,12 @@ public class LifecycleTests
         (typeof(PlacedObjects),     210),  // HL2MP's placed items and weapons
                                            // (hl2mp_gamerules.cpp), emptied at level
                                            // shutdown. In the 200/300 gap.
+        (typeof(ResponseRules),    2400),  // tf2-responses step 1: the response
+                                          // script loads once at the first level
+                                          // init and its groups reset every level
+                                          // after; TWO THOUSAND FOUR HUNDRED is
+                                          // the next free hundred. Appended; none
+                                          // moved.
     };
 
     [Fact]

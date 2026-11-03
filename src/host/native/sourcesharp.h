@@ -822,6 +822,21 @@ typedef enum
 	// SOURCESHARP_TRACE_BLOCKLOS: that stops on CONTENTS_BLOCKLOS and passes
 	// CONTENTS_OPAQUE. Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
 	SOURCESHARP_TRACE_OPAQUE = 11,
+
+	// MASK_DISPENSER -- MASK_BLOCKLOS | CONTENTS_WINDOW, everything but grating:
+	// the sight line a dispenser heals through (tf_obj_dispenser.cpp). Wired on
+	// BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_DISPENSER = 12,
+
+	// MASK_SHOT | CONTENTS_GRATE -- a sentry gun's sight of its target
+	// (tf_obj_sentrygun.cpp). Wired on BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_SENTRY_SIGHT = 13,
+
+	// MASK_SOLID | CONTENTS_DEBRIS -- the dropped-weapon pickup's sight line
+	// (tf_player_shared.cpp:14780, GetDroppedWeaponInRange): the solid masks
+	// plus the debris bit the weapon lying as debris physics carries. Wired on
+	// BOTH arms, for SOURCESHARP_TRACE_ALL's reason.
+	SOURCESHARP_TRACE_SOLID_DEBRIS = 14,
 } SourceSharpTraceMask;
 
 // WHICH ENTITIES A CLIENT TRACE IS ALLOWED TO HIT. Named modes, each one a

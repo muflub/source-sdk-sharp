@@ -42,19 +42,23 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
 {
     private readonly IEngineHud _screen;
     private readonly IWeaponDrawEffects _effects;
+    private readonly IClientStandalones? _entities;
 
     /// <summary>A viewmodel whose weapon draws nothing beside it (a test's).</summary>
-    public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen)
-        : this(render, screen, new NoWeaponDrawEffects())
+    public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen,
+                             IClientStandalones? entities = null)
+        : this(render, screen, new NoWeaponDrawEffects(), entities)
     {
     }
 
     [Inject]
-    public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen, IWeaponDrawEffects effects)
+    public ClientSsViewModel(IEngineEntityRender render, IEngineHud screen, IWeaponDrawEffects effects,
+                             IClientStandalones? entities = null)
         : base(render)
     {
         _screen = screen;
         _effects = effects;
+        _entities = entities;
     }
 
     public override string ClassName => EntityNames.PredictedViewModel;
@@ -75,12 +79,29 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
     public override void OnDataChanged(ReadOnlySpan<byte> blob, DataUpdateType updateType)
     {
         Decodes++;
+        DecideAndPresent();
+    }
 
-        // Whose eyes. Re-decided per update rather than once, because both
-        // sides of the comparison can move: the owner is networked state, and
-        // the local index is 0 until the client is actually in a level.
+    /// <summary>
+    /// Re-decides whose eyes this belongs at and re-presents, for when the
+    /// VIEWER moved rather than the viewmodel: the local player dying,
+    /// respawning or entering an observer mode re-runs this through
+    /// <see cref="ClientSsPlayer"/>'s edge notification.
+    /// </summary>
+    public void Reconsider() => DecideAndPresent();
+
+    /// <summary>
+    /// Whose eyes, then the sequence and skin — the tail of every update and
+    /// of every <see cref="Reconsider"/>.
+    /// </summary>
+    private void DecideAndPresent()
+    {
+        // Whose eyes. Re-decided per update rather than once, because any of
+        // the three terms can move: the owner is networked state, the local
+        // index is 0 until the client is actually in a level, and the viewer's
+        // own life is networked too.
         int local = _screen.LocalPlayerIndex;
-        bool isLocal = local > 0 && State.OwnerIndex == local;
+        bool isLocal = local > 0 && State.OwnerIndex == local && ViewerMayDrawViewModel(local);
 
         if (isLocal != IsLocal)
         {
@@ -102,6 +123,37 @@ public sealed class ClientSsViewModel : ClientStandaloneEntity
         // same (sequence, parity) the replay already presented.
         Present(State.Sequence, State.AnimationParity, State.PlaybackRate);
         ShowSkin(State.Skin);
+    }
+
+    /// <summary>
+    /// Whether the local player may see a viewmodel at all: alive, and not
+    /// riding an observer camera.
+    ///
+    /// <para>
+    /// Stock's <c>C_BaseViewModel::ShouldDraw</c> (c_baseviewmodel.cpp:250-268)
+    /// is the citation: under HLTV/Replay it draws only in eye mode on its own
+    /// owner; otherwise it falls to <c>C_BaseCombatWeapon::ShouldDraw</c>,
+    /// which refuses anything not <c>DC_WEAPON_VIEWMODEL</c> while the
+    /// thirdperson camera is out (the <c>m_bDrawViewmodel</c> the server sets
+    /// exists only on LCS, view.cpp:1143-1153 — in Source 2013 the thirdperson
+    /// and observer case is what drops the viewmodel, and the fork's
+    /// viewrender.cpp:1011-1047 comment records the same for the owner's body:
+    /// the view render skips it exactly when a first-person view has it). Our
+    /// pass is decided managed-side, so the same rule lives here: a dead
+    /// player is looking through a death cam or a chase camera, not through
+    /// the viewmodel's eyes, and the arms must leave the pass with them.
+    /// Without a registry (a hand-built test's viewmodel) the viewer's state
+    /// cannot be asked and the old decision stands.
+    /// </para>
+    /// </summary>
+    private bool ViewerMayDrawViewModel(int localIndex)
+    {
+        if (_entities is null)
+            return true;
+
+        return _entities.GetByIndex(localIndex) is ClientSsPlayer viewer
+               && viewer.State.Alive
+               && viewer.State.ObserverMode == (int)ObserverMode.None;
     }
 
     /// <summary>The skin last handed to the renderer, so <see cref="ShowSkin"/> is edge-triggered.</summary>

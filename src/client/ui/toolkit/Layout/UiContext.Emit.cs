@@ -90,13 +90,18 @@ public sealed partial class UiContext
             else if (n.Kind == NodeKind.Shape)
                 EmitShape(n, rect, opacity, element);
             else if (n.Kind == NodeKind.Texture)
-                List.TexturedQuad(new UiTexturedQuad(rect, n.Texture, n.TextureUv,
-                                     new UiColor(255, 255, 255, (byte)MathF.Round(255 * opacity))), element);
+            {
+                var tint = n.TextureTint.IsNone
+                    ? new UiColor(255, 255, 255, (byte)MathF.Round(255 * opacity))
+                    : Paint(n.TextureTint, opacity);
+                List.TexturedQuad(new UiTexturedQuad(rect, n.Texture, n.TextureUv, tint,
+                    n.TextureRotation, n.TextureBlend), element);
+            }
         }
         else if (n.Kind == NodeKind.Text)
         {
             // Still measured for the report: hidden text can be clipped text.
-            n.Font = List.Font(FontFor(n.Role));
+            n.Font = List.Font(FontFor(in n));
         }
 
         if (n.Id == Focused && Focused != 0 && !n.Scroll)
@@ -136,7 +141,7 @@ public sealed partial class UiContext
         var flags = n.Flags & ~Keyed;
         List.SetElement(element, new UiElementInfo(n.Id, parentElement, rect, kind, nameStart, nameLength, flags));
 
-        bool large = n.Kind == NodeKind.Text && Theme.Type(n.Role).SizeDu >= 24f;
+        bool large = n.Kind == NodeKind.Text && TextSizeDu(in n) >= 24f;
         Report.Set(element,
                    n.Kind == NodeKind.Text ? n.Role : (Text)255,
                    n.Kind is NodeKind.Text or NodeKind.Shape ? n.TextPaint.Tone : Tone.None,
@@ -163,7 +168,7 @@ public sealed partial class UiContext
 
     private void EmitText(ref UiNode n, UiRect rect, float opacity, int element)
     {
-        var font = FontFor(n.Role);
+        var font = FontFor(in n);
         n.Font = List.Font(font);
         var m = FontMetrics.Metrics(font);
         float lineH = MathF.Ceiling(m.LineHeight);

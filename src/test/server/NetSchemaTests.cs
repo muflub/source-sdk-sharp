@@ -41,6 +41,15 @@ public partial class NetSchemaTests
     /// about reading bytes back and that needs a shape whose every offset is
     /// stated here where the expectations are.
     /// </summary>
+    /// <summary>A bool array longer than a word: each element packs into a
+    /// byte of its own (the shape TF2's dominated pairs took, 34 slots), so a
+    /// packed field's word is narrower than four bytes.</summary>
+    [StandaloneNetState("ss_schema_wide_bools")]
+    private partial class WideBools
+    {
+        [NetArray(34)] public partial NetArray<bool> Pairs { get; }
+    }
+
     [StandaloneNetState("ss_schema_every_kind")]
     private partial class EveryKind
     {
@@ -121,6 +130,25 @@ public partial class NetSchemaTests
     // narrow field agrees with any declaration at all and so can never disagree
     // with a wrong one.
     //-------------------------------------------------------------------------
+    [Fact]
+    public void A_bool_packed_into_a_word_narrower_than_four_bytes_decodes()
+    {
+        // The inspector lifted every packed field out of a four-byte read; a
+        // bool packed into a one-byte word threw ArgumentOutOfRange ('length'),
+        // and the payload route failed for the whole entity (live: every
+        // tf_player_data after the dominated pairs landed).
+        var type = NetSchema.FromStandalone(NoTiers, StandaloneNetStates.Of(typeof(WideBools)), published: true);
+        var written = new WideBools();
+        written.BindLocal();
+        written.Pairs[33] = true;
+
+        var decoded = NetSchema.Decode(type, written.Snapshot());
+
+        Assert.True(decoded.All(d => d.Present), "every element decodes");
+        Assert.Equal("true", decoded.Single(d => d.Field.Name == "Pairs.33").Value);
+        Assert.Equal("false", decoded.Single(d => d.Field.Name == "Pairs.32").Value);
+    }
+
     [Fact]
     public void DeclaredTypesSurviveThePacker()
     {

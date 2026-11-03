@@ -127,6 +127,17 @@ public class ClientModuleWiringOrderTests
     }
 
     [Fact]
+    public void The_current_view_is_a_service_a_mod_can_take()
+    {
+        // A mod's HUD (TF2's damage indicator) takes ICurrentView by
+        // constructor; the module only handed the pixel-vis engine to its own
+        // passes, so the TF2 UI failed to compose live.
+        var registered = Registration.Matches(Source()).Select(m => Simple(m.Groups[1].Value)).ToHashSet();
+        Assert.Contains("ClientPixelVisEngine", registered);   // the stimulus: the scan reads registrations
+        Assert.Contains("ICurrentView", registered);
+    }
+
+    [Fact]
     public void A_creation_moved_above_its_parameter_is_caught()
     {
         // The negative control: the same source with FxRoutineEnvironment's

@@ -5,7 +5,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 
 // The church's depth picker from fakes (the ui-screen loop's sample step).
 // Leader and member names are ui.Data (game copy); tilesets and classes are
-// #Tokens in game/mod_tf2_descent/resource/descent_english.txt.
+// #Tokens in game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class DepthPickerSamples
 {

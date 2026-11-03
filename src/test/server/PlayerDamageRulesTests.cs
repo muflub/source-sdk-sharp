@@ -32,7 +32,8 @@ public class PlayerDamageRulesTests
     }
 
     /// <summary>The real rules over doubles: every player on <paramref name="team"/>, friendly fire as given.</summary>
-    internal static GameRules Rules(int team, string friendlyFire = "1", IDamageRule? rule = null)
+    internal static GameRules Rules(int team, string friendlyFire = "1", IDamageRule? rule = null,
+                                    DamageHitGroups? hits = null)
     {
         var convars = ConVarRegistry.For(UnattachedConsole());
         convars.RegisterAll(typeof(GameRules).Assembly);
@@ -47,7 +48,8 @@ public class PlayerDamageRulesTests
                              Fake().Returns("Entities.IsValid", true),
                              new Scoreboard(host, new PlayerDisconnectEvent(), new RecordingLog()),
                              new PlayerDeathEvent(),
-                             damageRules: rule is null ? null : new ListHooks<IDamageRule>(rule));
+                             damageRules: rule is null ? null : new ListHooks<IDamageRule>(rule),
+                             hits: hits);
     }
 
     internal static SsPlayer Player(IGameRules? rules)

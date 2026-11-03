@@ -38,7 +38,16 @@ public:
 	void ApplyDamageForce(uint32_t hVictim, uint32_t hAttacker, float flDamage, int32_t nDamageType,
 						  const float* pForceXYZ, const float* pPositionXYZ) override;
 
+	// The same damage, answered: how much the entity took. 0 when it took nothing (a
+	// physics-only ask, an SDK entity, a refusal), so a caller whose follow-up belongs
+	// inside OnTakeDamage_Alive (the blast's push) can gate on the hit.
+	int32_t EntityTakeDamageAnswered(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+									 const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly) override;
+
 private:
+	int32_t EntityTakeDamageLanded(uint32_t hEntity, uint32_t hAttacker, float flDamage, int32_t nDamageType,
+								   const float* pDirXYZ, const float* pForceOriginXYZ, int32_t bPhysicsOnly);
+
 	CServerEntityResolver& m_Entities;
 
 	// The engine's: a blast's force is jittered per victim.

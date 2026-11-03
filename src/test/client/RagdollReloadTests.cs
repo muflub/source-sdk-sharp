@@ -64,7 +64,7 @@ public class RagdollReloadTests
         engine.Returns("EntityRender.RagdollState.origin", where);
         engine.Returns("Entities.IsValid", true);
 
-        var body = new ClientSsRagdoll(engine, new NoViewers(), new RecordingRagdolls(engine));
+        var body = new ClientSsRagdoll(engine, engine, engine, new NoViewers(), new RecordingRagdolls(engine));
 
         body.BindEngine(engine, engine);
         body.State.BindLocal();
@@ -97,7 +97,7 @@ public class RagdollReloadTests
         engine.Returns("EntityRender.RagdollState", after);
         engine.Returns("EntityRender.RagdollState.origin", afterOrigin);
 
-        var rebuilt = new ClientSsRagdoll(engine, new NoViewers(), new RecordingRagdolls(engine));
+        var rebuilt = new ClientSsRagdoll(engine, engine, engine, new NoViewers(), new RecordingRagdolls(engine));
 
         rebuilt.BindEngine(engine, engine);
         rebuilt.State.BindLocal();
@@ -241,7 +241,7 @@ public class RagdollReloadTests
         engine.Returns("EntityRender.RagdollState", RagdollState.None);
         engine.Returns("EntityRender.RagdollState.origin", Vector.Zero);
 
-        var before = new ClientSsRagdoll(engine, new NoViewers(), new RecordingRagdolls(engine));
+        var before = new ClientSsRagdoll(engine, engine, engine, new NoViewers(), new RecordingRagdolls(engine));
 
         before.BindEngine(engine, engine);
         before.State.BindLocal();
@@ -274,7 +274,7 @@ public class RagdollReloadTests
         engine.Returns("EntityRender.RagdollState", RagdollState.None);
         engine.Returns("EntityRender.RagdollState.origin", Vector.Zero);
 
-        var before = new ClientSsRagdoll(engine, new NoViewers(), new RecordingRagdolls(engine));
+        var before = new ClientSsRagdoll(engine, engine, engine, new NoViewers(), new RecordingRagdolls(engine));
 
         before.BindEngine(engine, engine);
         before.State.BindLocal();

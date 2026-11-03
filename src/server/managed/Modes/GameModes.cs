@@ -34,8 +34,8 @@ public sealed class SvModeSwitchWarmupConVar : FloatConVar { }
 ///
 /// <para>
 /// <b>The switch (D6, ruled 2026-10-11):</b> flush — the core's per-round
-/// bookkeeping, the previous and next machines' own round state, and every
-/// live entity's <see cref="ScriptedEntity.RoundReset"/>, each ONE time;
+/// bookkeeping, the previous and next machines' own round state, and the map
+/// (stock's <c>CleanUpMap</c>, <see cref="IMapCleanup"/>), each ONE time;
 /// keep every player (nothing here touches them); run the new mode's
 /// <see cref="IModeSetup"/>; and wait out the warmup before the round may
 /// win. No live state crosses from one mode to the next, and the flush is
@@ -339,7 +339,7 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
 
     /// <summary>
     /// The flush: the core's per-round bookkeeping, the machines' own round
-    /// state, every live entity's in-place reset, and the modes' score totals
+    /// state, the map's cleanup, and the modes' score totals
     /// — each ONE time, which for the machines means deduped by reference (the
     /// next mode's machine may be the previous one's, and <see cref="NullMode"/>'s
     /// IS the core's, so the plain call would be the core's reset twice over).
@@ -362,12 +362,12 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
                 flow.ResetRound();
         }
 
-        // The live entities, once each, after the machines (a machine's reset
-        // may re-arm what an entity's own reset reads) and before the new
-        // mode's setup arranges the world. Counted out loud: a walk that
-        // reaches nothing reads the same as no walk unless the number says so.
-        int reset = ResetRoundEntities();
-        _log.Msg($"[SourceSharp/Modes] round reset: {reset} entities\n");
+        // The map, after the machines (a machine's reset may re-arm what a
+        // re-created entity's spawn reads) and before the new mode's setup
+        // arranges the world: stock's CleanUpMap (CHL2MPRules::RestartGame's
+        // first step, tf2 ruling N2), with the next mode's preserve list or
+        // the core's. Players are kept: every list keeps them.
+        CleanUpMap(next);
 
         // The score totals of both modes, on ONE set: the same scoring object
         // named twice (two modes registered the same team table) is zeroed
@@ -379,38 +379,22 @@ public sealed class GameModes : IGameLifecycle, IFrameLifecycle
     }
 
     /// <summary>
-    /// The in-place half of stock's <c>CleanUpMap</c> (the divergence row):
-    /// every spawned entity gets its <see cref="ScriptedEntity.RoundReset"/>.
-    /// Stock removes the entities and reloads them from the map's entity
-    /// strings; these are live objects with managed state no entity string
-    /// ever held. Returns how many entities were walked (a throwing reset is
-    /// named and still counted: it was asked).
+    /// Stock's <c>CleanUpMap</c> with <paramref name="mode"/>'s preserve list,
+    /// or the core's (<see cref="HL2MPMapCleanupFilter"/>). Null with no
+    /// cleanup registered (a harness with no map), which is said.
     /// </summary>
-    public int ResetRoundEntities()
+    public MapCleanupReport? CleanUpMap(IGameMode? mode)
     {
-        // The concrete directory, which is where the snapshotting walk lives:
-        // a RoundReset may remove entities, and the IEntityDirectory contract
-        // has no walk-all.
-        if (_services.Resolve<EntityDirectory>() is not { } live)
-            return 0;
-
-        int walked = 0;
-        foreach (var entity in live.Snapshot())
+        if (_services.Resolve<IMapCleanup>() is not { } cleanup)
         {
-            walked++;
-            try
-            {
-                entity.RoundReset();
-            }
-            catch (Exception e)
-            {
-                _log.Warning($"[SourceSharp/Modes] RoundReset on {entity.GetType().FullName} " +
-                             $"({entity.Handle}) threw: {e}\n");
-            }
+            _log.Msg("[SourceSharp/Modes] no IMapCleanup is registered: the map is not reset\n");
+            return null;
         }
 
-        return walked;
+        return cleanup.CleanUpMap(mode?.Cleanup ?? _coreCleanup);
     }
+
+    private readonly HL2MPMapCleanupFilter _coreCleanup = new();
 
     //-------------------------------------------------------------------------
     // The warmup (FrameStage.GameModes = 250, BEFORE Rules = 300: when the

@@ -144,4 +144,51 @@ public class SpotlightBeamTests
         Assert.Contains(Beam, removed);
         Assert.DoesNotContain(beam2, removed);
     }
+
+    [Fact]
+    public void AResetSpotlightHoldsExactlyOneBeamAndOneEndAfterTheRoundReset()
+    {
+        // Stock: CleanUpMap removes the spotlight with its beam and its end
+        // (UTIL_Remove over the non-preserved entities, then CleanupDeleteList,
+        // teamplayroundbased_gamerules.cpp) and the re-parse makes them again,
+        // so after a round reset one spotlight holds exactly one beam and one
+        // end — not the two additive shafts of a surviving old pair.
+        var rig = new MapCleanupTests.Rig("{\n\"classname\" \"worldspawn\"\n}\n"
+            + "{\n\"classname\" \"point_spotlight\"\n\"targetname\" \"spot_a\"\n\"spawnflags\" \"3\"\n\"IgnoreSolid\" \"1\"\n\"SpotlightLength\" \"120\"\n}\n");
+        rig.Recording.Returns("Entities.GetName", "spot_a");
+        rig.Recording.ReturnsEachCall("Entities.IsValid", () =>
+        {
+            var asked = (EntityHandle)rig.Recording.AllOf("Entities.IsValid").Last().Args[0]!;
+            return asked.Value != uint.MaxValue && rig.Engine.InUse(asked.EntryIndex);
+        });
+
+        var spot = rig.Named("spot_a")!.Handle;
+        rig.Registry.Think(spot);
+
+        Assert.Equal(1, CountAlive(rig, EntityNames.Beam));
+        Assert.Equal(1, CountAlive(rig, EntityNames.SpotlightEnd));
+        int oldBeamSlot = AliveSlot(rig, EntityNames.Beam);
+        int oldEndSlot = AliveSlot(rig, EntityNames.SpotlightEnd);
+
+        rig.Cleanup.CleanUpMap(new HL2MPMapCleanupFilter());
+
+        var rebuilt = rig.Named("spot_a")!.Handle;
+        Assert.NotEqual(spot, rebuilt);   // the cleanup made a fresh one
+        rig.Registry.Think(rebuilt);
+
+        Assert.Equal(1, CountAlive(rig, EntityNames.Beam));
+        Assert.Equal(1, CountAlive(rig, EntityNames.SpotlightEnd));
+
+        // The rebuild lands in the OLD pair's slots, which only holds when the
+        // cleanup really freed them: a surviving old pair would push the fresh
+        // one into the next free edict and read as two additive shafts.
+        Assert.Equal(oldBeamSlot, AliveSlot(rig, EntityNames.Beam));
+        Assert.Equal(oldEndSlot, AliveSlot(rig, EntityNames.SpotlightEnd));
+    }
+
+    private static int CountAlive(MapCleanupTests.Rig rig, string className)
+        => rig.Registry.Directory.Snapshot().Count(e => e.ClassName == className);
+
+    private static int AliveSlot(MapCleanupTests.Rig rig, string className)
+        => rig.Registry.Directory.Snapshot().First(e => e.ClassName == className).Handle.EntryIndex;
 }

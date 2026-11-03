@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
+<rect x="20" y="945" width="225" height="113" fill="#2e2b2a" fill-opacity="0.78" data-e="2"/>
+<rect x="164" y="884" width="124" height="124" fill="#2e2b2a" fill-opacity="0.78" data-e="3"/>
+<rect x="171" y="855" width="113" height="41" fill="#343037" data-e="4"/>
+<text x="191" y="962" font-family="TF2 Secondary" font-size="40" font-weight="500" fill="#756b5e" xml:space="preserve" data-e="5">120</text>
+<text x="198" y="887.8" font-family="TF2 Secondary" font-size="32" font-weight="500" fill="#756b5e" xml:space="preserve" data-e="6">200</text>
+<rect x="937" y="999" width="191" height="12" rx="2" fill="#756b5e" fill-opacity="0.9" data-e="9"/>
+<polygon points="1265.9,862.7 1280,846 1280,852.4 1271,862.7" fill="#9d9078" data-e="10"/>
+<polygon points="1280,846 1294.1,862.7 1289,862.7 1280,852.4" fill="#9d9078" data-e="10"/>
+<rect x="899" y="999" width="762" height="12" fill="#ebe2ca" fill-opacity="0.1" data-e="11"/>
+<rect x="857" y="963" width="84" height="84" rx="2" fill="#9d9078" data-e="13"/>
+<rect x="1048" y="963" width="84" height="84" rx="2" fill="#9d9078" data-e="15"/>
+<rect x="1238" y="963" width="84" height="84" rx="2" fill="#9d9078" data-e="17"/>
+<rect x="1619" y="963" width="84" height="84" rx="2" fill="#9d9078" data-e="19"/>
+<rect x="1144" y="885" width="120" height="120" rx="2" fill="#b45c4d" data-e="21"/>
+<text x="1201" y="923.62" font-family="TF2 Build" font-size="25" font-weight="500" fill="#2e2b2a" xml:space="preserve" data-e="22">2</text>
+</svg>

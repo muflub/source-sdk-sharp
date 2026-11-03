@@ -7,7 +7,7 @@ namespace TF2.Descent.Client.Ui.Screens;
 // The automap screen from fakes (the ui-screen loop's sample step): the three
 // states plan §2.7 names, built through the same container the game uses.
 // Room names are ui.Data (game copy, case kept); every #Descent_Map_* token
-// lives in game/mod_tf2_descent/resource/descent_english.txt.
+// lives in game/mod_tf2_descent/resource/tf2_descent_english.txt.
 
 public static class AutoMapSamples
 {

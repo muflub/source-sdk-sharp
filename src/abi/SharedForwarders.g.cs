@@ -1421,7 +1421,7 @@ internal unsafe struct ShimEntitiesServerFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEntityLifecycle</c> through its forwarders (SSFwd_ShimEntityLifecycle): 14 slot(s).
+/// <c>IShimEntityLifecycle</c> through its forwarders (SSFwd_ShimEntityLifecycle): 15 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEntityLifecycleFwd : IForwarderTable
@@ -1470,6 +1470,9 @@ internal unsafe struct ShimEntityLifecycleFwd : IForwarderTable
 
     // int32_t IShimEntityLifecycle::TemplateSpawnKeyed( const char *, const char *, const int32_t *, const float *, const float *, int32_t, uint32_t *, int32_t )
     public delegate* unmanaged<void*, byte*, byte*, void*, void*, void*, int, void*, int, int> TemplateSpawnKeyed;
+
+    // uint32_t IShimEntityLifecycle::MapSpawnCreateAt( const char *, const char *, int32_t, int32_t )
+    public delegate* unmanaged<void*, byte*, byte*, int, int, uint> MapSpawnCreateAt;
 }
 
 /// <summary>
@@ -1612,7 +1615,7 @@ internal unsafe struct ShimPhysicsFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimDamage</c> through its forwarders (SSFwd_ShimDamage): 3 slot(s).
+/// <c>IShimDamage</c> through its forwarders (SSFwd_ShimDamage): 4 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimDamageFwd : IForwarderTable
@@ -1628,6 +1631,9 @@ internal unsafe struct ShimDamageFwd : IForwarderTable
 
     // void IShimDamage::ApplyDamageForce( uint32_t, uint32_t, float, int32_t, const float *, const float * )
     public delegate* unmanaged<void*, uint, uint, float, int, void*, void*, void> ApplyDamageForce;
+
+    // int32_t IShimDamage::EntityTakeDamageAnswered( uint32_t, uint32_t, float, int32_t, const float *, const float *, int32_t )
+    public delegate* unmanaged<void*, uint, uint, float, int, void*, void*, int, int> EntityTakeDamageAnswered;
 }
 
 /// <summary>
@@ -2024,7 +2030,7 @@ internal unsafe struct ShimTempEntBackendsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimEffectsRenderClient</c> through its forwarders (SSFwd_ShimEffectsRenderClient): 29 slot(s).
+/// <c>IShimEffectsRenderClient</c> through its forwarders (SSFwd_ShimEffectsRenderClient): 34 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
@@ -2118,10 +2124,25 @@ internal unsafe struct ShimEffectsRenderClientFwd : IForwarderTable
 
     // void IShimEffectsRenderClient::BeamDrawMesh( int32_t, int32_t, int32_t, const float *, int32_t )
     public delegate* unmanaged<void*, int, int, int, void*, int, void> BeamDrawMesh;
+
+    // int32_t IShimEffectsRenderClient::ParticleSystemStartExtra( uint32_t, const char * )
+    public delegate* unmanaged<void*, uint, byte*, int> ParticleSystemStartExtra;
+
+    // void IShimEffectsRenderClient::ParticleSystemStopExtra( uint32_t )
+    public delegate* unmanaged<void*, uint, void> ParticleSystemStopExtra;
+
+    // int32_t IShimEffectsRenderClient::ParticleSystemFollowEntity( uint32_t, int32_t, uint32_t, int32_t, const float * )
+    public delegate* unmanaged<void*, uint, int, uint, int, void*, int> ParticleSystemFollowEntity;
+
+    // int32_t IShimEffectsRenderClient::ParticleSystemStartSlot( uint32_t, const char *, int32_t )
+    public delegate* unmanaged<void*, uint, byte*, int, int> ParticleSystemStartSlot;
+
+    // void IShimEffectsRenderClient::ParticleSystemStopSlot( uint32_t, int32_t )
+    public delegate* unmanaged<void*, uint, int, void> ParticleSystemStopSlot;
 }
 
 /// <summary>
-/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 24 slot(s).
+/// <c>IShimStandaloneClient</c> through its forwarders (SSFwd_ShimStandaloneClient): 25 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
@@ -2200,10 +2221,13 @@ internal unsafe struct ShimStandaloneClientFwd : IForwarderTable
 
     // void IShimStandaloneClient::ClientInterpAdmitted( const uint32_t *, int32_t )
     public delegate* unmanaged<void*, void*, int, void> ClientInterpAdmitted;
+
+    // void IShimStandaloneClient::EntitySetModelOverride( uint32_t, const char * )
+    public delegate* unmanaged<void*, uint, byte*, void> EntitySetModelOverride;
 }
 
 /// <summary>
-/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 29 slot(s).
+/// <c>IShimViewClient</c> through its forwarders (SSFwd_ShimViewClient): 31 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimViewClientFwd : IForwarderTable
@@ -2297,6 +2321,12 @@ internal unsafe struct ShimViewClientFwd : IForwarderTable
 
     // int32_t IShimViewClient::ClientTraceHullEntities( const float *, const float *, const float *, const float *, int32_t, int32_t, const int32_t *, int32_t, float *, float *, int32_t *, float * )
     public delegate* unmanaged<void*, void*, void*, void*, void*, int, int, void*, int, void*, void*, void*, void*, int> ClientTraceHullEntities;
+
+    // int32_t IShimViewClient::ScreenOverlaySet( const char * )
+    public delegate* unmanaged<void*, byte*, int> ScreenOverlaySet;
+
+    // int32_t IShimViewClient::ScreenOverlayGet( char *, int32_t )
+    public delegate* unmanaged<void*, byte*, int, int> ScreenOverlayGet;
 }
 
 /// <summary>
@@ -2354,7 +2384,7 @@ internal unsafe struct ShimDiagnosticsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimUiClient</c> through its forwarders (SSFwd_ShimUiClient): 21 slot(s).
+/// <c>IShimUiClient</c> through its forwarders (SSFwd_ShimUiClient): 23 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimUiClientFwd : IForwarderTable
@@ -2375,10 +2405,10 @@ internal unsafe struct ShimUiClientFwd : IForwarderTable
     public delegate* unmanaged[SuppressGCTransition]<void*, int, int, int, int, uint, void> UiDrawLine;
 
     // void IShimUiClient::UiDrawTexturedRect( int32_t, int32_t, int32_t, int32_t, int32_t, float, float, float, float, uint32_t )
-    public delegate* unmanaged[SuppressGCTransition]<void*, int, int, int, int, int, float, float, float, float, uint, void> UiDrawTexturedRect;
+    public delegate* unmanaged<void*, int, int, int, int, int, float, float, float, float, uint, void> UiDrawTexturedRect;
 
     // void IShimUiClient::UiDrawPolygon( int32_t, const float *, int32_t, uint32_t )
-    public delegate* unmanaged[SuppressGCTransition]<void*, int, void*, int, uint, void> UiDrawPolygon;
+    public delegate* unmanaged<void*, int, void*, int, uint, void> UiDrawPolygon;
 
     // void IShimUiClient::UiDrawText( int32_t, int32_t, int32_t, const uint16_t *, int32_t, uint32_t )
     public delegate* unmanaged<void*, int, int, int, void*, int, uint, void> UiDrawText;
@@ -2424,6 +2454,12 @@ internal unsafe struct ShimUiClientFwd : IForwarderTable
 
     // void IShimUiClient::ClientModeLayout( void )
     public delegate* unmanaged<void*, void> ClientModeLayout;
+
+    // void IShimUiClient::UiDrawTexturedQuad( int32_t, const float *, int32_t, uint32_t, int32_t )
+    public delegate* unmanaged<void*, int, void*, int, uint, int, void> UiDrawTexturedQuad;
+
+    // int32_t IShimUiClient::UiMaterialTexture( const char * )
+    public delegate* unmanaged<void*, byte*, int> UiMaterialTexture;
 }
 
 /// <summary>

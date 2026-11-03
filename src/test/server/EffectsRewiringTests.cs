@@ -437,10 +437,18 @@ public class EffectsRewiringTests
                                             .OrderBy(m => m.Name, StringComparer.Ordinal)
                                             .ToList();
 
-        Assert.True(members.Count == 49,
-            $"IEngineEffects has forty-nine members ({members.Count} found) — if this "
+        Assert.True(members.Count == 54,
+            $"IEngineEffects has fifty-four members ({members.Count} found) — if this "
           + "number moved, a member arrived and this sweep is the thing that decides whether "
-          + "it was wired. It has moved twenty-six times (the twenty-sixth DOWN: ClientIsLowViolence, "
+          + "it was wired. It has moved twenty-nine times (the twenty-ninth UP: tf2 2.3 added "
+          + "ParticleSystemStartSlot and ParticleSystemStopSlot, a caller that counts its own "
+          + "systems starting one in a numbered slot — the condition drips beside the burn's "
+          + "and the glow's; the twenty-eighth UP: tf2 3.x added "
+          + "ParticleSystemFollowEntity, one of a managed entity's system's control points riding "
+          + "another entity — the medigun beam's near end its muzzle, its far end its patient; "
+          + "the twenty-seventh UP: tf2 3.6 added "
+          + "ParticleSystemStartExtra and ParticleSystemStopExtra, stock's crit glow being a "
+          + "second attached system per owner (pEffectCrit); the twenty-sixth DOWN: ClientIsLowViolence, "
           + "the rule being C#'s ClientLowViolence over the engine client; the twenty-fifth UP: stock A/B added "
           + "BubbleTrailEffect, UTIL_BubbleTrail, answered by EffectsOverTempEnts; the twenty-fourth DOWN: the serialised ABI pass took TempEntPoolSimulate, the managed pool integrating every tempent itself; the twenty-third DOWN: C7 glow overlays took ClientExplosionFireball, the fireball's flash being the managed GlowOverlaySystem's; the twenty-second DOWN: plan_server_native_v2 T2 took BloodDecal, whose decal was never painted (UTIL_DecalTrace's subject was NULL) and which is managed BloodDecals now; the twenty-first DOWN: plan_server_native_v2 T2 took FireEffectCreate, FireEffectEnable and FireEffectScale, retired refusals no managed code called (env_fire is _firesmoke); the twentieth DOWN: lane c5-particles took ClientBloodStream and ClientShowLine, CTEParticleRenderer's two effects being C# (TeParticles); the nineteenth DOWN: lane c5-particles took ClientDust, the dust puff being C# (DustPuff); the eighteenth DOWN: lane c5-particles took DustUpdate and DustDestroy, the dust motes being C# (DustVolumeSim); the seventeenth DOWN: lane c5-particles took ClientLargeFunnel, the funnel being C# (LargeFunnel); the sixteenth DOWN: lane c5-particles took ClientBloodPuff, the blood sprite's puff being C# (ImpactSprays.Blood); the fifteenth DOWN: lane c5-particles took ClientShatterSurface, the shattered pane being C# (ShardEffects); the fourteenth DOWN: lane c5-particles took ClientExplosionCore and ClientExplosionWater, fx_explosion.cpp's effects being C# (ExplosionEffects); the thirteenth DOWN: lane c5-particles took ClientGaussExplosion, the gauss discharge being C# (SparkEffects.GaussExplosion); the twelfth DOWN: lane c2-fx took TempEntPoolPlaySound, the tempent frame playing its bounce sound in C# (TempEntSounds); the eleventh DOWN: lane c2-fx took ClientDispatchEffect, whose one caller dispatches through the client's managed table now; the ninth DOWN: the C2 rope port took "
           + "RopeUpdate and RopeDestroy, the rope being C#'s now; the tenth DOWN: the C2 beam "
@@ -468,6 +476,16 @@ public class EffectsRewiringTests
           + "caller (CTEEffectDispatch's player) dispatches through the client's managed table now. "
           + "Each time this assertion is "
           + "what made forwarding them a decision rather than an omission");
+
+        // The crit glow's pair: the extra slot replaces nothing — the trail and
+        // the glow run beside each other, and the sweep must see both arrive.
+        Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemStartExtra"), members);
+        Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemStopExtra"), members);
+
+        // The drips' pair: numbered slots beside the named two, so a player under
+        // several conditions wears several effects.
+        Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemStartSlot"), members);
+        Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemStopSlot"), members);
 
         // The one member whose stock behaviour is to refuse the arguments a
         // reflective sweep can invent. Named rather than skipped silently.
@@ -545,8 +563,8 @@ public class EffectsRewiringTests
                 $"{expected} is answered over ITempEnts");
         }
 
-        Assert.True(forwarded.Count == 37,
-            "and thirty-seven reached the engine unchanged — forty-eight less the eight that moved and the three "
+        Assert.True(forwarded.Count == 42,
+            "and forty-two reached the engine unchanged — fifty-three less the eight that moved and the three "
           + "that refused the sweep (the three FireEffect forwards and BloodDecal went with their "
           + "slots, plan_server_native_v2 T2, ClientExplosionFireball with the glow overlays' port, "
           + "C7; BubbleEffect and PaintDecal moved at T4f; TempEntPoolSimulate left in the serialised "
