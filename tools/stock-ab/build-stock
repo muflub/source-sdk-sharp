@@ -4,16 +4,28 @@
 # src/buildallprojects does (vpc + ninja in the steamrt sniper SDK image), but
 # for /hl2mp alone and without a TTY.
 #
-#   tools/stock-ab/build-stock SDK_DIR [release|debug]
+#   tools/stock-ab/build-stock [--game NAME] SDK_DIR [release|debug]
 #
 # SDK_DIR is a clone this tool may write to (tools/stock-ab/stock-ab fetch
 # makes one); never the fork, never the pristine oracle clone.
 #
 set -euo pipefail
 
-SDK="$(readlink -f -- "${1:?usage: $0 SDK_DIR [release|debug]}")"
+# --game NAME picks the vpc game (default hl2mp); the solution and its
+# ninja file follow it: _vpc_/ninja/sdk_<game>_<mode>.
+GAME="hl2mp"
+POS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --game) GAME="$2"; shift 2 ;;
+        --game=*) GAME="${1#*=}"; shift ;;
+        *) POS+=("$1"); shift ;;
+    esac
+done
+set -- ${POS[@]+"${POS[@]}"}
+SDK="$(readlink -f -- "${1:?usage: $0 [--game NAME] SDK_DIR [release|debug]}")"
 MODE="${2:-release}"
-case "$MODE" in debug|release) ;; *) echo "usage: $0 SDK_DIR [release|debug]"; exit 1 ;; esac
+case "$MODE" in debug|release) ;; *) echo "usage: $0 [--game NAME] SDK_DIR [release|debug]"; exit 1 ;; esac
 IMAGE="${SS_CI_IMAGE:-registry.gitlab.steamos.cloud/steamrt/sniper/sdk:latest}"
 
 if [[ ! -f "$SDK/src/devtools/bin/vpc" ]]; then
@@ -44,13 +56,13 @@ if [[ ! -f /run/.containerenv ]]; then
         --mount "type=bind,source=${CCACHE_DIR:-$HOME/.ccache},target=${CCACHE_DIR:-$HOME/.ccache}" \
         --mount "type=bind,source=$SDK,target=/my_mod" \
         --mount "type=bind,source=$(readlink -f -- "$0"),target=/build-stock,ro" \
-        "$IMAGE" /build-stock /my_mod "$MODE"
+        "$IMAGE" /build-stock --game "$GAME" /my_mod "$MODE"
 fi
 
 cd "$SDK/src"
 export VPC_NINJA_BUILD_MODE="$MODE"
-out="_vpc_/ninja/sdk_hl2mp_$MODE"
+out="_vpc_/ninja/sdk_${GAME}_$MODE"
 # Every time: vpc skips the projects whose scripts are unchanged, and the
-# stock-ab hooks add files to client_hl2mp.vpc and server_hl2mp.vpc.
-devtools/bin/vpc /hl2mp /linux64 /ninja /define:SOURCESDK +everything /mksln "$out"
+# stock-ab hooks add files to the game's client and server .vpc files.
+devtools/bin/vpc "/$GAME" /linux64 /ninja /define:SOURCESDK +everything /mksln "$out"
 ninja -f "$out.ninja" -j"$(nproc)"

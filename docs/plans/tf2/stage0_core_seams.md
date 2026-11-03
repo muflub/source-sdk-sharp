@@ -77,13 +77,13 @@ with any other ABI change.
   a reference (mutation note in the commit message).
 
 **Facts** (in `src/tf2/tests/`)
-- `Tf2TestLegRuns`: a trivial fact so the leg is non-empty from the first commit.
+- `TF2TestLegRuns`: a trivial fact so the leg is non-empty from the first commit.
 - Structure: `TF2.Server`/`TF2.Client` reference neither `TF2.Descent.*` nor
   `SourceSharp.Host.*` (read the deployed dll references like
   `DeployedReferencesTests.cs:18-19` does).
 
 **Gate**: `make test` lists a `tf2` leg with a declared floor; `make tf2-test
-FILTER=Tf2TestLegRuns` runs exactly one test; `AnalyzerWiringTests`
+FILTER=TF2TestLegRuns` runs exactly one test; `AnalyzerWiringTests`
 (`src/test/managed/AnalyzerWiringTests.cs:21-60`) still green; the
 ReferenceClosure fix is shown red-then-green in the commit message.
 
@@ -305,7 +305,7 @@ mods register into it. Three parts, three commits.
   creates each player's components on connect, ticks them in a fixed order,
   detaches on disconnect; `T? Get<T>(EntityHandle)` so one mod's component
   can find another's by interface (Descent's component reads TF2's
-  `ITfClassComponent`). TF2 registers one source (Stage 2.3); Descent later
+  `ITFClassComponent`). TF2 registers one source (Stage 2.3); Descent later
   registers its own into the same composite.
 
 **Make, part C — rules extension points consumed by `GameRules.cs`**

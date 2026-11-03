@@ -51,16 +51,16 @@ L21355, `CanChangeClass`/`CanChangeTeam` (grep).
 - `TeamRoundFlow : IRoundFlow` (`[SideService(Side.Server)]`, the single
   owner): the state machine above as an explicit enum + `Enter/Think` pairs;
   waiting-for-players; setup time; round timer expiry → stalemate or win per
-  mode; respawn waves (`IRespawnPolicy` owner: `TfRespawnPolicy`, wave time
+  mode; respawn waves (`IRespawnPolicy` owner: `TFRespawnPolicy`, wave time
   per team `mp_respawnwavetime` + mode scale); win → `TEAM_WIN` → bonus time
   → `RESTART` → `ResetRound` (walks `IRoundResettable` entities, Stage 0.7).
   Mode-specific win checks are asked of the mode proxy (2.2), never
   hard-coded here.
-- `TfTeams : IJoinTeamPolicy` (Stage 0.5): `jointeam auto/red/blue/spectate`,
+- `TFTeams : IJoinTeamPolicy` (Stage 0.5): `jointeam auto/red/blue/spectate`,
   balance rule (`WouldChangeUnbalanceTeams`), `mp_teams_unbalance_limit`,
   autobalance (`tf_autobalance.cpp`: who moves and when — port the pick
   rule and the warning message; the `tf_autobalance_*` convars from 1.3).
-  `tf_team` netvars (score, player count, role) go on a `TfTeamResource`
+  `tf_team` netvars (score, player count, role) go on a `TFTeamResource`
   carrier entity (2.4's resources) — never a static.
 - `TeamRoundTimer` `[ScriptedEntity("team_round_timer")]` with a
   `[StandaloneNetState]` (`TeamRoundTimerNetState`: end time, paused, setup
@@ -69,7 +69,7 @@ L21355, `CanChangeClass`/`CanChangeTeam` (grep).
   outputs `On5MinRemain`…`OnFinished`, `OnSetupFinished`).
 - Client prints and announcer: use the stock `TextMsg`/`TFTeamWin`-style
   user messages that already exist, or TF2-keyed ones (`TF2:<id>`, Stage 0
-  rules), listed in `src/tf2/shared/TfMessages.cs`.
+  rules), listed in `src/tf2/shared/TFMessages.cs`.
 
 **Facts** (`src/tf2/tests/Rules/`)
 - One fact per transition: `PREGAME → PREROUND` when enough players,
@@ -85,7 +85,7 @@ L21355, `CanChangeClass`/`CanChangeTeam` (grep).
 - `team_round_timer`: `AddTime` then `Pause` freezes the remaining time;
   `OnFinished` fires once.
 
-**Gate**: `make tf2-test FILTER='TeamRound|TfTeams|RoundTimer'`; live
+**Gate**: `make tf2-test FILTER='TeamRound|TFTeams|RoundTimer'`; live
 `make headless RUN_MOD_ID=tf2 MAP=ctf_2fort`: two headless clients join
 (auto-balance puts them on opposite teams — assert via `/entity` `m_iTeamNum`),
 `tf2_dev_win 2` forces a win, console shows `TEAM_WIN → RESTART → PREROUND`.
@@ -97,15 +97,15 @@ The proxy, the switch-with-warmup, `NullMode`, `game_mode_switch` and
 `sv_mode` are **core** (Stage 0.7 part A). TF2 adds modes and a selector.
 
 **Make** (`src/tf2/server/Modes/`)
-- `TfModeBase`: the TF2 concerns shared by every TF2 mode, composed over
-  `TeamRoundFlow` (2.1) — team-round `IRoundFlow`, `TfRespawnPolicy`,
-  `TfSpawnSelector` (2.4), objective-resource population — with an
-  **`ITfModeHook` chain** (D10: `OnRoundStart`, `OnObjectiveEvent`,
+- `TFModeBase`: the TF2 concerns shared by every TF2 mode, composed over
+  `TeamRoundFlow` (2.1) — team-round `IRoundFlow`, `TFRespawnPolicy`,
+  `TFSpawnSelector` (2.4), objective-resource population — with an
+  **`ITFModeHook` chain** (D10: `OnRoundStart`, `OnObjectiveEvent`,
   `ModifyWinCheck`, `ModifyRespawnWave`) so Descent can alter a TF2 mode
   without subclassing it.
 - `CtfMode` (2.5) and `PayloadMode` (2.6) as `[SideService(Side.Server, As=[typeof(IGameMode)])]`
   with ids `"ctf"` / `"pl"`.
-- `TfGameModeSelector : IGameModeSelector`: CTF if any `item_teamflag`, PL if
+- `TFGameModeSelector : IGameModeSelector`: CTF if any `item_teamflag`, PL if
   any `team_train_watcher`, else `null` (stock `CTFGameRules::Activate`
   L4217 infers from `tf_logic_*` entities — cite and follow the detection
   order where those entities exist). Registered as a selector chain member;
@@ -113,7 +113,7 @@ The proxy, the switch-with-warmup, `NullMode`, `game_mode_switch` and
 
 **Facts**: with both TF2 modes registered, `GameModes.Active.Id` is `"ctf"` on
 a fixture entity list containing a flag, `"pl"` with a watcher, `"null"` with
-neither; an `ITfModeHook` fake sees `OnRoundStart` once per round and its
+neither; an `ITFModeHook` fake sees `OnRoundStart` once per round and its
 `ModifyWinCheck` veto is honoured (stimulus non-zero); structure fact: no
 file outside `Modes/` names a concrete mode type (reflection over
 `TF2.Server` ctor/field types).
@@ -126,9 +126,9 @@ file outside `Modes/` names a concrete mode type (reflection over
 The core player entity `SsPlayer` (`src/server/managed/Entities/Players/SsPlayer.cs:33`)
 is the engine's player and stays core; the core's `PlayerComposites`
 (Stage 0.7 part B) owns the per-player component set. TF2 contributes one
-`IPlayerComponentSource` (`TfPlayerComponents`) whose components are listed
-below; each component exposes an interface (`ITfClassComponent`,
-`ITfConditions`, `ITfHealth`, …) that other components — and Descent's own
+`IPlayerComponentSource` (`TFPlayerComponents`) whose components are listed
+below; each component exposes an interface (`ITFClassComponent`,
+`ITFConditions`, `ITFHealth`, …) that other components — and Descent's own
 components in the same composite — find through `PlayerComposites.Get<T>`.
 TF2 state is networked by a per-player **carrier entity** (`tf_player_data`,
 `ScriptedEntityKind.Effect`, owner = player), the way stock networks
@@ -142,9 +142,9 @@ top to bottom. Per component, read the named methods only:
 
 | Component | Stock methods (file:line, size) | Milestone scope |
 |---|---|---|
-| `ClassComponent` | `CTFPlayer::SetDesiredPlayerClass`, `HandleCommand_JoinClass`, `ChangeClass` arms in `tf_player.cpp` (grep); `GetClassEyeHeight` → `g_TFClassViewVectors` (`tf_gamerules.cpp:1326`); model from class data (1.2) | class choice, model, hull/eye height, max health, `TfClassTable` |
+| `ClassComponent` | `CTFPlayer::SetDesiredPlayerClass`, `HandleCommand_JoinClass`, `ChangeClass` arms in `tf_player.cpp` (grep); `GetClassEyeHeight` → `g_TFClassViewVectors` (`tf_gamerules.cpp:1326`); model from class data (1.2) | class choice, model, hull/eye height, max health, `TFClassTable` |
 | `LoadoutComponent` | `CTFPlayer::GiveDefaultItems`, `ManageRegularWeapons`, `ManageBuilderWeapons` (grep `tf_player.cpp`); `ItemsMatch`, `GetLoadoutItem` | give TF weapons by class via `Arsenal.GiveWeapon` with TF types (1.9) from `LocalInventory` (1.6); wearables (2.13) |
-| `ConditionsComponent` | `tf_player_shared.cpp` `ConditionThink` L3108 (197), `ConditionGameRulesThink` L2334 (759), `OnConditionAdded` L1571, `OnConditionRemoved` L1892 | tick `TfConditions` (1.7), apply milestone arms, write the five masks to the carrier |
+| `ConditionsComponent` | `tf_player_shared.cpp` `ConditionThink` L3108 (197), `ConditionGameRulesThink` L2334 (759), `OnConditionAdded` L1571, `OnConditionRemoved` L1892 | tick `TFConditions` (1.7), apply milestone arms, write the five masks to the carrier |
 | `HealthComponent` | `CTFPlayerShared::Heal/StopHealing/HealTimerThink`, overheal decay (`GetMaxBuffedHealth`, `tf_player_shared.cpp` grep `m_flHealthBuffTime`), `CTFPlayer::TakeHealth` | max health, overheal cap 150 %, decay rate (cite constants) |
 | `CombatComponent` | `FireBullet` L10295 (353 — spread, damage per bullet, penetration), `ModifyDamageInfo` L10204, `RecordDamageEvent` L9574; `tf_gamerules.cpp ApplyOnDamageModifyRules` L5914 (1,190 — ramp-up/fall-off, crit/mini-crit, invuln), `ApplyOnDamageAliveModifyRules` L7104 (506), `FPlayerCanTakeDamage` L9808, `PlayerKilled` L11315, `GetKillingWeaponName` L12108, `DeathNotice` L12814 | `IDamageRule` owner (Stage 0.7): see 2.7 |
 | `SpyComponent` | `Disguise` L8157, `DetermineDisguiseWeapon` L8394, `DetermineDisguiseWearables` L8577, `OnAddStealthed` L6952, `OnRemoveStealthed` L7048, `InvisibilityThink` L7977, `UpdateCloakMeter` L14165 | 2.12 |
@@ -153,27 +153,27 @@ top to bottom. Per component, read the named methods only:
 | `Spawn/Death` | `CTFPlayerShared::Spawn` L977, `CTFPlayer::Spawn`, `Event_Killed`, ragdoll/gib (grep) | spawn per class, death → `IPlayerDeathHook` already core |
 
 **Make** (`src/tf2/server/Player/`)
-- `TfPlayerComponents : IPlayerComponentSource` (`[SideService]`): creates the
-  components below for each player; no `TfPlayer` god object and no TF2-owned
+- `TFPlayerComponents : IPlayerComponentSource` (`[SideService]`): creates the
+  components below for each player; no `TFPlayer` god object and no TF2-owned
   lifecycle — `PlayerComposites` attaches, ticks and detaches. A thin
-  `TfPlayers` facade (`ITfClassComponent Class(EntityHandle)` etc.) is allowed
+  `TFPlayers` facade (`ITFClassComponent Class(EntityHandle)` etc.) is allowed
   for call-site brevity only if it holds no state.
-- `src/tf2/shared/Player/TfPlayerNetState.cs`: `[StandaloneNetState("tf_player_data")]`
+- `src/tf2/shared/Player/TFPlayerNetState.cs`: `[StandaloneNetState("tf_player_data")]`
   — owner entity index, class, five condition masks (`[Predicted]`),
   cloak meter, charge meter, disguise team/class, max health, `AirDashCount`
   (`[Predicted]`), medigun heal target, building counts. The movement rules
   (1.8) read class/conditions/air-dash **only** from here on both sides.
-- `TfPlayerDataEntity` `[ScriptedEntity("tf_player_data", ScriptedEntityKind.Effect)]`
-  with `[NetState] TfPlayerNetState`, created by the `CarrierComponent` when the core composite attaches it on connect,
+- `TFPlayerDataEntity` `[ScriptedEntity("tf_player_data", ScriptedEntityKind.Effect)]`
+  with `[NetState] TFPlayerNetState`, created by the `CarrierComponent` when the core composite attaches it on connect,
   transmitted to everyone (the client needs other players' class/conditions
   for HUD and effects).
 - `joinclass`/`changeclass` via Stage 0.6 `IClientCommandHook`
-  (`TfClientCommands`), respawn-room rule for instant class change
+  (`TFClientCommands`), respawn-room rule for instant class change
   (`func_respawnroom` touch, 2.4), else change on next spawn (stock
   `CTFPlayer::HandleCommand_JoinClass`).
 - Components as listed, each its own file, constructor-injected, no gameplay
-  `if (class == …)` in the shell (structure fact: grep-audit `TfPlayer.cs`
-  for `TfClass.`).
+  `if (class == …)` in the shell (structure fact: grep-audit `TFPlayer.cs`
+  for `TFClass.`).
 
 **Facts** (one file per component): class change sets hull/eye height
 (`ViewOffsetZ` = `g_TFClassViewVectors[class].z`, value cited) and max
@@ -184,7 +184,7 @@ at the stock rate (two ticks, before ≠ after); the component source yields one
 carrier per connect and removes it on disconnect (count differential);
 `Tick` order is deterministic (recorded order equals the declared order).
 
-**Gate**: `make tf2-test FILTER='TfPlayer'`; live on `ctf_2fort`: `joinclass heavy`
+**Gate**: `make tf2-test FILTER='TFPlayer'`; live on `ctf_2fort`: `joinclass heavy`
 → `/entity` shows `tf_player_data` class 6, max health 300, speed ~230;
 `joinclass scout` from the respawn room → instant; from mid-map → on
 respawn. A datatable change is verified only by a full join: a second
@@ -216,7 +216,7 @@ rate per player count, blocking, reversal/decay), `StartCapture` L743,
 beside the core `PlayerResource`.
 
 **Make** (`src/tf2/server/Entities/`, `src/tf2/shared/Resources/`)
-- `InfoPlayerTeamSpawn` + `TfSpawnSelector : ISpawnSelector` (Stage 0.5):
+- `InfoPlayerTeamSpawn` + `TFSpawnSelector : ISpawnSelector` (Stage 0.5):
   team match, enabled, round/control-point gating via `IModeSpawns`.
 - `FuncRespawnRoom` (team-gated instant class change, no-build, projectile
   removal per stock), `FuncRespawnRoomVisualizer` (brush shown to the other
@@ -230,12 +230,12 @@ beside the core `PlayerResource`.
   `TeamControlPointRound`, `TriggerAreaCapture` (cap math ported exactly:
   `CaptureThink` rate formula with `mp_capstyle`, blocked/reversal/decay),
   all `IRoundResettable`.
-- Resources: `TfObjectiveResourceEntity` `[ScriptedEntity("tf_objective_resource", Effect)]`
-  + `[StandaloneNetState] TfObjectiveResourceNetState` (per control point:
+- Resources: `TFObjectiveResourceEntity` `[ScriptedEntity("tf_objective_resource", Effect)]`
+  + `[StandaloneNetState] TFObjectiveResourceNetState` (per control point:
   owner, cappers, progress, locked, icons; train progress for PL; flag state
   for CTF — one struct, modes fill their part through `IModeObjectives`);
-  `TfTeamResourceEntity` (score, role, player count per team);
-  `TfPlayerResource` fields (class, score, damage, healing) — extend the
+  `TFTeamResourceEntity` (score, role, player count per team);
+  `TFPlayerResource` fields (class, score, damage, healing) — extend the
   core `PlayerResourceNetState` only if a generic field is missing; else
   carry on `tf_player_data`.
 
@@ -331,6 +331,36 @@ resource progress tracks the projected position (before ≠ after a push);
 (`tools/debug-api` reads the watcher's progress netstate), waits 30 s away
 → recede observed. Both numbers logged.
 
+**Measured on `pl_badwater` (2026-10-25, from the map's entity lump; the
+core step `aca7039e8` landed, the watcher did not).** Read these before
+porting the watcher:
+- The watcher does not drive this cart: its `team_train_watcher` has no
+  `handle_train_movement`. Speed is map I/O — `cap_area` OnNumCappersChanged
+  → `train_remap` (math_remap) → `train_case` (logic_case) →
+  `SetSpeedDirAccel` 0 / 0.55 / 0.77 / 1.0, the same output also to
+  `watcher,SetNumTrainCappers`; the watcher's OnTrainStartRecede sends
+  `SetSpeedDirAccel -0.1`. Keys: speed levels 1/60/80, cart startspeed 90,
+  no TeamNum (stock defaults it to Blue).
+- Checkpoints are map I/O too: `minecart_path_33/64/92` OnPass fire
+  `cap_N_relay` and `cap_N,SetOwner,3` (0.2 s, fire-once); each relay sends
+  `game_timer,AddTeamTime,3 240` (300 for cap 3), `cap_area,CaptureCurrentCP`
+  and `minecart_path_32/63/91,DisablePath` (the recede stop). The final node
+  `minecart_path_128` kills the train and fires `cap_area,ClearParent` and
+  `CaptureCurrentCP`; the master's win check gives the attackers the round,
+  and the timer's OnFinished goes to `game_round_win` TeamNum 2 (the
+  defenders' timer win).
+- The cart's capture area is parented to the train (find it with
+  `IEngineEntities.GetParent`); read the area's blocked state after its
+  CaptureThink, since its I/O is queued.
+- `TeamRoundFlow.SetOvertime` does not send stock's `OnStartOvertime` to
+  watchers: the watcher detects it or the round flow adds the walk.
+- **Decided (ruling N2, 2026-10-25)**: the round reset follows stock's
+  `CleanUpMap` (`IMapCleanup`, `TFMapCleanupFilter`): removed entities and
+  spent fire-once outputs come back each round. Live at pl_badwater: a
+  RemoveOnFire `cap_1_relay` fired and a killed `window_block_door1` in
+  round 1 are back in round 2, every map classname count restored (889 =
+  889) and all 524 edict-holding entities in their old edicts.
+
 ## Phase 2.7 — Damage layer (`IDamageRule` owner): crits, ramp-up, afterburn, headshots, fall damage, kill feed
 
 **Stock**: `tf_gamerules.cpp ApplyOnDamageModifyRules` L5914 (1,190) —
@@ -354,12 +384,12 @@ randomised fall damage with a class sound; stock `tf_gamemovement`
 TF2 has **no** body-part damage multipliers; headshot is a crit, not a
 table. Drop the first draft's "hitgroup multiplier table".
 
-**Make**: `src/tf2/server/Combat/TfDamageRules.cs` (`IDamageRule` owner:
+**Make**: `src/tf2/server/Combat/TFDamageRules.cs` (`IDamageRule` owner:
 one pass in stock order over a `DamageContext`), `CritRules.cs` (bucket +
 roll result from the weapon behaviour carried in the context's custom
 field), `Afterburn.cs` (on `ConditionsComponent`: ignite with duration,
 tick damage, extinguish by water/health kit/medigun; duration refresh rule),
-`FallDamage.cs`, `TfDeathNotice.cs` (fills the stock `player_death` game
+`FallDamage.cs`, `TFDeathNotice.cs` (fills the stock `player_death` game
 event the client kill feed already subscribes to — `src/client/managed/Ui/KillFeed.cs`
 + `KillIcons`: TF2 weapon names map to icons in Stage 3.1).
 
@@ -373,7 +403,7 @@ water extinguishes; fall damage from the stock height formula is within the
 stock random band (fact fixes the seed); `player_death` event carries
 `weapon="scattergun"` for a scattergun kill (recorded event).
 
-**Gate**: `make tf2-test FILTER='TfDamage|Crit|Afterburn|FallDamage|DeathNotice'`;
+**Gate**: `make tf2-test FILTER='TFDamage|Crit|Afterburn|FallDamage|DeathNotice'`;
 live on `ctf_2fort`: a soldier rocket at a heavy at 100 u and at 800 u —
 log both damages; a sniper headshot kills a 125-hp scout, body shot does
 not; kill feed (HL2 panel) shows the weapon.
@@ -392,13 +422,13 @@ max 8 per player, oldest removed — cite constants) + `tf_weapon_pipebomblaunch
 arc, 10 dmg); later: `tf_projectile_flare.cpp` (631), `tf_projectile_arrow.cpp`
 (1,494), `tf_projectile_energy_ball.cpp` (391).
 
-**Make** (`src/tf2/server/Projectiles/`): `TfRocket : FlyingProjectile`
+**Make** (`src/tf2/server/Projectiles/`): `TFRocket : FlyingProjectile`
 (`src/server/managed/Entities/Projectiles/FlyingProjectile.cs:20`; `Impact`
 → `Explosions.Fire` with TF radius/damage and self-damage rules),
-`TfPipeGrenade`/`TfStickybomb` over the `Grenade` pattern
+`TFPipeGrenade`/`TFStickybomb` over the `Grenade` pattern
 (`Grenade.cs:21`, `ScriptedEntityKind.Prop`, `IEngineEntityPhysics`
 `EngineAreas.Entities.cs:341` — `SetBounce`, `SetGravity`, `EnableMotion`
-false to stick), `TfSyringe : FlyingProjectile`; `StickyController` in
+false to stick), `TFSyringe : FlyingProjectile`; `StickyController` in
 `BuildingsComponent`'s sibling `ProjectilesComponent` (count, oldest-removal,
 detonate). The weapon behaviours (1.9) call `IWeaponArms.Launch…` with the
 TF projectile class name and velocity; the server arm creates these.
@@ -413,7 +443,7 @@ on touch, arms after 0.7 s, detonates on command, ninth sticky removes the
 oldest; syringe follows the gravity arc (two positions) and hits for 10;
 owner never hit by their own pipe before it bounces (stock rule, cite).
 
-**Gate**: `make tf2-test FILTER='TfRocket|Pipe|Sticky|Syringe'`; live:
+**Gate**: `make tf2-test FILTER='TFRocket|Pipe|Sticky|Syringe'`; live:
 give each, fire into a wall/at a bot, `tools/debug-api` shows the
 explosion/hit; sticky `+attack2` detonates.
 
@@ -486,27 +516,38 @@ range and is shot; teleport observed (`getpos` jump).
 ## Phase 2.11 — Flamethrower, flames, airblast
 
 **Stock**: `shared/tf/tf_weapon_flamethrower.cpp` (3,206; 73 methods —
-`PrimaryAttack`/firing state machine, ammo per flame, `FireProjectile` →
-flame, `SecondaryAttack` airblast cost/cooldown, `DeflectProjectiles`,
-`DeflectPlayer`), `shared/tf/tf_flame.cpp` (1,216; 41: `CTFFlameEntity::Create`
-velocity/spread, `FlameThink` life/speed decay, `OnCollide` ignite + damage
-by distance/time, burn), `tf_shareddefs.h` flame/airblast constants
+`PrimaryAttack`/firing state machine, ammo per flame, `SecondaryAttack`
+airblast cost/cooldown, `DeflectProjectiles`, `DeflectPlayer`);
+`shared/tf/tf_flame.cpp` (1,216; 41: `CTFFlameManager` — the live flame
+model) over `shared/tf/tf_point_manager.cpp` (417: `CTFPointManager` —
+points with their own position/velocity/life, per-point collision and the
+water death in `Update`); `tf_shareddefs.h` flame/airblast constants
 (`TF_FLAMETHROWER_*`, `tf_flamethrower_*` convars in the flamethrower file).
+The live firing path is `CTFFlameThrower::PrimaryAttack` (:820-931): it
+creates one `CTFFlameManager` per burst and calls `UpdateDamage` and
+`AddPoint` each `tf_flamethrower_new_flame_fire_delay` (0.02 s);
+`CTFFlameEntity` is dead stock — nothing calls its `Create` in this SDK.
 
 **Make**: `src/tf2/shared/Weapons/FlamethrowerBehaviour.cs` (predicted
-ammo/state), `src/tf2/server/Projectiles/FlameEntity.cs` (pooled, kind
-`Projectile`, no model — damage volume only; sets afterburn via 2.7,
-direct damage falloff per stock), `Airblast.cs` (reflect: projectiles of
-2.8 get `Reflected(team, newVelocity)` → owner/team change and mini-crit
-flag per stock; push players with the stock impulse; extinguish teammates).
+ammo/state), `src/tf2/server/Projectiles/FlameManager.cs` (the
+`TFPointManager`/`TFFlameManager` port: points whose life, drag, gravity
+and reflection the manager's think carries; `OnCollide` → ignite through
+2.7's afterburn, damage by the stock time curve
+`RemapValClamped(age, 0, life × 0.5, 1, 0.5)` through the burn-index
+modifier; a victim burns at most once per
+`tf_flamethrower_burn_frequency` 0.075 s; a point dies in water),
+`Airblast.cs` (reflect: projectiles of 2.8 get
+`Reflected(team, newVelocity)` → owner/team change and mini-crit flag per
+stock; push players with the stock impulse; extinguish teammates).
 Visuals are the client's (Stage 3.6).
 
 **Facts**: a flame ignites on first enemy collide and damages by the stock
-distance curve (two distances); flames expire at the stock life; airblast
-consumes the stock ammo and reflects a rocket (velocity reversed toward
-the aim direction, owner changed, mini-crit flag set), pushes a player with
-the stock impulse, extinguishes a burning teammate; cooldown prevents a
-second airblast inside the stock delay.
+time curve (two ages); a victim burns at most once per burn frequency; a
+point dies at its life and in water; airblast consumes the stock ammo and
+reflects a rocket (velocity reversed toward the aim direction, owner
+changed, mini-crit flag set), pushes a player with the stock impulse,
+extinguishes a burning teammate; cooldown prevents a second airblast
+inside the stock delay.
 
 **Gate**: `make tf2-test FILTER='Flame|Airblast'`; live: burn a target
 (afterburn ticks logged), airblast a rocket back at a soldier (reflected
@@ -540,6 +581,18 @@ sentry (reuses 2.10's fact).
 
 **Gate**: `make tf2-test FILTER='Spy|Invis|Knife|Disguise'`; live: cloak →
 `/entity` shows the condition and meter; backstab a stationary heavy.
+
+**Landed 2026-10-26** (tf2-spy: `2675bfa43` facts, `548444a65` ledger row,
+`24f5a9f39` deferred rows): the slice is `TFSpy`/`TFSpyComponent`
+(`src/tf2/server/Player/TFSpy.cs`), the seam `ITFSpyState` +
+`TFKnifeBehaviour` in `src/tf2/shared/Weapons/`; the meter rides
+`tf_player_data` as `CloakMeter`; the commands are `disguise`,
+`lastdisguise`, `cloak`. The sapper is not in this lane. Live boot on
+ctf_2fort (port 28300, exit 0): `player 1 spawned as Spy: 125 health,
+models/player/spy.mdl`, `spy: speed_max 320 health_max 125 ammo
+20/24/100/0/1/0`, `#1 joined team 2 (was 0)`, `first paint: 1280x720,
+local health 100`, and `cmd disguise 1 3` (RED scout) accepted with no
+composition failure.
 
 ## Phase 2.13 — Wearables (cosmetics; small, after 2.3)
 

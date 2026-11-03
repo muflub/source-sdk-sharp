@@ -30,13 +30,13 @@ read anything. 3.4–3.6 are independent of each other.
   `game/mods.yaml` `tf2.assemblies.client_ui: [TF2.Client.Ui]` (Stage 0.9).
   `tf2_descent` lists `[TF2.Client.Ui, TF2.Descent.Client.Ui]` so Descent
   keeps the TF2 HUD underneath its own.
-- `src/tf2/ui/TfUiSources.cs`: the data interfaces TF2 screens read (one per
-  concern, the `UiSources.cs` pattern): `ITfLocalPlayer` (class, max health,
-  conditions, cloak/charge meters, disguise), `ITfObjectives` (control
-  points, cart progress, flags), `ITfRoundTimer`, `ITfTeams` (scores, counts),
-  `ITfKillFeed` (if the core `IKillFeedSource` lacks custom-kill icons),
-  `ITfBuildings` (owner's buildings), `ITfTargetId`, `ITfClassMenuActions`,
-  `ITfLoadout`.
+- `src/tf2/ui/TFUiSources.cs`: the data interfaces TF2 screens read (one per
+  concern, the `UiSources.cs` pattern): `ITFLocalPlayer` (class, max health,
+  conditions, cloak/charge meters, disguise), `ITFObjectives` (control
+  points, cart progress, flags), `ITFRoundTimer`, `ITFTeams` (scores, counts),
+  `ITFKillFeed` (if the core `IKillFeedSource` lacks custom-kill icons),
+  `ITFBuildings` (owner's buildings), `ITFTargetId`, `ITFClassMenuActions`,
+  `ITFLoadout`.
 - `src/tf2/client/Ui/*.cs`: the adapters, `[SideService(Side.Client, As=[typeof(ITf…)])]`,
   reading the Stage 3.3 mirrors; refreshed once per frame like
   `LocalPlayerUi.Refresh` (`src/client/managed/Ui/LocalPlayerUi.cs:21`).
@@ -55,7 +55,7 @@ chain (fact over `UiLanguageFile.Chain`).
 ## Phase 3.1 — HUD panels (milestone subset)
 
 Each row: one `UiPanel` file in `src/tf2/ui/parts/`, composed into
-`src/tf2/ui/screens/TfHud.cs : UiScreen` (`Layer => UiLayerKind.Hud`,
+`src/tf2/ui/screens/TFHud.cs : UiScreen` (`Layer => UiLayerKind.Hud`,
 `Order` after the core `Hud` so it draws over it; the core `Hud`'s vitals/
 ammo panels are hidden when a mod HUD declares the `hud.vitals`/`hud.ammo`
 slots — add those slot names to the core `Hud` in Stage 0.9 if missing).
@@ -80,11 +80,11 @@ the VPK — extract with `tools/vpk-extract --list 'resource/ui/hud*'`) and
 | Cloak meter / disguise status | `tf_hud_spy_disguise`/`tf_hud_cloak` (grep) | cloak %, disguise class/team panel |
 | Building status | `tf_hud_building_status.cpp` | owner's buildings: health, level, upgrade progress, sapped |
 | Scoreboard | `tf_clientscoreboard.cpp` (2,205) — simplified first pass over the core `Scoreboard` + `TeamTable` | per-team columns (class, score, ping), round scores; the core `IScoreboardSource` already has teams |
-| Spectator | core spectator panels | class/team of the observed player via `ITfLocalPlayer` |
+| Spectator | core spectator panels | class/team of the observed player via `ITFLocalPlayer` |
 
 **Make**: one commit per row; each panel gets a `[UiSample]`/`[UiGallery]`
-state set (`src/tf2/ui/screens/TfHud.Samples.cs`, fakes in
-`src/tf2/ui/Samples/TfFakeSources.cs`) covering full/low/overheal,
+state set (`src/tf2/ui/screens/TFHud.Samples.cs`, fakes in
+`src/tf2/ui/Samples/TFFakeSources.cs`) covering full/low/overheal,
 clip/no-clip, setup/active/overtime, flag states, cart at 0/50/100 %.
 
 **Facts**: per panel a behaviour fact (binds to the source, updates on
@@ -105,15 +105,15 @@ screenshot through `tools/debug-api` (jpeg) of the state the panel shows.
 variant (D2: no store/trading). Flow: join → MOTD → team menu → class menu
 → spawn; `changeclass`/`changeteam` reopen them.
 
-**Make** (`src/tf2/ui/screens/`): `TfTeamMenu` (red/blu/auto/spectate with
+**Make** (`src/tf2/ui/screens/`): `TFTeamMenu` (red/blu/auto/spectate with
 counts; replaces the HL2DM `TeamMenuUi` when TF2 is loaded — the core
 `UiHost.TakePanel("team")` (`src/client/ui/host/UiRuntime.cs:22,236`) must
 route to the mod's screen when one declares `Panel => "team"`; add that to
-Stage 0.9 if absent), `TfClassMenu` (nine classes with portraits from the
+Stage 0.9 if absent), `TFClassMenu` (nine classes with portraits from the
 VPK — `ui.Texture` exists: `src/client/ui/toolkit` leaf, commit `cf1d561d`),
-`TfLoadoutScreen` (per class, slots → items from `ItemSchema` + the local
+`TFLoadoutScreen` (per class, slots → items from `ItemSchema` + the local
 inventory via a `TF2:loadout` message pair). Actions go through
-`ITfClassMenuActions` → client console commands `jointeam`, `joinclass`,
+`ITFClassMenuActions` → client console commands `jointeam`, `joinclass`,
 `tf2_equip` (Stage 0.6 hooks on the server).
 
 **Facts**: class menu opens on first spawn and on `changeclass` (recorded
@@ -133,14 +133,14 @@ condition effects), `c_tf_projectile_*`, `c_baseobject.cpp` family,
 `c_tf_objective_resource.cpp`, `c_team_train_watcher.cpp`.
 
 **Make** (`src/tf2/client/Entities/`): `[ClientStandaloneEntity("tf_player_data")]`
-`ClientTfPlayerData` (`[NetState] TfPlayerNetState`; on change: publish to
-`ITfLocalPlayer`/`ITfTargetId` adapters, drive condition visuals in 3.6,
+`ClientTFPlayerData` (`[NetState] TFPlayerNetState`; on change: publish to
+`ITFLocalPlayer`/`ITFTargetId` adapters, drive condition visuals in 3.6,
 disguise → model/name swap on the owning player, cloak → render alpha via
-`IEngineEntityRender`), `ClientTfObjectiveResource`, `ClientTeamRoundTimer`,
-`ClientTfTeamResource`, `ClientItemTeamFlag` (carried → attach to carrier),
+`IEngineEntityRender`), `ClientTFObjectiveResource`, `ClientTeamRoundTimer`,
+`ClientTFTeamResource`, `ClientItemTeamFlag` (carried → attach to carrier),
 `ClientBaseObject` family (model per level, build progress animation),
-`ClientTfWearable` (bone-merge to owner — `ClientBoneMerge` exists),
-projectile mirrors (`ClientTfRocket` etc.: trails via 3.6). Pattern:
+`ClientTFWearable` (bone-merge to owner — `ClientBoneMerge` exists),
+projectile mirrors (`ClientTFRocket` etc.: trails via 3.6). Pattern:
 `src/client/managed/Standalone/ClientStandaloneEntity.cs:36` + `ClientTestBarrel.cs`.
 
 **Facts**: each mirror decodes the fields its adapter reads (write a blob
@@ -157,7 +157,7 @@ diff) — the only valid proof of a datatable change.
 Most of this is free if Stages 0–2 held the rule "shared behaviours decide
 from predicted state": `ClientArsenal` already runs `WeaponLogic` with the
 same `IWeaponBehaviour`s (`src/client/managed/ClientArsenal.cs:30`,
-`ClientPlayerPrediction.cs:361,491`), and `TfMovementRules` reads
+`ClientPlayerPrediction.cs:361,491`), and `TFMovementRules` reads
 `tf_player_data`'s predicted fields. This phase **proves** it and fills the
 client arms.
 
@@ -177,7 +177,7 @@ consumes one clip on the client and the acknowledged server state agrees
 predicted max speed without a correction when the server state arrives;
 scout air dash predicted and acknowledged; a source-parity fact in the
 `MoveTypePredictionParityTests` style that both bindings feed the same
-`tf_player_data` fields into `TfMoveInputs`.
+`tf_player_data` fields into `TFMoveInputs`.
 
 **Gate**: live with `net_fakelag 100`: run/strafe/jump/fire as scout and
 heavy — `tools/debug-api` prediction report shows no error growth
@@ -200,20 +200,20 @@ overrides per class (`ATTACK_STAND_<SLOT>`, `RELOAD_*`, `FLINCH_*`,
 (`viewmodel`, `anim_prefix`); `tf_player_shared.cpp OnEmitFootstepSound`
 L12143 for step sounds per class.
 
-**Make** (`src/tf2/shared/Anim/`, both sides): `TfAnimLayer : IAnimStateLayer`
+**Make** (`src/tf2/shared/Anim/`, both sides): `TFAnimLayer : IAnimStateLayer`
 registered into the core chain — sequence names per class × slot from the
 model's real sequence list (`LookupSequence` arm; a fact reads the names from
 fixture `.mdl` headers via `StudioHdr`), gesture overrides, taunt layer,
 cloak/disguise animation hooks (disguised spy animates as the disguise
-class: read `tf_player_data`); itself extensible by an **`ITfAnimHook`**
-chain (D10: Descent's custom taunts/emotes). Viewmodel: `TfViewModelAnims`
+class: read `tf_player_data`); itself extensible by an **`ITFAnimHook`**
+chain (D10: Descent's custom taunts/emotes). Viewmodel: `TFViewModelAnims`
 mapping `WeaponAnim` → the weapon script's sequences.
 
 **Facts**: for two classes and three slots the main sequence equals the
 stock name (table fact against fixture model headers); fire → `ATTACK_STAND_<SLOT>`
 gesture once; reload gesture interrupted by fire per stock; taunt sets the
 taunt layer and blocks movement sequences until done; disguised spy picks
-the disguise class's sequences; `ITfAnimHook` fake overrides a gesture.
+the disguise class's sequences; `ITFAnimHook` fake overrides a gesture.
 
 **Gate**: live: run/strafe (8-way blend visible)/crouch/jump/swim/reload/
 taunt as three classes — screenshots (jpeg via `tools/debug-api`) of each;

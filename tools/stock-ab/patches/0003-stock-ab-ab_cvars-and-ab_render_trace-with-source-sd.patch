@@ -15,10 +15,11 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 ---
  src/game/client/cdll_client_int.cpp |  4 +-
  src/game/client/client_hl2mp.vpc    |  1 +
+ src/game/client/client_tf.vpc       |  2 ++
  src/game/client/ss_ab/.gitignore    |  7 +++
  src/game/client/ss_ab/ss_fwd.h      | 25 ++++++++
  src/game/client/ss_ab_client.cpp    | 98 +++++++++++++++++++++++++++++
- 5 files changed, 134 insertions(+), 1 deletion(-)
+ 6 files changed, 136 insertions(+), 1 deletion(-)
  create mode 100644 src/game/client/ss_ab/.gitignore
  create mode 100644 src/game/client/ss_ab/ss_fwd.h
 
@@ -56,6 +57,15 @@ index bca2bc5c..2399360b 100644
  		$File	"c_team_objectiveresource.cpp"
  		$File	"c_team_objectiveresource.h"
  		$File	"c_team_train_watcher.cpp"
+diff --git a/src/game/client/client_tf.vpc b/src/game/client/client_tf.vpc
+--- a/src/game/client/client_tf.vpc
++++ b/src/game/client/client_tf.vpc
+@@ -41,3 +41,5 @@
+ 	$Folder	"Source Files"
+ 	{
++		$File	"ss_ab_client.cpp"
++		$File	"ss_ab\shell_render_trace_client.cpp"
+ 		$File	"$SRCDIR\game\shared\basecombatweapon_shared.h"
 diff --git a/src/game/client/ss_ab/.gitignore b/src/game/client/ss_ab/.gitignore
 new file mode 100644
 index 00000000..3f0f6dfb

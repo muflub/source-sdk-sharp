@@ -30,7 +30,7 @@ Entries by owner (the file keeps its order; this is the index):
 - **The ABI tail**: the serialised pass ran 2026-10-20 (docs/abi-retirements.md);
   its follow-up is "Game logic the ABI pass left unreferenced" under client
   port follow-ups.
-- **TF2**: the stage-0 class-script fixture; Pyro vision's facts.
+- **TF2**: Pyro vision's facts; the convar callbacks and waiting-for-players default.
 - **descent and the host**: the hosted-reload hazard; descent-death P3-P6.
 - **Unowned infrastructure**: the vtable trap's re-entry; -assertstack per
   DLL; sdk-links/windows.txt.
@@ -595,30 +595,48 @@ index-addressed model-name read for the speaker gender.
 
 **Owner:** the client port. **Next:** the serialised ABI pass for the slots.
 
-## The TF2 stage-0 plan's class-script fixture does not exist
+## The weapon catalogue orders mod sources by raw assembly name, which differs per side
 
-Added 2026-10-12 at stage0-core-seams 724e7547e (phase 0.2's gate).
+Added 2026-10-25 at tf2 1.9 (branch tf2-wpn).
 
-`docs/plans/tf2/stage0_core_seams.md:103,120` names
-`scripts/playerclasses/scout.txt` in `tf2_misc_dir.vpk` as the fixture whose
-`"speed_max"` gates `tools/vpk-extract`. No such entry exists: the pack's
-`scripts/playerclasses/` holds nine `.ctx` files (binary, not KeyValues),
-and `--list '*scout*'` returns `classes/scout.res` (a UI resource:
-`classNameLabel`, `#base "default.res"`) plus HWM expression files. The
-loose `content/tf/scripts/items/items_game.txt` exists but holds no
-`speed_max` either (0 matches). So phase 0.2's gate ran its extraction arm
-against a real entry that *does* exist (`scripts/autorp.txt`, and
-`--list 'scripts/items/*'`), and the `speed_max` claim is left unproved.
+`HookOrder.Sorted` (`src/shared/managed/WeaponCatalog.cs`, used by
+`WeaponCatalog`, `AmmoCatalog` and `WeaponBehaviours`) sorts sources by
+`Assembly.GetName().Name`, ordinal. A mod's assemblies are named per side, so
+`TF2.Descent.Server` sorts before `TF2.Server` while `TF2.Client` sorts before
+`TF2.Descent.Client`: once a second mod layered on TF2 adds weapon or ammo rows,
+the server and the client number them differently, and the index is the wire
+format (`WeaponTypeId`, the ammo wire index). TF2's `TFWeaponHookChain` sorts by
+the name without its `.Server`/`.Client` suffix (`TFWeaponHookChain.Layer`) for
+this reason. Fix in the core: sort by that layer name, with a fact over two
+emitted assembly pairs. **Owner:** core. **Next:** before Descent adds a weapon row.
 
-What is known: per-class speed in stock TF2 is not a KeyValues file at all
--- grep `../source-sdk-2013/src/game/server/tf*/tf_player_shared.cpp` /
-`tf_shared.cpp` for the character table before Stage 1.2 ports classes, and
-give that phase a fixture that exists. Behaviour-only test, no header.
+## TF2's convar change callbacks and its waiting-for-players default
 
-Re-checked 2026-10-20 at 4c808928c: stage0_core_seams.md:103,120 still name
-scout.txt, and stage1_shared_foundation.md:58,78 plan class facts on
-`speed_max`. **Owner:** TF2. **Next:** before Stage 1.2, find the class table
-in the stock TF2 source and give the phase a fixture that exists.
+Added 2026-10-25 at tf2 1.3 (branch tf2-data).
+
+Two TF2 convars carry a server-side change callback in stock that the
+declarations in `src/tf2/shared/ConVars/TFSharedConVars.cs` do not run:
+`mp_winlimit` (`WinlimitChanged`, teamplayroundbased_gamerules.cpp:188-195,
+fires `winlimit_changed`) and `tf_flag_caps_per_round`
+(`ValidateCapturesPerRound`, tf_gamerules.cpp:1256-1272, zeroes every team's
+flag captures when it drops to 0). Both need the round rules and the TF teams.
+And stock TF declares `mp_waitingforplayers_time` itself with "30"
+(tf_gamerules.cpp:1088, FCVAR_DEVELOPMENTONLY in a release build), where the
+core declares multiplay_gamerules.cpp's "0" (`MultiplayerConVars.cs`); a mod
+cannot redeclare it (a duplicate throws), so under TF2 the wait is 0 s.
+**Owner:** TF2. **Next:** Stage 2.1 (round machine) ports the callbacks and
+chooses how TF2 gets its 30 s (a mod cfg line or a core default seam).
+
+Decided at tf2 2.1 (2026-10-25, branch tf2-rules): **a mod cfg line**. TF2's
+cfg seed (`game/mod_tf2/cfg-seed/server.cfg` and `listenserver.cfg`) sets
+`mp_waitingforplayers_time 30`, stock TF2's default; no core seam, since a
+cfg line is how a server already changes a default and it keeps the core's
+declaration stock HL2's. A tree seeded before this keeps its own cfg (the
+seed copies only when absent). The round machine reads the convar live. The
+callbacks are not needed by the machine: `mp_winlimit` is read live each
+second, so `winlimit_changed` (read by the HUD only) is a deferred row
+(`docs/plans/tf2/deferred.tsv`, Stage 3.1), and `tf_flag_caps_per_round`'s
+zeroing belongs to CTF (2.5), which owns the captures.
 
 ## The vtable trap's report can recurse before it fails the process: open
 
@@ -1121,6 +1139,23 @@ the stock-ab branch's base 9074634e7 and still open after its fixes:
   the sv_ladder_useonly HUD hint and `ladderSurfaceProperties` on the ladder
   footstep (docs/divergences.md). CHL2GameMovement::CanAccelerate (always
   true, hl_gamemovement.cpp:1182) is ported with it. Owner: the server lane.
+
+## The core has no mp_restartgame; its round restart is the mode switch (2026-10-25)
+
+Added 2026-10-25 at tf2 ruling N2 (branch tf2-cleanup). Stock HL2MP calls
+`CleanUpMap` from `CHL2MPRules::RestartGame` (hl2mp_gamerules.cpp:1000-1062),
+which `CheckRestartGame` (:1179-1225) arms from `mp_restartgame`'s countdown
+and `mp_readyrestart`; it then respawns every player (holster, RemoveAllItems,
+respawn, Reset), zeroes both team scores and fires `round_start`. The core's
+`GameRules` declares `mp_restartgame` and reads none of it: the core's restart
+is `GameModes.SwitchTo` (`sv_mode`, `game_mode_switch`), which now cleans the
+map through `IMapCleanup` with HL2MP's preserve list. TF2's round machine reads
+`mp_restartgame` itself. **Owner:** core. **Next:** port `CheckRestartGame`
+and `RestartGame` onto `GameRules`' NullMode arm, over `GameModes.CleanUpMap`
+(the divergence row `Core round restart`).
+
+Done: 9b999f84e (port + `RestartGameTests`, 2026-10-25; the corrected
+divergence row `Core round restart, ported` names the old row for deletion).
 
 ## Rulings and divergences recorded only here (not open work)
 

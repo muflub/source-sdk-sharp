@@ -124,8 +124,8 @@ Verified at `375193a4c` and binding for every stage:
    core ships a `NullMode` (today's deathmatch rules). TF2 registers `CtfMode`
    and `PayloadMode`; Descent can register its own or decorate TF2's.
    **Composition layering (D10)**: every TF2 service that owns behaviour
-   exposes a hook or component interface of its own (`ITfPlayerComponent`,
-   `ITfWeaponHook`, `ITfDamageHook`, `ITfModeHook`, HUD slots on `TfHud`), so
+   exposes a hook or component interface of its own (`ITFPlayerComponent`,
+   `ITFWeaponHook`, `ITFDamageHook`, `ITFModeHook`, HUD slots on `TFHud`), so
    a further mod extends TF2 exactly as TF2 extends the core. A structure
    fact per stage checks that no TF2 class that dispatches behaviour is
    `sealed` without such an interface.
@@ -144,14 +144,14 @@ Verified at `375193a4c` and binding for every stage:
    `[Predicted]` fields), never in a server-only service (U3). The core
    player entity `SsPlayer` is not subclassed; the core gains a generic
    per-player composite (`PlayerComposites` + `IPlayerComponentSource`,
-   Stage 0.7) and `TfPlayer` is TF2's set of components in it (D9); Descent
+   Stage 0.7) and `TFPlayer` is TF2's set of components in it (D9); Descent
    adds components to the same composite (D10).
 4. **Weapons are behaviours, not classes** (U2): a TF weapon is a `WeaponType`
    row (from the stock script + schema) plus an `IWeaponBehaviour` that
    `WeaponLogic` calls at its decision points; the client predicts with the
    same behaviour. Crit rolls use the prediction seed (stock does too). TF
-   behaviours are themselves composed: `TfWeaponBehaviour` runs an
-   `ITfWeaponHook` chain (attribute modifiers, crit policy, Descent's
+   behaviours are themselves composed: `TFWeaponBehaviour` runs an
+   `ITFWeaponHook` chain (attribute modifiers, crit policy, Descent's
    item effects) at the same points, so a further mod never subclasses a
    TF weapon either.
 5. **Native carries out, never decides**: the only new ABI calls are
@@ -169,7 +169,7 @@ Verified at `375193a4c` and binding for every stage:
 |---|---|---|---|---|
 | 0 Core seams | `tf2/stage0_core_seams.md` | 0.1 projects+test leg · 0.2 launch+vpk tool · 0.3 movement hook · 0.4 weapon seam+catalogues · 0.5 teams (ABI) · 0.6 client-command hook · 0.7 game-mode proxy, player composite, rules hooks · 0.8 hitgroup (ABI) · 0.9 mod UI/localisation/effects · 0.10 MultiplayerAnimState (core, shared; may trail the bones lanes) | — | 0.1, 0.2, 0.3, 0.4, 0.9, 0.10 independent; 0.5→0.6→0.7; 0.8 serialised with 0.5 (ABI tail) |
 | 1 Shared foundation | `tf2/stage1_shared_foundation.md` | 1.1 enums (oracle) · 1.2 class data · 1.3 convars · 1.4 schema · 1.5 attribute hooks · 1.6 inventory/loadout · 1.7 conditions · 1.8 movement rules · 1.9 weapon base + milestone weapons | 0 | {1.1,1.2,1.3} · {1.4,1.5,1.6} · {1.7,1.8,1.9} |
-| 2 Server core | `tf2/stage2_server_core.md` | 2.1 team-round rules · 2.2 TF2 modes into the core proxy · 2.3 TfPlayer components+carrier · 2.4 map entities+CP+resources · 2.5 CTF · 2.6 Payload · 2.7 damage · 2.8 projectiles · 2.9 medigun · 2.10 buildings · 2.11 flames · 2.12 spy · 2.13 wearables | 1 | {2.1,2.2} · 2.3 · 2.4 first; then 2.5/2.6; 2.7–2.13 by directory |
+| 2 Server core | `tf2/stage2_server_core.md` | 2.1 team-round rules · 2.2 TF2 modes into the core proxy · 2.3 TFPlayer components+carrier · 2.4 map entities+CP+resources · 2.5 CTF · 2.6 Payload · 2.7 damage · 2.8 projectiles · 2.9 medigun · 2.10 buildings · 2.11 flames · 2.12 spy · 2.13 wearables | 1 | {2.1,2.2} · 2.3 · 2.4 first; then 2.5/2.6; 2.7–2.13 by directory |
 | 3 Client | `tf2/stage3_client.md` | 3.0 wiring · 3.1 HUD panels · 3.2 menus · 3.3 mirrors · 3.4 prediction proof · 3.5 TF2 animation layer (full, over 0.10) · 3.6 effects | 0.9, 0.10, 2 carriers | 3.3 before 3.1 adapters; 3.4–3.6 independent; 3.5 waits for 0.10 |
 | 4 Milestone | `tf2/stage4_milestone.md` | 4.1 targets · 4.2 `tools/tf2-gate` · 4.3 daily-gate leg · 4.4 human acceptance | 3 | one lane |
 | 5 Bots and after | `tf2/stage5_bots.md` | brief for its own plan (Appendix B restated, stock sources, build order, gates) | 4 | — |
@@ -242,7 +242,7 @@ v2, ruled by the user 2026-10-11:
   TF2 registers modes into it (Stage 2.2). Rejected: a TF2-owned proxy.
 - **U2 Weapons: the behaviour seam** on the sealed `WeaponLogic` with
   mod-extensible catalogues (Stage 0.4), TF behaviours composed from an
-  `ITfWeaponHook` chain (Stage 1.9).
+  `ITFWeaponHook` chain (Stage 1.9).
 - **U3 Player state: a per-player `tf_player_data` entity** with a predicted
   netstate (Stage 2.3), components in the core's generic player composite.
 - **U4 Spy: full** disguise + cloak + backstab in the milestone (Stage 2.12).
@@ -253,6 +253,31 @@ v2, ruled by the user 2026-10-11:
 - **U7 `plan_tf2_port_tasks.md` deleted.**
 - **D10 (§0)** is the general form of U1–U5: core → TF2 → further mods, each
   layer extended by composition, never by subclassing or replacement.
+
+Ruled by the user 2026-10-25:
+
+- **N1 Names: TF is always uppercase in managed names** — `TFSpawnSelector`,
+  `TFClass`, `ITFPlayerClasses`, `TF2LifecycleOrderTests`, never `Tf…`
+  (types, members, files, test classes; camelCase locals such as `tfClass`
+  are not type names). The names already written as `Tf…` are renamed in one
+  sweep once the lanes in flight have landed, and a fact keeps the rule.
+- **N2 Round reset follows stock** — `CTeamplayRoundBasedRules::CleanUpMap`
+  (teamplayroundbased_gamerules.cpp): every entity outside the preserve list
+  (`s_PreserveEnts`, with TF's own list in tf_gamerules.cpp) is removed, the
+  event queue cleared, and the map's entities are created again from the
+  map's entity string into their old slots. This replaces the in-place reset
+  (removed entities and spent fire-once outputs came back on no round: a
+  `pl_badwater` second round had no checkpoints).
+- **N3 TF2's event list loads** — TF2's `resource/modevents.res` (in
+  `tf2_misc_dir.vpk`) is the mod's event file, so `teamplay_*`, `ctf_*` and
+  the other TF2 events are declared and fire.
+- **N4 The TF2 UI looks like TF2** (user, 2026-10-26: "go for the full tf2
+  look and layout for UI") — D1's managed toolkit stays, but the TF2 screens
+  take TF2's own look: the palette and fonts of its `resource/ClientScheme.res`
+  (TF2 Build, TF2 Secondary, loaded from the installed game at runtime), its
+  HUD art and class portraits (VTF textures read from the VPKs by a managed
+  reader), and each panel's position and size from its stock `resource/ui/*.res`.
+  No TF2 file is committed; numbers copied from them are cited.
 
 ## 7. Open questions
 

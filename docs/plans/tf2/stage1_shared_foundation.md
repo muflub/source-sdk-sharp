@@ -29,25 +29,25 @@ lane; 1.7 → 1.8 → 1.9 is the gameplay lane and needs 1.1, 1.2 and 1.5.
 - Damage constants: `tf_shareddefs.h:146-157` (`TF_DAMAGE_CRIT_CHANCE 0.02f`, `_RAPID 0.02f`, `TF_DAMAGE_CRIT_DURATION_RAPID 2.0f`, `TF_DAMAGE_CRIT_CHANCE_MELEE 0.15f`, `TF_DAMAGE_CRIT_MULTIPLIER 3.0f`, `TF_DAMAGE_MINICRIT_MULTIPLIER 1.35f`).
 - Hitgroups: `shared/shareddefs.h` `HITGROUP_*` (already pinned by Stage 0.8).
 
-**Make**: `src/tf2/shared/TfSharedDefs.cs` — `enum TfTeam`, `enum TfClass`,
-`enum TfCond`, `enum TfWeaponId`, `enum TfLoadoutSlot`, `static class TfDamage`
+**Make**: `src/tf2/shared/TFSharedDefs.cs` — `enum TFTeam`, `enum TFClass`,
+`enum TFCond`, `enum TFWeaponId`, `enum TFLoadoutSlot`, `static class TFDamage`
 (consts only; SS0010 allows `const`). Generate the long enums with a throwaway
 script from the header (do not commit the script); the oracle facts are what
 keep them honest.
 
-**Facts** (`src/tf2/tests/TfSharedDefsTests.cs`)
+**Facts** (`src/tf2/tests/TFSharedDefsTests.cs`)
 - Oracle: parse `tf_shareddefs.h` from the pristine clone (`RepoLayout`,
   `src/test/oracle/` conventions, `valve-sdk.lock`) and assert the C# enum
   has the same member count and the same name→value for every member (strip
   `TF_COND_` → PascalCase; keep a small explicit rename table).
 - Same for `ETFClass` and `loadout_positions_t`.
-- `TfDamage` constants equal the header's `#define` values (parse the six lines).
+- `TFDamage` constants equal the header's `#define` values (parse the six lines).
 - Negative control: the oracle parser fails loudly on a missing header (a
   missing input is a failure, never a pass).
 
-**Gate**: `make tf2-test FILTER=TfSharedDefs`; `tools/valve-header check`
+**Gate**: `make tf2-test FILTER=TFSharedDefs`; `tools/valve-header check`
 passes with the new row in `docs/valve-header-new.tsv`
-(`src/tf2/shared/TfSharedDefs.cs<TAB>ports tf_shareddefs.h enums and tf_item_constants.h loadout_positions_t`).
+(`src/tf2/shared/TFSharedDefs.cs<TAB>ports tf_shareddefs.h enums and tf_item_constants.h loadout_positions_t`).
 
 ## Phase 1.2 — Class data from `scripts/playerclasses/*.txt`
 
@@ -64,13 +64,13 @@ keys `name`, `model`, `model_hwm`, `model_hands`, `localize_name`,
 (`scout, sniper, soldier, demo, medic, heavy, pyro, spy, engineer, civilian`
 — verify the exact strings; `demo` and `heavy` are not the enum names).
 
-**Make**: `src/tf2/shared/Classes/TfClassData.cs` (record: the fields above),
-`TfClassDataParser.cs` (over `KeyValuesText.Parse`, `src/shared/managed/KeyValuesText.cs:307`),
-`TfClassTable` as `[SideService(Side.Server)]` and `[SideService(Side.Client)]`
+**Make**: `src/tf2/shared/Classes/TFClassData.cs` (record: the fields above),
+`TFClassDataParser.cs` (over `KeyValuesText.Parse`, `src/shared/managed/KeyValuesText.cs:307`),
+`TFClassTable` as `[SideService(Side.Server)]` and `[SideService(Side.Client)]`
 (one class, two attributes) that loads the ten files once per level through
 `IShimEngine` file reads (the model is `WeaponScriptDatabase.ReadScript`,
-`src/shared/managed/WeaponScriptDatabase.cs:288`). Expose `this[TfClass]`.
-Missing file → log + a `TfClassData.Missing` sentinel, never a crash.
+`src/shared/managed/WeaponScriptDatabase.cs:288`). Expose `this[TFClass]`.
+Missing file → log + a `TFClassData.Missing` sentinel, never a crash.
 
 **Fixtures**: `tools/vpk-extract ... scripts/playerclasses/{scout,soldier,heavy,demo}.txt`
 → `src/tf2/tests/TestData/playerclasses/`.
@@ -78,12 +78,12 @@ Missing file → log + a `TfClassData.Missing` sentinel, never a crash.
 **Facts**: scout `speed_max` 400 / `health_max` 125; soldier 240/200; heavy
 230/300; demo 280/175 (read the fixture, assert the parsed value, and assert
 the fixture's raw text contains the same number so a stale fixture is
-caught); `weapon1..3` resolve to `TfWeaponId`s; unknown key ignored; a
+caught); `weapon1..3` resolve to `TFWeaponId`s; unknown key ignored; a
 file with no `speed_max` yields 0 and a log line (stock `GetFloat` default).
-Table fact: every `TfClass` except Undefined/Civilian has data after load
+Table fact: every `TFClass` except Undefined/Civilian has data after load
 (RecordingEngine serving the fixtures).
 
-**Gate**: `make tf2-test FILTER=TfClass`; valve-header row added
+**Gate**: `make tf2-test FILTER=TFClass`; valve-header row added
 (`ports TFPlayerClassData_t::Parse (tf_classdata.cpp)`).
 
 ## Phase 1.3 — ConVars
@@ -96,7 +96,7 @@ Table fact: every `TfClass` except Undefined/Civilian has data after load
 `server/team_train_watcher.cpp:413-414` (`tf_escort_recede_time 30`, `_overtime 5`),
 `shared/tf/entity_capture_flag.cpp:57` (`tf_flag_return_time_credit_factor`), `tf_gamerules.cpp` (`tf_flag_caps_per_round`, `tf_birthday`… take only what the milestone uses).
 
-**Make**: `src/tf2/shared/TfConVars.cs`: one `[ConVar(name, default, Help, Flags)]`
+**Make**: `src/tf2/shared/TFConVars.cs`: one `[ConVar(name, default, Help, Flags)]`
 class per convar (`src/shared/interop/ConVar.cs:18`; `FloatConVar`/`IntConVar`/`BoolConVar`),
 injected where read (`ConVarRegistry.Get<T>()`, pattern `GameRules.cs:24-32,162-165`).
 Replicated convars must have the same default on both sides — shared source
@@ -107,7 +107,7 @@ stock has `FCVAR_REPLICATED`.
 declaration (quote the stock line in the fact's comment); a scan fact that
 every `[ConVar]` in `TF2.*` has a `tf_` or `mp_` prefix.
 
-**Gate**: `make tf2-test FILTER=TfConVars`; live: `make headless RUN_MOD_ID=tf2`,
+**Gate**: `make tf2-test FILTER=TFConVars`; live: `make headless RUN_MOD_ID=tf2`,
 `cvarlist tf_` through `tools/debug-api console` lists them.
 
 ## Phase 1.4 — Item schema (offline econ core)
@@ -126,7 +126,7 @@ Data: `scripts/items/items_game.txt` inside `tf2_misc_dir.vpk` (sections
 
 **Make**: `src/tf2/shared/Econ/` — `ItemSchema.cs` (service, both sides,
 loaded once per level via `FilesReadGameFile`; API `Item(int defindex)`,
-`BaseItems(TfClass, TfLoadoutSlot)`, `Attribute(int defindex)`, `Attribute(string name)`),
+`BaseItems(TFClass, TFLoadoutSlot)`, `Attribute(int defindex)`, `Attribute(string name)`),
 `ItemDefinition.cs` (defindex, name, item_class, item_slot per class,
 used_by_classes, model_player, baseitem, attributes: list of (attribute def,
 value)), `AttributeDefinition.cs` (defindex, name, attribute_class,
@@ -141,7 +141,7 @@ synthetic file for prefab tests.
 
 **Facts**: prefab chain `a b` applies `a` then `b` then the item (three
 synthetic items prove the order with one key per layer); `used_by_classes`
-parses to a `TfClass` set; `item_slot` maps to `TfLoadoutSlot`; `BaseItems(Scout, Primary)`
+parses to a `TFClass` set; `item_slot` maps to `TFLoadoutSlot`; `BaseItems(Scout, Primary)`
 is the scattergun defindex; attribute `stored_as_integer` honoured (bits of
 a float vs integer — stock stores integers in the float's bit pattern:
 check `CEconItemAttribute` and replicate exactly, with a fact on one known
@@ -222,28 +222,28 @@ Milestone set: `Aiming`, `Zoomed`, `Disguising`, `Disguised`, `Stealthed`,
 `HealthBuff`/overheal flag, `Slowed`, `CritBoosted` (+ `_Pumpkin` no),
 `MarkedForDeath` (if the Scout's Fan o' War ships — else later),
 `Bleeding` (later), `Kritzkrieged` (later), `Jarated`/`Milked` (later),
-`Stunned` (later). A `docs/plans/tf2/conditions.tsv` row per `TfCond` with
+`Stunned` (later). A `docs/plans/tf2/conditions.tsv` row per `TFCond` with
 `milestone|later|never` and the stock line of its add/remove/tick arm.
 
-**Make**: `src/tf2/shared/Conditions/TfConditions.cs` — pure class over the
+**Make**: `src/tf2/shared/Conditions/TFConditions.cs` — pure class over the
 five masks + expiry array; `Add(cond, duration, provider)`, `Remove`,
 `Has`, `Tick(now)` returning the expired set into a caller span (no alloc);
-`TfConditionEffects.cs`: static-free table of per-condition modifiers
+`TFConditionEffects.cs`: static-free table of per-condition modifiers
 (damage-taken ×, damage-dealt ×, speed ×, heal-blocked, cloak-blocked…) read
 by movement (1.8) and combat (Stage 2). The networked carrier
-(`TfPlayerNetState` with the five masks `[Predicted]`) is defined in
+(`TFPlayerNetState` with the five masks `[Predicted]`) is defined in
 Stage 2.3 with the player state entity; 1.7 stays pure.
 
 **Facts**: expiry at the tick (not before, not one tick late); permanent
 never expires; re-add refreshes vs ignores per the stock rule
 (`AddCond` with a longer/shorter duration — cite); `Has` after `Remove` is
-false; `Tick` over 1,000 cycles allocates zero bytes; `TfConditionEffects`
+false; `Tick` over 1,000 cycles allocates zero bytes; `TFConditionEffects`
 gives ×1.35 for mini-crit outgoing and marked-for-death incoming
 (`TF_DAMAGE_MINICRIT_MULTIPLIER`), heal-blocked while burning only if stock
 says so (check `CTFPlayerShared::CanRecieveMedigunChargeEffect`/heal rules —
 the first draft asserted this without a citation; verify or drop).
 
-**Gate**: `make tf2-test FILTER=TfConditions`.
+**Gate**: `make tf2-test FILTER=TFConditions`.
 
 ## Phase 1.8 — Movement rules (D8: an `IMovementRules` owner, not a subclass)
 
@@ -258,18 +258,18 @@ stun, speed buffs); view vectors `shared/tf/tf_gamerules.cpp:1310`
 (`g_TFViewVectors`: view 72, hull ±24 × 0..82, duck hull 62, duck view 45,
 dead view 14) and `:1326` `g_TFClassViewVectors[11]` (per-class eye height).
 
-**Make**: `src/tf2/shared/Movement/TfMovementRules.cs` implementing Stage 0.3's
+**Make**: `src/tf2/shared/Movement/TFMovementRules.cs` implementing Stage 0.3's
 `IMovementRules` (one owner; registered `[SideService]` on both sides):
 - `Constants` = `g_TFViewVectors` (hull/view/duck/dead) — this replaces the
   core's HL2 hull for the whole mod.
-- `MaxSpeedScale` = `TfMaxSpeed.Calculate(classData, conditions, weaponState) / 320`
-  where `TfMaxSpeed.cs` is a pure port of `TeamFortress_CalculateMaxSpeed`
-  taking a `TfMoveInputs` struct (class, conditions snapshot, active weapon
+- `MaxSpeedScale` = `TFMaxSpeed.Calculate(classData, conditions, weaponState) / 320`
+  where `TFMaxSpeed.cs` is a pure port of `TeamFortress_CalculateMaxSpeed`
+  taking a `TFMoveInputs` struct (class, conditions snapshot, active weapon
   flags: aiming/minigun spun up/zoomed, health fraction for the GRU/…
   later). The inputs must come **only** from predicted state (the per-player
-  `TfPlayerNetState`, Stage 2.3); for 1.8 the struct is supplied by a test.
+  `TFPlayerNetState`, Stage 2.3); for 1.8 the struct is supplied by a test.
 - `JumpScale` + air dash: port `CheckJumpButton`/`AirDash` rules into a pure
-  `TfJump.cs` with a per-player `AirDashState` (count, last tick) kept in the
+  `TFJump.cs` with a per-player `AirDashState` (count, last tick) kept in the
   predicted state; scout gets one air dash while airborne after a jump,
   reset on ground (`m_iAirDash`, cite). If the existing `JumpRequest` hook
   cannot express "consume this jump as an air dash", add the needed input to
@@ -277,16 +277,16 @@ dead view 14) and `:1326` `g_TFClassViewVectors[11]` (per-class eye height).
 - Per-class eye height via the per-player `ViewOffsetZ` from Stage 0.3,
   set on class change (Stage 2.3) from `g_TFClassViewVectors`.
 
-**Facts**: `TfMaxSpeed`: scout 400, soldier 240, heavy 230, heavy aiming
+**Facts**: `TFMaxSpeed`: scout 400, soldier 240, heavy 230, heavy aiming
 (minigun) 110 (= 230 × 47/100? — read the stock constant and cite; do not
 guess), zoomed sniper 80 (cite), unknown class → class table's value with
-no scaling; `TfJump`: scout second press while airborne → air dash once,
+no scaling; `TFJump`: scout second press while airborne → air dash once,
 third refused; soldier refused; grounded resets. Determinism: the same
 input stream twice → identical outputs (byte-compare a recorded result list).
 Side parity: the rules object constructed in a server container and a client
 container give identical answers for 100 random inputs.
 
-**Gate**: `make tf2-test FILTER='TfMaxSpeed|TfJump|TfMovementRules'`; live:
+**Gate**: `make tf2-test FILTER='TFMaxSpeed|TFJump|TFMovementRules'`; live:
 `make headless RUN_MOD_ID=tf2 MAP=ctf_2fort`, `tools/debug-api` sets class
 (dev command from Stage 2.3; until then a dev convar `tf2_dev_class`) and
 `getpos` over 2 s shows ~400 u/s for scout and ~230 for heavy (quote the
@@ -309,16 +309,16 @@ four remap constants), convars `tf_weapon_criticals_bucket_cap 1000`,
 (`TF_DAMAGE_CRIT_CHANCE_MELEE 0.15`).
 
 **Make**
-- `src/tf2/shared/Weapons/TfWeaponTypes.cs`: an `IWeaponTypeSource` (Stage 0.4)
+- `src/tf2/shared/Weapons/TFWeaponTypes.cs`: an `IWeaponTypeSource` (Stage 0.4)
   producing one `WeaponType` row per milestone weapon from the stock weapon
-  script (`WeaponScriptDatabase` extended by `TfWeaponScript.cs` for TF2
+  script (`WeaponScriptDatabase` extended by `TFWeaponScript.cs` for TF2
   keys: `WeaponType` primary/secondary/melee/pda/building, per-mode
   `Damage`, `BulletsPerShot`, `Spread`, `TimeFireDelay`, `TimeIdle`,
   `ProjectileType`, `clip_size` by class, `ammo_type`, `HasTeamSkins_*`) and
   the schema's attributes. Ammo rows (`IAmmoTypeSource`): `TF_AMMO_PRIMARY/
   SECONDARY/METAL/GRENADES1/2` with max-carry per class from the class scripts.
-- `TfWeaponBehaviour.cs` (`IWeaponBehaviour` base for every TF weapon), itself
-  composed (D10): it runs an **`ITfWeaponHook` chain** (`ModifyClip`,
+- `TFWeaponBehaviour.cs` (`IWeaponBehaviour` base for every TF weapon), itself
+  composed (D10): it runs an **`ITFWeaponHook` chain** (`ModifyClip`,
   `ModifyInterval`, `ModifyDamage`, `BeforeFire`, `AfterFire`, `CritPolicy`)
   whose first members are TF2's own attribute hooks (1.5) and crit policy,
   and into which a further mod (Descent's item effects) registers without
@@ -328,7 +328,7 @@ four remap constants), convars `tf_weapon_criticals_bucket_cap 1000`,
   the `CritBucket.cs` pure class (`Add(damage)`, `TryWithdraw(damage, isMelee, requests, checks)`,
   clamp to `[bottom, cap]`), seeded by the prediction seed so client and
   server roll the same (cite the seed formula). Melee behaviour
-  (`TfMeleeBehaviour.cs`): swing trace, crit chance 0.15, damage.
+  (`TFMeleeBehaviour.cs`): swing trace, crit chance 0.15, damage.
 - Milestone weapons, one `IWeaponBehaviour` each (shared, predicted), reading
   these stock files — port the behaviour, not the class hierarchy:
 
@@ -371,7 +371,7 @@ four remap constants), convars `tf_weapon_criticals_bucket_cap 1000`,
 - Sniper charge curve: damage at 0/50/100% charge equals stock
   (`tf_weapon_sniperrifle.cpp` `TF_WEAPON_SNIPERRIFLE_DAMAGE_MIN/MAX`, cite).
 
-**Gate**: `make tf2-test FILTER='CritBucket|TfWeapon'`; live on
+**Gate**: `make tf2-test FILTER='CritBucket|TFWeapon'`; live on
 `ctf_2fort`: `tf2_give` the scattergun and the shotgun, fire until empty,
 reload — clip/reserve numbers match the script's `clip_size`/ammo max and
 the HL2 HUD ammo panel shows them (the TF2 HUD is Stage 3).
@@ -387,3 +387,39 @@ behaviour (server log shows crit rolls and bucket), the schema and class
 tables load from the real VPK, and `make test` (all legs incl. `tf2`) is
 green with zero warnings. Record the measured speeds and one crit sequence
 in the final commit message.
+
+## Decisions
+
+- **2026-10-13, user: decrypt the `.ctx` files.** Stage 0 measured the shipped
+  pack (`docs/todo.md`, tf2 0.2): `scripts/playerclasses/` holds nine binary
+  `.ctx` files and no `.txt`, so Phase 1.2's fixture premise was false. Stock
+  reads the class files through `ReadEncryptedKVFile(filesystem, name, key)`
+  (`shared/tf/tf_classdata.cpp:127`; the key is `GetTFEncryptionKey()`,
+  `tf_gamerules.h:337`), so the port decrypts as stock does, both at runtime
+  (managed, through the game file read) and for the fixtures (`tools/vpk-extract`).
+  Rejected: hand-copying the class numbers into a table (no stock source holds them).
+  Re-measured by lane A at `8a524abed` (`tools/vpk-extract ... --list`): ten
+  class files (civilian included, not nine) and all 78 `scripts/tf_weapon_*`
+  scripts are `.ctx`, with no `.txt`, so Phase 1.9 reads weapon scripts through
+  the same decrypting reader.
+- **2026-10-13, user: pull a minimal predicted carrier into Stage 1.** The
+  Stage 1 exit (live scout air-dash, live crit rolls) needs per-player predicted
+  TF state, which the phase text left to Stage 2.3. Stage 1 builds the start of
+  that carrier (the U3 `tf_player_data` entity with a predicted netstate: class,
+  air-dash state, condition masks, crit state), and Stage 2.3 extends it rather
+  than creating it. The Stage 1 exit stands as written. Rejected: keeping
+  Stage 1 pure and moving the live air-dash and crit checks to Stage 2's exit.
+
+## Corrections (measured 2026-10-13 at main `43171f0c1`; they override the phase text above)
+
+1. Files: inject `IEngineFiles` and read with `ReadGameFileBytes` on the GAME path (`src/shared/interop/EngineAreas.Files.cs`); a mod cannot use `IShimEngine`/`Abi.Engine` (SS0012). TF content is GAME-path only (`game/mod_tf2/gameinfo.txt`); stock reads MOD — divergence row.
+2. Class files: `scripts/playerclasses/{scout,sniper,soldier,demoman,medic,heavyweapons,pyro,spy,engineer,civilian}` (`tf_classdata.cpp:15-24`, `g_aRawPlayerClassNames`), `.txt` first then `.ctx` (`ReadEncryptedKVFile`, `shared/weapon_parse.cpp:202-271`). Parser is `ParseData` (:144-210) and includes the `AmmoMax` block (:173-181). Missing file: stock leaves the data zeroed; the log + sentinel is ours.
+3. Decrypt: ICE level 0 (`src/mathlib/IceKey.cpp`), key `GetTFEncryptionKey()` = `"E2NcUkG2"` (`tf_shareddefs.cpp:1614-1617`); whole 8-byte blocks only, the tail stays as read (`UTIL_DecodeICE`, pristine `util_shared.cpp:993-1022`; the fork's body is removed). The class numbers come from the decrypted files; no stock source holds them.
+4. `items_game.txt` is LOOSE at `content/tf/scripts/items/items_game.txt` (plain, 7.9 MB). Prefabs `"a b"` apply b, then a, then the item (`MergeDefinitionPrefab`, `econ_item_schema.cpp:2940-2968`); the method is `BInitDefinitionPrefabs` (:4894).
+5. Attributes (`attribute_manager.cpp:582-627`): percentage/inverted ×=, additive/additive-percentage/particle +=, killstreak/lookup overwrite, `or` |=; applied in sequence item → providers → owner, no add-then-multiply pass.
+6. Conditions: expiry is a seconds countdown decremented by frametime, server-only (`ConditionGameRulesThink`, `#ifdef GAME_DLL`); storage `m_ConditionData[].m_flExpireTime`; re-add keeps the max; names `URINE` (24), `MAD_MILK` (27), `CRITBOOSTED` (11), `HEALTH_OVERHEALED` (23) — no `SLOWED`/`KRITZKRIEGED`/`JARATED`. `TF_COND_LAST` = 131; `TF_WEAPON_COUNT` = 110; ten `TF_DAMAGE_*` defines; loadout enum `tf_item_constants.h:47-82`.
+7. Movement: `IMovementRules.MaxSpeedScale` returns the new max SPEED, not a factor (`Movement.cs` assigns it). Heavy aiming is a flat 110, sniper aiming 80, bow 160, keyed on `TF_COND_AIMING` (`tf_player_shared.cpp:10910-10935`).
+8. Weapons: scripts are `scripts/tf_weapon_*` with the same `.txt`/`.ctx` fallback (`basecombatweapon_shared.cpp:258`); no per-class `clip_size` (per-class maxima are the class `AmmoMax` block); TF keys in `tf_weapon_parse.cpp:68-230`; `CTFProjectile_Syringe` is `shared/tf/tf_projectile_nail.h`; random crits off still lets a crit-boosted player crit (`HelperNoCrits`).
+9. Core seams 1.8/1.9 assume and Stage 0 did not add: an airborne jump/dash decision in `JumpRequest`/`IMovementRules`; per-weapon damage and a crit flag on the bullet/melee arms; a command seed and weapon/owner index in `WeaponAttackContext`; the engine random stream in shared (today `src/client/managed/Effects/UniformStream.cs`); per-player max ammo (`AmmoType` has one `MaxCarry`). Added by a core lane before 1.8/1.9.
+10. Registration: only `TFMovementRules` (single owner) uses `As=[typeof(IMovementRules)]`; catalogue/behaviour sources and loadout providers use the plain `[SideService(Side.X)]` mark (`docs/plans/tf2/seams.tsv`). `ILoadoutProvider` is a chain of class names with a unique `HookOrder`. No `static readonly` tables in TF2 assemblies (SS0010). Core already declares `mp_waitingforplayers_time` (`MultiplayerConVars.cs`); a duplicate throws. Crit bucket convars `basecombatweapon_shared.cpp:60-62` (1000 / -250 / 300).
+11. Oracle facts read the pristine clone through `ValveSdk` (`src/test/oracle/managed/ValveSdk.cs`, internal to the oracle project): either put them in the oracle project or link the helper into `TF2.Tests`.
