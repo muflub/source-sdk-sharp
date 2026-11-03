@@ -589,7 +589,7 @@ def server_launch(port, mapname):
     return ["-debugapi", "-debugapisocket", "-condebug", "-nomessagebox",
             "-nocrashdialog", "-assertlog", "-insecure", "-novid", "-windowed",
             "-w", "640", "-h", "480", "-maxplayers", "4",
-            "-port", str(port)] + strict_port_flags() + no_hltv_flags() + \
+            "-port", str(port)] + strict_port_flags(port) + no_hltv_flags() + \
         debug_channel_server_flags() + debug_channel_client_flags() + \
         local_game_flags() + ["+net_usesocketsforloopback", "1", "+map", mapname]
 
@@ -610,7 +610,7 @@ def client_launch(port):
     """
     return ["-debugapi", "-debugapisocket", "-nomessagebox", "-nocrashdialog",
             "-insecure", "-novid", "-windowed", "-w", "640", "-h", "480",
-            "-port", str(port)] + strict_port_flags() + no_hltv_flags() + \
+            "-port", str(port)] + strict_port_flags(port) + no_hltv_flags() + \
         debug_channel_client_flags() + local_game_flags()
 
 
@@ -624,7 +624,7 @@ def saveload_launch(port, mapname):
     slot in it. strict_port_flags() here too, for server_launch's reason.
     """
     return (SAVELOAD_LAUNCH + ["-port", str(port)]
-            + strict_port_flags() + ["+map", mapname])
+            + strict_port_flags(port) + ["+map", mapname])
 
 
 #-----------------------------------------------------------------------------
@@ -1207,7 +1207,7 @@ def free_udp_port(low, high, tries=200, exclude=()):
                        % (low, high, tries))
 
 
-def strict_port_flags():
+def strict_port_flags(server_port):
     """-strictportbind, and the two free ports that stop it killing the game.
 
     ONE FUNCTION FOR ALL THREE LAUNCH LINES, because the failure it prevents is
@@ -1221,10 +1221,17 @@ def strict_port_flags():
     (the server, the second client, the save/load one) are on the box at the
     same time, so a shared clientport would collide with itself and, with the
     strict flag on, kill the second one.
+
+    NEITHER MAY BE `server_port` OR THE OTHER: the server's port is only asked
+    for, not held, so a draw can land on it, and the strict flag makes that a
+    dead game (one draw in 600 failed the self-test's line).
     """
+    client_port = free_udp_port(*GATE_PORT_RANGE, exclude=(server_port,))
+    tv_port = free_udp_port(*GATE_PORT_RANGE,
+                            exclude=(server_port, client_port))
     return ["-strictportbind",
-            "+clientport", str(free_udp_port(*GATE_PORT_RANGE)),
-            "+tv_port", str(free_udp_port(*GATE_PORT_RANGE))]
+            "+clientport", str(client_port),
+            "+tv_port", str(tv_port)]
 
 
 def strict_bind_exit(log_path):
@@ -5398,40 +5405,39 @@ def reload_excused(lost_classes, allowance):
     return excused, unexcused
 
 
-def think_survival(first, before, after, elapsed):
-    """What the reload must have kept of the think heap: (required, have,
-    short), from the think counters read twice before the reload (`first`,
-    then `before`, 1.5 s apart), once after (`after`), and the seconds of game
-    from `before` to `after`.
+def think_survival(before, after):
+    """What the reload must have kept of the think heap: (required, have, short),
+    from the think counters read once before the reload and once after.
 
-    A booking due INSIDE that span may have come due and run: a one-shot (an
-    item's respawn) is then gone, which is the schedule working, not the
-    reload losing it. So per class only these must still be booked: every
-    booking due AFTER the span (dueMs.<class>.<n>, plus a tenth of a second
-    either way), and of those due inside it, the recurring ones -- a class
-    booked within a second in BOTH before-reads runs and books again. A
-    booking the reload drops is due after the span or recurring, and is
-    missed. `short` names the classes with fewer than they must have."""
-    span_ms = max(0.0, elapsed) * 1000.0 + 100.0
-    due = {}
-    for k, v in before.items():
-        if k.startswith("dueMs."):
-            due.setdefault(k[len("dueMs."):].rsplit(".", 1)[0], []).append(v)
+    Per key, the scheduler's ledger says it: booked after = booked before +
+    opened - closed. A think that ran and booked nothing further has closed, so
+    an item that came to rest during the reload (its rest poll due every tenth
+    of a second, ending the frame it sleeps, 2 of 9 passes on 2026-11-01) is no
+    shortfall, and a booking the reload dropped has no close and is one: due
+    soon or late, one-shot or recurring, which no due time could say. The ledger
+    is carried with the schedule, so one that did not come through reads short
+    too. `short` names each key with fewer than it must have."""
+    def counts(reads, prefix):
+        return {k[len(prefix):]: v for k, v in reads.items() if k.startswith(prefix)}
+    was, now = counts(before, "booked."), counts(after, "booked.")
+    opened = [counts(before, "opened."), counts(after, "opened.")]
+    closed = [counts(before, "closed."), counts(after, "closed.")]
     required, have, short = 0, 0, []
-    for k, booked in sorted(before.items()):
-        if not k.startswith("booked.") or booked <= 0:
-            continue
-        cls = k[len("booked."):]
-        times = due.get(cls, [])
-        later = min(booked, sum(1 for t in times if t > span_ms))
-        inside = booked - later
-        recurring = min(first.get("due1." + cls, 0), before.get("due1." + cls, 0))
-        need = later + min(inside, max(0, recurring))
-        got = after.get(k, 0)
+    for key in sorted(set(was) | set(now) | set(opened[0]) | set(opened[1]) | set(closed[0]) | set(closed[1])):
+        came = opened[1].get(key, 0) - opened[0].get(key, 0)
+        went = closed[1].get(key, 0) - closed[0].get(key, 0)
+        if came < 0 or went < 0:
+            # Cumulative counts cannot fall. Left in the sum, a lost ledger cancels
+            # what was booked (booked = opened - closed) and excuses everything.
+            short.append("%s: the ledger fell over the reload (opened %d, closed %d)" % (key, came, went))
+            came, went = max(0, came), max(0, went)
+        need = max(0, was.get(key, 0) + came - went)
+        got = now.get(key, 0)
         required += need
-        have += min(got, booked)
+        have += min(got, need)
         if got < need:
-            short.append("%s %d of %d" % (cls, got, need))
+            short.append("%s %d of %d (was %d, opened %d, closed %d)"
+                         % (key, got, need, was.get(key, 0), came, went))
     return required, have, short
 
 
@@ -5524,40 +5530,6 @@ def reload_player_clear_of(door_origin, player_origin):
 def reload_probe_height(g, index):
     e = g.api.entity(index=index)
     return e["origin"][2] if e else None
-
-
-def rope_bookings(th):
-    """A think-counter read's rope bookings: the keys a keyframe_rope /
-    move_rope's unresolved-NextKey retry loop holds while it re-asks every
-    0.5s for ten seconds (Ropes.ResolveAttemptLimit at 2026-10-06). PURE."""
-    return {k: v for k, v in (th or {}).items()
-            if k.startswith("booked.") and "rope" in k}
-
-
-def lost_recurring_bookings(first, before, after):
-    """Which recurring thinkers the after-read lost, as `class n->m` strings.
-
-    PURE, so --self-test drives it. A class with a booking due within a
-    second of BOTH before-reads is a recurring thinker (it runs and books
-    again), so it cannot simply have ended: the after-read must hold it at
-    its before count. It names what the total check cannot see — a run read
-    13 = 13 green while keyframe_rope and move_rope were gone from the heap
-    (2026-10-06 at 10a5e638). It does not GATE in the step: a mover the step
-    drove thinks every frame while it travels and StopThink's at the end of
-    its run, and no observation at the after-read tells that from a reload
-    that dropped a still-live booking. The checks that NAME an entity gate
-    a real loss."""
-    lost = []
-    for k, v in sorted((before or {}).items()):
-        if not k.startswith("booked.") or v <= 0:
-            continue
-        cls = k[len("booked."):]
-        if min((first or {}).get("due1." + cls, 0),
-               (before or {}).get("due1." + cls, 0)) <= 0:
-            continue
-        if (after or {}).get(k, 0) < v:
-            lost.append("%s %d->%d" % (cls, v, (after or {}).get(k, 0)))
-    return lost
 
 
 def reload_rebuild_verdict(tally):
@@ -6033,36 +6005,6 @@ and a door's are MovingBrush's.
     player = g.api.player(g.scen["playerClass"])
     before_fields = g.api.fields(player["index"]) if player else {}
 
-    # THE ROPE'S RETRIES SETTLE BEFORE THE READS. A keyframe_rope /
-    # move_rope whose NextKey has not spawned yet re-asks every 0.5s for ten
-    # seconds (Ropes.ResolveAttemptLimit at 2026-10-06), then gives up and
-    # StopThink's. If the reload lands inside that window the booking was
-    # live in the before-reads and is gone at the after-read, which the
-    # check below reads as a lost booking: measured, the rope's six bookings
-    # (keyframe_rope 5, move_rope 1) were in both before-reads and gone
-    # after, and `--steps hot-reload` read red or green on where the reload
-    # happened to fall (2026-10-06, run at 10a5e638). Wait by game time for
-    # the rope's bookings to drain, so the reads hold only bookings that are
-    # supposed to still be booked after the reload. Minutes into the full
-    # gate this is a no-op: the ropes settled long before.
-    rope_wait_start = g.api.status().get("time", 0.0)
-    rope_still_booked = {}
-    for _ in range(60):
-        rope_still_booked = rope_bookings(g.api.counters("think"))
-        if not rope_still_booked:
-            break
-        g.ticks(0.5)
-    if rope_still_booked:
-        # The retry loop outlasted even the wait (a rope that never resolves
-        # and keeps re-booking): say so, and let the check below judge its
-        # disappearance like any other booking's.
-        g.say("    note  rope bookings still live after %.1f s of game: %s"
-              % (g.api.status().get("time", 0.0) - rope_wait_start,
-                 rope_still_booked))
-    else:
-        g.mark("the rope's retry bookings drained after %.1f s of game"
-               % (g.api.status().get("time", 0.0) - rope_wait_start))
-
     # THE THINK HEAP, COUNTED AS THE MOST COMMON OF NINE READS OVER HALF A
     # SECOND OF GAME (think_count), before and after. One read can land in a frame where a per-tick thinker has
     # run and not yet re-booked: sampled every 35 ticks across a reload, the
@@ -6071,25 +6013,11 @@ and a door's are MovingBrush's.
     # reload really lost (the 8 -> 0 this check exists for) is missing from
     # every read.
     before_status = g.api.status()
-    # And by class, with what comes due soon: a booking due before the
-    # after-read runs and ends -- an item's respawn think fell inside the
-    # reload in 3 of 5 rounds and read as a lost booking (/counters?group=think
-    # named it: item_ammo_pistol, 2026-10-05).
-    #
-    # AND A SECOND READ, a second and a half of game later, keeping per class
-    # the fewer: what came due inside that gap and was a one-shot (the
-    # pistol ammo's respawn, due within a second in 2 of 3 gate-prefix
-    # rounds) is gone from it, and a recurring thinker (the spotlights, the
-    # player manager) is in both and must still be there after the reload.
-    first_by_think = g.api.counters("think") or {}
-    g.ticks(1.5)
-    before_by_think = g.api.counters("think") or {}
+    # And by class, with the ledger think_survival reads it against. The last
+    # read before the reload, so the census and the counts stand on one heap.
     before_think = think_count(g)
+    before_by_think = g.api.counters("think") or {}
     before_time = g.api.status().get("time", 0.0)
-    for key in list(before_by_think):
-        if key.startswith("booked."):
-            before_by_think[key] = min(before_by_think[key], first_by_think.get(key, 0))
-    kept = sum(v for k, v in before_by_think.items() if k.startswith("booked."))
     before_touch = before_status.get("touch", {}).get("pairs", 0)
     before_conns = before_status.get("io", {}).get("connections", 0)
 
@@ -6242,65 +6170,37 @@ and a door's are MovingBrush's.
     # seconds of game for its count to reach the one before the reload.
     start_tick = g.api.status().get("ticks", 0)
 
-    # What must survive is per booking: think_survival keeps every booking due
-    # AFTER the reload's span and the recurring ones inside it, and lets a
-    # one-shot that came due inside the span go (its self-test pins both
-    # halves). The heap refills over the reloaded module's first frames, so
-    # this waits up to two seconds of game for the classes to come back.
+    # What must survive is per key, by the scheduler's ledger: think_survival
+    # (its self-test pins both halves). The heap refills over the reloaded
+    # module's first frames, so this waits up to two seconds of game for it.
     def survival():
         counters = g.api.counters("think") or {}
-        elapsed = g.api.status().get("time", before_time) - before_time
-        return counters, think_survival(first_by_think, before_by_think, counters, elapsed)
+        return counters, think_survival(before_by_think, counters)
 
     after_by_think, (must_survive, _kept, short) = survival()
     after_think = think_count(g)
-    while after_think < must_survive and g.api.status().get("ticks", 0) - start_tick < 133:
+    while short and g.api.status().get("ticks", 0) - start_tick < 133:
         after_by_think, (must_survive, _kept, short) = survival()
         after_think = think_count(g)
-    missing = sorted(k[len("booked."):] for k, v in before_by_think.items()
-                     if k.startswith("booked.") and after_by_think.get(k, 0) < v)
-
-    # PER-CLASS DIAGNOSTIC. The total below can be satisfied by OTHER
-    # bookings refilling the heap while one class is lost: a run measured
-    # the rope's two classes gone from the after-read (missing:
-    # ['keyframe_rope', 'move_rope']) with the verdict reading 13 = 13 and
-    # staying green (2026-10-06 at 10a5e638). `due1.<class>` is booked by
-    # the module: a class due within a second of BOTH before-reads is a
-    # recurring thinker, so its disappearance is not "a one-shot that ran
-    # in between" and gets named. It does not GATE: a mover the step drove
-    # (the func_movelinear probe thinks every frame while it travels, then
-    # StopThink's at the end of its run) is recurring at the reads and
-    # legitimately gone at the after-read, and no observation at that point
-    # can tell that from a reload that dropped the booking. The checks that
-    # NAME an entity — the mover's arrival, the carry probes — are the
-    # ones that gate a real loss.
-    lost_recurring = []
-    for k, v in sorted(before_by_think.items()):
-        if not k.startswith("booked.") or v <= 0:
-            continue
-        cls = k[len("booked."):]
-        if min(first_by_think.get("due1." + cls, 0),
-               before_by_think.get("due1." + cls, 0)) <= 0:
-            continue
-        if after_by_think.get(k, 0) < v:
-            lost_recurring.append("%s %d->%d" % (cls, v, after_by_think.get(k, 0)))
-    if lost_recurring:
-        g.say("    diag  recurring thinkers absent after the reload (the "
-              "total can hide this): %s" % ", ".join(lost_recurring))
 
     after_status = g.api.status()
     after_touch = after_status.get("touch", {}).get("pairs", 0)
     after_conns = after_status.get("io", {}).get("connections", 0)
 
-    # GATED ON THE TOTAL, as it always was: a mover the step drove thinks
-    # every frame while it travels and legitimately stops (see the per-class
-    # diagnostic above), so a class short is named, not failed on alone.
-    g.check(after_think >= must_survive,
-            "the think schedule survived: %d booking(s), was %d, of which %d had "
-            "to survive (the rest came due inside the reload and ran once); "
-            "classes short: %s; fewer now: %s. This read 8 -> 0 with every other "
-            "check on this step green"
-            % (after_think, before_think, must_survive, short or "none", missing or "none"))
+    # PER KEY, because a total can be made up by other bookings refilling the
+    # heap while one class is lost (keyframe_rope and move_rope gone with 13 = 13
+    # reading green, 2026-10-06 at 10a5e638). A mover the step drove stops by
+    # its own think, and the ledger closes that.
+    def ledger_moved(prefix):
+        return {k[len(prefix):]: v - before_by_think.get(k, 0) for k, v in sorted(after_by_think.items())
+                if k.startswith(prefix) and v != before_by_think.get(k, 0)}
+
+    g.check(before_think > 0 and must_survive > 0 and not short,
+            "the think schedule survived: %d booking(s), was %d, of which %d had to survive; "
+            "opened over the reload %s, closed %s; short: %s. This read 8 -> 0 with every "
+            "other check on this step green"
+            % (after_think, before_think, must_survive, ledger_moved("opened."), ledger_moved("closed."),
+               short or "none"))
 
     g.check(after_conns == before_conns,
             "every I/O connection survived, the map's %d and this step's one: "
@@ -10681,28 +10581,46 @@ def self_test():
     ok((96.0 - 2.0) - probe_door_lip(96.0, 128) == 128.0, "and any brush depth travels exactly the distance asked")
 
     #-- think_survival: the hot-reload step's think-heap verdict --------------
-    # The race this exists for (1 in 5-10 runs, 2026-10-11): item_ammo_pistol's
-    # one-shot 20 s respawn came due inside the reload's span, ran, and was
-    # gone -- read as a booking the reload lost.
-    first = {"booked.item_ammo_pistol": 1, "dueMs.item_ammo_pistol.0": 2100,
-             "booked.point_spotlight": 2, "due1.point_spotlight": 2,
-             "dueMs.point_spotlight.0": 15, "dueMs.point_spotlight.1": 15}
-    before = {"booked.item_ammo_pistol": 1, "dueMs.item_ammo_pistol.0": 600, "due1.item_ammo_pistol": 1,
-              "booked.point_spotlight": 2, "due1.point_spotlight": 2,
-              "dueMs.point_spotlight.0": 15, "dueMs.point_spotlight.1": 15,
-              "booked.item_healthkit": 1, "dueMs.item_healthkit.0": 20000}
-    after = {"booked.point_spotlight": 2, "booked.item_healthkit": 1}
-    req, have, short = think_survival(first, before, after, 3.0)
+    # The race this exists for (2 of 9 passes, 2026-11-01): an item's 0.1 s rest
+    # poll is recurring by any due time, and ended the frame it slept.
+    before = {"booked.item_ammo_smg1_grenade:ItemRest": 1, "opened.item_ammo_smg1_grenade:ItemRest": 8,
+              "closed.item_ammo_smg1_grenade:ItemRest": 7,
+              "booked.point_spotlight": 2, "opened.point_spotlight": 2,
+              "booked.item_healthkit": 1, "opened.item_healthkit": 3, "closed.item_healthkit": 2}
+    settled = {"booked.point_spotlight": 2, "opened.point_spotlight": 2,
+               "booked.item_healthkit": 1, "opened.item_healthkit": 3, "closed.item_healthkit": 2,
+               "opened.item_ammo_smg1_grenade:ItemRest": 8, "closed.item_ammo_smg1_grenade:ItemRest": 8}
+    req, have, short = think_survival(before, settled)
     ok(req == 3 and have == 3 and not short,
-       "a one-shot due inside the reload's span that ran is not counted lost (%s %s %s)" % (req, have, short))
-    req, have, short = think_survival(first, before, {"booked.point_spotlight": 2}, 3.0)
-    ok(have < req and short == ["item_healthkit 0 of 1"],
-       "a booking due after the span that the reload dropped is caught (%s)" % short)
-    req, have, short = think_survival(first, before, {"booked.item_healthkit": 1}, 3.0)
-    ok(have < req and short == ["point_spotlight 0 of 2"],
+       "a rest think that ran and closed itself over the reload is not lost (%s %s %s)" % (req, have, short))
+    gone = {k: v for k, v in settled.items() if k != "closed.item_ammo_smg1_grenade:ItemRest"}
+    gone["closed.item_ammo_smg1_grenade:ItemRest"] = 7
+    req, have, short = think_survival(before, gone)
+    ok(short == ["item_ammo_smg1_grenade:ItemRest 0 of 1 (was 1, opened 0, closed 0)"],
+       "the same think gone with no close is caught, due soon or not (%s)" % short)
+    req, have, short = think_survival(before, {k: v for k, v in settled.items() if k != "booked.point_spotlight"})
+    ok(have < req and short == ["point_spotlight 0 of 2 (was 2, opened 0, closed 0)"],
        "a recurring thinker the reload dropped is caught (%s)" % short)
-    req, have, short = think_survival(first, before, {}, 3.0)
-    ok(req == 3 and have == 0, "the 8 -> 0 shape: everything dropped is caught (%s of %s)" % (have, req))
+    req, have, short = think_survival(before, {k: v for k, v in settled.items() if k != "booked.item_healthkit"})
+    ok(have < req and short == ["item_healthkit 0 of 1 (was 1, opened 0, closed 0)"],
+       "a one-shot the reload dropped is caught (%s)" % short)
+    req, have, short = think_survival(before, dict(settled, **{"booked.point_spotlight": 3,
+                                                               "opened.point_spotlight": 3,
+                                                               "closed.point_spotlight": 1,
+                                                               "booked.item_healthkit": 0}))
+    ok(short == ["item_healthkit 0 of 1 (was 1, opened 0, closed 0)"],
+       "another class's bookings do not make up a lost one (%s)" % short)
+    req, have, short = think_survival(before, dict(settled, **{"booked.item_healthkit": 1,
+                                                               "opened.item_healthkit": 4,
+                                                               "closed.item_healthkit": 3,
+                                                               "booked.point_spotlight": 1}))
+    ok(short == ["point_spotlight 1 of 2 (was 2, opened 0, closed 0)"],
+       "a booking opened and closed in the span excuses no other (%s)" % short)
+    req, have, short = think_survival(before, {k: v for k, v in settled.items() if not k.startswith(("opened.", "closed."))})
+    ok("point_spotlight: the ledger fell over the reload (opened -2, closed 0)" in short,
+       "a ledger that did not come through the reload reads short, its bookings all standing (%s)" % short)
+    req, have, short = think_survival(before, {})
+    ok(req > 0 and have == 0, "the 8 -> 0 shape: everything dropped is caught (%s of %s)" % (have, req))
     #-- overlay_pushes (render-plan's debug overlays) --------------------------
     ok(overlay_pushes(["render.SetMainView\torigin=0,0,0", "ctx.PushRenderTargetAndViewport\trt=- depth=-",
                        "ctx.PopRenderTargetAndViewport"]) == 1,
@@ -10733,28 +10651,6 @@ def self_test():
     ok(m and m.groups() == ("2", "7", "1", "300", "40", "12", "28"), "the beam tally parses, meshes last")
     ok(not BEAMS_RE.search("[SourceSharp] cs_cl_beams: 2 active"), "a truncated beam tally does not parse")
 
-    #-- rope_bookings / lost_recurring_bookings ------------------------------
-    th = {"total": 7, "booked.keyframe_rope": 2, "booked.move_rope": 1,
-          "booked.point_spotlight": 4, "due1.keyframe_rope": 2,
-          "due1.move_rope": 1, "due1.point_spotlight": 4}
-    ok(rope_bookings(th) == {"booked.keyframe_rope": 2, "booked.move_rope": 1},
-       "rope_bookings picks the rope's bookings out of a think read")
-    ok(rope_bookings(None) == {}, "no counters answer no rope bookings")
-    ok(lost_recurring_bookings(th, th, th) == [],
-       "an after-read holding every recurring class reads nothing lost")
-    gone = {k: v for k, v in th.items() if "rope" not in k}
-    ok(lost_recurring_bookings(th, th, gone)
-       == ["keyframe_rope 2->0", "move_rope 1->0"],
-       "a recurring class the after-read lost is named with its counts")
-    ok(lost_recurring_bookings(th, th, {**th, "booked.keyframe_rope": 1})
-       == ["keyframe_rope 2->1"], "a recurring class one booking short is named")
-    # A class with nothing due within a second of BOTH reads may have run its
-    # one-shot in between: the total's subtraction governs it, not this.
-    first_wo = {k: v for k, v in th.items() if k != "due1.move_rope"}
-    ok(lost_recurring_bookings(first_wo, th, gone) == ["keyframe_rope 2->0"],
-       "a class not due-within-1s in the FIRST read is a one-shot, not named")
-    ok(lost_recurring_bookings(None, None, None) == [],
-       "no counter reads at all name nothing rather than dying")
     #-- per_frame ------------------------------------------------------------
     ok(per_frame(300, 2) == 150.0, "per_frame divides")
     ok(per_frame(300, 0) == 0.0, "per_frame of zero frames is zero, not a fault")
@@ -11843,6 +11739,20 @@ def self_test():
        "with itself, which the strict flag turns into a dead game")
     ok(arg_after(line, "+clientport") != arg_after(line, "-port"),
        "and neither is the server port this same line asked for")
+
+    import random as _random
+    free = free_udp_port(*GATE_PORT_RANGE, exclude=(27321,))
+    real_randrange = _random.randrange
+    draws = iter([27321, free, free])
+    _random.randrange = lambda low, high: next(draws, None) or real_randrange(low, high)
+    try:
+        forced = strict_port_flags(27321)
+    finally:
+        _random.randrange = real_randrange
+    ok(arg_after(forced, "+clientport") == str(free),
+       "a draw that lands on the server's port is drawn again (%s)" % forced)
+    ok(arg_after(forced, "+tv_port") not in ("27321", str(free)),
+       "and one that lands on the client's port is too (%s)" % forced)
     ok(arg_after(line, "-maxplayers") == "4",
        "and still has a slot for the second client")
     ok(arg_after(line, "+net_usesocketsforloopback") == "1",

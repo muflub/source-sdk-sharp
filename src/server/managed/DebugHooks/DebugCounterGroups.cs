@@ -38,12 +38,16 @@ public sealed class DebugCounterGroups(
     /// (1, 2, 5, 10, 30): a booking that comes due between two reads runs and
     /// ends, which is the schedule working, so a reader comparing two counts
     /// taken T seconds apart subtracts what was due within T.
+    /// <c>opened.K</c> and <c>closed.K</c> are the scheduler's ledger: bookings
+    /// of K opened and closed so far, read in the same breath as the bookings,
+    /// so across two reads booked after = booked before + opened - closed and
+    /// a shortfall is a booking lost (<see cref="ThinkScheduler.ClassOf"/>).
     /// </remarks>
     public static IReadOnlyList<DebugCounter> Thinks(IEnumerable<ScheduledThink> bookings, Func<EntityHandle, string> className,
-                                                     float now)
+                                                     float now, IReadOnlyDictionary<string, long>? opened = null,
+                                                     IReadOnlyDictionary<string, long>? closed = null)
     {
         var byKey = new SortedDictionary<string, long>(StringComparer.Ordinal);
-        var due1ByKey = new SortedDictionary<string, long>(StringComparer.Ordinal);
         var dueMsByKey = new SortedDictionary<string, List<long>>(StringComparer.Ordinal);
         int[] windows = [1, 2, 5, 10, 30];
         var due = new long[windows.Length];
@@ -55,8 +59,6 @@ public sealed class DebugCounterGroups(
             if (!dueMsByKey.TryGetValue(key, out var times))
                 dueMsByKey[key] = times = [];
             times.Add(Math.Max(0L, (long)MathF.Round((booking.Time - now) * 1000f)));
-            if (booking.Time - now <= windows[0])
-                due1ByKey[key] = due1ByKey.GetValueOrDefault(key) + 1;
             total++;
             for (int i = 0; i < windows.Length; i++)
             {
@@ -69,20 +71,20 @@ public sealed class DebugCounterGroups(
         for (int i = 0; i < windows.Length; i++)
             counters.Add(new DebugCounter($"dueWithin.{windows[i]}", due[i]));
         counters.AddRange(byKey.Select(kv => new DebugCounter("booked." + kv.Key, kv.Value)));
-        // A class with a booking due within 1s sits in two reads a second
-        // apart, so a reader can call its disappearance lost rather than
-        // subtract it as a one-shot that ran in between.
-        counters.AddRange(due1ByKey.Select(kv => new DebugCounter("due1." + kv.Key, kv.Value)));
         // And when each booking comes due, so a reader can tell a booking due
         // inside the span between two reads (it may have run and gone) from one
         // due after it (it must still be there): the hot-reload step's
-        // think_survival.
+        // reload_vanish_allowance.
         foreach (var (key, times) in dueMsByKey)
         {
             times.Sort();
             for (int i = 0; i < times.Count; i++)
                 counters.Add(new DebugCounter($"dueMs.{key}.{i}", times[i]));
         }
+        foreach (var (key, n) in opened ?? new Dictionary<string, long>())
+            counters.Add(new DebugCounter("opened." + key, n));
+        foreach (var (key, n) in closed ?? new Dictionary<string, long>())
+            counters.Add(new DebugCounter("closed." + key, n));
         return counters;
     }
 

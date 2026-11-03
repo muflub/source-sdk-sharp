@@ -690,4 +690,213 @@ public class ThinkSchedulerTests
             OnRun?.Invoke();
         }
     }
+
+    //-------------------------------------------------------------------------
+    // The ledger: booked after = booked before + opened - closed
+    //-------------------------------------------------------------------------
+
+    private static ThinkScheduler Ledgered() => new() { ClassOf = _ => "item" };
+
+    private static long Opened(ThinkScheduler s, string key = "item") => s.Opened.GetValueOrDefault(key);
+
+    private static long Closed(ThinkScheduler s, string key = "item") => s.Closed.GetValueOrDefault(key);
+
+    /// <summary>Takes what is due and runs each through <paramref name="think"/>, as the directory's pass does.</summary>
+    private static void Run(ThinkScheduler s, float now, Action<ScheduledThink> think)
+    {
+        foreach (ScheduledThink due in Due(s, now))
+        {
+            s.BeginRun(due);
+            think(due);
+            s.EndRun(due);
+        }
+    }
+
+    [Fact]
+    public void ABookingOpensOnceHoweverOftenItIsMoved()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+        s.Schedule(H(4), null, 20f);
+
+        Assert.Equal(1, Opened(s));
+        Assert.Equal(0, Closed(s));
+    }
+
+    [Fact]
+    public void AThinkThatBooksItselfAgainStaysOneBooking()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+
+        Run(s, 10f, due => s.Schedule(due.Entity, due.Context, 10.1f));
+
+        Assert.Equal(1, Opened(s));
+        Assert.Equal(0, Closed(s));
+        Assert.Equal(1, s.Pending);
+    }
+
+    /// <summary>The flake's own shape: a rest poll that finds the item asleep and books nothing further.</summary>
+    [Fact]
+    public void AThinkThatBooksNothingFurtherCloses()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), "ItemRest", 10f);
+
+        Run(s, 10f, _ => { });
+
+        Assert.Equal(1, Closed(s, "item:ItemRest"));
+        Assert.Equal(0, s.Pending);
+    }
+
+    [Fact]
+    public void AThinkThatStopsItselfClosesOnce()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+
+        Run(s, 10f, due =>
+        {
+            s.Schedule(due.Entity, due.Context, 11f);
+            s.Cancel(due.Entity, due.Context);
+        });
+
+        Assert.Equal(1, Closed(s));
+    }
+
+    [Fact]
+    public void ACancelClosesALiveBookingAndNothingElse()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+
+        Assert.True(s.Cancel(H(4), null));
+        Assert.False(s.Cancel(H(4), null));
+
+        Assert.Equal(1, Closed(s));
+    }
+
+    [Fact]
+    public void ANegativeTimeClosesAsACancelDoes()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+
+        s.Schedule(H(4), null, -1f);
+
+        Assert.Equal(1, Closed(s));
+    }
+
+    [Fact]
+    public void CancelAllClosesEveryContextOfTheEntity()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+        s.Schedule(H(4), "spin", 10f);
+        s.Schedule(H(4), "fade", 10f);
+
+        s.CancelAll(H(4));
+
+        Assert.Equal(1, Closed(s));
+        Assert.Equal(1, Closed(s, "item:spin"));
+        Assert.Equal(1, Closed(s, "item:fade"));
+    }
+
+    /// <summary>An entity removing itself in its own think: that booking closes once, the others once each.</summary>
+    [Fact]
+    public void CancelAllInsideAThinkClosesTheRunningBookingOnce()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+        s.Schedule(H(4), "fade", 20f);
+
+        Run(s, 10f, due => s.CancelAll(due.Entity));
+
+        Assert.Equal(1, Closed(s));
+        Assert.Equal(1, Closed(s, "item:fade"));
+    }
+
+    /// <summary>
+    /// One entity's think books another whose think was taken in the same pass:
+    /// the taken one still runs and ends, and the new one stands. Two opened,
+    /// one closed, one booked: the sum holds.
+    /// </summary>
+    [Fact]
+    public void ABookingMadeOverATakenThinkIsABookingOfItsOwn()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+        s.Schedule(H(5), null, 10f);
+
+        Run(s, 10f, due =>
+        {
+            if (due.Entity == H(4))
+                s.Schedule(H(5), null, 12f);
+        });
+
+        Assert.Equal(1, s.Pending);
+        Assert.Equal(3, Opened(s));
+        Assert.Equal(2, Closed(s));
+    }
+
+    [Fact]
+    public void ARestoredBookingOpensNothing()
+    {
+        var s = Ledgered();
+
+        s.Restore(H(4), "spin", 10f);
+
+        Assert.Equal(0, Opened(s, "item:spin"));
+        Assert.Equal(10f, s.NextThinkTime(H(4), "spin"));
+    }
+
+    [Fact]
+    public void AnyMixOfBookingsKeepsTheSum()
+    {
+        var s = Ledgered();
+        var rng = new Random(1234);
+        float now = 0f;
+
+        for (int i = 0; i < 2000; i++)
+        {
+            EntityHandle e = H((uint)rng.Next(1, 6));
+            string? context = rng.Next(2) == 0 ? null : "spin";
+            switch (rng.Next(5))
+            {
+                case 0: s.Schedule(e, context, now + rng.Next(1, 4)); break;
+                case 1: s.Cancel(e, context); break;
+                case 2: s.CancelAll(e); break;
+                case 3: s.Schedule(e, context, -1f); break;
+                default:
+                    now += 1f;
+                    Run(s, now, due =>
+                    {
+                        if (rng.Next(3) == 0)
+                            s.Schedule(due.Entity, due.Context, now + 1f);
+                        else if (rng.Next(3) == 0)
+                            s.CancelAll(due.Entity);
+                        else if (rng.Next(3) == 0)
+                            s.Schedule(H((uint)rng.Next(1, 6)), due.Context, now + 2f);
+                    });
+                    break;
+            }
+        }
+
+        long opened = s.Opened.Values.Sum();
+        Assert.True(opened > 100, $"the mix opened only {opened}");
+        Assert.Equal(s.Pending, opened - s.Closed.Values.Sum());
+    }
+
+    [Fact]
+    public void ALevelChangeEmptiesTheLedger()
+    {
+        var s = Ledgered();
+        s.Schedule(H(4), null, 10f);
+        s.Cancel(H(4), null);
+
+        s.Clear();
+
+        Assert.Empty(s.Opened);
+        Assert.Empty(s.Closed);
+    }
 }

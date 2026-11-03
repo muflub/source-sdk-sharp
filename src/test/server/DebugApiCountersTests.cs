@@ -119,31 +119,11 @@ public class DebugApiCountersTests
     }
 
     [Fact]
-    public void The_think_group_names_which_classes_have_a_booking_due_within_a_second()
-    {
-        // The live gate's hot-reload check compares two reads of the heap: a
-        // class booked within 1s is in both reads, so it is a recurring
-        // thinker that must survive the reload. A class whose bookings are
-        // all further out may have run its one-shot in between, and is
-        // subtracted from the expected total instead of named. Without the
-        // per-class due signal the check cannot tell the two apart, and a
-        // lost recurring booking hides behind other classes refilling the
-        // total (measured live-gate --steps hot-reload, 2026-10-06).
-        var e = new SourceSharp.Abi.EntityHandle(0x10001u);
-        var counters = DebugCounterGroups.Thinks(
-            [new(e, null, 10.5f, 1), new(e, null, 10.9f, 2), new(e, "a", 12f, 3)],
-            _ => "keyframe_rope", now: 10f);
-        Assert.Equal(2, counters.Single(c => c.Name == "due1.keyframe_rope").Value);
-        Assert.DoesNotContain(counters, c => c.Name == "due1.keyframe_rope:a");
-    }
-    [Fact]
     public void The_think_group_says_when_each_booking_of_a_class_comes_due()
     {
-        // The hot-reload check needs per booking, not per window, how far out
-        // it was: a booking due inside the reload's span may have run and
-        // gone (item_ammo_pistol's one-shot respawn, which read as lost 1 in
-        // 5-10 runs), and every booking due after the span must still be
-        // there. Milliseconds from now, ascending per class, never negative.
+        // The hot-reload step's census excuses an entity whose own removal
+        // think came due inside the reload, so it needs per booking how far out
+        // it was. Milliseconds from now, ascending per class, never negative.
         var e = new SourceSharp.Abi.EntityHandle(0x10001u);
         var counters = DebugCounterGroups.Thinks(
             [new(e, null, 30f, 1), new(e, null, 10.25f, 2), new(e, "a", 9f, 3)],
@@ -151,5 +131,18 @@ public class DebugApiCountersTests
         Assert.Equal(250, counters.Single(c => c.Name == "dueMs.item_ammo_pistol.0").Value);
         Assert.Equal(20000, counters.Single(c => c.Name == "dueMs.item_ammo_pistol.1").Value);
         Assert.Equal(0, counters.Single(c => c.Name == "dueMs.item_ammo_pistol:a.0").Value);
+    }
+
+    [Fact]
+    public void The_think_group_carries_the_ledger_per_key_beside_the_bookings()
+    {
+        var e = new SourceSharp.Abi.EntityHandle(0x10001u);
+        var counters = DebugCounterGroups.Thinks(
+            [new(e, "ItemRest", 11f, 1)], _ => "item_ammo_pistol", now: 10f,
+            opened: new Dictionary<string, long> { ["item_ammo_pistol:ItemRest"] = 3 },
+            closed: new Dictionary<string, long> { ["item_ammo_pistol:ItemRest"] = 2 });
+        Assert.Equal(1, counters.Single(c => c.Name == "booked.item_ammo_pistol:ItemRest").Value);
+        Assert.Equal(3, counters.Single(c => c.Name == "opened.item_ammo_pistol:ItemRest").Value);
+        Assert.Equal(2, counters.Single(c => c.Name == "closed.item_ammo_pistol:ItemRest").Value);
     }
 }

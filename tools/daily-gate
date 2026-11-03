@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""tools/daily-gate -- the once-a-day live gate, and the bisect when it fails.
+"""tools/daily-gate -- the once-a-day live gate, and its report when it fails.
 
     tools/daily-gate [--ref main]    run it: main's tip, in its own worktree
     tools/daily-gate --status        exit 0 only if the latest report is green
     tools/daily-gate --bisect GOOD BAD --steps a,b [--worktree DIR] [--reset-to REF]
-                                     bisect GOOD..BAD on those steps alone
+                                     bisect GOOD..BAD on those steps alone, by hand:
+                                     a night's run never searches (user ruling 2026-11-02)
     tools/daily-gate --self-test
 
 THE RULING (user, 2026-10-04): `make live-gate` runs once a day, on a
@@ -34,13 +35,14 @@ ONE RUN:
      its missing passes had failed is FLAKY (counts and known rate
      reported), not bisected; "1 of 1" is not a flake. A per-step table
      (night, confirm, verdict) goes in the report. With no green sha on
-     record the verdict is FAIL-NO-BASELINE: nothing to bisect from. A
-     confirmed step
-     is BISECTED from the last green sha to main (`git bisect run`, in the
-     worktree, detached): each commit gets `make setup`, `make debug` and the
-     steps over enough passes to beat their flake rate; setup or build
-     failures are skips (125). The first bad commit, the counts and the
-     bisect log go in the report and in <date>-bisect.txt.
+     record the verdict is FAIL-NO-BASELINE. A confirmed step is REPORTED with
+     the range it went red in (last green sha..main, and how many commits):
+     the run does not search it (user ruling 2026-11-02: a bisect at 45-65
+     minutes a commit ran into the service's 6 h limit and named nothing).
+     `--bisect GOOD BAD` is that search, by hand: each commit gets
+     `make setup`, `make debug` and the steps over enough passes to beat their
+     flake rate; setup or build failures are skips (125). Its first bad
+     commit, counts and log go in <date>-bisect.txt.
   Always: `git bisect reset`, the worktree left detached at main, and the
   fork checked for writes (`git status --porcelain` must stay empty).
 
@@ -203,15 +205,15 @@ def unrun_steps(doc):
 def next_action(confirmed, flaky, last_green, is_ancestor, never_ran=()):
     """What follows the confirm: FLAKY (nothing confirmed), NEVER-RAN
     (nothing confirmed, but a step never gave a verdict at all: not green, and
-    nothing to bisect on), NO-BASELINE (no green run on record), NOT-ANCESTOR
-    (the green sha is off main's history), or BISECT."""
+    nothing to report a range for), NO-BASELINE (no green run on record),
+    NOT-ANCESTOR (the green sha is off main's history), or REPORT-RANGE."""
     if not confirmed:
         return "NEVER-RAN" if never_ran else "FLAKY"
     if not last_green:
         return "NO-BASELINE"
     if not is_ancestor:
         return "NOT-ANCESTOR"
-    return "BISECT"
+    return "REPORT-RANGE"
 
 
 def verdict_word(action):
@@ -658,7 +660,7 @@ def run(args):
                 for step, msg, times in dedupe_failures(doc.get("failures")):
                     report.say("  failure %-14s %s%s" % (step, msg, "" if times == 1 else "  (x%d)" % times))
                 if failing:
-                    verdict = triage(report, wt, fork, failing, last_green, sha, state, env, log, stamp,
+                    verdict = triage(report, wt, failing, last_green, sha, state, env, log, stamp,
                                      night=doc, unrun=unrun)
         if not fork_clean(report, fork):
             rc, verdict = 1, "FAIL-FORK-WRITTEN"
@@ -696,9 +698,16 @@ def confirm_runner(report, wt, env, log, base):
     return run_one
 
 
-def triage(report, wt, fork, failing, last_green, sha, state, env, log, stamp, night=None, unrun=()):
-    """Confirm the failing steps (and those the night run never reached);
-    bisect the confirmed ones. Returns the verdict word."""
+def red_range(last_green, sha, commits):
+    """The report's line for a confirmed red step's range, and how to search it by hand."""
+    return ("red since %s, in %s..%s (%s commits); not searched: `tools/daily-gate --bisect %s %s --steps <id>` by hand"
+            % (last_green[:12], last_green[:12], sha[:12], commits, last_green[:12], sha[:12]))
+
+
+def triage(report, wt, failing, last_green, sha, state, env, log, stamp, night=None, unrun=()):
+    """Confirm the failing steps (and those the night run never reached),
+    and report the confirmed ones with the range they went red in. Returns the
+    verdict word."""
     rates, warn = read_rates(os.path.join(wt, "docs", "plans", "gate_flakes_findings.md"), failing)
     if warn:
         report.say("WARNING " + warn)
@@ -742,14 +751,14 @@ def triage(report, wt, fork, failing, last_green, sha, state, env, log, stamp, n
         return verdict_word(action)
     report.say("CONFIRMED %s" % ", ".join(confirmed))
     if action == "NO-BASELINE":
-        report.say("no baseline: no green run is on record, so there is nothing to bisect from; "
+        report.say("no baseline: no green run is on record, so there is no range to report; "
                    "the red steps are the CONFIRMED rows above")
         return verdict_word(action)
     if action == "NOT-ANCESTOR":
-        report.say("the last green %s is not an ancestor of %s: cannot bisect" % (last_green[:12], sha[:12]))
+        report.say("the last green %s is not an ancestor of %s: no range to report" % (last_green[:12], sha[:12]))
         return verdict_word(action)
-    _path, first = bisect(report, wt, fork, last_green, sha, confirmed, rates, state, env, log, stamp)
-    return "FAIL-BISECTED" if first else "FAIL"
+    report.say(red_range(last_green, sha, git(wt, "rev-list", "--count", "%s..%s" % (last_green, sha)).strip()))
+    return verdict_word(action)
 
 
 def status(args):
@@ -886,9 +895,14 @@ def self_test():
     m = confirm(run_one, ["door"])
     ok(m["verdicts"]["door"] == ["fail"] * CONFIRM_PASSES, "no step is credited more passes than asked for")
     # what the confirm leads to
-    ok(next_action(["door"], {}, "abc", True) == "BISECT", "3 of 3 is FAIL and is bisected when a green sha exists")
+    ok(next_action(["door"], {}, "abc", True) == "REPORT-RANGE", "3 of 3 is FAIL and is reported with its range when a green sha exists")
+    ok(verdict_word("REPORT-RANGE") == "FAIL", "a confirmed red with a range is FAIL")
+    ok("--bisect abcdef012345 def012345678" in red_range("abcdef0123456789", "def0123456789a", "7") and "7 commits" in red_range("abcdef0123456789", "def0123456789a", "7"),
+       "the report names the range, its size and the search to run by hand")
+    import inspect
+    ok("bisect(" not in inspect.getsource(triage).replace("--bisect", "").replace("red_range", ""), "a night's triage never starts a bisect (user ruling 2026-11-02)")
     ok(next_action(["door"], {}, "", True) == "NO-BASELINE", "with no green sha: FAIL, no baseline")
-    ok(next_action(["door"], {}, "abc", False) == "NOT-ANCESTOR", "a green sha off main's history: FAIL, no bisect")
+    ok(next_action(["door"], {}, "abc", False) == "NOT-ANCESTOR", "a green sha off main's history: FAIL, no range")
     ok(next_action([], {"door": (1, 3)}, "abc", True) == "FLAKY", "under 2 of 3 with nothing confirmed is FLAKY")
     ok(next_action([], {"door": (1, 3)}, "abc", True, ["shutdown"]) == "NEVER-RAN" and
        verdict_word("NEVER-RAN") == "FAIL", "a step that never gave a verdict anywhere is FAIL, not FLAKY")

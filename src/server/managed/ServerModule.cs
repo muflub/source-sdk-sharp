@@ -3953,7 +3953,9 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             ("think", "(no readout; /status think.pending is its total)",
              () => DebugCounterGroups.Thinks(_entities.Directory.Think.Bookings(),
                                              h => _services.Require<IEngineEntities>().GetClassName(h),
-                                             _services.Require<IGameClock>().Now)),
+                                             _services.Require<IGameClock>().Now,
+                                             _entities.Directory.Think.Opened,
+                                             _entities.Directory.Think.Closed)),
         ]),
 
         // Who asks the process to end: native records, the dev API decides.

@@ -118,6 +118,37 @@ public sealed class ThinkScheduler
     /// <summary>How many bookings are live. Superseded entries are not counted.</summary>
     public int Pending => _default.Count + NamedCount();
 
+    /// <summary>Bookings opened, per <c>classname</c> or <c>classname:context</c>. See <see cref="ClassOf"/>.</summary>
+    private readonly Dictionary<string, long> _opened = new(StringComparer.Ordinal);
+
+    /// <summary>Bookings closed, per the same key.</summary>
+    private readonly Dictionary<string, long> _closed = new(StringComparer.Ordinal);
+
+    /// <summary>The (entity, context) whose think is running; its re-booking is one booking going on.</summary>
+    private (uint Entity, string? Context)? _running;
+
+    /// <summary>
+    /// Names an entity for the ledger. Null keeps no ledger.
+    ///
+    /// <para>
+    /// <b>THE LEDGER.</b> A booking opens when an (entity, context) with none
+    /// is booked, and closes when it is cancelled or when its think runs and
+    /// books nothing further. A think that re-books itself stays one booking,
+    /// so a per-frame thinker costs the ledger nothing. Over any span, per key:
+    /// booked after = booked before + opened - closed. A booking gone with no
+    /// close is one the span LOST, which no due time can say: an item's rest
+    /// poll is due every tenth of a second and ends the frame the item sleeps
+    /// (the hot-reload step, docs/todo.md 2026-11-02).
+    /// </para>
+    /// </summary>
+    public Func<EntityHandle, string?>? ClassOf { get; set; }
+
+    /// <summary>Every booking opened since the level began, by key. A reload carries it.</summary>
+    public IReadOnlyDictionary<string, long> Opened => _opened;
+
+    /// <summary>Every booking closed since the level began, by key. A reload carries it.</summary>
+    public IReadOnlyDictionary<string, long> Closed => _closed;
+
     /// <summary>
     /// How many entries the heap is carrying, live and superseded together.
     /// Diagnostics only — see <see cref="Pending"/> for the real answer.
@@ -194,6 +225,31 @@ public sealed class ThinkScheduler
             return;
         }
 
+        if (!IsRunning(entity, context) && !IsScheduled(entity, context))
+            Count(_opened, entity, context);
+
+        Book(entity, context, time);
+    }
+
+    /// <summary>
+    /// A booking carried over a reload: the one it was, not a new one, so the
+    /// ledger does not move. A row dropped on the way is then a booking with
+    /// no close.
+    /// </summary>
+    public void Restore(EntityHandle entity, string? context, float time) => Book(entity, context, time);
+
+    /// <summary>The ledger's counts a reload carried.</summary>
+    public void RestoreLedger(string key, long opened, long closed)
+    {
+        if (opened != 0)
+            _opened[key] = opened;
+
+        if (closed != 0)
+            _closed[key] = closed;
+    }
+
+    private void Book(EntityHandle entity, string? context, float time)
+    {
         long sequence = _nextSequence++;
         uint key = entity.Value;
         var booking = new Booking(time, sequence);
@@ -220,6 +276,16 @@ public sealed class ThinkScheduler
     /// </summary>
     public bool Cancel(EntityHandle entity, string? context)
     {
+        bool had = Unbook(entity, context);
+
+        if (had && !IsRunning(entity, context))
+            Count(_closed, entity, context);
+
+        return had;
+    }
+
+    private bool Unbook(EntityHandle entity, string? context)
+    {
         uint key = entity.Value;
 
         if (context is null)
@@ -244,8 +310,18 @@ public sealed class ThinkScheduler
     public void CancelAll(EntityHandle entity)
     {
         uint key = entity.Value;
-        _default.Remove(key);
-        _named.Remove(key);
+
+        if (_default.Remove(key) && !IsRunning(entity, null))
+            Count(_closed, entity, null);
+
+        if (_named.Remove(key, out var contexts))
+        {
+            foreach (string context in contexts.Keys)
+            {
+                if (!IsRunning(entity, context))
+                    Count(_closed, entity, context);
+            }
+        }
     }
 
     /// <summary>Drops every booking. A level change.</summary>
@@ -254,6 +330,8 @@ public sealed class ThinkScheduler
         _heap.Clear();
         _default.Clear();
         _named.Clear();
+        _opened.Clear();
+        _closed.Clear();
     }
 
     /// <summary>
@@ -307,7 +385,7 @@ public sealed class ThinkScheduler
             if (!IsLive(entry))
                 continue;   // superseded by a later Schedule, or cancelled
 
-            Unbook(entry);
+            Unbook(entry.Entity, entry.Context);
             into.Add(entry);
         }
 
@@ -326,5 +404,41 @@ public sealed class ThinkScheduler
                && named.Sequence == entry.Sequence;
     }
 
-    private void Unbook(in ScheduledThink entry) => Cancel(entry.Entity, entry.Context);
+    /// <summary>
+    /// A taken think is about to run. When something booked its (entity,
+    /// context) again since it was taken, that is a booking of its own and the
+    /// taken one has closed; otherwise the run decides, in <see cref="EndRun"/>.
+    /// </summary>
+    public void BeginRun(in ScheduledThink entry)
+    {
+        if (IsScheduled(entry.Entity, entry.Context))
+            Count(_closed, entry.Entity, entry.Context);
+        else
+            _running = (entry.Entity.Value, entry.Context);
+    }
+
+    /// <summary>The think has run: one that left no booking has closed its own.</summary>
+    public void EndRun(in ScheduledThink entry)
+    {
+        bool ours = _running is not null;
+        _running = null;
+
+        if (ours && !IsScheduled(entry.Entity, entry.Context))
+            Count(_closed, entry.Entity, entry.Context);
+    }
+
+    private bool IsRunning(EntityHandle entity, string? context)
+        => _running is { } running && running.Entity == entity.Value
+           && string.Equals(running.Context, context, StringComparison.Ordinal);
+
+    /// <summary>Only when a booking opens or closes, so a re-booking thinker pays nothing here.</summary>
+    private void Count(Dictionary<string, long> tally, EntityHandle entity, string? context)
+    {
+        if (ClassOf is null)
+            return;
+
+        string name = ClassOf(entity) ?? string.Empty;
+        string key = context is null ? name : $"{name}:{context}";
+        tally[key] = tally.GetValueOrDefault(key) + 1;
+    }
 }

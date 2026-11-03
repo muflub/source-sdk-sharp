@@ -150,6 +150,8 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
         // The core's own handle arrays are filled for the same reason, in its
         // constructor, which runs first.
         Array.Fill(_removing, EntityHandle.None);
+
+        Think.ClassOf = handle => Resolve(handle)?.ClassName;
     }
 
     /// <summary>
@@ -811,7 +813,9 @@ public sealed class EntityDirectory : EntityDirectoryCore<ScriptedEntity>
             if (entity is null)
                 continue;
 
+            Think.BeginRun(_due[i]);
             entity.RunThink(_due[i].Context);
+            Think.EndRun(_due[i]);
             ran++;
         }
 

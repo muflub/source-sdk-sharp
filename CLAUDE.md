@@ -374,8 +374,9 @@ make live-gate (daily, tools/daily-gate) make run | make headless | make run-deb
   `tools/daily-gate`, from the systemd user timer in `tools/systemd/` (04:17;
   install commands in the service file). It gates main's tip in its own
   worktree, confirms a red step over 3 passes (under 2 of 3 is FLAKY), and
-  bisects a confirmed one from the last green sha, naming the first bad
-  commit in `~/.local/state/sourcesharp/daily-gate/` (`tools/daily-gate
+  reports a confirmed one with the range it went red in, without searching
+  it (user ruling 2026-11-02; `tools/daily-gate --bisect GOOD BAD --steps <id>`
+  by hand), in `~/.local/state/sourcesharp/daily-gate/` (`tools/daily-gate
   --status`). Not per commit, not before a merge: an agent runs `make
   live-gate` by hand only when the user asks, or to diagnose a failure a
   daily report shows (`tools/live-gate --steps <ids> --passes 3`, or

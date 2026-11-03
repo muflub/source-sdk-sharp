@@ -43,6 +43,17 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## live-gate's render budget went over once, on ClientDetailPrepare (2026-11-02)
+
+`tools/live-gate --steps render`: 119.798 crossings per frame against a ceiling
+of 100.876, in pass 2 of 2 at d62efcdcb, with ClientDetailPrepare at 13,846 for
+302 frames where a normal pass has about 2,400 for 300. It passed in the other
+pass there and in 3 of 3 re-runs (84-85 per frame), so 1 failure in 5 passes,
+and 0 in 2 at a19c7d1bc (78 per frame). Load average was about 50 during the
+run. Cause not known; the commit only removed a pointer nothing read, and main
+has not been run as a control. Next step, if it recurs: log the view count in
+the step, since the extra crossings look like extra views. Whose: the live gate.
+
 ## tools/box-ready does not gate on GPU memory (2026-11-01)
 
 `tools/box-ready gate` said "ready" (36.9 GiB RAM, 24.5 cores idle) while
@@ -125,18 +136,6 @@ debug; every other arm, including "nofloor: exits non-zero", passed) and in 0
 of 3 runs alone. The arm reads the tool's output, so a lost or interleaved line
 under load would explain it. **Next:** run the self-test under load (e.g. beside
 `make cpp-test`) until it fails, and read what the arm saw.
-
-## live-gate's hot-reload think-schedule check fails now and then
-
-`hot-reload`'s "the think schedule survived" check failed 1 of 6 runs on
-2026-11-01 (client T6 landing, t6-client 30981378e, debug): it failed in the
-pass that followed `pickup`, whose items had booked respawn thinks ("12
-booking(s), was 18, of which 13 had to survive"; short: weapon_frag). It
-passed 3 of 3 alone and 2 of 2 after damage, pickup and trigger. The daily
-gate logged the same check failing 8 times from 2026-10-05 to 2026-10-11 on
-keyframe_rope. The lane touched only client.so; the check reads the server's
-think bookings. **Next:** count a booking that comes due inside the reload
-window against its due tick, not the step's wall clock, and re-measure the rate.
 
 ## live-gate's damage step depends on the spawn point
 

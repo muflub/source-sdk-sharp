@@ -464,6 +464,7 @@ run: $(CONFIG) node run-snapshot
 	  cd $(GAME) && . $(GPU_OFFLOAD) && TMPDIR=$(RUN_TMP) $(LAUNCH) $(LAUNCH_MOD) -game $(RUN_MOD) $(RUN_ARGS) +map $(MAP); \
 	  status=$$?; kill $$watcher $$proxy 2> /dev/null; \
 	  cp -f $(RUN_TMP)/ui.log $(CURDIR)/tools/.ui-proxy.log 2>/dev/null; \
+	  cp -f $(RUN_MOD)/console.log $(CURDIR)/$(GAME)/mods/test/console-last-run.log 2>/dev/null; \
 	  rm -rf $(RUN_TMP) $(RUN_SNAP); exit $$status
 
 # A run you can attach a debugger to.

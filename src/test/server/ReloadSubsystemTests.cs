@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 
 using SourceSharp.Abi;
+using SourceSharp.Server;
+using SourceSharp.Server.Interop;
 
 using Xunit;
 
@@ -243,6 +245,46 @@ public class ReloadSubsystemTests
             after.Schedule(booked.Entity, booked.Context, isNow + (booked.Time - wasNow));
 
         Assert.Equal(102f, after.NextThinkTime(H(4), "spin"));
+    }
+
+    /// <summary>
+    /// The hot-reload step reads booked = booked before + opened - closed
+    /// across the swap. So the swap carries the ledger as it stands, moves
+    /// nothing in it, and a booking dropped on the way shows as short.
+    /// </summary>
+    [Fact]
+    public void AReloadCarriesTheLedgerAndItsBookingsOpenNothing()
+    {
+        var (was, wasDirectory, _) = Hierarchy();
+        wasDirectory.Think.ClassOf = _ => "item";
+        wasDirectory.Think.Schedule(H(4), "ItemRest", 10f);
+        wasDirectory.Think.Schedule(H(5), "ItemRest", 10f);
+        wasDirectory.Think.Cancel(H(5), "ItemRest");
+
+        var record = new ReloadRecord("hierarchy");
+        ((ISaveCustom)was).OnSave(new SaveRecordAccess(record, record.Owner, new RecordingLog()));
+
+        var (now, nowDirectory, engine) = Hierarchy();
+        nowDirectory.Think.ClassOf = _ => "item";
+        ((ISaveCustom)now).OnRestore(new SaveRecordAccess(record, record.Owner, new RecordingLog(),
+                                                          new SavedHandles(engine, engine)));
+
+        Assert.Equal(2, wasDirectory.Think.Opened["item:ItemRest"]);
+        Assert.Equal(2, nowDirectory.Think.Opened["item:ItemRest"]);
+        Assert.Equal(1, nowDirectory.Think.Closed["item:ItemRest"]);
+        Assert.Equal(1, nowDirectory.Think.Pending);
+        Assert.True(nowDirectory.Think.IsScheduled(H(4), "ItemRest"));
+    }
+
+    private static (StandaloneHierarchy Hierarchy, EntityDirectory Directory, RecordingEngine Engine) Hierarchy()
+    {
+        var engine = new RecordingEngine { Strict = false };
+        var directory = new EntityDirectory(new RecordingLog());
+        var motion = new EntityMotion(new RecordingLog(), engine, engine, engine, engine, engine, directory,
+            new PhysicsPushedEntities(new EnginePushWorld(engine, engine, engine, directory), new RecordingLog()));
+        return (new StandaloneHierarchy(new RecordingLog(), engine, engine, engine, directory, motion, engine,
+                                        new ShellLessRoutes(), engine, new SolverHeldOverlaps(), engine, engine),
+                directory, engine);
     }
 
     //-- parenting ------------------------------------------------------------

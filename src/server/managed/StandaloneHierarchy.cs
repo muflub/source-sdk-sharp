@@ -370,6 +370,7 @@ public sealed class StandaloneHierarchy : IFrameLifecycle, IGameLifecycle, ISave
     private const string RowLink = "link";
     private const string RowPendingAttachment = "pend";
     private const string RowThink = "think";
+    private const string RowThinkLedger = "thinkLedger";
     private const string RowTouch = "touch";
 
     void ISaveCustom.OnSave(ISaveWriter writer)
@@ -422,6 +423,20 @@ public sealed class StandaloneHierarchy : IFrameLifecycle, IGameLifecycle, ISave
                   .Set("e", booked.Entity)
                   .Set("c", booked.Context ?? string.Empty)
                   .Set("d", booked.Time - now);
+        }
+
+        // THE LEDGER WITH THE SCHEDULE, or a booking that closed before the
+        // unload could not be told from one the reload lost.
+        IReadOnlyDictionary<string, long> opened = _directory.Think.Opened;
+        IReadOnlyDictionary<string, long> closed = _directory.Think.Closed;
+
+        foreach (string key in opened.Keys.Union(closed.Keys))
+        {
+            writer.AddRow()
+                  .Set(RowKind, RowThinkLedger)
+                  .Set("k", key)
+                  .Set("o", (int)opened.GetValueOrDefault(key))
+                  .Set("x", (int)closed.GetValueOrDefault(key));
         }
 
         foreach (var (a, b) in _directory.TouchingPairs())
@@ -492,11 +507,15 @@ public sealed class StandaloneHierarchy : IFrameLifecycle, IGameLifecycle, ISave
                     // is handling it.
                     float delay = row.GetFloat("d");
 
-                    _directory.Think.Schedule(entity, context.Length == 0 ? null : context,
-                                              now + (delay < 0f ? 0f : delay));
+                    _directory.Think.Restore(entity, context.Length == 0 ? null : context,
+                                             now + (delay < 0f ? 0f : delay));
                     thinks++;
                     break;
                 }
+
+                case RowThinkLedger:
+                    _directory.Think.RestoreLedger(row.GetString("k"), row.GetInt("o"), row.GetInt("x"));
+                    break;
 
                 case RowTouch:
                 {
