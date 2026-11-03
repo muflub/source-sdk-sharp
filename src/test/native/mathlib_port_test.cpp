@@ -12,6 +12,7 @@
 
 #include "mathlib/mathlib.h"
 #include "mathlib/vector.h"
+#include "mathlib_port.h"
 
 namespace
 {
@@ -182,16 +183,16 @@ TEST(MathlibPort, VectorTransformRotatesThenTranslates)
 TEST(MathlibPort, CalcSqrDistanceToAABBIsZeroInsideAndOnTheFaces)
 {
 	const Vector mins(-1, -2, -3), maxs(1, 2, 3);
-	EXPECT_EQ(CalcSqrDistanceToAABB(mins, maxs, Vector(0, 0, 0)), 0.0f);
-	EXPECT_EQ(CalcSqrDistanceToAABB(mins, maxs, Vector(1, -2, 3)), 0.0f);
+	EXPECT_EQ(ss_mathlib::CalcSqrDistanceToAABB(mins, maxs, Vector(0, 0, 0)), 0.0f);
+	EXPECT_EQ(ss_mathlib::CalcSqrDistanceToAABB(mins, maxs, Vector(1, -2, 3)), 0.0f);
 }
 
 TEST(MathlibPort, CalcSqrDistanceToAABBAddsEachAxisOvershoot)
 {
 	const Vector mins(-1, -2, -3), maxs(1, 2, 3);
-	EXPECT_EQ(CalcSqrDistanceToAABB(mins, maxs, Vector(4, 0, 0)), 9.0f); // past +X by 3
-	EXPECT_EQ(CalcSqrDistanceToAABB(mins, maxs, Vector(0, -6, 0)), 16.0f); // past -Y by 4
-	EXPECT_EQ(CalcSqrDistanceToAABB(mins, maxs, Vector(-4, 6, -15)), 9.0f + 16.0f + 144.0f);
+	EXPECT_EQ(ss_mathlib::CalcSqrDistanceToAABB(mins, maxs, Vector(4, 0, 0)), 9.0f); // past +X by 3
+	EXPECT_EQ(ss_mathlib::CalcSqrDistanceToAABB(mins, maxs, Vector(0, -6, 0)), 16.0f); // past -Y by 4
+	EXPECT_EQ(ss_mathlib::CalcSqrDistanceToAABB(mins, maxs, Vector(-4, 6, -15)), 9.0f + 16.0f + 144.0f);
 }
 
 } // namespace

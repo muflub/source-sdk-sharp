@@ -67,11 +67,6 @@ CViewerFacts::Pushed_t* CViewerFacts::NewPushed()
 #include "sourcesharp.h"
 #include "shell_client_engine_interfaces.h"
 
-bool CViewerFacts::HasLocalViewer() const
-{
-	return m_Standalone.LocalPlayer() != NULL;
-}
-
 bool CViewerFacts::ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles) const
 {
 	C_StandaloneEntity* pPlayer = m_Standalone.LocalPlayer();

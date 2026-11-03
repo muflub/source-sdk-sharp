@@ -12,8 +12,8 @@ namespace SourceSharp.Client.Effects;
 /// <summary>
 /// The two random draws the client's simple-particle sims take, as stock takes
 /// them: <c>random-&gt;RandomFloat</c> (the client's <c>VEngineRandom001</c>) and
-/// <c>rand()</c>, which client.so answers from vstdlib's <c>RandomInt(0,
-/// VALVE_RAND_MAX)</c> (randoverride.cpp) and which <c>FRand</c> and
+/// <c>rand()</c>, which stock's client.so answers from vstdlib's <c>RandomInt(0,
+/// VALVE_RAND_MAX)</c> and which <c>FRand</c> and
 /// <c>Vector::Random</c> divide down. An interface so the oracle facts replay a
 /// recorded stream; the game's is <see cref="ParticleStream"/>.
 /// </summary>

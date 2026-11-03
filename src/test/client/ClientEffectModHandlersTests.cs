@@ -10,22 +10,10 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// A mod's client effects (stage 0.9): an <see cref="IClientEffectHandler"/>
 /// a mod declares as a <c>[SideService(Side.Client)]</c> joins the managed
-/// effects after the core's fixed list, and the dispatch asks it before the
-/// native registrations (ClientEffectDispatch's order), as it asks the core's.
+/// effects after the core's fixed list.
 /// </summary>
 public sealed class ClientEffectModHandlersTests
 {
-    private sealed class Natives(params string[] names) : IClientEffectRegistrations
-    {
-        public readonly List<int> Runs = [];
-
-        public int Count => names.Length;
-
-        public string? Name(int index) => index >= 0 && index < names.Length ? names[index] : null;
-
-        public void Run(int index, in EffectData data) => Runs.Add(index);
-    }
-
     /// <summary>A mod's effect, in the plan's spelling.</summary>
     [SideService(Side.Client, As = [typeof(IClientEffectHandler)])]
     public sealed class ModBurstEffect : IClientEffectHandler
@@ -91,15 +79,12 @@ public sealed class ClientEffectModHandlersTests
         var services = ModServices(typeof(ModBurstEffect));
         var handlers = new ClientEffectHandlers([new CoreTracer()]);
         Assert.Equal(1, handlers.AddFrom(services, new RecordingLog()));
-        // A native registration of the same name too: the managed one is asked first.
-        var natives = new Natives("Impact", "ModBurst");
-        var dispatch = new ClientEffectDispatch(natives, TestServices.Fake().Returns("Console.FindConVarValue", "0"), handlers);
+        var dispatch = new ClientEffectDispatch(TestServices.Fake().Returns("Console.FindConVarValue", "0"), handlers);
 
         dispatch.Dispatch("modburst", new EffectData { Scale = 3f });
 
         var mod = services.Require<ModBurstEffect>();
         Assert.Equal(3f, Assert.Single(mod.Runs).Scale);    // the mod's handler, with the data, case folded as stock
-        Assert.Empty(natives.Runs);                        // and not the native registration
         Assert.Equal(1, dispatch.Ran);
     }
 

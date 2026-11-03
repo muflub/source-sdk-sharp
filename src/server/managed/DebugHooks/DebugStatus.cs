@@ -47,5 +47,5 @@ public sealed class DebugStatus(
     public static DebugCounters ZeroCounters() => new(
         new DebugThink(0, 0, 0, 0), new DebugIo(0, 0, 0, 0, 0, 0, 0, 0, 0, 0), new DebugTouch(0, 0, 0, 0, 0, 0, 0),
         new DebugMapSpawn(0, 0, 0, 0, 0, 0), new DebugFactories(false, 0, 0, 0, 0), new DebugLogical(0, 0, 0, 0, 0, 0),
-        new DebugOverlayCounts(0, 0, 0, 0, false));
+        new DebugOverlayCounts(0, 0));
 }

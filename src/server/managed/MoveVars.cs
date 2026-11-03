@@ -16,7 +16,7 @@ namespace SourceSharp.Server;
 /// declaration through <c>movevars_shared.h</c>'s extern. These eleven have
 /// <b>zero</b> such readers — the header's extern is the only mention of each
 /// anywhere the build compiles. Seventeen of the eighteen that stay are read by
-/// <c>shell_movement.cpp</c>, <c>shell_movement_audit.cpp</c>,
+/// <c>shell_movement.cpp</c>,
 /// <c>world_adapter.cpp</c>, <c>shell_gamerules.cpp</c> and
 /// <c>shell_motioncontrollers.cpp</c>, and each of those reads becomes a
 /// <c>CManagedConVarRef</c> before its declaration can follow these. The

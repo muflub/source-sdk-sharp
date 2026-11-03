@@ -18,4 +18,3 @@ class VPlane;
 
 // Returns true of the sphere is outside the frustum defined by pPlanes.
 // (planes point inwards).
-bool R_CullSphere(const VPlane* pPlanes, int nPlanes, const Vector* pCenter, float radius);

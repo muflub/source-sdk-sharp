@@ -107,9 +107,9 @@ class CWorldTextClient;
 class CParticleManifestClient;
 class CParticleSystemQueryClient;
 class CDustClient;
-class CTempEntsSystemClient;
 class CEffectsClient;
 class CEffectsListClient;
+class CTempEntsSystemClient;
 class CSoundscapeAudioClient;
 class CSoundPatchesClient;
 
@@ -434,9 +434,6 @@ public:
 class CShimFxClient final : public IShimFxClient
 {
 public:
-	int32_t EffectRegistrationCount() override;
-	int32_t EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize) override;
-	void EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData) override;
 	int32_t FxCanPredict() override;
 	int32_t FxRecipientCount(const float* pOriginXYZ) override;
 	int32_t FxMaterialFind(const char* pName) override;
@@ -477,9 +474,9 @@ public:
 	int32_t FxModelFrameCount(const char* pModel) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
-	CTempEntsSystemClient* m_pTempEntsSystemClient = nullptr;
 	CEffectsClient* m_pEffectsClient = nullptr;
 	CEffectsListClient* m_pEffectsListClient = nullptr;
+	CTempEntsSystemClient* m_pTempEntsSystemClient = nullptr;
 	CSpritesClient* m_pSpritesClient = nullptr;
 	CTempEnts* m_pTempEnts = nullptr;
 };

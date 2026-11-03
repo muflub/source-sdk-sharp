@@ -160,10 +160,6 @@ public sealed class ClientEntityFetches : IClientEngineAdapters
         // The material proxies' engine reads (lane c5-proxies): FindVar and
         // FindTexture at Init, the texture, entity and view reads of a bind.
         services.AddInstance<IClientMaterialProxyExecutor>(new ClientMaterialProxyExecutor(areas.Require<IMaterialProxyClientArea>()));
-        // The native effect registrations, by walk index, for the managed
-        // dispatch table (plan_client_novalve §2 cluster 4).
-        services.AddInstance<IClientEffectRegistrations>(new ClientEffectRegistrations(areas.Require<IFxClientArea>()));
-
         // IEffects' FX_* routines and SuppressTE's two answers (cluster 3),
         // for the managed ClientEffects; one object over the slots serves both.
         var fx = new ClientFxSlots(areas.Require<IFxClientArea>());

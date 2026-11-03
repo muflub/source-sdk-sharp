@@ -21,10 +21,10 @@ public unsafe class EngineSideRoutingTests : IDisposable
         side.Attachment.Initialize();   // plan_client_vtables CC-last: there is no struct
 
         _root.Live("SourceSharpDebugOverlay001", nameof(ShimDebugOverlayFwd.OverlayCounts),
-                   (nint)(delegate* unmanaged<void*, uint*, uint*, uint*, uint*, int*, void>)&Counts);
+                   (nint)(delegate* unmanaged<void*, uint*, uint*, void>)&Counts);
         Assert.True(side.Attachment.AttachShims(_root.Bind(), out string why), why);
 
-        Assert.Equal((7u, 1u, 2u, 3u, true), SideBindings.Of<IEngineHud>(side).OverlayReadout());
+        Assert.Equal((7u, 3u), SideBindings.Of<IEngineHud>(side).OverlayReadout());
     }
 
     [Fact]
@@ -51,13 +51,10 @@ public unsafe class EngineSideRoutingTests : IDisposable
     }
 
     [UnmanagedCallersOnly]
-    private static void Counts(void* self, uint* drawn, uint* clipped, uint* noViewer, uint* noOverlay, int* viewerSet)
+    private static void Counts(void* self, uint* drawn, uint* noOverlay)
     {
         *drawn = 7;
-        *clipped = 1;
-        *noViewer = 2;
         *noOverlay = 3;
-        *viewerSet = 1;
     }
 
     public void Dispose() => _root.Dispose();

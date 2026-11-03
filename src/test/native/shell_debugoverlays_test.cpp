@@ -64,8 +64,6 @@ protected:
 
 TEST_F(ServerDebugOverlays, ATimedLineReachesTheEngineWithItsDuration)
 {
-	m_Library.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0));
-
 	m_Overlays.AddLineOverlay(m_vecStart, m_vecEnd, 255, 0, 0, 0, 5.0f);
 
 	ASSERT_EQ(1u, m_Engine.m_Lines.size());
@@ -75,8 +73,6 @@ TEST_F(ServerDebugOverlays, ATimedLineReachesTheEngineWithItsDuration)
 
 TEST_F(ServerDebugOverlays, AnUntimedLineIsPooledNotDrawn)
 {
-	m_Library.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0));
-
 	m_Overlays.AddLineOverlay(m_vecStart, m_vecEnd, 255, 0, 0, 0, 0.0f);
 	EXPECT_TRUE(m_Engine.m_Lines.empty()) << "a pooled line waits for the frame's draw";
 
@@ -84,47 +80,39 @@ TEST_F(ServerDebugOverlays, AnUntimedLineIsPooledNotDrawn)
 	EXPECT_EQ(1u, m_Engine.m_Lines.size());
 }
 
-TEST_F(ServerDebugOverlays, TheFrameDrawHasNoViewerSoPooledLinesCountAsUnseen)
+// drawline and drawcross reach the pool, and this is the only draw of it. A viewer this build
+// never set dropped every line here from aeb1973c1 on, and this fact pinned that as correct.
+TEST_F(ServerDebugOverlays, TheFrameDrawDrawsPooledLines)
 {
-	m_Library.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0));
 	m_Overlays.AddLineOverlay(m_vecStart, m_vecEnd, 255, 0, 0, 0, 0.0f);
 
 	m_Overlays.DrawAll();
 
-	EXPECT_TRUE(m_Engine.m_Lines.empty());
-	EXPECT_FALSE(m_Library.ViewerIsSet());
-	EXPECT_EQ(1u, m_Library.Counts().nNoViewer);
+	ASSERT_EQ(1u, m_Engine.m_Lines.size());
+	EXPECT_EQ(Vector(10, 0, 0), m_Engine.m_Lines[0].vecStart);
+	EXPECT_EQ(1u, m_Library.Counts().nDrawn);
 }
 
 TEST_F(ServerDebugOverlays, ALineWithoutBothEndsIsIgnored)
 {
-	m_Library.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0));
-
 	m_Overlays.AddLineOverlay(nullptr, m_vecEnd, 255, 0, 0, 0, 5.0f);
 	m_Overlays.AddLineOverlay(m_vecStart, nullptr, 255, 0, 0, 0, 5.0f);
 
 	EXPECT_TRUE(m_Engine.m_Lines.empty());
-	EXPECT_EQ(0u, m_Library.Counts().nNoViewer + m_Library.Counts().nDrawn);
+	EXPECT_EQ(0u, m_Library.Counts().nDrawn);
 }
 
 TEST_F(ServerDebugOverlays, TheCountsReadOutIsTheLibrarysAndTakesNullOutputs)
 {
-	m_Library.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0));
-	m_Overlays.AddLineOverlay(m_vecStart, m_vecEnd, 255, 0, 0, 0, 5.0f);
-	m_Library.ClearViewer();
 	m_Overlays.AddLineOverlay(m_vecStart, m_vecEnd, 255, 0, 0, 0, 5.0f);
 
-	uint32_t nDrawn = 99, nClipped = 99, nNoViewer = 99, nNoOverlay = 99;
-	int32_t bViewerSet = 99;
-	m_Overlays.OverlayCounts(&nDrawn, &nClipped, &nNoViewer, &nNoOverlay, &bViewerSet);
+	uint32_t nDrawn = 99, nNoOverlay = 99;
+	m_Overlays.OverlayCounts(&nDrawn, &nNoOverlay);
 
 	EXPECT_EQ(1u, nDrawn);
-	EXPECT_EQ(0u, nClipped);
-	EXPECT_EQ(1u, nNoViewer);
 	EXPECT_EQ(0u, nNoOverlay);
-	EXPECT_EQ(0, bViewerSet);
 
-	m_Overlays.OverlayCounts(nullptr, nullptr, nullptr, nullptr, nullptr);
+	m_Overlays.OverlayCounts(nullptr, nullptr);
 }
 
 TEST_F(ServerDebugOverlays, AnInvalidOrUnresolvedHandleDrawsNoEntityOverlay)

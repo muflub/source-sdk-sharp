@@ -31,11 +31,6 @@ const char* StandaloneEntity_Name(const IGameEntity* pEnt)
 	return ShellOf(pEnt)->GetEntityName();
 }
 
-int StandaloneEntity_TakeDamage(IGameEntity* pEnt, const ss::CTakeDamageInfo& info)
-{
-	return ShellOf(pEnt)->TakeDamage(info);
-}
-
 bool StandaloneEntity_IsPlayer(const IGameEntity* pEnt)
 {
 	return ShellOf(pEnt)->IsPlayer();
@@ -54,12 +49,6 @@ int StandaloneEntity_MoveType(const IGameEntity* pEnt)
 IPhysicsObject* StandaloneEntity_PhysicsObject(const IGameEntity* pEnt)
 {
 	return ShellOf(pEnt)->GetPhysics();
-}
-
-// game_entity_relays.h's server half.
-int GameEntity_ModelIndex(const IGameEntity* pEnt)
-{
-	return pEnt ? ShellOf(pEnt)->GetModelIndex() : 0;
 }
 
 CBaseHandle GameEntity_RefHandle(const IGameEntity* pEnt)

@@ -46,7 +46,7 @@ void SourceSharp_RegisterMovementParams(const SourceSharpMovementParams* pParams
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 8 slots.
+// CLIENT ONLY -- 6 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -58,8 +58,6 @@ int32_t SourceSharp_ClientNotShipped(int32_t iIndex, char* pOutName, int32_t nNa
 void SourceSharp_ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText);
 void SourceSharp_ConNXPrintf(void* pEngineClient, int32_t nIndex, float flTimeToLive, const float* pColorRGB,
 							 int32_t bFixedWidthFont, const char* pszText);
-int32_t SourceSharp_EffectRegistrationCount();
-int32_t SourceSharp_EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize);
 void SourceSharp_GetLightForPoint(void* pEngineClient, const float* pPosXYZ, int32_t bClamp, float* pOutXYZ);
 void SourceSharp_GetLightForPointFast(void* pEngineClient, const float* pPosXYZ, int32_t bClamp, float* pOutXYZ);
 #endif

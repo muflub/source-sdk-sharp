@@ -147,9 +147,6 @@ public class SideAuditTests
         // plan_client_novalve §2 cluster 4: the client's effect registrations
         // (DECLARE_CLIENT_EFFECT), read and run by walk index for the managed
         // dispatch table. Client effects exist only in client.so.
-        "EffectRegistrationCount",
-        "EffectRegistrationName",
-        "EffectRegistrationRun",
 
         // And IEffects' carry-out (cluster 3): the FX_* routines the managed
         // ClientEffects decision ends in, and SuppressTE's two answers. (The

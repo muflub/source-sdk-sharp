@@ -44,7 +44,6 @@ public:
 
 	// The shell bound to a handle or entry, or NULL.
 	CStandaloneEntity* ShellFromHandle(const CBaseHandle& handle) const;
-	CStandaloneEntity* ShellFromIndex(int nEntry) const;
 	CStandaloneEntity* ShellFromHandleEntity(IHandleEntity* pHandleEntity) const;
 
 	// A handle to whatever holds it: the slot table's shells, then the world.

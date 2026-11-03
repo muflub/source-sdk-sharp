@@ -34,7 +34,6 @@ public:
 	CViewerFacts& operator=(const CViewerFacts&) = delete;
 
 	// view_facts.h says what each answers.
-	bool HasLocalViewer() const;
 	bool ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles) const;
 	bool ViewEntityPose(Vector* pOrigin, QAngle* pAngles) const;
 	bool ViewerEffectActive(int nEffectBits) const;

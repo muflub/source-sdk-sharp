@@ -6,6 +6,8 @@ for a file that left. Newest first.
 
 | date | file | lines | reason | what replaced it |
 |---|---|--:|---|---|
+| 2026-11-02 | src/client/native/randoverride.cpp, vstdlib_random_port.cpp | 175 | `FxVectorRandom` was the only caller of `rand()` and it draws from CVectorRandom now | moved to tools/probes/client: only the probe recorders still draw from them |
+| 2026-11-02 | src/shared/native/steamid.cpp, dt_element_names.cpp, dt_utlvector_common.cpp, shell_movement_audit.cpp | 786 | --print-gc-sections dropped every function in them in debug and release; shell_movement_audit.cpp's decision moved to C# (MovementTuning.cs) earlier and only a native test still compiled it | nothing |
 | 2026-11-02 | src/shared/native/gamestringpool.cpp | 42 | nothing on the client allocated a pooled string (`nm -C` over the client's objects: no importer of AllocPooledString); the server's pool is ss_gamestringpool.h | nothing |
 | 2026-11-02 | src/shared/native/entity_shared_statics.cpp | 60 | dead on the client: no importer of its three functions, and its convar handle was the only reader of sv_alternateticks here | still built for the server |
 | 2026-11-02 | src/shared/native/shell_physsaverestore_absent.cpp | 70 | no client object read the absent save/restore manager or its field ops | the server's half stays |

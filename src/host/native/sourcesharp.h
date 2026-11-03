@@ -1589,10 +1589,9 @@ typedef enum
 // halves together.
 //
 // NO m_iEffectName. That member is an index into the EffectDispatch network
-// string table, and this boundary carries the NAME instead: the registry the
-// name resolves against (CClientEffectRegistration's list, 52 entries) stays
-// native and is matched by string, so an index would be a number C# would have
-// to keep in step with a table it does not own.
+// string table, and this boundary carries the NAME instead, matched by string:
+// an index would be a number C# would have to keep in step with a table it does
+// not own.
 //
 // THE ENTITY IS AN INDEX, not an ehandle. CEffectData's client half holds a
 // ClientEntityHandle_t and its server half an int; the wire carries an edict

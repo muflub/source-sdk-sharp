@@ -107,25 +107,17 @@ public class OverlayContractTests
         var fake = new RecordingEngine();
         var hud = (IEngineHud)fake;
 
-        // Nobody looking: no viewer, and nothing counted anywhere.
-        fake.Returns("Hud.OverlayReadout", (0u, 0u, 0u, 0u, false));
+        // Nobody asked: nothing counted anywhere.
+        fake.Returns("Hud.OverlayReadout", (0u, 0u));
         var quiet = hud.OverlayReadout();
 
-        // The regression: draws were attempted and every one of them found no
-        // viewer. Same zero in `drawn`, and a completely different fact.
-        fake.Returns("Hud.OverlayReadout", (0u, 0u, 17u, 0u, false));
+        // Draws were attempted with no overlay interface. Same zero in `drawn`,
+        // and a completely different fact.
+        fake.Returns("Hud.OverlayReadout", (0u, 17u));
         var broken = hud.OverlayReadout();
 
         Assert.Equal(quiet.Drawn, broken.Drawn);
-        Assert.NotEqual(quiet.NoViewer, broken.NoViewer);
-    }
-
-    [Fact]
-    public void TheReadoutReportsTheViewerFlag()
-    {
-        var fake = new RecordingEngine().Returns("Hud.OverlayReadout", (5u, 1u, 0u, 0u, true));
-
-        Assert.True(((IEngineHud)fake).OverlayReadout().ViewerSet);
+        Assert.NotEqual(quiet.NoOverlay, broken.NoOverlay);
     }
 
     [Fact]
@@ -232,39 +224,30 @@ public class OverlayContractTests
     }
 
     [Fact]
-    public void StatusCarriesTheOverlayWorkAndAllThreeReasons()
+    public void StatusCarriesTheOverlayWorkAndItsReason()
     {
-        string body = Status(() => (7u, 3u, 2u, 1u, true));
+        string body = Status(() => (7u, 1u));
 
         Assert.Contains("\"drawn\":7", body);
-        Assert.Contains("\"clipped\":3", body);
-        Assert.Contains("\"noViewer\":2", body);
-        Assert.Contains("\"noOverlay\":1", body);
-    }
-
-    [Fact]
-    public void StatusCarriesTheViewerFlagAsABoolean()
-    {
-        Assert.Contains("\"viewerSet\":true", Status(() => (0u, 0u, 0u, 0u, true)));
-        Assert.Contains("\"viewerSet\":false", Status(() => (0u, 0u, 0u, 0u, false)));
+Assert.Contains("\"noOverlay\":1", body);
     }
 
     /// <summary>
-    /// The whole reason the readout is four numbers and not one. A build that
-    /// simply stopped drawing reports drawn:0 -- and so does a frame nobody
-    /// asked for an overlay on. The two are told apart by noViewer, so both
-    /// bodies are built here and compared.
+    /// The whole reason the readout is two numbers and not one. A build with no
+    /// overlay interface reports drawn:0 -- and so does a frame nobody asked for
+    /// an overlay on. The two are told apart by noOverlay, so both bodies are
+    /// built here and compared.
     /// </summary>
     [Fact]
     public void StatusTellsNobodyAskedApartFromNothingDrew()
     {
-        string quiet  = Status(() => (0u, 0u, 0u, 0u, false));
-        string broken = Status(() => (0u, 0u, 41u, 0u, false));
+        string quiet  = Status(() => (0u, 0u));
+        string broken = Status(() => (0u, 41u));
 
         Assert.Contains("\"drawn\":0", quiet);
         Assert.Contains("\"drawn\":0", broken);
         Assert.NotEqual(quiet, broken);
-        Assert.Contains("\"noViewer\":41", broken);
+        Assert.Contains("\"noOverlay\":41", broken);
     }
 
     /// <summary>
@@ -275,12 +258,12 @@ public class OverlayContractTests
     [Fact]
     public void StatusCarriesAZeroedOverlayWhenNothingSuppliesOne()
     {
-        Assert.Contains("\"overlay\":{\"drawn\":0,\"clipped\":0,\"noViewer\":0,\"noOverlay\":0,\"viewerSet\":false}",
+        Assert.Contains("\"overlay\":{\"drawn\":0,\"noOverlay\":0}",
                         Status(null));
     }
 
     private static string Status(
-        Func<(uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet)>? report)
+        Func<(uint Drawn, uint NoOverlay)>? report)
     {
         // G7: the readout reaches the dev API as the server's IDebugStatus counters.
         var server = NeverPumped.Server(TestDebugHooks.Server(counters: () =>
@@ -288,7 +271,7 @@ public class OverlayContractTests
             if (report is null)
                 return DebugStatus.ZeroCounters();
             var r = report();
-            return DebugStatus.ZeroCounters() with { Overlay = new DebugOverlayCounts(r.Drawn, r.Clipped, r.NoViewer, r.NoOverlay, r.ViewerSet) };
+            return DebugStatus.ZeroCounters() with { Overlay = new DebugOverlayCounts(r.Drawn, r.NoOverlay) };
         }));
         HttpSocketServer.TryParse("GET /status HTTP/1.1\r\n\r\n", out var request);
 

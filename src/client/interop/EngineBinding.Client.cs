@@ -1491,7 +1491,7 @@ internal sealed unsafe partial class EngineHud
     // attach guard answered here, where the server's areas are never attached.
     public void DrawWorldText(Vector origin, int line, string text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) { }
     public bool DrawEntityOverlay(EntityHandle entity, int line, string? text, float duration, int r = 255, int g = 255, int b = 255, int a = 255) => false;
-    public (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet) OverlayReadout() => (0, 0, 0, 0, false);
+    public (uint Drawn, uint NoOverlay) OverlayReadout() => (0, 0);
     public void AddLineOverlay(Vector start, Vector end, int r, int g, int b, bool noDepthTest = true, float duration = 0f) { }
     public void ViewPunch(Vector origin, Vector punch, float radius, bool inAir = false) { }
 

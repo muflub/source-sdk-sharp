@@ -118,14 +118,6 @@ void SourceSharpEntity_t::Bounds(Vector* pOutMins, Vector* pOutMaxs) const
 	}
 }
 
-Vector SourceSharpEntity_t::Center() const
-{
-	Vector vecMins, vecMaxs;
-	Bounds(&vecMins, &vecMaxs);
-
-	return Origin() + (vecMins + vecMaxs) * 0.5f;
-}
-
 int SourceSharpEntity_t::EntityIndex() const
 {
 	if (pWorld)
@@ -805,13 +797,6 @@ int32_t CServerCollision::EntityOverlapReport(uint32_t* pOutPairs, int32_t nMaxP
 	}
 
 	return nPairs;
-}
-
-Toucher_t CStandaloneEntity::AsToucher()
-{
-	Toucher_t toucher = {static_cast<IHandleEntity*>(static_cast<IServerEntity*>(this)), NULL, this};
-
-	return toucher;
 }
 
 // Which triggers this is standing in, asked of the engine. Stock's

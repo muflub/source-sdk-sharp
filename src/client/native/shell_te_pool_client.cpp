@@ -657,7 +657,7 @@ int32_t CTempEnts::TempEntPoolWriteSpawn(int32_t nSlot, const SourceSharpTempEnt
 }
 
 // The muzzle flashes' engine reads: an attachment, the entity index behind a
-// handle, the elight, client.so's rand(), and whether the muzzle materials
+// handle, the elight, a random vector, and whether the muzzle materials
 // were cached. Every decision is managed's.
 static CBaseHandle FxHandle(uint32_t hEntity)
 {
@@ -710,11 +710,7 @@ void CTempEnts::FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int32
 
 void CTempEnts::FxVectorRandom(float flLo, float flHi, float* pOutXYZ)
 {
-	Vector v;
-	v.Random(flLo, flHi);
-	pOutXYZ[0] = v.x;
-	pOutXYZ[1] = v.y;
-	pOutXYZ[2] = v.z;
+	m_VectorRandom.Fill(flLo, flHi, pOutXYZ);
 }
 
 // A tempent of a model the engine loads by name (the shell casings), made in a

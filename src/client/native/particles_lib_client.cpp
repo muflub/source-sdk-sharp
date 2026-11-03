@@ -92,19 +92,10 @@ extern "C" void SSParticleLib_CollectionD2(CParticleCollection* p)
 	Lib()->CollectionDestruct(p);
 }
 #endif
-bool CParticleCollection::Init(CParticleSystemDefinition* pDef)
-{
-	return Lib()->CollectionInitDef(this, pDef);
-}
 
 bool CParticleCollection::Init(const char* pszName)
 {
 	return Lib()->CollectionInitName(this, pszName);
-}
-
-void CParticleCollection::BloatBoundsUsingControlPoint()
-{
-	Lib()->CollectionBloatBoundsUsingControlPoint(this);
 }
 
 int CParticleCollection::GetHighestControlPoint() const
@@ -140,16 +131,6 @@ bool CParticleCollection::IsTwoPass() const
 void CParticleCollection::Render(IMatRenderContext* pCtx, bool bTranslucentOnly, void* pCamera)
 {
 	Lib()->CollectionRender(this, pCtx, bTranslucentOnly, pCamera);
-}
-
-void CParticleCollection::SetDormant(bool bDormant)
-{
-	Lib()->CollectionSetDormant(this, bDormant);
-}
-
-void CParticleCollection::Simulate(float dt, bool bBboxOnly)
-{
-	Lib()->CollectionSimulate(this, dt, bBboxOnly);
 }
 
 void CParticleCollection::StopEmission(bool bInfiniteOnly, bool bRemoveAll, bool bWakeOnStop)
@@ -192,16 +173,6 @@ void CParticleSystemMgr::AddToRenderCache(CParticleCollection* pParticles)
 	Lib()->MgrAddToRenderCache(this, pParticles);
 }
 
-void CParticleSystemMgr::CommitProfileInformation(bool bCommit)
-{
-	Lib()->MgrCommitProfileInformation(this, bCommit);
-}
-
-bool CParticleSystemMgr::Debug_FrameWarningNeededTestAndReset()
-{
-	return Lib()->MgrDebugFrameWarningNeededTestAndReset(this);
-}
-
 void CParticleSystemMgr::DecommitTempMemory()
 {
 	Lib()->MgrDecommitTempMemory(this);
@@ -210,11 +181,6 @@ void CParticleSystemMgr::DecommitTempMemory()
 void CParticleSystemMgr::DrawRenderCache(bool bShadowDepth)
 {
 	Lib()->MgrDrawRenderCache(this, bShadowDepth);
-}
-
-void CParticleSystemMgr::DumpProfileInformation()
-{
-	Lib()->MgrDumpProfileInformation(this);
 }
 
 CParticleSystemDefinition* CParticleSystemMgr::FindParticleSystem(const char* pszName)

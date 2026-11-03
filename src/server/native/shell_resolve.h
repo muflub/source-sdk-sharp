@@ -47,8 +47,6 @@ struct SourceSharpEntity_t
 	// usually the world's, not the box's.
 	void Bounds(Vector* pOutMins, Vector* pOutMaxs) const;
 
-	Vector Center() const;
-
 	// The index the engine stores things against (a decal, ...). 0 for an
 	// entity the client has never heard of.
 	int EntityIndex() const;

@@ -71,17 +71,4 @@ void SourceSharp_ConnectTier3(CClientEngineInterfaces& engines, CreateInterfaceF
 	engines.m_pVGuiLocalize = (vgui::ILocalize*)engineFactory(VGUI_LOCALIZE_INTERFACE_VERSION, NULL);
 	engines.m_pMatSystemSurface = (IMatSystemSurface*)engineFactory(MAT_SYSTEM_SURFACE_INTERFACE_VERSION, NULL);
 }
-
-void SourceSharp_DisconnectTier3(CClientEngineInterfaces& engines)
-{
-	engines.m_pMdlCache = NULL;
-	engines.m_pVGuiCore = NULL;
-	engines.m_pVGuiInput = NULL;
-	engines.m_pVGuiPanel = NULL;
-	engines.m_pVGuiSurface = NULL;
-	engines.m_pVGuiSchemes = NULL;
-	engines.m_pVGuiSystem = NULL;
-	engines.m_pVGuiLocalize = NULL;
-	engines.m_pMatSystemSurface = NULL;
-}
 #endif

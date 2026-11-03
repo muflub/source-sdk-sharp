@@ -508,16 +508,6 @@ void CShellViewRender::SetupCurrentView(const Vector& vecOrigin, const QAngle& a
 											 (nViewID == VIEW_MAIN || nViewID == VIEW_3DSKY) ? 1 : 0);
 }
 
-bool R_CullSphere(VPlane const* pPlanes, int nPlanes, Vector const* pCenter, float radius)
-{
-	for (int i = 0; i < nPlanes; i++)
-	{
-		if (pPlanes[i].DistTo(*pCenter) < -radius)
-			return true;
-	}
-	return false;
-}
-
 // getpos and spec_pos: the main view, or ("2") the player's own position.
 void CShellViewRender::ViewPosition(const CCommand& args, Vector& vecOrigin, QAngle& angles, bool& bPlayer)
 {

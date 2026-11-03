@@ -16,4 +16,3 @@ CBaseHandle GameEntity_RefHandle(const IGameEntity* pEnt);
 int GameEntity_EntIndex(const IGameEntity* pEnt);
 
 // The model index modelinfo takes; 0 for NULL or for an entity with no model.
-int GameEntity_ModelIndex(const IGameEntity* pEnt);

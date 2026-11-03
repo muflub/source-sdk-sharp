@@ -247,8 +247,6 @@ public:
 	virtual void StartTouch(const Toucher_t& toucher) OVERRIDE;
 	virtual void EndTouch(const Toucher_t& toucher) OVERRIDE;
 
-	Toucher_t AsToucher();
-
 	// CBaseEntity::PhysicsTouchTriggers: the engine only finds overlaps for an entity that asks.
 	void TouchTriggers(const Vector& vecPrevOrigin);
 

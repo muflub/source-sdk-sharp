@@ -1003,7 +1003,7 @@ public sealed class RecordingEngine :
     // Hud
     void IEngineHud.DrawWorldText(Vector origin, int line, string text, float duration, int r, int g, int b, int a) => RecordVoid("Hud.DrawWorldText", origin, line, text, duration, r, g, b, a);
     bool IEngineHud.DrawEntityOverlay(EntityHandle entity, int line, string? text, float duration, int r, int g, int b, int a) => Record<bool>("Hud.DrawEntityOverlay", entity, line, text ?? string.Empty, duration, r, g, b, a);
-    (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet) IEngineHud.OverlayReadout() => Record<(uint, uint, uint, uint, bool)>("Hud.OverlayReadout");
+    (uint Drawn, uint NoOverlay) IEngineHud.OverlayReadout() => Record<(uint, uint)>("Hud.OverlayReadout");
 
     // IEngineDiagnostics: recorded; the spans are left as the caller passed them.
     int IEngineDiagnostics.PlayerShadowCounts(Span<int> into) => Record<int>("Diagnostics.PlayerShadowCounts");

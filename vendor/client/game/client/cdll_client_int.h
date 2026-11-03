@@ -47,9 +47,7 @@ class CSteamID;
 extern IMaterialSystem* materials;
 extern IMaterialSystemHardwareConfig* g_pMaterialSystemHardwareConfig;
 extern IMDLCache* mdlcache;
-extern IBaseClientDLL* clientdll;
 extern IUploadGameStats* gamestatsuploader;
-extern IClientReplayContext* g_pClientReplayContext;
 
 // HPE_BEGIN
 // [dwenger] Necessary for stats display

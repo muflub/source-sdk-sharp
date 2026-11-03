@@ -550,11 +550,6 @@ void CEngineSprite::Shutdown()
 	UnloadMaterial();
 }
 
-bool CEngineSprite::IsVideo()
-{
-	return m_VideoMaterial != NULL;
-}
-
 // Half a texel in from each edge, so the quad's border samples its own texels.
 void CEngineSprite::GetTexCoordRange(float* pMinU, float* pMinV, float* pMaxU, float* pMaxV)
 {

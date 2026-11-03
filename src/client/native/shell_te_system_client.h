@@ -41,7 +41,6 @@ public:
 	void DispatchEffectToCallback(const char* pEffectName, const CEffectData& data);
 
 	// IShimFxClient: one client effect registration run.
-	void EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData);
 
 	// IShimFxClient: DispatchParticleEffect, whose effect has no owner.
 	void FxDispatchParticleEffect(int32_t nSystem, const float* pStartXYZ, const float* pEndXYZ,

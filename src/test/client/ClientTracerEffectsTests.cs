@@ -175,15 +175,7 @@ public class ClientTracerEffectsTests
         Assert.True(rig.Fx.Sounds.Count == 1 && rig.Fx.Sounds[0].Name == "Bullets.GunshipNearmiss", "the gunship's near-miss");
     }
 
-    // ---- the dispatch table's managed half ------------------------------------------
-
-    private sealed class Natives(params string[] names) : IClientEffectRegistrations
-    {
-        public readonly List<int> Runs = [];
-        public int Count => names.Length;
-        public string? Name(int index) => index < names.Length ? names[index] : null;
-        public void Run(int index, in EffectData data) => Runs.Add(index);
-    }
+    // ---- the dispatch ---------------------------------------------------------------
 
     private sealed class Handler(string name) : IClientEffectHandler
     {
@@ -193,18 +185,18 @@ public class ClientTracerEffectsTests
     }
 
     [Fact]
-    public void AManagedHandlerAnswersBeforeTheNativeRegistrations()
+    public void AManagedHandlerAnswersItsNameInAnyCase()
     {
-        var natives = new Natives("Tracer", "Smoke");
         RecordingEngine console = TestServices.Fake();
+        console.Returns("Console.FindConVarValue", "0");
         var handler = new Handler("Tracer");
-        var dispatch = new ClientEffectDispatch(natives, console, new ClientEffectHandlers([handler]));
+        var dispatch = new ClientEffectDispatch(console, new ClientEffectHandlers([handler]));
 
         dispatch.Dispatch("tracer", new EffectData());
         dispatch.Dispatch("Smoke", new EffectData());
 
-        Assert.True(handler.Runs == 1 && natives.Runs.SequenceEqual([1]), "Tracer ran in C#; Smoke still ran natively");
-        Assert.True(dispatch.Ran == 2 && dispatch.Unclaimed == 0, "both counted as ran");
+        Assert.True(handler.Runs == 1, "Tracer ran in C#");
+        Assert.True(dispatch.Ran == 1 && dispatch.Unclaimed == 1, "and Smoke, with no handler, was counted unclaimed");
     }
 
     // ---- reload ----------------------------------------------------------------------

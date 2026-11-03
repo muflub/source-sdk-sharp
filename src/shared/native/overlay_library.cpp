@@ -13,13 +13,9 @@
 #include "engine/ivdebugoverlay.h"
 #include "tier1/strtools.h"
 
-// Stock's MAX_OVERLAY_DIST_SQR.
-#define OVERLAY_MAX_DIST_SQR 90000000.0f
-
 COverlayLibrary::COverlayLibrary(IVDebugOverlay* pOverlay)
 	: m_pOverlay(pOverlay)
-	, m_Viewer{Vector(0, 0, 0), Vector(0, 0, 0), false}
-	, m_Counts{0, 0, 0, 0}
+	, m_Counts{0, 0}
 	, m_nNextPoolLine(0)
 {
 	for (PoolLine_t& line : m_Pool)
@@ -33,37 +29,6 @@ bool COverlayLibrary::HaveOverlay()
 
 	m_Counts.nNoOverlay++;
 	return false;
-}
-
-void COverlayLibrary::ResetCounts()
-{
-	m_Counts = {0, 0, 0, 0};
-}
-
-void COverlayLibrary::SetViewer(const Vector& vecEyeOrigin, const Vector& vecEyeForward)
-{
-	m_Viewer.vecOrigin = vecEyeOrigin;
-	m_Viewer.vecForward = vecEyeForward;
-	m_Viewer.bSet = true;
-}
-
-bool COverlayLibrary::SegmentIsVisible(const Vector& vecStart, const Vector& vecEnd) const
-{
-	const Viewer_t& v = m_Viewer;
-	if (!v.bSet)
-		return false;
-
-	const float flStartSqr = (v.vecOrigin - vecStart).LengthSqr();
-	const float flEndSqr = (v.vecOrigin - vecEnd).LengthSqr();
-	if (flStartSqr > OVERLAY_MAX_DIST_SQR && flEndSqr > OVERLAY_MAX_DIST_SQR)
-		return false;
-
-	const float flDotStart = DotProduct(v.vecForward, vecStart - v.vecOrigin);
-	const float flDotEnd = DotProduct(v.vecForward, vecEnd - v.vecOrigin);
-	if (flDotStart < 0.0f && flDotEnd < 0.0f)
-		return false;
-
-	return true;
 }
 
 void COverlayLibrary::BoxAngles(const Vector& origin, const Vector& mins, const Vector& maxs, const QAngle& angles,
@@ -106,18 +71,6 @@ void COverlayLibrary::ClearAll()
 void COverlayLibrary::Line(const Vector& origin, const Vector& target, int r, int g, int b, bool bNoDepthTest,
 						   float flDuration)
 {
-	if (!ViewerIsSet())
-	{
-		m_Counts.nNoViewer++;
-		return;
-	}
-
-	if (!SegmentIsVisible(origin, target))
-	{
-		m_Counts.nClipped++;
-		return;
-	}
-
 	if (!HaveOverlay())
 		return;
 

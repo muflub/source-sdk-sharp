@@ -37,9 +37,6 @@ typedef void* (*SendTableProxyFn)(const SendProp* pProp, const void* pStructBase
 class CNonModifiedPointerProxy
 {
 public:
-	CNonModifiedPointerProxy(SendTableProxyFn fn);
-
-public:
 	SendTableProxyFn m_Fn;
 	CNonModifiedPointerProxy* m_pNext;
 };

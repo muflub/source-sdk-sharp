@@ -35,7 +35,6 @@ public:
 
 	float GetRight() { return right; }
 
-	bool IsVideo();
 	void GetTexCoordRange(float* pMinU, float* pMinV, float* pMaxU, float* pMaxV);
 
 private:

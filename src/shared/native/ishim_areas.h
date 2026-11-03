@@ -225,8 +225,7 @@ public:
 									  int32_t g, int32_t b, int32_t a) = 0;
 	virtual void AddLineOverlay(const float* pStartXYZ, const float* pEndXYZ, int32_t r, int32_t g, int32_t b,
 								int32_t bNoDepthTest, float flDuration) = 0;
-	virtual void OverlayCounts(uint32_t* pOutDrawn, uint32_t* pOutClipped, uint32_t* pOutNoViewer,
-							   uint32_t* pOutNoOverlay, int32_t* pOutViewerSet) = 0;
+	virtual void OverlayCounts(uint32_t* pOutDrawn, uint32_t* pOutNoOverlay) = 0;
 };
 
 abstract_class IShimDiagnostics

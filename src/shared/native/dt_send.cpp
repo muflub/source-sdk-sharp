@@ -9,6 +9,7 @@
 #include "dt_send.h"
 #include "mathlib/mathlib.h"
 
+// The list the engine is handed through m_ppNonModifiedPointerProxies: nothing here joins it.
 static CNonModifiedPointerProxy* s_pNonModifiedPointerProxyHead = NULL;
 
 void SendProxy_UInt8ToInt32(const SendProp* pProp, const void* pStruct, const void* pData, DVariant* pOut, int iElement,
@@ -17,13 +18,6 @@ void SendProxy_UInt16ToInt32(const SendProp* pProp, const void* pStruct, const v
 							 int iElement, int objectID);
 void SendProxy_UInt32ToInt32(const SendProp* pProp, const void* pStruct, const void* pData, DVariant* pOut,
 							 int iElement, int objectID);
-
-CNonModifiedPointerProxy::CNonModifiedPointerProxy(SendTableProxyFn fn)
-{
-	m_pNext = s_pNonModifiedPointerProxyHead;
-	s_pNonModifiedPointerProxyHead = this;
-	m_Fn = fn;
-}
 
 CStandardSendProxiesV1::CStandardSendProxiesV1()
 {
@@ -334,11 +328,6 @@ SendProp::SendProp()
 }
 
 SendProp::~SendProp() {}
-
-SendTable::SendTable()
-{
-	Construct(NULL, 0, NULL);
-}
 
 SendTable::SendTable(SendProp* pProps, int nProps, const char* pNetTableName)
 {

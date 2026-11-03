@@ -41,19 +41,9 @@ int _V_strlen(const char*, int, const char* str)
 	return (int)strlen(str);
 }
 
-void _V_strcpy(const char*, int, char* dest, const char* src)
-{
-	strcpy(dest, src);
-}
-
 char* _V_strstr(const char*, int, const char* s1, const char* search)
 {
 	return const_cast<char*>(strstr(s1, search));
-}
-
-int _V_wcslen(const char*, int, const wchar_t* pwch)
-{
-	return (int)wcslen(pwch);
 }
 
 int _V_strcmp(const char*, int, const char* s1, const char* s2)
@@ -73,65 +63,15 @@ void V_strncpy(char* pDest, const char* pSrc, int maxLen)
 	memset(pDest + nCopy, 0, (size_t)maxLen - nCopy);
 }
 
-int V_strncmp(const char* s1, const char* s2, int count)
-{
-	return ss::StrNCmp(s1, s2, count);
-}
-
 // ASCII case folding, with V_stricmp's sign.
 int V_stricmp(const char* s1, const char* s2)
 {
 	return ss::StrICmp(s1, s2);
 }
 
-int V_strnicmp(const char* s1, const char* s2, int n)
-{
-	return ss::StrNICmp(s1, s2, n);
-}
-
-char* V_strlower(char* start)
-{
-	return ss::StrLower(start);
-}
-
-char* V_strupr(char* start)
-{
-	return ss::StrUpper(start);
-}
-
-int V_StrTrim(char* pStr)
-{
-	return ss::StrTrim(pStr);
-}
-
-int64 V_atoi64(const char* str)
-{
-	return ss::AtoI64(str);
-}
-
 const char* V_stristr(const char* pStr, const char* pSearch)
 {
 	return ss::StrIStr(pStr, pSearch);
-}
-
-char* V_stristr(char* pStr, const char* pSearch)
-{
-	return ss::StrIStr(pStr, pSearch);
-}
-
-const char* V_strnistr(const char* pStr, const char* pSearch, int n)
-{
-	return ss::StrNIStr(pStr, pSearch, n);
-}
-
-const char* V_strnchr(const char* pStr, char c, int n)
-{
-	return ss::StrNChr(pStr, c, n);
-}
-
-char* V_strncat(char* pDest, const char* pSrc, size_t cchDest, int max_chars_to_copy)
-{
-	return ss::StrAppend(pDest, pSrc, cchDest, max_chars_to_copy);
 }
 
 int V_vsnprintf(char* pDest, int maxLen, const char* pFormat, va_list params)
@@ -148,79 +88,7 @@ int V_snprintf(char* pDest, int maxLen, const char* pFormat, ...)
 	return n;
 }
 
-void V_binarytohex(const byte* in, int inputbytes, char* out, int outsize)
-{
-	ss::BinaryToHex(in, inputbytes, out, outsize);
-}
-
-void V_FixSlashes(char* pname, char separator)
-{
-	ss::FixSlashes(pname, separator);
-}
-
 void V_FileBase(const char* in, char* out, int maxlen)
 {
 	ss::FileBase(in, out, maxlen);
-}
-
-void V_StripExtension(const char* in, char* out, int outLen)
-{
-	ss::StripExtension(in, out, outLen);
-}
-
-void V_SetExtension(char* path, const char* extension, int pathStringLength)
-{
-	ss::SetExtension(path, extension, pathStringLength);
-}
-
-const char* V_GetFileExtension(const char* path)
-{
-	return ss::GetFileExtension(path);
-}
-
-void V_ExtractFileExtension(const char* path, char* dest, int destSize)
-{
-	ss::ExtractFileExtension(path, dest, destSize);
-}
-
-bool V_ExtractFilePath(const char* path, char* dest, int destSize)
-{
-	return ss::ExtractFilePath(path, dest, destSize);
-}
-
-bool V_StripLastDir(char* dirName, int maxlen)
-{
-	return ss::StripLastDir(dirName, maxlen);
-}
-
-void V_StripTrailingSlash(char* ppath)
-{
-	ss::StripTrailingSlash(ppath);
-}
-
-const char* V_UnqualifiedFileName(const char* in)
-{
-	return ss::GetFileName(in);
-}
-
-bool V_IsAbsolutePath(const char* pPath)
-{
-	return ss::IsAbsolutePath(pPath);
-}
-
-bool V_RemoveDotSlashes(char* pFilename, char separator, bool)
-{
-	return ss::RemoveDotSlashes(pFilename, separator);
-}
-
-void V_ComposeFileName(const char* path, const char* filename, char* dest, int destSize)
-{
-	if (!ss::ComposeFileName(path, filename, dest, destSize))
-		Error("V_ComposeFileName: %s does not fit in %d bytes with a separator.", path, destSize);
-}
-
-void V_MakeAbsolutePath(char* pOut, int outLen, const char* pPath, const char* pStartingDir)
-{
-	if (!ss::MakeAbsolutePath(pOut, outLen, pPath, pStartingDir))
-		Error("V_MakeAbsolutePath: %s could not be made absolute in %d bytes.", pPath, outLen);
 }

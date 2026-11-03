@@ -19,11 +19,6 @@ void VectorTransform(const float* in1, const matrix3x4_t& in2, float* out)
 	ss_mathlib::VectorTransform(in1, in2, out);
 }
 
-float CalcSqrDistanceToAABB(const Vector& mins, const Vector& maxs, const Vector& point)
-{
-	return ss_mathlib::CalcSqrDistanceToAABB(mins, maxs, point);
-}
-
 void MatrixSetColumn(const Vector& in, int column, matrix3x4_t& out)
 {
 	ss_mathlib::MatrixSetColumn(in, column, out);

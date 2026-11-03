@@ -222,11 +222,6 @@ void KeyValues::AddSubKey(KeyValues* pSubkey)
 	*ppLink = pSubkey;
 }
 
-void KeyValues::SetNextKey(KeyValues* pDat)
-{
-	m_pPeer = pDat;
-}
-
 KeyValues::types_t KeyValues::GetDataType(const char* keyName)
 {
 	KeyValues* dat = FindKey(keyName, false);
@@ -369,14 +364,5 @@ void KeyValues::SetFloat(const char* keyName, float value)
 	{
 		dat->m_flValue = value;
 		dat->m_iDataType = TYPE_FLOAT;
-	}
-}
-
-void KeyValues::SetPtr(const char* keyName, void* value)
-{
-	if (KeyValues* dat = FindKey(keyName, true))
-	{
-		dat->m_pValue = value;
-		dat->m_iDataType = TYPE_PTR;
 	}
 }

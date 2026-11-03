@@ -399,9 +399,6 @@ public:
 abstract_class IShimFxClient
 {
 public:
-	virtual int32_t EffectRegistrationCount() = 0;
-	virtual int32_t EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize) = 0;
-	virtual void EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData) = 0;
 	virtual int32_t FxCanPredict() = 0;
 	virtual int32_t FxRecipientCount(const float* pOriginXYZ) = 0;
 	virtual int32_t FxMaterialFind(const char* pName) = 0;

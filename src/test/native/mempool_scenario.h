@@ -128,7 +128,7 @@ inline std::string Run()
 					snprintf(b, sizeof(b), "freed all count %d\n", pool.Count());
 					out += b;
 					pool.Clear();
-					void* p = pool.Alloc();
+					void* p = pool.Alloc(nBlock);
 					snprintf(b, sizeof(b), "after Clear: %s count %d\n", p ? "a block" : "NULL", pool.Count());
 					out += b;
 					if (p)

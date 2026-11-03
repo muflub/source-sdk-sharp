@@ -134,9 +134,8 @@ public partial class AbiParityTests
     /// crossing this ABI by pointer and the widest of the three.
     ///
     /// <para>
-    /// It goes the same way <see cref="GibShot"/> does — C# fills it and
-    /// <c>SourceSharp_EffectRegistrationRun</c> reads it field by field into a
-    /// <c>CEffectData</c> — and that direction is the worse one. Twenty-one
+    /// Native fills it field by field from a <c>CEffectData</c> and C# reads it.
+    /// Twenty-one
     /// fields, seven of them vectors, and a field inserted on one side only
     /// shifts everything after it with nothing failing to compile. The symptom
     /// is a dispatched effect drawn at a plausible but wrong scale, on the

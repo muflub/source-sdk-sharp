@@ -1869,8 +1869,8 @@ static const SSForwarderTable s_ShimEffectsServerTable = { s_ShimEffectsServerSl
 static int32_t SSFwd_ShimDebugOverlay_DrawEntityOverlay( IShimDebugOverlay *self, uint32_t a0, int32_t a1, const char * a2, float a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7 ) { return self->DrawEntityOverlay( a0, a1, a2, a3, a4, a5, a6, a7 ); }
 // void IShimDebugOverlay::AddLineOverlay( const float *, const float *, int32_t, int32_t, int32_t, int32_t, float )
 static void SSFwd_ShimDebugOverlay_AddLineOverlay( IShimDebugOverlay *self, const float * a0, const float * a1, int32_t a2, int32_t a3, int32_t a4, int32_t a5, float a6 ) { self->AddLineOverlay( a0, a1, a2, a3, a4, a5, a6 ); }
-// void IShimDebugOverlay::OverlayCounts( uint32_t *, uint32_t *, uint32_t *, uint32_t *, int32_t * )
-static void SSFwd_ShimDebugOverlay_OverlayCounts( IShimDebugOverlay *self, uint32_t * a0, uint32_t * a1, uint32_t * a2, uint32_t * a3, int32_t * a4 ) { self->OverlayCounts( a0, a1, a2, a3, a4 ); }
+// void IShimDebugOverlay::OverlayCounts( uint32_t *, uint32_t * )
+static void SSFwd_ShimDebugOverlay_OverlayCounts( IShimDebugOverlay *self, uint32_t * a0, uint32_t * a1 ) { self->OverlayCounts( a0, a1 ); }
 
 static void *const s_ShimDebugOverlaySlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimDebugOverlay_DrawEntityOverlay ),
@@ -2682,14 +2682,8 @@ static void *const s_ShimParticlesClientSlots[] = {
 static const SSForwarderTable s_ShimParticlesClientTable = { s_ShimParticlesClientSlots, 20 };
 
 //-----------------------------------------------------------------------------
-// ShimFxClient: 33 forwarder(s) over IShimFxClient.
+// ShimFxClient: 30 forwarder(s) over IShimFxClient.
 //-----------------------------------------------------------------------------
-// int32_t IShimFxClient::EffectRegistrationCount( void )
-static int32_t SSFwd_ShimFxClient_EffectRegistrationCount( IShimFxClient *self ) { return self->EffectRegistrationCount(); }
-// int32_t IShimFxClient::EffectRegistrationName( int32_t, char *, int32_t )
-static int32_t SSFwd_ShimFxClient_EffectRegistrationName( IShimFxClient *self, int32_t a0, char * a1, int32_t a2 ) { return self->EffectRegistrationName( a0, a1, a2 ); }
-// void IShimFxClient::EffectRegistrationRun( int32_t, const SourceSharpEffectData_t * )
-static void SSFwd_ShimFxClient_EffectRegistrationRun( IShimFxClient *self, int32_t a0, const SourceSharpEffectData_t * a1 ) { self->EffectRegistrationRun( a0, a1 ); }
 // int32_t IShimFxClient::FxCanPredict( void )
 static int32_t SSFwd_ShimFxClient_FxCanPredict( IShimFxClient *self ) { return self->FxCanPredict(); }
 // int32_t IShimFxClient::FxRecipientCount( const float * )
@@ -2752,9 +2746,6 @@ static void SSFwd_ShimFxClient_FxLoadModel( IShimFxClient *self, const char * a0
 static int32_t SSFwd_ShimFxClient_FxModelFrameCount( IShimFxClient *self, const char * a0 ) { return self->FxModelFrameCount( a0 ); }
 
 static void *const s_ShimFxClientSlots[] = {
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_EffectRegistrationCount ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_EffectRegistrationName ),
-	reinterpret_cast< void * >( &SSFwd_ShimFxClient_EffectRegistrationRun ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxCanPredict ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxRecipientCount ),
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxMaterialFind ),
@@ -2787,7 +2778,7 @@ static void *const s_ShimFxClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimFxClient_FxModelFrameCount ),
 };
 
-static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 33 };
+static const SSForwarderTable s_ShimFxClientTable = { s_ShimFxClientSlots, 30 };
 
 //-----------------------------------------------------------------------------
 // ShimSoundscapeClient: 10 forwarder(s) over IShimSoundscapeClient.

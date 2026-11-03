@@ -242,7 +242,7 @@ public sealed class ClientTeEffectDispatch : IClientTempEnt
         };
 
         // m_iEffectName is deliberately NOT in the struct: the NAME is what the
-        // dispatch table (EffectDispatchTable, managed) resolves.
+        // managed dispatch resolves.
         _dispatch.Dispatch(name, in data);
     }
 }

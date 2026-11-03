@@ -6,8 +6,7 @@
 //=============================================================================//
 
 // SS_REASON c  static-init registration
-// The client's effect registrations. Managed picks the effect by name; native keeps the
-// list DECLARE_CLIENT_EFFECT joins at static init and the doors in and out of it.
+// The door an effect dispatch comes through; managed picks the effect by name.
 
 #include "predictable_entity.h"
 #include "cdll_util.h"
@@ -25,62 +24,8 @@
 #include "shell_te_system_client.h"
 #include "client_entity_list.h"
 
-// Zero-initialised, so ready before any DECLARE_CLIENT_EFFECT constructor runs.
-CClientEffectRegistration* CClientEffectRegistration::s_pHead = NULL;
-
-CClientEffectRegistration::CClientEffectRegistration(const char* pEffectName, ClientEffectCallback fn)
-{
-	m_pEffectName = pEffectName;
-	m_pFunction = fn;
-	m_pNext = s_pHead;
-	s_pHead = this;
-}
-
 namespace
 {
-
-CClientEffectRegistration* EffectRegistrationAt(int32_t iIndex)
-{
-	if (iIndex < 0)
-		return NULL;
-	CClientEffectRegistration* pReg = CClientEffectRegistration::s_pHead;
-	for (int32_t i = 0; pReg && i < iIndex; ++i)
-		pReg = pReg->m_pNext;
-	return pReg;
-}
-
-// A negative entity index is no entity; anything else is looked up.
-void EffectDataToClient(const CClientEntityList& entityList, const SourceSharpEffectData_t* pData, CEffectData* pOut)
-{
-	CEffectData& data = *pOut;
-
-	data.m_vOrigin.Init(pData->OriginXYZ[0], pData->OriginXYZ[1], pData->OriginXYZ[2]);
-	data.m_vStart.Init(pData->StartXYZ[0], pData->StartXYZ[1], pData->StartXYZ[2]);
-	data.m_vNormal.Init(pData->NormalXYZ[0], pData->NormalXYZ[1], pData->NormalXYZ[2]);
-	data.m_vAngles.Init(pData->AnglesPYR[0], pData->AnglesPYR[1], pData->AnglesPYR[2]);
-
-	data.m_fFlags = pData->Flags;
-	data.m_flScale = pData->Scale;
-	data.m_flMagnitude = pData->Magnitude;
-	data.m_flRadius = pData->Radius;
-	data.m_nAttachmentIndex = pData->AttachmentIndex;
-	data.m_nSurfaceProp = (short)pData->SurfaceProp;
-	data.m_nMaterial = pData->Material;
-	data.m_nDamageType = pData->DamageType;
-	data.m_nHitBox = pData->HitBox;
-	data.m_nColor = (unsigned char)pData->Color;
-
-	data.m_hEntity = (pData->EntIndex >= 0) ? entityList.HandleFromIndex(pData->EntIndex) : INVALID_EHANDLE;
-
-	data.m_bCustomColors = (pData->CustomColors != 0);
-	data.m_CustomColors.m_vecColor1.Init(pData->Color1XYZ[0], pData->Color1XYZ[1], pData->Color1XYZ[2]);
-	data.m_CustomColors.m_vecColor2.Init(pData->Color2XYZ[0], pData->Color2XYZ[1], pData->Color2XYZ[2]);
-
-	data.m_bControlPoint1 = (pData->ControlPoint1 != 0);
-	data.m_ControlPoint1.m_eParticleAttachment = (ParticleAttachment_t)pData->ControlPointAttachment;
-	data.m_ControlPoint1.m_vecOffset.Init(pData->ControlPointOffsetXYZ[0], pData->ControlPointOffsetXYZ[1],
-										  pData->ControlPointOffsetXYZ[2]);
-}
 
 // The handle crosses as its entry index, -1 for none.
 void EffectDataFromClient(const CEffectData& data, SourceSharpEffectData_t* pOut)
@@ -131,36 +76,6 @@ void EffectDataFromClient(const CEffectData& data, SourceSharpEffectData_t* pOut
 }
 
 } // namespace
-
-// The registration list, read and run by walk index.
-int32_t SourceSharp_EffectRegistrationCount()
-{
-	int32_t n = 0;
-	for (CClientEffectRegistration* pReg = CClientEffectRegistration::s_pHead; pReg; pReg = pReg->m_pNext)
-		++n;
-	return n;
-}
-
-int32_t SourceSharp_EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize)
-{
-	CClientEffectRegistration* pReg = EffectRegistrationAt(iIndex);
-	if (!pReg || !pReg->m_pEffectName)
-		return -1;
-	if (pOut && nOutSize > 0)
-		Q_strncpy(pOut, pReg->m_pEffectName, nOutSize);
-	return Q_strlen(pReg->m_pEffectName);
-}
-
-void CTempEntsSystemClient::EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData)
-{
-	CClientEffectRegistration* pReg = EffectRegistrationAt(iIndex);
-	if (!pReg || !pReg->m_pFunction || !pData)
-		return;
-
-	CEffectData data;
-	EffectDataToClient(m_EntityList, pData, &data);
-	pReg->m_pFunction(data);
-}
 
 void CTempEntsSystemClient::DispatchEffectToCallback(const char* pEffectName, const CEffectData& data)
 {

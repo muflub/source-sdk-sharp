@@ -4035,10 +4035,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
                            directory.ShellLessExhausted, _entities.ShellLessNativeReach),
 
             // AND WHAT THE OVERLAYS DREW -- plan_entity.md step 4c. `drawn` is
-            // the work and `noViewer` / `clipped` / `noOverlay` are the three
-            // honest reasons it could be zero. Counted in NATIVE code, for step
+            // the work and `noOverlay` is the honest reason it could be zero.
+            // Counted in NATIVE code, for step
             // 2e's reason: most draws come from native callers.
-            new DebugOverlayCounts(overlay.Drawn, overlay.Clipped, overlay.NoViewer, overlay.NoOverlay, overlay.ViewerSet));
+            new DebugOverlayCounts(overlay.Drawn, overlay.NoOverlay));
     }
 
     /// <summary>

@@ -31,17 +31,12 @@ void _V_memcpy(const char* file, int line, void* dest, const void* src, int coun
 void _V_memmove(const char* file, int line, void* dest, const void* src, int count);
 int _V_memcmp(const char* file, int line, const void* m1, const void* m2, int count);
 int _V_strlen(const char* file, int line, const char* str);
-void _V_strcpy(const char* file, int line, char* dest, const char* src);
+int _V_wcslen(const char* file, int line, const wchar_t* pwch);
 int _V_strcmp(const char* file, int line, const char* s1, const char* s2);
 char* _V_strstr(const char* file, int line, const char* s1, const char* search);
-int _V_wcslen(const char* file, int line, const wchar_t* pwch);
 
 // ASCII-optimized functions which fall back to CRT only when necessary
-char* V_strupr(char* start);
-char* V_strlower(char* start);
 int V_stricmp(const char* s1, const char* s2);
-int V_strncmp(const char* s1, const char* s2, int count);
-int V_strnicmp(const char* s1, const char* s2, int n);
 
 #define V_stristr_fast V_stristr
 const char* V_stristr_fast(const char* pStr, const char* pSearch);
@@ -136,13 +131,10 @@ inline char* V_strstr(const char* s1, const char* search)
 #endif
 
 int V_atoi(const char* str);
-int64 V_atoi64(const char* str);
 int64 V_strtoi64(const char* nptr, char** endptr, int base);
 float V_atof(const char* str);
 char* V_stristr(char* pStr, const char* pSearch);
 const char* V_stristr(const char* pStr, const char* pSearch);
-const char* V_strnistr(const char* pStr, const char* pSearch, int n);
-const char* V_strnchr(const char* pStr, char c, int n);
 
 inline int V_strcasecmp(const char* s1, const char* s2)
 {
@@ -384,48 +376,34 @@ inline int V_UTF8ToUCS2(const char* pUTF8, T cubSrcInBytes, OUT_Z_BYTECAP(cubDes
 // V_binarytohex( &output, sizeof( output ), buffer, sizeof( buffer ) );
 // would put "ffffffff" into buffer (note null terminator!!!)
 unsigned char V_nibble(char c);
-void V_binarytohex(const byte* in, int inputbytes, char* out, int outsize);
 
 // Tools for working with filenames
 // Extracts the base name of a file (no path, no extension, assumes '/' or '\' as path separator)
 void V_FileBase(const char* in, char* out, int maxlen);
 // Remove the final characters of ppath if it's '\' or '/'.
-void V_StripTrailingSlash(char* ppath);
 
 // Remove any extension from in and return resulting string in out
-void V_StripExtension(const char* in, char* out, int outLen);
 // Strips any current extension from path and ensures that extension is the new extension
-void V_SetExtension(char* path, const char* extension, int pathStringLength);
 // Remove the final directory from the path
-bool V_StripLastDir(char* dirName, int maxlen);
 // Returns a pointer to the unqualified file name (no path) of a file name
-const char* V_UnqualifiedFileName(const char* in);
 // Given a path and a filename, composes "path\filename", inserting the (OS correct) separator if necessary
-void V_ComposeFileName(const char* path, const char* filename, char* dest, int destSize);
 
 // Copy out the path except for the stuff after the final pathseparator
-bool V_ExtractFilePath(const char* path, char* dest, int destSize);
 // Copy out the file extension into dest
-void V_ExtractFileExtension(const char* path, char* dest, int destSize);
-
-const char* V_GetFileExtension(const char* path);
 
 // This removes "./" and "../" from the pathname. pFilename should be a full pathname.
 // Also incorporates the behavior of V_FixSlashes and optionally V_FixDoubleSlashes.
 // Returns false if it tries to ".." past the root directory in the drive (in which case
 // it is an invalid path).
-bool V_RemoveDotSlashes(char* pFilename, char separator = CORRECT_PATH_SEPARATOR, bool bRemoveDoubleSlashes = true);
 
 // If pPath is a relative path, this function makes it into an absolute path
 // using the current working directory as the base, or pStartingDir if it's non-NULL.
 // Returns false if it runs out of room in the string, or if pPath tries to ".." past the root directory.
-void V_MakeAbsolutePath(char* pOut, int outLen, const char* pPath, const char* pStartingDir = NULL);
 
 // Adds a path separator to the end of the string if there isn't one already. Returns false if it would run out of space.
 void V_AppendSlash(INOUT_Z_CAP(strSize) char* pStr, int strSize);
 
 // Returns true if the path is an absolute path.
-bool V_IsAbsolutePath(IN_Z const char* pPath);
 
 // Split the specified string on the specified separator.
 // Returns a list of strings separated by pSeparator.
@@ -444,7 +422,6 @@ void V_SplitString2(IN_Z const char* pString, const char** pSeparators, int nSep
 void V_StrSlice(const char* pStr, int firstChar, int lastCharNonInclusive, OUT_Z_CAP(outSize) char* pOut, int outSize);
 
 // Force slashes of either type to be = separator character
-void V_FixSlashes(char* pname, char separator = CORRECT_PATH_SEPARATOR);
 
 // buffer-safe strcat
 inline void V_strcat(INOUT_Z_CAP(cchDest) char* dest, const char* src, int cchDest)
@@ -705,7 +682,6 @@ private:
 #define Q_StrTrim V_StrTrim
 
 // Strip white space at the beginning and end of a string
-int V_StrTrim(char* pStr);
 
 bool PATHSEPARATOR(char c);
 

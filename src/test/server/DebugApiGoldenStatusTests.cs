@@ -59,7 +59,7 @@ public class DebugApiGoldenStatusTests
         ",\"failed\":{\"entities\":2,\"first\":\"prop_\\\"bad\\\"\"}" +
         $",\"waiting\":{{\"entities\":{ReloadCarrier.Count(_reload)},\"parts\":{ReloadCarrier.PartCount(_reload)}," +
         $"\"io\":{ReloadCarrier.IoCount(_reload)},\"shellLess\":{ReloadCarrier.ShellLessCount(_reload)}}}}}" +
-        ",\"overlay\":{\"drawn\":38,\"clipped\":39,\"noViewer\":40,\"noOverlay\":41,\"viewerSet\":true}" +
+        ",\"overlay\":{\"drawn\":38,\"noOverlay\":41}" +
         ",\"quit\":null";
 
     internal const string GameJson =
@@ -88,7 +88,7 @@ public class DebugApiGoldenStatusTests
             new DebugThink(1, 2, 3, 4), new DebugIo(5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
             new DebugTouch(15, 16, 17, 18, 19, 20, 21), new DebugMapSpawn(22, 23, 24, 25, 26, 27),
             new DebugFactories(true, 28, 29, 30, 31), new DebugLogical(32, 33, 34, 35, 36, 37),
-            new DebugOverlayCounts(38, 39, 40, 41, true));
+            new DebugOverlayCounts(38, 41));
 
         // Pumped below, so the game-thread wait only has to outlast a pump
         // thread's first turn. The live game's 500 ms did not on a loaded CI

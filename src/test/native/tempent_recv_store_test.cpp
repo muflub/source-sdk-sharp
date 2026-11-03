@@ -172,15 +172,14 @@ TEST(TempEntRecvStore, AnArrayRowIsInternalRecvPropArraysShape)
 
 	ASSERT_TRUE(SourceSharpTe_StoreRecvProp(row, "Spline", NULL, &prop));
 
-	const RecvProp stock = InternalRecvPropArray(16, 12, "Spline", NULL);
-
-	EXPECT_EQ(stock.GetType(), prop.GetType());
-	EXPECT_EQ(stock.GetNumElements(), prop.GetNumElements());
-	EXPECT_EQ(stock.GetElementStride(), prop.GetElementStride());
-	EXPECT_EQ(stock.GetOffset(), prop.GetOffset());
-	EXPECT_EQ(stock.GetFlags(), prop.GetFlags());
-	EXPECT_EQ(stock.GetArrayLengthProxy(), prop.GetArrayLengthProxy());
-	EXPECT_EQ(stock.GetProxyFn(), prop.GetProxyFn());
+	// What stock's InternalRecvPropArray( 16, 12, "Spline", NULL ) makes.
+	EXPECT_EQ(DPT_Array, prop.GetType());
+	EXPECT_EQ(16, prop.GetNumElements());
+	EXPECT_EQ(12, prop.GetElementStride());
+	EXPECT_EQ(0, prop.GetOffset());
+	EXPECT_EQ(0, prop.GetFlags());
+	EXPECT_EQ((ArrayLengthRecvProxyFn)NULL, prop.GetArrayLengthProxy());
+	EXPECT_EQ((RecvVarProxyFn)NULL, prop.GetProxyFn());
 	EXPECT_STREQ("Spline", prop.GetName());
 }
 

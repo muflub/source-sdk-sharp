@@ -27,30 +27,14 @@ TEST(ShellLog, TheFreeCallsReachTheLiveLogAndItsDefaultsOnceItIsGone)
 {
 	{
 		CShellLog log;
-		bool bLogged = false;
 		testing::internal::CaptureStdout();
-		SourceSharp_LogStub("Probe", &bLogged);
+		SourceSharp_LogEntityCreate("Probe");
 		const std::string out = testing::internal::GetCapturedStdout();
 
-		EXPECT_TRUE(bLogged);
-		EXPECT_NE(std::string::npos, out.find("STUB Probe (server)")) << out;
+		EXPECT_NE(std::string::npos, out.find("creating 'Probe'")) << out;
 	}
 
 	EXPECT_EQ(1, SourceSharp_GetVerbosity()) << "no log: the default, not a dangling read";
-}
-
-TEST(ShellLog, AStubIsPrintedOnceAtVerbosityOne)
-{
-	CShellLog log;
-	bool bLogged = false;
-
-	testing::internal::CaptureStdout();
-	log.Stub("Twice", &bLogged);
-	log.Stub("Twice", &bLogged);
-	const std::string out = testing::internal::GetCapturedStdout();
-
-	EXPECT_EQ(out.find("STUB Twice"), out.rfind("STUB Twice")) << out;
-	EXPECT_NE(std::string::npos, out.find("STUB Twice"));
 }
 
 TEST(ShellLog, TheNotShippedReadoutIsTheLogsOwnLedger)

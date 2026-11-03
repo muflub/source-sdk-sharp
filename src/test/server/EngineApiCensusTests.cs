@@ -275,7 +275,7 @@ public partial class EngineApiCensusTests
     // (Rebased onto client-novalve: 170 -2 = 168.)
     // plan_client_novalve §2 cluster 4 (lane c2-fx): the new IShimFxClient's
     // EffectRegistrationCount, EffectRegistrationName and EffectRegistrationRun
-    // (165 -> 168). Measured.
+    // (165 -> 168). Measured. They went with the empty native list (2026-11-02).
     // Lane c2-fx: IShimTempEntBackendsClient's ClientDispatchEffect went, its
     // one managed caller (CTEEffectDispatch's player) now dispatching through
     // the managed table (168 -> 167). Measured.
@@ -439,7 +439,7 @@ public partial class EngineApiCensusTests
     // The blast jump's smoke (tf2 2.x): ParticleSystemFollowEntitySlot, a follow
     // of a slot other than the first, the smoke's foot per slot (262 + 1).
     // (253 + 11 = 264; less ClientIsLowViolence: 263.)
-    private const int ClientOnly = 263;
+    private const int ClientOnly = 260;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

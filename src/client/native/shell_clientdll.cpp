@@ -153,9 +153,6 @@ CClientSystem* ClientSystem_CreateDirtySpatialPartition(const CClientEngineInter
 #include "shell_soundscape_audio_client.h"
 #include "shell_gameui.h"
 
-ISharedGameRules* sharedgamerules = NULL;
-IClientReplayContext* g_pClientReplayContext = NULL;
-
 // Engine player info.
 class CHudChat;
 
@@ -683,7 +680,6 @@ private:
 #define SS_CLIENTDLL_UNREACHABLE(pszMethod) ShellClientDll_Unreachable((pszMethod))
 
 CShellClientDLL g_ShellClientDLL;
-IBaseClientDLL* clientdll = &g_ShellClientDLL;
 
 // The query the particle manager's Init hands particles.a: the client DLL object's. A
 // pointer, constant-initialised, so the probe build can wrap it at static init.

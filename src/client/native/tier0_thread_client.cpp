@@ -26,11 +26,5 @@ bool ThreadInMainThread()
 	return ThreadGetCurrentId() == s_MainThread;
 }
 
-double Plat_FloatTime()
-{
-	return ss::SecondsSinceStart();
-}
-
 // Binds this module's calls through the import pointers to the definitions above.
 SS_BIND_IMPORT(ThreadInMainThread)
-SS_BIND_IMPORT(Plat_FloatTime)

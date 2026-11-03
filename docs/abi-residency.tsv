@@ -15,7 +15,7 @@ DataUpdateType.cs	plumbing	b: value contract: DataUpdateType_t passed as int32	-
 Decisions.cs	plumbing	b: value contract: Decision.UseStockRule<0 is read by native; CommandResult/PlayerRelationship numbers cross	-
 Diagnostics.cs	plumbing	e: process-wide crash handlers the Bootstrap installs: loader infra (could fold into Bootstrap)	-
 DynamicLight.cs	plumbing	a: named by ShimAreas.g.cs	-
-EffectData.cs	plumbing	a: named by ShimAreas.g.cs	-
+EffectData.cs	plumbing	b: blittable mirror of SourceSharpEffectData_t; ShimAreas.g.cs routes it	-
 EngineBlock.cs	plumbing	b: engine block layout; native EngineBlock_t is generated from it	-
 EngineBlockFingerprint.cs	plumbing	b: fingerprint of the engine block layout (boundary drift check)	-
 EngineLimits.cs	plumbing	b: value contract: MAX_PLAYERS and MAX_EDICTS the engine is built around (split out of Log.cs)	-

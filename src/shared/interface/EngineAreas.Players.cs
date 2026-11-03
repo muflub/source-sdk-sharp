@@ -384,7 +384,7 @@ public interface IEngineHud
     bool DrawEntityOverlay(EntityHandle entity, int line, string? text, float duration, int r = 255, int g = 255, int b = 255, int a = 255);
 
     /// <inheritdoc cref="EngineSide.OverlayReadout"/>
-    (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet) OverlayReadout();
+    (uint Drawn, uint NoOverlay) OverlayReadout();
 
     /// <inheritdoc cref="EngineSide.AddLineOverlay"/>
     void AddLineOverlay(Vector start, Vector end, int r, int g, int b,

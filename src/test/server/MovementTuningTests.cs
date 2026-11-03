@@ -10,9 +10,8 @@ using Xunit;
 namespace SourceSharp.Tests;
 
 /// <summary>
-/// plan_server_novalve.md P2.3: the movement tuning and its audit, in C#. The
-/// classification facts are movement_audit_test.cpp's, carried across with the
-/// logic (shell_movement_audit.cpp); the rest pin what the C# side now owns --
+/// plan_server_novalve.md P2.3: the movement tuning and its audit, in C#: what the
+/// C# side owns --
 /// that the eight are declared here, audited, and fed from their own fields.
 /// </summary>
 public class MovementTuningTests

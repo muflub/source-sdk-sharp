@@ -4,7 +4,7 @@
 // https://github.com/ValveSoftware/source-sdk-2013
 //
 //=============================================================================//
-// The small tier1 members client.so links: CRC32, g_bDoRangeChecks and CUtlMemoryPool.
+// The small tier1 members client.so links: CRC32, and CUtlMemoryPool.
 // SS_REASON x  NO LETTER FITS -- see docs/shim-reasons.md
 
 #include "tier1/checksum_crc.h"
@@ -27,7 +27,6 @@ void CRC32_Final(CRC32_t* pulCRC)
 }
 
 // Read by CRangeCheckedVar; nothing on client.so turns it off.
-bool g_bDoRangeChecks = true;
 
 // Fixed-size blocks carved from blobs, handed out through a free list threaded through the
 // blocks (last freed, first reused). A FAST pool's new blob grows with the blob count, a
@@ -95,11 +94,6 @@ void CUtlMemoryPool::AddNewBlob()
 		*(void**)pBlock = pBlock + m_BlockSize;
 	*(void**)pBlock = NULL;
 	m_NumBlobs++;
-}
-
-void* CUtlMemoryPool::Alloc()
-{
-	return Alloc(m_BlockSize);
 }
 
 void* CUtlMemoryPool::AllocZero()

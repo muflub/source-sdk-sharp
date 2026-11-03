@@ -129,3 +129,9 @@ endfunction()
 # C7: view_effects.cpp's shakes and fades per call and frame (view-effects-stock.tsv), over
 # tools/probes/sessions/c7-vieweffects.steps. Applies at 283add399, before view_effects.cpp left (C7).
 #   view_effects.cpp.probe.diff   view-effects-stock.tsv
+
+# vstdlib's stream and rand() over it, which only the recorders still draw from: client.so itself
+# no longer has them.
+target_sources(client_sourcesharp PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/randoverride.cpp
+    ${CMAKE_CURRENT_LIST_DIR}/vstdlib_random_port.cpp)

@@ -41,7 +41,6 @@ public:
 	void Print(const char* pFmt, ...);
 
 	void Trace(const char* pWhat, const char* pDetail);
-	void Stub(const char* pWhat, bool* pbAlreadyLogged);
 	void EntityCreate(const char* pClassName);
 	void EntityCreateFailed(const char* pClassName);
 	void EntityDestroy(const char* pClassName);

@@ -52,7 +52,6 @@ public:
 
 	DECLARE_CLASS_NOBASE(CTakeDamageInfo);
 
-	CTakeDamageInfo();
 	CTakeDamageInfo(IGameEntity* pInflictor, IGameEntity* pAttacker, float flDamage, int bitsDamageType,
 					int iKillType = 0);
 

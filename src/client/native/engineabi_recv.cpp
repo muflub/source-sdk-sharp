@@ -29,14 +29,6 @@ RecvProp Scalar(const char* pVarName, int offset, int flags, SendPropType type, 
 }
 } // namespace
 
-RecvProp Float(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
-			   const CStandardRecvProxies& standard)
-{
-	Assert(proxy != standard.m_FloatToFloat || sizeofVar == 0 || sizeofVar == sizeof(float));
-	(void)sizeofVar;
-	return Scalar(pVarName, offset, flags, DPT_Float, proxy);
-}
-
 RecvProp Vector(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn proxy,
 				const CStandardRecvProxies& standard)
 {
@@ -75,27 +67,6 @@ RecvProp String(const char* pVarName, int offset, int bufferSize, int flags, Rec
 {
 	RecvProp prop = Scalar(pVarName, offset, flags, DPT_String, proxy);
 	prop.m_StringBufferSize = bufferSize;
-	return prop;
-}
-
-RecvProp DataTable(const char* pVarName, int offset, int flags, RecvTable* pTable, DataTableRecvVarProxyFn proxy)
-{
-	RecvProp prop;
-	prop.m_pVarName = pVarName;
-	prop.m_RecvType = DPT_DataTable;
-	prop.m_Flags = flags;
-	prop.SetOffset(offset);
-	prop.SetDataTableProxyFn(proxy);
-	prop.SetDataTable(pTable);
-	return prop;
-}
-
-RecvProp ArrayLength(int elementCount, int elementStride, const char* pName, ArrayLengthRecvProxyFn proxy)
-{
-	RecvProp prop;
-	prop.InitArray(elementCount, elementStride);
-	prop.m_pVarName = pName;
-	prop.SetArrayLengthProxy(proxy);
 	return prop;
 }
 

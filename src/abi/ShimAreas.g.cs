@@ -846,7 +846,7 @@ internal unsafe interface IDebugOverlayArea
 {
     int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7);
     void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6);
-    void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4);
+    void OverlayCounts(uint* a0, uint* a1);
 }
 
 /// <summary>
@@ -860,7 +860,7 @@ internal sealed unsafe class DebugOverlayArea : IDebugOverlayArea
 
     public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) { return _shim.Table->DrawEntityOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6, a7); }
     public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { _shim.Table->AddLineOverlay(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
-    public void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4) { _shim.Table->OverlayCounts(_shim.Self, a0, a1, a2, a3, a4); }
+    public void OverlayCounts(uint* a0, uint* a1) { _shim.Table->OverlayCounts(_shim.Self, a0, a1); }
 }
 
 /// <summary>
@@ -1515,9 +1515,6 @@ internal sealed unsafe class ParticlesClientArea : IParticlesClientArea
 /// </summary>
 internal unsafe interface IFxClientArea
 {
-    int EffectRegistrationCount();
-    int EffectRegistrationName(int a0, byte* a1, int a2);
-    void EffectRegistrationRun(int a0, EffectData* a1);
     int FxCanPredict();
     int FxRecipientCount(float* a0);
     int FxMaterialFind(byte* a0);
@@ -1559,9 +1556,6 @@ internal sealed unsafe class FxClientArea : IFxClientArea
 
     internal FxClientArea(ShimRef<ShimFxClientFwd> shim) { _shim = shim; }
 
-    public int EffectRegistrationCount() { return _shim.Table->EffectRegistrationCount(_shim.Self); }
-    public int EffectRegistrationName(int a0, byte* a1, int a2) { return _shim.Table->EffectRegistrationName(_shim.Self, a0, a1, a2); }
-    public void EffectRegistrationRun(int a0, EffectData* a1) { _shim.Table->EffectRegistrationRun(_shim.Self, a0, a1); }
     public int FxCanPredict() { return _shim.Table->FxCanPredict(_shim.Self); }
     public int FxRecipientCount(float* a0) { return _shim.Table->FxRecipientCount(_shim.Self, a0); }
     public int FxMaterialFind(byte* a0) { return _shim.Table->FxMaterialFind(_shim.Self, a0); }

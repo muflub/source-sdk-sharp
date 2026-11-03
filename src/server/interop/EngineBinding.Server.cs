@@ -1668,24 +1668,18 @@ internal sealed unsafe partial class EngineHud
     /// established right now.
     ///
     /// <para>
-    /// <b>WHY THE ZEROS ARE NOT ALL THE SAME ZERO.</b> Six of the native
-    /// overlay entries were <c>return;</c> before 4c, and a build in that state
-    /// is invisible to any assertion of the form "the call did not crash".
-    /// <c>Drawn</c> is the work; <c>NoViewer</c>, <c>Clipped</c> and
-    /// <c>NoOverlay</c> are the three honest reasons it could be zero. All four
-    /// zero with <c>ViewerSet</c> false is "nobody asked"; <c>Drawn</c> zero
-    /// with <c>NoViewer</c> climbing is the regression.
+    /// <b>WHY THE ZEROS ARE NOT THE SAME ZERO.</b> <c>Drawn</c> is the work; <c>NoOverlay</c> is
+    /// the honest reason it could be zero. Both zero is "nobody asked".
     /// </para>
     /// </summary>
-    public (uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet)
+    public (uint Drawn, uint NoOverlay)
 OverlayReadout()
     {
-        uint drawn = 0, clipped = 0, noViewer = 0, noOverlay = 0;
-        int viewerSet = 0;
+        uint drawn = 0, noOverlay = 0;
 
-        _debugOverlayArea.OverlayCounts(&drawn, &clipped, &noViewer, &noOverlay, &viewerSet);
+        _debugOverlayArea.OverlayCounts(&drawn, &noOverlay);
 
-        return (drawn, clipped, noViewer, noOverlay, viewerSet != 0);
+        return (drawn, noOverlay);
     }
 
     /// <summary>

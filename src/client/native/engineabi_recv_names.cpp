@@ -66,11 +66,6 @@ CStandardRecvProxies::CStandardRecvProxies()
 
 CStandardRecvProxies g_StandardRecvProxies;
 
-RecvProp RecvPropFloat(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy)
-{
-	return engineabi::recv::Float(pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies);
-}
-
 RecvProp RecvPropVector(const char* pVarName, int offset, int sizeofVar, int flags, RecvVarProxyFn varProxy)
 {
 	return engineabi::recv::Vector(pVarName, offset, sizeofVar, flags, varProxy, g_StandardRecvProxies);
@@ -84,18 +79,6 @@ RecvProp RecvPropInt(const char* pVarName, int offset, int sizeofVar, int flags,
 RecvProp RecvPropString(const char* pVarName, int offset, int bufferSize, int flags, RecvVarProxyFn varProxy)
 {
 	return engineabi::recv::String(pVarName, offset, bufferSize, flags, varProxy);
-}
-
-RecvProp RecvPropDataTable(const char* pVarName, int offset, int flags, RecvTable* pTable,
-						   DataTableRecvVarProxyFn varProxy)
-{
-	return engineabi::recv::DataTable(pVarName, offset, flags, pTable, varProxy);
-}
-
-RecvProp InternalRecvPropArray(const int elementCount, const int elementStride, const char* pName,
-							   ArrayLengthRecvProxyFn proxy)
-{
-	return engineabi::recv::ArrayLength(elementCount, elementStride, pName, proxy);
 }
 
 // m_StringBufferSize and m_pParentArrayPropName, indeterminate upstream, are zeroed so a
@@ -119,16 +102,6 @@ RecvProp::RecvProp()
 	m_pParentArrayPropName = NULL;
 }
 
-RecvTable::RecvTable()
-{
-	Construct(NULL, 0, NULL);
-}
-
-RecvTable::RecvTable(RecvProp* pProps, int nProps, const char* pNetTableName)
-{
-	Construct(pProps, nProps, pNetTableName);
-}
-
 RecvTable::~RecvTable() {}
 
 void RecvTable::Construct(RecvProp* pProps, int nProps, const char* pNetTableName)
@@ -139,4 +112,9 @@ void RecvTable::Construct(RecvProp* pProps, int nProps, const char* pNetTableNam
 	m_pDecoder = NULL;
 	m_bInitialized = false;
 	m_bInMainList = false;
+}
+
+RecvTable::RecvTable(RecvProp* pProps, int nProps, const char* pNetTableName)
+{
+	Construct(pProps, nProps, pNetTableName);
 }

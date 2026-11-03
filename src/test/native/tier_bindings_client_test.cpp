@@ -22,8 +22,6 @@
 #include <string>
 
 extern "C" void* g_pMemAlloc;
-extern "C" void* g_pThreadPool;
-extern "C" void DestroyThreadPool(void* pPool);
 
 namespace
 {
@@ -61,9 +59,8 @@ protected:
 
 TEST_F(TierBindingsClient, TheFakesAreTheLoadedLibrariesTheBindingsLookIn)
 {
-	// Proof of setup: both fakes are loaded under the game's file names.
+	// Proof of setup: the fake is loaded under the game's file name.
 	EXPECT_NE(nullptr, ss::FindLoadedSymbol("libtier0.so", "CommandLine_Tier0"));
-	EXPECT_NE(nullptr, ss::FindLoadedSymbol("libvstdlib.so", "DestroyThreadPool"));
 }
 
 TEST_F(TierBindingsClient, CommandLineIsTheEngineTier0s)
@@ -77,58 +74,6 @@ TEST_F(TierBindingsClient, TheAllocatorIsTier0sAndWasCopiedAtLoad)
 {
 	ASSERT_NE(nullptr, FakeTier_HeapObject());
 	EXPECT_EQ(FakeTier_HeapObject(), g_pMemAlloc);
-}
-
-TEST_F(TierBindingsClient, TheThreadPoolIsVstdlibsAndWasCopiedAtLoad)
-{
-	ASSERT_NE(nullptr, FakeVstdlib_PoolObject());
-	EXPECT_EQ(FakeVstdlib_PoolObject(), g_pThreadPool);
-}
-
-TEST_F(TierBindingsClient, DestroyThreadPoolReachesVstdlibWithThePool)
-{
-	char pool;
-	const int nBefore = FakeVstdlib_DestroyCount();
-	DestroyThreadPool(&pool);
-	EXPECT_EQ(nBefore + 1, FakeVstdlib_DestroyCount());
-	EXPECT_EQ((void*)&pool, FakeVstdlib_LastDestroyed());
-}
-
-TEST_F(TierBindingsClient, AnEventIsBuiltSetAndDestroyedByTier0)
-{
-	const void* pEvent = nullptr;
-	{
-		CThreadEvent event(true);
-		pEvent = &event;
-		EXPECT_TRUE(event.Set());
-		EXPECT_TRUE(RecordedOn("CThreadEvent::CThreadEvent", &event)) << Recorded();
-		EXPECT_TRUE(RecordedOn("CThreadEvent::Set", &event)) << Recorded();
-		ASSERT_GE(FakeTier_CallCount(), 1);
-		EXPECT_EQ(1u, FakeTier_Call(0)->nArg) << "the manual-reset flag did not arrive";
-		FakeTier_Reset();
-	}
-	// The destructor, at the end of the scope, on the same object.
-	EXPECT_TRUE(RecordedOn("CThreadSyncObject::~CThreadSyncObject", pEvent)) << Recorded();
-}
-
-TEST_F(TierBindingsClient, TheReadWriteLockSlowPathsAreTier0s)
-{
-	CThreadRWLock lock;
-	lock.LockForWrite();
-	lock.UnlockWrite();
-	EXPECT_TRUE(RecordedOn("CThreadRWLock::LockForWrite", &lock)) << Recorded();
-	EXPECT_TRUE(RecordedOn("CThreadRWLock::UnlockWrite", &lock)) << Recorded();
-}
-
-TEST_F(TierBindingsClient, TheSpinLockIsTier0s)
-{
-	CThreadSpinRWLock lock;
-	lock.LockForRead();
-	lock.UnlockRead();
-	lock.UnlockWrite();
-	EXPECT_TRUE(RecordedOn("CThreadSpinRWLock::LockForRead", &lock)) << Recorded();
-	EXPECT_TRUE(RecordedOn("CThreadSpinRWLock::UnlockRead", &lock)) << Recorded();
-	EXPECT_TRUE(RecordedOn("CThreadSpinRWLock::UnlockWrite", &lock)) << Recorded();
 }
 
 TEST(TierBindingsClientDeathTest, AMissingLibraryStopsTheProcessNamingIt)

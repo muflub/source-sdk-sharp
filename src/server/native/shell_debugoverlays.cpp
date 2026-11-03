@@ -64,29 +64,17 @@ void CServerDebugOverlays::AddLineOverlay(const float* pStartXYZ, const float* p
 		m_Library.AddLine(vecStart, vecEnd, bNoDepthTest != 0, r, g, b);
 }
 
-void CServerDebugOverlays::OverlayCounts(uint32_t* pOutDrawn, uint32_t* pOutClipped, uint32_t* pOutNoViewer,
-										 uint32_t* pOutNoOverlay, int32_t* pOutViewerSet)
+void CServerDebugOverlays::OverlayCounts(uint32_t* pOutDrawn, uint32_t* pOutNoOverlay)
 {
 	const OverlayCounts_t& c = m_Library.Counts();
 
 	if (pOutDrawn)
 		*pOutDrawn = c.nDrawn;
-	if (pOutClipped)
-		*pOutClipped = c.nClipped;
-	if (pOutNoViewer)
-		*pOutNoViewer = c.nNoViewer;
 	if (pOutNoOverlay)
 		*pOutNoOverlay = c.nNoOverlay;
-	if (pOutViewerSet)
-		*pOutViewerSet = m_Library.ViewerIsSet() ? 1 : 0;
 }
 
 void CServerDebugOverlays::DrawAll()
 {
-	// No viewer: nothing in this build sets the debug picker, so clipped overlays count
-	// as "no viewer". First, so a frame with nobody looking is told apart from one that
-	// drew nothing.
-	m_Library.ClearViewer();
-
 	m_Library.DrawPooledLines();
 }

@@ -1594,9 +1594,7 @@ public sealed class DebugApiServer : IDebugApi
     /// </summary>
     private static string OverlayJson(DebugOverlayCounts r)
     {
-        return $"{{\"drawn\":{r.Drawn},\"clipped\":{r.Clipped},"
-             + $"\"noViewer\":{r.NoViewer},\"noOverlay\":{r.NoOverlay},"
-             + $"\"viewerSet\":{(r.ViewerSet ? "true" : "false")}}}";
+        return $"{{\"drawn\":{r.Drawn},\"noOverlay\":{r.NoOverlay}}}";
     }
 
     /// <summary>

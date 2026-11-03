@@ -91,5 +91,4 @@ TEST_F(ServerEntityResolver, WithNoLevelThereIsNoWorldToMatch)
 	EXPECT_EQ(nullptr, m_Resolver.World());
 	EXPECT_EQ(nullptr, m_Resolver.WorldFromHandle(CBaseHandle(0, 1)));
 	EXPECT_EQ(nullptr, m_Resolver.EntityFromHandle(CBaseHandle(0, 1)));
-	EXPECT_EQ(nullptr, m_Resolver.ShellFromIndex(3));
 }

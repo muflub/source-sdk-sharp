@@ -40,11 +40,6 @@ TEST(ClientRecvNames, ATableStartsUnreadByTheEngine)
 	EXPECT_EQ(NULL, table.m_pDecoder);
 	EXPECT_FALSE(table.IsInitialized());
 	EXPECT_FALSE(table.IsInMainList());
-
-	RecvTable empty;
-	EXPECT_EQ(NULL, empty.m_pProps);
-	EXPECT_EQ(0, empty.m_nProps);
-	EXPECT_EQ(NULL, empty.m_pNetTableName);
 }
 
 TEST(ClientRecvNames, TheStandardTableHoldsTheValveNamedProxies)
@@ -63,7 +58,6 @@ TEST(ClientRecvNames, ADefaultIntProxyIsThePointerTheEngineComparesAgainst)
 	EXPECT_EQ(g_StandardRecvProxies.m_Int32ToInt8, RecvPropInt("a", 0, 1, 0, NULL).GetProxyFn());
 	EXPECT_EQ(g_StandardRecvProxies.m_Int32ToInt16, RecvPropInt("a", 0, 2, 0, NULL).GetProxyFn());
 	EXPECT_EQ(g_StandardRecvProxies.m_Int32ToInt32, RecvPropInt("a", 0, 4, 0, NULL).GetProxyFn());
-	EXPECT_EQ(g_StandardRecvProxies.m_FloatToFloat, RecvPropFloat("f", 0, 4, 0, RecvProxy_FloatToFloat).GetProxyFn());
 }
 
 TEST(ClientRecvNames, TheValveNamedProxiesDoTheWork)

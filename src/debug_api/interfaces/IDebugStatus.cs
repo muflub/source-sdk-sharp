@@ -21,7 +21,7 @@ public sealed record DebugFactories(bool Available, int Native, int Refused, int
 public sealed record DebugLogical(int Classes, int Live, long Allocated, long Released, long Exhausted, int NativeReach);
 
 /// <summary>The debug overlay's last frame (group G7).</summary>
-public sealed record DebugOverlayCounts(uint Drawn, uint Clipped, uint NoViewer, uint NoOverlay, bool ViewerSet);
+public sealed record DebugOverlayCounts(uint Drawn, uint NoOverlay);
 
 /// <summary>The server's counters /status reports, readable from any thread (group G7).</summary>
 public sealed record DebugCounters(

@@ -114,11 +114,6 @@ DEFINE_FIELD(m_vecDamageForce, FIELD_VECTOR), DEFINE_FIELD(m_vecDamagePosition, 
 	m_eCritType = CRIT_NONE;
 }
 
-CTakeDamageInfo::CTakeDamageInfo()
-{
-	Init(NULL, NULL, NULL, vec3_origin, vec3_origin, vec3_origin, 0, 0, 0);
-}
-
 CTakeDamageInfo::CTakeDamageInfo(IGameEntity* pInflictor, IGameEntity* pAttacker, float flDamage, int bitsDamageType,
 								 int iKillType)
 {

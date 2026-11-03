@@ -15,8 +15,7 @@ player entindex)` (`CTFWeaponBase::CalcIsAttackCriticalHelper`,
 `src/game/shared/tf/tf_weaponbase.cpp`; `WEAPON_RANDOM_RANGE` is 10000).
 
 Recorded 2026-10-25 by loading the library with Python's ctypes (it exports
-`RandomSeed`, `RandomInt` and `RandomFloat`, the symbols
-`vstdlib_random_oracle_test` loads):
+`RandomSeed`, `RandomInt` and `RandomFloat`):
 
 ```python
 import ctypes, hashlib, struct, sys

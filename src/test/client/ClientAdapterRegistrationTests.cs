@@ -395,11 +395,6 @@ public unsafe class ClientAdapterRegistrationTests
                                                             (nint)(delegate* unmanaged<void*, byte*, int>)&SevenFor, c => c.Watch("fov")));
 
     [Fact]
-    public void TheRegisteredEffectRegistrationsAskTheFxArea()
-        => Assert.Equal(7, Through<IClientEffectRegistrations, int>(Fx, nameof(ShimFxClientFwd.EffectRegistrationCount),
-                                                                    (nint)(delegate* unmanaged<void*, int>)&Seven, r => r.Count));
-
-    [Fact]
     public void TheRegisteredNetChannelAsksTheNetArea()
         => Assert.Equal(1.5f, Through<IClientNetChannel, float?>("SourceSharpNetClient001", nameof(ShimNetClientFwd.ClientNetChannel),
                                                                  (nint)(delegate* unmanaged<void*, float*, int, int>)&ChannelFloats,

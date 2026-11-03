@@ -42,9 +42,9 @@
 #include "shell_particle_manifest_client.h"
 #include "shell_particle_query_client.h"
 #include "shell_dust_render_object.h"
-#include "shell_te_system_client.h"
 #include "shell_effects_client.h"
 #include "shell_effects_list_client.h"
+#include "shell_te_system_client.h"
 #include "shell_soundscape_audio_client.h"
 #include "shell_sound_patches_client.h"
 
@@ -918,21 +918,6 @@ int32_t CShimParticlesClient::ParticleSystemImpact(const char* pszName, const fl
 	return m_pParticleSystemsClient->ParticleSystemImpact(pszName, pPoints, nEntity, flScale, pColorXYZ);
 }
 
-int32_t CShimFxClient::EffectRegistrationCount()
-{
-	return ::SourceSharp_EffectRegistrationCount();
-}
-
-int32_t CShimFxClient::EffectRegistrationName(int32_t iIndex, char* pOut, int32_t nOutSize)
-{
-	return ::SourceSharp_EffectRegistrationName(iIndex, pOut, nOutSize);
-}
-
-void CShimFxClient::EffectRegistrationRun(int32_t iIndex, const SourceSharpEffectData_t* pData)
-{
-	return m_pTempEntsSystemClient->EffectRegistrationRun(iIndex, pData);
-}
-
 int32_t CShimFxClient::FxCanPredict()
 {
 	return m_pEffectsClient->FxCanPredict();
@@ -1232,12 +1217,12 @@ const char* ShimAreasClient_FirstUnset(const CShimAreasClient& areas)
 		return "m_ParticlesClient.m_pParticleSystemQueryClient";
 	if (!areas.m_ParticlesClient.m_pDustClient)
 		return "m_ParticlesClient.m_pDustClient";
-	if (!areas.m_FxClient.m_pTempEntsSystemClient)
-		return "m_FxClient.m_pTempEntsSystemClient";
 	if (!areas.m_FxClient.m_pEffectsClient)
 		return "m_FxClient.m_pEffectsClient";
 	if (!areas.m_FxClient.m_pEffectsListClient)
 		return "m_FxClient.m_pEffectsListClient";
+	if (!areas.m_FxClient.m_pTempEntsSystemClient)
+		return "m_FxClient.m_pTempEntsSystemClient";
 	if (!areas.m_FxClient.m_pSpritesClient)
 		return "m_FxClient.m_pSpritesClient";
 	if (!areas.m_FxClient.m_pTempEnts)

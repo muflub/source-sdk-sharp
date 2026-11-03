@@ -8,8 +8,8 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// The shared <see cref="SeededUniformStream"/> is vstdlib's
 /// <c>CUniformRandomStream</c>, held draw for draw to the client's
-/// <see cref="UniformStream"/>, whose native twin vstdlib_random_oracle_test
-/// holds to the game's libvstdlib.so.
+/// <see cref="UniformStream"/>, which UniformStreamOracleTests holds to the game's
+/// libvstdlib.so.
 /// </summary>
 public class SeededUniformStreamTests
 {

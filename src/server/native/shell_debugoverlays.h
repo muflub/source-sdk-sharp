@@ -40,8 +40,7 @@ public:
 						int32_t bNoDepthTest, float flDuration) override;
 
 	// The overlay counters, cumulative since the level began, for `debug-api status`.
-	void OverlayCounts(uint32_t* pOutDrawn, uint32_t* pOutClipped, uint32_t* pOutNoViewer, uint32_t* pOutNoOverlay,
-					   int32_t* pOutViewerSet) override;
+	void OverlayCounts(uint32_t* pOutDrawn, uint32_t* pOutNoOverlay) override;
 
 	// Stock's DrawAllDebugOverlays without the AI node editor and the gEntList walks.
 	// Not behind _DEBUG, as stock's.

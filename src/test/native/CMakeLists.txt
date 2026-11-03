@@ -246,15 +246,9 @@ ss_cpptest_tier1(acquire_reason_test
     SOURCES sourcesharp/test/acquire_reason_test.cpp
             sourcesharp/game/shared/shell_acquire_reasons.cpp)
 
-# What happened to one of the eight movement ConVars after this mod set it --
-# plan_shim.md 4a item 16's instrument, and docs/defect-convar-order.md's last
-# open line. It compiles the REAL decision (shell_movement_audit.cpp), which is
-# why that decision lives in a translation unit of its own: shell_movement.cpp
-# includes cbase.h and nothing that does can be built into a standalone gtest.
-ss_cpptest(movement_audit_test
-    INCLUDES sourcesharp/game/shared
-    SOURCES sourcesharp/test/movement_audit_test.cpp
-            sourcesharp/game/shared/shell_movement_audit.cpp)
+ss_cpptest(vector_random_test
+    INCLUDES ${PROJECT_SOURCE_DIR}/src/client/native
+    SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/vector_random_test.cpp)
 
 # Classname matching for the standalone entity hierarchy. Header-only and
 # deliberately free of engine headers, so it needs nothing but itself.
@@ -323,33 +317,14 @@ ss_cpptest(generic_payload_test
 add_library(ss_cpptest_dtobjs OBJECT
     ${SS_SRC}/sourcesharp/public/dt_send.cpp
     ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv.cpp
-    ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv_names.cpp
-    ${SS_SRC}/sourcesharp/public/dt_utlvector_common.cpp
-    ${PROJECT_SOURCE_DIR}/src/shared/native/dt_element_names.cpp)
+    ${PROJECT_SOURCE_DIR}/src/client/native/engineabi_recv_names.cpp)
 ss_test_compile_flags(ss_cpptest_dtobjs)
 ss_test_engine_flags(ss_cpptest_dtobjs)
-# sourcesharp/game/shared for ss_containers.h, the set dt_utlvector_common.cpp
-# records its debug-build names in.
 target_include_directories(ss_cpptest_dtobjs PRIVATE ${SS_SRC} ${SS_SRC}/sourcesharp/game/shared
     ${PROJECT_SOURCE_DIR}/src/engineabi/native/include)
-# The one: dt_utlvector_common.cpp's two file statics (g_STDict, g_RTDict),
-# used only under _DEBUG.
-# Built as the client's arm: dt_recv.cpp's RecvPropArray3 names AllocateStringHelper,
-# client-only since the server gc cull; the server arm is a subset of it.
-# The flag is gcc's and clang's; cl stops at it (D8021), and needs nothing in
-# its place, since /W3 does not warn on an unused file static.
-set_source_files_properties(${SS_SRC}/sourcesharp/public/dt_utlvector_common.cpp
-    PROPERTIES COMPILE_OPTIONS "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-unused-variable>"
-               COMPILE_DEFINITIONS CLIENT_DLL)
 
 ss_cpptest_mathlib(payload_recv_test
     SOURCES sourcesharp/test/payload_recv_test.cpp
-    LIBS ss_cpptest_dtobjs)
-
-# The network array element names, "000" to "2047": the wire contract the send
-# and receive tables match on, each written the first time it is asked for.
-ss_cpptest_mathlib(dt_element_names_test
-    SOURCES sourcesharp/test/dt_element_names_test.cpp
     LIBS ss_cpptest_dtobjs)
 
 # The server's temp entity tables as stored from a managed plan
@@ -2162,24 +2137,22 @@ if(TARGET tier0_spew_forward_test)
   add_dependencies(tier0_spew_forward_test ss_fake_tier0)
 endif()
 
-# client.so's tier0 and vstdlib bindings (plan_client_novalve C9): every name
+# client.so's tier0 bindings (plan_client_novalve C9): every name
 # tier_bindings_client.cpp defines reaches the library the engine loaded. The
-# fakes stand in for the game's libtier0.so and libvstdlib.so (their file
-# names, each name the client binds, and a record of each call), linked so they
-# are loaded before the bindings copy their two pointers at load.
+# fake stands in for the game's libtier0.so (its file name, each name the client
+# binds, and a record of each call), linked so it is loaded before the bindings
+# copy their pointer at load.
 if(SS_PLATFORM STREQUAL linux)
-foreach(fake tier0 vstdlib)
-  add_library(ss_fake_engine_${fake} SHARED
-      ${PROJECT_SOURCE_DIR}/src/test/native/fake_engine_tier/fake_engine_${fake}.cpp)
-  ss_test_compile_flags(ss_fake_engine_${fake})
-  set_target_properties(ss_fake_engine_${fake} PROPERTIES
-      OUTPUT_NAME ${fake}
-      LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fake_engine_tier
-      CXX_VISIBILITY_PRESET hidden)
-endforeach()
+add_library(ss_fake_engine_tier0 SHARED
+    ${PROJECT_SOURCE_DIR}/src/test/native/fake_engine_tier/fake_engine_tier0.cpp)
+ss_test_compile_flags(ss_fake_engine_tier0)
+set_target_properties(ss_fake_engine_tier0 PROPERTIES
+    OUTPUT_NAME tier0
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/fake_engine_tier
+    CXX_VISIBILITY_PRESET hidden)
 endif()
 ss_cpptest(tier_bindings_client_test
-    LINUX_ONLY "binds to the libtier0.so and libvstdlib.so loaded in the process"
+    LINUX_ONLY "binds to the libtier0.so loaded in the process"
     DEFINES POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
     OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
     INCLUDES public public/tier0 public/tier1 ${PROJECT_SOURCE_DIR}/src/shared/native
@@ -2187,7 +2160,7 @@ ss_cpptest(tier_bindings_client_test
     SOURCES ${PROJECT_SOURCE_DIR}/src/test/native/tier_bindings_client_test.cpp
             ${PROJECT_SOURCE_DIR}/src/client/native/tier_bindings_client.cpp
             ${PROJECT_SOURCE_DIR}/src/shared/native/loaded_symbol.cpp
-    LIBS ss_fake_engine_tier0 ss_fake_engine_vstdlib dl)
+    LIBS ss_fake_engine_tier0 dl)
 
 # client.so's own tier0 profile, never enabled (user ruling 2026-10-18), and
 # its Plat_FloatTime (plan_client_novalve C9). Links no tier0: a VPROF macro

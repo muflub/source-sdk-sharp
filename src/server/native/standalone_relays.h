@@ -22,9 +22,6 @@ class IPhysicsObject;
 // The name a mapper gave it; empty for an unnamed entity.
 const char* StandaloneEntity_Name(const IGameEntity* pEnt);
 
-// Returns the damage actually taken, as CBaseEntity::TakeDamage does.
-int StandaloneEntity_TakeDamage(IGameEntity* pEnt, const ss::CTakeDamageInfo& info);
-
 // A game concept the damage rules branch on; the engine never asks.
 bool StandaloneEntity_IsPlayer(const IGameEntity* pEnt);
 

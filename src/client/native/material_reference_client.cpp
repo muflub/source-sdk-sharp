@@ -35,13 +35,6 @@ void CMaterialReference::Init(char const* pMaterialName, const char* pTextureGro
 	Init(pFound);
 }
 
-// A created material arrives with its one reference already taken.
-void CMaterialReference::Init(const char* pMaterialName, KeyValues* pVMTKeyValues)
-{
-	Shutdown();
-	m_pMaterial = materials->CreateMaterial(pMaterialName, pVMTKeyValues);
-}
-
 void CMaterialReference::Init(const char* pMaterialName, const char* pTextureGroupName, KeyValues* pVMTKeyValues)
 {
 	IMaterial* pFound = materials->FindProceduralMaterial(pMaterialName, pTextureGroupName, pVMTKeyValues);
@@ -60,11 +53,6 @@ void CMaterialReference::Init(IMaterial* pMaterial)
 		m_pMaterial->IncrementReferenceCount();
 }
 
-void CMaterialReference::Init(CMaterialReference& ref)
-{
-	Init(ref.m_pMaterial);
-}
-
 // Gives the reference back, unless the material system has gone, when the
 // holder keeps its pointer (as upstream's does).
 void CMaterialReference::Shutdown()
@@ -78,21 +66,6 @@ void CMaterialReference::Shutdown()
 CTextureReference::CTextureReference()
 	: m_pTexture(NULL)
 {
-}
-
-CTextureReference::CTextureReference(const CTextureReference& ref)
-	: m_pTexture(ref.m_pTexture)
-{
-	if (m_pTexture)
-		m_pTexture->IncrementReferenceCount();
-}
-
-// Does not release what this held first, as upstream's assignment does not.
-void CTextureReference::operator=(CTextureReference& ref)
-{
-	m_pTexture = ref.m_pTexture;
-	if (m_pTexture)
-		m_pTexture->IncrementReferenceCount();
 }
 
 CTextureReference::~CTextureReference()
@@ -114,14 +87,6 @@ void CTextureReference::Init(ITexture* pTexture)
 	m_pTexture = pTexture;
 	if (m_pTexture)
 		m_pTexture->IncrementReferenceCount();
-}
-
-// Created textures arrive with their one reference already taken.
-void CTextureReference::InitProceduralTexture(const char* pTextureName, const char* pTextureGroupName, int w, int h,
-											  ImageFormat fmt, int nFlags)
-{
-	Shutdown();
-	m_pTexture = materials->CreateProceduralTexture(pTextureName, pTextureGroupName, w, h, fmt, nFlags);
 }
 
 void CTextureReference::InitRenderTarget(int w, int h, RenderTargetSizeMode_t sizeMode, ImageFormat fmt,

@@ -76,19 +76,6 @@ void CShellLog::Print(const char* pFmt, ...)
 		fputs(szBuf, stdout);
 }
 
-void CShellLog::Stub(const char* pWhat, bool* pbAlreadyLogged)
-{
-	const int nVerbosity = Verbosity();
-	if (nVerbosity < 1)
-		return;
-
-	if (*pbAlreadyLogged && nVerbosity < 2)
-		return;
-
-	*pbAlreadyLogged = true;
-	Print("[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n", pWhat, SOURCESHARP_SIDE_TAG);
-}
-
 void CShellLog::Trace(const char* pWhat, const char* pDetail)
 {
 	if (Verbosity() < 1)
@@ -145,18 +132,6 @@ void SourceSharp_DiagPrint(const char* pFmt, ...)
 		s_pLog->Print("%s", szBuf);
 	else
 		fputs(szBuf, stdout);
-}
-
-void SourceSharp_LogStub(const char* pWhat, bool* pbAlreadyLogged)
-{
-	if (s_pLog)
-		s_pLog->Stub(pWhat, pbAlreadyLogged);
-	else if (!*pbAlreadyLogged)
-	{
-		*pbAlreadyLogged = true;
-		SourceSharp_DiagPrint("[SourceSharp] STUB %s (%s) — engine called it; C# does not implement it yet\n", pWhat,
-							  SOURCESHARP_SIDE_TAG);
-	}
 }
 
 void SourceSharp_Trace(const char* pWhat, const char* pDetail)

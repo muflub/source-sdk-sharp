@@ -77,13 +77,6 @@ CStandaloneEntity* CServerEntityResolver::ShellFromHandle(const CBaseHandle& han
 	return static_cast<CStandaloneEntity*>(m_Slots.Resolve(handle));
 }
 
-// By entry index (the engine's route, no serial), through the handle resolver so there
-// is only one cast site.
-CStandaloneEntity* CServerEntityResolver::ShellFromIndex(int nEntry) const
-{
-	return ShellFromHandle(m_Slots.HandleOf(nEntry));
-}
-
 // No cast: GetRefEHandle is virtual, and a foreign IHandleEntity's handle fails the
 // serial compare.
 CStandaloneEntity* CServerEntityResolver::ShellFromHandleEntity(IHandleEntity* pHandleEntity) const

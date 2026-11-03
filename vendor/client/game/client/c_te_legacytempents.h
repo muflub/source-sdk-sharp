@@ -10,6 +10,7 @@
 #include <stdint.h>
 
 #include "shared_classnames.h"
+#include "shell_vector_random.h"
 #include "igameentity_fwd.h"
 #include "mathlib/vector.h"
 #include "basehandle.h"
@@ -257,6 +258,7 @@ public:
 private:
 	// Material handle caches
 private:
+	CVectorRandom m_VectorRandom;
 	PMaterialHandle m_Material_MuzzleFlash_Player[4];
 	PMaterialHandle m_Material_MuzzleFlash_NPC[4];
 	PMaterialHandle m_Material_Combine_MuzzleFlash_Player[2];

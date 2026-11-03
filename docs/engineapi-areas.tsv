@@ -141,7 +141,7 @@ ClientsStandalonePlayerEarPosition	EngineApi	IShimPlayers	server		server	-	CServ
 TempEntBuild	EngineApi	IShimEffectsServer	server		server	-	CServerTempEnts::TempEntBuild	void*, int, TeBuiltTable*, int	
 DrawEntityOverlay	EngineApi	IShimDebugOverlay	server		server	-	CServerDebugOverlays::DrawEntityOverlay	uint, int, byte*, float, int, int, int, int, int	
 AddLineOverlay	EngineApi	IShimDebugOverlay	server		server	-	CServerDebugOverlays::AddLineOverlay	float*, float*, int, int, int, int, float, void	
-OverlayCounts	EngineApi	IShimDebugOverlay	server		server	-	CServerDebugOverlays::OverlayCounts	uint*, uint*, uint*, uint*, int*, void	
+OverlayCounts	EngineApi	IShimDebugOverlay	server		server	-	CServerDebugOverlays::OverlayCounts	uint*, uint*, void	
 GetLocalPlayerHealth	EngineApi	IShimHudClient	client		client	S	CStandaloneClients::GetLocalPlayerHealth	int	
 GetLocalPlayerIndex	EngineApi	IShimHudClient	client		client	-	CHudUiClient::GetLocalPlayerIndex	int	
 HudLocalise	EngineApi	IShimHudClient	client		client	-	CHudUiClient::HudLocalise	byte*, byte*, int, void	
@@ -325,9 +325,6 @@ ParticlesTraceMask	EngineApi	IShimParticlesClient	client		client	-	CManagedParti
 ParticlesSetSpace	EngineApi	IShimParticlesClient	client		client	-	CManagedParticlesClient::ParticlesSetSpace	uint, int, uint, int, int, ParticleFollow*, int	
 ParticlesBrushPointContents	EngineApi	IShimParticlesClient	client		client	-	CDustClient::ParticlesBrushPointContents	uint, float*, int	
 ParticleSystemImpact	EngineApi	IShimParticlesClient	client		client	-	CParticleSystemsClient::ParticleSystemImpact	byte*, float*, int, float, float*, int	
-EffectRegistrationCount	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationCount	int	
-EffectRegistrationName	EngineApi	IShimFxClient	client		client	-	SourceSharp_EffectRegistrationName	int, byte*, int, int	
-EffectRegistrationRun	EngineApi	IShimFxClient	client		client	-	CTempEntsSystemClient::EffectRegistrationRun	int, EffectData*, void	
 FxCanPredict	EngineApi	IShimFxClient	client		client	-	CEffectsClient::FxCanPredict	int	
 FxRecipientCount	EngineApi	IShimFxClient	client		client	-	CEffectsClient::FxRecipientCount	float*, int	
 FxMaterialFind	EngineApi	IShimFxClient	client		client	-	CEffectsListClient::FxMaterialFind	byte*, int	

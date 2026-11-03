@@ -97,7 +97,6 @@ inline std::string Run()
 	root->SetString("numstr", "  -12abc");
 	root->SetString("floatstr", "1.5e2x");
 	root->SetString("hex", "0x1F");
-	root->SetPtr("ptr", (void*)(uintptr_t)0x12345678ABCDull);
 	root->SetUint64("u64", 0xFEDCBA9876543210ull);
 	root->SetUint64("u64small", 42ull);
 	root->SetInt("path/to/leaf", 3);
@@ -137,10 +136,11 @@ inline std::string Run()
 	for (KeyValues* k : {root, self, pair, same})
 		Dump(k, 0, out);
 
-	const char* kKeys[] = {"int",     "neg",          "float",    "negfloat", "big",   "str",     "nullstr",
-						   "empty",   "numstr",       "floatstr", "hex",      "ptr",   "u64",     "u64small",
-						   "path",    "path/to/leaf", "path/to",  "trailing", "block", "missing", "missing/deeper",
-						   "Adopted", "EmptyParent",  NULL,       ""};
+	const char* kKeys[] = {"int",     "neg",         "float",    "negfloat", "big",
+						   "str",     "nullstr",     "empty",    "numstr",   "floatstr",
+						   "hex",     "u64",         "u64small", "path",     "path/to/leaf",
+						   "path/to", "trailing",    "block",    "missing",  "missing/deeper",
+						   "Adopted", "EmptyParent", NULL,       ""};
 	const char* kDefault = "DEFAULT";
 	line("== GetDataType, GetInt, GetFloat, then GetString (which converts)");
 	for (const char* k : kKeys)

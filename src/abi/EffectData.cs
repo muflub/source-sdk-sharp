@@ -8,10 +8,8 @@ namespace SourceSharp.Abi;
 /// which in turn is stock's <c>CEffectData</c> (effect_dispatch_data.h) minus
 /// <c>m_iEffectName</c>. That one member is an index into the
 /// <c>EffectDispatch</c> network string table, and this boundary carries the
-/// NAME instead — the registry the name resolves against
-/// (<c>CClientEffectRegistration</c>'s list) stays native and matches by
-/// string, so an index would be a number managed code had to keep in step with
-/// a table it does not own.
+/// NAME instead, matched by string: an index would be a number managed code had
+/// to keep in step with a table it does not own.
 /// </para>
 ///
 /// <para>

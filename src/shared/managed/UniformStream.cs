@@ -10,9 +10,8 @@ using SourceSharp.Abi;
 namespace SourceSharp.Shared;
 
 /// <summary>
-/// vstdlib's <c>CUniformRandomStream</c>, as server.so's own port of it is
-/// (src/client/native/vstdlib_random_port.cpp, held draw for draw to the game's
-/// libvstdlib.so by vstdlib_random_oracle_test): Park-Miller's minimal standard
+/// vstdlib's <c>CUniformRandomStream</c>, held draw for draw to the game's libvstdlib.so
+/// by <c>UniformStreamOracleTests</c>: Park-Miller's minimal standard
 /// (multiplier 16807, modulus 2^31 - 1, Schrage's method) behind a 32-entry
 /// Bays-Durham shuffle. Seeding stores the seed negated, so the next draw
 /// refills the table. A stream its owner seeds, not the process's. Every client

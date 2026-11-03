@@ -44,8 +44,6 @@ src/sourcesharp/fwd	files	src/fwd/native
 # each, so nothing else of src/shared/native is linked into those farm
 # directories (and the game/shared `files` row above skips them).
 src/sourcesharp/public/dt_send.cpp	file	src/shared/native/dt_send.cpp
-src/sourcesharp/public/dt_utlvector_common.cpp	file	src/shared/native/dt_utlvector_common.cpp
-src/sourcesharp/common/steamid.cpp	file	src/shared/native/steamid.cpp
 src/sourcesharp/test	files	src/test/native
 src/sourcesharp/webui	dir	src/webui
 

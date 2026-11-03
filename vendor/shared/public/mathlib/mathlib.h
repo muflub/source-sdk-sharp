@@ -809,7 +809,6 @@ void Parabolic_Spline(const Vector& p1, const Vector& p2, const Vector& p3, cons
 // Get the minimum distance from vOrigin to the bounding box defined by [mins,maxs]
 // using voronoi regions.
 // 0 is returned if the origin is inside the box.
-float CalcSqrDistanceToAABB(const Vector& mins, const Vector& maxs, const Vector& point);
 
 // Get the closest point from P to the (infinite) line through vLineA and vLineB and
 // calculate the shortest distance from P to the line.

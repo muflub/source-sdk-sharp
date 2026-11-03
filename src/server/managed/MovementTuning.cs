@@ -16,8 +16,7 @@ namespace SourceSharp.Server;
 /// <summary>
 /// The eight movement ConVars the mod's tuning is written into, and the audit
 /// that says when something moved one of them afterwards —
-/// plan_server_novalve.md P2.3, out of shell_movement.cpp's SetEngineConVar and
-/// shell_movement_audit.cpp.
+/// plan_server_novalve.md P2.3, out of shell_movement.cpp's SetEngineConVar.
 ///
 /// <para>
 /// <b>APPLIED ONCE, AS A STARTING VALUE.</b> <see cref="Movement.Current"/>'s

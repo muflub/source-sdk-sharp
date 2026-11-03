@@ -231,26 +231,6 @@ ss_cpptest(engine_heap_oracle_test
 set(SS_CPPTEST_ENV ${_ss_env_before})
 endif()
 
-# vstdlib_random_port.cpp (server.so's own random stream, P4) against THE
-# GAME'S OWN libvstdlib.so, draw for draw. It sits beside the libtier0.so found
-# above and needs it on the library path (it has no RPATH). Links no vstdlib.
-get_filename_component(_ss_engine_bin "${SS_ENGINE_TIER0}" DIRECTORY)
-set(_ss_env_before ${SS_CPPTEST_ENV})
-if(SS_ENGINE_TIER0)
-  list(APPEND SS_CPPTEST_ENV "SOURCESHARP_ENGINE_VSTDLIB=${_ss_engine_bin}/libvstdlib.so"
-                             "LD_LIBRARY_PATH=${_ss_engine_bin}")
-endif()
-# (At the start of the line: tools/leg-floor counts ss_cpptest*() calls there.)
-ss_cpptest(vstdlib_random_oracle_test
-    DEFINES NDEBUG POSIX LINUX _LINUX GNUC PLATFORM_64BITS COMPILER_GCC
-    OPTIONS -Wno-unknown-pragmas -Wno-dangling-else
-    # src/shared/native for ss_platform.h (SS_BIND_IMPORT; system headers only).
-    INCLUDES ${SS_VALVE_SRC}/public ${SS_VALVE_SRC}/public/tier0 ${PROJECT_SOURCE_DIR}/src/shared/native
-    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/vstdlib_random_oracle_test.cpp
-            ${PROJECT_SOURCE_DIR}/src/client/native/vstdlib_random_port.cpp
-    LIBS dl)
-set(SS_CPPTEST_ENV ${_ss_env_before})
-
 # ss_containers.h (src/shared/native), the standard-library stand-ins for the
 # tier1 container semantics server.so's own code relied on, against the
 # PRISTINE CUtlDict / CaselessStringLessThan / V_stricmp: the clone's

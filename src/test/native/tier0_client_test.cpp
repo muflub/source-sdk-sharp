@@ -17,6 +17,7 @@
 #include "tier0/vprof.h"
 
 #include "death_test_no_core.h"
+#include "ss_clock.h"
 
 #include <chrono>
 #include <thread>
@@ -72,21 +73,21 @@ TEST(Tier0VProfClientDeathTest, ANodeMemberStopsTheProcessNamingTheRuling)
 	EXPECT_DEATH((void)pNode->GetSubNode("a", 0, "b", 0), "CVProfNode::GetSubNode called in the client");
 }
 
-TEST(Tier0ClockClient, PlatFloatTimeCountsSeconds)
+TEST(Tier0ClockClient, SecondsSinceStartCountsSeconds)
 {
-	const double flStart = Plat_FloatTime();
+	const double flStart = ss::SecondsSinceStart();
 	std::this_thread::sleep_for(std::chrono::milliseconds(60));
-	const double flElapsed = Plat_FloatTime() - flStart;
+	const double flElapsed = ss::SecondsSinceStart() - flStart;
 	EXPECT_GE(flElapsed, 0.05);
 	EXPECT_LT(flElapsed, 2.0) << "not seconds";
 }
 
-TEST(Tier0ClockClient, PlatFloatTimeNeverGoesBack)
+TEST(Tier0ClockClient, SecondsSinceStartNeverGoesBack)
 {
-	double flLast = Plat_FloatTime();
+	double flLast = ss::SecondsSinceStart();
 	for (int i = 0; i < 1000; ++i)
 	{
-		const double flNow = Plat_FloatTime();
+		const double flNow = ss::SecondsSinceStart();
 		ASSERT_GE(flNow, flLast);
 		flLast = flNow;
 	}

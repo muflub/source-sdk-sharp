@@ -276,7 +276,7 @@ internal sealed unsafe class DefaultDebugOverlayArea : IDebugOverlayArea
 {
     public int DrawEntityOverlay(uint a0, int a1, byte* a2, float a3, int a4, int a5, int a6, int a7) => default;
     public void AddLineOverlay(float* a0, float* a1, int a2, int a3, int a4, int a5, float a6) { }
-    public void OverlayCounts(uint* a0, uint* a1, uint* a2, uint* a3, int* a4) { }
+    public void OverlayCounts(uint* a0, uint* a1) { }
 }
 
 /// <summary><see cref="IUserMessagesArea"/> for a test with no engine: every call answers its default.</summary>
@@ -542,9 +542,6 @@ internal sealed unsafe class DefaultParticlesClientArea : IParticlesClientArea
 /// <summary><see cref="IFxClientArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultFxClientArea : IFxClientArea
 {
-    public int EffectRegistrationCount() => default;
-    public int EffectRegistrationName(int a0, byte* a1, int a2) => default;
-    public void EffectRegistrationRun(int a0, EffectData* a1) { }
     public int FxCanPredict() => default;
     public int FxRecipientCount(float* a0) => default;
     public int FxMaterialFind(byte* a0) => default;

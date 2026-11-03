@@ -1736,8 +1736,8 @@ internal unsafe struct ShimDebugOverlayFwd : IForwarderTable
     // void IShimDebugOverlay::AddLineOverlay( const float *, const float *, int32_t, int32_t, int32_t, int32_t, float )
     public delegate* unmanaged<void*, void*, void*, int, int, int, int, float, void> AddLineOverlay;
 
-    // void IShimDebugOverlay::OverlayCounts( uint32_t *, uint32_t *, uint32_t *, uint32_t *, int32_t * )
-    public delegate* unmanaged<void*, void*, void*, void*, void*, void*, void> OverlayCounts;
+    // void IShimDebugOverlay::OverlayCounts( uint32_t *, uint32_t * )
+    public delegate* unmanaged<void*, void*, void*, void> OverlayCounts;
 }
 
 /// <summary>
@@ -2561,22 +2561,13 @@ internal unsafe struct ShimParticlesClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimFxClient</c> through its forwarders (SSFwd_ShimFxClient): 33 slot(s).
+/// <c>IShimFxClient</c> through its forwarders (SSFwd_ShimFxClient): 30 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimFxClientFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimFxClient";
-
-    // int32_t IShimFxClient::EffectRegistrationCount( void )
-    public delegate* unmanaged<void*, int> EffectRegistrationCount;
-
-    // int32_t IShimFxClient::EffectRegistrationName( int32_t, char *, int32_t )
-    public delegate* unmanaged<void*, int, byte*, int, int> EffectRegistrationName;
-
-    // void IShimFxClient::EffectRegistrationRun( int32_t, const SourceSharpEffectData_t * )
-    public delegate* unmanaged<void*, int, void*, void> EffectRegistrationRun;
 
     // int32_t IShimFxClient::FxCanPredict( void )
     public delegate* unmanaged<void*, int> FxCanPredict;

@@ -56,10 +56,6 @@ void ExpectSameProp(const RecvProp& ours, const RecvProp& stock, const char* pWh
 
 void OtherProxy(const CRecvProxyData*, void*, void*) {}
 
-void OtherTableProxy(const RecvProp*, void**, void*, int) {}
-
-void OtherLengthProxy(void*, int, int) {}
-
 const char kName[] = "m_flTest";
 
 std::mt19937& Rng()
@@ -94,25 +90,12 @@ TEST(RecvBuildersOracle, IntPicksUpstreamsProxyForEveryWidth)
 	EXPECT_NE(RecvPropInt(kName, 0, 1, 0, NULL).GetProxyFn(), RecvPropInt(kName, 0, 4, 0, NULL).GetProxyFn());
 }
 
-TEST(RecvBuildersOracle, FloatVectorStringAndTableMatchUpstream)
+TEST(RecvBuildersOracle, VectorAndStringMatchUpstream)
 {
-	ExpectSameProp(engineabi::recv::Float(kName, 40, 4, SPROP_NOSCALE, RecvProxy_FloatToFloat, g_StandardRecvProxies),
-				   RecvPropFloat(kName, 40, 4, SPROP_NOSCALE, RecvProxy_FloatToFloat), "Float");
-	ExpectSameProp(engineabi::recv::Float(kName, 40, 0, 0, OtherProxy, g_StandardRecvProxies),
-				   RecvPropFloat(kName, 40, 0, 0, OtherProxy), "Float, named proxy");
 	ExpectSameProp(engineabi::recv::Vector(kName, 64, 12, SPROP_COORD, RecvProxy_VectorToVector, g_StandardRecvProxies),
 				   RecvPropVector(kName, 64, 12, SPROP_COORD, RecvProxy_VectorToVector), "Vector");
 	ExpectSameProp(engineabi::recv::String(kName, 8, 260, 0, RecvProxy_StringToString),
 				   RecvPropString(kName, 8, 260, 0, RecvProxy_StringToString), "String");
-
-	RecvTable table;
-	ExpectSameProp(
-		engineabi::recv::DataTable(kName, 16, SPROP_PROXY_ALWAYS_YES, &table, DataTableRecvProxy_StaticDataTable),
-		RecvPropDataTable(kName, 16, SPROP_PROXY_ALWAYS_YES, &table, DataTableRecvProxy_StaticDataTable), "DataTable");
-	ExpectSameProp(engineabi::recv::DataTable(kName, 16, 0, &table, OtherTableProxy),
-				   RecvPropDataTable(kName, 16, 0, &table, OtherTableProxy), "DataTable, named proxy");
-	ExpectSameProp(engineabi::recv::ArrayLength(33, 4, kName, OtherLengthProxy),
-				   InternalRecvPropArray(33, 4, kName, OtherLengthProxy), "ArrayLength");
 }
 
 TEST(RecvBuildersOracle, TheIntegerProxiesWriteUpstreamsBytes)

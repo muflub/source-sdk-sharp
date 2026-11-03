@@ -260,10 +260,7 @@ public:
 
 CRecordingOverlay g_Recorder;
 
-// Far enough to be out of range: MAX_OVERLAY_DIST_SQR is 9e7, so 9,487 units.
-const float kBeyondRange = 12000.0f;
-
-// A fixture, so that every fact starts from a known viewer, an empty recorder
+// A fixture, so that every fact starts from an empty recorder
 // and zeroed counters. A counter left over from the previous fact is exactly
 // the kind of agreement-with-itself this file exists to avoid.
 class OverlayLibrary : public ::testing::Test
@@ -271,10 +268,7 @@ class OverlayLibrary : public ::testing::Test
 protected:
 	void SetUp() OVERRIDE { g_Recorder.Reset(); }
 
-	// Eyes at the origin looking down +X.
-	void SetLookingAlongX() { m_Library.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0)); }
-
-	// A new library per fact: no viewer, zeroed counters, an empty pool.
+	// A new library per fact: zeroed counters, an empty pool.
 	COverlayLibrary m_Library{&g_Recorder};
 };
 
@@ -285,86 +279,16 @@ protected:
 //-----------------------------------------------------------------------------
 } // anonymous namespace
 
-//=============================================================================//
-// THE CLIP -- points
-//=============================================================================//
-
-//=============================================================================//
-// THE CLIP -- segments. NOT the point rule applied twice.
-//=============================================================================//
-
-TEST_F(OverlayLibrary, SegmentWithNoViewerIsNotVisible)
-{
-	EXPECT_FALSE(m_Library.SegmentIsVisible(Vector(10, 0, 0), Vector(20, 0, 0)));
-}
-
-TEST_F(OverlayLibrary, SegmentWithBothEndsAheadAndNearIsVisible)
-{
-	SetLookingAlongX();
-	EXPECT_TRUE(m_Library.SegmentIsVisible(Vector(10, 0, 0), Vector(200, 0, 0)));
-}
-
 // The near end is BEHIND the eye and the far end is in front. Point-by-point,
 // the near end fails; as a segment it is kept, because part of it is visible.
-TEST_F(OverlayLibrary, SegmentNearEndBehindFarEndAheadIsVisible)
-{
-	SetLookingAlongX();
-
-	const Vector vecBehind(-50, 0, 0);
-	const Vector vecAhead(300, 0, 0);
-
-	EXPECT_TRUE(m_Library.SegmentIsVisible(vecBehind, vecAhead));
-}
-
-TEST_F(OverlayLibrary, SegmentWithBothEndsBehindIsNotVisible)
-{
-	SetLookingAlongX();
-	EXPECT_FALSE(m_Library.SegmentIsVisible(Vector(-50, 0, 0), Vector(-300, 0, 0)));
-}
-
 // One end out of range and one end in it is kept: the distance rule needs BOTH
 // ends out of range before a line is dropped.
-TEST_F(OverlayLibrary, SegmentWithOneEndInRangeIsVisible)
-{
-	SetLookingAlongX();
-	EXPECT_TRUE(m_Library.SegmentIsVisible(Vector(10, 0, 0), Vector(kBeyondRange, 0, 0)));
-}
-
-TEST_F(OverlayLibrary, SegmentWithBothEndsOutOfRangeIsNotVisible)
-{
-	SetLookingAlongX();
-	EXPECT_FALSE(m_Library.SegmentIsVisible(Vector(kBeyondRange, 0, 0), Vector(kBeyondRange + 100, 0, 0)));
-}
-
 //=============================================================================//
 // THE READOUT -- which branch a call that drew nothing took
 //=============================================================================//
 
-TEST_F(OverlayLibrary, LineWithNoViewerCountsNoViewerAndDrawsNothing)
-{
-	m_Library.Line(Vector(10, 0, 0), Vector(20, 0, 0), 255, 0, 0, false, 0);
-
-	EXPECT_EQ(0u, m_Library.Counts().nDrawn);
-	EXPECT_EQ(1u, m_Library.Counts().nNoViewer);
-	EXPECT_EQ(0u, g_Recorder.lines.size());
-}
-
-TEST_F(OverlayLibrary, ClippedLineCountsClippedAndDrawsNothing)
-{
-	SetLookingAlongX();
-
-	m_Library.Line(Vector(-50, 0, 0), Vector(-300, 0, 0), 255, 0, 0, false, 0);
-
-	EXPECT_EQ(0u, m_Library.Counts().nDrawn);
-	EXPECT_EQ(1u, m_Library.Counts().nClipped);
-	EXPECT_EQ(0u, m_Library.Counts().nNoViewer);
-	EXPECT_EQ(0u, g_Recorder.lines.size());
-}
-
 TEST_F(OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour)
 {
-	SetLookingAlongX();
-
 	m_Library.Line(Vector(10, 1, 2), Vector(200, 3, 4), 11, 22, 33, true, 5.0f);
 
 	ASSERT_EQ(1u, g_Recorder.lines.size());
@@ -379,7 +303,6 @@ TEST_F(OverlayLibrary, VisibleLineReachesTheOverlayWithItsColour)
 TEST_F(OverlayLibrary, WithNoOverlayInterfaceADrawCountsNoOverlay)
 {
 	COverlayLibrary none(nullptr);
-	none.SetViewer(Vector(0, 0, 0), Vector(1, 0, 0));
 
 	none.Line(Vector(10, 0, 0), Vector(200, 0, 0), 255, 0, 0, false, 0);
 
@@ -387,22 +310,8 @@ TEST_F(OverlayLibrary, WithNoOverlayInterfaceADrawCountsNoOverlay)
 	EXPECT_EQ(1u, none.Counts().nNoOverlay);
 }
 
-TEST_F(OverlayLibrary, ResetCountsZeroesEveryCounter)
-{
-	SetLookingAlongX();
-	m_Library.Line(Vector(10, 0, 0), Vector(200, 0, 0), 1, 2, 3, false, 0);
-	ASSERT_EQ(1u, m_Library.Counts().nDrawn);
-
-	m_Library.ResetCounts();
-
-	EXPECT_EQ(0u, m_Library.Counts().nDrawn);
-	EXPECT_EQ(0u, m_Library.Counts().nClipped);
-	EXPECT_EQ(0u, m_Library.Counts().nNoViewer);
-	EXPECT_EQ(0u, m_Library.Counts().nNoOverlay);
-}
-
 //=============================================================================//
-// THE TWO FAMILIES ARE DIFFERENT -- unclipped entries do not want a viewer
+// THE UNPOOLED ENTRIES
 //=============================================================================//
 
 TEST_F(OverlayLibrary, TextAtPositionDrawsWithNoViewer)
@@ -414,7 +323,6 @@ TEST_F(OverlayLibrary, TextAtPositionDrawsWithNoViewer)
 	EXPECT_EQ(10, g_Recorder.rgbText[0].r);
 	EXPECT_EQ(40, g_Recorder.rgbText[0].a);
 	EXPECT_EQ(1u, m_Library.Counts().nDrawn);
-	EXPECT_EQ(0u, m_Library.Counts().nNoViewer);
 }
 
 //=============================================================================//
@@ -450,8 +358,6 @@ static void FillPool(COverlayLibrary& library, int r)
 
 TEST_F(OverlayLibrary, DrawingThePoolDrawsEveryArmedSlot)
 {
-	SetLookingAlongX();
-
 	FillPool(m_Library, 7);
 	m_Library.DrawPooledLines();
 
@@ -459,29 +365,6 @@ TEST_F(OverlayLibrary, DrawingThePoolDrawsEveryArmedSlot)
 	EXPECT_EQ((unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nDrawn);
 	for (size_t i = 0; i < g_Recorder.lines.size(); i++)
 		EXPECT_EQ(7, g_Recorder.lines[i].r) << "slot " << i << " drew a line this fact did not add";
-}
-
-TEST_F(OverlayLibrary, DrawingThePoolWithNoViewerDrawsNothingAndSaysWhy)
-{
-	FillPool(m_Library, 1);
-	m_Library.DrawPooledLines();
-
-	EXPECT_EQ(0u, g_Recorder.lines.size());
-	EXPECT_EQ((unsigned)COverlayLibrary::kPoolLines, m_Library.Counts().nNoViewer);
-}
-
-//=============================================================================//
-// THE VIEWER ITSELF
-//=============================================================================//
-
-TEST_F(OverlayLibrary, ClearingTheViewerUnsetsIt)
-{
-	SetLookingAlongX();
-	ASSERT_TRUE(m_Library.ViewerIsSet());
-
-	m_Library.ClearViewer();
-
-	EXPECT_FALSE(m_Library.ViewerIsSet());
 }
 
 //=============================================================================//

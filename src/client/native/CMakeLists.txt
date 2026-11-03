@@ -24,7 +24,6 @@ set(client_sourcesharp_sources
     ${LOCAL}/mathlib_port_client.cpp
     ${LOCAL}/mesh_index_client.cpp
     ${LOCAL}/particles_lib_client.cpp
-    ${LOCAL}/randoverride.cpp
     ${LOCAL}/shell_beam_render.cpp
     ${LOCAL}/shell_centerprint_client.cpp
     ${LOCAL}/shell_client.cpp
@@ -106,15 +105,12 @@ set(client_sourcesharp_sources
     ${LOCAL}/tier1_client.cpp
     ${LOCAL}/tier2_names_client.cpp
     ${LOCAL}/tier_bindings_client.cpp
-    ${LOCAL}/vstdlib_random_port.cpp
     ${LOCAL}/world_adapter_client.cpp
     ${SHARED}/alloc_check.cpp
     ${SHARED}/collisionproperty.cpp
     ${SHARED}/bound_callback.cpp
     ${SHARED}/console_display_forward.cpp
     ${SHARED}/convar_port.cpp
-    ${SHARED}/dt_element_names.cpp
-    ${SHARED}/dt_utlvector_common.cpp
     ${SHARED}/engine_heap.cpp
     ${SHARED}/fatal_report.cpp
     ${SHARED}/generic_payload.cpp
@@ -129,13 +125,11 @@ set(client_sourcesharp_sources
     ${SHARED}/shell_gamerules.cpp
     ${SHARED}/shell_internalfactory.cpp
     ${SHARED}/shell_movement.cpp
-    ${SHARED}/shell_movement_audit.cpp
     ${SHARED}/shell_shared.cpp
     ${SHARED}/shell_vtable_interfaces.cpp
     ${SHARED}/sourcesharp_gamesystem.cpp
     ${SHARED}/ss_command_line.cpp
     ${SHARED}/standalone_player_sync.cpp
-    ${SHARED}/steamid.cpp
     ${SHARED}/tier0_spew_port.cpp
     ${SHARED}/tier1_port.cpp
     ${SHARED}/tier_connect.cpp
