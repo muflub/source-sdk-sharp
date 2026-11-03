@@ -1607,3 +1607,24 @@ public interface ITFTeamGoal
     /// <summary>The local player's team (the res's teambg_2/3 key).</summary>
     int Team { get; }
 }
+
+/// <summary>
+/// The hud's render groups, stock's <c>gHUD</c> group lock
+/// (hud.cpp:288-303): a <c>CHudElement</c> registered for a group stands
+/// down while the group is locked. The TF scoreboard locks the hud's
+/// <c>global</c> group for exactly the while it shows
+/// (tf_clientscoreboard.cpp:433-441 locked, :469 freed), and every hud
+/// element joins the group in the base constructor (hud.cpp:244-246) — the
+/// health cross, the ammo, the clock, the goal hint, the kill feed, the
+/// chat, all of them. The TF screens that are stock hud elements answer
+/// this from the live UI and stand down with it; the scope overlay
+/// unregisters the group in stock (tf_hud_scope.cpp:336) and the spectator
+/// bars are no hud elements, so neither stands down.
+/// </summary>
+public interface ITFRenderGroups
+{
+    /// <summary>Whether the global group is locked now — the TF scoreboard
+    /// shows, so the hud's elements stand down (<c>ShouldDraw</c>'s locked
+    /// arm, hud.cpp:288-303).</summary>
+    bool GlobalLocked { get; }
+}

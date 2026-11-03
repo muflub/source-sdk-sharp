@@ -343,6 +343,9 @@ sigterm-shutdown	rate	57.143	35840	31.429	23760	756	2	20110	23760
 # `tools/live-gate --steps ai-nav,bots,ss-ai-nav,ss-ai-sight,ss-ai-hearing,map-change --passes 3` (ai-nav: five such runs) and `--steps bots,map-change
 # --passes 3` (debug, hl2mp-ai 7875092dc and d758acc3a), through live-gate's own write_budget formulas; the nightly --record re-takes them.
 ai-nav	total	30.7	429	13.8	69	5	5	69	153
+# ai-reload: hand-added from six of its passes (debug, hl2mp-ai-gate: two bots through a reload, up to their first shot:
+# 15,367..73,375 total, 26.404..36.596 per frame), with the file's own ceilings (per frame x1.5 + 10, total x1.5 + 200).
+ai-reload	rate	64.894	110262	36.596	73375	2005	6	15367	73375
 bots	rate	92.09	1437027	54.727	957885	17503	6	226285	957885
 ss-ai-nav	rate	69.921	38060	39.948	22890	573	3	22890	25240
 ss-ai-sight	rate	113.037	41205	68.691	25828	376	3	25828	27337

@@ -1260,3 +1260,13 @@ and where its record lives now.
 - **Client C9 tier0 and vstdlib** (fa6353435): the user's 2026-10-18 ruling that
   client.so's VPROF nodes run against its own never-enabled profile is in the
   old text.
+
+- **A walking player's speed dips mid-hold, cause not known.** `tools/live-gate --steps move`
+  at 1107dbfe1 (debug, dm_lockdown, from -3843 2894 0, `IEngineEntities.GetVelocity`) read
+  (190.0, 6.7, 97.5), (190.0, 214.9, 190.0) and (190.0, 0.0, 266.9) u/s at 0.25 s steps of a
+  +forward hold, while the player kept moving (250-350 units over the hold). A single read
+  failed the step's old `> 100` check in 4 of 18 passes, on main without the client T6 lane
+  too, so that check now takes the fastest of three. 0 and 266 from a 190 walk may be the
+  map's steps at that spot or a real fault in the movement or in the velocity mirror
+  PlayerCommandFinish writes. To settle it: sample origin and speed every tick along a flat
+  walk, then the same walk on stock (`../ss-stock-hl2mp`).

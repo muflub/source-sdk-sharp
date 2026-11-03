@@ -30,11 +30,17 @@ namespace TF2.Client.Ui;
 /// preview, or a file the game lacks — the shape stands in: stock's error
 /// texture is pixels the toolkit cannot show (docs/divergences.md).
 /// </summary>
-public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary? textures = null) : UiScreen
+public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary? textures = null,
+                                ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tfcrosshair";
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    // Stock's hud elements stand down for the scoreboard's locked "global"
+    // group (ITFRenderGroups): the layer skips a screen whose Visible is
+    // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
+    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
 
     // The core HUD's crosshair: this screen replaces it (Hud.cs's
     // hud.crosshair gate).

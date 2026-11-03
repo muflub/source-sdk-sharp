@@ -58,6 +58,25 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
     private const int Blue = 3;              // TF_TEAM_BLUE
     private const int Unassigned = 0;        // TEAM_UNASSIGNED
 
+    // The chrome's scalable art: MainBG and PlayerNameBG's TFThinLineBorder
+    // (clientscheme.res:3345-3356, tournament_panel_brown src_corner 23
+    // draw_corner 8) and the bands' own images (scoreboard.res:43, 314).
+    private const string ThinPanel = "hud/tournament_panel_brown";
+    private const float ThinSrc = 23f;
+    private const float ThinDraw = 8f;
+    private const string FatPanel = "hud/color_panel_brown_opaque";   // TFFatLineBorderOpaque
+    private const float FatSrc = 23f;
+    private const float FatDraw = 5f;
+    private const string BlueBandArt = "hud/score_panel_blue_bg_solid";
+    private const string RedBandArt = "hud/score_panel_red_bg_solid";
+
+    // Slice-key bases for the chrome's nine-slices, clear of the row keys
+    // (the class image's million offsets).
+    private const int ChromeKey = 700;
+    private const int StripKey = 720;
+    private const int TimerKey = 740;
+    private const int TimerInsetKey = 760;
+
     private readonly IScoreboardSource _source = source;
     private readonly ITFScoreboardClasses _classes = classes;
     private readonly ITFScoreboardDominations _dominations = dominations;
@@ -86,10 +105,19 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         public const float LineSpacing = 18f;        // linespacing 18 (scoreboard.res:506)
         public const float FirstIndent = 6f;         // COLUMN_DATA_INDENT 6
 
+        // The bands: their ypos below the (centred) root and their 71-px
+        // height (BlueScoreBG, scoreboard.res:33-35) — the art stock
+        // stretches across them. The root's own top is MoveToCenterOfScreen's
+        // ((480 - 448) / 2), not the res's ypos 31 (:8).
+        public const float BandDrop = 9f;            // BlueScoreBG ypos (:34)
+        public const float BandTall = 71f;           // BlueScoreBG tall (:35)
+
         // The server-time box (scoreboard.res: TimerBG 80x43 at the panel's
         // centre, the label above the inset and the value inside it,
         // :384-466); the box takes the gap column's width, the heights are
-        // the res's own.
+        // the res's own. Its top hangs 12 units above the band tops
+        // (TimerBG y-3 against the bands' y9).
+        public const float TimerHang = 12f;          // 9 - 3 (:392 against :34)
         public const float TimerTall = 43f;          // TimerBG tall (:391)
         public const float TimerWide = 80f;          // TimerBG wide (:390)
         public const float TimerLabelTall = 10f;     // ServerTimeLeftLabel tall (:446)
@@ -122,11 +150,15 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
 
     public override string Name => "scoreboard";
 
-    // Stock's scoreboard is a hud-drawn dialog, not a menu: it covers the
-    // hud — the team-goal hint included — while TAB is held, and the game
-    // under it keeps drawing (tf_clientscoreboard.cpp:361-362 paints the
-    // dialog's background transparent over the hud pass). Order 1 above
-    // TFHud's 0.
+    // Stock's scoreboard is a hud-drown dialog, not a menu: while it shows
+    // it locks the hud's "global" render group (tf_clientscoreboard.cpp
+    // :433-441, freed :469), and every hud element — the health cross, the
+    // ammo, the clock, the goal hint, the kill feed, the chat — registered
+    // for the group in the base ctor (hud.cpp:244-246) stops drawing under
+    // ShouldDraw's locked arm (hud.cpp:288-303). TFHud and this screen's
+    // hud-layer kin stand down through ITFRenderGroups; the scope overlay
+    // (unregistered, tf_hud_scope.cpp:336) and the spectator bars (no hud
+    // elements) keep drawing. Order 1 above TFHud's 0.
     public override UiLayerKind Layer => UiLayerKind.Hud;
 
     public override int Order => 1;
@@ -195,16 +227,61 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         Span<UiSize> columns = stackalloc UiSize[ColumnCount];
         Columns(columns);
 
-        // The scores panel: stock's 640x448 at ypos 31 (scoreboard.res) is
-        // 1440x1008 du; the panel's pad is the res's own 5-px list inset, so
-        // 1448 caps it at a 1440 interior. The side pads follow the res: the
-        // details grid's 1419 du must fit a 4:3 screen's 1440. The panel is
-        // the screen's height and the lists row (or, narrow, the stacked
-        // scroll) takes what height is left, so a short screen squeezes the
-        // lists (they scroll) and never pushes the bar off screen.
-        using (ui.Box().Size(Size.Fill, Size.Fill).Pad(Space.XS, Space.L, Space.XS, Space.L))
-        using (ui.Panel(Space.XS).At(UiAnchor.Top).Size(Size.Fill, Size.Fill)
-                 .MaxWidth(1448).Name("tf scoreboard panel"))
+        // The scores panel: stock's 640x448 dialog, centred on the screen by
+        // MoveToCenterOfScreen (ClientScoreBoardDialog.cpp:297, 580-587) —
+        // the res's ypos 31 is overridden, the top (480 - 448) / 2 = 16
+        // units — 1440x1008 du. The column is the panel: the Surface wash
+        // the hud panel always stood on, with the root's own MainBG chrome
+        // over it — the TFThinLineBorder scalable art across x0 y38 640x410
+        // (scoreboard.res:163-183), the thin cream outline and translucent
+        // wash the bands' art overlaps. The chrome is the fill itself (the
+        // dialog's own bg is transparent, SetBgColor 0,0,0,0 "light up
+        // scoreboard a bit", :193-194): the wash stands only where no chrome
+        // does. The top pad is the root's top plus the bands' own (16 + 9),
+        // the bottom the bar's 4-unit clearance (ShadedBar y372 + 72 against
+        // tall 448); the sides keep the res's 5-px list inset and 1448 caps
+        // the interior at 1440. The panel is the screen's height and the
+        // lists row (or, narrow, the stacked scroll) takes what height is
+        // left, so a short screen squeezes the lists (they scroll) and never
+        // pushes the bar off screen.
+        var screen = StockRes.Screen(ui.Screen);
+        var root = new StockBox("c-0.5", "16", 640f, 448f).Rect(screen);
+        var chrome = StockRes.Spot(new StockBox("0", "38", 640f, 410f).Rect(root), screen);
+        // The chrome's x in the column: both centred, so the art's left is
+        // the column's half the (column − 1440) in — negative on the narrower
+        // 5:4s, where the 1440-du frame is wider than the panel and its
+        // corners draw past it, as stock's root does on them.
+        float avail = MathF.Min(ui.Screen.W / ui.Screen.Scale, 1448f);
+        // The centred root's top, in units below the screen's top edge: the
+        // bands' pad hangs from it, not from the res's ypos.
+        float panelTop = screen.Tall - (root.Bottom + root.Tall);
+
+        // The chrome is the screen's own layer, under the content: the
+        // TFThinLineBorder nine slices hang from the root Box by AtRes, as
+        // the hud panels' frames do (TFHudTeamStatus). Inside the column it
+        // would be a stack child: laid out after the bands at the full
+        // width, the frame a row of texture and the rows and bar pushed
+        // below the screen.
+        bool chromed = false;
+        // The frame only where the whole 1440-du plate fits (the 16:9s and
+        // wider): narrower layouts keep the wash alone, their own arrangement.
+        if (avail >= chrome.Wide)
+            chromed = StockArt.Scalable(ref ui, _textures, "tf scoreboard chrome", ThinPanel,
+                (ui.Screen.W / ui.Screen.Scale - chrome.Wide) / 2f, chrome.Bottom, chrome.Wide, chrome.Tall,
+                ThinSrc, ThinDraw, ChromeKey);
+        if (!chromed)
+            ui.Rect(Tone.Surface, Size.Du(avail), Size.Fill).At(UiAnchor.Top).Layered()
+                .Name("tf scoreboard wash");
+        using (ui.Column(Space.None).At(UiAnchor.Top).Size(Size.Fill, Size.Fill)
+                 .MaxWidth(1448).Name("tf scoreboard panel")
+                 .Pad(Space.XS,
+                      // Wide frames the bands at the centred root's top plus
+                      // the bands' own 9; the stacked portrait keeps its own
+                      // tighter head, the scroll's fold already at the bar on
+                      // those screens.
+                      wide ? new UiLength((panelTop + Stock.BandDrop) * StockRes.Scale, false)
+                           : Space.L,
+                      Space.XS, new UiLength(4f * StockRes.Scale, false)))
         {
             if (left < 0)
             {
@@ -220,8 +297,14 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                         // The server-time box between the bands (scoreboard.res:
                         // TimerBG 80x43 px astride the bands' seam, its label
                         // and inset value inside — UpdateServerTimeLeft,
-                        // tf_clientscoreboard.cpp:2031-2114).
-                        using (ui.Column(Space.None, Align.Centre).Width(Size.Du(Stock.TimerWide * StockRes.Scale)).Align(Align.Centre, Align.Centre))
+                        // tf_clientscoreboard.cpp:2031-2114). Its own cell of
+                        // the bands' height — the cell, not the box's reach,
+                        // heights the row, or the bands centre in it: the
+                        // box's chrome hangs from the cell's top edge, 12
+                        // units above the band tops (TimerBG y-3 against y9).
+                        using (ui.Box().Width(Size.Du(Stock.TimerWide * StockRes.Scale))
+                                   .Height(Size.Du(Stock.BandTall * StockRes.Scale))
+                                   .Name("tf timer cell"))
                             ServerTimeLeft(ref ui);
                         TeamBand(ref ui, src, right, Size.Fr());
                     }
@@ -244,7 +327,8 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
             else
             {
                 // Narrow: the teams stack; the stack fills the panel and
-                // scrolls once its rows are taller than it.
+                // scrolls once its rows are taller than it, the spectator
+                // line and the bar scrolling with it as the fold reaches them.
                 using (ui.Scroll("stacked", Space.M).Width(Size.Fill).Height(Size.Fill))
                 {
                     TeamBand(ref ui, src, left, Size.Fill);
@@ -323,11 +407,14 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
         _spectators = string.Join(", ", names);
     }
 
-    /// <summary>A team band: the solid team-colour bar stock paints with the
-    /// BlueScoreBG/RedScoreBG art (290x71 px, 160 du tall), the name and head
-    /// count at its top left (ScoreboardTeamNameNew 20 px, ScoreboardTeam-
-    /// CountNew 14 px — scoreboard.res BlueTeamLabel 80,21, BlueTeamPlayer-
-    /// Count 80,42) and the score huge at the inner edge, vertically centred
+    /// <summary>A team band: stock's BlueScoreBG/RedScoreBG — the
+    /// score_panel_(blue|red)_bg_solid art (290x71 px) stretched over a
+    /// team-colour fill, the rounded fill and cream rule the artless
+    /// fallback keeps (scoreboard.res:31-46, 302-317). The head count alone
+    /// rides at the outer top corner — the name label is visible 0 in the
+    /// res (BlueTeamLabel, :186-205; ApplySchemeSettings never shows it) —
+    /// ScoreboardTeamCountNew 14 px at y42, 33 below the band's top
+    /// (:206-217), the score huge at the inner edge, vertically centred
     /// (ScoreboardTeamScoreNew 36/48 px, BlueTeamScore east-aligned at the
     /// band's right, RedTeamScore west-aligned at its left, y12 h55 of 71).</summary>
     private void TeamBand(ref UiFrame ui, IScoreboardSource src, int teamIndex, UiSize width)
@@ -340,12 +427,23 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                 count++;
 
         // Stock mirrors the whole band (BlueTeamImage at the outer edge,
-        // RedTeamImage x571): the name and count at the outer top corner, the
+        // RedTeamImage x571): the count at the outer top corner, the
         // score at the inner edge (BlueTeamScore east, RedTeamScore west,
         // scoreboard.res 212, 299).
         bool blue = team.Number == Blue;
-        using (ui.Box().Width(width).Height(Size.Du(160)).Fill((UiPaint)tone).Name(blue ? "tf band blue" : "tf band red"))
+
+        // The band's own art over the panel; the team fill stands in only
+        // where the art is missing (the artless goldens), its plate leaving
+        // the panel's wash visible round the keyline as stock's does.
+        int bandArt = _textures.Find(blue ? BlueBandArt : RedBandArt);
+        using (ui.Box().Width(width).Height(Size.Du(Stock.BandTall * StockRes.Scale))
+                   .Fill(bandArt == 0 ? (UiPaint)tone : default).Name(blue ? "tf band blue" : "tf band red"))
         {
+            if (bandArt != 0)
+                _ = ui.Texture(bandArt, Size.Fill, Size.Fill)
+                      .AtRes(UiAnchor.BottomLeft, 0f, 0f)
+                      .Name(blue ? "tf band blue art" : "tf band red art");
+
             // The team badge at the outer top corner (BlueTeamImage 60x60 at
             // 11,0 of the band, RedTeamImage 80x80 mirrored to the right —
             // scoreboard.res:48-70, 115-141); stock's red art hangs 14 px
@@ -357,31 +455,28 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
             else
                 StockArt.Draw(ref ui, _textures, "tf badge red", "hud/team_red",
                               7f * s, 5f * s, 80f * s, 80f * s, corner: UiAnchor.BottomRight);
-            // The name clears the badge by stock's gap (BlueTeamLabel x80
-            // against the 60-wide badge at 7; RedTeamLabel's right edge 561
-            // against the 80-wide badge inset 7 — scoreboard.res:186-199,
-            // 290-303): 11+60+13 here, 7+80+10 mirrored there.
-            using (blue ? ui.Column(Space.M, Align.Start).AtRes(UiAnchor.TopLeft, 84f * s, (int)Space.Huge)
-                        : ui.Column(Space.M, Align.End).AtRes(UiAnchor.TopRight, 97f * s, (int)Space.Huge))
+            // The count clears the badge by stock's gap (BlueTeamPlayerCount
+            // x80 against the 60-wide badge at 7; RedTeamPlayerCount's right
+            // edge 561 against the 80-wide badge inset 7 — scoreboard.res:
+            // 206-217, 318-329): 11+60+13 here, 7+80+10 mirrored there, its
+            // top 33 units below the band's (y42 against y9). The face is
+            // ScoreboardTeamCountNew 14 — the du of TFHudType.Scoreboard-
+            // MediumSmall — mixed case as the tokens spell themselves.
+            using (blue ? ui.Row(Space.XS, Align.Start).AtRes(UiAnchor.TopLeft, 84f * s, 33f * s).Name("tf count blue")
+                        : ui.Row(Space.XS, Align.End).AtRes(UiAnchor.TopRight, 97f * s, 33f * s).Name("tf count red"))
             {
-                ui.Data(team.Name, Text.Title, Tone.OnAccent).Name(blue ? "tf name blue" : "tf name red");
                 // The count is a token pair in stock (TF_ScoreBoard_Player
                 // "%s1 player" / TF_ScoreBoard_Players "%s1 players",
                 // tf_english.txt:59-60), so one player is not "1 players";
                 // the count rides beside the token as its own leaf. The ink
                 // is OnAccent, the team menu card's (TFTeamMenu.cs:296): the
                 // light Text token does not clear the lint's floor on the
-                // pale core-theme team colours, and only the 24-du-and-up
-                // roles clear 3:1 against the fill. Titles, not Labels, for
-                // the same reason.
-                using (blue ? ui.Row(Space.XS, Align.Start) : ui.Row(Space.XS, Align.End))
-                {
-                    ui.Number(count, Text.Title, Tone.OnAccent);
-                    ui.Text(count == 1 ? "#TF2_ScoreBoard_Player" : "#TF2_ScoreBoard_Players",
-                            Text.Title, Tone.OnAccent);
-                }
+                // pale core-theme team colours.
+                ui.Number(count, Text.Body, Tone.OnAccent).TextSize(TFHudType.ScoreboardMediumSmall);
+                ui.Text(count == 1 ? "#TF2_ScoreBoard_Player" : "#TF2_ScoreBoard_Players",
+                        Text.Body, Tone.OnAccent).TextSize(TFHudType.ScoreboardMediumSmall);
             }
-            ui.Number(team.Score, Text.Display, Tone.OnAccent)
+            ui.Number(team.Score, Text.Number, Tone.OnAccent).HudSize()
               .Name(blue ? "tf score blue" : "tf score red")
               .At(blue ? UiAnchor.Right : UiAnchor.Left)
               .Inset(Space.XL, Space.None);
@@ -544,7 +639,11 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                     if (!StockArt.Draw(ref ui, textures, "", iconName,
                                        0f, (rowH - icon) / 2f, icon, icon,
                                        corner: UiAnchor.BottomRight, keyNumber: 1_000_000 + p.Index))
-                        ui.Data(className, Text.Label, Tone.TextMuted).At(UiAnchor.Centre);
+                        // The artless stand-in keeps to its cell, right-aligned
+                        // like stock's COLUMN_RIGHT — centred, the longer
+                        // names ran into the score beside them.
+                        ui.Data(className, Text.Label, Tone.TextMuted).At(UiAnchor.Centre)
+                            .Width(Size.Fill).TextAlign(Align.End).Elide();
                 }
             }
             else
@@ -742,12 +841,16 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                 StockArt.Draw(ref ui, _textures, "class image", image, portrait.Left, portrait.Bottom,
                               portrait.Wide, portrait.Tall);
 
-            // The name strip's rule (PlayerNameBG's TFThinLineBorder), under
-            // the name and beside the grid's first row as the res overlaps them.
-            using (ui.Box().AtRes(UiAnchor.BottomLeft, strip.Left, strip.Bottom)
-                     .Size(Size.Du(strip.Wide), Size.Du(strip.Tall)).Border(Tone.Line, 1f).Layered()
-                     .Name("tf name strip"))
-            { }
+            // The name strip's rule (PlayerNameBG's TFThinLineBorder — the
+            // frame's own art), under the name and beside the grid's first
+            // row as the res overlaps them; the bordered box is the artless
+            // stand-in.
+            if (!StockArt.Scalable(ref ui, _textures, "tf name strip", ThinPanel,
+                    strip.Left, strip.Bottom, strip.Wide, strip.Tall, ThinSrc, ThinDraw, StripKey))
+                using (ui.Box().AtRes(UiAnchor.BottomLeft, strip.Left, strip.Bottom)
+                         .Size(Size.Du(strip.Wide), Size.Du(strip.Tall)).Border(Tone.Line, 1f).Layered()
+                         .Name("tf name strip"))
+                { }
 
             using (ui.Row(Space.L).Width(Size.Fill).Height(Size.Fill).Align(Align.Stretch, Align.Start)
                      .Pad(Space.L, Space.None))
@@ -760,7 +863,12 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
                     if (hasLocal)
                     {
                         var ink = localTeam >= Red ? (UiPaint)TFHudTeams.ToneOf(localTeam) : (UiPaint)Tone.Text;
-                        ui.Data(localName, Text.Body).Color(ink).Elide();
+                        // PlayerNameLabel's ScoreboardMedium 20 where the row
+                        // has the width for it; the stacked narrow keeps the
+                        // body face, its row tight against the panel.
+                        var name = ui.Data(localName, Text.Body).Color(ink).Elide();
+                        if (!ui.Narrow)
+                            name.TextSize(TFHudType.ScoreboardMedium);
                     }
                 }
                 ui.Flex();
@@ -850,40 +958,67 @@ public sealed class TFScoreboard(IScoreboardSource source, ITFScoreboardClasses 
     }
 
     /// <summary>
-    /// The server-time box between the bands (TimerBG's TFThinLineBorder, the
-    /// ServerTimeLeftInsetBG inset and the pair of labels inside,
-    /// scoreboard.res:384-466). The value is UpdateServerTimeLeft's arms
-    /// (tf_clientscoreboard.cpp:2031-2114): no limit the no-time-limit line,
-    /// a spent one the change-on-round-end line, else the h:mm:ss / m:ss
-    /// count. The value's ink is the res's BrightYellow (clientscheme.res:53).
+    /// The server-time box between the bands: TimerBG's TFThinLineBorder and
+    /// ServerTimeLeftInsetBG's TFFatLineBorderOpaque, hung from the cell's
+    /// top — TimerBG y-3 80x43, the label y2 72x10 and the inset x6 y12
+    /// 68x23 of the cell (scoreboard.res:384-466 against the bands' y9). The
+    /// bordered boxes are the artless stand-ins. The value is
+    /// UpdateServerTimeLeft's arms (tf_clientscoreboard.cpp:2031-2114): no
+    /// limit the no-time-limit line, a spent one the change-on-round-end
+    /// line, else the h:mm:ss / m:ss count. The value's ink is the res's
+    /// BrightYellow (clientscheme.res:53).
     /// </summary>
     private void ServerTimeLeft(ref UiFrame ui)
     {
         float s = StockRes.Scale;
-        using (ui.Column(Space.None, Align.Centre).Width(Size.Fill).Height(Size.Du(Stock.TimerTall * s))
-                 .Border(Tone.Line, 1f).Name("tf server time"))
-        {
-            ui.Text("#TF2_Scoreboard_TimeLeftLabel", Text.Label, Tone.Text).TextSize(TFHudType.ScoreboardVerySmall)
-                .TextAlign(Align.Centre).Height(Size.Du(Stock.TimerLabelTall * s))
-                .Pad(new UiLength(0f, false), new UiLength(2f * s, false), new UiLength(0f, false), new UiLength(0f, false));
 
-            // The inset the value sits in, its own rule inside the box's.
-            using (ui.Column(Space.None, Align.Centre).Width(Size.Fill)
-                     .Height(Size.Du(Stock.TimerInsetTall * s))
-                     .Pad(new UiLength(Stock.TimerInsetPad * s, false), new UiLength(0f, false),
-                          new UiLength(Stock.TimerInsetPad * s, false), new UiLength(0f, false))
-                     .Border(Tone.Line, 1f).Name("tf server time inset"))
-            {
-                int limit = _timer.ServerTimeLeft;
-                if (_timer.ServerTimeLimit == 0)
-                    NoTime(ref ui, "#TF2_Scoreboard_NoTimeLimit");
-                else if (limit <= 0)
-                    NoTime(ref ui, "#TF2_Scoreboard_ChangeOnRoundEnd");
-                else if (limit / 3600 == 0)
-                    TimeLeft(ref ui, -1, limit / 60, limit % 60);
-                else
-                    TimeLeft(ref ui, limit / 3600, limit % 3600 / 60, limit % 60);
-            }
+        // Bottom offsets up the cell, the res's root ys against the bands'
+        // ypos 9: TimerBG -3+43, ServerTimeLeftLabel 2+10 and the inset
+        // 12+23 — 40, 68 and 45 units.
+        float boxBottom = (Stock.BandTall - Stock.TimerTall + Stock.TimerHang) * s;
+        float labelBottom = (Stock.BandTall - 2f - Stock.TimerLabelTall + Stock.BandDrop) * s;
+        float insetBottom = (Stock.BandTall - 12f - Stock.TimerInsetTall + Stock.BandDrop) * s;
+
+        // The box, its top the 12-unit hang above the band tops (TimerBG
+        // y-3 against y9).
+        if (!StockArt.Scalable(ref ui, _textures, "tf server time", ThinPanel,
+                0f, boxBottom, Stock.TimerWide * s, Stock.TimerTall * s, ThinSrc, ThinDraw, TimerKey))
+            ui.Rect(Tone.Surface, Size.Du(Stock.TimerWide * s), Size.Du(Stock.TimerTall * s))
+                .AtRes(UiAnchor.BottomLeft, 0f, boxBottom)
+                .Border(Tone.Line, 1f).Layered().Key("tf server time");
+
+        // The label, 4 units in from the box's left and 72 wide
+        // (ServerTimeLeftLabel x284 against x280).
+        ui.Text("#TF2_Scoreboard_TimeLeftLabel", Text.Label, Tone.Text).TextSize(TFHudType.ScoreboardVerySmall)
+            .TextAlign(Align.Centre).AtRes(UiAnchor.BottomLeft, 4f * s, labelBottom)
+            .Width(Size.Du(72f * s)).Height(Size.Du(Stock.TimerLabelTall * s))
+            .Key("tf server time label");
+
+        // The inset the value sits in, its own rule 6 units in from the
+        // box's sides (ServerTimeLeftInsetBG x286 against x280) — the value
+        // centred in it either way.
+        if (!StockArt.Scalable(ref ui, _textures, "tf server time inset", FatPanel,
+                Stock.TimerInsetPad * s, insetBottom,
+                (Stock.TimerWide - Stock.TimerInsetPad * 2f) * s, Stock.TimerInsetTall * s,
+                FatSrc, FatDraw, TimerInsetKey))
+            ui.Rect(Tone.Surface, Size.Du((Stock.TimerWide - Stock.TimerInsetPad * 2f) * s), Size.Du(Stock.TimerInsetTall * s))
+                .AtRes(UiAnchor.BottomLeft, Stock.TimerInsetPad * s, insetBottom)
+                .Border(Tone.Line, 1f).Layered().Key("tf server time inset");
+
+        using (ui.Column(Space.None, Align.Centre)
+                 .AtRes(UiAnchor.BottomLeft, Stock.TimerInsetPad * s, insetBottom)
+                 .Size(Size.Du((Stock.TimerWide - Stock.TimerInsetPad * 2f) * s), Size.Du(Stock.TimerInsetTall * s))
+                 .Align(Align.Centre, Align.Centre))
+        {
+            int limit = _timer.ServerTimeLeft;
+            if (_timer.ServerTimeLimit == 0)
+                NoTime(ref ui, "#TF2_Scoreboard_NoTimeLimit");
+            else if (limit <= 0)
+                NoTime(ref ui, "#TF2_Scoreboard_ChangeOnRoundEnd");
+            else if (limit / 3600 == 0)
+                TimeLeft(ref ui, -1, limit / 60, limit % 60);
+            else
+                TimeLeft(ref ui, limit / 3600, limit % 3600 / 60, limit % 60);
         }
     }
 

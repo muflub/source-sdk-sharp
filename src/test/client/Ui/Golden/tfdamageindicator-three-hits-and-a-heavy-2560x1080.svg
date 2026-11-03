@@ -6,5 +6,5 @@
 <rect x="560" y="300" width="43" height="45" rx="8" fill="#343037" data-e="5"/>
 <text x="568" y="330.55" font-family="TF2 Build" font-size="22" font-weight="500" fill="#ff0000" xml:space="preserve" data-e="6">25</text>
 <rect x="600" y="336" width="72" height="76" rx="8" fill="#343037" data-e="7"/>
-<text x="608" y="391.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ff0000" xml:space="preserve" data-e="8">45</text>
+<text x="608" y="391.15" font-family="TF2" font-size="46" font-weight="500" fill="#ff0000" xml:space="preserve" data-e="8">45</text>
 </svg>

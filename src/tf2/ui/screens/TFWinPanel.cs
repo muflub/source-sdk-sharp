@@ -32,15 +32,17 @@ namespace TF2.Client.Ui;
 /// (stock's OnThink m_flTimeUpdateTeamScore arm, :714-737).
 /// </para>
 /// </summary>
-public sealed class TFWinPanel(ITFWinPanelSource panel, IUiTextureLibrary textures) : UiScreen
+public sealed class TFWinPanel(ITFWinPanelSource panel, IUiTextureLibrary textures, ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tf2winpanel";
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
 
     /// <summary>Up from the win event, down at the next round start
-    /// (stock's show/hide listeners, tf_hud_winpanel.cpp:119-126).</summary>
-    public override bool Visible => panel.Showing;
+    /// (stock's show/hide listeners, tf_hud_winpanel.cpp:119-126), and
+    /// stood down while the scoreboard locks the hud's global group
+    /// (ITFRenderGroups, hud.cpp:288-303).</summary>
+    public override bool Visible => panel.Showing && groups?.GlobalLocked != true;
 
     public override void Describe(ref UiFrame ui)
     {

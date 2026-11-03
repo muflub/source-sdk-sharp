@@ -798,6 +798,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddFactory<IHooks<IKitGate>>(locator => new Hooks<IKitGate>(locator, log));
         // A mod that dresses its own players (IPlayerModelOwner): TF2's classes.
         _services.AddFactory<IHooks<IPlayerModelOwner>>(locator => new Hooks<IPlayerModelOwner>(locator, log));
+        // A mod whose hit locations mean something else (IHitGroupDamageOwner): TF2's crits.
+        _services.AddFactory<IHooks<IHitGroupDamageOwner>>(locator => new Hooks<IHitGroupDamageOwner>(locator, log));
         // The mods' per-player carry limits (tf2 stage 1, IAmmoCarryRule): a
         // folded chain over the ammo row's MaxCarry. The client registers the same.
         _services.AddFactory<IHooks<IAmmoCarryRule>>(locator => new Hooks<IAmmoCarryRule>(locator, log));
@@ -1897,6 +1899,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<ITeams>(teams);
         // What each player wears: SsPlayer asks at a spawn, and it watches team changes.
         _services.AddInstance(_services.Create<PlayerModels>());
+        // What a hit on each part of a player is worth, first of the damage modifiers.
+        _services.AddInstance(_services.Create<HitGroupDamage>());
         // IPlayerButtons is registered ABOVE, before the Create block, because
         // Players now takes it as a constructor argument.
         _services.AddInstance<ISoundscapes>(_soundscapes);

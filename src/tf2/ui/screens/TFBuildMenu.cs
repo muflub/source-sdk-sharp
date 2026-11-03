@@ -45,7 +45,8 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFBuildMenu(ITFBuildMenuSource source, TFBuildTile tile,
-                                IUiTextureLibrary textures, ITFBuildMenuActions? actions = null)
+                                IUiTextureLibrary textures, ITFBuildMenuActions? actions = null,
+                                ITFRenderGroups? groups = null)
     : UiScreen
 {
     /// <summary>Stock's <c>g_kEngyBuildings</c> (tf_hud_menu_engy_build.cpp:35-84):
@@ -74,8 +75,10 @@ public sealed class TFBuildMenu(ITFBuildMenuSource source, TFBuildTile tile,
     public override UiLayerKind Layer => UiLayerKind.Hud;
 
     /// <summary>Stock's show arm: the menu is up while the build PDA is
-    /// the active weapon (tf_weapon_pda.cpp:157-180).</summary>
-    public override bool Visible => _source.BuilderEquipped;
+    /// the active weapon (tf_weapon_pda.cpp:157-180), stood down while the
+    /// scoreboard locks the hud's global group (ITFRenderGroups,
+    /// hud.cpp:288-303).</summary>
+    public override bool Visible => _source.BuilderEquipped && groups?.GlobalLocked != true;
 
     /// <summary>The slot's state as stock's OnTick decides it
     /// (tf_hud_menu_engy_build.cpp:561-580): already built first, then

@@ -60,6 +60,10 @@ public interface IUiRuntime : IUiClientEvents, IDisposable
 
     bool Has(string screen);
 
+    /// <summary>Whether the screen shows now, on either layer (a hud screen
+    /// included): what TF's hud render groups read (the scoreboard's cover).</summary>
+    bool IsOpen(string screen);
+
     /// <summary>A new map (game_newmap): the viewport's screens close, as stock hid its panels.</summary>
     void NewMap();
 

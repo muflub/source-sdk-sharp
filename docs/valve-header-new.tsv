@@ -1098,3 +1098,4 @@ src/client/managed/Input/StockKeyActions.cs	ports stock HL2MP's scripts/kb_act.l
 src/tf2/client/TFKeyActions.cs	ports TF2's scripts/kb_act.lst and cfg/config_default.cfg binds: the keyboard page's rows and a fresh player's keys, a class each
 src/tf2/client/Ui/TFVoiceMenus.cs	ports the voice menus of client/voice_menu.cpp and CMultiplayRules::GetVoiceMenuLabels (multiplay_gamerules.cpp), as radial popups
 src/server/managed/Votes.cs	declares vote_controller.cpp's sv_vote_* convars, and calls and casts over the ported VoteController
+src/server/managed/HitGroupDamage.cs	ports the hit group switch of CBasePlayer::TraceAttack (player.cpp) and sk_player_* from mod_hl2mp cfg/skill.cfg

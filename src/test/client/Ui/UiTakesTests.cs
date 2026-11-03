@@ -18,8 +18,13 @@ public class UiTakesTests
     private sealed class Taker(params string[] takes) : UiScreen
     {
         private readonly string[] _takes = takes;
+
+        /// <summary>Set false to stand the screen down (a render group's hold): open, drawing nothing.</summary>
+        public bool Present = true;
+
         public override string Name => "taker";
         public override UiLayerKind Layer => UiLayerKind.Hud;
+        public override bool Visible => base.Visible && Present;
         public override IReadOnlyList<string> Takes => _takes;
         public override void Describe(ref UiFrame ui) { }
     }
@@ -56,6 +61,27 @@ public class UiTakesTests
         var layer = Layer(Context(), new Taker("hud.ammo"), asker);
 
         layer.Frame(UiLayerKind.Hud, Screen(1920, 1080), 1);
+        Assert.False(asker.Saw);
+    }
+
+    [Fact]
+    public void A_screen_standing_down_still_holds_what_it_took()
+    {
+        var taker = new Taker("hud.vitals");
+        var asker = new Asker();
+        var layer = Layer(Context(), taker, asker);
+
+        layer.Frame(UiLayerKind.Hud, Screen(1920, 1080), 1);
+        Assert.True(asker.Saw);
+
+        // Open but drawn nothing (the scoreboard's render group): the take
+        // holds, or the core hud resurfaces under the standing-down screen.
+        taker.Present = false;
+        layer.Frame(UiLayerKind.Hud, Screen(1920, 1080), 2);
+        Assert.True(asker.Saw);
+
+        layer.Close("taker");
+        layer.Frame(UiLayerKind.Hud, Screen(1920, 1080), 3);
         Assert.False(asker.Saw);
     }
 

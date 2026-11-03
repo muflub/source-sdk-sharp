@@ -42,7 +42,8 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFDestroyMenu(ITFDestroyMenuSource source, TFDestroyTile tile,
-                                  IUiTextureLibrary textures, ITFDestroyMenuActions? actions = null)
+                                  IUiTextureLibrary textures, ITFDestroyMenuActions? actions = null,
+                                  ITFRenderGroups? groups = null)
     : UiScreen
 {
     /// <summary>Stock's <c>g_kEngyBuildings</c>
@@ -74,7 +75,9 @@ public sealed class TFDestroyMenu(ITFDestroyMenuSource source, TFDestroyTile til
     /// <summary>Stock's show arm: the menu is up while the destroy PDA is
     /// the active weapon (the build PDA's OnDataChanged pair,
     /// tf_weapon_pda.cpp:157-180).</summary>
-    public override bool Visible => _source.DestroyerEquipped;
+    /// <summary>Stock's show arm, stood down while the scoreboard locks the
+    /// hud's global group (ITFRenderGroups, hud.cpp:288-303).</summary>
+    public override bool Visible => _source.DestroyerEquipped && groups?.GlobalLocked != true;
 
     /// <summary>The slot's state as stock's OnTick decides it
     /// (tf_hud_menu_engy_destroy.cpp:316-339): the building stands —

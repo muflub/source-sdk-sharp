@@ -71,7 +71,9 @@ public static class TFHudType
 
     /// <summary>The scoreboard's own faces (clientscheme.res:1584/:1610):
     /// the details grid's labels and values and the server-time label are
-    /// ScoreboardVerySmall 8, the server-time value ScoreboardMediumSmall 14.</summary>
+    /// ScoreboardVerySmall 8, the server-time value ScoreboardMediumSmall 14
+    /// and the name plate ScoreboardMedium 20.</summary>
     public const float ScoreboardVerySmall = 18f;         // 8 tall
     public const float ScoreboardMediumSmall = 31.5f;     // 14 tall
+    public const float ScoreboardMedium = 45f;            // 20 tall
 }

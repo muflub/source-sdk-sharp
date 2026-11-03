@@ -38,11 +38,16 @@ namespace TF2.Client.Ui;
 /// line's info text, the self-inflicted phrase, follows the victim
 /// (:303-314).
 /// </summary>
-public sealed class TFKillFeed(ITFKillFeed feed, IUiTextureLibrary textures) : UiScreen
+public sealed class TFKillFeed(ITFKillFeed feed, IUiTextureLibrary textures, ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tfkillfeed";
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    // Stock's hud elements stand down for the scoreboard's locked "global"
+    // group (ITFRenderGroups): the layer skips a screen whose Visible is
+    // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
+    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
 
     // The core HUD's kill feed: this screen replaces it (Hud.cs's hud.kills gate).
     private readonly string[] _takes = ["hud.kills"];

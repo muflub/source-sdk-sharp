@@ -29,23 +29,24 @@ public class TFHudFlagStatusTests
     [Fact]
     public void Each_briefcase_reads_its_team()
     {
-        Assert.True(HasElement("both-flags-home", "flag home"));
-        Assert.Equal(2, Count("both-flags-home", "flag home"));
+        Assert.Equal(2, Count("both-flags-home", "briefcase"));
+        Assert.True(HasFallback("both-flags-home", "flag home"));   // the artless state square
     }
 
     [Fact]
     public void A_stolen_flag_shows_the_carrier()
     {
-        Assert.True(HasElement("red-flag-stolen", "flag stolen"));
-        Assert.True(HasElement("red-flag-stolen", "carrier"));
-        Assert.True(HasElement("red-flag-stolen", "flag home"));   // the blue one still home
+        Assert.True(HasFallback("red-flag-stolen", "flag stolen"));
+        Assert.True(HasFallback("red-flag-stolen", "carrier"));
+        Assert.True(HasFallback("red-flag-stolen", "flag home"));   // the blue one still home
+        Assert.True(HasElement("red-flag-stolen", "status icon"));  // the art the game sees
     }
 
     [Fact]
     public void A_dropped_flag_shows_the_dropped_mark_alone()
     {
-        Assert.True(HasElement("blue-flag-dropped", "flag dropped"));
-        Assert.True(HasElement("blue-flag-dropped", "dropped"));
+        Assert.True(HasFallback("blue-flag-dropped", "flag dropped"));
+        Assert.True(HasFallback("blue-flag-dropped", "dropped"));
         Assert.False(HasElement("blue-flag-dropped", "return"));   // stock paints no countdown
         Assert.False(HasElement("red-flag-stolen", "return"));
     }
@@ -76,6 +77,18 @@ public class TFHudFlagStatusTests
         Assert.True(HasElement("both-flags-home", "red shadow"));
         Assert.False(HasFallback("both-flags-home", "blue shadow"));
         Assert.False(HasFallback("both-flags-home", "red shadow"));
+    }
+
+    [Fact]
+    public void The_score_plates_are_the_artless_fallback()
+    {
+        // Stock's res has no plate under the scores (hudobjectiveflagpanel.res
+        // has no such panel): the bg art is the backdrop, and the Surface
+        // plate only stands in when the art is missing.
+        Assert.True(HasFallback("both-flags-home", "blue score plate"));
+        Assert.True(HasFallback("both-flags-home", "red score plate"));
+        Assert.False(HasElement("both-flags-home", "blue score plate"));
+        Assert.False(HasElement("both-flags-home", "red score plate"));
     }
 
     [Fact]

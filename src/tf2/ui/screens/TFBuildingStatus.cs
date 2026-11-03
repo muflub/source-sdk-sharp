@@ -42,13 +42,18 @@ namespace TF2.Client.Ui;
 /// drawn: stock's disposable-sentry arm.
 /// </summary>
 public sealed class TFBuildingStatus(ITFBuildingStatus buildings, IUiTextureLibrary textures,
-                                     IUiLocalisation localise) : UiScreen
+                                     IUiLocalisation localise, ITFRenderGroups? groups = null) : UiScreen
 {
     private readonly IUiLocalisation _localise = localise;
 
     public override string Name => "tfbuildingstatus";
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    // Stock's hud elements stand down for the scoreboard's locked "global"
+    // group (ITFRenderGroups): the layer skips a screen whose Visible is
+    // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
+    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
 
     // The stock numbers, in the 640x480 .res space; resolved to du per Describe.
     private static class Stock

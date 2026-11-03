@@ -120,18 +120,19 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
         var zone = Stock.Zone.In(Stock.Canvas);
 
         // The backdrop: the two team halves, the outline over them. The
-        // halves' materials mask themselves to their side of the panel
-        // ($detail objectives_flagpanel_mask_left/_right), which the
-        // texture layer does not carry — so each gradient draws in its
-        // own half of the backdrop.
+        // halves' masks ($detail objectives_flagpanel_mask_left/_right,
+        // detailblendmode 8) are material-side, which the texture layer
+        // does not carry — so each gradient draws plain over the whole
+        // plate, as the res boxes it (both 280x80 at c-140), and the
+        // outline art above them carries the shaped edge.
         bool bgUp = !StockArt.Missing(textures, "hud/objectives_flagpanel_bg_left")
             && !StockArt.Missing(textures, "hud/objectives_flagpanel_bg_right")
             && !StockArt.Missing(textures, "hud/objectives_flagpanel_bg_outline");
         if (!bgUp)
             ui.Rect(Tone.Surface, Size.Du(bg.Wide), Size.Du(bg.Tall))
                 .AtRes(UiAnchor.Bottom, bg.CentreX, bg.Bottom).Layered().Key("flag bg");
-        Art(ref ui, "bg left", "hud/objectives_flagpanel_bg_left", bg.CentreX - bg.Wide / 4, bg.Bottom, bg.Wide / 2, bg.Tall, UiAnchor.Bottom);
-        Art(ref ui, "bg right", "hud/objectives_flagpanel_bg_right", bg.CentreX + bg.Wide / 4, bg.Bottom, bg.Wide / 2, bg.Tall, UiAnchor.Bottom);
+        Art(ref ui, "bg left", "hud/objectives_flagpanel_bg_left", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom);
+        Art(ref ui, "bg right", "hud/objectives_flagpanel_bg_right", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom);
         Art(ref ui, "bg outline", "hud/objectives_flagpanel_bg_outline", bg.CentreX, bg.Bottom, bg.Wide, bg.Tall, UiAnchor.Bottom);
 
         int carriedBy = CarriedByLocal();
@@ -172,8 +173,9 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
         // world, and the shadow would be black on the dark plate (the
         // lint's stills-backdrop, art-blind to TexturedQuad, reads that
         // 1.1:1 — reported, not bent: see the commit message).
-        ui.Rect(Tone.Surface, Size.Du(blueScore.Wide), Size.Du(blueScore.Tall))
-            .AtRes(UiAnchor.Bottom, blueScore.CentreX, blueScore.Bottom).Layered().Key("blue score plate");
+        if (!bgUp)
+            ui.Rect(Tone.Surface, Size.Du(blueScore.Wide), Size.Du(blueScore.Tall))
+                .AtRes(UiAnchor.Bottom, blueScore.CentreX, blueScore.Bottom).Layered().Key("blue score plate");
         var blueShadow = Stock.BlueScoreShadow.In(Stock.Canvas);
         if (bgUp)
             ui.Number(flags.Captures(Blue), Text.Number, Tone.Text).HudSize()
@@ -182,8 +184,9 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
         ui.Number(flags.Captures(Blue), Text.Number, Tone.Text).HudSize()
             .Width(Size.Du(blueScore.Wide)).Height(Size.Du(blueScore.Tall)).TextAlign(Align.Start)
             .AtRes(UiAnchor.Bottom, blueScore.CentreX, blueScore.Bottom).Layered().Key("blue captures");
-        ui.Rect(Tone.Surface, Size.Du(redScore.Wide), Size.Du(redScore.Tall))
-            .AtRes(UiAnchor.Bottom, redScore.CentreX, redScore.Bottom).Layered().Key("red score plate");
+        if (!bgUp)
+            ui.Rect(Tone.Surface, Size.Du(redScore.Wide), Size.Du(redScore.Tall))
+                .AtRes(UiAnchor.Bottom, redScore.CentreX, redScore.Bottom).Layered().Key("red score plate");
         var redShadow = Stock.RedScoreShadow.In(Stock.Canvas);
         if (bgUp)
             ui.Number(flags.Captures(Red), Text.Number, Tone.Text).HudSize()
@@ -211,7 +214,7 @@ public sealed class FlagStatusPanel(ITFFlagStatus flags, IUiTextureLibrary textu
                        .Height(Size.Du(target.Tall))
                        .Layered().Key("playing to"))
             {
-                ui.Text("#TF2_Hud_PlayingTo", Text.Caption, Tone.TextMuted).HudSize();
+                ui.Text("#TF2_Hud_PlayingTo", Text.Caption, Tone.Text).HudSize();
                 ui.Number(flags.CapsPerRound, Text.Caption, Tone.Text).HudSize();
             }
         }
@@ -274,23 +277,25 @@ public sealed class FlagColumn(ITFFlagStatus flags, IUiTextureLibrary textures) 
                 .Rotate(flags.Bearing(team) * MathF.PI / 180f)
                 .Key("compass").Layered();
 
-        // The status square: the team tone behind the state's mark —
-        // stock's StatusIcon box (75,26 of the 160x90 panel).
-        using (ui.Box().Size(Size.Du(icon.Wide), Size.Du(icon.Tall))
-                       .Fill(TFHudTeams.ToneOf(team))
-                       .Round(Radius.S).AtRes(UiAnchor.BottomLeft, icon.Left, icon.Bottom)
-                       .Name(status switch
-                       {
-                           Dropped => "flag dropped",
-                           Stolen => "flag stolen",
-                           _ => "flag home",
-                       }))
-        {
-            if (status == Dropped)
-                ui.Shape(UiShape.Cross45, Tone.Danger, 12).At(UiAnchor.Centre).Key("dropped");
-            else if (status == Stolen)
-                ui.Shape(UiShape.Person, Tone.OnAccent, 12).At(UiAnchor.Centre).Key("carrier");
-        }
+        // The status square: the team tone behind the state's mark — the
+        // artless stand-in for the StatusIcon box (75,26 of the 160x90
+        // panel); the icon art is the mark the game sees.
+        if (StockArt.Missing(textures, Icon(status)))
+            using (ui.Box().Size(Size.Du(icon.Wide), Size.Du(icon.Tall))
+                           .Fill(TFHudTeams.ToneOf(team))
+                           .Round(Radius.S).AtRes(UiAnchor.BottomLeft, icon.Left, icon.Bottom)
+                           .Name(status switch
+                           {
+                               Dropped => "flag dropped",
+                               Stolen => "flag stolen",
+                               _ => "flag home",
+                           }))
+            {
+                if (status == Dropped)
+                    ui.Shape(UiShape.Cross45, Tone.Danger, 12).At(UiAnchor.Centre).Key("dropped");
+                else if (status == Stolen)
+                    ui.Shape(UiShape.Person, Tone.OnAccent, 12).At(UiAnchor.Centre).Key("carrier");
+            }
 
         // The briefcase and the state's icon (flagstatus.res: Briefcase
         // 65,28, StatusIcon 75,26).

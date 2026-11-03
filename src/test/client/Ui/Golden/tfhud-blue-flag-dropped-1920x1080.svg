@@ -10,7 +10,7 @@
 <polygon points="854.4,952 865,962.6 863.6,964 853,953.4" fill="#ff0000" data-e="13"/>
 <polygon points="863.6,952 865,953.4 854.4,964 853,962.6" fill="#ff0000" data-e="13"/>
 <rect x="668" y="974" width="168" height="79" fill="#2e2b2a" fill-opacity="0.78" data-e="14"/>
-<text x="668" y="1043.02" font-family="TF2 Build" font-size="81" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">0</text>
+<text x="668" y="1043.02" font-family="TF2" font-size="81" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">0</text>
 <rect x="1088" y="974" width="169" height="79" fill="#2e2b2a" fill-opacity="0.78" data-e="16"/>
-<text x="1208" y="1043.02" font-family="TF2 Build" font-size="81" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="17">0</text>
+<text x="1208" y="1043.02" font-family="TF2" font-size="81" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="17">0</text>
 </svg>

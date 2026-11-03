@@ -21,10 +21,16 @@ public sealed class TFHud(ITFLocalPlayer player, HealthPanel health, AmmoPanel a
                           ITFRoundTimer timer, RoundTimerPanel clock, ControlPointIconsPanel icons,
                           EscortPanel escort, FlagStatusPanel flags, MedicChargePanel medic,
                           TeamStatusPanel teams, CloakPanel cloak, DisguisePanel disguise, ChatPanel chat,
-                          MetalPanel metal, DemomanPipesPanel pipes, TeamGoalPanel goal) : UiScreen
+                          MetalPanel metal, DemomanPipesPanel pipes, TeamGoalPanel goal,
+                          ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tfhud";
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    // Stock's hud elements stand down for the scoreboard's locked "global"
+    // group (ITFRenderGroups): the layer skips a screen whose Visible is
+    // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
+    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
 
     // The core HUD's vitals, ammo and chat: this screen's cross, ammo row
     // and chat corner replace them.

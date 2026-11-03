@@ -6,17 +6,17 @@
 <rect x="510" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="7"/>
 <text x="586" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="8">Not Built</text>
 <text x="524" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="9">Sentry Gun</text>
-<text x="609" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="10">1</text>
+<text x="609" y="770.15" font-family="TF2" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="10">1</text>
 <rect x="735" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="13"/>
 <text x="812" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="14">Not Built</text>
 <text x="748" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="15">Dispenser</text>
-<text x="834" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">2</text>
+<text x="834" y="770.15" font-family="TF2" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="16">2</text>
 <rect x="960" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="19"/>
 <text x="1036" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="20">Not Built</text>
 <text x="974" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="21">Entrance</text>
-<text x="1059" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="22">3</text>
+<text x="1059" y="770.15" font-family="TF2" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="22">3</text>
 <rect x="1185" y="522" width="225" height="279" fill="#2e2b2a" fill-opacity="0.78" data-e="25"/>
 <text x="1261" y="664.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="26">Not Built</text>
 <text x="1198" y="550.45" font-family="TF2 Secondary" font-size="18" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="27">Exit</text>
-<text x="1284" y="770.15" font-family="TF2 Build" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="28">4</text>
+<text x="1284" y="770.15" font-family="TF2" font-size="46" font-weight="500" fill="#ebe2ca" xml:space="preserve" data-e="28">4</text>
 </svg>

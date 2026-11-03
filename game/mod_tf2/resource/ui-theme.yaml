@@ -2,10 +2,12 @@
 # and layout; this lane is the theme and the fonts, a later lane restyles the
 # screens). Colours are TF2's own, cited to the installed game's
 # resource/clientscheme.res — the numbers only, never the file. The fonts are
-# the scheme's CustomFontFiles: "TF2 Build" is resource/TF2Build.ttf
-# (clientscheme.res 5770) and "TF2 Secondary" resource/TF2Secondary.ttf
-# (5744), loose files on a GAME path, loaded at runtime and never copied.
+# the scheme's CustomFontFiles: "TF2" is resource/TF2.ttf (clientscheme.res
+# 5731), "TF2 Build" resource/TF2Build.ttf (5770) and "TF2 Secondary"
+# resource/TF2Secondary.ttf (5744), loose files on a GAME path, loaded at
+# runtime and never copied.
 
+font.file: "TF2" resource/TF2.ttf
 font.file: "TF2 Build" resource/TF2Build.ttf
 font.file: "TF2 Secondary" resource/TF2Secondary.ttf
 
@@ -29,11 +31,12 @@ tone.scrim: "#000000c4"
 tone.onaccent: "#2e2b2a"
 tone.window: "#343037"
 
-# The fonts, per the scheme's own faces: TF2 Build for the display, number,
-# title and heading roles (HudFontGiantBold 44, HudFontBiggerBold 35,
-# HudFontMediumBigBold 30, HudFontMediumBold 24 — all "TF2 Build", weight 500),
-# TF2 Secondary for body, label and caption (HudFontMediumSecondary 24 —
-# "TF2 Secondary", weight 500). The console's Code role keeps the repo's mono.
+# The fonts, per the scheme's own faces: TF2 Build for the display, title
+# and heading roles (HudFontGiantBold 44, HudFontMediumBigBold 30 — "TF2
+# Build", weight 500), TF2 for the number role (the hud's big numeral
+# HudFontBig 36 — "TF2", weight 500, clientscheme.res 848) and TF2 Secondary
+# for body, label and caption (HudFontMediumSecondary 24 — "TF2 Secondary",
+# weight 500). The console's Code role keeps the repo's mono.
 #
 # Sizes stay the toolkit's defaults here: the hud's own ladder (the scheme's
 # faces, tall x2.25 into du — user ruling 2026-10-30, the HUD matches stock)
@@ -43,7 +46,7 @@ tone.window: "#343037"
 type.display.family: TF2 Build
 type.display.weight: 500
 type.display.shadow: false
-type.number.family: TF2 Build
+type.number.family: TF2
 type.number.weight: 500
 type.number.shadow: false
 type.title.family: TF2 Build

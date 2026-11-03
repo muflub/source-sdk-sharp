@@ -23,11 +23,16 @@ namespace TF2.Client.Ui;
 /// the other HUD layers keep), at stock's render group "mid" position —
 /// top centre, the plate standing in for base_notification.res.
 /// </summary>
-public sealed class TFNotifications(ITFNotifications notifications) : UiScreen
+public sealed class TFNotifications(ITFNotifications notifications, ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tfnotifications";
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    // Stock's hud elements stand down for the scoreboard's locked "global"
+    // group (ITFRenderGroups): the layer skips a screen whose Visible is
+    // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
+    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
 
     public override void Describe(ref UiFrame ui)
     {

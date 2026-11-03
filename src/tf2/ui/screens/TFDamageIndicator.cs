@@ -28,11 +28,17 @@ namespace TF2.Client.Ui;
 /// centre (DrawDamageIndicator :182-231) — with the theme's plate standing
 /// where the texture loads nothing.
 /// </summary>
-public sealed class TFDamageIndicator(ITFDamageHistory hits, ITFCombatText dealt, IUiTextureLibrary textures) : UiScreen
+public sealed class TFDamageIndicator(ITFDamageHistory hits, ITFCombatText dealt, IUiTextureLibrary textures,
+                                      ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tfdamageindicator";
 
     public override UiLayerKind Layer => UiLayerKind.Hud;
+
+    // Stock's hud elements stand down for the scoreboard's locked "global"
+    // group (ITFRenderGroups): the layer skips a screen whose Visible is
+    // false, as CHudElement::ShouldDraw yields (hud.cpp:288-303).
+    public override bool Visible => base.Visible && groups?.GlobalLocked != true;
 
     // The core HUD's damage vignette and its dealt numbers: this screen replaces
     // both (Hud.cs's hud.damage and hud.dealt gates), the combat text being its own.

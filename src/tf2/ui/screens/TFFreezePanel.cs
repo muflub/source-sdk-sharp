@@ -43,7 +43,7 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFFreezePanel(ITFDeathScreen death, IUiTextureLibrary textures, IUiLocalisation localise,
-                                  IUiKeyBindingStore keys) : UiScreen
+                                  IUiKeyBindingStore keys, ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tf2freezepanel";
 
@@ -55,8 +55,10 @@ public sealed class TFFreezePanel(ITFDeathScreen death, IUiTextureLibrary textur
     /// (tf_player.cpp:13956-13968), and a suicide or a world death leaves
     /// <c>m_hObserverTarget</c> NULL (tf_player.cpp:12487-12490) — so those
     /// deaths never fire <c>show_freezepanel</c> (c_baseplayer.cpp:885-910)
-    /// and draw no panel: a killer is the gate, not just the death.</summary>
-    public override bool Visible => death.Showing && death.HasKiller;
+    /// and draw no panel: a killer is the gate, not just the death. Stood
+    /// down while the scoreboard locks the hud's global group
+    /// (ITFRenderGroups, hud.cpp:288-303).</summary>
+    public override bool Visible => death.Showing && death.HasKiller && groups?.GlobalLocked != true;
 
     public override void Describe(ref UiFrame ui)
     {

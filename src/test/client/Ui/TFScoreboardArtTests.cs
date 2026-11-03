@@ -156,28 +156,30 @@ public class TFScoreboardArtTests
         var ctx = UiSamples.PreviewContext(SourceSharpTheme.Create(), Fonts, UiSamplesTests.Language());
         UiSamples.Render(ctx, sample.Create(), UiSamples.Screen(1920, 1080), sample.Now);
 
-        Assert.True(HasText(ctx, "Medic"));               // the alive RED row spells its class
-        Assert.True(HasText(ctx, "Sniper"));              // the dead one too: the "_d" name stands in
+        Assert.True(HasTextFrom(ctx, "Me"), Drawn(ctx));  // the alive RED row spells its class,
+        Assert.True(HasTextFrom(ctx, "Sni"), Drawn(ctx)); // the dead one too: the "_d" name stands
+                                                          // in, cut to the 15-px cell like stock's
+                                                          // right-aligned column
         Assert.DoesNotContain(UiTestKit.Elements(ctx), e => e.Kind == UiElementKind.Image);
     }
 
     [Fact]
-    public void The_team_names_sit_beside_the_badges_not_over_them()
+    public void The_team_counts_sit_beside_the_badges_not_over_them()
     {
-        // Stock seats each name past its badge (BlueTeamLabel x80 against
-        // the 60-wide badge at 7; RedTeamLabel's right edge 561 against the
-        // badge's left 571 — scoreboard.res:186-199, 290-303): BLU's name
-        // right of the badge, RED's left of it, mirrored.
+        // Stock seats each count past its badge (BlueTeamPlayerCount x80
+        // against the 60-wide badge at 7; RedTeamPlayerCount's right edge 561
+        // against the badge's left 571 — scoreboard.res:206-217, 318-329):
+        // BLU's count right of the badge, RED's left of it, mirrored.
         var (ctx, _) = Render("two-teams-and-the-clock");
-        var blueName = UiTestKit.Named(ctx, "tf name blue").Rect;
+        var blueCount = UiTestKit.Named(ctx, "tf count blue").Rect;
         var blueBadge = UiTestKit.Named(ctx, "tf badge blue").Rect;
-        Assert.True(blueName.X >= blueBadge.X + blueBadge.W - 1f,
-                    $"blue name {blueName} over badge {blueBadge}");
+        Assert.True(blueCount.X >= blueBadge.X + blueBadge.W - 1f,
+                    $"blue count {blueCount} over badge {blueBadge}");
 
-        var redName = UiTestKit.Named(ctx, "tf name red").Rect;
+        var redCount = UiTestKit.Named(ctx, "tf count red").Rect;
         var redBadge = UiTestKit.Named(ctx, "tf badge red").Rect;
-        Assert.True(redName.X + redName.W <= redBadge.X + 1f,
-                    $"red name {redName} over badge {redBadge}");
+        Assert.True(redCount.X + redCount.W <= redBadge.X + 1f,
+                    $"red count {redCount} over badge {redBadge}");
     }
 
     private static (UiContext Ctx, RecordingLibrary Lib) Render(string slug)
@@ -197,6 +199,26 @@ public class TFScoreboardArtTests
             if (UiTestKit.RunText(ctx, i) == text)
                 return true;
         return false;
+    }
+
+    /// <summary>A drawn text's prefix: the elided cells draw their leading
+    /// fragment (the class column's 15-px cell against the longer names).</summary>
+    private static bool HasTextFrom(UiContext ctx, string prefix)
+    {
+        var elements = UiTestKit.Elements(ctx);
+        for (int i = 0; i < elements.Length; i++)
+            if (UiTestKit.RunText(ctx, i).StartsWith(prefix, StringComparison.Ordinal))
+                return true;
+        return false;
+    }
+
+    private static string Drawn(UiContext ctx)
+    {
+        var elements = UiTestKit.Elements(ctx);
+        var all = new string[elements.Length];
+        for (int i = 0; i < elements.Length; i++)
+            all[i] = UiTestKit.RunText(ctx, i);
+        return string.Join(",", all);
     }
 
     /// <summary>Answers every name with a non-zero handle, recording each

@@ -37,7 +37,8 @@ namespace TF2.Client.Ui;
 /// </para>
 /// </summary>
 public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile tile,
-                                   IUiTextureLibrary textures, ITFDisguiseMenuActions? actions = null)
+                                   IUiTextureLibrary textures, ITFDisguiseMenuActions? actions = null,
+                                   ITFRenderGroups? groups = null)
     : UiScreen
 {
     /// <summary>How many class tiles the menu holds.</summary>
@@ -57,8 +58,10 @@ public sealed class TFDisguiseMenu(ITFDisguiseMenuSource source, TFDisguiseTile 
     public override UiLayerKind Layer => UiLayerKind.Hud;
 
     /// <summary>Stock's show arm: the disguise kit is the active weapon
-    /// (the PDA's OnDataChanged pair, tf_weapon_pda.cpp:157-180).</summary>
-    public override bool Visible => _source.DisguiseKitEquipped;
+    /// (the PDA's OnDataChanged pair, tf_weapon_pda.cpp:157-180), stood
+    /// down while the scoreboard locks the hud's global group
+    /// (ITFRenderGroups, hud.cpp:288-303).</summary>
+    public override bool Visible => _source.DisguiseKitEquipped && groups?.GlobalLocked != true;
 
     /// <summary>The team the tiles show, the raw TF number (2 RED, 3
     /// BLU): the enemy until toggled (:607-629, :569-582); no team yet

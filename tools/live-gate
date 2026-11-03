@@ -2310,9 +2310,15 @@ def step_move(g):
     # settle, by a fall, or by a player who was already somewhere else.
     g.api.cmd("+forward")
     mid_hold_a = g.player_origin()
-    g.ticks(0.75)
+    # The fastest of three reads, not one: a single read in mid walk has come back
+    # at 6.5 to 36 u/s from a player covering 80 units a sample (4 of 18 passes, with
+    # and without the client T6 lane, 2026-11-02; docs/todo.md asks why). The bug this
+    # is for reads zero in all three.
+    held_speeds = []
+    for _ in range(3):
+        g.ticks(0.25)
+        held_speeds.append(g.player_speed())
     mid_hold_b = g.player_origin()
-    held_speed = g.player_speed()
     g.ticks(0.75)
     g.api.cmd("-forward")
     g.ticks(0.4)
@@ -2327,7 +2333,9 @@ def step_move(g):
     # The engine's velocity of a player is the movement's, as stock's GetAbsVelocity:
     # read from the base entity's field it was zero for every player, which a thrown
     # grenade, a corpse and the bots' lead all read.
-    g.check(held_speed > 100.0, "and its velocity read %.1f u/s in the middle of the hold" % held_speed)
+    g.check(max(held_speeds) > 100.0,
+            "and its velocity read up to %.1f u/s in the middle of the hold (%s)"
+            % (max(held_speeds), ", ".join("%.1f" % v for v in held_speeds)))
 
     # THE OTHER HALF OF THE TITLE'S CLAIM. `moved` says the player is somewhere
     # else; this says the MANAGED MOVEMENT CODE is what put them there. Step 3

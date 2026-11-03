@@ -126,11 +126,15 @@ public sealed class UiLayer : IUiLayer
             _order[b + 1] = v;
         }
 
-        // What the open screens replace, before any of them describes (UiScreen.Takes).
+        // What the open screens replace, before any of them describes
+        // (UiScreen.Takes). Visibility is not asked: a screen standing down
+        // (the scoreboard's render group) still owns what it replaced, or the
+        // core hud would resurface under it — stock's hidden hud element comes
+        // back for nothing (hud.cpp:288-303).
         for (int i = 0; i < _screens.Length; i++)
         {
             var s = _screens[i];
-            if (s.Layer != layer || !_open[i] || _held[i] || _minimised[i] || !s.Visible)
+            if (s.Layer != layer || !_open[i] || _held[i] || _minimised[i])
                 continue;
             var takes = s.Takes;
             for (int t = 0; t < takes.Count; t++)

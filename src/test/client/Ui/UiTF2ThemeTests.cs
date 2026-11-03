@@ -23,18 +23,20 @@ public class UiTF2ThemeTests
     public void The_tf2_theme_names_its_two_fonts_by_game_path()
     {
         var fonts = TF2Theme().FontFiles;
-        Assert.Equal(new UiThemeFontFile("TF2 Build", "resource/TF2Build.ttf"), fonts[0]);
-        Assert.Equal(new UiThemeFontFile("TF2 Secondary", "resource/TF2Secondary.ttf"), fonts[1]);
+        Assert.Equal(new UiThemeFontFile("TF2", "resource/TF2.ttf"), fonts[0]);
+        Assert.Equal(new UiThemeFontFile("TF2 Build", "resource/TF2Build.ttf"), fonts[1]);
+        Assert.Equal(new UiThemeFontFile("TF2 Secondary", "resource/TF2Secondary.ttf"), fonts[2]);
     }
 
     [Fact]
     public void The_tf2_theme_maps_the_scheme_onto_the_roles()
     {
         var t = TF2Theme();
-        // TF2 Build for the display, number, title and heading roles; TF2
-        // Secondary for body, label and caption (the scheme's HudFont*Bold and
-        // HudFontMediumSecondary families, weight 500).
-        foreach (var role in new[] { Text.Display, Text.Number, Text.Title, Text.Heading })
+        // TF2 for the number role (the scheme's HudFontBig, clientscheme.res
+        // :848); TF2 Build for display, title and heading; TF2 Secondary for
+        // body, label and caption — all weight 500.
+        Assert.Equal("TF2", t.Type(Text.Number).Family);
+        foreach (var role in new[] { Text.Display, Text.Title, Text.Heading })
         {
             Assert.Equal("TF2 Build", t.Type(role).Family);
             Assert.Equal(500, t.Type(role).Weight);
