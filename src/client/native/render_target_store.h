@@ -13,8 +13,6 @@
 #pragma once
 
 #include "materialsystem/MaterialSystemUtil.h"
-// cdll_client_int.h's, which a client TU defines.
-extern IMaterialSystem* materials;
 
 // rendertexture.h's getters, one slot each in the header's order (the frame
 // buffers by index, the teeny textures by which). RenderTargetSlot (C#) matches.
@@ -98,7 +96,7 @@ public:
 	}
 
 	// The slot's texture, found on its first use; NULL for a slot never declared.
-	ITexture* Get(int nSlot)
+	ITexture* Get(int nSlot, IMaterialSystem* pMaterials)
 	{
 		if (nSlot < 0 || nSlot >= SS_RT_COUNT || !m_Rows[nSlot].Name[0])
 			return NULL;
@@ -106,11 +104,11 @@ public:
 		if (!m_Refs[nSlot])
 		{
 			const Row_t& row = m_Rows[nSlot];
-			m_Refs[nSlot].Init(materials->FindTexture(row.Name, row.Group, row.Complain != 0, row.CreationFlags));
+			m_Refs[nSlot].Init(pMaterials->FindTexture(row.Name, row.Group, row.Complain != 0, row.CreationFlags));
 			if (!m_bReleaseAdded && m_pfnRelease)
 			{
 				m_bReleaseAdded = true;
-				materials->AddReleaseFunc(m_pfnRelease);
+				pMaterials->AddReleaseFunc(m_pfnRelease);
 			}
 		}
 		return m_Refs[nSlot];

@@ -201,11 +201,11 @@ void CBeamsClient::ClientViewState(int32_t bCurrentView, float* pOutForwardXYZ, 
 	if (pOutMainOriginXYZ)
 		VectorCopy(vMain, *reinterpret_cast<Vector*>(pOutMainOriginXYZ));
 	if (pOutScreenWidth)
-		*pOutScreenWidth = ScreenWidth();
+		*pOutScreenWidth = ScreenWidth(m_Engines);
 	if (pOutDxLevel)
-		*pOutDxLevel = engine->GetDXSupportLevel();
+		*pOutDxLevel = m_Engines.m_pEngine->GetDXSupportLevel();
 	if (pOutAAEnabled)
-		*pOutAAEnabled = g_pMaterialSystemHardwareConfig && g_pMaterialSystemHardwareConfig->IsAAEnabled() ? 1 : 0;
+		*pOutAAEnabled = m_Engines.m_pHardwareConfig && m_Engines.m_pHardwareConfig->IsAAEnabled() ? 1 : 0;
 }
 
 void CBeamsClient::BeamView(int32_t bCurrentView, float* pOut42)
@@ -242,7 +242,7 @@ int32_t CBeamsClient::BeamModelInfo(int32_t nModelIndex, int32_t* pOutFrameCount
 {
 	const model_t* pModel = m_Engines.m_pModelInfo->GetModel(nModelIndex);
 	if (pOutFrameCount)
-		*pOutFrameCount = pModel ? modelinfo->GetModelFrameCount(pModel) : 0;
+		*pOutFrameCount = pModel ? m_Engines.m_pModelInfo->GetModelFrameCount(pModel) : 0;
 	return pModel ? 1 : 0;
 }
 
@@ -345,7 +345,7 @@ int32_t CBeamsClient::BeamRenderableAdd(const float* pOriginMinsMaxs9)
 	CBeamRenderable* p = m_Renderables[nIndex];
 	p->m_bLive = true;
 	p->Set(pOriginMinsMaxs9);
-	ClientLeafSystem()->AddRenderable(p, RENDER_GROUP_TRANSLUCENT_ENTITY);
+	m_Engines.m_pLeafSystem->AddRenderable(p, RENDER_GROUP_TRANSLUCENT_ENTITY);
 	return nIndex;
 }
 
@@ -355,7 +355,7 @@ void CBeamsClient::BeamRenderableChanged(int32_t nRenderable, const float* pOrig
 	if (!p)
 		return;
 	p->Set(pOriginMinsMaxs9);
-	ClientLeafSystem()->RenderableChanged(p->RenderHandle());
+	m_Engines.m_pLeafSystem->RenderableChanged(p->RenderHandle());
 }
 
 void CBeamsClient::BeamRenderableRemove(int32_t nRenderable)
@@ -363,7 +363,7 @@ void CBeamsClient::BeamRenderableRemove(int32_t nRenderable)
 	CBeamRenderable* p = RenderableAt(nRenderable);
 	if (!p)
 		return;
-	ClientLeafSystem()->RemoveRenderable(p->RenderHandle());
+	m_Engines.m_pLeafSystem->RemoveRenderable(p->RenderHandle());
 	// RemoveRenderable does not reset it when the index is already gone (level
 	// shutdown), and a pooled beam must not keep it.
 	p->RenderHandle() = INVALID_CLIENT_RENDER_HANDLE;

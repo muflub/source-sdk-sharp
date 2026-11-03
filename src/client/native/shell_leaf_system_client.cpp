@@ -24,6 +24,7 @@
 #include "shell_managed_areas_client.h"
 #include "shell_detail_props.h"
 #include "shell_leaf_system_client.h"
+#include "shell_client_engine_interfaces.h"
 
 DEFINE_FIXEDSIZE_ALLOCATOR(CClientRenderablesList, 1, CUtlMemoryPool::GROW_SLOW);
 
@@ -61,14 +62,15 @@ IDetailObjectSystem* CLeafSystemClient::DetailSystem()
 }
 
 // Built through the forwarder library's HAND table LeafSystem, slot 1 (Construct).
-CLeafSystemClient::CLeafSystemClient(const CManagedAreasClient& areas, CShellDetailProps& detailProps)
+CLeafSystemClient::CLeafSystemClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+									 CShellDetailProps& detailProps)
 	: m_DetailProps(detailProps)
 {
 	m_Env.ppTarget = &areas.m_pLeafSystemClient;
-	m_Env.ppEngine = &engine;
-	m_Env.ppModelInfo = &modelinfo;
-	m_Env.ppRender = &render;
-	m_Env.ppGlobals = &gpGlobals;
+	m_Env.ppEngine = &engines.m_pEngine;
+	m_Env.ppModelInfo = &engines.m_pModelInfo;
+	m_Env.ppRender = &engines.m_pRender;
+	m_Env.ppGlobals = &engines.m_pGlobals;
 	m_Env.pfnDetailObjectSystem = m_DetailSystem.Get();
 	m_Env.pfnAppendRenderable = AppendRenderable;
 
@@ -79,7 +81,6 @@ CLeafSystemClient::CLeafSystemClient(const CManagedAreasClient& areas, CShellDet
 		m_pSystem =
 			static_cast<IClientLeafSystem*>(reinterpret_cast<Construct_t>(pTable->ppSlots[1])(m_Storage, &m_Env));
 	}
-	g_pClientLeafSystem = m_pSystem;
 }
 
 void CLeafSystemClient::CSystemRow::LevelInitPreEntity()
@@ -99,5 +100,3 @@ void CLeafSystemClient::CSystemRow::PreRender()
 	if (IClientLeafSystem* pSystem = m_Leaf.System())
 		pSystem->PreRender();
 }
-
-IClientLeafSystem* g_pClientLeafSystem = NULL;

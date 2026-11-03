@@ -4,6 +4,8 @@
 
 #pragma once
 
+class IVEngineClient;
+
 // Every stage is a no-op, so a system overrides the ones it needs and the table
 // dispatches all of them at every row.
 class CClientSystem
@@ -60,7 +62,7 @@ public:
 
 // The current map's bare name ("dm_lockdown", not "maps/dm_lockdown.bsp") into
 // the caller's buffer; the empty string before any level.
-const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes);
+const char* SourceSharp_ClientMapName(IVEngineClient* pEngine, char* pszOut, int nOutBytes);
 
 // A row over an object stock's headers make an IGameSystem: each stage is handed
 // to the object.

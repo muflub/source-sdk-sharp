@@ -177,15 +177,16 @@ IClientRenderable* CShadowsClient::RenderableOf(uint32_t hEntity)
 	return pUnknown ? pUnknown->GetClientRenderable() : NULL;
 }
 
-static void UpdateShadowDepthTexture(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView)
+void CShadowsClient::UpdateShadowDepthTexture(ITexture* pRenderTarget, ITexture* pDepthTexture,
+											  const CViewSetup& shadowView)
 {
-	view->UpdateShadowDepthTexture(pRenderTarget, pDepthTexture, shadowView);
+	m_Engines.m_pViewRender->UpdateShadowDepthTexture(pRenderTarget, pDepthTexture, shadowView);
 }
 
 // cl_drawshadowtexture's quad: one w by h quad, counter-clockwise from the origin.
-static void DrawTextureQuad(IMaterial* pMaterial, float w, float h)
+void CShadowsClient::DrawTextureQuad(IMaterial* pMaterial, float w, float h)
 {
-	CMatRenderContextPtr pRenderContext(materials);
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->Bind(pMaterial);
 	IMesh* pMesh = pRenderContext->GetDynamicMesh(true);
 
@@ -208,9 +209,9 @@ void CShadowsClient::BuildEnv()
 	m_Env.ppShadowMgr = &m_Engines.m_pShadows;
 	m_Env.ppStaticPropMgr = &m_Engines.m_pStaticProps;
 	m_Env.ppMaterials = &m_Engines.m_pMaterials;
-	m_Env.ppHardwareConfig = &g_pMaterialSystemHardwareConfig;
+	m_Env.ppHardwareConfig = &m_Engines.m_pHardwareConfig;
 	m_Env.ppModelRender = &m_Engines.m_pModelRender;
-	m_Env.ppRender = &render;
+	m_Env.ppRender = &m_Engines.m_pRender;
 	m_Env.ppEngine = &m_Engines.m_pEngine;
 	m_Env.ppModelInfo = &m_Engines.m_pModelInfo;
 	m_Env.ppDebugOverlay = &m_Engines.m_pDebugOverlay;
@@ -226,8 +227,8 @@ void CShadowsClient::BuildEnv()
 	m_Env.pfnRemoveRestoreFunc = m_RemoveRestoreFunc.Get();
 	m_Env.pfnToolsMode = ToolsMode;
 	m_Env.pfnRenderableOf = m_RenderableOf.Get();
-	m_Env.pfnUpdateShadowDepthTexture = UpdateShadowDepthTexture;
-	m_Env.pfnDrawTextureQuad = DrawTextureQuad;
+	m_Env.pfnUpdateShadowDepthTexture = m_UpdateShadowDepth.Get();
+	m_Env.pfnDrawTextureQuad = m_DrawTextureQuad.Get();
 }
 
 // The five stages stock's CClientShadowMgr had bodies for, each one managed call. With
@@ -386,7 +387,7 @@ int32_t CShadowsClient::FlashlightTexture(const char* pszName)
 	return i;
 }
 
-int32_t SourceSharp_FlashlightSupportsBorderColor()
+int32_t CShadowsClient::FlashlightSupportsBorderColor()
 {
-	return (g_pMaterialSystemHardwareConfig && g_pMaterialSystemHardwareConfig->SupportsBorderColor()) ? 1 : 0;
+	return (m_Engines.m_pHardwareConfig && m_Engines.m_pHardwareConfig->SupportsBorderColor()) ? 1 : 0;
 }

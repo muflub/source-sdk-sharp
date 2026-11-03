@@ -35,13 +35,6 @@ using ss::BitBlockSetBits;
 using ss::kBitBlockHeaderBytes;
 
 // The convars the frame and the draw read, by name.
-static CManagedConVarRef s_r_drawparticles("r_drawparticles");
-static CManagedConVarRef s_cl_particleeffect_aabb_buffer("cl_particleeffect_aabb_buffer");
-static CManagedConVarRef s_cl_particle_show_bbox("cl_particle_show_bbox");
-static CManagedConVarRef s_cl_particle_show_bbox_cost("cl_particle_show_bbox_cost");
-static CManagedConVarRef s_r_particle_timescale("r_particle_timescale");
-static CManagedConVarRef s_cl_particle_retire_cost("cl_particle_retire_cost");
-static CManagedConVarRef s_r_particle_sim_spike_threshold_ms("r_particle_sim_spike_threshold_ms");
 
 namespace
 {
@@ -110,7 +103,7 @@ CShellNewParticleEffect::CShellNewParticleEffect(CNewParticlesClient& owner, CPa
 	ShellCollection::Of(m_pCollection)->MaxBounds().Init(-1.0e6, -1.0e6, -1.0e6);
 
 	m_Owner.m_Effects.AddToHead(this);
-	ClientLeafSystem()->CreateRenderableHandle(this);
+	m_Owner.Engines().m_pLeafSystem->CreateRenderableHandle(this);
 }
 
 CShellNewParticleEffect::~CShellNewParticleEffect()
@@ -118,7 +111,7 @@ CShellNewParticleEffect::~CShellNewParticleEffect()
 	if (!m_bRemoved)
 	{
 		if (m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE)
-			ClientLeafSystem()->RemoveRenderable(m_hRenderHandle);
+			m_Owner.Engines().m_pLeafSystem->RemoveRenderable(m_hRenderHandle);
 		m_Owner.m_Effects.FindAndRemove(this);
 	}
 	ShellCollection::Free(m_pCollection);
@@ -133,7 +126,7 @@ void CShellNewParticleEffect::Remove()
 		return;
 	if (m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE)
 	{
-		ClientLeafSystem()->RemoveRenderable(m_hRenderHandle);
+		m_Owner.Engines().m_pLeafSystem->RemoveRenderable(m_hRenderHandle);
 		m_hRenderHandle = INVALID_CLIENT_RENDER_HANDLE;
 	}
 	m_Owner.m_Effects.FindAndRemove(this);
@@ -272,12 +265,12 @@ int CShellNewParticleEffect::DrawModel(int flags)
 	V_memset(&in, 0, sizeof(in));
 	in.Id = m_nId;
 	in.Flags = flags;
-	in.DrawParticles = s_r_drawparticles.GetBool() ? 1 : 0;
-	in.ClientModeDraws = g_pClientMode->ShouldDrawParticles() ? 1 : 0;
+	in.DrawParticles = m_Owner.m_s_r_drawparticles.GetBool() ? 1 : 0;
+	in.ClientModeDraws = m_Owner.Engines().m_pClientMode->ShouldDrawParticles() ? 1 : 0;
 	// Nothing turns the manager's render switch off, so it is on.
 	in.RenderSystems = 1;
-	in.ShowBBox = s_cl_particle_show_bbox.GetBool() ? 1 : 0;
-	in.ShowBBoxCost = s_cl_particle_show_bbox_cost.GetInt();
+	in.ShowBBox = m_Owner.m_s_cl_particle_show_bbox.GetBool() ? 1 : 0;
+	in.ShowBBoxCost = m_Owner.m_s_cl_particle_show_bbox_cost.GetInt();
 	in.Active = m_pCollection->m_nActiveParticles;
 	Vector vecCamera;
 	pRenderContext->GetWorldSpaceCameraPosition(&vecCamera);
@@ -286,11 +279,11 @@ int CShellNewParticleEffect::DrawModel(int flags)
 	CopyVector(p->MaxBounds(), in.MaxXYZ);
 	in.MaxDrawDistance = pDef->m_flMaxDrawDistance;
 	in.NoDrawTimeToGoToSleep = pDef->m_flNoDrawTimeToGoToSleep;
-	in.LastSimulationTime = g_pParticleSystemMgr->GetLastSimulationTime();
+	in.LastSimulationTime = m_Owner.Engines().m_pParticleMgr->GetLastSimulationTime();
 	in.NextSleepTime = m_pCollection->m_flNextSleepTime;
 	in.SkipRenderControlPoint = pDef->m_nSkipRenderControlPoint;
 	in.HighestControlPoint = p->HighestCP();
-	in.ThirdPerson = input->CAM_IsThirdPerson() ? 1 : 0;
+	in.ThirdPerson = m_Owner.Engines().m_pInput->CAM_IsThirdPerson() ? 1 : 0;
 
 	// The camera object is NULL: on this side no view entity resolves to a C_BaseEntity.
 	void* pCameraObject = NULL;
@@ -321,7 +314,7 @@ int CShellNewParticleEffect::DrawModel(int flags)
 	}
 	else if (out.Action == 2)
 	{
-		g_pParticleSystemMgr->AddToRenderCache(m_pCollection);
+		m_Owner.Engines().m_pParticleMgr->AddToRenderCache(m_pCollection);
 	}
 
 	// DebugDrawBbox's overlay, in the colour managed chose.
@@ -414,7 +407,7 @@ void CNewParticlesClient::Frame(float flFrameTime)
 
 	// The partition's read-lock pair before any collection steps.
 	if (m_Effects.Count() > 0)
-		UpdateDirtySpatialPartitionEntities();
+		UpdateDirtySpatialPartitionEntities(m_Engines.m_pDirtyPartition);
 
 	const int nEffects = m_Effects.Count();
 	CUtlVectorFixedGrowable<uint8_t, 16384> in;
@@ -428,15 +421,15 @@ void CNewParticlesClient::Frame(float flFrameTime)
 		(SourceSharpNewParticleFrameHeader_t*)(in.Base() + kBitBlockHeaderBytes);
 	V_memset(pHeader, 0, sizeof(*pHeader));
 	pHeader->Dt = flFrameTime;
-	pHeader->Timescale = s_r_particle_timescale.GetFloat();
+	pHeader->Timescale = m_s_r_particle_timescale.GetFloat();
 	pHeader->CurTime = m_Engines.m_pGlobals->curtime;
 	pHeader->FrameCount = m_Engines.m_pGlobals->framecount;
-	pHeader->AabbBuffer = s_cl_particleeffect_aabb_buffer.GetFloat();
-	pHeader->RetireCost = s_cl_particle_retire_cost.GetFloat();
-	pHeader->SpikeThresholdMs = s_r_particle_sim_spike_threshold_ms.GetInt();
+	pHeader->AabbBuffer = m_s_cl_particleeffect_aabb_buffer.GetFloat();
+	pHeader->RetireCost = m_s_cl_particle_retire_cost.GetFloat();
+	pHeader->SpikeThresholdMs = m_s_r_particle_sim_spike_threshold_ms.GetInt();
 	if (pHeader->RetireCost != 0.0f && nEffects > 0)
 	{
-		const CViewSetup* pView = view->GetPlayerViewSetup();
+		const CViewSetup* pView = m_Engines.m_pViewRender->GetPlayerViewSetup();
 		pHeader->ViewX = pView->x;
 		pHeader->ViewY = pView->y;
 		pHeader->ViewWidth = pView->width;
@@ -481,11 +474,11 @@ void CNewParticlesClient::Frame(float flFrameTime)
 		const int32_t nActions = pCommits[c].Actions;
 		if ((nActions & SOURCESHARP_NEW_PARTICLE_VIEW_GROUP) &&
 			pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE)
-			ClientLeafSystem()->SetRenderGroup(pEffect->m_hRenderHandle, RENDER_GROUP_VIEW_MODEL_TRANSLUCENT);
+			m_Engines.m_pLeafSystem->SetRenderGroup(pEffect->m_hRenderHandle, RENDER_GROUP_VIEW_MODEL_TRANSLUCENT);
 		if (nActions & SOURCESHARP_NEW_PARTICLE_REPLACE)
 			pEffect->ReplaceWith(pEffect->Collection()->m_pDef->GetCullReplacementDefinition());
 		if ((nActions & SOURCESHARP_NEW_PARTICLE_CHANGED) && pEffect->m_hRenderHandle != INVALID_CLIENT_RENDER_HANDLE)
-			ClientLeafSystem()->RenderableChanged(pEffect->m_hRenderHandle);
+			m_Engines.m_pLeafSystem->RenderableChanged(pEffect->m_hRenderHandle);
 		if (nActions & SOURCESHARP_NEW_PARTICLE_REMOVE)
 		{
 			snapshot[i] = NULL;

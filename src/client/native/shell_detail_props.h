@@ -23,6 +23,7 @@
 #include "shell_managed_areas_client.h"
 
 class CClientEngineInterfaces;
+class CMaterialCacheClient;
 class CViewCameras;
 class CShellDetailModel;
 
@@ -30,10 +31,11 @@ class CShellDetailProps final : public IDetailObjectSystem, public ISpatialLeafE
 {
 public:
 	CShellDetailProps(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
-					  const CViewCameras& cameras)
+					  const CViewCameras& cameras, CMaterialCacheClient& materialCache)
 		: m_Areas(areas)
 		, m_Engines(engines)
 		, m_Cameras(cameras)
+		, m_MaterialCache(materialCache)
 	{
 	}
 
@@ -121,6 +123,7 @@ private:
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;
 	const CViewCameras& m_Cameras;
+	CMaterialCacheClient& m_MaterialCache;
 
 	struct State_t
 	{

@@ -19,11 +19,12 @@
 #include "bitvec.h"
 
 class C_BasePlayer;
+class IVEngineClient;
 
 class C_RecipientFilter : public IRecipientFilter
 {
 public:
-	C_RecipientFilter();
+	explicit C_RecipientFilter(IVEngineClient* pEngine);
 	virtual ~C_RecipientFilter();
 
 	virtual bool IsReliable() const;
@@ -51,6 +52,7 @@ public:
 
 	//private:
 
+	IVEngineClient* m_pEngine;
 	bool m_bReliable;
 	alignas(1) unsigned char unused_m_bInitMessage[7];
 	CUtlVector<int> m_Recipients;
@@ -65,39 +67,45 @@ public:
 class CPASFilter : public C_RecipientFilter
 {
 public:
-	CPASFilter(const Vector& origin) { AddRecipientsByPAS(origin); }
+	CPASFilter(IVEngineClient* pEngine, const Vector& origin)
+		: C_RecipientFilter(pEngine)
+	{
+		AddRecipientsByPAS(origin);
+	}
 };
 
 class CPASAttenuationFilter : public CPASFilter
 {
 public:
-	CPASAttenuationFilter(IClientEntity* entity, float attenuation = ATTN_NORM)
-		: CPASFilter(entity->GetAbsOrigin())
+	CPASAttenuationFilter(IVEngineClient* pEngine, IClientEntity* entity, float attenuation = ATTN_NORM)
+		: CPASFilter(pEngine, entity->GetAbsOrigin())
 	{
 	}
 
-	CPASAttenuationFilter(const Vector& origin, float attenuation = ATTN_NORM)
-		: CPASFilter(origin)
+	CPASAttenuationFilter(IVEngineClient* pEngine, const Vector& origin, float attenuation = ATTN_NORM)
+		: CPASFilter(pEngine, origin)
 	{
 	}
 
-	CPASAttenuationFilter(IClientEntity* entity, const char* lookupSound)
-		: CPASFilter(entity->GetAbsOrigin())
+	CPASAttenuationFilter(IVEngineClient* pEngine, IClientEntity* entity, const char* lookupSound)
+		: CPASFilter(pEngine, entity->GetAbsOrigin())
 	{
 	}
 
-	CPASAttenuationFilter(const Vector& origin, const char* lookupSound)
-		: CPASFilter(origin)
+	CPASAttenuationFilter(IVEngineClient* pEngine, const Vector& origin, const char* lookupSound)
+		: CPASFilter(pEngine, origin)
 	{
 	}
 
-	CPASAttenuationFilter(IClientEntity* entity, const char* lookupSound, HSOUNDSCRIPTHANDLE& handle)
-		: CPASFilter(entity->GetAbsOrigin())
+	CPASAttenuationFilter(IVEngineClient* pEngine, IClientEntity* entity, const char* lookupSound,
+						  HSOUNDSCRIPTHANDLE& handle)
+		: CPASFilter(pEngine, entity->GetAbsOrigin())
 	{
 	}
 
-	CPASAttenuationFilter(const Vector& origin, const char* lookupSound, HSOUNDSCRIPTHANDLE& handle)
-		: CPASFilter(origin)
+	CPASAttenuationFilter(IVEngineClient* pEngine, const Vector& origin, const char* lookupSound,
+						  HSOUNDSCRIPTHANDLE& handle)
+		: CPASFilter(pEngine, origin)
 	{
 	}
 };
@@ -106,11 +114,15 @@ public:
 class CPVSFilter : public C_RecipientFilter
 {
 public:
-	CPVSFilter(const Vector& origin) { AddRecipientsByPVS(origin); }
+	CPVSFilter(IVEngineClient* pEngine, const Vector& origin)
+		: C_RecipientFilter(pEngine)
+	{
+		AddRecipientsByPVS(origin);
+	}
 };
 
 class CLocalPlayerFilter : public C_RecipientFilter
 {
 public:
-	CLocalPlayerFilter();
+	explicit CLocalPlayerFilter(IVEngineClient* pEngine);
 };

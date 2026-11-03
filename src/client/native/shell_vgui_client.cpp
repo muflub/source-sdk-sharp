@@ -16,11 +16,6 @@
 #include "ienginevgui.h"
 #include "iclientmode.h"
 #include "vguicenterprint.h"
-#include "iloadingdisc.h"
-#include "ifpspanel.h"
-#include "imessagechars.h"
-#include "inetgraphpanel.h"
-#include "idebugoverlaypanel.h"
 
 #include "vgui/ISurface.h"
 #include "vgui/IVGui.h"
@@ -30,87 +25,73 @@
 #include "imanaged_areas_client.h"
 #include "shell_hud_ui_client.h"
 #include "shell_client_engine_interfaces.h"
-
-vgui::IInputInternal* g_InputInternal = NULL;
+#include "shell_vgui_object.h"
+#include "shell_rawpanel_client.h"
 
 // in_mouse.cpp's cursor reads and writes, through vgui's input (not in text mode).
-void GetVGUICursorPos(int& x, int& y)
+void GetVGUICursorPos(const CClientEngineInterfaces& engines, int& x, int& y)
 {
-	g_pVGuiInput->GetCursorPos(x, y);
+	engines.m_pVGuiInput->GetCursorPos(x, y);
 }
 
-void SetVGUICursorPos(int x, int y)
+void SetVGUICursorPos(const CClientEngineInterfaces& engines, int x, int y)
 {
-	if (!g_bTextMode)
-		g_pVGuiInput->SetCursorPos(x, y);
+	if (!engines.m_bTextMode)
+		engines.m_pVGuiInput->SetCursorPos(x, y);
 }
 
-static void DestroyGlobalPanels()
+CVguiClient::CVguiClient(const CClientEngineInterfaces& engines)
+	: m_Engines(engines)
 {
-	netgraphpanel->Destroy();
-	debugoverlaypanel->Destroy();
-	fps->Destroy();
-	messagechars->Destroy();
-	loadingdisc->Destroy();
 }
 
-// The panels a video-mode change rebuilds: every global one but the centre print.
-static void CreateModePanels()
-{
-	const vgui::VPANEL gameTools = enginevgui->GetPanel(PANEL_CLIENTDLL_TOOLS);
-	const vgui::VPANEL tools = enginevgui->GetPanel(PANEL_TOOLS);
-	loadingdisc->Create(gameTools);
-	messagechars->Create(gameTools);
-	fps->Create(tools);
-	netgraphpanel->Create(tools);
-	debugoverlaypanel->Create(gameTools);
-}
-
-static void OnVideoModeChange()
-{
-	DestroyGlobalPanels();
-	CreateModePanels();
-}
-
-bool VGui_Startup(CreateInterfaceFn appSystemFactory)
+bool CVguiClient::Startup(CreateInterfaceFn appSystemFactory)
 {
 	// What vgui_controls' VGui_InitInterfacesList checked: tier3's vgui interfaces.
-	if (!g_pVGui || !g_pVGuiInput || !g_pVGuiPanel || !g_pVGuiSurface || !g_pVGuiSchemeManager || !g_pVGuiSystem)
+	if (!m_Engines.m_pVGuiCore || !m_Engines.m_pVGuiInput || !m_Engines.m_pVGuiPanel || !m_Engines.m_pVGuiSurface ||
+		!m_Engines.m_pVGuiSchemes || !m_Engines.m_pVGuiSystem)
 	{
 		Warning("the client's vgui is missing a required interface\n");
 		return false;
 	}
 
-	g_InputInternal = (vgui::IInputInternal*)appSystemFactory(VGUI_INPUTINTERNAL_INTERFACE_VERSION, NULL);
-	if (!g_InputInternal)
+	if (!appSystemFactory(VGUI_INPUTINTERNAL_INTERFACE_VERSION, NULL))
 		return false;
 
-	static bool s_bModeCallback = false;
-	if (!s_bModeCallback)
-	{
-		s_bModeCallback = true;
-		g_pMaterialSystem->AddModeChangeCallBack(&OnVideoModeChange);
-	}
+	// VGUI clips a child to its parent, so the root must fill the screen, from creation and
+	// again whenever the screen size changes.
+	m_pRootPanel = new CSourceSharpRawPanel(m_Engines, "SourceSharp Root Panel");
+	m_pRootPanel->SetParent(m_Engines.m_pVGui->GetPanel(PANEL_CLIENTDLL));
+	m_pRootPanel->SetPaintEnabled(false);
+	m_pRootPanel->SetCursor(vgui::dc_none);
+	m_pRootPanel->SetZPos(0);
+	m_pRootPanel->SetVisible(true);
+	m_pRootPanel->SetKeyBoardInputEnabled(false);
+	m_pRootPanel->SetMouseInputEnabled(false);
 
-	VGUI_CreateClientDLLRootPanel();
-	return VGui_GetClientDLLRootPanel() != 0;
+	m_pRootPanel->FillScreen();
+	int nScreenW, nScreenH;
+	m_pRootPanel->GetSize(nScreenW, nScreenH);
+
+	Msg("[SourceSharp] VGUI root panel sized %dx%d\n", nScreenW, nScreenH);
+	return RootPanel() != 0;
 }
 
-void VGui_CreateGlobalPanels()
+vgui::VPANEL CVguiClient::RootPanel() const
 {
-	CreateModePanels();
+	return m_pRootPanel ? m_pRootPanel->GetVPanel() : 0;
 }
 
-void VGui_Shutdown()
+void CVguiClient::Shutdown()
 {
-	VGUI_DestroyClientDLLRootPanel();
-	DestroyGlobalPanels();
+	delete m_pRootPanel;
+	m_pRootPanel = nullptr;
 
-	if (g_pClientMode)
-		g_pClientMode->VGui_Shutdown();
+	if (m_Engines.m_pClientMode)
+		m_Engines.m_pClientMode->VGui_Shutdown();
 
 	// Let vgui free the panels marked for deletion above.
-	g_pVGui->RunFrame();
+	m_Engines.m_pVGuiCore->RunFrame();
 }
 
 // The engine facts the managed UI decides the loading and paused plaques from, sent when
@@ -136,9 +117,9 @@ void CHudUiClient::PlaquePreRender()
 void VGui_PostRender() {}
 
 // The HUD's size: the client panel's, or the screen's before there is one.
-void GetHudSize(int& w, int& h)
+void GetHudSize(const CClientEngineInterfaces& engines, int& w, int& h)
 {
-	g_pVGuiSurface->GetScreenSize(w, h);
-	if (const vgui::VPANEL hudParent = enginevgui->GetPanel(PANEL_CLIENTDLL))
-		g_pVGuiPanel->GetSize(hudParent, w, h);
+	engines.m_pVGuiSurface->GetScreenSize(w, h);
+	if (const vgui::VPANEL hudParent = engines.m_pVGui->GetPanel(PANEL_CLIENTDLL))
+		engines.m_pVGuiPanel->GetSize(hudParent, w, h);
 }

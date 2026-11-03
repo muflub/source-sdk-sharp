@@ -17,9 +17,5 @@
 // Prints how many commands the managed movement loop ran and how many it could not.
 SS_NATIVE_COMMAND(cs_sv_move_managed_report)
 {
-#ifdef CLIENT_DLL
-	SourceSharp_MoveManagedReport(SourceSharp_MoveManagedCalls());
-#else
-	SourceSharp_MoveManagedReport(services.m_Movement.CommandsRan());
-#endif
+	SourceSharp_MoveManagedReport(services.m_Movement.CommandsRan(), nullptr);
 }

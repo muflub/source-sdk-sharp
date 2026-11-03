@@ -257,5 +257,3 @@ public:
 	virtual bool IsHolidayLightMode() = 0;
 	virtual int GetHolidayLightStyle() = 0;
 };
-
-IRopeManager* RopeManager();

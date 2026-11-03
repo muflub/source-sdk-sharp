@@ -14,10 +14,12 @@ struct CManagedAreasClient;
 #include "game/client/iviewport.h"
 #include "igameevents.h"
 
+class CClientEngineInterfaces;
+
 class CSourceSharpViewport : public CSourceSharpRawPanel, public IViewPort, public IGameEventListener2
 {
 public:
-	explicit CSourceSharpViewport(const CManagedAreasClient& areas);
+	CSourceSharpViewport(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines);
 	virtual ~CSourceSharpViewport();
 
 	void Start(IGameEventManager2* pGameEventManager);
@@ -43,6 +45,7 @@ public:
 private:
 	void OnRootSize(int nWide, int nTall);
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 
 	IGameEventManager2* m_pGameEventManager;
 	int m_nRootWide;

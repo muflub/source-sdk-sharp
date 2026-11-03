@@ -19,12 +19,14 @@
 #include "shell_clientsystem.h"
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
 class CShellDetailProps;
 
 class CLeafSystemClient
 {
 public:
-	CLeafSystemClient(const CManagedAreasClient& areas, CShellDetailProps& detailProps);
+	CLeafSystemClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+					  CShellDetailProps& detailProps);
 
 	CLeafSystemClient(const CLeafSystemClient&) = delete;
 	CLeafSystemClient& operator=(const CLeafSystemClient&) = delete;

@@ -18,44 +18,17 @@
 #include "client_entity.h"
 
 #include "managed_convar_ref.h"
-extern ISoundEmitterSystemBase* soundemitterbase;
 
-// A printf into a static buffer.
-char* VarArgs(const char* format, ...)
-{
-	va_list argptr;
-	static char string[1024];
-
-	va_start(argptr, format);
-	Q_vsnprintf(string, sizeof(string), format, argptr);
-	va_end(argptr);
-
-	return string;
-}
-
-// Read by name (ConVarRef) by the post-process plan and the managed vision filter.
-ConVar localplayer_visionflags("localplayer_visionflags", "0", FCVAR_DEVELOPMENTONLY);
-
-client_textmessage_t* TextMessageGet(const char* pName)
-{
-	return engine->TextMessageGet(pName);
-}
-
-int ScreenHeight()
+int ScreenHeight(const CClientEngineInterfaces& engines)
 {
 	int w, h;
-	GetHudSize(w, h);
+	GetHudSize(engines, w, h);
 	return h;
 }
 
-int ScreenWidth()
+int ScreenWidth(const CClientEngineInterfaces& engines)
 {
 	int w, h;
-	GetHudSize(w, h);
+	GetHudSize(engines, w, h);
 	return w;
-}
-
-void ReloadSoundEntriesInList(IFileList* pFilesToReload)
-{
-	soundemitterbase->ReloadSoundEntriesInList(pFilesToReload);
 }

@@ -22,6 +22,7 @@
 
 #include "shell_boundary_probe.h"
 #include "shell_standalone_clients.h"
+#include "shell_client_engine_interfaces.h"
 
 C_StandaloneEntity* CClientEntityList::ShellFromHandle(const CBaseHandle& handle) const
 {
@@ -49,7 +50,7 @@ C_StandaloneEntity* CClientEntityList::ShellFromTraceHit(IHandleEntity* pHandleE
 {
 	return SourceSharp_CrossHandleToClientShell<C_StandaloneEntity>(
 		pHandleEntity, [this](IHandleEntity* pHit) { return ShellFromHandleEntity(pHit); },
-		[](IHandleEntity* pHit) { return staticpropmgr && staticpropmgr->IsStaticProp(pHit); });
+		[this](IHandleEntity* pHit) { return m_Engines.m_pStaticProps->IsStaticProp(pHit); });
 }
 
 IClientUnknown* CClientEntityList::UnknownFromIndex(int nEntry) const
@@ -60,7 +61,7 @@ IClientUnknown* CClientEntityList::UnknownFromIndex(int nEntry) const
 		return pShell->GetIClientUnknown();
 
 	// The world is not in the table.
-	if (IClientUnknown* pWorld = SourceSharp_ClientWorldFromIndex(nEntry))
+	if (IClientUnknown* pWorld = m_Engines.m_pWorld->FromIndex(nEntry))
 		return pWorld;
 
 	return SourceSharp_LegacyListUnknownFromIndex(nEntry);
@@ -74,7 +75,7 @@ IClientUnknown* CClientEntityList::UnknownFromHandle(const CBaseHandle& hEnt) co
 		return pShell->GetIClientUnknown();
 
 	// The serial is compared, so the previous map's world does not resolve.
-	if (IClientUnknown* pWorld = SourceSharp_ClientWorldFromHandle(hEnt))
+	if (IClientUnknown* pWorld = m_Engines.m_pWorld->FromHandle(hEnt))
 		return pWorld;
 
 	return SourceSharp_LegacyListUnknownFromHandle(hEnt);
@@ -83,7 +84,7 @@ IClientUnknown* CClientEntityList::UnknownFromHandle(const CBaseHandle& hEnt) co
 // The busiest method on either interface; the engine tolerates NULL.
 IClientNetworkable* CClientEntityList::GetClientNetworkable(int entnum)
 {
-	SS_BOUNDARY_HIT(BoundaryProbes(), kBoundaryProbe_ClientList_GetClientNetworkable);
+	SS_BOUNDARY_HIT(m_Probes, kBoundaryProbe_ClientList_GetClientNetworkable);
 
 	IClientUnknown* pUnknown = UnknownFromIndex(entnum);
 	return pUnknown ? pUnknown->GetClientNetworkable() : NULL;
@@ -95,7 +96,7 @@ IClientNetworkable* CClientEntityList::GetClientNetworkableFromHandle(CBaseHandl
 	IClientUnknown* pUnknown = UnknownFromHandle(hEnt);
 
 	IClientNetworkable* pResult = pUnknown ? pUnknown->GetClientNetworkable() : NULL;
-	SS_BOUNDARY_HIT_PTR(BoundaryProbes(), kBoundaryProbe_ClientList_GetClientNetworkableFromHandle, pResult);
+	SS_BOUNDARY_HIT_PTR(m_Probes, kBoundaryProbe_ClientList_GetClientNetworkableFromHandle, pResult);
 	return pResult;
 }
 
@@ -116,7 +117,7 @@ IClientUnknown* CClientEntityList::GetClientUnknownFromHandle(CBaseHandle hEnt)
 				hEnt.GetEntryIndex(), hEnt.GetSerialNumber());
 	}
 
-	SS_BOUNDARY_HIT_PTR(BoundaryProbes(), kBoundaryProbe_ClientList_GetClientUnknownFromHandle, pResult);
+	SS_BOUNDARY_HIT_PTR(m_Probes, kBoundaryProbe_ClientList_GetClientUnknownFromHandle, pResult);
 	return pResult;
 }
 
@@ -126,7 +127,7 @@ IClientEntity* CClientEntityList::GetClientEntity(int entnum)
 	IClientUnknown* pUnknown = UnknownFromIndex(entnum);
 
 	IClientEntity* pResult = pUnknown ? pUnknown->GetIClientEntity() : NULL;
-	SS_BOUNDARY_HIT_PTR(BoundaryProbes(), kBoundaryProbe_ClientList_GetClientEntity, pResult);
+	SS_BOUNDARY_HIT_PTR(m_Probes, kBoundaryProbe_ClientList_GetClientEntity, pResult);
 	return pResult;
 }
 
@@ -135,18 +136,18 @@ IClientEntity* CClientEntityList::GetClientEntityFromHandle(CBaseHandle hEnt)
 	IClientUnknown* pUnknown = UnknownFromHandle(hEnt);
 
 	IClientEntity* pResult = pUnknown ? pUnknown->GetIClientEntity() : NULL;
-	SS_BOUNDARY_HIT_PTR(BoundaryProbes(), kBoundaryProbe_ClientList_GetClientEntityFromHandle, pResult);
+	SS_BOUNDARY_HIT_PTR(m_Probes, kBoundaryProbe_ClientList_GetClientEntityFromHandle, pResult);
 	return pResult;
 }
 
 // Maintained by Bind and Unbind, never derived by walking entries.
 int CClientEntityList::NumberOfEntities(bool bIncludeNonNetworkable)
 {
-	SS_BOUNDARY_HIT(BoundaryProbes(), kBoundaryProbe_ClientList_NumberOfEntities);
+	SS_BOUNDARY_HIT(m_Probes, kBoundaryProbe_ClientList_NumberOfEntities);
 
 	// The world is a networked entity outside the table; it counts under
 	// both arguments.
-	return SourceSharp_ClientCountWithWorld(SourceSharp_ClientWorldHandle(),
+	return SourceSharp_ClientCountWithWorld(m_Engines.m_pWorld->Handle(),
 											m_Counts.NumberOfEntities(bIncludeNonNetworkable));
 }
 
@@ -154,23 +155,23 @@ int CClientEntityList::NumberOfEntities(bool bIncludeNonNetworkable)
 // drawing. Maintained by Bind and Unbind.
 int CClientEntityList::GetHighestEntityIndex()
 {
-	SS_BOUNDARY_HIT(BoundaryProbes(), kBoundaryProbe_ClientList_GetHighestEntityIndex);
+	SS_BOUNDARY_HIT(m_Probes, kBoundaryProbe_ClientList_GetHighestEntityIndex);
 
 	// The world raises it from -1 to 0 on a map with nothing else bound.
-	return SourceSharp_ClientHighestWithWorld(SourceSharp_ClientWorldHandle(), m_Counts.HighestEntityIndex());
+	return SourceSharp_ClientHighestWithWorld(m_Engines.m_pWorld->Handle(), m_Counts.HighestEntityIndex());
 }
 
 // Stored and handed back, as stock did.
 void CClientEntityList::SetMaxEntities(int maxents)
 {
-	SS_BOUNDARY_HIT(BoundaryProbes(), kBoundaryProbe_ClientList_SetMaxEntities);
+	SS_BOUNDARY_HIT(m_Probes, kBoundaryProbe_ClientList_SetMaxEntities);
 
 	m_Counts.SetMaxEntities(maxents);
 }
 
 int CClientEntityList::GetMaxEntities()
 {
-	SS_BOUNDARY_HIT(BoundaryProbes(), kBoundaryProbe_ClientList_GetMaxEntities);
+	SS_BOUNDARY_HIT(m_Probes, kBoundaryProbe_ClientList_GetMaxEntities);
 
 	return m_Counts.MaxEntities();
 }
@@ -183,7 +184,7 @@ CBaseHandle CClientEntityList::HandleFromIndex(int nEntry) const
 		return hSlot;
 
 	// Entry 0 is not in the table.
-	const CBaseHandle hWorld = SourceSharp_ClientWorldHandle();
+	const CBaseHandle hWorld = m_Engines.m_pWorld->Handle();
 
 	if (SourceSharp_ClientWorldAnswersForIndex(hWorld, nEntry))
 		return hWorld;
@@ -290,22 +291,22 @@ void CClientEntityList::SlotTableCommand(const CCommand& args)
 }
 
 // The client's engine-boundary probe counters; client.so's are separate from server.so's.
-CON_COMMAND(ss_cl_boundary_probe_report, "ss_cl_boundary_probe_report -- engine-boundary call counts inside client.so")
+void CClientEntityList::BoundaryProbeReportCommand(const CCommand& args)
 {
 	Msg("[SourceSharp] engine-boundary probe (client): map '%s'\n",
-		engine->GetLevelName() ? engine->GetLevelName() : "(none)");
+		m_Engines.m_pEngine->GetLevelName() ? m_Engines.m_pEngine->GetLevelName() : "(none)");
 
 	for (int id = 0; id < kBoundaryProbeCount; id++)
 	{
 		char szLine[2048];
-		BoundaryProbes().FormatLine(id, szLine, sizeof(szLine));
+		m_Probes.FormatLine(id, szLine, sizeof(szLine));
 		Msg("  %s\n", szLine);
 	}
 }
 
-CON_COMMAND(ss_cl_boundary_probe_reset, "ss_cl_boundary_probe_reset -- zero client.so's engine-boundary counters")
+void CClientEntityList::BoundaryProbeResetCommand(const CCommand& args)
 {
-	BoundaryProbes().Reset();
+	m_Probes.Reset();
 	Msg("[SourceSharp] engine-boundary probe (client): counters zeroed\n");
 }
 

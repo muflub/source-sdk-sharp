@@ -70,6 +70,7 @@
 #include "tier0/memdbgon.h"
 #include "shell_te_system_client.h"
 #include "client_entity_list.h"
+#include "shell_client_engine_interfaces.h"
 
 //-----------------------------------------------------------------------------
 // c5p_dispatch NAME x y z nx ny nz scale color flags [magnitude]: a client effect run
@@ -107,15 +108,17 @@ CON_COMMAND(c5p_dispatch,
 //-----------------------------------------------------------------------------
 CON_COMMAND(
 	c5p_te_muzzle,
-	"c5p_te_muzzle type attachment firstperson count -- tempents->MuzzleFlash on the local player (probe builds)")
+	"c5p_te_muzzle type attachment firstperson count -- ShellClientDll_Engines().m_pTempEnts->MuzzleFlash on the local player (probe builds)")
 {
-	if (args.ArgC() < 5 || !tempents)
+	if (args.ArgC() < 5 || !ShellClientDll_Engines().m_pTempEnts)
 		return;
-	IClientEntity* pPlayer = ShellClientDll_EntityList().EntityFromIndex(engine->GetLocalPlayer());
+	IClientEntity* pPlayer =
+		ShellClientDll_EntityList().EntityFromIndex(ShellClientDll_Engines().m_pEngine->GetLocalPlayer());
 	if (!pPlayer)
 		return;
 	for (int i = 0; i < atoi(args[4]); i++)
-		tempents->MuzzleFlash(atoi(args[1]), pPlayer->GetRefEHandle(), atoi(args[2]), atoi(args[3]) != 0);
+		ShellClientDll_Engines().m_pTempEnts->MuzzleFlash(atoi(args[1]), pPlayer->GetRefEHandle(), atoi(args[2]),
+														  atoi(args[3]) != 0);
 }
 
 //-----------------------------------------------------------------------------
@@ -125,16 +128,18 @@ CON_COMMAND(
 //-----------------------------------------------------------------------------
 CON_COMMAND(c5p_ieffects, "c5p_ieffects muzzle|smoke|ricochet ... -- the client's IEffects, locally (probe builds)")
 {
-	if (args.ArgC() < 2 || !g_pEffects)
+	if (args.ArgC() < 2 || !ShellClientDll_Engines().m_pGameEffects)
 		return;
 	if (!Q_stricmp(args[1], "muzzle") && args.ArgC() >= 10)
-		g_pEffects->MuzzleFlash(Vector(atof(args[2]), atof(args[3]), atof(args[4])),
-								QAngle(atof(args[5]), atof(args[6]), atof(args[7])), atof(args[8]), atoi(args[9]));
+		ShellClientDll_Engines().m_pGameEffects->MuzzleFlash(Vector(atof(args[2]), atof(args[3]), atof(args[4])),
+															 QAngle(atof(args[5]), atof(args[6]), atof(args[7])),
+															 atof(args[8]), atoi(args[9]));
 	else if (!Q_stricmp(args[1], "smoke") && args.ArgC() >= 6)
-		g_pEffects->Smoke(Vector(atof(args[2]), atof(args[3]), atof(args[4])), 0, atof(args[5]), 10.0f);
+		ShellClientDll_Engines().m_pGameEffects->Smoke(Vector(atof(args[2]), atof(args[3]), atof(args[4])), 0,
+													   atof(args[5]), 10.0f);
 	else if (!Q_stricmp(args[1], "ricochet") && args.ArgC() >= 8)
-		g_pEffects->Ricochet(Vector(atof(args[2]), atof(args[3]), atof(args[4])),
-							 Vector(atof(args[5]), atof(args[6]), atof(args[7])));
+		ShellClientDll_Engines().m_pGameEffects->Ricochet(Vector(atof(args[2]), atof(args[3]), atof(args[4])),
+														  Vector(atof(args[5]), atof(args[6]), atof(args[7])));
 	// "dust" (FX_Dust itself) left with the native puff (lane c5-particles: DustPuff).
 }
 
@@ -203,10 +208,10 @@ public:
 		AUTO_LOCK(g_Mutex);
 		if (!Take(ROW_LIGHT))
 			return;
-		const bool bInGame = engine->IsInGame();
+		const bool bInGame = ShellClientDll_Engines().m_pEngine->IsInGame();
 		Vector raw(0, 0, 0);
 		if (bInGame)
-			raw = engine->GetLightForPoint(vecOrigin, true);
+			raw = ShellClientDll_Engines().m_pEngine->GetLightForPoint(vecOrigin, true);
 		fprintf(g_pFixture, "light\t%.9g\t%.9g\t%.9g\t%d\t%.9g\t%.9g\t%.9g\t|\t%d\t%d\t%d\t%d\n", vecOrigin.x,
 				vecOrigin.y, vecOrigin.z, bInGame ? 1 : 0, raw.x, raw.y, raw.z, tint.r(), tint.g(), tint.b(), tint.a());
 		Flush();
@@ -223,10 +228,11 @@ public:
 				"trace\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%u\t%d\t%d\t%d\t|"
 				"\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%.9g\t%d\t%d\t%.9g\t%d\t%d\t%d\t%d\n",
 				vecAbsStart.x, vecAbsStart.y, vecAbsStart.z, vecAbsEnd.x, vecAbsEnd.y, vecAbsEnd.z, mask,
-				ignore ? 1 : 0, collisionGroup, engine->IsInGame() ? 1 : 0, ptr->startpos.x, ptr->startpos.y,
-				ptr->startpos.z, ptr->endpos.x, ptr->endpos.y, ptr->endpos.z, ptr->plane.normal.x, ptr->plane.normal.y,
-				ptr->plane.normal.z, ptr->plane.dist, (int)ptr->plane.type, (int)ptr->plane.signbits, ptr->fraction,
-				ptr->contents, (int)ptr->dispFlags, ptr->allsolid ? 1 : 0, ptr->startsolid ? 1 : 0);
+				ignore ? 1 : 0, collisionGroup, ShellClientDll_Engines().m_pEngine->IsInGame() ? 1 : 0, ptr->startpos.x,
+				ptr->startpos.y, ptr->startpos.z, ptr->endpos.x, ptr->endpos.y, ptr->endpos.z, ptr->plane.normal.x,
+				ptr->plane.normal.y, ptr->plane.normal.z, ptr->plane.dist, (int)ptr->plane.type,
+				(int)ptr->plane.signbits, ptr->fraction, ptr->contents, (int)ptr->dispFlags, ptr->allsolid ? 1 : 0,
+				ptr->startsolid ? 1 : 0);
 		Flush();
 	}
 
@@ -386,13 +392,15 @@ CON_COMMAND(c5p_te_bones, "c5p_te_bones -- each live studio tempent's blend, pas
 
 	for (int i = 0; i < CTempEnts::MAX_TEMP_ENTITIES; i++)
 	{
-		C_LocalTempEntity* pTemp = static_cast<CTempEnts*>(tempents)->PoolAtSlot(i);
-		if (!pTemp || !pTemp->GetModel() || modelinfo->GetModelType(pTemp->GetModel()) != mod_studio)
+		C_LocalTempEntity* pTemp = static_cast<CTempEnts*>(ShellClientDll_Engines().m_pTempEnts)->PoolAtSlot(i);
+		if (!pTemp || !pTemp->GetModel() ||
+			ShellClientDll_Engines().m_pModelInfo->GetModelType(pTemp->GetModel()) != mod_studio)
 			continue;
 
 		matrix3x4_t bones[2];
 		memset(bones, 0x7f, sizeof(bones));
-		const bool bOk = pTemp->SetupBones(bones, 2, BONE_USED_BY_ANYTHING, gpGlobals->curtime);
+		const bool bOk =
+			pTemp->SetupBones(bones, 2, BONE_USED_BY_ANYTHING, ShellClientDll_Engines().m_pGlobals->curtime);
 		unsigned int nFirst;
 		memcpy(&nFirst, &bones[0][0][0], sizeof(nFirst));
 		const bool bWritten = nFirst != 0x7f7f7f7fu;
@@ -404,10 +412,10 @@ CON_COMMAND(c5p_te_bones, "c5p_te_bones -- each live studio tempent's blend, pas
 		const Vector& v = pTemp->GetVelocity();
 		Msg("[SourceSharp]   %3d %s mode %d alpha %d blend %d group %d leaf %d draw %d "
 			"bones %s/%s org (%.1f %.1f %.1f) vel (%.1f %.1f %.1f) die-in %.2f\n",
-			i, modelinfo->GetModelName(pTemp->GetModel()), (int)pTemp->GetRenderMode(), (int)pTemp->m_clrRender.a,
-			pTemp->GetFxBlend(), (int)pTemp->m_RenderGroup, pTemp->IsInLeafSystem() ? 1 : 0,
+			i, ShellClientDll_Engines().m_pModelInfo->GetModelName(pTemp->GetModel()), (int)pTemp->GetRenderMode(),
+			(int)pTemp->m_clrRender.a, pTemp->GetFxBlend(), (int)pTemp->m_RenderGroup, pTemp->IsInLeafSystem() ? 1 : 0,
 			pTemp->ShouldDraw() ? 1 : 0, bOk ? "ok" : "refused", bWritten ? "written" : "UNWRITTEN", o.x, o.y, o.z, v.x,
-			v.y, v.z, pTemp->die - gpGlobals->curtime);
+			v.y, v.z, pTemp->die - ShellClientDll_Engines().m_pGlobals->curtime);
 	}
 
 	Msg("[SourceSharp] c5p_te_bones: %d studio tempent(s), %d with bones written\n", nStudio, nWritten);

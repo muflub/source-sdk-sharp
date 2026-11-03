@@ -123,12 +123,13 @@ public:
 
 	const CClientEngineInterfaces& Engines() const { return m_Engines; }
 
+	// Allocates the object and the blob past it.
+	void* operator new(size_t nBytes, int nBlobBytes);
+	void operator delete(void* pMem);
+	void operator delete(void* pMem, int nBlobBytes);
+
 	// The blob: allocation over-allocates by what C# declared and is zeroed.
 	// Both new forms, because tier0/memdbgon.h rewrites `new` to the four-argument one.
-	static void* operator new(size_t stAllocateBlock);
-	static void* operator new(size_t stAllocateBlock, int nBlockUse, const char* pFileName, int nLine);
-	static void operator delete(void* pMem);
-	static void operator delete(void* pMem, int nBlockUse, const char* pFileName, int nLine);
 
 	unsigned char* DataBlob();
 	int BlobBytes() const;
@@ -354,12 +355,5 @@ private:
 	ClientRenderHandle_t m_hRender;
 
 	CWorldClientCollideable m_Collideable;
+	matrix3x4_t m_matRenderable;
 };
-
-void ClientWorldFactoryInit(const CManagedHoldersClient& managed, const CClientEngineInterfaces& engines,
-							const CManagedSide& managedSide);
-void ClientWorldFactoryShutdown();
-C_World* GetClientWorldEntity();
-
-// The world as a material-proxy binding; the material system takes it as `void *`.
-void* GetClientWorldRenderable();

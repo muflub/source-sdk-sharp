@@ -18,11 +18,14 @@
 
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+
 class CParticleManifestClient
 {
 public:
-	explicit CParticleManifestClient(const CManagedAreasClient& areas)
+	CParticleManifestClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines)
 		: m_Areas(areas)
+		, m_Engines(engines)
 	{
 	}
 
@@ -50,6 +53,7 @@ private:
 	int ManifestFiles(bool bMap, const char* pszMapName, std::vector<std::string>& list);
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 
 	bool m_bReadPending = false;
 	bool m_bPendingLoadSheets = false;

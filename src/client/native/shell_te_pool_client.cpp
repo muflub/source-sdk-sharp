@@ -442,7 +442,7 @@ static void TempEntPoolBones(CTempEnts& pool)
 		if (!pModel || pool.Engines().m_pModelInfo->GetModelType(pModel) != mod_studio)
 			continue;
 
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_(pool.Engines().m_pMdlCache);
 		studiohdr_t* pHdr = pool.Engines().m_pModelInfo->GetStudiomodel(pModel);
 		if (!pHdr)
 			continue;
@@ -592,7 +592,7 @@ int32_t CTempEnts::PoolCreateWithModel(int32_t nSlot, const float* pOriginXYZ, c
 	pTemp->SetAbsOrigin(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]));
 
 	pTemp->m_RenderGroup = RENDER_GROUP_OTHER;
-	pTemp->AddToLeafSystem(pTemp->m_RenderGroup);
+	pTemp->AddToLeafSystem(m_Engines.m_pLeafSystem, pTemp->m_RenderGroup);
 
 	return 1;
 }
@@ -715,11 +715,6 @@ void CTempEnts::FxVectorRandom(float flLo, float flHi, float* pOutXYZ)
 	pOutXYZ[0] = v.x;
 	pOutXYZ[1] = v.y;
 	pOutXYZ[2] = v.z;
-}
-
-int32_t CTempEnts::FxMaterialsCached()
-{
-	return (g_Mat_SMG_Muzzleflash[0] ? 1 : 0) | (g_Mat_Combine_Muzzleflash[0] ? 2 : 0);
 }
 
 // A tempent of a model the engine loads by name (the shell casings), made in a

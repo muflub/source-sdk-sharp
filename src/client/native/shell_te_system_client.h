@@ -8,10 +8,11 @@
 // The client's ITempEntsSystem, a member of the client DLL object. Only DispatchEffect has a
 // caller; the other overrides are empty because ITempEntsSystem's methods are pure virtual and
 // its vtable layout must stay. Whether a predicted effect is suppressed is decided by managed.
-// Still an IPredictionSystem, so it is on the list SuppressHostEvents walks.
+// Still an IPredictionSystem, for CanPredict.
 
 #pragma once
 
+class CClientEngineInterfaces;
 class CClientEntityList;
 
 #include <stdint.h>
@@ -25,8 +26,10 @@ class CEffectData;
 class CTempEntsSystemClient final : public ITempEntsSystem
 {
 public:
-	CTempEntsSystemClient(const CManagedAreasClient& areas, CClientEntityList& entityList)
+	CTempEntsSystemClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						  CClientEntityList& entityList)
 		: m_Areas(areas)
+		, m_Engines(engines)
 		, m_EntityList(entityList)
 	{
 	}
@@ -141,5 +144,6 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 	CClientEntityList& m_EntityList;
 };

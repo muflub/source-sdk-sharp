@@ -15,6 +15,10 @@ CWorldTextClient	shell_worldtext_client.h
 CSpritesClient	shell_sprites_client.h
 CTempEnts	c_te_legacytempents.h
 CHudUiClient	shell_hud_ui_client.h
+CWorldClient	shell_world_nettable_client.h
+CRenderTargetsClient	shell_render_targets.h
+CEngineAreaClient	shell_engine_area_client.h
+CShellClientDllRefusals	shell_clientdll_refusals.h
 CParticleManifestClient	shell_particle_manifest_client.h
 CTempEntsSystemClient	shell_te_system_client.h
 CTempEntTablesClient	shell_te_tables_client.h
@@ -31,3 +35,7 @@ CViewTargetsClient	shell_view_targets.h
 CShellGameMovement	shell_gamemovement_client.h
 CShellViewRender	shell_view_render.h
 CNetChannelClient	shell_net_channel_client.h
+CRopeClient	shell_rope_client.h
+CTempEntBackendsClient	shell_te_backends_object.h
+CDebugOverlayClient	shell_debugoverlay_object.h
+CWorldRenderClient	shell_worldrender_object.h

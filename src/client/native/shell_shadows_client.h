@@ -22,6 +22,7 @@ class CClientEntityList;
 #include "shadow_pending_queue.h"
 #include "shell_clientsystem.h"
 #include "shell_managed_areas_client.h"
+#include "ishim_areas_client.h"
 
 class CViewSetup;
 class CBaseHandle;
@@ -40,7 +41,7 @@ enum ShellShadowPending_t
 // The shadow manager's client half as one object, a member of the client DLL object: the
 // references the managed manager holds by id, the flashlight textures, the shell updates'
 // queue, the forwarder library's environment and the client systems row.
-class CShadowsClient
+class CShadowsClient : public IShimFlashlightClient
 {
 public:
 	CShadowsClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
@@ -53,6 +54,9 @@ public:
 
 	CShadowsClient(const CShadowsClient&) = delete;
 	CShadowsClient& operator=(const CShadowsClient&) = delete;
+
+	// Shim slots: the flashlight.
+	int32_t FlashlightSupportsBorderColor() override;
 
 	// NULL outside a managed load.
 	IManagedShadowsClient* Managed() const { return m_Areas.m_pShadowsClient; }
@@ -84,7 +88,7 @@ public:
 
 	// IShimFlashlightClient: the texture table is the environment's, so a FlashlightState_t
 	// the manager hands the engine names the same reference.
-	int32_t FlashlightTexture(const char* pszName);
+	int32_t FlashlightTexture(const char* pszName) override;
 
 private:
 	// The references, by id (0 is none). A freed slot is reused; a live slot's id is never
@@ -160,10 +164,12 @@ private:
 	void AddRestoreFunc();
 	void RemoveRestoreFunc();
 	IClientRenderable* RenderableOf(uint32_t hEntity);
+	void UpdateShadowDepthTexture(ITexture* pRenderTarget, ITexture* pDepthTexture, const CViewSetup& shadowView);
+	void DrawTextureQuad(IMaterial* pMaterial, float w, float h);
 
 #define SS_SHADOW_THUNK(name, sig, method) \
 	typedef CBoundCallback<sig> name##_t;  \
-	name##_t name { this, &name##_t::Trampoline<CShadowsClient, &CShadowsClient::method> }
+	name##_t name{this, &name##_t::Trampoline<CShadowsClient, &CShadowsClient::method>}
 
 	SS_SHADOW_THUNK(m_InitMaterial, int32_t(const char*, const char*), InitMaterial);
 	SS_SHADOW_THUNK(m_ShutdownMaterial, void(int32_t), ShutdownMaterial);
@@ -176,6 +182,8 @@ private:
 	SS_SHADOW_THUNK(m_AddRestoreFunc, void(), AddRestoreFunc);
 	SS_SHADOW_THUNK(m_RemoveRestoreFunc, void(), RemoveRestoreFunc);
 	SS_SHADOW_THUNK(m_RenderableOf, IClientRenderable*(uint32_t), RenderableOf);
+	SS_SHADOW_THUNK(m_UpdateShadowDepth, void(ITexture*, ITexture*, const CViewSetup&), UpdateShadowDepthTexture);
+	SS_SHADOW_THUNK(m_DrawTextureQuad, void(IMaterial*, float, float), DrawTextureQuad);
 #undef SS_SHADOW_THUNK
 
 	const CManagedAreasClient& m_Areas;

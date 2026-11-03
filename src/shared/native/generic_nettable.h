@@ -329,5 +329,4 @@ inline bool SourceSharp_SchemaNeedsRestamp(const CSourceSharpTypeTable& types, c
 
 #ifdef CLIENT_DLL
 // The client's table; the server's is its CServerNetTables'.
-CSourceSharpTypeTable& SourceSharp_NetTypes();
 #endif

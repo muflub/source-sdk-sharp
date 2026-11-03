@@ -21,6 +21,7 @@
 
 #include "imanaged_areas_client.h"
 #include "shell_effects_client.h"
+#include "shell_client_engine_interfaces.h"
 
 void CEffectsClient::Beam(const Vector& Start, const Vector& End, int nModelIndex, int nHaloIndex,
 						  unsigned char frameStart, unsigned char frameRate, float flLife, unsigned char width,
@@ -74,7 +75,7 @@ void CEffectsClient::Ricochet(const Vector& position, const Vector& direction)
 
 float CEffectsClient::Time()
 {
-	return gpGlobals->curtime;
+	return m_Engines.m_pGlobals->curtime;
 }
 
 bool CEffectsClient::IsServer()
@@ -89,7 +90,6 @@ void CEffectsClient::SuppressEffectsSounds(bool bSuppress)
 }
 
 // The client DLL object points it at its member from Init.
-IEffects* g_pEffects = NULL;
 
 int32_t CEffectsClient::FxCanPredict()
 {
@@ -97,8 +97,8 @@ int32_t CEffectsClient::FxCanPredict()
 }
 
 // What SuppressTE reads beside FxCanPredict: a client PVS filter's count.
-int32_t SourceSharp_FxRecipientCount(const float* pOriginXYZ)
+int32_t CEffectsClient::FxRecipientCount(const float* pOriginXYZ)
 {
-	CPVSFilter filter(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]));
+	CPVSFilter filter(m_Engines.m_pEngine, Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]));
 	return filter.GetRecipientCount();
 }

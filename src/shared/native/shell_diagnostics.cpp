@@ -55,9 +55,9 @@ extern "C" void __gcov_dump();
 #ifdef CLIENT_DLL
 // Always false: the client-side SourceTV camera is not shipped. engine->IsHLTV() is
 // still asked so a session that really was watching HLTV records the refusal.
-bool SourceSharp_HltvCameraAvailable()
+bool SourceSharp_HltvCameraAvailable(IVEngineClient* pEngine)
 {
-	if (engine != NULL && engine->IsHLTV())
+	if (pEngine->IsHLTV())
 	{
 		SourceSharp_NotShipped("HLTV spectator camera",
 							   "game/client/hltvcamera.cpp is not shipped (plan_entity.md 7g); "
@@ -184,13 +184,6 @@ void SourceSharp_DumpExportedInterfaces()
 		SourceSharp_DiagPrint("[SourceSharp]     %s\n", SourceSharp_ExposedAt(i).m_pszVersion);
 #endif
 }
-
-#ifdef CLIENT_DLL
-CON_COMMAND(cs_cl_notshipped, "SourceSharp: what reached a path this client build does not ship.")
-{
-	SourceSharp_PrintNotShipped();
-}
-#endif
 
 // Managed<->native crossing counters: one process-wide table, so the client and server
 // commands print the same counters. The area is the caller's, read at the point of use:

@@ -13,7 +13,6 @@
 
 #include "client_entity.h"
 
-#include "cdll_bounded_cvars.h"
 #include "iviewrender_beams.h"
 #include "dlight.h"
 #include "iefx.h"
@@ -40,6 +39,7 @@
 #include "shell_standalone_clients.h"
 #include "client_entity_list.h"
 #include "shell_client_engine_interfaces.h"
+#include "shell_convars_client.h"
 
 C_StandaloneEntity::C_StandaloneEntity(CStandaloneClients& clients, int nEntNum, int nSerialNum, ClientClass* pClass,
 									   int iTier)
@@ -161,7 +161,7 @@ bool C_StandaloneEntity::EnsureManagedHalf()
 {
 	if (m_szClassname[0] == 0 || m_nTypeId != m_nResolvedTypeId)
 	{
-		const SourceSharpNetType_t* pType = SourceSharp_NetTypes().ById(m_nTypeId);
+		const SourceSharpNetType_t* pType = m_Clients.NetTypes().ById(m_nTypeId);
 
 		m_nResolvedTypeId = m_nTypeId;
 		Q_strncpy(m_szClassname, pType ? pType->szClass : "", sizeof(m_szClassname));
@@ -169,9 +169,7 @@ bool C_StandaloneEntity::EnsureManagedHalf()
 		if (!pType && m_nTypeId != 0)
 		{
 			// A server-only class: normal, and its shell still draws by model index.
-			static CSaidOncePerId s_SaidUnknown;
-
-			if (s_SaidUnknown.FirstTime(m_nTypeId))
+			if (m_Clients.SaidUnknownType().FirstTime(m_nTypeId))
 			{
 				Msg("[SourceSharp] standalone %d: type id 0x%08x is not published on this "
 					"client; it has no managed half here (fine for a server-only class; "
@@ -346,7 +344,7 @@ void C_StandaloneEntity::OnPositionChanged()
 
 	PublishRenderPose();
 
-	ShellLeaf_Moved(ClientLeafSystem(), this);
+	ShellLeaf_Moved(m_Clients.Engines().m_pLeafSystem, this);
 
 	// The re-projection is unconditional (the manager compares origins itself, and
 	// a ragdoll moves without bPoseMoved); the texture mark only when the pose moved.
@@ -367,12 +365,12 @@ void C_StandaloneEntity::AddToLeafSystem()
 	if (IsInLeafSystem())
 	{
 		// Re-set: a model arriving later can change what kind of thing this is to draw.
-		ClientLeafSystem()->SetRenderGroup(RenderHandle(), group);
-		ClientLeafSystem()->RenderableChanged(RenderHandle());
+		m_Clients.Engines().m_pLeafSystem->SetRenderGroup(RenderHandle(), group);
+		m_Clients.Engines().m_pLeafSystem->RenderableChanged(RenderHandle());
 	}
 	else
 	{
-		ShellLeaf_Add(ClientLeafSystem(), this, group);
+		ShellLeaf_Add(m_Clients.Engines().m_pLeafSystem, this, group);
 	}
 
 	RefreshShadow();
@@ -402,7 +400,7 @@ void C_StandaloneEntity::RemoveFromLeafSystem()
 	if (!IsInLeafSystem())
 		return;
 
-	ShellLeaf_Remove(ClientLeafSystem(), this);
+	ShellLeaf_Remove(m_Clients.Engines().m_pLeafSystem, this);
 	RenderHandle() = INVALID_CLIENT_RENDER_HANDLE;
 }
 
@@ -433,7 +431,8 @@ void C_StandaloneEntity::ReassertModel()
 
 bool C_StandaloneEntity::UsesPowerOfTwoFrameBufferTexture()
 {
-	return SourceSharp_ShellUsesFBTexture(GetModel(), GetSkin(), GetBody(), GetClientRenderable());
+	return SourceSharp_ShellUsesFBTexture(m_Clients.Engines().m_pModelInfo, GetModel(), GetSkin(), GetBody(),
+										  GetClientRenderable());
 }
 
 static_assert(!std::is_base_of<IGameEntity, C_StandaloneEntity>::value,
@@ -831,7 +830,7 @@ void CStandaloneClients::AskDrawBatch()
 		results[i] = -1;
 	}
 	m_bDrawBatchPreparing = true;
-	g_SourceSharpEffects.nDrawBatches++;
+	m_Engines.m_pEffectLedger->nDrawBatches++;
 	pStandalone->OnStandaloneDrawBatch(handles.Base(), n, results.Base());
 	m_bDrawBatchPreparing = false;
 	for (int i = 0; i < n; ++i)
@@ -863,7 +862,7 @@ int C_StandaloneEntity::DrawModel(int flags)
 																	  m_Clients.Engines().m_pRender->GetBlend());
 				if (nStored >= 0)
 				{
-					g_SourceSharpEffects.nDrawBatchedSprites++;
+					m_Clients.Engines().m_pEffectLedger->nDrawBatchedSprites++;
 					return nStored;
 				}
 				if (nStored == -2)
@@ -871,9 +870,9 @@ int C_StandaloneEntity::DrawModel(int flags)
 				// A stored sprite under another blend: draw it the long way.
 			}
 			if (nBatchResult == CStandaloneClients::kDrawBatchInPlace)
-				g_SourceSharpEffects.nDrawBatchInPlace++;
+				m_Clients.Engines().m_pEffectLedger->nDrawBatchInPlace++;
 			else
-				g_SourceSharpEffects.nDrawBatchFallbacks++;
+				m_Clients.Engines().m_pEffectLedger->nDrawBatchFallbacks++;
 		}
 
 		IManagedStandaloneClient* pStandalone = m_Clients.Managed();
@@ -1182,16 +1181,10 @@ CSourceSharpSurfaceRenderer* C_StandaloneEntity::SurfaceRenderer(bool bCreate)
 	return m_pSurface;
 }
 
-// One ClientClass per tier; only the create function knows an entity's tier.
-static RecvProp* g_pTierProps[SOURCESHARP_TIER_MAX] = {NULL};
-static RecvTable* g_pTierTables[SOURCESHARP_TIER_MAX] = {NULL};
-static ClientClass* g_pTierClasses[SOURCESHARP_TIER_MAX] = {NULL};
-static bool g_bTiersRegistered = false;
-
 IClientNetworkable* CStandaloneClients::CreateTier(int iTier, int nEntNum, int nSerialNum)
 {
 	C_StandaloneEntity* pEntity =
-		new (SourceSharp_TierBytes(iTier)) C_StandaloneEntity(*this, nEntNum, nSerialNum, g_pTierClasses[iTier], iTier);
+		new (SourceSharp_TierBytes(iTier)) C_StandaloneEntity(*this, nEntNum, nSerialNum, m_pTierClasses[iTier], iTier);
 
 	// An entity in 1..maxclients is a player: the only fact the create function has,
 	// since the classname arrives with the first update.
@@ -1201,12 +1194,12 @@ IClientNetworkable* CStandaloneClients::CreateTier(int iTier, int nEntNum, int n
 }
 
 // The classes are made without a create function: CTierSystem::Init hands each its own.
-static void RegisterStandaloneTiers()
+void CStandaloneClients::RegisterTiers()
 {
-	if (g_bTiersRegistered)
+	if (m_bTiersRegistered)
 		return;
 
-	g_bTiersRegistered = true;
+	m_bTiersRegistered = true;
 
 	int nShared = 0;
 	StandaloneNetFields(&nShared);
@@ -1227,25 +1220,25 @@ static void RegisterStandaloneTiers()
 			continue;
 		}
 
-		g_pTierProps[iTier] = new RecvProp[nShared + nWords];
+		m_pTierProps[iTier] = new RecvProp[nShared + nWords];
 
 		int nBuilt = 0;
-		BuildStandaloneRecvProps(g_pTierProps[iTier], nBuilt);
+		BuildStandaloneRecvProps(m_pTierProps[iTier], nBuilt);
 
-		if (SourceSharpPayload_BuildRecvProps(g_pTierProps[iTier] + nBuilt, nWords, nBlobBase) != nWords)
+		if (SourceSharpPayload_BuildRecvProps(m_pTierProps[iTier] + nBuilt, nWords, nBlobBase) != nWords)
 		{
 			Warning("[SourceSharp] standalone tier '%s': payload build refused %d word(s); "
 					"not registered\n",
 					pTableName, nWords);
-			delete[] g_pTierProps[iTier];
-			g_pTierProps[iTier] = NULL;
+			delete[] m_pTierProps[iTier];
+			m_pTierProps[iTier] = NULL;
 			continue;
 		}
 
 		nBuilt += nWords;
 
-		g_pTierTables[iTier] = new RecvTable(g_pTierProps[iTier], nBuilt, pTableName);
-		g_pTierClasses[iTier] = new ClientClass(pClassName, NULL, NULL, g_pTierTables[iTier]);
+		m_pTierTables[iTier] = new RecvTable(m_pTierProps[iTier], nBuilt, pTableName);
+		m_pTierClasses[iTier] = new ClientClass(pClassName, NULL, NULL, m_pTierTables[iTier]);
 
 		// The listen server's local transfer checks both ends, so a wrong recv prop is
 		// still the slow list however right the send prop is.
@@ -1253,7 +1246,7 @@ static void RegisterStandaloneTiers()
 
 		for (int i = 0; i < nWords; i++)
 		{
-			if (!SourceSharpPayload_IsFastRecvProxy(g_pTierTables[iTier]->GetProp(nShared + i)))
+			if (!SourceSharpPayload_IsFastRecvProxy(m_pTierTables[iTier]->GetProp(nShared + i)))
 				nSlow++;
 		}
 
@@ -1271,14 +1264,14 @@ static void RegisterStandaloneTiers()
 }
 
 // Every tier is registered, so a registered empty tier is normal.
-bool SourceSharp_StandaloneTierIsInUse(int iTier)
+bool CStandaloneClients::TierIsInUse(int iTier)
 {
-	RegisterStandaloneTiers();
+	RegisterTiers();
 
-	if (iTier < 0 || iTier >= SourceSharp_TierCount() || g_pTierClasses[iTier] == NULL)
+	if (iTier < 0 || iTier >= SourceSharp_TierCount() || m_pTierClasses[iTier] == NULL)
 		return false;
 
-	const CSourceSharpTypeTable& types = SourceSharp_NetTypes();
+	const CSourceSharpTypeTable& types = m_NetTypes;
 
 	for (int i = 0; i < types.Count(); i++)
 	{
@@ -1294,9 +1287,9 @@ bool SourceSharp_StandaloneTierIsInUse(int iTier)
 // The hierarchy's shared blob size, declared by C# before any class. Must mirror
 // the server's: the word count and prop names must agree, though the offsets
 // differ per side.
-int32_t SourceSharp_NetHierarchyDeclare(int32_t nBlobBytes)
+int32_t CStandaloneClients::NetHierarchyDeclare(int32_t nBlobBytes)
 {
-	RegisterStandaloneTiers();
+	RegisterTiers();
 
 	const int iTier = SourceSharp_TierForSize(nBlobBytes);
 
@@ -1330,15 +1323,15 @@ ClientClass* C_StandaloneEntity::GetClientClass()
 bool CStandaloneClients::CTierSystem::Init()
 {
 	// Unconditional, as on the server; the two must agree.
-	RegisterStandaloneTiers();
+	m_Clients.RegisterTiers();
 
 	for (int iTier = 0; iTier < SourceSharp_TierCount(); iTier++)
 	{
-		if (!g_pTierClasses[iTier])
+		if (!m_Clients.m_pTierClasses[iTier])
 			continue;
 
-		g_pTierClasses[iTier]->m_pCreateFn = m_Clients.m_TierCreate[iTier].Get();
-		if (!g_pTierClasses[iTier]->m_pCreateFn)
+		m_Clients.m_pTierClasses[iTier]->m_pCreateFn = m_Clients.m_TierCreate[iTier].Get();
+		if (!m_Clients.m_pTierClasses[iTier]->m_pCreateFn)
 		{
 			Warning("[SourceSharp] standalone tier %d: no create function (the thunk's page was refused)\n", iTier);
 			return false;
@@ -1354,7 +1347,7 @@ void** CStandaloneClients::ClientInterpBlocks(int32_t* pOutCount, float* pOutInt
 		*pOutCount = 0;
 
 	if (pOutInterpAmount)
-		*pOutInterpAmount = GetClientInterpAmount();
+		*pOutInterpAmount = m_Engines.m_pConVars->ClientInterpAmount();
 
 	m_InterpBlocks.RemoveAll();
 
@@ -1467,7 +1460,7 @@ void CStandaloneClients::StandaloneSetCustomDraw(uint32_t hEntity, const float* 
 // rather than adding one.
 void CStandaloneClients::DynamicLightUpdate(const SourceSharpDynamicLight* pLight)
 {
-	if (!pLight || !effects)
+	if (!pLight || !m_Engines.m_pEffects)
 		return;
 
 	dlight_t* dl = pLight->IsElight ? m_Engines.m_pEffects->CL_AllocElight(pLight->Key)
@@ -1501,7 +1494,7 @@ void CStandaloneClients::DynamicLightUpdate(const SourceSharpDynamicLight* pLigh
 // Both pools are asked: this side does not track which one a key went into.
 void CStandaloneClients::DynamicLightRelease(int32_t nKey)
 {
-	if (!effects)
+	if (!m_Engines.m_pEffects)
 		return;
 
 	if (dlight_t* dl = m_Engines.m_pEffects->CL_AllocDlight(nKey))

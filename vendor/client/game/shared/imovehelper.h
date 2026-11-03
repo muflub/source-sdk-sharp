@@ -32,11 +32,6 @@ abstract_class IMoveHelper
 {
 public:
 	// Call this to set the singleton
-	static IMoveHelper* GetSingleton()
-	{
-		return sm_pSingleton;
-	}
-
 	// Methods associated with a particular entity
 	virtual char const* GetName(EntityHandle_t handle) const = 0;
 
@@ -70,26 +65,6 @@ public:
 	virtual void SetHost(CBasePlayer * host) = 0;
 
 protected:
-	// Inherited classes can call this to set the singleton
-	static void SetSingleton(IMoveHelper * pMoveHelper)
-	{
-		sm_pSingleton = pMoveHelper;
-	}
-
 	// Clients shouldn't call delete directly
 	virtual ~IMoveHelper() {}
-
-	// The global instance
-	static IMoveHelper* sm_pSingleton;
 };
-
-// Add this to the CPP file that implements the IMoveHelper
-
-#define IMPLEMENT_MOVEHELPER() IMoveHelper* IMoveHelper::sm_pSingleton = 0
-
-// Call this to set the singleton
-
-inline IMoveHelper* MoveHelper()
-{
-	return IMoveHelper::GetSingleton();
-}

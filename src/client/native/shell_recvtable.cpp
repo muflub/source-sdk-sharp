@@ -19,12 +19,13 @@
 #include "shell_standalone_client.h"
 
 #include "generic_nettable.h"
+#include "shell_standalone_clients.h"
 
 #include "sourcesharp.h"
 
 // One tier as this side registered it, reporting the props native code built.
-int32_t SourceSharp_NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOutTable, int32_t* pOutBytes,
-								int32_t* pOutWords, int32_t* pOutProps, int32_t* pOutLive)
+int32_t CStandaloneClients::NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOutTable, int32_t* pOutBytes,
+										int32_t* pOutWords, int32_t* pOutProps, int32_t* pOutLive)
 {
 	// The tiers are registered at DLL init and SourceSharp_StandaloneTierIsInUse
 	// forces them again; the rest is compile-time constants.
@@ -46,15 +47,15 @@ int32_t SourceSharp_NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOu
 	// "Live" is the tier entities are created through; every tier is registered so
 	// a type can grow into a bigger one, so a registered empty tier is normal.
 	if (pOutLive)
-		*pOutLive = SourceSharp_StandaloneTierIsInUse(iTier) ? 1 : 0;
+		*pOutLive = TierIsInUse(iTier) ? 1 : 0;
 
 	return 1;
 }
 
 // Publishes one managed type, client half. Must mirror the server's: an
 // arriving entity's type id is resolved through this table.
-int32_t SourceSharp_NetPublishType(const char* pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
-								   uint32_t* pOutTypeId)
+int32_t CStandaloneClients::NetPublishType(const char* pClassName, int32_t nShell, uint32_t nSchemaHash,
+										   int32_t nLayoutBytes, uint32_t* pOutTypeId)
 {
 	if (pOutTypeId)
 		*pOutTypeId = pClassName ? SourceSharp_HashClassName(pClassName) : 0;
@@ -84,7 +85,7 @@ int32_t SourceSharp_NetPublishType(const char* pClassName, int32_t nShell, uint3
 		return -1;
 	}
 
-	if (SourceSharp_NetTypes().Publish(pClassName, nShell, nSchemaHash, nLayoutBytes, iTier) < 0)
+	if (m_NetTypes.Publish(pClassName, nShell, nSchemaHash, nLayoutBytes, iTier) < 0)
 	{
 		Warning("[SourceSharp] type '%s' (id 0x%08x) was REFUSED by the type table: either a "
 				"name collision with a type already published, or the table is full "

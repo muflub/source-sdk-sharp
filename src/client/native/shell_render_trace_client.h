@@ -2,11 +2,13 @@
 // render interfaces, one line each. Off unless managed code asks for a frame.
 #pragma once
 
+class CClientEngineInterfaces;
+
 namespace RenderTrace
 {
 // Installs the hooks and starts an empty trace. False when one is already
 // running or a hook could not be installed (then nothing is installed).
-bool Begin();
+bool Begin(const CClientEngineInterfaces& engines);
 
 // Removes every hook Begin installed. The text stays until the next Begin.
 void End();

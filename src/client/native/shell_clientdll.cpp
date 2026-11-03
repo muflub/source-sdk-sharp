@@ -21,7 +21,6 @@
 #include "vgui_int.h"
 #include "iinput.h"
 #include "iviewrender.h"
-#include "ivmodemanager.h"
 #include "prediction.h"
 
 #include "smoke_fog_overlay.h"
@@ -44,18 +43,13 @@
 #include "physics.h"
 #include "saverestore.h"
 
-#include "gamerules_register.h"
 #include "client_world.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
-#include "imessagechars.h"
 #include "iclientmode.h"
 #include "inputsystem/iinputsystem.h"
 
 #include "particle_parse.h"
-#include "renamed_recvtable_compat.h"
 #include "mouthinfo.h"
-#include "haptics/ihaptics.h"
-#include "haptics/haptic_utils.h"
 
 #include "engine/IEngineSound.h"
 
@@ -89,8 +83,6 @@ enum
 {
 	kMaxUserMessageBlockBytes = 512
 };
-
-extern vgui::IInputInternal* g_InputInternal;
 
 #include "ss_command_line.h"
 #include "shell_particle_systems_client.h"
@@ -138,9 +130,21 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_client_mode.h"
 #include "shell_viewer_facts.h"
 #include "shell_view_render.h"
+#include "shell_material_cache_client.h"
+#include "shell_vgui_object.h"
+#include "shell_worldrender_object.h"
+#include "shell_debugoverlay_object.h"
+#include "shell_te_backends_object.h"
+#include "shell_rope_client.h"
 #include "shell_net_channel_client.h"
 #include "shell_client_engine_interfaces.h"
 #include "shell_gamemovement_client.h"
+#include "shell_gamerules_client.h"
+#include "shell_engine_area_client.h"
+#include "shell_render_targets.h"
+
+CClientSystem* ClientSystem_CreateDirtySpatialPartition(const CClientEngineInterfaces& engines);
+#include "shell_effect_ledger.h"
 #include "shell_view_targets.h"
 #include "shell_wind_client.h"
 #include "shell_member_command.h"
@@ -149,46 +153,10 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_soundscape_audio_client.h"
 #include "shell_gameui.h"
 
-IVEngineClient* engine = NULL;
-IVModelRender* modelrender = NULL;
-IVEfx* effects = NULL;
-IVRenderView* render = NULL;
-IVDebugOverlay* debugoverlay = NULL;
-IMaterialSystemStub* materials_stub = NULL;
-IVModelInfoClient* modelinfo = NULL;
-IEngineVGui* enginevgui = NULL;
-INetworkStringTableContainer* networkstringtable = NULL;
-ISpatialPartition* partition = NULL;
-IFileSystem* filesystem = NULL;
-IShadowMgr* shadowmgr = NULL;
-IStaticPropMgrClient* staticpropmgr = NULL;
-IEngineSound* enginesound = NULL;
-IUniformRandomStream* random = NULL;
 ISharedGameRules* sharedgamerules = NULL;
-IEngineTrace* enginetrace = NULL;
-IGameEventManager2* gameeventmanager = NULL;
-ISoundEmitterSystemBase* soundemitterbase = NULL;
 IClientReplayContext* g_pClientReplayContext = NULL;
 
-IHaptics* haptics = NULL;
-
 // Engine player info.
-BEGIN_BYTESWAP_DATADESC(player_info_s)
-DEFINE_ARRAY(name, FIELD_CHARACTER, MAX_PLAYER_NAME_LENGTH), DEFINE_FIELD(userID, FIELD_INTEGER),
-	DEFINE_ARRAY(guid, FIELD_CHARACTER, SIGNED_GUID_LEN + 1), DEFINE_FIELD(friendsID, FIELD_INTEGER),
-	DEFINE_ARRAY(friendsName, FIELD_CHARACTER, MAX_PLAYER_NAME_LENGTH), DEFINE_FIELD(fakeplayer, FIELD_BOOLEAN),
-	DEFINE_FIELD(ishltv, FIELD_BOOLEAN), DEFINE_ARRAY(customFiles, FIELD_INTEGER, MAX_CUSTOM_FILES),
-	DEFINE_FIELD(filesDownloaded, FIELD_INTEGER),
-	END_BYTESWAP_DATADESC()
-
-		INetworkStringTable* g_pStringTableParticleEffectNames = NULL;
-INetworkStringTable* g_StringTableEffectDispatch = NULL;
-INetworkStringTable* g_StringTableVguiScreen = NULL;
-INetworkStringTable* g_pStringTableMaterials = NULL;
-INetworkStringTable* g_pStringTableInfoPanel = NULL;
-INetworkStringTable* g_pStringTableClientSideChoreoScenes = NULL;
-INetworkStringTable* g_pStringTableServerMapCycle = NULL;
-
 class CHudChat;
 
 ISaveRestoreBlockHandler* GetEntitySaveRestoreBlockHandler();
@@ -197,9 +165,6 @@ ISaveRestoreBlockHandler* GetViewEffectsRestoreBlockHandler();
 class IMoveHelper;
 
 void DispatchHudText(const char* pszName);
-
-bool g_bLevelInitialized;
-bool g_bTextMode = false;
 
 // The refusal tally, printed by a console command and at DLL shutdown.
 static void ShellClientDll_PrintRefusals(const CShellClientDllRefusals& refusals)
@@ -355,8 +320,6 @@ public:
 	virtual bool DisconnectAttempt();
 
 public:
-	void PrecacheMaterial(const char* pMaterialName);
-
 	virtual bool IsConnectedUserInfoChangeAllowed(IConVar* pCvar);
 
 	virtual bool BHaveChatSuspensionInCurrentMatch();
@@ -364,27 +327,26 @@ public:
 	virtual void DisplayVoiceUnavailableMessage();
 
 private:
-	void UncacheAllMaterials();
 	void ResetStringTablePointers();
 
-	CUtlVector<IMaterial*> m_CachedMaterials;
+	static void OnMaterialTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
+									   const char* newString, void const* newData);
+	static void OnParticleTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
+									   const char* newString, void const* newData);
+
+	// Set between LevelInit and LevelShutdown.
+	bool m_bLevelInitialized = false;
 
 	// The map-specific particle files the previous level read; -1 before the first level.
 	int m_nPreviousMapParticleFiles = -1;
 
 public:
-	// Public and addressed directly: gpGlobals points at m_DummyGlobals from static
-	// initialisation, and an address constant keeps that initialisation constant.
+	// What the interfaces' globals point at until Init.
 	CGlobalVarsBase m_DummyGlobals;
 
 	// Bodies of stock free functions of nearly the same name, which forward here.
-	void RequestCacheMaterials();
-	void ProcessCacheMaterials();
-	uint64_t ClientStageCrossings() const;
-	uint64_t FrameStageNotifyCalls() const;
 
 private:
-	bool m_bRequestCacheUsedMaterials;
 	uint64_t m_nClientStageCrossings;
 	uint64_t m_nFrameStageNotifyCalls;
 	CMouthInfo m_ClientUIMouth;
@@ -405,8 +367,27 @@ private:
 								   args.ArgC() > 1 && ss::StrICmp(args.Arg(1), "reset") == 0);
 	}
 
+	void RefusalsCommand(const CCommand& args);
+	void StageCrossingsCommand(const CCommand& args);
+	void EffectsReportCommand(const CCommand& args);
+	void DumpPayloadCommand(const CCommand& args);
+	void NotShippedCommand(const CCommand& args);
+
 	CMemberCommand<CShellClientDLL, &CShellClientDLL::ReloadCommand> m_ReloadCommand{
 		*this, "cs_cl_reload", "Reload the CLIENT's managed assemblies in place, without restarting the game", 0};
+	CMemberCommand<CShellClientDLL, &CShellClientDLL::RefusalsCommand> m_RefusalsCommand{
+		*this, "cs_cl_refusals",
+		"SourceSharp: how many times each refused IBaseClientDLL method was called (plan_entity.md 5b)", 0};
+	CMemberCommand<CShellClientDLL, &CShellClientDLL::StageCrossingsCommand> m_StageCrossingsCommand{
+		*this, "ss_cl_stage_crossings", "ss_cl_stage_crossings -- FrameStageNotify calls vs ClientStage crossings", 0};
+	CMemberCommand<CShellClientDLL, &CShellClientDLL::EffectsReportCommand> m_EffectsReportCommand{
+		*this, "cs_cl_effects_report",
+		"SourceSharp: how many primitives each of step 7a's leaf effect renderers has emitted.", 0};
+	CMemberCommand<CShellClientDLL, &CShellClientDLL::DumpPayloadCommand> m_DumpPayloadCommand{
+		*this, "cs_cl_dump_payload",
+		"Build the client's generic-table payload prop set standalone and dump its offsets and proxies", 0};
+	CMemberCommand<CShellClientDLL, &CShellClientDLL::NotShippedCommand> m_NotShippedCommand{
+		*this, "cs_cl_notshipped", "SourceSharp: what reached a path this client build does not ship.", 0};
 	CMemberCommand<CShellClientDLL, &CShellClientDLL::CrossingsCommand> m_CrossingsCommand{
 		*this, "cs_cl_crossings",
 		"Print the managed<->native ABI crossing counts. "
@@ -426,10 +407,8 @@ private:
 public:
 	// Read by the refusal console command: zero means every method the engine called was
 	// answered.
-	const CShellClientDllRefusals& Refusals() const { return m_Refusals; }
 
 	// The particles shell's refused IParticleSystemQuery methods count here too.
-	void RefuseExternal(const char* pMethod) { ShellClientDll_Unreachable(pMethod); }
 
 private:
 	void ShellClientDll_Unreachable(const char* pMethod) { m_Refusals.Unreachable(pMethod); }
@@ -444,6 +423,7 @@ private:
 	void OnRenderStart();
 
 	CShellClientDllRefusals m_Refusals;
+	SourceSharpEffectLedger_t m_EffectLedger = {};
 
 public:
 	void* GetEngineInterface(const char* pName, int* pReturnCode) override
@@ -452,7 +432,7 @@ public:
 	}
 
 	// Engine-owned memory, changing every frame; managed reads through the pointer.
-	CGlobalVarsBase& GetGlobalVars() override { return *m_pGlobals; }
+	void UnloadManagedSide() override { m_ManagedSide.Unload(); }
 
 private:
 	CreateInterfaceFn m_pEngineFactory;
@@ -465,7 +445,11 @@ public:
 	// Everything the client holds from managed: the root, the runtime, the areas.
 	CManagedSide& ManagedSide() { return m_ManagedSide; }
 
+	bool LoadManagedSide() override { return m_ManagedSide.Load(m_Engines.m_pEngine->GetGameDirectory()); }
+
 #ifdef SS_CLIENT_PROBES
+	const CClientEngineInterfaces& Engines() const { return m_Engines; }
+
 	CNewParticlesClient& NewParticles() { return m_NewParticles; }
 
 	CTempEntsSystemClient& TempEntsSystem() { return m_TempEntsSystem; }
@@ -496,7 +480,9 @@ private:
 
 	// The engine's VClientEntityList003 and the slot table behind it; the engine fetches
 	// it by name when it loads the DLL.
-	CClientEntityList m_EntityList;
+	CWorldClient m_World{m_Managed, m_Engines, m_ManagedSide};
+	CRenderTargetsClient m_RenderTargets{m_Engines};
+	CClientEntityList m_EntityList{m_Engines};
 
 	CInterfaceMember m_EntityListReg{static_cast<IClientEntityList*>(&m_EntityList),
 									 VCLIENTENTITYLIST_INTERFACE_VERSION};
@@ -517,7 +503,7 @@ private:
 	CClientDLLSharedAppSystems m_AppSystems{m_GameUi};
 	CInterfaceMember m_AppSystemsReg{static_cast<IClientDLLSharedAppSystems*>(&m_AppSystems),
 									 CLIENT_DLL_SHARED_APPSYSTEMS};
-	CGameClientExports m_GameClientExports{m_VoiceStatus};
+	CGameClientExports m_GameClientExports{m_Engines, m_VoiceStatus};
 	CInterfaceMember m_GameClientExportsReg{static_cast<IGameClientExports*>(&m_GameClientExports),
 											GAMECLIENTEXPORTS_INTERFACE_VERSION};
 
@@ -530,13 +516,32 @@ private:
 	CManagedSide m_ManagedSide{m_Managed, m_Diagnostics, m_CVars, m_ShimRoot};
 
 	// The convar area: watches through the root's console.
-	CConVarsClient m_ConVars{m_ShimRoot.m_Console};
+	CConVarsClient m_ConVars{m_ShimRoot.m_Console, m_Engines};
 
 	// The engine interfaces Init acquires, handed to what calls them.
 	CClientEngineInterfaces m_Engines;
+	CEngineAreaClient m_EngineArea{m_Engines};
 
 	// The main and current cameras: CShellViewRender writes them, whatever draws reads them.
 	CViewCameras m_Cameras;
+
+	// The materials the string tables precache, and the sweep FRAME_RENDER_START runs.
+	CMaterialCacheClient m_MaterialCache{m_Engines};
+
+	// The HUD framework's one object: the sensitivity, key bits and elements.
+	CHud m_Hud;
+
+	// The vgui startup and shutdown.
+	CVguiClient m_Vgui{m_Engines};
+
+	// The world render state and colour correction lookups managed sets.
+	CWorldRenderClient m_WorldRender{m_Engines, m_ViewRender};
+
+	// The engine's text overlays, for the UI's draw.
+	CDebugOverlayClient m_DebugOverlay{m_Engines};
+
+	// IRopeManager, and the rope slots.
+	CRopeClient m_Rope{m_Engines};
 
 	// The engine's net channel for managed: its messages and its statistics.
 	CNetChannelClient m_NetChannel{m_Engines};
@@ -547,7 +552,7 @@ private:
 									  CLIENTRENDERTARGETS_INTERFACE_VERSION};
 
 	// The wind managed publishes.
-	CWindClient m_Wind;
+	CWindClient m_Wind{m_Engines};
 
 	// The soundscape slots: the room type, DSP and main view managed asks for.
 	CSoundscapeAudioClient m_SoundscapeAudio{m_Engines, m_Cameras};
@@ -555,8 +560,8 @@ private:
 	// The game systems: the managed frame's row (which holds the runtime adapter) and the
 	// table that walks every row. The frame row clears its adapter in its Shutdown, which
 	// runs before the adapter is released.
-	CSourceSharpSystem m_ManagedFrame{m_ManagedSide};
-	CPhysicsClient m_Physics{m_Managed.m_Areas};
+	CSourceSharpSystem m_ManagedFrame{m_ManagedSide, m_Engines};
+	CPhysicsClient m_Physics{m_Managed.m_Areas, m_Engines};
 	CShellDecalSystemClient m_Decals{m_Managed.m_Areas};
 	// IViewRenderBeams, its renderables and its sprite bind.
 	CBeamsClient m_Beams{m_Managed.m_Areas, m_Engines, m_Cameras, m_EntityList};
@@ -576,19 +581,19 @@ private:
 	CManagedParticlesClient m_ManagedParticles{m_Managed.m_Areas, m_Engines, m_Cameras, m_Standalone};
 
 	// The material proxy trampoline: the registrations, the live proxies, the area.
-	CMaterialProxiesClient m_MaterialProxies{m_Managed.m_Areas, m_Cameras, m_EntityList};
+	CMaterialProxiesClient m_MaterialProxies{m_Managed.m_Areas, m_Engines, m_Cameras, m_EntityList};
 
 	// The managed point_worldtext renderables.
 	CWorldTextClient m_WorldText{m_Managed.m_Areas, m_Engines, m_Cameras, m_Standalone};
 
 	// The particle manifests' reads.
-	CParticleManifestClient m_ParticleManifest{m_Managed.m_Areas};
+	CParticleManifestClient m_ParticleManifest{m_Managed.m_Areas, m_Engines};
 
 	// The detail props' executor.
-	CShellDetailProps m_DetailProps{m_Managed.m_Areas, m_Engines, m_Cameras};
+	CShellDetailProps m_DetailProps{m_Managed.m_Areas, m_Engines, m_Cameras, m_MaterialCache};
 
 	// The leaf system's storage; its ClientLeafSystem002, by name.
-	CLeafSystemClient m_LeafSystem{m_Managed.m_Areas, m_DetailProps};
+	CLeafSystemClient m_LeafSystem{m_Managed.m_Areas, m_Engines, m_DetailProps};
 	CInterfaceMember m_LeafSystemReg{static_cast<IClientLeafSystemEngine*>(m_LeafSystem.System()),
 									 CLIENTLEAFSYSTEM_INTERFACE_VERSION};
 
@@ -599,13 +604,14 @@ private:
 	CWorldQueryClient m_WorldQuery{m_Engines, m_Standalone};
 
 	// IGameMovement (GameMovement001: no engine binary asks for it, but HL2MP and TF export it).
-	CShellGameMovement m_GameMovement{m_Managed.m_Areas, m_Engines, m_EntityList};
+	CGameRulesClient m_GameRules;
+	CShellGameMovement m_GameMovement{m_Managed.m_Areas, m_Engines, m_EntityList, m_GameRules};
 	CInterfaceMember m_GameMovementReg{static_cast<IGameMovement*>(&m_GameMovement), INTERFACENAME_GAMEMOVEMENT};
 
 	CPredictionSlotsClient m_PredictionSlots{m_Engines, m_Standalone, m_GameMovement};
 
 	// The sound envelope's patches.
-	CSoundPatchesClient m_SoundPatches{m_Managed.m_Areas, m_Standalone};
+	CSoundPatchesClient m_SoundPatches{m_Managed.m_Areas, m_Engines, m_Standalone, m_GameRules};
 
 	// The new-style particle effects' list and frame.
 	CNewParticlesClient m_NewParticles{m_Managed.m_Areas, m_Engines, m_EntityList};
@@ -615,17 +621,19 @@ private:
 
 public:
 	// The query particles.a is handed at the particle manager's Init (g_pParticleSystemQuery).
-	CParticleSystemQueryClient m_ParticleQuery{m_Managed.m_Areas};
+	CParticleSystemQueryClient m_ParticleQuery{m_Managed.m_Areas, m_Engines, m_Refusals};
+	CParticleMgrClient m_ParticleMgr{m_Engines};
 
 private:
 	// IInput and the shim input area, over the managed input area.
-	CSourceSharpInput m_Input{m_Managed.m_Areas, m_ViewerFacts, m_Prediction, m_VoiceStatus};
+	CSourceSharpInput m_Input{m_Managed.m_Areas, m_Engines, m_Hud, m_ViewerFacts, m_Prediction, m_VoiceStatus};
 
 	// The UI's native half: the paint window, the HUD element and the menu root.
-	CHudUiClient m_HudUi{m_Managed.m_Areas, m_Engines, m_ClientMode};
+	CHudUiClient m_HudUi{m_Managed.m_Areas, m_Engines, m_Hud, m_ClientMode};
 
 	// IClientMode (g_pClientMode points at it from Init).
-	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas, m_Engines, m_Standalone, m_ManagedParticles, m_ViewTargets};
+	CSourceSharpClientMode m_ClientMode{m_Managed.m_Areas,  m_Engines,     m_Hud, m_Standalone,
+										m_ManagedParticles, m_ViewTargets, m_Vgui};
 
 	// The client-side effect list the view draws, its material table and smoke fog overlay.
 	CEffectsListClient m_EffectsList{m_Managed.m_Areas, m_Engines, m_Cameras, m_EntityList};
@@ -641,11 +649,13 @@ private:
 	CTempEntTablesClient m_TempEntTables{m_Managed.m_Areas};
 
 	// The client's ITempEntsSystem, on SuppressHostEvents' list.
-	CTempEntsSystemClient m_TempEntsSystem{m_Managed.m_Areas, m_EntityList};
-	CTempEntCommandsClient m_TempEntCommands{m_Engines, m_Cameras, m_TempEnts, m_TempEntsSystem, m_Standalone};
+	CTempEntsSystemClient m_TempEntsSystem{m_Managed.m_Areas, m_Engines, m_EntityList};
+	CTempEntBackendsClient m_TempEntBackends{m_Engines, m_Effects};
+	CTempEntCommandsClient m_TempEntCommands{m_Engines,  m_TempEntBackends, m_Cameras,
+											 m_TempEnts, m_TempEntsSystem,  m_Standalone};
 
 	// IEffects (g_pEffects points at it from Init), over the managed FX area.
-	CEffectsClient m_Effects{m_Managed.m_Areas};
+	CEffectsClient m_Effects{m_Managed.m_Areas, m_Engines};
 
 	// ITempEnts (tempents points at it from Init): the legacy temp entities' object.
 	CTempEnts m_TempEnts{m_Managed.m_Areas, m_Engines, m_Cameras, m_Sprites, m_EntityList};
@@ -653,18 +663,18 @@ private:
 	// IViewRender (`view` points at it from Init).
 	CShellViewRender m_ViewRender{m_Managed.m_Areas, m_Engines,      m_Cameras, m_ViewerFacts,
 								  m_ClientMode,      m_ViewExecutor, m_Beams};
-	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame,     m_Physics,         m_Decals,      m_Standalone,
-							 m_EffectsList,     m_ManagedParticles, m_ParticleSystems, m_DetailProps, m_WorldText,
-							 m_Sprites,         m_Shadows,          m_LeafSystem};
+	CClientSystems m_Systems{m_Engines,     m_Managed.m_Areas, m_Rope,        m_ManagedFrame,     m_Physics,
+							 m_Decals,      m_Standalone,      m_EffectsList, m_ManagedParticles, m_ParticleSystems,
+							 m_DetailProps, m_WorldText,       m_Sprites,     m_Shadows,          m_LeafSystem};
 
 	// The render plan's executor; the view render calls it, and it calls the systems' PreRender.
-	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,       m_ViewerFacts,      m_Standalone,  m_ClientMode,
-								 m_ViewRender,      m_EffectsList,   m_ManagedParticles, m_DetailProps, m_Glow,
-								 m_PixelVis,        m_Precipitation, m_Shadows,          m_HudUi,       m_Cameras,
-								 m_ViewTargets,     m_Engines};
+	CViewExecutor m_ViewExecutor{
+		m_Managed.m_Areas,  m_Systems,     m_ViewerFacts, m_Standalone, m_ClientMode,    m_ViewRender, m_EffectsList,
+		m_ManagedParticles, m_DetailProps, m_Glow,        m_PixelVis,   m_Precipitation, m_Shadows,    m_HudUi,
+		m_Cameras,          m_ViewTargets, m_Engines,     m_Rope,       m_WorldRender};
 
 	// The game events managed listens for: the client's shim events area.
-	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
+	CGameEvents m_Events{m_Engines.m_pEvents, m_Managed.m_Areas.m_pEventsClient, false};
 	CMapMaterialReload m_MapMaterials{m_Managed};
 };
 
@@ -677,18 +687,27 @@ IBaseClientDLL* clientdll = &g_ShellClientDLL;
 
 // The query the particle manager's Init hands particles.a: the client DLL object's. A
 // pointer, constant-initialised, so the probe build can wrap it at static init.
-IParticleSystemQuery* g_pParticleSystemQuery = &g_ShellClientDLL.m_ParticleQuery;
+#ifdef SS_CLIENT_PROBES
+// The recorders draw from the engine's stream.
+IUniformRandomStream* random = NULL;
 
-void ShellClientDll_RefuseExternal(const char* pMethod)
-{
-	g_ShellClientDLL.RefuseExternal(pMethod);
-}
+// The probe recorder wraps the query at static initialisation.
+IParticleSystemQuery* g_pParticleSystemQuery = &g_ShellClientDLL.m_ParticleQuery;
+#define SS_PARTICLE_QUERY g_pParticleSystemQuery
+#else
+#define SS_PARTICLE_QUERY (&m_ParticleQuery)
+#endif
 
 #ifdef SS_CLIENT_PROBES
 #include "probe_accessors.h"
 
 // The probe build's recorders start from console commands, and tools/probes is not handed
 // the objects it records.
+const CClientEngineInterfaces& ShellClientDll_Engines()
+{
+	return g_ShellClientDLL.Engines();
+}
+
 CNewParticlesClient& ShellClientDll_NewParticles()
 {
 	return g_ShellClientDLL.NewParticles();
@@ -715,87 +734,10 @@ CClientEntityList& ShellClientDll_EntityList()
 }
 #endif
 
-// The client's loader entry points (managed_runtime_client.cpp and its adapter).
-bool SourceSharp_LoadManagedSide()
-{
-	return g_ShellClientDLL.ManagedSide().Load(engine->GetGameDirectory());
-}
-
-void SourceSharp_UnloadManagedSide()
-{
-	g_ShellClientDLL.ManagedSide().Unload();
-}
-
-// Never NULL during DLL initialisation; Init points it at the engine's globals. Other TUs
-// read it from their static initialisers, so it must stay an address constant.
-CGlobalVarsBase* gpGlobals = &g_ShellClientDLL.m_DummyGlobals;
-
-// The engine area's slot: the globals gpGlobals points at, for managed to read.
-void* SourceSharp_GetGlobalVarsPtr()
-{
-	return gpGlobals;
-}
-
-// Stock's names: the string-table callbacks request the sweep and FRAME_NET_UPDATE_END
-// runs it.
-void RequestCacheUsedMaterials()
-{
-	g_ShellClientDLL.RequestCacheMaterials();
-}
-
-void ProcessCacheUsedMaterials()
-{
-	g_ShellClientDLL.ProcessCacheMaterials();
-}
-
-void CShellClientDLL::RequestCacheMaterials()
-{
-	m_bRequestCacheUsedMaterials = true;
-}
-
-void CShellClientDLL::ProcessCacheMaterials()
-{
-	if (!m_bRequestCacheUsedMaterials)
-		return;
-
-	m_bRequestCacheUsedMaterials = false;
-	if (materials)
-	{
-		materials->CacheUsedMaterials();
-	}
-}
-
 EXPOSE_SINGLE_INTERFACE_GLOBALVAR(CShellClientDLL, IBaseClientDLL, CLIENT_DLL_INTERFACE_VERSION, g_ShellClientDLL);
-
-void PrecacheMaterial(const char* pMaterialName)
-{
-	g_ShellClientDLL.PrecacheMaterial(pMaterialName);
-}
-
-int GetParticleSystemIndex(const char* pParticleSystemName)
-{
-	if (pParticleSystemName)
-	{
-		int nIndex = g_pStringTableParticleEffectNames->FindStringIndex(pParticleSystemName);
-		if (nIndex != INVALID_STRING_INDEX)
-			return nIndex;
-		DevWarning("Client: Missing precache for particle system \"%s\"!\n", pParticleSystemName);
-	}
-
-	// The invalid string index.
-	return 0;
-}
-
-const char* GetParticleSystemNameFromIndex(int nIndex)
-{
-	if (nIndex < g_pStringTableParticleEffectNames->GetMaxStrings())
-		return g_pStringTableParticleEffectNames->GetString(nIndex);
-	return "error";
-}
 
 CShellClientDLL::CShellClientDLL()
 	: m_DummyGlobals(true)
-	, m_bRequestCacheUsedMaterials(false)
 	, m_nClientStageCrossings(0)
 	, m_nFrameStageNotifyCalls(0)
 	, m_CurFrameStage(FRAME_UNDEFINED)
@@ -806,97 +748,90 @@ CShellClientDLL::CShellClientDLL()
 	, m_pManagedRuntime(NULL)
 {
 	m_Engines.m_pGlobals = &m_DummyGlobals;
-	g_bLevelInitialized = false;
+	m_Engines.m_pConVars = &m_ConVars;
+	m_Engines.m_pWorld = &m_World;
+	m_Engines.m_pRenderTargets = &m_RenderTargets;
+	m_Engines.m_pParticles = &m_ParticleMgr;
+	m_Engines.m_pEffectLedger = &m_EffectLedger;
+	m_bLevelInitialized = false;
 }
 
 int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn physicsFactory,
 						  CGlobalVarsBase* pGlobals)
 {
-	gpGlobals = pGlobals;
 	m_Engines.m_pGlobals = pGlobals;
-	input = &m_Input;
-	g_pClientMode = &m_ClientMode;
-	decalsystem = &m_Decals;
-	g_pEffects = &m_Effects;
-	tempents = &m_TempEnts;
+	m_Engines.m_pInput = &m_Input;
+	m_Engines.m_pClientMode = &m_ClientMode;
+	m_Engines.m_pLeafSystem = m_LeafSystem.System();
+	m_Engines.m_pDecalSystem = &m_Decals;
+	m_Engines.m_pGameEffects = &m_Effects;
+	m_Engines.m_pTempEnts = &m_TempEnts;
 
 	// The same two as members, served through IManagedRuntimeEnvironment.
 	m_pEngineFactory = appSystemFactory;
 	m_pGlobals = pGlobals;
 
-	ConnectTier1Libraries(&appSystemFactory, 1);
-	m_CVars.Connect(g_pCVar);
-	Tier0_ConnectConsole(g_pCVar);
+	m_Engines.m_pCvar = (ICvar*)appSystemFactory(CVAR_INTERFACE_VERSION, NULL);
+	m_CVars.Connect(m_Engines.m_pCvar);
+	Tier0_ConnectConsole(m_Engines.m_pCvar);
 	m_ShimRoot.m_Console.m_pCVars = &m_CVars;
-	SourceSharp_ConnectTier2(appSystemFactory);
-	SourceSharp_ConnectTier3(appSystemFactory);
+	SourceSharp_ConnectTier2(m_Engines, appSystemFactory);
+	SourceSharp_ConnectTier3(m_Engines, appSystemFactory);
 
 	// Keep the client from writing files into arbitrary locations.
-	if (g_pFullFileSystem)
+	if (m_Engines.m_pFileSystem)
 	{
-		g_pFullFileSystem->SetWriteProtectionEnable(true);
+		m_Engines.m_pFileSystem->SetWriteProtectionEnable(true);
 	}
 
-	if ((engine = (IVEngineClient*)appSystemFactory(VENGINE_CLIENT_INTERFACE_VERSION, NULL)) == NULL)
+	if ((m_Engines.m_pEngine = (IVEngineClient*)appSystemFactory(VENGINE_CLIENT_INTERFACE_VERSION, NULL)) == NULL)
 		return false;
-	if ((modelrender = (IVModelRender*)appSystemFactory(VENGINE_HUDMODEL_INTERFACE_VERSION, NULL)) == NULL)
+	if ((m_Engines.m_pModelRender = (IVModelRender*)appSystemFactory(VENGINE_HUDMODEL_INTERFACE_VERSION, NULL)) == NULL)
 		return false;
-	if ((effects = (IVEfx*)appSystemFactory(VENGINE_EFFECTS_INTERFACE_VERSION, NULL)) == NULL)
+	if ((m_Engines.m_pEffects = (IVEfx*)appSystemFactory(VENGINE_EFFECTS_INTERFACE_VERSION, NULL)) == NULL)
 		return false;
-	if ((enginetrace = (IEngineTrace*)appSystemFactory(INTERFACEVERSION_ENGINETRACE_CLIENT, NULL)) == NULL)
+	if ((m_Engines.m_pTrace = (IEngineTrace*)appSystemFactory(INTERFACEVERSION_ENGINETRACE_CLIENT, NULL)) == NULL)
 		return false;
-	if ((render = (IVRenderView*)appSystemFactory(VENGINE_RENDERVIEW_INTERFACE_VERSION, NULL)) == NULL)
+	if ((m_Engines.m_pRender = (IVRenderView*)appSystemFactory(VENGINE_RENDERVIEW_INTERFACE_VERSION, NULL)) == NULL)
 		return false;
-	if ((debugoverlay = (IVDebugOverlay*)appSystemFactory(VDEBUG_OVERLAY_INTERFACE_VERSION, NULL)) == NULL)
+	if ((m_Engines.m_pDebugOverlay = (IVDebugOverlay*)appSystemFactory(VDEBUG_OVERLAY_INTERFACE_VERSION, NULL)) == NULL)
 		return false;
-	if (!mdlcache)
+	if (!m_Engines.m_pMdlCache)
 		return false;
-	if ((modelinfo = (IVModelInfoClient*)appSystemFactory(VMODELINFO_CLIENT_INTERFACE_VERSION, NULL)) == NULL)
-		return false;
-	if ((enginevgui = (IEngineVGui*)appSystemFactory(VENGINE_VGUI_VERSION, NULL)) == NULL)
-		return false;
-	if ((networkstringtable =
-			 (INetworkStringTableContainer*)appSystemFactory(INTERFACENAME_NETWORKSTRINGTABLECLIENT, NULL)) == NULL)
-		return false;
-	if ((::partition = (ISpatialPartition*)appSystemFactory(INTERFACEVERSION_SPATIALPARTITION, NULL)) == NULL)
-		return false;
-	if ((shadowmgr = (IShadowMgr*)appSystemFactory(ENGINE_SHADOWMGR_INTERFACE_VERSION, NULL)) == NULL)
-		return false;
-	if ((staticpropmgr = (IStaticPropMgrClient*)appSystemFactory(INTERFACEVERSION_STATICPROPMGR_CLIENT, NULL)) == NULL)
-		return false;
-	if ((enginesound = (IEngineSound*)appSystemFactory(IENGINESOUND_CLIENT_INTERFACE_VERSION, NULL)) == NULL)
-		return false;
-	if ((filesystem = (IFileSystem*)appSystemFactory(FILESYSTEM_INTERFACE_VERSION, NULL)) == NULL)
-		return false;
-	if ((random = (IUniformRandomStream*)appSystemFactory(VENGINE_CLIENT_RANDOM_INTERFACE_VERSION, NULL)) == NULL)
-		return false;
-	if ((gameeventmanager = (IGameEventManager2*)appSystemFactory(INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL)) == NULL)
-		return false;
-	if ((soundemitterbase = (ISoundEmitterSystemBase*)appSystemFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL)) ==
+	if ((m_Engines.m_pModelInfo = (IVModelInfoClient*)appSystemFactory(VMODELINFO_CLIENT_INTERFACE_VERSION, NULL)) ==
 		NULL)
 		return false;
-
-	if (!g_pMatSystemSurface)
+	if ((m_Engines.m_pVGui = (IEngineVGui*)appSystemFactory(VENGINE_VGUI_VERSION, NULL)) == NULL)
+		return false;
+	if ((m_Engines.m_pStringTables =
+			 (INetworkStringTableContainer*)appSystemFactory(INTERFACENAME_NETWORKSTRINGTABLECLIENT, NULL)) == NULL)
+		return false;
+	if ((m_Engines.m_pPartition = (ISpatialPartition*)appSystemFactory(INTERFACEVERSION_SPATIALPARTITION, NULL)) ==
+		NULL)
+		return false;
+	if ((m_Engines.m_pShadows = (IShadowMgr*)appSystemFactory(ENGINE_SHADOWMGR_INTERFACE_VERSION, NULL)) == NULL)
+		return false;
+	if ((m_Engines.m_pStaticProps =
+			 (IStaticPropMgrClient*)appSystemFactory(INTERFACEVERSION_STATICPROPMGR_CLIENT, NULL)) == NULL)
+		return false;
+	if ((m_Engines.m_pSound = (IEngineSound*)appSystemFactory(IENGINESOUND_CLIENT_INTERFACE_VERSION, NULL)) == NULL)
+		return false;
+	if ((m_Engines.m_pFileSystem = (IFileSystem*)appSystemFactory(FILESYSTEM_INTERFACE_VERSION, NULL)) == NULL)
 		return false;
 
-	m_Engines.m_pEngine = engine;
-	m_Engines.m_pRender = render;
-	m_Engines.m_pModelInfo = modelinfo;
-	m_Engines.m_pModelRender = modelrender;
-	m_Engines.m_pEffects = effects;
-	m_Engines.m_pTrace = enginetrace;
-	m_Engines.m_pSound = enginesound;
-	m_Engines.m_pVGui = enginevgui;
-	m_Engines.m_pDebugOverlay = debugoverlay;
-	m_Engines.m_pFileSystem = filesystem;
-	m_Engines.m_pStringTables = networkstringtable;
-	m_Engines.m_pEvents = gameeventmanager;
-	m_Engines.m_pStaticProps = staticpropmgr;
-	m_Engines.m_pShadows = shadowmgr;
-	m_Engines.m_pPartition = ::partition;
-	m_Engines.m_pSoundEmitter = soundemitterbase;
-	m_Engines.m_pMdlCache = mdlcache;
-	m_Engines.m_pMaterials = materials;
+#ifdef SS_CLIENT_PROBES
+	if ((random = (IUniformRandomStream*)appSystemFactory(VENGINE_CLIENT_RANDOM_INTERFACE_VERSION, NULL)) == NULL)
+		return false;
+#endif
+	if ((m_Engines.m_pEvents = (IGameEventManager2*)appSystemFactory(INTERFACEVERSION_GAMEEVENTSMANAGER2, NULL)) ==
+		NULL)
+		return false;
+	if ((m_Engines.m_pSoundEmitter =
+			 (ISoundEmitterSystemBase*)appSystemFactory(SOUNDEMITTERSYSTEM_INTERFACE_VERSION, NULL)) == NULL)
+		return false;
+
+	if (!m_Engines.m_pMatSystemSurface)
+		return false;
 
 	m_ShimRoot.m_pAppSystemFactory = appSystemFactory;
 	m_ShimRoot.m_pPhysicsFactory = physicsFactory;
@@ -908,16 +843,16 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	}
 
 	if (ss::CommandLineHas("-textmode"))
-		g_bTextMode = true;
+		m_Engines.m_bTextMode = true;
 
-	materials_stub = (IMaterialSystemStub*)appSystemFactory(MATERIAL_SYSTEM_STUB_INTERFACE_VERSION, NULL);
+	m_Engines.m_pMaterialsStub = (IMaterialSystemStub*)appSystemFactory(MATERIAL_SYSTEM_STUB_INTERFACE_VERSION, NULL);
 
-	if (!g_pMaterialSystemHardwareConfig)
+	if (!m_Engines.m_pHardwareConfig)
 		return false;
 
 	m_CVars.Register(FCVAR_CLIENTDLL);
 
-	if (!ShellParticleMgr_Init(m_Engines.m_pMaterials))
+	if (!m_ParticleMgr.Init(m_Engines.m_pMaterials, SS_PARTICLE_QUERY))
 		return false;
 
 	// Send true to load the sheets.
@@ -925,7 +860,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	// A listen server's spawn reloads only what the map paks can have changed. Failing to
 	// install falls back to the stock full reload.
-	m_MapMaterials.Install(filesystem, m_Engines.m_pMaterials);
+	m_MapMaterials.Install(m_Engines.m_pFileSystem, m_Engines.m_pMaterials);
 
 	// RTLD_NOLOAD: the launcher's SDL or nothing. Windows has no SDL to find.
 #ifndef _WIN32
@@ -935,16 +870,15 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	Msg("[SourceSharp] load pump: %s\n",
 		m_pfnPumpEvents ? "SDL_PumpEvents" : "none (the window is pumped only between frames)");
 
-	if (!VGui_Startup(appSystemFactory))
+	if (!m_Vgui.Startup(appSystemFactory))
 		return false;
 
-	Assert(g_pMaterialSystem && g_pMatSystemSurface && g_pMaterialSystemHardwareConfig);
-
-	modemanager->Init();
+	Assert(m_Engines.m_pMaterials && m_Engines.m_pMatSystemSurface && m_Engines.m_pHardwareConfig);
 
 	m_ClientMode.InitViewport();
+	m_Engines.m_pViewPort = m_ClientMode.ViewPort();
 
-	// Before the HUD: gHUD.Init() hooks the user messages managed declares. The CLR comes up
+	// Before the HUD: m_Hud.Init() hooks the user messages managed declares. The CLR comes up
 	// before m_Systems.Init() walks the client systems.
 	m_ShimRoot.m_Console.m_ppCommands = &m_Managed.m_Areas.m_pCommandsClient;
 	m_ShimRoot.m_Areas.m_pEvents = &m_Events;
@@ -961,16 +895,27 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = &m_ClientMode;
 	m_ShimRoot.m_Areas.m_pUserMessagesClient = &m_ClientMode;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = &m_ViewerFacts;
+	m_ShimRoot.m_Areas.m_UiClient.m_pSourceSharpClientMode = &m_ClientMode;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pWorldRenderClient = &m_WorldRender;
+	m_ShimRoot.m_Areas.m_UiClient.m_pDebugOverlayClient = &m_DebugOverlay;
+	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pTempEntBackendsClient = &m_TempEntBackends;
+	m_ShimRoot.m_Areas.m_HudClient.m_pHudUiClient = &m_HudUi;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pRenderTargetsClient = &m_RenderTargets;
+	m_ShimRoot.m_Areas.m_pEngine = &m_EngineArea;
+	m_ShimRoot.m_Areas.m_DiagnosticsClient.m_pShellClientDllRefusals = &m_Refusals;
+	m_ShimRoot.m_Areas.m_Network.m_pWorldClient = &m_World;
+	m_ShimRoot.m_Areas.m_Network.m_pStandaloneClients = &m_Standalone;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pRopeClient = &m_Rope;
 	m_ShimRoot.m_Areas.m_pNetClient = &m_NetChannel;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pShellViewRender = &m_ViewRender;
-	m_ShimRoot.m_Areas.m_Movement.m_pShellGameMovement = &m_GameMovement;
+	m_ShimRoot.m_Areas.m_pMovement = &m_GameMovement;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewTargetsClient = &m_ViewTargets;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pStandaloneClients = &m_Standalone;
 	m_ShimRoot.m_Areas.m_pEntities = &m_Standalone;
 	m_ShimRoot.m_Areas.m_Models.m_pStandaloneClients = &m_Standalone;
 	m_ShimRoot.m_Areas.m_HudClient.m_pStandaloneClients = &m_Standalone;
 	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pStandaloneClients = &m_Standalone;
-	m_ShimRoot.m_Areas.m_FlashlightClient.m_pShadowsClient = &m_Shadows;
+	m_ShimRoot.m_Areas.m_pFlashlightClient = &m_Shadows;
 	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundPatchesClient = &m_SoundPatches;
 	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundscapeAudioClient = &m_SoundscapeAudio;
 	m_ShimRoot.m_Areas.m_pPredictionClient = &m_PredictionSlots;
@@ -1002,7 +947,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 		return false;
 
 	// A ClientClass linked after GetAllClasses is not in the handshake, and the build window
-	// ends before gHUD.Init().
+	// ends before m_Hud.Init().
 	m_TempEntTables.TempEntClientCloseRegistration();
 
 	m_ManagedFrame.SetRuntime(m_pManagedRuntime);
@@ -1011,25 +956,20 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ParticleManifest.RuntimeUp();
 
 	m_HudUi.CreateHud();
-	gHUD.Init();
+	m_Hud.Init();
 
 	m_ClientMode.Init();
 
+	m_Engines.m_pDirtyPartition = ClientSystem_CreateDirtySpatialPartition(m_Engines);
 	if (!m_Systems.Init())
 		return false;
 
 	m_ClientMode.Enable();
 
-	if (!view)
-	{
-		view = &m_ViewRender;
-	}
-
-	view->Init();
+	m_Engines.m_pViewRender = &m_ViewRender;
+	m_Engines.m_pViewRender->Init();
 
 	m_Input.Init_All();
-
-	VGui_CreateGlobalPanels();
 
 	m_EffectsList.InitSmokeFog();
 
@@ -1041,11 +981,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	if (!m_Physics.DLLInit(physicsFactory))
 		return false;
 
-	ClientWorldFactoryInit(m_Managed, m_Engines, m_ManagedSide);
-
-#if defined(WIN32)
-	ConnectHaptics(appSystemFactory);
-#endif
+	m_World.CreateEntity();
 
 	return true;
 }
@@ -1089,16 +1025,17 @@ void CShellClientDLL::Shutdown()
 	// Printed on the way out so refusals from an unwatched session reach the log.
 	ShellClientDll_PrintRefusals(m_Refusals);
 
-	ClientWorldFactoryShutdown();
+	m_World.DestroyEntity();
 
 	m_ClientMode.Disable();
 	m_ClientMode.Shutdown();
+	m_Engines.m_pViewPort = NULL;
 
 	m_Input.Shutdown_All();
 	m_EffectsList.TermSmokeFog();
-	view->Shutdown();
-	g_pParticleSystemMgr->UncacheAllParticleSystems();
-	UncacheAllMaterials();
+	m_Engines.m_pViewRender->Shutdown();
+	m_Engines.m_pParticleMgr->UncacheAllParticleSystems();
+	m_MaterialCache.UncacheAll();
 
 	// The engine calls Shutdown after a failed Init, when the runtime may be absent.
 	// Unhooked even when the runtime failed after subscribing: the engine keeps its
@@ -1116,12 +1053,12 @@ void CShellClientDLL::Shutdown()
 	UnloadManagedRuntime(m_pManagedRuntime);
 	m_pManagedRuntime = NULL;
 
-	gHUD.Shutdown();
-	VGui_Shutdown();
+	m_Hud.Shutdown();
+	m_Vgui.Shutdown();
 
-	ShellParticleMgr_Term();
+	m_ParticleMgr.Term();
 
-	SourceSharp_DisconnectTier2();
+	SourceSharp_DisconnectTier2(m_Engines);
 	m_CVars.Unregister();
 
 	// After the unregister, while the console is still connected.
@@ -1130,7 +1067,7 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Console.m_pCVars = NULL;
 	m_CVars.Connect(NULL);
 	Tier0_ConnectConsole(NULL);
-	DisconnectTier1Libraries();
+	m_Engines.m_pCvar = nullptr;
 
 	m_ShimRoot.m_Areas.m_pEvents = NULL;
 	m_ShimRoot.m_Areas.m_pConVarsClient = NULL;
@@ -1145,16 +1082,27 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = NULL;
 	m_ShimRoot.m_Areas.m_pUserMessagesClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = NULL;
+	m_ShimRoot.m_Areas.m_UiClient.m_pSourceSharpClientMode = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pWorldRenderClient = NULL;
+	m_ShimRoot.m_Areas.m_UiClient.m_pDebugOverlayClient = NULL;
+	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pTempEntBackendsClient = NULL;
+	m_ShimRoot.m_Areas.m_HudClient.m_pHudUiClient = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pRenderTargetsClient = NULL;
+	m_ShimRoot.m_Areas.m_pEngine = NULL;
+	m_ShimRoot.m_Areas.m_DiagnosticsClient.m_pShellClientDllRefusals = NULL;
+	m_ShimRoot.m_Areas.m_Network.m_pWorldClient = NULL;
+	m_ShimRoot.m_Areas.m_Network.m_pStandaloneClients = NULL;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pRopeClient = NULL;
 	m_ShimRoot.m_Areas.m_pNetClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pShellViewRender = NULL;
-	m_ShimRoot.m_Areas.m_Movement.m_pShellGameMovement = NULL;
+	m_ShimRoot.m_Areas.m_pMovement = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewTargetsClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pStandaloneClients = NULL;
 	m_ShimRoot.m_Areas.m_pEntities = NULL;
 	m_ShimRoot.m_Areas.m_Models.m_pStandaloneClients = NULL;
 	m_ShimRoot.m_Areas.m_HudClient.m_pStandaloneClients = NULL;
 	m_ShimRoot.m_Areas.m_TempEntBackendsClient.m_pStandaloneClients = NULL;
-	m_ShimRoot.m_Areas.m_FlashlightClient.m_pShadowsClient = NULL;
+	m_ShimRoot.m_Areas.m_pFlashlightClient = NULL;
 	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundPatchesClient = NULL;
 	m_ShimRoot.m_Areas.m_SoundscapeClient.m_pSoundscapeAudioClient = NULL;
 	m_ShimRoot.m_Areas.m_pPredictionClient = NULL;
@@ -1179,17 +1127,13 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_FxClient.m_pSpritesClient = NULL;
 	m_ShimRoot.m_pAppSystemFactory = nullptr;
 	m_ShimRoot.m_pPhysicsFactory = nullptr;
-	gameeventmanager = NULL;
-
-#if defined(WIN32)
-	DisconnectHaptics();
-#endif
+	m_Engines.m_pEvents = nullptr;
 }
 
 // Called at startup and on every vid_mode change so the HUD can reinitialize.
 int CShellClientDLL::HudVidInit()
 {
-	gHUD.VidInit();
+	m_Hud.VidInit();
 
 	m_VoiceStatus.VidInit();
 
@@ -1211,14 +1155,14 @@ void CShellClientDLL::HudUpdate(bool bActive)
 	// The menu layer's home: the GameUI root while the engine's GameUI is up.
 	m_HudUi.MenuRootFollowGameUI();
 
-	gHUD.UpdateHud(bActive);
+	m_Hud.UpdateHud(bActive);
 
 	m_Systems.Update(frametime);
 }
 
 void CShellClientDLL::HudReset()
 {
-	gHUD.VidInit();
+	m_Hud.VidInit();
 	m_Physics.Reset();
 }
 
@@ -1276,10 +1220,8 @@ int CShellClientDLL::IN_KeyEvent(int eventcode, ButtonCode_t keynum, const char*
 void CShellClientDLL::ExtraMouseSample(float frametime, bool active)
 {
 	// Compiled out in release builds, so only a debug build checks it.
-	Assert(EntityAbs_AreRecomputationsEnabled());
-	Assert(EntityAbs_AreQueriesValid());
 
-	MDLCACHE_CRITICAL_SECTION();
+	MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 	m_Input.ExtraMouseSample(frametime, active);
 }
 
@@ -1293,10 +1235,8 @@ void CShellClientDLL::IN_SetSampleTime(float frametime)
 void CShellClientDLL::CreateMove(int sequence_number, float input_sample_frametime, bool active)
 {
 	// Compiled out in release builds, so only a debug build checks it.
-	Assert(EntityAbs_AreRecomputationsEnabled());
-	Assert(EntityAbs_AreQueriesValid());
 
-	MDLCACHE_CRITICAL_SECTION();
+	MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 	m_Input.CreateMove(sequence_number, input_sample_frametime, active);
 }
 
@@ -1326,7 +1266,7 @@ void CShellClientDLL::View_Render(vrect_t* rect)
 
 bool CShellClientDLL::GetPlayerView(CViewSetup& playerView)
 {
-	playerView = *view->GetPlayerViewSetup();
+	playerView = *m_Engines.m_pViewRender->GetPlayerViewSetup();
 	return true;
 }
 
@@ -1408,9 +1348,9 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 		m_ParticleManifest.PrecacheDefined();
 	PumpWindowDuringLoad();
 
-	if (g_bLevelInitialized)
+	if (m_bLevelInitialized)
 		return;
-	g_bLevelInitialized = true;
+	m_bLevelInitialized = true;
 
 	m_Input.LevelInit();
 
@@ -1419,12 +1359,12 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	// How many files this read is what the next level's reload decision needs.
 	m_nPreviousMapParticleFiles = m_ParticleManifest.ParseMapFiles(pMapName, true);
 
-	modemanager->LevelInit(pMapName);
-	ShellParticleMgr_LevelInit();
+	m_ClientMode.LevelInit(pMapName);
+	m_ParticleMgr.LevelInit();
 
 	m_EffectsList.Flush();
-	view->LevelInit();
-	tempents->LevelInit();
+	m_Engines.m_pViewRender->LevelInit();
+	m_Engines.m_pTempEnts->LevelInit();
 	// ResetToneMapping( 1.0 )'s native half.
 	{
 		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
@@ -1439,7 +1379,7 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	if (pRuntime)
 		pRuntime->LevelInitPreEntity();
 
-	gHUD.LevelInit();
+	m_Hud.LevelInit();
 }
 
 void CShellClientDLL::LevelInitPostEntity()
@@ -1451,34 +1391,27 @@ void CShellClientDLL::LevelInitPostEntity()
 
 void CShellClientDLL::ResetStringTablePointers()
 {
-	g_pStringTableParticleEffectNames = NULL;
-	g_StringTableEffectDispatch = NULL;
-	g_StringTableVguiScreen = NULL;
-	g_pStringTableMaterials = NULL;
-	g_pStringTableInfoPanel = NULL;
-	g_pStringTableClientSideChoreoScenes = NULL;
-	g_pStringTableServerMapCycle = NULL;
+	m_Engines.m_pEffectDispatchTable = nullptr;
+	m_Engines.m_pParticleEffectNames = nullptr;
 }
 
 void CShellClientDLL::LevelShutdown()
 {
-	if (!g_bLevelInitialized)
+	if (!m_bLevelInitialized)
 		return;
 
-	g_bLevelInitialized = false;
-
-	EntityAbs_SetRecomputationsEnabled(false);
+	m_bLevelInitialized = false;
 
 	m_Systems.LevelShutdownPreEntity();
 
-	modemanager->LevelShutdown();
+	m_ClientMode.LevelShutdown();
 
 	// The client mode's level shutdown reset the third-person camera (stock's
 	// g_ThirdPersonManager.Init); the camera is managed's.
 	m_Input.ThirdPersonInit();
 
 	// Temp entities go before the entity list so the te_* can clean up.
-	tempents->LevelShutdown();
+	m_Engines.m_pTempEnts->LevelShutdown();
 
 	// Shells, then the world, then the post-entity system shutdown: the server's order, and
 	// a shell's destructor can reach the world. Both must precede the subsystem reset below,
@@ -1487,7 +1420,7 @@ void CShellClientDLL::LevelShutdown()
 	// After the temp entities and before the post-entity system pass, which resets
 	// subsystems a surviving shell would hold handles into.
 	const int nShells = m_Standalone.LevelShutdown();
-	const bool bWorld = SourceSharp_ClientWorldLevelShutdown();
+	const bool bWorld = m_World.LevelShutdown();
 
 	Msg("[SourceSharp] client level shutdown: destroyed %d standalone shell(s), "
 		"world %s\n",
@@ -1495,22 +1428,20 @@ void CShellClientDLL::LevelShutdown()
 
 	m_Systems.LevelShutdownPostEntity();
 
-	view->LevelShutdown();
+	m_Engines.m_pViewRender->LevelShutdown();
 	m_Beams.ClearBeams();
 	// The new-style effects removed, then the particle materials released.
 	m_NewParticles.RemoveAll();
-	ShellParticleMgr_LevelShutdown();
+	m_ParticleMgr.LevelShutdown();
 
 	m_Input.StopAllRumble();
 
-	gHUD.LevelShutdown();
+	m_Hud.LevelShutdown();
 
 	m_CenterPrint.Clear();
 
-	messagechars->Clear();
-
-	g_pParticleSystemMgr->UncacheAllParticleSystems();
-	UncacheAllMaterials();
+	m_Engines.m_pParticleMgr->UncacheAllParticleSystems();
+	m_MaterialCache.UncacheAll();
 
 	// String tables are cleared on disconnect, so reset the global pointers.
 	ResetStringTablePointers();
@@ -1551,75 +1482,45 @@ void CShellClientDLL::VoiceStatus(int entindex, qboolean bTalking)
 		pUi->VoiceStatus(entindex, bTalking ? 1 : 0);
 }
 
-void OnMaterialStringTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
-								  const char* newString, void const* newData)
+// String-table callbacks: the object they are installed with is this DLL object.
+void CShellClientDLL::OnMaterialTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
+											 const char* newString, void const* newData)
 {
-	g_ShellClientDLL.PrecacheMaterial(newString);
-	RequestCacheUsedMaterials();
+	CMaterialCacheClient& cache = static_cast<CShellClientDLL*>(object)->m_MaterialCache;
+	cache.Precache(newString);
+	cache.RequestCache();
 }
 
-void OnParticleSystemStringTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
-										const char* newString, void const* newData)
+void CShellClientDLL::OnParticleTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
+											 const char* newString, void const* newData)
 {
-	g_pParticleSystemMgr->PrecacheParticleSystem(newString);
-	RequestCacheUsedMaterials();
-}
-
-void OnVguiScreenTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber, const char* newString,
-							  void const* newData)
-{
-	// No vgui screen class is compiled into this client, so there is nothing to precache.
-}
-
-// Preloads the string on the client.
-void OnSceneStringTableChanged(void* object, INetworkStringTable* stringTable, int stringNumber, const char* newString,
-							   void const* newData)
-{
+	CShellClientDLL* pDll = static_cast<CShellClientDLL*>(object);
+	pDll->m_Engines.m_pParticleMgr->PrecacheParticleSystem(newString);
+	pDll->m_MaterialCache.RequestCache();
 }
 
 // The table definition has been parsed but no data added yet.
 void CShellClientDLL::InstallStringTableCallback(const char* tableName)
 {
-	if (!Q_strcasecmp(tableName, "VguiScreen"))
+	if (!Q_strcasecmp(tableName, "Materials"))
 	{
-		g_StringTableVguiScreen = m_Engines.m_pStringTables->FindTable(tableName);
-
-		g_StringTableVguiScreen->SetStringChangedCallback(NULL, OnVguiScreenTableChanged);
-	}
-	else if (!Q_strcasecmp(tableName, "Materials"))
-	{
-		g_pStringTableMaterials = m_Engines.m_pStringTables->FindTable(tableName);
-
-		g_pStringTableMaterials->SetStringChangedCallback(NULL, OnMaterialStringTableChanged);
+		m_Engines.m_pStringTables->FindTable(tableName)->SetStringChangedCallback(this, OnMaterialTableChanged);
 	}
 	else if (!Q_strcasecmp(tableName, "EffectDispatch"))
 	{
-		g_StringTableEffectDispatch = m_Engines.m_pStringTables->FindTable(tableName);
-	}
-	else if (!Q_strcasecmp(tableName, "InfoPanel"))
-	{
-		g_pStringTableInfoPanel = m_Engines.m_pStringTables->FindTable(tableName);
-	}
-	else if (!Q_strcasecmp(tableName, "Scenes"))
-	{
-		g_pStringTableClientSideChoreoScenes = m_Engines.m_pStringTables->FindTable(tableName);
-		g_pStringTableClientSideChoreoScenes->SetStringChangedCallback(NULL, OnSceneStringTableChanged);
+		m_Engines.m_pEffectDispatchTable = m_Engines.m_pStringTables->FindTable(tableName);
 	}
 	else if (!Q_strcasecmp(tableName, "ParticleEffectNames"))
 	{
-		g_pStringTableParticleEffectNames = m_Engines.m_pStringTables->FindTable(tableName);
-		m_Engines.m_pStringTables->SetAllowClientSideAddString(g_pStringTableParticleEffectNames, true);
-		g_pStringTableParticleEffectNames->SetStringChangedCallback(NULL, OnParticleSystemStringTableChanged);
-	}
-	else if (!Q_strcasecmp(tableName, "ServerMapCycle"))
-	{
-		g_pStringTableServerMapCycle = m_Engines.m_pStringTables->FindTable(tableName);
+		m_Engines.m_pParticleEffectNames = m_Engines.m_pStringTables->FindTable(tableName);
+		m_Engines.m_pStringTables->SetAllowClientSideAddString(m_Engines.m_pParticleEffectNames, true);
+		m_Engines.m_pParticleEffectNames->SetStringChangedCallback(this, OnParticleTableChanged);
 	}
 
-	InstallStringTableCallback_GameRules();
+	m_GameRules.InstallStringTableCallback(m_Engines.m_pStringTables);
 }
 
-void CShellClientDLL::PrecacheMaterial(const char* pMaterialName)
+void CMaterialCacheClient::Precache(const char* pMaterialName)
 {
 	Assert(pMaterialName);
 
@@ -1636,25 +1537,33 @@ void CShellClientDLL::PrecacheMaterial(const char* pMaterialName)
 	if (!IsErrorMaterial(pMaterial))
 	{
 		pMaterial->IncrementReferenceCount();
-		m_CachedMaterials.AddToTail(pMaterial);
+		m_Cached.AddToTail(pMaterial);
 	}
 	else
 	{
 		if (IsOSX())
 		{
-			printf("\n ##### CShellClientDLL::PrecacheMaterial could not find material %s (%s)", pMaterialName,
-				   pTempBuf);
+			printf("\n ##### CMaterialCacheClient::Precache could not find material %s (%s)", pMaterialName, pTempBuf);
 		}
 	}
 }
 
-void CShellClientDLL::UncacheAllMaterials()
+void CMaterialCacheClient::UncacheAll()
 {
-	for (int i = m_CachedMaterials.Count(); --i >= 0;)
+	for (int i = m_Cached.Count(); --i >= 0;)
 	{
-		m_CachedMaterials[i]->DecrementReferenceCount();
+		m_Cached[i]->DecrementReferenceCount();
 	}
-	m_CachedMaterials.RemoveAll();
+	m_Cached.RemoveAll();
+}
+
+void CMaterialCacheClient::ProcessCache()
+{
+	if (!m_bRequestCache)
+		return;
+
+	m_bRequestCache = false;
+	m_Engines.m_pMaterials->CacheUsedMaterials();
 }
 
 // One forward of the user message to managed: the payload is copied whole into one
@@ -1680,29 +1589,23 @@ void UpdatePVSNotifiers() {}
 
 void CShellClientDLL::OnRenderStart()
 {
-	MDLCACHE_CRITICAL_SECTION();
-	MDLCACHE_COARSE_LOCK();
+	MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
+	MDLCACHE_COARSE_LOCK_(m_Engines.m_pMdlCache);
 
 	m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
-	EntityAbs_SetQueriesValid(false);
-
-	{
-		EntityAbs_SetQueriesValid(true);
-		EntityAbs_SetRecomputationsEnabled(true);
-	}
 
 	// Camera simulation before OnRenderStart, which uses it.
 	m_Input.CAM_Think();
 
 	// Places the player, the view models and parent entities so attachment points are right.
-	view->OnRenderStart();
+	m_Engines.m_pViewRender->OnRenderStart();
 
-	RopeManager()->OnRenderStart();
+	m_Rope.OnRenderStart();
 
 	m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
 
 	// The world's deferred OnDataChanged: it must see a complete net update.
-	if (C_World* pWorld = GetClientWorldEntity())
+	if (C_World* pWorld = m_World.Entity())
 	{
 		pWorld->DeliverPendingDataChanged();
 	}
@@ -1715,7 +1618,7 @@ void CShellClientDLL::OnRenderStart()
 	{
 		m_Engines.m_pEngine->FireEvents();
 
-		tempents->Update();
+		m_Engines.m_pTempEnts->Update();
 
 		m_Beams.UpdateTempEntBeams();
 	}
@@ -1737,28 +1640,7 @@ void OnRenderEnd()
 // managed hears a stage before the native work it announces. The stage number is the
 // engine's ClientFrameStage_t, passed through unchanged.
 
-// How many times the crossing below was made; read by ss_cl_stage_crossings.
-uint64_t SourceSharp_ClientStageCrossings()
-{
-	return g_ShellClientDLL.ClientStageCrossings();
-}
-
-uint64_t CShellClientDLL::ClientStageCrossings() const
-{
-	return m_nClientStageCrossings;
-}
-
 // How many times the engine called FrameStageNotify.
-uint64_t CShellClientDLL::FrameStageNotifyCalls() const
-{
-	return m_nFrameStageNotifyCalls;
-}
-
-uint64_t SourceSharp_FrameStageNotifyCalls()
-{
-	return g_ShellClientDLL.FrameStageNotifyCalls();
-}
-
 void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 {
 	++m_nFrameStageNotifyCalls;
@@ -1790,17 +1672,13 @@ void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 
 		case FRAME_NET_UPDATE_START:
 		{
-			EntityAbs_SetRecomputationsEnabled(false);
-			EntityAbs_SetQueriesValid(false);
 			m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, true);
 		}
 		break;
 		case FRAME_NET_UPDATE_END:
 		{
-			ProcessCacheUsedMaterials();
+			m_MaterialCache.ProcessCache();
 
-			EntityAbs_SetRecomputationsEnabled(true);
-			EntityAbs_SetQueriesValid(true);
 			m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
 		}
 		break;
@@ -1872,7 +1750,7 @@ void CShellClientDLL::DispatchOnRestore() {}
 
 void CShellClientDLL::WriteSaveGameScreenshot(const char* pFilename)
 {
-	view->WriteSaveGameScreenshot(pFilename);
+	m_Engines.m_pViewRender->WriteSaveGameScreenshot(pFilename);
 }
 
 // The engine's close-caption slots; the captions this client shows are managed's.
@@ -1906,32 +1784,30 @@ void CShellClientDLL::OnDemoPlaybackStop() {}
 
 int CShellClientDLL::GetScreenWidth()
 {
-	return ScreenWidth();
+	return ScreenWidth(m_Engines);
 }
 
 int CShellClientDLL::GetScreenHeight()
 {
-	return ScreenHeight();
+	return ScreenHeight(m_Engines);
 }
 
 void CShellClientDLL::WriteSaveGameScreenshotOfSize(const char* pFilename, int width, int height,
 													bool bCreatePowerOf2Padded /*=false*/, bool bWriteVTF /*=false*/)
 {
-	view->WriteSaveGameScreenshotOfSize(pFilename, width, height, bCreatePowerOf2Padded, bWriteVTF);
+	m_Engines.m_pViewRender->WriteSaveGameScreenshotOfSize(pFilename, width, height, bCreatePowerOf2Padded, bWriteVTF);
 }
 
 // See RenderViewInfo_t
 void CShellClientDLL::RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
 {
-	view->RenderView(setup, nClearFlags, whatToDraw);
+	m_Engines.m_pViewRender->RenderView(setup, nClearFlags, whatToDraw);
 }
-
-void ReloadSoundEntriesInList(IFileList* pFilesToReload);
 
 // For sv_pure: the filesystem works out which files to reload.
 void CShellClientDLL::ReloadFilesInList(IFileList* pFilesToReload)
 {
-	ReloadSoundEntriesInList(pFilesToReload);
+	m_Engines.m_pSoundEmitter->ReloadSoundEntriesInList(pFilesToReload);
 }
 
 bool CShellClientDLL::HandleUiToggle()
@@ -1946,7 +1822,7 @@ bool CShellClientDLL::ShouldAllowConsole()
 
 CRenamedRecvTableInfo* CShellClientDLL::GetRenamedRecvTableInfos()
 {
-	return g_pRenamedRecvTableInfoHead;
+	return NULL;
 }
 
 // The mouth info for sounds played inside UI panels.
@@ -1957,9 +1833,9 @@ CMouthInfo* CShellClientDLL::GetClientUIMouthInfo()
 
 void CShellClientDLL::FileReceived(const char* fileName, unsigned int transferID)
 {
-	if (g_pGameRules)
+	if (m_GameRules.Rules())
 	{
-		g_pGameRules->OnFileReceived(fileName, transferID);
+		m_GameRules.Rules()->OnFileReceived(fileName, transferID);
 	}
 }
 
@@ -1967,10 +1843,10 @@ void CShellClientDLL::ClientAdjustStartSoundParams(StartSoundParams_t& params) {
 
 const char* CShellClientDLL::TranslateEffectForVisionFilter(const char* pchEffectType, const char* pchEffectName)
 {
-	if (!GameRules())
+	if (!m_GameRules.Rules())
 		return pchEffectName;
 
-	return GameRules()->TranslateEffectForVisionFilter(pchEffectType, pchEffectName);
+	return m_GameRules.Rules()->TranslateEffectForVisionFilter(pchEffectType, pchEffectName);
 }
 
 bool CShellClientDLL::DisconnectAttempt()
@@ -1982,7 +1858,7 @@ bool CShellClientDLL::DisconnectAttempt()
 
 bool CShellClientDLL::IsConnectedUserInfoChangeAllowed(IConVar* pCvar)
 {
-	return GameRules() ? GameRules()->IsConnectedUserInfoChangeAllowed(NULL) : true;
+	return m_GameRules.Rules() ? m_GameRules.Rules()->IsConnectedUserInfoChangeAllowed(NULL) : true;
 }
 
 // TF-only methods nothing is seen to call: they return stock's harmless value and record
@@ -1999,22 +1875,32 @@ void CShellClientDLL::DisplayVoiceUnavailableMessage()
 }
 
 // Prints the refusal tally; zero means every method the engine called was answered.
-CON_COMMAND(cs_cl_refusals,
-			"SourceSharp: how many times each refused IBaseClientDLL method was called (plan_entity.md 5b)")
+void CShellClientDLL::RefusalsCommand(const CCommand& args)
 {
-	ShellClientDll_PrintRefusals(g_ShellClientDLL.Refusals());
+	ShellClientDll_PrintRefusals(m_Refusals);
 }
 
 // The native count of stage crossings, which must equal the engine's FrameStageNotify
 // calls. It counts even before the runtime loads.
-uint64_t SourceSharp_ClientStageCrossings();
-uint64_t SourceSharp_FrameStageNotifyCalls();
-
-CON_COMMAND(ss_cl_stage_crossings, "ss_cl_stage_crossings -- FrameStageNotify calls vs ClientStage crossings")
+void CShellClientDLL::StageCrossingsCommand(const CCommand& args)
 {
 	Msg("[SourceSharp] FrameStageNotify: %llu call(s), %llu crossing(s) into managed code\n",
-		(unsigned long long)SourceSharp_FrameStageNotifyCalls(),
-		(unsigned long long)SourceSharp_ClientStageCrossings());
+		(unsigned long long)m_nFrameStageNotifyCalls, (unsigned long long)m_nClientStageCrossings);
+}
+
+void CShellClientDLL::EffectsReportCommand(const CCommand& args)
+{
+	SourceSharpEffects_Report(m_EffectLedger);
+}
+
+void CShellClientDLL::DumpPayloadCommand(const CCommand& args)
+{
+	SourceSharpPayload_DumpCommand(args);
+}
+
+void CShellClientDLL::NotShippedCommand(const CCommand& args)
+{
+	SourceSharp_PrintNotShipped();
 }
 
 // Sends a managed message to the server on the engine's net channel, reliable.
@@ -2087,7 +1973,7 @@ int32_t CNetChannelClient::ClientNetChannel(float* pOut, int32_t nOut)
 	i = ShellPut(pOut, nOut, i, flFrameTime);
 	i = ShellPut(pOut, nOut, i, flDeviation);
 	i = ShellPut(pOut, nOut, i, pInfo->GetTimeoutSeconds());
-	i = ShellPut(pOut, nOut, i, GetClientInterpAmount());
+	i = ShellPut(pOut, nOut, i, m_Engines.m_pConVars->ClientInterpAmount());
 	return i;
 }
 
@@ -2111,24 +1997,4 @@ int32_t CNetChannelClient::ClientNetPacket(int32_t nFlow, int32_t nFrame, float*
 	for (int nGroup = INetChannelInfo::GENERIC; nGroup <= INetChannelInfo::TOTAL; nGroup++)
 		i = ShellPut(pOut, nOut, i, (float)pInfo->GetPacketBytes(nFlow, nFrame, nGroup));
 	return i;
-}
-
-// The refused methods, one per index, with how often each was reached. Returns the method
-// count; the total goes through pOutTotal.
-int32_t SourceSharp_ClientRefusal(int32_t iIndex, char* pOutMethod, int32_t nMethodBytes, int32_t* pOutCount,
-								  int32_t* pOutTotal)
-{
-	const CShellClientDllRefusals& refusals = g_ShellClientDLL.Refusals();
-	if (pOutTotal)
-		*pOutTotal = refusals.Total();
-
-	if (iIndex >= 0 && iIndex < refusals.MethodCount())
-	{
-		if (pOutMethod && nMethodBytes > 0)
-			V_strncpy(pOutMethod, refusals.MethodAt(iIndex) ? refusals.MethodAt(iIndex) : "", nMethodBytes);
-		if (pOutCount)
-			*pOutCount = refusals.CountAt(iIndex);
-	}
-
-	return refusals.MethodCount();
 }

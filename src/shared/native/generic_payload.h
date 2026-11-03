@@ -261,6 +261,10 @@ const char* SourceSharpPayload_SendProxyName(const SendProp* pProp);
 int SourceSharpPayload_BuildRecvProps(RecvProp* pProps, int nWords, int nBlobBase);
 
 bool SourceSharpPayload_IsFastRecvProxy(const RecvProp* pProp);
+
+// cs_cl_dump_payload: the client's half of cs_sv_dump_payload.
+class CCommand;
+void SourceSharpPayload_DumpCommand(const CCommand& args);
 const char* SourceSharpPayload_RecvProxyName(const RecvProp* pProp);
 
 #endif // CLIENT_DLL

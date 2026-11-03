@@ -25,21 +25,19 @@ class CSourceSharpGameRules;
 struct CManagedAreas;
 #endif
 
-// Implements IGameRules directly. On the client g_pGameRules is set and cleared by the
-// constructor and destructor; the server's world owns its rules object.
+// Implements IGameRules directly. The client's is CGameRulesClient's; the server's world owns
+// its rules object.
 class CSourceSharpGameRules : public IGameRules
 {
 public:
 	DECLARE_CLASS_NOBASE(CSourceSharpGameRules);
-#ifdef CLIENT_DLL
-	DECLARE_NETWORKCLASS_NOBASE();
-#endif
 
 #ifndef CLIENT_DLL
 	// managed is the load's areas, read when a client connects.
 	explicit CSourceSharpGameRules(const CManagedAreas& managed);
 #else
-	CSourceSharpGameRules();
+	// viewVectors is CGameRulesClient's, which outlives this.
+	explicit CSourceSharpGameRules(const RulesViewVectors_t& viewVectors);
 #endif
 	virtual ~CSourceSharpGameRules();
 
@@ -108,9 +106,11 @@ public:
 	}
 #endif
 
-#ifndef CLIENT_DLL
 private:
+#ifndef CLIENT_DLL
 	const CManagedAreas& m_Managed;
+#else
+	const RulesViewVectors_t& m_ViewVectors;
 #endif
 };
 

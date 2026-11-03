@@ -259,7 +259,7 @@ void CSourceSharpSurfaceRenderer::DrawQuad(IBrushSurface* pBrushSurface, IMesh* 
 										   const float (*pCorners)[2], bool bGrout)
 {
 	// Stock's grout colour.
-	static const Vector s_Grout(0.41f, 0.35f, 0.24f);
+	const Vector vGrout(0.41f, 0.35f, 0.24f);
 
 	pBuilder->Begin(pMesh, MATERIAL_QUADS, 1);
 
@@ -274,7 +274,7 @@ void CSourceSharpSurfaceRenderer::DrawQuad(IBrushSurface* pBrushSurface, IMesh* 
 		pBuilder->Position3f(vAt.x, vAt.y, vAt.z);
 		pBuilder->Normal3fv(m_vNormal.Base());
 		if (bGrout)
-			pBuilder->Color4f(s_Grout.x, s_Grout.y, s_Grout.z, 1.0f);
+			pBuilder->Color4f(vGrout.x, vGrout.y, vGrout.z, 1.0f);
 		else
 			pBuilder->Color4ub(255, 255, 255, 255);
 		pBuilder->TexCoord2f(0, pCorners[i][0], pCorners[i][1]);

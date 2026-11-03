@@ -12,15 +12,13 @@
 
 #include "engine/ivmodelinfo.h"
 
-// ivmodelinfo.h's CRefCountedModelIndex declares the same global; the client's
-// typed declaration.
-extern IVModelInfoClient* modelinfo;
-
 // C_BaseAnimating::UsesPowerOfTwoFrameBufferTexture
 // (c_baseanimating.cpp:829-832): the model's own materials decide, through the
 // engine's modelinfo. A shell with no model, or an interface not yet
 // connected, does not sample the frame buffer.
-inline bool SourceSharp_ShellUsesFBTexture(const model_t* pModel, int nSkin, int nBody, void* pClientRenderable)
+inline bool SourceSharp_ShellUsesFBTexture(IVModelInfoClient* pModelInfo, const model_t* pModel, int nSkin, int nBody,
+										   void* pClientRenderable)
 {
-	return pModel != NULL && modelinfo != NULL && modelinfo->IsUsingFBTexture(pModel, nSkin, nBody, pClientRenderable);
+	return pModel != NULL && pModelInfo != NULL &&
+		pModelInfo->IsUsingFBTexture(pModel, nSkin, nBody, pClientRenderable);
 }

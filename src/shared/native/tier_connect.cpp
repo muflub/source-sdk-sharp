@@ -3,6 +3,9 @@
 // globals of the same names and types, so every reader links as before.
 
 #include "tier_connect.h"
+#ifdef CLIENT_DLL
+#include "shell_client_engine_interfaces.h"
+#endif
 
 #include "datacache/imdlcache.h"
 #include "icvar.h"
@@ -25,129 +28,60 @@
 #define SS_VGUI_SYSTEM_INTERFACE_VERSION "VGUI_System010"
 #endif
 
-// tier1: the client's console globals, which its Valve code reads (the server's console
-// is its root's CCVarRegistry). A second connect leaves the first answers alone.
+// tier2: `materials` stays a global for CMaterialReference, whose source libss_particles.so
+// also compiles against its own; the client's other tier globals are its interfaces.
 #ifdef CLIENT_DLL
-ICvar* cvar = NULL;
-ICvar* g_pCVar = NULL;
-
-static bool s_bTier1Connected = false;
-
-void SourceSharp_ConnectTier1(CreateInterfaceFn engineFactory)
-{
-	if (s_bTier1Connected || !engineFactory)
-		return;
-
-	s_bTier1Connected = true;
-
-	if (!g_pCVar)
-		cvar = g_pCVar = (ICvar*)engineFactory(CVAR_INTERFACE_VERSION, NULL);
-}
-
-void SourceSharp_DisconnectTier1()
-{
-	if (!s_bTier1Connected)
-		return;
-
-	cvar = g_pCVar = NULL;
-	s_bTier1Connected = false;
-}
-
-// tier1.h's names for the client's connect, so tier1.o stays off the link.
-void ConnectTier1Libraries(CreateInterfaceFn* pFactoryList, int nFactoryCount)
-{
-	for (int i = 0; i < nFactoryCount; i++)
-		SourceSharp_ConnectTier1(pFactoryList[i]);
-}
-
-void DisconnectTier1Libraries()
-{
-	SourceSharp_DisconnectTier1();
-}
-#endif
-
-// tier2: the globals client.so's objects import from tier2.o.
-#ifdef CLIENT_DLL
-IFileSystem* g_pFullFileSystem = NULL;
 IMaterialSystem* materials = NULL;
-IMaterialSystem* g_pMaterialSystem = NULL;
-IMaterialSystemHardwareConfig* g_pMaterialSystemHardwareConfig = NULL;
 
-void SourceSharp_ConnectTier2(CreateInterfaceFn engineFactory)
+void SourceSharp_ConnectTier2(CClientEngineInterfaces& engines, CreateInterfaceFn engineFactory)
 {
-	if (!engineFactory)
-		return;
-
-	g_pFullFileSystem = (IFileSystem*)engineFactory(FILESYSTEM_INTERFACE_VERSION, NULL);
-	g_pMaterialSystem = materials = (IMaterialSystem*)engineFactory(MATERIAL_SYSTEM_INTERFACE_VERSION, NULL);
-	g_pMaterialSystemHardwareConfig =
+	engines.m_pFileSystem = (IFileSystem*)engineFactory(FILESYSTEM_INTERFACE_VERSION, NULL);
+	engines.m_pMaterials = materials = (IMaterialSystem*)engineFactory(MATERIAL_SYSTEM_INTERFACE_VERSION, NULL);
+	engines.m_pHardwareConfig =
 		(IMaterialSystemHardwareConfig*)engineFactory(MATERIALSYSTEM_HARDWARECONFIG_INTERFACE_VERSION, NULL);
+
 	// libss_particles.so's own tier1/tier2 globals and ConVars, from the same factory.
-	if (!ParticleLib_Connect(engineFactory))
+	if (!ParticleLib_Connect(engines, engineFactory))
 		Error("[SourceSharp] libss_particles.so did not connect to the engine's interfaces\n");
 }
 
-void SourceSharp_DisconnectTier2()
+void SourceSharp_DisconnectTier2(CClientEngineInterfaces& engines)
 {
 	ParticleLib_Disconnect();
-	g_pFullFileSystem = NULL;
-	materials = g_pMaterialSystem = NULL;
-	g_pMaterialSystemHardwareConfig = NULL;
-}
-
-// Named in a CTier2AppSystem vtable, which would otherwise pull tier2.o in.
-void ConnectTier2Libraries(CreateInterfaceFn* pFactoryList, int nFactoryCount)
-{
-	for (int i = 0; i < nFactoryCount; i++)
-		SourceSharp_ConnectTier2(pFactoryList[i]);
-}
-
-void DisconnectTier2Libraries()
-{
-	SourceSharp_DisconnectTier2();
+	engines.m_pMaterials = materials = NULL;
+	engines.m_pHardwareConfig = NULL;
 }
 #endif
 
 #ifdef CLIENT_DLL
 // tier3: the model cache; the server's is its DLL tier's (CServerEngineInterfaces).
-IMDLCache* mdlcache = NULL;
 
-// tier3: the globals client.so's objects import from tier3.o.
-IMatSystemSurface* g_pMatSystemSurface = NULL;
-vgui::ISurface* g_pVGuiSurface = NULL;
-vgui::IInput* g_pVGuiInput = NULL;
-vgui::IVGui* g_pVGui = NULL;
-vgui::IPanel* g_pVGuiPanel = NULL;
-vgui::ILocalize* g_pVGuiLocalize = NULL;
-vgui::ISchemeManager* g_pVGuiSchemeManager = NULL;
-vgui::ISystem* g_pVGuiSystem = NULL;
-
-void SourceSharp_ConnectTier3(CreateInterfaceFn engineFactory)
+void SourceSharp_ConnectTier3(CClientEngineInterfaces& engines, CreateInterfaceFn engineFactory)
 {
 	if (!engineFactory)
 		return;
 
-	mdlcache = (IMDLCache*)engineFactory(MDLCACHE_INTERFACE_VERSION, NULL);
-	g_pVGui = (vgui::IVGui*)engineFactory(VGUI_IVGUI_INTERFACE_VERSION, NULL);
-	g_pVGuiInput = (vgui::IInput*)engineFactory(VGUI_INPUT_INTERFACE_VERSION, NULL);
-	g_pVGuiPanel = (vgui::IPanel*)engineFactory(VGUI_PANEL_INTERFACE_VERSION, NULL);
-	g_pVGuiSurface = (vgui::ISurface*)engineFactory(VGUI_SURFACE_INTERFACE_VERSION, NULL);
-	g_pVGuiSchemeManager = (vgui::ISchemeManager*)engineFactory(VGUI_SCHEME_INTERFACE_VERSION, NULL);
-	g_pVGuiSystem = (vgui::ISystem*)engineFactory(SS_VGUI_SYSTEM_INTERFACE_VERSION, NULL);
-	g_pVGuiLocalize = (vgui::ILocalize*)engineFactory(VGUI_LOCALIZE_INTERFACE_VERSION, NULL);
-	g_pMatSystemSurface = (IMatSystemSurface*)engineFactory(MAT_SYSTEM_SURFACE_INTERFACE_VERSION, NULL);
+	engines.m_pMdlCache = (IMDLCache*)engineFactory(MDLCACHE_INTERFACE_VERSION, NULL);
+	engines.m_pVGuiCore = (vgui::IVGui*)engineFactory(VGUI_IVGUI_INTERFACE_VERSION, NULL);
+	engines.m_pVGuiInput = (vgui::IInput*)engineFactory(VGUI_INPUT_INTERFACE_VERSION, NULL);
+	engines.m_pVGuiPanel = (vgui::IPanel*)engineFactory(VGUI_PANEL_INTERFACE_VERSION, NULL);
+	engines.m_pVGuiSurface = (vgui::ISurface*)engineFactory(VGUI_SURFACE_INTERFACE_VERSION, NULL);
+	engines.m_pVGuiSchemes = (vgui::ISchemeManager*)engineFactory(VGUI_SCHEME_INTERFACE_VERSION, NULL);
+	engines.m_pVGuiSystem = (vgui::ISystem*)engineFactory(SS_VGUI_SYSTEM_INTERFACE_VERSION, NULL);
+	engines.m_pVGuiLocalize = (vgui::ILocalize*)engineFactory(VGUI_LOCALIZE_INTERFACE_VERSION, NULL);
+	engines.m_pMatSystemSurface = (IMatSystemSurface*)engineFactory(MAT_SYSTEM_SURFACE_INTERFACE_VERSION, NULL);
 }
 
-void SourceSharp_DisconnectTier3()
+void SourceSharp_DisconnectTier3(CClientEngineInterfaces& engines)
 {
-	mdlcache = NULL;
-	g_pVGui = NULL;
-	g_pVGuiInput = NULL;
-	g_pVGuiPanel = NULL;
-	g_pVGuiSurface = NULL;
-	g_pVGuiSchemeManager = NULL;
-	g_pVGuiSystem = NULL;
-	g_pVGuiLocalize = NULL;
-	g_pMatSystemSurface = NULL;
+	engines.m_pMdlCache = NULL;
+	engines.m_pVGuiCore = NULL;
+	engines.m_pVGuiInput = NULL;
+	engines.m_pVGuiPanel = NULL;
+	engines.m_pVGuiSurface = NULL;
+	engines.m_pVGuiSchemes = NULL;
+	engines.m_pVGuiSystem = NULL;
+	engines.m_pVGuiLocalize = NULL;
+	engines.m_pMatSystemSurface = NULL;
 }
 #endif

@@ -17,16 +17,15 @@
 
 #include "shell_physics_client.h"
 #include "imanaged_areas_client.h"
-
-// Read by name by the client's shells (physics_shared.h).
-IPhysicsSurfaceProps* physprops = NULL;
-IPhysicsCollision* physcollision = NULL;
+#include "shell_client_engine_interfaces.h"
 
 bool CPhysicsClient::DLLInit(CreateInterfaceFn physicsFactory)
 {
 	if (!physicsFactory(VPHYSICS_INTERFACE_VERSION, NULL) ||
-		(physprops = (IPhysicsSurfaceProps*)physicsFactory(VPHYSICS_SURFACEPROPS_INTERFACE_VERSION, NULL)) == NULL ||
-		(physcollision = (IPhysicsCollision*)physicsFactory(VPHYSICS_COLLISION_INTERFACE_VERSION, NULL)) == NULL)
+		(m_Engines.m_pPhysProps =
+			 (IPhysicsSurfaceProps*)physicsFactory(VPHYSICS_SURFACEPROPS_INTERFACE_VERSION, NULL)) == NULL ||
+		(m_Engines.m_pPhysCollision = (IPhysicsCollision*)physicsFactory(VPHYSICS_COLLISION_INTERFACE_VERSION, NULL)) ==
+			NULL)
 	{
 		return false;
 	}
@@ -83,17 +82,17 @@ int32_t CPhysicsClient::PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* p
 	if (pSoft && nSoft > 0)
 		pSoft[0] = 0;
 
-	if (!physprops || nSurfaceProps < 0)
+	if (!m_Engines.m_pPhysProps || nSurfaceProps < 0)
 		return 0;
 
-	const surfacedata_t* pSurf = physprops->GetSurfaceData(nSurfaceProps);
+	const surfacedata_t* pSurf = m_Engines.m_pPhysProps->GetSurfaceData(nSurfaceProps);
 	if (!pSurf)
 		return 0;
 
 	if (pSurf->sounds.impactHard && pHard && nHard > 0)
-		V_strncpy(pHard, physprops->GetString(pSurf->sounds.impactHard), nHard);
+		V_strncpy(pHard, m_Engines.m_pPhysProps->GetString(pSurf->sounds.impactHard), nHard);
 	if (pSurf->sounds.impactSoft && pSoft && nSoft > 0)
-		V_strncpy(pSoft, physprops->GetString(pSurf->sounds.impactSoft), nSoft);
+		V_strncpy(pSoft, m_Engines.m_pPhysProps->GetString(pSurf->sounds.impactSoft), nSoft);
 
 	if (pOut3)
 	{
@@ -113,10 +112,10 @@ void CPhysicsClient::PhysicsClientCollideExtent(void* pObject, const float* pOri
 	pOut[0] = pOut[1] = pOut[2] = 0.0f;
 
 	IPhysicsObject* pPhysics = static_cast<IPhysicsObject*>(pObject);
-	if (!pPhysics || !physcollision || !pOrigin || !pAngles || !pDirection)
+	if (!pPhysics || !m_Engines.m_pPhysCollision || !pOrigin || !pAngles || !pDirection)
 		return;
 
-	const Vector extent = physcollision->CollideGetExtent(
+	const Vector extent = m_Engines.m_pPhysCollision->CollideGetExtent(
 		pPhysics->GetCollide(), Vector(pOrigin[0], pOrigin[1], pOrigin[2]), QAngle(pAngles[0], pAngles[1], pAngles[2]),
 		Vector(pDirection[0], pDirection[1], pDirection[2]));
 
@@ -127,10 +126,10 @@ void CPhysicsClient::PhysicsClientCollideExtent(void* pObject, const float* pOri
 
 int32_t CPhysicsClient::PhysicsClientPointContents(const float* pPoint)
 {
-	if (!pPoint || !enginetrace)
+	if (!pPoint || !m_Engines.m_pTrace)
 		return 0;
 
-	return enginetrace->GetPointContents(Vector(pPoint[0], pPoint[1], pPoint[2]));
+	return m_Engines.m_pTrace->GetPointContents(Vector(pPoint[0], pPoint[1], pPoint[2]));
 }
 
 void CPhysicsClient::PhysicsClientSplashLighting(const float* pPoint, float* pOut4)
@@ -141,8 +140,8 @@ void CPhysicsClient::PhysicsClientSplashLighting(const float* pPoint, float* pOu
 	Vector color = vec3_origin;
 	float flLuminosity = 1.0f;
 	if (pPoint)
-		FX_GetSplashLighting(m_Areas.m_pParticlesClient, Vector(pPoint[0], pPoint[1], pPoint[2]), &color,
-							 &flLuminosity);
+		FX_GetSplashLighting(m_Engines.m_pEngine, m_Areas.m_pParticlesClient, Vector(pPoint[0], pPoint[1], pPoint[2]),
+							 &color, &flLuminosity);
 
 	pOut4[0] = color.x;
 	pOut4[1] = color.y;

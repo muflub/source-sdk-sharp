@@ -67,6 +67,11 @@ steps run before landing (join, move, shoot, map-reload at least).
 
 ## Progress notes
 
+- 2026-11-02: C0-C6 reached. `client_globals_unruled` is 0 and MEMBER 0: 57 rows, FLOOR 27,
+  CONST 13, DEAD 17; locators 0; engine reads 11, all `materials`. C5 came with C3: the latches
+  and caches became members of their objects, and what remains is CONST with its reason. FLOOR
+  rose from 16 to 27, named in tools/globals-census; each row says why it could not be a member.
+  Nothing remains on a by-symbol archive excuse: the client link has no archives.
 - The client DLL object owns the shim root, the convar area, the input, the
   physics, the decal emitter, the managed frame's system row and the client
   systems table; a system that is only a forward to managed is the table's own

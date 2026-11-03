@@ -32,7 +32,6 @@
 
 #include "particles_ez.h"
 #include "c_rope.h"
-#include "studio_stats.h"
 #include "c_func_reflective_glass.h"
 #include "vgui_int.h"
 #include "ienginevgui.h"
@@ -56,6 +55,8 @@
 #include "shell_effects_list_client.h"
 #include "shell_managed_particles.h"
 #include "shell_detail_props.h"
+#include "shell_worldrender_object.h"
+#include "shell_rope_client.h"
 #include "shell_client_engine_interfaces.h"
 #include "shell_view_targets.h"
 #include "shell_view_cameras.h"
@@ -71,23 +72,15 @@
 #include "shell_standalone_client.h"
 #include "ss_image_encode.h"
 
-bool SourceSharp_ColorCorrectionActive();
-
 // shell_effects_list_client.cpp's material ids (IFxRender), as materials.
 #include "shell_view_executor_client.h"
 #include "ss_clock.h"
 
 extern void UpdateClientRenderableInPVSStatus();
+
 // viewrender.cpp's current-view setters, which stock declares at each use.
 
 // The map's tonemap overrides (viewpostprocess.cpp's globals), noted with a traced frame.
-extern bool g_bUseCustomAutoExposureMin;
-extern bool g_bUseCustomAutoExposureMax;
-extern bool g_bUseCustomBloomScale;
-extern float g_flCustomAutoExposureMin;
-extern float g_flCustomAutoExposureMax;
-extern float g_flCustomBloomScale;
-extern float g_flCustomBloomScaleMinimum;
 
 namespace ShellViewExecutor
 {
@@ -630,7 +623,7 @@ void CPlanView::Prune()
 
 void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTranslucent, float flRenderDistSq)
 {
-	MDLCACHE_CRITICAL_SECTION();
+	MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 	const bool bShadowDepth = nViewID == VIEW_SHADOW_DEPTH_TEXTURE;
 	if (!bShadowDepth)
 		m_Engines.m_pRender->BeginUpdateLightmaps();
@@ -645,7 +638,7 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 		SetupRenderInfo_t setupInfo;
 		setupInfo.m_pWorldListInfo = m_pWorldListInfo;
 		setupInfo.m_nRenderFrame = m_ViewRender.RenderablesListsNumber();
-		setupInfo.m_nDetailBuildFrame = view->BuildWorldListsNumber();
+		setupInfo.m_nDetailBuildFrame = m_Engines.m_pViewRender->BuildWorldListsNumber();
 		setupInfo.m_pRenderList = m_pRenderablesList;
 		setupInfo.m_bDrawDetailObjects = bDetail;
 		setupInfo.m_bDrawTranslucentObjects = bTranslucent;
@@ -654,13 +647,11 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 		setupInfo.m_flRenderDistSq = flRenderDistSq;
 		// The leaf system is managed: both calls answer from the managed registry.
 		if (!bShadowDepth)
-			ClientLeafSystem()->ComputeTranslucentRenderLeaf(info.m_LeafCount, info.m_pLeafList, info.m_pLeafFogVolume,
-															 m_ViewRender.RenderablesListsNumber(), nViewID);
-		ClientLeafSystem()->BuildRenderablesList(setupInfo);
+			m_Engines.m_pLeafSystem->ComputeTranslucentRenderLeaf(info.m_LeafCount, info.m_pLeafList,
+																  info.m_pLeafFogVolume,
+																  m_ViewRender.RenderablesListsNumber(), nViewID);
+		m_Engines.m_pLeafSystem->BuildRenderablesList(setupInfo);
 	}
-
-	if (nViewID == VIEW_MAIN)
-		StudioStats_FindClosestEntity(m_pRenderablesList);
 
 	if (!bShadowDepth)
 	{
@@ -688,6 +679,7 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 struct ExecutorState_t
 {
 	bool m_bHooked = false;
+	bool m_bSaidNotHooked = false;
 	bool m_bPlanFrame = false;
 	VTableSlotPatch::Patch m_BuildRenderablesPatch = {};
 
@@ -748,7 +740,8 @@ public:
 					  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps,
 					  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis, CPrecipitationClient& precipitation,
 					  CShadowsClient& shadows, CHudUiClient& hudUi, CViewCameras& cameras,
-					  CViewTargetsClient& viewTargets, const CClientEngineInterfaces& engines)
+					  CViewTargetsClient& viewTargets, const CClientEngineInterfaces& engines, CRopeClient& rope,
+					  CWorldRenderClient& worldRender)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -766,6 +759,8 @@ public:
 		, m_Cameras(cameras)
 		, m_ViewTargets(viewTargets)
 		, m_Engines(engines)
+		, m_Rope(rope)
+		, m_WorldRender(worldRender)
 	{
 	}
 
@@ -841,6 +836,8 @@ private:
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
 	CShellDetailProps& m_DetailProps;
+	CWorldRenderClient& m_WorldRender;
+	CRopeClient& m_Rope;
 	const CClientEngineInterfaces& m_Engines;
 	CViewTargetsClient& m_ViewTargets;
 	CViewCameras& m_Cameras;
@@ -1059,9 +1056,9 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	in.FrameTime = m_Engines.m_pGlobals->frametime;
 	in.FrameCount = m_Engines.m_pGlobals->framecount;
 	in.MaxClients = m_Engines.m_pGlobals->maxClients;
-	in.HdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
+	in.HdrType = m_Engines.m_pHardwareConfig->GetHDRType();
 	in.DxLevel = m_Engines.m_pEngine->GetDXSupportLevel();
-	in.UseFastClipping = g_pMaterialSystemHardwareConfig->UseFastClipping() ? 1 : 0;
+	in.UseFastClipping = m_Engines.m_pHardwareConfig->UseFastClipping() ? 1 : 0;
 	in.IsHammerRunning = m_Engines.m_pEngine->IsHammerRunning() ? 1 : 0;
 	in.ScreenAspect = m_Engines.m_pEngine->GetScreenAspectRatio();
 	in.ClientModeDrawFog = m_ClientMode.ShouldDrawFog() ? 1 : 0;
@@ -1117,14 +1114,14 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	if (fog.m_nVisibleFogVolume != -1)
 	{
 		in.ViewPlaneIntersectsWater = ViewPlaneIntersectsWater(setup, fog.m_flWaterHeight, fog.m_nVisibleFogVolume);
-		ITexture* pReflection = ShellRenderTarget(SS_RT_WaterReflection);
-		ITexture* pRefraction = ShellRenderTarget(SS_RT_WaterRefraction);
+		ITexture* pReflection = m_Engines.m_pRenderTargets->Target(SS_RT_WaterReflection);
+		ITexture* pRefraction = m_Engines.m_pRenderTargets->Target(SS_RT_WaterRefraction);
 		in.ReflectionWidth = pReflection ? pReflection->GetActualWidth() : 0;
 		in.ReflectionHeight = pReflection ? pReflection->GetActualHeight() : 0;
 		in.RefractionWidth = pRefraction ? pRefraction->GetActualWidth() : 0;
 		in.RefractionHeight = pRefraction ? pRefraction->GetActualHeight() : 0;
 	}
-	view->GetWaterLODParams(in.CheapWaterStart, in.CheapWaterEnd);
+	m_Engines.m_pViewRender->GetWaterLODParams(in.CheapWaterStart, in.CheapWaterEnd);
 
 	cplane_t glass;
 	in.GlassInView = IsReflectiveGlassInView(setup, glass) ? 1 : 0;
@@ -1149,7 +1146,7 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	in.FadeColor[3] = (byte)fade[3];
 	in.FadeBlend = fade[4] != 0 ? 1 : 0;
 
-	if (IMaterial* pOverlay = view->GetScreenOverlayMaterial())
+	if (IMaterial* pOverlay = m_Engines.m_pViewRender->GetScreenOverlayMaterial())
 	{
 		in.ScreenOverlay = 1;
 		in.ScreenOverlayFullFrame = pOverlay->NeedsFullFrameBufferTexture() ? 1 : 0;
@@ -1202,13 +1199,13 @@ void CViewExecutorImpl::NoteFrameEnvironment()
 	RenderTrace::Note("env\trealtime\t%.9g", m_Engines.m_pGlobals->realtime);
 	RenderTrace::Note("env\tcurtime\t%.9g", m_Engines.m_pGlobals->curtime);
 	RenderTrace::Note("env\tframetime\t%.9g", m_Engines.m_pGlobals->frametime);
-	RenderTrace::Note("env\thdrtype\t%d", (int)g_pMaterialSystemHardwareConfig->GetHDRType());
+	RenderTrace::Note("env\thdrtype\t%d", (int)m_Engines.m_pHardwareConfig->GetHDRType());
 	RenderTrace::Note("env\tdxlevel\t%d", m_Engines.m_pEngine->GetDXSupportLevel());
-	RenderTrace::Note("env\thwdxlevel\t%d", g_pMaterialSystemHardwareConfig->GetDXSupportLevel());
+	RenderTrace::Note("env\thwdxlevel\t%d", m_Engines.m_pHardwareConfig->GetDXSupportLevel());
 	RenderTrace::Note("env\tmaphashdrlighting\t%d", m_Engines.m_pEngine->MapHasHDRLighting() ? 1 : 0);
-	RenderTrace::Note("env\tcandosrgbreadfromrts\t%d", g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0);
-	RenderTrace::Note("env\tfakesrgbwrite\t%d", g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ? 1 : 0);
-	RenderTrace::Note("env\tsupportsps20\t%d", g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0);
+	RenderTrace::Note("env\tcandosrgbreadfromrts\t%d", m_Engines.m_pHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0);
+	RenderTrace::Note("env\tfakesrgbwrite\t%d", m_Engines.m_pHardwareConfig->FakeSRGBWrite() ? 1 : 0);
+	RenderTrace::Note("env\tsupportsps20\t%d", m_Engines.m_pHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0);
 	RenderTrace::Note("env\ttonemapscalelinear\t%.9g,%.9g,%.9g", vScale.x, vScale.y, vScale.z);
 	RenderTrace::Note("env\tviewport\t%d,%d,%d,%d", nVx, nVy, nVw, nVh);
 	// The frame's starting copy texture, which a frame's restore names.
@@ -1217,11 +1214,13 @@ void CViewExecutorImpl::NoteFrameEnvironment()
 	RenderTrace::Note("env\tvideomodeheight\t%d",
 					  m_Engines.m_pMaterials->GetCurrentConfigForVideoCard().m_VideoMode.m_Height);
 	RenderTrace::Note("env\tgamedirectory\t%s", m_Engines.m_pEngine->GetGameDirectory());
-	RenderTrace::Note("env\tcustomtonemap\t%d,%d,%d,%.9g,%.9g,%.9g,%.9g", g_bUseCustomAutoExposureMin ? 1 : 0,
-					  g_bUseCustomAutoExposureMax ? 1 : 0, g_bUseCustomBloomScale ? 1 : 0, g_flCustomAutoExposureMin,
-					  g_flCustomAutoExposureMax, g_flCustomBloomScale, g_flCustomBloomScaleMinimum);
+	RenderTrace::Note("env\tcustomtonemap\t%d,%d,%d,%.9g,%.9g,%.9g,%.9g",
+					  m_WorldRender.m_bUseCustomAutoExposureMin ? 1 : 0,
+					  m_WorldRender.m_bUseCustomAutoExposureMax ? 1 : 0, m_WorldRender.m_bUseCustomBloomScale ? 1 : 0,
+					  m_WorldRender.m_flCustomAutoExposureMin, m_WorldRender.m_flCustomAutoExposureMax,
+					  m_WorldRender.m_flCustomBloomScale, m_WorldRender.m_flCustomBloomScaleMinimum);
 
-	ICvar::Iterator iter(g_pCVar);
+	ICvar::Iterator iter(m_Engines.m_pCvar);
 	for (iter.SetFirst(); iter.IsValid(); iter.Next())
 	{
 		ConCommandBase* pBase = iter.Get();
@@ -1335,8 +1334,6 @@ void CViewExecutorImpl::BuildViewScene(ViewSceneBuffer_t& out, WorldListInfo_t* 
 			const model_t* pModel = pRenderable->GetModel();
 			if (pModel && m_Engines.m_pModelInfo->GetModelType(pModel) == mod_brush)
 				flags |= 32;
-			if (pRenderable == g_pStudioStatsEntity)
-				flags |= 64;
 			pEntry->Flags = flags;
 			IClientUnknown* pUnknown = pRenderable->GetIClientUnknown();
 			IClientEntity* pEntity = pUnknown ? pUnknown->GetIClientEntity() : NULL;
@@ -1353,11 +1350,11 @@ ITexture* CViewExecutorImpl::Target(int nTarget)
 	switch (nTarget)
 	{
 		case RENDER_TARGET_FullFrameFB0:
-			return ShellRenderTarget(SS_RT_FullFrameFrameBuffer0);
+			return m_Engines.m_pRenderTargets->Target(SS_RT_FullFrameFrameBuffer0);
 		case RENDER_TARGET_WaterReflection:
-			return ShellRenderTarget(SS_RT_WaterReflection);
+			return m_Engines.m_pRenderTargets->Target(SS_RT_WaterReflection);
 		case RENDER_TARGET_WaterRefraction:
-			return ShellRenderTarget(SS_RT_WaterRefraction);
+			return m_Engines.m_pRenderTargets->Target(SS_RT_WaterRefraction);
 		case RENDER_TARGET_Saved:
 			return State().m_pSavedRenderTarget;
 		case RENDER_TARGET_ViewTarget0:
@@ -1382,7 +1379,7 @@ void CViewExecutorImpl::SetClearColorToFogColor()
 	unsigned char ucFogColor[3];
 	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 	pRenderContext->GetFogColor(ucFogColor);
-	if (g_pMaterialSystemHardwareConfig->GetHDRType() == HDR_TYPE_INTEGER)
+	if (m_Engines.m_pHardwareConfig->GetHDRType() == HDR_TYPE_INTEGER)
 	{
 		float scale = LinearToGammaFullRange(pRenderContext->GetToneMappingScaleLinear().x);
 		ucFogColor[0] *= scale;
@@ -1399,7 +1396,7 @@ bool CViewExecutorImpl::UpdateRefractIfNeededByList(CUtlVector<IClientRenderable
 		IClientRenderable* pRenderable = list[i]->GetIClientUnknown()->GetClientRenderable();
 		if (pRenderable->UsesPowerOfTwoFrameBufferTexture())
 		{
-			UpdateRefractTexture();
+			UpdateRefractTexture(m_Engines);
 			return true;
 		}
 	}
@@ -1427,14 +1424,14 @@ void CViewExecutorImpl::ViewModels(const CViewSetup& setup, bool bDrawPlayer)
 	float one[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 	m_Engines.m_pRender->SetColorModulation(one);
 	m_Engines.m_pRender->SetBlend(1.0f);
-	m_Engines.m_pRender->Push3DView(setup, 0, NULL, view->GetFrustum(), NULL);
+	m_Engines.m_pRender->Push3DView(setup, 0, NULL, m_Engines.m_pViewRender->GetFrustum(), NULL);
 	pRenderContext->DepthRange(0.0f, 0.1f);
 
 	if (bDrawPlayer)
 	{
 		CUtlVector<IClientRenderable*> opaque(32);
 		CUtlVector<IClientRenderable*> translucent(32);
-		ClientLeafSystem()->CollateViewModelRenderables(opaque, translucent);
+		m_Engines.m_pLeafSystem->CollateViewModelRenderables(opaque, translucent);
 		if (!UpdateRefractIfNeededByList(opaque))
 			UpdateRefractIfNeededByList(translucent);
 		DrawRenderablesInList(opaque, 0);
@@ -1442,7 +1439,7 @@ void CViewExecutorImpl::ViewModels(const CViewSetup& setup, bool bDrawPlayer)
 	}
 
 	pRenderContext->DepthRange(0.0f, 1.0f);
-	m_Engines.m_pRender->PopView(view->GetFrustum());
+	m_Engines.m_pRender->PopView(m_Engines.m_pViewRender->GetFrustum());
 	pRenderContext->MatrixMode(MATERIAL_PROJECTION);
 	pRenderContext->PopMatrix();
 }
@@ -1452,13 +1449,13 @@ void CViewExecutorImpl::DrawOverlayMaterial(IMaterial* pMaterial, int nBranch, i
 {
 	if (nBranch == 1)
 	{
-		DrawScreenEffectMaterial(pMaterial, x, y, w, h);
+		DrawScreenEffectMaterial(m_Engines, pMaterial, x, y, w, h);
 	}
 	else if (nBranch == 2)
 	{
-		UpdateRefractTexture(x, y, w, h, true);
+		UpdateRefractTexture(m_Engines, x, y, w, h, true);
 		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
-		ITexture* pTexture = ShellRenderTarget(SS_RT_PowerOfTwoFrameBuffer);
+		ITexture* pTexture = m_Engines.m_pRenderTargets->Target(SS_RT_PowerOfTwoFrameBuffer);
 		int sw = pTexture->GetActualWidth();
 		int sh = pTexture->GetActualHeight();
 		pRenderContext->DrawScreenSpaceRectangle(pMaterial, 0, 0, w, h, 0, 0, sw - 1, sh - 1, sw, sh);
@@ -1479,7 +1476,7 @@ void CViewExecutorImpl::UnderwaterOverlay()
 	int x, y, w, h;
 	pRenderContext->GetViewport(x, y, w, h);
 	if (pOverlay->NeedsFullFrameBufferTexture())
-		DrawScreenEffectMaterial(pOverlay, x, y, w, h);
+		DrawScreenEffectMaterial(m_Engines, pOverlay, x, y, w, h);
 	else if (pOverlay->NeedsPowerOfTwoFrameBufferTexture())
 		DrawOverlayMaterial(pOverlay, 2, x, y, w, h);
 	else
@@ -1499,10 +1496,10 @@ void CViewExecutorImpl::HudPaint(const CViewSetup& setup)
 	m_HudUi.PlaquePreRender();
 	vgui::VPANEL root = m_Engines.m_pVGui->GetPanel(PANEL_CLIENTDLL);
 	if (root != 0)
-		vgui::ipanel()->SetSize(root, viewWidth, viewHeight);
+		m_Engines.m_pVGuiPanel->SetSize(root, viewWidth, viewHeight);
 	root = m_Engines.m_pVGui->GetPanel(PANEL_CLIENTDLL_TOOLS);
 	if (root != 0)
-		vgui::ipanel()->SetSize(root, viewWidth, viewHeight);
+		m_Engines.m_pVGuiPanel->SetSize(root, viewWidth, viewHeight);
 
 	m_ViewRender.AllowCurrentViewAccess(true);
 	m_Engines.m_pRender->VGui_Paint(PAINT_INGAMEPANELS);
@@ -1606,16 +1603,17 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			case RENDER_OP_Push3DView:
 				if (op.I[3])
-					m_Engines.m_pRender->Push3DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum(),
-													Target(op.I[2]));
+					m_Engines.m_pRender->Push3DView(setup, op.I[0], Target(op.I[1]),
+													m_Engines.m_pViewRender->GetFrustum(), Target(op.I[2]));
 				else
-					m_Engines.m_pRender->Push3DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum());
+					m_Engines.m_pRender->Push3DView(setup, op.I[0], Target(op.I[1]),
+													m_Engines.m_pViewRender->GetFrustum());
 				break;
 			case RENDER_OP_Push2DView:
-				m_Engines.m_pRender->Push2DView(setup, op.I[0], Target(op.I[1]), view->GetFrustum());
+				m_Engines.m_pRender->Push2DView(setup, op.I[0], Target(op.I[1]), m_Engines.m_pViewRender->GetFrustum());
 				break;
 			case RENDER_OP_PopView:
-				m_Engines.m_pRender->PopView(view->GetFrustum());
+				m_Engines.m_pRender->PopView(m_Engines.m_pViewRender->GetFrustum());
 				break;
 			case RENDER_OP_SetupCurrentView:
 				m_ViewRender.SetupCurrentView(setup.origin, setup.angles, op.I[0], true);
@@ -1799,7 +1797,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
 				state.m_FrameBufferCopies.AddToTail(ctx->GetFrameBufferCopyTexture(0));
 				if (op.I[0])
-					ctx->SetFrameBufferCopyTexture(ShellRenderTarget(SS_RT_PowerOfTwoFrameBuffer));
+					ctx->SetFrameBufferCopyTexture(m_Engines.m_pRenderTargets->Target(SS_RT_PowerOfTwoFrameBuffer));
 				break;
 			}
 			case RENDER_OP_FrameBufferCopyPop:
@@ -1856,22 +1854,22 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				}
 				break;
 			case RENDER_OP_RopeResetCache:
-				RopeManager()->ResetRenderCache();
+				m_Rope.ResetRenderCache();
 				break;
 			case RENDER_OP_ParticleSystemResetCache:
-				g_pParticleSystemMgr->ResetRenderCache();
+				m_Engines.m_pParticleMgr->ResetRenderCache();
 				break;
 			case RENDER_OP_RopeDrawCache:
-				RopeManager()->DrawRenderCache(op.I[0] != 0);
+				m_Rope.DrawRenderCache(op.I[0] != 0);
 				break;
 			case RENDER_OP_ParticleSystemDrawCache:
-				g_pParticleSystemMgr->DrawRenderCache(op.I[0] != 0);
+				m_Engines.m_pParticleMgr->DrawRenderCache(op.I[0] != 0);
 				break;
 			case RENDER_OP_ParticleSingletons:
 				m_Particles.DrawSingletons(op.I[0] != 0);
 				break;
 			case RENDER_OP_UpdateFullScreenDepthTexture:
-				UpdateFullScreenDepthTexture();
+				UpdateFullScreenDepthTexture(m_Engines);
 				break;
 			case RENDER_OP_FullScreenDepthTextureValidity:
 			{
@@ -1913,10 +1911,10 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				FrameBufferForEntity(op);
 				break;
 			case RENDER_OP_UpdateRefractTexture:
-				UpdateRefractTexture();
+				UpdateRefractTexture(m_Engines);
 				break;
 			case RENDER_OP_UpdateScreenEffectTexture:
-				UpdateScreenEffectTexture();
+				UpdateScreenEffectTexture(m_Engines);
 				break;
 
 			// The second camera's pass.
@@ -1942,7 +1940,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				if (IMaterial* pMaterial = m_Effects.MaterialOf(op.I[0]))
 				{
 					if (!IsErrorMaterial(pMaterial))
-						DrawScreenEffectMaterial(pMaterial, setup.x, setup.y, setup.width, setup.height);
+						DrawScreenEffectMaterial(m_Engines, pMaterial, setup.x, setup.y, setup.width, setup.height);
 				}
 				break;
 			case RENDER_OP_DebugLightmapPage:
@@ -2037,7 +2035,8 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				src.width = op.I[2];
 				src.height = op.I[3];
 				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
-				ctx->CopyRenderTargetToTextureEx(ShellRenderTarget(SS_RT_WaterRefraction), 0, &src, NULL);
+				ctx->CopyRenderTargetToTextureEx(m_Engines.m_pRenderTargets->Target(SS_RT_WaterRefraction), 0, &src,
+												 NULL);
 				break;
 			}
 			case RENDER_OP_PushCustomClipPlane:
@@ -2105,7 +2104,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			}
 			case RENDER_OP_ScreenOverlay:
-				if (IMaterial* pOverlay = view->GetScreenOverlayMaterial())
+				if (IMaterial* pOverlay = m_Engines.m_pViewRender->GetScreenOverlayMaterial())
 					DrawOverlayMaterial(pOverlay, op.I[4], op.I[0], op.I[1], op.I[2], op.I[3]);
 				break;
 			case RENDER_OP_EnginePostProcessing:
@@ -2148,7 +2147,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			}
 			case RENDER_OP_Skybox3DAreaBitsRestore:
-				*render->GetAreaBits() = state.m_pSavedAreaBits;
+				*m_Engines.m_pRender->GetAreaBits() = state.m_pSavedAreaBits;
 				break;
 			case RENDER_OP_ViewSetupVis:
 			{
@@ -2178,7 +2177,7 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				rect.width = op.I[2];
 				rect.height = op.I[3];
 				CMatRenderContextPtr ctx(m_Engines.m_pMaterials);
-				ctx->CopyRenderTargetToTextureEx(ShellRenderTarget(SS_RT_Fullscreen), 0, &rect, &rect);
+				ctx->CopyRenderTargetToTextureEx(m_Engines.m_pRenderTargets->Target(SS_RT_Fullscreen), 0, &rect, &rect);
 				break;
 			}
 			case RENDER_OP_SetCurrentViewSetup:
@@ -2208,8 +2207,8 @@ void CViewExecutorImpl::ViewScene(CPlanView* pView, const SourceSharpRenderOp_t&
 	const int nFlags[2] = {op.I[0], op.I[1]};
 	CClientRenderablesList* pList = pView->RenderList();
 	ViewSceneBuffer_t scene;
-	BuildViewScene(scene, pView->WorldInfo(), pList, view->BuildWorldListsNumber(), pView->WorldList(), nFlags,
-				   nOpIndex);
+	BuildViewScene(scene, pView->WorldInfo(), pList, m_Engines.m_pViewRender->BuildWorldListsNumber(),
+				   pView->WorldList(), nFlags, nOpIndex);
 
 	pView->m_Entries.RemoveAll();
 	if (pList)
@@ -2268,21 +2267,21 @@ void CViewExecutorImpl::FrameBufferForEntity(const SourceSharpRenderOp_t& op)
 	if (op.I[2] == 0)
 	{
 		if (rt && bFull)
-			UpdateScreenEffectTexture(0, 0, 0, rt->GetActualWidth(), rt->GetActualHeight(), true);
+			UpdateScreenEffectTexture(m_Engines, 0, 0, 0, rt->GetActualWidth(), rt->GetActualHeight(), true);
 		else if (bPow2)
-			UpdateRefractTexture();
+			UpdateRefractTexture(m_Engines);
 		return;
 	}
 	if (rt)
 	{
 		if (bFull)
-			UpdateScreenEffectTexture(0, 0, 0, rt->GetActualWidth(), rt->GetActualHeight(), true);
+			UpdateScreenEffectTexture(m_Engines, 0, 0, 0, rt->GetActualWidth(), rt->GetActualHeight(), true);
 		else if (bPow2)
-			UpdateRefractTexture(0, 0, rt->GetActualWidth(), rt->GetActualHeight());
+			UpdateRefractTexture(m_Engines, 0, 0, rt->GetActualWidth(), rt->GetActualHeight());
 	}
 	else if (bPow2)
 	{
-		UpdateRefractTexture();
+		UpdateRefractTexture(m_Engines);
 	}
 }
 
@@ -2330,7 +2329,7 @@ ITexture* CViewExecutorImpl::PostTexture(int nTexture)
 	switch (nTexture)
 	{
 		case 1:
-			return ShellRenderTarget(SS_RT_FullFrameFrameBuffer0);
+			return m_Engines.m_pRenderTargets->Target(SS_RT_FullFrameFrameBuffer0);
 		case 2:
 			return m_Engines.m_pMaterials->FindTexture("_rt_SmallFB0", TEXTURE_GROUP_RENDER_TARGET);
 		case 3:
@@ -2370,11 +2369,11 @@ void CViewExecutorImpl::PostDumpTga(int nWidth, int nHeight, const char* pszName
 	}
 	char szPath[MAX_PATH];
 	V_snprintf(szPath, sizeof(szPath), "//MOD/%d_%s_PC.tga", nIndex, pszName);
-	FileHandle_t hFile = g_pFullFileSystem->Open(szPath, "wb");
+	FileHandle_t hFile = m_Engines.m_pFileSystem->Open(szPath, "wb");
 	if (hFile)
 	{
-		g_pFullFileSystem->Write(pFile, nFileBytes, hFile);
-		g_pFullFileSystem->Close(hFile);
+		m_Engines.m_pFileSystem->Write(pFile, nFileBytes, hFile);
+		m_Engines.m_pFileSystem->Close(hFile);
 	}
 	free(pFile);
 }
@@ -2399,15 +2398,15 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 	in.Height = h;
 	in.FlashlightOn = bFlashlight ? 1 : 0;
 	in.PostVGui = bPostVGui ? 1 : 0;
-	in.HdrType = g_pMaterialSystemHardwareConfig->GetHDRType();
+	in.HdrType = m_Engines.m_pHardwareConfig->GetHDRType();
 	in.EngineDxLevel = m_Engines.m_pEngine->GetDXSupportLevel();
-	in.HardwareDxLevel = g_pMaterialSystemHardwareConfig->GetDXSupportLevel();
+	in.HardwareDxLevel = m_Engines.m_pHardwareConfig->GetDXSupportLevel();
 	in.MapHasHdrLighting = m_Engines.m_pEngine->MapHasHDRLighting() ? 1 : 0;
-	in.CanDoSrgbReadFromRts = g_pMaterialSystemHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0;
-	in.FakeSrgbWrite = g_pMaterialSystemHardwareConfig->FakeSRGBWrite() ? 1 : 0;
-	in.SupportsPixelShaders20 = g_pMaterialSystemHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0;
-	in.ColorCorrectionActive = SourceSharp_ColorCorrectionActive() ? 1 : 0;
-	if (ITexture* pFull = ShellRenderTarget(SS_RT_FullFrameFrameBuffer0))
+	in.CanDoSrgbReadFromRts = m_Engines.m_pHardwareConfig->CanDoSRGBReadFromRTs() ? 1 : 0;
+	in.FakeSrgbWrite = m_Engines.m_pHardwareConfig->FakeSRGBWrite() ? 1 : 0;
+	in.SupportsPixelShaders20 = m_Engines.m_pHardwareConfig->SupportsPixelShaders_2_0() ? 1 : 0;
+	in.ColorCorrectionActive = m_WorldRender.ColorCorrectionActive() ? 1 : 0;
+	if (ITexture* pFull = m_Engines.m_pRenderTargets->Target(SS_RT_FullFrameFrameBuffer0))
 	{
 		in.FullFrameWidth = pFull->GetActualWidth();
 		in.FullFrameHeight = pFull->GetActualHeight();
@@ -2427,12 +2426,12 @@ bool CViewExecutorImpl::RunPostProgram(int nKind, const CViewSetup& setup, int x
 		}
 	}
 	m_Engines.m_pMaterials->GetBackBufferDimensions(in.BackBufferWidth, in.BackBufferHeight);
-	in.UseCustomAutoExposureMin = g_bUseCustomAutoExposureMin ? 1 : 0;
-	in.UseCustomAutoExposureMax = g_bUseCustomAutoExposureMax ? 1 : 0;
-	in.UseCustomBloomScale = g_bUseCustomBloomScale ? 1 : 0;
-	in.CustomAutoExposureMin = g_flCustomAutoExposureMin;
-	in.CustomAutoExposureMax = g_flCustomAutoExposureMax;
-	in.CustomBloomScale = g_flCustomBloomScale;
+	in.UseCustomAutoExposureMin = m_WorldRender.m_bUseCustomAutoExposureMin ? 1 : 0;
+	in.UseCustomAutoExposureMax = m_WorldRender.m_bUseCustomAutoExposureMax ? 1 : 0;
+	in.UseCustomBloomScale = m_WorldRender.m_bUseCustomBloomScale ? 1 : 0;
+	in.CustomAutoExposureMin = m_WorldRender.m_flCustomAutoExposureMin;
+	in.CustomAutoExposureMax = m_WorldRender.m_flCustomAutoExposureMax;
+	in.CustomBloomScale = m_WorldRender.m_flCustomBloomScale;
 	in.RealTime = m_Engines.m_pGlobals->realtime;
 	in.CurTime = m_Engines.m_pGlobals->curtime;
 	in.FrameTime = m_Engines.m_pGlobals->frametime;
@@ -2482,7 +2481,7 @@ void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 	switch (op.Kind)
 	{
 		case RENDER_OP_PostCopyScreenEffect:
-			UpdateScreenEffectTexture(0, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0);
+			UpdateScreenEffectTexture(m_Engines, 0, op.I[0], op.I[1], op.I[2], op.I[3], op.I[4] != 0);
 			break;
 		case RENDER_OP_PostSetRenderTarget:
 			ctx->SetRenderTarget(PostTexture(op.I[0]));
@@ -2504,7 +2503,7 @@ void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 			if (pMaterial)
 				ctx->DrawScreenSpaceRectangle(
 					pMaterial, op.I[1], op.I[2], op.I[3], op.I[4], op.F[0], op.F[1], op.F[2], op.F[3], op.I[5], op.I[6],
-					op.F[6] != 0.0f ? GetClientWorldRenderable() : NULL, (int)op.F[4], (int)op.F[5]);
+					op.F[6] != 0.0f ? m_Engines.m_pWorld->Renderable() : NULL, (int)op.F[4], (int)op.F[5]);
 			break;
 		}
 		case RENDER_OP_PostMaterialVarFloat:
@@ -2659,7 +2658,7 @@ void CViewExecutorImpl::PostOp(const SourceSharpRenderOp_t& op)
 				ctx->LoadIdentity();
 				state.m_bPostMeshIdentity = true;
 			}
-			ctx->Bind(pMaterial, (op.I[3] & 2) ? GetClientWorldRenderable() : NULL);
+			ctx->Bind(pMaterial, (op.I[3] & 2) ? m_Engines.m_pWorld->Renderable() : NULL);
 			state.m_pPostMesh = ctx->GetDynamicMesh(true);
 			state.m_PostMeshBuilder.Begin(state.m_pPostMesh, (MaterialPrimitiveType_t)op.I[1], op.I[2]);
 			break;
@@ -2868,7 +2867,7 @@ bool CViewExecutorImpl::InstallHooks()
 	if (state.m_bHooked)
 		return true;
 	if (!m_BuildRenderablesHook.Get() ||
-		!VTableSlotPatch::Install(ClientLeafSystem(), &IClientLeafSystem::BuildRenderablesList,
+		!VTableSlotPatch::Install(m_Engines.m_pLeafSystem, &IClientLeafSystem::BuildRenderablesList,
 								  (void*)m_BuildRenderablesHook.Get(), &state.m_BuildRenderablesPatch))
 	{
 		return false;
@@ -3015,10 +3014,9 @@ void CViewExecutorImpl::ViewRender(vrect_t* rect)
 	ExecutorState_t& state = State();
 	if (!state.m_bHooked && !InstallHooks())
 	{
-		static bool s_bSaid = false;
-		if (!s_bSaid)
+		if (!state.m_bSaidNotHooked)
 		{
-			s_bSaid = true;
+			state.m_bSaidNotHooked = true;
 			Warning(
 				"[SourceSharp] render plan: the leaf system's BuildRenderablesList could not be hooked; views draw their custom entities one by one\n");
 		}
@@ -3033,7 +3031,7 @@ void CViewExecutorImpl::ViewRender(vrect_t* rect)
 	in.CurTime = m_Engines.m_pGlobals->curtime;
 	in.LastPath = state.m_nLastPath;
 	in.LastRenderMs = state.m_flLastRenderMs;
-	GatherFrame(*rect, *view->GetPlayerViewSetup(), in);
+	GatherFrame(*rect, *m_Engines.m_pViewRender->GetPlayerViewSetup(), in);
 
 	SourceSharpRenderFrameOut_t out;
 	memset(&out, 0, sizeof(out));
@@ -3047,7 +3045,7 @@ void CViewExecutorImpl::ViewRender(vrect_t* rect)
 		state.m_bDecisionPending = true;
 	}
 
-	const bool bTrace = out.Trace != 0 && RenderTrace::Begin();
+	const bool bTrace = out.Trace != 0 && RenderTrace::Begin(m_Engines);
 	if (bTrace)
 	{
 		RenderTrace::Note("frame\tpath=%d framecount=%d rect=%d,%d,%d,%d", out.Path, in.FrameCount, in.X, in.Y,
@@ -3058,7 +3056,7 @@ void CViewExecutorImpl::ViewRender(vrect_t* rect)
 	// Every frame is drawn by the plan.
 	state.m_bPlanFrame = true;
 	const double flStart = ss::SecondsSinceStart();
-	view->Render(rect);
+	m_Engines.m_pViewRender->Render(rect);
 	state.m_flLastRenderMs = (float)((ss::SecondsSinceStart() - flStart) * 1000.0);
 	state.m_nLastPath = state.m_bPlanFrame ? 1 : 0;
 	state.m_bPlanFrame = false;
@@ -3089,7 +3087,7 @@ CViewExecutorImpl& CViewExecutor::Impl()
 	{
 		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender,
 										m_Effects, m_Particles, m_DetailProps, m_Glow, m_PixelVis, m_Precipitation,
-										m_Shadows, m_HudUi, m_Cameras, m_ViewTargets, m_Engines);
+										m_Shadows, m_HudUi, m_Cameras, m_ViewTargets, m_Engines, m_Rope, m_WorldRender);
 	}
 	return *m_pImpl;
 }

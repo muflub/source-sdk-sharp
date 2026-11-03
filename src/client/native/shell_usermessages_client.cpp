@@ -20,6 +20,7 @@
 
 #include "GameEventListener.h"
 #include "shell_client_mode.h"
+#include "shell_viewport_client.h"
 #include "shell_client_engine_interfaces.h"
 
 // Facts for managed code's VGUIMenu handler: bit 0, the viewport has a panel by
@@ -28,7 +29,7 @@ int32_t CSourceSharpClientMode::ClientViewportQuery(const char* pszPanel)
 {
 	int32_t nFacts = 0;
 
-	if (gViewPortInterface && pszPanel && gViewPortInterface->FindPanelByName(pszPanel))
+	if (m_pViewport && pszPanel && m_pViewport->FindPanelByName(pszPanel))
 		nFacts |= 1;
 
 	if (IsInfoPanelAllowed())
@@ -44,10 +45,10 @@ int32_t CSourceSharpClientMode::ClientViewportQuery(const char* pszPanel)
 void CSourceSharpClientMode::ClientViewportShow(const char* pszPanel, int32_t bShow, const unsigned char* pPairs,
 												int32_t nPairBytes, int32_t nFlags)
 {
-	if (!gViewPortInterface || !pszPanel)
+	if (!m_pViewport || !pszPanel)
 		return;
 
-	IViewPortPanel* pPanel = gViewPortInterface->FindPanelByName(pszPanel);
+	IViewPortPanel* pPanel = m_pViewport->FindPanelByName(pszPanel);
 	if (!pPanel)
 		return;
 
@@ -73,11 +74,11 @@ void CSourceSharpClientMode::ClientViewportShow(const char* pszPanel, int32_t bS
 	}
 
 	if (nFlags & 2)
-		gHUD.SetScreenShotTime(m_Engines.m_pGlobals->curtime + 1.0f);
+		m_Hud.SetScreenShotTime(m_Engines.m_pGlobals->curtime + 1.0f);
 
 	if (nFlags & 4)
 	{
-		if (IGameEvent* pEvent = gameeventmanager ? m_Engines.m_pEvents->CreateEvent("ds_screenshot") : NULL)
+		if (IGameEvent* pEvent = m_Engines.m_pEvents ? m_Engines.m_pEvents->CreateEvent("ds_screenshot") : NULL)
 		{
 			pEvent->SetFloat("delay", 0.5f);
 			m_Engines.m_pEvents->FireEventClientSide(pEvent);
@@ -90,5 +91,5 @@ void CSourceSharpClientMode::ClientViewportShow(const char* pszPanel, int32_t bS
 	}
 
 	if (nFlags & 16)
-		gViewPortInterface->ShowPanel(pPanel, bShow != 0);
+		m_pViewport->ShowPanel(pPanel, bShow != 0);
 }

@@ -103,5 +103,3 @@ public:
 
 	virtual bool IsSteamControllerActive() = 0;
 };
-
-extern ::IInput* input;

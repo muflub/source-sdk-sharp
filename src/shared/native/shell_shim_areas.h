@@ -81,21 +81,27 @@ void* ShimAreas_Acquire(CShimAreas& areas, const char* pszName);
 // A base its own class implements is held by pointer, set by the client's owner.
 
 class CStandaloneClients;
-class CShellGameMovement;
+class CWorldClient;
+class CHudUiClient;
 class CTempEnts;
 class CWindClient;
+class CTempEntBackendsClient;
 class CTempEntTablesClient;
 class CSpritesClient;
 class CParticleSystemsClient;
+class CRopeClient;
 class CBeamsClient;
+class CWorldRenderClient;
 class CViewerFacts;
 class CWorldQueryClient;
 class CSourceSharpClientMode;
 class CViewTargetsClient;
+class CRenderTargetsClient;
 class CPixelVisClient;
 class CGlowOverlaysClient;
 class CShellViewRender;
-class CHudUiClient;
+class CShellClientDllRefusals;
+class CDebugOverlayClient;
 class CManagedParticlesClient;
 class CWorldTextClient;
 class CParticleManifestClient;
@@ -106,13 +112,6 @@ class CEffectsClient;
 class CEffectsListClient;
 class CSoundscapeAudioClient;
 class CSoundPatchesClient;
-class CShadowsClient;
-
-class CShimEngineClient final : public IShimEngine
-{
-public:
-	void* GetGlobalVarsPtr() override;
-};
 
 class CShimNetworkClient final : public IShimNetwork
 {
@@ -123,6 +122,10 @@ public:
 	int32_t NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOutTable, int32_t* pOutBytes, int32_t* pOutWords,
 						int32_t* pOutProps, int32_t* pOutLive) override;
 	int32_t WorldNetDeclare(int32_t nBlobBytes) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CStandaloneClients* m_pStandaloneClients = nullptr;
+	CWorldClient* m_pWorldClient = nullptr;
 };
 
 class CShimModelsClient final : public IShimModels
@@ -136,19 +139,6 @@ public:
 	CStandaloneClients* m_pStandaloneClients = nullptr;
 };
 
-class CShimMovementClient final : public IShimMovement
-{
-public:
-	void MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,
-				   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut) override;
-	int32_t MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue) override;
-	float CurrentGravity() override;
-	void RegisterMovementParams(const SourceSharpMovementParams* pParams) override;
-
-	// What the delegated slots call, set by the tier that owns each object.
-	CShellGameMovement* m_pShellGameMovement = nullptr;
-};
-
 class CShimHudClient final : public IShimHudClient
 {
 public:
@@ -160,6 +150,7 @@ public:
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CStandaloneClients* m_pStandaloneClients = nullptr;
+	CHudUiClient* m_pHudUiClient = nullptr;
 };
 
 class CShimTempEntPoolClient final : public IShimTempEntPoolClient
@@ -220,6 +211,7 @@ public:
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CStandaloneClients* m_pStandaloneClients = nullptr;
+	CTempEntBackendsClient* m_pTempEntBackendsClient = nullptr;
 	CTempEntTablesClient* m_pTempEntTablesClient = nullptr;
 };
 
@@ -279,6 +271,7 @@ public:
 	CSpritesClient* m_pSpritesClient = nullptr;
 	CParticleSystemsClient* m_pParticleSystemsClient = nullptr;
 	CWindClient* m_pWindClient = nullptr;
+	CRopeClient* m_pRopeClient = nullptr;
 	CBeamsClient* m_pBeamsClient = nullptr;
 };
 
@@ -333,11 +326,13 @@ public:
 	int32_t ScreenOverlayGet(char* pOutName, int32_t nNameBytes) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
+	CWorldRenderClient* m_pWorldRenderClient = nullptr;
 	CStandaloneClients* m_pStandaloneClients = nullptr;
 	CViewerFacts* m_pViewerFacts = nullptr;
 	CWorldQueryClient* m_pWorldQueryClient = nullptr;
 	CSourceSharpClientMode* m_pSourceSharpClientMode = nullptr;
 	CViewTargetsClient* m_pViewTargetsClient = nullptr;
+	CRenderTargetsClient* m_pRenderTargetsClient = nullptr;
 	CPixelVisClient* m_pPixelVisClient = nullptr;
 	CGlowOverlaysClient* m_pGlowOverlaysClient = nullptr;
 	CShellViewRender* m_pShellViewRender = nullptr;
@@ -350,6 +345,9 @@ public:
 							 int32_t* pOutCount, int32_t* pOutTotal) override;
 	int32_t ClientRefusal(int32_t iIndex, char* pOutMethod, int32_t nMethodBytes, int32_t* pOutCount,
 						  int32_t* pOutTotal) override;
+
+	// What the delegated slots call, set by the tier that owns each object.
+	CShellClientDllRefusals* m_pShellClientDllRefusals = nullptr;
 };
 
 class CShimUiClient final : public IShimUiClient
@@ -387,6 +385,8 @@ public:
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CHudUiClient* m_pHudUiClient = nullptr;
+	CDebugOverlayClient* m_pDebugOverlayClient = nullptr;
+	CSourceSharpClientMode* m_pSourceSharpClientMode = nullptr;
 };
 
 class CShimParticlesClient final : public IShimParticlesClient
@@ -504,23 +504,13 @@ public:
 	CSoundPatchesClient* m_pSoundPatchesClient = nullptr;
 };
 
-class CShimFlashlightClient final : public IShimFlashlightClient
-{
-public:
-	int32_t FlashlightTexture(const char* pszName) override;
-	int32_t FlashlightSupportsBorderColor() override;
-
-	// What the delegated slots call, set by the tier that owns each object.
-	CShadowsClient* m_pShadowsClient = nullptr;
-};
-
 struct CShimAreasClient
 {
-	CShimEngineClient m_Engine;
+	IShimEngine* m_pEngine = nullptr; // CEngineAreaClient
 	IShimEvents* m_pEvents = nullptr; // CGameEvents
 	CShimNetworkClient m_Network;
 	CShimModelsClient m_Models;
-	CShimMovementClient m_Movement;
+	IShimMovement* m_pMovement = nullptr; // CShellGameMovement
 	IShimEntities* m_pEntities = nullptr; // CStandaloneClients
 	CShimHudClient m_HudClient;
 	IShimPredictionClient* m_pPredictionClient = nullptr; // CPredictionSlotsClient
@@ -541,7 +531,7 @@ struct CShimAreasClient
 	IShimInputClient* m_pInputClient = nullptr; // CSourceSharpInput
 	IShimPhysicsClient* m_pPhysicsClient = nullptr; // CPhysicsClient
 	IShimConVarsClient* m_pConVarsClient = nullptr; // CConVarsClient
-	CShimFlashlightClient m_FlashlightClient;
+	IShimFlashlightClient* m_pFlashlightClient = nullptr; // CShadowsClient
 };
 
 // The first delegate or owned area the client DLL object has not set, or NULL: a slot

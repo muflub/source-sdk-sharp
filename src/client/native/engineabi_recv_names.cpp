@@ -12,11 +12,9 @@
 #include "engineabi/recv.h"
 
 #include "client_class.h"
-#include "renamed_recvtable_compat.h"
 
 // Zero-initialised, so empty before any static constructor adds to them.
 ClientClass* g_pClientClassHead = 0;
-CRenamedRecvTableInfo* g_pRenamedRecvTableInfoHead = 0;
 
 // Read by the network-var assertions in the shared headers (debug builds).
 bool g_bUseNetworkVars = true;

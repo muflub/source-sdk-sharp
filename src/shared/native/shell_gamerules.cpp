@@ -24,6 +24,9 @@
 #include "client_entity.h"
 #endif
 #include "shell_gamerules.h"
+#ifdef CLIENT_DLL
+#include "shell_gamerules_client.h"
+#endif
 #include "shell_diagnostics.h"
 #include "sourcesharp.h"
 #ifndef CLIENT_DLL
@@ -32,7 +35,6 @@
 #ifdef CLIENT_DLL
 #include "ammodef.h"
 #include "takedamageinfo.h"
-#include "gamestringpool.h"
 #include "blast_blocking.h"
 #include "networkstringtable_clientdll.h"
 #else
@@ -78,7 +80,22 @@ uint32_t SourceSharp_HandleFromEntity(IGameEntity* pEntity);
 #endif
 
 // The hulls before managed registers its own: stock's values, so reads during level
-// init see a real hull. Static, so the client's copy is a second static, not a duplicate.
+// init see a real hull.
+#ifdef CLIENT_DLL
+CGameRulesClient::CGameRulesClient()
+	: m_ViewVectors(Vector(0, 0, 64), // VEC_VIEW
+					Vector(-16, -16, 0), // VEC_HULL_MIN
+					Vector(16, 16, 72), // VEC_HULL_MAX
+					Vector(-16, -16, 0), // VEC_DUCK_HULL_MIN
+					Vector(16, 16, 36), // VEC_DUCK_HULL_MAX
+					Vector(0, 0, 28), // VEC_DUCK_VIEW
+					Vector(-10, -10, -10), // VEC_OBS_HULL_MIN
+					Vector(10, 10, 10), // VEC_OBS_HULL_MAX
+					Vector(0, 0, 14) // VEC_DEAD_VIEWHEIGHT
+	  )
+{
+}
+#else
 static RulesViewVectors_t g_DefaultViewVectors(Vector(0, 0, 64), // VEC_VIEW
 											   Vector(-16, -16, 0), // VEC_HULL_MIN
 											   Vector(16, 16, 72), // VEC_HULL_MAX
@@ -89,6 +106,7 @@ static RulesViewVectors_t g_DefaultViewVectors(Vector(0, 0, 64), // VEC_VIEW
 											   Vector(10, 10, 10), // VEC_OBS_HULL_MAX
 											   Vector(0, 0, 14) // VEC_DEAD_VIEWHEIGHT
 );
+#endif
 
 static Vector SourceSharpVec3(const float* p)
 {
@@ -103,7 +121,7 @@ static bool SourceSharpHullIsDegenerate(const SourceSharpMovementParams* p)
 		p->vecHullMax[1] <= p->vecHullMin[1];
 }
 
-void SourceSharp_PublishViewVectors(const SourceSharpMovementParams* pParams)
+static void PublishViewVectorsTo(RulesViewVectors_t& vectors, const SourceSharpMovementParams* pParams)
 {
 	if (!pParams)
 		return;
@@ -121,16 +139,28 @@ void SourceSharp_PublishViewVectors(const SourceSharpMovementParams* pParams)
 		return;
 	}
 
-	g_DefaultViewVectors.m_vView = SourceSharpVec3(pParams->vecView);
-	g_DefaultViewVectors.m_vHullMin = SourceSharpVec3(pParams->vecHullMin);
-	g_DefaultViewVectors.m_vHullMax = SourceSharpVec3(pParams->vecHullMax);
-	g_DefaultViewVectors.m_vDuckHullMin = SourceSharpVec3(pParams->vecDuckHullMin);
-	g_DefaultViewVectors.m_vDuckHullMax = SourceSharpVec3(pParams->vecDuckHullMax);
-	g_DefaultViewVectors.m_vDuckView = SourceSharpVec3(pParams->vecDuckView);
-	g_DefaultViewVectors.m_vObsHullMin = SourceSharpVec3(pParams->vecObsHullMin);
-	g_DefaultViewVectors.m_vObsHullMax = SourceSharpVec3(pParams->vecObsHullMax);
-	g_DefaultViewVectors.m_vDeadViewHeight = SourceSharpVec3(pParams->vecDeadViewHeight);
+	vectors.m_vView = SourceSharpVec3(pParams->vecView);
+	vectors.m_vHullMin = SourceSharpVec3(pParams->vecHullMin);
+	vectors.m_vHullMax = SourceSharpVec3(pParams->vecHullMax);
+	vectors.m_vDuckHullMin = SourceSharpVec3(pParams->vecDuckHullMin);
+	vectors.m_vDuckHullMax = SourceSharpVec3(pParams->vecDuckHullMax);
+	vectors.m_vDuckView = SourceSharpVec3(pParams->vecDuckView);
+	vectors.m_vObsHullMin = SourceSharpVec3(pParams->vecObsHullMin);
+	vectors.m_vObsHullMax = SourceSharpVec3(pParams->vecObsHullMax);
+	vectors.m_vDeadViewHeight = SourceSharpVec3(pParams->vecDeadViewHeight);
 }
+
+#ifdef CLIENT_DLL
+void CGameRulesClient::PublishViewVectors(const SourceSharpMovementParams* pParams)
+{
+	PublishViewVectorsTo(m_ViewVectors, pParams);
+}
+#else
+void SourceSharp_PublishViewVectors(const SourceSharpMovementParams* pParams)
+{
+	PublishViewVectorsTo(g_DefaultViewVectors, pParams);
+}
+#endif
 
 // The server writes the rules classname into this table to tell the client to build
 // its own rules object; the client constructs its one class whatever the string.
@@ -138,32 +168,27 @@ void SourceSharp_PublishViewVectors(const SourceSharpMovementParams* pParams)
 
 #ifdef CLIENT_DLL
 
-INetworkStringTable* g_StringTableGameRules = NULL;
-
 // The server has made its rules object; make ours.
 //-----------------------------------------------------------------------------
-static void OnGameRulesCreationStringChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
-											 const char* newString, void const* newData)
+void CGameRulesClient::OnStringChanged(void* object, INetworkStringTable* stringTable, int stringNumber,
+									   const char* newString, void const* newData)
 {
-	delete g_pGameRules;
-	g_pGameRules = NULL;
+	CGameRulesClient* pThis = static_cast<CGameRulesClient*>(object);
 
-	// The constructor assigns g_pGameRules, exactly as it does on the server.
-	new CSourceSharpGameRules();
-
-	if (!g_pGameRules)
-		Error("OnGameRulesCreationStringChanged: game rules object not created");
+	// Two rules objects would leave the first leaked and unreachable.
+	delete pThis->m_pRules;
+	pThis->m_pRules = new CSourceSharpGameRules(pThis->m_ViewVectors);
 }
 
-void InstallStringTableCallback_GameRules()
+void CGameRulesClient::InstallStringTableCallback(INetworkStringTableContainer* pStringTables)
 {
-	if (g_StringTableGameRules)
+	if (m_pTable)
 		return;
 
-	g_StringTableGameRules = networkstringtable->FindTable(GAMERULES_STRINGTABLE_NAME);
+	m_pTable = pStringTables->FindTable(GAMERULES_STRINGTABLE_NAME);
 
-	if (g_StringTableGameRules)
-		g_StringTableGameRules->SetStringChangedCallback(NULL, OnGameRulesCreationStringChanged);
+	if (m_pTable)
+		m_pTable->SetStringChangedCallback(this, OnStringChanged);
 }
 
 #else
@@ -191,11 +216,6 @@ IGameRules* SourceSharp_CreateGameRules(INetworkStringTable* pRulesTable, const 
 
 #endif // CLIENT_DLL
 
-#ifdef CLIENT_DLL
-BEGIN_NETWORK_TABLE_NOBASE(CSourceSharpGameRules, DT_SourceSharpGameRules)
-END_NETWORK_TABLE()
-#endif
-
 #ifndef CLIENT_DLL
 CSourceSharpGameRules::CSourceSharpGameRules(const CManagedAreas& managed)
 	: m_Managed(managed)
@@ -203,29 +223,26 @@ CSourceSharpGameRules::CSourceSharpGameRules(const CManagedAreas& managed)
 	SOURCESHARP_TRACE();
 }
 #else
-CSourceSharpGameRules::CSourceSharpGameRules()
+CSourceSharpGameRules::CSourceSharpGameRules(const RulesViewVectors_t& viewVectors)
+	: m_ViewVectors(viewVectors)
 {
 	SOURCESHARP_TRACE();
-
-	// Two rules objects would leave the first leaked and unreachable.
-	Assert(!g_pGameRules);
-	g_pGameRules = this;
 }
 #endif
 
 CSourceSharpGameRules::~CSourceSharpGameRules()
 {
 	SOURCESHARP_TRACE();
-
-#ifdef CLIENT_DLL
-	Assert(g_pGameRules == this);
-	g_pGameRules = NULL;
-#endif
 }
 
 // Stock's values as the defaults: damage paths can run before managed registers, and
 // a zeroed table would make nothing time-based and everything take physics force.
+#ifdef CLIENT_DLL
+// The client's copy stays stock's: only the server registers its own.
+static const SourceSharpDamageRules s_DamageRules = {
+#else
 static SourceSharpDamageRules s_DamageRules = {
+#endif
 	// nTimeBased
 	DMG_PARALYZE | DMG_NERVEGAS | DMG_POISON | DMG_RADIATION | DMG_DROWNRECOVER | DMG_ACID | DMG_SLOWBURN,
 
@@ -243,6 +260,7 @@ static SourceSharpDamageRules s_DamageRules = {
 	DMG_POISON | DMG_ACID | DMG_DROWN | DMG_BURN | DMG_SLOWBURN | DMG_NERVEGAS | DMG_RADIATION | DMG_SHOCK,
 };
 
+#ifndef CLIENT_DLL
 // C# states them once at startup.
 void SourceSharp_RegisterDamageRules(const SourceSharpDamageRules* pRules)
 {
@@ -252,7 +270,6 @@ void SourceSharp_RegisterDamageRules(const SourceSharpDamageRules* pRules)
 	s_DamageRules = *pRules;
 }
 
-#ifndef CLIENT_DLL
 // Defaults for paths that run before C# registers.
 static SourceSharpGameRulesPolicy s_Policy = {
 	true, // bMultiplayer
@@ -320,5 +337,9 @@ void CSourceSharpGameRules::EndGameFrame() {}
 
 const RulesViewVectors_t* CSourceSharpGameRules::GetViewVectors() const
 {
+#ifdef CLIENT_DLL
+	return &m_ViewVectors;
+#else
 	return &g_DefaultViewVectors;
+#endif
 }

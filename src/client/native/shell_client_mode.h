@@ -15,14 +15,19 @@
 #include "inputsystem/ButtonCode.h"
 #include "iclientmode.h"
 #include "GameEventListener.h"
+#include "managed_convar_ref.h"
+#include "shell_member_command.h"
 
 #include "shell_managed_areas_client.h"
 #include "ishim_areas_client.h"
 
 class CClientEngineInterfaces;
 class CSourceSharpViewport;
+class CHud;
 class CStandaloneClients;
 class CViewTargetsClient;
+class CVguiClient;
+class IViewPort;
 class CManagedParticlesClient;
 class C_StandaloneEntity;
 
@@ -34,13 +39,15 @@ public:
 	void ClientViewportShow(const char* pszPanel, int32_t bShow, const unsigned char* pPairs, int32_t nPairBytes,
 							int32_t nFlags) override;
 
-	CSourceSharpClientMode(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+	CSourceSharpClientMode(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines, CHud& hud,
 						   CStandaloneClients& standalone, CManagedParticlesClient& particles,
-						   CViewTargetsClient& viewTargets);
+						   CViewTargetsClient& viewTargets, const CVguiClient& vgui);
 
 	virtual ~CSourceSharpClientMode();
 
 	virtual void InitViewport() OVERRIDE;
+
+	IViewPort* ViewPort() const;
 
 	virtual void Init() OVERRIDE;
 
@@ -180,11 +187,29 @@ private:
 		QAngle angles;
 	};
 
+	void ReloadLocalizationCommand(const CCommand& args);
+
+	CMemberCommand<CSourceSharpClientMode, &CSourceSharpClientMode::ReloadLocalizationCommand> m_ReloadLocalization{
+		*this, "cl_reload_localization_files", "Reloads all localization files", 0};
+
+	ConVar m_cl_show_num_particle_systems{"cl_show_num_particle_systems", "0", FCVAR_CLIENTDLL,
+										  "Display the number of active particle systems."};
+
+	// Stock's names; in_camera.cpp declares them static.
+	CManagedConVarRef m_IdealDist{"cam_idealdist"};
+	CManagedConVarRef m_IdealDistRight{"cam_idealdistright"};
+	CManagedConVarRef m_IdealDistUp{"cam_idealdistup"};
+	CManagedConVarRef m_IdealPitch{"cam_idealpitch"};
+	CManagedConVarRef m_IdealYaw{"cam_idealyaw"};
+	CManagedConVarRef m_CamCollision{"cam_collision"};
+
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;
+	CHud& m_Hud;
 	CStandaloneClients& m_Standalone;
 	CManagedParticlesClient& m_Particles;
 	CViewTargetsClient& m_ViewTargets;
+	const CVguiClient& m_Vgui;
 	CSourceSharpViewport* m_pViewport;
 	ViewOverride_t m_ViewOverride;
 };

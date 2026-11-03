@@ -3,7 +3,7 @@
 #pragma once
 
 #include "igameevents.h"
-extern IGameEventManager2* gameeventmanager;
+#include "shell_client_engine_interfaces.h"
 
 // A safer method than inheriting straight from IGameEventListener2.
 // Avoids requiring the user to remove themselves as listeners in
@@ -12,8 +12,9 @@ extern IGameEventManager2* gameeventmanager;
 class CGameEventListener : public IGameEventListener2
 {
 public:
-	CGameEventListener()
-		: m_bRegisteredForEvents(false)
+	explicit CGameEventListener(const CClientEngineInterfaces& engines)
+		: m_ListenerEngines(engines)
+		, m_bRegisteredForEvents(false)
 	{
 	}
 
@@ -24,12 +25,12 @@ public:
 		m_bRegisteredForEvents = true;
 
 		bool bServerSide = false;
-		if (gameeventmanager)
+		if (m_ListenerEngines.m_pEvents)
 		{
-			gameeventmanager->AddListener(this, name, bServerSide);
+			m_ListenerEngines.m_pEvents->AddListener(this, name, bServerSide);
 		}
 
-		AssertMsg1(gameeventmanager, "Failed to subscribe to event %s!", name);
+		AssertMsg1(m_ListenerEngines.m_pEvents, "Failed to subscribe to event %s!", name);
 	}
 
 	void StopListeningForAllEvents()
@@ -37,8 +38,8 @@ public:
 		// remove me from list
 		if (m_bRegisteredForEvents)
 		{
-			if (gameeventmanager)
-				gameeventmanager->RemoveListener(this);
+			if (m_ListenerEngines.m_pEvents)
+				m_ListenerEngines.m_pEvents->RemoveListener(this);
 			m_bRegisteredForEvents = false;
 		}
 	}
@@ -48,5 +49,6 @@ public:
 
 private:
 	// Have we registered for any events?
+	const CClientEngineInterfaces& m_ListenerEngines;
 	bool m_bRegisteredForEvents;
 };

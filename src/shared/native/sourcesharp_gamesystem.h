@@ -19,7 +19,8 @@ protected:
 
 public:
 	virtual void* GetEngineInterface(const char* pName, int* pReturnCode) = 0;
-	virtual CGlobalVarsBase& GetGlobalVars() = 0;
+	virtual bool LoadManagedSide() = 0;
+	virtual void UnloadManagedSide() = 0;
 };
 
 // The client's adapter. OnSystemStop runs the managed Shutdown slot, then

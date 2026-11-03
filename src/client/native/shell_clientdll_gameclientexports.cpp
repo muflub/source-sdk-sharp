@@ -18,17 +18,16 @@
 
 #include "game/client/IGameClientExports.h"
 #include "shell_clientdll_exports.h"
-
-// shell_clientdll.cpp's, set in its Init.
+#include "shell_client_engine_interfaces.h"
 
 // One fire of a client-side game event, the whole of both exports' bodies and
 // of the visibility edge below.
-static void FireClientGameEvent(const char* pName)
+static void FireClientGameEvent(IGameEventManager2* pEvents, const char* pName)
 {
-	IGameEvent* event = gameeventmanager->CreateEvent(pName);
+	IGameEvent* event = pEvents->CreateEvent(pName);
 	if (event)
 	{
-		gameeventmanager->FireEventClientSide(event);
+		pEvents->FireEventClientSide(event);
 	}
 }
 
@@ -50,12 +49,12 @@ void CGameClientExports::UnmutePlayerGameVoice(int playerIndex)
 
 void CGameClientExports::OnGameUIActivated()
 {
-	FireClientGameEvent("gameui_activated");
+	FireClientGameEvent(m_Engines.m_pEvents, "gameui_activated");
 }
 
 void CGameClientExports::OnGameUIHidden()
 {
-	FireClientGameEvent("gameui_hidden");
+	FireClientGameEvent(m_Engines.m_pEvents, "gameui_hidden");
 }
 
 int CGameClientExports::GetAchievementsPanelMinWidth() const

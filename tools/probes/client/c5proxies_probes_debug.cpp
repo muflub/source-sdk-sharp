@@ -616,9 +616,9 @@ public:
 		// The scene runs from inside a bind the renderer made, once a frame:
 		// CurrentViewOrigin (which lampbeam and lamphalo read) answers only
 		// while a view renders.
-		if (g_nScenePending > 0 && !t_nInScene && gpGlobals->framecount != g_nSceneFrame)
+		if (g_nScenePending > 0 && !t_nInScene && ShellClientDll_Engines().m_pGlobals->framecount != g_nSceneFrame)
 		{
-			g_nSceneFrame = gpGlobals->framecount;
+			g_nSceneFrame = ShellClientDll_Engines().m_pGlobals->framecount;
 			g_nScenePending--;
 			t_nInScene++;
 			RunSceneTick();
@@ -649,7 +649,8 @@ public:
 		{
 			nPlayer = (int)(intp)pArg;
 			player_info_t info;
-			if (nPlayer > 0 && nPlayer <= gpGlobals->maxClients && engine->GetPlayerInfo(nPlayer, &info))
+			if (nPlayer > 0 && nPlayer <= ShellClientDll_Engines().m_pGlobals->maxClients &&
+				engine->GetPlayerInfo(nPlayer, &info))
 				nCrc = (unsigned int)info.customFiles[0];
 		}
 		else if (pArg)
@@ -663,13 +664,13 @@ public:
 			nAlpha = SourceSharp_RenderAlphaOfUnknown(pUnk);
 			nNpc = SourceSharp_RenderableIsNpc(pArg);
 		}
-		const Vector& vView = view->GetViewSetup()->origin;
+		const Vector& vView = ShellClientDll_Engines().m_pViewRender->GetViewSetup()->origin;
 		float flStart = 0, flEnd = 0;
 		if (view)
-			view->GetWaterLODParams(flStart, flEnd);
+			ShellClientDll_Engines().m_pViewRender->GetWaterLODParams(flStart, flEnd);
 		Vector vMins(0, 0, 0), vMaxs(0, 0, 0);
 		int nWorld = 0;
-		if (C_World* pWorld = GetClientWorldEntity())
+		if (C_World* pWorld = ShellClientDll_Engines().m_pWorld->Entity())
 		{
 			nWorld = 1;
 			vMins = pWorld->GetWorldMins();
@@ -677,10 +678,10 @@ public:
 		}
 		PxLog(
 			"px-bind %d %s %d %.9g %.9g %d %d %d %u %d %.9g %.9g %.9g %d %d %.9g %.9g %.9g %.9g %.9g %d %.9g %.9g %.9g %.9g %.9g %.9g",
-			m_nId, g_pRegName[m_nReg], g_nBindsByReg[m_nReg], gpGlobals->curtime, gpGlobals->frametime,
-			bIndexArg ? 1 : (pArg ? 2 : 0), nPlayer, gpGlobals->maxClients, nCrc, nEnt, vOrigin.x, vOrigin.y, vOrigin.z,
-			nAlpha, nNpc, vView.x, vView.y, vView.z, flStart, flEnd, nWorld, vMins.x, vMins.y, vMins.z, vMaxs.x,
-			vMaxs.y, vMaxs.z);
+			m_nId, g_pRegName[m_nReg], g_nBindsByReg[m_nReg], ShellClientDll_Engines().m_pGlobals->curtime,
+			ShellClientDll_Engines().m_pGlobals->frametime, bIndexArg ? 1 : (pArg ? 2 : 0), nPlayer,
+			ShellClientDll_Engines().m_pGlobals->maxClients, nCrc, nEnt, vOrigin.x, vOrigin.y, vOrigin.z, nAlpha, nNpc,
+			vView.x, vView.y, vView.z, flStart, flEnd, nWorld, vMins.x, vMins.y, vMins.z, vMaxs.x, vMaxs.y, vMaxs.z);
 
 		for (int i = 0; i < m_Found.nVars; ++i)
 			VarState("px-before", m_nId, m_Found.pVars[i]);
@@ -1048,7 +1049,7 @@ void RunSceneTick()
 			SweepVars(s.pMaterial, k);
 		if (s.nArgKind == 2)
 		{
-			for (int p = -1; p <= gpGlobals->maxClients + 1; ++p)
+			for (int p = -1; p <= ShellClientDll_Engines().m_pGlobals->maxClients + 1; ++p)
 				s.pMaterial->CallBindProxy((void*)(intp)p);
 		}
 		else if (s.nArgKind == 1)

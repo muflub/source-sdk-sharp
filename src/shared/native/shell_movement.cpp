@@ -37,11 +37,8 @@
 #endif
 #ifdef CLIENT_DLL
 
-#define SS_MOVE_HELPER() MoveHelper()
+#define SS_MOVE_HELPER() m_pMoveHelper
 #define SS_PLAYER_ANIM(n) ((PLAYER_ANIM)(n))
-#endif
-#ifdef CLIENT_DLL
-#include "movevars_shared.h"
 #endif
 #ifndef CLIENT_DLL
 #include "managed_convar_ref.h"
@@ -59,6 +56,8 @@
 #include "shell_client_engine_interfaces.h"
 #include "shell_gamemovement_client.h"
 #include "shell_managed_areas_client.h"
+#include "shell_gamerules_client.h"
+#include "shell_world_nettable_client.h"
 #endif
 
 #ifndef CLIENT_DLL
@@ -73,12 +72,6 @@
 #include "ss_world.h"
 
 #define RUMBLE_FLAGS_NONE ss::kRumbleFlagsNone
-#define VEC_VIEW_SCALED(player) (g_pGameRules->GetViewVectors()->m_vView * player->GetModelScale())
-#define VEC_HULL_MIN_SCALED(player) (g_pGameRules->GetViewVectors()->m_vHullMin * player->GetModelScale())
-#define VEC_HULL_MAX_SCALED(player) (g_pGameRules->GetViewVectors()->m_vHullMax * player->GetModelScale())
-#define VEC_DUCK_HULL_MIN_SCALED(player) (g_pGameRules->GetViewVectors()->m_vDuckHullMin * player->GetModelScale())
-#define VEC_DUCK_HULL_MAX_SCALED(player) (g_pGameRules->GetViewVectors()->m_vDuckHullMax * player->GetModelScale())
-#define VEC_DUCK_VIEW_SCALED(player) (g_pGameRules->GetViewVectors()->m_vDuckView * player->GetModelScale())
 
 #endif
 #ifdef CLIENT_DLL
@@ -87,54 +80,40 @@
 #define SOURCESHARP_MOVE_SIDE_TAG "server"
 #endif
 
-#ifdef CLIENT_DLL
-unsigned int SourceSharp_MovementRefusalCount(int nReason);
-#endif
-
-// Defined in shell_gamerules.cpp: the hulls are read through g_pGameRules->GetViewVectors().
+#ifndef CLIENT_DLL
+// Defined in shell_gamerules.cpp.
 void SourceSharp_PublishViewVectors(const SourceSharpMovementParams* pParams);
-
-// Stock's numbers, so movement works from the first tick, before managed registers any.
-static SourceSharpMovementParams s_Movement = {
-	21.0f, // flJumpHeight — GAMEMOVEMENT_JUMP_HEIGHT
-	600.0f, // flGravity
-	4.0f, // flFriction
-	10.0f, // flAccelerate
-	10.0f, // flAirAccelerate
-	75.0f, // flStopSpeed
-	3500.0f, // flMaxVelocity
-	18.0f, // flStepSize
-	30.0f, // flAirSpeedCap — CGameMovement::GetAirSpeedCap
-	0.33333333f, // flDuckSpeedScale — HandleDuckingSpeedCrop
-	320.0f, // flMaxSpeed
-};
-
-const SourceSharpMovementParams* SourceSharp_MovementParams()
-{
-	return &s_Movement;
-}
+#endif
 
 // Called once per side during managed startup. Values are defaults: a server config read
 // later still overrides them.
+#ifdef CLIENT_DLL
+void CShellGameMovement::RegisterMovementParams(const SourceSharpMovementParams* pParams)
+{
+	if (!pParams)
+		return;
+
+	m_Params = *pParams;
+
+	// Both sides need the hulls, or the client predicts a player standing elsewhere.
+	m_GameRules.PublishViewVectors(&m_Params);
+
+	// Names the numbers the predicted loop reads, so a mismatch with the server shows.
+	Msg("[SourceSharp] movement(client): predicted params registered — jump %.0fu, "
+		"air cap %.0f, duck %.2fx\n",
+		m_Params.flJumpHeight, m_Params.flAirSpeedCap, m_Params.flDuckSpeedScale);
+}
+#else
 void SourceSharp_RegisterMovementParams(const SourceSharpMovementParams* pParams)
 {
 	if (!pParams)
 		return;
 
-	s_Movement = *pParams;
-
-	// Both sides need the hulls, or the client predicts a player standing elsewhere.
-	SourceSharp_PublishViewVectors(&s_Movement);
-
-#ifndef CLIENT_DLL
-	// Nothing here: the server's tuning ConVars are managed's.
-#else
-	// Names the numbers the predicted loop reads, so a mismatch with the server shows.
-	Msg("[SourceSharp] movement(client): predicted params registered — jump %.0fu, "
-		"air cap %.0f, duck %.2fx\n",
-		s_Movement.flJumpHeight, s_Movement.flAirSpeedCap, s_Movement.flDuckSpeedScale);
-#endif
+	// The hulls; the server's tuning ConVars are managed's.
+	SourceSharpMovementParams movement = *pParams;
+	SourceSharp_PublishViewVectors(&movement);
 }
+#endif
 
 // How many commands the managed movement loop ran, counted in the crossing so a build
 // where it never ran cannot pass the movement gate. Unsigned and allowed to wrap: the
@@ -145,20 +124,6 @@ enum SourceSharpMoveCounter_t
 
 	kMoveCounterCount
 };
-
-#ifdef CLIENT_DLL
-// The client's counts; the server's command count is CServerMovement's.
-static unsigned int* MoveCounters()
-{
-	static unsigned int s_nCounts[kMoveCounterCount] = {0};
-	return s_nCounts;
-}
-
-unsigned int SourceSharp_MoveManagedCalls()
-{
-	return MoveCounters()[kMoveProcessMovement];
-}
-#endif
 
 // MoveStateBlob in SourceSharp.Abi mirrors this: 147 int32/float words, no padding.
 COMPILE_TIME_ASSERT(sizeof(SourceSharpMoveState) == 147 * 4);
@@ -172,28 +137,20 @@ bool CShellGameMovement::ProcessMovementManaged(SourceSharpMoveState* pState)
 
 	// Nothing to move this player with.
 	if (!pCommands || !pState)
-		SourceSharp_MovementFatal(kMovementFatal_NoManagedSide, 0);
+		Fatal(kMovementFatal_NoManagedSide, 0);
 
 	// false: the managed loop declined this move type, or caught an exception (the ABI
 	// cannot tell them apart). Not fatal; the caller counts it.
 	if (!pCommands->MoveProcessMovement(pState))
 		return false;
 
-	MoveCounters()[kMoveProcessMovement]++;
+	m_nManagedCommands++;
 	return true;
 }
 #endif // CLIENT_DLL
 
-// The same count from the client's managed replay, once per command it ran.
-#ifdef CLIENT_DLL
-void SourceSharp_MoveNoteManagedCommand()
-{
-	MoveCounters()[kMoveProcessMovement]++;
-}
-#endif
-
 // One report body for both sides' move-managed-report commands.
-void SourceSharp_MoveManagedReport(unsigned int nCalls)
+void SourceSharp_MoveManagedReport(unsigned int nCalls, const unsigned int* pRefusals)
 {
 	const char* const pszNames[kMoveCounterCount] = {
 		"ProcessMovement",
@@ -216,7 +173,6 @@ void SourceSharp_MoveManagedReport(unsigned int nCalls)
 	for (int i = 0; i < kMoveCounterCount; i++)
 		Msg("  %-16s %u\n", pszNames[i], pCounts[i]);
 
-#ifdef CLIENT_DLL
 	// Commands that could not be run, printed even when zero. The client's alone: a server
 	// refusal is fatal, so nothing would be left to print it.
 	static const char* const pszRefusals[kMovementFatal_Count] = {
@@ -225,29 +181,14 @@ void SourceSharp_MoveManagedReport(unsigned int nCalls)
 		"declined-movetype",
 	};
 
-	for (int i = 0; i < kMovementFatal_Count; i++)
-		Msg("  refused:%-8s %u\n", pszRefusals[i], SourceSharp_MovementRefusalCount(i));
-#endif
+	for (int i = 0; pRefusals && i < kMovementFatal_Count; i++)
+		Msg("  refused:%-8s %u\n", pszRefusals[i], pRefusals[i]);
 }
-
-// [MD] I'll remove this eventually. For now, I want the ability to A/B the optimizations.
-#ifdef CLIENT_DLL
-bool g_bMovementOptimizations = true;
-#endif
 
 // Replicated, so both sides run the same movement. 0 selects a stock body this build
 // does not have, which is fatal with a named reason. The server's half is declared in
 // managed; an unregistered ref reads as 1, since 0 would be the fatal arm.
-#ifdef CLIENT_DLL
-ConVar sourcesharp_movement_managed(
-	"sourcesharp_movement_managed", "1", FCVAR_REPLICATED | FCVAR_NOTIFY,
-	"Run the ten ported CGameMovement methods in C# (1) or in the stock C++ they forward from (0).");
-
-static bool MovementManaged()
-{
-	return sourcesharp_movement_managed.GetBool();
-}
-#else
+#ifndef CLIENT_DLL
 static CManagedConVarRef sourcesharp_movement_managed("sourcesharp_movement_managed");
 
 static bool MovementManaged()
@@ -264,24 +205,10 @@ void SourceSharp_MovementRequireManaged()
 #endif
 
 // The client's IGameMovement, standalone rather than a CGameMovement subclass.
-#ifdef CLIENT_DLL
-// Commands that could not be run, counted by reason.
-static unsigned int* MovementRefusals()
-{
-	static unsigned int s_nRefusals[kMovementFatal_Count] = {0, 0, 0};
-	return s_nRefusals;
-}
-#endif
-
 // Fatal through Error(), so the reason reaches the console and log before the process
 // stops. The text is passed as "%s", never as the format.
 void SourceSharp_MovementFatal(int nReason, int nDetail)
 {
-#ifdef CLIENT_DLL
-	if (nReason >= 0 && nReason < kMovementFatal_Count)
-		MovementRefusals()[nReason]++;
-#endif
-
 	char szMessage[1536];
 	SourceSharpMovement_Format(szMessage, sizeof(szMessage), SOURCESHARP_MOVE_SIDE_TAG, nReason, nDetail);
 
@@ -291,12 +218,12 @@ void SourceSharp_MovementFatal(int nReason, int nDetail)
 // Loud but not fatal, for a declined move type: the ABI cannot tell it from a managed
 // exception, which is already reported. Printed once per reason, counted always.
 #ifdef CLIENT_DLL
-static void SourceSharp_MovementRefused(int nReason, int nDetail)
+void CShellGameMovement::Refused(int nReason, int nDetail)
 {
 	if (nReason < 0 || nReason >= kMovementFatal_Count)
 		return;
 
-	unsigned int* pCounts = MovementRefusals();
+	unsigned int* pCounts = m_nRefusals;
 	const bool bFirst = (pCounts[nReason] == 0);
 	pCounts[nReason]++;
 
@@ -308,15 +235,17 @@ static void SourceSharp_MovementRefused(int nReason, int nDetail)
 
 	Warning("%s", szMessage);
 }
-#endif // CLIENT_DLL
 
-#ifdef CLIENT_DLL
-unsigned int SourceSharp_MovementRefusalCount(int nReason)
+void CShellGameMovement::Fatal(int nReason, int nDetail)
 {
-	if (nReason < 0 || nReason >= kMovementFatal_Count)
-		return 0;
+	if (nReason >= 0 && nReason < kMovementFatal_Count)
+		m_nRefusals[nReason]++;
+	SourceSharp_MovementFatal(nReason, nDetail);
+}
 
-	return MovementRefusals()[nReason];
+void CShellGameMovement::ReportCommand(const CCommand& args)
+{
+	SourceSharp_MoveManagedReport(m_nManagedCommands, m_nRefusals);
 }
 #endif
 
@@ -346,43 +275,38 @@ static Vector SS3E_ReadVec(const float* p)
 	return Vector(p[0], p[1], p[2]);
 }
 
-// The client's fill reads its own movement ConVars.
-#ifdef CLIENT_DLL
-#define SS_MOVEVAR(name) name
-#endif
-
 #ifdef CLIENT_DLL
 // The crossing's constant words for the client's managed replay. Read fresh each
 // command: operators can change any of them mid-round.
 void CShellGameMovement::FillConstants(SourceSharpMoveState* pState)
 {
-	const SourceSharpMovementParams* pParams = SourceSharp_MovementParams();
+	const SourceSharpMovementParams* pParams = &m_Params;
 
-	pState->flCurrentGravity = GetCurrentGravity();
+	pState->flCurrentGravity = m_MoveVars.sv_gravity.GetFloat();
 
-	pState->flCvFriction = SS_MOVEVAR(sv_friction).GetFloat();
-	pState->flCvAccelerate = SS_MOVEVAR(sv_accelerate).GetFloat();
-	pState->flCvAirAccelerate = SS_MOVEVAR(sv_airaccelerate).GetFloat();
-	pState->flCvStopSpeed = SS_MOVEVAR(sv_stopspeed).GetFloat();
-	pState->flCvMaxVelocity = SS_MOVEVAR(sv_maxvelocity).GetFloat();
-	pState->flCvMaxSpeed = SS_MOVEVAR(sv_maxspeed).GetFloat();
-	pState->flCvBounce = SS_MOVEVAR(sv_bounce).GetFloat();
-	pState->flCvRollAngle = SS_MOVEVAR(sv_rollangle).GetFloat();
-	pState->flCvRollSpeed = SS_MOVEVAR(sv_rollspeed).GetFloat();
-	pState->flCvNoClipSpeed = SS_MOVEVAR(sv_noclipspeed).GetFloat();
-	pState->flCvNoClipAccelerate = SS_MOVEVAR(sv_noclipaccelerate).GetFloat();
-	pState->flCvSpecSpeed = SS_MOVEVAR(sv_specspeed).GetFloat();
-	pState->flCvSpecAccelerate = SS_MOVEVAR(sv_specaccelerate).GetFloat();
+	pState->flCvFriction = m_MoveVars.sv_friction.GetFloat();
+	pState->flCvAccelerate = m_MoveVars.sv_accelerate.GetFloat();
+	pState->flCvAirAccelerate = m_MoveVars.sv_airaccelerate.GetFloat();
+	pState->flCvStopSpeed = m_MoveVars.sv_stopspeed.GetFloat();
+	pState->flCvMaxVelocity = m_MoveVars.sv_maxvelocity.GetFloat();
+	pState->flCvMaxSpeed = m_MoveVars.sv_maxspeed.GetFloat();
+	pState->flCvBounce = m_MoveVars.sv_bounce.GetFloat();
+	pState->flCvRollAngle = m_MoveVars.sv_rollangle.GetFloat();
+	pState->flCvRollSpeed = m_MoveVars.sv_rollspeed.GetFloat();
+	pState->flCvNoClipSpeed = m_MoveVars.sv_noclipspeed.GetFloat();
+	pState->flCvNoClipAccelerate = m_MoveVars.sv_noclipaccelerate.GetFloat();
+	pState->flCvSpecSpeed = m_MoveVars.sv_specspeed.GetFloat();
+	pState->flCvSpecAccelerate = m_MoveVars.sv_specaccelerate.GetFloat();
 	pState->flCvAirSpeedCap = pParams->flAirSpeedCap;
 	pState->flCvDuckSpeedScale = pParams->flDuckSpeedScale;
-	pState->bCvOptimizations = g_bMovementOptimizations ? 1 : 0;
-	pState->bCvSpecNoClip = SS_MOVEVAR(sv_specnoclip).GetBool() ? 1 : 0;
+	pState->bCvOptimizations = 1;
+	pState->bCvSpecNoClip = m_MoveVars.sv_specnoclip.GetBool() ? 1 : 0;
 	pState->nCvMaxClients = m_Engines.m_pGlobals->maxClients;
-	pState->flCvTickInterval = TICK_INTERVAL;
+	pState->flCvTickInterval = m_Engines.m_pGlobals->interval_per_tick;
 	pState->flCvJumpHeight = pParams->flJumpHeight;
 	pState->flEngineTime = m_Engines.m_pEngine->Time();
 
-	const RulesViewVectors_t* vv = g_pGameRules->GetViewVectors();
+	const RulesViewVectors_t* vv = &m_GameRules.ViewVectors();
 	SS3E_FillVec(pState->vecCvView, vv->m_vView);
 	SS3E_FillVec(pState->vecCvHullMin, vv->m_vHullMin);
 	SS3E_FillVec(pState->vecCvHullMax, vv->m_vHullMax);
@@ -569,7 +493,7 @@ IHandleEntity* CShellGameMovement::GroundFromTrace(const trace_t& tr)
 	if (!tr.m_pEnt)
 		return NULL;
 
-	if (SourceSharp_IsTheWorld(ss::TraceHit(tr)))
+	if (m_Engines.m_pWorld->IsTheWorld(ss::TraceHit(tr)))
 		return ss::TraceHit(tr);
 
 	if (m_EntityList.ShellFromTraceHit(ss::TraceHit(tr)) != NULL)
@@ -584,7 +508,8 @@ void CShellGameMovement::WorldTrace(const float* pStart, const float* pEnd, cons
 	trace_t pm;
 	Ray_t ray;
 	ray.Init(SS3E_ReadVec(pStart), SS3E_ReadVec(pEnd), SS3E_ReadVec(pMins), SS3E_ReadVec(pMaxs));
-	UTIL_TraceRay(ray, (unsigned int)nMask, m_EntityList.UnknownFromHandle(mv->m_nPlayerHandle), nCollisionGroup, &pm);
+	UTIL_TraceRay(m_Engines, ray, (unsigned int)nMask, m_EntityList.UnknownFromHandle(mv->m_nPlayerHandle),
+				  nCollisionGroup, &pm);
 
 	IHandleEntity* pGround = GroundFromTrace(pm);
 
@@ -608,7 +533,7 @@ void CShellGameMovement::WorldTrace(const float* pStart, const float* pEnd, cons
 	pOut->bHasGround = pGround ? 1 : 0;
 	SS3E_FillVec(pOut->vecGroundVelocity, MovementGroundVelocity(pGround));
 	pOut->bHasEntity = pm.m_pEnt ? 1 : 0;
-	pOut->bHitWorld = SourceSharp_IsTheWorld(ss::TraceHit(pm)) ? 1 : 0;
+	pOut->bHitWorld = m_Engines.m_pWorld->IsTheWorld(ss::TraceHit(pm)) ? 1 : 0;
 }
 
 int CShellGameMovement::WorldEffect(int nKind, const float* pXYZ, float flValue, int nValue)
@@ -636,8 +561,6 @@ int CShellGameMovement::WorldEffect(int nKind, const float* pXYZ, float flValue,
 			break;
 
 		case SOURCESHARP_MOVE_EFFECT_FALLING_DAMAGE:
-			// The damage travels beside PlayerFallingDamage, which takes no arguments.
-			SourceSharpMovement_PendingFallDamage() = flValue;
 			return SS_MOVE_HELPER()->PlayerFallingDamage() ? 1 : 0;
 
 		// player is NULL for a client command (its state is managed), so these are guarded.
@@ -780,10 +703,6 @@ int32_t SourceSharp_MoveEffect(int32_t nKind, const float* pXYZ, float flValue, 
 #endif
 
 #ifdef CLIENT_DLL
-// The client's CMoveData singleton, borrowed for the servicing methods.
-extern CMoveData* g_pMoveData;
-
-extern void SourceSharp_MoveNoteManagedCommand();
 
 int32_t CShellGameMovement::BeginClientCommand(uint32_t hPlayer, SourceSharpMoveState* pOut)
 {
@@ -792,10 +711,7 @@ int32_t CShellGameMovement::BeginClientCommand(uint32_t hPlayer, SourceSharpMove
 
 	// m_nPlayerHandle is the trace filter's skip entity; without it every trace starts
 	// solid inside the player's own hull.
-	CMoveData* pMove = g_pMoveData;
-
-	if (!pMove)
-		return 0;
+	CMoveData* pMove = &m_MoveData;
 
 	// The word came from ToInt() on this side's own valid handle, as UnsafeFromIndex needs.
 	pMove->m_nPlayerHandle = CBaseHandle::UnsafeFromIndex((int)hPlayer);
@@ -822,16 +738,17 @@ void CShellGameMovement::EndClientCommand(int32_t bRan, int32_t* pOutGroundIndex
 
 	// Counts runs, not asks.
 	if (bRan)
-		SourceSharp_MoveNoteManagedCommand();
+		m_nManagedCommands++;
 }
 #endif // CLIENT_DLL
 
 #ifdef CLIENT_DLL
 CShellGameMovement::CShellGameMovement(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
-									   CClientEntityList& entityList)
+									   CClientEntityList& entityList, CGameRulesClient& gameRules)
 	: m_Areas(areas)
 	, m_Engines(engines)
 	, m_EntityList(entityList)
+	, m_GameRules(gameRules)
 {
 	player = NULL;
 	mv = NULL;
@@ -854,11 +771,11 @@ void CShellGameMovement::ProcessMovement(CBasePlayer* pBasePlayer, CMoveData* pM
 	if (!pMove || !pPlayer)
 		return;
 
-	if (!MovementManaged())
+	if (!m_MoveVars.sourcesharp_movement_managed.GetBool())
 	{
 		// No stock mover exists; fatal. The return only marks the arm as ending, as
 		// the declaration carries no NORETURN.
-		SourceSharp_MovementFatal(kMovementFatal_NoStock, 0);
+		Fatal(kMovementFatal_NoStock, 0);
 		return;
 	}
 
@@ -878,7 +795,7 @@ void CShellGameMovement::ProcessMovement(CBasePlayer* pBasePlayer, CMoveData* pM
 	if (!RunManagedCommand())
 	{
 		// Unreachable: the loop declines no move type. Counted, not assumed.
-		SourceSharp_MovementRefused(kMovementFatal_Declined, (int)pPlayer->MvGetMoveType());
+		Refused(kMovementFatal_Declined, (int)pPlayer->MvGetMoveType());
 	}
 
 	//This is probably not needed, but just in case.
@@ -907,33 +824,36 @@ Vector CShellGameMovement::GetPlayerMins(bool ducked) const
 {
 	if (!player)
 	{
-		const RulesViewVectors_t* vv = g_pGameRules->GetViewVectors();
+		const RulesViewVectors_t* vv = &m_GameRules.ViewVectors();
 		return ducked ? vv->m_vDuckHullMin : vv->m_vHullMin;
 	}
 
-	return ducked ? VEC_DUCK_HULL_MIN_SCALED(player) : VEC_HULL_MIN_SCALED(player);
+	return ducked ? m_GameRules.ViewVectors().m_vDuckHullMin * player->GetModelScale()
+				  : m_GameRules.ViewVectors().m_vHullMin * player->GetModelScale();
 }
 
 Vector CShellGameMovement::GetPlayerMaxs(bool ducked) const
 {
 	if (!player)
 	{
-		const RulesViewVectors_t* vv = g_pGameRules->GetViewVectors();
+		const RulesViewVectors_t* vv = &m_GameRules.ViewVectors();
 		return ducked ? vv->m_vDuckHullMax : vv->m_vHullMax;
 	}
 
-	return ducked ? VEC_DUCK_HULL_MAX_SCALED(player) : VEC_HULL_MAX_SCALED(player);
+	return ducked ? m_GameRules.ViewVectors().m_vDuckHullMax * player->GetModelScale()
+				  : m_GameRules.ViewVectors().m_vHullMax * player->GetModelScale();
 }
 
 Vector CShellGameMovement::GetPlayerViewOffset(bool ducked) const
 {
 	if (!player)
 	{
-		const RulesViewVectors_t* vv = g_pGameRules->GetViewVectors();
+		const RulesViewVectors_t* vv = &m_GameRules.ViewVectors();
 		return ducked ? vv->m_vDuckView : vv->m_vView;
 	}
 
-	return ducked ? VEC_DUCK_VIEW_SCALED(player) : VEC_VIEW_SCALED(player);
+	return ducked ? m_GameRules.ViewVectors().m_vDuckView * player->GetModelScale()
+				  : m_GameRules.ViewVectors().m_vView * player->GetModelScale();
 }
 
 // Resets interpolation when the player's duck state changes.

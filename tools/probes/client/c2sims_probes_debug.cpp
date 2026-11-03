@@ -39,6 +39,7 @@
 #include "sharedInterface.h"
 
 #include "probe_accessors.h"
+#include "shell_client_engine_interfaces.h"
 #include "tier0/memdbgon.h"
 
 namespace
@@ -283,7 +284,7 @@ void C2SimsProbe_Tick()
 	if (!g_pEnvFile || !g_pEnvPatch)
 		return;
 	CSoundEnvelopeController& c = CSoundEnvelopeController::GetController();
-	const float t = gpGlobals->curtime;
+	const float t = ShellClientDll_Engines().m_pGlobals->curtime;
 	const int f = ++g_nEnvFrame;
 
 	// The timed half of the script.
@@ -314,8 +315,8 @@ void C2SimsProbe_Tick()
 		c.SoundFadeOut(g_pEnvPatch, 0.4f, false);
 	}
 
-	EnvRow("W\t%.9g\t%.9g\t%.9g\t%.9g", t, gpGlobals->frametime, c.SoundGetVolume(g_pEnvPatch),
-		   c.SoundGetPitch(g_pEnvPatch));
+	EnvRow("W\t%.9g\t%.9g\t%.9g\t%.9g", t, ShellClientDll_Engines().m_pGlobals->frametime,
+		   c.SoundGetVolume(g_pEnvPatch), c.SoundGetPitch(g_pEnvPatch));
 
 	if (f >= g_nEnvFrames)
 	{
@@ -342,9 +343,10 @@ CON_COMMAND(
 		g_pEnvFile,
 		"# c2-sims soundenvelope oracle: stock CSoundEnvelopeController on the client (tools/probes/c2sims-sndenv-probe.diff)\n");
 	CSoundEnvelopeController& c = CSoundEnvelopeController::GetController();
-	CLocalPlayerFilter filter;
-	const float t = gpGlobals->curtime;
-	g_pEnvPatch = c.SoundCreate(filter, engine->GetLocalPlayer(), CHAN_STATIC, "ambient/wind/wind1.wav", ATTN_NORM);
+	CLocalPlayerFilter filter(ShellClientDll_Engines().m_pEngine);
+	const float t = ShellClientDll_Engines().m_pGlobals->curtime;
+	g_pEnvPatch = c.SoundCreate(filter, ShellClientDll_Engines().m_pEngine->GetLocalPlayer(), CHAN_STATIC,
+								"ambient/wind/wind1.wav", ATTN_NORM);
 	EnvRow("C\t%.9g\tcreate", t);
 	EnvRow("C\t%.9g\tplay\t0\t100", t);
 	c.Play(g_pEnvPatch, 0.0f, 100.0f);
@@ -424,8 +426,8 @@ CON_COMMAND(cs_cl_probe_friction,
 	// Stock's GameSound_GetParameters( name, handle, params, NULL ) body: the
 	// handle is looked up (and cached) as PhysFrictionSound will use it.
 	CSoundParameters params;
-	const bool bKnown = soundemitterbase->GetParametersForSoundEx(g_szFrictionSound, g_hFriction, params,
-																  soundemitterbase->GetActorGender(NULL), true);
+	const bool bKnown = ShellClientDll_Engines().m_pSoundEmitter->GetParametersForSoundEx(
+		g_szFrictionSound, g_hFriction, params, ShellClientDll_Engines().m_pSoundEmitter->GetActorGender(NULL), true);
 	Msg("[c2-sims probe] friction: %s is %s\n", g_szFrictionSound,
 		bKnown ? "a known sound script" : "NOT a known sound script");
 }

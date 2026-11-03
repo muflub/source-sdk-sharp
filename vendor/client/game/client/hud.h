@@ -110,6 +110,6 @@ private:
 	float m_flScreenShotTime; // used to take end-game screenshots
 };
 
-extern CHud gHUD;
+class CClientEngineInterfaces;
 
-void GetHudSize(int& w, int& h);
+void GetHudSize(const CClientEngineInterfaces& engines, int& w, int& h);

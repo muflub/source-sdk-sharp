@@ -15,10 +15,15 @@
 #include "mathlib/vector.h"
 #include "shell_member_command.h"
 
+class CClientEngineInterfaces;
+
 class CWindClient final
 {
 public:
-	CWindClient() = default;
+	explicit CWindClient(const CClientEngineInterfaces& engines)
+		: m_Engines(engines)
+	{
+	}
 
 	CWindClient(const CWindClient&) = delete;
 	CWindClient& operator=(const CWindClient&) = delete;
@@ -36,6 +41,7 @@ private:
 		*this, "cs_cl_wind_report",
 		"the wind vector GetWindspeedAtTime hands the four section-6 readers, and the controllers behind it", 0};
 
+	const CClientEngineInterfaces& m_Engines;
 	Vector m_vecPublishedWind{0, 0, 0};
 	int m_nPublishedWinds = 0;
 };

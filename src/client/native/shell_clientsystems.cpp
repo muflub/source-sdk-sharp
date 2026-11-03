@@ -27,32 +27,25 @@
 #include "shell_sprites_client.h"
 #include "shell_shadows_client.h"
 #include "shell_leaf_system_client.h"
+#include "shell_rope_client.h"
 
 // Stock's IGameSystem keys its vtable on this destructor. client.so keeps no
 // system list of its own, so the body is empty.
 IGameSystem::~IGameSystem() {}
 
 // The accessors. Declared here because this table is their only other reader.
-CClientSystem* GameStringSystem();
-
-CClientSystem* ClientSystem_DirtySpatialPartition();
-CClientSystem* ClientSystem_Rope();
 
 // Stock's accessors answer a more specific type; the table's adapters keep its
 // column uniform.
-class IClientLeafSystem;
-
-IClientLeafSystem* ClientLeafSystem();
-
 // The map's base name, or "" when no level is loaded.
-const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
+const char* SourceSharp_ClientMapName(IVEngineClient* pEngine, char* pszOut, int nOutBytes)
 {
 	if (pszOut == NULL || nOutBytes <= 0)
 		return "";
 
 	pszOut[0] = 0;
 
-	const char* pszLevel = engine ? engine->GetLevelName() : NULL;
+	const char* pszLevel = pEngine->GetLevelName();
 	if (pszLevel == NULL || pszLevel[0] == 0)
 		return pszOut;
 
@@ -60,12 +53,15 @@ const char* SourceSharp_ClientMapName(char* pszOut, int nOutBytes)
 	return pszOut;
 }
 
-CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
+CClientSystems::CClientSystems(const CClientEngineInterfaces& engines, const CManagedAreasClient& areas,
+							   CRopeClient& rope, CClientSystem& managedFrame, CClientSystem& physics,
 							   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
 							   CManagedParticlesClient& particles, CParticleSystemsClient& particleSystems,
 							   CShellDetailProps& detailProps, CWorldTextClient& worldText, CSpritesClient& sprites,
 							   CShadowsClient& shadows, CLeafSystemClient& leafSystem)
-	: m_ManagedFrame(managedFrame)
+	: m_Engines(engines)
+	, m_Rope(rope)
+	, m_ManagedFrame(managedFrame)
 	, m_Physics(physics)
 	, m_Decals(decals)
 	, m_Standalone(standalone)
@@ -81,7 +77,7 @@ CClientSystems::CClientSystems(const CManagedAreasClient& areas, CClientSystem& 
 	, m_GlowOverlayRow(areas, "CGlowOverlaySystem")
 	, m_PixelVisibilityRow(areas, "CPixelVisibilitySystem")
 	, m_SoundEmitterRow(areas)
-	, m_SoundscapeRow(areas)
+	, m_SoundscapeRow(areas, engines)
 {
 }
 
@@ -93,7 +89,6 @@ bool CClientSystems::Init()
 
 	const Row_t rows[] = {
 		// Stock's hand-added systems, in CHLClient::Init's order.
-		{"CGameStringPool", GameStringSystem()},
 		{"CSoundEmitterSystem", &m_SoundEmitterRow},
 
 		// "Client Leaf System has to be initialized first, since DetailObjectSystem
@@ -111,13 +106,13 @@ bool CClientSystems::Init()
 		{"CSourceSharpStandaloneClientSystem", &m_Standalone.TierSystem()},
 		{"CGlowOverlaySystem", &m_GlowOverlayRow},
 		{"CDecalEmitterSystem", &m_Decals},
-		{"CDirtySpatialPartitionEntityList", ClientSystem_DirtySpatialPartition()},
+		{"CDirtySpatialPartitionEntityList", m_Engines.m_pDirtyPartition},
 		{"CBulletWhizTimer", &m_Effects.BulletWhizRow()},
 		{"CPixelVisibilitySystem", &m_PixelVisibilityRow},
 		{"CSourceSharpSpriteSystem", &m_Sprites.SystemRow()},
 		{"CSourceSharpParticleSystemsSystem", &m_ParticleSystems.SystemRow()},
 		{"CSourceSharpWorldTextSystem", &m_WorldText.SystemRow()},
-		{"CSourceSharpRopeSystem", ClientSystem_Rope()},
+		{"CSourceSharpRopeSystem", &m_Rope.SystemRow()},
 		{"CSourceSharpManagedParticlesSystem", &m_Particles.SystemRow()},
 		{"CSourceSharpStandaloneInterpSystem", &m_Standalone.InterpSystem()},
 
@@ -134,7 +129,7 @@ bool CClientSystems::Init()
 
 	for (int i = 0; i < m_nRows; i++)
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 
 		if (!m_Rows[i].m_pSystem->Init())
 		{
@@ -152,7 +147,7 @@ void CClientSystems::WalkForward(Stage_t fn)
 {
 	for (int i = 0; i < m_nRows; i++)
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 
 		CClientSystem* pSys = m_Rows[i].m_pSystem;
 		(pSys->*fn)();
@@ -163,7 +158,7 @@ void CClientSystems::WalkBackward(Stage_t fn)
 {
 	for (int i = m_nRows; --i >= 0;)
 	{
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 
 		CClientSystem* pSys = m_Rows[i].m_pSystem;
 		(pSys->*fn)();
@@ -181,7 +176,7 @@ void CClientSystems::WalkForwardPerFrame(FrameStage_t fn)
 		if (pSys == NULL)
 			continue;
 
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 		(pSys->*fn)();
 	}
 }
@@ -231,7 +226,7 @@ void CClientSystems::Update(float frametime)
 		if (pSys == NULL)
 			continue;
 
-		MDLCACHE_CRITICAL_SECTION();
+		MDLCACHE_CRITICAL_SECTION_(m_Engines.m_pMdlCache);
 		pSys->Update(frametime);
 	}
 }

@@ -19,12 +19,15 @@
 
 class CViewCameras;
 
+class CClientEngineInterfaces;
+
 class C_SoundscapeSystem final : public CClientSystemPerFrame
 {
 public:
-	explicit C_SoundscapeSystem(const CManagedAreasClient& areas)
+	C_SoundscapeSystem(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines)
 		: CClientSystemPerFrame("C_SoundScapeSystem")
 		, m_Areas(areas)
+		, m_Engines(engines)
 	{
 	}
 
@@ -34,6 +37,7 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 };
 
 // The soundscape shim slots: what the managed system asks of the engine's sound and the view.

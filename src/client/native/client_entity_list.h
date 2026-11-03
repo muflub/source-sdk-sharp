@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "shell_boundary_probe.h"
+
 #include "icliententitylist.h"
 
 #include "slot_table.h"
@@ -26,11 +28,14 @@
 class C_StandaloneEntity;
 class IHandleEntity;
 
+class CClientEngineInterfaces;
+
 class CClientEntityList final : public IClientEntityList
 {
 public:
-	CClientEntityList()
-		: m_Counts(m_Slots)
+	explicit CClientEntityList(const CClientEngineInterfaces& engines)
+		: m_Engines(engines)
+		, m_Counts(m_Slots)
 	{
 	}
 
@@ -81,10 +86,21 @@ public:
 
 private:
 	void SlotTableCommand(const CCommand& args);
+	void BoundaryProbeReportCommand(const CCommand& args);
+	void BoundaryProbeResetCommand(const CCommand& args);
 
 	CMemberCommand<CClientEntityList, &CClientEntityList::SlotTableCommand> m_SlotTableCommand{
 		*this, "cs_cl_slot_table", "SourceSharp: the client entity slot table (plan_entity.md 3.3)", 0};
 
+	CMemberCommand<CClientEntityList, &CClientEntityList::BoundaryProbeReportCommand> m_BoundaryReportCommand{
+		*this, "ss_cl_boundary_probe_report",
+		"ss_cl_boundary_probe_report -- engine-boundary call counts inside client.so", 0};
+	CMemberCommand<CClientEntityList, &CClientEntityList::BoundaryProbeResetCommand> m_BoundaryResetCommand{
+		*this, "ss_cl_boundary_probe_reset", "ss_cl_boundary_probe_reset -- zero client.so's engine-boundary counters",
+		0};
+
+	const CClientEngineInterfaces& m_Engines;
+	CBoundaryProbe m_Probes;
 	CSourceSharpSlotTable m_Slots;
 	CClientEntityCounts m_Counts;
 	bool m_bWarnedUnresolved = false;

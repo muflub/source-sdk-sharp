@@ -28,7 +28,7 @@ class CBeamsClient;
 class CShellViewRender final : public IViewRender, public IReplayScreenshotSystem
 {
 public:
-	CShellViewRender(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines, CViewCameras& cameras,
+	CShellViewRender(const CManagedAreasClient& areas, CClientEngineInterfaces& engines, CViewCameras& cameras,
 					 CViewerFacts& viewerFacts, CSourceSharpClientMode& clientMode, CViewExecutor& executor,
 					 CBeamsClient& beams);
 
@@ -123,7 +123,8 @@ private:
 		*this, "r_screenoverlay", "Draw specified material as an overlay", FCVAR_CHEAT | FCVAR_SERVER_CAN_EXECUTE};
 
 	const CManagedAreasClient& m_Areas;
-	const CClientEngineInterfaces& m_Engines;
+	// Not const: mat_stub swaps its material system for a frame.
+	CClientEngineInterfaces& m_Engines;
 	CViewCameras& m_Cameras;
 	CViewerFacts& m_ViewerFacts;
 	CSourceSharpClientMode& m_ClientMode;

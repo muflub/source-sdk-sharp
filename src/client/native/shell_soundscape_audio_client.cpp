@@ -31,7 +31,7 @@ void C_SoundscapeSystem::LevelInitPreEntity()
 	if (IManagedSoundscapesClient* pApi = m_Areas.m_pSoundscapesClient)
 	{
 		char szMapName[MAX_PATH];
-		pApi->ClientSoundscapesLevelInit(SourceSharp_ClientMapName(szMapName, sizeof(szMapName)));
+		pApi->ClientSoundscapesLevelInit(SourceSharp_ClientMapName(m_Engines.m_pEngine, szMapName, sizeof(szMapName)));
 	}
 }
 
@@ -49,13 +49,13 @@ void C_SoundscapeSystem::Update(float frametime)
 
 void CSoundscapeAudioClient::SoundscapeSetRoomType(int32_t nRoomType)
 {
-	CLocalPlayerFilter filter;
+	CLocalPlayerFilter filter(m_Engines.m_pEngine);
 	m_Engines.m_pSound->SetRoomType(filter, nRoomType);
 }
 
 void CSoundscapeAudioClient::SoundscapeSetPlayerDsp(int32_t nDspType)
 {
-	CLocalPlayerFilter filter;
+	CLocalPlayerFilter filter(m_Engines.m_pEngine);
 	m_Engines.m_pSound->SetPlayerDSP(filter, nDspType, false);
 }
 
@@ -79,6 +79,10 @@ int32_t CSoundscapeAudioClient::SoundscapeMakingResLists()
 
 void CSoundscapeAudioClient::SoundscapeTouchSoundFile(const char* pszWave)
 {
-	if (pszWave)
-		m_Engines.m_pFileSystem->GetFileTime(VarArgs("sound/%s", PSkipSoundChars(pszWave)), "GAME");
+	if (!pszWave)
+		return;
+
+	char szPath[1024];
+	V_snprintf(szPath, sizeof(szPath), "sound/%s", PSkipSoundChars(pszWave));
+	m_Engines.m_pFileSystem->GetFileTime(szPath, "GAME");
 }

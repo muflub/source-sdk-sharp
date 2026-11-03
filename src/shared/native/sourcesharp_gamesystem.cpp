@@ -58,9 +58,6 @@
 #else
 #include "shell_managed_areas.h"
 #endif
-#ifdef CLIENT_DLL
-#include "movevars_shared.h"
-#endif
 #include "native_command_body.h"
 #include "ss_string.h"
 #include "console_registry.h"
@@ -730,6 +727,7 @@ void CManagedSide::Unload()
 #ifdef CLIENT_DLL
 
 #include "shell_managed_frame_system.h"
+#include "shell_client_engine_interfaces.h"
 
 bool CSourceSharpSystem::Init()
 {
@@ -752,7 +750,7 @@ void CSourceSharpSystem::LevelInitPostEntity()
 		return;
 
 	char szMapName[MAX_PATH];
-	SourceSharp_ClientMapName(szMapName, sizeof(szMapName));
+	SourceSharp_ClientMapName(m_Engines.m_pEngine, szMapName, sizeof(szMapName));
 
 	if (SourceSharp_GetVerbosity() > 0)
 		Msg("[SourceSharp] %s level init -> C#: %s\n", SOURCESHARP_SIDE_TAG, szMapName);

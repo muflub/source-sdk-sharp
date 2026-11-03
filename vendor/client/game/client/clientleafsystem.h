@@ -165,11 +165,3 @@ public:
 	// Use alternate translucent sorting algorithm (draw translucent objects in the furthest leaf they lie in)
 	virtual void EnableAlternateSorting(ClientRenderHandle_t handle, bool bEnable) = 0;
 };
-
-// Singleton accessor
-extern IClientLeafSystem* g_pClientLeafSystem;
-
-inline IClientLeafSystem* ClientLeafSystem()
-{
-	return g_pClientLeafSystem;
-}

@@ -36,8 +36,7 @@
 #include <vector>
 #include "shell_view_cameras.h"
 #include "shell_client_engine_interfaces.h"
-
-ConVar r_drawsprites("r_drawsprites", "1", FCVAR_CHEAT);
+#include "shell_convars_client.h"
 
 // Managed decides whether a sprite draws, its blend, colour, axes and quad; this reads the
 // sprite model and renderer into a float request and builds the mesh from the float plan.
@@ -142,8 +141,8 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 		attachedto->GetAttachment(attachmentindex, effect_origin, temp);
 	}
 
-	in[SS_SPRITE_IN_DRAW_SPRITES] = (float)r_drawsprites.GetInt();
-	in[SS_SPRITE_IN_WIREFRAME_MODE] = ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
+	in[SS_SPRITE_IN_DRAW_SPRITES] = (float)m_r_drawsprites.GetInt();
+	in[SS_SPRITE_IN_WIREFRAME_MODE] = m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
 	in[SS_SPRITE_IN_ORIENTATION] = (float)psprite->GetOrientation();
 	in[SS_SPRITE_IN_LEFT] = psprite->GetLeft();
 	in[SS_SPRITE_IN_RIGHT] = psprite->GetRight();
@@ -233,7 +232,7 @@ int CSpritesClient::Execute(const Pending_t& pending, const float* out)
 			meshBuilder.End();
 			pMesh->Draw();
 
-			g_SourceSharpEffects.nSpriteQuads++;
+			m_Engines.m_pEffectLedger->nSpriteQuads++;
 		}
 	}
 
@@ -357,10 +356,6 @@ float C_SpriteRenderer::GlowBlend(CEngineSprite*, const Vector&, int, int, int, 
 // client fill it: one procedural material per render mode from the sprite's .vmt, its
 // size, frame count, orientation and the quad's extents.
 
-static unsigned int s_nSpriteFrameCache;
-static unsigned int s_nSpriteOrientationCache;
-static unsigned int s_nSpriteOriginCache;
-
 // kRenderNone and kRenderEnvironmental draw nothing and get no material.
 static bool SpriteModeHasMaterial(int nMode)
 {
@@ -472,6 +467,9 @@ KeyValues* ReadSpriteKey(SpriteBlockReader& r, int nDepth)
 
 bool CEngineSprite::Init(const char* pName, IManagedMaterialFilesClient* pFiles, IMaterialSystem* pMaterials)
 {
+	// The engine allocates this block and no constructor runs.
+	m_nFrameCache = m_nOrientationCache = m_nOriginCache = 0;
+
 	m_VideoMaterial = NULL;
 	m_width = m_height = m_numFrames = 1;
 	for (int nMode = 0; nMode < kRenderModeCount; nMode++)
@@ -526,12 +524,12 @@ bool CEngineSprite::Init(const char* pName, IManagedMaterialFilesClient* pFiles,
 	m_height = pFirst->GetMappingHeight();
 	m_numFrames = pFirst->GetNumAnimationFrames();
 
-	IMaterialVar* pOrientation = pFirst->FindVarFast("$spriteorientation", &s_nSpriteOrientationCache);
+	IMaterialVar* pOrientation = pFirst->FindVarFast("$spriteorientation", &m_nOrientationCache);
 	m_orientation = pOrientation ? pOrientation->GetIntValue() : C_SpriteRenderer::SPR_VP_PARALLEL_UPRIGHT;
 
 	// The quad's anchor as a fraction of its size: $spriteorigin when a vector, else the centre.
 	float flAnchorX = 0.5f, flAnchorY = 0.5f;
-	IMaterialVar* pOrigin = pFirst->FindVarFast("$spriteorigin", &s_nSpriteOriginCache);
+	IMaterialVar* pOrigin = pFirst->FindVarFast("$spriteorigin", &m_nOriginCache);
 	if (pOrigin && pOrigin->GetType() == MATERIAL_VAR_TYPE_VECTOR)
 	{
 		float rgflAnchor[3];
@@ -571,7 +569,7 @@ void CEngineSprite::SetFrame(RenderMode_t nRenderMode, int nFrame)
 	IMaterial* pMaterial = m_material[nRenderMode];
 	if (!pMaterial)
 		return;
-	if (IMaterialVar* pFrame = pMaterial->FindVarFast("$frame", &s_nSpriteFrameCache))
+	if (IMaterialVar* pFrame = pMaterial->FindVarFast("$frame", &m_nFrameCache))
 		pFrame->SetIntValue(nFrame);
 }
 

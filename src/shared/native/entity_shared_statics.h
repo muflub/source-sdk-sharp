@@ -31,8 +31,5 @@ typedef ss::CUserCmd EntityPredictionCmd_t;
 class CGlobalVars;
 bool EntitySim_IsSimulatingOnAlternateTicks(const CGlobalVars* pGlobals);
 
-// Stores one usercmd's prediction seeds, or -1 ("not inside a usercmd") for NULL.
-void EntityPrediction_SetSeedFromCommand(const EntityPredictionCmd_t* cmd);
-
 // Where a tracer for a shot from vecShotSrc is drawn from.
 void EntityTracer_ComputeStartPosition(const Vector& vecShotSrc, Vector* pVecTracerStart);

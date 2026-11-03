@@ -18,6 +18,8 @@
 #include "tier1/utlmap.h"
 #include "utlvector.h"
 
+#include "tier1/convar.h"
+
 #include "bound_callback.h"
 #include "shell_clientsystem.h"
 #include "shell_managed_areas_client.h"
@@ -151,6 +153,7 @@ private:
 	void FollowTrails();
 	void LevelShutdown();
 
+	ConVar m_r_drawsprites{"r_drawsprites", "1", FCVAR_CHEAT};
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;
 	const CViewCameras& m_Cameras;

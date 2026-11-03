@@ -14,6 +14,7 @@
 
 #include "utlvector.h"
 
+#include "managed_convar_ref.h"
 #include "shell_managed_areas_client.h"
 
 class CClientEngineInterfaces;
@@ -58,6 +59,8 @@ public:
 private:
 	void Execute(const int32_t* pCmds, int nWords);
 
+	unsigned int m_nHDRColorScaleCache = 0;
+	CManagedConVarRef m_DrawSprites{"r_drawsprites"};
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;
 	const CViewCameras& m_Cameras;

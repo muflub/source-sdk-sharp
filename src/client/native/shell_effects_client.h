@@ -7,7 +7,7 @@
 
 // The client's IEffects, a member of the client DLL object (g_pEffects points at it from
 // Init): each effect method carries its arguments to the managed FX area it was handed. It
-// is still an IPredictionSystem node, which is the state CanPredict() reads.
+// is still an IPredictionSystem, which is the state CanPredict() reads.
 
 #pragma once
 
@@ -16,16 +16,22 @@
 #include "IEffects.h"
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+
 class CEffectsClient final : public IEffects
 {
 public:
-	explicit CEffectsClient(const CManagedAreasClient& areas)
+	CEffectsClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines)
 		: m_Areas(areas)
+		, m_Engines(engines)
 	{
 	}
 
 	CEffectsClient(const CEffectsClient&) = delete;
 	CEffectsClient& operator=(const CEffectsClient&) = delete;
+
+	// Shim slots: what SuppressTE reads.
+	int32_t FxRecipientCount(const float* pOriginXYZ);
 
 	void Beam(const Vector& Start, const Vector& End, int nModelIndex, int nHaloIndex, unsigned char frameStart,
 			  unsigned char frameRate, float flLife, unsigned char width, unsigned char endWidth,
@@ -58,4 +64,5 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 };

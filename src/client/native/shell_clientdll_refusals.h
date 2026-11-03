@@ -4,14 +4,11 @@
 
 #pragma once
 
+#include <stdint.h>
 #include <string.h>
 
 // The console half of a refusal. nTotal is the running total across all refusals.
 void ShellClientDll_RefusalWarning(const char* pMethod, int nTotal);
-
-// A refused method of an interface implemented outside CShellClientDLL,
-// counted on the same tally. Defined in shell_clientdll.cpp.
-void ShellClientDll_RefuseExternal(const char* pMethod);
 
 // One row per method that fired, plus a total. Rows match by strcmp, not
 // pointer identity.
@@ -22,6 +19,29 @@ public:
 	{
 		kMaxMethods = 24
 	};
+
+	// The refused methods, one per index, with how often each was reached. Returns the method
+	// count; the total goes through pOutTotal.
+	int32_t ClientRefusal(int32_t iIndex, char* pOutMethod, int32_t nMethodBytes, int32_t* pOutCount,
+						  int32_t* pOutTotal) const
+	{
+		if (pOutTotal)
+			*pOutTotal = Total();
+
+		if (iIndex >= 0 && iIndex < MethodCount())
+		{
+			if (pOutMethod && nMethodBytes > 0)
+			{
+				const char* pMethod = MethodAt(iIndex) ? MethodAt(iIndex) : "";
+				strncpy(pOutMethod, pMethod, nMethodBytes - 1);
+				pOutMethod[nMethodBytes - 1] = 0;
+			}
+			if (pOutCount)
+				*pOutCount = CountAt(iIndex);
+		}
+
+		return MethodCount();
+	}
 
 	// Warns and counts. Not rate limited: a refused method is expected never to run.
 	void Unreachable(const char* pMethod)

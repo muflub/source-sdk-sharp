@@ -21,12 +21,6 @@
 // The client's published type table. Both shells must share one, so the answer does not
 // depend on which shell looks a type up. The server's is its CServerNetTables'.
 #ifdef CLIENT_DLL
-CSourceSharpTypeTable& SourceSharp_NetTypes()
-{
-	static CSourceSharpTypeTable s_Types;
-	return s_Types;
-}
-
 const char* SourceSharpPayload_PropName(int iWord)
 {
 	static CSourceSharpPayloadPropNames s_Names;

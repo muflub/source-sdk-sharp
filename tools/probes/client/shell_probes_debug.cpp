@@ -82,6 +82,7 @@
 #include "view_shared.h"
 
 #include "probe_accessors.h"
+#include "shell_client_engine_interfaces.h"
 #include "tier0/memdbgon.h"
 
 namespace
@@ -473,7 +474,7 @@ private:
 } // namespace
 
 // particlesystemquery.cpp's global, read by particlemgr.cpp when it calls
-// g_pParticleSystemMgr->Init( g_pParticleSystemQuery ) during client Init --
+// ShellClientDll_Engines().m_pParticleMgr->Init( g_pParticleSystemQuery ) during client Init --
 // after every static initialiser, so the swap below is in place by then.
 extern IParticleSystemQuery* g_pParticleSystemQuery;
 
@@ -524,19 +525,19 @@ class CProbeParticleSweep : public CSourceSharpRawPanel
 {
 public:
 	CProbeParticleSweep(vgui::VPANEL parent, int nFirst, int nCount)
-		: CSourceSharpRawPanel("SourceSharpProbeParticleSweep")
+		: CSourceSharpRawPanel(ShellClientDll_Engines(), "SourceSharpProbeParticleSweep")
 		, m_nNext(nFirst)
 	{
 		SetParent(parent);
-		m_nEnd = g_pParticleSystemMgr->GetParticleSystemCount();
+		m_nEnd = ShellClientDll_Engines().m_pParticleMgr->GetParticleSystemCount();
 		if (nCount > 0 && nFirst + nCount < m_nEnd)
 			m_nEnd = nFirst + nCount;
 		SetVisible(true);
 		SetBounds(0, 0, 1, 1);
 		SetPaintEnabled(false);
-		ProbeLog("pq-sweep-start definitions=%d range=%d..%d", g_pParticleSystemMgr->GetParticleSystemCount(), nFirst,
-				 m_nEnd);
-		vgui::ivgui()->AddTickSignal(GetVPanel(), 100);
+		ProbeLog("pq-sweep-start definitions=%d range=%d..%d",
+				 ShellClientDll_Engines().m_pParticleMgr->GetParticleSystemCount(), nFirst, m_nEnd);
+		ShellClientDll_Engines().m_pVGuiCore->AddTickSignal(GetVPanel(), 100);
 	}
 
 	virtual void OnTick() OVERRIDE
@@ -550,17 +551,17 @@ public:
 			PqDump("sweep");
 			// The panel stays (a probe build's few bytes): deleting it inside
 			// its own tick is the hazard MarkForDeletion used to defer.
-			vgui::ivgui()->RemoveTickSignal(GetVPanel());
+			ShellClientDll_Engines().m_pVGuiCore->RemoveTickSignal(GetVPanel());
 			return;
 		}
-		const char* pName = g_pParticleSystemMgr->GetParticleSystemNameFromIndex(m_nNext++);
+		const char* pName = ShellClientDll_Engines().m_pParticleMgr->GetParticleSystemNameFromIndex(m_nNext++);
 		Q_strncpy(m_szName, pName ? pName : "", sizeof(m_szName));
 		memcpy(m_Before, g_PqCounts, sizeof(m_Before));
 		m_pEffect = ShellClientDll_NewParticles().Create(m_szName);
 		if (m_pEffect.IsValid() && m_pEffect->IsValid())
 		{
 			Vector fwd;
-			const CViewSetup* pPlayerView = view->GetPlayerViewSetup();
+			const CViewSetup* pPlayerView = ShellClientDll_Engines().m_pViewRender->GetPlayerViewSetup();
 			AngleVectors(pPlayerView->angles, &fwd);
 			Vector pos = pPlayerView->origin + fwd * 128.0f;
 			for (int cp = 0; cp < 4; cp++)
@@ -604,8 +605,9 @@ CON_COMMAND(
 	cs_cl_probe_particle_sweep,
 	"C0 probe (debug): start every particle definition in turn, logging the query calls each causes. [first] [count]")
 {
-	const vgui::VPANEL parent = enginevgui ? enginevgui->GetPanel(PANEL_CLIENTDLL) : 0;
-	if (!parent || !g_pParticleSystemMgr || !engine->IsInGame())
+	const vgui::VPANEL parent =
+		ShellClientDll_Engines().m_pVGui ? ShellClientDll_Engines().m_pVGui->GetPanel(PANEL_CLIENTDLL) : 0;
+	if (!parent || !ShellClientDll_Engines().m_pParticleMgr || !ShellClientDll_Engines().m_pEngine->IsInGame())
 	{
 		ProbeLog("pq-sweep-refused (not in a map)");
 		return;
@@ -664,7 +666,7 @@ CON_COMMAND(cs_cl_probe_paint, "C0 probe (debug): count ISurface::PaintTraverseE
 {
 	if (!ProbeOn() || g_pOrigPaintTraverseEx)
 		return;
-	vgui::ISurface* pSurface = vgui::surface();
+	vgui::ISurface* pSurface = ShellClientDll_Engines().m_pVGuiSurface;
 	int slot = VtableSlot(&vgui::ISurface::PaintTraverseEx);
 	void* pOld = NULL;
 	bool bOk = pSurface && slot >= 0 && PatchSlot(*(void***)pSurface, slot, (void*)&HookPaintTraverseEx, &pOld);
@@ -687,7 +689,7 @@ class CProbeTexturePanel : public CSourceSharpRawPanel
 {
 public:
 	explicit CProbeTexturePanel(vgui::VPANEL parent)
-		: CSourceSharpRawPanel("SourceSharpProbeTexture")
+		: CSourceSharpRawPanel(ShellClientDll_Engines(), "SourceSharpProbeTexture")
 	{
 		SetParent(parent);
 		SetBounds(16, 16, kSize, kSize);
@@ -713,8 +715,8 @@ public:
 				p[3] = 255;
 			}
 		}
-		m_nId = vgui::surface()->CreateNewTextureID(true);
-		vgui::surface()->DrawSetTextureRGBA(m_nId, s_Rgba, kTex, kTex, 0, true);
+		m_nId = ShellClientDll_Engines().m_pVGuiSurface->CreateNewTextureID(true);
+		ShellClientDll_Engines().m_pVGuiSurface->DrawSetTextureRGBA(m_nId, s_Rgba, kTex, kTex, 0, true);
 		ProbeLog("texture-upload id=%d size=%d", m_nId, kTex);
 	}
 
@@ -723,16 +725,18 @@ public:
 		m_nPaints++;
 		if (m_nPaints % 300 == 1)
 			ProbeLog("texture-paint n=%lld id=%d valid=%d screen=%dx%d", m_nPaints, m_nId,
-					 vgui::surface()->IsTextureIDValid(m_nId) ? 1 : 0, ScreenWidth(), ScreenHeight());
-		vgui::surface()->DrawSetColor(255, 255, 255, 255);
-		vgui::surface()->DrawSetTexture(m_nId);
-		vgui::surface()->DrawTexturedRect(0, 0, kSize, kSize);
+					 ShellClientDll_Engines().m_pVGuiSurface->IsTextureIDValid(m_nId) ? 1 : 0,
+					 ScreenWidth(ShellClientDll_Engines()), ScreenHeight(ShellClientDll_Engines()));
+		ShellClientDll_Engines().m_pVGuiSurface->DrawSetColor(255, 255, 255, 255);
+		ShellClientDll_Engines().m_pVGuiSurface->DrawSetTexture(m_nId);
+		ShellClientDll_Engines().m_pVGuiSurface->DrawTexturedRect(0, 0, kSize, kSize);
 	}
 
 	virtual void OnScreenSizeChanged(int oldW, int oldH) OVERRIDE
 	{
-		ProbeLog("texture-screen-size-changed old=%dx%d new=%dx%d valid=%d", oldW, oldH, ScreenWidth(), ScreenHeight(),
-				 vgui::surface()->IsTextureIDValid(m_nId) ? 1 : 0);
+		ProbeLog("texture-screen-size-changed old=%dx%d new=%dx%d valid=%d", oldW, oldH,
+				 ScreenWidth(ShellClientDll_Engines()), ScreenHeight(ShellClientDll_Engines()),
+				 ShellClientDll_Engines().m_pVGuiSurface->IsTextureIDValid(m_nId) ? 1 : 0);
 		SetBounds(16, 16, kSize, kSize);
 	}
 
@@ -755,7 +759,8 @@ CON_COMMAND(cs_cl_probe_texture, "C0 probe (debug): show a texture uploaded once
 		ProbeLog("texture-already-shown id-valid");
 		return;
 	}
-	const vgui::VPANEL parent = enginevgui ? enginevgui->GetPanel(PANEL_CLIENTDLL) : 0;
+	const vgui::VPANEL parent =
+		ShellClientDll_Engines().m_pVGui ? ShellClientDll_Engines().m_pVGui->GetPanel(PANEL_CLIENTDLL) : 0;
 	if (!parent)
 	{
 		ProbeLog("texture-no-viewport");
@@ -784,14 +789,14 @@ class CProbeMenuPanel : public CSourceSharpRawPanel
 {
 public:
 	explicit CProbeMenuPanel(vgui::VPANEL parent)
-		: CSourceSharpRawPanel("SourceSharpProbeMainMenu")
+		: CSourceSharpRawPanel(ShellClientDll_Engines(), "SourceSharpProbeMainMenu")
 	{
 		SetParent(parent);
 		int w, h;
-		vgui::surface()->GetScreenSize(w, h);
+		ShellClientDll_Engines().m_pVGuiSurface->GetScreenSize(w, h);
 		SetBounds(0, 0, w, h / 2);
 		SetVisible(false);
-		vgui::ivgui()->AddTickSignal(GetVPanel(), 250);
+		ShellClientDll_Engines().m_pVGuiCore->AddTickSignal(GetVPanel(), 250);
 	}
 
 	virtual void OnTick() OVERRIDE
@@ -800,7 +805,8 @@ public:
 		if (v != m_nLastVisible)
 		{
 			m_nLastVisible = v;
-			ProbeLog("menu-override-visible %d parent=%#lx", v, (unsigned long)vgui::ipanel()->GetParent(GetVPanel()));
+			ProbeLog("menu-override-visible %d parent=%#lx", v,
+					 (unsigned long)ShellClientDll_Engines().m_pVGuiPanel->GetParent(GetVPanel()));
 		}
 	}
 
@@ -808,10 +814,10 @@ public:
 	{
 		if (m_nPaints++ == 0)
 			ProbeLog("menu-override-first-paint");
-		vgui::surface()->DrawSetColor(255, 0, 255, 255);
+		ShellClientDll_Engines().m_pVGuiSurface->DrawSetColor(255, 0, 255, 255);
 		int w, h;
 		GetSize(w, h);
-		vgui::surface()->DrawFilledRect(0, 0, w, h);
+		ShellClientDll_Engines().m_pVGuiSurface->DrawFilledRect(0, 0, w, h);
 	}
 
 private:
@@ -863,7 +869,7 @@ CON_COMMAND(cs_cl_probe_menu_override, "C0 probe (debug): hand GameUI a hidden p
 	ProbeLog("menu-override module=%s gameui=%p", find.m_szPath[0] ? find.m_szPath : "(none)", pGameUi);
 	if (!pGameUi)
 		return;
-	g_pMenuPanel = new CProbeMenuPanel(enginevgui->GetPanel(PANEL_GAMEUIDLL));
+	g_pMenuPanel = new CProbeMenuPanel(ShellClientDll_Engines().m_pVGui->GetPanel(PANEL_GAMEUIDLL));
 	typedef void (*SetOverrideFn)(void* pThis, vgui::VPANEL panel);
 	SetOverrideFn pfn = (SetOverrideFn)((*(void***)pGameUi)[36]);
 	ProbeLog("menu-override calling slot 36 (%s) panel=%#lx", ModuleOf((void*)pfn),

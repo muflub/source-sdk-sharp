@@ -185,6 +185,6 @@ void CTempEntsSystemClient::FxDispatchParticleEffect(int32_t nSystem, const floa
 	data.m_vAngles.Init(pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2]);
 	data.m_hEntity = NULL;
 
-	CPASFilter filter(data.m_vOrigin);
+	CPASFilter filter(m_Engines.m_pEngine, data.m_vOrigin);
 	DispatchEffect(filter, 0.0, data.m_vOrigin, "ParticleEffect", data);
 }

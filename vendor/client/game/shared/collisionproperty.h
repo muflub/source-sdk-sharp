@@ -16,7 +16,8 @@ struct Ray_t;
 class IPhysicsObject;
 
 // Force spatial partition updates (to avoid threading problems caused by lazy update)
-void UpdateDirtySpatialPartitionEntities();
+class CClientSystem;
+void UpdateDirtySpatialPartitionEntities(CClientSystem* pDirtyPartition);
 
 // Encapsulates collision representation for an entity
 class CCollisionProperty : public ICollideable

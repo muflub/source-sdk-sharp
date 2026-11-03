@@ -21,11 +21,17 @@
 
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+class CShellClientDllRefusals;
+
 class CParticleSystemQueryClient final : public CBaseAppSystem<IParticleSystemQuery>
 {
 public:
-	explicit CParticleSystemQueryClient(const CManagedAreasClient& areas)
+	CParticleSystemQueryClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+							   CShellClientDllRefusals& refusals)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_Refusals(refusals)
 	{
 	}
 
@@ -74,6 +80,8 @@ private:
 	void Unanswered_Add(int nMethod) { ThreadInterlockedIncrement(&m_nUnanswered[nMethod]); }
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	CShellClientDllRefusals& m_Refusals;
 
 	CThreadFastMutex m_LightMutex;
 	volatile int32 m_nUnanswered[kMethods] = {};

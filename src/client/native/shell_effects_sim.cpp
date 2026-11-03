@@ -19,6 +19,7 @@
 #include "shell_standalone_client.h"
 #include "shell_standalone_clients.h"
 #include "shell_wind_client.h"
+#include "shell_client_engine_interfaces.h"
 
 // The wind, as published by managed's WindSim. Native readers call
 // GetWindspeedAtTime, which answers the published head wind vector; the tree
@@ -37,7 +38,7 @@ void CWindClient::WindPublish(const float* pWind, const float* pSway, int32_t nW
 
 	if (pSway)
 	{
-		CMatRenderContextPtr pRenderContext(g_pMaterialSystem);
+		CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
 		pRenderContext->SetVectorRenderingParameter(VECTOR_RENDERPARM_WIND_DIRECTION,
 													Vector(pSway[0], pSway[1], pSway[2]));
 	}

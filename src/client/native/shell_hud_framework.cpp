@@ -17,10 +17,10 @@
 
 #include "client_entity.h"
 
-CHud gHUD;
-
-// Registers itself with gHUD on construction and removes itself on destruction.
-CHudElement::CHudElement(const char* pElementName)
+// Registers itself with the HUD on construction and removes itself on destruction.
+CHudElement::CHudElement(const CClientEngineInterfaces& engines, CHud& hud, const char* pElementName)
+	: CGameEventListener(engines)
+	, m_Hud(hud)
 {
 	m_pElementName = pElementName;
 	m_bActive = false;
@@ -28,13 +28,13 @@ CHudElement::CHudElement(const char* pElementName)
 	m_bNeedsRemove = false;
 	m_bIsParentedToClientDLLRootPanel = false;
 
-	gHUD.AddHudElement(this);
+	m_Hud.AddHudElement(this);
 }
 
 CHudElement::~CHudElement()
 {
 	if (m_bNeedsRemove)
-		gHUD.RemoveHudElement(this);
+		m_Hud.RemoveHudElement(this);
 }
 
 void CHudElement::SetActive(bool bActive)
@@ -50,7 +50,7 @@ void CHudElement::SetHiddenBits(int iBits)
 // The game hides the HUD wholesale during intermissions and scoreboards.
 bool CHudElement::ShouldDraw()
 {
-	return !gHUD.IsHidden(m_iHiddenBits);
+	return !m_Hud.IsHidden(m_iHiddenBits);
 }
 
 int CHudElement::GetRenderGroupPriority()
@@ -158,7 +158,3 @@ float CHud::GetFOVSensitivityAdjust()
 {
 	return m_flFOVSensitivityAdjust;
 }
-
-// The engine resolves closecaption by name in its client-convar query, and the server
-// reads it from a connected client.
-ConVar closecaption("closecaption", "0", FCVAR_ARCHIVE | FCVAR_USERINFO, "Enable close captioning.");

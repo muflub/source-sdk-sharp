@@ -21,13 +21,10 @@
 
 #include "c_recipientfilter.h"
 
-#include "ivmodemanager.h"
 #include "vgui_int.h"
 #include "ienginevgui.h"
 
 #include "vgui_controls/Controls.h"
-#include "ifpspanel.h"
-#include "inetgraphpanel.h"
 #include "filesystem.h"
 
 #include "cdll_client_int.h"
@@ -44,6 +41,7 @@
 
 #include "shell_view_targets.h"
 #include "shell_client_mode.h"
+#include "shell_vgui_object.h"
 #include "shell_managed_particles.h"
 #include "shell_standalone_clients.h"
 #include "shell_client_engine_interfaces.h"
@@ -68,7 +66,7 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 {
 	m_Standalone.SetThirdPersonSeesOwner(false);
 
-	if (!::input || !::input->CAM_IsThirdPerson())
+	if (!m_Engines.m_pInput || !m_Engines.m_pInput->CAM_IsThirdPerson())
 	{
 		// Still tell the player: leaving third person is when its model must leave the leaf system.
 		if (pPlayer)
@@ -77,15 +75,7 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 		return;
 	}
 
-	// Stock's convar names, through ConVarRef: in_camera.cpp declares them static.
-	static ConVarRef s_IdealDist("cam_idealdist");
-	static ConVarRef s_IdealDistRight("cam_idealdistright");
-	static ConVarRef s_IdealDistUp("cam_idealdistup");
-	static ConVarRef s_IdealPitch("cam_idealpitch");
-	static ConVarRef s_IdealYaw("cam_idealyaw");
-	static ConVarRef s_Collision("cam_collision");
-
-	if (!s_IdealDist.IsValid())
+	if (!m_IdealDist.IsValid())
 		return;
 
 	IManagedPredictionClient* pPrediction = m_Areas.m_pPredictionClient;
@@ -109,12 +99,12 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 	io.vecViewAngles[0] = pSetup->angles[PITCH];
 	io.vecViewAngles[1] = pSetup->angles[YAW];
 	io.vecViewAngles[2] = pSetup->angles[ROLL];
-	io.flIdealPitch = s_IdealPitch.GetFloat();
-	io.flIdealYaw = s_IdealYaw.GetFloat();
-	io.flIdealDist = s_IdealDist.GetFloat();
-	io.flIdealDistRight = s_IdealDistRight.IsValid() ? s_IdealDistRight.GetFloat() : 0.0f;
-	io.flIdealDistUp = s_IdealDistUp.IsValid() ? s_IdealDistUp.GetFloat() : 0.0f;
-	io.nCollision = s_Collision.IsValid() ? (s_Collision.GetBool() ? 1 : 0) : -1;
+	io.flIdealPitch = m_IdealPitch.GetFloat();
+	io.flIdealYaw = m_IdealYaw.GetFloat();
+	io.flIdealDist = m_IdealDist.GetFloat();
+	io.flIdealDistRight = m_IdealDistRight.IsValid() ? m_IdealDistRight.GetFloat() : 0.0f;
+	io.flIdealDistUp = m_IdealDistUp.IsValid() ? m_IdealDistUp.GetFloat() : 0.0f;
+	io.nCollision = m_CamCollision.IsValid() ? (m_CamCollision.GetBool() ? 1 : 0) : -1;
 
 	if (!pPrediction->ThirdPersonCamera(&io))
 		return;
@@ -131,8 +121,8 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 		const float flHull = io.flHullHalfExtent;
 		trace_t trace;
 
-		UTIL_TraceHull(vecEye, vecEye + vecWish, Vector(-flHull, -flHull, -flHull), Vector(flHull, flHull, flHull),
-					   io.nTraceMask, pPlayer, COLLISION_GROUP_NONE, &trace);
+		UTIL_TraceHull(m_Engines, vecEye, vecEye + vecWish, Vector(-flHull, -flHull, -flHull),
+					   Vector(flHull, flHull, flHull), io.nTraceMask, pPlayer, COLLISION_GROUP_NONE, &trace);
 
 		flTraceFraction = trace.fraction;
 	}
@@ -159,14 +149,6 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 }
 
 // CSourceSharpClientMode (shell_client_mode.h).
-
-static ConVar cl_show_num_particle_systems("cl_show_num_particle_systems", "0", FCVAR_CLIENTDLL,
-										   "Display the number of active particle systems.");
-
-CON_COMMAND(cl_reload_localization_files, "Reloads all localization files")
-{
-	g_pVGuiLocalize->ReloadLocalizationFiles();
-}
 
 // Managed's screen shake: this frame's offset and roll, added at factor 1.
 void CSourceSharpClientMode::ApplyManagedShake(Vector& origin, QAngle& angles)
@@ -221,13 +203,17 @@ void CSourceSharpClientMode::ViewOverrideSet(int32_t nActive, const float* pOrig
 }
 
 CSourceSharpClientMode::CSourceSharpClientMode(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
-											   CStandaloneClients& standalone, CManagedParticlesClient& particles,
-											   CViewTargetsClient& viewTargets)
-	: m_Areas(areas)
+											   CHud& hud, CStandaloneClients& standalone,
+											   CManagedParticlesClient& particles, CViewTargetsClient& viewTargets,
+											   const CVguiClient& vgui)
+	: CGameEventListener(engines)
+	, m_Areas(areas)
 	, m_Engines(engines)
+	, m_Hud(hud)
 	, m_Standalone(standalone)
 	, m_Particles(particles)
 	, m_ViewTargets(viewTargets)
+	, m_Vgui(vgui)
 	, m_pViewport(NULL)
 {
 	SOURCESHARP_TRACE();
@@ -243,8 +229,13 @@ CSourceSharpClientMode::~CSourceSharpClientMode()
 void CSourceSharpClientMode::InitViewport()
 {
 	SOURCESHARP_TRACE();
-	m_pViewport = new CSourceSharpViewport(m_Areas);
+	m_pViewport = new CSourceSharpViewport(m_Areas, m_Engines);
 	m_pViewport->Start(m_Engines.m_pEvents);
+}
+
+IViewPort* CSourceSharpClientMode::ViewPort() const
+{
+	return m_pViewport;
 }
 
 void CSourceSharpClientMode::Init()
@@ -262,10 +253,10 @@ void CSourceSharpClientMode::Enable()
 {
 	if (!m_pViewport)
 		return;
-	if (vgui::VPANEL root = VGui_GetClientDLLRootPanel())
+	if (vgui::VPANEL root = m_Vgui.RootPanel())
 		m_pViewport->SetParent(root);
 	m_pViewport->SetCursor(vgui::dc_none);
-	vgui::surface()->SetCursor(vgui::dc_none);
+	m_Engines.m_pVGuiSurface->SetCursor(vgui::dc_none);
 	m_pViewport->SetVisible(true);
 	Layout();
 }
@@ -280,11 +271,11 @@ void CSourceSharpClientMode::Disable()
 
 void CSourceSharpClientMode::Layout()
 {
-	vgui::VPANEL root = VGui_GetClientDLLRootPanel();
+	vgui::VPANEL root = m_Vgui.RootPanel();
 	if (!m_pViewport || !root)
 		return;
 	int nWide, nTall;
-	vgui::ipanel()->GetSize(root, nWide, nTall);
+	m_Engines.m_pVGuiPanel->GetSize(root, nWide, nTall);
 	m_pViewport->SetBounds(0, 0, nWide, nTall);
 }
 
@@ -305,7 +296,7 @@ vgui::VPANEL CSourceSharpClientMode::GetViewportVPanel()
 
 void CSourceSharpClientMode::ProcessInput(bool bActive)
 {
-	gHUD.ProcessInput(bActive);
+	m_Hud.ProcessInput(bActive);
 }
 
 bool CSourceSharpClientMode::ShouldDrawDetailObjects()
@@ -360,13 +351,13 @@ void CSourceSharpClientMode::LevelInit(const char* newmap)
 		event->SetString("mapname", newmap);
 		m_Engines.m_pEvents->FireEventClientSide(event);
 	}
-	CLocalPlayerFilter filter;
+	CLocalPlayerFilter filter(m_Engines.m_pEngine);
 	m_Engines.m_pSound->SetPlayerDSP(filter, 0, true);
 }
 
 void CSourceSharpClientMode::LevelShutdown()
 {
-	CLocalPlayerFilter filter;
+	CLocalPlayerFilter filter(m_Engines.m_pEngine);
 	m_Engines.m_pSound->SetPlayerDSP(filter, 0, true);
 }
 
@@ -408,13 +399,13 @@ bool CSourceSharpClientMode::DoPostScreenSpaceEffects(const CViewSetup* pSetup)
 
 void CSourceSharpClientMode::Update()
 {
-	if (cl_show_num_particle_systems.GetBool())
+	if (m_cl_show_num_particle_systems.GetBool())
 	{
 		int nCount = 0;
-		for (int i = 0; i < g_pParticleSystemMgr->GetParticleSystemCount(); i++)
+		for (int i = 0; i < m_Engines.m_pParticleMgr->GetParticleSystemCount(); i++)
 		{
-			CParticleSystemDefinition* pDef =
-				g_pParticleSystemMgr->FindParticleSystem(g_pParticleSystemMgr->GetParticleSystemNameFromIndex(i));
+			CParticleSystemDefinition* pDef = m_Engines.m_pParticleMgr->FindParticleSystem(
+				m_Engines.m_pParticleMgr->GetParticleSystemNameFromIndex(i));
 			if (!pDef)
 				continue;
 			for (CParticleCollection* p = pDef->FirstCollection(); p; p = p->GetNextCollectionUsingSameDef())
@@ -451,7 +442,7 @@ void CSourceSharpClientMode::FireGameEvent(IGameEvent* event)
 	EmitSound_t et;
 	et.m_pSoundName = event->GetString("sound");
 	et.m_nFlags = event->GetInt("additional_flags");
-	CLocalPlayerFilter filter;
+	CLocalPlayerFilter filter(m_Engines.m_pEngine);
 	ClientSound::Emit(m_Areas.m_pSoundEmitterClient, filter, SOUND_FROM_LOCAL_PLAYER, et);
 }
 
@@ -494,11 +485,12 @@ void CSourceSharpClientMode::OverrideView(CViewSetup* pSetup)
 	}
 
 	// No viewer: stock's orthographic camera.
-	if (m_Standalone.LocalPlayer() && !::input->CAM_IsThirdPerson() && ::input->CAM_IsOrthographic())
+	if (m_Standalone.LocalPlayer() && !m_Engines.m_pInput->CAM_IsThirdPerson() &&
+		m_Engines.m_pInput->CAM_IsOrthographic())
 	{
 		pSetup->m_bOrtho = true;
 		float w, h;
-		::input->CAM_OrthographicSize(w, h);
+		m_Engines.m_pInput->CAM_OrthographicSize(w, h);
 		pSetup->m_OrthoLeft = -w * 0.5f;
 		pSetup->m_OrthoTop = -h * 0.5f;
 		pSetup->m_OrthoRight = w * 0.5f;
@@ -506,113 +498,13 @@ void CSourceSharpClientMode::OverrideView(CViewSetup* pSetup)
 	}
 }
 
-// The client DLL object's member; set from its Init.
-IClientMode* g_pClientMode = NULL;
-
-// The client mode's Layout, when managed asks.
-void SourceSharp_ClientModeLayout()
-{
-	g_pClientMode->Layout();
-}
-
-class CSourceSharpModeManager : public IVModeManager
-{
-public:
-	virtual void Init() OVERRIDE { SOURCESHARP_STUB(); }
-
-	virtual void SwitchMode(bool commander, bool force) OVERRIDE { SOURCESHARP_STUB(); }
-
-	virtual void LevelInit(const char* newmap) OVERRIDE
-	{
-		SOURCESHARP_TRACE_MSG(newmap);
-		g_pClientMode->LevelInit(newmap);
-	}
-
-	virtual void LevelShutdown() OVERRIDE
-	{
-		SOURCESHARP_TRACE();
-		g_pClientMode->LevelShutdown();
-	}
-};
-
-static CSourceSharpModeManager g_ModeManager;
-IVModeManager* modemanager = &g_ModeManager;
-
-// The engine parents all client VGUI under this.
-static CSourceSharpRawPanel* g_pRootPanel = NULL;
-
-// VGUI clips a child to its parent, so the root must fill the screen, from creation and
-// again whenever the screen size changes.
-void VGUI_CreateClientDLLRootPanel()
-{
-	SOURCESHARP_TRACE();
-	g_pRootPanel = new CSourceSharpRawPanel("SourceSharp Root Panel");
-	g_pRootPanel->SetParent(enginevgui->GetPanel(PANEL_CLIENTDLL));
-	g_pRootPanel->SetPaintEnabled(false);
-	g_pRootPanel->SetCursor(vgui::dc_none);
-	g_pRootPanel->SetZPos(0);
-	g_pRootPanel->SetVisible(true);
-	g_pRootPanel->SetKeyBoardInputEnabled(false);
-	g_pRootPanel->SetMouseInputEnabled(false);
-
-	g_pRootPanel->FillScreen();
-	int nScreenW, nScreenH;
-	g_pRootPanel->GetSize(nScreenW, nScreenH);
-
-	Msg("[SourceSharp] VGUI root panel sized %dx%d\n", nScreenW, nScreenH);
-}
-
-void VGUI_DestroyClientDLLRootPanel()
-{
-	SOURCESHARP_TRACE();
-	delete g_pRootPanel;
-	g_pRootPanel = NULL;
-}
-
-vgui::VPANEL VGui_GetClientDLLRootPanel()
-{
-	SOURCESHARP_TRACE_HOT();
-
-	return g_pRootPanel ? g_pRootPanel->GetVPanel() : 0;
-}
-
-// The FPS, net-graph and studio-stats hooks the engine still calls; they do nothing.
-namespace
-{
-class CAbsentFPSPanel final : public IFPSPanel
-{
-public:
-	void Create(vgui::VPANEL) override {}
-
-	void Destroy() override {}
-};
-
-CAbsentFPSPanel s_AbsentFPSPanel;
-}
-
-IFPSPanel* fps = &s_AbsentFPSPanel;
-
-namespace
-{
-class CAbsentNetGraphPanel final : public INetGraphPanel
-{
-public:
-	void Create(vgui::VPANEL) override {}
-
-	void Destroy() override {}
-};
-
-CAbsentNetGraphPanel s_AbsentNetGraphPanel;
-}
-
-INetGraphPanel* netgraphpanel = &s_AbsentNetGraphPanel;
-
-IClientRenderable* g_pStudioStatsEntity = NULL;
-
-void StudioStats_FindClosestEntity(CClientRenderablesList*) {}
-
 // Managed calls this once per ammo type; the client keeps no ammo table.
 void SourceSharp_RegisterAmmoType(const char* pName, int32_t nDamageType, int32_t nMaxCarry, int32_t nTracerType,
 								  float flDamageForce, float flDamage)
 {
+}
+
+void CSourceSharpClientMode::ReloadLocalizationCommand(const CCommand& args)
+{
+	m_Engines.m_pVGuiLocalize->ReloadLocalizationFiles();
 }

@@ -30,8 +30,7 @@
 #include "shell_effects_list_client.h"
 #include "shell_view_cameras.h"
 #include "shell_client_engine_interfaces.h"
-
-extern ConVar r_drawsprites;
+#include "shell_convars_client.h"
 
 namespace
 {
@@ -66,8 +65,7 @@ void CGlowOverlaysClient::Execute(const int32_t* pCmds, int nWords)
 		{
 			if (IMaterial* pMaterial = m_Effects.MaterialOf(pCmds[i + 1]))
 			{
-				static unsigned int nHDRColorScaleCache = 0;
-				if (IMaterialVar* pVar = pMaterial->FindVarFast("$hdrcolorscale", &nHDRColorScaleCache))
+				if (IMaterialVar* pVar = pMaterial->FindVarFast("$hdrcolorscale", &m_nHDRColorScaleCache))
 					pVar->SetFloatValue(FloatOf(pCmds[i + 2]));
 			}
 			i += 3;
@@ -127,7 +125,7 @@ int32_t CGlowOverlaysClient::GlowMaterialFind(const char* pszName, const char* p
 void CGlowOverlaysClient::DrawOverlays(bool bCacheFullSceneState)
 {
 	IManagedGlowClient* pManaged = m_Areas.m_pGlowClient;
-	if (!pManaged || !view)
+	if (!pManaged || !m_Engines.m_pViewRender)
 		return;
 
 	float in[SS_GLOW_VIEW_FLOATS];
@@ -139,8 +137,8 @@ void CGlowOverlaysClient::DrawOverlays(bool bCacheFullSceneState)
 	in[3] = forward.x;
 	in[4] = forward.y;
 	in[5] = forward.z;
-	in[6] = view->GetViewSetup()->zFar;
-	const VPlane* pFrustum = view->GetFrustum();
+	in[6] = m_Engines.m_pViewRender->GetViewSetup()->zFar;
+	const VPlane* pFrustum = m_Engines.m_pViewRender->GetFrustum();
 	for (int p = 0; p < 5; p++)
 	{
 		in[7 + p * 4] = pFrustum[p].m_Normal.x;
@@ -148,8 +146,8 @@ void CGlowOverlaysClient::DrawOverlays(bool bCacheFullSceneState)
 		in[9 + p * 4] = pFrustum[p].m_Normal.z;
 		in[10 + p * 4] = pFrustum[p].m_Dist;
 	}
-	in[27] = ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
-	in[28] = (float)r_drawsprites.GetInt();
+	in[27] = m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
+	in[28] = (float)m_DrawSprites.GetInt();
 
 	if (m_Commands.Count() < 2048)
 		m_Commands.SetCount(2048);

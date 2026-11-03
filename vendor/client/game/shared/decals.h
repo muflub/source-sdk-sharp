@@ -26,5 +26,3 @@ public:
 	virtual const char* GetDecalNameForIndex(int nIndex) = 0;
 	virtual char const* TranslateDecalForGameMaterial(char const* decalName, unsigned char gamematerial) = 0;
 };
-
-extern IDecalEmitterSystem* decalsystem;

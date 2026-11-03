@@ -30,6 +30,9 @@ public:
 };
 #else
 #include "convar_registry.h"
+#ifndef SS_CONVAR_STOCK_ORACLE
+#include "managed_convar_ref.h"
+#endif
 #endif
 
 #include <algorithm>
@@ -331,6 +334,39 @@ TEST_F(ConVarPort, ARefToAKnownNameReadsIt)
 	EXPECT_TRUE(r.IsValid());
 	EXPECT_EQ(42, r.GetInt());
 }
+
+// Why a member of the client DLL object, built during static initialisation, cannot hold
+// a ConVarRef: the miss taken before the console exists is cached for good.
+TEST_F(ConVarPort, ARefBuiltBeforeTheConsoleExistsStaysMissing)
+{
+	ConVar v("ss_t_early", "42", FCVAR_UNREGISTERED);
+	g_pFake->m_Vars["ss_t_early"] = &v;
+	m_Registry.Register(0);
+
+	m_Registry.Connect(NULL);
+	ConVarRef r("ss_t_early");
+	m_Registry.Connect(g_pFake);
+
+	EXPECT_FALSE(r.IsValid());
+	EXPECT_EQ(0, r.GetInt());
+}
+
+#ifndef SS_CONVAR_STOCK_ORACLE
+TEST_F(ConVarPort, AManagedRefBuiltBeforeTheConsoleExistsFindsItAfterwards)
+{
+	ConVar v("ss_t_late", "42", FCVAR_UNREGISTERED);
+	g_pFake->m_Vars["ss_t_late"] = &v;
+	m_Registry.Register(0);
+
+	m_Registry.Connect(NULL);
+	CManagedConVarRef r("ss_t_late");
+	EXPECT_FALSE(r.IsValid());
+	m_Registry.Connect(g_pFake);
+
+	EXPECT_TRUE(r.IsValid());
+	EXPECT_EQ(42, r.GetInt());
+}
+#endif
 
 TEST_F(ConVarPort, ARefToAnUnknownNameIsInvalidReadsZeroAndIgnoresWrites)
 {

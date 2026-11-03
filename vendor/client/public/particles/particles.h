@@ -330,8 +330,6 @@ private:
 	friend class CParticleCollection;
 };
 
-extern CParticleSystemMgr* g_pParticleSystemMgr;
-
 // A particle system can only have 1 operator using a particular ID
 enum ParticleOperatorId_t
 {

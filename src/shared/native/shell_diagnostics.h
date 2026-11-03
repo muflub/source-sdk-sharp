@@ -27,7 +27,7 @@ void SourceSharp_NotShipped(const char* pCapability, const char* pReason);
 
 // Client only. Always false: the HLTV camera is not shipped. Records the refusal
 // when engine->IsHLTV() says it mattered.
-bool SourceSharp_HltvCameraAvailable();
+bool SourceSharp_HltvCameraAvailable(class IVEngineClient* pEngine);
 
 void SourceSharp_LogEntityCreateFailed(const char* pClassName);
 void SourceSharp_LogEntityDestroy(const char* pClassName);

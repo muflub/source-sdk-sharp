@@ -140,5 +140,3 @@ public:
 	virtual void OnDemoRecordStart(char const* pDemoBaseName) = 0;
 	virtual void OnDemoRecordStop() = 0;
 };
-
-extern IClientMode* g_pClientMode;

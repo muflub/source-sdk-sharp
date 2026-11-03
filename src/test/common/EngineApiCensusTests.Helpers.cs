@@ -78,6 +78,13 @@ public partial class EngineApiCensusTests
         var served = Regex.Matches(factory, @"static_cast<\s*(\w+)\s*\*\s*>\(\s*&areas\.").Select(m => m.Groups[1].Value).ToList();
         Assert.True(served.Count >= 10, $"read the client factory's areas ({served.Count})");
         bases.UnionWith(served);
+
+        // A shared area the client's own class implements is held by pointer and handed out
+        // as it is: `return areas.m_pEngine;` serves IShimEngine (CEngineAreaClient).
+        var owned = Regex.Matches(factory, @"return\s+areas\.m_p(\w+)\s*;").Select(m => "IShim" + m.Groups[1].Value).ToList();
+        Assert.Contains("IShimEngine", owned);
+        bases.UnionWith(owned);
+
         foreach (Match c in Regex.Matches(areas, @"abstract_class\s+(\w+)[^{]*\{(.*?)\n\};", RegexOptions.Singleline))
         {
             if (bases.Contains(c.Groups[1].Value))

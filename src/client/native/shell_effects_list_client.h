@@ -25,6 +25,9 @@ class CClientEntityList;
 
 class IMaterial;
 
+class CParticleSubTexture;
+typedef CParticleSubTexture* PMaterialHandle;
+
 class CEffectsListClient final : public IEffectsList
 {
 public:
@@ -39,6 +42,11 @@ public:
 
 	CEffectsListClient(const CEffectsListClient&) = delete;
 	CEffectsListClient& operator=(const CEffectsListClient&) = delete;
+
+	// Stock's FX_CacheMaterialHandles: looked up once, held for the level.
+	void CacheMaterialHandles();
+
+	int32_t FxMaterialsCached() { return (m_Mat_SMG_Muzzleflash[0] ? 1 : 0) | (m_Mat_Combine_Muzzleflash[0] ? 2 : 0); }
 
 	// Shim slots: what managed effects ask of the engine.
 	int32_t FxLocalPlayer();
@@ -135,6 +143,15 @@ private:
 		CEffectsListClient& m_Effects;
 	};
 
+	PMaterialHandle m_Mat_Fleck_Wood[2] = {};
+	PMaterialHandle m_Mat_Fleck_Cement[2] = {};
+	PMaterialHandle m_Mat_Fleck_Antlion[2] = {};
+	PMaterialHandle m_Mat_Fleck_Glass[2] = {};
+	PMaterialHandle m_Mat_Fleck_Tile[2] = {};
+	PMaterialHandle m_Mat_DustPuff[2] = {};
+	PMaterialHandle m_Mat_BloodPuff[2] = {};
+	PMaterialHandle m_Mat_SMG_Muzzleflash[4] = {};
+	PMaterialHandle m_Mat_Combine_Muzzleflash[3] = {};
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;
 	const CViewCameras& m_Cameras;

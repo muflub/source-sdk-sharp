@@ -8,13 +8,15 @@
 #undef new
 
 // Purpose: Base class for all hud elements
+class CHud;
+
 class CHudElement : public CGameEventListener
 {
 public:
 	DECLARE_CLASS_NOBASE(CHudElement);
 
 	// constructor - registers object in global list
-	CHudElement(const char* pElementName);
+	CHudElement(const CClientEngineInterfaces& engines, CHud& hud, const char* pElementName);
 	// destructor - removes object from the global list
 	virtual ~CHudElement();
 
@@ -87,6 +89,7 @@ protected:
 
 private:
 	const char* m_pElementName;
+	CHud& m_Hud;
 	bool m_bNeedsRemove;
 	bool m_bIsParentedToClientDLLRootPanel;
 

@@ -19,7 +19,6 @@
 // See util_shared.h.
 
 // Read by the UTIL_Trace* inlines in util_shared.h.
-ConVar r_visualizetraces("r_visualizetraces", "0", FCVAR_CHEAT);
 
 // The client has no AnyEntity_t, so past the pass entity itself this answers true.
 bool PassServerEntityFilter(const IHandleEntity* pTouch, const IHandleEntity* pPass)

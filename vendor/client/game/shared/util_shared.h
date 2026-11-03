@@ -8,6 +8,8 @@
 #include "engine/IStaticPropMgr.h"
 
 #include "cdll_client_int.h"
+#include "shell_client_engine_interfaces.h"
+#include "shell_convars_client.h"
 
 // Forward declarations
 class CGameTrace;
@@ -84,79 +86,80 @@ private:
 };
 
 // helper
-void DebugDrawLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, int r, int g, int b, bool test, float duration);
+void DebugDrawLine(const CClientEngineInterfaces& engines, const Vector& vecAbsStart, const Vector& vecAbsEnd, int r,
+				   int g, int b, bool test, float duration);
 
-extern ConVar r_visualizetraces;
-
-inline void UTIL_TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask,
-						   const IHandleEntity* ignore, int collisionGroup, trace_t* ptr)
+inline void UTIL_TraceLine(const CClientEngineInterfaces& engines, const Vector& vecAbsStart, const Vector& vecAbsEnd,
+						   unsigned int mask, const IHandleEntity* ignore, int collisionGroup, trace_t* ptr)
 {
 	Ray_t ray;
 	ray.Init(vecAbsStart, vecAbsEnd);
 	CTraceFilterSimple traceFilter(ignore, collisionGroup);
 
-	enginetrace->TraceRay(ray, mask, &traceFilter, ptr);
+	engines.m_pTrace->TraceRay(ray, mask, &traceFilter, ptr);
 
-	if (r_visualizetraces.GetBool())
+	if (engines.m_pConVars->m_r_visualizetraces.GetBool())
 	{
-		DebugDrawLine(ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f);
+		DebugDrawLine(engines, ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f);
 	}
 }
 
-inline void UTIL_TraceLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, unsigned int mask, ITraceFilter* pFilter,
-						   trace_t* ptr)
+inline void UTIL_TraceLine(const CClientEngineInterfaces& engines, const Vector& vecAbsStart, const Vector& vecAbsEnd,
+						   unsigned int mask, ITraceFilter* pFilter, trace_t* ptr)
 {
 	Ray_t ray;
 	ray.Init(vecAbsStart, vecAbsEnd);
 
-	enginetrace->TraceRay(ray, mask, pFilter, ptr);
+	engines.m_pTrace->TraceRay(ray, mask, pFilter, ptr);
 
-	if (r_visualizetraces.GetBool())
+	if (engines.m_pConVars->m_r_visualizetraces.GetBool())
 	{
-		DebugDrawLine(ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f);
+		DebugDrawLine(engines, ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f);
 	}
 }
 
-inline void UTIL_TraceHull(const Vector& vecAbsStart, const Vector& vecAbsEnd, const Vector& hullMin,
-						   const Vector& hullMax, unsigned int mask, const IHandleEntity* ignore, int collisionGroup,
-						   trace_t* ptr)
+inline void UTIL_TraceHull(const CClientEngineInterfaces& engines, const Vector& vecAbsStart, const Vector& vecAbsEnd,
+						   const Vector& hullMin, const Vector& hullMax, unsigned int mask, const IHandleEntity* ignore,
+						   int collisionGroup, trace_t* ptr)
 {
 	Ray_t ray;
 	ray.Init(vecAbsStart, vecAbsEnd, hullMin, hullMax);
 	CTraceFilterSimple traceFilter(ignore, collisionGroup);
 
-	enginetrace->TraceRay(ray, mask, &traceFilter, ptr);
+	engines.m_pTrace->TraceRay(ray, mask, &traceFilter, ptr);
 
-	if (r_visualizetraces.GetBool())
+	if (engines.m_pConVars->m_r_visualizetraces.GetBool())
 	{
-		DebugDrawLine(ptr->startpos, ptr->endpos, 255, 255, 0, true, -1.0f);
+		DebugDrawLine(engines, ptr->startpos, ptr->endpos, 255, 255, 0, true, -1.0f);
 	}
 }
 
-inline void UTIL_TraceHull(const Vector& vecAbsStart, const Vector& vecAbsEnd, const Vector& hullMin,
-						   const Vector& hullMax, unsigned int mask, ITraceFilter* pFilter, trace_t* ptr)
+inline void UTIL_TraceHull(const CClientEngineInterfaces& engines, const Vector& vecAbsStart, const Vector& vecAbsEnd,
+						   const Vector& hullMin, const Vector& hullMax, unsigned int mask, ITraceFilter* pFilter,
+						   trace_t* ptr)
 {
 	Ray_t ray;
 	ray.Init(vecAbsStart, vecAbsEnd, hullMin, hullMax);
 
-	enginetrace->TraceRay(ray, mask, pFilter, ptr);
+	engines.m_pTrace->TraceRay(ray, mask, pFilter, ptr);
 
-	if (r_visualizetraces.GetBool())
+	if (engines.m_pConVars->m_r_visualizetraces.GetBool())
 	{
-		DebugDrawLine(ptr->startpos, ptr->endpos, 255, 255, 0, true, -1.0f);
+		DebugDrawLine(engines, ptr->startpos, ptr->endpos, 255, 255, 0, true, -1.0f);
 	}
 }
 
-inline void UTIL_TraceRay(const Ray_t& ray, unsigned int mask, const IHandleEntity* ignore, int collisionGroup,
-						  trace_t* ptr, ShouldHitFunc_t pExtraShouldHitCheckFn = NULL)
+inline void UTIL_TraceRay(const CClientEngineInterfaces& engines, const Ray_t& ray, unsigned int mask,
+						  const IHandleEntity* ignore, int collisionGroup, trace_t* ptr,
+						  ShouldHitFunc_t pExtraShouldHitCheckFn = NULL)
 {
 	CTraceFilterSimple traceFilter(ignore, collisionGroup, pExtraShouldHitCheckFn);
 
-	enginetrace->TraceRay(ray, mask, &traceFilter, ptr);
+	engines.m_pTrace->TraceRay(ray, mask, &traceFilter, ptr);
 
-	if (r_visualizetraces.GetBool())
+	if (engines.m_pConVars->m_r_visualizetraces.GetBool())
 	{
-		DebugDrawLine(ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f);
+		DebugDrawLine(engines, ptr->startpos, ptr->endpos, 255, 0, 0, true, -1.0f);
 	}
 }
 

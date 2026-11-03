@@ -13,47 +13,38 @@
 #include "util_shared.h"
 #include "vphysics_interface.h"
 #include "client_entity.h"
-#include "idebugoverlaypanel.h"
 #include "engine/ivdebugoverlay.h"
 #include "overlaytext.h"
+#include "shell_debugoverlay_object.h"
+#include "shell_client_engine_interfaces.h"
 
-class CSourceSharpDebugOverlayPanel : public IDebugOverlayPanel
+void DebugDrawLine(const CClientEngineInterfaces& engines, const Vector& vecAbsStart, const Vector& vecAbsEnd, int r,
+				   int g, int b, bool test, float duration)
 {
-public:
-	virtual void Create(vgui::VPANEL parent) OVERRIDE {}
-
-	virtual void Destroy() OVERRIDE {}
-};
-
-static CSourceSharpDebugOverlayPanel g_DebugOverlay;
-IDebugOverlayPanel* debugoverlaypanel = &g_DebugOverlay;
-
-void DebugDrawLine(const Vector& vecAbsStart, const Vector& vecAbsEnd, int r, int g, int b, bool test, float duration)
-{
-	if (debugoverlay)
-		debugoverlay->AddLineOverlay(vecAbsStart + Vector(0, 0, 0.1), vecAbsEnd + Vector(0, 0, 0.1), r, g, b, test,
-									 duration);
+	if (engines.m_pDebugOverlay)
+		engines.m_pDebugOverlay->AddLineOverlay(vecAbsStart + Vector(0, 0, 0.1), vecAbsEnd + Vector(0, 0, 0.1), r, g, b,
+												test, duration);
 }
 
 // The text overlay at position nIndex of the engine's list: -1 past its end,
 // 0 when it has no text or is off the screen, 1 with its screen position, line
 // offset, colour (0xRRGGBBAA) and text.
-int32_t SourceSharp_UiDebugOverlayText(int32_t nIndex, float* pOutX, float* pOutY, int32_t* pOutLine,
-									   uint32_t* pOutRgba, uint8_t* pText, int32_t nTextBytes)
+int32_t CDebugOverlayClient::UiDebugOverlayText(int32_t nIndex, float* pOutX, float* pOutY, int32_t* pOutLine,
+												uint32_t* pOutRgba, uint8_t* pText, int32_t nTextBytes)
 {
-	if (!debugoverlay)
+	if (!m_Engines.m_pDebugOverlay)
 		return -1;
-	OverlayText_t* p = debugoverlay->GetFirst();
+	OverlayText_t* p = m_Engines.m_pDebugOverlay->GetFirst();
 	for (int32_t i = 0; p && i < nIndex; i++)
-		p = debugoverlay->GetNext(p);
+		p = m_Engines.m_pDebugOverlay->GetNext(p);
 	if (!p)
 		return -1;
 	if (p->text[0] == 0)
 		return 0;
 
 	Vector screen;
-	bool bOff = p->bUseOrigin ? debugoverlay->ScreenPosition(p->origin, screen)
-							  : debugoverlay->ScreenPosition(p->flXPos, p->flYPos, screen);
+	bool bOff = p->bUseOrigin ? m_Engines.m_pDebugOverlay->ScreenPosition(p->origin, screen)
+							  : m_Engines.m_pDebugOverlay->ScreenPosition(p->flXPos, p->flYPos, screen);
 	if (bOff)
 		return 0;
 
@@ -66,8 +57,8 @@ int32_t SourceSharp_UiDebugOverlayText(int32_t nIndex, float* pOutX, float* pOut
 	return 1;
 }
 
-void SourceSharp_UiDebugOverlayClearDead()
+void CDebugOverlayClient::UiDebugOverlayClearDead()
 {
-	if (debugoverlay)
-		debugoverlay->ClearDeadOverlays();
+	if (m_Engines.m_pDebugOverlay)
+		m_Engines.m_pDebugOverlay->ClearDeadOverlays();
 }

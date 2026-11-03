@@ -63,7 +63,7 @@ public class ClientBoundedConVarOracleTests
     [Fact]
     public void TheNativeObjectsAreStocksNamesDefaultsFlagsAndHelp()
     {
-        string ours = Tight(File.ReadAllText(Path.Combine(ValveSdk.RepoRoot, "src/client/native/shell_bounded_cvars_client.cpp")));
+        string ours = Tight(File.ReadAllText(Path.Combine(ValveSdk.RepoRoot, "src/client/native/shell_convars_client.h")));
         string stock = Stock();
 
         // Stock's #if DOD/CSTRIKE arm is not this game; its #else flags are ours.

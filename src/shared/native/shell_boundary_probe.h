@@ -318,16 +318,6 @@ private:
 	Method_t m_Methods[kBoundaryProbeCount];
 };
 
-#ifdef CLIENT_DLL
-// The client's probe. Function-local, so it is not a file-scope static; the server's is
-// a member of its DLL tier's services, handed to the objects it counts.
-inline CBoundaryProbe& BoundaryProbes()
-{
-	static CBoundaryProbe s_Probes;
-	return s_Probes;
-}
-#endif
-
 // The caller's return address, which is the engine instruction after the call.
 #if defined(__GNUC__) || defined(__clang__)
 #define SS_BOUNDARY_CALLER() (SS_RETURN_ADDRESS())

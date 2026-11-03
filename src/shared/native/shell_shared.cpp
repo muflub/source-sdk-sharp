@@ -25,9 +25,3 @@
 
 #include "ss_string.h"
 #include "ss_command_line.h"
-
-// The client's prediction bracket lends it to the movement servicing.
-#ifdef CLIENT_DLL
-static CMoveData g_MoveData;
-CMoveData* g_pMoveData = &g_MoveData;
-#endif

@@ -17,12 +17,16 @@
 
 class CShellClientSoundController;
 class CSoundEnvelopeController;
+class CGameRulesClient;
 class CStandaloneClients;
+
+class CClientEngineInterfaces;
 
 class CSoundPatchesClient
 {
 public:
-	CSoundPatchesClient(const CManagedAreasClient& areas, CStandaloneClients& standalone);
+	CSoundPatchesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						CStandaloneClients& standalone, const CGameRulesClient& gameRules);
 	~CSoundPatchesClient();
 
 	CSoundPatchesClient(const CSoundPatchesClient&) = delete;
@@ -40,6 +44,7 @@ public:
 	int32_t SoundPatchCreate(uint32_t hEntity, int32_t nChannel, const char* pSoundName, int32_t nSoundLevel);
 
 private:
+	const CClientEngineInterfaces& m_Engines;
 	CStandaloneClients& m_Standalone;
 	CShellClientSoundController* m_pController;
 };

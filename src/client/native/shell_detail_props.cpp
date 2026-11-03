@@ -33,8 +33,8 @@
 #include "shell_detail_props.h"
 #include "shell_view_cameras.h"
 #include "shell_client_engine_interfaces.h"
-
-extern ConVar r_DrawDetailProps;
+#include "shell_convars_client.h"
+#include "shell_material_cache_client.h"
 
 const char* const kSpriteMaterial = "detail/detailsprites";
 const char* const kWireframeMaterial = "debug/debugspritewireframe";
@@ -103,7 +103,7 @@ public:
 
 	virtual const QAngle& GetRenderAngles() OVERRIDE { return m_Angles; }
 
-	virtual bool ShouldDraw() OVERRIDE { return g_pClientMode->ShouldDrawDetailObjects(); }
+	virtual bool ShouldDraw() OVERRIDE { return m_Engines.m_pClientMode->ShouldDrawDetailObjects(); }
 
 	virtual bool IsTransparent() OVERRIDE { return m_nAlpha < 255 || m_Engines.m_pModelInfo->IsTranslucent(m_pModel); }
 
@@ -296,12 +296,12 @@ void CShellDetailProps::LevelInitPreEntity()
 	IMaterial* pMaterial = m_SpriteMaterial;
 	const int nWidth = pMaterial ? pMaterial->GetMappingWidth() : 1;
 	const int nHeight = pMaterial ? pMaterial->GetMappingHeight() : 1;
-	const bool bHdr = g_pMaterialSystemHardwareConfig->GetHDRType() != HDR_TYPE_NONE;
+	const bool bHdr = m_Engines.m_pHardwareConfig->GetHDRType() != HDR_TYPE_NONE;
 	const void* pLevel = pArea->DetailLevelInitPreEntity(nWidth, nHeight, bHdr ? 1 : 0);
 	if (!ss_detail::ReadLevel(pLevel, *this))
 		Warning("[SourceSharp/Detail] the level's detail props answer was malformed; the rest is dropped\n");
 	if (m_bPrecache)
-		PrecacheMaterial(kSpriteMaterial);
+		m_MaterialCache.Precache(kSpriteMaterial);
 }
 
 void CShellDetailProps::LevelInitPostEntity()
@@ -309,7 +309,8 @@ void CShellDetailProps::LevelInitPostEntity()
 	char szMaterial[MAX_PATH];
 	IManagedDetailPropsClient* pArea = Managed();
 	if (!pArea ||
-		pArea->DetailLevelInitPostEntity(SourceSharp_WorldDetailSpriteMaterial(), szMaterial, sizeof(szMaterial)) <= 0)
+		pArea->DetailLevelInitPostEntity(m_Engines.m_pWorld->DetailSpriteMaterial(), szMaterial, sizeof(szMaterial)) <=
+			0)
 		V_strncpy(szMaterial, kSpriteMaterial, sizeof(szMaterial));
 	m_SpriteMaterial.Init(szMaterial, TEXTURE_GROUP_OTHER);
 }
@@ -340,15 +341,15 @@ void CShellDetailProps::BuildDetailObjectRenderLists(const Vector& vViewOrigin)
 	if (!pArea)
 		return;
 	const Vector vecCurrent = m_Cameras.CurrentOrigin();
-	const void* pView =
-		pArea->DetailBuildLists(vViewOrigin.Base(), vecCurrent.Base(), g_pClientMode->ShouldDrawDetailObjects() ? 1 : 0,
-								r_DrawDetailProps.GetInt(), m_matFullbright.GetInt());
+	const void* pView = pArea->DetailBuildLists(
+		vViewOrigin.Base(), vecCurrent.Base(), m_Engines.m_pClientMode->ShouldDrawDetailObjects() ? 1 : 0,
+		m_Engines.m_pConVars->m_r_DrawDetailProps.GetInt(), m_matFullbright.GetInt());
 	m_States.RemoveAll();
 	float flRadius = 0.0f;
 	if (!ss_detail::ReadView(pView, *this, &flRadius))
 		return;
 
-	m_nBuildWorldListNumber = view->BuildWorldListsNumber();
+	m_nBuildWorldListNumber = m_Engines.m_pViewRender->BuildWorldListsNumber();
 	m_Engines.m_pEngine->GetBSPTreeQuery()->EnumerateLeavesInSphere(vecCurrent, flRadius, this, 0);
 }
 
@@ -388,7 +389,7 @@ void CShellDetailProps::RenderTranslucentDetailObjectsInLeaf(const Vector& viewO
 bool CShellDetailProps::EnumerateLeaf(int leaf, intp context)
 {
 	int nFirst, nCount;
-	ClientLeafSystem()->DrawDetailObjectsInLeaf(leaf, m_nBuildWorldListNumber, nFirst, nCount);
+	m_Engines.m_pLeafSystem->DrawDetailObjectsInLeaf(leaf, m_nBuildWorldListNumber, nFirst, nCount);
 	for (int i = 0; i < nCount; ++i)
 	{
 		const int idx = nFirst + i;
@@ -424,8 +425,8 @@ void CShellDetailProps::Object(int i, void* pModel, const float* pOrigin, const 
 void CShellDetailProps::Run(int leaf, int first, int count, bool bFast)
 {
 	if (bFast)
-		ClientLeafSystem()->SetSubSystemDataInLeaf(leaf, CLSUBSYSTEM_DETAILOBJECTS, new CShellDetailLeafMarker);
-	ClientLeafSystem()->SetDetailObjectsInLeaf(leaf, first, count);
+		m_Engines.m_pLeafSystem->SetSubSystemDataInLeaf(leaf, CLSUBSYSTEM_DETAILOBJECTS, new CShellDetailLeafMarker);
+	m_Engines.m_pLeafSystem->SetDetailObjectsInLeaf(leaf, first, count);
 }
 
 void CShellDetailProps::Proxy(void* pModel)
@@ -483,7 +484,8 @@ void CShellDetailProps::Draw(int nKind, const Vector& viewOrigin, const Vector& 
 							viewUp.y,      viewUp.z,     current.x,    current.y,     current.z};
 	const void* pPrepared =
 		pArea->DetailPrepare(nKind, view, pLeaves, nLeaves, pClosest ? pClosest->Base() : NULL,
-							 r_DrawDetailProps.GetInt(), ShouldDrawInWireFrameMode() ? 1 : 0, m_matFullbright.GetInt());
+							 m_Engines.m_pConVars->m_r_DrawDetailProps.GetInt(),
+							 m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1 : 0, m_matFullbright.GetInt());
 	const int nMaterial = ss_detail::ReadPrepare(pPrepared, *this);
 	if (nMaterial == ss_detail::kMaterialNone)
 		return;

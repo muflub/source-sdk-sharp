@@ -11,13 +11,16 @@
 #include "vgui/IClientPanel.h"
 
 #include "vgui/ISurface.h"
+#include "vgui/KeyCode.h"
+#include "vgui/MouseCode.h"
 
+class CClientEngineInterfaces;
 class KeyValues;
 
 class CSourceSharpRawPanel : public vgui::IClientPanel
 {
 public:
-	explicit CSourceSharpRawPanel(const char* pszName);
+	CSourceSharpRawPanel(const CClientEngineInterfaces& engines, const char* pszName);
 	virtual ~CSourceSharpRawPanel();
 
 	virtual void Paint() {}
@@ -110,6 +113,9 @@ public:
 	virtual const char* GetModuleName() OVERRIDE { return "client"; }
 
 	virtual void OnTick() OVERRIDE {}
+
+protected:
+	const CClientEngineInterfaces& m_Engines;
 
 private:
 	bool IsWithin(int x, int y);

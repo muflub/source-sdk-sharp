@@ -124,5 +124,3 @@ public:
 
 	virtual IReplayScreenshotSystem* GetReplayScreenshotSystem() = 0;
 };
-
-extern IViewRender* view;

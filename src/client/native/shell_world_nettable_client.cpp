@@ -14,47 +14,11 @@
 #include "shell_world_nettable_client.h"
 #include "generic_payload.h"
 
-// Everything this file remembers, as fields of one function-local static.
-class CWorldNetTableClient
-{
-public:
-	CWorldNetTableClient()
-		: m_nBlobBytes(0)
-		, m_nWords(0)
-		, m_pProps(NULL)
-		, m_pTable(NULL)
-		, m_pClass(NULL)
-		, m_bWarnedUndeclared(false)
-	{
-	}
-
-	int BlobBytes() const { return m_nBlobBytes; }
-
-	ClientClass* Class() const { return m_pClass; }
-
-	int32_t Declare(int32_t nBlobBytes);
-	void WarnUndeclaredOnce();
-
-private:
-	int m_nBlobBytes;
-	int m_nWords;
-	RecvProp* m_pProps;
-	RecvTable* m_pTable;
-	ClientClass* m_pClass;
-	bool m_bWarnedUndeclared;
-};
-
-static CWorldNetTableClient& WorldNetTable()
-{
-	static CWorldNetTableClient s_Table;
-	return s_Table;
-}
-
 // The table, built once, prop for prop the server's: the generic payload at
 // this side's blob base. The class name "CWorld" and table name "DT_World" are
 // stock's spellings (the server's table is "DT_WORLD"); the engine pairs the
 // sides by server class name.
-int32_t CWorldNetTableClient::Declare(int32_t nBlobBytes)
+int32_t CWorldClient::WorldNetDeclare(int32_t nBlobBytes)
 {
 	if (m_pClass != NULL)
 	{
@@ -99,7 +63,7 @@ int32_t CWorldNetTableClient::Declare(int32_t nBlobBytes)
 	m_nWords = nWords;
 
 	m_pTable = new RecvTable(m_pProps, nWords, "DT_World");
-	m_pClass = new ClientClass("CWorld", SourceSharp_ClientWorldFactory, NULL, m_pTable);
+	m_pClass = new ClientClass("CWorld", m_CreateFn.Get(), NULL, m_pTable);
 
 	// The recv half of the fast local transfer: a listen server checks both ends.
 	int nSlow = 0;
@@ -124,35 +88,17 @@ int32_t CWorldNetTableClient::Declare(int32_t nBlobBytes)
 	return nWords;
 }
 
-void CWorldNetTableClient::WarnUndeclaredOnce()
+ClientClass* CWorldClient::Class()
 {
-	if (m_bWarnedUndeclared)
-		return;
+	if (m_pClass == NULL && !m_bWarnedUndeclared)
+	{
+		m_bWarnedUndeclared = true;
 
-	m_bWarnedUndeclared = true;
+		Warning("[SourceSharp] worldspawn(client) has NO ClientClass of its own: the managed side "
+				"never called WorldNetDeclare, so SourceSharp.Shared.WorldNetState was not "
+				"declared here. The world's update will not pair and the renderer will read "
+				"zeroed world bounds, occlusion areas and detail sprite material\n");
+	}
 
-	Warning("[SourceSharp] worldspawn(client) has NO ClientClass of its own: the managed side "
-			"never called WorldNetDeclare, so SourceSharp.Shared.WorldNetState was not "
-			"declared here. The world's update will not pair and the renderer will read "
-			"zeroed world bounds, occlusion areas and detail sprite material\n");
-}
-
-int SourceSharp_WorldBlobBytes()
-{
-	return WorldNetTable().BlobBytes();
-}
-
-int32_t SourceSharp_WorldNetDeclare(int32_t nBlobBytes)
-{
-	return WorldNetTable().Declare(nBlobBytes);
-}
-
-ClientClass* SourceSharp_WorldClientClass()
-{
-	ClientClass* pClass = WorldNetTable().Class();
-
-	if (pClass == NULL)
-		WorldNetTable().WarnUndeclaredOnce();
-
-	return pClass;
+	return m_pClass;
 }

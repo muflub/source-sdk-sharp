@@ -111,7 +111,6 @@ public:
 	void FxElight(int32_t nKey, const float* pOriginXYZ, int32_t r, int32_t g, int32_t b, int32_t nExponent,
 				  float flRadius, float flDecay, float flDie);
 	void FxVectorRandom(float flLo, float flHi, float* pOutXYZ);
-	int32_t FxMaterialsCached();
 	void FxLoadModel(const char* pModel);
 	int32_t FxModelFrameCount(const char* pModel);
 	// SourceSharp -- a member of the client DLL object, handed the managed areas its
@@ -289,5 +288,3 @@ private:
 	// The not-called entry points that have warned, by their literal names.
 	CUtlVector<const char*> m_NoCallersSaid;
 };
-
-extern ITempEnts* tempents;

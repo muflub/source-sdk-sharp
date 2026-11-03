@@ -77,13 +77,6 @@ inline void CParticleSphereRenderer::RenderParticle(ParticleDraw* pDraw, const V
 													float flAngle)
 {
 	// Make sure they called StartRender on us so we were able to set the directional light parameters.
-#ifdef _DEBUG
-	if (pDraw->GetMeshBuilder())
-	{
-		Assert(m_iLastTickStartRenderCalled == gpGlobals->tickcount);
-	}
-#endif
-
 	Vector vColor = m_vBaseColor;
 	AddLightColor(&vOriginalPos, &m_AmbientLight.m_vPos, &m_AmbientLight.m_vColor, m_AmbientLight.m_flIntensity,
 				  &vColor);
@@ -108,13 +101,6 @@ inline void CParticleSphereRenderer::RenderParticle_AddColor(ParticleDraw* pDraw
 															 float flParticleSize, const Vector& vToAdd0to1)
 {
 	// Make sure they called StartRender on us so we were able to set the directional light parameters.
-#ifdef _DEBUG
-	if (pDraw->GetMeshBuilder())
-	{
-		Assert(m_iLastTickStartRenderCalled == gpGlobals->tickcount);
-	}
-#endif
-
 	Vector vColor = m_vBaseColor + vToAdd0to1;
 	AddLightColor(&vOriginalPos, &m_AmbientLight.m_vPos, &m_AmbientLight.m_vColor, m_AmbientLight.m_flIntensity,
 				  &vColor);

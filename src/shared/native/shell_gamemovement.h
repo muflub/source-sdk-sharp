@@ -15,15 +15,6 @@ void SourceSharp_MovementFatal(int nReason, int nDetail);
 void SourceSharp_MovementRequireManaged();
 #endif
 
-// The fall damage of the landing about to be applied. IMoveHelper::PlayerFallingDamage()
-// takes no arguments, so the amount travels beside the call. Set immediately before the
-// call and read inside it; meaningless afterwards.
-inline float& SourceSharpMovement_PendingFallDamage()
-{
-	static float s_flPendingFallDamage = 0.0f;
-	return s_flPendingFallDamage;
-}
-
 // The ways one movement command can have nothing to run it.
 enum
 {
@@ -111,9 +102,4 @@ inline int SourceSharpMovement_Format(char* pOut, size_t cOut, const char* pSide
 }
 
 // Prints how many commands the managed movement loop ran on this side, and the refusal counts.
-void SourceSharp_MoveManagedReport(unsigned int nCalls);
-
-#ifdef CLIENT_DLL
-// The client's count of commands the managed movement loop ran.
-unsigned int SourceSharp_MoveManagedCalls();
-#endif
+void SourceSharp_MoveManagedReport(unsigned int nCalls, const unsigned int* pRefusals);

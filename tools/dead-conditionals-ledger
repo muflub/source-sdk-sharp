@@ -24,13 +24,12 @@
 #=============================================================================
 #
 # PORTABILITY, NOT MOD GUARDS, and the distinction is the whole point of having
-# an allowlist. WIN32 is dead here only in the sense that this build targets
+# an allowlist. _WIN32 is dead here only in the sense that this build targets
 # linux64; the surrounding SDK still carries Windows, and deleting the guard
 # would discard that portability in silence. A mod guard like TF_CLIENT_DLL is
 # dead in a different way -- this is not that game and never will be -- and is
 # NOT allowed here, which is what dead_conditionals_test.cpp pins.
-allow	WIN32	portability: a Windows configuration of this same tree defines it; this build is linux64 only. Removing the guard would discard Windows support the surrounding SDK still carries.
-allow	_WIN32	portability: the compiler's own Windows spelling of the same thing, on the same reasoning as WIN32.
+allow	_WIN32	portability: a Windows configuration of this same tree defines it; this build is linux64 only.
 #
 # SIDE MARKERS. A file in sourcesharp/game/shared is compiled into BOTH the
 # client and the server, and CLIENT_DLL / GAME_DLL is how it tells which one it

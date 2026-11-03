@@ -12,81 +12,87 @@
 
 #include "vgui/IScheme.h"
 #include "tier1/KeyValues.h"
-#include "vgui_controls/Controls.h"
+#include "shell_client_engine_interfaces.h"
+#include "vgui/IInput.h"
+#include "vgui/IPanel.h"
+#include "vgui/IScheme.h"
+#include "vgui/ISurface.h"
+#include "vgui/IVGui.h"
 
 #include "shell_rawpanel_client.h"
 
-CSourceSharpRawPanel::CSourceSharpRawPanel(const char* pszName)
-	: m_pszName(pszName)
+CSourceSharpRawPanel::CSourceSharpRawPanel(const CClientEngineInterfaces& engines, const char* pszName)
+	: m_Engines(engines)
+	, m_pszName(pszName)
 	, m_hCursor(vgui::dc_arrow)
 	, m_bPaint(true)
 	, m_nScreenWide(-1)
 	, m_nScreenTall(-1)
 	, m_bFillScreen(false)
 {
-	m_hPanel = vgui::ivgui()->AllocPanel();
-	vgui::ipanel()->Init(m_hPanel, this);
+	m_hPanel = m_Engines.m_pVGuiCore->AllocPanel();
+	m_Engines.m_pVGuiPanel->Init(m_hPanel, this);
 }
 
 CSourceSharpRawPanel::~CSourceSharpRawPanel()
 {
 	// Out of the tree first, the children let go (none is ours to delete),
 	// then vgui2's half freed.
-	vgui::ipanel()->SetParent(m_hPanel, 0);
-	while (vgui::ipanel()->GetChildCount(m_hPanel))
-		vgui::ipanel()->SetParent(vgui::ipanel()->GetChild(m_hPanel, 0), 0);
-	vgui::ivgui()->FreePanel(m_hPanel);
+	m_Engines.m_pVGuiPanel->SetParent(m_hPanel, 0);
+	while (m_Engines.m_pVGuiPanel->GetChildCount(m_hPanel))
+		m_Engines.m_pVGuiPanel->SetParent(m_Engines.m_pVGuiPanel->GetChild(m_hPanel, 0), 0);
+	m_Engines.m_pVGuiCore->FreePanel(m_hPanel);
 }
 
 void CSourceSharpRawPanel::SetParent(vgui::VPANEL parent)
 {
-	vgui::ipanel()->SetParent(m_hPanel, parent);
+	m_Engines.m_pVGuiPanel->SetParent(m_hPanel, parent);
 }
 
 void CSourceSharpRawPanel::SetVisible(bool bVisible)
 {
-	vgui::ipanel()->SetVisible(m_hPanel, bVisible);
+	m_Engines.m_pVGuiPanel->SetVisible(m_hPanel, bVisible);
 }
 
 bool CSourceSharpRawPanel::IsVisible()
 {
-	return vgui::ipanel()->IsVisible(m_hPanel);
+	return m_Engines.m_pVGuiPanel->IsVisible(m_hPanel);
 }
 
 void CSourceSharpRawPanel::SetZPos(int z)
 {
-	vgui::ipanel()->SetZPos(m_hPanel, z);
+	m_Engines.m_pVGuiPanel->SetZPos(m_hPanel, z);
 }
 
 void CSourceSharpRawPanel::SetMouseInputEnabled(bool b)
 {
-	vgui::ipanel()->SetMouseInputEnabled(m_hPanel, b);
+	m_Engines.m_pVGuiPanel->SetMouseInputEnabled(m_hPanel, b);
 }
 
 void CSourceSharpRawPanel::SetKeyBoardInputEnabled(bool b)
 {
-	vgui::ipanel()->SetKeyBoardInputEnabled(m_hPanel, b);
+	m_Engines.m_pVGuiPanel->SetKeyBoardInputEnabled(m_hPanel, b);
 }
 
 bool CSourceSharpRawPanel::IsMouseInputEnabled()
 {
-	return vgui::ipanel()->IsMouseInputEnabled(m_hPanel);
+	return m_Engines.m_pVGuiPanel->IsMouseInputEnabled(m_hPanel);
 }
 
 void CSourceSharpRawPanel::GetSize(int& wide, int& tall)
 {
-	vgui::ipanel()->GetSize(m_hPanel, wide, tall);
+	m_Engines.m_pVGuiPanel->GetSize(m_hPanel, wide, tall);
 }
 
 void CSourceSharpRawPanel::SetBounds(int x, int y, int wide, int tall)
 {
-	vgui::ipanel()->SetPos(m_hPanel, x, y);
-	vgui::ipanel()->SetSize(m_hPanel, wide, tall);
+	m_Engines.m_pVGuiPanel->SetPos(m_hPanel, x, y);
+	m_Engines.m_pVGuiPanel->SetSize(m_hPanel, wide, tall);
 }
 
 void CSourceSharpRawPanel::MakePopup(bool bShowTaskbarIcon, bool bDisabled)
 {
-	vgui::surface()->CreatePopup(m_hPanel, false, bShowTaskbarIcon, bDisabled, true, true);
+	m_Engines.m_pVGuiSurface->CreatePopup(m_hPanel, false, bShowTaskbarIcon, bDisabled, true, true);
 }
 
 // The panel covers the screen, re-sized when the screen changes.
@@ -110,7 +116,7 @@ void CSourceSharpRawPanel::Think()
 void CSourceSharpRawPanel::ScreenSizeNow()
 {
 	int nWide, nTall;
-	vgui::surface()->GetScreenSize(nWide, nTall);
+	m_Engines.m_pVGuiSurface->GetScreenSize(nWide, nTall);
 	if (nWide == m_nScreenWide && nTall == m_nScreenTall)
 		return;
 
@@ -122,11 +128,11 @@ void CSourceSharpRawPanel::ScreenSizeNow()
 	if (nOldWide < 0)
 		return;
 
-	for (int i = 0; i < vgui::ipanel()->GetChildCount(m_hPanel); i++)
+	for (int i = 0; i < m_Engines.m_pVGuiPanel->GetChildCount(m_hPanel); i++)
 	{
-		vgui::ivgui()->PostMessage(vgui::ipanel()->GetChild(m_hPanel, i),
-								   new KeyValues("OnScreenSizeChanged", "oldwide", nOldWide, "oldtall", nOldTall),
-								   m_hPanel);
+		m_Engines.m_pVGuiCore->PostMessage(
+			m_Engines.m_pVGuiPanel->GetChild(m_hPanel, i),
+			new KeyValues("OnScreenSizeChanged", "oldwide", nOldWide, "oldtall", nOldTall), m_hPanel);
 	}
 	OnScreenSizeChanged(nOldWide, nOldTall);
 }
@@ -137,44 +143,44 @@ void CSourceSharpRawPanel::PaintTraverse(bool repaint, bool allowForce)
 		return;
 
 	int nClip[4];
-	vgui::ipanel()->GetClipRect(m_hPanel, nClip[0], nClip[1], nClip[2], nClip[3]);
+	m_Engines.m_pVGuiPanel->GetClipRect(m_hPanel, nClip[0], nClip[1], nClip[2], nClip[3]);
 	const bool bPaintSelf = repaint && m_bPaint && nClip[2] > nClip[0] && nClip[3] > nClip[1];
 	if (bPaintSelf)
 	{
-		vgui::surface()->PushMakeCurrent(m_hPanel, true);
+		m_Engines.m_pVGuiSurface->PushMakeCurrent(m_hPanel, true);
 		Paint();
-		vgui::surface()->PopMakeCurrent(m_hPanel);
+		m_Engines.m_pVGuiSurface->PopMakeCurrent(m_hPanel);
 	}
 
 	// The children, in order: a child the surface will not paint now is
 	// invalidated and still traversed, painting nothing.
-	CUtlVector<vgui::VPANEL>& children = vgui::ipanel()->GetChildren(m_hPanel);
+	CUtlVector<vgui::VPANEL>& children = m_Engines.m_pVGuiPanel->GetChildren(m_hPanel);
 	for (int i = 0; i < children.Count(); i++)
 	{
 		const vgui::VPANEL child = children[i];
-		if (!vgui::ipanel()->IsVisible(child))
+		if (!m_Engines.m_pVGuiPanel->IsVisible(child))
 			continue;
-		if (vgui::surface()->ShouldPaintChildPanel(child))
+		if (m_Engines.m_pVGuiSurface->ShouldPaintChildPanel(child))
 		{
-			vgui::ipanel()->PaintTraverse(child, repaint, allowForce);
+			m_Engines.m_pVGuiPanel->PaintTraverse(child, repaint, allowForce);
 		}
 		else
 		{
-			vgui::surface()->Invalidate(child);
-			vgui::ipanel()->PaintTraverse(child, false, false);
+			m_Engines.m_pVGuiSurface->Invalidate(child);
+			m_Engines.m_pVGuiPanel->PaintTraverse(child, false, false);
 		}
 	}
 }
 
 void CSourceSharpRawPanel::Repaint()
 {
-	vgui::surface()->Invalidate(m_hPanel);
+	m_Engines.m_pVGuiSurface->Invalidate(m_hPanel);
 }
 
 bool CSourceSharpRawPanel::IsWithin(int x, int y)
 {
 	int x0, y0, x1, y1;
-	vgui::ipanel()->GetClipRect(m_hPanel, x0, y0, x1, y1);
+	m_Engines.m_pVGuiPanel->GetClipRect(m_hPanel, x0, y0, x1, y1);
 	return x >= x0 && y >= y0 && x < x1 && y < y1;
 }
 
@@ -185,14 +191,14 @@ vgui::VPANEL CSourceSharpRawPanel::IsWithinTraverse(int x, int y, bool traverseP
 	if (!IsVisible() || !IsMouseInputEnabled())
 		return 0;
 
-	CUtlVector<vgui::VPANEL>& children = vgui::ipanel()->GetChildren(m_hPanel);
+	CUtlVector<vgui::VPANEL>& children = m_Engines.m_pVGuiPanel->GetChildren(m_hPanel);
 	if (traversePopups)
 	{
 		for (int i = children.Count() - 1; i >= 0; i--)
 		{
-			if (!vgui::ipanel()->IsPopup(children[i]))
+			if (!m_Engines.m_pVGuiPanel->IsPopup(children[i]))
 				continue;
-			if (vgui::VPANEL hit = vgui::ipanel()->IsWithinTraverse(children[i], x, y, true))
+			if (vgui::VPANEL hit = m_Engines.m_pVGuiPanel->IsWithinTraverse(children[i], x, y, true))
 				return hit;
 		}
 	}
@@ -203,9 +209,9 @@ vgui::VPANEL CSourceSharpRawPanel::IsWithinTraverse(int x, int y, bool traverseP
 
 	for (int i = children.Count() - 1; i >= 0; i--)
 	{
-		if (vgui::ipanel()->IsPopup(children[i]))
+		if (m_Engines.m_pVGuiPanel->IsPopup(children[i]))
 			continue;
-		if (vgui::VPANEL hit = vgui::ipanel()->IsWithinTraverse(children[i], x, y, traversePopups))
+		if (vgui::VPANEL hit = m_Engines.m_pVGuiPanel->IsWithinTraverse(children[i], x, y, traversePopups))
 			return hit;
 	}
 
@@ -219,12 +225,12 @@ void CSourceSharpRawPanel::GetInset(int& top, int& left, int& right, int& bottom
 
 void CSourceSharpRawPanel::GetClipRect(int& x0, int& y0, int& x1, int& y1)
 {
-	vgui::ipanel()->GetClipRect(m_hPanel, x0, y0, x1, y1);
+	m_Engines.m_pVGuiPanel->GetClipRect(m_hPanel, x0, y0, x1, y1);
 }
 
 vgui::HScheme CSourceSharpRawPanel::GetScheme()
 {
-	return vgui::scheme()->GetDefaultScheme();
+	return m_Engines.m_pVGuiSchemes->GetDefaultScheme();
 }
 
 // vgui2's input messages, by the names its input sends.
@@ -237,7 +243,7 @@ void CSourceSharpRawPanel::OnMessage(const KeyValues* params, vgui::VPANEL ifrom
 	{
 		if (!IsMouseInputEnabled())
 			return;
-		vgui::surface()->SetCursor(m_hCursor);
+		m_Engines.m_pVGuiSurface->SetCursor(m_hCursor);
 		OnCursorMoved(p->GetInt("xpos"), p->GetInt("ypos"));
 	}
 	else if (!V_strcmp(pszName, "MousePressed"))

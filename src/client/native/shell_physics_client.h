@@ -17,12 +17,15 @@
 #include "ishim_areas_client.h"
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
+
 class CPhysicsClient final : public CClientSystem, public IShimPhysicsClient
 {
 public:
-	explicit CPhysicsClient(const CManagedAreasClient& areas)
+	CPhysicsClient(const CManagedAreasClient& areas, CClientEngineInterfaces& engines)
 		: CClientSystem("CPhysicsSystem")
 		, m_Areas(areas)
+		, m_Engines(engines)
 	{
 	}
 
@@ -47,4 +50,6 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	// Not const: DLLInit acquires vphysics' two interfaces into it.
+	CClientEngineInterfaces& m_Engines;
 };

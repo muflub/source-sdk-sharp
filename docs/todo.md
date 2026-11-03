@@ -1252,3 +1252,12 @@ and where its record lives now.
   map's steps at that spot or a real fault in the movement or in the velocity mirror
   PlayerCommandFinish writes. To settle it: sample origin and speed every tick along a flat
   walk, then the same walk on stock (`../ss-stock-hl2mp`).
+
+- **`Hl2mpBotChatTests.ANewEndpointIsAskedAtOnce` is intermittent.** It failed once in `make check`'s
+  ai leg at 6a145653e (`Expected: 2, Actual: 1` at line 357) and then passed 40 of 40 alone and 8 of
+  8 in its whole assembly, on a box at load 20. The rig's worker thread is the likely race: the second
+  `Settle()` can return before the new endpoint's ask lands. Not read closely yet.
+
+- **`run-test-legs --self-test` "truncated: reports SHORT RUN" is intermittent.** One failure in `make
+  check`'s runner leg at a5cd507c1, then 6 of 6 alone at load 9. Not read closely; likely a timing
+  race under load in the fixture.

@@ -75,11 +75,6 @@ const int kMaxText = 512;
 // One polygon's vertices; the toolkit's corners use well under this.
 const int kMaxVertices = 256;
 
-void SetColor(uint32_t nRgba)
-{
-	vgui::surface()->DrawSetColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF, nRgba & 0xFF);
-}
-
 int Widen(const uint16_t* pText, int32_t nLength, wchar_t* pOut, int nOut)
 {
 	if (!pText || nLength <= 0)
@@ -93,12 +88,18 @@ int Widen(const uint16_t* pText, int32_t nLength, wchar_t* pOut, int nOut)
 }
 }
 
+void CHudUiClient::SetColor(uint32_t nRgba)
+{
+	m_Engines.m_pVGuiSurface->DrawSetColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF,
+										   nRgba & 0xFF);
+}
+
 void CHudUiClient::BeginPaint()
 {
 	m_bPaintOpen = true;
-	if (g_pMatSystemSurface)
-		g_pMatSystemSurface->GetClippingRect(m_nPanelClip[0], m_nPanelClip[1], m_nPanelClip[2], m_nPanelClip[3],
-											 m_bPanelClipDisabled);
+	if (m_Engines.m_pMatSystemSurface)
+		m_Engines.m_pMatSystemSurface->GetClippingRect(m_nPanelClip[0], m_nPanelClip[1], m_nPanelClip[2],
+													   m_nPanelClip[3], m_bPanelClipDisabled);
 }
 
 void CHudUiClient::EndPaint()
@@ -113,7 +114,7 @@ void CHudUiClient::UiDrawFilledRect(int32_t x0, int32_t y0, int32_t x1, int32_t 
 		return;
 
 	SetColor(nRgba);
-	vgui::surface()->DrawFilledRect(x0, y0, x1, y1);
+	m_Engines.m_pVGuiSurface->DrawFilledRect(x0, y0, x1, y1);
 }
 
 void CHudUiClient::UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba, int32_t nAlpha0,
@@ -123,7 +124,8 @@ void CHudUiClient::UiDrawFilledRectFade(int32_t x0, int32_t y0, int32_t x1, int3
 		return;
 
 	SetColor(nRgba);
-	vgui::surface()->DrawFilledRectFade(x0, y0, x1, y1, (unsigned int)nAlpha0, (unsigned int)nAlpha1, bHorizontal != 0);
+	m_Engines.m_pVGuiSurface->DrawFilledRectFade(x0, y0, x1, y1, (unsigned int)nAlpha0, (unsigned int)nAlpha1,
+												 bHorizontal != 0);
 }
 
 void CHudUiClient::UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
@@ -132,7 +134,7 @@ void CHudUiClient::UiDrawOutlinedRect(int32_t x0, int32_t y0, int32_t x1, int32_
 		return;
 
 	SetColor(nRgba);
-	vgui::surface()->DrawOutlinedRect(x0, y0, x1, y1);
+	m_Engines.m_pVGuiSurface->DrawOutlinedRect(x0, y0, x1, y1);
 }
 
 void CHudUiClient::UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t nRgba)
@@ -141,7 +143,7 @@ void CHudUiClient::UiDrawLine(int32_t x0, int32_t y0, int32_t x1, int32_t y1, ui
 		return;
 
 	SetColor(nRgba);
-	vgui::surface()->DrawLine(x0, y0, x1, y1);
+	m_Engines.m_pVGuiSurface->DrawLine(x0, y0, x1, y1);
 }
 
 // Texture ids bound to an engine material (UiMaterialTexture below): a draw of
@@ -155,7 +157,7 @@ void CHudUiClient::RefreshRefractFor(int32_t nTexture)
 	{
 		if (m_MaterialTextures[i] == nTexture)
 		{
-			UpdateRefractTexture();
+			UpdateRefractTexture(m_Engines);
 			return;
 		}
 	}
@@ -164,18 +166,19 @@ void CHudUiClient::RefreshRefractFor(int32_t nTexture)
 void CHudUiClient::UiDrawTexturedRect(int32_t nTexture, int32_t x0, int32_t y0, int32_t x1, int32_t y1, float s0,
 									  float t0, float s1, float t1, uint32_t nRgba)
 {
-	if (!m_bPaintOpen || x1 <= x0 || y1 <= y0 || !surface()->IsTextureIDValid(nTexture))
+	if (!m_bPaintOpen || x1 <= x0 || y1 <= y0 || !m_Engines.m_pVGuiSurface->IsTextureIDValid(nTexture))
 		return;
 
 	RefreshRefractFor(nTexture);
 	SetColor(nRgba);
-	vgui::surface()->DrawSetTexture(nTexture);
-	vgui::surface()->DrawTexturedSubRect(x0, y0, x1, y1, s0, t0, s1, t1);
+	m_Engines.m_pVGuiSurface->DrawSetTexture(nTexture);
+	m_Engines.m_pVGuiSurface->DrawTexturedSubRect(x0, y0, x1, y1, s0, t0, s1, t1);
 }
 
 void CHudUiClient::UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba)
 {
-	if (!m_bPaintOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices || !surface()->IsTextureIDValid(nTexture))
+	if (!m_bPaintOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices ||
+		!m_Engines.m_pVGuiSurface->IsTextureIDValid(nTexture))
 		return;
 
 	RefreshRefractFor(nTexture);
@@ -184,8 +187,8 @@ void CHudUiClient::UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t n
 		verts[i].Init(Vector2D(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1]), Vector2D(pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]));
 
 	SetColor(nRgba);
-	vgui::surface()->DrawSetTexture(nTexture);
-	vgui::surface()->DrawTexturedPolygon(nVertices, verts);
+	m_Engines.m_pVGuiSurface->DrawSetTexture(nTexture);
+	m_Engines.m_pVGuiSurface->DrawTexturedPolygon(nVertices, verts);
 }
 
 // One textured quad from (x, y, u, v) vertices: a rotated or additive leaf.
@@ -197,7 +200,8 @@ void CHudUiClient::UiDrawPolygon(int32_t nTexture, const float* pXyuv, int32_t n
 void CHudUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
 									  int32_t bAdditive)
 {
-	if (!m_bPaintOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices || !surface()->IsTextureIDValid(nTexture))
+	if (!m_bPaintOpen || !pXyuv || nVertices < 3 || nVertices > kMaxVertices ||
+		!m_Engines.m_pVGuiSurface->IsTextureIDValid(nTexture))
 		return;
 
 	RefreshRefractFor(nTexture);
@@ -205,7 +209,7 @@ void CHudUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int3
 	for (int i = 0; i < nVertices; i++)
 		verts[i].Init(Vector2D(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1]), Vector2D(pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]));
 
-	if (bAdditive && g_pMatSystemSurface)
+	if (bAdditive && m_Engines.m_pMatSystemSurface)
 	{
 		bool first = true;
 		for (int i = 0; i < m_nAdditive; i++)
@@ -218,7 +222,7 @@ void CHudUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int3
 		}
 		if (first && m_nAdditive < kMaxTextures)
 		{
-			if (IMaterial* pMaterial = g_pMatSystemSurface->DrawGetTextureMaterial(nTexture))
+			if (IMaterial* pMaterial = m_Engines.m_pMatSystemSurface->DrawGetTextureMaterial(nTexture))
 			{
 				pMaterial->SetMaterialVarFlag(MATERIAL_VAR_ADDITIVE, true);
 				pMaterial->Refresh();
@@ -228,8 +232,8 @@ void CHudUiClient::UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int3
 	}
 
 	SetColor(nRgba);
-	surface()->DrawSetTexture(nTexture);
-	surface()->DrawTexturedPolygon(nVertices, verts);
+	m_Engines.m_pVGuiSurface->DrawSetTexture(nTexture);
+	m_Engines.m_pVGuiSurface->DrawTexturedPolygon(nVertices, verts);
 }
 
 // A texture handle bound to the named engine material: stock's
@@ -243,9 +247,9 @@ int32_t CHudUiClient::UiMaterialTexture(const char* pName)
 	if (!pName || !pName[0])
 		return 0;
 
-	int id = surface()->CreateNewTextureID(true);
-	surface()->DrawSetTextureFile(id, pName, true, false);
-	if (g_pMatSystemSurface && IsErrorMaterial(g_pMatSystemSurface->DrawGetTextureMaterial(id)))
+	int id = m_Engines.m_pVGuiSurface->CreateNewTextureID(true);
+	m_Engines.m_pVGuiSurface->DrawSetTextureFile(id, pName, true, false);
+	if (m_Engines.m_pMatSystemSurface && IsErrorMaterial(m_Engines.m_pMatSystemSurface->DrawGetTextureMaterial(id)))
 		return 0;
 
 	if (m_nMaterialTextures < (int)(sizeof(m_MaterialTextures) / sizeof(m_MaterialTextures[0])))
@@ -264,10 +268,11 @@ void CHudUiClient::UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_
 	if (n <= 0)
 		return;
 
-	vgui::surface()->DrawSetTextFont((vgui::HFont)nFont);
-	vgui::surface()->DrawSetTextColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF, nRgba & 0xFF);
-	vgui::surface()->DrawSetTextPos(x, y);
-	vgui::surface()->DrawPrintText(wszText, n);
+	m_Engines.m_pVGuiSurface->DrawSetTextFont((HFont)nFont);
+	m_Engines.m_pVGuiSurface->DrawSetTextColor((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF,
+											   nRgba & 0xFF);
+	m_Engines.m_pVGuiSurface->DrawSetTextPos(x, y);
+	m_Engines.m_pVGuiSurface->DrawPrintText(wszText, n);
 }
 
 void CHudUiClient::UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t nLength, int32_t* pOutWidth,
@@ -285,7 +290,7 @@ void CHudUiClient::UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t n
 		return;
 
 	int nWide = 0, nTall = 0;
-	vgui::surface()->GetTextSize((vgui::HFont)nFont, wszText, nWide, nTall);
+	m_Engines.m_pVGuiSurface->GetTextSize((HFont)nFont, wszText, nWide, nTall);
 	if (pOutWidth)
 		*pOutWidth = nWide;
 	if (pOutHeight)
@@ -294,23 +299,23 @@ void CHudUiClient::UiMeasureText(int32_t nFont, const uint16_t* pText, int32_t n
 
 void CHudUiClient::UiSetClip(int32_t bEnabled, int32_t x0, int32_t y0, int32_t x1, int32_t y1)
 {
-	if (!m_bPaintOpen || !g_pMatSystemSurface)
+	if (!m_bPaintOpen || !m_Engines.m_pMatSystemSurface)
 		return;
 
 	if (bEnabled)
 	{
-		g_pMatSystemSurface->DisableClipping(false);
-		g_pMatSystemSurface->SetClippingRect(x0, y0, x1, y1);
+		m_Engines.m_pMatSystemSurface->DisableClipping(false);
+		m_Engines.m_pMatSystemSurface->SetClippingRect(x0, y0, x1, y1);
 		return;
 	}
 
-	g_pMatSystemSurface->SetClippingRect(m_nPanelClip[0], m_nPanelClip[1], m_nPanelClip[2], m_nPanelClip[3]);
-	g_pMatSystemSurface->DisableClipping(m_bPanelClipDisabled);
+	m_Engines.m_pMatSystemSurface->SetClippingRect(m_nPanelClip[0], m_nPanelClip[1], m_nPanelClip[2], m_nPanelClip[3]);
+	m_Engines.m_pMatSystemSurface->DisableClipping(m_bPanelClipDisabled);
 }
 
 int32_t CHudUiClient::UiTextureCreate()
 {
-	return vgui::surface()->CreateNewTextureID(true);
+	return m_Engines.m_pVGuiSurface->CreateNewTextureID(true);
 }
 
 void CHudUiClient::UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32_t nWide, int32_t nTall)
@@ -318,7 +323,7 @@ void CHudUiClient::UiTextureUpload(int32_t nTexture, const uint8_t* pRgba, int32
 	if (!pRgba || nWide <= 0 || nTall <= 0)
 		return;
 
-	vgui::surface()->DrawSetTextureRGBA(nTexture, pRgba, nWide, nTall, 1, true);
+	m_Engines.m_pVGuiSurface->DrawSetTextureRGBA(nTexture, pRgba, nWide, nTall, 1, true);
 }
 
 int32_t CHudUiClient::UiFontAddFile(const char* pPath)
@@ -326,7 +331,7 @@ int32_t CHudUiClient::UiFontAddFile(const char* pPath)
 	if (!pPath || !pPath[0])
 		return 0;
 
-	return vgui::surface()->AddCustomFontFile(NULL, pPath) ? 1 : 0;
+	return m_Engines.m_pVGuiSurface->AddCustomFontFile(NULL, pPath) ? 1 : 0;
 }
 
 int32_t CHudUiClient::UiFontCreate(const char* pFamily, int32_t nTall, int32_t nWeight, int32_t nFlags)
@@ -334,12 +339,12 @@ int32_t CHudUiClient::UiFontCreate(const char* pFamily, int32_t nTall, int32_t n
 	if (!pFamily || !pFamily[0] || nTall <= 0)
 		return vgui::INVALID_FONT;
 
-	vgui::HFont hFont = vgui::surface()->CreateFont();
-	if (hFont == vgui::INVALID_FONT)
-		return vgui::INVALID_FONT;
+	HFont hFont = m_Engines.m_pVGuiSurface->CreateFont();
+	if (hFont == INVALID_FONT)
+		return INVALID_FONT;
 
-	if (!vgui::surface()->SetFontGlyphSet(hFont, pFamily, nTall, nWeight, 0, 0, nFlags))
-		return vgui::INVALID_FONT;
+	if (!m_Engines.m_pVGuiSurface->SetFontGlyphSet(hFont, pFamily, nTall, nWeight, 0, 0, nFlags))
+		return INVALID_FONT;
 
 	return (int32_t)hFont;
 }
@@ -354,9 +359,9 @@ void CHudUiClient::UiFontMetrics(int32_t nFont, int32_t* pOutTall, int32_t* pOut
 		return;
 
 	if (pOutTall)
-		*pOutTall = vgui::surface()->GetFontTall((vgui::HFont)nFont);
+		*pOutTall = m_Engines.m_pVGuiSurface->GetFontTall((HFont)nFont);
 	if (pOutAscent)
-		*pOutAscent = vgui::surface()->GetFontAscent((vgui::HFont)nFont, L'M');
+		*pOutAscent = m_Engines.m_pVGuiSurface->GetFontAscent((HFont)nFont, L'M');
 }
 
 int32_t CHudUiClient::UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCount, int32_t* pOutAdvances)
@@ -367,7 +372,7 @@ int32_t CHudUiClient::UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCou
 	for (int i = 0; i < nCount; i++)
 	{
 		int a = 0, b = 0, c = 0;
-		vgui::surface()->GetCharABCwide((vgui::HFont)nFont, nFirst + i, a, b, c);
+		m_Engines.m_pVGuiSurface->GetCharABCwide((HFont)nFont, nFirst + i, a, b, c);
 		pOutAdvances[i] = a + b + c;
 	}
 	return nCount;
@@ -376,13 +381,13 @@ int32_t CHudUiClient::UiFontAdvances(int32_t nFont, int32_t nFirst, int32_t nCou
 void CHudUiClient::UiPlaySound(const char* pPath)
 {
 	if (pPath && pPath[0])
-		vgui::surface()->PlaySound(pPath);
+		m_Engines.m_pVGuiSurface->PlaySound(pPath);
 }
 
 // The engine's entity index for this client, 0 when there is no local player.
-int32_t SourceSharp_GetLocalPlayerIndex()
+int32_t CHudUiClient::GetLocalPlayerIndex()
 {
-	const int nIndex = engine->GetLocalPlayer();
+	const int nIndex = m_Engines.m_pEngine->GetLocalPlayer();
 	return nIndex > 0 ? nIndex : 0;
 }
 
@@ -423,8 +428,8 @@ public:
 		FocusLost
 	};
 
-	CSourceSharpMenuRoot(CHudUiClient& ui, vgui::VPANEL parent)
-		: CSourceSharpRawPanel("SourceSharpMenuRoot")
+	CSourceSharpMenuRoot(CHudUiClient& ui, const CClientEngineInterfaces& engines, vgui::VPANEL parent)
+		: CSourceSharpRawPanel(engines, "SourceSharpMenuRoot")
 		, m_Ui(ui)
 	{
 		SetParent(parent);
@@ -479,7 +484,7 @@ private:
 	{
 		// Screen coordinates are the root's own: it covers the screen from 0,0.
 		int x = 0, y = 0;
-		vgui::surface()->SurfaceGetCursorPos(x, y);
+		m_Engines.m_pVGuiSurface->SurfaceGetCursorPos(x, y);
 		Forward(nKind, x, y, nCode, nChar, flDelta);
 	}
 
@@ -500,7 +505,7 @@ void CHudUiClient::UiSetMenuInput(int32_t bMouse, int32_t bKeyboard)
 		pRoot->SetKeyBoardInputEnabled(bKeyboard != 0);
 		// To the front, so vgui2's input finds it first for the keyboard.
 		if (bMouse || bKeyboard)
-			surface()->MovePopupToFront(pRoot->GetVPanel());
+			m_Engines.m_pVGuiSurface->MovePopupToFront(pRoot->GetVPanel());
 	}
 }
 
@@ -529,20 +534,21 @@ void CHudUiClient::MenuRootFollowGameUI()
 
 	const vgui::VPANEL home = m_Engines.m_pVGui->IsGameUIVisible() ? m_Engines.m_pVGui->GetPanel(PANEL_GAMEUIDLL)
 																   : m_ClientMode.GetViewportVPanel();
-	if (!home || ipanel()->GetParent(pRoot->GetVPanel()) == home)
+	if (!home || m_Engines.m_pVGuiPanel->GetParent(pRoot->GetVPanel()) == home)
 		return;
 
-	ipanel()->SetParent(pRoot->GetVPanel(), home);
-	ipanel()->SetVisible(pRoot->GetVPanel(), true);
-	surface()->MovePopupToFront(pRoot->GetVPanel());
+	m_Engines.m_pVGuiPanel->SetParent(pRoot->GetVPanel(), home);
+	m_Engines.m_pVGuiPanel->SetVisible(pRoot->GetVPanel(), true);
+	m_Engines.m_pVGuiSurface->MovePopupToFront(pRoot->GetVPanel());
 }
 
 class CSourceSharpHud : public CHudElement, public CSourceSharpRawPanel
 {
 public:
-	CSourceSharpHud(CHudUiClient& ui, const char* pElementName, vgui::VPANEL parent)
-		: CHudElement(pElementName)
-		, CSourceSharpRawPanel("SourceSharpHud")
+	CSourceSharpHud(CHudUiClient& ui, const CClientEngineInterfaces& engines, CHud& hud, const char* pElementName,
+					vgui::VPANEL parent)
+		: CHudElement(engines, hud, pElementName)
+		, CSourceSharpRawPanel(engines, "SourceSharpHud")
 		, m_Ui(ui)
 	{
 		SOURCESHARP_TRACE();
@@ -560,7 +566,7 @@ public:
 
 		// The menu layer's panel, made once with the HUD, under the viewport.
 		if (!m_Ui.MenuRoot())
-			new CSourceSharpMenuRoot(m_Ui, parent);
+			new CSourceSharpMenuRoot(m_Ui, engines, parent);
 	}
 
 	virtual void Paint() OVERRIDE
@@ -584,7 +590,7 @@ public:
 	virtual void OnScreenSizeChanged(int nOldWide, int nOldTall) OVERRIDE
 	{
 		int nWide, nTall;
-		surface()->GetScreenSize(nWide, nTall);
+		m_Engines.m_pVGuiSurface->GetScreenSize(nWide, nTall);
 		if (IManagedUiClient* pUi = m_Ui.Managed())
 			pUi->ScreenSizeChanged(nOldWide, nOldTall, nWide, nTall);
 	}
@@ -598,18 +604,18 @@ private:
 // The one HUD element, which creates the managed HUD host; gHUD.Init initialises it.
 void CHudUiClient::CreateHud()
 {
-	new CSourceSharpHud(*this, "CSourceSharpHud", m_ClientMode.GetViewportVPanel());
+	new CSourceSharpHud(*this, m_Engines, m_Hud, "CSourceSharpHud", m_ClientMode.GetViewportVPanel());
 }
 
 // A titles.txt entry by name (what env_message and HudText name), as the engine
 // parsed it. Copied out: the engine reallocates that buffer on a level change.
-int32_t SourceSharp_HudTextMessageGet(const char* pName, SourceSharpTextMessage* pOut)
+int32_t CHudUiClient::HudTextMessageGet(const char* pName, SourceSharpTextMessage* pOut)
 {
 	if (!pName || !pName[0] || !pOut)
 		return 0;
 
 	// Exactly the name handed over; managed code applies stock's leading-'#' rule.
-	client_textmessage_t* pMessage = TextMessageGet(pName);
+	client_textmessage_t* pMessage = m_Engines.m_pEngine->TextMessageGet(pName);
 
 	if (!pMessage || !pMessage->pMessage)
 		return 0;
@@ -638,7 +644,7 @@ int32_t SourceSharp_HudTextMessageGet(const char* pName, SourceSharpTextMessage*
 }
 
 // The key bound to a command, for hint text's %+use% tokens; empty when unbound.
-void SourceSharp_HudLookupBinding(const char* pBinding, char* pOut, int32_t nOutSize)
+void CHudUiClient::HudLookupBinding(const char* pBinding, char* pOut, int32_t nOutSize)
 {
 	if (!pOut || nOutSize <= 0)
 		return;
@@ -648,14 +654,14 @@ void SourceSharp_HudLookupBinding(const char* pBinding, char* pOut, int32_t nOut
 	if (!pBinding || !pBinding[0])
 		return;
 
-	const char* pKey = engine->Key_LookupBinding(pBinding);
+	const char* pKey = m_Engines.m_pEngine->Key_LookupBinding(pBinding);
 	if (pKey)
 		V_strncpy(pOut, pKey, nOutSize);
 }
 
 // A "#Token" through the localisation tables; the token unchanged when there is
 // no entry.
-void SourceSharp_HudLocalise(const char* pToken, char* pOut, int32_t nOutSize)
+void CHudUiClient::HudLocalise(const char* pToken, char* pOut, int32_t nOutSize)
 {
 	if (!pOut || nOutSize <= 0)
 		return;
@@ -665,10 +671,10 @@ void SourceSharp_HudLocalise(const char* pToken, char* pOut, int32_t nOutSize)
 	if (!pToken || !pToken[0])
 		return;
 
-	wchar_t* pLocalized = g_pVGuiLocalize->Find(pToken);
+	wchar_t* pLocalized = m_Engines.m_pVGuiLocalize->Find(pToken);
 
 	if (pLocalized)
-		g_pVGuiLocalize->ConvertUnicodeToANSI(pLocalized, pOut, nOutSize);
+		m_Engines.m_pVGuiLocalize->ConvertUnicodeToANSI(pLocalized, pOut, nOutSize);
 	else
 		V_strncpy(pOut, pToken, nOutSize);
 }

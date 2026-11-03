@@ -30,7 +30,6 @@
 #include "materialsystem/imaterialvar.h"
 #include "clienteffectprecachesystem.h"
 #include "view.h"
-#include "networkstringtable_clientdll.h"
 #include "engine/ICollideable.h"
 
 #include "vphysics_interface.h"
@@ -43,21 +42,23 @@
 #include "shell_standalone_clients.h"
 #include "shell_te_commands_client.h"
 #include "shell_view_cameras.h"
+#include "networkstringtabledefs.h"
 #include "shell_client_engine_interfaces.h"
+#include "shell_te_backends_object.h"
 
 using namespace TeBackendArgs;
 
 // A round off an energy shield. bExplosive crosses as an int32 because a bool
 // has no fixed width in C.
-void SourceSharp_ClientEnergySplash(const float* pPosXYZ, const float* pDirXYZ, int32_t bExplosive)
+void CTempEntBackendsClient::ClientEnergySplash(const float* pPosXYZ, const float* pDirXYZ, int32_t bExplosive)
 {
-	if (!pPosXYZ || !pDirXYZ || !g_pEffects)
+	if (!pPosXYZ || !pDirXYZ)
 		return;
 
 	const Vector vecPos(pPosXYZ[0], pPosXYZ[1], pPosXYZ[2]);
 	const Vector vecDir(pDirXYZ[0], pDirXYZ[1], pDirXYZ[2]);
 
-	g_pEffects->EnergySplash(vecPos, vecDir, bExplosive != 0);
+	m_Effects.EnergySplash(vecPos, vecDir, bExplosive != 0);
 }
 
 // The client's IEffects family. g_pEffects applies its own PVS filter inside
@@ -65,71 +66,72 @@ void SourceSharp_ClientEnergySplash(const float* pPosXYZ, const float* pDirXYZ, 
 
 // Electric sparks (FX_ElectricSpark). A NULL direction is a spark with no
 // preferred direction, which differs from one aimed at the origin.
-void SourceSharp_ClientSparks(const float* pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength,
-							  const float* pDirectionXYZ)
+void CTempEntBackendsClient::ClientSparks(const float* pPositionXYZ, int32_t nMagnitude, int32_t nTrailLength,
+										  const float* pDirectionXYZ)
 {
 	const EffectRequest req = Sparks(pPositionXYZ, nMagnitude, nTrailLength, pDirectionXYZ);
 
-	if (!req.bDraw || !g_pEffects)
+	if (!req.bDraw)
 		return;
 
 	const Vector vecPosition(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z);
 	const Vector vecDirection(req.vecDirection.x, req.vecDirection.y, req.vecDirection.z);
 
-	g_pEffects->Sparks(vecPosition, req.nMagnitude, req.nTrailLength, req.bHasDirection ? &vecDirection : NULL);
+	m_Effects.Sparks(vecPosition, req.nMagnitude, req.nTrailLength, req.bHasDirection ? &vecDirection : NULL);
 }
 
 // A ricochet: metal sparks and the sound.
-void SourceSharp_ClientRicochet(const float* pPositionXYZ, const float* pDirectionXYZ)
+void CTempEntBackendsClient::ClientRicochet(const float* pPositionXYZ, const float* pDirectionXYZ)
 {
 	const EffectRequest req = PositionAndDirection(pPositionXYZ, pDirectionXYZ);
 
-	if (!req.bDraw || !g_pEffects)
+	if (!req.bDraw)
 		return;
 
 	const Vector vecPosition(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z);
 	const Vector vecDirection(req.vecDirection.x, req.vecDirection.y, req.vecDirection.z);
 
-	g_pEffects->Ricochet(vecPosition, vecDirection);
+	m_Effects.Ricochet(vecPosition, vecDirection);
 }
 
 // The same sparks with no sound (FX_MetalSpark).
-void SourceSharp_ClientMetalSparks(const float* pPositionXYZ, const float* pDirectionXYZ)
+void CTempEntBackendsClient::ClientMetalSparks(const float* pPositionXYZ, const float* pDirectionXYZ)
 {
 	const EffectRequest req = PositionAndDirection(pPositionXYZ, pDirectionXYZ);
 
-	if (!req.bDraw || !g_pEffects)
+	if (!req.bDraw)
 		return;
 
 	const Vector vecPosition(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z);
 	const Vector vecDirection(req.vecDirection.x, req.vecDirection.y, req.vecDirection.z);
 
-	g_pEffects->MetalSparks(vecPosition, vecDirection);
+	m_Effects.MetalSparks(vecPosition, vecDirection);
 }
 
 // Smoke sprites (FX_Smoke). flScale arrives already multiplied by ten, as stock
 // does it in the decode.
-void SourceSharp_ClientSmoke(const float* pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate)
+void CTempEntBackendsClient::ClientSmoke(const float* pOriginXYZ, int32_t nModelIndex, float flScale, float flFrameRate)
 {
 	const EffectRequest req = Smoke(pOriginXYZ, nModelIndex, flScale, flFrameRate);
 
-	if (!req.bDraw || !g_pEffects)
+	if (!req.bDraw)
 		return;
 
-	g_pEffects->Smoke(Vector(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z), req.nModelIndex, req.flScale,
-					  req.flFrameRate);
+	m_Effects.Smoke(Vector(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z), req.nModelIndex, req.flScale,
+					req.flFrameRate);
 }
 
 // A muzzle flash. MuzzleFlash prints a line for an unknown type, as stock does.
-void SourceSharp_ClientMuzzleFlash(const float* pOriginXYZ, const float* pAnglesPYR, float flScale, int32_t nType)
+void CTempEntBackendsClient::ClientMuzzleFlash(const float* pOriginXYZ, const float* pAnglesPYR, float flScale,
+											   int32_t nType)
 {
 	const EffectRequest req = MuzzleFlash(pOriginXYZ, pAnglesPYR, flScale, nType);
 
-	if (!req.bDraw || !g_pEffects)
+	if (!req.bDraw)
 		return;
 
-	g_pEffects->MuzzleFlash(Vector(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z),
-							QAngle(req.vecAngles.x, req.vecAngles.y, req.vecAngles.z), req.flScale, req.nType);
+	m_Effects.MuzzleFlash(Vector(req.vecPosition.x, req.vecPosition.y, req.vecPosition.z),
+						  QAngle(req.vecAngles.x, req.vecAngles.y, req.vecAngles.z), req.flScale, req.nType);
 }
 
 // The model a decal is shot onto: the entity's own, or — for the world, whose
@@ -157,7 +159,7 @@ void CStandaloneClients::ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, 
 {
 	const DecalRequest req = DecalShoot(nDecalIndex, nEntity, pPositionXYZ, pSAxisXYZ, nFlags);
 
-	if (!req.bDraw || !effects)
+	if (!req.bDraw || !m_Engines.m_pEffects)
 		return;
 
 	IClientEntity* pEntity = EntityList().EntityFromIndex(req.nEntity);
@@ -187,7 +189,7 @@ COMPILE_TIME_ASSERT(offsetof(player_info_t, customFiles) == 112);
 void CStandaloneClients::ClientPlayerLogoDecal(const float* pPositionXYZ, int32_t nPlayer, int32_t nEntity,
 											   const char* pszMaterial, const char* pszTexture)
 {
-	if (!pPositionXYZ || !pszMaterial || !pszTexture || !effects || !m_Engines.m_pMaterials)
+	if (!pPositionXYZ || !pszMaterial || !pszTexture || !m_Engines.m_pEffects || !m_Engines.m_pMaterials)
 		return;
 
 	IClientEntity* pEntity = EntityList().EntityFromIndex(nEntity);
@@ -224,13 +226,13 @@ void CStandaloneClients::ClientPlayerLogoDecal(const float* pPositionXYZ, int32_
 
 // Unused: sprays end in SourceSharp_ClientPlayerLogoDecal. Kept because the
 // shim table only appends.
-void SourceSharp_ClientPlayerDecalShoot(const float*, int32_t, int32_t) {}
+void CTempEntBackendsClient::ClientPlayerDecalShoot(const float*, int32_t, int32_t) {}
 
 // A decal's index from its name in the engine's table, or -1 for a name the
 // engine does not know.
 int32_t CStandaloneClients::ClientDecalIndexFromName(const char* pName)
 {
-	if (!pName || !pName[0] || !effects)
+	if (!pName || !pName[0] || !m_Engines.m_pEffects)
 		return -1;
 
 	return m_Engines.m_pEffects->Draw_DecalIndexFromName((char*)pName);
@@ -256,12 +258,12 @@ void CStandaloneClients::ClientDecalStaticProp(const float* pStartXYZ, const flo
 
 // A decal's name from its index, from the game's decal table (decalsystem), not
 // the engine's. An index the table does not hold answers a length of zero.
-int32_t SourceSharp_ClientDecalNameFromIndex(int32_t nDecalIndex, char* pOut, int32_t nOutSize)
+int32_t CTempEntBackendsClient::ClientDecalNameFromIndex(int32_t nDecalIndex, char* pOut, int32_t nOutSize)
 {
-	if (!decalsystem)
+	if (!m_Engines.m_pDecalSystem)
 		return CopyName(NULL, pOut, nOutSize);
 
-	return CopyName(decalsystem->GetDecalNameForIndex(nDecalIndex), pOut, nOutSize);
+	return CopyName(m_Engines.m_pDecalSystem->GetDecalNameForIndex(nDecalIndex), pOut, nOutSize);
 }
 
 // Decals on entities: C_BaseEntity::AddDecal's two arms. The switch over the
@@ -331,7 +333,7 @@ void CStandaloneClients::ClientDecalBrushModel(int32_t nEntity, const float* pDe
 {
 	const BrushDecalRequest req = DecalBrushModel(nEntity, pDecalCenterXYZ, nDecalIndex);
 
-	if (!req.bDraw || !effects)
+	if (!req.bDraw || !m_Engines.m_pEffects)
 		return;
 
 	IClientEntity* pEntity = EntityList().EntityFromIndex(req.nEntity);
@@ -348,17 +350,17 @@ void CStandaloneClients::ClientDecalBrushModel(int32_t nEntity, const float* pDe
 // The EffectDispatch string table, read backwards: the wire carries an index
 // and the registry is keyed by name. An empty string means the table does not
 // hold it; the table is NULL until the client has it from the server.
-void SourceSharp_EffectDispatchName(int32_t nIndex, char* pOut, int32_t nOutBytes)
+void CTempEntBackendsClient::EffectDispatchName(int32_t nIndex, char* pOut, int32_t nOutBytes)
 {
 	if (!pOut || nOutBytes <= 0)
 		return;
 
 	pOut[0] = '\0';
 
-	if (nIndex < 0 || !g_StringTableEffectDispatch)
+	if (nIndex < 0 || !m_Engines.m_pEffectDispatchTable)
 		return;
 
-	const char* pName = g_StringTableEffectDispatch->GetString(nIndex);
+	const char* pName = m_Engines.m_pEffectDispatchTable->GetString(nIndex);
 
 	if (!pName)
 		return;
@@ -394,27 +396,27 @@ void CTempEntCommandsClient::Backend(const CCommand& args)
 
 	if (!Q_stricmp(pWhich, "sparks"))
 	{
-		SourceSharp_ClientSparks(pAt, 4, 4, pDir);
+		m_Backends.ClientSparks(pAt, 4, 4, pDir);
 	}
 	else if (!Q_stricmp(pWhich, "metalsparks"))
 	{
-		SourceSharp_ClientMetalSparks(pAt, pDir);
+		m_Backends.ClientMetalSparks(pAt, pDir);
 	}
 	else if (!Q_stricmp(pWhich, "ricochet"))
 	{
-		SourceSharp_ClientRicochet(pAt, pDir);
+		m_Backends.ClientRicochet(pAt, pDir);
 	}
 	else if (!Q_stricmp(pWhich, "muzzleflash"))
 	{
-		SourceSharp_ClientMuzzleFlash(pAt, pAngles, 1.0f, 0);
+		m_Backends.ClientMuzzleFlash(pAt, pAngles, 1.0f, 0);
 	}
 	else if (!Q_stricmp(pWhich, "smoke"))
 	{
-		SourceSharp_ClientSmoke(pAt, 0, 10.0f, 4.0f);
+		m_Backends.ClientSmoke(pAt, 0, 10.0f, 4.0f);
 	}
 	else if (!Q_stricmp(pWhich, "splash"))
 	{
-		SourceSharp_ClientEnergySplash(pAt, pDir, 1);
+		m_Backends.ClientEnergySplash(pAt, pDir, 1);
 	}
 	else if (!Q_stricmp(pWhich, "decal"))
 	{

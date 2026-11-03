@@ -18,6 +18,7 @@
 class CStandaloneClients;
 
 class CShellGameMovement;
+class IMoveHelper;
 
 class CClientEngineInterfaces;
 
@@ -25,12 +26,7 @@ class CPredictionSlotsClient final : public IShimPredictionClient
 {
 public:
 	CPredictionSlotsClient(const CClientEngineInterfaces& engines, CStandaloneClients& standalone,
-						   CShellGameMovement& gameMovement)
-		: m_Engines(engines)
-		, m_Standalone(standalone)
-		, m_GameMovement(gameMovement)
-	{
-	}
+						   CShellGameMovement& gameMovement);
 
 	CPredictionSlotsClient(const CPredictionSlotsClient&) = delete;
 	CPredictionSlotsClient& operator=(const CPredictionSlotsClient&) = delete;
@@ -44,4 +40,5 @@ private:
 	const CClientEngineInterfaces& m_Engines;
 	CStandaloneClients& m_Standalone;
 	CShellGameMovement& m_GameMovement;
+	IMoveHelper* m_pMoveHelper;
 };

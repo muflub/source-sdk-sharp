@@ -46,5 +46,8 @@ private:
 	IMaterial* m_material[kRenderModeCount];
 	int m_orientation;
 	alignas(4) unsigned char unused_m_hudSpriteColor[12];
+	unsigned int m_nFrameCache;
+	unsigned int m_nOrientationCache;
+	unsigned int m_nOriginCache;
 	float up, down, left, right;
 };

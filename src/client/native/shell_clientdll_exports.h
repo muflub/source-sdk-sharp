@@ -50,11 +50,14 @@ private:
 
 // Voice bans, the gameui_activated and gameui_hidden events, and the achievements panel this
 // client does not have.
+class CClientEngineInterfaces;
+
 class CGameClientExports final : public IGameClientExports
 {
 public:
-	explicit CGameClientExports(CVoiceStatus& voice)
-		: m_Voice(voice)
+	CGameClientExports(const CClientEngineInterfaces& engines, CVoiceStatus& voice)
+		: m_Engines(engines)
+		, m_Voice(voice)
 	{
 	}
 
@@ -84,5 +87,6 @@ public:
 	const char* GetOperationString();
 
 private:
+	const CClientEngineInterfaces& m_Engines;
 	CVoiceStatus& m_Voice;
 };

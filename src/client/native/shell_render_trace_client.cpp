@@ -35,121 +35,11 @@
 #include "vtable_slot_patch.h"
 
 #include "ss_fwd.h"
+#include "shell_client_engine_interfaces.h"
 
 namespace
 {
 
-bool g_bActive = false;
-CUtlVector<char> g_Text;
-CUtlVector<const void*> g_WorldLists; // a world list's ordinal is its index here
-const void* g_pClientBase = NULL;
-const void* g_pShadowsBase = NULL; // libss_fwd_client, whose ShadowNative carries out the shadow manager's calls
-
-// Inside the shadow manager's frame work (its render-to-texture refresh, which
-// differs frame to frame) lines are marked `~`.
-int g_nShadowDepth = 0;
-
-void Append(const char* pszFormat, va_list args)
-{
-	if (g_nShadowDepth > 0)
-		g_Text.AddMultipleToTail(2, "~\t");
-	char szLine[1024];
-	int nLength = V_vsnprintf(szLine, sizeof(szLine), pszFormat, args);
-	if (nLength < 0)
-		return;
-	if (nLength >= (int)sizeof(szLine))
-		nLength = sizeof(szLine) - 1;
-	g_Text.AddMultipleToTail(nLength, szLine);
-	g_Text.AddToTail('\n');
-}
-
-void Line(const char* pszFormat, ...)
-{
-	va_list args;
-	va_start(args, pszFormat);
-	Append(pszFormat, args);
-	va_end(args);
-}
-
-// True when the call came from client.so (dladdr on the return address), or, for
-// the shadow manager's calls, from libss_fwd_client's shadow table, which carries
-// them out. The shadow hooks take that library's calls anywhere, as the manager
-// is their only caller.
-bool FromClient(const void* pReturn, bool bShadowHook)
-{
-	if (!g_bActive)
-		return false;
-	SSModuleInfo info;
-	if (!SS_ModuleOfAddress(pReturn, &info))
-		return false;
-	if (info.pBase == g_pClientBase)
-		return true;
-	return g_pShadowsBase && info.pBase == g_pShadowsBase && (bShadowHook || g_nShadowDepth > 0);
-}
-
-#define SS_FROM_CLIENT() FromClient(SS_RETURN_ADDRESS(), false)
-#define SS_FROM_SHADOWS() FromClient(SS_RETURN_ADDRESS(), true)
-
-const char* TextureName(ITexture* pTexture)
-{
-	return pTexture ? pTexture->GetName() : "-";
-}
-
-const char* MaterialName(IMaterial* pMaterial)
-{
-	return pMaterial ? pMaterial->GetName() : "-";
-}
-
-int WorldList(const void* pList)
-{
-	if (!pList)
-		return -1;
-	int i = g_WorldLists.Find(pList);
-	if (i < 0)
-		i = g_WorldLists.AddToTail(pList);
-	return i;
-}
-
-// A CViewSetup as one field run. %.9g prints a float back to the same float.
-void ViewText(const CViewSetup& v, char* pOut, int nOut)
-{
-	V_snprintf(pOut, nOut,
-			   "xywh=%d,%d,%d,%d unscaled=%d,%d,%d,%d eye=%d ortho=%d:%.9g,%.9g,%.9g,%.9g "
-			   "fov=%.9g fovvm=%.9g origin=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g "
-			   "z=%.9g,%.9g zvm=%.9g,%.9g subrect=%d aspect=%.9g offcenter=%d:%.9g,%.9g,%.9g,%.9g "
-			   "bloom=%d cachefull=%d projoverride=%d",
-			   v.x, v.y, v.width, v.height, v.m_nUnscaledX, v.m_nUnscaledY, v.m_nUnscaledWidth, v.m_nUnscaledHeight,
-			   (int)v.m_eStereoEye, v.m_bOrtho ? 1 : 0, v.m_OrthoLeft, v.m_OrthoTop, v.m_OrthoRight, v.m_OrthoBottom,
-			   v.fov, v.fovViewmodel, v.origin.x, v.origin.y, v.origin.z, v.angles.x, v.angles.y, v.angles.z, v.zNear,
-			   v.zFar, v.zNearViewmodel, v.zFarViewmodel, v.m_bRenderToSubrectOfLargerScreen ? 1 : 0, v.m_flAspectRatio,
-			   v.m_bOffCenter ? 1 : 0, v.m_flOffCenterTop, v.m_flOffCenterBottom, v.m_flOffCenterLeft,
-			   v.m_flOffCenterRight, v.m_bDoBloomAndToneMapping ? 1 : 0, v.m_bCacheFullSceneState ? 1 : 0,
-			   v.m_bViewToProjectionOverride ? 1 : 0);
-}
-
-// Every slot Begin overwrote, in order.
-CUtlVector<VTableSlotPatch::Patch> g_Patches;
-
-template <typename PMF>
-bool Install(void* pObject, PMF pmf, void* pHook, void** ppOriginal)
-{
-	VTableSlotPatch::Patch patch;
-	if (!VTableSlotPatch::Install(pObject, pmf, pHook, &patch))
-		return false;
-	*ppOriginal = patch.pOriginal;
-	g_Patches.AddToTail(patch);
-	return true;
-}
-
-void RemoveAll()
-{
-	for (int i = g_Patches.Count() - 1; i >= 0; --i)
-		VTableSlotPatch::Remove(g_Patches[i]);
-	g_Patches.RemoveAll();
-}
-
-// Each hook logs when the call is the client's and forwards to the slot's
-// value when Begin ran.
 enum HookIndex_t
 {
 	kHook_DrawBrushModel,
@@ -273,17 +163,155 @@ enum HookIndex_t
 	kHookCount
 };
 
-// Each hooked slot's original, by hook: one table rather than one static per hook.
-void* g_Originals[kHookCount];
+// By the vtable of the mesh it was installed on: dynamic meshes of more than one
+// class may be handed out, each with its own original.
+struct MeshHook_t
+{
+	void** pVtable;
+	void* pOriginal;
+};
 
-#define SS_CALL(name, type) ((type)g_Originals[kHook_##name])
+// A hook replaces an engine vtable slot with a plain function, so it has no object to ask:
+// the trace's whole state, for the trace's length.
+struct TraceState_t
+{
+	const CClientEngineInterfaces* m_pEngines = nullptr;
+	bool m_bActive = false;
+	CUtlVector<char> m_Text;
+	CUtlVector<const void*> m_WorldLists; // a world list's ordinal is its index here
+	const void* m_pClientBase = nullptr;
+	const void* m_pShadowsBase = nullptr; // libss_fwd_client, whose ShadowNative carries out the shadow manager's calls
+
+	// Inside the shadow manager's frame work (its render-to-texture refresh, which
+	// differs frame to frame) lines are marked `~`.
+	int m_nShadowDepth = 0;
+
+	// Every slot Begin overwrote, in order.
+	CUtlVector<VTableSlotPatch::Patch> m_Patches;
+
+	// Each hooked slot's original, by hook: one table rather than one static per hook.
+	void* m_Originals[kHookCount] = {};
+
+	bool m_bMeshes = false;
+	CUtlVector<const void*> m_Queries; // a query object's ordinal is its index here
+	MeshHook_t m_MeshHooks[8] = {};
+	int m_nMeshHooks = 0;
+};
+
+TraceState_t s_Trace;
+
+const CClientEngineInterfaces& Engines()
+{
+	return *s_Trace.m_pEngines;
+}
+
+void Append(const char* pszFormat, va_list args)
+{
+	if (s_Trace.m_nShadowDepth > 0)
+		s_Trace.m_Text.AddMultipleToTail(2, "~\t");
+	char szLine[1024];
+	int nLength = V_vsnprintf(szLine, sizeof(szLine), pszFormat, args);
+	if (nLength < 0)
+		return;
+	if (nLength >= (int)sizeof(szLine))
+		nLength = sizeof(szLine) - 1;
+	s_Trace.m_Text.AddMultipleToTail(nLength, szLine);
+	s_Trace.m_Text.AddToTail('\n');
+}
+
+void Line(const char* pszFormat, ...)
+{
+	va_list args;
+	va_start(args, pszFormat);
+	Append(pszFormat, args);
+	va_end(args);
+}
+
+// True when the call came from client.so (dladdr on the return address), or, for
+// the shadow manager's calls, from libss_fwd_client's shadow table, which carries
+// them out. The shadow hooks take that library's calls anywhere, as the manager
+// is their only caller.
+bool FromClient(const void* pReturn, bool bShadowHook)
+{
+	if (!s_Trace.m_bActive)
+		return false;
+	SSModuleInfo info;
+	if (!SS_ModuleOfAddress(pReturn, &info))
+		return false;
+	if (info.pBase == s_Trace.m_pClientBase)
+		return true;
+	return s_Trace.m_pShadowsBase && info.pBase == s_Trace.m_pShadowsBase &&
+		(bShadowHook || s_Trace.m_nShadowDepth > 0);
+}
+
+#define SS_FROM_CLIENT() FromClient(SS_RETURN_ADDRESS(), false)
+#define SS_FROM_SHADOWS() FromClient(SS_RETURN_ADDRESS(), true)
+
+const char* TextureName(ITexture* pTexture)
+{
+	return pTexture ? pTexture->GetName() : "-";
+}
+
+const char* MaterialName(IMaterial* pMaterial)
+{
+	return pMaterial ? pMaterial->GetName() : "-";
+}
+
+int WorldList(const void* pList)
+{
+	if (!pList)
+		return -1;
+	int i = s_Trace.m_WorldLists.Find(pList);
+	if (i < 0)
+		i = s_Trace.m_WorldLists.AddToTail(pList);
+	return i;
+}
+
+// A CViewSetup as one field run. %.9g prints a float back to the same float.
+void ViewText(const CViewSetup& v, char* pOut, int nOut)
+{
+	V_snprintf(pOut, nOut,
+			   "xywh=%d,%d,%d,%d unscaled=%d,%d,%d,%d eye=%d ortho=%d:%.9g,%.9g,%.9g,%.9g "
+			   "fov=%.9g fovvm=%.9g origin=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g "
+			   "z=%.9g,%.9g zvm=%.9g,%.9g subrect=%d aspect=%.9g offcenter=%d:%.9g,%.9g,%.9g,%.9g "
+			   "bloom=%d cachefull=%d projoverride=%d",
+			   v.x, v.y, v.width, v.height, v.m_nUnscaledX, v.m_nUnscaledY, v.m_nUnscaledWidth, v.m_nUnscaledHeight,
+			   (int)v.m_eStereoEye, v.m_bOrtho ? 1 : 0, v.m_OrthoLeft, v.m_OrthoTop, v.m_OrthoRight, v.m_OrthoBottom,
+			   v.fov, v.fovViewmodel, v.origin.x, v.origin.y, v.origin.z, v.angles.x, v.angles.y, v.angles.z, v.zNear,
+			   v.zFar, v.zNearViewmodel, v.zFarViewmodel, v.m_bRenderToSubrectOfLargerScreen ? 1 : 0, v.m_flAspectRatio,
+			   v.m_bOffCenter ? 1 : 0, v.m_flOffCenterTop, v.m_flOffCenterBottom, v.m_flOffCenterLeft,
+			   v.m_flOffCenterRight, v.m_bDoBloomAndToneMapping ? 1 : 0, v.m_bCacheFullSceneState ? 1 : 0,
+			   v.m_bViewToProjectionOverride ? 1 : 0);
+}
+
+template <typename PMF>
+bool Install(void* pObject, PMF pmf, void* pHook, void** ppOriginal)
+{
+	VTableSlotPatch::Patch patch;
+	if (!VTableSlotPatch::Install(pObject, pmf, pHook, &patch))
+		return false;
+	*ppOriginal = patch.pOriginal;
+	s_Trace.m_Patches.AddToTail(patch);
+	return true;
+}
+
+void RemoveAll()
+{
+	for (int i = s_Trace.m_Patches.Count() - 1; i >= 0; --i)
+		VTableSlotPatch::Remove(s_Trace.m_Patches[i]);
+	s_Trace.m_Patches.RemoveAll();
+}
+
+// Each hook logs when the call is the client's and forwards to the slot's
+// value when Begin ran.
+#define SS_CALL(name, type) ((type)s_Trace.m_Originals[kHook_##name])
 
 // IVRenderView ---------------------------------------------------------------
 void H_DrawBrushModel(IVRenderView* self, IClientEntity* pEnt, model_t* pModel, const Vector& origin,
 					  const QAngle& angles, bool bSort)
 {
 	if (SS_FROM_CLIENT())
-		Line("render.DrawBrushModel\tmodel=%s sort=%d", modelinfo->GetModelName(pModel), bSort ? 1 : 0);
+		Line("render.DrawBrushModel\tmodel=%s sort=%d", Engines().m_pModelInfo->GetModelName(pModel), bSort ? 1 : 0);
 	SS_CALL(DrawBrushModel, void (*)(IVRenderView*, IClientEntity*, model_t*, const Vector&, const QAngle&, bool))(
 		self, pEnt, pModel, origin, angles, bSort);
 }
@@ -291,7 +319,8 @@ void H_DrawBrushModel(IVRenderView* self, IClientEntity* pEnt, model_t* pModel, 
 void H_DrawIdentityBrushModel(IVRenderView* self, IWorldRenderList* pList, model_t* pModel)
 {
 	if (SS_FROM_CLIENT())
-		Line("render.DrawIdentityBrushModel\tlist=%d model=%s", WorldList(pList), modelinfo->GetModelName(pModel));
+		Line("render.DrawIdentityBrushModel\tlist=%d model=%s", WorldList(pList),
+			 Engines().m_pModelInfo->GetModelName(pModel));
 	SS_CALL(DrawIdentityBrushModel, void (*)(IVRenderView*, IWorldRenderList*, model_t*))(self, pList, pModel);
 }
 
@@ -524,7 +553,7 @@ void H_OverrideViewFrustum(IVRenderView* self, Frustum custom)
 void H_UpdateBrushModelLightmap(IVRenderView* self, model_t* pModel, IClientRenderable* pRenderable)
 {
 	if (SS_FROM_CLIENT())
-		Line("render.UpdateBrushModelLightmap\tmodel=%s", modelinfo->GetModelName(pModel));
+		Line("render.UpdateBrushModelLightmap\tmodel=%s", Engines().m_pModelInfo->GetModelName(pModel));
 	SS_CALL(UpdateBrushModelLightmap, void (*)(IVRenderView*, model_t*, IClientRenderable*))(self, pModel, pRenderable);
 }
 
@@ -546,7 +575,7 @@ void H_DrawBrushModelEx(IVRenderView* self, IClientEntity* pEnt, model_t* pModel
 						const QAngle& angles, DrawBrushModelMode_t mode)
 {
 	if (SS_FROM_CLIENT())
-		Line("render.DrawBrushModelEx\tmodel=%s mode=%d", modelinfo->GetModelName(pModel), (int)mode);
+		Line("render.DrawBrushModelEx\tmodel=%s mode=%d", Engines().m_pModelInfo->GetModelName(pModel), (int)mode);
 	SS_CALL(DrawBrushModelEx,
 			void (*)(IVRenderView*, IClientEntity*, model_t*, const Vector&, const QAngle&, DrawBrushModelMode_t))(
 		self, pEnt, pModel, origin, angles, mode);
@@ -556,7 +585,8 @@ void H_DrawBrushModelShadowDepth(IVRenderView* self, IClientEntity* pEnt, model_
 								 const QAngle& angles, ERenderDepthMode mode)
 {
 	if (SS_FROM_CLIENT())
-		Line("render.DrawBrushModelShadowDepth\tmodel=%s mode=%d", modelinfo->GetModelName(pModel), (int)mode);
+		Line("render.DrawBrushModelShadowDepth\tmodel=%s mode=%d", Engines().m_pModelInfo->GetModelName(pModel),
+			 (int)mode);
 	SS_CALL(DrawBrushModelShadowDepth,
 			void (*)(IVRenderView*, IClientEntity*, model_t*, const Vector&, const QAngle&, ERenderDepthMode))(
 		self, pEnt, pModel, origin, angles, mode);
@@ -919,7 +949,7 @@ int H_DrawModelEx(IVModelRender* self, ModelRenderInfo_t& info)
 {
 	if (SS_FROM_CLIENT())
 		Line("model.DrawModelEx\tent=%d model=%s flags=0x%x skin=%d body=%d", info.entity_index,
-			 info.pModel ? modelinfo->GetModelName(info.pModel) : "-", info.flags, info.skin, info.body);
+			 info.pModel ? Engines().m_pModelInfo->GetModelName(info.pModel) : "-", info.flags, info.skin, info.body);
 	return SS_CALL(DrawModelEx, int (*)(IVModelRender*, ModelRenderInfo_t&))(self, info);
 }
 
@@ -927,7 +957,7 @@ int H_DrawModelExStaticProp(IVModelRender* self, ModelRenderInfo_t& info)
 {
 	if (SS_FROM_CLIENT())
 		Line("model.DrawModelExStaticProp\tent=%d model=%s flags=0x%x", info.entity_index,
-			 info.pModel ? modelinfo->GetModelName(info.pModel) : "-", info.flags);
+			 info.pModel ? Engines().m_pModelInfo->GetModelName(info.pModel) : "-", info.flags);
 	return SS_CALL(DrawModelExStaticProp, int (*)(IVModelRender*, ModelRenderInfo_t&))(self, info);
 }
 
@@ -936,7 +966,7 @@ void H_DrawModelExecute(IVModelRender* self, const DrawModelState_t& state, cons
 {
 	if (SS_FROM_CLIENT())
 		Line("model.DrawModelExecute\tent=%d model=%s flags=0x%x", info.entity_index,
-			 info.pModel ? modelinfo->GetModelName(info.pModel) : "-", info.flags);
+			 info.pModel ? Engines().m_pModelInfo->GetModelName(info.pModel) : "-", info.flags);
 	SS_CALL(DrawModelExecute,
 			void (*)(IVModelRender*, const DrawModelState_t&, const ModelRenderInfo_t&, matrix3x4_t*))(
 		self, state, info, pCustomBoneToWorld);
@@ -1004,38 +1034,24 @@ void H_GrabPreColorCorrectedFrame(IVEngineClient* self, int x, int y, int w, int
 // material bound, each dynamic mesh with its vertices as UnlockMesh gets them,
 // the clipping switch, and each query object by first-seen order. Pixel counts
 // and sphere diameters are `q` lines.
-bool g_bMeshes = false;
-CUtlVector<const void*> g_Queries; // a query object's ordinal is its index here
-
 int Query(const void* h)
 {
 	if (!h)
 		return -1;
-	int i = g_Queries.Find(h);
+	int i = s_Trace.m_Queries.Find(h);
 	if (i < 0)
-		i = g_Queries.AddToTail(h);
+		i = s_Trace.m_Queries.AddToTail(h);
 	return i;
 }
-
-// By the vtable of the mesh it was installed on: dynamic meshes of more than one
-// class may be handed out, each with its own original.
-struct MeshHook_t
-{
-	void** pVtable;
-	void* pOriginal;
-};
-
-MeshHook_t g_MeshHooks[8];
-int g_nMeshHooks = 0;
 
 void H_UnlockMesh(IMesh* self, int nVertexCount, int nIndexCount, MeshDesc_t& desc)
 {
 	void** pVtable = *(void***)self;
 	void* pOriginal = NULL;
-	for (int i = 0; i < g_nMeshHooks; i++)
+	for (int i = 0; i < s_Trace.m_nMeshHooks; i++)
 	{
-		if (g_MeshHooks[i].pVtable == pVtable)
-			pOriginal = g_MeshHooks[i].pOriginal;
+		if (s_Trace.m_MeshHooks[i].pVtable == pVtable)
+			pOriginal = s_Trace.m_MeshHooks[i].pOriginal;
 	}
 	if (SS_FROM_CLIENT())
 	{
@@ -1060,21 +1076,21 @@ void H_UnlockMesh(IMesh* self, int nVertexCount, int nIndexCount, MeshDesc_t& de
 
 void HookMesh(IMesh* pMesh)
 {
-	if (!pMesh || g_nMeshHooks >= (int)ARRAYSIZE(g_MeshHooks))
+	if (!pMesh || s_Trace.m_nMeshHooks >= (int)ARRAYSIZE(s_Trace.m_MeshHooks))
 		return;
 	void** pVtable = *(void***)pMesh;
-	for (int i = 0; i < g_nMeshHooks; i++)
+	for (int i = 0; i < s_Trace.m_nMeshHooks; i++)
 	{
-		if (g_MeshHooks[i].pVtable == pVtable)
+		if (s_Trace.m_MeshHooks[i].pVtable == pVtable)
 			return;
 	}
 	VTableSlotPatch::Patch patch;
 	if (!VTableSlotPatch::Install(pMesh, &IMesh::UnlockMesh, (void*)&H_UnlockMesh, &patch))
 		return;
-	g_MeshHooks[g_nMeshHooks].pVtable = pVtable;
-	g_MeshHooks[g_nMeshHooks].pOriginal = patch.pOriginal;
-	g_nMeshHooks++;
-	g_Patches.AddToTail(patch);
+	s_Trace.m_MeshHooks[s_Trace.m_nMeshHooks].pVtable = pVtable;
+	s_Trace.m_MeshHooks[s_Trace.m_nMeshHooks].pOriginal = patch.pOriginal;
+	s_Trace.m_nMeshHooks++;
+	s_Trace.m_Patches.AddToTail(patch);
 }
 
 void H_Bind(IMatRenderContext* self, IMaterial* pMaterial, void* pProxyData)
@@ -1211,8 +1227,8 @@ void RenderableText(IClientRenderable* pRenderable, char* pOut, int nOut)
 	}
 	const model_t* pModel = pRenderable->GetModel();
 	const Vector& origin = pRenderable->GetRenderOrigin();
-	V_snprintf(pOut, nOut, "prop:%s@%.9g,%.9g,%.9g", pModel ? modelinfo->GetModelName(pModel) : "-", origin.x, origin.y,
-			   origin.z);
+	V_snprintf(pOut, nOut, "prop:%s@%.9g,%.9g,%.9g", pModel ? Engines().m_pModelInfo->GetModelName(pModel) : "-",
+			   origin.x, origin.y, origin.z);
 }
 
 void FlashlightText(const FlashlightState_t& state, char* pOut, int nOut)
@@ -1339,7 +1355,7 @@ void H_AddShadowToBrushModel(IShadowMgr* self, ShadowHandle_t h, model_t* pModel
 {
 	if (SS_FROM_SHADOWS())
 		Line("shadowmgr.AddShadowToBrushModel\t%d model=%s origin=%.9g,%.9g,%.9g angles=%.9g,%.9g,%.9g", (int)h,
-			 modelinfo->GetModelName(pModel), origin.x, origin.y, origin.z, angles.x, angles.y, angles.z);
+			 Engines().m_pModelInfo->GetModelName(pModel), origin.x, origin.y, origin.z, angles.x, angles.y, angles.z);
 	SS_CALL(AddShadowToBrushModel, void (*)(IShadowMgr*, ShadowHandle_t, model_t*, const Vector&, const QAngle&))(
 		self, h, pModel, origin, angles);
 }
@@ -1347,7 +1363,7 @@ void H_AddShadowToBrushModel(IShadowMgr* self, ShadowHandle_t h, model_t* pModel
 void H_RemoveAllShadowsFromBrushModel(IShadowMgr* self, model_t* pModel)
 {
 	if (SS_FROM_SHADOWS())
-		Line("shadowmgr.RemoveAllShadowsFromBrushModel\tmodel=%s", modelinfo->GetModelName(pModel));
+		Line("shadowmgr.RemoveAllShadowsFromBrushModel\tmodel=%s", Engines().m_pModelInfo->GetModelName(pModel));
 	SS_CALL(RemoveAllShadowsFromBrushModel, void (*)(IShadowMgr*, model_t*))(self, pModel);
 }
 
@@ -1478,50 +1494,51 @@ void H_RemoveAllShadowsFromStaticProp(IStaticPropMgrClient* self, IClientRendera
 	SS_CALL(RemoveAllShadowsFromStaticProp, void (*)(IStaticPropMgrClient*, IClientRenderable*))(self, pRenderable);
 }
 
-#define SS_INSTALL(object, pmf, name) bOk = bOk && Install(object, pmf, (void*)&H_##name, &g_Originals[kHook_##name])
+#define SS_INSTALL(object, pmf, name) \
+	bOk = bOk && Install(object, pmf, (void*)&H_##name, &s_Trace.m_Originals[kHook_##name])
 
 bool InstallAll(IMatRenderContext* pContext, bool bShadows)
 {
 	bool bOk = true;
 
-	SS_INSTALL(render, &IVRenderView::DrawBrushModel, DrawBrushModel);
-	SS_INSTALL(render, &IVRenderView::DrawIdentityBrushModel, DrawIdentityBrushModel);
-	SS_INSTALL(render, &IVRenderView::Draw3DDebugOverlays, Draw3DDebugOverlays);
-	SS_INSTALL(render, &IVRenderView::SetBlend, SetBlend);
-	SS_INSTALL(render, &IVRenderView::SetColorModulation, SetColorModulation);
-	SS_INSTALL(render, &IVRenderView::SceneBegin, SceneBegin);
-	SS_INSTALL(render, &IVRenderView::SceneEnd, SceneEnd);
-	SS_INSTALL(render, &IVRenderView::GetVisibleFogVolume, GetVisibleFogVolume);
-	SS_INSTALL(render, &IVRenderView::CreateWorldList, CreateWorldList);
-	SS_INSTALL(render, &IVRenderView::BuildWorldLists, BuildWorldLists);
-	SS_INSTALL(render, &IVRenderView::DrawWorldLists, DrawWorldLists);
-	SS_INSTALL(render, &IVRenderView::DrawLights, DrawLights);
-	SS_INSTALL(render, &IVRenderView::DrawMaskEntities, DrawMaskEntities);
-	SS_INSTALL(render, &IVRenderView::DrawTranslucentSurfaces, DrawTranslucentSurfaces);
-	SS_INSTALL(render, &IVRenderView::LeafContainsTranslucentSurfaces, LeafContainsTranslucentSurfaces);
-	SS_INSTALL(render, &IVRenderView::ViewSetupVis, ViewSetupVis);
-	SS_INSTALL(render, &IVRenderView::ViewSetupVisEx, ViewSetupVisEx);
-	SS_INSTALL(render, &IVRenderView::VguiPaint, VguiPaint);
-	SS_INSTALL(render, &IVRenderView::ViewDrawFade, ViewDrawFade);
-	SS_INSTALL(render, &IVRenderView::SetFogVolumeState, SetFogVolumeState);
-	SS_INSTALL(render, &IVRenderView::VGui_Paint, VGui_Paint);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawBrushModel, DrawBrushModel);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawIdentityBrushModel, DrawIdentityBrushModel);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::Draw3DDebugOverlays, Draw3DDebugOverlays);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::SetBlend, SetBlend);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::SetColorModulation, SetColorModulation);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::SceneBegin, SceneBegin);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::SceneEnd, SceneEnd);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::GetVisibleFogVolume, GetVisibleFogVolume);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::CreateWorldList, CreateWorldList);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::BuildWorldLists, BuildWorldLists);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawWorldLists, DrawWorldLists);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawLights, DrawLights);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawMaskEntities, DrawMaskEntities);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawTranslucentSurfaces, DrawTranslucentSurfaces);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::LeafContainsTranslucentSurfaces, LeafContainsTranslucentSurfaces);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::ViewSetupVis, ViewSetupVis);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::ViewSetupVisEx, ViewSetupVisEx);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::VguiPaint, VguiPaint);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::ViewDrawFade, ViewDrawFade);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::SetFogVolumeState, SetFogVolumeState);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::VGui_Paint, VGui_Paint);
 	SS_INSTALL(
-		render,
+		Engines().m_pRender,
 		static_cast<void (IVRenderView::*)(const CViewSetup&, int, ITexture*, Frustum)>(&IVRenderView::Push3DView),
 		Push3DView);
-	SS_INSTALL(render,
+	SS_INSTALL(Engines().m_pRender,
 			   static_cast<void (IVRenderView::*)(const CViewSetup&, int, ITexture*, Frustum, ITexture*)>(
 				   &IVRenderView::Push3DView),
 			   Push3DViewDepth);
-	SS_INSTALL(render, &IVRenderView::Push2DView, Push2DView);
-	SS_INSTALL(render, &IVRenderView::PopView, PopView);
-	SS_INSTALL(render, &IVRenderView::SetMainView, SetMainView);
-	SS_INSTALL(render, &IVRenderView::OverrideViewFrustum, OverrideViewFrustum);
-	SS_INSTALL(render, &IVRenderView::UpdateBrushModelLightmap, UpdateBrushModelLightmap);
-	SS_INSTALL(render, &IVRenderView::BeginUpdateLightmaps, BeginUpdateLightmaps);
-	SS_INSTALL(render, &IVRenderView::EndUpdateLightmaps, EndUpdateLightmaps);
-	SS_INSTALL(render, &IVRenderView::DrawBrushModelEx, DrawBrushModelEx);
-	SS_INSTALL(render, &IVRenderView::DrawBrushModelShadowDepth, DrawBrushModelShadowDepth);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::Push2DView, Push2DView);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::PopView, PopView);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::SetMainView, SetMainView);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::OverrideViewFrustum, OverrideViewFrustum);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::UpdateBrushModelLightmap, UpdateBrushModelLightmap);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::BeginUpdateLightmaps, BeginUpdateLightmaps);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::EndUpdateLightmaps, EndUpdateLightmaps);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawBrushModelEx, DrawBrushModelEx);
+	SS_INSTALL(Engines().m_pRender, &IVRenderView::DrawBrushModelShadowDepth, DrawBrushModelShadowDepth);
 
 	SS_INSTALL(pContext, &IMatRenderContext::Flush, Flush);
 	SS_INSTALL(pContext, &IMatRenderContext::SetRenderTarget, SetRenderTarget);
@@ -1574,21 +1591,21 @@ bool InstallAll(IMatRenderContext* pContext, bool bShadows)
 	SS_INSTALL(pContext, &IMatRenderContext::FogRadial, FogRadial);
 	SS_INSTALL(pContext, &IMatRenderContext::SetFrameBufferCopyTexture, SetFrameBufferCopyTexture);
 
-	SS_INSTALL(modelrender, &IVModelRender::ForcedMaterialOverride, ForcedMaterialOverride);
-	SS_INSTALL(modelrender, &IVModelRender::DrawModelEx, DrawModelEx);
-	SS_INSTALL(modelrender, &IVModelRender::DrawModelExStaticProp, DrawModelExStaticProp);
-	SS_INSTALL(modelrender, &IVModelRender::DrawModelExecute, DrawModelExecute);
-	SS_INSTALL(modelrender, &IVModelRender::DrawStaticPropArrayFast, DrawStaticPropArrayFast);
+	SS_INSTALL(Engines().m_pModelRender, &IVModelRender::ForcedMaterialOverride, ForcedMaterialOverride);
+	SS_INSTALL(Engines().m_pModelRender, &IVModelRender::DrawModelEx, DrawModelEx);
+	SS_INSTALL(Engines().m_pModelRender, &IVModelRender::DrawModelExStaticProp, DrawModelExStaticProp);
+	SS_INSTALL(Engines().m_pModelRender, &IVModelRender::DrawModelExecute, DrawModelExecute);
+	SS_INSTALL(Engines().m_pModelRender, &IVModelRender::DrawStaticPropArrayFast, DrawStaticPropArrayFast);
 
-	SS_INSTALL(staticpropmgr, &IStaticPropMgrClient::ComputePropOpacity, ComputePropOpacity);
-	SS_INSTALL(staticpropmgr, &IStaticPropMgrClient::DrawStaticProps, DrawStaticProps);
+	SS_INSTALL(Engines().m_pStaticProps, &IStaticPropMgrClient::ComputePropOpacity, ComputePropOpacity);
+	SS_INSTALL(Engines().m_pStaticProps, &IStaticPropMgrClient::DrawStaticProps, DrawStaticProps);
 
-	SS_INSTALL(engine, &IVEngineClient::Sound_ExtraUpdate, Sound_ExtraUpdate);
-	SS_INSTALL(engine, &IVEngineClient::DrawPortals, DrawPortals);
-	SS_INSTALL(engine, &IVEngineClient::IsSkyboxVisibleFromPoint, IsSkyboxVisibleFromPoint);
-	SS_INSTALL(engine, &IVEngineClient::GrabPreColorCorrectedFrame, GrabPreColorCorrectedFrame);
+	SS_INSTALL(Engines().m_pEngine, &IVEngineClient::Sound_ExtraUpdate, Sound_ExtraUpdate);
+	SS_INSTALL(Engines().m_pEngine, &IVEngineClient::DrawPortals, DrawPortals);
+	SS_INSTALL(Engines().m_pEngine, &IVEngineClient::IsSkyboxVisibleFromPoint, IsSkyboxVisibleFromPoint);
+	SS_INSTALL(Engines().m_pEngine, &IVEngineClient::GrabPreColorCorrectedFrame, GrabPreColorCorrectedFrame);
 
-	if (g_bMeshes)
+	if (s_Trace.m_bMeshes)
 	{
 		SS_INSTALL(pContext, &IMatRenderContext::Bind, Bind);
 		SS_INSTALL(pContext, &IMatRenderContext::GetDynamicMesh, GetDynamicMesh);
@@ -1605,29 +1622,29 @@ bool InstallAll(IMatRenderContext* pContext, bool bShadows)
 
 	if (bShadows)
 	{
-		SS_INSTALL(shadowmgr, &IShadowMgr::CreateShadowEx, CreateShadowEx);
-		SS_INSTALL(shadowmgr, &IShadowMgr::DestroyShadow, DestroyShadow);
-		SS_INSTALL(shadowmgr, &IShadowMgr::SetShadowMaterial, SetShadowMaterial);
-		SS_INSTALL(shadowmgr, &IShadowMgr::ProjectShadow, ProjectShadow);
-		SS_INSTALL(shadowmgr, &IShadowMgr::ProjectFlashlight, ProjectFlashlight);
-		SS_INSTALL(shadowmgr, &IShadowMgr::GetInfo, GetInfo);
-		SS_INSTALL(shadowmgr, &IShadowMgr::GetFlashlightFrustum, GetFlashlightFrustum);
-		SS_INSTALL(shadowmgr, &IShadowMgr::AddShadowToBrushModel, AddShadowToBrushModel);
-		SS_INSTALL(shadowmgr, &IShadowMgr::RemoveAllShadowsFromBrushModel, RemoveAllShadowsFromBrushModel);
-		SS_INSTALL(shadowmgr, &IShadowMgr::SetShadowTexCoord, SetShadowTexCoord);
-		SS_INSTALL(shadowmgr, &IShadowMgr::AddShadowToModel, AddShadowToModel);
-		SS_INSTALL(shadowmgr, &IShadowMgr::RemoveAllShadowsFromModel, RemoveAllShadowsFromModel);
-		SS_INSTALL(shadowmgr, &IShadowMgr::ClearExtraClipPlanes, ClearExtraClipPlanes);
-		SS_INSTALL(shadowmgr, &IShadowMgr::AddExtraClipPlane, AddExtraClipPlane);
-		SS_INSTALL(shadowmgr, &IShadowMgr::EnableShadow, EnableShadow);
-		SS_INSTALL(shadowmgr, &IShadowMgr::SetFalloffBias, SetFalloffBias);
-		SS_INSTALL(shadowmgr, &IShadowMgr::UpdateFlashlightState, UpdateFlashlightState);
-		SS_INSTALL(shadowmgr, &IShadowMgr::AddFlashlightRenderable, AddFlashlightRenderable);
-		SS_INSTALL(shadowmgr, &IShadowMgr::SetFlashlightDepthTexture, SetFlashlightDepthTexture);
-		SS_INSTALL(shadowmgr, &IShadowMgr::GetFlashlightState, GetFlashlightState);
-		SS_INSTALL(shadowmgr, &IShadowMgr::SetFlashlightRenderState, SetFlashlightRenderState);
-		SS_INSTALL(staticpropmgr, &IStaticPropMgrClient::AddShadowToStaticProp, AddShadowToStaticProp);
-		SS_INSTALL(staticpropmgr, &IStaticPropMgrClient::RemoveAllShadowsFromStaticProp,
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::CreateShadowEx, CreateShadowEx);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::DestroyShadow, DestroyShadow);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::SetShadowMaterial, SetShadowMaterial);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::ProjectShadow, ProjectShadow);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::ProjectFlashlight, ProjectFlashlight);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::GetInfo, GetInfo);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::GetFlashlightFrustum, GetFlashlightFrustum);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::AddShadowToBrushModel, AddShadowToBrushModel);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::RemoveAllShadowsFromBrushModel, RemoveAllShadowsFromBrushModel);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::SetShadowTexCoord, SetShadowTexCoord);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::AddShadowToModel, AddShadowToModel);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::RemoveAllShadowsFromModel, RemoveAllShadowsFromModel);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::ClearExtraClipPlanes, ClearExtraClipPlanes);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::AddExtraClipPlane, AddExtraClipPlane);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::EnableShadow, EnableShadow);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::SetFalloffBias, SetFalloffBias);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::UpdateFlashlightState, UpdateFlashlightState);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::AddFlashlightRenderable, AddFlashlightRenderable);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::SetFlashlightDepthTexture, SetFlashlightDepthTexture);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::GetFlashlightState, GetFlashlightState);
+		SS_INSTALL(Engines().m_pShadows, &IShadowMgr::SetFlashlightRenderState, SetFlashlightRenderState);
+		SS_INSTALL(Engines().m_pStaticProps, &IStaticPropMgrClient::AddShadowToStaticProp, AddShadowToStaticProp);
+		SS_INSTALL(Engines().m_pStaticProps, &IStaticPropMgrClient::RemoveAllShadowsFromStaticProp,
 				   RemoveAllShadowsFromStaticProp);
 	}
 
@@ -1636,39 +1653,42 @@ bool InstallAll(IMatRenderContext* pContext, bool bShadows)
 
 } // namespace
 
-bool RenderTrace::Begin()
+bool RenderTrace::Begin(const CClientEngineInterfaces& engines)
 {
-	if (g_bActive || !render || !modelrender || !staticpropmgr || !engine || !materials)
+	s_Trace.m_pEngines = &engines;
+
+	if (s_Trace.m_bActive || !Engines().m_pRender || !Engines().m_pModelRender || !Engines().m_pStaticProps ||
+		!Engines().m_pEngine || !Engines().m_pMaterials)
 		return false;
 
-	if (!g_pClientBase)
+	if (!s_Trace.m_pClientBase)
 	{
 		SSModuleInfo info;
 		if (!SS_ModuleOfAddress((void*)&RenderTrace::Begin, &info))
 			return false;
-		g_pClientBase = info.pBase;
+		s_Trace.m_pClientBase = info.pBase;
 	}
-	if (!g_pShadowsBase)
+	if (!s_Trace.m_pShadowsBase)
 	{
 		const SSForwarderTable* pTable = SSFwdClient_Table("SSFwd_Shadows");
 		SSModuleInfo info;
 		if (pTable && pTable->nSlots > 0 && SS_ModuleOfAddress(pTable->ppSlots[0], &info))
-			g_pShadowsBase = info.pBase;
+			s_Trace.m_pShadowsBase = info.pBase;
 	}
 
-	g_Text.RemoveAll();
-	g_WorldLists.RemoveAll();
-	g_nShadowDepth = 0;
-	g_Queries.RemoveAll();
-	g_nMeshHooks = 0;
+	s_Trace.m_Text.RemoveAll();
+	s_Trace.m_WorldLists.RemoveAll();
+	s_Trace.m_nShadowDepth = 0;
+	s_Trace.m_Queries.RemoveAll();
+	s_Trace.m_nMeshHooks = 0;
 	const char* pszMeshes = getenv("SOURCESHARP_RENDER_TRACE_MESHES");
-	g_bMeshes = pszMeshes && pszMeshes[0] == '1';
+	s_Trace.m_bMeshes = pszMeshes && pszMeshes[0] == '1';
 	const char* pszShadows = getenv("SOURCESHARP_RENDER_TRACE_SHADOWS");
 	const bool bShadows = pszShadows && pszShadows[0] == '1';
-	if (bShadows && !shadowmgr)
+	if (bShadows && !Engines().m_pShadows)
 		return false;
 
-	CMatRenderContextPtr pContext(materials);
+	CMatRenderContextPtr pContext(Engines().m_pMaterials);
 	if (!InstallAll(pContext, bShadows))
 	{
 		RemoveAll();
@@ -1676,31 +1696,31 @@ bool RenderTrace::Begin()
 		return false;
 	}
 
-	g_bActive = true;
+	s_Trace.m_bActive = true;
 	return true;
 }
 
 void RenderTrace::End()
 {
-	g_bActive = false;
+	s_Trace.m_bActive = false;
 	RemoveAll();
 }
 
 bool RenderTrace::Active()
 {
-	return g_bActive;
+	return s_Trace.m_bActive;
 }
 
 const char* RenderTrace::Text(int32_t* pLength)
 {
 	if (pLength)
-		*pLength = g_Text.Count();
-	return g_Text.Count() ? g_Text.Base() : "";
+		*pLength = s_Trace.m_Text.Count();
+	return s_Trace.m_Text.Count() ? s_Trace.m_Text.Base() : "";
 }
 
 void RenderTrace::Note(const char* pszFormat, ...)
 {
-	if (!g_bActive)
+	if (!s_Trace.m_bActive)
 		return;
 	va_list args;
 	va_start(args, pszFormat);
@@ -1710,28 +1730,28 @@ void RenderTrace::Note(const char* pszFormat, ...)
 
 void RenderTrace::ShadowEnter(const char* pszLine)
 {
-	if (g_bActive)
+	if (s_Trace.m_bActive)
 		Line("%s", pszLine);
-	++g_nShadowDepth;
+	++s_Trace.m_nShadowDepth;
 }
 
 void RenderTrace::ShadowLeave()
 {
-	if (g_nShadowDepth > 0)
-		--g_nShadowDepth;
+	if (s_Trace.m_nShadowDepth > 0)
+		--s_Trace.m_nShadowDepth;
 }
 
 void RenderTrace::ShadowNote(const char* pszLine)
 {
-	if (g_bActive)
+	if (s_Trace.m_bActive)
 		Line("%s", pszLine);
 }
 
 void RenderTrace::NoteLong(const char* pszPrefix, const char* pszText)
 {
-	if (!g_bActive)
+	if (!s_Trace.m_bActive)
 		return;
-	g_Text.AddMultipleToTail(V_strlen(pszPrefix), pszPrefix);
-	g_Text.AddMultipleToTail(V_strlen(pszText), pszText);
-	g_Text.AddToTail('\n');
+	s_Trace.m_Text.AddMultipleToTail(V_strlen(pszPrefix), pszPrefix);
+	s_Trace.m_Text.AddMultipleToTail(V_strlen(pszText), pszText);
+	s_Trace.m_Text.AddToTail('\n');
 }

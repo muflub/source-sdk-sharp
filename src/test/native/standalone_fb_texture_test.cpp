@@ -105,7 +105,7 @@ TEST(StandaloneFBTexture, AMaterialThatSamplesTheFrameBufferAnswersTrue)
 	g_ask.answers = true;
 
 	Tag renderable;
-	EXPECT_TRUE(SourceSharp_ShellUsesFBTexture(kSamplerModel, 2, 7, &renderable));
+	EXPECT_TRUE(SourceSharp_ShellUsesFBTexture(modelinfo, kSamplerModel, 2, 7, &renderable));
 
 	// The ask carried the whole decision: the model, the skin, the body and the
 	// renderable (c_baseanimating.cpp:831's argument list).
@@ -123,7 +123,7 @@ TEST(StandaloneFBTexture, AMaterialThatDoesNotSampleItAnswersFalse)
 	g_ask.answers = false;
 
 	Tag renderable;
-	EXPECT_FALSE(SourceSharp_ShellUsesFBTexture(kPlainModel, 0, 0, &renderable));
+	EXPECT_FALSE(SourceSharp_ShellUsesFBTexture(modelinfo, kPlainModel, 0, 0, &renderable));
 	EXPECT_TRUE(g_ask.asked);
 }
 
@@ -135,7 +135,7 @@ TEST(StandaloneFBTexture, AShellWithNoModelDoesNotSampleIt)
 
 	// GetModel answers NULL before an entity has one: nothing is asked and the
 	// frame buffer is not refreshed for a model-less renderable.
-	EXPECT_FALSE(SourceSharp_ShellUsesFBTexture(NULL, 0, 0, nullptr));
+	EXPECT_FALSE(SourceSharp_ShellUsesFBTexture(modelinfo, NULL, 0, 0, nullptr));
 	EXPECT_FALSE(g_ask.asked);
 }
 
@@ -146,6 +146,6 @@ TEST(StandaloneFBTexture, AnUnconnectedModelInfoAnswersFalse)
 	g_ask = Ask{};
 	g_ask.answers = true;
 
-	EXPECT_FALSE(SourceSharp_ShellUsesFBTexture(kSamplerModel, 0, 0, nullptr));
+	EXPECT_FALSE(SourceSharp_ShellUsesFBTexture(modelinfo, kSamplerModel, 0, 0, nullptr));
 	EXPECT_FALSE(g_ask.asked);
 }

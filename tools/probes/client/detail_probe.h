@@ -58,7 +58,7 @@ inline bool DetailProbeOn()
 	static int s_nLastFrame = -1;
 	if (DetailProbeFrames() <= 0 && s_nLastFrame < 0)
 		return false;
-	const int nFrame = gpGlobals->framecount;
+	const int nFrame = ShellClientDll_Engines().m_pGlobals->framecount;
 	if (nFrame != s_nLastFrame)
 	{
 		if (DetailProbeFrames() <= 0)

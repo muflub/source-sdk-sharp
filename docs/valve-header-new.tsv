@@ -219,7 +219,6 @@ src/client/native/shell_centerprint_client.cpp	ports CCenterPrint (vgui_centerst
 src/client/managed/Ui/TextMessages.cs	ports CBaseHudChat::MsgFunc_TextMsg (hud_basechat.cpp) and CHudTextMessage::LookupString (text_message.cpp)
 src/client/managed/Ui/ChatFeed.cs	ports CBaseHudChat::MsgFunc_SayText, MsgFunc_SayText2 and CBaseHudChatLine's expiry and fade (hud_basechat.cpp)
 src/client/managed/Ui/LoadingDisc.cs	ports CLoadingDisc::SetLoadingVisible and SetPausedVisible's texts (vgui_loadingdiscpanel.cpp)
-src/client/native/shell_loadingdisc_client.cpp	ports CLoadingDisc (vgui_loadingdiscpanel.cpp) as the ILoadingDisc vgui_int.cpp calls, forwarding to the managed UI
 src/client/managed/Ui/DebugOverlayText.cs	ports CDebugOverlay::Paint's walk of the text overlays and its line spacing (vgui_debugoverlaypanel.cpp)
 src/client/native/shell_debugoverlay_client.cpp	ports CDebugOverlayPanel and DebugDrawLine (vgui_debugoverlaypanel.cpp) and the overlay text walk's reads for the managed UI
 src/client/managed/Ui/VoiceSpeakers.cs	ports CHudVoiceStatus::OnThink's speaker list and CHudVoiceSelfStatus's self flag (hud_voicestatus.cpp) over CVoiceStatus::UpdateSpeakerStatus
@@ -228,7 +227,6 @@ src/client/managed/Ui/ChatNotices.cs	ports ClientModeShared::FireGameEvent's joi
 src/client/managed/Ui/ClientKeyInput.cs	ports ClientModeShared::KeyInput's console, chat and spectator arms and HandleSpectatorKeyInput (clientmode_shared.cpp)
 src/client/managed/Ui/ViewportPanelCommands.cs	ports baseviewport.cpp's showpanel and hidepanel console commands
 src/client/managed/Ui/InfoPanelCommands.cs	ports vguitextwindow.cpp's showinfo command and cl_disablehtmlmotd
-src/client/native/shell_messagechars_client.cpp	implements IMessageChars (imessagechars.h) with nothing to draw, replacing vgui_messagechars.cpp
 src/client/native/shell_rawpanel_client.h	ports vgui_controls Panel::PaintTraverse and Panel::IsWithinTraverse (vgui_controls/Panel.cpp) onto IClientPanel
 src/client/native/shell_rawpanel_client.cpp	ports vgui_controls Panel::PaintTraverse and Panel::IsWithinTraverse (vgui_controls/Panel.cpp) onto IClientPanel
 src/client/managed/Ui/ClientModeConVars.cs	ports clientmode_shared.cpp's cl_drawhud, hud_takesshots and hud_freezecamhide
@@ -324,7 +322,6 @@ src/engineabi/native/include/engineabi/recv.h	declares the builders over dt_recv
 src/client/managed/SharedGameConVars.cs	ports the client arms of the ConVar declarations in game/shared/gamevars_shared.cpp and game/shared/sceneentity_shared.cpp
 src/client/native/shell_convars_client.cpp	native code built against SDK headers (convar.h, cbase.h): IShimConVarsClient, the convar watch and decided values (plan_client_novalve C8)
 src/client/native/shell_convars_client.h	declares shell_convars_client.cpp's entry points (plan_client_novalve C8)
-src/client/native/shell_bounded_cvars_client.cpp	native code built against SDK headers: the client's server-bounded convars (names, defaults and help from game/client/cdll_bounded_cvars.cpp), their values decided in C# (plan_client_novalve C8)
 src/client/managed/BoundedConVars.cs	ports game/client/cdll_bounded_cvars.cpp's four rules (CBoundedCvar_Predict/InterpRatio/Interp::GetFloat, GetClientInterpAmount) and the engine's cl_updaterate clamp
 src/client/managed/Render/ObserverView.cs	ports CBasePlayer::CalcObserverView (baseplayer_shared.cpp) and C_BasePlayer::CalcInEyeCamView, CalcChaseCamView, CalcRoamingView, CalcDeathCamView, GetChaseCamViewOffset (c_baseplayer.cpp), with mathlib's VectorAngles and InterpolateAngles
 src/client/native/shell_view_scene_client.cpp	ports view_scene.cpp's ScreenTransform/FrustumTransform and UpdateFullScreenDepthTexture, and restates its r_updaterefracttexture, r_depthoverlay and refract-frame globals
@@ -1125,3 +1122,11 @@ src/client/native/shell_client_engine_interfaces.h	native code built against SDK
 src/client/native/shell_net_channel_client.h	native code built against SDK headers (inetchannel.h): the client's net channel slots as a class
 src/tf2/server/Entities/TFSpawnNoFrag.cs	ports the absence of a spawn kill in CTFPlayer::EntSelectSpawnPoint (tf_player.cpp)
 src/tf2/server/Combat/TFNoCoreDamagePush.cs	ports the absence of CBasePlayer::OnTakeDamage_Alive's push in CTFPlayer::OnTakeDamage_Alive (tf_player.cpp)
+src/client/native/mat_stub_swap.h	ports CMatStubHandler (cl_mat_stub.cpp)
+src/client/native/shell_rope_client.h	ports CRopeManager's cache and draw (c_rope.cpp) as a class
+src/client/native/shell_te_backends_object.h	ports the temp entity backends' effects (c_te*.cpp) as a class
+src/client/native/shell_debugoverlay_object.h	native code built against SDK headers (ivdebugoverlay.h): the text overlays as a class
+src/client/native/shell_worldrender_object.h	ports the colour correction lookups and water LOD state (colorcorrectionmgr.cpp, viewrender.cpp) as a class
+src/client/native/shell_vgui_object.h	ports VGui_Startup and VGui_Shutdown (vgui_int.cpp) as a class
+src/client/native/shell_material_cache_client.h	ports PrecacheMaterial and CacheUsedMaterials' request (cdll_client_int.cpp) as a class
+src/client/native/shell_gamerules_client.h	native code built against SDK headers (igamerules.h): holds the rules object CGameRules registration made (gamerules_register.cpp) and its view vectors

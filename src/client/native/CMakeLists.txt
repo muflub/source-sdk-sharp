@@ -26,7 +26,6 @@ set(client_sourcesharp_sources
     ${LOCAL}/particles_lib_client.cpp
     ${LOCAL}/randoverride.cpp
     ${LOCAL}/shell_beam_render.cpp
-    ${LOCAL}/shell_bounded_cvars_client.cpp
     ${LOCAL}/shell_centerprint_client.cpp
     ${LOCAL}/shell_client.cpp
     ${LOCAL}/shell_client_orphans.cpp
@@ -56,17 +55,14 @@ set(client_sourcesharp_sources
     ${LOCAL}/shell_input.cpp
     ${LOCAL}/shell_leaf_system_client.cpp
     ${LOCAL}/shell_legacy_tempents_client.cpp
-    ${LOCAL}/shell_loadingdisc_client.cpp
     ${LOCAL}/shell_managed_clientsystems_client.cpp
     ${LOCAL}/shell_managed_particles.cpp
     ${LOCAL}/shell_map_material_reload.cpp
     ${LOCAL}/shell_material_proxy_client.cpp
-    ${LOCAL}/shell_messagechars_client.cpp
     ${LOCAL}/shell_new_particles_client.cpp
     ${LOCAL}/shell_particle_mgr_client.cpp
     ${LOCAL}/shell_physics_client.cpp
     ${LOCAL}/shell_pixelvis_client.cpp
-    ${LOCAL}/shell_player_orphans.cpp
     ${LOCAL}/shell_precipitation_client.cpp
     ${LOCAL}/shell_prediction.cpp
     ${LOCAL}/shell_rawpanel_client.cpp
@@ -120,13 +116,10 @@ set(client_sourcesharp_sources
     ${SHARED}/dt_element_names.cpp
     ${SHARED}/dt_utlvector_common.cpp
     ${SHARED}/engine_heap.cpp
-    ${SHARED}/entity_shared_statics.cpp
     ${SHARED}/fatal_report.cpp
-    ${SHARED}/gamestringpool.cpp
     ${SHARED}/generic_payload.cpp
     ${SHARED}/loaded_symbol.cpp
     ${SHARED}/mathlib_port.cpp
-    ${SHARED}/movevars_shared.cpp
     ${SHARED}/particle_manifest.cpp
     ${SHARED}/shell_acquire_reasons.cpp
     ${SHARED}/shell_diagnostics.cpp
@@ -137,7 +130,6 @@ set(client_sourcesharp_sources
     ${SHARED}/shell_internalfactory.cpp
     ${SHARED}/shell_movement.cpp
     ${SHARED}/shell_movement_audit.cpp
-    ${SHARED}/shell_physsaverestore_absent.cpp
     ${SHARED}/shell_shared.cpp
     ${SHARED}/shell_vtable_interfaces.cpp
     ${SHARED}/sourcesharp_gamesystem.cpp

@@ -19,10 +19,7 @@ typedef CHandle<C_BaseEntity> EHANDLE;
 #include "iclientshadowmgr.h"
 
 #include "networkvar.h"
-#include "interpolatedvar.h"
 #include "isaverestore.h"
-
-#include "entity_abs_query_state.h"
 
 // playernet_vars.h needs igameentity.h first.
 #include "igameentity.h"
@@ -36,4 +33,3 @@ class C_RecipientFilter;
 #define MULTIPLAYER_BACKUP 90
 
 // The spectator mode a kill cam shows, 0 for none.
-extern int g_nKillCamMode;

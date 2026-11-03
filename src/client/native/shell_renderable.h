@@ -82,11 +82,15 @@ public:
 	}
 
 	// Into and out of the leaf system. The guards are in shell_leaf_link.h.
-	void AddToLeafSystem(RenderGroup_t group) { ShellLeaf_Add(ClientLeafSystem(), this, group); }
+	void AddToLeafSystem(IClientLeafSystem* pLeafSystem, RenderGroup_t group)
+	{
+		m_pLeafSystem = pLeafSystem;
+		ShellLeaf_Add(pLeafSystem, this, group);
+	}
 
 	void RemoveFromLeafSystem()
 	{
-		ShellLeaf_Remove(ClientLeafSystem(), this);
+		ShellLeaf_Remove(m_pLeafSystem, this);
 
 		// RemoveRenderable returns early without resetting the handle when the
 		// index is not valid (it can happen at level shutdown); this makes the
@@ -128,7 +132,7 @@ public:
 
 protected:
 	// Tells the leaf system its copy of where this is is stale.
-	void RenderableMoved() { ShellLeaf_Moved(ClientLeafSystem(), this); }
+	void RenderableMoved() { ShellLeaf_Moved(m_pLeafSystem, this); }
 
 	Vector m_vecOrigin;
 	QAngle m_angAngles;
@@ -137,5 +141,6 @@ protected:
 	CTrailDestroyLatch<CShellRenderable> m_Destroy;
 
 private:
+	IClientLeafSystem* m_pLeafSystem = nullptr;
 	CShellRenderable(const CShellRenderable&); // not defined, not accessible
 };

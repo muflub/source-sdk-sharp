@@ -49,7 +49,7 @@
 #include "ss_image_encode.h"
 #include "shell_client_engine_interfaces.h"
 
-CShellViewRender::CShellViewRender(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+CShellViewRender::CShellViewRender(const CManagedAreasClient& areas, CClientEngineInterfaces& engines,
 								   CViewCameras& cameras, CViewerFacts& viewerFacts, CSourceSharpClientMode& clientMode,
 								   CViewExecutor& executor, CBeamsClient& beams)
 	: m_Areas(areas)
@@ -65,13 +65,13 @@ CShellViewRender::CShellViewRender(const CManagedAreasClient& areas, const CClie
 void CShellViewRender::Init()
 {
 	m_Beams.InitBeams();
-	tempents->Init();
+	m_Engines.m_pTempEnts->Init();
 }
 
 void CShellViewRender::LevelInit()
 {
 	m_Beams.ClearBeams();
-	tempents->Clear();
+	m_Engines.m_pTempEnts->Clear();
 	m_nBuildWorldListsNumber = 0;
 	m_nBuildRenderablesListsNumber = 0;
 	m_Executor.FreezeFrame(0.0f);
@@ -92,7 +92,7 @@ void CShellViewRender::Shutdown()
 {
 	ReleaseScreenOverlay();
 	m_Beams.ShutdownBeams();
-	tempents->Shutdown();
+	m_Engines.m_pTempEnts->Shutdown();
 }
 
 void CShellViewRender::OnRenderStart()
@@ -300,7 +300,7 @@ void CShellViewRender::Render(vrect_t* rect)
 		return;
 	}
 
-	CMatStubHandler matStub(m_Areas.m_pMaterialProxyClient);
+	CMatStubHandler matStub(m_Areas.m_pMaterialProxyClient, m_Engines);
 	m_Engines.m_pEngine->EngineStats_BeginFrame();
 	m_bForceNoVis = false;
 
@@ -403,7 +403,7 @@ void CShellViewRender::DemoCamera(Vector& origin, QAngle& angles)
 		return;
 	QAngle demoAngles(out[0], out[1], out[2]);
 	m_Engines.m_pEngine->SetViewAngles(demoAngles);
-	input->ExtraMouseSample(m_Engines.m_pGlobals->absoluteframetime, true);
+	m_Engines.m_pInput->ExtraMouseSample(m_Engines.m_pGlobals->absoluteframetime, true);
 	m_Engines.m_pEngine->GetViewAngles(demoAngles);
 	float move[6] = {demoAngles.x, demoAngles.y, demoAngles.z, m_Engines.m_pGlobals->absoluteframetime, 0, 0};
 	pManaged->ViewDemoCamera(1, move, out);
@@ -429,7 +429,7 @@ void CShellViewRender::SetUpViews()
 	m_Engines.m_pPartition->SuppressLists(PARTITION_ALL_CLIENT_EDICTS, false);
 
 	// Names the refusal when the engine says this client watches a broadcast.
-	SourceSharp_HltvCameraAvailable();
+	SourceSharp_HltvCameraAvailable(m_Engines.m_pEngine);
 
 	eye.origin.Init();
 	eye.angles.Init();
@@ -437,15 +437,12 @@ void CShellViewRender::SetUpViews()
 
 	// Looking out of something else's eyes (point_viewcontrol, a camera): the
 	// last word, after the override.
-	if (!g_nKillCamMode)
+	Vector vecViewEntityOrigin;
+	QAngle angViewEntityAngles;
+	if (m_ViewerFacts.ViewEntityPose(&vecViewEntityOrigin, &angViewEntityAngles))
 	{
-		Vector vecViewEntityOrigin;
-		QAngle angViewEntityAngles;
-		if (m_ViewerFacts.ViewEntityPose(&vecViewEntityOrigin, &angViewEntityAngles))
-		{
-			eye.origin = vecViewEntityOrigin;
-			eye.angles = angViewEntityAngles;
-		}
+		eye.origin = vecViewEntityOrigin;
+		eye.angles = angViewEntityAngles;
 	}
 
 	if (m_Engines.m_pEngine->IsPlayingDemo())
@@ -511,8 +508,6 @@ void CShellViewRender::SetupCurrentView(const Vector& vecOrigin, const QAngle& a
 											 (nViewID == VIEW_MAIN || nViewID == VIEW_3DSKY) ? 1 : 0);
 }
 
-IViewRender* view = NULL;
-
 bool R_CullSphere(VPlane const* pPlanes, int nPlanes, Vector const* pCenter, float radius)
 {
 	for (int i = 0; i < nPlanes; i++)
@@ -522,23 +517,6 @@ bool R_CullSphere(VPlane const* pPlanes, int nPlanes, Vector const* pCenter, flo
 	}
 	return false;
 }
-
-// The convars fork TUs link against by object (`extern ConVar ...`); the rest
-// are managed declarations.
-ConVar mat_wireframe("mat_wireframe", "0", FCVAR_CHEAT);
-const ConVar* sv_cheats = NULL;
-ConVar r_DrawDetailProps("r_DrawDetailProps", "1", FCVAR_NONE, "0=Off, 1=Normal, 2=Wireframe");
-ConVar cl_drawshadowtexture("cl_drawshadowtexture", "0", FCVAR_CHEAT);
-
-// cl_software_cursor: its change hands vgui the larger software cursor.
-static void SoftwareCursorChanged(IConVar* pVar, const char* pOldValue, float flOldValue)
-{
-	vgui::surface()->SetSoftwareCursor(((ConVar*)pVar)->GetBool());
-}
-
-static ConVar cl_software_cursor("cl_software_cursor", "0", FCVAR_ARCHIVE,
-								 "Switches the game to use a larger software cursor instead of the normal OS cursor",
-								 SoftwareCursorChanged);
 
 // getpos and spec_pos: the main view, or ("2") the player's own position.
 void CShellViewRender::ViewPosition(const CCommand& args, Vector& vecOrigin, QAngle& angles, bool& bPlayer)

@@ -14,9 +14,6 @@
 #include "managed_runtime_client.h"
 #include "shell_managed_areas_client.h"
 
-// Defined in sourcesharp_gamesystem.cpp, which publishes no header for it.
-bool SourceSharp_LoadManagedSide();
-
 // Fatal at the point of failure: the engine answers a false IBaseClientDLL::Init with a
 // stack overflow, which hides the diagnostic.
 static void SourceSharp_FatalClientInitFailure(const char* pDetail)
@@ -31,16 +28,12 @@ static void SourceSharp_FatalClientInitFailure(const char* pDetail)
 	Error("%s", szMessage);
 }
 
-// Seeds engine and gpGlobals before the shared sequence, which reads both. gpGlobals is
-// the engine's pointer, not a copy: the engine writes through it every frame.
 IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env, const CManagedHoldersClient& holders)
 {
 	if (env == NULL)
 		return NULL;
 
-	engine = (IVEngineClient*)env->GetEngineInterface(VENGINE_CLIENT_INTERFACE_VERSION, NULL);
-
-	if (engine == NULL)
+	if (env->GetEngineInterface(VENGINE_CLIENT_INTERFACE_VERSION, NULL) == NULL)
 	{
 		// Fatal rather than NULL, see SourceSharp_FatalClientInitFailure.
 		SourceSharp_FatalClientInitFailure("the engine did not hand out " VENGINE_CLIENT_INTERFACE_VERSION
@@ -48,18 +41,16 @@ IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env, const
 										   "SourceSharp_GetModBinDir asks it for the game directory");
 	}
 
-	gpGlobals = &env->GetGlobalVars();
-
-	// SourceSharp_LoadManagedSide calls Error() itself on failure; this stays fatal in case
+	// LoadManagedSide calls Error() itself on failure; this stays fatal in case
 	// it ever returns false, since NULL here becomes a false IBaseClientDLL::Init.
-	if (!SourceSharp_LoadManagedSide())
+	if (!env->LoadManagedSide())
 	{
 		SourceSharp_FatalClientInitFailure("the shared acquire-fill-LoadSide sequence answered no without "
 										   "stopping first, which it is not supposed to be able to do");
 	}
 
 	// Released by UnloadManagedRuntime from CShellClientDLL::Shutdown.
-	return new CManagedRuntimeClient(holders.m_pRuntimeClient);
+	return new CManagedRuntimeClient(holders.m_pRuntimeClient, *env);
 }
 
 // IClientRuntimeAdapter's destructor is protected, so deletion happens here on the concrete

@@ -18,6 +18,8 @@
 #include "utlvector.h"
 
 #include "bound_callback.h"
+#include "said_once_per_id.h"
+#include "generic_nettable.h"
 #include "generic_nettable.h"
 #include "shell_clientsystem.h"
 #include "ishim_areas_client.h"
@@ -31,6 +33,9 @@ class CBeamsClient;
 class CSpritesClient;
 class CShadowsClient;
 class CClientRenderablesList;
+class ClientClass;
+class RecvProp;
+class RecvTable;
 class IClientEntity;
 class IClientNetworkable;
 class IClientRenderable;
@@ -61,6 +66,14 @@ public:
 	int32_t GetLocalPlayerHealth();
 	int32_t GetLocalPlayerOrigin(float* pOutXYZ);
 	int32_t EntitiesUpdateVisibilityAll();
+	void ClientImpactLedger(int32_t nFlecks, int32_t nDust);
+	void RegisterTiers();
+	int32_t NetHierarchyDeclare(int32_t nBlobBytes);
+	bool TierIsInUse(int iTier);
+	int32_t NetTierInfo(int32_t nShell, int32_t iTier, const char** ppOutTable, int32_t* pOutBytes, int32_t* pOutWords,
+						int32_t* pOutProps, int32_t* pOutLive);
+	int32_t NetPublishType(const char* pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
+						   uint32_t* pOutTypeId);
 	int32_t ClientShotTrace(const float* pStartXYZ, const float* pEndXYZ, int32_t nEntity, float* pOutFloats,
 							int32_t nOutFloats, int32_t* pOutInts, int32_t nOutInts);
 	void ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const float* pPositionXYZ, const float* pSAxisXYZ,
@@ -92,6 +105,10 @@ public:
 
 	// The shell a packed handle's entry names (the serial is not compared), or NULL.
 	C_StandaloneEntity* FromHandle(uint32_t hEntity) const;
+
+	CSaidOncePerId& SaidUnknownType() { return m_SaidUnknownType; }
+
+	CSourceSharpTypeTable& NetTypes() { return m_NetTypes; }
 
 	C_StandaloneEntity* LocalPlayer() const { return m_pLocalPlayer; }
 
@@ -291,6 +308,14 @@ private:
 	CInterpSystem m_InterpSystem{*this};
 
 	// One per tier, so a missing one does not compile.
+	// One ClientClass per tier; only the create function knows an entity's tier.
+	RecvProp* m_pTierProps[SOURCESHARP_TIER_MAX] = {};
+	RecvTable* m_pTierTables[SOURCESHARP_TIER_MAX] = {};
+	ClientClass* m_pTierClasses[SOURCESHARP_TIER_MAX] = {};
+	bool m_bTiersRegistered = false;
+	CSaidOncePerId m_SaidUnknownType;
+	CSourceSharpTypeTable m_NetTypes;
+
 	CTierCreate m_TierCreate[SOURCESHARP_TIER_MAX] = {{*this, 0}, {*this, 1}, {*this, 2}, {*this, 3},
 													  {*this, 4}, {*this, 5}, {*this, 6}};
 };

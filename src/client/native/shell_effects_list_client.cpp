@@ -180,7 +180,7 @@ void CEffectsListClient::FxView(float* pOut)
 	pOut[3] = forward.x;
 	pOut[4] = forward.y;
 	pOut[5] = forward.z;
-	pOut[6] = (float)ScreenWidth();
+	pOut[6] = (float)ScreenWidth(m_Engines);
 }
 
 void CEffectsListClient::FxMainViewOrigin(float* pOutXYZ)
@@ -193,7 +193,7 @@ void CEffectsListClient::FxMainViewOrigin(float* pOutXYZ)
 
 int32_t CEffectsListClient::FxLocalPlayer()
 {
-	return engine ? m_Engines.m_pEngine->GetLocalPlayer() : 0;
+	return m_Engines.m_pEngine ? m_Engines.m_pEngine->GetLocalPlayer() : 0;
 }
 
 void CEffectsListClient::FxViewAngles(float* pOutPYR)
@@ -250,9 +250,9 @@ int32_t CEffectsListClient::FxEntityRenderAngles(int32_t nEntIndex, float* pOutP
 void CEffectsListClient::FxEjectBrass(const float* pOriginXYZ, const float* pAnglesPYR, const float* pGunAnglesPYR,
 									  int32_t nType)
 {
-	tempents->EjectBrass(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]),
-						 QAngle(pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2]),
-						 QAngle(pGunAnglesPYR[0], pGunAnglesPYR[1], pGunAnglesPYR[2]), nType);
+	m_Engines.m_pTempEnts->EjectBrass(Vector(pOriginXYZ[0], pOriginXYZ[1], pOriginXYZ[2]),
+									  QAngle(pAnglesPYR[0], pAnglesPYR[1], pAnglesPYR[2]),
+									  QAngle(pGunAnglesPYR[0], pGunAnglesPYR[1], pGunAnglesPYR[2]), nType);
 }
 
 // The materials the managed and native effects draw with, precached as stock's
@@ -485,7 +485,7 @@ void CEffectsListClient::FxCacheUsedMaterials()
 
 void CEffectsListClient::FxCacheMaterialHandles()
 {
-	FX_CacheMaterialHandles();
+	CacheMaterialHandles();
 }
 
 void CEffectsListClient::InitSmokeFog()

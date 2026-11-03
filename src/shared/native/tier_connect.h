@@ -5,10 +5,9 @@
 #include "tier1/interface.h"
 
 #ifdef CLIENT_DLL
-void SourceSharp_ConnectTier1(CreateInterfaceFn engineFactory);
-void SourceSharp_DisconnectTier1();
-void SourceSharp_ConnectTier2(CreateInterfaceFn engineFactory);
-void SourceSharp_DisconnectTier2();
-void SourceSharp_ConnectTier3(CreateInterfaceFn engineFactory);
-void SourceSharp_DisconnectTier3();
+class CClientEngineInterfaces;
+void SourceSharp_ConnectTier2(CClientEngineInterfaces& engines, CreateInterfaceFn engineFactory);
+void SourceSharp_DisconnectTier2(CClientEngineInterfaces& engines);
+void SourceSharp_ConnectTier3(CClientEngineInterfaces& engines, CreateInterfaceFn engineFactory);
+void SourceSharp_DisconnectTier3(CClientEngineInterfaces& engines);
 #endif

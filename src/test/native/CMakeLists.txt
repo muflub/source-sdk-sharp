@@ -47,6 +47,11 @@ endif()
 ss_cpptest(gameui_early_calls_test
     SOURCES sourcesharp/test/gameui_early_calls_test.cpp)
 
+# mat_stub's swap: every slot the material system is read from follows it (mat_stub_swap.h,
+# header-only).
+ss_cpptest(mat_stub_swap_test
+    SOURCES sourcesharp/test/mat_stub_swap_test.cpp)
+
 # plan_client_novalve C7: the render call recorder overwrites one engine vtable
 # slot in place for a frame (vtable_slot_patch.h, header-only).
 ss_cpptest(vtable_slot_patch_test OPTIMIZED

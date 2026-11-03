@@ -15,7 +15,7 @@
 
 #include "imanaged_areas_client.h"
 
-extern ISoundEmitterSystemBase* soundemitterbase;
+class ISoundEmitterSystemBase;
 
 namespace ClientSound
 {
@@ -116,10 +116,10 @@ inline void EmitCloseCaption(IManagedSoundEmitterClient* pApi, IRecipientFilter&
 }
 
 // GameSound_GetParameters, as stock's body.
-inline bool GetParameters(const char* pszSoundName, CSoundParameters& params, const char* pszActorModel)
+inline bool GetParameters(ISoundEmitterSystemBase* pSoundEmitter, const char* pszSoundName, CSoundParameters& params,
+						  const char* pszActorModel)
 {
-	return soundemitterbase->GetParametersForSound(pszSoundName, params,
-												   soundemitterbase->GetActorGender(pszActorModel));
+	return pSoundEmitter->GetParametersForSound(pszSoundName, params, pSoundEmitter->GetActorGender(pszActorModel));
 }
 
 } // namespace ClientSound

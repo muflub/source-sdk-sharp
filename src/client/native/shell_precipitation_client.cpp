@@ -99,7 +99,7 @@ void CPrecipitationClient::Draw()
 	flView[20] = org.y;
 	flView[21] = org.z;
 	flView[22] = (float)m_Cameras.CurrentID();
-	flView[23] = (float)view->GetDrawFlags();
+	flView[23] = (float)m_Engines.m_pViewRender->GetDrawFlags();
 
 	int32_t nSplashes = 0;
 	const int32_t nTracers =
@@ -202,8 +202,8 @@ int32_t CPrecipitationQueriesClient::PrecipitationTraceLine(const float* pStartX
 
 	trace_t tr;
 	CTraceFilterSimple filter(pIgnore, COLLISION_GROUP_NONE);
-	UTIL_TraceLine(Vector(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]), Vector(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]),
-				   (unsigned int)nMask, &filter, &tr);
+	UTIL_TraceLine(m_Engines, Vector(pStartXYZ[0], pStartXYZ[1], pStartXYZ[2]),
+				   Vector(pEndXYZ[0], pEndXYZ[1], pEndXYZ[2]), (unsigned int)nMask, &filter, &tr);
 	pOut[0] = tr.fraction;
 	pOut[1] = tr.endpos.x;
 	pOut[2] = tr.endpos.y;
@@ -257,7 +257,7 @@ int32_t CPrecipitationQueriesClient::PrecipitationPointContents(const float* pXY
 int32_t CPrecipitationQueriesClient::PrecipitationInPvs(uint32_t hOwner)
 {
 	C_StandaloneEntity* pOwner = m_Standalone.FromHandle(hOwner);
-	return pOwner && g_pClientLeafSystem->IsRenderableInPVS(pOwner->GetClientRenderable()) ? 1 : 0;
+	return pOwner && m_Engines.m_pLeafSystem->IsRenderableInPVS(pOwner->GetClientRenderable()) ? 1 : 0;
 }
 
 // The local player as the weather reads it: origin xyz, eye xyz, view yaw,
@@ -284,7 +284,7 @@ int32_t CPrecipitationQueriesClient::PrecipitationPlayer(float* pOut)
 	pOut[7] = center.x;
 	pOut[8] = center.y;
 	pOut[9] = center.z;
-	pOut[10] = view->GetPlayerViewSetup()->fov;
+	pOut[10] = m_Engines.m_pViewRender->GetPlayerViewSetup()->fov;
 	pOut[11] = m_DefaultFov.IsValid() ? (float)m_DefaultFov.GetInt() : 90.0f;
 	return 1;
 }
@@ -293,7 +293,7 @@ void CPrecipitationQueriesClient::PrecipitationWorldBounds(float* pOut6)
 {
 	if (!pOut6)
 		return;
-	C_World* pWorld = GetClientWorldEntity();
+	C_World* pWorld = m_Engines.m_pWorld->Entity();
 	const Vector mins = pWorld ? pWorld->GetWorldMins() : vec3_origin;
 	const Vector maxs = pWorld ? pWorld->GetWorldMaxs() : vec3_origin;
 	pOut6[0] = mins.x;
@@ -306,5 +306,5 @@ void CPrecipitationQueriesClient::PrecipitationWorldBounds(float* pOut6)
 
 int32_t CPrecipitationQueriesClient::PrecipitationScreenWidth()
 {
-	return ScreenWidth();
+	return ScreenWidth(m_Engines);
 }

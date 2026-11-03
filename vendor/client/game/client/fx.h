@@ -27,8 +27,6 @@ void FX_TracerSound(const Vector& start, const Vector& end, int iTracerType);
 
 // Lighting information utility
 
-extern void FX_CacheMaterialHandles();
-
 extern PMaterialHandle g_Mat_Fleck_Wood[2];
 extern PMaterialHandle g_Mat_Fleck_Cement[2];
 extern PMaterialHandle g_Mat_Fleck_Antlion[2];

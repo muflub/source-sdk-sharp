@@ -16,7 +16,6 @@
 #include "client_entity.h"
 #include "igamerules.h"
 #include "client_world.h"
-#include "ivmodemanager.h"
 
 #include "vphysics_interface.h"
 #include "world_subject.h"
@@ -40,11 +39,6 @@ enum
 #ifdef CWorld
 #undef CWorld
 #endif
-
-// The client's single definition of the game rules global.
-IGameRules* g_pGameRules = NULL;
-
-static C_World* g_pClientWorld;
 
 CWorldClientCollideable::CWorldClientCollideable(C_World* pOuter)
 {
@@ -81,44 +75,50 @@ int CWorldClientCollideable::GetCollisionModelIndex()
 
 const model_t* CWorldClientCollideable::GetCollisionModel()
 {
-	return modelinfo ? m_pOuter->Engines().m_pModelInfo->GetModel(GetCollisionModelIndex()) : NULL;
+	return m_pOuter->Engines().m_pModelInfo ? m_pOuter->Engines().m_pModelInfo->GetModel(GetCollisionModelIndex())
+											: NULL;
 }
 
-// One world per process, reused for every map and freed at DLL shutdown. Its handle must
-// be unbound per map (Release), or the next map's lookups would find the old serial.
-void ClientWorldFactoryInit(const CManagedHoldersClient& managed, const CClientEngineInterfaces& engines,
-							const CManagedSide& managedSide)
+CWorldClient::CWorldClient(const CManagedHoldersClient& managed, const CClientEngineInterfaces& engines,
+						   const CManagedSide& managedSide)
+	: m_Managed(managed)
+	, m_Engines(engines)
+	, m_ManagedSide(managedSide)
+	, m_CreateFn(this, &CreateFn_t::Trampoline<CWorldClient, &CWorldClient::Create>)
 {
-	g_pClientWorld = new C_World(managed, engines, managedSide);
 }
 
-void ClientWorldFactoryShutdown()
+// Its handle must be unbound per map (Release), or the next map's lookups would find the old serial.
+void CWorldClient::CreateEntity()
 {
-	delete g_pClientWorld;
-	g_pClientWorld = NULL;
+	m_pWorld = new (m_nBlobBytes) C_World(m_Managed, m_Engines, m_ManagedSide);
 }
 
-// The factory the ClientClass is built with. It returns the object itself: the pointer the
-// engine keeps must be the one trace_t::m_pEnt holds.
-IClientNetworkable* SourceSharp_ClientWorldFactory(int entnum, int serialNum)
+void CWorldClient::DestroyEntity()
 {
-	if (g_pClientWorld == NULL)
+	delete m_pWorld;
+	m_pWorld = NULL;
+}
+
+IClientNetworkable* CWorldClient::Create(int nEntNum, int nSerialNum)
+{
+	if (m_pWorld == NULL)
 	{
 		Warning("[SourceSharp] worldspawn arrived with no client world object. "
-				"ClientWorldFactoryInit has not run.\n");
+				"CreateEntity has not run.\n");
 		return NULL;
 	}
 
-	if (!g_pClientWorld->Init(entnum, serialNum))
+	if (!m_pWorld->Init(nEntNum, nSerialNum))
 		return NULL;
 
-	return g_pClientWorld;
+	return m_pWorld;
 }
 
 // Built by shell_world_nettable_client.cpp from the shared declaration.
 ClientClass* C_World::GetClientClass()
 {
-	return SourceSharp_WorldClientClass();
+	return m_Engines.m_pWorld->Class();
 }
 
 // Where the blob sits inside a C_World. Not the server's offset; the two sides agree on the
@@ -130,35 +130,20 @@ int SourceSharp_WorldBlobOffset()
 
 // EntityMem_Alloc zeroes, so every value starts at its default. nBytes is sizeof( C_World ),
 // which the blob offset was computed from.
-static void* AllocClientWorld(size_t nBytes)
+void* C_World::operator new(size_t nBytes, int nBlobBytes)
 {
 	Assert((int)nBytes <= SourceSharp_WorldBlobOffset());
 
-	int nBlobBytes = SourceSharp_WorldBlobBytes();
-
-	if (nBlobBytes < 0)
-		nBlobBytes = 0;
-
-	return EntityMem_Alloc(SourceSharp_WorldBlobOffset() + nBlobBytes);
+	return EntityMem_Alloc(SourceSharp_WorldBlobOffset() + (nBlobBytes < 0 ? 0 : nBlobBytes));
 }
 
-void* C_World::operator new(size_t stAllocateBlock)
-{
-	return AllocClientWorld(stAllocateBlock);
-}
-
-void* C_World::operator new(size_t stAllocateBlock, int nBlockUse, const char* pFileName, int nLine)
-{
-	return AllocClientWorld(stAllocateBlock);
-}
-
-// Both forms: the placement new needs a matching delete if the constructor throws.
 void C_World::operator delete(void* pMem)
 {
 	EntityMem_Free(pMem);
 }
 
-void C_World::operator delete(void* pMem, int nBlockUse, const char* pFileName, int nLine)
+// Pairs the placement new, for a constructor that throws.
+void C_World::operator delete(void* pMem, int nBlobBytes)
 {
 	EntityMem_Free(pMem);
 }
@@ -170,7 +155,7 @@ unsigned char* C_World::DataBlob()
 
 int C_World::BlobBytes() const
 {
-	return SourceSharp_WorldBlobBytes();
+	return m_Engines.m_pWorld->BlobBytes();
 }
 
 // Asks managed where its fields are, again after a reload moves them. Readers answer zero
@@ -216,6 +201,7 @@ C_World::C_World(const CManagedHoldersClient& managed, const CClientEngineInterf
 	, m_Collideable(this)
 {
 	V_memset(m_LastReported, 0, sizeof(m_LastReported));
+	SetIdentityMatrix(m_matRenderable);
 
 	// Invalid until a level binds one. The singleton lives for the process, so the handle, not
 	// the pointer, says whether a level is loaded.
@@ -318,9 +304,6 @@ void C_World::OnDataChanged(DataUpdateType_t updateType)
 	const int nActions =
 		pRuntime ? pRuntime->WorldDataChanged(DataBlob(), BlobBytes(), (int32_t)updateType, flPlan, 4) : 0;
 
-	if (nActions & kWorldArrival_NormalMode)
-		modemanager->SwitchMode(false, true);
-
 	if (nActions & kWorldArrival_Occlusion)
 	{
 		OcclusionParams_t params;
@@ -355,42 +338,30 @@ void C_World::ReportIfChanged()
 	SourceSharpWorld_Report("Client", DataBlob(), BlobBytes(), m_Fields, m_ManagedSide.Generation());
 }
 
-// The world's place is the origin and never moves. File-scope so references to them are
-// not references to temporaries.
-static const Vector s_vecWorldOrigin(0.0f, 0.0f, 0.0f);
-static const QAngle s_angWorldAngles(0.0f, 0.0f, 0.0f);
-static matrix3x4_t s_matWorldTransform;
-static bool s_bWorldTransformBuilt = false;
-
+// The world's place is the origin and never moves.
 const Vector& C_World::GetAbsOrigin() const
 {
-	return s_vecWorldOrigin;
+	return vec3_origin;
 }
 
 const QAngle& C_World::GetAbsAngles() const
 {
-	return s_angWorldAngles;
+	return vec3_angle;
 }
 
 const Vector& C_World::GetRenderOrigin()
 {
-	return s_vecWorldOrigin;
+	return vec3_origin;
 }
 
 const QAngle& C_World::GetRenderAngles()
 {
-	return s_angWorldAngles;
+	return vec3_angle;
 }
 
 const matrix3x4_t& C_World::RenderableToWorldTransform()
 {
-	if (!s_bWorldTransformBuilt)
-	{
-		SetIdentityMatrix(s_matWorldTransform);
-		s_bWorldTransformBuilt = true;
-	}
-
-	return s_matWorldTransform;
+	return m_matRenderable;
 }
 
 // The level's box, in world and local space alike.
@@ -416,70 +387,47 @@ void C_World::GetColorModulation(float* color)
 	color[0] = color[1] = color[2] = 1.0f;
 }
 
-#if defined(WIN32)
-// Stock falls back to a no-op without the Novint library, which the SDK does not ship;
-// haptics stays NULL.
-void ConnectHaptics(CreateInterfaceFn) {}
-
-void DisconnectHaptics() {}
-#endif
-
-C_World* GetClientWorldEntity()
-{
-	Assert(g_pClientWorld != NULL);
-	return g_pClientWorld;
-}
-
 // The world's per-map unbinding at level shutdown, called from the client's level clear as
-// on the server. Guarded on the binding, so a second call is a no-op.
-bool SourceSharp_ClientWorldLevelShutdown()
+// on the server.
+bool CWorldClient::LevelShutdown()
 {
-	if (g_pClientWorld == NULL || !g_pClientWorld->IsBoundToTheLevel())
+	if (m_pWorld == NULL || !m_pWorld->IsBoundToTheLevel())
 		return false;
 
-	g_pClientWorld->Release();
+	m_pWorld->Release();
 
 	return true;
 }
 
-// The world's arm of the client resolve: worldspawn is not in the slot table. Reads the
-// global directly rather than GetClientWorldEntity(), which asserts, and tests the handle,
-// which is invalid between maps.
-CBaseHandle SourceSharp_ClientWorldHandle()
+CBaseHandle CWorldClient::Handle() const
 {
-	// A NULL singleton has no object to ask.
-	return (g_pClientWorld && g_pClientWorld->IsBoundToTheLevel()) ? g_pClientWorld->GetRefEHandle() : CBaseHandle();
+	// A NULL world has no object to ask.
+	return (m_pWorld && m_pWorld->IsBoundToTheLevel()) ? m_pWorld->GetRefEHandle() : CBaseHandle();
 }
 
-IClientUnknown* SourceSharp_ClientWorldFromIndex(int nEntry)
+IClientUnknown* CWorldClient::FromIndex(int nEntry) const
 {
-	const CBaseHandle hWorld = SourceSharp_ClientWorldHandle();
-
-	return SourceSharp_ClientWorldAnswersForIndex(hWorld, nEntry) ? g_pClientWorld->GetIClientUnknown() : NULL;
+	return SourceSharp_ClientWorldAnswersForIndex(Handle(), nEntry) ? m_pWorld->GetIClientUnknown() : NULL;
 }
 
-IClientUnknown* SourceSharp_ClientWorldFromHandle(const CBaseHandle& hEnt)
+IClientUnknown* CWorldClient::FromHandle(const CBaseHandle& hEnt) const
 {
-	const CBaseHandle hWorld = SourceSharp_ClientWorldHandle();
-
-	return SourceSharp_ClientWorldAnswersForHandle(hWorld, hEnt) ? g_pClientWorld->GetIClientUnknown() : NULL;
+	return SourceSharp_ClientWorldAnswersForHandle(Handle(), hEnt) ? m_pWorld->GetIClientUnknown() : NULL;
 }
 
 // The shared world_subject.h rule against the bound world, NULL between maps.
-bool SourceSharp_IsTheWorld(const IHandleEntity* pHandleEntity)
+bool CWorldClient::IsTheWorld(const IHandleEntity* pHandleEntity) const
 {
-	return SourceSharp_IsTheWorldHandle(pHandleEntity,
-										SourceSharp_ClientWorldFromHandle(SourceSharp_ClientWorldHandle()));
+	return SourceSharp_IsTheWorldHandle(pHandleEntity, FromHandle(Handle()));
 }
 
-// NULL for no world, no declaration or an empty string. Not asserted: a level init may
-// run before the world's packet is decoded.
-const char* SourceSharp_WorldDetailSpriteMaterial()
+// Not asserted: a level init may run before the world's packet is decoded.
+const char* CWorldClient::DetailSpriteMaterial() const
 {
-	if (g_pClientWorld == NULL)
+	if (m_pWorld == NULL)
 		return NULL;
 
-	const char* pszMaterial = g_pClientWorld->GetDetailSpriteMaterial();
+	const char* pszMaterial = m_pWorld->GetDetailSpriteMaterial();
 
 	if (pszMaterial == NULL || pszMaterial[0] == '\0')
 		return NULL;
@@ -487,9 +435,7 @@ const char* SourceSharp_WorldDetailSpriteMaterial()
 	return pszMaterial;
 }
 
-// The world as the renderable screen-space materials bind their proxies to. void * because
-// DrawScreenSpaceRectangle takes one.
-void* GetClientWorldRenderable()
+void* CWorldClient::Renderable() const
 {
-	return GetClientWorldEntity()->GetClientRenderable();
+	return m_pWorld->GetClientRenderable();
 }

@@ -19,20 +19,3 @@ class VPlane;
 // Returns true of the sphere is outside the frustum defined by pPlanes.
 // (planes point inwards).
 bool R_CullSphere(const VPlane* pPlanes, int nPlanes, const Vector* pCenter, float radius);
-
-extern ConVar mat_wireframe;
-
-extern const ConVar* sv_cheats;
-
-static inline bool ShouldDrawInWireFrameMode()
-{
-	if (!sv_cheats)
-	{
-		sv_cheats = cvar->FindVar("sv_cheats");
-	}
-
-	if (sv_cheats && sv_cheats->GetBool())
-		return (mat_wireframe.GetInt() != 0);
-	else
-		return false;
-}

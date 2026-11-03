@@ -10,7 +10,8 @@ struct SSParticleLibCounters_t;
 
 // CHLClient::Init / Shutdown: the library's tier1/tier2 globals, ConVars and
 // mathlib, against the engine's factory.
-bool ParticleLib_Connect(CreateInterfaceFn appSystemFactory);
+class CClientEngineInterfaces;
+bool ParticleLib_Connect(CClientEngineInterfaces& engines, CreateInterfaceFn appSystemFactory);
 void ParticleLib_Disconnect();
 
 // The library's tier2 stand-in counters.

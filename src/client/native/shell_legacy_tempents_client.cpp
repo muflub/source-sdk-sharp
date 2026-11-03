@@ -5,8 +5,7 @@
 //
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
-// CTempEnts, the `tempents` object (a member of the client DLL object, which points
-// tempents at it from Init), and
+// CTempEnts (a member of the client DLL object), and
 // C_LocalTempEntity's renderable members; managed code decides everything they
 // carry out. ITempEnts slots nothing in this mod calls warn once if called.
 
@@ -30,8 +29,6 @@
 #include "shell_client_engine_interfaces.h"
 
 // The pool's seam (shell_te_pool_client.cpp).
-
-ITempEnts* tempents = NULL;
 
 static void PutVector(float* p, const Vector& v)
 {
@@ -183,7 +180,7 @@ void C_LocalTempEntity::ComputeFxBlend()
 
 	// The render group follows the blend, as stock's GetRenderHandle() update did.
 	if (IsInLeafSystem())
-		ClientLeafSystem()->SetRenderGroup(RenderHandle(), GetRenderGroup());
+		Pool().Engines().m_pLeafSystem->SetRenderGroup(RenderHandle(), GetRenderGroup());
 }
 
 int C_LocalTempEntity::DrawStudioModel(int modelFlags)
@@ -191,7 +188,7 @@ int C_LocalTempEntity::DrawStudioModel(int modelFlags)
 	if (!GetModel() || Pool().Engines().m_pModelInfo->GetModelType(GetModel()) != mod_studio)
 		return 0;
 
-	MDLCACHE_CRITICAL_SECTION();
+	MDLCACHE_CRITICAL_SECTION_(Pool().Engines().m_pMdlCache);
 	if (!Pool().Engines().m_pModelInfo->GetStudiomodel(GetModel()))
 		return 0;
 
@@ -381,9 +378,9 @@ int CTempEnts::AddVisibleTempEntity(C_LocalTempEntity* pEntity)
 
 	pEntity->index = -1;
 	if (pEntity->m_RenderGroup == RENDER_GROUP_OTHER)
-		pEntity->AddToLeafSystem();
+		pEntity->AddToLeafSystem(m_Engines.m_pLeafSystem);
 	else
-		pEntity->AddToLeafSystem(pEntity->m_RenderGroup);
+		pEntity->AddToLeafSystem(m_Engines.m_pLeafSystem, pEntity->m_RenderGroup);
 	return 1;
 }
 

@@ -9,13 +9,12 @@
 // library's ISSParticleLib with `this` passed on. CNewParticleEffect still
 // derives from CParticleCollection: client.so lays the object out from the
 // same header and the library runs its members. Connect, from CHLClient::Init,
-// sets g_pParticleSystemMgr before CParticleMgr::Init first reads it.
+// sets the interfaces' manager before CParticleMgrClient::Init first reads it.
 
 #include "particles/particles.h"
 
 #include "ss_particles/iparticlelib.h"
-
-CParticleSystemMgr* g_pParticleSystemMgr = NULL;
+#include "shell_client_engine_interfaces.h"
 
 namespace
 {
@@ -28,9 +27,9 @@ ISSParticleLib* Lib()
 
 } // namespace
 
-bool ParticleLib_Connect(CreateInterfaceFn appSystemFactory)
+bool ParticleLib_Connect(CClientEngineInterfaces& engines, CreateInterfaceFn appSystemFactory)
 {
-	g_pParticleSystemMgr = Lib()->Mgr();
+	engines.m_pParticleMgr = Lib()->Mgr();
 	return Lib()->Connect(appSystemFactory);
 }
 

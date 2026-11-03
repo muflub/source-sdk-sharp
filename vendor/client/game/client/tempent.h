@@ -262,12 +262,12 @@ public:
 
 	// CShellRenderable's AddToLeafSystem takes the group. C_BaseEntity had a
 	// no-argument form as well, whose whole body was
-	// `AddToLeafSystem( GetRenderGroup() )`, and CTempEnts::AddVisibleTempEntity
+	// `AddToLeafSystem( pLeafSystem, GetRenderGroup() )`, and CTempEnts::AddVisibleTempEntity
 	// calls it for a tempent whose m_RenderGroup is RENDER_GROUP_OTHER. Same
 	// body, so the two spellings cannot drift.
 	using CShellRenderable::AddToLeafSystem;
 
-	void AddToLeafSystem() { AddToLeafSystem(GetRenderGroup()); }
+	void AddToLeafSystem(IClientLeafSystem* pLeafSystem) { AddToLeafSystem(pLeafSystem, GetRenderGroup()); }
 
 	virtual bool IgnoresZBuffer() const OVERRIDE
 	{

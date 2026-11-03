@@ -21,6 +21,7 @@
 #include "imanaged_areas_client.h"
 #include "ss_bitblock.h"
 #include "shell_particle_manifest_client.h"
+#include "shell_client_engine_interfaces.h"
 
 #include <string>
 #include <vector>
@@ -95,7 +96,7 @@ void CParticleManifestClient::Parse(bool bLoadSheets, bool bPrecache)
 
 	m_nDefinitionReads++;
 
-	g_pParticleSystemMgr->ShouldLoadSheets(bLoadSheets);
+	m_Engines.m_pParticleMgr->ShouldLoadSheets(bLoadSheets);
 
 	std::vector<std::string> files;
 	ManifestFiles(false, NULL, files);
@@ -103,10 +104,10 @@ void CParticleManifestClient::Parse(bool bLoadSheets, bool bPrecache)
 	int nCount = (int)files.size();
 	for (int i = 0; i < nCount; ++i)
 	{
-		g_pParticleSystemMgr->ReadParticleConfigFile(files[i].c_str(), bPrecache, false);
+		m_Engines.m_pParticleMgr->ReadParticleConfigFile(files[i].c_str(), bPrecache, false);
 	}
 
-	g_pParticleSystemMgr->DecommitTempMemory();
+	m_Engines.m_pParticleMgr->DecommitTempMemory();
 }
 
 void CParticleManifestClient::Reload()
@@ -124,7 +125,7 @@ void CParticleManifestClient::Reload()
 		Parse(true, true);
 	}
 
-	g_pParticleSystemMgr->DecommitTempMemory();
+	m_Engines.m_pParticleMgr->DecommitTempMemory();
 }
 
 // Loads the per-map manifest.
@@ -142,14 +143,14 @@ int CParticleManifestClient::ParseMapFiles(const char* pMapName, bool bLoadSheet
 		return 0;
 	}
 
-	g_pParticleSystemMgr->ShouldLoadSheets(bLoadSheets);
+	m_Engines.m_pParticleMgr->ShouldLoadSheets(bLoadSheets);
 
 	for (int i = 0; i < nCount; ++i)
 	{
-		g_pParticleSystemMgr->ReadParticleConfigFile(files[i].c_str(), true, true);
+		m_Engines.m_pParticleMgr->ReadParticleConfigFile(files[i].c_str(), true, true);
 	}
 
-	g_pParticleSystemMgr->DecommitTempMemory();
+	m_Engines.m_pParticleMgr->DecommitTempMemory();
 	return nCount;
 }
 
@@ -158,14 +159,14 @@ int CParticleManifestClient::ParseMapFiles(const char* pMapName, bool bLoadSheet
 int CParticleManifestClient::PrecacheDefined()
 {
 	int nPrecached = 0;
-	const int nCount = g_pParticleSystemMgr->GetParticleSystemCount();
+	const int nCount = m_Engines.m_pParticleMgr->GetParticleSystemCount();
 	for (int i = 0; i < nCount; ++i)
 	{
-		const char* pszName = g_pParticleSystemMgr->GetParticleSystemNameFromIndex(i);
-		CParticleSystemDefinition* pDef = pszName ? g_pParticleSystemMgr->FindParticleSystem(pszName) : NULL;
+		const char* pszName = m_Engines.m_pParticleMgr->GetParticleSystemNameFromIndex(i);
+		CParticleSystemDefinition* pDef = pszName ? m_Engines.m_pParticleMgr->FindParticleSystem(pszName) : NULL;
 		if (pDef && pDef->ShouldAlwaysPrecache())
 		{
-			g_pParticleSystemMgr->PrecacheParticleSystem(pszName);
+			m_Engines.m_pParticleMgr->PrecacheParticleSystem(pszName);
 			++nPrecached;
 		}
 	}

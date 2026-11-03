@@ -50,4 +50,3 @@ public:
 };
 
 // Client-server neutral effects interface accessor
-extern IEffects* g_pEffects;

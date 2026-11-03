@@ -421,7 +421,7 @@ int SlotOf(const std::string& getter, const std::string& arg)
 
 ITexture* StoreGet(const Getter_t& g)
 {
-	return g_Store.Get(SlotOf(g.pszName, g.nArg < 0 ? std::string("-") : std::to_string(g.nArg)));
+	return g_Store.Get(SlotOf(g.pszName, g.nArg < 0 ? std::string("-") : std::to_string(g.nArg)), materials);
 }
 
 struct GoldenRow_t
@@ -519,13 +519,13 @@ TEST(RenderTextureOracle, TheStoreRefusesWhatItCannotHold)
 	EXPECT_FALSE(g_Store.Declare(0, NULL, "RenderTargets", 1, 0, 0));
 	EXPECT_FALSE(g_Store.Declare(0, "_rt_x", "RenderTargets", 1, 0, SS_RT_COUNT + 1));
 	EXPECT_FALSE(g_Store.Declare(0, std::string(80, 'x').c_str(), "RenderTargets", 1, 0, 0));
-	EXPECT_EQ(g_Store.Get(0), (ITexture*)NULL);
-	EXPECT_EQ(g_Store.Get(-1), (ITexture*)NULL);
+	EXPECT_EQ(g_Store.Get(0, materials), (ITexture*)NULL);
+	EXPECT_EQ(g_Store.Get(-1, materials), (ITexture*)NULL);
 	EXPECT_EQ(g_Log.find("findtexture"), std::string::npos);
 
 	// The positive arm: the same slot declared properly finds on its first use.
 	ASSERT_TRUE(g_Store.Declare(0, "_rt_x", "RenderTargets", 1, 0, 1));
-	EXPECT_NE(g_Store.Get(0), (ITexture*)NULL);
+	EXPECT_NE(g_Store.Get(0, materials), (ITexture*)NULL);
 	EXPECT_NE(g_Log.find("findtexture\t_rt_x\tRenderTargets\t1\t0"), std::string::npos);
 }
 
@@ -537,16 +537,16 @@ TEST(RenderTextureOracle, TheStoreKeepsAReferenceAcrossTheSameDeclaration)
 	g_Store.Reset();
 	g_Store.SetReleaseFunc(&StoreRelease);
 	ASSERT_TRUE(g_Store.Declare(3, "_rt_a", "RenderTargets", 1, 0, 1));
-	ITexture* pFirst = g_Store.Get(3);
+	ITexture* pFirst = g_Store.Get(3, materials);
 	ASSERT_NE(pFirst, (ITexture*)NULL);
 
 	g_Log.clear();
 	ASSERT_TRUE(g_Store.Declare(3, "_rt_a", "RenderTargets", 1, 0, 1));
-	EXPECT_EQ(g_Store.Get(3), pFirst);
+	EXPECT_EQ(g_Store.Get(3, materials), pFirst);
 	EXPECT_EQ(g_Log, "") << "the same declaration touched the reference";
 
 	ASSERT_TRUE(g_Store.Declare(3, "_rt_b", "RenderTargets", 1, 0, 1));
-	ITexture* pSecond = g_Store.Get(3);
+	ITexture* pSecond = g_Store.Get(3, materials);
 	EXPECT_NE(pSecond, pFirst);
 	EXPECT_EQ(g_Log,
 			  "dec\t" + Name(pFirst) + "\nfindtexture\t_rt_b\tRenderTargets\t1\t0\ninc\t" + Name(pSecond) + "\n");

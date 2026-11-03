@@ -33,48 +33,39 @@
 #include "client_entity_list.h"
 #include "shell_standalone_clients.h"
 #include "shell_client_engine_interfaces.h"
+#include "shell_world_nettable_client.h"
+#include "shell_effects_list_client.h"
 
-// Cached handles to commonly used materials.
-PMaterialHandle g_Mat_Fleck_Wood[2] = {NULL, NULL};
-PMaterialHandle g_Mat_Fleck_Cement[2] = {NULL, NULL};
-PMaterialHandle g_Mat_Fleck_Antlion[2] = {NULL, NULL};
-PMaterialHandle g_Mat_Fleck_Glass[2] = {NULL, NULL};
-PMaterialHandle g_Mat_Fleck_Tile[2] = {NULL, NULL};
-PMaterialHandle g_Mat_DustPuff[2] = {NULL, NULL};
-PMaterialHandle g_Mat_BloodPuff[2] = {NULL, NULL};
-PMaterialHandle g_Mat_SMG_Muzzleflash[4] = {NULL, NULL, NULL, NULL};
-PMaterialHandle g_Mat_Combine_Muzzleflash[3] = {NULL, NULL, NULL};
-
-void FX_CacheMaterialHandles()
+void CEffectsListClient::CacheMaterialHandles()
 {
-	g_Mat_Fleck_Wood[0] = ShellParticleMaterial_Find("effects/fleck_wood1");
-	g_Mat_Fleck_Wood[1] = ShellParticleMaterial_Find("effects/fleck_wood2");
+	m_Mat_Fleck_Wood[0] = m_Engines.m_pParticles->FindMaterial("effects/fleck_wood1");
+	m_Mat_Fleck_Wood[1] = m_Engines.m_pParticles->FindMaterial("effects/fleck_wood2");
 
-	g_Mat_Fleck_Cement[0] = ShellParticleMaterial_Find("effects/fleck_cement1");
-	g_Mat_Fleck_Cement[1] = ShellParticleMaterial_Find("effects/fleck_cement2");
+	m_Mat_Fleck_Cement[0] = m_Engines.m_pParticles->FindMaterial("effects/fleck_cement1");
+	m_Mat_Fleck_Cement[1] = m_Engines.m_pParticles->FindMaterial("effects/fleck_cement2");
 
-	g_Mat_Fleck_Antlion[0] = ShellParticleMaterial_Find("effects/fleck_antlion1");
-	g_Mat_Fleck_Antlion[1] = ShellParticleMaterial_Find("effects/fleck_antlion2");
+	m_Mat_Fleck_Antlion[0] = m_Engines.m_pParticles->FindMaterial("effects/fleck_antlion1");
+	m_Mat_Fleck_Antlion[1] = m_Engines.m_pParticles->FindMaterial("effects/fleck_antlion2");
 
-	g_Mat_Fleck_Glass[0] = ShellParticleMaterial_Find("effects/fleck_glass1");
-	g_Mat_Fleck_Glass[1] = ShellParticleMaterial_Find("effects/fleck_glass2");
+	m_Mat_Fleck_Glass[0] = m_Engines.m_pParticles->FindMaterial("effects/fleck_glass1");
+	m_Mat_Fleck_Glass[1] = m_Engines.m_pParticles->FindMaterial("effects/fleck_glass2");
 
-	g_Mat_Fleck_Tile[0] = ShellParticleMaterial_Find("effects/fleck_tile1");
-	g_Mat_Fleck_Tile[1] = ShellParticleMaterial_Find("effects/fleck_tile2");
+	m_Mat_Fleck_Tile[0] = m_Engines.m_pParticles->FindMaterial("effects/fleck_tile1");
+	m_Mat_Fleck_Tile[1] = m_Engines.m_pParticles->FindMaterial("effects/fleck_tile2");
 
-	g_Mat_DustPuff[0] = ShellParticleMaterial_Find("particle/particle_smokegrenade");
-	g_Mat_DustPuff[1] = ShellParticleMaterial_Find("particle/particle_noisesphere");
+	m_Mat_DustPuff[0] = m_Engines.m_pParticles->FindMaterial("particle/particle_smokegrenade");
+	m_Mat_DustPuff[1] = m_Engines.m_pParticles->FindMaterial("particle/particle_noisesphere");
 
-	g_Mat_BloodPuff[0] = ShellParticleMaterial_Find("effects/blood");
-	g_Mat_BloodPuff[1] = ShellParticleMaterial_Find("effects/blood2");
+	m_Mat_BloodPuff[0] = m_Engines.m_pParticles->FindMaterial("effects/blood");
+	m_Mat_BloodPuff[1] = m_Engines.m_pParticles->FindMaterial("effects/blood2");
 
-	g_Mat_SMG_Muzzleflash[0] = ShellParticleMaterial_Find("effects/muzzleflash1");
-	g_Mat_SMG_Muzzleflash[1] = ShellParticleMaterial_Find("effects/muzzleflash2");
-	g_Mat_SMG_Muzzleflash[2] = ShellParticleMaterial_Find("effects/muzzleflash3");
-	g_Mat_SMG_Muzzleflash[3] = ShellParticleMaterial_Find("effects/muzzleflash4");
-	g_Mat_Combine_Muzzleflash[0] = ShellParticleMaterial_Find("effects/combinemuzzle1");
-	g_Mat_Combine_Muzzleflash[1] = ShellParticleMaterial_Find("effects/combinemuzzle2");
-	g_Mat_Combine_Muzzleflash[2] = ShellParticleMaterial_Find("effects/strider_muzzle");
+	m_Mat_SMG_Muzzleflash[0] = m_Engines.m_pParticles->FindMaterial("effects/muzzleflash1");
+	m_Mat_SMG_Muzzleflash[1] = m_Engines.m_pParticles->FindMaterial("effects/muzzleflash2");
+	m_Mat_SMG_Muzzleflash[2] = m_Engines.m_pParticles->FindMaterial("effects/muzzleflash3");
+	m_Mat_SMG_Muzzleflash[3] = m_Engines.m_pParticles->FindMaterial("effects/muzzleflash4");
+	m_Mat_Combine_Muzzleflash[0] = m_Engines.m_pParticles->FindMaterial("effects/combinemuzzle1");
+	m_Mat_Combine_Muzzleflash[1] = m_Engines.m_pParticles->FindMaterial("effects/combinemuzzle2");
+	m_Mat_Combine_Muzzleflash[2] = m_Engines.m_pParticles->FindMaterial("effects/strider_muzzle");
 }
 
 // A MASK_SHOT trace. nEntity >= 0 clips the ray to that entity and answers -1
@@ -108,7 +99,7 @@ int32_t CStandaloneClients::ClientShotTrace(const float* pStartXYZ, const float*
 	}
 	else
 	{
-		UTIL_TraceLine(vecStart, vecEnd, MASK_SHOT, NULL, COLLISION_GROUP_NONE, &tr);
+		UTIL_TraceLine(m_Engines, vecStart, vecEnd, MASK_SHOT, NULL, COLLISION_GROUP_NONE, &tr);
 	}
 
 	pOutFloats[0] = tr.fraction;
@@ -135,7 +126,7 @@ int32_t CStandaloneClients::ClientShotTrace(const float* pStartXYZ, const float*
 	pOutInts[2] = nHit;
 	pOutInts[3] = (int32_t)tr.surface.surfaceProps;
 	pOutInts[4] = (int32_t)tr.surface.flags;
-	pOutInts[5] = SourceSharp_IsTheWorld(ss::TraceHit(tr)) ? 1 : 0;
+	pOutInts[5] = m_Engines.m_pWorld->IsTheWorld(ss::TraceHit(tr)) ? 1 : 0;
 
 	return bHit ? 1 : 0;
 }
@@ -186,12 +177,12 @@ void CStandaloneClients::ClientStaticPropLighting(const float* pStartXYZ, const 
 
 // The effect ledger's two impact rows: the flecks and dust particles a managed
 // impact started.
-void SourceSharp_ClientImpactLedger(int32_t nFlecks, int32_t nDust)
+void CStandaloneClients::ClientImpactLedger(int32_t nFlecks, int32_t nDust)
 {
 	if (nFlecks > 0)
-		g_SourceSharpEffects.nImpactFlecks += nFlecks;
+		m_Engines.m_pEffectLedger->nImpactFlecks += nFlecks;
 	if (nDust > 0)
-		g_SourceSharpEffects.nImpactDust += nDust;
+		m_Engines.m_pEffectLedger->nImpactDust += nDust;
 }
 
 // The new-style impact particle: control points 0..2 at the points and

@@ -21,16 +21,14 @@
 #include "shell_managed_areas_client.h"
 #include "imanaged_areas_client.h"
 
-IViewPort* gViewPortInterface = NULL;
-
-CSourceSharpViewport::CSourceSharpViewport(const CManagedAreasClient& areas)
-	: CSourceSharpRawPanel("SourceSharpViewport")
+CSourceSharpViewport::CSourceSharpViewport(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines)
+	: CSourceSharpRawPanel(engines, "SourceSharpViewport")
 	, m_Areas(areas)
+	, m_Engines(engines)
 	, m_pGameEventManager(NULL)
 	, m_nRootWide(-1)
 	, m_nRootTall(-1)
 {
-	gViewPortInterface = this;
 	SetPaintEnabled(false);
 	SetKeyBoardInputEnabled(false);
 	SetMouseInputEnabled(false);
@@ -41,8 +39,6 @@ CSourceSharpViewport::CSourceSharpViewport(const CManagedAreasClient& areas)
 
 CSourceSharpViewport::~CSourceSharpViewport()
 {
-	if (gViewPortInterface == this)
-		gViewPortInterface = NULL;
 	if (m_pGameEventManager)
 		m_pGameEventManager->RemoveListener(this);
 }
@@ -57,14 +53,14 @@ void CSourceSharpViewport::Start(IGameEventManager2* pGameEventManager)
 void CSourceSharpViewport::OnThink()
 {
 	int nWide = 0, nTall = 0;
-	vgui::ipanel()->GetSize(enginevgui->GetPanel(PANEL_CLIENTDLL), nWide, nTall);
+	m_Engines.m_pVGuiPanel->GetSize(m_Engines.m_pVGui->GetPanel(PANEL_CLIENTDLL), nWide, nTall);
 	OnRootSize(nWide, nTall);
 }
 
 void CSourceSharpViewport::OnScreenSizeChanged(int nOldWide, int nOldTall)
 {
-	if (g_pClientMode)
-		g_pClientMode->Layout();
+	if (m_Engines.m_pClientMode)
+		m_Engines.m_pClientMode->Layout();
 }
 
 void CSourceSharpViewport::OnRootSize(int nWide, int nTall)
@@ -72,8 +68,8 @@ void CSourceSharpViewport::OnRootSize(int nWide, int nTall)
 	const bool bResized = nWide != m_nRootWide || nTall != m_nRootTall;
 	m_nRootWide = nWide;
 	m_nRootTall = nTall;
-	if (bResized && g_pClientMode)
-		g_pClientMode->Layout();
+	if (bResized && m_Engines.m_pClientMode)
+		m_Engines.m_pClientMode->Layout();
 }
 
 // By name: the managed UI opens or closes its screen for it.

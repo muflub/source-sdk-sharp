@@ -9,10 +9,11 @@
 // Input  : position - point to check
 //			*color - tint of the lighting at this point
 //			*luminosity - adjusted luminosity at this point
-inline void FX_GetSplashLighting(IManagedParticlesClient* pArea, Vector position, Vector* color, float* luminosity)
+inline void FX_GetSplashLighting(IVEngineClient* pEngine, IManagedParticlesClient* pArea, Vector position,
+								 Vector* color, float* luminosity)
 {
 	// Compute our lighting at our position
-	Vector totalColor = engine->GetLightForPoint(position, true);
+	Vector totalColor = pEngine->GetLightForPoint(position, true);
 
 	// Get our lighting information. With no managed side, the tint is black and the
 	// luminosity 0, as for a black light.

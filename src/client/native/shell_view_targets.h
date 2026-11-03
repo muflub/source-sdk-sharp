@@ -4,6 +4,7 @@
 
 #include <stdint.h>
 
+#include "managed_convar_ref.h"
 #include "tier1/interface.h"
 
 #include "sourcesharp.h"
@@ -75,4 +76,5 @@ private:
 	ITexture* m_pWaterRefraction = nullptr;
 	ITexture* m_pCamera = nullptr;
 	bool m_bRendering = false;
+	CManagedConVarRef m_PixelVisibility{"r_dopixelvisibility"};
 };

@@ -17,6 +17,7 @@
 #include "imanaged_areas_client.h"
 #include "ishim_areas_client.h"
 #include "shell_managed_areas_client.h"
+#include "kbutton.h"
 
 class CViewerFacts;
 class CPrediction;
@@ -50,11 +51,14 @@ COMPILE_TIME_ASSERT(offsetof(SourceSharpInputMailbox, nPublished) == 20);
 COMPILE_TIME_ASSERT(offsetof(SourceSharpInputMailbox, nShakeSkip) == 24);
 COMPILE_TIME_ASSERT(offsetof(SourceSharpInputMailbox, nShakeBits) == 28);
 
+class CClientEngineInterfaces;
+class CHud;
+
 class CSourceSharpInput final : public ::IInput, public IShimInputClient
 {
 public:
-	CSourceSharpInput(const CManagedAreasClient& areas, CViewerFacts& viewerFacts, CPrediction& prediction,
-					  CVoiceStatus& voiceStatus);
+	CSourceSharpInput(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines, CHud& hud,
+					  CViewerFacts& viewerFacts, CPrediction& prediction, CVoiceStatus& voiceStatus);
 
 	SourceSharpInputMailbox* Mailbox();
 
@@ -235,7 +239,29 @@ private:
 	// The managed input area, from the client DLL's holders; NULL outside a load.
 	IManagedInputClient* Managed() const;
 
+	struct ButtonToken_t
+	{
+		kbutton_t CSourceSharpInput::* pKey;
+		int32_t nId;
+	};
+
+	static const ButtonToken_t s_ButtonTokens[];
+
+	int32_t ButtonTokenId(const kbutton_t* pKey) const;
+
+	kbutton_t m_in_speed;
+	kbutton_t m_in_jlook;
+	kbutton_t m_in_strafe;
+	kbutton_t m_in_forward;
+	kbutton_t m_in_back;
+	kbutton_t m_in_moveleft;
+	kbutton_t m_in_moveright;
+	kbutton_t m_in_graph;
+	kbutton_t m_in_joyspeed;
+
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	CHud& m_Hud;
 
 	CPrediction& m_Prediction;
 	CVoiceStatus& m_VoiceStatus;

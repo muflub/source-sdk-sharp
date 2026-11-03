@@ -178,7 +178,7 @@ int32_t CWorldQueryClient::ClientTraceLine(const float* pStartXYZ, const float* 
 	if (nFilter == SOURCESHARP_TRACE_FILTER_WORLD_ONLY)
 	{
 		CTraceFilterWorldOnly traceFilter;
-		UTIL_TraceLine(vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceLine(m_Engines, vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
 	}
 	else if (nFilter == SOURCESHARP_TRACE_FILTER_SIMPLE)
 	{
@@ -194,22 +194,22 @@ int32_t CWorldQueryClient::ClientTraceLine(const float* pStartXYZ, const float* 
 
 		// COLLISION_GROUP_NONE always; the group is not a parameter.
 		CTraceFilterSimple traceFilter(pPass, COLLISION_GROUP_NONE);
-		UTIL_TraceLine(vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceLine(m_Engines, vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
 	}
 	else if (nFilter == SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL)
 	{
 		CSkipPlayerAndViewModelFilter traceFilter(m_Standalone);
-		UTIL_TraceLine(vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceLine(m_Engines, vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
 	}
 	else if (nFilter == SOURCESHARP_TRACE_FILTER_GLOW)
 	{
 		CGlowSightFilter traceFilter;
-		UTIL_TraceLine(vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceLine(m_Engines, vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
 	}
 	else
 	{
 		CTraceFilterHitAll traceFilter;
-		UTIL_TraceLine(vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceLine(m_Engines, vecStart, vecEnd, nTraceMask, &traceFilter, &tr);
 	}
 
 	TraceAnswer ans;
@@ -367,32 +367,32 @@ int32_t CWorldQueryClient::ClientTraceHull(const float* pStartXYZ, const float* 
 	if (nFilter == SOURCESHARP_TRACE_FILTER_NO_NPCS_OR_PLAYER)
 	{
 		CObserverNoNPCsOrPlayerFilter traceFilter(m_Standalone, pPass);
-		UTIL_TraceHull(vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceHull(m_Engines, vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
 	}
 	else if (nFilter == SOURCESHARP_TRACE_FILTER_SIMPLE)
 	{
 		CTraceFilterSimple traceFilter(pPass, COLLISION_GROUP_NONE);
-		UTIL_TraceHull(vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceHull(m_Engines, vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
 	}
 	else if (nFilter == SOURCESHARP_TRACE_FILTER_WORLD_ONLY)
 	{
 		CTraceFilterWorldOnly traceFilter;
-		UTIL_TraceHull(vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceHull(m_Engines, vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
 	}
 	else if (nFilter == SOURCESHARP_TRACE_FILTER_SKIP_PLAYER_AND_VIEW_MODEL)
 	{
 		CSkipPlayerAndViewModelFilter traceFilter(m_Standalone);
-		UTIL_TraceHull(vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceHull(m_Engines, vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
 	}
 	else if (nFilter == SOURCESHARP_TRACE_FILTER_GLOW)
 	{
 		CGlowSightFilter traceFilter;
-		UTIL_TraceHull(vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceHull(m_Engines, vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
 	}
 	else
 	{
 		CTraceFilterHitAll traceFilter;
-		UTIL_TraceHull(vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
+		UTIL_TraceHull(m_Engines, vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &tr);
 	}
 
 	if (pOutFraction)
@@ -431,7 +431,7 @@ int32_t CWorldQueryClient::ClientTraceHullEntities(const float* pStartXYZ, const
 
 	trace_t best;
 	CTraceFilterSimple traceFilter(pPass, COLLISION_GROUP_NONE);
-	UTIL_TraceHull(vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &best);
+	UTIL_TraceHull(m_Engines, vecStart, vecEnd, vecMins, vecMaxs, nTraceMask, &traceFilter, &best);
 	bool bHit = (best.fraction < 1.0f || best.startsolid);
 	int32_t nHitIndex = bHit ? TraceHitIndex(m_Standalone.EntityList(), ss::TraceHit(best)) : -1;
 

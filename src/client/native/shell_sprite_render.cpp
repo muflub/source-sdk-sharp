@@ -277,7 +277,7 @@ void CSpritesClient::SpriteTrailUpdate(uint32_t hOwner, int32_t nRenderMode, int
 		pNew->SetAbsAngles(pOwner->GetAbsAngles());
 
 		// Into the leaf system, so DrawModel gets called.
-		pNew->AddToLeafSystem(RENDER_GROUP_TRANSLUCENT_ENTITY);
+		pNew->AddToLeafSystem(m_Engines.m_pLeafSystem, RENDER_GROUP_TRANSLUCENT_ENTITY);
 		pNew->SetGoneCallback(m_ForgetHook.Get());
 
 		Trail_t entry;

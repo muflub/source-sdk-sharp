@@ -144,7 +144,7 @@ int32_t CViewTargetsClient::ViewTargetInfo(int32_t nTarget, int32_t* pOut4)
 	if (!t.pTexture || t.pTexture->IsError())
 		return 0;
 
-	if (t.nVguiTexture == 0 && g_pMatSystemSurface && m_Engines.m_pMaterials)
+	if (t.nVguiTexture == 0 && m_Engines.m_pMatSystemSurface && m_Engines.m_pMaterials)
 	{
 		char szTarget[32], szMaterial[48];
 		TargetName(nTarget, szTarget, sizeof(szTarget));
@@ -162,8 +162,8 @@ int32_t CViewTargetsClient::ViewTargetInfo(int32_t nTarget, int32_t* pOut4)
 		if (t.pMaterial)
 		{
 			t.pMaterial->IncrementReferenceCount();
-			t.nVguiTexture = vgui::surface()->CreateNewTextureID(true);
-			g_pMatSystemSurface->DrawSetTextureMaterial(t.nVguiTexture, t.pMaterial);
+			t.nVguiTexture = m_Engines.m_pVGuiSurface->CreateNewTextureID(true);
+			m_Engines.m_pMatSystemSurface->DrawSetTextureMaterial(t.nVguiTexture, t.pMaterial);
 		}
 	}
 
@@ -191,7 +191,7 @@ void CViewTargetsClient::NoteDrawn(int nTarget)
 // Draws every queued view into its target through the client's own RenderView.
 void CViewTargetsClient::RenderQueued(CSourceSharpClientMode& clientMode)
 {
-	if (m_bRendering || !view || !m_Engines.m_pMaterials)
+	if (m_bRendering || !m_Engines.m_pViewRender || !m_Engines.m_pMaterials)
 		return;
 
 	m_bRendering = true;
@@ -199,10 +199,9 @@ void CViewTargetsClient::RenderQueued(CSourceSharpClientMode& clientMode)
 	// Pixel visibility is off for a second view: RenderView draws as VIEW_MAIN, and
 	// a second main view would re-issue each glow's query and answer the main view's
 	// glows with this camera's occlusion. Stock's monitors issue none either.
-	static ConVarRef s_PixelVisibility("r_dopixelvisibility");
-	const bool bPixelVisibility = s_PixelVisibility.IsValid() && s_PixelVisibility.GetBool();
+	const bool bPixelVisibility = m_PixelVisibility.IsValid() && m_PixelVisibility.GetBool();
 	if (bPixelVisibility)
-		s_PixelVisibility.SetValue(0);
+		m_PixelVisibility.SetValue(0);
 
 	for (int i = 0; i < kViewTargets; i++)
 	{
@@ -243,7 +242,8 @@ void CViewTargetsClient::RenderQueued(CSourceSharpClientMode& clientMode)
 		pRenderContext->PushRenderTargetAndViewport(t.pTexture, 0, 0, s.Width, s.Height);
 		pRenderContext.SafeRelease();
 
-		view->RenderView(v, VIEW_CLEAR_COLOR | VIEW_CLEAR_DEPTH, RENDERVIEW_SUPPRESSMONITORRENDERING);
+		m_Engines.m_pViewRender->RenderView(v, VIEW_CLEAR_COLOR | VIEW_CLEAR_DEPTH,
+											RENDERVIEW_SUPPRESSMONITORRENDERING);
 
 		pRenderContext.GetFrom(m_Engines.m_pMaterials);
 		pRenderContext->PopRenderTargetAndViewport();
@@ -256,7 +256,7 @@ void CViewTargetsClient::RenderQueued(CSourceSharpClientMode& clientMode)
 	}
 
 	if (bPixelVisibility)
-		s_PixelVisibility.SetValue(1);
+		m_PixelVisibility.SetValue(1);
 
 	m_bRendering = false;
 }

@@ -64,7 +64,7 @@ struct Tally
 	int nLevelInit;
 	int nLevelShutdown;
 
-	// Not a slot. SourceSharp_UnloadManagedSide is the loader's partner and is
+	// Not a slot. UnloadManagedSide is the loader's partner and is
 	// what OnSystemStop forwards to -- see the header.
 	int nUnloadManagedSide;
 };
@@ -175,6 +175,17 @@ int TotalCalls()
 	return g_Tally.nFrame + g_Tally.nLevelInit + g_Tally.nLevelShutdown + g_Tally.nUnloadManagedSide;
 }
 
+// The DLL object the adapter is handed: only the unload is reached.
+class CFakeEnvironment final : public IManagedRuntimeEnvironment
+{
+public:
+	void* GetEngineInterface(const char*, int*) override { return nullptr; }
+
+	bool LoadManagedSide() override { return true; }
+
+	void UnloadManagedSide() override { g_Tally.nUnloadManagedSide++; }
+};
+
 class ManagedRuntimeClientTest : public ::testing::Test
 {
 protected:
@@ -187,20 +198,11 @@ protected:
 		InstallGeneration(1);
 	}
 
-	CManagedRuntimeClient m_Adapter{g_pInstalled};
+	CFakeEnvironment m_Env;
+	CManagedRuntimeClient m_Adapter{g_pInstalled, m_Env};
 };
 
 } // namespace
-
-//-----------------------------------------------------------------------------
-// The stubs the adapter links against: definitions of the symbols
-// managed_runtime_client.h forward-declares. There is no table to install:
-// the adapter reaches none since CE1, and the client has none since CE-last.
-//-----------------------------------------------------------------------------
-void SourceSharp_UnloadManagedSide(void)
-{
-	g_Tally.nUnloadManagedSide++;
-}
 
 //=============================================================================//
 // 1. One forward per method, and exactly one.
@@ -255,7 +257,7 @@ TEST_F(ManagedRuntimeClientTest, OnSystemStopReachesNoManagedSlot)
 {
 	// Stated as its own fact rather than left to TotalCalls above: a body that
 	// ALSO reached a managed shutdown directly would run the module unload
-	// twice, because SourceSharp_UnloadManagedSide already does.
+	// twice, because UnloadManagedSide already does.
 	m_Adapter.OnSystemStop();
 	EXPECT_EQ(0, g_Tally.nFrame);
 	EXPECT_EQ(0, g_Tally.nLevelInit);
@@ -313,9 +315,9 @@ TEST_F(ManagedRuntimeClientTest, ItSurvivesTwoReloadsInARow)
 
 TEST_F(ManagedRuntimeClientTest, TheAdapterHoldsOnlyTheSlot)
 {
-	// The structural half of "no cached table": a member beyond the vtable and the
-	// reference to the holders' slot would show up here.
-	EXPECT_EQ(2 * sizeof(void*), sizeof(CManagedRuntimeClient));
+	// The structural half of "no cached table": a member beyond the vtable, the reference
+	// to the holders' slot and the environment would show up here.
+	EXPECT_EQ(3 * sizeof(void*), sizeof(CManagedRuntimeClient));
 }
 
 //=============================================================================//

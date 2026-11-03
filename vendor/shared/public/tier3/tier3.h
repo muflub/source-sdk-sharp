@@ -24,14 +24,6 @@ class ISystem;
 }
 
 extern IStudioRender* studiorender;
-extern IMatSystemSurface* g_pMatSystemSurface;
-extern vgui::ISurface* g_pVGuiSurface;
-extern vgui::IInput* g_pVGuiInput;
-extern vgui::IVGui* g_pVGui;
-extern vgui::IPanel* g_pVGuiPanel;
-extern vgui::ILocalize* g_pVGuiLocalize;
-extern vgui::ISchemeManager* g_pVGuiSchemeManager;
-extern vgui::ISystem* g_pVGuiSystem;
 extern IMDLCache* mdlcache;
 
 // Call this to connect to/disconnect from all tier 3 libraries.

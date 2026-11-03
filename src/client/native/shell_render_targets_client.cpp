@@ -6,49 +6,38 @@
 //=============================================================================//
 
 // SS_REASON a  a vtable the engine calls through
-// The render-target store: managed code declares each slot's texture, group and
-// release order; the references are found on a slot's first use and dropped by
-// the release function the material system calls on a mode change or device loss.
-
 #include "materialsystem/itexture.h"
 
 #include "shell_render_targets.h"
+#include "shell_client_engine_interfaces.h"
 
-namespace
+CRenderTargetsClient::CRenderTargetsClient(const CClientEngineInterfaces& engines)
+	: m_Engines(engines)
+	, m_ReleaseFn(this, &ReleaseFn_t::Trampoline<CRenderTargetsClient, &CRenderTargetsClient::Release>)
 {
-
-CRenderTargetStore g_RenderTargets;
+}
 
 // The material system's release function: the declared references, dropped.
-void ReleaseRenderTargetsThunk()
+void CRenderTargetsClient::Release()
 {
-	g_RenderTargets.Release();
+	m_Store.Release();
 }
 
-} // namespace
-
-int32_t SourceSharp_RenderTargetDeclare(int32_t nSlot, const char* pszName, const char* pszGroup, int32_t bComplain,
-										int32_t nCreationFlags, int32_t nReleaseOrder)
+int32_t CRenderTargetsClient::RenderTargetDeclare(int32_t nSlot, const char* pszName, const char* pszGroup,
+												  int32_t bComplain, int32_t nCreationFlags, int32_t nReleaseOrder)
 {
-	g_RenderTargets.SetReleaseFunc(&ReleaseRenderTargetsThunk);
-	return g_RenderTargets.Declare(nSlot, pszName, pszGroup, bComplain, nCreationFlags, nReleaseOrder) ? 1 : 0;
+	m_Store.SetReleaseFunc(m_ReleaseFn.Get());
+	return m_Store.Declare(nSlot, pszName, pszGroup, bComplain, nCreationFlags, nReleaseOrder) ? 1 : 0;
 }
 
-ITexture* ShellRenderTarget(int nSlot)
-{
-	return g_RenderTargets.Get(nSlot);
-}
-
-// The two rendertexture.h names view_scene.h's inlines still call. An index
-// past the four frame buffers is no texture (stock indexed past its array).
-ITexture* GetPowerOfTwoFrameBufferTexture()
-{
-	return g_RenderTargets.Get(SS_RT_PowerOfTwoFrameBuffer);
-}
-
-ITexture* GetFullFrameFrameBufferTexture(int textureIndex)
+ITexture* CRenderTargetsClient::FullFrameFrameBuffer(int textureIndex)
 {
 	if (textureIndex < 0 || textureIndex >= MAX_FB_TEXTURES)
 		return NULL;
-	return g_RenderTargets.Get(SS_RT_FullFrameFrameBuffer0 + textureIndex);
+	return Target(SS_RT_FullFrameFrameBuffer0 + textureIndex);
+}
+
+ITexture* CRenderTargetsClient::Target(int nSlot)
+{
+	return m_Store.Get(nSlot, m_Engines.m_pMaterials);
 }

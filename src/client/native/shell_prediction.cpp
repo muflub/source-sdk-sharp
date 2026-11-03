@@ -20,7 +20,6 @@
 #include "cdll_util.h"
 #include "util_shared.h"
 
-#include "entity_prediction_seed.h"
 #include "shell_prediction_client.h"
 #include "ipredictionsystem.h"
 
@@ -36,24 +35,8 @@
 #include "shell_gamemovement_client.h"
 #include "shell_client_engine_interfaces.h"
 
-// The prediction seed carried by one usercmd, or -1 ("not inside a usercmd") for NULL.
-void EntityPrediction_SetSeedFromCommand(const EntityPredictionCmd_t* cmd)
-{
-	if (!cmd)
-	{
-		EntityPrediction_SetSeed(-1);
-
-		return;
-	}
-
-	EntityPrediction_SetSeed(cmd->random_seed);
-}
-
 // The base class reduced to stock's no-player early-outs. PreEntityPacketReceived's
 // packet number is live: GetIncomingPacketNumber hands it to client-created entities.
-
-// The TE_* dispatch chain still hangs off IPredictionSystem.
-IPredictionSystem* IPredictionSystem::g_pPredictionSystems = NULL;
 
 CPrediction::CPrediction()
 {
@@ -166,10 +149,10 @@ void CSourceSharpPrediction::PostNetworkDataReceived(int commands_acknowledged)
 // does not hold it, which ends the frame's replay as stock's loop does.
 int32_t CPredictionSlotsClient::ClientGetUserCmd(int32_t nCommandNumber, SourceSharpUserCmd* pOut)
 {
-	if (!pOut || !::input)
+	if (!pOut || !m_Engines.m_pInput)
 		return 0;
 
-	CUserCmd* pCmd = ::input->GetUserCmd(nCommandNumber);
+	CUserCmd* pCmd = m_Engines.m_pInput->GetUserCmd(nCommandNumber);
 
 	if (!pCmd)
 		return 0;
@@ -197,32 +180,9 @@ int32_t CPredictionSlotsClient::ClientGetUserCmd(int32_t nCommandNumber, SourceS
 class CStandaloneMoveHelperClient : public IMoveHelper
 {
 public:
-	CStandaloneMoveHelperClient()
-		: m_pPrevious(NULL)
-		, m_bInstalled(false)
+	explicit CStandaloneMoveHelperClient(const CClientEngineInterfaces& engines)
+		: m_Engines(engines)
 	{
-	}
-
-	void Install()
-	{
-		// Not re-entrant: End runs even after a failed Begin, and a second Install would remember
-		// this helper as the previous one and never hand the singleton back.
-		if (m_bInstalled)
-			return;
-
-		m_pPrevious = MoveHelper();
-		SetSingleton(this);
-		m_bInstalled = true;
-	}
-
-	void Uninstall()
-	{
-		if (!m_bInstalled)
-			return;
-
-		SetSingleton(m_pPrevious);
-		m_pPrevious = NULL;
-		m_bInstalled = false;
 	}
 
 	virtual char const* GetName(EntityHandle_t handle) const OVERRIDE { return "standaloneplayer_cl"; }
@@ -252,25 +212,24 @@ public:
 
 	virtual void PlayerSetAnimation(PLAYER_ANIM playerAnim) OVERRIDE {}
 
-	virtual IPhysicsSurfaceProps* GetSurfaceProps() OVERRIDE
-	{
-		extern IPhysicsSurfaceProps* physprops;
-		return physprops;
-	}
+	virtual IPhysicsSurfaceProps* GetSurfaceProps() OVERRIDE { return m_Engines.m_pPhysProps; }
 
 	virtual bool IsWorldEntity(const CBaseHandle& handle) OVERRIDE { return handle.GetEntryIndex() == 0; }
 
 	virtual void SetHost(CBasePlayer* host) OVERRIDE { Assert(host == NULL); }
 
 private:
-	IMoveHelper* m_pPrevious;
-	bool m_bInstalled;
+	const CClientEngineInterfaces& m_Engines;
 };
 
-static CStandaloneMoveHelperClient s_ClientMoveHelper;
-
-// IMoveHelper's singleton; NULL until the bracket above installs the helper.
-IMPLEMENT_MOVEHELPER();
+CPredictionSlotsClient::CPredictionSlotsClient(const CClientEngineInterfaces& engines, CStandaloneClients& standalone,
+											   CShellGameMovement& gameMovement)
+	: m_Engines(engines)
+	, m_Standalone(standalone)
+	, m_GameMovement(gameMovement)
+	, m_pMoveHelper(new CStandaloneMoveHelperClient(engines))
+{
+}
 
 // The movement bracket. Scale matters: the hull macros multiply the hulls by it, and an
 // unscaled hull would walk through walls with plausible trace fractions.
@@ -283,21 +242,13 @@ int32_t CPredictionSlotsClient::MoveBeginClientCommand(uint32_t hPlayer, int32_t
 	if (C_StandaloneEntity* pEntity = m_Standalone.FromHandle(hPlayer))
 		pOut->flModelScale = pEntity->GetModelScale();
 
-	// The shared random stream, seeded from the replayed command so both sides agree on
-	// every SharedRandom* result. The server does the same in its command runner.
-	if (::input)
-		EntityPrediction_SetSeedFromCommand(::input->GetUserCmd(nCommandNumber));
-
-	s_ClientMoveHelper.Install();
+	m_GameMovement.SetMoveHelper(m_pMoveHelper);
 	return 1;
 }
 
 void CPredictionSlotsClient::MoveEndClientCommand(int32_t bRan, int32_t* pOutGroundIndex)
 {
-	s_ClientMoveHelper.Uninstall();
-
-	// -1, "not inside a usercmd", which the SharedRandom* asserts check for.
-	EntityPrediction_SetSeedFromCommand(NULL);
+	m_GameMovement.SetMoveHelper(NULL);
 
 	m_GameMovement.EndClientCommand(bRan, pOutGroundIndex);
 }
@@ -315,11 +266,4 @@ void CPredictionSlotsClient::ClientPlayerPredictionDrive(uint32_t hEntity, const
 		return;
 
 	pEntity->PredictionDrive(*pView);
-}
-
-// The client's movement report; the server's cs_sv_move_managed_report prints the same.
-CON_COMMAND(cs_cl_move_managed_report,
-			"cs_cl_move_managed_report -- how many times each ported movement method ran in C# on the CLIENT")
-{
-	SourceSharp_MoveManagedReport(SourceSharp_MoveManagedCalls());
 }

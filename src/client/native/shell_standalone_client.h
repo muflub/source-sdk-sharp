@@ -535,8 +535,6 @@ class CClientRenderablesList;
 
 int SourceSharp_StandaloneBlobOffset();
 
-bool SourceSharp_StandaloneTierIsInUse(int iTier);
-
 inline C_StandaloneEntity* SourceSharp_ClientShellFromRecvStruct(void* pStruct)
 {
 	return static_cast<C_StandaloneEntity*>(pStruct);

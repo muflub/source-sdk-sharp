@@ -22,20 +22,23 @@ class CWorldTextClient;
 class CSpritesClient;
 class CShadowsClient;
 class CLeafSystemClient;
+class CRopeClient;
 
 // The client's game systems as one named table, in the order they run, a member of the
 // client DLL object. Stage passes walk the rows forwards; the shutdown stages walk them
 // backwards. The rows are filled by Init, as the systems are first needed.
+class CClientEngineInterfaces;
+
 class CClientSystems
 {
 public:
 	// The systems the client DLL object owns, and the managed areas the managed rows call;
 	// the other rows are their files' objects.
-	CClientSystems(const CManagedAreasClient& areas, CClientSystem& managedFrame, CClientSystem& physics,
-				   CClientSystem& decals, CStandaloneClients& standalone, CEffectsListClient& effects,
-				   CManagedParticlesClient& particles, CParticleSystemsClient& particleSystems,
-				   CShellDetailProps& detailProps, CWorldTextClient& worldText, CSpritesClient& sprites,
-				   CShadowsClient& shadows, CLeafSystemClient& leafSystem);
+	CClientSystems(const CClientEngineInterfaces& engines, const CManagedAreasClient& areas, CRopeClient& rope,
+				   CClientSystem& managedFrame, CClientSystem& physics, CClientSystem& decals,
+				   CStandaloneClients& standalone, CEffectsListClient& effects, CManagedParticlesClient& particles,
+				   CParticleSystemsClient& particleSystems, CShellDetailProps& detailProps, CWorldTextClient& worldText,
+				   CSpritesClient& sprites, CShadowsClient& shadows, CLeafSystemClient& leafSystem);
 	~CClientSystems();
 
 	CClientSystems(const CClientSystems&) = delete;
@@ -55,6 +58,8 @@ public:
 	void Update(float frametime);
 
 private:
+	const CClientEngineInterfaces& m_Engines;
+	CRopeClient& m_Rope;
 	typedef void (CClientSystem::*Stage_t)();
 	typedef void (CClientSystemPerFrame::*FrameStage_t)();
 
@@ -93,7 +98,7 @@ private:
 	CSoundEmitterSystemRow m_SoundEmitterRow;
 	C_SoundscapeSystem m_SoundscapeRow;
 
-	static const int kRowCount = 22;
+	static const int kRowCount = 21;
 	Row_t m_Rows[kRowCount] = {};
 	int m_nRows = 0;
 };

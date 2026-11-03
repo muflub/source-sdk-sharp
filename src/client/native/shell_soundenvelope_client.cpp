@@ -25,6 +25,8 @@
 #include "shell_standalone_client.h"
 #include "shell_sound_patches_client.h"
 #include "shell_standalone_clients.h"
+#include "shell_client_engine_interfaces.h"
+#include "shell_gamerules_client.h"
 
 // A copy of the caller's filter: it is usually a stack object, and the patch outlives it.
 // At file scope, not in an anonymous namespace: CSoundPatch holds one, and gcc refuses a
@@ -73,8 +75,9 @@ private:
 class CSoundPatch
 {
 public:
-	explicit CSoundPatch(const CManagedAreasClient& areas)
+	CSoundPatch(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines)
 		: m_Areas(areas)
+		, m_Engines(engines)
 		, m_nHandle(0)
 		, m_nEntIndex(-1)
 		, m_nChannel(CHAN_AUTO)
@@ -97,7 +100,7 @@ public:
 		CSoundParameters params;
 		Q_strncpy(m_szScriptName, pszSoundName, sizeof(m_szScriptName));
 		if (!Q_stristr(pszSoundName, ".wav") && !Q_stristr(pszSoundName, ".mp3") &&
-			ClientSound::GetParameters(pszSoundName, params, NULL))
+			ClientSound::GetParameters(m_Engines.m_pSoundEmitter, pszSoundName, params, NULL))
 		{
 			m_flScriptVolume = params.volume;
 			pszSoundName = params.soundname;
@@ -170,6 +173,7 @@ public:
 
 private:
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 	int m_nHandle;
 	int m_nEntIndex;
 	int m_nChannel;
@@ -186,8 +190,11 @@ private:
 class CShellClientSoundController final : public CSoundEnvelopeController
 {
 public:
-	explicit CShellClientSoundController(const CManagedAreasClient& areas)
+	CShellClientSoundController(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+								const CGameRulesClient& gameRules)
 		: m_Areas(areas)
+		, m_Engines(engines)
+		, m_GameRules(gameRules)
 		, m_nNextHandle(1)
 	{
 	}
@@ -363,15 +370,15 @@ private:
 	CSoundPatch* Build(IRecipientFilter& filter, int nEntIndex, int nChannel, const char* pszSoundName,
 					   soundlevel_t soundlevel)
 	{
-		if (GameRules())
-			pszSoundName = GameRules()->TranslateEffectForVisionFilter("sounds", pszSoundName);
+		if (m_GameRules.Rules())
+			pszSoundName = m_GameRules.Rules()->TranslateEffectForVisionFilter("sounds", pszSoundName);
 		return Track(filter, nEntIndex, nChannel, pszSoundName, soundlevel);
 	}
 
 	CSoundPatch* Track(IRecipientFilter& filter, int nEntIndex, int nChannel, const char* pszSoundName,
 					   soundlevel_t soundlevel)
 	{
-		CSoundPatch* pSound = new CSoundPatch(m_Areas);
+		CSoundPatch* pSound = new CSoundPatch(m_Areas, m_Engines);
 		pSound->Init(&filter, nEntIndex, nChannel, pszSoundName, soundlevel);
 		pSound->SetHandle(m_nNextHandle++);
 		m_Patches.AddToTail(pSound);
@@ -383,13 +390,17 @@ private:
 	IManagedSoundControllerClient* Ask() const { return m_Areas.m_pSoundControllerClient; }
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
+	const CGameRulesClient& m_GameRules;
 	CUtlVector<CSoundPatch*> m_Patches;
 	int m_nNextHandle;
 };
 
-CSoundPatchesClient::CSoundPatchesClient(const CManagedAreasClient& areas, CStandaloneClients& standalone)
-	: m_Standalone(standalone)
-	, m_pController(new CShellClientSoundController(areas))
+CSoundPatchesClient::CSoundPatchesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+										 CStandaloneClients& standalone, const CGameRulesClient& gameRules)
+	: m_Engines(engines)
+	, m_Standalone(standalone)
+	, m_pController(new CShellClientSoundController(areas, engines, gameRules))
 {
 }
 
@@ -456,7 +467,7 @@ int32_t CSoundPatchesClient::SoundPatchCreate(uint32_t hEntity, int32_t nChannel
 	}
 
 	const soundlevel_t level = (soundlevel_t)nSoundLevel;
-	CPASAttenuationFilter filter(vecOrigin, level);
+	CPASAttenuationFilter filter(m_Engines.m_pEngine, vecOrigin, level);
 	CSoundPatch* pPatch = m_pController->SoundCreate(filter, nEntIndex, nChannel, pSoundName, level);
 	return pPatch ? pPatch->Handle() : 0;
 }

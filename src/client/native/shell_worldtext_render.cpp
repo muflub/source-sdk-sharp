@@ -152,7 +152,7 @@ int32_t CWorldTextClient::WorldTextMeshUpdate(uint32_t hOwner, const char* pszMa
 	if (iEntry < 0)
 	{
 		CManagedWorldText* pText = new CManagedWorldText(m_Areas, m_Engines, m_Cameras, hOwner);
-		pText->AddToLeafSystem(RENDER_GROUP_TRANSLUCENT_ENTITY);
+		pText->AddToLeafSystem(m_Engines.m_pLeafSystem, RENDER_GROUP_TRANSLUCENT_ENTITY);
 		pText->SetGoneCallback(m_ForgetHook.Get());
 		pText->SetAbsOrigin(pOwner->GetAbsOrigin());
 		pText->SetAbsAngles(pOwner->GetAbsAngles());

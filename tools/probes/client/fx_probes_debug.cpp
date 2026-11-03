@@ -63,6 +63,7 @@
 #include "view_shared.h"
 
 #include "probe_accessors.h"
+#include "shell_client_engine_interfaces.h"
 #include "tier0/memdbgon.h"
 
 namespace
@@ -200,24 +201,28 @@ CON_COMMAND(cs_cl_probe_fxsuppress, "c2-fx probe (debug): IPredictionSystem::Sup
 	if (FxProbeFd() < 0 || args.ArgC() < 2)
 		return;
 	const bool b = atoi(args.Arg(1)) != 0;
-	IPredictionSystem::SuppressEvents(b);
+	ShellClientDll_Engines().m_pGameEffects->SetSuppressEvent(b);
+	ShellClientDll_TempEntsSystem().SetSuppressEvent(b);
 	FxProbeLog("ie-arm suppress-events %d", b ? 1 : 0);
 }
 
-CON_COMMAND(cs_cl_probe_fxsuppresssound, "c2-fx probe (debug): g_pEffects->SuppressEffectsSounds( arg )")
+CON_COMMAND(cs_cl_probe_fxsuppresssound,
+			"c2-fx probe (debug): ShellClientDll_Engines().m_pGameEffects->SuppressEffectsSounds( arg )")
 {
-	if (FxProbeFd() < 0 || args.ArgC() < 2 || !g_pEffects)
+	if (FxProbeFd() < 0 || args.ArgC() < 2 || !ShellClientDll_Engines().m_pGameEffects)
 		return;
-	g_pEffects->SuppressEffectsSounds(atoi(args.Arg(1)) != 0);
+	ShellClientDll_Engines().m_pGameEffects->SuppressEffectsSounds(atoi(args.Arg(1)) != 0);
 }
 
 // IEffects::MuzzleFlash for each type, at a fixed place: the switch's other arms
 // (gunship, strider, an unknown type) are not sent by anything in dm_lockdown.
-CON_COMMAND(cs_cl_probe_fxmuzzle, "c2-fx probe (debug): g_pEffects->MuzzleFlash( (0 0 64), (0 90 0), 1.5, type )")
+CON_COMMAND(
+	cs_cl_probe_fxmuzzle,
+	"c2-fx probe (debug): ShellClientDll_Engines().m_pGameEffects->MuzzleFlash( (0 0 64), (0 90 0), 1.5, type )")
 {
-	if (FxProbeFd() < 0 || args.ArgC() < 2 || !g_pEffects)
+	if (FxProbeFd() < 0 || args.ArgC() < 2 || !ShellClientDll_Engines().m_pGameEffects)
 		return;
-	g_pEffects->MuzzleFlash(Vector(0, 0, 64), QAngle(0, 90, 0), 1.5f, atoi(args.Arg(1)));
+	ShellClientDll_Engines().m_pGameEffects->MuzzleFlash(Vector(0, 0, 64), QAngle(0, 90, 0), 1.5f, atoi(args.Arg(1)));
 }
 
 //-----------------------------------------------------------------------------
@@ -322,7 +327,7 @@ namespace
 Vector Ahead(float flForward, float flRight, float flUp)
 {
 	Vector f, r, u;
-	const CViewSetup* pPlayerView = view->GetPlayerViewSetup();
+	const CViewSetup* pPlayerView = ShellClientDll_Engines().m_pViewRender->GetPlayerViewSetup();
 	AngleVectors(pPlayerView->angles, &f, &r, &u);
 	return pPlayerView->origin + f * flForward + r * flRight + u * flUp;
 }
@@ -335,7 +340,7 @@ CON_COMMAND(cs_cl_probe_fxbattery,
 	if (FxProbeFd() < 0)
 		return;
 	const int nSet = args.ArgC() > 1 ? atoi(args.Arg(1)) : 0;
-	const CViewSetup* pPlayerView = view->GetPlayerViewSetup();
+	const CViewSetup* pPlayerView = ShellClientDll_Engines().m_pViewRender->GetPlayerViewSetup();
 	FxProbeLog("fxb-begin %d view=%.9g %.9g %.9g ang=%.9g %.9g %.9g", nSet, pPlayerView->origin.x,
 			   pPlayerView->origin.y, pPlayerView->origin.z, pPlayerView->angles.x, pPlayerView->angles.y,
 			   pPlayerView->angles.z);
@@ -440,7 +445,7 @@ CON_COMMAND(cs_cl_probe_fxshells,
 	if (FxProbeFd() < 0)
 		return;
 	const char* names[] = {"ShellEject", "RifleShellEject", "ShotgunShellEject"};
-	const int owners[] = {engine->GetLocalPlayer(), 0, 1000, -1};
+	const int owners[] = {ShellClientDll_Engines().m_pEngine->GetLocalPlayer(), 0, 1000, -1};
 	for (int n = 0; n < 3; ++n)
 	{
 		for (int o = 0; o < 4; ++o)

@@ -20,6 +20,8 @@ class CShellViewRender;
 class CEffectsListClient;
 class CManagedParticlesClient;
 class CShellDetailProps;
+class CWorldRenderClient;
+class CRopeClient;
 class CClientEngineInterfaces;
 class CViewTargetsClient;
 class CViewCameras;
@@ -44,7 +46,7 @@ public:
 				  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps,
 				  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis, CPrecipitationClient& precipitation,
 				  CShadowsClient& shadows, CHudUiClient& hudUi, CViewCameras& cameras, CViewTargetsClient& viewTargets,
-				  const CClientEngineInterfaces& engines)
+				  const CClientEngineInterfaces& engines, CRopeClient& rope, CWorldRenderClient& worldRender)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -54,6 +56,8 @@ public:
 		, m_Effects(effects)
 		, m_Particles(particles)
 		, m_DetailProps(detailProps)
+		, m_WorldRender(worldRender)
+		, m_Rope(rope)
 		, m_Engines(engines)
 		, m_ViewTargets(viewTargets)
 		, m_Cameras(cameras)
@@ -108,6 +112,8 @@ private:
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
 	CShellDetailProps& m_DetailProps;
+	CWorldRenderClient& m_WorldRender;
+	CRopeClient& m_Rope;
 	const CClientEngineInterfaces& m_Engines;
 	CViewTargetsClient& m_ViewTargets;
 	CViewCameras& m_Cameras;

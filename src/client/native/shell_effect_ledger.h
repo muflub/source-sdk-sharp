@@ -20,4 +20,4 @@ struct SourceSharpEffectLedger_t
 	int nSingletonDraws; // DrawParticleSingletons: one per managed singleton executor drawn there (the dust puff)
 };
 
-extern SourceSharpEffectLedger_t g_SourceSharpEffects;
+void SourceSharpEffects_Report(const SourceSharpEffectLedger_t& ledger);

@@ -36,6 +36,7 @@
 #include "iviewrender.h"
 #include "client_world.h"
 #include "cl_mat_stub.h"
+#include "shell_client_engine_interfaces.h"
 #include "materialsystem/imaterialsystemstub.h"
 #include "mathlib/vector.h"
 #include "mathlib/vmatrix.h"
@@ -181,10 +182,10 @@ public:
 			return;
 
 		SourceSharpProxyBindIn_t in;
-		in.CurTime = gpGlobals->curtime;
-		in.FrameTime = gpGlobals->frametime;
-		in.MaxClients = gpGlobals->maxClients;
-		in.FrameCount = gpGlobals->framecount;
+		in.CurTime = m_Owner.Engines().m_pGlobals->curtime;
+		in.FrameTime = m_Owner.Engines().m_pGlobals->frametime;
+		in.MaxClients = m_Owner.Engines().m_pGlobals->maxClients;
+		in.FrameCount = m_Owner.Engines().m_pGlobals->framecount;
 		in.VarCount = m_Vars.Count();
 		in.Reserved = 0;
 		in.Arg = pArg;
@@ -231,7 +232,7 @@ public:
 
 	int32_t FindTexture(const char* pszName, const char* pszGroup, bool bComplain, int32_t* pIsError)
 	{
-		ITexture* pTexture = materials->FindTexture(pszName, pszGroup, bComplain);
+		ITexture* pTexture = m_Owner.Engines().m_pMaterials->FindTexture(pszName, pszGroup, bComplain);
 		if (pIsError)
 			*pIsError = (pTexture && IsErrorTexture(pTexture)) ? 1 : 0;
 		if (!pTexture)
@@ -362,9 +363,10 @@ int32_t CManagedMaterialProxy::BindEntity(SourceSharpProxyEntity_t* pOut)
 
 COMPILE_TIME_ASSERT(ARRAYSIZE(s_ProxyNames) == 81);
 
-CMaterialProxiesClient::CMaterialProxiesClient(const CManagedAreasClient& areas, const CViewCameras& cameras,
-											   CClientEntityList& entityList)
+CMaterialProxiesClient::CMaterialProxiesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+											   const CViewCameras& cameras, CClientEntityList& entityList)
 	: m_Areas(areas)
+	, m_Engines(engines)
 	, m_Cameras(cameras)
 	, m_EntityList(entityList)
 	, m_Proxies(DefLessFunc(int32_t))
@@ -441,15 +443,15 @@ int32_t CMaterialProxiesClient::ProxyReadView(int32_t nKind, float* pOut, int32_
 	if (nKind == 1 && nFloats >= 2)
 	{
 		float flStart = 0.0f, flEnd = 0.0f;
-		if (view)
-			view->GetWaterLODParams(flStart, flEnd);
+		if (m_Engines.m_pViewRender)
+			m_Engines.m_pViewRender->GetWaterLODParams(flStart, flEnd);
 		pOut[0] = flStart;
 		pOut[1] = flEnd;
 		return 1;
 	}
 	if (nKind == 2 && nFloats >= 6)
 	{
-		C_World* pWorld = GetClientWorldEntity();
+		C_World* pWorld = m_Engines.m_pWorld->Entity();
 		if (!pWorld)
 			return 0;
 		const Vector vecMins = pWorld->GetWorldMins();
@@ -465,8 +467,8 @@ int32_t CMaterialProxiesClient::ProxyReadView(int32_t nKind, float* pOut, int32_
 	if (nKind == 3 && nFloats >= 23)
 	{
 		CParticleLightInfo info;
-		ShellParticleDraw_GetLight(info);
-		const VMatrix& mModelView = ShellParticleDraw_ModelView();
+		m_Engines.m_pParticles->GetLight(info);
+		const VMatrix& mModelView = m_Engines.m_pParticles->ModelView();
 		pOut[0] = info.m_vPos.x;
 		pOut[1] = info.m_vPos.y;
 		pOut[2] = info.m_vPos.z;
@@ -486,7 +488,7 @@ int32_t CMaterialProxiesClient::ProxyPlayerCustomFile(int32_t nPlayer, uint32_t*
 	if (pCrc)
 		*pCrc = 0;
 	player_info_t info;
-	if (!engine->GetPlayerInfo(nPlayer, &info))
+	if (!m_Engines.m_pEngine->GetPlayerInfo(nPlayer, &info))
 		return 0;
 	if (pCrc)
 		*pCrc = (uint32_t)info.customFiles[0];
@@ -513,17 +515,13 @@ void CMaterialProxiesClient::ProxyNotShipped(const char* pszCapability, const ch
 }
 
 // While mat_stub is on (managed's convar), the frame renders through the material system stub.
-CMatStubHandler::CMatStubHandler(IManagedMaterialProxyClient* pManaged)
+CMatStubHandler::CMatStubHandler(IManagedMaterialProxyClient* pManaged, CClientEngineInterfaces& engines)
+	: m_ppSlots{&engines.m_pMaterials, &materials}
 {
-	m_pOldMaterialSystem = NULL;
-	if (!pManaged || !pManaged->MatStubEnabled() || !materials_stub)
+	if (!pManaged || !pManaged->MatStubEnabled() || !engines.m_pMaterialsStub)
 		return;
 
-	m_pOldMaterialSystem = materials;
-	materials_stub->SetRealMaterialSystem(materials);
-	materials->SetInStubMode(true);
-	materials = materials_stub;
-	engine->Mat_Stub(materials);
+	m_Swap.Begin(m_ppSlots, 2, engines.m_pMaterialsStub, engines.m_pEngine);
 }
 
 CMatStubHandler::~CMatStubHandler()
@@ -533,12 +531,5 @@ CMatStubHandler::~CMatStubHandler()
 
 void CMatStubHandler::End()
 {
-	if (!m_pOldMaterialSystem)
-		return;
-
-	materials = m_pOldMaterialSystem;
-	materials->SetInStubMode(false);
-	engine->Mat_Stub(materials);
-	m_pOldMaterialSystem = NULL;
-	materials->ClearBuffers(true, true);
+	m_Swap.End();
 }

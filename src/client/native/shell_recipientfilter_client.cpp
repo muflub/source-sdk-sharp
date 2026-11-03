@@ -20,7 +20,8 @@
 
 #include "local_recipient.h"
 
-C_RecipientFilter::C_RecipientFilter()
+C_RecipientFilter::C_RecipientFilter(IVEngineClient* pEngine)
+	: m_pEngine(pEngine)
 {
 	Reset();
 }
@@ -53,24 +54,17 @@ int C_RecipientFilter::GetRecipientIndex(int slot) const
 	return m_Recipients[slot];
 }
 
-// The viewer, by the index the engine names: C_BasePlayer::GetLocalPlayer()
-// answers NULL in this mod. See local_recipient.h.
-static int LocalPlayerSlot()
-{
-	return engine ? engine->GetLocalPlayer() : -1;
-}
-
 void C_RecipientFilter::AddAllPlayers()
 {
 	m_Recipients.RemoveAll();
-	AddRecipientByPlayerIndex(LocalPlayerSlot());
+	AddRecipientByPlayerIndex(m_pEngine->GetLocalPlayer());
 }
 
 // The add every other add funnels through; the viewer rule is in
 // local_recipient.h, and this keeps the duplicate check.
 void C_RecipientFilter::AddRecipientByPlayerIndex(int playerindex)
 {
-	if (!LocalRecipient_ShouldHold(playerindex, LocalPlayerSlot()))
+	if (!LocalRecipient_ShouldHold(playerindex, m_pEngine->GetLocalPlayer()))
 		return;
 
 	// Already in list
@@ -90,7 +84,8 @@ void C_RecipientFilter::AddRecipientsByPAS(const Vector& origin)
 	AddAllPlayers();
 }
 
-CLocalPlayerFilter::CLocalPlayerFilter()
+CLocalPlayerFilter::CLocalPlayerFilter(IVEngineClient* pEngine)
+	: C_RecipientFilter(pEngine)
 {
-	AddRecipientByPlayerIndex(LocalPlayerSlot());
+	AddRecipientByPlayerIndex(m_pEngine->GetLocalPlayer());
 }

@@ -40,37 +40,27 @@
 
 #include "ss_bitblock.h"
 #include "ss_command_line.h"
+#include "shell_client_engine_interfaces.h"
 
 // vgui_int.cpp's cursor, as in_mouse.cpp reached it.
-void GetVGUICursorPos(int& x, int& y);
-void SetVGUICursorPos(int x, int y);
+void GetVGUICursorPos(const CClientEngineInterfaces& engines, int& x, int& y);
+void SetVGUICursorPos(const CClientEngineInterfaces& engines, int x, int y);
 
 // The button tokens input.h names as globals. Each address is an id into
 // KeyButtons.All, in in_main.cpp's declaration order; the state is managed's.
-kbutton_t in_speed;
-kbutton_t in_jlook;
-kbutton_t in_strafe;
-kbutton_t in_forward;
-kbutton_t in_back;
-kbutton_t in_moveleft;
-kbutton_t in_moveright;
-kbutton_t in_graph;
-kbutton_t in_joyspeed;
-
-static const struct
-{
-	const kbutton_t* pToken;
-	int32_t nId;
-} s_ButtonTokens[] = {
-	{&in_speed, 0},    {&in_jlook, 2},     {&in_strafe, 3}, {&in_forward, 5},   {&in_back, 6},
-	{&in_moveleft, 7}, {&in_moveright, 8}, {&in_graph, 9},  {&in_joyspeed, 10},
+const CSourceSharpInput::ButtonToken_t CSourceSharpInput::s_ButtonTokens[] = {
+	{&CSourceSharpInput::m_in_speed, 0},     {&CSourceSharpInput::m_in_jlook, 2},
+	{&CSourceSharpInput::m_in_strafe, 3},    {&CSourceSharpInput::m_in_forward, 5},
+	{&CSourceSharpInput::m_in_back, 6},      {&CSourceSharpInput::m_in_moveleft, 7},
+	{&CSourceSharpInput::m_in_moveright, 8}, {&CSourceSharpInput::m_in_graph, 9},
+	{&CSourceSharpInput::m_in_joyspeed, 10},
 };
 
-static int32_t ButtonTokenId(const kbutton_t* pKey)
+int32_t CSourceSharpInput::ButtonTokenId(const kbutton_t* pKey) const
 {
 	for (int i = 0; i < (int)ARRAYSIZE(s_ButtonTokens); i++)
 	{
-		if (s_ButtonTokens[i].pToken == pKey)
+		if (&(this->*s_ButtonTokens[i].pKey) == pKey)
 			return s_ButtonTokens[i].nId;
 	}
 	return -1;
@@ -101,9 +91,12 @@ enum
 	INPUT_PUBLISHED_THIRD_PERSON = 1 << 3,
 };
 
-CSourceSharpInput::CSourceSharpInput(const CManagedAreasClient& areas, CViewerFacts& viewerFacts,
-									 CPrediction& prediction, CVoiceStatus& voiceStatus)
+CSourceSharpInput::CSourceSharpInput(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+									 CHud& hud, CViewerFacts& viewerFacts, CPrediction& prediction,
+									 CVoiceStatus& voiceStatus)
 	: m_Areas(areas)
+	, m_Engines(engines)
+	, m_Hud(hud)
 	, m_Prediction(prediction)
 	, m_VoiceStatus(voiceStatus)
 	, m_ViewerFacts(viewerFacts)
@@ -159,7 +152,7 @@ void CSourceSharpInput::CreateMove(int sequence_number, float input_sample_frame
 
 	cmd->Reset();
 	cmd->command_number = sequence_number;
-	cmd->tick_count = gpGlobals->tickcount;
+	cmd->tick_count = m_Engines.m_pGlobals->tickcount;
 
 	if (IManagedInputClient* p = Managed())
 	{
@@ -257,17 +250,17 @@ int CSourceSharpInput::KeyEvent(int down, ButtonCode_t keynum, const char* pszCu
 		return nAnswer;
 
 	// Managed's -1: the client mode's to answer, as stock's last line.
-	if (g_pClientMode)
-		return g_pClientMode->KeyInput(down, keynum, pszCurrentBinding);
+	if (m_Engines.m_pClientMode)
+		return m_Engines.m_pClientMode->KeyInput(down, keynum, pszCurrentBinding);
 	return 1;
 }
 
 kbutton_t* CSourceSharpInput::FindKey(const char* name)
 {
 	if (!Q_stricmp(name, "in_graph"))
-		return &in_graph;
+		return &m_in_graph;
 	if (!Q_stricmp(name, "in_jlook"))
-		return &in_jlook;
+		return &m_in_jlook;
 	return NULL;
 }
 
@@ -608,7 +601,6 @@ IManagedInputClient* CSourceSharpInput::Managed() const
 }
 
 // The client DLL object's member; set from its Init to its Shutdown.
-::IInput* input = NULL;
 
 void CSourceSharpInput::ThirdPersonInit()
 {
@@ -625,7 +617,7 @@ void CSourceSharpInput::StopAllRumble()
 // IShimInputClient's bodies.
 void CSourceSharpInput::InputCursorState(int32_t* pVisible, int32_t* pLocked)
 {
-	vgui::ISurface* pSurface = vgui::surface();
+	vgui::ISurface* pSurface = m_Engines.m_pVGuiSurface;
 	if (pVisible)
 		*pVisible = pSurface && pSurface->IsCursorVisible() ? 1 : 0;
 	if (pLocked)
@@ -635,7 +627,7 @@ void CSourceSharpInput::InputCursorState(int32_t* pVisible, int32_t* pLocked)
 void CSourceSharpInput::InputGetCursorPos(int32_t* pX, int32_t* pY)
 {
 	int x = 0, y = 0;
-	GetVGUICursorPos(x, y);
+	GetVGUICursorPos(m_Engines, x, y);
 	if (pX)
 		*pX = x;
 	if (pY)
@@ -644,20 +636,20 @@ void CSourceSharpInput::InputGetCursorPos(int32_t* pX, int32_t* pY)
 
 void CSourceSharpInput::InputSetCursorPos(int32_t x, int32_t y)
 {
-	SetVGUICursorPos(x, y);
+	SetVGUICursorPos(m_Engines, x, y);
 }
 
 void CSourceSharpInput::InputSetCursorArrow()
 {
-	if (vgui::surface())
-		vgui::surface()->SetCursor(vgui::dc_arrow);
+	if (m_Engines.m_pVGuiSurface)
+		m_Engines.m_pVGuiSurface->SetCursor(vgui::dc_arrow);
 }
 
 void CSourceSharpInput::InputVguiScreenSize(int32_t* pWide, int32_t* pTall)
 {
 	int w = 0, h = 0;
-	if (vgui::surface())
-		vgui::surface()->GetScreenSize(w, h);
+	if (m_Engines.m_pVGuiSurface)
+		m_Engines.m_pVGuiSurface->GetScreenSize(w, h);
 	if (pWide)
 		*pWide = w;
 	if (pTall)
@@ -667,17 +659,17 @@ void CSourceSharpInput::InputVguiScreenSize(int32_t* pWide, int32_t* pTall)
 void CSourceSharpInput::InputHudFacts(float* pSensitivity, int32_t* pKeyBits, float* pFovAdjust)
 {
 	if (pSensitivity)
-		*pSensitivity = gHUD.GetSensitivity();
+		*pSensitivity = m_Hud.GetSensitivity();
 	if (pKeyBits)
-		*pKeyBits = gHUD.m_iKeyBits;
+		*pKeyBits = m_Hud.m_iKeyBits;
 	if (pFovAdjust)
-		*pFovAdjust = gHUD.GetFOVSensitivityAdjust();
+		*pFovAdjust = m_Hud.GetFOVSensitivityAdjust();
 }
 
 void CSourceSharpInput::InputStopPitchDrift()
 {
-	if (view)
-		view->StopPitchDrift();
+	if (m_Engines.m_pViewRender)
+		m_Engines.m_pViewRender->StopPitchDrift();
 }
 
 void CSourceSharpInput::InputSetLocalViewAngles(const float* pAngles)
@@ -706,10 +698,10 @@ void* CSourceSharpInput::InputMailbox()
 // +score / +showscores (IN_ScoreDown / IN_ScoreUp's viewport half).
 void CSourceSharpInput::InputShowScoreboard(int32_t bShow)
 {
-	if (!gViewPortInterface)
+	if (!m_Engines.m_pViewPort)
 		return;
 
-	gViewPortInterface->ShowPanel(PANEL_SCOREBOARD, bShow != 0);
+	m_Engines.m_pViewPort->ShowPanel(PANEL_SCOREBOARD, bShow != 0);
 	if (!bShow)
 		m_VoiceStatus.StopSquelchMode();
 }

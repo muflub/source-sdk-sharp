@@ -8,7 +8,6 @@
 
 #include "iprediction.h"
 #include "client_entity.h"
-#include "cdll_bounded_cvars.h"
 
 class CMoveData;
 class CUserCmd;

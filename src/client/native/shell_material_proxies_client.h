@@ -22,6 +22,7 @@
 #include "ishim_areas_client.h"
 #include "shell_managed_areas_client.h"
 
+class CClientEngineInterfaces;
 class CViewCameras;
 class CClientEntityList;
 class CManagedMaterialProxy;
@@ -29,8 +30,10 @@ class CManagedMaterialProxy;
 class CMaterialProxiesClient final : public IShimMaterialProxyClient
 {
 public:
-	CMaterialProxiesClient(const CManagedAreasClient& areas, const CViewCameras& cameras,
-						   CClientEntityList& entityList);
+	CMaterialProxiesClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+						   const CViewCameras& cameras, CClientEntityList& entityList);
+
+	const CClientEngineInterfaces& Engines() const { return m_Engines; }
 
 	CMaterialProxiesClient(const CMaterialProxiesClient&) = delete;
 	CMaterialProxiesClient& operator=(const CMaterialProxiesClient&) = delete;
@@ -86,6 +89,7 @@ private:
 	};
 
 	const CManagedAreasClient& m_Areas;
+	const CClientEngineInterfaces& m_Engines;
 	const CViewCameras& m_Cameras;
 	CClientEntityList& m_EntityList;
 

@@ -42,5 +42,3 @@ public:
 	virtual IViewPortPanel* GetActivePanel() = 0;
 	virtual void PostMessageToPanel(const char* pName, KeyValues* pKeyValues) = 0;
 };
-
-extern IViewPort* gViewPortInterface;

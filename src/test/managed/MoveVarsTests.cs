@@ -332,11 +332,11 @@ public class MoveVarsTests
         // english -- so this pins the asymmetry rather than leaving it to the
         // ledger's prose.
         var path = Path.Combine(RepoLayout.SdkTree,
-            "src/sourcesharp/game/client/shell_hud_framework.cpp");
+            "src/sourcesharp/game/client/shell_convars_client.h");
         var text = File.ReadAllText(path);
 
-        Assert.Contains("ConVar closecaption(\"closecaption\"", text);
-        Assert.DoesNotContain("ConVar english(\"english\"", text);
+        Assert.Contains("ConVar m_closecaption{ \"closecaption\"", text);
+        Assert.DoesNotContain("\"english\"", text);
 
         Assert.False(DeclarationsIn(ClientAssembly).ContainsKey("closecaption"),
             "closecaption is declared in managed code as well as in C++. Two "

@@ -20,19 +20,28 @@ class CClientEngineInterfaces;
 class CSourceSharpClientMode;
 class CSourceSharpRawPanel;
 
+class CHud;
+
 class CHudUiClient
 {
 public:
-	CHudUiClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines,
+	CHudUiClient(const CManagedAreasClient& areas, const CClientEngineInterfaces& engines, CHud& hud,
 				 CSourceSharpClientMode& clientMode)
 		: m_Areas(areas)
 		, m_Engines(engines)
+		, m_Hud(hud)
 		, m_ClientMode(clientMode)
 	{
 	}
 
 	CHudUiClient(const CHudUiClient&) = delete;
 	CHudUiClient& operator=(const CHudUiClient&) = delete;
+
+	// Shim slots: what the HUD asks of the engine.
+	int32_t GetLocalPlayerIndex();
+	void HudLocalise(const char* pToken, char* pOut, int32_t nOutSize);
+	void HudLookupBinding(const char* pBinding, char* pOut, int32_t nOutSize);
+	int32_t HudTextMessageGet(const char* pName, SourceSharpTextMessage* pOut);
 
 	// NULL before the first load and after the last unload.
 	IManagedUiClient* Managed() const { return m_Areas.m_pUiClient; }
@@ -78,10 +87,13 @@ public:
 	int32_t UiMaterialTexture(const char* pName);
 
 private:
+	void SetColor(uint32_t nRgba);
+
 	void RefreshRefractFor(int32_t nTexture);
 
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;
+	CHud& m_Hud;
 	CSourceSharpClientMode& m_ClientMode;
 
 	// The paint window, and the clip the open panel's traversal set, restored when managed

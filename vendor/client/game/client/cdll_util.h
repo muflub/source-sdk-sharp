@@ -1,6 +1,8 @@
 //========= Copyright Valve Corporation, All rights reserved. ============//
 #pragma once
 
+class CClientEngineInterfaces;
+
 #include <shareddefs.h>
 
 #include "shake.h"
@@ -26,15 +28,11 @@ typedef uint32 HFont;
 };
 
 // ScreenHeight returns the height of the screen, in pixels
-int ScreenHeight();
+int ScreenHeight(const CClientEngineInterfaces& engines);
 // ScreenWidth returns the width of the screen, in pixels
-int ScreenWidth();
+int ScreenWidth(const CClientEngineInterfaces& engines);
 
 void UTIL_Smoke(const Vector& origin, const float scale, const float framerate);
-
-client_textmessage_t* TextMessageGet(const char* pName);
-
-char* VarArgs(PRINTF_FORMAT_STRING const char* format, ...);
 
 // Base light indices to avoid index collision
 

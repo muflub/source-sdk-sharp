@@ -31,14 +31,10 @@ class IClientThinkable;
 // handle the C_World singleton is bound to. The serial is compared, so the
 // previous map's world handle does not resolve. An unbound world answers NULL.
 // Defined in world_adapter_client.cpp.
-IClientUnknown* SourceSharp_ClientWorldFromIndex(int nEntry);
-IClientUnknown* SourceSharp_ClientWorldFromHandle(const CBaseHandle& hEnt);
 
 // The world's bound handle, or an invalid handle when no level is loaded.
-CBaseHandle SourceSharp_ClientWorldHandle();
 
 // Releases the world at level shutdown; false if no level was loaded.
-bool SourceSharp_ClientWorldLevelShutdown();
 
 // The rules the world arm decides with, engine-free for tests. Each tests
 // IsValid() first: GetEntryIndex() on an invalid handle answers NUM_ENT_ENTRIES-1.

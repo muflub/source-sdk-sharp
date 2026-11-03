@@ -19,8 +19,6 @@
 #include <shared_mutex>
 #include <thread>
 #include <vector>
-
-extern ISpatialPartition* partition;
 #else
 
 #include "predictable_entity.h"
@@ -30,6 +28,7 @@ extern ISpatialPartition* partition;
 #include "client_entity.h"
 
 #include "shell_clientsystem.h"
+#include "shell_client_engine_interfaces.h"
 
 #include <atomic>
 #include <shared_mutex>
@@ -62,6 +61,15 @@ public:
 
 	~CDirtySpatialPartitionEntityList();
 
+#ifdef CLIENT_DLL
+	// The slot the client DLL object fills in Init, before this system's Init runs.
+	void SetPartition(ISpatialPartition* const& ppPartition) { m_ppPartition = &ppPartition; }
+
+	ISpatialPartition* Partition() const { return *m_ppPartition; }
+#else
+	ISpatialPartition* Partition() const { return ::partition; }
+#endif
+
 	void LockPartitionForRead()
 	{
 		if (t_readLockCount == 0)
@@ -81,6 +89,9 @@ public:
 	}
 
 private:
+#ifdef CLIENT_DLL
+	ISpatialPartition* const* m_ppPartition = nullptr;
+#endif
 	CTSListWithFreeList<CBaseHandle> m_DirtyEntities;
 	std::shared_mutex m_partitionMutex;
 	// The thread holding the write lock; a default id (no thread) otherwise.
@@ -91,13 +102,16 @@ private:
 
 thread_local int CDirtySpatialPartitionEntityList::t_readLockCount = 0;
 
-static CDirtySpatialPartitionEntityList s_DirtyKDTree("CDirtySpatialPartitionEntityList");
-
 #ifdef CLIENT_DLL
-CClientSystem* ClientSystem_DirtySpatialPartition()
+// The client's system table holds it for the DLL's lifetime.
+CClientSystem* ClientSystem_CreateDirtySpatialPartition(const CClientEngineInterfaces& engines)
 {
-	return &s_DirtyKDTree;
+	CDirtySpatialPartitionEntityList* pList = new CDirtySpatialPartitionEntityList("CDirtySpatialPartitionEntityList");
+	pList->SetPartition(engines.m_pPartition);
+	return pList;
 }
+#else
+static CDirtySpatialPartitionEntityList s_DirtyKDTree("CDirtySpatialPartitionEntityList");
 #endif
 
 #ifndef CLIENT_DLL
@@ -110,16 +124,11 @@ CServerSystem* DirtySpatialPartitionGameSystem()
 
 // Forces spatial partition updates, avoiding threading problems from lazy update.
 #ifdef CLIENT_DLL
-void UpdateDirtySpatialPartitionEntities()
+void UpdateDirtySpatialPartitionEntities(CClientSystem* pDirtyPartition)
 {
-	SpatialPartitionListMask_t listMask;
-#ifdef CLIENT_DLL
-	listMask = PARTITION_CLIENT_GAME_EDICTS;
-#else
-	listMask = PARTITION_SERVER_GAME_EDICTS;
-#endif
-	s_DirtyKDTree.OnPreQuery(listMask);
-	s_DirtyKDTree.OnPostQuery(listMask);
+	CDirtySpatialPartitionEntityList* pList = static_cast<CDirtySpatialPartitionEntityList*>(pDirtyPartition);
+	pList->OnPreQuery(PARTITION_CLIENT_GAME_EDICTS);
+	pList->OnPostQuery(PARTITION_CLIENT_GAME_EDICTS);
 }
 #endif
 
@@ -146,13 +155,13 @@ CDirtySpatialPartitionEntityList::~CDirtySpatialPartitionEntityList()
 
 bool CDirtySpatialPartitionEntityList::Init()
 {
-	::partition->InstallQueryCallback(this);
+	Partition()->InstallQueryCallback(this);
 	return true;
 }
 
 void CDirtySpatialPartitionEntityList::Shutdown()
 {
-	::partition->RemoveQueryCallback(this);
+	Partition()->RemoveQueryCallback(this);
 }
 
 void CDirtySpatialPartitionEntityList::LevelShutdownPostEntity()

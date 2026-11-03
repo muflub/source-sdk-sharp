@@ -14,14 +14,9 @@
 #include "particles_lib_client.h"
 #include "ss_particles/iparticlelib.h"
 
-SourceSharpEffectLedger_t g_SourceSharpEffects = {};
-
 // Does not call the fog functions, which would count the ask; cs_cl_fog reports fog.
-CON_COMMAND(cs_cl_effects_report,
-			"SourceSharp: how many primitives each of step 7a's leaf effect renderers has emitted.")
+void SourceSharpEffects_Report(const SourceSharpEffectLedger_t& l)
 {
-	const SourceSharpEffectLedger_t& l = g_SourceSharpEffects;
-
 	Msg("[SourceSharp/Client] effect draws (7a):\n");
 	Msg("  sprite quads        %8d\n", l.nSpriteQuads);
 	Msg("  rope draws          %8d\n", l.nRopeDraws);

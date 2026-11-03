@@ -71,4 +71,3 @@ char const* CShellDecalSystemClient::TranslateDecalForGameMaterial(char const* d
 }
 
 // The client DLL object's member; set from its Init.
-IDecalEmitterSystem* decalsystem = NULL;

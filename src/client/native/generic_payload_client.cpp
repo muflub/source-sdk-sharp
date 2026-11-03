@@ -24,7 +24,7 @@ int SourceSharp_StandaloneBlobOffset();
 bool CStandaloneClients::SchemaAccept(unsigned int nTypeId, unsigned int nSchemaHash, int nEntIndex,
 									  const char** ppOutClassName)
 {
-	const SourceSharpNetType_t* pType = SourceSharp_NetTypes().ById(nTypeId);
+	const SourceSharpNetType_t* pType = m_NetTypes.ById(nTypeId);
 
 	if (ppOutClassName)
 		*ppOutClassName = pType ? pType->szClass : NULL;
@@ -90,8 +90,7 @@ const char* SourceSharpPayload_RecvProxyName(const RecvProp* pProp)
 }
 
 // The client's half of cs_sv_dump_payload; on a listen server both ends can be compared.
-CON_COMMAND(cs_cl_dump_payload,
-			"Build the client's generic-table payload prop set standalone and dump its offsets and proxies")
+void SourceSharpPayload_DumpCommand(const CCommand& args)
 {
 	int nBytes = 32;
 

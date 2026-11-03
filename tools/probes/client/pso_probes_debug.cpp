@@ -250,7 +250,7 @@ CON_COMMAND(cs_cl_pso_trace_start, "particles-so spike: count Bind/dynamic mesh/
 		Warning("[SourceSharp/pso] a hook could not be installed\n");
 		return;
 	}
-	g_nStartFrame = gpGlobals->framecount;
+	g_nStartFrame = ShellClientDll_Engines().m_pGlobals->framecount;
 	g_bArmed = true;
 	Msg("[SourceSharp/pso] trace armed at frame %d (libss_particles.so %s)\n", g_nStartFrame,
 		g_pParticlesBase ? "loaded" : "not loaded");
@@ -262,7 +262,7 @@ CON_COMMAND(cs_cl_pso_trace_stop, "particles-so spike: stop counting and print")
 		return;
 	g_bArmed = false;
 	Unhook();
-	const int nFrames = MAX(1, gpGlobals->framecount - g_nStartFrame);
+	const int nFrames = MAX(1, ShellClientDll_Engines().m_pGlobals->framecount - g_nStartFrame);
 	Msg("[SourceSharp/pso] trace: %d frames\n", nFrames);
 	for (int m = 0; m < kModules; ++m)
 	{
@@ -282,10 +282,10 @@ CON_COMMAND(cs_cl_pso_bench, "particles-so spike: time n particle-manager getter
 	volatile float flSink = 0.0f;
 	double t0 = NowNs();
 	for (int i = 0; i < n; ++i)
-		flSink = flSink + g_pParticleSystemMgr->GetLastSimulationTime();
+		flSink = flSink + ShellClientDll_Engines().m_pParticleMgr->GetLastSimulationTime();
 	double t1 = NowNs();
 	for (int i = 0; i < n; ++i)
-		flSink = flSink + g_pParticleSystemMgr->ParticleThrottleScaling();
+		flSink = flSink + ShellClientDll_Engines().m_pParticleMgr->ParticleThrottleScaling();
 	double t2 = NowNs();
 	Msg("[SourceSharp/pso] bench %d calls: GetLastSimulationTime %.2f ns/call, ParticleThrottleScaling %.2f ns/call (%s)\n",
 		n, (t1 - t0) / n, (t2 - t1) / n, "forwarded to libss_particles.so");

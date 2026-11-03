@@ -13,6 +13,7 @@
 
 class CClientEngineInterfaces;
 class CStandaloneClients;
+class CTempEntBackendsClient;
 class CTempEnts;
 class CTempEntsSystemClient;
 class CViewCameras;
@@ -20,9 +21,11 @@ class CViewCameras;
 class CTempEntCommandsClient final
 {
 public:
-	CTempEntCommandsClient(const CClientEngineInterfaces& engines, const CViewCameras& cameras, CTempEnts& pool,
-						   CTempEntsSystemClient& system, CStandaloneClients& standalone)
+	CTempEntCommandsClient(const CClientEngineInterfaces& engines, CTempEntBackendsClient& backends,
+						   const CViewCameras& cameras, CTempEnts& pool, CTempEntsSystemClient& system,
+						   CStandaloneClients& standalone)
 		: m_Engines(engines)
+		, m_Backends(backends)
 		, m_Cameras(cameras)
 		, m_Pool(pool)
 		, m_System(system)
@@ -37,6 +40,7 @@ private:
 	void PoolLive(const CCommand& args);
 
 	const CClientEngineInterfaces& m_Engines;
+	CTempEntBackendsClient& m_Backends;
 	const CViewCameras& m_Cameras;
 	CTempEnts& m_Pool;
 	CTempEntsSystemClient& m_System;

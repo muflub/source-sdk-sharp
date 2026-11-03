@@ -14,14 +14,16 @@
 #include "shell_clientsystem.h"
 
 class CManagedSide;
+class CClientEngineInterfaces;
 class IClientRuntimeAdapter;
 
 class CSourceSharpSystem final : public CClientSystemPerFrame
 {
 public:
-	explicit CSourceSharpSystem(CManagedSide& managedSide)
+	CSourceSharpSystem(CManagedSide& managedSide, const CClientEngineInterfaces& engines)
 		: CClientSystemPerFrame("SourceSharp")
 		, m_ManagedSide(managedSide)
+		, m_Engines(engines)
 	{
 	}
 
@@ -36,5 +38,6 @@ public:
 
 private:
 	CManagedSide& m_ManagedSide;
+	const CClientEngineInterfaces& m_Engines;
 	IClientRuntimeAdapter* m_pRuntime = nullptr;
 };

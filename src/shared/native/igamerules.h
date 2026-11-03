@@ -90,14 +90,3 @@ public:
 	virtual const char* TranslateEffectForVisionFilter(const char* pchEffectType, const char* pchEffectName) = 0;
 #endif // !CLIENT_DLL
 };
-
-#ifdef CLIENT_DLL
-// NULL between levels, so test it before calling. The server's rules are its world's
-// (CServerEntityContext::GameRules).
-extern IGameRules* g_pGameRules;
-
-inline IGameRules* GameRules()
-{
-	return g_pGameRules;
-}
-#endif
