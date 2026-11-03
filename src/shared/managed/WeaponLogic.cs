@@ -665,7 +665,7 @@ public sealed class WeaponLogic
         {
             if (IsEmpty(w, in type, clipSize))
             {
-                HandleFireOnEmpty(w, in type, now, effectsLive, clipSize, behaviour, command);
+                HandleFireOnEmpty(w, vm, in type, now, effectsLive, behaviour, command);
                 return;
             }
 
@@ -1052,8 +1052,8 @@ public sealed class WeaponLogic
     /// The click of an empty gun, and a short delay so it clicks at a rate
     /// rather than every tick.
     /// </summary>
-    private void HandleFireOnEmpty(WeaponNetState w, in WeaponType type,
-                                   float now, bool effectsLive, int clipSize,
+    private void HandleFireOnEmpty(WeaponNetState w, ViewModelNetState vm, in WeaponType type,
+                                   float now, bool effectsLive,
                                    IWeaponBehaviour? behaviour, WeaponCommand command)
     {
         if (effectsLive)
@@ -1063,16 +1063,12 @@ public sealed class WeaponLogic
 
         // An empty gun reloads itself, which is what stock does through
         // ReloadOrSwitchWeapons and is the difference between a gun that has
-        // run out and a gun that is broken. Stock's weapon reload runs through
-        // SetReloadTimer, so the behaviour scales this clock too — the click's
-        // floor still floors a heavily scaled one.
-        if (clipSize > 0 && w.Reserve > 0)
-        {
-            w.InReload = true;
-            float duration = _arms.AnimDuration(WeaponAnim.Reload);
-            duration = behaviour?.ModifyReloadTime(in type, duration, command.OwnerIndex) ?? duration;
-            w.NextPrimaryAttack = now + Math.Max(duration, EmptyClickInterval);
-        }
+        // run out and a gun that is broken. The whole Reload, as stock's calls
+        // it: its animation and sound with its clock, which the behaviour scales.
+        // The click's floor still floors a heavily scaled one.
+        Reload(w, vm, in type, now, effectsLive, behaviour, command);
+        if (w.InReload)
+            w.NextPrimaryAttack = Math.Max(w.NextPrimaryAttack, now + EmptyClickInterval);
     }
 
     /// <summary>

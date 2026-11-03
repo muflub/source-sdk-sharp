@@ -91,6 +91,37 @@ public class PhysboxTests
         return (registry, (FuncPhysbox)registry.Get(new EntityHandle(31))!, engine);
     }
 
+    private sealed class RecordingHeld : IHeldObjects
+    {
+        public readonly List<EntityHandle> Dropped = [];
+        public void ForceDrop(EntityHandle held) => Dropped.Add(held);
+        public void Teleported(EntityHandle held) { }
+    }
+
+    /// <summary>
+    /// CPhysBox::InputForceDrop. dm_lockdown's fan_enable sends plug2 this as the plug
+    /// reaches its socket; refused, the gun went on holding the plug and it never seated.
+    /// </summary>
+    [Fact]
+    public void The_ForceDrop_input_drops_the_box_from_whoever_holds_it()
+    {
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(FuncPhysbox).Assembly);
+        var services = Services(out var engine);
+        var held = new RecordingHeld();
+        services.AddInstance<IEntityDirectory>(registry);
+        services.AddInstance<IHeldObjects>(held);
+        registry.Services = services;
+        engine.Strict = false;
+        engine.Returns("EntityPhysics.InitPhysics", true);
+        registry.Spawn(new EntityHandle(31), EntityNames.FuncPhysbox);
+
+        Assert.True(registry.Input(new EntityHandle(31), "ForceDrop", "", 0f, new EntityHandle(1)),
+                    "the map's input must be answered");
+
+        Assert.Equal([new EntityHandle(31)], held.Dropped);
+    }
+
     [Fact]
     public void A_start_asleep_physbox_fires_OnAwakened_when_it_first_wakes()
     {

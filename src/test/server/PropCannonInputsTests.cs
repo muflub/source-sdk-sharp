@@ -157,6 +157,21 @@ public class PropCannonInputsTests
         public void Destroy(uint motion) { }
     }
 
+    /// <summary>Within the 0.25 FindObject attaches at, where <see cref="Ahead"/>'s 0.5 only pulls.</summary>
+    private sealed class InReach(EntityHandle hit) : ITraceQueries
+    {
+        public TraceAnswer Line(Vector start, Vector end, uint mask, EntityHandle pass) => new(0.1f, end, hit, false);
+
+        public TraceAnswer Hull(Vector start, Vector end, Vector mins, Vector maxs, uint mask, EntityHandle pass) => new(0.1f, end, hit, false);
+    }
+
+    private sealed class OneController : ICustomMotionControllers
+    {
+        public uint CreateCustom(EntityHandle entity, IMotionSimulate simulate) => 9u;
+
+        public void Destroy(uint motion) { }
+    }
+
     private sealed class NoTempEnts : TempEntsDouble { }
 
     [Theory]
@@ -199,5 +214,57 @@ public class PropCannonInputsTests
                                          rig.Registry, rig.Engine, new NoControllers(), rig.Engine);
 
         Assert.Equal(!shutOut, cannon.TargetAhead(1));
+    }
+
+    /// <summary>CBasePlayer::ForceDropOfCarriedPhysObjects: the holder lets go, and only of that object.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_force_drop_lets_go_of_the_held_object_only(bool thisObject)
+    {
+        var rig = Spawned();
+        rig.Engine.Returns("Players.GetHandle", Player)
+                  .Returns("Entities.GetIndex", 71)
+                  .Returns("Entities.GetEngineBlock", new byte[EngineBlock.SizeBytes])
+                  .Returns("EntityPhysics.PhysicsObject", (nint)0x1234);
+        EngineBlockMoveType.Write(rig.Engine, Prop, MoveType.VPhysics);
+
+        var cannon = new PhysCannonWorld(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine, RestingBodies, new InReach(Prop),
+                                         rig.Engine, rig.Engine, rig.Registry.Services!.Require<IScreenEffects>(), new NoTempEnts(),
+                                         rig.Registry, rig.Engine, new OneController(), rig.Engine);
+        cannon.FindObject(1, out _);
+        Assert.True(cannon.Attached(1) != 0, "the gun must have taken the prop for the drop to mean anything");
+
+        cannon.ForceDrop(thisObject ? Prop : new EntityHandle(0x0005_0009u));
+
+        Assert.Equal(thisObject, cannon.Attached(1) == 0);
+    }
+
+    /// <summary>
+    /// The step between a trigger's touch and its outputs: a teleported object is left where it
+    /// landed for one, or the grab drags dm_lockdown's plug out of its socket before ForceDrop lands.
+    /// </summary>
+    [Fact]
+    public void A_teleported_held_object_is_not_steered_for_one_step()
+    {
+        var rig = Spawned();
+        rig.Engine.Returns("Players.GetHandle", Player)
+                  .Returns("Entities.GetIndex", 71)
+                  .Returns("Entities.GetEngineBlock", new byte[EngineBlock.SizeBytes])
+                  .Returns("EntityPhysics.PhysicsObject", (nint)0x1234);
+        EngineBlockMoveType.Write(rig.Engine, Prop, MoveType.VPhysics);
+        var cannon = new PhysCannonWorld(new RecordingLog(), rig.Engine, rig.Engine, rig.Engine, RestingBodies, new InReach(Prop),
+                                         rig.Engine, rig.Engine, rig.Registry.Services!.Require<IScreenEffects>(), new NoTempEnts(),
+                                         rig.Registry, rig.Engine, new OneController(), rig.Engine);
+        cannon.FindObject(1, out _);
+        GrabController grab = cannon.GrabOf(1)!;
+        Assert.Equal(MotionSimResult.LocalAcceleration, grab.Simulate(0x1234, 0.015f, out _, out _));
+
+        cannon.Teleported(new EntityHandle(0x0005_0009u));
+        Assert.Equal(MotionSimResult.LocalAcceleration, grab.Simulate(0x1234, 0.015f, out _, out _));
+
+        cannon.Teleported(Prop);
+        Assert.Equal(MotionSimResult.Nothing, grab.Simulate(0x1234, 0.015f, out _, out _));
+        Assert.Equal(MotionSimResult.LocalAcceleration, grab.Simulate(0x1234, 0.015f, out _, out _));
     }
 }

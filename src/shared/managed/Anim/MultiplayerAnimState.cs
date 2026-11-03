@@ -104,6 +104,9 @@ public sealed class MultiplayerAnimState
     private int _moveY = -1;
     private int _aimYaw = -1;
     private int _aimPitch = -1;
+
+    // Which way the eye pitch turns the aim dial: -1 for "body_pitch", 1 for "aim_pitch".
+    private float _aimPitchSign = -1f;
     private int _moveYaw = -1;
     private int _moveScale = -1;
     private bool _poseParameterInit;
@@ -739,6 +742,17 @@ public sealed class MultiplayerAnimState
         _aimYaw = _target.LookupPoseParameter("body_yaw");
         _moveYaw = _target.LookupPoseParameter("move_yaw");
         _moveScale = _target.LookupPoseParameter("move_scale");
+        _aimPitchSign = -1f;
+
+        // HL2DM's rig: CPlayerAnimState sets "aim_pitch" to the pitch itself and
+        // "aim_yaw" to the torso, where this machine's own stock negates "body_pitch".
+        // Left undriven, an aim dial sits at the top of its range: arms in the air.
+        if (_aimPitch < 0)
+        {
+            _aimPitch = _target.LookupPoseParameter("aim_pitch");
+            _aimYaw = _target.LookupPoseParameter("aim_yaw");
+            _aimPitchSign = 1f;
+        }
 
         return true;
     }
@@ -899,7 +913,7 @@ public sealed class MultiplayerAnimState
     /// <summary>Stock's <c>ComputePoseParam_AimPitch</c> (:1689): the torso reads the eye pitch, negated.</summary>
     public void ComputePoseParam_AimPitch()
     {
-        _target.SetPoseParameter(_aimPitch, -_eyePitch);
+        _target.SetPoseParameter(_aimPitch, _aimPitchSign * _eyePitch);
     }
 
     /// <summary>

@@ -806,6 +806,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
 
         weapon.State.OwnerIndex = _entities.GetIndex(carry.Player);
         weapon.State.WeaponTypeId = owned.TypeIndex;
+        ShowHeld(carry, owned.TypeIndex + 1);
         weapon.State.Clip = ClipSizeOf(in type, carry.Player) > 0 ? owned.Clip : -1;
         weapon.State.InReload = false;
         weapon.State.NextPrimaryAttack = now + type.DeployTime;
@@ -1408,6 +1409,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     // Leaving, dying, level changes.
     //-------------------------------------------------------------------------
 
+    /// <summary>What their arms draw from, on the player's net state for everybody to read.</summary>
+    private void ShowHeld(Carry carry, int held)
+    {
+        if (_directory.Get(carry.Player) is SsPlayer player)
+            player.State.HeldWeapon = held;
+    }
+
     /// <summary>
     /// Drops the active weapon where the player fell, as a pickup carrying the
     /// clip it had — killing somebody stays worth walking over.
@@ -1445,6 +1453,9 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             if (dropped != EntityHandle.None)
             {
                 _entities.SetOrigin(dropped, DropPoint(player));
+
+                // CBaseCombatWeapon::Drop: "If it was dropped then there's no need to respawn it."
+                _entities.SetSpawnFlags(dropped, WeaponPickup.NoRespawnFlag);
                 _entities.Spawn(dropped);
             }
         }
@@ -1544,6 +1555,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     private void EmptyHands(Carry carry)
     {
         carry.ActiveSlot = -1;
+        ShowHeld(carry, 0);
 
         // An RPG's dot does not outlast the hands that painted it.
         carry.Arms.UpdateLaserDot(exists: false, on: false);
@@ -2191,6 +2203,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 // OnTakeDamage can push its physics object (A30). The
                 // trace's hitgroup rides beside the call (stock hands the
                 // trace itself to TraceAttack): see DamageHitGroups.
+                using (_arsenal._prediction?.Lifted() ?? default)
                 using (_arsenal._hitGroups.Push(trace.HitGroup, critical))
                     _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
                                              damage, damageType,
@@ -2493,6 +2506,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
             }
             else if (_arsenal._entities.IsValid(trace.Entity) && trace.Entity != EntityHandle.None)
             {
+                using (_arsenal._prediction?.Lifted() ?? default)
                 using (_arsenal._hitGroups.Push(HitGroup.Generic, shot.Critical))
                     _arsenal._damage.ApplyAt(trace.Entity, _carry.Player,
                                              shot.Damage, DamageType.Club,

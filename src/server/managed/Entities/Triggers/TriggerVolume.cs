@@ -250,7 +250,7 @@ public abstract class TriggerVolume : ScriptedEntity
     /// </summary>
     protected virtual bool Passes(EntityHandle toucher)
     {
-        if (!KindWanted)
+        if (!KindAccepts(toucher))
             return false;
 
         return PassesFilter(toucher);
@@ -269,7 +269,40 @@ public abstract class TriggerVolume : ScriptedEntity
     /// went off at a wind that was working perfectly.
     /// </summary>
     protected virtual TriggerSpawnflags KindFlags
-        => TriggerSpawnflags.Clients | TriggerSpawnflags.EverythingElse;
+        => TriggerSpawnflags.Clients | TriggerSpawnflags.PhysicsObjects | TriggerSpawnflags.EverythingElse;
+
+    /// <summary>
+    /// A volume whose map named a kind beyond clients hears about more than players, or
+    /// <see cref="KindAccepts"/> never sees what it would take: the touch routing's
+    /// players-only rule stands before it.
+    /// </summary>
+    public override bool TouchedByAnything
+        => (Kinds & (TriggerSpawnflags.PhysicsObjects | TriggerSpawnflags.EverythingElse)) != 0;
+
+    // What a toucher is, for KindAccepts: bound with the entity's other areas.
+    private IEngineNetworking? _networking;
+
+    private protected override void BindOwnAreas(IServiceLocator engine)
+    {
+        _networking = engine.Require<IEngineNetworking>();
+        base.BindOwnAreas(engine);
+    }
+
+    /// <summary>
+    /// CBaseTrigger::PassesTriggerFilters' spawnflag half: this toucher is of a kind the
+    /// map named. Everything, a client that is a player, a physics object that moves by
+    /// physics (dm_lockdown's plug into its socket), and with no kind named, anybody.
+    /// </summary>
+    protected bool KindAccepts(EntityHandle toucher)
+    {
+        TriggerSpawnflags kinds = Kinds;
+        if (kinds == TriggerSpawnflags.None || (kinds & TriggerSpawnflags.EverythingElse) != 0)
+            return true;
+
+        EntityState state = _networking!.EntityGetState(toucher, out MoveType moveType);
+        return ((kinds & TriggerSpawnflags.Clients) != 0 && (state & EntityState.Player) != 0)
+               || ((kinds & TriggerSpawnflags.PhysicsObjects) != 0 && moveType == MoveType.VPhysics);
+    }
 
     /// <summary>The map's spawnflags read as the kinds they name.</summary>
     protected TriggerSpawnflags Kinds => SpawnFlagsAs<TriggerSpawnflags>();

@@ -55,6 +55,11 @@ public class PhysicsDamageQueueTests
 
     private sealed class Bystander : ScriptedEntity;
 
+    private sealed class ThrownBy(EntityHandle thrower) : ScriptedEntity, IPhysGunTarget
+    {
+        public EntityHandle PhysicsAttacker(float within) => within >= 1f ? thrower : EntityHandle.None;
+    }
+
     private static void Hurt(PhysicsDamageQueue queue, PhysicsEvent ev, uint victim = Victim)
         => queue.Add(new EntityHandle(victim), new EntityHandle(Crate), 30f, DamageType.Crush, in ev, 1);
 
@@ -79,6 +84,44 @@ public class PhysicsDamageQueueTests
     /// hit, so it cannot flip the state bits that restore the inflictor's
     /// velocity either. The live victim beside it, in the same step, still does.
     /// </summary>
+    /// <summary>
+    /// CBaseCombatCharacter::VPhysicsShadowCollision: HasPhysicsAttacker( 1.0 ) is the attacker, so
+    /// the kill feed names who threw the object; the object stays the inflictor.
+    /// </summary>
+    [Fact]
+    public void A_thrown_object_hurts_in_its_throwers_name_and_stays_the_inflictor()
+    {
+        var thrower = new EntityHandle(0x0001_0007u);
+        var directory = new EntityDirectory(new RecordingLog());
+        Assert.True(directory.Bind(new EntityHandle(Crate), new ThrownBy(thrower)));
+        var engine = TestServices.Mock().Returns("Entities.IsValid", true).Returns("Entities.GetHealth", 100);
+        engine.Strict = false;
+        var inflictors = new DamageInflictors();
+        EntityHandle during = EntityHandle.None;
+        engine.WhenCalled("Damage.TakeDamage", call => inflictors.TryCurrent(out during, out _));
+        var queue = new PhysicsDamageQueue(engine, engine, engine, directory, inflictors);
+
+        Hurt(queue, Impact());
+        queue.Deliver();
+
+        var hit = Assert.Single(engine.Calls, c => c.Member == "Damage.TakeDamage");
+        Assert.Equal(thrower, hit.Args[1]);
+        Assert.Equal(new EntityHandle(Crate), during);
+        Assert.False(inflictors.TryCurrent(out _, out _), "the scope closes with the hit");
+    }
+
+    [Fact]
+    public void An_object_nobody_threw_hurts_in_its_own_name()
+    {
+        var (queue, engine) = Queue();
+
+        Hurt(queue, Impact());
+        queue.Deliver();
+
+        var hit = Assert.Single(engine.Calls, c => c.Member == "Damage.TakeDamage");
+        Assert.Equal(new EntityHandle(Crate), hit.Args[1]);
+    }
+
     [Fact]
     public void A_victim_already_marked_for_removal_queues_no_damage()
     {

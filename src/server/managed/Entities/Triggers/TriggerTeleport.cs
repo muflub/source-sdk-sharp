@@ -16,10 +16,13 @@ namespace SourceSharp.Server;
 [ScriptedEntity(EntityNames.TriggerTeleport, ScriptedEntityKind.Brush)]
 public sealed class TriggerTeleport : TriggerVolume
 {
-    public TriggerTeleport(IGameClock clock)
+    public TriggerTeleport(IGameClock clock, IHeldObjects? held = null)
         : base(clock)
     {
+        _held = held;
     }
+
+    private readonly IHeldObjects? _held;
 
     /// <summary>
     /// trigger_teleport's own spawnflag. It used to sit in
@@ -79,6 +82,7 @@ public sealed class TriggerTeleport : TriggerVolume
             ? Entities.GetAngles(destination)
             : null;
         Entities.Teleport(toucher, Entities.GetOrigin(destination) + offset, angles, zeroVelocity: false);
+        _held?.Teleported(toucher);
 
         OnTrigger.Fire();
     }

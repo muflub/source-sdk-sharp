@@ -98,6 +98,9 @@ public enum LifecycleStage
     /// <summary>HL2MP's placed items and weapons, which hold entities until the level goes.</summary>
     PlacedObjects = 210,
 
+    /// <summary>What each player wears, and the precache of HL2MP's player models.</summary>
+    PlayerModels = 215,
+
     /// <summary>Corpses, which hold entity handles.</summary>
     Corpses = 300,
 

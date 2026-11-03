@@ -792,6 +792,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // TF2 does — the gate is asked between the OnSpawning arms and the
         // grant, and a refusal skips the grant entire.
         _services.AddFactory<IHooks<IKitGate>>(locator => new Hooks<IKitGate>(locator, log));
+        // A mod that dresses its own players (IPlayerModelOwner): TF2's classes.
+        _services.AddFactory<IHooks<IPlayerModelOwner>>(locator => new Hooks<IPlayerModelOwner>(locator, log));
         // The mods' per-player carry limits (tf2 stage 1, IAmmoCarryRule): a
         // folded chain over the ammo row's MaxCarry. The client registers the same.
         _services.AddFactory<IHooks<IAmmoCarryRule>>(locator => new Hooks<IAmmoCarryRule>(locator, log));
@@ -1624,6 +1626,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
         var physCannon = _services.Create<PhysCannonWorld>();
         _services.AddInstance(physCannon);
+        _services.AddInstance<IHeldObjects>(physCannon);
         _services.AddInstance(new PhysCannonBehaviourSource(physCannon));
 
         // plan_entity.md §3.8: the physics event ring's consumer. AFTER the
@@ -1636,7 +1639,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             _services.Require<IEngineDamage>(),
             _services.Require<IEngineEntities>(),
             _services.Require<IEnginePlayers>(),
-            _entities.Directory);
+            _entities.Directory,
+            _services.Require<DamageInflictors>());
         _services.AddInstance(impacts);
         // The queued impact and break sounds (plan_physics_bones_native_zero
         // 2.3): CPhysicsHook's batch, managed, played at OnPreClientUpdate.
@@ -1881,6 +1885,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // is asked for below the scan.
         var teams = _services.Create<Teams>();
         _services.AddInstance<ITeams>(teams);
+        // What each player wears: SsPlayer asks at a spawn, and it watches team changes.
+        _services.AddInstance(_services.Create<PlayerModels>());
         // IPlayerButtons is registered ABOVE, before the Create block, because
         // Players now takes it as a constructor argument.
         _services.AddInstance<ISoundscapes>(_soundscapes);
@@ -3716,6 +3722,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // The participants' half of stock's ClientSettingsChanged (the convars
         // the game caches per player); the name half below is the core's own.
         _clients?.SettingsChanged(entIndex);
+        _services.Resolve<PlayerModels>()?.SettingsChanged(entIndex);
         return _services.Resolve<PlayerNames>()?.Changed(entIndex) ?? false;
     }
 

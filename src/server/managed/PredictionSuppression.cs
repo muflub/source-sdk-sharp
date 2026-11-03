@@ -65,6 +65,13 @@ public sealed class PredictionSuppression
     }
 
     /// <summary><c>CRecipientFilter::UsePredictionRules</c>: the host leaves the filter for good.</summary>
+    /// <summary>
+    /// ApplyMultiDamage's <c>te->SetSuppressHost( NULL )</c>: what a hit sets off is not
+    /// the shooter's to predict. A barrel's explosion and a crate's pieces reach them
+    /// like anybody else, where the shot's own sound and impact still skip them.
+    /// </summary>
+    public HostScope Lifted() => Suppress(0);
+
     public void UsePredictionRules(RecipientFilter filter) => filter.UsePredictionRules(Host);
 
     /// <summary>

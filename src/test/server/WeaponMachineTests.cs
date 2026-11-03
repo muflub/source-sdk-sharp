@@ -495,4 +495,20 @@ public class WeaponMachineTests
             return true;
         }
     }
+
+    /// <summary>
+    /// CWeaponCrowbar's GetDamageForActivity 25 and CROWBAR_REFIRE 0.4, CWeaponStunStick's 40 and
+    /// STUNSTICK_REFIRE 0.8. A melee row's damage has no weapon script to come from, so the row
+    /// is the number: the crowbar's was 10 every 0.5, a third of stock's rate.
+    /// </summary>
+    [Theory]
+    [InlineData("weapon_crowbar", 25f, 0.4f)]
+    [InlineData("weapon_stunstick", 40f, 0.8f)]
+    public void A_melee_rows_damage_and_refire_are_stocks(string name, float damage, float interval)
+    {
+        WeaponType row = Assert.Single(WeaponTypes.All, w => w.Name == name);
+
+        Assert.Equal(damage, row.MeleeDamage);
+        Assert.Equal(interval, row.Interval);
+    }
 }

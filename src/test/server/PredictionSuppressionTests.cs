@@ -149,4 +149,21 @@ public class PredictionSuppressionTests
         Assert.Equal(["3", "2,3"], engine.Emits.Select(e => e.Recipients));
         Assert.All(engine.Emits, e => Assert.Equal(2, e.EntIndex));
     }
+
+    [Fact]
+    public void Lifting_the_host_lets_a_temp_entity_reach_them_and_puts_it_back_after()
+    {
+        var prediction = new PredictionSuppression(new Clients());
+        using (prediction.Suppress(3))
+        {
+            using (prediction.Lifted())
+            {
+                var lifted = Of(3);
+                Assert.False(prediction.SuppressTempEntity(lifted, ignorePredictionCull: false));
+                Assert.Equal(1, lifted.Count);
+            }
+
+            Assert.Equal(3, prediction.Host);
+        }
+    }
 }

@@ -32,22 +32,38 @@ public sealed class PhysicsDamageQueue : IPhysicsCrushes
     /// <summary>VPHYSICS_LARGE_OBJECT_MASS: an inflictor this heavy always gets all of it back.</summary>
     public const float LargeObjectMass = 500f;
 
+    /// <summary>How long a player stays answerable for what they held or threw: HasPhysicsAttacker( 1.0 ).</summary>
+    public const float PhysicsAttackerSeconds = 1f;
+
     private readonly IEngineDamage _damage;
     private readonly IEngineEntities _entities;
     private readonly IEnginePlayers _players;
     private readonly EntityDirectory _directory;
 
+    private readonly DamageInflictors? _scopes;
+
     private readonly List<Pending> _events = new();
     private readonly List<Inflictor> _inflictors = new();
 
     public PhysicsDamageQueue(IEngineDamage damage, IEngineEntities entities, IEnginePlayers players,
-                              EntityDirectory directory)
+                              EntityDirectory directory, DamageInflictors? inflictors = null)
     {
         _damage = damage;
         _entities = entities;
         _players = players;
         _directory = directory;
+        _scopes = inflictors;
     }
+
+    /// <summary>
+    /// CBaseEntity::HasPhysicsAttacker: the player who held or threw
+    /// <paramref name="entity"/> within the last <paramref name="within"/> seconds,
+    /// or none.
+    /// </summary>
+    public EntityHandle PhysicsAttacker(EntityHandle entity, float within)
+        => entity != EntityHandle.None && _directory.Resolve(entity) is IPhysGunTarget target
+            ? target.PhysicsAttacker(within)
+            : EntityHandle.None;
 
     /// <summary>Events waiting for <see cref="Deliver"/>.</summary>
     public int Count => _events.Count;
@@ -102,7 +118,12 @@ public sealed class PhysicsDamageQueue : IPhysicsCrushes
             }
         }
 
-        _events.Add(new Pending(victim, attacker, damage, damageType, ev.Point, inflictor, Force: null));
+        // Stock's CTakeDamageInfo( pOther, pOther, ... ) and its "FIXME: ... what root
+        // entity responsible for them moving": the object is the inflictor, and the
+        // player who last held or threw it within a second is the attacker.
+        EntityHandle thrower = PhysicsAttacker(attacker, PhysicsAttackerSeconds);
+        _events.Add(new Pending(victim, thrower != EntityHandle.None ? thrower : attacker, damage, damageType,
+                                ev.Point, inflictor, Force: null, Source: attacker));
     }
 
     /// <summary>
@@ -155,6 +176,10 @@ public sealed class PhysicsDamageQueue : IPhysicsCrushes
             // CTakeDamageInfo did; an impact carries its point.
             if (hit.Force is { } force)
                 _damage.ApplyAt(hit.Victim, hit.Attacker, hit.Damage, hit.DamageType, force, hit.Point);
+            else if (_scopes is { } scopes && hit.Source != EntityHandle.None && _entities.IsValid(hit.Source))
+                using (scopes.Push(hit.Source, _entities.GetOrigin(hit.Source)))
+                    _damage.TakeDamage(hit.Victim, hit.Attacker, hit.Damage, hit.DamageType,
+                                       direction: null, hit.Point);
             else
                 _damage.TakeDamage(hit.Victim, hit.Attacker, hit.Damage, hit.DamageType,
                                    direction: null, hit.Point);
@@ -233,7 +258,8 @@ public sealed class PhysicsDamageQueue : IPhysicsCrushes
         => c + (d - c) * (value - a) / (b - a);
 
     private readonly record struct Pending(EntityHandle Victim, EntityHandle Attacker, float Damage,
-                                           DamageType DamageType, Vector Point, int Inflictor, Vector? Force);
+                                           DamageType DamageType, Vector Point, int Inflictor, Vector? Force,
+                                           EntityHandle Source = default);
 
     private readonly record struct Inflictor(EntityHandle Handle, float Mass, bool Slice,
                                              Vector SavedVelocity, Vector SavedAngularVelocity,

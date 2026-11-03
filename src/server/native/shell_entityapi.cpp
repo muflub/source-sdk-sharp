@@ -449,6 +449,15 @@ void CServerEntities::EntityGetAngles(uint32_t hEntity, float* pOutPYR)
 	pOutPYR[2] = pAngles->z;
 }
 
+// A player's velocity is the movement's, as stock's GetAbsVelocity is: the base's
+// field stays zero for one, which read every player as standing still.
+static const Vector& VelocityOf(CStandaloneEntity* pStandalone)
+{
+	if (pStandalone->IsPlayer())
+		return static_cast<CStandalonePlayer*>(pStandalone)->AbsVelocity();
+	return pStandalone->GetVelocity();
+}
+
 void CServerTransform::EntityGetVelocity(uint32_t hEntity, float* pOutXYZ)
 {
 	if (!pOutXYZ)
@@ -458,7 +467,7 @@ void CServerTransform::EntityGetVelocity(uint32_t hEntity, float* pOutXYZ)
 
 	if (CStandaloneEntity* pStandalone = m_Entities.Resolve(hEntity).pStandalone)
 	{
-		const Vector& vecVelocity = pStandalone->GetVelocity();
+		const Vector& vecVelocity = VelocityOf(pStandalone);
 		pOutXYZ[0] = vecVelocity.x;
 		pOutXYZ[1] = vecVelocity.y;
 		pOutXYZ[2] = vecVelocity.z;

@@ -87,6 +87,47 @@ public class AnimationMuzzleFlashRouteTests
         Assert.Contains(engine.Calls, c => c.Member == "Visibility.DynamicLightUpdate");
     }
 
+    /// <summary>
+    /// C_BaseAnimating::ProcessMuzzleFlashEvent's elight: 32 to 64 units for 0.05 seconds, which
+    /// lights models. A 256 unit world dlight here lit the whole room on every shot.
+    /// </summary>
+    [Fact]
+    public void A_flash_lights_as_little_as_stocks_does()
+    {
+        var (effects, _, engine) = Make();
+
+        effects.Fire(Named("AE_MUZZLEFLASH", "PISTOL muzzle"));
+
+        var light = engine.Last("Visibility.DynamicLightUpdate")!.Value.ArgAs<DynamicLight>(0);
+        Assert.Equal(1, light.IsElight);
+        Assert.InRange(light.Radius, 32f, 64f);
+        Assert.Equal(0.05f, light.LiveFor);
+        Assert.Equal(light.Radius / 0.05f, light.Decay);
+    }
+
+    private sealed class LightSwitch(bool on) : IMuzzleFlashLight
+    {
+        public bool On => on;
+    }
+
+    /// <summary>muzzleflash_light off leaves the flash and no light.</summary>
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public void The_convar_turns_the_light_off_and_leaves_the_flash(bool on, int lights)
+    {
+        var engine = new RecordingEngine { Strict = false };
+        engine.Returns("EntityRender.LookupAttachment", 3).Returns("EntityRender.GetAttachment", true);
+        var flashes = new Flashes();
+        var effects = new AnimationEventEffects(engine, engine, new NoSounds(), engine, flashes, new View(0x00010001),
+                                                s_noBrass, new FxTestRig(), new LightSwitch(on));
+
+        effects.Fire(Named("AE_MUZZLEFLASH", "PISTOL muzzle"));
+
+        Assert.Equal(lights, engine.CountOf("Visibility.DynamicLightUpdate"));
+        Assert.Single(flashes.Calls);
+    }
+
     [Fact]
     public void A_third_person_named_flash_is_not_first_person()
     {

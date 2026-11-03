@@ -72,6 +72,15 @@ public sealed class SsPlayer : AnimatingEntity
     private readonly IEngineEntities? _entities;
     private readonly DamageHitGroups? _hitGroups;
 
+    // The table HeldWeapon indexes, for the anim target. Null for a hand-built player.
+    private readonly WeaponCatalog? _weapons;
+
+    // What this player wears, by their cl_playermodel. Null for a hand-built player.
+    private readonly PlayerModels? _wardrobe;
+
+    // Dead since OnKilled, until the next OnSpawn: what refuses a corpse damage.
+    private bool _killed;
+
     public SsPlayer(IEngineEntityRender render, IEnginePlayers players, PhysicsDamageQueue impacts,
                     FluidTouches fluid, IPlayerRemovals? removals = null,
                     PlayerCommandQueue? commands = null, IUserMessageSender? messages = null,
@@ -82,8 +91,11 @@ public sealed class SsPlayer : AnimatingEntity
                     SourceSharp.Server.Interop.ServerPlayerMoves? moves = null, IEngineSound? sound = null,
                     IEngineDamage? damage = null, IEngineGameEvents? events = null,
                     IEngineEntities? entities = null, DamageHitGroups? hitGroups = null,
-                    IHooks<IPlayerHurtHook>? hurtHooks = null)
+                    IHooks<IPlayerHurtHook>? hurtHooks = null, PlayerModels? wardrobe = null,
+                    WeaponCatalog? weapons = null)
     {
+        _weapons = weapons;
+        _wardrobe = wardrobe;
         _hurtHooks = hurtHooks;
         _damage = damage;
         _events = events;
@@ -354,14 +366,16 @@ public sealed class SsPlayer : AnimatingEntity
         _commands?.Forget(Handle);
         _moves?.Forget(Handle);
         _removals?.PlayerRemoved(Entities.GetIndex(Handle));
+        _wardrobe?.Forget(Handle);
     }
 
     public override void OnSpawn()
     {
-        SetModel(PlayerModel);
+        SetModel(_wardrobe?.ForSpawn(Handle) ?? PlayerModel);
         Health = SpawnHealth;
 
         // NOT State.Health: the native sync owns that word — see the field.
+        _killed = false;
         State.Alive  = true;
         State.Ducked = false;
         State.Armour = 0;
@@ -454,6 +468,14 @@ public sealed class SsPlayer : AnimatingEntity
         // it stated a floor the game does not have: a player killed by 200 goes
         // to -117 and dies there, which is stock's arithmetic.
         if (GodMode)
+            return 0;
+
+        // Stock's m_takedamage = DAMAGE_NO, which CBaseCombatCharacter::Event_Killed
+        // and StartObserverMode set and CBaseEntity::TakeDamage reads first. The
+        // shell runs its kill arm on any answer above zero while health is at or
+        // below it, so a hit landing on a corpse would be a second death: another
+        // body, another player_death, another score.
+        if (_killed || State.ObserverMode != 0)
             return 0;
 
         // Stock's "early out if there's no damage", before anything is recorded.
@@ -912,7 +934,8 @@ public sealed class SsPlayer : AnimatingEntity
                             _render.SetSequence(Handle, sequence);
 
                         _skeletonSequence = sequence;
-                    }));
+                    }),
+                weapons: _weapons);
 
             _animTarget.SetHandle(Handle);
         }
@@ -955,9 +978,8 @@ public sealed class SsPlayer : AnimatingEntity
     /// Stock's <c>CBaseCombatCharacter::VPhysicsShadowCollision</c>: a moving
     /// prop that hits the player's shadow hurts them by the player table, with
     /// no static damage, unless it is the world, not a moveable VPHYSICS
-    /// mover, or what the player is standing on. The prop is the attacker.
-    /// Stock's "the player was this prop's physics attacker this frame" skip
-    /// has nothing to read: no holder in this mod records a physics attacker.
+    /// mover, or what the player is standing on, or what they themselves held or
+    /// threw this very frame. The queue credits whoever threw it.
     /// </summary>
     public override void OnVPhysicsShadowCollision(in PhysicsEvent ev, int index)
     {
@@ -973,6 +995,10 @@ public sealed class SsPlayer : AnimatingEntity
 
         var other = new EntityHandle(otherRaw);
         if (Entities.GetIndex(other) == State.GroundEntity)
+            return;
+
+        // "Player can't damage himself if he's was physics attacker *on this frame*".
+        if (_impacts.PhysicsAttacker(other, 0f) == Handle)
             return;
 
         var parties = new ImpactParties(SelfIsPlayer: true, OtherIsPlayer: Entities.IsPlayer(other),
@@ -1026,6 +1052,7 @@ public sealed class SsPlayer : AnimatingEntity
 
     public override void OnKilled(EntityHandle attacker)
     {
+        _killed = true;
         State.Alive = false;
         Observer.DeathTime = GameTime;   // m_flDeathTime
 

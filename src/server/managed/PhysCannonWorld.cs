@@ -59,6 +59,23 @@ public interface IPhysGunTarget
 
     /// <summary>OnPhysGunDrop: let go, or launched.</summary>
     void OnPhysGunDrop(EntityHandle player, PhysGunDrop reason) { }
+
+    /// <summary>HasPhysicsAttacker: who held or threw it within the last <paramref name="within"/> seconds.</summary>
+    EntityHandle PhysicsAttacker(float within) => EntityHandle.None;
+}
+
+/// <summary>
+/// What a map's input may do to an object a player holds: stock's
+/// <c>CBasePlayer::ForceDropOfCarriedPhysObjects</c>, which the gun answers with
+/// its ForceDrop.
+/// </summary>
+public interface IHeldObjects
+{
+    /// <summary>Whoever holds <paramref name="held"/> lets go; nobody holding it does nothing.</summary>
+    void ForceDrop(EntityHandle held);
+
+    /// <summary><paramref name="held"/> was teleported: whoever holds it leaves it there for a step.</summary>
+    void Teleported(EntityHandle held);
 }
 
 /// <summary>
@@ -74,7 +91,7 @@ public interface IPhysGunTarget
 /// object is owned by its holder, which is what lets the hold trace skip it.
 /// </para>
 /// </summary>
-public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
+public sealed class PhysCannonWorld : IPhysCannonWorld, IHeldObjects, IGameLifecycle
 {
     // MASK_SHOT | CONTENTS_GRATE.
     private const uint MaskShotGrate = 0x1 | 0x4000 | 0x2000000 | 0x2 | 0x4000000 | 0x40000000 | 0x8;
@@ -102,6 +119,7 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
     private readonly IEnginePrecache _precache;
     private readonly ICustomMotionControllers _controllers;
     private readonly IEngineEnvironment _environment;
+    private readonly PredictionSuppression? _prediction;
     private readonly Random _random = new();
 
     private readonly Dictionary<int, Carrier> _carriers = new();
@@ -110,8 +128,10 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
                            IEngineEntityPhysics physics, IVPhysicsGrabCalls v, ITraceQueries traces,
                            IEngineWorldQuery world, IEngineDamage damage, IScreenEffects screen,
                            ITempEnts tempEnts, IEntityDirectory directory, IEnginePrecache precache,
-                           ICustomMotionControllers controllers, IEngineEnvironment environment)
+                           ICustomMotionControllers controllers, IEngineEnvironment environment,
+                           PredictionSuppression? prediction = null)
     {
+        _prediction = prediction;
         _log = log;
         _entities = entities;
         _players = players;
@@ -263,6 +283,34 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
             _entities.SetOwner(held, EntityHandle.None);
 
         c.ResetOwner = false;
+    }
+
+    /// <summary>
+    /// CPhysBox::InputForceDrop: let go now, so the grab stops steering the object
+    /// this step. The gun's own next frame finds nothing held and closes its claws
+    /// and says so, through <see cref="UpdateHeld"/>.
+    /// </summary>
+    public void ForceDrop(EntityHandle held)
+    {
+        if (held == EntityHandle.None)
+            return;
+
+        foreach (var (owner, c) in _carriers)
+            if (c.Grab.Attached == held)
+            {
+                DetachHeld(owner, launched: false);
+                return;
+            }
+    }
+
+    public void Teleported(EntityHandle held)
+    {
+        if (held == EntityHandle.None)
+            return;
+
+        foreach (var c in _carriers.Values)
+            if (c.Grab.Attached == held)
+                c.Grab.NoteTeleported();
     }
 
     public float HeldDistance(int owner, int held)
@@ -576,7 +624,8 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
             return;
 
         Vector forward = Forward(c.Player);
-        _damage.ApplyAt(c.PuntTarget, c.Player, 1.0f, DamageType.Crush | DamageType.PhysGun, forward, c.PuntEnd);
+        using (_prediction?.Lifted() ?? default)
+            _damage.ApplyAt(c.PuntTarget, c.Player, 1.0f, DamageType.Crush | DamageType.PhysGun, forward, c.PuntEnd);
 
         // Explosion effect
         LaunchEffect(c.Player, c.PuntEnd);
@@ -592,7 +641,8 @@ public sealed class PhysCannonWorld : IPhysCannonWorld, IGameLifecycle
         Vector forward = vecForward;
 
         // The info's zero damage, DMG_PHYSGUN, dispatched as a trace attack.
-        _damage.ApplyAt(target, c.Player, 0f, DamageType.PhysGun, Vector.Zero, c.PuntEnd);
+        using (_prediction?.Lifted() ?? default)
+            _damage.ApplyAt(target, c.Player, 0f, DamageType.PhysGun, Vector.Zero, c.PuntEnd);
 
         IPhysGunTarget? rules = Target(target);
 

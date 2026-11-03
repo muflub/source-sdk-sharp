@@ -591,6 +591,7 @@ public class LifecycleTests
                                            // info_ladder_dismount entities, emptied
                                            // at level shutdown. In the 700/750 gap;
                                            // none moved.
+        (typeof(PlayerModels),      215),  // what each player wears; goes with the level
         (typeof(PlacedObjects),     210),  // HL2MP's placed items and weapons
                                            // (hl2mp_gamerules.cpp), emptied at level
                                            // shutdown. In the 200/300 gap.

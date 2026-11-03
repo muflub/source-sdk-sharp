@@ -97,14 +97,22 @@ public sealed class EngineAnimTarget : IAnimTarget
     private int _lastPlayed = -1;
     private string _model = string.Empty;
 
+    private readonly WeaponCatalog? _weapons;
+
+    /// <inheritdoc/>
+    public string? HeldWeaponClass
+        => _netState().HeldWeapon is > 0 and var held ? _weapons?.ByIndex(held - 1)?.Name : null;
+
     public EngineAnimTarget(IEngineEntities entities, IEngineEntityRender render,
                             ModelDescriptors? models,
                             Func<PlayerNetState> netState,
                             Func<Vector> eyeAngles,
                             Func<int, float>? sequenceGroundSpeed = null,
                             SequenceCycleReader? sequenceCycle = null,
-                            Arms? arms = null)
+                            Arms? arms = null,
+                            WeaponCatalog? weapons = null)
     {
+        _weapons = weapons;
         _entities = entities ?? throw new ArgumentNullException(nameof(entities));
         _render = render ?? throw new ArgumentNullException(nameof(render));
         _models = models;

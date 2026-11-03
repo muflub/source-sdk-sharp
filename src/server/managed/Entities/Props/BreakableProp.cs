@@ -125,6 +125,8 @@ public abstract class BreakableProp : AnimatingEntity, IPhysGunTarget
     private EntityHandle PhysicsAttackerWithin(float dt)
         => GameTime - dt <= _physicsInfluenceTime ? _physicsAttacker : EntityHandle.None;
 
+    EntityHandle IPhysGunTarget.PhysicsAttacker(float within) => PhysicsAttackerWithin(within);
+
     private PropBreak? _breaker;
 
     /// <summary>

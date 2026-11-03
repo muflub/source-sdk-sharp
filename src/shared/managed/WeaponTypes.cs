@@ -296,14 +296,14 @@ public static class WeaponTypes
     [
         // Melee. Its script gives it no ammo type, so the attack path treats it
         // as a weapon that does not use clips.
-        new(EntityNames.WeaponCrowbar, Interval: 0.5f)
+        new(EntityNames.WeaponCrowbar, Interval: 0.4f)
         {
             ViewModel   = "models/weapons/v_crowbar.mdl",
             WorldModel  = "models/weapons/w_crowbar.mdl",
             FireSound   = "Weapon_Crowbar.Single",
-            // Stock's sk_plr_dmg_crowbar and CWeaponCrowbar's 75-unit reach.
+            // CWeaponCrowbar's 75-unit reach, CROWBAR_REFIRE 0.4 and GetDamageForActivity's 25.
             MeleeRange  = 75f,
-            MeleeDamage = 10f,
+            MeleeDamage = 25f,
         },
 
         // GetFireRate() is 0.5 held; clicked, the pistol behaviour lets it
@@ -381,8 +381,8 @@ public static class WeaponTypes
             ReloadSound = "Weapon_AR2.Reload",
         },
 
-        // The one that needs a pellet count. Seven pellets of buckshot at eight
-        // damage each is 56 at point blank and much less past the spread, which
+        // The one that needs a pellet count. Seven pellets of buckshot at nine
+        // damage each (the weapon script's) is 63 at point blank and much less past the spread, which
         // is the behaviour a shotgun is FOR.
         new(EntityNames.WeaponShotgun, Interval: 0.90f, Pellets: 7, Spread: 5f)
         {

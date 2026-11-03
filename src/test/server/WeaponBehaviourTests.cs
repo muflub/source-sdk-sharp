@@ -46,7 +46,10 @@ public class WeaponBehaviourTests
         public int Bullets;
         public int Sounds;
 
+        public int ClientSounds;
+
         public void Sound(string soundScript) => Sounds++;
+        public void ClientSound(string soundScript) => ClientSounds++;
         public void FireBullets(in WeaponType type, int pellets, float spreadDegrees) => Bullets++;
         public void MeleeSwing(in WeaponType type) { }
         public void Launch(in WeaponType type, string projectile, float speed, bool thrown) { }
@@ -553,5 +556,41 @@ public class WeaponBehaviourTests
         Assert.Equal(stockW.Clip, w.Clip);
         Assert.True(flooredW.InReload);
         Assert.Equal(10.5f, flooredW.NextPrimaryAttack, precision: 4);
+    }
+
+    /// <summary>
+    /// ReloadOrSwitchWeapons' Reload is the whole of it: DefaultReload's SendWeaponAnim and
+    /// WeaponSound. The empty click used to start the clock alone, so a gun out of ammo
+    /// reloaded with no animation and no sound.
+    /// </summary>
+    [Fact]
+    public void AnEmptyGunReloadingItselfPlaysTheReloadAnimationAndSound()
+    {
+        var arms = new Arms();
+        var (w, vm) = Armed(clip: 0, reserve: 30);
+        int parity = vm.AnimationParity;
+
+        Machine(arms, WeaponBehaviours.Stock()).RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+
+        Assert.True(w.InReload);
+        Assert.Equal((int)WeaponAnim.Reload + 1, vm.Sequence);
+        Assert.NotEqual(parity, vm.AnimationParity);
+        Assert.Equal(1, arms.ClientSounds);
+    }
+
+    /// <summary>With nothing in reserve it only clicks: DefaultReload's "I can't reload".</summary>
+    [Fact]
+    public void AnEmptyGunWithNothingInReserveOnlyClicks()
+    {
+        var arms = new Arms();
+        var (w, vm) = Armed(clip: 0, reserve: 0);
+        int sequence = vm.Sequence;
+
+        Machine(arms, WeaponBehaviours.Stock()).RunCommand(w, vm, Attack, now: 10f, effectsLive: true);
+
+        Assert.False(w.InReload);
+        Assert.Equal(sequence, vm.Sequence);
+        Assert.Equal(0, arms.ClientSounds);
+        Assert.Equal(1, arms.Sounds);
     }
 }

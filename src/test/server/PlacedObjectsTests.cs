@@ -325,6 +325,42 @@ public class PlacedObjectsTests
         Assert.Equal(0, p.Objects.Count);
     }
 
+    /// <summary>
+    /// CBaseCombatWeapon::SetPickupTouch: SF_NORESPAWN's SUB_Remove thirty seconds out,
+    /// a second after the drop. A dead player's weapon goes; a map's stays.
+    /// </summary>
+    [Theory]
+    [InlineData(WeaponPickup.NoRespawnFlag, true)]
+    [InlineData(0, false)]
+    public void Only_a_dropped_weapon_expires(int spawnFlags, bool expires)
+    {
+        var p = Spawned(EntityNames.WeaponSmg1, spawnFlags);
+        p.Run(10.1f);
+
+        p.Run(10.1f + WeaponPickup.DroppedLifetime + 0.1f);
+
+        Assert.Equal(expires, p.Registry.Directory.IsRemoved(Thing));
+    }
+
+    /// <summary>
+    /// CBaseCombatWeapon::Equip keeps what it takes and nothing respawns it: a dropped
+    /// weapon taken is gone, where it used to come back every twenty seconds for good.
+    /// </summary>
+    [Theory]
+    [InlineData(WeaponPickup.NoRespawnFlag, true)]
+    [InlineData(0, false)]
+    public void Only_a_dropped_weapon_is_gone_once_taken(int spawnFlags, bool gone)
+    {
+        var p = Spawned(EntityNames.WeaponSmg1, spawnFlags);
+        p.Run(10.1f);
+        p.Engine.Returns("Players.GiveItem", true);
+
+        p.Entity.OnTouch(Player);
+
+        Assert.Equal(gone, p.Registry.Directory.IsRemoved(Thing));
+        Assert.Equal(!gone, p.Thinks.NextThinkTime(Thing, null) >= 0f);
+    }
+
     [Fact]
     public void A_removed_pickup_leaves_the_rules()
     {

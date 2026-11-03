@@ -181,6 +181,15 @@ public sealed class Hl2PostureLayer : IAnimStateLayer
     /// </summary>
     public static int Resolve(IAnimTarget target, PlayerPosture posture)
     {
+        // The weapon's own row of its acttable, when the model has it.
+        if (target.HeldWeaponClass is { } held && HeldActivity(posture, held) is { } activityHeld)
+        {
+            int sequence = target.SelectWeightedSequence(activityHeld);
+
+            if (sequence >= 0)
+                return sequence;
+        }
+
         foreach (string activity in Activities(posture))
         {
             int sequence = target.SelectWeightedSequence(activity);
@@ -414,17 +423,11 @@ public sealed class Hl2PostureLayer : IAnimStateLayer
     /// </para>
     ///
     /// <para>
-    /// <b>THE WEAPON SUFFIX IS FIXED AT MELEE, and that is a scope
-    /// decision.</b> HL2DM has no gait activity that is not per-weapon —
-    /// there is an <c>ACT_HL2MP_RUN_PISTOL</c> and an
-    /// <c>ACT_HL2MP_RUN_AR2</c> and no <c>ACT_HL2MP_RUN</c>. Choosing
-    /// between them means the animation policy knowing which weapon a
-    /// player holds, which the client knows for the VIEWER (ClientArsenal)
-    /// and does not know for anybody else, so doing it properly is a
-    /// networked weapon slot and not a table. The melee poses are the
-    /// neutral ones — arms down, nothing raised — which is the right thing
-    /// to wear while that is undecided. When it is decided, it is this one
-    /// function that changes.
+    /// <b>THE LISTS ARE WHAT EMPTY HANDS WEAR.</b> HL2DM has no gait activity
+    /// that is not per-weapon: there is an <c>ACT_HL2MP_RUN_PISTOL</c> and an
+    /// <c>ACT_HL2MP_RUN_AR2</c> and no <c>ACT_HL2MP_RUN</c>. A player holding
+    /// a weapon draws from <see cref="HeldActivity"/> first, by
+    /// <see cref="PlayerNetState.HeldWeapon"/>; these are the fallback.
     /// </para>
     ///
     /// <para>
@@ -478,6 +481,50 @@ public sealed class Hl2PostureLayer : IAnimStateLayer
     private static readonly System.Collections.Immutable.ImmutableArray<string> s_Jump =
         System.Collections.Immutable.ImmutableArray.Create(
             "ACT_HL2MP_JUMP_MELEE", "ACT_HL2MP_JUMP_PISTOL", "ACT_GLIDE", "ACT_JUMP", "ACT_IDLE");
+
+    /// <summary>The acttable's suffixes in <see cref="PlayerAnimGestures.Suffix"/>'s words, indexing <see cref="s_Held"/>.</summary>
+    private static readonly System.Collections.Immutable.ImmutableArray<string> s_HeldSuffixes =
+        System.Collections.Immutable.ImmutableArray.Create(
+            "PISTOL", "SMG1", "AR2", "SHOTGUN", "RPG", "GRENADE", "CROSSBOW", "SLAM", "MELEE", "PHYSGUN");
+
+    /// <summary>
+    /// Each posture's activity for each suffix, built once so a steady drive allocates
+    /// nothing: IDLE, IDLE_CROUCH, RUN, WALK_CROUCH and JUMP, the rows every HL2MP weapon's
+    /// acttable has.
+    /// </summary>
+    private static readonly System.Collections.Immutable.ImmutableArray<string> s_Held = BuildHeld();
+
+    private static System.Collections.Immutable.ImmutableArray<string> BuildHeld()
+    {
+        string[] rows = ["ACT_HL2MP_IDLE_", "ACT_HL2MP_IDLE_CROUCH_", "ACT_HL2MP_RUN_", "ACT_HL2MP_WALK_CROUCH_", "ACT_HL2MP_JUMP_"];
+        var names = System.Collections.Immutable.ImmutableArray.CreateBuilder<string>();
+        foreach (string row in rows)
+            foreach (string suffix in s_HeldSuffixes)
+                names.Add(row + suffix);
+        return names.ToImmutable();
+    }
+
+    /// <summary>
+    /// CBaseCombatWeapon::ActivityOverride over HL2MP's gaits: the activity a player holding
+    /// <paramref name="weaponClass"/> draws <paramref name="posture"/> by, or null for a
+    /// class with no acttable. HL2DM has no walk, so a walk is the run.
+    /// </summary>
+    public static string? HeldActivity(PlayerPosture posture, string weaponClass)
+    {
+        int suffix = s_HeldSuffixes.IndexOf(PlayerAnimGestures.Suffix(weaponClass) ?? string.Empty);
+        if (suffix < 0)
+            return null;
+
+        int row = posture switch
+        {
+            PlayerPosture.CrouchIdle => 1,
+            PlayerPosture.Walk or PlayerPosture.Run => 2,
+            PlayerPosture.CrouchWalk => 3,
+            PlayerPosture.Jump => 4,
+            _ => 0,
+        };
+        return s_Held[row * s_HeldSuffixes.Length + suffix];
+    }
 
     public static System.Collections.Immutable.ImmutableArray<string> Activities(PlayerPosture posture) => posture switch
     {

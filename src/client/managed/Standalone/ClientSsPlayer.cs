@@ -125,13 +125,17 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     private MultiplayerAnimState? _state;
     private float _lastDrive = float.NaN;
 
+    // The table a player's HeldWeapon indexes, for which acttable their arms draw from.
+    private readonly WeaponCatalog? _weapons;
+
     public ClientSsPlayer(IEngineEntityRender render,
                           IGameClock? clock = null, ModelDescriptors? models = null,
                           ViewReadout? view = null, IEngineHud? screen = null,
                           AnimStateLayers? layers = null,
-                          IClientStandalones? entities = null)
+                          IClientStandalones? entities = null, WeaponCatalog? weapons = null)
         : base(render)
     {
+        _weapons = weapons;
         _clock = clock;
         _models = models;
         _view = view;
@@ -328,7 +332,8 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
                 SetAnimLayer: (slot, sequence, weight, playbackRate, order, restart) =>
                     Render.SetAnimLayer(Handle, slot, sequence, weight, playbackRate, order, restart),
                 PlaySequence: (sequence, playbackRate, restart) =>
-                    Render.PlaySequence(Handle, sequence, playbackRate, restart)));
+                    Render.PlaySequence(Handle, sequence, playbackRate, restart)),
+            weapons: _weapons);
 
         _target.SetHandle(Handle);
         return _target;

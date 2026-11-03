@@ -20,8 +20,9 @@ namespace SourceSharp.Server;
 /// <para>
 /// The player's name is the one ClientPutInServer was handed, kept here per
 /// slot; the native player carries out SetPlayerName when
-/// <see cref="Changed"/> answers true. Not ported: CHL2MPRules' own half
-/// (cl_playermodel changes and their cooldown) and the haptics key.
+/// <see cref="Changed"/> answers true. CHL2MPRules' own half (cl_playermodel
+/// changes and their cooldown) is <see cref="PlayerModels"/>. Not ported: the
+/// haptics key.
 /// </para>
 /// </summary>
 public sealed class PlayerNames(IEngineGameEvents events, IConnectedClients? clients = null,

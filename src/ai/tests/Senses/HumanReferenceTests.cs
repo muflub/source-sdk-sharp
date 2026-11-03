@@ -382,7 +382,7 @@ public sealed class HumanReferenceTests : IDisposable
     private (ShotTap Tap, Sight World) Shots()
     {
         var s = new Sight(_ai);
-        return (new ShotTap(_ai, _bots, s.Pass, Indexes(), AtTick(50)), s);
+        return (new ShotTap(_ai, _bots, s.Pass, s.World.Engine(), WeaponCatalog.Stock(), Indexes(), AtTick(50)), s);
     }
 
     private static AiEvent[] Observed(List<(AiRecordType Type, byte[] Payload)> records, AiEventKind kind)
@@ -405,10 +405,11 @@ public sealed class HumanReferenceTests : IDisposable
         (ShotTap tap, Sight s) = Shots();
         Start();
         s.Run(1);   // the reads: the person at 500 units along x, the bot at the origin
-        tap.OnWeaponEvent(s.Person.Handle, 3, PlayerWeaponEvent.Fired, 1);
-        tap.OnPlayerHurt(new PlayerHurt(s.Bot.Handle, s.Person.Handle, 17, 83));
+        s.Person.Weapon = "weapon_357";
+        tap.OnPlayerHurt(new PlayerHurt(s.Bot.Handle, s.Person.Handle, 17, 83));   // before any Fired, as a command's first shot is
         AiEvent hit = Assert.Single(Observed(Stopped(), AiEventKind.HitDealt));
-        Assert.Equal((s.PersonId, ActorDirectory.HumanActor(1, s.Bot.Handle), 17f, 3), (hit.Bot, hit.Other, hit.Amount, hit.Code));
+        Assert.Equal((s.PersonId, ActorDirectory.HumanActor(1, s.Bot.Handle), 17f, WeaponCatalog.Stock().IndexOf("weapon_357")), (hit.Bot, hit.Other, hit.Amount, hit.Code));
+        Assert.True(hit.Code >= 0, "the control: the catalog knows the weapon");
         Assert.InRange(hit.Code2, 495, 505);
     }
 
@@ -429,7 +430,7 @@ public sealed class HumanReferenceTests : IDisposable
     public void TheHooksHandTheirEventsToTheShotTap()
     {
         var w = new Sight(_ai);
-        var shots = new ShotTap(_ai, _bots, w.Pass, Indexes(), AtTick(50));
+        var shots = new ShotTap(_ai, _bots, w.Pass, w.World.Engine(), WeaponCatalog.Stock(), Indexes(), AtTick(50));
         var senses = new Hl2mpSenses(_bots, _ai, w.Pass, null!, null!, null!, _log, w.Reference);
         var weapons = new WeaponEventTap(senses, w.Pass, _bots, Indexes(), AtTick(50), shots);
         var combat = new CombatTap(senses, w.Pass, _bots, null!, Indexes(), null!, AtTick(50), shots);

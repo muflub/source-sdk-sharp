@@ -43,6 +43,8 @@ public class AnimStateMachineTests
         public bool RootFollowsFeetValue = true;    // stock's arm unless a fact says otherwise
         public LegAnimType Leg = LegAnimType.EightWay;
         public PlayerPosture? Posture { get; set; }
+        public string? HeldWeaponClass { get; set; }
+        public bool Hl2Rig;
         public int EntityIndex { get; set; } = -1;
 
         /// <summary>Every (index, value) pose write of the drives since cleared.</summary>
@@ -83,8 +85,10 @@ public class AnimStateMachineTests
             {
                 "move_x" => MoveX,
                 "move_y" => MoveY,
-                "body_yaw" => BodyYaw,
-                "body_pitch" => BodyPitch,
+                "body_yaw" => Hl2Rig ? -1 : BodyYaw,
+                "body_pitch" => Hl2Rig ? -1 : BodyPitch,
+                "aim_yaw" => Hl2Rig ? BodyYaw : -1,
+                "aim_pitch" => Hl2Rig ? BodyPitch : -1,
                 "move_yaw" => MoveYaw,
                 "move_scale" => MoveScale,
                 _ => -1,
@@ -816,5 +820,43 @@ public class AnimStateMachineTests
         Assert.True(control > 1000, $"the meter works: {control} bytes for a hundred lists");
         Assert.True(perThousand >= 0 && perThousand < 1000,
             $"a thousand drives cost {perThousand} bytes — the scratch must be reused, not re-made");
+    }
+
+    /// <summary>
+    /// CPlayerAnimState sets HL2DM's "aim_pitch" to the pitch itself, where the machine's own stock
+    /// negates "body_pitch". Undriven, it sits at the top of its range: arms in the air.
+    /// </summary>
+    [Theory]
+    [InlineData(false, -30f)]
+    [InlineData(true, 30f)]
+    public void Each_rig_reads_the_eye_pitch_its_own_way(bool hl2Rig, float expected)
+    {
+        var (t, state) = Rig();
+        t.Hl2Rig = hl2Rig;
+
+        state.Update(0f, 30f, 1f, Step);
+
+        Assert.True(t.Pose.Exists(p => p.Index == BodyPitch && p.Value == expected),
+                    $"expected the aim dial at {expected}: {string.Join(' ', t.Pose)}");
+    }
+
+    [Fact]
+    public void A_held_weapon_draws_from_its_own_row_of_activities()
+    {
+        var t = ModelledTarget(("ACT_HL2MP_IDLE_MELEE", 3), ("ACT_HL2MP_IDLE_SMG1", 5));
+        t.HeldWeaponClass = "weapon_smg1";
+
+        Assert.Equal(5, Hl2PostureLayer.Resolve(t, PlayerPosture.Idle));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("weapon_ar2")]
+    public void Empty_hands_or_a_row_the_model_lacks_fall_back(string? held)
+    {
+        var t = ModelledTarget(("ACT_HL2MP_IDLE_MELEE", 3), ("ACT_HL2MP_IDLE_SMG1", 5));
+        t.HeldWeaponClass = held;
+
+        Assert.Equal(3, Hl2PostureLayer.Resolve(t, PlayerPosture.Idle));
     }
 }

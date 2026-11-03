@@ -475,8 +475,9 @@ public class PlayerAnimatorTests
         Update(player);
         Update(player);
 
-        Assert.True(engine.CountOf("EntityRender.LookupPoseParameter") == 6,
-            "all six stock dials resolved once, and only once, across three drives");
+        // Six, and HL2DM's two aim dials asked because this model has no body_pitch.
+        Assert.True(engine.CountOf("EntityRender.LookupPoseParameter") == 8,
+            "all the dials resolved once, and only once, across three drives");
         Assert.True(MoveYaws(engine).Count == 3,
             "the strafe is written on every drive (the first freezes the estimate at zero and the rest pose it)");
     }
@@ -497,8 +498,8 @@ public class PlayerAnimatorTests
         Update(player, DataUpdateType.Created);
         Update(player);
 
-        Assert.True(engine.CountOf("EntityRender.LookupPoseParameter") == 6,
-            "the absent pose parameters are asked for once, all six, together");
+        Assert.True(engine.CountOf("EntityRender.LookupPoseParameter") == 8,
+            "the absent pose parameters are asked for once, all together");
         Assert.True(engine.CountOf("EntityRender.SetPoseParameter") == 0,
             "and none is ever written");
         Assert.True(engine.CountOf("EntityRender.PlaySequence") == 2,

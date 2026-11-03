@@ -189,6 +189,32 @@ public class SpawnPointsTests
                                        Z = TeamSpotAt.Z + 1f }, call.Args[1]);
     }
 
+    /// <summary>
+    /// A spot with a player on it among many other things is taken: looking at
+    /// only the first 16 near it, the spawn check missed them, and two players
+    /// stood in each other at it, a person as well as a bot (live, dm_lockdown's
+    /// spawn among lights and decals). The control: the same spot empty is taken up.
+    /// </summary>
+    [Fact]
+    public void ASpotWithAPlayerAmongManyThingsIsTaken()
+    {
+        EntityHandle standing = new(0x010002);
+        EntityHandle[] clutter = [.. Enumerable.Range(0, 40).Select(i => new EntityHandle(0x030000u + (uint)i)), standing];
+        EntityHandle Chosen(int seed, EntityHandle[] atWalkSpot)
+        {
+            var engine = new RecordingEngine();
+            engine.ReturnsEachCall("Entities.GetOrigin", () => (EntityHandle)engine.Last("Entities.GetOrigin")!.Value.Args[0]! == TeamSpot ? TeamSpotAt : WalkSpotAt)
+                  .ReturnsEachCall("Entities.FindAllByClassname", () => (string)engine.Last("Entities.FindAllByClassname")!.Value.Args[0]! == EntityNames.InfoPlayerDeathmatch ? new[] { WalkSpot, TeamSpot } : Array.Empty<EntityHandle>())
+                  .ReturnsEachCall("WorldQuery.EntitiesInSphere.into", () => ((Vector)engine.Last("WorldQuery.EntitiesInSphere")!.Value.Args[0]!).X == WalkSpotAt.X ? atWalkSpot : Array.Empty<EntityHandle>())
+                  .ReturnsEachCall("Entities.IsPlayer", () => (EntityHandle)engine.Last("Entities.IsPlayer")!.Value.Args[0]! == standing);
+            return new SpawnPoints(engine, engine, engine, new Random(seed)).Choose(Player, null);
+        }
+
+        foreach (int seed in Enumerable.Range(1, 8))
+            Assert.Equal(TeamSpot, Chosen(seed, clutter));
+        Assert.Contains(Enumerable.Range(1, 8), seed => Chosen(seed, []) == WalkSpot);
+    }
+
     [Fact]
     public void AThrowingHookIsNamedAndThePlacementPassesThroughUnmoved()
     {

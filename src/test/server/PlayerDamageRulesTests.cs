@@ -122,4 +122,36 @@ public class PlayerDamageRulesTests
         Assert.True(withRules == 25, $"defaults (friendly fire on, no protection, no rule) land the hit whole, not {withRules}");
         Assert.True(bare == 25, $"exactly as a player with no rules at all does, not {bare}");
     }
+
+    [Fact]
+    public void A_dead_player_takes_no_more_damage_so_the_shell_never_kills_them_twice()
+    {
+        var player = Player(null);
+        int alive = player.OnDamagedAt(Attacker, 20f, DamageType.Bullet, default, default);
+
+        player.OnKilled(Attacker);
+        int dead = player.OnDamagedAt(Attacker, 20f, DamageType.Bullet, default, default);
+
+        Assert.True(alive == 20, $"a living player takes the hit (took {alive})");
+        Assert.True(dead == 0, $"the shell runs its kill arm on any answer above zero (took {dead})");
+    }
+
+    [Fact]
+    public void A_spawn_lets_a_dead_player_take_damage_again()
+    {
+        var player = Player(null);
+        player.OnKilled(Attacker);
+        player.OnSpawn();
+
+        Assert.Equal(20, player.OnDamagedAt(Attacker, 20f, DamageType.Bullet, default, default));
+    }
+
+    [Fact]
+    public void An_observer_takes_no_damage()
+    {
+        var player = Player(null);
+        player.State.ObserverMode = 1;
+
+        Assert.Equal(0, player.OnDamagedAt(Attacker, 20f, DamageType.Bullet, default, default));
+    }
 }

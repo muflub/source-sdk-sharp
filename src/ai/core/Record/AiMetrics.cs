@@ -57,8 +57,8 @@ public sealed record HitRates(HitLine Overall, IReadOnlyList<HitLine> ByWeapon, 
 /// more) per minute of commands.</item>
 /// <item><b>hit rate</b>: hits over shots. A shot is one trigger pull (a
 /// <c>ShotFired</c>), however many pellets; a hit is one victim hurt in one
-/// tick, however many pellets or events. By weapon: the weapon the shooter last
-/// fired. By range band: a hit by its recorded range, a shot by the distance to
+/// tick, however many pellets or events. By weapon: the weapon in the shooter's
+/// hands. By range band: a hit by its recorded range, a shot by the distance to
 /// the sighted actor nearest its crosshair within <see cref="TargetConeDeg"/>;
 /// a shot with none is untargeted and in no band.</item>
 /// </list>

@@ -321,6 +321,13 @@ public partial class PlayerNetState
     // (GameMovement.Hl2Player) picks the sprint from the power and drains and
     // recharges it every command, on both sides.
 
+    /// <summary>
+    /// The weapon in their hands, as its catalog index plus one; zero for empty hands.
+    /// Stock's m_hActiveWeapon, for what other players need of it: the arms' activities
+    /// (the weapon's acttable). Not predicted, because a switch is the server's to say.
+    /// </summary>
+    public partial int HeldWeapon { get; set; }
+
     /// <summary><c>m_flSuitPower</c>: 0 to 100; the AUX POWER bar.</summary>
     [Predicted]
     public partial float SuitPower { get; set; }

@@ -176,6 +176,12 @@ public interface IAnimTarget
     PlayerPosture? Posture { get; set; }
 
     /// <summary>
+    /// The classname of the weapon in the player's hands, or null for none: which
+    /// acttable their arms draw from (<see cref="Hl2PostureLayer"/>).
+    /// </summary>
+    string? HeldWeaponClass => null;
+
+    /// <summary>
     /// <c>LookupPoseParameter(pStudioHdr, name)</c>: the index of a named
     /// pose parameter on the model worn now, or -1 for a model that has no
     /// such blend. Called once per parameter per model

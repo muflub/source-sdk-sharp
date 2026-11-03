@@ -571,7 +571,7 @@ session and per actor, the distributions of:
 | strafe interval | time between `SideMove` sign changes |
 | shots per engagement | `IN_ATTACK` presses between `SightGained` and `SightLost` |
 | reaction time | `SightGained` to the first `IN_ATTACK` or first aim movement toward the target |
-| hit rate (ruling 2026-11-02) | hits over shots, overall, per weapon, and per range band (under 300, 300 to 800, over 800 u), with counts. A shot is one trigger pull (`IPlayerWeaponEventHook`'s `Fired`), a shotgun's pellets one shot; a hit is one victim hurt by the actor in one tick (`IPlayerHurtHook`), self-harm excluded, by the weapon it last fired, at the range then. A shot's band is the distance to the sighted actor nearest its crosshair within 30°; with none it is untargeted: overall and per weapon only |
+| hit rate (ruling 2026-11-02) | hits over shots, overall, per weapon, and per range band (under 300, 300 to 800, over 800 u), with counts. A shot is one trigger pull (`IPlayerWeaponEventHook`'s `Fired`), a shotgun's pellets one shot; a hit is one victim hurt by the actor in one tick (`IPlayerHurtHook`), self-harm excluded, by the weapon in its hands, at the range then. A shot's band is the distance to the sighted actor nearest its crosshair within 30°; with none it is untargeted: overall and per weapon only |
 
 Gates: for each metric, the two-sample Kolmogorov–Smirnov statistic between
 the bot's distribution (at the preset matching the human's apparent skill,

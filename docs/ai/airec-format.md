@@ -28,7 +28,7 @@ is the Header, and there is one.
 | 7 | UserCmd | `AiUserCmd`: one player's usercmd as the server ran it, bots' and humans' |
 | 8 | World | (version 2) what the brains know: u16+utf8 map, f32 tick seconds, u64 nav graph hash, i32 items then each item (i32 index, u16+utf8 class, u8 kind, vector, f32 respawn seconds, i32 weapon kind), i32 spawns then vectors, i32 weapons then each `WeaponFacts` (i32 kind, u16+utf8 name, i32 clip, f32 cadence, f32 reload seconds, bool reload audible, bool shell by shell, f32 projectile speed), i32+utf8 the skill curves' JSON. Written by `ai_record start` right after the Header, before the bots |
 | 9 | Frame | (version 3) `AiActorFrame`: actor, i32 tick, vector origin, vector eye, vector velocity. Every living actor, humans and bots, each tick while recording (§3.4.4) |
-| 10 | Observed | (version 3) an `AiEvent` (as Event) about an actor no brain plays: a person's `SightGained`/`SightLost` from the bots' vision pass, and every actor's `ShotFired` (i32 code the weapon, f32 amount the rounds) and `HitDealt` (other the victim, f32 amount the damage, code the weapon it last fired, code2 the range in units). Never fed to a brain |
+| 10 | Observed | (version 3) an `AiEvent` (as Event) about an actor no brain plays: a person's `SightGained`/`SightLost` from the bots' vision pass, and every actor's `ShotFired` (i32 code the weapon, f32 amount the rounds) and `HitDealt` (other the victim, f32 amount the damage, code the weapon in its hands, code2 the range in units). Never fed to a brain |
 
 ## Anonymity (version 3)
 

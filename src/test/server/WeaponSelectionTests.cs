@@ -37,6 +37,10 @@ public class WeaponSelectionTests
     /// </summary>
     private static (Arsenal arsenal, RecordingEngine engine, WeaponSwitchTests.SpawningEntities world) Armed(
         bool alive = true)
+        => Armed(alive, out _);
+
+    private static (Arsenal arsenal, RecordingEngine engine, WeaponSwitchTests.SpawningEntities world) Armed(
+        bool alive, out ScriptedEntityRegistry registry)
     {
         var engine = Mock().Ignores("Entities.IsValid").Returns("Entities.GetIndex", -1)
             .Returns("Entities.GetClassName", EntityNames.Player)
@@ -50,7 +54,7 @@ public class WeaponSelectionTests
                                      new Vector(0f, 0f, 1f), EntityHandle.None))
             .Returns("Clock.Now", 10f);
 
-        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry = new ScriptedEntityRegistry(TestEngines.Server());
         registry.RegisterAll(typeof(SsWeapon).Assembly);
         registry.Services = Services(out _);
 
@@ -332,5 +336,43 @@ public class WeaponSelectionTests
 
         Assert.True(Held(arsenal) == "weapon_shotgun",
             $"and it is the shotgun that was held, wherever its slot went — not {Held(arsenal)}");
+    }
+
+    /// <summary>CBaseCombatWeapon::Drop: "If it was dropped then there's no need to respawn it."</summary>
+    [Fact]
+    public void A_dropped_weapon_is_marked_not_to_respawn_before_it_spawns()
+    {
+        var (arsenal, engine, _) = Armed();
+        arsenal.GiveWeapon(Player, EntityNames.WeaponSmg1);
+
+        arsenal.DropActive(Player, default);
+
+        var flags = engine.Last("Entities.SetSpawnFlags");
+        Assert.NotNull(flags);
+        Assert.Equal(WeaponPickup.NoRespawnFlag, flags.Value.ArgAs<int>(1));
+    }
+
+    /// <summary>
+    /// What other players' arms draw from (Hl2PostureLayer): the type in the hands, plus one,
+    /// from the deploy until the hands are empty.
+    /// </summary>
+    [Fact]
+    public void The_weapon_in_the_hands_is_on_the_players_net_state()
+    {
+        var (arsenal, _, _) = Armed(true, out var registry);
+        var player = (SsPlayer)registry.Get(Player)!;
+        player.State.BindLocal();
+        Assert.Equal(0, player.State.HeldWeapon);
+
+        arsenal.GiveWeapon(Player, EntityNames.WeaponSmg1);
+        int smg = player.State.HeldWeapon;
+        Assert.True(smg > 0, "the deploy says what they hold");
+
+        arsenal.GiveWeapon(Player, EntityNames.WeaponShotgun);
+        arsenal.SwitchSlot(Player, 1);
+        Assert.NotEqual(smg, player.State.HeldWeapon);
+
+        arsenal.DropActive(Player, default);
+        Assert.Equal(0, player.State.HeldWeapon);
     }
 }

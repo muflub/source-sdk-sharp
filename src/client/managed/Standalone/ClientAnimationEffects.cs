@@ -50,18 +50,14 @@ public sealed class AnimationEventEffects : IAnimationEventSink
     /// </summary>
     public const int MuzzleLightKeyBase = 0x0010_0000;
 
-    /// <summary>
-    /// How long a muzzle flash lights for.
-    ///
-    /// <para>
-    /// Stock's dlight muzzle flashes die within a couple of frames; longer and
-    /// a burst reads as a torch rather than as a series of shots.
-    /// </para>
-    /// </summary>
-    public const float MuzzleLightSeconds = 0.06f;
+    /// <summary>How long a muzzle flash lights for: ProcessMuzzleFlashEvent's 0.05.</summary>
+    public const float MuzzleLightSeconds = 0.05f;
 
-    /// <summary>How far a muzzle flash throws light.</summary>
-    public const float MuzzleLightRadius = 256f;
+    /// <summary>The least a muzzle flash's light reaches: ProcessMuzzleFlashEvent's RandomInt( 32, 64 ).</summary>
+    public const int MuzzleLightRadiusMin = 32;
+
+    /// <summary>The most it reaches.</summary>
+    public const int MuzzleLightRadiusMax = 64;
 
     private readonly IEngineEntityRender _render;
     private readonly IEngineVisibility _visibility;
@@ -71,11 +67,15 @@ public sealed class AnimationEventEffects : IAnimationEventSink
     private readonly IViewEntity _view;
     private readonly TempEnts.ILegacyBrass _brass;
     private readonly Interop.IFxRender _fx;
+    private readonly TempEnts.IMuzzleFlashLight? _lightOn;
+    private readonly Random _random = new();
 
     public AnimationEventEffects(IEngineEntityRender render, IEngineVisibility visibility,
                                  Sounds.IClientEntitySounds sound, IEngineEntities entities, TempEnts.ILegacyMuzzleFlashes flashes,
-                                 IViewEntity view, TempEnts.ILegacyBrass brass, Interop.IFxRender fx)
+                                 IViewEntity view, TempEnts.ILegacyBrass brass, Interop.IFxRender fx,
+                                 TempEnts.IMuzzleFlashLight? lightOn = null)
     {
+        _lightOn = lightOn;
         _brass = brass;
         _fx = fx;
         _render = render;
@@ -201,29 +201,33 @@ public sealed class AnimationEventEffects : IAnimationEventSink
             return;
         }
 
-        var light = new DynamicLight
+        // C_BaseAnimating::ProcessMuzzleFlashEvent: an elight, which lights models and
+        // not the world, a little way and for a moment. This was a 256 unit world
+        // dlight once, from when it stood in for the flash; beside the particle flash
+        // it lit up the whole room on every shot.
+        if (_lightOn?.On != false)
         {
-            Key = MuzzleLightKeyBase + _entities.GetIndex(fired.Entity),
-            IsElight = 0,
-            OriginX = origin.X,
-            OriginY = origin.Y,
-            OriginZ = origin.Z,
-            Radius = MuzzleLightRadius,
+            float radius = _random.Next(MuzzleLightRadiusMin, MuzzleLightRadiusMax + 1);
+            var light = new DynamicLight
+            {
+                Key = MuzzleLightKeyBase + _entities.GetIndex(fired.Entity),
+                IsElight = 1,
+                OriginX = origin.X,
+                OriginY = origin.Y,
+                OriginZ = origin.Z,
+                Radius = radius,
+                Decay = radius / MuzzleLightSeconds,
+                Red = 255,
+                Green = 192,
+                Blue = 64,
+                Exponent = 5,
+                Style = 0,
+                Flags = (int)DynamicLightFlags.None,
+                LiveFor = MuzzleLightSeconds,
+            };
 
-            // The warm white of burning propellant, with the exponent that
-            // lets a dlight be brighter than white — which is what makes a
-            // muzzle flash read as a flash rather than as a lamp.
-            Red = 255,
-            Green = 192,
-            Blue = 64,
-            Exponent = 5,
-
-            Style = 0,
-            Flags = (int)DynamicLightFlags.None,
-            LiveFor = MuzzleLightSeconds,
-        };
-
-        _visibility.DynamicLightUpdate(light);
+            _visibility.DynamicLightUpdate(light);
+        }
 
         // And the particle flash, as stock's C_BaseAnimating sent it to the temp
         // entities: a named event (DispatchMuzzleEffect) with its type, the

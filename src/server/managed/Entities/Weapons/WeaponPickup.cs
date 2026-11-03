@@ -58,7 +58,7 @@ public sealed class WeaponPickup : PickupItem
         => _weapons.For(ClassName)?.WorldModel ?? "models/weapons/w_pistol.mdl";
 
     /// <summary>FlWeaponRespawnTime: sv_hl2mp_weapon_respawn_time, not the items' time.</summary>
-    protected override float RespawnDelay => Placed.WeaponRespawnTime;
+    protected override float RespawnDelay => DropsToFloor ? Placed.WeaponRespawnTime : 0f;
 
     /// <summary>The rules check a weapon on the weapons' time.</summary>
     protected override bool IsPlacedWeapon => true;
@@ -71,7 +71,10 @@ public sealed class WeaponPickup : PickupItem
     protected override void OnPhysical()
     {
         if (!DropsToFloor)
+        {
+            SetContextThink(ExpireContext, DroppedLifetime);
             return;
+        }
 
         if (!HasHome)
             SetHome();
@@ -107,6 +110,22 @@ public sealed class WeaponPickup : PickupItem
 
     /// <summary>SF_NORESPAWN: a weapon keyed not to respawn falls as physics instead.</summary>
     public const int NoRespawnFlag = 1 << 30;
+
+    /// <summary>
+    /// How long a dropped weapon lies before it goes: CBaseCombatWeapon::Drop's second
+    /// until SetPickupTouch, then that think's SUB_Remove thirty seconds out.
+    /// </summary>
+    public const float DroppedLifetime = 31f;
+
+    public const string ExpireContext = "WeaponExpire";
+
+    public override void OnThink(string context)
+    {
+        if (context == ExpireContext)
+            Remove();
+        else
+            base.OnThink(context);
+    }
 
     /// <summary>How far down the drop looks for a floor (UTIL_DropToFloor).</summary>
     public const float DropDistance = 256f;

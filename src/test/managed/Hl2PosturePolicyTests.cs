@@ -420,4 +420,27 @@ public class Hl2PosturePolicyTests
         Assert.True(pose.PlaybackRate == 1f,
             "the rate is left at 1 until the caller has asked the model what the sequence travels at");
     }
+
+    /// <summary>
+    /// The weapon's acttable row: HL2DM has no gait that is not per-weapon, and with the
+    /// suffix fixed at MELEE every other player held their weapon as a raised crowbar.
+    /// </summary>
+    [Theory]
+    [InlineData(PlayerPosture.Idle, "weapon_smg1", "ACT_HL2MP_IDLE_SMG1")]
+    [InlineData(PlayerPosture.Run, "weapon_ar2", "ACT_HL2MP_RUN_AR2")]
+    [InlineData(PlayerPosture.Walk, "weapon_shotgun", "ACT_HL2MP_RUN_SHOTGUN")]
+    [InlineData(PlayerPosture.CrouchIdle, "weapon_rpg", "ACT_HL2MP_IDLE_CROUCH_RPG")]
+    [InlineData(PlayerPosture.CrouchWalk, "weapon_357", "ACT_HL2MP_WALK_CROUCH_PISTOL")]
+    [InlineData(PlayerPosture.Jump, "weapon_physcannon", "ACT_HL2MP_JUMP_PHYSGUN")]
+    [InlineData(PlayerPosture.Idle, "weapon_crowbar", "ACT_HL2MP_IDLE_MELEE")]
+    public void A_held_weapon_picks_its_own_row(PlayerPosture posture, string weapon, string activity)
+    {
+        Assert.Equal(activity, Hl2PostureLayer.HeldActivity(posture, weapon));
+    }
+
+    [Fact]
+    public void A_class_with_no_acttable_has_no_row()
+    {
+        Assert.Null(Hl2PostureLayer.HeldActivity(PlayerPosture.Idle, "tf_weapon_rocketlauncher"));
+    }
 }

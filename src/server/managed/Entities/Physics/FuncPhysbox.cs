@@ -39,11 +39,15 @@ public class FuncPhysbox : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverr
     /// <summary>CPhysBox::Spawn: DAMAGE_YES, or DAMAGE_EVENTS_ONLY -- never DAMAGE_NO.</summary>
     public override bool TakesDamage => true;
 
-    public FuncPhysbox(IEngineEntityPhysics physics, PlayerPickupRules pickups)
+    public FuncPhysbox(IEngineEntityPhysics physics, PlayerPickupRules pickups, IHeldObjects? held = null)
     {
         Physics = physics;
         Pickups = pickups;
+        Held = held;
     }
+
+    /// <summary>Who holds what, for the ForceDrop input.</summary>
+    private readonly IHeldObjects? Held;
 
     /// <summary>What a player's +USE may do with this box (its caps and its Use).</summary>
     private readonly PlayerPickupRules Pickups;
@@ -224,6 +228,9 @@ public class FuncPhysbox : ScriptedEntity, IPhysGunTarget, ITakesMassCenterOverr
 
     [ScriptedEvent("EnableMotion")] private void OnEnableMotionInput() => SetMotion(true);
     [ScriptedEvent("DisableMotion")] private void OnDisableMotionInput() => SetMotion(false);
+
+    /// <summary>CPhysBox::InputForceDrop: dm_lockdown's plug_teleporter drops the plug into its socket with this.</summary>
+    [ScriptedEvent("ForceDrop")] private void OnForceDropInput() => Held?.ForceDrop(Handle);
 
     /// <summary>
     /// Turning motion on fires an output; turning it off does not.

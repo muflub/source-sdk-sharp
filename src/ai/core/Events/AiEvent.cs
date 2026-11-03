@@ -50,7 +50,7 @@ public enum AiEventKind : byte
     /// <summary>The actor fired: Code the weapon's kind, Amount the rounds the fire took. A trigger pull, however many pellets it throws.</summary>
     ShotFired = 50,
 
-    /// <summary>The actor's fire hurt Other: Amount the damage, Code the weapon it last fired (-1 none), Code2 the range in units (-1 unknown).</summary>
+    /// <summary>The actor's fire hurt Other: Amount the damage, Code the weapon in the actor's hands (-1 none), Code2 the range in units (-1 unknown).</summary>
     HitDealt = 51,
 }
 

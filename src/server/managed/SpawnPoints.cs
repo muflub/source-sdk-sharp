@@ -196,9 +196,14 @@ public sealed class SpawnPoints(IEngineEntities entities, IEnginePlayers players
     /// stock's, because this replaces the engine's SEARCH and not its idea of
     /// what makes a point usable.
     /// </summary>
+    private const int MaxNearASpot = 512;
+
     private bool IsOccupied(EntityHandle spot, EntityHandle spawning)
     {
-        Span<EntityHandle> nearby = stackalloc EntityHandle[16];
+        // Room for all a spot has round it: stock walks the whole sphere, and a
+        // spot among 16 lights and decals never saw the player standing on it, so
+        // two came to stand in each other (live, dm_lockdown's (-4116 4600 2)).
+        Span<EntityHandle> nearby = stackalloc EntityHandle[MaxNearASpot];
         int found = world.EntitiesInSphere(entities.GetOrigin(spot), 128f, nearby);
 
         for (int i = 0; i < found; i++)

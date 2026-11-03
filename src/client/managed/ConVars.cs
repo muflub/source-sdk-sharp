@@ -82,6 +82,16 @@ public sealed class DefaultWeaponConVar : StringConVar
 {
 }
 
+/// <summary>
+/// The model a player asks to wear: stock's C_HL2MP_Player cl_playermodel, which the
+/// server reads back and writes to when it refuses a choice (CHL2MP_Player::SetPlayerModel).
+/// </summary>
+[ConVar("cl_playermodel", "none", Flags = ConVarFlags.UserInfo | ConVarFlags.Archive | ConVarFlags.ServerCanExecute,
+        Help = "Default Player Model")]
+public sealed class PlayerModelConVar : StringConVar
+{
+}
+
 [ConVar("cl_predictweapons", "1", Flags = ConVarFlags.UserInfo | ConVarFlags.NotConnected,
         Help = "Perform client side prediction of weapon effects.")]
 public sealed class PredictWeaponsConVar : BoolConVar

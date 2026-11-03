@@ -647,6 +647,35 @@ public class WeaponImpactTests
         Assert.False(engine.Called("Sound.EntityEmitSound"), "the weapon sound is the prediction-rules one");
     }
 
+    /// <summary>
+    /// ApplyMultiDamage's SetSuppressHost( NULL ): what the hit sets off is sent to the shooter
+    /// too. Held through the damage, a barrel the shooter hit exploded and a crate broke for
+    /// everybody else alone, while the same barrel set off by anything else showed for them.
+    /// The sound and the impact around the hit stay suppressed (the fact above).
+    /// </summary>
+    [Theory]
+    [InlineData("weapon_smg1")]
+    [InlineData("weapon_crowbar")]
+    public void The_shooter_is_not_the_suppress_host_while_the_hit_lands(string weapon)
+    {
+        var clients = new PredictionSuppressionTests.Clients().Predicting(1);
+        var prediction = new PredictionSuppression(clients);
+        var (arsenal, engine) = Armed(prediction: prediction, weapon: weapon, subject: Crate,
+                                      weaponSounds: new HostAtEmit(prediction));
+        engine.Returns("Entities.GetIndex", 1);
+        engine.Returns("Entities.IsValid", true);
+        engine.Strict = false;
+        engine.Returns("WorldQuery.TraceLineSurface",
+                       new SurfaceTraceResult(true, 0.5f, Landed, new Vector(-1f, 0f, 0f), Crate, TracedSurfaceProp, 0));
+        var hosts = new List<int>();
+        engine.WhenCalled("Damage.ApplyAt", _ => hosts.Add(prediction.Host));
+
+        PullTheTrigger(arsenal, engine);
+
+        Assert.NotEmpty(hosts);
+        Assert.All(hosts, host => Assert.Equal(0, host));
+    }
+
     [Fact]
     public void A_shooter_who_does_not_predict_weapons_is_sent_every_copy()
     {

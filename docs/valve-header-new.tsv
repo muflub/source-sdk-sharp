@@ -1092,3 +1092,4 @@ src/client/native/shell_particle_systems_client.h	native code built against SDK 
 src/client/native/shell_particle_query_client.h	ports IParticleSystemQuery's client implementation (particlesystemquery.cpp) as a thunk onto managed answers; the class declaration split from shell_managed_particles.cpp
 src/client/native/shell_detail_props.h	native code built against SDK headers (the IDetailObjectSystem the leaf system and the view call); the detail props executor class split from shell_detail_props.cpp
 src/client/native/shell_beams_client.h	ports CViewRenderBeams' interface (view_beams.cpp) as a thunk onto managed decisions; the class declaration split from shell_beam_render.cpp
+src/server/managed/PlayerModels.cs	ports CHL2MP_Player::SetPlayerModel, SetPlayerTeamModel, ValidatePlayerModel (hl2mp_player.cpp) and the model half of CHL2MPRules::ClientSettingsChanged (hl2mp_gamerules.cpp)

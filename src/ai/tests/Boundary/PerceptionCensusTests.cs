@@ -43,6 +43,8 @@ public sealed class PerceptionCensusTests
         "SourceSharp.Ai.Hl2mp.AiBotGotoCommand",
         // The inspector's perception part (§7.1): the bot's own view, for the web UI only.
         typeof(AiBotRoutes).FullName!,
+        // The recording's hit: the weapon in the attacker's hands, written to the file, never to a brain (§3.4.4).
+        typeof(ShotTap).FullName!,
     ];
 
     private static bool IsRead(MethodBase m) => Reads.Contains($"{m.DeclaringType?.Name}::{m.Name}");

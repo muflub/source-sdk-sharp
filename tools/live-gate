@@ -2008,6 +2008,12 @@ class Gate:
         if self.verbose:
             print(text, flush=True)
 
+    def player_speed(self):
+        """The player's speed as the entity API answers it (IEngineEntities.GetVelocity), or 0."""
+        me = self.api.player(self.scen["playerClass"])
+        e = self.api.entity(index=me["index"]) if me else None
+        return float(e["speed"]) if e else 0.0
+
     def check(self, ok, message):
         if ok:
             self.say("    ok    %s" % message)
@@ -2305,6 +2311,7 @@ def step_move(g):
     mid_hold_a = g.player_origin()
     g.ticks(0.75)
     mid_hold_b = g.player_origin()
+    held_speed = g.player_speed()
     g.ticks(0.75)
     g.api.cmd("-forward")
     g.ticks(0.4)
@@ -2316,6 +2323,10 @@ def step_move(g):
     moved = distance(before, after)
     g.say("    %s -> %s" % (before, after))
     g.check(moved > 64.0, "walking forward moved the player %.1f units" % moved)
+    # The engine's velocity of a player is the movement's, as stock's GetAbsVelocity:
+    # read from the base entity's field it was zero for every player, which a thrown
+    # grenade, a corpse and the bots' lead all read.
+    g.check(held_speed > 100.0, "and its velocity read %.1f u/s in the middle of the hold" % held_speed)
 
     # THE OTHER HALF OF THE TITLE'S CLAIM. `moved` says the player is somewhere
     # else; this says the MANAGED MOVEMENT CODE is what put them there. Step 3

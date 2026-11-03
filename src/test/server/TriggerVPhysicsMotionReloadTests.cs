@@ -39,7 +39,7 @@ public class TriggerVPhysicsMotionReloadTests
         engine.Returns("Entities.IsPlayer", player);
         engine.Returns("Players.IsAlive", true);
         engine.Returns("Entities.GetSolidFlags", (SolidFlags)0);
-        engine.Returns("Entities.GetSpawnFlags", 1 | 2);                  // clients, everything else
+        engine.Returns("Entities.GetSpawnFlags", 1 | 64);                 // clients, everything else
         engine.Returns("Networking.EntityGetState", player ? EntityState.Player : (EntityState)0);
         engine.Returns("Networking.EntityGetState.moveType", player ? MoveType.Walk : MoveType.VPhysics);
         engine.Returns("MotionControllers.Create", MediumId);
