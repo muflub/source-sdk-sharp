@@ -357,3 +357,41 @@ so the comment-free patched upstream (`make sdk-upstream`) keeps it.
 
 Owner: whoever restores `env_projectedtexture`. Waits for: a managed light
 target.
+
+## 16. The GameUI single-player surface, and what the managed GameUI leaves out
+
+The managed GameUI (plan_gameui_managed.md) answers every call the engine
+makes of `GameUI011` and `GameConsole004` (`GameUiHost`) and every name
+stock's game menu ran (`GameMenuCommands`). What a multiplayer-only game has
+no use for answers inertly, by ruling:
+
+- `GameUiHost`: `ShowNewGameDialog`, `SessionNotification`,
+  `SystemNotification`, `ShowMessageDialog` (the Xbox message dialogs),
+  `UpdatePlayerInfo`, `SessionSearchResult`, `OnCreditsFinished`,
+  `SetLoadingBackgroundDialog`, the four `BonusMap*` calls,
+  `ValidateStorageDevice`, `SetProgressOnStart`, and `SetMainMenuOverride`
+  (only a stock TF2 client called it; ours draws its menu in managed).
+- `GameMenuCommands`: `OpenNewGameDialog`, `OpenLoadGameDialog`,
+  `OpenSaveGameDialog`, `OpenBonusMapsDialog`, `OpenControllerDialog`,
+  `OpenBenchmarkDialog`, `OpenFriendsDialog`, `OpenLoadDemoDialog`,
+  `OpenChangeGameDialog`, `OpenLoadCommentaryDialog`,
+  `OpenLoadSingleplayerCommentaryDialog`, `OpenMatchmakingBasePanel`,
+  `OpenAchievementsDialog`, `OpenCSAchievementsDialog`,
+  `AchievementsDialogClosing`, `QuitRestartNoConfirm` (Xbox only in stock).
+
+Controls stock's dialogs had that the managed ones do not, each a ruling or a
+missing engine surface:
+
+- The voice tab's microphone test and the multiplayer tab's spray import
+  (D4, user 2026-11-01).
+- The audio tab's spoken language (a Steam app language, applied by a
+  restart) and its speaker test (a `test_speakers` map the SDK mods hide).
+- The video tab's per-display fullscreen choices (SDL's display count is not
+  on the ABI): one Fullscreen and Windowed; and its DirectX level (fixed by
+  ToGL on Linux).
+- Create server: stock reverted the replicated and cheat convars before the
+  map; the console has no command for it.
+- The player list marks no Steam friends (stock had commented it out).
+
+Owner: plan_gameui_managed.md. Waits for: nothing; a mod that needs one of
+these adds it.

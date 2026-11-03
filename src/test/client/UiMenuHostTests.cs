@@ -337,14 +337,17 @@ public class UiMenuHostTests
         var surface = new UiFidelityTests.RecordingSurface();
         var host0 = UiHostKit.Build(surface, []);
         var m = host0.Menus;
-        UiScreen[] menus = [new MainMenu(new FakeMainMenu()), .. extra];
+        var fake = new FakeMainMenu();
+        UiScreen[] menus = [new MainMenu(fake, fake), .. extra];
         float seconds = 3;   // IGameClock.Now is a float: a boxed double answers default.
         var engine = TestServices.Fake().ReturnsEachCall("Clock.Now", () => seconds += 1);
         return (UiHostKit.Build(surface, [], menus, m, engine), surface);
     }
 
-    private sealed class FakeMainMenu : IMainMenuSource
+    private sealed class FakeMainMenu : IMainMenuSource, IMainMenuCommands
     {
+        public void Run(string command) { }
+
         public bool InLevel => true;
 
         public bool CanPlay => false;
@@ -428,7 +431,8 @@ public class UiMenuHostTests
         var surface = new UiFidelityTests.RecordingSurface();
         var host0 = UiHostKit.Build(surface, []);
         var m = host0.Menus;
-        UiScreen[] menus = [new MainMenu(new FakeMainMenu())];
+        var fake = new FakeMainMenu();
+        UiScreen[] menus = [new MainMenu(fake, fake)];
         var engine = TestServices.Fake().Returns("Clock.Now", 5f);   // one frozen frame
         var host = UiHostKit.Build(surface, [], menus, m, engine);
         host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
@@ -468,6 +472,7 @@ public class UiMenuHostTests
         host.ShowPauseMenu();
         Assert.True(host.Menu.IsOpen("panel-claimer"));
         Assert.False(host.Menu.IsOpen("mainmenu"));            // the core's stayed shut
+        Assert.Equal("panel-claimer", host.Menu.ChromeWith);   // and the taskbar comes up with the claimer
         host.HidePauseMenu();
         Assert.False(host.Menu.IsOpen("panel-claimer"));
     }
@@ -547,7 +552,7 @@ public class UiMenuHostTests
     public void Resume_runs_the_engine_s_own_hide_command()
     {
         var sent = new List<string>();
-        new MainMenuUi(new ChatFeedTests.RecordingEngineClient(sent)).Resume();
+        new MainMenuUi(new ChatFeedTests.RecordingEngineClient(sent), new ConfirmQuitUi(new ChatFeedTests.RecordingEngineClient(sent))).Resume();
         Assert.Equal(["gameui_hide"], sent);
     }
 

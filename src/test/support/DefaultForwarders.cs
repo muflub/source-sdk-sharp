@@ -40,6 +40,7 @@ internal static class DefaultForwarders
         side.Bound.SoundClient.Hold(new NoSoundClient());
         side.Bound.GameUIFuncs.Hold(new NoGameUIFuncs());
         side.Bound.MaterialSystem.Hold(new NoMaterialSystem());
+        side.Bound.FileFinder.Hold(new NoFileFinder());
 #endif
     }
 
@@ -272,7 +273,8 @@ internal static class DefaultForwarders
     /// <summary>An engine client in no game answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
     internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
                                                   IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
-                                                  IViolenceSettings, IMenuBackgroundName
+                                                  IViolenceSettings, IMenuBackgroundName,
+                                                  IVoiceTweakControls
     {
         // No engine: the cl_predict switch and a selection line go nowhere.
         public void SetPredict(bool predict) { }
@@ -306,6 +308,9 @@ internal static class DefaultForwarders
         bool IViolenceSettings.EngineSaysLowViolence => false;
 
         string? IMenuBackgroundName.MainMenuBackgroundName() => null;
+        bool IVoiceTweakControls.HasVoiceTweak => false;
+        float IVoiceTweakControls.VoiceControl(int control) => 0f;
+        void IVoiceTweakControls.SetVoiceControl(int control, float value) { }
 
         void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => (x, y) = (0, 0);
 
@@ -372,6 +377,12 @@ internal static class DefaultForwarders
     {
         public VideoMode[] VideoModes() => [];
         public (int Width, int Height) DesktopResolution() => (0, 0);
+    }
+
+    /// <summary>No file finder: every search finds nothing.</summary>
+    internal sealed class NoFileFinder : IFwdFileFinder
+    {
+        public List<string> Find(string wildcard, string? pathId, bool directories = false) => [];
     }
 
     /// <summary>No material system: a zero windowed config and no antialiasing mode.</summary>

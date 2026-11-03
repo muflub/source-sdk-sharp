@@ -14,6 +14,7 @@
 #pragma once
 
 class CCallbackBase;
+class ISteamMatchmakingServerListResponse;
 class IManagedSteamCallback;
 
 // How many bytes Construct needs: what managed allocates for one callback.
@@ -26,3 +27,11 @@ CCallbackBase* SSFwd_SteamCallback_Construct(void* pMemory, IManagedSteamCallbac
 
 // Whether Steam holds the callback: unregister it before freeing it only then.
 bool SSFwd_SteamCallback_IsRegistered(CCallbackBase* pCallback);
+
+// The server browser's request object (plan_gameui_managed.md G3): Steam's
+// server list request takes one, and managed polls the list instead of being
+// called back, so every answer is a no-op. SizeOf bytes for managed to
+// allocate; nothing built without memory.
+int SSFwd_SteamServerList_SizeOf();
+
+ISteamMatchmakingServerListResponse* SSFwd_SteamServerList_Construct(void* pMemory);

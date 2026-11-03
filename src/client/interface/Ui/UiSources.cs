@@ -505,6 +505,81 @@ public enum ServerTab : byte
     History,
 }
 
+/// <summary>The columns the server table sorts by.</summary>
+public enum ServerSort : byte
+{
+    Name,
+    Game,
+    Map,
+    Players,
+    Ping,
+}
+
+/// <summary>How the server table is ordered: by a column, up or down.</summary>
+public interface IServerSortSource
+{
+    ServerSort Sort { get; }
+
+    bool Descending { get; }
+}
+
+/// <summary>
+/// The browser beyond its lists: whether Steam answers (the internet list's
+/// source), whether the selected server is a favourite, and the password a
+/// passworded server's join is waiting for.
+/// </summary>
+public interface IServerBrowserState
+{
+    bool SteamAvailable { get; }
+
+    bool SelectedIsFavourite { get; }
+
+    bool AskingPassword { get; }
+
+    /// <summary>The name of the server the password is for.</summary>
+    string PasswordServer { get; }
+}
+
+/// <summary>What the browser's controls do (stock's ServerBrowser.so dialogs).</summary>
+public interface IServerBrowserActions
+{
+    /// <summary>Once a frame while the browser is open: the queries' answers come in.</summary>
+    void Poll();
+
+    void SelectTab(ServerTab tab);
+
+    void SetMapContains(string text);
+
+    void SetNotFull(bool on);
+
+    void SetNotEmpty(bool on);
+
+    void SetNoPassword(bool on);
+
+    void SetMaxPing(int ms);
+
+    /// <summary>Sorts by a column; the column already sorted by turns over.</summary>
+    void SortBy(ServerSort column);
+
+    /// <summary>Selects a server of the current list by its index there.</summary>
+    void Select(int index);
+
+    void Refresh();
+
+    /// <summary>Joins the selected server; a passworded one asks for the password first.</summary>
+    void Connect();
+
+    /// <summary>Adds the selected server to the favourites, or on the favourites tab removes it.</summary>
+    void ToggleFavourite();
+
+    /// <summary>Adds a server by its address (a.b.c.d[:port]) to the favourites; false for an address that is not one.</summary>
+    bool AddServer(string address);
+
+    void SubmitPassword(string password);
+
+    void CancelPassword();
+}
+
 /// <summary>The browser's query: the tab, and a refresh in progress.</summary>
 public interface IServerQuerySource
 {
@@ -703,4 +778,204 @@ public interface IUiConVarStore
     string? Get(string name);
 
     void Set(string name, string value);
+}
+
+/// <summary>A console line an options page submits where a setting is a command rather than a convar (closecaption, mat_setvideomode, setinfo).</summary>
+public interface IUiCommandLine
+{
+    void Submit(string line);
+}
+
+/// <summary>The microphone's volume (0 to 1) and boost, through the engine's voice tweak controls (stock's voice options).</summary>
+public interface IMicrophoneSettings
+{
+    /// <summary>Whether the engine has the controls; without them the voice page's controls are off.</summary>
+    bool Available { get; }
+
+    float Volume { get; set; }
+
+    bool Boost { get; set; }
+}
+
+/// <summary>A video mode as the options list it, in pixels.</summary>
+public readonly record struct UiVideoMode(int Width, int Height);
+
+/// <summary>
+/// What the video options list and start from (stock's video options): the
+/// engine's modes, the desktop's size, the current mode and whether it is
+/// windowed, and which antialiasing modes the card does. Read when the page
+/// loads, not each frame.
+/// </summary>
+public interface IVideoModeSource
+{
+    IReadOnlyList<UiVideoMode> Modes { get; }
+
+    UiVideoMode Desktop { get; }
+
+    UiVideoMode Current { get; }
+
+    bool Windowed { get; }
+
+    bool SupportsMsaa(int samples);
+
+    bool SupportsCsaa(int samples, int quality);
+}
+
+/// <summary>The game's files by wildcard (the player models, the spray logos): names without their directory. Read when a page loads.</summary>
+public interface IUiFileList
+{
+    IReadOnlyList<string> Find(string wildcard);
+
+    /// <summary>The directories a wildcard finds, never <c>.</c> or <c>..</c>.</summary>
+    IReadOnlyList<string> Directories(string wildcard);
+}
+
+/// <summary>What an options script entry is drawn as (stock's script object types; a button runs its value).</summary>
+public enum UiScriptKind
+{
+    Bool,
+    Number,
+    List,
+    String,
+    Slider,
+    Category,
+    Button,
+}
+
+/// <summary>One choice of a list entry: its words (a token or text) and the value it sets.</summary>
+public readonly record struct UiScriptItem(string Label, string Value);
+
+/// <summary>
+/// One entry of an options script (cfg/user_default.scr's "cvar" { "prompt"
+/// { type } { default } }): the convar, its prompt and tooltip, how it is
+/// edited, a number's range (-1 for none), a list's choices, its current
+/// value, and whether it is sent with setinfo.
+/// </summary>
+public readonly record struct UiScriptEntry(
+    string Name, string Prompt, string? Tooltip, UiScriptKind Kind, float Min, float Max,
+    IReadOnlyList<UiScriptItem> Items, string Value, bool SetInfo);
+
+/// <summary>
+/// The multiplayer options' advanced entries (stock: the advanced multiplayer
+/// dialog over cfg/user_default.scr and cfg/user.scr): read when the page
+/// loads; saved, each value goes to its convar and the script to
+/// cfg/user.scr.
+/// </summary>
+public interface IOptionsScriptSource
+{
+    IReadOnlyList<UiScriptEntry> Load();
+
+    void Save(IReadOnlyList<UiScriptEntry> entries, IReadOnlyList<string> values);
+
+    /// <summary>A button entry pressed: its value, run as a console line.</summary>
+    void Press(UiScriptEntry entry);
+}
+
+/// <summary>
+/// The create-server game page's script (stock: cfg/settings_default.scr,
+/// then cfg/settings.scr; SERVER_OPTIONS), as <see cref="IOptionsScriptSource"/>
+/// answers the advanced multiplayer one.
+/// </summary>
+public interface IServerSettingsSource
+{
+    IReadOnlyList<UiScriptEntry> Load();
+
+    void Save(IReadOnlyList<UiScriptEntry> entries, IReadOnlyList<string> values);
+
+    void Press(UiScriptEntry entry);
+}
+
+/// <summary>
+/// The maps a server can start on (stock's create-server map list): the
+/// maps on the GAME paths less the mod's hidden maps, by name; and the
+/// game's name, the server name a script does not give one. Read when the
+/// window opens.
+/// </summary>
+public interface IMapListSource
+{
+    IReadOnlyList<string> Maps();
+
+    string GameName { get; }
+}
+
+/// <summary>Starts a listen server as stock's create-server OK did.</summary>
+public interface ICreateServerActions
+{
+    void Start(string map, int maxPlayers, string hostName, string password);
+}
+
+/// <summary>One player as the player list shows them: their name, and whether muted, a bot, or this client.</summary>
+public readonly record struct PlayerListEntry(string Name, bool Muted, bool Bot, bool Local);
+
+/// <summary>
+/// The players in the game and this client's mutes of them (stock's player
+/// list dialog): refreshed when the window opens and after a mute, read by
+/// index each frame. A bot or this client cannot be muted.
+/// </summary>
+public interface IPlayerListSource
+{
+    void Refresh();
+
+    int Count { get; }
+
+    PlayerListEntry Player(int i);
+
+    void ToggleMute(int i);
+}
+
+/// <summary>One button of the taskbar: an open window, its title token, whether it is on top or minimised.</summary>
+public readonly record struct UiTaskbarWindow(string Screen, string TitleToken, bool Top, bool Minimised);
+
+/// <summary>
+/// The taskbar's windows: every open window of the menu layer, in the order
+/// they were first shown (a button keeps its place when its window is raised).
+/// </summary>
+public interface ITaskbarWindows
+{
+    int WindowCount { get; }
+
+    UiTaskbarWindow Window(int i);
+
+    /// <summary>A button clicked: a window under others (or minimised) comes to the top; the top one minimises.</summary>
+    void Activate(int i);
+}
+
+/// <summary>The taskbar's tray: the settings quick-open and the local time.</summary>
+public interface ITaskbarTray
+{
+    /// <summary>Whether the options window is up (its button shows it).</summary>
+    bool SettingsOpen { get; }
+
+    /// <summary>Opens the options window, on top.</summary>
+    void OpenSettings();
+
+    /// <summary>The local time as H:mm.</summary>
+    string Clock { get; }
+}
+
+/// <summary>
+/// The game menu's commands by stock's names (OpenServerBrowser,
+/// OpenCreateMultiplayerGameDialog, OpenPlayerListDialog, Disconnect, Quit, ...),
+/// as a menu's buttons send them; the GameUI's table answers each.
+/// </summary>
+public interface IMainMenuCommands
+{
+    void Run(string command);
+}
+
+/// <summary>A button a mod puts on the taskbar (TF2's ITEMS and gears): its label token, and whether it stands in the tray beside Settings rather than at the bar's left.</summary>
+public readonly record struct UiTaskbarLauncher(string Token, bool Tray);
+
+/// <summary>
+/// The buttons a mod puts on the taskbar while its menu is up, in order
+/// (index-and-count, read each frame): a mod's menu moves its bottom row
+/// here rather than draw it under the bar.
+/// </summary>
+public interface ITaskbarLaunchers
+{
+    int LauncherCount { get; }
+
+    UiTaskbarLauncher Launcher(int i);
+
+    void Launch(int i);
 }

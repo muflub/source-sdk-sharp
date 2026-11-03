@@ -13,19 +13,6 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IFileSystem</c> through its forwarders (SSFwd_FileSystem): 1 slot(s).
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal unsafe struct FileSystemFwd : IForwarderTable
-{
-    /// <summary>The name native serves the table under.</summary>
-    public static string TableName => "SSFwd_FileSystem";
-
-    // void IFileSystem::CreateDirHierarchy( const char *, const char * )
-    public delegate* unmanaged<void*, byte*, byte*, void> CreateDirHierarchy;
-}
-
-/// <summary>
 /// <c>IVEngineServer</c> through its forwarders (SSFwd_EngineServer): 31 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]

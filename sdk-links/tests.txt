@@ -533,3 +533,5 @@ src/tier1/utlbuffer.cpp
 src/tier1/utlbufferutil.cpp
 src/tier1/utlstring.cpp
 src/tier1/utlsymbol.cpp
+src/public/ivoicetweak.h
+src/public/steam/matchmakingtypes.h

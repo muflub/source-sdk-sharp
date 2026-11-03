@@ -29,6 +29,24 @@ include(${PROJECT_SOURCE_DIR}/cmake/SourceSharpTests.cmake)
 ss_cpptest(vtable_hook_test OPTIMIZED
     SOURCES sourcesharp/test/vtable_hook_test.cpp)
 
+# plan_gameui_managed.md G4: the GameUI factory swap writes one slot of
+# engine.so's import of dlsym (import_slot.h, header-only), held here against a
+# test library that looks symbols up through its own dlsym import.
+ss_cpptest(import_slot_test
+    LINUX_ONLY "patches a test library's ELF import of dlsym (import_slot.h's Linux arm), the Windows arm is CI's build"
+    SOURCES sourcesharp/test/import_slot_test.cpp)
+if(TARGET import_slot_test)
+  add_library(import_slot_testlib SHARED ${PROJECT_SOURCE_DIR}/src/test/native/import_slot_testlib.cpp)
+  ss_test_compile_flags(import_slot_testlib)
+  target_link_libraries(import_slot_testlib PRIVATE ${CMAKE_DL_LIBS})
+  target_link_libraries(import_slot_test PRIVATE import_slot_testlib ${CMAKE_DL_LIBS})
+endif()
+
+# plan_gameui_managed.md G4: the GameUI calls held before the managed root
+# exists and played to it after (gameui_early_calls.h, header-only).
+ss_cpptest(gameui_early_calls_test
+    SOURCES sourcesharp/test/gameui_early_calls_test.cpp)
+
 # plan_client_novalve C7: the render call recorder overwrites one engine vtable
 # slot in place for a frame (vtable_slot_patch.h, header-only).
 ss_cpptest(vtable_slot_patch_test OPTIMIZED
@@ -1322,6 +1340,14 @@ ss_cpptest_engine_headers(save_restore_layout_test
              ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
     SOURCES sourcesharp/test/save_restore_layout_test.cpp)
 
+# plan_gameui_managed.md G3: the gameserveritem_t fields the managed server
+# browser (SteamServerBrowser.cs) reads by layout; SteamServerBrowserTests pins
+# the same numbers in C#.
+ss_cpptest_engine_headers(steam_server_item_layout_test
+    DEFINES CLIENT_DLL
+    INCLUDES public public/tier0 public/tier1
+    SOURCES sourcesharp/test/steam_server_item_layout_test.cpp)
+
 # plan_gameui_managed.md G2: the video config fields and the mode record the
 # managed video options (VideoInterfaces.cs) read by layout; VideoInterfacesTests
 # pins the same numbers in C#.
@@ -1507,14 +1533,6 @@ ss_cpptest(detail_props_wire_test
 ss_cpptest(shadow_pending_queue_test
     INCLUDES sourcesharp/game/client
     SOURCES sourcesharp/test/shadow_pending_queue_test.cpp)
-
-# THE GAMEUI VISIBILITY EDGE (the pause menu's drive): the engine hands its
-# GameUI activation to the client only when -game names tf exactly, so the
-# client watches IEngineVGui itself and fires the two game events on the edge.
-# gameui_edge.h is engine-free, so the shipped machine is the thing under test.
-ss_cpptest(gameui_edge_test
-    INCLUDES sourcesharp/game/client
-    SOURCES sourcesharp/test/gameui_edge_test.cpp)
 
 # THE NOT-SHIPPED LEDGER -- plan_entity.md step 7g.
 #

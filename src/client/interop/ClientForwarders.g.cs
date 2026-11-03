@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 30 slot(s).
+/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 31 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineClientFwd : IForwarderTable
@@ -112,6 +112,9 @@ internal unsafe struct EngineClientFwd : IForwarderTable
 
     // void IVEngineClient013::GetMainMenuBackgroundName( char *, int )
     public delegate* unmanaged<void*, byte*, int, void> GetMainMenuBackgroundName;
+
+    // struct IVoiceTweak_s * IVEngineClient013::GetVoiceTweakAPI( void )
+    public delegate* unmanaged<void*, void*> GetVoiceTweakAPI;
 }
 
 /// <summary>
@@ -282,6 +285,23 @@ internal unsafe struct SteamCallbackFwd : IForwarderTable
 
     // bool SSFwd_SteamCallback_IsRegistered( CCallbackBase * )
     public delegate* unmanaged<void*, byte> IsRegistered;
+}
+
+/// <summary>
+/// <c>void</c>'s functions (SSFwd_SteamServerList): 2 slot(s), none of them a method,
+/// so the first argument is the first parameter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct SteamServerListFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_SteamServerList";
+
+    // int SSFwd_SteamServerList_SizeOf( void )
+    public delegate* unmanaged<int> SizeOf;
+
+    // ISteamMatchmakingServerListResponse * SSFwd_SteamServerList_Construct( void * )
+    public delegate* unmanaged<void*, void*> Construct;
 }
 
 /// <summary>

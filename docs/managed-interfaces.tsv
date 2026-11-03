@@ -422,3 +422,49 @@ IManagedShadowsClient	UnlockAllShadowDepthTextures	void	const int32_t *pPending,
 IManagedShadowsClient	RestoreRenderState	void	void
 IManagedShadowsClient	RenderShadowTexture	void	int32_t nWidth, int32_t nHeight
 IManagedShadowsClient	Pending	void	const int32_t *pEntries, int32_t nCount
+# plan_gameui_managed.md G4: the engine's GameUI011 and GameConsole004, every
+# slot (the three Bonus-map calls with out-parameters answered natively; a
+# vgui::VPANEL, pointer-sized, as void *),
+# answered by the managed GameUI host. Native's SSGameUI/SSGameConsole
+# (client.so) forward here; the console's methods carry a Console prefix.
+IManagedGameUiClient	Initialize	void	void *pAppFactory
+IManagedGameUiClient	PostInit	void	void
+IManagedGameUiClient	Connect	void	void *pGameFactory
+IManagedGameUiClient	Start	void	void
+IManagedGameUiClient	Shutdown	void	void
+IManagedGameUiClient	RunFrame	void	void
+IManagedGameUiClient	OnGameUIActivated	void	void
+IManagedGameUiClient	OnGameUIHidden	void	void
+IManagedGameUiClient	OldOnConnectToServer	void	const char *pszGame, int32_t nIP, int32_t nPort
+IManagedGameUiClient	OnDisconnectFromServerOld	void	int32_t nSteamLoginFailure, const char *pszUsername
+IManagedGameUiClient	OnLevelLoadingStarted	void	int32_t bShowProgressDialog
+IManagedGameUiClient	OnLevelLoadingFinished	void	int32_t bError, const char *pszFailureReason, const char *pszExtendedReason
+IManagedGameUiClient	UpdateProgressBar	int32_t	float flProgress, const char *pszStatusText
+IManagedGameUiClient	SetShowProgressText	int32_t	int32_t bShow
+IManagedGameUiClient	ShowNewGameDialog	void	int32_t nChapter
+IManagedGameUiClient	SessionNotification	void	int32_t nNotification, int32_t nParam
+IManagedGameUiClient	SystemNotification	void	int32_t nNotification
+IManagedGameUiClient	ShowMessageDialog	void	uint32_t nType, void *pOwner
+IManagedGameUiClient	UpdatePlayerInfo	void	uint64_t nPlayerId, const char *pszName, int32_t nTeam, uint8_t cVoiceState, int32_t nPlayersNeeded, int32_t bHost
+IManagedGameUiClient	SessionSearchResult	void	int32_t nSearchIdx, void *pHostData, void *pResult, int32_t nPing
+IManagedGameUiClient	OnCreditsFinished	void	void
+IManagedGameUiClient	SetLoadingBackgroundDialog	void	void *pPanel
+IManagedGameUiClient	BonusMapUnlock	void	const char *pszFileName, const char *pszMapName
+IManagedGameUiClient	BonusMapComplete	void	const char *pszFileName, const char *pszMapName
+IManagedGameUiClient	BonusMapChallengeUpdate	void	const char *pszFileName, const char *pszMapName, const char *pszChallengeName, int32_t nBest
+IManagedGameUiClient	BonusMapDatabaseSave	void	void
+IManagedGameUiClient	BonusMapNumAdvancedCompleted	int32_t	void
+IManagedGameUiClient	OnConnectToServer2	void	const char *pszGame, int32_t nIP, int32_t nConnectionPort, int32_t nQueryPort
+IManagedGameUiClient	ValidateStorageDevice	int32_t	void
+IManagedGameUiClient	SetProgressOnStart	void	void
+IManagedGameUiClient	OnDisconnectFromServer	void	int32_t nSteamLoginFailure
+IManagedGameUiClient	OnConfirmQuit	void	void
+IManagedGameUiClient	IsMainMenuVisible	int32_t	void
+IManagedGameUiClient	SetMainMenuOverride	void	void *pPanel
+IManagedGameUiClient	SendMainMenuCommand	void	const char *pszCommand
+IManagedGameUiClient	ConsoleActivate	void	void
+IManagedGameUiClient	ConsoleInitialize	void	void
+IManagedGameUiClient	ConsoleHide	void	void
+IManagedGameUiClient	ConsoleClear	void	void
+IManagedGameUiClient	ConsoleIsVisible	int32_t	void
+IManagedGameUiClient	ConsoleSetParent	void	void *pParent

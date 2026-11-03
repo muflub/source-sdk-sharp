@@ -49,4 +49,6 @@ public interface IDebugClientHooks
     IDebugClientParticles Particles { get; }
     /// <summary>The input: key states, the mouse, the last commands, and the write that injects one (lane c6-input).</summary>
     IDebugClientInput Input { get; }
+    /// <summary>The engine's GameUI calls as they reached managed (plan_gameui_managed.md §4). Game thread.</summary>
+    IDebugClientGameUi GameUi { get; }
 }

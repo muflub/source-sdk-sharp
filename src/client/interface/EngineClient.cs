@@ -247,6 +247,22 @@ public interface IMenuBackgroundName
 }
 
 /// <summary>
+/// The engine's voice tweak controls (<c>IVEngineClient::GetVoiceTweakAPI</c>,
+/// ivoicetweak.h): the stock voice options read and set the microphone's
+/// volume and boost through them.
+/// </summary>
+public interface IVoiceTweakControls
+{
+    /// <summary>Whether the engine has the controls (a build without voice has none).</summary>
+    bool HasVoiceTweak { get; }
+
+    /// <summary>A control's value (VoiceTweakControl: 0 the microphone volume, 2 the boost).</summary>
+    float VoiceControl(int control);
+
+    void SetVoiceControl(int control, float value);
+}
+
+/// <summary>
 /// The engine's own word on gore: <c>IVEngineClient::IsLowViolence</c>, the
 /// term of <c>UTIL_IsLowViolence</c> that decides it (the four violence_*
 /// convars are the legacy terms).

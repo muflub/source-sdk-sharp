@@ -27,6 +27,8 @@ public class GameUiHostTests
         public void ShowPauseMenu() => Calls.Add("show-pause");
         public void HidePauseMenu() => Calls.Add("hide-pause");
         public bool MainMenuOpen => MainMenu;
+        public long Frames { get; set; }
+        public long MenuFrames => Frames;
         void IGameUiNavigation.Open(string screen)
         {
             Calls.Add("open " + screen);
@@ -38,6 +40,13 @@ public class GameUiHostTests
             Open.Remove(screen);
         }
         public bool IsOpen(string screen) => Open.Contains(screen);
+    }
+
+    private sealed class History : IServerHistory
+    {
+        public List<(uint Ip, ushort Connection, ushort Query)> Recorded { get; } = [];
+
+        public void Record(uint ip, ushort connectionPort, ushort queryPort) => Recorded.Add((ip, connectionPort, queryPort));
     }
 
     private sealed class Strings : IUiLocalisation
@@ -52,7 +61,7 @@ public class GameUiHostTests
         var screens = new Screens();
         var loading = new GameUiLoading(new Strings(), engine);
         var quit = new ConfirmQuitUi(engine);
-        return (new GameUiHost(screens, loading, quit), screens, loading, quit, sent);
+        return (new GameUiHost(screens, loading, quit, new GameMenuCommands(screens, quit, engine), new History(), new GameUiLoadMeter()), screens, loading, quit, sent);
     }
 
     [Fact]
@@ -154,7 +163,7 @@ public class GameUiHostTests
         Assert.False(host.SetShowProgressText(true));
         host.SetProgressOnStart();
         host.SetMainMenuOverride(1);
-        host.SendMainMenuCommand("OpenServerBrowser");
+        host.SendMainMenuCommand("OpenNewGameDialog");
         host.ConsoleInitialize();
         host.ConsoleClear();
         host.ConsoleSetParent(1);
@@ -163,6 +172,32 @@ public class GameUiHostTests
         Assert.Empty(sent);
         Assert.False(loading.Showing);
         Assert.False(quit.Asking);
+    }
+
+    /// <summary>A server joined goes into the browser's history: the engine's
+    /// network-order address read in host order, its ports as given.</summary>
+    [Fact]
+    public void A_server_joined_goes_into_the_browsers_history()
+    {
+        var screens = new Screens();
+        var sent = new List<string>();
+        var engine = new ChatFeedTests.RecordingEngineClient(sent);
+        var quit = new ConfirmQuitUi(engine);
+        var history = new History();
+        var host = new GameUiHost(screens, new GameUiLoading(new Strings(), engine), quit, new GameMenuCommands(screens, quit, engine), history, new GameUiLoadMeter());
+        // 192.168.1.20 in network order, as GetIPNetworkByteOrder hands it on a little-endian machine.
+        host.OnConnectToServer2("hl2mp", BitConverter.ToInt32([192, 168, 1, 20]), 27015, 27016);
+        Assert.Equal([(0xC0A80114u, (ushort)27015, (ushort)27016)], history.Recorded);
+    }
+
+    /// <summary>A menu command the engine forwards (IGameUI::SendMainMenuCommand)
+    /// runs through the game menu's table, as gamemenucommand does.</summary>
+    [Fact]
+    public void A_main_menu_command_runs_through_the_game_menus_table()
+    {
+        var (host, screens, _, _, _) = Rig();
+        host.SendMainMenuCommand("OpenServerBrowser");
+        Assert.Equal(["open serverbrowser"], screens.Calls);
     }
 
     /// <summary>The game's composition registers the host over its own UI:
@@ -191,5 +226,28 @@ public class GameUiHostTests
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    /// <summary>A load's paint count (plan_gameui_managed.md §4): the dialog
+    /// asked for, the updates, the ones that asked the engine to repaint, and
+    /// the menu frames drawn between the start and the end.</summary>
+    [Fact]
+    public void A_load_s_updates_repaints_and_frames_are_metered()
+    {
+        var sent = new List<string>();
+        var engine = new ChatFeedTests.RecordingEngineClient(sent);
+        var screens = new Screens { Frames = 100 };
+        var quit = new ConfirmQuitUi(engine);
+        var meter = new GameUiLoadMeter();
+        var host = new GameUiHost(screens, new GameUiLoading(new Strings(), engine), quit, new GameMenuCommands(screens, quit, engine),
+                                  new History(), meter);
+        host.OnLevelLoadingStarted(true);
+        Assert.True(host.UpdateProgressBar(0.5f, null));
+        Assert.False(host.UpdateProgressBar(0.51f, null));
+        Assert.True(host.UpdateProgressBar(0.6f, "#LoadingProgress_Connecting"));
+        screens.Frames = 107;
+        host.OnLevelLoadingFinished(false, null, null);
+        Assert.Equal(1, meter.Loads);
+        Assert.Equal(new GameUiLoad(true, 3, 2, 7), meter.Last);
     }
 }

@@ -23,7 +23,14 @@ internal static class MainMenuSamples
         public void Quit() => Clicked.Add("quit");
     }
 
-    [UiSample("play, options and quit; resume in game")]
+    private sealed class Commands : IMainMenuCommands
+    {
+        public List<string> Run { get; } = [];
+
+        void IMainMenuCommands.Run(string command) => Run.Add(command);
+    }
+
+    [UiSample("in game: resume, disconnect, players, then the rest")]
     private static UiScreen Column(UiSampleServices s)
-        => s.Add<IMainMenuSource>(new Fake()).Create<MainMenu>();
+        => s.Add<IMainMenuSource>(new Fake()).Add<IMainMenuCommands>(new Commands()).Create<MainMenu>();
 }

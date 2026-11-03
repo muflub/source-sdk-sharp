@@ -65,6 +65,9 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     /// name, first claimer in layer order. These override <see cref="Panels"/>.</summary>
     private readonly Dictionary<string, string> _claims;
 
+    // The other names screens open under (UiScreen.Aliases), by name.
+    private readonly Dictionary<string, string> _aliases;
+
     /// <summary>Stock TF2's viewport name for its main menu (PANEL_MAINMENUOVERRIDE,
     /// tf_shareddefs.h:176, the panel the client hands the GameUI): a mod screen
     /// claiming it is the main menu the GameUI shows, in place of the core's.</summary>
@@ -85,13 +88,19 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         (_log, _clock, _hud, _menu, _backend, _surface) = (log, clock, hud, menu, backend, surface);
         (_player, _messages, _build, _scale, _menus) = (player, messages, build, scale, menus);
         _claims = new(StringComparer.OrdinalIgnoreCase);
+        _aliases = new(StringComparer.OrdinalIgnoreCase);
         foreach (var screen in menu.Screens)
         {
             if (screen.Panel is { } claimed)
                 _claims.TryAdd(claimed, screen.Name);   // the first claimer in layer order answers
             foreach (var name in screen.Panels)         // a screen may speak for several panels
                 _claims.TryAdd(name, screen.Name);
+            foreach (var name in screen.Aliases)
+                _aliases.TryAdd(name, screen.Name);
         }
+        // The taskbar is up exactly while the main or pause menu is (the claimed one or the
+        // core's), never in play, whatever windows are open.
+        menu.ChromeWith = MainMenuScreen;
         menus.Teams.Close = () => Close("teammenu");
         menus.Motd.Closed = () => Close("motd");
         if (menus.Chat is { } chat)
@@ -99,7 +108,7 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         if (menus.Main is { } main)
         {
             main.Closed = () => Close(MainMenuScreen);
-            main.OptionsShown = () => Open("mouseoptions");
+            main.OptionsShown = () => Open("options");
         }
 
         // A closed screen is told, whichever way the close came — the Esc on
@@ -385,6 +394,18 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
 
     public void Open(string screen)
     {
+        // A name a screen answers to (an options page) or a panel it claims
+        // opens that screen, told which name it came in under.
+        if ((_aliases.TryGetValue(screen, out var claimer) || _claims.TryGetValue(screen, out claimer)) && claimer != screen)
+        {
+            foreach (var s in _menu.Screens)
+                if (s.Name == claimer)
+                {
+                    s.PanelOpened(screen);
+                    break;
+                }
+            screen = claimer;
+        }
         if (screen == "teammenu") _menus.Teams.Refresh();
         if (screen == "scoreboard") _menus.Scores.Refresh();
         _menusReadAt = _clock.Now;
@@ -432,12 +453,15 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
 
     public bool Answers(string panel) => PanelsFor(panel) is not null || Absorbed.Contains(panel);
 
-    public bool Has(string screen) => _menu.Has(screen);
+    /// <summary>Whether a screen, or a panel a screen claims, answers the name.</summary>
+    public bool Has(string screen) => _menu.Has(screen) || _aliases.ContainsKey(screen) || _claims.ContainsKey(screen);
 
     public bool IsOpen(string screen) => _menu.IsOpen(screen);
 
     /// <summary>The GameUI's IsMainMenuVisible: the main menu, the claimed one or the core's.</summary>
     public bool MainMenuOpen => _menu.IsOpen(MainMenuScreen);
+
+    public long MenuFrames => MenuCost.Frames;
 
     private ClientDebugUi? _debug;
 

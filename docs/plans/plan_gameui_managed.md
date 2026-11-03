@@ -365,3 +365,52 @@ every name G0's census found has a screen or a ruling.
   stock module's `CreateInterface`; the stock module is mapped but never
   called; no extra binary.
 - 2026-11-01: plan approved; start (user: "approved, start").
+
+## 8. Outcome (executed 2026-11-01)
+
+All four phases landed (G0 census; G1 screens and host; G2 options; G3
+create server, player list, browser, the game menu's table; G4 the
+switch-over), plus the user's mid-plan addition, a taskbar for every mod
+(open windows, click-snap to a screen half or quarter, settings and clock on
+the right). `make test` passed all legs at the end of each phase.
+
+Where the build differs from the plan:
+- `SSGameUI`/`SSGameConsole` and the factory live in client.so
+  (`shell_gameui.cpp`), not libss_fwd_client: the engine takes them through
+  the factory before the CLR exists (the forwarder library's objects are
+  built by managed), and the swap needs libc, which the forwarder library
+  links none of.
+- The swap goes in at the engine's first call into the client,
+  `CClientDLLSharedAppSystems::Count` (`CModAppSystemGroup::Create`, before
+  `Host_Init` loads the GameUI module).
+- The menu root follows the engine's GameUI panel while the GameUI is up
+  (the engine hides the client root then), polled once a frame; the
+  override panel is gone.
+- The stock module's commands are registered by managed: `gamemenucommand`,
+  `gameui_show_dialog`/`gameui_hide_dialog` (by screen name), `condump`.
+
+Verified live on Linux (tools/probes/g0-census plain, the test mod and TF2):
+`/proc/<pid>/maps` holds GameUI.so and no ServerBrowser.so; the menu and
+background at launch; options, create server, the browser (also through
+`gamemenucommand OpenServerBrowser`); a map load and the menu after
+disconnect. Not done: the Windows arm (the `GetProcAddress` swap is
+written; CI checks it at push).
+
+Added after (2026-11-01, main eeb6102d3):
+- `/client/{slot}/gameui` (§4): every call counted by method, the last 64
+  kept with arguments and outcome (handled, inert by the host's ruling,
+  unhosted), and `unruled`. `RunFrame` and `IsConsoleVisible` come every
+  frame, so they are counted, not kept, and a run of progress updates is one
+  entry. Live (dm_lockdown, the test mod, `tools/probes/g0-census`, which
+  saves it as gameui.json): 3758 calls, unruled 0, the early calls replayed
+  first.
+- The loading paint (§4): the route's `lastLoad`. With `progress_enable`
+  before `map` (what the create-server page does): the dialog asked for,
+  247 updates, 24 answered yes, 72 menu frames drawn inside the load. A bare
+  `map` asks for no dialog.
+- The disconnect dialog live: `G0_CMD="connect 127.0.0.1:27999"
+  G0_CMD_WAIT=40` (no screenshot lands during the retries): "Disconnected",
+  "Connection failed after 4 retries.", Close, over the menu.
+- The taskbar shows exactly while the main or pause menu is up, never in
+  play; TF2's footer row is on it; a title bar dragged to a screen edge
+  snaps.

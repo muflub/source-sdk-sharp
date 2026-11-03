@@ -36,6 +36,16 @@ public class UiAllocationTests(ITestOutputHelper output)
         { "mouseoptions", "stock-settings" },
         { "mouseoptions", "too-slow-invalid" },
         { "keybindings", "stock-binds" },
+        // The taskbar per frame: its window buttons, the tray and the clock.
+        { "taskbar", "three-windows-the-browser-on-top-options-minimised" },
+        { "taskbar", "eight-windows-wrapping" },
+        // The options window (plan_gameui_managed.md G2): the hand-written
+        // pages, their run-time lists and the script's entries, per frame.
+        { "options", "video" },
+        { "options", "multiplayer-with-advanced-entries" },
+        { "createserver", "server-page" },
+        { "createserver", "game-page-from-the-mod-s-script" },
+        { "playerlist", "five-players-one-muted-one-bot" },
         // The descent HUD per frame (docs/plans/descent_ui.md §6 step 4):
         // orbs, belt, party frames, boss bar and cast bar all describe live.
         { "descenthud", "healthy-party-of-two-map-revealed" },

@@ -33,6 +33,7 @@ set(client_sourcesharp_sources
     ${LOCAL}/shell_clientdll.cpp
     ${LOCAL}/shell_clientdll_appsystems.cpp
     ${LOCAL}/shell_clientdll_gameclientexports.cpp
+    ${LOCAL}/shell_gameui.cpp
     ${LOCAL}/shell_clientdll_voicehelper.cpp
     ${LOCAL}/shell_cliententitylist.cpp
     ${LOCAL}/shell_clientsystems.cpp

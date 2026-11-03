@@ -47,6 +47,8 @@ public sealed partial class MouseOptions(UiWindows windows, IUiConVarStore conva
 
     protected override string TitleToken => "#SS_UI_Mouse_Title";
 
+    public override string TabToken => "#SS_UI_Mouse_Tab";
+
     protected override void Bind(UiFormBindings<Model> b)
         => b.ConVar(Model.Fields.Sensitivity, "sensitivity")
             .ConVar(Model.Fields.RawInput, "m_rawinput")

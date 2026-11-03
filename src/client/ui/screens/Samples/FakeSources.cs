@@ -383,9 +383,40 @@ public sealed class FakeConsole : IConsoleLogSource, IConsoleInputSource, IConso
     }
 }
 
-/// <summary>The server browser as a sample: list, query, filters and details, registered per interface.</summary>
-public sealed class FakeServerBrowser : IServerListSource, IServerQuerySource, IServerFilterSource, IServerDetailsSource
+/// <summary>The server browser as a sample: list, query, filters, details, sort and state, registered per interface; its actions recorded.</summary>
+public sealed class FakeServerBrowser : IServerListSource, IServerQuerySource, IServerFilterSource, IServerDetailsSource,
+                                        IServerSortSource, IServerBrowserState, IServerBrowserActions
 {
+    public ServerSort Sort { get; set; } = ServerSort.Ping;
+    public bool Descending { get; set; }
+    public bool SteamAvailable { get; init; } = true;
+    public bool SelectedIsFavourite { get; init; }
+    public bool AskingPassword { get; set; }
+    public string PasswordServer => Selected >= 0 && Selected < Servers.Length ? Servers[Selected].Name : string.Empty;
+
+    /// <summary>Every action, in order, as "Name arg".</summary>
+    public List<string> Actions { get; } = [];
+
+    public void Poll() { }
+    public void SelectTab(ServerTab tab) => Actions.Add($"SelectTab {tab}");
+    public void SetMapContains(string text) => Actions.Add($"SetMapContains {text}");
+    public void SetNotFull(bool on) => Actions.Add($"SetNotFull {on}");
+    public void SetNotEmpty(bool on) => Actions.Add($"SetNotEmpty {on}");
+    public void SetNoPassword(bool on) => Actions.Add($"SetNoPassword {on}");
+    public void SetMaxPing(int ms) => Actions.Add($"SetMaxPing {ms}");
+    public void SortBy(ServerSort column) => Actions.Add($"SortBy {column}");
+    public void Select(int index) => Actions.Add($"Select {index}");
+    public void Refresh() => Actions.Add("Refresh");
+    public void Connect() => Actions.Add("Connect");
+    public void ToggleFavourite() => Actions.Add("ToggleFavourite");
+    public bool AddServer(string address)
+    {
+        Actions.Add($"AddServer {address}");
+        return address.Contains('.');
+    }
+    public void SubmitPassword(string password) => Actions.Add($"SubmitPassword {password}");
+    public void CancelPassword() => Actions.Add("CancelPassword");
+
     public ServerEntry[] Servers { get; init; } = [];
     public int Version { get; init; } = 1;
     public ServerTab Tab { get; init; }
@@ -405,7 +436,8 @@ public sealed class FakeServerBrowser : IServerListSource, IServerQuerySource, I
     public ServerPlayer Player(int i) => Players[i];
 
     public UiSampleServices Register(UiSampleServices s)
-        => s.Add<IServerListSource>(this).Add<IServerQuerySource>(this).Add<IServerFilterSource>(this).Add<IServerDetailsSource>(this);
+        => s.Add<IServerListSource>(this).Add<IServerQuerySource>(this).Add<IServerFilterSource>(this).Add<IServerDetailsSource>(this)
+            .Add<IServerSortSource>(this).Add<IServerBrowserState>(this).Add<IServerBrowserActions>(this);
 
     private static IReadOnlyList<string> Maps { get; } =
         ["dm_lockdown", "dm_overwatch", "dm_resistance", "dm_steamlab", "dm_underpass", "dm_runoff", "dm_powerhouse",

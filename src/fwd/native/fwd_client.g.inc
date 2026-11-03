@@ -127,7 +127,31 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// EngineClient: 30 forwarder(s) over IVEngineClient.
+// FileSystem: 5 forwarder(s) over IFileSystem.
+//-----------------------------------------------------------------------------
+// void IFileSystem::CreateDirHierarchy( const char *, const char * )
+static void SSFwd_FileSystem_CreateDirHierarchy( IFileSystem *self, const char * a0, const char * a1 ) { self->CreateDirHierarchy( a0, a1 ); }
+// const char * IFileSystem::FindFirstEx( const char *, const char *, FileFindHandle_t * )
+static const char * SSFwd_FileSystem_FindFirstEx( IFileSystem *self, const char * a0, const char * a1, FileFindHandle_t * a2 ) { return self->FindFirstEx( a0, a1, a2 ); }
+// const char * IFileSystem::FindNext( FileFindHandle_t )
+static const char * SSFwd_FileSystem_FindNext( IFileSystem *self, FileFindHandle_t a0 ) { return self->FindNext( a0 ); }
+// bool IFileSystem::FindIsDirectory( FileFindHandle_t )
+static bool SSFwd_FileSystem_FindIsDirectory( IFileSystem *self, FileFindHandle_t a0 ) { return self->FindIsDirectory( a0 ); }
+// void IFileSystem::FindClose( FileFindHandle_t )
+static void SSFwd_FileSystem_FindClose( IFileSystem *self, FileFindHandle_t a0 ) { self->FindClose( a0 ); }
+
+static void *const s_FileSystemSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_FileSystem_CreateDirHierarchy ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindFirstEx ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindNext ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindIsDirectory ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindClose ),
+};
+
+static const SSForwarderTable s_FileSystemTable = { s_FileSystemSlots, 5 };
+
+//-----------------------------------------------------------------------------
+// EngineClient: 31 forwarder(s) over IVEngineClient.
 //-----------------------------------------------------------------------------
 // void IVEngineClient013::GetScreenSize( int &, int & )
 static void SSFwd_EngineClient_GetScreenSize( IVEngineClient *self, int & a0, int & a1 ) { self->GetScreenSize( a0, a1 ); }
@@ -191,6 +215,8 @@ static bool SSFwd_EngineClient_CopyLocalFile( IVEngineClient *self, const char *
 static bool SSFwd_EngineClient_IsLowViolence( IVEngineClient *self ) { return self->IsLowViolence(); }
 // void IVEngineClient013::GetMainMenuBackgroundName( char *, int )
 static void SSFwd_EngineClient_GetMainMenuBackgroundName( IVEngineClient *self, char * a0, int a1 ) { self->GetMainMenuBackgroundName( a0, a1 ); }
+// struct IVoiceTweak_s * IVEngineClient013::GetVoiceTweakAPI( void )
+static struct IVoiceTweak_s * SSFwd_EngineClient_GetVoiceTweakAPI( IVEngineClient *self ) { return self->GetVoiceTweakAPI(); }
 
 static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetScreenSize ),
@@ -227,9 +253,10 @@ static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_CopyLocalFile ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_IsLowViolence ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetMainMenuBackgroundName ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_GetVoiceTweakAPI ),
 };
 
-static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 30 };
+static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 31 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 2 forwarder(s) over IUniformRandomStream.
@@ -3106,6 +3133,19 @@ static void *const s_SteamCallbackSlots[] = {
 static const SSForwarderTable s_SteamCallbackTable = { s_SteamCallbackSlots, 3 };
 
 //-----------------------------------------------------------------------------
+// SteamServerList: 2 function(s) over void, declared in fwd_steam.h.
+//-----------------------------------------------------------------------------
+// int SSFwd_SteamServerList_SizeOf( void )
+// ISteamMatchmakingServerListResponse * SSFwd_SteamServerList_Construct( void * )
+
+static void *const s_SteamServerListSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_SteamServerList_SizeOf ),
+	reinterpret_cast< void * >( &SSFwd_SteamServerList_Construct ),
+};
+
+static const SSForwarderTable s_SteamServerListTable = { s_SteamServerListSlots, 2 };
+
+//-----------------------------------------------------------------------------
 // LeafSystem: 9 function(s) over void, declared in fwd_leaf_system.h.
 //-----------------------------------------------------------------------------
 // int SSFwd_LeafSystem_SizeOf( void )
@@ -3147,6 +3187,7 @@ static const SSForwarderTable s_ShadowsTable = { s_ShadowsSlots, 1 };
 static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_ModelInfo", &s_ModelInfoTable },
 	{ "SSFwd_BaseFileSystem", &s_BaseFileSystemTable },
+	{ "SSFwd_FileSystem", &s_FileSystemTable },
 	{ "SSFwd_EngineClient", &s_EngineClientTable },
 	{ "SSFwd_UniformRandomStream", &s_UniformRandomStreamTable },
 	{ "SSFwd_InputSystem", &s_InputSystemTable },
@@ -3229,6 +3270,7 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_PhysicsCallbacks", &s_PhysicsCallbacksTable },
 	{ "SSFwd_RecipientFilter", &s_RecipientFilterTable },
 	{ "SSFwd_SteamCallback", &s_SteamCallbackTable },
+	{ "SSFwd_SteamServerList", &s_SteamServerListTable },
 	{ "SSFwd_LeafSystem", &s_LeafSystemTable },
 	{ "SSFwd_Shadows", &s_ShadowsTable },
 };

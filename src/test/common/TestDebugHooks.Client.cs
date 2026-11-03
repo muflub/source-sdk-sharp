@@ -33,7 +33,8 @@ internal static partial class TestDebugHooks
                                         client::SourceSharp.Abi.UserMessageRegistry? messages = null,
                                         client::SourceSharp.Abi.GameEventRegistry? events = null,
                                         IDebugClientParticles? particles = null,
-                                        IDebugClientInput? input = null)
+                                        IDebugClientInput? input = null,
+                                        IDebugClientGameUi? gameUi = null)
         => new(new ClientLog(msg ?? (_ => { }), warn ?? (_ => { })), new ClientDebugBuild(build ?? new BuildInfo(), crossings ?? new Crossings(), messages, events),
                new ClientDebugPrediction(ring ?? new PredictionErrorRing(8)),
                frame ?? Unasked<IDebugClientFrame>(), entities ?? Unasked<IDebugClientEntities>(),
@@ -43,7 +44,8 @@ internal static partial class TestDebugHooks
                viewCamera ?? Unasked<IDebugClientViewCamera>(),
                render ?? Unasked<IDebugClientRender>(),
                particles ?? Unasked<IDebugClientParticles>(),
-               input ?? Unasked<IDebugClientInput>());
+               input ?? Unasked<IDebugClientInput>(),
+               gameUi ?? Unasked<IDebugClientGameUi>());
 
     /// <summary>
     /// A hook a test did not hand over: any call fails the test, rather than

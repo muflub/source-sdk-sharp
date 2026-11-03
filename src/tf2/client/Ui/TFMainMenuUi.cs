@@ -7,6 +7,7 @@
 
 using SourceSharp.Abi;
 using SourceSharp.Client;
+using SourceSharp.Client.Ui;
 using SourceSharp.Shared;
 
 using TF2.Shared.Rules;
@@ -186,4 +187,57 @@ public static class TFMainMenuArtPicker
     /// to materials/vgui/, so "../" climbs to materials/.</summary>
     public static string MaterialOf(string vguiImage)
         => vguiImage.StartsWith("../", StringComparison.Ordinal) ? vguiImage[3..] : "vgui/" + vguiImage;
+}
+
+/// <summary>
+/// The main menu's second gear, <c>opentf2options</c> (stock: the TF client's
+/// advanced options dialog over cfg/user_default.scr): the options window on
+/// its multiplayer page, where the core draws that script's entries
+/// (plan_gameui_managed.md G3).
+/// </summary>
+[ConCommand("opentf2options", Help = "Open the advanced multiplayer options")]
+public sealed class TFAdvancedOptionsCommand(ITFMenuNavigation nav) : IConCommand
+{
+    public void Execute(string args) => nav.Open("multiplayeroptions");
+}
+
+/// <summary>
+/// The TF2 main menu's bottom row on the core's taskbar, which is up with the
+/// menu: ITEMS (stock's CharacterSetupButton) at the left, in a level
+/// GameMenu.res's four in-game buttons beside it (ReportPlayer, CallVote,
+/// MutePlayers, RequestCoach), and the advanced-options gear
+/// (TF2SettingsButtonSDK) in the tray. The first gear (SettingsButtonSDK, the
+/// options dialog) is the taskbar's own Settings.
+/// </summary>
+[SideService(Side.Client, As = [typeof(ITaskbarLaunchers)])]
+public sealed class TFTaskbarLaunchers(ITFMainMenuActions actions, IFwdEngineClient engine) : ITaskbarLaunchers
+{
+    private const int Items = 0, Advanced = 1, ReportPlayer = 2, CallVote = 3, MutePlayers = 4, RequestCoach = 5;
+
+    private readonly UiTaskbarLauncher[] _launchers =
+    [
+        new("#TF2_MainMenu_Items", false), new("#TF2_MainMenu_AdvancedOptions", true),
+        new("#TF2_MainMenu_ReportPlayer", false), new("#TF2_MainMenu_CallVote", false),
+        new("#TF2_MainMenu_MutePlayers", false), new("#TF2_MainMenu_RequestCoach", false),
+    ];
+
+    // A level is up: the engine names one (the menu's own InLevel answer).
+    private bool InLevel => engine.LevelName() is { Length: > 0 };
+
+    public int LauncherCount => InLevel ? _launchers.Length : 2;
+
+    public UiTaskbarLauncher Launcher(int i) => _launchers[i];
+
+    public void Launch(int i)
+    {
+        switch (i)
+        {
+            case Items: actions.Items(); break;
+            case Advanced: actions.AdvancedOptions(); break;
+            case ReportPlayer: actions.ReportPlayer(); break;
+            case CallVote: actions.CallVote(); break;
+            case MutePlayers: actions.MutePlayers(); break;
+            case RequestCoach: actions.RequestCoach(); break;
+        }
+    }
 }

@@ -96,6 +96,31 @@ internal unsafe struct BaseFileSystemFwd : IForwarderTable
 }
 
 /// <summary>
+/// <c>IFileSystem</c> through its forwarders (SSFwd_FileSystem): 5 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct FileSystemFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_FileSystem";
+
+    // void IFileSystem::CreateDirHierarchy( const char *, const char * )
+    public delegate* unmanaged<void*, byte*, byte*, void> CreateDirHierarchy;
+
+    // const char * IFileSystem::FindFirstEx( const char *, const char *, FileFindHandle_t * )
+    public delegate* unmanaged<void*, byte*, byte*, void*, byte*> FindFirstEx;
+
+    // const char * IFileSystem::FindNext( FileFindHandle_t )
+    public delegate* unmanaged<void*, int, byte*> FindNext;
+
+    // bool IFileSystem::FindIsDirectory( FileFindHandle_t )
+    public delegate* unmanaged<void*, int, byte> FindIsDirectory;
+
+    // void IFileSystem::FindClose( FileFindHandle_t )
+    public delegate* unmanaged<void*, int, void> FindClose;
+}
+
+/// <summary>
 /// <c>IUniformRandomStream</c> through its forwarders (SSFwd_UniformRandomStream): 2 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]

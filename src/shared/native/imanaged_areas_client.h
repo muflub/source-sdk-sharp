@@ -2311,6 +2311,207 @@ static const int32_t kIManagedShadowsClientSlotCount = 14;
 static_assert(sizeof(SSManagedShadowsClientTable) == 14 * sizeof(void*),
 			  "SSManagedShadowsClientTable is one pointer per slot");
 
+class IManagedGameUiClient;
+
+// The table managed writes for IManagedGameUiClient: Release, Validate, then the TSV's order.
+struct SSManagedGameUiClientTable
+{
+	void (*Release)(IManagedObject* self);
+	int32_t (*Validate)(IManagedObject* self, const uint32_t* pSlotHashes, int32_t nSlots);
+	void (*Initialize)(IManagedGameUiClient* self, void* pAppFactory);
+	void (*PostInit)(IManagedGameUiClient* self);
+	void (*Connect)(IManagedGameUiClient* self, void* pGameFactory);
+	void (*Start)(IManagedGameUiClient* self);
+	void (*Shutdown)(IManagedGameUiClient* self);
+	void (*RunFrame)(IManagedGameUiClient* self);
+	void (*OnGameUIActivated)(IManagedGameUiClient* self);
+	void (*OnGameUIHidden)(IManagedGameUiClient* self);
+	void (*OldOnConnectToServer)(IManagedGameUiClient* self, const char* pszGame, int32_t nIP, int32_t nPort);
+	void (*OnDisconnectFromServerOld)(IManagedGameUiClient* self, int32_t nSteamLoginFailure, const char* pszUsername);
+	void (*OnLevelLoadingStarted)(IManagedGameUiClient* self, int32_t bShowProgressDialog);
+	void (*OnLevelLoadingFinished)(IManagedGameUiClient* self, int32_t bError, const char* pszFailureReason,
+								   const char* pszExtendedReason);
+	int32_t (*UpdateProgressBar)(IManagedGameUiClient* self, float flProgress, const char* pszStatusText);
+	int32_t (*SetShowProgressText)(IManagedGameUiClient* self, int32_t bShow);
+	void (*ShowNewGameDialog)(IManagedGameUiClient* self, int32_t nChapter);
+	void (*SessionNotification)(IManagedGameUiClient* self, int32_t nNotification, int32_t nParam);
+	void (*SystemNotification)(IManagedGameUiClient* self, int32_t nNotification);
+	void (*ShowMessageDialog)(IManagedGameUiClient* self, uint32_t nType, void* pOwner);
+	void (*UpdatePlayerInfo)(IManagedGameUiClient* self, uint64_t nPlayerId, const char* pszName, int32_t nTeam,
+							 uint8_t cVoiceState, int32_t nPlayersNeeded, int32_t bHost);
+	void (*SessionSearchResult)(IManagedGameUiClient* self, int32_t nSearchIdx, void* pHostData, void* pResult,
+								int32_t nPing);
+	void (*OnCreditsFinished)(IManagedGameUiClient* self);
+	void (*SetLoadingBackgroundDialog)(IManagedGameUiClient* self, void* pPanel);
+	void (*BonusMapUnlock)(IManagedGameUiClient* self, const char* pszFileName, const char* pszMapName);
+	void (*BonusMapComplete)(IManagedGameUiClient* self, const char* pszFileName, const char* pszMapName);
+	void (*BonusMapChallengeUpdate)(IManagedGameUiClient* self, const char* pszFileName, const char* pszMapName,
+									const char* pszChallengeName, int32_t nBest);
+	void (*BonusMapDatabaseSave)(IManagedGameUiClient* self);
+	int32_t (*BonusMapNumAdvancedCompleted)(IManagedGameUiClient* self);
+	void (*OnConnectToServer2)(IManagedGameUiClient* self, const char* pszGame, int32_t nIP, int32_t nConnectionPort,
+							   int32_t nQueryPort);
+	int32_t (*ValidateStorageDevice)(IManagedGameUiClient* self);
+	void (*SetProgressOnStart)(IManagedGameUiClient* self);
+	void (*OnDisconnectFromServer)(IManagedGameUiClient* self, int32_t nSteamLoginFailure);
+	void (*OnConfirmQuit)(IManagedGameUiClient* self);
+	int32_t (*IsMainMenuVisible)(IManagedGameUiClient* self);
+	void (*SetMainMenuOverride)(IManagedGameUiClient* self, void* pPanel);
+	void (*SendMainMenuCommand)(IManagedGameUiClient* self, const char* pszCommand);
+	void (*ConsoleActivate)(IManagedGameUiClient* self);
+	void (*ConsoleInitialize)(IManagedGameUiClient* self);
+	void (*ConsoleHide)(IManagedGameUiClient* self);
+	void (*ConsoleClear)(IManagedGameUiClient* self);
+	int32_t (*ConsoleIsVisible)(IManagedGameUiClient* self);
+	void (*ConsoleSetParent)(IManagedGameUiClient* self, void* pParent);
+};
+
+class IManagedGameUiClient : public IManagedObject
+{
+public:
+	explicit IManagedGameUiClient(const SSManagedGameUiClientTable* pTable)
+		: IManagedObject(pTable)
+	{
+	}
+
+	void Initialize(void* pAppFactory) { Table()->Initialize(this, pAppFactory); }
+
+	void PostInit() { Table()->PostInit(this); }
+
+	void Connect(void* pGameFactory) { Table()->Connect(this, pGameFactory); }
+
+	void Start() { Table()->Start(this); }
+
+	void Shutdown() { Table()->Shutdown(this); }
+
+	void RunFrame() { Table()->RunFrame(this); }
+
+	void OnGameUIActivated() { Table()->OnGameUIActivated(this); }
+
+	void OnGameUIHidden() { Table()->OnGameUIHidden(this); }
+
+	void OldOnConnectToServer(const char* pszGame, int32_t nIP, int32_t nPort)
+	{
+		Table()->OldOnConnectToServer(this, pszGame, nIP, nPort);
+	}
+
+	void OnDisconnectFromServerOld(int32_t nSteamLoginFailure, const char* pszUsername)
+	{
+		Table()->OnDisconnectFromServerOld(this, nSteamLoginFailure, pszUsername);
+	}
+
+	void OnLevelLoadingStarted(int32_t bShowProgressDialog)
+	{
+		Table()->OnLevelLoadingStarted(this, bShowProgressDialog);
+	}
+
+	void OnLevelLoadingFinished(int32_t bError, const char* pszFailureReason, const char* pszExtendedReason)
+	{
+		Table()->OnLevelLoadingFinished(this, bError, pszFailureReason, pszExtendedReason);
+	}
+
+	int32_t UpdateProgressBar(float flProgress, const char* pszStatusText)
+	{
+		return Table()->UpdateProgressBar(this, flProgress, pszStatusText);
+	}
+
+	int32_t SetShowProgressText(int32_t bShow) { return Table()->SetShowProgressText(this, bShow); }
+
+	void ShowNewGameDialog(int32_t nChapter) { Table()->ShowNewGameDialog(this, nChapter); }
+
+	void SessionNotification(int32_t nNotification, int32_t nParam)
+	{
+		Table()->SessionNotification(this, nNotification, nParam);
+	}
+
+	void SystemNotification(int32_t nNotification) { Table()->SystemNotification(this, nNotification); }
+
+	void ShowMessageDialog(uint32_t nType, void* pOwner) { Table()->ShowMessageDialog(this, nType, pOwner); }
+
+	void UpdatePlayerInfo(uint64_t nPlayerId, const char* pszName, int32_t nTeam, uint8_t cVoiceState,
+						  int32_t nPlayersNeeded, int32_t bHost)
+	{
+		Table()->UpdatePlayerInfo(this, nPlayerId, pszName, nTeam, cVoiceState, nPlayersNeeded, bHost);
+	}
+
+	void SessionSearchResult(int32_t nSearchIdx, void* pHostData, void* pResult, int32_t nPing)
+	{
+		Table()->SessionSearchResult(this, nSearchIdx, pHostData, pResult, nPing);
+	}
+
+	void OnCreditsFinished() { Table()->OnCreditsFinished(this); }
+
+	void SetLoadingBackgroundDialog(void* pPanel) { Table()->SetLoadingBackgroundDialog(this, pPanel); }
+
+	void BonusMapUnlock(const char* pszFileName, const char* pszMapName)
+	{
+		Table()->BonusMapUnlock(this, pszFileName, pszMapName);
+	}
+
+	void BonusMapComplete(const char* pszFileName, const char* pszMapName)
+	{
+		Table()->BonusMapComplete(this, pszFileName, pszMapName);
+	}
+
+	void BonusMapChallengeUpdate(const char* pszFileName, const char* pszMapName, const char* pszChallengeName,
+								 int32_t nBest)
+	{
+		Table()->BonusMapChallengeUpdate(this, pszFileName, pszMapName, pszChallengeName, nBest);
+	}
+
+	void BonusMapDatabaseSave() { Table()->BonusMapDatabaseSave(this); }
+
+	int32_t BonusMapNumAdvancedCompleted() { return Table()->BonusMapNumAdvancedCompleted(this); }
+
+	void OnConnectToServer2(const char* pszGame, int32_t nIP, int32_t nConnectionPort, int32_t nQueryPort)
+	{
+		Table()->OnConnectToServer2(this, pszGame, nIP, nConnectionPort, nQueryPort);
+	}
+
+	int32_t ValidateStorageDevice() { return Table()->ValidateStorageDevice(this); }
+
+	void SetProgressOnStart() { Table()->SetProgressOnStart(this); }
+
+	void OnDisconnectFromServer(int32_t nSteamLoginFailure)
+	{
+		Table()->OnDisconnectFromServer(this, nSteamLoginFailure);
+	}
+
+	void OnConfirmQuit() { Table()->OnConfirmQuit(this); }
+
+	int32_t IsMainMenuVisible() { return Table()->IsMainMenuVisible(this); }
+
+	void SetMainMenuOverride(void* pPanel) { Table()->SetMainMenuOverride(this, pPanel); }
+
+	void SendMainMenuCommand(const char* pszCommand) { Table()->SendMainMenuCommand(this, pszCommand); }
+
+	void ConsoleActivate() { Table()->ConsoleActivate(this); }
+
+	void ConsoleInitialize() { Table()->ConsoleInitialize(this); }
+
+	void ConsoleHide() { Table()->ConsoleHide(this); }
+
+	void ConsoleClear() { Table()->ConsoleClear(this); }
+
+	int32_t ConsoleIsVisible() { return Table()->ConsoleIsVisible(this); }
+
+	void ConsoleSetParent(void* pParent) { Table()->ConsoleSetParent(this, pParent); }
+
+private:
+	const SSManagedGameUiClientTable* Table() const { return static_cast<const SSManagedGameUiClientTable*>(m_pTable); }
+};
+
+static const uint32_t kIManagedGameUiClientSlotHashes[] = {
+	0x07e0f4c4, 0x0d54c15e, 0xde3e0200, 0x07e0f4c4, 0xde3e0200, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4,
+	0x07e0f4c4, 0x763f0124, 0xeed27821, 0xc83e311d, 0x3d217e2d, 0x62e9f56b, 0xa45f061a, 0xc83e311d, 0x7fb639b8,
+	0xc83e311d, 0x72bf2b2c, 0xbfcd9242, 0xf2123ce8, 0x07e0f4c4, 0xde3e0200, 0x1322dcf4, 0x1322dcf4, 0x95a1e4f1,
+	0x07e0f4c4, 0x9d8d9245, 0x910013fd, 0x9d8d9245, 0x07e0f4c4, 0xc83e311d, 0x07e0f4c4, 0x9d8d9245, 0xde3e0200,
+	0x3aa7ebf0, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x07e0f4c4, 0x9d8d9245, 0xde3e0200,
+};
+static const int32_t kIManagedGameUiClientSlotCount = 43;
+static_assert(sizeof(SSManagedGameUiClientTable) == 43 * sizeof(void*),
+			  "SSManagedGameUiClientTable is one pointer per slot");
+
 #ifdef CLIENT_DLL
 
 IManagedCommandsClient* ManagedCommandsClient(); // this load's area, or NULL outside a load
@@ -2344,5 +2545,6 @@ IManagedClientSystemsClient* ManagedClientSystemsClient(); // this load's area, 
 IManagedPixelVisClient* ManagedPixelVisClient(); // this load's area, or NULL outside a load
 IManagedGlowClient* ManagedGlowClient(); // this load's area, or NULL outside a load
 IManagedShadowsClient* ManagedShadowsClient(); // this load's area, or NULL outside a load
+IManagedGameUiClient* ManagedGameUiClient(); // this load's area, or NULL outside a load
 
 #endif // CLIENT_DLL

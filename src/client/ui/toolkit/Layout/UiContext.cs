@@ -350,7 +350,7 @@ public sealed partial class UiContext
     /// <summary>The narrow breakpoint in force: the innermost window's, else the theme's.</summary>
     internal float NarrowBelowDu => _designDepth > 0 ? _designNarrow[_designDepth - 1] : Theme.NarrowBelowDu;
 
-    internal float DesignHeight => _designDepth > 0 ? _designH[_designDepth - 1] : UiScale.DesignHeight(Screen);
+    internal float DesignHeight => _designDepth > 0 ? _designH[_designDepth - 1] : MathF.Max(0f, UiScale.DesignHeight(Screen) - ChromeBandDu);
 
     /// <summary>An overlay root: outside every parent's clip and order, drawn after the screen.</summary>
     internal int OpenOverlay(string key, bool modal)
@@ -582,8 +582,17 @@ public sealed partial class UiContext
     private UiRect SafeRect()
     {
         var s = Screen;
-        return new UiRect(s.Safe.Left, s.Safe.Top, s.W - s.Safe.Left - s.Safe.Right, s.H - s.Safe.Top - s.Safe.Bottom);
+        return new UiRect(s.Safe.Left, s.Safe.Top, s.W - s.Safe.Left - s.Safe.Right,
+                          MathF.Max(0f, s.H - s.Safe.Top - s.Safe.Bottom - ChromeBandDu * s.Scale));
     }
+
+    /// <summary>
+    /// The band (du) its layer's chrome (the taskbar) holds along the screen's
+    /// bottom while it is up: the screen being described is laid out above it
+    /// (its safe rect and design height lose it). Set by the layer per screen;
+    /// zero for the chrome itself and for windows, which keep clear of it themselves.
+    /// </summary>
+    public float ChromeBandDu { get; set; }
 
     private UiRect FullScreen() => new(0, 0, Screen.W, Screen.H);
 

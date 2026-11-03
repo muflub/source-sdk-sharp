@@ -36,6 +36,7 @@
 #include "ss_fwd_sdk.h"
 
 #include "steam/steam_api_common.h"
+#include "steam/isteammatchmaking.h"
 #include "imanaged_steam_callback.h"
 
 namespace
@@ -89,4 +90,31 @@ CCallbackBase* SSFwd_SteamCallback_Construct(void* pMemory, IManagedSteamCallbac
 bool SSFwd_SteamCallback_IsRegistered(CCallbackBase* pCallback)
 {
 	return pCallback && static_cast<SSSteamCallback*>(pCallback)->IsRegistered();
+}
+
+namespace
+{
+class SSServerListResponse final : public ISteamMatchmakingServerListResponse
+{
+public:
+	void ServerResponded(HServerListRequest, int) override {}
+
+	void ServerFailedToRespond(HServerListRequest, int) override {}
+
+	void RefreshComplete(HServerListRequest, EMatchMakingServerResponse) override {}
+};
+}
+
+int SSFwd_SteamServerList_SizeOf()
+{
+	return int(sizeof(SSServerListResponse));
+}
+
+ISteamMatchmakingServerListResponse* SSFwd_SteamServerList_Construct(void* pMemory)
+{
+	if (!pMemory)
+		return nullptr;
+
+	// Default-initialised: value-initialising would zero it with memset, and this library has no CRT.
+	return new (pMemory) SSServerListResponse;
 }

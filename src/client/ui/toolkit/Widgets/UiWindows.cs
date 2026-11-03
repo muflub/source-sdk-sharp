@@ -38,11 +38,15 @@ public sealed class UiWindows
         public UiRect LastRectPx;
         public long LastFrame = -1;
         public UiWindowHandle Dragging;
+        public float Travel;           // px moved since a handle press: near-zero is a click, which snaps
+        public string Title = "";      // the token the window's title bar last drew
+        public UiWindowPlacement? Unsnapped;   // where it was before a snap: what dragging it out gives back
     }
 
     private readonly IUiWindowStore _store;
     private readonly Dictionary<string, State> _states = new(StringComparer.Ordinal);
     private readonly List<string> _z = new();
+    private readonly List<string> _opened = new();   // first-shown order: the taskbar's
     private readonly List<string> _closeRequests = new();
     private long _frame = -1;
 
@@ -54,6 +58,79 @@ public sealed class UiWindows
     /// <summary>A window's rank: 0 at the bottom, higher on top; -1 for one never shown.</summary>
     public int Rank(string id) => _z.IndexOf(id);
 
+    /// <summary>The top window's rank, or -1: what chrome above every window (the taskbar) takes its z from.</summary>
+    public int TopRank => _z.Count - 1;
+
+    /// <summary>A window's place in the order windows were first shown (the taskbar keeps its buttons in it); -1 for one never shown.</summary>
+    public int OpenedRank(string id) => _opened.IndexOf(id);
+
+    /// <summary>The title token a window's bar last drew, or null for one never shown.</summary>
+    public string? TitleOf(string id) => _states.TryGetValue(id, out var s) && s.Title.Length > 0 ? s.Title : null;
+
+    /// <summary>
+    /// How much of the screen's bottom (du) the taskbar takes: windows resize,
+    /// drag and snap above it, so it stays clickable under any window. The
+    /// taskbar sets it each frame it draws; the layer zeroes it when the bar goes.
+    /// </summary>
+    public float DockReserved { get; set; }
+
+    /// <summary>The screen-du zone a title bar dragged to a screen edge would snap to (the taskbar draws it as a ghost), or null.</summary>
+    public UiRect? SnapGhost { get; set; }
+
+    /// <summary>
+    /// The screen segment a window's handle snaps to when clicked rather than
+    /// dragged: a corner its quarter of the screen, an edge its half, all above
+    /// <paramref name="reservedBelow"/> (the taskbar). False for a handle that
+    /// does not snap (none, the title bar).
+    /// </summary>
+    public static bool TrySnapZone(UiWindowHandle handle, float screenW, float screenH, float reservedBelow, out UiRect zone)
+    {
+        float h = MathF.Max(0f, screenH - reservedBelow), halfW = screenW / 2f, halfH = h / 2f;
+        zone = handle switch
+        {
+            UiWindowHandle.TopLeft => new UiRect(0, 0, halfW, halfH),
+            UiWindowHandle.TopRight => new UiRect(halfW, 0, halfW, halfH),
+            UiWindowHandle.BottomLeft => new UiRect(0, halfH, halfW, halfH),
+            UiWindowHandle.BottomRight => new UiRect(halfW, halfH, halfW, halfH),
+            UiWindowHandle.Left => new UiRect(0, 0, halfW, h),
+            UiWindowHandle.Right => new UiRect(halfW, 0, halfW, h),
+            UiWindowHandle.Top => new UiRect(0, 0, screenW, halfH),
+            UiWindowHandle.Bottom => new UiRect(0, halfH, screenW, halfH),
+            _ => default,
+        };
+        return zone.W > 0f && zone.H > 0f;
+    }
+
+    /// <summary>
+    /// Puts a window in a screen segment (a snap): stored like the end of a
+    /// drag. The placement it had first is kept (a snap from one segment to
+    /// another keeps the one from before the first) for <see cref="TryUnsnap"/>.
+    /// </summary>
+    public void Snap(string id, in UiRect zone)
+    {
+        if (!_states.TryGetValue(id, out var s))
+            return;
+        if (s.Placed)
+            s.Unsnapped ??= s.Place;
+        s.Place = new UiWindowPlacement(zone.X, zone.Y, zone.W, zone.H);
+        s.Placed = true;
+        _store.Save(id, s.Place);
+    }
+
+    /// <summary>
+    /// The placement a snapped window had before its snap, forgotten as it is
+    /// answered: false for a window not snapped, or snapped and then resized.
+    /// </summary>
+    public bool TryUnsnap(string id, out UiWindowPlacement before)
+    {
+        before = default;
+        if (!_states.TryGetValue(id, out var s) || s.Unsnapped is not { } kept)
+            return false;
+        before = kept;
+        s.Unsnapped = null;
+        return true;
+    }
+
     public void Raise(string id)
     {
         int at = _z.IndexOf(id);
@@ -62,6 +139,16 @@ public sealed class UiWindows
         if (at >= 0)
             _z.RemoveAt(at);
         _z.Add(id);
+    }
+
+    /// <summary>Sends a window to the bottom (a minimise): the window under it becomes the top.</summary>
+    public void Lower(string id)
+    {
+        int at = _z.IndexOf(id);
+        if (at <= 0)
+            return;
+        _z.RemoveAt(at);
+        _z.Insert(0, id);
     }
 
     /// <summary>Where a window is, if it has been placed.</summary>
@@ -104,6 +191,7 @@ public sealed class UiWindows
         if (_frame == ctx.FrameNumber)
             return;
         _frame = ctx.FrameNumber;
+        SnapGhost = null;   // a title bar dragged to an edge offers it again this frame
         if (!ctx.DownThisFrame)
             return;
         for (int i = _z.Count - 1; i >= 0; i--)
@@ -127,7 +215,11 @@ public sealed class UiWindows
         {
             s = new State();
             _states[id] = s;
-            _z.Add(id);   // a newly opened window comes up on top
+            // A newly opened window comes up on top, once: the layer's Open may
+            // have raised it already, before its first describe.
+            if (!_z.Contains(id))
+                _z.Add(id);
+            _opened.Add(id);
         }
         fresh = !s.Placed;
         if (!s.Placed)
@@ -159,6 +251,15 @@ public sealed class UiWindows
     }
 
     internal ref UiWindowHandle Dragging(string id) => ref _states[id].Dragging;
+
+    internal void Titled(string id, string titleToken) => _states[id].Title = titleToken;
+
+    /// <summary>A handle press began: the travel that tells a click from a drag starts at zero.</summary>
+    internal void BeginDrag(string id) => _states[id].Travel = 0f;
+
+    internal void AddTravel(string id, float dxPx, float dyPx) => _states[id].Travel += MathF.Abs(dxPx) + MathF.Abs(dyPx);
+
+    internal float Travel(string id) => _states[id].Travel;
 
     /// <summary>A move or resize ended: keep it for the next session.</summary>
     internal void Store(string id) => _store.Save(id, _states[id].Place);
@@ -193,6 +294,7 @@ public sealed class UiWindows
 
         _states.Clear();
         _z.Clear();
+        _opened.Clear();
         int count = Int();
         for (int i = 0; i < count; i++)
         {
@@ -201,6 +303,7 @@ public sealed class UiWindows
             var p = new UiWindowPlacement(Flt(), Flt(), Flt(), Flt());
             _states[id] = new State { Place = p, Placed = placed };
             _z.Add(id);
+            _opened.Add(id);
         }
         if (at != carried.Length)
             throw new InvalidDataException($"window state: {carried.Length - at} byte(s) left over");
@@ -216,6 +319,13 @@ public enum UiWindowHandle : byte
     Right = 2,
     Top = 4,
     Bottom = 8,
+
+    // The corners: both edge bits, so a corner resizes both ways and snaps to its quarter.
+    TopLeft = Top | Left,
+    TopRight = Top | Right,
+    BottomLeft = Bottom | Left,
+    BottomRight = Bottom | Right,
+
     /// <summary>The title bar: the whole window moves.</summary>
     Move = 16,
 }

@@ -187,11 +187,13 @@ FORWARD = [
         # plan_server_native_v2 T4a precache path: the reslists directory the
         # -makereslists precache log goes in. CreateDirHierarchy is IFileSystem's
         # own, not IBaseFileSystem's, so it is a table of its own over
-        # VFileSystem022. Server: only the server keeps the log.
+        # VFileSystem022. Both sides since the client's options list files
+        # (plan_gameui_managed.md G2: the player models and spray logos, and
+        # G3's map list) through the find slots.
         struct='FileSystemVtbl',
-        side='server',
         methods=[
             'CreateDirHierarchy',
+            'FindFirstEx', 'FindNext', 'FindIsDirectory', 'FindClose',
         ],
     ),
     dict(
@@ -231,6 +233,9 @@ FORWARD = [
             # The menu background's name (plan_gameui_managed.md G1): the
             # stock GameUI drew console/<name>[_widescreen] from it.
             'GetMainMenuBackgroundName',
+            # The voice options (plan_gameui_managed.md G2): the microphone's
+            # volume and boost, through the engine's voice tweak controls.
+            'GetVoiceTweakAPI',
         ],
     ),
     dict(
@@ -700,6 +705,20 @@ HAND = [
             ('SizeOf', 'int', ''),
             ('Construct', 'CCallbackBase *', 'void *, IManagedSteamCallback *, int'),
             ('IsRegistered', 'bool', 'CCallbackBase *'),
+        ],
+    ),
+    # plan_gameui_managed.md G3: the server browser's request object. Steam's
+    # server list request takes an ISteamMatchmakingServerListResponse; managed
+    # polls the list, so the object built here answers every callback with
+    # nothing, and managed only sizes and builds it.
+    dict(
+        table='SteamServerList',
+        side='client',
+        self_type='void',
+        include='fwd_steam.h',
+        slots=[
+            ('SizeOf', 'int', ''),
+            ('Construct', 'ISteamMatchmakingServerListResponse *', 'void *'),
         ],
     ),
     # C7 cluster 12 L2 (docs/plans/c7_leaf_system.md): the client leaf system.

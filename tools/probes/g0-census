@@ -12,12 +12,20 @@
 #          loaded    the same, with the stock module loaded (its global
 #                    constructors run) and never called: the factory hook's
 #                    end state
+#          plain     the game as it ships, nothing traced or stubbed
 #   MOD    the mods.yaml id (default: the launcher's default mod)
+#   G0_OPEN menu screens to open at the menu (cs_ui_open), space-separated,
+#          in order, then shot as shot-open.tga, e.g. "console options"
+#   G0_CMD  a console line run at the menu, shot G0_CMD_WAIT s (default 4)
+#          later as shot-cmd.tga, e.g. "gamemenucommand OpenServerBrowser"
+#   G0_LEVEL_CMD a console line run in the level after its shot, shot 4 s
+#          later as shot-levelcmd.tga, e.g. "gameui_activate" (the pause menu)
 #
 # One session: the menu, a map, the level, disconnect, quit. Writes OUT_DIR/
 # probe.log (stub) or dltrace.log (trace), commands.json and convars.json
 # (tools/debug-api commands|convars native, at the menu), shot-menu.tga,
-# shot-level.tga, shot-disconnect.tga, console.log and result.txt (each
+# shot-level.tga, gameui.json (/client/1/gameui, in the level),
+# shot-disconnect.tga, console.log and result.txt (each
 # step's outcome and the game's exit). Its own TMPDIR, DEBUG_API_DIR and
 # -port; it only ever kills the game whose environment carries its TMPDIR.
 set -uo pipefail
@@ -25,7 +33,7 @@ HERE="$(dirname -- "$(readlink -f -- "$0")")"
 ROOT="$(readlink -f "$HERE/../..")"
 CONFIG="${CONFIG:-debug}"
 OUT="$(readlink -f "${1:?OUT_DIR}")"
-MODE="${2:?trace|forward|inert|loaded}"
+MODE="${2:?trace|forward|inert|loaded|plain}"
 MOD="${3:-}"
 MAP="${G0_MAP:-}"
 INSTALL="${G0_INSTALL:-$HOME/.steam/steam/steamapps/common/Source SDK Base 2013 Multiplayer}"
@@ -54,12 +62,13 @@ case "$MODE" in
     env_args+=(SOURCESHARP_PROBE_LOG="$OUT/probe.log" SOURCESHARP_PROBE_STOCK_GAMEUI="$INSTALL/bin/linux64/GameUI.so")
     [[ "$MODE" == inert ]] && env_args+=(SOURCESHARP_PROBE_GAMEUI_INERT=1)
     [[ "$MODE" == loaded ]] && env_args+=(SOURCESHARP_PROBE_GAMEUI_INERT=2) ;;
-  *) echo "g0-census: MODE is trace, forward, inert or loaded" >&2; exit 2 ;;
+  plain) ;;
+  *) echo "g0-census: MODE is trace, forward, inert, loaded or plain" >&2; exit 2 ;;
 esac
 
 mod_args=(); [[ -n "$MOD" ]] && mod_args=(-mod "$MOD")
 ( cd "$GAME" && . "$ROOT/tools/gpu-offload" && exec env "${env_args[@]}" ./source\# "${engine_args[@]}" "${mod_args[@]}" \
-    -debugapi -debugapisocket -condebug -nomessagebox -nocrashdialog -novid -windowed -w 1280 -h 720 -nohltv \
+    -debugapi -debugapisocket -debuguiserve -debugui -condebug -nomessagebox -nocrashdialog -novid -windowed -w 1280 -h 720 -nohltv \
     +tv_enable 0 +sv_lan 1 -hushsteam +fps_max 60 -background -instance -port $((27400 + $$ % 300)) \
     > "$OUT/launcher.log" 2>&1 ) &
 launcher=$!
@@ -86,12 +95,25 @@ fi
 result "launch ok pid=$pid"
 sleep 12
 shot menu
+# The stock GameUI module runs ServerBrowser.so's load from its Initialize: mapped, the stock module ran.
+result "maps GameUI.so=$(grep -c '/GameUI.so' /proc/$pid/maps) ServerBrowser.so=$(grep -c '/ServerBrowser.so' /proc/$pid/maps)"
+if [[ -n "${G0_OPEN:-}" ]]; then
+  for screen in $G0_OPEN; do api cmd "cs_ui_open $screen" > /dev/null 2>&1; sleep 1; done
+  sleep 2; shot open
+fi
+if [[ -n "${G0_CMD:-}" ]]; then
+  api cmd "$G0_CMD" > /dev/null 2>&1; sleep "${G0_CMD_WAIT:-4}"; shot cmd
+fi
 api commands native > "$OUT/commands.json" 2>&1 && result "commands $(grep -o '"name"' "$OUT/commands.json" | wc -l)"
 api convars native > "$OUT/convars.json" 2>&1 && result "convars $(grep -o '"name"' "$OUT/convars.json" | wc -l)"
 if [[ -n "$MAP" ]]; then
   api cmd "map $MAP" > /dev/null 2>&1
   for _ in $(seq 240); do kill -0 "$pid" 2>/dev/null || break; api log 0 20000 2>/dev/null | grep -q "first paint" && break; sleep 1; done
-  if kill -0 "$pid" 2>/dev/null; then result "map $MAP up"; sleep 6; shot level; else result "map $MAP: GAME EXITED"; fi
+  if kill -0 "$pid" 2>/dev/null; then result "map $MAP up"; sleep 6; shot level
+    if [[ -n "${G0_LEVEL_CMD:-}" ]]; then api cmd "$G0_LEVEL_CMD" > /dev/null 2>&1; sleep 4; shot levelcmd; fi
+    # The engine's GameUI calls as managed took them (the listen server's own client is slot 1).
+    api client 1 gameui > "$OUT/gameui.json" 2>&1 && result "gameui $(grep -o '"unruled":[0-9]*' "$OUT/gameui.json")"
+  else result "map $MAP: GAME EXITED"; fi
   api cmd disconnect > /dev/null 2>&1; sleep 6
   kill -0 "$pid" 2>/dev/null && shot disconnect || result "disconnect: GAME EXITED"
 fi

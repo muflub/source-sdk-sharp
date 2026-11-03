@@ -79,6 +79,11 @@ bool SourceSharpServes(const char* pszVersion)
 	if (!ss::StrICmp(pszVersion, VDEBUG_OVERLAY_INTERFACE_VERSION))
 		return true;
 
+	// The whole filesystem: the server's CreateDirHierarchy, the client's file finds;
+	// its IBaseFileSystem half is above.
+	if (!ss::StrICmp(pszVersion, FILESYSTEM_INTERFACE_VERSION))
+		return true;
+
 #ifdef CLIENT_DLL
 	if (!ss::StrICmp(pszVersion, "VEngineClient014"))
 		return true;
@@ -98,6 +103,10 @@ bool SourceSharpServes(const char* pszVersion)
 
 	if (!ss::StrICmp(pszVersion, IENGINESOUND_CLIENT_INTERFACE_VERSION))
 		return true;
+
+	// The video options' mode list and card (plan_gameui_managed.md G2).
+	if (!ss::StrICmp(pszVersion, "VENGINE_GAMEUIFUNCS_VERSION005") || !ss::StrICmp(pszVersion, "VMaterialSystem080"))
+		return true;
 #else
 	if (!ss::StrICmp(pszVersion, "VEngineServer023"))
 		return true;
@@ -116,9 +125,6 @@ bool SourceSharpServes(const char* pszVersion)
 	if (!ss::StrICmp(pszVersion, IENGINESOUND_SERVER_INTERFACE_VERSION))
 		return true;
 
-	// The whole filesystem, for CreateDirHierarchy; its IBaseFileSystem half is above.
-	if (!ss::StrICmp(pszVersion, FILESYSTEM_INTERFACE_VERSION))
-		return true;
 #endif
 
 	// Each side's own container; engine.so registers both names on a listen server.

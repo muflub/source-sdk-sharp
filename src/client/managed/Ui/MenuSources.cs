@@ -420,42 +420,6 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
     }
 }
 
-/// <summary>
-/// The server browser in game: no master-server query exists in this build,
-/// so its list is empty and it says it is not refreshing. Openable, so the
-/// window, its tabs and filters are there to use when the query lands.
-/// </summary>
-public sealed class ServerBrowserUi : IServerListSource, IServerQuerySource, IServerFilterSource, IServerDetailsSource
-{
-    public int ServerCount => 0;
-
-    public ServerEntry Server(int i) => throw new ArgumentOutOfRangeException(nameof(i));
-
-    public int Version => 0;
-
-    public ServerTab Tab => ServerTab.Internet;
-
-    public bool Refreshing => false;
-
-    public float RefreshProgress => 0f;
-
-    public string MapContains => string.Empty;
-
-    public bool NotFull => false;
-
-    public bool NotEmpty => false;
-
-    public bool NoPassword => false;
-
-    public int MaxPing => 0;
-
-    public int Selected => -1;
-
-    public int PlayerCount => 0;
-
-    public ServerPlayer Player(int i) => throw new ArgumentOutOfRangeException(nameof(i));
-}
-
 /// <summary>The engine's convars, as a form's bindings read and write them (plan_client_ui U4).</summary>
 public sealed class EngineConVarStore(IEngineConsole console) : IUiConVarStore
 {

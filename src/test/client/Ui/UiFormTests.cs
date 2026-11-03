@@ -207,4 +207,22 @@ public class UiFormTests
         Assert.Empty(output.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Contains(output.SyntaxTrees, t => t.ToString().Contains("public const int Which = 2;", StringComparison.Ordinal));
     }
+
+    /// <summary>Two text fields in one frame keep apart: the field drawn
+    /// inside each is unkeyed, so their ids do not collide (the create-server
+    /// page's name and password once shared one).</summary>
+    [Fact]
+    public void Two_edit_texts_in_one_frame_share_no_id()
+    {
+        var ctx = UiTestKit.Context();
+        UiTestKit.Frame(ctx, UiTestKit.Screen(1920, 1080), (ref UiFrame ui) =>
+        {
+            using (ui.Column(Space.M))
+            {
+                ui.EditText("first", "a", "#SS_UI_Form_TextPlaceholder");
+                ui.EditText("second", "b", "#SS_UI_Form_TextPlaceholder");
+            }
+        });
+        Assert.Empty(ctx.Report.Collisions);
+    }
 }

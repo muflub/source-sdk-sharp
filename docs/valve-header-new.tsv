@@ -1058,3 +1058,5 @@ src/client/native/shell_viewer_facts.h	native code built against SDK headers (pl
 src/client/native/shell_view_render.h	ports the client IViewRender surface (viewrender.h, view.cpp) as the render plan's carrier; the class declaration split from shell_viewrender_client.cpp
 src/tf2/server/Voice/TFConceptSpeech.cs	ports CBaseMultiplayerPlayer::SpeakConceptIfAllowed/SpeakIfAllowed and the response play (game/server/basemultiplayerplayer.cpp:71-108)
 src/tf2/server/Voice/TFPlayerCriteriaWords.cs	ports CTFPlayer::ModifyOrAppendCriteria's player words (server/tf/tf_player.cpp:19212-19274)
+src/client/managed/Ui/OptionsScript.cs	ports CScriptObject and CDescription (common/GameUI/scriptobject.cpp): the options script read, its values sent and the script written back
+src/client/native/shell_gameui.cpp	native code built against SDK headers (common/GameUI/IGameUI.h, IGameConsole.h): the engine's GameUI011 and GameConsole004 answered in managed, and the factory swap that hands them to the engine

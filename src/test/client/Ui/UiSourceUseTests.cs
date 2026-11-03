@@ -35,7 +35,7 @@ public class UiSourceUseTests
 
     private static IEnumerable<Type> UiTypes()
         => PreviewRun.ScreenAssemblies().SelectMany(a => a.GetTypes())
-            .Where(t => !t.IsAbstract && (typeof(UiScreen).IsAssignableFrom(t) || IsPanel(t)));
+            .Where(t => !t.IsAbstract && (typeof(UiScreen).IsAssignableFrom(t) || IsPanel(t) || typeof(IUiOptionsPage).IsAssignableFrom(t)));
 
     private static bool IsPanel(Type t)
     {

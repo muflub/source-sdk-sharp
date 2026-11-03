@@ -28,6 +28,7 @@ public class EngineInterfaceRegistrationClientTests
         Assert.IsType<DefaultForwarders.NoSoundClient>(services.Require<IFwdEngineSoundClient>());
         Assert.IsType<DefaultForwarders.NoGameUIFuncs>(services.Require<IFwdGameUIFuncs>());
         Assert.IsType<DefaultForwarders.NoMaterialSystem>(services.Require<IFwdMaterialSystem>());
+        Assert.IsType<DefaultForwarders.NoFileFinder>(services.Require<IFwdFileFinder>());
     }
 
     [Fact]

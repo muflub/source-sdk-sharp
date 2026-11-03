@@ -1538,3 +1538,181 @@ public unsafe struct ManagedShadowsClientTable
     [SlotHash(0x2acf7c51)]
     public delegate* unmanaged<void*, void*, int, void> Pending;
 }
+
+/// <summary>The table managed writes for <c>IManagedGameUiClient</c> (<c>SSManagedGameUiClientTable</c> native-side).</summary>
+[ImplementedByManaged("IManagedGameUiClient")]
+[StructLayout(LayoutKind.Sequential)]
+public unsafe struct ManagedGameUiClientTable
+{
+    // 0: void Release( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Release;
+
+    // 1: int32_t Validate( const uint32_t *pSlotHashes, int32_t nSlots )
+    [SlotHash(0x0d54c15e)]
+    public delegate* unmanaged<void*, void*, int, int> Validate;
+
+    // 2: void Initialize( void *pAppFactory )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> Initialize;
+
+    // 3: void PostInit( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> PostInit;
+
+    // 4: void Connect( void *pGameFactory )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> Connect;
+
+    // 5: void Start( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Start;
+
+    // 6: void Shutdown( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> Shutdown;
+
+    // 7: void RunFrame( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> RunFrame;
+
+    // 8: void OnGameUIActivated( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> OnGameUIActivated;
+
+    // 9: void OnGameUIHidden( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> OnGameUIHidden;
+
+    // 10: void OldOnConnectToServer( const char *pszGame, int32_t nIP, int32_t nPort )
+    [SlotHash(0x763f0124)]
+    public delegate* unmanaged<void*, byte*, int, int, void> OldOnConnectToServer;
+
+    // 11: void OnDisconnectFromServerOld( int32_t nSteamLoginFailure, const char *pszUsername )
+    [SlotHash(0xeed27821)]
+    public delegate* unmanaged<void*, int, byte*, void> OnDisconnectFromServerOld;
+
+    // 12: void OnLevelLoadingStarted( int32_t bShowProgressDialog )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> OnLevelLoadingStarted;
+
+    // 13: void OnLevelLoadingFinished( int32_t bError, const char *pszFailureReason, const char *pszExtendedReason )
+    [SlotHash(0x3d217e2d)]
+    public delegate* unmanaged<void*, int, byte*, byte*, void> OnLevelLoadingFinished;
+
+    // 14: int32_t UpdateProgressBar( float flProgress, const char *pszStatusText )
+    [SlotHash(0x62e9f56b)]
+    public delegate* unmanaged<void*, float, byte*, int> UpdateProgressBar;
+
+    // 15: int32_t SetShowProgressText( int32_t bShow )
+    [SlotHash(0xa45f061a)]
+    public delegate* unmanaged<void*, int, int> SetShowProgressText;
+
+    // 16: void ShowNewGameDialog( int32_t nChapter )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> ShowNewGameDialog;
+
+    // 17: void SessionNotification( int32_t nNotification, int32_t nParam )
+    [SlotHash(0x7fb639b8)]
+    public delegate* unmanaged<void*, int, int, void> SessionNotification;
+
+    // 18: void SystemNotification( int32_t nNotification )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> SystemNotification;
+
+    // 19: void ShowMessageDialog( uint32_t nType, void *pOwner )
+    [SlotHash(0x72bf2b2c)]
+    public delegate* unmanaged<void*, uint, void*, void> ShowMessageDialog;
+
+    // 20: void UpdatePlayerInfo( uint64_t nPlayerId, const char *pszName, int32_t nTeam, uint8_t cVoiceState, int32_t nPlayersNeeded, int32_t bHost )
+    [SlotHash(0xbfcd9242)]
+    public delegate* unmanaged<void*, ulong, byte*, int, byte, int, int, void> UpdatePlayerInfo;
+
+    // 21: void SessionSearchResult( int32_t nSearchIdx, void *pHostData, void *pResult, int32_t nPing )
+    [SlotHash(0xf2123ce8)]
+    public delegate* unmanaged<void*, int, void*, void*, int, void> SessionSearchResult;
+
+    // 22: void OnCreditsFinished( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> OnCreditsFinished;
+
+    // 23: void SetLoadingBackgroundDialog( void *pPanel )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> SetLoadingBackgroundDialog;
+
+    // 24: void BonusMapUnlock( const char *pszFileName, const char *pszMapName )
+    [SlotHash(0x1322dcf4)]
+    public delegate* unmanaged<void*, byte*, byte*, void> BonusMapUnlock;
+
+    // 25: void BonusMapComplete( const char *pszFileName, const char *pszMapName )
+    [SlotHash(0x1322dcf4)]
+    public delegate* unmanaged<void*, byte*, byte*, void> BonusMapComplete;
+
+    // 26: void BonusMapChallengeUpdate( const char *pszFileName, const char *pszMapName, const char *pszChallengeName, int32_t nBest )
+    [SlotHash(0x95a1e4f1)]
+    public delegate* unmanaged<void*, byte*, byte*, byte*, int, void> BonusMapChallengeUpdate;
+
+    // 27: void BonusMapDatabaseSave( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> BonusMapDatabaseSave;
+
+    // 28: int32_t BonusMapNumAdvancedCompleted( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> BonusMapNumAdvancedCompleted;
+
+    // 29: void OnConnectToServer2( const char *pszGame, int32_t nIP, int32_t nConnectionPort, int32_t nQueryPort )
+    [SlotHash(0x910013fd)]
+    public delegate* unmanaged<void*, byte*, int, int, int, void> OnConnectToServer2;
+
+    // 30: int32_t ValidateStorageDevice( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> ValidateStorageDevice;
+
+    // 31: void SetProgressOnStart( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> SetProgressOnStart;
+
+    // 32: void OnDisconnectFromServer( int32_t nSteamLoginFailure )
+    [SlotHash(0xc83e311d)]
+    public delegate* unmanaged<void*, int, void> OnDisconnectFromServer;
+
+    // 33: void OnConfirmQuit( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> OnConfirmQuit;
+
+    // 34: int32_t IsMainMenuVisible( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> IsMainMenuVisible;
+
+    // 35: void SetMainMenuOverride( void *pPanel )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> SetMainMenuOverride;
+
+    // 36: void SendMainMenuCommand( const char *pszCommand )
+    [SlotHash(0x3aa7ebf0)]
+    public delegate* unmanaged<void*, byte*, void> SendMainMenuCommand;
+
+    // 37: void ConsoleActivate( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> ConsoleActivate;
+
+    // 38: void ConsoleInitialize( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> ConsoleInitialize;
+
+    // 39: void ConsoleHide( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> ConsoleHide;
+
+    // 40: void ConsoleClear( void )
+    [SlotHash(0x07e0f4c4)]
+    public delegate* unmanaged<void*, void> ConsoleClear;
+
+    // 41: int32_t ConsoleIsVisible( void )
+    [SlotHash(0x9d8d9245)]
+    public delegate* unmanaged<void*, int> ConsoleIsVisible;
+
+    // 42: void ConsoleSetParent( void *pParent )
+    [SlotHash(0xde3e0200)]
+    public delegate* unmanaged<void*, void*, void> ConsoleSetParent;
+}

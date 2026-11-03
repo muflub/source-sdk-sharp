@@ -353,6 +353,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     internal int ComposeEngineAreas()
     {
         _services.AddInstance(_mirror);
+        _services.AddInstance(_gameUiCalls);
+        _services.AddInstance(_gameUiLoads);
 
         // What a class asks of its render policy beyond its block (the two-pass
         // group a weapon with glows answers): the module's one policy.
@@ -524,6 +526,12 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     // Built in Initialize: the reload's service tier.
     private ClientReloadParticipants? _reloadParticipants;
     private Effects.ClientParticleSims? _particleSims;
+
+    // The engine's GameUI calls as they reach managed (the dev API's gameui route).
+    private readonly GameUiCallLog _gameUiCalls = new();
+
+    // The level loads' paint count (the gameui route's lastLoad); kept across UI reloads.
+    private readonly Vgui.GameUiLoadMeter _gameUiLoads = new();
     private ClientReloadLedger? _reloadLedger;
 
     /// <summary>Exposed so a report command and the tests can see whether one exists at all.</summary>
@@ -669,6 +677,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _bindings.Add("IManagedPredictionClient",
                       v => ManagedAreaFactory.Create(v, PredictionClientBinding.For(_engine.Crossings, this, this, _movement)));
         _bindings.Add("IManagedUiClient", v => ManagedAreaFactory.Create(v, new UiClientBinding(_engine.Crossings, () => _ui, () => _centre, () => _disc, () => _voiceEvents, () => _keys, () => _voiceStatus)));
+        // The engine's GameUI (plan_gameui_managed.md G4): the host the current UI registered.
+        _bindings.Add("IManagedGameUiClient", v => ManagedAreaFactory.Create(v, new GameUiBinding(_engine.Crossings, _gameUiCalls, () => _services.Resolve<Vgui.GameUiHost>())));
         // The client engine's console prints, forwarded in process by the
         // display func native installs on the client's ICvar at area acquire
         // (docs/todo.md's console-capture item): the mirror of the server's
@@ -1115,6 +1125,9 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.Add<IClientParticleQuery, Effects.ParticleSystemQuery>();
         _services.AddInstance<IClientReconnect>(new EngineReconnect(_engineClient, log));
         _services.AddInstance<ISteamAuthTickets>(new SteamUserTickets(log));
+        // The server browser's Steam lists and its A2S socket (plan_gameui_managed.md G3).
+        _services.AddInstance<ISteamServerBrowser>(SteamServerBrowser.Acquire(_engine, out _));
+        _services.AddInstance<Vgui.IDatagramTransport>(new Vgui.UdpDatagramTransport());
 
         // The client's Steam, through the process's own libsteam_api.so (C6, Steam
         // to managed): the context, and the name filter every displayed player
@@ -1279,6 +1292,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.Add<IDebugClientNetGraph, ClientDebugNetGraph>();
         _services.Add<IDebugClientUi, Vgui.UiDebugForwarder>();
         _services.Add<IDebugClientParticles, ClientDebugParticles>();
+        _services.Add<IDebugClientGameUi, ClientDebugGameUi>();
         _services.Add<IDebugClientAbsences, ClientDebugAbsences>();
         _services.Add<IDebugClientProxies, ClientDebugProxies>();
         _services.Add<IDebugClientViewCamera, ClientDebugViewCamera>();
@@ -2043,6 +2057,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
                                              new Voice.VoiceBanFile(_services.Require<IModInfo>().GameDir, Log), modEnable,
                                              _convars.Get<Voice.VoiceClientDebugConVar>());
         _voiceEvents = new Voice.VoiceStatusFanOut(_voice, _voiceStatus);
+        // The mutes, as the player list (plan_gameui_managed.md G3) asks and flips them.
+        _services.AddInstance<IVoiceBlockEvents>(_voiceStatus);
         // THE SPECTATOR (stock CSpectatorGUI): the local player's networked
         // observer fields (PlayerNetState, written by the server's Observers).
         var observerHud = _services.Require<IEngineHud>();
@@ -2119,14 +2135,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // A new map hides the viewport's screens, as stock's viewport hid its panels on game_newmap.
         var newMapUi = _uiLoader;
         _services.Require<GameNewMapEvent>().Fired += _ => newMapUi.Current?.NewMap();
-        // THE PAUSE MENU (plan_client_novalve.md §3.2a's menu row): Escape runs engine-side —
-        // the engine activates its GameUI and fires gameui_activated client-side through
-        // OnGameUIActivated (shell_clientdll_gameclientexports.cpp), and gameui_hidden when it
-        // hides again (the menu's Resume runs gameui_hide, stock's GameUI ResumeGame). The
-        // client only learns of the show and hide through these, so the engine's own view
-        // (IsMainMenuVisible) and our menu agree without a managed key handler deciding first.
-        _services.Require<GameUiActivatedEvent>().Fired += _ => newMapUi.Current?.ShowPauseMenu();
-        _services.Require<GameUiHiddenEvent>().Fired += _ => newMapUi.Current?.HidePauseMenu();
         _ui = _uiLoader;
 
         // THE CLIENT MODE'S KEY DECISION (stock ClientModeShared::KeyInput): the

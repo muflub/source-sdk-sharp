@@ -41,6 +41,28 @@ public static class ServerBrowserSamples
     private static UiScreen Refreshing(UiSampleServices s)
         => Build(s, new FakeServerBrowser { Servers = FakeServerBrowser.Many(640, seed: 9), Refreshing = true, RefreshProgress = 0.32f });
 
+    [UiSample("internet, no Steam")]
+    private static UiScreen NoSteam(UiSampleServices s) => Build(s, new FakeServerBrowser { SteamAvailable = false });
+
+    [UiSample("favourites, adding a server")]
+    private static UiScreen Adding(UiSampleServices s)
+    {
+        var screen = (ServerBrowser)Build(s, new FakeServerBrowser
+        {
+            Tab = ServerTab.Favourites, Servers = FakeServerBrowser.Many(6, seed: 4), Selected = 1, Players = FakeServerBrowser.SomePlayers(),
+        });
+        screen.AddingServer = true;
+        return screen;
+    }
+
+    [UiSample("asking for a password")]
+    private static UiScreen Password(UiSampleServices s)
+    {
+        var browser = TwoThousand();
+        browser.AskingPassword = true;
+        return Build(s, browser);
+    }
+
     [UiSample("dragged to a corner")]
     private static UiScreen Corner(UiSampleServices s)
         => Build(s, TwoThousand(), new MemoryWindowStore().With("serverbrowser", new UiWindowPlacement(0, 0, 1100, 640)));

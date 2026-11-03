@@ -750,6 +750,7 @@ public sealed class DebugChannelClient : IDebugApiClient
         DebugChannelQuery.Particles => ClientRouteJson.Particles(_hooks.Particles.Read()),
         DebugChannelQuery.Input => ClientRouteJson.Input(_hooks.Input.Read()),
         DebugChannelQuery.InputInject => ClientRouteJson.InputInject(_hooks.Input.Inject(argument)),
+        DebugChannelQuery.GameUi => ClientRouteJson.GameUi(_hooks.GameUi.Read()),
         DebugChannelQuery.Entity => int.TryParse(argument, out int index) && index >= 0
             ? _hooks.Entities.State(index) is { } state
                 ? ClientRouteJson.Entity(state)

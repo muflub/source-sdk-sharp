@@ -156,6 +156,20 @@ public ref struct UiFrame
     public UiBox Overlay(string key, bool modal = false) => new(Context, Context.OpenOverlay(key, modal));
 
     /// <summary>
+    /// An overlay above every window, whatever their z-order: chrome that must
+    /// stay clickable under any window (the taskbar). Same shape as
+    /// <see cref="Overlay"/> afterwards.
+    /// </summary>
+    public UiBox OverlayTop(string key, UiWindows windows, bool modal = false)
+    {
+        var box = new UiBox(Context, Context.OpenOverlay(key, modal));
+        // A window at rank r sits at root z 2*(r+1) and its popups at the odd
+        // z above: two ranks over the top window outranks them all.
+        Context.SetLastRootZ(2 * (windows.TopRank + 2));
+        return box;
+    }
+
+    /// <summary>
     /// Whether an open screen replaces <paramref name="element"/> this frame
     /// (<see cref="UiScreen.Takes"/>): the screen that draws it by default leaves it out.
     /// </summary>

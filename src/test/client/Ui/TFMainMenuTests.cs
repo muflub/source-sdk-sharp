@@ -16,7 +16,8 @@ namespace SourceSharp.Tests.Ui;
 /// dashboard's top bar): the boxes stand at mainmenuoverride.res's and
 /// MatchMakingDashboard.res's places, each button does its stock command,
 /// Quit and Disconnect ask first, the level swaps Quit for Disconnect and
-/// adds Resume and the in-game buttons, and the art follows stock's picks.
+/// adds Resume, the footer row's buttons are the taskbar's launchers, and
+/// the art follows stock's picks.
 /// </summary>
 public class TFMainMenuTests
 {
@@ -79,24 +80,15 @@ public class TFMainMenuTests
 
     /// <summary>
     /// The stock places at 1920x1080 (2.25 du a unit, the screen 853.3 units
-    /// wide): ITEMS at c-288, rs1-18, 100x26; the gears at c239 and c273,
-    /// ypos 437, 25x25; Quit at rs1, 30 wide, and FIND A GAME one unit left of
+    /// wide): Quit at rs1, 30 wide, and FIND A GAME one unit left of
     /// it, 120 wide; HOST A GAME at rs1-145, 115 wide; the logo at c-290 32.
-    /// The reference screenshot of stock's build puts ITEMS at x 312 and
-    /// FIND A GAME's plate from x 1580.
+    /// The reference screenshot of stock's build puts FIND A GAME's plate
+    /// from x 1580.
     /// </summary>
     [Fact]
     public void The_launch_menu_stands_at_stock_s_places()
     {
         var rig = new Rig(false);
-        var items = rig.Box("items");
-        Near(312f, items.X);
-        Near(981f, items.Y);
-        Near(225f, items.W);
-        Near(58.5f, items.H);
-        Near(960f + 239f * 2.25f, rig.Box("options").X);
-        Near(960f + 273f * 2.25f, rig.Box("advanced options").X);
-        Near(56.25f, rig.Box("options").W);
         Near(W - 30f * 2.25f, rig.Box("quit").X);
         Near(W - 151f * 2.25f, rig.Box("find").X);
         Near(270f, rig.Box("find").W);
@@ -133,9 +125,6 @@ public class TFMainMenuTests
     [Theory]
     [InlineData("find", "find")]
     [InlineData("host", "host")]
-    [InlineData("items", "items")]
-    [InlineData("options", "options")]
-    [InlineData("advanced options", "advanced options")]
     public void Each_launch_button_does_its_command(string button, string done)
     {
         var rig = new Rig(false);
@@ -191,16 +180,18 @@ public class TFMainMenuTests
         Assert.Equal(["disconnect"], rig.Actions.Done);
     }
 
+    /// <summary>Stock's footer row (ITEMS, the gears, the in-game buttons)
+    /// is on the taskbar, so the menu draws none of it, at the menu or in a
+    /// level.</summary>
     [Theory]
-    [InlineData("report player")]
-    [InlineData("call vote")]
-    [InlineData("mute players")]
-    [InlineData("request coach")]
-    public void Each_in_game_button_does_its_command(string button)
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_footer_row_is_not_drawn(bool inLevel)
     {
-        var rig = new Rig(true);
-        rig.Click(button);
-        Assert.Equal([button], rig.Actions.Done);
+        var rig = new Rig(inLevel);
+        Assert.True(rig.Has("find"));
+        foreach (var name in (string[])["footer", "items", "options", "advanced options", "report player", "call vote", "mute players", "request coach"])
+            Assert.False(rig.Has(name), name);
     }
 
     /// <summary>The backdrop and the character show at the menu and hide in a
@@ -352,5 +343,48 @@ public class TFMainMenuTests
         ui.Items();
         Assert.Equal(["callvote", "gameui_hide", "gameui_hide"], sent);
         Assert.Equal(1, classes.Edits);
+    }
+
+    // ---- the taskbar's launchers ----
+
+    private static (TFTaskbarLaunchers Launchers, FakeTFMainMenuActions Actions, ChatFeedTests.RecordingEngineClient Engine) Launchers()
+    {
+        var actions = new FakeTFMainMenuActions();
+        var engine = new ChatFeedTests.RecordingEngineClient([]);
+        return (new TFTaskbarLaunchers(actions, engine), actions, engine);
+    }
+
+    /// <summary>At the menu the bar carries ITEMS and the advanced gear (the
+    /// first gear is the bar's own Settings); a level adds GameMenu.res's
+    /// four in-game buttons.</summary>
+    [Fact]
+    public void The_menu_launches_items_and_advanced_options_and_a_level_adds_four()
+    {
+        var (bar, _, engine) = Launchers();
+        Assert.Equal(2, bar.LauncherCount);
+        engine.Level = "ctf_2fort";
+        Assert.Equal(6, bar.LauncherCount);
+    }
+
+    [Fact]
+    public void Advanced_options_stands_in_the_tray_and_the_rest_at_the_left()
+    {
+        var (bar, _, engine) = Launchers();
+        engine.Level = "ctf_2fort";
+        var tray = new List<string>();
+        for (int i = 0; i < bar.LauncherCount; i++)
+            if (bar.Launcher(i).Tray)
+                tray.Add(bar.Launcher(i).Token);
+        Assert.Equal(["#TF2_MainMenu_AdvancedOptions"], tray);
+    }
+
+    [Fact]
+    public void Each_launcher_does_its_footer_button_s_command()
+    {
+        var (bar, actions, engine) = Launchers();
+        engine.Level = "ctf_2fort";
+        for (int i = 0; i < bar.LauncherCount; i++)
+            bar.Launch(i);
+        Assert.Equal(["items", "advanced options", "report player", "call vote", "mute players", "request coach"], actions.Done);
     }
 }

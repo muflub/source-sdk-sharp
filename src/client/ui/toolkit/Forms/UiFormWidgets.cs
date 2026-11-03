@@ -128,8 +128,9 @@ public static class UiFormWidgets
     /// <summary>
     /// A choice: the chosen name in a field with a chevron; clicked, a list of
     /// every choice opens under it, and clicking one chooses it and closes.
-    /// The names are data (shown as they are), or tokens when
-    /// <paramref name="tokens"/> (localised, as copy).
+    /// The names are data (shown as they are); with <paramref name="tokens"/>
+    /// a name starting with # is a token (localised, as copy), so one list can
+    /// hold both (a "random map" token above the maps' names).
     /// </summary>
     public static int Choice<TNames>(this ref UiFrame ui, string key, int chosen, int count, TNames names, bool tokens = false)
         where TNames : IUiChoiceNames
@@ -143,7 +144,7 @@ public static class UiFormWidgets
         {
             if (count == 0)
                 ui.Text("#SS_UI_Choice_None", Text.Body, Tone.TextMuted);
-            else if (tokens)
+            else if (tokens && names.Name(chosen).StartsWith('#'))
                 ui.Text(names.Name(chosen), Text.Body, Tone.Text);
             else
                 ui.Data(names.Name(chosen), Text.Body);
@@ -165,7 +166,7 @@ public static class UiFormWidgets
                 var hit = ui.Interact(row);
                 using (row)
                 {
-                    if (tokens)
+                    if (tokens && names.Name(i).StartsWith('#'))
                         ui.Text(names.Name(i), Text.Body, i == chosen ? Tone.Accent : Tone.Text);
                     else
                         ui.Data(names.Name(i), Text.Body, i == chosen ? Tone.Accent : Tone.Text);
@@ -212,7 +213,7 @@ public static class UiFormWidgets
             }
         }
         using (box)
-            ui.TextField("field", text, placeholderToken, focused ? text.Length : -1);
+            ui.TextField(null, text, placeholderToken, focused ? text.Length : -1);
         return text;
     }
 }

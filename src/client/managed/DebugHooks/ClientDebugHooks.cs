@@ -56,9 +56,11 @@ public sealed class DebugClientHooks(IDebugClientLog log, IDebugClientBuild buil
                                      IDebugClientUi ui, IDebugClientProxies proxies, IDebugClientViewCamera viewCamera,
                                      IDebugClientRender render,
                                      IDebugClientParticles particles,
-                                     IDebugClientInput input)
+                                     IDebugClientInput input,
+                                     IDebugClientGameUi gameUi)
     : IDebugClientHooks
 {
+    public IDebugClientGameUi GameUi { get; } = gameUi ?? throw new ArgumentNullException(nameof(gameUi));
     public IDebugClientRender Render { get; } = render ?? throw new ArgumentNullException(nameof(render));
     public IDebugClientParticles Particles { get; } = particles ?? throw new ArgumentNullException(nameof(particles));
 

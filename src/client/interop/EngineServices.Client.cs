@@ -17,11 +17,13 @@ public static partial class EngineServices
         services.AddInstance(Slice<IPlaybackState>(client));
         services.AddInstance(Slice<IViolenceSettings>(client));
         services.AddInstance(Slice<IMenuBackgroundName>(client));
+        services.AddInstance(Slice<IVoiceTweakControls>(client));
         services.AddInstance(Slice<IClientPredictCommand>(client));
         services.AddInstance(Slice<IWeaponSelectionCommand>(client));
         services.AddInstance(EngineBound.InputSystem(side));
         services.AddInstance(EngineBound.SoundClient(side));
         services.AddInstance(EngineBound.GameUIFuncs(side));
         services.AddInstance(EngineBound.MaterialSystem(side));
+        services.AddInstance(EngineBound.FileFinder(side));
     }
 }

@@ -80,10 +80,62 @@ internal static class UiHostKit
             .AddInstance<IChatInputSource>(new ChatInputUi(new DefaultForwarders.NoEngineClient()))
             .AddInstance<ILoadingDiscSource>(new LoadingDisc(engine))
             .AddInstance<IMenuBackgroundName>(new DefaultForwarders.NoEngineClient())
+            // The options window's engine (plan_gameui_managed.md G2): defaults that answer nothing.
+            .AddInstance<IVoiceTweakControls>(new DefaultForwarders.NoEngineClient())
+            .AddInstance<IFwdGameUIFuncs>(new DefaultForwarders.NoGameUIFuncs())
+            .AddInstance<IFwdMaterialSystem>(new DefaultForwarders.NoMaterialSystem())
+            .AddInstance<IFwdFileFinder>(new DefaultForwarders.NoFileFinder())
+            .AddInstance<IFwdBaseFileSystem>(new DefaultForwarders.NoFiles())
+            // The server browser's Steam and socket: no Steam, no datagrams.
+            .AddInstance<ISteamServerBrowser>(new NoSteamBrowser())
+            .AddInstance<IDatagramTransport>(new NoDatagrams())
+            .AddInstance<IVoiceBlockEvents>(new NoMutes())
             .AddInstance<IDebugOverlaySource>(new NoOverlay())
             .AddInstance<IVoiceSource>(new VoiceSpeakers(new NoVoicePlayers()));
         var observer = new ObserverState(new NoObserverFields(), new NoSpectated(), () => null);
         return services.AddInstance<IObserverSource>(observer).AddInstance<ISpectatorTargetSource>(observer);
+    }
+
+    private sealed class NoMutes : IVoiceBlockEvents
+    {
+        public bool IsBlocked(int client) => false;
+
+        public void ToggleBlocked(int client) { }
+    }
+
+    /// <summary>A -hushsteam launch's Steam: unavailable, every list empty.</summary>
+    internal sealed class NoSteamBrowser : ISteamServerBrowser
+    {
+        public bool Available => false;
+        public bool RequestInternet(string gameDir) => false;
+        public bool Refreshing => false;
+        public int ServerCount => 0;
+        public bool Responded(int i) => false;
+        public bool TryGetServer(int i, out SteamServerItem item)
+        {
+            item = default;
+            return false;
+        }
+        public void ReleaseRequest() { }
+        public int FavouriteCount => 0;
+        public bool TryGetFavourite(int i, out SteamFavourite favourite)
+        {
+            favourite = default;
+            return false;
+        }
+        public void AddFavourite(uint ip, ushort connectionPort, ushort queryPort, uint flags) { }
+        public void RemoveFavourite(uint ip, ushort connectionPort, ushort queryPort, uint flags) { }
+    }
+
+    private sealed class NoDatagrams : IDatagramTransport
+    {
+        public void Send(ServerAddress to, ReadOnlySpan<byte> data) { }
+        public void Broadcast(ushort port, ReadOnlySpan<byte> data) { }
+        public int Receive(Span<byte> buffer, out ServerAddress from)
+        {
+            from = default;
+            return -1;
+        }
     }
 
     private sealed class NoChatPlayers : IChatPlayers

@@ -544,6 +544,9 @@ public enum DebugChannelQuery : byte
 
     /// <summary>A WRITE, cheats only: "dx,dy" mouse delta or "+button" for the next command (lane c6-input).</summary>
     InputInject = 21,
+
+    /// <summary>The engine's GameUI calls: each method's count, the calls no host took, the last 64 (plan_gameui_managed.md §4).</summary>
+    GameUi = 22,
 }
 
 /// <summary>
@@ -646,6 +649,7 @@ public static class DebugChannelCodec
         DebugChannelQuery.Particles,
         DebugChannelQuery.Input,
         DebugChannelQuery.InputInject,
+        DebugChannelQuery.GameUi,
     ];
 
     /// <summary>

@@ -9,14 +9,22 @@ namespace SourceSharp.Client.Vgui;
 /// ClientModeSingle::OnKeyDown shows): Play loads the map the mod's maplist
 /// names, as stock's GameUI "StartNewGame" loads one; Resume hides the menu
 /// through the engine's own command; Options shows the options window; Quit
-/// ends the game. The host wires Closed and OptionsShown to its layer's opens
+/// asks first (stock's quit confirmation). The menu's other commands go by
+/// stock's names to the GameUI's table (<see cref="MenuCommand"/>, wired once
+/// the table is built). The host wires Closed and OptionsShown to its layer's opens
 /// and closes; the buttons answer through them, so a sample can record clicks
 /// without a host. Resume only when a level is up and Play only when the
 /// maplist named one — the screen hides the rest.
 /// </summary>
-public sealed class MainMenuUi(IFwdEngineClient engine, string? startMap = null) : IMainMenuSource
+public sealed class MainMenuUi(IFwdEngineClient engine, ConfirmQuitUi quit, string? startMap = null)
+    : IMainMenuSource, IMainMenuCommands
 {
     public Action? Closed { get; set; }
+
+    /// <summary>The GameUI's game menu table, which answers the menu's commands.</summary>
+    public Func<string, bool>? MenuCommand { get; set; }
+
+    public void Run(string command) => MenuCommand?.Invoke(command);
 
     public Action? OptionsShown { get; set; }
 
@@ -48,7 +56,7 @@ public sealed class MainMenuUi(IFwdEngineClient engine, string? startMap = null)
 
     public void OpenOptions() => OptionsShown?.Invoke();
 
-    public void Quit() => engine.SubmitConsoleLine("quit");
+    public void Quit() => quit.Ask();
 }
 
 /// <summary>

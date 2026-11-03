@@ -123,16 +123,28 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// FileSystem: 1 forwarder(s) over IFileSystem.
+// FileSystem: 5 forwarder(s) over IFileSystem.
 //-----------------------------------------------------------------------------
 // void IFileSystem::CreateDirHierarchy( const char *, const char * )
 static void SSFwd_FileSystem_CreateDirHierarchy( IFileSystem *self, const char * a0, const char * a1 ) { self->CreateDirHierarchy( a0, a1 ); }
+// const char * IFileSystem::FindFirstEx( const char *, const char *, FileFindHandle_t * )
+static const char * SSFwd_FileSystem_FindFirstEx( IFileSystem *self, const char * a0, const char * a1, FileFindHandle_t * a2 ) { return self->FindFirstEx( a0, a1, a2 ); }
+// const char * IFileSystem::FindNext( FileFindHandle_t )
+static const char * SSFwd_FileSystem_FindNext( IFileSystem *self, FileFindHandle_t a0 ) { return self->FindNext( a0 ); }
+// bool IFileSystem::FindIsDirectory( FileFindHandle_t )
+static bool SSFwd_FileSystem_FindIsDirectory( IFileSystem *self, FileFindHandle_t a0 ) { return self->FindIsDirectory( a0 ); }
+// void IFileSystem::FindClose( FileFindHandle_t )
+static void SSFwd_FileSystem_FindClose( IFileSystem *self, FileFindHandle_t a0 ) { self->FindClose( a0 ); }
 
 static void *const s_FileSystemSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_FileSystem_CreateDirHierarchy ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindFirstEx ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindNext ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindIsDirectory ),
+	reinterpret_cast< void * >( &SSFwd_FileSystem_FindClose ),
 };
 
-static const SSForwarderTable s_FileSystemTable = { s_FileSystemSlots, 1 };
+static const SSForwarderTable s_FileSystemTable = { s_FileSystemSlots, 5 };
 
 //-----------------------------------------------------------------------------
 // EngineServer: 31 forwarder(s) over IVEngineServer.

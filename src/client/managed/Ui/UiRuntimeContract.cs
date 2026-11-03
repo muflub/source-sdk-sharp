@@ -114,7 +114,7 @@ public interface IUiRuntimeFactory
 }
 
 /// <summary>Opens or closes a UI screen by name: cs_ui_open console, cs_ui_open serverbrowser.</summary>
-[ConCommand("cs_ui_open", Help = "Open a UI screen: scoreboard, teammenu, motd, console, serverbrowser, mouseoptions, keybindings")]
+[ConCommand("cs_ui_open", Help = "Open a UI screen: scoreboard, teammenu, motd, console, serverbrowser, options, or an options page (videooptions, ...)")]
 public sealed class UiOpenCommand(UiLoader ui, ILog log) : IConCommand
 {
     public void Execute(string args)
@@ -122,7 +122,7 @@ public sealed class UiOpenCommand(UiLoader ui, ILog log) : IConCommand
         string name = args.Trim();
         if (name.Length == 0 || ui.Current is not { } runtime || !runtime.Has(name))
         {
-            log.Msg("usage: cs_ui_open <scoreboard|teammenu|motd|console|serverbrowser|mouseoptions|keybindings>\n");
+            log.Msg("usage: cs_ui_open <scoreboard|teammenu|motd|console|serverbrowser|options|videooptions|...>\n");
             return;
         }
         runtime.Open(name);

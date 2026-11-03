@@ -126,3 +126,14 @@ public sealed unsafe class MaterialSystem : IFwdMaterialSystem
     /// <inheritdoc/>
     public bool SupportsCsaa(int samples, int quality) => _fwd->SupportsCSAAMode(_self, samples, quality) != 0;
 }
+
+/// <summary>ivoicetweak.h's IVoiceTweak, a struct of C function pointers (no vtable): one layout on every ABI.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct VoiceTweakTable
+{
+    public delegate* unmanaged<int> StartVoiceTweakMode;
+    public delegate* unmanaged<void> EndVoiceTweakMode;
+    public delegate* unmanaged<int, float, void> SetControlFloat;
+    public delegate* unmanaged<int, float> GetControlFloat;
+    public delegate* unmanaged<byte> IsStillTweaking;
+}

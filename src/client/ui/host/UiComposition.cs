@@ -195,11 +195,13 @@ public static class ClientUi
         // so engine and menu agree (the hide comes back as gameui_hidden).
         // Play's map is the mod's own (plan_client_novalve §3.2a's create-server
         // row): maplist.txt on the game's paths, the launch menu's start.
-        var mainMenu = new MainMenuUi(engine, MenuMapList.First(services.Resolve<IEngineFiles>(), log));
+        var confirmQuit = new ConfirmQuitUi(engine);
+        services.AddInstance(confirmQuit).AddInstance<IConfirmQuitSource>(confirmQuit);
+        var mainMenu = new MainMenuUi(engine, confirmQuit, MenuMapList.First(services.Resolve<IEngineFiles>(), log));
         // Before the mod screens, as the text window's data: a mod's main menu
         // (TF2's, claiming UiHost.MainMenuPanel) reads the same level answer
         // and Resume the core's menu does.
-        services.AddInstance<IMainMenuSource>(mainMenu);
+        services.AddInstance<IMainMenuSource>(mainMenu).AddInstance<IMainMenuCommands>(mainMenu);
         // The stock GameUI's backdrop, drawn by the menu layer's lowest screen
         // while no level is up (plan_gameui_managed.md G1).
         var menuBackground = new MenuBackgroundUi(services.Require<IMenuBackgroundName>(), mainMenu);
@@ -208,8 +210,6 @@ public static class ClientUi
         // (plan_gameui_managed.md G1), driven by the GameUI host from G4.
         var loading = new GameUiLoading(localiser, engine);
         services.AddInstance(loading).AddInstance<ILoadingProgressSource>(loading).AddInstance<IDisconnectMessageSource>(loading);
-        var confirmQuit = new ConfirmQuitUi(engine);
-        services.AddInstance(confirmQuit).AddInstance<IConfirmQuitSource>(confirmQuit);
 
         // THE MOD'S SCREENS (stage 0.9): every UiScreen in its UI assemblies,
         // built through the container, after the core's on the layer each names.
@@ -257,7 +257,42 @@ public static class ClientUi
         // composes without the side's container, and a window with no feed
         // just mirrors the typed lines, the pre-capture behaviour.
         var console = new ConsoleUi(engine, services.Resolve<ConsoleLines>());
-        var browser = new ServerBrowserUi();
+        // The console's history, as condump writes it (plan_gameui_managed.md G4).
+        services.AddInstance<IConsoleLogSource>(console);
+        // THE TASKBAR: the menu layer's open windows, the settings quick-open
+        // and the clock; bound to the layer and the host below.
+        var taskbar = new TaskbarService(windows);
+        // THE OPTIONS (plan_gameui_managed.md G2): stock's tabs in its order,
+        // one window, over the engine's convars, console and lists.
+        var convarStore = new EngineConVarStore(services.Require<IEngineConsole>());
+        var commandLine = new EngineCommandLine(engine);
+        var optionsFiles = new EngineOptionsFiles(services.Require<IFwdBaseFileSystem>());
+        string gameInfoPath = Path.Combine(mod.GameDir, "gameinfo.txt");
+        // THE CREATE-SERVER WINDOW (plan_gameui_managed.md G3): the maps, the
+        // mod's server script, and stock's start sequence.
+        var createServer = new CreateServer(windows,
+            new EngineMapList(services.Require<IFwdFileFinder>(), File.Exists(gameInfoPath) ? File.ReadAllText(gameInfoPath) : null),
+            new ServerSettingsSource(optionsFiles, convarStore, commandLine), new CreateServerActions(commandLine));
+        // THE SERVER BROWSER (plan_gameui_managed.md G3): A2S over the client's
+        // datagram transport for LAN, favourites, history and players; Steam's
+        // internet list; the remembered servers in Steam, or a file without it.
+        var steamBrowser = services.Require<ISteamServerBrowser>();
+        var browser = new ServerBrowserUi(new A2sClient(services.Require<IDatagramTransport>(), TimeProvider.System), steamBrowser,
+            new ServerFavourites(steamBrowser, new SteamServerFavourites(steamBrowser), new FileServerFavourites(optionsFiles)),
+            commandLine, TimeProvider.System, Path.GetFileName(Path.TrimEndingDirectorySeparator(mod.GameDir)));
+        // Where the GameUI's OnConnectToServer2 records a join (the history tab).
+        services.AddInstance<IServerHistory>(browser);
+        var options = new Options(windows,
+        [
+            new KeyBindings(windows, services.Require<IUiKeyBindingStore>()),
+            new MouseOptions(windows, convarStore),
+            new AudioOptions(windows, convarStore, commandLine),
+            new VideoOptions(new EngineVideoModes(services.Require<IFwdGameUIFuncs>(), services.Require<IFwdMaterialSystem>()),
+                             convarStore, commandLine),
+            new VoiceOptions(windows, convarStore, new EngineMicrophone(services.Require<IVoiceTweakControls>())),
+            new MultiplayerOptions(convarStore, commandLine, new EngineFileList(services.Require<IFwdFileFinder>()),
+                                   new OptionsScriptSource(optionsFiles, convarStore, commandLine)),
+        ]);
         UiScreen[] menuScreens =
         [
             new Ui.Screens.Scoreboard(scores, new TeamTable(scores)),
@@ -265,12 +300,16 @@ public static class ClientUi
             new Motd(motd, motd),
             new ConsoleScreen(windows, new ConsoleLogPanel(console), new ConsoleInputPanel(console, console),
                               new ConsoleCompletionsPanel(console)),
-            new ServerBrowser(windows, browser, new ServerFilterBar(browser), new ServerTable(browser, browser, browser, browser),
+            new ServerBrowser(windows, browser, browser, browser, browser, new ServerFilterBar(browser, browser),
+                              new ServerTable(browser, browser, browser, browser, browser, browser, browser),
                               new ServerDetailsPanel(browser, browser)),
-            new MouseOptions(windows, new EngineConVarStore(services.Require<IEngineConsole>())),
-            new KeyBindings(windows, services.Require<IUiKeyBindingStore>()),
+            options,
+            createServer,
+            new PlayerList(windows, new PlayerListUi(services.Require<IPlayerNames>(), engine, services.Require<IEngineEnvironment>(),
+                                                         services.Require<IVoiceBlockEvents>())),
+            new Taskbar(taskbar, taskbar, services.Resolve<ITaskbarLaunchers>() ?? new NoTaskbarLaunchers(), windows),
             new ChatInput(services.Require<IChatInputSource>()),
-            new MainMenu(mainMenu),
+            new MainMenu(mainMenu, mainMenu),
             new MenuBackground(menuBackground, textures),
             new LoadingProgress(loading),
             new DisconnectMessage(loading),
@@ -290,7 +329,12 @@ public static class ClientUi
         };
         // Where the engine's GameUI calls land (bound from G4), over this UI;
         // AddInstance so a UI reload hands the binding the new one.
-        services.AddInstance(new GameUiHost(host, loading, confirmQuit));
+        var menuCommands = new GameMenuCommands(host, confirmQuit, engine);
+        services.AddInstance(menuCommands);
+        mainMenu.MenuCommand = menuCommands.Run;
+        services.AddInstance(new GameUiHost(host, loading, confirmQuit, menuCommands, browser,
+                                            services.Resolve<GameUiLoadMeter>() ?? new GameUiLoadMeter()));
+        taskbar.Bind(menuLayer, host.Open);
         return host;
     }
 }

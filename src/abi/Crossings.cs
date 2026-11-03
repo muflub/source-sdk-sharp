@@ -956,6 +956,8 @@ public enum CrossingOp
     ClientWorldDataChanged = 383,
     /// <summary>The viewmodel bob's two magnitudes, once a frame (cl_bobcycle/cl_bobup; stock's AddViewModelBobHelper). CLIENT ONLY.</summary>
     ClientViewEffectsViewModelBob = 384,
+    /// <summary>IManagedGameUiClient: any of the engine's GameUI011 and GameConsole004 calls, answered by the managed GameUI host (plan_gameui_managed.md G4). CLIENT ONLY.</summary>
+    ClientGameUi = 385,
 }
 
 /// <summary>

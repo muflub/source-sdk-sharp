@@ -35,6 +35,13 @@ public abstract class UiScreen : IUiScreen
     /// way. Answer a field, not a new list per call.</summary>
     public virtual IReadOnlyList<string> Panels => [];
 
+    /// <summary>Other names that open this screen (cs_ui_open, the game
+    /// menu's commands), each telling it which through <see cref="PanelOpened"/>:
+    /// an options page by its name. Unlike <see cref="Panels"/> these are no
+    /// viewport panel's, so the screen is not held under the GameUI as the
+    /// viewport's are. Answer a field, not a new list per call.</summary>
+    public virtual IReadOnlyList<string> Aliases => [];
+
     /// <summary>Said just before a show of a claimed panel opens this screen,
     /// with the claimed name it came in under: how one screen told a
     /// <c>class_red</c> show from a <c>class_blue</c> one. The plain
@@ -51,6 +58,16 @@ public abstract class UiScreen : IUiScreen
 
     /// <summary>Whether the layer opens it on its own: HUD screens are, menus wait to be asked.</summary>
     public virtual bool OpenByDefault => Layer == UiLayerKind.Hud;
+
+    /// <summary>
+    /// Whether this screen is its windowed layer's chrome (the taskbar): the
+    /// layer shows it exactly while its <see cref="UiLayer.ChromeWith"/> screen is
+    /// up (the main or pause menu; with none, while some window is open), draws it above every
+    /// window (pair it with <c>ui.OverlayTop</c> so it stays clickable), and
+    /// never lists it among the open screens, carries it across a reload or
+    /// counts it as a window.
+    /// </summary>
+    public virtual bool Chrome => false;
 
     /// <summary>
     /// The named elements of other screens this one replaces while it is open and

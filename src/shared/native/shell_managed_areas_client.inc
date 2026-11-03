@@ -169,6 +169,11 @@ bool ManagedAreasClient_Acquire( CManagedAreasClient &areas, IManagedRoot *pRoot
 	if ( !areas.m_pShadowsClient )
 		return false;
 
+	pObject = pRoot->Acquire( "IManagedGameUiClient" );
+	areas.m_pGameUiClient = ManagedAccept< IManagedGameUiClient >( pObject, kIManagedGameUiClientSlotHashes, kIManagedGameUiClientSlotCount, pWhy, nWhy );
+	if ( !areas.m_pGameUiClient )
+		return false;
+
 	return true;
 }
 
@@ -236,6 +241,8 @@ bool ManagedAreasClient_Validate( const CManagedAreasClient &areas, char *pWhy, 
 		return false;
 	if ( !ManagedAcceptObject( areas.m_pShadowsClient, kIManagedShadowsClientSlotHashes, kIManagedShadowsClientSlotCount, pWhy, nWhy ) )
 		return false;
+	if ( !ManagedAcceptObject( areas.m_pGameUiClient, kIManagedGameUiClientSlotHashes, kIManagedGameUiClientSlotCount, pWhy, nWhy ) )
+		return false;
 	return true;
 }
 
@@ -272,6 +279,7 @@ void ManagedAreasClient_Release( CManagedAreasClient &areas )
 	ManagedRelease( areas.m_pPixelVisClient );
 	ManagedRelease( areas.m_pGlowClient );
 	ManagedRelease( areas.m_pShadowsClient );
+	ManagedRelease( areas.m_pGameUiClient );
 }
 
 IManagedCommandsClient *ManagedCommandsClient()
@@ -427,4 +435,9 @@ IManagedGlowClient *ManagedGlowClient()
 IManagedShadowsClient *ManagedShadowsClient()
 {
 	return ShellClientDll_Managed().m_Areas.m_pShadowsClient;
+}
+
+IManagedGameUiClient *ManagedGameUiClient()
+{
+	return ShellClientDll_Managed().m_Areas.m_pGameUiClient;
 }

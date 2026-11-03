@@ -944,6 +944,7 @@ SCALARS = {
 # checkable rather than remembered.
 NAMED = {
     'FileHandle_t':       ('void*',  'src/public/filesystem.h:38, typedef void *'),
+    'FileFindHandle_t':   ('int',    'src/public/filesystem.h:40, typedef int'),
     'FSAllocFunc_t':      ('void*',  'src/public/filesystem.h:292, a function pointer'),
     'MDLHandle_t':        ('ushort', 'src/public/engine/ivmodelinfo.h:35, typedef unsigned short'),
     'QueryCvarCookie_t':  ('int',    'src/public/engine/iserverplugin.h:43, typedef int'),

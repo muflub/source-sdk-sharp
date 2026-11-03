@@ -16,8 +16,10 @@ namespace SourceSharp.Tests.Ui;
 /// </summary>
 public sealed class MainMenuTests
 {
-    private sealed class RecordingSource : IMainMenuSource
+    private sealed class RecordingSource : IMainMenuSource, IMainMenuCommands
     {
+        public void Run(string command) => Clicked.Add("cmd " + command);
+
         public List<string> Clicked { get; } = [];
 
         public bool InLevel { get; set; } = true;
@@ -33,9 +35,9 @@ public sealed class MainMenuTests
         public void Quit() => Clicked.Add("quit");
     }
 
-    private static UiContext Drawn(IMainMenuSource source)
+    private static UiContext Drawn(RecordingSource source)
     {
-        var screen = new MainMenu(source);
+        var screen = new MainMenu(source, source);
         var ctx = Context();
         Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui));
         return ctx;
@@ -79,7 +81,8 @@ public sealed class MainMenuTests
     public void Play_loads_the_map_the_source_was_given()
     {
         var sent = new List<string>();
-        new MainMenuUi(new ChatFeedTests.RecordingEngineClient(sent), "ctf_2fort").Play();
+        var engine = new ChatFeedTests.RecordingEngineClient(sent);
+        new MainMenuUi(engine, new ConfirmQuitUi(engine), "ctf_2fort").Play();
         Assert.Equal(["map ctf_2fort"], sent);          // the map command, the listen server's start
     }
 
@@ -87,16 +90,60 @@ public sealed class MainMenuTests
     public void Play_without_a_map_loads_nothing()
     {
         var sent = new List<string>();
-        new MainMenuUi(new ChatFeedTests.RecordingEngineClient(sent)).Play();
+        var engine = new ChatFeedTests.RecordingEngineClient(sent);
+        new MainMenuUi(engine, new ConfirmQuitUi(engine)).Play();
         Assert.Empty(sent);                             // no maplist, no command
     }
 
+    /// <summary>Stock's Quit asked first (its quit confirmation): the question, no quit yet.</summary>
     [Fact]
-    public void Quit_ends_the_game_through_the_engine()
+    public void Quit_asks_before_it_ends_the_game()
     {
         var sent = new List<string>();
-        new MainMenuUi(new ChatFeedTests.RecordingEngineClient(sent), "ctf_2fort").Quit();
-        Assert.Equal(["quit"], sent);
+        var engine = new ChatFeedTests.RecordingEngineClient(sent);
+        var quit = new ConfirmQuitUi(engine);
+        new MainMenuUi(engine, quit, "ctf_2fort").Quit();
+        Assert.True(quit.Asking);
+        Assert.Empty(sent);
+    }
+
+    [Fact]
+    public void The_menus_commands_go_to_the_game_menus_table()
+    {
+        var sent = new List<string>();
+        var engine = new ChatFeedTests.RecordingEngineClient(sent);
+        var asked = new List<string>();
+        var menu = new MainMenuUi(engine, new ConfirmQuitUi(engine)) { MenuCommand = c => { asked.Add(c); return true; } };
+        menu.Run("OpenServerBrowser");
+        Assert.Equal(["OpenServerBrowser"], asked);
+    }
+
+    /// <summary>Stock HL2MP's game menu: Disconnect and the player list in game;
+    /// Find servers and Create server always.</summary>
+    [Fact]
+    public void The_menu_draws_stocks_multiplayer_items()
+    {
+        var menu = new RecordingSource { InLevel = false };
+        var ctx = Drawn(menu);
+        Assert.True(Draws(ctx, "#SS_UI_Main_FindServers"), DrawnText(ctx));
+        Assert.True(Draws(ctx, "#SS_UI_Main_CreateServer"), DrawnText(ctx));
+        Assert.False(Draws(ctx, "#SS_UI_Main_Disconnect"), DrawnText(ctx));
+        Assert.False(Draws(ctx, "#SS_UI_Main_Players"), DrawnText(ctx));
+        menu.InLevel = true;
+        ctx = Drawn(menu);
+        Assert.True(Draws(ctx, "#SS_UI_Main_Disconnect"), DrawnText(ctx));
+        Assert.True(Draws(ctx, "#SS_UI_Main_Players"), DrawnText(ctx));
+    }
+
+    [Fact]
+    public void Clicking_find_servers_sends_stocks_command()
+    {
+        var menu = new RecordingSource { InLevel = false };
+        var screen = new MainMenu(menu, menu);
+        var ctx = Context();
+        Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui));
+        Click(ctx, screen, "#SS_UI_Main_FindServers");
+        Assert.Equal(["cmd OpenServerBrowser"], menu.Clicked);
     }
 
     [Fact]
@@ -104,9 +151,9 @@ public sealed class MainMenuTests
     {
         var sent = new List<string>();
         var engine = new ChatFeedTests.RecordingEngineClient(sent) { Level = "ctf_2fort" };
-        Assert.True(new MainMenuUi(engine).InLevel);    // a map is up
+        Assert.True(new MainMenuUi(engine, new ConfirmQuitUi(engine)).InLevel);    // a map is up
         engine.Level = string.Empty;
-        Assert.False(new MainMenuUi(engine).InLevel);   // the launch menu: none is
+        Assert.False(new MainMenuUi(engine, new ConfirmQuitUi(engine)).InLevel);   // the launch menu: none is
     }
 
     [Fact]
@@ -143,7 +190,7 @@ public sealed class MainMenuTests
     public void Clicking_play_loads_the_map()
     {
         var menu = new RecordingSource { InLevel = false };
-        var screen = new MainMenu(menu);
+        var screen = new MainMenu(menu, menu);
         var ctx = Context();
         Frame(ctx, Screen(1920, 1080), (ref UiFrame ui) => screen.Describe(ref ui));
         Assert.Empty(menu.Clicked);

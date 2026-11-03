@@ -44,7 +44,6 @@
 
 #include "physics.h"
 #include "saverestore.h"
-#include "gameui_edge.h"
 
 #include "gamerules_register.h"
 #include "client_world.h"
@@ -112,6 +111,7 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_client_mode.h"
 #include "shell_viewer_facts.h"
 #include "shell_view_render.h"
+#include "shell_gameui.h"
 
 IVEngineClient* engine = NULL;
 IVModelRender* modelrender = NULL;
@@ -876,9 +876,6 @@ void CShellClientDLL::Shutdown()
 	UnloadManagedRuntime(m_pManagedRuntime);
 	m_pManagedRuntime = NULL;
 
-	// Before the panels go: stock's override leaves the gameui in its destructor.
-	SourceSharp_MenuRootReleaseGameUI();
-
 	gHUD.Shutdown();
 	VGui_Shutdown();
 
@@ -933,9 +930,8 @@ void CShellClientDLL::HudUpdate(bool bActive)
 
 	GetClientVoiceMgr()->Frame(frametime);
 
-	// The GameUI's visibility edge, before anything reads it this frame
-	// (gameui_edge.h): the engine's own activation call is gated to -game tf.
-	SourceSharp_GameUIEdge();
+	// The menu layer's home: the GameUI root while the engine's GameUI is up.
+	ShellHud_MenuRootFollowGameUI();
 
 	gHUD.UpdateHud(bActive);
 

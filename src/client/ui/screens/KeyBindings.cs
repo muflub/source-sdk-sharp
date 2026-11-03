@@ -41,6 +41,8 @@ public sealed partial class KeyBindings(UiWindows windows, IUiKeyBindingStore ke
 
     protected override string TitleToken => "#SS_UI_Keys_Title";
 
+    public override string TabToken => "#SS_UI_Keys_Tab";
+
     protected override UiWindowSpec Spec(float screenW, float screenH)
         => new(MathF.Min(640, screenW), MathF.Min(720, screenH), 420, 320, screenW, screenH, 520);
 

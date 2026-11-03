@@ -32,4 +32,9 @@ public static class SteamApiExports
 
     /// <summary>Either platform's ISteamGameServer accessor, so both are testable.</summary>
     public static string GameServerAccessorFor(bool windows) => windows ? "SteamAPI_SteamGameServer_v015" : "SteamAPI_SteamGameServer_v014";
+
+    /// <summary>The server browser's accessors (ISteamMatchmakingServers, ISteamMatchmaking, ISteamUtils): one version on both platforms.</summary>
+    public const string MatchmakingServersAccessor = "SteamAPI_SteamMatchmakingServers_v002",
+                        MatchmakingAccessor = "SteamAPI_SteamMatchmaking_v009",
+                        UtilsAccessor = "SteamAPI_SteamUtils_v010";
 }

@@ -54,6 +54,7 @@ struct CManagedAreasClient
 	IManagedPixelVisClient* m_pPixelVisClient;
 	IManagedGlowClient* m_pGlowClient;
 	IManagedShadowsClient* m_pShadowsClient;
+	IManagedGameUiClient* m_pGameUiClient;
 };
 
 struct CManagedHoldersClient
@@ -85,7 +86,8 @@ inline bool ManagedHoldersClient_Empty(const CManagedHoldersClient& holders)
 		!holders.m_Areas.m_pInputClient && !holders.m_Areas.m_pBonesClient && !holders.m_Areas.m_pPhysicsClient &&
 		!holders.m_Areas.m_pDetailPropsClient && !holders.m_Areas.m_pLeafSystemClient &&
 		!holders.m_Areas.m_pSoundEmitterClient && !holders.m_Areas.m_pClientSystemsClient &&
-		!holders.m_Areas.m_pPixelVisClient && !holders.m_Areas.m_pGlowClient && !holders.m_Areas.m_pShadowsClient;
+		!holders.m_Areas.m_pPixelVisClient && !holders.m_Areas.m_pGlowClient && !holders.m_Areas.m_pShadowsClient &&
+		!holders.m_Areas.m_pGameUiClient;
 }
 
 bool ManagedAreasClient_Acquire(CManagedAreasClient& areas, IManagedRoot* pRoot, char* pWhy, size_t nWhy);

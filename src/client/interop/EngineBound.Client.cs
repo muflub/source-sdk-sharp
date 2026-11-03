@@ -20,6 +20,10 @@ internal sealed partial class EngineBoundSet
         new(global::SourceSharp.Abi.GameUIFuncs.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => global::SourceSharp.Abi.GameUIFuncs.Acquire(factory, out why));
 
+    internal BoundInterface<IFwdFileFinder> FileFinder { get; } =
+        new(EngineFileFinder.InterfaceVersion,
+            (NativeInterfaceFactory factory, Side _, out string why) => EngineFileFinder.Acquire(factory, out why));
+
     internal BoundInterface<IFwdMaterialSystem> MaterialSystem { get; } =
         new(global::SourceSharp.Abi.MaterialSystem.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => global::SourceSharp.Abi.MaterialSystem.Acquire(factory, out why));
@@ -39,6 +43,9 @@ internal static partial class EngineBound
 
     /// <summary><c>IGameUIFuncs</c>. Client side only.</summary>
     internal static IFwdGameUIFuncs GameUIFuncs(EngineSide side) => side.Attachment.Bound.GameUIFuncs.For(side);
+
+    /// <summary><c>IFileSystem</c>'s wildcard search. Client side only.</summary>
+    internal static IFwdFileFinder FileFinder(EngineSide side) => side.Attachment.Bound.FileFinder.For(side);
 
     /// <summary><c>IMaterialSystem</c>. Client side only.</summary>
     internal static IFwdMaterialSystem MaterialSystem(EngineSide side) => side.Attachment.Bound.MaterialSystem.For(side);

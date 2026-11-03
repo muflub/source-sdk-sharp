@@ -255,6 +255,31 @@ gets `[UiGallery("Part", "state")]` entries through `UiPanelPreview` /
   `ui.DesignHeight` and `ui.Narrow` are the window's. A windowed screen takes
   `UiWindows` (DI, one per layer) and implements `IUiWindowed`. Samples place
   windows through a `MemoryWindowStore`.
+  Click a resize handle (no drag) to **snap**: each corner takes its own
+  screen quarter, each edge its own half, within the window's min and max and
+  above the taskbar's band. Dragging the title bar to a screen edge snaps
+  too: a side edge its half (near the top or the bar, its quarter), the top
+  edge the top half (`UiWindowWidget.EdgeHandle`). Dragged out again by its
+  title bar, a snapped window takes back the size it had before the snap;
+  resized first, it keeps the new size. The window's title is the token its
+  bar draws.
+- **The taskbar** (`screens/Taskbar.cs`, every mod) is the menu layer's
+  chrome: a screen with `Chrome` set is shown by the layer exactly while the
+  main or pause menu is up (`UiLayer.ChromeWith`, the host's resolved main
+  menu; with none set, while some window is open), never in play, drawn above
+  every window (`ui.OverlayTop`), and never
+  listed among the open screens or carried across a reload. It lists the open
+  windows in the order they were first shown (the top one in the accent, a
+  mark under each shown one): a click raises a window under others or brings
+  back a minimised one, a click on the top one minimises it
+  (`UiLayer.Minimise`: open, state kept, not drawn). Its right tray opens the
+  options window and shows the time. A mod adds its own buttons through
+  `ITaskbarLaunchers` (first on the left, or in the tray before Settings;
+  TF2's footer row). While it is up, a plain (non-window) screen is laid out
+  above its band (`UiContext.ChromeBandDu`). It sets `UiWindows.DockReserved` so
+  windows resize, drag and snap above it, and draws the segment a title bar held
+  at an edge would snap to (`UiWindows.SnapGhost`). A new windowed screen needs nothing to
+  join it: being an open `IUiWindowed` is enough.
 - `ui.Overlay(key, modal)` escapes every clip and is drawn last and hit first;
   `.AnchorTo(box, point, self)` places a dropdown against its field. A modal
   dims the screen and takes every click.

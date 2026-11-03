@@ -1236,6 +1236,7 @@ public sealed class DebugApiServer : IDebugApi
         ("particles", DebugChannelQuery.Particles, null),
         ("input", DebugChannelQuery.Input, null),
         ("input/inject", DebugChannelQuery.InputInject, "e"),
+        ("gameui", DebugChannelQuery.GameUi, null),
     ];
 
     private const string TailPlaceholder = "/{n}";

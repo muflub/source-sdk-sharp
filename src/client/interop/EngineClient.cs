@@ -8,7 +8,7 @@ namespace SourceSharp.Abi;
 /// </summary>
 public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
                                           IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
-                                          IViolenceSettings, IMenuBackgroundName
+                                          IViolenceSettings, IMenuBackgroundName, IVoiceTweakControls
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -282,6 +282,26 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
         buffer[0] = 0;
         _fwd->GetMainMenuBackgroundName(_self, buffer, Vtable.MaxPath);
         return Vtable.TextOf(buffer, Vtable.MaxPath) is { Length: > 0 } name ? name : null;
+    }
+
+    // ivoicetweak.h's IVoiceTweak: five C function pointers; SetControlFloat
+    // and GetControlFloat are the third and fourth (video_config_layout_test
+    // holds the layout).
+    private VoiceTweakTable* VoiceTweak => (VoiceTweakTable*)_fwd->GetVoiceTweakAPI(_self);
+
+    bool IVoiceTweakControls.HasVoiceTweak => VoiceTweak != null;
+
+    float IVoiceTweakControls.VoiceControl(int control)
+    {
+        VoiceTweakTable* table = VoiceTweak;
+        return table != null ? table->GetControlFloat(control) : 0f;
+    }
+
+    void IVoiceTweakControls.SetVoiceControl(int control, float value)
+    {
+        VoiceTweakTable* table = VoiceTweak;
+        if (table != null)
+            table->SetControlFloat(control, value);
     }
 
     /// <inheritdoc/>

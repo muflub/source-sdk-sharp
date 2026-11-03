@@ -13,6 +13,7 @@
 #include "scenefilecache/ISceneFileCache.h"
 
 #include "cdll_int.h"
+#include "shell_gameui.h"
 
 class CClientDLLSharedAppSystems : public IClientDLLSharedAppSystems
 {
@@ -23,7 +24,14 @@ public:
 		AddAppSystem("scenefilecache" DLL_EXT_STRING, SCENE_FILE_CACHE_INTERFACE_VERSION);
 	}
 
-	virtual int Count() { return m_Systems.Count(); }
+	// The engine's first call into the client, in CModAppSystemGroup::Create,
+	// before Host_Init loads the GameUI module: the GameUI factory swap goes in
+	// here (plan_gameui_managed.md G4).
+	virtual int Count()
+	{
+		ShellGameUi_InstallFactorySwap();
+		return m_Systems.Count();
+	}
 
 	virtual char const* GetDllName(int idx) { return m_Systems[idx].m_pModuleName; }
 

@@ -98,7 +98,7 @@ public class ClientProxyRouteTests
     }
 
     /// <summary>The route table, as a 404 lists it: each route's commit extends it (plan_client_novalve §4.4).</summary>
-    private const string KnownQuestions = "\"status\",\"prediction\",\"frame\",\"entities\",\"nettables\",\"entity/{n}\",\"reload\",\"reload/trigger\",\"netgraph\",\"absences\",\"ui\",\"ui/fonts\",\"ui/menu\",\"ui/event\",\"proxies\",\"viewcam\",\"render\",\"render/compare\",\"particles\",\"input\",\"input/inject\"";
+    private const string KnownQuestions = "\"status\",\"prediction\",\"frame\",\"entities\",\"nettables\",\"entity/{n}\",\"reload\",\"reload/trigger\",\"netgraph\",\"absences\",\"ui\",\"ui/fonts\",\"ui/menu\",\"ui/event\",\"proxies\",\"viewcam\",\"render\",\"render/compare\",\"particles\",\"input\",\"input/inject\",\"gameui\"";
 
     [Fact]
     public void Every_known_question_is_one_the_client_answers()

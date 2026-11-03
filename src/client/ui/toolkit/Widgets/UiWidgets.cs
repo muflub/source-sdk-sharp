@@ -244,9 +244,10 @@ public static class UiWidgets
     /// A single-line text field: a recessed box, the text (game data or the
     /// player's typing), a caret and a selection when <paramref name="caret"/>
     /// is 0 or more, the accent border when focused, and a muted placeholder
-    /// when empty. Answers what the pointer did.
+    /// when empty. Answers what the pointer did. A null key leaves the box
+    /// unkeyed, for a field drawn inside a keyed box of its own (EditText).
     /// </summary>
-    public static UiInteraction TextField(this ref UiFrame ui, string key, string text, string placeholderToken,
+    public static UiInteraction TextField(this ref UiFrame ui, string? key, string text, string placeholderToken,
                                           int caret = -1, int selStart = 0, int selLength = 0, UiSize? width = null,
                                           Text role = Text.Body)
     {

@@ -414,6 +414,52 @@ public unsafe interface IManagedShadowsClient
     void Pending(void* a0, int a1);
 }
 
+[ManagedVtable(typeof(ManagedGameUiClientTable))]
+public unsafe interface IManagedGameUiClient
+{
+    void Initialize(void* a0);
+    void PostInit();
+    void Connect(void* a0);
+    void Start();
+    void Shutdown();
+    void RunFrame();
+    void OnGameUIActivated();
+    void OnGameUIHidden();
+    void OldOnConnectToServer(byte* a0, int a1, int a2);
+    void OnDisconnectFromServerOld(int a0, byte* a1);
+    void OnLevelLoadingStarted(int a0);
+    void OnLevelLoadingFinished(int a0, byte* a1, byte* a2);
+    int UpdateProgressBar(float a0, byte* a1);
+    int SetShowProgressText(int a0);
+    void ShowNewGameDialog(int a0);
+    void SessionNotification(int a0, int a1);
+    void SystemNotification(int a0);
+    void ShowMessageDialog(uint a0, void* a1);
+    void UpdatePlayerInfo(ulong a0, byte* a1, int a2, byte a3, int a4, int a5);
+    void SessionSearchResult(int a0, void* a1, void* a2, int a3);
+    void OnCreditsFinished();
+    void SetLoadingBackgroundDialog(void* a0);
+    void BonusMapUnlock(byte* a0, byte* a1);
+    void BonusMapComplete(byte* a0, byte* a1);
+    void BonusMapChallengeUpdate(byte* a0, byte* a1, byte* a2, int a3);
+    void BonusMapDatabaseSave();
+    int BonusMapNumAdvancedCompleted();
+    void OnConnectToServer2(byte* a0, int a1, int a2, int a3);
+    int ValidateStorageDevice();
+    void SetProgressOnStart();
+    void OnDisconnectFromServer(int a0);
+    void OnConfirmQuit();
+    int IsMainMenuVisible();
+    void SetMainMenuOverride(void* a0);
+    void SendMainMenuCommand(byte* a0);
+    void ConsoleActivate();
+    void ConsoleInitialize();
+    void ConsoleHide();
+    void ConsoleClear();
+    int ConsoleIsVisible();
+    void ConsoleSetParent(void* a0);
+}
+
 /// <summary>Builds each managed-built area's block in a side's registry.</summary>
 public static class ManagedAreaFactory
 {
@@ -479,4 +525,6 @@ public static class ManagedAreaFactory
         => IManagedGlowClient__ManagedVtable.Create(vtables, target);
     public static ManagedVtable Create(ManagedVtables vtables, IManagedShadowsClient target)
         => IManagedShadowsClient__ManagedVtable.Create(vtables, target);
+    public static ManagedVtable Create(ManagedVtables vtables, IManagedGameUiClient target)
+        => IManagedGameUiClient__ManagedVtable.Create(vtables, target);
 }

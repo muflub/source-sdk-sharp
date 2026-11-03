@@ -6,11 +6,12 @@ namespace SourceSharp.Client.Ui.Screens;
 /// <summary>
 /// The main menu (the launch's, and the pause menu stock's ESC menu:
 /// ClientModeSingle::OnKeyDown shows the main panel, and Escape again hides
-/// it). A dialog on the right with the menu's buttons: Resume first in game as
-/// the primary action, then Play, Options, Quit. The full TF2 main menu (class
-/// select, servers, the friends list) is a later arm.
+/// it). A dialog with the menu's buttons, stock HL2MP's game menu: in game
+/// Resume (the primary action), Disconnect and Player list; then Play (the
+/// mod's maplist), Find servers, Create server, Options, Quit (which asks).
+/// The menu's commands go by stock's names through the GameUI's table.
 /// </summary>
-public sealed class MainMenu(IMainMenuSource menu) : UiScreen
+public sealed class MainMenu(IMainMenuSource menu, IMainMenuCommands commands) : UiScreen
 {
     public override string Name => "mainmenu";
 
@@ -27,10 +28,21 @@ public sealed class MainMenu(IMainMenuSource menu) : UiScreen
             // The column, not the button row: three 120 du-minimum buttons side
             // by side overflow the 360 du panel and the last clips (seen in the
             // fact below); a menu is a stack of full-width actions anyway.
-            if (menu.InLevel && ui.Button("resume", "#SS_UI_Main_Resume", primary: true, width: Size.Fill).Clicked)
-                menu.Resume();
+            if (menu.InLevel)
+            {
+                if (ui.Button("resume", "#SS_UI_Main_Resume", primary: true, width: Size.Fill).Clicked)
+                    menu.Resume();
+                if (ui.Button("disconnect", "#SS_UI_Main_Disconnect", width: Size.Fill).Clicked)
+                    commands.Run("Disconnect");
+                if (ui.Button("players", "#SS_UI_Main_Players", width: Size.Fill).Clicked)
+                    commands.Run("OpenPlayerListDialog");
+            }
             if (menu.CanPlay && ui.Button("play", "#SS_UI_Main_Play", primary: !menu.InLevel, width: Size.Fill).Clicked)
                 menu.Play();
+            if (ui.Button("servers", "#SS_UI_Main_FindServers", width: Size.Fill).Clicked)
+                commands.Run("OpenServerBrowser");
+            if (ui.Button("create", "#SS_UI_Main_CreateServer", width: Size.Fill).Clicked)
+                commands.Run("OpenCreateMultiplayerGameDialog");
             if (ui.Button("options", "#SS_UI_Main_Options", width: Size.Fill).Clicked)
                 menu.OpenOptions();
             if (ui.Button("quit", "#SS_UI_Main_Quit", width: Size.Fill).Clicked)

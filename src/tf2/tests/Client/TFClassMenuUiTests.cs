@@ -316,6 +316,17 @@ public sealed class TFClassMenuUiTests
         public Standalone.ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
     }
 
+    /// <summary>The menu's advanced-options gear opens the core's options
+    /// window on its multiplayer page (the page that carries
+    /// cfg/user_default.scr's entries).</summary>
+    [Fact]
+    public void Opentf2options_opens_the_multiplayer_options_page()
+    {
+        var nav = new Recorder();
+        new client::TF2.Client.Ui.TFAdvancedOptionsCommand(nav).Execute("");
+        Assert.Equal(["multiplayeroptions"], nav.Opened);
+    }
+
     private sealed class Recorder : Nav
     {
         public readonly List<string> Opened = [], OpenedPanels = [], Closed = [];

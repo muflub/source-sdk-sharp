@@ -670,6 +670,45 @@ internal static class ClientRouteJson
         json.WriteEndObject();
     });
 
+    /// <summary><c>/client/{slot}/gameui</c> (plan_gameui_managed.md §4).</summary>
+    public static string GameUi(DebugClientGameUi g) => Write(json =>
+    {
+        json.WriteStartObject();
+        json.WriteNumber("calls", g.Calls);
+        json.WriteNumber("unruled", g.Unruled);
+        Counts(json, "counts", g.Counts);
+        json.WriteStartArray("recent");
+        foreach (var c in g.Recent)
+        {
+            json.WriteStartObject();
+            json.WriteNumber("sequence", c.Sequence);
+            json.WriteString("method", c.Method);
+            if (c.Arguments is { } arguments)
+                json.WriteString("arguments", arguments);
+            else
+                json.WriteNull("arguments");
+            json.WriteString("outcome", c.Outcome);
+            json.WriteNumber("repeats", c.Repeats);
+            json.WriteEndObject();
+        }
+        json.WriteEndArray();
+        json.WriteNumber("loads", g.Loads);
+        if (g.LastLoad is { } load)
+        {
+            json.WriteStartObject("lastLoad");
+            json.WriteBoolean("dialog", load.Dialog);
+            json.WriteNumber("updates", load.Updates);
+            json.WriteNumber("repaints", load.Repaints);
+            json.WriteNumber("frames", load.Frames);
+            json.WriteEndObject();
+        }
+        else
+        {
+            json.WriteNull("lastLoad");
+        }
+        json.WriteEndObject();
+    });
+
     /// <summary><c>/client/{slot}/particles</c>.</summary>
     public static string Particles(DebugClientParticles p) => Write(json =>
     {
