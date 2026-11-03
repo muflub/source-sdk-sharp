@@ -426,6 +426,8 @@ internal sealed class FakeConceptRules : IResponseRules
         response = Match ? new MatchedResponse { Kind = Kind, Name = Name, Rule = "staged" } : new();
         return Match;
     }
+
+    public IEnumerable<(ResponseKind Kind, string Value)> Responses => [];
 }
 
 /// <summary>Teams by handle, as a fact sets them; the speech service's roster.</summary>

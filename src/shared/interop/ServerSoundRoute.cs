@@ -59,4 +59,13 @@ public interface IServerSoundRoute
     /// the IShimPrecache::PrecacheSound slot).
     /// </summary>
     void PrecacheSound(string soundName);
+
+    /// <summary>
+    /// CBaseEntity::PrecacheScriptSound (game/shared/SoundEmitterSystem.cpp:1427):
+    /// the script table's entry precached whole — every wave — or a
+    /// .wav/.mp3 taken as named under the direct-precache permit. The level's
+    /// response-rule precache sounds everything through this, as stock's
+    /// response system did (AI_ResponseSystem.cpp:1889).
+    /// </summary>
+    void PrecacheScriptSound(string soundName);
 }

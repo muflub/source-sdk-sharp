@@ -63,6 +63,9 @@ public sealed class ServerSounds : IServerSoundRoute, IMoveSoundSink
     /// </summary>
     public void PrecacheSound(string soundName) => _system?.PrecacheSound(soundName);
 
+    /// <summary>CBaseEntity::PrecacheScriptSound (SoundEmitterSystem.cpp:1427), the system's.</summary>
+    public void PrecacheScriptSound(string soundName) => _system?.PrecacheScriptSound(soundName);
+
     /// <summary>The patches, for the facts.</summary>
     public ServerSoundPatches Patches => _patches;
 

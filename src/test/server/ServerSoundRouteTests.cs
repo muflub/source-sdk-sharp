@@ -42,6 +42,7 @@ public sealed class ServerSoundRouteTests : IDisposable
         }
         public void SoundPatchFree(int patch) => Calls.Add($"PatchFree {patch}");
         public void PrecacheSound(string soundName) => Calls.Add($"Precache {soundName}");
+        public void PrecacheScriptSound(string soundName) => Calls.Add($"PrecacheScript {soundName}");
     }
 
     private readonly FakeShimRoot _root = new();

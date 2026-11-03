@@ -1142,3 +1142,4 @@ src/client/managed/Standalone/ClientCombineBall.cs	ports C_PropCombineBall::Draw
 src/tf2/server/Player/TFDisguiseWeapon.cs	ports CTFPlayerShared::DetermineDisguiseWeapon's disguise weapon dress over the one carried entity (tf_player_shared.cpp:8394-8460); the second fake weapon entity is collapsed into it
 src/shared/managed/RagdollDissolve.cs	ports DISSOLVE_FADE_* and C_EntityDissolve fades (EntityDissolve.cpp, c_entitydissolve.cpp)
 src/client/managed/Ragdolls/RagdollDissolves.cs	ports C_EntityDissolve::ClientThink and DrawModel (c_entitydissolve.cpp)
+src/tf2/server/Voice/TFResponsePrecache.cs	ports CResponseSystem::Precache and its PrecacheInstancedScene arm (AI_ResponseSystem.cpp:1831-1894, sceneentity.cpp:4780-4816): the response rules' scenes and speak entries precached at level init

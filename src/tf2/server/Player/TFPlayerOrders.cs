@@ -112,4 +112,11 @@ public static class TFPlayerOrders
     /// (tf_player.cpp:4712-4726), on +93 past the settings.
     /// </summary>
     public const int SpawnWeaponWalk = Band + 93;
+
+    /// <summary>
+    /// The response rules' level precache (<see cref="TF2.Server.Voice.TFResponsePrecache"/>):
+    /// the level's scenes and speak entries sounded before anything can ask for
+    /// them, on +94 — the last free value in the band, after the spawn walks.
+    /// </summary>
+    public const int ResponsePrecache = Band + 94;
 }

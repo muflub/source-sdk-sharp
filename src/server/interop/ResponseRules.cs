@@ -183,4 +183,12 @@ public sealed class MatchedResponse
 public interface IResponseRules
 {
     bool FindBestResponse(ResponseCriteriaSet criteria, out MatchedResponse response, IResponseFilter? filter = null);
+
+    /// <summary>
+    /// Every recorded response, as CResponseSystem::Precache's walk over the
+    /// response groups sees it (game/server/AI_ResponseSystem.cpp:1836-1842):
+    /// load order, each entry's kind and value. The level's precache reads the
+    /// scene and speak entries from it — the kinds stock's switch acts on.
+    /// </summary>
+    IEnumerable<(ResponseKind Kind, string Value)> Responses { get; }
 }

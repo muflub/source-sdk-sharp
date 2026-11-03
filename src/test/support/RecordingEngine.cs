@@ -515,6 +515,7 @@ public sealed class RecordingEngine :
              : ModelType.Bad;
     }
     void IEnginePrecache.PrecacheSound(string soundName) => RecordVoid("Precache.PrecacheSound", soundName);
+    void IEnginePrecache.PrecacheScriptSound(string soundName) => RecordVoid("Precache.PrecacheScriptSound", soundName);
     int IEnginePrecache.BreakPieceCount(string model) => Record<int>("Precache.BreakPieceCount", model);
 
     /// <summary>

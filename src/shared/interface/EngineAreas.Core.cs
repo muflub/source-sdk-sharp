@@ -258,6 +258,16 @@ public interface IEnginePrecache
     /// <inheritdoc cref="EngineSide.PrecacheSound"/>
     void PrecacheSound(string soundName);
 
+    /// <summary>
+    /// CBaseEntity::PrecacheScriptSound
+    /// (game/shared/SoundEmitterSystem.cpp:1427): the sound script's every
+    /// wave — or, for a .wav/.mp3 the table does not hold, the wave as named
+    /// under the direct-precache permit, so no "Direct precache" warning. The
+    /// response rules' level precache goes through here, as stock's
+    /// CResponseSystem::Precache did (:1889).
+    /// </summary>
+    void PrecacheScriptSound(string soundName);
+
     /// <summary>How many break pieces <paramref name="model"/> declares (this side's <see cref="BreakModels"/>).</summary>
     int BreakPieceCount(string model);
 

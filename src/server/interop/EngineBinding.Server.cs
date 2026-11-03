@@ -2342,6 +2342,9 @@ internal sealed unsafe partial class EnginePrecache
 
         _sounds.Target?.PrecacheSound(soundName);
     }
+
+    /// <summary>CBaseEntity::PrecacheScriptSound (SoundEmitterSystem.cpp:1427): the system's, whole.</summary>
+    public void PrecacheScriptSound(string soundName) => _sounds.Target?.PrecacheScriptSound(soundName);
 }
 
 internal sealed unsafe partial class EngineScripted

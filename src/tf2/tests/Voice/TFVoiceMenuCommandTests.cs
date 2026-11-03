@@ -441,6 +441,8 @@ public sealed class TFVoiceMenuCommandTests
                 : new MatchedResponse { Kind = Kind, Name = Name, Rule = "staged" };
             return Match && Kind != ResponseKind.None;
         }
+
+        public IEnumerable<(ResponseKind Kind, string Value)> Responses => [];
     }
 
     /// <summary>Two players, both recordable.</summary>

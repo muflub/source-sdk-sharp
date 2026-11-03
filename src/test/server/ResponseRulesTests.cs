@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 using SourceSharp.Abi;
@@ -981,6 +982,80 @@ public class ResponseRulesTests
             }
             """);
         return files;
+    }
+
+    // -----------------------------------------------------------------
+    // the precache walk (CResponseSystem::Precache, AI_ResponseSystem.cpp:1831)
+    // -----------------------------------------------------------------
+
+    [Fact]
+    public void TheResponseWalkListsEveryEntryAsItsKindAndValue()
+    {
+        var rules = Engine(new ScriptedRandom());
+        var files = new Files();
+
+        Assert.True(Load(rules, files, """
+            response SpeakGroup
+            {
+                speak one.sound
+                scene scenes/one.vcd
+            }
+            response SentenceGroup
+            {
+                sentence !CT
+            }
+            """));
+
+        Assert.Equal(
+            new (ResponseKind, string)[]
+            {
+                (ResponseKind.Speak, "one.sound"),
+                (ResponseKind.Scene, "scenes/one.vcd"),
+                (ResponseKind.Sentence, "!CT"),
+            },
+            rules.Responses().ToArray());
+    }
+
+    [Fact]
+    public void TheServiceWalkIsTheLoadedRulesWalk()
+    {
+        var files = new Files();
+        files.Bytes[ResponseRules.DefaultScript] = B("""
+            response Group
+            {
+                speak one.sound
+                scene scenes/one.vcd
+            }
+            """);
+        var service = new ResponseRules(new RecordingLog(), files, new ScriptedRandom());
+
+        ((IGameLifecycle)service).OnLevelInitPreEntity("ctf_2fort");
+
+        Assert.Equal(
+            new (ResponseKind, string)[]
+            {
+                (ResponseKind.Speak, "one.sound"),
+                (ResponseKind.Scene, "scenes/one.vcd"),
+            },
+            ((IResponseRules)service).Responses.ToArray());
+    }
+
+    [NotOnCiFact("needs a Team Fortress 2 install for its content, which a runner has not")]
+    public void TheShippedRulesWalkHoldsThousandsOfEntriesAndNoEmptyAsset()
+    {
+        string tf = Path.Combine(RepoLayout.Repo("bin", "debug", "content"), "tf");
+        Assert.True(Directory.Exists(tf),
+            $"no {tf}: make setup links bin/<config>/content to a Team Fortress 2 install (TF2)");
+
+        TfvPks files = new(tf);
+        var rules = new ResponseRuleSet(new ScriptedRandom());
+        Assert.True(rules.Load(ResponseRules.DefaultScript, files));
+
+        var entries = rules.Responses().ToList();
+        Assert.True(entries.Count > 1000,
+            $"the shipped rules walked {entries.Count} responses — the parse saw too little");
+        Assert.All(entries.Where(entry => entry.Kind is ResponseKind.Speak or ResponseKind.Scene),
+            entry => Assert.True(entry.Value.Length > 0, $"a {entry.Kind} entry names nothing"));
     }
 
     // -----------------------------------------------------------------

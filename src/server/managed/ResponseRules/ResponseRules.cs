@@ -66,4 +66,7 @@ public sealed class ResponseRules : IResponseRules, IGameLifecycle
     /// <inheritdoc cref="IResponseRules"/>
     public bool FindBestResponse(ResponseCriteriaSet criteria, out MatchedResponse response, IResponseFilter? filter = null)
         => _engine.FindBestResponse(criteria, out response, filter);
+
+    /// <inheritdoc cref="IResponseRules"/>
+    public IEnumerable<(ResponseKind Kind, string Value)> Responses => _engine.Responses();
 }

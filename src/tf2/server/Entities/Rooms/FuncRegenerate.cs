@@ -43,6 +43,7 @@ public sealed class TFResupplyCooldowns
 /// associated prop plays "open", then "close" a second before the next use.
 /// </summary>
 [ScriptedEntity(MapClass, ScriptedEntityKind.Brush)]
+[Precache(PrecacheKind.Sound, RegenerateSound)]
 public sealed class FuncRegenerate(IGameClock clock, ITFMapPlayers players, ITeamRoundState round,
                                    TFResupplyCooldowns cooldowns, ITFPickupNotices notices) : TriggerVolume(clock)
 {

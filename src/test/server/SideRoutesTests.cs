@@ -28,6 +28,7 @@ public class SideRoutesTests
         public void SoundPatchState(int patch, out int entIndex, out bool filterActive) => (entIndex, filterActive) = (0, false);
         public void SoundPatchFree(int patch) { }
         public void PrecacheSound(string soundName) { }
+        public void PrecacheScriptSound(string soundName) { }
     }
 
     private static (EngineSide Side, ServiceContainer Services) Composed()

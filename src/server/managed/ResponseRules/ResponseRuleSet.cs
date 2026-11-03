@@ -209,6 +209,22 @@ public sealed class ResponseRuleSet
 
     public int ResponseCount => _groups.Count;
 
+    /// <summary>
+    /// Every response entry, as CResponseSystem::Precache's walk over the
+    /// response groups sees it (AI_ResponseSystem.cpp:1836-1842): load order,
+    /// each entry's kind and value. The level's precache reads the scene and
+    /// speak entries from it; the rest are along for the walk, as stock's
+    /// default case is.
+    /// </summary>
+    public IEnumerable<(ResponseKind Kind, string Value)> Responses()
+    {
+        foreach (ResponseGroup group in _groups)
+        {
+            foreach (ResponseEntry entry in group.Entries)
+                yield return (entry.Kind, entry.Value);
+        }
+    }
+
     /// <summary>The root script of the last successful <see cref="Load"/>.</summary>
     public string? LoadedScript { get; private set; }
 
