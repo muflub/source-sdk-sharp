@@ -269,6 +269,16 @@ public partial class WeaponNetState
     public partial bool InZoom { get; set; }
 
     /// <summary>
+    /// The Huntsman's arrow is lit: stock's <c>CTFCompoundBow::m_bArrowAlight</c>
+    /// (<c>tf_weapon_compound_bow.cpp:36</c>). The flame's teammate touch sets it
+    /// (<c>tf_weapon_flamethrower.cpp:3142</c>); the shot (<c>:169</c>), the
+    /// holster (<c>:380</c>) and the weapon reset (<c>:92</c>, which this port's
+    /// <see cref="ResetBehaviourState"/> carries) clear it.
+    /// </summary>
+    [Predicted]
+    public partial bool ArrowAlight { get; set; }
+
+    /// <summary>
     /// The owner's long-term random-crit rate, their weapon's: stock's
     /// <c>CTFWeaponBase::m_flObservedCritChance</c>
     /// (<c>shared/tf/tf_weaponbase.h:761</c>), which the server's
@@ -364,7 +374,10 @@ public partial class WeaponNetState
     /// <summary>
     /// Zeroes the behaviour's own state, as a deploy does: the weapon now in
     /// the hands starts from nothing, the way stock's weapons reset their own
-    /// on holster and deploy.
+    /// on holster and deploy. The Huntsman's <see cref="ArrowAlight"/> rides
+    /// the clear as stock's <c>WeaponReset</c> clears it
+    /// (<c>tf_weapon_compound_bow.cpp:92</c>), and the holster's clear
+    /// (:380) arrives through the next deploy's call.
     /// </summary>
     public void ResetBehaviourState()
     {
@@ -374,5 +387,6 @@ public partial class WeaponNetState
         BehaviourTimeC = 0f;
         BehaviourMeter = 0f;
         BehaviourMeterB = 0f;
+        ArrowAlight = false;
     }
 }

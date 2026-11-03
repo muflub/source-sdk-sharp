@@ -206,6 +206,26 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
                     break;
                 }
 
+            case TFProjectile.Arrow:
+                {
+                    if (Born(TFProjectileEntityNames.Arrow, owner, forward, right, up,
+                             TFProjectileDefs.SyringeMuzzleForward, TFProjectileDefs.SyringeMuzzleRight,
+                             TFProjectileDefs.SyringeMuzzleUp) is not TFArrow arrow)
+                        return;
+
+                    // The bow hands its alight flag to the arrow and loses it
+                    // (LaunchGrenade's copy and clear, tf_weapon_compound_bow.cpp:125, :169).
+                    bool lit = attack.Weapon.ArrowAlight;
+                    attack.Weapon.ArrowAlight = false;
+
+                    arrow.ArmedBy(script.Id, script.Name, shot.Critical, lit,
+                                  TFProjectileDefs.ArrowDamage(mode.Damage, charge),
+                                  TFProjectileDefs.ArrowGravity(charge));
+                    arrow.FiredBy(owner, forward * TFProjectileDefs.ArrowSpeed(charge));
+                    log.Msg($"[TF2/Projectiles] {TFProjectileEntityNames.Arrow} created by {owner}\n");
+                    break;
+                }
+
             default:
                 return;
         }

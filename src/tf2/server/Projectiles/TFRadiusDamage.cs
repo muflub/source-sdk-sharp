@@ -113,6 +113,49 @@ public static class TFProjectileDefs
     /// <summary>InitGrenade's <c>SetFriction( 0.2f )</c> (<c>tf_weaponbase_grenadeproj.cpp:246</c>).</summary>
     public const float PipebombFriction = 0.2f;
 
+    /// <summary><c>ARROW_MODEL</c>'s regular spelling (<c>tf_projectile_arrow.cpp</c>'s model table).</summary>
+    public const string ArrowModel = "models/weapons/w_models/w_arrow.mdl";
+
+    /// <summary>
+    /// The bow's charge window: <c>CTFCompoundBow::GetChargeMaxTime</c>'s base
+    /// (<c>tf_weapon_compound_bow.cpp:269-275</c>, <c>ApplyFireDelay( 1.0f )</c>).
+    /// </summary>
+    public const float ArrowChargeTime = 1f;
+
+    /// <summary>The bow's flat arrow damage (<c>tf_weapon_compound_bow.cpp:295</c>, <c>flBaseDamage = 50.f</c>).</summary>
+    public const float ArrowBaseDamage = 50f;
+
+    /// <summary>
+    /// The bow's shot (<c>CBaseCombatWeapon</c>-side of
+    /// <c>CTFCompoundBow::GetProjectileDamage</c>,
+    /// <c>tf_weapon_compound_bow.cpp:292-301</c>): the flat base plus the
+    /// script's projectile damage scaled by the charge fraction.
+    /// </summary>
+    public static float ArrowDamage(float scriptDamage, float charge)
+        => ArrowBaseDamage + scriptDamage * TFRadiusDamage.RemapClamped(charge, 0f, ArrowChargeTime, 0f, 1f);
+
+    /// <summary>
+    /// The arrow's launch speed after <paramref name="charge"/> seconds:
+    /// <c>CTFCompoundBow::GetProjectileSpeed</c>
+    /// (<c>tf_weapon_compound_bow.cpp:306-309</c>),
+    /// <c>RemapValClamped(charge, 0, GetChargeMaxTime, 1800, 2600)</c>.
+    /// </summary>
+    public static float ArrowSpeed(float charge)
+        => TFRadiusDamage.RemapClamped(charge, 0f, ArrowChargeTime, ArrowMinChargeSpeed, ArrowMaxChargeSpeed);
+
+    /// <summary>Stock's speed ends, in <c>GetProjectileSpeed</c>'s remap (:308).</summary>
+    public const float ArrowMinChargeSpeed = 1800f;
+    public const float ArrowMaxChargeSpeed = 2600f;
+
+    /// <summary>
+    /// How far the arrow falls, after <paramref name="charge"/> seconds:
+    /// <c>CTFCompoundBow::GetProjectileGravity</c>
+    /// (<c>tf_weapon_compound_bow.cpp:314-317</c>),
+    /// <c>RemapValClamped(charge, 0, GetChargeMaxTime, 0.5, 0.1)</c>.
+    /// </summary>
+    public static float ArrowGravity(float charge)
+        => TFRadiusDamage.RemapClamped(charge, 0f, ArrowChargeTime, 0.5f, 0.1f);
+
     /// <summary>
     /// InitGrenade's <c>SetElasticity( 0.45f )</c>
     /// (<c>tf_weaponbase_grenadeproj.cpp:247</c>) — not the

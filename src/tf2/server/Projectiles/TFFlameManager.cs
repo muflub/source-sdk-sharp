@@ -105,11 +105,14 @@ public sealed class TFFlameManager : ScriptedEntity
     private readonly TFDamageScopes Scopes;
     private readonly DamageHitGroups HitGroups;
     private readonly IEngineConsole Console;
+    private readonly ITFWeaponOwners? Owners;
+    private readonly IEntityDirectory? Directory;
     private readonly SeededUniformStream Stream = new();
 
     public TFFlameManager(IEngineWorldQuery world, IEngineDamage damage, IEnginePlayers players,
                           IEngineHost host, ITFPlayerConditions conditions,
-                          TFDamageScopes scopes, DamageHitGroups hitGroups, IEngineConsole console)
+                          TFDamageScopes scopes, DamageHitGroups hitGroups, IEngineConsole console,
+                          ITFWeaponOwners? owners = null, IEntityDirectory? directory = null)
     {
         World = world;
         Damage = damage;
@@ -119,6 +122,8 @@ public sealed class TFFlameManager : ScriptedEntity
         Scopes = scopes;
         HitGroups = hitGroups;
         Console = console;
+        Owners = owners;
+        Directory = directory;
     }
 
     private sealed class FlamePoint
@@ -377,12 +382,12 @@ public sealed class TFFlameManager : ScriptedEntity
 
     /// <summary>
     /// <c>OnCollide</c> (<c>tf_flame.cpp:679-818</c>): the heat index rises on
-    /// every touch, damage or not; the burn-frequency gate; a teammate
-    /// nothing (stock lights a sniper's arrow, which the seam cannot reach);
-    /// the damage by the scale, through the flamethrower's own bits so the
-    /// afterburn lights; the pyro's healing debuff. The burn-list write
-    /// closes it either way (:809-817), but not behind the frequency gate's
-    /// early return (:702).
+    /// every touch, damage or not; the burn-frequency gate; a teammate lights
+    /// their held bow (<see cref="LightTeammatesBow"/>, stock's
+    /// <c>OnCollideWithTeammate</c> :3125-3144); the damage by the scale,
+    /// through the flamethrower's own bits so the afterburn lights; the pyro's
+    /// healing debuff. The burn-list write closes it either way (:809-817),
+    /// but not behind the frequency gate's early return (:702).
     /// </summary>
     private void OnCollide(EntityHandle victim, FlamePoint point, float now)
     {
@@ -416,11 +421,38 @@ public sealed class TFFlameManager : ScriptedEntity
             if (_attackerIsPyro && Entities.IsPlayer(victim))
                 Conditions.Add(victim, TFCond.HealingDebuff, 2f, _attacker);
         }
+        else
+        {
+            LightTeammatesBow(victim);
+        }
 
         if (known)
             burnt!.LastBurn = now;
         else
             _burnt[victim] = new Burnt { LastBurn = now, Heat = TFFlameManagerDefs.BurnIndexPerCollide };
+    }
+
+    /// <summary>
+    /// <c>OnCollideWithTeammate</c> (<c>tf_weapon_flamethrower.cpp:3125-3144</c>,
+    /// reached by the team test of <c>:2943</c>): only the Sniper's held bow
+    /// lights — the class gate (:3128), then the weapon-id gate (:3139), then
+    /// <c>SetArrowAlight( true )</c> (:3142) onto the carried weapon's state.
+    /// Stock's burn-list dedup (:3131-3135) is this class's own burn-list gate,
+    /// already run above by <c>BCanBurnEntityThisFrame</c>.
+    /// </summary>
+    private void LightTeammatesBow(EntityHandle victim)
+    {
+        if (Owners is null || Directory is null)
+            return;
+
+        if (Owners.ClassOf(Entities.GetIndex(victim)) != TFClass.Sniper)
+            return;
+
+        if (TFWeaponNames.IdOf(Players.GetActiveWeapon(victim)) != TFWeaponId.CompoundBow)
+            return;
+
+        if (Directory.Get(Players.GetActiveWeaponEntity(victim)) is SsWeapon { State: { } state })
+            state.ArrowAlight = true;
     }
 
     /// <summary>

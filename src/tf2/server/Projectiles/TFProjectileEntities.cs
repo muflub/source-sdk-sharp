@@ -23,8 +23,9 @@ namespace TF2.Server.Projectiles;
 /// <summary>
 /// Stock's classnames (<c>LINK_ENTITY_TO_CLASS</c>): the rocket
 /// (<c>tf_projectile_rocket.cpp:18</c>), the demoman's two pipebombs
-/// (<c>tf_weapon_grenade_pipebomb.cpp:406-409</c>) and the medic's syringe
-/// (<c>tf_projectile_nail.cpp:31</c>).
+/// (<c>tf_weapon_grenade_pipebomb.cpp:406-409</c>), the medic's syringe
+/// (<c>tf_projectile_nail.cpp:31</c>) and the huntsman's arrow
+/// (<c>tf_projectile_arrow.cpp:53</c>).
 /// </summary>
 public static class TFProjectileEntityNames
 {
@@ -32,6 +33,7 @@ public static class TFProjectileEntityNames
     public const string Pipebomb = "tf_projectile_pipe";
     public const string Stickybomb = "tf_projectile_pipe_remote";
     public const string Syringe = "tf_projectile_syringe";
+    public const string Arrow = "tf_projectile_arrow";
 }
 
 /// <summary>
@@ -1156,6 +1158,84 @@ public sealed class TFSyringe : FlyingProjectile
             // The syringe gun's own bits (g_aWeaponDamageTypes): a bullet that
             // ramps up near and never pushes.
             Damage.TakeDamage(hit, Attribution, TFProjectileDefs.SyringeDamage, TFWeaponDamageTypes.Of(Weapon));
+    }
+}
+
+/// <summary>
+/// The huntsman's arrow (<c>CTFProjectile_Arrow</c>,
+/// <c>game/server/tf/tf_projectile_arrow.cpp</c> over the nail base's flight):
+/// born with the bow's charge-scaled gravity
+/// (<see cref="TFProjectileDefs.ArrowGravity"/>) and speed
+/// (<see cref="TFProjectileDefs.ArrowSpeed"/>), and on its first enemy touch
+/// the bow's shot — a <em>lit</em> arrow carrying the ignite bit and the
+/// flying-burn custom with it (<c>m_bArrowAlight</c>'s arm inside the
+/// non-teammate test, <c>:478-490</c>: <c>DMG_IGNITE</c> ORed onto the damage
+/// type, <c>TF_DMG_CUSTOM_FLYINGBURN</c>). The headshot and crit-bit arms
+/// (:492-501) ride the shot's own crit flag here, as elsewhere in this port.
+/// </summary>
+[ScriptedEntity(TFProjectileEntityNames.Arrow, ScriptedEntityKind.Projectile)]
+public sealed class TFArrow : FlyingProjectile
+{
+    private readonly TFDamageScopes Scopes;
+    private readonly DamageHitGroups HitGroups;
+    private readonly IEngineDamage Damage;
+
+    private float _gravity = TFProjectileDefs.ArrowGravity(0f);
+
+    public TFArrow(IEngineEntityPhysics physics, EntityMotion motion, IEngineDamage damage,
+                   TFDamageScopes scopes, DamageHitGroups hitGroups)
+        : base(physics, motion)
+    {
+        Damage = damage;
+        Scopes = scopes;
+        HitGroups = hitGroups;
+    }
+
+    protected override float GravityScale => _gravity;
+
+    protected override string ProjectileModel => TFProjectileDefs.ArrowModel;
+
+    public TFWeaponId Weapon { get; private set; }
+    public string WeaponName { get; private set; } = "";
+    public bool Critical { get; private set; }
+
+    /// <summary>Whether the bow was alight when this arrow left it.</summary>
+    public bool Lit { get; private set; }
+
+    /// <summary>The shot the bow dealt: its charge, and whether the flame had lit it.</summary>
+    public void ArmedBy(TFWeaponId weapon, string weaponName, bool critical, bool lit,
+                        float damage, float gravity)
+    {
+        Weapon = weapon;
+        WeaponName = weaponName;
+        Critical = critical;
+        Lit = lit;
+        ShotDamage = damage;
+        _gravity = gravity;
+    }
+
+    /// <summary>The stock bow's shot, scaled by its charge (<see cref="ArmedBy"/>).</summary>
+    public float ShotDamage { get; private set; } = TFProjectileDefs.ArrowBaseDamage;
+
+    protected override void Impact(EntityHandle hit)
+    {
+        if (hit == EntityHandle.None)
+            return;
+
+        // Stock's bits are the bow's own (g_aWeaponDamageTypes), the ignite bit
+        // and the flying-burn custom added on the lit arm (:486-490) — inside
+        // the enemy test, so a teammate hit by a lit arrow takes plain damage.
+        var bits = TFWeaponDamageTypes.Of(Weapon);
+        var custom = TFDamageCustom.None;
+        if (Lit)
+        {
+            bits |= TFDamageBits.Ignite;
+            custom = TFDamageCustom.Flyingburn;
+        }
+
+        using (HitGroups.Push(HitGroup.Generic, Critical))
+        using (Scopes.Push(custom, Weapon, WeaponName))
+            Damage.TakeDamage(hit, Attribution, ShotDamage, bits);
     }
 }
 
