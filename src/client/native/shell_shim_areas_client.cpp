@@ -19,6 +19,8 @@
 #include "shell_beams_client.h"
 #include "shell_viewer_facts.h"
 #include "shell_client_mode.h"
+#include "shell_pixelvis_client.h"
+#include "shell_glow_client.h"
 #include "shell_managed_particles.h"
 #include "shell_particle_query_client.h"
 #include "shell_effects_client.h"
@@ -622,37 +624,37 @@ int32_t CShimViewClient::RenderTargetDeclare(int32_t nSlot, const char* pszName,
 
 int32_t CShimViewClient::PixelVisQueryCreate()
 {
-	return ::SourceSharp_PixelVisQueryCreate();
+	return m_pPixelVisClient->PixelVisQueryCreate();
 }
 
 void CShimViewClient::PixelVisQueryDestroy(int32_t nQuery)
 {
-	return ::SourceSharp_PixelVisQueryDestroy(nQuery);
+	return m_pPixelVisClient->PixelVisQueryDestroy(nQuery);
 }
 
 void CShimViewClient::PixelVisQueryReset(int32_t nQuery)
 {
-	return ::SourceSharp_PixelVisQueryReset(nQuery);
+	return m_pPixelVisClient->PixelVisQueryReset(nQuery);
 }
 
 void CShimViewClient::PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int32_t* pOut)
 {
-	return ::SourceSharp_PixelVisQueryPixels(nVisible, nCount, pOut);
+	return m_pPixelVisClient->PixelVisQueryPixels(nVisible, nCount, pOut);
 }
 
 void CShimViewClient::PixelVisDiameters(const float* pSpheres, int32_t nSpheres, float* pOut)
 {
-	return ::SourceSharp_PixelVisDiameters(pSpheres, nSpheres, pOut);
+	return m_pPixelVisClient->PixelVisDiameters(pSpheres, nSpheres, pOut);
 }
 
 int32_t CShimViewClient::PixelVisView(float* pOut, int32_t nFloats)
 {
-	return ::SourceSharp_PixelVisView(pOut, nFloats);
+	return m_pPixelVisClient->PixelVisView(pOut, nFloats);
 }
 
 int32_t CShimViewClient::GlowMaterialFind(const char* pszName, const char* pszGroup)
 {
-	return ::SourceSharp_GlowMaterialFind(pszName, pszGroup);
+	return m_pGlowOverlaysClient->GlowMaterialFind(pszName, pszGroup);
 }
 
 void* CShimViewClient::ColorLookupAdd(const char* pLookupFile)
@@ -1247,42 +1249,6 @@ int32_t CShimPrecipitationClient::PrecipitationScreenWidth()
 	return ::SourceSharp_PrecipitationScreenWidth();
 }
 
-int32_t CShimMaterialProxyClient::ProxyFindVar(int32_t hProxy, const char* pszName, int32_t bComplain, int32_t* pFound)
-{
-	return ::SourceSharp_ProxyFindVar(hProxy, pszName, bComplain, pFound);
-}
-
-int32_t CShimMaterialProxyClient::ProxyFindTexture(int32_t hProxy, const char* pszName, const char* pszGroup,
-												   int32_t bComplain, int32_t* pIsError)
-{
-	return ::SourceSharp_ProxyFindTexture(hProxy, pszName, pszGroup, bComplain, pIsError);
-}
-
-int32_t CShimMaterialProxyClient::ProxyVarTexture(int32_t hProxy, int32_t nSlot, char* pOutName, int32_t nOutSize)
-{
-	return ::SourceSharp_ProxyVarTexture(hProxy, nSlot, pOutName, nOutSize);
-}
-
-int32_t CShimMaterialProxyClient::ProxyBindEntity(int32_t hProxy, SourceSharpProxyEntity_t* pOut)
-{
-	return ::SourceSharp_ProxyBindEntity(hProxy, pOut);
-}
-
-int32_t CShimMaterialProxyClient::ProxyReadView(int32_t nKind, float* pOut, int32_t nFloats)
-{
-	return ::SourceSharp_ProxyReadView(nKind, pOut, nFloats);
-}
-
-int32_t CShimMaterialProxyClient::ProxyPlayerCustomFile(int32_t nPlayer, uint32_t* pCrc)
-{
-	return ::SourceSharp_ProxyPlayerCustomFile(nPlayer, pCrc);
-}
-
-void CShimMaterialProxyClient::ProxyNotShipped(const char* pszCapability, const char* pszReason)
-{
-	return ::SourceSharp_ProxyNotShipped(pszCapability, pszReason);
-}
-
 int32_t CShimFlashlightClient::FlashlightTexture(const char* pszName)
 {
 	return ::SourceSharp_FlashlightTexture(pszName);
@@ -1362,7 +1328,7 @@ void* ShimAreasClient_Acquire(CShimAreasClient& areas, const char* pszName)
 		return static_cast<IShimPrecipitationClient*>(&areas.m_PrecipitationClient);
 
 	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_MATERIALPROXYCLIENT_VERSION))
-		return static_cast<IShimMaterialProxyClient*>(&areas.m_MaterialProxyClient);
+		return areas.m_pMaterialProxyClient;
 
 	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_INPUTCLIENT_VERSION))
 		return areas.m_pInputClient;

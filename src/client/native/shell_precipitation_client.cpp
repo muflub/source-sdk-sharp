@@ -34,12 +34,6 @@
 #include "shell_standalone_client.h"
 #include "imanaged_areas_client.h"
 
-// The two tracer materials, precached as stock's CLIENTEFFECT list did.
-CLIENTEFFECT_REGISTER_BEGIN(PrecachePrecipitationTracers)
-CLIENTEFFECT_MATERIAL("particle/rain")
-CLIENTEFFECT_MATERIAL("particle/snow")
-CLIENTEFFECT_REGISTER_END()
-
 namespace
 {
 

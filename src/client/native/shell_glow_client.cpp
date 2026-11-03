@@ -27,27 +27,12 @@
 #include "imanaged_areas_client.h"
 
 #include "shell_glow_client.h"
+#include "shell_effects_list_client.h"
 
-// The materials stock's glow_overlay.cpp and warp_overlay.cpp precached, in
-// their files' order.
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheEffectGlow)
-CLIENTEFFECT_MATERIAL("sun/overlay")
-CLIENTEFFECT_MATERIAL("sprites/light_glow02_add_noz")
-CLIENTEFFECT_REGISTER_END()
-
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheEffectWarp)
-CLIENTEFFECT_MATERIAL("sun/overlay")
-CLIENTEFFECT_REGISTER_END()
-
-IMaterial* SourceSharp_FxMaterialOf(int32_t nMaterial);
-int32_t SourceSharp_FxMaterialIdOf(IMaterial* pMaterial);
 extern ConVar r_drawsprites;
 
 namespace
 {
-
-// The commands a draw answers with.
-CUtlVector<int32_t> s_Commands;
 
 float FloatOf(int32_t nBits)
 {
@@ -56,7 +41,9 @@ float FloatOf(int32_t nBits)
 	return f;
 }
 
-void Execute(const int32_t* pCmds, int nWords)
+} // namespace
+
+void CGlowOverlaysClient::Execute(const int32_t* pCmds, int nWords)
 {
 	CMatRenderContextPtr pRenderContext(materials);
 	bool bSaved = false;
@@ -75,7 +62,7 @@ void Execute(const int32_t* pCmds, int nWords)
 		}
 		else if (nKind == SS_GLOW_CMD_HDRSCALE && i + 3 <= nWords)
 		{
-			if (IMaterial* pMaterial = SourceSharp_FxMaterialOf(pCmds[i + 1]))
+			if (IMaterial* pMaterial = m_Effects.MaterialOf(pCmds[i + 1]))
 			{
 				static unsigned int nHDRColorScaleCache = 0;
 				if (IMaterialVar* pVar = pMaterial->FindVarFast("$hdrcolorscale", &nHDRColorScaleCache))
@@ -85,7 +72,7 @@ void Execute(const int32_t* pCmds, int nWords)
 		}
 		else if (nKind == SS_GLOW_CMD_QUAD && i + SS_GLOW_QUAD_WORDS <= nWords)
 		{
-			IMaterial* pMaterial = SourceSharp_FxMaterialOf(pCmds[i + 1]);
+			IMaterial* pMaterial = m_Effects.MaterialOf(pCmds[i + 1]);
 			IMesh* pMesh = pRenderContext->GetDynamicMesh(false, 0, 0, pMaterial);
 			CMeshBuilder builder;
 			builder.Begin(pMesh, MATERIAL_QUADS, 1);
@@ -103,7 +90,7 @@ void Execute(const int32_t* pCmds, int nWords)
 		}
 		else if (nKind == SS_GLOW_CMD_WIREQUAD && i + SS_GLOW_WIREQUAD_WORDS <= nWords)
 		{
-			IMaterial* pMaterial = SourceSharp_FxMaterialOf(pCmds[i + 1]);
+			IMaterial* pMaterial = m_Effects.MaterialOf(pCmds[i + 1]);
 			pRenderContext->Bind(pMaterial);
 			IMesh* pMesh = pRenderContext->GetDynamicMesh(false, 0, 0, pMaterial);
 			CMeshBuilder builder;
@@ -128,18 +115,16 @@ void Execute(const int32_t* pCmds, int nWords)
 	}
 }
 
-} // namespace
-
-int32_t SourceSharp_GlowMaterialFind(const char* pszName, const char* pszGroup)
+int32_t CGlowOverlaysClient::GlowMaterialFind(const char* pszName, const char* pszGroup)
 {
 	if (!pszName || !pszGroup || !materials)
 		return 0;
-	return SourceSharp_FxMaterialIdOf(materials->FindMaterial(pszName, pszGroup));
+	return m_Effects.MaterialId(materials->FindMaterial(pszName, pszGroup));
 }
 
-void ShellGlowDrawOverlays(bool bCacheFullSceneState)
+void CGlowOverlaysClient::DrawOverlays(bool bCacheFullSceneState)
 {
-	IManagedGlowClient* pManaged = ManagedGlowClient();
+	IManagedGlowClient* pManaged = m_Areas.m_pGlowClient;
 	if (!pManaged || !view)
 		return;
 
@@ -164,22 +149,22 @@ void ShellGlowDrawOverlays(bool bCacheFullSceneState)
 	in[27] = ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
 	in[28] = (float)r_drawsprites.GetInt();
 
-	if (s_Commands.Count() < 2048)
-		s_Commands.SetCount(2048);
-	int32_t nWords = pManaged->DrawOverlays(in, SS_GLOW_VIEW_FLOATS, bCacheFullSceneState ? 1 : 0, s_Commands.Base(),
-											s_Commands.Count());
-	if (nWords > s_Commands.Count())
+	if (m_Commands.Count() < 2048)
+		m_Commands.SetCount(2048);
+	int32_t nWords = pManaged->DrawOverlays(in, SS_GLOW_VIEW_FLOATS, bCacheFullSceneState ? 1 : 0, m_Commands.Base(),
+											m_Commands.Count());
+	if (nWords > m_Commands.Count())
 	{
-		s_Commands.SetCount(nWords);
-		nWords = pManaged->Commands(s_Commands.Base(), s_Commands.Count());
+		m_Commands.SetCount(nWords);
+		nWords = pManaged->Commands(m_Commands.Base(), m_Commands.Count());
 	}
-	if (nWords > 0 && nWords <= s_Commands.Count())
-		Execute(s_Commands.Base(), nWords);
+	if (nWords > 0 && nWords <= m_Commands.Count())
+		Execute(m_Commands.Base(), nWords);
 }
 
-void ShellGlowUpdateSkyOverlays(float flZFar, bool bCacheFullSceneState)
+void CGlowOverlaysClient::UpdateSkyOverlays(float flZFar, bool bCacheFullSceneState)
 {
-	if (IManagedGlowClient* pManaged = ManagedGlowClient())
+	if (IManagedGlowClient* pManaged = m_Areas.m_pGlowClient)
 	{
 		const Vector& origin = CurrentViewOrigin();
 		const float in[3] = {origin.x, origin.y, origin.z};

@@ -296,7 +296,7 @@ void CShellViewRender::Render(vrect_t* rect)
 		return;
 	}
 
-	CMatStubHandler matStub;
+	CMatStubHandler matStub(m_Areas.m_pMaterialProxyClient);
 	engine->EngineStats_BeginFrame();
 	m_bForceNoVis = false;
 
@@ -655,7 +655,7 @@ static void ViewPosition(const CCommand& args, Vector& vecOrigin, QAngle& angles
 	angles = MainViewAngles();
 	bPlayer = args.ArgC() == 2 && atoi(args[1]) == 2;
 	if (bPlayer)
-		SourceSharp_ViewerAbsPosition(&vecOrigin, &angles);
+		ShellClientDll_ViewerFacts().ViewerAbsPosition(&vecOrigin, &angles);
 }
 
 CON_COMMAND(spec_pos, "dump position and angles to the console")
@@ -734,42 +734,6 @@ CON_COMMAND_F(r_screenoverlay, "Draw specified material as an overlay", FCVAR_CH
 
 // The post-processing materials stock precached for DX9 and up; when they are
 // precached is managed's.
-namespace
-{
-const char* const kPostProcessingMaterials[] = {
-	"dev/blurfiltery_and_add_nohdr",
-	"dev/blurfilterx",
-	"dev/blurfilterx_nohdr",
-	"dev/blurfiltery",
-	"dev/blurfiltery_nohdr",
-	"dev/bloomadd",
-	"dev/downsample",
-	"dev/downsample_non_hdr",
-	"dev/no_pixel_write",
-	"dev/lumcompare",
-	"dev/floattoscreen_combine",
-	"dev/copyfullframefb_vanilla",
-	"dev/copyfullframefb",
-	"dev/engine_post",
-	"dev/motion_blur",
-	"dev/upscale",
-};
-
-class CPostProcessingPrecache : public CClientEffect
-{
-public:
-	void Cache(bool bPrecache) override
-	{
-		if (engine->GetDXSupportLevel() < 90)
-			return;
-		for (int i = 0; i < (int)ARRAYSIZE(kPostProcessingMaterials); i++)
-			ReferenceMaterial(kPostProcessingMaterials[i], bPrecache);
-	}
-};
-
-CPostProcessingPrecache g_PostProcessingPrecache;
-} // namespace
-
 // The screen overlay by name, the condition arms' half of r_screenoverlay: the
 // material out of the client-effects group as stock's condition code asks it
 // (tf_player_shared.cpp:3602), an empty name or one that does not load

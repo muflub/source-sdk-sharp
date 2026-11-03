@@ -53,7 +53,7 @@ void SourceSharp_RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPoli
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 196 slots.
+// CLIENT ONLY -- 182 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -212,7 +212,6 @@ void SourceSharp_GetLightForPointFast(void* pEngineClient, const float* pPosXYZ,
 int32_t SourceSharp_GetLocalPlayerHealth();
 int32_t SourceSharp_GetLocalPlayerIndex();
 int32_t SourceSharp_GetLocalPlayerOrigin(float* pOutXYZ);
-int32_t SourceSharp_GlowMaterialFind(const char* pszName, const char* pszGroup);
 void SourceSharp_HudLocalise(const char* pToken, char* pOut, int32_t nOutSize);
 void SourceSharp_HudLookupBinding(const char* pBinding, char* pOut, int32_t nOutSize);
 int32_t SourceSharp_HudTextMessageGet(const char* pName, SourceSharpTextMessage* pOut);
@@ -230,12 +229,6 @@ int32_t SourceSharp_ParticlesTraceMask(const float* pStartXYZ, const float* pEnd
 									   int32_t nOut);
 void SourceSharp_ParticlesView(float* pModelView12, int32_t* pViewId, float* pOriginForward6);
 int32_t SourceSharp_ParticlesWorldTrace(const float* pStartXYZ, const float* pEndXYZ, float* pOut, int32_t nOut);
-void SourceSharp_PixelVisDiameters(const float* pSpheres, int32_t nSpheres, float* pOut);
-int32_t SourceSharp_PixelVisQueryCreate();
-void SourceSharp_PixelVisQueryDestroy(int32_t nQuery);
-void SourceSharp_PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int32_t* pOut);
-void SourceSharp_PixelVisQueryReset(int32_t nQuery);
-int32_t SourceSharp_PixelVisView(float* pOut, int32_t nFloats);
 int32_t SourceSharp_PrecipitationInPvs(uint32_t hOwner);
 int32_t SourceSharp_PrecipitationPlayer(float* pOut);
 int32_t SourceSharp_PrecipitationPointContents(const float* pXYZ);
@@ -245,14 +238,6 @@ int32_t SourceSharp_PrecipitationTraceLine(const float* pStartXYZ, const float* 
 int32_t SourceSharp_PrecipitationTraceVolume(uint32_t hOwner, const float* pStartXYZ, const float* pEndXYZ,
 											 const float* pHullMinXYZ, const float* pHullMaxXYZ, float* pOut);
 void SourceSharp_PrecipitationWorldBounds(float* pOut6);
-int32_t SourceSharp_ProxyBindEntity(int32_t hProxy, SourceSharpProxyEntity_t* pOut);
-int32_t SourceSharp_ProxyFindTexture(int32_t hProxy, const char* pszName, const char* pszGroup, int32_t bComplain,
-									 int32_t* pIsError);
-int32_t SourceSharp_ProxyFindVar(int32_t hProxy, const char* pszName, int32_t bComplain, int32_t* pFound);
-void SourceSharp_ProxyNotShipped(const char* pszCapability, const char* pszReason);
-int32_t SourceSharp_ProxyPlayerCustomFile(int32_t nPlayer, uint32_t* pCrc);
-int32_t SourceSharp_ProxyReadView(int32_t nKind, float* pOut, int32_t nFloats);
-int32_t SourceSharp_ProxyVarTexture(int32_t hProxy, int32_t nSlot, char* pOutName, int32_t nOutSize);
 int32_t SourceSharp_RenderTargetDeclare(int32_t nSlot, const char* pszName, const char* pszGroup, int32_t bComplain,
 										int32_t nCreationFlags, int32_t nReleaseOrder);
 int32_t SourceSharp_RenderViewToTarget(int32_t nTarget, const SourceSharpViewTargetSetup* pSetup);

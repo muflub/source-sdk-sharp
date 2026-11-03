@@ -31,19 +31,6 @@
 
 #include "shell_particle_systems_client.h"
 
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheEffectImpacts)
-CLIENTEFFECT_MATERIAL("effects/fleck_cement1")
-CLIENTEFFECT_MATERIAL("effects/fleck_cement2")
-CLIENTEFFECT_MATERIAL("effects/fleck_antlion1")
-CLIENTEFFECT_MATERIAL("effects/fleck_antlion2")
-CLIENTEFFECT_MATERIAL("effects/fleck_wood1")
-CLIENTEFFECT_MATERIAL("effects/fleck_wood2")
-CLIENTEFFECT_MATERIAL("effects/blood")
-CLIENTEFFECT_MATERIAL("effects/blood2")
-CLIENTEFFECT_MATERIAL("sprites/bloodspray")
-CLIENTEFFECT_MATERIAL("particle/particle_noisesphere")
-CLIENTEFFECT_REGISTER_END()
-
 // Cached handles to commonly used materials.
 PMaterialHandle g_Mat_Fleck_Wood[2] = {NULL, NULL};
 PMaterialHandle g_Mat_Fleck_Cement[2] = {NULL, NULL};

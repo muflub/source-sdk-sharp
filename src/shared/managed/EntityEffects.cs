@@ -30,7 +30,7 @@ public enum EntityEffect
     /// <summary>EF_BRIGHTLIGHT — a dlight centred on the entity's origin.</summary>
     BrightLight = 0x002,
 
-    /// <summary>EF_DIMLIGHT — the player flashlight. Read by <c>SourceSharp_ViewerEffectActive</c>.</summary>
+    /// <summary>EF_DIMLIGHT — the player flashlight. Read by <c>CViewerFacts::ViewerEffectActive</c>.</summary>
     DimLight = 0x004,
 
     /// <summary>EF_NOINTERP — do not interpolate the next frame.</summary>

@@ -9,3 +9,5 @@ CManagedParticlesClient	shell_managed_particles.h
 CParticleSystemsClient	shell_particle_systems_client.h
 CParticleSystemQueryClient	shell_particle_query_client.h
 CBeamsClient	shell_beams_client.h
+CPixelVisClient	shell_pixelvis_client.h
+CGlowOverlaysClient	shell_glow_client.h

@@ -10,6 +10,14 @@
 
 #pragma once
 
+#include <stdint.h>
+
+#include "utlvector.h"
+
+#include "shell_managed_areas_client.h"
+
+class CEffectsListClient;
+
 enum
 {
 	SS_GLOW_CMD_CLIP = 1, // mode: 0 on (its answer kept), 1 off, 2 the kept answer
@@ -21,5 +29,33 @@ enum
 	SS_GLOW_VIEW_FLOATS = 29, // origin, forward, zFar, 5 x (plane normal, dist), wireframe, r_drawsprites
 };
 
-void ShellGlowDrawOverlays(bool bCacheFullSceneState);
-void ShellGlowUpdateSkyOverlays(float flZFar, bool bCacheFullSceneState);
+// The managed glow overlays' native half, a member of the client DLL object. Its
+// IShimViewClient slot is the material lookup.
+class CGlowOverlaysClient
+{
+public:
+	CGlowOverlaysClient(const CManagedAreasClient& areas, CEffectsListClient& effects)
+		: m_Areas(areas)
+		, m_Effects(effects)
+	{
+	}
+
+	CGlowOverlaysClient(const CGlowOverlaysClient&) = delete;
+	CGlowOverlaysClient& operator=(const CGlowOverlaysClient&) = delete;
+
+	// The plan's ops.
+	void DrawOverlays(bool bCacheFullSceneState);
+	void UpdateSkyOverlays(float flZFar, bool bCacheFullSceneState);
+
+	// IShimViewClient.
+	int32_t GlowMaterialFind(const char* pszName, const char* pszGroup);
+
+private:
+	void Execute(const int32_t* pCmds, int nWords);
+
+	const CManagedAreasClient& m_Areas;
+	CEffectsListClient& m_Effects;
+
+	// The commands a draw answers with.
+	CUtlVector<int32_t> m_Commands;
+};

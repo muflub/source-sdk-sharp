@@ -9,7 +9,7 @@ namespace SourceSharp.Abi;
 /// <para>
 /// IT GOES THE OTHER WAY FROM <see cref="SkyboxParams"/>. That one is C# handing
 /// the SERVER what <c>sky_camera</c> said; this is C# handing the CLIENT what the
-/// fog controller said, so that <c>SourceSharp_ViewerFogParams</c> has something
+/// fog controller said, so that <c>CViewerFacts::ViewerFogParams</c> has something
 /// to give <c>viewrender.cpp</c>. Before step 8e-render it had nothing:
 /// <c>fogcontroller.cpp</c> is entirely <c>#ifndef SOURCESHARP</c>, so
 /// <c>server.so</c> declares no <c>DT_FogController</c> and there was no sender

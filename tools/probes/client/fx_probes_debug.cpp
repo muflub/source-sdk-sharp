@@ -43,6 +43,9 @@
 #include "c_te_effect_dispatch.h"
 #include "fx_probe_log.h"
 #include "IEffects.h"
+#include "clientsideeffects.h"
+#include "imanaged_areas_client.h"
+#include "shell_effects_list_client.h"
 #include "ipredictionsystem.h"
 #include "sharedInterface.h"
 #include "shell_cliententitylist.h"
@@ -237,6 +240,73 @@ int FxProbeRandomInt(int iLow, int iHigh)
 #include "fx_quad.h"
 #include "clientsideeffects.h"
 #include "shareddefs.h"
+
+// The FX_* entries the probe build's effect probes call, carried to managed as they came.
+void FX_AddLine(const FXLineData_t& data)
+{
+	CEffectsListClient& effects = ShellClientDll_EffectsList();
+	IManagedFxClient* pFx = effects.Managed();
+	if (!pFx)
+		return;
+	const float f[] = {
+		data.m_vecStart.x,         data.m_vecStart.y,       data.m_vecStart.z,         data.m_vecEnd.x,
+		data.m_vecEnd.y,           data.m_vecEnd.z,         data.m_vecStartVelocity.x, data.m_vecStartVelocity.y,
+		data.m_vecStartVelocity.z, data.m_vecEndVelocity.x, data.m_vecEndVelocity.y,   data.m_vecEndVelocity.z,
+		data.m_flStartAlpha,       data.m_flEndAlpha,       data.m_flStartScale,       data.m_flEndScale,
+		data.m_flDieTime,
+	};
+	pFx->AddLine(f, effects.MaterialId(data.m_pMaterial));
+}
+
+void FX_AddStaticLine(const Vector& start, const Vector& end, float scale, float life, const char* materialName,
+					  unsigned char flags)
+{
+	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
+		pFx->AddStaticLine(start.Base(), end.Base(), scale, life, materialName, flags);
+}
+
+void FX_AddDiscreetLine(const Vector& start, const Vector& direction, float velocity, float length, float clipLength,
+						float scale, float life, const char* shader)
+{
+	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
+		pFx->AddDiscreetLine(start.Base(), direction.Base(), velocity, length, clipLength, scale, life, shader);
+}
+
+void FX_AddQuad(const FXQuadData_t& data)
+{
+	CEffectsListClient& effects = ShellClientDll_EffectsList();
+	IManagedFxClient* pFx = effects.Managed();
+	if (!pFx)
+		return;
+	const float f[] = {
+		data.m_vecOrigin.x,  data.m_vecOrigin.y,  data.m_vecOrigin.z, data.m_vecNormal.x, data.m_vecNormal.y,
+		data.m_vecNormal.z,  data.m_flStartScale, data.m_flEndScale,  data.m_flDieTime,   data.m_flLifeTime,
+		data.m_flStartAlpha, data.m_flEndAlpha,   data.m_Color.x,     data.m_Color.y,     data.m_Color.z,
+		data.m_flYaw,        data.m_flDeltaYaw,   data.m_flScaleBias, data.m_flAlphaBias,
+	};
+	// The caller's SetMaterial took the reference the quad gives back.
+	pFx->AddQuad(f, data.m_uiFlags, effects.MaterialId(data.m_pMaterial));
+}
+
+void FX_AddQuad(const Vector& origin, const Vector& normal, float startSize, float endSize, float sizeBias,
+				float startAlpha, float endAlpha, float alphaBias, float yaw, float deltaYaw, const Vector& color,
+				float lifeTime, const char* shader, unsigned int flags)
+{
+	IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed();
+	if (!pFx)
+		return;
+	const float f[] = {
+		origin.x,   origin.y, origin.z,  normal.x, normal.y, normal.z, startSize, endSize, sizeBias,
+		startAlpha, endAlpha, alphaBias, yaw,      deltaYaw, color.x,  color.y,   color.z, lifeTime,
+	};
+	pFx->AddQuadNamed(f, flags, shader);
+}
+
+void FX_TracerSound(const Vector& start, const Vector& end, int iTracerType)
+{
+	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
+		pFx->TracerSound(start.Base(), end.Base(), iTracerType);
+}
 
 void FX_TracerSound(const Vector& start, const Vector& end, int iTracerType);
 

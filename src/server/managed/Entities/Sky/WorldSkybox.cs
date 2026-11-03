@@ -24,7 +24,7 @@ namespace SourceSharp.Server;
 /// <c>CPlayerLocalData</c> — it networks <see cref="PlayerNetState"/>, and that
 /// carried no skybox. Measured live on <c>ss_sandbox</c> before this class
 /// existed: 12,270 consecutive frames in which the engine said a 3D skybox WAS
-/// visible from the eye and <c>SourceSharp_ViewerSkyboxParams</c> answered NULL
+/// visible from the eye and <c>CViewerFacts::ViewerSkyboxParams</c> answered NULL
 /// every single time. So the remaining fault is the WIRE, which is what
 /// <c>ContractBaseline</c>'s entry said it was, and it needed the reachability
 /// fix first for the server to have anything worth sending.

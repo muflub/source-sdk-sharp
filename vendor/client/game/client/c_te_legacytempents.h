@@ -213,7 +213,12 @@ private:
 
 	int AddVisibleTempEntity(C_LocalTempEntity* pEntity);
 
+	void SayNoCaller(const char* pszName);
+
 	const CManagedAreasClient& m_Areas;
+
+	// The not-called entry points that have warned, by their literal names.
+	CUtlVector<const char*> m_NoCallersSaid;
 };
 
 extern ITempEnts* tempents;

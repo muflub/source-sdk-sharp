@@ -1830,7 +1830,7 @@ internal sealed unsafe partial class EngineVisibility
     /// its fog is off.
     ///
     /// <para>
-    /// <c>SourceSharp_ViewerFogParams</c> then answers NULL — the early-out
+    /// <c>CViewerFacts::ViewerFogParams</c> then answers NULL — the early-out
     /// stock takes for a player with no fog controller — rather than a zeroed
     /// <c>fogparams_t</c>, which every caller would read as a real "no fog".
     /// Step 7c's whole objection to a zeroed struct was that a screenshot cannot

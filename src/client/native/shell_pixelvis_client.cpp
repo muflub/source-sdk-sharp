@@ -23,41 +23,29 @@
 #include "imanaged_areas_client.h"
 
 #include "shell_pixelvis_client.h"
-
-// The precache system is native, so the occlusion proxy's two materials are
-// registered here, in stock's order.
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheOcclusionProxy)
-CLIENTEFFECT_MATERIAL("engine/occlusionproxy")
-CLIENTEFFECT_MATERIAL("engine/occlusionproxy_countdraw")
-CLIENTEFFECT_REGISTER_END()
-
-IMaterial* SourceSharp_FxMaterialOf(int32_t nMaterial);
+#include "shell_effects_list_client.h"
 
 namespace
 {
 
-// Query objects by id: slot id - 1, INVALID when free.
-CUtlVector<OcclusionQueryObjectHandle_t> s_Queries;
-
-OcclusionQueryObjectHandle_t QueryOf(int32_t nQuery)
-{
-	if (nQuery < 1 || nQuery > s_Queries.Count())
-		return INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
-	return s_Queries[nQuery - 1];
-}
-
-// The commands a view's end answers with (PixelVisDraw's, in C#).
-CUtlVector<int32_t> s_PixelVisCommands;
-
-float PixelVisFloat(int32_t nBits)
+float FloatOf(int32_t nBits)
 {
 	float f;
 	memcpy(&f, &nBits, sizeof(f));
 	return f;
 }
 
+} // namespace
+
+OcclusionQueryObjectHandle_t CPixelVisClient::QueryOf(int32_t nQuery) const
+{
+	if (nQuery < 1 || nQuery > m_Queries.Count())
+		return INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
+	return m_Queries[nQuery - 1];
+}
+
 // One view's commands, in order.
-void ExecutePixelVis(const int32_t* pCmds, int nWords)
+void CPixelVisClient::Execute(const int32_t* pCmds, int nWords)
 {
 	CMatRenderContextPtr pRenderContext(materials);
 	int i = 0;
@@ -66,7 +54,7 @@ void ExecutePixelVis(const int32_t* pCmds, int nWords)
 		const int32_t nKind = pCmds[i];
 		if (nKind == SS_PIXELVIS_CMD_BIND && i + 2 <= nWords)
 		{
-			pRenderContext->Bind(SourceSharp_FxMaterialOf(pCmds[i + 1]));
+			pRenderContext->Bind(m_Effects.MaterialOf(pCmds[i + 1]));
 			i += 2;
 		}
 		else if (nKind == SS_PIXELVIS_CMD_DEPTHRANGE && i + 3 <= nWords)
@@ -77,7 +65,7 @@ void ExecutePixelVis(const int32_t* pCmds, int nWords)
 		else if (nKind == SS_PIXELVIS_CMD_PROXY && i + SS_PIXELVIS_PROXY_WORDS <= nWords)
 		{
 			const OcclusionQueryObjectHandle_t hQuery = QueryOf(pCmds[i + 1]);
-			IMaterial* pMaterial = SourceSharp_FxMaterialOf(pCmds[i + 2]);
+			IMaterial* pMaterial = m_Effects.MaterialOf(pCmds[i + 2]);
 			const int32_t* pVerts = pCmds + i + 3;
 			pRenderContext->BeginOcclusionQueryDrawing(hQuery);
 			CMeshBuilder meshBuilder;
@@ -104,9 +92,7 @@ void ExecutePixelVis(const int32_t* pCmds, int nWords)
 	}
 }
 
-} // namespace
-
-int32_t SourceSharp_PixelVisQueryCreate()
+int32_t CPixelVisClient::PixelVisQueryCreate()
 {
 	if (!materials)
 		return 0;
@@ -114,29 +100,29 @@ int32_t SourceSharp_PixelVisQueryCreate()
 	const OcclusionQueryObjectHandle_t h = pRenderContext->CreateOcclusionQueryObject();
 	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE)
 		return 0;
-	for (int i = 0; i < s_Queries.Count(); i++)
+	for (int i = 0; i < m_Queries.Count(); i++)
 	{
-		if (s_Queries[i] == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE)
+		if (m_Queries[i] == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE)
 		{
-			s_Queries[i] = h;
+			m_Queries[i] = h;
 			return i + 1;
 		}
 	}
-	s_Queries.AddToTail(h);
-	return s_Queries.Count();
+	m_Queries.AddToTail(h);
+	return m_Queries.Count();
 }
 
-void SourceSharp_PixelVisQueryDestroy(int32_t nQuery)
+void CPixelVisClient::PixelVisQueryDestroy(int32_t nQuery)
 {
 	const OcclusionQueryObjectHandle_t h = QueryOf(nQuery);
 	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE || !materials)
 		return;
 	CMatRenderContextPtr pRenderContext(materials);
 	pRenderContext->DestroyOcclusionQueryObject(h);
-	s_Queries[nQuery - 1] = INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
+	m_Queries[nQuery - 1] = INVALID_OCCLUSION_QUERY_OBJECT_HANDLE;
 }
 
-void SourceSharp_PixelVisQueryReset(int32_t nQuery)
+void CPixelVisClient::PixelVisQueryReset(int32_t nQuery)
 {
 	const OcclusionQueryObjectHandle_t h = QueryOf(nQuery);
 	if (h == INVALID_OCCLUSION_QUERY_OBJECT_HANDLE || !materials)
@@ -145,7 +131,7 @@ void SourceSharp_PixelVisQueryReset(int32_t nQuery)
 	pRenderContext->ResetOcclusionQueryObject(h);
 }
 
-void SourceSharp_PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int32_t* pOut)
+void CPixelVisClient::PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int32_t* pOut)
 {
 	if (!pOut)
 		return;
@@ -163,7 +149,7 @@ void SourceSharp_PixelVisQueryPixels(int32_t nVisible, int32_t nCount, int32_t* 
 		pOut[0] = pRenderContext->OcclusionQuery_GetNumPixelsRendered(hVisible);
 }
 
-void SourceSharp_PixelVisDiameters(const float* pSpheres, int32_t nSpheres, float* pOut)
+void CPixelVisClient::PixelVisDiameters(const float* pSpheres, int32_t nSpheres, float* pOut)
 {
 	if (!pSpheres || !pOut || nSpheres <= 0 || !materials)
 		return;
@@ -175,7 +161,7 @@ void SourceSharp_PixelVisDiameters(const float* pSpheres, int32_t nSpheres, floa
 	}
 }
 
-int32_t SourceSharp_PixelVisView(float* pOut, int32_t nFloats)
+int32_t CPixelVisClient::PixelVisView(float* pOut, int32_t nFloats)
 {
 	if (pOut && nFloats >= 12)
 	{
@@ -190,35 +176,34 @@ int32_t SourceSharp_PixelVisView(float* pOut, int32_t nFloats)
 	return CurrentViewID();
 }
 
-void ShellPixelVisEndView()
+void CPixelVisClient::EndView()
 {
-	IManagedPixelVisClient* pManaged = ManagedPixelVisClient();
+	IManagedPixelVisClient* pManaged = m_Areas.m_pPixelVisClient;
 	if (!pManaged)
 		return;
 
 	float view[SS_PIXELVIS_VIEW_FLOATS];
 	view[0] = (float)CurrentViewID();
-	SourceSharp_PixelVisView(view + 1, 12);
+	PixelVisView(view + 1, 12);
 	const VMatrix& m = engine->WorldToScreenMatrix();
 	for (int r = 0; r < 4; r++)
 		for (int c = 0; c < 4; c++)
 			view[13 + r * 4 + c] = m[r][c];
 
-	if (s_PixelVisCommands.Count() < 4096)
-		s_PixelVisCommands.SetCount(4096);
-	int32_t nWords =
-		pManaged->EndView(view, SS_PIXELVIS_VIEW_FLOATS, s_PixelVisCommands.Base(), s_PixelVisCommands.Count());
-	if (nWords > s_PixelVisCommands.Count())
+	if (m_Commands.Count() < 4096)
+		m_Commands.SetCount(4096);
+	int32_t nWords = pManaged->EndView(view, SS_PIXELVIS_VIEW_FLOATS, m_Commands.Base(), m_Commands.Count());
+	if (nWords > m_Commands.Count())
 	{
-		s_PixelVisCommands.SetCount(nWords);
-		nWords = pManaged->Commands(s_PixelVisCommands.Base(), s_PixelVisCommands.Count());
+		m_Commands.SetCount(nWords);
+		nWords = pManaged->Commands(m_Commands.Base(), m_Commands.Count());
 	}
-	if (nWords > 0 && nWords <= s_PixelVisCommands.Count())
-		ExecutePixelVis(s_PixelVisCommands.Base(), nWords);
+	if (nWords > 0 && nWords <= m_Commands.Count())
+		Execute(m_Commands.Base(), nWords);
 }
 
-void ShellPixelVisEndScene()
+void CPixelVisClient::EndScene()
 {
-	if (IManagedPixelVisClient* pManaged = ManagedPixelVisClient())
+	if (IManagedPixelVisClient* pManaged = m_Areas.m_pPixelVisClient)
 		pManaged->EndScene();
 }

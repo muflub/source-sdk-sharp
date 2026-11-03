@@ -66,8 +66,7 @@ public:
 	void DrawSmokeFog();
 
 	// The client systems rows: the near-miss clock reset at level start, and the effect
-	// precache registry's level start and end (the registry itself is
-	// ClientEffectPrecacheSystem(), filled at static init).
+	// precache's level start and end.
 	CClientSystem& BulletWhizRow() { return m_BulletWhizRow; }
 
 	CClientSystem& PrecacheRow() { return m_PrecacheRow; }
@@ -107,7 +106,6 @@ private:
 
 		void LevelInitPreEntity() override;
 		void LevelShutdownPostEntity() override;
-		void Shutdown() override;
 
 	private:
 		CEffectsListClient& m_Effects;

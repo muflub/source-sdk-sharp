@@ -64,12 +64,6 @@
 #include "sourcesharp.h"
 #include "imanaged_areas_client.h"
 
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheEffectsTest)
-CLIENTEFFECT_MATERIAL("effects/spark")
-CLIENTEFFECT_MATERIAL("effects/gunshiptracer")
-CLIENTEFFECT_MATERIAL("effects/bluespark")
-CLIENTEFFECT_REGISTER_END()
-
 int32_t CEffectsListClient::MaterialId(IMaterial* pMaterial)
 {
 	if (!pMaterial)
@@ -119,73 +113,6 @@ void CEffectsListClient::CBulletWhizRow::LevelInitPreEntity()
 {
 	if (IManagedFxClient* pFx = m_Effects.Managed())
 		pFx->EffectsLevelInit();
-}
-
-// The FX_* entries the probe build's effect probes call, carried to managed as they came.
-void FX_AddLine(const FXLineData_t& data)
-{
-	CEffectsListClient& effects = ShellClientDll_EffectsList();
-	IManagedFxClient* pFx = effects.Managed();
-	if (!pFx)
-		return;
-	const float f[] = {
-		data.m_vecStart.x,         data.m_vecStart.y,       data.m_vecStart.z,         data.m_vecEnd.x,
-		data.m_vecEnd.y,           data.m_vecEnd.z,         data.m_vecStartVelocity.x, data.m_vecStartVelocity.y,
-		data.m_vecStartVelocity.z, data.m_vecEndVelocity.x, data.m_vecEndVelocity.y,   data.m_vecEndVelocity.z,
-		data.m_flStartAlpha,       data.m_flEndAlpha,       data.m_flStartScale,       data.m_flEndScale,
-		data.m_flDieTime,
-	};
-	pFx->AddLine(f, effects.MaterialId(data.m_pMaterial));
-}
-
-void FX_AddStaticLine(const Vector& start, const Vector& end, float scale, float life, const char* materialName,
-					  unsigned char flags)
-{
-	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
-		pFx->AddStaticLine(start.Base(), end.Base(), scale, life, materialName, flags);
-}
-
-void FX_AddDiscreetLine(const Vector& start, const Vector& direction, float velocity, float length, float clipLength,
-						float scale, float life, const char* shader)
-{
-	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
-		pFx->AddDiscreetLine(start.Base(), direction.Base(), velocity, length, clipLength, scale, life, shader);
-}
-
-void FX_AddQuad(const FXQuadData_t& data)
-{
-	CEffectsListClient& effects = ShellClientDll_EffectsList();
-	IManagedFxClient* pFx = effects.Managed();
-	if (!pFx)
-		return;
-	const float f[] = {
-		data.m_vecOrigin.x,  data.m_vecOrigin.y,  data.m_vecOrigin.z, data.m_vecNormal.x, data.m_vecNormal.y,
-		data.m_vecNormal.z,  data.m_flStartScale, data.m_flEndScale,  data.m_flDieTime,   data.m_flLifeTime,
-		data.m_flStartAlpha, data.m_flEndAlpha,   data.m_Color.x,     data.m_Color.y,     data.m_Color.z,
-		data.m_flYaw,        data.m_flDeltaYaw,   data.m_flScaleBias, data.m_flAlphaBias,
-	};
-	// The caller's SetMaterial took the reference the quad gives back.
-	pFx->AddQuad(f, data.m_uiFlags, effects.MaterialId(data.m_pMaterial));
-}
-
-void FX_AddQuad(const Vector& origin, const Vector& normal, float startSize, float endSize, float sizeBias,
-				float startAlpha, float endAlpha, float alphaBias, float yaw, float deltaYaw, const Vector& color,
-				float lifeTime, const char* shader, unsigned int flags)
-{
-	IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed();
-	if (!pFx)
-		return;
-	const float f[] = {
-		origin.x,   origin.y, origin.z,  normal.x, normal.y, normal.z, startSize, endSize, sizeBias,
-		startAlpha, endAlpha, alphaBias, yaw,      deltaYaw, color.x,  color.y,   color.z, lifeTime,
-	};
-	pFx->AddQuadNamed(f, flags, shader);
-}
-
-void FX_TracerSound(const Vector& start, const Vector& end, int iTracerType)
-{
-	if (IManagedFxClient* pFx = ShellClientDll_EffectsList().Managed())
-		pFx->TracerSound(start.Base(), end.Base(), iTracerType);
 }
 
 // IShimFxClient: the effect list's carry-out.
@@ -346,46 +273,190 @@ void SourceSharp_FxEjectBrass(const float* pOriginXYZ, const float* pAnglesPYR, 
 						 QAngle(pGunAnglesPYR[0], pGunAnglesPYR[1], pGunAnglesPYR[2]), nType);
 }
 
-// The client effect precache registry. CLIENTEFFECT_REGISTER objects register
-// here at static init, so the registry stays native; what is done with it at a
-// level's start and end is managed's (IManagedFxClient::EffectsPrecache). The
-// subclass exists to reach the protected m_Effects.
-class CSourceSharpEffectPrecacheSystem : public CClientEffectPrecacheSystem
-{
-public:
-	int Count() const { return m_Effects.Count(); }
-
-	void CacheAt(int i, bool bPrecache)
-	{
-		if (m_Effects.IsValidIndex(i))
-			m_Effects[i]->Cache(bPrecache);
-	}
+// The materials the managed and native effects draw with, precached as stock's
+// CLIENTEFFECT_REGISTER blocks did: referenced at a level's start and released at its end,
+// by managed (IManagedFxClient::EffectsPrecache).
+static const char* const kEffectPrecacheMaterials[] = {
+	// PrecacheEffectsTest (shell_effects_list_client.cpp).
+	"effects/spark",
+	"effects/gunshiptracer",
+	"effects/bluespark",
+	// PrecacheSmokeFogOverlay (shell_effects_list_client.cpp).
+	"particle/screenspace_fog",
+	// PrecacheEffectGlow (shell_glow_client.cpp).
+	"sun/overlay",
+	"sprites/light_glow02_add_noz",
+	// PrecacheEffectWarp (shell_glow_client.cpp).
+	"sun/overlay",
+	// PrecacheEffectImpacts (shell_impact_effects.cpp).
+	"effects/fleck_cement1",
+	"effects/fleck_cement2",
+	"effects/fleck_antlion1",
+	"effects/fleck_antlion2",
+	"effects/fleck_wood1",
+	"effects/fleck_wood2",
+	"effects/blood",
+	"effects/blood2",
+	"sprites/bloodspray",
+	"particle/particle_noisesphere",
+	// PrecacheEffectMuzzleFlash (shell_legacy_tempents_client.cpp).
+	"effects/muzzleflash1",
+	"effects/muzzleflash2",
+	"effects/muzzleflash3",
+	"effects/muzzleflash4",
+	"effects/muzzleflash1_noz",
+	"effects/muzzleflash2_noz",
+	"effects/muzzleflash3_noz",
+	"effects/muzzleflash4_noz",
+	"effects/combinemuzzle1",
+	"effects/combinemuzzle2",
+	"effects/combinemuzzle1_noz",
+	"effects/combinemuzzle2_noz",
+	"effects/strider_muzzle",
+	// PrecacheEffectBloodSpray (shell_managed_particles.cpp).
+	"effects/blood_core",
+	"effects/blood_gore",
+	"effects/blood_drop",
+	"effects/blood_puff",
+	// PrecacheEffectExplosion (shell_managed_particles.cpp).
+	"effects/fire_cloud1",
+	"effects/fire_cloud2",
+	"effects/fire_embers1",
+	"effects/fire_embers2",
+	"effects/fire_embers3",
+	"particle/particle_smokegrenade",
+	"particle/particle_smokegrenade1",
+	"effects/splash3",
+	"effects/splashwake1",
+	// PrecacheMuzzleFlash (shell_managed_particles.cpp).
+	"effects/muzzleflash1",
+	"effects/muzzleflash2",
+	"effects/muzzleflash3",
+	"effects/muzzleflash4",
+	"effects/bluemuzzle",
+	"effects/gunshipmuzzle",
+	"effects/gunshiptracer",
+	"effects/huntertracer",
+	"sprites/physcannon_bluelight2",
+	"effects/combinemuzzle1",
+	"effects/combinemuzzle2",
+	"effects/combinemuzzle2_nocull",
+	// PrecacheEffectSplash (shell_managed_particles.cpp).
+	"effects/splash1",
+	"effects/splash2",
+	"effects/splash4",
+	"effects/slime1",
+	// PrecacheEffectSparks (shell_managed_particles.cpp).
+	"effects/combinemuzzle1_nocull",
+	"effects/combinemuzzle2_nocull",
+	"effects/energyball",
+	"effects/energysplash",
+	"effects/spark",
+	"effects/yellowflare",
+	"effects/yellowflare_noz",
+	"sprites/blueflare1",
+	"sprites/rico1",
+	"sprites/rico1_noz",
+	// PrecacheOcclusionProxy (shell_pixelvis_client.cpp).
+	"engine/occlusionproxy",
+	"engine/occlusionproxy_countdraw",
+	// PrecachePrecipitationTracers (shell_precipitation_client.cpp).
+	"particle/rain",
+	"particle/snow",
+	// PrecachePlayerDecal (shell_te_backends_client.cpp): without these the spray still draws,
+	// with a hitch on the first spray of each level. Stock's list repeats playerlogo40..49; each
+	// name appears once here.
+	"decals/playerlogo01",
+	"decals/playerlogo02",
+	"decals/playerlogo03",
+	"decals/playerlogo04",
+	"decals/playerlogo05",
+	"decals/playerlogo06",
+	"decals/playerlogo07",
+	"decals/playerlogo08",
+	"decals/playerlogo09",
+	"decals/playerlogo10",
+	"decals/playerlogo11",
+	"decals/playerlogo12",
+	"decals/playerlogo13",
+	"decals/playerlogo14",
+	"decals/playerlogo15",
+	"decals/playerlogo16",
+	"decals/playerlogo17",
+	"decals/playerlogo18",
+	"decals/playerlogo19",
+	"decals/playerlogo20",
+	"decals/playerlogo21",
+	"decals/playerlogo22",
+	"decals/playerlogo23",
+	"decals/playerlogo24",
+	"decals/playerlogo25",
+	"decals/playerlogo26",
+	"decals/playerlogo27",
+	"decals/playerlogo28",
+	"decals/playerlogo29",
+	"decals/playerlogo30",
+	"decals/playerlogo31",
+	"decals/playerlogo32",
+	"decals/playerlogo33",
+	"decals/playerlogo34",
+	"decals/playerlogo35",
+	"decals/playerlogo36",
+	"decals/playerlogo37",
+	"decals/playerlogo38",
+	"decals/playerlogo39",
+	"decals/playerlogo40",
+	"decals/playerlogo41",
+	"decals/playerlogo42",
+	"decals/playerlogo43",
+	"decals/playerlogo44",
+	"decals/playerlogo45",
+	"decals/playerlogo46",
+	"decals/playerlogo47",
+	"decals/playerlogo48",
+	"decals/playerlogo49",
+	"decals/playerlogo50",
+	"decals/playerlogo51",
+	"decals/playerlogo52",
+	"decals/playerlogo53",
+	"decals/playerlogo54",
+	"decals/playerlogo55",
+	"decals/playerlogo56",
+	"decals/playerlogo57",
+	"decals/playerlogo58",
+	"decals/playerlogo59",
+	"decals/playerlogo60",
+	"decals/playerlogo61",
+	"decals/playerlogo62",
+	"decals/playerlogo63",
+	"decals/playerlogo64",
+	// PrecacheEffectGlassShatter (shell_te_backends_client.cpp): the impact code caches handles
+	// for them but does not precache them.
+	"effects/fleck_glass1",
+	"effects/fleck_glass2",
+	"effects/fleck_tile1",
+	"effects/fleck_tile2",
 };
 
-static CSourceSharpEffectPrecacheSystem* EffectPrecache()
-{
-	static CSourceSharpEffectPrecacheSystem s_ClientEffectPrecacheSystem;
-	return &s_ClientEffectPrecacheSystem;
-}
-
-CClientEffectPrecacheSystem* ClientEffectPrecacheSystem()
-{
-	return EffectPrecache();
-}
-
-// The registry is no client systems row: CEffectsListClient's precache row is, and calls
-// managed through the areas it holds.
-void CClientEffectPrecacheSystem::LevelInitPreEntity() {}
-
-void CClientEffectPrecacheSystem::LevelShutdownPreEntity() {}
-
-void CClientEffectPrecacheSystem::LevelShutdownPostEntity() {}
-
-// The registry's own memory, at the DLL's shutdown.
-void CClientEffectPrecacheSystem::Shutdown()
-{
-	m_Effects.Purge();
-}
+// The post-processing chain's: stock precached them only at DX level 90 and up.
+static const char* const kPostProcessingMaterials[] = {
+	"dev/blurfiltery_and_add_nohdr",
+	"dev/blurfilterx",
+	"dev/blurfilterx_nohdr",
+	"dev/blurfiltery",
+	"dev/blurfiltery_nohdr",
+	"dev/bloomadd",
+	"dev/downsample",
+	"dev/downsample_non_hdr",
+	"dev/no_pixel_write",
+	"dev/lumcompare",
+	"dev/floattoscreen_combine",
+	"dev/copyfullframefb_vanilla",
+	"dev/copyfullframefb",
+	"dev/engine_post",
+	"dev/motion_blur",
+	"dev/upscale",
+};
 
 void CEffectsListClient::CPrecacheRow::LevelInitPreEntity()
 {
@@ -399,24 +470,30 @@ void CEffectsListClient::CPrecacheRow::LevelShutdownPostEntity()
 		pFx->EffectsPrecache(1);
 }
 
-void CEffectsListClient::CPrecacheRow::Shutdown()
-{
-	ClientEffectPrecacheSystem()->Shutdown();
-}
-
-void CClientEffectPrecacheSystem::Register(IClientEffect* effect)
-{
-	m_Effects.AddToTail(effect);
-}
-
 int32_t SourceSharp_FxPrecacheCount()
 {
-	return EffectPrecache()->Count();
+	return (int32_t)(ARRAYSIZE(kEffectPrecacheMaterials) + ARRAYSIZE(kPostProcessingMaterials));
 }
 
+// Precaches a material by artificially raising its reference count, or lets it go.
 void SourceSharp_FxPrecacheCache(int32_t nIndex, int32_t bPrecache)
 {
-	EffectPrecache()->CacheAt(nIndex, bPrecache != 0);
+	const int32_t nEffects = (int32_t)ARRAYSIZE(kEffectPrecacheMaterials);
+	if (nIndex < 0 || nIndex >= SourceSharp_FxPrecacheCount())
+		return;
+	if (nIndex >= nEffects && engine->GetDXSupportLevel() < 90)
+		return;
+
+	const char* pszName =
+		nIndex < nEffects ? kEffectPrecacheMaterials[nIndex] : kPostProcessingMaterials[nIndex - nEffects];
+	IMaterial* pMaterial = materials->FindMaterial(pszName, TEXTURE_GROUP_CLIENT_EFFECTS);
+	if (IsErrorMaterial(pMaterial))
+		return;
+
+	if (bPrecache)
+		pMaterial->IncrementReferenceCount();
+	else
+		pMaterial->DecrementReferenceCount();
 }
 
 void SourceSharp_FxCacheUsedMaterials()
@@ -428,10 +505,6 @@ void SourceSharp_FxCacheMaterialHandles()
 {
 	FX_CacheMaterialHandles();
 }
-
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheSmokeFogOverlay)
-CLIENTEFFECT_MATERIAL("particle/screenspace_fog")
-CLIENTEFFECT_REGISTER_END()
 
 void CEffectsListClient::InitSmokeFog()
 {

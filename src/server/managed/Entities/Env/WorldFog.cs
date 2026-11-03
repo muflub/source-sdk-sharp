@@ -19,7 +19,7 @@ namespace SourceSharp.Server;
 /// had not since the flip. Step 7c measured it and made it a printed
 /// not-shipped row rather than a working feature, which was right: nothing in
 /// <see cref="PlayerNetState"/> carried fog, so
-/// <c>SourceSharp_ViewerFogParams</c> returned NULL and
+/// <c>CViewerFacts::ViewerFogParams</c> returned NULL and
 /// <c>CRendering3dView::EnableWorldFog</c> read fog off on every frame.
 /// </para>
 ///

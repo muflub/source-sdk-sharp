@@ -264,39 +264,3 @@ bool SourceSharp_ViewerAimIsAssisted()
 
 	return false;
 }
-
-// The free answers, for the code not yet handed the viewer facts.
-bool SourceSharp_HasLocalViewer()
-{
-	return ShellClientDll_ViewerFacts().HasLocalViewer();
-}
-
-bool SourceSharp_ViewerAbsPosition(Vector* pOrigin, QAngle* pAngles)
-{
-	return ShellClientDll_ViewerFacts().ViewerAbsPosition(pOrigin, pAngles);
-}
-
-bool SourceSharp_ViewEntityPose(Vector* pOrigin, QAngle* pAngles)
-{
-	return ShellClientDll_ViewerFacts().ViewEntityPose(pOrigin, pAngles);
-}
-
-bool SourceSharp_ViewerEffectActive(int nEffectBits)
-{
-	return ShellClientDll_ViewerFacts().ViewerEffectActive(nEffectBits);
-}
-
-bool SourceSharp_ViewerAudioIsUnderwater(const Vector& vecMainViewOrigin)
-{
-	return ShellClientDll_ViewerFacts().ViewerAudioIsUnderwater(vecMainViewOrigin);
-}
-
-fogparams_t* SourceSharp_ViewerFogParams()
-{
-	return ShellClientDll_ViewerFacts().ViewerFogParams();
-}
-
-sky3dparams_t* SourceSharp_ViewerSkyboxParams()
-{
-	return ShellClientDll_ViewerFacts().ViewerSkyboxParams();
-}

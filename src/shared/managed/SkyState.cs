@@ -19,7 +19,7 @@ namespace SourceSharp.Shared;
 /// <b>VALID IS NOT "AREA 255".</b> The two mean different things and collapsing
 /// them is the bug this type is shaped to avoid. <see cref="Valid"/> false is
 /// "no sky camera has been heard from" and makes
-/// <c>SourceSharp_ViewerSkyboxParams</c> answer NULL, which is what stock's
+/// <c>CViewerFacts::ViewerSkyboxParams</c> answer NULL, which is what stock's
 /// <c>CSkyboxView</c> gets for a player with no sky camera. Area 255 is a sky
 /// camera that IS there and sits in the engine's "nowhere" — outside the sealed
 /// world, or in a map compiled without vis — and <c>PreRender3dSkyboxWorld</c>

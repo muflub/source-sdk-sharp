@@ -292,7 +292,7 @@ typedef struct SourceSharpSkyboxParams
 // above: that one is C# handing the SERVER what sky_camera said, this one is C#
 // handing the CLIENT what the master fog controller said, and the destination is
 // the pointer CRendering3dView::EnableWorldFog and CSkyboxView ask
-// SourceSharp_ViewerFogParams for.
+// CViewerFacts::ViewerFogParams for.
 //
 // WHY THE PORT NEEDED IT AT ALL. In stock, fog reaches a client through
 // DT_FogController -- CFogController's own send table -- plus a handle in the

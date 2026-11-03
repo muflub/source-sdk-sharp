@@ -170,76 +170,6 @@ void SourceSharp_ClientDecalShoot(int32_t nDecalIndex, int32_t nEntity, const fl
 						pEntity->GetAbsAngles(), vecPosition, req.bHasSAxis ? &vecSAxis : NULL, req.nFlags);
 }
 
-// The sixty-four spray logo materials, precached. Without this the spray still
-// draws, with a hitch on the first spray of each level. Stock's list repeats
-// playerlogo40..49; each name appears once here.
-CLIENTEFFECT_REGISTER_BEGIN(PrecachePlayerDecal)
-CLIENTEFFECT_MATERIAL("decals/playerlogo01")
-CLIENTEFFECT_MATERIAL("decals/playerlogo02")
-CLIENTEFFECT_MATERIAL("decals/playerlogo03")
-CLIENTEFFECT_MATERIAL("decals/playerlogo04")
-CLIENTEFFECT_MATERIAL("decals/playerlogo05")
-CLIENTEFFECT_MATERIAL("decals/playerlogo06")
-CLIENTEFFECT_MATERIAL("decals/playerlogo07")
-CLIENTEFFECT_MATERIAL("decals/playerlogo08")
-CLIENTEFFECT_MATERIAL("decals/playerlogo09")
-CLIENTEFFECT_MATERIAL("decals/playerlogo10")
-CLIENTEFFECT_MATERIAL("decals/playerlogo11")
-CLIENTEFFECT_MATERIAL("decals/playerlogo12")
-CLIENTEFFECT_MATERIAL("decals/playerlogo13")
-CLIENTEFFECT_MATERIAL("decals/playerlogo14")
-CLIENTEFFECT_MATERIAL("decals/playerlogo15")
-CLIENTEFFECT_MATERIAL("decals/playerlogo16")
-CLIENTEFFECT_MATERIAL("decals/playerlogo17")
-CLIENTEFFECT_MATERIAL("decals/playerlogo18")
-CLIENTEFFECT_MATERIAL("decals/playerlogo19")
-CLIENTEFFECT_MATERIAL("decals/playerlogo20")
-CLIENTEFFECT_MATERIAL("decals/playerlogo21")
-CLIENTEFFECT_MATERIAL("decals/playerlogo22")
-CLIENTEFFECT_MATERIAL("decals/playerlogo23")
-CLIENTEFFECT_MATERIAL("decals/playerlogo24")
-CLIENTEFFECT_MATERIAL("decals/playerlogo25")
-CLIENTEFFECT_MATERIAL("decals/playerlogo26")
-CLIENTEFFECT_MATERIAL("decals/playerlogo27")
-CLIENTEFFECT_MATERIAL("decals/playerlogo28")
-CLIENTEFFECT_MATERIAL("decals/playerlogo29")
-CLIENTEFFECT_MATERIAL("decals/playerlogo30")
-CLIENTEFFECT_MATERIAL("decals/playerlogo31")
-CLIENTEFFECT_MATERIAL("decals/playerlogo32")
-CLIENTEFFECT_MATERIAL("decals/playerlogo33")
-CLIENTEFFECT_MATERIAL("decals/playerlogo34")
-CLIENTEFFECT_MATERIAL("decals/playerlogo35")
-CLIENTEFFECT_MATERIAL("decals/playerlogo36")
-CLIENTEFFECT_MATERIAL("decals/playerlogo37")
-CLIENTEFFECT_MATERIAL("decals/playerlogo38")
-CLIENTEFFECT_MATERIAL("decals/playerlogo39")
-CLIENTEFFECT_MATERIAL("decals/playerlogo40")
-CLIENTEFFECT_MATERIAL("decals/playerlogo41")
-CLIENTEFFECT_MATERIAL("decals/playerlogo42")
-CLIENTEFFECT_MATERIAL("decals/playerlogo43")
-CLIENTEFFECT_MATERIAL("decals/playerlogo44")
-CLIENTEFFECT_MATERIAL("decals/playerlogo45")
-CLIENTEFFECT_MATERIAL("decals/playerlogo46")
-CLIENTEFFECT_MATERIAL("decals/playerlogo47")
-CLIENTEFFECT_MATERIAL("decals/playerlogo48")
-CLIENTEFFECT_MATERIAL("decals/playerlogo49")
-CLIENTEFFECT_MATERIAL("decals/playerlogo50")
-CLIENTEFFECT_MATERIAL("decals/playerlogo51")
-CLIENTEFFECT_MATERIAL("decals/playerlogo52")
-CLIENTEFFECT_MATERIAL("decals/playerlogo53")
-CLIENTEFFECT_MATERIAL("decals/playerlogo54")
-CLIENTEFFECT_MATERIAL("decals/playerlogo55")
-CLIENTEFFECT_MATERIAL("decals/playerlogo56")
-CLIENTEFFECT_MATERIAL("decals/playerlogo57")
-CLIENTEFFECT_MATERIAL("decals/playerlogo58")
-CLIENTEFFECT_MATERIAL("decals/playerlogo59")
-CLIENTEFFECT_MATERIAL("decals/playerlogo60")
-CLIENTEFFECT_MATERIAL("decals/playerlogo61")
-CLIENTEFFECT_MATERIAL("decals/playerlogo62")
-CLIENTEFFECT_MATERIAL("decals/playerlogo63")
-CLIENTEFFECT_MATERIAL("decals/playerlogo64")
-CLIENTEFFECT_REGISTER_END()
-
 // Managed reads the logo CRC off player_info_t at this offset.
 COMPILE_TIME_ASSERT(offsetof(player_info_t, customFiles) == 112);
 
@@ -407,15 +337,6 @@ void SourceSharp_ClientDecalBrushModel(int32_t nEntity, const float* pDecalCente
 	effects->DecalShoot(req.nDecalIndex, req.nEntity, DecalEntityModel(pEntity), pEntity->GetAbsOrigin(),
 						pEntity->GetAbsAngles(), vecCenter, 0, 0);
 }
-
-// The materials the shattered pane draws with, precached; the impact code
-// caches handles for them but does not precache them.
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheEffectGlassShatter)
-CLIENTEFFECT_MATERIAL("effects/fleck_glass1")
-CLIENTEFFECT_MATERIAL("effects/fleck_glass2")
-CLIENTEFFECT_MATERIAL("effects/fleck_tile1")
-CLIENTEFFECT_MATERIAL("effects/fleck_tile2")
-CLIENTEFFECT_REGISTER_END()
 
 // The EffectDispatch string table, read backwards: the wire carries an index
 // and the registry is keyed by name. An empty string means the table does not

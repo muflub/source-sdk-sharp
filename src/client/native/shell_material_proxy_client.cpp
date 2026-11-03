@@ -62,6 +62,7 @@
 #include "shell_standalone_client.h"
 #include "slot_table.h"
 #include "shell_diagnostics.h"
+#include "shell_material_proxies_client.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -111,58 +112,25 @@ enum
 	// 8 is reserved; never reuse it.
 };
 
-class CManagedMaterialProxy;
-
-// Handles managed knows the live proxies by: never reused, so a stale one finds nothing.
-class CManagedProxyTable
-{
-public:
-	CManagedProxyTable()
-		: m_Proxies(DefLessFunc(int32_t))
-		, m_nNext(0)
-	{
-	}
-
-	int32_t Add(CManagedMaterialProxy* pProxy)
-	{
-		const int32_t h = ++m_nNext;
-		m_Proxies.Insert(h, pProxy);
-		return h;
-	}
-
-	void Remove(int32_t h) { m_Proxies.Remove(h); }
-
-	CManagedMaterialProxy* Find(int32_t h) const
-	{
-		const unsigned short i = m_Proxies.Find(h);
-		return i == m_Proxies.InvalidIndex() ? NULL : m_Proxies[i];
-	}
-
-private:
-	CUtlMap<int32_t, CManagedMaterialProxy*> m_Proxies;
-	int32_t m_nNext;
-};
-
-static CManagedProxyTable s_ManagedProxies;
-
 class CManagedMaterialProxy : public IMaterialProxy
 {
 public:
-	explicit CManagedMaterialProxy(int nName)
-		: m_nName(nName)
+	CManagedMaterialProxy(CMaterialProxiesClient& proxies, int nName)
+		: m_Owner(proxies)
+		, m_nName(nName)
 		, m_hProxy(0)
 		, m_pMaterial(NULL)
 		, m_pBindArg(NULL)
 		, m_pBindVars(NULL)
 	{
-		m_hProxy = s_ManagedProxies.Add(this);
+		m_hProxy = m_Owner.AddProxy(this);
 	}
 
 	virtual bool Init(IMaterial* pMaterial, KeyValues* pKeyValues) OVERRIDE
 	{
 		m_pMaterial = pMaterial;
 
-		IManagedMaterialProxyClient* pManaged = ManagedMaterialProxyClient();
+		IManagedMaterialProxyClient* pManaged = m_Owner.Managed();
 		if (!pManaged || !pMaterial)
 		{
 			Warning("[SourceSharp] material proxy \"%s\" on \"%s\": no managed client to ask; refused\n",
@@ -206,7 +174,7 @@ public:
 
 	virtual void OnBind(void* pArg) OVERRIDE
 	{
-		IManagedMaterialProxyClient* pManaged = ManagedMaterialProxyClient();
+		IManagedMaterialProxyClient* pManaged = m_Owner.Managed();
 		if (!pManaged)
 			return;
 
@@ -237,12 +205,12 @@ public:
 
 	virtual void Release() OVERRIDE
 	{
-		if (IManagedMaterialProxyClient* pManaged = ManagedMaterialProxyClient())
+		if (IManagedMaterialProxyClient* pManaged = m_Owner.Managed())
 			pManaged->ProxyRelease(m_hProxy);
 		for (int i = 0; i < m_Textures.Count(); ++i)
 			m_Textures[i]->DecrementReferenceCount();
 		m_Textures.RemoveAll();
-		s_ManagedProxies.Remove(m_hProxy);
+		m_Owner.RemoveProxy(m_hProxy);
 		delete this;
 	}
 
@@ -344,6 +312,7 @@ private:
 		}
 	}
 
+	CMaterialProxiesClient& m_Owner;
 	int m_nName;
 	int32_t m_hProxy;
 	IMaterial* m_pMaterial;
@@ -387,45 +356,63 @@ int32_t CManagedMaterialProxy::BindEntity(SourceSharpProxyEntity_t* pOut)
 	return 1;
 }
 
-// One registration per name, each with its own create function, so the trampoline knows
-// which proxy it is without a lookup.
-template <int N>
-static void* CreateManagedMaterialProxy()
+#define SS_PROXY_REG(i, name) {*this, i, name IMATERIAL_PROXY_INTERFACE_VERSION},
+
+COMPILE_TIME_ASSERT(ARRAYSIZE(s_ProxyNames) == 81);
+
+CMaterialProxiesClient::CMaterialProxiesClient(const CManagedAreasClient& areas)
+	: m_Areas(areas)
+	, m_Proxies(DefLessFunc(int32_t))
+	, m_Regs{SS_PROXY_NAMES(SS_PROXY_REG)}
 {
-	return static_cast<IMaterialProxy*>(new CManagedMaterialProxy(N));
 }
 
-#define SS_PROXY_REG(i, name) \
-	static InterfaceReg s_ManagedProxyReg##i(&CreateManagedMaterialProxy<i>, name IMATERIAL_PROXY_INTERFACE_VERSION);
-SS_PROXY_NAMES(SS_PROXY_REG)
 #undef SS_PROXY_REG
 
-int32_t SourceSharp_ProxyFindVar(int32_t hProxy, const char* pszName, int32_t bComplain, int32_t* pFound)
+void* CMaterialProxiesClient::CProxyReg::Create()
 {
-	CManagedMaterialProxy* pProxy = s_ManagedProxies.Find(hProxy);
+	return static_cast<IMaterialProxy*>(new CManagedMaterialProxy(m_Proxies, m_nName));
+}
+
+int32_t CMaterialProxiesClient::AddProxy(CManagedMaterialProxy* pProxy)
+{
+	const int32_t h = ++m_nNextProxy;
+	m_Proxies.Insert(h, pProxy);
+	return h;
+}
+
+CManagedMaterialProxy* CMaterialProxiesClient::FindProxy(int32_t hProxy) const
+{
+	const unsigned short i = m_Proxies.Find(hProxy);
+	return i == m_Proxies.InvalidIndex() ? NULL : m_Proxies[i];
+}
+
+int32_t CMaterialProxiesClient::ProxyFindVar(int32_t hProxy, const char* pszName, int32_t bComplain, int32_t* pFound)
+{
+	CManagedMaterialProxy* pProxy = FindProxy(hProxy);
 	if (pFound)
 		*pFound = 0;
 	return pProxy && pszName ? pProxy->FindVar(pszName, bComplain != 0, pFound) : -1;
 }
 
-int32_t SourceSharp_ProxyFindTexture(int32_t hProxy, const char* pszName, const char* pszGroup, int32_t bComplain,
-									 int32_t* pIsError)
+int32_t CMaterialProxiesClient::ProxyFindTexture(int32_t hProxy, const char* pszName, const char* pszGroup,
+												 int32_t bComplain, int32_t* pIsError)
 {
-	CManagedMaterialProxy* pProxy = s_ManagedProxies.Find(hProxy);
+	CManagedMaterialProxy* pProxy = FindProxy(hProxy);
 	if (pIsError)
 		*pIsError = 0;
 	return pProxy && pszName && pszGroup ? pProxy->FindTexture(pszName, pszGroup, bComplain != 0, pIsError) : -1;
 }
 
-int32_t SourceSharp_ProxyVarTexture(int32_t hProxy, int32_t nSlot, char* pOutName, int32_t nOutSize)
+int32_t CMaterialProxiesClient::ProxyVarTexture(int32_t hProxy, int32_t nSlot, char* pOutName, int32_t nOutSize)
 {
-	CManagedMaterialProxy* pProxy = s_ManagedProxies.Find(hProxy);
+	CManagedMaterialProxy* pProxy = FindProxy(hProxy);
 	return pProxy ? pProxy->VarTexture(nSlot, pOutName, nOutSize) : -1;
 }
 
-int32_t SourceSharp_ProxyBindEntity(int32_t hProxy, SourceSharpProxyEntity_t* pOut)
+int32_t CMaterialProxiesClient::ProxyBindEntity(int32_t hProxy, SourceSharpProxyEntity_t* pOut)
 {
-	CManagedMaterialProxy* pProxy = s_ManagedProxies.Find(hProxy);
+	CManagedMaterialProxy* pProxy = FindProxy(hProxy);
 	if (!pProxy || !pOut)
 		return 0;
 	return pProxy->BindEntity(pOut);
@@ -434,7 +421,7 @@ int32_t SourceSharp_ProxyBindEntity(int32_t hProxy, SourceSharpProxyEntity_t* pO
 // 0: CurrentViewOrigin (3). 1: view->GetWaterLODParams (2). 2: the world's mins and maxs
 // (6), 0 with no world. 3: the particle manager's directional light (position, colour,
 // intensity: 7) and model-view matrix (16, row-major).
-int32_t SourceSharp_ProxyReadView(int32_t nKind, float* pOut, int32_t nFloats)
+int32_t CMaterialProxiesClient::ProxyReadView(int32_t nKind, float* pOut, int32_t nFloats)
 {
 	if (!pOut)
 		return 0;
@@ -489,7 +476,7 @@ int32_t SourceSharp_ProxyReadView(int32_t nKind, float* pOut, int32_t nFloats)
 	return 0;
 }
 
-int32_t SourceSharp_ProxyPlayerCustomFile(int32_t nPlayer, uint32_t* pCrc)
+int32_t CMaterialProxiesClient::ProxyPlayerCustomFile(int32_t nPlayer, uint32_t* pCrc)
 {
 	if (pCrc)
 		*pCrc = 0;
@@ -501,45 +488,29 @@ int32_t SourceSharp_ProxyPlayerCustomFile(int32_t nPlayer, uint32_t* pCrc)
 	return 1;
 }
 
-// The not-shipped ledger keeps the name and reason pointers it is given, so a managed
-// refusal's text is interned here once per name for the process.
-class CProxyRefusalNames
+void CMaterialProxiesClient::ProxyNotShipped(const char* pszCapability, const char* pszReason)
 {
-public:
-	void Reach(const char* pszCapability, const char* pszReason)
+	if (!pszCapability || !pszReason)
+		return;
+
+	int i = 0;
+	for (; i < m_RefusalNames.Count(); ++i)
 	{
-		int i = 0;
-		for (; i < m_Names.Count(); ++i)
-		{
-			if (!V_strcmp(m_Names[i], pszCapability))
-				break;
-		}
-		if (i == m_Names.Count())
-		{
-			m_Names.AddToTail(V_strdup(pszCapability));
-			m_Reasons.AddToTail(V_strdup(pszReason));
-		}
-		SourceSharp_NotShipped(m_Names[i], m_Reasons[i]);
+		if (!V_strcmp(m_RefusalNames[i], pszCapability))
+			break;
 	}
-
-private:
-	CUtlVector<char*> m_Names;
-	CUtlVector<char*> m_Reasons;
-};
-
-static CProxyRefusalNames s_ProxyRefusalNames;
-
-void SourceSharp_ProxyNotShipped(const char* pszCapability, const char* pszReason)
-{
-	if (pszCapability && pszReason)
-		s_ProxyRefusalNames.Reach(pszCapability, pszReason);
+	if (i == m_RefusalNames.Count())
+	{
+		m_RefusalNames.AddToTail(V_strdup(pszCapability));
+		m_RefusalReasons.AddToTail(V_strdup(pszReason));
+	}
+	SourceSharp_NotShipped(m_RefusalNames[i], m_RefusalReasons[i]);
 }
 
 // While mat_stub is on (managed's convar), the frame renders through the material system stub.
-CMatStubHandler::CMatStubHandler()
+CMatStubHandler::CMatStubHandler(IManagedMaterialProxyClient* pManaged)
 {
 	m_pOldMaterialSystem = NULL;
-	IManagedMaterialProxyClient* pManaged = ManagedMaterialProxyClient();
 	if (!pManaged || !pManaged->MatStubEnabled() || !materials_stub)
 		return;
 

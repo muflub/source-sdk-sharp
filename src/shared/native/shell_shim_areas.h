@@ -84,6 +84,8 @@ class CParticleSystemsClient;
 class CBeamsClient;
 class CViewerFacts;
 class CSourceSharpClientMode;
+class CPixelVisClient;
+class CGlowOverlaysClient;
 class CManagedParticlesClient;
 class CParticleSystemQueryClient;
 class CEffectsClient;
@@ -314,6 +316,8 @@ public:
 	// What the delegated slots call, set by the tier that owns each object.
 	CViewerFacts* m_pViewerFacts = nullptr;
 	CSourceSharpClientMode* m_pSourceSharpClientMode = nullptr;
+	CPixelVisClient* m_pPixelVisClient = nullptr;
+	CGlowOverlaysClient* m_pGlowOverlaysClient = nullptr;
 };
 
 class CShimUserMessagesClient final : public IShimUserMessagesClient
@@ -495,19 +499,6 @@ public:
 	int32_t PrecipitationScreenWidth() override;
 };
 
-class CShimMaterialProxyClient final : public IShimMaterialProxyClient
-{
-public:
-	int32_t ProxyFindVar(int32_t hProxy, const char* pszName, int32_t bComplain, int32_t* pFound) override;
-	int32_t ProxyFindTexture(int32_t hProxy, const char* pszName, const char* pszGroup, int32_t bComplain,
-							 int32_t* pIsError) override;
-	int32_t ProxyVarTexture(int32_t hProxy, int32_t nSlot, char* pOutName, int32_t nOutSize) override;
-	int32_t ProxyBindEntity(int32_t hProxy, SourceSharpProxyEntity_t* pOut) override;
-	int32_t ProxyReadView(int32_t nKind, float* pOut, int32_t nFloats) override;
-	int32_t ProxyPlayerCustomFile(int32_t nPlayer, uint32_t* pCrc) override;
-	void ProxyNotShipped(const char* pszCapability, const char* pszReason) override;
-};
-
 class CShimFlashlightClient final : public IShimFlashlightClient
 {
 public:
@@ -538,7 +529,7 @@ struct CShimAreasClient
 	CShimFxClient m_FxClient;
 	CShimSoundscapeClient m_SoundscapeClient;
 	CShimPrecipitationClient m_PrecipitationClient;
-	CShimMaterialProxyClient m_MaterialProxyClient;
+	IShimMaterialProxyClient* m_pMaterialProxyClient = nullptr; // CMaterialProxiesClient
 	IShimInputClient* m_pInputClient = nullptr; // CSourceSharpInput
 	IShimPhysicsClient* m_pPhysicsClient = nullptr; // CPhysicsClient
 	IShimConVarsClient* m_pConVarsClient = nullptr; // CConVarsClient

@@ -735,7 +735,8 @@ class CViewExecutorImpl
 public:
 	CViewExecutorImpl(const CManagedAreasClient& areas, CClientSystems& systems, CViewerFacts& viewerFacts,
 					  CStandaloneClients& standalone, CSourceSharpClientMode& clientMode, CShellViewRender& viewRender,
-					  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps)
+					  CEffectsListClient& effects, CManagedParticlesClient& particles, CShellDetailProps& detailProps,
+					  CGlowOverlaysClient& glow, CPixelVisClient& pixelVis)
 		: m_Areas(areas)
 		, m_Systems(systems)
 		, m_ViewerFacts(viewerFacts)
@@ -745,6 +746,8 @@ public:
 		, m_Effects(effects)
 		, m_Particles(particles)
 		, m_DetailProps(detailProps)
+		, m_Glow(glow)
+		, m_PixelVis(pixelVis)
 	{
 	}
 
@@ -820,6 +823,8 @@ private:
 	CEffectsListClient& m_Effects;
 	CManagedParticlesClient& m_Particles;
 	CShellDetailProps& m_DetailProps;
+	CGlowOverlaysClient& m_Glow;
+	CPixelVisClient& m_PixelVis;
 	ExecutorState_t m_State;
 
 	// The leaf system's BuildRenderablesList slot, patched: the leaf system calls it with its
@@ -1985,10 +1990,10 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				PostOp(op);
 				break;
 			case RENDER_OP_PixelVisEndCurrentView:
-				ShellPixelVisEndView();
+				m_PixelVis.EndView();
 				break;
 			case RENDER_OP_PixelVisEndScene:
-				ShellPixelVisEndScene();
+				m_PixelVis.EndScene();
 				break;
 			case RENDER_OP_Flush:
 			{
@@ -2020,10 +2025,10 @@ void CViewExecutorImpl::ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, 
 				break;
 			}
 			case RENDER_OP_GlowDrawOverlays:
-				ShellGlowDrawOverlays(op.I[0] != 0);
+				m_Glow.DrawOverlays(op.I[0] != 0);
 				break;
 			case RENDER_OP_GlowUpdateSkyOverlays:
-				ShellGlowUpdateSkyOverlays(op.F[0], op.I[0] != 0);
+				m_Glow.UpdateSkyOverlays(op.F[0], op.I[0] != 0);
 				break;
 			case RENDER_OP_DrawPrecipitation:
 				DrawPrecipitation();
@@ -3054,7 +3059,7 @@ CViewExecutorImpl& CViewExecutor::Impl()
 	if (!m_pImpl)
 	{
 		m_pImpl = new CViewExecutorImpl(m_Areas, m_Systems, m_ViewerFacts, m_Standalone, m_ClientMode, m_ViewRender,
-										m_Effects, m_Particles, m_DetailProps);
+										m_Effects, m_Particles, m_DetailProps, m_Glow, m_PixelVis);
 	}
 	return *m_pImpl;
 }

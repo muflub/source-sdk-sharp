@@ -97,6 +97,9 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "shell_particle_systems_client.h"
 #include "shell_particle_query_client.h"
 #include "shell_detail_props.h"
+#include "shell_glow_client.h"
+#include "shell_pixelvis_client.h"
+#include "shell_material_proxies_client.h"
 #include "shell_beams_client.h"
 #include "shell_new_particles.h"
 #include "shell_shim_console.h"
@@ -492,6 +495,9 @@ private:
 	// The managed particle executors, their frame and their client systems row.
 	CManagedParticlesClient m_ManagedParticles{m_Managed.m_Areas, m_Standalone};
 
+	// The material proxy trampoline: the registrations, the live proxies, the area.
+	CMaterialProxiesClient m_MaterialProxies{m_Managed.m_Areas};
+
 	// The detail props' executor.
 	CShellDetailProps m_DetailProps{m_Managed.m_Areas};
 
@@ -512,6 +518,10 @@ private:
 	// The client-side effect list the view draws, its material table and smoke fog overlay.
 	CEffectsListClient m_EffectsList{m_Managed.m_Areas};
 
+	// The glow overlays' and pixel visibility's native halves.
+	CGlowOverlaysClient m_Glow{m_Managed.m_Areas, m_EffectsList};
+	CPixelVisClient m_PixelVis{m_Managed.m_Areas, m_EffectsList};
+
 	// IEffects (g_pEffects points at it from Init), over the managed FX area.
 	CEffectsClient m_Effects{m_Managed.m_Areas};
 
@@ -524,8 +534,9 @@ private:
 							 m_EffectsList,     m_ManagedParticles, m_ParticleSystems, m_DetailProps};
 
 	// The render plan's executor; the view render calls it, and it calls the systems' PreRender.
-	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,     m_ViewerFacts,      m_Standalone, m_ClientMode,
-								 m_ViewRender,      m_EffectsList, m_ManagedParticles, m_DetailProps};
+	CViewExecutor m_ViewExecutor{m_Managed.m_Areas, m_Systems,    m_ViewerFacts, m_Standalone,
+								 m_ClientMode,      m_ViewRender, m_EffectsList, m_ManagedParticles,
+								 m_DetailProps,     m_Glow,       m_PixelVis};
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
@@ -818,8 +829,11 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	m_ShimRoot.m_Areas.m_pInputClient = &m_Input;
 	m_ShimRoot.m_Areas.m_pPhysicsClient = &m_Physics;
 	m_ShimRoot.m_Areas.m_pStandaloneClient = &m_Standalone;
+	m_ShimRoot.m_Areas.m_pMaterialProxyClient = &m_MaterialProxies;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = &m_ClientMode;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = &m_ViewerFacts;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pGlowOverlaysClient = &m_Glow;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pPixelVisClient = &m_PixelVis;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsListClient = &m_EffectsList;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsClient = &m_Effects;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pManagedParticlesClient = &m_ManagedParticles;
@@ -968,11 +982,18 @@ void CShellClientDLL::Shutdown()
 	m_ShimRoot.m_Areas.m_pInputClient = NULL;
 	m_ShimRoot.m_Areas.m_pPhysicsClient = NULL;
 	m_ShimRoot.m_Areas.m_pStandaloneClient = NULL;
+	m_ShimRoot.m_Areas.m_pMaterialProxyClient = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pSourceSharpClientMode = NULL;
 	m_ShimRoot.m_Areas.m_ViewClient.m_pViewerFacts = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pGlowOverlaysClient = NULL;
+	m_ShimRoot.m_Areas.m_ViewClient.m_pPixelVisClient = NULL;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsListClient = NULL;
 	m_ShimRoot.m_Areas.m_FxClient.m_pEffectsClient = NULL;
 	m_ShimRoot.m_Areas.m_ParticlesClient.m_pManagedParticlesClient = NULL;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemsClient = NULL;
+	m_ShimRoot.m_Areas.m_ParticlesClient.m_pParticleSystemQueryClient = NULL;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pParticleSystemsClient = NULL;
+	m_ShimRoot.m_Areas.m_EffectsRenderClient.m_pBeamsClient = NULL;
 	m_ShimRoot.m_pAppSystemFactory = nullptr;
 	m_ShimRoot.m_pPhysicsFactory = nullptr;
 	gameeventmanager = NULL;

@@ -32,23 +32,6 @@ C_LocalTempEntity* SourceSharpTePool_Find(int nID, int nSubID);
 int SourceSharpTePool_SlotOf(const C_LocalTempEntity* pTemp);
 C_LocalTempEntity* SourceSharpTePool_AtSlot(int nSlot);
 
-// The materials the muzzle flashes draw with, precached at a level's start.
-CLIENTEFFECT_REGISTER_BEGIN(PrecacheEffectMuzzleFlash)
-CLIENTEFFECT_MATERIAL("effects/muzzleflash1")
-CLIENTEFFECT_MATERIAL("effects/muzzleflash2")
-CLIENTEFFECT_MATERIAL("effects/muzzleflash3")
-CLIENTEFFECT_MATERIAL("effects/muzzleflash4")
-CLIENTEFFECT_MATERIAL("effects/muzzleflash1_noz")
-CLIENTEFFECT_MATERIAL("effects/muzzleflash2_noz")
-CLIENTEFFECT_MATERIAL("effects/muzzleflash3_noz")
-CLIENTEFFECT_MATERIAL("effects/muzzleflash4_noz")
-CLIENTEFFECT_MATERIAL("effects/combinemuzzle1")
-CLIENTEFFECT_MATERIAL("effects/combinemuzzle2")
-CLIENTEFFECT_MATERIAL("effects/combinemuzzle1_noz")
-CLIENTEFFECT_MATERIAL("effects/combinemuzzle2_noz")
-CLIENTEFFECT_MATERIAL("effects/strider_muzzle")
-CLIENTEFFECT_REGISTER_END()
-
 ITempEnts* tempents = NULL;
 
 static void PutVector(float* p, const Vector& v)
@@ -427,127 +410,127 @@ void CTempEnts::AttachTentToPlayer(int client, int modelIndex, float zoffset, fl
 }
 
 // The slots nothing in this mod calls: each warns once.
-#define SS_TEMPENTS_NO_CALLER(name)                                                                           \
-	do                                                                                                        \
-	{                                                                                                         \
-		static bool s_bSaid = false;                                                                          \
-		if (!s_bSaid)                                                                                         \
-		{                                                                                                     \
-			s_bSaid = true;                                                                                   \
-			DevWarning("[SourceSharp] CTempEnts::" name " was called; nothing in this mod calls it, and the " \
-					   "managed temp entities spawn through TempEntSpawns. Nothing drawn.\n");                \
-		}                                                                                                     \
-	} while (0)
+// Once per name: nothing in this mod calls these.
+void CTempEnts::SayNoCaller(const char* pszName)
+{
+	if (m_NoCallersSaid.Find(pszName) != m_NoCallersSaid.InvalidIndex())
+		return;
+
+	m_NoCallersSaid.AddToTail(pszName);
+	DevWarning("[SourceSharp] CTempEnts::%s was called; nothing in this mod calls it, and the "
+			   "managed temp entities spawn through TempEntSpawns. Nothing drawn.\n",
+			   pszName);
+}
 
 void CTempEnts::BloodSprite(const Vector&, int, int, int, int, int, int, float)
 {
-	SS_TEMPENTS_NO_CALLER("BloodSprite");
+	SayNoCaller("BloodSprite");
 }
 
 void CTempEnts::RicochetSprite(const Vector&, model_t*, float, float)
 {
-	SS_TEMPENTS_NO_CALLER("RicochetSprite");
+	SayNoCaller("RicochetSprite");
 }
 
 void CTempEnts::BreakModel(const Vector&, const QAngle&, const Vector&, const Vector&, float, float, int, int, char)
 {
-	SS_TEMPENTS_NO_CALLER("BreakModel");
+	SayNoCaller("BreakModel");
 }
 
 void CTempEnts::Bubbles(const Vector&, const Vector&, float, int, int, float)
 {
-	SS_TEMPENTS_NO_CALLER("Bubbles");
+	SayNoCaller("Bubbles");
 }
 
 void CTempEnts::BubbleTrail(const Vector&, const Vector&, float, int, int, float)
 {
-	SS_TEMPENTS_NO_CALLER("BubbleTrail");
+	SayNoCaller("BubbleTrail");
 }
 
 void CTempEnts::Sprite_Explode(C_LocalTempEntity*, float, int)
 {
-	SS_TEMPENTS_NO_CALLER("Sprite_Explode");
+	SayNoCaller("Sprite_Explode");
 }
 
 void CTempEnts::FizzEffect(IClientRenderable*, int, int, int)
 {
-	SS_TEMPENTS_NO_CALLER("FizzEffect");
+	SayNoCaller("FizzEffect");
 }
 
 C_LocalTempEntity* CTempEnts::DefaultSprite(const Vector&, int, float)
 {
-	SS_TEMPENTS_NO_CALLER("DefaultSprite");
+	SayNoCaller("DefaultSprite");
 	return NULL;
 }
 
 void CTempEnts::Sprite_Smoke(C_LocalTempEntity*, float)
 {
-	SS_TEMPENTS_NO_CALLER("Sprite_Smoke");
+	SayNoCaller("Sprite_Smoke");
 }
 
 C_LocalTempEntity* CTempEnts::TempSprite(const Vector&, const Vector&, float, int, int, int, float, float, int,
 										 const Vector&)
 {
-	SS_TEMPENTS_NO_CALLER("TempSprite");
+	SayNoCaller("TempSprite");
 	return NULL;
 }
 
 void CTempEnts::KillAttachedTents(int)
 {
-	SS_TEMPENTS_NO_CALLER("KillAttachedTents");
+	SayNoCaller("KillAttachedTents");
 }
 
 void CTempEnts::Sprite_Spray(const Vector&, const Vector&, int, int, int, int)
 {
-	SS_TEMPENTS_NO_CALLER("Sprite_Spray");
+	SayNoCaller("Sprite_Spray");
 }
 
 void CTempEnts::PlaySound(C_LocalTempEntity*, float)
 {
-	SS_TEMPENTS_NO_CALLER("PlaySound");
+	SayNoCaller("PlaySound");
 }
 
 C_LocalTempEntity* CTempEnts::SpawnTempModel(const model_t*, const Vector&, const QAngle&, const Vector&, float, int)
 {
-	SS_TEMPENTS_NO_CALLER("SpawnTempModel");
+	SayNoCaller("SpawnTempModel");
 	return NULL;
 }
 
 void CTempEnts::Sprite_Trail(const Vector&, const Vector&, int, int, float, float, float, int, float)
 {
-	SS_TEMPENTS_NO_CALLER("Sprite_Trail");
+	SayNoCaller("Sprite_Trail");
 }
 
 void CTempEnts::RocketFlare(const Vector&)
 {
-	SS_TEMPENTS_NO_CALLER("RocketFlare");
+	SayNoCaller("RocketFlare");
 }
 
 void CTempEnts::HL1EjectBrass(const Vector&, const QAngle&, const Vector&, int)
 {
-	SS_TEMPENTS_NO_CALLER("HL1EjectBrass");
+	SayNoCaller("HL1EjectBrass");
 }
 
 void CTempEnts::CSEjectBrass(const Vector&, const QAngle&, int, int, CBasePlayer*)
 {
-	SS_TEMPENTS_NO_CALLER("CSEjectBrass");
+	SayNoCaller("CSEjectBrass");
 }
 
 void CTempEnts::PhysicsProp(int, int, const Vector&, const QAngle&, const Vector&, int, int)
 {
-	SS_TEMPENTS_NO_CALLER("PhysicsProp");
+	SayNoCaller("PhysicsProp");
 }
 
 C_LocalTempEntity* CTempEnts::ClientProjectile(const Vector&, const Vector&, const Vector&, int, int, IGameEntity*,
 											   const char*, const char*)
 {
-	SS_TEMPENTS_NO_CALLER("ClientProjectile");
+	SayNoCaller("ClientProjectile");
 	return NULL;
 }
 
 C_PhysPropClientside* CTempEnts::PhysicsProp(const model_t*, int, const Vector&, const QAngle&, const Vector&, int, int,
 											 int)
 {
-	SS_TEMPENTS_NO_CALLER("PhysicsProp(model)");
+	SayNoCaller("PhysicsProp(model)");
 	return NULL;
 }
