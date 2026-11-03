@@ -109,7 +109,7 @@ public sealed class UiLoaderTests : IDisposable
 
         var r = l.Reload("command")!;
         Assert.NotEqual(first, l.ContextName);
-        Assert.Equal(("ui-only", 1, 2), (r.Kind, r.Sequence, r.Reopened));     // the scoreboard and the always-open plaque
+        Assert.Equal(("ui-only", 1, 6), (r.Kind, r.Sequence, r.Reopened));     // the scoreboard and the five screens open from the start
         Assert.Contains("scoreboard", Open(l));
         l.Dispose();
     }
@@ -119,7 +119,10 @@ public sealed class UiLoaderTests : IDisposable
     {
         var l = Loader();
         l.Load();
-        Assert.Equal(["loadingdisc"], Open(l));     // only the screen that is open by default
+        // Only the screens open from the start: the loading plaque, and the
+        // GameUI's background and dialogs, which draw only when their source asks.
+        Assert.Equal(["confirmquit", "disconnectmessage", "loadingdisc", "loadingprogress", "menubackground"],
+                     Open(l).Order(StringComparer.Ordinal));
         l.Dispose();
     }
 

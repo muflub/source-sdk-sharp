@@ -75,7 +75,16 @@ public static class ClientUi
             if (GameLanguage(files, path, log) is { } file)
                 chain.Add(file);
         if (files?.ReadGameFileBytes(GameUiLanguageFile) is { } gameUi)
-            chain.Add(UiLanguageFile.Parse(gameUi));
+        {
+            try
+            {
+                chain.Add(UiLanguageFile.Parse(gameUi));
+            }
+            catch (InvalidDataException e)
+            {
+                log.Warning($"[SourceSharp/Ui] {GameUiLanguageFile} is no language file ({e.Message}): #GameUI_ tokens fall to the engine\n");
+            }
+        }
         else if (files is not null)
             log.Warning($"[SourceSharp/Ui] {GameUiLanguageFile} is on no GAME path: #GameUI_ tokens fall to the engine\n");
         chain.Add(UiLanguageFile.Core());
@@ -191,6 +200,16 @@ public static class ClientUi
         // (TF2's, claiming UiHost.MainMenuPanel) reads the same level answer
         // and Resume the core's menu does.
         services.AddInstance<IMainMenuSource>(mainMenu);
+        // The stock GameUI's backdrop, drawn by the menu layer's lowest screen
+        // while no level is up (plan_gameui_managed.md G1).
+        var menuBackground = new MenuBackgroundUi(services.Require<IMenuBackgroundName>(), mainMenu);
+        services.AddInstance<IMenuBackgroundSource>(menuBackground);
+        // The GameUI's load dialog, its disconnect form and Quit's question
+        // (plan_gameui_managed.md G1), driven by the GameUI host from G4.
+        var loading = new GameUiLoading(localiser, engine);
+        services.AddInstance(loading).AddInstance<ILoadingProgressSource>(loading).AddInstance<IDisconnectMessageSource>(loading);
+        var confirmQuit = new ConfirmQuitUi(engine);
+        services.AddInstance(confirmQuit).AddInstance<IConfirmQuitSource>(confirmQuit);
 
         // THE MOD'S SCREENS (stage 0.9): every UiScreen in its UI assemblies,
         // built through the container, after the core's on the layer each names.
@@ -252,18 +271,26 @@ public static class ClientUi
             new KeyBindings(windows, services.Require<IUiKeyBindingStore>()),
             new ChatInput(services.Require<IChatInputSource>()),
             new MainMenu(mainMenu),
+            new MenuBackground(menuBackground, textures),
+            new LoadingProgress(loading),
+            new DisconnectMessage(loading),
+            new ConfirmQuit(confirmQuit),
             new Ui.Screens.LoadingDisc(services.Require<ILoadingDiscSource>()),
         ];
         var (hudPlaced, menuPlaced) = UiModScreens.Place(hudScreens, menuScreens, modScreens);
         var hudLayer = new UiLayer(hudPlaced, new UiContext(theme, backend, localiser, []), backend);
         var menuLayer = new UiLayer(menuPlaced, new UiContext(theme, backend, localiser, []), backend, windows);
 
-        return new UiHost(log, services.Require<IGameClock>(), hudLayer, menuLayer, backend, services.Require<IUiSurface>(),
-                          player, messages, build, scale,
-                          new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>(), mainMenu))
+        var host = new UiHost(log, services.Require<IGameClock>(), hudLayer, menuLayer, backend, services.Require<IUiSurface>(),
+                              player, messages, build, scale,
+                              new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>(), mainMenu))
         {
             Windows = windows,
             Textures = textures,
         };
+        // Where the engine's GameUI calls land (bound from G4), over this UI;
+        // AddInstance so a UI reload hands the binding the new one.
+        services.AddInstance(new GameUiHost(host, loading, confirmQuit));
+        return host;
     }
 }

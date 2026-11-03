@@ -13,6 +13,7 @@
 // A HAND table lays out functions another source of the library writes.
 // Included by fwd_client.cpp.
 
+#include "IGameUIFuncs.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "cdll_int.h"
 #include "client/native/particles_lib/include/ss_particles/iparticlelib.h"
@@ -28,6 +29,7 @@
 #include "fwd_shadows.h"
 #include "fwd_steam.h"
 #include "inputsystem/iinputsystem.h"
+#include "materialsystem/imaterialsystem.h"
 #include "networkstringtabledefs.h"
 #include "server/native/ishim_frame.h"
 #include "server/native/ishim_level.h"
@@ -125,7 +127,7 @@ static void *const s_BaseFileSystemSlots[] = {
 static const SSForwarderTable s_BaseFileSystemTable = { s_BaseFileSystemSlots, 7 };
 
 //-----------------------------------------------------------------------------
-// EngineClient: 29 forwarder(s) over IVEngineClient.
+// EngineClient: 30 forwarder(s) over IVEngineClient.
 //-----------------------------------------------------------------------------
 // void IVEngineClient013::GetScreenSize( int &, int & )
 static void SSFwd_EngineClient_GetScreenSize( IVEngineClient *self, int & a0, int & a1 ) { self->GetScreenSize( a0, a1 ); }
@@ -187,6 +189,8 @@ static bool SSFwd_EngineClient_IsPlayingTimeDemo( IVEngineClient *self ) { retur
 static bool SSFwd_EngineClient_CopyLocalFile( IVEngineClient *self, const char * a0, const char * a1 ) { return self->CopyLocalFile( a0, a1 ); }
 // bool IVEngineClient013::IsLowViolence( void )
 static bool SSFwd_EngineClient_IsLowViolence( IVEngineClient *self ) { return self->IsLowViolence(); }
+// void IVEngineClient013::GetMainMenuBackgroundName( char *, int )
+static void SSFwd_EngineClient_GetMainMenuBackgroundName( IVEngineClient *self, char * a0, int a1 ) { self->GetMainMenuBackgroundName( a0, a1 ); }
 
 static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_GetScreenSize ),
@@ -222,9 +226,10 @@ static void *const s_EngineClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_EngineClient_IsPlayingTimeDemo ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_CopyLocalFile ),
 	reinterpret_cast< void * >( &SSFwd_EngineClient_IsLowViolence ),
+	reinterpret_cast< void * >( &SSFwd_EngineClient_GetMainMenuBackgroundName ),
 };
 
-static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 29 };
+static const SSForwarderTable s_EngineClientTable = { s_EngineClientSlots, 30 };
 
 //-----------------------------------------------------------------------------
 // UniformRandomStream: 2 forwarder(s) over IUniformRandomStream.
@@ -279,6 +284,39 @@ static void *const s_InputSystemSlots[] = {
 };
 
 static const SSForwarderTable s_InputSystemTable = { s_InputSystemSlots, 10 };
+
+//-----------------------------------------------------------------------------
+// GameUIFuncs: 2 forwarder(s) over IGameUIFuncs.
+//-----------------------------------------------------------------------------
+// void IGameUIFuncs::GetVideoModes( struct vmode_s * *, int * )
+static void SSFwd_GameUIFuncs_GetVideoModes( IGameUIFuncs *self, struct vmode_s * * a0, int * a1 ) { self->GetVideoModes( a0, a1 ); }
+// void IGameUIFuncs::GetDesktopResolution( int &, int & )
+static void SSFwd_GameUIFuncs_GetDesktopResolution( IGameUIFuncs *self, int & a0, int & a1 ) { self->GetDesktopResolution( a0, a1 ); }
+
+static void *const s_GameUIFuncsSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_GameUIFuncs_GetVideoModes ),
+	reinterpret_cast< void * >( &SSFwd_GameUIFuncs_GetDesktopResolution ),
+};
+
+static const SSForwarderTable s_GameUIFuncsTable = { s_GameUIFuncsSlots, 2 };
+
+//-----------------------------------------------------------------------------
+// MaterialSystem: 3 forwarder(s) over IMaterialSystem.
+//-----------------------------------------------------------------------------
+// const MaterialSystem_Config_t & IMaterialSystem::GetCurrentConfigForVideoCard( void )
+static const MaterialSystem_Config_t & SSFwd_MaterialSystem_GetCurrentConfigForVideoCard( IMaterialSystem *self ) { return self->GetCurrentConfigForVideoCard(); }
+// bool IMaterialSystem::SupportsMSAAMode( int )
+static bool SSFwd_MaterialSystem_SupportsMSAAMode( IMaterialSystem *self, int a0 ) { return self->SupportsMSAAMode( a0 ); }
+// bool IMaterialSystem::SupportsCSAAMode( int, int )
+static bool SSFwd_MaterialSystem_SupportsCSAAMode( IMaterialSystem *self, int a0, int a1 ) { return self->SupportsCSAAMode( a0, a1 ); }
+
+static void *const s_MaterialSystemSlots[] = {
+	reinterpret_cast< void * >( &SSFwd_MaterialSystem_GetCurrentConfigForVideoCard ),
+	reinterpret_cast< void * >( &SSFwd_MaterialSystem_SupportsMSAAMode ),
+	reinterpret_cast< void * >( &SSFwd_MaterialSystem_SupportsCSAAMode ),
+};
+
+static const SSForwarderTable s_MaterialSystemTable = { s_MaterialSystemSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // NetworkStringTableContainer: 3 forwarder(s) over INetworkStringTableContainer.
@@ -3112,6 +3150,8 @@ static const SSForwarderNamed s_ForwarderTables[] = {
 	{ "SSFwd_EngineClient", &s_EngineClientTable },
 	{ "SSFwd_UniformRandomStream", &s_UniformRandomStreamTable },
 	{ "SSFwd_InputSystem", &s_InputSystemTable },
+	{ "SSFwd_GameUIFuncs", &s_GameUIFuncsTable },
+	{ "SSFwd_MaterialSystem", &s_MaterialSystemTable },
 	{ "SSFwd_NetworkStringTableContainer", &s_NetworkStringTableContainerTable },
 	{ "SSFwd_NetworkStringTable", &s_NetworkStringTableTable },
 	{ "SSFwd_SoundEmitterSystem", &s_SoundEmitterSystemTable },

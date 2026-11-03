@@ -2,7 +2,8 @@ namespace SourceSharp.Abi;
 
 // THE CLIENT'S OWN ENGINE INTERFACES, bound on first use like the shared ones
 // (EngineBound.cs): IVEngineClient and IEngineSound's client spelling are the
-// client's, and IInputSystem is asked for by the client alone. The composition
+// client's, and IInputSystem, IGameUIFuncs and IMaterialSystem are asked for by the
+// client alone. The composition
 // acquires them as it registers them (EngineServices.Client.cs), inside
 // CShellClientDLL::Init, which holds the engine's factory by then.
 
@@ -14,6 +15,14 @@ internal sealed partial class EngineBoundSet
     internal BoundInterface<IFwdInputSystem> InputSystem { get; } =
         new(global::SourceSharp.Abi.InputSystem.InterfaceVersion,
             (NativeInterfaceFactory factory, Side _, out string why) => global::SourceSharp.Abi.InputSystem.Acquire(factory, out why));
+
+    internal BoundInterface<IFwdGameUIFuncs> GameUIFuncs { get; } =
+        new(global::SourceSharp.Abi.GameUIFuncs.InterfaceVersion,
+            (NativeInterfaceFactory factory, Side _, out string why) => global::SourceSharp.Abi.GameUIFuncs.Acquire(factory, out why));
+
+    internal BoundInterface<IFwdMaterialSystem> MaterialSystem { get; } =
+        new(global::SourceSharp.Abi.MaterialSystem.InterfaceVersion,
+            (NativeInterfaceFactory factory, Side _, out string why) => global::SourceSharp.Abi.MaterialSystem.Acquire(factory, out why));
 
     internal BoundInterface<IFwdEngineSoundClient> SoundClient { get; } =
         new(EngineSoundClient.InterfaceVersion,
@@ -27,6 +36,12 @@ internal static partial class EngineBound
 
     /// <summary><c>IInputSystem</c>. Client side only.</summary>
     internal static IFwdInputSystem InputSystem(EngineSide side) => side.Attachment.Bound.InputSystem.For(side);
+
+    /// <summary><c>IGameUIFuncs</c>. Client side only.</summary>
+    internal static IFwdGameUIFuncs GameUIFuncs(EngineSide side) => side.Attachment.Bound.GameUIFuncs.For(side);
+
+    /// <summary><c>IMaterialSystem</c>. Client side only.</summary>
+    internal static IFwdMaterialSystem MaterialSystem(EngineSide side) => side.Attachment.Bound.MaterialSystem.For(side);
 
     /// <summary><c>IEngineSound</c>, the client's. Client side only.</summary>
     internal static IFwdEngineSoundClient SoundClient(EngineSide side) => side.Attachment.Bound.SoundClient.For(side);

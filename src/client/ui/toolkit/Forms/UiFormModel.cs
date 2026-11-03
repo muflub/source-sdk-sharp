@@ -31,6 +31,13 @@ public sealed class FieldAttribute(string labelToken) : Attribute
 
     /// <summary>The section heading's token the field sits under, if any.</summary>
     public string? Section { get; set; }
+
+    /// <summary>
+    /// A toggle's sentence, drawn after its box, when the label is a short
+    /// title (the label column keeps to a word or two; the sentence says what
+    /// the box does).
+    /// </summary>
+    public string? Description { get; set; }
 }
 
 /// <summary>What kind of control a field is drawn with.</summary>
@@ -58,7 +65,7 @@ public readonly record struct KeyBinding(string? Key)
 /// <summary>One field as the generator describes it.</summary>
 public readonly record struct UiFieldInfo(
     string Name, string LabelToken, UiFieldKind Kind, float Min, float Max, float Step, string? Section, int Choices,
-    bool Whole);
+    bool Whole, string? Description = null);
 
 /// <summary>
 /// A form model's fields by index, typed accessors and copies: generated for a

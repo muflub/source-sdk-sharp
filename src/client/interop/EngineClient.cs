@@ -8,7 +8,7 @@ namespace SourceSharp.Abi;
 /// </summary>
 public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
                                           IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
-                                          IViolenceSettings
+                                          IViolenceSettings, IMenuBackgroundName
 {
     /// <summary>
     /// <c>VENGINE_CLIENT_INTERFACE_VERSION</c>, from <c>cdll_int.h:188</c>.
@@ -275,6 +275,14 @@ public sealed unsafe class EngineClient : IFwdEngineClient, ISteamLaunchCommands
 
     /// <inheritdoc/>
     bool IViolenceSettings.EngineSaysLowViolence => _fwd->IsLowViolence(_self) != 0;
+
+    string? IMenuBackgroundName.MainMenuBackgroundName()
+    {
+        byte* buffer = stackalloc byte[Vtable.MaxPath];
+        buffer[0] = 0;
+        _fwd->GetMainMenuBackgroundName(_self, buffer, Vtable.MaxPath);
+        return Vtable.TextOf(buffer, Vtable.MaxPath) is { Length: > 0 } name ? name : null;
+    }
 
     /// <inheritdoc/>
     void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta)

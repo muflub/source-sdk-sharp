@@ -12,7 +12,7 @@ namespace SourceSharp.Client.Ui.Toolkit;
 /// answers a message shows it under itself, and Apply and OK are disabled while
 /// any does.
 /// </summary>
-public abstract class UiForm<TModel> : UiScreen, IUiWindowed
+public abstract class UiForm<TModel> : UiScreen, IUiWindowed, IUiOptionsPage
     where TModel : class, IUiFormModel<TModel>, new()
 {
     private readonly UiWindows _windows;
@@ -26,6 +26,12 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed
     // A field's label row is keyed by its index, its control column by this
     // plus the index, so the two never share an id.
     private const int FieldKeyBase = 10000;
+
+    /// <summary>The label column's width: a label longer than it wraps under itself, never under its field.</summary>
+    public const float LabelColumnDu = 220;
+
+    // A toggle's sentence wraps at its column's width, or this if the column is wider.
+    private const float DescriptionWrapDu = 560;
 
     protected UiForm(UiWindows windows, IUiConVarStore convars)
         : this(windows, convars, null)
@@ -49,6 +55,12 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed
 
     /// <summary>The window's title token.</summary>
     protected abstract string TitleToken { get; }
+
+    /// <summary>The title as an options window's tab: the window's own title unless a form names a shorter one.</summary>
+    public virtual string TabToken => TitleToken;
+
+    /// <summary>As a page, the form's screen name.</summary>
+    public string PageName => Name;
 
     /// <summary>The window's sizes, in design units, against the screen's.</summary>
     protected virtual UiWindowSpec Spec(float screenW, float screenH)
@@ -146,29 +158,11 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed
             Load();
         _lastFrame = ui.FrameNumber;
 
-        // Esc while a key field is armed gives up the capture; it does not close the window.
-        if (Array.IndexOf(_capture, (byte)1) >= 0 && ui.ConsumeKey((int)UiKey.Escape))
-            Array.Clear(_capture);
+        TakeKeys(ref ui);
 
-        var m = Working;
         using (ui.Window(_windows, WindowId, TitleToken, Spec(ui.DesignWidth, ui.DesignHeight)))
         {
-            using (ui.Scroll("fields", Space.M).Size(Size.Fill, Size.Fill))
-            using (ui.FormGrid(220).Width(Size.Fill))
-            {
-                string? section = null;
-                for (int i = 0; i < m.FieldCount; i++)
-                {
-                    var f = m.Field(i);
-                    if (f.Section is { } s && s != section)
-                    {
-                        section = s;
-                        ui.Text(s, Text.Label, Tone.Accent).Key(-1 - i);
-                        ui.Spacer(Size.Du(1), Size.Du(1)).Key(-1000 - i);
-                    }
-                    Row(ref ui, i, f, m);
-                }
-            }
+            DescribeBody(ref ui);
 
             bool valid = IsValid;
             using (ui.DialogButtons().Width(Size.Fill))
@@ -184,11 +178,41 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed
         }
     }
 
+    /// <summary>Esc while a key field is armed gives up the capture; it does not close the window.</summary>
+    public void TakeKeys(ref UiFrame ui)
+    {
+        if (Array.IndexOf(_capture, (byte)1) >= 0 && ui.ConsumeKey((int)UiKey.Escape))
+            Array.Clear(_capture);
+    }
+
+    /// <summary>The fields, a label column and a control column under their section headings.</summary>
+    public void DescribeBody(ref UiFrame ui)
+    {
+        var m = Working;
+        using (ui.Scroll("fields", Space.M).Size(Size.Fill, Size.Fill))
+        using (ui.FormGrid(LabelColumnDu).Width(Size.Fill))
+        {
+            string? section = null;
+            for (int i = 0; i < m.FieldCount; i++)
+            {
+                var f = m.Field(i);
+                if (f.Section is { } s && s != section)
+                {
+                    section = s;
+                    ui.Text(s, Text.Label, Tone.Accent).Key(-1 - i);
+                    ui.Spacer(Size.Du(1), Size.Du(1)).Key(-1000 - i);
+                }
+                Row(ref ui, i, f, m);
+            }
+        }
+    }
+
     private void Row(ref UiFrame ui, int i, in UiFieldInfo f, TModel m)
     {
         using (ui.Row(Space.XS).Key(i))
         {
-            ui.Text(f.LabelToken, Text.Body, Tone.Text);
+            // The dirty mark's room comes off the wrap width.
+            ui.Text(f.LabelToken, Text.Body, Tone.Text).Wrap(LabelColumnDu - 16);
             if (IsDirty(i))
                 ui.Rect(Tone.Accent, Size.Du(8), Size.Du(8)).Round(Radius.S).Name("dirty");
         }
@@ -198,9 +222,14 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed
             switch (f.Kind)
             {
                 case UiFieldKind.Toggle:
-                    bool on = ui.Toggle(f.Name, m.GetBool(i));
-                    if (on != m.GetBool(i))
-                        m.SetBool(i, on);
+                    using (ui.Row(Space.M).Width(Size.Fill))
+                    {
+                        bool on = ui.Toggle(f.Name, m.GetBool(i));
+                        if (on != m.GetBool(i))
+                            m.SetBool(i, on);
+                        if (f.Description is { } sentence)
+                            ui.Text(sentence, Text.Body, Tone.TextMuted).Wrap(DescriptionWrapDu);
+                    }
                     break;
                 case UiFieldKind.Slider:
                     using (ui.Row(Space.M).Width(Size.Fill))

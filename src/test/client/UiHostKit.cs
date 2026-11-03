@@ -79,6 +79,7 @@ internal static class UiHostKit
             .AddInstance<IChatSource>(new ChatFeed(engine, new RecordingLog(), engine, new NoChatPlayers()))
             .AddInstance<IChatInputSource>(new ChatInputUi(new DefaultForwarders.NoEngineClient()))
             .AddInstance<ILoadingDiscSource>(new LoadingDisc(engine))
+            .AddInstance<IMenuBackgroundName>(new DefaultForwarders.NoEngineClient())
             .AddInstance<IDebugOverlaySource>(new NoOverlay())
             .AddInstance<IVoiceSource>(new VoiceSpeakers(new NoVoicePlayers()));
         var observer = new ObserverState(new NoObserverFields(), new NoSpectated(), () => null);

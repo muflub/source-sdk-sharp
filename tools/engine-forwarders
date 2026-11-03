@@ -228,6 +228,9 @@ FORWARD = [
             # The engine's say in UTIL_IsLowViolence, whose rule is managed
             # (RagdollPolicy.IsLowViolence, read by ClientLowViolence).
             'IsLowViolence',
+            # The menu background's name (plan_gameui_managed.md G1): the
+            # stock GameUI drew console/<name>[_widescreen] from it.
+            'GetMainMenuBackgroundName',
         ],
     ),
     dict(
@@ -290,6 +293,24 @@ FORWARD = [
             'StopRumble', 'ButtonCodeToString', 'GetRawMouseAccumulators',
             'SteamControllerInterface', 'IsSteamControllerActive',
             'ActivateSteamControllerActionSetForSlot',
+        ],
+    ),
+    dict(
+        # The video options (plan_gameui_managed.md G2): the engine's mode
+        # list and the desktop's size, as the stock GameUI asked them.
+        struct='GameUIFuncsVtbl',
+        side='client',
+        methods=[
+            'GetVideoModes', 'GetDesktopResolution',
+        ],
+    ),
+    dict(
+        # The video options (plan_gameui_managed.md G2): the antialiasing
+        # modes the card supports, and the video config's mode and flags.
+        struct='MaterialSystemVtbl',
+        side='client',
+        methods=[
+            'GetCurrentConfigForVideoCard', 'SupportsMSAAMode', 'SupportsCSAAMode',
         ],
     ),
     dict(

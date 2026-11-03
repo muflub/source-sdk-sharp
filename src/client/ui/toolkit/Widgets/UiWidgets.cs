@@ -49,10 +49,11 @@ public static class UiWidgets
     /// <summary>
     /// A button: a raised fill with a centred label, at least 40 du tall (the click
     /// target rule is 32), lighter on hover. <paramref name="primary"/> fills with
-    /// the accent. Answers what the pointer did.
+    /// the accent; <paramref name="data"/> shows the label as data (game text,
+    /// its case kept) rather than a token. Answers what the pointer did.
     /// </summary>
     public static UiInteraction Button(this ref UiFrame ui, string key, string token, bool primary = false,
-                                       UiSize? width = null, bool enabled = true)
+                                       UiSize? width = null, bool enabled = true, bool data = false)
     {
         var box = ui.Box(key).Size(width ?? Size.Auto, Size.Du(40)).MinWidth(120).Round(Radius.M)
                     .Pad(Space.L, Space.None);
@@ -62,7 +63,8 @@ public static class UiWidgets
             // Disabled: drawn flat and muted, and a click does nothing.
             box.Fill(Tone.SurfaceRaised);
             using (box)
-                ui.Text(token, Text.Heading, Tone.TextMuted).At(UiAnchor.Centre).TextAlign(Align.Centre);
+                (data ? ui.Data(token, Text.Heading, Tone.TextMuted) : ui.Text(token, Text.Heading, Tone.TextMuted))
+                    .At(UiAnchor.Centre).TextAlign(Align.Centre);
             return new UiInteraction(hit.Hovered, false, false);
         }
         float hover = ui.Animate(box, hit.Hovered ? 1f : 0f, Motion.Quick);
@@ -70,7 +72,8 @@ public static class UiWidgets
         if (!primary)
             box.Border(((UiPaint)Tone.Accent).WithOpacity(hover));
         using (box)
-            ui.Text(token, Text.Heading, primary ? Tone.OnAccent : Tone.Text).At(UiAnchor.Centre).TextAlign(Align.Centre);
+            (data ? ui.Data(token, Text.Heading, primary ? Tone.OnAccent : Tone.Text)
+                  : ui.Text(token, Text.Heading, primary ? Tone.OnAccent : Tone.Text)).At(UiAnchor.Centre).TextAlign(Align.Centre);
         return hit;
     }
 
@@ -155,6 +158,36 @@ public static class UiWidgets
             }
         }
         return row;
+    }
+
+    // A tab bar's tabs are keyed past any row index a window's page uses.
+    private const int TabKeyBase = 1 << 20;
+
+    /// <summary>
+    /// A row of tabs that can be clicked, the selected one underlined in the
+    /// accent and a hovered one lit: answers the tab clicked this frame, else
+    /// <paramref name="selected"/>. Use for a window's pages (the options).
+    /// </summary>
+    public static int TabBar(this ref UiFrame ui, scoped ReadOnlySpan<string> tokens, int selected)
+    {
+        int picked = selected;
+        using (ui.Row(Space.XL, Align.End).Key("tabbar"))
+        {
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                bool on = i == selected;
+                var tab = ui.Column(Space.XS, Align.Stretch).Key(TabKeyBase + i);
+                var hit = ui.Interact(tab);
+                if (hit.Clicked)
+                    picked = i;
+                using (tab)
+                {
+                    ui.Text(tokens[i], Text.Heading, on || hit.Hovered ? Tone.Text : Tone.TextMuted);
+                    ui.Rect(on ? Tone.Accent : Tone.None, Size.Fill, Size.Du(4));
+                }
+            }
+        }
+        return picked;
     }
 
     /// <summary>

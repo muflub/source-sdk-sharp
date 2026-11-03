@@ -137,6 +137,8 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // the log and file access the
         // side services call, and the arsenal.
         services.AddInstance<IFwdEngineClient>(new DefaultForwarders.NoEngineClient());
+        // ClientModule's slice of the same engine client: the menu background's name.
+        services.AddInstance<IMenuBackgroundName>(new DefaultForwarders.NoEngineClient());
         var convars = ConVarRegistry.For(new RecordingEngine { Strict = false }.Returns("Console.FindConVarFlags", -1));
         convars.RegisterTypes([.. typeof(TFClassLimitConVar).Assembly.GetTypes(), .. typeof(TFHudFlag).Assembly.GetTypes(),
                                .. typeof(ClMpTimeLimitConVar).Assembly.GetTypes()]);

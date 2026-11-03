@@ -1322,6 +1322,14 @@ ss_cpptest_engine_headers(save_restore_layout_test
              ${PROJECT_SOURCE_DIR}/src/engineabi/native/include
     SOURCES sourcesharp/test/save_restore_layout_test.cpp)
 
+# plan_gameui_managed.md G2: the video config fields and the mode record the
+# managed video options (VideoInterfaces.cs) read by layout; VideoInterfacesTests
+# pins the same numbers in C#.
+ss_cpptest_engine_headers(video_config_layout_test
+    DEFINES CLIENT_DLL
+    INCLUDES public public/tier0 public/tier1
+    SOURCES sourcesharp/test/video_config_layout_test.cpp)
+
 # plan_entity.md Phase 1 step 1h -- PHYSICS GAME DATA IS THE HANDLE (§3.3).
 #
 # Engine-free for the same reason slot_table_test is: physics_gamedata.h is

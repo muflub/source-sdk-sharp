@@ -31,7 +31,8 @@ public sealed class UiFormGenerator : IIncrementalGenerator
         "SourceSharp.Ui", DiagnosticSeverity.Error, isEnabledByDefault: true);
 
     private sealed record FieldModel(string Name, string Type, string Kind, string Label, float Min, float Max,
-                                     float Step, string? Section, ImmutableArray<string> Choices, bool Whole);
+                                     float Step, string? Section, ImmutableArray<string> Choices, bool Whole,
+                                     string? Description);
 
     private sealed record ClassModel(string? Namespace, ImmutableArray<string> Containers, string Name,
                                      ImmutableArray<FieldModel> Fields, ImmutableArray<Diagnostic> Problems);
@@ -64,7 +65,7 @@ public sealed class UiFormGenerator : IIncrementalGenerator
 
             string label = attr.ConstructorArguments.Length > 0 ? attr.ConstructorArguments[0].Value as string ?? "" : "";
             float min = float.NaN, max = float.NaN, step = float.NaN;
-            string? section = null;
+            string? section = null, description = null;
             foreach (var named in attr.NamedArguments)
             {
                 switch (named.Key)
@@ -73,6 +74,7 @@ public sealed class UiFormGenerator : IIncrementalGenerator
                     case "Max": max = System.Convert.ToSingle(named.Value.Value, CultureInfo.InvariantCulture); break;
                     case "Step": step = System.Convert.ToSingle(named.Value.Value, CultureInfo.InvariantCulture); break;
                     case "Section": section = named.Value.Value as string; break;
+                    case "Description": description = named.Value.Value as string; break;
                 }
             }
 
@@ -98,7 +100,7 @@ public sealed class UiFormGenerator : IIncrementalGenerator
                 ? ((INamedTypeSymbol)t).GetMembers().OfType<IFieldSymbol>().Where(f => f.IsConst).Select(f => f.Name).ToImmutableArray()
                 : ImmutableArray<string>.Empty;
             fields.Add(new FieldModel(member.Name, t.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat), kind,
-                                      label, min, max, step, section, choices, whole));
+                                      label, min, max, step, section, choices, whole, description));
         }
 
         string? ns = type.ContainingNamespace.IsGlobalNamespace ? null : type.ContainingNamespace.ToDisplayString();
@@ -159,7 +161,7 @@ public sealed class UiFormGenerator : IIncrementalGenerator
             s.Append("        ").Append(i).Append(" => new(").Append(Q(f.Name)).Append(", ").Append(Q(f.Label))
              .Append(", global::SourceSharp.Client.Ui.Toolkit.UiFieldKind.").Append(f.Kind).Append(", ")
              .Append(F(f.Min)).Append(", ").Append(F(f.Max)).Append(", ").Append(F(f.Step)).Append(", ")
-             .Append(Q(f.Section)).Append(", ").Append(f.Choices.Length).Append(", ").Append(f.Whole ? "true" : "false")
+             .Append(Q(f.Section)).Append(", ").Append(f.Choices.Length).Append(", ").Append(f.Whole ? "true" : "false").Append(", ").Append(Q(f.Description))
              .AppendLine("),");
         }
         s.AppendLine("        _ => throw new global::System.ArgumentOutOfRangeException(nameof(i)),");

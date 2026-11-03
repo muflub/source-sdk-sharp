@@ -13,7 +13,7 @@ using System.Runtime.InteropServices;
 namespace SourceSharp.Abi;
 
 /// <summary>
-/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 29 slot(s).
+/// <c>IVEngineClient</c> through its forwarders (SSFwd_EngineClient): 30 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct EngineClientFwd : IForwarderTable
@@ -109,6 +109,9 @@ internal unsafe struct EngineClientFwd : IForwarderTable
 
     // bool IVEngineClient013::IsLowViolence( void )
     public delegate* unmanaged<void*, byte> IsLowViolence;
+
+    // void IVEngineClient013::GetMainMenuBackgroundName( char *, int )
+    public delegate* unmanaged<void*, byte*, int, void> GetMainMenuBackgroundName;
 }
 
 /// <summary>
@@ -149,6 +152,41 @@ internal unsafe struct InputSystemFwd : IForwarderTable
 
     // void IInputSystem::ActivateSteamControllerActionSetForSlot( uint64, GameActionSet_t )
     public delegate* unmanaged<void*, ulong, int, void> ActivateSteamControllerActionSetForSlot;
+}
+
+/// <summary>
+/// <c>IGameUIFuncs</c> through its forwarders (SSFwd_GameUIFuncs): 2 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct GameUIFuncsFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_GameUIFuncs";
+
+    // void IGameUIFuncs::GetVideoModes( struct vmode_s * *, int * )
+    public delegate* unmanaged<void*, void*, void*, void> GetVideoModes;
+
+    // void IGameUIFuncs::GetDesktopResolution( int &, int & )
+    public delegate* unmanaged<void*, void*, void*, void> GetDesktopResolution;
+}
+
+/// <summary>
+/// <c>IMaterialSystem</c> through its forwarders (SSFwd_MaterialSystem): 3 slot(s).
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal unsafe struct MaterialSystemFwd : IForwarderTable
+{
+    /// <summary>The name native serves the table under.</summary>
+    public static string TableName => "SSFwd_MaterialSystem";
+
+    // const MaterialSystem_Config_t & IMaterialSystem::GetCurrentConfigForVideoCard( void )
+    public delegate* unmanaged<void*, void*> GetCurrentConfigForVideoCard;
+
+    // bool IMaterialSystem::SupportsMSAAMode( int )
+    public delegate* unmanaged<void*, int, byte> SupportsMSAAMode;
+
+    // bool IMaterialSystem::SupportsCSAAMode( int, int )
+    public delegate* unmanaged<void*, int, int, byte> SupportsCSAAMode;
 }
 
 /// <summary>

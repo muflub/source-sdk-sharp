@@ -128,8 +128,10 @@ public static class UiFormWidgets
     /// <summary>
     /// A choice: the chosen name in a field with a chevron; clicked, a list of
     /// every choice opens under it, and clicking one chooses it and closes.
+    /// The names are data (shown as they are), or tokens when
+    /// <paramref name="tokens"/> (localised, as copy).
     /// </summary>
-    public static int Choice<TNames>(this ref UiFrame ui, string key, int chosen, int count, TNames names)
+    public static int Choice<TNames>(this ref UiFrame ui, string key, int chosen, int count, TNames names, bool tokens = false)
         where TNames : IUiChoiceNames
     {
         ref bool open = ref ui.State<bool>(key);
@@ -139,7 +141,12 @@ public static class UiFormWidgets
             open = !open;
         using (field)
         {
-            ui.Data(names.Name(chosen), Text.Body);
+            if (count == 0)
+                ui.Text("#SS_UI_Choice_None", Text.Body, Tone.TextMuted);
+            else if (tokens)
+                ui.Text(names.Name(chosen), Text.Body, Tone.Text);
+            else
+                ui.Data(names.Name(chosen), Text.Body);
             ui.Flex();
             ui.Shape(open ? UiShape.ChevronUp : UiShape.ChevronDown, Tone.TextMuted, 12);
         }
@@ -157,7 +164,12 @@ public static class UiFormWidgets
                             .Fill(i == chosen ? Tone.SurfaceRaised : Tone.None);
                 var hit = ui.Interact(row);
                 using (row)
-                    ui.Data(names.Name(i), Text.Body, i == chosen ? Tone.Accent : Tone.Text);
+                {
+                    if (tokens)
+                        ui.Text(names.Name(i), Text.Body, i == chosen ? Tone.Accent : Tone.Text);
+                    else
+                        ui.Data(names.Name(i), Text.Body, i == chosen ? Tone.Accent : Tone.Text);
+                }
                 if (hit.Clicked)
                 {
                     chosen = i;
@@ -209,4 +221,12 @@ public static class UiFormWidgets
 public interface IUiChoiceNames
 {
     string Name(int i);
+}
+
+/// <summary>Choice names from a list built outside a describe (an options page's run-time list).</summary>
+public readonly struct UiChoiceList(IReadOnlyList<string> names) : IUiChoiceNames
+{
+    public int Count => names.Count;
+
+    public string Name(int i) => (uint)i < (uint)names.Count ? names[i] : "";
 }

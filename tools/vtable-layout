@@ -393,6 +393,23 @@ INTERFACES = [
              'on the boundary.',
     ),
     dict(
+        struct='GameUIFuncsVtbl',
+        header='src/public/IGameUIFuncs.h',
+        chain=['IGameUIFuncs'],
+        version='VENGINE_GAMEUIFUNCS_VERSION005',
+        summary='<c>IGameUIFuncs</c>, the engine\'s answers to its GameUI.',
+        note='The video options\' mode list and desktop size (plan_gameui_managed.md G2).',
+    ),
+    dict(
+        struct='MaterialSystemVtbl',
+        header='src/public/materialsystem/imaterialsystem.h',
+        chain=['IAppSystem', 'IMaterialSystem'],
+        chain_headers={'IAppSystem': APP},
+        version='VMaterialSystem080',
+        summary='<c>IMaterialSystem</c>, over <c>IAppSystem</c>.',
+        note='The video options\' antialiasing modes and current video config (plan_gameui_managed.md G2).',
+    ),
+    dict(
         struct='DataCacheVtbl',
         header='src/public/datacache/idatacache.h',
         chain=['IAppSystem', 'IDataCache'],
@@ -1286,6 +1303,11 @@ DEFINES = {
     # the native code that calls those slots `#error`s if it is not.
     'USE_SDL': True,
     'NO_VOICE': False,
+
+    # imaterialsystem.h's ToGL slot: the Linux engine renders through ToGL;
+    # Windows' does not, and the forwarders compile per platform, so the
+    # slot after it never moves a method a table names.
+    'DX_TO_GL_ABSTRACTION': True,
 
     # This mod builds neither.
     'TF_CLIENT_DLL': False,

@@ -26,6 +26,8 @@ public class EngineInterfaceRegistrationClientTests
         Assert.IsType<DefaultForwarders.NoEngineClient>(services.Require<IFwdEngineClient>());
         Assert.IsType<DefaultForwarders.NoInputSystem>(services.Require<IFwdInputSystem>());
         Assert.IsType<DefaultForwarders.NoSoundClient>(services.Require<IFwdEngineSoundClient>());
+        Assert.IsType<DefaultForwarders.NoGameUIFuncs>(services.Require<IFwdGameUIFuncs>());
+        Assert.IsType<DefaultForwarders.NoMaterialSystem>(services.Require<IFwdMaterialSystem>());
     }
 
     [Fact]
@@ -38,6 +40,7 @@ public class EngineInterfaceRegistrationClientTests
         Assert.Same(client, services.Require<ISaveMemory>());
         Assert.Same(client, services.Require<SourceSharp.Client.Input.IClientInputEngine>());
         Assert.Same(client, services.Require<IPlaybackState>());
+        Assert.Same(client, services.Require<IMenuBackgroundName>());
     }
 
     [Fact]

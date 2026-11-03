@@ -86,6 +86,19 @@ public sealed class UiGameLanguageTests : IDisposable
         Assert.Equal("resource/gameui_english.txt", ClientUi.GameUiLanguageFile);
     }
 
+    /// <summary>A GameUI file that is no language file (a foreign or broken
+    /// one) is said and skipped; the rest of the chain still loads. Found by
+    /// the TF2 composition fact, whose engine double answers every read alike.</summary>
+    [Fact]
+    public void A_gameui_file_that_is_no_language_file_is_skipped_and_said()
+    {
+        var log = new RecordingLog();
+        var files = new PathFiles(new() { [ClientUi.GameUiLanguageFile] = Encoding.UTF8.GetBytes("not a language file") });
+        var lang = ClientUi.Language(_dir, log, files, []);
+        Assert.Contains($"{ClientUi.GameUiLanguageFile} is no language file", log.Text);
+        Assert.Equal("OK", lang.Find("#SS_UI_Ok"));
+    }
+
     /// <summary>IEngineFiles answering by path; every path asked is kept.</summary>
     private sealed class PathFiles(Dictionary<string, byte[]> files) : IEngineFiles
     {

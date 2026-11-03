@@ -38,6 +38,8 @@ internal static class DefaultForwarders
         side.Bound.Client.Hold(new NoEngineClient());
         side.Bound.InputSystem.Hold(new NoInputSystem());
         side.Bound.SoundClient.Hold(new NoSoundClient());
+        side.Bound.GameUIFuncs.Hold(new NoGameUIFuncs());
+        side.Bound.MaterialSystem.Hold(new NoMaterialSystem());
 #endif
     }
 
@@ -270,7 +272,7 @@ internal static class DefaultForwarders
     /// <summary>An engine client in no game answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
     internal sealed unsafe class NoEngineClient : IFwdEngineClient, ISteamLaunchCommands, ISaveMemory, Client.Input.IClientInputEngine,
                                                   IPlaybackState, IClientPredictCommand, IWeaponSelectionCommand,
-                                                  IViolenceSettings
+                                                  IViolenceSettings, IMenuBackgroundName
     {
         // No engine: the cl_predict switch and a selection line go nowhere.
         public void SetPredict(bool predict) { }
@@ -302,6 +304,8 @@ internal static class DefaultForwarders
 
         // Normal violence.
         bool IViolenceSettings.EngineSaysLowViolence => false;
+
+        string? IMenuBackgroundName.MainMenuBackgroundName() => null;
 
         void Client.Input.IClientInputEngine.GetMouseDelta(out int x, out int y, bool ignoreNextMouseDelta) => (x, y) = (0, 0);
 
@@ -363,6 +367,21 @@ internal static class DefaultForwarders
     }
 
     /// <summary>No client sound answering nothing: no names, no indices (-1 where 0 is a real one), no effects.</summary>
+    /// <summary>No GameUI funcs: no video modes, a zero desktop.</summary>
+    internal sealed class NoGameUIFuncs : IFwdGameUIFuncs
+    {
+        public VideoMode[] VideoModes() => [];
+        public (int Width, int Height) DesktopResolution() => (0, 0);
+    }
+
+    /// <summary>No material system: a zero windowed config and no antialiasing mode.</summary>
+    internal sealed class NoMaterialSystem : IFwdMaterialSystem
+    {
+        public VideoConfig CurrentVideoConfig() => new(0, 0, true);
+        public bool SupportsMsaa(int samples) => false;
+        public bool SupportsCsaa(int samples, int quality) => false;
+    }
+
     internal sealed class NoSoundClient : IFwdEngineSoundClient
     {
         public void EmitSound(nint filter, int entIndex, int channel, string sample, float volume, int soundLevel, int flags, int pitch, int specialDsp, Vector? origin, float soundTime, int speakerEntity) { }

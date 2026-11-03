@@ -20,7 +20,7 @@ public sealed record UiMenus(ScoreboardUi Scores, TeamMenuUi Teams, MotdUi Motd,
 /// draws it through <see cref="VguiBackend"/>. The menu layer decides whether
 /// the menu root takes the mouse and keyboard, and its cursor.
 /// </summary>
-public sealed class UiHost : IUiRuntime
+public sealed class UiHost : IUiRuntime, IGameUiNavigation
 {
     /// <summary>Stock viewport panel names and the UI screens that answer them.
     /// A screen on the menu layer may claim panels with
@@ -433,6 +433,11 @@ public sealed class UiHost : IUiRuntime
     public bool Answers(string panel) => PanelsFor(panel) is not null || Absorbed.Contains(panel);
 
     public bool Has(string screen) => _menu.Has(screen);
+
+    public bool IsOpen(string screen) => _menu.IsOpen(screen);
+
+    /// <summary>The GameUI's IsMainMenuVisible: the main menu, the claimed one or the core's.</summary>
+    public bool MainMenuOpen => _menu.IsOpen(MainMenuScreen);
 
     private ClientDebugUi? _debug;
 

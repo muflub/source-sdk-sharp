@@ -616,6 +616,69 @@ public interface IMainMenuSource
     void Quit();
 }
 
+/// <summary>
+/// The menu background (plan_gameui_managed.md G1): what the stock GameUI
+/// painted full screen while no level was up, the material
+/// <c>console/&lt;name&gt;</c>, <c>&lt;name&gt;</c> the engine's main-menu
+/// background, with <c>_widescreen</c> on screens of aspect 1.6 or wider
+/// (docs/gameui-census.md §5). Both are null while a level is up or when the
+/// engine names no background.
+/// </summary>
+public interface IMenuBackgroundSource
+{
+    /// <summary>The material for screens narrower than 1.6.</summary>
+    string? Material { get; }
+
+    /// <summary>The material for screens of aspect 1.6 or wider.</summary>
+    string? WidescreenMaterial { get; }
+}
+
+/// <summary>
+/// The level load's progress dialog (stock GameUI's loading dialog,
+/// plan_gameui_managed.md G1): up only for a load the engine started with
+/// its progress dialog asked for; the fraction loaded and the engine's
+/// current step, localised (empty before the first step names itself).
+/// </summary>
+public interface ILoadingProgressSource
+{
+    bool Showing { get; }
+
+    /// <summary>The fraction loaded, 0 to 1.</summary>
+    float Progress { get; }
+
+    /// <summary>The engine's current step, localised, or empty.</summary>
+    string Status { get; }
+}
+
+/// <summary>
+/// A disconnect or failed load the player must read (stock GameUI's loading
+/// dialog in its error form, titled "Disconnected"): the reason, localised.
+/// </summary>
+public interface IDisconnectMessageSource
+{
+    bool Showing { get; }
+
+    /// <summary>The reason, localised (an extended reason already set into it).</summary>
+    string Body { get; }
+
+    /// <summary>The Close button.</summary>
+    void Close();
+}
+
+/// <summary>
+/// Quit's question (stock GameUI's quit confirmation, the engine's
+/// OnConfirmQuit and the menu's Quit): up while asked; Quit ends the game,
+/// Cancel withdraws the question.
+/// </summary>
+public interface IConfirmQuitSource
+{
+    bool Asking { get; }
+
+    void Quit();
+
+    void Cancel();
+}
+
 // ---- forms (plan_client_ui §6) ----
 
 /// <summary>Key bindings, as a form's key fields read and write them: the engine's binds in game, a dictionary in a sample.</summary>

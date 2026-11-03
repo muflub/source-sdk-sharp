@@ -236,6 +236,17 @@ public interface IPlaybackState
 }
 
 /// <summary>
+/// The engine's main-menu background: <c>IVEngineClient::GetMainMenuBackgroundName</c>,
+/// the name the stock GameUI drew as <c>console/&lt;name&gt;[_widescreen]</c>
+/// while no level was up (docs/gameui-census.md §5).
+/// </summary>
+public interface IMenuBackgroundName
+{
+    /// <summary>The name, or null when the engine names none.</summary>
+    string? MainMenuBackgroundName();
+}
+
+/// <summary>
 /// The engine's own word on gore: <c>IVEngineClient::IsLowViolence</c>, the
 /// term of <c>UTIL_IsLowViolence</c> that decides it (the four violence_*
 /// convars are the legacy terms).
