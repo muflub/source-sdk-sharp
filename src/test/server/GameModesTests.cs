@@ -667,7 +667,9 @@ public class GameModesTests
         // a property is in this set the moment it exists.
         var contracts = typeof(IGameMode).GetProperties().Select(p => p.PropertyType)
                             .Select(t => Nullable.GetUnderlyingType(t) ?? t)
-                            .Where(t => t != typeof(string))
+                            // Scalars are answers, not seams: like the id string,
+                            // the Teamplay flag cannot seal anything a mod extends.
+                            .Where(t => t != typeof(string) && t != typeof(bool))
                             .Append(typeof(IGameMode)).Append(typeof(IGameModeSelector))
                             .Distinct().ToArray();
         Assert.True(contracts.Length >= 7, $"the surface read as {contracts.Length} types: the walk found nothing");

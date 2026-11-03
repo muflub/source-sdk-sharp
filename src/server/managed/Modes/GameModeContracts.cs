@@ -46,6 +46,21 @@ public interface IGameMode
     /// </summary>
     ISpawnSelector? Spawns => null;
 
+    /// <summary>
+    /// Whether this mode plays with teams: under true, <c>say_team</c> reaches
+    /// the speaker's teammates (<see cref="HostSay.Teammates"/>); the core's
+    /// answer is HL2MP's own — nobody is a teammate.
+    /// </summary>
+    bool Teamplay => false;
+
+    /// <summary>
+    /// The join rule of the active mode, asked by <see cref="Teams.Join"/> BEFORE
+    /// the registered <see cref="IJoinTeamPolicy"/> owner — the same order
+    /// <see cref="Spawns"/> keeps with the selector chain. Null leaves the join
+    /// to the owner and then the core's plain answer.
+    /// </summary>
+    IJoinTeamPolicy? JoinPolicy => null;
+
     /// <summary>The extra score writes a mode keeps beside the core's scoreboard; null writes none.</summary>
     IScoring? Scoring => null;
 

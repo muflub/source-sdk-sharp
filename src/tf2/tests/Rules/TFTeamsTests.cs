@@ -2,8 +2,10 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server;
+using TF2.Server.Modes;
 using TF2.Server.Rules;
 using TF2.Tests.Buildings;
+using TF2.Tests.Modes;
 using TF2.Shared;
 using TF2.Shared.Rules;
 
@@ -55,6 +57,21 @@ public sealed class TFTeamsTests
         public void Send(string key, ReadOnlySpan<byte> payload, int player = 0, bool reliable = true)
         {
         }
+    }
+
+    /// <summary>The bots by handle; everyone else is a human.</summary>
+    private sealed class KnownBots : IBotPlayers
+    {
+        public readonly HashSet<EntityHandle> Known = [];
+
+        public bool IsBot(EntityHandle player) => Known.Contains(player);
+
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+            => throw new NotSupportedException();
+
+        public bool Kick(EntityHandle bot, string reason) => throw new NotSupportedException();
+
+        public IReadOnlyList<BotPlayer> Bots => [];
     }
 
     private static TFTeams Policy(RoundRig rig, RoundState state = RoundState.RoundRunning)
@@ -456,6 +473,25 @@ public sealed class TFTeamsTests
         Assert.Equal(new[] { (int)TFTeam.Red }, core.Joined);
     }
 
+    /// <summary>The override's IsBot arm (tf_player.cpp:6281): a bot's pick is
+    /// never forced to the humans' team.</summary>
+    [Fact]
+    public void ABotsPickIsNotForcedToTheHumansTeam()
+    {
+        var rig = new RoundRig();
+        var core = new JoinRecorder();
+        var convars = HumansTeam("blue");
+        var bots = new KnownBots();
+        var command = new TFJoinTeamCommand(core, Policy(rig), new PanelSink(),
+                                            convars.Get<MpHumansMustJoinTeamConVar>(), bots);
+        var player = new EntityHandle(1u);
+        bots.Known.Add(player);
+
+        Assert.True(command.Handle(player, "jointeam", ["red"]));
+
+        Assert.Equal(new[] { (int)TFTeam.Red }, core.Joined);
+    }
+
     [Fact]
     public void The_humans_team_spares_the_spectator_gate()
     {
@@ -570,5 +606,72 @@ public sealed class TFTeamsTests
 
         Assert.Equal(new[] { (int)TFTeam.Spectator }, core.Joined);
         Assert.DoesNotContain(sink.Sent, s => s.Key == "TextMsg");
+    }
+
+    // ---- the active mode's team answers (tf2ai F40) ------------------------------------
+
+    private static readonly EntityHandle Talker = new(0x010001);
+    private static readonly EntityHandle Listener = new(0x010002);
+
+    private sealed class ModeSelector : IGameModeSelector
+    {
+        public string? PickMode() => CtfMode.ModeId;
+    }
+
+    private sealed class Clients : IConnectedClients
+    {
+        public float? AvgLatency(int entIndex) => null;
+        public ulong SteamId64(int entIndex) => 0;
+        public string? Address(int entIndex) => null;
+        public string? ClientConVar(int entIndex, string name) => null;
+        public int UserId(int entIndex) => 0;
+        public void Kick(int entIndex, string reason) { }
+        public void ClientCommand(int entIndex, string command) { }
+        public void Reconnect(int entIndex) { }
+    }
+
+    /// <summary>
+    /// The relay over the recording engine, both players on red, with the mode
+    /// proxy built the way the module builds it: the TF mode registered as the
+    /// scan registers it, and the selector chain naming it, so the relay's
+    /// teammate ask reads the active mode's Teamplay answer for real.
+    /// </summary>
+    private static HostSay TeamRelay()
+    {
+        var engine = RecordingEngine.Default();
+        engine.Strict = false;                                  // as the mode-proxy rigs run it
+        engine.Returns("Players.GetTeam", (int)TFTeam.Red);     // both players are on red
+        var log = new RecordingLog();
+        var registry = new ScriptedEntityRegistry(TestEngines.Server());
+        registry.RegisterAll(typeof(SsPlayer).Assembly);
+        var services = new ServiceContainer();
+        registry.Services = services;
+        var convars = ConVarRegistry.For(TestEngines.Server().Engine.Require<IEngineConsole>());
+        convars.RegisterAll(typeof(GameRules).Assembly);       // the modes' convars
+
+        var tf = new TFModeRig();
+        services.AddInstance<IHooks<IGameModeSelector>>(new ListHooks<IGameModeSelector>(new ModeSelector()));
+        services.AddInstance(tf.Ctf.GetType(), tf.Ctf);
+        var modes = new GameModes(log, engine, services, convars);
+
+        var say = new HostSay(log, engine, engine, registry, engine, new Clients(), engine, engine);
+        say.AttachModes(modes);
+        return say;
+    }
+
+    /// <summary>Stock TF is a team game: the mode says so itself.</summary>
+    [Fact]
+    public void ATFModeIsTeamplay()
+    {
+        Assert.True(new TFModeRig().Ctf.Teamplay, "TF plays with teams");
+    }
+
+    /// <summary>Under an active TF mode a team line reaches the same team.</summary>
+    [Fact]
+    public void SayTeamReachesATeammateUnderATFMode()
+    {
+        var say = TeamRelay();
+
+        Assert.True(say.CanHear(Listener, Talker, teamOnly: true), "the two red players hear each other");
     }
 }

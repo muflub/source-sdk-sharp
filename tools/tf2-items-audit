@@ -1,0 +1,392 @@
+#!/usr/bin/env python3
+"""tools/tf2-items-audit -- the working-items table for the TF2 port.
+
+Reads the shipped item schema (items_game.txt, KeyValues) with prefab
+resolution, selects every class-equippable weapon-slot item, and writes
+one row per item as a TSV: its behaviour attribute classes and a status
+column the audit and the port stages fill in. The bots' item source draws
+only works rows.
+
+    tools/tf2-items-audit [--schema PATH] [--write]
+
+Without --write the table and the counts print to stdout; with --write the
+table goes to game/mod_tf2/scripts/items/items_working.tsv (idempotent: a
+second run changes nothing). No network, no third-party modules.
+
+Selection, matching SchemaParser/ItemSchema over the same file: the
+item_slot (merged, head->misc like BInitFromKV's) is one of primary,
+secondary, melee, pda2 or building; item_class starts tf_; and the item
+has a used_by_classes block. The classes column mirrors ItemDefinition
+.UsedByClasses: the used_by_classes names the class table knows (TFItem
+Strings.ClassIndex), in class-index order. The attributes column is the
+attribute_class of each attribute the item sets (static_attrs first, then
+attributes, as ItemDefinition.Attributes orders them), cosmetic names
+dropped. The family column is the item_class, with a second word for the
+flagged families. Status starts unknown; a row is works when the item
+carries no behaviour attribute at all and its item_class has a behaviour
+row (TFWeaponTypes.BaseItemFor's match against the schema's base items).
+"""
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_SCHEMA = os.path.join(ROOT, "bin", "debug", "content", "tf",
+                              "scripts", "items", "items_game.txt")
+TABLE = os.path.join(ROOT, "game", "mod_tf2", "scripts", "items",
+                     "items_working.tsv")
+
+SLOTS = ("primary", "secondary", "melee", "pda2", "building")
+
+# TFItemStrings.ClassIndex (tf_item_schema.cpp:1456-1469): the usability
+# words, index order = UsedByClasses order.
+CLASS_INDEX = {
+    "undefined": 0, "scout": 1, "sniper": 2, "soldier": 3, "demoman": 4,
+    "medic": 5, "heavy": 6, "pyro": 7, "spy": 8, "engineer": 9,
+    "invalid": 10,
+}
+
+# Cosmetic attribute names, one list here (the audit keeps behaviours).
+COSMETIC_NAMES = frozenset({
+    "min viewmodel offset", "weapon stattrak module scale",
+    "weapon allow inspect", "weapon uses stattrak module", "is marketable",
+    "paintkit proto def index", "texture wear default",
+    "disable fancy class select anim", "special taunt",
+    "has team color paintkit", "limited quantity item",
+    "allowed in medieval mode", "item meter charge type",
+})
+COSMETIC_PREFIXES = ("kill eater", "flame")
+
+HEADER = ["defindex", "name", "item_class", "slot", "classes", "family",
+          "attributes", "status", "evidence"]
+
+
+class Node:
+    __slots__ = ("name", "block", "kids", "val")
+
+    def __init__(self, name):
+        self.name = name
+        self.block = False
+        self.kids = []
+        self.val = None
+
+
+def skip_ws(s, i):
+    n = len(s)
+    while i < n:
+        c = s[i]
+        if c in " \t\r\n":
+            i += 1
+        elif s.startswith("//", i):
+            j = s.find("\n", i)
+            i = n if j < 0 else j + 1
+        elif s.startswith("/*", i):
+            j = s.find("*/", i + 2)
+            i = n if j < 0 else j + 2
+        else:
+            break
+    return i
+
+
+def parse_value(s, i):
+    i = skip_ws(s, i)
+    if i >= len(s) or s[i] != '"':
+        raise SystemExit("items_game.txt: bare token at offset %d" % i)
+    i += 1
+    buf = []
+    while i < len(s):
+        c = s[i]
+        if c == "\\":
+            buf.append(s[i + 1])
+            i += 2
+            continue
+        if c == '"':
+            i += 1
+            break
+        buf.append(c)
+        i += 1
+    return "".join(buf), i
+
+
+def parse_children(s, i):
+    kids = []
+    while True:
+        i = skip_ws(s, i)
+        if i >= len(s) or s[i] == "}":
+            return kids, i + 1
+        name, i = parse_value(s, i)
+        node = Node(name)
+        i = skip_ws(s, i)
+        if i < len(s) and s[i] == "{":
+            node.block = True
+            node.kids, i = parse_children(s, i + 1)
+        else:
+            node.val, i = parse_value(s, i)
+        kids.append(node)
+
+
+def parse_schema(text):
+    kids, _ = parse_children(text, 0)
+    if not kids or not kids[0].block:
+        raise SystemExit("items_game.txt holds no schema block")
+    return kids[0]  # the first top-level key, whatever it is called
+
+
+def child_of(node, name):
+    """SchemaParser's root.Find: the first child of that name."""
+    for c in node.kids:
+        if c.name.lower() == name:
+            return c
+    return None
+
+
+def attr_class_is_cosmetic(name):
+    word = name.lower().replace("_", " ")
+    return word in COSMETIC_NAMES or word.startswith(COSMETIC_PREFIXES)
+
+
+def family_of(item_class, merged):
+    """item_class with a second word for the flagged families."""
+    cls = item_class.lower()
+    if cls.startswith("tf_wearable") and "provide_on_active" in merged:
+        return item_class + " passive"
+    if cls == "tf_wearable_demoshield":
+        return item_class + " shield"
+    if cls == "tf_weapon_buff_item":
+        return item_class + " banner"
+    if "item_meter_charge_rate" in merged:
+        return item_class + " meter"
+    if cls == "tf_weapon_lunchbox_drink":
+        return item_class + " drink"
+    if cls == "tf_weapon_lunchbox":
+        return item_class + " lunchbox"
+    if cls.startswith("tf_weapon_pda"):
+        return item_class + " pda"
+    if cls == "tf_weapon_builder":
+        return item_class + " builder"
+    return item_class
+
+
+def main(argv):
+    args = list(argv)
+    schema = DEFAULT_SCHEMA
+    write = False
+    i = 0
+    while i < len(args):
+        if args[i] == "--schema" and i + 1 < len(args):
+            schema = args[i + 1]
+            i += 2
+        elif args[i] == "--write":
+            write = True
+            i += 1
+        else:
+            raise SystemExit("usage: tools/tf2-items-audit [--schema PATH] [--write]")
+
+    with open(schema, encoding="utf-8-sig") as fh:
+        root = parse_schema(fh.read())
+
+    prefabs = {}
+    prefabs_block = child_of(root, "prefabs")
+    if prefabs_block:
+        for p in prefabs_block.kids:
+            if p.block:
+                prefabs.setdefault(p.name.lower(), p)
+
+    # Attribute definitions (InitAttributes): name -> attribute_class.
+    defs = {}
+    attrs_block = child_of(root, "attributes")
+    if attrs_block:
+        for a in attrs_block.kids:
+            if not a.block:
+                continue
+            name = leaf_of(a, "name")
+            acls = leaf_of(a, "attribute_class")
+            if name and acls and name.lower() not in defs:
+                defs[name.lower()] = acls
+
+    items_block = child_of(root, "items")
+    if items_block is None:
+        raise SystemExit("items_game.txt holds no items block")
+
+    base_classes = []  # item_class of every baseitem ("1"), BaseItemFor's pool
+
+    merged_map = {}  # defindex -> merged keys for the base-item pass
+
+    def merge_keys(item):
+        """MergeDefinitionPrefab's order: each prefab (chain first) last to
+        first, then the item's own keys; later writes replace earlier ones."""
+        merged = {}
+
+        def apply(src, stack):
+            chain = None
+            for sub in src.kids:
+                if sub.name.lower() == "prefab" and sub.val is not None:
+                    chain = sub.val
+            if chain:
+                for word in reversed(chain.split()):
+                    prefab = prefabs.get(word.lower())
+                    if prefab is None or word.lower() in stack:
+                        continue
+                    apply(prefab, stack + [word.lower()])
+            for sub in src.kids:
+                if sub.name.lower() == "prefab":
+                    continue
+                key = sub.name.lower()
+                if sub.block and key in ("used_by_classes", "static_attrs",
+                                         "attributes"):
+                    target = merged.setdefault(key, {})
+                    for entry in sub.kids:
+                        target[entry.name.lower()] = entry
+                elif sub.val is not None:
+                    merged[key] = sub.val
+        apply(item, [])
+        return merged
+
+    rows = []
+    for item in items_block.kids:
+        if not item.block or item.name.lower() == "default":
+            continue
+        try:
+            defindex = int(item.name)
+        except ValueError:
+            continue
+        if defindex < 0:
+            continue
+
+        merged = merge_keys(item)
+
+        slot = (merged.get("item_slot") or "").lower()
+        if slot == "head":  # BInitFromKV: head reads as misc
+            slot = "misc"
+        if slot not in SLOTS:
+            continue
+        item_class = merged.get("item_class") or ""
+        if not item_class.lower().startswith("tf_"):
+            continue
+        used_by = merged.get("used_by_classes")
+        if used_by is None:
+            continue
+
+        classes = sorted(
+            {name for name in used_by if name in CLASS_INDEX},
+            key=lambda name: CLASS_INDEX[name])
+        classes_joined = ",".join(classes)
+
+        # Behaviour attribute classes: static_attrs first, then attributes.
+        names_in_order = []
+        for block_key in ("static_attrs", "attributes"):
+            block = merged.get(block_key)
+            if isinstance(block, dict):
+                for name in block:
+                    if name not in names_in_order:
+                        names_in_order.append(name)
+        behaviour = []
+        for name in names_in_order:
+            if attr_class_is_cosmetic(name):
+                continue
+            acls = defs.get(name) or name.replace(" ", "_")
+            if acls not in behaviour:
+                behaviour.append(acls)
+
+        if str(merged.get("baseitem", "")).strip() == "1":
+            base_classes.append(item_class.lower())
+
+        rows.append({
+            "defindex": defindex,
+            "name": merged.get("name") or item.name,
+            "item_class": item_class,
+            "slot": slot,
+            "classes": classes_joined,
+            "family": family_of(item_class, merged),
+            "attributes": ";".join(behaviour),
+            "evidence": "",
+            "_names": names_in_order,
+        })
+
+    rows.sort(key=lambda r: r["defindex"])
+    # ItemSchema.Items keys by defindex; a repeated defindex keeps the last
+    # definition, as the managed dictionary overwrite does.
+    deduped = {}
+    for r in rows:
+        deduped[r["defindex"]] = r
+    rows = sorted(deduped.values(), key=lambda r: r["defindex"])
+
+    # Status: works when no behaviour attribute at all, and the item_class
+    # has a behaviour row (TFWeaponTypes.BaseItemFor's match: equal, or the
+    # schema's base item's class is the name's stem at an underscore).
+    for r in rows:
+        cls = r["item_class"].lower()
+        has_row = any(b == cls or cls.startswith(b + "_")
+                      for b in base_classes)
+        r["status"] = ("works" if has_row and not r["attributes"]
+                       else "unknown")
+
+    lines = ["\t".join(HEADER)]
+    for r in rows:
+        lines.append("\t".join(str(r[k]) for k in HEADER))
+    table = "\n".join(lines) + "\n"
+
+    slot_counts = {}
+    for r in rows:
+        slot_counts[r["slot"]] = slot_counts.get(r["slot"], 0) + 1
+    families = sorted({r["item_class"] for r in rows})
+    raw_classes = []
+    attr_classes = []
+    behaviours = set()
+    for r in rows:
+        classes = r["attributes"].split(";") if r["attributes"] else []
+        # raw: every attribute the item sets, cosmetic ones in.
+        raw_names = []
+        merged_names = r["_names"]
+        for name in merged_names:
+            acls = defs.get(name) or name.replace(" ", "_")
+            if acls not in raw_names:
+                raw_names.append(acls)
+        for a in raw_names:
+            if a not in raw_classes:
+                raw_classes.append(a)
+        for a in classes:
+            if a not in attr_classes:
+                attr_classes.append(a)
+        behaviours.add((r["item_class"], frozenset(classes)))
+
+    # Names-based distinct counts: attribute names are many-to-one onto
+    # classes, so the name count is the wider one.
+    raw_names_all = []
+    names_filtered = []
+    for r in rows:
+        for name in r["_names"]:
+            if name not in raw_names_all:
+                raw_names_all.append(name)
+            if not attr_class_is_cosmetic(name) and name not in names_filtered:
+                names_filtered.append(name)
+
+    def counts():
+        print("items: %d %s" % (len(rows), slot_counts))
+        print("item_class families: %d" % len(families))
+        print("attribute classes raw: %d" % len(raw_classes))
+        print("attribute classes filtered: %d" % len(attr_classes))
+        print("attribute names raw: %d" % len(raw_names_all))
+        print("attribute names filtered: %d" % len(names_filtered))
+        print("behaviours: %d" % len(behaviours))
+
+    if write:
+        os.makedirs(os.path.dirname(TABLE), exist_ok=True)
+        with open(TABLE, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(table)
+        counts()
+        print("wrote %s (%d rows)" % (os.path.relpath(TABLE, ROOT), len(rows)))
+    else:
+        sys.stdout.write(table)
+        counts()
+    return 0
+
+
+def leaf_of(node, key):
+    for c in node.kids:
+        if c.name.lower() == key and c.val is not None:
+            return c.val
+    return None
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

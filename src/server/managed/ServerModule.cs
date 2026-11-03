@@ -1778,7 +1778,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_services.Create<Intermission>());
         _services.AddInstance(_services.Create<MotdPanel>());
         // Host_Say, behind say and say_team.
-        _services.AddInstance(_services.Create<HostSay>());
+        var say = _services.Create<HostSay>();
+        _services.AddInstance(say);
         // The mode proxy (tf2 stage 0.7, ruling U1), BEFORE the rules: the
         // rules take it (every question they ask a mode goes through it), and
         // it takes the rules' machine as the default mode's — neither can be
@@ -1802,6 +1803,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         // cannot be Create'd at the Players creation site above, which runs
         // before the ConVarRegistry it takes is registered.
         _players.AttachModes(modes);
+
+        // And the say relay gets it too: say_team asks the active mode whether
+        // it plays with teams before it sends the line to teammates.
+        say.AttachModes(modes);
 
         // NO NATIVE AMMO REGISTRATION ON THE SERVER (plan_server_novalve.md P5,
         // user ruling 2026-10-01). server.so's table was written here and read

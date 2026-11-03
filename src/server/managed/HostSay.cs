@@ -52,6 +52,19 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
     private readonly IHooks<IPlayerChatHook>? _chatHooks = chatHooks;
     private readonly IHooks<IChatAudience>? _audience = audience;
 
+    /// <summary>
+    /// The mode proxy, for the active mode's <see cref="IGameMode.Teamplay"/>
+    /// answer, wired by <see cref="AttachModes"/>. An ATTACH and not a
+    /// constructor parameter for the Players reason: this class is created
+    /// before the proxy exists, and `Create` resolves constructor arguments
+    /// eagerly, so asking by parameter would make the live game pass null.
+    /// Null stays the no-owner arm: HL2MP without teamplay has no teammates.
+    /// </summary>
+    private GameModes? _modes;
+
+    /// <summary>The wiring the module does once the proxy exists (see <see cref="_modes"/>).</summary>
+    internal void AttachModes(GameModes modes) => _modes = modes;
+
     /// <summary>The longest line (CheckChatText's cut).</summary>
     public const int MaxText = 127;
 
@@ -141,8 +154,20 @@ public sealed class HostSay(ILog log, IEnginePlayers players, IEngineEntities en
         => messages.Send(new SayText2 { Client = (byte)from, Chat = true, Name = format, Params = [name, text, "", ""] },
                          to, reliable: true);
 
-    /// <summary>CHL2MPRules::PlayerRelationship: without teamplay, nobody is a teammate.</summary>
-    public static bool Teammates(EntityHandle a, EntityHandle b) => false;
+    /// <summary>
+    /// CHL2MPRules::PlayerRelationship under the active mode: HL2MP without
+    /// teamplay has no teammates, and a mode that plays with teams says one
+    /// game team (numbered 2 and up) is the same side. Spectator (1) and
+    /// unassigned (0) never make teammates either way.
+    /// </summary>
+    public bool Teammates(EntityHandle a, EntityHandle b)
+    {
+        if (_modes?.Active?.Teamplay is not true)
+            return false;
+
+        int team = players.GetTeam(a);
+        return team >= 2 && team == players.GetTeam(b);
+    }
 
     /// <summary>CHL2MPRules::GetChatFormat for a player.</summary>
     public static string Format(bool teamOnly, int team)

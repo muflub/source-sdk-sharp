@@ -308,10 +308,25 @@ public sealed class Teams : ITeams
             return _observers.JoinTeam(joiner, arg, now);
         }
 
-        // A playing team: the policy first, while nothing has changed yet —
-        // stock's order (CHL2MP_Player::HandleCommand_JoinTeam asks
-        // g_pGameRules before ChangeTeam). Zero policies accepts the team.
-        if (Policy is { } policy && !policy.MayJoin(player, requested, out string why))
+        // A playing team: the ACTIVE MODE's own join rule first — the order
+        // SelectSpawn keeps for Spawns: the mode owns the round, and its rule
+        // is scoped to it, while a registered owner answers for every mode.
+        // Null is the mode's plain "ask the owner"; an answer is the round's
+        // answer, refusals included (the second "may this player join" would
+        // only be able to contradict it). Stock's order, CHL2MP_Player::
+        // HandleCommand_JoinTeam asking g_pGameRules before ChangeTeam. Zero
+        // policies, on either side, accepts the team.
+        if (_modes?.Active?.JoinPolicy is { } modePolicy)
+        {
+            if (!modePolicy.MayJoin(player, requested, out string modeWhy))
+            {
+                _log.Msg($"[SourceSharp/Teams] {player} refused team {requested}: {modeWhy}\n");
+                _chat?.Print(_entities.GetIndex(player),
+                             modeWhy.Length > 0 ? modeWhy : $"You cannot join team {requested}.");
+                return JoinTeamResult.Refused;
+            }
+        }
+        else if (Policy is { } policy && !policy.MayJoin(player, requested, out string why))
         {
             _log.Msg($"[SourceSharp/Teams] {player} refused team {requested}: {why}\n");
 

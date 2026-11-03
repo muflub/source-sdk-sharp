@@ -1,0 +1,499 @@
+defindex	name	item_class	slot	classes	family	attributes	status	evidence
+0	TF_WEAPON_BAT	tf_weapon_bat	melee	scout	tf_weapon_bat		works	
+1	TF_WEAPON_BOTTLE	tf_weapon_bottle	melee	demoman	tf_weapon_bottle		works	
+2	TF_WEAPON_FIREAXE	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe		works	
+3	TF_WEAPON_CLUB	tf_weapon_club	melee	sniper	tf_weapon_club		works	
+4	TF_WEAPON_KNIFE	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+5	TF_WEAPON_FISTS	tf_weapon_fists	melee	heavy	tf_weapon_fists		works	
+6	TF_WEAPON_SHOVEL	tf_weapon_shovel	melee	soldier	tf_weapon_shovel		works	
+7	TF_WEAPON_WRENCH	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+8	TF_WEAPON_BONESAW	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw		works	
+9	TF_WEAPON_SHOTGUN_PRIMARY	tf_weapon_shotgun	primary	engineer	tf_weapon_shotgun		works	
+10	TF_WEAPON_SHOTGUN_SOLDIER	tf_weapon_shotgun	secondary	soldier	tf_weapon_shotgun		works	
+11	TF_WEAPON_SHOTGUN_HWG	tf_weapon_shotgun	secondary	heavy	tf_weapon_shotgun		works	
+12	TF_WEAPON_SHOTGUN_PYRO	tf_weapon_shotgun	secondary	pyro	tf_weapon_shotgun		works	
+13	TF_WEAPON_SCATTERGUN	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+14	TF_WEAPON_SNIPERRIFLE	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15	TF_WEAPON_MINIGUN	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+16	TF_WEAPON_SMG	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+17	TF_WEAPON_SYRINGEGUN_MEDIC	tf_weapon_syringegun_medic	primary	medic	tf_weapon_syringegun_medic		works	
+18	TF_WEAPON_ROCKETLAUNCHER	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+19	TF_WEAPON_GRENADELAUNCHER	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+20	TF_WEAPON_PIPEBOMBLAUNCHER	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+21	TF_WEAPON_FLAMETHROWER	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+22	TF_WEAPON_PISTOL	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+23	TF_WEAPON_PISTOL_SCOUT	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+24	TF_WEAPON_REVOLVER	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+26	TF_WEAPON_PDA_ENGINEER_DESTROY	tf_weapon_pda_engineer_destroy	pda2	engineer	tf_weapon_pda_engineer_destroy pda		works	
+28	TF_WEAPON_BUILDER	tf_weapon_builder	building	engineer	tf_weapon_builder builder		works	
+29	TF_WEAPON_MEDIGUN	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+30	TF_WEAPON_INVIS	tf_weapon_invis	pda2	spy	tf_weapon_invis		works	
+35	The Kritzkrieg	tf_weapon_medigun	secondary	medic	tf_weapon_medigun	set_charge_type;mult_medigun_uberchargerate	unknown	
+36	The Blutsauger	tf_weapon_syringegun_medic	primary	medic	tf_weapon_syringegun_medic	add_onhit_addhealth;add_health_regen	unknown	
+37	The Ubersaw	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw	add_onhit_ubercharge;mult_postfiredelay;set_weapon_mode	unknown	
+38	The Axtinguisher	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	attack_minicrits_and_consumes_burning;mult_dmg;mult_switch_from_wep_deploy_time;mult_crit_chance	unknown	
+39	The Flare Gun	tf_weapon_flaregun	secondary	pyro	tf_weapon_flaregun	mult_maxammo_secondary;crit_vs_burning_FLARES_DISPLAY_ONLY	unknown	
+40	The Backburner	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health;mult_airblast_cost;set_flamethrower_back_crit;mult_crit_chance	unknown	
+41	Natascha	tf_weapon_minigun	primary	heavy	tf_weapon_minigun	mult_onhit_enemyspeed;mult_dmg;mult_minigun_spinup_time;set_weapon_mode;spunup_damage_resistance	unknown	
+42	The Sandvich	tf_weapon_lunchbox	secondary	heavy	tf_weapon_lunchbox lunchbox	item_meter_charge_rate;meter_label	unknown	
+43	The Killing Gloves of Boxing	tf_weapon_fists	melee	heavy	tf_weapon_fists	add_onkill_critboost_time;mult_postfiredelay	unknown	
+44	The Sandman	tf_weapon_bat_wood	melee	scout	tf_weapon_bat_wood	set_weapon_mode;add_maxhealth	unknown	
+45	The Force-a-Nature	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun	set_scattergun_has_knockback;mult_postfiredelay;mult_bullets_per_shot;mult_dmg;mult_clipsize;set_scattergun_no_reload_single	unknown	
+46	Bonk! Atomic Punch	tf_weapon_lunchbox_drink	secondary	scout	tf_weapon_lunchbox_drink drink		unknown	
+56	The Huntsman	tf_weapon_compound_bow	primary	sniper	tf_weapon_compound_bow	mult_maxammo_primary	unknown	
+57	The Razorback	tf_wearable_razorback	secondary	sniper	tf_wearable_razorback	item_meter_charge_rate;meter_label;set_blockbackstab_once;mult_patient_overheal_penalty	unknown	
+58	Jarate	tf_weapon_jar	secondary	sniper	tf_weapon_jar	desc_jarate_description;extinguish_reduces_cooldown	unknown	
+59	The Dead Ringer	tf_weapon_invis	pda2	spy	tf_weapon_invis	set_weapon_mode;mult_cloak_meter_consume_rate;cloak_consume_on_feign_death_activate;mult_cloak_meter_regen_rate;mod_cloak_no_regen_from_items	unknown	
+60	The Cloak and Dagger	tf_weapon_invis	pda2	spy	tf_weapon_invis	set_weapon_mode;mult_cloak_meter_regen_rate;NoCloakWhenCloaked;ReducedCloakFromAmmo	unknown	
+61	The Ambassador	tf_weapon_revolver	secondary	spy	tf_weapon_revolver	crit_dmg_falloff;set_weapon_mode;mult_dmg;mult_postfiredelay;mult_crit_chance	unknown	
+127	The Direct Hit	tf_weapon_rocketlauncher_directhit	primary	soldier	tf_weapon_rocketlauncher_directhit	mult_explosion_radius;mult_projectile_speed;mult_dmg;mini_crit_airborne	unknown	
+128	The Equalizer	tf_weapon_shovel	melee	soldier	tf_weapon_shovel	provide_on_active;set_weapon_mode;mult_healing_from_medics	unknown	
+129	The Buff Banner	tf_weapon_buff_item	secondary	soldier	tf_weapon_buff_item banner	set_buff_type	unknown	
+130	The Scottish Resistance	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher	mult_postfiredelay;set_detonate_mode;stickies_detonate_stickies;mult_maxammo_secondary;add_max_pipebombs;sticky_arm_time	unknown	
+131	The Chargin' Targe	tf_wearable_demoshield	secondary	demoman	tf_wearable_demoshield shield	mult_dmgtaken_from_fire;mult_dmgtaken_from_explosions	unknown	
+132	The Eyelander	tf_weapon_sword	melee	demoman	tf_weapon_sword	is_a_sword;mult_crit_chance;add_maxhealth;decapitate_type	unknown	
+133	The Gunboats	tf_wearable	secondary	soldier	tf_wearable	rocket_jump_dmg_reduction	unknown	
+140	The Wrangler	tf_weapon_laser_pointer	secondary	engineer	tf_weapon_laser_pointer		unknown	
+141	The Frontier Justice	tf_weapon_sentry_revenge	primary	engineer	tf_weapon_sentry_revenge	sentry_killed_revenge;lose_revenge_crits_on_death_DISPLAY_ONLY;mult_crit_chance;mult_clipsize	unknown	
+142	The Gunslinger	tf_weapon_robot_arm	melee	engineer	tf_weapon_robot_arm	gunslinger_punch_combo;wrench_builds_minisentry;add_maxhealth;sentry_build_rate_multiplier;mult_crit_chance	unknown	
+153	The Homewrecker	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	mult_dmg_vs_buildings;mult_dmg_vs_players;set_dmg_apply_to_sapper	unknown	
+154	The Pain Train	tf_weapon_shovel	melee	soldier,demoman	tf_weapon_shovel	add_player_capturevalue;mult_dmgtaken_from_bullets	unknown	
+155	The Southern Hospitality	tf_weapon_wrench	melee	engineer	tf_weapon_wrench	mult_crit_chance;bleeding_duration;mult_dmgtaken_from_fire	unknown	
+159	The Dalokohs Bar	tf_weapon_lunchbox	secondary	heavy	tf_weapon_lunchbox lunchbox	item_meter_charge_rate;meter_label;set_weapon_mode	unknown	
+160	TTG Max Pistol	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+161	TTG Sam Revolver	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+163	Crit-a-Cola	tf_weapon_lunchbox_drink	secondary	scout	tf_weapon_lunchbox_drink drink	set_weapon_mode;mod_mark_attacker_for_death	unknown	
+169	Golden Wrench	tf_weapon_wrench	melee	engineer	tf_weapon_wrench	set_turn_to_gold;cannot_trade	unknown	
+171	The Tribalman's Shiv	tf_weapon_club	melee	sniper	tf_weapon_club	bleeding_duration;mult_dmg	unknown	
+172	The Scotsman's Skullcutter	tf_weapon_sword	melee	demoman	tf_weapon_sword	is_a_sword;provide_on_active;mult_dmg;mult_player_movespeed	unknown	
+173	The Vita-Saw	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw	ubercharge_preserved_on_spawn_max;add_maxhealth;set_weapon_mode	unknown	
+190	Upgradeable TF_WEAPON_BAT	tf_weapon_bat	melee	scout	tf_weapon_bat		works	
+191	Upgradeable TF_WEAPON_BOTTLE	tf_weapon_bottle	melee	demoman	tf_weapon_bottle		works	
+192	Upgradeable TF_WEAPON_FIREAXE	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe		works	
+193	Upgradeable TF_WEAPON_CLUB	tf_weapon_club	melee	sniper	tf_weapon_club		works	
+194	Upgradeable TF_WEAPON_KNIFE	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+195	Upgradeable TF_WEAPON_FISTS	tf_weapon_fists	melee	heavy	tf_weapon_fists		works	
+196	Upgradeable TF_WEAPON_SHOVEL	tf_weapon_shovel	melee	soldier	tf_weapon_shovel		works	
+197	Upgradeable TF_WEAPON_WRENCH	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+198	Upgradeable TF_WEAPON_BONESAW	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw		works	
+199	Upgradeable TF_WEAPON_SHOTGUN_PRIMARY	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+200	Upgradeable TF_WEAPON_SCATTERGUN	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+201	Upgradeable TF_WEAPON_SNIPERRIFLE	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+202	Upgradeable TF_WEAPON_MINIGUN	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+203	Upgradeable TF_WEAPON_SMG	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+204	Upgradeable TF_WEAPON_SYRINGEGUN_MEDIC	tf_weapon_syringegun_medic	primary	medic	tf_weapon_syringegun_medic		works	
+205	Upgradeable TF_WEAPON_ROCKETLAUNCHER	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+206	Upgradeable TF_WEAPON_GRENADELAUNCHER	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+207	Upgradeable TF_WEAPON_PIPEBOMBLAUNCHER	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+208	Upgradeable TF_WEAPON_FLAMETHROWER	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+209	Upgradeable TF_WEAPON_PISTOL	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+210	Upgradeable TF_WEAPON_REVOLVER	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+211	Upgradeable TF_WEAPON_MEDIGUN	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+212	Upgradeable TF_WEAPON_INVIS	tf_weapon_invis	pda2	spy	tf_weapon_invis		works	
+214	The Powerjack	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	heal_on_kill;mult_player_movespeed;mult_dmgtaken;provide_on_active	unknown	
+215	The Degreaser	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health;mult_single_wep_deploy_time;mult_switch_from_wep_deploy_time;mult_wpn_burndmg;mult_airblast_cost	unknown	
+220	The Shortstop	tf_weapon_handgun_scout_primary	primary	scout	tf_weapon_handgun_scout_primary	provide_on_active;mult_reload_time_hidden;damage_force_reduction;airblast_vulnerability_multiplier	unknown	
+221	The Holy Mackerel	tf_weapon_bat_fish	melee	scout	tf_weapon_bat_fish		works	
+222	Mad Milk	tf_weapon_jar_milk	secondary	scout	tf_weapon_jar_milk	extinguish_reduces_cooldown	unknown	
+224	L'Etranger	tf_weapon_revolver	secondary	spy	tf_weapon_revolver	add_cloak_on_hit;mult_dmg;mult_cloak_meter_consume_rate	unknown	
+225	Your Eternal Reward	tf_weapon_knife	melee	spy	tf_weapon_knife	set_disguise_on_backstab;set_silent_killer;set_weapon_mode;mult_cloak_meter_consume_rate;mod_disguise_consumes_cloak	unknown	
+226	The Battalion's Backup	tf_weapon_buff_item	secondary	soldier	tf_weapon_buff_item banner	set_buff_type;add_maxhealth	unknown	
+228	The Black Box	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher	add_health_on_radius_damage;mult_clipsize	unknown	
+230	The Sydney Sleeper	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle	set_weapon_mode;jarate_duration;mult_crit_chance;mult_sniper_charge_per_sec	unknown	
+231	Darwin's Danger Shield	tf_wearable	secondary	sniper	tf_wearable	afterburn_immunity;mult_dmgtaken_from_fire	unknown	
+232	The Bushwacka	tf_weapon_club	melee	sniper	tf_weapon_club	provide_on_active;mult_dmgtaken;minicrits_become_crits;mult_crit_chance	unknown	
+237	Rocket Jumper	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher	mult_dmg;mult_crit_chance;no_self_blast_dmg;mult_maxammo_primary;cannot_pick_up_intelligence	unknown	
+239	Gloves of Running Urgently	tf_weapon_fists	melee	heavy	tf_weapon_fists	mult_player_movespeed_active;mod_maxhealth_drain_rate;set_weapon_mode;mult_switch_from_wep_deploy_time	unknown	
+265	Stickybomb Jumper	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher	mult_dmg;mult_crit_chance;no_self_blast_dmg;mult_maxammo_secondary;override_projectile_type;add_max_pipebombs;cannot_pick_up_intelligence	unknown	
+266	The Horseless Headless Horseman's Headtaker	tf_weapon_sword	melee	demoman	tf_weapon_sword	is_a_sword;mult_crit_chance;add_maxhealth;decapitate_type	unknown	
+294	TTG Max Pistol - Poker Night	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+297	TTG Watch	tf_weapon_invis	pda2	spy	tf_weapon_invis	cannot_trade	unknown	
+298	Iron Curtain	tf_weapon_minigun	primary	heavy	tf_weapon_minigun	cannot_trade	unknown	
+304	The Amputator	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw	provide_on_active;mult_dmg;enables_aoe_heal;add_health_regen	unknown	
+305	The Crusader's Crossbow	tf_weapon_crossbow	primary	medic	tf_weapon_crossbow	set_weapon_mode;mult_maxammo_primary	unknown	
+307	The Ullapool Caber	tf_weapon_stickbomb	melee	demoman	tf_weapon_stickbomb	mult_postfiredelay;mult_single_wep_deploy_time;mult_crit_chance	unknown	
+308	The Loch-n-Load	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher	mult_clipsize;mult_dmg_vs_buildings;mult_projectile_speed;mult_explosion_radius;set_detonate_mode;grenade_no_spin	unknown	
+310	Warrior's Spirit	tf_weapon_fists	melee	heavy	tf_weapon_fists	provide_on_active;mult_dmgtaken;mult_dmg;heal_on_kill	unknown	
+311	The Buffalo Steak Sandvich	tf_weapon_lunchbox	secondary	heavy	tf_weapon_lunchbox lunchbox	item_meter_charge_rate;meter_label;set_weapon_mode;energy_buff_dmg_taken_multiplier	unknown	
+312	The Brass Beast	tf_weapon_minigun	primary	heavy	tf_weapon_minigun	mult_dmg;mult_minigun_spinup_time;mult_player_aiming_movespeed;spunup_damage_resistance	unknown	
+317	The Candy Cane	tf_weapon_bat	melee	scout	tf_weapon_bat	drop_health_pack_on_kill;mult_dmgtaken_from_explosions	unknown	
+325	The Boston Basher	tf_weapon_bat	melee	scout	tf_weapon_bat	bleeding_duration;hit_self_on_miss	unknown	
+326	The Back Scratcher	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	mult_dmg;mult_health_fromhealers;mult_health_frompacks	unknown	
+327	The Claidheamohmor	tf_weapon_sword	melee	demoman	tf_weapon_sword	kill_refills_meter;is_a_sword;mod_charge_time;provide_on_active;mult_dmgtaken;mult_crit_chance	unknown	
+329	The Jag	tf_weapon_wrench	melee	engineer	tf_weapon_wrench	mult_construction_value;mult_postfiredelay;mult_repair_value;mult_dmg;mult_dmg_vs_buildings	unknown	
+331	Fists of Steel	tf_weapon_fists	melee	heavy	tf_weapon_fists	mult_patient_overheal_penalty_active;mult_health_fromhealers_penalty_active;dmg_from_ranged;dmg_from_melee;mult_switch_from_wep_deploy_time	unknown	
+348	Sharpened Volcano Fragment	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	set_dmgtype_ignite;mult_dmg	unknown	
+349	Sun-on-a-Stick	tf_weapon_bat	melee	scout	tf_weapon_bat	or_crit_vs_playercond;mult_dmg;mult_dmgtaken_from_fire_active	unknown	
+351	The Detonator	tf_weapon_flaregun	secondary	pyro	tf_weapon_flaregun	mult_maxammo_secondary;blast_dmg_to_self;mult_dmg;or_minicrit_vs_playercond_burning;set_weapon_mode	unknown	
+354	The Concheror	tf_weapon_buff_item	secondary	soldier	tf_weapon_buff_item banner	set_buff_type;add_health_regen	unknown	
+355	The Fan O'War	tf_weapon_bat	melee	scout	tf_weapon_bat	mark_for_death;mult_dmg;minicrits_become_crits	unknown	
+356	Conniver's Kunai	tf_weapon_knife	melee	spy	tf_weapon_knife	sanguisuge;add_maxhealth	unknown	
+357	The Half-Zatoichi	tf_weapon_katana	melee	soldier,demoman	tf_weapon_katana	is_a_sword;decapitate_type;restore_health_on_kill;mult_crit_chance;honorbound	unknown	
+401	The Shahanshah	tf_weapon_club	melee	sniper	tf_weapon_club	mult_dmg_bonus_while_half_dead;mult_dmg_penalty_while_half_alive	unknown	
+402	The Bazaar Bargain	tf_weapon_sniperrifle_decap	primary	sniper	tf_weapon_sniperrifle_decap	mult_sniper_charge_base_dummy	unknown	
+404	The Persian Persuader	tf_weapon_sword	melee	demoman	tf_weapon_sword	is_a_sword;mult_maxammo_primary;mult_maxammo_secondary;ammo_gives_charge;charge_meter_on_hit;mult_crit_chance	unknown	
+405	Ali Baba's Wee Booties	tf_wearable	primary	demoman	tf_wearable	charge_turn_control;add_maxhealth;kill_refills_meter;mult_player_movespeed_shieldrequired	unknown	
+406	The Splendid Screen	tf_wearable_demoshield	secondary	demoman	tf_wearable_demoshield shield	charge_recharge_rate;charge_impact_damage;mult_dmgtaken_from_fire;mult_dmgtaken_from_explosions	unknown	
+411	The Quick-Fix	tf_weapon_medigun	secondary	medic	tf_weapon_medigun	set_weapon_mode;mult_medigun_healrate;set_charge_type;mult_medigun_uberchargerate;mult_medigun_overheal_amount	unknown	
+412	The Overdose	tf_weapon_syringegun_medic	primary	medic	tf_weapon_syringegun_medic	mult_player_movespeed_resource_level;set_weapon_mode;mult_dmg	unknown	
+413	The Solemn Vow	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw	mult_postfiredelay;see_enemy_health	unknown	
+414	The Liberty Launcher	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher	mult_projectile_speed;mult_dmg;mult_clipsize;rocket_jump_dmg_reduction	unknown	
+415	The Reserve Shooter	tf_weapon_shotgun	secondary	soldier,pyro	tf_weapon_shotgun	mult_clipsize;mini_crit_airborne;mult_single_wep_deploy_time	unknown	
+416	The Market Gardener	tf_weapon_shovel	melee	soldier	tf_weapon_shovel	mult_postfiredelay;crit_while_airborne;mult_crit_chance	unknown	
+424	Tomislav	tf_weapon_minigun	primary	heavy	tf_weapon_minigun	mult_minigun_spinup_time;minigun_no_spin_sounds;mult_postfiredelay;mult_spread_scale	unknown	
+425	The Family Business	tf_weapon_shotgun	secondary	heavy	tf_weapon_shotgun	mult_dmg;mult_clipsize;mult_postfiredelay	unknown	
+426	The Eviction Notice	tf_weapon_fists	melee	heavy	tf_weapon_fists	mult_player_movespeed_active;mod_maxhealth_drain_rate;mult_dmg;mult_postfiredelay;speed_boost_on_hit	unknown	
+433	Fishcake	tf_weapon_lunchbox	secondary	heavy	tf_weapon_lunchbox lunchbox	item_meter_charge_rate;meter_label;set_weapon_mode;always_tradable	unknown	
+441	The Cow Mangler 5000	tf_weapon_particle_cannon	primary	soldier	tf_weapon_particle_cannon	energy_weapon_no_ammo;energy_weapon_charged_shot;energy_weapon_no_hurt_building;crits_become_minicrits;mult_crit_chance	unknown	
+442	The Righteous Bison	tf_weapon_raygun	secondary	soldier	tf_weapon_raygun	energy_weapon_no_ammo;energy_weapon_penetration;energy_weapon_no_hurt_building;energy_weapon_no_deflect	unknown	
+444	The Mantreads	tf_wearable	secondary	soldier	tf_wearable	damage_force_reduction;airblast_vulnerability_multiplier;boots_falling_stomp;mod_air_control_blast_jump	unknown	
+447	The Disciplinary Action	tf_weapon_shovel	melee	soldier	tf_weapon_shovel	mult_dmg;speed_buff_ally;melee_range_multiplier;melee_bounds_multiplier	unknown	
+448	The Soda Popper	tf_weapon_soda_popper	primary	scout	tf_weapon_soda_popper	mult_reload_time;mult_postfiredelay;mult_clipsize;set_scattergun_no_reload_single;hype_on_damage	unknown	
+449	The Winger	tf_weapon_handgun_scout_secondary	secondary	scout	tf_weapon_handgun_scout_secondary	mult_dmg;mult_clipsize;mod_jump_height_from_weapon	unknown	
+450	The Atomizer	tf_weapon_bat	melee	scout	tf_weapon_bat	air_dash_count;mult_single_wep_deploy_time;mult_dmg_vs_players	unknown	
+452	Three-Rune Blade	tf_weapon_bat	melee	scout	tf_weapon_bat	bleeding_duration;hit_self_on_miss	unknown	
+457	The Postal Pummeler	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	attack_minicrits_and_consumes_burning;mult_dmg;mult_switch_from_wep_deploy_time;mult_crit_chance	unknown	
+460	The Enforcer	tf_weapon_revolver	secondary	spy	tf_weapon_revolver	mod_pierce_resists_absorbs;mult_crit_chance;mult_postfiredelay;mult_dmg_disguised	unknown	
+461	The Big Earner	tf_weapon_knife	melee	spy	tf_weapon_knife	add_cloak_on_kill;add_maxhealth;speed_boost_on_kill	unknown	
+466	The Maul	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	mult_dmg_vs_buildings;mult_dmg_vs_players;set_dmg_apply_to_sapper	unknown	
+482	Nessie's Nine Iron	tf_weapon_sword	melee	demoman	tf_weapon_sword	is_a_sword;mult_crit_chance;add_maxhealth;decapitate_type	unknown	
+513	The Original	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher	centerfire_projectile	unknown	
+525	The Diamondback	tf_weapon_revolver	secondary	spy	tf_weapon_revolver	sapper_kills_collect_crits;mult_dmg;mult_crit_chance	unknown	
+526	The Machina	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle	sniper_penetrate_players_when_charged;sniper_only_fire_zoomed;sniper_full_charge_damage_bonus;sniper_fires_tracer;set_weapon_mode	unknown	
+527	The Widowmaker	tf_weapon_shotgun_primary	primary	engineer	tf_weapon_shotgun_primary	mult_dmg_bullet_vs_sentry_target;mod_ammo_per_shot;mod_use_metal_ammo_type;mod_no_reload_display_only;mod_max_primary_clip_override;add_onhit_addammo	unknown	
+528	The Short Circuit	tf_weapon_mechanical_arm	secondary	engineer	tf_weapon_mechanical_arm	mod_ammo_per_shot;electrical_airblast_DISPLAY_ONLY;mod_use_metal_ammo_type;mod_no_reload_display_only;mod_max_primary_clip_override;mult_crit_chance;disable_weapon_hiding_for_animations	unknown	
+572	Unarmed Combat	tf_weapon_bat_fish	melee	scout	tf_weapon_bat_fish	fish_damage_override	unknown	
+574	The Wanga Prick	tf_weapon_knife	melee	spy	tf_weapon_knife	set_disguise_on_backstab;set_silent_killer;set_weapon_mode;mult_cloak_meter_consume_rate;mod_disguise_consumes_cloak	unknown	
+587	Apoco-Fists	tf_weapon_fists	melee	heavy	tf_weapon_fists	crit_kill_will_gib	unknown	
+588	The Pomson 6000	tf_weapon_drg_pomson	primary	engineer	tf_weapon_drg_pomson	energy_weapon_no_ammo;energy_weapon_no_deflect;subtract_victim_medigun_charge_onhit;subtract_victim_cloak_on_hit;energy_weapon_no_hurt_building	unknown	
+589	The Eureka Effect	tf_weapon_wrench	melee	engineer	tf_weapon_wrench	alt_fire_teleport_to_spawn;mult_construction_value;mult_metal_pickup;mod_teleporter_cost	unknown	
+593	The Third Degree	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	damage_all_connected;ragdolls_become_ash	unknown	
+594	The Phlogistinator	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	burn_damage_earns_rage;set_buff_type;airblast_disabled;ragdolls_become_ash;set_weapon_mode;mult_crit_chance	unknown	
+595	The Manmelter	tf_weapon_flaregun_revenge	secondary	pyro	tf_weapon_flaregun_revenge	energy_weapon_no_ammo;mult_projectile_speed;extinguish_revenge;mult_crit_chance;ragdolls_become_ash;set_weapon_mode;extinguish_restores_health	unknown	
+608	The Bootlegger	tf_wearable	primary	demoman	tf_wearable	charge_turn_control;add_maxhealth;kill_refills_meter;mult_player_movespeed_shieldrequired	unknown	
+609	The Scottish Handshake	tf_weapon_bottle	melee	demoman	tf_weapon_bottle		works	
+638	The Sharp Dresser	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+642	The Cozy Camper	tf_wearable	secondary	sniper	tf_wearable	add_health_regen;mult_aiming_knockback_resistance;aiming_no_flinch	unknown	
+648	The Wrap Assassin	tf_weapon_bat_giftwrap	melee	scout	tf_weapon_bat_giftwrap	set_weapon_mode;mult_dmg;effectbar_recharge_rate	unknown	
+649	The Spy-cicle	tf_weapon_knife	melee	spy	tf_weapon_knife	freeze_backstab_victim;melts_in_fire;become_fireproof_on_hit_by_fire;set_weapon_mode	unknown	
+654	Festive Minigun 2011	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+656	The Holiday Punch	tf_weapon_fists	melee	heavy	tf_weapon_fists	crit_forces_victim_to_laugh;crit_from_behind;crit_does_no_damage;tickle_enemies_wielding_same_weapon	unknown	
+658	Festive Rocket Launcher 2011	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+659	Festive Flamethrower 2011	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+660	Festive Bat 2011	tf_weapon_bat	melee	scout	tf_weapon_bat		works	
+661	Festive Stickybomb Launcher 2011	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+662	Festive Wrench 2011	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+663	Festive Medigun 2011	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+664	Festive Sniper Rifle 2011	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+665	Festive Knife 2011	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+669	Festive Scattergun 2011	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+727	The Black Rose	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+730	The Beggar's Bazooka	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher	mult_postfiredelay;auto_fires_full_clip;can_overload;mult_reload_time_hidden;mult_clipsize;projectile_spread_angle;no_primary_ammo_from_dispensers;mult_explosion_radius	unknown	
+735	TF_WEAPON_BUILDER_SPY	tf_weapon_builder	building	spy	tf_weapon_builder builder		works	
+736	Upgradeable TF_WEAPON_BUILDER_SPY	tf_weapon_builder	building	spy	tf_weapon_builder builder		works	
+739	The Lollichop	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	vision_opt_in_flags;pyrovision_only_display;pyrovision_opt_in_display_only	unknown	
+740	The Scorch Shot	tf_weapon_flaregun	secondary	pyro	tf_weapon_flaregun	mult_maxammo_secondary;mult_dmgself_push_force;or_minicrit_vs_playercond_burning;mult_dmg;set_weapon_mode	unknown	
+741	The Rainblower	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health;vision_opt_in_flags;set_weapon_mode;pyrovision_only_display;pyrovision_opt_in_display_only	unknown	
+751	The Cleaner's Carbine	tf_weapon_charged_smg	secondary	sniper	tf_weapon_charged_smg	mult_postfiredelay;mult_clipsize;mult_crit_chance;minicrit_boost_charge_rate;minicrit_boost_when_charged	unknown	
+752	The Hitman's Heatmaker	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle	decapitate_type;bodyshot_damage_modify;rage_on_kill;rage_on_assists;set_buff_type;sniper_rage_DISPLAY_ONLY	unknown	
+772	Baby Face's Blaster	tf_weapon_pep_brawler_blaster	primary	scout	tf_weapon_pep_brawler_blaster	mult_player_movespeed;boost_on_damage;hype_resets_on_jump;lose_hype_on_take_damage;mult_clipsize	unknown	
+773	Pretty Boy's Pocket Pistol	tf_weapon_handgun_scout_secondary	secondary	scout	tf_weapon_handgun_scout_secondary	provide_on_active;add_onhit_addhealth;mult_postfiredelay;mult_clipsize	unknown	
+775	The Escape Plan	tf_weapon_shovel	melee	soldier	tf_weapon_shovel	provide_on_active;set_weapon_mode;mult_healing_from_medics;self_mark_for_death	unknown	
+792	Silver Botkiller Sniper Rifle Mk.I	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+793	Silver Botkiller Minigun Mk.I	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+794	Silver Botkiller Knife Mk.I	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+795	Silver Botkiller Wrench Mk.I	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+796	Silver Botkiller Medi Gun Mk.I	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+797	Silver Botkiller Stickybomb Launcher Mk.I	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+798	Silver Botkiller Flame Thrower Mk.I	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+799	Silver Botkiller Scattergun Mk.I	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+800	Silver Botkiller Rocket Launcher Mk.I	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+801	Gold Botkiller Sniper Rifle Mk.I	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+802	Gold Botkiller Minigun Mk.I	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+803	Gold Botkiller Knife Mk.I	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+804	Gold Botkiller Wrench Mk.I	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+805	Gold Botkiller Medi Gun Mk.I	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+806	Gold Botkiller Stickybomb Launcher Mk.I	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+807	Gold Botkiller Flame Thrower Mk.I	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+808	Gold Botkiller Scattergun Mk.I	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+809	Gold Botkiller Rocket Launcher Mk.I	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+810	The Red-Tape Recorder	tf_weapon_sapper	building	spy	tf_weapon_sapper	sapper_degenerates_buildings;mult_sapper_damage	unknown	
+811	The Huo Long Heatmaker	tf_weapon_minigun	primary	heavy	tf_weapon_minigun	ring_of_fire_while_aiming;uses_ammo_while_aiming;mult_dmg;mult_dmg_vs_burning	unknown	
+812	The Flying Guillotine	tf_weapon_cleaver	secondary	scout	tf_weapon_cleaver	desc_cleaver_description;mult_crit_chance	unknown	
+813	The Neon Annihilator	tf_weapon_breakable_sign	melee	pyro	tf_weapon_breakable_sign	mult_dmg_vs_players;ragdolls_plasma_effect;crit_vs_wet_players;set_dmg_apply_to_sapper;mult_crit_chance	unknown	
+831	Promo Red-Tape Recorder	tf_weapon_sapper	building	spy	tf_weapon_sapper	sapper_degenerates_buildings;mult_sapper_damage	unknown	
+832	Promo Huo Long Heatmaker	tf_weapon_minigun	primary	heavy	tf_weapon_minigun	ring_of_fire_while_aiming;uses_ammo_while_aiming;mult_dmg;mult_dmg_vs_burning	unknown	
+833	Promo Flying Guillotine	tf_weapon_cleaver	secondary	scout	tf_weapon_cleaver	desc_cleaver_description;mult_crit_chance	unknown	
+834	Promo Neon Annihilator	tf_weapon_breakable_sign	melee	pyro	tf_weapon_breakable_sign	mult_dmg_vs_players;ragdolls_plasma_effect;crit_vs_wet_players;set_dmg_apply_to_sapper;mult_crit_chance	unknown	
+850	Deflector	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+851	The AWPer Hand	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+863	The Robo-Sandvich	tf_weapon_lunchbox	secondary	heavy	tf_weapon_lunchbox lunchbox	item_meter_charge_rate;meter_label;set_weapon_mode	unknown	
+881	Rust Botkiller Sniper Rifle Mk.I	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+882	Rust Botkiller Minigun Mk.I	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+883	Rust Botkiller Knife Mk.I	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+884	Rust Botkiller Wrench Mk.I	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+885	Rust Botkiller Medi Gun Mk.I	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+886	Rust Botkiller Stickybomb Launcher Mk.I	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+887	Rust Botkiller Flame Thrower Mk.I	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+888	Rust Botkiller Scattergun Mk.I	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+889	Rust Botkiller Rocket Launcher Mk.I	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+890	Blood Botkiller Sniper Rifle Mk.I	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+891	Blood Botkiller Minigun Mk.I	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+892	Blood Botkiller Knife Mk.I	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+893	Blood Botkiller Wrench Mk.I	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+894	Blood Botkiller Medi Gun Mk.I	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+895	Blood Botkiller Stickybomb Launcher Mk.I	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+896	Blood Botkiller Flame Thrower Mk.I	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+897	Blood Botkiller Scattergun Mk.I	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+898	Blood Botkiller Rocket Launcher Mk.I	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+899	Carbonado Botkiller Sniper Rifle Mk.I	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+900	Carbonado Botkiller Minigun Mk.I	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+901	Carbonado Botkiller Knife Mk.I	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+902	Carbonado Botkiller Wrench Mk.I	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+903	Carbonado Botkiller Medi Gun Mk.I	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+904	Carbonado Botkiller Stickybomb Launcher Mk.I	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+905	Carbonado Botkiller Flame Thrower Mk.I	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+906	Carbonado Botkiller Scattergun Mk.I	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+907	Carbonado Botkiller Rocket Launcher Mk.I	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+908	Diamond Botkiller Sniper Rifle Mk.I	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+909	Diamond Botkiller Minigun Mk.I	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+910	Diamond Botkiller Knife Mk.I	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+911	Diamond Botkiller Wrench Mk.I	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+912	Diamond Botkiller Medi Gun Mk.I	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+913	Diamond Botkiller Stickybomb Launcher Mk.I	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+914	Diamond Botkiller Flame Thrower Mk.I	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+915	Diamond Botkiller Scattergun Mk.I	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+916	Diamond Botkiller Rocket Launcher Mk.I	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+933	The Ap-Sap	tf_weapon_sapper	building	spy	tf_weapon_sapper	sapper_voice_pak;sapper_voice_pak_idle_wait	unknown	
+947	The Quackenbirdt	tf_weapon_invis	pda2	spy	tf_weapon_invis		works	
+957	Silver Botkiller Sniper Rifle Mk.II	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+958	Silver Botkiller Minigun Mk.II	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+959	Silver Botkiller Knife Mk.II	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+960	Silver Botkiller Wrench Mk.II	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+961	Silver Botkiller Medi Gun Mk.II	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+962	Silver Botkiller Stickybomb Launcher Mk.II	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+963	Silver Botkiller Flame Thrower Mk.II	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+964	Silver Botkiller Scattergun Mk.II	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+965	Silver Botkiller Rocket Launcher Mk.II	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+966	Gold Botkiller Sniper Rifle Mk.II	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+967	Gold Botkiller Minigun Mk.II	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+968	Gold Botkiller Knife Mk.II	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+969	Gold Botkiller Wrench Mk.II	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+970	Gold Botkiller Medi Gun Mk.II	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+971	Gold Botkiller Stickybomb Launcher Mk.II	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+972	Gold Botkiller Flame Thrower Mk.II	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+973	Gold Botkiller Scattergun Mk.II	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+974	Gold Botkiller Rocket Launcher Mk.II	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+996	The Loose Cannon	tf_weapon_cannon	primary	demoman	tf_weapon_cannon	override_projectile_type;grenade_launcher_mortar_mode;grenade_not_explode_on_impact;mult_projectile_speed;cannonball_push_back	unknown	
+997	The Rescue Ranger	tf_weapon_shotgun_building_rescue	primary	engineer	tf_weapon_shotgun_building_rescue	building_teleporting_pickup;arrow_heals_buildings;override_projectile_type;mark_for_death_on_building_pickup;mult_maxammo_primary;mult_clipsize;repair_health_to_metal_ratio_DISPLAY_ONLY	unknown	
+998	The Vaccinator	tf_weapon_medigun	secondary	medic	tf_weapon_medigun	set_weapon_mode;mult_medigun_uberchargerate;mult_medigun_overheal_uberchargerate;overheal_fill_rate;set_charge_type;medigun_bullet_resist_passive;medigun_bullet_resist_deployed;medigun_blast_resist_passive;medigun_blast_resist_deployed;medigun_fire_resist_passive;medigun_fire_resist_deployed	unknown	
+999	Festive Holy Mackerel	tf_weapon_bat_fish	melee	scout	tf_weapon_bat_fish		works	
+1000	Festive Axtinguisher	tf_weapon_fireaxe	melee	pyro	tf_weapon_fireaxe	attack_minicrits_and_consumes_burning;mult_dmg;mult_switch_from_wep_deploy_time;mult_crit_chance	unknown	
+1001	Festive Buff Banner	tf_weapon_buff_item	secondary	soldier	tf_weapon_buff_item banner	set_buff_type	unknown	
+1002	Festive Sandvich	tf_weapon_lunchbox	secondary	heavy	tf_weapon_lunchbox lunchbox	item_meter_charge_rate;meter_label;set_weapon_mode	unknown	
+1003	Festive Ubersaw	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw	add_onhit_ubercharge;mult_postfiredelay;set_weapon_mode	unknown	
+1004	Festive Frontier Justice	tf_weapon_sentry_revenge	primary	engineer	tf_weapon_sentry_revenge	sentry_killed_revenge;lose_revenge_crits_on_death_DISPLAY_ONLY;mult_crit_chance;mult_clipsize	unknown	
+1005	Festive Huntsman	tf_weapon_compound_bow	primary	sniper	tf_weapon_compound_bow	mult_maxammo_primary;override_projectile_type	unknown	
+1006	Festive Ambassador	tf_weapon_revolver	secondary	spy	tf_weapon_revolver	crit_dmg_falloff;set_weapon_mode;mult_dmg;mult_postfiredelay;mult_crit_chance	unknown	
+1007	Festive Grenade Launcher	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+1078	Festive Force-a-Nature	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun	set_scattergun_has_knockback;mult_postfiredelay;mult_bullets_per_shot;mult_dmg;mult_clipsize;set_scattergun_no_reload_single	unknown	
+1079	Festive Crusader's Crossbow	tf_weapon_crossbow	primary	medic	tf_weapon_crossbow	set_weapon_mode;mult_maxammo_primary;override_projectile_type	unknown	
+1080	Festive Sapper	tf_weapon_sapper	building	spy	tf_weapon_sapper		unknown	
+1081	Festive Flare Gun	tf_weapon_flaregun	secondary	pyro	tf_weapon_flaregun	mult_maxammo_secondary;crit_vs_burning_FLARES_DISPLAY_ONLY	unknown	
+1082	Festive Eyelander	tf_weapon_sword	melee	demoman	tf_weapon_sword	is_a_sword;mult_crit_chance;add_maxhealth;decapitate_type	unknown	
+1083	Festive Jarate	tf_weapon_jar	secondary	sniper	tf_weapon_jar	desc_jarate_description;extinguish_reduces_cooldown;override_projectile_type	unknown	
+1084	Festive Gloves of Running Urgently	tf_weapon_fists	melee	heavy	tf_weapon_fists	mult_player_movespeed_active;mod_maxhealth_drain_rate;set_weapon_mode;mult_switch_from_wep_deploy_time	unknown	
+1085	Festive Black Box	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher	add_health_on_radius_damage;mult_clipsize	unknown	
+1086	Festive Wrangler	tf_weapon_laser_pointer	secondary	engineer	tf_weapon_laser_pointer		unknown	
+1092	The Fortified Compound	tf_weapon_compound_bow	primary	sniper	tf_weapon_compound_bow	mult_maxammo_primary	unknown	
+1098	The Classic	tf_weapon_sniperrifle_classic	primary	sniper	tf_weapon_sniperrifle_classic	crit_on_hard_hit;bodyshot_damage_modify;sniper_no_headshot_without_full_charge;sniper_crit_no_scope;sniper_fires_tracer_HIDDEN;set_weapon_mode	unknown	
+1099	The Tide Turner	tf_wearable_demoshield	secondary	demoman	tf_wearable_demoshield shield	mult_dmgtaken_from_fire;mult_dmgtaken_from_explosions;lose_demo_charge_on_damage_when_charging;charge_turn_control;kill_refills_meter	unknown	
+1100	The Bread Bite	tf_weapon_fists	melee	heavy	tf_weapon_fists	mult_player_movespeed_active;mod_maxhealth_drain_rate;set_weapon_mode;mult_switch_from_wep_deploy_time;breadgloves_properties	unknown	
+1101	The B.A.S.E. Jumper	tf_weapon_parachute	secondary	soldier,demoman	tf_weapon_parachute	parachute_attribute;set_buff_type	unknown	
+1102	The Snack Attack	tf_weapon_sapper	building	spy	tf_weapon_sapper		unknown	
+1103	The Back Scatter	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun	closerange_backattack_minicrits;mult_clipsize;mult_spread_scale;mult_crit_chance	unknown	
+1104	The Air Strike	tf_weapon_rocketlauncher_airstrike	primary	soldier	tf_weapon_rocketlauncher_airstrike	mult_explosion_radius;mult_dmg;rocket_jump_dmg_reduction;rocketjump_attackrate_bonus;mini_rockets;clipsize_increase_on_kill	unknown	
+1105	The Self-Aware Beauty Mark	tf_weapon_jar	secondary	sniper	tf_weapon_jar	desc_jarate_description;extinguish_reduces_cooldown;override_projectile_type	unknown	
+1121	Mutated Milk	tf_weapon_jar_milk	secondary	scout	tf_weapon_jar_milk	extinguish_reduces_cooldown;override_projectile_type	unknown	
+1141	Festive Shotgun 2014	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+1142	Festive Revolver 2014	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+1143	Festive Bonesaw 2014	tf_weapon_bonesaw	melee	medic	tf_weapon_bonesaw		works	
+1144	Festive Targe 2014	tf_wearable_demoshield	secondary	demoman	tf_wearable_demoshield shield	mult_dmgtaken_from_fire;mult_dmgtaken_from_explosions	unknown	
+1145	Festive Bonk 2014	tf_weapon_lunchbox_drink	secondary	scout	tf_weapon_lunchbox_drink drink		unknown	
+1146	Festive Backburner 2014	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health;mult_airblast_cost;set_flamethrower_back_crit;mult_crit_chance	unknown	
+1149	Festive SMG 2014	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+1150	The Quickiebomb Launcher	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher	sticky_arm_time;stickybomb_charge_rate;stickybomb_charge_damage_increase;stickies_detonate_stickies;mult_clipsize;mult_dmg;custom_projectile_model	unknown	
+1151	The Iron Bomber	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher	mult_explosion_radius;grenade_no_bounce;custom_projectile_model;fuse_mult	unknown	
+1153	Panic Attack Shotgun	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun	mult_dmg;mult_single_wep_deploy_time;mult_spread_scales_consecutive;mult_bullets_per_shot;fixed_shot_pattern	unknown	
+1178	The Dragon's Fury	tf_weapon_rocketlauncher_fireball	primary	pyro	tf_weapon_rocketlauncher_fireball	item_meter_charge_rate;meter_label;mult_maxammo_primary;mult_airblast_cost;dragons_fury_neutral_properties;dragons_fury_positive_properties;dragons_fury_negative_properties;extinguish_restores_health	unknown	
+1179	The Thermal Thruster	tf_weapon_rocketpack	secondary	pyro	tf_weapon_rocketpack	damage_force_reduction;taunt_attack_name;taunt_attack_time;item_meter_charge_rate;holster_anim_time;falling_impact_radius_pushback;thermal_thruster	unknown	
+1180	The Gas Passer	tf_weapon_jar_gas	secondary	pyro	tf_weapon_jar_gas	item_meter_charge_rate;item_meter_damage_for_full_charge;item_meter_resupply_denied;grenades1_resupply_denied;item_meter_starts_empty_DISPLAY_ONLY;item_meter_charge_type_3_DISPLAY_ONLY;meter_label	unknown	
+1181	The Hot Hand	tf_weapon_slap	melee	pyro	tf_weapon_slap	mult_dmg;speed_boost_on_hit_enemy;disable_weapon_hiding_for_animations	unknown	
+1184	Gloves of Running Urgently MvM	tf_weapon_fists	melee	heavy	tf_weapon_fists	mult_player_movespeed;mult_dmg;provide_on_active;set_weapon_mode;self_mark_for_death;mult_switch_from_wep_deploy_time	unknown	
+1190	The Second Banana	tf_weapon_lunchbox	secondary	heavy	tf_weapon_lunchbox lunchbox	item_meter_charge_rate;meter_label;set_weapon_mode;lunchbox_healing_scale;charge_recharge_rate	unknown	
+1202	TTG Max Pistol - Poker Night 2026	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+1205	TTG Watch 2026	tf_weapon_invis	pda2	spy	tf_weapon_invis	cannot_trade	unknown	
+1206	Iron Curtain 2026	tf_weapon_minigun	primary	heavy	tf_weapon_minigun	cannot_trade	unknown	
+15000	concealedkiller_sniperrifle_nightowl	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15001	concealedkiller_smg_woodsywidowmaker	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15002	concealedkiller_scattergun_nightterror	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15003	concealedkiller_shotgun_backwoodsboomstick	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15004	concealedkiller_minigun_kingofthejungle	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15005	concealedkiller_flamethrower_forestfire	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15006	concealedkiller_rocketlauncher_woodlandwarrior	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15007	concealedkiller_sniperrifle_purplerange	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15008	concealedkiller_medigun_maskedmender	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15009	concealedkiller_stickybomblauncher_suddenflurry	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15010	concealedkiller_medigun_wrappedreviver	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15011	concealedkiller_revolver_psychedelicslugger	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15012	concealedkiller_stickybomblauncher_carpetbomber	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15013	concealedkiller_pistol_redrockroscoe	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15014	concealedkiller_rocketlauncher_sandcannon	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15015	craftsmann_scattergun_tartantorpedo	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15016	craftsmann_shotgun_rusticruiner	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15017	craftsmann_flamethrower_barnburner	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15018	craftsmann_pistol_homemadeheater	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15019	craftsmann_sniperrifle_lumberfromdownunder	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15020	craftsmann_minigun_ironwood	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15021	craftsmann_scattergun_countrycrusher	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15022	craftsmann_smg_plaidpotshotter	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15023	craftsmann_sniperrifle_shotinthedark	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15024	craftsmann_stickybomblauncher_blastedbombardier	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15025	craftsmann_medigun_reclaimedreanimator	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15026	craftsmann_minigun_antiqueannihilator	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15027	craftsmann_revolver_oldcountry	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15028	craftsmann_rocketlauncher_americanpastoral	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15029	craftsmann_scattergun_backcountryblaster	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15030	teufort_flamethrower_bovineblazemaker	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15031	teufort_minigun_warroom	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15032	teufort_smg_treadplatetormenter	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15033	teufort_sniperrifle_bogtrotter	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15034	teufort_flamethrower_earthskyandfire	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15035	teufort_pistol_hickoryholepuncher	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15036	teufort_scattergun_sprucedeuce	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15037	teufort_smg_teamsprayer	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15038	teufort_stickybomblauncher_rooftopwrangler	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15039	teufort_medigun_civilservant	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15040	teufort_minigun_citizenpain	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15041	teufort_pistol_localhero	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15042	teufort_revolver_mayor	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15043	teufort_rocketlauncher_smalltownbringdown	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15044	teufort_shotgun_civicduty	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15045	powerhouse_stickybomblauncher_liquidasset	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15046	powerhouse_pistol_blackdahlia	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15047	powerhouse_shotgun_lightningrod	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15048	powerhouse_stickybomblauncher_pinkelephant	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15049	powerhouse_flamethrower_flashfryer	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15050	powerhouse_medigun_sparkoflife	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15051	powerhouse_revolver_deadreckoner	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15052	powerhouse_rocketlauncher_shellshocker	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15053	powerhouse_scattergun_currentevent	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15054	powerhouse_flamethrower_turbinetorcher	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15055	powerhouse_minigun_brickhouse	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15056	powerhouse_pistol_sandstonespecial	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15057	powerhouse_rocketlauncher_aquamarine	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15058	powerhouse_smg_lowprofile	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15059	powerhouse_sniperrifle_thunderbolt	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15060	harvest_pistol_macabreweb	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15061	harvest_pistol_nutcracker	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15062	harvest_revolver_boneyard	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15063	harvest_revolver_wildwood	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15064	harvest_revolver_macabreweb	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15065	harvest_scattergun_macabreweb	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15066	harvest_flamethrower_autumn	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15067	harvest_flamethrower_pumpkinpatch	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15068	harvest_flamethrower_nutcracker	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15069	harvest_scattergun_nutcracker	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15070	harvest_sniperrifle_pumpkinpatch	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15071	harvest_sniperrifle_boneyard	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15072	harvest_sniperrifle_wildwood	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15073	harvest_wrench_nutcracker	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+15074	harvest_wrench_autumn	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+15075	harvest_wrench_boneyard	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+15076	harvest_smg_wildwood	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15077	harvest_grenadelauncher_autumn	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+15078	harvest_medigun_wildwood	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15079	harvest_grenadelauncher_macabreweb	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+15080	harvest_knife_boneyard	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15081	harvest_rocketlauncher_autumn	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15082	harvest_stickybomblauncher_autumn	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15083	harvest_stickybomblauncher_pumpkinpatch	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15084	harvest_stickybomblauncher_macabreweb	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15085	harvest_shotgun_autumn	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15086	harvest_minigun_macabreweb	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15087	harvest_minigun_pumpkinpatch	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15088	harvest_minigun_nutcracker	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15089	pyroland_flamethrower_balloonicorn	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15090	pyroland_flamethrower_rainbow	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15091	pyroland_grenadelauncher_rainbow	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+15092	pyroland_grenadelauncher_sweetdreams	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+15094	pyroland_knife_bluemew	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15095	pyroland_knife_braincandy	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15096	pyroland_knife_stabbedtohell	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15097	pyroland_medigun_flowerpower	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15098	pyroland_minigun_braincandy	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15099	pyroland_minigun_mistercuddles	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15100	pyroland_pistol_bluemew	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15101	pyroland_pistol_braincandy	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15102	pyroland_pistol_shottohell	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15103	pyroland_revolver_flowerpower	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15104	pyroland_rocketlauncher_bluemew	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15105	pyroland_rocketlauncher_braincandy	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15106	pyroland_scattergun_bluemew	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15107	pyroland_scattergun_flowerpower	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15108	pyroland_scattergun_shottohell	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15109	pyroland_shotgun_flowerpower	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15110	pyroland_smg_bluemew	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15111	pyroland_sniperrifle_balloonicorn	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15112	pyroland_sniperrifle_rainbow	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15113	pyroland_stickybomblauncher_sweetdreams	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15114	pyroland_wrench_torquedtohell	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+15115	gentlemanne_flamethrower_coffinnail	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15116	gentlemanne_grenadelauncher_coffinnail	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+15117	gentlemanne_grenadelauncher_topshelf	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+15118	gentlemanne_knife_dressedtokill	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15119	gentlemanne_knife_topshelf	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15120	gentlemanne_medigun_coffinnail	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15121	gentlemanne_medigun_dressedtokill	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15122	gentlemanne_medigun_highrollers	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15123	gentlemanne_minigun_coffinnail	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15124	gentlemanne_minigun_dressedtokill	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15125	gentlemanne_minigun_topshelf	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15126	gentlemanne_pistol_dressedtokill	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15127	gentlemanne_revolver_coffinnail	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15128	gentlemanne_revolver_topshelf	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15129	gentlemanne_rocketlauncher_coffinnail	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15130	gentlemanne_rocketlauncher_highrollers	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15131	gentlemanne_scattergun_coffinnail	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15132	gentlemanne_shotgun_coffinnail	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15133	gentlemanne_shotgun_dressedtokill	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15134	gentlemanne_smg_highrollers	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15135	gentlemanne_sniperrifle_coffinnail	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15136	gentlemanne_sniperrifle_dressedtokill	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15137	gentlemanne_stickybomblauncher_coffinnail	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15138	gentlemanne_stickybomblauncher_dressedtokill	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15139	gentlemanne_wrench_dressedtokill	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+15140	gentlemanne_wrench_topshelf	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+15141	warbird_flamethrower_warhawk	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+15142	warbird_grenadelauncher_warhawk	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+15143	warbird_knife_blitzkrieg	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15144	warbird_knife_airwolf	tf_weapon_knife	melee	spy	tf_weapon_knife		works	
+15145	warbird_medigun_blitzkrieg	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15146	warbird_medigun_corsair	tf_weapon_medigun	secondary	medic	tf_weapon_medigun		works	
+15147	warbird_minigun_butcherbird	tf_weapon_minigun	primary	heavy	tf_weapon_minigun		works	
+15148	warbird_pistol_blitzkrieg	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol		works	
+15149	warbird_revolver_blitzkrieg	tf_weapon_revolver	secondary	spy	tf_weapon_revolver		works	
+15150	warbird_rocketlauncher_warhawk	tf_weapon_rocketlauncher	primary	soldier	tf_weapon_rocketlauncher		works	
+15151	warbird_scattergun_killerbee	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15152	warbird_shotgun_redbear	tf_weapon_shotgun	primary	soldier,heavy,pyro,engineer	tf_weapon_shotgun		works	
+15153	warbird_smg_blitzkrieg	tf_weapon_smg	secondary	sniper	tf_weapon_smg		works	
+15154	warbird_sniperrifle_airwolf	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle		works	
+15155	warbird_stickybomblauncher_blitzkrieg	tf_weapon_pipebomblauncher	secondary	demoman	tf_weapon_pipebomblauncher		works	
+15156	warbird_wrench_airwolf	tf_weapon_wrench	melee	engineer	tf_weapon_wrench		works	
+15157	warbird_scattergun_corsair	tf_weapon_scattergun	primary	scout	tf_weapon_scattergun		works	
+15158	warbird_grenadelauncher_butcherbird	tf_weapon_grenadelauncher	primary	demoman	tf_weapon_grenadelauncher		works	
+30474	The Nostromo Napalmer	tf_weapon_flamethrower	primary	pyro	tf_weapon_flamethrower	extinguish_restores_health	unknown	
+30665	Shooting Star	tf_weapon_sniperrifle	primary	sniper	tf_weapon_sniperrifle	ragdolls_become_ash;sniper_penetrate_players_when_charged;sniper_only_fire_zoomed;sniper_full_charge_damage_bonus;sniper_fires_tracer;set_weapon_mode	unknown	
+30666	The C.A.P.P.E.R	tf_weapon_pistol	secondary	scout,engineer	tf_weapon_pistol	ragdolls_become_ash	unknown	
+30667	Batsaber	tf_weapon_bat	melee	scout	tf_weapon_bat	ragdolls_plasma_effect	unknown	
+30668	The Giger Counter	tf_weapon_laser_pointer	secondary	engineer	tf_weapon_laser_pointer	is_giger_counter	unknown	

@@ -116,6 +116,9 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
 
     public IScoring? Scoring => _services.Scoring;
 
+    /// <summary>Stock's team play: a team line reaches the listener's teammates.</summary>
+    public bool Teamplay => true;
+
     public IModeSetup? Setup => this;
 
     public IMapCleanupFilter? Cleanup => _services.Cleanup;

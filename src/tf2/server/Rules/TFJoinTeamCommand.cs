@@ -44,7 +44,7 @@ namespace TF2.Server.Rules;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFJoinTeamCommand(ITeams teams, TFTeams policy, IUserMessageSender messages,
-                                      MpHumansMustJoinTeamConVar? humansTeam = null)
+                                      MpHumansMustJoinTeamConVar? humansTeam = null, IBotPlayers? bots = null)
     : IClientCommandHook, IOrderedHook
 {
     /// <summary>The stock word.</summary>
@@ -60,6 +60,8 @@ public sealed class TFJoinTeamCommand(ITeams teams, TFTeams policy, IUserMessage
     public const string TeamPanel = "team";
 
     public int HookOrder => TeamRoundOrders.JoinTeamCommand;
+
+    private readonly IBotPlayers? _bots = bots;
 
     public bool Handle(EntityHandle player, string command, ReadOnlySpan<string> args)
     {
@@ -78,11 +80,11 @@ public sealed class TFJoinTeamCommand(ITeams teams, TFTeams policy, IUserMessage
             int requested = (int)team;
 
             // The humans' team (tf_player.cpp:6280-6289): a non-spectator
-            // pick yields to mp_humans_must_join_team unless it names any
-            // team, and the join counts as auto-teamed. It stands ahead of
-            // the same-team return, so a pick the override sends home is
-            // one; stock's IsBot arm has no bots to spare here.
-            if (requested != (int)TFTeam.Spectator && HumanTeam() is { } forced)
+            // pick of a non-bot yields to mp_humans_must_join_team unless it
+            // names any team, and the join counts as auto-teamed. It stands
+            // ahead of the same-team return, so a pick the override sends
+            // home is one; the IsBot arm is :6281's !IsBot().
+            if (requested != (int)TFTeam.Spectator && _bots?.IsBot(player) != true && HumanTeam() is { } forced)
                 requested = (int)forced;
 
             // Stock's early return: already on that team, so neither the

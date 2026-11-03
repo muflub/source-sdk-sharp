@@ -70,6 +70,21 @@ public sealed class TFAutobalanceTests
         public string? ValueOf(string name) => _names.Contains(name) ? _values[_names.IndexOf(name)] : null;
     }
 
+    /// <summary>The bots by handle; everyone else is a human.</summary>
+    private sealed class FakeBots : IBotPlayers
+    {
+        public readonly HashSet<EntityHandle> Known = [];
+
+        public bool IsBot(EntityHandle player) => Known.Contains(player);
+
+        public EntityHandle Add(string name, IReadOnlyList<KeyValuePair<string, string>> userInfo, out string refusal)
+            => throw new NotSupportedException();
+
+        public bool Kick(EntityHandle bot, string reason) => throw new NotSupportedException();
+
+        public IReadOnlyList<BotPlayer> Bots => [];
+    }
+
     /// <summary>The machine over fakes: a running round, the clock at 100 s.</summary>
     private sealed class Rig
     {
@@ -81,6 +96,7 @@ public sealed class TFAutobalanceTests
         public readonly FixedState Rounds = new(RoundState.RoundRunning);
         public readonly FakeStats Stats = new();
         public readonly MessageSink Messages = new();
+        public readonly FakeBots Bots = new();
         public readonly TFAutobalance Balance;
 
         public Rig()
@@ -90,7 +106,7 @@ public sealed class TFAutobalanceTests
             convars.RegisterTypes([typeof(TFAutobalanceDeadCandidatesMaxTimeConVar),
                                    typeof(TFAutobalanceForceCandidatesMaxTimeConVar),
                                    typeof(TFAutobalanceXpBonusConVar)]);
-            Balance = new TFAutobalance(Settings, Roster, Announcer, Clock, Log, Rounds, Stats, Messages, convars);
+            Balance = new TFAutobalance(Settings, Roster, Announcer, Clock, Log, Rounds, Stats, Messages, convars, Bots);
         }
 
         public void Think() => ((IFrameLifecycle)Balance).OnThink(0.015f);
@@ -145,6 +161,38 @@ public sealed class TFAutobalanceTests
 
         Assert.Empty(rig.Roster.Moves);
         Assert.Empty(rig.Messages.Sent);
+    }
+
+    /// <summary><c>CanBeAutobalanced</c>'s bot arm (tf_player.cpp:19827-19828): a
+    /// bot is never a candidate, so the dead one among the bots is not moved.</summary>
+    [Fact]
+    public void ABotIsNeverAnAutobalanceCandidate()
+    {
+        var rig = new Rig();
+        var (_, _, c, _) = rig.Unbalanced();
+        rig.Bots.Known.Add(c);
+        rig.Roster.Kill(c);
+
+        rig.Run(1f);
+
+        // The only dead player is the bot: no candidate is dead, nothing moves.
+        Assert.Empty(rig.Roster.Moves);
+    }
+
+    [Fact]
+    public void AHumanOnTheHeaviestTeamIsStillACandidate()
+    {
+        var rig = new Rig();
+        var (a, _, c, blue) = rig.Unbalanced();
+        rig.Bots.Known.Add(blue);
+        rig.Roster.Kill(c);
+
+        rig.Run(1f);
+
+        var move = Assert.Single(rig.Roster.Moves);
+        Assert.Equal(c, move.Player);
+        Assert.Equal(TFTeam.Blue, move.Team);
+        Assert.Equal(1, rig.Announcer.Count("team_balanced"));
     }
 
     [Fact]

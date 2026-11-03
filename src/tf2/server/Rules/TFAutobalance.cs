@@ -29,16 +29,17 @@ namespace TF2.Server.Rules;
 /// <c>teamplay_teambalanced_player</c> and its two prints).
 /// </summary>
 /// <para>
-/// <c>CanBeAutobalanced</c>'s refusals (duels, bots, coaches, the Halloween
-/// ghost/kart conditions) have no arms in this build — there are no bots
-/// (docs/plans/tf2/deferred.tsv) — so every heaviest-team player is a
-/// candidate. Stock's <c>SetLastAutobalanceTime</c> is write-only there.
+/// Of <c>CanBeAutobalanced</c>'s refusals only the bot arm is ported
+/// (tf_player.cpp:19827-19828): a bot is never a candidate. The duel, coach
+/// and Halloween ghost/kart arms have no subjects in this build
+/// (docs/plans/tf2/deferred.tsv). Stock's <c>SetLastAutobalanceTime</c> is
+/// write-only there.
 /// </para>
 [SideService(Side.Server)]
 public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster roster, IRoundAnnouncer announcer,
                                   IGameClock clock, ILog log, ITeamRoundState? rounds = null,
                                   ITFPlayerStats? stats = null, IUserMessageSender? messages = null,
-                                  ConVarRegistry? convars = null)
+                                  ConVarRegistry? convars = null, IBotPlayers? bots = null)
     : IGameLifecycle, IFrameLifecycle
 {
     /// <summary>Stock's <c>autobalance_state_t</c>.</summary>
@@ -66,6 +67,7 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
     private readonly ITFPlayerStats? _stats = stats;
     private readonly IUserMessageSender? _messages = messages;
     private readonly ConVarRegistry? _convars = convars;
+    private readonly IBotPlayers? _bots = bots;
 
     private AutobalanceState _state;
     private TFTeam _lightestTeam = TFTeam.Unassigned;
@@ -236,13 +238,17 @@ public sealed class TFAutobalance(ITeamRoundSettings settings, ITeamRoundRoster 
     }
 
     /// <summary>Stock's <c>FindNextCandidate</c>: a heaviest-team player not
-    /// already a candidate; among more than one, the one whose resource score
-    /// sits closest to the average the switch asks for.</summary>
+    /// already a candidate, and never a bot (<c>CanBeAutobalanced</c>'s bot
+    /// arm, tf_player.cpp:19827-19828); among more than one, the one whose
+    /// resource score sits closest to the average the switch asks for.</summary>
     private EntityHandle? FindNextCandidate()
     {
         List<EntityHandle> candidates = new();
         foreach (var player in _roster.Players(_heaviestTeam))
         {
+            if (_bots?.IsBot(player) == true)
+                continue;
+
             if (!_candidates.Any(c => c.Player == player) && StillOnAPlayingTeam(player))
                 candidates.Add(player);
         }
