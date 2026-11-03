@@ -199,50 +199,132 @@ public class RadialMenuTests
         Assert.Equal(-1, menu.Hovered);
     }
 
-    private sealed class Keys(int code, string command) : IRadialKeys
+    private sealed class Keys : IRadialKeys
     {
-        public bool IsBoundTo(int buttonCode, string bound) => buttonCode == code && bound == command;
+        public readonly Dictionary<int, string> Bound = new() { [KeyO] = "callvote", [KeyF4] = "adminmenu", [KeyZ] = "+voice_menu_1" };
+        public readonly List<string> Ran = [];
+        public readonly HashSet<int> Down = [];
+
+        public string? CommandOn(int buttonCode) => Bound.GetValueOrDefault(buttonCode);
+
+        public void Run(string command) => Ran.Add(command);
+
+        public bool IsDown(int buttonCode) => Down.Contains(buttonCode);
     }
 
-    private const int KeyO = 25;
+    private const int KeyO = 25, KeyF4 = 95, KeyZ = 36, KeyOther = 11;
 
-    private static RadialMenus Up(string? command)
+    private readonly Keys _keys = new();
+
+    private RadialMenus Up(string? command = "callvote")
     {
-        var menus = new RadialMenus(new Pointer(), new Keys(KeyO, "callvote"));
+        var menus = new RadialMenus(new Pointer(), _keys);
         menus.Show(new RadialPage("T", [new RadialEntry("One")]), "owner", command: command);
         return menus;
     }
 
     [Fact]
-    public void The_key_that_opened_it_closes_it()
+    public void The_key_that_opened_it_closes_it_and_opens_nothing()
     {
-        var menus = Up("callvote");
+        var menus = Up();
         Assert.True(menus.Pressed(KeyO));
         Assert.False(menus.Showing);
+        Assert.Empty(_keys.Ran);
     }
 
     [Fact]
-    public void Another_key_leaves_it_up_and_unclaimed()
+    public void Another_menu_s_key_closes_this_one_and_opens_that()
     {
-        var menus = Up("callvote");
-        Assert.False(menus.Pressed(KeyO + 1));
+        var menus = Up();
+        Assert.True(menus.Pressed(KeyF4));
+        Assert.False(menus.Showing);
+        Assert.Equal(["adminmenu"], _keys.Ran);
+    }
+
+    [Fact]
+    public void A_key_that_opens_no_menu_leaves_it_up_and_unclaimed()
+    {
+        var menus = Up();
+        Assert.False(menus.Pressed(KeyOther));
         Assert.True(menus.Showing);
+        Assert.Empty(_keys.Ran);
     }
 
     [Fact]
-    public void A_menu_no_command_opened_has_no_such_key()
+    public void With_nothing_up_a_menu_s_key_is_left_to_its_bind()
     {
-        var menus = Up(null);
-        Assert.False(menus.Pressed(KeyO));
-        Assert.True(menus.Showing);
-    }
-
-    [Fact]
-    public void With_nothing_up_the_key_is_not_claimed()
-    {
-        var menus = Up("callvote");
+        var menus = Up();
         menus.Close();
-        Assert.False(menus.Pressed(KeyO));
+        Assert.False(menus.Pressed(KeyF4));
+        Assert.Empty(_keys.Ran);
+    }
+
+    // Swapped to a held menu: its command runs, and the menu comes up as the command would show it.
+    private (RadialMenus Menus, List<string> Said) SwappedToHeld()
+    {
+        var said = new List<string>();
+        var menus = Up();
+        _keys.Down.Add(KeyZ);
+        Assert.True(menus.Pressed(KeyZ));
+        Assert.Equal(["+voice_menu_1"], _keys.Ran);
+        menus.Show(new RadialPage("V", [new RadialEntry("Medic", () => said.Add("medic"))]), "voice", command: "+voice_menu_1");
+        return (menus, said);
+    }
+
+    [Fact]
+    public void A_held_menu_swapped_to_stays_while_its_key_is_down()
+    {
+        var (menus, said) = SwappedToHeld();
+        menus.Hover(0);
+        Assert.True(menus.Showing);
+        Assert.Empty(said);
+    }
+
+    [Fact]
+    public void A_held_menu_swapped_to_speaks_when_its_key_is_let_go()
+    {
+        var (menus, said) = SwappedToHeld();
+        menus.Hover(0);
+        _keys.Down.Clear();
+        Assert.False(menus.Showing);
+        Assert.Equal(["medic"], said);
+    }
+
+    [Fact]
+    public void A_held_menu_swapped_to_says_nothing_let_go_on_the_hub()
+    {
+        var (menus, said) = SwappedToHeld();
+        _keys.Down.Clear();
+        Assert.False(menus.Showing);
+        Assert.Empty(said);
+    }
+
+    [Fact]
+    public void A_click_on_a_held_menu_swapped_to_speaks_once()
+    {
+        var (menus, said) = SwappedToHeld();
+        menus.Hover(0);
+        menus.Choose(0);
+        _keys.Down.Clear();
+        Assert.False(menus.Showing);
+        Assert.Equal(["medic"], said);
+    }
+
+    [Fact]
+    public void A_menu_opened_by_its_own_bind_is_not_watched()
+    {
+        var menus = new RadialMenus(new Pointer(), _keys);
+        menus.Show(new RadialPage("V", [new RadialEntry("Medic")]), "voice", command: "+voice_menu_1");
+        Assert.True(menus.Showing);
+    }
+
+    [Fact]
+    public void A_swap_the_command_refused_does_not_mark_a_later_menu()
+    {
+        var menus = Up();
+        menus.Pressed(KeyZ);
+        menus.Show(new RadialPage("A", [new RadialEntry("One")]), "admin", command: "adminmenu");
+        Assert.True(menus.Showing);
     }
 
     [Fact]

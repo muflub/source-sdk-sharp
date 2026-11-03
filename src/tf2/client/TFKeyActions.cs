@@ -56,13 +56,13 @@ public sealed class ChatMessageKey;
 [KeyAction("say_team", "#Valve_Team_Message", Section = "#Valve_Communication_Title", Order = 130, Keys = ["u"])]
 public sealed class TeamMessageKey;
 
-[KeyAction("+voice_menu_1", "#TF_Voice_Menu_A", Section = "#Valve_Communication_Title", Order = 140, Keys = ["z"])]
+[KeyAction("+voice_menu_1", "#TF_Voice_Menu_A", Section = "#Valve_Communication_Title", Order = 140, Keys = ["z"], Radial = true)]
 public sealed class VoiceMenuAKey;
 
-[KeyAction("+voice_menu_2", "#TF_Voice_Menu_B", Section = "#Valve_Communication_Title", Order = 150, Keys = ["x"])]
+[KeyAction("+voice_menu_2", "#TF_Voice_Menu_B", Section = "#Valve_Communication_Title", Order = 150, Keys = ["x"], Radial = true)]
 public sealed class VoiceMenuBKey;
 
-[KeyAction("+voice_menu_3", "#TF_Voice_Menu_C", Section = "#Valve_Communication_Title", Order = 160, Keys = ["c"])]
+[KeyAction("+voice_menu_3", "#TF_Voice_Menu_C", Section = "#Valve_Communication_Title", Order = 160, Keys = ["c"], Radial = true)]
 public sealed class VoiceMenuCKey;
 
 [KeyAction("+helpme", "#TF_Call_For_Help", Section = "#Valve_Communication_Title", Order = 170)]
@@ -121,10 +121,10 @@ public sealed class MapInfoKey;
 [KeyAction("+inspect", "#TF_Inspect", Section = "#TF_Title", Order = 340, Keys = ["f"])]
 public sealed class InspectKey;
 
-[KeyAction("callvote", "#TF_call_vote", Section = "#TF_Title", Order = 350, Keys = ["o"])]
+[KeyAction("callvote", "#TF_call_vote", Section = "#TF_Title", Order = 350, Keys = ["o"], Radial = true)]
 public sealed class CallVoteKey;
 
-[KeyAction("adminmenu", "#SS_UI_Admin_Title", Section = "#TF_Title", Order = 351, Keys = ["F4"])]
+[KeyAction("adminmenu", "#SS_UI_Admin_Title", Section = "#TF_Title", Order = 351, Keys = ["F4"], Radial = true)]
 public sealed class TFAdminMenuKey;
 
 [KeyAction("player_ready_toggle", "#TF_Player_ReadyToggle", Section = "#TF_Title", Order = 360)]

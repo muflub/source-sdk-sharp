@@ -217,8 +217,8 @@ public sealed class SizeDownKey;
 [KeyAction("dropprimary", Keys = ["g"])]
 public sealed class DropPrimaryKey;
 
-[KeyAction("callvote", "#SS_UI_Vote_Call", Section = "#Valve_Miscellaneous_Title", Order = 445, Keys = ["o"])]
+[KeyAction("callvote", "#SS_UI_Vote_Call", Section = "#Valve_Miscellaneous_Title", Order = 445, Keys = ["o"], Radial = true)]
 public sealed class CallVoteKey;
 
-[KeyAction("adminmenu", "#SS_UI_Admin_Title", Section = "#Valve_Miscellaneous_Title", Order = 446, Keys = ["F4"])]
+[KeyAction("adminmenu", "#SS_UI_Admin_Title", Section = "#Valve_Miscellaneous_Title", Order = 446, Keys = ["F4"], Radial = true)]
 public sealed class AdminMenuKey;

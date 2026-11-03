@@ -22,6 +22,9 @@ public sealed class KeyActionAttribute(string command, string? label = null) : A
     public int Order { get; init; }
 
     public string[] Keys { get; init; } = [];
+
+    /// <summary>The command opens a radial menu: its key swaps to that menu from any other (<see cref="KeyActions.RadialCommands"/>).</summary>
+    public bool Radial { get; init; }
 }
 
 /// <summary>
@@ -34,11 +37,15 @@ public sealed class KeyActions : IUiKeyActions
     private readonly UiKeyAction[] _rows;
     private readonly (string Key, string Command)[] _binds;
 
-    private KeyActions(UiKeyAction[] rows, (string Key, string Command)[] binds)
+    private KeyActions(UiKeyAction[] rows, (string Key, string Command)[] binds, string[] radial)
     {
         _rows = rows;
         _binds = binds;
+        RadialCommands = radial;
     }
+
+    /// <summary>The commands that open a radial menu.</summary>
+    public IReadOnlyList<string> RadialCommands { get; }
 
     /// <summary>The actions among <paramref name="types"/>: the mods' when any declare one, else <paramref name="core"/>'s.</summary>
     public static KeyActions Of(IEnumerable<Type> types, Assembly core)
@@ -49,7 +56,8 @@ public sealed class KeyActions : IUiKeyActions
         var actions = (mods.Count > 0 ? mods : all).Select(a => a.Action!).OrderBy(a => a.Order).ToList();
         return new KeyActions(
             [.. actions.Where(a => a.Label is not null).Select(a => new UiKeyAction(a.Command, a.Label!, a.Section))],
-            [.. actions.SelectMany(a => a.Keys.Select(k => (k, a.Command)))]);
+            [.. actions.SelectMany(a => a.Keys.Select(k => (k, a.Command)))],
+            [.. actions.Where(a => a.Radial).Select(a => a.Command)]);
     }
 
     public IReadOnlyList<UiKeyAction> Actions() => _rows;

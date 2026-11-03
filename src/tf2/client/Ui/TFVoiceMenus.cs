@@ -46,7 +46,7 @@ public sealed class TFVoiceMenus(RadialMenus radial, IEngineFiles files, IFwdEng
         var menus = _menus ??= files.ReadGameFile(File) is { } text ? Parse(text) : [];
         if (menu < 0 || menu >= menus.Length)
             return;
-        radial.Toggle(menu, () => Page(menu, menus[menu]), () => Spawned);
+        radial.Toggle(menu, () => Page(menu, menus[menu]), () => Spawned, $"+voice_menu_{menu + 1}");
     }
 
     /// <summary>Letting go of the key that holds the menu up speaks what is under the pointer.</summary>

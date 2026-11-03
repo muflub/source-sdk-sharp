@@ -1428,7 +1428,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // one. A player with no config.cfg gets the defaults here, before the engine
         // reads its configuration, as a stock game gets them from its kb_def.lst.
         var keyActions = Input.KeyActions.Of(LoadedAssemblies.Types(typeof(ClientModule).Assembly, Log), typeof(ClientModule).Assembly);
-        _services.AddInstance<Ui.IUiKeyActions>(keyActions);
+        _services.AddInstance(keyActions).AddInstance<Ui.IUiKeyActions>(keyActions);
         keyActions.BindDefaults(_services.Require<IFwdBaseFileSystem>().FileExists("cfg/config.cfg", "MOD"), _engineClient.SubmitConsoleLine);
 
         // Voting: what the panel reads, and what hears the server's messages.
@@ -2184,7 +2184,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // Before the UI composes, which takes them; the input layer below shares the host.
         var inputHost = _engine.Create<Input.ClientInputHost>(_services);
-        var radial = new Vgui.RadialMenus(new Vgui.InputRadialPointer(inputHost), new Vgui.EngineRadialKeys(_services.Require<IEngineHud>(), _inputSystem));
+        var inputDevices = Input.ClientInputDevices.For(_engine, Log);
+        var radialKeys = new Vgui.EngineRadialKeys(_services.Require<IEngineHud>(), _inputSystem, _engineClient,
+                                                   _services.Require<Input.KeyActions>().RadialCommands, inputDevices.IsButtonDown);
+        var radial = new Vgui.RadialMenus(new Vgui.InputRadialPointer(inputHost), radialKeys);
         var adminKeys = new Vgui.AdminKeys(Vgui.AdminKeys.DefaultPath());
         _services.AddInstance(adminKeys).AddInstance<Ui.IAdminKeySource>(adminKeys).AddInstance(new Vgui.ConnectedServer());
         _services.AddInstance(radial).AddInstance<Ui.IRadialMenuSource>(radial).AddInstance<Ui.IRadialMenuActions>(radial);
@@ -2313,7 +2316,6 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // closes the gate.
         var inputCvars = new Input.InputCvars();
         int inputConVars = inputCvars.Bind(_convars.All);
-        var inputDevices = Input.ClientInputDevices.For(_engine, Log);
         // The input mailbox: the sample times native stores and the no-op
         // answers native carries out, without a crossing either way.
         Input.IInputMailbox? inputMailbox = Input.InputMailbox.Open(_engine, out string whyNoMailbox);

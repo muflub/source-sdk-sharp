@@ -47,7 +47,9 @@ public sealed class ConCommandAttribute : Attribute
 }
 
 /// <summary>
-/// Implemented by a class carrying <see cref="ConCommandAttribute"/>.
+/// A class carrying <see cref="ConCommandAttribute"/> whose line is free text, which it
+/// reads itself. A command with arguments the console can name declares them instead:
+/// its <c>Execute</c> takes real parameters and <see cref="ConCommandBinding"/> converts them.
 /// </summary>
 public interface IConCommand
 {
@@ -179,7 +181,7 @@ public sealed class ConCommandRegistry
                 continue;
             }
 
-            if (!typeof(IConCommand).IsAssignableFrom(type))
+            if (!typeof(IConCommand).IsAssignableFrom(type) && ConCommandBinding.MethodOf(type) is null)
             {
                 console.Warning($"[SourceSharp] [ConCommand({attr.Name})] on {type.Name}, which does not implement IConCommand; skipped\n");
                 continue;
@@ -206,7 +208,19 @@ public sealed class ConCommandRegistry
                 continue;
             }
 
-            if (made is not IConCommand instance)
+            // A class with real parameters runs through its binding; a free-text one as it is.
+            IConCommand? instance = made as IConCommand;
+            if (instance is null && made is not null)
+            {
+                instance = ConCommandBinding.For(attr.Name, made, console.Msg, out string? unbound);
+                if (unbound is not null)
+                {
+                    console.Warning($"[SourceSharp] [ConCommand({attr.Name})] on {type.Name} cannot be bound: {unbound}\n");
+                    continue;
+                }
+            }
+
+            if (instance is null)
             {
                 console.Warning($"[SourceSharp] could not instantiate command class {type.Name}; skipped\n");
                 continue;
@@ -300,6 +314,13 @@ public sealed class ConCommandRegistry
 
         return count;
     }
+
+    /// <summary>
+    /// How a line for the command with this id can go on: stock's completion callback.
+    /// Nothing for a command that cannot suggest, or an id that is not bound.
+    /// </summary>
+    public IReadOnlyList<string> Suggest(int commandId, string line)
+        => _byId.TryGetValue(commandId, out var command) && command is IConCommandSuggestions suggests ? suggests.Suggest(line) : [];
 
     /// <summary>The instance bound to a console name, or null if there is none.</summary>
     public IConCommand? ByName(string name)

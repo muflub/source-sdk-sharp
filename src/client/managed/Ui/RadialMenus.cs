@@ -25,18 +25,33 @@ public sealed record RadialEntry(string Label, Action? Choose = null, Func<Radia
 /// <summary>A radial menu: what its hub says, and its choices, as many as it likes.</summary>
 public sealed record RadialPage(string Title, IReadOnlyList<RadialEntry> Entries);
 
-/// <summary>Whether a button is the key bound to a command.</summary>
+/// <summary>The keys that open radial menus, which their binds cannot do while one holds the keyboard.</summary>
 public interface IRadialKeys
 {
-    bool IsBoundTo(int buttonCode, string command);
+    /// <summary>The radial menu command this button is bound to; null for any other.</summary>
+    string? CommandOn(int buttonCode);
+
+    void Run(string command);
+
+    bool IsDown(int buttonCode);
 }
 
-/// <summary>The engine's binds and the input system's names for its buttons.</summary>
-public sealed class EngineRadialKeys(IEngineHud hud, IFwdInputSystem input) : IRadialKeys
+/// <summary>The engine's binds and the input system's names for its buttons, over the mod's key actions.</summary>
+public sealed class EngineRadialKeys(IEngineHud hud, IFwdInputSystem input, IFwdEngineClient engine, IReadOnlyList<string> commands, Func<int, bool> isDown) : IRadialKeys
 {
-    public bool IsBoundTo(int buttonCode, string command)
-        => hud.LookupBinding(command) is { Length: > 0 } key
-           && string.Equals(input.ButtonName(buttonCode), key, StringComparison.OrdinalIgnoreCase);
+    public string? CommandOn(int buttonCode)
+    {
+        if (input.ButtonName(buttonCode) is not { Length: > 0 } name)
+            return null;
+        foreach (string command in commands)
+            if (string.Equals(hud.LookupBinding(command), name, StringComparison.OrdinalIgnoreCase))
+                return command;
+        return null;
+    }
+
+    public void Run(string command) => engine.SubmitConsoleLine(command);
+
+    public bool IsDown(int buttonCode) => isDown(buttonCode);
 }
 
 /// <summary>
@@ -56,6 +71,9 @@ public sealed class RadialMenus(IRadialPointer pointer, IRadialKeys? keys = null
     private Func<bool>? _stillWanted;
     private int _hover = -1;
     private string? _command;
+    private string? _swappingTo;
+    private int _swapButton = -1;
+    private int _heldButton = -1;
 
     public bool Showing
     {
@@ -64,6 +82,9 @@ public sealed class RadialMenus(IRadialPointer pointer, IRadialKeys? keys = null
             // What it was opened for has gone (the player died): it goes too.
             if (_top is not null && _stillWanted is { } wanted && !wanted())
                 Close();
+            // A held menu swapped to: its key's release never reaches the bind, so it is watched.
+            if (_top is not null && _heldButton >= 0 && keys is not null && !keys.IsDown(_heldButton))
+                Release(_owner!);
             return _top is not null;
         }
     }
@@ -86,6 +107,8 @@ public sealed class RadialMenus(IRadialPointer pointer, IRadialKeys? keys = null
     public void Show(RadialPage page, object? owner = null, Func<bool>? stillWanted = null, string? command = null)
     {
         _command = command;
+        _heldButton = command == _swappingTo ? _swapButton : -1;
+        _swappingTo = null;
         _way.Clear();
         _owner = owner;
         _stillWanted = stillWanted;
@@ -112,6 +135,7 @@ public sealed class RadialMenus(IRadialPointer pointer, IRadialKeys? keys = null
     /// </summary>
     public void Release(object owner)
     {
+        _heldButton = -1;
         if (!ShowingFor(owner))
             return;
         int hover = _hover;
@@ -123,11 +147,25 @@ public sealed class RadialMenus(IRadialPointer pointer, IRadialKeys? keys = null
 
     public void Hover(int i) => _hover = i;
 
+    /// <summary>
+    /// A button pressed while a menu holds the keyboard. The key of the menu that is up
+    /// closes it; another menu's key closes it and opens that one, as its bind would had
+    /// it been let through.
+    /// </summary>
     public bool Pressed(int buttonCode)
     {
-        if (_top is null || _command is null || keys is null || !keys.IsBoundTo(buttonCode, _command))
+        if (_top is null || keys?.CommandOn(buttonCode) is not { } command)
             return false;
+        bool same = string.Equals(command, _command, StringComparison.OrdinalIgnoreCase);
         Close();
+        if (same)
+            return true;
+        if (command.StartsWith('+'))
+        {
+            _swappingTo = command;
+            _swapButton = buttonCode;
+        }
+        keys.Run(command);
         return true;
     }
 
@@ -137,6 +175,7 @@ public sealed class RadialMenus(IRadialPointer pointer, IRadialKeys? keys = null
         _top = null;
         _owner = null;
         _command = null;
+        _heldButton = -1;
         _stillWanted = null;
     }
 

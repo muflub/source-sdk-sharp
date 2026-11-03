@@ -102,6 +102,11 @@ public sealed class TFDefaultBindsTests
         Assert.Equal("q", Binds()["lastinv"]);
     }
 
+    /// <summary>Their keys swap between the menus while one holds the keyboard.</summary>
+    [Fact]
+    public void Every_radial_menu_s_key_is_marked()
+        => Assert.Equal(["+voice_menu_1", "+voice_menu_2", "+voice_menu_3", "callvote", "adminmenu"], Actions().RadialCommands);
+
     /// <summary>The voice menus are held (user 2026-11-02): the keys are bound to the command with a let-go, which <see cref="Binds"/> reads past.</summary>
     [Theory]
     [InlineData("z", "+voice_menu_1")]
