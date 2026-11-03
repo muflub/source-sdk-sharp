@@ -143,7 +143,7 @@ public sealed class TF2ClientPredictionTests
         public IEnumerable<ClientStandalone> OfName(string? name) => Directory.OfName(name);
     }
 
-    /// <summary>One armed scattergun: the arsenal's pair plus a twin machine's own states.</summary>
+    /// <summary>One armed gun: the arsenal's pair plus a twin machine's own states.</summary>
     private sealed class Rig
     {
         public readonly ClientWorld World = new();
@@ -156,8 +156,13 @@ public sealed class TF2ClientPredictionTests
         public readonly ClientMachine Twin;
 
         public Rig(params client::TF2.Shared.ITFWeaponHook[] extraHooks)
+            : this(Scattergun, extraHooks)
         {
-            int typeId = World.Catalog.IndexOf(Scattergun);
+        }
+
+        public Rig(string weaponClass, params client::TF2.Shared.ITFWeaponHook[] extraHooks)
+        {
+            int typeId = World.Catalog.IndexOf(weaponClass);
 
             Weapon = new ClientWeapon(World.Engine) { Handle = WeaponHandle };
             Weapon.State.BindLocal();
@@ -275,6 +280,90 @@ public sealed class TF2ClientPredictionTests
 
         var (saves, holds, tolerated, mispredicts, _, _) = rig.Arsenal.Counts;
         Assert.Equal((1, 2, 0, 0), (saves, holds, tolerated, mispredicts));
+    }
+
+    /// <summary>
+    /// The launchers' shell (<c>TFProjectileBehaviour.Launch</c>, the shared
+    /// half of <c>CTFGrenadeLauncher::PrimaryAttack</c>,
+    /// <c>tf_weapon_grenadelauncher.cpp:176-215</c>): the round spent, the two
+    /// clocks at the fire delay, the anim sent. The grenade launcher's clip
+    /// path made those writes the first things to stand out of a replay run on
+    /// the wrong clock; the replay owes each command its own tick-based time,
+    /// what the server's run of it read. The rocket launcher has the same
+    /// writes; the launcher is named here as the brief's reproducible gun.
+    /// </summary>
+    [Fact]
+    public void AGrenadeLauncherFire_on_its_commands_own_clock_agrees_with_the_servers_run_of_it()
+    {
+        var rig = new Rig("tf_weapon_grenadelauncher");
+        var basis = Command(10, attack: false);
+        var cmd = Command(11, attack: true);
+        var ack = Command(11, attack: false);
+
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in basis, 2, false);
+
+        // The server's twin runs the command at the command's clock; the
+        // client's replay is handed that same clock, not its frame's.
+        rig.Twin.RunCommand(rig.TwinWeapon, rig.TwinViewModel, cmd.Buttons, CommandClock, effectsLive: true,
+                            ClientCommand.For(in cmd, WeaponHandle, LocalPlayer));
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in cmd, 1, true, CommandClock);
+
+        var predicted = rig.Arsenal.PredictedStateOf(rig.Weapon);
+        Assert.NotNull(predicted);
+
+        // One round spent, and the gun's clocks set off the command's own now:
+        // the fire delay 0.6 the launcher's script carries
+        // ("TimeFireDelay" 0.6 in TestData/weapons/tf_weapon_grenadelauncher.txt).
+        Assert.Equal(5, predicted!.Clip);
+        Assert.Equal(rig.TwinWeapon.Clip, predicted.Clip);
+        Assert.Equal(CommandClock + 0.6f, predicted.NextPrimaryAttack, 3);
+        Assert.Equal(rig.TwinWeapon.NextPrimaryAttack, predicted.NextPrimaryAttack);
+        Assert.Equal(rig.TwinWeapon.NextPrimaryAttack, predicted.TimeWeaponIdle);   // idle booked right behind the shot
+        Assert.Equal(rig.TwinWeapon.LastButtons, predicted.LastButtons);
+
+        // The viewmodel too: the sent fire anim and the parity its send flipped.
+        Assert.Equal(rig.TwinViewModel.Sequence, rig.Arsenal.WorkingViewModel.Sequence);
+        Assert.Equal(rig.TwinViewModel.AnimationParity, rig.Arsenal.WorkingViewModel.AnimationParity);
+        Assert.Single(rig.TwinArms.Sounds);                       // the script's single_shot, once, not the burst
+
+        // The server's word arrives and the acknowledged command is judged.
+        rig.Arrive();
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in ack, 2, false);
+
+        var (saves, holds, tolerated, mispredicts, _, _) = rig.Arsenal.Counts;
+        Assert.Equal((1, 2, 0, 0), (saves, holds, tolerated, mispredicts));   // both rings hold
+    }
+
+    /// <summary>
+    /// The same command replayed on the FRAME's clock instead of its own is
+    /// judged out: the twin wrote its clocks at the command's tick time, the
+    /// replay wrote them at the engine curtime the convenience overload
+    /// supplies, and the standing fields say so. This is the pair the fix
+    /// lives by — flip the replay's clock argument and this arm is the red one.
+    /// </summary>
+    [Fact]
+    public void The_same_fire_on_the_frames_clock_instead_of_the_commands_owns_is_judged_a_misprediction()
+    {
+        var rig = new Rig("tf_weapon_grenadelauncher");
+        var basis = Command(10, attack: false);
+        var cmd = Command(11, attack: true);
+        var ack = Command(11, attack: false);
+
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in basis, 2, false);
+
+        rig.Twin.RunCommand(rig.TwinWeapon, rig.TwinViewModel, cmd.Buttons, CommandClock, effectsLive: true,
+                            ClientCommand.For(in cmd, WeaponHandle, LocalPlayer));
+
+        // The frame-clock overload: the engine curtime here is the frame's,
+        // and the rig's engine answers it at zero.
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in cmd, 1, true);
+
+        rig.Arrive();
+        rig.Arsenal.OnPlayerCommand(LocalPlayer, in ack, 2, false);
+
+        var (saves, holds, tolerated, mispredicts, _, _) = rig.Arsenal.Counts;
+        Assert.Equal((1, 1, 0, 1), (saves, holds, tolerated, mispredicts));   // the weapon ring stands: clocks late by the frame gap
+        Assert.Contains("NextPrimaryAttack", rig.World.Log.Text);
     }
 
     [Fact]

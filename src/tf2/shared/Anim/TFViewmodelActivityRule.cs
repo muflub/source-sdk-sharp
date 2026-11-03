@@ -17,10 +17,22 @@ namespace TF2.Shared.Anim;
 /// before the model is asked.
 ///
 /// <para>
+/// Stock's FIRST arm is the equipped item's own rename
+/// (<c>GetActivityOverride</c> over the schema's
+/// <c>animation_replacement</c> rows, :4515-4521, econ_item_schema.cpp:3600):
+/// the heavy's fists rename the idle to <c>ACT_FISTS_VM_IDLE</c> before any
+/// role table, and the arms model tags no <c>ACT_MELEE_*</c> at all. It
+/// answers through the base item the weapon name wears
+/// (<see cref="TFWeaponTypes.BaseItemFor"/>, the same read the hands rule
+/// makes); a weapon with no item, or one without a row for the asked name,
+/// falls to the role table — stock's early-return arm.
+/// </para>
+///
+/// <para>
 /// The role is <c>GetViewModelWeaponRole</c>'s base arm
 /// (<c>GetTFWpnData().m_iWeaponType</c>, tf_weaponbase.cpp:4409) — the
 /// script's <c>WeaponType</c>, read through the side's
-/// <see cref="ITFAnimWeapons"/>. Stock's other two arms are not here yet:
+/// <see cref="ITFAnimWeapons"/>. Stock's remaining arms are not here yet:
 /// the econ item's <c>GetAnimationSlot</c> override (deferred with the rest
 /// of econ) and the per-class overrides (the sword, the buff item). A player
 /// with no weapon the scripts name answers no role, and the base name stands
@@ -43,21 +55,32 @@ namespace TF2.Shared.Anim;
 /// </summary>
 [SideService(Side.Server)]
 [SideService(Side.Client)]
-public sealed class TFViewmodelActivityRule(ITFAnimWeapons? weapons = null) : IViewmodelActivityRule, IOrderedHook
+public sealed class TFViewmodelActivityRule(ITFAnimWeapons? weapons = null, TFWeaponTypes? types = null)
+    : IViewmodelActivityRule, IOrderedHook
 {
     /// <summary>The rule's order: the weapons band, beside the weapon hooks (see the lane notes' bands).</summary>
     public const int Order = 1_000_000 - 1_000 + 220;
 
     private readonly ITFAnimWeapons _weapons = weapons ?? new NoTFAnimWeapons();
+    private readonly TFWeaponTypes? _types = types;
 
     /// <inheritdoc />
     public int HookOrder => Order;
 
     /// <inheritdoc />
     public string Translate(int playerIndex, WeaponAnim anim, string activity)
-        => _weapons.ActiveWeapon(playerIndex) is { } weapon
-            ? TFViewmodelActTables.Translate(activity, weapon.Role) ?? activity
-            : activity;
+    {
+        if (_weapons.ActiveWeapon(playerIndex) is not { } weapon)
+            return activity;
+
+        // Stock's item arm first: the schema's animation_replacement, which
+        // is an answer, not a fall-through (tf_weaponbase.cpp:4518-4520).
+        if (_types?.BaseItemFor(TFWeaponNames.Name(weapon.Id).ToLowerInvariant())
+                   ?.ActivityOverride(activity) is { Length: > 0 } replacement)
+            return replacement;
+
+        return TFViewmodelActTables.Translate(activity, weapon.Role) ?? activity;
+    }
 }
 
 /// <summary>Stock's no-weapon arm: no role, no rewrite.</summary>

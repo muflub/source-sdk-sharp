@@ -264,7 +264,9 @@ public class UiMenuHostTests
 
         public override void PanelOpened(string panel) => OpenedUnder.Add(panel);
 
-        public override void Describe(ref UiFrame ui) { }
+        public int Described { get; private set; }
+
+        public override void Describe(ref UiFrame ui) => Described++;
     }
 
     private static (UiHost Host, ClaimingPanelMenu Screen, UiMenus Menus) ClaimingNamesHost(string[] names)
@@ -450,6 +452,78 @@ public class UiMenuHostTests
         Assert.True(host.Menu.IsOpen("mainmenu"));              // gameui_activated showed it
         host.HidePauseMenu();
         Assert.False(host.Menu.IsOpen("mainmenu"));             // gameui_hidden hid it
+    }
+
+    /// <summary>
+    /// A mod's main menu claims stock TF2's viewport name for it
+    /// (PANEL_MAINMENUOVERRIDE, "MainMenuOverride"): the GameUI's activation
+    /// and hide open and close the claimer, and the core's menu, which the same
+    /// calls drive in the fact above, stays shut.
+    /// </summary>
+    [Fact]
+    public void A_screen_claiming_the_main_menu_override_is_what_the_gameui_shows()
+    {
+        var claimer = new ClaimingPanelMenu { ClaimNames = ["MainMenuOverride"] };
+        var (host, _) = EscMenuHost(claimer);
+        host.ShowPauseMenu();
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        Assert.False(host.Menu.IsOpen("mainmenu"));            // the core's stayed shut
+        host.HidePauseMenu();
+        Assert.False(host.Menu.IsOpen("panel-claimer"));
+    }
+
+    /// <summary>
+    /// While the GameUI is up the engine hides the client viewport and every
+    /// panel on it without closing one (CEngineVGui::ActivateGameUI): a screen
+    /// answering a viewport panel stays open but is held, so the menu layer,
+    /// which the GameUI's override paints then, draws it not; the hide lets it
+    /// go. Live, TF2's text window drew over the in-level main menu and its
+    /// modal took the menu's clicks.
+    /// </summary>
+    [Fact]
+    public void A_viewport_screen_is_held_hidden_while_the_gameui_is_up()
+    {
+        var claimer = new ClaimingPanelMenu { ClaimNames = ["info"] };
+        var (host, _) = EscMenuHost(claimer);
+        host.Open("panel-claimer");
+        host.Paint((int)UiLayerKind.Menu, 1920, 1080);
+        int before = claimer.Described;
+        Assert.True(before > 0);                                  // drawn while the GameUI is down
+        host.ShowPauseMenu();
+        host.Paint((int)UiLayerKind.Menu, 1920, 1080);
+        Assert.Equal(before, claimer.Described);                  // held: open, not drawn
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        Assert.False(host.Menu.IsHeld("mainmenu"));               // the GameUI's own menu draws
+        host.HidePauseMenu();
+        host.Paint((int)UiLayerKind.Menu, 1920, 1080);
+        Assert.True(claimer.Described > before);                  // let go: drawn again
+    }
+
+    /// <summary>A panel the server shows while the GameUI is up is shown under
+    /// the hidden viewport: open and held until the GameUI hides.</summary>
+    [Fact]
+    public void A_viewport_panel_shown_while_the_gameui_is_up_waits_for_its_hide()
+    {
+        var claimer = new ClaimingPanelMenu { ClaimNames = ["info"] };
+        var (host, _) = EscMenuHost(claimer);
+        host.ShowPauseMenu();
+        Assert.True(host.ViewportPanel("info", true));
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        Assert.True(host.Menu.IsHeld("panel-claimer"));
+        host.HidePauseMenu();
+        Assert.False(host.Menu.IsHeld("panel-claimer"));
+    }
+
+    [Fact]
+    public void Escape_toggles_the_claimed_main_menu()
+    {
+        var claimer = new ClaimingPanelMenu { ClaimNames = ["MainMenuOverride"] };
+        var (host, _) = EscMenuHost(claimer);
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.True(host.Menu.IsOpen("panel-claimer"));
+        Assert.False(host.Menu.IsOpen("mainmenu"));
+        host.Input((int)UiInputKind.Key, 0, 0, (int)UiKey.Escape, 0, 0f);
+        Assert.False(host.Menu.IsOpen("panel-claimer"));
     }
 
     /// <summary>The pause menu draws above the screens it covers (stock's GameUI main

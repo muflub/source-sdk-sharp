@@ -57,6 +57,9 @@
 #include "sourcesharp.h"
 #include "view_scene.h"
 #include "imanaged_areas_client.h"
+#include "GameUI/IGameUI.h"
+#include "gameui_edge.h"
+#include "loaded_symbol.h"
 
 // IShimUiClient's draw primitives, one vgui::ISurface call each. Colours arrive
 // packed 0xRRGGBBAA; text arrives as UTF-16 and is widened to wchar_t. Draws are
@@ -73,7 +76,12 @@ struct UiPaintWindow
 	bool bOpen;
 	bool bPanelClipDisabled;
 	int nPanelClip[4];
-	CSourceSharpRawPanel* pMenuRoot; // the menu layer's root panel, once made
+	CSourceSharpRawPanel* pMenuRoot; // the menu layer's root panel in play, once made
+	CSourceSharpRawPanel* pMenuOverride; // the menu layer's panel while the GameUI is up
+	IGameUI* pGameUI; // the engine's GameUI, once asked
+	bool bGameUILooked;
+	vgui::VPANEL vpGameUIHome; // the gameui's base panel, the override's parent
+	GameUIOverrideHold Override;
 };
 
 UiPaintWindow g_UiPaint;
@@ -418,9 +426,14 @@ COMPILE_TIME_ASSERT(offsetof(player_info_t, userID) == 32);
 COMPILE_TIME_ASSERT(offsetof(player_info_t, guid) == 36);
 COMPILE_TIME_ASSERT(offsetof(player_info_t, fakeplayer) == 108);
 
-// The UI's menu layer: a full-screen popup that paints layer 1 and forwards
+// The UI's menu layer: a full-screen panel that paints layer 1 and forwards
 // input to IManagedUiClient::Input. It takes the mouse and keyboard only when
-// managed code asks; otherwise it is transparent to input.
+// managed code asks; otherwise it is transparent to input. There are two, one
+// per home, and the engine shows one at a time: in play a popup under the
+// client viewport, and while the GameUI is up the GameUI's main-menu override,
+// a plain child of the gameui's base panel as stock's CHudMainMenuOverride is
+// (the surface paints popups front to back under depth and stencil, so a
+// full-screen popup there hid the gameui's dialogs or was hidden by them).
 vgui::VPANEL SourceSharp_ClientViewportPanel();
 
 class CSourceSharpMenuRoot : public CSourceSharpRawPanel
@@ -438,24 +451,29 @@ public:
 		FocusLost
 	};
 
-	explicit CSourceSharpMenuRoot(vgui::VPANEL parent)
-		: CSourceSharpRawPanel("SourceSharpMenuRoot")
+	CSourceSharpMenuRoot(vgui::VPANEL parent, bool bOverride)
+		: CSourceSharpRawPanel(bOverride ? "SourceSharpMenuOverride" : "SourceSharpMenuRoot")
 	{
 		SetParent(parent);
-		// A popup: the surface counts a popup's input towards whether the cursor
-		// shows, and a plain child would never show it.
-		MakePopup(false, false);
+		// In play a popup: the surface counts a popup's input towards whether the
+		// cursor shows, and a plain child would never show it. The override needs
+		// none of that (the GameUI shows the cursor) and stays hidden until the
+		// gameui takes it, which shows it.
+		if (!bOverride)
+			MakePopup(false, false);
 		SetMouseInputEnabled(false);
 		SetKeyBoardInputEnabled(false);
-		SetVisible(true);
+		SetVisible(!bOverride);
 		FillScreen();
-		g_UiPaint.pMenuRoot = this;
+		(bOverride ? g_UiPaint.pMenuOverride : g_UiPaint.pMenuRoot) = this;
 	}
 
 	virtual ~CSourceSharpMenuRoot()
 	{
 		if (g_UiPaint.pMenuRoot == this)
 			g_UiPaint.pMenuRoot = NULL;
+		if (g_UiPaint.pMenuOverride == this)
+			g_UiPaint.pMenuOverride = NULL;
 	}
 
 	virtual void Paint() OVERRIDE
@@ -506,15 +524,22 @@ private:
 
 void SourceSharp_UiSetMenuInput(int32_t bMouse, int32_t bKeyboard)
 {
-	CSourceSharpRawPanel* pRoot = g_UiPaint.pMenuRoot;
-	if (!pRoot)
-		return;
+	if (CSourceSharpRawPanel* pRoot = g_UiPaint.pMenuRoot)
+	{
+		pRoot->SetMouseInputEnabled(bMouse != 0);
+		pRoot->SetKeyBoardInputEnabled(bKeyboard != 0);
+		// To the front, so vgui2's input finds it first for the keyboard.
+		if (bMouse || bKeyboard)
+			surface()->MovePopupToFront(pRoot->GetVPanel());
+	}
 
-	pRoot->SetMouseInputEnabled(bMouse != 0);
-	pRoot->SetKeyBoardInputEnabled(bKeyboard != 0);
-	// To the front, so vgui2's input finds it first for the keyboard.
-	if (bMouse || bKeyboard)
-		vgui::surface()->MovePopupToFront(pRoot->GetVPanel());
+	// The override takes the keyboard by focus within the gameui, as stock's
+	// CGameMenu "Open" gives it, under whatever dialog is up.
+	if (CSourceSharpRawPanel* pOverride = g_UiPaint.pMenuOverride)
+	{
+		pOverride->SetMouseInputEnabled(bMouse != 0);
+		pOverride->SetKeyBoardInputEnabled(bKeyboard != 0);
+	}
 }
 
 void SourceSharp_UiSetCursor(int32_t nShape)
@@ -524,27 +549,60 @@ void SourceSharp_UiSetCursor(int32_t nShape)
 		vgui::dc_arrow, vgui::dc_sizeall, vgui::dc_sizewe, vgui::dc_sizens, vgui::dc_sizenwse, vgui::dc_sizenesw,
 	};
 
-	if (g_UiPaint.pMenuRoot && nShape >= 0 && nShape < (int32_t)ARRAYSIZE(s_Cursors))
+	if (nShape < 0 || nShape >= (int32_t)ARRAYSIZE(s_Cursors))
+		return;
+	if (g_UiPaint.pMenuRoot)
 		g_UiPaint.pMenuRoot->SetCursor((vgui::HCursor)s_Cursors[nShape]);
+	if (g_UiPaint.pMenuOverride)
+		g_UiPaint.pMenuOverride->SetCursor((vgui::HCursor)s_Cursors[nShape]);
 }
 
-// While the engine's GameUI is up it hides the client root, so the menu root
-// follows the GameUI root (as stock's main-menu override does) and returns
-// under the client viewport when the GameUI hides.
+#if defined(_WIN32)
+static const char kGameUI[] = "GameUI.dll";
+#else
+static const char kGameUI[] = "GameUI.so";
+#endif
+
+// The engine's GameUI, as stock's client asks for it (clientmode_tf.cpp's
+// CDllDemandLoader over "GameUI"): the module the engine loaded, never loaded
+// here. NULL in a process with no GameUI.
+static IGameUI* GameUI()
+{
+	if (!g_UiPaint.bGameUILooked)
+	{
+		g_UiPaint.bGameUILooked = true;
+		CreateInterfaceFn pfnFactory = (CreateInterfaceFn)ss::FindLoadedSymbol(kGameUI, "CreateInterface");
+		g_UiPaint.pGameUI = pfnFactory ? (IGameUI*)pfnFactory(GAMEUI_INTERFACE_VERSION, NULL) : NULL;
+	}
+	return g_UiPaint.pGameUI;
+}
+
+// The override's hand on this frame (gameui_edge.h MenuOverrideHand): the
+// gameui re-parents it under its base panel, drops its own menu items and
+// shows it, as stock's CHudMainMenuOverride::AttachToGameUI.
 void SourceSharp_MenuRootFollowGameUI(bool bGameUiVisible)
 {
-	CSourceSharpRawPanel* pRoot = g_UiPaint.pMenuRoot;
-	if (!pRoot || !enginevgui)
+	CSourceSharpRawPanel* pOverride = g_UiPaint.pMenuOverride;
+	IGameUI* pGameUI = GameUI();
+	if (!pOverride || !pGameUI)
 		return;
 
-	const vgui::VPANEL home =
-		bGameUiVisible ? enginevgui->GetPanel(PANEL_GAMEUIDLL) : SourceSharp_ClientViewportPanel();
-	if (!home || ipanel()->GetParent(pRoot->GetVPanel()) == home)
+	const vgui::VPANEL panel = pOverride->GetVPanel();
+	const vgui::VPANEL parent = ipanel()->GetParent(panel);
+	if (!MenuOverrideHand(bGameUiVisible, g_UiPaint.vpGameUIHome && parent == g_UiPaint.vpGameUIHome))
 		return;
 
-	ipanel()->SetParent(pRoot->GetVPanel(), home);
-	ipanel()->SetVisible(pRoot->GetVPanel(), true);
-	surface()->MovePopupToFront(pRoot->GetVPanel());
+	pGameUI->SetMainMenuOverride(panel);
+	g_UiPaint.vpGameUIHome = ipanel()->GetParent(panel);
+	g_UiPaint.Override.Handed();
+	pOverride->SetVisible(true);
+	pOverride->FillScreen();
+}
+
+void SourceSharp_MenuRootReleaseGameUI(void)
+{
+	if (g_UiPaint.Override.TakeBack() && g_UiPaint.pGameUI)
+		g_UiPaint.pGameUI->SetMainMenuOverride(NULL);
 }
 
 class CSourceSharpHud : public CHudElement, public CSourceSharpRawPanel
@@ -568,9 +626,12 @@ public:
 		// The canvas covers the screen.
 		FillScreen();
 
-		// The menu layer's root, parented to the viewport, made once with the HUD.
+		// The menu layer's two panels, made once with the HUD: the root in play
+		// under the viewport, and the override the GameUI takes when it is up.
 		if (!g_UiPaint.pMenuRoot)
-			new CSourceSharpMenuRoot(parent);
+			new CSourceSharpMenuRoot(parent, false);
+		if (!g_UiPaint.pMenuOverride)
+			new CSourceSharpMenuRoot(parent, true);
 	}
 
 	virtual void Paint() OVERRIDE

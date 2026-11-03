@@ -167,6 +167,8 @@ public sealed class TF2MenuCompositionTests : IDisposable
         // The damage indicator's noise draws (the module registers the engine's
         // stream): the lowest draw, deterministic and in range.
         services.AddInstance<IUniformRandom>(new DefaultForwarders.LowestRandom());
+        // ClientModule's wall clock: the main menu's holiday art reads it.
+        services.AddInstance<TimeProvider>(TimeProvider.System);
         // The combat text's projection (the module registers the engine's):
         // the still projector answers the one read the paint makes.
         services.AddInstance<IClientBeamExecutor>(new StillProjector());
@@ -194,6 +196,8 @@ public sealed class TF2MenuCompositionTests : IDisposable
         Assert.True(loader.Current!.Has("tf2teammenu"), "the team menu is on the layer");
         Assert.True(loader.Current.Has("tf2classmenu"), "and the class menu");
         Assert.True(loader.Current.Has("tf2textwindow"), "and the text window, whose motd data the container answers for");
+        Assert.True(loader.Current.Has("tf2mainmenu"),
+                    "and the main menu, over the core's IMainMenuSource and TF2's art and actions");
         loader.Dispose();
     }
 

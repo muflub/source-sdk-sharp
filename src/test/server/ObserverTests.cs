@@ -520,4 +520,27 @@ public class ObserverTests
         Assert.False(r.Observers.StartDeathCam(me));
         Assert.Equal((int)ObserverMode.Roaming, me.State.ObserverMode);
     }
+
+    /// <summary>
+    /// A death-cam player is dead, and stock's dead joiner waits for the wave:
+    /// no arm of <c>HandleCommand_JoinTeam</c> respawns, and <c>CTFPlayer::ChangeTeam</c>'s
+    /// kill arm reads <c>IsDead</c> (tf_player.cpp:6692) and skips him — so the
+    /// join must not respawn him out of the cam for the team-change kill to
+    /// then take (the spawn-then-suicide the heal's medic suffered). The cam
+    /// itself lasts until the respawn's stop, the wave's.
+    /// </summary>
+    [Fact]
+    public void A_death_cam_players_jointeam_respawns_nobody_and_keeps_the_cam()
+    {
+        var r = new Rig();
+        var me = r.Players[0];
+        r.Die(0, 1f);
+        Assert.True(r.Observers.StartDeathCam(me));
+        r.Engine.Clear();
+
+        Assert.Equal(JoinTeamResult.Playing, r.Observers.JoinTeam(me, "2", 2f));
+
+        Assert.Empty(r.Engine.AllOf("Players.Respawn"));
+        Assert.Equal((int)ObserverMode.DeathCam, me.State.ObserverMode);
+    }
 }

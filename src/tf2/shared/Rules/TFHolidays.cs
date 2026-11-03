@@ -22,12 +22,13 @@ namespace TF2.Shared.Rules;
 /// </para>
 ///
 /// <para>
-/// TWO ARMS ANSWER FALSE AND THAT IS SAID WHERE THEY WOULD BE, not hidden:
+/// ONE ARM ANSWERS FALSE AND THAT IS SAID WHERE IT WOULD BE, not hidden:
 /// <c>TFGameRules()-&gt;IsHolidayMap(kHoliday_TFBirthday)</c> reads
 /// <c>m_nMapHolidayType</c>, the rules' networked state — the same answer a
 /// non-holiday map gives, which is what every map this port runs is until a
-/// rules mirror carries it; and <c>UTIL_IsHolidayActive</c>, the real-world
-/// calendar check, has no body anywhere in the SDK tree to port.
+/// rules mirror carries it. The last arm, <c>UTIL_IsHolidayActive</c>, is the
+/// real-world calendar (econ_holidays.cpp, <see cref="TFHolidayCalendar"/>),
+/// at the time the caller hands in.
 /// </para>
 /// </summary>
 public static class TFHolidays
@@ -41,16 +42,16 @@ public static class TFHolidays
     /// <c>tf_birthday</c> a line later in stock's own chain, which changes
     /// nothing a reader could observe.
     /// </summary>
-    public static bool IsBirthday(IEngineConsole console)
-        => Flag(console, "tf_birthday") || IsHolidayActive(console, TFBirthday);
+    public static bool IsBirthday(IEngineConsole console, DateTime now)
+        => Flag(console, "tf_birthday") || IsHolidayActive(console, TFBirthday, now);
 
     /// <summary>
-    /// <c>TF_IsHolidayActive</c> for the birthday, which is every arm this
-    /// port has a source for: the off switch, the two forced-holiday cvars
-    /// (<c>BIsCvarIndicatingHolidayIsActive</c>, <c>tf_gamerules.cpp:988</c>)
-    /// and <c>tf_birthday</c> itself.
+    /// <c>TF_IsHolidayActive</c> for the birthday: the off switch, the two
+    /// forced-holiday cvars (<c>BIsCvarIndicatingHolidayIsActive</c>,
+    /// <c>tf_gamerules.cpp:988</c>), <c>tf_birthday</c> itself, then the
+    /// calendar.
     /// </summary>
-    private static bool IsHolidayActive(IEngineConsole console, int holiday)
+    private static bool IsHolidayActive(IEngineConsole console, int holiday, DateTime now)
     {
         if (Flag(console, "tf_force_holidays_off"))
             return false;
@@ -62,7 +63,10 @@ public static class TFHolidays
             return true;
 
         // ( eHoliday == kHoliday_TFBirthday ) && tf_birthday.GetBool()
-        return holiday == TFBirthday && Flag(console, "tf_birthday");
+        if (holiday == TFBirthday && Flag(console, "tf_birthday"))
+            return true;
+
+        return TFHolidayCalendar.IsActive((TFHoliday)holiday, now);
     }
 
     /// <summary>

@@ -21,6 +21,9 @@ using CClient = client::SourceSharp.Client;
 using CTF = client::TF2.Shared;
 using CTFEcon = client::TF2.Shared.Econ;
 using CShared = client::SourceSharp.Shared;
+using ClientOffset = client::TF2.Client.Weapons.TFViewmodelOffset;
+using ClientMinCvar = client::TF2.Client.TFUseMinViewmodelsConVar;
+using ClientOverrideCvar = client::TF2.Client.TFViewmodelsOffsetOverrideConVar;
 using CTFPlayer = client::TF2.Client.Player;
 using CTFData = client::TF2.Shared.Player;
 
@@ -353,6 +356,55 @@ public sealed class TFWeaponOwnersTests
         Assert.Equal(0.608f, new CTFEcon.AttributeHooks().Float(1f, "weapon_stattrak_module_scale", clientItem), 3);
     }
 
+    /// <summary>The min-viewmodel chain end to end on stock weapons
+    /// (tf_weaponbase.cpp GetViewmodelOffset): the sniper's kit item carries
+    /// the prefab's <c>min_viewmodel_offset</c> "10 0 -10" on both sides, the
+    /// wire carries only the defindex, and the client's
+    /// <see cref="ClientOffset"/> under <c>tf_use_min_viewmodels 1</c> — fed
+    /// the real client owners (arsenal, carrier state, schema, catalogue and
+    /// the local index) — plucks exactly that triple.</summary>
+    [Fact]
+    public void The_snipers_min_viewmodel_offset_walks_the_wire_into_the_clients_offset()
+    {
+        var rig = new PlayerRig().As(TFClass.Sniper);
+        _ = rig.Loadout.Weapons(PlayerRig.Player);
+        var serverOwners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), rig.Items,
+                                                    rig.Engine, new GroundDirectory(), new TFPlayerStats());
+        var serverItem = serverOwners.ItemOf(PlayerRig.Index, "tf_weapon_sniperrifle");
+        Assert.NotNull(serverItem);
+        Assert.Equal("10 0 -10", new AttributeHooks().String(null, "min_viewmodel_offset", serverItem));
+
+        int serverRow = rig.Catalog.IndexOf("tf_weapon_sniperrifle");
+        var econ = new ClientEcon();
+        int clientRow = econ.Catalog.IndexOf("tf_weapon_sniperrifle");
+        Assert.Equal(serverRow, clientRow);
+
+        var networked = new CTFData.TFPlayerNetState();
+        networked.BindLocal();
+        Assert.NotEqual(0, rig.State!.WeaponItemDefIndex[serverRow]);   // the loadout wrote the rifle
+        networked.WeaponItemDefIndex[clientRow] = rig.State.WeaponItemDefIndex[serverRow];
+        var clientItem = econ.Owners(networked).ItemOf(2, "tf_weapon_sniperrifle");
+        Assert.NotNull(clientItem);
+        Assert.Equal("10 0 -10", new CTFEcon.AttributeHooks().String(null, "min_viewmodel_offset", clientItem));
+
+        var engine = new CAbi.RecordingEngine();
+        engine.Returns("Hud.LocalPlayerIndex", 2);
+        var minCvar = new ClientMinCvar();
+        minCvar.Bind(-1, "tf_use_min_viewmodels", "1");
+        var overrideCvar = new ClientOverrideCvar();
+        overrideCvar.Bind(-1, "tf_viewmodels_offset_override", "");
+        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, 2, networked), new Standalones(),
+                                                        null, econ.Schema, econ.Catalog, new StubArsenal(), engine);
+        var offset = new ClientOffset(minCvar, overrideCvar, engine, owners);
+
+        var taken = new float[3];
+        Assert.True(offset.Offset(taken));
+        Assert.Equal(new[] { 10f, 0f, -10f }, taken);
+
+        minCvar.Bind(-1, "tf_use_min_viewmodels", "0");
+        Assert.False(offset.Offset(taken));
+    }
+
     /// <summary>The client's own econ parts over the shipped scripts and the
     /// trimmed fixture: the client's copies of <c>TF2.Shared.Econ</c> and
     /// <c>SourceSharp.Shared</c> are distinct compiled types from the server's
@@ -505,6 +557,19 @@ public sealed class TFWeaponOwnersTests
     {
         public CTFData.TFPlayerNetState? Predicted(int playerIndex) => playerIndex == local ? working : null;
         public CTFData.TFPlayerNetState? Networked(int playerIndex) => networked;
+    }
+
+    /// <summary>An arsenal with the sniper rifle in the hands: enough for the
+    /// owners' active-item walk.</summary>
+    private sealed class StubArsenal : CClient.ILocalArsenal
+    {
+        public bool TryGetActive(out string name, out int clip, out int reserve)
+        {
+            name = "tf_weapon_sniperrifle";
+            clip = 10;
+            reserve = 40;
+            return true;
+        }
     }
 
     /// <summary>A directory with one hand-built player at <see cref="PlayerRig.Player"/>, on the ground by default.</summary>

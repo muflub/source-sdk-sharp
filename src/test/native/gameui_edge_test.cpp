@@ -67,4 +67,37 @@ TEST(GameUIVisibility, OneEdgePerChangeAcrossAlternatingFrames)
 	}
 }
 
+// The override panel goes to the gameui while it is up, once: a panel already
+// under the gameui's base panel stays, and a hidden GameUI takes nothing.
+TEST(MenuOverrideHand, TheGameUIUpTakesAPanelNotUnderIt)
+{
+	EXPECT_TRUE(MenuOverrideHand(true, false));
+}
+
+TEST(MenuOverrideHand, APanelAlreadyUnderTheGameUIIsNotHandedAgain)
+{
+	EXPECT_FALSE(MenuOverrideHand(true, true));
+}
+
+TEST(MenuOverrideHand, AHiddenGameUITakesNothing)
+{
+	EXPECT_FALSE(MenuOverrideHand(false, false));
+	EXPECT_FALSE(MenuOverrideHand(false, true));
+}
+
+TEST(GameUIOverrideHold, NothingHandedIsNothingToTakeBack)
+{
+	GameUIOverrideHold hold{};
+	EXPECT_FALSE(hold.TakeBack());
+}
+
+TEST(GameUIOverrideHold, AHandedRootIsTakenBackOnce)
+{
+	GameUIOverrideHold hold{};
+	hold.Handed();
+	hold.Handed();
+	EXPECT_TRUE(hold.TakeBack());
+	EXPECT_FALSE(hold.TakeBack());
+}
+
 } // namespace

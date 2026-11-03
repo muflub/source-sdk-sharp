@@ -50,13 +50,45 @@ private:
 	bool m_bVisible = false;
 };
 
+// Whether the menu's override panel goes to the gameui on a frame: while the
+// GameUI is up and the panel is not already under the gameui's base panel.
+// IGameUI::SetMainMenuOverride (stock CHudMainMenuOverride::AttachToGameUI,
+// tf_hud_mainmenuoverride.cpp:323-331) parents it there, drops the gameui's
+// own menu items and keeps the panel up; the gameui re-parents nothing after,
+// so a hand is once per home.
+inline bool MenuOverrideHand(bool bGameUiVisible, bool bUnderGameUI)
+{
+	return bGameUiVisible && !bUnderGameUI;
+}
+
+// Whether the gameui holds the panel as its override: stock takes it back at
+// the client's shutdown (~CHudMainMenuOverride, :255-262), once, and only
+// after it was handed. Value-initialise a local ({}).
+class GameUIOverrideHold
+{
+public:
+	void Handed() { m_bHanded = true; }
+
+	bool TakeBack()
+	{
+		const bool bWasHanded = m_bHanded;
+		m_bHanded = false;
+		return bWasHanded;
+	}
+
+private:
+	bool m_bHanded; // trivially constructible: a zeroed global, no static initializer
+};
+
 // The client frame's watch, over the engine's GameUI panel (shell_clientdll.cpp
 // HudUpdate); defined in shell_clientdll_gameclientexports.cpp beside the
 // exports whose work it stands in for.
 void SourceSharp_GameUIEdge();
 
-// The edge's other half, carried out on the same answer: the menu root's home
-// follows the GameUI, under the gameui's root while it is up and back under
-// the client viewport after (the stock gameui's own answer for its main-menu
-// override); defined in shell_hud.cpp beside the menu root.
+// The edge's other half, carried out on the same answer: the menu's override
+// panel goes to the gameui (MenuOverrideHand); defined in shell_hud.cpp beside
+// the menu panels.
 void SourceSharp_MenuRootFollowGameUI(bool bGameUiVisible);
+
+// The client's shutdown: the gameui lets go of the override (GameUIOverrideHold).
+void SourceSharp_MenuRootReleaseGameUI(void);

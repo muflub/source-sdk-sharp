@@ -124,4 +124,70 @@ public sealed class TFViewmodelActivityTests
         Assert.Equal("ACT_MELEE_VM_IDLE",
                      ScriptedRule(engine).Translate(PlayerRig.Index, WeaponAnim.Idle, "ACT_VM_IDLE"));
     }
+
+    //-------------------------------------------------------------------------
+    // Stock's first arm, the item's animation_replacement
+    // (tf_weaponbase.cpp:4515-4521): the heavy's fists rename the ask before
+    // any role table, because c_heavy_arms tags no ACT_MELEE_* — without the
+    // arm the idle misses onto the plain idle label and the fists hang at the
+    // screen's bottom corners.
+    //-------------------------------------------------------------------------
+
+    private static TFViewmodelActivityRule ItemisedRule(RecordingEngine engine)
+        => new(new TFServerAnimWeapons(engine,
+                                       new TFWeaponScripts(new RecordingLog(), WeaponFixtures.Shipped())),
+               WeaponFixtures.Types(EconTestFiles.Fixture("items_game.trimmed.txt")));
+
+    [Fact]
+    public void The_fists_rename_the_idle_through_their_item()
+    {
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", PlayerRig.Player);
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_fists");
+
+        Assert.Equal("ACT_FISTS_VM_IDLE",
+                     ItemisedRule(engine).Translate(PlayerRig.Index, WeaponAnim.Idle, "ACT_VM_IDLE"));
+    }
+
+    [Fact]
+    public void The_fists_item_rename_beats_the_role_table()
+    {
+        // Stock's early return: an item row is the answer, the role table is
+        // never reached (tf_weaponbase.cpp:4519-4520) — the draw is the
+        // FISTS one, not ACT_MELEE_VM_DRAW.
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", PlayerRig.Player);
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_fists");
+
+        var rule = ItemisedRule(engine);
+
+        Assert.Equal("ACT_FISTS_VM_DRAW", rule.Translate(PlayerRig.Index, WeaponAnim.Draw, "ACT_VM_DRAW"));
+        Assert.Equal("ACT_FISTS_VM_SWINGHARD", rule.Translate(PlayerRig.Index, WeaponAnim.Primary, "ACT_VM_SWINGHARD"));
+    }
+
+    [Fact]
+    public void A_weapon_whose_item_names_no_replacement_keeps_the_role_table()
+    {
+        // The rocket launcher's item has no animation_replacement: stock's
+        // fall-through arm, the role table as before.
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", PlayerRig.Player);
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_rocketlauncher");
+
+        Assert.Equal("ACT_PRIMARY_VM_IDLE",
+                     ItemisedRule(engine).Translate(PlayerRig.Index, WeaponAnim.Idle, "ACT_VM_IDLE"));
+    }
+
+    [Fact]
+    public void An_item_row_for_an_unasked_activity_is_no_answer()
+    {
+        // The fists rename five activities; the secondary attack is not one
+        // of them, so the melee table's row stands.
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", PlayerRig.Player);
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_fists");
+
+        Assert.Equal("ACT_MELEE_VM_SECONDARYATTACK",
+                     ItemisedRule(engine).Translate(PlayerRig.Index, WeaponAnim.Secondary, "ACT_VM_SECONDARYATTACK"));
+    }
 }

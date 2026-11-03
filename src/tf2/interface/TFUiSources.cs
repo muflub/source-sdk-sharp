@@ -1436,3 +1436,75 @@ public readonly record struct TFTeamStatusPlayer(
     int MaxHealth,
     int MaxBuffedHealth,
     int RespawnSeconds);
+
+/// <summary>
+/// The TF2 main menu's art (stock's <c>CHudMainMenuOverride</c>,
+/// game/client/tf/tf_hud_mainmenuoverride.cpp): the holiday background
+/// mainmenuoverride.res names under the active holiday's condition
+/// (<c>ApplySchemeSettings</c>, :463-519) and the character the menu picks
+/// from scripts/CharacterBackgrounds.txt (<c>LoadCharacterImageFile</c>,
+/// :657-773). Both are material names under materials/, picked once, as
+/// stock picks them when the panel is built.
+/// </summary>
+public interface ITFMainMenuArt
+{
+    /// <summary>The holiday background (e.g.
+    /// <c>console/title_team_halloween2015_widescreen</c>), or null when the
+    /// holiday names none — the GameUI's own background shows then.</summary>
+    string? Background { get; }
+
+    /// <summary>The character art (e.g. <c>console/characters/heavy</c>),
+    /// or null when the background takes none (two of Halloween's) or the
+    /// script names nothing usable.</summary>
+    string? Character { get; }
+}
+
+/// <summary>
+/// What the TF2 main menu's buttons do (stock's
+/// <c>CTFMatchmakingDashboard::OnCommand</c> for the top bar and
+/// <c>CHudMainMenuOverride::OnCommand</c> for the rest): most are the GameUI's
+/// own dialogs by menu command, as stock's
+/// <c>SendMainMenuCommand</c>/<c>gamemenucommand</c> asks for them. Resume
+/// and Quit are the core's (<see cref="SourceSharp.Client.Ui.IMainMenuSource"/>).
+/// </summary>
+public interface ITFMainMenuActions
+{
+    /// <summary>FIND A GAME: <c>gamemenucommand openserverbrowser</c>
+    /// (<c>OnPlayCommunity</c>, tf_matchmaking_dashboard.cpp:917-922).</summary>
+    void FindAGame();
+
+    /// <summary>HOST A GAME: <c>gamemenucommand
+    /// OpenCreateMultiplayerGameDialog</c> (<c>OnCreateServer</c>, :924-929).</summary>
+    void HostAGame();
+
+    /// <summary>The first gear: the GameUI's options dialog
+    /// (SettingsButtonSDK's <c>OpenOptionsDialog</c>).</summary>
+    void Options();
+
+    /// <summary>The second gear: <c>opentf2options</c>, the TF2 advanced
+    /// options dialog (TF2SettingsButtonSDK).</summary>
+    void AdvancedOptions();
+
+    /// <summary>ITEMS: stock's <c>engine open_charinfo</c>.</summary>
+    void Items();
+
+    /// <summary>In game, Disconnect's confirmed leave: <c>disconnect</c>
+    /// (<c>PromptOrFireCommand</c>, tf_hud_mainmenuoverride.cpp:123-138).</summary>
+    void Disconnect();
+
+    /// <summary>In game: GameMenu.res's CallVoteButton, <c>callvote</c> and
+    /// the GameUI's ResumeGame (:1923-1931).</summary>
+    void CallVote();
+
+    /// <summary>In game: MutePlayersButton, the GameUI's
+    /// <c>OpenMutePlayerDialog</c>.</summary>
+    void MutePlayers();
+
+    /// <summary>In game: RequestCoachButton, <c>engine
+    /// cl_coach_find_coach</c>.</summary>
+    void RequestCoach();
+
+    /// <summary>In game: ReportPlayerButton, the GameUI's
+    /// <c>OpenReportPlayerDialog</c>.</summary>
+    void ReportPlayer();
+}

@@ -1,7 +1,6 @@
 "GameInfo"
 {
 	game	"TF2Descent"
-	title	"DESCENT"
 	type multiplayer_only
 	nomodels 0
 	nohimodel 1

@@ -420,6 +420,20 @@ public class ModsConfigTests
     }
 
     [Fact]
+    public void The_tf2_mods_gameinfos_name_no_title()
+    {
+        // The engine's GameUI paints gameinfo's "title" as a text label in the
+        // screen's top-left corner whenever it is up. Stock TF2's gameinfo.txt carries no
+        // "title" -- only "game" -- so its menus draw none; ours must not either.
+        foreach (var mod in new[] { "mod_tf2", "mod_tf2_descent" })
+        {
+            var gameinfo = File.ReadAllText(RepoLayout.Repo("game", mod, "gameinfo.txt"));
+            Assert.Contains("\tgame\t", gameinfo);
+            Assert.DoesNotMatch("(?m)^\\ttitle\\t", gameinfo);
+        }
+    }
+
+    [Fact]
     public void The_tf2_mod_names_the_key_its_sealed_weapon_scripts_open_with()
     {
         // Shipped TF2 content carries its scripts only as ICE-sealed .ctx

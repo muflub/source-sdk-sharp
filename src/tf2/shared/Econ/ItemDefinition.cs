@@ -14,6 +14,10 @@ public enum EquipType
     Account,
 }
 
+/// <summary>One <c>animation_on_wearable_t</c> row (econ_item_schema.h:904-909):
+/// an activity a wearable's visuals rename, and its replacement.</summary>
+public readonly record struct ActivityReplacement(string Activity, string Replacement);
+
 /// <summary>
 /// One item definition after its prefabs are merged: the fields
 /// <c>CEconItemDefinition::BInitFromKV</c> (econ_item_schema.cpp:3020-3395)
@@ -37,6 +41,7 @@ public sealed class ItemDefinition
     private bool _hasStyles;
     private readonly int[] _styleSkins = [0, 0];
     private readonly int[] _styleViewmodelSkins = [-1, -1];
+    private ActivityReplacement[] _activityReplacements = [];
 
     internal ItemDefinition(int defindex, MergedKeys keys, EquipType equipType, int defaultSlot,
                             int[] loadoutSlots, bool[] usedBy, string?[] playerModels,
@@ -85,6 +90,27 @@ public sealed class ItemDefinition
             int commonViewmodel = style0.GetInt("v_skin", -1);
             if (commonViewmodel != -1)
                 _styleViewmodelSkins = [commonViewmodel, commonViewmodel];
+        }
+
+        // The base visuals' animation_replacement rows, parse order preserved
+        // (econ_item_schema.cpp:2551-2558): the activity a viewmodel ask is
+        // rewritten to before the role tables see it. Stock keeps them per
+        // team and falls back to this block for a team with no visuals of
+        // its own (GetBestVisualTeamData, econ_item_schema.h:2240-2253); the
+        // per-team blocks are not parsed here, so the base rows answer for
+        // every team, as that fallback does for an item without them.
+        if (keys.Find("visuals")?.Find("animation_replacement") is { } replacements
+            && replacements.Children.Count > 0)
+        {
+            var rows = new List<ActivityReplacement>(replacements.Children.Count);
+            foreach (var child in replacements.Children)
+            {
+                if (!child.IsBlock && child.Leaf?.AsString(null) is { Length: > 0 } replacement)
+                    rows.Add(new ActivityReplacement(child.Name, replacement));
+            }
+
+            if (rows.Count > 0)
+                _activityReplacements = rows.ToArray();
         }
     }
 
@@ -168,6 +194,24 @@ public sealed class ItemDefinition
             return null;
 
         return _styleViewmodelSkins[index] != -1 ? _styleViewmodelSkins[index] : _styleSkins[index];
+    }
+
+    /// <summary>
+    /// The item's animation_replacement answer for an activity, stock's
+    /// <c>CEconItemDefinition::GetActivityOverride( iTeam, const char* )</c>
+    /// (econ_item_schema.cpp:3600-3611): the FIRST row tagged
+    /// <paramref name="activity"/>'s name, its replacement. Null when the
+    /// item names no row for it.
+    /// </summary>
+    public string? ActivityOverride(string activity)
+    {
+        foreach (var row in _activityReplacements)
+        {
+            if (string.Equals(row.Activity, activity, StringComparison.OrdinalIgnoreCase))
+                return row.Replacement;
+        }
+
+        return null;
     }
 
     /// <summary><c>CanBeUsedByClass</c> (tf_item_schema.h:259) for a playable class.</summary>

@@ -1,7 +1,6 @@
 "GameInfo"
 {
 	game	"TF2"
-	title	"TF2"
 	type multiplayer_only
 	nomodels 0
 	nohimodel 1

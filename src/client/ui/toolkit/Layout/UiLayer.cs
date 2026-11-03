@@ -11,6 +11,7 @@ public sealed class UiLayer : IUiLayer
 {
     private readonly UiScreen[] _screens;
     private readonly bool[] _open;
+    private readonly bool[] _held;
     private readonly UiContext _context;
     private readonly IUiBackend _backend;
     private readonly UiWindows? _windows;
@@ -21,6 +22,7 @@ public sealed class UiLayer : IUiLayer
     {
         _screens = screens.OrderBy(s => s.Layer).ThenBy(s => s.Order).ToArray();
         _open = _screens.Select(s => s.OpenByDefault).ToArray();
+        _held = new bool[_screens.Length];
         _order = Enumerable.Range(0, _screens.Length).ToArray();
         _context = context;
         _backend = backend;
@@ -64,7 +66,7 @@ public sealed class UiLayer : IUiLayer
         for (int i = 0; i < _screens.Length; i++)
         {
             var s = _screens[i];
-            if (s.Layer != layer || !_open[i] || !s.Visible)
+            if (s.Layer != layer || !_open[i] || _held[i] || !s.Visible)
                 continue;
             var takes = s.Takes;
             for (int t = 0; t < takes.Count; t++)
@@ -75,7 +77,7 @@ public sealed class UiLayer : IUiLayer
         {
             int i = _order[k];
             var s = _screens[i];
-            if (s.Layer != layer || !_open[i] || !s.Visible)
+            if (s.Layer != layer || !_open[i] || _held[i] || !s.Visible)
                 continue;
             var ui = _context.BeginScreen(s.Name, s.Layer);
             s.Describe(ref ui);
@@ -172,10 +174,29 @@ public sealed class UiLayer : IUiLayer
         get
         {
             for (int i = 0; i < _screens.Length; i++)
-                if (_open[i] && _screens[i].Visible && _screens[i].WantsMouse)
+                if (_open[i] && !_held[i] && _screens[i].Visible && _screens[i].WantsMouse)
                     return true;
             return false;
         }
+    }
+
+    /// <summary>
+    /// Holds a screen hidden, or lets it go: a held screen stays open, keeping
+    /// its state, but neither draws nor wants the mouse — the way the engine
+    /// hides the client viewport's panels while its GameUI is up, without
+    /// closing them. A name the layer lacks is no screen to hold.
+    /// </summary>
+    public void Hold(string name, bool held)
+    {
+        int i = IndexOf(name);
+        if (i >= 0)
+            _held[i] = held;
+    }
+
+    public bool IsHeld(string name)
+    {
+        int i = IndexOf(name);
+        return i >= 0 && _held[i];
     }
 
     /// <summary>A screen of this layer was closed, by name — whichever way

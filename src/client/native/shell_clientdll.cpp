@@ -811,6 +811,9 @@ void CShellClientDLL::Shutdown()
 	UnloadManagedRuntime(m_pManagedRuntime);
 	m_pManagedRuntime = NULL;
 
+	// Before the panels go: stock's override leaves the gameui in its destructor.
+	SourceSharp_MenuRootReleaseGameUI();
+
 	gHUD.Shutdown();
 	VGui_Shutdown();
 

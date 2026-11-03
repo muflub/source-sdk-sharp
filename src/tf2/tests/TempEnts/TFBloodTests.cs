@@ -250,7 +250,7 @@ public sealed class TFBloodTests
 
         var players = new CClientTempEnts(new CAbi.RecordingLog(), registry);
         Assert.True(players.Add("CTETFBlood",
-            new client::TF2.Client.ClientTeTFBlood(oneShots, standalones, new LowViolence(false), console, random, fx)));
+            new client::TF2.Client.ClientTeTFBlood(oneShots, standalones, new LowViolence(false), console, random, fx, new MidJune())));
         return players;
     }
 
@@ -258,6 +258,13 @@ public sealed class TFBloodTests
     private sealed class LowViolence(bool low) : client::SourceSharp.Client.Effects.IClientLowViolence
     {
         public bool IsLowViolence => low;
+    }
+
+    /// <summary>A wall clock on a date no holiday holds, so the birthday arm
+    /// answers only for its cvars.</summary>
+    private sealed class MidJune : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(2026, 6, 15, 12, 0, 0, TimeSpan.Zero);
     }
 
     /// <summary>One player and its doubles, arrived at by hand.</summary>
@@ -278,7 +285,7 @@ public sealed class TFBloodTests
             Console = new ConsoleFake(cvars ?? []);
 
             Player = new client::TF2.Client.ClientTeTFBlood(
-                OneShots, Standalones, new LowViolence(lowViolence), Console, Random, Fx);
+                OneShots, Standalones, new LowViolence(lowViolence), Console, Random, Fx, new MidJune());
         }
 
         public void Arrive(Vector? origin = null, Vector? normal = null, int entIndex = 2)

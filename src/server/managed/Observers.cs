@@ -177,7 +177,12 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
     /// a playing team stops observing (StopObserverMode, State_Enter_ACTIVE).
     /// DIVERGENCE: stock's spectator is LIFE_DEAD and comes back on a button
     /// (or mp_forcerespawn); this one never died, so it is respawned here. The
-    /// team store is <see cref="Teams.Join"/>'s.
+    /// death cam is no seat: its player is stock's dead joiner, whom no arm of
+    /// <c>HandleCommand_JoinTeam</c> respawns and whose
+    /// <c>CTFPlayer::ChangeTeam</c> kill arm IsDead-skips (tf_player.cpp:6692) —
+    /// the wave owns him, on the team he joined. His cam lasts until that
+    /// respawn's stop, so it is left running here. The team store is
+    /// <see cref="Teams.Join"/>'s.
     /// </summary>
     public JoinTeamResult JoinTeam(SsPlayer player, string? arg, float now)
     {
@@ -191,8 +196,10 @@ public sealed class Observers(ILog log, IEntityDirectory directory, IEngineEntit
         if (team == TeamSpectator)
             return Spectate(player, now) ? JoinTeamResult.Spectating : JoinTeamResult.SpectatorsNotAllowed;
 
-        bool was = IsObserver(player);
-        Stop(player);
+        bool cam = ModeOf(player) == ObserverMode.DeathCam;
+        bool was = IsObserver(player) && !cam;
+        if (!cam)
+            Stop(player);
         if (was)
             players.Respawn(player.Handle);
         // The join's placement and observer words land outside any command;

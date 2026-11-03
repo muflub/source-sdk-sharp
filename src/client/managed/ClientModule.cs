@@ -834,6 +834,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<IClientFrameThink>>(locator => new Hooks<IClientFrameThink>(locator, log));
         _logAttachment = _engine.AttachLog(log);
         _services.AddInstance<IProcessEnvironment>(new ProcessEnvironment());
+        // The wall clock, for what reads the date (TF2's holiday calendar).
+        _services.AddInstance<TimeProvider>(TimeProvider.System);
         _services.AddInstance<IModInfo>(new ModInfo());
         _services.AddInstance(new ParticleReloadPolicy());
         // CHLClient::LevelInitPreEntity's cl_predict arm and PostInit's bicubic

@@ -187,6 +187,10 @@ public static class ClientUi
         // Play's map is the mod's own (plan_client_novalve §3.2a's create-server
         // row): maplist.txt on the game's paths, the launch menu's start.
         var mainMenu = new MainMenuUi(engine, MenuMapList.First(services.Resolve<IEngineFiles>(), log));
+        // Before the mod screens, as the text window's data: a mod's main menu
+        // (TF2's, claiming UiHost.MainMenuPanel) reads the same level answer
+        // and Resume the core's menu does.
+        services.AddInstance<IMainMenuSource>(mainMenu);
 
         // THE MOD'S SCREENS (stage 0.9): every UiScreen in its UI assemblies,
         // built through the container, after the core's on the layer each names.

@@ -64,6 +64,16 @@ public sealed class UiHost : IUiRuntime
     /// <summary>Panel claims of the menu layer's screens: panel name to screen
     /// name, first claimer in layer order. These override <see cref="Panels"/>.</summary>
     private readonly Dictionary<string, string> _claims;
+
+    /// <summary>Stock TF2's viewport name for its main menu (PANEL_MAINMENUOVERRIDE,
+    /// tf_shareddefs.h:176, the panel the client hands the GameUI): a mod screen
+    /// claiming it is the main menu the GameUI shows, in place of the core's.</summary>
+    public const string MainMenuPanel = "MainMenuOverride";
+
+    /// <summary>The screen the GameUI's activation, Escape and Resume drive: the
+    /// claimer of <see cref="MainMenuPanel"/>, else the core's.</summary>
+    private string MainMenuScreen => _claims.TryGetValue(MainMenuPanel, out var claimed) ? claimed : "mainmenu";
+
     private bool _loggedFirstPaint;
     private bool _menuInput;
     private UiCursor _cursor;
@@ -88,7 +98,7 @@ public sealed class UiHost : IUiRuntime
             chat.Closed = () => Close("chatinput");
         if (menus.Main is { } main)
         {
-            main.Closed = () => Close("mainmenu");
+            main.Closed = () => Close(MainMenuScreen);
             main.OptionsShown = () => Open("mouseoptions");
         }
 
@@ -281,27 +291,53 @@ public sealed class UiHost : IUiRuntime
         if (_menu.IsOpen(teamScreen)) Close(teamScreen);
         else if (_menu.IsOpen(infoScreen)) Close(infoScreen);
         else if (Windows.Top is { } top && _menu.IsOpen(top)) Close(top);
-        else if (_menu.IsOpen("mainmenu")) Close("mainmenu");
-        else if (_menu.Has("mainmenu")) Open("mainmenu");   // like Restore's skip: no screen, no decision
+        else if (_menu.IsOpen(MainMenuScreen)) Close(MainMenuScreen);
+        else if (_menu.Has(MainMenuScreen)) Open(MainMenuScreen);   // like Restore's skip: no screen, no decision
     }
 
     /// <summary>The engine activated its GameUI (gameui_activated): the pause menu shows
     /// with it, so what the engine considers visible and what the menu draws agree.</summary>
     public void ShowPauseMenu()
     {
+        HoldViewport(true);
         if (!ClaimEscape())
             return;
-        if (_menu.Has("mainmenu")) Open("mainmenu");        // like Restore's skip: no screen, no decision
+        if (_menu.Has(MainMenuScreen)) Open(MainMenuScreen);        // like Restore's skip: no screen, no decision
     }
 
     /// <summary>The engine hid its GameUI again (gameui_hidden, whatever hid it — its own
     /// Escape arm or the menu's Resume running gameui_hide): the pause menu goes with it.</summary>
     public void HidePauseMenu()
     {
+        HoldViewport(false);
         if (!ClaimEscape())
             return;
-        Close("mainmenu");
+        Close(MainMenuScreen);
     }
+
+    /// <summary>Whether the engine's GameUI is up, by its two edges.</summary>
+    private bool _gameUiUp;
+
+    /// <summary>
+    /// While the GameUI is up the engine hides the client viewport, and with it
+    /// every stock panel shown there (CEngineVGui::ActivateGameUI hides the
+    /// client root), without closing one: the screens that answer a viewport
+    /// panel are held hidden in the menu layer, which the GameUI's override
+    /// panel paints then, and let go when it hides. The main menu is the
+    /// GameUI's own and is never held.
+    /// </summary>
+    private void HoldViewport(bool up)
+    {
+        _gameUiUp = up;
+        foreach (var screen in _claims.Values)
+            if (screen != MainMenuScreen)
+                _menu.Hold(screen, up);
+        foreach (var screen in Panels.Values)
+            _menu.Hold(screen, up);
+    }
+
+    private bool IsViewportScreen(string screen)
+        => screen != MainMenuScreen && (_claims.ContainsValue(screen) || Panels.Values.Contains(screen));
 
     /// <summary>A stock viewport panel: the UI takes the ones it has a screen for.</summary>
     public bool ViewportPanel(string name, bool show)
@@ -353,6 +389,8 @@ public sealed class UiHost : IUiRuntime
         if (screen == "scoreboard") _menus.Scores.Refresh();
         _menusReadAt = _clock.Now;
         _menu.Open(screen);
+        if (_gameUiUp && IsViewportScreen(screen))
+            _menu.Hold(screen, true);       // shown under the hidden viewport, as stock's
         _log.Msg($"[SourceSharp/Ui] open {screen}\n");
     }
 
