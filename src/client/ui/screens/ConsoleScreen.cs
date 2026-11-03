@@ -146,13 +146,20 @@ public readonly record struct ConsoleCompletionsProps(UiBox Field, float WindowW
 /// <summary>
 /// Autocomplete: an overlay under the input with the best matches: a CVAR/CMD
 /// badge, the name, a convar's value, and its help (dropped when narrow); the
-/// one Tab would take is raised; the count of matches at the foot.
+/// one in the line, or the one Tab would take, is raised and stays in view; a
+/// click takes one; the count of matches at the foot.
 /// </summary>
 public sealed class ConsoleCompletionsPanel : UiPanel<ConsoleCompletionsProps>
 {
     private readonly IConsoleCompletionSource _completions;
+    private readonly IConsoleActions? _actions;
 
-    public ConsoleCompletionsPanel(IConsoleCompletionSource completions) => _completions = completions;
+    /// <param name="actions">What a click does (the core: into the line); none in a sample.</param>
+    public ConsoleCompletionsPanel(IConsoleCompletionSource completions, IConsoleActions? actions = null)
+    {
+        _completions = completions;
+        _actions = actions;
+    }
 
     /// <summary>The most suggestions shown at once.</summary>
     public const int Shown = 8;
@@ -166,18 +173,23 @@ public sealed class ConsoleCompletionsPanel : UiPanel<ConsoleCompletionsProps>
         bool narrow = props.Narrow;
         float width = MathF.Min(narrow ? 560 : 860, props.WindowWidthDu - 2 * UiWindowWidget.Ring - 2 * (float)Space.L);
         int shown = Math.Min(Shown, c.CompletionCount);
+        int first = Math.Max(0, c.SelectedCompletion - shown + 1);
         // Up over the log: the field is the window's foot, and a list opened below it was
         // pushed back over the field on a short screen, hiding what is being typed.
         using (ui.Overlay("suggest").AnchorTo(props.Field, UiAnchor.TopLeft, UiAnchor.BottomLeft).Inset(Space.None, Space.XS))
         using (ui.Column(Space.None).Width(Size.Du(width)).Fill(Tone.Window).Round(Radius.M)
                  .Border(Tone.Line, 1).Raise(Elevation.Overlay).Pad(Space.XS))
         {
-            for (int i = 0; i < shown; i++)
+            for (int i = first; i < first + shown; i++)
             {
                 var item = c.Completion(i);
                 bool selected = i == c.SelectedCompletion;
-                using (ui.Row(Space.M).Key(i).Size(Size.Fill, Size.Du(32)).Pad(Space.S, Space.None).Round(Radius.S)
-                         .Fill(selected ? ((UiPaint)Tone.Accent).WithOpacity(0.18f) : Tone.None))
+                var row = ui.Row(Space.M).Key(i).Size(Size.Fill, Size.Du(32)).Pad(Space.S, Space.None).Round(Radius.S);
+                var hit = ui.Interact(row);
+                if (hit.Clicked)
+                    _actions?.TakeCompletion(i);
+                row.Fill(selected ? ((UiPaint)Tone.Accent).WithOpacity(0.18f) : hit.Hovered ? Tone.SurfaceRaised : Tone.None);
+                using (row)
                 {
                     using (ui.Box().Size(Size.Du(40), Size.Du(20)).Round(Radius.S).Fill(Tone.SurfaceRaised))
                         ui.Text(item.IsCommand ? "#SS_UI_Console_Command" : "#SS_UI_Console_Variable", Text.Label, Tone.TextMuted).At(UiAnchor.Centre);

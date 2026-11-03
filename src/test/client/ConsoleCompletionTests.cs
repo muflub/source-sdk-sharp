@@ -54,9 +54,30 @@ public class ConsoleCompletionTests
         ui.Key(UiKey.Tab);
         Assert.Equal("SV_Alltalk ", ui.Input);
         Assert.Equal(ui.Input.Length, ui.Caret);
-        Assert.Equal(1, ui.SelectedCompletion);
         ui.Key(UiKey.Tab);
         Assert.Equal("sv_cheats ", ui.Input);
+    }
+
+    [Fact]
+    public void The_raised_suggestion_is_the_one_in_the_line_at_every_step()
+    {
+        var ui = Typed("sv");
+        Assert.Equal(0, ui.SelectedCompletion);
+        foreach (var key in new[] { UiKey.Tab, UiKey.Down, UiKey.Tab, UiKey.Up, UiKey.Up, UiKey.Up, UiKey.Up, UiKey.Down, UiKey.Tab, UiKey.Tab, UiKey.Tab })
+        {
+            ui.Key(key);
+            Assert.Equal(ui.Completion(ui.SelectedCompletion).Name + " ", ui.Input);
+        }
+    }
+
+    [Fact]
+    public void Taking_a_suggestion_puts_it_in_the_line_and_closes_the_list()
+    {
+        var ui = Typed("sv");
+        ui.TakeCompletion(2);
+        Assert.Equal("sv_gravity ", ui.Input);
+        Assert.Equal(ui.Input.Length, ui.Caret);
+        Assert.Equal(0, ui.CompletionCount);
     }
 
     [Fact]

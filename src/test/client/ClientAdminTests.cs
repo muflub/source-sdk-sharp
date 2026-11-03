@@ -306,6 +306,21 @@ public sealed class ClientAdminTests : IDisposable
     }
 
     [Fact]
+    public void A_line_marked_to_stay_keeps_the_menu_up_for_the_next_choice()
+    {
+        _admin.Open();
+        _sent.Clear();
+        Menu(new AdminMenuLine(0, "bots:add:easy", "Easy", Stay: true), new AdminMenuLine(0, "restart", "#Restart"));
+        _radial.Choose(0);
+        _radial.Choose(0);
+        Assert.Equal(2, _sent.Count);
+        Assert.True(_radial.Showing);
+
+        _radial.Choose(1);
+        Assert.False(_radial.Showing);
+    }
+
+    [Fact]
     public void An_empty_folder_cannot_be_opened()
     {
         _admin.Open();

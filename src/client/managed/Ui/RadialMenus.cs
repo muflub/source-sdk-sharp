@@ -1,3 +1,4 @@
+using SourceSharp.Abi;
 using SourceSharp.Client.Ui;
 
 namespace SourceSharp.Client.Vgui;
@@ -19,10 +20,24 @@ public sealed class InputRadialPointer(SourceSharp.Client.Input.IInputHost input
 }
 
 /// <summary>A choice of a radial menu: what it says, and either what taking it does or the menu it opens.</summary>
-public sealed record RadialEntry(string Label, Action? Choose = null, Func<RadialPage>? Open = null, string? Detail = null, bool Enabled = true);
+public sealed record RadialEntry(string Label, Action? Choose = null, Func<RadialPage>? Open = null, string? Detail = null, bool Enabled = true, bool KeepOpen = false);
 
 /// <summary>A radial menu: what its hub says, and its choices, as many as it likes.</summary>
 public sealed record RadialPage(string Title, IReadOnlyList<RadialEntry> Entries);
+
+/// <summary>Whether a button is the key bound to a command.</summary>
+public interface IRadialKeys
+{
+    bool IsBoundTo(int buttonCode, string command);
+}
+
+/// <summary>The engine's binds and the input system's names for its buttons.</summary>
+public sealed class EngineRadialKeys(IEngineHud hud, IFwdInputSystem input) : IRadialKeys
+{
+    public bool IsBoundTo(int buttonCode, string command)
+        => hud.LookupBinding(command) is { Length: > 0 } key
+           && string.Equals(input.ButtonName(buttonCode), key, StringComparison.OrdinalIgnoreCase);
+}
 
 /// <summary>
 /// The one radial menu up, and the way back up the ones that opened it. Opening
@@ -30,7 +45,7 @@ public sealed record RadialPage(string Title, IReadOnlyList<RadialEntry> Entries
 /// paged, its last place opening the rest. Whoever owns a menu asks here: the
 /// screen only draws and reports.
 /// </summary>
-public sealed class RadialMenus(IRadialPointer pointer) : IRadialMenuSource, IRadialMenuActions
+public sealed class RadialMenus(IRadialPointer pointer, IRadialKeys? keys = null) : IRadialMenuSource, IRadialMenuActions
 {
     /// <summary>The most choices one ring shows; the screen's layout is laid out for as many.</summary>
     public const int MaxItems = 9;
@@ -39,6 +54,8 @@ public sealed class RadialMenus(IRadialPointer pointer) : IRadialMenuSource, IRa
     private RadialPage? _top;
     private object? _owner;
     private Func<bool>? _stillWanted;
+    private int _hover = -1;
+    private string? _command;
 
     public bool Showing
     {
@@ -65,24 +82,53 @@ public sealed class RadialMenus(IRadialPointer pointer) : IRadialMenuSource, IRa
     public bool ShowingFor(object owner) => Showing && Equals(_owner, owner);
 
     /// <summary>Opens <paramref name="page"/> in place of whatever is up, the pointer at the centre.</summary>
-    public void Show(RadialPage page, object? owner = null, Func<bool>? stillWanted = null)
+    /// <param name="command">The command that opened it: pressing its key again closes it, as the bind itself cannot while the menu holds the keyboard.</param>
+    public void Show(RadialPage page, object? owner = null, Func<bool>? stillWanted = null, string? command = null)
     {
+        _command = command;
         _way.Clear();
         _owner = owner;
         _stillWanted = stillWanted;
         _top = Fit(page);
+        _hover = -1;
         pointer.Centre();
     }
 
     /// <summary>
     /// As stock's voice keys do: the same owner's key again closes its menu; else it opens.
     /// </summary>
-    public void Toggle(object owner, Func<RadialPage> page, Func<bool>? stillWanted = null)
+    public void Toggle(object owner, Func<RadialPage> page, Func<bool>? stillWanted = null, string? command = null)
     {
         if (Showing && Equals(_owner, owner))
             Close();
         else
-            Show(page(), owner, stillWanted);
+            Show(page(), owner, stillWanted, command);
+    }
+
+    /// <summary>
+    /// A held key let go: the choice under the pointer is taken. With the pointer still
+    /// on the hub, or on one that cannot be chosen, nothing is, and the menu goes.
+    /// A menu already gone, or another owner's, stays as it is.
+    /// </summary>
+    public void Release(object owner)
+    {
+        if (!ShowingFor(owner))
+            return;
+        int hover = _hover;
+        if (hover >= 0 && hover < _top!.Entries.Count && _top.Entries[hover].Enabled)
+            Choose(hover);
+        else
+            Close();
+    }
+
+    public void Hover(int i) => _hover = i;
+
+    public bool Pressed(int buttonCode)
+    {
+        if (_top is null || _command is null || keys is null || !keys.IsBoundTo(buttonCode, _command))
+            return false;
+        Close();
+        return true;
     }
 
     public void Close()
@@ -90,6 +136,7 @@ public sealed class RadialMenus(IRadialPointer pointer) : IRadialMenuSource, IRa
         _way.Clear();
         _top = null;
         _owner = null;
+        _command = null;
         _stillWanted = null;
     }
 
@@ -104,9 +151,11 @@ public sealed class RadialMenus(IRadialPointer pointer) : IRadialMenuSource, IRa
         {
             _way.Push(_top);
             _top = Fit(open());
+            _hover = -1;
             return;
         }
-        Close();
+        if (!e.KeepOpen)
+            Close();
         e.Choose?.Invoke();
     }
 

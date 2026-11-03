@@ -358,6 +358,9 @@ public sealed class UiLoader : IUiClientEvents, IUiTextureSource, IDisposable
 
     public void MaterialsRestored() => Current?.MaterialsRestored();
 
+    /// <summary>A string as the UI's own language files have it; null with no such token, or no UI.</summary>
+    public string? FindText(string token) => Current?.FindText(token);
+
     public void Input(int kind, int x, int y, int code, int character, float delta)
         => Current?.Input(kind, x, y, code, character, delta);
 

@@ -167,8 +167,10 @@ public static class UiWidgets
     /// A row of tabs that can be clicked, the selected one underlined in the
     /// accent and a hovered one lit: answers the tab clicked this frame, else
     /// <paramref name="selected"/>. Use for a window's pages (the options).
+    /// A tab marked in <paramref name="changed"/> carries the pencil in the gap
+    /// beside its title, so marking one moves no tab.
     /// </summary>
-    public static int TabBar(this ref UiFrame ui, scoped ReadOnlySpan<string> tokens, int selected)
+    public static int TabBar(this ref UiFrame ui, scoped ReadOnlySpan<string> tokens, int selected, scoped ReadOnlySpan<bool> changed = default)
     {
         int picked = selected;
         using (ui.Row(Space.XL, Align.End).Key("tabbar"))
@@ -182,7 +184,19 @@ public static class UiWidgets
                     picked = i;
                 using (tab)
                 {
-                    ui.Text(tokens[i], Text.Heading, on || hit.Hovered ? Tone.Text : Tone.TextMuted);
+                    var tone = on || hit.Hovered ? Tone.Text : Tone.TextMuted;
+                    if (i < changed.Length && changed[i])
+                    {
+                        using (ui.Box())
+                        {
+                            ui.Text(tokens[i], Text.Heading, tone);
+                            ui.Icon(UiShape.Pencil, Tone.Accent, 12).At(UiAnchor.TopRight, UiAnchor.TopLeft).Layered().Name("tabchanged");
+                        }
+                    }
+                    else
+                    {
+                        ui.Text(tokens[i], Text.Heading, tone);
+                    }
                     ui.Rect(on ? Tone.Accent : Tone.None, Size.Fill, Size.Du(4));
                 }
             }

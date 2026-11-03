@@ -102,6 +102,14 @@ public sealed class TFDefaultBindsTests
         Assert.Equal("q", Binds()["lastinv"]);
     }
 
+    /// <summary>The voice menus are held (user 2026-11-02): the keys are bound to the command with a let-go, which <see cref="Binds"/> reads past.</summary>
+    [Theory]
+    [InlineData("z", "+voice_menu_1")]
+    [InlineData("x", "+voice_menu_2")]
+    [InlineData("c", "+voice_menu_3")]
+    public void The_voice_keys_are_held(string key, string command)
+        => Assert.Contains(Actions().DefaultBinds, b => b.Key == key && b.Command == command);
+
     [Fact]
     public void Every_command_the_ui_names_is_bound_to_its_stock_key()
     {

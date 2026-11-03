@@ -142,6 +142,9 @@ public static class HudSamples
     [UiSample("aux power draining")]
     private static UiScreen AuxPower(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 62f, SuitDevices = 1 });
 
+    [UiSample("aux power, flashlight and oxygen")]
+    private static UiScreen AuxPowerBoth(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 60f, SuitDevices = AuxPowerPanel.Flashlight | AuxPowerPanel.Breather });
+
     [UiSample("aux power low, under water")]
     private static UiScreen AuxPowerLow(UiSampleServices s) => Build(s, new FakeLocalPlayer { SuitPower = 18f, SuitDevices = 4 });
 

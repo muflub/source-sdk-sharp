@@ -67,14 +67,16 @@ internal static class UiHostKit
     /// UI assemblies).
     /// </summary>
     public static ServiceContainer RuntimeServices(RecordingEngine engine, IUiSurface surface, string dir,
-                                                   Func<string, object?>? modData = null)
+                                                   Func<string, object?>? modData = null,
+                                                   SourceSharp.Client.Ui.Screens.FakeRadialMenu? radial = null)
     {
+        radial ??= NoRadialMenu;
         var services = new ServiceContainer()
             .AddInstance<IEngineHud>(engine).AddInstance<IEngineConsole>(engine).AddInstance<IGameClock>(engine)
             .AddInstance<IModInfo>(new ModInfo(k => k == ModInfo.Keys.ManagedDir || k == ModInfo.Keys.GameDir ? dir : modData?.Invoke(k)))
             .AddInstance<IUiSurface>(surface)
             .AddInstance<IUiKeyActions>(new SourceSharp.Client.Ui.Screens.Samples.FakeKeyActions())
-            .AddInstance<IRadialMenuSource>(NoRadialMenu).AddInstance<IRadialMenuActions>(NoRadialMenu)
+            .AddInstance<IRadialMenuSource>(radial).AddInstance<IRadialMenuActions>(radial)
             .AddInstance<IVoteSource>(new SourceSharp.Client.Ui.Screens.FakeVote { Showing = false })
             .AddInstance<IAdminKeySource>(new SourceSharp.Client.Ui.Screens.Samples.FakeAdminKey(false))
             .AddInstance<IClientStandalones>(new NoStandalones())

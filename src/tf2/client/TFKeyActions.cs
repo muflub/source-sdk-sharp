@@ -56,13 +56,13 @@ public sealed class ChatMessageKey;
 [KeyAction("say_team", "#Valve_Team_Message", Section = "#Valve_Communication_Title", Order = 130, Keys = ["u"])]
 public sealed class TeamMessageKey;
 
-[KeyAction("voice_menu_1", "#TF_Voice_Menu_A", Section = "#Valve_Communication_Title", Order = 140, Keys = ["z"])]
+[KeyAction("+voice_menu_1", "#TF_Voice_Menu_A", Section = "#Valve_Communication_Title", Order = 140, Keys = ["z"])]
 public sealed class VoiceMenuAKey;
 
-[KeyAction("voice_menu_2", "#TF_Voice_Menu_B", Section = "#Valve_Communication_Title", Order = 150, Keys = ["x"])]
+[KeyAction("+voice_menu_2", "#TF_Voice_Menu_B", Section = "#Valve_Communication_Title", Order = 150, Keys = ["x"])]
 public sealed class VoiceMenuBKey;
 
-[KeyAction("voice_menu_3", "#TF_Voice_Menu_C", Section = "#Valve_Communication_Title", Order = 160, Keys = ["c"])]
+[KeyAction("+voice_menu_3", "#TF_Voice_Menu_C", Section = "#Valve_Communication_Title", Order = 160, Keys = ["c"])]
 public sealed class VoiceMenuCKey;
 
 [KeyAction("+helpme", "#TF_Call_For_Help", Section = "#Valve_Communication_Title", Order = 170)]

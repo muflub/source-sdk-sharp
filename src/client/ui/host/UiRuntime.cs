@@ -10,7 +10,7 @@ namespace SourceSharp.Client.Vgui;
 
 /// <summary>The menu layer's sources the host refreshes and the panels it maps.</summary>
 public sealed record UiMenus(ScoreboardUi Scores, TeamMenuUi Teams, MotdUi Motd, ConsoleUi Console, ChatInputUi? Chat = null,
-                             MainMenuUi? Main = null);
+                             MainMenuUi? Main = null, GameUiLoading? Loading = null, IRadialMenuSource? RadialSource = null, IRadialMenuActions? RadialActions = null);
 
 /// <summary>
 /// THE UI IN GAME (plan_client_ui §8 U2, U3): what IManagedUiClient forwards to.
@@ -211,6 +211,29 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         Cost.Add(Stopwatch.GetTimestamp() - start);
     }
 
+    private bool _windowsCovered, _coverFailed;
+
+    /// <summary>
+    /// No window shows over the loading screen. A load that worked shuts them, or they
+    /// would come up over play; one that failed gives them back, so the server browser
+    /// is there to try another.
+    /// </summary>
+    private void CoverWindows()
+    {
+        bool covered = _menus.Loading is { CoversConsole: true };
+        if (covered == _windowsCovered && !covered)
+            return;
+        _coverFailed |= _menus.Loading is { Body.Length: > 0 };
+        _menu.HoldWindows(covered, ConsoleScreen);
+        if (_windowsCovered && !covered)
+        {
+            if (!_coverFailed)
+                _menu.CloseWindows(ConsoleScreen);
+            _coverFailed = false;
+        }
+        _windowsCovered = covered;
+    }
+
     private void PaintMenu(int screenWidth, int screenHeight)
     {
         long start = Stopwatch.GetTimestamp();
@@ -224,6 +247,9 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
             else if (_menu.IsOpen("scoreboard"))
                 _menus.Scores.Refresh();         // the core scoreboard: no mod screen took its slot
         }
+
+        _menu.Hold(ConsoleScreen, _consoleHidden || _menus.Loading is { CoversConsole: true });
+        CoverWindows();
 
         MenuScreen = ScreenFor(screenWidth, screenHeight);
         _backend.Ledger = MenuLedger;
@@ -306,7 +332,7 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
     /// </summary>
     public void ToggleMenu()
     {
-        if (!ClaimEscape())
+        if (!ClaimEscape() || BackOutOfRadial())
             return;
 
         var teamScreen = _claims.TryGetValue("team", out var team) ? team : "teammenu";
@@ -318,10 +344,25 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         else if (_menu.Has(MainMenuScreen)) Open(MainMenuScreen);   // like Restore's skip: no screen, no decision
     }
 
+    private bool BackOutOfRadial()
+    {
+        if (_menus.RadialSource is not { Showing: true })
+            return false;
+        _menus.RadialActions?.Back();
+        return true;
+    }
+
     /// <summary>The engine activated its GameUI (gameui_activated): the pause menu shows
     /// with it, so what the engine considers visible and what the menu draws agree.</summary>
     public void ShowPauseMenu()
     {
+        // Escape over a radial menu is for the menu; the engine asks for its GameUI before
+        // any panel hears the key, so that goes back with it, and no pause menu shows.
+        if (BackOutOfRadial())
+        {
+            _menus.Main?.Resume();
+            return;
+        }
         HoldViewport(true);
         if (!ClaimEscape())
             return;
@@ -340,8 +381,13 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
 
     private const string ConsoleScreen = "console";
 
+    private const string VotePanelScreen = "votepanel";
+
     /// <summary>Whether the engine's GameUI is up, by its two edges.</summary>
     private bool _gameUiUp;
+
+    /// <summary>The GameUI hid and took the console with it.</summary>
+    private bool _consoleHidden;
 
     /// <summary>
     /// While the GameUI is up the engine hides the client viewport, and with it
@@ -359,9 +405,11 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
                 _menu.Hold(screen, up);
         foreach (var screen in Panels.Values)
             _menu.Hold(screen, up);
+        _menu.Hold(VotePanelScreen, up);
         // The other way about: stock's console is a child of the GameUI's panel, so
         // it goes when the GameUI hides, stays open, and is back with it.
-        _menu.Hold(ConsoleScreen, !up);
+        _consoleHidden = !up;
+        _menu.Hold(ConsoleScreen, _consoleHidden);
     }
 
     private bool IsViewportScreen(string screen)
@@ -459,6 +507,8 @@ public sealed class UiHost : IUiRuntime, IGameUiNavigation
         _log.Msg($"[SourceSharp/Ui] screen {oldWidth}x{oldHeight} -> {newWidth}x{newHeight}\n");
         _backend.ScreenSizeChanged();
     }
+
+    public string? FindText(string token) => _menu.Context.FindText(token);
 
     public void MaterialsRestored()
     {

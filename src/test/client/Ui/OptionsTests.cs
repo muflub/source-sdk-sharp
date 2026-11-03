@@ -87,6 +87,113 @@ public class OptionsTests
         Assert.Contains(UiTestKit.Elements(r.Ctx), e => UiTestKit.RunText(r.Ctx, Array.IndexOf(UiTestKit.Elements(r.Ctx), e)) == "#SS_UI_Video_Resolution");
     }
 
+    private static int Named(Rig r, string name) => UiTestKit.Elements(r.Ctx).Count(e => UiTestKit.NameOf(r.Ctx, e) == name);
+
+    // The tabs' left edges: what a mark must not move.
+    private static float[] TabEdges(Rig r)
+        => [.. UiTestKit.Elements(r.Ctx).Where(e => UiTestKit.NameOf(r.Ctx, e).StartsWith('"')).Take(8).Select(e => e.Rect.X)];
+
+    private static void ChangeVolume(Rig r)
+    {
+        var audio = r.Page<AudioOptions>();
+        audio.Working.Volume = audio.Working.Volume == 0.25f ? 0.5f : 0.25f;
+    }
+
+    [Fact]
+    public void A_clean_window_marks_nothing()
+    {
+        var r = new Rig();
+        r.Frame();
+        r.Frame();
+        Assert.Equal(0, Named(r, "tabchanged"));
+        Assert.Equal(0, Named(r, "dirty"));
+    }
+
+    [Fact]
+    public void A_changed_setting_marks_its_row_and_its_tab()
+    {
+        var r = new Rig(tab: 2);
+        r.Frame();
+        ChangeVolume(r);
+        r.Frame();
+        Assert.Equal(1, Named(r, "dirty"));
+        Assert.Equal(1, Named(r, "tabchanged"));
+    }
+
+    [Fact]
+    public void Each_page_with_a_change_marks_its_own_tab_though_another_is_showing()
+    {
+        var r = new Rig(tab: 2);
+        r.Frame();
+        ChangeVolume(r);
+        var voice = r.Page<VoiceOptions>();
+        voice.Working.Receive = voice.Working.Receive == 0.5f ? 0.25f : 0.5f;
+        r.Frame();
+        Assert.Equal(2, Named(r, "tabchanged"));
+        Assert.Equal(1, Named(r, "dirty"));   // the rows of the page on show only
+    }
+
+    [Fact]
+    public void A_change_set_back_clears_both_marks()
+    {
+        var r = new Rig(tab: 2);
+        r.Frame();
+        var audio = r.Page<AudioOptions>();
+        float was = audio.Working.Volume;
+        ChangeVolume(r);
+        r.Frame();
+        Assert.Equal(1, Named(r, "tabchanged"));
+        audio.Working.Volume = was;
+        r.Frame();
+        Assert.Equal(0, Named(r, "tabchanged"));
+        Assert.Equal(0, Named(r, "dirty"));
+    }
+
+    [Fact]
+    public void Apply_clears_both_marks()
+    {
+        var r = new Rig(tab: 2);
+        r.Frame();
+        ChangeVolume(r);
+        r.Frame();
+        Assert.Equal(1, Named(r, "tabchanged"));
+        Assert.True(r.Window.Apply());
+        r.Frame();
+        Assert.Equal(0, Named(r, "tabchanged"));
+        Assert.Equal(0, Named(r, "dirty"));
+    }
+
+    [Fact]
+    public void Marking_a_tab_moves_no_tab()
+    {
+        var r = new Rig(tab: 2);
+        r.Frame();
+        r.Frame();
+        var before = TabEdges(r);
+        ChangeVolume(r);
+        r.Frame();
+        Assert.Equal(1, Named(r, "tabchanged"));
+        Assert.True(before.Length >= 7, "the stimulus: the tabs were read");
+        Assert.Equal(before, TabEdges(r));
+    }
+
+    /// <summary>The live gate's order: Cancel, and the window open again with no frame between to notice it shut.</summary>
+    [Fact]
+    public void Reopened_at_once_after_cancel_it_has_discarded_the_edit()
+    {
+        var r = new Rig();
+        r.Frame();
+        var audio = r.Page<AudioOptions>();
+        float saved = audio.Working.Volume;
+        audio.Working.Volume = saved == 0.25f ? 0.5f : 0.25f;
+        Assert.True(audio.AnyDirty);
+
+        r.Window.Cancel();
+        r.Frame();
+        Assert.False(audio.AnyDirty);
+        Assert.Equal(saved, audio.Working.Volume);
+    }
+
     [Fact]
     public void Apply_writes_every_pages_changes_and_Cancel_discards_them()
     {

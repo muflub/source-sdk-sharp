@@ -8,6 +8,7 @@ public sealed class FakeVote : IVoteSource
     public bool Showing { get; set; } = true;
     public bool Decided { get; set; }
     public bool Passed { get; set; }
+    public string Title { get; set; } = "#SS_UI_Vote_KickTitle";
     public string Target { get; set; } = "xX_Headshot_Xx";
     public string Caller { get; set; } = "Alyx";
     public int Yes { get; set; } = 3;

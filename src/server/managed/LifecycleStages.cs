@@ -368,6 +368,9 @@ public enum LifecycleStage
 
     /// <summary>The admin challenge: a slot's rights end with its connection.</summary>
     Admins = 2510,
+
+    /// <summary>A player in the game hears what can be voted on.</summary>
+    Votes = 2520,
 }
 
 /// <summary>

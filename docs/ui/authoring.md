@@ -190,7 +190,7 @@ a column. Faded text (`.Opacity`) is linted at full strength.
 |---|---|
 | `ui.Panel()` | any block of content over the world: dark, rounded, padded, raised. Answers an open column. |
 | `ui.Label(token)` | small upper-case captions: column headers, "HEALTH". |
-| `ui.Icon(UiShape.X, tone, du)` | the vector icon set: `Cross, Shield, Bullet, Signal, Dot, Chevron, Cross45, Crosshair`. |
+| `ui.Icon(UiShape.X, tone, du)` | the vector icon set: `Cross, Shield, Bullet, Signal, Dot, Chevron, Cross45, Crosshair, Pencil`. |
 | `ui.Meter(fraction, tone, width)` | a bar; always beside a number. |
 | `ui.Button(key, token, primary)` | a click target, 40 du tall, hover fade; answers `.Clicked`. Put the primary action last. |
 | `ui.KeyHint(key, token)` / `KeyHintData` | "press E to use": the key as a keycap. |
@@ -255,7 +255,7 @@ gets `[UiGallery("Part", "state")]` entries through `UiPanelPreview` /
   whatever `RadialMenus` (client managed, by constructor) holds up. Build a
   `RadialPage` of `RadialEntry`s and call `Toggle(owner, page, stillWanted)`: the
   same owner's key closes it, the pointer goes to the centre, and `stillWanted`
-  closes it when its reason has gone. An entry either takes `Choose` or `Open`s
+  closes it when its reason has gone. For a menu held on a key, the key's `-` command calls `Release(owner)`, which takes what is under the pointer. An entry either takes `Choose` or `Open`s
   another page, so menus nest (Back goes up), and a list longer than the ring's
   nine places is paged by a last "More". `TFVoiceMenus` and `ClientVotes` are the
   examples. The screen is registered before the UI loads, or the UI fails to

@@ -575,6 +575,8 @@ public sealed class FakeKeyActions : IUiKeyActions
     ];
 
     public IReadOnlyList<UiKeyAction> Actions() => _rows;
+
+    public IReadOnlyList<(string Key, string Command)> DefaultBinds { get; } = [("w", "+forward"), ("space", "+jump")];
 }
 
 /// <summary>An admin key, or none, for the advanced options.</summary>

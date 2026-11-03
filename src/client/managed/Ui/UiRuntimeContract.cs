@@ -52,6 +52,9 @@ public interface IUiRuntime : IUiClientEvents, IDisposable
     /// <summary>The engine's materials came back from a device reset.</summary>
     void MaterialsRestored();
 
+    /// <summary>A string as the UI's own language files have it; null with no such token.</summary>
+    string? FindText(string token);
+
     /// <summary>The server's VGUIMenu, before the native viewport: true when the UI took it.</summary>
     bool TakePanel(string name, bool show, IReadOnlyList<KeyValuePair<string, string>> data);
 

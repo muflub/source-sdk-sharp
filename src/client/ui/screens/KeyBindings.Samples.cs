@@ -93,6 +93,14 @@ public static class KeyBindingsSamples
         return s.Create<KeyBindings>();
     }
 
+    [UiSample("asking before use defaults")]
+    private static UiScreen Asking(UiSampleServices s)
+    {
+        var page = Build(s, new MemoryKeyBindingStore().With("W", "+forward"));
+        ((KeyBindings)page).AskUseDefaults();
+        return page;
+    }
+
     [UiSample("stock binds")]
     private static UiScreen Stock(UiSampleServices s) => Build(s, Stock());
 

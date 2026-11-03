@@ -188,6 +188,22 @@ public sealed class UiLayer : IUiLayer
 
     public void Close(string name) => SetOpen(name, false);
 
+    /// <summary>Every window but <paramref name="except"/> held, or let go: open, undrawn, taking no input.</summary>
+    public void HoldWindows(bool held, string except)
+    {
+        for (int i = 0; i < _screens.Length; i++)
+            if (IsWindow(i) && _screens[i].Name != except)
+                _held[i] = held;
+    }
+
+    /// <summary>Every window but <paramref name="except"/> shut.</summary>
+    public void CloseWindows(string except)
+    {
+        for (int i = 0; i < _screens.Length; i++)
+            if (_open[i] && IsWindow(i) && _screens[i].Name != except)
+                Close(_screens[i].Name);
+    }
+
     /// <summary>
     /// Minimises an open window: it stays open with its state but draws
     /// nothing and goes to the bottom of the windows; <see cref="Open"/> brings

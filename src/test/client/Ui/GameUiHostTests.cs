@@ -267,6 +267,199 @@ public class GameUiHostTests
         }
     }
 
+    // The composed UI over a radial menu a fact controls, and what the engine was told.
+    private static (UiHost Ui, GameUiHost Host, SourceSharp.Client.Ui.Screens.FakeRadialMenu Radial, ServiceContainer Services, string Dir) Composed()
+    {
+        string dir = Directory.CreateTempSubdirectory("ss-gameuihost-").FullName;
+        var engine = Fake().Returns("Hud.LocalPlayerHealth", 80).Returns("Clock.Now", 3f)
+            .Returns("Hud.LocalPlayerIndex", 1).Returns("Console.FindConVarValue", "test server")
+            .Returns("Environment.Globals", default(SourceSharp.Abi.Globals)).Returns("Hud.LookupBinding", "");
+        var radial = new SourceSharp.Client.Ui.Screens.FakeRadialMenu("Title") { Showing = false };
+        var services = UiHostKit.RuntimeServices(engine, new UiFidelityTests.RecordingSurface(), dir, radial: radial);
+        var hud = new Hud(new RecordingLog(), engine, engine, new DamageMessage(), new HudMsgMessage(),
+                          new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
+            var ui = ClientUi.Build(services, new RecordingLog(), hud, hud.Messages, hud.Hints, hud.Build, new UiHostKit.NoArsenal(),
+                                    null, new DefaultForwarders.NoEngineClient(), new DefaultForwarders.NoInputSystem());
+        return (ui, services.Require<GameUiHost>(), radial, services, dir);
+    }
+
+    private static void Done(string dir) => Directory.Delete(dir, recursive: true);
+
+    private static void Paint(UiHost ui) => ui.Paint((int)UiLayerKind.Menu, 1920, 1080);
+
+    /// <summary>The engine asks for its GameUI on Escape before any panel hears the key.</summary>
+    [Fact]
+    public void Escape_over_a_radial_menu_closes_it_and_shows_no_pause_menu()
+    {
+        var (ui, host, radial, _, dir) = Composed();
+        try
+        {
+            radial.Showing = true;
+            host.OnGameUIActivated();
+            Assert.Equal(["back"], radial.Done);
+            Assert.False(ui.Menu.IsOpen("mainmenu"));
+        }
+        finally { Done(dir); }
+    }
+
+    [Fact]
+    public void Escape_with_no_radial_menu_up_shows_the_pause_menu()
+    {
+        var (ui, host, radial, _, dir) = Composed();
+        try
+        {
+            host.OnGameUIActivated();
+            Assert.Empty(radial.Done);
+            Assert.True(ui.Menu.IsOpen("mainmenu"));
+        }
+        finally { Done(dir); }
+    }
+
+    [Fact]
+    public void The_vote_panel_hides_while_the_pause_screen_is_up()
+    {
+        var (ui, host, _, _, dir) = Composed();
+        try
+        {
+            Assert.False(ui.Menu.IsHeld("votepanel"));
+            host.OnGameUIActivated();
+            Assert.True(ui.Menu.IsHeld("votepanel"));
+            host.OnGameUIHidden();
+            Assert.False(ui.Menu.IsHeld("votepanel"));
+            Assert.True(ui.Menu.IsOpen("votepanel"));
+        }
+        finally { Done(dir); }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void No_window_shows_during_a_load_and_one_that_worked_shuts_them(bool dialog)
+    {
+        var (ui, host, _, _, dir) = Composed();
+        try
+        {
+            ui.Open("options");
+            Paint(ui);
+            Assert.False(ui.Menu.IsHeld("options"));
+
+            host.OnLevelLoadingStarted(dialog);
+            Paint(ui);
+            Assert.True(ui.Menu.IsHeld("options"));
+
+            host.OnLevelLoadingFinished(false, null, null);
+            Paint(ui);
+            Assert.False(ui.Menu.IsOpen("options"));
+            Assert.False(ui.Menu.IsHeld("options"));
+        }
+        finally { Done(dir); }
+    }
+
+    [Fact]
+    public void A_window_opened_during_a_load_stays_unseen_too()
+    {
+        var (ui, host, _, _, dir) = Composed();
+        try
+        {
+            host.OnLevelLoadingStarted(true);
+            Paint(ui);
+            ui.Open("options");
+            Paint(ui);
+            Assert.True(ui.Menu.IsHeld("options"));
+        }
+        finally { Done(dir); }
+    }
+
+    /// <summary>The server browser is there to try another server.</summary>
+    [Fact]
+    public void A_load_that_failed_gives_the_windows_back_when_its_message_is_closed()
+    {
+        var (ui, host, _, services, dir) = Composed();
+        try
+        {
+            ui.Open("options");
+            Paint(ui);
+            host.OnLevelLoadingStarted(true);
+            Paint(ui);
+            host.OnLevelLoadingFinished(true, "no such server", null);
+            Paint(ui);
+            Assert.True(ui.Menu.IsHeld("options"));
+
+            services.Require<GameUiLoading>().Close();
+            Paint(ui);
+            Assert.False(ui.Menu.IsHeld("options"));
+            Assert.True(ui.Menu.IsOpen("options"));
+        }
+        finally { Done(dir); }
+    }
+
+    [Fact]
+    public void The_console_keeps_its_own_rule_through_a_load_that_worked()
+    {
+        var (ui, host, _, _, dir) = Composed();
+        try
+        {
+            host.OnGameUIActivated();
+            host.ConsoleActivate();
+            Paint(ui);
+            host.OnLevelLoadingStarted(true);
+            Paint(ui);
+            host.OnLevelLoadingFinished(false, null, null);
+            Paint(ui);
+            Assert.True(ui.Menu.IsOpen("console"));
+        }
+        finally { Done(dir); }
+    }
+
+    /// <summary>Stock's loading dialog hides the GameUI's other dialogs: an open console is
+    /// unseen and takes no keys from a load's start until the load ends, with or without the
+    /// progress dialog, and is still open after; its failure's form covers it until closed.</summary>
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_load_covers_an_open_console_until_it_ends(bool dialog)
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "ss-console-load-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var engine = Fake().Returns("Hud.LocalPlayerHealth", 80).Returns("Clock.Now", 3f)
+                .Returns("Hud.LocalPlayerIndex", 1).Returns("Console.FindConVarValue", "test server")
+                .Returns("Environment.Globals", default(SourceSharp.Abi.Globals));
+            var services = UiHostKit.RuntimeServices(engine, new UiFidelityTests.RecordingSurface(), dir);
+            var hud = new Hud(new RecordingLog(), engine, engine, new DamageMessage(), new HudMsgMessage(),
+                              new HudTextMessage(), new KeyHintTextMessage(), new BuildInfo());
+            var ui = ClientUi.Build(services, new RecordingLog(), hud, hud.Messages, hud.Hints, hud.Build, new UiHostKit.NoArsenal(),
+                                    null, new DefaultForwarders.NoEngineClient(), new DefaultForwarders.NoInputSystem());
+            var host = services.Require<GameUiHost>();
+            var line = (ConsoleUi)services.Require<IConsoleLogSource>();
+            host.OnGameUIActivated();
+            host.ConsoleActivate();
+            ui.Paint((int)UiLayerKind.Menu, 1920, 1080);
+            Assert.False(ui.Menu.IsHeld("console"));
+
+            host.OnLevelLoadingStarted(dialog);
+            ui.Paint((int)UiLayerKind.Menu, 1920, 1080);
+            Assert.True(ui.Menu.IsHeld("console"));
+            Assert.True(ui.Menu.IsOpen("console"));
+            ui.Input((int)UiInputKind.Char, 0, 0, 0, 'x', 0f);
+            Assert.Equal("", line.Input);
+
+            host.OnLevelLoadingFinished(true, "Lost", null);
+            ui.Paint((int)UiLayerKind.Menu, 1920, 1080);
+            Assert.True(ui.Menu.IsHeld("console"));
+
+            services.Require<GameUiLoading>().Close();
+            ui.Paint((int)UiLayerKind.Menu, 1920, 1080);
+            Assert.False(ui.Menu.IsHeld("console"));
+            Assert.True(ui.Menu.IsOpen("console"));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
     /// <summary>A load's paint count (plan_gameui_managed.md §4): the dialog
     /// asked for, the updates, the ones that asked the engine to repaint, and
     /// the menu frames drawn between the start and the end.</summary>

@@ -37,6 +37,7 @@ public sealed class RadialMenu(IRadialMenuSource menu, IRadialMenuActions action
         var mouse = ui.MouseDu;
         // No pointer yet (a negative position) means no item, not the top-left's.
         int hover = mouse.X < 0f ? -1 : UiRadialLayout.ItemAt(mouse.X - cx, mouse.Y - cy, count, hub);
+        actions.Hover(hover);
 
         for (int i = 0; i < count && i < 9; i++)
             if (ui.ConsumeKey((int)UiKey.Key0 + i + 1) || ui.ConsumeKey((int)UiKey.KeyPad0 + i + 1))
@@ -49,6 +50,12 @@ public sealed class RadialMenu(IRadialMenuSource menu, IRadialMenuActions action
             actions.Back();
             return;
         }
+        foreach (int code in ui.ButtonsPressed)
+            if (actions.Pressed(code))
+            {
+                ui.ConsumeKey(code);
+                return;
+            }
 
         var root = ui.Box().Size(Size.Fill, Size.Fill).Fill(((UiPaint)Tone.Scrim).WithOpacity(0.55f)).Key("radial-root");
         var hit = ui.Interact(root);

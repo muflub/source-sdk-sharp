@@ -87,6 +87,186 @@ public class RadialMenuTests
 
     private static readonly UiRadialItem A = new("One", null, true), B = new("Two", null, true);
 
+    // A held key: the place under the pointer is what letting go takes.
+    private static (RadialMenus Menus, List<string> Said) Held(params RadialEntry[] more)
+    {
+        var said = new List<string>();
+        var menus = Menus(out _);
+        menus.Show(new RadialPage("T",
+        [
+            new RadialEntry("One", () => said.Add("one")),
+            new RadialEntry("Two", () => said.Add("two")),
+            .. more,
+        ]), "key");
+        return (menus, said);
+    }
+
+    [Fact]
+    public void Letting_go_on_a_choice_takes_it_and_closes()
+    {
+        var (menus, said) = Held();
+        menus.Hover(1);
+        menus.Release("key");
+        Assert.Equal(["two"], said);
+        Assert.False(menus.Showing);
+    }
+
+    [Fact]
+    public void Letting_go_on_the_hub_takes_nothing_and_closes()
+    {
+        var (menus, said) = Held();
+        menus.Hover(1);
+        menus.Hover(-1);
+        menus.Release("key");
+        Assert.Empty(said);
+        Assert.False(menus.Showing);
+    }
+
+    [Fact]
+    public void Letting_go_with_the_pointer_never_moved_takes_nothing()
+    {
+        var (menus, said) = Held();
+        menus.Release("key");
+        Assert.Empty(said);
+        Assert.False(menus.Showing);
+    }
+
+    [Fact]
+    public void Opening_a_menu_forgets_the_last_one_s_hover()
+    {
+        var (menus, said) = Held();
+        menus.Hover(1);
+        menus.Show(new RadialPage("T", [new RadialEntry("A", () => said.Add("a")), new RadialEntry("B", () => said.Add("b"))]), "key");
+        menus.Release("key");
+        Assert.Empty(said);
+    }
+
+    [Fact]
+    public void Letting_go_on_one_that_cannot_be_chosen_takes_nothing_and_closes()
+    {
+        bool taken = false;
+        var (menus, said) = Held(new RadialEntry("No", () => taken = true, Enabled: false));
+        menus.Hover(2);
+        menus.Release("key");
+        Assert.False(taken);
+        Assert.Empty(said);
+        Assert.False(menus.Showing);
+    }
+
+    [Fact]
+    public void Clicking_first_takes_one_and_the_let_go_after_takes_nothing_more()
+    {
+        var (menus, said) = Held();
+        menus.Hover(0);
+        menus.Choose(0);
+        menus.Release("key");
+        Assert.Equal(["one"], said);
+    }
+
+    [Fact]
+    public void Another_key_s_let_go_leaves_the_menu_up()
+    {
+        var (menus, said) = Held();
+        menus.Hover(0);
+        menus.Release("other");
+        Assert.Empty(said);
+        Assert.True(menus.Showing);
+    }
+
+    [Fact]
+    public void Letting_go_on_a_folder_opens_it_and_the_next_page_has_no_hover_yet()
+    {
+        var said = new List<string>();
+        var menus = Menus(out _);
+        menus.Show(new RadialPage("T", [new RadialEntry("Folder", Open: () => new RadialPage("In", [new RadialEntry("Leaf", () => said.Add("leaf"))]))]), "key");
+        menus.Hover(0);
+        menus.Release("key");
+        Assert.Equal("In", menus.Title);
+        menus.Release("key");
+        Assert.Empty(said);
+    }
+
+    [Fact]
+    public void The_screen_reports_what_is_under_the_pointer()
+    {
+        var (ctx, menu, screen) = Screen(A, B);
+        ctx.Input(new UiInputEvent(UiInputKind.MouseMove, 960, 1000, 0, '\0', 0));   // straight down: the second of two
+        Draw(ctx, screen);
+        Assert.Equal(1, menu.Hovered);
+
+        ctx.Input(new UiInputEvent(UiInputKind.MouseMove, 960, 540, 0, '\0', 0));    // the hub
+        Draw(ctx, screen);
+        Assert.Equal(-1, menu.Hovered);
+    }
+
+    private sealed class Keys(int code, string command) : IRadialKeys
+    {
+        public bool IsBoundTo(int buttonCode, string bound) => buttonCode == code && bound == command;
+    }
+
+    private const int KeyO = 25;
+
+    private static RadialMenus Up(string? command)
+    {
+        var menus = new RadialMenus(new Pointer(), new Keys(KeyO, "callvote"));
+        menus.Show(new RadialPage("T", [new RadialEntry("One")]), "owner", command: command);
+        return menus;
+    }
+
+    [Fact]
+    public void The_key_that_opened_it_closes_it()
+    {
+        var menus = Up("callvote");
+        Assert.True(menus.Pressed(KeyO));
+        Assert.False(menus.Showing);
+    }
+
+    [Fact]
+    public void Another_key_leaves_it_up_and_unclaimed()
+    {
+        var menus = Up("callvote");
+        Assert.False(menus.Pressed(KeyO + 1));
+        Assert.True(menus.Showing);
+    }
+
+    [Fact]
+    public void A_menu_no_command_opened_has_no_such_key()
+    {
+        var menus = Up(null);
+        Assert.False(menus.Pressed(KeyO));
+        Assert.True(menus.Showing);
+    }
+
+    [Fact]
+    public void With_nothing_up_the_key_is_not_claimed()
+    {
+        var menus = Up("callvote");
+        menus.Close();
+        Assert.False(menus.Pressed(KeyO));
+    }
+
+    [Fact]
+    public void The_screen_hands_on_a_pressed_key()
+    {
+        var (ctx, menu, screen) = Screen(A, B);
+        menu.Claims = KeyO;
+        ctx.Input(new UiInputEvent(UiInputKind.Key, 0, 0, KeyO, '\0', 0));
+        Draw(ctx, screen);
+        Assert.Equal(["pressed"], menu.Done);
+    }
+
+    [Fact]
+    public void A_choice_that_keeps_the_menu_up_runs_and_stays()
+    {
+        int ran = 0;
+        var menus = Menus(out _);
+        menus.Show(new RadialPage("T", [new RadialEntry("Add", () => ran++, KeepOpen: true)]));
+        menus.Choose(0);
+        menus.Choose(0);
+        Assert.Equal(2, ran);
+        Assert.True(menus.Showing);
+    }
+
     [Fact]
     public void Hidden_it_draws_nothing_and_does_not_want_the_mouse()
     {

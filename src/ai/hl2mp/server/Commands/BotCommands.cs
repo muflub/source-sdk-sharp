@@ -201,9 +201,10 @@ public sealed class AiAdminMenu(Hl2mpRoster roster) : IAdminMenuProvider
                 Add("#SS_UI_Admin_BotHard", "hard"),
                 Add("#SS_UI_Admin_BotExpert", "expert"),
             ]),
-            new AdminNode("#SS_UI_Admin_BotRemoveAll", "bots:remove", () => roster.Remove("all")),
+            new AdminNode("#SS_UI_Admin_BotRemoveAll", "bots:remove", () => roster.Remove("all"), Stay: true),
         ]);
     }
 
-    private AdminNode Add(string label, string skill) => new(label, "bots:add:" + skill, () => roster.Add(null, skill));
+    // The menu stays up: bots are added a few at a time.
+    private AdminNode Add(string label, string skill) => new(label, "bots:add:" + skill, () => roster.Add(null, skill), Stay: true);
 }

@@ -27,7 +27,7 @@ public sealed class ClShowPausedImageConVar : BoolConVar
 /// label); the paused one #GameUI_Paused, or #GameUI_PausedTimer with the
 /// seconds left on a timed pause. The text is made when it changes, never per frame.
 /// </summary>
-public sealed class LoadingDisc(IEngineHud hud, ClShowPausedImageConVar? showPaused = null) : ILoadingDiscSource, ILoadingDiscEvents
+public sealed class LoadingDisc(IEngineHud hud, ClShowPausedImageConVar? showPaused = null, Func<string, string?>? uiText = null) : ILoadingDiscSource, ILoadingDiscEvents
 {
     public bool Loading { get; private set; }
 
@@ -60,7 +60,9 @@ public sealed class LoadingDisc(IEngineHud hud, ClShowPausedImageConVar? showPau
 
     private string Find(string token)
     {
+        // #GameUI_ strings are the UI's: stock's GameUI module added them to the engine's table, and ours has no such step.
+        // The engine's lookup answers a string it does not have with the token itself.
         string s = hud.Localise(token);
-        return s.Length == 0 ? token : s;
+        return s.Length > 0 && s != token ? s : uiText?.Invoke(token) ?? token;
     }
 }

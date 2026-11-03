@@ -17,6 +17,21 @@ public sealed class FakeRadialMenu(string title, params UiRadialItem[] items) : 
 
     public void Choose(int i) => Done.Add($"choose {i}");
 
+    public int Hovered { get; private set; } = -2;
+
+    public void Hover(int i) => Hovered = i;
+
+    /// <summary>The button that closes it, for a fact.</summary>
+    public int Claims { get; set; } = -1;
+
+    public bool Pressed(int buttonCode)
+    {
+        if (buttonCode != Claims)
+            return false;
+        Done.Add("pressed");
+        return true;
+    }
+
     public void Back() => Done.Add("back");
 }
 

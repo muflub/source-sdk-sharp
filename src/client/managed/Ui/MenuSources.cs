@@ -341,7 +341,8 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
 
     public ConsoleCompletion Completion(int i) => _completions[i];
 
-    public int SelectedCompletion => _completions.Count == 0 ? -1 : _nextCompletion < _completions.Count ? Math.Max(0, _nextCompletion) : 0;
+    // Complete leaves _nextCompletion past what it took, so what the line holds is the one before it.
+    public int SelectedCompletion => _completions.Count == 0 ? -1 : _completing ? _nextCompletion - 1 : 0;
 
     /// <summary>
     /// Stock's RebuildCompletionList: what the engine has by the typed prefix, by
@@ -382,6 +383,19 @@ public sealed class ConsoleUi : IConsoleLogSource, IConsoleInputSource, IConsole
         Caret = _input.Length;
         HistoryIndex = -1;
         _nextCompletion++;
+    }
+
+    /// <summary>
+    /// Stock's OnMenuItemSelected: the name into the line with a space after it, and,
+    /// as stock's OnTextChanged does for the new text, the list built again: past a
+    /// space that is no list.
+    /// </summary>
+    public void TakeCompletion(int i)
+    {
+        _input = _completions[i].Name + " ";
+        Caret = _input.Length;
+        HistoryIndex = -1;
+        RebuildCompletions();
     }
 
     /// <summary>A key the console's window received; true when the console used it.</summary>

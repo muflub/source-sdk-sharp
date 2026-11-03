@@ -18,6 +18,7 @@ public sealed class Options : UiScreen, IUiWindowed
     private readonly string[] _tabs;
     private readonly string[] _pageNames;
     private long _lastFrame = long.MinValue;
+    private bool _discarded;
 
     // Each page's body under its own key, so one page's scroll and open lists
     // are not another's.
@@ -103,13 +104,19 @@ public sealed class Options : UiScreen, IUiWindowed
             _windows.RequestClose(WindowId);
     }
 
-    public void Cancel() => _windows.RequestClose(WindowId);
+    public void Cancel()
+    {
+        _discarded = true;
+        _windows.RequestClose(WindowId);
+    }
 
     public override void Describe(ref UiFrame ui)
     {
         // Not described last frame: just opened, so every page starts from the engine.
-        if (ui.FrameNumber != _lastFrame + 1)
+        // So is one Cancel shut, however soon it opens again.
+        if (ui.FrameNumber != _lastFrame + 1 || _discarded)
             Load();
+        _discarded = false;
         _lastFrame = ui.FrameNumber;
         Tab = Math.Clamp(Tab, 0, _pages.Length - 1);
 
@@ -117,7 +124,10 @@ public sealed class Options : UiScreen, IUiWindowed
         page.TakeKeys(ref ui);
         using (ui.Window(_windows, WindowId, "#SS_UI_Options_Title", Spec(ui.DesignWidth, ui.DesignHeight)))
         {
-            Tab = ui.TabBar(_tabs, Tab);
+            Span<bool> changed = stackalloc bool[_pages.Length];
+            for (int i = 0; i < _pages.Length; i++)
+                changed[i] = _pages[i].AnyDirty;
+            Tab = ui.TabBar(_tabs, Tab, changed);
             using (ui.Column(Space.None).Size(Size.Fill, Size.Fill).Key(PageKeyBase + Tab))
                 page.DescribeBody(ref ui);
 

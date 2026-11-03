@@ -37,9 +37,11 @@ public sealed class CentrePrint : UiScreen
 }
 
 /// <summary>
-/// Chat (stock: CHudChat): the latest lines bottom left, above the HUD's
-/// vitals; the speaker in their team's colour, (Team) and *Dead* tags, each
-/// line fading as the game says, the block on one translucent surface.
+/// Chat (stock: CHudChat): the latest lines bottom left, clear of the HUD's
+/// vitals and aux power and of the input line's place; the speaker and a colon
+/// in their team's colour, or with no team stock's own colour for a name, (Team)
+/// and *Dead* tags, each line fading as the game says, the block on one
+/// translucent surface.
 /// </summary>
 public sealed class Chat : UiScreen
 {
@@ -56,6 +58,9 @@ public sealed class Chat : UiScreen
     /// <summary>The newest lines shown (fewer on a narrow screen).</summary>
     public const int Lines = 8, NarrowLines = 5;
 
+    /// <summary>What the lines leave under them for <see cref="ChatInput"/>.</summary>
+    public const float InputDu = 56;
+
     public override void Describe(ref UiFrame ui)
     {
         // A screen that takes the chat (a mod HUD's own feed) stands this down
@@ -70,7 +75,7 @@ public sealed class Chat : UiScreen
         float lineWidth = narrow ? widthDu - 96 : MathF.Min(620, widthDu - 96);
         int first = Math.Max(0, _chat.Count - (narrow ? NarrowLines : Lines));
 
-        // Above the HUD's bottom line (two lines of it on a narrow screen).
+        // Above the HUD's bottom left, however tall it stands (two lines of it on a narrow screen).
         using (ui.Column(Space.L, Align.Start).At(narrow ? UiAnchor.TopLeft : UiAnchor.BottomLeft).Inset(Space.XXL))
         {
             using (ui.Panel(Space.M, Space.XS, Elevation.Flat).Width(Size.Du(lineWidth + 32)))
@@ -78,7 +83,7 @@ public sealed class Chat : UiScreen
                 for (int i = first; i < _chat.Count; i++)
                 {
                     var line = _chat.Line(i);
-                    var tone = line.Team == 2 ? Tone.TeamA : line.Team == 3 ? Tone.TeamB : Tone.Text;
+                    var tone = line.Team == 2 ? Tone.TeamA : line.Team == 3 ? Tone.TeamB : Tone.Warning;
                     using (ui.Row(Space.S, Align.Start).Opacity(line.Alpha).Key(i))
                     {
                         if (line.Dead)
@@ -86,13 +91,19 @@ public sealed class Chat : UiScreen
                         if (line.TeamOnly)
                             ui.Text("#SS_UI_Chat_Team", Text.Label, Tone.TextMuted);
                         if (line.Speaker.Length > 0)
-                            ui.Data(line.Speaker, Text.Body, tone);
+                        {
+                            using (ui.Row(Space.None, Align.Start))
+                            {
+                                ui.Data(line.Speaker, Text.Body, tone);
+                                ui.Data(" :", Text.Body);
+                            }
+                        }
                         ui.Data(line.Text, Text.Body).Wrap(lineWidth - 160);
                     }
                 }
             }
             if (!narrow)
-                ui.Spacer(Size.Du(1), Size.Du(VitalsPanel.HeightDu));
+                ui.Spacer(Size.Du(1), Size.Du(VitalsPanel.TallestDu + InputDu));
         }
     }
 }

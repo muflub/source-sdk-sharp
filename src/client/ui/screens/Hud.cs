@@ -164,6 +164,9 @@ public sealed class VitalsPanel : UiPanel
     /// <summary>The meters' height, for what is placed above them; compact on a narrow screen.</summary>
     public const float HeightDu = 84, CompactHeightDu = 64;
 
+    /// <summary>The whole stack at its tallest, the aux power with both its devices named, for what must clear it.</summary>
+    public const float TallestDu = 224;
+
     public override void Describe(ref UiFrame ui)
     {
         var h = _healthSource;

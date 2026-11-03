@@ -313,7 +313,7 @@ public static class ClientUi
             new TeamMenu(teams, new TeamCard(), teams),
             new Motd(motd, motd),
             new ConsoleScreen(windows, new ConsoleLogPanel(console), new ConsoleInputPanel(console, console),
-                              new ConsoleCompletionsPanel(console)),
+                              new ConsoleCompletionsPanel(console, console)),
             new ServerBrowser(windows, browser, browser, browser, browser, new ServerFilterBar(browser, browser),
                               new ServerTable(browser, browser, browser, browser, browser, browser, browser),
                               new ServerDetailsPanel(browser, browser)),
@@ -338,7 +338,8 @@ public static class ClientUi
 
         var host = new UiHost(log, services.Require<IGameClock>(), hudLayer, menuLayer, backend, services.Require<IUiSurface>(),
                               player, messages, build, scale,
-                              new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>(), mainMenu))
+                              new UiMenus(scores, teams, motd, console, services.Resolve<ChatInputUi>(), mainMenu, loading,
+                                          services.Require<IRadialMenuSource>(), services.Require<IRadialMenuActions>()))
         {
             Windows = windows,
             Textures = textures,

@@ -2086,7 +2086,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _centre = new Vgui.CentrePrint(_clock, _convars.Get<Vgui.ScrCenterTimeConVar>());
         _services.AddInstance(_centre);
         _services.AddInstance<SourceSharp.Client.Ui.ICentrePrintSource>(_centre);
-        _disc = new Vgui.LoadingDisc(_services.Require<IEngineHud>(), _convars.Get<Vgui.ClShowPausedImageConVar>());
+        _disc = new Vgui.LoadingDisc(_services.Require<IEngineHud>(), _convars.Get<Vgui.ClShowPausedImageConVar>(), token => _uiLoader?.FindText(token));
         _services.AddInstance<SourceSharp.Client.Ui.ILoadingDiscSource>(_disc);
         _voice = new Vgui.VoiceSpeakers(new Vgui.VoicePlayers(_services.Require<IClientStandalones>(), _services.Require<Vgui.IPlayerNames>()));
         _services.AddInstance<SourceSharp.Client.Ui.IVoiceSource>(_voice);
@@ -2158,7 +2158,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
 
         // Before the UI composes, which takes them; the input layer below shares the host.
         var inputHost = _engine.Create<Input.ClientInputHost>(_services);
-        var radial = new Vgui.RadialMenus(new Vgui.InputRadialPointer(inputHost));
+        var radial = new Vgui.RadialMenus(new Vgui.InputRadialPointer(inputHost), new Vgui.EngineRadialKeys(_services.Require<IEngineHud>(), _inputSystem));
         var adminKeys = new Vgui.AdminKeys(Vgui.AdminKeys.DefaultPath());
         _services.AddInstance(adminKeys).AddInstance<Ui.IAdminKeySource>(adminKeys).AddInstance(new Vgui.ConnectedServer());
         _services.AddInstance(radial).AddInstance<Ui.IRadialMenuSource>(radial).AddInstance<Ui.IRadialMenuActions>(radial);

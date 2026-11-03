@@ -121,7 +121,7 @@ public partial struct AdminChallenge
     public partial byte[] Nonce { get; set; }
 }
 
-/// <summary>A piece of the admin menu: lines of depth, action id (empty for a folder) and label, tab-separated, as long as it takes.</summary>
+/// <summary>A piece of the admin menu: lines of depth, action id (empty for a folder), label and whether it keeps the menu up, tab-separated, as long as it takes.</summary>
 public partial struct AdminMenuPiece
 {
     public partial byte Index { get; set; }
@@ -192,8 +192,8 @@ public sealed class AdminRefusedMessage : IUserMessage<AdminRefused>
     public void OnReceived(AdminRefused message) => _hooks?.Each(nameof(IAdminHook.OnAdminRefused), h => h.OnAdminRefused(message));
 }
 
-/// <summary>One line of the admin menu: its nesting, what taking it runs (empty for a folder) and what it says.</summary>
-public readonly record struct AdminMenuLine(int Depth, string Id, string Label);
+/// <summary>One line of the admin menu: its nesting, what taking it runs (empty for a folder), what it says, and whether the menu stays up after it.</summary>
+public readonly record struct AdminMenuLine(int Depth, string Id, string Label, bool Stay = false);
 
 /// <summary>
 /// A place in the admin menu, as the server builds it for one admin: a folder of
@@ -201,7 +201,7 @@ public readonly record struct AdminMenuLine(int Depth, string Id, string Label);
 /// carries out. The client only ever names an id; what it does is decided here, on a
 /// fresh build, so a stale or forged id finds nothing.
 /// </summary>
-public sealed record AdminNode(string Label, string Id = "", Action? Run = null, IReadOnlyList<AdminNode>? Children = null)
+public sealed record AdminNode(string Label, string Id = "", Action? Run = null, IReadOnlyList<AdminNode>? Children = null, bool Stay = false)
 {
     public static AdminNode Folder(string label, IReadOnlyList<AdminNode> children) => new(label, Children: children);
 
@@ -209,7 +209,7 @@ public sealed record AdminNode(string Label, string Id = "", Action? Run = null,
     {
         foreach (var node in nodes)
         {
-            yield return new AdminMenuLine(depth, node.Id, node.Label);
+            yield return new AdminMenuLine(depth, node.Id, node.Label, node.Stay);
             foreach (var line in Flatten(node.Children ?? [], depth + 1))
                 yield return line;
         }
@@ -243,7 +243,7 @@ public static class AdminMenuText
     public const int PieceBytes = 200;
 
     public static string Write(IEnumerable<AdminMenuLine> lines)
-        => string.Join('\n', lines.Select(l => $"{l.Depth}\t{Clean(l.Id)}\t{Clean(l.Label)}"));
+        => string.Join('\n', lines.Select(l => $"{l.Depth}\t{Clean(l.Id)}\t{Clean(l.Label)}\t{(l.Stay ? 1 : 0)}"));
 
     // A name with a tab or a newline in it (a player's) must not forge a line.
     private static string Clean(string text) => text.Replace('\t', ' ').Replace('\n', ' ').Replace('\r', ' ');
@@ -254,8 +254,8 @@ public static class AdminMenuText
         foreach (string line in text.Split('\n', StringSplitOptions.RemoveEmptyEntries))
         {
             var f = line.Split('\t');
-            if (f.Length == 3 && int.TryParse(f[0], out int depth))
-                lines.Add(new AdminMenuLine(depth, f[1], f[2]));
+            if (f.Length == 4 && int.TryParse(f[0], out int depth))
+                lines.Add(new AdminMenuLine(depth, f[1], f[2], f[3] == "1"));
         }
         return lines;
     }

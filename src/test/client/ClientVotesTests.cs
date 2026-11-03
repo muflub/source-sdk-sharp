@@ -68,4 +68,120 @@ public class ClientVotesOpenTests
         _engine.InGame = false;
         Assert.False(_radial.Showing);
     }
+
+    private static void Options(ClientVotes votes, params AdminMenuLine[] lines)
+    {
+        var pieces = AdminMenuText.Pieces(AdminMenuText.Write(lines));
+        for (int i = 0; i < pieces.Count; i++)
+            votes.OnVoteOptionsPiece(new VoteOptionsPiece { Index = (byte)i, Count = (byte)pieces.Count, Text = pieces[i] });
+    }
+
+    private static AdminMenuLine Map(string name) => new((int)VoteKind.Map, name, name);
+
+    private static AdminMenuLine Mode(string id) => new((int)VoteKind.Mode, id, id);
+
+    private static readonly AdminMenuLine Restart = new((int)VoteKind.Restart, "restart", "");
+
+    private readonly List<string> _sent = [];
+
+    private ClientVotes Calling()
+    {
+        var engine = new ChatFeedTests.RecordingEngineClient(_sent);
+        return new ClientVotes(_radial, null!, null!, engine, new Clock(), null!, new RecordingLog());
+    }
+
+    [Fact]
+    public void The_call_page_offers_what_the_server_listed()
+    {
+        var votes = Calling();
+        Options(votes, Map("dm_a"), Map("dm_b"), Mode("arena"), Restart);
+        votes.Open();
+        Assert.Equal(["#SS_UI_Vote_KickPlayer", "#SS_UI_Vote_ChangeMap", "#SS_UI_Vote_Mode", "#SS_UI_Vote_Restart"],
+                     Enumerable.Range(0, _radial.ItemCount).Select(i => _radial.Item(i).Label));
+    }
+
+    [Fact]
+    public void A_map_is_called_from_its_own_ring()
+    {
+        var votes = Calling();
+        Options(votes, Map("dm_a"), Map("dm_b"));
+        votes.Open();
+        _radial.Choose(1);
+        Assert.Equal("#SS_UI_Vote_MapWhich", _radial.Title);
+        _radial.Choose(1);
+        Assert.Equal(["ss_callvote map dm_b"], _sent);
+    }
+
+    [Fact]
+    public void A_mode_is_called_from_its_own_ring()
+    {
+        var votes = Calling();
+        Options(votes, Mode("arena"));
+        votes.Open();
+        _radial.Choose(2);
+        _radial.Choose(0);
+        Assert.Equal(["ss_callvote mode arena"], _sent);
+    }
+
+    [Fact]
+    public void A_restart_is_called_straight_away()
+    {
+        var votes = Calling();
+        Options(votes, Restart);
+        votes.Open();
+        _radial.Choose(3);
+        Assert.Equal(["ss_callvote restart"], _sent);
+    }
+
+    [Fact]
+    public void Nothing_listed_of_a_kind_cannot_be_opened_and_no_restart_is_no_place()
+    {
+        var votes = Calling();
+        votes.Open();
+        Assert.Equal(3, _radial.ItemCount);
+        Assert.False(_radial.Item(1).Enabled);
+        Assert.False(_radial.Item(2).Enabled);
+    }
+
+    [Fact]
+    public void A_long_list_comes_back_whole_from_its_pieces()
+    {
+        var votes = Calling();
+        Options(votes, [.. Enumerable.Range(0, 60).Select(i => Map($"some_long_map_name_{i}"))]);
+        votes.Open();
+        Assert.True(_radial.Item(1).Enabled);
+        _radial.Choose(1);
+        Assert.True(_radial.ItemCount > 0);
+    }
+
+    [Fact]
+    public void While_a_vote_is_on_or_the_wait_runs_nothing_can_be_called()
+    {
+        var votes = Calling();
+        Options(votes, Map("dm_a"), Restart);
+        votes.OnVoteCooldown(new VoteCooldown { Refusal = (byte)VoteRefusal.None, Seconds = 90f });
+        votes.Open();
+        Assert.All(Enumerable.Range(0, _radial.ItemCount), i => Assert.False(_radial.Item(i).Enabled));
+    }
+
+    [Theory]
+    [InlineData(VoteKind.Map, "dm_a", "#SS_UI_Vote_MapTitle", "dm_a")]
+    [InlineData(VoteKind.Mode, "arena", "#SS_UI_Vote_ModeTitle", "arena")]
+    [InlineData(VoteKind.Restart, "", "#SS_UI_Vote_RestartTitle", "")]
+    public void The_panel_says_what_the_ballot_would_do(VoteKind kind, string detail, string title, string target)
+    {
+        var votes = Calling();
+        votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)kind, Detail = detail });
+        Assert.Equal(title, votes.Title);
+        Assert.Equal(target, votes.Target);
+    }
+
+    [Fact]
+    public void A_restart_s_ballot_says_what_it_is_voting_on()
+    {
+        var votes = Calling();
+        votes.OnVoteState(new VoteState { Phase = (byte)VotePhase.Voting, Kind = (byte)VoteKind.Restart, Detail = "" });
+        votes.Open();
+        Assert.Equal("#SS_UI_Vote_RestartTitle", _radial.Item(0).Detail);
+    }
 }

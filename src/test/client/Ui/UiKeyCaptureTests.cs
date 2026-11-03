@@ -163,11 +163,11 @@ public class UiKeyCaptureTests
     public void A_mouse_button_is_taken_and_its_release_does_not_arm_again()
     {
         var r = new Rig();
-        r.Click("+reload");
-        r.Click("+reload");                                    // MOUSE1, pressed on the field itself
-        Assert.Equal("MOUSE1", r.KeyOf("+reload"));
+        r.Click("+forward");
+        r.Click("+forward");                                   // MOUSE1, pressed on the field itself
+        Assert.Equal("MOUSE1", r.KeyOf("+forward"));
         r.Key(KeyF);
-        Assert.Equal("MOUSE1", r.KeyOf("+reload"));    // the release did not arm it again
+        Assert.Equal("MOUSE1", r.KeyOf("+forward"));   // the release did not arm it again
     }
 
     [Fact]

@@ -13,7 +13,9 @@ namespace SourceSharp.Client.Vgui;
 /// "Disconnected" and the reason, until Close; so do the three Steam login
 /// failures a disconnect names while the dialog is up. A finished load,
 /// failed or not, runs the engine's <c>gameui_hide</c>, as the stock module
-/// did (the engine hides only what a level can be shown under).
+/// did (the engine hides only what a level can be shown under). The console
+/// is covered from a load's start until the error form is closed, as stock's
+/// dialog hides the GameUI's other dialogs.
 /// </summary>
 public sealed class GameUiLoading(IUiLocalisation localise, IFwdEngineClient engine)
     : ILoadingProgressSource, IDisconnectMessageSource
@@ -28,7 +30,12 @@ public sealed class GameUiLoading(IUiLocalisation localise, IFwdEngineClient eng
     private string? _statusText;
     private string? _message;
 
+    private bool _loading;
+
     public bool Showing { get; private set; }
+
+    /// <summary>Whether a load, or what it failed with, has the screen: the console stays open, unseen.</summary>
+    public bool CoversConsole => _loading || _message is not null;
 
     public float Progress { get; private set; }
 
@@ -43,6 +50,7 @@ public sealed class GameUiLoading(IUiLocalisation localise, IFwdEngineClient eng
     /// <summary>OnLevelLoadingStarted.</summary>
     public void Started(bool showProgressDialog)
     {
+        _loading = true;
         if (!showProgressDialog)
             return;
         Showing = true;
@@ -78,6 +86,7 @@ public sealed class GameUiLoading(IUiLocalisation localise, IFwdEngineClient eng
     /// <summary>OnLevelLoadingFinished.</summary>
     public void Finished(bool error, string? reason, string? extendedReason)
     {
+        _loading = false;
         Showing = false;
         if (error)
             _message = Reason(reason ?? string.Empty, extendedReason);

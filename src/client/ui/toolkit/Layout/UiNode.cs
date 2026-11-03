@@ -68,6 +68,8 @@ public enum UiShape : byte
     /// <summary>Line segments across the rect: Lines holds x0, y0, x1, y1 for each,
     /// 0..1 of its width and height, ShapeValue their thickness in du.</summary>
     Lines,
+    /// <summary>A pencil, point down: something edited and not yet applied.</summary>
+    Pencil,
 }
 
 /// <summary>

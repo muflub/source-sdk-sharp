@@ -97,4 +97,36 @@ public class LoadingDiscTests
         var d = Make();
         Assert.Equal((false, false), (d.Loading, d.Paused));
     }
+
+    /// <summary>The live gate's find: the engine's table has no #GameUI_ strings, and the plaque drew the token itself.</summary>
+    [Fact]
+    public void A_string_the_engine_does_not_have_comes_from_the_UI_s_language_files()
+    {
+        var engine = Fake();
+        // A string it does not have, the engine's lookup answers with the token itself.
+        engine.ReturnsEachCall("Hud.Localise", () => (string)engine.Calls[^1].Arg(0)!);
+        var show = new ClShowPausedImageConVar();
+        show.NotifyChanged("1", "0");
+        var ui = new Dictionary<string, string> { ["#GameUI_Paused"] = "PAUSED", ["#GameUI_PausedTimer"] = "PAUSED - %s1", ["#GameUI_LoadingGame"] = "LOADING" };
+        var disc = new LoadingDisc(engine, show, t => ui.GetValueOrDefault(t));
+
+        disc.State(PlaqueFacts.Paused, -1);
+        Assert.Equal("PAUSED", disc.PausedText);
+        disc.State(PlaqueFacts.Paused, 27);
+        Assert.Equal("PAUSED - 27", disc.PausedText);
+        disc.State(PlaqueFacts.DrawingLoadingImage, -1);
+        Assert.Equal("LOADING", disc.LoadingText);
+    }
+
+    [Fact]
+    public void With_the_string_nowhere_the_token_shows_rather_than_nothing()
+    {
+        var engine = Fake();
+        engine.ReturnsEachCall("Hud.Localise", () => (string)engine.Calls[^1].Arg(0)!);
+        var show = new ClShowPausedImageConVar();
+        show.NotifyChanged("1", "0");
+        var disc = new LoadingDisc(engine, show, _ => null);
+        disc.State(PlaqueFacts.Paused, -1);
+        Assert.Equal("#GameUI_Paused", disc.PausedText);
+    }
 }

@@ -71,6 +71,9 @@ public sealed partial class UiContext
     private string _screenName = string.Empty;
     private int _screenElementStart;
 
+    /// <summary>A token's text in this context's language files; null when they have none.</summary>
+    public string? FindText(string token) => _localiser.Find(token);
+
     public UiContext(UiTheme theme, IUiFontMetrics metrics, IUiLocaliser localiser,
                      IEnumerable<IUiSlotContributor> contributors)
     {

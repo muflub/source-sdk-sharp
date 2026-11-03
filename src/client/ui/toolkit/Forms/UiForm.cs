@@ -194,6 +194,12 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed, IUiOptionsPage
             DescribeFields(ref ui, m);
             DescribeMore(ref ui);
         }
+        DescribeFooter(ref ui);
+    }
+
+    /// <summary>What a page keeps in view under its fields, however far they are scrolled.</summary>
+    protected virtual void DescribeFooter(ref UiFrame ui)
+    {
     }
 
     /// <summary>What a page has under its fields that is no field: it takes effect at once, not on Apply.</summary>
@@ -224,12 +230,12 @@ public abstract class UiForm<TModel> : UiScreen, IUiWindowed, IUiOptionsPage
     {
         using (ui.Row(Space.XS).Key(i))
         {
-            // The dirty mark's room comes off the wrap width.
+            // The changed mark's room comes off the wrap width.
             // A label from a mod's file may be its own words: data, not a token.
             (f.LabelToken.StartsWith('#') ? ui.Text(f.LabelToken, Text.Body, Tone.Text) : ui.Data(f.LabelToken, Text.Body, Tone.Text))
-                .Wrap(LabelColumnDu - 16);
+                .Wrap(LabelColumnDu - 20);
             if (IsDirty(i))
-                ui.Rect(Tone.Accent, Size.Du(8), Size.Du(8)).Round(Radius.S).Name("dirty");
+                ui.Icon(UiShape.Pencil, Tone.Accent, 16).Name("dirty");
         }
 
         using (ui.Column(Space.XS, Align.Start).Key(FieldKeyBase + i).Width(Size.Fill))

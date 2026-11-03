@@ -204,7 +204,7 @@ public sealed class ClientAdmin(RadialMenus radial, Action<byte[]> send, AdminKe
         var lines = AdminMenuText.Read(System.Text.Encoding.UTF8.GetString(_menu.ToArray()));
         _menu.Clear();
         int at = 0;
-        radial.Show(new RadialPage("#SS_UI_Admin_Title", Entries(lines, ref at, 0)), this, engine.IsInGame);
+        radial.Show(new RadialPage("#SS_UI_Admin_Title", Entries(lines, ref at, 0)), this, engine.IsInGame, "adminmenu");
     }
 
     public void OnAdminRefused(AdminRefused refused)
@@ -220,7 +220,7 @@ public sealed class ClientAdmin(RadialMenus radial, Action<byte[]> send, AdminKe
     }
 
     private void Say(string token)
-        => radial.Show(new RadialPage("#SS_UI_Admin_Title", [new RadialEntry(token, Enabled: false)]), this, engine.IsInGame);
+        => radial.Show(new RadialPage("#SS_UI_Admin_Title", [new RadialEntry(token, Enabled: false)]), this, engine.IsInGame, "adminmenu");
 
     // The lines at this depth, each folder holding the deeper ones that follow it.
     private List<RadialEntry> Entries(List<AdminMenuLine> lines, ref int at, int depth)
@@ -232,7 +232,7 @@ public sealed class ClientAdmin(RadialMenus radial, Action<byte[]> send, AdminKe
             if (line.Id.Length > 0)
             {
                 string id = line.Id;
-                entries.Add(new RadialEntry(line.Label, () => send(AdminWire.WriteRun(id))));
+                entries.Add(new RadialEntry(line.Label, () => send(AdminWire.WriteRun(id)), KeepOpen: line.Stay));
                 continue;
             }
             var inside = Entries(lines, ref at, depth + 1);

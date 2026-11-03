@@ -86,4 +86,70 @@ public sealed class KeyBindings(UiWindows windows, IUiKeyBindingStore keys, IUiK
         for (int i = 0; i < rows.Count; i++)
             b.Key(i, rows[i].Command);
     }
+
+    private bool _confirming;
+    private long _footerFrame = -1;
+
+    /// <summary>
+    /// Every row back to the key a fresh player gets, as stock's Use Defaults: into the
+    /// form, for Apply or OK to write and Cancel to drop. A command with several keys
+    /// shows the first, a key on several rows stays with the last, and a key no row names
+    /// is left alone. The console and Escape are always given their keys.
+    /// </summary>
+    public void UseDefaults()
+    {
+        var m = Working;
+        for (int i = 0; i < m.FieldCount; i++)
+            m.SetKey(i, default);
+        foreach (var (key, command) in actions.DefaultBinds)
+            Give(m, command, key, keepFirst: true);
+        Give(m, "toggleconsole", "`", keepFirst: false);
+        Give(m, "cancelselect", "ESCAPE", keepFirst: false);
+    }
+
+    private static void Give(Model m, string command, string key, bool keepFirst)
+    {
+        int row = m.Row(command);
+        if (row < 0 || (keepFirst && m.GetKey(row).IsBound))
+            return;
+        for (int j = 0; j < m.FieldCount; j++)
+            if (string.Equals(m.GetKey(j).Key, key, StringComparison.OrdinalIgnoreCase))
+                m.SetKey(j, default);
+        // Upper case, as the store names keys, so a key already on its default is no change.
+        m.SetKey(row, new KeyBinding(key.ToUpperInvariant()));
+    }
+
+    /// <summary>The button pressed: the page asks before anything changes.</summary>
+    public void AskUseDefaults() => _confirming = true;
+
+    protected override void DescribeFooter(ref UiFrame ui)
+    {
+        // A page just opened asks nothing it was asked last time.
+        if (_footerFrame >= 0 && ui.FrameNumber != _footerFrame + 1)
+            _confirming = false;
+        _footerFrame = ui.FrameNumber;
+
+        using (ui.Column(Space.S, Align.Start).Width(Size.Fill).Name("keysfooter"))
+        {
+            if (!_confirming)
+            {
+                if (ui.Button("keysdefaults", "#SS_UI_Keys_UseDefaults").Clicked)
+                    AskUseDefaults();
+                return;
+            }
+            ui.Text("#SS_UI_Keys_UseDefaultsAsk", Text.Body, Tone.Text).Wrap(KeysAskWrapDu);
+            using (ui.Row(Space.S))
+            {
+                if (ui.Button("keysdefaultsno", "#SS_UI_Keys_UseDefaultsNo").Clicked)
+                    _confirming = false;
+                if (ui.Button("keysdefaultsyes", "#SS_UI_Keys_UseDefaults").Clicked)
+                {
+                    _confirming = false;
+                    UseDefaults();
+                }
+            }
+        }
+    }
+
+    private const float KeysAskWrapDu = 380;
 }

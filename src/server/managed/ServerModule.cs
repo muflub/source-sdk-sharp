@@ -1945,6 +1945,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance<INetTrafficProfiler>(_netTraffic);
 
         // Voting and its console verbs: a core service, the mods' words before it.
+        _services.Add<IVoteOptions, GameVoteOptions>();
         _services.Add(typeof(ServerVotes), typeof(ServerVotes));
 
         // Who is an admin, and the menu they get.

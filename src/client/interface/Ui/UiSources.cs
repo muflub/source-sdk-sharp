@@ -512,7 +512,7 @@ public interface IConsoleCompletionSource
 
     ConsoleCompletion Completion(int i);
 
-    /// <summary>The suggestion Tab would take, -1 for none.</summary>
+    /// <summary>The suggestion the line holds once Tab or an arrow took one; before that the one Tab would take; -1 for none.</summary>
     int SelectedCompletion { get; }
 }
 
@@ -706,6 +706,9 @@ public interface IMotdActions
 public interface IConsoleActions
 {
     void Submit();
+
+    /// <summary>A suggestion was clicked: it goes into the line.</summary>
+    void TakeCompletion(int i);
 }
 
 /// <summary>The main menu's buttons (the launch menu and the pause menu, stock's ESC
@@ -847,7 +850,10 @@ public interface IVoteSource
 
     bool Passed { get; }
 
-    /// <summary>Whom it would kick, and who called it, by name.</summary>
+    /// <summary>What it would do, a token.</summary>
+    string Title { get; }
+
+    /// <summary>Whom it would kick or what it would change to, empty when it says nothing more; and who called it, by name.</summary>
     string Target { get; }
 
     string Caller { get; }
@@ -892,6 +898,12 @@ public interface IRadialMenuActions
 {
     void Choose(int i);
 
+    /// <summary>The place under the pointer this frame, -1 for none: what letting go of a held key takes.</summary>
+    void Hover(int i);
+
+    /// <summary>A button pressed while the menu holds the keyboard, which so never reached its bind: true when it is the one that opened the menu, which then closes.</summary>
+    bool Pressed(int buttonCode);
+
     /// <summary>A step back up the menus, closing the first; Escape and the hub.</summary>
     void Back();
 }
@@ -900,6 +912,9 @@ public interface IRadialMenuActions
 public interface IUiKeyActions
 {
     IReadOnlyList<UiKeyAction> Actions();
+
+    /// <summary>The keys a fresh player gets, in the actions' order; a command may have several.</summary>
+    IReadOnlyList<(string Key, string Command)> DefaultBinds { get; }
 }
 
 /// <summary>Convars by name, as a form's bindings read and write them: the engine's in game, a dictionary in a sample.</summary>

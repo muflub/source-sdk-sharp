@@ -4,7 +4,7 @@ using SourceSharp.Client.Ui.Toolkit;
 namespace SourceSharp.Client.Ui.Screens;
 
 /// <summary>
-/// The vote on now, for everyone, over play: whom it would kick and who called it,
+/// The vote on now, for everyone, over play: what it would do and who called it,
 /// the yes and no counts growing live out of everyone who can vote, the time left,
 /// the key that opens the ballot until this player has voted, and then the result.
 /// Takes no input: the ballot is the radial menu, so a vote never grabs the mouse.
@@ -34,9 +34,10 @@ public sealed class VotePanel(IVoteSource vote) : UiScreen
 
         using (ui.Panel().At(UiAnchor.TopRight).Inset(Space.L).Width(Size.Du(Width)).Layered().Key("vote"))
         {
-            ui.Text(vote.Decided ? vote.Passed ? "#SS_UI_Vote_Passed" : "#SS_UI_Vote_Failed" : "#SS_UI_Vote_KickTitle",
+            ui.Text(vote.Decided ? vote.Passed ? "#SS_UI_Vote_Passed" : "#SS_UI_Vote_Failed" : vote.Title,
                     Text.Label, vote.Decided ? vote.Passed ? Tone.Accent : Tone.Text : Tone.TextMuted);
-            ui.Data(vote.Target, Text.Heading, Tone.Text).Width(Size.Fill).Elide();
+            if (vote.Target.Length > 0)
+                ui.Data(vote.Target, Text.Heading, Tone.Text).Width(Size.Fill).Elide();
             using (ui.Row(Space.XS).Width(Size.Fill))
             {
                 ui.Text("#SS_UI_Vote_CalledBy", Text.Caption, Tone.TextMuted);

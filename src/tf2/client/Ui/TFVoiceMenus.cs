@@ -49,25 +49,70 @@ public sealed class TFVoiceMenus(RadialMenus radial, IEngineFiles files, IFwdEng
         radial.Toggle(menu, () => Page(menu, menus[menu]), () => Spawned);
     }
 
+    /// <summary>Letting go of the key that holds the menu up speaks what is under the pointer.</summary>
+    public void Release(int menu) => radial.Release(menu);
+
     private RadialPage Page(int menu, string[] labels)
         => new($"#TF_Voice_Menu_{(char)('A' + menu)}",
                [.. labels.Select((label, item) => new RadialEntry(label, () => engine.SubmitConsoleLine($"voicemenu {menu} {item}")))]);
 }
 
-[ConCommand("voice_menu_1", Help = "Opens voice menu 1")]
-public sealed class TFVoiceMenu1Command(TFVoiceMenus menus) : IConCommand
+[ConCommand("+voice_menu_1", Help = "Shows voice menu 1 while held: a click, a number or letting go on a line speaks it")]
+public sealed class TFVoiceMenu1HoldCommand(TFVoiceMenus menus) : IConCommand
 {
     public void Execute(string args) => menus.Open(0);
 }
 
-[ConCommand("voice_menu_2", Help = "Opens voice menu 2")]
-public sealed class TFVoiceMenu2Command(TFVoiceMenus menus) : IConCommand
+[ConCommand("-voice_menu_1", Help = "Speaks the line under the pointer and closes voice menu 1")]
+public sealed class TFVoiceMenu1LetGoCommand(TFVoiceMenus menus) : IConCommand
+{
+    public void Execute(string args) => menus.Release(0);
+}
+
+[ConCommand("+voice_menu_2", Help = "Shows voice menu 2 while held: a click, a number or letting go on a line speaks it")]
+public sealed class TFVoiceMenu2HoldCommand(TFVoiceMenus menus) : IConCommand
 {
     public void Execute(string args) => menus.Open(1);
 }
 
-[ConCommand("voice_menu_3", Help = "Opens voice menu 3")]
-public sealed class TFVoiceMenu3Command(TFVoiceMenus menus) : IConCommand
+[ConCommand("-voice_menu_2", Help = "Speaks the line under the pointer and closes voice menu 2")]
+public sealed class TFVoiceMenu2LetGoCommand(TFVoiceMenus menus) : IConCommand
+{
+    public void Execute(string args) => menus.Release(1);
+}
+
+[ConCommand("+voice_menu_3", Help = "Shows voice menu 3 while held: a click, a number or letting go on a line speaks it")]
+public sealed class TFVoiceMenu3HoldCommand(TFVoiceMenus menus) : IConCommand
 {
     public void Execute(string args) => menus.Open(2);
 }
+
+[ConCommand("-voice_menu_3", Help = "Speaks the line under the pointer and closes voice menu 3")]
+public sealed class TFVoiceMenu3LetGoCommand(TFVoiceMenus menus) : IConCommand
+{
+    public void Execute(string args) => menus.Release(2);
+}
+
+/// <summary>
+/// Stock's command, for a config that binds it: it has no let-go, so it opens the menu to
+/// click or number, and moves its key to the held command for next time.
+/// </summary>
+public abstract class TFVoiceMenuBoundCommand(TFVoiceMenus menus, IEngineHud hud, IFwdEngineClient engine, int menu) : IConCommand
+{
+    public void Execute(string args)
+    {
+        string command = $"voice_menu_{menu + 1}";
+        if (hud.LookupBinding(command) is { Length: > 0 } key)
+            engine.SubmitConsoleLine($"bind \"{key}\" \"+{command}\"");
+        menus.Open(menu);
+    }
+}
+
+[ConCommand("voice_menu_1", Help = "Opens voice menu 1")]
+public sealed class TFVoiceMenu1Command(TFVoiceMenus menus, IEngineHud hud, IFwdEngineClient engine) : TFVoiceMenuBoundCommand(menus, hud, engine, 0);
+
+[ConCommand("voice_menu_2", Help = "Opens voice menu 2")]
+public sealed class TFVoiceMenu2Command(TFVoiceMenus menus, IEngineHud hud, IFwdEngineClient engine) : TFVoiceMenuBoundCommand(menus, hud, engine, 1);
+
+[ConCommand("voice_menu_3", Help = "Opens voice menu 3")]
+public sealed class TFVoiceMenu3Command(TFVoiceMenus menus, IEngineHud hud, IFwdEngineClient engine) : TFVoiceMenuBoundCommand(menus, hud, engine, 2);

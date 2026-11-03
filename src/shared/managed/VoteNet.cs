@@ -11,6 +11,15 @@ public enum VotePhase : byte
     Failed,
 }
 
+/// <summary>What a ballot would do.</summary>
+public enum VoteKind : byte
+{
+    Kick,
+    Map,
+    Mode,
+    Restart,
+}
+
 /// <summary>Why a call was refused; <see cref="None"/> is a call accepted.</summary>
 public enum VoteRefusal : byte
 {
@@ -51,6 +60,43 @@ public partial struct VoteState
 
     /// <summary>Seconds until the ballot closes, as of the send.</summary>
     public partial float SecondsLeft { get; set; }
+
+    public partial byte Kind { get; set; }
+
+    /// <summary>The map or mode it would change to; empty for a kick, whose target is a slot, and a restart.</summary>
+    [UserMessageString(MaxLength = 64)]
+    public partial string Detail { get; set; }
+}
+
+/// <summary>
+/// A piece of what this server lets its players vote on, in the admin menu's text form
+/// (<see cref="AdminMenuText"/>): each line's depth its <see cref="VoteKind"/>. Sent as a
+/// player comes in, since the maps and modes are the server's to know.
+/// </summary>
+public partial struct VoteOptionsPiece
+{
+    public partial byte Index { get; set; }
+
+    public partial byte Count { get; set; }
+
+    [UserMessageArray(MaxCount = AdminMenuText.PieceBytes)]
+    public partial byte[] Text { get; set; }
+}
+
+[UserMessage("VoteOptionsPiece")]
+public sealed class VoteOptionsPieceMessage : IUserMessage<VoteOptionsPiece>
+{
+    private readonly IHooks<IVoteStateHook>? _hooks;
+
+    public VoteOptionsPieceMessage()
+    {
+    }
+
+    [Inject]
+    public VoteOptionsPieceMessage(IHooks<IVoteStateHook>? hooks) => _hooks = hooks;
+
+    public void OnReceived(VoteOptionsPiece message)
+        => _hooks?.Each(nameof(IVoteStateHook.OnVoteOptionsPiece), hook => hook.OnVoteOptionsPiece(message));
 }
 
 /// <summary>What a vote's arrival tells the client.</summary>
@@ -59,6 +105,8 @@ public interface IVoteStateHook
     void OnVoteState(VoteState state);
 
     void OnVoteCooldown(VoteCooldown cooldown);
+
+    void OnVoteOptionsPiece(VoteOptionsPiece piece);
 }
 
 [UserMessage("VoteState")]
@@ -105,7 +153,7 @@ public sealed class VoteCooldownMessage : IUserMessage<VoteCooldown>
 /// <summary>The client's words for a vote, and the server's verbs for them.</summary>
 public static class VoteVerbs
 {
-    /// <summary><c>ss_callvote kick &lt;slot&gt;</c>.</summary>
+    /// <summary><c>ss_callvote kick &lt;slot&gt;</c>, <c>map &lt;name&gt;</c>, <c>mode &lt;id&gt;</c> or <c>restart</c>.</summary>
     public const string Call = "ss_callvote";
 
     /// <summary><c>ss_vote 1</c> for yes, <c>ss_vote 2</c> for no.</summary>

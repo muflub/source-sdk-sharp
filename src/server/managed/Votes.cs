@@ -22,6 +22,63 @@ public sealed class VoteOffice
     public int Target { get; set; }
 
     public int Caller { get; set; }
+
+    public VoteKind Kind { get; set; }
+
+    /// <summary>The map or mode the ballot on now would change to.</summary>
+    public string Detail { get; set; } = "";
+}
+
+/// <summary>One thing a server lets its players vote on, and the server command it runs if they do.</summary>
+public sealed record VoteOption(VoteKind Kind, string Id, string Label, string Command);
+
+/// <summary>What this server lets its players vote on now, besides a kick.</summary>
+public interface IVoteOptions
+{
+    IReadOnlyList<VoteOption> Build();
+}
+
+/// <summary>The maps of the map cycle, the modes registered but the one on, a restart; each by its convar.</summary>
+public sealed class GameVoteOptions(IEngineFiles files, IEngineConsole console, ServiceContainer services) : IVoteOptions
+{
+    public IReadOnlyList<VoteOption> Build()
+    {
+        var modes = services.Resolve<GameModes>();
+        return Of(Intermission.ReadCycle(files, console.FindConVarValue("mapcyclefile")),
+                  modes is null ? [] : [.. modes.Registered.Select(m => m.Id)], modes?.ActiveId,
+                  Allowed("sv_vote_issue_changelevel_allowed"), Allowed("sv_vote_issue_mode_allowed"), Allowed("sv_vote_issue_restart_game_allowed"));
+    }
+
+    private bool Allowed(string convar) => console.FindConVarValue(convar) != "0";
+
+    public static List<VoteOption> Of(IEnumerable<string> maps, IEnumerable<string> modes, string? activeMode, bool allowMaps, bool allowModes, bool allowRestart)
+    {
+        var options = new List<VoteOption>();
+        if (allowMaps)
+            options.AddRange(maps.Distinct(StringComparer.OrdinalIgnoreCase).Select(m => new VoteOption(VoteKind.Map, m, m, $"changelevel {m}")));
+        if (allowModes)
+            options.AddRange(modes.Where(m => !string.Equals(m, activeMode, StringComparison.OrdinalIgnoreCase)).Select(m => new VoteOption(VoteKind.Mode, m, m, $"sv_mode {m}")));
+        if (allowRestart)
+            options.Add(new VoteOption(VoteKind.Restart, VoteOptionWords.Restart, "", "mp_restartgame 1"));
+        return options;
+    }
+}
+
+/// <summary>A call's words to the option it names: only what the server's own list holds, so a command is never the client's.</summary>
+public static class VoteOptionWords
+{
+    public const string Map = "map", Mode = "mode", Restart = "restart";
+
+    public static VoteOption? Find(IReadOnlyList<VoteOption> options, ReadOnlySpan<string> args)
+    {
+        if (args.Length == 1 && args[0] == Restart)
+            return options.FirstOrDefault(o => o.Kind == VoteKind.Restart);
+        if (args.Length != 2)
+            return null;
+        VoteKind? kind = args[0] switch { Map => VoteKind.Map, Mode => VoteKind.Mode, _ => null };
+        string id = args[1];
+        return kind is null ? null : options.FirstOrDefault(o => o.Kind == kind && o.Id == id);
+    }
 }
 
 /// <summary>
@@ -31,7 +88,7 @@ public sealed class VoteOffice
 /// cooldown. Every change goes to every player, so the count shows live; the host
 /// and the server's admins cannot be voted off.
 /// </summary>
-public sealed class ServerVotes : IClientCommandHook, IOrderedHook
+public sealed class ServerVotes : IClientCommandHook, IOrderedHook, IClientLifecycle
 {
     private readonly VoteOffice _office;
     private readonly IEngineEntities _entities;
@@ -40,12 +97,14 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook
     private readonly IGameClock _clock;
     private readonly IUserMessageSender _messages;
     private readonly IAdminStatus? _admins;
+    private readonly IVoteOptions? _options;
     private readonly ILog? _log;
 
     public ServerVotes(VoteOffice office, IEngineEntities entities, IEnginePlayers players, IEngineHost host, IGameClock clock,
-                       IUserMessageSender messages, IAdminStatus? admins = null, ILog? log = null)
+                       IUserMessageSender messages, IAdminStatus? admins = null, ILog? log = null, IVoteOptions? options = null)
     {
         _log = log;
+        _options = options;
         _office = office;
         _entities = entities;
         _players = players;
@@ -54,6 +113,19 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook
         _messages = messages;
         _admins = admins;
         office.Changed = Broadcast;
+    }
+
+    public int ClientLifecycleOrder => (int)LifecycleStage.Votes;
+
+    /// <summary>A player in the game (each level, so a new map's list goes too) hears what can be voted on.</summary>
+    public void OnClientActive(int entIndex)
+    {
+        if (_options is null)
+            return;
+        var lines = _options.Build().Select(o => new AdminMenuLine((int)o.Kind, o.Id, o.Label));
+        var pieces = AdminMenuText.Pieces(AdminMenuText.Write(lines));
+        for (int i = 0; i < pieces.Count; i++)
+            _messages.Send(new VoteOptionsPiece { Index = (byte)i, Count = (byte)pieces.Count, Text = pieces[i] }, entIndex, reliable: true);
     }
 
     /// <summary>Among the mods' own words, which never name these.</summary>
@@ -79,9 +151,15 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook
     private void Call(EntityHandle caller, ReadOnlySpan<string> args)
     {
         int slot = caller.EntryIndex;
-        if (args.Length != 2 || args[0] != "kick" || !int.TryParse(args[1], out int target))
+        bool kick = args.Length == 2 && args[0] == "kick";
+        int target = 0;
+        if (kick && !int.TryParse(args[1], out target))
             return;
-        var targetPlayer = _players.GetHandle(target);
+        VoteOption? option = kick || _options is null ? null : VoteOptionWords.Find(_options.Build(), args);
+        if (!kick && option is null && args.Length == 0)
+            return;
+
+        var targetPlayer = kick ? _players.GetHandle(target) : EntityHandle.None;
         var vote = Controller();
         float now = _clock.Now;
 
@@ -100,21 +178,24 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook
             Refuse(slot, VoteRefusal.Cooldown, wait);
             return;
         }
-        if (target == slot || !_entities.IsValid(targetPlayer))
+        if (kick ? target == slot || !_entities.IsValid(targetPlayer) : option is null)
         {
             Refuse(slot, VoteRefusal.BadTarget, 0f);
             return;
         }
-        if (IsImmune(target))
+        if (kick && IsImmune(target))
         {
             Refuse(slot, VoteRefusal.Immune, 0f);
             return;
         }
 
         _office.Caller = slot;
-        _office.Target = target;
-        var issue = new VoteIssue("kick", target.ToString(System.Globalization.CultureInfo.InvariantCulture),
-                                  $"kickid {_players.GetUserId(targetPlayer)} Voted off");
+        _office.Target = kick ? target : 0;
+        _office.Kind = kick ? VoteKind.Kick : option!.Kind;
+        _office.Detail = kick || option!.Kind == VoteKind.Restart ? "" : option.Label;
+        var issue = kick
+            ? new VoteIssue("kick", target.ToString(System.Globalization.CultureInfo.InvariantCulture), $"kickid {_players.GetUserId(targetPlayer)} Voted off")
+            : new VoteIssue(option!.Kind.ToString(), option.Id, option.Command);
         if (vote.StartVote(caller, issue, now))
         {
             vote.CanCallVote(caller, now, out wait);
@@ -141,12 +222,12 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook
 
     private void Broadcast(VoteController vote)
     {
-        bool sent = _messages.Send(State(vote, _office.Caller, _office.Target, _clock.Now), 0, reliable: true);
+        bool sent = _messages.Send(State(vote, _office.Caller, _office.Target, _clock.Now, _office.Kind, _office.Detail), 0, reliable: true);
         _log?.Msg($"[SourceSharp/Vote] ballot {(sent ? "sent" : "NOT SENT")}: {vote.VotesCast} of {vote.PotentialVoters}\n");
     }
 
     /// <summary>What goes on the wire for a ballot as it stands.</summary>
-    public static VoteState State(VoteController vote, int caller, int target, float now)
+    public static VoteState State(VoteController vote, int caller, int target, float now, VoteKind kind = VoteKind.Kick, string detail = "")
     {
         var phase = !vote.IsVoteActive ? VotePhase.Idle
             : vote.Outcome == VoteOutcome.Passed ? VotePhase.Passed
@@ -161,6 +242,8 @@ public sealed class ServerVotes : IClientCommandHook, IOrderedHook
             No = (byte)vote.VotesFor(2),
             Voters = (byte)vote.PotentialVoters,
             SecondsLeft = vote.SecondsLeft(now),
+            Kind = (byte)kind,
+            Detail = detail,
         };
     }
 }
@@ -173,6 +256,15 @@ public interface IAdminStatus
 
 // Stock's sv_vote_* (vote_controller.cpp), the ones a ballot here reads: that file is
 // no longer built, so they are declared here for a server's cfg to set.
+
+[ConVar("sv_vote_issue_changelevel_allowed", "1", Help = "Can players call votes to change the map?")]
+public sealed class VoteIssueChangeLevelAllowedConVar : BoolConVar;
+
+[ConVar("sv_vote_issue_mode_allowed", "1", Help = "Can players call votes to change the game mode?")]
+public sealed class VoteIssueModeAllowedConVar : BoolConVar;
+
+[ConVar("sv_vote_issue_restart_game_allowed", "1", Help = "Can players call votes to restart the game?")]
+public sealed class VoteIssueRestartGameAllowedConVar : BoolConVar;
 
 [ConVar("sv_allow_votes", "1", Help = "Allow voting?")]
 public sealed class AllowVotesConVar : BoolConVar;

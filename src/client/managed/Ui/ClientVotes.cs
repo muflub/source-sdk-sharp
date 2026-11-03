@@ -8,7 +8,8 @@ namespace SourceSharp.Client.Vgui;
 /// The client's side of voting: the ballot as the server reports it, for the panel;
 /// how long this player must wait to call another; and the radial menus. One key
 /// (<c>callvote</c>) does what fits: with a ballot open and this player yet to
-/// vote it asks yes or no, else it offers a vote to call, with the wait when there is one.
+/// vote it asks yes or no, else it offers a vote to call (a kick, a map, a game mode, a
+/// restart, what the server lists), with the wait when there is one.
 /// </summary>
 public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineHud hud, IFwdEngineClient engine, IGameClock clock, IEngineEnvironment environment, ILog log)
     : IVoteSource, IVoteStateHook
@@ -24,6 +25,8 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
     private float _cooldownUntil;
     private VoteRefusal _refusal;
     private float _refusalUntil;
+    private readonly List<byte> _optionBytes = [];
+    private List<AdminMenuLine> _options = [];
 
     private VotePhase Phase => (VotePhase)_state.Phase;
 
@@ -33,7 +36,17 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
 
     public bool Passed => Phase == VotePhase.Passed;
 
-    public string Target => NameOf(_state.Target);
+    private VoteKind Kind => (VoteKind)_state.Kind;
+
+    public string Title => Kind switch
+    {
+        VoteKind.Map => "#SS_UI_Vote_MapTitle",
+        VoteKind.Mode => "#SS_UI_Vote_ModeTitle",
+        VoteKind.Restart => "#SS_UI_Vote_RestartTitle",
+        _ => "#SS_UI_Vote_KickTitle",
+    };
+
+    public string Target => Kind == VoteKind.Kick ? NameOf(_state.Target) : _state.Detail ?? "";
 
     public string Caller => NameOf(_state.Caller);
 
@@ -84,31 +97,57 @@ public sealed class ClientVotes(RadialMenus radial, IPlayerNames names, IEngineH
             _voted = true;
     }
 
+    public void OnVoteOptionsPiece(VoteOptionsPiece piece)
+    {
+        if (piece.Index == 0)
+            _optionBytes.Clear();
+        _optionBytes.AddRange(piece.Text);
+        if (piece.Index + 1 < piece.Count)
+            return;
+        _options = AdminMenuText.Read(System.Text.Encoding.UTF8.GetString(_optionBytes.ToArray()));
+        _optionBytes.Clear();
+    }
+
     /// <summary>The key: the ballot while one waits on this player, else a vote to call.</summary>
     public void Open()
     {
         // A vote is a level's: at the main menu there is nothing to call or answer.
         if (!engine.IsInGame())
             return;
-        radial.Toggle(this, Phase == VotePhase.Voting && !_voted ? Ballot : Call, engine.IsInGame);
+        radial.Toggle(this, Phase == VotePhase.Voting && !_voted ? Ballot : Call, engine.IsInGame, "callvote");
     }
 
     private RadialPage Ballot()
-        => new("#SS_UI_Vote_Ballot",
+    {
+        string what = Target.Length > 0 ? Target : Title;
+        return new("#SS_UI_Vote_Ballot",
         [
-            new RadialEntry("#SS_UI_Vote_Yes", () => Cast(1), Detail: Target),
-            new RadialEntry("#SS_UI_Vote_No", () => Cast(2), Detail: Target),
+            new RadialEntry("#SS_UI_Vote_Yes", () => Cast(1), Detail: what),
+            new RadialEntry("#SS_UI_Vote_No", () => Cast(2), Detail: what),
         ]);
+    }
 
     private RadialPage Call()
     {
         float wait = CooldownLeft;
-        bool busy = Showing;
-        return new RadialPage("#SS_UI_Vote_Call",
-        [
-            new RadialEntry("#SS_UI_Vote_KickPlayer", Open: KickWho, Enabled: wait <= 0f && !busy,
-                            Detail: wait > 0f ? Wait(wait) : null),
-        ]);
+        bool can = wait <= 0f && !Showing;
+        string? why = wait > 0f ? Wait(wait) : null;
+        var entries = new List<RadialEntry> { new("#SS_UI_Vote_KickPlayer", Open: KickWho, Enabled: can, Detail: why) };
+        entries.Add(Folder("#SS_UI_Vote_ChangeMap", "#SS_UI_Vote_MapWhich", VoteKind.Map, "map", can, why));
+        entries.Add(Folder("#SS_UI_Vote_Mode", "#SS_UI_Vote_ModeWhich", VoteKind.Mode, "mode", can, why));
+        if (_options.Any(o => o.Depth == (int)VoteKind.Restart))
+            entries.Add(new RadialEntry("#SS_UI_Vote_Restart", () => engine.SubmitConsoleLine($"{VoteVerbs.Call} restart"), Enabled: can, Detail: why));
+        return new RadialPage("#SS_UI_Vote_Call", entries);
+    }
+
+    // A place on the ring for the choices of one kind; with none to choose, it says so.
+    private RadialEntry Folder(string label, string title, VoteKind kind, string word, bool can, string? why)
+    {
+        var choices = _options.Where(o => o.Depth == (int)kind).ToList();
+        if (choices.Count == 0)
+            return new RadialEntry(label, Enabled: false, Detail: "#SS_UI_Admin_Nothing");
+        return new RadialEntry(label, Enabled: can, Detail: why, Open: () => new RadialPage(title,
+            [.. choices.Select(c => new RadialEntry(c.Label, () => engine.SubmitConsoleLine($"{VoteVerbs.Call} {word} {c.Id}")))]));
     }
 
     /// <summary>"Wait 2:14".</summary>

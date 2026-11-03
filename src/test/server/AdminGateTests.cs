@@ -343,6 +343,14 @@ public class AdminGateTests
     }
 
     [Fact]
+    public void A_line_s_stay_mark_survives_the_wire()
+    {
+        var read = AdminMenuText.Read(AdminMenuText.Write([new AdminMenuLine(1, "a", "A", Stay: true), new AdminMenuLine(1, "b", "B")]));
+        Assert.True(read[0].Stay);
+        Assert.False(read[1].Stay);
+    }
+
+    [Fact]
     public void A_long_menu_comes_back_whole_from_its_pieces()
     {
         var lines = Enumerable.Range(0, 200).Select(i => new AdminMenuLine(1, $"map:m{i}", $"Map number {i}")).ToList();

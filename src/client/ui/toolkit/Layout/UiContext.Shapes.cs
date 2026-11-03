@@ -165,6 +165,12 @@ public sealed partial class UiContext
                 Poly(r, c, element, [6, 74, 50, 22, 50, 42, 22, 74]);
                 Poly(r, c, element, [50, 22, 94, 74, 78, 74, 50, 42]);
                 break;
+            case UiShape.Pencil:
+                // Convex pieces only: the eraser, the shaft a gap below it, the point.
+                Poly(r, c, element, [74, 2, 98, 26, 88, 36, 64, 12]);
+                Poly(r, c, element, [58, 18, 82, 42, 34, 90, 10, 66]);
+                Poly(r, c, element, [6, 70, 30, 94, 0, 100]);
+                break;
             case UiShape.ChevronLeft:
                 Poly(r, c, element, [85, 0, 5, 50, 85, 100]);
                 break;
