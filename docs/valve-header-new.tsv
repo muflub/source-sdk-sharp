@@ -684,3 +684,12 @@ src/server/managed/Entities/Brushes/BreakableBrush.cs	ports CBreakable (func_bre
 src/server/managed/Entities/Brushes/MovingNoise.cs	ports CBasePlatTrain::PlayMovingSound and StopMovingSound (trains.cpp): the moving noise as a CHAN_STATIC sound patch at the volume
 src/server/managed/Entities/Props/BreakableProp.cs	ports CBreakableProp (props.cpp): prop data health and interactions, OnTakeDamage (GetBreakableDamage, fire interactions), UpdateHealth and its inputs, the physcannon and punt-sound inputs, Break (explosion, pieces), shared by prop_physics and prop_dynamic
 src/server/managed/TraceAttacks.cs	ports CBaseEntity::TraceAttackToTriggers (baseentity.cpp, CTriggerTraceEnum) and the DispatchTraceAttack seam an entity answering a traced hit itself takes (CBreakableSurface::TraceAttack)
+src/client/native/shell_shim_root_client.h	native code built against SDK headers (tier0/platform.h through ishim_root.h); the client shim root class, no Valve logic
+src/client/native/shell_input.h	ports CInput's IInput surface (in_main.cpp, input.h) as a thunk set over managed ClientInput; the class declaration split from shell_input.cpp
+src/client/native/shell_managed_frame_system.h	native code built against SDK headers (the client game-system base over igamesystem.h); the managed frame's game system row, no Valve logic
+src/client/native/shell_physics_client.h	native code built against SDK headers (interface.h, the client game-system base); the client physics class over managed physics, declared from shell_physics_client.cpp
+src/client/native/shell_clientsystems.h	native code built against SDK headers (the client game-system base over igamesystem.h); the client systems table, declared from shell_clientsystems.cpp
+src/client/native/shell_managed_clientsystems_client.h	native code built against SDK headers (the client game-system base); a client systems row over a managed system, no Valve logic
+src/client/native/shell_decals_client.h	ports the client IDecalEmitterSystem surface (decals.h) as forwards to managed decals; the class declaration split from shell_decals_client.cpp
+src/client/native/shell_soundemitter_client.h	native code built against SDK headers (the client game-system base); the sound emitter system row over managed, declared from shell_soundemitter_client.cpp
+src/client/native/shell_soundscape_audio_client.h	native code built against SDK headers (the client game-system base); C_SoundscapeSystem's client systems slot over managed soundscapes, declared from shell_soundscape_audio_client.cpp

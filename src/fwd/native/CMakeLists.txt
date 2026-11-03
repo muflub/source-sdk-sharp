@@ -14,9 +14,8 @@
 # SSFwd<Side>_Table (version_script_<side>.txt; DLL_EXPORT on Windows).
 #
 # Each game DLL links its own side's library like any library and serves its
-# tables through its internal factory (SourceSharp_InternalFactory,
-# SSFwd_Serve): on Linux DT_NEEDED names the SONAME, found beside it through
-# RUNPATH $ORIGIN; on Windows the import library. Managed reaches a table the
+# tables through its shim root's Acquire (SSFwd_Serve): on Linux DT_NEEDED
+# names the SONAME, found beside it through RUNPATH $ORIGIN; on Windows the import library. Managed reaches a table the
 # way it reaches every native interface, through the shim root's
 # AcquireInterface, and never loads a library itself.
 

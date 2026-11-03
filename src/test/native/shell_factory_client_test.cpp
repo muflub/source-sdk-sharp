@@ -7,7 +7,6 @@
 #include "gtest/gtest.h"
 
 #include "tier1/interface.h"
-#include "client_factorylist.h"
 
 namespace
 {
@@ -69,31 +68,4 @@ TEST(ShellFactoryClient, TheNewestRowOfANameWins)
 	static InterfaceReg s_Shadow([]() -> void* { return (IThing*)&g_ThingShadow; }, "Thing001");
 	EXPECT_EQ(3, ((IThing*)CreateInterface("Thing001", NULL))->Id());
 	EXPECT_EQ(&s_Shadow, InterfaceReg::s_pInterfaceRegs);
-}
-
-// client_factorylist.cpp's pair, now this file's: what is stored is what
-// comes back, and a second store replaces the first.
-static void* FactoryA(const char*, int*)
-{
-	return NULL;
-}
-
-static void* FactoryB(const char*, int*)
-{
-	return NULL;
-}
-
-TEST(ShellFactoryClient, TheFactoryListGivesBackWhatWasStored)
-{
-	factorylist_t in = {&FactoryA, &FactoryB}, out = {NULL, NULL};
-	FactoryList_Store(in);
-	FactoryList_Retrieve(out);
-	EXPECT_EQ(&FactoryA, out.appSystemFactory);
-	EXPECT_EQ(&FactoryB, out.physicsFactory);
-
-	factorylist_t swapped = {&FactoryB, NULL};
-	FactoryList_Store(swapped);
-	FactoryList_Retrieve(out);
-	EXPECT_EQ(&FactoryB, out.appSystemFactory);
-	EXPECT_EQ(NULL, out.physicsFactory);
 }

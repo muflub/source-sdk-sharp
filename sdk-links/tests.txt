@@ -48,7 +48,6 @@ src/game/client/cdll_bounded_cvars.h
 src/game/client/cdll_client_int.h
 src/game/client/cdll_util.h
 src/game/client/cl_mat_stub.h
-src/game/client/client_factorylist.h
 src/game/client/client_thinklist.h
 src/game/client/client_virtualreality.h
 src/game/client/clienteffectprecachesystem.h

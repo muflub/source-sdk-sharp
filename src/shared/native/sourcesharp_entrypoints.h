@@ -53,7 +53,7 @@ void SourceSharp_RegisterGameRulesPolicy(const SourceSharpGameRulesPolicy* pPoli
 #endif
 
 //---------------------------------------------------------------------------
-// CLIENT ONLY -- 263 slots.
+// CLIENT ONLY -- 244 slots.
 //
 // The fill wires these inside `#ifdef CLIENT_DLL`, so the server has no body
 // to declare.
@@ -178,8 +178,6 @@ void SourceSharp_ColorLookupSetWeight(void* hLookup, float flWeight);
 void SourceSharp_ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText);
 void SourceSharp_ConNXPrintf(void* pEngineClient, int32_t nIndex, float flTimeToLive, const float* pColorRGB,
 							 int32_t bFixedWidthFont, const char* pszText);
-int32_t SourceSharp_ConVarsClientSetValue(const char* pName, float flValue);
-int32_t SourceSharp_ConVarsClientWatch(const char* pName);
 int32_t SourceSharp_DrawSprite(uint32_t hOwner, int32_t nModelIndex, float flFrame, int32_t nRenderMode,
 							   int32_t nRenderFx, int32_t r, int32_t g, int32_t b, int32_t a, float flScale,
 							   int32_t bWorldSpaceScale, float flHDRColorScale, float flGlowProxySize);
@@ -242,18 +240,6 @@ int32_t SourceSharp_GlowMaterialFind(const char* pszName, const char* pszGroup);
 void SourceSharp_HudLocalise(const char* pToken, char* pOut, int32_t nOutSize);
 void SourceSharp_HudLookupBinding(const char* pBinding, char* pOut, int32_t nOutSize);
 int32_t SourceSharp_HudTextMessageGet(const char* pName, SourceSharpTextMessage* pOut);
-void SourceSharp_InputCursorState(int32_t* pVisible, int32_t* pLocked);
-void SourceSharp_InputGetCursorPos(int32_t* pX, int32_t* pY);
-void SourceSharp_InputHudFacts(float* pSensitivity, int32_t* pKeyBits, float* pFovAdjust);
-void* SourceSharp_InputMailbox();
-void SourceSharp_InputSetCursorArrow();
-void SourceSharp_InputSetCursorPos(int32_t x, int32_t y);
-void SourceSharp_InputSetLocalViewAngles(const float* pAngles);
-void SourceSharp_InputShowScoreboard(int32_t bShow);
-void SourceSharp_InputStopPitchDrift();
-void SourceSharp_InputVguiScreenSize(int32_t* pWide, int32_t* pTall);
-int32_t SourceSharp_InputViewerAimIsAssisted();
-void SourceSharp_InputViewerCameraModeChanged();
 int32_t SourceSharp_NetHierarchyDeclare(int32_t nBlobBytes);
 int32_t SourceSharp_NetPublishType(const char* pClassName, int32_t nShell, uint32_t nSchemaHash, int32_t nLayoutBytes,
 								   uint32_t* pOutTypeId);
@@ -288,14 +274,6 @@ int32_t SourceSharp_ParticlesTraceMask(const float* pStartXYZ, const float* pEnd
 									   int32_t nOut);
 void SourceSharp_ParticlesView(float* pModelView12, int32_t* pViewId, float* pOriginForward6);
 int32_t SourceSharp_ParticlesWorldTrace(const float* pStartXYZ, const float* pEndXYZ, float* pOut, int32_t nOut);
-void SourceSharp_PhysicsClientCollideExtent(void* pObject, const float* pOrigin, const float* pAngles,
-											const float* pDirection, float* pOut);
-int32_t SourceSharp_PhysicsClientPointContents(const float* pPoint);
-void SourceSharp_PhysicsClientSplashEffect(int32_t nKind, const float* pOrigin, const float* pNormal, float flScale,
-										   const float* pColor, float flLifetime, float flAlpha);
-void SourceSharp_PhysicsClientSplashLighting(const float* pPoint, float* pOut4);
-int32_t SourceSharp_PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* pHard, int32_t nHard, char* pSoft,
-											  int32_t nSoft, float* pOut3);
 void SourceSharp_PixelVisDiameters(const float* pSpheres, int32_t nSpheres, float* pOut);
 int32_t SourceSharp_PixelVisQueryCreate();
 void SourceSharp_PixelVisQueryDestroy(int32_t nQuery);

@@ -44,11 +44,6 @@ IClientRuntimeAdapter* LoadManagedRuntime(IManagedRuntimeEnvironment* env);
 // protected because the caller does not own the object.
 void UnloadManagedRuntime(IClientRuntimeAdapter* pRuntime);
 
-// Hands the adapter to CSourceSharpSystem, which forwards level and frame events.
-// The row clears its copy in its Shutdown(), which runs before the shell releases
-// the adapter.
-void SourceSharp_SetClientRuntime(IClientRuntimeAdapter* pRuntime);
-
 #else
 
 class CGlobalVars;

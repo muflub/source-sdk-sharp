@@ -5,8 +5,7 @@
 //
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
-// The native side of client physics: the CPhysicsSystem client system row, the DLL's
-// physics entry points and IShimPhysicsClient's bodies. The decisions are managed's.
+// CPhysicsClient: the native side of client physics. The decisions are managed's.
 
 #include "predictable_entity.h"
 #include "cdll_util.h"
@@ -16,15 +15,14 @@
 
 #include "fx_water.h"
 
-#include "shell_clientsystem.h"
+#include "shell_physics_client.h"
 #include "imanaged_areas_client.h"
 
 // Read by name by the client's shells (physics_shared.h).
 IPhysicsSurfaceProps* physprops = NULL;
 IPhysicsCollision* physcollision = NULL;
 
-// The DLL's Init fails unless vphysics answers all three interfaces, as stock's does.
-bool PhysicsDLLInit(CreateInterfaceFn physicsFactory)
+bool CPhysicsClient::DLLInit(CreateInterfaceFn physicsFactory)
 {
 	if (!physicsFactory(VPHYSICS_INTERFACE_VERSION, NULL) ||
 		(physprops = (IPhysicsSurfaceProps*)physicsFactory(VPHYSICS_SURFACEPROPS_INTERFACE_VERSION, NULL)) == NULL ||
@@ -33,67 +31,52 @@ bool PhysicsDLLInit(CreateInterfaceFn physicsFactory)
 		return false;
 	}
 
-	IManagedPhysicsClient* pPhysics = ManagedPhysicsClient();
+	IManagedPhysicsClient* pPhysics = m_Areas.m_pPhysicsClient;
 	if (!pPhysics || pPhysics->ParseSurfaceData() < 0)
 		Warning("[SourceSharp] the surface property manifest was not parsed: %s\n",
 				pPhysics ? "managed has no surface table" : "no managed load to parse it");
 	return true;
 }
 
-void PhysicsReset()
+void CPhysicsClient::Reset()
 {
-	if (IManagedPhysicsClient* pPhysics = ManagedPhysicsClient())
+	if (IManagedPhysicsClient* pPhysics = m_Areas.m_pPhysicsClient)
 		pPhysics->Reset();
 }
 
-void PhysicsSimulate()
+void CPhysicsClient::Simulate()
 {
-	if (IManagedPhysicsClient* pPhysics = ManagedPhysicsClient())
+	if (IManagedPhysicsClient* pPhysics = m_Areas.m_pPhysicsClient)
 		pPhysics->Simulate();
 }
 
 // The four level events, forwarded to managed.
-class CPhysicsSystem : public CClientSystem
+void CPhysicsClient::LevelInitPreEntity()
 {
-public:
-	CPhysicsSystem()
-		: CClientSystem("CPhysicsSystem")
-	{
-	}
-
-	virtual void LevelInitPreEntity()
-	{
-		if (IManagedPhysicsClient* pPhysics = ManagedPhysicsClient())
-			pPhysics->LevelInitPreEntity();
-	}
-
-	virtual void LevelInitPostEntity()
-	{
-		if (IManagedPhysicsClient* pPhysics = ManagedPhysicsClient())
-			pPhysics->LevelInitPostEntity();
-	}
-
-	virtual void LevelShutdownPreEntity()
-	{
-		if (IManagedPhysicsClient* pPhysics = ManagedPhysicsClient())
-			pPhysics->LevelShutdownPreEntity();
-	}
-
-	virtual void LevelShutdownPostEntity()
-	{
-		if (IManagedPhysicsClient* pPhysics = ManagedPhysicsClient())
-			pPhysics->LevelShutdownPostEntity();
-	}
-};
-
-CClientSystem* ClientSystem_Physics()
-{
-	static CPhysicsSystem s_PhysicsSystem;
-	return &s_PhysicsSystem;
+	if (IManagedPhysicsClient* pPhysics = m_Areas.m_pPhysicsClient)
+		pPhysics->LevelInitPreEntity();
 }
 
-int32_t SourceSharp_PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* pHard, int32_t nHard, char* pSoft,
-											  int32_t nSoft, float* pOut3)
+void CPhysicsClient::LevelInitPostEntity()
+{
+	if (IManagedPhysicsClient* pPhysics = m_Areas.m_pPhysicsClient)
+		pPhysics->LevelInitPostEntity();
+}
+
+void CPhysicsClient::LevelShutdownPreEntity()
+{
+	if (IManagedPhysicsClient* pPhysics = m_Areas.m_pPhysicsClient)
+		pPhysics->LevelShutdownPreEntity();
+}
+
+void CPhysicsClient::LevelShutdownPostEntity()
+{
+	if (IManagedPhysicsClient* pPhysics = m_Areas.m_pPhysicsClient)
+		pPhysics->LevelShutdownPostEntity();
+}
+
+int32_t CPhysicsClient::PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* pHard, int32_t nHard, char* pSoft,
+												  int32_t nSoft, float* pOut3)
 {
 	if (pHard && nHard > 0)
 		pHard[0] = 0;
@@ -121,8 +104,8 @@ int32_t SourceSharp_PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* pHard
 	return 1;
 }
 
-void SourceSharp_PhysicsClientCollideExtent(void* pObject, const float* pOrigin, const float* pAngles,
-											const float* pDirection, float* pOut)
+void CPhysicsClient::PhysicsClientCollideExtent(void* pObject, const float* pOrigin, const float* pAngles,
+												const float* pDirection, float* pOut)
 {
 	if (!pOut)
 		return;
@@ -142,7 +125,7 @@ void SourceSharp_PhysicsClientCollideExtent(void* pObject, const float* pOrigin,
 	pOut[2] = extent.z;
 }
 
-int32_t SourceSharp_PhysicsClientPointContents(const float* pPoint)
+int32_t CPhysicsClient::PhysicsClientPointContents(const float* pPoint)
 {
 	if (!pPoint || !enginetrace)
 		return 0;
@@ -150,7 +133,7 @@ int32_t SourceSharp_PhysicsClientPointContents(const float* pPoint)
 	return enginetrace->GetPointContents(Vector(pPoint[0], pPoint[1], pPoint[2]));
 }
 
-void SourceSharp_PhysicsClientSplashLighting(const float* pPoint, float* pOut4)
+void CPhysicsClient::PhysicsClientSplashLighting(const float* pPoint, float* pOut4)
 {
 	if (!pOut4)
 		return;
@@ -166,8 +149,8 @@ void SourceSharp_PhysicsClientSplashLighting(const float* pPoint, float* pOut4)
 	pOut4[3] = flLuminosity;
 }
 
-void SourceSharp_PhysicsClientSplashEffect(int32_t nKind, const float* pOrigin, const float* pNormal, float flScale,
-										   const float* pColor, float flLifetime, float flAlpha)
+void CPhysicsClient::PhysicsClientSplashEffect(int32_t nKind, const float* pOrigin, const float* pNormal, float flScale,
+											   const float* pColor, float flLifetime, float flAlpha)
 {
 	if (!pOrigin || !pNormal)
 		return;

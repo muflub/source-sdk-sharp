@@ -8,7 +8,7 @@
 // CreateInterface walks the InterfaceReg chain the EXPOSE_*_INTERFACE macros
 // build during static initialisation; names match exactly.
 
-#include "client_factorylist.h"
+#include "interface.h"
 
 InterfaceReg* InterfaceReg::s_pInterfaceRegs = NULL;
 
@@ -33,16 +33,4 @@ void* CreateInterface(const char* pName, int* pReturnCode)
 	if (pReturnCode)
 		*pReturnCode = IFACE_FAILED;
 	return NULL;
-}
-
-static factorylist_t s_Factories;
-
-void FactoryList_Store(const factorylist_t& sourceData)
-{
-	s_Factories = sourceData;
-}
-
-void FactoryList_Retrieve(factorylist_t& destData)
-{
-	destData = s_Factories;
 }

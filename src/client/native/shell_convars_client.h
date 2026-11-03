@@ -10,10 +10,28 @@
 // Watched convars' ids start here, clear of the managed registry's own ids.
 #define SOURCESHARP_CONVAR_WATCH_ID_BASE 0x10000
 
-// The id a watched name answers, or -1.
-int32_t SourceSharp_ClientWatchedConVarId(const char* pName);
+#include "ishim_areas_client.h"
+
+class CShimConsole;
+
+// IShimConVarsClient: the watch is the console's, which owns the change callback.
+class CConVarsClient final : public IShimConVarsClient
+{
+public:
+	explicit CConVarsClient(CShimConsole& console)
+		: m_Console(console)
+	{
+	}
+
+	int32_t ConVarsClientWatch(const char* pName) override;
+	int32_t ConVarsClientSetValue(const char* pName, float flValue) override;
+
+private:
+	CShimConsole& m_Console;
+};
+
+// Stores the value managed decided under pName; 0 when the table has no room for it.
+int32_t SourceSharp_ClientSetDecidedValue(const char* pName, float flValue);
 
 // The value managed decided under pName; false when it has decided none yet.
 bool SourceSharp_ClientDecidedValue(const char* pName, float* pOut);
-
-// Installs the client's global change callback if no registration has yet.

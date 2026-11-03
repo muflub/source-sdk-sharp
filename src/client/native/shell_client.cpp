@@ -17,9 +17,7 @@
 #include "vgui/ISurface.h"
 #include "iclientmode.h"
 #include "GameEventListener.h"
-#include "cam_thirdperson.h"
 #include "particles/particles.h"
-#include "c_rumble.h"
 
 #include "c_recipientfilter.h"
 
@@ -338,7 +336,6 @@ public:
 
 	virtual void LevelShutdown() OVERRIDE
 	{
-		g_ThirdPersonManager.Init();
 		CLocalPlayerFilter filter;
 		enginesound->SetPlayerDSP(filter, 0, true);
 	}
@@ -385,11 +382,9 @@ public:
 	{
 	}
 
-	// The rumble update, and stock's particle-system count when asked.
+	// Stock's particle-system count when asked; the managed client frame steps the rumble mixer.
 	virtual void Update() OVERRIDE
 	{
-		UpdateRumbleEffects();
-
 		if (cl_show_num_particle_systems.GetBool())
 		{
 			int nCount = 0;

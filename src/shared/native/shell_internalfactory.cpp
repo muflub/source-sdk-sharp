@@ -25,7 +25,7 @@
 #include "shell_shim_root_server.h"
 #else
 #include "shell_managed_areas_client.h"
-#include "client_factorylist.h"
+#include "shell_shim_root_client.h"
 #include "particles_lib_client.h"
 #include "fwd_shadows.h"
 void* ShadowEnv_Acquire();
@@ -37,23 +37,16 @@ void* ShadowEnv_Acquire();
 #include "ishim_level.h"
 #endif
 
-#ifndef CLIENT_DLL
-// Defined in shell_frame.cpp.
-#endif
-
 #ifdef CLIENT_DLL
-// Defined beside the root.
-CShimAreasClient& ShimClientAreasOfRoot();
-#endif
-
-#ifdef CLIENT_DLL
-void* SourceSharp_InternalFactory(const char* pszName)
+// The client's row set: its root's own members. The root is a member of the client
+// DLL object.
+void* CShimRootClient::Acquire(const char* pszName)
 {
 	if (!pszName)
 		return NULL;
 
 	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_CONSOLE_VERSION))
-		return ShimConsole_Acquire();
+		return static_cast<IShimConsole*>(&m_Console);
 
 	// The forwarder libraries' tables, by the name managed asks for (SSFwd_<table>).
 	if (void* pTable = SSFwd_Serve(pszName))
@@ -67,11 +60,27 @@ void* SourceSharp_InternalFactory(const char* pszName)
 	if (!ss::StrICmp(pszName, SS_SHADOW_ENV_VERSION))
 		return ShadowEnv_Acquire();
 
-	if (void* pArea = ShimAreasClient_Acquire(ShimClientAreasOfRoot(), pszName))
+	// The generated areas.
+	if (void* pArea = ShimAreasClient_Acquire(m_Areas, pszName))
 		return pArea;
 
 	// A name this side does not serve, reported as an engine factory's NULL is.
 	return NULL;
+}
+
+void* CShimRootClient::AcquireInterface(int32_t nType, const char* pszVersion, char* pError, int32_t nErrorBytes)
+{
+	// This side's own interfaces exist from DLL load, so there is no factory to wait for.
+	if (nType == SOURCESHARP_FACTORY_INTERNAL)
+	{
+		void* pShim = Acquire(pszVersion);
+		if (!pShim)
+			SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
+		return pShim;
+	}
+
+	const SourceSharpFactories_t factories = {m_pAppSystemFactory, m_pPhysicsFactory, m_pAppSystemFactory};
+	return SourceSharp_AcquireInterface((SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes, &factories);
 }
 #endif
 
@@ -125,63 +134,6 @@ void* CShimRootServer::AcquireInterface(int32_t nType, const char* pszVersion, c
 	}
 
 	return SourceSharp_AcquireInterface((SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes, &factories);
-}
-#endif
-
-// The client's root, handed to managed at load. It owns the areas by value.
-#ifdef CLIENT_DLL
-namespace
-{
-
-class CShimRoot : public IShimRoot
-{
-public:
-	void* Acquire(const char* pszName) override { return SourceSharp_InternalFactory(pszName); }
-
-	void* AcquireInterface(int32_t nType, const char* pszVersion, char* pError, int32_t nErrorBytes) override
-	{
-		factorylist_t stored;
-		memset(&stored, 0, sizeof(stored));
-		FactoryList_Retrieve(stored);
-
-		// The client has no filesystem factory; its appSystemFactory serves the filesystem.
-		const SourceSharpFactories_t factories = {stored.appSystemFactory, stored.physicsFactory,
-												  stored.appSystemFactory};
-		return SourceSharp_AcquireInterface((SourceSharpFactoryType)nType, pszVersion, pError, nErrorBytes, &factories);
-	}
-
-	void Release() override {}
-
-	CShimConsole m_Console;
-	CShimAreasClient m_ClientAreas;
-};
-
-} // namespace
-
-static CShimRoot g_ShimRoot;
-#endif
-
-#ifdef CLIENT_DLL
-IShimRoot* ShimRoot_Get(const void** ppTable)
-{
-	if (ppTable)
-		*ppTable = SSFwd_Serve("SSFwd_ShimRoot");
-
-	return &g_ShimRoot;
-}
-#endif
-
-#ifdef CLIENT_DLL
-CShimConsole& ShimConsole()
-{
-	return g_ShimRoot.m_Console;
-}
-#endif
-
-#ifdef CLIENT_DLL
-CShimAreasClient& ShimClientAreasOfRoot()
-{
-	return g_ShimRoot.m_ClientAreas;
 }
 #endif
 
@@ -293,13 +245,6 @@ void CManagedSide::ReleaseRoot()
 	ManagedAreasClient_Release(managed.m_Areas);
 	ManagedRelease(managed.m_pRuntimeClient);
 	ManagedRelease(managed.m_pRoot);
-}
-#endif
-
-#ifdef CLIENT_DLL
-void* ShimConsole_Acquire()
-{
-	return static_cast<IShimConsole*>(&g_ShimRoot.m_Console);
 }
 #endif
 

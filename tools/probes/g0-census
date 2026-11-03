@@ -1,0 +1,105 @@
+#!/bin/bash
+# plan_gameui_managed.md G0: one census session of the engine's GameUI.
+#
+#   tools/probes/g0-census OUT_DIR MODE [MOD]
+#
+#   MODE   trace     the stock GameUI.so as shipped, under the dlopen/dlsym
+#                    tracer (tools/probes/dl-trace): the load-order checkpoint
+#          forward   the logging stub (tools/probes/gameui-stub) in an engine
+#                    view, forwarding every call to the stock module
+#          inert     the same stub, never loading the stock module and
+#                    answering every call with nothing
+#          loaded    the same, with the stock module loaded (its global
+#                    constructors run) and never called: the factory hook's
+#                    end state
+#   MOD    the mods.yaml id (default: the launcher's default mod)
+#
+# One session: the menu, a map, the level, disconnect, quit. Writes OUT_DIR/
+# probe.log (stub) or dltrace.log (trace), commands.json and convars.json
+# (tools/debug-api commands|convars native, at the menu), shot-menu.tga,
+# shot-level.tga, shot-disconnect.tga, console.log and result.txt (each
+# step's outcome and the game's exit). Its own TMPDIR, DEBUG_API_DIR and
+# -port; it only ever kills the game whose environment carries its TMPDIR.
+set -uo pipefail
+HERE="$(dirname -- "$(readlink -f -- "$0")")"
+ROOT="$(readlink -f "$HERE/../..")"
+CONFIG="${CONFIG:-debug}"
+OUT="$(readlink -f "${1:?OUT_DIR}")"
+MODE="${2:?trace|forward|inert|loaded}"
+MOD="${3:-}"
+MAP="${G0_MAP:-}"
+INSTALL="${G0_INSTALL:-$HOME/.steam/steam/steamapps/common/Source SDK Base 2013 Multiplayer}"
+mkdir -p "$OUT"
+rm -f "$OUT"/*.log "$OUT"/*.json "$OUT"/*.tga "$OUT"/result.txt
+TMP="$OUT/tmp"; rm -rf "$TMP"; mkdir -p "$TMP"
+API="/tmp/ssg0-$$"; rm -rf "$API"; mkdir -p "$API"
+GAME="$ROOT/bin/$CONFIG"
+DEBUG_API="$ROOT/tools/debug-api"
+result() { echo "$*" | tee -a "$OUT/result.txt"; }
+
+engine_args=()
+env_args=(TMPDIR="$TMP" DEBUG_API_DIR="$API" DEBUG_API_UI_PORT=$((7600 + $$ % 300)))
+case "$MODE" in
+  trace)
+    lib="$("$HERE/dl-trace/build")" || exit 2
+    env_args+=(LD_PRELOAD="$lib" SOURCESHARP_PROBE_DLTRACE="$OUT/dltrace.log") ;;
+  forward|inert|loaded)
+    stub="$("$HERE/gameui-stub/build")" || exit 2
+    view="$OUT/view"; rm -rf "$view"; mkdir -p "$view/bin/linux64"
+    for e in "$INSTALL"/*; do [[ "$(basename "$e")" == bin ]] || ln -s "$e" "$view/$(basename "$e")"; done
+    for e in "$INSTALL"/bin/*; do [[ "$(basename "$e")" == linux64 ]] || ln -s "$e" "$view/bin/$(basename "$e")"; done
+    for e in "$INSTALL"/bin/linux64/*; do [[ "$(basename "$e")" == GameUI.so ]] || ln -s "$e" "$view/bin/linux64/$(basename "$e")"; done
+    cp "$stub" "$view/bin/linux64/GameUI.so"
+    engine_args=(-engine "$view")
+    env_args+=(SOURCESHARP_PROBE_LOG="$OUT/probe.log" SOURCESHARP_PROBE_STOCK_GAMEUI="$INSTALL/bin/linux64/GameUI.so")
+    [[ "$MODE" == inert ]] && env_args+=(SOURCESHARP_PROBE_GAMEUI_INERT=1)
+    [[ "$MODE" == loaded ]] && env_args+=(SOURCESHARP_PROBE_GAMEUI_INERT=2) ;;
+  *) echo "g0-census: MODE is trace, forward, inert or loaded" >&2; exit 2 ;;
+esac
+
+mod_args=(); [[ -n "$MOD" ]] && mod_args=(-mod "$MOD")
+( cd "$GAME" && . "$ROOT/tools/gpu-offload" && exec env "${env_args[@]}" ./source\# "${engine_args[@]}" "${mod_args[@]}" \
+    -debugapi -debugapisocket -condebug -nomessagebox -nocrashdialog -novid -windowed -w 1280 -h 720 -nohltv \
+    +tv_enable 0 +sv_lan 1 -hushsteam +fps_max 60 -background -instance -port $((27400 + $$ % 300)) \
+    > "$OUT/launcher.log" 2>&1 ) &
+launcher=$!
+
+game_pid() {
+  for p in $(pgrep -x hl2_linux64); do
+    tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -qx "TMPDIR=$TMP" && { echo "$p"; return; }
+  done
+}
+api() { DEBUG_API_DIR="$API" DEBUG_API_PID="$pid" "$DEBUG_API" "$@"; }
+shot() {
+  api cmd "screenshot g0_$1" > /dev/null 2>&1; sleep 3
+  f="$(find /tmp/ssi-"$USER" -maxdepth 4 -name "g0_$1.tga" -newer "$OUT/launcher.log" 2>/dev/null | head -1)"
+  if [[ -n "$f" ]]; then cp "$f" "$OUT/shot-$1.tga"; result "shot $1 ok"; else result "shot $1 MISSING"; fi
+}
+
+pid=""
+for _ in $(seq 120); do
+  pid="$(game_pid)"; [[ -n "$pid" && -S "$API/$pid.sock" ]] && break; sleep 1
+done
+if [[ -z "$pid" || ! -S "$API/$pid.sock" ]]; then
+  result "launch FAIL: no game or no debug-api socket"; kill "$launcher" 2>/dev/null; exit 1
+fi
+result "launch ok pid=$pid"
+sleep 12
+shot menu
+api commands native > "$OUT/commands.json" 2>&1 && result "commands $(grep -o '"name"' "$OUT/commands.json" | wc -l)"
+api convars native > "$OUT/convars.json" 2>&1 && result "convars $(grep -o '"name"' "$OUT/convars.json" | wc -l)"
+if [[ -n "$MAP" ]]; then
+  api cmd "map $MAP" > /dev/null 2>&1
+  for _ in $(seq 240); do kill -0 "$pid" 2>/dev/null || break; api log 0 20000 2>/dev/null | grep -q "first paint" && break; sleep 1; done
+  if kill -0 "$pid" 2>/dev/null; then result "map $MAP up"; sleep 6; shot level; else result "map $MAP: GAME EXITED"; fi
+  api cmd disconnect > /dev/null 2>&1; sleep 6
+  kill -0 "$pid" 2>/dev/null && shot disconnect || result "disconnect: GAME EXITED"
+fi
+# The launcher removes the instance directory at exit: copy its console log first.
+c="$(find /tmp/ssi-"$USER" -maxdepth 3 -name console.log -newer "$OUT/launcher.log" 2>/dev/null | head -1)"
+[[ -n "$c" ]] && cp "$c" "$OUT/console.log"
+api cmd quit > /dev/null 2>&1
+for _ in $(seq 30); do kill -0 "$pid" 2>/dev/null || break; sleep 1; done
+if kill -0 "$pid" 2>/dev/null; then result "quit: still running, killed"; kill "$pid"; else result "quit ok"; fi
+wait "$launcher"; result "launcher exit $?"
+rm -rf "$API"

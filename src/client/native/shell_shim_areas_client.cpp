@@ -1361,104 +1361,6 @@ void CShimMaterialProxyClient::ProxyNotShipped(const char* pszCapability, const 
 	return ::SourceSharp_ProxyNotShipped(pszCapability, pszReason);
 }
 
-void CShimInputClient::InputCursorState(int32_t* pVisible, int32_t* pLocked)
-{
-	return ::SourceSharp_InputCursorState(pVisible, pLocked);
-}
-
-void CShimInputClient::InputGetCursorPos(int32_t* pX, int32_t* pY)
-{
-	return ::SourceSharp_InputGetCursorPos(pX, pY);
-}
-
-void CShimInputClient::InputSetCursorPos(int32_t x, int32_t y)
-{
-	return ::SourceSharp_InputSetCursorPos(x, y);
-}
-
-void CShimInputClient::InputSetCursorArrow()
-{
-	return ::SourceSharp_InputSetCursorArrow();
-}
-
-void CShimInputClient::InputVguiScreenSize(int32_t* pWide, int32_t* pTall)
-{
-	return ::SourceSharp_InputVguiScreenSize(pWide, pTall);
-}
-
-void CShimInputClient::InputHudFacts(float* pSensitivity, int32_t* pKeyBits, float* pFovAdjust)
-{
-	return ::SourceSharp_InputHudFacts(pSensitivity, pKeyBits, pFovAdjust);
-}
-
-void CShimInputClient::InputStopPitchDrift()
-{
-	return ::SourceSharp_InputStopPitchDrift();
-}
-
-void CShimInputClient::InputSetLocalViewAngles(const float* pAngles)
-{
-	return ::SourceSharp_InputSetLocalViewAngles(pAngles);
-}
-
-void CShimInputClient::InputViewerCameraModeChanged()
-{
-	return ::SourceSharp_InputViewerCameraModeChanged();
-}
-
-int32_t CShimInputClient::InputViewerAimIsAssisted()
-{
-	return ::SourceSharp_InputViewerAimIsAssisted();
-}
-
-void CShimInputClient::InputShowScoreboard(int32_t bShow)
-{
-	return ::SourceSharp_InputShowScoreboard(bShow);
-}
-
-void* CShimInputClient::InputMailbox()
-{
-	return ::SourceSharp_InputMailbox();
-}
-
-int32_t CShimPhysicsClient::PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* pHard, int32_t nHard, char* pSoft,
-													  int32_t nSoft, float* pOut3)
-{
-	return ::SourceSharp_PhysicsClientSurfaceAudio(nSurfaceProps, pHard, nHard, pSoft, nSoft, pOut3);
-}
-
-void CShimPhysicsClient::PhysicsClientCollideExtent(void* pObject, const float* pOrigin, const float* pAngles,
-													const float* pDirection, float* pOut)
-{
-	return ::SourceSharp_PhysicsClientCollideExtent(pObject, pOrigin, pAngles, pDirection, pOut);
-}
-
-int32_t CShimPhysicsClient::PhysicsClientPointContents(const float* pPoint)
-{
-	return ::SourceSharp_PhysicsClientPointContents(pPoint);
-}
-
-void CShimPhysicsClient::PhysicsClientSplashLighting(const float* pPoint, float* pOut4)
-{
-	return ::SourceSharp_PhysicsClientSplashLighting(pPoint, pOut4);
-}
-
-void CShimPhysicsClient::PhysicsClientSplashEffect(int32_t nKind, const float* pOrigin, const float* pNormal,
-												   float flScale, const float* pColor, float flLifetime, float flAlpha)
-{
-	return ::SourceSharp_PhysicsClientSplashEffect(nKind, pOrigin, pNormal, flScale, pColor, flLifetime, flAlpha);
-}
-
-int32_t CShimConVarsClient::ConVarsClientWatch(const char* pName)
-{
-	return ::SourceSharp_ConVarsClientWatch(pName);
-}
-
-int32_t CShimConVarsClient::ConVarsClientSetValue(const char* pName, float flValue)
-{
-	return ::SourceSharp_ConVarsClientSetValue(pName, flValue);
-}
-
 int32_t CShimFlashlightClient::FlashlightTexture(const char* pszName)
 {
 	return ::SourceSharp_FlashlightTexture(pszName);
@@ -1541,13 +1443,13 @@ void* ShimAreasClient_Acquire(CShimAreasClient& areas, const char* pszName)
 		return static_cast<IShimMaterialProxyClient*>(&areas.m_MaterialProxyClient);
 
 	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_INPUTCLIENT_VERSION))
-		return static_cast<IShimInputClient*>(&areas.m_InputClient);
+		return areas.m_pInputClient;
 
 	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_PHYSICSCLIENT_VERSION))
-		return static_cast<IShimPhysicsClient*>(&areas.m_PhysicsClient);
+		return areas.m_pPhysicsClient;
 
 	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_CONVARSCLIENT_VERSION))
-		return static_cast<IShimConVarsClient*>(&areas.m_ConVarsClient);
+		return areas.m_pConVarsClient;
 
 	if (!ss::StrICmp(pszName, SOURCESHARP_SHIM_FLASHLIGHTCLIENT_VERSION))
 		return static_cast<IShimFlashlightClient*>(&areas.m_FlashlightClient);

@@ -429,6 +429,11 @@ widens it to every panel the mod has:
 
 ### 3.2a GameUI: the main menu, the dialogs, the loading screen, the console
 
+> **Moved (2026-11-01, user):** GameUI is now `plan_gameui_managed.md`, a
+> wholesale replacement with no forwarding to the stock module and no stock
+> fallback. The text below is kept as the record of C0's findings and the
+> original strangler design, which that plan supersedes.
+
 What the engine needs from the GameUI module is small and known. `strings`
 over the 243750 install's `engine.so` (the one `mods.yaml` runs; TF2's agrees) shows it resolving exactly two interfaces
 from it: **`GameUI011`** (38 virtuals, `common/GameUI/IGameUI.h`, in the fork)
@@ -891,7 +896,7 @@ empty out. The server's `IManagedSoundController` is reused for envelopes.
    decisions to C#.
 4. `vgui_controls`, `matsys_controls`, `bitmap`'s vgui users leave the link.
 
-**C4: GameUI** (§3.2a)
+**C4: GameUI** (§3.2a) — **moved to `plan_gameui_managed.md` (2026-11-01, user); step 1 landed on main c325d7f88, the rest is that plan's G0–G4.**
 0. C0's logging-stub oracle re-taken at this tip; the launcher's
    `engines/client` view (or the game-bin placement, whichever the probe
    chose) under a fact that proves the stub, not the stock module, was loaded.

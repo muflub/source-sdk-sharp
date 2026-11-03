@@ -9,15 +9,15 @@ namespace SourceSharp.Tests;
 /// <summary>
 /// The client-system stages both sides number (C7): <see cref="ClientSystemStage"/>
 /// against shell_managed_clientsystems_client.cpp's SS_CLIENT_SYSTEM_STAGE_*,
-/// name for name and value for value, and every managed row the native file
-/// adapts is a system managed registers.
+/// name for name and value for value, and every managed row the native client
+/// systems table adapts (shell_clientsystems.cpp) is a system managed registers.
 /// </summary>
 public class ManagedClientSystemsAbiTests
 {
-    private static string Native()
+    private static string Native(string file = "shell_managed_clientsystems_client.cpp")
     {
-        string path = RepoLayout.Repo("src", "client", "native", "shell_managed_clientsystems_client.cpp");
-        Assert.True(File.Exists(path), "the native adapter is missing: " + path);
+        string path = RepoLayout.Repo("src", "client", "native", file);
+        Assert.True(File.Exists(path), "the native file is missing: " + path);
         return File.ReadAllText(path);
     }
 
@@ -35,9 +35,9 @@ public class ManagedClientSystemsAbiTests
     [Fact]
     public void EveryAdaptedRowIsAManagedSystem()
     {
-        var rows = Regex.Matches(Native(), @"static CManagedClientSystemRow s_Row\(""(\w+)""\);")
+        var rows = Regex.Matches(Native("shell_clientsystems.cpp"), @"\bm_\w+Row\( areas, ""(\w+)"" \)")
                         .Select(m => m.Groups[1].Value).ToList();
-        Assert.NotEmpty(rows);
+        Assert.Equal(3, rows.Count);
         var names = new[] { new ViewportClientSystem(new NullLayout()).Name,
                             new SourceSharp.Client.Render.PixelVisibility.PixelVisibilityClientSystem(null!).Name,
                             new SourceSharp.Client.Render.GlowOverlays.GlowOverlayClientSystem(null!).Name };

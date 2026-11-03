@@ -61,13 +61,43 @@ public sealed class UiGameLanguageTests : IDisposable
     [Fact]
     public void A_token_only_in_a_vpk_file_resolves_through_the_chain()
     {
-        var engine = Fake().Returns("Files.ReadGameFileBytes", Utf16("\"TF_Only\" \"From the VPK\""))
-                           .ReturnsEachCall("Hud.Localise", () => "");
-        var unlisted = new GameUiLocaliser(ClientUi.Language(_dir, new RecordingLog(), engine, []), engine);
+        var files = new PathFiles(new() { [VpkPath] = Utf16("\"TF_Only\" \"From the VPK\"") });
+        var engine = Fake().ReturnsEachCall("Hud.Localise", () => "");
+        var unlisted = new GameUiLocaliser(ClientUi.Language(_dir, new RecordingLog(), files, []), engine);
         Assert.Null(unlisted.Find("#TF_Only"));                  // control: not listed, not found
-        var localiser = new GameUiLocaliser(ClientUi.Language(_dir, new RecordingLog(), engine, [VpkPath]), engine);
+        var localiser = new GameUiLocaliser(ClientUi.Language(_dir, new RecordingLog(), files, [VpkPath]), engine);
         Assert.Equal("From the VPK", localiser.Find("#TF_Only"));
-        Assert.Contains(engine.Calls, c => c.Member == "Files.ReadGameFileBytes" && (string?)c.Arg(0) == VpkPath);
+        Assert.Contains(VpkPath, files.Asked);
+    }
+
+    /// <summary>
+    /// The engine's GameUI strings (#GameUI_*: disconnect reasons, options
+    /// labels) were loaded by the stock GameUI module alone, at its
+    /// Initialize (docs/gameui-census.md §5); with that module never called,
+    /// the chain reads <c>resource/gameui_english.txt</c> off the GAME paths
+    /// itself, listed or not.
+    /// </summary>
+    [Fact]
+    public void The_engines_gameui_strings_resolve_through_the_chain_unlisted()
+    {
+        var files = new PathFiles(new() { [ClientUi.GameUiLanguageFile] = Utf16("\"GameUI_Disconnect\" \"Disconnect\"") });
+        var lang = ClientUi.Language(_dir, new RecordingLog(), files, []);
+        Assert.Equal("Disconnect", lang.Find("#GameUI_Disconnect"));
+        Assert.Equal("resource/gameui_english.txt", ClientUi.GameUiLanguageFile);
+    }
+
+    /// <summary>IEngineFiles answering by path; every path asked is kept.</summary>
+    private sealed class PathFiles(Dictionary<string, byte[]> files) : IEngineFiles
+    {
+        public List<string> Asked { get; } = [];
+        public int GameFileSize(string path) => files.TryGetValue(path, out var b) ? b.Length : -1;
+        public string? ReadGameFile(string path) => null;
+        public byte[]? ReadGameFileBytes(string path)
+        {
+            Asked.Add(path);
+            return files.GetValueOrDefault(path);
+        }
+        public byte[]? ReadFileOnPath(string path, string pathId) => null;
     }
 
     [Fact]

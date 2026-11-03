@@ -325,6 +325,8 @@ def generate():
 
     owned = {i: owner_class(i, slots, base, fill) for i in concrete}
     client_owned = {i: owner_class(i, slots, base, client_fill) for i in client_bases}
+    # A client-only area is ruled the same way over its own slots.
+    client_owned.update({i: owner_class(i, client_slots, {j: None for j in client_only}, fill) for i in client_only})
     forwarded = [i for i in concrete if not owned[i]]
     base_fwd = [i for i in concrete if base_forwarded(i, slots, base, fill)]
 
@@ -396,6 +398,8 @@ def generate():
             c.append('\t' + decl(ret, s, params, ' override;'))
         c += ['};', '']
     for i in client_only:
+        if client_owned[i]:
+            continue
         c += ['class CShim%s final : public %s' % (short(i), i), '{', 'public:']
         for s in client_slots[i]:
             ret, params = sigs[s]
@@ -408,7 +412,10 @@ def generate():
         else:
             c.append('\tCShim%sClient m_%s;' % (short(i), short(i)))
     for i in client_only:
-        c.append('\tCShim%s m_%s;' % (short(i), short(i)))
+        if client_owned[i]:
+            c.append('\t%s *m_p%s = nullptr; // %s' % (i, short(i), client_owned[i]))
+        else:
+            c.append('\tCShim%s m_%s;' % (short(i), short(i)))
     c += ['};', '',
           '// The client factory\'s rows: each shared base by its own version string.',
           'void *ShimAreasClient_Acquire( CShimAreasClient &areas, const char *pszName );',
@@ -458,6 +465,8 @@ def generate():
             cim.append('\t{ return ::%s(%s); }' % (client_fill[s], ' %s ' % args if args else ''))
         cim.append('')
     for i in client_only:
+        if client_owned[i]:
+            continue
         for s in client_slots[i]:
             ret, params = sigs[s]
             args = ', '.join(n for _t, n in params)
@@ -1209,6 +1218,28 @@ def self_test():
            and '\t\treturn areas.m_p%s;' % short(client_area) in client_gen[OUT_IMPL_CLIENT])
     expect('the server\'s side of that base is as the table rules it',
            client_gen[OUT_IMPL] == gen[OUT_IMPL])
+    # A client-only area its own class implements; the area is one the table still forwards.
+    conv_area = 'IShimFlashlightClient'
+    conv_short = short(conv_area)
+    def conv_owned_rows():
+        out = []
+        for r in real_rows():
+            if r['interface'] == conv_area:
+                r = dict(r, body='CToyClientArea::%s' % r['slot'])
+            out.append(r)
+        return out
+    rows = conv_owned_rows
+    try:
+        conv_gen = generate()
+    finally:
+        rows = real_rows
+    expect('the unmodified table forwards the client-only %s (the control)' % conv_area,
+           'class CShim%s ' % conv_short in gen[OUT_CLASSES])
+    expect('a client-only area its class implements is held by pointer, with no forwarding class',
+           'class CShim%s ' % conv_short not in conv_gen[OUT_CLASSES]
+           and '\t%s *m_p%s = nullptr; // CToyClientArea' % (conv_area, conv_short) in conv_gen[OUT_CLASSES]
+           and '\t\treturn areas.m_p%s;' % conv_short in conv_gen[OUT_IMPL_CLIENT]
+           and 'CShim%s::' % conv_short not in conv_gen[OUT_IMPL_CLIENT])
     expect('an interface missing from both headers is refused',
            any('IShimEngine' in p and 'no abstract_class' in p
                for p in order_problems([read(OUT_IFACE).replace('abstract_class IShimEngine', 'class IShimEngineGone'),

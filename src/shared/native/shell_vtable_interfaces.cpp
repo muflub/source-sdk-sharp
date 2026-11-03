@@ -171,22 +171,9 @@ void* SourceSharp_AcquireInterface(SourceSharpFactoryType eType, const char* psz
 
 	if (eType == SOURCESHARP_FACTORY_INTERNAL)
 	{
-#ifdef CLIENT_DLL
-		// Our own singletons exist from DLL load, so there is no factory to wait for.
-		void* pShim = SourceSharp_InternalFactory(pszVersion);
-
-		if (!pShim)
-		{
-			SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
-			return NULL;
-		}
-
-		return pShim;
-#else
-		// The server's root serves this kind itself and never reaches here.
+		// Each side's root serves this kind itself and never reaches here.
 		SourceSharp_SayAcquireReason(pError, nErrorBytes, SOURCESHARP_ACQUIRE_UNKNOWN_INTERFACE);
 		return NULL;
-#endif
 	}
 
 	// Refused before any factory is asked, so another side's object is never reached.

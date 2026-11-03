@@ -508,43 +508,6 @@ public:
 	void ProxyNotShipped(const char* pszCapability, const char* pszReason) override;
 };
 
-class CShimInputClient final : public IShimInputClient
-{
-public:
-	void InputCursorState(int32_t* pVisible, int32_t* pLocked) override;
-	void InputGetCursorPos(int32_t* pX, int32_t* pY) override;
-	void InputSetCursorPos(int32_t x, int32_t y) override;
-	void InputSetCursorArrow() override;
-	void InputVguiScreenSize(int32_t* pWide, int32_t* pTall) override;
-	void InputHudFacts(float* pSensitivity, int32_t* pKeyBits, float* pFovAdjust) override;
-	void InputStopPitchDrift() override;
-	void InputSetLocalViewAngles(const float* pAngles) override;
-	void InputViewerCameraModeChanged() override;
-	int32_t InputViewerAimIsAssisted() override;
-	void InputShowScoreboard(int32_t bShow) override;
-	void* InputMailbox() override;
-};
-
-class CShimPhysicsClient final : public IShimPhysicsClient
-{
-public:
-	int32_t PhysicsClientSurfaceAudio(int32_t nSurfaceProps, char* pHard, int32_t nHard, char* pSoft, int32_t nSoft,
-									  float* pOut3) override;
-	void PhysicsClientCollideExtent(void* pObject, const float* pOrigin, const float* pAngles, const float* pDirection,
-									float* pOut) override;
-	int32_t PhysicsClientPointContents(const float* pPoint) override;
-	void PhysicsClientSplashLighting(const float* pPoint, float* pOut4) override;
-	void PhysicsClientSplashEffect(int32_t nKind, const float* pOrigin, const float* pNormal, float flScale,
-								   const float* pColor, float flLifetime, float flAlpha) override;
-};
-
-class CShimConVarsClient final : public IShimConVarsClient
-{
-public:
-	int32_t ConVarsClientWatch(const char* pName) override;
-	int32_t ConVarsClientSetValue(const char* pName, float flValue) override;
-};
-
 class CShimFlashlightClient final : public IShimFlashlightClient
 {
 public:
@@ -576,9 +539,9 @@ struct CShimAreasClient
 	CShimSoundscapeClient m_SoundscapeClient;
 	CShimPrecipitationClient m_PrecipitationClient;
 	CShimMaterialProxyClient m_MaterialProxyClient;
-	CShimInputClient m_InputClient;
-	CShimPhysicsClient m_PhysicsClient;
-	CShimConVarsClient m_ConVarsClient;
+	IShimInputClient* m_pInputClient = nullptr; // CSourceSharpInput
+	IShimPhysicsClient* m_pPhysicsClient = nullptr; // CPhysicsClient
+	IShimConVarsClient* m_pConVarsClient = nullptr; // CConVarsClient
 	CShimFlashlightClient m_FlashlightClient;
 };
 

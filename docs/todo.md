@@ -43,6 +43,15 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## client.so re-finds a loaded library every frame (2026-11-01)
+
+The G0 `dlopen` tracer (`tools/probes/dl-trace`, docs/gameui-census.md) saw
+client.so `dlopen` an engine library with `RTLD_NOLOAD` about every 16 ms for
+the whole session: an `ss::FindLoadedSymbol` caller that does not cache its
+answer (`keyvalues_client.cpp`'s `KVSystem()` is one candidate). Each call is
+a `dl_iterate_phdr` walk plus a `dlopen`/`dlclose`. Find the caller with the
+tracer, cache the pointer, and measure the frame before and after.
+
 ## live-gate's kill-feed icon check fails on main since 582926fef
 
 "and its icon is drawn from the icon atlas through the surface's texture (3
@@ -186,6 +195,17 @@ Managed callers should call these directly; the managed-built slot goes in T3.
 serialised ABI pass (docs/abi-retirements.md). No managed code sends a
 TeBubbleTrail yet (grep, 4c808928c). **Owner:** the server lane. **Next:** add
 the 255 clamp with the first managed TeBubbleTrail sender.
+
+## Client managed-built slots with no native caller (plan_client_native_t6)
+
+- **The view shake's rumble.** `IManagedInputClient.InputRumbleScreenShake` and
+  the input mailbox's `nShakeSkip` / `nShakeBits` words were for c_rumble.h's
+  `UpdateScreenShakeRumble`, which no native code called (stock's caller,
+  view_effects.cpp, is managed; `ClientModule` calls the rumble directly). The
+  native function and `ShakeIsNoop` went in client T6 C1. **Owner:** the client
+  lane. **Next:** retire the slot and the two words in the next serialised ABI
+  pass (docs/abi-retirements.md), with `ShakeSkip` / `PublishShake` in
+  InputMailbox.cs.
 
 ## The sound emit path in C# (plan_server_native_v2 T4a step 1): follow-ups
 

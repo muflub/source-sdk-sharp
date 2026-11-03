@@ -48,7 +48,7 @@
 #include "shell_glow_client.h"
 #include "shell_pixelvis_client.h"
 
-#include "shell_clientsystem.h"
+#include "shell_clientsystems.h"
 #include "view_facts.h"
 #include "vtable_slot_patch.h"
 #include "shell_render_trace_client.h"
@@ -663,6 +663,10 @@ void CPlanView::Renderables(int nViewID, bool bEntities, bool bDetail, bool bTra
 // The executor's state, made at the first frame.
 struct ExecutorState_t
 {
+	// The client DLL object's game systems, for the plan's PreRender op; NULL outside its
+	// Init..Shutdown.
+	CClientSystems* m_pSystems = NULL;
+
 	bool m_bHooked = false;
 	bool m_bPlanFrame = false;
 	VTableSlotPatch::Patch m_BuildRenderablesPatch = {};
@@ -1494,7 +1498,8 @@ void ExecuteOps(const SourceSharpRenderOp_t* pOps, int nOps, int nIndexBase)
 				ShellShadows_UnlockAllShadowDepthTextures();
 				break;
 			case RENDER_OP_ClientSystemsPreRender:
-				SourceSharp_ClientSystemsPreRender();
+				if (state.m_pSystems)
+					state.m_pSystems->PreRender();
 				break;
 			case RENDER_OP_ViewSetupVisEx:
 			{
@@ -2687,6 +2692,11 @@ bool InstallHooks()
 }
 
 } // namespace
+
+void SourceSharp_ViewExecutorBind(CClientSystems* pSystems)
+{
+	State().m_pSystems = pSystems;
+}
 
 bool SourceSharp_RenderView(const CViewSetup& setup, int nClearFlags, int whatToDraw)
 {

@@ -49,7 +49,6 @@
 #include "client_world.h"
 #include "SoundEmitterSystem/isoundemittersystembase.h"
 #include "imessagechars.h"
-#include "client_factorylist.h"
 #include "iclientmode.h"
 #include "inputsystem/iinputsystem.h"
 
@@ -100,10 +99,13 @@ extern vgui::IInputInternal* g_InputInternal;
 #include "tier0_spew_port.h"
 #include "game_events.h"
 #include "shell_shim_areas.h"
-#include "ishim_root.h"
-
-// The root's areas, defined beside the root (shell_internalfactory.cpp).
-CShimAreasClient& ShimClientAreasOfRoot();
+#include "shell_shim_root_client.h"
+#include "shell_convars_client.h"
+#include "shell_input.h"
+#include "shell_managed_frame_system.h"
+#include "shell_clientsystems.h"
+#include "shell_physics_client.h"
+#include "shell_decals_client.h"
 
 extern IClientMode* GetClientModeNormal();
 
@@ -148,8 +150,6 @@ INetworkStringTable* g_pStringTableClientSideChoreoScenes = NULL;
 INetworkStringTable* g_pStringTableServerMapCycle = NULL;
 
 class CHudChat;
-
-extern void StopAllRumbleEffects();
 
 ISaveRestoreBlockHandler* GetEntitySaveRestoreBlockHandler();
 ISaveRestoreBlockHandler* GetViewEffectsRestoreBlockHandler();
@@ -378,6 +378,15 @@ public:
 private:
 	void ShellClientDll_Unreachable(const char* pMethod) { m_Refusals.Unreachable(pMethod); }
 
+	// The managed shakes and fades start over.
+	void ResetManagedViewEffects();
+
+	// A screen fade, managed's: the engine's View_Fade and the map's start-dark fade.
+	void ViewFade(const ScreenFade_t& sf);
+
+	// FRAME_RENDER_START's body: the frame's simulation before the view draws.
+	void OnRenderStart();
+
 	CShellClientDllRefusals m_Refusals;
 
 public:
@@ -418,7 +427,24 @@ private:
 
 	// The console: this DLL's carriers and the ICvar they reach.
 	CCVarRegistry m_CVars;
-	CManagedSide m_ManagedSide{m_Managed, m_Diagnostics, m_CVars, *ShimRoot_Get(nullptr)};
+
+	// What managed acquires from native, handed to it at load.
+	CShimRootClient m_ShimRoot;
+	CManagedSide m_ManagedSide{m_Managed, m_Diagnostics, m_CVars, m_ShimRoot};
+
+	// The convar area: watches through the root's console.
+	CConVarsClient m_ConVars{m_ShimRoot.m_Console};
+
+	// IInput and the shim input area, over the managed input area.
+	CSourceSharpInput m_Input{m_Managed.m_Areas};
+
+	// The game systems: the managed frame's row (which holds the runtime adapter) and the
+	// table that walks every row. The frame row clears its adapter in its Shutdown, which
+	// runs before the adapter is released.
+	CSourceSharpSystem m_ManagedFrame{m_ManagedSide};
+	CPhysicsClient m_Physics{m_Managed.m_Areas};
+	CShellDecalSystemClient m_Decals{m_Managed.m_Areas};
+	CClientSystems m_Systems{m_Managed.m_Areas, m_ManagedFrame, m_Physics, m_Decals};
 
 	// The game events managed listens for: the client's shim events area.
 	CGameEvents m_Events{gameeventmanager, m_Managed.m_Areas.m_pEventsClient, false};
@@ -548,6 +574,8 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 						  CGlobalVarsBase* pGlobals)
 {
 	gpGlobals = pGlobals;
+	input = &m_Input;
+	decalsystem = &m_Decals;
 
 	// The same two as members, served through IManagedRuntimeEnvironment.
 	m_pEngineFactory = appSystemFactory;
@@ -556,7 +584,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	ConnectTier1Libraries(&appSystemFactory, 1);
 	m_CVars.Connect(g_pCVar);
 	Tier0_ConnectConsole(g_pCVar);
-	ShimConsole().m_pCVars = &m_CVars;
+	m_ShimRoot.m_Console.m_pCVars = &m_CVars;
 	SourceSharp_ConnectTier2(appSystemFactory);
 	SourceSharp_ConnectTier3(appSystemFactory);
 
@@ -608,10 +636,8 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	if (!g_pMatSystemSurface)
 		return false;
 
-	factorylist_t factories;
-	factories.appSystemFactory = appSystemFactory;
-	factories.physicsFactory = physicsFactory;
-	FactoryList_Store(factories);
+	m_ShimRoot.m_pAppSystemFactory = appSystemFactory;
+	m_ShimRoot.m_pPhysicsFactory = physicsFactory;
 
 	// The server DLL connects too; the sound emitter system handles that.
 	if (!soundemitterbase->Connect(appSystemFactory))
@@ -655,15 +681,18 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 	g_pClientMode->InitViewport();
 
 	// Before the HUD: gHUD.Init() hooks the user messages managed declares. The CLR comes up
-	// before SourceSharp_ClientSystemsInit() walks the client systems.
-	ShimConsole().m_ppCommands = &m_Managed.m_Areas.m_pCommandsClient;
-	ShimClientAreasOfRoot().m_pEvents = &m_Events;
+	// before m_Systems.Init() walks the client systems.
+	m_ShimRoot.m_Console.m_ppCommands = &m_Managed.m_Areas.m_pCommandsClient;
+	m_ShimRoot.m_Areas.m_pEvents = &m_Events;
+	m_ShimRoot.m_Areas.m_pConVarsClient = &m_ConVars;
+	m_ShimRoot.m_Areas.m_pInputClient = &m_Input;
+	m_ShimRoot.m_Areas.m_pPhysicsClient = &m_Physics;
 	m_pManagedRuntime = LoadManagedRuntime(this);
 
 	if (m_pManagedRuntime == NULL)
 		return false;
 
-	SourceSharp_SetClientRuntime(m_pManagedRuntime);
+	m_ManagedFrame.SetRuntime(m_pManagedRuntime);
 
 	// The particle manifest read CParticleMgr::Init deferred until managed was up.
 	void SourceSharp_ParticleManifestRuntimeUp();
@@ -673,7 +702,8 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	g_pClientMode->Init();
 
-	if (!SourceSharp_ClientSystemsInit())
+	SourceSharp_ViewExecutorBind(&m_Systems);
+	if (!m_Systems.Init())
 		return false;
 
 	g_pClientMode->Enable();
@@ -685,7 +715,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 
 	view->Init();
 
-	input->Init_All();
+	m_Input.Init_All();
 
 	VGui_CreateGlobalPanels();
 
@@ -698,7 +728,7 @@ int CShellClientDLL::Init(CreateInterfaceFn appSystemFactory, CreateInterfaceFn 
 		GetClientVoiceMgr()->Init(&m_VoiceStatusHelper, parent);
 	}
 
-	if (!PhysicsDLLInit(physicsFactory))
+	if (!m_Physics.DLLInit(physicsFactory))
 		return false;
 
 	ClientWorldFactoryInit();
@@ -723,11 +753,11 @@ bool CShellClientDLL::ReplayPostInit()
 // Called after the client and server DLLs are loaded and all systems initialized.
 void CShellClientDLL::PostInit()
 {
-	SourceSharp_ClientSystemsPostInit();
+	m_Systems.PostInit();
 
 	// Managed sets the r_lightmap_bicubic default from the adapter's max DX support level, -1
 	// with no material system.
-	IManagedRuntimeClient* pRuntime = ManagedRuntimeClient();
+	IManagedRuntimeClient* pRuntime = m_Managed.m_pRuntimeClient;
 	if (!pRuntime)
 		return;
 
@@ -757,7 +787,7 @@ void CShellClientDLL::Shutdown()
 	g_pClientMode->Disable();
 	g_pClientMode->Shutdown();
 
-	input->Shutdown_All();
+	m_Input.Shutdown_All();
 	TermSmokeFogOverlay();
 	view->Shutdown();
 	g_pParticleSystemMgr->UncacheAllParticleSystems();
@@ -773,7 +803,8 @@ void CShellClientDLL::Shutdown()
 		m_pManagedRuntime->OnSystemStop();
 	}
 
-	SourceSharp_ClientSystemsShutdown();
+	m_Systems.Shutdown();
+	SourceSharp_ViewExecutorBind(NULL);
 
 	// After the walk, which cleared the row's copy of the pointer. Null-safe.
 	UnloadManagedRuntime(m_pManagedRuntime);
@@ -788,14 +819,19 @@ void CShellClientDLL::Shutdown()
 	m_CVars.Unregister();
 
 	// After the unregister, while the console is still connected.
-	ShimConsole().ReleaseObjects();
-	ShimConsole().m_ppCommands = NULL;
-	ShimConsole().m_pCVars = NULL;
+	m_ShimRoot.m_Console.ReleaseObjects();
+	m_ShimRoot.m_Console.m_ppCommands = NULL;
+	m_ShimRoot.m_Console.m_pCVars = NULL;
 	m_CVars.Connect(NULL);
 	Tier0_ConnectConsole(NULL);
 	DisconnectTier1Libraries();
 
-	ShimClientAreasOfRoot().m_pEvents = NULL;
+	m_ShimRoot.m_Areas.m_pEvents = NULL;
+	m_ShimRoot.m_Areas.m_pConVarsClient = NULL;
+	m_ShimRoot.m_Areas.m_pInputClient = NULL;
+	m_ShimRoot.m_Areas.m_pPhysicsClient = NULL;
+	m_ShimRoot.m_pAppSystemFactory = nullptr;
+	m_ShimRoot.m_pPhysicsFactory = nullptr;
 	gameeventmanager = NULL;
 
 #if defined(WIN32)
@@ -827,13 +863,13 @@ void CShellClientDLL::HudUpdate(bool bActive)
 
 	gHUD.UpdateHud(bActive);
 
-	SourceSharp_ClientSystemsUpdate(frametime);
+	m_Systems.Update(frametime);
 }
 
 void CShellClientDLL::HudReset()
 {
 	gHUD.VidInit();
-	PhysicsReset();
+	m_Physics.Reset();
 }
 
 void CShellClientDLL::HudText(const char* message) {}
@@ -850,28 +886,28 @@ ClientClass* CShellClientDLL::GetAllClasses()
 
 void CShellClientDLL::IN_ActivateMouse()
 {
-	input->ActivateMouse();
+	m_Input.ActivateMouse();
 }
 
 void CShellClientDLL::IN_DeactivateMouse()
 {
-	input->DeactivateMouse();
+	m_Input.DeactivateMouse();
 }
 
 void CShellClientDLL::IN_Accumulate()
 {
-	input->AccumulateMouse();
+	m_Input.AccumulateMouse();
 }
 
 void CShellClientDLL::IN_ClearStates()
 {
-	input->ClearStates();
+	m_Input.ClearStates();
 }
 
 bool CShellClientDLL::IN_IsKeyDown(const char* name, bool& isdown)
 {
 	// The button's state is managed's.
-	IManagedInputClient* pInput = ManagedInputClient();
+	IManagedInputClient* pInput = m_Managed.m_Areas.m_pInputClient;
 	int32_t bDown = 0;
 	if (!pInput || !pInput->InputIsKeyDown(name, &bDown))
 		return false;
@@ -884,7 +920,7 @@ void CShellClientDLL::IN_OnMouseWheeled(int nDelta) {}
 
 int CShellClientDLL::IN_KeyEvent(int eventcode, ButtonCode_t keynum, const char* pszCurrentBinding)
 {
-	return input->KeyEvent(eventcode, keynum, pszCurrentBinding);
+	return m_Input.KeyEvent(eventcode, keynum, pszCurrentBinding);
 }
 
 void CShellClientDLL::ExtraMouseSample(float frametime, bool active)
@@ -894,13 +930,13 @@ void CShellClientDLL::ExtraMouseSample(float frametime, bool active)
 	Assert(EntityAbs_AreQueriesValid());
 
 	MDLCACHE_CRITICAL_SECTION();
-	input->ExtraMouseSample(frametime, active);
+	m_Input.ExtraMouseSample(frametime, active);
 }
 
 void CShellClientDLL::IN_SetSampleTime(float frametime)
 {
-	input->Joystick_SetSampleTime(frametime);
-	input->IN_SetSampleTime(frametime);
+	m_Input.Joystick_SetSampleTime(frametime);
+	m_Input.IN_SetSampleTime(frametime);
 }
 
 // Fills in the usercmd from the current view angles and inputs.
@@ -911,22 +947,22 @@ void CShellClientDLL::CreateMove(int sequence_number, float input_sample_frameti
 	Assert(EntityAbs_AreQueriesValid());
 
 	MDLCACHE_CRITICAL_SECTION();
-	input->CreateMove(sequence_number, input_sample_frametime, active);
+	m_Input.CreateMove(sequence_number, input_sample_frametime, active);
 }
 
 bool CShellClientDLL::WriteUsercmdDeltaToBuffer(bf_write* buf, int from, int to, bool isnewcommand)
 {
-	return input->WriteUsercmdDeltaToBuffer(buf, from, to, isnewcommand);
+	return m_Input.WriteUsercmdDeltaToBuffer(buf, from, to, isnewcommand);
 }
 
 void CShellClientDLL::EncodeUserCmdToBuffer(bf_write& buf, int slot)
 {
-	input->EncodeUserCmdToBuffer(buf, slot);
+	m_Input.EncodeUserCmdToBuffer(buf, slot);
 }
 
 void CShellClientDLL::DecodeUserCmdFromBuffer(bf_read& buf, int slot)
 {
-	input->DecodeUserCmdFromBuffer(buf, slot);
+	m_Input.DecodeUserCmdFromBuffer(buf, slot);
 }
 
 void CShellClientDLL::View_Render(vrect_t* rect)
@@ -987,14 +1023,13 @@ int32_t SourceSharp_ClientEntitiesInvalidateMdlCacheAll()
 
 void CShellClientDLL::InvalidateMdlCache()
 {
-	if (IManagedRuntimeClient* pRuntime = ManagedRuntimeClient())
+	if (IManagedRuntimeClient* pRuntime = m_Managed.m_pRuntimeClient)
 		pRuntime->ClientInvalidateMdlCache();
 }
 
-// The managed shakes and fades start over.
-static void ResetManagedViewEffects()
+void CShellClientDLL::ResetManagedViewEffects()
 {
-	if (IManagedRenderClient* p = ManagedRenderClient())
+	if (IManagedRenderClient* p = m_Managed.m_Areas.m_pRenderClient)
 		p->ViewEffectsReset(0);
 }
 
@@ -1005,17 +1040,16 @@ static void ResetToneMappingScale()
 	pRenderContext->ResetToneMappingScale(1.0f);
 }
 
-// A screen fade, managed's: the engine's View_Fade and the map's start-dark fade.
-void SourceSharp_ViewFade(const ScreenFade_t& sf)
+void CShellClientDLL::ViewFade(const ScreenFade_t& sf)
 {
-	if (IManagedRenderClient* p = ManagedRenderClient())
+	if (IManagedRenderClient* p = m_Managed.m_Areas.m_pRenderClient)
 		p->ViewEffectsFade(sf.duration, sf.holdTime, sf.fadeFlags, sf.r, sf.g, sf.b, sf.a, gpGlobals->curtime);
 }
 
 void CShellClientDLL::View_Fade(ScreenFade_t* pSF)
 {
 	if (pSF != NULL)
-		SourceSharp_ViewFade(*pSF);
+		ViewFade(*pSF);
 }
 
 void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
@@ -1024,7 +1058,7 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	// re-precaches; with no runtime, the stock re-read.
 	PumpWindowDuringLoad();
 	int PrecacheDefinedParticleSystems();
-	IManagedRuntimeClient* pRuntime = ManagedRuntimeClient();
+	IManagedRuntimeClient* pRuntime = m_Managed.m_pRuntimeClient;
 	if (!pRuntime || pRuntime->ParticlesNeedFullReload(m_nPreviousMapParticleFiles))
 		ReloadParticleEffects();
 	else
@@ -1035,7 +1069,7 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 		return;
 	g_bLevelInitialized = true;
 
-	input->LevelInit();
+	m_Input.LevelInit();
 
 	ResetManagedViewEffects();
 
@@ -1051,7 +1085,7 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 	tempents->LevelInit();
 	ResetToneMappingScale();
 
-	SourceSharp_ClientSystemsLevelInitPreEntity();
+	m_Systems.LevelInitPreEntity();
 
 	ResetWindspeed();
 
@@ -1065,7 +1099,7 @@ void CShellClientDLL::LevelInitPreEntity(char const* pMapName)
 void CShellClientDLL::LevelInitPostEntity()
 {
 	PumpWindowDuringLoad();
-	SourceSharp_ClientSystemsLevelInitPostEntity();
+	m_Systems.LevelInitPostEntity();
 	internalCenterPrint->Clear();
 }
 
@@ -1089,9 +1123,13 @@ void CShellClientDLL::LevelShutdown()
 
 	EntityAbs_SetRecomputationsEnabled(false);
 
-	SourceSharp_ClientSystemsLevelShutdownPreEntity();
+	m_Systems.LevelShutdownPreEntity();
 
 	modemanager->LevelShutdown();
+
+	// The client mode's level shutdown reset the third-person camera (stock's
+	// g_ThirdPersonManager.Init); the camera is managed's.
+	m_Input.ThirdPersonInit();
 
 	// Temp entities go before the entity list so the te_* can clean up.
 	tempents->LevelShutdown();
@@ -1108,7 +1146,7 @@ void CShellClientDLL::LevelShutdown()
 		"world %s\n",
 		nShells, bWorld ? "released" : "was not bound");
 
-	SourceSharp_ClientSystemsLevelShutdownPostEntity();
+	m_Systems.LevelShutdownPostEntity();
 
 	view->LevelShutdown();
 	beams->ClearBeams();
@@ -1116,7 +1154,7 @@ void CShellClientDLL::LevelShutdown()
 	ShellNewParticles_RemoveAll();
 	ShellParticleMgr_LevelShutdown();
 
-	StopAllRumbleEffects();
+	m_Input.StopAllRumble();
 
 	gHUD.LevelShutdown();
 
@@ -1162,7 +1200,7 @@ void CShellClientDLL::VoiceStatus(int entindex, qboolean bTalking)
 	GetClientVoiceMgr()->UpdateSpeakerStatus(entindex, !!bTalking);
 
 	// The managed UI's voice panel shows who is speaking.
-	if (IManagedUiClient* pUi = ManagedUiClient())
+	if (IManagedUiClient* pUi = m_Managed.m_Areas.m_pUiClient)
 		pUi->VoiceStatus(entindex, bTalking ? 1 : 0);
 }
 
@@ -1277,7 +1315,7 @@ void CShellClientDLL::UncacheAllMaterials()
 // False outside a managed load.
 bool CShellClientDLL::DispatchUserMessage(int msg_type, bf_read& msg_data)
 {
-	IManagedUserMessagesClient* pMessages = ManagedUserMessagesClient();
+	IManagedUserMessagesClient* pMessages = m_Managed.m_Areas.m_pUserMessagesClient;
 	if (!pMessages)
 		return false;
 	uint8_t block[ss::kBitBlockHeaderBytes + kMaxUserMessageBlockBytes];
@@ -1293,7 +1331,7 @@ void UpdateClientRenderableInPVSStatus() {}
 
 void UpdatePVSNotifiers() {}
 
-void OnRenderStart()
+void CShellClientDLL::OnRenderStart()
 {
 	MDLCACHE_CRITICAL_SECTION();
 	MDLCACHE_COARSE_LOCK();
@@ -1307,7 +1345,7 @@ void OnRenderStart()
 	}
 
 	// Camera simulation before OnRenderStart, which uses it.
-	input->CAM_Think();
+	m_Input.CAM_Think();
 
 	// Places the player, the view models and parent entities so attachment points are right.
 	view->OnRenderStart();
@@ -1325,7 +1363,7 @@ void OnRenderStart()
 	// Entities can change the overlay alpha in their thinks.
 	g_SmokeFogOverlayAlpha = 0;
 
-	PhysicsSimulate();
+	m_Physics.Simulate();
 
 	{
 		engine->FireEvents();
@@ -1380,7 +1418,7 @@ void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 	m_CurFrameStage = curStage;
 
 	// NULL before the first load and after the last unload.
-	if (IManagedRuntimeClient* pRuntime = ManagedRuntimeClient())
+	if (IManagedRuntimeClient* pRuntime = m_Managed.m_pRuntimeClient)
 	{
 		++m_nClientStageCrossings;
 		pRuntime->ClientStage((int32_t)curStage);
@@ -1439,7 +1477,7 @@ void CShellClientDLL::FrameStageNotify(ClientFrameStage_t curStage)
 // codec. The client entity block is empty, which the engine accepts.
 CSaveRestoreData* CShellClientDLL::SaveInit(int size)
 {
-	IManagedSaveRestoreClient* pArea = ManagedSaveRestoreClient();
+	IManagedSaveRestoreClient* pArea = m_Managed.m_Areas.m_pSaveRestoreClient;
 	CSaveRestoreData* pSaveData =
 		pArea ? static_cast<CSaveRestoreData*>(pArea->SaveInit(size, gpGlobals->curtime)) : NULL;
 
@@ -1459,14 +1497,14 @@ CSaveRestoreData* CShellClientDLL::SaveInit(int size)
 void CShellClientDLL::SaveWriteFields(CSaveRestoreData* pSaveData, const char* pname, void* pBaseData, datamap_t* pMap,
 									  typedescription_t* pFields, int fieldCount)
 {
-	if (IManagedSaveRestoreClient* pArea = ManagedSaveRestoreClient())
+	if (IManagedSaveRestoreClient* pArea = m_Managed.m_Areas.m_pSaveRestoreClient)
 		pArea->SaveWriteFields(pSaveData, pname, pBaseData, pFields, (int32_t)sizeof(typedescription_t), fieldCount);
 }
 
 void CShellClientDLL::SaveReadFields(CSaveRestoreData* pSaveData, const char* pname, void* pBaseData, datamap_t* pMap,
 									 typedescription_t* pFields, int fieldCount)
 {
-	if (IManagedSaveRestoreClient* pArea = ManagedSaveRestoreClient())
+	if (IManagedSaveRestoreClient* pArea = m_Managed.m_Areas.m_pSaveRestoreClient)
 		pArea->SaveReadFields(pSaveData, pname, pBaseData, pFields, (int32_t)sizeof(typedescription_t), fieldCount);
 }
 

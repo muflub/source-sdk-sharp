@@ -5,59 +5,50 @@
 //
 //=============================================================================//
 // SS_REASON h  the CoreCLR host and bootstrap dispatch
-// The sound emitter system's row in kClientSystems[]: each stage forwards to
-// managed code. It stays second, before anything asks the table for a script.
-// Init fails when the scripts will not load or managed code is absent.
+// CSoundEmitterSystemRow: each stage forwards to managed code.
 
 #include "tier0/dbg.h"
 
-#include "shell_clientsystem.h"
+#include "shell_soundemitter_client.h"
 #include "imanaged_areas_client.h"
 
-namespace
+CSoundEmitterSystemRow::CSoundEmitterSystemRow(const CManagedAreasClient& areas)
+	: m_Areas(areas)
 {
+}
 
-class CSoundEmitterSystemRow : public CClientSystem
+char const* CSoundEmitterSystemRow::Name()
 {
-public:
-	virtual char const* Name() OVERRIDE { return "CSoundEmitterSystem"; }
+	return "CSoundEmitterSystem";
+}
 
-	virtual bool Init() OVERRIDE
-	{
-		IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient();
-		if (!pApi)
-		{
-			Warning("[SourceSharp] CSoundEmitterSystem: no IManagedSoundEmitterClient, so the sound "
-					"scripts cannot load\n");
-			return false;
-		}
-
-		return pApi->ClientSoundSystemInit();
-	}
-
-	virtual void Shutdown() OVERRIDE
-	{
-		if (IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient())
-			pApi->ClientSoundSystemShutdown();
-	}
-
-	virtual void LevelInitPreEntity() OVERRIDE
-	{
-		if (IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient())
-			pApi->ClientSoundLevelInitPreEntity();
-	}
-
-	virtual void LevelShutdownPostEntity() OVERRIDE
-	{
-		if (IManagedSoundEmitterClient* pApi = ManagedSoundEmitterClient())
-			pApi->ClientSoundLevelShutdownPostEntity();
-	}
-};
-
-} // namespace
-
-CClientSystem* ClientSystem_SoundEmitter()
+bool CSoundEmitterSystemRow::Init()
 {
-	static CSoundEmitterSystemRow s_Row;
-	return &s_Row;
+	IManagedSoundEmitterClient* pApi = m_Areas.m_pSoundEmitterClient;
+	if (!pApi)
+	{
+		Warning("[SourceSharp] CSoundEmitterSystem: no IManagedSoundEmitterClient, so the sound "
+				"scripts cannot load\n");
+		return false;
+	}
+
+	return pApi->ClientSoundSystemInit();
+}
+
+void CSoundEmitterSystemRow::Shutdown()
+{
+	if (IManagedSoundEmitterClient* pApi = m_Areas.m_pSoundEmitterClient)
+		pApi->ClientSoundSystemShutdown();
+}
+
+void CSoundEmitterSystemRow::LevelInitPreEntity()
+{
+	if (IManagedSoundEmitterClient* pApi = m_Areas.m_pSoundEmitterClient)
+		pApi->ClientSoundLevelInitPreEntity();
+}
+
+void CSoundEmitterSystemRow::LevelShutdownPostEntity()
+{
+	if (IManagedSoundEmitterClient* pApi = m_Areas.m_pSoundEmitterClient)
+		pApi->ClientSoundLevelShutdownPostEntity();
 }

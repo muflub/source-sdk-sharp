@@ -104,70 +104,6 @@ void SourceSharp_TempEntClientCloseRegistration();
 #define SourceSharp_ReloadCheckMySide SourceSharp_ReloadCheckServer
 #endif
 
-// The client's struct reaches IShimConsole's bodies through these.
-#ifdef CLIENT_DLL
-static void SourceSharp_ConsoleMsg(const char* p)
-{
-	ShimConsole().Msg(p);
-}
-
-static void SourceSharp_ConsoleWarning(const char* p)
-{
-	ShimConsole().Warning(p);
-}
-
-static int32_t SourceSharp_ConsoleRegisterConCommand(const char* n, const char* h, int32_t f)
-{
-	return ShimConsole().RegisterConCommand(n, h, f);
-}
-
-static int32_t SourceSharp_ConsoleRegisterConVar(const char* n, const char* d, const char* h, int32_t f, int32_t bMin,
-												 float flMin, int32_t bMax, float flMax)
-{
-	return ShimConsole().RegisterConVar(n, d, h, f, bMin, flMin, bMax, flMax);
-}
-
-static void SourceSharp_ConsoleSetConVarValue(int32_t id, const char* v)
-{
-	ShimConsole().SetConVarValue(id, v);
-}
-
-static void SourceSharp_ConsoleGetConVarValue(int32_t id, char* o, int32_t n)
-{
-	ShimConsole().GetConVarValue(id, o, n);
-}
-
-static int32_t SourceSharp_ConsoleFindConVarValue(const char* n, char* o, int32_t s)
-{
-	return ShimConsole().FindConVarValue(n, o, s);
-}
-
-static void SourceSharp_ConsoleSetNamedConVarValue(const char* n, const char* v)
-{
-	ShimConsole().SetNamedConVarValue(n, v);
-}
-
-static void SourceSharp_ConsoleRevertNamedConVar(const char* n)
-{
-	ShimConsole().RevertNamedConVar(n);
-}
-
-static int32_t SourceSharp_ConsoleConsoleSnapshot()
-{
-	return ShimConsole().ConsoleSnapshot();
-}
-
-static int32_t SourceSharp_ConsoleConsoleSnapshotEntry(int32_t i, SourceSharpConsoleEntry* o)
-{
-	return ShimConsole().ConsoleSnapshotEntry(i, o);
-}
-
-static int32_t SourceSharp_ConsoleFindConVarFlags(const char* n)
-{
-	return ShimConsole().FindConVarFlags(n);
-}
-#endif
-
 // One load, for the first load and the reload alike.
 CManagedSide::CManagedSide(ManagedHolders_t& holders, CDiagnosticsHooks& diagnostics, CCVarRegistry& cvars,
 						   IShimRoot& root)
@@ -408,7 +344,7 @@ void CShimConsole::OnConVarChanged(IConVar* pVar, const char* pOldValue, float f
 	else
 	{
 		// A watched engine or native convar, forwarded under the watch's id.
-		nId = SourceSharp_ClientWatchedConVarId(pName);
+		nId = WatchedConVarId(pName);
 		ConVar* pWatched = (nId >= 0 && Cvar()) ? Cvar()->FindVar(pName) : NULL;
 		pNewValue = pWatched ? pWatched->GetString() : "";
 	}
@@ -434,6 +370,37 @@ void CShimConsole::EnsureChangeCallback()
 	if (SourceSharp_GetVerbosity() > 0)
 		Msg("[SourceSharp] convar change callback installed (global, matched by name)\n");
 }
+
+#ifdef CLIENT_DLL
+int32_t CShimConsole::WatchConVar(const char* pName)
+{
+	if (!pName || !pName[0] || !Cvar() || !Cvar()->FindVar(pName))
+		return -1;
+
+	const int32_t nId = WatchedConVarId(pName);
+	if (nId >= 0)
+		return nId;
+
+	if (m_nWatched >= kMaxWatched || V_strlen(pName) >= kWatchedNameBytes)
+		return -1;
+
+	V_strncpy(m_szWatched[m_nWatched], pName, kWatchedNameBytes);
+	EnsureChangeCallback();
+	return SOURCESHARP_CONVAR_WATCH_ID_BASE + m_nWatched++;
+}
+
+int32_t CShimConsole::WatchedConVarId(const char* pName) const
+{
+	if (!pName)
+		return -1;
+	for (int i = 0; i < m_nWatched; i++)
+	{
+		if (!V_stricmp(m_szWatched[i], pName))
+			return SOURCESHARP_CONVAR_WATCH_ID_BASE + i;
+	}
+	return -1;
+}
+#endif
 
 // A re-registered name rebinds to the surviving object: tier1 refuses a duplicate,
 // and a new object would reset the operator's value to its default.
@@ -771,93 +738,63 @@ void CManagedSide::Unload()
 	m_bLoaded = false;
 }
 
-// The client's game system row: holds the runtime adapter and forwards level and
-// frame events. The server has none.
 #ifdef CLIENT_DLL
 
-#include "shell_clientsystem.h"
+#include "shell_managed_frame_system.h"
 
-class CSourceSharpSystem : public CClientSystemPerFrame
+bool CSourceSharpSystem::Init()
 {
-public:
-	CSourceSharpSystem()
-		: CClientSystemPerFrame("SourceSharp")
-		, m_pRuntime(NULL)
-	{
-	}
-
-	// Set from CShellClientDLL::Init after LoadManagedRuntime; this row does not load.
-	void SetRuntime(IClientRuntimeAdapter* pRuntime) { m_pRuntime = pRuntime; }
-
-	virtual bool Init() OVERRIDE
-	{
-		// The runtime is already up: CShellClientDLL::Init loaded it.
-		return true;
-	}
-
-	virtual void Shutdown() OVERRIDE
-	{
-		// Teardown ran in CShellClientDLL::Shutdown; drop the reference.
-		m_pRuntime = NULL;
-	}
-
-	virtual void LevelInitPostEntity() OVERRIDE
-	{
-		SOURCESHARP_TRACE();
-
-		// Not loaded before the first load, after the last unload, or mid-reload.
-		if (!ShellClientDll_ManagedSide().Loaded() || m_pRuntime == NULL)
-			return;
-
-		char szMapName[MAX_PATH];
-		SourceSharp_ClientMapName(szMapName, sizeof(szMapName));
-
-		if (SourceSharp_GetVerbosity() > 0)
-			Msg("[SourceSharp] %s level init -> C#: %s\n", SOURCESHARP_SIDE_TAG, szMapName);
-
-		m_pRuntime->OnLevelInit(szMapName);
-	}
-
-	virtual void LevelShutdownPostEntity() OVERRIDE
-	{
-		SOURCESHARP_TRACE();
-
-		if (!ShellClientDll_ManagedSide().Loaded() || m_pRuntime == NULL)
-			return;
-
-		if (SourceSharp_GetVerbosity() > 0)
-			Msg("[SourceSharp] %s level shutdown -> C#\n", SOURCESHARP_SIDE_TAG);
-
-		m_pRuntime->OnLevelShutdown();
-	}
-
-	virtual void Update(float frametime) OVERRIDE
-	{
-		// Quieter than SOURCESHARP_TRACE_HOT: this runs every frame.
-		if (SourceSharp_GetVerbosity() > 2)
-			SOURCESHARP_TRACE();
-
-		// Before the managed frame, so the frame runs the new build.
-		ShellClientDll_ManagedSide().ServiceReloadRequest();
-
-		if (ShellClientDll_ManagedSide().Loaded() && m_pRuntime != NULL)
-			m_pRuntime->OnFrame(frametime);
-	}
-
-private:
-	IClientRuntimeAdapter* m_pRuntime;
-};
-
-static CSourceSharpSystem g_SourceSharpSystem;
-
-CClientSystem* ClientSystem_SourceSharpManaged()
-{
-	return &g_SourceSharpSystem;
+	// The runtime is already up: CShellClientDLL::Init loaded it.
+	return true;
 }
 
-void SourceSharp_SetClientRuntime(IClientRuntimeAdapter* pRuntime)
+void CSourceSharpSystem::Shutdown()
 {
-	g_SourceSharpSystem.SetRuntime(pRuntime);
+	// Teardown ran in CShellClientDLL::Shutdown; drop the reference.
+	m_pRuntime = NULL;
+}
+
+void CSourceSharpSystem::LevelInitPostEntity()
+{
+	SOURCESHARP_TRACE();
+
+	// Not loaded before the first load, after the last unload, or mid-reload.
+	if (!m_ManagedSide.Loaded() || m_pRuntime == NULL)
+		return;
+
+	char szMapName[MAX_PATH];
+	SourceSharp_ClientMapName(szMapName, sizeof(szMapName));
+
+	if (SourceSharp_GetVerbosity() > 0)
+		Msg("[SourceSharp] %s level init -> C#: %s\n", SOURCESHARP_SIDE_TAG, szMapName);
+
+	m_pRuntime->OnLevelInit(szMapName);
+}
+
+void CSourceSharpSystem::LevelShutdownPostEntity()
+{
+	SOURCESHARP_TRACE();
+
+	if (!m_ManagedSide.Loaded() || m_pRuntime == NULL)
+		return;
+
+	if (SourceSharp_GetVerbosity() > 0)
+		Msg("[SourceSharp] %s level shutdown -> C#\n", SOURCESHARP_SIDE_TAG);
+
+	m_pRuntime->OnLevelShutdown();
+}
+
+void CSourceSharpSystem::Update(float frametime)
+{
+	// Quieter than SOURCESHARP_TRACE_HOT: this runs every frame.
+	if (SourceSharp_GetVerbosity() > 2)
+		SOURCESHARP_TRACE();
+
+	// Before the managed frame, so the frame runs the new build.
+	m_ManagedSide.ServiceReloadRequest();
+
+	if (m_ManagedSide.Loaded() && m_pRuntime != NULL)
+		m_pRuntime->OnFrame(frametime);
 }
 
 #endif // CLIENT_DLL

@@ -14,7 +14,8 @@
 // It exports CreateInterface. GameUI011 and GameConsole004 come back as
 // wrappers that log every call (arguments included) to SOURCESHARP_PROBE_LOG
 // and forward to the stock module named by SOURCESHARP_PROBE_STOCK_GAMEUI;
-// every other name is forwarded untouched. The log line format matches the
+// every other name is forwarded untouched. With SOURCESHARP_PROBE_GAMEUI_INERT=1
+// the stock module is never loaded and both answer with nothing (G0). The log line format matches the
 // client's probe (shell_probes_debug.cpp): "<monotonic ns> <pid> gameui ...".
 //
 // The two interfaces are declared here by their vtable shape, transcribed from
@@ -514,6 +515,112 @@ CreateInterfaceFn StockFactory()
 	return s_fn;
 }
 
+// SOURCESHARP_PROBE_GAMEUI_INERT=1 (plan_gameui_managed.md G0): the stock
+// module is never loaded and both interfaces answer every call with nothing:
+// the switch-over's end state, a GameUI nobody draws, logged as ever.
+class CInertGameUI : public IGameUIShape
+{
+public:
+	void Initialize(CreateInterfaceFn) override {}
+
+	void PostInit() override {}
+
+	void Connect(CreateInterfaceFn) override {}
+
+	void Start() override {}
+
+	void Shutdown() override {}
+
+	void RunFrame() override {}
+
+	void OnGameUIActivated() override {}
+
+	void OnGameUIHidden() override {}
+
+	void OLD_OnConnectToServer(const char*, int, int) override {}
+
+	void OnDisconnectFromServer_OLD(uint8_t, const char*) override {}
+
+	void OnLevelLoadingStarted(bool) override {}
+
+	void OnLevelLoadingFinished(bool, const char*, const char*) override {}
+
+	bool UpdateProgressBar(float, const char*) override { return false; }
+
+	bool SetShowProgressText(bool) override { return false; }
+
+	void ShowNewGameDialog(int) override {}
+
+	void SessionNotification(const int, const int) override {}
+
+	void SystemNotification(const int) override {}
+
+	void ShowMessageDialog(const unsigned int, void*) override {}
+
+	void UpdatePlayerInfo(uint64_t, const char*, int, uint8_t, int, bool) override {}
+
+	void SessionSearchResult(int, void*, void*, int) override {}
+
+	void OnCreditsFinished() override {}
+
+	void SetLoadingBackgroundDialog(VPANEL) override {}
+
+	void BonusMapUnlock(const char*, const char*) override {}
+
+	void BonusMapComplete(const char*, const char*) override {}
+
+	void BonusMapChallengeUpdate(const char*, const char*, const char*, int) override {}
+
+	void BonusMapChallengeNames(char*, char*, char*) override {}
+
+	void BonusMapChallengeObjectives(int& iBronze, int& iSilver, int& iGold) override { iBronze = iSilver = iGold = 0; }
+
+	void BonusMapDatabaseSave() override {}
+
+	int BonusMapNumAdvancedCompleted() override { return 0; }
+
+	void BonusMapNumMedals(int piNumMedals[3]) override { piNumMedals[0] = piNumMedals[1] = piNumMedals[2] = 0; }
+
+	void OnConnectToServer2(const char*, int, int, int) override {}
+
+	bool ValidateStorageDevice(int*) override { return false; }
+
+	void SetProgressOnStart() override {}
+
+	void OnDisconnectFromServer(uint8_t) override {}
+
+	void OnConfirmQuit() override {}
+
+	bool IsMainMenuVisible() override { return false; }
+
+	void SetMainMenuOverride(VPANEL) override {}
+
+	void SendMainMenuCommand(const char*) override {}
+};
+
+class CInertGameConsole : public IGameConsoleShape
+{
+public:
+	void Activate() override {}
+
+	void Initialize() override {}
+
+	void Hide() override {}
+
+	void Clear() override {}
+
+	bool IsConsoleVisible() override { return false; }
+
+	void SetParent(VPANEL) override {}
+};
+
+bool Inert()
+{
+	static const bool s_bInert =
+		getenv("SOURCESHARP_PROBE_GAMEUI_INERT") && atoi(getenv("SOURCESHARP_PROBE_GAMEUI_INERT"));
+	return s_bInert;
+}
+
 struct CLoadLine
 {
 	CLoadLine()
@@ -528,8 +635,25 @@ struct CLoadLine
 extern "C" __attribute__((visibility("default"))) void* CreateInterface(const char* pName, int* pReturnCode)
 {
 	const char* pCaller = ModuleOf(__builtin_return_address(0));
-	CreateInterfaceFn stock = StockFactory();
-	void* p = stock ? stock(pName, pReturnCode) : NULL;
+	void* p = NULL;
+	if (Inert())
+	{
+		// SOURCESHARP_PROBE_GAMEUI_INERT=2: the stock module is loaded (its
+		// global constructors run) and never called, the factory hook's state.
+		static const bool s_bLoad = atoi(getenv("SOURCESHARP_PROBE_GAMEUI_INERT")) == 2 && StockFactory();
+		(void)s_bLoad;
+		static CInertGameUI s_InertUI;
+		static CInertGameConsole s_InertConsole;
+		p = !pName                             ? NULL
+			: !strcmp(pName, "GameUI011")      ? (void*)&s_InertUI
+			: !strcmp(pName, "GameConsole004") ? (void*)&s_InertConsole
+											   : NULL;
+	}
+	else
+	{
+		CreateInterfaceFn stock = StockFactory();
+		p = stock ? stock(pName, pReturnCode) : NULL;
+	}
 	ProbeLog("CreateInterface %s from %s -> %s", S(pName), pCaller, p ? "answered" : "NULL");
 	if (!p || !pName)
 		return p;

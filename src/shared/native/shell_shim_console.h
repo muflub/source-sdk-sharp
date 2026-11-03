@@ -71,6 +71,16 @@ public:
 	// engine. Only after ConVar_Unregister, or the engine's ICvar would point at freed memory.
 	void ReleaseObjects();
 
+#ifdef CLIENT_DLL
+	// Forwards an engine or native convar's changes to managed's ConVarChanged under the id
+	// this answers, or -1 for no such convar. The table survives a managed reload and never
+	// shrinks.
+	int32_t WatchConVar(const char* pName);
+
+	// The id a watched name answers, or -1.
+	int32_t WatchedConVarId(const char* pName) const;
+#endif
+
 private:
 	// The engine's console through the registry; NULL while it is not connected.
 	ICvar* Cvar() const;
@@ -90,12 +100,12 @@ private:
 	ChangeCallback_t m_ChangeCallback{this,
 									  &ChangeCallback_t::Trampoline<CShimConsole, &CShimConsole::OnConVarChanged>};
 	bool m_bChangeCallbackInstalled = false;
-};
 
 #ifdef CLIENT_DLL
-// The client's console, owned by its shim root (shell_internalfactory.cpp).
-CShimConsole& ShimConsole();
+	// The watched names; an id is SOURCESHARP_CONVAR_WATCH_ID_BASE + the index.
+	static const int kMaxWatched = 32;
+	static const int kWatchedNameBytes = 64;
+	char m_szWatched[kMaxWatched][kWatchedNameBytes] = {};
+	int m_nWatched = 0;
 #endif
-
-// The internal factory's row for SOURCESHARP_SHIM_CONSOLE_VERSION.
-void* ShimConsole_Acquire();
+};

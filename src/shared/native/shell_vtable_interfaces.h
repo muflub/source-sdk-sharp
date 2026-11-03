@@ -19,10 +19,6 @@ struct SourceSharpFactories_t
 void* SourceSharp_AcquireInterface(SourceSharpFactoryType eType, const char* pszVersion, char* pError,
 								   int32_t nErrorBytes, const SourceSharpFactories_t* pFactories);
 
-// The shim layer's CreateInterfaceFn (SOURCESHARP_FACTORY_INTERNAL), defined per side.
-// Returns NULL for a name this side does not serve.
-void* SourceSharp_InternalFactory(const char* pszName);
-
 // Never NULL; always ASCII with no '%'.
 const char* SourceSharp_AcquireReason(SourceSharpAcquireReason eReason);
 

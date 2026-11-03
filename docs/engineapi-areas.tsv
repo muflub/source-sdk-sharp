@@ -1,18 +1,18 @@
 slot	struct	interface	kind	base	side	suppress	body	managed	client_body
 AcquireInterface	EngineApi	IShimRoot	root		both	-	SourceSharp_AcquireInterface	int, byte*, byte*, int, void*	
 GetGlobalVarsPtr	EngineApi	IShimEngine	shared		both	-	SourceSharp_GetGlobalVarsPtr	nint	
-Msg	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleMsg	byte*, void	
-Warning	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleWarning	byte*, void	
-RegisterConCommand	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRegisterConCommand	byte*, byte*, int, int	
-RegisterConVar	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRegisterConVar	byte*, byte*, byte*, int, int, float, int, float, int	
-SetConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleSetConVarValue	int, byte*, void	
-GetConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleGetConVarValue	int, byte*, int, void	
-FindConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleFindConVarValue	byte*, byte*, int, int	
-SetNamedConVarValue	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleSetNamedConVarValue	byte*, byte*, void	
-RevertNamedConVar	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleRevertNamedConVar	byte*, void	
-ConsoleSnapshot	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshot	int	
-ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleConsoleSnapshotEntry	int, ConsoleEntry*, int	
-FindConVarFlags	EngineApi	IShimConsole	shared		both	-	SourceSharp_ConsoleFindConVarFlags	byte*, int	
+Msg	EngineApi	IShimConsole	shared		both	-	CShimConsole::Msg	byte*, void	
+Warning	EngineApi	IShimConsole	shared		both	-	CShimConsole::Warning	byte*, void	
+RegisterConCommand	EngineApi	IShimConsole	shared		both	-	CShimConsole::RegisterConCommand	byte*, byte*, int, int	
+RegisterConVar	EngineApi	IShimConsole	shared		both	-	CShimConsole::RegisterConVar	byte*, byte*, byte*, int, int, float, int, float, int	
+SetConVarValue	EngineApi	IShimConsole	shared		both	-	CShimConsole::SetConVarValue	int, byte*, void	
+GetConVarValue	EngineApi	IShimConsole	shared		both	-	CShimConsole::GetConVarValue	int, byte*, int, void	
+FindConVarValue	EngineApi	IShimConsole	shared		both	-	CShimConsole::FindConVarValue	byte*, byte*, int, int	
+SetNamedConVarValue	EngineApi	IShimConsole	shared		both	-	CShimConsole::SetNamedConVarValue	byte*, byte*, void	
+RevertNamedConVar	EngineApi	IShimConsole	shared		both	-	CShimConsole::RevertNamedConVar	byte*, void	
+ConsoleSnapshot	EngineApi	IShimConsole	shared		both	-	CShimConsole::ConsoleSnapshot	int	
+ConsoleSnapshotEntry	EngineApi	IShimConsole	shared		both	-	CShimConsole::ConsoleSnapshotEntry	int, ConsoleEntry*, int	
+FindConVarFlags	EngineApi	IShimConsole	shared		both	-	CShimConsole::FindConVarFlags	byte*, int	
 SendClientCommand	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::SendClientCommand	uint, byte*, void	
 GetCommandClientHandle	EngineApi	IShimConsoleServer	ext	IShimConsole	server	-	CServerConsoleCommands::GetCommandClientHandle	uint	
 ListenForGameEvent	EngineApi	IShimEvents	shared		both	-	CGameEvents::ListenForGameEvent	byte*, void	
@@ -376,24 +376,24 @@ ProxyBindEntity	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_
 ProxyReadView	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyReadView	int, float*, int, int	
 ProxyPlayerCustomFile	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyPlayerCustomFile	int, uint*, int	
 ProxyNotShipped	EngineApi	IShimMaterialProxyClient	client		client	-	SourceSharp_ProxyNotShipped	byte*, byte*, void	
-InputCursorState	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputCursorState	int*, int*, void	
-InputGetCursorPos	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputGetCursorPos	int*, int*, void	
-InputSetCursorPos	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputSetCursorPos	int, int, void	
-InputSetCursorArrow	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputSetCursorArrow	void	
-InputVguiScreenSize	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputVguiScreenSize	int*, int*, void	
-InputHudFacts	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputHudFacts	float*, int*, float*, void	
-InputStopPitchDrift	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputStopPitchDrift	void	
-InputSetLocalViewAngles	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputSetLocalViewAngles	float*, void	
-InputViewerCameraModeChanged	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputViewerCameraModeChanged	void	
-InputViewerAimIsAssisted	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputViewerAimIsAssisted	int	
-InputShowScoreboard	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputShowScoreboard	int, void	
-InputMailbox	EngineApi	IShimInputClient	client		client	-	SourceSharp_InputMailbox	void*	
-PhysicsClientSurfaceAudio	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSurfaceAudio	int, byte*, int, byte*, int, float*, int	
-PhysicsClientCollideExtent	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientCollideExtent	void*, float*, float*, float*, float*, void	
-PhysicsClientPointContents	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientPointContents	float*, int	
-PhysicsClientSplashLighting	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSplashLighting	float*, float*, void	
-PhysicsClientSplashEffect	EngineApi	IShimPhysicsClient	client		client	-	SourceSharp_PhysicsClientSplashEffect	int, float*, float*, float, float*, float, float, void	
-ConVarsClientWatch	EngineApi	IShimConVarsClient	client		client	-	SourceSharp_ConVarsClientWatch	byte*, int	
-ConVarsClientSetValue	EngineApi	IShimConVarsClient	client		client	-	SourceSharp_ConVarsClientSetValue	byte*, float, int	
+InputCursorState	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputCursorState	int*, int*, void	
+InputGetCursorPos	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputGetCursorPos	int*, int*, void	
+InputSetCursorPos	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputSetCursorPos	int, int, void	
+InputSetCursorArrow	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputSetCursorArrow	void	
+InputVguiScreenSize	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputVguiScreenSize	int*, int*, void	
+InputHudFacts	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputHudFacts	float*, int*, float*, void	
+InputStopPitchDrift	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputStopPitchDrift	void	
+InputSetLocalViewAngles	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputSetLocalViewAngles	float*, void	
+InputViewerCameraModeChanged	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputViewerCameraModeChanged	void	
+InputViewerAimIsAssisted	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputViewerAimIsAssisted	int	
+InputShowScoreboard	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputShowScoreboard	int, void	
+InputMailbox	EngineApi	IShimInputClient	client		client	-	CSourceSharpInput::InputMailbox	void*	
+PhysicsClientSurfaceAudio	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSurfaceAudio	int, byte*, int, byte*, int, float*, int	
+PhysicsClientCollideExtent	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientCollideExtent	void*, float*, float*, float*, float*, void	
+PhysicsClientPointContents	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientPointContents	float*, int	
+PhysicsClientSplashLighting	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSplashLighting	float*, float*, void	
+PhysicsClientSplashEffect	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSplashEffect	int, float*, float*, float, float*, float, float, void	
+ConVarsClientWatch	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientWatch	byte*, int	
+ConVarsClientSetValue	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientSetValue	byte*, float, int	
 FlashlightTexture	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightTexture	byte*, int	
 FlashlightSupportsBorderColor	EngineApi	IShimFlashlightClient	client		client	-	SourceSharp_FlashlightSupportsBorderColor	int	

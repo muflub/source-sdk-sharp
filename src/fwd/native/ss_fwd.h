@@ -18,7 +18,7 @@
 // word 1 is at least the number of fields it was built with.
 //
 // No SDK header: this is the contract between the library, the game DLL that
-// serves its tables (SourceSharp_InternalFactory) and managed.
+// serves its tables (its shim root's Acquire) and managed.
 //=============================================================================//
 #pragma once
 
@@ -80,8 +80,7 @@ inline const SSForwarderTable* SSFwd_Find(const SSForwarderNamed (&tables)[N], c
 	return nullptr;
 }
 
-// What a game DLL's internal factory answers for a name (SourceSharp_
-// InternalFactory): the table its side's library serves under it, as the
+// What a game DLL's shim root answers for a name (its Acquire): the table its side's library serves under it, as the
 // object managed binds (its first word is the slot array, its second the
 // count); NULL for a name it does not serve.
 //

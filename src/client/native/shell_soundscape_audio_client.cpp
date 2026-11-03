@@ -6,9 +6,6 @@
 //=============================================================================//
 // SS_REASON a  a vtable the engine calls through
 // The client soundscape system's native half; the system itself is managed.
-// C_SoundscapeSystem holds the stock system's slot in the client-systems walk so
-// its stages run when stock's did. Scripts must load at LevelInitPreEntity: the
-// server's first push arrives inside ClientActive, before managed level init.
 
 #include "predictable_entity.h"
 #include "cdll_util.h"
@@ -23,49 +20,29 @@
 
 #include "cdll_util.h"
 #include "imanaged_areas_client.h"
-#include "shell_clientsystem.h"
+#include "shell_soundscape_audio_client.h"
 
 #include "ss_command_line.h"
 
-namespace
+void C_SoundscapeSystem::LevelInitPreEntity()
 {
+	if (IManagedSoundscapesClient* pApi = m_Areas.m_pSoundscapesClient)
+	{
+		char szMapName[MAX_PATH];
+		pApi->ClientSoundscapesLevelInit(SourceSharp_ClientMapName(szMapName, sizeof(szMapName)));
+	}
+}
 
-class C_SoundscapeSystem : public CClientSystemPerFrame
+void C_SoundscapeSystem::LevelShutdownPostEntity()
 {
-public:
-	C_SoundscapeSystem()
-		: CClientSystemPerFrame("C_SoundScapeSystem")
-	{
-	}
+	if (IManagedSoundscapesClient* pApi = m_Areas.m_pSoundscapesClient)
+		pApi->ClientSoundscapesLevelShutdown();
+}
 
-	virtual void LevelInitPreEntity() OVERRIDE
-	{
-		if (IManagedSoundscapesClient* pApi = ManagedSoundscapesClient())
-		{
-			char szMapName[MAX_PATH];
-			pApi->ClientSoundscapesLevelInit(SourceSharp_ClientMapName(szMapName, sizeof(szMapName)));
-		}
-	}
-
-	virtual void LevelShutdownPostEntity() OVERRIDE
-	{
-		if (IManagedSoundscapesClient* pApi = ManagedSoundscapesClient())
-			pApi->ClientSoundscapesLevelShutdown();
-	}
-
-	virtual void Update(float frametime) OVERRIDE
-	{
-		if (IManagedSoundscapesClient* pApi = ManagedSoundscapesClient())
-			pApi->ClientSoundscapesUpdate(frametime);
-	}
-};
-
-} // namespace
-
-CClientSystem* ClientSoundscapeSystem()
+void C_SoundscapeSystem::Update(float frametime)
 {
-	static C_SoundscapeSystem s_System;
-	return &s_System;
+	if (IManagedSoundscapesClient* pApi = m_Areas.m_pSoundscapesClient)
+		pApi->ClientSoundscapesUpdate(frametime);
 }
 
 void SourceSharp_SoundscapeSetRoomType(int32_t nRoomType)

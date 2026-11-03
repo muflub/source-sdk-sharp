@@ -35,10 +35,19 @@ public static class ClientUi
     public const string LanguageFile = "resource/mod_sharp_english.txt", ThemeFile = "resource/ui-theme.yaml";
 
     /// <summary>
+    /// The engine's GameUI strings (#GameUI_*: disconnect reasons, options
+    /// labels): the stock GameUI module loaded this file at its Initialize and
+    /// nothing else does (docs/gameui-census.md §5), so the UI reads it off
+    /// the GAME paths itself (a loose file in <c>hl2/resource</c>).
+    /// </summary>
+    public const string GameUiLanguageFile = "resource/gameui_english.txt";
+
+    /// <summary>
     /// The UI's copy, first file wins: the mod's language file on disk (it may
     /// override any core string and adds its own), then the files mods.yaml
     /// lists (<c>localisation</c>, engine GAME paths, so a VPK-mounted
-    /// <c>resource/tf_english.txt</c> counts), then the core's #SS_UI_ strings,
+    /// <c>resource/tf_english.txt</c> counts), then the engine's GameUI strings
+    /// (<see cref="GameUiLanguageFile"/>), then the core's #SS_UI_ strings,
     /// embedded in the toolkit, so a mod with no file (tf2_descent) still has
     /// them. GameUiLocaliser asks the engine for whatever this lacks.
     /// </summary>
@@ -53,6 +62,10 @@ public static class ClientUi
         foreach (string path in gameFiles)
             if (GameLanguage(files, path, log) is { } file)
                 chain.Add(file);
+        if (files?.ReadGameFileBytes(GameUiLanguageFile) is { } gameUi)
+            chain.Add(UiLanguageFile.Parse(gameUi));
+        else if (files is not null)
+            log.Warning($"[SourceSharp/Ui] {GameUiLanguageFile} is on no GAME path: #GameUI_ tokens fall to the engine\n");
         chain.Add(UiLanguageFile.Core());
         return UiLanguageFile.Chain([.. chain]);
     }

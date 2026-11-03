@@ -19,6 +19,11 @@ void ShellViewRender_IncWorldListsNumber();
 void ShellViewRender_IncRenderablesListsNumber();
 int ShellViewRender_RenderablesListsNumber();
 
+// The client DLL object hands the executor its game systems for the plan's PreRender
+// op, from Init to Shutdown (NULL).
+class CClientSystems;
+void SourceSharp_ViewExecutorBind(CClientSystems* pSystems);
+
 // RenderView through the plan (false when there is no plan), a shadow-depth
 // view likewise, and the draw flags of the view being drawn.
 class ITexture;
