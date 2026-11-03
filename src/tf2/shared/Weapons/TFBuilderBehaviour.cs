@@ -30,6 +30,15 @@ public interface ITFBuilderPlacement
     void StartPlacement(int ownerIndex);
 
     /// <summary>
+    /// The sapper's attachment placement (<c>CTFWeaponBuilder::StartPlacement</c>'s
+    /// attachment arm through <c>CBaseObject::UpdateAttachmentPlacement</c>,
+    /// tf_weapon_builder.cpp:995-1036, tf_obj.cpp:663-679): the placement
+    /// ghost — the sapper's blueprint in its placement body — is born at the
+    /// owner, to be snapped to the sappable the walk finds.
+    /// </summary>
+    void StartAttachmentPlacement(int ownerIndex);
+
+    /// <summary>
     /// <c>UpdatePlacementState</c> → <c>CBaseObject::UpdatePlacement</c>
     /// (<c>tf_weapon_builder.cpp:535-560</c>, <c>tf_obj.cpp:1150-1164</c>):
     /// the blueprint is moved to where the crosshair looks, and the spot is
@@ -98,7 +107,11 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
     /// <summary>SecondaryAttack's refire (<c>tf_weapon_builder.cpp:474</c>).</summary>
     public const float RotateRefire = 0.2f;
 
-    /// <summary>The row is a tool: no swing, no spend. The place is the veto's.</summary>
+    /// <summary>
+    /// The row is a tool: no swing, no spend. The place is the veto's — the
+    /// builder family's own (<see cref="TFWeaponKind.Builder"/>'s attachment
+    /// arm included): the builder's is the placement's, the sapper's its use.
+    /// </summary>
     public override bool BeforePrimaryAttack(in WeaponAttackContext attack)
     {
         // PrimaryAttack's own refire (tf_weapon_builder.cpp:440) — the
@@ -106,8 +119,24 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
         // its own to make it read otherwise.
         attack.Weapon.NextPrimaryAttack = attack.Now + PlaceRefire;
 
-        if (attack.EffectsLive && Parts.Builder is { } placement)
+        if (!attack.EffectsLive)
+            return false;
+
+        if (attack.Type.Name == TFWeaponTypes.Sapper)
+        {
+            // The attachment arm's place (PrimaryAttack's :369-410 through the
+            // use layer): the enemy building under the crosshair takes the
+            // sapper, the pair's second end behind it — and the ghost the
+            // deploy walked goes with the placement
+            // (StopPlacement's m_bPlacing arm, :1041-1055).
+            if (Parts.Sapper is { } sapper && sapper.PlaceSapper(attack.Command.OwnerIndex)
+                && Parts.Builder is { } placement)
+                placement.StopPlacement(attack.Command.OwnerIndex);
+        }
+        else if (Parts.Builder is { } placement)
+        {
             placement.Place(attack.Command.OwnerIndex);
+        }
 
         return false;
     }
@@ -122,7 +151,14 @@ public class TFBuilderBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts),
         attack.Weapon.NextPrimaryAttack = attack.Now + DeployRefire;
 
         if (attack.EffectsLive && Parts.Builder is { } placement)
-            placement.StartPlacement(attack.Weapon.OwnerIndex);
+        {
+            // The sapper's row places by attachment (the ghost over the enemy
+            // building, tf_obj.cpp:663-679); the builders' by ground spot.
+            if (attack.Type.Name == TFWeaponTypes.Sapper)
+                placement.StartAttachmentPlacement(attack.Weapon.OwnerIndex);
+            else
+                placement.StartPlacement(attack.Weapon.OwnerIndex);
+        }
     }
 
     /// <summary>

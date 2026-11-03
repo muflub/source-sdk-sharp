@@ -33,13 +33,14 @@ namespace TF2.Shared.Anim;
 /// <b>Only these twelve tables exist in this build.</b> The per-weapon
 /// act-tables are this build's weapon classes' <c>ActivityList</c>
 /// overrides, not <c>CTFWeaponBase</c>'s: the passtime gun
-/// (<c>tf_weapon_passtime_gun.cpp:251,304</c>), the grappling hook
-/// (<c>tf_weapon_grapplinghook.cpp:150</c>), and the econ item's activity
-/// and animation-slot overrides (<c>tf_weaponbase.cpp:135-139, 4189-4197</c>)
-/// are deferred with their weapons and econ; so is the cheat convar
-/// <c>mp_forceactivityset</c> (:4199-4202). The disguised spy's table
-/// swap (the <c>ActivityList</c> client arm, :4212-4222) stands as the
-/// layer's disguise arm: the table asked for here is the disguise
+/// (<c>tf_weapon_passtime_gun.cpp:251,304</c>) and the grappling hook
+/// (<c>tf_weapon_grapplinghook.cpp:150</c>) are deferred with their
+/// weapons, as is the econ activity override the layer's claim carries
+/// and the cheat convar <c>mp_forceactivityset</c> (:4199-4202). The
+/// animation-slot arm of the role itself has landed
+/// (<c>TFWeaponTypes.ActivityWeaponRole</c>, :4189-4197). The disguised
+/// spy's table swap (the <c>ActivityList</c> client arm, :4212-4222) stands
+/// as the layer's disguise arm: the table asked for here is the disguise
 /// weapon's when stock's gate says so.
 /// </para>
 /// </summary>

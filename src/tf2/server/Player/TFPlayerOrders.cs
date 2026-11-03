@@ -105,4 +105,11 @@ public static class TFPlayerOrders
 
     /// <summary>The per-player settings (<see cref="TFPlayerSettings"/>): the userinfo hook's cached convars, the first free value past the escort.</summary>
     public const int Settings = Band + 92;
+
+    /// <summary>
+    /// The spawn's choice of held weapon (<see cref="TFSpawnWeaponWalk"/>):
+    /// stock's primary/secondary/melee fallback after the kit
+    /// (tf_player.cpp:4712-4726), on +93 past the settings.
+    /// </summary>
+    public const int SpawnWeaponWalk = Band + 93;
 }

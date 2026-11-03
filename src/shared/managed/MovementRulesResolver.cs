@@ -180,6 +180,23 @@ public interface IMovementRules
     /// stock Half-Life — no condition arm, the friction untouched.
     /// </summary>
     FootingAnswer? Footing(int playerIndex, in Vector velocity, in Vector planeNormal) => null;
+
+    /// <summary>
+    /// The rise arm's enemy-blast read: with the player's blast latch up, the
+    /// rise over the categorize threshold names the enemy-blasted jump
+    /// (tf_gamemovement.cpp:2360-2364, the GAME_DLL arm of TF's
+    /// <c>CategorizePosition</c>; stock's client build compiles the arm away,
+    /// so the loop asks it only when the side is the server's). Nothing by
+    /// default.
+    /// </summary>
+    void EnemyBlasted(int playerIndex) { }
+
+    /// <summary>
+    /// The end of one command, server side: the mod drops what it kept for
+    /// the command's own rise (tf_gamemovement.cpp:334-336, TF's latch clear
+    /// after <c>FinishMove</c>). Nothing by default.
+    /// </summary>
+    void EndCommand(int playerIndex) { }
 }
 
 /// <summary>
@@ -275,7 +292,9 @@ public sealed class MovementRulesResolver
                 (i, t, f) => _rules.MovementTaunt(i, t, f),
                 i => _rules.CategorizePosition(i),
                 (i, v, n) => _rules.Footing(i, v, n),
-                () => _rules.NoHl2Arms);
+                () => _rules.NoHl2Arms,
+                i => _rules.EnemyBlasted(i),
+                i => _rules.EndCommand(i));
     }
 
     /// <summary>Whether any mod owns this side's movement.</summary>

@@ -91,6 +91,24 @@ public interface IWeaponDrawEffect
     void Forget(EntityHandle weapon);
 }
 
+/// <summary>
+/// An effect that turns one named bone of the weapon's drawn model once the
+/// pose is built: stock's <c>CTFMinigun::StandardBlendingRules</c> arm
+/// (<c>tf_weapon_minigun.cpp:1072-1090</c>), which writes the barrel's angle
+/// quaternion into the bone the model names <c>barrel</c>. The render pass
+/// asks this after its bone build, for the entity it is drawing — the merged
+/// c_ weapon in third person, the viewmodel attachment in first — and the
+/// effect answers from the spin it has been stepping per frame.
+/// </summary>
+public interface IWeaponBoneSpin
+{
+    /// <summary>
+    /// The bone to turn and its yaw in radians for the weapon drawn as
+    /// <paramref name="weapon"/>, or null while there is nothing to hold.
+    /// </summary>
+    (string BoneName, float AngleRadians)? TryGetBoneSpin(EntityHandle weapon);
+}
+
 /// <summary>What the carried weapon and the viewmodel ask of the draw effects.</summary>
 public interface IWeaponDrawEffects
 {
@@ -133,6 +151,10 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
     private readonly IWeaponDrawStates? _states;
     private readonly Dictionary<string, IWeaponDrawEffect> _byName = new(StringComparer.Ordinal);
 
+    // The effects that also turn a bone, kept beside the name so the render
+    // pass asks them without walking every effect.
+    private readonly Dictionary<string, IWeaponBoneSpin> _boneSpin = new(StringComparer.Ordinal);
+
     // The kind each carried weapon was last framed as, so a change of kind (a
     // switch: this build's carried weapon is one entity per player) or a
     // removal lets the old kind's effect go.
@@ -155,7 +177,12 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
         _clock = clock;
         _weapons = weapons;
         foreach (IWeaponDrawEffect effect in effects)
+        {
             _byName[effect.WeaponName] = effect;
+
+            if (effect is IWeaponBoneSpin spin)
+                _boneSpin[effect.WeaponName] = spin;
+        }
     }
 
     private IWeaponDrawEffect? For(int weaponTypeId)
@@ -164,6 +191,58 @@ public sealed class WeaponDrawEffects : IWeaponDrawEffects
             : null;
 
     public bool WantsTwoPass(int weaponTypeId) => For(weaponTypeId)?.TwoPass ?? false;
+
+    /// <summary>
+    /// The bone turn for the entity a render pass is drawing: the carried
+    /// weapon answers for itself; the viewmodel attachment — stock's
+    /// <c>C_ViewmodelAttachmentModel</c>, our merged first-person half — for
+    /// its owner's carried weapon, since both passes ride one gun and stock's
+    /// barrel arm sits on the weapon either way (:1072). Null for an entity
+    /// that carries nothing whose effect turns a bone.
+    /// </summary>
+    public (string BoneName, float AngleRadians)? BoneSpin(EntityHandle drawnEntity)
+    {
+        // The common case is the cheap no: no held effect turns a bone at all.
+        if (_boneSpin.Count == 0 || drawnEntity == EntityHandle.None)
+            return null;
+
+        // And otherwise keyed by entity — the directory answers the drawn
+        // entity in one lookup, so a bone build does not walk every live
+        // standalone for every entity's every build.
+        if (_standalones.GetByIndex(drawnEntity.EntryIndex) is not { } entity || entity.Handle != drawnEntity)
+            return null;
+
+        ClientSsWeapon? weapon = entity as ClientSsWeapon;
+
+        if (weapon is null && entity is ClientSsViewmodelAttachment attachment)
+            weapon = OwnerWeapon(attachment.State.OwnerIndex);
+
+        if (weapon is null)
+            return null;
+
+        return _weapons.ByIndex(weapon.State.WeaponTypeId) is { } type
+               && _boneSpin.TryGetValue(type.Name, out IWeaponBoneSpin? spin)
+               && spin.TryGetBoneSpin(weapon.Handle) is { } answer
+            ? answer
+            : null;
+    }
+
+    /// <summary>The carried weapon whose owner index matches — the same walk
+    /// <see cref="ViewModelDrawn"/> makes, from the attachment's owner instead
+    /// of the viewmodel's.</summary>
+    private ClientSsWeapon? OwnerWeapon(int owner)
+    {
+        if (owner <= 0)
+            return null;
+
+        foreach (ClientStandaloneEntity entity in _standalones.OfClass(EntityNames.SsWeapon))
+        {
+            if (entity is ClientSsWeapon weapon && weapon.State.OwnerIndex == owner)
+                return weapon;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// <c>ShouldDrawUsingViewModel</c>: carried by the local player, with the

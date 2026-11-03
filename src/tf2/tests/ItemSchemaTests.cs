@@ -96,6 +96,23 @@ public sealed class ItemSchemaTests
     }
 
     [Fact]
+    public void AnimSlotMapsToTheWeaponTypeRow()
+    {
+        var schema = EconTestFiles.Trimmed();
+
+        // The grenade launcher's row is the mirror of its slot
+        // (items_game.trimmed.txt:552-553); the watch forces none
+        // (:592); the rocket launcher names no row (:893's −1); an unknown
+        // word is StringFieldToInt's −1 too.
+        Assert.Equal(1, schema.Items[19].AnimationSlot);
+        Assert.Equal(0, schema.Items[20].AnimationSlot);
+        Assert.Equal(-2, schema.Items[30].AnimationSlot);
+        Assert.Equal(-1, schema.Items[13].AnimationSlot);
+        Assert.Equal(-1, SchemaParser.Parse(
+            With("\"1\" { \"name\" \"A\" \"item_class\" \"x\" \"anim_slot\" \"no Such Word\" }")).Items[1].AnimationSlot);
+    }
+
+    [Fact]
     public void TheScoutsBasePrimaryIsTheScattergun()
     {
         var schema = EconTestFiles.TrimmedSchema();

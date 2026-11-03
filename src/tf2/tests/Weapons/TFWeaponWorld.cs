@@ -102,6 +102,7 @@ internal sealed class RecordingBuilderPlacement : ITFBuilderPlacement
     public readonly List<string> Asked = new();
 
     public void StartPlacement(int ownerIndex) => Asked.Add($"start {ownerIndex}");
+    public void StartAttachmentPlacement(int ownerIndex) => Asked.Add($"startattach {ownerIndex}");
     public void UpdatePlacement(int ownerIndex) => Asked.Add($"update {ownerIndex}");
     public bool Place(int ownerIndex) { Asked.Add($"place {ownerIndex}"); return true; }
     public void Rotate(int ownerIndex) => Asked.Add($"rotate {ownerIndex}");
@@ -109,6 +110,22 @@ internal sealed class RecordingBuilderPlacement : ITFBuilderPlacement
     public bool ArmBuilder(int ownerIndex) { Asked.Add($"arm {ownerIndex}"); return true; }
     public bool BeginOrder(SourceSharp.Abi.EntityHandle player, TFObjectType type, int mode)
     { Asked.Add($"order {player} {type} {mode}"); return true; }
+}
+
+/// <summary>What the sapper's use was asked, for the trigger's fact.</summary>
+internal sealed class RecordingSapperState : ITFSapperState
+{
+    public readonly List<string> Asked = new();
+
+    /// <summary>What the next place answers; a fact turns it for the refused arm.</summary>
+    public bool Places { get; set; } = true;
+
+    public bool PlaceSapper(int ownerIndex) { Asked.Add($"sapper {ownerIndex}"); return Places; }
+
+    public bool FindSappable(int ownerIndex, out EntityHandle building, out Vector point)
+    { Asked.Add($"findsappable {ownerIndex}"); building = EntityHandle.None; point = Vector.Zero; return false; }
+
+    public bool WrenchSmack(int ownerIndex, float range) { Asked.Add($"wrench {ownerIndex} {range}"); return true; }
 }
 
 /// <summary>The predicted carrier a replay arm reads (the client's own).</summary>
@@ -143,6 +160,7 @@ internal sealed class TFWeaponWorld
     public RecordingArms Arms { get; } = new();
     public RecordingEffects Effects { get; } = new();
     public RecordingBuilderPlacement Builder { get; } = new();
+    public RecordingSapperState Sapper { get; } = new();
     public RecordingLog Log { get; } = new();
 
     /// <summary>The airblast's ammunition convar, bound to its declared
@@ -172,7 +190,7 @@ internal sealed class TFWeaponWorld
 
         Parts = new TFWeaponParts(scripts, chain, new TFCritBuckets(), Settings, Owners, Effects, Builder, data,
                                   Round, fixedSpread: fixedSpread, autoReload: autoReload,
-                                  flamethrowerBurstammo: Burstammo);
+                                  flamethrowerBurstammo: Burstammo, sapper: Sapper);
         Catalog = new WeaponCatalog(() => [types], Log);
         Behaviours = new WeaponBehaviours(() => [new TFWeaponBehaviours(Parts)], Log);
         Ammo = new AmmoCatalog(() => [new TFAmmoTypes()], Log);

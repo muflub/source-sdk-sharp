@@ -39,7 +39,7 @@ namespace TF2.Client.Weapons;
 // registration), and TFMedigunBeam holds the contract's one claim.
 [SideService(Side.Client)]
 public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundController sounds,
-                                  IEngineSound engineSound) : IWeaponDrawEffect
+                                  IEngineSound engineSound) : IWeaponDrawEffect, IWeaponBoneSpin
 {
     /// <summary>CHAN_STATIC, and ATTN_NORM as a sound level (ATTN_TO_SNDLVL).</summary>
     public const int ChannelStatic = 6, SoundLevelNorm = 75;
@@ -72,6 +72,7 @@ public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundControlle
         public string Name = "";
         public float Velocity;
         public float TargetVelocity;
+        public float Angle;
     }
 
     private readonly Dictionary<EntityHandle, Gun> _guns = [];
@@ -126,10 +127,28 @@ public sealed class TFMinigunLoop(TFWeaponScripts scripts, IClientSoundControlle
 
         gun.TargetVelocity = state == TFMinigunBehaviour.State.Idle ? 0f : MaxBarrelVelocity;
         gun.Velocity = Approach(gun.Velocity, gun.TargetVelocity, BarrelAccel);
+
+        // Stock's UpdateBarrelMovement tail (:1118): the rotation rides the
+        // stepped velocity times the frame time, so it holds the moment the
+        // velocity lands on zero. The render pass reads it through the bone
+        // spin below; the frame time is the engine's frametime the host hands
+        // every Think.
+        gun.Angle += gun.Velocity * context.FrameTime;
     }
 
     /// <summary>The barrel's current spin, as the loop's own arms read it.</summary>
     public float BarrelVelocity(EntityHandle weapon) => _guns.TryGetValue(weapon, out Gun? gun) ? gun.Velocity : 0f;
+
+    /// <summary>The barrel's held rotation in radians, stock's <c>m_flBarrelAngle</c> (:1118).</summary>
+    public float BarrelAngle(EntityHandle weapon) => _guns.TryGetValue(weapon, out Gun? gun) ? gun.Angle : 0f;
+
+    /// <summary>
+    /// The render read (stock's <c>StandardBlendingRules</c> arm, :1072-1090):
+    /// once the frame's Think ran, the drawn weapon's model gets its <c>barrel</c>
+    /// bone turned to the held angle; before it ran there is nothing to hold.
+    /// </summary>
+    public (string BoneName, float AngleRadians)? TryGetBoneSpin(EntityHandle weapon) =>
+        _guns.TryGetValue(weapon, out Gun? gun) ? ("barrel", gun.Angle) : null;
 
     /// <summary>The step toward the target, stopping exactly on it (:1110).</summary>
     private static float Approach(float value, float target, float step) =>

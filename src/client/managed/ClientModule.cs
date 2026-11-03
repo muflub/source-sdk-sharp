@@ -1592,12 +1592,17 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // half): posed in managed code from the engine's model cache, copied
         // as bytes. A reload participant (the merge sources, scales, poses,
         // layers and clocks C# set cross cs_cl_reload).
+        // The bone turn (stock's per-model blending override): the draw-side
+        // read lives with the effect that steps the spin, and reaches here
+        // through the effects' host — one ask per bone build for the entity
+        // being drawn, no table and no statics.
         _skeletons = new ClientSkeletons(ClientStandaloneBlocks.For(_engine), ClientSequenceStore.For(_engine),
                                          new SourceSharp.Shared.Bones.StudioModels(_services.Require<IStudioMemory>()),
                                          index => _standalones.GetByIndex(index)?.Handle,
                                          _services.Require<IEngineEnvironment>(), Log,
                                          _services.Require<IFwdPhysicsSurfaceProps>(),
-                                         _convars.Get<ClAnimThreeWayBlendConVar>(), () => _ragdolls);
+                                         _convars.Get<ClAnimThreeWayBlendConVar>(), () => _ragdolls,
+                                         entity => _weaponEffects is { } host ? host.BoneSpin(entity) : null);
         _services.AddInstance(_skeletons);
 
         // The skeletons' batch table across cs_cl_reload: native may hold its
@@ -2063,8 +2068,13 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(weaponScripts);
         var localSelection = _services.Create<LocalWeaponSelection>();
         var fastSwitch = _convars.Get<HudFastSwitchConVar>();
-        _weaponSelection = new WeaponSelectionHud(localSelection, localSelection,
-            new ScriptWeaponSlots(_services.Require<WeaponCatalog>(), weaponScripts), _clock,
+        // The hud's bucket table: a mod's own IWeaponSlots (TF2's, with the
+        // builder's objects.txt override) when registered, else the scripts'
+        // plain buckets.
+        IWeaponSlots slots = _services.IsRegistered<IWeaponSlots>()
+            ? _services.Require<IWeaponSlots>()
+            : new ScriptWeaponSlots(_services.Require<WeaponCatalog>(), weaponScripts);
+        _weaponSelection = new WeaponSelectionHud(localSelection, localSelection, slots, _clock,
             () => fastSwitch?.Value ?? WeaponSelectionHud.HudTypeBuckets);
         _services.AddInstance(_weaponSelection);
 
@@ -3324,6 +3334,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public CategorizePositionRules? GetCategorizePosition(int playerIndex) => _movementRules.Rules.Categorize(playerIndex);
 
     public FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => _movementRules.Rules.Footing(playerIndex, velocity, planeNormal);
+
+    public void GetEnemyBlasted(int playerIndex) => _movementRules.Rules.EnemyBlasted(playerIndex);
+
+    public void GetEndCommand(int playerIndex) => _movementRules.Rules.EndCommand(playerIndex);
 
     //-------------------------------------------------------------------------
     // The client half of the standalone entity hierarchy.

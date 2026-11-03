@@ -35,14 +35,16 @@ public enum TFWeaponKind
     /// <summary>A PDA (<c>WeaponType "pda"</c>): its trigger hands the owner back to the previous item.</summary>
     Pda,
     /// <summary>
-    /// The engineer's builder (<c>TF_WEAPON_BUILDER</c>): the click-to-place
-    /// half of build — the blueprint out at the crosshair, +attack placing it,
-    /// +attack2 turning it (<c>CTFWeaponBuilder</c>,
-    /// <c>tf_weapon_builder.cpp</c>). The sapper shares the stock class but
-    /// runs its own use, so it stays <see cref="Inert"/>.
+    /// The builder family (<c>CTFWeaponBuilder</c>): the click-to-place half
+    /// of build — the blueprint out at the crosshair, +attack placing it,
+    /// +attack2 turning it (<c>tf_weapon_builder.cpp</c>). The sapper is the
+    /// family's attachment arm — the same shell carrying the class's buildable
+    /// (<c>ManageBuilderWeapons</c>' retarget, <c>SetSubType</c>,
+    /// <c>tf_player.cpp:4309-4316, 4627-4631</c>) — and its place is its own
+    /// use, the sapper seam (<see cref="TFWeaponParts.Sapper"/>).
     /// </summary>
     Builder,
-    /// <summary>A weapon with no attack of its own (the sapper, the invis watch).</summary>
+    /// <summary>A weapon with no attack of its own (the invis watch).</summary>
     Inert,
 }
 
@@ -108,6 +110,9 @@ public static class TFWeaponKinds
             TFWeaponCategory.Melee => TFWeaponKind.Melee,
             TFWeaponCategory.Primary or TFWeaponCategory.Secondary
                 when script.Primary.Projectile == TFProjectile.Bullet => TFWeaponKind.Gun,
+            // The builder family's weapon type: the sapper's script, whose id
+            // is none — the family's shell carries its place (the sapper seam).
+            TFWeaponCategory.Building => TFWeaponKind.Builder,
             TFWeaponCategory.Pda => TFWeaponKind.Pda,
             _ => TFWeaponKind.Inert,
         };

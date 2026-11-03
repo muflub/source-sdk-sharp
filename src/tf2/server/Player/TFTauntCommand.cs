@@ -9,6 +9,7 @@ using SourceSharp.Abi;
 using SourceSharp.Server;
 
 using TF2.Server.Entities.Items;
+using TF2.Server.Voice;
 
 using TF2.Shared;
 using TF2.Shared.Econ;
@@ -29,6 +30,14 @@ namespace TF2.Server.Player;
 /// timed-condition countdown here).
 ///
 /// <para>
+/// The taunt itself is its scene's speak (<c>Taunt</c>, tf_player.cpp:17862):
+/// <c>MP_CONCEPT_PLAYER_TAUNT</c> asked with the held weapon's word, the
+/// per-class rules answering the taunt scene — and a search with no answer is
+/// no taunt (<c>m_bInitTaunt</c> back down, no condition, no window). The
+/// scene sounds through the speech as the concepts do.
+/// </para>
+///
+/// <para>
 /// <c>flDuration</c> is the scene length plus the fixed 0.2 tail, divided by
 /// the <c>mult_gesture_time</c> hook on the player's own attribute manager
 /// (:17734-17738). The rate-limit clock (<c>m_flTauntNextStartTime</c>, asked
@@ -40,6 +49,7 @@ namespace TF2.Server.Player;
 /// </summary>
 [SideService(Side.Server)]
 public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking networking, IGameClock clock,
+                                   IEnginePlayers engine, TFConceptSpeech? speech = null,
                                    ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
     : IClientCommandHook, IOrderedHook
 {
@@ -83,6 +93,12 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
             return true;
 
         if (!IsAllowedToTaunt(player))
+            return true;
+
+        // The speak the taunt is (tf_player.cpp:17858-17870): MP_CONCEPT_PLAYER_TAUNT
+        // with the held weapon's word; no answer, no taunt — and no window,
+        // stock's stamp living inside OnTauntSucceeded (:17744).
+        if (speech is { } voice && !voice.Speak(player, TFConceptSpeech.PlayerTaunt, engine.GetActiveWeapon(player)))
             return true;
 
         // OnTauntSucceeded (:17732-17768): the duration with its tail, the

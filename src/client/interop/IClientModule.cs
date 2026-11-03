@@ -131,6 +131,19 @@ public interface IClientModule
     /// </summary>
     FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => null;
 
+    /// <summary>
+    /// The rise arm's enemy-blast read. Stock's arm is GAME_DLL-only, so a
+    /// client-side replay answers nothing through the empty default; see
+    /// <c>IMovementRules.EnemyBlasted</c>.
+    /// </summary>
+    void GetEnemyBlasted(int playerIndex) { }
+
+    /// <summary>
+    /// The end of one command's latch; see <c>IMovementRules.EndCommand</c>.
+    /// Client side: nothing, as stock's GAME_DLL arm.
+    /// </summary>
+    void GetEndCommand(int playerIndex) { }
+
     //-------------------------------------------------------------------------
     // The standalone entity hierarchy, client side. Same shape as the server's,
     // asked at a different moment — see ClientStandaloneRegistry.

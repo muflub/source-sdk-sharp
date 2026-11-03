@@ -87,6 +87,34 @@ public static class TFItemStrings
     public static int AccountSlotIndex(string word) =>
         string.Equals(word, "quest", StringComparison.OrdinalIgnoreCase) ? 0 : -1;
 
+    /// <summary>
+    /// <c>GetWeaponTypeSubstrings()</c>: <c>g_szWeaponTypeSubstrings</c>
+    /// (tf_item_schema.cpp:1591-1610), whose rows are the
+    /// <c>TF_WPN_TYPE_*</c> values in order — the <c>anim_slot</c> word's
+    /// act-table role, read the way <c>StringFieldToInt</c> reads it
+    /// (case-insensitively, −1 for an unknown word).
+    /// </summary>
+    public static int WeaponTypeIndex(string word) => word.ToLowerInvariant() switch
+    {
+        "primary" => 0,
+        "secondary" => 1,
+        "melee" => 2,
+        "grenade" => 3,
+        "building" => 4,
+        "pda" => 5,
+        "item1" => 6,
+        "item2" => 7,
+        "head" => 8,
+        "misc" => 9,
+        "melee_allclass" => 10,
+        "secondary2" => 11,
+        "primary2" => 12,
+        "item3" => 13,
+        "item4" => 14,
+        "passtime_ball" => 15,
+        _ => -1,
+    };
+
     /// <summary><c>IsWearableSlot</c> (tf_item_constants.h:131-138): head, misc, action, misc2, the taunts.</summary>
     public static bool IsWearableSlot(int slot) =>
         slot is 7 or 8 or 9 or 10 or (>= 11 and <= 18);

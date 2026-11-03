@@ -79,9 +79,10 @@ public class TFTeleporterBreadFacts
         rig.Random.Ints.Enqueue(1);                         // the roll misses (:1029)
         TeleporterHarness.Tick(rig, entrance, exit, 11f);
 
-        // The miss happens before the model draw: no loaf, and no draw after it.
+        // The miss happens before the model draw: no loaf, and one roll
+        // against the twenty — the concept speak's own draw aside.
         Assert.False(rig.Engine.Called("Entities.Create"));
-        Assert.Equal((0, 19), rig.Random.IntDraws.Single());
+        Assert.Equal((0, 19), Assert.Single(rig.Random.IntDraws, draw => draw == (0, 19)));
     }
 
     [Fact]

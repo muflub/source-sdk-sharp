@@ -269,6 +269,21 @@ public sealed class TFMovementRules : IMovementRules
         return new FootingAnswer(inAir, groundFriction, airFriction);
     }
 
+    /// <summary>
+    /// The rise arm's enemy-blast read (tf_gamemovement.cpp:2360-2364), asked
+    /// by the loop only when the side is the server's: the carrier's blast-jump
+    /// component answers, through the player data's <c>EnemyBlasted</c>. The
+    /// client's player data inherits the interface's nothing and the loop's
+    /// side gate skips the ask anyway.
+    /// </summary>
+    public void EnemyBlasted(int playerIndex) => _players.EnemyBlasted(playerIndex);
+
+    /// <summary>
+    /// The end of one command (tf_gamemovement.cpp:334-336): the carrier drops
+    /// its blast latch with the command that could claim it.
+    /// </summary>
+    public void EndCommand(int playerIndex) => _players.EndCommand(playerIndex);
+
     /// <summary>The words-level condition clear the restick is.</summary>
     private static void ClearCond(TFPlayerNetState state, TFCond cond)
     {

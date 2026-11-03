@@ -11,6 +11,7 @@ using SourceSharp.Shared;
 using TF2.Server.Combat;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
+using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Combat;
 
@@ -52,8 +53,8 @@ namespace TF2.Server.Buildings;
 public sealed class TFSapper(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                              IEngineEntityRender render, IEngineDamage damage, TFDamageScopes scopes,
                              ITFAmmoPurse purse, ObjSapperAmountConVar sapperAmount,
-                             TFPlayerCarriers? carriers = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers)
+                             TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
 {
     public const string MapClass = "obj_attachment_sapper";
 

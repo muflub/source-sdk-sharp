@@ -33,6 +33,16 @@ public interface ITFSapperState
     bool PlaceSapper(int ownerIndex);
 
     /// <summary>
+    /// The hostile-arm find the placement's ghost walks
+    /// (<c>CBaseObject::FindSnapToBuildPos</c> through
+    /// <c>UpdateAttachmentPlacement</c>, tf_obj.cpp:663-679, :1169-1280): the
+    /// nearest enemy building the owner faces, reaches and sees, its build
+    /// point the ghost stands on. Answers whether one was found; none, the
+    /// handle is <see cref="EntityHandle.None"/> and the ghost hides.
+    /// </summary>
+    bool FindSappable(int ownerIndex, out EntityHandle building, out Vector point);
+
+    /// <summary>
     /// The wrench's building hit (<c>CTFWrench::Smack</c> →
     /// <c>OnFriendlyBuildingHit</c> → <c>InputWrenchHit</c>,
     /// tf_weapon_wrench.cpp:145-199, tf_obj.cpp:2746-2802): the sapper on a

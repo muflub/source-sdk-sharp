@@ -12,6 +12,7 @@ using TF2.Server.Combat;
 using TF2.Server.Econ;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
+using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Combat;
 using TF2.Shared.Econ;
@@ -93,8 +94,8 @@ public sealed class TFTeleporter(ITFMapPlayers players, ITFObjectAnnouncer annou
                                  ITempEnts temps, IEngineSound sound, IScreenEffects screen,
                                  IEnginePlayers enginePlayers, TFTeleporterFovStartConVar fovStart,
                                  TFTeleporterFovTimeConVar fovTime,
-                                 TFPlayerCarriers? carriers = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers)
+                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
 {
     public const string MapClass = "obj_teleporter";
 

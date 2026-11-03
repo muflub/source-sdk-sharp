@@ -40,7 +40,8 @@ public sealed class TFWeaponParts(
     TFUseFixedWeaponspreadsConVar? fixedSpread = null,
     ITFAutoReload? autoReload = null,
     TFFlameThrowerBurstammoConVar? flamethrowerBurstammo = null,
-    ITFMedigunPrediction? medigunPrediction = null)
+    ITFMedigunPrediction? medigunPrediction = null,
+    ITFSapperState? sapper = null)
 {
     public TFWeaponScripts Scripts { get; } = scripts ?? throw new ArgumentNullException(nameof(scripts));
 
@@ -102,4 +103,10 @@ public sealed class TFWeaponParts(
 
     /// <summary>The side's crit roll (a scratch stream reseeded on every draw).</summary>
     public TFCritRoll Crits { get; } = new();
+
+    /// <summary>
+    /// The sapper's use — the trigger's place, the wrench's blow — nothing
+    /// until the server composes it (the replay asks nothing).
+    /// </summary>
+    public ITFSapperState? Sapper { get; } = sapper;
 }

@@ -60,8 +60,18 @@ public class WeaponDrawEffectsTests
     private sealed class Entities : IClientStandalones
     {
         public readonly List<ClientStandaloneEntity> All = [];
-        public IReadOnlyList<ClientStandaloneEntity> Live() => All;
-        public ClientStandaloneEntity? GetByIndex(int entityIndex) => null;
+
+        // How often the whole-live-list snapshot was taken: the bone-spin ask
+        // must not pay for it when nothing holds a bone turn.
+        public int LiveCalls;
+
+        public IReadOnlyList<ClientStandaloneEntity> Live()
+        {
+            LiveCalls++;
+            return All;
+        }
+
+        public ClientStandaloneEntity? GetByIndex(int entityIndex) => All.Find(e => e.Handle.EntryIndex == entityIndex);
     }
 
     private sealed class Wishes : IRenderPolicyWishes
@@ -254,6 +264,47 @@ public class WeaponDrawEffectsTests
         Assert.True(_effects.WantsTwoPass(WeaponCatalog.Stock().IndexOf(EntityNames.WeaponStunstick)));
         Assert.False(_effects.WantsTwoPass(WeaponCatalog.Stock().IndexOf(EntityNames.WeaponRpg)));
         Assert.False(_effects.WantsTwoPass(WeaponCatalog.Stock().IndexOf(EntityNames.WeaponPistol)));
+    }
+
+    /// <summary>The bone to turn, for the entity a render pass draws.</summary>
+    private sealed class Spinner(string weaponName, EntityHandle held) : IWeaponDrawEffect, IWeaponBoneSpin
+    {
+        public string WeaponName => weaponName;
+        public bool TwoPass => false;
+
+        public void Think(in WeaponDrawContext context) { }
+        public void ViewModelDrawn(in WeaponDrawContext context) { }
+        public int DrawModel(in WeaponDrawContext context, int flags) => -1;
+        public void Forget(EntityHandle weapon) { }
+
+        public (string BoneName, float AngleRadians)? TryGetBoneSpin(EntityHandle weapon) =>
+            weapon == held ? ("barrel", 0.25f) : null;
+    }
+
+    [Fact]
+    public void ABoneSpinAskIsACheapNoWhenNoEffectHoldsATurn()
+    {
+        // The common case: with nothing to hold, the ask answers null from its
+        // own counts — no snapshot of every live standalone is taken.
+        Entities live = new();
+        WeaponDrawEffects host = new(live, _engine, _camera, _engine, WeaponCatalog.Stock(), [_stick]);
+
+        Assert.Null(host.BoneSpin(new EntityHandle(0x42)));
+        Assert.Equal(0, live.LiveCalls);
+    }
+
+    [Fact]
+    public void ABoneSpinAskAnswersTheDrawnWeaponsTurnFromItsKey()
+    {
+        // With a spin-holding effect, the drawn entity resolves through the
+        // keyed directory; the carried weapon answers for itself, and an index
+        // nobody carries answers nothing.
+        ClientSsWeapon mine = Weapon(0x42, Local, EntityNames.WeaponRpg);
+        Spinner spinner = new(EntityNames.WeaponRpg, mine.Handle);
+        WeaponDrawEffects host = new(_live, _engine, _camera, _engine, WeaponCatalog.Stock(), [spinner]);
+
+        Assert.Equal(("barrel", 0.25f), host.BoneSpin(mine.Handle));
+        Assert.Null(host.BoneSpin(new EntityHandle(0x99)));
     }
 
     //-------------------------------------------------------------------------

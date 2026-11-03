@@ -237,4 +237,65 @@ public class TFBuilderPlacementTests
         Assert.Empty(rig.Spawner.Placed);
         Assert.Empty(rig.Purse.Paid);
     }
+
+    /// <summary>
+    /// A red sentry built at (100, 0, 32) and a blue spy at the origin facing
+    /// +X, over the placement — the attachment walk's field.
+    /// </summary>
+    private static (BuildingsRig Rig, TFBuilderPlacement Placement, EntityHandle Spy, TFSentryGun Sentry) ASappable()
+    {
+        var rig = new BuildingsRig();
+        EntityHandle builder = rig.AddBuilder(TFTeam.Red);
+        var sentry = rig.Spawn<TFSentryGun>(TFSentryGun.MapClass);
+        sentry.StartPlacement(builder);
+        rig.Clock.Now = 100f;
+        sentry.StartBuilding();
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        sentry.OnThink();
+        rig.Centers[sentry.Handle] = new Vector(100f, 0f, 32f);
+
+        EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
+        rig.Engine.ReturnsEachCall("Players.GetHandle", () =>
+        {
+            int index = (rig.Engine.Last("Players.GetHandle") ?? default).ArgAs<int>(0);
+            return index == spy.EntryIndex ? spy : index == builder.EntryIndex ? builder : EntityHandle.None;
+        });
+        rig.Engine.Returns("Players.GetShootOrigin", new Vector(0f, 0f, 64f));
+        rig.Engine.Returns("Entities.GetEyeAngles", Vector.Zero);
+        return (rig, rig.Placement(), spy, sentry);
+    }
+
+    [Fact]
+    public void TheAttachmentGhostRidesTheSappableTheWalkFinds()
+    {
+        var (rig, placement, spy, sentry) = ASappable();
+
+        placement.StartAttachmentPlacement(spy.EntryIndex);
+        TFBaseObject ghost = (TFBaseObject)rig.Registry.Get(Assert.Single(rig.Spawner.Placed).Key)!;
+        Assert.Equal(TFObjectType.AttachmentSapper, ghost.Type);
+        Assert.True(ghost.IsPlacing);    // the blueprint state, the sapper's own
+
+        placement.UpdatePlacement(spy.EntryIndex);
+
+        // The ghost stands on the building's point, shown
+        // (UpdateAttachmentPlacement's found arm, tf_obj.cpp:1263-1277).
+        (Vector origin, _) = rig.LastTeleport;
+        Assert.Equal(new Vector(100f, 0f, 32f), origin);
+        Assert.True(rig.Engine.Last("EntityRender.SetVisible")!.Value.ArgAs<bool>(1));
+    }
+
+    [Fact]
+    public void AWalkWithNoSappableHidesTheGhostAndLeavesItStanding()
+    {
+        var (rig, placement, spy, _) = ASappable();
+        rig.Buildings().OwnedBy().First().DestroyObject();   // the field empties
+
+        placement.StartAttachmentPlacement(spy.EntryIndex);
+        placement.UpdatePlacement(spy.EntryIndex);
+
+        // No sappable, no snap: EF_NODRAW where it stands, unmoved
+        // (UpdateAttachmentPlacement's else arm).
+        Assert.Equal(0, rig.Teleports);
+        Assert.False(rig.Engine.Last("EntityRender.SetVisible")!.Value.ArgAs<bool>(1));
+    }
 }

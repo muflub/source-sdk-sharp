@@ -523,7 +523,9 @@ public readonly record struct MovementRules(
     Func<int, float, float, MovementTaunt?> Taunt,
     Func<int, CategorizePositionRules?> Categorize,
     Func<int, Vector, Vector, FootingAnswer?> Footing,
-    Func<bool> NoHl2Arms)
+    Func<bool> NoHl2Arms,
+    Action<int> EnemyBlasted,
+    Action<int> EndCommand)
 {
     /// <summary>Stock: no scale on anything, no jump in the air, nobody told of the ground, the table's eye, no jump cap, no backpedal clamp, no stun, no taunt slide, HL2MP's arms.</summary>
     public static readonly MovementRules Stock = new(
@@ -539,7 +541,9 @@ public readonly record struct MovementRules(
         static (_, _, _) => null,
         static _ => null,
         static (_, _, _) => null,
-        static () => false);
+        static () => false,
+        static _ => { },
+        static _ => { });
 }
 
 /// <summary>
@@ -940,6 +944,12 @@ public sealed partial class GameMovement
 
         PlayerMove();
         FinishMove();
+
+        // The enemy-blast latch's end-of-command drop
+        // (tf_gamemovement.cpp:334-336), GAME_DLL-only as stock: one blast
+        // claims its jump on this command's rise and on no later one.
+        if (_s.IsServer)
+            Rules.EndCommand(_s.EntIndex);
 
         _s.FrameTime = storeFrameTime;
         return true;
@@ -2699,6 +2709,12 @@ public sealed partial class GameMovement
 
         if (movingUpRapidly || (movingUp && _s.MoveType == MoveTypeLadder))
         {
+            // The enemy-blast read of the rise (tf_gamemovement.cpp:2360-2364),
+            // GAME_DLL-only in stock: the client replay runs neither it nor
+            // the end-of-command clear below, exactly as stock's #if GAME_DLL.
+            if (_s.IsServer && movingUpRapidly)
+                Rules.EnemyBlasted(_s.EntIndex);
+
             SetGroundEntity(null);
         }
         else

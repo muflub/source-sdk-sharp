@@ -195,6 +195,12 @@ public sealed class TFPlayerCarriers : ITFPlayerData, ITFPlayerClasses
     public T? Part<T>(int playerIndex) where T : class
         => _parts.GetValueOrDefault((playerIndex, typeof(T))) as T;
 
+    /// <inheritdoc cref="ITFPlayerData.EnemyBlasted"/>
+    public void EnemyBlasted(int playerIndex) => Part<TFBlastJumpState>(playerIndex)?.EnemyBlasted();
+
+    /// <inheritdoc cref="ITFPlayerData.EndCommand"/>
+    public void EndCommand(int playerIndex) => Part<TFBlastJumpState>(playerIndex)?.EndCommand();
+
     /// <summary>The player's condition set (the carrier's), or null when the player has no carrier.</summary>
     public TFConditions? ConditionsOf(int playerIndex) => LiveCarrier(playerIndex)?.Conditions;
 

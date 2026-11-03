@@ -156,6 +156,17 @@ public readonly record struct WeaponType(
     public string HolsterSound { get; init; } = "";
 
     /// <summary>
+    /// Every sound the weapon's script's <c>SoundData</c> names, in script
+    /// order — the whole table <c>CBaseCombatWeapon::Precache</c> walks
+    /// (<c>shared/basecombatweapon_shared.cpp:303-308</c>, over stock's
+    /// <c>aShootSounds</c>), the categories beyond the named fields above: a
+    /// burst crit, a taunt, an NPC variant. The named fields are among these;
+    /// the engine's precache table holds a name once, so the repeat is free.
+    /// Empty for a row built without its script.
+    /// </summary>
+    public IReadOnlyList<string> Sounds { get; init; } = [];
+
+    /// <summary>
     /// Whether the weapon is sparked on its draw — the stunstick's
     /// <c>g_pEffects-&gt;Sparks</c> in <c>SetStunState( true )</c>.
     /// </summary>

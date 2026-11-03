@@ -142,6 +142,13 @@ public:
 
 	void SetThirdPersonSeesOwner(bool bSees) { m_bThirdPersonSeesOwner = bSees; }
 
+	// The resting answer's setter, with the edge the leaf system needs: the leaf
+	// membership of a world entity is decided once, never re-asked, so a flip of
+	// the flag must re-ask every shell or the local player's carried weapon keeps
+	// the leaf state of the camera it was created under (stock re-runs
+	// C_BaseCombatWeapon::ShouldDraw, third person and all, every frame).
+	void SetRestingThirdPersonSeen(bool bSees);
+
 	// Every viewmodel-pass entity rides the eye: the viewmodel and its bone-merged attachments.
 	void SetViewModelPass(C_StandaloneEntity* pShell, bool bEnable);
 	void ViewModelToEye(const Vector& vecEye, const QAngle& angEye);

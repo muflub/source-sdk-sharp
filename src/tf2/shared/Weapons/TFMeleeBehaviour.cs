@@ -60,14 +60,38 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         if (!CanAttack(in attack, in context) || !Parts.Hooks.BeforeFire(in context, in attack))
             return false;
 
-        Swing(in attack, script, in context);
+        Swing(in attack, script, in context, secondary: false);
         Parts.Hooks.AfterFire(in context, in attack);
 
         // The machine's own swing would hit now: the smack is ours.
         return false;
     }
 
-    private void Swing(in WeaponAttackContext attack, TFWeaponScript script, in TFWeaponHookContext context)
+    /// <summary>
+    /// <c>CTFFists::SecondaryAttack</c> (<c>tf_weapon_fists.cpp:74-96</c>):
+    /// the heavy's right click is the second fist — the same Punch through the
+    /// same swing, the weapon mode on the other side of the anim hook
+    /// (:164), the clocks <c>Punch</c> arms from the primary's (:119). Every
+    /// other melee keeps the base's debounced class skill.
+    /// </summary>
+    public override void SecondaryAttack(in WeaponAttackContext attack)
+    {
+        if (ScriptOf(attack.Type) is not { } script || script.Id != TFWeaponId.Fists)
+        {
+            base.SecondaryAttack(in attack);
+            return;
+        }
+
+        var context = Context(in attack, script);
+        if (!CanAttack(in attack, in context) || !Parts.Hooks.BeforeFire(in context, in attack))
+            return;
+
+        Swing(in attack, script, in context, secondary: true);
+        Parts.Hooks.AfterFire(in context, in attack);
+    }
+
+    private void Swing(in WeaponAttackContext attack, TFWeaponScript script, in TFWeaponHookContext context,
+                       bool secondary)
     {
         var weapon = attack.Weapon;
         bool crit = RollCrit(in attack, script, in context);
@@ -77,12 +101,30 @@ public class TFMeleeBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
         weapon.NextSecondaryAttack = attack.Now + delay;
         weapon.TimeWeaponIdle = weapon.NextPrimaryAttack + script.Primary.TimeIdleEmpty;
 
-        SendAnim(in attack, WeaponAnim.Primary);
+        SendAnim(in attack, SwingAnim(script, crit, secondary));
         PlaySound(in attack, script, crit ? WeaponScriptSound.Burst : WeaponScriptSound.MeleeMiss);
 
         weapon.BehaviourMode = (weapon.BehaviourMode & ~(ModeSwinging | ModeSwingCrit))
                              | ModeSwinging | (crit ? ModeSwingCrit : 0);
         weapon.BehaviourTimeA = attack.Now + script.Primary.SmackDelay;
+    }
+
+    /// <summary>
+    /// The swing's viewmodel anim, the base's <c>DoViewModelAnimation</c>
+    /// (<c>tf_weaponbase_melee.cpp:328-342</c>): the crit's SWINGHARD, else
+    /// the plain HITCENTER — and the fists' override
+    /// (<c>tf_weapon_fists.cpp:154-178</c>) answering by the weapon mode
+    /// instead, the left hook or the right.
+    /// </summary>
+    private static WeaponAnim SwingAnim(TFWeaponScript script, bool crit, bool secondary)
+    {
+        if (crit)
+            return WeaponAnim.SwingHard;
+
+        if (script.Id == TFWeaponId.Fists)
+            return secondary ? WeaponAnim.HitRight : WeaponAnim.HitLeft;
+
+        return WeaponAnim.HitCenter;
     }
 
     public override void ItemPostFrame(in WeaponAttackContext attack)

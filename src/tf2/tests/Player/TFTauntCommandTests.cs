@@ -28,7 +28,57 @@ public sealed class TFTauntCommandTests
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
         var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
         var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
-        return (rig, new TFTauntCommand(players, rig.Engine, rig.Engine), conditions, players);
+        return (rig, new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine), conditions, players);
+    }
+
+    /// <summary>The voice over the rig's engine: the staged rules answer, nothing else named.</summary>
+    private static TF2.Server.Voice.TFConceptSpeech Voice(PlayerRig rig, TF2.Tests.Entities.FakeConceptRules rules)
+        => new(rules, rig.Carriers, new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
+               TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(), rig.Engine, new TF2.Tests.Entities.FakeRandom());
+
+    [Fact]
+    public void TheTauntIsItsScenesSpeak()
+    {
+        // Taunt (tf_player.cpp:17858-17862): MP_CONCEPT_PLAYER_TAUNT with the
+        // held weapon's word — the per-class rules' WeaponIs* criterion — and
+        // the taunt stands because the search answered.
+        var rig = new PlayerRig().As(TFClass.Soldier);
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_shotgun_soldier");
+        var rules = new TF2.Tests.Entities.FakeConceptRules();
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, Voice(rig, rules));
+
+        Assert.True(command.Handle(PlayerRig.Player, TFTauntCommand.Command, []));
+
+        Assert.Equal(TF2.Server.Voice.TFConceptSpeech.PlayerTaunt, rules.Asked.Single().Concept);
+        Assert.Contains(("playerweapon", "tf_shotgun_soldier"), rules.Words);
+        Assert.True(rig.State.InCond(TFCond.Taunting));
+    }
+
+    [Fact]
+    public void ARulelessTauntIsConsumedWithNothingBehindIt()
+    {
+        // bTauntSucceeded false (tf_player.cpp:17867-17870): m_bInitTaunt back
+        // down — no condition, and the search asked again next press, the
+        // window being OnTauntSucceeded's alone.
+        var rig = new PlayerRig().As(TFClass.Soldier);
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+        var rules = new TF2.Tests.Entities.FakeConceptRules { Match = false };
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, Voice(rig, rules));
+
+        Assert.True(command.Handle(PlayerRig.Player, TFTauntCommand.Command, []));
+        Assert.True(command.Handle(PlayerRig.Player, TFTauntCommand.Command, []));
+
+        Assert.False(rig.State.InCond(TFCond.Taunting));
+        Assert.Equal(2, rules.Asked.Count);
     }
 
     [Fact]

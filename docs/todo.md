@@ -1177,16 +1177,35 @@ CHAN_STATIC to CHAN_WEAPON, on our standalone weapon's entity. Not known: whethe
 a player can hear it stop, which is the first thing to check by ear. Next: find
 what ends the channel, starting from what else plays on that entity and channel.
 
-## TF2: thirdperson's weapon redraw has no regression test (2026-11-02)
+## TF2: thirdperson's weapon redraw has no regression test (closed 2026-11-02)
 
 f5ac6388a re-asks every shell when the third-person flag flips, in
 `CStandaloneClients::SetRestingThirdPersonSeen`. The client-shell objects do not
-compose into a gtest without the client's full include context, so the only
-evidence is live: at that commit, soldier and heavy draw their weapons in third
-person. Nothing fails if it regresses. Also unproven by a picture: another
-player's weapon; two-client boots failed to connect (`Connection failed after 4
-retries`), so "not affected" rests on `ClientSsWeapon.OnDataChanged` and a render
-trace. Next: a step in tools/tf2-gate over its two clients, which covers both.
+compose into a gtest without the client's full include context, so the evidence
+is live: the gate's `weapon` step holds it on the game's two boots. Its watch
+arm records the listen game's own client frame and requires the watched
+player's body under models/player/ and held weapon under models/weapons/ for
+each class tried, re-settling the observer every attempt and keeping the best
+frame (a round restart pulls the observer back to its spawn corner between
+attempts; run 20261102-191731). Its flip arms key on the owner's OWN HELD
+world weapon: the draw whose ent equals the index the srv handle chain
+resolves for p1 (`own_weapon_ent`, e.g. hw=65951 -> w=415). First person draws
+only the attach pair (the c_ gun/arms models share models/weapons/ but draw
+under attachment ents), third person adds the carried gun at its own ent,
+first person hides it again -- absent/present/absent over first/third/first,
+with `own_third_wgun` naming the matched model. The old own-arm counted bodies
+under models/player/, and counting bodies cannot fail this bug: the
+seen-owner write keeps the body edge, so a reverted build passed it with
+own_third_weapon=True while only the gun stayed out of the leaf. Mutation
+proof on the new arm: reverting the resting-flag write to the seen-owner flag
+(shell_client.cpp) leaves the third-person frame with attach draws only --
+runs 20261102-193938 and 20261102-194225 read FAIL naming the missing ent.
+Restored byte-identical (sha256 16720087...) and green three runs out of
+three: runs 20261102-194631, -194920, -195217, rc 0 each, own_third_weapon=True
+own_third_wgun=c_scattergun.mdl, first arms False. Pre-existing, reported not
+fixed here: the classes heavy-speed arm under-reads on saturated boxes
+(heavy_speed 176 vs the 218.5-241.5 band at load average ~45; passes at
+228-233 when quieter).
 
 ## Rulings and divergences recorded only here (not open work)
 

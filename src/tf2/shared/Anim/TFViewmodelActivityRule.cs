@@ -30,13 +30,14 @@ namespace TF2.Shared.Anim;
 ///
 /// <para>
 /// The role is <c>GetViewModelWeaponRole</c>'s base arm
-/// (<c>GetTFWpnData().m_iWeaponType</c>, tf_weaponbase.cpp:4409) — the
-/// script's <c>WeaponType</c>, read through the side's
-/// <see cref="ITFAnimWeapons"/>. Stock's remaining arms are not here yet:
-/// the econ item's <c>GetAnimationSlot</c> override (deferred with the rest
-/// of econ) and the per-class overrides (the sword, the buff item). A player
-/// with no weapon the scripts name answers no role, and the base name stands
-/// — stock's table-miss arm (<c>return actBase</c>, :4541).
+/// (<c>GetTFWpnData().m_iWeaponType</c>, tf_weaponbase.cpp:4409) with the
+/// econ item's <c>GetAnimationSlot</c> row over it — the seam's role is
+/// <c>GetActivityWeaponRole</c> (tf_weaponbase.cpp:4185-4205, via
+/// <see cref="TFWeaponTypes.ActivityWeaponRole"/>), whose answer is the one
+/// this arm's own re-derivation (:4523-4531) lands on. Stock's remaining
+/// arm, the per-class overrides (the sword, the buff item), is not here yet.
+/// A player with no weapon the scripts name answers no role, and the base
+/// name stands — stock's table-miss arm (<c>return actBase</c>, :4541).
 /// </para>
 ///
 /// <para>

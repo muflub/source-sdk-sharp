@@ -33,9 +33,21 @@ public sealed class TFSapperUseTests
     /// <summary>The reach the wrench hook asks the seam with: <c>CTFWrench::Smack</c>'s 70 (tf_weapon_wrench.cpp:165).</summary>
     private const float Swing = TFWrenchHook.SmackRange;
 
-    private static TFSapperUse Use(BuildingsRig rig, ILagCompensation? lag = null) =>
+    private static TFSapperUse Use(BuildingsRig rig, ILagCompensation? lag = null, ITFBuilderArms? arms = null) =>
         new(rig.Players, rig.Engine, rig.Engine, rig.Engine, rig.Buildings(), rig.Engine,
-            rig.Scopes, rig.Spawner, rig.Log, lag);
+            rig.Scopes, rig.Spawner, rig.Log, arms, lagCompensation: lag);
+
+    /// <summary>The arms the place hands the weapon back through, as a recording.</summary>
+    private sealed class RecordingArms : ITFBuilderArms
+    {
+        public readonly List<string> Asked = new();
+
+        public SwitchOutcome Switch(EntityHandle player, string className) { Asked.Add($"switch {player} {className}"); return default; }
+
+        public bool GiveWeapon(EntityHandle player, string className) { Asked.Add($"give {player} {className}"); return true; }
+
+        public SwitchOutcome SwitchLast(EntityHandle player) { Asked.Add($"last {player}"); return default; }
+    }
 
     /// <summary>
     /// The stubbed player world: every named player resolves from its own
@@ -157,6 +169,37 @@ public sealed class TFSapperUseTests
         Assert.True(sentry.HasSapper);   // riding: the instant build's OnAddSapper
         Assert.Equal(new Vector(100f, 0f, 32f), rig.Spawner.Placed[sapper.Handle]);
         Assert.Contains(rig.Log.Lines, line => line.Text.Contains("obj_sentrygun sapped", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void A_planted_sapper_leaves_the_hands_for_the_last_weapon()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle builder = ABuilt(rig, TFTeam.Red, new Vector(100f, 0f, 32f));
+        EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
+        StubEngine(rig, builder, spy);
+        var arms = new RecordingArms();
+
+        Assert.True(Use(rig, arms: arms).PlaceSapper(spy.EntryIndex));
+
+        // SwitchOwnersWeaponToLast (tf_weapon_builder.cpp:421): the placed
+        // sapper is not held.
+        Assert.Equal([$"last {spy}"], arms.Asked);
+    }
+
+    [Fact]
+    public void A_refused_place_leaves_the_sapper_in_the_hands()
+    {
+        var rig = new BuildingsRig();
+        rig.StubWorld();
+        EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
+        StubEngine(rig, spy);
+        var arms = new RecordingArms();
+
+        Assert.False(Use(rig, arms: arms).PlaceSapper(spy.EntryIndex));
+
+        Assert.Empty(arms.Asked);
     }
 
     [Fact]
@@ -595,6 +638,13 @@ public sealed class TFSapperUseTests
         {
             Placements++;
             return true;
+        }
+
+        public bool FindSappable(int ownerIndex, out EntityHandle building, out Vector point)
+        {
+            building = EntityHandle.None;
+            point = Vector.Zero;
+            return false;
         }
 
         public bool WrenchSmack(int ownerIndex, float range)

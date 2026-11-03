@@ -8,6 +8,7 @@
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
+using TF2.Shared.Anim;
 using TF2.Shared.Econ;
 
 namespace TF2.Shared;
@@ -108,6 +109,10 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             // empty-sound time a second ahead every frame (tf_weapon_minigun.cpp:193).
             EmptySound = script.Id == TFWeaponId.Minigun ? "" : script.Sound(WeaponScriptSound.Empty),
             ReloadSound = script.Sound(WeaponScriptSound.Reload),
+            // The row carries the whole SoundData table for the precache
+            // (CBaseCombatWeapon::Precache), not only the three the behaviours
+            // play by field: the burst crit, a taunt, the rest.
+            Sounds = script.Base.Sounds,
             MeleeRange = melee ? SwingRange : 0f,
             MeleeDamage = melee ? mode.Damage : 0f,
             Behaviour = TFWeaponKinds.Key(TFWeaponKinds.Of(script)),
@@ -153,6 +158,39 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
                 && (best?.ItemClass is null || itemClass.Length > best.ItemClass.Length))
                 best = item;
         }
+
+        // The sapper's dress is the builder family's item (ManageBuilderWeapons
+        // retypes the shell, SetSubType, tf_player.cpp:4627-4631): the builder
+        // item the attachment-building class wears — the spy's
+        // TF_WEAPON_BUILDER_SPY, c_sapper.
+        if (string.Equals(weaponName, Sapper, StringComparison.OrdinalIgnoreCase))
+        {
+            string builder = TFWeaponNames.Name(TFWeaponId.Builder).ToLowerInvariant();
+            foreach (var item in _schema.BaseItems)
+            {
+                if (string.Equals(item.ItemClass, builder, StringComparison.OrdinalIgnoreCase)
+                    && item.UsedByClasses.Any(c => _classes[c].Buildables.Contains(TFObjectType.AttachmentSapper)))
+                {
+                    return item;
+                }
+            }
+        }
+
         return best;
+    }
+
+    /// <summary>
+    /// <c>CTFWeaponBase::GetActivityWeaponRole</c> (tf_weaponbase.cpp:4185-4205)
+    /// minus its cheat-convar arm: the script's type, overridden by the base
+    /// item the name wears when its <c>anim_slot</c> names a row
+    /// (<c>&gt;= 0</c> — <see cref="ItemDefinition.AnimationSlot"/>). Both
+    /// consumers ask this role: the body tables through <c>ActivityList</c>
+    /// (:4210) and the viewmodel translation, whose own re-derivation
+    /// (:4523-4531) lands on the same answer.
+    /// </summary>
+    public TFWeaponRole ActivityWeaponRole(string weaponName, TFWeaponRole scriptRole)
+    {
+        int slot = BaseItemFor(weaponName)?.AnimationSlot ?? -1;
+        return slot >= 0 ? (TFWeaponRole)slot : scriptRole;
     }
 }

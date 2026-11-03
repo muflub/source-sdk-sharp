@@ -58,6 +58,40 @@ public class TFSapperTests
     }
 
     [Fact]
+    public void TheSapperWearsThePlacementBodyPlacingAndThePlacedBodyRiding()
+    {
+        var rig = new BuildingsRig();
+        EntityHandle engineer = rig.AddBuilder(TFTeam.Red);
+        var building = rig.Spawn<TestBuilding>(TestBuilding.MapClass);
+        building.StartPlacement(engineer);
+        rig.Clock.Now = 100f;
+        building.StartBuilding();
+        rig.Clock.Now += TFObjectInfo.Of(TFObjectType.Sentrygun)!.BuildTime;
+        building.OnThink();
+
+        EntityHandle spy = rig.AddBuilder(TFTeam.Blue, TFClass.Spy);
+        var sapper = rig.Spawn<TFSapper>(TFSapper.MapClass);
+        sapper.StartPlacement(spy);
+        sapper.SetObjectMode(0);
+
+        // The ghost's body, Spawn's (tf_obj_sapper.cpp:88).
+        Assert.Equal("models/buildables/sapper_placement.mdl", LastModelWorn(rig, sapper));
+
+        sapper.AttachTo(building);
+        sapper.StartBuilding();
+        sapper.OnThink();   // the instant build
+
+        // The attached body, OnGoActive's (tf_obj_sapper.cpp:265).
+        Assert.Equal("models/buildables/sapper_placed.mdl", LastModelWorn(rig, sapper));
+    }
+
+    private static string LastModelWorn(BuildingsRig rig, ScriptedEntity entity)
+        => rig.Engine.AllOf("EntityRender.SetModel")
+                     .Where(c => c.ArgAs<EntityHandle>(0) == entity.Handle)
+                     .Last()
+                     .ArgAs<string>(1);
+
+    [Fact]
     public void TheDrainRateConvarScalesTheSapping()
     {
         // Stock pays the seconds since the last think times obj_sapper_amount

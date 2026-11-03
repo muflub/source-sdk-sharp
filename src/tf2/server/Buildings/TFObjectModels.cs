@@ -33,6 +33,10 @@ public static class TFObjectModels
         TFObjectType.Teleporter => mode == 0
             ? "models/buildables/teleporter_blueprint_enter.mdl"
             : "models/buildables/teleporter_blueprint_exit.mdl",
+        // The sapper's placement body (g_sapperPlacementModel,
+        // tf_obj_sapper.cpp:31): Spawn sets it (:88), the per-item variants
+        // are the deferred rows.
+        TFObjectType.AttachmentSapper => "models/buildables/sapper_placement.mdl",
         _ => "",
     };
 
@@ -103,6 +107,9 @@ public static class TFObjectModels
             _ => "models/buildables/dispenser_light.mdl",
         },
         TFObjectType.Teleporter => "models/buildables/teleporter_light.mdl",
+        // The attached sapper's body (g_sapperModel, tf_obj_sapper.cpp:30),
+        // OnGoActive's SetModel (:265).
+        TFObjectType.AttachmentSapper => "models/buildables/sapper_placed.mdl",
         _ => "",
     };
 

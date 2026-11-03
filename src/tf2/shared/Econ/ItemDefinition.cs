@@ -74,6 +74,17 @@ public sealed class ItemDefinition
         ModelPlayer = keys.GetString("model_player", null);
         ModelWorld = keys.GetString("model_world", null);
 
+        // "anim_slot" (tf_item_schema.cpp:1014-1026): FORCE_NOT_USED is −2, a
+        // weapon-type word its table row; anything else, including no key at
+        // all, keeps InternalInitialize's −1 (tf_item_schema.cpp:893). An
+        // unknown word is StringFieldToInt's −1 too.
+        AnimationSlot = keys.GetString("anim_slot", null) switch
+        {
+            null or { Length: 0 } => -1,
+            { } word when string.Equals(word, "FORCE_NOT_USED", StringComparison.OrdinalIgnoreCase) => -2,
+            { } word => TFItemStrings.WeaponTypeIndex(word),
+        };
+
         // The base "visuals" section is team 0's (econ_item_schema.cpp:77-84),
         // and its styles are the only valid ones (:2686-2693): style 0's
         // per-team skins are the item's own answer to
@@ -170,6 +181,16 @@ public sealed class ItemDefinition
 
     /// <summary>The merged keys: every field a later phase reads that this class has no property for.</summary>
     public MergedKeys Keys { get; }
+
+    /// <summary>
+    /// <c>m_iAnimationSlot</c> (tf_item_schema.cpp:893, 1014-1026): the
+    /// <c>anim_slot</c> word's weapon-type row, −2 for
+    /// <c>FORCE_NOT_USED</c>, −1 when the item names none. The act-table
+    /// role <c>CTFWeaponBase::GetActivityWeaponRole</c> and the viewmodel
+    /// translation both take when it is <c>&gt;= 0</c>
+    /// (tf_weaponbase.cpp:4189-4196, 4527-4531).
+    /// </summary>
+    public int AnimationSlot { get; }
 
     /// <summary>
     /// The item's own skin for a team's VIEWMODEL: style 0's

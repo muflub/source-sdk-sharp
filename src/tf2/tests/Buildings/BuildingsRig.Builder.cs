@@ -192,8 +192,9 @@ internal sealed partial class BuildingsRig
         EnsureBuilderSeams();
         StubWorld();
         StubPlacementTraces();
+        var sapper = new TFSapperUse(Players, Engine, Engine, Engine, Buildings(), Engine, Scopes, Spawner, Log);
         return new TFBuilderPlacement(Engine, Engine, Engine, NoBuild, Rooms, Buildings(),
-                                      builder ?? Builder(), Purse, Spawner, arms ?? BuilderArms, Log);
+                                      builder ?? Builder(), Purse, Spawner, sapper, arms ?? BuilderArms, Log);
     }
 
     /// <summary>

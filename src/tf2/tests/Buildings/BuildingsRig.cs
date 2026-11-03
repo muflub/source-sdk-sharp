@@ -11,6 +11,7 @@ using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Projectiles;
 using TF2.Server.Medigun;
+using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Movement;
 using TF2.Tests.Entities.Items;
@@ -109,6 +110,15 @@ internal sealed partial class BuildingsRig
     public readonly Projectiles.ProjectileRig.FixedClasses Classes = new();
     public readonly RigRandom Random = new();
 
+    /// <summary>The concept asks the buildings made, in order, over the rigged rules.</summary>
+    public readonly TF2.Tests.Entities.FakeConceptRules ConceptRules = new();
+
+    /// <summary>The teams the speech's criteria read; empty until a fact sets one.</summary>
+    public readonly TF2.Tests.Entities.FakeConceptTeams ConceptTeams = new();
+
+    /// <summary>The voice over those fakes; the buildables' speech field.</summary>
+    public readonly TFConceptSpeech Speech;
+
     /// <summary>The gib the teleporter last threw, so a bread fact can name it.</summary>
     public EntityHandle LastGib;
 
@@ -146,7 +156,9 @@ internal sealed partial class BuildingsRig
         // player table (TFPlayerHealing.TickHealedPerSecond); the fake's
         // players have no user ids to give.
         Engine.Returns("Players.GetHandle", EntityHandle.None)
-              .Returns("Players.GetUserId", 0);
+              .Returns("Players.GetUserId", 0)
+              // The voice's alive gate (SpeakIfAllowed's) reads the builder.
+              .Returns("Players.IsAlive", true);
         // The show's records ride the system index: a stable per-name number,
         // so a fact reads the name back off the record's HitBox.
         Engine.ReturnsEachCall("Precache.ParticleSystemIndex", () =>
@@ -246,6 +258,15 @@ internal sealed partial class BuildingsRig
         Services.AddInstance(Convars.Get<ObjSapperAmountConVar>()!);
 
         RegisterHealing();
+        // The buildings' voice: the concept asks a fact reads back, and the
+        // lines sounded through the recording engine's entity emit.
+        Services.AddInstance<IResponseRules>(ConceptRules);
+        Services.AddInstance<ITeams>(ConceptTeams);
+        Speech = new TFConceptSpeech(ConceptRules, Carriers, ConceptTeams,
+                                     Services.Resolve<IEnginePlayers>()!, TF2.Tests.Entities.ObjectiveRig.ConceptSceneImage(),
+                                     Engine, Random);
+        Services.AddInstance(Speech);
+
         Registry.Services = Services;
         // The buildables themselves take the purse now (the wrench's metal),
         // so the seams are up from the spawn, not first command.

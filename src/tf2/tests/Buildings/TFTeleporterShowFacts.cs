@@ -262,12 +262,14 @@ public class TFTeleporterShowFacts
     public void AnUnsentPadSaysNothing()
     {
         var (rig, entrance, exit, _) = APair();
+        int sounded = rig.Engine.CountOf("Sound.EntityEmitSound");
         TickBoth(rig, entrance, exit, 1.0f);
 
         // The show is the trip's, not the ready state's: a pair idling with
         // nobody booked neither speaks nor sparks (the state sounds are
-        // another arm).
+        // another arm). The count is the idle window's own — the build's
+        // line, if the staged rules answer it, stands before it.
         Assert.Empty(rig.Effects.Dispatched);
-        Assert.Equal(0, rig.Engine.CountOf("Sound.EntityEmitSound"));
+        Assert.Equal(sounded, rig.Engine.CountOf("Sound.EntityEmitSound"));
     }
 }

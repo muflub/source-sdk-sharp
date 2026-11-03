@@ -115,7 +115,7 @@ public sealed class TFWeaponTypesTests
     [InlineData("tf_weapon_knife", TFWeaponKind.Melee)]
     [InlineData("tf_weapon_wrench", TFWeaponKind.Melee)]
     [InlineData("tf_weapon_builder", TFWeaponKind.Builder)]
-    [InlineData("tf_weapon_sapper", TFWeaponKind.Inert)]
+    [InlineData("tf_weapon_sapper", TFWeaponKind.Builder)]
     [InlineData("tf_weapon_invis", TFWeaponKind.Inert)]
     [InlineData("tf_weapon_pda_spy", TFWeaponKind.Pda)]
     [InlineData("tf_weapon_pda_engineer_build", TFWeaponKind.Pda)]
@@ -144,6 +144,22 @@ public sealed class TFWeaponTypesTests
         // tf_weapon_shotgun_soldier has no base item of its own: the stem's.
         Assert.Equal("tf_weapon_shotgun", types.BaseItemFor("tf_weapon_shotgun_soldier")?.ItemClass);
         Assert.Null(types.BaseItemFor("tf_weapon_nothing"));
+    }
+
+    [Fact]
+    public void The_sappers_row_wears_the_sapper_item()
+    {
+        var types = WeaponFixtures.Types(EconTestFiles.Fixture("items_game.trimmed.txt"));
+        var item = types.BaseItemFor("tf_weapon_sapper");
+
+        Assert.Equal("TF_WEAPON_BUILDER_SPY", item?.Name);
+        Assert.Equal("models/weapons/c_models/c_sapper/c_sapper.mdl", item?.ModelPlayer);
+        Assert.True(item?.AttachToHands);
+
+        // The prefab names no world model: the row wears the player's, the
+        // sapper's world model stock reads off the object anyway.
+        var rows = types.Rows().ToDictionary(r => r.Name);
+        Assert.Equal("models/weapons/c_models/c_sapper/c_sapper.mdl", rows["tf_weapon_sapper"].WorldModel);
     }
 
     [Fact]

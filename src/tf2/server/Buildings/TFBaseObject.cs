@@ -10,6 +10,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
+using TF2.Server.Voice;
 using TF2.Shared;
 
 namespace TF2.Server.Buildings;
@@ -67,7 +68,8 @@ public sealed class TFObjectAnnouncer(ILog log) : ITFObjectAnnouncer
 /// </summary>
 public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer announcer,
                                    IEnginePrecache precache, IEngineEntityRender render,
-                                   ITFAmmoPurse purse, TFPlayerCarriers? carriers = null) : ScriptedEntity
+                                   ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
+                                   TFConceptSpeech? speech = null) : ScriptedEntity
 {
     /// <summary><c>SENTRYGUN_MAX_HEALTH</c> and its dispenser and teleporter kin (tf_obj_sentrygun.h:31 et al.): all three at 150.</summary>
     public const int ObjectMaxHealth = 150;
@@ -111,6 +113,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
 
     /// <summary>Where the wrench's metal comes from and goes (<c>CTFPlayer</c>'s ammo pool).</summary>
     protected readonly ITFAmmoPurse Purse = purse;
+
+    /// <summary>The response rules the build, the loss and the sapping are told through.</summary>
+    protected readonly TFConceptSpeech? Speech = speech;
 
     [SaveField] private EntityHandle _builder;
     [SaveField] private int _team;
@@ -261,14 +266,15 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     public bool IsDisabled => _hasSapper || IsPlasmaDisabled;
 
     /// <summary>
-    /// <c>OnAddSapper</c> (tf_obj.cpp): the sapper is on, its handle kept for
-    /// the removal cascade. (The builder's response-rule speak is a deferred
-    /// row.)
+    /// <c>CBaseObject::OnAddSapper</c> (tf_obj.cpp:2613-2629): the sapper is
+    /// on, its handle kept for the removal cascade, and the builder is told
+    /// over the response rules.
     /// </summary>
     public void OnAddSapper(EntityHandle sapper)
     {
         _hasSapper = true;
         _sapper = sapper;
+        Speech?.Speak(_builder, TFConceptSpeech.SpySapper, "objtype", ResponseModifier());
     }
 
     /// <summary>
@@ -417,6 +423,15 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     }
 
     /// <summary>
+    /// The placement ghost's visibility (<c>UpdateAttachmentPlacement</c>'s
+    /// <c>EF_NODRAW</c> arm, tf_obj.cpp:1263-1277): hidden while no sappable
+    /// stands under the crosshair, shown the command one does. The walk owns
+    /// the answer, so the object carries it past <see cref="SetVisible"/>'s
+    /// protected reach.
+    /// </summary>
+    public void SetPlacementVisible(bool visible) => SetVisible(visible);
+
+    /// <summary>
     /// <c>SetObjectMode</c>: the teleporter's entrance/exit, 0 otherwise. The
     /// blueprint names the end, so a placing teleporter re-dresses it
     /// (stock's <c>SetTeleporterType</c> runs before the model's ask).
@@ -425,7 +440,9 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     {
         _mode = mode;
 
-        if (_placing && TFObjectInfo.Of(Type) is not null)
+        // The model gates the dress, not the object table: the sapper has no
+        // row (TFObjectDefs) and still wears its placement body.
+        if (_placing && TFObjectModels.Placement(Type, mode).Length > 0)
             Dress(TFObjectModels.Placement(Type, mode));
     }
 
@@ -443,6 +460,12 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         _built = false;
         _constructedHealth = 0;
         _buildRate = MathF.Max(1f, buildRate);
+
+        // The builder's line (tf_obj.cpp:1339, :1349): the redeploy's own
+        // where the object came out of the arms, else the building's — each
+        // with the object type the rules' Is* criteria read.
+        Speech?.Speak(_builder, _carryDeploy ? TFConceptSpeech.RedeployBuilding : TFConceptSpeech.BuildingObject,
+                      "objtype", ResponseModifier());
 
         // SetStartBuildingModel + RemoveSolidFlags(FSOLID_NOT_SOLID)
         // (tf_obj.cpp:1406): construction is lived in the world, visible and
@@ -551,9 +574,12 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         _built = true;
         _carryDeploy = false;
 
-        // OnGoActive's model (tf_obj_sentrygun.cpp:396, tf_obj_teleporter.cpp:425):
-        // the finished level model, set before the subclass opens its business.
-        if (TFObjectInfo.Of(Type) is not null)
+        // OnGoActive's model (tf_obj_sentrygun.cpp:396, tf_obj_teleporter.cpp:425,
+        // the sapper's tf_obj_sapper.cpp:265): the finished level model, set
+        // before the subclass opens its business. The model gates the dress,
+        // not the object table — the sapper has no row and still wears its
+        // placed body.
+        if (TFObjectModels.Finished(Type, _level).Length > 0)
             Dress(TFObjectModels.Finished(Type, _level));
 
         Health = MaxHealthForCurrentLevel;
@@ -752,6 +778,20 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
     protected virtual void OnDestroyed() { }
 
     /// <summary>
+    /// <c>CBaseObject::GetResponseRulesModifier</c> (tf_obj.cpp:1293-1305)'s
+    /// value half: the object type word the buildings' rules read. Stock's
+    /// NULL default is unreachable here — <see cref="Type"/> is one of the
+    /// four the switch names.
+    /// </summary>
+    private string ResponseModifier() => Type switch
+    {
+        TFObjectType.Dispenser => "dispenser",
+        TFObjectType.Teleporter => "teleporter",
+        TFObjectType.AttachmentSapper => "sapper",
+        _ => "sentrygun",
+    };
+
+    /// <summary>
     /// <c>CBaseObject::DetonateObject</c> (tf_obj.cpp:804-809): the object
     /// killed by itself — the kill path (<see cref="OnKilled"/>), not the
     /// quiet removal of <see cref="DestroyObject"/>.
@@ -800,6 +840,10 @@ public abstract class TFBaseObject(ITFMapPlayers players, ITFObjectAnnouncer ann
         if (_carried)
             SetCarriedObject(_builder, false);   // the carried object dies with the life (shared.Spawn's reset, tf_player_shared.cpp:991)
         Announcer.Destroyed(_builder, Type, _mode);
+
+        // The builder's line (tf_obj.cpp:2041-2045): the blow's death tells
+        // its builder, the same object word beside it.
+        Speech?.Speak(_builder, TFConceptSpeech.LostObject, "objtype", ResponseModifier());
         OnDestroyed();
         RemoveAttachedSapper();
         StopThinking();

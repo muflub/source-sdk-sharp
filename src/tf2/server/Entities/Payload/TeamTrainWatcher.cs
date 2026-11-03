@@ -10,6 +10,7 @@ using SourceSharp.Server;
 using SourceSharp.Shared;
 
 using TF2.Server.Rules;
+using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Resources;
 using TF2.Shared.Rules;
@@ -78,7 +79,8 @@ public sealed class TeamTrainWatcher(
     IEntityDirectory directory,
     IEnginePlayers players,
     IEngineGameEvents gameEvents,
-    ConVarRegistry convars) : ScriptedEntity, ICaptureAreaWatcher, IPathTrackPassListener
+    ConVarRegistry convars,
+    TFConceptSpeech? speech = null) : ScriptedEntity, ICaptureAreaWatcher, IPathTrackPassListener
 {
     public const string MapClass = "team_train_watcher";
 
@@ -136,6 +138,9 @@ public sealed class TeamTrainWatcher(
     /// <summary>TW_THINK's interval.</summary>
     private const float ThinkInterval = 0.1f;
 
+    /// <summary>The escort line's repeat, stock's literal (team_train_watcher.cpp:1195).</summary>
+    public const float ForwardConceptInterval = 3f;
+
     public readonly Output OnTrainStartRecede = new();
 
     /// <summary>What a map may set on this entity. See <see cref="TeamTrainWatcherVars"/>.</summary>
@@ -190,6 +195,10 @@ public sealed class TeamTrainWatcher(
     private float _alarmEndTime = -1f;
     private int _alarmPatch;
     private int _trainSpeedLevel;
+    private float _nextSpeakForwardConceptTime;
+
+    /// <summary>The response rules the escort's lines are asked through.</summary>
+    private readonly TFConceptSpeech? Speech = speech;
 
     /// <summary>m_iTrainSpeedLevel: which HUD speed pip the train's speed is (−1 stalled, 1..3).</summary>
     public int TrainSpeedLevel => _trainSpeedLevel;
@@ -895,8 +904,6 @@ public sealed class TeamTrainWatcher(
             // how fast is the train moving? The managed train holds one signed
             // speed — the desired one — so stock's dead-end check of the
             // ACTUAL speed against zero is folded into it (see divergences).
-            // The CART_STOP/CART_MOVING concepts stock speaks on a level change
-            // are deferred; the level itself is the part the HUD reads.
             float speed = _train.CurrentSpeed;
 
             // divide speed into regions
@@ -922,12 +929,42 @@ public sealed class TeamTrainWatcher(
                 _trainSpeedLevel = 0;
             }
 
-            if (_trainSpeedLevel != oldTrainSpeedLevel && _handleTrainMovement
-                && _trainSpeedLevel == 0 && oldTrainSpeedLevel != 0)
+            if (_trainSpeedLevel != oldTrainSpeedLevel)
             {
                 // make sure the sparks are off if we're not moving backwards
                 // anymore (team_train_watcher.cpp:1151-1160)
-                HandleSparks(false);
+                if (_handleTrainMovement && _trainSpeedLevel == 0 && oldTrainSpeedLevel != 0)
+                    HandleSparks(false);
+
+                // play any concepts that we might need to play
+                // (team_train_watcher.cpp:1162-1175)
+                if (_trainSpeedLevel == 0 && oldTrainSpeedLevel != 0)
+                {
+                    Speech?.SpeakAll(TFConceptSpeech.CartStop);
+                    _nextSpeakForwardConceptTime = 0;
+                }
+                else if (_trainSpeedLevel < 0 && oldTrainSpeedLevel == 0)
+                {
+                    Speech?.SpeakAll(TFConceptSpeech.CartMovingBackward);
+                    _nextSpeakForwardConceptTime = 0;
+                }
+            }
+
+            // the escort line, under the push, to whoever stands in the capture
+            // area, at most once every three seconds — the timer runs whether
+            // or not there is an area to ask (team_train_watcher.cpp:1178-1196)
+            if (_trainSpeedLevel > 0 && _nextSpeakForwardConceptTime < clock.Now)
+            {
+                if (_areaCap is { } area)
+                {
+                    foreach (var entity in area.TouchingEntities)
+                    {
+                        if (engine.IsPlayer(entity))
+                            Speech?.Speak(entity, TFConceptSpeech.CartMovingForward);
+                    }
+                }
+
+                _nextSpeakForwardConceptTime = clock.Now + ForwardConceptInterval;
             }
 
             // what percent progress are we at? Stock's node is the train's

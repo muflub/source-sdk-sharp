@@ -4408,6 +4408,10 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
 
     public FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => _movementRules.Rules.Footing(playerIndex, velocity, planeNormal);
 
+    public void GetEnemyBlasted(int playerIndex) => _movementRules.Rules.EnemyBlasted(playerIndex);
+
+    public void GetEndCommand(int playerIndex) => _movementRules.Rules.EndCommand(playerIndex);
+
     // The engine's InfoPanel table, through its own string-table interfaces. A
     // server whose container cannot be acquired still loads (the message of the
     // day is not worth a failed load), and says so when it would have written.

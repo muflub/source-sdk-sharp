@@ -112,6 +112,21 @@ public interface ITFCarriedWeapons
 {
     /// <summary>The carried weapon entity, or <see cref="EntityHandle.None"/> before the player has one.</summary>
     EntityHandle WeaponOf(EntityHandle player);
+
+    /// <summary>
+    /// <c>CTFWeaponBase::CanBeSelected</c> for the named weapon as the player
+    /// carries it: a round in the clip or the pools, a weapon that uses no
+    /// ammunition, or one whose script selects on empty. The spawn walk's
+    /// question about a loadout row; the false default leaves a fake's player
+    /// unselectable, and the walk falls through as stock's null arm does.
+    /// </summary>
+    bool Selectable(EntityHandle player, string weapon) => false;
+
+    /// <summary>
+    /// <c>CTFPlayer::Weapon_Switch</c> onto the named weapon; false when the
+    /// switch did not take, the walk's fallback signal.
+    /// </summary>
+    bool SwitchTo(EntityHandle player, string weapon) => false;
 }
 
 /// <summary>The core arsenal's carried weapon (<see cref="Arsenal.CarriedPair"/>).</summary>
@@ -119,4 +134,9 @@ public interface ITFCarriedWeapons
 public sealed class TFArsenalWeapons(Arsenal arsenal) : ITFCarriedWeapons
 {
     public EntityHandle WeaponOf(EntityHandle player) => arsenal.CarriedPair(player).Weapon;
+
+    public bool Selectable(EntityHandle player, string weapon) => arsenal.Selectable(player, weapon);
+
+    public bool SwitchTo(EntityHandle player, string weapon) =>
+        arsenal.Switch(player, weapon) is SwitchOutcome.Switched or SwitchOutcome.AlreadyHeld;
 }

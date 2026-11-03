@@ -500,6 +500,14 @@ public sealed class TFBlastApplier
         if (self && cls == TFClass.Soldier && (blast.Bits & DamageType.Blast) != 0)
             Carriers.Part<TFBlastJumpState>(victim.EntryIndex)?.Set(TFBlastJump.RocketJumped);
 
+        // The other's blast latches the victim's next rise (tf_player.cpp:
+        // 10474-10477): m_bTakenBlastDamageSinceLastMovement, which the rise
+        // of the next command reads into TF_PLAYER_ENEMY_BLASTED_ME
+        // (gamemovement.cpp:2360-2364) and which EndCommand then drops. The
+        // self blast is not this — the self arms above name the jump directly.
+        if (!self && (blast.Bits & DamageType.Blast) != 0)
+            Carriers.Part<TFBlastJumpState>(victim.EntryIndex)?.NoteEnemyBlast();
+
         // Stock adds the impulse and nothing else (:10470): the next command's
         // PlayerMove lets go of the ground for a rise over its 250
         // (gamemovement.cpp:4612), so both passes hand over the impulse alone.

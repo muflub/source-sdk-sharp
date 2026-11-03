@@ -51,3 +51,12 @@ int32_t CStandaloneClients::EntitiesUpdateVisibilityAll()
 
 	return nSwept;
 }
+
+void CStandaloneClients::SetRestingThirdPersonSeen(bool bSees)
+{
+	if (bSees == m_bThirdPersonSeesOwner)
+		return;
+
+	m_bThirdPersonSeesOwner = bSees;
+	EntitiesUpdateVisibilityAll();
+}

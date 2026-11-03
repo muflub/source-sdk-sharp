@@ -148,6 +148,67 @@ public sealed class TFMinigunLoopTests
         Assert.Empty(rig.Sounds.Destroyed);
     }
 
+    /// <summary>
+    /// The rotation arm (:1118): the angle rides the stepped velocity times
+    /// the frame time, so the first frame at frame time 2 turns the barrel by
+    /// 0.1 × 2 and the second adds 0.2 × 2 to it.
+    /// </summary>
+    [Fact]
+    public void The_barrel_angle_rises_by_the_velocity_times_the_frame_time()
+    {
+        var rig = new LoopRig();
+        rig.Into(CTF.TFMinigunBehaviour.State.StartFiring);
+
+        rig.Frame(10f, frameTime: 2f);
+        Assert.Equal(0.2f, rig.Loop.BarrelAngle(rig.Weapon.Handle), 4);
+
+        rig.Frame(10.1f, frameTime: 2f);
+        Assert.Equal(0.6f, rig.Loop.BarrelAngle(rig.Weapon.Handle), 4);
+    }
+
+    /// <summary>
+    /// The wind-down's tail (:1110, :1118): while the velocity decays the
+    /// angle keeps rising, and the frame it lands on zero the angle stops —
+    /// a long frame past it moves nothing.
+    /// </summary>
+    [Fact]
+    public void The_barrel_angle_holds_the_frame_the_velocity_lands_on_zero()
+    {
+        var rig = new LoopRig();
+        rig.Into(CTF.TFMinigunBehaviour.State.StartFiring);
+
+        for (int i = 0; i < 200; i++)
+            rig.Frame(10f + i * 0.01f, frameTime: 0.01f);
+
+        rig.Into(CTF.TFMinigunBehaviour.State.Idle);
+
+        for (int i = 0; i < 201; i++)
+            rig.Frame(20f + i * 0.01f, frameTime: 0.01f);
+
+        Assert.Equal(0f, rig.Loop.BarrelVelocity(rig.Weapon.Handle));
+        float held = rig.Loop.BarrelAngle(rig.Weapon.Handle);
+
+        rig.Frame(25f, frameTime: 0.5f);
+
+        Assert.Equal(held, rig.Loop.BarrelAngle(rig.Weapon.Handle), 4);
+    }
+
+    /// <summary>The bone read (stock's StandardBlendingRules arm, :1072): the held
+    /// angle answers for the bone named barrel; an unknown gun answers nothing.</summary>
+    [Fact]
+    public void The_bone_spin_answers_the_held_angle_for_the_gun_it_stepped()
+    {
+        var rig = new LoopRig();
+        Assert.Null(rig.Loop.TryGetBoneSpin(rig.Weapon.Handle));
+
+        rig.Into(CTF.TFMinigunBehaviour.State.StartFiring);
+        rig.Frame(10f, frameTime: 2f);
+
+        var spin = rig.Loop.TryGetBoneSpin(rig.Weapon.Handle)!.Value;
+        Assert.Equal("barrel", spin.BoneName);
+        Assert.Equal(0.2f, spin.AngleRadians, 4);
+    }
+
     /// <summary>UpdateOnRemove's arm (:1150-1156): the gun going takes its loop with it.</summary>
     [Fact]
     public void A_forgotten_gun_frees_its_loop()
@@ -190,6 +251,9 @@ public sealed class TFMinigunLoopTests
 
         public void Frame(float now) =>
             Loop.Think(new CEffects.WeaponDrawContext(Weapon, null, FirstPerson: true, Now: now));
+
+        public void Frame(float now, float frameTime) =>
+            Loop.Think(new CEffects.WeaponDrawContext(Weapon, null, FirstPerson: true, Now: now, FrameTime: frameTime));
 
         /// <summary>The last loop the engine was asked to create: its name and its entity.</summary>
         public (string Name, EntityHandle Owner) Created

@@ -68,7 +68,8 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
                                        IEngineWorldQuery world, ITFNoBuildAreas noBuild,
                                        ITFRespawnRooms rooms, ITFBuildings buildings,
                                        ITFObjectBuilder objects, ITFAmmoPurse purse,
-                                       ITFObjectSpawner spawner, ITFBuilderArms? arms = null, ILog? log = null)
+                                       ITFObjectSpawner spawner, ITFSapperState sapper,
+                                       ITFBuilderArms? arms = null, ILog? log = null)
     : ITFBuilderPlacement
 {
     /// <summary><c>TF_OBJ_GROUND_CLEARANCE</c> (baseobject_shared.h:34): how far a corner verifies down.</summary>
@@ -168,6 +169,34 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
     }
 
     /// <summary>
+    /// The sapper's placement ghost (<c>CTFWeaponBuilder::StartPlacement</c>'s
+    /// attachment arm, tf_weapon_builder.cpp:995-1036, over
+    /// <c>CBaseObject::Spawn</c> at the owner): the sapper's blueprint in its
+    /// placement body, born now and walked to the sappable the same way the
+    /// builder's is — the ghost's first pose is this command's walk.
+    /// </summary>
+    public void StartAttachmentPlacement(int ownerIndex)
+    {
+        EntityHandle player = enginePlayers.GetHandle(ownerIndex);
+        if (player == EntityHandle.None)
+            return;
+
+        StopPlacement(ownerIndex);
+
+        TFBaseObject? ghost = spawner.Spawn(TFObjectType.AttachmentSapper, entities.GetOrigin(player), Vector.Zero);
+        if (ghost is null)
+        {
+            log?.Warning($"[TF2/Build] the world refused to create the {TFObjectClassNames.Raw(TFObjectType.AttachmentSapper)} ghost\n");
+            return;
+        }
+
+        ghost.StartPlacement(player);
+        _placing[player] = new Placing { Blueprint = ghost };
+        WalkAttachmentPlacement(ownerIndex, ghost);
+        log?.Msg($"[TF2/Build] {TFObjectClassNames.Raw(TFObjectType.AttachmentSapper)} ghost out for {player}\n");
+    }
+
+    /// <summary>
     /// <c>UpdatePlacementState</c> (tf_weapon_builder.cpp:535-560): the
     /// blueprint is walked to where the crosshair looks, one ask per command.
     /// A dead or gone blueprint clears the state.
@@ -184,7 +213,33 @@ public sealed class TFBuilderPlacement(IEnginePlayers enginePlayers, IEngineEnti
             return;
         }
 
-        WalkPlacement(player, blueprint);
+        // The attachment ghost walks the hostile find, not the ground spot:
+        // UpdatePlacement branches on the attachment objects
+        // (tf_obj.cpp:1150-1156 → UpdateAttachmentPlacement).
+        if (blueprint.Type == TFObjectType.AttachmentSapper)
+            WalkAttachmentPlacement(ownerIndex, blueprint);
+        else
+            WalkPlacement(player, blueprint);
+    }
+
+    /// <summary>
+    /// The attachment walk (<c>CBaseObject::UpdateAttachmentPlacement</c> →
+    /// <c>FindSnapToBuildPos</c>'s hostile arm, tf_obj.cpp:663-679,
+    /// :1169-1280): a sappable under the crosshair and the sapper's find
+    /// takes the ghost — teleported onto the building's point and shown;
+    /// none, the ghost is hidden where it stands
+    /// (<c>EF_NODRAW</c>, :1263-1277) and unmoved.
+    /// </summary>
+    private void WalkAttachmentPlacement(int ownerIndex, TFBaseObject ghost)
+    {
+        if (!sapper.FindSappable(ownerIndex, out EntityHandle building, out Vector point))
+        {
+            ghost.SetPlacementVisible(false);
+            return;
+        }
+
+        entities.Teleport(ghost.Handle, point, entities.GetAngles(ghost.Handle), zeroVelocity: true);
+        ghost.SetPlacementVisible(true);
     }
 
     /// <summary>

@@ -57,6 +57,17 @@ public static class TFItemClassTranslation
             }
         }
 
+        // The builder family's retarget (ManageBuilderWeapons's SetSubType,
+        // tf_player.cpp:4309-4316, :4627-4631): the builder item in a class
+        // whose buildable is an attachment is the sapper row — the shell that
+        // carries the class's buildable, its place the sapper's.
+        if (suffixed is null
+            && string.Equals(itemClass, TFWeaponNames.Name(TFWeaponId.Builder).ToLowerInvariant(), StringComparison.OrdinalIgnoreCase)
+            && playerClass.Buildables.Contains(TFObjectType.AttachmentSapper))
+        {
+            return TFWeaponTypes.Sapper;
+        }
+
         return suffixed ?? itemClass;
     }
 }

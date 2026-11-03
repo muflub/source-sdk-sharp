@@ -28,6 +28,7 @@ public enum TFBlastJump
     None = 0,
     RocketJumped = 1,
     StickyJumped = 1 << 1,
+    EnemyBlastedMe = 1 << 2,
 }
 
 /// <summary>
@@ -52,6 +53,7 @@ public sealed class TFBlastJumpState(TFPlayerCarriers carriers, TFPlayerConditio
                                      IEnginePlayers players, IEngineGameEvents events) : IPlayerComponent
 {
     private TFBlastJump _state = TFBlastJump.None;
+    private bool _blastLatched;
     private float _landTime;
     private EntityHandle _player = EntityHandle.None;
     private int _index = -1;
@@ -132,12 +134,43 @@ public sealed class TFBlastJumpState(TFPlayerCarriers carriers, TFPlayerConditio
     }
 
     /// <summary>
-    /// <c>CTFPlayer::Spawn</c>'s <c>m_iBlastJumpState = 0</c>
-    /// (tf_player.cpp:3746): a death in the air lands under the new life
-    /// with no jump. The condition is already gone — the spawn clears every
-    /// one — and the landing time is stock's plain member, untouched here.
+    /// The blast-damage latch, stock's <c>m_bTakenBlastDamageSinceLastMovement</c>:
+    /// <see cref="NoteEnemyBlast"/> raises it when another combatant's blast
+    /// pushes (:10474-10477), <see cref="EnemyBlasted"/> consumes it on the
+    /// rise (:2361-2364), and <see cref="EndCommand"/> drops it with the
+    /// command (:335) — so one blast claims its jump on the next command's
+    /// rise and on no later one.
     /// </summary>
-    public void ClearOnSpawn() => _state = TFBlastJump.None;
+    public void NoteEnemyBlast() => _blastLatched = true;
+
+    /// <summary>
+    /// The rise arm's read (:2361-2364): with the latch up the rise names
+    /// <c>TF_PLAYER_ENEMY_BLASTED_ME</c> — a state bit with no event, which
+    /// <see cref="Set"/> answers for the exact-equality arms — and the
+    /// condition with it (:8701). The latch itself is the command's, not the
+    /// read's: only <see cref="EndCommand"/> drops it.
+    /// </summary>
+    public void EnemyBlasted()
+    {
+        if (_blastLatched)
+            Set(TFBlastJump.EnemyBlastedMe);
+    }
+
+    /// <summary>The end-of-command clear (:335): the latch lives exactly one command.</summary>
+    public void EndCommand() => _blastLatched = false;
+
+    /// <summary>
+    /// <c>CTFPlayer::Spawn</c>'s <c>m_iBlastJumpState = 0</c> and the latch's
+    /// <c>= false</c> (tf_player.cpp:3746, :3748): a death in the air lands
+    /// under the new life with no jump and with no blast held over. The
+    /// condition is already gone — the spawn clears every one — and the
+    /// landing time is stock's plain member, untouched here.
+    /// </summary>
+    public void ClearOnSpawn()
+    {
+        _state = TFBlastJump.None;
+        _blastLatched = false;
+    }
 
     public void Detach()
     {

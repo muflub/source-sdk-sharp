@@ -230,14 +230,14 @@ public unsafe class ClientSkeletonsTests
         public ClientSkeletons Skeletons { get; }
         public SolverBodies Ragdolls { get; } = new();
 
-        public Rig()
+        public Rig(Func<EntityHandle, (string BoneName, float AngleRadians)?>? boneSpin = null)
         {
             Memory.Models[Model] = Chain();
             Blocks.Held[Entity] = Block(new NVector(100f, 0f, 0f), worldX: 100f);
             Indices[5] = Entity;
             Skeletons = new ClientSkeletons(Blocks, Store, new StudioModels(Memory),
                                             i => Indices.TryGetValue(i, out EntityHandle h) ? h : null,
-                                            Environment, Log, new Props(), null, () => Ragdolls);
+                                            Environment, Log, new Props(), null, () => Ragdolls, boneSpin);
         }
 
         public bool Setup(EntityHandle entity, float[] output, int mask = UsedByAnything, float time = 1f) =>
@@ -261,6 +261,132 @@ public unsafe class ClientSkeletonsTests
 
         // Cycle 0: the root at the entity origin, the hand +5 x and +10 z off it.
         Assert.Equal(new NVector(105f, 0f, 10f), At(output, 2));
+    }
+
+    /// <summary>The same block turned 90° about pitch: a parent whose basis rows
+    /// are (0,0,1), (0,1,0), (-1,0,0), so a bone's local frame differs from the
+    /// world's and the two spaces can be told apart by one ask.</summary>
+    private static byte[] PitchedBlock()
+    {
+        EngineBlock block = default;
+        block.Head.ModelIndex = Model;
+        block.Head.Origin = new Vector(100f, 0f, 0f);
+        block.Head.Angles = new QAngle(90f, 0f, 0f);
+        block.Head.WorldTransform = new Transform(1f, 0f, 0f, 100f, 0f, 1f, 0f, 0f, 0f, 0f, 1f, 0f);
+        block.Client.RenderOrigin = block.Head.Origin;
+
+        byte[] bytes = new byte[EngineBlock.SizeBytes];
+        MemoryMarshal.Write(bytes, in block);
+        return bytes;
+    }
+
+    /// <summary>
+    /// The bone-spin hook, the minigun's arm: the named bone's world matrix is
+    /// its parent's world basis times the bone's LOCAL turn about its own Z —
+    /// stock's <c>StandardBlendingRules</c> writes <c>q[bone] = AngleQuaternion
+    /// (RadianEuler(0, 0, angle))</c> before the chain composes worlds. Under a
+    /// pitched parent the axis follows the parent (rows (0,0,1), (-1,0,0),
+    /// (0,-1,0)), not the world's (which would pin Row2 to (0,0,1) and turn the
+    /// XY pair only). The held translation rides whole in the W column; the
+    /// unnamed bone keeps its built basis; asked once, for the entity drawn.
+    /// </summary>
+    [Fact]
+    public void ABoneSpinTurnsTheBoneInTheParentsSpaceNotTheWorlds()
+    {
+        EntityHandle asked = default;
+        int asks = 0;
+        using Rig rig = new(entity =>
+        {
+            asks++;
+            asked = entity;
+            return ("hand", MathF.PI / 2f);
+        });
+        rig.Blocks.Held[Entity] = PitchedBlock();
+
+        float[] output = new float[3 * Floats];
+        Assert.True(rig.Setup(Entity, output));
+
+        Assert.Equal(1, asks);
+        Assert.Equal(Entity, asked);
+
+        // Bone 2 (hand) under the pitched arm: parent basis (0,0,1),(0,1,0),
+        // (-1,0,0) turned +90° about its local Z. A world-space spin would
+        // answer Row0=(0,1,0), Row1=(-1,0,0), Row2=(0,0,1) instead — different
+        // at Row0.Z and Row1.Y, so this pins the parent space.
+        SameRow(output, 2, 0, 0f, 0f, 1f);
+        SameRow(output, 2, 1, 1f, 0f, 0f);
+        SameRow(output, 2, 2, 0f, 1f, 0f);
+        SamePos(output, 2, 110f, 0f, -5f); // Where the pose put it.
+
+        // Bone 1 (arm) keeps its built pitched basis, and its own place.
+        SameRow(output, 1, 0, 0f, 0f, 1f);
+        SameRow(output, 1, 1, 0f, 1f, 0f);
+        SameRow(output, 1, 2, -1f, 0f, 0f);
+        SamePos(output, 1, 110f, 0f, 0f);
+    }
+
+    /// <summary>Angle 0 is stock's identity quaternion: the bone's world matrix
+    /// comes back exactly as the pose built it (this rig's bind local rotations
+    /// are identity, so that is the pitched parent's own orientation and place).
+    /// An effect with nothing to hold leaves every bone as the pose built it.</summary>
+    [Fact]
+    public void AZeroSpinReproducesThePosesOwnOrientation()
+    {
+        using Rig rig = new(entity => ("hand", 0f));
+        rig.Blocks.Held[Entity] = PitchedBlock();
+        float[] spun = new float[3 * Floats];
+        Assert.True(rig.Setup(Entity, spun));
+
+        SameRow(spun, 2, 0, 0f, 0f, 1f);
+        SameRow(spun, 2, 1, 0f, 1f, 0f);
+        SameRow(spun, 2, 2, -1f, 0f, 0f);
+        SamePos(spun, 2, 110f, 0f, -5f);
+
+        using Rig plain = new();
+        plain.Blocks.Held[Entity] = PitchedBlock();
+        float[] held = new float[3 * Floats];
+        Assert.True(plain.Setup(Entity, held));
+        Assert.Equal(held, spun);
+    }
+
+    /// <summary>The bones under the turned bone follow it as the chain would:
+    /// the hand hangs off the turned arm at its local offset rotated along, and
+    /// keeps its own basis turned with the arm.</summary>
+    [Fact]
+    public void ABoneSpinCarriesTheChildrenUnderIt()
+    {
+        using Rig rig = new(entity => ("arm", MathF.PI / 2f));
+        float[] output = new float[3 * Floats];
+        Assert.True(rig.Setup(Entity, output));
+
+        // The arm: identity parent, +90° about Z. The hand: +5 along its local
+        // X, now pointing world +Y, so (100, 5, 10) where the pose had
+        // (105, 0, 10).
+        Assert.Equal(new NVector(100f, 0f, 10f), At(output, 1));
+        SameRow(output, 1, 0, 0f, -1f, 0f);
+        SameRow(output, 1, 1, 1f, 0f, 0f);
+        SameRow(output, 2, 0, 0f, -1f, 0f);
+        SameRow(output, 2, 1, 1f, 0f, 0f);
+        SamePos(output, 2, 100f, 5f, 10f);
+    }
+
+    /// <summary>Row <paramref name="row"/> of bone <paramref name="bone"/>'s
+    /// world matrix out of the engine's float array, to the six decimals the
+    /// sin/cos chains settle at.</summary>
+    private static void SameRow(float[] bones, int bone, int row, float x, float y, float z)
+    {
+        int i = bone * Floats + row * 4;
+        Assert.Equal(x, bones[i], 5);
+        Assert.Equal(y, bones[i + 1], 5);
+        Assert.Equal(z, bones[i + 2], 5);
+    }
+
+    /// <summary>The position column of one bone's world matrix (the W of each row).</summary>
+    private static void SamePos(float[] bones, int bone, float x, float y, float z)
+    {
+        Assert.Equal(x, bones[bone * Floats + 3], 5);
+        Assert.Equal(y, bones[bone * Floats + 7], 5);
+        Assert.Equal(z, bones[bone * Floats + 11], 5);
     }
 
     [Fact]

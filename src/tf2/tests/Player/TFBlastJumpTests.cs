@@ -177,6 +177,71 @@ public class TFBlastJumpTests
         Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventFire"));
     }
 
+    /// <summary>The other's blast latches the victim's next rise
+    /// (tf_player.cpp:10474-10477): the enemy pass raises the latch, no rise
+    /// reads it, the rise claims the enemy-blasted jump — the condition with
+    /// no jump event (:8679-8689) — and only then.</summary>
+    [Fact]
+    public void An_enemy_blast_latches_the_next_rise_and_fires_no_jump_event()
+    {
+        var (rig, blast, conditions, jump) = JumpRig();
+        AirborneAtHundred(rig, EntityState.None);
+        rig.Engine.Returns("Damage.TakeDamageAnswered", 50);
+        rig.Engine.Returns("Entities.GetOrigin", new Vector(0f, 0f, 1f));   // the victim at the blast
+        rig.Engine.FillsSphere(PlayerRig.Player);
+        var attacker = new EntityHandle(0x0002_000Bu);                       // somebody else fires
+
+        EnemyBlast(rig, blast, attacker);
+
+        // The latch waits for a rise: no condition yet, and the blast itself
+        // fires no jump event.
+        Assert.False(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
+        Assert.Equal(0, rig.Engine.CountOf("GameEvents.EventCreate"));
+
+        jump.EnemyBlasted();                                                  // the rise, z over 250
+
+        Assert.True(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
+        Assert.Equal(TFBlastJump.EnemyBlastedMe, jump.State);
+        Assert.Equal(0, rig.Engine.CountOf("GameEvents.EventCreate"));       // the enemy bit fires nothing
+    }
+
+    /// <summary>The latch lives exactly one command (:335): the end of the
+    /// command drops it, and a later rise claims nothing.</summary>
+    [Fact]
+    public void The_latch_lives_one_command()
+    {
+        var (_, _, conditions, jump) = JumpRig();
+
+        jump.NoteEnemyBlast();
+        jump.EndCommand();
+        jump.EnemyBlasted();
+
+        Assert.False(conditions.InCond(PlayerRig.Player, TFCond.Blastjumping));
+        Assert.Equal(TFBlastJump.None, jump.State);
+    }
+
+    /// <summary>The spawn clears both (:3746, :3748): a death in the air
+    /// lands under the new life with no jump and no held latch.</summary>
+    [Fact]
+    public void The_spawn_clears_the_state_and_the_latch()
+    {
+        var (_, _, _, jump) = JumpRig();
+
+        jump.Set(TFBlastJump.RocketJumped);
+        jump.NoteEnemyBlast();
+        jump.ClearOnSpawn();
+        Assert.Equal(TFBlastJump.None, jump.State);
+
+        jump.EnemyBlasted();
+        Assert.Equal(TFBlastJump.None, jump.State);
+    }
+
+    /// <summary>The other's rocket at the victim, an attacker that is not the
+    /// victim: the sweep's enemy pass.</summary>
+    private static void EnemyBlast(PlayerRig rig, TFBlastApplier blast, EntityHandle attacker)
+        => blast.Apply(new Vector(0f, 0f, 0f), RocketBlast(), attacker, Projectile, ignored: Projectile,
+                       TFWeaponId.Rocketlauncher, "tf_weapon_rocketlauncher", critical: false);
+
     /// <summary>No entity anywhere: the directory half of the water test.</summary>
     private sealed class NoEntities : IEntityDirectory
     {

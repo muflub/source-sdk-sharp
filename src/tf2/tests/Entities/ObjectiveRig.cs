@@ -420,7 +420,7 @@ internal sealed class FakeConceptRules : IResponseRules
     public bool FindBestResponse(ResponseCriteriaSet criteria, out MatchedResponse response, IResponseFilter? filter = null)
     {
         Asked.Add((criteria.GetValue(criteria.Find("concept")), criteria.GetValue(criteria.Find("playerclass"))));
-        foreach (string key in new[] { "playerweapon", "minigunfiretime", "randomnum" })
+        foreach (string key in new[] { "playerweapon", "minigunfiretime", "randomnum", "objtype" })
             Words.Add((key, criteria.GetValue(criteria.Find(key))));
 
         response = Match ? new MatchedResponse { Kind = Kind, Name = Name, Rule = "staged" } : new();

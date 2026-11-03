@@ -5,6 +5,8 @@
 //
 //=============================================================================//
 
+using System;
+
 using SourceSharp.Abi;
 using SourceSharp.Server;
 
@@ -39,6 +41,30 @@ public sealed class TFConceptSpeech(
     ITeamRoundState? round = null,
     ILog? log = null)
 {
+    /// <summary>MP_CONCEPT_BUILDING_OBJECT (mp_shareddefs.cpp:57) — the builder's line as construction starts.</summary>
+    public const string BuildingObject = "TLK_BUILDING_OBJECT";
+
+    /// <summary>MP_CONCEPT_LOST_OBJECT (mp_shareddefs.cpp:58) — the builder's line as the blow kills it.</summary>
+    public const string LostObject = "TLK_LOST_OBJECT";
+
+    /// <summary>MP_CONCEPT_PLAYER_TAUNT (mp_shareddefs.cpp:23) — the base weapon taunt's line, whose per-class rules are the taunt scenes (talker/tf.txt).</summary>
+    public const string PlayerTaunt = "TLK_PLAYER_TAUNT";
+
+    /// <summary>MP_CONCEPT_SPY_SAPPER (mp_shareddefs.cpp:59) — the builder's line as the sapper lands.</summary>
+    public const string SpySapper = "TLK_SPY_SAPPER";
+
+    /// <summary>MP_CONCEPT_REDEPLOY_BUILDING (mp_shareddefs.h:104) — the redeploy's line, the carried object put down.</summary>
+    public const string RedeployBuilding = "TLK_REDEPLOY_BUILDING";
+
+    /// <summary>MP_CONCEPT_CART_MOVING_FORWARD (mp_shareddefs.cpp:71) — the escort line, under the push.</summary>
+    public const string CartMovingForward = "TLK_CART_MOVING_FORWARD";
+
+    /// <summary>MP_CONCEPT_CART_MOVING_BACKWARD (mp_shareddefs.cpp:72) — the escort line, the cart receding.</summary>
+    public const string CartMovingBackward = "TLK_CART_MOVING_BACKWARD";
+
+    /// <summary>MP_CONCEPT_CART_STOP (mp_shareddefs.cpp:73) — the escort line, the cart halted.</summary>
+    public const string CartStop = "TLK_CART_STOP";
+
     /// <summary>MP_CONCEPT_LOST_CONTROL_POINT (mp_shareddefs.cpp:61).</summary>
     public const string LostControlPoint = "TLK_LOST_CONTROL_POINT";
 
@@ -61,7 +87,20 @@ public sealed class TFConceptSpeech(
     public const string MinigunFireWeapon = "TLK_MINIGUN_FIREWEAPON";
 
     /// <summary>The player speaks the concept; false when dead, uncarried or unmatched.</summary>
-    public bool Speak(EntityHandle speaker, string concept) => Speak(speaker, concept, "", 0f);
+    public bool Speak(EntityHandle speaker, string concept) => SpeakWith(speaker, concept, null);
+
+    /// <summary>
+    /// The player speaks the concept with one extra criterion word — stock's
+    /// single <c>key:value</c> modifier (<c>CBaseObject::GetResponseRulesModifier</c>'s
+    /// <c>objtype:sentrygun</c> shape, tf_obj.cpp:1293-1305, into
+    /// <c>SpeakIfAllowed</c>'s criteria).
+    /// </summary>
+    public bool Speak(EntityHandle speaker, string concept, string key, string value)
+        => SpeakWith(speaker, concept, criteria => criteria.Append(key, value));
+
+    /// <summary>The player speaks with its held weapon's classname as the word — the shared criteria's <c>playerweapon</c> (<c>ModifyOrAppendCriteria</c>, tf_player.cpp:19212+), which the per-class rules' <c>WeaponIs*</c> criteria read.</summary>
+    public bool Speak(EntityHandle speaker, string concept, string weaponName)
+        => SpeakWith(speaker, concept, criteria => criteria.Append("playerweapon", weaponName));
 
     /// <summary>
     /// The player speaks with its held weapon's words beside the player's own
@@ -70,6 +109,14 @@ public sealed class TFConceptSpeech(
     /// roll the percent-chance criteria read.
     /// </summary>
     public bool Speak(EntityHandle speaker, string concept, string weaponName, float firingDuration)
+        => SpeakWith(speaker, concept, criteria =>
+        {
+            criteria.Append("playerweapon", weaponName);
+            criteria.Append("minigunfiretime", firingDuration.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
+        });
+
+    /// <summary>The ask itself: the alive gate, the player's words, the roll, the caller's extra, the match.</summary>
+    private bool SpeakWith(EntityHandle speaker, string concept, Action<ResponseCriteriaSet>? appendExtra)
     {
         // SpeakIfAllowed's gate (basemultiplayerplayer.cpp:71-78).
         if (!players.IsAlive(speaker))
@@ -83,11 +130,7 @@ public sealed class TFConceptSpeech(
         // fails them all, so it rides every ask.
         criteria.Append("randomnum", rng.RandomInt(0, 100).ToString(System.Globalization.CultureInfo.InvariantCulture));
 
-        if (!string.IsNullOrEmpty(weaponName))
-        {
-            criteria.Append("playerweapon", weaponName);
-            criteria.Append("minigunfiretime", firingDuration.ToString("F1", System.Globalization.CultureInfo.InvariantCulture));
-        }
+        appendExtra?.Invoke(criteria);
 
         if (!responseRules.FindBestResponse(criteria, out var response))
             return false;
@@ -150,5 +193,21 @@ public sealed class TFConceptSpeech(
     {
         foreach (EntityHandle member in teams.Players(team))
             Speak(member, concept);
+    }
+
+    /// <summary>
+    /// Every client speaks, once each:
+    /// <c>CMultiplayRules::HaveAllPlayersSpeakConceptIfAllowed</c>
+    /// (multiplay_gamerules.cpp:1817-1835) with no team filter — the walk over
+    /// the player table, the dead refused by the same gate as one speaker's.
+    /// </summary>
+    public void SpeakAll(string concept)
+    {
+        for (int slot = 1; slot <= EngineLimits.MaxPlayerSlots; slot++)
+        {
+            EntityHandle speaker = players.GetHandle(slot);
+            if (speaker != EntityHandle.None)
+                Speak(speaker, concept);
+        }
     }
 }

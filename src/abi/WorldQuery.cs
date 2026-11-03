@@ -561,6 +561,23 @@ public enum WeaponAnim
 
     /// <summary>ACT_MP_ATTACK_STAND_POSTFIRE: the settle pose the minigun's <c>WindDown</c> sends (:855).</summary>
     Postfire = 16,
+
+    /// <summary>
+    /// ACT_VM_HITCENTER: the melee's plain swing
+    /// (<c>CTFWeaponBaseMelee::DoViewModelAnimation</c>,
+    /// tf_weaponbase_melee.cpp:339) — every class's arms tags it
+    /// <c>ACT_MELEE_VM_*</c> but the heavy's, whose fists the schema renames.
+    /// </summary>
+    HitCenter = 17,
+
+    /// <summary>ACT_VM_SWINGHARD: the melee's crit swing, asked first (tf_weaponbase_melee.cpp:330-336).</summary>
+    SwingHard = 18,
+
+    /// <summary>ACT_VM_HITLEFT: the heavy's left hook, the primary fist (tf_weapon_fists.cpp:164).</summary>
+    HitLeft = 19,
+
+    /// <summary>ACT_VM_HITRIGHT: the heavy's right hook, the second fist's punch (tf_weapon_fists.cpp:164).</summary>
+    HitRight = 20,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

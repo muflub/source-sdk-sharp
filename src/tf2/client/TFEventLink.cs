@@ -19,10 +19,12 @@ public sealed class EventLink
     private readonly List<Action<ControlPointTouchArgs>> _touchLeaveListeners = [];
     private readonly List<Action<TeamplayWinPanelArgs>> _winPanelListeners = [];
     private readonly List<Action<TeamplayRoundStartArgs>> _roundStartListeners = [];
+    private readonly List<Action<BlastJumpArgs>> _blastJumpListeners = [];
 
     public EventLink(PlayerDeathEvent deaths, PlayerHurtEvent hurts,
                      ControlPointStartTouchEvent startTouch, ControlPointEndTouchEvent endTouch,
-                     TeamplayWinPanelEvent winPanel, TeamplayRoundStartEvent roundStart)
+                     TeamplayWinPanelEvent winPanel, TeamplayRoundStartEvent roundStart,
+                     RocketJumpEvent rocketJump = null!, StickyJumpEvent stickyJump = null!)
     {
         deaths.Fired += Dispatch;    // the engine's dispatch, as the core's KillFeed takes it
         hurts.Fired += Hurt;
@@ -30,6 +32,10 @@ public sealed class EventLink
         endTouch.Fired += TouchLeave;
         winPanel.Fired += WinPanel;
         roundStart.Fired += RoundStart;
+        if (rocketJump is not null)
+            rocketJump.Fired += BlastJump;
+        if (stickyJump is not null)
+            stickyJump.Fired += BlastJump;
     }
 
     /// <summary>Registers a death listener (stock's ListenForGameEvent, in
@@ -55,6 +61,12 @@ public sealed class EventLink
     /// <summary>Registers a teamplay_round_start listener, the panel's
     /// hide arm (tf_hud_winpanel.cpp:119-126).</summary>
     public void OnRoundStart(Action<TeamplayRoundStartArgs> listener) => _roundStartListeners.Add(listener);
+
+    /// <summary>Registers a blast-jump listener for both events
+    /// (<c>rocket_jump</c>, <c>sticky_jump</c>): the feet-smoke's gate, stock's
+    /// <c>RocketJumped() || StickyJumped()</c> of tf_player.cpp:1509 — the two
+    /// bits that fire an event, so the events alone are that gate.</summary>
+    public void OnBlastJump(Action<BlastJumpArgs> listener) => _blastJumpListeners.Add(listener);
 
     private void Dispatch(PlayerDeathArgs death)
     {
@@ -90,5 +102,11 @@ public sealed class EventLink
     {
         foreach (var listener in _roundStartListeners)
             listener(round);
+    }
+
+    private void BlastJump(BlastJumpArgs jump)
+    {
+        foreach (var listener in _blastJumpListeners)
+            listener(jump);
     }
 }

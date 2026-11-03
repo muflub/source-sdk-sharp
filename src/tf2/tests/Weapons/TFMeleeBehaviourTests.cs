@@ -12,6 +12,7 @@ namespace TF2.Tests.Weapons;
 public sealed class TFMeleeBehaviourTests
 {
     private const int Attack = (int)InputButtons.Attack;
+    private const int Attack2 = (int)InputButtons.Attack2;
     private const string Bat = "tf_weapon_bat";
 
     private static int NoCrit => TFWeaponWorld.MeleeSeed(1500, 10000);
@@ -167,6 +168,78 @@ public sealed class TFMeleeBehaviourTests
         world.Run(w, vm, 0, now: 10.25f);
 
         Assert.True(Assert.Single(world.Effects.Swings).Trace.CritFromBehind);
+    }
+
+    // The c_heavy_arms table (HeavyArmsSequences): the fists' cells and the
+    // scout's plain melee pair, as the shipped mdl tags them.
+    private const int FistsLeft = 4;
+    private const int FistsRight = 5;
+    private const int FistsCrit = 6;
+    private const int BatPlain = 4;
+    private const int BatCrit = 6;
+
+    [Fact]
+    public void The_left_fist_plays_the_left_hook()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_fists", clip: -1, reserve: 0);
+        world.Arms.Sequences[WeaponAnim.HitLeft] = FistsLeft;
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.Equal(FistsLeft, vm.Sequence);
+    }
+
+    [Fact]
+    public void The_right_fist_is_the_same_punch_playing_the_right_hook()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_fists", clip: -1, reserve: 0);
+        world.Arms.Sequences[WeaponAnim.HitRight] = FistsRight;
+
+        world.Run(w, vm, Attack2, now: 10f, seed: NoCrit);
+        Assert.Equal(FistsRight, vm.Sequence);
+        // Punch arms both clocks from the one delay (tf_weapon_fists.cpp:119).
+        Assert.Equal(w.NextPrimaryAttack, w.NextSecondaryAttack, 4);
+
+        world.Run(w, vm, 0, now: 10.25f);
+        Assert.Single(world.Effects.Swings);
+    }
+
+    [Fact]
+    public void The_fists_crit_swing_plays_the_fists_hard_swing()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_fists", clip: -1, reserve: 0);
+        world.Arms.Sequences[WeaponAnim.SwingHard] = FistsCrit;
+
+        world.Run(w, vm, Attack, now: 10f, seed: Crit);
+
+        Assert.Equal(FistsCrit, vm.Sequence);
+    }
+
+    [Fact]
+    public void A_plain_melee_swing_plays_the_hitcenter_pose()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+        world.Arms.Sequences[WeaponAnim.HitCenter] = BatPlain;
+
+        world.Run(w, vm, Attack, now: 10f, seed: NoCrit);
+
+        Assert.Equal(BatPlain, vm.Sequence);
+    }
+
+    [Fact]
+    public void A_melee_crit_plays_the_swinghard_pose()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed(Bat, clip: -1, reserve: 0);
+        world.Arms.Sequences[WeaponAnim.SwingHard] = BatCrit;
+
+        world.Run(w, vm, Attack, now: 10f, seed: Crit);
+
+        Assert.Equal(BatCrit, vm.Sequence);
     }
 
     /// <summary>An item holding one named attribute, as the schema's wearables do.</summary>

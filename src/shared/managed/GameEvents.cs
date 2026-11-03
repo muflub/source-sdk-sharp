@@ -372,3 +372,33 @@ public sealed class TeamplayRoundStartEvent : IGameEvent<TeamplayRoundStartArgs>
     public void Dispatch(GameEventReader reader)
         => Raise(new TeamplayRoundStartArgs(reader.GetBool("full_reset")));
 }
+
+/// <summary>A blast jump: the jumper's userid. Stock's <c>rocket_jump</c> and
+/// <c>sticky_jump</c> carry the same fields (<c>userid</c>,
+/// <c>playsound</c>), so one args type serves both holders.</summary>
+public readonly record struct BlastJumpArgs(int UserId);
+
+/// <summary><c>rocket_jump</c> (<c>SetBlastJumpState</c>,
+/// tf_player.cpp:8679-8682): the jumper's userid.</summary>
+[GameEvent("rocket_jump")]
+public sealed class RocketJumpEvent : IGameEvent<BlastJumpArgs>
+{
+    public event Action<BlastJumpArgs>? Fired;
+
+    public void Raise(BlastJumpArgs args) => Fired?.Invoke(args);
+
+    public void Dispatch(GameEventReader reader)
+        => Raise(new BlastJumpArgs(reader.GetInt("userid")));
+}
+
+/// <summary><c>sticky_jump</c> (:8684-8689): the jumper's userid.</summary>
+[GameEvent("sticky_jump")]
+public sealed class StickyJumpEvent : IGameEvent<BlastJumpArgs>
+{
+    public event Action<BlastJumpArgs>? Fired;
+
+    public void Raise(BlastJumpArgs args) => Fired?.Invoke(args);
+
+    public void Dispatch(GameEventReader reader)
+        => Raise(new BlastJumpArgs(reader.GetInt("userid")));
+}

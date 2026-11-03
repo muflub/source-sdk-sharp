@@ -254,6 +254,17 @@ public interface IServerModule
     /// </summary>
     FootingAnswer? GetFooting(int playerIndex, Vector velocity, Vector planeNormal) => null;
 
+    /// <summary>
+    /// The rise arm's enemy-blast read of a server-side command. Runs on the
+    /// server only, as stock's GAME_DLL arm; see <c>IMovementRules.EnemyBlasted</c>.
+    /// </summary>
+    void GetEnemyBlasted(int playerIndex) { }
+
+    /// <summary>
+    /// The end of one server-side command; see <c>IMovementRules.EndCommand</c>.
+    /// </summary>
+    void GetEndCommand(int playerIndex) { }
+
     //-------------------------------------------------------------------------
     // The game DLL, in the five subjects it splits into.
     //

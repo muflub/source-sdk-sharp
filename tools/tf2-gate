@@ -97,6 +97,10 @@ CLASS_HEALTH = {"scout": 125, "medic": 150, "heavyweapons": 300}
 CLASS_SPEED = {"scout": 400.0, "heavyweapons": 230.0}
 SPEED_TOLERANCE = 0.05
 SPEED_MEASURE_SECONDS = 1.0
+# The weapon step's class walk (step_weapon): each entry differs from the one
+# before it, so every joinclass is a real class change and answers the game's
+# own join-now line. Heavy first: the classes step leaves the host a scout.
+TRIED_CLASSES = ("heavyweapons", "scout", "medic")
 SPEED_PREROLL_SECONDS = 0.3
 # The integrator's open stretch on ctf_2fort at tf2 40fe7a653: 630 u clear
 # along +X from this spot (measured with server origin/tick samples).
@@ -115,7 +119,7 @@ TEAM_RED, TEAM_BLU = 2, 3
 # machinery stays (a step that cannot measure must say so in its row).
 NOT_WRITTEN = ()
 
-STEP_ORDER = ("join", "teams", "classes", "combat", "heal", "respawn",
+STEP_ORDER = ("join", "teams", "classes", "weapon", "combat", "heal", "respawn",
               "ctf", "changelevel", "payload", "mode", "teardown")
 # Every step the gate now holds (the Makefile's word on `make tf2-gate`):
 # the lane wrote the last four (ctf, changelevel, payload, mode) at 4.2.
@@ -211,6 +215,45 @@ def health_is(fields, want):
         return int(float(got)) == want
     except (TypeError, ValueError):
         return False
+
+
+def rendered_ent_indexes(text):
+    """The ent= numbers of one recorded render frame's model.DrawModelEx lines
+    (shell_render_trace_client.cpp writes one per draw call). The exact call
+    name only: model.DrawModelExStaticProp and model.DrawModelExecute are
+    different calls, and their ent= must not stand in for a model draw. PURE,
+    so --self-test drives it; an empty frame answers an empty set."""
+    hits = set()
+    for line in text.split("\n"):
+        head, sep, rest = line.partition("\t")
+        if head != "model.DrawModelEx" or sep == "":
+            continue
+        m = re.match(r"^ent=(-?\d+)", rest)
+        if m:
+            hits.add(int(m.group(1)))
+    return hits
+
+
+def rendered_draws(text):
+    """[(ent, model)] for one recorded frame's model draws -- both heads the
+    trace records them under (model.DrawModelEx for brush and viewmodel
+    calls, model.DrawModelExecute for the studio path; run 20261102-180437:
+    the join client's frames name the viewmodel pair under DrawModelEx and a
+    body read must see whichever head its draw took, while
+    DrawModelExStaticProp stays out like in rendered_ent_indexes). The names
+    paired with the ent numbers so a join client's frame can be read without
+    knowing how ITS directory numbers entities (its /ents answers empty; the
+    server's indices do not transfer). PURE like rendered_ent_indexes, so
+    --self-test drives it."""
+    draws = []
+    for line in text.split("\n"):
+        head, sep, rest = line.partition("\t")
+        if sep == "" or head not in ("model.DrawModelEx", "model.DrawModelExecute"):
+            continue
+        m = re.match(r"^ent=(-?\d+) model=(\S+)", rest)
+        if m:
+            draws.append((int(m.group(1)), m.group(2)))
+    return draws
 
 
 def row_passed(row):
@@ -1341,6 +1384,434 @@ def step_classes(run, state):
     ok = (speed_ok(scout_speed, CLASS_SPEED["scout"])
           and speed_ok(heavy_speed, CLASS_SPEED["heavyweapons"]))
     return ("PASS" if ok else "FAIL"), numbers
+
+
+def step_weapon(run, state):
+    """Stage 4.2 step 3b, the carried weapon in the frame: what two lanes
+    could not prove (docs/todo.md, thirdperson's weapon redraw -- the fix is
+    f5ac6388a's SetRestingThirdPersonSeen re-ask; this step is its regression
+    test). Over the gate's own two boots:
+
+      * Another player's view: the listen game's own client records its next
+        frame; the frame names p2's body (the control -- a frame that draws
+        nothing proves nothing) and p2's carried ss_weapon entity, matched by
+        its srv-side ent index (one process, one numbering). Repeated with
+        p2 in each TRIED_CLASSES, every class carrying a different weapon.
+      * p1's own view: first person -- only the watched player's body is
+        under models/player/; `thirdperson` (a cheat, and sv_cheats is
+        already on) -- the owner's own body rejoins it, the resting re-ask
+        f5ac6388a's SetRestingThirdPersonSeen drives; `firstperson` -- one
+        body again. All three arms on the one player, so the flip is the
+        subject and not the scene. If the resting third-person re-ask stops
+        happening, the third-person arm goes red with the second body
+        missing.
+
+    The frames ride cs_cl_render_trace (RenderPlanHost.cs: records the next
+    frame to the file; live-gate's own plan-frame reader waits the same way,
+    on the render.PopView line that says the whole frame was written)."""
+    numbers = {}
+    run.srv.cmd("sv_cheats 1")  # thirdperson is a cheat; the combat step's same insurance
+
+    if not wait_pump(run, "weapon: both players alive",
+                     lambda: run.is_alive(run.p1) and run.is_alive(run.p2), 60.0):
+        numbers["detail"] = "a player was not alive when the step started (p1 %r, p2 %r)" % (
+            run.is_alive(run.p1), run.is_alive(run.p2))
+        return "FAIL", numbers
+
+    # The geometry: the listen game's own client records every frame here --
+    # one console, one entity numbering (the srv indices), and its setang
+    # reaches its own live view angles (run 20261102-181640 proved setang
+    # reaches the live view on a join client: after one the recorded frame's
+    # prop draws shifted). The observer (the listen game's own player p1)
+    # stands on the proven-flat corridor spot facing down its heading, and
+    # the SUBJECT (p2, the join client's player) is the observed one: his
+    # body and carried weapon must appear in p1's frame, which is the same
+    # "another player's view names the carried weapon" the step is about,
+    # with roles mirrored because the listen game is the recorder whose
+    # numbering the trace answers in. The subject is placed relative to the
+    # RECORDED CAMERA, not to the corridor spot: run 20261102-182433 showed
+    # a camera still parked at its spawn corner (~2100 u from the corridor)
+    # culled the far body from its frame even while aimed at it -- distance,
+    # not angle, drops it -- so each attempt reads where the camera actually
+    # stood and stands the subject ~120 u ahead of that, facing back.
+    spot = list(TRACK_SPOT)
+    fx, fy = forward_of(TRACK_YAW)
+    front = [spot[0] + fx * 200.0, spot[1] + fy * 200.0, spot[2]]
+    if not settle_on(run, run.p1, spot, (0.0, TRACK_YAW, 0.0)):
+        numbers["detail"] = ("the observer would not settle at %s facing %s"
+                             % (fmt_pos(spot), fmt_pos(front)))
+        return "FAIL", numbers
+    if not settle_on(run, run.p2, front, (0.0, TRACK_YAW + 180.0, 0.0)):
+        numbers["detail"] = ("the subject would not settle at %s facing back at %s"
+                             % (fmt_pos(front), fmt_pos(spot)))
+        return "FAIL", numbers
+
+    def joined_away(index, want):
+        """Any joinclass announcement for `want` -- run 20261102-172410 at
+        tip d7dbf6b25: an already-classed live player answers the QUEUED arm
+        ("will be Heavy at the next spawn"), not the instant-spawn one the
+        classes step's first pick got. Which arm fires is the game's business;
+        the class taking effect is measured below by Health, the same
+        per-class number the classes step gates on."""
+        ev = run.class_evidence(index)
+        return ev if ev and ev[1] == want else None
+
+    def srv_weapon(owner_index):
+        """(index, listed): the ss_weapon whose networked OwnerIndex names
+        `owner_index` in the SERVER directory, with how many weapons were
+        listed so a miss says whether the list was empty or only this one's
+        owner went unmatched."""
+        try:
+            listed = run.srv.ents("ss_weapon")
+        except lg.ApiError:
+            return None, "-"
+        for e in listed:
+            try:
+                owner = run.srv.fields(e["index"]).get("OwnerIndex")
+            except lg.ApiError:
+                continue
+            if str(owner) == str(owner_index):
+                return e["index"], len(listed)
+        return None, len(listed)
+
+    def handle_of(api, index):
+        """The handle `api` shows for entity `index` (None when it does not
+        answer). Handles are shared bits across the two sides (the raw
+        EntityHandle survives replication), so a handle read through the
+        server list joins the same entity in any other side's own numbering --
+        which is the numbering that side's render trace answers with (run
+        20261102-174410 at tip d7dbf6b25: srv listed the carried weapon at 415
+        while the join client's frame named its draws 110..423; the client's
+        own /ents list answered empty, so membership must be joined by handle,
+        not by comparing indices across sides)."""
+        try:
+            ent = api.entity(index=index)
+        except lg.ApiError:
+            return None
+        return (ent or {}).get("handle")
+
+    def index_by_handle(api, handle):
+        """(index, raw): what `api` calls the entity whose handle is
+        `handle`, with the reply for the failure detail."""
+        try:
+            got = api.entity(handle=str(handle))
+        except lg.ApiError as why:
+            return None, str(why)[:80]
+        if not got:
+            return None, "not-found"
+        return got.get("index"), repr(got)[:100]
+
+    def trace_frame(api, path, label):
+        """Record `api`'s next frame to `path` and wait for the whole file
+        (live-gate's marker: the done callback writes the completed frame
+        once, so a PopView line says the write finished). None when no frame
+        arrives -- an unrecorded frame fails its arm, never skips it.
+
+        The console reaches both games through their own debug-api sockets;
+        run 20261102-172937 at tip d7dbf6b25: the plain shape answered ok
+        yet wrote nothing on the join client, so after a short beat the
+        prefixed shape (the one live-gate's own client-console calls use) is
+        sent too. The second write overwrites the first whole; the marker
+        only reads a finished frame."""
+        answer = api.cmd("cs_cl_render_trace %s" % path)
+
+        def done():
+            try:
+                with open(path, errors="replace") as handle:
+                    text = handle.read()
+            except OSError:
+                return None
+            return text if "\nrender.PopView" in text else None
+
+        text = wait_pump(run, "%s (plain)" % label, done, 8.0, beat=30.0)
+        if text is None:
+            answer = api.cmd("cmd cs_cl_render_trace %s" % path)
+            text = wait_pump(run, "%s (prefixed)" % label, done, 12.0, beat=30.0)
+        if text is None:
+            # Say what the console answered and what the file holds, so a
+            # red row names the missing piece instead of just a timeout.
+            try:
+                with open(path, errors="replace") as handle:
+                    head = handle.read(120)
+            except OSError:
+                head = "(missing)"
+            run.say("    %s: console answered %r, file head %r" % (label, answer, head))
+        return text
+
+    def frame_camera(frame_text):
+        """(origin, yaw) of the frame's first Push3DView line -- where the
+        recorded camera actually stood and which way it looked (the entity's
+        server-side position can sit elsewhere a beat after a teleport, run
+        20261102-182103, so placement and aim key on the recorded camera)."""
+        for line in frame_text.split("\n"):
+            if not line.startswith("render.Push3DView\t"):
+                continue
+            m = re.search(r"origin=(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)", line)
+            if not m:
+                continue
+            origin = [float(m.group(k)) for k in (1, 2, 3)]
+            a = re.search(r"angles=(-?[\d.]+),(-?[\d.]+),", line)
+            yaw = float(a.group(2)) if a else TRACK_YAW
+            return origin, yaw
+        return None, None
+
+    def subject_spot(cam, yaw):
+        """Where the subject must stand to sit inside `cam`'s frustum and
+        well inside its far clip: ~120 u ahead of the recorded camera along
+        its heading."""
+        if not cam:
+            return front
+        dx, dy = forward_of(yaw)
+        return [cam[0] + dx * 120.0, cam[1] + dy * 120.0, cam[2]]
+
+    # -- another player's view, once per tried class ----------------------------
+    # The listen game's own client (p1) watches; the SUBJECT whose class flips
+    # and whose weapon must be drawn is p2, the join client's player: his own
+    # console answers joinclass and hurtme, and p1's frame is what the trace
+    # writes. The subject's weapon is matched by its srv-side ent index (the
+    # recorder shares the server's numbering -- run 20261102-174410: only the
+    # join client's numbering drifted, inside one process they agree).
+    for cls in TRIED_CLASSES:
+        run.client.api.cmd("cmd joinclass %s" % cls)
+        joined = wait_pump(run, "weapon: p2 joins as %s" % cls,
+                           lambda cls=cls: joined_away(run.p2, cls), 30.0)
+        # A live player's second pick queues ("will be X at the next spawn",
+        # run 20261102-174746: Health sat at the old class through the whole
+        # window); the respawn step's own hurtme makes the next spawn now.
+        run.client.api.cmd("cmd hurtme 9999")
+        up = wait_pump(run, "weapon: %s Health up" % cls,
+                       lambda: health_is(run.srv.fields(run.p2), CLASS_HEALTH[cls]), 90.0)
+        # The announcement is evidence, not the gate: a same-class pick can
+        # answer without one, and Health -- the per-class number the classes
+        # step gates on -- is what proves the class took effect.
+        numbers["joined_%s" % cls] = bool(joined)
+        numbers["health_%s" % cls] = run.health(run.p2)
+        if not up:
+            numbers["detail"] = ("p2 never settled as %s before the trace (joinclass line %r, "
+                                 "Health %s expected %s)"
+                                 % (cls, bool(joined), run.health(run.p2), CLASS_HEALTH[cls]))
+            return "FAIL", numbers
+
+        # The server pair, for the row: the srv index of p2's weapon and how
+        # many weapons the server directory lists.
+        wi_srv, listed = srv_weapon(run.p2)
+        numbers["weapon_srv_%s" % cls] = "%s/%s" % (wi_srv, listed)
+
+        # Up to three frames. Run 20261102-175725: the frame right after a
+        # hurtme respawn drew only props -- the respawned player's models
+        # stream in a beat after the spawn, and a control that early reads
+        # empty. Each attempt re-reads where the camera stood and re-places
+        # the subject ahead of it (a camera that lagged behind its entity at
+        # the spawn corner culls the corridor-distance subject otherwise, run
+        # 20261102-182433). The last frame read decides.
+        text = None
+        draws = []
+        body_ok = False
+        body_model = None
+        weapon_model = None
+        drawn = False
+        view_origin = None
+        cam_yaw = TRACK_YAW
+        for attempt in range(4):
+            # Settle and aim FIRST (from the last recorded camera spot when
+            # there is one), then record: run 20261102-184407 showed a frame
+            # recorded between the settle and the streamed body reads as an
+            # empty scene even when the settle held. The OBSERVER is re-settled
+            # every attempt too, not just once before the class loop: a round
+            # restart (the waiting-for-players window closing mid-step) moves
+            # it back to its spawn corner between attempts, and run
+            # 20261102-191731's thin second-class frames are exactly that.
+            if not settle_on(run, run.p1, spot, (0.0, TRACK_YAW, 0.0)):
+                numbers["detail"] = ("the observer would not re-settle at %s during the %s "
+                                     "attempt" % (fmt_pos(spot), cls))
+                return "FAIL", numbers
+            sub = subject_spot(view_origin, cam_yaw)
+            if not settle_on(run, run.p2, sub, (0.0, TRACK_YAW + 180.0, 0.0)):
+                numbers["detail"] = ("the subject would not settle at %s after the %s "
+                                     "respawn" % (fmt_pos(sub), cls))
+                return "FAIL", numbers
+            live = entity_origin(run.srv, run.p2) or sub
+            aim = lg.angles_to(view_origin or spot, [live[0], live[1], live[2] + 64.0])
+            run.srv.cmd("cmd setang %.1f %.1f 0" % aim)
+            numbers["p2_setang"] = "%.0f/%.0f" % aim
+            # A round restart (the waiting-for-players window closing mid-step)
+            # moves the OBSERVER back to its spawn corner between attempts:
+            # run 20261102-191731 read the second class's frames from the
+            # corner, where nothing but the two viewmodel pairs drew. Re-aim
+            # at the subject's live spot every attempt, just as the subject
+            # is re-placed every attempt.
+            time.sleep(1.5)
+            text = trace_frame(run.srv,
+                               os.path.join(run.scratch, "weapon-p2-%s.txt" % cls),
+                               "weapon: p1's watch (%s)" % cls)
+            if text is not None:
+                draws = rendered_draws(text)
+                view_origin, cam_yaw = frame_camera(text)
+                # The body draw is the one under models/player/ and the held
+                # weapon the one under models/weapons/ (run 20261102-183046
+                # at tip d7dbf6b25: the listen client's frames list props
+                # under models/props_*, the watched player's body under
+                # models/player/ and the held pair under models/weapons/;
+                # ent numbers differ between the passes within even one
+                # client -- srv listed p2's weapon at 421 while its viewmodel
+                # pair drew at 414/417 -- so the paths, not the indices, are
+                # the stable match. The srv ent stays in the row as extra.)
+                this_body = any("models/player/" in mdl.lower() for (_ent, mdl) in draws)
+                this_wm = next((mdl for (_ent, mdl) in draws
+                                if "/weapons/" in mdl.lower()), None)
+                this_bm = next((mdl for (_ent, mdl) in draws
+                                if "models/player/" in mdl.lower()), None)
+                # Keep-best: the last read is no longer the only one that
+                # decides (run 20261102-191025: the scout attempt's first two
+                # frames drew body and weapon, a later one drew thin). Any
+                # frame with the control answers; between good ones the later
+                # does. A frame without the control only speaks when none so
+                # far had one.
+                if this_body and (not body_ok or this_wm):
+                    body_ok = True
+                    drawn = bool(this_wm)
+                    weapon_model = this_wm
+                    body_model = this_bm
+                if body_ok and drawn:
+                    break
+            time.sleep(2.0)
+
+        numbers["p2_body_%s" % cls] = body_ok
+        numbers["p2_weapon_%s" % cls] = bool(drawn)
+        numbers["p2_view_%s" % cls] = fmt_pos(view_origin) if view_origin else "none"
+        if weapon_model:
+            numbers["weapon_model_%s" % cls] = weapon_model.rsplit("/", 1)[-1]
+        if body_model:
+            numbers["body_model_%s" % cls] = body_model.rsplit("/", 1)[-1]
+        if cls == TRIED_CLASSES[0]:
+            # One evidence line so a red row can be read without the file --
+            # the whole draw set, not the head: run 20261102-180047 showed the
+            # first eight lines can be all props and hide whether any player
+            # draw exists at all.
+            run.say("    watch frame draws (%s, %d, view=%r): %s" % (
+                cls, len(draws), view_origin,
+                "; ".join("%d:%s" % d for d in draws)[:600]))
+        if text is None:
+            numbers["detail"] = ("the listen client recorded no frame within the window (%s)"
+                                 % cls)
+            return "FAIL", numbers
+        if not body_ok:
+            numbers["detail"] = ("the watch frame (%s, %d draws) names no player body (no draw "
+                                 "under models/player/; draws=%s) -- without the control a "
+                                 "missing weapon proves nothing, so the arm fails on the control"
+                                 % (cls, len(draws), "; ".join("%d:%s" % d for d in draws)[:320]))
+            return "FAIL", numbers
+        if not drawn:
+            numbers["detail"] = ("the watch frame (%s) draws the body but no carried weapon for "
+                                 "p2 (ent %s; draws=%s)"
+                                 % (cls, wi_srv, "; ".join("%d:%s" % d for d in draws[:8])[:160]))
+            return "FAIL", numbers
+
+    # -- p1's own view: the flips, three arms on the one settled player ---------
+    # The frame from the LISTEN game's own client (srv's console reaches it the
+    # way the buttons and live-gate's own render-plan step reach theirs), and
+    # p2's body is this view's non-empty control: he stands ahead in the same
+    # corridor spot, so his absence would mean an empty frame, not a filtered
+    # weapon.
+    def own_arm(name, present):
+        for attempt in range(2):
+            text = trace_frame(run.srv,
+                               os.path.join(run.scratch, "weapon-%s.txt" % name),
+                               "weapon: p1's own frame (%s)" % name)
+            if text is None:
+                numbers["detail"] = ("p1's client recorded no frame within the window (%s)"
+                                     % name)
+                return False
+            draws = rendered_draws(text)
+            # Evidence line on every arm, not just the first: which ent and
+            # model answered each count is what a red row must be read from
+            # (the viewmodel pair and the carried world weapon share the
+            # models/weapons/ root, so the ent numbers tell them apart).
+            guns = [(ent, mdl) for (ent, mdl) in draws if "/weapons/" in mdl.lower()]
+            run.say("    own frame draws (%s, %d draws, %d gun-path): %s" % (
+                name, len(draws), len(guns),
+                "; ".join("%d:%s" % (ent, mdl.rsplit("/", 1)[-1])
+                          for (ent, mdl) in guns)[:400]))
+            # The flip's discriminator is the OWNER'S OWN HELD WORLD WEAPON
+            # draw at the ent the srv handle chain resolved for p1 (own_wi):
+            # first person hides it, third person (the resting re-ask the fix
+            # lands) re-asks every shell and puts it back, first person hides
+            # it again. The viewmodel pair cannot answer this: it shares the
+            # models/weapons/ root but draws under its attachment ents
+            # (run 20261102-192142 at tip ea9eca612: first-person frames list
+            # 421/423 and 414/417 under guns, and only the third-person frame
+            # adds the carried gun at its own ent 415). The owner's own body
+            # under models/player/ is the flip's second half and the watched
+            # player's body the non-empty control under both (one body
+            # minimum either way, run 20261102-183046).
+            bodies = [mdl for (_ent, mdl) in draws if "models/player/" in mdl.lower()]
+            matched = [(ent, mdl) for (ent, mdl) in guns if ent == own_wi]
+            drawn = bool(matched)
+            ctl_ok = len(bodies) >= 1
+            if ctl_ok:
+                break
+            # The control empty means the camera stood somewhere that saw no
+            # player: aim once more from the recorded spot at the subject's
+            # live position and record again.
+            cam, _yaw = frame_camera(text)
+            live = entity_origin(run.srv, run.p2)
+            if cam and live and attempt == 0:
+                aim3 = lg.angles_to(cam, [live[0], live[1], live[2] + 64.0])
+                run.srv.cmd("cmd setang %.1f %.1f 0" % aim3)
+                time.sleep(1.0)
+        numbers["own_%s_bodies" % name] = len(bodies)
+        numbers["own_%s_weapon" % name] = bool(drawn)
+        numbers["own_%s_p2body" % name] = ctl_ok
+        numbers["own_%s_gunents" % name] = ",".join(str(ent) for (ent, _mdl) in guns)
+        numbers["own_%s_gunmodels" % name] = ",".join(
+            mdl.rsplit("/", 1)[-1] for (_ent, mdl) in guns)[:160]
+        numbers["own_%s_wgun" % name] = (
+            matched[0][1].rsplit("/", 1)[-1] if matched else "-")
+        if not ctl_ok:
+            numbers["detail"] = ("p1's own frame (%s) drew no player body under models/player/: "
+                                 "the control is empty, so the flip cannot be read from it "
+                                 "(draws=%s)"
+                                 % (name, "; ".join("%d:%s" % d for d in draws)[:320]))
+            return False
+        if drawn != present:
+            numbers["detail"] = ("p1's own held weapon draw (its ent %s under models/weapons/) "
+                                 "was %sfrom the %s frame, expected %s (gun draws=%s)"
+                                 % (own_wi, "" if drawn else "NOT ", name, present,
+                                    "; ".join("%d:%s" % (ent, mdl.rsplit("/", 1)[-1])
+                                              for (ent, mdl) in guns)[:240]))
+            return False
+        return True
+
+    # Re-resolve after the last respawn in the LISTEN server's own directory:
+    # the carried weapon may have been recreated, and every own-view arm must
+    # ask about the weapon that is actually carried now. The listen game's own
+    # client shares the server's numbering, so the handles resolve back to the
+    # srv indices -- the join and classes steps read those same numbers.
+    wi_srv, listed = srv_weapon(run.p1)
+    hw = handle_of(run.srv, wi_srv) if wi_srv is not None else None
+    own_wi, own_raw = index_by_handle(run.srv, hw) if hw else (None, "srv-no-handle")
+    numbers["own_weapon_ent"] = "%s/%s hw=%s -> w=%s" % (wi_srv, listed, hw, own_wi)
+    if own_wi is None:
+        numbers["detail"] = ("the listen server cannot name p1's carried weapon by handle "
+                             "(weapon %r; srv pair %s/%s)"
+                             % (own_raw, wi_srv, listed))
+        return "FAIL", numbers
+
+    run.srv.cmd("firstperson")
+    time.sleep(1.0)
+    if not own_arm("first_before", False):
+        return "FAIL", numbers
+    run.srv.cmd("thirdperson")
+    time.sleep(1.0)
+    if not own_arm("third", True):
+        return "FAIL", numbers
+    run.srv.cmd("firstperson")
+    time.sleep(1.0)
+    if not own_arm("first_after", False):
+        return "FAIL", numbers
+
+    numbers["classes_tried"] = ",".join(TRIED_CLASSES)
+    return "PASS", numbers
 
 
 def step_combat(run, state):
@@ -3276,6 +3747,7 @@ def step_teardown(run, state):
 
 
 LIVE_STEPS = {"join": step_join, "teams": step_teams, "classes": step_classes,
+              "weapon": step_weapon,
               "combat": step_combat, "heal": step_heal, "respawn": step_respawn, "ctf": step_ctf,
               "changelevel": step_changelevel, "payload": step_payload,
               "mode": step_mode, "teardown": step_teardown}
@@ -3652,6 +4124,27 @@ def self_test():
     check(len(match_outputs([{"name": "OnOwnerChangedToTeam2", "seq": 3},
                              {"name": "OnCapTeam1", "seq": 4}], CP_OWNER_NEEDLES)) == 1,
           "the owner-match keeps the owner output and drops an unrelated one")
+
+    # rendered_ent_indexes: the weapon step's frame read. A real trace line
+    # (shell_render_trace_client.cpp: Head\tent=N model=... tabs) counts its
+    # ent; the StaticProp/Execute twins do NOT count for a model draw.
+    frame = ("render.SetMainView\torigin=0,0,0\n"
+             "model.DrawModelEx\tent=7 model=weapons/scout_hand.mdl flags=0x0 skin=0 body=0\n"
+             "model.DrawModelExStaticProp\tent=9 model=props/bottle.mdl\n"
+             "model.DrawModelExecute\tent=11 model=props/door.mdl\n"
+             "render.PopView\n")
+    check(rendered_ent_indexes(frame) == {7},
+          "one frame names its model draws by ent and only the exact DrawModelEx")
+    check(rendered_ent_indexes("") == set(), "an empty frame names nothing, never guesses")
+    check(rendered_ent_indexes("no tabs here\n") == set(),
+          "a line without a field separator counts as nothing")
+
+    # rendered_draws: the weapon step's pair-read. Both heads carry player
+    # content (the viewmodel under DrawModelEx, bodies under Execute), so the
+    # pair list keeps both -- and still only the StaticProp stays out.
+    check(rendered_draws(frame) == [(7, "weapons/scout_hand.mdl"), (11, "props/door.mdl")],
+          "draws pair the ent with its model under either model head")
+    check(rendered_draws("") == [], "an empty frame draws nothing")
 
     check(gate_rc([]) == 1, "no rows is not a pass")
     check(gate_rc([{"status": "PASS"}]) == 0, "all PASS gives rc 0")

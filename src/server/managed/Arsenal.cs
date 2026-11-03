@@ -637,6 +637,32 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     }
 
     /// <summary>
+    /// CBaseCombatWeapon::CanBeSelected for a named weapon as this player
+    /// carries it: the holstered clip or the pools (HasAnyAmmo), a weapon
+    /// that uses no ammunition, or one whose script selects on empty. The
+    /// spawn walk's question about a loadout row; a weapon not carried, or a
+    /// player with no carry, does not select.
+    /// </summary>
+    public bool Selectable(EntityHandle player, string className)
+    {
+        if (!_carries.TryGetValue(player.Value, out var carry))
+            return false;
+
+        int typeIndex = _weapons.IndexOf(className);
+
+        for (int slot = 0; slot < carry.Weapons.Count; slot++)
+        {
+            if (carry.Weapons[slot].TypeIndex != typeIndex)
+                continue;
+
+            return _weapons.ByIndex(typeIndex) is WeaponType type
+                && CanBeSelected(carry, slot, in type);
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Switches to an owned weapon by its catalog type — the wire index a
     /// <c>CUserCmd::weaponselect</c> names (stock's RunCommand → SelectItem,
     /// player_command.cpp:376-385). The same scan as the classname switch,
@@ -1775,6 +1801,13 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
                 foreach (string sound in script.Sounds)
                     if (sound.Length > 0)
                         _precache.PrecacheSound(sound);
+
+            // The same loop for a row that carries its script's table itself
+            // (the TF rows, whose scripts the core database above never sees):
+            // the named fields are entries of it, and the precache dedups.
+            foreach (string sound in type.Sounds)
+                if (sound.Length > 0)
+                    _precache.PrecacheSound(sound);
         }
     }
 

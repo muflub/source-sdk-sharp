@@ -50,7 +50,9 @@ public sealed unsafe class PlayerCommandsBinding(Crossings crossings, ILog log, 
             (i, t, f) => game.GetMovementTaunt(i, t, f),
             i => game.GetCategorizePosition(i),
             (i, v, n) => game.GetFooting(i, v, n),
-            () => game.GetNoHl2Arms());
+            () => game.GetNoHl2Arms(),
+            i => game.GetEnemyBlasted(i),
+            i => game.GetEndCommand(i));
 
         if (serverCommands is not null)
             serverCommands.Rules = rules;

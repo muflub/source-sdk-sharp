@@ -26,6 +26,8 @@ using Views = client::TF2.Shared.Player.TFPlayerNetStateViews;
 using ClientCarriers = client::TF2.Client.Player.TFClientCarriers;
 using PlayerData = client::TF2.Client.Player.ClientTFPlayerData;
 using Forecast = client::TF2.Client.Weapons.TFWeaponSlotForecast;
+using HudSlots = client::TF2.Client.Weapons.TFWeaponSlots;
+using ScriptDb = client::SourceSharp.Shared.WeaponScriptDatabase;
 
 namespace TF2.Tests;
 
@@ -50,10 +52,11 @@ public sealed class TFWeaponSlotForecastTests
         TFClass.HeavyWeapons, TFClass.Pyro, TFClass.Spy, TFClass.Engineer, TFClass.Civilian,
     ];
 
-    private static (Forecast Forecast, Catalog Weapons) Make(int localPlayer, TFClass cls)
+    private static (Forecast Forecast, Catalog Weapons, HudSlots Slots) Make(int localPlayer, TFClass cls)
     {
         var log = new ClientLog();
-        var files = ShippedFiles();
+        var bytes = FixtureBytes();
+        ClientFiles files = new FilesShim(bytes);
         var classes = new ClassTable(log, files);
         var scripts = new Scripts(log, files);
         var schema = new Schema(files, log);
@@ -72,11 +75,15 @@ public sealed class TFWeaponSlotForecastTests
         var screen = new Engine();
         screen.Returns("Hud.LocalPlayerIndex", localPlayer);
 
-        return (new Forecast(schema, classes, carriers, weapons, screen), weapons);
+        // The same files through the core's reader, for the hud's slot table.
+        var db = new ScriptDb(log, null, p => bytes.TryGetValue(p, out var b) ? b : null, TFEncryption.Key);
+
+        var slots = new HudSlots(weapons, db, carriers, screen, classes);
+        return (new Forecast(schema, classes, carriers, weapons, screen, slots), weapons, slots);
     }
 
     /// <summary>The shipped scripts, class scripts and trimmed schema, sealed as the pack holds them.</summary>
-    private static ClientFiles ShippedFiles()
+    private static Dictionary<string, byte[]> FixtureBytes()
     {
         var bytes = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         foreach (string name in WeaponFixtures)
@@ -88,8 +95,10 @@ public sealed class TFWeaponSlotForecastTests
         bytes[Schema.FilePath] = Encoding.UTF8.GetBytes(
             EconTestFiles.Fixture("items_game.trimmed.txt"));
 
-        return new FilesShim(bytes);
+        return bytes;
     }
+
+    private static ClientFiles ShippedFiles() => new FilesShim(FixtureBytes());
 
     private static byte[] Seal(byte[] plain)
     {
@@ -131,11 +140,42 @@ public sealed class TFWeaponSlotForecastTests
     [Fact]
     public void The_engineers_slots_name_the_shotgun_the_pistol_and_the_wrench()
     {
-        var (forecast, weapons) = Make(LocalPlayer, TFClass.Engineer);
+        var (forecast, weapons, _) = Make(LocalPlayer, TFClass.Engineer);
 
         Assert.Equal(weapons.IndexOf("tf_weapon_shotgun_primary"), forecast.TypeAt(0));
         Assert.Equal(weapons.IndexOf("tf_weapon_pistol"), forecast.TypeAt(1));
         Assert.Equal(weapons.IndexOf("tf_weapon_wrench"), forecast.TypeAt(2));
+    }
+
+    /// <summary>The spy's second key is the sapper: stock's hud slot for a builder is the
+    /// objects.txt row of the object it builds (CTFWeaponBuilder::GetSlot,
+    /// tf_weapon_builder.cpp:1154) — OBJ_ATTACHMENT_SAPPER's SelectionSlot 1 — so
+    /// slot2 names it, not the revolver's row.</summary>
+    [Fact]
+    public void The_spys_second_slot_is_the_sapper()
+    {
+        var (forecast, weapons, _) = Make(LocalPlayer, TFClass.Spy);
+
+        // The builder family's retarget (ManageBuilderWeapons's SetSubType):
+        // the row the spy carries is the sapper's.
+        int sapper = weapons.IndexOf("tf_weapon_sapper");
+        Assert.True(sapper >= 0, "the trimmed schema carries the sapper row");
+        Assert.Equal(sapper, forecast.TypeAt(1));
+    }
+
+    /// <summary>The hud's bucket table for the spy: revolver, sapper, knife, disguise kit,
+    /// cloak — the keys 1-5 a stock spy's hud answers, the sapper moved off its
+    /// bucket 5 by the builder override (<see cref="The_spys_second_slot_is_the_sapper"/>).</summary>
+    [Fact]
+    public void The_hud_slots_the_spys_row_the_sapper_second()
+    {
+        var (_, weapons, slots) = Make(LocalPlayer, TFClass.Spy);
+
+        Assert.Equal((0, 0), (slots.Slot(weapons.IndexOf("tf_weapon_revolver")), slots.Position(weapons.IndexOf("tf_weapon_revolver"))));
+        Assert.Equal((1, 0), (slots.Slot(weapons.IndexOf("tf_weapon_sapper")), slots.Position(weapons.IndexOf("tf_weapon_sapper"))));
+        Assert.Equal((2, 0), (slots.Slot(weapons.IndexOf("tf_weapon_knife")), slots.Position(weapons.IndexOf("tf_weapon_knife"))));
+        Assert.Equal((3, 0), (slots.Slot(weapons.IndexOf("tf_weapon_pda_spy")), slots.Position(weapons.IndexOf("tf_weapon_pda_spy"))));
+        Assert.Equal((4, 0), (slots.Slot(weapons.IndexOf("tf_weapon_invis")), slots.Position(weapons.IndexOf("tf_weapon_invis"))));
     }
 
     [Fact]
@@ -145,14 +185,14 @@ public sealed class TFWeaponSlotForecastTests
         // engineer's keys 4 and 5 name the PDA and PDA2 rows, spy's key 4 the
         // disguise kit — not the (empty) utility row the digit index alone
         // answers.
-        var (engineer, weapons) = Make(LocalPlayer, TFClass.Engineer);
+        var (engineer, weapons, _) = Make(LocalPlayer, TFClass.Engineer);
         int build = weapons.IndexOf("tf_weapon_pda_engineer_build");
         int destroy = weapons.IndexOf("tf_weapon_pda_engineer_destroy");
         Assert.True(build >= 0 && destroy >= 0, "the trimmed schema carries the two engineer PDAs");
         Assert.Equal(build, engineer.TypeAt(3));
         Assert.Equal(destroy, engineer.TypeAt(4));
 
-        var (spy, spyWeapons) = Make(LocalPlayer, TFClass.Spy);
+        var (spy, spyWeapons, _) = Make(LocalPlayer, TFClass.Spy);
         int kit = spyWeapons.IndexOf("tf_weapon_pda_spy");
         Assert.True(kit >= 0, "the trimmed schema carries the spy disguise kit");
         Assert.Equal(kit, spy.TypeAt(3));
@@ -161,7 +201,7 @@ public sealed class TFWeaponSlotForecastTests
     [Fact]
     public void A_slot_that_equips_no_weapon_forecasts_nothing()
     {
-        var (forecast, _) = Make(LocalPlayer, TFClass.Engineer);
+        var (forecast, _, _) = Make(LocalPlayer, TFClass.Engineer);
 
         // Head and beyond are cosmetics; stock's GetBaseItemForClass refuses
         // them outright.
@@ -172,7 +212,7 @@ public sealed class TFWeaponSlotForecastTests
     [Fact]
     public void A_nameless_player_forecasts_nothing()
     {
-        var (forecast, _) = Make(-1, TFClass.Engineer);
+        var (forecast, _, _) = Make(-1, TFClass.Engineer);
 
         Assert.Equal(-1, forecast.TypeAt(0));
     }

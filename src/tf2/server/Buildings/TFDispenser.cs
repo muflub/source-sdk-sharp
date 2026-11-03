@@ -11,6 +11,7 @@ using SourceSharp.Shared;
 using TF2.Server.Entities.Items;
 using TF2.Server.Medigun;
 using TF2.Server.Player;
+using TF2.Server.Voice;
 using TF2.Shared;
 
 namespace TF2.Server.Buildings;
@@ -46,8 +47,9 @@ namespace TF2.Server.Buildings;
 [ScriptedEntity(TFDispenser.MapClass, ScriptedEntityKind.Item)]
 public sealed class TFDispenser(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
                                  IEngineEntityRender render, IEngineWorldQuery world, ITFAmmoPurse purse,
-                                 ITFPlayerHealing healing, TFPlayerCarriers? carriers = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers)
+                                 ITFPlayerHealing healing, TFPlayerCarriers? carriers = null,
+                                 TFConceptSpeech? speech = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
 {
     public const string MapClass = "obj_dispenser";
 

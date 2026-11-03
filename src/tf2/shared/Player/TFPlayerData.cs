@@ -32,6 +32,21 @@ public interface ITFPlayerData
     /// client's decoded copy. Null when the player has no carrier.
     /// </summary>
     TFPlayerNetState? Networked(int playerIndex);
+
+    /// <summary>
+    /// The rise arm's enemy-blast read (<c>CTFGameMovement::CategorizePosition</c>'s
+    /// GAME_DLL latch arm, tf_gamemovement.cpp:2360-2364): with the player's
+    /// blast latch up the rise names the enemy-blasted jump. Stock's client
+    /// build compiles the arm away; the client's answer is the default nothing.
+    /// </summary>
+    void EnemyBlasted(int playerIndex) { }
+
+    /// <summary>
+    /// The end of one command (tf_gamemovement.cpp:334-336): the server drops
+    /// what its blast latch kept for the command's rise. Client side: nothing,
+    /// as stock's GAME_DLL arm.
+    /// </summary>
+    void EndCommand(int playerIndex) { }
 }
 
 /// <summary>Typed views over <see cref="TFPlayerNetState"/>'s words.</summary>

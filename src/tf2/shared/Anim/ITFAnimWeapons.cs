@@ -20,10 +20,10 @@ namespace TF2.Shared.Anim;
 /// Roles past <see cref="Item2"/> have no script word
 /// (<c>TFWeaponScriptParser.Category</c> maps only primary…item2, like
 /// stock's item schema): they arrive through the econ item's
-/// <c>GetAnimationSlot</c> override (:4192-4197, deferred with the rest of
-/// econ) or through weapon code setting the type directly. The switch's
-/// default arm — the Primary table — is what the roles with no table of
-/// their own (<c>GRENADE</c>, <c>HEAD</c>, <c>MISC</c>,
+/// <c>GetAnimationSlot</c> override (<c>TFWeaponTypes.ActivityWeaponRole</c>,
+/// :4189-4197) or through weapon code setting the type directly. The
+/// switch's default arm — the Primary table — is what the roles with no
+/// table of their own (<c>GRENADE</c>, <c>HEAD</c>, <c>MISC</c>,
 /// <c>PASSTIME_BALL</c>) answer with (:4228-4231).
 /// </para>
 /// </summary>

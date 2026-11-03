@@ -37,6 +37,53 @@ public sealed class TFBuilderBehaviourTests
     }
 
     [Fact]
+    public void The_sappers_trigger_places_through_the_sappers_use()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_sapper", clip: -1, reserve: 0);
+
+        world.Run(w, vm, Attack, 10f);
+
+        // The attachment arm's place, through the use layer — never the
+        // builder's blueprint (the sapper has none). The tail still walks the
+        // ghost: the sapper's UpdatePlacementState is the family's. The placed
+        // sapper's ghost goes with it — the placement stops, the attachment
+        // arm of StopPlacement (tf_weapon_builder.cpp:1041-1055).
+        Assert.Equal(["sapper 3"], world.Sapper.Asked);
+        Assert.Equal(["stop 3", "update 3"], world.Builder.Asked);
+        Assert.Equal(10.2f, w.NextPrimaryAttack, 4);
+    }
+
+    [Fact]
+    public void A_refused_sapper_leaves_the_ghost_up()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_sapper", clip: -1, reserve: 0);
+        world.Sapper.Places = false;
+
+        world.Run(w, vm, Attack, 10f);
+
+        // No sapper out, no placement taken down: the ghost walks on.
+        Assert.Equal(["sapper 3"], world.Sapper.Asked);
+        Assert.Equal(["update 3"], world.Builder.Asked);
+    }
+
+    [Fact]
+    public void The_sappers_deploy_births_the_attachment_ghost()
+    {
+        var world = new TFWeaponWorld();
+        var (w, vm) = world.Armed("tf_weapon_sapper", clip: -1, reserve: 0);
+
+        world.Behaviour("tf_weapon_sapper").Deploy(world.Attack(w, vm, 10f));
+
+        // The attachment arm of StartPlacement (tf_weapon_builder.cpp:995,
+        // through UpdateAttachmentPlacement): the ghost, never the ground-spot
+        // machine the builders' deploy walks.
+        Assert.Equal(["startattach 3"], world.Builder.Asked);
+        Assert.Equal(10.35f, w.NextPrimaryAttack, 4);
+    }
+
+    [Fact]
     public void The_alt_fire_turns_a_quarter_turn_per_press()
     {
         var world = new TFWeaponWorld();

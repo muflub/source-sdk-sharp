@@ -281,6 +281,7 @@ public sealed class TFWeaponCompositionTests
         c.AddInstance<ILog>(log);
         c.AddInstance<CAbi.IEngineFiles>(files);
         c.AddInstance<CAbi.IEngineHud>(new CAbi.RecordingEngine());   // the screen the forecast asks
+        c.AddInstance(new CShared.WeaponScriptDatabase(log, null, files.ReadGameFileBytes, CTF.TFEncryption.Key));
         c.AddInstance(new CTF.TFWeaponCriticalsConVar());
         CAbi.SideServices.Register(c, Side.Client, typeof(CTF.TFWeaponBehaviour).Assembly.GetTypes());
         c.AddInstance(new CShared.WeaponCatalog(() => c.ResolveAll<CShared.IWeaponTypeSource>(), log));

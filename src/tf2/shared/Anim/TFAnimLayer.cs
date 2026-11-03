@@ -608,9 +608,10 @@ public sealed class TFAnimLayer : IAnimStateLayer
     /// check on the result (:143-151). The weapon's table is the disguise
     /// weapon's for a disguised spy the enemy's eye picks
     /// (<c>ActivityList</c>'s CLIENT arm, :4212-4222 — see
-    /// <see cref="ITFAnimWeapons.DisguiseWeapon"/>). The econ item's
-    /// <c>GetActivityOverride</c> (:135-139) is deferred with the rest of
-    /// econ.
+    /// <see cref="ITFAnimWeapons.DisguiseWeapon"/>); its role is
+    /// <c>GetActivityWeaponRole</c> (:4185-4205, anim_slot over the script's
+    /// type). The econ item's <c>GetActivityOverride</c> (:135-139) is
+    /// deferred with the rest of econ.
     /// </summary>
     private string Translate(AnimStateContext context, TFPlayerNetState net, TFClass playerClass, string activity)
     {

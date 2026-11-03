@@ -18,8 +18,9 @@ public sealed class TestBuilding : TFBaseObject
     public const string MapClass = "obj_test_building";
 
     public TestBuilding(ITFMapPlayers players, ITFObjectAnnouncer announcer, IEnginePrecache precache,
-                        IEngineEntityRender render, ITFAmmoPurse purse, TFPlayerCarriers? carriers = null)
-        : base(players, announcer, precache, render, purse, carriers) { }
+                        IEngineEntityRender render, ITFAmmoPurse purse, TFPlayerCarriers? carriers = null,
+                        TF2.Server.Voice.TFConceptSpeech? speech = null)
+        : base(players, announcer, precache, render, purse, carriers, speech) { }
 
     public override TFObjectType Type => TFObjectType.Sentrygun;
 }

@@ -116,6 +116,7 @@ public sealed class TFViewmodelActivityTests
 
     private static TFViewmodelActivityRule ScriptedRule(RecordingEngine engine)
         => new(new TFServerAnimWeapons(engine,
+                                       WeaponFixtures.Types(),
                                        new TFWeaponScripts(new RecordingLog(), WeaponFixtures.Shipped())));
 
     [Fact]
@@ -164,9 +165,13 @@ public sealed class TFViewmodelActivityTests
     //-------------------------------------------------------------------------
 
     private static TFViewmodelActivityRule ItemisedRule(RecordingEngine engine)
-        => new(new TFServerAnimWeapons(engine,
-                                       new TFWeaponScripts(new RecordingLog(), WeaponFixtures.Shipped())),
-               WeaponFixtures.Types(EconTestFiles.Fixture("items_game.trimmed.txt")));
+    {
+        var types = WeaponFixtures.Types(EconTestFiles.Fixture("items_game.trimmed.txt"));
+        return new(new TFServerAnimWeapons(engine,
+                                           types,
+                                           new TFWeaponScripts(new RecordingLog(), WeaponFixtures.Shipped())),
+                   types);
+    }
 
     [Fact]
     public void The_fists_rename_the_idle_through_their_item()
@@ -200,6 +205,54 @@ public sealed class TFViewmodelActivityTests
     {
         // The rocket launcher's item has no animation_replacement: stock's
         // fall-through arm, the role table as before.
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", PlayerRig.Player);
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_rocketlauncher");
+
+        Assert.Equal("ACT_PRIMARY_VM_IDLE",
+                     ItemisedRule(engine).Translate(PlayerRig.Index, WeaponAnim.Idle, "ACT_VM_IDLE"));
+    }
+
+    //-------------------------------------------------------------------------
+    // Stock's second arm, the item's animation slot (tf_weaponbase.cpp:4523-
+    // 4532 over GetActivityWeaponRole's :4189-4197): the grenade launcher's
+    // item_slot is primary but its anim_slot is secondary
+    // (items_game.trimmed.txt:552-553), so its viewmodel asks take the
+    // SECONDARY rows — on c_demo_arms the g_* set, not the sb_* one.
+    //-------------------------------------------------------------------------
+
+    [Fact]
+    public void The_grenade_launcher_translates_by_its_anim_slot()
+    {
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", PlayerRig.Player);
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_grenadelauncher");
+
+        var rule = ItemisedRule(engine);
+
+        Assert.Equal("ACT_SECONDARY_VM_IDLE", rule.Translate(PlayerRig.Index, WeaponAnim.Idle, "ACT_VM_IDLE"));
+        Assert.Equal("ACT_SECONDARY_VM_PRIMARYATTACK", rule.Translate(PlayerRig.Index, WeaponAnim.Primary, "ACT_VM_PRIMARYATTACK"));
+        Assert.Equal("ACT_SECONDARY_VM_RELOAD", rule.Translate(PlayerRig.Index, WeaponAnim.Reload, "ACT_VM_RELOAD"));
+    }
+
+    [Fact]
+    public void The_stickybomb_launcher_translates_by_its_anim_slot_too()
+    {
+        // The mirror item: item_slot secondary, anim_slot primary
+        // (items_game.trimmed.txt:1206-1207) — the sb_* set.
+        var engine = RecordingEngine.Default();
+        engine.Returns("Players.GetHandle", PlayerRig.Player);
+        engine.Returns("Players.GetActiveWeapon", "tf_weapon_pipebomblauncher");
+
+        Assert.Equal("ACT_PRIMARY_VM_IDLE",
+                     ItemisedRule(engine).Translate(PlayerRig.Index, WeaponAnim.Idle, "ACT_VM_IDLE"));
+    }
+
+    [Fact]
+    public void A_weapon_whose_item_names_no_anim_slot_keeps_the_scripts_role()
+    {
+        // The rocket launcher's item names no anim_slot: stock's >= 0 gate
+        // (tf_weaponbase.cpp:4193) never fires, the script's type stands.
         var engine = RecordingEngine.Default();
         engine.Returns("Players.GetHandle", PlayerRig.Player);
         engine.Returns("Players.GetActiveWeapon", "tf_weapon_rocketlauncher");

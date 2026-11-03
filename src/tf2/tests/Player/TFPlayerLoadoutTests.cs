@@ -62,6 +62,10 @@ public sealed class TFPlayerLoadoutTests
     [InlineData("tf_weapon_pistol", TFClass.Scout, "tf_weapon_pistol_scout")]
     [InlineData("tf_weapon_pistol", TFClass.Engineer, "tf_weapon_pistol")]
     [InlineData("tf_weapon_scattergun", TFClass.Scout, "tf_weapon_scattergun")]
+    // The builder family's retarget: the spy's builder item is the sapper row
+    // (ManageBuilderWeapons's SetSubType, tf_player.cpp:4627-4631).
+    [InlineData("tf_weapon_builder", TFClass.Spy, "tf_weapon_sapper")]
+    [InlineData("tf_weapon_builder", TFClass.Engineer, "tf_weapon_builder")]
     [InlineData("saxxy", TFClass.Scout, "saxxy")]
     public void An_item_class_becomes_the_classs_own_weapon(string itemClass, TFClass cls, string expected)
     {

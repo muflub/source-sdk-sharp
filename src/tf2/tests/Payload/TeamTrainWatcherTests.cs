@@ -4,6 +4,7 @@ using SourceSharp.Shared;
 
 using TF2.Server.Entities;
 using TF2.Server.Rules;
+using TF2.Server.Voice;
 using TF2.Shared;
 using TF2.Shared.Rules;
 
@@ -581,8 +582,9 @@ public sealed class TeamTrainWatcherTests
         rig.EngineOrigin = new Vector(500f, 0f, 0f);
         rig.ThinkAt(watcher, 0.1f);
 
-        // both occupants were asked, one was published
-        Assert.Equal(askedBefore + 2, rig.Engine.CountOf("Entities.IsPlayer"));
+        // both occupants were asked twice — the push publish's filter and the
+        // escort concept's, the same walk — one was published
+        Assert.Equal(askedBefore + 4, rig.Engine.CountOf("Entities.IsPlayer"));
         Assert.Equal(1, rig.Engine.CountOf("GameEvents.EventCreate"));
         Assert.Equal(blue, rig.Engine.Calls.Single(c => c.Member == "Players.GetUserId").ArgAs<EntityHandle>(0));
     }
@@ -717,5 +719,130 @@ public sealed class TeamTrainWatcherTests
 
         Assert.True(stray.IsSparking(), "the unnamed spark answers the empty name");
         Assert.False(named.IsSparking());
+    }
+
+    /// <summary>
+    /// The escort the all-player speaks find: the engine's player table names
+    /// slot 1 and nobody else, alive. Every concept ask records through the
+    /// rigged rules and sounds through the engine's entity emit.
+    /// </summary>
+    private static EntityHandle OneEscort(PayloadRig rig)
+    {
+        EntityHandle escort = rig.Players.Add(1, TFTeam.Blue);
+        rig.Engine.Returns("Players.IsAlive", true);
+        rig.Engine.ReturnsEachCall("Players.GetHandle", () =>
+            (rig.Engine.Last("Players.GetHandle") ?? default).ArgAs<int>(0) == 1 ? escort : EntityHandle.None);
+        return escort;
+    }
+
+    [Fact]
+    public void The_halting_cart_announces_the_stop_to_everyone()
+    {
+        // WatcherThink :1165-1169: the level falling to zero has every player
+        // speak MP_CONCEPT_CART_STOP and clears the forward line's window.
+        var (rig, watcher, _, _, _, _) = Track();
+        var area = rig.Area("cp_a");
+        EntityHandle escort = OneEscort(rig);
+
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "1", 1f, area.Handle);
+        rig.ThinkAt(watcher, 0.1f);
+        Assert.Empty(rig.ConceptRules.Asked);
+
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "0", 0f, area.Handle);
+        rig.ThinkAt(watcher, 0.2f);
+
+        Assert.Equal(TFConceptSpeech.CartStop, rig.ConceptRules.Asked.Single().Concept);
+        Assert.Contains(rig.Engine.AllOf("Sound.EntityEmitSound"),
+            c => c!.Arg(0) is EntityHandle h && h == escort);
+    }
+
+    [Fact]
+    public void The_receding_cart_announces_the_backward_line_once_moving()
+    {
+        // WatcherThink :1170-1174: the level going negative FROM zero — a cart
+        // already halted, now rolling back — speaks MP_CONCEPT_CART_MOVING_BACKWARD
+        // to everyone. A drop straight from forward to backward (1 to -1) is
+        // neither arm, as stock's else-if leaves it.
+        var (rig, watcher, train, _, _, _) = Track();
+        var area = rig.Area("cp_a");
+        OneEscort(rig);
+
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "1", 1f, area.Handle);
+        train.FinishStep(); // onto the leg, so backing up has track behind the cart
+        rig.ThinkAt(watcher, 0.1f);
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "0", 0f, area.Handle);
+        rig.ThinkAt(watcher, 0.2f); // the halt speaks, and leaves the level at zero
+        rig.ConceptRules.Asked.Clear();
+
+        rig.ThinkAt(watcher, 40f); // the recede window long past, the cart rolls back
+        Assert.Equal(-1, watcher.TrainSpeedLevel);
+
+        Assert.Equal(TFConceptSpeech.CartMovingBackward, rig.ConceptRules.Asked.Single().Concept);
+    }
+
+    [Fact]
+    public void The_pushed_cart_announces_the_forward_line_to_the_area_every_three_seconds()
+    {
+        // WatcherThink :1178-1196: while the cart moves forward, whoever the
+        // capture area touches has MP_CONCEPT_CART_MOVING_FORWARD spoken to
+        // them, at most once per three seconds.
+        var (rig, watcher, _, _, _, _) = Track();
+        var area = rig.Area("cp_a");
+        EntityHandle escort = rig.Players.Add(2, TFTeam.Blue);
+        OneEscort(rig);
+
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "1", 1f, area.Handle);
+        rig.Registry.Touch(area.Handle, escort);
+        rig.ThinkAt(watcher, 0.1f);
+
+        Assert.Equal(TFConceptSpeech.CartMovingForward, rig.ConceptRules.Asked.Single().Concept);
+        Assert.Contains(rig.Engine.AllOf("Sound.EntityEmitSound"),
+            c => c!.Arg(0) is EntityHandle h && h == escort);
+
+        rig.ThinkAt(watcher, 0.2f);
+        Assert.Single(rig.ConceptRules.Asked); // inside the three seconds, no repeat
+
+        rig.ConceptRules.Asked.Clear();
+        rig.ThinkAt(watcher, 3.2f);
+        Assert.Equal(TFConceptSpeech.CartMovingForward, rig.ConceptRules.Asked.Single().Concept);
+    }
+
+    [Fact]
+    public void The_forward_lines_window_passes_even_with_nobody_in_the_area()
+    {
+        // WatcherThink :1195: the three-second stamp is set outside the
+        // area check — an empty capture area still spends the window, so a
+        // late arrival waits for it rather than speaking at once.
+        var (rig, watcher, _, _, _, _) = Track();
+        var area = rig.Area("cp_a");
+        EntityHandle escort = rig.Players.Add(2, TFTeam.Blue);
+        OneEscort(rig);
+
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "1", 1f, area.Handle);
+        rig.ThinkAt(watcher, 0.1f); // nobody stands in the area: no ask, window spent
+        rig.Registry.Touch(area.Handle, escort);
+
+        rig.ThinkAt(watcher, 0.2f);
+        Assert.Empty(rig.ConceptRules.Asked);
+
+        rig.ThinkAt(watcher, 3.2f);
+        Assert.Equal(TFConceptSpeech.CartMovingForward, rig.ConceptRules.Asked.Single().Concept);
+    }
+
+    [Fact]
+    public void A_speed_level_that_neither_halts_nor_reverses_speaks_nothing()
+    {
+        // WatcherThink :1165-1174: only the halt and the backward arms speak;
+        // a climb between forward levels (1 to 3) is silent.
+        var (rig, watcher, _, _, _, _) = Track();
+        var area = rig.Area("cp_a");
+        OneEscort(rig);
+
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "1", 1f, area.Handle);
+        rig.ThinkAt(watcher, 0.1f);
+        rig.Registry.Input(watcher.Handle, "SetNumTrainCappers", "3", 3f, area.Handle);
+        rig.ThinkAt(watcher, 0.2f);
+
+        Assert.Empty(rig.ConceptRules.Asked);
     }
 }

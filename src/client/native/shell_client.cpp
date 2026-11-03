@@ -64,7 +64,9 @@ void CSourceSharpClientMode::ViewerSeenEnd(bool bWasSeen)
 
 void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CViewSetup* pSetup)
 {
-	m_Standalone.SetThirdPersonSeesOwner(false);
+	// The edge, not the write: leaving third person re-asks every shell, the carried
+	// weapon with the body; on a settled frame the flag already agrees and nothing sweeps.
+	m_Standalone.SetRestingThirdPersonSeen(false);
 
 	if (!m_Engines.m_pInput || !m_Engines.m_pInput->CAM_IsThirdPerson())
 	{
@@ -140,7 +142,7 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 	pSetup->origin = vecEye + vecWish * flSurviving;
 	pSetup->angles = angCamera;
 
-	m_Standalone.SetThirdPersonSeesOwner(io.bSeesOwner != 0);
+	m_Standalone.SetRestingThirdPersonSeen(io.bSeesOwner != 0);
 
 	// The leaf system never re-asks ShouldDraw for a world entity, so the player is moved in
 	// or out here when the camera changes, as stock's UpdateVisibility does.

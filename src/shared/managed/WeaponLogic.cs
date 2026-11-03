@@ -417,6 +417,10 @@ public static class WeaponAnimNames
         WeaponAnim.Miss         => new[] { "misscenter1", "misscenter" },
         WeaponAnim.Prefire      => new[] { "prefire" },
         WeaponAnim.Postfire     => new[] { "postfire" },
+        WeaponAnim.HitCenter    => [],
+        WeaponAnim.SwingHard    => [],
+        WeaponAnim.HitLeft      => [],
+        WeaponAnim.HitRight     => [],
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -449,6 +453,14 @@ public static class WeaponAnimNames
         WeaponAnim.Miss         => new[] { "ACT_VM_MISSCENTER" },
         WeaponAnim.Prefire      => new[] { "ACT_MP_ATTACK_STAND_PREFIRE" },
         WeaponAnim.Postfire     => new[] { "ACT_MP_ATTACK_STAND_POSTFIRE" },
+        // The melee's own activities (tf_weaponbase_melee.cpp:328-342): the
+        // plain swing and the crit's, which the viewmodel rule turns into the
+        // role's ACT_MELEE_VM_* or the fists' ACT_FISTS_VM_* before the model
+        // is asked. The fists' pair rides the schema's animation_replacement.
+        WeaponAnim.HitCenter    => new[] { "ACT_VM_HITCENTER" },
+        WeaponAnim.SwingHard    => new[] { "ACT_VM_SWINGHARD" },
+        WeaponAnim.HitLeft      => new[] { "ACT_VM_HITLEFT" },
+        WeaponAnim.HitRight     => new[] { "ACT_VM_HITRIGHT" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 

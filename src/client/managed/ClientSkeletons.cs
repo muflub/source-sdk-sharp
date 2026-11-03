@@ -63,6 +63,11 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     // no entry), for the flip counters below.
     private readonly Dictionary<EntityHandle, (int Frame, int Answered)> _flips = [];
     private readonly Dictionary<string, int> _surfaceIndices = new(StringComparer.Ordinal);
+
+    // The bone index of a (model, bone name) pair, so a held bone turn reads
+    // its bone's index from the cache instead of walking every bone's name at
+    // every build of every entity. Cleared with the model images.
+    private readonly Dictionary<(int Model, string Name), int> _boneIndices = new();
     private readonly SurfacePropReader _surfaceReader;
 
     // The ragdoll answer of the ask in flight. A token rather than the native
@@ -81,12 +86,19 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     // after them.
     private readonly Func<Ragdolls.IClientRagdolls?>? _ragdolls;
 
+    // The weapon effects' bone turn, asked when an entity's bones were just
+    // built for the engine's array (the draw-side read a merged weapon and a
+    // viewmodel attachment answer through).
+    private readonly Func<EntityHandle, (string BoneName, float AngleRadians)?>? _boneSpin;
+
     public ClientSkeletons(IStandaloneBlocks blocks, IClientSequenceStore store, StudioModels models,
                            Func<int, EntityHandle?> handleAt, IEngineEnvironment environment, ILog log,
                            IFwdPhysicsSurfaceProps surfaceProps,
                            ClAnimThreeWayBlendConVar? threeWayBlend = null,
-                           Func<Ragdolls.IClientRagdolls?>? ragdolls = null)
+                           Func<Ragdolls.IClientRagdolls?>? ragdolls = null,
+                           Func<EntityHandle, (string BoneName, float AngleRadians)?>? boneSpin = null)
     {
+        _boneSpin = boneSpin;
         _ragdolls = ragdolls;
         _blocks = blocks ?? throw new ArgumentNullException(nameof(blocks));
         _store = store ?? throw new ArgumentNullException(nameof(store));
@@ -508,6 +520,8 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
             }
 
             answer = true;
+
+            ApplyBoneSpin(read, entity, output, copy);
         }
 
         long spent = Stopwatch.GetTimestamp() - started;
@@ -518,6 +532,105 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
         SetupBonesByModel[read.Head.ModelIndex] =
             (model.Asks + 1, model.Ticks + spent, model.Builds + (SameKey(before, state.CacheKey) ? 0 : 1));
         return answer;
+    }
+
+    /// <summary>
+    /// The weapon effect's bone turn, written into the engine's array after
+    /// the pose: stock's <c>CTFMinigun::StandardBlendingRules</c> arm
+    /// (<c>tf_weapon_minigun.cpp:1072-1090</c>) replaces the named bone's
+    /// quaternion with <c>AngleQuaternion(RadianEuler(0, 0, angle))</c> — the
+    /// bone's rotation RELATIVE TO ITS PARENT, a turn about the bone's own
+    /// local Z — inside the blending rules, BEFORE the bone chain composes the
+    /// world matrices. ("Aligned to (0,0,0)" at :1076 speaks of that bone-local
+    /// frame, not the world.) The engine's array holds world matrices, so the
+    /// same product is composed there from the parent's world row: the bone's
+    /// world matrix is parent x the local turn, its translation staying where
+    /// the pose put it, and the bones under it follow the turned parent as the
+    /// chain would. A zero angle is the identity quaternion, so it reproduces
+    /// the pose's own orientation; nothing else about the skeleton moves, and
+    /// an effect with no turn to hold leaves every bone as the pose built it.
+    /// </summary>
+    private void ApplyBoneSpin(in EngineBlock block, EntityHandle entity, Span<BoneMatrix3x4> output, int builtCount)
+    {
+        if (_boneSpin is null || _boneSpin(entity) is not { } spin)
+            return;
+
+        if (Hdr(block) is not { } hdr)
+            return;
+
+        int bone = BoneIndexOf(ModelOf(block), hdr, spin.BoneName);
+
+        if (bone < 0 || bone >= builtCount || bone >= output.Length)
+            return;
+
+        // Stock writes the LOCAL quaternion before the chain; the array holds
+        // worlds, so rebuild this bone's world the way the chain would: the
+        // parent's world basis (or the entity transform for a root bone, the
+        // chain's own base) rotated by the bone's local turn about its Z.
+        BoneMatrix3x4 held = output[bone];
+        int parent = hdr.BoneParent(bone);
+        BoneMatrix3x4 parentWorld = parent >= 0 && parent < output.Length
+            ? output[parent]
+            : MatrixOf(block.Head.WorldTransform);
+
+        System.Numerics.Quaternion quat = BoneSetupMath.AngleQuaternion(new RadianEuler(0f, 0f, spin.AngleRadians));
+        BoneMatrix3x4 turn = BoneSetupMath.QuaternionMatrix(quat);
+
+        output[bone] = new BoneMatrix3x4
+        {
+            Row0 = RotatedRow(parentWorld.Row0, turn, held.Row0.W),
+            Row1 = RotatedRow(parentWorld.Row1, turn, held.Row1.W),
+            Row2 = RotatedRow(parentWorld.Row2, turn, held.Row2.W),
+        };
+
+        RebuildUnder(hdr, bone, output, held, Math.Min(builtCount, output.Length));
+    }
+
+    /// <summary>One row of the bone's new world basis: the parent's row through
+    /// the local turn, the same product <see cref="BoneSetupMath.ConcatTransforms"/>
+    /// lays for the chain (out row r = Σ_k parentRow_r[k] · turnRow_k), the held
+    /// translation column riding whole in its W.</summary>
+    private static System.Numerics.Vector4 RotatedRow(System.Numerics.Vector4 parent, in BoneMatrix3x4 basis, float held)
+    {
+        float x = parent.X * basis.Row0.X + (parent.Y * basis.Row1.X + parent.Z * basis.Row2.X);
+        float y = parent.X * basis.Row0.Y + (parent.Y * basis.Row1.Y + parent.Z * basis.Row2.Y);
+        float z = parent.X * basis.Row0.Z + (parent.Y * basis.Row1.Z + parent.Z * basis.Row2.Z);
+        return new System.Numerics.Vector4(x, y, z, held);
+    }
+
+    /// <summary>
+    /// The bones under the turned bone, rebuilt over their own locals as the
+    /// chain would have them with the new parent world: every bone below the
+    /// spin keeps the basis and position it built from its direct parent, now
+    /// composed under that parent's turned world (studio parents precede their
+    /// children, so the walked order has each parent's new matrix ready).
+    /// </summary>
+    private static void RebuildUnder(StudioHdr hdr, int bone, Span<BoneMatrix3x4> output, in BoneMatrix3x4 heldOld,
+                                      int limit)
+    {
+        Dictionary<int, BoneMatrix3x4> olds = new() { [bone] = heldOld };
+
+        for (int child = bone + 1; child < limit; child++)
+        {
+            int parent = hdr.BoneParent(child);
+            int ancestor = parent;
+            while (ancestor > bone)
+            {
+                ancestor = hdr.BoneParent(ancestor);
+            }
+
+            if (ancestor != bone)
+            {
+                continue;
+            }
+
+            // The bone's own local transform, unchanged, hung on the turned
+            // parent: local = oldParent⁻¹ x oldChild, then the chain product.
+            BoneMatrix3x4 oldChild = output[child];
+            BoneMatrix3x4 local = BoneSetupMath.ConcatTransforms(BoneSetupMath.MatrixInvert(olds[parent]), oldChild);
+            output[child] = BoneSetupMath.ConcatTransforms(output[parent], local);
+            olds[child] = oldChild;
+        }
     }
 
     /// <inheritdoc/>
@@ -766,6 +879,33 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
 
         matrix = state.Attachments[attachment - 1];
         return true;
+    }
+
+    /// <summary>
+    /// The index of a bone by name in a model, cached per (model, name) as
+    /// <see cref="SurfaceIndexOf"/> caches surface props. A cache hit is
+    /// checked against the header standing at that model index today; a miss
+    /// walks the bone names once and stores the index. Returns -1 when the
+    /// model has no such bone.
+    /// </summary>
+    private int BoneIndexOf(int model, StudioHdr hdr, string name)
+    {
+        if (_boneIndices.TryGetValue((model, name), out int cached) && cached >= 0 && cached < hdr.NumBones
+            && string.Equals(hdr.Bone(cached).Name, name, StringComparison.OrdinalIgnoreCase))
+        {
+            return cached;
+        }
+
+        for (int bone = 0; bone < hdr.NumBones; bone++)
+        {
+            if (string.Equals(hdr.Bone(bone).Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                _boneIndices[(model, name)] = bone;
+                return bone;
+            }
+        }
+
+        return -1;
     }
 
     private int SurfaceIndexOf(StudioHdr hdr, int bone)
@@ -1266,6 +1406,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
     {
         _models.Clear();
         _surfaceIndices.Clear();
+        _boneIndices.Clear();
         _batch.DropAll();
         return _states.InvalidateAll();
     }
@@ -1278,6 +1419,7 @@ public sealed class ClientSkeletons : IClientStandaloneSkeletons, IClientBoneAns
         _flips.Clear();
         _models.Clear();
         _surfaceIndices.Clear();
+        _boneIndices.Clear();
     }
 
     // ---- across a client hot reload ---------------------------------------------------

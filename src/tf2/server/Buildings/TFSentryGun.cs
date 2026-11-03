@@ -11,6 +11,7 @@ using SourceSharp.Shared;
 using TF2.Server.Entities.Items;
 using TF2.Server.Player;
 using TF2.Server.Projectiles;
+using TF2.Server.Voice;
 using TF2.Shared;
 
 namespace TF2.Server.Buildings;
@@ -49,8 +50,8 @@ public sealed class TFSentryGun(ITFMapPlayers players, ITFObjectAnnouncer announ
                                  IEngineEntityRender render, IEngineWorldQuery world, IEngineDamage damage,
                                  IUniformRandom random, ITFAmmoPurse purse, TFBlastApplier blast,
                                  DamageInflictors inflictors, TFSentryGunDamageConVar sentryDamage,
-                                 TFPlayerCarriers? carriers = null)
-    : TFBaseObject(players, announcer, precache, render, purse, carriers)
+                                 TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null)
+    : TFBaseObject(players, announcer, precache, render, purse, carriers, speech)
 {
     public const string MapClass = "obj_sentrygun";
 

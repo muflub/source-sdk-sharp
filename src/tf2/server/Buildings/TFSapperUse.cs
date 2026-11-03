@@ -64,7 +64,7 @@ namespace TF2.Server.Buildings;
 public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlayers, IEngineEntities entities,
                                 IEngineWorldQuery world, ITFBuildings buildings, IEngineDamage damage,
                                 TFDamageScopes scopes, ITFObjectSpawner spawner, ILog log,
-                                ILagCompensation? lagCompensation = null) : ITFSapperState
+                                ITFBuilderArms? arms = null, ILagCompensation? lagCompensation = null) : ITFSapperState
 {
     /// <summary>The player's <c>m_flFieldOfView</c> (player.cpp:5108).</summary>
     public const float FieldOfView = 0.766f;
@@ -81,9 +81,41 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
     public bool PlaceSapper(int ownerIndex)
     {
         EntityHandle spy = enginePlayers.GetHandle(ownerIndex);
-        if (spy == EntityHandle.None)
+        if (spy == EntityHandle.None
+            || NearestSappable(spy, out Vector point) is not { } builtOn
+            || !PlaceOne(spy, builtOn, point))
             return false;
 
+        // The placed sapper leaves the hands for the last weapon
+        // (SwitchOwnersWeaponToLast, tf_weapon_builder.cpp:421) — the sapper
+        // row carries no OF_ALLOW_REPEAT_PLACEMENT to hold it out.
+        arms?.SwitchLast(spy);
+        return true;
+    }
+
+    /// <summary>
+    /// The attachment walk's find (<c>FindSnapToBuildPos</c>'s hostile pass,
+    /// tf_obj.cpp:1189-1250): the other teams' standing buildings, the
+    /// nearest the view cone, the reach and the sight line allow. A placing
+    /// or already-sapped one is passed over — the one sapper per building of
+    /// <c>CanBuildObjectOnBuildPoint</c>.
+    /// </summary>
+    public bool FindSappable(int ownerIndex, out EntityHandle building, out Vector point)
+    {
+        building = EntityHandle.None;
+        point = default;
+        if (NearestSappable(enginePlayers.GetHandle(ownerIndex), out Vector found) is not { } best)
+            return false;
+
+        building = best.Handle;
+        point = found;
+        return true;
+    }
+
+    /// <summary>The find over the objects themselves, the place's and the walk's shared ask.</summary>
+    private TFBaseObject? NearestSappable(EntityHandle spy, out Vector point)
+    {
+        point = default;
         int team = players.Team(spy);
         Vector eye = enginePlayers.GetShootOrigin(spy);
         Vector aim = Flat(Angles.Vectors(entities.GetEyeAngles(spy)).Forward);
@@ -93,38 +125,39 @@ public sealed class TFSapperUse(ITFMapPlayers players, IEnginePlayers enginePlay
         Vector bestPoint = default;
         float bestDistance = MaxAttachDistance;
 
-        foreach (TFBaseObject building in buildings.OwnedBy())
+        foreach (TFBaseObject candidate in buildings.OwnedBy())
         {
             // The hostile attachment looks at the other team's objects only,
             // and never at one being placed or already sapped — the one
             // sapper per building of CanBuildObjectOnBuildPoint.
-            if (building.Team == team || building.IsPlacing || building.HasSapper)
+            if (candidate.Team == team || candidate.IsPlacing || candidate.HasSapper)
                 continue;
 
-            Vector point = entities.GetWorldSpaceCenter(building.Handle);
+            Vector centre = entities.GetWorldSpaceCenter(candidate.Handle);
 
             // FInViewCone: the flat dot from the eye, strictly past it.
-            if (Flat(point - eye).Dot(aim) <= FieldOfView)
+            if (Flat(centre - eye).Dot(aim) <= FieldOfView)
                 continue;
 
             // Stock's trace: a build point something stops on short of the
             // building itself is out. (The buildings are non-solid, so the
             // trace names only a wall.)
-            TraceResult trace = world.TraceLine(eye, point, TraceMask.Brushes, spy);
-            if (trace.Hit && trace.Entity != building.Handle)
+            TraceResult trace = world.TraceLine(eye, centre, TraceMask.Brushes, spy);
+            if (trace.Hit && trace.Entity != candidate.Handle)
                 continue;
 
             // The nearest wins, under tf_obj_max_attach_dist from the feet.
-            float distance = (point - origin).Length;
+            float distance = (centre - origin).Length;
             if (distance >= bestDistance)
                 continue;
 
-            best = building;
-            bestPoint = point;
+            best = candidate;
+            bestPoint = centre;
             bestDistance = distance;
         }
 
-        return best is not null && PlaceOne(spy, best, bestPoint);
+        point = bestPoint;
+        return best;
     }
 
     /// <summary>

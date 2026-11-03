@@ -52,15 +52,22 @@ public class TFClassSpecialSkillTests
         Assert.Equal([TFOwner], world.Effects.ClassSkills);
     }
 
+    /// <summary>
+    /// The sapper is the builder family's shell, not a skill arm: its
+    /// alt-fire is the builder's rotate (<c>CTFWeaponBuilder::SecondaryAttack</c>,
+    /// the m_bInAttack2 debounce), and the class's special never runs from it.
+    /// </summary>
     [Fact]
-    public void ASapperAltFireReachesTheClassSkill()
+    public void ASapperAltFireIsTheBuildersRotateNotTheClassSkill()
     {
         var world = World(TFClass.Spy);
         var (w, vm) = world.Armed("tf_weapon_sapper", clip: -1, reserve: 0);
 
         world.Run(w, vm, Attack2, now: 10f);
 
-        Assert.Equal([TFOwner], world.Effects.ClassSkills);
+        Assert.Empty(world.Effects.ClassSkills);
+        Assert.Contains("rotate 3", world.Builder.Asked);
+        Assert.Equal(10.2f, w.NextSecondaryAttack, 4);
     }
 
     [Fact]
