@@ -11,6 +11,15 @@ description: >-
 # add-apt-repository step needs python3-apt and has failed for want of it.
 # The 10.0.1xx band is the host repo's global.json pin (latestPatch); this
 # repo takes any .NET 10 SDK.
+#
+# apt.llvm.org went unreachable from the runners on 2026-11-03 (PR #39: "Could
+# not resolve host" at 14:25 and 14:35 UTC, "Couldn't connect to server" at
+# 14:35), failing every Linux job a few seconds in, before any build. So the
+# install is tried five times, with 15, 30, 45 and 60 s between attempts,
+# and when the runner's resolver cannot resolve apt.llvm.org, systemd-resolved
+# is pointed at public resolvers (Cloudflare, Google) for the rest of the job.
+# `apt-get update --error-on=any` fails an unreachable source, which plain
+# `apt-get update` only warns about, leaving clang-22 "unable to locate".
 
 runs:
   using: composite
@@ -20,13 +29,37 @@ runs:
       run: |
         set -euo pipefail
         codename="$(. /etc/os-release && echo "$VERSION_CODENAME")"
-        curl -sS https://apt.llvm.org/llvm-snapshot.gpg.key \
-          | sudo tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc > /dev/null
+        public_dns=/etc/systemd/resolved.conf.d/sourcesharp-public-dns.conf
+        resolves() { getent ahosts apt.llvm.org > /dev/null; }
+        use_public_dns() {
+          [[ -e "$public_dns" ]] && return 0
+          echo "::warning::the runner's resolver cannot resolve apt.llvm.org; using 1.1.1.1 and 8.8.8.8"
+          sudo mkdir -p "$(dirname "$public_dns")"
+          printf '[Resolve]\nDNS=1.1.1.1 8.8.8.8 2606:4700:4700::1111 2001:4860:4860::8888\nDomains=~.\n' \
+            | sudo tee "$public_dns" > /dev/null
+          sudo systemctl restart systemd-resolved
+          sudo resolvectl flush-caches || true
+        }
+        install_toolchain() {
+          curl -fsS --connect-timeout 20 https://apt.llvm.org/llvm-snapshot.gpg.key -o /tmp/apt.llvm.org.asc \
+            && sudo install -m 644 /tmp/apt.llvm.org.asc /etc/apt/trusted.gpg.d/apt.llvm.org.asc \
+            && sudo apt-get update -qq --error-on=any -o Acquire::Retries=3 \
+            && sudo apt-get install -y -qq --no-install-recommends -o Acquire::Retries=3 \
+                 cmake ninja-build clang-22 lld-22 llvm-22 zlib1g-dev uuid-dev python3-yaml
+        }
         echo "deb https://apt.llvm.org/$codename/ llvm-toolchain-$codename-22 main" \
           | sudo tee /etc/apt/sources.list.d/llvm-22.list > /dev/null
-        sudo apt-get update -qq
-        sudo apt-get install -y -qq --no-install-recommends \
-          cmake ninja-build clang-22 lld-22 llvm-22 zlib1g-dev uuid-dev python3-yaml
+        resolves || use_public_dns
+        for attempt in 1 2 3 4 5; do
+          install_toolchain && break
+          if (( attempt == 5 )); then
+            echo "::error::the LLVM toolchain did not install in 5 attempts"
+            exit 1
+          fi
+          echo "::warning::toolchain install attempt $attempt failed; retrying in $((attempt * 15)) s"
+          resolves || use_public_dns
+          sleep $((attempt * 15))
+        done
         clang++-22 --version | sed -n 1p
         ld.lld-22 --version | sed -n 1p
         cmake --version | sed -n 1p
