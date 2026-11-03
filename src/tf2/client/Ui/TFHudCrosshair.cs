@@ -103,6 +103,28 @@ public sealed class TFHudCrosshair(ILocalArsenal arsenal, TFWeaponScripts script
     // Built here, not in the screen: the UI assemblies draw without allocating.
     public string Material => file.Value.Length > 0 ? "vgui/crosshairs/" + file.Value : "";
 
+    // The empty-file arm's art (hud_crosshair.cpp:233-281): the held weapon's
+    // script crosshair entry, stock's iconCrosshair handed over by
+    // ItemPreFrame's SetCrosshair (c_basecombatweapon.cpp:280-284). The file
+    // is the script's own path, DrawSetTextureFile's un-prefixed bind
+    // (hud.cpp:723); no entry, no read (stock's null m_pCrosshair arm, :235-236).
+    public string ScriptFile => ScriptIcon()?.File ?? "";
+
+    public int ScriptX => ScriptIcon()?.X ?? 0;
+
+    public int ScriptY => ScriptIcon()?.Y ?? 0;
+
+    public int ScriptWide => ScriptIcon()?.Wide ?? 0;
+
+    public int ScriptTall => ScriptIcon()?.Tall ?? 0;
+
+    /// <summary>The hands' weapon's script crosshair entry: the active
+    /// weapon's name through the script database, its <c>TextureData</c>
+    /// <c>crosshair</c> block (<see cref="TFWeaponScript.Crosshair"/>). No
+    /// hands, no script, no entry: nothing to draw.</summary>
+    private TFHudIcon? ScriptIcon() =>
+        arsenal.TryGetActive(out string name, out _, out _) ? scripts.Get(name)?.Crosshair : null;
+
     // Paint's colour, both arms (tf_hud_crosshair.cpp:200, hud_crosshair.cpp:263).
     public int Red => red.Value;
 

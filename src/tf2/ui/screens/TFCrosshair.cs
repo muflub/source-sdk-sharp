@@ -19,9 +19,10 @@ namespace TF2.Client.Ui;
 /// (:150-158, through <see cref="IUiTextureLibrary.Material"/>) and draws
 /// it as the quad at <c>iX±iWidth</c> (:215) — full size <c>2*iWidth</c>,
 /// <c>iWidth</c> being the scale times the 32-pixel texture rounded the
-/// stock way (:205-206). The empty file takes the base arm's centred
-/// sprite (:175-178 and hud_crosshair.cpp:275-280) as the toolkit's
-/// crosshair shape. Both arms
+/// stock way (:205-206). The empty file takes the base arm
+/// (<c>BaseClass::Paint</c>, :175-178): the held weapon's own script
+/// crosshair, its <c>TextureData</c> rect cropped whole and drawn centred
+/// at the scaled size (hud_crosshair.cpp:233-281). Both arms
 /// modulate by <c>(r, g, b, 255)</c> — the three <c>cl_crosshair_*</c>
 /// ints (:200, hud_crosshair.cpp:262-264), the colour the theme used to
 /// carry. Whether either draws is the weapon's script's
@@ -53,28 +54,64 @@ public sealed class TFCrosshair(ITFCrosshair crosshair, IUiTextureLibrary? textu
         if (!crosshair.Draw)
             return;
 
-        // Paint's iWidth (:205-206): flWidth = flWeaponScale * flPlayerScale
-        // * iTextureW, iWidth = (int)(flWidth + 0.5f). The adapter folds the
-        // weapon's scale and the player's (cl_crosshair_scale / 32) into one
-        // number, so flWidth is the 32-pixel texture at that scale.
-        int iWidth = (int)(32f * crosshair.Scale + 0.5f);
-
         // The custom file's arm (:150-158, :215): the material, drawn
-        // iX-iWidth .. iX+iWidth — the full size, centred. The empty file
-        // asks nothing: stock takes the BaseClass::Paint arm there.
-        int texture = crosshair.Material.Length > 0 ? textures?.Material(crosshair.Material) ?? 0 : 0;
-        if (texture != 0)
+        // iX-iWidth .. iX+iWidth — the full size, centred. Paint's iWidth
+        // (:205-206) is the fixed 32-pixel texture at the folded scale
+        // (the adapter's flWeaponScale × cl_crosshair_scale/32), rounded
+        // the stock way.
+        if (crosshair.Material.Length > 0)
         {
-            _ = ui.Texture(texture, Size.Du(2f * iWidth), Size.Du(2f * iWidth))
-                .At(UiAnchor.Centre).Name("crosshair").Tint(ConvarColour());
+            int iWidth = (int)(32f * crosshair.Scale + 0.5f);
+            int texture = textures?.Material(crosshair.Material) ?? 0;
+            if (texture != 0)
+            {
+                _ = ui.Texture(texture, Size.Du(2f * iWidth), Size.Du(2f * iWidth))
+                    .At(UiAnchor.Centre).Name("crosshair").Tint(ConvarColour());
+                return;
+            }
+
+            _ = ui.Shape(UiShape.Crosshair, ConvarColour(), iWidth, 5f)
+                .At(UiAnchor.Centre).Name("crosshair");
             return;
         }
 
-        // The default crosshair: the base arm's centred sprite
-        // (hud_crosshair.cpp:275-280) as the toolkit's shape — and the
-        // stand-in where the material binds nothing, the documented
-        // divergence from stock's error texture.
-        _ = ui.Shape(UiShape.Crosshair, ConvarColour(), iWidth, 5f).At(UiAnchor.Centre).Name("crosshair");
+        // The empty file's BaseClass::Paint arm (hud_crosshair.cpp:233-281):
+        // the held weapon's script crosshair art, its rect the texture's size
+        // (:253-254), cropped whole and drawn centred at the scaled size —
+        // iWidth/iHeight each rounded on its own (:268-271), x/y the centre
+        // minus half the box (:275-276) — modulated by the three ints (:263).
+        // Stock's bind is the script's own path (hud.cpp:723), unprefixed.
+        if (crosshair.ScriptFile.Length > 0)
+        {
+            int iWidth = (int)(crosshair.Scale * crosshair.ScriptWide + 0.5f);
+            int iHeight = (int)(crosshair.Scale * crosshair.ScriptTall + 0.5f);
+            int script = textures?.Material(crosshair.ScriptFile) ?? 0;
+            if (script != 0)
+            {
+                // DrawSelfCropped's interpolation (hud.cpp:645-656): the crop
+                // over the whole file size; a file whose size is unknown
+                // draws whole.
+                UiRect uv = new(0f, 0f, 1f, 1f);
+                if (textures!.About(crosshair.ScriptFile) is { Wide: > 0, Tall: > 0 } info)
+                    uv = new UiRect((float)crosshair.ScriptX / info.Wide,
+                                    (float)crosshair.ScriptY / info.Tall,
+                                    (float)crosshair.ScriptWide / info.Wide,
+                                    (float)crosshair.ScriptTall / info.Tall);
+
+                _ = ui.Texture(script, Size.Du(iWidth), Size.Du(iHeight), uv)
+                    .At(UiAnchor.Centre).Name("crosshair").Tint(ConvarColour());
+                return;
+            }
+
+            // Nothing bound: the documented stand-in from stock's error
+            // texture, at the script rect's scaled size.
+            _ = ui.Shape(UiShape.Crosshair, ConvarColour(), Math.Max(iWidth, iHeight), 5f)
+                .At(UiAnchor.Centre).Name("crosshair");
+            return;
+        }
+
+        // No custom file and no script entry: stock's null-texture arms draw
+        // nothing (hud_crosshair.cpp:235-236).
     }
 
     // Paint's modulate colour, both arms (tf_hud_crosshair.cpp:200,

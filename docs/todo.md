@@ -1307,3 +1307,12 @@ and where its record lives now.
 - **`run-test-legs --self-test` "truncated: reports SHORT RUN" is intermittent.** One failure in `make
   check`'s runner leg at a5cd507c1, then 6 of 6 alone at load 9. Not read closely; likely a timing
   race under load in the fixture.
+
+## TF2: small differences seen while checking the name tag (2026-11-03)
+
+- A teammate may get no name tag. In a two-client run on one team, each player's ray at the other missed: 0 hits in 3 samples from the joiner, 0 in 11 from the host, against 2 of 3 from the joiner on opposite teams. Too few samples to call it a rule, and the host missed on opposite teams too. Next: a real count at one pose, then `CWorldQueryClient::ClientClipRayToEntities`'s solid and contents gates.
+- The spy's "Disguised" label draws over the health cross at the bottom left.
+- The window in 2fort's red spawn: the shutter behind the glass reads 105.7 in stock and 69.6 in ours; inside the room with no glass they match at 1.00. 2fort has no `func_reflective_glass`, so that isn't the path. Something about the pane still differs.
+- The weapon cards draw the script's sprite; stock draws the item's image (deferred row 123). The sapper's card is empty for it.
+- F38's quality prefix reaches the loadout screens, not yet the scoreboard or target ID.
+- The minigun's flash and brass (held on archive/tf2-minigunfx, ed9a3a6b3): `muzzle_minigun_constant` reports 62 live particles and draws nothing, the pyro flame's symptom. Retest on top of the flame's control points.

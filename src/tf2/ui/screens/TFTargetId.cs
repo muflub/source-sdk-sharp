@@ -27,12 +27,12 @@ namespace TF2.Client.Ui;
 /// adapter's content gate; the disguise and charge lines are the
 /// <see cref="TFTargetIdLine"/> the data string built. Stock's
 /// PerformLayout (:599-697) sizes the background to the text and centres
-/// the whole; here the panel keeps the hudlayout box and the labels elide
-/// into it — the fixed-width divergence the adapter records. The avatar
+/// the whole: XRES(5) + XRES(10), the health block, and the wider label. The avatar
 /// image and the kill-streak and moveable icons are not networked reads
 /// (docs/plans/tf2/deferred.tsv).
 /// </summary>
-public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, ITFRenderGroups? groups = null) : UiScreen
+public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, IUiFontMetrics fonts,
+                               ITFRenderGroups? groups = null) : UiScreen
 {
     public override string Name => "tftargetid";
 
@@ -46,30 +46,32 @@ public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, I
     // The stock numbers, in the 640x480 .res space; resolved to du per Describe.
     private static class Stock
     {
-        // The host: CMainTargetID's box widened to the art's 50 tall — the
-        // element is 35 (hudlayout.res:255-320) and the TargetIDBG art hangs
-        // 15 units below it (targetid.res:3-29), so the children hang
-        // against the art's extent, its top at the element's.
-        public static readonly StockRect Panel = new StockBox("c-126", "285", 252, 50).Rect(StockRect.Screen);
+        // The host: CMainTargetID (hudlayout.res:255-320), 35 tall. PerformLayout
+        // sets the TargetIDBG art to the element's own tall (:621-624), and its
+        // width to the content's: the 252 here names only the centre.
+        public static readonly StockRect Panel = new StockBox("c-126", "285", 252, 35).Rect(StockRect.Screen);
 
-        // TargetIDBG: the full 252x50 art from the element's top (targetid.res:3-29).
-        public static readonly StockBox Bg = new("0", "0", 252, 50);
+        // TargetIDBG from the element's top (targetid.res:3-29).
+        public static readonly StockBox Bg = new("0", "0", 252, 35);
+
+        // PerformLayout's XRES(5) + XRES(10) and the health block's wide
+        // (:601-607): what the panel adds to its wider label.
+        public const float Indents = 15f, HealthBlock = 32f;
 
         // SpectatorGUIHealth 3,2 32x32 (targetid.res:121-138) and its
         // children (spectatorguihealth.res): the bg 4,4, the cross 6,6 and
-        // the value 6,11 20x10, all inside the block — the value widened to
-        // the cross's full width, centred on it, for the toolkit's digits.
+        // the value 6,11 20x10, all inside the block.
         public static readonly StockBox HealthBg = new("7", "6", 24, 24);
         public static readonly StockBox Cross = new("9", "8", 20, 20);
-        public static readonly StockBox HealthValue = new("1", "11", 36, 10);
+        public static readonly StockBox HealthValue = new("9", "13", 20, 10);
 
         // TargetNameLabel xpos 8 ypos 5 (targetid.res:75-96), the data label
-        // xpos 8 ypos 22 (targetid.res:97-120) — the x pushed to 40 by the
-        // health indent (PerformLayout, tf_hud_target_id.cpp:647-649).
+        // xpos 8 ypos 17, the desktop arm (targetid.res:97-120) — the x pushed
+        // to 40 by the health indent (PerformLayout, tf_hud_target_id.cpp:647-649).
         public static readonly StockBox Name = new("8", "5", 236, 24);
         public static readonly StockBox NameAfterHealth = new("40", "5", 204, 24);
-        public static readonly StockBox Data = new("8", "22", 236, 15);
-        public static readonly StockBox DataAfterHealth = new("40", "22", 204, 15);
+        public static readonly StockBox Data = new("8", "17", 236, 15);
+        public static readonly StockBox DataAfterHealth = new("40", "17", 204, 15);
     }
 
     // The res's own image names (its "image"/teambg values, the ".." dropped).
@@ -79,6 +81,19 @@ public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, I
     private const string HealthBg = "hud/health_bg";
     private const string HealthCross = "hud/health_color";
     private const string HealthDead = "hud/health_dead";
+
+    // TargetDataLabel's FontStoreOriginalPrice, 9 tall (clientscheme.res:1086).
+    private const float DataSize = TFHudType.ClockSubText;
+
+    // The health number's SpectatorVerySmall, 7 tall (clientscheme.res:2217).
+    private const float HealthSize = 15.75f;
+
+    // The labels are measured once at a large probe (the metrics scale with
+    // the size), the panel's GetContentSize.
+    private const float Probe = 108f;
+
+    // The health number's ink, the res's fgcolor TanDark (clientscheme.res:99).
+    private static readonly UiColor TanDark = new(117, 107, 94, 255);
 
     // TF_TEAM_RED/BLUE (tf_shareddefs.h), the teambg_2/3 selectors.
     private const int Red = 2;
@@ -98,28 +113,34 @@ public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, I
         // same picture smaller); a larger design keeps the canvas's du.
         float k = MathF.Min(1f, ui.DesignHeight / (480f * StockRes.Scale));
         var at = Scaled(StockRes.Spot(Stock.Panel, StockRect.Screen), k);
+        bool health = target.ShowsHealth;
+        float nameWide = TextWide(ref ui, target.Name, Text.Label, TFHudType.Size(Text.Label));
+        float dataWide = LineWide(ref ui, target.Line);
+
+        // PerformLayout's width (:601-623): the indents, the health block and
+        // the wider label, in the design's du; the host centres on the screen.
+        float wide = (Stock.Indents + (health ? Stock.HealthBlock : 0f)) * StockRes.Scale * k
+                     + MathF.Max(nameWide, dataWide);
         using (ui.Box().AtRes(UiAnchor.Top, at.CentreX, at.Top)
-                       .Size(Size.Du(at.Wide), Size.Du(at.Tall)).Key("target id"))
+                       .Size(Size.Du(wide), Size.Du(at.Tall)).Key("target id"))
         {
             var bg = Scaled(Stock.Bg.In(Stock.Panel), k);
             string art = target.Team switch { Red => RedBg, Blue => BlueBg, _ => BrownBg };
-            if (!StockArt.Draw(ref ui, textures, "target id bg", art, bg.Left, bg.Bottom, bg.Wide, bg.Tall))
-                using (ui.Box().Size(Size.Du(bg.Wide), Size.Du(bg.Tall)).Fill(Tone.Surface)
+            if (!StockArt.Draw(ref ui, textures, "target id bg", art, bg.Left, bg.Bottom, wide, bg.Tall))
+                using (ui.Box().Size(Size.Du(wide), Size.Du(bg.Tall)).Fill(Tone.Surface)
                                .AtRes(UiAnchor.BottomLeft, bg.Left, bg.Bottom).Layered().Key("target id bg fallback"))
                 {
                 }
 
-            bool health = target.ShowsHealth;
             var name = Scaled((health ? Stock.NameAfterHealth : Stock.Name).In(Stock.Panel), k);
-            ui.Data(target.Name, Text.Body, Tone.Text)
-                .Width(Size.Du(name.Wide)).Height(Size.Du(name.Tall)).TextAlign(Align.Start)
-                .Elide().MaxWidth(name.Wide)
+            ui.Data(target.Name, Text.Label, Tone.Text).TextSize(TFHudType.Size(Text.Label))
+                .Width(Size.Du(nameWide + 1f)).Height(Size.Du(name.Tall)).TextAlign(Align.Start)
                 .AtRes(UiAnchor.BottomLeft, name.Left, name.Bottom).Layered().Key("target name");
 
             var data = Scaled((health ? Stock.DataAfterHealth : Stock.Data).In(Stock.Panel), k);
             var line = target.Line;
             using (ui.Row(Space.XS, Align.Centre)
-                       .Width(Size.Du(data.Wide)).Height(Size.Du(data.Tall))
+                       .Width(Size.Du(dataWide + 1f)).Height(Size.Du(data.Tall))
                        .AtRes(UiAnchor.BottomLeft, data.Left, data.Bottom).Layered().Key("target data"))
             {
                 switch (line.Kind)
@@ -128,21 +149,52 @@ public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, I
                     // (c_tf_player.cpp:9768-9779) — the alignment word by the
                     // disguise's team, then the class.
                     case TFTargetIdLineKind.Disguise:
-                        ui.Text("#TF2_TargetId_DisguisedAs", Text.Caption, Tone.Text);
-                        ui.Text(line.Enemy ? "#TF2_TargetId_Enemy" : "#TF2_TargetId_Friendly", Text.Caption, Tone.Text);
-                        ui.Data(line.ClassName, Text.Caption, Tone.Text).Elide();
+                        ui.Text("#TF2_TargetId_DisguisedAs", Text.Caption, Tone.Text).TextSize(DataSize);
+                        ui.Text(line.Enemy ? "#TF2_TargetId_Enemy" : "#TF2_TargetId_Friendly", Text.Caption, Tone.Text).TextSize(DataSize);
+                        ui.Data(line.ClassName, Text.Caption, Tone.Text).TextSize(DataSize);
                         break;
 
                     // #TF_playerid_mediccharge: "ÜberCharge: %s1" (:9794-9804).
                     case TFTargetIdLineKind.MedicCharge:
-                        ui.Text("#TF2_TargetId_UberCharge", Text.Caption, Tone.Text);
-                        ui.Number(line.Charge, Text.Caption, Tone.Text).Key("charge");
+                        ui.Text("#TF2_TargetId_UberCharge", Text.Caption, Tone.Text).TextSize(DataSize);
+                        ui.Number(line.Charge, Text.Caption, Tone.Text).TextSize(DataSize).Key("charge");
                         break;
                 }
             }
 
             if (health)
                 Health(ref ui, k);
+        }
+    }
+
+    /// <summary>A label's content width in du (<c>GetContentSize</c>).</summary>
+    private float TextWide(ref UiFrame ui, string text, Text role, float size)
+    {
+        var face = ui.Theme.Type(role);
+        var probe = new UiFontSpec(face.Family, (int)Probe, face.Weight, face.Flags);
+        float wide = 0f;
+        foreach (char c in text)
+            wide += fonts.Advance(probe, face.Upper ? char.ToUpperInvariant(c) : c);
+        return wide * size / Probe;
+    }
+
+    /// <summary>The data line's content width: its pieces and the row's gaps.</summary>
+    private float LineWide(ref UiFrame ui, in TFTargetIdLine line)
+    {
+        float gap = (float)Space.XS;
+        switch (line.Kind)
+        {
+            case TFTargetIdLineKind.Disguise:
+                return TextWide(ref ui, ui.Localised("#TF2_TargetId_DisguisedAs"), Text.Caption, DataSize)
+                       + TextWide(ref ui, ui.Localised(line.Enemy ? "#TF2_TargetId_Enemy" : "#TF2_TargetId_Friendly"), Text.Caption, DataSize)
+                       + TextWide(ref ui, line.ClassName, Text.Caption, DataSize) + 2f * gap;
+
+            case TFTargetIdLineKind.MedicCharge:
+                return TextWide(ref ui, ui.Localised("#TF2_TargetId_UberCharge"), Text.Caption, DataSize)
+                       + TextWide(ref ui, "100", Text.Caption, DataSize) + gap;
+
+            default:
+                return 0f;
         }
     }
 
@@ -180,14 +232,17 @@ public sealed class TFTargetId(ITFTargetId target, IUiTextureLibrary textures, I
             {
             }
 
-        // PlayerStatusHealthValue, centred over the cross
-        // (spectatorguihealth.res:74-93). The res's fgcolor TanDark rides
-        // the busy art at under 3:1, so the number takes the theme's ink on
-        // a surface chip (the core cross plate's rule).
+        // PlayerStatusHealthValue, centred on the cross in the res's own
+        // fgcolor TanDark and SpectatorVerySmall (spectatorguihealth.res:74-93).
         var value = Scaled(Stock.HealthValue.In(Stock.Panel), k);
-        _ = ui.Rect(Tone.Surface, Size.Du(value.Wide), Size.Du(value.Tall))
-                .AtRes(UiAnchor.BottomLeft, value.Left, value.Bottom).Layered().Key("target health chip");
-        ui.Number(target.Health, Text.Caption, Tone.Text)
+        // With no art under it (the previews), the theme's ink on a plate.
+        bool bare = StockArt.Missing(textures, HealthCross);
+        if (bare)
+            ui.Rect(Tone.Surface, Size.Du(value.Wide), Size.Du(value.Tall))
+                .AtRes(UiAnchor.BottomLeft, value.Left, value.Bottom).Layered().Key("target health plate");
+        var number = bare ? ui.Number(target.Health, Text.Caption, Tone.Text)
+                          : ui.Number(target.Health, Text.Caption).Color(UiPaint.FromGame(TanDark));
+        number.TextSize(HealthSize)
             .Width(Size.Du(value.Wide)).Height(Size.Du(value.Tall)).TextAlign(Align.Centre)
             .AtRes(UiAnchor.BottomLeft, value.Left, value.Bottom).Layered().Key("target health");
     }

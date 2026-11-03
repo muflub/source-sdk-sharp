@@ -208,6 +208,13 @@ public sealed class TFWeaponScript
     /// <summary>The selection's active icon, the <c>weapon_s</c> entry — the blue team's, <c>GetSpriteActive</c>.</summary>
     public TFHudIcon? IconActive { get; init; }
 
+    /// <summary>The crosshair's own art, the script's <c>TextureData</c>
+    /// <c>crosshair</c> entry — stock's <c>iconCrosshair</c>
+    /// (<c>weapons_resource.cpp:123-127</c>), handed to the hud's crosshair
+    /// element by <c>C_BaseCombatWeapon::ItemPreFrame</c>'s
+    /// <c>SetCrosshair</c> (<c>c_basecombatweapon.cpp:280-284</c>).</summary>
+    public TFHudIcon? Crosshair { get; init; }
+
     /// <summary>A sound category's script sound, or empty.</summary>
     public string Sound(WeaponScriptSound category) => Base.Sounds[(int)category];
 }

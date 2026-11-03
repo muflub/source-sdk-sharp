@@ -1,10 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="2560" height="1080" viewBox="0 0 2560 1080" data-scale="1">
-<rect x="1263" y="538" width="13" height="4" fill="#000000" fill-opacity="0.55" data-e="1"/>
-<rect x="1284" y="538" width="13" height="4" fill="#000000" fill-opacity="0.55" data-e="1"/>
-<rect x="1278" y="523" width="4" height="13" fill="#000000" fill-opacity="0.55" data-e="1"/>
-<rect x="1278" y="544" width="4" height="13" fill="#000000" fill-opacity="0.55" data-e="1"/>
-<rect x="1264" y="539" width="11" height="2" fill="#c8c8c8" data-e="1"/>
-<rect x="1285" y="539" width="11" height="2" fill="#c8c8c8" data-e="1"/>
-<rect x="1279" y="524" width="2" height="11" fill="#c8c8c8" data-e="1"/>
-<rect x="1279" y="545" width="2" height="11" fill="#c8c8c8" data-e="1"/>
+<rect x="1247" y="538" width="29" height="4" fill="#000000" fill-opacity="0.55" data-e="1"/>
+<rect x="1284" y="538" width="29" height="4" fill="#000000" fill-opacity="0.55" data-e="1"/>
+<rect x="1278" y="507" width="4" height="29" fill="#000000" fill-opacity="0.55" data-e="1"/>
+<rect x="1278" y="544" width="4" height="29" fill="#000000" fill-opacity="0.55" data-e="1"/>
+<rect x="1248" y="539" width="27" height="2" fill="#c8c8c8" data-e="1"/>
+<rect x="1285" y="539" width="27" height="2" fill="#c8c8c8" data-e="1"/>
+<rect x="1279" y="508" width="2" height="27" fill="#c8c8c8" data-e="1"/>
+<rect x="1279" y="545" width="2" height="27" fill="#c8c8c8" data-e="1"/>
 </svg>

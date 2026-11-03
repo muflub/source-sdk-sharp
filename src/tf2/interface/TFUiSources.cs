@@ -1287,6 +1287,34 @@ public interface ITFCrosshair
     /// crosshair (stock's Paint path, tf_hud_crosshair.cpp:150-154).</summary>
     string Material { get; }
 
+    /// <summary>
+    /// The held weapon's script <c>TextureData</c> <c>crosshair</c> entry —
+    /// stock's <c>iconCrosshair</c> (<c>weapons_resource.cpp:123-127</c>),
+    /// which <c>ItemPreFrame</c>'s <c>SetCrosshair</c> hands the hud element
+    /// (<c>c_basecombatweapon.cpp:280-284</c>) and the empty-file
+    /// <c>BaseClass::Paint</c> arm then draws cropped at the centre
+    /// (<c>hud_crosshair.cpp:233-281</c>): the file and its pixel rect, the
+    /// rect's size being the texture Paint scales (:253-254), its position
+    /// the crop's origin in the file (<c>hud.cpp:653-656</c>). Flat as
+    /// <see cref="TFSelectionWeapon"/>'s icon: this contract assembly
+    /// compiles no TF2.Shared source of its own. Empty file and zero rect
+    /// when the script names no crosshair entry — there the arm draws
+    /// nothing (<c>hud_crosshair.cpp:235-236</c>).
+    /// </summary>
+    string ScriptFile { get; }
+
+    /// <summary>Left of the script rect on the crosshair file.</summary>
+    int ScriptX { get; }
+
+    /// <summary>Top of the script rect on the crosshair file.</summary>
+    int ScriptY { get; }
+
+    /// <summary>Width of the script rect, stock's <c>iTextureW</c> (:253).</summary>
+    int ScriptWide { get; }
+
+    /// <summary>Height of the script rect, stock's <c>iTextureH</c> (:254).</summary>
+    int ScriptTall { get; }
+
     /// <summary>The colour the paint modulates by, stock's three
     /// <c>cl_crosshair_*</c> ints (tf_hud_crosshair.cpp:200), alpha 255.</summary>
     int Red { get; }

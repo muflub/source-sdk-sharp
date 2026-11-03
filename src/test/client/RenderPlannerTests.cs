@@ -203,10 +203,6 @@ public class RenderPlannerTests
         }
     }
 
-    [Fact]
-    public void ReflectiveGlassIsHandedBackToStock()
-        => Assert.Null(RenderPlanner.Plan(With(i => { i.GlassInView = 1; return i; })));
-
     private static List<int> Kinds(List<RenderOp> ops) => ops.Select(o => o.Kind).ToList();
 
     // CViewRender::RenderView's freeze arm: CFreezeFrameView stands in for the scene.
@@ -590,5 +586,89 @@ public class RenderPlannerTests
         RenderOp overview = RenderPlanner.Plan(With(i => { i.SetCvar(RenderCvar.cl_leveloverview, 2); return i; }))!
             .First(o => o.Kind == (int)RenderOpKind.BuildWorldLists);
         Assert.Equal(-1f, overview.GetF(1));
+    }
+
+    // The glass over 2fort's spawn yard: a floor-parallel brush whose plane
+    // faces up, 32 units under the eye at z 64.
+    private static RenderInputs Glass(RenderInputs input)
+    {
+        input.GlassInView = 1;
+        input.SetGlassPlane(new Vector(0, 0, 1), 32f);
+        return input;
+    }
+
+    [Fact]
+    public void GlassInTheViewPlansReflectionThenRefractionBeforeTheScene()
+    {
+        // CViewRender::DrawWorldAndEntities's cheap-water arm: both glass views
+        // in front of CSimpleWorldView, reflection first.
+        var ops = Plan(With(Glass));
+        var reflect = Pushes(ops, RenderTarget.WaterReflection);
+        var refract = Pushes(ops, RenderTarget.WaterRefraction);
+        Assert.Single(reflect);
+        Assert.Single(refract);
+        int r = ops.IndexOf(reflect[0]), f = ops.IndexOf(refract[0]);
+        int main = ops.FindLastIndex(o => o.Kind == (int)RenderOpKind.DrawWorld);
+        Assert.True(r < f && f < main, $"the reflection {r}, the refraction {f}, the world {main}");
+        Assert.Equal(3, ops.Count(o => o.Kind == (int)RenderOpKind.DrawWorld));
+    }
+
+    [Fact]
+    public void TheGlassReflectionIsTheEyeMirroredInThePlanesSize()
+    {
+        // CReflectiveGlassView::AdjustView: the target's size, the origin
+        // mirrored in the plane, the basis with it -- which needs roll 180:
+        // AngleVectors(-10, 90, 180) is the mirrored basis again.
+        var ops = Plan(With(Glass));
+        ViewSetup v = Pushes(ops, RenderTarget.WaterReflection)[0].View;
+        Assert.Equal(512, v.Width);
+        Assert.Equal(512, v.Height);
+        Assert.Equal(0f, v.Origin.X, 3f);
+        Assert.Equal(0f, v.Origin.Y, 3f);
+        Assert.Equal(64f - 2f * (64f - 32f), v.Origin.Z, 3f);
+        Assert.Equal(-10f, v.Angles.X, 3f);
+        Assert.Equal(90f, v.Angles.Y, 3f);
+        Assert.Equal(180f, v.Angles.Z, 3f);
+    }
+
+    [Fact]
+    public void TheGlassRefractionKeepsTheEyeAtTheTargetsSize()
+    {
+        // CRefractiveGlassView::AdjustView: sizes only, the eye unchanged.
+        var ops = Plan(With(Glass));
+        ViewSetup v = Pushes(ops, RenderTarget.WaterRefraction)[0].View;
+        Assert.Equal(512, v.Width);
+        Assert.Equal(512, v.Height);
+        Assert.Equal(64f, v.Origin.Z, 3f);
+        Assert.Equal(10f, v.Angles.X, 3f);
+    }
+
+    [Fact]
+    public void EachGlassViewClipsToItsOwnSideOfThePlane()
+    {
+        // The glass PushViews: the reflection keeps the eye's side (dist +
+        // 0.1), the refraction the far side (the negated plane).
+        var ops = Plan(With(Glass));
+        var clips = ops.Where(o => o.Kind == (int)RenderOpKind.PushCustomClipPlane).ToList();
+        Assert.Equal(2, clips.Count);
+        Assert.Equal(0f, clips[0].GetF(0), 3f);
+        Assert.Equal(0f, clips[0].GetF(1), 3f);
+        Assert.Equal(1f, clips[0].GetF(2), 3f);
+        Assert.Equal(32.1f, clips[0].GetF(3), 3f);
+        Assert.Equal(-1f, clips[1].GetF(2), 3f);
+        Assert.Equal(-31.9f, clips[1].GetF(3), 3f);
+    }
+
+    [Fact]
+    public void TheGlassViewsClearColourAndDepthWhateverTheFrameClears()
+    {
+        // Both Setups pass VIEW_CLEAR_DEPTH | VIEW_CLEAR_COLOR, not the main
+        // view's flags.
+        var ops = Plan(With(i => { i.ClearFlags = RenderConst.ClearDepth; return Glass(i); }));
+        var begins = ops.Where(o => o.Kind == (int)RenderOpKind.WorldViewBegin).ToList();
+        Assert.Equal(3, begins.Count);
+        Assert.Equal(RenderConst.ClearColor | RenderConst.ClearDepth, begins[0].GetI(1));
+        Assert.Equal(RenderConst.ClearColor | RenderConst.ClearDepth, begins[1].GetI(1));
+        Assert.Equal(RenderConst.ClearDepth, begins[2].GetI(1));
     }
 }

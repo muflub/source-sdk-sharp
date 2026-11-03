@@ -355,8 +355,26 @@ public unsafe struct RenderInputs
     public readonly float Cvar(RenderCvar c) { fixed (float* p = Cvars) return p[(int)c]; }
     public void SetCvar(RenderCvar c, float v) => Cvars[(int)c] = v;
 
+    /// <summary>Tests and tools: the glass plane's normal and dist, the executor's write.</summary>
+    public void SetGlassPlane(Vector normal, float dist)
+    {
+        fixed (float* p = GlassPlane)
+        {
+            p[0] = normal.X;
+            p[1] = normal.Y;
+            p[2] = normal.Z;
+            p[3] = dist;
+        }
+    }
+
     public readonly Vector SkyOrigin { get { fixed (float* p = SkyOriginXYZ) return new Vector(p[0], p[1], p[2]); } }
     public readonly int Fade(int i) { fixed (int* p = FadeColor) return p[i]; }
+
+    /// <summary>The glass plane's normal (IsReflectiveGlassInView's first hit).</summary>
+    public readonly Vector GlassNormal { get { fixed (float* p = GlassPlane) return new Vector(p[0], p[1], p[2]); } }
+
+    /// <summary>The glass plane's dist, in the same slots.</summary>
+    public readonly float GlassDist { get { fixed (float* p = GlassPlane) return p[3]; } }
 }
 
 /// <summary>

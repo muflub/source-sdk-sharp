@@ -99,6 +99,7 @@ public static class TFWeaponScriptParser
             DontDrop = data.GetInt("DontDrop", 0) > 0,
             IconInactive = HudIcon(data, "weapon"),
             IconActive = HudIcon(data, "weapon_s"),
+            Crosshair = HudIcon(data, "crosshair"),
         };
     }
 

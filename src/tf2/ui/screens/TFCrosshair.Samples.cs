@@ -34,6 +34,20 @@ public sealed class FakeCrosshair : ITFCrosshair
 
     public string Material { get; set; } = "";
 
+    /// <summary>The script crosshair, the base arm's art — the shipped
+    /// heavy's <c>sprites/crosshairs</c> atlas rect at (64,64) 64×64
+    /// (<c>tf_weapon_minigun.txt</c>'s TextureData entry). Empty it means
+    /// the script names none: the arm draws nothing.</summary>
+    public string ScriptFile { get; set; } = "sprites/crosshairs";
+
+    public int ScriptX { get; set; } = 64;
+
+    public int ScriptY { get; set; } = 64;
+
+    public int ScriptWide { get; set; } = 64;
+
+    public int ScriptTall { get; set; } = 64;
+
     public int Red { get; set; } = 200;
 
     public int Green { get; set; } = 200;

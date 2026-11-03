@@ -1124,7 +1124,7 @@ void CViewExecutorImpl::GatherInputs(const CViewSetup& setup, int nClearFlags, i
 	m_Engines.m_pViewRender->GetWaterLODParams(in.CheapWaterStart, in.CheapWaterEnd);
 
 	cplane_t glass;
-	in.GlassInView = IsReflectiveGlassInView(setup, glass) ? 1 : 0;
+	in.GlassInView = IsReflectiveGlassInView(m_Standalone, setup, glass) ? 1 : 0;
 	if (in.GlassInView)
 	{
 		in.GlassPlane[0] = glass.normal.x;

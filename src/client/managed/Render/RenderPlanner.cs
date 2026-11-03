@@ -21,10 +21,11 @@ namespace SourceSharp.Client.Render;
 /// </para>
 ///
 /// <para>
-/// NOT PLANNED, ANSWERED STOCK: reflective glass in view
-/// (IsReflectiveGlassInView, which answers false in this build). <see cref="Plan"/>
-/// returns null for that frame and View_Render draws it with stock's code.
-/// A freeze frame (test_freezeframe) is planned: <see cref="RenderInputs.FreezeActive"/>
+/// A frame with reflective glass in view (the executor asks stock's
+/// IsReflectiveGlassInView over the shells and carries the plane) plans the
+/// glass's reflection and refraction views, CReflectiveGlassView and
+/// CRefractiveGlassView, before the scene itself. A freeze frame
+/// (test_freezeframe) is planned: <see cref="RenderInputs.FreezeActive"/>
 /// shows the captured frame, <see cref="RenderInputs.FreezeTake"/> captures it.
 /// </para>
 /// </summary>
@@ -67,8 +68,6 @@ public static class RenderPlanner
                             DebugOverlayMaterials debug, ScreenSpaceEffectManager? screenEffects)
     {
         b.Clear();
-        if (input.GlassInView != 0)
-            return false;
         var frame = new Frame(input, b, debug, screenEffects);
         frame.RenderView(monitors);
         return true;
@@ -91,6 +90,29 @@ public static class RenderPlanner
     private static bool CvBool(in RenderInputs input, RenderCvar c) => input.Cvar(c) != 0f;
 
     private static int CvInt(in RenderInputs input, RenderCvar c) => (int)input.Cvar(c);
+
+    // mathlib.h's three-arg VectorAngles( forward, pseudoUp, angles ), which
+    // the glass reflection's mirrored basis ends in: the roll read off the
+    // left vector, a near-vertical forward taking its yaw from the left.
+    private const float RadToDeg = 180f / (float)Math.PI;
+
+    private static Vector VectorAngles(Vector forward, Vector pseudoUp)
+    {
+        Vector left = pseudoUp.Cross(forward).Normalized;
+
+        float xyDist = MathF.Sqrt(forward.X * forward.X + forward.Y * forward.Y);
+        float pitch = MathF.Atan2(-forward.Z, xyDist) * RadToDeg;
+        if (xyDist > 0.001f)
+        {
+            float yaw = MathF.Atan2(forward.Y, forward.X) * RadToDeg;
+            float upZ = left.Y * forward.X - left.X * forward.Y;
+            float roll = MathF.Atan2(left.Z, upZ) * RadToDeg;
+            return new Vector(pitch, yaw, roll);
+        }
+
+        float flatYaw = MathF.Atan2(-left.X, left.Y) * RadToDeg;
+        return new Vector(pitch, flatYaw, 0f);
+    }
 
     /// <summary>One RenderView's planning state: the inputs and the ops so far.</summary>
     private readonly struct Frame(RenderInputs input, RenderPlanBuilder b, DebugOverlayMaterials debug = default,
@@ -559,6 +581,13 @@ public static class RenderPlanner
             WaterInfo info = DetermineWaterRenderInfo();
             if (info.CheapWater)
             {
+                // The glass's own two views come first, each clipped to its
+                // side of the plane; then the scene as usual.
+                if (_in.GlassInView != 0)
+                {
+                    GlassView(view, drawSkybox, info, reflection: true);
+                    GlassView(view, drawSkybox, info, reflection: false);
+                }
                 SimpleWorldView(view, clear, radialClear, drawSkybox, info);
                 return;
             }
@@ -570,10 +599,33 @@ public static class RenderPlanner
                 UnderWaterView(view, drawSkybox, info);
         }
 
-        // ---------------------------------------------------------------------
-        // CSimpleWorldView::Setup and Draw
-        // ---------------------------------------------------------------------
         private void SimpleWorldView(in ViewSetup view, int clear, bool radialClear, bool drawSkybox, in WaterInfo info)
+        {
+            int draw = SimpleDrawFlags(drawSkybox, info);
+            bool eyeIn = _in.EyeInFogVolume != 0;
+
+            b.WorldViewBegin(view, draw, clear);
+            DrawSetup(view, 0f, draw, -1, ViewMain, adjusted: null);
+
+            if (!eyeIn)
+            {
+                EnableWorldFog(view.Angles);
+            }
+            else
+            {
+                clear |= ClearColor;
+                b.FogVolumeState(_in.FogVolume, false);
+                b.ClearColorFromFogColor(255);
+            }
+
+            DrawExecute(view, draw, clear, radialClear, 0f, ViewMain, 0f, null);
+            b.ClearColor4ub(0, 0, 0, 255);
+            b.Op(RenderOpKind.WorldViewEnd);
+        }
+
+        // CSimpleWorldView::Setup's draw flags, which the glass views share
+        // with the scene they front.
+        private int SimpleDrawFlags(bool drawSkybox, in WaterInfo info)
         {
             bool eyeIn = _in.EyeInFogVolume != 0;
             int draw = DfDrawEntities;
@@ -595,23 +647,94 @@ public static class RenderPlanner
                 draw |= DfRenderWater;
             if (!eyeIn && drawSkybox)
                 draw |= DfDrawSkybox;
+            return draw;
+        }
 
-            b.WorldViewBegin(view, draw, clear);
-            DrawSetup(view, 0f, draw, -1, ViewMain, adjusted: null);
+        // ---------------------------------------------------------------------
+        // CReflectiveGlassView and CRefractiveGlassView (glass reflection:
+        // viewrender.cpp): the scene mirrored in, or seen through, a glass
+        // brush's plane, each into its water target and user-clipped to its
+        // own side. Stock's Setup carries the plane; here it is the inputs'.
+        // Neither view names a view id: no SetupCurrentView, so the pixel
+        // visibility and lightmap-scale arms of the water views stay out.
+        // ---------------------------------------------------------------------
+        private void GlassView(in ViewSetup view, bool drawSkybox, in WaterInfo info, bool reflection)
+        {
+            int clear = ClearColor | ClearDepth;
+            int draw = SimpleDrawFlags(drawSkybox, info);
+            Vector normal = _in.GlassNormal;
+            float dist = _in.GlassDist;
 
-            if (!eyeIn)
+            // CBaseWorldView::AdjustView, the glass arms: both retarget the
+            // view at its render target; the reflection also mirrors the
+            // camera in the plane. The water reflection's projection-override
+            // flip is AdjustView's DF_RENDER_REFLECTION arm, not this one.
+            ViewSetup adjusted = view;
+            adjusted.X = 0;
+            adjusted.Y = 0;
+            if (reflection)
+            {
+                adjusted.Width = _in.ReflectionWidth;
+                adjusted.Height = _in.ReflectionHeight;
+
+                float distToPlane = adjusted.Origin.Dot(normal) - dist;
+                adjusted.Origin += normal * (-2f * distToPlane);
+
+                MoveVec.AngleVectors(adjusted.Angles, out Vector forward, out _, out Vector up);
+                forward += normal * (-2f * forward.Dot(normal));
+                up += normal * (-2f * up.Dot(normal));
+                adjusted.Angles = VectorAngles(forward, up);
+            }
+            else
+            {
+                adjusted.Width = _in.RefractionWidth;
+                adjusted.Height = _in.RefractionHeight;
+            }
+
+            b.WorldViewBegin(adjusted, draw, clear);
+            DrawSetup(view, 0f, draw, -1, ViewMain, adjusted);
+
+            if (_in.EyeInFogVolume == 0)
             {
                 EnableWorldFog(view.Angles);
             }
             else
             {
-                clear |= ClearColor;
                 b.FogVolumeState(_in.FogVolume, false);
                 b.ClearColorFromFogColor(255);
             }
 
-            DrawExecute(view, draw, clear, radialClear, 0f, ViewMain, 0f, null);
+            // The glass PushView: straight into the target, then the clip
+            // plane that keeps the view's own side of the glass.
+            b.Op(RenderOpKind.WorldViewShadowTextures);
+            b.Op(RenderOpKind.SoundExtraUpdate);
+            b.Push3DView(adjusted, clear, reflection ? RenderTarget.WaterReflection : RenderTarget.WaterRefraction, depthOverload: false);
+            if (reflection)
+                b.PushCustomClipPlane(normal.X, normal.Y, normal.Z, dist + 0.1f);
+            else
+                b.PushCustomClipPlane(-normal.X, -normal.Y, -normal.Z, -dist + 0.1f);
+
+            b.FrameBufferCopyPush(_in.DxLevel >= 80);
+
+            // DrawExecute's DF_DRAW_ENTITITES arm, which the draw flags carry.
+            b.ViewScene(draw);
+            bool opaqueWorld = CvBool(_in, RenderCvar.r_drawopaqueworld);
+            b.DrawWorld(0f, draw, opaqueWorld);
+            b.DrawOpaque(DepthModeNormal);
+            b.DrawTranslucent(false, false);
+            b.Op(RenderOpKind.DrawNoZTranslucent);
+
+            b.Op(RenderOpKind.FrameBufferCopyPop);
+
+            // The glass PopView: no height clip to reset.
+            b.PopCustomClipPlane();
+            b.Op(RenderOpKind.PopView);
+
+            // CSimpleWorldView::Draw's tail, then the glass view's own clear
+            // and flush.
             b.ClearColor4ub(0, 0, 0, 255);
+            b.ClearColor4ub(0, 0, 0, 255);
+            b.Flush(false);
             b.Op(RenderOpKind.WorldViewEnd);
         }
 

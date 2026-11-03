@@ -14,6 +14,11 @@ void AngleMatrix(const QAngle& angles, matrix3x4_t& mat)
 	ss_mathlib::AngleMatrix(angles, mat);
 }
 
+int SignbitsForPlane(cplane_t* plane)
+{
+	return ss_mathlib::SignbitsForPlane(const_cast<const cplane_t*>(plane));
+}
+
 void VectorTransform(const float* in1, const matrix3x4_t& in2, float* out)
 {
 	ss_mathlib::VectorTransform(in1, in2, out);

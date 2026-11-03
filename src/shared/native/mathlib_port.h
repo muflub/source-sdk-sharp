@@ -268,6 +268,16 @@ inline void VectorRotate(const float* in, const matrix3x4_t& m, float* out)
 	}
 }
 
+// A plane carried by a rotation and translation (mathlib.h's inline): the
+// normal rotated, the distance re-taken against the carried normal and the
+// translation. Right only for rotation-and-translation transforms.
+inline void MatrixTransformPlane(const matrix3x4_t& src, const cplane_t& inPlane, cplane_t& outPlane)
+{
+	ss_mathlib::VectorRotate(inPlane.normal.Base(), src, outPlane.normal.Base());
+	outPlane.dist = inPlane.dist * DotProduct(outPlane.normal, outPlane.normal);
+	outPlane.dist += outPlane.normal.x * src[0][3] + outPlane.normal.y * src[1][3] + outPlane.normal.z * src[2][3];
+}
+
 inline void MatrixSetColumn(const Vector& in, int column, matrix3x4_t& out)
 {
 	out[0][column] = in.x;

@@ -311,6 +311,55 @@ public sealed class TFHudCrosshairTests
         Assert.False(source.Draw, "a missing script is stock's gNullWeaponInfo, no crosshair from it");
     }
 
+    // ---- the script crosshair entry (weapons_resource.cpp:123-127) -----------
+
+    /// <summary>The shipped scripts with the revolver's script given a
+    /// TextureData crosshair block (the shipped files are otherwise untouched).</summary>
+    private static bool SeedCrosshairEntry(TFClassTableTests.Files files)
+    {
+        var text = WeaponFixtures.Text("tf_weapon_revolver");
+        var seeded = new Regex("\n\\{").Replace(text,
+            "\n{\n\t\"TextureData\"\t{\n\t\t\"crosshair\"\t{\n\t\t\t\"file\"\t\"crosshairs/hvy\"\n\t\t\t\"x\"\t\"6\"\n\t\t\t\"y\"\t\"2\"\n\t\t\t\"width\"\t\"24\"\n\t\t\t\"height\"\t\"16\"\n\t\t}\n\t}", 1);
+        if (seeded == text)
+            return false;
+        files.Bytes[ClientScripts.ScriptName("tf_weapon_revolver") + ".ctx"] =
+            WeaponFixtures.Seal(Encoding.UTF8.GetBytes(seeded));
+        return true;
+    }
+
+    [Fact]
+    public void The_script_s_crosshair_entry_reaches_the_reads()
+    {
+        // Stock's iconCrosshair (weapons_resource.cpp:123-127): the script's
+        // TextureData crosshair, file and rect, handed to the hud element by
+        // ItemPreFrame's SetCrosshair (c_basecombatweapon.cpp:280-284).
+        var files = WeaponFixtures.ShippedWithClasses();
+        Assert.True(SeedCrosshairEntry(files), "the seed found no brace to hang the TextureData block on");
+        var arsenal = new RigArsenal { Weapon = "tf_weapon_revolver" };
+
+        var rig = new Rig { Arsenal = arsenal };
+        var source = new Adapter(arsenal, new ClientScripts(new ClientLog(), new Served(files)),
+                                 rig.Engine, rig.Stands, rig.States, rig.Clock, rig.Owners, rig.Hooks,
+                                 rig.Vars.File, rig.Vars.Scale, rig.Vars.Red, rig.Vars.Green, rig.Vars.Blue);
+
+        Assert.Equal("crosshairs/hvy", source.ScriptFile); // the script's own path, unprefixed like stock's bind (hud.cpp:723)
+        Assert.Equal((6, 2, 24, 16), (source.ScriptX, source.ScriptY, source.ScriptWide, source.ScriptTall)); // the rect Paint reads (:253-254)
+    }
+
+    [Fact]
+    public void A_script_without_the_entry_reads_an_empty_crosshair()
+    {
+        // The trimmed shipped fixture keeps no TextureData block (README): the
+        // missing entry is stock's null iconCrosshair, whose arm of the base
+        // Paint draws nothing (hud_crosshair.cpp:235-236).
+        var arsenal = new RigArsenal { Weapon = "tf_weapon_revolver" };
+
+        var source = OverShipped(arsenal);
+
+        Assert.Equal("", source.ScriptFile);
+        Assert.Equal(0, source.ScriptWide);
+    }
+
     // ---- GetWeaponCrosshairScale's bloom arm (tf_weapon_revolver.cpp:207-223) --
 
     [Fact]

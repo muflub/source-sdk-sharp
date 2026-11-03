@@ -11,6 +11,8 @@ public static class TFTargetIdSamples
     public static UiScreen Build(UiSampleServices s, FakeTargetId? target = null, FakeTextureLibrary? textures = null)
     {
         s.Add<ITFTargetId>(target ?? new FakeTargetId());
+        if (!s.Has<IUiFontMetrics>())
+            s.Add<IUiFontMetrics>(new UiFontLibrary());
         s.HudArt = textures ?? s.HudArt;
         return s.Create<TFTargetId>();
     }

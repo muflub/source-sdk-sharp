@@ -155,6 +155,11 @@ public sealed class RenderPlanBuilder
 
     public void SetHeightClipMode(int mode) => Add(RenderOpKind.SetHeightClipMode, [mode]);
 
+    /// <summary>The glass views' user clip plane: F0..2 the normal, F3 dist + epsilon.</summary>
+    public void PushCustomClipPlane(float x, float y, float z, float w) => Add(RenderOpKind.PushCustomClipPlane, null, [x, y, z, w]);
+
+    public void PopCustomClipPlane() => Op(RenderOpKind.PopCustomClipPlane);
+
     public void ClearForView(int clear, bool orColorIfRadialVis) => Add(RenderOpKind.ClearForView, [clear, orColorIfRadialVis ? 1 : 0]);
 
     public void FrameBufferCopyPush(bool setPowerOfTwo) => Add(RenderOpKind.FrameBufferCopyPush, [setPowerOfTwo ? 1 : 0]);
