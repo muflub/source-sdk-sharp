@@ -762,36 +762,7 @@ internal sealed class Launcher(
             {
                 string up = Path.GetDirectoryName(root)
                             ?? throw new IOException($"instance root {root} has no parent");
-                string contentLink = Path.Combine(up, "content");
-                // Concurrent games share <base>, so the link is whoever made
-                // it last: every tree's bin/<config>/content links to the same
-                // installed game, so any present target serves. A link left
-                // by a deleted tree is broken, and a stale one can point at
-                // nothing else useful, so (re)point anything that is not a
-                // link to exactly this content. A real directory there is the
-                // user's; it is never touched.
-                var existing = new FileInfo(contentLink);
-                bool ours = existing.LinkTarget is not null && Directory.Exists(contentLink) &&
-                            Path.GetFullPath(existing.LinkTarget) == Path.GetFullPath(content);
-                if (!ours)
-                {
-                    if (existing.LinkTarget is not null)
-                    {
-                        try { DeleteLink(contentLink); }
-                        catch (IOException) when (new FileInfo(contentLink).LinkTarget is null) { }
-                    }
-
-                    try
-                    {
-                        if (!Directory.Exists(contentLink) && !File.Exists(contentLink))
-                            CreateLink(contentLink, content);
-                    }
-                    catch (IOException) when (File.Exists(contentLink))
-                    {
-                        // Another launcher raced us to the link; either
-                        // target serves the same content.
-                    }
-                }
+                EnsureContentLink(Path.Combine(up, "content"), content, CreateLink);
             }
         }
 
@@ -849,6 +820,41 @@ internal sealed class Launcher(
     /// directory: Windows reads a file link to a directory as no directory at
     /// all. On Linux the two are the same link.
     /// </summary>
+    /// <summary>
+    /// Points <paramref name="contentLink"/> at <paramref name="content"/>.
+    /// Concurrent games share its directory, so the link is whoever made it
+    /// last: every tree's bin/&lt;config&gt;/content links to the same
+    /// installed game, so any present target serves. A link left by a deleted
+    /// tree is broken, and a stale one can point at nothing else useful, so
+    /// (re)point anything that is not a link to exactly this content. A real
+    /// directory there is the user's; it is never touched. A launcher that
+    /// loses the race to <paramref name="create"/> keeps the winner's link.
+    /// </summary>
+    internal static void EnsureContentLink(string contentLink, string content, Action<string, string> create)
+    {
+        var existing = new FileInfo(contentLink);
+        bool ours = existing.LinkTarget is not null && Directory.Exists(contentLink) &&
+                    Path.GetFullPath(existing.LinkTarget) == Path.GetFullPath(content);
+        if (ours)
+            return;
+        if (existing.LinkTarget is not null)
+        {
+            try { DeleteLink(contentLink); }
+            catch (IOException) when (new FileInfo(contentLink).LinkTarget is null) { }
+        }
+
+        try
+        {
+            if (!Directory.Exists(contentLink) && !File.Exists(contentLink))
+                create(contentLink, content);
+        }
+        catch (IOException) when (new FileInfo(contentLink).LinkTarget is not null)
+        {
+            // Another launcher raced us to the link (File.Exists is false for
+            // a link to a directory, so the link itself is the test).
+        }
+    }
+
     private static void CreateLink(string link, string target)
     {
         if (Directory.Exists(target))

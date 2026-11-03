@@ -8609,10 +8609,10 @@ def step_ui_form(g):
             send(kind, x, y, code)
 
     def opened():
-        return g.api.wait_for(lambda: (lambda m: m if "mouseoptions" in m.get("open", []) and ui_texts(m).count("Sensitivity") else None)(ui_menu(g, slot)), 10.0)
+        return g.api.wait_for(lambda: (lambda m: m if "options" in m.get("open", []) and ui_texts(m).count("Sensitivity") else None)(ui_menu(g, slot)), 10.0)
 
     def closed():
-        return g.api.wait_for(lambda: (lambda m: m if "mouseoptions" not in m.get("open", []) else None)(ui_menu(g, slot)), 10.0)
+        return g.api.wait_for(lambda: (lambda m: m if "options" not in m.get("open", []) else None)(ui_menu(g, slot)), 10.0)
 
     def track(menu):
         """The widest fill right of the Sensitivity label, on its row.
@@ -8675,6 +8675,8 @@ def step_ui_form(g):
             after = float(g.api.convar("sensitivity").get("value"))
             g.check(after == now, "round %d: Cancel left sensitivity at %.2f (reads %.2f)" % (r + 1, now, after))
     finally:
+        # A window a failed round left up holds the mouse from every step after it.
+        g.api.cmd("cs_ui_close options")
         g.api.convar("sensitivity", original)
 
 
@@ -8703,7 +8705,7 @@ def step_ui_keys(g):
 
     def open_form():
         g.api.cmd("cs_ui_open keybindings")
-        m = g.api.wait_for(lambda: (lambda m: m if "keybindings" in m.get("open", []) and "Move forward" in ui_texts(m) else None)(ui_menu(g, slot)), 10.0)
+        m = g.api.wait_for(lambda: (lambda m: m if "options" in m.get("open", []) and "Move forward" in ui_texts(m) else None)(ui_menu(g, slot)), 10.0)
         time.sleep(0.3)
         return ui_menu(g, slot) if m else None
 
@@ -8726,7 +8728,7 @@ def step_ui_keys(g):
         return (hits[-1]["x0"] + 4, hits[-1]["y0"] + 6) if hits else None
 
     def closed():
-        return g.api.wait_for(lambda: (lambda m: m if "keybindings" not in m.get("open", []) else None)(ui_menu(g, slot)), 10.0)
+        return g.api.wait_for(lambda: (lambda m: m if "options" not in m.get("open", []) else None)(ui_menu(g, slot)), 10.0)
 
     try:
         menu = open_form()
@@ -8759,6 +8761,8 @@ def step_ui_keys(g):
         click(*button(ui_menu(g, slot), "CANCEL"))
         closed()
     finally:
+        # A window a failed round left up holds the mouse from every step after it.
+        g.api.cmd("cs_ui_close options")
         g.api.cmd("unbind f")
         g.api.cmd("unbind g")
         g.api.cmd("bind w +forward")

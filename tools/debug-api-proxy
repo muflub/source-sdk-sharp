@@ -22,6 +22,11 @@ could tell you, since knowing about the others is the whole point.
 
     tools/debug-api ui              serve on 127.0.0.1:27110 and open a browser
     tools/debug-api ui 8080         a different port
+    tools/debug-api-proxy --self-test
+
+The sockets are looked for where tools/debug-api looks: DEBUG_API_DIR, else
+/tmp/sourcesharp-debug-api, read on every listing (concurrent games each keep
+their own directory, CLAUDE.md).
 """
 
 import http.server
@@ -33,7 +38,12 @@ import sys
 import threading
 import webbrowser
 
-SOCKET_DIR = "/tmp/sourcesharp-debug-api"
+DEFAULT_SOCKET_DIR = "/tmp/sourcesharp-debug-api"
+
+
+def socket_dir():
+    """Where the games put their sockets: tools/debug-api's rule."""
+    return os.environ.get("DEBUG_API_DIR") or DEFAULT_SOCKET_DIR
 DEFAULT_PORT = 27110
 FALLBACK_TCP_PORT = int(os.environ.get("DEBUG_API_PORT", "27100"))
 
@@ -53,7 +63,7 @@ def live_instances():
     found = []
 
     try:
-        names = os.listdir(SOCKET_DIR)
+        names = os.listdir(socket_dir())
     except OSError:
         names = []
 
@@ -71,7 +81,7 @@ def live_instances():
         except OSError:
             continue
 
-        found.append({"pid": pid, "socket": os.path.join(SOCKET_DIR, name)})
+        found.append({"pid": pid, "socket": os.path.join(socket_dir(), name)})
 
     found.sort(key=lambda i: i["pid"])
     return found
@@ -308,7 +318,38 @@ class Proxy(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
 
+def self_test():
+    """The socket directory follows DEBUG_API_DIR; a live pid's socket there is an instance, a dead one's is not."""
+    import tempfile
+    failed = 0
+
+    def ok(cond, what):
+        nonlocal failed
+        print(("  ok    " if cond else "  FAIL  ") + what)
+        failed += 0 if cond else 1
+
+    saved = os.environ.pop("DEBUG_API_DIR", None)
+    try:
+        ok(socket_dir() == DEFAULT_SOCKET_DIR, "with no DEBUG_API_DIR the default directory")
+        with tempfile.TemporaryDirectory() as d:
+            os.environ["DEBUG_API_DIR"] = d
+            ok(socket_dir() == d, "DEBUG_API_DIR names the directory")
+            open(os.path.join(d, "%d.sock" % os.getpid()), "w").close()
+            open(os.path.join(d, "999999999.sock"), "w").close()
+            found = live_instances()
+            ok([i["pid"] for i in found] == [os.getpid()], "the live pid's socket there is the one instance (%s)" % found)
+            ok(found and found[0]["socket"].startswith(d), "and its socket path is in that directory")
+    finally:
+        os.environ.pop("DEBUG_API_DIR", None)
+        if saved is not None:
+            os.environ["DEBUG_API_DIR"] = saved
+    print("%d failed" % failed)
+    return 1 if failed else 0
+
+
 def main(argv):
+    if "--self-test" in argv:
+        return self_test()
     port = DEFAULT_PORT
 
     if len(argv) > 1 and argv[1]:

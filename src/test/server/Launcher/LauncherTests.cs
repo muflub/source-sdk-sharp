@@ -828,6 +828,29 @@ public sealed class LauncherTests : IDisposable
         Assert.Equal("keep", File.ReadAllText(Path.Combine(contentLink, "user.cfg")));
     }
 
+    /// <summary>Two games launched at once both find no content link and
+    /// both make one: the loser's create throws "already exists", and it
+    /// keeps the winner's link rather than fail the launch (live, a TF2 and a
+    /// test-mod probe started together: "Could not build the instance game
+    /// directory ... content already exists").</summary>
+    [Fact]
+    public void A_launcher_that_loses_the_race_to_the_content_link_keeps_the_winner_s()
+    {
+        string content = Path.Combine(_game, "content");
+        Directory.CreateDirectory(content);
+        Directory.CreateDirectory(InstanceRoot);
+        string contentLink = Path.Combine(InstanceRoot, "content");
+        int creates = 0;
+        Launcher.Launcher.EnsureContentLink(contentLink, content, (link, target) =>
+        {
+            creates++;
+            Directory.CreateSymbolicLink(link, target);   // the other launcher wins
+            Directory.CreateSymbolicLink(link, target);   // and ours throws, as it did live
+        });
+        Assert.Equal(1, creates);
+        Assert.Equal(content, Path.GetFullPath(new FileInfo(contentLink).LinkTarget!));
+    }
+
     [Fact]
     public void A_stale_instance_of_a_dead_launcher_with_a_suffix_is_swept_at_start()
     {

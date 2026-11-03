@@ -43,6 +43,56 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## Stock's spawn frag is not ported (2026-11-02)
+
+With every spawn point taken, `CHL2MP_Player::EntSelectSpawnPoint`
+(hl2mp_player.cpp:1447-1457) kills any other player within
+`hl2mp_spawn_frag_fallback_radius` (48) of the spot it settles for.
+`SpawnPoints.Walk` settles for a random one and kills nobody, so two players
+can stand in each other, a human as well as a bot. Stock's `CheckStuck` is
+ported. Not what the 2026-11-02 "stuck next to each other" report was (the user
+saw head on and same goal); nine spawns on dm_lockdown make it rare.
+
+## dm_lockdown: the ladder at (-4148 4188) is not on the graph's way, and a gate is walked into (2026-11-02)
+
+The nav file's climb there stops at z 96 and starts again at z 128 (the leaves
+between do not hold a crouched body at their centre), so the graph has no way
+up it and a route to its top goes 3,000 u round. At (-3644 4664) a barred gate
+stands shut that the file calls open floor (its bars let a ray through): a bot
+walks into it, and the stuck detector routes it round after 3 s.
+
+## tools/box-ready does not gate on GPU memory (2026-11-01)
+
+`tools/box-ready gate` said "ready" (36.9 GiB RAM, 24.5 cores idle) while
+the 8 GB GPU held 7,801 MiB across ten games (`nvidia-smi`), and the live
+gate's next game died in DXVK device creation ("Failed to create device",
+SIGTRAP in shaderapivk.so, before client.so or server.so loaded). A running
+game holds 0.6-1.9 GB, flat over time. **Next:** read free GPU memory
+(`nvidia-smi --query-gpu=memory.used,memory.total`) and wait for about 2 GB
+per game the run starts.
+
+## A game outlives whatever launched it when that dies unclean (2026-11-01)
+
+Three ss-tf2-healpred games (2.6 GB of GPU between them) ran on for 1h20m
+with nothing driving them: their `source#` reparented to systemd --user, its
+binary deleted by a later rebuild, nothing connected but their own loopback
+and the Steam client. The user had them killed by PID. What launched them is
+gone, so the driver is unknown: `tools/tf2-gate` and `tools/live-gate` kill
+their games in a `finally`, which a SIGKILL or a tool timeout of the driver
+skips, and a backgrounded `make headless` has no owner at all. **Next:**
+`source#` asks for `PR_SET_PDEATHSIG` on Linux (or watches its parent) when
+started by a tool, so the game goes when its launcher's driver does; a
+self-test kills a driver with SIGKILL and finds no game left.
+
+## The particle dev read calls a running system in slots 1-3 released (2026-11-02)
+
+`CParticleSystemsClient::ParticleSystemsRead` works out `Stopped` and `FollowMask`
+from slot 0 only, so `/client/{slot}/particles` lists a live `peejar_drips`,
+`peejar_drips_milk` or `critgun_weaponmodel_red` as `released` with no follow points
+(seen on `cp_granary` at f0aedbdc3 with `addcond 24`, `27` and `11`). The systems
+themselves run and follow their owner: only the read is wrong, as it was before they
+moved into the class. Look the owner's effect up in all four slots, with a test.
+
 ## client.so re-finds a loaded library every frame (2026-11-01)
 
 The G0 `dlopen` tracer (`tools/probes/dl-trace`, docs/gameui-census.md) saw
@@ -84,6 +134,27 @@ failed, both at 21.9 s / 1480-1535 ticks; the 6 at 13.8-15.4 s passed. Main
 4544b0f1e passed 8 of 8 at 13.9-19.7 s.
 **Owner:** the live gate. **Next:** wait for the newcomer's first usercmd
 before timing its movement, and print the pass's tick count beside the verdict.
+
+## tools/leg-floor's self-test failed once inside make check
+
+The runner leg's `tools/leg-floor --self-test` failed its "nofloor: reports NO
+FLOOR" arm in 1 of 2 `make check` runs on 2026-11-01 (t6-client b420f3ca4,
+debug; every other arm, including "nofloor: exits non-zero", passed) and in 0
+of 3 runs alone. The arm reads the tool's output, so a lost or interleaved line
+under load would explain it. **Next:** run the self-test under load (e.g. beside
+`make cpp-test`) until it fails, and read what the arm saw.
+
+## live-gate's hot-reload think-schedule check fails now and then
+
+`hot-reload`'s "the think schedule survived" check failed 1 of 6 runs on
+2026-11-01 (client T6 landing, t6-client 30981378e, debug): it failed in the
+pass that followed `pickup`, whose items had booked respawn thinks ("12
+booking(s), was 18, of which 13 had to survive"; short: weapon_frag). It
+passed 3 of 3 alone and 2 of 2 after damage, pickup and trigger. The daily
+gate logged the same check failing 8 times from 2026-10-05 to 2026-10-11 on
+keyframe_rope. The lane touched only client.so; the check reads the server's
+think bookings. **Next:** count a booking that comes due inside the reload
+window against its due tick, not the step's wall clock, and re-measure the rate.
 
 ## live-gate's damage step depends on the spawn point
 
