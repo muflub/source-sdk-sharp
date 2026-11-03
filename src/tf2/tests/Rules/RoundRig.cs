@@ -308,6 +308,7 @@ internal sealed class FakeMode : ITeamRoundMode
     public float WaveScale { get; set; } = 1f;
     public bool EvenTeamsJoinAttackers { get; set; }
     public bool PointsMayAlwaysBeBlocked { get; set; }
+    public bool HasMultipleTrains { get; set; }
     public TF2.Server.Modes.TFGameType GameType { get; set; }
     public bool InKothMode { get; set; }
 

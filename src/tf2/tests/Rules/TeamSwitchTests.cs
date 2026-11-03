@@ -139,4 +139,27 @@ public sealed class TeamSwitchTests
         Assert.Equal(1, rig.Announcer.Count("teams_switched"));
         Assert.False(rig.Flow.ShouldSwitchTeams());
     }
+
+    [Fact]
+    public void ARaceWinNeverSwitchesTeams()
+    {
+        // Stock gates the round-start switch behind !HasMultipleTrains
+        // (tf_gamerules.cpp:2775, beside the ShouldSwitchTeams override at
+        // :15106): two carts race their own tracks, so the teams stay put
+        // even when the win arms the switch.
+        var rig = new RoundRig();
+        rig.Mode.HasMultipleTrains = true;
+        // The auto scramble is its own subject; here it would redraw the
+        // teams this fact says stay.
+        rig.Settings.ScrambleAuto = false;
+        var (red, blue) = rig.Running();
+
+        rig.Flow.SetWinningTeam(TFTeam.Red, WinReason.AllPointsCaptured, switchTeams: true);
+        Assert.True(rig.RunUntil(() => rig.Flow.State == RoundState.RoundRunning));
+
+        Assert.Equal(TFTeam.Red, rig.Roster.TeamOf(red));
+        Assert.Equal(TFTeam.Blue, rig.Roster.TeamOf(blue));
+        Assert.Empty(rig.Roster.Moves);
+        Assert.Equal(0, rig.Announcer.Count("teams_switched"));
+    }
 }

@@ -72,6 +72,7 @@ public sealed class TeamTrainWatcher(
     IModeObjectives mode,
     IObjectiveRoundRules roundRules,
     ITeamRoundState round,
+    ITeamRoundControl control,
     IEngineEntities engine,
     IEngineSound sound,
     IEnginePrecache precache,
@@ -187,6 +188,7 @@ public sealed class TeamTrainWatcher(
     private float _trainDistanceAccumulator;
     private float _trainDistanceFromStart;
     private float _totalProgress;
+    private float _prevThinkProgress;
     private float _recedeTime;
     private float _recedeTotalTime;
     private float _recedeStartTime;
@@ -1008,6 +1010,19 @@ public sealed class TeamTrainWatcher(
                 }
 
                 _totalProgress = Math.Clamp(1.0f - (distanceToGoal / _totalPathDistance), 0f, 1f);
+
+                // The race shape: the first cart to reach its goal wins that team — the completion
+                // chain a stock PLR map wires into game_round_win, here as a direct call. Before
+                // declaring it, this cart books itself as stock's SetWinningTeam race arm does
+                // (tf_gamerules.cpp:9633-9650): its own team's track total takes its progress.
+                // The edge re-arms when the cart leaves its goal again (the next round). The flow
+                // keeps the first winning call it sees (TeamRoundFlow's TeamWin guard).
+                if (!_disabled && _totalProgress >= 1f && _prevThinkProgress < 1f)
+                {
+                    mode.AddTrainTrackProgress(Team, _totalProgress);
+                    control.SetWinningTeam((TFTeam)Team, WinReason.AllPointsCaptured);
+                }
+                _prevThinkProgress = _totalProgress;
 
                 float lastDistanceFromStart = _trainDistanceFromStart;
                 _trainDistanceFromStart = _totalPathDistance - distanceToGoal;

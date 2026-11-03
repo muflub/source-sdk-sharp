@@ -128,6 +128,13 @@ public interface IModeObjectives
     /// <summary>A team's train's progress along its track, 0..1.</summary>
     void SetTrainProgress(int team, float progress);
 
+    /// <summary>Stock's SetWinningTeam race arm (tf_gamerules.cpp:9633-9650): a completing cart
+    /// adds its progress onto its own team's race-track total.</summary>
+    void AddTrainTrackProgress(int team, float progress);
+
+    /// <summary>A team's race-track total (stock's CTFTeam m_PLRTrack).</summary>
+    float GetTrainTrackProgress(int team);
+
     /// <summary>A team's cart cappers (stock m_nNumCappers): -1 while the cart is blocked.</summary>
     void SetTrainCappers(int team, int cappers);
 
@@ -211,6 +218,7 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
     private readonly int[] _trainCappers = new int[ObjectiveLimits.TrainMaxTeams];
     private readonly int[] _trainSpeedLevel = new int[ObjectiveLimits.TrainMaxTeams];
     private readonly float[] _trainRecedeTime = new float[ObjectiveLimits.TrainMaxTeams];
+    private readonly float[] _trackProgress = new float[ObjectiveLimits.TrainMaxTeams];
 
     private readonly int[] _flagStatus = new int[Teams];
     private readonly int[] _flagCarrier = new int[Teams];
@@ -295,6 +303,7 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
             _numNodeHillData[team] = 0;
             _trackAlarm[team] = false;
             _trainProgress[team] = 0f;
+            _trackProgress[team] = 0f;
             _trainCappers[team] = 0;
             _trainSpeedLevel[team] = 0;
             _trainRecedeTime[team] = 0f;
@@ -870,6 +879,17 @@ public sealed class ObjectiveResource : IObjectiveResource, IModeObjectives
         if (_state is { } s)
             s.TrainProgress[team] = progress;
     }
+
+    /// <summary>Stock's SetWinningTeam race arm (tf_gamerules.cpp:9633-9650): every enabled cart's progress
+    /// adds onto its own team's track total at each winning call; the totals keep across the match.</summary>
+    public void AddTrainTrackProgress(int team, float progress)
+    {
+        if ((uint)team >= ObjectiveLimits.TrainMaxTeams)
+            throw new ArgumentOutOfRangeException(nameof(team), team, "a train team is 0..3");
+        _trackProgress[team] += progress;
+    }
+
+    public float GetTrainTrackProgress(int team) => (uint)team < ObjectiveLimits.TrainMaxTeams ? _trackProgress[team] : 0f;
 
     public void SetTrainCappers(int team, int cappers)
     {

@@ -1079,8 +1079,14 @@ public sealed class TeamRoundFlow : IRoundFlow, ITeamRoundState, ITeamRoundContr
     /// </summary>
     public void SetSwitchTeams(bool switchTeams) => _switchTeams = switchTeams;
 
-    /// <summary>Stock's <c>ShouldSwitchTeams</c> (teamplay_gamerules.h:95).</summary>
-    public bool ShouldSwitchTeams() => _switchTeams;
+    /// <summary>
+    /// Stock's <c>ShouldSwitchTeams</c> (teamplay_gamerules.h:95, the TF
+    /// override at tf_gamerules.cpp:15106-15111). Stock's race shape at
+    /// tf_gamerules.cpp:2775 gates the switch on <c>!HasMultipleTrains</c>:
+    /// on a multiple-train map each team races its own cart, so the armed
+    /// switch never crosses anyone. A machine with no mode answers the base.
+    /// </summary>
+    public bool ShouldSwitchTeams() => !(Mode?.HasMultipleTrains ?? false) && _switchTeams;
 
     /// <summary>
     /// Stock's <c>SetScrambleTeams</c> (teamplay_gamerules.h:99). The

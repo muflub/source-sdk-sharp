@@ -41,6 +41,13 @@ internal sealed class FakeModeObjectives : IModeObjectives
 
     public void SetTrainProgress(int team, float progress) => Progress[team] = progress;
 
+    public Dictionary<int, float> TrackTotals { get; } = new();
+
+    public void AddTrainTrackProgress(int team, float progress)
+        => TrackTotals[team] = TrackTotals.GetValueOrDefault(team) + progress;
+
+    public float GetTrainTrackProgress(int team) => TrackTotals.GetValueOrDefault(team);
+
     public void SetTrainCappers(int team, int cappers) => Cappers[team] = cappers;
 
     public void SetTrainSpeedLevel(int team, int level) => SpeedLevel[team] = level;
@@ -113,6 +120,9 @@ internal sealed class PayloadRig
     public readonly FakeModeObjectives Mode = new();
     public readonly FakeRamps Ramps = new();
     public readonly FakeResupply Resupply = new();
+
+    /// <summary>The objective settings a fact tunes: caplinear, block style, multi-capper counts.</summary>
+    public readonly FakeSettings Settings;
     public readonly TFPlayerCarriers Carriers = new();
     public readonly FakeConceptRules ConceptRules = new();
     public readonly FakeConceptTeams ConceptTeams = new();
@@ -171,9 +181,9 @@ internal sealed class PayloadRig
 
         // the points and master read the same table the watcher writes
         var objectives = new ObjectiveResource(new TF2.Tests.Client.ServerWarnScripts());
-        var settings = new FakeSettings();
+        Settings = new FakeSettings();
         services.AddInstance<IObjectiveResource>(objectives);
-        services.AddInstance<IObjectiveSettings>(settings);
+        services.AddInstance<IObjectiveSettings>(Settings);
 
         // no tf_logic_koth on the payload map, so the koth state says "not koth"
         // and its win and capture gates never speak.
@@ -181,7 +191,7 @@ internal sealed class PayloadRig
         var koth = new KothRoundState(Registry, timerHost);
         services.AddInstance<IRoundTimerHost>(timerHost);
         services.AddInstance<IKothRoundState>(koth);
-        services.AddInstance<IControlPointRules>(new ControlPointRules(Round, objectives, settings, Entities, koth));
+        services.AddInstance<IControlPointRules>(new ControlPointRules(Round, objectives, Settings, Entities, koth));
         services.AddInstance<ICapturePlayerRules>(new BaseCapturePlayerRules());
         services.AddInstance<IObjectiveEvents>(new FakeEvents());
         services.AddInstance<IHudMaterialIndex>(new FakeMaterials());

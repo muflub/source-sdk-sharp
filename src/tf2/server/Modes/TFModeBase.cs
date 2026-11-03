@@ -156,6 +156,9 @@ public abstract class TFModeBase : IGameMode, ITeamRoundMode, IModeSetup
 
     public virtual bool PointsMayAlwaysBeBlocked => false;
 
+    /// <summary>Stock's <c>HasMultipleTrains</c> (<c>m_bMultipleTrains</c>): only escort fields more than one train.</summary>
+    public virtual bool HasMultipleTrains => false;
+
     /// <summary>Every hook's say on a win: one veto refuses it; a hook that throws is named and does not veto.</summary>
     public bool AllowWin(TFTeam team, WinReason reason)
     {

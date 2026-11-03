@@ -28,6 +28,11 @@ public sealed class PayloadMode(TFModeServices services, IModeObjectives objecti
     /// <summary><c>CTFGameRules::PointsMayAlwaysBeBlocked</c>: <c>GetGameType() == TF_GAMETYPE_ESCORT</c>.</summary>
     public override bool PointsMayAlwaysBeBlocked => true;
 
+    private bool _multipleTrains;
+
+    /// <summary>Stock's <c>HasMultipleTrains</c>: what the escort's setup found on the map.</summary>
+    public override bool HasMultipleTrains => _multipleTrains;
+
     /// <summary>
     /// Stock's escort game-type init (tf_gamerules.cpp:4350-4357): the map
     /// fields more than one train when a tf_logic_multiple_escort is present
@@ -38,6 +43,7 @@ public sealed class PayloadMode(TFModeServices services, IModeObjectives objecti
     public override void SetupRound(float now)
     {
         base.SetupRound(now);
-        objectives.SetMultipleTrains(entities.FindAllByClassname("tf_logic_multiple_escort").Any());
+        _multipleTrains = entities.FindAllByClassname("tf_logic_multiple_escort").Any();
+        objectives.SetMultipleTrains(_multipleTrains);
     }
 }

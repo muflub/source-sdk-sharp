@@ -174,6 +174,25 @@ public sealed class TFModeTests
         Assert.True(rig.Objectives.MultipleTrains);
     }
 
+    [Fact]
+    public void AMapWithMultipleEscortLogicHasMultipleTrains()
+    {
+        // Stock's Activate sets m_bMultipleTrains from a tf_logic_multiple_escort
+        // on the map (tf_gamerules.cpp:4350-4357); escort answers the flag through
+        // HasMultipleTrains, which the round switch and the escort HUD read.
+        var rig = new TFModeRig();
+
+        // Before: no tf_logic_multiple_escort on the map (the rig's engine
+        // answers none), and the setup keeps the flag down.
+        rig.Payload.SetupRound(0f);
+        Assert.False(rig.Payload.HasMultipleTrains);
+
+        // After: the map fields one — the gEntList search answers a handle.
+        rig.Engine.Returns("Entities.FindAllByClassname", new[] { new EntityHandle(0x0500) });
+        rig.Payload.SetupRound(0f);
+        Assert.True(rig.Payload.HasMultipleTrains);
+    }
+
     // ---- the mode's halves ---------------------------------------------------------
 
     [Fact]

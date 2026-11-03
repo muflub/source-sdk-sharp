@@ -418,6 +418,11 @@ public interface ITeamRoundMode
     /// <summary>Stock <c>PointsMayAlwaysBeBlocked</c>: TF's escort answers true.</summary>
     bool PointsMayAlwaysBeBlocked { get; }
 
+    /// <summary>Stock's <c>HasMultipleTrains</c> (<c>m_bMultipleTrains</c>): escort answers it from
+    /// a <c>tf_logic_multiple_escort</c> on the map (tf_gamerules.cpp:4350-4357); the round switch
+    /// and the escort HUD read it.</summary>
+    bool HasMultipleTrains { get; }
+
     /// <summary>Stock's <c>GetGameType</c>: the <c>ETFGameType</c> the mode plays.</summary>
     TFGameType GameType { get; }
 
