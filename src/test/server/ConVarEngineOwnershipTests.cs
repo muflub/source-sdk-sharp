@@ -116,7 +116,7 @@ public class ConVarEngineOwnershipTests
         Assert.Empty(backend.Registered);
         Assert.Contains(log.Lines, l => l.Warning && l.Text ==
             "[SourceSharp] C# declared convar 'ss_test_engine_one', which the engine defines: refused. "
-            + "Read the engine's by name instead of declaring it.\n");
+            + "Declare it [EngineConVar] instead.\n");
     }
 
     [Fact]

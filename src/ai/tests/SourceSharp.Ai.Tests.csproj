@@ -37,6 +37,7 @@
     <!-- So facts can find the repository the way the core tests do. -->
     <Compile Include="..\..\test\common\RepoLayout.cs" Link="common\RepoLayout.cs" />
     <Compile Include="..\..\test\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
+    <Compile Include="..\..\test\common\ByNameConVarReads.cs" Link="common\ByNameConVarReads.cs" />
     <Compile Include="..\..\test\common\DeclaredConVars.cs" Link="common\DeclaredConVars.cs" />
     <Compile Include="..\..\test\common\DeclaredConVars.Client.cs" Link="common\DeclaredConVars.Client.cs" />
   </ItemGroup>

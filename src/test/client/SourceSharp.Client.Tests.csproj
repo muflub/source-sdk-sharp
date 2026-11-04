@@ -86,6 +86,7 @@
     <Compile Include="..\common\EngineBoundCallerCensus.cs" Link="common\EngineBoundCallerCensus.cs" />
     <Compile Include="..\common\IlCallCensus.cs" Link="common\IlCallCensus.cs" />
     <Compile Include="..\common\TempEntPathCensus.cs" Link="common\TempEntPathCensus.cs" />
+    <Compile Include="..\common\ByNameConVarReads.cs" Link="common\ByNameConVarReads.cs" />
     <Compile Include="..\common\EngineSideReachCensus.cs" Link="common\EngineSideReachCensus.cs" />
     <Compile Include="..\common\ShimAreaTypes.cs" Link="common\ShimAreaTypes.cs" />
     <Compile Include="..\common\FakePhysicsCallbacks.cs" Link="common\FakePhysicsCallbacks.cs" />

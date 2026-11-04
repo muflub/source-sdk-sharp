@@ -767,7 +767,7 @@ public sealed class ConVarRegistry
             if (ConVarOwnership.OwnedByEngine(_backend.ExistingFlags(attr.Name)))
             {
                 _log.Warning($"[SourceSharp] C# declared convar '{attr.Name}', which the engine defines: refused. "
-                           + "Read the engine's by name instead of declaring it.\n");
+                           + "Declare it [EngineConVar] instead.\n");
                 engineOwned.Add($"'{attr.Name}' ({type.FullName})");
                 continue;
             }
@@ -826,12 +826,12 @@ public sealed class ConVarRegistry
         if (duplicates.Count > 0)
             throw new InvalidOperationException(
                 "convars declared twice, by the core and a mod or by two mods: " + string.Join(", ", duplicates) +
-                ". A name has one declaration; rename one or read the other by name.");
+                ". A name has one declaration; rename one or take the other's class by constructor.");
 
         if (engineOwned.Count > 0)
             throw new InvalidOperationException(
                 "managed code declares convars the engine defines, which would alias the engine's own: " +
-                string.Join(", ", engineOwned) + ". Delete the declaration and read the engine's by name.");
+                string.Join(", ", engineOwned) + ". Make the declaration [EngineConVar].");
 
         return count;
     }
