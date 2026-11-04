@@ -132,6 +132,36 @@ public static partial class ChatEval
                     Console.WriteLine($"  {i + 1}/{cases.Count}");
             }
 
+            // The same cases again as the director has them: the openings' ring in the prompt, and the line's rules.
+            var ring = new ChatOpenings();
+            var rules = new ChatLineRules(words);
+            var known = new HashSet<string>(StringComparer.Ordinal) { "lodle", "kofi", "pia", "tommy", "tariq", "ines", "nico" };
+            var ringRows = new List<(Case Case, string Line, ChatRefusal Why)>();
+            for (int i = 0; i < cases.Count; i++)
+            {
+                Case c = cases[i];
+                ChatPrompt prompt = builder.Build(Facts(c.Persona, i), c.Trigger, c.Heard, ring.Avoid());
+                Row r = Ask(http, url, model, c, prompt, filter);
+                ChatRefusal why = r.Verdict.Refusal;
+                if (r.Verdict.Line is { } line)
+                {
+                    why = rules.Check(line, new ChatLineContext(c.Trigger.Kind, c.Trigger.Other, c.Heard?.Text), known);
+                    if (why == ChatRefusal.None && c.Trigger.Kind != ChatTriggerKind.Reply && ring.Repeats(line))
+                        why = ChatRefusal.RepeatsOpening;
+                    if (why == ChatRefusal.None)
+                        ring.Said(line);
+                }
+
+                ringRows.Add((c, r.Raw, why));
+            }
+
+            detail.Append(CultureInfo.InvariantCulture, $"\n## {model}: openings and confusion\n\n");
+            AppendOpenings(detail, "the bare prompt, no rules", rows.Where(r => r.Verdict.Line is not null).Select(r => r.Verdict.Line!));
+            AppendOpenings(detail, "the ring in the prompt, lines that passed every rule", ringRows.Where(r => r.Why == ChatRefusal.None).Select(r => r.Line));
+            detail.Append("Refused with the rules on: ").AppendJoin(", ", ringRows.Where(r => r.Why != ChatRefusal.None).GroupBy(r => r.Why).OrderByDescending(g => g.Count()).Select(g => $"{g.Key} {g.Count()}")).Append(".\n\n");
+            foreach ((Case c, string line, ChatRefusal why) in ringRows.Where(r => r.Why != ChatRefusal.None && r.Why != ChatRefusal.RepeatsOpening).Take(30))
+                detail.Append(CultureInfo.InvariantCulture, $"- [{c.Group}: {c.Note}] `{Escape(line)}` -> {why}\n");
+
             long vram1 = VramUsed();
             string onNvidia = RunnerOnNvidia();
             double[] ttft = [.. rows.Select(r => r.TtftMs).Order()], total = [.. rows.Select(r => r.TotalMs).Order()];
@@ -152,6 +182,14 @@ public static partial class ChatEval
 
         Console.WriteLine($"chat-eval: wrote {args[3]}");
         return 0;
+    }
+
+    /// <summary>How the lines open: a line of the commonest first words, and the share of the commonest.</summary>
+    private static void AppendOpenings(StringBuilder into, string what, IEnumerable<string> lines)
+    {
+        string[] firsts = [.. lines.Select(l => ChatText.Words(l.ToLowerInvariant())).Where(w => w.Length > 0).Select(w => w[0])];
+        var top = firsts.GroupBy(f => f).OrderByDescending(g => g.Count()).Take(6).Select(g => $"{g.Key} {g.Count()}");
+        into.Append(CultureInfo.InvariantCulture, $"{what}: {firsts.Length} lines, opening with ").AppendJoin(", ", top).Append(".\n\n");
     }
 
     private static string Escape(string s) => s.Replace("`", "'", StringComparison.Ordinal).Replace("\n", " \\n ", StringComparison.Ordinal);

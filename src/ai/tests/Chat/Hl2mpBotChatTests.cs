@@ -135,8 +135,37 @@ public sealed class Hl2mpBotChatTests
         public float TimeoutSeconds => 5f;
         public ChatSettings Settings { get; set; } = new()
         {
-            ReactChance = 1f, MomentChance = 1f, ReplyChance = 0f, ReactionMinSeconds = 0f, ReactionMaxSeconds = 0f, CharsPerSecond = 1e6f,
+            ReactChance = 1f, MomentChance = 1f, ReplyChance = 0f, ReactionMinSeconds = 0f, ReactionMaxSeconds = 0f, CharsPerSecond = 1e6f, Scaled = false, IdleSeconds = 0f, HumanHoldSeconds = 0f,
         };
+    }
+
+    /// <summary>The committed help file.</summary>
+    private sealed class HelpSource : IChatHelpSource
+    {
+        public ChatHelp? Help { get; set; } = ChatAnswerRig.Help();
+        public string Refusal => "no help";
+    }
+
+    private sealed class MapFacts : IChatMapFacts
+    {
+        public MapKnowledge? Map { get; set; } = ChatAnswerRig.Map();
+        public NavGraph? Graph => null;
+        public IReadOnlySet<string> GoodWeapons => ChatAnswerRig.Good;
+    }
+
+    private sealed class Eyes : IChatAskerEyes
+    {
+        public AiVector? Seen { get; set; }
+        public AiVector? SeenBy(int slot, int asker) => Seen;
+        public AiVector? At(int asker) => null;
+    }
+
+    /// <summary>What a marker reached the send path as: only the slot it was aimed at and its payload.</summary>
+    private sealed class MarkerSender : IUserMessageSender
+    {
+        public readonly List<(string Name, int Player, bool Reliable, byte[] Payload)> Sent = new();
+
+        public void Send(string name, ReadOnlySpan<byte> payload, int player, bool reliable) => Sent.Add((name, player, reliable, payload.ToArray()));
     }
 
     private sealed class Writers : IBotChatWriterFactory
@@ -185,6 +214,10 @@ public sealed class Hl2mpBotChatTests
         public readonly Writers Writers = new();
         public readonly Config Config = new();
         public readonly Words WordsSource = new();
+        public readonly HelpSource Help = new();
+        public readonly MapFacts Map = new();
+        public readonly Eyes Eyes = new();
+        public readonly MarkerSender Markers = new();
         public readonly Hl2mpBots Bots;
         public readonly Hl2mpBotChat Chat;
         public readonly HostSay Say;
@@ -200,7 +233,7 @@ public sealed class Hl2mpBotChatTests
             var chain = new ChatHookForwarder();
             Say = new HostSay(Log, Any<IEnginePlayers>(), entities, Any<IEntityDirectory>(), new Sender(), new Clients(), Any<IEngineGameEvents>(), Any<IEngineHost>(),
                               chatHooks: new Chain<IPlayerChatHook>(chain), audience: new Chain<IChatAudience>(new Audience(audience)));
-            Chat = new Hl2mpBotChat(Bots, Say, Any<IPlayerDirectory>(), new Clients(), entities, engineFrame, new Inventory(), new FightClock(), WordsSource, Writers, Log, Config, Any<IEnginePlayers>());
+            Chat = new Hl2mpBotChat(Bots, Say, Any<IPlayerDirectory>(), new Clients(), entities, engineFrame, new Inventory(), new FightClock(), WordsSource, Writers, Log, Config, Any<IEnginePlayers>(), Help, Map, Eyes, new PlayerMarkers(Markers));
             chain.Target = Chat;
             Assert.True(SkillPresets.TryGet("normal", out SkillProfile? normal));
             Assert.Null(Bots.Add("Pia Bullseye", normal!));
@@ -266,6 +299,86 @@ public sealed class Hl2mpBotChatTests
         public void OnPlayerChat(PlayerChat chat) => Target?.OnPlayerChat(chat);
     }
 
+    /// <summary>A question from a player goes through the path whole: one bot's line, and the marker to the one who asked, and only them.</summary>
+    [Fact]
+    public void AWhereQuestionMarksTheAskerAloneThroughTheSendPath()
+    {
+        var r = new Rig();
+        r.Tick();
+        r.Writers.Writer.Answer = _ => "nonsense from the model";
+        r.HumanSays("where's the health?");
+        r.Settle();
+        Assert.Equal(1L, r.Chat.Counters.Said);
+        (string name, int player, bool reliable, byte[] payload) = Assert.Single(r.Markers.Sent, m => m.Name == UserMessageKey.Of(typeof(PlayerMarkerMessage)));
+        Assert.Equal((Human, true), (player, reliable));
+        var reader = new UserMessageReader(payload);
+        PlayerMarker marker = PlayerMarker.Read(ref reader);
+        Assert.Equal((ChatAnswerRig.KitAt.X, ChatAnswerRig.KitAt.Y, "Health kit", (byte)PlayerMarkerKind.Exact), (marker.Position.X, marker.Position.Y, marker.Label, marker.Kind));
+    }
+
+    /// <summary>The other arm: an answer that points at nothing sends nobody anything.</summary>
+    [Fact]
+    public void AnAnswerThatPointsAtNothingSendsNoMarker()
+    {
+        var r = new Rig();
+        r.Tick();
+        r.HumanSays("how many spawns?");
+        r.Settle();
+        Assert.Equal(1L, r.Chat.Counters.Said);
+        Assert.DoesNotContain(r.Markers.Sent, m => m.Name == UserMessageKey.Of(typeof(PlayerMarkerMessage)));
+    }
+
+    /// <summary>A help file that cannot be read is one console line, and chat goes on as it was: the question is talk.</summary>
+    [Fact]
+    public void NoHelpFileIsOneLineAndQuestionsAreTalk()
+    {
+        var r = new Rig();
+        r.Help.Help = null;
+        r.Tick(3);
+        Assert.Single(r.Log.All, l => l.Contains("no help", StringComparison.Ordinal));
+        r.HumanSays("pia where's the health?");
+        r.Settle();
+        Assert.Equal(0L, r.Chat.Counters.Questions);
+        Assert.Equal(1L, r.Chat.Counters.Said);
+    }
+
+    /// <summary>A bot talks like its name: the seed that settled a tie among its skills for the name settles the tone, across the presets, where ties are common.</summary>
+    [Theory]
+    [InlineData("easy")]
+    [InlineData("normal")]
+    [InlineData("hard")]
+    public void ABotsToneIsTheTraitItsNameCameFrom(string preset)
+    {
+        Assert.True(SkillPresets.TryGet(preset, out SkillProfile? p));
+        ChatWords words = ChatRig.Words();
+        var tones = new HashSet<string>(StringComparer.Ordinal);
+        for (int seed = 1; seed <= 40; seed++)
+        {
+            var bot = new Hl2mpBot(new ActorId(2, 7), "Bobby Anything", p!) { SeedIndex = seed };
+            BotTrait trait = BotNamer.Trait(p!, AiRandom.SeedFor(Hl2mpBots.MatchSeed ^ Hl2mpBots.NameSalt, seed));
+            ChatPersona persona = Hl2mpBotChat.PersonaOf(bot, words);
+            Assert.Equal(words.ToneOf(p!, trait), persona.Tone);
+            tones.Add(persona.Tone);
+        }
+
+        // The stimulus: a preset whose ties the seed really settles; the serial alone would have given one tone.
+        Assert.True(tones.Count > 1 || preset == "hard", $"{preset}: one tone from forty seeds");
+    }
+
+    /// <summary>Difficulty reaches the voice: an easy bot is new here, a hard one a regular, a medium one neither.</summary>
+    [Fact]
+    public void DifficultyReachesTheTone()
+    {
+        ChatWords words = ChatRig.Words();
+        Assert.True(SkillPresets.TryGet("easy", out SkillProfile? easy));
+        Assert.True(SkillPresets.TryGet("normal", out SkillProfile? normal));
+        Assert.True(SkillPresets.TryGet("hard", out SkillProfile? hard));
+        var trait = new BotTrait(0, true);
+        Assert.Contains("new to this game", words.ToneOf(easy!, trait), StringComparison.Ordinal);
+        Assert.Contains("regular", words.ToneOf(hard!, trait), StringComparison.Ordinal);
+        Assert.DoesNotContain(",", words.ToneOf(normal!, trait), StringComparison.Ordinal);
+    }
+
     [Fact]
     public void OffStartsNothing()
     {
@@ -299,7 +412,7 @@ public sealed class Hl2mpBotChatTests
         r.Settle();
         Assert.Contains(r.Writers.Writer.Asked, p => p.User.Contains("<chat>hey pia</chat>", StringComparison.Ordinal));
         Assert.Equal(1L, r.Chat.Counters.Said);
-        Assert.Contains(r.Log.All, l => l.Contains("\"bot2<12>", StringComparison.Ordinal) && l.Contains("say \"nice one\"", StringComparison.Ordinal));
+        Assert.Contains(r.Log.All, l => l.Contains("\"bot2<12>", StringComparison.Ordinal) && l.Contains("say \"line1 here\"", StringComparison.Ordinal));
         Assert.True(r.Say.Said > said, "the say path relayed it");
     }
 

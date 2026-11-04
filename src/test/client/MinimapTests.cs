@@ -284,6 +284,9 @@ public class MinimapTests
 
     private static readonly byte[] OneRoom = new Bsp().Floor(0f, 0f, Room, Room).Spawn(160f, 160f).Bytes();
 
+    /// <summary>The same room, for the markers' facts.</summary>
+    internal static byte[] OneRoomBsp => OneRoom;
+
     private static (Minimap Map, Files Files, Clock Clock, World World) Make(byte[]? file = null)
     {
         var files = new Files(file ?? OneRoom);

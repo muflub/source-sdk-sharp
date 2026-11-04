@@ -837,22 +837,93 @@ once each time), a pickup worth having (`braggable`). Each has a chance; a
 wish that the limits do not let through within 3 s is forgotten: the moment has
 passed.
 
-**Limits.** One unprompted line per `ai_chat_interval` (30 s) over the server;
-`ai_chat_cooldown` (60 s) per bot; in a fight (a hit within 4 s) only a short
-reaction goes, and a kill or a death is one, asked for in 5 words. A line waits
-for its typing, reaction plus characters at 8 a second, counted from the moment
-it is about; past 15 s it makes no sense and is dropped. A reply to a player has
-its own limit, one per 3 s over the server, and holds the other chatter back for
-half an interval; a reply to a bot also needs the bot's cooldown to have run.
+A bot that goes cold says so, as one that goes hot does. **Idle:** 25 s with no line
+from any bot and one out of a fight says a few words, so a small game is not silent.
+
+**Limits (ruling 2026-11-03, "the rate of chat is too low").** One unprompted line
+per interval over the server, `ai_chat_interval` (10) times 0.7 + 0.03 a bot, at most
+1.3: 7.6 s with 2 bots, 10.6 s with 12, 13 s from 20. A bot's own silence is long
+enough for most of the others to have a turn, at most `ai_chat_cooldown` (30), never
+under the interval: 9 s with 2 bots, 30 s from 7.
+A kill or a death moves a bot at 40 %, doubling to 80 % as the bots fall from 6 to 3.
+In a fight (a hit within 4 s) only a short reaction goes, and a kill or a death is
+one, asked for in 5 words. A line that is refused spends none of this: the next
+moment may have it a second later. A line waits for its typing, reaction plus
+characters at 8 a second, counted from the moment it is about; past 15 s it makes no
+sense and is dropped. A reply to a player has its own limit, one per 3 s over the
+server, and holds the other chatter back for half an interval; a reply to a bot also
+needs the bot's cooldown to have run. **The floor:** a player's own line holds the
+chatter back 4 s, and stays on the screen 12 s (`hud_saytext_time`), so about one bot
+line stands beside it and it is not buried.
 
 **Replying.** A bot hears only what a player in its place would be sent:
 `HostSay.CanHear`, the relay's own rule, now its one copy. A line names a bot by
 its first name or any word of its trait name, whole words, any case, less the
 file's `notNames` ("Never", "Open"...). A line naming bots is answered by those
-bots, two at most. A line naming nobody is answered with `ai_chat_reply_chance`
-(10 %) by one bot. A bot's reply to a bot ends the exchange: nobody answers it.
-What a bot and a player said is kept per pair, 6 lines, in memory, gone with the
-bot and at a map change.
+bots, two at most. A player's line naming nobody is answered with
+`ai_chat_reply_chance` (50 %) by one bot, a bot's line with a fifth of that. A bot's
+reply to a bot ends the exchange: nobody answers it. What a bot and a player said is
+kept per pair, 6 lines, in memory, gone with the bot and at a map change.
+
+**Answering questions (ruling 2026-11-03, "answer questions from the player about
+things on the map or how to play").** A tiny model invents (first measure: the RPG "in
+the central plaza, about 5 meters south of the clock tower"), so the answer cannot come
+from it. `ChatAnswerBook` reads a line: it is a question if it ends in `?`, opens
+with a question word, says "where", or names a bot, and its words name a topic.
+Small talk ("how are you?") stays talk. With a `?` and no topic it is the shrug.
+It goes to one bot, whichever is free longest and out of a fight; one it names answers
+even in a fight, in a few words from the plain line; with all of them in a fight, after
+2.5 s the one that has fought least lately does the same. An answer bypasses the server's
+interval and the bot's cooldown, and nothing else does; one per 2 s to one asker, so a
+flood is no way round the rate. It takes at most 3 s of typing, and draws no reply.
+
+What it may say comes from code. **The map:** what is on it, how many, what the map is,
+how long a thing takes to come back, from `MapKnowledge` (§5.0). **Where:** there are
+no place names, so `ChatPlaces` builds what it honestly can: the end of the map's
+long axis (north is up on the minimap), the side across it, the floor (bands of nav floor
+area by height, reachable from a spawn, ramps too small to count), what stands within
+220 u (never a good weapon, so a landmark does not give one away), a ladder, a spawn.
+On dm_lockdown that reads "22 health kits around, one is at the south end on the east
+side, on the middle floor", which a person with a north-up minimap can use; it has 3
+floors as the nav has them, the highest a roof, and `tools/ai-replay chat-places` prints
+every item's words. **A bot that can see the asker** also says how far and which way;
+one that cannot says nothing of them. **How to play:** `hl2mp_help.json`, hand-written and
+short, every key, number and menu held to the tree by `ChatHelpTests`. **The board,
+and the bot's own last killer.** **Never where a person is:** "where is ravi", "where are
+you", "where's everyone" are a shrug with no model, and `ChatAsked` has no field for
+another player. `ChatAskerEyes` is chat's one reader of a sense, named by the
+perception census: whether this bot sees the asker, and where the asker stands, which
+picks the nearest item for the asker's own marker and goes in no line unless this
+bot can see them. A line in general chat is public, so a bot that can see you does say
+how far you are from something to anyone reading.
+
+**The model's part:** it is given the fact and told to say it in the bot's voice.
+`ChatAnswerCheck` holds what comes back: every word must be a word of the fact, in the
+fact's order, or plain filler (no item, number, place or negation in the filler list:
+a fact holds that); what the answer turns on must be there; a "no" stays a "no" with no
+"yeah" beside it; and it keeps a third of the fact's words. Anything else is refused and
+the plain line goes out, through the same output filter. A model that is down or slow
+(1.5 s) is the plain line too: **with no model, every answer but the bots' chatter
+still works.** A shrug is never asked of a model.
+
+**A good weapon stays vague (ruling 2026-11-03, "bots should be more vague with finding
+better weapons").** Rank 6 and up on `Hl2mpWeaponRanges`, what bots themselves rate a
+weapon by: the RPG, the crossbow, the AR2, the .357 and the shotgun. (`WeaponKnowledge`
+has no value of its own; the ranks are the numbers.) The answer names a floor and a
+side or an end, no landmark, no number and nothing "of you", and it is true: the same
+geometry as a place. Whether the map has one and how many stay plain facts.
+
+**The marker (ruling 2026-11-03, "add a map indicator or visual cue").** A "where"
+answer marks the place for the one who asked, when the line appears:
+`IPlayerMarkers.Show(player, position, label, kind, radius, seconds)`, generic, a
+reliable user message to that one slot; slot 0 is refused, never a broadcast, and no
+spectator or other player has it. It only ever points at what `MapKnowledge` or the nav
+holds, and no model is involved, so it is right even when the sentence is odd. On the
+client: a dot in a pulsing ring on the minimap, and a dot with the name and distance
+over the world, through walls, holding to the screen's edge when off it (HUD element
+`hud.markers`); gone after 10 s, fading over the last third, one per place, 4 at most.
+A good weapon's marker is a soft circle of 500 u radius on the minimap alone, its centre
+175 to 375 u off the weapon by a seeded draw, the same for the same seed.
 
 **Untrusted input, and the real protection.** Player text and player names go
 through `ChatPromptBuilder.Untrusted`: control and format characters out, `<`,
@@ -2390,6 +2461,14 @@ rows of §3.1 (ruled). Hand-written native code: none.
   the coordinator). Streaks, mostly earned; only aim, lead, reaction and recognition; a weak
   bot the most, never to Expert. §5.5.
 
+- **More chat, and bots answer questions** (2026-11-03, through the coordinator): "for
+  19 mins the rate of chat is too low, i would love if the bots could answer questions
+  from the player about things on the map or how to play the game". §3.6.
+- **A marker for where** (2026-11-03, through the coordinator): "you could add a map
+  indicator or visual cue when a bot answers where something is to the player". §3.6.
+- **Vague about good weapons** (2026-11-03, through the coordinator): "bots should be more
+  vague with finding better weapons"; asked which meaning, "1 chat answers". §3.6.
+
 ### 12.2 Open questions
 
 None. The §3.1 exposure and the map-tools nav work were ruled on
@@ -2493,6 +2572,15 @@ that code when M1 starts, and changes nothing here.
 | recoil and aim, SMG1 and AR2 at 200 / 500 / 1,000 u, strafing target, 8 reps; .357 at 500. A: this tip's code with the kick and hands patched off (2 runs). B: the kick, hands off (1 run). C: the kick and hands (2 runs) | hit %, then dps. **Hard SMG1: A 71.9, 46.0, 40.7 (36.2, 27.7, 23.1); B 72.2, 35.7, 29.1 (36.2, 22.3, 17.9); C 65.6, 46.8, 38.8 (34.8, 27.2, 23.7). Hard AR2: A 73.2, 56.0, 52.6 (56.6, 44.4, 41.3); B 48.0, 29.1, 14.4 (45.3, 33.7, 17.5); C 69.2, 59.2, 38.7 (55.4, 47.7, 33.7).** Medium SMG1: A 62.4, 36.4, 26.7 (31.8, 24.0, 18.8); B 62.2, 40.8, 34.9; C 66.3, 47.4, 38.8 (33.6, 31.1, 23.6). Medium AR2: A 62.1, 36.2, 26.0 (56.9, 29.0, 22.2); B 33.2, 13.6, 10.6 (27.8, 14.9, 12.0); C 62.9, 36.4, 34.4 (53.6, 35.2, 30.4). So uncompensated the AR2 is lost and the SMG1 at range hurts; with hands Hard is back within a run's noise but for the AR2 at 1,000 u. Medium's SMG1 C reads this plan's earlier 69.3, 49.3, 36.2 and A sits under it, unexplained: Hard to Medium at 500 u reads 1.0 in C against the 1.2 of §10. .357, one long run, no pull: Hard 58.3 % (120 shots), Medium 46.8 % (111), against A's 70 % (174) and 57 % (152): about 10 lower, and a pull against the kick read 79 % (158) and 41 % (145), so a run of this is noisy |
 | streaks by hand, aim range, SMG1, 500 u, strafing, 8 reps | **Easy on its own: error 8.1° ± 4.9, hit 5.0 % of 40 shots, first shot 1,522 ms, dps 6.6. Easy hot: 2.5° ± 2.7, hit 50.0 % of 254, 788 ms, dps 23.4** (Medium, C above: 47 %). Hard cold: hit 38.2 %, dps 21.8, against 46.8, 27.2 |
 | streaks in free play, jank runs at `e2e0b243e`, on and off, 3 runs each | begun, in 20 bot-minutes: hot 6, 2, 2, cold 4, 7, 8 (cold then gated off Easy). **Hit rate pooled, on then off: Medium 30.7 % (1,183 shots), 29.0 % (1,005); Hard 31.8 % (1,516), 31.7 % (1,035): neither moved.** Easy 18.3 % (333), 21.0 % (271). Expert 51.3 % (1,725), 65.9 % (900), the difference not explained: off, it also fired half as much, and no hot streak touches it; cold could cost some of it. Log, a run: `streak 2554 Barney: hot, aim error 1.17 deg, reaction 100 ms, recognition 0.09 s`, `streak 3574 Barney: over`, `streak 7918 Barney: cold, aim error 2.15 deg` |
+| bot chat's rate, old defaults (30 s, 60 s), 12 bots, dm_lockdown, 300 s, `/ai/counters`, `7195c0f78` | **2.6 lines a minute** (13, 10 of them the interval's 10 slots, 3 replies) of 316 moments: 166 passed over by chance, 139 forgotten waiting for the interval, 0 for a cooldown, 0 refused, 0 timeouts, latency 136 ms. The interval was the whole limit; the game of 2026-11-03 was the same, 44 lines in 19 min with 38 slots. |
+| bot chat's rate, new defaults (10 s, 30 s, scaled), 12 bots, 300 s, `a21b0549e` | **6.0 lines a minute, one per 10 s** (30), 353 moments: 182 chance, 134 interval, 4 cooldown, 5 refused, 0 timeouts, 15 us a tick mean on the main thread on a busy box. 1.2 of the setting was first tried: 4.6 a minute, one per 13 s, so it came down. |
+| the same, 3 bots, 240 s, at 0.75 of the setting (7.5 s), before the retune to 7.9 s | **5.0 lines a minute, one per 12 s** (20), 49 moments: 8 chance, 21 interval, 1 cooldown, 2 refused. The moments, not the limits, are what is short in a small game; the idle line has room to speak. |
+| "nice" as a line's first word, real logs: the game of 2026-11-03, then new runs | 15 of 44 lines; **3 of 30** (12 bots), **2 of 20** (3 bots). Eval, the same 100 cases, `chat-eval`: 24 of 99 on the bare prompt, 10 of 88 with the ring in the prompt and the rules on (refused: 4 repeats, 3 wrong side, 3 wrong person, 2 unfriendly). |
+| lines confused about who, real logs by reading: kill or death reaction naming a third party, the fight the wrong way round, self-address | the game of 2026-11-03, 44 lines: 3 + 3 + 1. New: 3 bots, 20 lines: 0 + 0 + 0; 12 bots, 30 lines: 0 + 0 + 0 (two named someone they were replying to). |
+| questions, `tools/ai-replay chat-truth`, 100 (50 map, 50 how to play), `llama3.2:3b`, dm_lockdown, graded by regex against the lump, then read by eye | **0 wrong went out, of 100**, 0 refused by the filter, every topic read. Of the model's own lines 35 were wrong by the grader (map 20, how to play 15), among them on the first run a church, a lake, Best Buy, "a central plaza, about 5 meters south of the clock tower"; 80 were refused by the check, for which the plain line went out; 20 went out in the model's words (map 10, how to play 10). Not committed: the report holds what the model wrote. An earlier run let "yeah there is no pistol at spawn" through, so the check now keeps the fact's order and refuses a yes on a no. | |
+| questions, live on dm_lockdown, 6 bots, 32 typed by the client, `a21b0549e` | 32 answered, all true by reading (the replies quoted in the lane's report); 8 in the model's words, 19 plain after the check refused the model's, 4 shrugs, 8 markers; each within the 8 s the driver waited (by design 0.6 to 1.6 s of reaction and at most 3 s of typing, not timed live). Earlier the same run gave 0 in the model's words of 27: the worker's echo check read the fact in the prompt. Fixed, and the eval now checks as the game does. |
+| with no model (`ai_chat_url 127.0.0.1:1`), live | every answer tried went out, plain, and the bots' chatter stopped: "man 5 batteries around, one is in the middle, on the middle floor, by the box of smg ammo". |
+| the marker, live on dm_lockdown, a client asking "where is the health?" from 6 m, screenshot opened | a dot on the crate-room floor beside the kit, "Health kit 6 m" under it, a ping on the minimap; 0.9 s of +forward later "2 m" with the kit in plain sight. Behind the player it holds to the edge. "where is the rpg?": a soft circle on the minimap, no world marker, gone 10 s later (screenshot). |
 
 ### 12.4 Choices made in this plan (small, stated)
 
@@ -3876,6 +3964,50 @@ that code when M1 starts, and changes nothing here.
 - **Streaks: the choices** (2026-11-02). Chances by feel, with rates measured: a kill 25 %, two within 8 s 60 %, from nothing 0.1 a minute, hot 8 to 20 s, cold 6 to 12 s, 45 s of rest. A death ends a hot one. The cap is 6.5, not 7: Expert's Alertness is 7. A bot with no aim to lift (at the cap) has no hot streak to show, and one a cold spell would cost under a tenth has no cold one. `ai_bot_streak <name> hot|cold` exists for the aim range; `tools/ai-aim-range` turns streaks off unless one is asked for, so a measurement is of what it names.
 - **Recoil: the brief against the tree** (2026-11-02). (1) `FireStyle.Burst` was a held key: `HeldAction` treated it as Spray, so every burst weapon was a hose. It fires bursts now. (2) A bot reads its punch through `IEnginePlayers.GetPunch`, a new read beside `SetPunch`: its own crosshair, in the HUD class of §2.4. (3) The kick, as main wrote it, moves only the punch, not the eye angles, so the view needs no resync (`Diverged` stays quiet). (4) A .357's kick is back inside its 0.75 s cadence, so the pause barely slows it (about 0.8 s a shot); it is there as asked. The pull is for a burst's climb only. (5) **The AR2's ball: no code needed.** `grep` over `src/ai` finds no reader of the ball or its blast: no tree ever chooses `ActionKind.AltFire` and `WeaponKnowledge` has no splash; the one mention is chat's word for it. Bots do not throw it, which main's change makes a stronger weapon to leave unused: a choice for later.
 - **Measuring beside other games**: more than about 4 games at once on the box's 8 GB NVIDIA card fail device creation (`DxvkAdapter: Failed to create device`, exit 133, 8 of about 65 starts in this lane; others' games count). The lane's batches ran 3 at a time.
+- **Bot chat's rate, by the numbers** (2026-11-03, §3.6, §12.3). The brief's counters
+  were one `rate_limited`, so `ChatLimit` splits it and `ai.chat.triggers` and
+  `chance_missed` came first; the interval was all of it. A refused line gives back
+  what it spent, or a tic would have cut the rate as well as the line. A bot's reply
+  to a line naming nobody went to a fifth of a player's, or more lines would have meant
+  many more replies among bots. `ai_chat_reply_chance` now means the player's: 50.
+- **Bot chat: the premises** (2026-11-03). `WeaponKnowledge` has no value; `Hl2mpWeaponRanges.Rank`
+  is what bots rate a weapon by, and rank 6 and up is exactly the ruling's five.
+  `ai_chat_reply_chance` at 10 % was a chance over all hearers: it was never the limit. The
+  brief's "13 of 44 start with nice" is 15 by the log's words. The brief's "up the ladder"
+  is `ChatPlaces.NeedsLadder`, and no item on dm_lockdown is up one; "by a ladder" is what shows.
+  "By the choke" was left out: `ChokeMap` knows where routes meet, and "by the choke" means
+  nothing to a person; a chest-high crate would be a better word and the lump does not have one.
+  Static props are not in the entity lump, so no "by the crates". **The tone:** it never
+  followed the name: `PersonaOf` drew its tie-break from the actor's serial and the name from
+  the roster's seed, and Easy and Medium tie most of their skills, so "Bobby Never Quits" often
+  spoke as another trait. Same seed now. Difficulty reached no line: a low or a high spend now
+  adds to the tone. A cold streak was thrown away while a hot one spoke: both speak.
+- **Bot chat: friendly lines** (2026-11-03). The rule is a data list both ways and only
+  bites on a reply: "thanks" gets `replyFriendly` and a line holding an insult is refused
+  (2 of 88 in the eval). Trash talk stays for everything else, a rude line included.
+- **Bot chat: the openings** (2026-11-03). The ring refuses only unprompted lines: a reply
+  to a person is wanted more than variety, and an answer is a fact.
+- **Bot chat: what a line in public says** (2026-11-03). A bot that can see the asker says how
+  far the thing is "of you", and that is public chat, so someone else reading learns the asker
+  is 6 m south of it. The brief asked for it; it tells nobody anything they could not see
+  from where the bot stands, and the distance on the marker is private. Say if it should go.
+- **Bot chat: the arms** (2026-11-03). All 140 chat, answer, help, marker and place arms were
+  red and green again after restore, over three runs at this lane's tip before its last
+  rebase. Five facts turned out unable to fail and were fixed on the way: an exchange ended by
+  the new self-address rule, a chance left at a fifth, a small game's interval, a line nobody
+  in a fight would say anyway, a filter on a plain line. `chat-stop-token` went green once
+  and red on the rerun: its fact is a race, 200 starts and stops, as it was.
+- **Bot chat: the model's share** (2026-11-03). A strict check over a tiny model means most answers
+  are the plain line, and those are what make it true. A larger model might get more voice
+  through it; `chat-truth` is the measure, and no model was tried beyond the default.
+- **A crash seen, not chat's** (2026-11-03). One 12-bot run of four (each 5 min) died with a segfault
+  on the main thread inside `vphysics.so` under the server's frame, a null read at +0x28
+  (minidump `crash_20261103063512_2.dmp`, read by a stack scan), during a burst of kills with
+  ragdolls and an `entityflame`. Nothing of chat is on that stack. One in about 20 minutes of 12 bots is too few to
+  rate it, and no run at the old base saw it. In `docs/todo.md`.
+- **Mutation arms, others' needles** (2026-11-03). `tools/ai-mutations` has 11 stale arms outside
+  chat (`aim-*`, `crouch-flat`, `reroll-*`, `field-big-blocks`, `break-trigger`): their subjects moved,
+  and they are the owners' to fix.
 
 ## 13. Stock references (read-only, `../source-sdk-2013-valve`)
 

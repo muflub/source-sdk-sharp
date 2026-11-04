@@ -54,6 +54,9 @@ public sealed class MapOutline
     public (float U, float V) Project(Vector world)
         => ((world.X - _originX) / _extent, 1f - (world.Y - _originY) / _extent);
 
+    /// <summary>A length in the world as a share of the square.</summary>
+    public float ProjectLength(float world) => world / _extent;
+
     /// <summary>The outline of a map's file, or null for one that is not a BSP or has no floors.</summary>
     public static MapOutline? Build(ReadOnlySpan<byte> bsp)
     {

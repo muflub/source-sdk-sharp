@@ -201,6 +201,27 @@ public sealed class ChatWorkerTests
     }
 
     [Fact]
+    public void AnAnswersPlainLinePassesTheFilterToo()
+    {
+        var counters = new ChatCounters();
+        var writer = new ChatRig.Writer { Fails = ChatFailure.ServerDown };
+        using var worker = new ChatWorker(writer, new ChatOutputFilter(ChatRig.Words()), counters);
+        worker.Start();
+        var help = ChatAnswerRig.Help();
+        ChatJob job = Job() with { Check = new ChatAnswerCheck("x", [], help.Filler, help.Negations, help.Agreements), Fallback = "go to www.freecheats.ru now" };
+        Assert.True(worker.TryPost(job));
+        ChatResult result = default;
+        long stop = Environment.TickCount64 + 5000;
+        while (!worker.TryTake(out result) && Environment.TickCount64 < stop)
+            Thread.Yield();
+        Assert.Equal(1L, counters.AnswersTemplate);
+        Assert.Null(result.Line);
+    }
+
+    /// <summary>
+    /// The filter runs on the worker on every answer.
+    /// </summary>
+    [Fact]
     public void TheFilterRunsOnTheWorkerOnEveryAnswer()
     {
         (ChatWorker worker, ChatRig.Writer writer, ChatCounters counters) = Rig();

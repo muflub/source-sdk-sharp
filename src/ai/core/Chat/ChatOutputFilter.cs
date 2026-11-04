@@ -18,6 +18,24 @@ public enum ChatRefusal
     Banned,
     Chatter,
     EchoesPrompt,
+
+    /// <summary>The line names the bot saying it ("yeah thanks ravi", said by Ravi).</summary>
+    SelfAddress,
+
+    /// <summary>The line opens as another said just now: the tic "nice try" (<see cref="ChatLineRules"/>).</summary>
+    RepeatsOpening,
+
+    /// <summary>The line names a player the moment is not about (<see cref="ChatLineRules"/>).</summary>
+    WrongPerson,
+
+    /// <summary>The line has the fight the wrong way round: praise for the one it killed, a gloat at its killer (<see cref="ChatLineRules"/>).</summary>
+    WrongSide,
+
+    /// <summary>An insult for a player's friendly line (<see cref="ChatLineRules"/>).</summary>
+    Unfriendly,
+
+    /// <summary>An answer that said something its facts do not (<c>ChatAnswerCheck</c>); the plain template goes out instead.</summary>
+    Unverified,
 }
 
 /// <summary>A filtered line, or why there is none.</summary>
@@ -63,6 +81,8 @@ public sealed partial class ChatOutputFilter(ChatWords words)
 
         string lower = line.ToLowerInvariant();
         ChatRefusal refusal = Refusal(line, lower, prompt);
+        if (refusal == ChatRefusal.None && selfName.Length > 0 && Words(lower).Contains(selfName.ToLowerInvariant(), StringComparer.Ordinal))
+            refusal = ChatRefusal.SelfAddress;
         return refusal != ChatRefusal.None ? Refused(refusal) : new ChatVerdict(Capped(line), ChatRefusal.None);
     }
 
@@ -84,7 +104,7 @@ public sealed partial class ChatOutputFilter(ChatWords words)
             return ChatRefusal.NotLatin;
         if (HasBannedWord(lower))
             return ChatRefusal.Banned;
-        if (line[0] is '*' or '(' || words.Chatter.Any(c => lower.Contains(c, StringComparison.Ordinal)))
+        if (line[0] is '*' or '(' || words.Chatter.Any(c => (" " + lower).Contains(c, StringComparison.Ordinal)))
             return ChatRefusal.Chatter;
         return Echoes(lower, prompt) ? ChatRefusal.EchoesPrompt : ChatRefusal.None;
     }
@@ -167,20 +187,69 @@ public sealed partial class ChatOutputFilter(ChatWords words)
         return words.LoneCommands.Contains(lower.TrimEnd('.', '!', '?', ' ')) || Words(lower).Any(words.ConsoleWords.Contains);
     }
 
+    /// <summary>
+    /// Whether the line holds a word on the list, however it is dressed: accents and the usual
+    /// swaps ("sh1t", "b!tch", "phuck"), masked ("f*ck"), stretched ("fuuuck"), or broken up by
+    /// spaces, dots or symbols ("f u c k", "f.u.c.k", "what the f uck").
+    /// </summary>
     private bool HasBannedWord(string lower)
     {
-        string plain = Unleet(lower);
-        if (words.BannedAnywhere.Any(w => plain.Contains(w, StringComparison.Ordinal)))
+        string[] tokens = Tokens(lower);
+        if (words.BannedAnywhere.Any(w => string.Concat(tokens).Contains(w, StringComparison.Ordinal)))
             return true;
-        if (Words(plain).Any(IsBanned))
+        if (tokens.Any(IsBanned))
             return true;
 
-        // Spaced out, a word at a time: "f u c k".
-        return Words(SpacedLetters().Replace(plain, m => m.Value.Replace(" ", "", StringComparison.Ordinal))).Any(IsBanned);
+        // A word in pieces: a run of tokens with a piece in it that is no word of its own.
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            bool piece = false;
+            string joined = tokens[i];
+            piece |= IsPiece(tokens[i]);
+            for (int j = i + 1; j < tokens.Length && j <= i + MaxPieces && joined.Length < MaxJoined; j++)
+            {
+                piece |= IsPiece(tokens[j]);
+                joined += tokens[j];
+                if ((piece || (j == i + 1 && joined.Length >= WholeWordsJoined)) && IsBanned(joined))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
-    /// <summary>A word on the list, as written or stretched ("fuuuuck").</summary>
-    private bool IsBanned(string word) => words.Banned.Contains(word) || words.Banned.Contains(Unstretched(word));
+    /// <summary>How far apart a word's pieces may be counted, and how long a joined run gets.</summary>
+    private const int MaxPieces = 6, MaxJoined = 16;
+
+    /// <summary>Two whole words that make a long word on the list are that word ("ass hole", "bull shit"); a short one is chance.</summary>
+    private const int WholeWordsJoined = 7;
+
+    /// <summary>A short token that is not a word in its own right: only those make a word of what stands beside them, so "go ok" stays two words.</summary>
+    private bool IsPiece(string token)
+        => token.Length <= 2 && token.All(char.IsLetter) && !words.ShortWords.Contains(token);
+
+    /// <summary>A word on the list, as written, stretched ("fuuuuck"), by its sound ("phuck"), or masked ("f*ck").</summary>
+    private bool IsBanned(string word)
+    {
+        if (word.Contains('*', StringComparison.Ordinal))
+            return words.Banned.Any(w => MaskFits(word, w));
+        if (words.Banned.Contains(word) || words.Banned.Contains(Unstretched(word)))
+            return true;
+        return word.Contains("ph", StringComparison.Ordinal) && words.Banned.Contains(Unstretched(word.Replace("ph", "f", StringComparison.Ordinal)));
+    }
+
+    private static bool MaskFits(string masked, string word)
+    {
+        if (masked.Length != word.Length || masked[0] == '*')
+            return false;
+        for (int i = 0; i < word.Length; i++)
+        {
+            if (masked[i] != '*' && masked[i] != word[i])
+                return false;
+        }
+
+        return true;
+    }
 
     private static string Unstretched(string word)
     {
@@ -194,20 +263,71 @@ public sealed partial class ChatOutputFilter(ChatWords words)
         return b.ToString();
     }
 
-    /// <summary>The usual digit and symbol spellings as letters.</summary>
-    private static string Unleet(string lower)
+    /// <summary>
+    /// The line as bare tokens: accents off, then split at anything that is not a letter,
+    /// a digit or a symbol standing for a letter. A number standing alone stays a number
+    /// ("5 hit" is no "s hit"); inside a word its digits and symbols read as the letters
+    /// they stand for. A mask's <c>*</c> stays for the mask's match.
+    /// </summary>
+    private static string[] Tokens(string lower)
     {
-        var b = new StringBuilder(lower.Length);
-        foreach (char c in lower)
+        var tokens = new List<string>();
+        var b = new StringBuilder();
+        string plain = NoAccents(lower);
+        void End()
+        {
+            if (b.Length == 0)
+                return;
+            string raw = b.ToString();
+            b.Clear();
+            string token = raw.Any(char.IsLetter) || raw.Contains('*', StringComparison.Ordinal) ? Unleet(raw) : raw;
+            token = token.Trim('*').Length == 0 ? "" : token;
+            if (token.Length > 0)
+                tokens.Add(token);
+        }
+
+        for (int i = 0; i < plain.Length; i++)
+        {
+            char c = plain[i];
+            bool inside = i > 0 && i + 1 < plain.Length && char.IsLetterOrDigit(plain[i - 1]) && (char.IsLetterOrDigit(plain[i + 1]) || plain[i + 1] is '*' or '$' or '@');
+            if (char.IsLetterOrDigit(c) || c == '\'' || (c is '*' && (inside || (i > 0 && plain[i - 1] == '*'))) || (c is '$' or '@') || (c is '!' or '|' or '+' && inside))
+                b.Append(c);
+            else
+                End();
+        }
+
+        End();
+        return [.. tokens];
+    }
+
+    private static string NoAccents(string s)
+    {
+        string d = s.Normalize(NormalizationForm.FormD);
+        var b = new StringBuilder(d.Length);
+        foreach (char c in d)
+        {
+            if (char.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
+                b.Append(c);
+        }
+
+        return b.ToString();
+    }
+
+    /// <summary>The usual digit and symbol spellings as letters.</summary>
+    private static string Unleet(string word)
+    {
+        var b = new StringBuilder(word.Length);
+        foreach (char c in word)
         {
             b.Append(c switch
             {
                 '0' => 'o',
-                '1' => 'i',
+                '1' or '!' or '|' => 'i',
                 '3' => 'e',
                 '4' or '@' => 'a',
                 '5' or '$' => 's',
-                '7' => 't',
+                '7' or '+' => 't',
+                '8' => 'b',
                 _ => c,
             });
         }
@@ -290,6 +410,4 @@ public sealed partial class ChatOutputFilter(ChatWords words)
     [GeneratedRegex(@"\b(sv|mp|cl|ent|net|host|mat|ai|r)_[a-z]\w*")]
     private static partial Regex CvarName();
 
-    [GeneratedRegex(@"\b([a-z] ){2,}[a-z]\b")]
-    private static partial Regex SpacedLetters();
 }

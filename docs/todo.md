@@ -43,6 +43,15 @@ Entries by owner (the file keeps its order; this is the index):
 - **Not open work**: the rulings and divergences kept only here, and the
   closed entries still cited, in the last two sections.
 
+## A 12-bot game died inside vphysics.so once (2026-11-03)
+
+One 5-minute run of four on dm_lockdown with 12 bots segfaulted on the main thread in
+`vphysics.so` during the server's frame, reading address 0x28
+(`/tmp/dumps/crash_20261103063512_2.dmp`, `vphysics.so+0x112f61`, reached from
+`libss_fwd_server.so+0x1a3f1`), in a burst of kills with ragdolls and an `entityflame`. Bot
+chat is not on the stack. About 20 minutes of 12 bots: too few to rate it. Next: a longer
+12-bot soak with the stack resolved, to see what it was simulating.
+
 ## live-gate's render budget went over once, on ClientDetailPrepare (2026-11-02)
 
 `tools/live-gate --steps render`: 119.798 crossings per frame against a ceiling

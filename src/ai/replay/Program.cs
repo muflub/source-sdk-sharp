@@ -170,6 +170,14 @@ if (args.Length >= 2 && args[0] == "jank")
 
     return empty == 0 ? 0 : 1;
 }
+//   chat-places <nav3d> <bsp> <help.json>
+if (args.Length >= 4 && args[0] == "chat-places")
+    return ChatTruth.Places(args[1..]);
+
+//   chat-truth <url> <nav3d> <bsp> <help.json> <chat.json> <out.md> <model>
+if (args.Length >= 1 && args[0] == "chat-truth")
+    return ChatTruth.Run(args[1..]);
+
 //   chat-eval <url> <console.log> <chat.json> <out.md> <lines> <model>...
 if (args.Length >= 1 && args[0] == "chat-eval")
     return ChatEval.Run(args[1..]);

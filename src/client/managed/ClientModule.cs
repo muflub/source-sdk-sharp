@@ -836,6 +836,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IHooks<IClientLevelHook>>(locator => new Hooks<IClientLevelHook>(locator, log));
         // Before the first handler pass, which builds VoteStateMessage over this chain.
         _services.AddFactory<IHooks<IVoteStateHook>>(locator => new Hooks<IVoteStateHook>(locator, log));
+        _services.AddFactory<IHooks<IPlayerMarkerHook>>(locator => new Hooks<IPlayerMarkerHook>(locator, log));
         _services.AddFactory<IHooks<IAdminHook>>(locator => new Hooks<IAdminHook>(locator, log));
         // The mods' per-player carry limits, the server's twin (IAmmoCarryRule).
         _services.AddFactory<IHooks<IAmmoCarryRule>>(locator => new Hooks<IAmmoCarryRule>(locator, log));
@@ -2181,6 +2182,15 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var minimap = new Vgui.Minimap(_services.Require<IEngineFiles>(), _clock, new Vgui.LazyMinimapWorld(_services));
         _services.AddInstance(minimap);
         _services.AddInstance<SourceSharp.Client.Ui.IMinimapSource>(minimap);
+
+        // What a server asks this player's screen to point at. A factory for the same reason.
+        _services.AddFactory<Vgui.IMarkerView>(_ => new Vgui.EngineMarkerView(_services.Require<IEngineHud>(), _services.Require<IClientBeamExecutor>(),
+                                                                              _services.Require<IFxRender>(), _services.Require<ViewReadout>(), (Input.IClientInputEngine)_engineClient));
+        var markers = new Vgui.PlayerMarkerBoard(_clock, minimap, new Vgui.LazyMarkerView(_services));
+        _services.AddInstance(markers);
+        _services.AddInstance<SourceSharp.Client.Ui.IMinimapPingSource>(markers);
+        _services.AddInstance<SourceSharp.Client.Ui.IWorldMarkerSource>(markers);
+        _services.AddInstance<IPlayerMarkerHook>(markers);
 
         // Before the UI composes, which takes them; the input layer below shares the host.
         var inputHost = _engine.Create<Input.ClientInputHost>(_services);

@@ -22,7 +22,10 @@ internal static class ChatRig
         private int _inFlight;
         private int _calls;
 
-        public Func<ChatPrompt, string> Answer { get; set; } = _ => "nice one";
+        /// <summary>Answers a fresh line each time, so the openings' ring and the fight's rules have nothing to say about it.</summary>
+        public Func<ChatPrompt, string> Answer { get; set; }
+
+        public Writer() => Answer = _ => $"line{Calls} here";
 
         public ChatFailure Fails { get; set; }
 
@@ -67,13 +70,28 @@ internal static class ChatRig
         /// <summary>Called inside <see cref="Say"/>, as the say path's hook calls back.</summary>
         public Action<int, string>? OnSay { get; set; }
 
-        public ChatScore ScoreOf(int slot) => new(3, 2, 2, 4, "Kofi", 5);
+        public string Leader { get; set; } = "Kofi";
+
+        public ChatScore ScoreOf(int slot) => new(3, 2, 2, 4, Leader, 5);
 
         public void Say(int slot, string line)
         {
             Said.Add((slot, line));
             OnSay?.Invoke(slot, line);
         }
+
+        /// <summary>The bots that can see the asker, and where.</summary>
+        public Dictionary<int, AiVector> Sees { get; } = new();
+
+        public AiVector? Asker { get; set; }
+
+        public List<(int Asker, ChatMark Mark)> Marks { get; } = new();
+
+        public AiVector? AskerSeenBy(int slot, int asker) => Sees.TryGetValue(slot, out AiVector at) ? at : null;
+
+        public AiVector? AskerAt(int asker) => Asker;
+
+        public void Mark(int asker, in ChatMark mark) => Marks.Add((asker, mark));
     }
 
     /// <summary>A director over a live worker, with no typing delay and every chance at certainty unless a fact says otherwise.</summary>
@@ -99,7 +117,7 @@ internal static class ChatRig
             Worker = new ChatWorker(Writer, new ChatOutputFilter(words), Counters);
             Director = new ChatDirector(words, new ChatPromptBuilder(words), Worker, Counters, World, 0x1234)
             {
-                Settings = settings ?? new ChatSettings { ReactChance = 1f, MomentChance = 1f, ReplyChance = 0f, ReactionMinSeconds = 0f, ReactionMaxSeconds = 0f, CharsPerSecond = 1e6f },
+                Settings = settings ?? new ChatSettings { ReactChance = 1f, MomentChance = 1f, ReplyChance = 0f, ReactionMinSeconds = 0f, ReactionMaxSeconds = 0f, CharsPerSecond = 1e6f, Scaled = false, IdleSeconds = 0f, HumanHoldSeconds = 0f },
                 Target = new ChatTarget("http://127.0.0.1:1", "fake"),
             };
             Worker.Start();

@@ -252,7 +252,8 @@ public static class ClientUi
                                                ? new PickupHistoryUi(history, feed)
                                                : new NoPickupHistory()),
                                            new DamageDealtPanel(services.Require<IDamageDealtSource>()),
-                                           new MinimapPanel(services.Require<IMinimapSource>()));
+                                           new MinimapPanel(services.Require<IMinimapSource>(), services.Require<IMinimapPingSource>()),
+                                           new WorldMarkerPanel(services.Require<IWorldMarkerSource>()));
         var centre = new Ui.Screens.CentrePrint(services.Require<ICentrePrintSource>());
         var chat = new Chat(services.Require<IChatSource>());
         var overlayText = new Ui.Screens.DebugOverlayText(services.Require<IDebugOverlaySource>());

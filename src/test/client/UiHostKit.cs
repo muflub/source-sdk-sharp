@@ -85,6 +85,8 @@ internal static class UiHostKit
             .AddInstance<IKillFeedSource>(new NoKills())
             .AddInstance<IDamageDealtSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeDamageDealt())
             .AddInstance<IMinimapSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeMinimap { Outline = [] })
+            .AddInstance<IMinimapPingSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeMinimapPings())
+            .AddInstance<IWorldMarkerSource>(new SourceSharp.Client.Ui.Screens.Samples.FakeWorldMarkers())
             .AddInstance<ICentrePrintSource>(new CentrePrint(engine))
             .AddInstance<IChatSource>(new ChatFeed(engine, new RecordingLog(), engine, new NoChatPlayers()))
             .AddInstance<IChatInputSource>(new ChatInputUi(new DefaultForwarders.NoEngineClient()))

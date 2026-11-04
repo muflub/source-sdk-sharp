@@ -7,16 +7,19 @@ namespace SourceSharp.Ai;
 public sealed record ChatSettings
 {
     /// <summary>The server's one unprompted line per this many seconds (<c>ai_chat_interval</c>).</summary>
-    public float IntervalSeconds { get; init; } = 30f;
+    public float IntervalSeconds { get; init; } = 10f;
 
     /// <summary>A bot's silence after any line of its own that was not a reply to a player.</summary>
-    public float BotCooldownSeconds { get; init; } = 60f;
+    public float BotCooldownSeconds { get; init; } = 30f;
 
     /// <summary>The server's one reply to a player per this many seconds; player-prompted, so far tighter than the interval.</summary>
     public float ReplyIntervalSeconds { get; init; } = 3f;
 
-    /// <summary>The chance a bot answers a line in general chat that named nobody (<c>ai_chat_reply_chance</c>).</summary>
-    public float ReplyChance { get; init; } = 0.1f;
+    /// <summary>The chance a bot answers a player's line in general chat that named nobody (<c>ai_chat_reply_chance</c>).</summary>
+    public float ReplyChance { get; init; } = 0.5f;
+
+    /// <summary>The same for a bot's line, as a share of that: bots talk to the player first.</summary>
+    public float BotReplyShare { get; init; } = 0.2f;
 
     /// <summary>The chance a kill or a death moves a bot to say something.</summary>
     public float ReactChance { get; init; } = 0.4f;
@@ -26,6 +29,38 @@ public sealed record ChatSettings
 
     /// <summary>How long after its last hit, given or taken, a bot counts as in a fight.</summary>
     public float FightSeconds { get; init; } = 4f;
+
+    /// <summary>Whether the limits follow the number of bots (<see cref="IntervalFor"/>, <see cref="CooldownFor"/>, <see cref="ReactFor"/>); a fact holds them still.</summary>
+    public bool Scaled { get; init; } = true;
+
+    /// <summary>A player's line holds the bots' chatter back this long, so it is not buried as it arrives (<c>hud_saytext_time</c> keeps it 12 s).</summary>
+    public float HumanHoldSeconds { get; init; } = 4f;
+
+    /// <summary>After this long with no line from any bot, one says something anyway, so a small game is not silent; 0 for never.</summary>
+    public float IdleSeconds { get; init; } = 25f;
+
+    /// <summary>
+    /// The server's interval for this many bots: 0.7 of the setting plus 0.03 a bot, so 0.76 of it
+    /// with 2 (a small game has few moments and can have them all), 1.06 with 12, and 1.3 from 20
+    /// (a big one has far more than anyone can read). Measured live at 12 bots: a line per 13 s
+    /// at 1.2 of the setting, so a little under it to land inside the 8 to 12 s asked for.
+    /// </summary>
+    public float IntervalFor(int bots) => Scaled ? IntervalSeconds * Math.Clamp(0.7f + 0.03f * bots, 0.7f, 1.3f) : IntervalSeconds;
+
+    /// <summary>A bot's cooldown for this many bots: long enough that most of the others get a turn, never past the setting, never under the interval.</summary>
+    public float CooldownFor(int bots)
+    {
+        if (!Scaled)
+            return BotCooldownSeconds;
+        float interval = IntervalFor(bots);
+        return MathF.Max(interval, MathF.Min(BotCooldownSeconds, interval * bots * 0.6f));
+    }
+
+    /// <summary>The chance a kill or a death moves a bot, for this many bots: twice the setting up to 3 bots, falling to the setting at 6 and past it.</summary>
+    public float ReactFor(int bots) => Scaled ? ReactChance * Math.Clamp(6f / MathF.Max(bots, 1), 1f, 2f) : ReactChance;
+
+    /// <summary>The server's wait after a line that was refused, not said: it spends none of the interval.</summary>
+    public float RefusedGapSeconds { get; init; } = 1f;
 
     /// <summary>How long a wish waits for the limits before it is forgotten: the moment has passed.</summary>
     public float WishSeconds { get; init; } = 3f;
@@ -55,6 +90,18 @@ public sealed record ChatSettings
 
     public int RecentEvents { get; init; } = 4;
 
+    /// <summary>How long a question waits for a bot out of a fight before one in a fight gives it a short answer.</summary>
+    public float AnswerWaitSeconds { get; init; } = 2.5f;
+
+    /// <summary>How long a model may take over an answer before the plain line goes out.</summary>
+    public float AnswerTimeoutSeconds { get; init; } = 1.5f;
+
+    /// <summary>The most time an answer spends being typed: someone is waiting for it.</summary>
+    public float AnswerTypingSeconds { get; init; } = 3f;
+
+    /// <summary>One answer per this long to one player: the bypass of the server's interval is for answers, not for a flood of questions.</summary>
+    public float AnswerIntervalSeconds { get; init; } = 2f;
+
     /// <summary>The lines a bot's route shows.</summary>
     public int LinesKept { get; init; } = 8;
 }
@@ -67,6 +114,15 @@ public interface IChatWorld
 
     /// <summary>Says <paramref name="line"/> as the bot in <paramref name="slot"/>, through the path a player's chat takes.</summary>
     void Say(int slot, string line);
+
+    /// <summary>Where the player in <paramref name="asker"/> stands, only if the bot in <paramref name="slot"/> can see them now.</summary>
+    AiVector? AskerSeenBy(int slot, int asker);
+
+    /// <summary>Where the player in <paramref name="asker"/> stands, for the marker on their own screen: never for a line.</summary>
+    AiVector? AskerAt(int asker);
+
+    /// <summary>Shows <paramref name="mark"/> to the player in <paramref name="asker"/> alone.</summary>
+    void Mark(int asker, in ChatMark mark);
 }
 
 /// <summary>A bot's row on the scoreboard, and who leads.</summary>
@@ -99,14 +155,24 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     private readonly Dictionary<int, BotState> _bots = new();
     private readonly List<ChatRefused> _refused = new();
     private readonly List<Wish> _wishes = new();
+    private readonly List<Question> _questions = new();
+    private readonly Dictionary<int, float> _nextAnswer = new();
+    private readonly ChatOutputFilter _filter = new(words);
     private readonly Dictionary<long, Pending> _pending = new();
     private readonly List<Ready> _ready = new();
     private readonly AiRandom _random = new(seed);
+    private readonly ChatLineRules _rules = new(words);
+    private readonly ChatOpenings _openings = new();
+    private readonly HashSet<string> _names = new(StringComparer.Ordinal);
     private float _nextLine;
     private float _nextReply;
+    private float _lastLine = float.NegativeInfinity;
     private long _nextJob = 1;
     private bool _sayingBotReply;
     private bool _saying;
+
+    /// <summary>What questions are answered from, or null for none: the binding's, once the level has a map and a help file.</summary>
+    public ChatAnswerBook? Answers { get; set; }
 
     /// <summary>The settings in force; the binding replaces them when a console setting changes.</summary>
     public ChatSettings Settings { get; set; } = new();
@@ -130,7 +196,18 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     }
 
     /// <summary>The bot in <paramref name="slot"/> joins, saying nothing yet.</summary>
-    public void Join(int slot, ChatPersona persona) => _bots[slot] = new BotState(persona);
+    public void Join(int slot, ChatPersona persona)
+    {
+        _bots[slot] = new BotState(persona);
+        Know(persona.FirstName);
+    }
+
+    /// <summary>Someone called <paramref name="name"/> is about: a line naming them when the moment is not about them is confused.</summary>
+    private void Know(string? name)
+    {
+        if (ChatLineRules.FirstWord(name) is { } first && !words.NotNames.Contains(first))
+            _names.Add(first);
+    }
 
     /// <summary>The bot in <paramref name="slot"/> left: what it remembered, wanted and was about to say goes with it.</summary>
     public void Leave(int slot)
@@ -147,11 +224,16 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     {
         _bots.Clear();
         _wishes.Clear();
+        _questions.Clear();
+        _nextAnswer.Clear();
         _pending.Clear();
         _ready.Clear();
         _nextLine = 0f;
         _nextReply = 0f;
+        _lastLine = float.NegativeInfinity;
         PausedUntil = 0f;
+        _openings.Clear();
+        _names.Clear();
     }
 
     /// <summary>The filter's last refusals, newest last (the route shows them).</summary>
@@ -176,6 +258,8 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     /// </summary>
     public void Death(int victimSlot, string victimName, int killerSlot, string killerName, string weapon, float now)
     {
+        Know(victimName);
+        Know(killerName);
         bool suicide = killerSlot == 0 || killerSlot == victimSlot;
         if (!suicide && _bots.TryGetValue(killerSlot, out BotState? killer))
         {
@@ -193,7 +277,7 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
             }
             else
             {
-                Want(killerSlot, new ChatTrigger(ChatTriggerKind.Kill, victimName, weapon, Short: true), Settings.ReactChance, now);
+                Want(killerSlot, new ChatTrigger(ChatTriggerKind.Kill, victimName, weapon, Short: true), Settings.ReactFor(_bots.Count), now);
             }
         }
 
@@ -203,13 +287,13 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
             if (suicide)
             {
                 victim.Remember(prompts.Recent(ChatTriggerKind.Suicide, null, null), Settings.RecentEvents);
-                Want(victimSlot, new ChatTrigger(ChatTriggerKind.Suicide, Short: true), Settings.ReactChance, now);
+                Want(victimSlot, new ChatTrigger(ChatTriggerKind.Suicide, Short: true), Settings.ReactFor(_bots.Count), now);
             }
             else
             {
                 victim.LastKiller = killerName;
                 victim.Remember(prompts.Recent(ChatTriggerKind.Death, killerName, weapon), Settings.RecentEvents);
-                Want(victimSlot, new ChatTrigger(ChatTriggerKind.Death, killerName, weapon, Short: true), Settings.ReactChance, now);
+                Want(victimSlot, new ChatTrigger(ChatTriggerKind.Death, killerName, weapon, Short: true), Settings.ReactFor(_bots.Count), now);
             }
         }
     }
@@ -221,6 +305,10 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     /// <summary>The bot in <paramref name="slot"/> is suddenly playing above itself (§5.5): it can tell.</summary>
     public void RunningHot(int slot, float now)
         => Want(slot, new ChatTrigger(ChatTriggerKind.Hot, Short: true), Settings.MomentChance, now);
+
+    /// <summary>The bot in <paramref name="slot"/> has suddenly gone cold (§5.5): it can tell that too.</summary>
+    public void RunningCold(int slot, float now)
+        => Want(slot, new ChatTrigger(ChatTriggerKind.Cold, Short: true), Settings.MomentChance, now);
 
     /// <summary>The bot in <paramref name="slot"/> picked up <paramref name="weapon"/>; only the ones worth having are worth a word.</summary>
     public void PickedUp(int slot, string weapon, float now)
@@ -251,7 +339,12 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     {
         if (text.Length == 0 || text[0] is '/' or '!' || (_saying && _sayingBotReply))
             return;
+        Know(speakerName);
         bool fromBot = _bots.ContainsKey(speakerSlot);
+        if (!fromBot)
+            _nextLine = MathF.Max(_nextLine, now + Settings.HumanHoldSeconds);
+        if (!fromBot && Hear(speakerSlot, speakerKey, speakerName, text, hearers, now))
+            return;
         var named = new List<int>();
         foreach (int slot in hearers)
         {
@@ -263,7 +356,7 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
         if (named.Count == 0)
         {
             int[] open = [.. hearers.Where(s => s != speakerSlot && _bots.ContainsKey(s))];
-            if (open.Length == 0 || _random.NextFloat() >= Settings.ReplyChance)
+            if (open.Length == 0 || _random.NextFloat() >= (fromBot ? Settings.ReplyChance * Settings.BotReplyShare : Settings.ReplyChance))
                 return;
             named.Add(open[_random.NextInt(open.Length)]);
         }
@@ -274,9 +367,143 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
             List<ChatTurn> turns = b.Conversation(speakerKey);
             var earlier = turns.ToArray();
             b.Hear(speakerKey, new ChatTurn(false, text), Settings.ConversationLines);
-            var heard = new ChatHeard(text, earlier);
+            var heard = new ChatHeard(text, earlier, _rules.IsFriendly(text));
             _wishes.Add(new Wish(slot, new ChatTrigger(ChatTriggerKind.Reply, speakerName, Short: b.InFight(now, Settings)), heard, speakerKey, now, fromBot, IsReply: true));
         }
+    }
+
+    /// <summary>A player's question goes to one bot, whoever is free when it can be answered; true when the line was one.</summary>
+    private bool Hear(int asker, string speakerKey, string speakerName, string text, IReadOnlyList<int> hearers, float now)
+    {
+        if (Answers is not { } book)
+            return false;
+        int[] open = [.. hearers.Where(s => s != asker && _bots.ContainsKey(s))];
+        int[] named = [.. open.Where(s => ChatAddress.Names(text, _bots[s].Persona, words.NotNames))];
+        if (open.Length == 0 || book.Read(text, named.Length > 0, _names) is not { } topic)
+            return false;
+        counters.Question();
+        _questions.Add(new Question(asker, speakerKey, speakerName, text, topic, open, named.Length > 0 ? named[0] : 0, now));
+        return true;
+    }
+
+    /// <summary>The next question that can be answered: asked of whoever it named, or the bot free longest, a bot in a fight only once it has waited.</summary>
+    private void ChooseAnswer(float now)
+    {
+        for (int i = 0; i < _questions.Count; i++)
+        {
+            Question q = _questions[i];
+            if (now - q.At > Settings.ReplyWishSeconds)
+            {
+                counters.AnswerDropped();
+                _questions.RemoveAt(i--);
+                continue;
+            }
+
+            if (_nextAnswer.GetValueOrDefault(q.Asker) > now)
+                continue;
+            int slot = Answerer(q, now, out bool fighting);
+            if (slot == 0)
+                continue;
+            _questions.RemoveAt(i);
+            _nextAnswer[q.Asker] = now + Settings.AnswerIntervalSeconds;
+            AskAnswer(q, slot, fighting, now);
+            return;
+        }
+    }
+
+    private int Answerer(Question q, float now, out bool fighting)
+    {
+        fighting = false;
+        if (q.Named != 0 && _bots.TryGetValue(q.Named, out BotState? named))
+        {
+            fighting = named.InFight(now, Settings);
+            return q.Named;
+        }
+
+        int best = 0;
+        float bestSpoke = float.MaxValue;
+        foreach (int s in q.Open)
+        {
+            if (!_bots.TryGetValue(s, out BotState? b) || b.InFight(now, Settings) || _pending.Values.Any(p => p.Slot == s))
+                continue;
+            float spoke = b.Lines.Count > 0 ? b.Lines[^1].Time : float.NegativeInfinity;
+            if (spoke < bestSpoke)
+            {
+                bestSpoke = spoke;
+                best = s;
+            }
+        }
+
+        if (best != 0 || now - q.At < Settings.AnswerWaitSeconds)
+            return best;
+
+        // All of them are busy, and someone is waiting: whoever has fought least lately, in a few words.
+        float oldest = float.MaxValue;
+        foreach (int s in q.Open)
+        {
+            if (_bots.TryGetValue(s, out BotState? b) && b.LastFight < oldest)
+            {
+                oldest = b.LastFight;
+                best = s;
+            }
+        }
+
+        fighting = best != 0;
+        return best;
+    }
+
+    /// <summary>
+    /// Answers: a fact with a check goes to the model to be said in the bot's voice, and comes back
+    /// checked or as the plain line; a shrug, an answer with nothing to check, a bot in a fight and a
+    /// model that is not there all go out as the plain line, with no model asked.
+    /// </summary>
+    private void AskAnswer(Question q, int slot, bool fighting, float now)
+    {
+        BotState bot = _bots[slot];
+        int draw = _random.NextInt(int.MaxValue);
+        var asked = new ChatAsked(q.Text, world.ScoreOf(slot), bot.LastKiller, world.AskerSeenBy(slot, q.Asker), world.AskerAt(q.Asker), draw);
+        ChatAnswer answer = Answers!.Answer(q.Topic, asked);
+        string line = fighting && answer.ShortLine.Length > 0 ? answer.ShortLine : answer.Check is null ? answer.Line : Answers.Voiced(answer.Line, draw);
+        if (answer.Kind is ChatTopicKind.Unknown or ChatTopicKind.People)
+            counters.Shrug();
+        bool toModel = answer.Check is { } && !fighting && now >= PausedUntil;
+        long id = _nextJob++;
+        if (toModel)
+        {
+            ChatPrompt prompt = prompts.BuildAnswer(bot.Persona, q.SpeakerName, q.Text, answer.Line);
+            toModel = worker.TryPost(new ChatJob(id, slot, prompt, Target, MathF.Min(TimeoutSeconds, Settings.AnswerTimeoutSeconds), bot.Persona.FirstName, answer.Check, line));
+            if (toModel)
+                counters.Request();
+        }
+
+        var pending = new Pending(slot, q.At, ChatTriggerKind.Answer, q.SpeakerKey, false, q.SpeakerName, q.Text, q.Asker, answer.Mark);
+        if (toModel)
+        {
+            _pending[id] = pending;
+            return;
+        }
+
+        if (answer.Check is { })
+            counters.AnswerTemplate();
+        ChatVerdict plain = _filter.Check(line, "", bot.Persona.FirstName);
+        if (plain.Line is null)
+        {
+            counters.Refuse(plain.Refusal);
+            KeepRefusal(now, slot, plain.Refusal, line);
+            return;
+        }
+
+        Queue(pending, plain.Line, now);
+    }
+
+    /// <summary>A line on its way: it appears when it has had time to be typed.</summary>
+    private void Queue(in Pending p, string line, float now)
+    {
+        float reaction = Settings.ReactionMinSeconds + _random.NextFloat() * (Settings.ReactionMaxSeconds - Settings.ReactionMinSeconds);
+        float typing = line.Length / Settings.CharsPerSecond;
+        if (p.Trigger == ChatTriggerKind.Answer)
+            typing = MathF.Min(typing, Settings.AnswerTypingSeconds);
+        _ready.Add(new Ready(p.Slot, line, MathF.Max(now, p.Asked + reaction + typing), p.Asked, p.Trigger, p.SpeakerKey, p.ToBot, p.Asker, p.Mark));
     }
 
     /// <summary>
@@ -287,6 +514,8 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     {
         while (worker.TryTake(out ChatResult r))
             Finished(in r, now);
+        Idle(now);
+        ChooseAnswer(now);
         Choose(now);
         Deliver(now);
     }
@@ -308,17 +537,64 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
         }
 
         if (r.Refusal != ChatRefusal.None)
+            KeepRefusal(now, r.Slot, r.Refusal, r.Detail);
+
+        if (!_pending.Remove(r.Id, out Pending p))
+            return;
+        if (r.Line is null)
         {
-            _refused.Add(new ChatRefused(now, r.Slot, r.Refusal.ToString(), r.Detail));
-            if (_refused.Count > Settings.LinesKept)
-                _refused.RemoveAt(0);
+            GiveBack(p, now);
+            return;
         }
 
-        if (!_pending.Remove(r.Id, out Pending p) || r.Line is null || !_bots.ContainsKey(p.Slot))
+        if (!_bots.ContainsKey(p.Slot))
             return;
-        float reaction = Settings.ReactionMinSeconds + _random.NextFloat() * (Settings.ReactionMaxSeconds - Settings.ReactionMinSeconds);
-        float typed = p.Asked + reaction + r.Line.Length / Settings.CharsPerSecond;
-        _ready.Add(new Ready(p.Slot, r.Line, MathF.Max(now, typed), p.Asked, p.Trigger, p.SpeakerKey, p.ToBot));
+        if (p.Trigger != ChatTriggerKind.Answer)
+        {
+            ChatRefusal unfit = _rules.Check(r.Line, new ChatLineContext(p.Trigger, p.Other, p.Heard), _names);
+            if (unfit == ChatRefusal.None && p.Trigger != ChatTriggerKind.Reply && _openings.Repeats(r.Line))
+                unfit = ChatRefusal.RepeatsOpening;
+            if (unfit != ChatRefusal.None)
+            {
+                counters.Refuse(unfit);
+                KeepRefusal(now, p.Slot, unfit, r.Line);
+                GiveBack(p, now);
+                return;
+            }
+        }
+
+        _openings.Said(r.Line);
+        Queue(p, r.Line, now);
+    }
+
+    /// <summary>Nothing said for a while: one bot out of a fight says something, so a small game is not silent.</summary>
+    private void Idle(float now)
+    {
+        if (float.IsNegativeInfinity(_lastLine))
+            _lastLine = now;
+        if (Settings.IdleSeconds <= 0f || now - _lastLine < Settings.IdleSeconds || _bots.Count == 0)
+            return;
+        _lastLine = now;
+        int[] free = [.. _bots.Where(b => !b.Value.InFight(now, Settings)).Select(b => b.Key).Order()];
+        if (free.Length > 0)
+            Want(free[_random.NextInt(free.Length)], new ChatTrigger(ChatTriggerKind.Idle), 1f, now);
+    }
+
+    private void KeepRefusal(float now, int slot, ChatRefusal why, string raw)
+    {
+        _refused.Add(new ChatRefused(now, slot, why.ToString(), raw));
+        if (_refused.Count > Settings.LinesKept)
+            _refused.RemoveAt(0);
+    }
+
+    /// <summary>A line that was never said spends none of the limits: the next moment may have them, a breath later.</summary>
+    private void GiveBack(in Pending p, float now)
+    {
+        if (p.Trigger is ChatTriggerKind.Reply or ChatTriggerKind.Answer)
+            return;
+        _nextLine = MathF.Min(_nextLine, now + Settings.RefusedGapSeconds);
+        if (_bots.TryGetValue(p.Slot, out BotState? bot))
+            bot.CooldownUntil = MathF.Min(bot.CooldownUntil, now + Settings.RefusedGapSeconds);
     }
 
     private void Choose(float now)
@@ -329,7 +605,7 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
             Wish w = _wishes[i];
             if (now - w.At > (w.IsReply ? Settings.ReplyWishSeconds : Settings.WishSeconds))
             {
-                counters.Limited();
+                counters.Limited(now < PausedUntil ? ChatLimit.Paused : Blocker(w, now) ?? ChatLimit.Queue);
                 _wishes.RemoveAt(i);
                 continue;
             }
@@ -351,43 +627,53 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
     /// has just used the server's), a reply to a bot the bot's cooldown too;
     /// everything else the server's and the bot's.
     /// </summary>
-    private bool Allowed(Wish w, float now)
+    private bool Allowed(Wish w, float now) => Blocker(w, now) is null;
+
+    /// <summary>The limit that holds <paramref name="w"/> back now, or null when none does.</summary>
+    private ChatLimit? Blocker(Wish w, float now)
     {
         if (!_bots.TryGetValue(w.Slot, out BotState? b))
-            return false;
+            return ChatLimit.Gone;
         if (w.IsReply)
-            return now >= _nextReply && (!w.FromBot || now >= b.CooldownUntil);
-        if (now < _nextLine || now < b.CooldownUntil)
-            return false;
-        return w.Trigger.Short || !b.InFight(now, Settings);
+        {
+            if (now < _nextReply)
+                return ChatLimit.Reply;
+            return w.FromBot && now < b.CooldownUntil ? ChatLimit.Cooldown : null;
+        }
+
+        if (now < _nextLine)
+            return ChatLimit.Interval;
+        if (now < b.CooldownUntil)
+            return ChatLimit.Cooldown;
+        return w.Trigger.Short || !b.InFight(now, Settings) ? null : ChatLimit.Fight;
     }
 
     private void Ask(Wish wish, BotState bot, float now)
     {
         ChatScore score = world.ScoreOf(wish.Slot);
         var facts = new ChatFacts(bot.Persona, score.Frags, score.Deaths, score.Rank, score.Players, score.Leader, score.LeaderFrags, bot.Recent);
-        ChatPrompt prompt = prompts.Build(facts, wish.Trigger, wish.Heard);
+        ChatPrompt prompt = prompts.Build(facts, wish.Trigger, wish.Heard, _openings.Avoid());
         long id = _nextJob++;
         if (!worker.TryPost(new ChatJob(id, wish.Slot, prompt, Target, TimeoutSeconds, bot.Persona.FirstName)))
         {
-            counters.Limited();
+            counters.Limited(ChatLimit.Queue);
             return;
         }
 
         counters.Request();
-        _pending[id] = new Pending(wish.Slot, wish.At, wish.Trigger.Kind, wish.SpeakerKey, wish.FromBot);
+        _pending[id] = new Pending(wish.Slot, wish.At, wish.Trigger.Kind, wish.SpeakerKey, wish.FromBot, wish.Trigger.Other, wish.Heard?.Text);
         if (wish.IsReply)
         {
             _nextReply = now + Settings.ReplyIntervalSeconds;
             // A conversation holds the bots' other chatter back a while.
-            _nextLine = MathF.Max(_nextLine, now + Settings.IntervalSeconds * 0.5f);
+            _nextLine = MathF.Max(_nextLine, now + Settings.IntervalFor(_bots.Count) * 0.5f);
             if (wish.FromBot)
-                bot.CooldownUntil = now + Settings.BotCooldownSeconds;
+                bot.CooldownUntil = now + Settings.CooldownFor(_bots.Count);
         }
         else
         {
-            _nextLine = now + Settings.IntervalSeconds;
-            bot.CooldownUntil = now + Settings.BotCooldownSeconds;
+            _nextLine = now + Settings.IntervalFor(_bots.Count);
+            bot.CooldownUntil = now + Settings.CooldownFor(_bots.Count);
         }
     }
 
@@ -405,16 +691,23 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
                 continue;
             }
 
-            bool reply = r.Kind == ChatTriggerKind.Reply;
+            bool answer = r.Kind == ChatTriggerKind.Answer;
+            bool reply = r.Kind == ChatTriggerKind.Reply || answer;
             if (reply && r.SpeakerKey is { } key)
                 bot.Hear(key, new ChatTurn(true, r.Line), Settings.ConversationLines);
             bot.Said(new ChatLine(now, r.Kind.ToString(), r.Line), Settings.LinesKept);
             counters.Say(reply);
+            _lastLine = now;
             _saying = true;
-            _sayingBotReply = reply && r.ToBot;
+            _sayingBotReply = answer || (reply && r.ToBot);
             try
             {
                 world.Say(r.Slot, r.Line);
+                if (r.Mark is { } mark)
+                {
+                    counters.Mark();
+                    world.Mark(r.Asker, mark);
+                }
             }
             finally
             {
@@ -426,15 +719,19 @@ public sealed class ChatDirector(ChatWords words, ChatPromptBuilder prompts, Cha
 
     private void Want(int slot, in ChatTrigger trigger, float chance, float now)
     {
-        if (_random.NextFloat() < chance)
+        bool wanted = _random.NextFloat() < chance;
+        counters.Trigger(wanted);
+        if (wanted)
             _wishes.Add(new Wish(slot, trigger, null, null, now, false, IsReply: false));
     }
 
     private sealed record Wish(int Slot, ChatTrigger Trigger, ChatHeard? Heard, string? SpeakerKey, float At, bool FromBot, bool IsReply);
 
-    private readonly record struct Pending(int Slot, float Asked, ChatTriggerKind Trigger, string? SpeakerKey, bool ToBot);
+    private sealed record Question(int Asker, string SpeakerKey, string SpeakerName, string Text, ChatTopic Topic, int[] Open, int Named, float At);
 
-    private readonly record struct Ready(int Slot, string Line, float At, float Asked, ChatTriggerKind Kind, string? SpeakerKey, bool ToBot);
+    private readonly record struct Pending(int Slot, float Asked, ChatTriggerKind Trigger, string? SpeakerKey, bool ToBot, string? Other, string? Heard, int Asker = 0, ChatMark? Mark = null);
+
+    private readonly record struct Ready(int Slot, string Line, float At, float Asked, ChatTriggerKind Kind, string? SpeakerKey, bool ToBot, int Asker = 0, ChatMark? Mark = null);
 
     private sealed class BotState(ChatPersona persona)
     {

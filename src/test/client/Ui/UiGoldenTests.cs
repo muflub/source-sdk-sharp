@@ -29,6 +29,8 @@ public class UiGoldenTests
         { "hud", "ar2-0-of-3-balls" },
         { "hud", "kill-feed-busy" },
         { "hud", "kill-feed-suicide-and-the-world" },
+        { "hud", "a-bot-s-answer-pointing-at-a-place-on-the-minimap-and-in-the-world" },
+        { "hud", "a-bot-s-vague-answer-a-rough-area-on-the-minimap-and-nothing-in-the-world" },
         { "console", "busy-log" },
         { "console", "autocomplete-open" },
         { "serverbrowser", "2-000-servers-by-ping" },

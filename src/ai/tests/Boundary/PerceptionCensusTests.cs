@@ -52,6 +52,20 @@ public sealed class PerceptionCensusTests
         typeof(AiWorldRoutes).FullName!,
     ];
 
+    /// <summary>
+    /// Chat's one read of an actor (§3.6, user request 2026-11-03), through the vision pass's own
+    /// reads rather than the entity calls above: <see cref="SourceSharp.Ai.Hl2mp.Chat.ChatAskerEyes"/>, whether a bot
+    /// sees the one who asked it and where they stand. No other chat type reads a sense, and a
+    /// marker's place comes from the map's item list, not from here.
+    /// </summary>
+    [Fact]
+    public void ChatsOneReaderOfASenseIsTheAskersEyes()
+    {
+        string[] callers = [.. IlCallCensus.Callers(m => m.DeclaringType == typeof(VisionPass) || m.DeclaringType == typeof(SightTracker), Binding)
+                                           .Where(c => c.StartsWith("SourceSharp.Ai.Hl2mp.Chat.", StringComparison.Ordinal))];
+        Assert.Equal(["SourceSharp.Ai.Hl2mp.Chat.ChatAskerEyes"], callers);
+    }
+
     private static bool IsRead(MethodBase m) => Reads.Contains($"{m.DeclaringType?.Name}::{m.Name}");
 
     private static bool IsEntityDirectory(MethodBase m) => m.DeclaringType?.Name == "IEntityDirectory";

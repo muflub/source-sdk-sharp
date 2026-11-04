@@ -169,6 +169,20 @@ public sealed class Minimap(IEngineFiles files, IGameClock clock, IMinimapWorld 
                 _dots.Add(Dot(outline, origin));
     }
 
+    /// <summary>Where a world position falls on the square, and how long a length is on it; false while the map has no outline.</summary>
+    public bool TryProject(Vector world, float length, out float u, out float v, out float share)
+    {
+        if (Built is not { } outline)
+        {
+            u = v = share = 0f;
+            return false;
+        }
+
+        (u, v) = outline.Project(world);
+        share = outline.ProjectLength(length);
+        return true;
+    }
+
     private static MinimapDot Dot(MapOutline outline, Vector world)
     {
         (float u, float v) = outline.Project(world);

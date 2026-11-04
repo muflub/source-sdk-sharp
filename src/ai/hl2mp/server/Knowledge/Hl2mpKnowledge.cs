@@ -54,6 +54,40 @@ public static class WeaponKnowledgeBuilder
     }
 }
 
+/// <summary>
+/// Bot chat's read of what every bot knows before it plays (§5.0, §3.6): the session's map
+/// knowledge, the nav's layout, and which weapons are the good ones: rank 6 or better on
+/// <see cref="Trees.Hl2mpWeaponRanges"/>, what bots themselves rate a weapon by (the .357, the
+/// crossbow, the RPG, the shotgun and the AR2 of ruling 2026-11-03). Nothing dynamic.
+/// </summary>
+[SideService(Side.Server, As = [typeof(Chat.IChatMapFacts)])]
+public sealed class SessionMapFacts(Senses.Hl2mpAiSession ai, IHl2mpNavigation nav) : Chat.IChatMapFacts
+{
+    /// <summary>The rank from which a weapon is one a bot keeps vague about.</summary>
+    public const int GoodRank = 6;
+
+    private readonly HashSet<string> _good = new(StringComparer.Ordinal);
+
+    public MapKnowledge? Map => ai.Session.World?.Map;
+
+    public NavGraph? Graph => nav.Current?.Nav.Graph;
+
+    public IReadOnlySet<string> GoodWeapons
+    {
+        get
+        {
+            _good.Clear();
+            if (Map is { } map)
+                _good.UnionWith(GoodOf(map.Weapons.All.Select(w => w.Name)));
+            return _good;
+        }
+    }
+
+    /// <summary>The good ones of <paramref name="weaponClasses"/>.</summary>
+    public static IEnumerable<string> GoodOf(IEnumerable<string> weaponClasses)
+        => weaponClasses.Where(w => Trees.Hl2mpWeaponRanges.For(w).Rank >= GoodRank);
+}
+
 /// <summary>What the map knows before play (§5.0), from the entity lump the navigation read.</summary>
 public static class MapKnowledgeBuilder
 {

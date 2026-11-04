@@ -192,6 +192,8 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
             locator => new Hooks<IClientCommandHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IVoteStateHook>>(
             locator => new Hooks<IVoteStateHook>(locator, locator.Require<ILog>()));
+        _services.AddFactory<IHooks<IPlayerMarkerHook>>(
+            locator => new Hooks<IPlayerMarkerHook>(locator, locator.Require<ILog>()));
         _services.AddFactory<IHooks<IAdminHook>>(
             locator => new Hooks<IAdminHook>(locator, locator.Require<ILog>()));
 
@@ -1785,6 +1787,7 @@ public sealed class ServerModule : ISideModule, IServerModule, IConVarHost, IHie
         _services.AddInstance(_services.Create<Intermission>());
         _services.AddInstance(_services.Create<MotdPanel>());
         // Host_Say, behind say and say_team.
+        _services.AddFactory<IPlayerMarkers>(locator => new PlayerMarkers(locator.Require<IUserMessageSender>()));
         var say = _services.Create<HostSay>();
         _services.AddInstance(say);
         // The mode proxy (tf2 stage 0.7, ruling U1), BEFORE the rules: the

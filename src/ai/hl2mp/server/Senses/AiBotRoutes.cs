@@ -151,7 +151,9 @@ public sealed class AiBotRoutes(Hl2mpBots bots, Hl2mpRoster roster, Hl2mpSenses 
         if (chat?.Counters is not { } c)
             return "";
         return string.Create(CultureInfo.InvariantCulture,
-            $"\"ai.chat.requests\":{c.Requests},\"ai.chat.answered\":{c.Answered},\"ai.chat.said\":{c.Said},\"ai.chat.replies\":{c.Replies},\"ai.chat.latency.ms\":{c.LatencyMeanMs:F1},\"ai.chat.latency.ms.max\":{c.LatencyMaxMs:F1},"
+            $"\"ai.chat.questions\":{c.Questions},\"ai.chat.answers.model\":{c.AnswersModel},\"ai.chat.answers.template\":{c.AnswersTemplate},\"ai.chat.answers.unverified\":{c.AnswersUnverified},\"ai.chat.answers.dropped\":{c.AnswersDropped},\"ai.chat.shrugs\":{c.Shrugs},\"ai.chat.marks\":{c.Marks},"
+            + $"\"ai.chat.triggers\":{c.Triggers},\"ai.chat.chance_missed\":{c.ChanceMissed},\"ai.chat.limit.interval\":{c.LimitedBy(ChatLimit.Interval)},\"ai.chat.limit.cooldown\":{c.LimitedBy(ChatLimit.Cooldown)},\"ai.chat.limit.fight\":{c.LimitedBy(ChatLimit.Fight)},\"ai.chat.limit.reply\":{c.LimitedBy(ChatLimit.Reply)},\"ai.chat.limit.paused\":{c.LimitedBy(ChatLimit.Paused)},\"ai.chat.limit.queue\":{c.LimitedBy(ChatLimit.Queue)},"
+            + $"\"ai.chat.requests\":{c.Requests},\"ai.chat.answered\":{c.Answered},\"ai.chat.said\":{c.Said},\"ai.chat.replies\":{c.Replies},\"ai.chat.latency.ms\":{c.LatencyMeanMs:F1},\"ai.chat.latency.ms.max\":{c.LatencyMaxMs:F1},"
             + $"\"ai.chat.timeouts\":{c.TimedOut},\"ai.chat.server_down\":{c.ServerDown},\"ai.chat.refused\":{c.Refused},\"ai.chat.rate_limited\":{c.RateLimited},\"ai.chat.stale\":{c.Stale},\"ai.chat.main.us\":{c.MainMeanUs:F2},\"ai.chat.main.us.max\":{c.MainMaxUs:F1},");
     }
 
