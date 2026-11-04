@@ -41,7 +41,6 @@ public:
 	void MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,
 				   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut) override;
 	int32_t MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue) override;
-	float CurrentGravity() override;
 	void RegisterMovementParams(const SourceSharpMovementParams* pParams) override;
 };
 

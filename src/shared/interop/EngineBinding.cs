@@ -1460,8 +1460,6 @@ internal sealed unsafe partial class EngineSound : IEngineSound
 /// <summary>The real engine, for <see cref="IEngineEffects"/>. Every member is one call.</summary>
 internal sealed unsafe partial class EngineEffects : IEngineEffects
 {
-    private readonly IMovementArea _movementArea;
-
     //-------------------------------------------------------------------------
     // TEMP ENTITIES (plan_tmp.md Part 3).
     //-------------------------------------------------------------------------
@@ -1473,15 +1471,6 @@ internal sealed unsafe partial class EngineEffects : IEngineEffects
     /// -1, "this side does not register through here".
     /// </summary>
     public int TempEntRegister(TeClass description) => -1;
-
-    /// <summary>
-    /// <c>GetCurrentGravity()</c>. A slot rather than a constant because
-    /// <c>sv_gravity</c> is a convar: a tempent falling at 600 while the world
-    /// falls at 800 looks almost right, which is the worst kind of wrong for
-    /// something nobody watches closely.
-    /// </summary>
-    public float CurrentGravity()
-        => _movementArea.CurrentGravity();
 }
 
 /// <summary>The real engine, for <see cref="IEngineVisibility"/>. Every member is one call.</summary>

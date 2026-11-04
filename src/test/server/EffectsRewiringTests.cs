@@ -437,10 +437,11 @@ public class EffectsRewiringTests
                                             .OrderBy(m => m.Name, StringComparer.Ordinal)
                                             .ToList();
 
-        Assert.True(members.Count == 56,
-            $"IEngineEffects has fifty-six members ({members.Count} found) — if this "
+        Assert.True(members.Count == 55,
+            $"IEngineEffects has fifty-five members ({members.Count} found) — if this "
           + "number moved, a member arrived and this sweep is the thing that decides whether "
-          + "it was wired. It has moved thirty-one times (the thirty-first UP: tf2 pyrofx added "
+          + "it was wired. It has moved thirty-two times (the thirty-second DOWN: CurrentGravity went, its "
+          + "readers take the sv_gravity convar; the thirty-first UP: tf2 pyrofx added "
           + "ParticleSystemSetPoints, the flame's control points fed once a burning frame in one crossing; "
           + "the thirtieth UP: tf2 2.x added "
           + "ParticleSystemFollowEntitySlot, the blast jump's smoke wearing a foot per slot; "
@@ -578,8 +579,8 @@ public class EffectsRewiringTests
                 $"{expected} is answered over ITempEnts");
         }
 
-        Assert.True(forwarded.Count == 44,
-            "and forty-four reached the engine unchanged — fifty-five less the eight that moved and the three "
+        Assert.True(forwarded.Count == 43,
+            "and forty-three reached the engine unchanged — fifty-five less what moved and the three "
           + "that refused the sweep (the three FireEffect forwards and BloodDecal went with their "
           + "slots, plan_server_native_v2 T2, ClientExplosionFireball with the glow overlays' port, "
           + "C7; BubbleEffect and PaintDecal moved at T4f; TempEntPoolSimulate left in the serialised "

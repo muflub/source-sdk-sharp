@@ -1305,7 +1305,7 @@ internal unsafe struct ShimPrecacheFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimMovementServer</c> through its forwarders (SSFwd_ShimMovementServer): 15 slot(s).
+/// <c>IShimMovementServer</c> through its forwarders (SSFwd_ShimMovementServer): 14 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimMovementServerFwd : IForwarderTable
@@ -1318,9 +1318,6 @@ internal unsafe struct ShimMovementServerFwd : IForwarderTable
 
     // int32_t IShimMovement::MoveEffect( int32_t, const float *, float, int32_t )
     public delegate* unmanaged<void*, int, void*, float, int, int> MoveEffect;
-
-    // float IShimMovement::CurrentGravity( void )
-    public delegate* unmanaged<void*, float> CurrentGravity;
 
     // void IShimMovement::RegisterMovementParams( const SourceSharpMovementParams * )
     public delegate* unmanaged<void*, void*, void> RegisterMovementParams;
@@ -1848,7 +1845,7 @@ internal unsafe struct ShimModelsFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimMovement</c> through its forwarders (SSFwd_ShimMovement): 4 slot(s).
+/// <c>IShimMovement</c> through its forwarders (SSFwd_ShimMovement): 3 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimMovementFwd : IForwarderTable
@@ -1861,9 +1858,6 @@ internal unsafe struct ShimMovementFwd : IForwarderTable
 
     // int32_t IShimMovement::MoveEffect( int32_t, const float *, float, int32_t )
     public delegate* unmanaged<void*, int, void*, float, int, int> MoveEffect;
-
-    // float IShimMovement::CurrentGravity( void )
-    public delegate* unmanaged<void*, float> CurrentGravity;
 
     // void IShimMovement::RegisterMovementParams( const SourceSharpMovementParams * )
     public delegate* unmanaged<void*, void*, void> RegisterMovementParams;

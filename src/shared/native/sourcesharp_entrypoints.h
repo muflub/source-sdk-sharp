@@ -35,7 +35,6 @@
 // client has no body to declare.
 //---------------------------------------------------------------------------
 #ifndef CLIENT_DLL
-float SourceSharp_CurrentGravity();
 void* SourceSharp_GetGlobalVarsPtr();
 int32_t SourceSharp_MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue);
 void SourceSharp_MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,

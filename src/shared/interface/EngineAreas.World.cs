@@ -376,12 +376,6 @@ public interface IEngineEffects
     Vector ClientWindSpeed(float time);
 
     /// <summary>
-    /// <c>GetCurrentGravity()</c> — a slot rather than a constant because
-    /// <c>sv_gravity</c> is a convar.
-    /// </summary>
-    float CurrentGravity();
-
-    /// <summary>
     /// A CLIENT entity's origin by INDEX, which is what
     /// <c>FTENT_PLYRATTACHMENT</c> stores. False when the index names no
     /// entity.

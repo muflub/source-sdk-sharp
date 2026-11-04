@@ -1198,7 +1198,6 @@ public sealed class RecordingEngine :
     bool IEngineEffects.TempEntPoolWriteTransform(int slot, in TempEntTransform transform)
         => Record<bool>("Effects.TempEntPoolWriteTransform", slot, transform);
 
-    float IEngineEffects.CurrentGravity() => Record<float>("Effects.CurrentGravity");
     bool IEngineEffects.ClientEntityOrigin(int entityIndex, out Vector origin)
     {
         RecordVoid("Effects.ClientEntityOrigin", entityIndex);

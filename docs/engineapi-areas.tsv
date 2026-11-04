@@ -42,7 +42,6 @@ EntitySetModel	EngineApi	IShimModelsServer	ext	IShimModels	server	-	CServerModel
 PrecacheModel	EngineApi	IShimPrecache	server		server	-	CServerModelPrecache::PrecacheModel	byte*, int	
 MoveTrace	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveTrace	float*, float*, float*, float*, int, int, MoveTraceBlob*, void	CShellGameMovement::MoveTrace
 MoveEffect	EngineApi	IShimMovement	shared		both	-	SourceSharp_MoveEffect	int, float*, float, int, int	CShellGameMovement::MoveEffect
-CurrentGravity	EngineApi	IShimMovement	shared		both	-	SourceSharp_CurrentGravity	float	CShellGameMovement::CurrentGravity
 RegisterMovementParams	EngineApi	IShimMovement	shared		both	-	SourceSharp_RegisterMovementParams	MovementParams*, void	CShellGameMovement::RegisterMovementParams
 PlayerShadowFacts	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowFacts	uint, PlayerShadowFacts*, int	
 PlayerShadowAdopt	EngineApi	IShimMovementServer	ext	IShimMovement	server	-	CServerMovement::PlayerShadowAdopt	uint, nint, nint, nint, int	

@@ -290,17 +290,16 @@ public class MoveVarsTests
         {
             // sv_soundemitter_trace's old file, sound_emitter.cpp, left the
             // repository with the client's emit path (SourceSharp.Client.Sounds);
-            // TheTraceKnobHasNoNativeDeclarationAnywhere holds it over every
-            // native source instead.
-            if (d.Name == "sv_soundemitter_trace")
-                continue;
-
-            data.Add(d.Name, d.Name switch
+            // and movevars_shared.cpp left it with the last native gravity read:
+            // a file that is gone holds no declaration.
+            string? file = d.Name switch
             {
                 "phys_pushscale" => shared + "takedamageinfo_library.cpp",
                 "english" => "src/sourcesharp/game/client/shell_hud_framework.cpp",
-                _ => shared + "movevars_shared.cpp",
-            });
+                _ => null,
+            };
+            if (file is not null)
+                data.Add(d.Name, file);
         }
 
         return data;

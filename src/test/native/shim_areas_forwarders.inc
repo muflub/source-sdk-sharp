@@ -57,10 +57,10 @@ TEST( FwdShimAreas, ShimPrecacheIs1Slots )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimMovementServerIs15Slots )
+TEST( FwdShimAreas, ShimMovementServerIs14Slots )
 {
 	const int compiler = VTableHook::MemberOf( &IShimMovementServer::PlayerSyncEngineSide ).slot + 1;
-	EXPECT_EQ( 15, compiler );
+	EXPECT_EQ( 14, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimMovementServer" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );
@@ -228,10 +228,10 @@ TEST( FwdShimAreas, ShimModelsIs3SlotsOnTheClient )
 	EXPECT_EQ( compiler, pTable->nSlots );
 }
 
-TEST( FwdShimAreas, ShimMovementIs4SlotsOnTheClient )
+TEST( FwdShimAreas, ShimMovementIs3SlotsOnTheClient )
 {
 	const int compiler = VTableHook::MemberOf( &IShimMovement::RegisterMovementParams ).slot + 1;
-	EXPECT_EQ( 4, compiler );
+	EXPECT_EQ( 3, compiler );
 	const SSForwarderTable *pTable = SSFwdServer_Table( "SSFwd_ShimMovement" );
 	ASSERT_NE( nullptr, pTable );
 	EXPECT_EQ( compiler, pTable->nSlots );

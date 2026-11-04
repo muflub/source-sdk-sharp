@@ -105,7 +105,6 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     public virtual bool TempEntPoolWriteLife(int slot, in TempEntLife life) => Inner.TempEntPoolWriteLife(slot, in life);
     public virtual bool TempEntPoolReadTransform(int slot, out TempEntTransform transform) => Inner.TempEntPoolReadTransform(slot, out transform);
     public virtual bool TempEntPoolWriteTransform(int slot, in TempEntTransform transform) => Inner.TempEntPoolWriteTransform(slot, in transform);
-    public virtual float CurrentGravity() => Inner.CurrentGravity();
     public virtual bool ClientEntityOrigin(int entityIndex, out Vector origin) => Inner.ClientEntityOrigin(entityIndex, out origin);
     public virtual bool TempEntPoolAddVisible(int slot) => Inner.TempEntPoolAddVisible(slot);
 

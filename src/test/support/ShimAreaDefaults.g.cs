@@ -50,7 +50,6 @@ internal unsafe class DefaultMovementArea : IMovementArea
 {
     public void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6) { }
     public int MoveEffect(int a0, float* a1, float a2, int a3) => default;
-    public float CurrentGravity() => default;
     public void RegisterMovementParams(MovementParams* a0) { }
 }
 

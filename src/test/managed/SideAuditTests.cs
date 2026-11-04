@@ -483,13 +483,6 @@ public class SideAuditTests
 
     private static readonly HashSet<string> BothSides = new(StringComparer.Ordinal)
     {
-        // GetCurrentGravity is movevars_shared and answers on both sides. Only
-        // the client's tempent physics asks for it today, and it is wired on
-        // both anyway: a slot wired on one side answers the managed fallback on
-        // the other, which is a plausible number rather than a refusal — the
-        // hazard SOURCESHARP_TRACE_ALL's note describes for the trace masks.
-        "CurrentGravity",
-
         // The vtable binding's one entry point. BOTH SIDES because each side
         // serves the interfaces its own DLL was handed: IVEngineClient exists
         // only on the client and IVEngineServer only on the server, and the

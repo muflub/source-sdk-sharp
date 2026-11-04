@@ -1458,14 +1458,12 @@ static void *const s_ShimPrecacheSlots[] = {
 static const SSForwarderTable s_ShimPrecacheTable = { s_ShimPrecacheSlots, 1 };
 
 //-----------------------------------------------------------------------------
-// ShimMovementServer: 15 forwarder(s) over IShimMovementServer.
+// ShimMovementServer: 14 forwarder(s) over IShimMovementServer.
 //-----------------------------------------------------------------------------
 // void IShimMovement::MoveTrace( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult * )
 static void SSFwd_ShimMovementServer_MoveTrace( IShimMovementServer *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6 ) { self->MoveTrace( a0, a1, a2, a3, a4, a5, a6 ); }
 // int32_t IShimMovement::MoveEffect( int32_t, const float *, float, int32_t )
 static int32_t SSFwd_ShimMovementServer_MoveEffect( IShimMovementServer *self, int32_t a0, const float * a1, float a2, int32_t a3 ) { return self->MoveEffect( a0, a1, a2, a3 ); }
-// float IShimMovement::CurrentGravity( void )
-static float SSFwd_ShimMovementServer_CurrentGravity( IShimMovementServer *self ) { return self->CurrentGravity(); }
 // void IShimMovement::RegisterMovementParams( const SourceSharpMovementParams * )
 static void SSFwd_ShimMovementServer_RegisterMovementParams( IShimMovementServer *self, const SourceSharpMovementParams * a0 ) { self->RegisterMovementParams( a0 ); }
 // int32_t IShimMovementServer::PlayerShadowFacts( uint32_t, SourceSharpPlayerShadowFacts * )
@@ -1494,7 +1492,6 @@ static void SSFwd_ShimMovementServer_PlayerSyncEngineSide( IShimMovementServer *
 static void *const s_ShimMovementServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveTrace ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_MoveEffect ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_CurrentGravity ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_RegisterMovementParams ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowFacts ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerShadowAdopt ),
@@ -1509,7 +1506,7 @@ static void *const s_ShimMovementServerSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimMovementServer_PlayerSyncEngineSide ),
 };
 
-static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 15 };
+static const SSForwarderTable s_ShimMovementServerTable = { s_ShimMovementServerSlots, 14 };
 
 //-----------------------------------------------------------------------------
 // ShimWorldServer: 3 forwarder(s) over IShimWorldServer.
@@ -1983,25 +1980,22 @@ static void *const s_ShimModelsSlots[] = {
 static const SSForwarderTable s_ShimModelsTable = { s_ShimModelsSlots, 3 };
 
 //-----------------------------------------------------------------------------
-// ShimMovement: 4 forwarder(s) over IShimMovement.
+// ShimMovement: 3 forwarder(s) over IShimMovement.
 //-----------------------------------------------------------------------------
 // void IShimMovement::MoveTrace( const float *, const float *, const float *, const float *, int32_t, int32_t, SourceSharpMoveTraceResult * )
 static void SSFwd_ShimMovement_MoveTrace( IShimMovement *self, const float * a0, const float * a1, const float * a2, const float * a3, int32_t a4, int32_t a5, SourceSharpMoveTraceResult * a6 ) { self->MoveTrace( a0, a1, a2, a3, a4, a5, a6 ); }
 // int32_t IShimMovement::MoveEffect( int32_t, const float *, float, int32_t )
 static int32_t SSFwd_ShimMovement_MoveEffect( IShimMovement *self, int32_t a0, const float * a1, float a2, int32_t a3 ) { return self->MoveEffect( a0, a1, a2, a3 ); }
-// float IShimMovement::CurrentGravity( void )
-static float SSFwd_ShimMovement_CurrentGravity( IShimMovement *self ) { return self->CurrentGravity(); }
 // void IShimMovement::RegisterMovementParams( const SourceSharpMovementParams * )
 static void SSFwd_ShimMovement_RegisterMovementParams( IShimMovement *self, const SourceSharpMovementParams * a0 ) { self->RegisterMovementParams( a0 ); }
 
 static void *const s_ShimMovementSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimMovement_MoveTrace ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovement_MoveEffect ),
-	reinterpret_cast< void * >( &SSFwd_ShimMovement_CurrentGravity ),
 	reinterpret_cast< void * >( &SSFwd_ShimMovement_RegisterMovementParams ),
 };
 
-static const SSForwarderTable s_ShimMovementTable = { s_ShimMovementSlots, 4 };
+static const SSForwarderTable s_ShimMovementTable = { s_ShimMovementSlots, 3 };
 
 //-----------------------------------------------------------------------------
 // ShimEntities: 4 forwarder(s) over IShimEntities.

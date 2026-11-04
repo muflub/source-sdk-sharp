@@ -194,7 +194,6 @@ internal unsafe interface IMovementArea
 {
     void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6);
     int MoveEffect(int a0, float* a1, float a2, int a3);
-    float CurrentGravity();
     void RegisterMovementParams(MovementParams* a0);
 }
 
@@ -209,7 +208,6 @@ internal unsafe class MovementArea : IMovementArea
 
     public void MoveTrace(float* a0, float* a1, float* a2, float* a3, int a4, int a5, MoveTraceBlob* a6) { _shim.Table->MoveTrace(_shim.Self, a0, a1, a2, a3, a4, a5, a6); }
     public int MoveEffect(int a0, float* a1, float a2, int a3) { return _shim.Table->MoveEffect(_shim.Self, a0, a1, a2, a3); }
-    public float CurrentGravity() { return _shim.Table->CurrentGravity(_shim.Self); }
     public void RegisterMovementParams(MovementParams* a0) { _shim.Table->RegisterMovementParams(_shim.Self, a0); }
 }
 

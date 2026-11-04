@@ -68,7 +68,6 @@ set(server_sourcesharp_sources
     ${SHARED}/generic_payload.cpp
     ${SHARED}/loaded_symbol.cpp
     ${SHARED}/mathlib_port.cpp
-    ${SHARED}/movevars_shared.cpp
     ${SHARED}/overlay_library.cpp
     ${SHARED}/shell_acquire_reasons.cpp
     ${SHARED}/shell_diagnostics.cpp

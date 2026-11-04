@@ -26,7 +26,7 @@ public:
 	IPhysicsEnvironment* Create(IPhysics* pPhysics, IPhysicsCollisionSolver* pSolver,
 								IPhysicsCollisionEvent* pCollisionEvents, IPhysicsObjectEvent* pObjectEvents,
 								IPhysicsConstraintEvent* pConstraintEvents, CreateInterfaceFn engineFactory,
-								float flTimestep, float flGravity, int nMaxCollisionsPerObjectPerTimestep)
+								float flTimestep, int nMaxCollisionsPerObjectPerTimestep)
 	{
 		if (!pPhysics)
 			return 0;
@@ -52,7 +52,6 @@ public:
 		m_pEnv->SetObjectEventHandler(pObjectEvents);
 
 		m_pEnv->SetSimulationTimestep(flTimestep);
-		m_pEnv->SetGravity(Vector(0, 0, -flGravity));
 
 		return m_pEnv;
 	}

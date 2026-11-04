@@ -235,11 +235,9 @@ internal sealed unsafe partial class EngineEffects
     private readonly IEffectsServerArea _effectsServerArea;
 
     public EngineEffects(EngineSide side,
-                         IEffectsServerArea effectsServerArea,
-                         IMovementArea movementArea)
+                         IEffectsServerArea effectsServerArea)
     {
         _effectsServerArea = effectsServerArea ?? throw new ArgumentNullException(nameof(effectsServerArea));
-        _movementArea = movementArea ?? throw new ArgumentNullException(nameof(movementArea));
     }
 
     //-------------------------------------------------------------------------

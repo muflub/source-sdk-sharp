@@ -86,12 +86,10 @@ internal sealed unsafe partial class EngineEffects
 
     public EngineEffects(EngineSide side,
                          IEffectsRenderClientArea effectsRenderClientArea,
-                         IMovementArea movementArea,
                          ITempEntBackendsClientArea tempEntBackendsClientArea,
                          ITempEntPoolClientArea tempEntPoolClientArea)
     {
         _effectsRenderClientArea = effectsRenderClientArea ?? throw new ArgumentNullException(nameof(effectsRenderClientArea));
-        _movementArea = movementArea ?? throw new ArgumentNullException(nameof(movementArea));
         _tempEntBackendsClientArea = tempEntBackendsClientArea ?? throw new ArgumentNullException(nameof(tempEntBackendsClientArea));
         _tempEntPoolClientArea = tempEntPoolClientArea ?? throw new ArgumentNullException(nameof(tempEntPoolClientArea));
     }

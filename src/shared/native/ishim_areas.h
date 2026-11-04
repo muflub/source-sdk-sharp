@@ -105,7 +105,6 @@ public:
 	virtual void MoveTrace(const float* pStartXYZ, const float* pEndXYZ, const float* pMinsXYZ, const float* pMaxsXYZ,
 						   int32_t nMask, int32_t nCollisionGroup, SourceSharpMoveTraceResult* pOut) = 0;
 	virtual int32_t MoveEffect(int32_t nKind, const float* pXYZ, float flValue, int32_t nValue) = 0;
-	virtual float CurrentGravity() = 0;
 	virtual void RegisterMovementParams(const SourceSharpMovementParams* pParams) = 0;
 };
 
