@@ -74,6 +74,12 @@ public static class TFObjectivesOrders
 
     /// <summary>The payload chain member (<see cref="TF2PayloadObjectiveSource"/>).</summary>
     public const int PayloadSource = Band + 20;
+
+    /// <summary>The control-point chain member (<see cref="TF2CpObjectiveSource"/>).</summary>
+    public const int ControlPointSource = Band + 30;
+
+    /// <summary>The koth chain member (<see cref="TF2KothObjectiveSource"/>).</summary>
+    public const int KothSource = Band + 40;
 }
 
 /// <summary>
