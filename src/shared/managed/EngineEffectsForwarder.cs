@@ -68,6 +68,7 @@ public abstract class EngineEffectsForwarder : IEngineEffects
     public virtual bool ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset = null) => Inner.ParticleSystemFollowEntity(owner, point, entity, attachment, offset);
     public virtual bool ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => Inner.ParticleSystemStartSlot(owner, name, slot);
     public virtual void ParticleSystemStopSlot(EntityHandle owner, int slot) => Inner.ParticleSystemStopSlot(owner, slot);
+    public virtual void ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel) => Inner.ParticleSystemViewModelSlot(owner, slot, viewmodel);
     public virtual bool ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset = null) => Inner.ParticleSystemFollowEntitySlot(owner, point, entity, attachment, slot, offset);
     public virtual bool ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values) => Inner.ParticleSystemSetPoints(owner, slot, activeIndex, values);
     public virtual void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => Inner.SpriteTrailUpdate(owner, renderMode, visible);

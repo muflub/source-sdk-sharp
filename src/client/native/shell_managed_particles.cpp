@@ -1223,6 +1223,31 @@ void CParticleSystemsClient::ParticleSystemStopSlot(uint32_t hOwner, int32_t nSl
 		StopAttached(*pSystems, hOwner);
 }
 
+// Which list a held system draws in, as managed asked: the viewmodel's
+// translucent pass, or back to the entity translucent one the leaf system
+// inserted it in (every held system's collection is translucent). Stock's
+// local player's crit glow, tf_player_shared.cpp:7587-7593.
+void CParticleSystemsClient::ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel)
+{
+	Systems_t* pSystems = Slot(nSlot);
+
+	if (!pSystems)
+		return;
+
+	int nIndex = ShellEffects_Find(*pSystems, hOwner);
+
+	if (nIndex < 0)
+		return;
+
+	CShellNewParticleEffect* pEffect = (*pSystems)[nIndex].pEffect.GetObject();
+
+	if (!pEffect || pEffect->RenderHandle() == INVALID_CLIENT_RENDER_HANDLE)
+		return;
+
+	m_Engines.m_pLeafSystem->SetRenderGroup(
+		pEffect->RenderHandle(), bViewmodel ? RENDER_GROUP_VIEW_MODEL_TRANSLUCENT : RENDER_GROUP_TRANSLUCENT_ENTITY);
+}
+
 // A one-shot an impact started: watched, not held.
 void CParticleSystemsClient::WatchOneShot(CShellNewParticleEffect* pEffect)
 {

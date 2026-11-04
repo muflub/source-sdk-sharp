@@ -450,6 +450,16 @@ public interface IEngineEffects
     /// <inheritdoc cref="ParticleSystemStartSlot"/>
     void ParticleSystemStopSlot(EntityHandle owner, int slot);
 
+    /// <summary>
+    /// Which list the owner's slot system draws in: the viewmodel's translucent
+    /// pass when <paramref name="viewmodel"/>, else the entity translucent one it
+    /// was inserted in. Stock pins the local player's crit glow to the viewmodel
+    /// pass in code, whatever the particle's definition says
+    /// (<c>tf_player_shared.cpp:7587-7593</c>). Nothing happens when the slot
+    /// holds no system of that owner's.
+    /// </summary>
+    void ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel);
+
     /// <inheritdoc cref="ParticleSystemFollowEntity"/>
     bool ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset = null);
 

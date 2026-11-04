@@ -180,6 +180,10 @@ public:
 	// update; the flame client drives it once per burning frame.
 	virtual int32_t ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex, const float* pValues,
 											int32_t nCount) = 0;
+	// Which list a held system draws in: the viewmodel's translucent pass, or back to the
+	// entity translucent one it was inserted in. Managed decides (the local player's crit
+	// glow, tf_player_shared.cpp:7587-7593); this carries the group out.
+	virtual void ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel) = 0;
 };
 
 abstract_class IShimStandaloneClient

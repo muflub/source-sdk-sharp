@@ -206,7 +206,16 @@ public sealed class TFCritBoostEffect(
                 effects.ParticleSystemStopSlot(worn.Bearer, GlowSlot);
 
             if (effects.ParticleSystemStartSlot(bearer, name, GlowSlot))
+            {
+                // Stock pins the local player's glow into the viewmodel's
+                // translucent pass in code, whatever the particle def says
+                // (:7587-7593); everyone else's stays in the entity
+                // translucent group the leaf system inserted it in.
+                if (local)
+                    effects.ParticleSystemViewModelSlot(bearer, GlowSlot, true);
+
                 _glowing[player] = new Glow(bearer, name);
+            }
         }
 
         // The hum, :7604-7610: created once per boost, on the player.

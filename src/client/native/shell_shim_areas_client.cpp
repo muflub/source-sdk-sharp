@@ -500,6 +500,11 @@ int32_t CShimEffectsRenderClient::ParticleSystemSetPoints(uint32_t hOwner, int32
 	return m_pParticleSystemsClient->ParticleSystemSetPoints(hOwner, nSlot, nActiveIndex, pValues, nCount);
 }
 
+void CShimEffectsRenderClient::ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel)
+{
+	return m_pParticleSystemsClient->ParticleSystemViewModelSlot(hOwner, nSlot, bViewmodel);
+}
+
 void CShimViewClient::ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText)
 {
 	return ::SourceSharp_ConNPrintf(pEngineClient, nPos, pszText);

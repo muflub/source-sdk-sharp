@@ -267,6 +267,7 @@ public:
 										   int32_t nSlot, const float* pOffsetXYZ) override;
 	int32_t ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex, const float* pValues,
 									int32_t nCount) override;
+	void ParticleSystemViewModelSlot(uint32_t hOwner, int32_t nSlot, int32_t bViewmodel) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CSpritesClient* m_pSpritesClient = nullptr;

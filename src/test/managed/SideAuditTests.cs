@@ -264,6 +264,9 @@ public class SideAuditTests
         // system is fed is a fact about the renderer's copy of it, and the
         // server has no copy.
         "ParticleSystemStart", "ParticleSystemStop", "ParticleSystemFollowPoints", "ParticleSystemStartExtra", "ParticleSystemStopExtra", "ParticleSystemFollowEntity", "ParticleSystemStartSlot", "ParticleSystemStopSlot", "ParticleSystemFollowEntitySlot", "ParticleSystemSetPoints",
+        // The crit glow's render group: which list a held system draws in is a
+        // fact about the client's leaf insertion, so only the client asks.
+        "ParticleSystemViewModelSlot",
         "ScreenOverlaySet", "ScreenOverlayGet",
         "DynamicLightRelease", "DynamicLightUpdate",
         // The five local-weapon slots -- GetLocalWeaponCount, GetLocalWeaponName,

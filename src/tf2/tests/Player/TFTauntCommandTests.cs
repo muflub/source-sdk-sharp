@@ -117,6 +117,31 @@ public sealed class TFTauntCommandTests
     }
 
     [Fact]
+    public void TheWindowIsTheMatchedScenesOwnLength()
+    {
+        // GetSceneDuration plus the tail (tf_player.cpp:17734): the spy's fencing
+        // stab lands 4 s in, so a fixed length ended the taunt before it.
+        const string Scene = "scenes/player/spy/low/taunt03_v2.vcd";
+        var rig = new PlayerRig().As(TFClass.Soldier);
+        rig.Engine.Returns("Networking.EntityGetState", EntityState.OnGround);
+        rig.Engine.Returns("Networking.EntityGetState.moveType", MoveType.Walk);
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_knife");
+        var rules = new TF2.Tests.Entities.FakeConceptRules { Kind = ResponseKind.Scene, Name = Scene };
+        var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine, new ListHooks<ITFConditionHook>());
+        var resupply = new TFPlayerResupply(rig.Carriers, rig.Classes, rig.Engine, rig.Engine, conditions, rig.Loadout, rig.Engine);
+        var players = new TFPlayerMapPlayers(rig.Engine, rig.Engine, rig.Carriers, resupply, conditions, rig.Carriers);
+        var image = new TF2.Server.Voice.TFSceneImage(TF2.Tests.Voice.TFSceneImageTests.Files(
+            ("scenes/scenes.image", TF2.Tests.Voice.TFSceneImageTests.Image((Scene, 4200, ["vo/taunt.ogg"])))));
+        var voice = new TF2.Server.Voice.TFConceptSpeech(rules, rig.Carriers, new TF2.Tests.Entities.FakeConceptTeams(), rig.Engine,
+                                                         image, rig.Engine, new TF2.Tests.Entities.FakeRandom());
+        var command = new TFTauntCommand(players, rig.Engine, rig.Engine, rig.Engine, rig.Carriers, voice, scenes: image);
+
+        Assert.True(command.Handle(PlayerRig.Player, TFTauntCommand.Command, []));
+
+        Assert.Equal(4.2f + TFTauntCommand.TauntTailSeconds, conditions.Of(PlayerRig.Index)!.Duration(TFCond.Taunting), 3);
+    }
+
+    [Fact]
     public void AHeldKeyInsideTheWindowConsumesWithoutRenewingIt()
     {
         var (_, command, conditions, _) = Rig();

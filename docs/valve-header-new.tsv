@@ -1147,3 +1147,4 @@ src/tf2/client/Weapons/TFFlameThrowerFx.cs	ports CTFFlameThrower's client half: 
 src/tf2/shared/Weapons/TFFlameDefs.cs	ports the flame_* item attributes CTFFlameManager reads (tf_flame.cpp:465-477) from items_game.txt
 src/client/native/standalone_shadow_hull.h	ports the placing arm of C_ObjectSentrygun::GetShadowRenderBounds: the collision hull widened by bbBloat (10, 10, 0) (c_obj_sentrygun.cpp:588-597)
 src/tf2/shared/Buildings/TFObjectNetState.cs	networks m_bPlacing, CBaseObject::m_bPlacing (baseobject.h), the flag the placing arm reads
+src/tf2/server/Player/TFTauntAttack.cs	ports CTFPlayer::DoTauntAttack's box and high noon arms and Taunt's scene keys (tf_player.cpp:17979-18068, 18377-18451, 18613-18635)

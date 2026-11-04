@@ -50,7 +50,8 @@ namespace TF2.Server.Player;
 [SideService(Side.Server)]
 public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking networking, IGameClock clock,
                                    IEnginePlayers engine, TFPlayerCarriers? carriers = null, TFConceptSpeech? speech = null,
-                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null)
+                                   ITFWeaponOwners? owners = null, AttributeHooks? hooks = null,
+                                   Voice.TFSceneImage? scenes = null)
     : IClientCommandHook, IOrderedHook
 {
     /// <summary><c>taunt</c> / <c>weapon_taunt</c> (:7507).</summary>
@@ -60,11 +61,9 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
     public const float TauntTailSeconds = 0.2f;
 
     /// <summary>
-    /// The documented fallback scene length for the base weapon taunt's own
-    /// scene: stock's half of the duration is <c>GetSceneDuration</c>, which
-    /// reads the scene file — no scene system here, so the nominal base
-    /// taunt's length stands in until the gesture's measured sequence length
-    /// replaces it (<c>docs/plans/tf2/deferred.tsv</c>).
+    /// The scene length for a side with no scene image: stock's half of the
+    /// duration is <c>GetSceneDuration</c>, which <see cref="Voice.TFSceneImage"/>
+    /// answers from the game's own <c>scenes/scenes.image</c> where it stands.
     /// </summary>
     public const float BaseTauntSceneSeconds = 2.8f;
 
@@ -118,7 +117,7 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
 
         // OnTauntSucceeded (:17732-17768): the duration with its tail, the
         // condition, and the next-start stamp at start + duration (:17744).
-        float duration = TauntDuration(player);
+        float duration = TauntDuration(player, scene);
         players.AddCond(player, TFCond.Taunting, duration);
         _nextStart[player.EntryIndex] = now + duration;
         return true;
@@ -130,10 +129,11 @@ public sealed class TFTauntCommand(ITFMapPlayers players, IEngineNetworking netw
     /// own manager (:17736-17738) — the player manager roots the hook, so a
     /// side with none divides by one.
     /// </summary>
-    private float TauntDuration(EntityHandle player)
+    private float TauntDuration(EntityHandle player, string scene)
     {
         float mod = hooks?.Float(1f, "mult_gesture_time", owners?.ManagerOf(player.EntryIndex)) ?? 1f;
-        return (BaseTauntSceneSeconds + TauntTailSeconds) / mod;
+        float length = scenes?.SceneDuration(scene) ?? BaseTauntSceneSeconds;
+        return (length + TauntTailSeconds) / mod;
     }
 
     /// <summary>

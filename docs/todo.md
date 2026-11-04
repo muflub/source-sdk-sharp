@@ -1322,6 +1322,8 @@ and where its record lives now.
 - A teammate may get no name tag. In a two-client run on one team, each player's ray at the other missed: 0 hits in 3 samples from the joiner, 0 in 11 from the host, against 2 of 3 from the joiner on opposite teams. Too few samples to call it a rule, and the host missed on opposite teams too. Next: a real count at one pose, then `CWorldQueryClient::ClientClipRayToEntities`'s solid and contents gates.
 - The window in 2fort's red spawn: the shutter behind the glass reads 105.7 in stock and 69.6 in ours; inside the room with no glass they match at 1.00. 2fort has no `func_reflective_glass`, so that isn't the path. Something about the pane still differs.
 - F38's quality prefix reaches the loadout screens, not yet the scoreboard or target ID.
+- `TFConceptSpeech`'s scene arm counts a scene with no sounds as not spoken, which refuses a taunt whose scene is silent; stock plays any scene it finds. The three kill scenes all have sounds. Nothing has been measured for the others.
+- A taunt kill's kill feed names the weapon (`fists`, `knife`). Stock has a `taunt_*` name for each (tf_gamerules.cpp:12213); check the icon against stock.
 - The minigun's flash draws at the muzzle now; stock's core may read brighter than ours. It flickers, so compare several frames before calling it a difference.
 
 ## Performance: what the 2026-11-03 pass left (release, AMD, five bots fighting)

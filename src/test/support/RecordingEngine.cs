@@ -1263,6 +1263,7 @@ public sealed class RecordingEngine :
     bool IEngineEffects.ParticleSystemFollowEntity(EntityHandle owner, int point, EntityHandle entity, int attachment, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntity", owner, point, entity, attachment, offset);
     bool IEngineEffects.ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => Record<bool>("Effects.ParticleSystemStartSlot", owner, name, slot);
     void IEngineEffects.ParticleSystemStopSlot(EntityHandle owner, int slot) => RecordVoid("Effects.ParticleSystemStopSlot", owner, slot);
+    void IEngineEffects.ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel) => RecordVoid("Effects.ParticleSystemViewModelSlot", owner, slot, viewmodel);
     bool IEngineEffects.ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntitySlot", owner, point, entity, attachment, slot, offset);
 
     // The flame points ride one span a frame: the length is the argument, the floats are appended as a copy so a

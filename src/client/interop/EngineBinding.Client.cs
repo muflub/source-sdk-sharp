@@ -812,6 +812,12 @@ internal sealed unsafe partial class EngineEffects
         _effectsRenderClientArea.ParticleSystemStopSlot(owner.Value, slot);
     }
 
+    /// <inheritdoc cref="IEngineEffects.ParticleSystemViewModelSlot"/>
+    public void ParticleSystemViewModelSlot(EntityHandle owner, int slot, bool viewmodel)
+    {
+        _effectsRenderClientArea.ParticleSystemViewModelSlot(owner.Value, slot, viewmodel ? 1 : 0);
+    }
+
     /// <summary>
     /// Which of a running particle system's control points are kept at the
     /// entity that owns it, as a bitmask — bit 0 is control point 0.

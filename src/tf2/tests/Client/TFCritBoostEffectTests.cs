@@ -102,6 +102,32 @@ public sealed class TFCritBoostEffectTests
     }
 
     [Fact]
+    public void The_local_players_glow_draws_in_the_viewmodels_pass()
+    {
+        var rig = Make(team: TFTeam.Red, localIndex: 2);
+        rig.Bearer.Handle = Attachment;
+
+        rig.Arm.OnAdded(Player, Cond.Critboosted);
+
+        // Stock pins the local player's glow into the viewmodel's translucent
+        // pass in code, whatever the particle def says (:7587-7593).
+        var pin = Assert.Single(rig.Engine.Calls, c => c.Member == "Effects.ParticleSystemViewModelSlot");
+        Assert.Equal(Attachment, pin.ArgAs<EntityHandle>(0));
+        Assert.Equal(Crit.GlowSlot, pin.Args[1]);
+        Assert.Equal(true, pin.Args[2]);
+    }
+
+    [Fact]
+    public void Another_players_glow_stays_in_the_world_pass()
+    {
+        var rig = Make(team: TFTeam.Red);
+
+        rig.Arm.OnAdded(Player, Cond.Critboosted);
+
+        Assert.DoesNotContain(rig.Engine.Calls, c => c.Member == "Effects.ParticleSystemViewModelSlot");
+    }
+
+    [Fact]
     public void A_replaced_bearer_moves_the_glow()
     {
         var rig = Make(team: TFTeam.Red, localIndex: 2);
