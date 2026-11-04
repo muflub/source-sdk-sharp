@@ -311,8 +311,6 @@ public class ClientSpriteRendererTests
     private static float[] InputOf(in SpriteDrawRequest r)
     {
         var f = new float[ClientSpriteHost.InFloats];
-        f[ClientSpriteHost.InDrawSprites] = r.DrawSprites;
-        f[ClientSpriteHost.InWireframeMode] = r.WireframeMode ? 1 : 0;
         f[ClientSpriteHost.InOrientation] = r.Orientation;
         f[ClientSpriteHost.InLeft] = r.Left; f[ClientSpriteHost.InRight] = r.Right;
         f[ClientSpriteHost.InUp] = r.Up; f[ClientSpriteHost.InDown] = r.Down;
@@ -400,11 +398,11 @@ public class ClientSpriteRendererTests
             float[] input = InputOf(RequestOf(d));
 
             var callback = new float[ClientSpriteHost.OutFloats];
-            int planned = new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), new RecordedDraw(input))
+            int planned = new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), new RecordedDraw(input), RenderConVarsKit.DrawSprites(RequestOf(d).DrawSprites), RenderConVarsKit.Wireframe(RequestOf(d).WireframeMode))
                 .Plan(input, callback);
 
             var native = new RecordedDraw(input);
-            int drawn = new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), native)
+            int drawn = new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), native, RenderConVarsKit.DrawSprites(RequestOf(d).DrawSprites), RenderConVarsKit.Wireframe(RequestOf(d).WireframeMode))
                 .DrawSprite(new EntityHandle(1u), 64, 0f, 0, 0, 0, 0, 0, 0, 1f, false, 1f, 2f);
 
             if (planned != ClientSpriteHost.OutFloats || native.Begins != 1 || native.Planned is null)
@@ -458,10 +456,10 @@ public class ClientSpriteRendererTests
             float[] input = InputOf(RequestOf(d));
 
             var callback = new float[ClientSpriteHost.OutFloats];
-            new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), new RecordedDraw(input)).Plan(input, callback);
+            new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), new RecordedDraw(input), RenderConVarsKit.DrawSprites(RequestOf(d).DrawSprites), RenderConVarsKit.Wireframe(RequestOf(d).WireframeMode)).Plan(input, callback);
 
             var native = new RecordedDraw(input);
-            int prepared = new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), native)
+            int prepared = new ClientSpriteHost(renderer, new RecordedGlow(vis, dist), native, RenderConVarsKit.DrawSprites(RequestOf(d).DrawSprites), RenderConVarsKit.Wireframe(RequestOf(d).WireframeMode))
                 .PrepareSprite(new EntityHandle(1u), 64, 0f, 0, 0, 0, 0, 0, 0, 1f, false, 1f, 2f);
 
             if (prepared != 1 || native.Stored is null || native.Planned is not null)

@@ -30,7 +30,6 @@
 #include "imanaged_areas_client.h"
 
 #include "shell_particle_mgr.h"
-#include "managed_convar_ref.h"
 #include "shell_new_particles.h"
 #include "particle_follow_mask.h"
 #include "shell_effect_registry.h"
@@ -630,10 +629,6 @@ int CManagedParticleEffect::DrawModel(int flags)
 	in.Channel = m_nChannel;
 	in.Flags = flags;
 	in.ClientModeDraws = m_Engines.m_pClientMode && m_Engines.m_pClientMode->ShouldDrawParticles() ? 1 : 0;
-	in.DrawParticles = m_Owner.m_r_DrawParticles.GetInt() != 0 ? 1 : 0;
-	in.Wireframe = m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1 : 0;
-	in.ShowBBox = m_Owner.m_cl_particle_show_bbox.GetBool() ? 1 : 0;
-	in.ShowBBoxCost = m_Owner.m_cl_particle_show_bbox_cost.GetInt();
 	in.ViewKey = ParticlesViewKey(m_Engines, m_Cameras);
 	in.FrameTime = m_Engines.m_pGlobals->frametime;
 
@@ -817,7 +812,6 @@ void CManagedParticlesClient::Frame(float flFrameTime)
 	pHeader->Dt = flFrameTime;
 	pHeader->CurTime = m_Engines.m_pGlobals->curtime;
 	pHeader->FrameTime = m_Engines.m_pGlobals->frametime;
-	pHeader->AabbBuffer = m_cl_particleeffect_aabb_buffer.GetFloat();
 	VectorCopy(m_Cameras.MainOrigin().Base(), pHeader->ViewOriginXYZ);
 	SourceSharpParticleFrameIn_t* pIn = (SourceSharpParticleFrameIn_t*)(pHeader + 1);
 	for (int i = 0; i < nExecutors; i++)

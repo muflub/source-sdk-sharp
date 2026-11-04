@@ -19,6 +19,26 @@ public class RenderConVarsTests
     public void AFogColourIsReadAsStocksSscanfReadIt(string text, float r, float g, float b)
         => Assert.Equal(new Vector(r, g, b), RenderConVars.ParseColor(text));
 
+    [Theory]
+    [InlineData("1", "1", true)]
+    [InlineData("0", "1", false)]
+    [InlineData("1", "0", false)]
+    public void WireframeModeNeedsCheatsAndTheConVar(string cheats, string wireframe, bool on)
+        => Assert.Equal(on, new SourceSharp.Client.WireframeMode(DeclaredConVars.Holding<SourceSharp.Shared.SvCheatsConVar>(cheats),
+                                                                 DeclaredConVars.Holding<SourceSharp.Client.MatWireframeConVar>(wireframe)).On);
+
+    [Fact]
+    public void TheThirdPersonCameraReadsItsConVars()
+    {
+        var convars = new ConVarRegistry(new NamedConVars(new Dictionary<string, string>
+        {
+            ["cam_idealpitch"] = "10", ["cam_idealyaw"] = "20", ["cam_idealdist"] = "150.5",
+            ["cam_idealdistright"] = "1", ["cam_idealdistup"] = "2", ["cam_collision"] = "0",
+        })).Holder<SourceSharp.Client.Input.ThirdPersonIdealConVars>();
+
+        Assert.Equal(new ThirdPersonIdeal(10f, 20f, 150.5f, 1f, 2f, false), convars.Value);
+    }
+
     [Fact]
     public void AFogColourWithNoTextIsNoColour()
         => Assert.Equal(new Vector(-1f, -1f, -1f), RenderConVars.ParseColor(null));

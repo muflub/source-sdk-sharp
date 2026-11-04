@@ -327,9 +327,9 @@ public unsafe interface IManagedDetailPropsClient
     void* DetailLevelInitPreEntity(int a0, int a1, int a2);
     int DetailLevelInitPostEntity(byte* a0, byte* a1, int a2);
     void DetailLevelShutdownPreEntity();
-    void* DetailBuildLists(void* a0, void* a1, int a2, int a3, int a4);
+    void* DetailBuildLists(void* a0, void* a1, int a2);
     void DetailBeginTranslucent();
-    void* DetailPrepare(int a0, void* a1, void* a2, int a3, void* a4, int a5, int a6, int a7);
+    void* DetailPrepare(int a0, void* a1, void* a2, int a3, void* a4);
     void* DetailEmit(int a0);
 }
 

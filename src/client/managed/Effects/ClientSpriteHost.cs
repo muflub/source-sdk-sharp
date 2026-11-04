@@ -8,16 +8,17 @@ namespace SourceSharp.Client.Effects;
 /// back: the float layouts are shell_sprite_leaf.cpp's SS_SPRITE_IN_* and
 /// SS_SPRITE_OUT_*, index for index.
 /// </summary>
-public sealed class ClientSpriteHost(SpriteRenderer renderer, IFxSpriteGlow glow, IFxSpriteDraw draw)
+public sealed class ClientSpriteHost(SpriteRenderer renderer, IFxSpriteGlow glow, IFxSpriteDraw draw,
+                                      RDrawSpritesConVar drawSprites, WireframeMode wireframe)
     : IClientSpriteHost, IClientSpriteDraw
 {
     // SS_SPRITE_IN_*.
-    public const int InDrawSprites = 0, InWireframeMode = 1, InOrientation = 2, InLeft = 3, InRight = 4, InUp = 5,
-        InDown = 6, InWidth = 7, InHeight = 8, InOrigin = 9, InEffectOrigin = 12, InAngles = 15, InRenderMode = 18,
-        InRenderFx = 19, InAlpha = 20, InR = 21, InG = 22, InB = 23, InScale = 24, InWorldSpaceScale = 25,
-        InHdrColorScale = 26, InBlend = 27, InViewForward = 28, InViewRight = 31, InViewUp = 34, InGlowProxySize = 37,
-        InQueryHandle = 38,
-        InFloats = 39;
+    public const int InOrientation = 0, InLeft = 1, InRight = 2, InUp = 3,
+        InDown = 4, InWidth = 5, InHeight = 6, InOrigin = 7, InEffectOrigin = 10, InAngles = 13, InRenderMode = 16,
+        InRenderFx = 17, InAlpha = 18, InR = 19, InG = 20, InB = 21, InScale = 22, InWorldSpaceScale = 23,
+        InHdrColorScale = 24, InBlend = 25, InViewForward = 26, InViewRight = 29, InViewUp = 32, InGlowProxySize = 35,
+        InQueryHandle = 36,
+        InFloats = 37;
 
     // SS_SPRITE_OUT_*.
     public const int OutDrawn = 0, OutSetBlend = 1, OutBlend = 2, OutQuad = 3, OutWireframe = 4, OutRgba = 5,
@@ -33,8 +34,8 @@ public sealed class ClientSpriteHost(SpriteRenderer renderer, IFxSpriteGlow glow
 
         var req = new SpriteDrawRequest
         {
-            DrawSprites = (int)input[InDrawSprites],
-            WireframeMode = input[InWireframeMode] != 0,
+            DrawSprites = drawSprites.Value,
+            WireframeMode = wireframe.On,
             Orientation = (int)input[InOrientation],
             Left = input[InLeft], Right = input[InRight], Up = input[InUp], Down = input[InDown],
             Width = input[InWidth], Height = input[InHeight],

@@ -397,6 +397,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // through their vtable, answering values decided here. Started now so
         // the first frame already reads decided values; a reload starts it
         // again (the native watch ids and stored values survive).
+        _services.Add<WireframeMode>();
+        _services.Add<Effects.ParticleSettings>();
         _services.Add<BoundedConVarInputs>();
         var boundedConVars = new BoundedConVars(_services.Require<IClientConVarSlots>(), _services.Require<BoundedConVarInputs>());
         _services.AddInstance(boundedConVars);
@@ -914,11 +916,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // bindings cross cs_cl_reload while the native executors stay.
         _services.AddFactory<Effects.ClientParticleManager>(locator => new Effects.ClientParticleManager(
             () => _particleSims ??= new Effects.ClientParticleSims(_standalones, _particleEffects!),
-            locator.Require<IUniformRandom>(), locator.Require<ParticleViews>()));
+            locator.Require<IUniformRandom>(), locator.Require<ParticleViews>(), locator.Require<Effects.ParticleSettings>()));
         // The new-style effects' manager (C7 particles phase 3): every native
         // shell's decisions, made here, the library stepping the collections;
         // an IReloadParticipant, so the decisions' state crosses cs_cl_reload.
-        _services.AddFactory<Effects.NewParticleManager>(locator => new Effects.NewParticleManager(locator.Require<IParticleCollections>()));
+        _services.AddFactory<Effects.NewParticleManager>(locator => new Effects.NewParticleManager(locator.Require<IParticleCollections>(), locator.Require<Effects.ParticleSettings>()));
         _services.AddFactory<IClientParticleExecutor>(locator => new Effects.BoundParticleExecutor(
             locator.Require<INativeParticleExecutor>(), locator.Require<Effects.ClientParticleManager>()));
         // C7 post-processing: viewpostprocess.cpp's passes as a managed program,
@@ -1007,7 +1009,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddFactory<IExplosionFireball>(locator => locator.Require<Render.GlowOverlays.GlowOverlayCreators>());
         _services.AddFactory<IFxImpactOverlay>(locator => locator.Require<Render.GlowOverlays.GlowOverlayCreators>());
         _services.AddFactory<Render.GlowOverlays.GlowHost>(locator => new Render.GlowOverlays.GlowHost(
-            locator.Require<Render.GlowOverlays.GlowOverlaySystem>(), locator.Require<Render.GlowOverlays.GlowSettings>()));
+            locator.Require<Render.GlowOverlays.GlowOverlaySystem>(), locator.Require<Render.GlowOverlays.GlowSettings>(),
+            locator.Require<RDrawSpritesConVar>(), locator.Require<WireframeMode>()));
         // The client's pixel visibility (C7, c_pixel_visibility.cpp): the
         // system every glow asks (sprites, particle glows, beam halos), its
         // engine over IShimViewClient's slots, and c_pixel_visibility.cpp's
@@ -1320,7 +1323,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // (IManagedDetailPropsClient) and carries the answers out. After the
         // convars, which the system reads and the level restores.
         _services.AddInstance<Detail.IClientDetailProps>(new Detail.DetailPropsHost(
-            new Detail.DetailPropSystem(Detail.DetailPropsEngines.For(_engine, Log), _services.Create<Detail.DetailConVars>())));
+            new Detail.DetailPropSystem(Detail.DetailPropsEngines.For(_engine, Log), _services.Create<Detail.DetailConVars>()),
+            _services.Require<RDrawDetailPropsConVar>(), _services.Require<MatFullbrightConVar>(), _services.Require<WireframeMode>()));
 
         // THE SOUNDSCAPES (sound cluster 17, lane c2-sims): the system is
         // managed; native's client-system shell drives it at stock's times
@@ -1725,7 +1729,8 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         var spriteRenderer = _services.Create<Effects.SpriteRenderer>();
         _services.AddInstance(spriteRenderer);
         _spriteHost = new Effects.ClientSpriteHost(spriteRenderer, _services.Require<IFxSpriteGlow>(),
-                                                   _services.Require<IFxSpriteDraw>());
+                                                   _services.Require<IFxSpriteDraw>(),
+                                                   _services.Require<RDrawSpritesConVar>(), _services.Require<WireframeMode>());
         _services.AddInstance(_spriteHost);
         _services.AddInstance<Effects.IClientSpriteDraw>(_spriteHost);
         _spriteTrails = _services.Create<Effects.ClientSpriteTrails>();
@@ -3299,6 +3304,10 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
     public float GetAirJump(in JumpRequest request) => _movementRules.Rules.AirJump(request);
 
     public void OnPlayerGrounded(int playerIndex) => _movementRules.Rules.Grounded(playerIndex);
+
+    public ThirdPersonIdeal ThirdPersonIdeal => (_thirdPersonConVars ??= _services.Create<Input.ThirdPersonIdealConVars>()).Value;
+
+    private Input.ThirdPersonIdealConVars? _thirdPersonConVars;
 
     public float GetEyeHeight(int playerIndex, float standing) => _movementRules.Rules.EyeHeight(playerIndex, standing);
 

@@ -23,7 +23,6 @@
 #include "imanaged_areas_client.h"
 
 #include "ss_bitblock.h"
-#include "managed_convar_ref.h"
 
 #include "shell_standalone_client.h"
 #include "slot_table.h"
@@ -265,12 +264,9 @@ int CShellNewParticleEffect::DrawModel(int flags)
 	V_memset(&in, 0, sizeof(in));
 	in.Id = m_nId;
 	in.Flags = flags;
-	in.DrawParticles = m_Owner.m_s_r_drawparticles.GetBool() ? 1 : 0;
 	in.ClientModeDraws = m_Owner.Engines().m_pClientMode->ShouldDrawParticles() ? 1 : 0;
 	// Nothing turns the manager's render switch off, so it is on.
 	in.RenderSystems = 1;
-	in.ShowBBox = m_Owner.m_s_cl_particle_show_bbox.GetBool() ? 1 : 0;
-	in.ShowBBoxCost = m_Owner.m_s_cl_particle_show_bbox_cost.GetInt();
 	in.Active = m_pCollection->m_nActiveParticles;
 	Vector vecCamera;
 	pRenderContext->GetWorldSpaceCameraPosition(&vecCamera);
@@ -421,13 +417,9 @@ void CNewParticlesClient::Frame(float flFrameTime)
 		(SourceSharpNewParticleFrameHeader_t*)(in.Base() + kBitBlockHeaderBytes);
 	V_memset(pHeader, 0, sizeof(*pHeader));
 	pHeader->Dt = flFrameTime;
-	pHeader->Timescale = m_s_r_particle_timescale.GetFloat();
 	pHeader->CurTime = m_Engines.m_pGlobals->curtime;
 	pHeader->FrameCount = m_Engines.m_pGlobals->framecount;
-	pHeader->AabbBuffer = m_s_cl_particleeffect_aabb_buffer.GetFloat();
-	pHeader->RetireCost = m_s_cl_particle_retire_cost.GetFloat();
-	pHeader->SpikeThresholdMs = m_s_r_particle_sim_spike_threshold_ms.GetInt();
-	if (pHeader->RetireCost != 0.0f && nEffects > 0)
+	if (nEffects > 0)
 	{
 		const CViewSetup* pView = m_Engines.m_pViewRender->GetPlayerViewSetup();
 		pHeader->ViewX = pView->x;

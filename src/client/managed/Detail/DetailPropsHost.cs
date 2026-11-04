@@ -17,7 +17,7 @@ namespace SourceSharp.Client.Detail;
 /// renderables and leaf tables, so that parse hands native nothing).
 /// </para>
 /// </summary>
-public sealed class DetailPropsHost(DetailPropSystem system) : IClientDetailProps, IDetailLevelSink, IDetailViewSink, IDetailDrawSink,
+public sealed class DetailPropsHost(DetailPropSystem system, RDrawDetailPropsConVar drawDetailProps, MatFullbrightConVar fullbright, WireframeMode wireframe) : IClientDetailProps, IDetailLevelSink, IDetailViewSink, IDetailDrawSink,
                                                               IReloadParticipant
 {
     // The level a reload parses again: LevelInitPreEntity's inputs and the
@@ -123,12 +123,12 @@ public sealed class DetailPropsHost(DetailPropSystem system) : IClientDetailProp
 
     private readonly List<nint> _proxies = [];
 
-    public nint BuildLists(Vector viewOrigin, Vector currentViewOrigin, bool clientModeDraws, int drawDetailProps, int fullbright)
+    public nint BuildLists(Vector viewOrigin, Vector currentViewOrigin, bool clientModeDraws)
     {
         Reset();
         _proxies.Clear();
         _states.Clear();
-        float? radius = system.BuildRenderLists(viewOrigin, currentViewOrigin, clientModeDraws, drawDetailProps, fullbright, this);
+        float? radius = system.BuildRenderLists(viewOrigin, currentViewOrigin, clientModeDraws, (int)drawDetailProps.Value, fullbright.Value, this);
         Put(radius.HasValue ? 1 : 0);
         Put(radius ?? 0.0f);
         Put(_proxies.Count);
@@ -148,8 +148,9 @@ public sealed class DetailPropsHost(DetailPropSystem system) : IClientDetailProp
 
     public void BeginTranslucent() => system.BeginTranslucent();
 
-    public nint Prepare(int kind, in DetailView view, ReadOnlySpan<int> leaves, Vector? closest, DetailSwitches switches)
+    public nint Prepare(int kind, in DetailView view, ReadOnlySpan<int> leaves, Vector? closest)
     {
+        var switches = new DetailSwitches((int)drawDetailProps.Value, wireframe.On, fullbright.Value);
         Reset();
         Put(DetailPropsWire.MaterialNone);
         _countAt = _used;

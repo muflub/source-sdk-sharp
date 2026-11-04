@@ -253,6 +253,49 @@ public class PostProcessPlannerTests
         Assert.Contains(second, o => o.Kind == (int)RenderOpKind.PostEnableColorCorrection && o.GetI(0) == 1);
     }
 
+    private static int RenderTargetPushes(RenderOp[] ops, string path)
+    {
+        int depth = 0, pushes = 0;
+        foreach (RenderOp op in ops)
+        {
+            if (op.Kind is (int)RenderOpKind.PostPushRenderTargetAndViewport or (int)RenderOpKind.PostPushRenderTarget)
+            {
+                depth++;
+                pushes++;
+            }
+            else if (op.Kind == (int)RenderOpKind.PopRenderTargetAndViewport)
+            {
+                depth--;
+                Assert.True(depth >= 0, $"{path}: a pop below where the program started");
+            }
+        }
+        Assert.Equal(0, depth);
+        return pushes;
+    }
+
+    [Fact]
+    public void TheBloomProgramPopsWhatItPushesWithColourCorrectionOffAndOn()
+    {
+        (RenderTrace t, string text) = Load("post-lockdown-forcebloom");
+        PostProcessInputs input = InputsOf(t, text, PostProgramKind.EnginePost);
+        var planner = new PostProcessPlanner(() => "mods/test");
+        (RenderOp[] off, _, _) = Program(input, warmFrames: 1, planner);
+        Assert.True(RenderTargetPushes(off, "colour correction off") > 0, "colour correction off pushed nothing");
+        input.ColorCorrectionActive = 1;
+        input.SetCvar(PostCvar.mat_colorcorrection, 1f);
+        (RenderOp[] on, _, _) = Program(input, warmFrames: 1, planner);
+        Assert.True(RenderTargetPushes(on, "colour correction on") > 0, "colour correction on pushed nothing");
+        Assert.Contains(on, o => o.Kind == (int)RenderOpKind.PostEnableColorCorrection && o.GetI(0) == 1);
+    }
+
+    [Fact]
+    public void TheHistogramProgramPopsWhatItPushes()
+    {
+        (RenderTrace t, string text) = Load("post-sandbox-histogram");
+        (RenderOp[] ops, _, _) = Program(InputsOf(t, text, PostProgramKind.EnginePost), warmFrames: 1);
+        Assert.True(RenderTargetPushes(ops, "the histogram") > 0, "the histogram pushed nothing");
+    }
+
     [Fact]
     public void TheCentreQuarterModeShrinksTheDestinationAndItsUvs()
     {

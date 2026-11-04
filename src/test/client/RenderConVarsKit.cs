@@ -18,6 +18,30 @@ internal static class RenderConVarsKit
         return holder;
     }
 
+    /// <summary>A wireframe switch on or off.</summary>
+    public static SourceSharp.Client.WireframeMode Wireframe(bool on)
+        => new(DeclaredConVars.Holding<SourceSharp.Shared.SvCheatsConVar>("1"), DeclaredConVars.Holding<SourceSharp.Client.MatWireframeConVar>(on ? "1" : "0"));
+
+    /// <summary>r_drawsprites at a value.</summary>
+    public static SourceSharp.Client.RDrawSpritesConVar DrawSprites(int value)
+        => DeclaredConVars.Holding<SourceSharp.Client.RDrawSpritesConVar>(value.ToString(CultureInfo.InvariantCulture));
+
+    /// <summary>The particle managers' convars at their declared defaults.</summary>
+    public static SourceSharp.Client.Effects.ParticleSettings Particles()
+    {
+        var convars = new ConVarRegistry(new NoEngineConVars());
+        convars.RegisterTypes([typeof(SourceSharp.Client.Effects.DrawParticlesConVar), typeof(SourceSharp.Client.Effects.ParticleShowBBoxConVar),
+                               typeof(SourceSharp.Client.Effects.ParticleShowBBoxCostConVar), typeof(SourceSharp.Client.Effects.ParticleEffectAabbBufferConVar),
+                               typeof(SourceSharp.Client.Effects.ParticleTimescaleConVar), typeof(SourceSharp.Client.Effects.ParticleRetireCostConVar),
+                               typeof(SourceSharp.Client.Effects.ParticleSimSpikeThresholdConVar)]);
+        return new SourceSharp.Client.Effects.ParticleSettings(
+            convars.Declared<SourceSharp.Client.Effects.DrawParticlesConVar>(), convars.Declared<SourceSharp.Client.Effects.ParticleShowBBoxConVar>(),
+            convars.Declared<SourceSharp.Client.Effects.ParticleShowBBoxCostConVar>(), convars.Declared<SourceSharp.Client.Effects.ParticleEffectAabbBufferConVar>(),
+            convars.Declared<SourceSharp.Client.Effects.ParticleTimescaleConVar>(), convars.Declared<SourceSharp.Client.Effects.ParticleRetireCostConVar>(),
+            convars.Declared<SourceSharp.Client.Effects.ParticleSimSpikeThresholdConVar>(),
+            new SourceSharp.Client.WireframeMode(DeclaredConVars.Fresh<SourceSharp.Shared.SvCheatsConVar>(), DeclaredConVars.Fresh<SourceSharp.Client.MatWireframeConVar>()));
+    }
+
     /// <summary>A holder answering what a frame's recording says, by name.</summary>
     public static T Recorded<T>(IReadOnlyDictionary<string, string> values) where T : class
         => new ConVarRegistry(new NamedConVars(values)).Holder<T>();

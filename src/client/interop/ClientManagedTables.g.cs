@@ -1234,17 +1234,17 @@ public unsafe struct ManagedDetailPropsClientTable
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> DetailLevelShutdownPreEntity;
 
-    // 6: void * DetailBuildLists( const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws, int32_t nDrawDetailProps, int32_t nFullbright )
-    [SlotHash(0xf85ed399)]
-    public delegate* unmanaged<void*, void*, void*, int, int, int, void*> DetailBuildLists;
+    // 6: void * DetailBuildLists( const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws )
+    [SlotHash(0x3ea09cd5)]
+    public delegate* unmanaged<void*, void*, void*, int, void*> DetailBuildLists;
 
     // 7: void DetailBeginTranslucent( void )
     [SlotHash(0x07e0f4c4)]
     public delegate* unmanaged<void*, void> DetailBeginTranslucent;
 
-    // 8: void * DetailPrepare( int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright )
-    [SlotHash(0xd7d141d1)]
-    public delegate* unmanaged<void*, int, void*, void*, int, void*, int, int, int, void*> DetailPrepare;
+    // 8: void * DetailPrepare( int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ )
+    [SlotHash(0x2426bcc2)]
+    public delegate* unmanaged<void*, int, void*, void*, int, void*, void*> DetailPrepare;
 
     // 9: void * DetailEmit( int32_t nMaxQuads )
     [SlotHash(0x5d056f2d)]

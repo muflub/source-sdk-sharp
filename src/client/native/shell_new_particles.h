@@ -28,7 +28,6 @@
 #include "view.h"
 #include "vphysics_interface.h"
 
-#include "managed_convar_ref.h"
 #include "shell_managed_areas_client.h"
 
 class CClientEngineInterfaces;
@@ -141,14 +140,6 @@ public:
 
 	CNewParticlesClient(const CNewParticlesClient&) = delete;
 	CNewParticlesClient& operator=(const CNewParticlesClient&) = delete;
-
-	CManagedConVarRef m_s_r_drawparticles{"r_drawparticles"};
-	CManagedConVarRef m_s_cl_particleeffect_aabb_buffer{"cl_particleeffect_aabb_buffer"};
-	CManagedConVarRef m_s_cl_particle_show_bbox{"cl_particle_show_bbox"};
-	CManagedConVarRef m_s_cl_particle_show_bbox_cost{"cl_particle_show_bbox_cost"};
-	CManagedConVarRef m_s_r_particle_timescale{"r_particle_timescale"};
-	CManagedConVarRef m_s_cl_particle_retire_cost{"cl_particle_retire_cost"};
-	CManagedConVarRef m_s_r_particle_sim_spike_threshold_ms{"r_particle_sim_spike_threshold_ms"};
 
 	// NULL outside a managed load.
 	IManagedParticlesClient* Managed() const { return m_Areas.m_pParticlesClient; }

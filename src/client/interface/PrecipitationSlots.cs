@@ -3,7 +3,7 @@ using SourceSharp.Abi;
 namespace SourceSharp.Client.Interop;
 
 /// <summary>The local player as native reads it for the weather.</summary>
-public readonly record struct PrecipitationPlayerRead(Vector Origin, Vector Eye, float Yaw, Vector Center, float Fov, int DefaultFov);
+public readonly record struct PrecipitationPlayerRead(Vector Origin, Vector Eye, float Yaw, Vector Center, float Fov);
 
 /// <summary>
 /// IShimPrecipitationClient: the engine reads the client weather makes

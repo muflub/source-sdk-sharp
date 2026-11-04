@@ -28,7 +28,7 @@ namespace SourceSharp.Client.Effects;
 /// - DetectChanges.
 /// The sims are managed, so Update and the step are calls, not crossings.
 /// </remarks>
-public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUniformRandom random, ParticleViews views)
+public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUniformRandom random, ParticleViews views, ParticleSettings settings)
     : IClientParticleBindings, IReloadParticipant
 {
     /// <summary>The executor's spawns per update (shell_managed_particles.cpp's kMaxEmitPerFrame).</summary>
@@ -132,7 +132,7 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
     /// binding whose executor is not listed went with it and is dropped first.
     /// Answers the commits, one per binding in update order.
     /// </summary>
-    public int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, float aabbBuffer, Span<ParticleCommit> commits)
+    public int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, Span<ParticleCommit> commits)
     {
         for (int i = _entries.Count - 1; i >= 0; i--)
         {
@@ -171,7 +171,7 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
             else
                 Simulate(e, b, dt, origin);
 
-            bool changed = b.DetectChanges(aabbBuffer);
+            bool changed = b.DetectChanges(settings.AabbBuffer.Value);
             if (written < commits.Length)
             {
                 commits[written++] = new ParticleCommit
@@ -274,7 +274,7 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
         Entry? e = Find(input.Owner, input.Channel);
         if (e != null && e.Binding.Materials[0].Count > quads.Length)
             return e.Binding.Materials[0].Count;
-        if (e == null || input.DrawParticles == 0 || input.ClientModeDraws == 0 || (input.Flags & DepthPassFlags) != 0)
+        if (e == null || settings.Draw.Value == 0 || input.ClientModeDraws == 0 || (input.Flags & DepthPassFlags) != 0)
             return 0;
 
         ParticleBinding b = e.Binding;
@@ -292,8 +292,8 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
         output.FrameTime = b.DrawFrameTime(FrameCode, input.FrameTime);
         output.RefractUpdate = (e.MaterialFlags & 1) != 0 ? 1 : 0;
         output.ScreenUpdate = (e.MaterialFlags & 2) != 0 ? 1 : 0;
-        output.Wireframe = input.Wireframe;
-        DebugBox(b, input, ref output);
+        output.Wireframe = settings.Wireframe.On ? 1 : 0;
+        DebugBox(b, ref output);
         output.Result = 2;
 
         List<BoundParticle> list = b.Materials[0];
@@ -322,11 +322,11 @@ public sealed class ClientParticleManager(Func<IClientParticleSims> sims, IUnifo
     // DrawModel's !IsRetail() box: by cost (green, green to blue, blue to red,
     // red) when cl_particle_show_bbox_cost is set, else red for a box kept up to
     // date and green for one set by hand; cheap systems only on a negative cost.
-    private static void DebugBox(ParticleBinding b, in ParticleDrawIn input, ref ParticleDrawOut output)
+    private void DebugBox(ParticleBinding b, ref ParticleDrawOut output)
     {
-        if (input.ShowBBox == 0 && input.ShowBBoxCost == 0)
+        if (settings.ShowBBox.Value == 0 && settings.ShowBBoxCost.Value == 0)
             return;
-        int cost = input.ShowBBoxCost;
+        int cost = settings.ShowBBoxCost.Value;
         bool cheap = false;
         if (cost < 0)
         {

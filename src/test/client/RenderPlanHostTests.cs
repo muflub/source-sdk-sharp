@@ -241,8 +241,9 @@ public unsafe class RenderPlanHostTests
         convars.Set("r_farz", -1f);
         convars.Set("r_mapextents", 16384f);
         convars.Set("default_fov", 75f);
+        convars.Set("viewmodel_fov", 54f);
         var host = new RenderPlanHost(convars);
-        var input = new ViewSetUpIn { ViewModelFov = 54 };
+        var input = new ViewSetUpIn();
         ((IClientRenderPlan)host).ViewSetUp(in input, out ViewSetUpOut output);
         Assert.Equal(ViewFrame.SetUpView(input, convars), output);
     }

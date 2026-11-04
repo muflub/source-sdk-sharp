@@ -15,7 +15,6 @@
 #include "inputsystem/ButtonCode.h"
 #include "iclientmode.h"
 #include "GameEventListener.h"
-#include "managed_convar_ref.h"
 #include "shell_member_command.h"
 
 #include "shell_managed_areas_client.h"
@@ -173,8 +172,6 @@ public:
 	void ViewOverrideSet(int32_t nActive, const float* pOriginXYZ, const float* pAngles, int32_t nSetViewAngles);
 
 private:
-	CManagedConVarRef m_ViewModelFov{"viewmodel_fov"};
-
 	void ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer, CViewSetup* pSetup);
 	void ApplyManagedShake(Vector& origin, QAngle& angles);
 	void ApplyManagedViewModelBob(Vector& origin, QAngle& angles);
@@ -198,12 +195,6 @@ private:
 										  "Display the number of active particle systems."};
 
 	// Stock's names; in_camera.cpp declares them static.
-	CManagedConVarRef m_IdealDist{"cam_idealdist"};
-	CManagedConVarRef m_IdealDistRight{"cam_idealdistright"};
-	CManagedConVarRef m_IdealDistUp{"cam_idealdistup"};
-	CManagedConVarRef m_IdealPitch{"cam_idealpitch"};
-	CManagedConVarRef m_IdealYaw{"cam_idealyaw"};
-	CManagedConVarRef m_CamCollision{"cam_collision"};
 
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;

@@ -8,7 +8,6 @@
 #pragma once
 
 #include "ishim_areas_client.h"
-#include "managed_convar_ref.h"
 #include "tier1/convar.h"
 #include "tier1/convar_serverbounded.h"
 
@@ -69,9 +68,6 @@ public:
 	// Stock's fallback, 0.1, until managed has pushed a value.
 	float ClientInterpAmount() const;
 
-	// view.h's ShouldDrawInWireFrameMode.
-	bool ShouldDrawInWireFrameMode() const { return m_SvCheats.GetBool() && m_mat_wireframe.GetInt() != 0; }
-
 	// Members of a member of a file-scope object: they register in Init's ConVar_Register,
 	// the server and engine match them by name.
 	CManagedBoundedConVar m_cl_predict{*this, "cl_predict", "1.0", FCVAR_USERINFO | FCVAR_NOT_CONNECTED,
@@ -121,5 +117,4 @@ private:
 
 	DecidedValue_t m_Decided[8] = {};
 	int m_nDecided = 0;
-	CManagedConVarRef m_SvCheats{"sv_cheats"};
 };

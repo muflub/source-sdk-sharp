@@ -137,7 +137,6 @@ private:
 	CUtlVector<State_t> m_States; // this view's, by ordinal
 	CMaterialReference m_SpriteMaterial;
 	CMaterialReference m_WireframeMaterial;
-	ConVarRef m_matFullbright{"mat_fullbright", true};
 	CMeshBuilder m_MeshBuilder;
 	IMesh* m_pMesh = NULL;
 	int m_nBuildWorldListNumber = 0;

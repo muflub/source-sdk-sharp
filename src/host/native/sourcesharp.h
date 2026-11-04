@@ -1955,11 +1955,6 @@ typedef struct
 	// --- PLACE: in ---
 	// Where the player is looking, and the orbit the cam_ideal* convars ask for.
 	float vecViewAngles[3];
-	float flIdealPitch;
-	float flIdealYaw;
-	float flIdealDist;
-	float flIdealDistRight;
-	float flIdealDistUp;
 
 	// --- PLACE: out ---
 	// The camera's own angles, and the displacement from the eye it wants.
@@ -1980,7 +1975,6 @@ typedef struct
 
 	// --- PLACE: in, appended (lane M1-B) ---
 	// cam_collision's value: 1 on, 0 off, -1 when the convar is not there.
-	int32_t nCollision;
 
 	// --- PLACE: out, appended ---
 	// The sweep the camera wants towards its wish: a cube of this half extent
@@ -2173,7 +2167,6 @@ typedef struct
 	float Dt; // gpGlobals->frametime, unclamped
 	float CurTime; // gpGlobals->curtime
 	float FrameTime; // gpGlobals->frametime (Helper_GetFrameTime)
-	float AabbBuffer; // cl_particleeffect_aabb_buffer (DetectChanges)
 	float ViewOriginXYZ[3]; // MainViewOrigin()
 } SourceSharpParticleFrameHeader_t;
 
@@ -2225,10 +2218,6 @@ typedef struct
 	int32_t Channel;
 	int32_t Flags; // DrawModel's studio flags
 	int32_t ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
-	int32_t DrawParticles; // r_drawparticles
-	int32_t Wireframe; // ShouldDrawInWireFrameMode()
-	int32_t ShowBBox; // cl_particle_show_bbox
-	int32_t ShowBBoxCost; // cl_particle_show_bbox_cost
 	int32_t ViewKey; // ParticlesViewKey: the view being drawn
 	float FrameTime; // gpGlobals->frametime
 } SourceSharpParticleDrawIn_t;
@@ -2292,12 +2281,8 @@ typedef struct
 typedef struct
 {
 	float Dt; // the frame's dt (UpdateAllEffects', after its 0.1 s clamp)
-	float Timescale; // r_particle_timescale
 	float CurTime; // gpGlobals->curtime: the library's last simulation time
 	int32_t FrameCount; // gpGlobals->framecount (the retirement check)
-	float AabbBuffer; // cl_particleeffect_aabb_buffer (DetectChanges)
-	float RetireCost; // cl_particle_retire_cost
-	int32_t SpikeThresholdMs; // r_particle_sim_spike_threshold_ms (EndSimulateParticles' profile commit)
 	int32_t ViewX; // view->GetPlayerViewSetup(): the retirement pass's view
 	int32_t ViewY;
 	int32_t ViewWidth;
@@ -2358,11 +2343,8 @@ typedef struct
 {
 	uint32_t Id;
 	int32_t Flags; // DrawModel's studio flags
-	int32_t DrawParticles; // r_drawparticles
 	int32_t ClientModeDraws; // g_pClientMode->ShouldDrawParticles()
 	int32_t RenderSystems; // ParticleMgr()->ShouldRenderParticleSystems()
-	int32_t ShowBBox; // cl_particle_show_bbox
-	int32_t ShowBBoxCost; // cl_particle_show_bbox_cost
 	int32_t Active; // m_nActiveParticles (the debug box's cost)
 	float CameraXYZ[3]; // the render context's world-space camera
 	float MinXYZ[3]; // the collection's bounds
@@ -2375,7 +2357,6 @@ typedef struct
 	int32_t HighestControlPoint; // m_nHighestCP
 	int32_t ThirdPerson; // input->CAM_IsThirdPerson()
 	int32_t ObserverMode; // the local player's
-	int32_t Pad;
 	uint64_t CameraObject; // the entity at render->GetViewEntity()
 	uint64_t SkipObject; // the skip-render control point's entity
 	uint64_t LocalPlayer;
@@ -2604,8 +2585,7 @@ typedef struct
 } SourceSharpRenderFrameOut_t;
 
 // SetUpViews (view.cpp), asked before the client mode's override: the viewer's
-// fog far Z (0 with none) and the client mode's GetViewModelFOV in; the planes
-// and FOV out. After the override
+// fog far Z (0 with none) in; the planes and FOV out. After the override
 // native carries out fovViewmodel = fov + ViewModelFovOffset: managed decided
 // the offset (stock's GetViewModelFOV() - ( default_fov - fov ), rearranged),
 // the override's fov is the one operand only native has, and a second crossing
@@ -2613,7 +2593,6 @@ typedef struct
 typedef struct
 {
 	float FogFarZ;
-	float ViewModelFov;
 } SourceSharpViewSetUpIn_t;
 
 typedef struct

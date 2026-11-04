@@ -47,7 +47,7 @@ public static class ViewFrame
             ZNear = ViewNearZ,
             ZNearViewmodel = 1f,
             Fov = convars.DefaultFov.Value,
-            ViewModelFovOffset = input.ViewModelFov - convars.DefaultFov.Value,
+            ViewModelFovOffset = convars.ViewmodelFov.Value - convars.DefaultFov.Value,
         };
     }
 

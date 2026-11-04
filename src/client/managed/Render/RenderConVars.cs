@@ -48,7 +48,8 @@ public sealed class RenderConVars(RSkyboxConVar rSkybox, R3dskyConVar r3dsky, Ma
                                   ClOverdrawTestConVar clOverdrawTest, FogColorConVar fogColor, FogColorskyboxConVar fogColorskybox,
                                   RFarzConVar rFarz, RMapextentsConVar rMapextents, DefaultFovConVar defaultFov,
                                   SvRestrictAspectRatioFovConVar svRestrictAspectRatioFov, GlClearConVar glClear,
-                                  GlClearRandomcolorConVar glClearRandomcolor)
+                                  GlClearRandomcolorConVar glClearRandomcolor,
+                           ViewmodelFovConVar viewmodelFov)
 {
     public readonly RSkyboxConVar RSkybox = rSkybox;
     public readonly R3dskyConVar R3dsky = r3dsky;
@@ -109,6 +110,7 @@ public sealed class RenderConVars(RSkyboxConVar rSkybox, R3dskyConVar r3dsky, Ma
     public readonly SvRestrictAspectRatioFovConVar SvRestrictAspectRatioFov = svRestrictAspectRatioFov;
     public readonly GlClearConVar GlClear = glClear;
     public readonly GlClearRandomcolorConVar GlClearRandomcolor = glClearRandomcolor;
+    public readonly ViewmodelFovConVar ViewmodelFov = viewmodelFov;
 
     /// <summary>fog_color's three numbers, as sscanf( "%f%f%f" ) reads them; -1 for each it does not.</summary>
     public Vector FogColorValue => ParseColor(FogColor.Value);

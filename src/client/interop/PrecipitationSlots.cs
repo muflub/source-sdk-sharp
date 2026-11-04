@@ -51,11 +51,11 @@ internal sealed unsafe class ClientPrecipitationSlots(IPrecipitationClientArea p
 
     public PrecipitationPlayerRead? Player()
     {
-        float* o = stackalloc float[12];
+        float* o = stackalloc float[11];
         if (precipitationClient.PrecipitationPlayer(o) == 0)
             return null;
         return new PrecipitationPlayerRead(new Vector(o[0], o[1], o[2]), new Vector(o[3], o[4], o[5]), o[6],
-                                           new Vector(o[7], o[8], o[9]), o[10], (int)o[11]);
+                                           new Vector(o[7], o[8], o[9]), o[10]);
     }
 
     public (Vector Mins, Vector Maxs) WorldBounds()

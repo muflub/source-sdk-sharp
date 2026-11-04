@@ -134,6 +134,16 @@ public sealed class RFlashlightdrawdepthConVar : FloatConVar { }
 [EngineConVar("sv_restrict_aspect_ratio_fov")]
 public sealed class SvRestrictAspectRatioFovConVar : IntConVar { }
 
+/// <summary>How sprites draw; native declares it.</summary>
+[EngineConVar("r_drawsprites", Fallback = "1")]
+public sealed class RDrawSpritesConVar : IntConVar { }
+
+/// <summary>view.h's ShouldDrawInWireFrameMode: mat_wireframe, under sv_cheats.</summary>
+public sealed class WireframeMode(SourceSharp.Shared.SvCheatsConVar cheats, MatWireframeConVar wireframe)
+{
+    public bool On => cheats.Value && wireframe.Value != 0;
+}
+
 /// <summary>The material system's wireframe mode.</summary>
 [EngineConVar("mat_wireframe")]
 public sealed class MatWireframeConVar : IntConVar { }

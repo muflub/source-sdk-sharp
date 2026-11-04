@@ -16,7 +16,7 @@ namespace SourceSharp.Client.Interop;
 /// <paramref name="movement"/> is the client composition's own movement
 /// runner (plan_abi_hotreload D8), the one its replay also drives.
 /// </remarks>
-public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideModule module,
+public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideModule module, IClientModule game,
                                                     MovementRunner movement, MovementRules rules) : IManagedPredictionClient
 {
     // The module's movement decisions, built once (statics to zero):
@@ -30,7 +30,7 @@ public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideMod
     /// </summary>
     public static PredictionClientBinding For(Crossings crossings, ISideModule module, IClientModule game,
                                               MovementRunner movement)
-        => new(crossings, module, movement,
+        => new(crossings, module, game, movement,
                new MovementRules(
                    r => game.GetJumpScale(in r),
                    (i, f, sp, d, m) => game.GetFrictionScale(i, f, sp, d, m),
@@ -89,6 +89,6 @@ public sealed unsafe class PredictionClientBinding(Crossings crossings, ISideMod
         if (a0 == null)
             return 0;
 
-        return global::SourceSharp.Abi.ThirdPersonCamera.Answer(ref *(ThirdPersonCameraBlob*)a0);
+        return global::SourceSharp.Abi.ThirdPersonCamera.Answer(ref *(ThirdPersonCameraBlob*)a0, game.ThirdPersonIdeal);
     }
 }

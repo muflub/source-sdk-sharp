@@ -37,7 +37,7 @@ public interface IClientParticleSims
 /// </summary>
 public interface IClientParticleBindings
 {
-    int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, float aabbBuffer, Span<ParticleCommit> commits);
+    int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, Span<ParticleCommit> commits);
 
     /// <summary>How many quads the executor's next draw lists (its binding's particles), 0 for none.</summary>
     int DrawQuadCount(uint owner, int channel);
@@ -187,7 +187,7 @@ public sealed unsafe class ParticlesClientBinding(Crossings crossings, ILog log,
 
             var outBlock = new Span<byte>(a2, a3);
             Span<ParticleCommit> commits = MemoryMarshal.Cast<byte, ParticleCommit>(BitBlock.Payload(outBlock));
-            int n = bindings.Frame(header, inputs, header.AabbBuffer, commits);
+            int n = bindings.Frame(header, inputs, commits);
             BitBlock.SetBits(outBlock, n * Unsafe.SizeOf<ParticleCommit>() * 8);
             return 1;
         }

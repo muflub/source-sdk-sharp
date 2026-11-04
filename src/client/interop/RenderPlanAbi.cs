@@ -72,8 +72,6 @@ public struct ViewSetUpIn
 {
     /// <summary>The viewer's fog controller's far Z, or 0 with none.</summary>
     public float FogFarZ;
-    /// <summary>The client mode's GetViewModelFOV.</summary>
-    public float ViewModelFov;
 }
 
 /// <summary>

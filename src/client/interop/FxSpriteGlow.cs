@@ -48,7 +48,7 @@ internal sealed unsafe class ClientFxSpriteDrawSlots(IFxClientArea fxClient) : I
 /// <summary>The request's and the plan's float counts (SS_SPRITE_IN_FLOATS, SS_SPRITE_OUT_FLOATS).</summary>
 public static class ClientSpriteRequest
 {
-    public const int InFloats = 39;
+    public const int InFloats = 37;
     public const int OutFloats = 23;
 }
 

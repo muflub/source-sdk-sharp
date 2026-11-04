@@ -46,9 +46,7 @@
 
 enum
 {
-	SS_SPRITE_IN_DRAW_SPRITES = 0,
-	SS_SPRITE_IN_WIREFRAME_MODE,
-	SS_SPRITE_IN_ORIENTATION,
+	SS_SPRITE_IN_ORIENTATION = 0,
 	SS_SPRITE_IN_LEFT,
 	SS_SPRITE_IN_RIGHT,
 	SS_SPRITE_IN_UP,
@@ -77,7 +75,7 @@ enum
 	SS_SPRITE_IN_FLOATS,
 };
 
-COMPILE_TIME_ASSERT(SS_SPRITE_IN_FLOATS == 39);
+COMPILE_TIME_ASSERT(SS_SPRITE_IN_FLOATS == 37);
 
 enum
 {
@@ -141,8 +139,6 @@ bool CSpritesClient::Gather(IClientEntity* entity, const model_t* model, const V
 		attachedto->GetAttachment(attachmentindex, effect_origin, temp);
 	}
 
-	in[SS_SPRITE_IN_DRAW_SPRITES] = (float)m_r_drawsprites.GetInt();
-	in[SS_SPRITE_IN_WIREFRAME_MODE] = m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
 	in[SS_SPRITE_IN_ORIENTATION] = (float)psprite->GetOrientation();
 	in[SS_SPRITE_IN_LEFT] = psprite->GetLeft();
 	in[SS_SPRITE_IN_RIGHT] = psprite->GetRight();

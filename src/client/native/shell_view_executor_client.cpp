@@ -424,7 +424,7 @@ private:
 void CPlanView::BuildWorld(CUtlVector<WorldListEntry_t>& cache, bool bDrawEntities, int iForceViewLeaf, bool bUseCache,
 						   bool bShadowDepth, float* pReflectionWaterHeight, float flOpacityFactor)
 {
-	const bool bCache = bUseCache && m_ViewRender.WorldListCacheOn();
+	const bool bCache = bUseCache;
 	bool bFound = false;
 	if (bCache)
 	{
@@ -2792,7 +2792,6 @@ void CViewExecutorImpl::GatherViewSetUp(SourceSharpViewSetUpIn_t& in)
 {
 	const fogparams_t* pFog = m_ViewerFacts.ViewerFogParams();
 	in.FogFarZ = pFog ? pFog->farz : 0.0f;
-	in.ViewModelFov = m_ClientMode.GetViewModelFOV();
 }
 
 // CViewRender::Render's inputs: the engine's, the client mode's and the convars,

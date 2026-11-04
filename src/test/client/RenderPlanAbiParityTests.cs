@@ -71,7 +71,7 @@ public class RenderPlanAbiParityTests
     {
         var native = HeaderFields(Header(), structName);
         var fields = ManagedFields(managed);
-        Assert.True(native.Count >= 2 && native.Count == fields.Count,
+        Assert.True(native.Count >= 1 && native.Count == fields.Count,
             $"{structName}: field counts (native {native.Count}, managed {fields.Count})");
         for (int i = 0; i < native.Count; i++)
             Assert.True(native[i] == fields[i], $"{structName} field {i}: native {native[i]}, managed {fields[i]}");

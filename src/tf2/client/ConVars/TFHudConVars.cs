@@ -26,6 +26,7 @@ public sealed class TFForcedHolidayConVar : IntConVar { }
 public sealed class TFItemBasedForcedHolidayConVar : IntConVar { }
 
 /// <summary>The four holiday cvars, for <see cref="TF2.Shared.Rules.TFHolidays"/>.</summary>
+[SideService(Side.Client)]
 public sealed class TFHolidayConVars(TFBirthdayConVar birthday, TFForceHolidaysOffConVar forceOff, TFForcedHolidayConVar forced,
                                      TFItemBasedForcedHolidayConVar itemForced)
 {

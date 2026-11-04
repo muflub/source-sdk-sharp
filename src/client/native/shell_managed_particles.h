@@ -19,7 +19,6 @@
 
 #include "bound_callback.h"
 #include "shell_clientsystem.h"
-#include "managed_convar_ref.h"
 #include "shell_managed_areas_client.h"
 #include "shell_member_command.h"
 
@@ -47,11 +46,6 @@ public:
 
 	CManagedParticlesClient(const CManagedParticlesClient&) = delete;
 	CManagedParticlesClient& operator=(const CManagedParticlesClient&) = delete;
-
-	CManagedConVarRef m_r_DrawParticles{"r_drawparticles"};
-	CManagedConVarRef m_cl_particle_show_bbox{"cl_particle_show_bbox"};
-	CManagedConVarRef m_cl_particle_show_bbox_cost{"cl_particle_show_bbox_cost"};
-	CManagedConVarRef m_cl_particleeffect_aabb_buffer{"cl_particleeffect_aabb_buffer"};
 
 	// Shim slots: what a managed effect asks of the engine.
 	int32_t ParticlesTraceLine(const float* pStartXYZ, const float* pEndXYZ, int32_t nMask, float* pOut, int32_t nOut);

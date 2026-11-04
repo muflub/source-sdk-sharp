@@ -32,7 +32,7 @@ namespace SourceSharp.Client.Effects;
 /// by native after the frame and steps from the next one (stock replaced
 /// mid-frame); retirement is a cheat-only setting, off by default.
 /// </remarks>
-public sealed class NewParticleManager(IParticleCollections library) : IClientNewParticles, IReloadParticipant
+public sealed class NewParticleManager(IParticleCollections library, ParticleSettings settings) : IClientNewParticles, IReloadParticipant
 {
     private readonly Dictionary<uint, NewParticleEffect> _effects = [];
     private readonly Dictionary<ulong, int> _retireChecked = [];
@@ -90,7 +90,7 @@ public sealed class NewParticleManager(IParticleCollections library) : IClientNe
                 e.Release(0, (fx.Flags & NewParticleInFlags.Allocated) != 0, fx.Finished != 0);
         }
 
-        float dt = header.Dt * header.Timescale;
+        float dt = header.Dt * settings.Timescale.Value;
         library.SetLastSimulationTime(header.CurTime);
         long started = Stopwatch.GetTimestamp();   // BeginSimulateParticles
 
@@ -131,13 +131,13 @@ public sealed class NewParticleManager(IParticleCollections library) : IClientNe
             NewParticleEffect e = _effects[fx.Id];
             ref readonly ParticleSimResult r = ref _results[n];
             e.Finished(r.Finished != 0);
-            bool changed = e.DetectChanges(r.Min, r.Max, header.AabbBuffer, (fx.Flags & NewParticleInFlags.RenderHandle) != 0);
+            bool changed = e.DetectChanges(r.Min, r.Max, settings.AabbBuffer.Value, (fx.Flags & NewParticleInFlags.RenderHandle) != 0);
             Commit(fx.Id, changed ? NewParticleActions.Changed : NewParticleActions.None);
         }
         // EndSimulateParticles: the library keeps the frame's profile when it
         // was a spike (cl_dump_particle_stats writes what it kept).
         double seconds = Stopwatch.GetElapsedTime(started).TotalSeconds;
-        library.CommitProfileInformation(seconds > 0.001 * header.SpikeThresholdMs);
+        library.CommitProfileInformation(seconds > 0.001 * settings.SpikeThreshold.Value);
 
         foreach (ref readonly NewParticleIn fx in effects)
         {
@@ -177,7 +177,7 @@ public sealed class NewParticleManager(IParticleCollections library) : IClientNe
     // it would rebuild is the one it has.
     private void Retire(in NewParticleFrameHeader header, ReadOnlySpan<NewParticleIn> effects)
     {
-        if (header.RetireCost == 0.0f || _listed.Count == 0)
+        if (settings.RetireCost.Value == 0.0f || _listed.Count == 0)
             return;
         Grow(ref _retireIn, _listed.Count);
         for (int n = 0; n < _listed.Count; n++)
@@ -204,7 +204,7 @@ public sealed class NewParticleManager(IParticleCollections library) : IClientNe
             WorldToScreen = header.WorldToScreen,
         };
         _retire.Clear();
-        NewParticleEffect.EarlyRetire(_retireIn.AsSpan(0, _listed.Count), view, header.RetireCost, header.FrameCount, _retireChecked, _retire);
+        NewParticleEffect.EarlyRetire(_retireIn.AsSpan(0, _listed.Count), view, settings.RetireCost.Value, header.FrameCount, _retireChecked, _retire);
         foreach (int n in _retire)
             Commit(effects[_listed[n]].Id, NewParticleActions.Replace);
     }
@@ -215,7 +215,7 @@ public sealed class NewParticleManager(IParticleCollections library) : IClientNe
         var d = new NewParticleDrawIn
         {
             Flags = raw.Flags,
-            DrawParticles = raw.DrawParticles != 0,
+            DrawParticles = settings.Draw.Value != 0,
             ClientModeDraws = raw.ClientModeDraws != 0,
             RenderSystems = raw.RenderSystems != 0,
             Camera = raw.Camera,
@@ -244,10 +244,10 @@ public sealed class NewParticleManager(IParticleCollections library) : IClientNe
 
         // DebugDrawBbox: at the distance cull (culled) and after a draw.
         bool culled = draw.Reason == NewParticleDrawReason.Distance;
-        if ((culled || draw.Reason == NewParticleDrawReason.Drawn) && (raw.ShowBBox != 0 || raw.ShowBBoxCost != 0))
+        if ((culled || draw.Reason == NewParticleDrawReason.Drawn) && (settings.ShowBBox.Value != 0 || settings.ShowBBoxCost.Value != 0))
         {
             bool auto = _effects.TryGetValue(raw.Id, out NewParticleEffect? e) && e.Has(NewParticleFlags.AutoUpdateBBox);
-            (bool box, int r, int g, int b) = NewParticleEffect.DebugBox(culled, raw.ShowBBoxCost, raw.Active, auto);
+            (bool box, int r, int g, int b) = NewParticleEffect.DebugBox(culled, settings.ShowBBoxCost.Value, raw.Active, auto);
             output.BBox = box ? 1 : 0;
             output.BBoxR = r;
             output.BBoxG = g;

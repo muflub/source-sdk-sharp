@@ -247,7 +247,7 @@ public static class RenderPlanner
             b.ClearColor3ub(0xFF, 0xFF, 0xFF);
             b.Push3DView(shadow, ClearDepth, RenderTarget.ShadowColor, RenderTarget.ShadowDepth);
             b.SetupCurrentView(shadow.Origin, shadow.Angles, ViewShadowDepthTexture);
-            b.BuildWorldLists(true, -1, true, true, null, OpacityFactor());
+            b.BuildWorldLists(true, -1, CvBool(_cv.RWorldlistcache), true, null, OpacityFactor());
             BuildRenderables(ViewShadowDepthTexture, shadow);
             b.Op(RenderOpKind.SoundExtraUpdate);
             b.ViewScene(draw);
@@ -423,7 +423,7 @@ public static class RenderPlanner
             b.Op(RenderOpKind.BeginUpdateLightmaps);
             // Stock passes `true` as iForceViewLeaf here (viewrender.cpp: BuildWorldRenderLists( true, true, -1 )):
             // the forced leaf is 1 and bUseCacheIfEnabled is -1 (true). Carried as stock has it.
-            b.BuildWorldLists(true, 1, true, false, null, OpacityFactor());
+            b.BuildWorldLists(true, 1, CvBool(_cv.RWorldlistcache), false, null, OpacityFactor());
             BuildRenderables(View3DSky, sky);
             b.Op(RenderOpKind.EndUpdateLightmaps);
 
@@ -760,7 +760,7 @@ public static class RenderPlanner
             b.Op(RenderOpKind.BeginUpdateLightmaps);
             bool entities = (setupFlags & DfDrawEntities) != 0;
             bool reflection = (setupFlags & DfRenderReflection) != 0;
-            b.BuildWorldLists(entities, forceLeaf, true, false, reflection ? waterHeight : null, OpacityFactor());
+            b.BuildWorldLists(entities, forceLeaf, CvBool(_cv.RWorldlistcache), false, reflection ? waterHeight : null, OpacityFactor());
             b.Op(RenderOpKind.PruneWorldList);
             if (entities)
                 BuildRenderables(savedViewId, view);

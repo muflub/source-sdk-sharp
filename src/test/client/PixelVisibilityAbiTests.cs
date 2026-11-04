@@ -202,9 +202,8 @@ public class PixelVisibilityAbiTests
     public void ASpritesPlanCarriesItsRenderersHandleBothWays()
     {
         var glow = new HandleGlow();
-        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!);
+        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!, RenderConVarsKit.DrawSprites(1), RenderConVarsKit.Wireframe(false));
         var input = new float[ClientSpriteHost.InFloats];
-        input[ClientSpriteHost.InDrawSprites] = 1;
         input[ClientSpriteHost.InRenderMode] = (int)RenderMode.Glow;
         input[ClientSpriteHost.InAlpha] = 255;
         input[ClientSpriteHost.InBlend] = 1;
@@ -222,7 +221,7 @@ public class PixelVisibilityAbiTests
     public void ASpriteThatDrawsNothingHandsItsHandleBackUnchanged()
     {
         var glow = new HandleGlow();
-        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!);
+        var host = new ClientSpriteHost(new SpriteRenderer(new NullLog()), glow, null!, RenderConVarsKit.DrawSprites(1), RenderConVarsKit.Wireframe(false));
         var input = new float[ClientSpriteHost.InFloats];
         input[ClientSpriteHost.InQueryHandle] = BitConverter.Int32BitsToSingle(0x00010002);
         var output = new float[ClientSpriteHost.OutFloats];

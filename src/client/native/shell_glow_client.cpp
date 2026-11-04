@@ -146,8 +146,6 @@ void CGlowOverlaysClient::DrawOverlays(bool bCacheFullSceneState)
 		in[9 + p * 4] = pFrustum[p].m_Normal.z;
 		in[10 + p * 4] = pFrustum[p].m_Dist;
 	}
-	in[27] = m_Engines.m_pConVars->ShouldDrawInWireFrameMode() ? 1.0f : 0.0f;
-	in[28] = (float)m_DrawSprites.GetInt();
 
 	if (m_Commands.Count() < 2048)
 		m_Commands.SetCount(2048);

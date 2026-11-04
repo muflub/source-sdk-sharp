@@ -14,7 +14,6 @@
 
 #include "utlvector.h"
 
-#include "managed_convar_ref.h"
 #include "shell_managed_areas_client.h"
 
 class CClientEngineInterfaces;
@@ -29,7 +28,7 @@ enum
 	SS_GLOW_CMD_WIREQUAD = 4, // material, 4 x position (float bits)
 	SS_GLOW_QUAD_WORDS = 2 + 4 * 8,
 	SS_GLOW_WIREQUAD_WORDS = 2 + 4 * 3,
-	SS_GLOW_VIEW_FLOATS = 29, // origin, forward, zFar, 5 x (plane normal, dist), wireframe, r_drawsprites
+	SS_GLOW_VIEW_FLOATS = 27, // origin, forward, zFar, 5 x (plane normal, dist)
 };
 
 // The managed glow overlays' native half, a member of the client DLL object. Its
@@ -60,7 +59,6 @@ private:
 	void Execute(const int32_t* pCmds, int nWords);
 
 	unsigned int m_nHDRColorScaleCache = 0;
-	CManagedConVarRef m_DrawSprites{"r_drawsprites"};
 	const CManagedAreasClient& m_Areas;
 	const CClientEngineInterfaces& m_Engines;
 	const CViewCameras& m_Cameras;

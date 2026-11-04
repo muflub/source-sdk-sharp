@@ -7,6 +7,9 @@
 
 namespace SourceSharp.Abi;
 
+/// <summary>The cam_ideal* convars and cam_collision, as the camera's first phase reads them.</summary>
+public readonly record struct ThirdPersonIdeal(float Pitch, float Yaw, float Dist, float DistRight, float DistUp, bool Collision);
+
 /// <summary>
 /// Where the third-person camera sits — plan_entity.md §3.10, the
 /// policy-player lane.
@@ -229,14 +232,14 @@ public static class ThirdPersonCamera
     /// </para>
     /// </summary>
     /// <returns>1 when the phase was understood, 0 otherwise.</returns>
-    public static int Answer(ref ThirdPersonCameraBlob io)
+    public static int Answer(ref ThirdPersonCameraBlob io, in ThirdPersonIdeal ideal)
     {
         switch (io.Phase)
         {
             case Place:
             {
                 (float pitch, float yaw) =
-                    CameraAngles(io.ViewAngles.X, io.ViewAngles.Y, io.IdealPitch, io.IdealYaw);
+                    CameraAngles(io.ViewAngles.X, io.ViewAngles.Y, ideal.Pitch, ideal.Yaw);
 
                 // ROLL IS ZERO AND NOT THE VIEW'S. A third-person camera that
                 // inherited the player's roll would tilt the whole world when
@@ -244,11 +247,11 @@ public static class ThirdPersonCamera
                 io.CameraAngles = new Vector(pitch, yaw, 0f);
 
                 Vector wish = Displacement(Angles.Vectors(io.CameraAngles),
-                                           io.IdealDist, io.IdealDistRight, io.IdealDistUp);
+                                           ideal.Dist, ideal.DistRight, ideal.DistUp);
 
                 io.Wish = wish;
                 io.WishLength = wish.Length;
-                (io.HullHalfExtent, io.TraceMask) = Sweep(io.Collision);
+                (io.HullHalfExtent, io.TraceMask) = Sweep(ideal.Collision ? 1 : 0);
                 return 1;
             }
 

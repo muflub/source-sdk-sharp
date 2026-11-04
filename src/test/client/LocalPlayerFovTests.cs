@@ -52,13 +52,14 @@ public class LocalPlayerFovTests
     {
         RenderConVars convars = RenderPlannerTests.ConVars();
         convars.Set("default_fov", 90f);
+        convars.Set("viewmodel_fov", 54f);
         return convars;
     }
 
     private static ViewSetUpOut SetUp(RenderPlanHost host, ClientSsPlayer me)
     {
         me.State.FovDefault = 90;
-        var input = new ViewSetUpIn { ViewModelFov = 54f };
+        var input = new ViewSetUpIn();
         host.ViewSetUp(in input, out ViewSetUpOut output);
         return output;
     }
@@ -124,7 +125,7 @@ public class LocalPlayerFovTests
     public void NoLocalPlayerLeavesTheDefault()
     {
         var (host, _, _) = Build(localIndex: 0);
-        var input = new ViewSetUpIn { ViewModelFov = 54f };
+        var input = new ViewSetUpIn();
 
         host.ViewSetUp(in input, out ViewSetUpOut output);
 

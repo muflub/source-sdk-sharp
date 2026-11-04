@@ -16,7 +16,7 @@ public unsafe class ParticleQueryBindingTests
 {
     internal sealed class NoBindings : IClientParticleBindings
     {
-        public int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, float aabbBuffer, Span<ParticleCommit> commits) => 0;
+        public int Frame(in ParticleFrameHeader header, ReadOnlySpan<ParticleFrameIn> inputs, Span<ParticleCommit> commits) => 0;
         public int DrawQuadCount(uint owner, int channel) => 0;
         public int DrawBegin(in ParticleDrawIn input, out ParticleDrawOut output, Span<ParticleQuadRaw> quads)
         {

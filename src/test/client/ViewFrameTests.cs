@@ -42,7 +42,7 @@ public class ViewFrameTests
         RenderConVars convars = RenderConVarsKit.Recorded<RenderConVars>(t.ConVars);
         ViewSetUpOut setUp = ViewFrame.SetUpView(new ViewSetUpIn
         {
-            FogFarZ = 0f, ViewModelFov = Cv(t, "viewmodel_fov"),
+            FogFarZ = 0f,
         }, convars);
         var eye = new ViewSetup
         {
@@ -111,7 +111,7 @@ public class ViewFrameTests
     [Fact]
     public void TheViewModelFovFollowsTheOverridesZoom()
     {
-        ViewSetUpOut setUp = ViewFrame.SetUpView(new ViewSetUpIn { ViewModelFov = 54 }, Plan(("default_fov", 90f), ("r_farz", -1f), ("r_mapextents", 16384f)));
+        ViewSetUpOut setUp = ViewFrame.SetUpView(new ViewSetUpIn(), Plan(("default_fov", 90f), ("viewmodel_fov", 54f), ("r_farz", -1f), ("r_mapextents", 16384f)));
         Assert.Equal(90f, setUp.Fov);
         Assert.Equal(54f, ViewFrame.ViewModelFov(setUp, 90f));
         Assert.Equal(24f, ViewFrame.ViewModelFov(setUp, 60f));

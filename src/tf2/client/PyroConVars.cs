@@ -10,6 +10,7 @@ using SourceSharp.Abi;
 namespace TF2.Client;
 
 /// <summary>The convars the pyro vision's vignette reads.</summary>
+[SideService(Side.Client)]
 public sealed class PyroVisionConVars(PyroVignetteConVar vignette, PyroMinIntensityConVar minIntensity, PyroMaxIntensityConVar maxIntensity,
                                       PyroMinRateConVar minRate, PyroMaxRateConVar maxRate,
                                       PyroMinSideWidthConVar minSideWidth, PyroMaxSideWidthConVar maxSideWidth,

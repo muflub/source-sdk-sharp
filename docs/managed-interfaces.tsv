@@ -330,9 +330,9 @@ IManagedDetailPropsClient	DetailInit	void	void
 IManagedDetailPropsClient	DetailLevelInitPreEntity	void *	int32_t nMaterialWidth, int32_t nMaterialHeight, int32_t bHdr
 IManagedDetailPropsClient	DetailLevelInitPostEntity	int32_t	const char *pszWorldMaterial, char *pOut, int32_t nOutSize
 IManagedDetailPropsClient	DetailLevelShutdownPreEntity	void	void
-IManagedDetailPropsClient	DetailBuildLists	void *	const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws, int32_t nDrawDetailProps, int32_t nFullbright
+IManagedDetailPropsClient	DetailBuildLists	void *	const float *pViewOriginXYZ, const float *pCurrentViewOriginXYZ, int32_t bClientModeDraws
 IManagedDetailPropsClient	DetailBeginTranslucent	void	void
-IManagedDetailPropsClient	DetailPrepare	void *	int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ, int32_t nDrawDetailProps, int32_t bWireframe, int32_t nFullbright
+IManagedDetailPropsClient	DetailPrepare	void *	int32_t nKind, const float *pView, const int32_t *pLeaves, int32_t nLeaves, const float *pClosestXYZ
 IManagedDetailPropsClient	DetailEmit	void *	int32_t nMaxQuads
 # C7 cluster 12 L2 (docs/plans/c7_leaf_system.md): the client leaf system's
 # registry and decisions are managed's. libss_fwd_client's forwarder class

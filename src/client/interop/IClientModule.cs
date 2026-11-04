@@ -86,6 +86,9 @@ public interface IClientModule
     /// </summary>
     float GetEyeHeight(int playerIndex, float standing);
 
+    /// <summary>The third-person camera's convars (cam_ideal*, cam_collision).</summary>
+    ThirdPersonIdeal ThirdPersonIdeal { get; }
+
     /// <summary>
     /// The fastest a jump may leave (0, stock, crops nothing). Runs on both
     /// sides; see <c>IMovementRules.BunnyJumpCap</c>.

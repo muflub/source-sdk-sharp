@@ -65,6 +65,7 @@ public sealed class PrecipitationConVars(
 public sealed class ClientPrecipitations : IPrecipitationWorld, IPrecipitationRandom, IClientPrecipitationRenderer
 {
     private const int ViewMonitor = 2;
+    private readonly DefaultFovConVar _defaultFov;
     private const int DrawFlagsReflectRefract = 0x1 | 0x2;
 
     private readonly IClientPrecipitationEngine _engine;
@@ -83,8 +84,9 @@ public sealed class ClientPrecipitations : IPrecipitationWorld, IPrecipitationRa
 
     public ClientPrecipitations(IClientPrecipitationEngine engine, IClientWinds winds, IGameClock clock,
                                 PrecipitationConVars convars, IEngineHud hud, IClientStandalones standalones,
-                                IRandomSeeds seeds)
+                                IRandomSeeds seeds, DefaultFovConVar defaultFov)
     {
+        _defaultFov = defaultFov;
         _engine = engine;
         _winds = winds;
         _clock = clock;
@@ -144,7 +146,7 @@ public sealed class ClientPrecipitations : IPrecipitationWorld, IPrecipitationRa
         p.Eye = r.Eye;
         p.Center = r.Center;
         p.Fov = r.Fov;
-        p.DefaultFov = r.DefaultFov;
+        p.DefaultFov = _defaultFov.Value;
         p.Forward = MoveVec.AngleForward(new Vector(0, r.Yaw, 0));
         p.Velocity = _standalones.GetByIndex(_hud.LocalPlayerIndex) is Standalone.ClientSsPlayer local
             ? local.State.Velocity

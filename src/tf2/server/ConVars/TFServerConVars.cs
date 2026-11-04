@@ -10,6 +10,7 @@ using SourceSharp.Abi;
 namespace TF2.Server;
 
 /// <summary>The convars a stickybomb reads.</summary>
+[SideService(Side.Server)]
 public sealed class TFStickybombConVars(TF2.Shared.TFGrenadeLauncherLiveTimeConVar liveTime, TF2.Shared.TFStickyRadiusRampTimeConVar radiusRampTime,
                                         TF2.Shared.TFStickyAirDetRadiusConVar airDetRadius, TFPipebombDeflectResetTimeConVar deflectResetTime,
                                         TFGrenadeForceFromBulletConVar forceFromBullet, TFGrenadeForceFromBuckshotConVar forceFromBuckshot,

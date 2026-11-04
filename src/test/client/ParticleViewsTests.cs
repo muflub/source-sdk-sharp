@@ -138,10 +138,10 @@ public class ParticleViewsTests
     {
         var views = new ParticleViews(new CountingSource());
         var sims = new KeySeeingSims(views);
-        var manager = new SourceSharp.Client.Effects.ClientParticleManager(() => sims, new FixedRandom(), views);
+        var manager = new SourceSharp.Client.Effects.ClientParticleManager(() => sims, new FixedRandom(), views, RenderConVarsKit.Particles());
         manager.Add(1, 0, 0f, alwaysSimulate: true);
         manager.Binding(1, 0)!.AddParticle(0, 7, default);
-        var input = new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, DrawParticles = 1, ViewKey = unchecked((int)0x9e3779b9) };
+        var input = new ParticleDrawIn { Owner = 1, ClientModeDraws = 1, ViewKey = unchecked((int)0x9e3779b9) };
         manager.DrawBegin(input, out _, new ParticleQuadRaw[4]);
         Assert.Equal(unchecked((int)0x9e3779b9), sims.SeenKey);
     }

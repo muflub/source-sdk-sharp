@@ -77,9 +77,6 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 		return;
 	}
 
-	if (!m_IdealDist.IsValid())
-		return;
-
 	IManagedPredictionClient* pPrediction = m_Areas.m_pPredictionClient;
 
 	if (!pPrediction)
@@ -101,12 +98,6 @@ void CSourceSharpClientMode::ApplyThirdPersonCamera(C_StandaloneEntity* pPlayer,
 	io.vecViewAngles[0] = pSetup->angles[PITCH];
 	io.vecViewAngles[1] = pSetup->angles[YAW];
 	io.vecViewAngles[2] = pSetup->angles[ROLL];
-	io.flIdealPitch = m_IdealPitch.GetFloat();
-	io.flIdealYaw = m_IdealYaw.GetFloat();
-	io.flIdealDist = m_IdealDist.GetFloat();
-	io.flIdealDistRight = m_IdealDistRight.IsValid() ? m_IdealDistRight.GetFloat() : 0.0f;
-	io.flIdealDistUp = m_IdealDistUp.IsValid() ? m_IdealDistUp.GetFloat() : 0.0f;
-	io.nCollision = m_CamCollision.IsValid() ? (m_CamCollision.GetBool() ? 1 : 0) : -1;
 
 	if (!pPrediction->ThirdPersonCamera(&io))
 		return;
@@ -375,7 +366,7 @@ void CSourceSharpClientMode::PostRender()
 
 float CSourceSharpClientMode::GetViewModelFOV()
 {
-	return m_ViewModelFov.IsValid() ? m_ViewModelFov.GetFloat() : 54.0f;
+	return 54.0f;
 }
 
 bool CSourceSharpClientMode::CanRecordDemo(char* errorMsg, int length) const

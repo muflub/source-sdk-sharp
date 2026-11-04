@@ -22,11 +22,11 @@ public interface IClientDetailProps
 
     void LevelShutdownPreEntity();
 
-    nint BuildLists(Vector viewOrigin, Vector currentViewOrigin, bool clientModeDraws, int drawDetailProps, int fullbright);
+    nint BuildLists(Vector viewOrigin, Vector currentViewOrigin, bool clientModeDraws);
 
     void BeginTranslucent();
 
-    nint Prepare(int kind, in DetailView view, ReadOnlySpan<int> leaves, Vector? closest, DetailSwitches switches);
+    nint Prepare(int kind, in DetailView view, ReadOnlySpan<int> leaves, Vector? closest);
 
     nint Emit(int maxQuads);
 }
@@ -108,14 +108,14 @@ public sealed unsafe class DetailPropsClientBinding(Crossings crossings, ILog lo
         catch (Exception e) { ManagedVtable.Fail(log, "IManagedDetailPropsClient.DetailLevelShutdownPreEntity", e); }
     }
 
-    public void* DetailBuildLists(void* a0, void* a1, int a2, int a3, int a4)
+    public void* DetailBuildLists(void* a0, void* a1, int a2)
     {
         crossings.Count(CrossingOp.ClientDetailBuildLists);
         try
         {
             if (a0 == null || a1 == null)
                 return null;
-            return (void*)props.BuildLists(*(Vector*)a0, *(Vector*)a1, a2 != 0, a3, a4);
+            return (void*)props.BuildLists(*(Vector*)a0, *(Vector*)a1, a2 != 0);
         }
         catch (Exception e) { ManagedVtable.Fail(log, "IManagedDetailPropsClient.DetailBuildLists", e); return null; }
     }
@@ -127,7 +127,7 @@ public sealed unsafe class DetailPropsClientBinding(Crossings crossings, ILog lo
         catch (Exception e) { ManagedVtable.Fail(log, "IManagedDetailPropsClient.DetailBeginTranslucent", e); }
     }
 
-    public void* DetailPrepare(int a0, void* a1, void* a2, int a3, void* a4, int a5, int a6, int a7)
+    public void* DetailPrepare(int a0, void* a1, void* a2, int a3, void* a4)
     {
         crossings.Count(CrossingOp.ClientDetailPrepare);
         try
@@ -138,7 +138,7 @@ public sealed unsafe class DetailPropsClientBinding(Crossings crossings, ILog lo
             var view = new DetailView(v[0], v[1], v[2], v[3], v[4]);
             var leaves = new ReadOnlySpan<int>(a2, Math.Max(a3, 0));
             Vector? closest = a4 == null ? null : *(Vector*)a4;
-            return (void*)props.Prepare(a0, view, leaves, closest, new DetailSwitches(a5, a6 != 0, a7));
+            return (void*)props.Prepare(a0, view, leaves, closest);
         }
         catch (Exception e) { ManagedVtable.Fail(log, "IManagedDetailPropsClient.DetailPrepare", e); return null; }
     }
