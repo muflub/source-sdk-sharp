@@ -1152,7 +1152,8 @@ void CParticleSystemsClient::ParticleSystemStop(uint32_t hOwner)
 	StopAttached(m_Slots[0], hOwner);
 }
 
-// A second slot beside the first: stock's crit glow runs beside the trail.
+// A second slot beside the first: the medigun's charged glow, on the gun
+// the beam's own systems share.
 int32_t CParticleSystemsClient::ParticleSystemStartExtra(uint32_t hOwner, const char* pszName)
 {
 	return StartAttached(m_Slots[1], hOwner, pszName);
