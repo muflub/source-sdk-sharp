@@ -793,6 +793,22 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         return true;
     }
 
+    /// <summary>The state behind <see cref="TryGetActive"/>'s yes, by the same pick.</summary>
+    public SourceSharp.Shared.WeaponNetState? ActiveWeaponState
+    {
+        get
+        {
+            if (_localWeapon is null)
+                return null;
+
+            var state = _localIndex > 0 && _weapon.WeaponTypeId >= 0
+                ? _weapon
+                : _localWeapon.State;
+
+            return state.WeaponTypeId < 0 ? null : state;
+        }
+    }
+
     //-------------------------------------------------------------------------
     // The instruments.
     //-------------------------------------------------------------------------

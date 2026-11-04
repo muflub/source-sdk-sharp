@@ -250,6 +250,15 @@ public interface ILocalArsenal
         (current, max) = (-1, 0);
         return false;
     }
+
+    /// <summary>
+    /// The active weapon's own state, the same pick <see cref="TryGetActive"/>
+    /// makes — the replay's working copy once it has a basis, the decoded
+    /// entity's before — for a rule that must agree with the prediction
+    /// (the drawn bow's jump refusal). Null with no local weapon: the caller
+    /// serves the unheld answer.
+    /// </summary>
+    SourceSharp.Shared.WeaponNetState? ActiveWeaponState => null;
 }
 
 /// <summary>

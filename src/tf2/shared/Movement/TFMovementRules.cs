@@ -125,8 +125,14 @@ public sealed class TFMovementRules : IMovementRules
     /// </summary>
     public bool NoHl2Arms => true;
 
-    /// <summary>The ground jump is the constants' (289 at gravity 800); no scale.</summary>
-    public float JumpScale(in JumpRequest request) => 1f;
+    /// <summary>
+    /// The ground jump is the constants' (289 at gravity 800); no scale — but
+    /// the weapon's word can refuse it outright, the drawn bow's
+    /// <c>OwnerCanJump</c> stock asks at CheckJumpButton's head
+    /// (tf_gamemovement.cpp:1210) before anything is pushed.
+    /// </summary>
+    public float JumpScale(in JumpRequest request)
+        => _owners is not null && !_owners.OwnerCanJump(request.PlayerIndex) ? 0f : 1f;
 
     public float FrictionScale(int playerIndex, float friction, float speed, bool ducking, int groundMaterial)
         => friction;
@@ -174,6 +180,12 @@ public sealed class TFMovementRules : IMovementRules
 
     public float AirJump(in JumpRequest request)
     {
+        // The drawn bow holds the dash with the jump: stock's gate is the same
+        // CanJump, asked before the air-dash branch (tf_gamemovement.cpp:1210,
+        // the dash at :1240 comes after it).
+        if (_owners is not null && !_owners.OwnerCanJump(request.PlayerIndex))
+            return 0f;
+
         if (_players.Predicted(request.PlayerIndex) is not { } state)
             return 0f;
 

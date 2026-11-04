@@ -346,9 +346,9 @@ public partial class TFPlayerNetState
 
     /// <summary>How many rows <see cref="Clips"/> covers: the weapon catalog's
     /// rows, which TF2's <see cref="TFWeaponTypes"/> names (the composition
-    /// fact's 32; a row past this width is a weapon the carrier cannot name —
-    /// the fact tied to the count says so).</summary>
-    public const int ClipRows = 32;
+    /// fact's 33, the bow's the last; a row past this width is a weapon the
+    /// carrier cannot name — the fact tied to the count says so).</summary>
+    public const int ClipRows = 33;
 
     /// <summary>
     /// The player's carried clips, by weapon-catalog row — the server's word on

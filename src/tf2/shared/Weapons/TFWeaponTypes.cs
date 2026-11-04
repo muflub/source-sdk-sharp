@@ -63,6 +63,9 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
     {
         var names = new SortedSet<string>(StringComparer.Ordinal)
         {
+            // The Huntsman: no class script's weaponN (an unlock's loadout
+            // item), but the bow's behaviour is ported, so it has a row.
+            TFWeaponNames.Name(TFWeaponId.CompoundBow).ToLowerInvariant(),
             TFWeaponNames.Name(TFWeaponId.Builder).ToLowerInvariant(),
             Sapper,
         };

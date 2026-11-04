@@ -1154,3 +1154,4 @@ src/shared/managed/AttachedModelNetState.cs	networks the attachment row a C_View
 src/tf2/shared/Weapons/TFItemMeter.cs	ports the timed-meter arm of CTFPlayerShared::UpdateItemChargeMeters and its charge-rate hook pair (tf_player_shared.cpp:7832-7904)
 src/tf2/client/Ui/TFHudItemMeter.cs	ports the held-item reads of CHudItemEffectMeter: the charge-rate gate and the meter_label string hook (tf_hud_itemeffectmeter.cpp:607-628)
 src/tf2/ui/screens/TFHudItemMeter.cs	ports CHudItemEffectMeter drawing (huditemeffectmeter.res): the plate, the cropped-fill bar, the label over it
+src/tf2/shared/Weapons/TFBowBehaviour.cs	ports CTFCompoundBow: the draw, the loose, the lower and the tired shot (tf_weapon_compound_bow.cpp PrimaryAttack/LaunchGrenade/LowerBow/ItemPostFrame/GetProjectileFireSetup/CalcIsAttackCriticalHelper)

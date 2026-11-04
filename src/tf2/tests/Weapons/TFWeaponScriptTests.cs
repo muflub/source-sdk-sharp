@@ -103,7 +103,7 @@ public sealed class TFWeaponScriptTests
     public void Every_fixture_parses_and_names_a_weapon_type()
     {
         var names = WeaponFixtures.Names().ToArray();
-        Assert.Equal(32, names.Length);
+        Assert.Equal(33, names.Length);
         foreach (string name in names)
         {
             var script = WeaponFixtures.Parse(name);

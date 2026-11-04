@@ -164,5 +164,20 @@ public sealed class TFClientWeaponOwners(ITFPlayerData data, IClientStandalones 
         => standalones.GetByIndex(playerIndex) is ClientSsPlayer player
            && (player.State.Flags & FlDucking) != 0;
 
+    /// <summary>
+    /// The drawn bow holds the jump, read off the arsenal's state by the name
+    /// <see cref="ILocalArsenal.TryGetActive"/> found — the local player's own
+    /// prediction, whose feet the client's replay moves. Nobody else's jump is
+    /// predicted here, and a state the arsenal cannot serve is no refusal.
+    /// </summary>
+    public bool OwnerCanJump(int playerIndex)
+        => hud is null
+           || playerIndex != hud.LocalPlayerIndex
+           || arsenal is null
+           || !arsenal.TryGetActive(out string name, out _, out _)
+           || TFWeaponNames.IdOf(name) != TFWeaponId.CompoundBow
+           || arsenal.ActiveWeaponState is not { } state
+           || !TFBowBehaviour.Drawn(state);
+
     private TFPlayerNetState? State(int playerIndex) => data.Predicted(playerIndex) ?? data.Networked(playerIndex);
 }

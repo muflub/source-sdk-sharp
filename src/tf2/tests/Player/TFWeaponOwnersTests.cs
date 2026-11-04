@@ -62,6 +62,37 @@ public sealed class TFWeaponOwnersTests
     }
 
     [Fact]
+    public void The_drawn_bow_holds_the_servers_jump()
+    {
+        var rig = new PlayerRig().As(TFClass.Sniper);
+        var directory = new GroundDirectory();
+        var owners = new TFServerWeaponOwners(rig.Carriers, new TFRoundWinners(), new TFPlayerItems(),
+                                              rig.Engine, directory, new TFPlayerStats());
+        var bow = new SsWeapon { Handle = new EntityHandle(0x0002_0000u | 9) };
+        bow.State.BindLocal();
+        directory.Weapon = bow;
+
+        // Empty-handed hands the name to nothing: no refusal, the stock
+        // default's shape (OwnerCanJump, tf_weapon_compound_bow.cpp:657-660).
+        Assert.True(owners.OwnerCanJump(PlayerRig.Index));
+
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_compound_bow");
+        rig.Engine.Returns("Players.GetActiveWeaponEntity", bow.Handle);
+
+        // The bow, no arrow nocked: the jump stands.
+        Assert.True(owners.OwnerCanJump(PlayerRig.Index));
+
+        // A draw begun: the refusal, the meter the draw began at.
+        bow.State.BehaviourMeter = 10f;
+        Assert.False(owners.OwnerCanJump(PlayerRig.Index));
+
+        // Another weapon's draw is nobody's business here.
+        bow.State.BehaviourMeter = 0f;
+        rig.Engine.Returns("Players.GetActiveWeapon", "tf_weapon_revolver");
+        Assert.True(owners.OwnerCanJump(PlayerRig.Index));
+    }
+
+    [Fact]
     public void The_class_is_the_carriers()
     {
         var (_, owners, _, _) = Server(TFClass.HeavyWeapons);
@@ -405,6 +436,50 @@ public sealed class TFWeaponOwnersTests
         Assert.False(offset.Offset(taken));
     }
 
+    [Fact]
+    public void The_drawn_bow_holds_the_clients_jump()
+    {
+        var drawn = new CShared.WeaponNetState();
+        drawn.BindLocal();
+        drawn.BehaviourMeter = 3f;
+        var hud = LocalHud();
+        var bow = new StubArsenal("tf_weapon_compound_bow") { ActiveWeaponState = drawn };
+        var owners = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(),
+                                                        null, null, null, bow, hud);
+
+        // The local player's drawn bow: no jump (OwnerCanJump's read of the
+        // arsenal's state, the same gate the server's frame asks).
+        Assert.False(owners.OwnerCanJump(2));
+
+        // Trigger up, the meter gone: the jump again.
+        drawn.BehaviourMeter = 0f;
+        Assert.True(owners.OwnerCanJump(2));
+
+        // A state the arsenal cannot serve yet is no refusal either.
+        var bare = new StubArsenal("tf_weapon_compound_bow");
+        var others = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(),
+                                                        null, null, null, bare, hud);
+        Assert.True(others.OwnerCanJump(2));
+
+        // Another weapon's draw is not the bow's.
+        var rifle = new StubArsenal { ActiveWeaponState = drawn };
+        drawn.BehaviourMeter = 3f;
+        var rev = new CTFPlayer.TFClientWeaponOwners(new ClientData(null, local: 2), new Standalones(),
+                                                     null, null, null, rifle, hud);
+        Assert.True(rev.OwnerCanJump(2));
+
+        // Nobody else's hand is predicted here.
+        Assert.True(owners.OwnerCanJump(5));
+    }
+
+    /// <summary>The engine's local-player word, as the hud serves it.</summary>
+    private static CAbi.RecordingEngine LocalHud()
+    {
+        var hud = new CAbi.RecordingEngine();
+        hud.Returns("Hud.LocalPlayerIndex", 2);
+        return hud;
+    }
+
     /// <summary>The client's own econ parts over the shipped scripts and the
     /// trimmed fixture: the client's copies of <c>TF2.Shared.Econ</c> and
     /// <c>SourceSharp.Shared</c> are distinct compiled types from the server's
@@ -561,11 +636,14 @@ public sealed class TFWeaponOwnersTests
 
     /// <summary>An arsenal with the sniper rifle in the hands: enough for the
     /// owners' active-item walk.</summary>
-    private sealed class StubArsenal : CClient.ILocalArsenal
+    private sealed class StubArsenal(string name = "tf_weapon_sniperrifle")
+        : CClient.ILocalArsenal
     {
-        public bool TryGetActive(out string name, out int clip, out int reserve)
+        public CShared.WeaponNetState? ActiveWeaponState { get; set; }
+
+        public bool TryGetActive(out string active, out int clip, out int reserve)
         {
-            name = "tf_weapon_sniperrifle";
+            active = name;
             clip = 10;
             reserve = 40;
             return true;
@@ -586,7 +664,11 @@ public sealed class TFWeaponOwnersTests
 
         public SsPlayer Player { get; }
 
-        public ScriptedEntity? Get(EntityHandle h) => h == PlayerRig.Player ? Player : null;
+        /// <summary>A carried weapon the directory serves, set by the fact that needs it.</summary>
+        public SsWeapon? Weapon { get; set; }
+
+        public ScriptedEntity? Get(EntityHandle h) => h == PlayerRig.Player ? Player
+            : Weapon is not null && h == Weapon.Handle ? Weapon : null;
         public ScriptedEntity? FindByName(string name) => null;
         public IEnumerable<ScriptedEntity> OfClass(string className) => [];
         public bool IsRegistered(string className) => false;

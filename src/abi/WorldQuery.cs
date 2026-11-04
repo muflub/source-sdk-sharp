@@ -588,6 +588,12 @@ public enum WeaponAnim
 
     /// <summary>ACT_VM_HITRIGHT: the heavy's right hook, the second fist's punch (tf_weapon_fists.cpp:164).</summary>
     HitRight = 20,
+
+    /// <summary>
+    /// ACT_ITEM2_VM_CHARGE: the compound bow's draw (<c>CTFCompoundBow::SendWeaponAnim</c>
+    /// retags the PULLBACK ask to it, tf_weapon_compound_bow.cpp:396-399).
+    /// </summary>
+    Charge = 21,
 }
 
 /// <summary>Which of the weapon script's sounds to play.</summary>

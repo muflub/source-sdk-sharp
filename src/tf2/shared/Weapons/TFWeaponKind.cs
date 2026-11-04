@@ -30,6 +30,12 @@ public enum TFWeaponKind
     Melee,
     /// <summary>A launcher whose shot is a projectile entity (Stage 2.8): rockets, pipes, stickies, syringes.</summary>
     Projectile,
+    /// <summary>
+    /// The compound bow (<c>CTFCompoundBow : CTFPipebombLauncher</c>,
+    /// tf_weapon_compound_bow.h:20): held to draw, released to loose an arrow
+    /// at the charge's speed and damage.
+    /// </summary>
+    Bow,
     Flamethrower,
     Medigun,
     /// <summary>A PDA (<c>WeaponType "pda"</c>): its trigger hands the owner back to the previous item.</summary>
@@ -61,6 +67,7 @@ public static class TFWeaponKinds
         TFWeaponKind.Revolver => "tf2.revolver",
         TFWeaponKind.Melee => "tf2.melee",
         TFWeaponKind.Projectile => "tf2.projectile",
+        TFWeaponKind.Bow => "tf2.bow",
         TFWeaponKind.Flamethrower => "tf2.flamethrower",
         TFWeaponKind.Medigun => "tf2.medigun",
         TFWeaponKind.Pda => "tf2.pda",
@@ -97,6 +104,8 @@ public static class TFWeaponKinds
             case TFWeaponId.Pipebomblauncher:
             case TFWeaponId.SyringegunMedic:
                 return TFWeaponKind.Projectile;
+            case TFWeaponId.CompoundBow:
+                return TFWeaponKind.Bow;
             case TFWeaponId.Flamethrower:
                 return TFWeaponKind.Flamethrower;
             case TFWeaponId.Medigun:

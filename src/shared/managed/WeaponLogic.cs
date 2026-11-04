@@ -429,6 +429,7 @@ public static class WeaponAnimNames
         WeaponAnim.SwingHard    => [],
         WeaponAnim.HitLeft      => [],
         WeaponAnim.HitRight     => [],
+        WeaponAnim.Charge       => [],
         _                  => new[] { "idle01", "idle" },
     };
 
@@ -469,6 +470,9 @@ public static class WeaponAnimNames
         WeaponAnim.SwingHard    => new[] { "ACT_VM_SWINGHARD" },
         WeaponAnim.HitLeft      => new[] { "ACT_VM_HITLEFT" },
         WeaponAnim.HitRight     => new[] { "ACT_VM_HITRIGHT" },
+        // The bow's draw: already the role's own act, the table has no row to
+        // add (tf_weapon_compound_bow.cpp:396-399 retags before the table).
+        WeaponAnim.Charge       => new[] { "ACT_ITEM2_VM_CHARGE" },
         _                  => new[] { "ACT_VM_IDLE" },
     };
 

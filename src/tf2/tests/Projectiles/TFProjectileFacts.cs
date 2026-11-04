@@ -208,6 +208,14 @@ internal sealed class ProjectileRig
         return BindStates(syringe);
     }
 
+    /// <summary>An arrow with its areas bound, launchable by the effects.</summary>
+    public TFArrow Arrow()
+    {
+        var arrow = new TFArrow(Engine, Motion, new TF2.Tests.Combat.ScopedDamage(Scopes), Scopes, HitGroups);
+        arrow.BindAreas(TestServices.Areas(Engine));
+        return BindStates(arrow);
+    }
+
     /// <summary>
     /// The registry's bind, for an entity built by hand: its netstates get
     /// managed storage, so the trail writes land somewhere.
@@ -2319,5 +2327,51 @@ public class TFProjectileEffectsFacts
 
         Assert.Equal(0, rig.Tray.Count(3));
         Assert.Equal(2, rig.Engine.CountOf("Entities.Remove"));
+    }
+}
+
+public class TFBowTiredAimFacts
+{
+    private static TFWeaponScript Script(string name)
+    {
+        var files = WeaponFixtures.ShippedWithClasses();
+        return new TFWeaponScripts(new RecordingLog(), files).Get(name)
+            ?? throw new InvalidOperationException($"no script {name}");
+    }
+
+    /// <summary>A launch's arrow velocity: the rig's dial names both draws.</summary>
+    private static Vector Loose(bool tired, float at)
+    {
+        var rig = new ProjectileRig { };
+        rig.Random.At = at;
+        rig.Directory.Instance = rig.Arrow();
+        var w = new WeaponNetState();
+        w.BindLocal();
+        if (tired)
+            w.BehaviourMode |= TFBowBehaviour.ModeTired;
+
+        rig.Effects.Projectile(new WeaponAttackContext(default!, w, null!, 1f, true, null!,
+                                                       new WeaponCommand(1, 5, 3)),
+                               Script("tf_weapon_compound_bow"), default, 1f);
+
+        return rig.Engine.Last("Entities.SetVelocity").ArgAs<Vector>(1);
+    }
+
+    [Fact]
+    public void ATiredDrawLoosesOffTheAim()
+    {
+        // GetProjectileFireSetup's tail (:490-503): the tired launch re-draws
+        // the aim ±6° in pitch and yaw before the basis — the arrow leaves
+        // along the jittered forward, not the eye's.
+        var plain = Loose(tired: false, at: 0.5f);
+        var wild = Loose(tired: true, at: 1f);
+
+        // At the dial's ends the plain arm is the eye's forward times the
+        // full-charge 2600; the tired one is off it in both axes.
+        Assert.Equal(0f, plain.Y, 3);
+        Assert.Equal(0f, plain.Z, 3);
+        Assert.True(wild.Y != 0f || wild.Z != 0f);
+        Assert.NotEqual(plain.X, wild.X, 3);
+        Assert.NotEqual(plain.Z, wild.Z, 3);
     }
 }

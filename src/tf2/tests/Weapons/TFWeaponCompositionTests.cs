@@ -196,7 +196,7 @@ public sealed class TFWeaponCompositionTests
         var c = Server();
 
         var types = Assert.Single(c.ResolveAll<IWeaponTypeSource>().OfType<TFWeaponTypes>());
-        Assert.Equal(32, types.Rows().Count());
+        Assert.Equal(33, types.Rows().Count());
         // The carrier's clip rows are keyed by this catalog's index: a wider
         // catalogue than the row count would silently drop weapons' clips.
         Assert.True(TF2.Shared.Player.TFPlayerNetState.ClipRows >= types.Rows().Count());

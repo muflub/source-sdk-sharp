@@ -221,6 +221,20 @@ public sealed class TFProjectileEffects(IEngineEntities entities, IEntityDirecto
 
             case TFProjectile.Arrow:
                 {
+                    // The tired draw's wild shot (GetProjectileFireSetup's tail,
+                    // tf_weapon_compound_bow.cpp:490-503): TF_ARROW_MAX_CHARGE_TIME
+                    // 5 s after the draw began, the launch marked it
+                    // (TFBowBehaviour.ModeTired) and the aim is re-drawn ±6° in
+                    // pitch and yaw — stock's rand() pair, seeded as the pipes'
+                    // cone is.
+                    if (TFBowBehaviour.Tired(attack.Weapon))
+                    {
+                        eyes.X += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
+                        eyes.Y += random.RandomFloat(-TFBowBehaviour.TiredAim, TFBowBehaviour.TiredAim);
+                        forward = Angles.Forward(eyes);
+                        (right, up) = Angles.RightUp(forward);
+                    }
+
                     if (Born(TFProjectileEntityNames.Arrow, owner, forward, right, up,
                              TFProjectileDefs.SyringeMuzzleForward, TFProjectileDefs.SyringeMuzzleRight,
                              TFProjectileDefs.SyringeMuzzleUp) is not TFArrow arrow)
