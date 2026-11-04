@@ -459,6 +459,19 @@ public interface IEngineEffects
     /// <inheritdoc cref="ParticleSystemFollowEntity"/>
     bool ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset = null);
 
+    /// <summary>
+    /// The flame's control points for one burning frame, in a single crossing:
+    /// <paramref name="values"/> is records of ten floats each — the control
+    /// point index, the position, the velocity, the density, the radius and the
+    /// duration — and <paramref name="activeIndex"/> names the newest point's
+    /// index, the point the system reads next. Stock's
+    /// <c>CTFFlameManager::OnClientPointAdded</c> feeds the muzzle as point 0 and
+    /// every live flame point after it on each update; a caller with one system
+    /// passes this once per burning frame.
+    /// </summary>
+    /// <returns>true if the owner's slot held a system to feed.</returns>
+    bool ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values);
+
     /// <inheritdoc cref="EngineSide.SpriteTrailUpdate"/>
     void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible);
 

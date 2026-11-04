@@ -39,11 +39,11 @@ public static class TFFlameManagerDefs
     /// <summary><c>MAX_POINT_MANAGER_POINTS</c> (tf_point_manager.h).</summary>
     public const int MaxPoints = 30;
 
-    public const float FlameSpeed = 2450f;
-    public const float FlameLifeTime = 0.6f;
+    public const float FlameSpeed = TFFlameDefs.Speed;
+    public const float FlameLifeTime = TFFlameDefs.LifeTime;
     public const float RandomLifeTimeOffset = 0.1f;
-    public const float FlameDrag = 8.5f;
-    public const float FlameUp = 50f;
+    public const float FlameDrag = TFFlameDefs.Drag;
+    public const float FlameUp = TFFlameDefs.Up;
     public const float FlameGravity = 0f;
     public const float SpreadDegree = 2.8f;
 

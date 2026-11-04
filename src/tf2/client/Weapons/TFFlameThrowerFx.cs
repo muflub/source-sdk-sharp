@@ -33,7 +33,8 @@ namespace TF2.Client.Weapons;
 // The plain mark: the draw effects are collected by ResolveAll (the medigun
 // holds the IWeaponDrawEffect claim; a second claimant is a startup error).
 [SideService(Side.Client)]
-public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender render, ITFPlayerData data,
+public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender render,
+                                    ITFPlayerData data,
                                     IClientStandalones standalones, TFClientPlayerResources resources,
                                     IClientSoundController sounds, IEngineSound engineSound,
                                     IWeaponViewModelBearer bearers, TFWeaponScripts scripts)
@@ -54,6 +55,21 @@ public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender
 
     /// <summary>The muzzle attachment (FlameEffect_t::StartEffects :2712).</summary>
     public const string MuzzleAttachment = "muzzle";
+
+    /// <summary>The point ring's size (stock's <c>MAX_POINT_MANAGER_POINTS</c>) and the floats per record: the point index, position, velocity, density, radius, duration.</summary>
+    public const int RingSize = 30, Stride = 10;
+
+    /// <summary>The birth interval and the point life (<c>tf_flamethrower_new_flame_fire_delay</c> 0.02, <c>tf_flamethrower_flametime</c> 0.5).</summary>
+    public const float FireDelay = 0.02f, LifeTime = TFFlameDefs.LifeTime;
+
+    /// <summary>The density floor, the box radius and the muzzle's start radius — stock's flame defaults (the item schema's attribute hooks stay constants).</summary>
+    public const float MinDensity = 0.01f, BoxSize = 12f, StartRadius = 3f;
+
+    /// <summary>The carrier's carry-along and the drag (<c>tf_flamethrower_float</c>, <c>tf_flamethrower_drag</c>; gravity keeps the member default of zero).</summary>
+    public const float FloatUp = TFFlameDefs.Up, Drag = TFFlameDefs.Drag;
+
+    /// <summary>The birth speed, <c>flame_speed</c>.</summary>
+    public const float StartSpeed = TFFlameDefs.Speed;
 
     /// <summary>Which of the gun's sounds an arm asks: the script categories of <c>StartFlame</c>/<c>StartPilotLight</c>/<c>StopFlame</c>.</summary>
     public enum Arm
@@ -84,6 +100,24 @@ public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender
         public int LoopPatch;
         public bool LoopCrit;
         public int PilotPatch;
+
+        /// <summary>The flame's point ring: the birth clock, the last feed, the next slot, the live points, the one-crossing scratch.</summary>
+        public float NextSpawn = float.NaN, LastFeed = float.NaN;
+        public int NextSlot;
+        public FlamePoint[]? Points;
+        public readonly float[] Scratch = new float[(RingSize + 1) * Stride];
+        public EntityHandle AttachOwner;
+        public int AttachIndex;
+    }
+
+    /// <summary>A live flame point: its place, its carried velocity, the time it was born and the control point it feeds.</summary>
+    public struct FlamePoint
+    {
+        public bool Alive;
+        public float X, Y, Z;
+        public float VX, VY, VZ;
+        public float SpawnTime;
+        public int Cp;
     }
 
     private readonly Dictionary<EntityHandle, Gun> _guns = [];
@@ -128,7 +162,7 @@ public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender
         if (state == TFFlamethrowerBehaviour.FlameState.Idle)
             StartPilot(gun, weapon);
         else
-            StartFlame(gun, owner, weapon, state, crit, BearerOf(in context));
+            StartFlame(gun, owner, weapon, state, crit, BearerOf(in context), context.Now);
     }
 
     /// <summary>
@@ -150,7 +184,7 @@ public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender
     /// <see cref="Crossfade"/> (:2360-2400).
     /// </summary>
     private void StartFlame(Gun gun, int owner, EntityHandle weapon, TFFlamethrowerBehaviour.FlameState state, bool crit,
-                            EntityHandle bearer)
+                            EntityHandle bearer, float now)
     {
         if (state == TFFlamethrowerBehaviour.FlameState.Secondary)
         {
@@ -205,6 +239,8 @@ public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender
 
             gun.LoopCrit = crit;
         }
+
+        FeedPoints(gun, owner, weapon, bearer, now);
     }
 
     /// <summary>RestartParticleEffect's particle (:2531-2545): the name the carrier's team and crit burn, the muzzle it rides.</summary>
@@ -231,6 +267,154 @@ public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender
         gun.Flame = name;
     }
 
+    /// <summary>
+    /// The burning frame's flame points, in one crossing: the muzzle as point 0 and every
+    /// live point after it, each carried a step by the clock since the last feed — stock's
+    /// point manager re-feeds every update (<c>CTFPointManager::Update</c>). Births come
+    /// every <see cref="FireDelay"/> from the carrier's eye direction; each point drifts by
+    /// the carrier's velocity along its own heading plus the float, bleeds its speed to the
+    /// drag, and thins its density with its age. A stall skips ahead rather than filling
+    /// the ring one catch-up frame at a time; the newest point's index rides as the active
+    /// control point.
+    /// </summary>
+    private void FeedPoints(Gun gun, int owner, EntityHandle weapon, EntityHandle bearer, float now)
+    {
+        FlamePoint[] points = gun.Points ??= new FlamePoint[RingSize];
+
+        // The client's engine reads answer no velocity or eye angles for an entity: the player carries them.
+        if (standalones.GetByIndex(owner) is not ClientSsPlayer carrier)
+            return;
+
+        Vector attVel = carrier.State.Velocity;
+
+        if (!render.GetAttachment(bearer, AttachmentOf(gun, bearer), out Vector muzzle, out Vector _))
+            return;
+
+        if (float.IsNaN(gun.NextSpawn))
+            gun.NextSpawn = now;
+
+        if (gun.NextSpawn <= now)
+        {
+            Vector facing = MoveVec.AngleForward(carrier.EyeAngles());
+
+            for (int guard = RingSize + 4; gun.NextSpawn <= now && guard > 0; --guard)
+            {
+                int slot = gun.NextSlot;
+                points[slot] = new FlamePoint
+                {
+                    Alive = true,
+                    X = muzzle.X, Y = muzzle.Y, Z = muzzle.Z,
+                    VX = facing.X * StartSpeed,
+                    VY = facing.Y * StartSpeed,
+                    VZ = facing.Z * StartSpeed,
+                    SpawnTime = gun.NextSpawn,
+                    Cp = slot + 1,
+                };
+
+                gun.NextSlot = (gun.NextSlot + 1) % RingSize;
+                gun.NextSpawn += FireDelay;
+
+                // A long stall: jump the clock to the frame, not thirty catch-up births.
+                if (gun.NextSpawn < now - RingSize * FireDelay)
+                    gun.NextSpawn = now;
+            }
+        }
+
+        float dt = float.IsNaN(gun.LastFeed) ? 0f : MathF.Max(0f, now - gun.LastFeed);
+        gun.LastFeed = now;
+
+        float[] buffer = gun.Scratch;
+
+        // The last birth's index names the active point when none of them is alive.
+        int activeIndex = (gun.NextSlot + RingSize - 1) % RingSize + 1;
+        float newestX = attVel.X, newestY = attVel.Y, newestZ = attVel.Z;
+
+        // Oldest to newest: the slot the next birth takes is the oldest still held.
+        int written = 1;
+
+        for (int step = 0; step < RingSize; step++)
+        {
+            ref FlamePoint p = ref points[(gun.NextSlot + step) % RingSize];
+
+            if (!p.Alive)
+                continue;
+
+            float age = now - p.SpawnTime;
+
+            if (age > LifeTime)
+            {
+                p.Alive = false;
+                continue;
+            }
+
+            float speed = MathF.Sqrt(p.VX * p.VX + p.VY * p.VY + p.VZ * p.VZ);
+            float dx = speed > 0f ? p.VX / speed : 0f;
+            float dy = speed > 0f ? p.VY / speed : 0f;
+            float dz = speed > 0f ? p.VZ / speed : 0f;
+
+            // The carry-along: the carrier's speed along the point's heading, plus the float.
+            float along = attVel.X * dx + attVel.Y * dy + attVel.Z * dz;
+
+            p.X += dt * (p.VX + dx * along);
+            p.Y += dt * (p.VY + dy * along);
+            p.Z += dt * (p.VZ + dz * along + FloatUp);
+
+            // Drag bleeds the speed along the old heading; the heading itself holds.
+            float dragSpeed = MathF.Min(MathF.Max(speed - dt * Drag * speed, 0f), speed);
+            p.VX = dx * dragSpeed;
+            p.VY = dy * dragSpeed;
+            p.VZ = dz * dragSpeed;
+
+            float byAge = MathF.Min(MathF.Max(age / LifeTime, 0f), 1f);
+            float density = 1f + (MinDensity - 1f) * byAge;
+
+            int at = written * Stride;
+            buffer[at] = p.Cp;
+            buffer[at + 1] = p.X;
+            buffer[at + 2] = p.Y;
+            buffer[at + 3] = p.Z;
+            buffer[at + 4] = attVel.X + p.VX;
+            buffer[at + 5] = attVel.Y + p.VY;
+            buffer[at + 6] = attVel.Z + p.VZ;
+            buffer[at + 7] = density;
+            buffer[at + 8] = BoxSize;
+            buffer[at + 9] = LifeTime;
+
+            written++;
+            activeIndex = p.Cp;
+            newestX = attVel.X + p.VX;
+            newestY = attVel.Y + p.VY;
+            newestZ = attVel.Z + p.VZ;
+        }
+
+        // Point 0 first, as stock feeds it: the muzzle's place; its velocity the carrier's
+        // plus the newest point's; the pilot's own density and start radius.
+        buffer[0] = 0f;
+        buffer[1] = muzzle.X;
+        buffer[2] = muzzle.Y;
+        buffer[3] = muzzle.Z;
+        buffer[4] = newestX;
+        buffer[5] = newestY;
+        buffer[6] = newestZ;
+        buffer[7] = 1f;
+        buffer[8] = StartRadius;
+        buffer[9] = LifeTime;
+
+        effects.ParticleSystemSetPoints(weapon, 0, activeIndex, buffer.AsSpan(0, written * Stride));
+    }
+
+    /// <summary>The gun's muzzle attachment, looked up once per bearer: the flame's follow and its feed ride the same index.</summary>
+    private int AttachmentOf(Gun gun, EntityHandle bearer)
+    {
+        if (gun.AttachOwner != bearer || gun.AttachIndex == 0)
+        {
+            gun.AttachOwner = bearer;
+            gun.AttachIndex = render.LookupAttachment(bearer, MuzzleAttachment);
+        }
+
+        return gun.AttachIndex;
+    }
+
     /// <summary>StopFlame: the poof (:2447-2453), the patches, the particle (:2467).</summary>
     private void StopFlame(Gun gun, EntityHandle weapon)
     {
@@ -245,6 +429,12 @@ public sealed class TFFlameThrowerFx(IEngineEffects effects, IEngineEntityRender
             effects.ParticleSystemStop(weapon);
             gun.Flame = null;
         }
+
+        // The ring empties with the burn: the next one starts its points at the front.
+        gun.Points = null;
+        gun.NextSpawn = float.NaN;
+        gun.LastFeed = float.NaN;
+        gun.NextSlot = 0;
     }
 
     /// <summary>StartPilotLight (:2489-2504): the flame stops first (:2493), then the loop.</summary>

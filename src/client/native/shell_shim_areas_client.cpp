@@ -494,6 +494,12 @@ int32_t CShimEffectsRenderClient::ParticleSystemFollowEntitySlot(uint32_t hOwner
 																	pOffsetXYZ);
 }
 
+int32_t CShimEffectsRenderClient::ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex,
+														  const float* pValues, int32_t nCount)
+{
+	return m_pParticleSystemsClient->ParticleSystemSetPoints(hOwner, nSlot, nActiveIndex, pValues, nCount);
+}
+
 void CShimViewClient::ConNPrintf(void* pEngineClient, int32_t nPos, const char* pszText)
 {
 	return ::SourceSharp_ConNPrintf(pEngineClient, nPos, pszText);

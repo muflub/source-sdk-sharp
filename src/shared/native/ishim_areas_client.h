@@ -174,6 +174,12 @@ public:
 	// slot. Same rules as the slot-0 follow; an unknown slot refuses.
 	virtual int32_t ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity,
 												   int32_t nAttachment, int32_t nSlot, const float* pOffsetXYZ) = 0;
+	// One burning frame's flame points, in a single crossing: records of ten floats — the control point index, the
+	// position, the velocity, the density, the radius, the duration — the muzzle record first, and the newest point's
+	// index names the point the system reads next. Stock's CTFFlameManager feeds the muzzle and every live point each
+	// update; the flame client drives it once per burning frame.
+	virtual int32_t ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex, const float* pValues,
+											int32_t nCount) = 0;
 };
 
 abstract_class IShimStandaloneClient

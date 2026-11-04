@@ -223,18 +223,132 @@ public sealed class TFMinigunLoopTests
         Assert.Equal(1, rig.Engine.CountOf("Sound.SoundPatchFree"));
     }
 
+    /// <summary>
+    /// Stock's firing arm (<c>StartBrassEffect</c>/<c>StartMuzzleEffect</c>,
+    /// :1206-1265): the firing state gets its two looped systems on the gun —
+    /// the flash <c>muzzle_minigun_constant</c> on the <c>muzzle</c> attachment
+    /// and the brass <c>eject_minigunbrass</c> on <c>eject_brass</c>, each
+    /// follow-pointed at control point zero (:1229-1231, :1261-1263).
+    /// </summary>
+    [Fact]
+    public void Firing_starts_the_flash_and_the_brass_on_their_attachments()
+    {
+        var rig = new LoopRig();
+        rig.Into(CTF.TFMinigunBehaviour.State.Firing);
+
+        rig.Frame(10f);
+
+        Assert.Equal(2, rig.Engine.CountOf("Effects.ParticleSystemStartSlot"));
+        // Stock's OnDataChanged runs brass then muzzle (:1127-1128), so the
+        // brass's slot leads the log.
+        var started = rig.Engine.AllOf("Effects.ParticleSystemStartSlot").ToList();
+        Assert.Equal(rig.Weapon.Handle, started[0].ArgAs<EntityHandle>(0));
+        Assert.Equal("eject_minigunbrass", started[0].ArgAs<string>(1));
+        Assert.Equal(1, started[0].ArgAs<int>(2));
+        Assert.Equal("muzzle_minigun_constant", started[1].ArgAs<string>(1));
+        Assert.Equal(0, started[1].ArgAs<int>(2));
+
+        Assert.Equal(2, rig.Engine.CountOf("Effects.ParticleSystemFollowEntitySlot"));
+        var followed = rig.Engine.AllOf("Effects.ParticleSystemFollowEntitySlot").ToList();
+        Assert.Equal(0, followed[0].ArgAs<int>(1));                     // control point zero
+        Assert.Equal(rig.Weapon.Handle, followed[0].ArgAs<EntityHandle>(2));
+        Assert.Equal(4, followed[0].ArgAs<int>(3));                     // the looked-up attachment
+        Assert.Equal(1, followed[0].ArgAs<int>(4));                     // the brass's own slot
+
+        var looked = rig.Engine.AllOf("EntityRender.LookupAttachment").ToList();
+        Assert.Equal("eject_brass", looked[0].ArgAs<string>(1));
+        Assert.Equal("muzzle", looked[1].ArgAs<string>(1));
+    }
+
+    /// <summary>
+    /// GetWeaponForEffect (:4564-4567): in the first person the flash and the
+    /// brass ride the viewmodel's attachments. The carried gun is not drawn
+    /// there, so they burned where nobody looks.
+    /// </summary>
+    [Fact]
+    public void In_the_first_person_the_flash_and_brass_follow_the_viewmodel()
+    {
+        var rig = new LoopRig();
+        var viewmodel = new EntityHandle(0x0003_0000u | 77);
+        rig.Bearer.Held = viewmodel;
+        rig.Into(CTF.TFMinigunBehaviour.State.Firing);
+
+        rig.Frame(10f);
+
+        var followed = rig.Engine.AllOf("Effects.ParticleSystemFollowEntitySlot").ToList();
+        Assert.Equal(2, followed.Count);
+        Assert.All(followed, f => Assert.Equal(viewmodel, f.ArgAs<EntityHandle>(2)));
+        // The systems stay keyed by the gun; the attachments are the bearer's.
+        Assert.All(followed, f => Assert.Equal(rig.Weapon.Handle, f.ArgAs<EntityHandle>(0)));
+        Assert.All(rig.Engine.AllOf("EntityRender.LookupAttachment"),
+                   l => Assert.Equal(viewmodel, l.ArgAs<EntityHandle>(0)));
+    }
+
+    /// <summary>
+    /// The handle arms (:1304-1329): leaving the firing state stops the two
+    /// systems once, the stop holds while the gun stays off, and coming back
+    /// starts them again — the looked-up attachments cached across the stretch
+    /// (:1223, :1255), so the second start asks the model for nothing new.
+    /// </summary>
+    [Fact]
+    public void Leaving_firing_stops_the_systems_and_a_refire_starts_them_again()
+    {
+        var rig = new LoopRig();
+        rig.Into(CTF.TFMinigunBehaviour.State.Firing);
+        rig.Frame(10f);
+
+        rig.Into(CTF.TFMinigunBehaviour.State.Idle);
+        rig.Frame(10.1f);
+
+        Assert.Equal(2, rig.Engine.CountOf("Effects.ParticleSystemStopSlot"));
+
+        rig.Frame(10.2f);
+        Assert.Equal(2, rig.Engine.CountOf("Effects.ParticleSystemStopSlot"));
+
+        rig.Into(CTF.TFMinigunBehaviour.State.Firing);
+        rig.Frame(10.3f);
+
+        Assert.Equal(4, rig.Engine.CountOf("Effects.ParticleSystemStartSlot"));
+        Assert.Equal(2, rig.Engine.CountOf("Effects.ParticleSystemStopSlot"));
+        Assert.Equal(2, rig.Engine.CountOf("EntityRender.LookupAttachment"));
+    }
+
+    /// <summary>UpdateOnRemove's particle arms (:1158-1160): the gun going takes its two systems with it.</summary>
+    [Fact]
+    public void A_forgotten_gun_stops_its_running_systems()
+    {
+        var rig = new LoopRig();
+        rig.Into(CTF.TFMinigunBehaviour.State.Firing);
+        rig.Frame(10f);
+
+        rig.Loop.Forget(rig.Weapon.Handle);
+
+        Assert.Equal(2, rig.Engine.CountOf("Effects.ParticleSystemStopSlot"));
+    }
+
     // ---------------------------------------------------------------------
+
+    private sealed class FixedBearer : CEffects.IWeaponViewModelBearer
+    {
+        public EntityHandle? Held;
+
+        public EntityHandle? ViewModelBearer() => Held;
+    }
 
     private sealed class LoopRig
     {
         public readonly ClientEngine Engine = new();
         public readonly SoundSpy Sounds = new();
+        public readonly FixedBearer Bearer = new();
         public readonly ClientWeapon Weapon;
         public readonly ClientLoop Loop;
 
         public LoopRig()
         {
             Engine.Returns("Sound.SoundPatchCreate", 77);
+            Engine.Returns("Effects.ParticleSystemStartSlot", true);
+            Engine.Returns("Effects.ParticleSystemFollowEntitySlot", true);
+            Engine.Returns("EntityRender.LookupAttachment", 4);
 
             Weapon = new ClientWeapon(Engine) { Handle = new EntityHandle(0x0002_0000u | WeaponEntity) };
             Weapon.State.BindLocal();
@@ -242,7 +356,7 @@ public sealed class TFMinigunLoopTests
 
             Loop = new ClientLoop(
                 new CTF.TFWeaponScripts(new ClientLog(), new FixtureFiles(WeaponFixtures.ShippedWithClasses())),
-                Sounds, Engine);
+                Sounds, Engine, Engine, Engine, Bearer);
         }
 
         /// <summary>The gun in this state, with the crit latch beside it.</summary>

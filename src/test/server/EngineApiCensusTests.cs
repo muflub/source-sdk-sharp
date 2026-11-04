@@ -439,7 +439,9 @@ public partial class EngineApiCensusTests
     // The blast jump's smoke (tf2 2.x): ParticleSystemFollowEntitySlot, a follow
     // of a slot other than the first, the smoke's foot per slot (262 + 1).
     // (253 + 11 = 264; less ClientIsLowViolence: 263.)
-    private const int ClientOnly = 259;
+    // The flame's feed (tf2 pyrofx): ParticleSystemSetPoints, the flame's control
+    // points fed once a burning frame in one crossing (259 + 1 = 260).
+    private const int ClientOnly = 260;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

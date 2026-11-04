@@ -108,6 +108,17 @@ public class FlameThrowerFxTests
         _engine.Returns("Files.ReadGameFileBytes",
             File.ReadAllBytes(RepoLayout.Repo("src", "tf2", "tests", "TestData", "weapons", "tf_weapon_flamethrower.txt")));
         _engine.ReturnsEachCall("Sound.SoundPatchCreate", () => ++_sounds.Next);
+        // The flame's feed reads its muzzle off the bearer and the carrier's
+        // motion from the player: a fixed muzzle at (1,2,3), the carrier facing
+        // +y and drifting +x. The client's engine reads answer no eye angles or
+        // velocity for an entity, so nothing here serves those two.
+        _engine.Returns("Effects.ParticleSystemSetPoints", true);
+        _engine.Returns("EntityRender.GetAttachment", true);
+        _engine.Returns("EntityRender.GetAttachment.origin", new Vector(1f, 2f, 3f));
+        _engine.Returns("EntityRender.GetAttachment.angles", new Vector(0f, 0f, 0f));
+        _engine.Returns("Entities.GetAngles", new Vector(0f, 90f, 0f));
+        _standalones.Player.BindEngine(_engine, _engine);
+        _standalones.Player.State.Velocity = new Vector(10f, 0f, 0f);
         _fx = new TFFlameThrowerFx(_engine, _engine, _data, _standalones,
             new TF2.Client.Player.TFClientPlayerResources(), _sounds, _engine, _bearer,
             new TFWeaponScripts(new RecordingLog(), _engine));
@@ -124,11 +135,11 @@ public class FlameThrowerFxTests
     }
 
     private void Think(TFFlamethrowerBehaviour.FlameState state, bool alive = true, int reserve = 200, bool carrier = true,
-                       bool crit = false, bool firstPerson = false)
+                       bool crit = false, bool firstPerson = false, float now = 10f)
     {
         _data.Carried = carrier ? new TFPlayerNetState() : null;
         _standalones.Player.State.Alive = alive;
-        _fx.Think(new WeaponDrawContext(Weapon(state, reserve, crit), null, firstPerson, Now: 10f));
+        _fx.Think(new WeaponDrawContext(Weapon(state, reserve, crit), null, firstPerson, Now: now));
     }
 
     [Fact]
@@ -262,5 +273,102 @@ public class FlameThrowerFxTests
         Assert.Equal(1, _engine.Calls.Count(c => c.Member == "Effects.ParticleSystemStart"));
         Assert.Contains(_engine.Calls, c => c.Member == "Sound.EntityEmitSound");
         Assert.Equal(WeaponScriptSound.Double, TFFlameThrowerFx.CategoryOf(TFFlameThrowerFx.Arm.Blast));
+    }
+
+    [Fact]
+    public void EachBurnFrameFeedsAPointEveryFireDelay()
+    {
+        // The point feed (CTFPointManager's client half): one crossing a frame,
+        // ten floats a record — the muzzle header plus one point born at this
+        // frame's fire-delay slot. Twenty floats the first burning frame, thirty
+        // the next once the second birth lands at +0.02.
+        Think(TFFlamethrowerBehaviour.FlameState.Firing);
+
+        EngineCall feed = Assert.Single(_engine.Calls, c => c.Member == "Effects.ParticleSystemSetPoints");
+        Assert.Equal(20, Assert.IsType<int>(feed.Args[3]));
+
+        Think(TFFlamethrowerBehaviour.FlameState.Firing, now: 10.02f);
+
+        EngineCall? next = _engine.Last("Effects.ParticleSystemSetPoints");
+        Assert.NotNull(next);
+        Assert.Equal(30, Assert.IsType<int>(next?.Args?[3]));
+    }
+
+    [Fact]
+    public void TheNewestPointIsTheActiveIndex()
+    {
+        // The newest birth's index rides as the system's active control point:
+        // point 1 the first frame, point 2 once the next birth lands.
+        Think(TFFlamethrowerBehaviour.FlameState.Firing);
+
+        EngineCall feed = Assert.Single(_engine.Calls, c => c.Member == "Effects.ParticleSystemSetPoints");
+        Assert.Equal(1, Assert.IsType<int>(feed.Args[2]));
+
+        Think(TFFlamethrowerBehaviour.FlameState.Firing, now: 10.02f);
+
+        EngineCall? next = _engine.Last("Effects.ParticleSystemSetPoints");
+        Assert.NotNull(next);
+        Assert.Equal(2, Assert.IsType<int>(next?.Args?[2]));
+    }
+
+    [Fact]
+    public void AnOlderPointThinsItsDensityWithAge()
+    {
+        // The age remap (stock's density by age, 1 down to the minimum over the
+        // life): 0.25 s into its 0.6 s life the oldest point's density has come
+        // 0.25/0.6 of the way to the floor. The oldest record sits right after the
+        // muzzle header: its density is the eighth float of the second record.
+        Think(TFFlamethrowerBehaviour.FlameState.Firing);
+        Think(TFFlamethrowerBehaviour.FlameState.Firing, now: 10.25f);
+
+        EngineCall? feed = _engine.Last("Effects.ParticleSystemSetPoints");
+        Assert.NotNull(feed);
+        float[] records = Assert.IsType<float[]>(feed?.Args?[4]);
+        Assert.Equal(0.5875f, records[17], 3);
+    }
+
+    [Fact]
+    public void ThePointsFlyAlongTheCarriersEyes()
+    {
+        // Stock's GetInitialVelocity reads the attacker's EyeAngles. The engine's
+        // read answers zero angles on the client, which flew every point along +x,
+        // behind a player facing the other way.
+        Think(TFFlamethrowerBehaviour.FlameState.Firing);
+
+        EngineCall? feed = _engine.Last("Effects.ParticleSystemSetPoints");
+        Assert.NotNull(feed);
+        float[] records = Assert.IsType<float[]>(feed?.Args?[4]);
+        // Record 1, the first point: index, position, then its velocity (carrier + point).
+        Assert.Equal(10f, records[14], 3);
+        Assert.Equal(TFFlameDefs.Speed, records[15], 3);
+    }
+
+    [Fact]
+    public void StoppingClearsTheRingSoTheNextBurnStartsFresh()
+    {
+        // Two births on, the gate off (StopFlame), and the next burn restarts
+        // the ring at the front: one point, the muzzle header, active index 1.
+        Think(TFFlamethrowerBehaviour.FlameState.Firing);
+        Think(TFFlamethrowerBehaviour.FlameState.Firing, now: 10.02f);
+        Think(TFFlamethrowerBehaviour.FlameState.Firing, now: 10.04f, carrier: false);
+
+        Think(TFFlamethrowerBehaviour.FlameState.Firing, now: 10.06f);
+
+        EngineCall? feed = _engine.Last("Effects.ParticleSystemSetPoints");
+        Assert.NotNull(feed);
+        Assert.Equal(20, Assert.IsType<int>(feed?.Args?[3]));
+        Assert.Equal(1, Assert.IsType<int>(feed?.Args?[2]));
+    }
+
+    [Fact]
+    public void TheGateOffFrameFeedsNothing()
+    {
+        // The gone-carrier else (:2212-2218) stops everything and feeds nothing:
+        // the burning frame's one crossing stays the only one.
+        Think(TFFlamethrowerBehaviour.FlameState.Firing);
+        Assert.Equal(1, _engine.Calls.Count(c => c.Member == "Effects.ParticleSystemSetPoints"));
+
+        Think(TFFlamethrowerBehaviour.FlameState.Firing, carrier: false);
+        Assert.Equal(1, _engine.Calls.Count(c => c.Member == "Effects.ParticleSystemSetPoints"));
     }
 }

@@ -390,7 +390,7 @@ public sealed class ClientSsPlayer : ClientStandaloneEntity
     /// Re-decided per drive rather than once, because the local index is 0
     /// until the client is actually in a level, like the viewmodel's compare.
     /// </summary>
-    private Vector EyeAngles()
+    public Vector EyeAngles()
     {
         int local = _screen?.LocalPlayerIndex ?? 0;
 

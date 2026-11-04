@@ -2190,7 +2190,7 @@ static void *const s_ShimTempEntBackendsClientSlots[] = {
 static const SSForwarderTable s_ShimTempEntBackendsClientTable = { s_ShimTempEntBackendsClientSlots, 21 };
 
 //-----------------------------------------------------------------------------
-// ShimEffectsRenderClient: 35 forwarder(s) over IShimEffectsRenderClient.
+// ShimEffectsRenderClient: 36 forwarder(s) over IShimEffectsRenderClient.
 //-----------------------------------------------------------------------------
 // int32_t IShimEffectsRenderClient::DrawSprite( uint32_t, int32_t, float, int32_t, int32_t, int32_t, int32_t, int32_t, int32_t, float, int32_t, float, float )
 static int32_t SSFwd_ShimEffectsRenderClient_DrawSprite( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, float a2, int32_t a3, int32_t a4, int32_t a5, int32_t a6, int32_t a7, int32_t a8, float a9, int32_t a10, float a11, float a12 ) { return self->DrawSprite( a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12 ); }
@@ -2262,6 +2262,8 @@ static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemStartSlot( IShimEffec
 static void SSFwd_ShimEffectsRenderClient_ParticleSystemStopSlot( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1 ) { self->ParticleSystemStopSlot( a0, a1 ); }
 // int32_t IShimEffectsRenderClient::ParticleSystemFollowEntitySlot( uint32_t, int32_t, uint32_t, int32_t, int32_t, const float * )
 static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemFollowEntitySlot( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, uint32_t a2, int32_t a3, int32_t a4, const float * a5 ) { return self->ParticleSystemFollowEntitySlot( a0, a1, a2, a3, a4, a5 ); }
+// int32_t IShimEffectsRenderClient::ParticleSystemSetPoints( uint32_t, int32_t, int32_t, const float *, int32_t )
+static int32_t SSFwd_ShimEffectsRenderClient_ParticleSystemSetPoints( IShimEffectsRenderClient *self, uint32_t a0, int32_t a1, int32_t a2, const float * a3, int32_t a4 ) { return self->ParticleSystemSetPoints( a0, a1, a2, a3, a4 ); }
 
 static void *const s_ShimEffectsRenderClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_DrawSprite ),
@@ -2299,9 +2301,10 @@ static void *const s_ShimEffectsRenderClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStartSlot ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemStopSlot ),
 	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemFollowEntitySlot ),
+	reinterpret_cast< void * >( &SSFwd_ShimEffectsRenderClient_ParticleSystemSetPoints ),
 };
 
-static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 35 };
+static const SSForwarderTable s_ShimEffectsRenderClientTable = { s_ShimEffectsRenderClientSlots, 36 };
 
 //-----------------------------------------------------------------------------
 // ShimStandaloneClient: 25 forwarder(s) over IShimStandaloneClient.

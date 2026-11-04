@@ -1118,6 +1118,7 @@ internal unsafe interface IEffectsRenderClientArea
     int ParticleSystemStartSlot(uint a0, byte* a1, int a2);
     void ParticleSystemStopSlot(uint a0, int a1);
     int ParticleSystemFollowEntitySlot(uint a0, int a1, uint a2, int a3, int a4, float* a5);
+    int ParticleSystemSetPoints(uint a0, int a1, int a2, float* a3, int a4);
 }
 
 /// <summary>
@@ -1164,6 +1165,7 @@ internal sealed unsafe class EffectsRenderClientArea : IEffectsRenderClientArea
     public int ParticleSystemStartSlot(uint a0, byte* a1, int a2) { return _shim.Table->ParticleSystemStartSlot(_shim.Self, a0, a1, a2); }
     public void ParticleSystemStopSlot(uint a0, int a1) { _shim.Table->ParticleSystemStopSlot(_shim.Self, a0, a1); }
     public int ParticleSystemFollowEntitySlot(uint a0, int a1, uint a2, int a3, int a4, float* a5) { return _shim.Table->ParticleSystemFollowEntitySlot(_shim.Self, a0, a1, a2, a3, a4, a5); }
+    public int ParticleSystemSetPoints(uint a0, int a1, int a2, float* a3, int a4) { return _shim.Table->ParticleSystemSetPoints(_shim.Self, a0, a1, a2, a3, a4); }
 }
 
 /// <summary>

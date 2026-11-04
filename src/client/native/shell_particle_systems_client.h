@@ -61,6 +61,8 @@ public:
 	void ParticleSystemStopSlot(uint32_t hOwner, int32_t nSlot);
 	int32_t ParticleSystemFollowEntitySlot(uint32_t hOwner, int32_t nPoint, uint32_t hEntity, int32_t nAttachment,
 										   int32_t nSlot, const float* pOffsetXYZ);
+	int32_t ParticleSystemSetPoints(uint32_t hOwner, int32_t nSlot, int32_t nActiveIndex, const float* pValues,
+									int32_t nCount);
 
 	// IShimParticlesClient: the one-shots, watched and not held, and the dev API's read. The
 	// impact's is in shell_impact_effects.cpp.

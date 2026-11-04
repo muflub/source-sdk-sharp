@@ -21,7 +21,12 @@ public partial class EngineApiAreasTests
         return lines.Skip(1).Where(l => l.Length > 0).Select(l =>
         {
             var c = l.Split('\t');
-            Assert.True(c.Length == 10, $"ten columns: {l}");
+            Assert.True(c.Length is 9 or 10, $"nine or ten columns: {l}");
+            // The harness trims trailing whitespace per line, so the empty
+            // client_body's last tab can be lost on write. A missing final
+            // field and an empty one read the same: ClientBody already falls
+            // back to Body when it is empty (EngineApiAreasTests), so pad.
+            if (c.Length == 9) c = [.. c, ""];
             return new Row(c[0], c[1], c[2], c[3], c[4], c[5], c[6] == "S", c[7], c[8], c[9]);
         }).ToList();
     }

@@ -1264,6 +1264,10 @@ public sealed class RecordingEngine :
     bool IEngineEffects.ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => Record<bool>("Effects.ParticleSystemStartSlot", owner, name, slot);
     void IEngineEffects.ParticleSystemStopSlot(EntityHandle owner, int slot) => RecordVoid("Effects.ParticleSystemStopSlot", owner, slot);
     bool IEngineEffects.ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset) => Record<bool>("Effects.ParticleSystemFollowEntitySlot", owner, point, entity, attachment, slot, offset);
+
+    // The flame points ride one span a frame: the length is the argument, the floats are appended as a copy so a
+    // fact can read a record's density without owning the buffer.
+    bool IEngineEffects.ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values) => Record<bool>("Effects.ParticleSystemSetPoints", owner, slot, activeIndex, values.Length, values.ToArray());
     void IEngineEffects.SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) => RecordVoid("Effects.SpriteTrailUpdate", owner, renderMode, visible);
     void IEngineEffects.SpriteTrailDestroy(EntityHandle owner) => RecordVoid("Effects.SpriteTrailDestroy", owner);
     void IEngineEffects.DustEffect(Vector origin, Vector direction, float size, float speed) => RecordVoid("Effects.DustEffect", origin, direction, size, speed);

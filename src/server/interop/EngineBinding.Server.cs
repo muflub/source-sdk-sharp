@@ -361,6 +361,7 @@ internal sealed unsafe partial class EngineEffects
     public bool ParticleSystemStartSlot(EntityHandle owner, string name, int slot) => false;
     public void ParticleSystemStopSlot(EntityHandle owner, int slot) { }
     public bool ParticleSystemFollowEntitySlot(EntityHandle owner, int point, EntityHandle entity, int attachment, int slot, Vector? offset = null) => false;
+    public bool ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values) => false;
     public void SpriteTrailUpdate(EntityHandle owner, int renderMode, bool visible) { }
     public void SpriteTrailDestroy(EntityHandle owner) { }
 }

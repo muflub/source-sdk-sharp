@@ -263,7 +263,7 @@ public class SideAuditTests
         // the same thing said about control points -- which point of a running
         // system is fed is a fact about the renderer's copy of it, and the
         // server has no copy.
-        "ParticleSystemStart", "ParticleSystemStop", "ParticleSystemFollowPoints", "ParticleSystemStartExtra", "ParticleSystemStopExtra", "ParticleSystemFollowEntity", "ParticleSystemStartSlot", "ParticleSystemStopSlot", "ParticleSystemFollowEntitySlot",
+        "ParticleSystemStart", "ParticleSystemStop", "ParticleSystemFollowPoints", "ParticleSystemStartExtra", "ParticleSystemStopExtra", "ParticleSystemFollowEntity", "ParticleSystemStartSlot", "ParticleSystemStopSlot", "ParticleSystemFollowEntitySlot", "ParticleSystemSetPoints",
         "ScreenOverlaySet", "ScreenOverlayGet",
         "DynamicLightRelease", "DynamicLightUpdate",
         // The five local-weapon slots -- GetLocalWeaponCount, GetLocalWeaponName,

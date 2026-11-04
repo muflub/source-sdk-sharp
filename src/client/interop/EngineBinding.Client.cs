@@ -861,6 +861,14 @@ internal sealed unsafe partial class EngineEffects
         return _effectsRenderClientArea.ParticleSystemFollowEntitySlot(owner.Value, point, entity.Value, attachment, slot, pOffset) != 0;
     }
 
+    /// <inheritdoc cref="IEngineEffects.ParticleSystemSetPoints"/>
+    public unsafe bool ParticleSystemSetPoints(EntityHandle owner, int slot, int activeIndex, ReadOnlySpan<float> values)
+    {
+        // Native walks records, ten floats each (CParticleSystemsClient::ParticleSystemSetPoints).
+        fixed (float* pValues = values)
+            return _effectsRenderClientArea.ParticleSystemSetPoints(owner.Value, slot, activeIndex, pValues, values.Length / 10) != 0;
+    }
+
     /// <summary>
     /// Makes, or updates, the sprite trail's renderable for a managed entity:
     /// the render mode (refused outside RenderMode_t, and then nothing is

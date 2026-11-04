@@ -437,10 +437,12 @@ public class EffectsRewiringTests
                                             .OrderBy(m => m.Name, StringComparer.Ordinal)
                                             .ToList();
 
-        Assert.True(members.Count == 55,
-            $"IEngineEffects has fifty-five members ({members.Count} found) — if this "
+        Assert.True(members.Count == 56,
+            $"IEngineEffects has fifty-six members ({members.Count} found) — if this "
           + "number moved, a member arrived and this sweep is the thing that decides whether "
-          + "it was wired. It has moved thirty times (the thirtieth UP: tf2 2.x added "
+          + "it was wired. It has moved thirty-one times (the thirty-first UP: tf2 pyrofx added "
+          + "ParticleSystemSetPoints, the flame's control points fed once a burning frame in one crossing; "
+          + "the thirtieth UP: tf2 2.x added "
           + "ParticleSystemFollowEntitySlot, the blast jump's smoke wearing a foot per slot; "
           + "the twenty-ninth UP: tf2 2.3 added "
           + "ParticleSystemStartSlot and ParticleSystemStopSlot, a caller that counts its own "
@@ -493,6 +495,11 @@ public class EffectsRewiringTests
         // entity's attachment, the blast jump's foot.
         Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemFollowEntitySlot"), members);
 
+        // The flame's feed: the muzzle record first, every live point beside it,
+        // the newest point's index naming the one the system reads — one crossing
+        // a burning frame, stock's OnClientPointAdded per update.
+        Assert.Contains(typeof(IEngineEffects).GetMethod("ParticleSystemSetPoints"), members);
+
         // The one member whose stock behaviour is to refuse the arguments a
         // reflective sweep can invent. Named rather than skipped silently.
         // BubbleEffect (plan_server_native_v2 T4f) refuses an entity with no
@@ -512,6 +519,8 @@ public class EffectsRewiringTests
         {
             ["TempEntPlayback"] = e => e.TempEntPlayback(0, ReadOnlySpan<byte>.Empty,
                                                          TeFilters.Broadcast, 0f),
+            ["ParticleSystemSetPoints"] = e => e.ParticleSystemSetPoints(EntityHandle.None, 0, 0,
+                                                                         ReadOnlySpan<float>.Empty),
         };
 
         var silent = new List<string>();
@@ -569,12 +578,13 @@ public class EffectsRewiringTests
                 $"{expected} is answered over ITempEnts");
         }
 
-        Assert.True(forwarded.Count == 43,
-            "and forty-three reached the engine unchanged — fifty-four less the eight that moved and the three "
+        Assert.True(forwarded.Count == 44,
+            "and forty-four reached the engine unchanged — fifty-five less the eight that moved and the three "
           + "that refused the sweep (the three FireEffect forwards and BloodDecal went with their "
           + "slots, plan_server_native_v2 T2, ClientExplosionFireball with the glow overlays' port, "
           + "C7; BubbleEffect and PaintDecal moved at T4f; TempEntPoolSimulate left in the serialised "
-          + "ABI pass; ClientIsLowViolence left when its rule became C#; BloodEffect moved, refusing the sweep's zero amount): " + forwarded.Count + " found");
+          + "ABI pass; ClientIsLowViolence left when its rule became C#; BloodEffect moved, refusing the sweep's zero amount; "
+          + "ParticleSystemSetPoints joined with the flame's per-frame feed, the thirty-first member): " + forwarded.Count + " found");
     }
 
     /// <summary>
