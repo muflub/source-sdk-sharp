@@ -1143,3 +1143,4 @@ src/tf2/server/Player/TFDisguiseWeapon.cs	ports CTFPlayerShared::DetermineDisgui
 src/shared/managed/RagdollDissolve.cs	ports DISSOLVE_FADE_* and C_EntityDissolve fades (EntityDissolve.cpp, c_entitydissolve.cpp)
 src/client/managed/Ragdolls/RagdollDissolves.cs	ports C_EntityDissolve::ClientThink and DrawModel (c_entitydissolve.cpp)
 src/tf2/server/Voice/TFResponsePrecache.cs	ports CResponseSystem::Precache and its PrecacheInstancedScene arm (AI_ResponseSystem.cpp:1831-1894, sceneentity.cpp:4780-4816): the response rules' scenes and speak entries precached at level init
+src/tf2/client/Weapons/TFFlameThrowerFx.cs	ports CTFFlameThrower's client half: the burn gate, the flame and pilot sounds, the particles (tf_weapon_flamethrower.cpp)

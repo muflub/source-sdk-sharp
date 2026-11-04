@@ -3,6 +3,7 @@
   <ItemGroup>
     <!-- The proxy facts hold TFProxyModelGlowColor and its player resolver directly. -->
     <InternalsVisibleTo Include="TF2.Tests" />
+    <InternalsVisibleTo Include="SourceSharp.Client.Tests" />
     <!-- TF2's shared source compiles into each side (plan_side_isolation §2.4,
          the Descent pattern): no TF2.Shared assembly, so the shared netstate
          classes register once per side like src/shared/managed/*NetState.cs. -->

@@ -27,7 +27,7 @@ namespace SourceSharp.Client;
 /// stays the server's word by construction.
 /// </para>
 /// </summary>
-public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStates
+public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStates, WeaponEffects.IWeaponViewModelBearer
 {
     // This class's log, handed in by its composition (statics to zero).
     private readonly ILog _log;
@@ -269,7 +269,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     /// cref="ClientSsViewmodelAttachment.IsLocal"/>), so a hidden or foreign
     /// one names nothing and the flash with it.
     /// </summary>
-    private EntityHandle? MuzzleBearer()
+    public EntityHandle? ViewModelBearer()
     {
         int local = _screen.LocalPlayerIndex;
 
@@ -1021,7 +1021,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // and the bullets go through.
         public void MuzzleFlash(in WeaponType type, string particleEffect)
         {
-            if (_owner.MuzzleBearer() is { } bearer)
+            if (_owner.ViewModelBearer() is { } bearer)
                 _owner._fx?.MuzzleFlash(bearer, particleEffect);
         }
 

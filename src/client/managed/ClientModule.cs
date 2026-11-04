@@ -2044,6 +2044,7 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         _services.AddInstance(_clientArsenal);
         _services.AddInstance<ILocalArsenal>(_clientArsenal);
         _services.AddInstance<WeaponEffects.IWeaponDrawStates>(_clientArsenal);
+        _services.AddInstance<WeaponEffects.IWeaponViewModelBearer>(_clientArsenal);
 
         // THE MOVEMENT CONSTANTS, resolved once now everything the graph names
         // is registered (phase 0.3): the walk is transitive, and the mods'

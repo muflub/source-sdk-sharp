@@ -159,9 +159,50 @@ public class TFProjectileBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(part
 /// (<see cref="ITFWeaponEffects.Flames"/>, Stage 2.11). Stock spends the ammo
 /// on the server only; here both sides spend it (the remainder is
 /// <see cref="WeaponNetState.BehaviourMeter"/>, predicted). The airblast is Stage 2.11's.
+///
+/// <para>
+/// The weapon state rides <see cref="WeaponNetState.BehaviourMode"/> beside
+/// the shell's own fields, stock's networked <c>m_iWeaponState</c>
+/// (<c>FlameState_t</c>, <c>tf_weapon_flamethrower.h</c>): the machine of
+/// <c>PrimaryAttack</c> :743-787 — idle, the 0.16 s start (:753, in
+/// <see cref="WeaponNetState.BehaviourTimeC"/>), firing — the release home to
+/// idle (<c>ItemPostFrame</c> :604-611, the SECONDARY arm stock exempts
+/// kept), the blast's SECONDARY (<c>FireAirBlast</c> :978), and the last
+/// tick's crit (<c>m_bCritFire</c>, :844) on the bit beside them, which the
+/// client's flame colour reads. Stock's <c>SetWeaponState</c> arms on the
+/// flame manager's firing gate (:1102-1112) and the forward-pull conds wait
+/// with those features.
+/// </para>
 /// </summary>
 public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(parts)
 {
+    /// <summary><c>FlameState_t</c> (<c>tf_weapon_flamethrower.h</c>).</summary>
+    public enum FlameState
+    {
+        Idle = 0,
+        StartFiring,
+        Firing,
+        Secondary,
+    }
+
+    /// <summary><c>FT_STATE_*</c> state bits in <see cref="WeaponNetState.BehaviourMode"/>.</summary>
+    private const int StateMask = 7 << ModeKindShift;
+
+    /// <summary><c>m_bCritFire</c>, the bit beside the state (:844).</summary>
+    public const int CritLatchMask = 1 << (ModeKindShift + 3);
+
+    /// <summary>The start's window (<c>m_flStartFiringTime</c>, :753 — 5 frames at 30 fps).</summary>
+    public const float StartFiringDelay = 0.16f;
+
+    /// <summary>The weapon's flame state.</summary>
+    public static FlameState StateOf(WeaponNetState weapon) => (FlameState)((weapon.BehaviourMode & StateMask) >> ModeKindShift);
+
+    /// <summary>Whether the last tick burnt as a crit — the flame colour's bit.</summary>
+    public static bool CritLatched(WeaponNetState weapon) => (weapon.BehaviourMode & CritLatchMask) != 0;
+
+    private static void SetState(WeaponNetState weapon, FlameState state) =>
+        weapon.BehaviourMode = (weapon.BehaviourMode & ~StateMask) | ((int)state << ModeKindShift);
+
     public const float FlameFireDelay = 0.02f;
     public const float DamagePerTick = 13f;
     public const float AmmoPerSecond = 14f;
@@ -188,6 +229,16 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
     /// </summary>
     public override void ItemPostFrame(in WeaponAttackContext attack)
     {
+        // The release (ItemPostFrame :604-611): no trigger over a burning
+        // state comes home to idle, the crit with it — the SECONDARY state
+        // stock exempts stays.
+        if ((attack.Weapon.LastButtons & (int)InputButtons.Attack) == 0
+            && StateOf(attack.Weapon) is not (FlameState.Idle or FlameState.Secondary))
+        {
+            SetState(attack.Weapon, FlameState.Idle);
+            attack.Weapon.BehaviourMode &= ~CritLatchMask;
+        }
+
         if ((attack.Weapon.LastButtons & (int)InputButtons.Attack2) != 0
             && ScriptOf(attack.Type) is { } script && AirBlast(in attack, script))
             return;
@@ -209,6 +260,10 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
 
         weapon.Reserve -= AirBlastAmmo;
 
+        // The blast's state (FireAirBlast :978); the client answers it with
+        // the blast's puff, the flame stopped.
+        SetState(weapon, FlameState.Secondary);
+
         if (attack.EffectsLive)
             Parts.Effects.AirBlast(in attack, script);
 
@@ -225,9 +280,36 @@ public class TFFlamethrowerBehaviour(TFWeaponParts parts) : TFWeaponBehaviour(pa
         var weapon = attack.Weapon;
         var context = Context(in attack, script);
         if (!CanAttack(in attack, in context) || !Parts.Hooks.BeforeFire(in context, in attack) || weapon.Reserve <= 0)
+        {
+            // The refusal answers idle (PrimaryAttack :710-717).
+            SetState(weapon, FlameState.Idle);
             return false;
+        }
+
+        // The state machine (PrimaryAttack :743-787): the start's window is
+        // 0.16 s (:753, our <see cref="StartFiringDelay"/> in BehaviourTimeC),
+        // the firing state after it (:768-771). The player animation events
+        // and the min-burst window wait with the player-anim layer.
+        switch (StateOf(weapon))
+        {
+            case FlameState.Idle:
+                weapon.BehaviourTimeC = attack.Now + StartFiringDelay;
+                SetState(weapon, FlameState.StartFiring);
+                break;
+
+            case FlameState.StartFiring when attack.Now > weapon.BehaviourTimeC:
+                SetState(weapon, FlameState.Firing);
+                break;
+        }
 
         var shot = ModifyShot(in attack, default);
+
+        // m_bCritFire, the latch the client's flame colour reads (:844).
+        if (shot.Critical)
+            weapon.BehaviourMode |= CritLatchMask;
+        else
+            weapon.BehaviourMode &= ~CritLatchMask;
+
         // "Don't attack if we're underwater" (:827-908): the tick is not
         // thrown, but the ammo and the refires below still are (:910-931).
         if (attack.EffectsLive && !Parts.Owners.EyesUnderwater(attack.Command.OwnerIndex))
