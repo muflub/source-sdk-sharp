@@ -50,7 +50,7 @@ public class ScreenSpaceEffectsPlanTests
         view.Y = 20;
         input.View = view;
         var b = new RenderPlanBuilder();
-        Assert.True(RenderPlanner.Plan(input, b, default, DebugOverlayMaterials.None, m));
+        Assert.True(RenderPlanner.Plan(input, RenderPlannerTests.ConVars(), b, default, DebugOverlayMaterials.None, m));
         return (b.Ops.Select(o => (RenderOpKind)o.Kind).ToList(), effect);
     }
 
@@ -91,7 +91,7 @@ public class ScreenSpaceEffectsPlanTests
         m.Register("marker", effect);
         var crossings = new Crossings();
         var binding = new RenderClientBinding(crossings, new StandardErrorLog(),
-                                              new RenderPlanHost(screenEffects: m));
+                                              new RenderPlanHost(RenderPlannerTests.ConVars(), screenEffects: m));
         binding.ScreenSpaceEffectsStage(0);
         binding.ScreenSpaceEffectsStage(1);
         Assert.Equal(["Init", "Shutdown"], effect.Calls);

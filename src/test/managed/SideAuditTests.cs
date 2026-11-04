@@ -304,7 +304,7 @@ public class SideAuditTests
         "PhysicsClientSplashLighting", "PhysicsClientSplashEffect",
         // The convar watch and the decided values (C8, lane c6-input): the
         // client's bounded convars and its interpolation amount.
-        "ConVarsClientWatch", "ConVarsClientSetValue",
+        "ConVarsClientSetValue",
         // The flashlight's executor (C7 cluster 12): the client shadow manager
         // and its texture, which exist only in client.so.
         "FlashlightTexture", "FlashlightSupportsBorderColor",

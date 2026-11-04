@@ -33,7 +33,7 @@ public class ViewEffectsHostTests
         var clock = new Clock { Now = 1f };
         var rumble = new List<float>();
         var host = new ViewEffectsHost(new Half(), clock, () => false, new DefaultForwarders.NoEngineClient(), rumble.Add);
-        var plan = new RenderPlanHost(new PostProcessHost(new DefaultForwarders.NoEngineClient()), host);
+        var plan = new RenderPlanHost(RenderPlannerTests.ConVars(), new PostProcessHost(new DefaultForwarders.NoEngineClient(), RenderConVarsKit.Zeroed<PostProcessConVars>()), host);
         return (host, plan, clock, rumble);
     }
 

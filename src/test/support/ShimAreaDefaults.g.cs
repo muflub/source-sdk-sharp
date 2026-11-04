@@ -645,7 +645,6 @@ internal sealed unsafe class DefaultPhysicsClientArea : IPhysicsClientArea
 /// <summary><see cref="IConVarsClientArea"/> for a test with no engine: every call answers its default.</summary>
 internal sealed unsafe class DefaultConVarsClientArea : IConVarsClientArea
 {
-    public int ConVarsClientWatch(byte* a0) => default;
     public int ConVarsClientSetValue(byte* a0, float a1) => default;
 }
 

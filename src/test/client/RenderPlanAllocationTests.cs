@@ -30,7 +30,7 @@ public class RenderPlanAllocationTests
     public void AWarmPlanAllocatesNothing(string name)
     {
         RenderInputs input = Fixture(name);
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var ops = new RenderOp[512];
         for (int i = 0; i < 4; i++)
             Assert.True(host.BuildPlan(input, ops) > 50, "the stimulus plans a frame");
@@ -52,8 +52,8 @@ public class RenderPlanAllocationTests
     public void TheReusedPlanIsTheFreshPlanOpForOp(string name)
     {
         RenderInputs input = Fixture(name);
-        RenderOp[] fresh = RenderPlanner.Plan(input)!;
-        var host = new RenderPlanHost();
+        RenderOp[] fresh = RenderPlanner.Plan(input, RenderPlannerTests.ConVars())!;
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var ops = new RenderOp[512];
 
         // A different frame first, so a builder that kept anything would show it.

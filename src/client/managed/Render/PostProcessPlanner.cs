@@ -10,6 +10,8 @@ using System.Globalization;
 using SourceSharp.Client.Interop;
 using SourceSharp.Abi;
 
+using static SourceSharp.Client.Render.ConVarAs;
+
 namespace SourceSharp.Client.Render;
 
 /// <summary>What a post program asks of the host besides its ops: convar writes, overlay text, developer messages.</summary>
@@ -47,7 +49,7 @@ public readonly record struct EnginePostValues(
 /// blur pass with its values. One per client: what stock kept in statics is
 /// this object's.
 /// </summary>
-public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostProcessContributor>? contributors = null)
+public sealed class PostProcessPlanner(Func<string> gameDirectory, PostProcessConVars convars, IHooks<IPostProcessContributor>? contributors = null)
 {
     private const int HdrNone = 0, HdrInteger = 1, HdrFloat = 2;
     private const int HistogramBarSize = 200;
@@ -82,10 +84,6 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
     /// <summary>ResetToneMapping's managed half; the caller resets the engine's scale.</summary>
     public void ResetToneMapping() => _toneMap.Reset();
 
-    private static int I(in PostProcessInputs i, PostCvar c) => (int)i.Cvar(c);
-
-    private static float F(in PostProcessInputs i, PostCvar c) => i.Cvar(c);
-
     private static string FloatText(float v) => v.ToString("F6", CultureInfo.InvariantCulture);
 
     /// <summary>One post crossing's program: DoEnginePostProcessing or DoImageSpaceMotionBlur, by <see cref="PostProcessInputs.Kind"/>.</summary>
@@ -100,7 +98,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
     // DumpTGAofRenderTarget's decisions: refused under a queued material system.
     private void Dump(in PostProcessInputs input, PostOpsWriter ops, PostProgramEffects effects, int w, int h, PostDump name)
     {
-        if (I(input, PostCvar.mat_queue_mode) != 0)
+        if (CvInt(convars.MatQueueMode) != 0)
         {
             effects.DevMessages.Add("Error: mat_queue_mode must be 0 to dump debug rendertargets\n");
             effects.CvarWrites.Add(("mat_dump_rts", "0"));
@@ -113,15 +111,15 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
 
     private void PlanMotionBlur(in PostProcessInputs input, PostOpsWriter ops, PostProgramEffects effects)
     {
-        if (I(input, PostCvar.mat_motion_blur_enabled) == 0 || input.HardwareDxLevel < 90)
+        if (CvInt(convars.MatMotionBlurEnabled) == 0 || input.HardwareDxLevel < 90)
             return;
 
         MotionBlur.Update(new MotionBlurFrame(
             input.RealTime, input.ViewOrigin, input.ViewAngles, input.Fov, input.AspectRatio,
-            I(input, PostCvar.mat_motion_blur_forward_enabled) != 0,
-            F(input, PostCvar.mat_motion_blur_falling_min), F(input, PostCvar.mat_motion_blur_falling_max),
-            F(input, PostCvar.mat_motion_blur_falling_intensity), F(input, PostCvar.mat_motion_blur_rotation_intensity),
-            F(input, PostCvar.mat_motion_blur_strength)));
+            CvInt(convars.MatMotionBlurForwardEnabled) != 0,
+            Cv(convars.MatMotionBlurFallingMin), Cv(convars.MatMotionBlurFallingMax),
+            Cv(convars.MatMotionBlurFallingIntensity), Cv(convars.MatMotionBlurRotationIntensity),
+            Cv(convars.MatMotionBlurStrength)));
 
         int srcWidth = input.FullFrameWidth, srcHeight = input.FullFrameHeight;
         int destWidth = input.ViewportWidth, destHeight = input.ViewportHeight;
@@ -137,11 +135,11 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
     // ---------------------------------------------------------------- engine post
 
     private BloomInputs BloomInputsOf(in PostProcessInputs input) => new(
-        input.EngineDxLevel, input.HdrType, I(input, PostCvar.mat_hdr_level), input.MapHasHdrLighting != 0,
-        I(input, PostCvar.mat_force_bloom), I(input, PostCvar.mat_disable_bloom), I(input, PostCvar.building_cubemaps) != 0,
-        I(input, PostCvar.mat_fullbright), input.CanDoSrgbReadFromRts == 0 && input.FakeSrgbWrite != 0,
-        F(input, PostCvar.mat_bloomamount_rate), F(input, PostCvar.mat_bloomscale), input.UseCustomBloomScale != 0,
-        input.CustomBloomScale, F(input, PostCvar.mat_non_hdr_bloom_scalefactor), F(input, PostCvar.mat_bloom_scalefactor_scalar));
+        input.EngineDxLevel, input.HdrType, CvInt(convars.MatHdrLevel), input.MapHasHdrLighting != 0,
+        CvInt(convars.MatForceBloom), CvInt(convars.MatDisableBloom), CvInt(convars.BuildingCubemaps) != 0,
+        CvInt(convars.MatFullbright), input.CanDoSrgbReadFromRts == 0 && input.FakeSrgbWrite != 0,
+        Cv(convars.MatBloomamountRate), Cv(convars.MatBloomscale), input.UseCustomBloomScale != 0,
+        input.CustomBloomScale, Cv(convars.MatNonHdrBloomScalefactor), Cv(convars.MatBloomScalefactorScalar));
 
     private void PlanEnginePost(in PostProcessInputs input, PostOpsWriter ops, PostProgramEffects effects)
     {
@@ -149,7 +147,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
 
         if (_dumpRenderTargets)
             _dumpRenderTargets = false;
-        if (I(input, PostCvar.mat_dump_rts) != 0)
+        if (CvInt(convars.MatDumpRts) != 0)
         {
             _dumpRenderTargets = true;
             _rtIndex = 0;
@@ -162,10 +160,10 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
 
         (float exposureMin, float exposureMax) = ExposureRange.Of(
             input.UseCustomAutoExposureMin != 0, input.CustomAutoExposureMin, input.UseCustomAutoExposureMax != 0,
-            input.CustomAutoExposureMax, F(input, PostCvar.mat_autoexposure_min), F(input, PostCvar.mat_autoexposure_max),
-            I(input, PostCvar.mat_hdr_uncapexposure));
+            input.CustomAutoExposureMax, Cv(convars.MatAutoexposureMin), Cv(convars.MatAutoexposureMax),
+            CvInt(convars.MatHdrUncapexposure));
 
-        if (I(input, PostCvar.mat_debug_bloom) == 1)
+        if (CvInt(convars.MatDebugBloom) == 1)
             DrawBloomDebugBoxes(input, ops);
 
         int readbackMask = 0;
@@ -175,21 +173,21 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
             if (hdrType != HdrNone)
                 readbackMask = PreBloomTonemapping(input, ops, effects, exposureMin, exposureMax, ref screenEffectUpdated);
 
-            float aaStrength = F(input, PostCvar.mat_software_aa_strength);
+            float aaStrength = Cv(convars.MatSoftwareAaStrength);
             if (aaStrength == -1.0f)
             {
                 effects.CvarWrites.Add(("mat_software_aa_strength", FloatText(0.0f)));
                 aaStrength = 0.0f;
             }
-            if (F(input, PostCvar.mat_software_aa_strength_vgui) == -1.0f)
+            if (Cv(convars.MatSoftwareAaStrengthVgui) == -1.0f)
                 effects.CvarWrites.Add(("mat_software_aa_strength_vgui", FloatText(1.0f)));
 
             const bool performSoftwareAA = false; // X360 only in stock
             bool postVGui = input.PostVGui != 0;
             bool performBloom = !postVGui && bloomScale > 0.0f && input.EngineDxLevel >= 90;
             bool performColCorrect = !postVGui && input.HardwareDxLevel >= 90 && hdrType != HdrFloat &&
-                                     input.ColorCorrectionActive != 0 && I(input, PostCvar.mat_colorcorrection) != 0;
-            bool splitScreenHdr = I(input, PostCvar.mat_show_ab_hdr) != 0;
+                                     input.ColorCorrectionActive != 0 && CvInt(convars.MatColorcorrection) != 0;
+            bool splitScreenHdr = CvInt(convars.MatShowAbHdr) != 0;
             ops.EnableColorCorrection(performColCorrect);
 
             if (performBloom || performSoftwareAA || performColCorrect)
@@ -216,7 +214,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
 
                 int partX = rectX, partY = rectY, partW = rectW, partH = rectH;
                 float pX0 = srcX0, pY0 = srcY0, pX1 = srcX1, pY1 = srcY1;
-                if (I(input, PostCvar.mat_debug_postprocessing_effects) == 2)
+                if (CvInt(convars.MatDebugPostprocessingEffects) == 2)
                 {
                     // Only the centre quarter of the screen.
                     partX = (int)(partX + 0.25f * rectW);
@@ -233,14 +231,14 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
                     bool fbUpdated = false;
                     int smallW = input.SmallFB1Width, smallH = input.SmallFB1Height;
 
-                    if (I(input, PostCvar.mat_postprocessing_combine) != 0)
+                    if (CvInt(convars.MatPostprocessingCombine) != 0)
                     {
                         int post = SetupEnginePostMaterial(input, ops, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1,
                                                            destTexW, destTexH, performSoftwareAA, performBloom, performColCorrect, aaStrength);
                         if (splitScreenHdr)
                             ops.Scissor(partW / 2, 0, partW, partH, true);
                         ops.DrawRect(post, 0, 0, partW, partH, pX0, pY0, pX1, pY1, smallW, smallH, worldRenderable: true,
-                                     I(input, PostCvar.mat_postprocess_x), I(input, PostCvar.mat_postprocess_y));
+                                     CvInt(convars.MatPostprocessX), CvInt(convars.MatPostprocessY));
                         if (splitScreenHdr)
                             ops.Scissor(-1, -1, -1, -1, false);
                         fbUpdated = true;
@@ -298,7 +296,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
                 _firstFrame = false;
             }
 
-            if (hdrType != HdrNone && I(input, PostCvar.mat_show_histogram) != 0 && input.EngineDxLevel >= 90)
+            if (hdrType != HdrNone && CvInt(convars.MatShowHistogram) != 0 && input.EngineDxLevel >= 90)
                 DisplayHistogram(input, ops, effects, exposureMin, exposureMax, bloomScaleCurrent: CurrentBloomScale(input));
         }
         // HDR_TYPE_FLOAT never runs under this engine's GL renderer: its passes are not ported.
@@ -306,8 +304,8 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
         ops.ReadbackNext(readbackMask);
     }
 
-    private static float CurrentBloomScale(in PostProcessInputs input) =>
-        input.UseCustomBloomScale != 0 ? input.CustomBloomScale : F(input, PostCvar.mat_bloomscale);
+    private float CurrentBloomScale(in PostProcessInputs input) =>
+        input.UseCustomBloomScale != 0 ? input.CustomBloomScale : Cv(convars.MatBloomscale);
 
     private static void CenterScaleQuadUVs(ref float x, ref float y, ref float z, ref float w, float scaleX, float scaleY)
     {
@@ -330,11 +328,11 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
         if (performSoftwareAA)
         {
             _aa0 = aaStrength;
-            _aa1 = 1.0f - F(input, PostCvar.mat_software_aa_blur_one_pixel_lines);
-            _aa2 = I(input, PostCvar.mat_software_aa_quality);
-            _aa3 = I(input, PostCvar.mat_software_aa_debug);
-            _aa2x = F(input, PostCvar.mat_software_aa_edge_threshold);
-            _aa2y = F(input, PostCvar.mat_software_aa_tap_offset);
+            _aa1 = 1.0f - Cv(convars.MatSoftwareAaBlurOnePixelLines);
+            _aa2 = CvInt(convars.MatSoftwareAaQuality);
+            _aa3 = CvInt(convars.MatSoftwareAaDebug);
+            _aa2x = Cv(convars.MatSoftwareAaEdgeThreshold);
+            _aa2y = Cv(convars.MatSoftwareAaTapOffset);
         }
         else
         {
@@ -420,8 +418,8 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
     private int PreBloomTonemapping(in PostProcessInputs input, PostOpsWriter ops, PostProgramEffects effects,
                                     float exposureMin, float exposureMax, ref bool screenEffectUpdated)
     {
-        bool dynamic = I(input, PostCvar.mat_dynamic_tonemapping) != 0;
-        bool showHistogram = I(input, PostCvar.mat_show_histogram) != 0;
+        bool dynamic = CvInt(convars.MatDynamicTonemapping) != 0;
+        bool showHistogram = CvInt(convars.MatShowHistogram) != 0;
         if (!dynamic && !showHistogram)
             return 0;
 
@@ -431,12 +429,12 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
             screenEffectUpdated = true;
         }
 
-        int algorithm = I(input, PostCvar.mat_tonemap_algorithm);
+        int algorithm = CvInt(convars.MatTonemapAlgorithm);
         var view = new HistogramView(input.ViewportX, input.ViewportY, input.ViewportWidth, input.ViewportHeight,
                                      input.FlashlightOn != 0,
-                                     F(input, PostCvar.mat_exposure_center_region_x), F(input, PostCvar.mat_exposure_center_region_y),
-                                     F(input, PostCvar.mat_exposure_center_region_x_flashlight),
-                                     F(input, PostCvar.mat_exposure_center_region_y_flashlight),
+                                     Cv(convars.MatExposureCenterRegionX), Cv(convars.MatExposureCenterRegionY),
+                                     Cv(convars.MatExposureCenterRegionXFlashlight),
+                                     Cv(convars.MatExposureCenterRegionYFlashlight),
                                      input.HdrType == HdrFloat ? input.ToneScaleLinear : 1.0f);
         _queries.Clear();
         int inForce = _histogram.Update(algorithm, gameDirectory(), view, new Readbacks(input), _queries);
@@ -445,19 +443,19 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
             effects.CvarWrites.Add(("mat_tonemap_algorithm", inForce.ToString(CultureInfo.InvariantCulture)));
             algorithm = inForce;
         }
-        bool stencil = I(input, PostCvar.mat_tonemapping_occlusion_use_stencil) != 0;
+        bool stencil = CvInt(convars.MatTonemappingOcclusionUseStencil) != 0;
         foreach (LuminanceQuery q in _queries)
             IssueQuery(ops, q, stencil);
 
-        float target = _histogram.TargetTonemapScalar(algorithm, F(input, PostCvar.mat_tonemap_percent_bright_pixels),
-                                                      F(input, PostCvar.mat_tonemap_percent_target),
-                                                      F(input, PostCvar.mat_tonemap_min_avglum), input.ToneScaleLinear);
+        float target = _histogram.TargetTonemapScalar(algorithm, Cv(convars.MatTonemapPercentBrightPixels),
+                                                      Cv(convars.MatTonemapPercentTarget),
+                                                      Cv(convars.MatTonemapMinAvglum), input.ToneScaleLinear);
         float clamped = ExposureRange.Clamp(target, exposureMin, exposureMax);
-        float tonemapScale = F(input, PostCvar.mat_hdr_tonemapscale);
+        float tonemapScale = Cv(convars.MatHdrTonemapscale);
         if (dynamic)
         {
             ToneMapAction action = _toneMap.Set(clamped, exposureMin, exposureMax,
-                                                F(input, PostCvar.mat_force_tonemap_scale), I(input, PostCvar.mat_fullbright));
+                                                Cv(convars.MatForceTonemapScale), CvInt(convars.MatFullbright));
             switch (action.Kind)
             {
                 case ToneMapActionKind.Reset:
@@ -479,7 +477,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
             }
         }
 
-        if (I(input, PostCvar.mat_debug_autoexposure) != 0 || showHistogram)
+        if (CvInt(convars.MatDebugAutoexposure) != 0 || showHistogram)
         {
             if (algorithm == 0)
             {
@@ -489,11 +487,11 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
             }
             else
             {
-                float bright = F(input, PostCvar.mat_tonemap_percent_bright_pixels), percentTarget = F(input, PostCvar.mat_tonemap_percent_target);
+                float bright = Cv(convars.MatTonemapPercentBrightPixels), percentTarget = Cv(convars.MatTonemapPercentTarget);
                 effects.Prints.Add((19, string.Format(CultureInfo.InvariantCulture,
                     "{0:F2}% of pixels above {1}% target @ {2,4:F2}%  Target Scalar = {3,4:F2}  Min/Max( {4,4:F2}, {5,4:F2} )  Final Scalar: {6,4:F2}  Actual: {7,4:F2}",
                     bright, (int)percentTarget, _histogram.FindLocationOfPercentBrightPixels(algorithm, bright, percentTarget) * 100.0f,
-                    _histogram.TargetTonemapScalar(algorithm, bright, percentTarget, F(input, PostCvar.mat_tonemap_min_avglum), input.ToneScaleLinear, idealForDebug: true),
+                    _histogram.TargetTonemapScalar(algorithm, bright, percentTarget, Cv(convars.MatTonemapMinAvglum), input.ToneScaleLinear, idealForDebug: true),
                     exposureMin, exposureMax, tonemapScale, input.ToneScaleLinear)));
             }
         }
@@ -537,7 +535,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
                                   float exposureMin, float exposureMax, float bloomScaleCurrent)
     {
         ops.PushRenderTargetAndViewport();
-        int algorithm = I(input, PostCvar.mat_tonemap_algorithm);
+        int algorithm = CvInt(convars.MatTonemapAlgorithm);
         int ranges = (algorithm == 1 ? LuminanceHistogram.RangesNew : LuminanceHistogram.Ranges) - 1;
         ReadOnlySpan<HistogramBucket> buckets = _histogram.Buckets;
 
@@ -555,7 +553,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
         }
 
         int destWidth = input.ViewportWidth, destHeight = input.ViewportHeight;
-        float minAvgLum = F(input, PostCvar.mat_tonemap_min_avglum);
+        float minAvgLum = Cv(convars.MatTonemapMinAvglum);
         effects.Prints.Add((17, "(All values in linear space)"));
         effects.Prints.Add((21, string.Format(CultureInfo.InvariantCulture,
             "AvgLum @ {0,4:F2}%  mat_tonemap_min_avglum = {1,4:F2}%  Using {2} pixels of {3} pixels on screen ({4,3}%)",
@@ -563,7 +561,7 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
             totalValidPixels, destWidth * destHeight, (int)(totalValidPixels * 100.0f / (float)(destWidth * destHeight)))));
         effects.Prints.Add((23, string.Format(CultureInfo.InvariantCulture,
             "BloomScale = {0,4:F2}  mat_hdr_manual_tonemap_rate = {1,4:F2}  mat_accelerate_adjust_exposure_down = {2,4:F2}",
-            bloomScaleCurrent, F(input, PostCvar.mat_hdr_manual_tonemap_rate), F(input, PostCvar.mat_accelerate_adjust_exposure_down))));
+            bloomScaleCurrent, Cv(convars.MatHdrManualTonemapRate), Cv(convars.MatAccelerateAdjustExposureDown))));
         if (algorithm != 1)
         {
             effects.Prints.Add((17, ""));
@@ -598,11 +596,11 @@ public sealed class PostProcessPlanner(Func<string> gameDirectory, IHooks<IPostP
 
         if (algorithm == 1)
         {
-            float percentTarget = F(input, PostCvar.mat_tonemap_percent_target);
+            float percentTarget = Cv(convars.MatTonemapPercentTarget);
             float yellowTarget = xpStart + (float)totalGraphPixelsWide * percentTarget / 100.0f;
             float yellowAverage = xpStart + (float)totalGraphPixelsWide * minAvgLum / 100.0f;
             float targetStart = xpStart + (float)totalGraphPixelsWide *
-                _histogram.FindLocationOfPercentBrightPixels(algorithm, F(input, PostCvar.mat_tonemap_percent_bright_pixels), percentTarget);
+                _histogram.FindLocationOfPercentBrightPixels(algorithm, Cv(convars.MatTonemapPercentBrightPixels), percentTarget);
             float averageStart = xpStart + (float)totalGraphPixelsWide * _histogram.FindLocationOfPercentBrightPixels(algorithm, 50.0f);
             const int height = HistogramBarSize;
 

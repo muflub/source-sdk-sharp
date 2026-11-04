@@ -45,13 +45,20 @@ public class LocalPlayerFovTests
         if (localIndex > 0)
             directory.Entities.Bind(me.Handle, Local, me);
 
-        return (new RenderPlanHost(new LocalPlayerFov(directory, engine, engine)), me, directory);
+        return (new RenderPlanHost(Fov90(), new LocalPlayerFov(directory, engine, engine)), me, directory);
+    }
+
+    private static RenderConVars Fov90()
+    {
+        RenderConVars convars = RenderPlannerTests.ConVars();
+        convars.Set("default_fov", 90f);
+        return convars;
     }
 
     private static ViewSetUpOut SetUp(RenderPlanHost host, ClientSsPlayer me)
     {
         me.State.FovDefault = 90;
-        var input = new ViewSetUpIn { DefaultFov = 90f, ViewModelFov = 54f };
+        var input = new ViewSetUpIn { ViewModelFov = 54f };
         host.ViewSetUp(in input, out ViewSetUpOut output);
         return output;
     }
@@ -117,7 +124,7 @@ public class LocalPlayerFovTests
     public void NoLocalPlayerLeavesTheDefault()
     {
         var (host, _, _) = Build(localIndex: 0);
-        var input = new ViewSetUpIn { DefaultFov = 90f, ViewModelFov = 54f };
+        var input = new ViewSetUpIn { ViewModelFov = 54f };
 
         host.ViewSetUp(in input, out ViewSetUpOut output);
 

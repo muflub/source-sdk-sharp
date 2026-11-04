@@ -2577,13 +2577,8 @@ typedef struct
 	float ScreenAspect;
 	int32_t Windowed;
 	int32_t MaxClients;
-	int32_t RestrictAspectFov;
-	float ViewportScale;
-	int32_t GlClear;
-	int32_t GlClearRandomColor;
 	int32_t ClearColorForAntialiasing;
 	int32_t ClientModeDrawViewModel;
-	float LevelOverview;
 	int32_t ViewportX;
 	int32_t ViewportY;
 	int32_t ViewportWidth;
@@ -2608,19 +2603,16 @@ typedef struct
 	int32_t Overview;
 } SourceSharpRenderFrameOut_t;
 
-// SetUpViews (view.cpp), asked before the client mode's override: r_farz,
-// r_mapextents, the viewer's fog far Z (0 with none), default_fov and the
-// client mode's GetViewModelFOV in; the planes and FOV out. After the override
+// SetUpViews (view.cpp), asked before the client mode's override: the viewer's
+// fog far Z (0 with none) and the client mode's GetViewModelFOV in; the planes
+// and FOV out. After the override
 // native carries out fovViewmodel = fov + ViewModelFovOffset: managed decided
 // the offset (stock's GetViewModelFOV() - ( default_fov - fov ), rearranged),
 // the override's fov is the one operand only native has, and a second crossing
 // after the override would ask managed for one addition.
 typedef struct
 {
-	float FarZ;
-	float MapExtents;
 	float FogFarZ;
-	float DefaultFov;
 	float ViewModelFov;
 } SourceSharpViewSetUpIn_t;
 
@@ -2657,9 +2649,7 @@ typedef struct
 
 // SourceSharpRenderInputs_t: everything RenderView's decisions read, gathered
 // by the executor at RenderView's entry -- the view and RenderView's two
-// arguments, the hardware answers, the convars (Cvars[], indexed by the
-// RENDER_CVAR_ list in shell_view_executor_client.cpp and RenderCvar in C#),
-// the viewer's fog and 3D sky, the fog volume at the eye with the water
+// arguments, the hardware answers, the viewer's fog and 3D sky, the fog volume at the eye with the water
 // material's switches, and the post-process inputs. Nothing here is decided.
 typedef struct
 {
@@ -2719,7 +2709,6 @@ typedef struct
 	int32_t ScreenOverlayFullFrame;
 	int32_t ScreenOverlayPowerOfTwo;
 	int32_t FlashlightOn;
-	float Cvars[64];
 	// Appended (C7 step 3 phase 1): RenderInputs only grows at its end, so the
 	// frozen recordings still read (their tail reads zero).
 	int32_t ClientModeDrawDetail;
@@ -2788,8 +2777,7 @@ typedef struct
 // plan's post op runs, gathered by the executor for IManagedRenderClient::
 // RenderPostProgram (managed PostProcessInputs, field for field). Kind 0 is
 // DoEnginePostProcessing, 1 DoImageSpaceMotionBlur. Readback holds the
-// histogram queries the last program asked to read (-1 elsewhere); Cvars is
-// indexed by managed's PostCvar (the executor's kPostCvars, in order).
+// histogram queries the last program asked to read (-1 elsewhere).
 typedef struct
 {
 	int32_t Kind;
@@ -2833,7 +2821,6 @@ typedef struct
 	float AspectRatio;
 	int32_t Readback[32];
 	int32_t TextureSize[16];
-	float Cvars[64];
 } SourceSharpPostInputs_t;
 
 // SourceSharpManagedApi, the struct of managed slots native called, is gone

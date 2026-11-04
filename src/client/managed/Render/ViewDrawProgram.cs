@@ -68,7 +68,7 @@ public static class ViewDrawProgram
     /// runs (the last SetupCurrentView before it, as g_CurrentViewID is).
     /// Null when the op is not a ViewScene inside a view.
     /// </summary>
-    public static Context? ContextOf(ReadOnlySpan<RenderOp> plan, int sceneOp, in RenderInputs input)
+    public static Context? ContextOf(ReadOnlySpan<RenderOp> plan, int sceneOp, in RenderInputs input, RenderConVars convars)
     {
         if (sceneOp < 0 || sceneOp >= plan.Length || plan[sceneOp].Kind != (int)RenderOpKind.ViewScene)
             return null;
@@ -120,12 +120,12 @@ public static class ViewDrawProgram
         }
 
         return new Context(drawFlags, draws,
-                           input.Cvar(RenderCvar.r_drawentities) != 0f,
-                           input.Cvar(RenderCvar.r_drawopaquerenderables) != 0f,
-                           input.Cvar(RenderCvar.r_drawtranslucentrenderables) != 0f,
-                           input.Cvar(RenderCvar.r_drawtranslucentworld) != 0f,
-                           input.Cvar(RenderCvar.r_entityclips) != 0f,
-                           input.Cvar(RenderCvar.vcollide_wireframe) != 0f,
+                           ConVarAs.CvBool(convars.RDrawentities),
+                           ConVarAs.CvBool(convars.RDrawopaquerenderables),
+                           ConVarAs.CvBool(convars.RDrawtranslucentrenderables),
+                           ConVarAs.CvBool(convars.RDrawtranslucentworld),
+                           ConVarAs.CvBool(convars.REntityclips),
+                           ConVarAs.CvBool(convars.VCollideWireframe),
                            plan[sceneOp].GetI(0), plan[sceneOp].GetI(1),
                            input.DxLevel, input.View.Width, input.View.Height);
     }

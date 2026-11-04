@@ -40,7 +40,9 @@ public:
 	// lines in pOut. Stock's completion callback of the command the line starts with.
 	virtual int32_t CompleteCommandLine(const char* pLine, char* pOut, int32_t nOutSize) = 0;
 
-	// As WatchConVar, for a name the engine may not hold yet (another DLL's, loaded later):
+	// Forwards an engine or native convar's changes to managed's ConVarChanged under the id
+	// this answers, or -1 for none. The table survives a managed reload and never shrinks.
+	// Takes a name the engine may not hold yet (another DLL's, loaded later):
 	// the id it will be forwarded under, or -1 when the table is full.
 	virtual int32_t WatchNamedConVar(const char* pName) = 0;
 };

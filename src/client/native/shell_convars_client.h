@@ -54,13 +54,12 @@ private:
 	const CClientEngineInterfaces& m_Engines;
 };
 
-// IShimConVarsClient: the watch is the console's, which owns the change callback.
+// IShimConVarsClient: the values managed decides for native objects the engine reads.
 class CConVarsClient final : public IShimConVarsClient
 {
 public:
-	CConVarsClient(CShimConsole& console, const CClientEngineInterfaces& engines)
+	explicit CConVarsClient(const CClientEngineInterfaces& engines)
 		: m_cl_software_cursor(engines)
-		, m_Console(console)
 	{
 	}
 
@@ -111,7 +110,6 @@ public:
 	// The frame the refract texture was last updated in (view_scene.h).
 	int m_nRefractUpdateFrame = 0;
 
-	int32_t ConVarsClientWatch(const char* pName) override;
 	int32_t ConVarsClientSetValue(const char* pName, float flValue) override;
 
 private:
@@ -124,5 +122,4 @@ private:
 	DecidedValue_t m_Decided[8] = {};
 	int m_nDecided = 0;
 	CManagedConVarRef m_SvCheats{"sv_cheats"};
-	CShimConsole& m_Console;
 };

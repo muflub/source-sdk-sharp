@@ -58,6 +58,82 @@ public sealed class RDecalsConVar : BoolConVar { }
 [EngineConVar("r_drawmodeldecals")]
 public sealed class RDrawModelDecalsConVar : BoolConVar { }
 
+/// <summary><c>mat_hdr_level</c>, which the render plan reads.</summary>
+[EngineConVar("mat_hdr_level")]
+public sealed class MatHdrLevelConVar : FloatConVar { }
+
+/// <summary><c>mat_dynamic_tonemapping</c>, which the render plan reads.</summary>
+[EngineConVar("mat_dynamic_tonemapping")]
+public sealed class MatDynamicTonemappingConVar : FloatConVar { }
+
+/// <summary><c>mat_show_ab_hdr</c>, which the render plan reads.</summary>
+[EngineConVar("mat_show_ab_hdr")]
+public sealed class MatShowAbHdrConVar : FloatConVar { }
+
+/// <summary><c>mat_tonemapping_occlusion_use_stencil</c>, which the render plan reads.</summary>
+[EngineConVar("mat_tonemapping_occlusion_use_stencil")]
+public sealed class MatTonemappingOcclusionUseStencilConVar : FloatConVar { }
+
+/// <summary><c>mat_hdr_tonemapscale</c>, which the render plan reads.</summary>
+[EngineConVar("mat_hdr_tonemapscale")]
+public sealed class MatHdrTonemapscaleConVar : FloatConVar { }
+
+/// <summary><c>mat_accelerate_adjust_exposure_down</c>, which the render plan reads.</summary>
+[EngineConVar("mat_accelerate_adjust_exposure_down")]
+public sealed class MatAccelerateAdjustExposureDownConVar : FloatConVar { }
+
+/// <summary><c>mat_hdr_manual_tonemap_rate</c>, which the render plan reads.</summary>
+[EngineConVar("mat_hdr_manual_tonemap_rate")]
+public sealed class MatHdrManualTonemapRateConVar : FloatConVar { }
+
+/// <summary><c>mat_tonemap_algorithm</c>, which the render plan reads.</summary>
+[EngineConVar("mat_tonemap_algorithm")]
+public sealed class MatTonemapAlgorithmConVar : FloatConVar { }
+
+/// <summary><c>mat_force_tonemap_scale</c>, which the render plan reads.</summary>
+[EngineConVar("mat_force_tonemap_scale")]
+public sealed class MatForceTonemapScaleConVar : FloatConVar { }
+
+/// <summary><c>mat_colorcorrection</c>, which the render plan reads.</summary>
+[EngineConVar("mat_colorcorrection")]
+public sealed class MatColorcorrectionConVar : FloatConVar { }
+
+/// <summary><c>mat_queue_mode</c>, which the render plan reads.</summary>
+[EngineConVar("mat_queue_mode")]
+public sealed class MatQueueModeConVar : FloatConVar { }
+
+/// <summary><c>mat_motion_blur_enabled</c>, which the render plan reads.</summary>
+[EngineConVar("mat_motion_blur_enabled")]
+public sealed class MatMotionBlurEnabledConVar : FloatConVar { }
+
+/// <summary><c>r_waterforceexpensive</c>, which the render plan reads.</summary>
+[EngineConVar("r_waterforceexpensive")]
+public sealed class RWaterforceexpensiveConVar : FloatConVar { }
+
+/// <summary><c>r_waterforcereflectentities</c>, which the render plan reads.</summary>
+[EngineConVar("r_waterforcereflectentities")]
+public sealed class RWaterforcereflectentitiesConVar : FloatConVar { }
+
+/// <summary><c>r_drawentities</c>, which the render plan reads.</summary>
+[EngineConVar("r_drawentities")]
+public sealed class RDrawentitiesConVar : FloatConVar { }
+
+/// <summary><c>r_drawtranslucentworld</c>, which the render plan reads.</summary>
+[EngineConVar("r_drawtranslucentworld")]
+public sealed class RDrawtranslucentworldConVar : FloatConVar { }
+
+/// <summary><c>r_DrawDetailProps</c>, which the render plan reads.</summary>
+[EngineConVar("r_DrawDetailProps")]
+public sealed class RDrawDetailPropsConVar : FloatConVar { }
+
+/// <summary><c>r_flashlightdrawdepth</c>, which the render plan reads.</summary>
+[EngineConVar("r_flashlightdrawdepth")]
+public sealed class RFlashlightdrawdepthConVar : FloatConVar { }
+
+/// <summary><c>sv_restrict_aspect_ratio_fov</c>, the server's replicated cap on a wide view's FOV.</summary>
+[EngineConVar("sv_restrict_aspect_ratio_fov")]
+public sealed class SvRestrictAspectRatioFovConVar : IntConVar { }
+
 /// <summary>The material system's wireframe mode.</summary>
 [EngineConVar("mat_wireframe")]
 public sealed class MatWireframeConVar : IntConVar { }

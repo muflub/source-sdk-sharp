@@ -2840,16 +2840,13 @@ internal unsafe struct ShimPhysicsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimConVarsClient</c> through its forwarders (SSFwd_ShimConVarsClient): 2 slot(s).
+/// <c>IShimConVarsClient</c> through its forwarders (SSFwd_ShimConVarsClient): 1 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimConVarsClientFwd : IForwarderTable
 {
     /// <summary>The name native serves the table under.</summary>
     public static string TableName => "SSFwd_ShimConVarsClient";
-
-    // int32_t IShimConVarsClient::ConVarsClientWatch( const char * )
-    public delegate* unmanaged<void*, byte*, int> ConVarsClientWatch;
 
     // int32_t IShimConVarsClient::ConVarsClientSetValue( const char *, float )
     public delegate* unmanaged<void*, byte*, float, int> ConVarsClientSetValue;

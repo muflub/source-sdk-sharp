@@ -76,11 +76,6 @@ public:
 	// engine. Only after ConVar_Unregister, or the engine's ICvar would point at freed memory.
 	void ReleaseObjects();
 
-	// Forwards an engine or native convar's changes to managed's ConVarChanged under the id
-	// this answers, or -1 for no such convar. The table survives a managed reload and never
-	// shrinks.
-	int32_t WatchConVar(const char* pName);
-
 	// The id a watched name answers, or -1.
 	int32_t WatchedConVarId(const char* pName) const;
 

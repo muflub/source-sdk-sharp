@@ -162,8 +162,8 @@ public static class RenderPlanText
     /// ViewSetupVisEx (radial vis changes a clear) and whether r_drawopaqueworld
     /// is on (stock's DrawWorld reads it).
     /// </summary>
-    public static List<Expect> Expected(IReadOnlyList<RenderOp> ops, in RenderInputs input, uint visFlags)
-        => Expected(ops, input, visFlags, null);
+    public static List<Expect> Expected(IReadOnlyList<RenderOp> ops, in RenderInputs input, RenderConVars convars, uint visFlags)
+        => Expected(ops, input, convars, visFlags, null);
 
     /// <summary>
     /// The calls a plan makes. With <paramref name="scenes"/> (each entity
@@ -171,7 +171,7 @@ public static class RenderPlanText
     /// list-dependent draws are its <see cref="ViewDrawProgram"/>'s calls; without
     /// them, or for a view without entities, they are any lines.
     /// </summary>
-    public static List<Expect> Expected(IReadOnlyList<RenderOp> ops, in RenderInputs input, uint visFlags,
+    public static List<Expect> Expected(IReadOnlyList<RenderOp> ops, in RenderInputs input, RenderConVars convars, uint visFlags,
                                         IReadOnlyList<ViewSceneData>? scenes)
     {
         var e = new List<Expect>();
@@ -190,7 +190,7 @@ public static class RenderPlanText
             e.Add(Expect.LinesExcept(EntityDrawExcept()));
         }
         bool radial = false;
-        float levelOverview = input.Cvar(RenderCvar.cl_leveloverview);
+        float levelOverview = ConVarAs.Cv(convars.ClLeveloverview);
 
         for (int index = 0; index < planOps.Length; index++)
         {
@@ -243,10 +243,10 @@ public static class RenderPlanText
                     break;
                 case RenderOpKind.ViewScene:
                 {
-                    bool entities = builtRenderables.Count > 0 && builtRenderables.Peek() && input.Cvar(RenderCvar.r_drawentities) != 0f;
+                    bool entities = builtRenderables.Count > 0 && builtRenderables.Peek() && ConVarAs.Cv(convars.RDrawentities) != 0f;
                     if (scenes == null || !entities || nextScene >= scenes.Count || programs.Count == 0)
                         break;
-                    ViewDrawProgram.Context? context = ViewDrawProgram.ContextOf(planOps, index, input);
+                    ViewDrawProgram.Context? context = ViewDrawProgram.ContextOf(planOps, index, input, convars);
                     if (context == null)
                         break;
                     var program = new RenderPlanBuilder();

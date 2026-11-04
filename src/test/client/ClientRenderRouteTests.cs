@@ -57,7 +57,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void A_compare_needs_cheats()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("0"));
         using var doc = JsonDocument.Parse(Answer(route, DebugChannelQuery.RenderCompare));
         Assert.False(doc.RootElement.GetProperty("accepted").GetBoolean());
@@ -67,7 +67,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void Two_frames_the_same_compare_equal()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("1"));
         Assert.True(route.CompareFrozen(Frozen(StockFrame), false).Accepted);
         RunCompare(host, PlanFrame);
@@ -79,7 +79,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void Frames_that_part_say_where()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("1"));
         Assert.True(route.CompareFrozen(Frozen(StockFrame), true).Accepted);
         RunCompare(host, PlanFrameWithoutLights);
@@ -93,7 +93,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void A_mutated_compare_drops_DrawLights_from_the_plan_frame_only()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("1"));
         var input = default(RenderInputs);
         input.View.Width = 64;
@@ -113,7 +113,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void The_render_answer_renders_exactly()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("1"));
         route.CompareFrozen(Frozen(StockFrame), true);
         RunCompare(host, PlanFrameWithoutLights);
@@ -123,7 +123,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void Render_times_are_kept_and_reset_on_request()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("1"));
         var answer = default(RenderFrameOut);
         foreach (float ms in new[] { 3.0f, 5.0f, 0f })
@@ -140,7 +140,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void A_stock_compare_is_refused_and_says_how_to_ask()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("1"));
         using var doc = JsonDocument.Parse(Answer(route, DebugChannelQuery.RenderCompare, "1"));
         Assert.False(doc.RootElement.GetProperty("accepted").GetBoolean());
@@ -150,7 +150,7 @@ public class ClientRenderRouteTests
     [Fact]
     public void An_unreadable_frozen_frame_is_refused()
     {
-        var host = new RenderPlanHost();
+        var host = new RenderPlanHost(RenderPlannerTests.ConVars());
         var route = new ClientDebugRender(host, DeclaredConVars.Holding<SvCheatsConVar>("1"));
         Assert.False(route.CompareFrozen("/nonexistent/frozen.txt", false).Accepted);
         Assert.Equal(0, Frame(host, 1).Trace);

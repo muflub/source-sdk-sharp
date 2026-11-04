@@ -405,7 +405,6 @@ PhysicsClientCollideExtent	EngineApi	IShimPhysicsClient	client		client	-	CPhysic
 PhysicsClientPointContents	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientPointContents	float*, int	
 PhysicsClientSplashLighting	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSplashLighting	float*, float*, void	
 PhysicsClientSplashEffect	EngineApi	IShimPhysicsClient	client		client	-	CPhysicsClient::PhysicsClientSplashEffect	int, float*, float*, float, float*, float, float, void	
-ConVarsClientWatch	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientWatch	byte*, int	
 ConVarsClientSetValue	EngineApi	IShimConVarsClient	client		client	-	CConVarsClient::ConVarsClientSetValue	byte*, float, int	
 FlashlightTexture	EngineApi	IShimFlashlightClient	client		client	-	CShadowsClient::FlashlightTexture	byte*, int	
 FlashlightSupportsBorderColor	EngineApi	IShimFlashlightClient	client		client	-	CShadowsClient::FlashlightSupportsBorderColor	int	

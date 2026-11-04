@@ -519,12 +519,10 @@ public:
 										   const float* pColor, float flLifetime, float flAlpha) = 0;
 };
 
-// ConVarsClientWatch forwards a convar's changes through ConVarChanged (-1: no such convar).
 // ConVarsClientSetValue stores a value native reads; 0 for a name nothing reads.
 abstract_class IShimConVarsClient
 {
 public:
-	virtual int32_t ConVarsClientWatch(const char* pName) = 0;
 	virtual int32_t ConVarsClientSetValue(const char* pName, float flValue) = 0;
 };
 

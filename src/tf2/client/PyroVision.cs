@@ -54,7 +54,7 @@ public sealed class PyroVision(IUniformRandom random, PyroVisionConVars convars)
     public void AtVisionPoint(PostVisionContext context, IPostOps ops)
     {
         PostProcessInputs input = context.Inputs;
-        bool vision = ((int)input.Cvar(PostCvar.localplayer_visionflags) & 0x01) != 0;
+        bool vision = (convars.VisionFlags.Value & 0x01) != 0;
         int vignette = (int)convars.Vignette.Value;
         if (!vision || input.SupportsPixelShaders20 == 0 || vignette <= 0)
             return;

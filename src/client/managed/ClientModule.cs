@@ -924,9 +924,11 @@ public sealed class ClientModule : ISideModule, IClientModule, IConVarHost, ICli
         // C7 post-processing: viewpostprocess.cpp's passes as a managed program,
         // and the hook a mod draws its own pass through.
         _services.AddFactory<IHooks<Render.IPostProcessContributor>>(locator => new Hooks<Render.IPostProcessContributor>(locator, log));
+        _services.Add<Render.RenderConVars>();
+        _services.Add<Render.PostProcessConVars>();
         _services.AddFactory<Render.PostProcessHost>(locator => new Render.PostProcessHost(
             locator.Require<IHooks<Render.IPostProcessContributor>>(),
-            locator.Require<IFxRender>(), locator.Require<IEngineConsole>(), log, _engineClient));
+            locator.Require<IFxRender>(), locator.Require<IEngineConsole>(), log, _engineClient, locator.Require<Render.PostProcessConVars>()));
         _services.AddFactory<MaterialProxies.IPostProxyValues>(locator => locator.Require<Render.PostProcessHost>());
         _services.AddFactory<Render.DemoViewCamera>(locator => new Render.DemoViewCamera(
             button => _inputService?.KeyState(button) ?? 0f, () => locator.Require<Render.ClDemoviewoverrideConVar>().Value));

@@ -13,8 +13,10 @@ namespace TF2.Client;
 public sealed class PyroVisionConVars(PyroVignetteConVar vignette, PyroMinIntensityConVar minIntensity, PyroMaxIntensityConVar maxIntensity,
                                       PyroMinRateConVar minRate, PyroMaxRateConVar maxRate,
                                       PyroMinSideWidthConVar minSideWidth, PyroMaxSideWidthConVar maxSideWidth,
-                                      PyroMinSideLengthConVar minSideLength, PyroMaxSideLengthConVar maxSideLength)
+                                      PyroMinSideLengthConVar minSideLength, PyroMaxSideLengthConVar maxSideLength,
+                                      SourceSharp.Client.LocalPlayerVisionFlagsConVar visionFlags)
 {
+    public readonly SourceSharp.Client.LocalPlayerVisionFlagsConVar VisionFlags = visionFlags;
     public readonly PyroVignetteConVar Vignette = vignette;
     public readonly PyroMinIntensityConVar MinIntensity = minIntensity;
     public readonly PyroMaxIntensityConVar MaxIntensity = maxIntensity;

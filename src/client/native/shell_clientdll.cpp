@@ -513,7 +513,7 @@ private:
 	CManagedSide m_ManagedSide{m_Managed, m_Diagnostics, m_CVars, m_ShimRoot};
 
 	// The convar area: watches through the root's console.
-	CConVarsClient m_ConVars{m_ShimRoot.m_Console, m_Engines};
+	CConVarsClient m_ConVars{m_Engines};
 
 	// The engine interfaces Init acquires, handed to what calls them.
 	CClientEngineInterfaces m_Engines;

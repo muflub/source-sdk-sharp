@@ -282,7 +282,7 @@ public class ViewCameraTests
     [Fact]
     public void The_viewcam_answer_carries_the_plans_monitor_passes()
     {
-        var plan = new SourceSharp.Client.Render.RenderPlanHost();
+        var plan = new SourceSharp.Client.Render.RenderPlanHost(RenderPlannerTests.ConVars());
         var setup = new ViewTargetSetup { Width = 64, Height = 64, Fov = 90, ZNear = 4, ZFar = 100 };
         Assert.True(plan.QueueMonitor(0, setup));
         plan.BuildPlan(RenderPlannerTests.Inputs(), new RenderOp[512]);

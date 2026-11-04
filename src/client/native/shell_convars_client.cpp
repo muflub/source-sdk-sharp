@@ -30,11 +30,6 @@ const int kNameBytes = 64;
 // The decided values: a name and its float, set by managed.
 } // namespace
 
-int32_t CConVarsClient::ConVarsClientWatch(const char* pName)
-{
-	return m_Console.WatchConVar(pName);
-}
-
 int32_t CConVarsClient::ConVarsClientSetValue(const char* pName, float flValue)
 {
 	if (!pName || !pName[0] || V_strlen(pName) >= kNameBytes)
