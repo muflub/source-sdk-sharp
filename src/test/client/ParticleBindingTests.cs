@@ -72,7 +72,7 @@ public class ParticleBindingTests
     {
         ParticleBinding b = WithParticles((1, Vector.Zero), (2, Vector.Zero), (3, Vector.Zero));
         // List order is 3, 2, 1 (each linked at the head).
-        b.SortAfterDraw(0, [-10f, -50f, -30f], bucketSort: true);
+        b.SortAfterDraw(0, [-10f, -50f, -30f], bucketSort: true, new ParticleSortScratch());
         Assert.Equal([2, 1, 3], b.Materials[0].Select(p => p.Id));
     }
 
@@ -81,7 +81,7 @@ public class ParticleBindingTests
     public void ADrawWithoutTheBucketSortSwapsOnePlaceBack()
     {
         ParticleBinding b = WithParticles((1, Vector.Zero), (2, Vector.Zero), (3, Vector.Zero));
-        b.SortAfterDraw(0, [1f, 3f, 2f], bucketSort: false);
+        b.SortAfterDraw(0, [1f, 3f, 2f], bucketSort: false, new ParticleSortScratch());
         Assert.Equal([3, 1, 2], b.Materials[0].Select(p => p.Id));
     }
 

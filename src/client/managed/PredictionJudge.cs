@@ -56,9 +56,17 @@ public static class PredictionJudge
     public static byte[] OverlayDeclared(ReadOnlySpan<byte> predicted, ReadOnlySpan<byte> arrived,
                                          int declaredStart)
     {
-        byte[] image = arrived.ToArray();
-        predicted[declaredStart..].CopyTo(image.AsSpan(declaredStart));
+        var image = new byte[arrived.Length];
+        OverlayDeclared(predicted, arrived, declaredStart, image);
         return image;
+    }
+
+    /// <summary>The same, into <paramref name="image"/> (the arrival's length).</summary>
+    public static void OverlayDeclared(ReadOnlySpan<byte> predicted, ReadOnlySpan<byte> arrived,
+                                       int declaredStart, Span<byte> image)
+    {
+        arrived.CopyTo(image);
+        predicted[declaredStart..].CopyTo(image[declaredStart..]);
     }
 
     /// <summary>

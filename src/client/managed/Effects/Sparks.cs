@@ -5,15 +5,24 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 using SourceSharp.Client.Interop;
 using SourceSharp.Client.TempEnts;
 
 namespace SourceSharp.Client.Effects;
 
-/// <summary><c>TrailParticle</c> (fx_sparks.h) plus the executor's id.</summary>
-public struct TrailParticle
+/// <summary>A particle with a place, for <see cref="TrailEmitter.SetBounds{T}"/>'s walk of a sheet.</summary>
+public interface IParticlePlace
 {
+    Vector Place { get; }
+}
+
+/// <summary><c>TrailParticle</c> (fx_sparks.h) plus the executor's id.</summary>
+public struct TrailParticle : IParticlePlace
+{
+    readonly Vector IParticlePlace.Place => Position;
+
     public int Id;
     public Vector Position;
     public Vector Velocity;
@@ -173,11 +182,12 @@ public sealed class TrailEmitter(string material, ParticleViews views, IParticle
             idsOut[i] = _pending[i].Id;
         }
         _pending.RemoveRange(0, n);
-        SetBounds(ref emit, Box, _particles.Select(p => p.Position));
+        SetBounds<TrailParticle>(ref emit, Box, CollectionsMarshal.AsSpan(_particles));
         return n;
     }
 
-    internal static void SetBounds(ref ParticleEmit emit, (Vector Mins, Vector Maxs)? box, IEnumerable<Vector> positions)
+    internal static void SetBounds<T>(ref ParticleEmit emit, (Vector Mins, Vector Maxs)? box, ReadOnlySpan<T> particles)
+        where T : struct, IParticlePlace
     {
         if (box is { } b)
         {
@@ -189,8 +199,9 @@ public sealed class TrailEmitter(string material, ParticleViews views, IParticle
 
         bool any = false;
         Vector mins = default, maxs = default;
-        foreach (Vector v in positions)
+        foreach (ref readonly T particle in particles)
         {
+            Vector v = particle.Place;
             mins = any ? ParticleMath.Min(mins, v) : v;
             maxs = any ? ParticleMath.Max(maxs, v) : v;
             any = true;
@@ -240,7 +251,7 @@ public sealed class TrailEmitter(string material, ParticleViews views, IParticle
         if (!view.IsSet())
             return 0;
         int n = 0;
-        foreach (var p in _particles.OrderByDescending(p => p.Id))
+        foreach (var p in _particles)
             quadsOut[n++] = TrailRules.Draw(p, Flags, view).ToRaw(p.Id);
         return n;
     }
@@ -367,7 +378,7 @@ public sealed class SimpleSheet(string material, IParticleRandom random, Particl
             idsOut[i] = _pending[i].Id;
         }
         _pending.RemoveRange(0, n);
-        TrailEmitter.SetBounds(ref emit, Box, Emitter.Particles.Select(p => p.Position));
+        TrailEmitter.SetBounds(ref emit, Box, Emitter.ParticleSpan);
         return n;
     }
 
@@ -415,13 +426,13 @@ public sealed class SimpleSheet(string material, IParticleRandom random, Particl
 
     public int Draw(Span<ParticleQuadRaw> quadsOut)
     {
-        var particles = Emitter.Particles;
-        if (particles.Count > quadsOut.Length)
-            return particles.Count;
+        ReadOnlySpan<SimpleParticle> particles = Emitter.ParticleSpan;
+        if (particles.Length > quadsOut.Length)
+            return particles.Length;
         if (Gate is { } gate && !gate.Draws(views.Current.ViewId, curTime(), visibility))
             return 0;
         int n = 0;
-        foreach (var p in particles.OrderByDescending(p => p.Id))
+        foreach (ref readonly SimpleParticle p in particles)
             quadsOut[n++] = Emitter.Draw(p).ToRaw(p.Id);
         return n;
     }

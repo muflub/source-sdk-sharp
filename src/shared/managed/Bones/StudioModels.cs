@@ -178,11 +178,13 @@ public sealed class StudioModels : IBoneModels
 
     private Entry? Open(int modelIndex)
     {
-        if (_models.TryGetValue(modelIndex, out Entry? held))
-        {
-            return held;
-        }
+        return _models.TryGetValue(modelIndex, out Entry? held) ? held : Load(modelIndex);
+    }
 
+    // Its own method: the lambdas below capture the index, and a captured
+    // parameter makes its closure on entry, so a hit above would pay for it.
+    private Entry? Load(int modelIndex)
+    {
         byte[]? mdl = _memory.ModelImage(modelIndex);
 
         if (mdl is null)

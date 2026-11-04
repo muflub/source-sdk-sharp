@@ -2638,7 +2638,7 @@ static void *const s_ShimDiagnosticsClientSlots[] = {
 static const SSForwarderTable s_ShimDiagnosticsClientTable = { s_ShimDiagnosticsClientSlots, 2 };
 
 //-----------------------------------------------------------------------------
-// ShimUiClient: 23 forwarder(s) over IShimUiClient.
+// ShimUiClient: 24 forwarder(s) over IShimUiClient.
 //-----------------------------------------------------------------------------
 // void IShimUiClient::UiDrawFilledRect( int32_t, int32_t, int32_t, int32_t, uint32_t )
 static void SSFwd_ShimUiClient_UiDrawFilledRect( IShimUiClient *self, int32_t a0, int32_t a1, int32_t a2, int32_t a3, uint32_t a4 ) { self->UiDrawFilledRect( a0, a1, a2, a3, a4 ); }
@@ -2686,6 +2686,8 @@ static void SSFwd_ShimUiClient_ClientModeLayout( IShimUiClient *self ) { self->C
 static void SSFwd_ShimUiClient_UiDrawTexturedQuad( IShimUiClient *self, int32_t a0, const float * a1, int32_t a2, uint32_t a3, int32_t a4 ) { self->UiDrawTexturedQuad( a0, a1, a2, a3, a4 ); }
 // int32_t IShimUiClient::UiMaterialTexture( const char * )
 static int32_t SSFwd_ShimUiClient_UiMaterialTexture( IShimUiClient *self, const char * a0 ) { return self->UiMaterialTexture( a0 ); }
+// void IShimUiClient::UiDrawMesh( int32_t, const float *, const uint32_t *, int32_t, const uint16_t *, int32_t )
+static void SSFwd_ShimUiClient_UiDrawMesh( IShimUiClient *self, int32_t a0, const float * a1, const uint32_t * a2, int32_t a3, const uint16_t * a4, int32_t a5 ) { self->UiDrawMesh( a0, a1, a2, a3, a4, a5 ); }
 
 static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawFilledRect ),
@@ -2711,9 +2713,10 @@ static void *const s_ShimUiClientSlots[] = {
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_ClientModeLayout ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawTexturedQuad ),
 	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiMaterialTexture ),
+	reinterpret_cast< void * >( &SSFwd_ShimUiClient_UiDrawMesh ),
 };
 
-static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 23 };
+static const SSForwarderTable s_ShimUiClientTable = { s_ShimUiClientSlots, 24 };
 
 //-----------------------------------------------------------------------------
 // ShimParticlesClient: 20 forwarder(s) over IShimParticlesClient.

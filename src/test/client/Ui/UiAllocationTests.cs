@@ -190,6 +190,7 @@ public class UiAllocationTests(ITestOutputHelper output)
         public void TexturedRect(int texture, int x0, int y0, int x1, int y1, float s0, float t0, float s1, float t1, uint rgba) => Draws++;
         public void Polygon(int texture, ReadOnlySpan<float> xyuv, uint rgba) => Draws++;
         public void TexturedQuad(int texture, ReadOnlySpan<float> xyuv, uint rgba, bool additive) => Draws++;
+        public void Mesh(int texture, ReadOnlySpan<float> xyuv, ReadOnlySpan<uint> rgba, ReadOnlySpan<ushort> indices) => Draws += indices.Length / 6;
         public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba) => Draws++;
         public void MeasureText(int font, ReadOnlySpan<char> text, out int width, out int height) => (width, height) = (0, 0);
         public void SetClip(bool enabled, int x0, int y0, int x1, int y1) => Draws++;

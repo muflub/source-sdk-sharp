@@ -274,12 +274,13 @@ public sealed unsafe class EngineServer : IFwdEngineServer, ISaveMemory, SourceS
 
     public string? ClientConVarValue(int entIndex, string name)
     {
-        byte[] bytes = Vtable.Utf8(name);
+        ReadOnlySpan<byte> bytes = Vtable.Utf8(name, stackalloc byte[MaxConVarName]);
         fixed (byte* p = bytes)
             return Vtable.TextOf(_fwd->GetClientConVarValue(_self, entIndex, p), MaxConVarValue);
     }
 
     private const int MaxConVarValue = 256;
+    private const int MaxConVarName = 256;
 
     // "[ipv6]:port" is 47 bytes; the engine's own netadr text is shorter.
     private const int MaxAddress = 64;

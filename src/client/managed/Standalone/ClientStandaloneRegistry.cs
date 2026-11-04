@@ -320,6 +320,9 @@ public sealed class ClientStandaloneRegistry : IClientStandalones
     public IReadOnlyList<ClientStandaloneEntity> Live()
         => Directory.Snapshot();
 
+    public void CopyLive(List<ClientStandaloneEntity> into)
+        => Directory.CopyLive(into);
+
     /// <summary>Told each removal, after the entity's own OnRemoved: the client's skeletons forget it.</summary>
     public Action<EntityHandle>? RemovalForget { get; set; }
 

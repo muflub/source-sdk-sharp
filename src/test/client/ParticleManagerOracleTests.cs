@@ -334,7 +334,7 @@ public class ParticleManagerOracleTests
                         break;
                     int mat = b.Mat(I(c[3]));
                     var before = b.Model.Materials[mat].Select(p => p.Id).ToList();
-                    b.Model.SortAfterDraw(mat, b.Keys.ToArray(), b.DrawBucket);
+                    b.Model.SortAfterDraw(mat, b.Keys.ToArray(), b.DrawBucket, new ParticleSortScratch());
                     sorts++;
                     if (b.DrawBucket)
                         buckets++;

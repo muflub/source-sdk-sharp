@@ -365,6 +365,7 @@ UiDebugOverlayClearDead	EngineApi	IShimUiClient	client		client	-	CDebugOverlayCl
 ClientModeLayout	EngineApi	IShimUiClient	client		client	-	CSourceSharpClientMode::Layout	void	
 UiDrawTexturedQuad	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawTexturedQuad	int, float*, int, uint, int, void	
 UiMaterialTexture	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiMaterialTexture	byte*, int	
+UiDrawMesh	EngineApi	IShimUiClient	client		client	-	CHudUiClient::UiDrawMesh	int, float*, uint*, int, ushort*, int, void	
 SoundscapeSetRoomType	EngineApi	IShimSoundscapeClient	client		client	-	CSoundscapeAudioClient::SoundscapeSetRoomType	int, void	
 SoundscapeSetPlayerDsp	EngineApi	IShimSoundscapeClient	client		client	-	CSoundscapeAudioClient::SoundscapeSetPlayerDsp	int, void	
 SoundscapeMainView	EngineApi	IShimSoundscapeClient	client		client	-	CSoundscapeAudioClient::SoundscapeMainView	float*, void	

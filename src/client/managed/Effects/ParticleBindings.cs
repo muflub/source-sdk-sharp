@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
 using SourceSharp.Abi;
 
 namespace SourceSharp.Client.Effects;
@@ -31,6 +32,27 @@ public enum ParticleBindingFlags
 
 /// <summary>One particle in a binding's material list: managed's id and the position the manager holds for it.</summary>
 public record struct BoundParticle(int Id, Vector Position);
+
+/// <summary>
+/// What a bucket sort sorts through: the manager keeps one for all its bindings,
+/// since a short-lived effect's binding would otherwise make its own 32 lists.
+/// </summary>
+public sealed class ParticleSortScratch
+{
+    private const int NumBuckets = 32;
+
+    internal List<BoundParticle>[] Buckets { get; } = NewBuckets();
+
+    internal List<BoundParticle> Rest { get; } = [];
+
+    private static List<BoundParticle>[] NewBuckets()
+    {
+        var buckets = new List<BoundParticle>[NumBuckets];
+        for (int b = 0; b < NumBuckets; b++)
+            buckets[b] = [];
+        return buckets;
+    }
+}
 
 /// <summary>
 /// particlemgr.cpp's <c>CParticleEffectBinding</c>, the decisions half: the
@@ -303,12 +325,12 @@ public sealed class ParticleBinding
     /// incremental swap (CParticleRenderIterator::GetNext), or the bucket sort
     /// (CParticleEffectBinding::DoBucketSort).
     /// </summary>
-    public void SortAfterDraw(int material, ReadOnlySpan<float> keys, bool bucketSort)
+    public void SortAfterDraw(int material, ReadOnlySpan<float> keys, bool bucketSort, ParticleSortScratch scratch)
     {
         List<BoundParticle> list = Materials[material];
         if (bucketSort)
         {
-            BucketSort(list, keys);
+            BucketSort(list, keys, scratch);
             return;
         }
 
@@ -323,7 +345,7 @@ public sealed class ParticleBinding
         }
     }
 
-    private static void BucketSort(List<BoundParticle> list, ReadOnlySpan<float> keys)
+    private static void BucketSort(List<BoundParticle> list, ReadOnlySpan<float> keys, ParticleSortScratch scratch)
     {
         float minZ = 1e24f, maxZ = -1e24f;
         foreach (float k in keys)
@@ -332,9 +354,9 @@ public sealed class ParticleBinding
             maxZ = k > maxZ ? k : maxZ;
         }
 
-        var buckets = new List<BoundParticle>[NumBuckets];
-        for (int b = 0; b < NumBuckets; b++)
-            buckets[b] = [];
+        List<BoundParticle>[] buckets = scratch.Buckets;
+        foreach (List<BoundParticle> bucket in buckets)
+            bucket.Clear();
 
         int n = Math.Min(list.Count, keys.Length);
         for (int i = 0; i < n; i++)
@@ -346,7 +368,9 @@ public sealed class ParticleBinding
         }
 
         // Each bucket's particles go back in at the list's head, bucket by bucket.
-        var rest = list.GetRange(n, list.Count - n);
+        List<BoundParticle> rest = scratch.Rest;
+        rest.Clear();
+        rest.AddRange(CollectionsMarshal.AsSpan(list)[n..]);
         list.Clear();
         for (int b = 0; b < NumBuckets; b++)
         {

@@ -43,6 +43,8 @@
 #include "vgui/MouseCode.h"
 #include "vgui/VGUI.h"
 #include "materialsystem/imaterial.h"
+#include "materialsystem/imaterialsystem.h"
+#include "materialsystem/imesh.h"
 #include "cdll_client_int.h"
 #include "cdll_int.h"
 #include "cdll_util.h"
@@ -255,6 +257,45 @@ int32_t CHudUiClient::UiMaterialTexture(const char* pName)
 	if (m_nMaterialTextures < (int)(sizeof(m_MaterialTextures) / sizeof(m_MaterialTextures[0])))
 		m_MaterialTextures[m_nMaterialTextures++] = id;
 	return id;
+}
+
+// One mesh of the texture's material: a single GPU draw however many shapes it
+// holds, where each surface call is a draw of its own (POSIX defaults
+// mat_bufferprimitives to 0). The surface's clip does not reach it.
+void CHudUiClient::UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+							  const uint16_t* pIndices, int32_t nIndices)
+{
+	if (!m_bPaintOpen || !pXyuv || !pRgba || !pIndices || nVertices < 3 || nIndices < 3 ||
+		!m_Engines.m_pMatSystemSurface || !m_Engines.m_pVGuiSurface->IsTextureIDValid(nTexture))
+		return;
+
+	IMaterial* pMaterial = m_Engines.m_pMatSystemSurface->DrawGetTextureMaterial(nTexture);
+	if (!pMaterial)
+		return;
+
+	CMatRenderContextPtr pRenderContext(m_Engines.m_pMaterials);
+	IMesh* pMesh = pRenderContext->GetDynamicMesh(true, NULL, NULL, pMaterial);
+	int nMaxVertices = 0, nMaxIndices = 0;
+	pRenderContext->GetMaxToRender(pMesh, false, &nMaxVertices, &nMaxIndices);
+	if (nVertices > nMaxVertices || nIndices > nMaxIndices)
+		return;
+
+	const float flAlpha = m_Engines.m_pVGuiSurface->DrawGetAlphaMultiplier();
+	CMeshBuilder meshBuilder;
+	meshBuilder.Begin(pMesh, MATERIAL_TRIANGLES, nVertices, nIndices);
+	for (int i = 0; i < nVertices; i++)
+	{
+		const uint32_t nRgba = pRgba[i];
+		meshBuilder.Position3f(pXyuv[i * 4 + 0], pXyuv[i * 4 + 1], 0.0f);
+		meshBuilder.Color4ub((nRgba >> 24) & 0xFF, (nRgba >> 16) & 0xFF, (nRgba >> 8) & 0xFF,
+							 (unsigned char)((nRgba & 0xFF) * flAlpha));
+		meshBuilder.TexCoord2f(0, pXyuv[i * 4 + 2], pXyuv[i * 4 + 3]);
+		meshBuilder.AdvanceVertex();
+	}
+	for (int i = 0; i < nIndices; i++)
+		meshBuilder.FastIndex(pIndices[i]);
+	meshBuilder.End();
+	pMesh->Draw();
 }
 
 void CHudUiClient::UiDrawText(int32_t nFont, int32_t x, int32_t y, const uint16_t* pText, int32_t nLength,

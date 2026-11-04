@@ -812,6 +812,12 @@ int32_t CShimUiClient::UiMaterialTexture(const char* pName)
 	return m_pHudUiClient->UiMaterialTexture(pName);
 }
 
+void CShimUiClient::UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+							   const uint16_t* pIndices, int32_t nIndices)
+{
+	return m_pHudUiClient->UiDrawMesh(nTexture, pXyuv, pRgba, nVertices, pIndices, nIndices);
+}
+
 int32_t CShimParticlesClient::ParticlesCreate(uint32_t hOwner, int32_t nChannel, const char* pszMaterial,
 											  float flCullRadius, int32_t bAlwaysSimulate)
 {

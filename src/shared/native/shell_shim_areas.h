@@ -383,6 +383,8 @@ public:
 	void UiDrawTexturedQuad(int32_t nTexture, const float* pXyuv, int32_t nVertices, uint32_t nRgba,
 							int32_t bAdditive) override;
 	int32_t UiMaterialTexture(const char* pName) override;
+	void UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+					const uint16_t* pIndices, int32_t nIndices) override;
 
 	// What the delegated slots call, set by the tier that owns each object.
 	CHudUiClient* m_pHudUiClient = nullptr;

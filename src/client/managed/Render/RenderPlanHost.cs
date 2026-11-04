@@ -420,6 +420,7 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     private RenderInputs _lastInputs;
     private readonly RenderPlanBuilder _viewProgram = new();
+    private readonly ViewSceneData _viewScene = new();
     private readonly RenderPlanBuilder _shadowDepth = new();
 
     /// <summary>Shadow-depth views planned (CViewRender::UpdateShadowDepthTexture).</summary>
@@ -464,14 +465,15 @@ public sealed class RenderPlanHost : IClientRenderPlan
 
     public int BuildViewProgram(ReadOnlySpan<byte> sceneBytes, Span<RenderOp> ops)
     {
-        ViewSceneData? scene = ViewSceneData.FromBytes(sceneBytes);
+        ViewSceneData scene = _viewScene;
+        bool filled = scene.TryFill(sceneBytes);
         ViewDrawProgram.Context? context = null;
-        if (scene != null)
+        if (filled)
         {
             lock (_lock)
                 context = ViewDrawProgram.ContextOf(_lastPlan.AsSpan(0, _lastPlanLength), scene.Header.OpIndex, _lastInputs, _convars);
         }
-        if (scene == null || context == null)
+        if (!filled || context == null)
         {
             lock (_lock)
                 ViewProgramsDeclined++;

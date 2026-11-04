@@ -49,6 +49,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
     private byte[] _weaponScratch = Array.Empty<byte>();
     private byte[] _viewModelScratch = Array.Empty<byte>();
 
+    // What a compare judges in, and a weapon state that reads a saved slot's
+    // stamp, neither kept past the compare.
+    private byte[] _judged = [];
+    private readonly WeaponNetState _slotView = new();
+
     private ClientSsWeapon? _localWeapon;
     private ClientSsViewModel? _localViewModel;
 
@@ -163,6 +168,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
         _weapon.BindLocal();
         _viewModel.BindLocal();
+        _slotView.BindLocal();
     }
 
     /// <summary>
@@ -549,11 +555,9 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         if (slot.IsEmpty || slot.Length != _weaponScratch.Length)
             return false;
 
-        var saved = new WeaponNetState();
-        saved.BindLocal();
-        saved.Decode(slot);
+        _slotView.Decode(slot);
 
-        return saved.DeployEpoch != _localWeapon!.State.DeployEpoch;
+        return _slotView.DeployEpoch != _localWeapon!.State.DeployEpoch;
     }
 
     private void CompareOne(PredictionRing ring, NetState arrivedState, string className, int acknowledged)
@@ -566,7 +570,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
             return;
         }
 
-        byte[] arrived = arrivedState.Snapshot();
+        ReadOnlySpan<byte> arrived = arrivedState.LiveBytes;
 
         if (arrived.Length != predicted.Length)
         {
@@ -579,10 +583,11 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         // their owner every frame and nothing here predicts that, so the
         // origin's bytes read as "(padding@24..)" mispredictions on every
         // landing.
-        byte[] judged = PredictionJudge.OverlayDeclared(predicted, arrived,
-            PredictionJudge.DeclaredStart(arrivedState.GetType(), arrived.Length));
+        Span<byte> judged = Scratch.Sized(ref _judged, arrived.Length);
+        PredictionJudge.OverlayDeclared(predicted, arrived,
+            PredictionJudge.DeclaredStart(arrivedState.GetType(), arrived.Length), judged);
 
-        if (judged.AsSpan().SequenceEqual(arrived))
+        if (judged.SequenceEqual(arrived))
         {
             _holds++;
             ClearWitnessedPoke(ring, acknowledged, className);
@@ -703,8 +708,8 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
     private void ResizeRings()
     {
-        int weaponBytes = _localWeapon!.State.Snapshot().Length;
-        int viewModelBytes = _localViewModel!.State.Snapshot().Length;
+        int weaponBytes = _localWeapon!.State.LiveBytes.Length;
+        int viewModelBytes = _localViewModel!.State.LiveBytes.Length;
 
         if (_weaponRing.BlobBytes != weaponBytes)
         {
@@ -721,10 +726,7 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
 
     private static void CopyState(NetState from, NetState to)
     {
-        // Snapshot allocates; this runs once per frame per state, and the
-        // decoded side has no span accessor. Worth a CopyTo pair if profiling
-        // ever asks.
-        byte[] bytes = from.Snapshot();
+        ReadOnlySpan<byte> bytes = from.LiveBytes;
 
         if (bytes.Length > 0)
             to.Decode(bytes);

@@ -98,7 +98,7 @@ public sealed class RenderTrace
                 }
                 leaves[i].SetTranslucent(0, answer);
             }
-            scenes.Add(new ViewSceneData(header, leaves, scene.Entries));
+            scenes.Add(new ViewSceneData(header, leaves, scene.Entries.ToArray()));
         }
         return scenes;
     }

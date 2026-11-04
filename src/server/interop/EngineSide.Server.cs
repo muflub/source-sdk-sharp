@@ -285,7 +285,7 @@ internal sealed unsafe partial class EngineSide
         const int bufSize = 128;
         byte* buf = stackalloc byte[bufSize];
         entitiesServerArea.EntityGetClassName(h.Value, buf, bufSize);
-        return FromUtf8(buf);
+        return Names.Of(MemoryMarshal.CreateReadOnlySpanFromNullTerminated(buf));
     }
 
     /// <summary>

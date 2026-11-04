@@ -1182,6 +1182,28 @@ public unsafe class ClientSkeletonsTests
         Assert.Equal((-9f, -9f), (At(output, 3).X, At(output, 4).X));
     }
 
+    // A shell casing is posed every frame it draws; one of these twice must be the same pose.
+    [Fact]
+    public void ATempEntsPoseTakesItsTablesFromTheScratchAndAnswersTheSameAgain()
+    {
+        using Rig rig = new();
+        float[] first = new float[5 * Floats], again = new float[5 * Floats];
+        float[] place = [200f, 0f, 0f, 0f, 0f, 0f];
+        float[] render = RenderAt(-9f);
+
+        rig.Skeletons.PoseModel(Model, place, render, first, UsedByAnything, 1f, 7);
+        for (int i = 0; i < 8; i++)
+            rig.Skeletons.PoseModel(Model, place, render, again, UsedByAnything, 1f, 7);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        rig.Skeletons.PoseModel(Model, place, render, again, UsedByAnything, 1f, 7);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(first, again);
+        // No table of MAXSTUDIOBONES bones: the smallest, a Vector[128], is 1.5 KB.
+        Assert.InRange(allocated, 0, 1024);
+    }
+
     [Fact]
     public void AModelWithNoStudioDataIsTheRenderTransformInEverySlot()
     {

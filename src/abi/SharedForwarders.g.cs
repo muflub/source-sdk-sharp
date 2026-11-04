@@ -2418,7 +2418,7 @@ internal unsafe struct ShimDiagnosticsClientFwd : IForwarderTable
 }
 
 /// <summary>
-/// <c>IShimUiClient</c> through its forwarders (SSFwd_ShimUiClient): 23 slot(s).
+/// <c>IShimUiClient</c> through its forwarders (SSFwd_ShimUiClient): 24 slot(s).
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
 internal unsafe struct ShimUiClientFwd : IForwarderTable
@@ -2494,6 +2494,9 @@ internal unsafe struct ShimUiClientFwd : IForwarderTable
 
     // int32_t IShimUiClient::UiMaterialTexture( const char * )
     public delegate* unmanaged<void*, byte*, int> UiMaterialTexture;
+
+    // void IShimUiClient::UiDrawMesh( int32_t, const float *, const uint32_t *, int32_t, const uint16_t *, int32_t )
+    public delegate* unmanaged<void*, int, void*, void*, int, void*, int, void> UiDrawMesh;
 }
 
 /// <summary>

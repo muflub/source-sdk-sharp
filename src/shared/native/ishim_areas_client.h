@@ -354,6 +354,11 @@ public:
 	// resolves the .vmt (any shader, Refract included) and the draw slots run
 	// the material's own shader, as stock's DrawSetTextureFile. 0 when the name loads nothing.
 	virtual int32_t UiMaterialTexture(const char* pName) = 0;
+	// One draw of indexed triangles with a colour per vertex: (x, y, u, v) per
+	// vertex, 0xRRGGBBAA per vertex. Not clipped: managed sends only what lies
+	// inside its clip.
+	virtual void UiDrawMesh(int32_t nTexture, const float* pXyuv, const uint32_t* pRgba, int32_t nVertices,
+							const uint16_t* pIndices, int32_t nIndices) = 0;
 };
 
 // The executor for managed particle sims, one per (owner, channel), registered with

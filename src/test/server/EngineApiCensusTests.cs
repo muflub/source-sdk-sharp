@@ -444,7 +444,8 @@ public partial class EngineApiCensusTests
     // The blueprint's shadow hull (tf2): StandaloneSetShadowHull, the placing
     // sentry's shadow cast from its collision hull (260 + 1 = 261).
     // ConVarsClientAddFlags, marking the material config's convars (261 + 1 = 262).
-    private const int ClientOnly = 262;
+    // UiDrawMesh, the HUD's fills and polygons as one draw (262 + 1 = 263).
+    private const int ClientOnly = 263;
     // (Rebased onto lane c2-beams: 54 +2 = 56.)
     // Sound cluster 17: IShimConsole's RevertNamedConVar (60 + 1 = 61). Measured.
     // C6 cluster 9: the four above, both-sided now (61 + 4 = 65).

@@ -21,6 +21,16 @@ public sealed record UiFontFiles(IReadOnlyList<string> Paths);
 /// </para>
 ///
 /// <para>
+/// Batching: every surface call is a GPU draw of its own (POSIX defaults
+/// mat_bufferprimitives to 0), so fills, borders and polygons, all of that one
+/// white material, collect in a <see cref="UiMeshBatch"/> that goes down as one
+/// draw. Text, textures and thin lines stay surface calls, and each flushes
+/// the batch first, so nothing changes what is drawn over what. The mesh is
+/// past the surface's clip: what crosses the current clip is a surface call too,
+/// and a clip change alone flushes nothing.
+/// </para>
+///
+/// <para>
 /// Fonts: one vgui font per (family, px, weight, flags), created on first use
 /// and kept; their metrics and the advances of printable ASCII are read once
 /// per font, so layout measures without crossing. A character outside that
@@ -49,6 +59,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
     private int _clipDepth;
     private int _white;
     private bool _filesAdded;
+    private readonly UiMeshBatch _mesh = new();
     private volatile bool _restored;
 
     /// <summary>What the last <see cref="Draw"/> drew.</summary>
@@ -154,6 +165,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
                 case UiPrimitiveKind.TexturedQuad:
                 {
                     var t = list.TexturedQuads[op.Index];
+                    Flush();
                     Edges(t.Rect, out int x0, out int y0, out int x1, out int y1);
                     if (t.Rotation != 0f || t.Blend != UiBlend.Normal)
                     {
@@ -204,6 +216,8 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
             }
         }
 
+        Flush();
+
         // A list that left a clip open must not leave it on the surface.
         if (_clipDepth > 0)
         {
@@ -220,7 +234,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
         // a solid fill only when it shows.
         if (q.Fade != UiFade.None)
         {
-            surface.FilledRectFade(x0, y0, x1, y1, Pack(q.Color), q.Color.A, q.AlphaEnd, q.Fade == UiFade.Horizontal);
+            Fade(q, x0, y0, x1, y1);
             Ledger.Add(UiLedgerKind.Fade, x0, y0, x1, y1, q.Color, element);
         }
         else if (q.Color.A > 0)
@@ -228,7 +242,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
             if (q.Radius >= 1f)
                 Rounded(q.Rect, q.Radius, q.Color);
             else
-                surface.FilledRect(x0, y0, x1, y1, Pack(q.Color));
+                FillRect(x0, y0, x1, y1, Pack(q.Color));
             Ledger.Add(UiLedgerKind.Fill, x0, y0, x1, y1, q.Color, element);
         }
 
@@ -248,13 +262,19 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
         {
             if (w == 1)
             {
-                surface.OutlinedRect(x0, y0, x1, y1, rgba);
-                return;
+                if (x1 <= x0 || y1 <= y0)
+                    return;
+                if (!Inside(x0, y0, x1, y1))
+                {
+                    Flush();
+                    surface.OutlinedRect(x0, y0, x1, y1, rgba);
+                    return;
+                }
             }
-            surface.FilledRect(x0, y0, x1, y0 + w, rgba);
-            surface.FilledRect(x0, y1 - w, x1, y1, rgba);
-            surface.FilledRect(x0, y0 + w, x0 + w, y1 - w, rgba);
-            surface.FilledRect(x1 - w, y0 + w, x1, y1 - w, rgba);
+            FillRect(x0, y0, x1, y0 + w, rgba);
+            FillRect(x0, y1 - w, x1, y1, rgba);
+            FillRect(x0, y0 + w, x0 + w, y1 - w, rgba);
+            FillRect(x1 - w, y0 + w, x1, y1 - w, rgba);
             return;
         }
 
@@ -274,8 +294,98 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
             Vertex(quad, 1, _vertices, j);
             Vertex(quad, 2, _vertices, n + j);
             Vertex(quad, 3, _vertices, n + i);
-            surface.Polygon(White(), quad, rgba);
+            Fan(quad, rgba);
         }
+    }
+
+    /// <summary>The batch, down as one draw; before any surface draw, so the order holds.</summary>
+    private void Flush()
+    {
+        if (_mesh.IsEmpty)
+            return;
+        surface.Mesh(White(), _mesh.Xyuv, _mesh.Rgba, _mesh.Indices);
+        _mesh.Clear();
+    }
+
+    private void FillRect(int x0, int y0, int x1, int y1, uint rgba)
+    {
+        if (x1 <= x0 || y1 <= y0 || (rgba & 0xFF) == 0)
+            return;
+        if (!Inside(x0, y0, x1, y1))
+        {
+            Flush();
+            surface.FilledRect(x0, y0, x1, y1, rgba);
+            return;
+        }
+        if (!_mesh.Fits(4, 6))
+            Flush();
+        _mesh.AddRect(x0, y0, x1, y1, rgba, rgba, rgba, rgba);
+    }
+
+    private void Fade(in UiQuad q, int x0, int y0, int x1, int y1)
+    {
+        if (x1 <= x0 || y1 <= y0)
+            return;
+        bool horizontal = q.Fade == UiFade.Horizontal;
+        if (!Inside(x0, y0, x1, y1))
+        {
+            Flush();
+            surface.FilledRectFade(x0, y0, x1, y1, Pack(q.Color), q.Color.A, q.AlphaEnd, horizontal);
+            return;
+        }
+        // The surface's fade: both ends scaled by the draw colour's alpha, and
+        // nothing drawn when both come to zero.
+        float scale = q.Color.A / 255f;
+        uint a0 = (uint)(q.Color.A * scale), a1 = (uint)(q.AlphaEnd * scale);
+        if (a0 == 0 && a1 == 0)
+            return;
+        uint rgb = Pack(q.Color) & 0xFFFFFF00u;
+        uint start = rgb | a0, end = rgb | a1;
+        if (!_mesh.Fits(4, 6))
+            Flush();
+        if (horizontal)
+            _mesh.AddRect(x0, y0, x1, y1, start, end, end, start);
+        else
+            _mesh.AddRect(x0, y0, x1, y1, start, start, end, end);
+    }
+
+    /// <summary>A convex polygon of (x, y, u, v) vertices in one colour.</summary>
+    private void Fan(ReadOnlySpan<float> xyuv, uint rgba)
+    {
+        int n = xyuv.Length / 4;
+        if (n < 3 || (rgba & 0xFF) == 0)
+            return;
+        if (_clipDepth > 0)
+        {
+            float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+            for (int i = 0; i < n; i++)
+            {
+                minX = Math.Min(minX, xyuv[i * 4]);
+                maxX = Math.Max(maxX, xyuv[i * 4]);
+                minY = Math.Min(minY, xyuv[i * 4 + 1]);
+                maxY = Math.Max(maxY, xyuv[i * 4 + 1]);
+            }
+            if (!Inside(minX, minY, maxX, maxY))
+            {
+                Flush();
+                surface.Polygon(White(), xyuv, rgba);
+                return;
+            }
+        }
+        if (!_mesh.Fits(n, (n - 2) * 3))
+            Flush();
+        _mesh.AddFan(xyuv, rgba);
+    }
+
+    /// <summary>Whether the bounds lie inside the current clip, so the surface's clip would change nothing.</summary>
+    private bool Inside(float x0, float y0, float x1, float y1)
+    {
+        if (_clipDepth == 0)
+            return true;
+        if (_clipDepth > _clips.Length)
+            return false;
+        Edges(_clips[_clipDepth - 1], out int cx0, out int cy0, out int cx1, out int cy1);
+        return x0 >= cx0 && y0 >= cy0 && x1 <= cx1 && y1 <= cy1;
     }
 
     private static void Vertex(Span<float> to, int at, float[] from, int index)
@@ -289,7 +399,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
     private void Rounded(in UiRect r, float radius, UiColor color)
     {
         int n = Outline(r, radius, 0);
-        surface.Polygon(White(), _vertices.AsSpan(0, n * 4), Pack(color));
+        Fan(_vertices.AsSpan(0, n * 4), Pack(color));
     }
 
     /// <summary>
@@ -326,6 +436,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
         int handle = Resolve(spec).Handle;
         int x = (int)MathF.Round(run.X), y = (int)MathF.Round(run.Y);
 
+        Flush();
         if ((spec.Flags & UiFontFlags.DropShadow) != 0)
         {
             var shadow = new UiColor(0, 0, 0, (byte)(run.Color.A * 0.6f));
@@ -343,6 +454,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
         int x1 = (int)MathF.Round(l.X1), y1 = (int)MathF.Round(l.Y1);
         if (l.Width <= 1.5f)
         {
+            Flush();
             surface.Line(x0, y0, x1, y1, Pack(l.Color));
         }
         else
@@ -359,7 +471,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
                     l.X1 - nx, l.Y1 - ny, 0f, 0f,
                     l.X0 - nx, l.Y0 - ny, 0f, 0f,
                 ];
-                surface.Polygon(White(), quad, Pack(l.Color));
+                Fan(quad, Pack(l.Color));
             }
         }
         Ledger.Add(UiLedgerKind.Line, x0, y0, x1, y1, l.Color, element);
@@ -381,7 +493,7 @@ public sealed class VguiBackend(IUiSurface surface, IUiFontMetrics fallback, UiF
             maxX = Math.Max(maxX, v.X);
             maxY = Math.Max(maxY, v.Y);
         }
-        surface.Polygon(White(), _vertices.AsSpan(0, n * 4), Pack(p.Color));
+        Fan(_vertices.AsSpan(0, n * 4), Pack(p.Color));
         Ledger.Add(UiLedgerKind.Polygon, (int)MathF.Round(minX), (int)MathF.Round(minY),
                    (int)MathF.Round(maxX), (int)MathF.Round(maxY), p.Color, element);
     }

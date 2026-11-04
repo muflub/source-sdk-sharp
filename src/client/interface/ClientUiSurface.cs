@@ -31,6 +31,11 @@ public interface IUiSurface
     /// painting over them.</summary>
     void TexturedQuad(int texture, ReadOnlySpan<float> xyuv, uint rgba, bool additive);
 
+    /// <summary>One draw of indexed triangles in the texture's material: (x, y,
+    /// u, v) and a colour per vertex. Unlike the other draw calls the surface's
+    /// clip does not reach it, so the caller sends only what lies inside its clip.</summary>
+    void Mesh(int texture, ReadOnlySpan<float> xyuv, ReadOnlySpan<uint> rgba, ReadOnlySpan<ushort> indices);
+
     void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba);
 
     void MeasureText(int font, ReadOnlySpan<char> text, out int width, out int height);

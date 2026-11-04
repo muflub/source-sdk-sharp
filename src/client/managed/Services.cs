@@ -268,6 +268,13 @@ public interface IClientStandalones
     /// <summary>Every live client entity, as a snapshot. See the registry.</summary>
     IReadOnlyList<Standalone.ClientStandaloneEntity> Live();
 
+    /// <summary><see cref="Live"/> into a list the caller keeps, for a walk per frame.</summary>
+    void CopyLive(List<Standalone.ClientStandaloneEntity> into)
+    {
+        into.Clear();
+        into.AddRange(Live());
+    }
+
     /// <summary>
     /// The managed client entity at an ENTITY INDEX, or null if that index is
     /// not one of ours.

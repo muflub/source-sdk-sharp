@@ -320,6 +320,9 @@ public class SideAuditTests
         // A texture handle bound to an engine material (the scope's Refract
         // quadrants): client.so's vgui surface resolves the .vmt.
         "UiMaterialTexture",
+        // One draw of many shapes (the render list's fills and polygons):
+        // client.so's render context.
+        "UiDrawMesh",
         // The pixel visibility's slots (C7, c_pixel_visibility.cpp): the
         // render context's occlusion queries and the current view are
         // client.so's.

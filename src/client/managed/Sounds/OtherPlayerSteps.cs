@@ -25,10 +25,13 @@ public sealed class OtherPlayerSteps(IClientStandalones standalones, IEngineHud 
     /// <summary>GetGroundSurface's reach below the feet.</summary>
     public const float GroundReach = 64f;
 
+    private readonly List<ClientStandaloneEntity> _live = [];
+
     public void Frame(float frameTime)
     {
         int local = screen.LocalPlayerIndex;
-        foreach (ClientStandaloneEntity e in standalones.Live())
+        standalones.CopyLive(_live);
+        foreach (ClientStandaloneEntity e in _live)
         {
             if (e is not ClientSsPlayer p || p.Index == local || p.Index <= 0)
                 continue;
@@ -37,6 +40,7 @@ public sealed class OtherPlayerSteps(IClientStandalones standalones, IEngineHud 
             steps.UpdateOther(p.Index, origin, p.State.Velocity, frameTime, (int)p.State.Flags, p.State.MoveType, p.State.WaterLevel,
                               GroundMaterial(origin));
         }
+        _live.Clear();
     }
 
     /// <summary>The game material of the surface under <paramref name="origin"/>, or -1 for no ground within reach.</summary>

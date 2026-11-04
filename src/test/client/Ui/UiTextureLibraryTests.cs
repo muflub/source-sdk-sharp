@@ -228,6 +228,7 @@ public sealed class UiTextureLibraryTests
         {
         }
 
+        public void Mesh(int texture, ReadOnlySpan<float> xyuv, ReadOnlySpan<uint> rgba, ReadOnlySpan<ushort> indices) { }
         public void Text(int font, int x, int y, ReadOnlySpan<char> text, uint rgba)
         {
         }

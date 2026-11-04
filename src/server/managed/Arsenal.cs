@@ -1848,10 +1848,10 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
     /// <summary>One player's holdings, for the console report and the tests.</summary>
     public IReadOnlyList<(string ClassName, int Clip, bool Active)> Holdings(EntityHandle player)
     {
-        var lines = new List<(string, int, bool)>();
-
         if (!_carries.TryGetValue(player.Value, out var carry))
-            return lines;
+            return [];
+
+        var lines = new List<(string, int, bool)>(carry.Weapons.Count);
 
         for (int slot = 0; slot < carry.Weapons.Count; slot++)
         {
@@ -1870,6 +1870,17 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         }
 
         return lines;
+    }
+
+    /// <summary>The name <see cref="Holdings"/> answers as active, without the list; empty for none.</summary>
+    public string ActiveWeaponName(EntityHandle player)
+    {
+        if (!_carries.TryGetValue(player.Value, out var carry)
+            || carry.ActiveSlot < 0 || carry.ActiveSlot >= carry.Weapons.Count)
+            return "";
+
+        int type = carry.Weapons[carry.ActiveSlot].TypeIndex;
+        return _weapons.ByIndex(type)?.Name ?? $"#{type}";
     }
 
     /// <summary>

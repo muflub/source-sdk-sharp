@@ -249,7 +249,8 @@ public sealed class MstudioLinearBone : StudioRecord
 /// <c>pRotV = pData</c>, <c>pPosV = pData + (ANIMROT ? 1 : 0)</c> in
 /// valueptr units, <c>pPos = pData + (RAWROT ? 12 : 0) + (RAWROT2 ? 8 : 0)</c>.
 /// </summary>
-public sealed class MstudioAnim
+/// <remarks>A struct over the image: a walk reads one per bone per pose.</remarks>
+public readonly struct MstudioAnim
 {
     private readonly byte[] _image;
 

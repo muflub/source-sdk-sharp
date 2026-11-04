@@ -5,7 +5,10 @@
 //
 //=============================================================================//
 
+using System.Runtime.InteropServices;
+
 using SourceSharp.Client.Interop;
+using SourceSharp.Shared;
 
 namespace SourceSharp.Client.Render.LeafSystem;
 
@@ -101,6 +104,19 @@ public sealed class RenderableListBuilder
     private int[] _answers = [];
     private bool[] _survives = [];
 
+    // The batches a view asks native, emptied and refilled per batch: native
+    // holds a span of one for its call and keeps nothing.
+    private nint[] _blendPointers = [];
+    private int[] _viewModelHandles = [];
+    private readonly List<nint> _askPointers = [];
+    private readonly List<int> _askWhat = [];
+    private readonly List<(bool Detail, int Index)> _askInto = [];
+    private int[] _askFacts = [];
+    private readonly List<float> _queryBoxes = [];
+    private readonly List<int> _queryPrograms = [];
+    private readonly List<int> _queryAsked = [];
+    private int[] _queryAnswers = [];
+
     // The pass each blend batch is preceded by (none in a fact that builds the
     // lists alone).
     private readonly IRenderableBlendPass? _blendPass;
@@ -184,17 +200,12 @@ public sealed class RenderableListBuilder
     private void Blend(LeafRegistry reg, nint system)
     {
         _blendPass?.BeforeBlends();
-        int n = reg.Native.ComputeFxBlends(system, Pointers(_toBlend), _pending);
+        Span<nint> pointers = Scratch.Sized(ref _blendPointers, _toBlend.Count);
+        for (int i = 0; i < pointers.Length; i++)
+            pointers[i] = (nint)_toBlend[i];
+        int n = reg.Native.ComputeFxBlends(system, pointers, _pending);
         if (n > 0)
             reg.ApplyPending(_pending.AsSpan(0, LeafPending.Words * Math.Min(n, LeafPending.Max)));
-    }
-
-    private static nint[] Pointers(List<long> list)
-    {
-        var pointers = new nint[list.Count];
-        for (int i = 0; i < pointers.Length; i++)
-            pointers[i] = (nint)list[i];
-        return pointers;
     }
 
     /// <summary>
@@ -270,7 +281,7 @@ public sealed class RenderableListBuilder
         if (_detailModels.Length < nDetails)
             _detailModels = new nint[nDetails];
         if (nDetails > 0)
-            native.DetailModels(view.DetailSystem, _detailRanges.ToArray(), _detailModels.AsSpan(0, nDetails));
+            native.DetailModels(view.DetailSystem, CollectionsMarshal.AsSpan(_detailRanges), _detailModels.AsSpan(0, nDetails));
         Grow(ref _alpha, nCandidates);
         Grow(ref _survives, nCandidates);
         Grow(ref _answers, nCandidates);
@@ -279,9 +290,12 @@ public sealed class RenderableListBuilder
 
         // The first batch: the candidates' blends (asked only when the view
         // draws translucent objects) and the detail models' transparency.
-        var pointers = new List<nint>();
-        var what = new List<int>();
-        var into = new List<(bool Detail, int Index)>();
+        List<nint> pointers = _askPointers;
+        List<int> what = _askWhat;
+        List<(bool Detail, int Index)> into = _askInto;
+        pointers.Clear();
+        what.Clear();
+        into.Clear();
         if (drawTranslucent)
         {
             for (int c = 0; c < nCandidates; c++)
@@ -335,9 +349,12 @@ public sealed class RenderableListBuilder
         // The engine's questions, for the visible ones only: inside an area,
         // that area's portal frustum, else the main frustum; then occlusion
         // for a studio model.
-        var boxes = new List<float>();
-        var programs = new List<int>();
-        var asked = new List<int>();
+        List<float> boxes = _queryBoxes;
+        List<int> programs = _queryPrograms;
+        List<int> asked = _queryAsked;
+        boxes.Clear();
+        programs.Clear();
+        asked.Clear();
         for (int c = 0; c < nCandidates; c++)
         {
             _answers[c] = 0;
@@ -354,8 +371,8 @@ public sealed class RenderableListBuilder
         }
         if (asked.Count > 0)
         {
-            var answers = new int[asked.Count];
-            native.BoxQueries(boxes.ToArray(), programs.ToArray(), answers);
+            Span<int> answers = Scratch.Cleared(ref _queryAnswers, asked.Count);
+            native.BoxQueries(CollectionsMarshal.AsSpan(boxes), CollectionsMarshal.AsSpan(programs), answers);
             for (int k = 0; k < asked.Count; k++)
                 _answers[asked[k]] = answers[k];
         }
@@ -451,8 +468,9 @@ public sealed class RenderableListBuilder
         int n = pointers.Count;
         if (n == 0)
             return;
-        var facts = new int[n * LeafFacts.Words];
-        native.Facts(pointers.ToArray(), what.ToArray(), facts);
+        Scratch.Cleared(ref _askFacts, n * LeafFacts.Words);
+        int[] facts = _askFacts;
+        native.Facts(CollectionsMarshal.AsSpan(pointers), CollectionsMarshal.AsSpan(what), facts.AsSpan(0, n * LeafFacts.Words));
         for (int k = 0; k < n; k++)
         {
             int[] target = into[k].Detail ? _detailFacts : _candidateFacts;
@@ -540,7 +558,7 @@ public sealed class RenderableListBuilder
     {
         LeafRegistry reg = Registry;
         List<int> viewModels = reg.ViewModels;
-        var handles = new int[viewModels.Count];
+        Span<int> handles = Scratch.Sized(ref _viewModelHandles, viewModels.Count);
         _toBlend.Clear();
         for (int i = viewModels.Count - 1, k = 0; i >= 0; --i, ++k)
         {

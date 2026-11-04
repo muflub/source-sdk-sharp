@@ -93,6 +93,41 @@ public class ClientDirectoryRoutingTests
     //-------------------------------------------------------------------------
 
     [Fact]
+    public void ACopyOfTheLiveEntitiesReplacesWhatTheListHeldAndAllocatesNothingWarm()
+    {
+        var engine = Fake();
+        var standalones = new IndexOnly();
+        standalones.Add(new EntityHandle(0x0100_0041u), Weapon(engine, LocalPlayer));
+        standalones.Add(new EntityHandle(0x0100_0042u), Weapon(engine, LocalPlayer));
+        var stale = Weapon(engine, LocalPlayer);
+        var list = new List<ClientStandaloneEntity> { stale, stale, stale, stale, stale };
+
+        standalones.Directory.CopyLive(list);
+
+        Assert.Equal(standalones.Directory.Snapshot(), list);
+        Assert.Equal(2, list.Count);
+
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 64; i++)
+            standalones.Directory.CopyLive(list);
+        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+    }
+
+    [Fact]
+    public void AViewThatHoldsOnlyAListCopiesItToo()
+    {
+        var engine = Fake();
+        var only = new ListOnly();
+        var live = Weapon(engine, LocalPlayer);
+        only.Entities.Add(live);
+        var list = new List<ClientStandaloneEntity> { Weapon(engine, LocalPlayer), Weapon(engine, LocalPlayer) };
+
+        ((IClientStandalones)only).CopyLive(list);
+
+        Assert.Same(live, Assert.Single(list));
+    }
+
+    [Fact]
     public void TheArsenalFindsTheCarriedWeaponThroughFindByClass()
     {
         var engine = Fake();

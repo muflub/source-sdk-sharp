@@ -1420,6 +1420,7 @@ internal unsafe interface IUiClientArea
     void ClientModeLayout();
     void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4);
     int UiMaterialTexture(byte* a0);
+    void UiDrawMesh(int a0, float* a1, uint* a2, int a3, ushort* a4, int a5);
 }
 
 /// <summary>
@@ -1454,6 +1455,7 @@ internal sealed unsafe class UiClientArea : IUiClientArea
     public void ClientModeLayout() { _shim.Table->ClientModeLayout(_shim.Self); }
     public void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4) { _shim.Table->UiDrawTexturedQuad(_shim.Self, a0, a1, a2, a3, a4); }
     public int UiMaterialTexture(byte* a0) { return _shim.Table->UiMaterialTexture(_shim.Self, a0); }
+    public void UiDrawMesh(int a0, float* a1, uint* a2, int a3, ushort* a4, int a5) { _shim.Table->UiDrawMesh(_shim.Self, a0, a1, a2, a3, a4, a5); }
 }
 
 /// <summary>

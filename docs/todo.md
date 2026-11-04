@@ -1326,9 +1326,41 @@ and where its record lives now.
 
 ## Performance: what the 2026-11-03 pass left (release, AMD, five bots fighting)
 
-- `FlowField::Build` runs on the main thread: 2 ms in a frame that rebuilds, 0.5 ms on average over frames past 20 ms. `ai-worker` threads exist; a rebuild could go to one.
-- `NavFollower::ReportStuck` costs 0.3 ms on average over those frames.
 - JIT on first use: 4.5 ms in the worst frame seen. `GameLoadContext` is collectible, so game code gets no tiering or profile-guided optimisation; it is fully optimised at first JIT. Non-collectible contexts or ReadyToRun would change this, and were not tried.
 - `UserCmdCodec.Md5PseudoRandom` goes through OpenSSL for 16 bytes: 0.04 ms per frame.
 - `PulseHotplug` and `PulseMainloop` showed 12% and 9% of a core in one run with no other games running, against under 2% in another. Not looked into.
 - Input latency was not measured. Worth trying under a loaded GPU: `mat_queue_mode 0`, and `d3d9.maxFrameLatency=1` in a DXVK config.
+
+- HUD: batching took draws from 273 to 11 a frame without moving `HudPaint`'s CPU (about 0.2 ms), which is mostly `UiLayer.Frame` and text.
+- `ai_budget` is off by default: trials did not show it helping (plan_hl2mp_ai 2.7.2). Settle it on a quiet box.
+- Stock TF scales gravity by `TFGameRules()->GetGravityMultiplier()`; this port has no multiplier (found removing `CurrentGravity`).
+
+## Performance: managed allocation left (2026-11-03)
+
+The render buffers are pooled: main-thread allocation fell from 8.83 to 2.29 MB/s and GC pause total from 28.5 to 8.9 ms per 60 s (three alternating rounds, five bots, release, AMD card, `dotnet-trace` `Microsoft-Windows-DotNETRuntime:0x1:5`, which gives stacks). What remains, about 3.3 MB/s in all, was measured before the bot lane landed, so re-measure:
+
+- The bots, about 1.5: `FlowField.Build` about 0.93 on the workers (`int[]`, `float[]`, `NavEdgeType[]`, `PriorityQueue` growth), `NavSight.Exposure`'s `BitArray` enumerator; on the main thread `VisionPass.RunItems`' closure 0.08, `ArsenalBotInventory.Held`'s LINQ, `PathSmoother`, `NavObstacleField.Sync`, `Hl2mpRoster.Reconcile`, `Arsenal.Holdings` 0.11.
+- IK records `MstudioIkRule`, `MstudioIkLock`, `MstudioIkError`, about 0.2: classes with nullable reads at many stock-named sites.
+- Small: `EntityDirectoryCore.OfClass`, `BoneBitList`, `IkChainResult`, `MstudioAttachment`, `TraceHitboxes`, `UiLoader.Stamp` (a file scan during paint). `TFPlayerPrediction` still uses the array overload of the state read.
+- Each traced run shows one gen2, reason not found, and two of seven had a pause of 11-13 ms: the rare long pause is not proven gone.
+
+## Reflection still on runtime paths (surveyed from the source 2026-11-03, nothing changed)
+
+Standing ruling: reflection runs once at startup or is replaced by a generator; a cache filled on first use does not count. A release fight at 6b77c7616 showed 7 reflective samples of 19,359, so none of this is costing much in a fight, and the spawn, save and command rows run rarely or not at all in one. The path was read for the entries here except where marked.
+
+Per frame or tick:
+- `StandaloneNetStates.Of` (`GetField` + `GetValue`, uncached) via `PredictionJudge.DeclaredStart`, from `ClientArsenal.cs:560` and `TFPlayerPrediction.cs:263`. Its comment saying callers are off the per-frame path is wrong.
+- `MaterialProxyHost.Entry.Describe`: `ProxyOpKind.ToString()` and a `StringBuilder` per op per bind. Keep raw ops and format only when a report asks.
+- Lazy, in a frame on first use: `PredictionJudge.UncheckedFields`, `ClientPlayerPrediction.cs:403`, `TFPlayerPrediction.Unpredicted`.
+- `TFAnimLayer.cs:737`: `Enum.IsDefined` per `TryPlayer` (callers not traced).
+
+Per event:
+- Entity spawn, including each rocket: `ConstructorInfo.Invoke` in `ScriptedEntity.Activate` and `ClientStandaloneRegistry.Activate`, with `ServiceActivator` plans built at the first spawn of a class. `NetStateBinding` and `ScriptedEntity` read and write fields reflectively per spawn.
+- Entity I/O: `MethodInfo.Invoke` and `GetParameters` per input delivered (`ScriptedEntity.cs:3438`, `:3621`).
+- Console: `ConCommandBinding` invokes `Execute` by reflection per command, and each `[Complete(From = ...)]` per suggestion. `DescribeClasses` reads attributes on every class for the entity-class completions (about 360 declarations), probably per keystroke (not traced).
+- Save and load: `SaveField`, `SaveCustom`, `NetStateTransfer`, `SaveTiers`; on the client `SaveTiers.cs:75` and `:118` rebuild the catalog per entity.
+- `ScriptedVars` and `NetEnums`: enum parsing per enum-typed map key, mostly at map load.
+
+Not resolved: `ServiceContainer.Resolve` builds `Add<T>()` services on first ask (31 registrations, not traced); `UiForm.IsDirty`'s `EqualityComparer<T>.Default` on struct fields without `IEquatable`; reflection-based JSON in `TF2DescentRules` and `InventoryStore`.
+
+Worth adding: the crash fix's material thread marks are proven only live, with no live-gate step (`MaterialConfigConVars`).

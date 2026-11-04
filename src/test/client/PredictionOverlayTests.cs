@@ -50,6 +50,35 @@ public class PredictionOverlayTests
             "with the engine block taken from the arrival there is nothing to judge");
     }
 
+    [Fact]
+    public void TheOverlayIntoABufferOverwritesWhateverItHeld()
+    {
+        byte[] predicted = [1, 1, 1, 1], arrived = [2, 2, 2, 2];
+        var image = new byte[4];
+        image.AsSpan().Fill(9);
+
+        PredictionJudge.OverlayDeclared(predicted, arrived, 2, image);
+
+        Assert.Equal([2, 2, 1, 1], image);
+        Assert.Equal(image, PredictionJudge.OverlayDeclared(predicted, arrived, 2));
+    }
+
+    [Fact]
+    public void AStatesLiveBytesAreItsSnapshotWithoutACopy()
+    {
+        var state = new WeaponNetState();
+        Assert.Equal(0, state.LiveBytes.Length);
+        state.BindLocal();
+        state.DeployEpoch = 7;
+
+        Assert.Equal(state.Snapshot(), state.LiveBytes.ToArray());
+
+        byte[] before = state.LiveBytes.ToArray();
+        ReadOnlySpan<byte> live = state.LiveBytes;
+        state.DeployEpoch = 8;
+        Assert.False(before.AsSpan().SequenceEqual(live), "the span reads the state, not a copy of it");
+    }
+
     [Theory]
     [InlineData(typeof(WeaponNetState), EntityNames.SsWeapon)]
     [InlineData(typeof(ViewModelNetState), EntityNames.PredictedViewModel)]

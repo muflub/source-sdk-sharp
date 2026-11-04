@@ -515,6 +515,7 @@ internal sealed unsafe class DefaultUiClientArea : IUiClientArea
     public void ClientModeLayout() { }
     public void UiDrawTexturedQuad(int a0, float* a1, int a2, uint a3, int a4) { }
     public int UiMaterialTexture(byte* a0) => default;
+    public void UiDrawMesh(int a0, float* a1, uint* a2, int a3, ushort* a4, int a5) { }
 }
 
 /// <summary><see cref="IParticlesClientArea"/> for a test with no engine: every call answers its default.</summary>
