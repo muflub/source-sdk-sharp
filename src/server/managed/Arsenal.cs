@@ -838,9 +838,21 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         ShowHeld(carry, owned.TypeIndex + 1);
         weapon.State.Clip = ClipSizeOf(in type, carry.Player) > 0 ? owned.Clip : -1;
         weapon.State.InReload = false;
-        weapon.State.NextPrimaryAttack = now + type.DeployTime;
-        weapon.State.NextSecondaryAttack = now + type.DeployTime;
-        weapon.State.TimeWeaponIdle = now + type.DeployTime;
+
+        // Stock's CTFWeaponBase::Deploy times its switch through the deploy
+        // multiplier (tf_weaponbase.cpp:1255-): the incoming item always, the
+        // outgoing item once its hold passes the switch. The outgoing
+        // weapon's name and last-deploy stamp are what this entity still
+        // carries until the writes below replace them — LastTypeIndex names
+        // the outgoing slot only when this deploy came from a real change.
+        string previousWeapon = _weapons.ByIndex(carry.LastTypeIndex) is { } outgoingRow
+            ? outgoingRow.Name
+            : "";
+        float delay = DeployDelayOf(in type, _entities.GetIndex(carry.Player), previousWeapon,
+                                    now - weapon.State.LastDeployTime);
+        weapon.State.NextPrimaryAttack = now + delay;
+        weapon.State.NextSecondaryAttack = now + delay;
+        weapon.State.TimeWeaponIdle = now + delay;
 
         // The deploy's own stamp, beside the clocks it writes together: the
         // spawn kit's Deploy and the round-start respawn's reach the client
@@ -849,6 +861,7 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         // judging the OTHER deploy's clocks against it. Deploy is the stamp's
         // only writer: the machine's field-by-field writes stay judgable.
         weapon.State.DeployEpoch++;
+        weapon.State.LastDeployTime = now;
         weapon.State.LastButtons = 0;
         weapon.State.Special = owned.Special;
         weapon.State.SpecialTime = owned.SpecialTime;
@@ -984,6 +997,19 @@ public sealed class Arsenal : IWeaponGiver, IGameLifecycle, IFrameLifecycle, ISa
         => _behaviours.For(type.Behaviour) is { } behaviour
             ? behaviour.ModifyClipSize(in type, type.ClipSize, _entities.GetIndex(owner))
             : type.ClipSize;
+
+    /// <summary>
+    /// The delay a deploy leaves on the clocks: the row's own seconds through
+    /// the behaviour's <see cref="IWeaponBehaviour.ModifyDeployTime"/> —
+    /// stock's deploy multiplier (<c>tf_weaponbase.cpp:1255-</c>). The client's
+    /// mirror asks with the same numbers (its own index, the carrier's item
+    /// words, its own copy of the stamp), so the predicted clocks match.
+    /// </summary>
+    private float DeployDelayOf(in WeaponType type, int ownerIndex, string previousWeapon,
+                                float secondsSincePreviousDeploy) =>
+        _behaviours.For(type.Behaviour) is { } behaviour
+            ? behaviour.ModifyDeployTime(in type, type.DeployTime, ownerIndex, previousWeapon, secondsSincePreviousDeploy)
+            : type.DeployTime;
 
     /// <summary>
     /// The attachment half of a deploy: the row's own model rides the hands

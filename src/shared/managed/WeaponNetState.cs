@@ -372,6 +372,18 @@ public partial class WeaponNetState
     public partial int DeployEpoch { get; set; }
 
     /// <summary>
+    /// When this weapon last came into the hands: stock's
+    /// <c>m_flLastDeployTime</c> (<c>tf_weaponbase.cpp:1319</c>, written by the
+    /// deploy tail), the next deploy's measure of how long the outgoing weapon
+    /// was held — the <c>mult_switch_from_wep_deploy_time</c> arm compares it
+    /// against the switch time (<c>:1262-1266</c>). Written beside the deploy
+    /// stamp by <c>Arsenal.Deploy</c> and the client's <c>MirrorDeploy</c>, the
+    /// same command clock both sides; tolerated like the timers beside it.
+    /// </summary>
+    [Predicted(0.001f)]
+    public partial float LastDeployTime { get; set; }
+
+    /// <summary>
     /// Zeroes the behaviour's own state, as a deploy does: the weapon now in
     /// the hands starts from nothing, the way stock's weapons reset their own
     /// on holster and deploy. The Huntsman's <see cref="ArrowAlight"/> rides

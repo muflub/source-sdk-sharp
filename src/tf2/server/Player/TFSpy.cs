@@ -536,7 +536,18 @@ public sealed class TFSpyComponent(
             {
                 _backstabbed = true;
 
+                // Razorback's block (stock's CTFPlayer::CheckBlockBackstab, tf_player.cpp:10072-10116,
+                // applied at tf_gamerules.cpp:6827): the victim's first item holding
+                // set_blockbackstab_once zeroes this one backstab and then hides itself, so the
+                // next one lands plain.
+                var blockManager = owners.ManagerOf(trace.Entity.EntryIndex);
                 float backstab = entities.GetHealth(trace.Entity) * 2f;
+                if (hooks.Int(0, "set_blockbackstab_once", blockManager) != 0)
+                {
+                    backstab = 0f;
+                    if (blockManager is AttributeContainer holder)
+                        ConsumeOnce(holder);
+                }
                 using (hitGroups.Push(HitGroup.Generic, critical: true))
                 using (scopes.Push(TFDamageCustom.Backstab, TFWeaponId.Knife, TFKnifeHook.KnifeScript))
                     // The trace's end, as the core's MeleeSwing dispatches
@@ -566,6 +577,27 @@ public sealed class TFSpyComponent(
         v.Z = 0f;
         float length = v.Length;
         return length > 0f ? v * (1f / length) : v;
+    }
+
+    /// <summary>The block is once, as stock's item that answered hides itself
+    /// (<c>EF_NODRAW</c>, tf_player.cpp:10072-10116): the first attribute of the
+    /// hook class leaves the manager's own list, so the next walk of the same
+    /// hook answers nothing and the next backstab lands.</summary>
+    private static void ConsumeOnce(AttributeContainer manager)
+    {
+        int defindex = -1;
+        foreach (ref readonly AttributeValue attribute in manager.Attributes)
+        {
+            if (attribute.Definition.ValueType == AttributeValueType.Default
+                && string.Equals(attribute.Definition.AttributeClass, "set_blockbackstab_once",
+                                 StringComparison.OrdinalIgnoreCase))
+            {
+                defindex = attribute.Definition.Defindex;
+                break;
+            }
+        }
+        if (defindex >= 0)
+            manager.Remove(defindex);
     }
 }
 

@@ -3,6 +3,7 @@ using SourceSharp.Shared;
 
 using TF2.Shared;
 using TF2.Shared.Combat;
+using TF2.Shared.Econ;
 
 using TF2.Tests.Weapons;
 
@@ -40,6 +41,33 @@ public sealed class TFKnifeTests
 
         // The swing remembers, until the next one.
         Assert.True(rig.Spies.Smack(SpyRig.Spy.EntryIndex));
+    }
+
+    /// <summary>Razorback's one block (stock's <c>CTFPlayer::CheckBlockBackstab</c>,
+    /// tf_player.cpp:10072-10116, applied at tf_gamerules.cpp:6827): the victim's
+    /// first item holding <c>set_blockbackstab_once</c> zeroes the backstab once,
+    /// then hides itself (the stock item's <c>EF_NODRAW</c>), so the next swing
+    /// lands whole.</summary>
+    [Fact]
+    public void ARazorbackBlocksOneBackstab()
+    {
+        var rig = new SpyRig();
+        var manager = new AttributeContainer();
+        manager.Set(AttributeValue.OfFloat(new AttributeDefinition(5100, "attr 5100", "set_blockbackstab_once",
+                                                                   AttributeDescriptionFormat.Additive, AttributeEffectType.Neutral,
+                                                                   false, false, AttributeValueType.Default,
+                                                                   MergedKeys.Block("x")), 1f));
+        rig.Owners.Managers[SpyRig.Victim.EntryIndex] = manager;
+
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        var blocked = Assert.Single(rig.Damage.Hits);
+        Assert.Equal(0f, blocked.Damage, 4);                     // zeroed at the gate, :6827
+        Assert.Equal(TFDamageCustom.Backstab, blocked.Custom);   // still the backstab scope
+
+        // The attribute was consumed with the block: the next one is whole.
+        Assert.True(rig.Spies.Swing(SpyRig.Spy.EntryIndex, 48f));
+        Assert.Equal(2, rig.Damage.Hits.Count);
+        Assert.Equal(200f, rig.Damage.Hits[1].Damage, 4);
     }
 
     [Fact]

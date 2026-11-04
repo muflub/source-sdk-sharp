@@ -32,15 +32,16 @@ public class TFBlastJumpTests
     /// carrier and blast-jump component attached, the real condition writer
     /// over both.</summary>
     private static (PlayerRig Rig, TFBlastApplier Blast, TFPlayerConditions Conditions, TFBlastJumpState Jump) JumpRig(
-        TFClass cls = TFClass.Soldier)
+        TFClass cls = TFClass.Soldier, ProjectileRig.FixedOwners? owners = null)
     {
+        owners ??= new ProjectileRig.FixedOwners();
         var rig = new PlayerRig().As(cls);
         var conditions = new TFPlayerConditions(rig.Carriers, rig.Engine);
         var jump = new TFBlastJumpState(rig.Carriers, conditions, rig.Engine, new NoEntities(), rig.Engine, rig.Engine);
         jump.Attach(PlayerRig.Player);
 
         var blast = new TFBlastApplier(rig.Engine, rig.Engine, rig.Engine, new TFDamageScopes(), new DamageHitGroups(),
-            new DamageInflictors(), rig.Carriers, rig.Log, rig.Engine, new ProjectileRig.FixedOwners(),
+            new DamageInflictors(), rig.Carriers, rig.Log, rig.Engine, owners,
             new AttributeHooks(), new ProjectileRig.Resupply(), rig.Engine, rig.Engine,
             new ProjectileRig.DirectoryView(), rig.Carriers);
         return (rig, blast, conditions, jump);
@@ -234,6 +235,36 @@ public class TFBlastJumpTests
 
         jump.EnemyBlasted();
         Assert.Equal(TFBlastJump.None, jump.State);
+    }
+
+    /// <summary>Gunboats' one: the self arms of <c>ApplyAndScaleDamage</c>
+    /// (tf_gamerules.cpp:7449-7458) read <c>rocket_jump_dmg_reduction</c> off
+    /// the attacker's own manager when the blast hurt no other player, so the
+    /// delivered self damage is the launcher's amount times the percentage the
+    /// attribute holds; without one the stock amount stands.</summary>
+    [Fact]
+    public void GunboatsReduceSelfBlastDamage()
+    {
+        // The control: no attribute on the manager, the amount the arms hand
+        // to the seam is the plain one.
+        var (plainRig, plainBlast, _, _) = JumpRig();
+        AirborneAtHundred(plainRig, EntityState.None);
+        RocketJump(plainRig, plainBlast);
+        float plain = plainRig.Engine.Last("Damage.TakeDamageAnswered")!.ArgAs<float>(2);
+        Assert.True(plain > 0f);                                     // the stimulus reached the seam
+
+        // Held: the same airborne soldier, the reduction on his manager.
+        var manager = new AttributeContainer();
+        manager.Set(AttributeValue.OfFloat(
+            new AttributeDefinition(30441, "attr 30441", "rocket_jump_dmg_reduction",
+                                    AttributeDescriptionFormat.Percentage, AttributeEffectType.Neutral,
+                                    false, false, AttributeValueType.Default, MergedKeys.Block("x")), 0.5f));
+        var (rig, blast, _, _) = JumpRig(owners: new ProjectileRig.FixedOwners { Manager = manager });
+        AirborneAtHundred(rig, EntityState.None);
+        RocketJump(rig, blast);
+        float held = rig.Engine.Last("Damage.TakeDamageAnswered")!.ArgAs<float>(2);
+
+        Assert.Equal(plain * 0.5f, held, 4);
     }
 
     /// <summary>The other's rocket at the victim, an attacker that is not the

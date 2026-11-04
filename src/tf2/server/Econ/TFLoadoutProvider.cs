@@ -47,7 +47,8 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
                                       Player.TFPlayerItems? items = null, TFClassTable? table = null,
                                       ITeamRoundState? round = null, ITFStalemateSettings? stalemate = null,
                                       WeaponCatalog? catalog = null, Player.TFPlayerCarriers? carriers = null,
-                                      BotInventory? botInventory = null, IBotPlayers? bots = null)
+                                      BotInventory? botInventory = null, IBotPlayers? bots = null,
+                                      AttributeHooks? hooks = null, IEnginePlayers? players = null)
     : ILoadoutProvider, IOrderedHook
 {
     private readonly ITeamRoundState? _round = round;
@@ -84,7 +85,7 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
         var cls = classes?.ClassOf(player) ?? TFClass.Undefined;
         var weapons = new List<string>();
         var byWeapon = new Dictionary<string, IAttributeProvider>(StringComparer.Ordinal);
-        var granted = new List<AttributeContainer>();
+        var granted = new List<(string Weapon, AttributeContainer Container)>();
         foreach (var entry in Loadout(player.EntryIndex, cls))
         {
             if (TFItemStrings.IsWearableSlot((int)entry.Slot) || entry.Item.Definition.ItemClass is not { Length: > 0 } itemClass)
@@ -94,15 +95,32 @@ public sealed class TFLoadoutProvider(LocalInventory inventory, ItemSchema schem
             weapons.Add(weapon);
             var container = Attributes(entry.Item);
             byWeapon[weapon] = container;
-            granted.Add(container);
+            granted.Add((weapon, container));
         }
 
         if (items is { } kit)
         {
             var manager = new AttributeContainer();
-            foreach (var container in granted)
+
+            // Stock's ReapplyProvision gate (tf_weaponbase.cpp:5709-5740):
+            // an item whose provide_on_active mode is 1 provides only while
+            // its weapon is the player's active weapon; any other mode always
+            // does. The mode reads on the item itself, before the owner link,
+            // so the walk sees its own list and its definition's statics
+            // (wearables need no mode: they always provide, and their slots
+            // are skipped above). Each grant builds a fresh manager, so
+            // skipping the provide is stock's StopProvidingTo in one pass.
+            string active = players is null
+                ? string.Empty
+                : players.GetActiveWeapon(players.GetHandle(player.EntryIndex));
+            foreach (var (weapon, container) in granted)
             {
-                container.ProvideTo(manager);
+                bool provide = hooks is null || players is null
+                               || hooks.Int(0, "provide_on_active", container) != 1
+                               || weapon == active;
+                if (provide)
+                    container.ProvideTo(manager);
+
                 // The same equip answers this item's GetAttributeOwner with the
                 // player (econ_entity.cpp), so a hook walked ON the item —
                 // CALL_ATTRIB_HOOK_*_ON_OTHER of the weapon — reaches the

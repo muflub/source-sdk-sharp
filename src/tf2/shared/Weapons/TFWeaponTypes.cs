@@ -5,6 +5,7 @@
 //
 //=============================================================================//
 
+using System.Collections.Immutable;
 using SourceSharp.Abi;
 using SourceSharp.Shared;
 
@@ -103,6 +104,7 @@ public sealed class TFWeaponTypes : IWeaponTypeSource
             AmmoName = script.Base.Ammo1,
             ViewModel = item?.ModelPlayer ?? "",
             WorldModel = item?.ModelWorld ?? item?.ModelPlayer ?? "",
+            AttachedModels = item?.AttachedModels.ToImmutableArray() ?? ImmutableArray<WeaponAttachedModel>.Empty,
             DeployTime = DeployTime,
             FireSound = script.Sound(WeaponScriptSound.Single),
             // The minigun never clicks: CTFMinigun::ItemPostFrame pushes its

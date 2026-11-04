@@ -50,8 +50,10 @@ public class WeaponMachineTests
         // a mispredicted switch (WeaponNetState.DeployEpoch), and when the trigger
         // went down, what a machine gun's kick grows on (WeaponNetState.FireStartedAt),
         // and when a charging alt-fire goes off (WeaponNetState.ChargeFiresAt),
-        // and the Huntsman's lit arrow (WeaponNetState.ArrowAlight).
-        Assert.Equal(50, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
+        // and the Huntsman's lit arrow (WeaponNetState.ArrowAlight),
+        // and the last deploy's stamp the switch-from arm asks
+        // (WeaponNetState.LastDeployTime).
+        Assert.Equal(51, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.SsWeapon)));
         Assert.Equal(5, _catalog.PredictedFieldCount(NetSchema.TypeIdOf(EntityNames.PredictedViewModel)));
     }
 

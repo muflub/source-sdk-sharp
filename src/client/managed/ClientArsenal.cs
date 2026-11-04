@@ -370,21 +370,33 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         if (_weapon.WeaponTypeId >= 0)
             _specialByType[_weapon.WeaponTypeId] = (_weapon.Special, _weapon.SpecialTime);
 
+        // The outgoing weapon's name and its own last-deploy stamp, read
+        // before the switch overwrites them: one weapon entity per player,
+        // so the stamp here is the outgoing weapon's, as stock's
+        // m_flLastDeployTime on its entity (tf_weaponbase.cpp:1319). The
+        // deploy-delay question the server's Deploy asks with the same
+        // numbers (Arsenal.DeployDelayOf).
+        string previousWeapon = _weapons.ByIndex(_weapon.WeaponTypeId) is { } outgoingRow
+            ? outgoingRow.Name
+            : "";
+        float delay = DeployDelayOf(in type, _localIndex, previousWeapon, now - _weapon.LastDeployTime);
+
         _weapon.OwnerIndex = _localIndex;
         _weapon.WeaponTypeId = typeIndex;
         _weapon.Clip = type.ClipSize > 0
             ? ClipOf(typeIndex, FreshClip(type))
             : -1;
         _weapon.InReload = false;
-        _weapon.NextPrimaryAttack = now + type.DeployTime;
-        _weapon.NextSecondaryAttack = now + type.DeployTime;
-        _weapon.TimeWeaponIdle = now + type.DeployTime;
+        _weapon.NextPrimaryAttack = now + delay;
+        _weapon.NextSecondaryAttack = now + delay;
+        _weapon.TimeWeaponIdle = now + delay;
         // The stamp the server's Deploy bumped for this same command: the
         // acked slot's and the arrival's then agree and the switch stands
         // fully judged, not adopted (see DeployedOutOfBand). Past the
         // AlreadyHeld, unknown-type and dead refusals above, which are the
         // server's Take refusing the Deploy — and refusing its stamp — too.
         _weapon.DeployEpoch++;
+        _weapon.LastDeployTime = now;
         _weapon.LastButtons = 0;
         (_weapon.Special, _weapon.SpecialTime) = _specialByType.GetValueOrDefault(typeIndex);
         _weapon.Redraw = false;
@@ -469,6 +481,17 @@ public sealed class ClientArsenal : ILocalArsenal, WeaponEffects.IWeaponDrawStat
         => _behaviours.For(type.Behaviour) is { } behaviour
             ? behaviour.ModifyClipSize(in type, type.ClipSize, _localIndex)
             : type.ClipSize;
+
+    /// <summary>
+    /// The server's DeployDelayOf, replayed with the local index: the row's
+    /// deploy seconds through the behaviour chain, so the mirror's clocks land
+    /// where the server wrote them.
+    /// </summary>
+    private float DeployDelayOf(in WeaponType type, int ownerIndex, string previousWeapon,
+                                float secondsSincePreviousDeploy) =>
+        _behaviours.For(type.Behaviour) is { } behaviour
+            ? behaviour.ModifyDeployTime(in type, type.DeployTime, ownerIndex, previousWeapon, secondsSincePreviousDeploy)
+            : type.DeployTime;
 
     /// <summary>
     /// Carries the working copies' words back into the memories: after each

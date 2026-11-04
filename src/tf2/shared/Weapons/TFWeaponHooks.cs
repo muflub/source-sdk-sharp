@@ -47,6 +47,16 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
         interval * attributes.Float(1f, "mult_postfiredelay", weapon.Item);
 
     /// <summary>
+    /// The fired shot's pellets (<c>tf_fx_shared.cpp:305</c>'s
+    /// <c>CALL_ATTRIB_HOOK_FLOAT_ON_OTHER</c> over <c>nBulletsPerShot</c>, the
+    /// value the loop at :307 runs on): the walk over the count as a float,
+    /// rounded back as the int member it lands in truncates. With no attribute
+    /// the count stands.
+    /// </summary>
+    public int ModifyPellets(in TFWeaponHookContext weapon, int pellets) =>
+        AttributeHooks.RoundFloatToInt(attributes.Float(pellets, "mult_bullets_per_shot", weapon.Item));
+
+    /// <summary>
     /// <c>CTFWeaponBase::SetReloadTimer</c>'s four multiplies
     /// (<c>tf_weaponbase.cpp:2274-2277</c>): the item's
     /// <c>mult_reload_time</c>, <c>mult_reload_time_hidden</c> and
@@ -66,6 +76,14 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
     /// <summary><c>AutoFiresFullClip</c>'s attribute (tf_weaponbase.cpp:1871-1876).</summary>
     public bool FiresFullClip(in TFWeaponHookContext weapon) =>
         weapon.Item is { } item && attributes.Int(0, "auto_fires_full_clip", item) != 0;
+
+    /// <summary>
+    /// <c>CTFScatterGun::Reload</c>'s attribute (<c>tf_weapon_shotgun.cpp:299-309</c>):
+    /// stock's <c>CALL_ATTRIB_HOOK_INT</c> over zero, and the member is only
+    /// turned off on the set's exactly <c>== 1</c>.
+    /// </summary>
+    public bool ReloadsWithWholeClip(in TFWeaponHookContext weapon) =>
+        weapon.Item is { } item && attributes.Int(0, "set_scattergun_no_reload_single", item) == 1;
 
     /// <summary><c>ApplyChargeSpeedModifications</c>' attribute (tf_weapon_sniperrifle.cpp:645).</summary>
     public float ModifyChargeRate(in TFWeaponHookContext weapon, float rate) =>
@@ -105,6 +123,22 @@ public sealed class TFAttributeWeaponHook(AttributeHooks attributes) : ITFWeapon
 
     public TFCritOwner CritPolicy(in TFWeaponHookContext weapon, TFCritOwner policy) =>
         policy with { ChanceScale = policy.ChanceScale * attributes.Float(1f, "mult_crit_chance", weapon.Item) };
+
+    /// <summary>
+    /// <c>CTFWeaponBase::Deploy</c>'s multiplier (<c>tf_weaponbase.cpp:1258-</c>):
+    /// the incoming item's <c>mult_single_wep_deploy_time</c> scales the draw
+    /// always (:1260), and the outgoing item's
+    /// <c>mult_switch_from_wep_deploy_time</c> (:1270) only when the outgoing
+    /// weapon has been held longer than the switch time — stock compares the
+    /// last-deploy stamp against <c>flWeaponSwitchTime</c> (:1262-1266), here
+    /// the asked seconds. The stock's grappling-hook latch (:1266) and
+    /// powerup-mode knife (:1265) arms wait on their carriers.
+    /// </summary>
+    public float ModifyDeployTime(in TFWeaponHookContext weapon, float seconds) =>
+        seconds * attributes.Float(1f, "mult_single_wep_deploy_time", weapon.Item)
+                * (weapon.SecondsSincePreviousDeploy > seconds
+                       ? attributes.Float(1f, "mult_switch_from_wep_deploy_time", weapon.PreviousItem)
+                       : 1f);
 }
 
 /// <summary>
